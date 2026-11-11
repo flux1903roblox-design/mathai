@@ -1,6 +1,8 @@
-// The safe write path (DURABLE-1), on an in-memory localStorage with a quota and an in-memory IndexedDB
-// (durable/testing.js): one write per tick, a full storage handled without an exception, the copy on the device, the
-// quarantine, boot recovery (in time and late), "delete all", and which copy the app starts from.
+// The safe write path (DURABLE-1), on an in-memory localStorage with a quota and a real IndexedDB (fake-indexeddb, a
+// new one for each test: durable/testing.js realIdb): one write per tick, a full storage handled without an exception,
+// the copy on the device, the quarantine, boot recovery (in time and late), "delete all", and which copy the app
+// starts from. Only the late copy at boot (test 11 and its neighbours) runs on the in-memory stand-in, memoryIdb:
+// it is the one IndexedDB that can be told to answer after 400 ms.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -8,15 +10,21 @@ import { createDurable, pickStart, pageStorage, isQuotaError } from './storage.j
 import { createIdb } from './idb.js';
 import { createDurableStatus } from './useDurable.js';
 import { migrate } from './migrations.js';
-import { memoryLocalStorage, memoryIdb, heavyYear, settle } from './testing.js';
+import { memoryLocalStorage, memoryIdb, realIdb, idbNames, heavyYear, settle } from './testing.js';
 
 const KEY = 'madregot-test';
 const REV = `${KEY}:rev`;
 const env = (state, rev, extra = {}) => JSON.stringify({ state, version: 5, ...(rev == null ? {} : { meta: { rev, at: '2026-11-05T09:00:00.000Z', tab: 'other000', parent: { rev: rev - 1, tab: 'other000' }, keyAt: {}, app: 'test' } }), ...extra });
 const tick = () => Promise.resolve();
 
+const made = [];
+/** A real IndexedDB of this test's own (restored after it: failPut changes fake-indexeddb's shared prototype). */
+const real = () => { const r = realIdb(); made.push(r); return r; };
+/** The copy on the device, read through a real transaction on a connection of its own. */
+const mirrorOf = (r) => r.another().get('mirror', 'current');
+
 /** A store saved through a durable instance, as store.js does it. */
-function setup({ ls = memoryLocalStorage(), backend = memoryIdb(), initial = {}, tab = 'tab00001', bootWait = 300 } = {}) {
+function setup({ ls = memoryLocalStorage(), backend = real().backend, initial = {}, tab = 'tab00001', bootWait = 300 } = {}) {
   const status = createDurableStatus();
   const idb = backend ? createIdb(backend) : null;
   const d = createDurable({ key: KEY, version: 5, ls, idb, status, tab, release: 'test', bootWait });
@@ -29,7 +37,7 @@ function setup({ ls = memoryLocalStorage(), backend = memoryIdb(), initial = {},
 }
 const saved = (ls) => JSON.parse(ls.getItem(KEY));
 
-afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); made.splice(0).forEach((r) => r.restore()); });
 
 describe('one write per tick, with its revision', () => {
   it('(1) three set() calls in one tick are one write of the key and one of its revision; rev goes 1, 2', async () => {
@@ -95,19 +103,18 @@ describe('a full storage', () => {
 
   it('(3) 20 KB: the change is saved in the copy on the device, nothing throws, and the next start comes back from it', async () => {
     const ls = memoryLocalStorage({ quotaBytes: 20_000 });
-    const backend = memoryIdb();
-    const a = setup({ ls, backend });
+    const r = real();
+    const a = setup({ ls, backend: r.backend });
     a.useS.getState().bump(); await settle();
     expect(a.status.getState().health).toBe('ok');
     expect(() => { a.useS.getState().grow(25_000); a.useS.getState().setSound(false); }).not.toThrow();
-    await settle();
-    expect(a.status.getState().health).toBe('mirror');
+    await vi.waitFor(() => expect(a.status.getState().health).toBe('mirror'));
     expect(saved(ls).meta.rev).toBe(1); // localStorage still has the save before
-    const copy = backend.stores.mirror.get('current');
+    const copy = await mirrorOf(r);
     expect(copy.rev).toBe(2);
     expect(JSON.parse(copy.raw).state).toMatchObject({ sound: false, n: 1 });
-    // a new page
-    const b = setup({ ls, backend });
+    // a new page: another write path, its own connection to the same database
+    const b = setup({ ls, backend: r.another() });
     expect(b.useS.getState().sound).toBe(true); // what localStorage had
     await b.d.boot({ win: null, doc: null });
     expect(b.useS.getState()).toMatchObject({ sound: false, n: 1 });
@@ -118,15 +125,19 @@ describe('a full storage', () => {
     b.useS.getState().bump(); await settle();
     expect(b.status.getState().health).toBe('ok');
     expect(saved(ls).meta.rev).toBe(3);
+    b.d.flushNow();
+    await vi.waitFor(async () => expect((await mirrorOf(r)).rev).toBe(3)); // and the copy follows it
   });
 
   it('(4) 20 KB and an IndexedDB that cannot write: health is full, and still nothing throws', async () => {
-    const backend = memoryIdb({ failPut: true });
-    const { useS, status } = setup({ ls: memoryLocalStorage({ quotaBytes: 20_000 }), backend });
+    const r = real();
+    r.failPut(); // every put and add of the real IndexedDB throws
+    const { useS, status } = setup({ ls: memoryLocalStorage({ quotaBytes: 20_000 }), backend: r.backend });
     expect(() => useS.getState().grow(25_000)).not.toThrow();
-    await settle();
-    expect(status.getState().health).toBe('full');
+    await vi.waitFor(() => expect(status.getState().health).toBe('full'));
     expect(useS.getState().big).toHaveLength(1); // the page goes on with the change in memory
+    r.restore();
+    expect(await mirrorOf(r)).toBeUndefined(); // nothing half-written
   });
 
   it('the quota error in every browser\'s words', () => {
@@ -139,51 +150,63 @@ describe('a full storage', () => {
 
 describe('data that cannot be used is kept in quarantine', () => {
   it('(5) a broken key: the start comes from the copy, and the broken bytes are kept as they were', async () => {
-    const ls = memoryLocalStorage(); const backend = memoryIdb();
-    const a = setup({ ls, backend });
+    const ls = memoryLocalStorage(); const r = real();
+    const a = setup({ ls, backend: r.backend });
     a.useS.getState().setSound(false); a.useS.getState().bump(); await tick();
-    a.d.flushNow(); await settle();
+    a.d.flushNow();
+    await vi.waitFor(async () => expect((await mirrorOf(r))?.rev).toBe(1));
     ls.setItem(KEY, '{"state":');
-    const b = setup({ ls, backend });
+    const b = setup({ ls, backend: r.another() });
     expect(b.useS.getState().sound).toBe(true); // nothing readable in localStorage
     await b.d.boot({ win: null, doc: null });
     expect(b.useS.getState()).toMatchObject({ sound: false, n: 1 });
     expect(b.status.getState()).toMatchObject({ restoredFrom: 'mirror', restoreNote: true, health: 'ok' });
     expect(saved(ls).state.sound).toBe(false); // written back
-    const q = await b.idb.listQuarantine();
-    expect(q.map((r) => r.value)).toEqual([expect.objectContaining({ raw: '{"state":', reason: 'parse', version: null })]);
+    await vi.waitFor(async () => expect((await b.idb.listQuarantine()).map((q) => q.value)).toEqual([expect.objectContaining({ raw: '{"state":', reason: 'parse', version: null })]));
   });
 
   it('(6) a save from a newer version is quarantined before the first write', async () => {
-    const ls = memoryLocalStorage(); const backend = memoryIdb();
+    const ls = memoryLocalStorage(); const r = real(); const { backend } = r;
     const raw = env({ sound: false, n: 3, zzz: 1 }, 4).replace('"version":5', '"version":9');
     ls.setItem(KEY, raw); ls.writes.length = 0;
     const order = [];
     const add = backend.add; backend.add = (...a) => { order.push('quarantine'); return add(...a); };
     const set = ls.setItem; ls.setItem = (k, v) => { order.push(`write ${k}`); return set(k, v); };
-    const { useS, idb } = setup({ ls, backend });
+    const { useS } = setup({ ls, backend });
     expect(useS.getState()).toMatchObject({ sound: false, n: 3, zzz: 1 }); // the fields are kept
     await settle();
     expect(order[0]).toBe('quarantine');
     expect(order).toContain(`write ${KEY}`); // zustand saves the migrated state
-    expect((await idb.listQuarantine()).map((r) => r.value)).toEqual([expect.objectContaining({ raw, reason: 'future-version', version: 9 })]);
+    // kept in the real database, as it was, though the key has been written over since
+    await vi.waitFor(async () => expect((await r.another().entries('quarantine')).map((q) => q.value)).toEqual([expect.objectContaining({ raw, reason: 'future-version', version: 9 })]));
+    expect(saved(ls).version).toBe(5);
   });
 
   it('the same broken bytes are kept once, and only the newest 5 records for 30 days', async () => {
-    const backend = memoryIdb(); const idb = createIdb(backend);
+    const { backend, idb } = real();
     const days = (n) => new Date(Date.parse('2026-11-05T10:00:00.000Z') - n * 864e5).toISOString();
     for (const [i, age] of [40, 20, 10, 6, 5, 4, 3].entries()) await backend.add('quarantine', { raw: `r${i}`, reason: 'parse', at: days(age) });
     await idb.pruneQuarantine('2026-11-05T10:00:00.000Z');
     expect((await idb.listQuarantine()).map((r) => r.value.raw)).toEqual(['r2', 'r3', 'r4', 'r5', 'r6']);
     const ls = memoryLocalStorage(); ls.setItem(KEY, 'not json');
-    const a = setup({ ls, backend: memoryIdb() });
+    const a = setup({ ls });
     a.useS.persist.rehydrate(); a.useS.persist.rehydrate();
-    await settle();
+    await vi.waitFor(async () => expect(await a.idb.listQuarantine()).toHaveLength(1));
+    await settle(20);
     expect(await a.idb.listQuarantine()).toHaveLength(1);
   });
 
+  it('boot prunes the quarantine kept by earlier pages', async () => {
+    const r = real();
+    const days = (n) => new Date(Date.now() - n * 864e5).toISOString();
+    for (const age of [45, 31, 2]) await r.backend.add('quarantine', { raw: `${age}`, reason: 'parse', at: days(age) });
+    const { d } = setup({ backend: r.another() });
+    await d.boot({ win: null, doc: null });
+    await vi.waitFor(async () => expect((await r.idb.listQuarantine()).map((q) => q.value.raw)).toEqual(['2']));
+  });
+
   it('the error log keeps the last 20', async () => {
-    const idb = createIdb(memoryIdb());
+    const { idb } = real();
     for (let i = 0; i < 23; i += 1) await idb.addError({ n: i });
     expect((await idb.listErrors()).map((e) => e.n)).toEqual(Array.from({ length: 20 }, (_, i) => i + 3));
   });
@@ -209,14 +232,14 @@ describe('a browser that lets nothing be saved', () => {
 
 describe('leaving the page', () => {
   it('(8) pagehide (or hidden) saves a pending write at once, and the copy without waiting a second', async () => {
-    const { d, useS, ls, backend } = setup();
+    const r = real();
+    const { d, useS, ls } = setup({ backend: r.backend });
     const win = new EventTarget(); const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
     await d.boot({ win, doc });
     useS.getState().setSound(false);
     win.dispatchEvent(new Event('pagehide'));
     expect(saved(ls).state.sound).toBe(false); // synchronously
-    await settle();
-    expect(JSON.parse(backend.stores.mirror.get('current').raw).state.sound).toBe(false);
+    await vi.waitFor(async () => expect(JSON.parse((await mirrorOf(r))?.raw ?? '{}').state?.sound).toBe(false), { timeout: 900 });
     useS.getState().bump();
     doc.visibilityState = 'hidden'; doc.dispatchEvent(new Event('visibilitychange'));
     expect(saved(ls).state.n).toBe(1);
@@ -225,39 +248,46 @@ describe('leaving the page', () => {
   });
 
   it('the copy follows a second after the last save', async () => {
-    vi.useFakeTimers();
-    const { useS, backend } = setup();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }); // fake-indexeddb runs on setImmediate
+    const r = real();
+    const { useS } = setup({ backend: r.backend });
     useS.getState().setSound(false); await tick();
     await vi.advanceTimersByTimeAsync(900);
-    expect(backend.stores.mirror.get('current')).toBeUndefined();
+    expect(await mirrorOf(r)).toBeUndefined();
     await vi.advanceTimersByTimeAsync(200);
-    expect(backend.stores.mirror.get('current').rev).toBe(1);
+    await vi.waitFor(async () => expect((await mirrorOf(r))?.rev).toBe(1));
   });
 
   it('(9) removeItem clears the key, its revision and the copy, and a set() queued just before is not written', async () => {
-    const { d, useS, ls, backend } = setup();
-    useS.getState().setSound(false); await tick(); d.flushNow(); await settle();
-    expect(backend.stores.mirror.get('current')).toBeTruthy();
+    const r = real();
+    const { d, useS, ls } = setup({ backend: r.backend });
+    useS.getState().setSound(false); await tick(); d.flushNow();
+    await vi.waitFor(async () => expect(await mirrorOf(r)).toBeTruthy());
     useS.getState().bump();
     useS.persist.clearStorage();
     await settle(1100);
     expect(ls.getItem(KEY)).toBeNull();
     expect(ls.getItem(REV)).toBeNull();
-    expect(backend.stores.mirror.get('current')).toBeUndefined();
+    expect(await mirrorOf(r)).toBeUndefined();
+    expect(await idbNames(r.factory)).toEqual([r.name]); // the database stays (only "delete all" deletes it)
   });
 
   it('(10) "delete all" right after a set(): the key is gone, the database is deleted, and nothing is written again', async () => {
-    const { d, useS, ls, backend } = setup();
-    useS.getState().bump(); await tick(); d.flushNow(); await settle();
+    const r = real();
+    const { d, useS, ls, idb } = setup({ backend: r.backend });
+    useS.getState().bump(); await tick(); d.flushNow();
+    await vi.waitFor(async () => expect((await mirrorOf(r))?.rev).toBe(1)); // (another connection is open: it lets go)
+    await idb.addError({ name: 'quota' });
+    await idb.quarantine('{"state":', 'parse', null, new Date().toISOString());
     useS.getState().setSound(false);
     await d.wipe();
+    expect(await idbNames(r.factory)).toEqual([]); // the copy, the quarantine and the error ring are gone with it
     await settle(1100);
     expect(ls.getItem(KEY)).toBeNull();
     expect(ls.getItem(REV)).toBeNull();
-    expect(backend.destroyed).toBe(true);
-    useS.getState().bump(); d.flushNow(); await settle();
+    useS.getState().bump(); d.flushNow(); await settle(20);
     expect(ls.getItem(KEY)).toBeNull();
-    expect(backend.stores.mirror.size).toBe(0);
+    expect(await idbNames(r.factory)).toEqual([]); // and nothing made it again
   });
 });
 
@@ -274,27 +304,28 @@ describe('starting the app: the key or the copy', () => {
   });
 
   it('a key without meta wins over a newer-looking copy, and the copy is rewritten from it', async () => {
-    const ls = memoryLocalStorage(); const backend = memoryIdb();
-    backend.stores.mirror.set('current', { raw: env({ sound: false, n: 9 }, 7), rev: 7 });
+    const ls = memoryLocalStorage(); const r = real();
+    await r.backend.put('mirror', { raw: env({ sound: false, n: 9 }, 7), rev: 7 }, 'current');
     const seed = env({ sound: true, n: 2 }, null);
     ls.setItem(KEY, seed);
-    const { d, useS, status } = setup({ ls, backend });
+    const { d, useS, status } = setup({ ls, backend: r.another() });
     await d.boot({ win: null, doc: null });
-    await settle();
     expect(useS.getState()).toMatchObject({ sound: true, n: 2 });
     expect(status.getState().restoredFrom).toBeNull();
-    expect(backend.stores.mirror.get('current')).toMatchObject({ raw: seed, rev: 0 });
+    await vi.waitFor(async () => expect(await mirrorOf(r)).toMatchObject({ raw: seed, rev: 0 }));
   });
 
   it('a copy older than the key is brought up to it', async () => {
-    const ls = memoryLocalStorage(); const backend = memoryIdb();
-    backend.stores.mirror.set('current', { raw: env({ n: 1 }, 2), rev: 2 });
+    const ls = memoryLocalStorage(); const r = real();
+    await r.backend.put('mirror', { raw: env({ n: 1 }, 2), rev: 2 }, 'current');
     ls.setItem(KEY, env({ n: 4 }, 6));
-    const { d } = setup({ ls, backend });
-    await d.boot({ win: null, doc: null }); await settle();
-    expect(backend.stores.mirror.get('current').rev).toBe(6);
+    const { d } = setup({ ls, backend: r.another() });
+    await d.boot({ win: null, doc: null });
+    await vi.waitFor(async () => expect((await mirrorOf(r)).rev).toBe(6));
   });
 
+  // From here: the copy answers after 400 ms, past the first screen's 300 ms wait. memoryIdb({ delay }) is the only
+  // IndexedDB here that can be made that slow on demand (fake-indexeddb answers within a few event-loop turns).
   it('(11) a copy that answers after 400 ms and is newer replaces the state in place', async () => {
     const ls = memoryLocalStorage(); const backend = memoryIdb();
     ls.setItem(KEY, env({ sound: true, n: 1 }, 3)); ls.setItem(REV, '3');
@@ -343,12 +374,12 @@ describe('starting the app: the key or the copy', () => {
   });
 
   it('no copy at all: the key is used, and nothing is said', async () => {
-    const ls = memoryLocalStorage();
+    const ls = memoryLocalStorage(); const r = real();
     ls.setItem(KEY, env({ n: 2 }, 1));
-    const { d, useS, status, backend } = setup({ ls });
-    await d.boot({ win: null, doc: null }); await settle();
+    const { d, useS, status } = setup({ ls, backend: r.backend });
+    await d.boot({ win: null, doc: null });
     expect(useS.getState().n).toBe(2);
     expect(status.getState().restoredFrom).toBeNull();
-    expect(backend.stores.mirror.get('current').rev).toBe(1); // and the first copy is made
+    await vi.waitFor(async () => expect((await mirrorOf(r))?.rev).toBe(1)); // and the first copy is made
   });
 });

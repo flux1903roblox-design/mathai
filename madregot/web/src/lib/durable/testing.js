@@ -1,7 +1,11 @@
 // Test helpers for the durable layer (imported by tests only; nothing in the app imports this file).
 // heavyYear() builds the council's "heavy year" save from a seed instead of a committed 400 KB file: a v4 save after a
 // school year of daily use, with the analytics log at its cap (3,000 events), 30 checked exams and 300 days.
+// realIdb() is idb.js on a real IndexedDB (fake-indexeddb, a full implementation of the standard in memory), a fresh
+// one for each test; memoryIdb() is kept only for what a real IndexedDB cannot do on demand: answer 400 ms late.
+import { IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import { MAX_EVENTS } from '@/learn/analytics.ts';
+import { browserBackend, createIdb } from './idb.js';
 
 /** A small seeded random generator (mulberry32): the same seed gives the same numbers on every run. */
 export function seeded(seed = 1) {
@@ -104,6 +108,8 @@ const copy = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v))
 /**
  * An IndexedDB backend in memory for idb.js, with the same calls as browserBackend. `delay` (ms) makes every call
  * answer late; `failPut` makes writes fail; `failOpen` makes every call fail (a browser that blocks IndexedDB).
+ * Only for the late copy at boot (DURABLE-1 test 11 and its neighbours in storage.test.js): a real IndexedDB answers
+ * in a few event-loop turns and cannot be made to answer after 400 ms on demand. Everything else uses realIdb().
  */
 export function memoryIdb({ delay = 0, failPut = false, failOpen = false } = {}) {
   const stores = { mirror: new Map(), quarantine: new Map(), errors: new Map() };
@@ -124,6 +130,53 @@ export function memoryIdb({ delay = 0, failPut = false, failOpen = false } = {})
   };
   return api;
 }
+
+const PUT = IDBObjectStore.prototype.put;
+const ADD = IDBObjectStore.prototype.add;
+
+/**
+ * idb.js over a real IndexedDB of its own (a new IDBFactory, so no test sees another's databases):
+ * `{ factory, name, backend: browserBackend(name, factory), idb: createIdb(backend) }`, and
+ *   another()   a second connection to the same database (the next start of the app, or another tab)
+ *   failPut()   every put and add of every object store throws, as a full or broken disk does
+ *   failOpen()  opening a database throws, as a browser that blocks IndexedDB does
+ *   restore()   undo both (call it in afterEach: failPut changes fake-indexeddb's shared prototype)
+ */
+export function realIdb({ name = 'madregot-test-durable' } = {}) {
+  const factory = new IDBFactory();
+  const backend = browserBackend(name, factory);
+  const fail = (what) => () => { throw new DOMException(`${what} failed`, 'UnknownError'); };
+  return {
+    factory, name, backend, idb: createIdb(backend),
+    another: () => browserBackend(name, factory),
+    failPut() { IDBObjectStore.prototype.put = fail('put'); IDBObjectStore.prototype.add = fail('add'); },
+    failOpen() { factory.open = () => { throw new DOMException('IndexedDB is blocked', 'SecurityError'); }; },
+    restore() { IDBObjectStore.prototype.put = PUT; IDBObjectStore.prototype.add = ADD; delete factory.open; },
+  };
+}
+
+/**
+ * One record in a database of `factory`, through a real transaction: `idbRecord(f, db, store, key)` reads it,
+ * `idbRecord(f, db, store, key, value)` writes it. A database that does not exist yet is made at version 1 with that
+ * one store, as lib/push.js and sw.js make madregot-push.
+ */
+export function idbRecord(factory, name, store, key, ...value) {
+  return new Promise((resolve, reject) => {
+    const req = factory.open(name, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(store); };
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(store, value.length ? 'readwrite' : 'readonly');
+      const r = value.length ? tx.objectStore(store).put(value[0], key) : tx.objectStore(store).get(key);
+      tx.oncomplete = () => { db.close(); resolve(value.length ? true : r.result); };
+      tx.onabort = () => { db.close(); reject(tx.error); };
+    };
+  });
+}
+
+/** The names of the databases a factory holds now. */
+export const idbNames = async (factory) => (await factory.databases()).map((d) => d.name);
 
 /** Let every pending promise and timer of `ms` run (with real timers). */
 export const settle = (ms = 0) => new Promise((r) => { setTimeout(r, ms); });

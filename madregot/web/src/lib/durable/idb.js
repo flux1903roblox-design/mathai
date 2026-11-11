@@ -7,8 +7,9 @@
 //   errors      the last 20 error records of this device, for "מידע לתמיכה"
 // What the copy protects against: a corrupt key, a full localStorage, a bad migration, a lost write. What it does not:
 // Safari's 7-day removal and "clear website data" remove IndexedDB too (backups are for that).
-// The database code works through a small backend, so the unit tests run on an in-memory one (durable/testing.js) and
-// the browser tests on the real IndexedDB.
+// The database code works through a small backend (browserBackend), so a test can hand it any IndexedDB: the unit tests
+// give it fake-indexeddb, a real implementation of the standard in memory (durable/testing.js realIdb, idb.test.js),
+// and the browser tests the browser's own.
 
 export const DB_VERSION = 1;
 export const KEEP_QUARANTINE = 5;

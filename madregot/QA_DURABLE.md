@@ -954,3 +954,35 @@ script. They now load one topic at a time, and nothing the student sees changed.
 - **Screenshots, looked at** (`qa-evidence/durable/budget-*.png`): `terms-before-390` and `terms-after-390`
   (the legal page drawn by the lazy markdown: the same), `lesson-eq2-after-320/390` (a lesson opened straight: its
   maths drawn), `lesson-eq2-no-katex-390/320` (KaTeX blocked: `7x - 10 = -80` as plain words, readable).
+
+## The IndexedDB code on a real IndexedDB (PKG-4)
+
+The owner approved `fake-indexeddb` 6.2.6 (a dev dependency of `madregot/web`): a complete implementation of the
+IndexedDB standard in memory. The unit tests of every IndexedDB path now run on it, a new `IDBFactory` for each test,
+instead of the two hand-made stand-ins (`memoryIdb()` for the durable store, and `lib/testing/fakeIdb.js`, now deleted).
+
+- **`durable/testing.js` `realIdb({ name })`**: `{ factory, backend: browserBackend(name, factory), idb, another(),
+  failPut(), failOpen(), restore() }`; `idbRecord()` and `idbNames()` read, write and list through real transactions.
+- **`durable/idb.test.js`** (new, on `browserBackend` itself): the three stores made on first use; get, put, add, delete
+  and entries; a malformed mirror record reads as none; the quarantine keeps the newest 5 and none older than 30 days;
+  the error ring keeps the newest 20; a failed open is tried again; another page that deletes or upgrades the database
+  stops this one, which writes nothing back; `destroy()` deletes the database without waiting for its 3-second limit,
+  and is held 3 seconds at most by a page that does not let go.
+- **`durable/storage.test.js`**: DURABLE-1 tests (3), (4), (5), (6), (8), (9), (10), the quarantine prune (also at
+  boot), the error ring and the start-from-key cases run on the real database. (3)'s next start is a second write path
+  over the same factory; (4) is a 20 KB quota plus an IndexedDB whose put throws: `health === 'full'`, no exception;
+  (10) checks that `factory.databases()` no longer lists the database, then that nothing creates it again. Test (11)
+  and the two other late-copy cases stay on `memoryIdb({ delay: 400 })`: a real IndexedDB cannot be made to answer
+  after 400 ms on demand.
+- **`durable/apply.test.js`**: the before-restore copy is kept in, and read from, the real quarantine.
+- **`lib/push.test.js`, `sw/sw.test.js`, `lib/reminder.test.js`**: the page's `idb()` writes madregot-push / sub /
+  current and `sw.js` reads and replaces it in the same factory (one test runs both sides); `clearReminderDevice`
+  really deletes madregot-push and leaves other databases alone.
+- `vault.js` and `escrow.js` do not touch IndexedDB; `monitor.js` reaches it only through `storage.js`'s `errorLog`
+  (the error ring above).
+- **Each test fails when its behaviour breaks** (checked by breaking the code on purpose, then restoring it): the quota
+  path without its mirror write fails (3); a wipe that closes instead of deleting fails (10); without the
+  `onversionchange` guard the delete-and-upgrade tests fail; a failed open never retried, a `destroy()` that waits for
+  its timer, a failed mirror write taken as saved (4), a prune that keeps everything, the page's record under another
+  key, and a `clearReminderDevice` that deletes nothing each fail their tests.
+- The real implementation found no bug in `idb.js`, `storage.js`, `push.js`, `sw.js` or `reminder.js`.
