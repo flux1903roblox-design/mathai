@@ -47,11 +47,15 @@
 // assistant's labelled sample, with no request to /api at all; a reload keeps it; on a student's device it opens in a
 // new tab and the student's saved state is untouched; #/?start=demo and ?qa-teacher=demo open it directly.
 //
-// Screenshots for a look at the screens (TEACHER_SHOTS=<folder>), at the project's size and at 320×568; nothing is
-// compared.
+// Visual baselines (TEACHER-14 §3): every shot() is compared with its reviewed picture in
+// e2e/__screens__/<project>/teacher-<name>.png, on all four projects (phone-small 320, phone 390, tablet 768, desktop
+// 1440). After an intended change, look at the new pictures before accepting them:
+//   npx playwright test -c e2e/playwright.config.js teacher.spec.js --update-snapshots
+// TEACHER_SHOTS=<folder> also keeps a copy of each picture there, toasts included, for a look outside the suite.
 import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { NOW, student, item, answer, proceed } from './helpers.js';
 import { API, TOKEN, fakeServer } from './fakeServer.js';
 import { MOE_RULES } from '../../shared/schoolRules.js';
@@ -97,16 +101,16 @@ async function newDevice(browser, attach) {
   return ctx;
 }
 
+/** Toasts leave on their own timer, so the compared picture hides them (each test checks their words). */
+const SHOT_CSS = fileURLToPath(new URL('./shots.css', import.meta.url));
+/** The screen as it is now, compared with its baseline teacher-<name>.png (a "student-…" name gets the prefix too). */
 async function shot(page, name) {
+  const file = name.startsWith('teacher-') ? name : `teacher-${name}`;
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page).toHaveScreenshot(`${file}.png`, { stylePath: SHOT_CSS });
   const dir = process.env.TEACHER_SHOTS; if (!dir) return;
   mkdirSync(dir, { recursive: true });
-  const size = page.viewportSize();
-  await page.waitForTimeout(250);
-  await page.screenshot({ path: `${dir}/${test.info().project.name}-${name}.png` });
-  await page.setViewportSize({ width: 320, height: 568 });
-  await page.waitForTimeout(250);
-  await page.screenshot({ path: `${dir}/320-${name}.png` });
-  await page.setViewportSize(size);
+  await page.screenshot({ path: `${dir}/${test.info().project.name}-${file}.png` });
 }
 
 /** The email code form, wherever it is (the page or a sheet). */
@@ -456,6 +460,8 @@ test.describe('TEACHER-9: the class settings and deleting a class', () => {
     const { st, log } = await fakeServer(page.context(), { accountClasses }, baseOf());
     st.sessions.add(TOKEN(9));
     await open(page, '#/teacher/settings', threeClasses(), { local: session() });
+    // the page has its licence card before the tap, so the page under the sheet is where it stays (the picture)
+    await expect(page.getByRole('button', { name: 'הצעת מחיר לבית הספר' })).toBeVisible();
     await page.getByRole('button', { name: 'מחיקת הכיתה' }).click();
     const sheet = page.getByRole('dialog', { name: 'למחוק את הכיתה ז׳3?' });
     await expect(sheet).toContainText('נמחק את רשימת התלמידים, את ההתקדמות שלהם בלוח, את המשימות, את בקשות העזרה והתשובות עליהן ואת המבחנים. התרגול שנשמר במכשירים של התלמידים נשאר בהם. אי אפשר לבטל.');
@@ -2083,29 +2089,19 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
   const banner = (page) => page.getByRole('region', { name: 'כיתה לדוגמה' });
   /** Every request this page makes to a /api/ address. */
   const apiCalls = (page) => { const calls = []; page.on('request', (r) => { if (r.url().includes('/api/')) calls.push(r.url()); }); return calls; };
-  /** Also a desktop shot (1440×900), for the screens the spec asks to see wide. */
-  async function wideShot(page, name) {
-    const dir = process.env.TEACHER_SHOTS; if (!dir) return;
-    await shot(page, name);
-    const size = page.viewportSize();
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.waitForTimeout(250);
-    await page.screenshot({ path: `${dir}/desktop-${name}.png` });
-    await page.setViewportSize(size);
-  }
-  /** From the first screen of a device with no profile: "אני מורה", then the demo. */
-  async function enter(page) {
+  /** From the first screen of a device with no profile: "אני מורה", then the demo. `pic`: a picture of the public page. */
+  async function enter(page, { pic = false } = {}) {
     await open(page, '#/');
     await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'לוח המורה נמצא באתר המלא' })).toBeVisible();
-    await shot(page, 'teacher-public-demo-button');
+    if (pic) await shot(page, 'teacher-public-demo-button');
     await page.getByRole('button', { name: 'לראות לוח לדוגמה, בלי הרשמה' }).click();
     await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();
   }
 
   test('1. "אני מורה" → the demo: the board of 24 with the banner, every tab, a student\'s page, the settings; no /api request', async ({ page }) => {
     const calls = apiCalls(page);
-    await enter(page);
+    await enter(page, { pic: true });
     await expect(banner(page)).toContainText('כיתה לדוגמה: השמות והנתונים בדויים, ושום דבר כאן לא נשלח.');
     await expect(banner(page).getByRole('button', { name: 'יציאה מהדוגמה' })).toBeVisible();
     await expect(banner(page).getByRole('button', { name: 'לפתיחת כיתה אמיתית' })).toHaveCount(0); // no server in this build
@@ -2118,7 +2114,7 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
     await expect(attn.getByRole('button', { name: /^ועוד \d+/ })).toBeVisible();
     await expect(page.getByRole('region', { name: 'בקשות עזרה חדשות' }).locator('.t-row')).toHaveCount(3);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await wideShot(page, 'teacher-demo-board');
+    await shot(page, 'teacher-demo-board');
     // the profile is the demo's, kept in this tab only: nothing of it was saved to the device
     expect(await page.evaluate(() => localStorage.getItem('madregot') || '')).not.toContain('DEMO01');
     expect(await page.evaluate(() => !!sessionStorage.getItem('madregot-demo'))).toBe(true);
@@ -2169,7 +2165,7 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
     await page.getByRole('region', { name: 'טעויות שחוזרות השבוע' }).getByRole('button', { name: 'לתת תרגול על זה' }).first().click();
     const assign = page.getByRole('dialog', { name: 'משימה לכיתה ז׳3 (דוגמה)' });
     await expect(assign).toBeVisible();
-    await wideShot(page, 'teacher-demo-assign');
+    await shot(page, 'teacher-demo-assign');
     await assign.getByRole('button', { name: 'שליחה לכיתה' }).click();
     await expect(page.getByText('בכיתה לדוגמה זה נשמר רק כאן, עד שתסגרו את הלשונית.')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -2217,7 +2213,7 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
     // the wide table scrolls inside its frame: the page itself never scrolls sideways (KaTeX in the mistakes column)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize().width);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await wideShot(page, 'teacher-demo-report');
+    await shot(page, 'teacher-demo-report');
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'הורדת קובץ CSV (לאקסל)' }).click()]);
     expect(download.suggestedFilename()).toMatch(/^madregot-demo-\d{4}-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}\.csv$/);
     const dir = path.join(process.cwd(), 'test-results'); mkdirSync(dir, { recursive: true });
@@ -2267,6 +2263,8 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
     await open(page, '#/', fresh());
     await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
     await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+    // TeacherStart asks the server what it offers once; that answer comes before the demo is opened
+    await expect.poll(() => log.some((r) => r.path === '/api/health')).toBe(true);
     const before = log.length;
     await page.getByRole('button', { name: 'לראות לוח לדוגמה, בלי הרשמה' }).click();
     await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();

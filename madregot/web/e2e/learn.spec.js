@@ -227,7 +227,8 @@ test('saved progress from before 2.0 survives the update', async ({ page }) => {
 
 test('reviewer P1: two right diagnostic answers per stair are "passed the first check", never "mastered"', async ({ page }) => {
   await open(page, '#/rescue', student('7'));
-  const d = new Date(); d.setDate(d.getDate() + 3);
+  // three days after the page's fixed day (a Thursday), so the exam never falls on a Saturday whatever today is
+  const d = new Date(NOW); d.setDate(d.getDate() + 3);
   await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByText('חיבור וחיסור', { exact: true }).click();

@@ -928,6 +928,10 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 /* a toast's action ("לקריאה", "לתוצאות"): a 44px button in the app's blue, not the library's small default */
 [data-sonner-toast].toast [data-button] { height: auto !important; min-height: 44px; padding: 0 var(--s4) !important; border-radius: 12px !important; background: var(--brand) !important; color: #fff !important; font-family: var(--font-ui) !important; font-size: 15px !important; font-weight: 700 !important; }
 [data-sonner-toast].toast [data-button]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+/* a toast never stands between the pointer and the screen under it: a sheet's button below it still takes the click,
+   and a mouse resting there does not hold the toast open. Only the toast's own action takes the pointer. */
+[data-sonner-toaster], [data-sonner-toast] { pointer-events: none; }
+[data-sonner-toast] :is(button, a) { pointer-events: auto; }
 
 /* ------------------------------------------------------------------ each student has a page (TEACHER-8): names as
    quiet links on the board, the ranked "כדאי לבדוק איתם" with its reason chips, the students tab's sort, and the
@@ -1048,3 +1052,28 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
 .t-fresh-letter { align-self: center; }
 .t-fresh-letter svg, .cai-letter svg { flex: none; }
 .cai-letter { align-self: flex-start; }
+
+/* ------------------------------------------------------------------ the teacher's screens on a tablet or a computer
+   (TEACHER-14 §3: what the tablet and desktop baselines showed) */
+/* the new-class form fills its sheet: no box of its own inside the sheet, no narrower column */
+.add-class { max-width: none; border: 0; border-radius: 0; padding: 0; }
+@media (min-width: 600px) {
+  /* there is room: the tools wrap onto a second row instead of hiding behind the fade */
+  .t-tools ul { flex-wrap: wrap; overflow-x: visible; padding-inline-end: 0; -webkit-mask-image: none; mask-image: none; }
+}
+@media (min-width: 648px) {
+  /* "מחר" in two or three columns: the cards stand side by side under level headings, with no rule above some of them */
+  .t-grid > .set-group + .set-group { padding-top: 0; border-top: 0; }
+}
+@media (min-width: 1100px) {
+  /* the header's name, code and buttons line up with the board's column (.t-main, 1100px) */
+  .t-head { padding-inline: calc((100% - 1100px) / 2 + var(--s4)); }
+}
+@media (min-width: 1024px) {
+  /* a laptop shows the class report's table whole: the board's width, and its two buttons side by side */
+  .page.t-report { max-width: 1100px; }
+  .t-report > .screen-foot { flex-direction: row; }
+  .t-report > .screen-foot .btn { flex: 1 1 0; width: auto; }
+  /* each repeated mistake on about one line, so a student's row is not five lines tall */
+  .rp-mis { min-width: 22em; max-width: 32em; }
+}
