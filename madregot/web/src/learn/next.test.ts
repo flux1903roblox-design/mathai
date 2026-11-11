@@ -6,7 +6,7 @@ import { planNext, examLosses, mapTopics, mapFocus, onMap, nodeRoute, cardRoute,
 import type { NextContext, CheckedExam } from './next';
 import { nextActions, isMissing, states, titleOf, RECOVER_RIGHT } from './recommend';
 import { buildMission, completeMissionItems, missionDone, missionFor } from './mission';
-import { examPlan, newPlan, recordDiagnostic, isShabbatDay } from './examRescue';
+import { examPlan, newPlan, recordDiagnostic, isPlanRestDay } from './examRescue';
 import { ALL_SKILLS, GRADE_OF, STAIRS, TOPIC_ORDER, isBridgeSkill, parseSkill, skillId, prereqsOf } from './skills';
 import { contentOf, loadAllContent } from './content/index';
 import { seeded } from './expr';
@@ -29,7 +29,8 @@ describe('planNext: the bands, highest first, for each learner', () => {
     ['midSigned3', [['continue', 'signed:3'], ['new', 'signed:4'], ['challenge', 'signed:1']]],
     ['misconception', [['repair', 'signed:1'], ['continue', 'signed:1'], ['new', 'signed:2']]],
     ['dueReview', [['review', 'coord:1'], ['new', 'signed:3'], ['challenge', 'signed:1']]],
-    ['examIn3Days', [['exam', 'signed:1'], ['exam', 'signed:1'], ['exam', 'signed:1'], ['review', 'coord:1'], ['new', 'coord:2']]],
+    // today: the lesson of signed:1 and the check of signed:2; signed:1's practice and check come on the next days
+    ['examIn3Days', [['exam', 'signed:1'], ['exam', 'signed:2'], ['review', 'coord:1'], ['new', 'coord:2']]],
     ['examUndiagnosed', [['exam', ''], ['new', 'signed:1']]],
     ['examOnShabbat', [['new', 'signed:1']]],
     // ratio and scale is the first unit of ח׳ (September): taught by now, it is the first new stair, before line:2
@@ -39,7 +40,7 @@ describe('planNext: the bands, highest first, for each learner', () => {
     // a challenge first, then the old "everything mastered" review
     ['allSeventhMastered', [['challenge', 'signed:1'], ['review', 'signed:1']]],
     // strong today: the challenge moves up, right after the exam loss and never above the exam, a repair or a review
-    ['strongEighth', [['exam', 'ratio:2'], ['exam', 'ratio:2'], ['exam', 'ratio:2'], ['repair', 'ratio:1'], ['review', 'pct:1'], ['exam-loss', 'pct:1'], ['challenge', 'pct:2'], ['new', 'pct:3']]],
+    ['strongEighth', [['exam', 'ratio:2'], ['repair', 'ratio:1'], ['review', 'pct:1'], ['exam-loss', 'pct:1'], ['challenge', 'pct:2'], ['new', 'pct:3']]],
     ['keptStairs', [['mastery', 'signed:1'], ['new', 'signed:3']]],
     ['examLossCoord4', [['exam-loss', 'coord:4'], ['new', 'signed:3'], ['challenge', 'signed:1']]],
     ['examLossRecovered', [['new', 'signed:3'], ['challenge', 'signed:1']]],
@@ -60,7 +61,9 @@ describe('planNext: the bands, highest first, for each learner', () => {
     const p = planNext(c);
     const plan = examPlan(c.learn.exam!, c.learn, c.now, c.day);
     expect(p.examToday.map((x) => x.to)).toEqual(plan.today.map((t) => t.to));
-    expect(p.examToday.map((x) => x.task)).toEqual(['learn', 'practice', 'mastery']);
+    // a stair's lesson, practice and check are on three days (PRODUCT2-17): today the lesson, and another stair's check
+    expect(p.examToday.map((x) => [x.task, x.skill])).toEqual([['learn', 'signed:1'], ['mastery', 'signed:2']]);
+    expect(p.examToday.map((x) => x.minutes)).toEqual([12, 3]);
     expect(p.items.filter((x) => x.kind === 'exam').map((x) => x.to)).toEqual(p.examToday.map((x) => x.to));
     expect(p.top!.reason).toBe('המבחן בעוד 3 ימים. זה הצעד של היום בתוכנית ההכנה.');
     // before the diagnostic: one item, the short check Rescue shows then
@@ -415,7 +418,9 @@ describe('the mission from the plan', () => {
     expect(done(items, { kind: 'floor' })[0].done).toBe(NOW);
   });
   it('an Exam Rescue step is done by that step: the lesson by learning, the check by the check, the diagnostic by Rescue work', () => {
+    // (the exam tomorrow: a stair's three steps all come today)
     const c = LEARNERS.examIn3Days();
+    c.learn.exam = { ...c.learn.exam!, date: '2026-11-11' };
     const steps = planNext(c).items.filter((x) => x.kind === 'exam');
     const [learn, practice, mastery] = buildMission(steps.slice(0, 1)).concat(buildMission(steps.slice(1, 2)), buildMission(steps.slice(2, 3)));
     const all = [learn, practice, mastery];
@@ -520,7 +525,7 @@ function randomLearner(rnd: () => number): { ctx: NextContext; lastTopic: string
   // an exam: none, before its diagnostic, or diagnosed; soon, far, or past; never on Shabbat
   if (chance(0.25)) {
     let date = addDays(now, pick([0, 1, 2, 3, 5, 9, 13, 20, -2])).slice(0, 10);
-    if (isShabbatDay(date)) date = addDays(`${date}T09:00:00.000Z`, 1).slice(0, 10);
+    if (isPlanRestDay(date)) date = addDays(`${date}T09:00:00.000Z`, 1).slice(0, 10);
     const skills = ALL_SKILLS.filter(() => chance(0.08)).slice(0, 6);
     if (!skills.length) skills.push(pick(ALL_SKILLS));
     let plan = newPlan({ grade, date, skills, confidence: pick([1, 2, 3, 4] as const), minutes: pick([10, 15, 20, 30]) }, before(1));

@@ -9,7 +9,7 @@ import { Award, RotateCcw, Check, ArrowLeft, Gift, Flame, Puzzle } from 'lucide-
 import { TOPIC } from '@/content/index.js';
 import { useApp } from '@/lib/store.js';
 import { skillId, parseSkill } from '@/learn/skills.ts';
-import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS } from '@/learn/mastery.ts';
+import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS, PRACTICE_AGAIN } from '@/learn/mastery.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { metaOf } from '@/learn/content/index.ts';
 import { useNext } from '@/lib/useLearn.js';
@@ -27,7 +27,7 @@ function copy(r, rec, def, award) {
     case 'mastery':
       return r.passed
         ? { mood: 'achievement', title: 'שולטים לבד!', body: `${r.right} מתוך ${r.asked} נכונות, בלי רמזים. ${inDays(days(0))} נבדוק בקצרה שזה נשאר.` }
-        : { mood: 'encouraging', title: 'עוד לא, וזה בסדר', body: `${r.right} מתוך ${r.asked}. כדי לשלוט צריך ${MASTERY_NEED} מתוך ${MASTERY_N} בלי רמזים. ${award?.reopened ? 'המדרגה חוזרת להיות פתוחה במפה, והתרגול שכבר עשיתם נשמר. ' : ''}עוד קצת תרגול, ואז מנסים שוב.` };
+        : { mood: 'encouraging', title: 'עוד לא, וזה בסדר', body: `${r.right} מתוך ${r.asked}. כדי לשלוט צריך ${MASTERY_NEED} מתוך ${MASTERY_N} בלי רמזים. ${award?.reopened ? 'המדרגה חוזרת להיות פתוחה במפה, והתרגול שכבר עשיתם נשמר. ' : ''}${PRACTICE_AGAIN}` };
     case 'review':
       return r.passed
         ? { mood: 'happy', title: 'זה נשאר!', body: `הבדיקה הבאה ${inDays(days(rec?.mastered?.box ?? 1))}. כל פעם המרווח גדל.` }

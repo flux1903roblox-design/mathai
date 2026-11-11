@@ -6,7 +6,7 @@
 // on the device, so a report waiting offline, the server's copy and a newer report combine the same way everywhere.
 import type { LearnState, SkillRecord } from './types';
 import { hasContent } from './content/index';
-import { nextStage } from './mastery';
+import { nextStage, practiceDone } from './mastery';
 import { STAGE_N } from './recommend';
 
 export type WorkState = 'started' | 'done';
@@ -41,7 +41,8 @@ export function stairStage(skill: string, rec: SkillRecord | undefined): number 
     return STAGE_N[nextStage(rec)] - 1;
   }
   const practice = (rec?.attempts || []).filter((a) => a.purpose === 'practice');
-  if (practice.filter((a) => a.ok).length >= PRACTICE_DONE) return 4;
+  // (after a failed mastery check, the practice since it: mastery.ts practiceDone)
+  if (practiceDone(rec, PRACTICE_DONE)) return 4;
   return practice.length ? 1 : 0;
 }
 

@@ -552,7 +552,8 @@ describe('Exam Rescue', () => {
         const m = placeOf(q, sk, 'mastery'); const l = placeOf(q, sk, 'learn');
         if (m && l) expect(before(l, m), `${sk} ${day}: mastery check before the lesson`).toBe(true);
       });
-      expect(q.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam')).toHaveLength(skills.length * 3);
+      // every stair's three first steps (the free days may add short reviews)
+      expect(q.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam' && t.kind !== 'review')).toHaveLength(skills.length * 3);
     }
   });
   it('puts no task on Shabbat, as the streak never asks for one', () => {
@@ -561,7 +562,7 @@ describe('Exam Rescue', () => {
     expect(p.days.map((d) => d.day)).toEqual(['2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13']); // Saturday 14.11 is not a work day
     p.days.forEach((d) => expect(new Date(`${d.day}T12:00:00`).getDay(), d.day).not.toBe(6));
     // everything is still planned, and the practice exam closes the last day before the exam
-    expect(p.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam')).toHaveLength(15);
+    expect(p.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam' && t.kind !== 'review')).toHaveLength(15);
     expect(p.days.at(-1)!.tasks.at(-1)!.kind).toBe('exam');
     // planned on Shabbat itself: today has no tasks, and the plan says so calmly
     const sat = rescueOf(['signed:1'], '2026-11-17', 15, '2026-11-14');

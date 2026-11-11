@@ -256,6 +256,11 @@ export interface SkillRecord {
   mastered?: { at: string; box: number; due: string; lastReview?: { at: string; ok: boolean } };
   /** Failed mastery checks since the last pass (for honest feedback, not punishment). */
   failedChecks?: number;
+  /**
+   * When the last mastery check was failed (cleared by a pass): the check is offered again only after fresh practice
+   * since then (mastery.ts checkWaits), so a quick retake is not a second guess.
+   */
+  lastFailAt?: string;
   /** Where the student is inside each teaching stage, so leaving keeps the place. */
   pos?: { A?: number; B?: number; C?: number };
 }

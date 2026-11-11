@@ -32,7 +32,8 @@ test('the home banner, the mission\'s first row and Rescue\'s start button lead 
   await open(page, '#/', examSoon());
   const banner = page.getByRole('region', { name: 'הצעד הבא' });
   await expect(banner).toContainText(STEP);
-  await expect(banner).toContainText('הכנה למבחן · 5 דק׳');
+  // the lesson's real minutes (its three teaching stages, PRODUCT2-17), not a flat five
+  await expect(banner).toContainText('הכנה למבחן · 12 דק׳');
   await expect(page.locator('.next-banner')).toHaveCount(1);
   await expectUsable(page, banner.getByRole('button', { name: 'לצעד הבא' }), 'the banner button');
   await expectNoSidewaysScroll(page);

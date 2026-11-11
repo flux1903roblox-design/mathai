@@ -7,7 +7,7 @@ import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
 import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
-import { MASTERY_N } from '@/learn/mastery.ts';
+import { MASTERY_N, checkWaits, PRACTICE_AGAIN } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
 import StorageBanner from '@/components/durable/StorageBanner.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
@@ -75,6 +75,8 @@ function StairCard({ n, t, onStart, next }) {
   const main = lead ? 'secondary' : 'primary';
   const check = routeOf.check(skill, 'mastery');
   const mastered = n.state === 'done' && !!rec?.mastered;
+  // after a failed mastery check: practice first, and the card says so in the result screen's words
+  const waits = checkWaits(rec);
   const path = useApp((s) => s.path);
   const added = addedStairNote(n, path);
   return (
@@ -83,14 +85,14 @@ function StairCard({ n, t, onStart, next }) {
       {added && <p className="node-card-sub node-card-added">{added}</p>}
       {lead && <p className="node-card-sub node-card-next">הצעד הבא: <MathText text={lead.title} /></p>}
       {lead && <Button className="btn-block node-next-btn" onClick={() => onStart(lead.to)}>לצעד הבא</Button>}
-      {n.state === 'current' && <p className="node-card-sub">שלב {STAGE_N[st]} מתוך 5: {STAGE_NAME[st]}</p>}
+      {n.state === 'current' && <p className="node-card-sub">שלב {STAGE_N[st]} מתוך 5: {STAGE_NAME[st]}{waits ? `. ${PRACTICE_AGAIN}` : ''}</p>}
       {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={() => onStart(own)}>{rec?.taught?.A || n.parts ? 'המשך' : 'התחלה'}</Button>}
       {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>כל חמשת השלבים</Button>}
       {mastered && <p className="node-card-sub">שולטים בזה: עברתם את בדיקת השליטה.</p>}
-      {n.state === 'done' && !mastered && <p className="node-card-sub">המדרגה הושלמה לפני שהיו בדיקות שליטה. בדיקה קצרה, {MASTERY_N} שאלות, תראה שזה נשאר.</p>}
-      {n.state === 'open' && <p className="node-card-sub">המדרגה הזאת פתוחה. בדיקת שליטה קצרה, {MASTERY_N} שאלות, תסמן אותה כמדרגה שעברתם.</p>}
+      {n.state === 'done' && !mastered && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `המדרגה הושלמה לפני שהיו בדיקות שליטה. בדיקה קצרה, ${MASTERY_N} שאלות, תראה שזה נשאר.`}</p>}
+      {n.state === 'open' && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `המדרגה הזאת פתוחה. בדיקת שליטה קצרה, ${MASTERY_N} שאלות, תסמן אותה כמדרגה שעברתם.`}</p>}
       {n.state === 'locked' && <p className="node-card-sub">יודעים כבר? מבחן קצר של {JUMP_LEN} תרגילים, טעות אחת מותרת, פותח את כל הדרך עד לכאן.</p>}
-      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button variant={main} className="btn-block" onClick={() => onStart(check)}>לבדיקת שליטה</Button>}
+      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button variant={main} className="btn-block" onClick={() => onStart(waits ? own : check)}>{waits ? 'לתרגול' : 'לבדיקת שליטה'}</Button>}
       {n.state === 'open' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
       {mastered && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
       {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>תרגול חוזר</Button>}

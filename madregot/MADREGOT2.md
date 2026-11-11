@@ -48,20 +48,27 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
 
 - **Mastery is independent.** Watching, a hint, a second try or solving together count as learning with help. Mastery
   is a check of 5 questions, one try each, no hints, 4 right. It is checked again after 1, 3, 7, 16, 35, 60 days;
-  a missed review marks it "needs review" (nothing is taken away). States: not started, learning, needs support,
-  practicing, mastered (independently), needs review. The student sees the rules (`MASTERY_RULES`).
+  a missed review marks it "needs review" (nothing is taken away). After a failed check the stair is back in practice:
+  the check is offered again after 3 right practice answers given alone (first try, no hint) since it, not at once,
+  and the plan says so in the result screen's words (`lastFailAt`, `checkWaits`, `PRACTICE_AGAIN`); before any failed
+  check, 6 right practice answers bring it. A check the teacher assigned stays open. States: not started, learning,
+  needs support, practicing, mastered (independently), needs review. The student sees the rules (`MASTERY_RULES`).
 - **A misconception is never decided from one answer.** Each stair has a diagnostic model: parameters, the right
   answer, and the answer each misconception predicts. A wrong answer adds evidence to every misconception that
   predicts it (split when several do). Confirmed = 1.5 evidence from at least two different questions. A right answer
   where it could have shown removes evidence. Off by one, ten off and two swapped digits are slips. An answer no
   misconception explains is "unknown": the tutor says it does not know rather than guess. When an answer is
-  ambiguous, one more question tells the candidates apart (some pairs need two questions: the engine narrows).
+  ambiguous, one more question tells the candidates apart, and when its answer still fits two or more, a second one
+  (at most two a lesson). The stair's own mistake (`DiagModel.flagship`, the level's `flagship`) names an answer it
+  predicts alone. An exercise generator's diag() names every mistake whose number the answer is, so an answer two
+  mistakes explain is ambiguous there too (content/labels.test.js checks this for every stair). 'direction', a move on
+  the number line, is a candidate only on a question that draws one.
 - **Repair, then verify.** A confirmed misconception gets its own explanation and an interactive activity (not the
   stair's general explanation again), then 3 questions where it would show. Resolved when 2 are right and it does not
   show. At most 2 offers a day, and after 2 failed verifications it is not offered again: the student is pointed to
   the prerequisite, the other explanations or the tutor instead (no endless loop).
 - **What next** (next.ts planNext, one ranked plan): Exam Rescue's steps for today when the exam is within 14 days
-  (its diagnostic first; none on Shabbat) > confirmed misconception > due review > points lost in a checked exam of
+  (its diagnostic first; none on Shabbat or Yom Tov) > confirmed misconception > due review > points lost in a checked exam of
   the last 45 days, not recovered since > the floor check, or the smallest missing prerequisite of a stair that is
   hard > the stair in progress, then a kept stair's mastery check > the next new stair (taught by now in the school
   calendar first, in school order, never skipping ahead inside a unit) > a challenge task of a mastered stair (it moves
@@ -92,8 +99,13 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
   gives XP once and counts for the day like a lesson, and never touches `learn.skills` or a check. An explain part is
   kept in component state only (not saved, not sent) and self-checked against a sample and a rubric.
 - **Exam Rescue** starts with a 2-question diagnostic per stair, sorts stairs into strong / shaky / gap / untested,
-  orders gaps (and stairs others lean on) first, and spreads learn → practice → mastery tasks over the days, with a
-  practice exam on the last day. It is recomputed from the evidence every time, so it follows real performance. It
+  orders gaps (and stairs others lean on) first, and places learn → practice → mastery over the days in real minutes
+  (a lesson 12, practice 5, a check 3, a review 2, the practice exam 5, from recommend.ts STAGE_MIN). When the days
+  allow, a stair's lesson, practice and check are on three different days; otherwise the practice may share a day, but
+  a check never shares the day of its lesson unless the exam is a day or less away. Days not needed for first steps get
+  short reviews spaced as REVIEW_DAYS spaces them, and the practice exam closes the last day. A day goes over the
+  student's minutes only when the plan is tight, and the message says so. No work on Shabbat or Yom Tov
+  (shared/restDays.js isRestDay). It is recomputed from the evidence every time, so it follows real performance. It
   never promises a grade.
 - **Analytics** stay on the device: event type, stair, right or not. Metrics (independent mastery gain, misconception
   resolution rate, 7-day retained mastery, reviews, returns after 1/7/30 days, adoption) show "not enough data" below

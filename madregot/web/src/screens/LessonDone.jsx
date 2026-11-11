@@ -10,6 +10,7 @@ import Mascot from '@/components/Mascot.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { unitProgress, stagesDone, partsOf, isDone, practiceComplete, STAIR_STAGES } from '@/lib/path.js';
 import { skillId } from '@/learn/skills.ts';
+import { checkWaits } from '@/learn/mastery.ts';
 import { Segments } from '@/components/ds.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { placementTopicsFor } from '@/content/index.js';
@@ -197,7 +198,8 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   const stairDoneNow = stairLine && isDone(path, topic.id, result.level);
   const stairSteps = stairLine ? stagesDone(stairRec, stairParts, stairDoneNow) : 0;
   // practice is complete and the stair is not counted yet: its mastery check is next
-  const checkNext = award.practiceDone || (stairLine && !stairDoneNow && practiceComplete(stairRec, stairParts));
+  // (after a failed mastery check, only once it is offered again: mastery.ts checkWaits)
+  const checkNext = (award.practiceDone || (stairLine && !stairDoneNow && practiceComplete(stairRec, stairParts))) && !checkWaits(stairRec);
   return (
     <div className={clsx('done-screen', `ch-${topic.color}`)}>
       <Hero>

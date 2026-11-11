@@ -10,7 +10,7 @@ import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy 
 import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx, useNext } from '@/lib/useLearn.js';
 import { TOPIC, rescueTopicsFor } from '@/content/index.js';
-import { examPlan, validInput, isShabbatDay, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
+import { examPlan, validInput, isPlanRestDay, REST_DAY_LINE, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
 import { skillId } from '@/learn/skills.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { ensureTopics } from '@/learn/content/index.ts';
@@ -27,6 +27,8 @@ const ORDER = ['mastered', 'ready', 'shaky', 'gap', 'untested'];
 // the day path winds like the map's path
 const DAY_SWING = [0, 48, 72, 48, 0, -48, -72, -48];
 const STANDING = { mastered: 'שולטים לבד', ready: 'עברו את הבדיקה הראשונה', shaky: 'כמעט', gap: 'צריך לעבוד', untested: 'עוד לא נבדק' };
+/** About how long a day of the plan takes (examRescue.ts taskMinutes): an estimate, never a timer. */
+const minutesText = (m) => `כ־${m} דקות`;
 const dayName = (d) => { const t = today(); if (d === t) return 'היום'; const x = new Date(`${d}T12:00:00`); return x.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric' }); };
 
 const ASK = ['מתי המבחן?', 'מה יהיה במבחן?', 'כמה אתם מרגישים בטוחים?', 'כמה דקות ביום יש לכם?'];
@@ -54,8 +56,8 @@ function Setup({ onSave }) {
   const submit = (e) => {
     e.preventDefault();
     if (!can) return;
-    // a date on Shabbat is a typo: said right away, on the date's own screen
-    if (step === 0 && isShabbatDay(date)) { setError(validInput({ grade, date, skills: ['x'], minutes }, today())); return; }
+    // a date on Shabbat or Yom Tov is likely a typo: said right away, calmly, on the date's own screen
+    if (step === 0 && isPlanRestDay(date)) { setError(validInput({ grade, date, skills: ['x'], minutes }, today())); return; }
     if (!last) { setStep(step + 1); setError(null); return; }
     const input = { grade, date, skills, confidence, minutes };
     const err = validInput(input, today());
@@ -148,8 +150,8 @@ function Plan({ plan }) {
       </section>
       {!p.diagnosed ? (
         <>
-          {/* on Shabbat the plan asks nothing: the short check waits, and can still be done by choice */}
-          {restDay && <p className="rescue-rest" role="status">היום שבת, ואין בו משימות. ממשיכים אחריה.</p>}
+          {/* on Shabbat and Yom Tov the plan asks nothing: the short check waits, and can still be done by choice */}
+          {restDay && <p className="rescue-rest" role="status">{REST_DAY_LINE}</p>}
           <Button variant={restDay ? 'secondary' : 'primary'} className="btn-block btn-lg" onClick={() => navigate(examToday[0]?.to || '/rescue/check')}><ClipboardCheck size={20} aria-hidden="true" />לבדיקה הקצרה ({plan.skills.length * DIAG_PER_SKILL} שאלות)</Button>
         </>
       ) : (
@@ -174,7 +176,7 @@ function Plan({ plan }) {
                   <li key={d.day} className={clsx('rescue-day', isToday && 'today')} style={{ '--x': `${DAY_SWING[k % DAY_SWING.length]}px` }}>
                     {isToday && <span className="day-start" aria-hidden="true">היום</span>}
                     <span className="day-node" aria-hidden="true">{isToday ? <Star size={30} fill="currentColor" /> : k + 1}</span>
-                    <p className="rescue-day-name">{dayName(d.day)}</p>
+                    <p className="rescue-day-name">{dayName(d.day)}<span className="visually-hidden">{`, ${minutesText(d.minutes)}`}</span></p>
                     <ul className={clsx('plain-list', 'day-tasks', !isToday && 'visually-hidden')}>
                       {tasks.map((t, i) => (
                         <li key={i} className="rescue-task">
@@ -183,7 +185,8 @@ function Plan({ plan }) {
                         </li>
                       ))}
                     </ul>
-                    {!isToday && <p className="day-count" aria-hidden="true">{tasks.length === 1 ? 'משימה אחת' : `${tasks.length} משימות`}</p>}
+                    {isToday && <p className="day-min" aria-hidden="true">{minutesText(d.minutes)}</p>}
+                    {!isToday && <p className="day-count" aria-hidden="true">{tasks.length === 1 ? 'משימה אחת' : `${tasks.length} משימות`} · {minutesText(d.minutes)}</p>}
                   </li>
                 );
               })}

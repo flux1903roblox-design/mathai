@@ -5,7 +5,7 @@
 // missing only on evidence (never because it was not started), and it is offered as new only when the floor is on.
 import type { Action, LearnState, MasteryState, SkillId, SkillRecord, Stage } from './types';
 import { ALL_SKILLS, GRADE_OF, isBridgeSkill, parseSkill, prereqsOf } from './skills';
-import { masteryState, nextStage } from './mastery';
+import { masteryState, nextStage, practiceDone } from './mastery';
 import { openMisconceptions } from './misconceptions';
 import { hasContent } from './content/index';
 import { planNext } from './next';
@@ -54,7 +54,7 @@ export const routeOf = {
 };
 
 /** The next stage of a stair for this student (a stair without teaching content starts at practice). */
-export const stairStage = (id: SkillId, rec: SkillRecord | undefined): Stage => (hasContent(id) ? nextStage(rec) : (rec?.attempts.some((a) => a.purpose === 'practice' && a.ok) ? 'E' : 'D'));
+export const stairStage = (id: SkillId, rec: SkillRecord | undefined): Stage => (hasContent(id) ? nextStage(rec) : practiceDone(rec, 1) ? 'E' : 'D');
 export const stageOf = (ctx: Context, id: SkillId): Stage => stairStage(id, ctx.learn.skills[id]);
 
 /** The state of every skill now. */

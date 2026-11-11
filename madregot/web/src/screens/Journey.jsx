@@ -12,7 +12,7 @@ import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
 import { useStairContent } from '@/learn/useStairContent.js';
 import { skillId } from '@/learn/skills.ts';
-import { masteryState, nextStage, STATE_LABEL, MASTERY_RULES, MASTERY_N, daysBetween } from '@/learn/mastery.ts';
+import { masteryState, nextStage, STATE_LABEL, MASTERY_RULES, MASTERY_N, daysBetween, practiceDone, checkWaits, practiceSinceFail, PRACTICE_AGAIN, RETRY_PRACTICE, PRACTICE_NEED } from '@/learn/mastery.ts';
 import { openMisconceptions } from '@/learn/misconceptions.ts';
 import { routeOf } from '@/learn/recommend.ts';
 import { challengesAfter, isSolved } from '@/learn/challenges/index.ts';
@@ -91,8 +91,10 @@ export default function Journey() {
   if (!t || !t.levels[level - 1]) return <div className="page pushed"><ScreenBar title="מדרגה" back="/" backLabel="למפה" /><EmptyState mood="encouraging" title="המדרגה לא נמצאה"><p>אולי הקישור ישן. המסלול שלכם מחכה במפה.</p></EmptyState><ScreenFoot><Link to="/" className="btn btn-primary btn-block btn-lg">חזרה למסלול</Link></ScreenFoot></div>;
   const now = new Date().toISOString();
   const state = masteryState(rec, now);
-  const stage = c ? nextStage(rec) : (rec?.attempts?.some((a) => a.purpose === 'practice' && a.ok) ? 'E' : 'D');
+  const stage = c ? nextStage(rec) : (practiceDone(rec, 1) ? 'E' : 'D');
   const practiced = (rec?.attempts || []).filter((a) => a.purpose === 'practice' && a.ok).length;
+  // after a failed mastery check: practice again, and the check returns after fresh right answers (mastery.ts)
+  const waits = checkWaits(rec);
   const node = unitNodes(topic, path).find((n) => n.kind === 'node' && n.level === level);
   const part = node?.state === 'done' ? PARTS : Math.min(PARTS, (node?.parts || 0) + 1);
   const practiceTo = `/lesson/${topic}/${level}?part=${part}&from=journey`;
@@ -105,7 +107,7 @@ export default function Journey() {
     else navigate(`/learn/${topic}/${level}/${id}`);
   };
   const status = (id) => {
-    if (id === 'D') return practiced >= 6 ? 'done' : practiced ? 'going' : '';
+    if (id === 'D') return practiceDone(rec) ? 'done' : practiced ? 'going' : '';
     if (id === 'E') return rec?.mastered ? 'done' : '';
     return rec?.taught?.[id] ? 'done' : '';
   };
@@ -113,7 +115,8 @@ export default function Journey() {
     A: c ? `${c.discover.length} צעדים קצרים, עם דברים שאפשר להזיז` : 'השיעור המלא למדרגה הזאת עוד בהכנה',
     B: c ? `${c.examples.length} דוגמאות, צעד אחר צעד, עם הסיבה לכל צעד` : 'בהכנה',
     C: c ? 'אתם בוחרים את הצעד הבא, ומדי עוזר כשצריך' : 'בהכנה',
-    D: `${LESSON_LEN} תרגילים, עם רמז כשצריך${practiced ? ` · ${Math.min(practiced, 6)} מתוך 6 נכונות` : ''}`,
+    D: waits ? `${PRACTICE_AGAIN} ${Math.min(practiceSinceFail(rec), RETRY_PRACTICE)} מתוך ${RETRY_PRACTICE} נכונות מאז הבדיקה.`
+      : `${LESSON_LEN} תרגילים, עם רמז כשצריך${practiced ? ` · ${Math.min(practiced, PRACTICE_NEED)} מתוך ${PRACTICE_NEED} נכונות` : ''}`,
     E: `${MASTERY_N} שאלות בלי רמזים. כך יודעים שזה שלכם.`,
   };
   const cta = { A: 'מתחילים ללמוד', B: 'לדוגמה הפתורה', C: 'פותרים יחד', D: 'לתרגול', E: 'לבדיקת השליטה' }[stage];
