@@ -246,7 +246,8 @@ test('a family-device token is refused by account, billing, claim and unlink rou
   }
   const s = await h.call('GET', '/api/ai/status', { headers: fd });
   const text = await s.text();
-  assert.deepEqual(JSON.parse(text).linked, { label: 'הטאבלט' });
+  // the device learns the state of its daily summary for the parents (PARENTS-3), never the account behind it
+  assert.deepEqual(JSON.parse(text).linked, { label: 'הטאבלט', summary: 'on' });
   assert.doesNotMatch(text, /@|family_month|priceAgorot|₪/);
   assert.equal(rows(h.env, 'SELECT * FROM family_devices').length, 1, 'nothing was unlinked');
 });

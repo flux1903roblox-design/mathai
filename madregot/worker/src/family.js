@@ -4,8 +4,9 @@
 //   2. a signed-in parent claims the code                          POST /api/family/link/claim   {code, label, purpose, consent} (X-Account-Token)
 //   3. the child's device collects its token, exactly once         POST /api/family/link/finish  {code, secret}
 //
-// The token (X-Family-Device: fd1.<64 hex>) works for the AI routes only; the parent's session never reaches the child's
-// device. On the parent's own phone there is a shortcut: POST /api/family/devices/this makes a token for the device the
+// The token (X-Family-Device: fd1.<64 hex>) works for the AI routes, the daily summary for the parents
+// (/api/family/summary*, report.js) and the device's own escrow (/api/vault/escrow*, and it names the device for the
+// vault's caps), and for nothing in the account; the parent's session never reaches the child's device. On the parent's own phone there is a shortcut: POST /api/family/devices/this makes a token for the device the
 // parent is holding and deletes the session that asked, so nothing on that device can change the plan afterwards.
 // A family has at most 3 devices. The parent unlinks a device from the parents page; a device can leave by itself.
 // Every link is emailed to the parent. Only hashes of codes, secrets and tokens are stored.
@@ -16,12 +17,21 @@
 // 'plan' when the account has a live plan and 'consent' when it has none. Either way the device row is the same: it
 // gets the free taste (free:fd:<id>) until the account has a plan, and then the plan's limits with no new link. The
 // purpose goes into the audit row and picks the email (a consent email carries the AI and privacy summary).
+//
+// Escrow (DURABLE-6): each linked device can keep its backup code with the account (vault.js). Unlinking or leaving
+// keeps that escrow in the account (device_id NULL: "התקדמות שמורה"), in the same batch, before the device row goes.
+// The device's daily summaries (PARENTS-3, family_daily) are deleted in that batch too: after the escrow is detached and
+// before the device row, explicitly, although the foreign key would cascade.
+// Linking a new device can continue from one: claim (or devices/this) with restoreFrom: <escrow id> of this account;
+// the finish that hands over the token also points the escrow at the new device and returns vault: { code }.
+// GET /api/family/vaults lists the account's escrows (never the code); POST /api/family/vaults/:id/delete deletes one.
 import {
   HttpError, body, json, sha256, hmacHex, randomToken, randomFrom, CODE_ALPHABET, nowIso, dayOf, netKey, devKey, key, take, limitOrThrow, safeEqual,
 } from './util.js';
 import { requireAccount } from './account.js';
 import { deviceFrom, liveFamily, limits } from './entitle.js';
 import { flushNotices } from './email.js';
+import { deviceEscrowCode } from './vault.js';
 
 export const LINK_TTL_MIN = 60;
 /** Once claimed, the child's device has at least this long to collect its token. */
@@ -120,15 +130,39 @@ export async function linkFinish(req, env, cors) {
   if (!row.claimed_at || !row.device_id) return json({ state: 'waiting' }, 202, cors);
 
   const token = newDeviceToken();
+  const tokenHash = await sha256(token);
   const res = await env.DB.batch([
     env.DB.prepare('UPDATE link_codes SET collected_at = ? WHERE code_hash = ? AND collected_at IS NULL AND claimed_at IS NOT NULL AND expires_at > ? RETURNING device_id')
       .bind(now, ch, now),
     env.DB.prepare(`UPDATE family_devices SET token_hash = ?, last_seen = ? WHERE id = ? AND token_hash IS NULL
-      AND EXISTS (SELECT 1 FROM link_codes WHERE code_hash = ? AND collected_at = ?)`).bind(await sha256(token), dayOf(), row.device_id, ch, now),
+      AND EXISTS (SELECT 1 FROM link_codes WHERE code_hash = ? AND collected_at = ?)`).bind(tokenHash, dayOf(), row.device_id, ch, now),
+    // the parent chose to continue from kept progress: that escrow now belongs to this device (only once the token is handed over)
+    moveEscrowStmt(env, { escrowId: row.restore_escrow, accountId: row.account_id, deviceId: row.device_id, tokenHash, at: now }),
   ]);
   if (res[0].results?.length !== 1 || Number(res[1].meta?.changes) !== 1) throw new HttpError(410, 'link_expired');
   const dev = await first(env, 'SELECT label FROM family_devices WHERE id = ?', row.device_id);
-  return json({ deviceToken: token, label: dev?.label || '' }, 200, cors);
+  const kept = row.restore_escrow ? await deviceEscrowCode(env, row.device_id) : null;
+  return json({ deviceToken: token, label: dev?.label || '', ...(kept ? { vault: { code: kept } } : {}) }, 200, cors);
+}
+
+/**
+ * Point an escrow of this account at a device that has just received its token (in the same batch as the token):
+ * nothing when there is no escrow to move, it is not this account's, or the token was not handed over.
+ */
+function moveEscrowStmt(env, { escrowId, accountId, deviceId, tokenHash, at }) {
+  return env.DB.prepare(`UPDATE vault_escrow SET device_id = ?1, updated_at = ?2
+    WHERE id = ?3 AND owner_kind = 'account' AND owner_id = ?4 AND EXISTS (SELECT 1 FROM family_devices WHERE id = ?1 AND account_id = ?4 AND token_hash = ?5)`)
+    .bind(deviceId, at, escrowId ?? '', accountId ?? '', tokenHash);
+}
+
+/** restoreFrom on a claim: an escrow id of this account (404 escrow_not_found otherwise), or null when none was asked for. */
+async function restoreFromOf(env, b, accountId) {
+  if (b.restoreFrom == null || b.restoreFrom === '') return null;
+  const id = String(b.restoreFrom);
+  const ok = /^[a-f0-9]{16}$/.test(id)
+    && await first(env, "SELECT id FROM vault_escrow WHERE id = ? AND owner_kind = 'account' AND owner_id = ?", id, accountId);
+  if (!ok) throw new HttpError(404, 'escrow_not_found');
+  return id;
 }
 
 /** POST /api/family/devices/leave {} with X-Family-Device: the device unlinks itself (also before "delete all data"). */
@@ -139,6 +173,10 @@ export async function leaveFamily(req, env, cors) {
   const dev = await first(env, 'SELECT id, account_id FROM family_devices WHERE token_hash = ?', await sha256(token));
   if (dev) {
     await env.DB.batch([
+      // the device's escrow stays with the account ("התקדמות שמורה"), before the device row goes
+      env.DB.prepare('UPDATE vault_escrow SET device_id = NULL WHERE device_id = ?').bind(dev.id),
+      // its daily summaries for the parents go with it (PARENTS-3)
+      env.DB.prepare('DELETE FROM family_daily WHERE device_id = ?').bind(dev.id),
       env.DB.prepare('DELETE FROM family_devices WHERE id = ?').bind(dev.id),
       env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
         .bind(nowIso(), `device:${dev.id}`, 'device.unlink', `device:${dev.id}`, JSON.stringify({ by: 'device' })),
@@ -177,6 +215,7 @@ export async function linkClaim(req, env, ctx, cors) {
   if (!code) throw new HttpError(404, 'link_not_found');
   const ch = await linkHash(env, code);
   const label = cleanLabel(b.label);
+  const restore = await restoreFromOf(env, b, a.id);
   const now = nowIso();
   const row = await first(env, 'SELECT * FROM link_codes WHERE code_hash = ?', ch);
   if (!row) throw new HttpError(404, 'link_not_found');
@@ -200,8 +239,8 @@ export async function linkClaim(req, env, ctx, cors) {
     env.DB.prepare(`INSERT INTO family_devices (id, account_id, token_hash, label, created_at, last_seen)
       SELECT ?3, ?1, NULL, ?4, ?2, ?5 WHERE EXISTS (SELECT 1 FROM link_codes WHERE code_hash = ?6 AND claimed_at IS NULL AND expires_at > ?2)
       AND (SELECT COUNT(*) FROM family_devices d WHERE ${IN_USE}) < ?7`).bind(a.id, now, id, label, dayOf(), ch, max),
-    env.DB.prepare(`UPDATE link_codes SET account_id = ?, device_id = ?, claimed_at = ?, expires_at = MAX(expires_at, ?)
-      WHERE code_hash = ? AND claimed_at IS NULL AND EXISTS (SELECT 1 FROM family_devices WHERE id = ?)`).bind(a.id, id, now, collectBy, ch, id),
+    env.DB.prepare(`UPDATE link_codes SET account_id = ?, device_id = ?, claimed_at = ?, expires_at = MAX(expires_at, ?), restore_escrow = ?
+      WHERE code_hash = ? AND claimed_at IS NULL AND EXISTS (SELECT 1 FROM family_devices WHERE id = ?)`).bind(a.id, id, now, collectBy, restore, ch, id),
     linkedNoticeStmt(env, { id, accountId: a.id, label, at: now, purpose }),
     linkedAuditStmt(env, { id, accountId: a.id, at: now, how: 'code', purpose }),
   ]);
@@ -228,22 +267,27 @@ export async function linkThisDevice(req, env, ctx, cors) {
   await limitOrThrow(env, `claim:a:${a.id}`, LINK_LIMITS.claim, 429, 'too_many_links');
   const purpose = await linkPurpose(env, a.id, b);
   const label = cleanLabel(b.label);
+  const restore = await restoreFromOf(env, b, a.id);
   const now = nowIso();
   const max = limits(env).family.devices;
   if ((await devicesInUse(env, a.id, now)) >= max) throw await deviceLimitError(env, a.id);
   const id = randomToken(8);
   const token = newDeviceToken();
+  const tokenHash = await sha256(token);
   const res = await env.DB.batch([
     env.DB.prepare(`INSERT INTO family_devices (id, account_id, token_hash, label, created_at, last_seen)
       SELECT ?3, ?1, ?4, ?5, ?2, ?6 WHERE (SELECT COUNT(*) FROM family_devices d WHERE ${IN_USE}) < ?7`)
-      .bind(a.id, now, id, await sha256(token), label, dayOf(), max),
+      .bind(a.id, now, id, tokenHash, label, dayOf(), max),
     env.DB.prepare('DELETE FROM account_sessions WHERE token_hash = ? AND EXISTS (SELECT 1 FROM family_devices WHERE id = ?)').bind(a.tokenHash, id),
     linkedNoticeStmt(env, { id, accountId: a.id, label, at: now, purpose }),
     linkedAuditStmt(env, { id, accountId: a.id, at: now, how: 'this_device', purpose }),
+    // continuing from kept progress: the escrow moves to this device with its token
+    moveEscrowStmt(env, { escrowId: restore, accountId: a.id, deviceId: id, tokenHash, at: now }),
   ]);
   if (Number(res[0].meta?.changes) !== 1) throw await deviceLimitError(env, a.id);
   ctx?.waitUntil?.(flushNotices(env));
-  return json({ deviceToken: token, label }, 200, cors);
+  const kept = restore ? await deviceEscrowCode(env, id) : null;
+  return json({ deviceToken: token, label, ...(kept ? { vault: { code: kept } } : {}) }, 200, cors);
 }
 
 /** POST /api/family/devices/:id/unlink {}: the parent unlinks one of the family's devices. */
@@ -253,6 +297,10 @@ export async function unlinkDevice(id, req, env, cors) {
   const dev = await first(env, 'SELECT id FROM family_devices WHERE id = ? AND account_id = ?', String(id), a.id);
   if (!dev) throw new HttpError(404, 'not_found');
   await env.DB.batch([
+    // the device's escrow stays with the account ("התקדמות שמורה"), before the device row goes
+    env.DB.prepare('UPDATE vault_escrow SET device_id = NULL WHERE device_id = ?').bind(dev.id),
+    // its daily summaries for the parents go with it (PARENTS-3)
+    env.DB.prepare('DELETE FROM family_daily WHERE device_id = ?').bind(dev.id),
     env.DB.prepare('DELETE FROM family_devices WHERE id = ? AND account_id = ?').bind(dev.id, a.id),
     env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
       .bind(nowIso(), `account:${a.id}`, 'device.unlink', `device:${dev.id}`, JSON.stringify({ by: 'parent' })),
@@ -260,13 +308,50 @@ export async function unlinkDevice(id, req, env, cors) {
   return json({ ok: true }, 200, cors);
 }
 
-/** Night-time purge: link codes a day past their expiry, devices that never collected a token, devices unused for a year. */
+/**
+ * Night-time purge: link codes a day past their expiry, devices that never collected a token, devices unused for a year.
+ * A deleted device's escrow stays with the account (device_id NULL), as on an unlink. Its daily summaries go with it:
+ * purge() runs report.js purgeReportSql after this in the same batch, whose orphan sweep removes them (so does the FK).
+ */
 export function purgeFamilySql(env, now = new Date()) {
   const dayAgo = new Date(now.getTime() - 864e5).toISOString();
   const yearAgo = dayOf(new Date(now.getTime() - 365 * 864e5));
+  const never = 'token_hash IS NULL AND created_at < ?';
+  const unused = 'token_hash IS NOT NULL AND last_seen < ?';
   return [
     env.DB.prepare('DELETE FROM link_codes WHERE expires_at < ?').bind(dayAgo),
-    env.DB.prepare('DELETE FROM family_devices WHERE token_hash IS NULL AND created_at < ?').bind(dayAgo),
-    env.DB.prepare('DELETE FROM family_devices WHERE token_hash IS NOT NULL AND last_seen < ?').bind(yearAgo),
+    env.DB.prepare(`UPDATE vault_escrow SET device_id = NULL WHERE device_id IN (SELECT id FROM family_devices WHERE ${never})`).bind(dayAgo),
+    env.DB.prepare(`DELETE FROM family_devices WHERE ${never}`).bind(dayAgo),
+    env.DB.prepare(`UPDATE vault_escrow SET device_id = NULL WHERE device_id IN (SELECT id FROM family_devices WHERE ${unused})`).bind(yearAgo),
+    env.DB.prepare(`DELETE FROM family_devices WHERE ${unused}`).bind(yearAgo),
   ];
+}
+
+// ---------------------------------------------------------------- the progress kept for the family (DURABLE-6)
+/**
+ * GET /api/family/vaults: the account's escrows whose vault is still there: { vaults: [{ id, label, device, updatedAt }] }
+ * (device: the linked device syncing it, or null when it is kept in the account). Never the code or the vault's content.
+ */
+export async function familyVaults(req, env, cors) {
+  const a = await requireAccount(req, env);
+  const rows = await all(env, `SELECT e.id, e.label, e.device_id, d.label AS device_label, v.updated_at FROM vault_escrow e
+    JOIN vaults v ON v.id_hash = e.vault_id LEFT JOIN family_devices d ON d.id = e.device_id AND d.account_id = e.owner_id
+    WHERE e.owner_kind = 'account' AND e.owner_id = ? ORDER BY v.updated_at DESC`, a.id);
+  return json({
+    vaults: rows.map((r) => ({ id: r.id, label: r.label, device: r.device_id && r.device_label != null ? { id: r.device_id, label: r.device_label } : null, updatedAt: r.updated_at })),
+  }, 200, cors);
+}
+
+/** POST /api/family/vaults/:id/delete {}: the parent deletes one kept escrow (the device itself is not affected). */
+export async function deleteFamilyVault(id, req, env, cors) {
+  const a = await requireAccount(req, env);
+  await body(req, SMALL);
+  const e = await first(env, "SELECT id FROM vault_escrow WHERE id = ? AND owner_kind = 'account' AND owner_id = ?", String(id), a.id);
+  if (!e) throw new HttpError(404, 'not_found');
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM vault_escrow WHERE id = ? AND owner_kind = 'account' AND owner_id = ?").bind(e.id, a.id),
+    env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
+      .bind(nowIso(), `account:${a.id}`, 'escrow.delete', `escrow:${e.id}`, JSON.stringify({ by: 'parent' })),
+  ]);
+  return json({ ok: true }, 200, cors);
 }

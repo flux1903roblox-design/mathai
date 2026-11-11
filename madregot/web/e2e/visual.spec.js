@@ -1,7 +1,7 @@
 // Visual regression: screenshots of the critical screens, compared with the approved ones in __screens__/.
 // After an intended design change, review the new pictures and update them: npm run test:e2e -- --update-snapshots
 import { test, expect } from '@playwright/test';
-import { open, openOn, student, livedIn, answer } from './helpers.js';
+import { open, openOn, student, livedIn, reportWeek, answer } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone-small', 'phone', 'phone-dark', 'desktop'].includes(info.project.name), 'screenshots on two phones, the phone in dark mode and desktop'); });
 
@@ -61,3 +61,9 @@ for (const [name, route, ready] of [
     await shot(page, name, ready);
   });
 }
+
+// the weekly summary a child can send a parent (PARENTS-2): the dates, the strip, the tiles, the send button
+test('visual: report-week', async ({ page }) => {
+  await open(page, '#/report', reportWeek());
+  await shot(page, 'report-week', '.report-week');
+});

@@ -8,7 +8,7 @@
 // in the school year (topic flag placement: false) are not tested on the first day.
 import { TOPIC, placementTopicsFor, testItem, isCorrect } from '@/content/index.js';
 import { itemFor } from '@/learn/items.ts';
-import { contentOf } from '@/learn/content/index.ts';
+import { metaOf } from '@/learn/content/index.ts';
 import { skillId } from '@/learn/skills.ts';
 
 /** Probes per topic. */
@@ -38,7 +38,7 @@ export function nextProbe(p) {
 /** The k-th question of a probe at a level: an exercise, then the stair's diagnostic and transfer questions. */
 export function probeItem(topic, level, k, avoidKey) {
   const skill = skillId(topic, level);
-  const c = contentOf(skill);
+  const c = metaOf(skill);
   const source = k === 1 && c ? 'diag' : k === 2 && c?.transfer ? 'transfer' : k === 2 && c ? 'diag' : 'gen';
   const it = source === 'gen' ? testItem(topic, level, avoidKey) : itemFor(skill, source, Math.random, avoidKey, undefined, { test: true });
   return { ...it, topic, level };

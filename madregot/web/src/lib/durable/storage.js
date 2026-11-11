@@ -10,7 +10,9 @@
 //     device (IndexedDB, idb.js) instead; only when that fails too does the app say that nothing is saved;
 //   - saved data that cannot be read (not JSON, or written by a newer build) is kept in quarantine before anything
 //     else happens, and the copy on the device brings the progress back;
-//   - "delete all" deletes the copy and the quarantine too (durableWipe).
+//   - "delete all" deletes the copy and the quarantine too (durableWipe);
+//   - what goes wrong here is reported (kind 'storage', lib/monitor.js): a full storage, a save that cannot be read,
+//     a copy that could not be written. Never the data itself.
 // Two tabs of the same app (tabs.js): a save another tab made is loaded, or merged with this tab's (mergeTabs,
 // merge.js), when its `storage` event arrives, and before every save the stamp says whether another tab saved first;
 // then the two are merged instead of the last writer replacing the other's progress.
@@ -22,6 +24,7 @@ import { validateState } from './validate.js';
 import { mergeTabs, noteMerge, dataOf } from './merge.js';
 import { listenTabs, tabAction, seenOf, includes, joinSeen, pruneSeen } from './tabs.js';
 import { randomHex } from '../random.js';
+import { report as reportError } from '../monitor.js';
 
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
 export const STORE_KEY = import.meta.env.VITE_STORE_KEY || 'madregot';
@@ -86,7 +89,7 @@ function newProblems(validate, merged, ...sides) {
 export function createDurable({
   key, version = CURRENT_VERSION, ls, idb = null, status = useDurable, release = RELEASE,
   now = () => new Date(), tab = randomHex(4), bootWait = BOOT_WAIT, mirrorDelay = MIRROR_DELAY,
-  validate = validateState, onRemoved = () => {},
+  validate = validateState, onRemoved = () => {}, report = reportError,
 }) {
   const REV = `${key}:rev`;
   const memory = ls ? null : new Map();
@@ -123,6 +126,9 @@ export function createDurable({
   };
   const remember = (writer, rev, state) => { history.push({ tab: writer ?? null, rev, state }); if (history.length > HISTORY) history.shift(); };
   const keep = (raw, reason, v) => {
+    if (reason === 'parse' || reason === 'future-version') {
+      report('storage', { name: reason, message: reason === 'parse' ? 'the saved progress is not valid JSON' : `the saved progress is from a newer version (v${v})` });
+    }
     if (!idb || quarantined.has(raw)) return;
     quarantined.add(raw);
     idb.quarantine(raw, reason, v, iso()).catch(() => {});
@@ -225,8 +231,13 @@ export function createDurable({
     if (!ls) { setStatus({ health: 'memory', savedAt: at }); return; }
     if (ok === true) { setStatus({ health: 'ok', savedAt: at }); scheduleMirror(); return; }
     // localStorage could not take it: the copy on the device, at once
+    report('storage', { name: ok === 'quota' ? 'quota' : 'write', message: ok === 'quota' ? 'localStorage is full' : 'localStorage refused the save' });
     clearTimeout(mirrorTimer); mirrorTimer = null;
-    mirrorNow().then((saved) => { if (lastRev === rev && !wiped) setStatus(saved ? { health: 'mirror', savedAt: at } : { health: 'full' }); });
+    mirrorNow().then((saved) => {
+      if (lastRev !== rev || wiped) return;
+      setStatus(saved ? { health: 'mirror', savedAt: at } : { health: 'full' });
+      if (!saved) report('storage', { name: 'mirror', message: 'nothing could save the progress' });
+    });
   }
 
   /**
@@ -283,7 +294,10 @@ export function createDurable({
     if (wiped) return false;
     if (!lastRaw || lastRaw === mirrored) return !!lastRaw;
     const raw = lastRaw; const rev = lastRev;
-    try { await idb.writeMirror(raw, rev, iso()); } catch { return false; }
+    try { await idb.writeMirror(raw, rev, iso()); } catch (e) {
+      report('storage', { name: 'mirror', message: `the copy on the device was not written: ${e?.name || 'Error'}` });
+      return false;
+    }
     if (lastRaw === raw) mirrored = raw;
     return true;
   }
@@ -390,8 +404,9 @@ export function createDurable({
 }
 
 // ------------------------------------------------------------------ the app's own
+const appIdb = createIdb(browserBackend(`${STORE_KEY}-durable`));
 const durable = createDurable({
-  key: STORE_KEY, ls: pageStorage(), idb: createIdb(browserBackend(`${STORE_KEY}-durable`)),
+  key: STORE_KEY, ls: pageStorage(), idb: appIdb,
   // "delete all" in another tab: start again, so this page shows the empty app instead of writing the progress back
   onRemoved: () => { try { globalThis.location?.reload(); } catch { /* not a page */ } },
 });
@@ -405,3 +420,11 @@ export const durableBoot = () => durable.boot().catch(() => {});
 export const durableWipe = () => durable.wipe();
 /** The app's quarantine (a replacing restore keeps the progress it replaces there, for 30 days). */
 export const durableQuarantine = durable.quarantine;
+/**
+ * The errors kept on this device (the last 20, oldest first), for "מידע לתמיכה": lib/monitor.js adds each report here,
+ * with or without a server. "Delete all" deletes them with the rest of the database.
+ */
+export const errorLog = {
+  add: (rec) => (appIdb ? appIdb.addError(rec) : Promise.resolve(false)),
+  list: () => (appIdb ? appIdb.listErrors() : Promise.resolve([])),
+};

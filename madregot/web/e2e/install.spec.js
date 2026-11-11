@@ -1,11 +1,13 @@
 // Installable, kept, and honest about where the data lives (DURABLE-3), in a real browser: the manifest and its icons
 // load (every icon is a PNG of the size it states), the browser is asked to keep the data once after the first lesson
 // and not again after a reload, an iPhone in Safari is offered the Home Screen guide on Learn from the 3rd day, and the
-// sentences about where the progress lives are true for a class student and never say "מוצפן".
+// sentences about where the progress lives are true for a class student and never say "מוצפן" (only the backup code's
+// own note does, DURABLE-5: that copy only the code opens).
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { open, student, livedIn, item, answer, proceedToNext, leaveEndScreens } from './helpers.js';
+import { open, student, livedIn, item, answer, proceedToNext, leaveEndScreens, saved } from './helpers.js';
 import { API, fakeServer } from './fakeServer.js';
+import { formatCode } from '../src/lib/durable/code.js';
 
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
@@ -99,7 +101,7 @@ test.describe('installable and kept', () => {
     expect(await asks()).toBe(1);
     // Settings shows the answer as it is, and the button asks again only when tapped
     await page.evaluate(() => { window.location.hash = '#/settings'; });
-    const row = page.locator('.save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
+    const row = page.locator('#save .save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
     await expect(row.locator('dd')).toHaveText('לא מובטחת');
     await page.getByRole('button', { name: 'לבקש מהדפדפן לשמור' }).click();
     await expect(page.getByText('הדפדפן לא הבטיח לשמור. כדאי לשמור גיבוי.')).toBeVisible();
@@ -117,7 +119,7 @@ test.describe('installable and kept', () => {
       Object.defineProperty(StorageManager.prototype, 'persisted', { configurable: true, value: async () => true });
     });
     await open(page, '#/settings', student('7'));
-    const row = page.locator('.save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
+    const row = page.locator('#save .save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
     await expect(row.locator('dd')).toHaveText('כן');
     await expect(page.getByRole('button', { name: 'לבקש מהדפדפן לשמור' })).toHaveCount(0);
   });
@@ -161,6 +163,34 @@ test.describe('an iPhone in Safari', () => {
     await expect(page.getByRole('dialog', { name: 'להוסיף את מדרגות למסך הבית' })).toBeVisible();
   });
 
+  test('with a server, step 1 makes the backup code and copies it in the same tap; step 4 says to paste it', async ({ page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    const { st } = await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/settings', withServer(SOLO));
+    await page.getByRole('button', { name: 'להוסיף למסך הבית' }).click();
+    const sheet = page.getByRole('dialog', { name: 'להוסיף את מדרגות למסך הבית' });
+    await expect(sheet.locator('.install-steps > li')).toHaveCount(4);
+    await expect(sheet).toContainText('פותחים את מדרגות מהסמל החדש ומדביקים את קוד הגיבוי. ההתקדמות עוברת לשם.');
+    await expect(sheet).toContainText('באייפון, אפליקציה במסך הבית שומרת נתונים בנפרד מספארי, ולכן צריך את הקוד פעם אחת.');
+    const make = sheet.getByRole('button', { name: 'ליצור קוד גיבוי' });
+    expect((await make.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await make.click();
+    await expect(sheet.getByText('יצרנו קוד גיבוי והעתקנו אותו.')).toBeVisible();
+    const code = (await saved(page)).backup.code;
+    await expect(sheet.locator('.install-code')).toHaveText(formatCode(code));
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(formatCode(code));
+    expect(Object.keys(st.vaults)).toHaveLength(1);
+    await shot(page, 'install-sheet-code');
+    // with a code already: the same button copies it
+    await sheet.getByRole('button', { name: 'הבנתי' }).click();
+    await page.evaluate(() => navigator.clipboard.writeText(''));
+    await page.getByRole('button', { name: 'להוסיף למסך הבית' }).click();
+    await sheet.getByRole('button', { name: 'להעתיק את קוד הגיבוי' }).click();
+    await expect(sheet.getByText('העתקנו את קוד הגיבוי.')).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(formatCode(code));
+    expect(Object.keys(st.vaults)).toHaveLength(1);
+  });
+
   test('"לא עכשיו" on the card puts it away for 30 days; two days of learning are not enough for it', async ({ page }) => {
     await open(page, '#/', livedIn('7'));
     await page.locator('.install-card').getByRole('button', { name: 'לא עכשיו' }).click();
@@ -193,17 +223,22 @@ test.describe('where the progress lives, said truly', () => {
     await expect(page.locator('.nums-where')).toContainText('ההתקדמות נשמרת רק במכשיר הזה.');
   });
 
-  test('a class student: the numbers say the answers go to the teacher, and no page says "מוצפן"', async ({ page }) => {
+  test('a class student: the numbers say the answers go to the teacher, and only the backup code\'s note says "מוצפן"', async ({ page }) => {
     await fakeServer(page.context(), {}, baseOf());
     await open(page, '#/me', withServer(CLASS));
     await expect(page.locator('.nums-where')).toContainText(CLASS_LINE);
     await expect(page.locator('body')).not.toContainText('לא נשלחים לשום מקום');
+    // "מוצפן" outside the backup code's note (the one copy only its code opens)
+    const encrypted = () => page.evaluate(() => {
+      const count = (t) => t.split('מוצפן').length - 1;
+      return count(document.body.innerText) - count(document.querySelector('.save-backup .save-note')?.innerText || '');
+    });
     for (const route of ['#/me', '#/settings', '#/']) {
       await page.evaluate((r) => { window.location.hash = r; }, route);
       await expect(page.locator(route === '#/' ? '.learn' : route === '#/me' ? '.profile-name' : '.save-section')).toBeVisible();
-      await expect(page.locator('body'), route).not.toContainText('מוצפן');
+      expect(await encrypted(), route).toBe(0);
     }
-    await expect(page.locator('body')).not.toContainText('מוצפן');
+    expect(await encrypted()).toBe(0);
     await page.evaluate(() => { window.location.hash = '#/settings'; });
     await expect(page.locator('.footnote')).toHaveText('מדרגות. ההתקדמות נשמרת במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה.');
     await shot(page, 'save-section-class', { fullPage: true });

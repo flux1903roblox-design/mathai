@@ -190,6 +190,16 @@ export interface StairContent {
   words?: Text[];
 }
 
+/**
+ * What every screen knows about a stair before its topic's teaching content has loaded (learn/content/meta.gen.ts,
+ * generated from the content files): its title, its misconceptions' names, and whether it has transfer questions.
+ */
+export interface StairMeta {
+  title: Text;
+  misconceptions: { id: string; title: Text }[];
+  transfer: boolean;
+}
+
 // ------------------------------------------------------------------ the learner
 
 export type MasteryState = 'not-started' | 'learning' | 'needs-support' | 'practicing' | 'mastered' | 'needs-review';

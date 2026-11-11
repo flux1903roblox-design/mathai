@@ -145,11 +145,12 @@ img, svg { max-width: 100%; }
 ::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 8px; }
 ::placeholder { color: var(--ink-2); opacity: 1; }
 
-/* math: KaTeX keeps left-to-right inside Hebrew lines */
-.katex { direction: ltr; unicode-bidi: isolate; font-size: 1.08em; }
+/* math: KaTeX keeps left-to-right inside Hebrew lines. KaTeX's own stylesheet arrives after this one (it loads with
+   KaTeX, components/katex.js): :root lifts these two rules above its .katex and .katex-display, as when it came first. */
+:root .katex { direction: ltr; unicode-bidi: isolate; font-size: 1.08em; }
 /* A short inline expression never splits across lines in RTL text (y = | 4x − 4 reads backwards). */
 :not(.katex-display) > .katex { white-space: nowrap; }
-.katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; }
+:root .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; }
 .mathline { direction: ltr; unicode-bidi: isolate; }
 
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

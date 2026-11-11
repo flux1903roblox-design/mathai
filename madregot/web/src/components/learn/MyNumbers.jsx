@@ -10,6 +10,7 @@ const pct = (r) => (r.value == null ? null : `${Math.round(r.value * 100)}%`);
 export default function MyNumbers() {
   const learn = useApp((s) => s.learn);
   const profile = useApp((s) => s.profile);
+  const backup = useApp((s) => s.backup);
   const m = metrics(learn, new Date().toISOString());
   // the three that say the most, in the student's words; the rest under "עוד מספרים" (STUDENT-9 §6)
   const rows = [
@@ -44,7 +45,7 @@ export default function MyNumbers() {
         {list(more)}
         <p className="field-hint">מספר מוצג רק כשיש מאחוריו לפחות {MIN_N} מקרים.</p>
       </details>
-      <p className="field-hint nums-where">{whereSavedText({ profile }, { about: 'numbers' })} הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.</p>
+      <p className="field-hint nums-where">{whereSavedText({ profile, backup }, { about: 'numbers' })} הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.</p>
     </section>
   );
 }

@@ -14,6 +14,8 @@ const m0 = read('../migrations/0000_base.sql');
 const m1 = read('../migrations/0001_paid_tutor.sql');
 const m2 = read('../migrations/0002_refund_once.sql');
 const m3 = read('../migrations/0003_durable.sql');
+// The family lane's 0004_parent_report, renumbered 0006 on the main branch (after 0004_safety and 0005_teacher).
+const m6 = read('../migrations/0006_parent_report.sql');
 // Structure only: SQLite keeps the comments inside a CREATE statement, and a comment cannot be migrated without an
 // ALTER, so schema.sql may describe a column better than the migration that made it (link_codes.device_hint).
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
@@ -50,7 +52,7 @@ const withoutAlters = (sql) => sql.replace(/\n, [^\n]*\);/g, '\n);').split('\n')
   .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
 
 test('every migration, in name order, on an empty database gives the same tables and indexes as schema.sql', () => {
-  assert.deepEqual(MIGRATIONS.slice(0, 6).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql']);
+  assert.deepEqual(MIGRATIONS.slice(0, 7).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql']);
   assert.equal(new Set(MIGRATIONS.map((m) => m.name.slice(0, 4))).size, MIGRATIONS.length, 'each migration number is used once');
   const a = new DatabaseSync(':memory:'); a.exec(schema);
   const b = new DatabaseSync(':memory:'); for (const m of MIGRATIONS) b.exec(m.sql);
@@ -71,13 +73,19 @@ test('0003 on a database that has answers: old rows keep a NULL id, a repeated i
   assert.deepEqual(ids, ['s1:null', 's1:null', 's1:null', 's1:aaaaaaaaaaaa', 's2:aaaaaaaaaaaa']);
 });
 
-// An added nullable column (0003_durable's attempts.client_id) is the one change allowed on an existing table: schema.sql
-// mirrors it the way SQLite writes it, and withoutAlters above keeps 0000_base word for word.
-test('migrations after 0002 only add tables, indexes and nullable columns: no DROP, no other ALTER, no data change', () => {
+// An added column is the one change allowed on an existing table: nullable (0003_durable's attempts.client_id,
+// link_codes.restore_escrow), or NOT NULL with a constant default and a CHECK (0006_parent_report's share switches).
+// schema.sql mirrors it the way SQLite writes it, and withoutAlters above keeps 0000_base word for word. Rows may only
+// go INTO a table the same migration creates (0003_durable's meter row and the student_tokens copy of students'
+// tokens): no existing row is changed or deleted.
+test('migrations after 0002 only add tables, indexes and columns, and fill only their own new tables: no DROP, no other ALTER, no change to existing rows', () => {
   for (const m of MIGRATIONS.filter((x) => x.name >= '0003')) {
     const code = m.sql.replace(/--[^\n]*/g, '');
-    for (const stmt of code.split(';').map((x) => x.trim()).filter(Boolean)) {
-      assert.match(stmt, /^(CREATE (TABLE|INDEX|UNIQUE INDEX) IF NOT EXISTS |ALTER TABLE \w+ ADD COLUMN \w+ \w+$)/, `${m.name}: ${stmt.slice(0, 60)}`);
+    const made = [...code.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/g)].map((x) => x[1]);
+    for (const stmt of code.split(';').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean)) {
+      const into = /^INSERT OR IGNORE INTO (\w+) /.exec(stmt);
+      if (into) { assert.ok(made.includes(into[1]), `${m.name}: rows only into a table it creates: ${stmt.slice(0, 60)}`); continue; }
+      assert.match(stmt, /^(CREATE (TABLE|INDEX|UNIQUE INDEX) IF NOT EXISTS |ALTER TABLE \w+ ADD COLUMN \w+ \w+( NOT NULL DEFAULT -?\w+)?( CHECK \(\w+ IN \([^()]*\)\))?$)/, `${m.name}: ${stmt.slice(0, 60)}`);
     }
   }
 });
@@ -152,4 +160,45 @@ test('the live-plan indexes, CHECKs and the billing_events key hold', () => {
   db.exec('PRAGMA foreign_keys = ON');
   db.exec("DELETE FROM accounts WHERE id = 'a1'");
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM account_sessions').get().n, 0, 'sessions go with the account');
+});
+
+test('0003 adds the vault tables: the meter starts at 0 once, and a blob is 40 to 349,526 characters', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(m0); db.exec(m1); db.exec(m2); db.exec(m3);
+  db.exec(m3.split('\n').filter((l) => l.startsWith('INSERT OR IGNORE INTO meters')).join('\n'));
+  assert.deepEqual(db.prepare('SELECT name, value FROM meters').all().map((r) => ({ ...r })), [{ name: 'vault_bytes', value: 0 }]);
+  const put = (id, n) => db.prepare("INSERT INTO vaults (id_hash, rev, blob, bytes, created_at, updated_at) VALUES (?, 1, ?, ?, 'x', 'x')").run(id, 'A'.repeat(n), n);
+  put('a', 349_526); put('b', 40);
+  assert.throws(() => put('c', 349_527), /CHECK/);
+  assert.throws(() => put('d', 39), /CHECK/);
+  assert.throws(() => db.prepare("INSERT INTO vaults (id_hash, rev, blob, bytes, created_at, updated_at) VALUES ('e', 0, ?, 40, 'x', 'x')").run('A'.repeat(40)), /CHECK/);
+});
+
+test('0006 on a database with linked devices: both switches start on, and the CHECKs keep the summary rows to codes and counts', () => {
+  const db = new DatabaseSync(':memory:');
+  for (const m of MIGRATIONS.filter((x) => x.name < '0006')) db.exec(m.sql);
+  db.exec("INSERT INTO accounts (id, email, created_at) VALUES ('a1', 'p@example.test', '2026-11-01')");
+  db.exec("INSERT INTO family_devices (id, account_id, token_hash, label, created_at, last_seen) VALUES ('d1', 'a1', 'h', 'x', '2026-11-01', '2026-11-01')");
+  db.exec(m6);
+  assert.deepEqual({ ...db.prepare('SELECT share_child, share_parent, share_at, summary_sent_at FROM family_devices').get() },
+    { share_child: 1, share_parent: 1, share_at: null, summary_sent_at: null });
+  assert.equal(db.prepare('SELECT report_email_at FROM accounts').get().report_email_at, null);
+  const day = (over = {}) => {
+    const r = { minutes: 10, questions: 5, worked: '[]', fixes: '[]', exam: null, ...over };
+    db.prepare(`INSERT OR REPLACE INTO family_daily (device_id, day, minutes, questions, worked, fixes, exam, updated_at)
+      VALUES ('d1', '2026-11-09', ?, ?, ?, ?, ?, 'x')`).run(r.minutes, r.questions, r.worked, r.fixes, r.exam);
+  };
+  day(); day({ minutes: 600, questions: 2000 });
+  assert.throws(() => day({ minutes: 601 }), /CHECK/);
+  assert.throws(() => day({ questions: -1 }), /CHECK/);
+  assert.throws(() => day({ worked: `[${'"x",'.repeat(60)}"x"]` }), /CHECK/);
+  assert.throws(() => day({ fixes: 'x'.repeat(401) }), /CHECK/);
+  assert.throws(() => day({ exam: 'x'.repeat(61) }), /CHECK/);
+  assert.throws(() => db.exec("UPDATE family_devices SET share_child = 2"), /CHECK/);
+  assert.throws(() => db.exec("UPDATE family_devices SET share_parent = -1"), /CHECK/);
+  // a row belongs to a device: the cascade removes it with the device (the code also deletes it first, explicitly)
+  db.exec('PRAGMA foreign_keys = ON');
+  assert.throws(() => db.exec("INSERT INTO family_daily (device_id, day, updated_at) VALUES ('nobody', '2026-11-09', 'x')"), /FOREIGN KEY/);
+  db.exec("DELETE FROM family_devices WHERE id = 'd1'");
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM family_daily').get().n, 0);
 });

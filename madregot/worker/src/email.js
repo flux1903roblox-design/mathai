@@ -175,6 +175,9 @@ export function renderNotice(env, row) {
       if (what === 'licence_request') return licenceRequestNotice(p, rulesEnv(env).approval === 'approved');
       if (what.startsWith('summary:')) return summaryNotice(p, what.slice('summary:'.length));
       if (what.startsWith('safety_spike:')) return safetySpikeNotice(p, what.slice('safety_spike:'.length));
+      if (what.startsWith('errors:')) return errorsNotice(p, what.slice('errors:'.length));
+      if (what === 'vault:70') return vault70Notice(p);
+      if (what.startsWith('vault_drift:')) return vaultDriftNotice(p);
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
     default:
@@ -254,6 +257,8 @@ function summaryNotice(p, day) {
       `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
       p.safety ? safetyLine(p.safety) : '',
       p.parentOkNeeded != null ? `בקשות לעוזר ממכשירים שמחכים לאישור של הורה: ${p.parentOkNeeded}` : '',
+      ...errorLines(p.errors),
+      ...(p.vaults ? [`גיבויים מוצפנים: ${p.vaults.count ?? 0} (${p.vaults.mb ?? 0} MB) · חדשים: ${p.vaults.newYesterday ?? 0}`] : []),
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),
     ],
@@ -272,6 +277,52 @@ function safetySpikeNotice(p, day) {
       safetyLine(p),
       `ממוצע יומי של מצוקה ב־14 הימים שלפני: ${p.distressAvg ?? 0}`,
       'אין כאן שום דבר ממה שנכתב. הדיווחים על תשובות: npm run owner -- reports',
+    ],
+  };
+}
+
+/** The app's error reports of the day (cron.js, errors.js): the total and the most frequent. */
+function errorLines(e) {
+  if (!e || typeof e !== 'object') return [];
+  const top = Array.isArray(e.top) ? e.top : [];
+  return [
+    `תקלות באפליקציה: ${e.total ?? 0}`,
+    ...top.map((x) => `- ${x.count} × ${x.kind} ${x.route || ''} ${x.release || ''}: ${x.message || ''}`),
+  ];
+}
+
+/** Many app errors yesterday: the owner hears it the same night, with the way to see them all. */
+function errorsNotice(p, day) {
+  return {
+    subject: `[מדרגות] הרבה תקלות באפליקציה ב־${day}`,
+    lines: [
+      `ב־${day} היו ${p.total ?? 0} דיווחי תקלה מהאפליקציה${p.worst ? `, והתקלה השכיחה חזרה ${p.worst} פעמים` : ''}.`,
+      ...errorLines({ total: p.total, top: p.top }).slice(1),
+      'הפירוט: npm run owner -- errors --days 2',
+    ],
+  };
+}
+
+/** The encrypted vaults passed 70% of VAULT_MAX_MB (vault.js), once a month. */
+function vault70Notice(p) {
+  return {
+    subject: '[מדרגות] הגיבויים המוצפנים הגיעו ל־70% מהמקום',
+    lines: [
+      `הגיבויים המוצפנים בשרת תופסים ${p.mb ?? '?'} MB מתוך ${p.maxMb ?? '?'} MB (VAULT_MAX_MB).`,
+      'כשהם מגיעים לגבול, אי אפשר ליצור גיבויים חדשים, והאפליקציה מציעה לשמור קובץ במקום. גיבויים קיימים ממשיכים להתעדכן.',
+      'בתוכנית Workers Paid אפשר להעלות את VAULT_MAX_MB בקובץ worker/wrangler.toml (עד 3000) ולפרסם מחדש.',
+      'בתוכנית החינמית לא מעלים: כל מסד הנתונים נעצר ב־500 MB, והוא שומר גם את התשלומים.',
+    ],
+  };
+}
+
+/** The night job found the size meter different from the vaults' real total, and set it right (vault.js). */
+function vaultDriftNotice(p) {
+  return {
+    subject: `[מדרגות] מונה הגיבויים תוקן ב־${p.day || ''}`.trim(),
+    lines: [
+      `מונה הנפח של הגיבויים המוצפנים הראה ${p.was ?? '?'} בתים, והסכום האמיתי היה ${p.now ?? '?'}. המונה תוקן.`,
+      'אם זה חוזר כמה לילות ברצף, כדאי לבדוק את הקוד שכותב גיבויים (worker/src/vault.js).',
     ],
   };
 }

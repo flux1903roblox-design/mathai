@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { startLesson, answer, next, resultOf, progressOf, planLevels, LESSON_LEN, REVIEW_LEN, PARTS, XP } from './lesson.js';
+import { startLesson, answer, next, resultOf, progressOf, planLevels, LESSON_LEN, REVIEW_LEN, PARTS, XP, lessonTopics } from './lesson.js';
 import { unitNodes, recordOnPath, nextNode, markMastered, doneCount, reachedUpTo, stairProgress, migratePath, isKept, chestOpen, reopenKept } from './path.js';
 import { questsFor, questProgress } from './quests.js';
 import { useApp, streakOf, today, dayBefore } from './store.js';
 import { TOPIC, topicsFor, makeItem } from '@/content/index.js';
 import { freezeItem, thawItem } from './exam.js';
+import { loadAllContent } from '@/learn/content/index.ts';
+
+// the screen waits for the lesson's topics before it starts one (DURABLE-11, lessonTopics): so do these tests
+await loadAllContent();
 
 const right = (s) => s.item.answer;
 const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : s.item.form === 'lin' ? { k: 999, c: 999 } : 99999);
@@ -330,5 +334,14 @@ describe('a class exam: the teacher\'s fixed questions (TEACHER-5 §4)', () => {
     const L = useApp.getState().learn;
     expect(L.skills).toEqual(before);
     expect(L.events.at(-1)).toMatchObject({ e: 'class-exam-done', n: 2 / 3 });
+  });
+});
+
+describe('lessonTopics: the teaching content a lesson waits for (DURABLE-11)', () => {
+  it('a class exam (TEACHER-5) waits for the topics of all its frozen questions', () => {
+    expect(lessonTopics({ kind: 'check', purpose: 'class', topic: 'signed', level: 1, fixedItems: [{ topic: 'signed' }, { topic: 'eq' }, { topic: 'signed' }] }))
+      .toEqual(['signed', 'eq']);
+    expect(lessonTopics({ kind: 'node', topic: 'eq', level: 2 })).toEqual(['eq']);
+    expect(lessonTopics(null)).toEqual([]);
   });
 });

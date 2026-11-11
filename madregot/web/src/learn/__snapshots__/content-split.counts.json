@@ -1,0 +1,938 @@
+{
+ "angles": {
+  "skills": {
+   "angles:1": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     3
+    ]
+   },
+   "angles:2": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "angles:3": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "angles:4": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "angles:5": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     3,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 139
+ },
+ "coord": {
+  "skills": {
+   "coord:1": {
+    "discover": 10,
+    "examples": [
+     3,
+     4
+    ],
+    "misconceptions": [
+     3,
+     2,
+     3
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "coord:2": {
+    "discover": 10,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     3,
+     3,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "coord:3": {
+    "discover": 9,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     3,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "coord:4": {
+    "discover": 9,
+    "examples": [
+     3,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     3
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     2
+    ]
+   },
+   "coord:5": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     3,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 145
+ },
+ "eq": {
+  "skills": {
+   "eq:1": {
+    "discover": 10,
+    "examples": [
+     3,
+     3,
+     3
+    ],
+    "misconceptions": [
+     3,
+     3,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "eq:2": {
+    "discover": 10,
+    "examples": [
+     4,
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "eq:3": {
+    "discover": 9,
+    "examples": [
+     4,
+     5
+    ],
+    "misconceptions": [
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "eq:4": {
+    "discover": 9,
+    "examples": [
+     5,
+     5
+    ],
+    "misconceptions": [
+     3,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "eq:5": {
+    "discover": 9,
+    "examples": [
+     5,
+     6
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 144
+ },
+ "expr": {
+  "skills": {
+   "expr:1": {
+    "discover": 8,
+    "examples": [
+     3,
+     3,
+     3
+    ],
+    "misconceptions": [
+     3,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "expr:2": {
+    "discover": 8,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "expr:3": {
+    "discover": 9,
+    "examples": [
+     3,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     2
+    ]
+   },
+   "expr:4": {
+    "discover": 9,
+    "examples": [
+     4,
+     3,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "expr:5": {
+    "discover": 8,
+    "examples": [
+     3,
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     1
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 138
+ },
+ "frac": {
+  "skills": {
+   "frac:1": {
+    "discover": 8,
+    "examples": [
+     3,
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "frac:2": {
+    "discover": 8,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   }
+  },
+  "stairs": 2,
+  "steps": 47
+ },
+ "line": {
+  "skills": {
+   "line:1": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     3
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "line:2": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "line:3": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "line:4": {
+    "discover": 10,
+    "examples": [
+     5,
+     5
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "line:5": {
+    "discover": 10,
+    "examples": [
+     4,
+     5
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     3
+    ]
+   },
+   "line:6": {
+    "discover": 10,
+    "examples": [
+     5,
+     5
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     2
+    ]
+   },
+   "line:7": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     2
+    ]
+   },
+   "line:8": {
+    "discover": 10,
+    "examples": [
+     5,
+     6
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     2
+    ]
+   }
+  },
+  "stairs": 8,
+  "steps": 252
+ },
+ "pyth": {
+  "skills": {
+   "pyth:1": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     3
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     1
+    ]
+   },
+   "pyth:2": {
+    "discover": 10,
+    "examples": [
+     5,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "pyth:3": {
+    "discover": 10,
+    "examples": [
+     4,
+     5
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     2
+    ]
+   },
+   "pyth:4": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     3,
+     1
+    ]
+   },
+   "pyth:5": {
+    "discover": 10,
+    "examples": [
+     4,
+     5
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     3
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 145
+ },
+ "signed": {
+  "skills": {
+   "signed:1": {
+    "discover": 10,
+    "examples": [
+     3,
+     4
+    ],
+    "misconceptions": [
+     3,
+     2,
+     2,
+     2,
+     1,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "signed:2": {
+    "discover": 10,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     3,
+     3
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "signed:3": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     3,
+     3,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "signed:4": {
+    "discover": 10,
+    "examples": [
+     4,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "signed:5": {
+    "discover": 10,
+    "examples": [
+     3,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 144
+ },
+ "stats": {
+  "skills": {
+   "stats:1": {
+    "discover": 10,
+    "examples": [
+     3,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "stats:2": {
+    "discover": 10,
+    "examples": [
+     3,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "stats:3": {
+    "discover": 10,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "stats:4": {
+    "discover": 9,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "stats:5": {
+    "discover": 9,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 142
+ },
+ "sys": {
+  "skills": {
+   "sys:1": {
+    "discover": 7,
+    "examples": [
+     5,
+     3,
+     5
+    ],
+    "misconceptions": [
+     3,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "sys:2": {
+    "discover": 9,
+    "examples": [
+     4,
+     5,
+     6
+    ],
+    "misconceptions": [
+     3,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "sys:3": {
+    "discover": 10,
+    "examples": [
+     5,
+     5,
+     5
+    ],
+    "misconceptions": [
+     3,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "sys:4": {
+    "discover": 9,
+    "examples": [
+     6,
+     7
+    ],
+    "misconceptions": [
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "sys:5": {
+    "discover": 10,
+    "examples": [
+     4,
+     3,
+     4
+    ],
+    "misconceptions": [
+     3,
+     3,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 163
+ }
+}

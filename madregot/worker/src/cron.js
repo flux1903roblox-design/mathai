@@ -7,15 +7,19 @@
 // In the 03:00 hour in Jerusalem: reconcile renewing plans whose period is over with the provider (extend only from the
 // truth pulled from it, or end the plan), queue the yearly renewal reminder (45 days ahead) and the licence-ending email
 // (30 days ahead), purge what is no longer needed (spec §6.9, the safety records, and the class data by TRUST-7:
-// shared/retention.js), alert the owner when yesterday's safety events jumped, and queue the owner's daily summary when
-// OWNER_DAILY_SUMMARY = "true". In the 16:00 hour: the teachers' daily help email (help.js helpDigest: a count of new
-// requests, for the owners who turned it on; none on a rest day). Each step runs on its own: one failing step never
-// stops the others.
+// shared/retention.js; error reports after 30 days; class students' device tokens unused for 400 days, and tokens and
+// escrows whose student or account is gone, DURABLE-6; the parents' daily summaries after 90 days, PARENTS-3), alert
+// the owner when yesterday's safety events jumped, queue the owner's notice of yesterday's app errors when there were
+// many (errors.js), run the encrypted vaults' night (vault.js: purge vaults unused for 400 days, recompute the size
+// meter, the 70% notice), and queue the owner's daily summary when OWNER_DAILY_SUMMARY = "true". In the 16:00 hour: the
+// teachers' daily help email (help.js helpDigest: a count of new requests, for the owners who turned it on; none on a
+// rest day). Each step runs on its own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
 import { retryCancels, processRefundQueue } from './billing.js';
 import { purgeAccountsSql } from './account.js';
 import { purgeFamilySql } from './family.js';
+import { purgeReportSql } from './report.js';
 import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
@@ -23,6 +27,8 @@ import { SUPPORT } from '../../shared/safety.js';
 import { studentsDeleteSteps, classDeleteSteps, countSteps } from './forget.js';
 import { RETENTION } from '../../shared/retention.js';
 import { helpDigest, digestHour } from './help.js';
+import { errorsOf, errorsNoticeDue, purgeErrorsSql } from './errors.js';
+import { vaultNight, vaultStats, purgeIdentitySql } from './vault.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -126,7 +132,7 @@ export function purgeCountersSql(env, now = new Date()) {
 }
 
 /** Retention (spec §6.9): notices 90 days after sending, expired orders after 30 days, spend after 400 days, the audit
- *  log after 2 years, provider events after 7 years. Payments are kept. */
+ *  log after 2 years, provider events after 7 years, the app's error reports after 30 days. Payments are kept. */
 export function purgeRecordsSql(env, now = new Date()) {
   const t = now.getTime();
   const iso = (days) => new Date(t - days * DAY).toISOString();
@@ -138,6 +144,7 @@ export function purgeRecordsSql(env, now = new Date()) {
       .bind(dayOf(new Date(t - 400 * DAY)), monthOf(new Date(t - 400 * DAY))),
     env.DB.prepare('DELETE FROM audit_log WHERE at < ?').bind(iso(730)),
     env.DB.prepare('DELETE FROM billing_events WHERE received_at < ?').bind(iso(7 * 365 + 2)),
+    purgeErrorsSql(env, now),
   ];
 }
 
@@ -223,9 +230,16 @@ export async function purgeClass(env, now = new Date()) {
   return total;
 }
 
-/** The night purge: the records, counters and safety records in one batch, then the class data. The counts go into the cron report. */
+/**
+ * The night purge. One batch, on the run's clock (sign-in codes and idle sessions on the Worker's own): counters, sign-in
+ * codes and idle sessions, family links and devices, records, the safety records, the parents' daily summaries (after
+ * the devices, so its orphan sweep sees them gone: PARENTS-3) and the class tokens and escrows (DURABLE-6). Then the
+ * class data (purgeClass, which deletes a student's tokens and kept restore code with the student: forget.js
+ * STUDENT_ROWS). The vaults have their own night step (vault.js vaultNight). The counts go into the cron report.
+ */
 export async function purge(env, now = new Date()) {
-  const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env), ...purgeRecordsSql(env), ...purgeSafetySql(env, now)]);
+  const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env, now), ...purgeRecordsSql(env, now),
+    ...purgeSafetySql(env, now), ...purgeReportSql(env, now), ...purgeIdentitySql(env, now)]);
   const cls = await purgeClass(env, now);
   return {
     rows: changes(r),
@@ -269,9 +283,22 @@ export async function safetySpike(env, now = new Date()) {
 }
 
 /**
+ * Yesterday's app errors (errors.js): a notice to the owner the same night when there were more than 300 reports, or
+ * more than 100 of one failure. Queued once a day (the notice key holds the day).
+ */
+export async function errorsNotice(env, now = new Date()) {
+  const day = dayOf(new Date(now.getTime() - DAY));
+  const e = await errorsOf(env, day);
+  if (!errorsNoticeDue(e)) return { day, queued: false };
+  await queueNotices(env, [ownerNotice(day, `owner:errors:${day}`, { day, total: e.total, worst: e.worst, top: e.top })]);
+  return { day, queued: true };
+}
+
+/**
  * The owner's daily summary of yesterday (Jerusalem): spend by pool, free calls, plans started, cancelled and ended;
- * what needs a hand (unsynced cancels, manual refunds, odd provider events, open licence requests); and the invariant
- * checks: a running paid plan with no payment covering now, a paid order with no plan, spend over a budget.
+ * what needs a hand (unsynced cancels, manual refunds, odd provider events, open licence requests); the app's error
+ * reports (the total and the 5 most frequent); the encrypted vaults (how many, their MB, how many were created); and
+ * the invariant checks: a running paid plan with no payment covering now, a paid order with no plan, spend over a budget.
  */
 /** Days after which the owner is reminded to check the support numbers in shared/safety.js again (trust spec §3.6). */
 export const SUPPORT_CHECK_DAYS = 330;
@@ -314,6 +341,8 @@ export async function dailySummary(env, now = new Date()) {
     safety: await safetyCounts(env, day),
     // tutor requests from a child alone that waited for a parent's OK (trust spec TRUST-9): how many children wait
     parentOkNeeded: await count("SELECT COUNT(*) AS n FROM safety_events WHERE day = ? AND kind = 'parent_ok_needed'", day),
+    errors: await errorsOf(env, day).then(({ total, top }) => ({ total, top })),
+    vaults: await vaultStats(env, startIso, endIso),
     violations: [],
   };
   const v = params.violations;
@@ -354,6 +383,8 @@ export async function run(env, { now = new Date() } = {}) {
     await step('reminders', () => reminders(env));
     await step('purge', () => purge(env, now));
     await step('safety', () => safetySpike(env, now));
+    await step('errors', () => errorsNotice(env, now));
+    await step('vaults', () => vaultNight(env, now));
     if (String(env.OWNER_DAILY_SUMMARY) === 'true') await step('summary', () => dailySummary(env, now));
   }
   // the teachers' daily help email, counts only (TEACHER-6 §5)

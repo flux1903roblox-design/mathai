@@ -13,6 +13,7 @@ const SCREENS = [
   ['the improvement plan', '#/plan', livedIn('7')],
   ['the AI tutor', '#/assistant', livedIn('7')],
   ['the profile', '#/me', livedIn('7')],
+  ['the weekly summary', '#/report', livedIn('7')],
   ['topics', '#/topics', livedIn('8')],
   ['a topic guide', '#/topic/line', livedIn('8')],
 ];

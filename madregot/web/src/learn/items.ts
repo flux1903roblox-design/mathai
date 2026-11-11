@@ -2,7 +2,7 @@
 // (key, text, display, form 'num', answer, hint, solution, diag), plus a full diagnosis of a wrong answer.
 // And the plan of each kind of check: which questions, from where.
 import type { DiagModel, StairContent, SkillId, Rng } from './types';
-import { contentOf } from './content/index';
+import { contentOf, metaOf } from './content/index';
 import { diagnose, couldShow, discriminating } from './misconceptions';
 import { parseSkill } from './skills';
 import { MASTERY_N, REVIEW_N } from './mastery';
@@ -69,8 +69,10 @@ function genProbe(topic: string, level: number, ids: string[], avoidKey?: string
 /** One question of a skill from a source; falls back to the stair's exercise generator. */
 function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, candidates?: string[]) {
   const { topic, level } = parseSkill(skill);
-  const c = contentOf(skill);
-  if (c && source !== 'gen') {
+  // 'gen' is the stair's own generator and never reads the teaching content, so it needs no topic loaded (the teacher's
+  // class exam, lib/exam.js, draws only these)
+  const c = source === 'gen' ? null : contentOf(skill);
+  if (c) {
     const model = source === 'transfer' && c.transfer ? c.transfer : c.diag;
     if (source === 'probe' && candidates?.length) {
       const inModel = [c.diag, c.transfer].find((x) => x && candidates.every((id) => id in x.bugs));
@@ -113,8 +115,9 @@ const shuffle = <T>(a: T[], rnd: Rng) => { const b = [...a]; for (let i = b.leng
 
 /** The questions of a check, as [skill, source, candidates?] — the items are made one at a time while it runs. */
 export function checkPlan(spec: CheckSpec, rnd: Rng): { skill: SkillId; source: Source; candidates?: string[] }[] {
-  const has = (s: SkillId) => !!contentOf(s);
-  const hasT = (s: SkillId) => !!contentOf(s)?.transfer;
+  // the plan needs only the meta; making its questions needs the topics loaded (ensureTopics, lib/lesson.js)
+  const has = (s: SkillId) => !!metaOf(s);
+  const hasT = (s: SkillId) => !!metaOf(s)?.transfer;
   switch (spec.purpose) {
     case 'mastery': {
       const s = spec.skill!;

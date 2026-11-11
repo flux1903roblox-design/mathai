@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   adult_confirmed_at TEXT,                     -- ticked "18+ and the parent or guardian" at checkout
   terms_version TEXT,                          -- the terms accepted at checkout, e.g. '2026-11'
   billing_hold_at TEXT                         -- set by a chargeback: no new checkout until the owner clears it
-);
+, report_email_at TEXT);
 
 -- One pending sign-in code per address, keyed by an HMAC so an address that never signs in is never stored.
 CREATE TABLE IF NOT EXISTS login_codes (
@@ -122,7 +122,9 @@ CREATE TABLE IF NOT EXISTS account_sessions (
 );
 CREATE INDEX IF NOT EXISTS account_sessions_account ON account_sessions (account_id);
 
--- A child's device linked to a family subscription. Its token (X-Family-Device) works for the AI routes only.
+-- A child's device linked to a family subscription. Its token (X-Family-Device) works for the AI routes and the daily
+-- summary (and the device's own escrow). share_child is the child's switch on the device, share_parent the parent's on
+-- /parents: a summary is stored only while both are on (PARENTS-3). share_at: when the child last changed theirs.
 CREATE TABLE IF NOT EXISTS family_devices (
   id TEXT PRIMARY KEY,
   account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
@@ -130,7 +132,7 @@ CREATE TABLE IF NOT EXISTS family_devices (
   label TEXT NOT NULL DEFAULT '' CHECK (length(label) <= 30),   -- optional, chosen by the parent ('הטאבלט')
   created_at TEXT NOT NULL,
   last_seen TEXT NOT NULL                      -- YYYY-MM-DD
-);
+, share_child INTEGER NOT NULL DEFAULT 1 CHECK (share_child IN (0, 1)), share_parent INTEGER NOT NULL DEFAULT 1 CHECK (share_parent IN (0, 1)), share_at TEXT, summary_sent_at TEXT);
 CREATE INDEX IF NOT EXISTS family_devices_account ON family_devices (account_id);
 
 -- A pending link: the child's device shows the code, a signed-in parent claims it, the device collects its token.
@@ -144,7 +146,7 @@ CREATE TABLE IF NOT EXISTS link_codes (
   expires_at TEXT NOT NULL,                    -- created_at + 60 minutes
   claimed_at TEXT,
   collected_at TEXT                            -- the device took its token; the code is spent
-);
+, restore_escrow TEXT);
 CREATE INDEX IF NOT EXISTS link_codes_expires ON link_codes (expires_at);
 
 -- A checkout, priced on the server. The client sends a plan id, never an amount.
@@ -345,7 +347,85 @@ CREATE INDEX IF NOT EXISTS audit_target ON audit_log (target);
 --   other:        mail:e:<email_hash> mail:n:<net> mail:all  create:n:<net>  join:n:<net>  classinfo:n:<net>
 --                 link:d:<dev>  link:n:<net>  linkpoll:<code_hash[0:16]>  linkpoll:n:<net>  claim:a:<account>
 --                 checkout:a:<account> (hourly)  licreq:c:<class>  licclaim:n:<net> (hourly)  licclaim:c:<class>  mint:n:<net>
+--   app errors:   err:n:<net> (items a day)  err:all
+--   vaults:       vault:miss:s:<student> | vault:miss:fd:<family device> | vault:miss:n:<net> (lookups that found nothing)
+--                 vault:new:n:<net> (anonymous creates)  vault:new:all  vault:w:<id_hash[0:16]> (writes to one vault)
+--   parents' report: sum:d:<family device> (summary posts a day, 150)  sum:n:<net> (3000)
 
+-- ---------------------------------------------------------------- the durable lane (migration 0003_durable)
+-- DURABLE-9: the app's error reports, counted per day and fingerprint, with no per-user trail: no device id, no address,
+-- no name, no route values (a route is its pattern). fp = the first 16 hex of SHA-256(kind|name|message|frame). Kept 30
+-- days (cron.js). The Worker's own unhandled exceptions are kind 'server'.
+CREATE TABLE IF NOT EXISTS client_errors (
+  day TEXT NOT NULL,                                     -- YYYY-MM-DD, Jerusalem
+  fp TEXT NOT NULL CHECK (length(fp) = 16),
+  release TEXT NOT NULL CHECK (length(release) <= 20),
+  kind TEXT NOT NULL CHECK (kind IN ('error', 'rejection', 'render', 'chunk', 'storage', 'vault', 'sw', 'csp', 'server')),
+  name TEXT NOT NULL CHECK (length(name) <= 40),
+  message TEXT NOT NULL CHECK (length(message) <= 200),
+  frame TEXT NOT NULL CHECK (length(frame) <= 120),
+  route TEXT NOT NULL CHECK (length(route) <= 60),
+  agent TEXT NOT NULL CHECK (length(agent) <= 30),
+  count INTEGER NOT NULL DEFAULT 1,
+  first_at TEXT NOT NULL,
+  last_at TEXT NOT NULL,
+  PRIMARY KEY (day, fp, release, agent, route)
+);
+
+-- DURABLE-5: the encrypted backup vault. The server keeps ciphertext and the SHA-256 of a lookup token that the app
+-- derives from the restore code; never the token, the code, the key, an address, a device id or a name. A vault nobody
+-- wrote or read for 400 days is deleted (cron.js). meters.vault_bytes is the size breaker: it changes in the same batch
+-- as the vault row (vault.js) and is recomputed from SUM(bytes) every night.
+CREATE TABLE IF NOT EXISTS vaults (
+  id_hash TEXT PRIMARY KEY,                 -- SHA-256 hex of the 64-hex lookup token
+  rev INTEGER NOT NULL CHECK (rev >= 1),
+  blob TEXT NOT NULL CHECK (length(blob) BETWEEN 40 AND 349526),   -- base64url(0x01 | iv | AES-GCM(gzip(JSON))), at most 256 KiB binary
+  prev_rev INTEGER,
+  prev_blob TEXT CHECK (prev_blob IS NULL OR length(prev_blob) <= 349526),   -- the version before, kept for undo
+  bytes INTEGER NOT NULL,                   -- length(blob) + length(prev_blob)
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  read_at TEXT                              -- the last day a device read it (retention counts the later of the two)
+);
+CREATE INDEX IF NOT EXISTS vaults_updated ON vaults (updated_at);
+CREATE TABLE IF NOT EXISTS meters (name TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0);
+INSERT OR IGNORE INTO meters (name, value) VALUES ('vault_bytes', 0);
+
+-- DURABLE-6: escrow. The restore code of a vault, sealed with a Worker secret (AES-GCM under HKDF(VAULT_SECRET,
+-- 'escrow-v1')), attached to an identity the user already has: a class student (owner_kind 'student') or a family
+-- account and the device that syncs it (owner_kind 'account'; device_id NULL = kept in the account after an unlink).
+-- While an escrow exists the operator could open that vault; a vault with no escrow stays readable only with its code.
+-- Deleted with the student, the account, the vault, or the student's own switch; the night job sweeps orphans.
+CREATE TABLE IF NOT EXISTS vault_escrow (
+  id TEXT PRIMARY KEY,                        -- 16 hex
+  vault_id TEXT NOT NULL,                     -- vaults.id_hash (no FK: a vault can be recreated with the same id)
+  owner_kind TEXT NOT NULL CHECK (owner_kind IN ('student', 'account')),
+  owner_id TEXT NOT NULL,                     -- students.id | accounts.id
+  device_id TEXT,                             -- family_devices.id now syncing it; NULL = kept in the account
+  label TEXT NOT NULL DEFAULT '' CHECK (length(label) <= 30),   -- the device label when escrowed (parent-chosen)
+  sealed TEXT NOT NULL CHECK (length(sealed) <= 200),           -- the restore code, AES-GCM under HKDF(VAULT_SECRET)
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS vault_escrow_student ON vault_escrow (owner_id) WHERE owner_kind = 'student';
+CREATE UNIQUE INDEX IF NOT EXISTS vault_escrow_device ON vault_escrow (device_id) WHERE device_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS vault_escrow_owner ON vault_escrow (owner_kind, owner_id);
+CREATE INDEX IF NOT EXISTS vault_escrow_vault ON vault_escrow (vault_id);
+
+-- DURABLE-6: a class student stays signed in on up to 3 devices. Each join adds a token and drops all but the newest 3;
+-- a PIN reset or the student's removal drops them all; a token unused for 400 days is purged at night. The old
+-- students.token_hash is still written (an older Worker in a rollback reads it) but no longer read.
+CREATE TABLE IF NOT EXISTS student_tokens (
+  token_hash TEXT PRIMARY KEY,
+  student_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_seen TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS student_tokens_student ON student_tokens (student_id);
+INSERT OR IGNORE INTO student_tokens (token_hash, student_id, created_at, last_seen)
+  SELECT token_hash, id, created_at, COALESCE(last_seen, created_at) FROM students WHERE token_hash <> '';
+
+-- ---------------------------------------------------------------- the safety lane (migration 0004_safety)
 -- Safety events: counts with no content (trust spec TRUST-4 §4.4). A row says what happened, on which surface and how it
 -- was noticed, on a Jerusalem day with no time of day. There is no student, device, account, class or text column, so a
 -- row can never point to a person or hold what anyone wrote. Written by recordSafety (src/safety.js); kept for
@@ -516,3 +596,26 @@ CREATE TABLE IF NOT EXISTS student_ai_off (
 --   audit_log.action  'class.setting' (detail {setting}) | 'class.ai' (detail {studentAi?, consent?, setting?})
 --                     | 'student.ai' (target student:<id>, detail {off})
 --   ai_usage.who      aioff:c:<class> (a day: student AI requests refused because the class's AI is off)
+
+-- ---------------------------------------------------------------- the parents' report (migration 0006_parent_report)
+-- PARENTS-3: one small row per linked device and day, for the parents' progress report (worker/src/report.js). Codes and
+-- counts only: no names, no Hebrew, no answers. Written only while both switches of the device are on and its family
+-- plan is live; kept 90 days (REPORT_KEEP_DAYS in report.js, the night purge); deleted with the device (unlink, leave,
+-- the night's device purge), the account, the parent's "delete history" and the child's "stop and delete".
+CREATE TABLE IF NOT EXISTS family_daily (
+  device_id TEXT NOT NULL REFERENCES family_devices (id) ON DELETE CASCADE,
+  day TEXT NOT NULL,                                   -- YYYY-MM-DD, the device's day
+  minutes INTEGER NOT NULL DEFAULT 0 CHECK (minutes BETWEEN 0 AND 600),
+  questions INTEGER NOT NULL DEFAULT 0 CHECK (questions BETWEEN 0 AND 2000),
+  lessons INTEGER NOT NULL DEFAULT 0 CHECK (lessons BETWEEN 0 AND 200),
+  stages INTEGER NOT NULL DEFAULT 0 CHECK (stages BETWEEN 0 AND 200),
+  reviews INTEGER NOT NULL DEFAULT 0 CHECK (reviews BETWEEN 0 AND 200),
+  streak INTEGER NOT NULL DEFAULT 0 CHECK (streak BETWEEN 0 AND 3650),
+  worked TEXT NOT NULL DEFAULT '[]' CHECK (length(worked) <= 200),       -- JSON skill ids
+  mastered TEXT NOT NULL DEFAULT '[]' CHECK (length(mastered) <= 200),   -- JSON skill ids
+  fixes TEXT NOT NULL DEFAULT '[]' CHECK (length(fixes) <= 400),         -- JSON [[skill, id, 'o'|'d']]
+  exam TEXT CHECK (exam IS NULL OR length(exam) <= 60),                  -- JSON {d, n, of}
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (device_id, day)
+);
+CREATE INDEX IF NOT EXISTS family_daily_day ON family_daily (day);

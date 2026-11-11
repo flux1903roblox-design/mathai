@@ -5,8 +5,9 @@ import {
   HttpError, body, json, rawBody, sha256, randomToken, nowIso, dayOf, daysAgo, secretEqual, limitOrThrow,
 } from './util.js';
 import { requireAccount, requireRecentCode } from './account.js';
-import { requireTeacher, limits, paywallOn, parentOkRequired } from './entitle.js';
+import { requireTeacher, limits, paywallOn, parentOkRequired, liveFamily } from './entitle.js';
 import { refuseSchoolSale } from './classai.js';
+import { reportOn, summaryState, rowToDay } from './report.js';
 import { decide, endAt, cleanDetail } from './apply.js';
 import { providerById, currentProvider, webhookProvider } from './providers/index.js';
 import { testSignature } from './providers/test.js';
@@ -58,6 +59,8 @@ export function plansView(env) {
     // a child alone needs a parent's OK for the tutor (trust spec TRUST-9): the parents' page offers the free OK
     parentOk: parentOkRequired(env),
     currency: 'ILS', termsVersion: termsVersion(env), billing: p?.id || null,
+    // the parents' progress report (report.js): false hides it on /parents
+    report: reportOn(env),
     plans: [
       { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: pr.family_month, vatAgorot: vatOf(env, pr.family_month), renews: true },
       { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: pr.family_year, vatAgorot: vatOf(env, pr.family_year), renews: true },
@@ -595,12 +598,16 @@ export async function accountOverview(req, env, cors) {
   const charge = live ? await latestCharge(env, live.id) : null;
   const economy = live ? (await monthSpendUsd(env, `fam:${a.id}`)) >= L.budgets.familyMonthlyUsd : false;
   // linked devices, and devices whose code the parent claimed while the child's device has yet to collect its token
-  const devices = await all(env, `SELECT d.id, d.label, d.created_at, d.last_seen, d.token_hash IS NULL AS pending FROM family_devices d
+  const devices = await all(env, `SELECT d.id, d.account_id, d.label, d.created_at, d.last_seen, d.token_hash IS NULL AS pending,
+    d.share_child, d.share_parent, d.share_at, d.summary_sent_at FROM family_devices d
     WHERE d.account_id = ?1 AND (d.token_hash IS NOT NULL OR EXISTS (SELECT 1 FROM link_codes l WHERE l.device_id = d.id AND l.collected_at IS NULL AND l.expires_at > ?2))
     ORDER BY d.created_at`, a.id, nowIso());
   const usage = await all(env, `SELECT who, SUM(count) AS n FROM ai_usage WHERE who IN (?, ?, ?, ?) AND length(day) = 10 AND day >= ? GROUP BY who`,
     `fam:${a.id}:tutor`, `fam:${a.id}:check`, `fam:${a.id}:generate`, `fam:${a.id}:exam`, daysAgo(6));
   const used = (g) => Number(usage.find((u) => u.who === `fam:${a.id}:${g}`)?.n || 0);
+  // each device's daily summary for the parent (report.js): its state, since when the child's switch is as it is, the last sync
+  const planLive = !!(await liveFamily(env, a.id));
+  const sharing = await Promise.all(devices.map((d) => summaryState(env, d, planLive)));
   const payments = await all(env, `SELECT p.id, p.subscription_id, s.kind AS plan_kind, p.occurred_at, p.amount_agorot, p.kind, p.invoice_url FROM payments p JOIN subscriptions s ON s.id = p.subscription_id
     WHERE s.account_id = ? ORDER BY p.occurred_at DESC LIMIT 48`, a.id);
   // class licences this account bought by card: each with its end, its refund options and its own receipts
@@ -614,7 +621,10 @@ export async function accountOverview(req, env, cors) {
   return json({
     email: a.email, billingHold: !!a.billingHoldAt, maxDevices: L.family.devices,
     plan: planView(env, live, charge, economy),
-    devices: devices.map((d) => ({ id: d.id, label: d.label, linkedAt: d.created_at, lastSeen: d.last_seen, ...(d.pending ? { pending: true } : {}) })),
+    devices: devices.map((d, i) => ({
+      id: d.id, label: d.label, linkedAt: d.created_at, lastSeen: d.last_seen, ...(d.pending ? { pending: true } : {}),
+      sharing: sharing[i], sharingAt: d.share_at || null, lastSync: d.summary_sent_at || null,
+    })),
     usageWeek: { tutor: used('tutor'), check: used('check'), generate: used('generate'), exam: used('exam') },
     payments: payments.map((p) => ({ id: p.id, subscriptionId: p.subscription_id, planKind: p.plan_kind, at: p.occurred_at, amountAgorot: p.amount_agorot, kind: p.kind, hasInvoice: !!p.invoice_url })),
     classes: classViews,
@@ -639,15 +649,25 @@ export async function accountExport(req, env, cors) {
     // the classes bound to this account (a teacher's): their code and name, never their students
     classes: await all(env, `SELECT o.class_code AS code, c.name, o.bound_at AS boundAt FROM class_owners o JOIN classes c ON c.code = o.class_code
       WHERE o.account_id = ? ORDER BY o.bound_at, o.class_code`, a.id),
+    // the progress kept for the family's devices (DURABLE-6): which, for which device, and when; never the code or the content
+    vaults: await all(env, `SELECT e.id, e.label, e.device_id AS deviceId, e.created_at AS createdAt, COALESCE(v.updated_at, e.updated_at) AS updatedAt
+      FROM vault_escrow e LEFT JOIN vaults v ON v.id_hash = e.vault_id WHERE e.owner_kind = 'account' AND e.owner_id = ? ORDER BY e.created_at`, a.id),
+    // the daily summaries of the family's devices (PARENTS-3): codes and counts, as stored
+    summaries: (await all(env, `SELECT f.* FROM family_daily f JOIN family_devices d ON d.id = f.device_id WHERE d.account_id = ?
+      ORDER BY f.device_id, f.day`, a.id)).map((r) => {
+      const s = rowToDay(r);
+      return { device: r.device_id, day: s.d, minutes: s.m, questions: s.q, lessons: s.ls, stages: s.st, reviews: s.rv, streak: s.sr, worked: s.sk, mastered: s.ma, fixes: s.fx, exam: s.ex };
+    }),
   };
   return json(data, 200, cors, { 'Content-Disposition': `attachment; filename="madregot-${dayOf()}.json"` });
 }
 
 /**
  * POST /api/account/delete {confirm: "DELETE"}: needs a code entered in the last 10 minutes. Ends any family plan now
- * (the provider is told; the hourly retry finishes it if it is down), deletes the sessions, devices, links, requests,
- * the class bindings (the classes stay and open with their teacher key) and the account; subscriptions and orders lose
- * the account id; payments are kept for the tax records.
+ * (the provider is told; the hourly retry finishes it if it is down), deletes the sessions, devices, links, the kept
+ * restore codes (DURABLE-6), the devices' daily summaries (PARENTS-3), requests, the class bindings (the classes stay and
+ * open with their teacher key) and the account; subscriptions and orders lose the account id; payments are kept for the
+ * tax records.
  */
 export async function deleteAccount(req, env, ctx, cors) {
   const a = await requireAccount(req, env);
@@ -670,6 +690,10 @@ export async function forgetAccount(env, accountId, { actor }) {
     ).bind(now, endAt(s, now), now, s.id)),
     env.DB.prepare('DELETE FROM account_sessions WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM link_codes WHERE account_id = ?').bind(accountId),
+    // the restore codes kept for the family's devices go with the account (the vaults stay with each device's own code)
+    env.DB.prepare("DELETE FROM vault_escrow WHERE owner_kind = 'account' AND owner_id = ?").bind(accountId),
+    // the devices' daily summaries (PARENTS-3), found through the devices, so before them
+    env.DB.prepare('DELETE FROM family_daily WHERE device_id IN (SELECT id FROM family_devices WHERE account_id = ?)').bind(accountId),
     env.DB.prepare('DELETE FROM family_devices WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM licence_requests WHERE account_id = ?').bind(accountId),
     // the classes it owned stay, and keep opening with their teacher key

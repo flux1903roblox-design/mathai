@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import katex from 'katex';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -7,6 +7,7 @@ import NumberLine from '@/components/manip/NumberLine.jsx';
 import NumberPins from '@/components/manip/NumberPins.jsx';
 import FracBar from '@/components/manip/FracBar.jsx';
 import DoubleLine from '@/components/manip/DoubleLine.jsx';
+import { loadKatex } from '@/components/MathText.jsx';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
   quadOf, manipSolution, manipWrong, manipText, manipPlain, triangleAngles, rightAtC,
@@ -430,6 +431,8 @@ const solves = (it) => {
 };
 
 describe('the fraction bar (פס שברים)', () => {
+  // KaTeX is its own file now (DURABLE-11): until it has loaded, maths shows as plain words
+  beforeAll(() => loadKatex());
   const bar = (manip, answer) => fixture({ kind: 'fbar', ...manip }, answer);
   const value = bar({ start: { den: 3, shaded: 2 } }, { mode: 'value', value: 3 / 4 });
   const locked = bar({ start: { den: 8, shaded: 0 }, lockDen: true }, { mode: 'value', value: 3 / 4 });

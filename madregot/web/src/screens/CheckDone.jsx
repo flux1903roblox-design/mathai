@@ -9,7 +9,7 @@ import { useApp } from '@/lib/store.js';
 import { skillId } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS } from '@/learn/mastery.ts';
 import { titleOf } from '@/learn/recommend.ts';
-import { contentOf } from '@/learn/content/index.ts';
+import { metaOf } from '@/learn/content/index.ts';
 import { useActions } from '@/lib/useLearn.js';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
@@ -57,7 +57,7 @@ export default function CheckDone({ result: r, award, onExit, work }) {
   const navigate = useNavigate();
   const skill = r.skill || (r.topic && r.level ? skillId(r.topic, r.level) : null);
   const rec = useApp((s) => (skill ? s.learn.skills[skill] : null));
-  const def = r.misc ? contentOf(skill)?.misconceptions.find((m) => m.id === r.misc) : null;
+  const def = r.misc ? metaOf(skill)?.misconceptions.find((m) => m.id === r.misc) : null;
   const actions = useActions();
   const c = copy(r, rec, def, award);
   const ref = useRef(null);

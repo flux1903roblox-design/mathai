@@ -7,7 +7,7 @@ import { mergeDevices, mergeTabs, noteMerge, dataOf, DEVICE_ONLY } from './merge
 import { seeded, deepFreeze } from './testing.js';
 import { sumXp } from './xp.js';
 import { validateState } from './validate.js';
-import { appState, today } from '../store.js';
+import { appState, today, isActiveDay } from '../store.js';
 import { emptyLearn } from '@/learn/storeGlue.ts';
 
 // ------------------------------------------------------------------ a small generator of valid v5 states
@@ -364,5 +364,30 @@ describe('the merge log', () => {
     const st = noteMerge({ learn: emptyLearn() }, 'tab', '2026-11-05T10:00:00.000Z');
     expect(st.learn.events).toEqual([{ t: '2026-11-05T10:00:00.000Z', e: 'merge', m: 'tab' }]);
     expect(noteMerge({ sound: true }, 'tab', 'x')).toEqual({ sound: true }); // a state with no log is left alone
+  });
+});
+
+describe('the learning clock\'s time (days[d].tsecs, PARENTS-1)', () => {
+  /** A store whose day `d` got `secs` from the clock through the store's own action. */
+  const withClock = (from, secs, d = '2026-11-05') => {
+    const s = createStore(appState);
+    s.setState(from);
+    s.getState().addLearnTime(d, secs);
+    return dataOf(s.getState());
+  };
+
+  it('two tabs that each ran the clock add their time; two devices take the larger; the day stays inactive', () => {
+    const start = { days: { '2026-11-05': { q: 4, ok: 3, secs: 50, lessons: 0 } } };
+    const a = withClock(start, 120);
+    const b = withClock(start, 90);
+    const tabs = mergeTabs(start, a, b);
+    expect(tabs.days['2026-11-05']).toEqual({ q: 4, ok: 3, secs: 50, lessons: 0, tsecs: 210 });
+    const devices = mergeDevices(a, b, { localAt: '2026-11-05T10:00:00.000Z', remoteAt: '2026-11-05T11:00:00.000Z' });
+    expect(devices.days['2026-11-05'].tsecs).toBe(120);
+    expect(isActiveDay(tabs.days['2026-11-05'])).toBe(false);
+    // a day the other side has only as time comes in as time, and still does not count for the streak
+    const only = mergeDevices(start, withClock({ days: {} }, 300, '2026-11-04'), { localAt: A0, remoteAt: B0 });
+    expect(only.days['2026-11-04']).toEqual({ tsecs: 300 });
+    expect(isActiveDay(only.days['2026-11-04'])).toBe(false);
   });
 });

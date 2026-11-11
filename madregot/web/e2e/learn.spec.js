@@ -235,7 +235,8 @@ test('the profile shows what the evidence says, on this device, and can delete e
   await expect(nums).not.toContainText('בדיקות זיכרון');
   await page.getByRole('link', { name: 'הגדרות' }).click();
   await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
-  // "delete all" ends with a reload (nothing is written after the wipe): wait for it, so the check below reads the new page
+  // deleting signs out (the first screen shows at once) and then reloads the page (nothing is written after the wipe):
+  // wait for that reload, so the check below reads the new page
   const reloaded = page.waitForEvent('load');
   await page.getByRole('button', { name: 'כן, למחוק הכול' }).click();
   await reloaded;

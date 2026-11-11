@@ -1,8 +1,9 @@
 // After `vite build`: refuse a build that carries a secret, or (unless VITE_ALLOW_PERSONAL_KEY=1) the Claude SDK that
 // only the personal-key mode needs, or whose _headers lost a security header (scripts/headers.mjs: CSP with
 // frame-ancestors 'none', nosniff, Referrer-Policy, Permissions-Policy). Every text file is scanned, the service worker
-// (sw.js) included. Also refuse a build whose service worker is missing or lists a file the build does not have (its
-// install would fail, and the app would not open offline). Usage: node scripts/check-dist.mjs <dist folder>
+// (sw.js) included. Also refuse a build whose service worker is missing or unsound (DURABLE-10): its precache list must
+// come first, hold index.html, name only files the build has (its install would fail, and the app would not open
+// offline), and hold no source map, no .ttf or .woff and nothing under api/. Usage: node scripts/check-dist.mjs <dist folder>
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -39,13 +40,22 @@ export function distProblems(dir, { personal = false } = {}) {
   const headersFile = join(dir, '_headers');
   if (!existsSync(headersFile)) problems.push('_headers: missing (the security headers)');
   else for (const p of headerProblems(readFileSync(headersFile, 'utf8'))) problems.push(`_headers: ${p}`);
-  // the offline service worker (DURABLE-10): present, and every file it keeps is in the build
+  // the offline service worker (DURABLE-10): present, its list at its top with index.html in it, no source map, .ttf,
+  // .woff or api/ file in it, and every file it keeps is in the build
   const sw = join(dir, 'sw.js');
   if (!existsSync(sw)) problems.push('sw.js: missing (scripts/vite-plugin-sw.mjs builds it)');
   else {
-    const list = /self\.__PRECACHE = (\[.*\]);/.exec(readFileSync(sw, 'utf8'));
-    if (!list) problems.push('sw.js: no self.__PRECACHE list');
-    else for (const f of JSON.parse(list[1])) if (!existsSync(join(dir, f))) problems.push(`sw.js: keeps ${f}, which the build does not have`);
+    const m = /^self\.__PRECACHE = (\[.*\]);\n/.exec(readFileSync(sw, 'utf8'));
+    let list = null;
+    try { list = m && JSON.parse(m[1]); } catch { list = null; }
+    if (!Array.isArray(list) || !list.length) problems.push('sw.js: no self.__PRECACHE list at its top');
+    else {
+      if (!list.includes('index.html')) problems.push('sw.js: index.html is not precached');
+      for (const f of list) {
+        if (/\.(map|ttf|woff)$/i.test(f) || /(^|\/)api\//.test(f)) problems.push(`sw.js: must not precache ${f}`);
+        else if (!existsSync(join(dir, f))) problems.push(`sw.js: keeps ${f}, which the build does not have`);
+      }
+    }
   }
   return problems;
 }

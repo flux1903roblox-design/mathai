@@ -11,6 +11,10 @@
 //          the old backup settings back and marks the next vault sync to push first (backup.forcePush, read by the
 //          vault from DURABLE-5), so a stale copy in the vault cannot be merged back over the undo.
 // Every restore is logged first among the learning events, with no content: { e: 'restore', m: source }.
+// `merge: true` is the vault's background sync between the devices of one student (DURABLE-5), not a restore the
+// student asked for: the copy is merged with mergeDevices as it is (a deliberate reset on either side wins, so a sync
+// never brings back progress that was reset on purpose), logged as { e: 'merge', m: source }, and never replaces:
+// another student's copy is refused (the vault then stops and Settings explains).
 import { useApp } from '../store.js';
 import { mergeDevices, noteMerge, dataOf } from './merge.js';
 import { snapshotForBackup } from './payload.js';
@@ -33,11 +37,15 @@ const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 /** A name as people write it: no niqqud, one space, no direction marks, any letter case. */
 export const normName = (s) => (typeof s === 'string' ? s.normalize('NFKC').replace(/[֑-ׇ‎‏]/g, '').replace(/\s+/g, ' ').trim().toLowerCase() : '');
 
-/** Is there progress on this device: a teacher's classes, or a student's XP or days. */
+/**
+ * Is there progress on this device: a teacher's classes, or a student's XP or days. A day with nothing but time on
+ * learning screens (tsecs, lib/learnClock.js: a lesson opened and left) is not progress.
+ */
 export function hasProgress(st) {
   if (!isObj(st?.profile)) return false;
   if (st.profile.role === 'teacher') return Array.isArray(st.profile.classes) && st.profile.classes.length > 0;
-  return (Number(st.xp) || 0) > 0 || (isObj(st.days) && Object.keys(st.days).length > 0);
+  const learned = (d) => isObj(d) && Object.keys(d).some((k) => k !== 'tsecs');
+  return (Number(st.xp) || 0) > 0 || (isObj(st.days) && Object.values(st.days).some(learned));
 }
 
 /** 'empty' | 'same' | 'other': what restoring `incoming` here would do (see the top of this file). */
@@ -59,13 +67,22 @@ const later = (a, b) => ((typeof a === 'string' ? a : '') >= (typeof b === 'stri
  * Resolves `{ kind, applied, undo, error? }`. The rest is for tests.
  */
 export async function applyRestored(incoming, source, {
-  at = null, replace = false, store = useApp, quarantine = durableQuarantine, now = () => new Date(), localAt = useDurable.getState().savedAt,
+  at = null, replace = false, merge = false, store = useApp, quarantine = durableQuarantine, now = () => new Date(), localAt = useDurable.getState().savedAt,
 } = {}) {
   const when = now();
   const stamp = when.toISOString();
   const local = dataOf(store.getState());
   const copy = snapshotForBackup(incoming);
   const kind = restoreCase(local, copy);
+  if (merge) {
+    if (kind === 'other') return { kind, applied: false, undo: false };
+    // A device with no progress yet (a class rejoin or a family move right after the first questions) saved last, so
+    // "the newer side" would keep its defaults over the copy's: no streak freeze, no last topic. Nothing here can be
+    // lowered, so the copy is the newer side then (found by e2e/chaos.spec.js).
+    const times = kind === 'empty' ? { localAt: null, remoteAt: at || stamp } : { localAt, remoteAt: at };
+    store.setState(noteMerge(mergeDevices(local, copy, times), source, stamp));
+    return { kind, applied: true, undo: false };
+  }
   const restoreEvent = { e: 'restore', m: source };
   // what never comes from a copy: this device's tutor, outbox, tag, save prompts and backup settings
   const device = { ai: local.ai, outbox: local.outbox, durable: local.durable, backup: local.backup };

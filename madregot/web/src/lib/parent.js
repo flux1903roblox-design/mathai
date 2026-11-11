@@ -10,6 +10,7 @@ import { create } from 'zustand';
 import { useApp, STORE_KEY } from './store.js';
 import { api, ApiError } from './api.js';
 import { deviceId, randomHex, refreshStatus } from './account.js';
+import { afterFamilyLink } from './durable/escrow.js';
 
 const KEY = `${STORE_KEY}-parent`;
 const store = (kind) => { try { return kind === 'session' ? window.sessionStorage : window.localStorage; } catch { return null; } };
@@ -178,21 +179,41 @@ export async function openInvoice(paymentId) {
 // ---------------------------------------------------------------- the child's devices
 /**
  * Claim the code a child's device shows. `extra` is { purpose: 'consent', consent: true } for the parent's free OK for
- * the tutor (trust spec TRUST-9); with nothing, the server links for the plan when the account has one.
+ * the tutor (trust spec TRUST-9); with nothing, the server links for the plan when the account has one. `restoreFrom`
+ * in it: the id of kept progress (familyVaults) the child's device continues from once it collects its token (DURABLE-6).
  */
-export const claimLink = (code, label, extra = {}) => accountCall('/api/family/link/claim', { method: 'POST', body: { code: String(code || '').toUpperCase().trim(), ...(label ? { label } : {}), ...extra } });
+export const claimLink = (code, label, { restoreFrom = null, ...extra } = {}) => accountCall('/api/family/link/claim', {
+  method: 'POST', body: { code: String(code || '').toUpperCase().trim(), ...(label ? { label } : {}), ...extra, ...(restoreFrom ? { restoreFrom } : {}) },
+});
 export const unlinkDevice = (id) => accountCall(`/api/family/devices/${encodeURIComponent(id)}/unlink`, { method: 'POST', body: {} });
 /**
  * The parent holds the child's device: link it straight away. The server deletes the session that asked, and this page
- * forgets it too, so nobody can change the plan from the child's device afterwards.
+ * forgets it too, so nobody can change the plan from the child's device afterwards. Then the family keeps this device's
+ * backup code, or the kept progress chosen in `restoreFrom` comes here (DURABLE-6): in the background, and
+ * `onEscrow({ toast, restored })` hears how it went. The rest of the options go to the server as they are: { purpose,
+ * consent } for the parent's free OK (trust spec TRUST-9).
  */
-export async function linkThisDevice(label, extra = {}) {
-  const r = await accountCall('/api/family/devices/this', { method: 'POST', body: { ...(label ? { label } : {}), ...extra }, headers: { 'X-Device': deviceId() } });
+export async function linkThisDevice(label, { restoreFrom = null, onEscrow, ...extra } = {}) {
+  const body = { ...(label ? { label } : {}), ...extra, ...(restoreFrom ? { restoreFrom } : {}) };
+  const r = await accountCall('/api/family/devices/this', { method: 'POST', body, headers: { 'X-Device': deviceId() } });
   useApp.getState().setAI({ familyDevice: { token: r.deviceToken, label: r.label || '' }, pendingLink: null });
   clearSession();
   refreshStatus();
+  afterFamilyLink(r).then((x) => onEscrow?.(x));
   return r;
 }
+
+/**
+ * The progress the family keeps (DURABLE-6): [{ id, label, device: { id, label } | null, updatedAt }]. A device that
+ * is linked syncs its own; one with no device is kept in the account ("התקדמות שמורה") for a new device to continue
+ * from. The server never sends the code or the progress itself.
+ */
+export async function familyVaults() {
+  const r = await accountCall('/api/family/vaults');
+  return Array.isArray(r?.vaults) ? r.vaults : [];
+}
+/** "למחוק": the kept progress goes (the device it came from is not touched). */
+export const deleteFamilyVault = (id) => accountCall(`/api/family/vaults/${encodeURIComponent(id)}/delete`, { method: 'POST', body: {} });
 
 // ---------------------------------------------------------------- the data
 /** Everything kept about the account, as a file the parent saves. */

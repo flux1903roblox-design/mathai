@@ -125,7 +125,10 @@ test('"delete all" deletes the copy on the device too: a reload does not bring t
   await open(page, '#/settings', livedIn('7'));
   await expect.poll(async () => (await readDb(page, 'mirror'))?.length || 0, { timeout: 5000 }).toBe(1);
   await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+  // the app reloads itself after deleting: the test's own reload waits for that one, or the two collide (ERR_ABORTED)
+  const reloaded = page.waitForEvent('load');
   await page.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+  await reloaded;
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();

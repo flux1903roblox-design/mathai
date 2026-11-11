@@ -138,7 +138,7 @@ test('a licensed student on a linked family device uses the class bucket first, 
   const s = await (await h.call('GET', '/api/ai/status', { headers: both })).json();
   assert.equal(s.tier, 'class');
   assert.deepEqual(s.groups.check, { left: 5, limit: 6 }, 'the family serves check now');
-  assert.deepEqual(s.linked, { label: 'הטאבלט' });
+  assert.deepEqual(s.linked, { label: 'הטאבלט', summary: 'on' });
 });
 
 test('a paid caller at the cap gets 429 daily_limit and never drops to the free taste', async () => {

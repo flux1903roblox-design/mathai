@@ -15,7 +15,7 @@ import { TOPIC, topicsFor } from '@/content/index.js';
 import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
 import { Box, Button, Field, Sheet, Thinking } from '@/components/ui.jsx';
-import { Markdown } from '@/components/MathText.jsx';
+import { RichText } from '@/components/RichText.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */
@@ -130,11 +130,11 @@ function PhotoCheck() {
                 {r.steps.map((st, i) => (
                   <li key={i} className={st.ok ? 'ok' : 'bad'}>
                     <span className="check-icon" aria-label={st.ok ? 'נכון' : 'טעות'}>{st.ok ? <Check size={16} /> : <X size={16} />}</span>
-                    <div><Markdown>{st.text}</Markdown>{st.comment && <Markdown className="check-comment">{st.comment}</Markdown>}</div>
+                    <div><RichText>{st.text}</RichText>{st.comment && <RichText className="check-comment">{st.comment}</RichText>}</div>
                   </li>
                 ))}
               </ol>
-              <Markdown>{r.summary}</Markdown>
+              <RichText>{r.summary}</RichText>
             </>
           )}
         </Box>
@@ -150,7 +150,7 @@ function GeneratedQuestion({ q, i }) {
   const check = () => { const u = parseNum(val); const a = parseNum(q.answer); setRes(u == null ? 'empty' : a != null && near(u, a, 0.01) ? 'ok' : 'bad'); };
   return (
     <li className="gen-q">
-      <div className="gen-q-head"><span className="ex-num">{i + 1}</span><Markdown>{q.prompt}</Markdown></div>
+      <div className="gen-q-head"><span className="ex-num">{i + 1}</span><RichText>{q.prompt}</RichText></div>
       <div className="gen-q-answer">
         <label className="visually-hidden" htmlFor={`gq-${i}`}>התשובה לתרגיל {i + 1}</label>
         <input id={`gq-${i}`} className="input slot-inline" dir="ltr" value={val} onChange={(e) => { setVal(e.target.value); setRes(null); }} onKeyDown={(e) => e.key === 'Enter' && check()} placeholder="?" />
@@ -159,8 +159,8 @@ function GeneratedQuestion({ q, i }) {
         {res === 'bad' && <span className="gen-bad">עוד לא</span>}
         {res === 'empty' && <span className="gen-bad">כתבו מספר</span>}
       </div>
-      <details className="sol"><summary>רמז</summary><Markdown>{q.hint}</Markdown></details>
-      <details className="sol"><summary>פתרון ותשובה</summary><Markdown>{q.solution.map((s, k) => `${k + 1}. ${s}`).join('\n')}</Markdown><p>התשובה: <b className="mathline">{q.answer}</b></p></details>
+      <details className="sol"><summary>רמז</summary><RichText>{q.hint}</RichText></details>
+      <details className="sol"><summary>פתרון ותשובה</summary><RichText>{q.solution.map((s, k) => `${k + 1}. ${s}`).join('\n')}</RichText><p>התשובה: <b className="mathline">{q.answer}</b></p></details>
     </li>
   );
 }

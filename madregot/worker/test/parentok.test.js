@@ -125,7 +125,8 @@ test('a parent with no plan approves a device for free: consent needs the tick; 
   // the device is no longer a child alone: the free taste, counted on its own device key
   const s = await status(ok.headers);
   assert.equal(s.body.state, undefined); assert.equal(s.body.tier, 'free'); assert.equal(s.body.groups.tutor.left, 2);
-  assert.deepEqual(s.body.linked, { label: 'הטאבלט' });
+  // (the family lane's daily summary for the parents: no plan, so nothing is kept)
+  assert.deepEqual(s.body.linked, { label: 'הטאבלט', summary: 'no_plan' });
   const r = await ai(h, 'chat', ok.headers);
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('X-AI-Tier'), 'free');

@@ -4,7 +4,8 @@
 // content/labels.test.js samples them).
 import { describe, it, expect } from 'vitest';
 import { TOPICS, TOPIC, makeItem, isCorrect, catLabel } from '@/content/index.js';
-import { CONTENT } from '@/learn/content/index.ts';
+// a stair's misconceptions, as META knows them before its topic's teaching file has loaded (DURABLE-11)
+import { META as CONTENT } from '@/learn/content/index.ts';
 import { candidates } from '@/content/labels.sample.js';
 import { mistakeText, stairName, stairShort, mistakeLine } from './teacherText.js';
 

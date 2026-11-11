@@ -3,7 +3,7 @@
 // class's repeated mistakes, another class seeing only its own, and 60 reports an hour. Every name is synthetic.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { reportRange, REPORT } from '../src/report.js';
+import { reportRange, REPORT } from '../src/classReport.js';
 import { hourOf } from '../src/util.js';
 import { setup, makeClass, bearer, advanceClock, rows } from './helpers.js';
 

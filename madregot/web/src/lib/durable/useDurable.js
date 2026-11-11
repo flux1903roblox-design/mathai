@@ -16,3 +16,6 @@ export const useDurable = createDurableStatus();
 
 /** A reload would keep the progress: it is saved in the browser's storage or in the copy on the device. */
 export const savedHealth = (health) => health === 'ok' || health === 'mirror';
+
+/** The words for `health` (Settings › שמירת ההתקדמות and מידע לתמיכה). */
+export const healthText = (health) => (savedHealth(health) ? 'נשמר' : health === 'full' ? 'לא נשמר: הדפדפן מלא' : 'לא נשמר: הדפדפן חוסם שמירה');

@@ -28,6 +28,16 @@
 // and /api/teacher/students/:id/ai, a new class's setting, and 409 school_ai_not_approved for a trial, a licence code
 // or a class purchase while the rules do not allow selling to the class.
 // `st.down = true` makes every call fail as a lost connection.
+// The family lane's routes:
+// POST /api/errors keeps each report it is sent (st.errors, DURABLE-9). The backup code's vault (DURABLE-5) keeps sealed
+// copies by their X-Vault header in st.vaults, with the Worker's revisions: create with ifRev null (409 when it exists),
+// compare-and-swap with ifRev n (409 with the current rev, 404 vault_gone), both reads, and delete (`failVaultDelete`
+// makes the delete answer 500). Escrow (DURABLE-6): joining class K7Q2MD by name and PIN (st.members; a returning
+// student with the right PIN gets back the code its class keeps), POST /api/vault/escrow and /delete by the class Bearer
+// or X-Family-Device (st.escrows: the fake keeps the code as it came, the Worker seals it; `escrowOff` answers 503
+// server_config, as a Worker with no VAULT_SECRET does), the family's GET /api/family/vaults and its delete, restoreFrom
+// on claim and on devices/this, and the finish that hands the kept code to the new device. An unlink keeps the escrow
+// in the account (device null).
 import { MOE_RULES, classAiPolicy, notSellable } from '../../shared/schoolRules.js';
 
 export const API = 'https://api.madregot.test';
@@ -94,6 +104,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     digest: null, // the owner's daily help email (null: the dashboard does not say, as for a key)
     lateBoundAt: null, // K7Q2MD was bound to someone's email after it was opened: key devices are told when
     rekeyFrom: null, // the owner may make a new key from then (a late bind's 7 days)
+    errors: [], vaults: {}, members: [], escrows: [], escrowOff: false, // the family lane: error reports, vaults, class members, escrows
     ...over,
   };
   // the class's student AI (TRUST-11): a school class, off, no consent, Madregot not in the catalogue, unless the test says
@@ -173,7 +184,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     students: st.students.map((s) => ({ lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false, joinedOn: '2026-09-02', late: 0, aiOff: false, ...s })),
     aiPolicy: aiPolicy(),
   });
-  // one student's page, as worker/src/report.js studentDetail gives it
+  // one student's page, as worker/src/classReport.js studentDetail gives it
   const pageOf = (s) => {
     const row = dashboard().students.find((x) => x.id === s.id);
     return {
@@ -198,7 +209,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
   const myHelpOf = (sid) => st.help.filter((x) => x.studentId === sid)
     .map((x) => ({ id: x.id, topic: x.topic, level: x.level, question: x.question, createdAt: x.created_at, status: statusOf(x), messages: x.messages }));
 
-  // ---- the class report (TEACHER-7), as worker/src/report.js gives it: rows by name, work by row index, no ids
+  // ---- the class report (TEACHER-7), as worker/src/classReport.js gives it: rows by name, work by row index, no ids
   const REPORT_ROWS = [
     { activeDays: 3, exercises: 24, firstTry: 18, correct: 21, hinted: 2, minutes: 31, lastPractice: '2026-11-05T08:00:00Z',
       levels: { signed: { level: 2, max: 3 }, coord: { level: 1, max: 1 } }, topMistakes: [{ topic: 'signed', cat: 'sign', level: 1, n: 3 }] },
@@ -272,6 +283,68 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (kind === 'check') return reply(route, 200, { readable: true, final: 'correct', steps: [{ text: '3 + 4 = 7', ok: true }], summary: 'יפה.' }, hdr);
       return reply(route, 200, { questions: [{ prompt: '2+2', answer: '4', hint: 'חברו', solution: ['2+2=4'] }] }, hdr);
     }
+    // the backup code's vault (DURABLE-5): sealed copies by X-Vault; the fake never opens them
+    if (path === '/api/vault' || path === '/api/vault/rev' || path === '/api/vault/delete') {
+      const id = String(h['x-vault'] || '');
+      if (!/^[0-9a-f]{64}$/.test(id)) return reply(route, 400, { error: 'bad_vault' });
+      const v = st.vaults[id];
+      if (req.method() === 'GET') {
+        if (!v) return reply(route, 404, { error: 'vault_not_found' });
+        return reply(route, 200, path === '/api/vault' ? { rev: v.rev, blob: v.blob, updatedAt: v.updatedAt } : { rev: v.rev, updatedAt: v.updatedAt });
+      }
+      if (path === '/api/vault/delete') {
+        // `failVaultDelete`: the server breaks on a delete (the device must then delete nothing either)
+        if (st.failVaultDelete) return reply(route, 500, { error: 'server_error' });
+        delete st.vaults[id]; return reply(route, 200, { deleted: v ? 1 : 0 });
+      }
+      const updatedAt = new Date().toISOString();
+      if (body.ifRev === null) {
+        if (v) return reply(route, 409, { error: 'vault_conflict', rev: v.rev });
+        st.vaults[id] = { rev: 1, blob: body.blob, updatedAt };
+        return reply(route, 200, { rev: 1, updatedAt });
+      }
+      if (!v) return reply(route, 404, { error: 'vault_gone' });
+      if (v.rev !== body.ifRev) return reply(route, 409, { error: 'vault_conflict', rev: v.rev });
+      st.vaults[id] = { rev: v.rev + 1, blob: body.blob, updatedAt };
+      return reply(route, 200, { rev: v.rev + 1, updatedAt });
+    }
+    // ---- escrow (DURABLE-6): the code kept for a class student (Bearer) or a family device (X-Family-Device)
+    if (path === '/api/vault/escrow' || path === '/api/vault/escrow/delete') {
+      const bearer = String(h.authorization || '').replace(/^Bearer /, '');
+      const m = bearer && st.members.find((x) => x.tokens.includes(bearer));
+      const fd = !m && famOf(h);
+      if (!m && !fd) return reply(route, 401, { error: 'not_signed_in' });
+      const mine = (e) => (m ? e.kind === 'student' && e.owner === m.id : e.kind === 'account' && e.device === fd.id);
+      if (path === '/api/vault/escrow/delete') {
+        const before = st.escrows.length; st.escrows = st.escrows.filter((e) => !mine(e));
+        return reply(route, 200, { deleted: before - st.escrows.length });
+      }
+      if (st.escrowOff) return reply(route, 503, { error: 'server_config' });
+      if (!/^[A-HJ-KMNP-Z2-9]{16}$/.test(body.code || '') || !/^[0-9a-f]{64}$/.test(body.lookup || '')) return reply(route, 400, { error: 'bad_vault' });
+      if (!st.vaults[body.lookup]) return reply(route, 404, { error: 'vault_not_found' });
+      const at = new Date().toISOString();
+      const e = st.escrows.find(mine);
+      if (e) Object.assign(e, { code: body.code, lookup: body.lookup, updatedAt: at });
+      else st.escrows.push({ id: `e${String(st.escrows.length + 1).padStart(15, '0')}`, kind: m ? 'student' : 'account', owner: m ? m.id : 'acct', device: m ? null : fd.id, label: m ? '' : fd.label, code: body.code, lookup: body.lookup, updatedAt: at });
+      return reply(route, 200, { escrow: m ? 'class' : 'family' });
+    }
+    // joining class K7Q2MD: a name is a student; their first PIN is theirs; a returning student with that PIN gets a new
+    // token (up to 3 devices) and the code the class keeps, when its vault is still there
+    const join = path.match(/^\/api\/classes\/([A-Z0-9]+)\/join$/);
+    if (join) {
+      if (join[1] !== 'K7Q2MD') return reply(route, 404, { error: 'no_class' });
+      if (!/^\d{4}$/.test(body.pin || '')) return reply(route, 400, { error: 'bad_pin' });
+      let m = st.members.find((x) => x.name === body.name);
+      if (m && m.pin !== body.pin) return reply(route, 403, { error: 'wrong_pin' });
+      const returning = !!m;
+      if (!m) { m = { id: `s${st.members.length + 1}`, name: body.name, pin: body.pin, tokens: [] }; st.members.push(m); }
+      const token = `stu_${m.id}_${m.tokens.length + 1}`; m.tokens = [...m.tokens, token].slice(-3);
+      st.studentTokens[token] = m.id; // the school lane's routes (class work, help) know the joined student too
+      const e = st.escrows.find((x) => x.kind === 'student' && x.owner === m.id && st.vaults[x.lookup]);
+      return reply(route, 200, { studentId: m.id, token, name: m.name, className: 'ז׳3', grade: '7', classCode: 'K7Q2MD', returning, ...(e ? { vault: { code: e.code } } : {}) });
+    }
+    // the app's error reports (DURABLE-9): a text/plain body holding JSON, kept as they came
+    if (path === '/api/errors' && req.method() === 'POST') { st.errors.push(body); return reply(route, 202, { ok: true }); }
     if (path === '/api/progress') {
       // a class student's answers, kept as the Worker keeps them: once per id (an answer without one, every time), and
       // every event sent is acknowledged. `loseProgressReplies`: store, then answer with an error (the reply was lost).
@@ -358,8 +431,11 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (!l || l.secret !== body.secret) return reply(route, 404, { error: 'link_not_found' });
       if (l.collected) return reply(route, 410, { error: 'link_expired' });
       if (!l.claimed) return reply(route, 202, { state: 'waiting' });
-      l.collected = true; const d = st.devices.find((x) => x.id === l.device); d.token = `fd1.${'f'.repeat(64)}`;
-      return reply(route, 200, { deviceToken: d.token, label: d.label });
+      l.collected = true; const d = st.devices.find((x) => x.id === l.device); d.token = `fd1.${String(st.devices.indexOf(d) + 1).repeat(64).slice(0, 64)}`;
+      // the parent chose to continue from kept progress: it now belongs to this device, whose code comes with the token
+      const kept = l.restoreFrom && st.escrows.find((e) => e.id === l.restoreFrom);
+      if (kept) kept.device = d.id;
+      return reply(route, 200, { deviceToken: d.token, label: d.label, ...(kept && st.vaults[kept.lookup] ? { vault: { code: kept.code } } : {}) });
     }
     if (path === '/api/family/devices/leave') { st.devices = st.devices.filter((d) => d.token !== h['x-family-device']); return reply(route, 200, { ok: true }); }
     // ---- sign-in
@@ -371,7 +447,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       return reply(route, 200, { token: t, email: body.email });
     }
     if (path === '/api/billing/plans') return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online });
-    if (path.startsWith('/api/account') || path.startsWith('/api/billing') || path === '/api/family/link/claim' || path.startsWith('/api/family/devices') || path === '/api/teacher/licence/request') {
+    if (path.startsWith('/api/account') || path.startsWith('/api/billing') || path === '/api/family/link/claim' || path.startsWith('/api/family/devices') || path.startsWith('/api/family/vaults') || path === '/api/teacher/licence/request') {
       if (path.startsWith('/api/teacher')) { /* checked below with the class too */ } else if (!signed) return reply(route, 401, { error: 'not_account' });
     }
     if (path === '/api/account') return reply(route, 200, account());
@@ -418,20 +494,44 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (purpose === 'consent' && body.consent !== true) return reply(route, 400, { error: 'consent_required' });
       st.purposes = [...(st.purposes || []), purpose];
     }
+    // restoreFrom (DURABLE-6): an escrow of this account, else 404 escrow_not_found
+    const restoreOf = () => (body.restoreFrom ? st.escrows.find((e) => e.kind === 'account' && e.id === body.restoreFrom) || false : null);
     if (path === '/api/family/link/claim') {
+      const restore = restoreOf();
+      if (restore === false) return reply(route, 404, { error: 'escrow_not_found' });
       const l = st.links[body.code];
       if (!l) return reply(route, 404, { error: 'link_not_found' });
       if (l.claimed) return reply(route, 409, { error: 'link_used' });
       const d = { id: `d${'0'.repeat(14)}${st.devices.length + 1}`, label: body.label || '', token: null };
-      st.devices.push(d); l.claimed = true; l.device = d.id; st.claimedBy = token;
+      st.devices.push(d); l.claimed = true; l.device = d.id; l.restoreFrom = restore?.id || null; st.claimedBy = token;
       return reply(route, 200, { ok: true, device: { id: d.id, label: d.label } });
     }
     if (path === '/api/family/devices/this') {
+      const restore = restoreOf();
+      if (restore === false) return reply(route, 404, { error: 'escrow_not_found' });
       const d = { id: `d${'0'.repeat(14)}${st.devices.length + 1}`, label: body.label || '', token: `fd1.${'e'.repeat(64)}` };
       st.devices.push(d); st.sessions.delete(token);
-      return reply(route, 200, { deviceToken: d.token, label: d.label });
+      if (restore) restore.device = d.id;
+      return reply(route, 200, { deviceToken: d.token, label: d.label, ...(restore && st.vaults[restore.lookup] ? { vault: { code: restore.code } } : {}) });
     }
-    if (/^\/api\/family\/devices\/[a-z0-9]+\/unlink$/.test(path)) { st.devices = st.devices.filter((d) => d.id !== path.split('/')[4]); return reply(route, 200, { ok: true }); }
+    if (/^\/api\/family\/devices\/[a-z0-9]+\/unlink$/.test(path)) {
+      const id = path.split('/')[4];
+      // the device's escrow stays with the account ("התקדמות שמורה")
+      for (const e of st.escrows) if (e.device === id) e.device = null;
+      st.devices = st.devices.filter((d) => d.id !== id); return reply(route, 200, { ok: true });
+    }
+    if (path === '/api/family/vaults') {
+      const vaults = st.escrows.filter((e) => e.kind === 'account' && st.vaults[e.lookup]).map((e) => {
+        const d = e.device && st.devices.find((x) => x.id === e.device);
+        return { id: e.id, label: e.label, device: d ? { id: d.id, label: d.label } : null, updatedAt: e.updatedAt };
+      });
+      return reply(route, 200, { vaults });
+    }
+    const kd = path.match(/^\/api\/family\/vaults\/([a-z0-9]+)\/delete$/);
+    if (kd) {
+      if (!st.escrows.some((e) => e.kind === 'account' && e.id === kd[1])) return reply(route, 404, { error: 'not_found' });
+      st.escrows = st.escrows.filter((e) => e.id !== kd[1]); return reply(route, 200, { ok: true });
+    }
     // ---- the teacher
     if (path === '/api/health') return reply(route, 200, { ok: true, ai: true, email: st.email !== false, paywall: st.paywall, checkout: st.online });
     // the session's email is the one the class is bound to (or any session, when the test did not say which)

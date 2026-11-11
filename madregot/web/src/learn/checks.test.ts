@@ -7,7 +7,10 @@ import { learnAfterAnswer, learnAfterCheck, migrateLearn, emptyLearn } from './s
 import { masteryState } from './mastery';
 import { addSubModel } from './content/signed';
 import { ALL_SKILLS } from './skills';
-import { contentOf } from './content/index';
+import { contentOf, loadAllContent } from './content/index';
+
+// the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
+await loadAllContent();
 
 // the lesson engine is plain JS: its inferred types are too narrow for these tests
 const { startLesson, answer, next, resultOf } = lessonJs as any;

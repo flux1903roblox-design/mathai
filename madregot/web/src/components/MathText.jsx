@@ -1,18 +1,37 @@
-import { memo, useLayoutEffect, useMemo, useRef } from 'react';
-import katex from 'katex';
-import ReactMarkdown from 'react-markdown';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import { linkAllowed } from '@shared/safety.js';
+// Maths in the app's text: $...$ inside Hebrew, drawn by KaTeX. No markdown here: AI answers and the legal pages use
+// RichText (components/RichText.jsx), whose markdown file loads only when such text is shown (DURABLE-11).
+import { memo, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+
+// KaTeX and its stylesheet (components/katex.js) are their own file, fetched as the app starts but never waited for by
+// the first screen: until it is here an expression shows as plain words (texText), then every expression on screen
+// draws itself. A screen opened straight on a lesson or a stair waits for it with its topic (lib/bootTopics.js).
+let katex = null;
+let loading = null;
+const listeners = new Set();
+/** Fetch KaTeX (once); resolves when expressions can be drawn. */
+export function loadKatex() {
+  if (!loading) {
+    const p = import('./katex.js').then((m) => { katex = m.default; listeners.forEach((f) => f()); return katex; });
+    p.catch(() => { if (loading === p) loading = null; }); // offline before it was ever kept: asked again next time
+    loading = p;
+  }
+  return loading;
+}
+const subscribe = (f) => { listeners.add(f); return () => { listeners.delete(f); }; };
+const drawnNow = () => !!katex;
+/** Is KaTeX here? Re-renders when it arrives. */
+export const useKatex = () => useSyncExternalStore(subscribe, drawnNow, drawnNow);
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 
 /**
  * One TeX expression as HTML. When KaTeX cannot render it, the TeX is shown as text, escaped: it never reaches the
- * page as HTML (a student's help note goes through here on the teacher's board).
+ * page as HTML (a student's help note goes through here on the teacher's board). Before KaTeX has loaded: the
+ * expression in plain words, escaped too.
  */
 export const renderTex = (tex, displayMode = false) => {
+  if (!katex) { loadKatex().catch(() => {}); return `<span class="tex-plain" dir="ltr">${escapeHtml(texText(tex))}</span>`; }
   try { return katex.renderToString(String(tex ?? ''), { displayMode, throwOnError: false, strict: 'ignore' }); } catch { return escapeHtml(tex); }
 };
 
@@ -41,7 +60,8 @@ export function texText(tex) {
 
 /** One TeX expression. */
 export const Tex = memo(function Tex({ tex, display = false, className }) {
-  const html = useMemo(() => renderTex(tex, display), [tex, display]);
+  const drawn = useKatex();
+  const html = useMemo(() => renderTex(tex, display), [tex, display, drawn]); // eslint-disable-line react-hooks/exhaustive-deps
   return <span className={className} dangerouslySetInnerHTML={{ __html: html }} />;
 });
 
@@ -52,6 +72,7 @@ export const Tex = memo(function Tex({ tex, display = false, className }) {
  */
 export function FitDisplay({ tex, className = 'qdisplay' }) {
   const ref = useRef(null);
+  const drawn = useKatex(); // measured again once KaTeX has drawn it
   useLayoutEffect(() => {
     const el = ref.current; if (!el) return undefined;
     let width = -1;
@@ -78,7 +99,7 @@ export function FitDisplay({ tex, className = 'qdisplay' }) {
     fonts?.addEventListener?.('loadingdone', refit);
     fonts?.ready?.then(refit);
     return () => { ro?.disconnect(); fonts?.removeEventListener?.('loadingdone', refit); };
-  }, [tex]);
+  }, [tex, drawn]);
   return <div className={className} ref={ref}><Tex tex={tex} display /></div>;
 }
 
@@ -113,40 +134,6 @@ export const MathText = memo(function MathText({ text, as: As = 'span', classNam
     </As>
   );
 });
-
-/**
- * A link in text the AI wrote (trust spec TRUST-4 §4.2): an anchor only to the hosts every reply may link to (the
- * support services, WhatsApp, Israeli government sites, from the same list the server screens with) or to this app's
- * own address; it opens in a new tab with no opener. Any other link is shown as its text, so a child never follows an
- * address nobody checked. This covers a reply that is still streaming, before the server's screen has seen it all.
- */
-export function SafeLink({ href, children }) {
-  const own = typeof window !== 'undefined' && window.location?.hostname ? [window.location.hostname] : [];
-  if (!linkAllowed(href, own)) return <span className="md-link-text">{children}</span>;
-  const tel = /^tel:/i.test(String(href));
-  return <a href={href} {...(tel ? {} : { target: '_blank', rel: 'noopener noreferrer' })}>{children}</a>;
-}
-
-/** An image in text the AI wrote is never loaded (an address nobody chose would load by itself): its words stay. */
-export function SafeImage({ alt }) {
-  return alt ? <span className="md-link-text">{alt}</span> : null;
-}
-
-/** Markdown with math, for text written by the AI. Raw HTML is not rendered; links and images go through the above. */
-const SAFE = { a: SafeLink, img: SafeImage };
-const INLINE = { ...SAFE, p: 'span' };
-
-/** Markdown with $...$ math. `inline` renders a short answer inside a line of text. */
-export function Markdown({ children, className, inline = false }) {
-  const Tag = inline ? 'span' : 'div';
-  return (
-    <Tag className={[inline ? 'md-inline' : 'md', className].filter(Boolean).join(' ')}>
-      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: 'ignore' }]]} components={inline ? INLINE : SAFE}>
-        {String(children ?? '')}
-      </ReactMarkdown>
-    </Tag>
-  );
-}
 
 /** Text with $...$ maths as plain words, for an accessible name (a button whose text is only maths). */
 export const mathPlain = (text) => String(text || '').replace(/\$([^$]+)\$/g, (_, t) => texText(t)).replace(/\s+/g, ' ').trim();

@@ -10,6 +10,7 @@ import { api, apiBase, hasServer, ApiError } from './api.js';
 import { qaStatus, qaActive } from './qaFixtures.js';
 import { randomHex } from './random.js';
 import { teacherHeaders, previewMode } from './teacher.js';
+import { afterFamilyLink } from './durable/escrow.js';
 
 /** A random id for this device, made once. The server counts the free questions per device. */
 export function deviceId() {
@@ -277,8 +278,12 @@ export async function startLink({ fresh = false } = {}) {
   return link;
 }
 
-/** Ask once whether a parent claimed the code: 'waiting', 'linked' (the token is saved) or 'expired'. */
-export async function pollLink() {
+/**
+ * Ask once whether a parent claimed the code: 'waiting', 'linked' (the token is saved) or 'expired'. Once linked, the
+ * family keeps this device's backup code, or the progress the parent chose to continue from comes here (DURABLE-6,
+ * durable/escrow.js): that runs in the background, and `onEscrow({ toast, restored })` hears how it went.
+ */
+export async function pollLink({ onEscrow } = {}) {
   const { ai, setAI } = useApp.getState();
   const p = ai.pendingLink;
   if (!p?.code) return 'expired';
@@ -286,6 +291,7 @@ export async function pollLink() {
     const r = await api('/api/family/link/finish', { method: 'POST', body: { code: p.code, secret: p.secret }, auth: false });
     if (!r.deviceToken) return 'waiting';
     setAI({ familyDevice: { token: r.deviceToken, label: r.label || '' }, pendingLink: null });
+    afterFamilyLink(r).then((x) => onEscrow?.(x));
     await refreshStatus();
     return 'linked';
   } catch (e) {

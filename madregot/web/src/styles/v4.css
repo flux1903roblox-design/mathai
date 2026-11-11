@@ -108,7 +108,6 @@ body { background: var(--paper); color: var(--ink); }
 .lm-say { flex: 1; min-width: 0; font-size: 19px; line-height: 1.65; color: var(--ink); }
 .lm-say p { margin: 0; }
 .lm-say p + p { margin-top: 8px; }
-.lm-tag { margin: 0 0 4px !important; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--ink-2); }
 .lm-rule-text { font-family: var(--font-display); font-size: 21px; line-height: 1.5; font-weight: 600; }
 /* the maths on a light panel in the middle */
 .lm-canvas { display: flex; flex-direction: column; align-items: center; gap: var(--s3); padding: var(--s5) var(--s4); border-radius: var(--r-xl); background: var(--surface-2); border: 0; }
@@ -227,7 +226,6 @@ body { background: var(--paper); color: var(--ink); }
 .node-card .btn-ghost { color: var(--on-brand); }
 /* the mastery snapshot, under the path */
 .mastery-map { border-radius: var(--r-m); border: 2px solid var(--line); box-shadow: none; padding: var(--s4); gap: var(--s3); background: var(--surface); }
-.mm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--s2); }
 .mm-tile { border-radius: 11px; }
 
 /* =============================================================== the stair page: Brilliant's course outline */
@@ -656,7 +654,6 @@ a.hub-row:active { background: var(--p-100); }
 .t-class-select { min-width: 140px; }
 .t-code { background: var(--surface); color: var(--ink); border-color: var(--surface); }
 .t-code span:first-child { font-weight: 600; letter-spacing: 0; font-size: var(--fs-sm); color: var(--ink-2); }
-.t-head-madi { position: absolute; inset-inline-end: var(--s4); bottom: var(--s3); }
 .t-main { max-width: 1100px; }
 /* a topic's name may take two lines in the student table, so a grade with five topics fits a laptop screen */
 .t-table thead th:has(.th-topic) { white-space: normal; min-width: 7.5em; }

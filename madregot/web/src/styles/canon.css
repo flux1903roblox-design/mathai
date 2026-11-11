@@ -50,10 +50,9 @@ a { color: var(--brand-d); }
 .page-hero-text { gap: 6px; }
 .page-hero-title { font-size: 30px; line-height: 36px; font-weight: 800; color: var(--ink); letter-spacing: -0.015em; }
 .page-hero-sub { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink-2); max-width: 46ch; }
-.page-hero-art { display: none; }
 
 /* section headings inside a screen: 20px, ink, with room above */
-.set-head, .h-section, .section > h2, .section-title { font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; margin: 0 0 var(--s3); text-transform: none; }
+.set-head, .h-section, .section > h2 { font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; margin: 0 0 var(--s3); text-transform: none; }
 .section { margin-top: var(--s6); }
 
 /* pushed screens: the bar with the way back and the title */
@@ -195,7 +194,7 @@ a { color: var(--brand-d); }
 .lesson .choice.on, .ls-choice.on, .ls-choice[aria-checked="true"] { border-color: var(--brand); background: var(--brand-tint); box-shadow: 0 4px 0 var(--brand-line); color: var(--brand-d); }
 .choice-key { border: 2px solid var(--rule); border-radius: 10px; color: var(--ink-2); background: var(--surface); }
 .redo-note { color: var(--ink-2); font-size: 15px; }
-.lesson-tool, .lesson .tool, .dock-row .tool { color: var(--ink-2); border-color: var(--rule); }
+.lesson .tool, .dock-row .tool { color: var(--ink-2); border-color: var(--rule); }
 
 /* feedback: the panel that rises from the bottom */
 .fb-good { --fb-bg: var(--good-tint); --fb-line: var(--good-line); --fb-ink: var(--good-ink); --fb-mark: var(--good-d); }
@@ -206,7 +205,7 @@ a { color: var(--brand-d); }
 .lm-canvas { background: var(--ground); border-radius: 16px; }
 .lm .ls-why { border-inline-start: 0; border: 2px solid var(--rule); background: var(--surface); border-radius: 16px; }
 .lm .ls-why.good { border-color: var(--good-line); background: var(--good-tint); }
-.lm-say, .lm-prompt, .ls-text, .lm .ls-q { font-size: 19px; line-height: 29px; color: var(--ink); }
+.lm-say, .lm-prompt { font-size: 19px; line-height: 29px; color: var(--ink); }
 .ob-bubble { font-family: var(--font-ui); font-size: 19px; line-height: 28px; font-weight: 600; border-color: var(--rule); }
 .ob-bar { background: var(--track); }
 .ob-bar > i { background: var(--brand); }
@@ -224,7 +223,7 @@ a { color: var(--brand-d); }
 .stat-brand, .stat-sky { --tone: var(--brand); --tone-on: var(--on-brand); --tone-ink: var(--brand-d); }
 .stat-good { --tone: var(--good); --tone-on: var(--on-good); --tone-ink: var(--good-ink); }
 .stat-gold { --tone: var(--gold); --tone-on: var(--on-gold); --tone-ink: var(--gold-ink); }
-.reward-badge, .badge { font-weight: 700; }
+.badge { font-weight: 700; }
 
 /* ------------------------------------------------------------------ profile */
 .profile-top { background: var(--brand-tint); border: 0; }
@@ -368,9 +367,7 @@ a { color: var(--brand-d); }
 }
 
 /* the teacher's board: white, its sections as cards */
-.teacher, .teacher .t-body { background: var(--surface); }
-.t-section, .t-panel, .t-block { background: var(--surface); border: 2px solid var(--rule); border-radius: 16px; padding: var(--s4); }
-.t-section h2, .t-panel h2, .t-block h2 { color: var(--ink); font-size: 18px; font-weight: 800; }
+.teacher { background: var(--surface); }
 /* the result: מדי, one title, what was earned as quiet labels, three tiles, one button */
 .done-madi { margin-inline: auto; }
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
@@ -468,6 +465,18 @@ a { color: var(--brand-d); }
 .parents-rows > form, .parents-rows > .parents-payments, .parents-rows > .parents-devices { padding: var(--s3) var(--s5) var(--s4); border-bottom: 2px solid var(--rule); }
 .parents-devices { margin: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s2); }
 .parents-devices li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
+/* the progress the family keeps (DURABLE-6): a line under each device that syncs it, the kept list, and the choice for a new device */
+.parents-device-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 12em; }
+.parents-device-saved { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--good-ink); font-weight: 600; }
+.parents-kept-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.parents-kept-list li { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) 0; }
+.parents-kept-list li + li { border-top: 2px solid var(--rule); }
+.parents-kept-name { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.parents-kept-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.parents-kept-actions .btn { min-height: 44px; }
+.parents-continue { display: flex; flex-direction: column; gap: var(--s2); }
+.parents-continue-head { margin: 0; font-weight: 700; color: var(--ink); }
+.parents-continue .ob-opt { min-height: 56px; }
 .parents-payments ul { margin: 0 0 var(--s2); padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s1); }
 .parents-payments li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
 .parents-order-line { font-weight: 700; font-size: var(--t-md); }
@@ -526,7 +535,6 @@ a { color: var(--brand-d); }
 .sub-links { display: flex; flex-wrap: wrap; gap: var(--s2); justify-content: space-between; }
 .email-code .footnote { margin: 0; }
 .email-code-sent { margin: 0; }
-.ai-advanced { margin-top: var(--s2); }
 
 /* a row that opens another screen: its name, then a chevron at the far end */
 a.set-row { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }
@@ -596,6 +604,12 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 /* ------------------------------------------------------------------ saving the progress (DURABLE-1)
    The storage banner: one calm line at the top of Learn when nothing could be saved, with the way to Settings.
    Settings › שמירת ההתקדמות: a row per place the progress is kept, its state at the far end. */
+/* no connection (DURABLE-10): one calm line, the same quiet ground as the storage banner */
+.offline-chip { display: flex; align-items: center; gap: var(--s2); margin: var(--s3) var(--gutter) 0; padding: var(--s2) var(--s4); min-height: 44px; border-radius: 16px; background: var(--ground); color: var(--ink); font-size: 16px; line-height: 24px; }
+.offline-chip svg { flex: none; color: var(--ink-2); }
+.offline-chip.offline-need { margin: 0; }
+.page > .offline-chip { margin-inline: 0; }
+.restore-form > .offline-need { margin-bottom: var(--s2); }
 .storage-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s3); margin: var(--s3) var(--gutter) 0; padding: var(--s2) var(--s4); border-radius: 16px; background: var(--ground); color: var(--ink); }
 .storage-banner p { margin: 0; flex: 1 1 14em; padding: var(--s2) 0; font-size: 16px; line-height: 24px; }
 .storage-banner-link { flex: none; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--brand-d); text-decoration: underline; text-underline-offset: 3px; }
@@ -638,6 +652,21 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .install-card-go { align-self: flex-start; margin: 0; padding-inline: var(--s4); }
 .install-card-close { position: absolute; top: 4px; inset-inline-end: 4px; width: 44px; height: 44px; }
 
+/* Settings › מידע לתמיכה (DURABLE-9): closed by default, its heading is the button that opens it */
+.support-summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; margin: 0; cursor: pointer; list-style: none; }
+.support-summary::-webkit-details-marker { display: none; }
+.support-chev { flex: none; color: var(--ink-2); }
+.support-info[open] .support-chev { transform: rotate(180deg); }
+.support-rows .save-row { min-height: 48px; }
+.support-rows dd { font-weight: 600; color: var(--ink); }
+.support-errors-row { align-items: flex-start; padding: var(--s2) 0; }
+.support-errors-row dd { flex: 1 1 100%; }
+.support-errors { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s2); font-weight: 400; font-size: 15px; line-height: 22px; }
+.support-errors li { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.support-error-when { color: var(--ink-2); }
+.support-error-msg { text-align: start; }
+.support-copy { margin: var(--s3) 0 0; }
+
 /* the backup file (DURABLE-4): two full-width buttons under the rows, the note on who can read the file, and the undo
    while it is offered. The file input is hidden under its label, which is drawn as a button and shows the focus ring. */
 .save-file { display: flex; flex-direction: column; gap: var(--s3); padding-top: var(--s3); border-top: 2px solid var(--line); }
@@ -650,6 +679,34 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .file-pick.is-busy { opacity: 0.6; }
 .file-restore:has(.file-input:focus-visible) .file-pick { outline: 3px solid var(--brand-line); outline-offset: 2px; }
 .file-error { margin: 0; }
+
+/* the backup code (DURABLE-5): its row and buttons above the file's, the notes it may show, and its sheet: the code
+   large, left to right and in mono (sized to fit 320 px on one line), the QR code on white, then the three ways to keep it */
+.save-backup { display: flex; flex-direction: column; gap: var(--s3); }
+/* (.set-group > :not(.set-head) clears its children's borders: the line above the backup row is drawn here) */
+.save-section > .save-backup { padding-bottom: var(--s3); border-top: 2px solid var(--line); border-radius: 0; }
+.save-backup .btn { margin-inline: 0; }
+.save-stop { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
+/* "שמירת עותק בשרת הכיתה" (DURABLE-6): a switch with its label, the whole row a 48px target */
+.save-switch { justify-content: space-between; gap: var(--s3); min-height: 48px; font-weight: 700; font-size: 17px; line-height: 24px; color: var(--ink); border-top: 2px solid var(--line); padding-top: var(--s2); }
+.save-switch input[role="switch"] { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 52px; height: 32px; margin: 0; border-radius: 999px; background: var(--rule); border: 2px solid var(--ink-2); cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+.save-switch input[role="switch"]::after { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: inset-inline-start 150ms ease; } /* colour-ok: a shade (black at low alpha), the same in both themes */
+.save-switch input[role="switch"]:checked { background: var(--brand); border-color: var(--brand); }
+.save-switch input[role="switch"]:checked::after { inset-inline-start: 22px; }
+.save-switch input[role="switch"]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.save-switch input[role="switch"]:disabled { opacity: .6; cursor: progress; }
+@media (prefers-reduced-motion: reduce) { .save-switch input[role="switch"], .save-switch input[role="switch"]::after { transition: none; } }
+.save-backup-note { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); }
+.save-backup-note p { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
+.backup-code-body { display: flex; flex-direction: column; gap: var(--s3); }
+.backup-code-body > p { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.backup-code-body > .backup-who { font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.backup-code-body > .backup-code { margin: 0; text-align: center; white-space: nowrap; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: min(30px, calc((100vw - 64px) / 13)); line-height: 1.4; font-weight: 800; letter-spacing: 0.04em; color: var(--ink); }
+.backup-qr { align-self: center; padding: var(--s2); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.backup-qr .qr { display: block; width: 168px; height: 168px; }
+.backup-actions { display: flex; flex-direction: column; gap: var(--s2); }
+.backup-actions .btn { margin-inline: 0; }
 
 /* "מצאנו גיבוי": one line of what the copy holds, what restoring does, then the buttons */
 .restore-preview { display: flex; flex-direction: column; gap: var(--s3); }
@@ -989,10 +1046,11 @@ a.btn { text-decoration: none; }
 /* ------------------------------------------------------------------ both themes (STUDENT-2)
    Control edges reach 3:1 against what they sit on, in light and in dark (WCAG 1.4.11): inputs and segmented controls
    take --control-line. Three things stay light in the dark theme, each with its own light tokens: the notebook page
-   (squared paper, drawn in dark ink), the QR code (a scanner needs dark on light), and printouts (dark.css, last). */
+   (squared paper, drawn in dark ink), the QR codes (the hand-over's and the backup code's: a scanner needs dark on
+   light), and printouts (dark.css, last). */
 .input { border-color: var(--control-line); }
 .input:disabled { border-color: var(--rule); } /* an input that cannot be used yet stays quiet (WCAG exempts it) */
-.nb-page, .handoff-qr {
+.nb-page, .handoff-qr, .backup-qr {
   color-scheme: light;
   --surface: #ffffff; --paper: #ffffff; --ink: #14161a; --ink-2: #565b66; /* colour-ok: stays light in both themes */
   --rule: #e4e7ec; --rule-strong: #cdd2da; /* colour-ok: stays light in both themes */
@@ -1377,3 +1435,48 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
   /* each repeated mistake on about one line, so a student's row is not five lines tall */
   .rp-mis { min-width: 22em; max-width: 32em; }
 }
+
+/* "יש לי קוד גיבוי" (DURABLE-5): the restore screen. The code field is left to right in mono, large enough to read each
+   symbol at 320 px; the waiting line under the button; then the quieter switch to the file. When the progress is back,
+   מדי and one line, and the way on. */
+.restore-screen .ob-top-title { margin-block: 0; }
+.restore-screen .ob-main { gap: var(--s4); }
+.restore-form { display: flex; flex-direction: column; gap: var(--s3); }
+.restore-form .btn { margin-inline: 0; }
+/* 19 symbols with the dashes fit on one line at 320 px (never under 16 px, so iOS does not zoom on focus) */
+.restore-input { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-weight: 700; letter-spacing: 0.03em; text-align: left;
+  font-size: clamp(16px, calc((100vw - 80px) / 12.2), var(--t-lg)); padding-inline: var(--s3); }
+.restore-form .form-error { margin: 0; }
+.restore-wait { margin: 0; min-height: 24px; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--ink-2); text-align: center; }
+.restore-switch { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
+.restore-done { display: flex; flex-direction: column; align-items: center; gap: var(--s3); text-align: center; padding-top: var(--s4); }
+.restore-done .btn { margin-inline: 0; margin-top: var(--s2); }
+.restore-done-lead { margin: 0; font-size: 18px; line-height: 27px; color: var(--ink); }
+.restore-done-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--good-tint); color: var(--good-ink); font-size: 16px; line-height: 24px; }
+
+/* the front page: the two backup ways in side by side (one when there is no server), and the Home Screen app's banner,
+   first in the footer on its first open */
+.hello-restores { display: flex; justify-content: center; gap: var(--s2); }
+.hello-restores .hello-restore { flex: 1 1 0; min-width: 0; margin-inline: 0; padding-inline: var(--s2); white-space: normal; }
+.hello-home { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-radius: 16px; background: var(--brand-tint); }
+.hello-home p { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
+.hello-home .btn { margin-inline: 0; }
+/* the Home Screen app's front page gives the banner room: no tag line, and a smaller character on a short phone */
+.hello-standalone .hello-center .hello-fact { display: none; }
+@media (max-height: 700px) {
+  .hello-standalone .hello-center { padding-block: var(--s2); }
+  .hello-standalone .hello-madi { width: 84px; }
+}
+
+/* the backup question: מדי, two short lines, three answers (the sheet's own scroll keeps them reachable at 320) */
+.nudge-body { display: flex; flex-direction: column; align-items: center; gap: var(--s3); text-align: center; }
+.nudge-body > p { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.nudge-body > .nudge-how { font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.nudge-body > .nudge-status { font-size: 15px; line-height: 22px; color: var(--ink-2); }
+.nudge-body > .nudge-status:empty { display: none; }
+.nudge-actions { align-self: stretch; display: flex; flex-direction: column; gap: var(--s2); }
+.nudge-actions .btn { margin-inline: 0; }
+
+/* the iPhone guide's step 1 with a server: the code that was copied, in case the clipboard said no */
+.install-steps .install-code { margin: 0; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-weight: 800; font-size: 20px;
+  line-height: 28px; letter-spacing: 0.04em; text-align: right; white-space: nowrap; color: var(--ink); }

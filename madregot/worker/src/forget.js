@@ -25,9 +25,16 @@ export const STUDENT_ROWS = [
   // student (student.ai): they carry the student's id, so they go with the student
   ['student_ai_off', 'student_id'],
   ['audit_log', 'target', "SELECT 'student:' || id FROM students WHERE id"],
+  // the durable lane (DURABLE-6): the restore code the class kept for the student (a 4th element is a condition the
+  // rows must also meet: the table holds family accounts' codes too), and every device token of the student
+  ['vault_escrow', 'owner_id', null, "owner_kind = 'student'"],
+  ['student_tokens', 'student_id'],
 ];
-/** The WHERE of one STUDENT_ROWS entry, for a student test `match` ("= ?" or "IN (<a SELECT of ids>)"). */
-export const studentWhere = ([, col, via], match) => (via ? `${col} IN (${via} ${match})` : `${col} ${match}`);
+/**
+ * The WHERE of one STUDENT_ROWS entry, for a student test `match` ("= ?" or "IN (<a SELECT of ids>)"), with the entry's
+ * own condition first when it has one.
+ */
+export const studentWhere = ([, col, via, and], match) => (and ? `${and} AND ` : '') + (via ? `${col} IN (${via} ${match})` : `${col} ${match}`);
 /**
  * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, every AI tier, care, the
  * student's reported AI answers (TRUST-4), the student's assignment reports, and their replies to the teacher, TEACHER-6).

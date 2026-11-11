@@ -9,7 +9,7 @@ import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
-import { GradeSwitch, joinClass } from './Welcome.jsx';
+import { GradeSwitch, joinClass, joinedProfile } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import { openSupport } from '@/components/SupportSheet.jsx';
 import { SUPPORT_LINK } from '@/content/support.js';
@@ -18,7 +18,20 @@ import { PARENT_OK_LINE } from '@/components/limitCopy.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 import { durableWipe } from '@/lib/durable/storage.js';
 import SaveSection from '@/components/durable/SaveSection.jsx';
+import SupportInfo from '@/components/durable/SupportInfo.jsx';
 import { whereSavedText } from '@/lib/durable/copy.js';
+import { stopBackup, syncVault, vaultErrorText } from '@/lib/durable/vault.js';
+import { afterClassJoin } from '@/lib/durable/escrow.js';
+
+/** The danger zone's lines about the backup code (DURABLE-5), added while it is on. */
+export const WIPE_VAULT = 'גם הגיבוי המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.';
+/** The same, when the class or the family keeps the code (DURABLE-6): that copy is not called "מוצפן". */
+export const WIPE_KEPT = 'גם הגיבוי בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.';
+export const SIGNOUT_VAULT = 'הגיבוי בשרת נשאר. כדי לחזור להתקדמות, פותחים את מדרגות ובוחרים "יש לי קוד גיבוי".';
+/** "Delete all" could not delete the backup on the server, so it deleted nothing (the reason follows). */
+export const WIPE_FAILED = 'לא הצלחנו למחוק את הגיבוי בשרת, ולכן לא מחקנו כלום.';
+/** How long a sign-out waits for the last push of the backup before it goes on anyway. */
+const LAST_PUSH_MS = 4000;
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -48,9 +61,15 @@ function ClassSection() {
     e.preventDefault(); setError(''); setBusy(true);
     try {
       const c = await joinClass({ code: code || profile.classCode, name: profile.name, pin });
-      setProfile({ ...profile, ...c, role: 'student' });
+      setProfile({ ...profile, ...joinedProfile(c), role: 'student' });
       useApp.getState().quietForClass(); // sounds start off in a class, unless the student already chose them
-      toast.success(`הצטרפתם לכיתה ${c.className}`);
+      // the class's copy comes back (merged with what is here), or this device's code is kept by the class (DURABLE-6)
+      const hello = () => toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
+      if (!c.vault) hello();
+      const r = await afterClassJoin(c);
+      if (r.restored) toast.success(r.toast);
+      else if (c.vault) hello();
+      if (r.toast && !r.restored) toast(r.toast);
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
   return (
@@ -304,7 +323,7 @@ function SafetySection() {
 }
 
 export default function Settings() {
-  const { profile, patchProfile, resetProgress, signOut } = useApp();
+  const { profile, backup, patchProfile, resetProgress, signOut } = useApp();
   const { state: nav, hash } = useLocation();
   const navigate = useNavigate();
   useEffect(() => { if (nav?.focus === 'ai') document.getElementById('ai-title')?.scrollIntoView({ block: 'start' }); }, [nav]);
@@ -318,6 +337,34 @@ export default function Settings() {
   // the name can change under this screen (a restore, another tab): the field follows it
   useEffect(() => { setName(profile.name); }, [profile.name]);
   const [danger, setDanger] = useState(null);
+  const [wiping, setWiping] = useState(false);
+  const [wipeError, setWipeError] = useState('');
+  const vaultOn = !!backup?.on;
+  // "מחיקת כל הנתונים": with the backup code on, the copy on the server goes first; if that fails nothing is deleted
+  // here either, and the sheet says why. Then the family link and a parent's session, the saved progress, its copy on
+  // the device and the quarantine; this page writes nothing again, so it reloads.
+  const wipe = async () => {
+    if (wiping) return;
+    setWiping(true); setWipeError('');
+    if (vaultOn) {
+      try { await stopBackup(); } catch (e) { setWipeError(`${WIPE_FAILED} ${vaultErrorText(e)}`); setWiping(false); return; }
+    }
+    await leaveFamily(); await forgetParent();
+    // the saved progress, its copy on the device and the quarantine go; this page writes nothing again, so it reloads
+    await durableWipe(); signOut();
+    // the look goes back to following the phone (its mirror for public/theme-boot.js is removed too)
+    useApp.getState().setTheme('system');
+    window.location.hash = '#/'; window.location.reload();
+  };
+  // "התנתקות מהמכשיר" keeps the backup on the server (the code brings the progress back); what was learned since its
+  // last update is sent first, if the server answers within a few seconds
+  const [leaving, setLeaving] = useState(false);
+  const signOutHere = async () => {
+    if (leaving) return;
+    setLeaving(true);
+    if (vaultOn) await Promise.race([syncVault({ moment: 'lesson' }).catch(() => {}), new Promise((r) => { setTimeout(r, LAST_PUSH_MS); })]);
+    await forgetParent(); signOut();
+  };
   return (
     <div className="page pushed settings">
       <header className="screen-bar" data-region="header">
@@ -357,23 +404,19 @@ export default function Settings() {
         confirm="כן, לאפס" onConfirm={() => { resetProgress(); setDanger(null); toast('ההתקדמות אופסה'); }}>
         <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
       </ConfirmSheet>
-      <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => !o && setDanger(null)} title="למחוק הכול?" keep="לא למחוק"
-        confirm="כן, למחוק הכול" onConfirm={async () => {
-          await leaveFamily(); await forgetParent();
-          // the saved progress, its copy on the device and the quarantine go; this page writes nothing again, so it reloads
-          await durableWipe(); signOut();
-          // the look goes back to following the phone (its mirror for public/theme-boot.js is removed too)
-          useApp.getState().setTheme('system');
-          window.location.hash = '#/'; window.location.reload();
-        }}>
-        <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. אי אפשר לבטל.</p>
+      <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => { if (!o && !wiping) { setDanger(null); setWipeError(''); } }} title="למחוק הכול?" keep="לא למחוק"
+        confirm={wiping ? 'מוחקים…' : 'כן, למחוק הכול'} onConfirm={wipe}>
+        <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. {vaultOn && `${backup?.escrow ? WIPE_KEPT : WIPE_VAULT} `}אי אפשר לבטל.</p>
+        {wipeError && <p className="form-error" role="alert">{wipeError}</p>}
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"
-        confirm="כן, להתנתק" onConfirm={async () => { await forgetParent(); signOut(); }}>
+        confirm={leaving ? 'מתנתקים…' : 'כן, להתנתק'} onConfirm={signOutHere}>
         <p>המכשיר יחזור למסך הפתיחה, וההתקדמות שנשמרה בו תימחק.</p>
+        {vaultOn && <p>{SIGNOUT_VAULT}</p>}
       </ConfirmSheet>
+      <SupportInfo />
       {/* where the progress lives, in the words the whole app uses (lib/durable/copy.js) */}
-      <p className="footnote">מדרגות. {whereSavedText({ profile })}</p>
+      <p className="footnote">מדרגות. {whereSavedText({ profile, backup })}</p>
     </div>
   );
 }

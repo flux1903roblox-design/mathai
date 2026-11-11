@@ -6,7 +6,7 @@
 // מהכיתה" (asked first) and, when the class's students can have the smart tutor (TRUST-11: its policy is on or the
 // teacher's switch is off), turning it off or on for this student alone, with the badge "העוזר כבוי" under the name
 // (trust §E.8; the Ministry's alternative activity for a student without a parent's consent).
-// Data: GET /api/teacher/students/:id (worker/src/report.js studentDetail).
+// Data: GET /api/teacher/students/:id (worker/src/classReport.js studentDetail).
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { KeyRound, UserMinus, Send, Hand, RefreshCw, Sparkles } from 'lucide-react';

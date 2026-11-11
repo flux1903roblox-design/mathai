@@ -9,7 +9,7 @@ import clsx from 'clsx';
 import { useApp } from '@/lib/store.js';
 import { reportStairs } from '@/lib/classWork.js';
 import { TOPIC } from '@/content/index.js';
-import { contentOf } from '@/learn/content/index.ts';
+import { useStairContent } from '@/learn/useStairContent.js';
 import { diagnoseFinal } from '@/learn/content/togetherDiag.ts';
 import { skillId } from '@/learn/skills.ts';
 import StepPlayer, { LessonHeader } from '@/components/learn/StepPlayer.jsx';
@@ -27,7 +27,7 @@ export default function Teach() {
   const level = Number(L);
   const navigate = useNavigate();
   const skill = skillId(topic, level);
-  const c = contentOf(skill);
+  const c = useStairContent(skill);
   const t = TOPIC[topic];
   const pos = useApp((s) => s.learn.skills[skill]?.pos?.[stage]) || 0;
   const { completeStage, setStagePos, noteLearn, learnEvent } = useApp.getState();

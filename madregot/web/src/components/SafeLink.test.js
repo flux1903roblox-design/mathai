@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SUPPORT } from '@shared/safety.js';
-import { SafeLink, SafeImage, Markdown } from './MathText.jsx';
+// (they live in the markdown file RichText loads, components/Markdown.jsx: DURABLE-11)
+import Markdown, { SafeLink, SafeImage } from './Markdown.jsx';
 
 const html = (el) => renderToStaticMarkup(el);
 
@@ -36,5 +37,9 @@ describe('SafeLink', () => {
       expect(out).toContain('href="https://www.eran.org.il/online-emotional-help/"');
       expect(out).not.toContain('<img');
     }
+  });
+  it('the app\'s own text (the legal pages, trusted) keeps its links as written', () => {
+    const out = html(h(Markdown, { trusted: true, math: false }, 'ראו [האתר](https://www.gov.il/he/departments/the_privacy_protection_authority) ו[דוגמה](https://example.org/x)'));
+    expect(out).toContain('href="https://example.org/x"');
   });
 });

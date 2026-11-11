@@ -8,7 +8,7 @@ import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath, catLabel, displayTex } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
-import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
+import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS, lessonTopics } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { autoAskAllowed, gate, aiAccess, useAIStatus, needIntro, introSeen } from '@/lib/account.js';
@@ -18,7 +18,8 @@ import { api, syncNow } from '@/lib/api.js';
 import { checkAssignment, reportWork, reportStairs } from '@/lib/classWork.js';
 import { thawItem } from '@/lib/exam.js';
 import { play, haptic } from '@/lib/sound.js';
-import { Tex, MathText, Markdown, texText, FitDisplay } from '@/components/MathText.jsx';
+import { Tex, MathText, texText, FitDisplay } from '@/components/MathText.jsx';
+import { RichText } from '@/components/RichText.jsx';
 import Figure from '@/components/Figure.jsx';
 import Manip from '@/components/manip/Manip.jsx';
 import AIChat from '@/components/AIChat.jsx';
@@ -33,7 +34,8 @@ import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
-import { contentOf } from '@/learn/content/index.ts';
+import { contentOf, metaOf } from '@/learn/content/index.ts';
+import { useTopics } from '@/learn/useStairContent.js';
 import { skillId, parseSkill } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
@@ -187,6 +189,8 @@ function useLessonSpec() {
 export default function Lesson() {
   const spec = useLessonSpec();
   const examPath = classExamOf(useLocation().pathname);
+  // the lesson's questions come from its topics' teaching content: the app's loading screen shows until it is here
+  useTopics(lessonTopics(spec));
   const navigate = useNavigate();
   const st = useApp();
   const [s, setS] = useState(() => (spec ? startLesson(spec) : null));
@@ -651,7 +655,7 @@ export default function Lesson() {
                 <div className="fb-body">
                   {last?.cat && catLabel(item.topic || spec.topic, item.level, last.cat) && !last.diagnosis?.ambiguous && <p><MathText text={`מה כנראה קרה: ${catLabel(item.topic || spec.topic, item.level, last.cat)}.`} /></p>}
                   {last?.diagnosis?.ambiguous && <p><MathText text={ambiguousText(item.topic || spec.topic, item.level, last.diagnosis.candidates)} /></p>}
-                  {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
+                  {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && metaOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
                   )}
                   <p className="hint-line"><Lightbulb size={16} aria-hidden="true" /><MathText text={item.hint} /></p>
@@ -668,7 +672,7 @@ export default function Lesson() {
                   <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>
                   {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}
                   {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
-                  {explain.state === 'done' && <Box tone="ai" title="העוזר"><Markdown>{explain.text}</Markdown></Box>}
+                  {explain.state === 'done' && <Box tone="ai" title="העוזר"><RichText>{explain.text}</RichText></Box>}
                   {explain.state === 'done' && !explain.blocked && <div className="ai-report-row"><ReportAnswer kind="explain" reply={explain.text} /></div>}
                   {explain.state === 'done' && explain.care && <SupportCard variant="after-message" />}
                   {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
@@ -682,7 +686,7 @@ export default function Lesson() {
                     <Button variant="secondary" className="btn-sm" onClick={askMadi}><HelpCircle size={16} aria-hidden="true" />שאלה למדי</Button>
                   )}
                   {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}
-                  {!isTest(s.kind) && last?.cat && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
+                  {!isTest(s.kind) && last?.cat && metaOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
                   )}
                 </div>

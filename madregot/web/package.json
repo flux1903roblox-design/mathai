@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build && node scripts/check-dist.mjs dist",
+    "dev": "node scripts/gen-content-meta.mjs && vite",
+    "build": "node scripts/gen-content-meta.mjs && vite build && node scripts/check-dist.mjs dist && node scripts/check-budget.mjs dist",
     "preview": "vite preview",
     "test": "vitest run",
     "lint:colors": "node scripts/check-colors.mjs",

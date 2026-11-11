@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import katex from 'katex';
-import { texText, renderTex, escapeHtml } from './MathText.jsx';
+import { texText, renderTex, escapeHtml, loadKatex } from './MathText.jsx';
 
 describe('texText: maths as words for a screen reader', () => {
   it('says a lone comparison sign in Hebrew', () => {
@@ -19,7 +19,20 @@ describe('texText: maths as words for a screen reader', () => {
   });
 });
 
+describe('KaTeX loads after the first screen (DURABLE-11)', () => {
+  it('until it is here, an expression is plain words, escaped; then it is drawn', async () => {
+    expect(renderTex('x \\le 3')).toBe('<span class="tex-plain" dir="ltr">x ≤ 3</span>');
+    expect(renderTex('<img src=x onerror="alert(1)">')).not.toContain('<img');
+    await loadKatex();
+    expect(renderTex('x \\le 3')).toContain('class="katex"');
+  });
+  it('is fetched once', () => {
+    expect(loadKatex()).toBe(loadKatex());
+  });
+});
+
 describe('renderTex: a TeX failure is shown as text, never as HTML', () => {
+  beforeAll(() => loadKatex());
   it('renders TeX with KaTeX', () => {
     expect(renderTex('\\frac{1}{2}')).toContain('katex');
   });

@@ -11,7 +11,7 @@ import { hasTool, useAIStatus } from '@/lib/account.js';
 import { TOPIC } from '@/content/index.js';
 import { NeedSlots } from '@/components/ui.jsx';
 import { Segments } from '@/components/ds.jsx';
-import { Markdown } from '@/components/MathText.jsx';
+import { RichText } from '@/components/RichText.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 
 const KIND_ICON = { practice: PencilRuler, exam: FileText, habit: Flame };
@@ -77,7 +77,7 @@ export default function Plan() {
       {latest?.result?.nextSteps?.length > 0 && (
         <section className="section" aria-labelledby="rec-title">
           <h2 id="rec-title" className="set-head">המלצות מהבדיקה האחרונה ({latest.title})</h2>
-          <ol className="steps result-next">{latest.result.nextSteps.map((n, i) => <li key={i}><Markdown>{n}</Markdown></li>)}</ol>
+          <ol className="steps result-next">{latest.result.nextSteps.map((n, i) => <li key={i}><RichText>{n}</RichText></li>)}</ol>
         </section>
       )}
 

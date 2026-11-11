@@ -38,7 +38,8 @@ function help(studentId, { created, done = null, image = IMAGE }) {
  * Student data in every student table, through the API: progress (attempts, levels), a help request with a page and,
  * with the class's `teacher` headers, a reply on it from each side (help_messages, TEACHER-6), a "talk with me" request
  * (its help_meta row, TRUST-3), an exam; and the teacher's AI switch for the student (student_ai_off, TRUST-11): through
- * the API with the teacher's headers (its student.ai audit row names the student), else written directly.
+ * the API with the teacher's headers (its student.ai audit row names the student), else written directly; and the
+ * restore code the class kept (vault_escrow, DURABLE-6).
  */
 async function practise(s, teacher = null) {
   await h.call('POST', '/api/progress', { headers: bearer(s), body: { events: [{ topic: 'neg', level: 1, ok: false, first: false, cat: 'sign', secs: 9 }], levels: { neg: { level: 2, max: 2 } } } });
@@ -53,6 +54,10 @@ async function practise(s, teacher = null) {
   // the teacher turns the AI off for the student (TRUST-11: student_ai_off)
   if (teacher) assert.equal((await h.call('POST', `/api/teacher/students/${s.studentId}/ai`, { headers: teacher, body: { off: true } })).status, 200);
   else raw().prepare('INSERT OR IGNORE INTO student_ai_off (student_id, at) VALUES (?, ?)').run(s.studentId, new Date().toISOString());
+  // the restore code the class keeps for the student (DURABLE-6, vault_escrow), written directly: its route needs
+  // VAULT_SECRET and a vault (escrow.test.js). The student's device token (student_tokens) came with the join.
+  raw().prepare("INSERT OR IGNORE INTO vault_escrow (id, vault_id, owner_kind, owner_id, sealed, created_at, updated_at) VALUES (?, ?, 'student', ?, 'sealed', ?, ?)")
+    .run(s.studentId.padEnd(16, '0').slice(0, 16), `v${s.studentId}`, s.studentId, new Date().toISOString(), new Date().toISOString());
 }
 /** help_meta rows whose help request is gone (none may be left behind). */
 const orphanMeta = () => rows(h.env, 'SELECT * FROM help_meta WHERE help_id NOT IN (SELECT id FROM help_requests)');

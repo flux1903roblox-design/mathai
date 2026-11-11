@@ -39,6 +39,8 @@ describe('which case', () => {
     expect(hasProgress({ profile: null })).toBe(false);
     expect(hasProgress({ profile: { role: 'student', name: 'נועה' }, xp: 0, days: {} })).toBe(false);
     expect(hasProgress({ profile: { role: 'student', name: 'נועה' }, xp: 0, days: { '2026-11-05': { q: 1 } } })).toBe(true);
+    // a lesson opened and left: only the learning clock's time, not progress
+    expect(hasProgress({ profile: { role: 'student', name: 'נועה' }, xp: 0, days: { '2026-11-05': { tsecs: 40 } } })).toBe(false);
     expect(hasProgress({ profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD' }] } })).toBe(true);
   });
 
@@ -160,5 +162,45 @@ describe('applyRestored', () => {
     await applyRestored(progress('נועה', 'a1b2c3d4', 10), 'file', { store: D.store, quarantine: D.quarantine, now });
     expect(spy).toHaveBeenCalledTimes(1); // one change of the store
     expect(D.st().learn.events.at(-1)).toEqual({ t: NOW.toISOString(), e: 'restore', m: 'file' });
+  });
+});
+
+describe('applyRestored with merge: true (the vault\'s sync between one student\'s devices)', () => {
+  it('merges forward, logged as a merge; a deliberate reset here stays (a sync never brings reset progress back)', async () => {
+    const D = device(progress('נועה', 'a1b2c3d4', 50));
+    const r = await applyRestored(progress('נועה', 'b2c3d4e5', 30, { days: { '2026-11-05': { lessons: 1, xp: 30, q: 5, ok: 5 } } }), 'vault', { merge: true, store: D.store, quarantine: D.quarantine, now });
+    expect(r).toEqual({ kind: 'same', applied: true, undo: false });
+    expect(D.st().xp).toBe(80);
+    expect(Object.keys(D.st().days).sort()).toEqual(['2026-11-04', '2026-11-05']);
+    expect(restoreEvents(D.st())).toEqual([{ e: 'merge', m: 'vault' }]);
+    // a reset on this device after the other copy was made: the sync keeps the reset
+    const R = device({ ...progress('נועה', 'a1b2c3d4', 0, { days: {} }), resetAt: '2026-11-05T09:00:00.000Z' });
+    await applyRestored(progress('נועה', 'b2c3d4e5', 30), 'vault', { merge: true, store: R.store, quarantine: R.quarantine, now });
+    expect(R.st().xp).toBe(0);
+    expect(R.st().days).toEqual({});
+  });
+
+  it('a device with no progress yet takes the copy\'s single fields, though it saved last (a class rejoin after the first questions)', async () => {
+    // this device: the profile was just made (Welcome), nothing learned, saved a moment ago
+    const D = device({ profile: { role: 'student', name: 'נועה', grade: '7', classCode: 'K7Q2MD', token: 'stu_2' }, xp: 0, days: {}, freezes: 0, lastTopic: null });
+    const copy = progress('נועה', 'b2c3d4e5', 45, { freezes: 1, lastTopic: 'coord', placement: { at: '2026-11-03T09:00:00.000Z', grade: '7', results: {} } });
+    const r = await applyRestored(copy, 'class', { merge: true, at: '2026-11-04T18:00:00.000Z', localAt: '2026-11-05T09:59:00.000Z', store: D.store, quarantine: D.quarantine, now });
+    expect(r).toEqual({ kind: 'empty', applied: true, undo: false });
+    expect(D.st()).toMatchObject({ xp: 45, freezes: 1, lastTopic: 'coord', placement: copy.placement, progress: copy.progress });
+    // the new profile (its class token) stays
+    expect(D.st().profile).toMatchObject({ classCode: 'K7Q2MD', token: 'stu_2' });
+    // a device with progress of its own keeps "the newer side" rule: its own later choices stay
+    const H = device(progress('נועה', 'a1b2c3d4', 20, { freezes: 0, lastTopic: 'signed' }));
+    await applyRestored(copy, 'vault', { merge: true, at: '2026-11-04T18:00:00.000Z', localAt: '2026-11-05T09:59:00.000Z', store: H.store, quarantine: H.quarantine, now });
+    expect(H.st()).toMatchObject({ freezes: 0, lastTopic: 'signed', xp: 65 });
+  });
+
+  it('another student\'s copy is refused, nothing changes and nothing is kept aside', async () => {
+    const D = device(progress('נועה', 'a1b2c3d4', 50));
+    const before = D.st();
+    const r = await applyRestored(progress('יואב', 'c3d4e5f6', 90), 'vault', { merge: true, store: D.store, quarantine: D.quarantine, now });
+    expect(r).toEqual({ kind: 'other', applied: false, undo: false });
+    expect(D.st()).toEqual(before);
+    expect(await D.quarantine.latest('before-restore')).toBeFalsy();
   });
 });

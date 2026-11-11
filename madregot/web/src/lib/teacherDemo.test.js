@@ -1,7 +1,7 @@
 // The demo class (spec TEACHER-15 §1): built the same way every time, 24 invented students with a first name and one
 // letter, 3 assignments, 4 help requests and 6 finished class exams; every group of "מחר" and every reason of "כדאי
 // לבדוק איתם" has content; and demoApi answers each teacher route in the Worker's shapes (the fields the Worker's
-// handlers return: worker/src/index.js dashboard, report.js, assignments.js, help.js, classai.js, licence.js).
+// handlers return: worker/src/index.js dashboard, classReport.js, assignments.js, help.js, classai.js, licence.js).
 import { describe, it, expect } from 'vitest';
 import { demoState, demoApi, mulberry32, DEMO_NAMES } from './teacherDemo.js';
 import { attentionList, openHelpBy } from '@/learn/attention';

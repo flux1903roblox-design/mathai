@@ -1,13 +1,14 @@
 // /terms, /privacy and /accessibility: the owner's Hebrew text from src/content/legal/*.md (a lawyer reviews it before
 // the paid tutor is switched on). Business details come from the server when there is one; {{NAME}} marks where.
 import { useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { hasServer } from '@/lib/api.js';
 import { plans as loadPlans } from '@/lib/parent.js';
 import terms from '@/content/legal/terms.md?raw';
 import privacy from '@/content/legal/privacy.md?raw';
 import accessibility from '@/content/legal/accessibility.md?raw';
 import ParentsFrame from './ParentsFrame.jsx';
+import { RichText } from '@/components/RichText.jsx';
+import { LoadingState } from '@/components/Screen.jsx';
 
 const DOCS = { terms: { title: 'תקנון', text: terms }, privacy: { title: 'מדיניות פרטיות', text: privacy }, accessibility: { title: 'הצהרת נגישות', text: accessibility } };
 
@@ -28,9 +29,8 @@ export default function Legal({ doc = 'terms' }) {
   useEffect(() => { window.scrollTo?.(0, 0); }, [doc]);
   return (
     <ParentsFrame title={d.title} business={plans?.business}>
-      <article className="legal md">
-        <ReactMarkdown>{fillLegal(d.text, plans)}</ReactMarkdown>
-      </article>
+      {/* markdown without maths: a $ in the text stays a $ */}
+      <RichText as="article" className="legal" math={false} trusted fallback={<LoadingState />}>{fillLegal(d.text, plans)}</RichText>
     </ParentsFrame>
   );
 }

@@ -9,7 +9,7 @@ import { RotateCcw } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { previewBack } from '@/lib/teacher.js';
 import { topicsFor } from '@/content/index.js';
-import { contentOf } from '@/learn/content/index.ts';
+import { hasContent } from '@/learn/content/index.ts';
 import { skillId } from '@/learn/skills.ts';
 import { routeOf } from '@/learn/recommend.ts';
 import { ScreenBar } from '@/components/Screen.jsx';
@@ -28,7 +28,8 @@ function stagesDone(rec) {
 function StairRow({ topic, level, title, back, onAssign }) {
   const skill = skillId(topic.id, level);
   const rec = useApp((s) => s.learn.skills[skill]);
-  const taught = !!contentOf(skill);
+  // (META: known before the topic's teaching file has loaded, DURABLE-11)
+  const taught = hasContent(skill);
   const done = stagesDone(rec);
   // a stair with no teaching content yet starts at its practice, as Journey does for a student
   const lesson = taught ? routeOf.journey(skill) : routeOf.stage(skill, 'D');

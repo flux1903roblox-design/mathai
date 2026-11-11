@@ -2,7 +2,7 @@
 // weeks, this month, from the start of the school year, or one the teacher picks), four tiles, a table of the students
 // (by name, the CSV's columns), the class's repeated mistakes in the range, and two actions: the CSV for Excel and a
 // printout (landscape, the table only, a header with the class and the range, 25 students a page). The report has no
-// student ids (worker/src/report.js): the names on screen open the student's page through the board's name → id map
+// student ids (worker/src/classReport.js): the names on screen open the student's page through the board's name → id map
 // (lib/teacherBoard.js, TEACHER-8), and its "לתת תרגול" opens the assign sheet here.
 // ?range=year&csv=1 (the class settings' "הורדת הדוח של כל השנה") opens the year and starts the CSV once.
 import { useEffect, useMemo, useState } from 'react';

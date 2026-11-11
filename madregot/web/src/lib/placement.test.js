@@ -5,6 +5,10 @@ import { noteGap, gapsFromExam, gapsOf, gapTarget, boardOf, GAP_CLEAR } from './
 import { unitNodes, doneCount, reachedUpTo } from './path.js';
 import { useApp, today, streakOf } from './store.js';
 import { TOPIC, topicsFor, placementTopicsFor, rescueTopicsFor } from '@/content/index.js';
+import { loadAllContent } from '@/learn/content/index.ts';
+
+// the screen waits for every tested topic before the placement test starts (DURABLE-11, lessonTopics): so do these tests
+await loadAllContent();
 
 const right = (s) => s.item.answer;
 const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : s.item.form === 'lin' ? { k: 999, c: 999 } : 99999);

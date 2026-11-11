@@ -18,6 +18,18 @@ import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
 import FileRestore from '@/components/durable/FileRestore.jsx';
 import RestorePreview from '@/components/durable/RestorePreview.jsx';
+import { isStandalone } from '@/lib/durable/install.js';
+import { findCode, formatCode } from '@/lib/durable/code.js';
+import { afterClassJoin } from '@/lib/durable/escrow.js';
+
+/**
+ * The first open of the Home Screen app (DURABLE-3): on an iPhone it keeps its data apart from Safari, so the front page
+ * says how the progress comes over, first: the backup code with a server, the backup file without one.
+ */
+export const HOME_BANNER = {
+  code: 'פתחתם את מדרגות ממסך הבית? אם התחלתם בספארי, הדביקו את קוד הגיבוי וההתקדמות תעבור לכאן.',
+  file: 'פתחתם את מדרגות ממסך הבית? אם התחלתם בספארי, בחרו את קובץ הגיבוי ששמרתם וההתקדמות תעבור לכאן.',
+};
 
 /** The grade's topics in one short line: up to three names, then how many more (it stays on two lines at 320px). */
 const topicLine = (g) => { const ts = topicsFor(g).map((t) => t.title); return ts.length <= 3 ? ts.join(', ') : `${ts.slice(0, 3).join(', ')} ועוד ${ts.length - 3}`; };
@@ -31,10 +43,18 @@ const KNOW_SAMPLE = {
 
 export { GradeSwitch } from '@/components/GradeSwitch.jsx';
 
+/**
+ * Join a class (or come back to it with the personal PIN). `vault`: the code the class kept for a returning student
+ * (DURABLE-6), handed to durable/escrow.js afterClassJoin() and never kept in the profile.
+ */
 export async function joinClass({ code, name, pin }) {
   const r = await api(`/api/classes/${code.trim().toUpperCase()}/join`, { method: 'POST', body: { name, pin } });
-  return { classCode: r.classCode, className: r.className, grade: r.grade, token: r.token, studentId: r.studentId, name: r.name, returning: r.returning };
+  return { classCode: r.classCode, className: r.className, grade: r.grade, token: r.token, studentId: r.studentId, name: r.name, returning: r.returning, ...(r.vault?.code ? { vault: { code: r.vault.code } } : {}) };
 }
+/** What of a join goes into the profile (never the kept code). */
+export const joinedProfile = ({ vault, returning, ...c }) => c; // eslint-disable-line no-unused-vars
+/** The sentence under the class step: the class keeps a copy (DURABLE-6), said without "מוצפן". */
+export const CLASS_COPY_NOTE = 'עותק של ההתקדמות נשמר גם בשרת, כדי שתוכלו להמשיך מכל מכשיר עם הקוד האישי.';
 
 const GRADE_NAME = { 7: 'כיתה ז׳', 8: 'כיתה ח׳' };
 
@@ -78,8 +98,10 @@ function Onboarding({ onTeacher, onRestore }) {
 
   const finish = () => {
     setGoalXp(f.goal);
-    setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined || {}) });
+    setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined ? joinedProfile(joined) : {}) });
     if (joined) useApp.getState().quietForClass(); // a classroom is quiet: sounds start off (STUDENT-7)
+    // a class keeps this student's code (DURABLE-6): made in the background once the profile is here, never in the way
+    if (joined) afterClassJoin(joined).then((r) => { if (r.toast) toast(r.toast); });
     // "to the first lesson" opens it: the first stair of the grade's first topic
     // from the first stair: it starts by understanding (the stair's first teaching stage), not with exercises
     const first = topicsFor(grade)[0].id;
@@ -102,7 +124,8 @@ function Onboarding({ onTeacher, onRestore }) {
       setBusy(true);
       try {
         const c = await joinClass({ code: f.code, name: f.name.trim(), pin: f.pin });
-        setJoined(c);
+        if (c.vault && await rejoin(c)) return;
+        setJoined({ ...c, vault: undefined });
         toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
       } catch (err) { setError(err.message); return; } finally { setBusy(false); }
     }
@@ -110,12 +133,32 @@ function Onboarding({ onTeacher, onRestore }) {
     setError(''); setI(i + 1);
   };
   const back = () => { setError(''); setI(i - 1); };
+  // A returning class student whose class kept their code (DURABLE-6): the progress comes back and the app opens on the
+  // map, with no more questions. The profile is made first (this student, this class, the goal just chosen), in the same
+  // moment as the merge, so the map never shows an empty start. Resolves false when the copy could not be read: then
+  // the questions go on, and a new copy is kept at the end.
+  const rejoin = async (c) => {
+    const base = { role: 'student', name: c.name || f.name.trim(), grade: c.grade || grade, know: f.know ?? 1 };
+    const r = await afterClassJoin(c, { keep: false, before: () => { setGoalXp(f.goal); setProfile({ ...base, ...joinedProfile(c) }); } });
+    if (!r.restored) return false;
+    toast.success(r.toast);
+    return true;
+  };
+  const standalone = isStandalone();
+  // "להדביק קוד גיבוי": the code from the clipboard when the browser lets us read it there (straight from the tap), else
+  // the restore screen with an empty field. Only a code is taken from the clipboard, never other text.
+  const pasteCode = async () => {
+    let text = '';
+    try { text = await navigator.clipboard.readText(); } catch { /* not allowed here: it is typed instead */ }
+    const code = findCode(text);
+    navigate('/restore', code ? { state: { paste: formatCode(code) } } : undefined);
+  };
 
   if (i < 0) {
     // the first screen, laid out like Duolingo's: the character large in the middle, the name and one line under
     // him, and the two ways in as full-width buttons pinned to the bottom
     return (
-      <div className="ob ob-hello hello-duo">
+      <div className={clsx('ob ob-hello hello-duo', standalone && 'hello-standalone')}>
         <main className="hello-center" data-region="content">
           <Mascot mood="excited" size={168} className="hello-madi" />
           <p className="hello-brand"><span className="wordmark">מדרגות</span></p>
@@ -123,10 +166,21 @@ function Onboarding({ onTeacher, onRestore }) {
           <p className="hello-fact">כל יום מדרגה אחת קדימה.</p>
         </main>
         <footer className="hello-foot" data-region="footer">
-          <Button className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>
-          <Button variant="secondary" className="btn-block" onClick={onTeacher}>אני מורה</Button>
-          {/* a backup file works with no server and no account, so this is on every build */}
-          <Button variant="ghost" className="btn-block hello-restore" onClick={onRestore}>יש לי קובץ גיבוי</Button>
+          {/* the Home Screen app's first open: how the progress comes over from Safari, before anything else */}
+          {standalone && (
+            <section className="hello-home" aria-label="פתחתם ממסך הבית">
+              <p>{server ? HOME_BANNER.code : HOME_BANNER.file}</p>
+              <Button className="btn-block" onClick={server ? pasteCode : onRestore}>{server ? 'להדביק קוד גיבוי' : 'לבחור קובץ גיבוי'}</Button>
+            </section>
+          )}
+          <Button variant={standalone ? 'secondary' : 'primary'} className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>
+          <Button variant={standalone ? 'ghost' : 'secondary'} className="btn-block" onClick={onTeacher}>אני מורה</Button>
+          {/* a backup file works with no server and no account, so it is on every build; the backup code needs the
+              server (in the Home Screen app the banner above is its way in) */}
+          <div className="hello-restores">
+            {server && !standalone && <Button variant="ghost" className="hello-restore" onClick={() => navigate('/restore')}>יש לי קוד גיבוי</Button>}
+            <Button variant="ghost" className="hello-restore" onClick={onRestore}>יש לי קובץ גיבוי</Button>
+          </div>
           {/* the site's front page carries the dedicated cancel link and the parents' page while the tutor is sold,
               and the legal pages (with a server) */}
           {server && (
@@ -205,7 +259,7 @@ function Onboarding({ onTeacher, onRestore }) {
               <p className="ob-joined" role="status"><Check size={20} strokeWidth={3} aria-hidden="true" />אתם בכיתה {joined.className}{joined.teacherName ? ` של ${joined.teacherName}` : ''}.</p>
             ) : (
               <>
-                <p className="ob-note">עם קוד, המורה יראה את ההתקדמות ויוכל לעזור כשמשהו לא ברור. אפשר להמשיך גם בלי, ולהצטרף אחר כך מהמסך "אני".</p>
+                <p className="ob-note">עם קוד, המורה יראה את ההתקדמות ויוכל לעזור כשמשהו לא ברור. אפשר להמשיך גם בלי, ולהצטרף אחר כך מהמסך "אני". {CLASS_COPY_NOTE}</p>
                 <Field label="קוד כיתה" id="w-code">
                   <input id="w-code" className="input mono" dir="ltr" value={f.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="למשל K7Q2MD" />
                 </Field>

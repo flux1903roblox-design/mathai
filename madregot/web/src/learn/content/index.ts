@@ -1,25 +1,112 @@
 // The content registry: every stair's teaching journey, keyed by skill id ('signed:1' ... 'stats:5').
 // A stair that has no entry yet is not taught (the journey screen says so honestly) and keeps its practice.
-import type { StairContent, SkillId, TopicId } from '../types';
-import { SIGNED, CATS_SIGNED } from './signed';
-import { COORD, CATS_COORD } from './coord';
-import { ANGLES, CATS_ANGLES } from './angles';
-import { EXPR, CATS_EXPR } from './expr';
-import { EQ, CATS_EQ } from './eq';
-import { LINE1, CATS_LINE1 } from './line1';
-import { LINE2, CATS_LINE2 } from './line2';
-import { PYTH, CATS_PYTH } from './pyth';
-import { STATS, CATS_STATS } from './stats';
-import { SYS, CATS_SYS } from './sys';
-import { FRAC, CATS_FRAC } from './frac';
+//
+// One file per topic, loaded on demand (DURABLE-11), so the first screen does not wait for all the teaching:
+// - meta.gen.ts (generated from the content files, small, always there): each stair's title, its misconceptions'
+//   names and whether it has transfer questions, and the topics' new misconception names. hasContent and metaOf
+//   read it, and so does every screen that only needs those.
+// - loadTopic(topic) brings a topic's journeys and diagnostic models (one dynamic import per topic, so the build makes
+//   one file per topic); contentOf(skill) reads what has loaded, and is null until then. Screens that show the
+//   teaching wait for it with useStairContent (learn/useStairContent.js); a lesson, a check, the placement test and
+//   Exam Rescue wait for ensureTopics before they make a question.
+import type { StairContent, StairMeta, SkillId, TopicId } from '../types';
+import { META, NEW_CATS } from './meta.gen';
 
-const ALL: StairContent[] = [...FRAC, ...SIGNED, ...COORD, ...ANGLES, ...EXPR, ...EQ, ...LINE1, ...LINE2, ...PYTH, ...STATS, ...SYS];
+export { META, NEW_CATS };
 
-export const CONTENT: Record<SkillId, StairContent> = Object.fromEntries(ALL.map((c) => [c.skill, c]));
-export const contentOf = (skill: SkillId): StairContent | null => CONTENT[skill] || null;
-export const hasContent = (skill: SkillId) => !!CONTENT[skill];
+/** What every screen knows about a stair without loading its topic. */
+export const metaOf = (skill: SkillId): StairMeta | null => META[skill] || null;
+export const hasContent = (skill: SkillId) => !!META[skill];
+/** The topics that have teaching content, in the order of META. */
+export const CONTENT_TOPICS: TopicId[] = [...new Set(Object.keys(META).map((s) => s.split(':')[0] as TopicId))];
 
-/** Misconception names new in 2.0, by topic: merged into each topic's cats (content/index.js). */
-export const NEW_CATS: Record<TopicId, Record<string, string>> = {
-  frac: CATS_FRAC, signed: CATS_SIGNED, coord: CATS_COORD, angles: CATS_ANGLES, expr: CATS_EXPR, eq: CATS_EQ, line: { ...CATS_LINE1, ...CATS_LINE2 }, pyth: CATS_PYTH, stats: CATS_STATS, sys: CATS_SYS,
-};
+/** A new topic adds its case here (learn/content-split.test.ts fails for a topic in TOPICS whose stairs do not load). */
+function importTopic(topic: string): Promise<StairContent[]> {
+  switch (topic) {
+    // the curriculum lane's bridge unit (fractions)
+    case 'frac': return import('./frac').then((m) => m.FRAC);
+    case 'signed': return import('./signed').then((m) => m.SIGNED);
+    case 'coord': return import('./coord').then((m) => m.COORD);
+    case 'angles': return import('./angles').then((m) => m.ANGLES);
+    case 'expr': return import('./expr').then((m) => m.EXPR);
+    case 'eq': return import('./eq').then((m) => m.EQ);
+    case 'line': return import('./line').then((m) => [...m.LINE1, ...m.LINE2]);
+    case 'pyth': return import('./pyth').then((m) => m.PYTH);
+    case 'stats': return import('./stats').then((m) => m.STATS);
+    case 'sys': return import('./sys').then((m) => m.SYS);
+    // a topic with no teaching content has nothing to load
+    default: return Promise.resolve([]);
+  }
+}
+
+const cache: Record<SkillId, StairContent> = {};
+const requested = new Map<string, Promise<StairContent[]>>();
+const loaded = new Set<string>();
+
+/** A topic's stairs, loaded once. A file that failed to load (offline before it was ever kept) can be asked for again. */
+export function loadTopic(topic: TopicId | string): Promise<StairContent[]> {
+  let p = requested.get(topic);
+  if (!p) {
+    const q: Promise<StairContent[]> = importTopic(topic).then((list) => {
+      for (const c of list) cache[c.skill] = c;
+      loaded.add(topic);
+      return list;
+    });
+    q.catch(() => { if (requested.get(topic) === q) requested.delete(topic); });
+    requested.set(topic, q);
+    p = q;
+  }
+  return p;
+}
+
+/** The topics of skill ids ('signed:1') or topic ids ('signed'). */
+export const topicsOf = (ids: (SkillId | TopicId)[]): string[] => [...new Set(ids.filter(Boolean).map((id) => id.split(':')[0]))].sort();
+/** Have the topics of these skills (or these topics) loaded? */
+export const topicsReady = (ids: (SkillId | TopicId)[]) => topicsOf(ids).every((t) => loaded.has(t));
+
+// React's use() reads a promise's `status`: a promise marked 'fulfilled' gives its value at once, without suspending.
+type Marked = Promise<void> & { status?: 'pending' | 'fulfilled' | 'rejected'; value?: undefined; reason?: unknown };
+const READY: Marked = Object.assign(Promise.resolve(), { status: 'fulfilled' as const, value: undefined });
+const waiting = new Map<string, Marked>();
+/**
+ * Resolves once the topics of these skills (or these topics) have loaded. The same set gives the same promise while
+ * it waits, and a set already loaded gives a promise marked as settled, so a screen can always pass it to React's use()
+ * (learn/useStairContent.js): it suspends only while something is really loading.
+ */
+export function ensureTopics(ids: (SkillId | TopicId)[]): Promise<void> {
+  const topics = topicsOf(ids);
+  if (topics.every((t) => loaded.has(t))) return READY;
+  const key = topics.join(',');
+  let p = waiting.get(key);
+  if (!p) {
+    const q: Marked = Promise.all(topics.map(loadTopic)).then(() => undefined);
+    q.status = 'pending';
+    q.then(
+      () => { q.status = 'fulfilled'; q.value = undefined; waiting.delete(key); },
+      (e) => { q.status = 'rejected'; q.reason = e; if (waiting.get(key) === q) waiting.delete(key); },
+    );
+    waiting.set(key, q);
+    p = q;
+  }
+  return p;
+}
+
+/**
+ * A stair's full teaching content, once its topic has loaded; null before that, and for a stair with no content.
+ * In development it throws for a stair whose topic was never asked for: code that reads the content has to wait for
+ * it (ensureTopics, useStairContent), or it would quietly fall back to plain exercises.
+ */
+export function contentOf(skill: SkillId): StairContent | null {
+  const c = cache[skill];
+  if (c) return c;
+  if (import.meta.env.DEV && META[skill] && !requested.has(skill.split(':')[0])) {
+    throw new Error(`contentOf('${skill}'): its topic was never loaded. Wait for ensureTopics(['${skill}']) or useStairContent first.`);
+  }
+  return null;
+}
+
+/** Every stair's content, every topic loaded (tests, and tools that need it all). */
+export async function loadAllContent(): Promise<Record<SkillId, StairContent>> {
+  await ensureTopics(CONTENT_TOPICS);
+  return Object.fromEntries(Object.keys(META).map((s) => [s, cache[s]]));
+}

@@ -1,6 +1,6 @@
 // The class report's ranges and calls (spec TEACHER-7): "השבוע" (Sunday to today), "שבועיים" (the last 14 days),
 // "החודש" (from the 1st), "מתחילת השנה" (1 September of the school year: before September, of the previous year) and a
-// range the teacher picks. The server cuts a range to 400 days and to today (worker/src/report.js); these never ask
+// range the teacher picks. The server cuts a range to 400 days and to today (worker/src/classReport.js); these never ask
 // for more. Days are 'YYYY-MM-DD'.
 import { teacherApi } from './teacher.js';
 import { today as todayOf } from './store.js';

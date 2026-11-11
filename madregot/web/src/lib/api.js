@@ -137,6 +137,19 @@ const MESSAGES = {
   free_paused: 'העוזר החכם נח היום. מחר הוא חוזר.',
   monthly_fair_use: 'הבדיקות של החודש נגמרו. הן חוזרות ב־1 בחודש.',
   too_large: 'הקובץ גדול מדי. נסו תמונה קטנה יותר.',
+  // the backup code (DURABLE-5); vault.js vaultErrorText() picks the vault's words for the codes other screens share
+  vault_typo: 'נראה שיש בקוד טעות הקלדה. בדקו אותו שוב.',
+  vault_chars: 'בקוד יש רק אותיות באנגלית ומספרים מ־2 עד 9.',
+  vault_not_found: 'לא מצאנו גיבוי עם הקוד הזה. אולי הוא נמחק, או שעברה יותר משנה בלי שימוש בו.',
+  vault_tries: 'היו הרבה ניסיונות מהרשת הזו היום. נסו שוב מחר.',
+  vault_open: 'הגיבוי נמצא, אבל לא הצלחנו לפתוח אותו. בדקו שהקוד נכון עד הסוף.',
+  vault_full: 'אי אפשר ליצור גיבוי בשרת כרגע. אפשר לשמור קובץ גיבוי במקום.',
+  vault_off: 'אי אפשר ליצור גיבוי בשרת כרגע. אפשר לשמור קובץ גיבוי במקום.',
+  too_many_vaults: 'נוצרו היום הרבה גיבויים מהרשת הזו. נסו שוב מחר, או שמרו קובץ.',
+  vault_too_big: 'הגיבוי גדול מדי. שמרו קובץ במקום.',
+  // the class and the family keep the backup code (DURABLE-6)
+  escrow_off: 'שמירת עותק בשרת עוד לא הוגדרה. שמרו את קוד הגיבוי.',
+  escrow_not_found: 'לא מצאנו את ההתקדמות השמורה. אולי היא נמחקה.',
 };
 /**
  * A code the server uses for two things, told apart by the status: too_many_open is 429 for a student's help requests

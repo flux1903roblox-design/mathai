@@ -21,6 +21,7 @@
 //   usage --from D --to D                        events [--outcome mismatch]
 //   reports [--since D]                          AI answers children reported (the tutor's text only, masked)
 //   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   pilot-report --class C --list
+//   errors [--days 7]                            the app's error reports of the last days, most frequent first (a table)
 //
 // Licences within the Ministry of Education's rules (shared/schoolRules.js, trust spec TRUST-11 §5 and TRUST-14): while
 // MOE_AI_APPROVAL is not "approved" (read from the environment, else from wrangler.toml), no AI class licence goes to a
@@ -48,7 +49,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { endOfDayIso, startOfDayIso, CODE_ALPHABET } from '../src/util.js';
+import { endOfDayIso, startOfDayIso, CODE_ALPHABET, dayOf } from '../src/util.js';
 import { cleanEmail } from '../src/account.js';
 import { classAiPolicy, rulesEnv, notSellable } from '../../shared/schoolRules.js';
 import { pilotQueries, pilotReport, pilotText, examListSql, examListText } from './pilot.mjs';
@@ -328,7 +329,11 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
     }
     case 'revoke-device': {
       const dev = idArg(o.id, 'device id');
-      return { readOnly: false, sql: [`DELETE FROM family_devices WHERE id = ${q(dev)};`, audit(now, 'device.unlink', `device:${dev}`, { by: 'owner' })].join('\n') };
+      // the device's daily summaries for the parents (PARENTS-3) go first, then the device
+      return {
+        readOnly: false,
+        sql: [`DELETE FROM family_daily WHERE device_id = ${q(dev)};`, `DELETE FROM family_devices WHERE id = ${q(dev)};`, audit(now, 'device.unlink', `device:${dev}`, { by: 'owner' })].join('\n'),
+      };
     }
     case 'forget': {
       const email = emailArg(o.email);
@@ -342,6 +347,7 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
   current_period_end = ${endNow}, updated_at = ${q(now)} WHERE kind = 'family' AND account_id = ${acc} AND ${RUNNING};`,
           `DELETE FROM account_sessions WHERE account_id = ${acc};`,
           `DELETE FROM link_codes WHERE account_id = ${acc};`,
+          `DELETE FROM family_daily WHERE device_id IN (SELECT id FROM family_devices WHERE account_id = ${acc});`,
           `DELETE FROM family_devices WHERE account_id = ${acc};`,
           `DELETE FROM licence_requests WHERE account_id = ${acc};`,
           `DELETE FROM class_owners WHERE account_id = ${acc};`,
@@ -402,10 +408,33 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       const post = o.post ? idArg(o.post, 'post assignment id') : null;
       return { readOnly: true, queries: pilotQueries({ classCode: cls, from, to, pre, post }), opts: { classCode: cls, from, to, consented, pre, post } };
     }
+    case 'errors': {
+      const days = o.days === undefined ? 7 : intArg(o.days, 1, 30, 'days');
+      const since = dayOf(new Date(Date.parse(now) - (days - 1) * DAY));
+      return {
+        readOnly: true,
+        table: ['count', 'kind', 'route', 'release', 'agents', 'name', 'message', 'frame', 'first', 'last'],
+        sql: `SELECT SUM(count) AS count, kind, route, release, COUNT(DISTINCT agent) AS agents, name, message, frame, MIN(first_at) AS first, MAX(last_at) AS last
+  FROM client_errors WHERE day >= ${q(since)} GROUP BY fp, route, release ORDER BY count DESC, last DESC LIMIT 100;`,
+      };
+    }
     default:
       return fail(`unknown command: ${cmd}`);
   }
 }
+
+/** Rows as an aligned text table with these columns (long cells are cut, so a line stays readable). */
+export function formatTable(rows, columns, { max = 60 } = {}) {
+  if (!rows.length) return '(nothing)';
+  const cell = (v) => { const t = v === null || v === undefined ? '' : String(v).replace(/\s+/g, ' '); return t.length > max ? `${t.slice(0, max - 1)}…` : t; };
+  const body = rows.map((r) => columns.map((c) => cell(r[c])));
+  const width = columns.map((c, i) => Math.max(c.length, ...body.map((r) => r[i].length)));
+  const line = (cells) => cells.map((x, i) => x.padEnd(width[i])).join('  ').trimEnd();
+  return [line(columns), line(width.map((w) => '-'.repeat(w))), ...body.map(line)].join('\n');
+}
+
+/** The rows of `wrangler d1 execute --json` output (an array of results, each with its rows). */
+export const wranglerRows = (out) => { const v = JSON.parse(out); return (Array.isArray(v) ? v : [v]).flatMap((r) => r?.results || []); };
 
 /** --name value pairs and --flags. */
 export function parseArgs(argv) {
@@ -439,6 +468,7 @@ export const HELP = `usage: npm run owner -- <command> [options] [--local]   (wi
   usage --from D --to D
   events [--outcome mismatch]
   reports [--since D]   AI answers children reported (the tutor's text only, masked; kept 60 days)
+  errors [--days 7]   the app's error reports of the last days, most frequent first (a table)
   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   (or --class C --list)
 Dates are YYYY-MM-DD (Jerusalem).`;
 
@@ -505,7 +535,7 @@ export async function cli(argv, io = realIo) {
     }
     if (b.list) { io.log(examListText(await io.rows(b.sql, o))); return 0; }
     const out = await io.exec(b, o);
-    io.log(b.readOnly ? out : 'done');
+    io.log(b.table ? formatTable(wranglerRows(out), b.table) : b.readOnly ? out : 'done');
     if (b.print) io.log(b.print);
     return 0;
   } catch (e) {

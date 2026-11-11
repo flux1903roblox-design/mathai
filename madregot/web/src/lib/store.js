@@ -18,8 +18,11 @@ import { durableStorage, bindDurableStore, STORE_KEY } from './durable/storage.j
 import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP, TEACHER_EXAMS_KEEP } from './durable/merge.js';
 import { applyTheme } from './theme.js';
 
-export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
-export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
+import { today, dayBefore, learnedOn, isActiveDay, isShabbat, streakOf } from './days.js';
+
+// the calendar of the saved days lives in lib/days.js (the report engine reads it without the store)
+export { today, dayBefore, learnedOn, isActiveDay, isShabbat, streakOf };
+const active = isActiveDay;
 
 /** Nothing from a teacher yet (and after leaving the class): the class work slice (its shape: durable/migrations.js). */
 export { emptyClassWork };
@@ -46,7 +49,9 @@ const empty = {
   // A teacher's email is never kept here: it is read from the signed-in session (lib/parent.js).
   profile: null,
   progress: {}, // topicId -> { level, max }
-  days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
+  // 'YYYY-MM-DD' -> { q, ok, secs (answer time), tsecs (time on learning screens, lib/learnClock.js: never makes a day
+  // active), lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
+  days: {},
   xp: 0, // always the sum of xpBy: every XP write goes through addXp (lib/durable/xp.js)
   xpBy: {}, // device tag -> XP earned on that device
   resetAt: null, // when the progress was last reset on purpose (ISO)
@@ -91,6 +96,8 @@ export const TEACHER_EXAMS = TEACHER_EXAMS_KEEP;
 
 /** A class student's answers waiting for the server, at most (the oldest give way first). */
 export const OUTBOX_MAX = OUTBOX_KEEP;
+/** Time on learning screens counted for one day, at most (4 hours). */
+export const LEARN_SECS_MAX = 4 * 3600;
 /** What the class server stores of an answer (worker saveProgress), and all the outbox keeps of it. */
 export const toWire = (e) => ({ id: e.id, topic: e.topic, level: e.level, ok: e.ok, first: e.first, hint: e.hint, cat: e.cat, secs: e.secs, at: e.at });
 
@@ -150,6 +157,18 @@ export const appState = (set, get) => ({
           outbox: get().profile?.token ? [...get().outbox, toWire({ ...event, id: randomHex(6) })].slice(-OUTBOX_MAX) : get().outbox,
           learn: learnAfterAnswer(get().learn, event),
         });
+      },
+      /**
+       * Time on learning screens (lib/learnClock.js flushes it): added to days[day].tsecs, at most LEARN_SECS_MAX a day.
+       * Only the report reads it (learn/report.ts: minutes on learning screens); it never makes a day active.
+       */
+      addLearnTime: (day, secs) => {
+        const add = Math.floor(Number(secs) || 0);
+        if (add <= 0 || typeof day !== 'string') return;
+        const cur = get().days[day] || {};
+        const tsecs = Math.min(LEARN_SECS_MAX, (cur.tsecs || 0) + add);
+        if (tsecs === (cur.tsecs || 0)) return;
+        set({ days: { ...get().days, [day]: { ...cur, tsecs } } });
       },
       /** Evidence for the learning model only (a first miss before another try, a move in solve-together): not a finished question. */
       noteLearn: (event) => set({ learn: learnAfterAnswer(get().learn, event) }),
@@ -315,28 +334,6 @@ export const useApp = create(persist(appState, persistOptions(heldStorage)));
 // a restore from the copy on the device loads into this store
 bindDurableStore(useApp);
 
-/** Something was finished that day: a lesson or check, or a teaching stage (understand, worked examples, solve together). */
-export const learnedOn = (d) => !!d && ((d.lessons || 0) > 0 || (d.stages || 0) > 0);
-/** A day counts for the streak with one finished lesson or teaching stage (or answers saved before lessons existed). */
-export const isActiveDay = (d) => learnedOn(d) || (!!d && d.lessons == null && (d.q || 0) > 0);
-const active = isActiveDay;
-/** Shabbat never breaks a streak: a Saturday without practice is skipped, not missed. */
-export const isShabbat = (key) => new Date(`${key}T12:00:00`).getDay() === 6;
-const kept = (days, key) => days[key]?.frozen || isShabbat(key);
-
-/** Consecutive active days ending today (or yesterday, if today has none yet). A frozen day keeps the chain without adding to it. */
-export function streakOf(days) {
-  let key = today();
-  if (!active(days[key])) key = dayBefore(key);
-  let n = 0;
-  // Walk back: an active day adds one; a frozen day or a Shabbat is passed over; any other day ends the streak.
-  for (;;) {
-    if (active(days[key])) n += 1;
-    else if (!kept(days, key)) break;
-    key = dayBefore(key);
-  }
-  return n;
-}
 export const activeToday = (days) => active(days[today()]);
 
 export const minutesToday = (days) => Math.floor((days[today()]?.secs || 0) / 60);

@@ -4,11 +4,16 @@
 //   qa-ai:      free2 | free1 | free0 | family | class | shared | paused | economy | ended
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
 //   qa-teacher: demo (the demo class of TEACHER-15, lib/demo.js: every teacher screen with no request)
+//   qa-report:  week | empty (the weekly summary from a fixed week and clock: components/report/qaWeek.js)
+// The family state's tablet (qa-ai=family names it 'הטאבלט') keeps its backup code with the family, and an older phone's
+// progress is kept in the account (DURABLE-6): every parents state with a plan lists both, so the device line, the kept
+// list and the "continue from" choice can be seen without a server.
 import { qaOn } from './qa.js';
 
 const AI_STATES = ['free2', 'free1', 'free0', 'family', 'class', 'shared', 'paused', 'economy', 'ended'];
 const TEACHER_STATES = ['demo'];
 const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv'];
+const REPORT_STATES = ['week', 'empty'];
 
 function param(name, allowed) {
   if (typeof window === 'undefined' || !qaOn()) return null;
@@ -23,8 +28,20 @@ function param(name, allowed) {
 }
 
 export const qaAI = () => param('qa-ai', AI_STATES);
+/**
+ * ?qa-throw=render (DURABLE-9): the profile throws while it renders, so the error report, the error screen and
+ * "מידע לתמיכה" can be tested. Read from the address only (never kept for the visit), and only where the hooks are on.
+ */
+export function qaThrow() {
+  if (typeof window === 'undefined' || !qaOn()) return null;
+  const hashQuery = window.location.hash.split('?')[1] || '';
+  const v = new URLSearchParams(window.location.search).get('qa-throw') || new URLSearchParams(hashQuery).get('qa-throw');
+  return v === 'render' ? v : null;
+}
 export const qaParent = () => param('qa-parent', PARENT_STATES);
 export const qaTeacher = () => param('qa-teacher', TEACHER_STATES);
+/** The weekly summary's QA week (PARENTS-2): 'week' | 'empty' | null. */
+export const qaReport = () => param('qa-report', REPORT_STATES);
 export const qaActive = () => !!qaAI();
 
 // the next midnight, as the server sends it (a day ahead is close enough for screenshots)
@@ -86,11 +103,17 @@ const account = (p) => ({
   classes: [],
 });
 
-/** The parents page in a QA state: { view, plans, account, step }. null when no QA state is chosen. */
+/** The progress the QA family keeps (GET /api/family/vaults): the tablet's own, and an older phone's in the account. */
+export const QA_VAULTS = [
+  { id: 'qa00000000000011', label: 'הטאבלט', device: { id: 'qa00000000000002', label: 'הטאבלט' }, updatedAt: '2026-11-10T08:00:00Z' },
+  { id: 'qa00000000000012', label: 'הטלפון הקודם', device: null, updatedAt: '2026-10-28T17:30:00Z' },
+];
+
+/** The parents page in a QA state: { view, plans, account, step, vaults }. null when no QA state is chosen. */
 export function qaParentView() {
   const s = qaParent();
   if (!s) return null;
-  const base = { state: s, plans: PLANS, session: { token: 'qa', email: 'parent@example.test' } };
+  const base = { state: s, plans: PLANS, session: { token: 'qa', email: 'parent@example.test' }, vaults: QA_VAULTS };
   switch (s) {
     case 'nosrv': return { ...base, nosrv: true };
     case 'signed-out': return { ...base, session: null };

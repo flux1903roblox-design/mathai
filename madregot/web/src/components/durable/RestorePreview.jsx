@@ -4,7 +4,7 @@
 //   same   לאחד עם מה שיש כאן, and why nothing is lost
 //   other  a calm warning that it replaces another student's progress, undoable for 30 days; "לא עכשיו" is the big
 //          button and "להחליף" the quiet one, so a sibling's progress is never replaced by a slip
-// Shared by every restore (the file now; the vault and the class later).
+// Shared by every restore (the file, the backup code; the class and the family later).
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useApp, isActiveDay } from '@/lib/store.js';
@@ -35,9 +35,10 @@ export function previewOf(state, now = new Date()) {
 
 /**
  * `backup`: { state, at } (importBackup's result). `heading`: the tag of its own title ('h1' on a screen of its own;
- * none inside a sheet, whose title it is), which takes the focus when it appears.
+ * none inside a sheet, whose title it is), which takes the focus when it appears. `quiet`: no toast when it is done
+ * (the caller says so on a screen of its own).
  */
-export default function RestorePreview({ backup, source = 'file', heading = null, onDone, onCancel }) {
+export default function RestorePreview({ backup, source = 'file', heading = null, quiet = false, onDone, onCancel }) {
   const [local] = useState(() => dataOf(useApp.getState()));
   const head = useRef(null);
   useEffect(() => { head.current?.focus(); }, []);
@@ -53,7 +54,7 @@ export default function RestorePreview({ backup, source = 'file', heading = null
     setBusy(false);
     if (r.error) { setError(r.error); return; }
     if (!r.applied) return;
-    toast.success(RESTORE_TOAST);
+    if (!quiet) toast.success(RESTORE_TOAST);
     onDone?.(r);
   };
 

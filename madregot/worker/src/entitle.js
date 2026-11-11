@@ -33,6 +33,7 @@ import { classAiPolicy, studentAiAllowed, rulesEnv } from '../../shared/schoolRu
 import { maskPersonal } from '../../shared/safety.js';
 import { recordSafety } from './safety.js';
 import { accountFrom } from './account.js';
+import { summaryState } from './report.js';
 
 // ---------------------------------------------------------------- limits
 export const DEFAULT_LIMITS = {
@@ -106,8 +107,9 @@ const needsParentOk = (env, id) => parentOkRequired(env) && !id.student && !id.t
 /**
  * The class student a request carries (Authorization: Bearer <token>), with what the Ministry's rules need (TRUST-11):
  * the class's setting, the teacher's switch and consent (no class_settings row: school, off, none), and whether the
- * teacher turned the AI off for this student. (The durable lane's multi-device tokens rewrite this query too: whichever
- * lands second keeps both joins.)
+ * teacher turned the AI off for this student. The token is one of the student's devices (DURABLE-6: up to 3 devices
+ * each, in student_tokens; students.token_hash is no longer read). The token's last_seen is written at most once an
+ * hour; a token unused for 400 days is purged at night.
  */
 export async function studentFrom(req, env) {
   const auth = req.headers.get('Authorization') || '';
@@ -115,14 +117,20 @@ export async function studentFrom(req, env) {
   if (!token || token.length > 128) return null;
   // the class's AI rule rides along (trust spec TRUST-11 §4): no class_settings row is a school class with student AI
   // off, and a student_ai_off row is the teacher's switch for this one student
+  const hash = await sha256(token);
   const row = await env.DB.prepare(
     `SELECT s.id, s.name, s.class_code, c.grade, c.created_at AS class_created_at,
-       COALESCE(cs.setting, 'school') AS setting, COALESCE(cs.student_ai, 'off') AS student_ai, cs.ai_consent_at, so.student_id IS NOT NULL AS ai_off
-     FROM students s JOIN classes c ON c.code = s.class_code
+       COALESCE(cs.setting, 'school') AS setting, COALESCE(cs.student_ai, 'off') AS student_ai, cs.ai_consent_at, so.student_id IS NOT NULL AS ai_off,
+       t.last_seen AS token_seen
+     FROM student_tokens t JOIN students s ON s.id = t.student_id JOIN classes c ON c.code = s.class_code
      LEFT JOIN class_settings cs ON cs.code = s.class_code LEFT JOIN student_ai_off so ON so.student_id = s.id
-     WHERE s.token_hash = ?`,
-  ).bind(await sha256(token)).first();
-  return row || null;
+     WHERE t.token_hash = ?`,
+  ).bind(hash).first();
+  if (!row) return null;
+  const { token_seen: seen, ...student } = row;
+  const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+  if (!(seen >= hourAgo)) await env.DB.prepare('UPDATE student_tokens SET last_seen = ? WHERE token_hash = ?').bind(nowIso(), hash).run();
+  return student;
 }
 
 /** May this class student reach the tutor? The Ministry's rule for their class (shared/schoolRules.js), then their own switch. */
@@ -188,14 +196,18 @@ export async function requireTeacher(req, env) {
   throw new HttpError(401, 'not_teacher');
 }
 
-/** A child's device linked to a family plan (X-Family-Device: fd1.<64 hex>), or null. */
+/**
+ * A child's device linked to a family plan (X-Family-Device: fd1.<64 hex>), or null. With its two sharing switches for
+ * the parents' report (report.js); the AI path ignores them.
+ */
 export async function familyDeviceFrom(env, token) {
   if (!/^fd1\.[a-f0-9]{64}$/.test(String(token || ''))) return null;
-  const row = await env.DB.prepare('SELECT id, account_id, label, last_seen FROM family_devices WHERE token_hash = ?').bind(await sha256(token)).first();
+  const row = await env.DB.prepare('SELECT id, account_id, label, last_seen, share_child, share_parent FROM family_devices WHERE token_hash = ?')
+    .bind(await sha256(token)).first();
   if (!row) return null;
   const today = dayOf();
   if (row.last_seen !== today) await env.DB.prepare('UPDATE family_devices SET last_seen = ? WHERE id = ?').bind(today, row.id).run();
-  return { device_id: row.id, account_id: row.account_id, label: row.label };
+  return { device_id: row.id, account_id: row.account_id, label: row.label, share_child: row.share_child, share_parent: row.share_parent };
 }
 
 /** The install's own id (X-Device). With FREE_DEVICE_MINT = "turnstile" only the signed form minted by POST /api/devices counts. */
@@ -491,7 +503,11 @@ export async function resolveCare(req, env, kind, input) {
 // ---------------------------------------------------------------- status: the same decision, counting nothing
 const left = (k, count) => Math.max(0, k.limit - count);
 
-/** What this device may ask today (GET /api/ai/status). Never an email, a plan or a price. */
+/**
+ * What this device may ask today (GET /api/ai/status). Never an email, a plan or a price. A linked family device also
+ * learns the state of its daily summary for the parents (linked.summary, report.js summaryState): with the paywall off
+ * it is 'off', and linked is still there so Settings can show the device as linked.
+ */
 export async function aiStatus(req, env) {
   const id = await identify(req, env);
   const aiReady = !!env.ANTHROPIC_API_KEY;
@@ -510,14 +526,17 @@ export async function aiStatus(req, env) {
     return {
       headers,
       // resetsAt: when today's count starts again, so a screen that stays open asks again after midnight
-      body: { paywall: false, tier: 'open', kinds: k ? AI_KINDS : [], groups: { all: k ? { left: left(k, c), limit: k.limit } : null }, resetsAt: resetsAt('day'), aiReady },
+      body: {
+        paywall: false, tier: 'open', kinds: k ? AI_KINDS : [], groups: { all: k ? { left: left(k, c), limit: k.limit } : null }, resetsAt: resetsAt('day'), aiReady,
+        ...(id.fam ? { linked: { label: id.fam.label || '', summary: 'off' } } : {}),
+      },
     };
   }
   const L = limits(env);
   const out = {
     paywall: true, tier: 'free', kinds: [], groups: Object.fromEntries(AI_GROUPS.map((g) => [g, null])),
     economy: false, shared: null, resetsAt: resetsAt('day'),
-    linked: id.fam ? { label: id.fam.label || '' } : null, legacyUntil: null, aiReady,
+    linked: id.fam ? { label: id.fam.label || '', summary: await summaryState(env, id.fam) } : null, legacyUntil: null, aiReady,
   };
   const buckets = await paidBuckets(env, id);
   if (buckets.length) {

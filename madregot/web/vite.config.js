@@ -4,15 +4,22 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import serviceWorker from './scripts/vite-plugin-sw.mjs';
 
-// The commit a build was made from, written into every save (meta.app), so a save says which build wrote it.
+// The commit a build was made from, written into every save (meta.app), every error report (lib/monitor.js) and
+// window.__RELEASE (main.jsx), so all say which build they came from: VITE_RELEASE when it is set (the update test
+// builds two releases), else the CI's commit, else the checkout's, else 'dev'. The service worker's cache name is the
+// plugin's own (DURABLE-10, scripts/vite-plugin-sw.mjs): VITE_RELEASE when it is set, else a hash of the files it
+// keeps, so any change to them is a new release even without a new commit.
 function release() {
+  if (process.env.VITE_RELEASE) return process.env.VITE_RELEASE.slice(0, 20);
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7);
   try { return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev'; } catch { return 'dev'; }
 }
+const RELEASE = release();
 
 // BASE_PATH lets the same build live at a GitHub Pages sub-path, e.g. /madregot/.
 export default defineConfig({
   base: process.env.BASE_PATH || '/',
-  define: { __RELEASE__: JSON.stringify(release()) },
+  define: { __RELEASE__: JSON.stringify(RELEASE), 'import.meta.env.VITE_RELEASE': JSON.stringify(RELEASE) },
   // serviceWorker: dist/sw.js with the list of files kept for offline use (DURABLE-10)
   plugins: [react(), serviceWorker()],
   resolve: {
@@ -25,11 +32,12 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // Libraries change less often than the app: separate files stay cached between releases.
+        // Libraries change less often than the app: a separate file stays cached between releases. The markdown
+        // libraries need no rule: only components/Markdown.jsx imports them, and it loads on demand, so they are in its
+        // file (a manual chunk also pulled React in with them, which put the whole chunk on the first download).
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('/katex/')) return 'katex';
-          if (/\/(react-markdown|remark-|rehype-|micromark|mdast-|hast-|unist-|unified|vfile|property-information|space-separated|comma-separated|decode-named|character-entities|estree-|devlop|bail|trough|zwitch|ccount|longest-streak|markdown-table|html-url-attributes|style-to|inline-style)/.test(id)) return 'markdown';
           return undefined;
         },
       },

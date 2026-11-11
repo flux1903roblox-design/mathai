@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { checkPlan, itemFor } from './items';
 import type { Source } from './items';
 import { ALL_SKILLS, parseSkill, skillId } from './skills';
-import { CONTENT } from './content/index';
+import { loadAllContent } from './content/index';
 import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from './mastery';
 import { VERIFY_N, VERIFY_NEED } from './misconceptions';
 import { seeded } from './expr';
@@ -32,6 +32,9 @@ import { toFrac } from '@/content/util.js';
 import { probeItem, startLevel, nextProbe, PER_TOPIC, PROBE_LEN, KNOW } from '@/lib/placement.js';
 // @ts-ignore: plain JS
 import { JUMP_SOURCES, JUMP_MISTAKES } from '@/lib/lesson.js';
+
+// the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
+const CONTENT = await loadAllContent();
 
 const LIMIT = 0.02;
 const SLOW = 60_000; // each test generates thousands of questions

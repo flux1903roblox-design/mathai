@@ -156,7 +156,10 @@ describe('the dark theme (STUDENT-2 §4, §8)', () => {
 
   it('keeps the notebook page and the QR code light, with their own light tokens', () => {
     const canon = read('canon.css');
-    const rule = canon.slice(canon.indexOf('.nb-page, .handoff-qr {'), canon.indexOf('}', canon.indexOf('.nb-page, .handoff-qr {')));
+    // the hand-over's QR and the backup code's QR (the family lane's BackupCodeSheet) share the rule
+    const head = '.nb-page, .handoff-qr, .backup-qr {';
+    expect(canon).toContain(head);
+    const rule = canon.slice(canon.indexOf(head), canon.indexOf('}', canon.indexOf(head)));
     expect(rule).toMatch(/color-scheme: light;/);
     expect(rule).toMatch(/--surface: #ffffff;/);
   });

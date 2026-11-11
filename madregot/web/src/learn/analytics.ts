@@ -1,5 +1,7 @@
-// Learning analytics, on this device only. Minimal events (what happened, on which stair, right or not),
-// no names, no free text, nothing sent anywhere. Time in the app is not treated as learning.
+// Learning analytics, on this device. Minimal events (what happened, on which stair, right or not), no names, no free
+// text, and the events themselves never leave it. learn/report.ts turns them into a daily summary (a whitelist of codes
+// and counts) for the parent's report; a linked family device will send that summary, and only it, once the family
+// sync lands (PARENTS-4). Time in the app is not treated as learning.
 // The outcome metrics follow the brief's definitions and say how many cases they rest on: below MIN_N a
 // metric is shown as "not enough data yet", never as a number.
 import type { LearnEvent, LearnState } from './types';

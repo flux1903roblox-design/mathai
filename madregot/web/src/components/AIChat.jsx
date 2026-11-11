@@ -5,7 +5,7 @@ import { detectDistress, maskPersonal } from '@shared/safety.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { aiAccess, useAIStatus, needIntro, openLimitSheet } from '@/lib/account.js';
 import { Button } from './ui.jsx';
-import { Markdown } from './MathText.jsx';
+import { RichText, preloadRichText } from './RichText.jsx';
 import { Thinking } from './ui.jsx';
 import AIAllowance from './AIAllowance.jsx';
 import Mascot from './Mascot.jsx';
@@ -36,6 +36,8 @@ const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'as
  */
 export default function AIChat({ context, intro, introTitle, restLine, messages: kept, onMessages, tools, onDone, onMadi }) {
   const navigate = useNavigate();
+  // the answers are markdown: its file is fetched as the chat opens, before the first answer arrives
+  useEffect(() => { preloadRichText(); }, []);
   const status = useAIStatus((x) => x.status);
   const access = aiAccess('chat', status);
   // the tutor does not answer here now: today's questions are used, it rests, the class has it off (TRUST-11), or a
@@ -178,7 +180,7 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
               <div className={`msg-row ${m.role}`} ref={i === anchor ? endRef : undefined} data-align={cardLast && i === anchor ? 'start' : undefined}>
                 {m.role === 'assistant' && <Mascot mood="idle" size={34} className="msg-avatar" />}
                 <div className={`msg ${m.role}`}>
-                  {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : <p>{m.content}</p>}
+                  {m.role === 'assistant' ? <RichText>{m.content}</RichText> : <p>{m.content}</p>}
                 </div>
               </div>
               {m.pii && <p className="msg-pii">{piiLine(m.pii)}</p>}

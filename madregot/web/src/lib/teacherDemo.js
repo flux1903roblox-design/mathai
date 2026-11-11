@@ -11,7 +11,7 @@
 // the student wrote "עדיין לא ברור לי" after the teacher's answer, two new); 6 finished class-exam rows.
 //
 // demoApi(state, method, path, body) → { status, body }: each teacher route of this lane, worked out the way the
-// Worker works it out (worker/src/index.js dashboard, report.js, assignments.js, help.js, classai.js, licence.js), and
+// Worker works it out (worker/src/index.js dashboard, classReport.js, assignments.js, help.js, classai.js, licence.js), and
 // writes change `state`. Unknown routes: 404 not_found. Deleting the class and the teacher key are refused (403
 // demo_readonly). teacherDemo.test.js holds the shapes to the worker tests' field assertions.
 //
@@ -20,7 +20,7 @@
 // says it stays here.
 import { toast } from 'sonner';
 import { TOPIC } from '@/content/index.js';
-import { CONTENT } from '@/learn/content/index.ts';
+import { metaOf } from '@/learn/content/index.ts';
 import { TOPIC_IDS } from '@shared/ai.js';
 import { MOE_RULES, classAiPolicy, notSellable } from '@shared/schoolRules.js';
 // the Worker's own contact guard (worker/src/help.js uses the same function)
@@ -75,7 +75,7 @@ const aid = (n) => `da${hex(n, 14)}`;
 
 /** The mistakes a stair can show: its own misconceptions first, else its topic's. */
 function stairCats(topic, level) {
-  const own = (CONTENT[`${topic}:${level}`]?.misconceptions || []).map((m) => m.id);
+  const own = (metaOf(`${topic}:${level}`)?.misconceptions || []).map((m) => m.id);
   return own.length ? own : Object.keys(TOPIC[topic]?.cats || {});
 }
 
@@ -297,7 +297,7 @@ function dashboard(st) {
   };
 }
 
-/** GET /api/teacher/report?from&to (worker/src/report.js classReport). */
+/** GET /api/teacher/report?from&to (worker/src/classReport.js classReport). */
 function report(st, params) {
   const today = st.today;
   const f = params.get('from'); const t = params.get('to');
@@ -343,7 +343,7 @@ function report(st, params) {
   });
 }
 
-/** GET /api/teacher/students/:id (worker/src/report.js studentDetail). */
+/** GET /api/teacher/students/:id (worker/src/classReport.js studentDetail). */
 function studentPage(st, id) {
   const s = st.students.find((x) => x.id === id);
   if (!s) return fail(404, 'not_found');
