@@ -133,7 +133,7 @@ const stair1: StairContent = {
       steps: [
         { prompt: 'באיזה סדר כותבים?', choices: [
           { text: 'חניכים קודם: $10 : 2$', ok: true, feedback: 'נכון: השאלה מתחילה בחניכים.' },
-          { text: '$2 : 10$', ok: false, feedback: 'השאלה מתחילה בחניכים, ולכן הם ראשונים.' },
+          { text: '$2 : 10$', ok: false, misc: 'reversed-ratio', feedback: 'השאלה מתחילה בחניכים, ולכן הם ראשונים.' },
         ], hints: ['מי מופיע ראשון בשאלה?', 'השאלה: "היחס בין החניכים למדריכים".'], done: 'היחס $10 : 2$.' },
       ],
       final: { prompt: 'מה המספר החסר?', answer: 5, check: '10/2', hints: ['מחלקים את שני המספרים ב־$2$.', '$10 : 2$.'] } },
@@ -392,8 +392,8 @@ const stair3: StairContent = {
       steps: [
         { prompt: 'כמה עולה ק״ג אחד?', choices: [
           { text: '$7$', ok: true, feedback: 'נכון: $21 : 3 = 7$ ש״ח לק״ג.' },
-          { text: '$\\frac{1}{7}$', ok: false, feedback: 'זה ק״ג לשקל, הפוך.' },
-          { text: '$18$', ok: false, feedback: 'חיסרתם $3$ מ־$21$. כמה לק״ג אחד? מחלקים.' },
+          { text: '$\\frac{1}{7}$', ok: false, misc: 'divide-flip', feedback: 'זה ק״ג לשקל, הפוך.' },
+          { text: '$18$', ok: false, misc: 'additive', feedback: 'חיסרתם $3$ מ־$21$. כמה לק״ג אחד? מחלקים.' },
         ], hints: ['מחלקים את המחיר במספר הקילוגרמים.', '$21 : 3$.'], done: 'ק״ג אחד עולה $7$ ש״ח.' },
       ],
       final: { prompt: 'כמה עולים $5$ ק״ג?', answer: 35, check: '21/3*5', hints: ['כל ק״ג עולה $7$.', '$5 \\cdot 7$.'] } },
@@ -402,7 +402,7 @@ const stair3: StairContent = {
         { prompt: 'כמה ק״מ בשעה אחת?', choices: [
           { text: '$75$', ok: true, feedback: 'נכון: $150 : 2 = 75$.' },
           { text: '$300$', ok: false, feedback: 'כפלתם ב־$2$. בשעה אחת נוסעים חצי מ־$150$.' },
-          { text: '$148$', ok: false, feedback: 'חיסרתם. כדי למצוא כמה בשעה אחת, מחלקים.' },
+          { text: '$148$', ok: false, misc: 'additive', feedback: 'חיסרתם. כדי למצוא כמה בשעה אחת, מחלקים.' },
         ], hints: ['ב־$2$ שעות $150$ ק״מ. ובשעה אחת?', '$150 : 2$.'], done: 'בשעה אחת $75$ ק״מ.' },
       ],
       final: { prompt: 'כמה ק״מ ב־$5$ שעות?', answer: 375, check: '150/2*5', hints: ['כל שעה $75$ ק״מ.', '$5 \\cdot 75$.'] } },
@@ -518,7 +518,7 @@ const stair4: StairContent = {
       steps: [
         { prompt: '$4$ ס״מ בתוכנית הם:', choices: [
           { text: '$4$ מטר', ok: true, feedback: 'נכון: $4 \\cdot 100 = 400$ ס״מ, כלומר $4$ מטר.' },
-          { text: '$400$ מטר', ok: false, feedback: '$400$ ס״מ הם $4$ מטר.' },
+          { text: '$400$ מטר', ok: false, misc: 'no-convert', feedback: '$400$ ס״מ הם $4$ מטר.' },
         ], hints: ['כל ס״מ בתוכנית הוא $100$ ס״מ במציאות.', '$100$ ס״מ הם מטר אחד.'], done: 'החדר $4$ מטר על $3$ מטר.' },
       ],
       final: { prompt: 'מה השטח, במ״ר?', answer: 12, check: '4*3', hints: ['שטח הוא אורך כפול רוחב, במטרים.', '$4 \\cdot 3$.'] } },

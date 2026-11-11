@@ -15,6 +15,7 @@ await loadAllContent();
 
 type Claim = Extract<ChallengePart, { type: 'claim' }>;
 type Order = Extract<ChallengePart, { type: 'order' }>;
+type ErrorP = Extract<ChallengePart, { type: 'error' }>;
 
 /** Every piece of text a task shows (titles, stories, prompts, choices, lines, steps, reasons, rubrics, samples). */
 function texts(t: ChallengeTask): string[] {
@@ -25,7 +26,7 @@ function texts(t: ChallengeTask): string[] {
     if (p.type === 'mc') p.choices.forEach((c) => out.push(c.text, c.feedback));
     if (p.type === 'claim') { out.push(p.claim, p.why); if (p.example) out.push(p.example.ask, p.example.hint, ...p.example.slots.map((s) => s.label)); }
     if (p.type === 'order') p.steps.forEach((s) => out.push(s.text, ...(s.reason?.choices || [])));
-    if (p.type === 'error') out.push(...p.lines, p.why, p.fix.prompt);
+    if (p.type === 'error') out.push(...p.lines, p.why, ...Object.values(p.lineWhy || {}), p.fix.prompt);
     if (p.type === 'explain') out.push(...p.rubric, p.sample);
   });
   return out.filter(Boolean);
@@ -103,6 +104,22 @@ describe('the challenge tasks', () => {
         expect(Number.isInteger(p.wrong) && p.wrong >= 0 && p.wrong < p.lines.length, `${t.id}: wrong line ${p.wrong}`).toBe(true);
       }
     }));
+  });
+
+  it('every line of an error task that is not the mistake says why, for the student who marks it (PRODUCT2-18)', () => {
+    const errors = CHALLENGES.flatMap((t) => t.parts.filter((p): p is ErrorP => p.type === 'error').map((p) => [t.id, p] as const));
+    expect(errors.length).toBeGreaterThanOrEqual(10);
+    errors.forEach(([id, p]) => {
+      p.lines.forEach((_, i) => {
+        if (i === p.wrong) { expect(p.lineWhy?.[i], `${id}: the mistaken line is explained by why`).toBeUndefined(); return; }
+        const w = p.lineWhy?.[i]?.trim() || '';
+        expect(w.length, `${id}: line ${i + 1} has no why of its own`).toBeGreaterThan(0);
+        expect(w, `${id}: line ${i + 1}`).not.toBe(p.why.trim());
+        // short, as a result line: at most two short lines on a phone (maths counted as one short word)
+        expect(w.replace(/\$[^$]+\$/g, 'xxxx').length, `${id}: line ${i + 1} is long`).toBeLessThanOrEqual(90);
+      });
+      Object.keys(p.lineWhy || {}).forEach((k) => expect(Number(k) >= 0 && Number(k) < p.lines.length, `${id}: lineWhy ${k}`).toBe(true));
+    });
   });
 
   it('every choice question has exactly one right choice, with feedback on each', () => {

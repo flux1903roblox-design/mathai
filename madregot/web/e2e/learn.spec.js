@@ -61,10 +61,12 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await page.locator('.tg-step .ls-choice').nth(0).click();
   await check.click();
   await page.getByRole('button', { name: 'המשך' }).click();
-  // a wrong last step is diagnosed: −10 is subtracting −5 as if it were 5 (or another reading of the same number)
+  // a wrong last step is diagnosed from where the steps left it (SK-LEARN-4): the step wrote −5 + 5 and turned down
+  // −5 − 5, so −10 is the distances added with the minus kept, not subtracting −5 as if it were 5
   await page.locator('.tg-input').fill('-10');
   await page.getByRole('button', { name: 'בדיקה' }).click();
-  await expect(page.locator('.lm-actions.has-warm')).toContainText('חיסור של מספר שלילי חושב כמו חיסור של חיובי');
+  await expect(page.locator('.lm-actions.has-warm')).toContainText('חיברו מרחקים כשהסימנים שונים, במקום לחסר');
+  await expect(page.locator('.lm-actions.has-warm')).not.toContainText('חיסור של מספר שלילי');
   await expect(page.locator('.lm-actions.has-warm')).not.toContainText('בדקו את החישוב');
   await page.locator('.tg-input').fill('0');
   await page.getByRole('button', { name: 'בדיקה' }).click();
@@ -94,8 +96,10 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   expect(Object.keys(st.learn.skills['signed:1'].taught).sort()).toEqual(['A', 'B', 'C']);
   expect(st.learn.skills['signed:1'].attempts.every((a) => !a.independent)).toBe(true);
   expect(st.learn.skills['signed:1'].mastered).toBeUndefined();
-  // the diagnosed last step is evidence about the misconception it fits (learning with help is still evidence of it)
-  expect(st.learn.miscon['signed:1|minus-minus']).toBeTruthy();
+  // the diagnosed last step is evidence about the misconception it fits (learning with help is still evidence of it):
+  // the distances added, not the subtraction the step had already turned down (SK-LEARN-4)
+  expect(st.learn.miscon['signed:1|abs-add']).toBeTruthy();
+  expect(st.learn.miscon['signed:1|minus-minus']).toBeUndefined();
   await page.reload();
   await expect(page.locator('.jstage.done')).toHaveCount(3);
 });

@@ -169,6 +169,25 @@ test('a wrong counterexample gets a second try, then the part goes on with its h
   await expect(page.locator('.ch-foot')).toContainText('נסו שבר שהמונה שלו גדול מהמכנה.');
 });
 
+test('an error task: a line marked that is not the mistake says why it holds (PRODUCT2-18)', async ({ page }, info) => {
+  await open(page, '#/challenge/sys:c2', student('8'));
+  await page.getByRole('radio', { name: /^שורה 1:/ }).click();
+  await go(page, 'בדיקה').click();
+  const foot = page.locator('.ch-foot');
+  await expect(foot.locator('.lm-banner')).toHaveText('עוד לא. נסו שוב, יש עוד ניסיון.');
+  await expect(foot.locator('.ch-line-why')).toHaveText('שורה 1 בסדר. זו רק המערכת מהשאלה. הטעות מתחילה אחריה.');
+  await expect(foot.locator('.ch-line-why')).toBeInViewport();
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: info.outputPath('error-line-why.png') });
+  // the second miss shows the mistake, after the why of the line just marked
+  await page.getByRole('radio', { name: /^שורה 4:/ }).click();
+  await go(page, 'בדיקה').click();
+  await expect(foot.locator('.lm-banner')).toHaveText('הנה הפתרון. ממשיכים.');
+  await expect(foot.locator('.ch-line-why')).toContainText('שורה 4 בסדר. מ־');
+  await expect(foot).toContainText('השורה השגויה היא שורה 3.');
+  await expectNoSidewaysScroll(page);
+});
+
 // ------------------------------------------------------------------ where challenges appear (CURRICULUM-6.3)
 
 /** A ח׳ student who has mastered pct:1 and learned pct:2 (taught, practised) but not checked it: pct:c1 follows pct:2. */

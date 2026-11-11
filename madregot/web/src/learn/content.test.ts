@@ -27,6 +27,15 @@ const CONTENT = await loadAllContent();
 const stairs = Object.values(CONTENT) as StairContent[];
 const DRAWS = 400;
 
+/**
+ * The number a guided step's choice stands for, when the choice is one piece of maths (perhaps followed by a word or
+ * a unit, as in "$13.5$ ק״מ" or "$\\frac{2}{5}$: הצעדים ימינה חלקי העלייה"); null for words, letters and percents.
+ */
+function choiceValue(text: string): number | null {
+  const m = text.match(/^\$([^$]+)\$[^$\d]*$/);
+  if (!m || /\\%|[<>=]|\\(le|ge)\b/.test(m[1])) return null;
+  try { const v = evaluate(texToExpr(m[1].replace(/\^\\circ/g, '').replace(/\{,\}/g, ''))); return Number.isFinite(v) ? v : null; } catch { return null; }
+}
 /** A side of an equation as { k, c } (k·x + c). */
 const sideOf = (tex: string) => { const e = texToExpr(tex); const f = (x: number) => evaluate(e, { x }); return { k: f(1) - f(0), c: f(0) }; };
 /**
@@ -305,6 +314,18 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
     c.misconceptions.forEach((m) => { expect(m.remedy.length, m.id).toBeGreaterThan(0); checkSteps(m.remedy, `remedy ${m.id}`); });
   });
 
+  it('explains every wrong guess of its discovery steps by itself (SK-LEARN-5)', () => {
+    // a wrong guess gets its own line on where that number or idea comes from, before the general why; a guess the
+    // step has no line for would get only the general why, which explains the right answer and not the student's
+    const missing: string[] = [];
+    c.discover.forEach((s, j) => {
+      if (s.kind !== 'predict') return;
+      s.choices.forEach((ch, i) => { if (i !== s.answer && !s.wrongWhy?.[i]?.trim()) missing.push(`step ${j + 1}, "${ch}"`); });
+      Object.keys(s.wrongWhy || {}).forEach((i) => expect(Number(i) !== s.answer && Number(i) < s.choices.length, `step ${j + 1}: wrongWhy ${i} is no wrong choice`).toBe(true));
+    });
+    expect(missing).toEqual([]);
+  });
+
   it('works its examples correctly, step by step', () => {
     c.examples.forEach((ex, k) => checkExample(ex, k));
   });
@@ -340,6 +361,22 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
       // typed rounded to tenths the way the checker rounds (half away from zero: −4.25 is −4.3, misconceptions.ts roundAway)
       finalPredictions(c, k).forEach(([id, v]) => expect(diagnoseFinal(c, k, roundAway(v, 1)), `together ${k + 1}: ${v}`).toContain(id));
       expect(diagnoseFinal(c, k, ans), `together ${k + 1}: the right answer is no mistake`).toEqual([]);
+      // the last step starts where the steps left the problem (SK-LEARN-4). A misconception whose move an earlier step
+      // offered as a wrong choice (its `misc`) has been turned down, so the last step does not name it again; and a
+      // number an earlier step turned down is no prediction either, unless the entry keeps it on purpose (`still`, with
+      // the reason in a comment: the same number reached by another slip, or asked about another quantity)
+      const turned = c.together[k].steps.flatMap((s) => s.choices.filter((x) => !x.ok));
+      const ruled = new Set(turned.flatMap((x) => (x.misc == null ? [] : [x.misc].flat())));
+      ruled.forEach((id) => expect(ids, `together ${k + 1}: a step's choice names ${id}, not a misconception of the stair`).toContain(id));
+      c.together[k].steps.forEach((s, i) => s.choices.forEach((x) => expect(!(x.ok && x.misc), `together ${k + 1} step ${i + 1}: the right choice names a mistake`).toBe(true)));
+      const numbers = turned.map((x) => choiceValue(x.text)).filter((v): v is number => v != null);
+      const preds = finalPredictions(c, k);
+      preds.forEach(([id, v]) => {
+        expect(ruled.has(id), `together ${k + 1}: ${id} (${v}) was turned down in an earlier step`).toBe(false);
+        if (!sp.still?.includes(id)) expect(numbers.some((w) => same(w, v)), `together ${k + 1}: ${id} predicts ${v}, a number an earlier step turned down`).toBe(false);
+      });
+      // and `still` is no blanket: each id it keeps is predicted with such a number
+      (sp.still || []).forEach((id) => expect(preds.some(([i, v]) => i === id && numbers.some((w) => same(w, v))), `together ${k + 1}: still ${id} keeps nothing`).toBe(true));
     });
   });
 
@@ -429,10 +466,24 @@ describe('solving together: the last step names the mistake', () => {
   it('the council\'s cases', () => {
     // stats:3, mean 10 of four numbers, 8 added to one: 18 is the 8 not shared among the four
     expect(diagnoseFinal(CONTENT['stats:3'], 1, 18)).toEqual(['no-divide']);
-    // signed:1, −3 − (−8): −11 is subtracting −8 as if it were 8 (or two other readings of the same number)
-    expect(diagnoseFinal(CONTENT['signed:1'], 0, -11)).toContain('minus-minus');
+    // signed:1, −3 − (−8): the steps rewrote it as −3 + 8 and moved 8 to the right, so −11 (subtracting −8 as if it
+    // were 8) is a move the student has just turned down twice; what the last step can still show is the sign lost
+    expect(diagnoseFinal(CONTENT['signed:1'], 0, -11)).toEqual([]);
+    expect(diagnoseFinal(CONTENT['signed:1'], 0, -5)).toEqual(['sign']);
     // a number no misconception predicts gets the general hint, not a made-up name
     expect(diagnoseFinal(CONTENT['signed:1'], 0, 4)).toEqual([]);
+  });
+  it('predicts from the state the steps have shown, not from the problem as first written (SK-LEARN-4)', () => {
+    // frac:3, 3/5 + 1/2: the steps wrote 6/10 + 5/10. Adding across now gives 11/20; 4/7 (across the first fractions)
+    // and 4/10 (the numerators not expanded, which step 2 turned down) are no longer this problem
+    expect(diagnoseFinal(CONTENT['frac:3'], 0, 11 / 20)).toEqual(['add-across']);
+    expect(diagnoseFinal(CONTENT['frac:3'], 0, 4 / 7)).toEqual([]);
+    expect(diagnoseFinal(CONTENT['frac:3'], 0, 0.4)).toEqual([]);
+    // pct:4, 30% is 45 km: the step found 10% = 15. Stopping there gives 15; 13.5 was turned down in the step, and 1.5
+    // (stopping at 1%) belongs to a route the steps did not take
+    expect(diagnoseFinal(CONTENT['pct:4'], 1, 15)).toEqual(['stop-at-one']);
+    expect(diagnoseFinal(CONTENT['pct:4'], 1, 13.5)).toEqual([]);
+    expect(diagnoseFinal(CONTENT['pct:4'], 1, 1.5)).toEqual([]);
   });
   it('the algebra stairs name the mistake their number shows, and none the steps ruled out', () => {
     // expr:1, 3(x + 5) at x = −1 after the step −1 + 5 = 4: 34 is 3 next to the bracket read as digits

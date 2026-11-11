@@ -121,7 +121,7 @@ const stair1: StairContent = {
       steps: [
         { prompt: 'פי כמה גדל המכנה?', choices: [
           { text: 'פי $3$', ok: true, feedback: 'נכון: $5 \\cdot 3 = 15$.' },
-          { text: 'ב־$10$', ok: false, feedback: 'הוספה משנה את הכמות. בשבר שואלים "פי כמה".' },
+          { text: 'ב־$10$', ok: false, misc: 'add-same', feedback: 'הוספה משנה את הכמות. בשבר שואלים "פי כמה".' },
           { text: 'פי $15$', ok: false, feedback: '$5 \\cdot 15$ הוא $75$, לא $15$.' },
         ], hints: ['במכנה היה $5$, ועכשיו $15$.', '$15 : 5 = 3$.'], done: 'המכנה גדל פי $3$.' },
       ],
@@ -130,7 +130,7 @@ const stair1: StairContent = {
       steps: [
         { prompt: 'לכמה חלקים מחולקת היחידה?', choices: [
           { text: '$6$', ok: true, feedback: 'נכון: $5$ שנתות בפנים יוצרות $6$ רווחים.' },
-          { text: '$5$', ok: false, feedback: 'יש $5$ שנתות, והן יוצרות $6$ חלקים.' },
+          { text: '$5$', ok: false, misc: 'count-marks', feedback: 'יש $5$ שנתות, והן יוצרות $6$ חלקים.' },
           { text: '$1$', ok: false, feedback: 'היחידה היא הקטע מ־$0$ עד $1$, וכאן היא חתוכה לחלקים קטנים.' },
         ], hints: ['סופרים את הרווחים בין $0$ ל־$1$, לא את הקווים.', 'יש $5$ קווים בפנים, ורווח אחד יותר.'], done: 'כל חלק הוא $\\frac{1}{6}$.' },
       ],
@@ -423,7 +423,7 @@ const stair3: StairContent = {
         ], hints: ['מחפשים מספר שמתחלק גם ב־$5$ וגם ב־$2$.', '$5 \\cdot 2 = 10$.'], done: 'המכנה המשותף הוא $10$.' },
         { prompt: 'במכנה $10$:', choices: [
           { text: '$\\frac{6}{10} + \\frac{5}{10}$', ok: true, feedback: 'נכון: $\\frac{3 \\cdot 2}{5 \\cdot 2}$ ו־$\\frac{1 \\cdot 5}{2 \\cdot 5}$.' },
-          { text: '$\\frac{3}{10} + \\frac{1}{10}$', ok: false, feedback: 'הרחבתם רק את המכנים. גם המונה גדל פי אותו מספר.' },
+          { text: '$\\frac{3}{10} + \\frac{1}{10}$', ok: false, misc: 'num-not-scaled', feedback: 'הרחבתם רק את המכנים. גם המונה גדל פי אותו מספר.' },
         ], hints: ['פי כמה גדל כל מכנה?', '$5$ גדל פי $2$, ו־$2$ גדל פי $5$. המונים גדלים פי אותו מספר.'], done: '$\\frac{6}{10} + \\frac{5}{10}$' },
       ],
       final: { prompt: 'כמה יוצא? (שבר או עשרוני)', answer: 1.1, check: '3/5+1/2', precise: true, hints: ['מחברים את המונים: $6 + 5$.', '$\\frac{11}{10}$, כלומר $1.1$.'] } },
@@ -568,7 +568,7 @@ const stair4: StairContent = {
       steps: [
         { prompt: 'מה המכנה?', choices: [
           { text: '$25$', ok: true, feedback: 'נכון: $5 \\cdot 5 = 25$.' },
-          { text: '$5$', ok: false, feedback: 'בכפל גם המכנים מוכפלים: החלקים קטנים יותר.' },
+          { text: '$5$', ok: false, misc: 'keep-den', feedback: 'בכפל גם המכנים מוכפלים: החלקים קטנים יותר.' },
           { text: '$10$', ok: false, feedback: '$5 + 5 = 10$. בכפל שברים כופלים את המכנים, לא מחברים.' },
         ], hints: ['בכפל שברים: מונה כפול מונה, ומכנה כפול מכנה.', '$5 \\cdot 5$.'], done: 'המכנה הוא $25$.' },
       ],
@@ -577,8 +577,8 @@ const stair4: StairContent = {
       steps: [
         { prompt: 'איזה תרגיל?', choices: [
           { text: '$\\frac{3}{4} : \\frac{1}{8}$', ok: true, feedback: 'נכון: כמה פעמים כוס נכנסת בבקבוק.' },
-          { text: '$\\frac{1}{8} : \\frac{3}{4}$', ok: false, feedback: 'שואלים כמה כוסות נכנסות בבקבוק: הבקבוק מחולק בכוס.' },
-          { text: '$\\frac{3}{4} \\cdot \\frac{1}{8}$', ok: false, feedback: 'כפל ייתן פחות מכוס אחת. כמה פעמים $\\frac{1}{8}$ נכנס?' },
+          { text: '$\\frac{1}{8} : \\frac{3}{4}$', ok: false, misc: 'divide-flip', feedback: 'שואלים כמה כוסות נכנסות בבקבוק: הבקבוק מחולק בכוס.' },
+          { text: '$\\frac{3}{4} \\cdot \\frac{1}{8}$', ok: false, misc: 'mult-bigger', feedback: 'כפל ייתן פחות מכוס אחת. כמה פעמים $\\frac{1}{8}$ נכנס?' },
         ], hints: ['כמה פעמים $\\frac{1}{8}$ ליטר נכנס ב־$\\frac{3}{4}$ ליטר?', '"כמה פעמים נכנס" זה חילוק: הבקבוק חלקי הכוס.'], done: '$\\frac{3}{4} : \\frac{1}{8}$' },
       ],
       final: { prompt: 'כמה כוסות?', answer: 6, check: '3/4/(1/8)', hints: ['כופלים בהפכי: $\\frac{3}{4} \\cdot 8$.', '$\\frac{24}{4}$.'] } },

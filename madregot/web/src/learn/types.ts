@@ -140,7 +140,11 @@ export interface WorkedExample {
 
 // ------------------------------------------------------------------ Stage C: solve together
 
-export interface GuidedChoice { text: Text; ok: boolean; feedback: Text }
+/**
+ * `misc` names the stair misconception(s) whose move a wrong choice is. The student who goes on has turned that move
+ * down, so the last step does not predict it again (learn/content/togetherDiag.ts; checked by content.test.ts).
+ */
+export interface GuidedChoice { text: Text; ok: boolean; feedback: Text; misc?: string | string[] }
 /** The student chooses the next step; a wrong choice gets its own feedback and the hints grow stronger. */
 export interface GuidedStep { prompt: Text; display?: string; choices: GuidedChoice[]; hints: [Text, Text]; done: Text }
 export interface GuidedProblem {
@@ -340,7 +344,11 @@ export type ChallengePart =
       example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
                   expr: string; rel: '<' | '<=' | '>' | '>=' | '!='; value: number; hint: Text } }
   | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number } }[]; free?: number[][] }
-  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string } }
+  /**
+   * Someone's solution with one mistaken line (`wrong`, explained by `why`). `lineWhy` says, for every other line, why
+   * that line is not the mistake; the student who marks it reads it (components/challenge/ErrorPart.jsx, PRODUCT2-18).
+   */
+  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; lineWhy: Record<number, Text>; fix: { prompt: Text; answer: number; check: string } }
   | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
 /** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */
 export interface ChallengeRecord { startedAt: string; doneAt?: string; firstTry: number; parts: number }

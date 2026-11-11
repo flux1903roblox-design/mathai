@@ -83,9 +83,10 @@ describe('solve together: the last step names a mistake honestly', () => {
     expect(diagnoseFinal(CONTENT['coord:2'], 0, 4)).toEqual(['quad-order']);
     // pyth:3 #1: 29 was chosen as the hypotenuse, the squares compared and "right-angled" concluded
     expect(diagnoseFinal(CONTENT['pyth:3'], 0, 0)).toEqual([]);
-    // pyth:3 #2: "not right-angled" was chosen in step 2, so 16 (taking it as right) is not named
+    // pyth:3 #2: "not right-angled" was chosen in step 2, so 16 (taking it as right) is not named; and step 1 turned
+    // down comparing 9 + 12 with 16, so 21 (the legs added) is not named either (SK-LEARN-4)
     expect(diagnoseFinal(CONTENT['pyth:3'], 1, 16)).toEqual([]);
-    expect(diagnoseFinal(CONTENT['pyth:3'], 1, 21)).toEqual(['add-legs']);
+    expect(diagnoseFinal(CONTENT['pyth:3'], 1, 21)).toEqual([]);
     // coord:2 #2: both points on the axes were just set aside, so 4 is not "counted the axes"
     expect(diagnoseFinal(CONTENT['coord:2'], 1, 4)).toEqual([]);
   });
