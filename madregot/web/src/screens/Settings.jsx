@@ -1,7 +1,9 @@
 // Settings, laid out like Duolingo's settings screen: a bar with the way back and the title, then grouped sections,
 // each a bordered group with a small heading (my details, class, the assistant, the look, sound, vibration, the daily
-// reminder, the app, deleting data).
-// A student sees nothing about servers or keys: those are for the adult who sets the app up, behind "מתקדם".
+// reminder, privacy and safety, the app), then a section for adults, then deleting data.
+// The student's own settings speak to the student (PRODUCT2-41): how the browser keeps the data, the backup and the
+// support details are for the adult who looks after the device, in "להורים ולמבוגרים" under them. Servers and keys
+// are for the adult who sets the app up, behind "מתקדם" in that section.
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
@@ -132,12 +134,12 @@ function useConnectionTest(detail = false) {
   return [status, test];
 }
 
-/** One quiet row at the end of Settings that leads adults to the server address and the personal key. */
+/** One quiet row in the adults' section that leads to the server address and the personal key. */
 function AdvancedRow() {
   if (!PERSONAL_KEY) return null;
   return (
     <section className="section set-group" aria-labelledby="adv-title">
-      <h2 id="adv-title" className="set-head">מתקדם</h2>
+      <h3 id="adv-title" className="set-head">מתקדם</h3>
       <div className="set-rows-wrap"><div className="set-rows">
         <Link to="/settings/advanced" className="set-row"><span>חיבור העוזר לשרת או למפתח (להורים ולמורים)</span><ChevronLeft size={18} aria-hidden="true" /></Link>
       </div></div>
@@ -490,7 +492,6 @@ export default function Settings() {
           )}
         </div>
       </section>
-      <SaveSection />
       <ClassSection />
       <AISection />
       <ThemeSetting />
@@ -498,7 +499,15 @@ export default function Settings() {
       <ReminderSettings />
       <SafetySection />
       <InstallRow />
-      <AdvancedRow />
+      {/* for the adult who looks after the device: saving and the backup (DURABLE-1/4/5), the server and the key, and the
+          support details (DURABLE-9). The saving keeps its anchor, /settings#save (the storage banner's "מה עושים") */}
+      <section className="set-adults" aria-labelledby="adults-title">
+        <h2 id="adults-title" className="set-head set-adults-head">להורים ולמבוגרים</h2>
+        <p className="set-adult-note">שמירה, גיבוי ופרטים לתמיכה. בדרך כלל אין צורך לשנות כאן כלום.</p>
+        <SaveSection level={3} />
+        <AdvancedRow />
+        <SupportInfo />
+      </section>
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>
         <div className="set-rows-wrap">
@@ -520,7 +529,6 @@ export default function Settings() {
         {vaultOn && <p>{SIGNOUT_VAULT}</p>}
         <p>ההגדרות של העוזר במכשיר נשארות. כדי למחוק הכול, בחרו 'מחיקת כל הנתונים'.</p>
       </ConfirmSheet>
-      <SupportInfo />
       {/* where the progress lives, in the words the whole app uses (lib/durable/copy.js) */}
       <p className="footnote">מדרגות. {whereSavedText({ profile, backup }, { summary: familyLinked && summaryOn })}</p>
     </div>

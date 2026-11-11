@@ -283,9 +283,11 @@ export function planNext(ctx: NextContext): NextPlan {
     const sg = stairStage(next, ctx.learn.skills[next]);
     // a bridge stair the student never touched is not named as something they have: it is only absent from the evidence
     const have = prereqsOf(next).filter((p) => !isBridgeSkill(p) || st[p] !== 'not-started');
-    const why = have.length ? `מה שצריך בשבילה כבר אצלכם (${have.map(titleOf).join(', ')}).` : `המדרגה הבאה ב${topicTitleOf(next)}.`;
-    const when = !isBridgeSkill(next) && taughtByNow(ctx, next) ? ` לפי תוכנית הלימודים, זה נלמד בכיתה ב${monthNameOf(monthIndex(next, ctx.grade)!)}.` : '';
-    learnAdd(BAND.new, { kind: 'new', skill: next, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(next)}`, reason: `מדרגה חדשה, שלב ${STAGE_N[sg]} מתוך 5. ${why}${when}`, minutes: STAGE_MIN[sg], to: routeOf.stage(next, sg) });
+    // in the student's words (PRODUCT2-41): one short first line, then what it leans on, the stage it asks for (reviewer
+    // P2: the mission names its one stage) and the school month, which a screen keeps behind "עוד"
+    const why = have.length ? `יש לכם כבר מה שצריך בשבילה. היא נשענת על ${have.map(titleOf).join(', ')}.` : `המדרגה הבאה ב${topicTitleOf(next)}.`;
+    const when = !isBridgeSkill(next) && taughtByNow(ctx, next) ? ` בבית הספר לומדים את זה ב${monthNameOf(monthIndex(next, ctx.grade)!)}.` : '';
+    learnAdd(BAND.new, { kind: 'new', skill: next, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(next)}`, reason: `${why} שלב ${STAGE_N[sg]} מתוך 5.${when}`, minutes: STAGE_MIN[sg], to: routeOf.stage(next, sg) });
   }
 
   if (challenge && !strong) add(BAND.challenge, 'challenge', challenge);

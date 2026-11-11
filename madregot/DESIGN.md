@@ -249,6 +249,7 @@ The build rejects what made earlier rounds look childish and loud: scenery illus
 - One card (white, 2px `rule` border, 16px radius, flat) and one button grammar everywhere.
 - The lipped press: pressable things sit on a 3-6px solid lip that collapses when pressed.
 - Rubik only, weights 400 to 800; body 17px; nothing under 14px; tabular numbers.
+- A child reads two short lines (PRODUCT2-41): a mission's reason and a wrong guess's explanation show their first short sentence, and the rest waits behind "עוד" (`components/MoreText.jsx`, a button with `aria-expanded` that becomes "פחות"). מדי stands beside every first-visit question (64px). Settings keeps the browser's storage, the backup and the support details in "להורים ולמבוגרים", under the student's own settings.
 - Hebrew right to left, maths isolated left to right; phone first, one column.
 - Short ease-out motion; the feedback panel rises from the bottom; everything stops under reduced motion.
 
@@ -288,7 +289,7 @@ A white, quiet palette with one saturated blue and four meaning colours that app
 ## Typography
 
 **Display, Body and Label Font:** Rubik (variable, self-hosted via `@fontsource-variable/rubik`), with Segoe UI, Arial Hebrew and Arial as fallbacks.
-**Maths:** KaTeX's serif, at 1.08em inline and `clamp(30px, 5dvh, 44px)` on the question panel, always left to right and never wrapped inline. Inside a sentence the digits are the sentence's own (STUDENT-9): a bare number such as $-3$ or $35^\circ$ is plain Rubik text in `bdi.num` (left to right, a real minus sign U+2212, tabular figures). Other inline maths keeps KaTeX's italic letters and operators, but its digits are set in Rubik (`.mt-inline`). Display maths on the panel stays all KaTeX.
+**Maths:** KaTeX's serif, at 1.08em inline and `clamp(30px, 5dvh, 44px)` on the question panel, always left to right and never wrapped inline. Inside a sentence the digits are the sentence's own (STUDENT-9): a bare number such as $-3$ or $35^\circ$ is plain Rubik text in `bdi.num` (left to right, a real minus sign U+2212, tabular figures). Other flat inline maths ($x = -3$, $3^2 + 4^2$) is set in the sentence's font too, at its size: digits, operators and letters in Rubik, letters upright (`.mt-ui`, PRODUCT2-41). Inline maths laid out in rows (a fraction, a root) keeps KaTeX's layout and fonts, with its digits in Rubik (`.mt-inline`). Display maths on the panel stays all KaTeX.
 
 **Character:** one rounded, sturdy sans for everything, set large; the hierarchy comes from size and weight (800 for titles, 700 for headings and buttons), not from a second face.
 

@@ -12,6 +12,7 @@ import { ALL_SKILLS, GRADE_OF, STAIRS, TOPIC_ORDER, isBridgeSkill, parseSkill, s
 import { contentOf, loadAllContent } from './content/index';
 import { seeded } from './expr';
 import { addDays } from './mastery';
+import { splitFirstSentence } from '@/components/MathText.jsx';
 import { LEARNERS, ctxOf, emptyLearn, checkedExam, ago, masteredRec, taughtRec, strugglingRec, pathOf, checkEvents, NOW } from './__fixtures__/learners';
 import { challengeById, CHALLENGES } from './challenges/index';
 // @ts-ignore: plain JS
@@ -99,7 +100,11 @@ describe('planNext: the bands, highest first, for each learner', () => {
 
   it('a new stair follows the school calendar: taught by now first, then the rest, in school order', () => {
     expect(planNext(LEARNERS.newSeventh()).top).toMatchObject({ kind: 'new', skill: 'signed:1', to: '/learn/signed/1/A' });
-    expect(planNext(LEARNERS.newSeventh()).top!.reason).toContain('לפי תוכנית הלימודים, זה נלמד בכיתה באוקטובר.');
+    // in the student's words (PRODUCT2-41): a short first line, and the school month after it, behind "עוד" on screen
+    const why = planNext(LEARNERS.newSeventh()).top!.reason;
+    expect(why).toContain('בבית הספר לומדים את זה באוקטובר.');
+    expect(why).not.toContain('לפי תוכנית הלימודים');
+    expect(splitFirstSentence(why)[0]).toBe('המדרגה הבאה במספרים מכוונים.');
     // September: signed starts in October, angles is taught now; the unit's own order is kept (no signed:2 before signed:1)
     expect(planNext(LEARNERS.newSeventhSeptember()).top).toMatchObject({ kind: 'new', skill: 'angles:1' });
     expect(planNext(LEARNERS.newSeventhSeptember()).top!.reason).toContain('בספטמבר');
@@ -107,7 +112,7 @@ describe('planNext: the bands, highest first, for each learner', () => {
     const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }]));
     const eq = planNext(ctxOf(emptyLearn(), { path })).top!;
     expect(eq).toMatchObject({ kind: 'new', skill: 'eq:1' });
-    expect(eq.reason).not.toContain('לפי תוכנית הלימודים');
+    expect(eq.reason).not.toContain('בבית הספר');
   });
 
   it('offers the floor check for a hard stair that leans on fractions, only while there is no floor evidence', () => {
@@ -676,7 +681,7 @@ describe('one next: every surface names the same step', () => {
     const first = p.items.find((x) => x.kind === 'new')!;
     expect(first.skill).toBe('ratio:1');
     expect(first.to).toBe('/learn/ratio/1/A');
-    expect(first.reason).toContain('לפי תוכנית הלימודים, זה נלמד בכיתה בספטמבר.');
+    expect(first.reason).toContain('בבית הספר לומדים את זה בספטמבר.');
     expect(p.top).toBe(first);
     const ids = mapTopics('8', false, c.month).map((t) => t.id);
     expect(ids[0]).toBe('ratio');

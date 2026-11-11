@@ -331,6 +331,10 @@ a { color: var(--brand-d); }
 .ob-bubble::before, .ob-bubble::after, .lesson .q-bubble::before, .lesson .q-bubble::after { content: none; display: none; }
 .lesson .q-bubble { font-size: 20px; line-height: 28px; font-weight: 700; }
 @media (max-height: 640px) { .ob-bubble { font-size: 19px; line-height: 26px; } .lesson .q-bubble { font-size: 17px; line-height: 24px; } }
+/* the first visit's questions: מדי stands beside each one, small, and the question is next to him (PRODUCT2-41) */
+.ob-ask.ob-ask-madi { display: flex; align-items: center; gap: var(--s3); }
+.ob-madi { flex: none; }
+@media (max-height: 640px) { .ob-madi { width: 48px; height: auto; } }
 /* a label that names what a heading belongs to sits under it, quietly */
 .bl-kicker, .journey-topic, .ps-next-label { font-size: 15px; line-height: 22px; font-weight: 500; color: var(--ink-2); }
 
@@ -633,6 +637,12 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .board .mastery-map { border-radius: 16px; }
 
 /* settings: the adult-facing "מתקדם" screen says who it is for, under the bar */
+/* Settings' section for adults (PRODUCT2-41): under the student's own settings, set apart by a rule and its heading */
+.set-adults { display: flex; flex-direction: column; gap: var(--s5); padding-top: var(--s5); border-top: 2px solid var(--line); }
+.set-adults > .set-adult-note { margin: 0; }
+.set-adults + .set-group { padding-top: var(--s4); border-top: 2px solid var(--line); }
+.set-adults-head { font-size: 20px; line-height: 26px; color: var(--ink); }
+.set-adults h3.set-head { font-family: var(--font-ui); font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink-2); margin: 0; }
 .set-adult-note { margin: var(--s4) 0 0; padding: var(--s3) var(--s4); border-radius: 16px; background: var(--ground); color: var(--ink); font-size: 16px; line-height: 24px; }
 
 /* teaching drawings (Figure type "geo"): the brand for what the text points at, quiet ink for the rest; type a step
@@ -1205,6 +1215,11 @@ a.btn { text-decoration: none; }
    Rubik on to the + inside it. Display maths (FitDisplay) is not touched. */
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mt-inline .katex .mord:not(.mathnormal):not(.mathit):not(:has(*)) { font-family: var(--font-ui); }
+/* PRODUCT2-41: flat inline maths in a sentence ($x = -3$, $3^2 + 4^2$) is set in the sentence's font, at its size: digits,
+   operators and letters in Rubik, letters upright. MathText leaves .mt-ui off maths laid out in rows (a fraction, a root),
+   which keeps KaTeX's layout and fonts; display maths is not touched. */
+.mt-ui .katex { font-family: var(--font-ui); font-size: 1em; }
+.mt-ui .katex .mathnormal, .mt-ui .katex .mathit, .mt-ui .katex .boldsymbol { font-family: var(--font-ui); font-style: normal; }
 
 /* ------------------------------------------------------------------ touch targets (STUDENT-9 §1)
    Every touch target on a student screen is at least 44×44 (inline links inside running text excepted). The lesson's
@@ -1229,6 +1244,9 @@ a.btn { text-decoration: none; }
 /* an explore step's miss names what probably happened, above the hint (PRODUCT2-18) */
 .bl-why-text .bl-diag { margin: 0 0 var(--s1); font-weight: 600; }
 .bl-why-text .link-btn { position: relative; min-height: 0; padding: 0 2px; vertical-align: baseline; }
+/* "עוד" after two short lines (PRODUCT2-41): a word in the text, above a row's stretched link */
+.more-btn { display: inline; position: relative; z-index: 1; min-height: 0; padding: 0 2px; font-weight: 700; vertical-align: baseline; }
+.more-text p, p.more-text { margin: 0; }
 .bl-why-text .link-btn::after { content: ''; position: absolute; inset: -9px -10px; } /* "עוד" sits in the text line; its touch area is 44px tall */
 .bl-why-more:focus { outline: none; } /* focused only to keep a keyboard's place after "עוד" */
 

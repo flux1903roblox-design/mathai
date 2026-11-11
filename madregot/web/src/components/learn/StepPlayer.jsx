@@ -10,6 +10,7 @@ import { AnimatePresence, m } from 'motion/react';
 import { ArrowLeft, ArrowRight, Check, Lightbulb, X, Sparkles, HelpCircle } from 'lucide-react';
 import Mascot from '@/components/Mascot.jsx';
 import { Tex, MathText, mathPlain, FitDisplay, splitFirstSentence } from '@/components/MathText.jsx';
+import MoreText, { LEAD_MAX } from '@/components/MoreText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { KINDS } from '@/components/manip/Manip.jsx';
@@ -71,6 +72,14 @@ function ShortHint({ text }) {
       {rest && more && <p ref={restRef} tabIndex={-1} className="bl-why-more"><MathText text={rest} /></p>}
     </>
   );
+}
+
+/**
+ * A wrong guess on a predict step: what the guess missed (its wrongWhy) and why the answer is what it is, in two short
+ * lines on a 320px phone, the rest behind "עוד" (PRODUCT2-41: it ran five or six lines).
+ */
+export function WrongGuess({ step, chosen }) {
+  return <MoreText as="p" text={[step.wrongWhy?.[chosen], step.why].filter(Boolean).join(' ')} max={LEAD_MAX.sheet} />;
 }
 
 /** The canvas: where the maths is. Shown only when there is something to see. */
@@ -221,7 +230,7 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
   const result = step.kind === 'predict' && answers[i] != null
     ? (answers[i] === step.answer
       ? { tone: 'good', title: 'נכון!', body: <p><MathText text={step.why} /></p> }
-      : { tone: 'warm', title: 'ניחוש טוב לבדוק. הנה מה שקורה', body: <>{step.wrongWhy?.[answers[i]] && <p><MathText text={step.wrongWhy[answers[i]]} /></p>}<p><MathText text={step.why} /></p></> })
+      : { tone: 'warm', title: 'ניחוש טוב לבדוק. הנה מה שקורה', body: <WrongGuess step={step} chosen={answers[i]} /> })
     : step.kind === 'explore' && answers[i] ? { tone: 'good', title: 'יפה! בדיוק כך', body: <p><MathText text={step.success} /></p> }
       : step.kind === 'explore' && exp?.miss > 0 ? { tone: 'warm', title: exp.said?.title || 'עוד לא. הזיזו ונסו שוב', body: <MissWhy k={`${i}-${exp.miss}`} line={exp.said?.line} hint={step.hint} /> } : null;
   // The bottom (the button and the result sheet) stays on screen over the step; its height is kept in --foot-h, so a

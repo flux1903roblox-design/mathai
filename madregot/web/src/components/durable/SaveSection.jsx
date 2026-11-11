@@ -64,7 +64,9 @@ const NOTE = {
   teacher: 'בקובץ יש גם את מפתח המורה של הכיתות. מי שמקבל אותו יכול להיכנס ללוח הכיתה, אז שמרו אותו רק אצלכם.',
 };
 
-export default function SaveSection({ role = 'student' }) {
+/** `level`: its heading's level (3 inside Settings' section for adults, PRODUCT2-41; 2 where it stands alone). */
+export default function SaveSection({ role = 'student', level = 2 }) {
+  const Heading = level === 3 ? 'h3' : 'h2';
   const health = useDurable((s) => s.health);
   const persisted = useDurable((s) => s.persisted);
   const undoUntil = useApp((s) => s.backup?.undoUntil);
@@ -119,7 +121,7 @@ export default function SaveSection({ role = 'student' }) {
   };
   return (
     <section id="save" className="section set-group save-section" aria-labelledby="save-title">
-      <h2 id="save-title" className="set-head" tabIndex={-1}>שמירת ההתקדמות</h2>
+      <Heading id="save-title" className="set-head" tabIndex={-1}>שמירת ההתקדמות</Heading>
       <dl className="save-rows">
         <div className="save-row">
           <dt>במכשיר הזה</dt>

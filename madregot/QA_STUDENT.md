@@ -199,6 +199,13 @@ programme (it is on the topics tab, the parents' area and the teacher's tools), 
 a locked input: with no server it is a page about what מדי explains in every lesson; before a parent's OK it says what
 the helper does and offers one "לבקש מהורה".
 
+Round 2's painful moment #3, screens a child reads (PRODUCT2-41), is checked by `e2e/voice.spec.js` on both phones: a
+mission's reason is at most two lines, with "עוד" (aria-expanded) for the rest and no "לפי תוכנית הלימודים" in it; a
+wrong guess on a teaching step is two lines and "עוד", not five or six; מדי stands beside every first question without
+covering it; Settings keeps "שמירה קבועה בדפדפן", the backup and "מידע לתמיכה" in "להורים ולמבוגרים", under the student's
+own settings (backup and restore are unchanged: durable.spec, backup-file.spec and restore.spec pass); and flat inline
+maths in a sentence is in Rubik, upright, while a fraction keeps KaTeX.
+
 Earlier stages' own before and after pictures are in `qa-evidence/student/`: `unit-identity-before/after.png`, `dark/`,
 `madi/`, `streak/`, `class-goal/`, `visuals/`, `polish/`, `install/`, `push/`, `landing/` and `store/`.
 

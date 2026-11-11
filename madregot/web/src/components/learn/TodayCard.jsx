@@ -22,6 +22,7 @@ import { missionNext, toStrengthen } from '@/learn/next.ts';
 import { STAGE_N } from '@/learn/recommend.ts';
 import { daysBetween } from '@/learn/mastery.ts';
 import { MathText } from '@/components/MathText.jsx';
+import MoreText from '@/components/MoreText.jsx';
 import { classRows, reportStairs } from '@/lib/classWork.js';
 import ClassWork from './ClassWork.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -92,7 +93,8 @@ export default function TodayCard({ grade, onBoard }) {
                   <span className="quest-body">
                     <Link to={it.to} className="today-item-title today-link"><MathText text={it.title} /></Link>
                     <span className="today-kind">{KIND_LABEL[it.kind]} · {it.minutes} דק׳</span>
-                    <span className="today-why"><MathText text={it.reason} /></span>
+                    {/* why, in two short lines; the rest behind "עוד" (PRODUCT2-41) */}
+                    <MoreText text={it.reason} className="today-why" />
                     <Bar value={bar.value} max={bar.max} text={bar.text} label={plain} tone={it.done ? 'good' : 'brand'} />
                   </span>
                   <ChevronLeft size={20} aria-hidden="true" className="chev" />
