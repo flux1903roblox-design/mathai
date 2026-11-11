@@ -430,6 +430,24 @@ const PROPS = {
     },
     // added before multiplying: 1.8(C + 32)
     'order-ops': (it, u) => { const n = nums(it.key); return it.key.startsWith('fu2c:') && n[1] === 0 && fits(u, 1.8 * (n[0] + 32)); },
+    // func:3, from s, x0..x3, y0..y2 and q of fu3 (up from (x0, y0) to (x1, y1), down to (x2, y2), flat to x3; q asks how
+    // long it rises, falls or stays), the hours and temperatures at the start, the peak and the end and q of fu3t, and the
+    // right direction of fu3w (which way between two x's)
+    // the length of the other monotone interval, or (a choice) the direction swapped
+    'rtl-read': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu3') { const [, x0, x1, x2, , , , , q] = n; return (q === 0 && fits(u, x2 - x1)) || (q === 1 && fits(u, x1 - x0)); }
+      if (p === 'fu3t') { const [, h0, hk, he, , , , q] = n; return fits(u, q === 0 ? he - hk : hk - h0); }
+      if (p === 'fu3w') { const d = it.key.split(':')[1]; const t = it.choices[u]?.text; return (d === 'up' && t === 'יורדת') || (d === 'down' && t === 'עולה'); }
+      return false;
+    },
+    // the change in y over the interval, or the constant's height
+    'y-not-x': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu3') { const [, , , , , y0, y1, y2, q] = n; return fits(u, [y1 - y0, y1 - y2, y2][q]); }
+      if (p === 'fu3t') { const [, , , , T0, Tk, Te, q] = n; return fits(u, q === 0 ? Tk - T0 : Tk - Te); }
+      return false;
+    },
     // a constant table chosen as the one that is not a function: every y of the chosen table the same
     'const-not-function': (it, u) => {
       const tex = it.choices[u]?.tex || ''; const ys = (tex.split('\\hline y &')[1] || '').split('&').map((v) => Number(v.replace(/\\end\{array\}/, '').trim()));

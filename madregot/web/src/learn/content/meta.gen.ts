@@ -493,6 +493,24 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "func:3": {
+    "title": "עלייה, ירידה וקבוע",
+    "misconceptions": [
+      {
+        "id": "rtl-read",
+        "title": "ענו את אורך התחום השני (יורד במקום עולה, או להפך), כמו מי שקורא את הגרף מימין לשמאל"
+      },
+      {
+        "id": "y-not-x",
+        "title": "ענו בערך של $y$ (השינוי או הגובה), אבל התחום נמדד על ציר $x$"
+      },
+      {
+        "id": "graph-picture",
+        "title": "קראו את הגרף כמו ציור של הדרך, ולא כקשר בין שני גדלים"
+      }
+    ],
+    "transfer": true
+  },
   "line:1": {
     "title": "טבלת ערכים",
     "misconceptions": [

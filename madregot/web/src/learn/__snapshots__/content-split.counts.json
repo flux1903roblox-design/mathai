@@ -487,10 +487,27 @@
      1,
      1
     ]
+   },
+   "func:3": {
+    "discover": 8,
+    "examples": [
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
    }
   },
-  "stairs": 2,
-  "steps": 46
+  "stairs": 3,
+  "steps": 65
  },
  "line": {
   "skills": {

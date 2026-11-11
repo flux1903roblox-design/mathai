@@ -10,7 +10,7 @@ import type { SkillId, TopicId } from './types';
 // introduction to functions the third (November), all before linear functions (rate and slope, December).
 export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys'];
 export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, func: 2, line: 8, pyth: 5, stats: 5, sys: 5 };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, func: 3, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -69,6 +69,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'pct:5': ['pct:2', 'pct:3'], // the new amount is a percent of the old; the change is a percent of the old
   'func:1': ['coord:1'], // a point of a graph is a pair, read on two axes (ז׳ September)
   'func:2': ['func:1', 'expr:1'], // a rule gives each x one y; its value is a substitution (expr:1, ז׳: evidence only for ח׳)
+  'func:3': ['func:1'], // increasing and decreasing are read on the graph, left to right
   'line:1': ['signed:4', 'coord:1', 'expr:1'], // a table of values: substitute x in mx + b (expr:1, signed:4), plot the points
   'line:2': ['line:1'], // what m and b mean in y = mx + b
   'line:3': ['line:2', 'coord:1', 'ratio:1'], // slope from the graph: steps on the grid, "up 2 for every 3 to the right" is a ratio

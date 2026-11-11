@@ -34,6 +34,8 @@ const KINDS = [
   ['graph', 'func/1', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'shape', 'a story drawn as a situation graph'],
   // a function's table drawn point by point: a drag in a column moves that point (func:2 drawTable)
   ['graph', 'func/2', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'values', 'a table of a function drawn as a graph'],
+  // a graph drawn to a named shape, up, flat and down: a drag in a column moves that point (func:3 drawShape)
+  ['graph', 'func/3', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'shape', 'a graph drawn to rise, stay and fall'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');

@@ -43,6 +43,9 @@ const CASES = [
   ['a situation graph to read', 'func/1', '8', (x) => x.form === 'num' && x.fig?.type === 'sgraph'],
   // the function and its representations: a value from a table of y = mx + b
   ['a function from its table of values', 'func/2', '8', (x) => x.form === 'num' && x.fig?.type === 'table'],
+  // increasing, decreasing and constant: an interval's length read off a graph, and the hours a table rose or fell
+  ['how long a graph rises, falls or stays', 'func/3', '8', (x) => x.form === 'num' && x.fig?.type === 'sgraph'],
+  ['how many hours a table rose or fell', 'func/3', '8', (x) => x.form === 'num' && x.fig?.type === 'table'],
 ];
 
 for (const [what, route, grade, want = () => true] of CASES) {

@@ -854,6 +854,60 @@ describe('functions: every answer from the graph and the text', () => {
     expect(kinds2.fu2 / 1500).toBeGreaterThan(0.38);
   });
 
+  /** The pieces of a polyline left to right: [from, to, 'up' | 'down' | 'flat']. */
+  const pieces = (pts) => pts.slice(1).map(([x, y], i) => [pts[i][0], x, y > pts[i][1] ? 'up' : y < pts[i][1] ? 'down' : 'flat']);
+  const DIRS = { עולה: 'up', יורדת: 'down', קבועה: 'flat', יורד: 'down', קבוע: 'flat' };
+
+  it('func:3: a graph\'s intervals, a table\'s hours, which way between two x\'s, and a shape drawn', () => {
+    const kinds3 = {};
+    for (let i = 0; i < 1500; i += 1) {
+      const it = makeItem('func', 3);
+      const kind = it.key.split(':')[0]; kinds3[kind] = (kinds3[kind] || 0) + 1;
+      if (kind === 'fu3') {
+        // the direction asked, and the length of the x axis where the graph goes that way, read left to right
+        const { pts } = read(it); const dir = DIRS[it.text.match(/הפונקציה (עולה|יורדת|קבועה)\?$/)[1]];
+        const parts = pieces(pts).filter(([, , d]) => d === dir);
+        expect(parts, `${it.key}: one interval goes ${dir}`).toHaveLength(1);
+        expect(it.answer, it.key).toBe(parts[0][1] - parts[0][0]);
+        // the axis is named when a square is more than one unit: the question asks in the x axis's own unit
+        const xAxis = figPlain(it.fig).split('; ')[0];
+        const unit = xAxis.match(/לפי זמן \((.+)\)$/)?.[1];
+        if (unit) expect(it.text, it.key).toContain(`כמה ${unit} `); else expect(it.text, it.key).toContain('כמה יחידות על ציר $x$');
+      }
+      if (kind === 'fu3t') {
+        const rows = rowsOf(it.fig); const hours = rows.map(([h]) => h); const temps = rows.map(([, t]) => t);
+        expect(hours.every((h, k) => k === 0 || h > hours[k - 1]), `${it.key}: the hours grow down the table`).toBe(true);
+        const k = temps.indexOf(Math.max(...temps));
+        expect(temps.every((t, j) => j === 0 || (j <= k ? t > temps[j - 1] : t < temps[j - 1])), `${it.key}: up to one peak, then down`).toBe(true);
+        expect(it.answer, it.key).toBe(/עלתה/.test(it.text) ? hours[k] - hours[0] : hours[hours.length - 1] - hours[k]);
+        expect(rows.flat(), `${it.key}: the answer is a number of the table`).not.toContain(it.answer);
+      }
+      if (kind === 'fu3w') {
+        const { pts, band } = read(it); const n = [...it.text.matchAll(/\$x = (\d+)\$/g)].map((m) => Number(m[1]));
+        expect(band, it.key).toEqual(n);
+        const part = pieces(pts).find(([a, b]) => a === band[0] && b === band[1]);
+        expect(part, `${it.key}: the band is one piece of the graph`).toBeTruthy();
+        expect(DIRS[it.choices[it.answer].text], it.key).toBe(part[2]);
+        const swapped = { up: 'down', down: 'up' }[part[2]];
+        it.choices.forEach((c, j) => expect(it.diag(j), `${it.key}: ${c.text}`).toBe(DIRS[c.text] === swapped ? 'rtl-read' : null));
+      }
+      if (kind === 'fu3s') {
+        // "עולה עד $x = 2$, קבוע עד $x = 4$, ויורד עד $x = 6$": each part's direction up to its x
+        const parts = [...it.text.matchAll(/(עולה|יורד|קבוע) עד \$x = (\d)\$/g)].map((m) => [DIRS[m[1]], Number(m[2])]);
+        const shape = parts.flatMap(([d, to], j) => Array(to - (j ? parts[j - 1][1] : 0)).fill(d));
+        expect(it.answer.shape, it.key).toEqual(shape);
+        expect(manipCorrect(it, manipSolution(it)), it.key).toBe(true);
+        expect(manipCorrect(it, it.manip.start), `${it.key}: starts on the goal`).toBe(false);
+      }
+      if (['fu3', 'fu3t'].includes(kind)) { expect(Number.isInteger(it.answer), it.key).toBe(true); expect(fairForCheck(it), it.key).toBe(true); }
+      else expect(fairForCheck(it), `${it.key}: a choice or a named shape is practice only`).toBe(false);
+      solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (50%, 20%, 15%, 15%)
+    expect(Object.keys(kinds3).sort()).toEqual(['fu3', 'fu3s', 'fu3t', 'fu3w']);
+    expect(kinds3.fu3 / 1500).toBeGreaterThan(0.42);
+  });
+
   it('catches an answer that is not the graph\'s', () => {
     const it = makeItem('func', 1); const pts = read(it).pts;
     expect(at(pts, pts[1][0])).toBe(pts[1][1]);

@@ -2,7 +2,7 @@
 // the order of the Ministry's updated ח׳ algebra curriculum (algebra_8): reading a graph of a situation first (its first
 // subject, and all of ז׳ 7.9's "קריאת גרף שמתאר מצב"), then the function and its representations, increasing and
 // decreasing, and rate (stage5.md FUNC-2). This file holds the stairs built so far: func:1, reading a situation graph,
-// and func:2, the function and its representations.
+// func:2, the function and its representations, and func:3, increasing, decreasing and constant.
 // Taught in November, so the first-day placement test skips it (placement: false); a ח׳ student who learned it in class
 // uses the unit's jump test.
 //
@@ -497,18 +497,214 @@ function drawTable() {
   };
 }
 
+// ================================================================ func:3, increasing, decreasing and constant
+// Increasing and decreasing are read left to right, as x grows (the Ministry: "על ידי התבוננות במהלך הגרף משמאל
+// לימין", algebra_8 p. 13), and an interval is a piece of the x axis, not the change in y (the Ministry's pop page: "להבהיר
+// את ההבדל בין 'הגרף בתחום העלייה' לבין 'תחום העלייה'"). The models are the spec's: func3 from models.mjs, ported
+// unchanged, and func3T with the critique's fair table rule (critique/func3t.mjs): its answer, a number of hours, is never
+// a number of its own table (the guessing test reads tables). Errors and their sources:
+//   rtl-read  the length of the other monotone interval (falling for rising, or the other way round), as a reader who
+//             goes right to left would find it. No study has measured this in Hebrew readers (Fuhrman & Boroditsky 2010
+//             on right-to-left time; Tversky, Kugelmass & Winter 1991, confirm): the label names only what the answer
+//             shows, and the cause is said as a hypothesis
+//   y-not-x   the change in y over the interval, or the constant's height, given for a length on the x axis
+//   graph-picture  (func:1's) a speed graph's flat part read as a flat road or a stop
+
+/** A graph from (x0, y0): up to the peak (x1, y1), down to (x2, y2), flat to x3 (the spec's func3). */
+export const FUNC3 = mk({
+  raw: (r) => {
+    const s = pick(r, [1, 2, 5, 10]); const n0 = rint(r, 0, 2); const n1 = rint(r, 1, 5); const n2 = rint(r, 1, 5); const n3 = rint(r, 1, 4);
+    if (n0 + n1 + n2 + n3 > 12) return null;
+    const x0 = s * n0; const x1 = x0 + s * n1; const x2 = x1 + s * n2; const x3 = x2 + s * n3;
+    const y0 = rint(r, 1, 4); const y1 = y0 + rint(r, 2, 7); const y2 = y1 - rint(r, 1, 6); if (y2 < 0 || y1 > 12) return null;
+    return { s, x0, x1, x2, x3, y0, y1, y2, q: rint(r, 0, 2) };
+  },
+  answer: (p) => [p.x1 - p.x0, p.x2 - p.x1, p.x3 - p.x2][p.q],
+  bugs: {
+    // read right to left: rising and falling swap places
+    'rtl-read': (p) => [p.x2 - p.x1, p.x1 - p.x0, null][p.q],
+    // the change in y (or the constant's height) given for a length on the x axis
+    'y-not-x': (p) => [p.y1 - p.y0, p.y1 - p.y2, p.y2][p.q],
+  },
+});
+
+/**
+ * func:3 transfer: a day's temperatures in a table, every s hours (1, 2 or 3), rising to a peak and then falling: how
+ * many hours it rose, or fell (the spec's func3T, with the critique's fair rule: no number of the table is the answer).
+ */
+export const FUNC3T = mk({
+  raw: (r) => {
+    const s = pick(r, [1, 2, 3]); const cols = rint(r, 6, 8); const k = rint(r, 2, cols - 3); const h0 = pick(r, [6, 7, 8, 9]);
+    const t = [rint(r, 10, 18)];
+    for (let i = 1; i < cols; i += 1) t.push(t[i - 1] + (i <= k ? rint(r, 1, 4) : -rint(r, 1, 4)));
+    const hours = Array.from({ length: cols }, (_, i) => h0 + s * i);
+    if (hours[cols - 1] > 22) return null;
+    return { s, cols, k, temps: t, hours, q: r() < 0.5 ? 0 : 1 };
+  },
+  answer: (p) => (p.q === 0 ? p.hours[p.k] - p.hours[0] : p.hours[p.cols - 1] - p.hours[p.k]),
+  bugs: {
+    'rtl-read': (p) => (p.q === 0 ? p.hours[p.cols - 1] - p.hours[p.k] : p.hours[p.k] - p.hours[0]),
+    'y-not-x': (p) => (p.q === 0 ? p.temps[p.k] - p.temps[0] : p.temps[p.k] - p.temps[p.cols - 1]),
+  },
+  // the fair rule for a table the student reads: the answer is none of its numbers
+  textNums: (p) => [...p.hours, ...p.temps],
+});
+
+/** The words of a direction: the function (fem.), the graph (masc.), and the trend over an interval. */
+const DIR = {
+  up: { f: 'עולה', m: 'עולה' }, down: { f: 'יורדת', m: 'יורד' }, flat: { f: 'קבועה', m: 'קבוע' },
+};
+/**
+ * The story of a func3 graph by its step: one unit a square names no story (x and y); a square of 2 hours is a day's
+ * temperature, of 5 minutes a drone's height, of 10 days the water in a pond. The question names the axis's unit.
+ */
+export const GRAPH_STORIES = {
+  1: { x: { label: 'x' }, y: { label: 'y' }, unit: 'יחידות על ציר $x$' },
+  2: { x: { label: 'זמן', unit: 'שעות' }, y: { label: 'טמפרטורה', unit: 'מעלות' }, unit: 'שעות', intro: 'הגרף מראה את הטמפרטורה לפי הזמן.' },
+  5: { x: { label: 'זמן', unit: 'דקות' }, y: { label: 'גובה הרחפן', unit: 'מטרים' }, unit: 'דקות', intro: 'הגרף מראה את הגובה של רחפן לפי הזמן.' },
+  10: { x: { label: 'זמן', unit: 'ימים' }, y: { label: 'גובה המים', unit: 'ס״מ' }, unit: 'ימים', intro: 'הגרף מראה את גובה המים בבריכה לפי הזמן.' },
+};
+/** A number on every line when the numbers fit, else on every second line (the plot is about 280 wide and 172 high). */
+const everyFor = (lines, widest) => ((280 / lines) >= widest * 8.6 + 4 ? 1 : 2);
+/** The func3 graph: x from 0 to a numbered line at or after its end, y from 0 to one line above its peak. */
+export function func3Fig(p, extra = {}) {
+  const st = GRAPH_STORIES[p.s];
+  const n = p.x3 / p.s; const ex = everyFor(n, String(p.x3).length);
+  const ey = p.y1 + 1 > 10 ? 2 : 1; const ymax = ey * Math.ceil((p.y1 + 1) / ey);
+  return {
+    type: 'sgraph',
+    x: { ...st.x, max: p.s * ex * Math.ceil(n / ex), step: p.s, ...(ex > 1 ? { every: ex } : {}) },
+    y: { ...st.y, max: ymax, step: 1, ...(ey > 1 ? { every: ey } : {}) },
+    series: [{ pts: [[p.x0, p.y0], [p.x1, p.y1], [p.x2, p.y2], [p.x3, p.y2]] }], ...extra,
+  };
+}
+const Q3 = ['up', 'down', 'flat'];
+export function func3Text(p) {
+  const st = GRAPH_STORIES[p.s];
+  return `${st.intro ? `${st.intro} ` : ''}כמה ${st.unit} הפונקציה ${DIR[Q3[p.q]].f}?`;
+}
+export function func3Solution(p) {
+  const [a, b] = [[p.x0, p.x1], [p.x1, p.x2], [p.x2, p.x3]][p.q];
+  const [ya, yb] = [[p.y0, p.y1], [p.y1, p.y2], [p.y2, p.y2]][p.q];
+  const trend = p.q === 2 ? `$y$ נשאר $${ya}$` : `$y$ ${p.q === 0 ? 'גדל' : 'קטן'} מ־$${ya}$ ל־$${yb}$`;
+  return [
+    `קוראים משמאל לימין: מ־$x = ${a}$ עד $x = ${b}$ ${trend}, ולכן שם הפונקציה ${DIR[Q3[p.q]].f}.`,
+    `את התחום מודדים על ציר $x$: $${b} - ${a} = ${b - a}$`,
+  ];
+}
+export const func3Hint = (p) => (p.q === 2
+  ? 'איפה הקו שטוח? את אורך הקטע מודדים על ציר $x$, לא על ציר $y$.'
+  : 'שימו אצבע בקצה השמאלי של הגרף והזיזו ימינה. את אורך הקטע מודדים על ציר $x$.');
+
+/** The day's temperatures as a table, hour by hour (read top to bottom, as x grows). */
+export const func3TFig = (p) => ({ type: 'table', head: ['שעה', 'טמפרטורה (מעלות)'], rows: p.hours.map((h, i) => [h, p.temps[i]]) });
+export const func3TText = (p) => `הטבלה מראה את הטמפרטורה ביום אחד. כמה שעות ${p.q === 0 ? 'עלתה' : 'ירדה'} הטמפרטורה?`;
+export function func3TSolution(p) {
+  const top = p.hours[p.k]; const first = p.hours[0]; const last = p.hours[p.cols - 1];
+  return [
+    `עוברים לפי השעות, מהקטנה לגדולה: הטמפרטורה עולה עד $${p.temps[p.k]}$ מעלות בשעה $${top}$, ואחר כך יורדת.`,
+    p.q === 0 ? `היא עלתה משעה $${first}$ עד שעה $${top}$: $${top} - ${first} = ${top - first}$` : `היא ירדה משעה $${top}$ עד שעה $${last}$: $${last} - ${top} = ${last - top}$`,
+  ];
+}
+export const func3THint = () => 'מצאו את השעה שבה הטמפרטורה הכי גבוהה. השאלה על שעות, כלומר על הטור של השעה.';
+
+// ---------------------------------------------------------------- func:3 generators
+
+/** The graph (the model's own draw): how long it rises, falls or stays. */
+function intervalItem() {
+  const p = FUNC3.params(rnd); const ans = FUNC3.answer(p);
+  return {
+    key: `fu3:${p.s}:${p.x0}:${p.x1}:${p.x2}:${p.x3}:${p.y0}:${p.y1}:${p.y2}:${p.q}`, text: func3Text(p), fig: func3Fig(p),
+    form: 'num', answer: ans, ...(p.s > 1 ? { unit: GRAPH_STORIES[p.s].unit } : {}),
+    hint: func3Hint(p), solution: func3Solution(p), diag: diagOf(ans, bugsAt(FUNC3, p)),
+  };
+}
+
+/** The table of temperatures (the transfer model's own draw): how many hours it rose, or fell. */
+function tableHoursItem() {
+  const p = FUNC3T.params(rnd); const ans = FUNC3T.answer(p);
+  return {
+    key: `fu3t:${p.s}:${p.hours[0]}:${p.hours[p.k]}:${p.hours[p.cols - 1]}:${p.temps[0]}:${p.temps[p.k]}:${p.temps[p.cols - 1]}:${p.q}`,
+    text: func3TText(p), fig: func3TFig(p),
+    form: 'num', answer: ans, unit: 'שעות',
+    hint: func3THint(p), solution: func3TSolution(p), diag: diagOf(ans, bugsAt(FUNC3T, p)),
+  };
+}
+
+/** A graph of three pieces, one going up, one down and one flat, in any order, on x 0..9 and y 0..9. */
+function threePieces() {
+  for (;;) {
+    const dirs = shuffle(['up', 'down', 'flat']); const lens = [rint(rnd, 2, 3), rint(rnd, 2, 3), rint(rnd, 2, 3)];
+    const pts = [[0, rint(rnd, 1, 8)]];
+    dirs.forEach((d, i) => { const [x, y] = pts[pts.length - 1]; pts.push([x + lens[i], d === 'flat' ? y : d === 'up' ? y + rint(rnd, 2, 5) : y - rint(rnd, 2, 5)]); });
+    if (pts.every(([, y]) => y >= 0 && y <= 9)) return { dirs, pts };
+  }
+}
+/**
+ * Between x = a and x = b the function: rises, falls or stays? The interval is one piece of the graph, shaded on its
+ * x axis; the direction read right to left is the swapped one (rtl-read). Three choices, so practice only.
+ */
+function whichMc() {
+  const { dirs, pts } = threePieces(); const i = rint(rnd, 0, 2); const [a, b] = [pts[i][0], pts[i + 1][0]]; const d = dirs[i];
+  const swapped = { up: 'down', down: 'up', flat: null }[d];
+  const options = ['up', 'down', 'flat'].map((k) => ({ text: DIR[k].f, ok: k === d, ...(k === swapped ? { bug: 'rtl-read' } : {}) }));
+  return {
+    key: `fu3w:${d}:${a}:${b}:${pts.map(([x, y]) => `${x},${y}`).join(';')}`,
+    text: `בין $x = ${a}$ ל־$x = ${b}$ הפונקציה:`,
+    fig: { type: 'sgraph', x: { max: 9, step: 1, label: 'x' }, y: { max: 9, step: 1, label: 'y' }, series: [{ pts }], bands: [{ from: a, to: b }] },
+    form: 'mc', choices: options, answer: options.findIndex((o) => o.ok), practiceOnly: true,
+    hint: 'שימו אצבע על הגרף ב־$x = ' + a + '$ והזיזו ימינה עד $x = ' + b + '$. האצבע עולה, יורדת או נשארת?',
+    solution: [
+      `משמאל לימין, מ־$x = ${a}$ עד $x = ${b}$, $y$ ${d === 'flat' ? `נשאר $${pts[i][1]}$` : `${d === 'up' ? 'גדל' : 'קטן'} מ־$${pts[i][1]}$ ל־$${pts[i + 1][1]}$`}.`,
+      `לכן שם הפונקציה ${DIR[d].f}.`,
+    ],
+    diag: (u) => options[u]?.bug || null,
+  };
+}
+
+/**
+ * Draw a graph of three parts on the graph object (shape mode): x 0..6, y 0..8, every point starting at 4; neighbouring
+ * parts go different ways, and the shape fits the axis from the middle (the solution's start). The text names the shape,
+ * so practice only.
+ */
+function drawShape() {
+  for (;;) {
+    const d1 = pick(rnd, ['up', 'down', 'flat']); const d2 = pick(rnd, ['up', 'down', 'flat'].filter((d) => d !== d1)); const d3 = pick(rnd, ['up', 'down', 'flat'].filter((d) => d !== d2));
+    const a = rint(rnd, 1, 4); const b = rint(rnd, a + 1, 5);
+    const shape = [...Array(a).fill(d1), ...Array(b - a).fill(d2), ...Array(6 - b).fill(d3)];
+    let y = 4; let fits = true;
+    for (const d of shape) { y += d === 'up' ? 1 : d === 'down' ? -1 : 0; if (y < 0 || y > 8) fits = false; }
+    if (!fits) continue;
+    return {
+      key: `fu3s:${shape.join('-')}`,
+      text: `ציירו גרף ש${DIR[d1].m} עד $x = ${a}$, ${DIR[d2].m} עד $x = ${b}$, ו${DIR[d3].m} עד $x = 6$.`,
+      form: 'manip', practiceOnly: true,
+      manip: { kind: 'graph', x: { max: 6, step: 1, label: 'x' }, y: { max: 8, step: 1, label: 'y' }, start: [4, 4, 4, 4, 4, 4, 4] },
+      answer: { mode: 'shape', shape },
+      hint: 'קטע עולה: כל נקודה גבוהה מזו שלפניה. קטע יורד: נמוכה ממנה. קטע קבוע: באותו גובה.',
+      solution: [
+        `משמאל לימין: מ־$x = 0$ עד $x = ${a}$ הגרף ${DIR[d1].m}, עד $x = ${b}$ ${DIR[d2].m}, ועד $x = 6$ ${DIR[d3].m}.`,
+        'בכל קטע עולה כל נקודה גבוהה מזו שלפניה, בקטע יורד נמוכה ממנה, ובקטע קבוע באותו גובה.',
+      ],
+      diag: () => null,
+    };
+  }
+}
+
 // ---------------------------------------------------------------- the topic
 
 export const FUNC = {
   id: 'func', grade: '8', title: 'מבוא לפונקציות', color: 'fuchsia',
   // what the unit teaches today; its later stairs add their own words here as they land
-  desc: 'קריאת גרף של מצב, ופונקציה וייצוגיה: מילים, טבלה, גרף וביטוי',
+  desc: 'קריאת גרף של מצב, פונקציה וייצוגיה, ועלייה, ירידה וקבוע',
   // taught in November of ח׳: the first-day placement test does not ask about it (the jump test does)
   placement: false,
   levels: [
     { title: 'קריאת גרף של מצב', gen: () => { const r = Math.random(); return r < 0.55 ? walkItem() : r < 0.75 ? dayItem() : r < 0.85 ? flatMc() : r < 0.95 ? pointMc() : drawStory(); } },
     // the spec's mix: the price rule 45%, Fahrenheit 15%, a table 15%, which table is a function 15%, a table drawn 10%
     { title: 'פונקציה וייצוגיה', gen: () => { const r = Math.random(); return r < 0.45 ? priceItem() : r < 0.6 ? fahrenheitItem() : r < 0.75 ? tableItem() : r < 0.9 ? isFunctionMc() : drawTable(); } },
+    // the spec's mix: a graph 50%, a table of temperatures 20%, which way between two x's 15%, a shape drawn 15%
+    { title: 'עלייה, ירידה וקבוע', gen: () => { const r = Math.random(); return r < 0.5 ? intervalItem() : r < 0.7 ? tableHoursItem() : r < 0.85 ? whichMc() : drawShape(); } },
   ],
   cats: {
     'count-squares': 'ספרו משבצות ולא כפלו בגודל של כל משבצת',
@@ -519,6 +715,8 @@ export const FUNC = {
     forward: 'הציבו את ערך הפונקציה במקום $x$',
     'order-ops': 'חיברו לפני שכפלו',
     'const-not-function': 'חשבו שקבוע אינו פונקציה',
+    'rtl-read': 'ענו את אורך התחום השני (יורד במקום עולה, או להפך), כמו מי שקורא את הגרף מימין לשמאל',
+    'y-not-x': 'ענו בערך של $y$ (השינוי או הגובה), אבל התחום נמדד על ציר $x$',
   },
   lesson: {
     // one point per stair, each landing with its stair
@@ -526,7 +724,8 @@ export const FUNC = {
       'גרף של מצב קוראים בשני כיוונים: מ־$x$ אל $y$ (מה היה ברגע הזה) ומ־$y$ אל $x$ (מתי זה היה).',
       'קו שטוח בגרף אומר שהערך לא השתנה, לא שהדרך שטוחה.',
       'פונקציה נותנת לכל $x$ ערך אחד בלבד של $y$: $y = 7x + 2$ נותן ל־$x = 5$ את $37$.',
+      'עולה, יורדת או קבועה: קוראים משמאל לימין, כש־$x$ גדל. התחום הוא קטע על ציר $x$.',
     ],
-    words: ['גרף של מצב', 'ציר', 'משבצת', 'נקודה על גרף', 'קנה מידה של ציר', 'משך זמן', 'פונקציה', 'ערך הפונקציה', 'משתנה בלתי תלוי', 'ייצוג', 'טבלת ערכים', 'פונקציה קבועה'],
+    words: ['גרף של מצב', 'ציר', 'משבצת', 'נקודה על גרף', 'קנה מידה של ציר', 'משך זמן', 'פונקציה', 'ערך הפונקציה', 'משתנה בלתי תלוי', 'ייצוג', 'טבלת ערכים', 'פונקציה קבועה', 'עולה', 'יורדת', 'קבועה', 'תחום', 'שיא', 'משמאל לימין'],
   },
 };

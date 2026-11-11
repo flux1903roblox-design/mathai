@@ -259,6 +259,20 @@
       "tags": ["func"]
     },
     {
+      "id": "D1-func3-rtl-read", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:3", "source": "diag", "params": { "s": 1, "x0": 0, "x1": 2, "x2": 6, "x3": 8, "y0": 2, "y1": 8, "y2": 3, "q": 0 }, "wrong": [4, 5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rtl-read", "maxWords": 130,
+        "describe": "Names the app's diagnosis, as a possibility: the length of the other interval was given, the falling part instead of the rising one, as a reader going right to left would find it. Read left to right, as x grows, y rises from 2 to 8 between x = 0 and x = 2, so the rising interval 0 < x < 2 is 2 long; 4 is the falling part, from x = 2 to x = 6. Ends at 2. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func3-y-not-x", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:3", "source": "transfer", "params": { "s": 2, "cols": 7, "k": 2, "temps": [12, 15, 19, 17, 16, 14, 13], "hours": [8, 10, 12, 14, 16, 18, 20], "q": 0 }, "wrong": [7, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "y-not-x", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the change in the temperature was given, but the question asks how many hours, a length on the hour column. The temperature rises from 12 degrees at 8 to 19 degrees at 12 and then falls, so it rose for 12 - 8 = 4 hours; 7 is how many degrees it rose. Ends at 4. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

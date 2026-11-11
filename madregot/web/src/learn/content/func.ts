@@ -1,7 +1,7 @@
 // Introduction to functions (מבוא לפונקציות): unit 8.7 of grade 8 (ח׳), November in the Ministry's תשפ״ז schedule, in
 // the order of the Ministry's updated ח׳ algebra curriculum (stage5.md FUNC-2). This file holds the stairs built so far:
-// func:1, reading a graph of a situation (also ז׳ 7.9's "קריאת גרף שמתאר מצב"), and func:2, the function and its
-// representations.
+// func:1, reading a graph of a situation (also ז׳ 7.9's "קריאת גרף שמתאר מצב"), func:2, the function and its
+// representations, and func:3, increasing, decreasing and constant (with func:3 the November unit 8.7 is whole).
 //
 // One picture carries the stair: a graph of a situation is a story told point by point. Each point is a pair, a moment
 // (x) and what was true then (y); it is read both ways, by the scale of each axis; a flat part means the value did not
@@ -364,7 +364,157 @@ const stair2: StairContent = {
   ],
 };
 
-export const FUNC: StairContent[] = [stair1, stair2];
+// ================================================================ stair 3: increasing, decreasing and constant
+// One picture carries the stair: a finger on the graph's left end, moved right. Where it climbs, the function rises;
+// where it drops, it falls; where it stays, it is constant. The interval is the piece of the x axis under that part,
+// written 0 < x < 3, and its length is measured on the x axis (the change in y is something else). Right to left would
+// swap rising and falling: the app says it as a possibility only ("אולי"), as no study has measured it in Hebrew readers.
+
+type P3 = { s: number; x0: number; x1: number; x2: number; x3: number; y0: number; y1: number; y2: number; q: number };
+const func3: DiagModel<P3> = {
+  params: (rnd) => G.FUNC3.params(rnd),
+  text: (p) => G.func3Text(p),
+  fig: (p) => G.func3Fig(p) as FigSpec,
+  answer: (p) => G.FUNC3.answer(p),
+  bugs: G.FUNC3.bugs,
+  solution: (p) => G.func3Solution(p),
+  hint: (p) => G.func3Hint(p),
+};
+type P3T = { s: number; cols: number; k: number; temps: number[]; hours: number[]; q: number };
+const func3T: DiagModel<P3T> = {
+  params: (rnd) => G.FUNC3T.params(rnd),
+  text: (p) => G.func3TText(p),
+  fig: (p) => G.func3TFig(p) as FigSpec,
+  answer: (p) => G.FUNC3T.answer(p),
+  bugs: G.FUNC3T.bugs,
+  solution: (p) => G.func3TSolution(p),
+  hint: () => G.func3THint(),
+  unit: 'שעות',
+};
+
+const X9: GraphAxis = { max: 9, step: 1, label: 'x' };
+const Y10: GraphAxis = { max: 10, step: 1, label: 'y' };
+/** The graph G of the stair: up from (0, 2) to the peak (3, 8), down to (7, 4), flat to 9. */
+const GPTS: Pt[] = [[0, 2], [3, 8], [7, 4], [9, 4]];
+const gGraph = (extra: Record<string, unknown> = {}) => sgraph(X9, Y10, GPTS, extra);
+/** The graph T of solving together: up from (1, 3) to (4, 9), down to (6, 5), flat to 9. */
+const tGraph = sgraph(X9, Y10, [[1, 3], [4, 9], [6, 5], [9, 5]]);
+/** A bicycle's speed by the minute: speeding up, a steady 20 km/h, slowing to a stop. */
+const speed = sgraph({ max: 8, step: 1, label: 'זמן', unit: 'דקות' }, { max: 25, step: 5, label: 'מהירות', unit: 'קמ״ש' }, [[0, 0], [2, 20], [6, 20], [8, 0]]);
+
+/** Between 3 and 7 the function falls, read left to right (discover step 2, and the rtl-read remedy). */
+const fallStep = {
+  kind: 'predict' as const, text: 'בין $x = 3$ ל־$x = 7$ הפונקציה:', fig: gGraph({ bands: [{ from: 3, to: 7 }] }),
+  choices: ['יורדת', 'עולה'], answer: 0,
+  why: 'זזים ימינה מ־$3$ ל־$7$, ו־$y$ קטן מ־$8$ ל־$4$: יורדת.',
+  wrongWhy: { 1: 'מי שקורא מימין לשמאל רואה עלייה. בגרף קוראים משמאל לימין, כמו שציר $x$ גדל.' },
+};
+/** Draw up, flat, down (discover step 4, and the rtl-read remedy). */
+const shapeStep = {
+  kind: 'explore' as const, text: 'ציירו גרף שעולה עד $x = 2$, קבוע עד $x = 4$, ויורד עד $x = 6$.',
+  manip: { kind: 'graph', x: { max: 6, step: 1, label: 'x' }, y: { max: 8, step: 1, label: 'y' }, start: [4, 4, 4, 4, 4, 4, 4] } as ManipSpec,
+  answer: { mode: 'shape', shape: ['up', 'up', 'flat', 'flat', 'down', 'down'] },
+  hint: 'קטע עולה: כל נקודה גבוהה מזו שלפניה. קטע קבוע: באותו גובה.', success: 'עולה, קבועה, יורדת: משמאל לימין.',
+};
+/** Until which x does it rise? An x, not the peak's height (discover step 5, and the y-not-x remedy). */
+const untilStep = {
+  kind: 'predict' as const, text: 'עד איזה $x$ הפונקציה עולה?', fig: gGraph(),
+  choices: ['$x = 3$', '$y = 8$', '$x = 7$'], answer: 0,
+  why: 'התחום נמדד על ציר $x$: הפונקציה עולה כש־$0 < x < 3$. ב־$x = 3$ יש שיא, ושם $y = 8$.',
+  wrongWhy: { 1: '$8$ הוא הגובה של השיא, ערך של $y$. השאלה על $x$.', 2: 'ב־$x = 7$ הפונקציה מפסיקה לרדת. היא עולה רק עד $x = 3$.' },
+};
+/** The interval is written on the x axis (discover step 6, and the y-not-x remedy). */
+const intervalRule = {
+  kind: 'rule' as const, text: 'תחום עלייה כותבים על ציר $x$: הפונקציה עולה כש־$0 < x < 3$. האורך שלו $3$.', display: '0 < x < 3',
+  why: '"הגרף בתחום העלייה" הוא הקו; "תחום העלייה" הוא הקטע על ציר $x$ שמתחתיו.', fig: gGraph({ bands: [{ from: 0, to: 3 }] }),
+};
+/** A flat part of a speed graph is a steady speed (discover step 8, and the graph-picture remedy). */
+const speedStep = {
+  kind: 'predict' as const, text: 'הגרף מתאר את המהירות של אופניים. מה קרה בקטע השטוח?', fig: speed,
+  choices: ['נסעו במהירות קבועה', 'עמדו', 'נסעו על כביש שטוח'], answer: 0,
+  why: '$y$ כאן הוא מהירות: קו שטוח הוא מהירות שלא משתנה. עמידה היא מהירות $0$.',
+  wrongWhy: { 1: 'עמידה היא מהירות $0$, קו על ציר $x$. בקטע השטוח המהירות היא $20$ קמ״ש.', 2: 'הגרף אינו ציור של הכביש. $y$ הוא המהירות, וקו שטוח אומר שהיא לא משתנה.' },
+};
+
+const stair3: StairContent = {
+  skill: 'func:3', topic: 'func', level: 3, title: 'עלייה, ירידה וקבוע',
+  objectives: [
+    'לזהות בגרף ובטבלה איפה פונקציה עולה, יורדת או קבועה, כשקוראים משמאל לימין.',
+    'לכתוב תחום על ציר $x$, למשל $1 < x < 4$, ולמדוד את אורכו.',
+    'להבחין בין התחום (על ציר $x$) לבין השינוי ב־$y$.',
+  ],
+  idea: 'קוראים משמאל לימין, כמו שציר $x$ גדל. אם $y$ גדל, הפונקציה עולה; אם $y$ קטן, יורדת; אם $y$ לא משתנה, קבועה. התחום הוא קטע על ציר $x$.',
+  why: [
+    '"עולה" מתאר מה קורה ל־$y$ כש־$x$ גדל. ציר $x$ גדל ימינה, ולכן קוראים משמאל לימין, גם כשבעברית קוראים מימין.',
+    'התחום הוא אילו ערכים של $x$; את השינוי ב־$y$ רואים על הציר השני.',
+  ],
+  alt: ['שימו אצבע על הגרף בקצה השמאלי והזיזו אותה ימינה. האצבע עולה? הפונקציה עולה.'],
+  discover: [
+    { kind: 'say', text: 'קוראים גרף משמאל לימין, כמו שציר $x$ גדל. אם הגרף עולה בזמן שזזים ימינה, הפונקציה עולה.', fig: gGraph({ dirArrow: true, anim: true }) },
+    fallStep,
+    { kind: 'rule', text: 'הפונקציה עולה בתחום אם כש־$x$ גדל גם $y$ גדל, יורדת אם $y$ קטן, וקבועה אם $y$ לא משתנה.',
+      why: 'בודקים תמיד את $y$ כשמתקדמים ימינה על ציר $x$.', fig: gGraph({ bands: [{ from: 0, to: 3 }, { from: 3, to: 7 }, { from: 7, to: 9 }] }) },
+    shapeStep,
+    untilStep,
+    intervalRule,
+    { kind: 'predict', text: 'בין אילו ערכים של $x$ הפונקציה קבועה?', fig: { type: 'table', head: ['x', 'y'], rows: [[0, 5], [1, 7], [2, 9], [3, 9], [4, 6]] },
+      choices: ['בין $x = 2$ ל־$x = 3$', 'בין $9$ ל־$9$', 'אין תחום כזה'], answer: 0,
+      why: 'ב־$x = 2$ וב־$x = 3$ אותו $y$, $9$: שם היא קבועה.',
+      wrongWhy: { 1: '$9$ הוא ערך של $y$. את התחום כותבים בערכים של $x$: בין $x = 2$ ל־$x = 3$.', 2: 'ב־$x = 2$ וגם ב־$x = 3$ הערך הוא $9$: שם היא לא משתנה.' } },
+    speedStep,
+  ],
+  examples: [
+    { problem: 'באיזה תחום הפונקציה יורדת, ומה אורכו?', fig: sgraph(X9, { max: 12, step: 1, every: 2, label: 'y' }, [[0, 4], [2, 10], [5, 10], [9, 2]]), answer: 4, check: '9-5',
+      steps: [
+        { action: 'קוראים משמאל לימין.', why: 'עולה עד $x = 2$, קבועה עד $x = 5$, ואז יורדת עד $x = 9$.', result: '5 < x < 9' },
+        { action: 'מודדים את התחום על ציר $x$.', why: 'האורך הוא ההפרש בין שני הקצוות שלו.', result: '9 - 5 = 4', calc: { expr: '9-5', value: 4 }, value: '9-5' },
+      ] },
+    { problem: 'הטבלה מראה את הטמפרטורה ביום אחד. כמה שעות עלתה הטמפרטורה?', fig: { type: 'table', head: ['שעה', 'טמפרטורה (מעלות)'], rows: [[6, 14], [9, 19], [12, 25], [15, 22], [18, 17]] }, answer: 6, check: '12-6',
+      steps: [
+        { action: 'עוברים בטבלה לפי השעות, מהקטנה לגדולה.', why: 'הטמפרטורה עולה, $14, 19, 25$, ואחר כך יורדת, $22, 17$: היא עולה משעה $6$ עד שעה $12$.', result: '6 < x < 12' },
+        { action: 'מחסירים את השעות.', why: 'כמה שעות היא עלתה זה אורך התחום, לא השינוי במעלות.', result: '12 - 6 = 6', calc: { expr: '12-6', value: 6 }, value: '12-6' },
+      ] },
+  ],
+  together: [
+    { problem: 'כמה יחידות על ציר $x$ הפונקציה עולה?', fig: tGraph,
+      steps: [
+        { prompt: 'איפה התחום?', choices: [
+          { text: 'מ־$x = 1$ עד $x = 4$, ואורכו $3$', ok: true, feedback: 'נכון: משמאל לימין $y$ גדל מ־$3$ ל־$9$, כש־$x$ עובר מ־$1$ ל־$4$.' },
+          { text: 'מ־$y = 3$ עד $y = 9$, ואורכו $6$', ok: false, feedback: 'זה השינוי ב־$y$. התחום נמדד על ציר $x$.' },
+          { text: 'מ־$x = 4$ עד $x = 6$, ואורכו $2$', ok: false, feedback: 'שם הגרף יורד: קראו משמאל לימין.' },
+        ], hints: ['שימו אצבע בקצה השמאלי של הגרף והזיזו ימינה. איפה הוא עולה?', 'הוא עולה מ־$x = 1$ עד השיא, ב־$x = 4$. את האורך מודדים על ציר $x$.'], done: 'הפונקציה עולה כש־$1 < x < 4$.' },
+      ],
+      final: { prompt: 'כמה יחידות?', answer: 3, check: '4-1', hints: ['האורך הוא ההפרש בין שני הקצוות על ציר $x$.', 'מ־$1$ עד $4$: $4 - 1$.'] } },
+    { problem: 'באותו גרף: כמה יחידות על ציר $x$ הפונקציה יורדת?', fig: tGraph,
+      steps: [
+        { prompt: 'איפה הפונקציה יורדת?', choices: [
+          { text: 'מ־$x = 4$ עד $x = 6$', ok: true, feedback: 'נכון: משמאל לימין $y$ קטן מ־$9$ ל־$5$.' },
+          { text: 'מ־$x = 1$ עד $x = 4$', ok: false, feedback: 'שם $y$ גדל מ־$3$ ל־$9$: היא עולה. קוראים משמאל לימין.' },
+          { text: 'מ־$x = 6$ עד $x = 9$', ok: false, feedback: 'שם $y$ נשאר $5$: היא קבועה.' },
+        ], hints: ['אחרי השיא, איפה האצבע יורדת?', 'מהשיא ב־$x = 4$ הגרף יורד עד $x = 6$, ושם הוא נעשה שטוח.'], done: 'הפונקציה יורדת כש־$4 < x < 6$.' },
+      ],
+      final: { prompt: 'כמה יחידות?', answer: 2, check: '6-4', hints: ['מודדים על ציר $x$, מ־$4$ עד $6$.', '$6 - 4$.'] } },
+  ],
+  diag: func3,
+  transfer: func3T,
+  words: ['עולה', 'יורדת', 'קבועה', 'תחום', 'שיא', 'משמאל לימין'],
+  misconceptions: [
+    { id: 'rtl-read', title: 'ענו את אורך התחום השני (יורד במקום עולה, או להפך), כמו מי שקורא את הגרף מימין לשמאל',
+      cause: 'אולי קראו את הגרף מימין לשמאל, כמו שקוראים עברית. ציר $x$ גדל ימינה.',
+      explain: ['"עולה" מתאר מה קורה כש־$x$ גדל. שימו אצבע בקצה השמאלי של הגרף והזיזו ימינה.', 'מימין לשמאל קטע עולה נראה יורד, ולכן מתחלפים התחום העולה והתחום היורד.'],
+      remedy: [fallStep, shapeStep] },
+    { id: 'y-not-x', title: 'ענו בערך של $y$ (השינוי או הגובה), אבל התחום נמדד על ציר $x$',
+      cause: 'השינוי ב־$y$ בולט בציור יותר מהקטע על ציר $x$.',
+      explain: ['התחום הוא אילו ערכים של $x$: קטע על ציר $x$, כמו $0 < x < 3$.', 'כמה $y$ השתנה רואים על ציר $y$. זו שאלה אחרת.'],
+      remedy: [untilStep, intervalRule] },
+    { id: 'graph-picture', title: 'קראו את הגרף כמו ציור של הדרך, ולא כקשר בין שני גדלים',
+      cause: 'קו שטוח נראה כמו כביש שטוח או כמו עמידה, בלי לבדוק מה מראה ציר $y$.',
+      explain: ['בגרף של מהירות, ציר $y$ הוא המהירות. קו שטוח אומר שהמהירות לא משתנה.', 'עמידה במקום היא מהירות $0$: קו שצמוד לציר $x$.'],
+      remedy: [speedStep] },
+  ],
+};
+
+export const FUNC: StairContent[] = [stair1, stair2, stair3];
 /** Names of misconceptions new to this topic: none beyond the topic's own (content/func.js names them all). */
 export const CATS_FUNC: Record<string, string> = {};
-export { func1, func1T, func2, func2T };
+export { func1, func1T, func2, func2T, func3, func3T };

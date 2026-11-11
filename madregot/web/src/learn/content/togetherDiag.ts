@@ -62,6 +62,13 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { m: 4, b: 12, x: 8, y: 44, q: 0 } }, // 8 km at 4 ₪ and 12 ₪ once: the fixed part left out gives 32
     { model: 'diag', p: { m: 4, b: 12, x: 12, y: 60, q: 1 } }, // paid 60 ₪: 60 : 4 = 15 without the 12; 60 put in for x, 252
   ],
+  'func:3': [
+    // up from (1, 3) to (4, 9), down to (6, 5), flat to 9: how long it rises; the falling part read instead gives 2, the
+    // change in y 6
+    { model: 'diag', p: { s: 1, x0: 1, x1: 4, x2: 6, x3: 9, y0: 3, y1: 9, y2: 5, q: 0 } },
+    // the same graph, how long it falls: the rising part 3, the change in y 4
+    { model: 'diag', p: { s: 1, x0: 1, x1: 4, x2: 6, x3: 9, y0: 3, y1: 9, y2: 5, q: 1 } },
+  ],
   'pct:1': [
     { model: 'transfer', p: { a: 19, b: 25 } }, // 19 of 25 questions: the count of right answers, 19, written as the percent
     { model: 'diag', p: { k: 1, x: 0.6 } }, // 0.6 as a percent: the digit read as the percent gives 6

@@ -367,7 +367,7 @@ const vars = (t) => String(t).split(/([a-zA-Z])/).map((p, i) => (i % 2 ? <span k
 function Table({ fig }) {
   const draw = useDraw(fig.anim);
   return (
-    <table className={clsx('fg-table', fig.head.length >= 4 && 'cols4')} dir={fig.ltr ? 'ltr' : undefined}>
+    <table className={clsx('fg-table', fig.head.length >= 4 && 'cols4', fig.rows.length >= 7 && 'long')} dir={fig.ltr ? 'ltr' : undefined}>
       <thead><tr>{fig.head.map((h, j) => <th key={j} scope="col">{WORD.test(h) ? vars(h) : <bdi dir="ltr">{vars(h)}</bdi>}</th>)}</tr></thead>
       <tbody>{fig.rows.map((r, i) => <m.tr key={i} {...draw(i, 'fade')}>{r.map((v, j) => <td key={j}>{WORD.test(String(v)) ? <bdi dir="rtl">{v}</bdi> : <bdi dir="ltr">{vars(cell(v))}</bdi>}</td>)}</m.tr>)}</tbody>
     </table>

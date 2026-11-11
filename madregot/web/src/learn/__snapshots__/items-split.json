@@ -446,6 +446,8 @@
   "func:1/gen",
   "func:2/diag",
   "func:2/gen",
+  "func:3/diag",
+  "func:3/gen",
   "line:1/diag",
   "line:1/gen",
   "line:2/diag",
@@ -1106,6 +1108,43 @@
     "func:2/probe/forgot-b",
     "func:2/probe/forgot-b",
     "func:2/control/forgot-b"
+   ]
+  }
+ },
+ "func:3": {
+  "items": [
+   "mastery0:fu3:1:2:6:9:11:2:5:1:2|2|gen",
+   "mastery1:fu3:1:2:5:6:8:2:7:5:2|2|gen",
+   "mastery2:func:3:diag:{\"s\":5,\"x0\":10,\"x1\":35,\"x2\":50,\"x3\":55,\"y0\":3,\"y1\":10,\"y2\":5,\"q\":2}|5|diag",
+   "mastery3:fu3:10:0:10:20:40:3:9:8:2|20|gen",
+   "mastery4:func:3:transfer:{\"s\":1,\"cols\":7,\"k\":4,\"temps\":[11,14,18,20,21,17,14],\"hours\":[9,10,11,12,13,14,15],\"q\":1}|2|transfer",
+   "review0:func:3:transfer:{\"s\":1,\"cols\":6,\"k\":3,\"temps\":[14,17,18,21,20,17],\"hours\":[9,10,11,12,13,14],\"q\":1}|2|transfer",
+   "review1:fu3t:2:8:18:22:18:28:26:1|4|gen",
+   "review2:func:3:diag:{\"s\":5,\"x0\":10,\"x1\":35,\"x2\":50,\"x3\":55,\"y0\":3,\"y1\":10,\"y2\":5,\"q\":2}|5|diag",
+   "verify0:func:3:probe:{\"s\":1,\"x0\":2,\"x1\":3,\"x2\":8,\"x3\":12,\"y0\":3,\"y1\":7,\"y2\":4,\"q\":1}|5|probe",
+   "verify1:func:3:probe:{\"s\":1,\"x0\":1,\"x1\":5,\"x2\":7,\"x3\":11,\"y0\":2,\"y1\":4,\"y2\":3,\"q\":1}|2|probe",
+   "verify2:func:3:control:{\"s\":5,\"x0\":10,\"x1\":35,\"x2\":50,\"x3\":55,\"y0\":3,\"y1\":10,\"y2\":5,\"q\":2}|5|control",
+   "gen:fu3:2:2:4:6:14:2:5:1:1|2|gen",
+   "diag:func:3:diag:{\"s\":5,\"x0\":5,\"x1\":25,\"x2\":40,\"x3\":60,\"y0\":3,\"y1\":5,\"y2\":1,\"q\":1}|15|diag",
+   "transfer:func:3:transfer:{\"s\":2,\"cols\":7,\"k\":3,\"temps\":[11,15,19,21,20,19,15],\"hours\":[9,11,13,15,17,19,21],\"q\":0}|6|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "func:3/gen/",
+    "func:3/gen/",
+    "func:3/diag/",
+    "func:3/gen/",
+    "func:3/transfer/"
+   ],
+   "review": [
+    "func:3/transfer/",
+    "func:3/gen/",
+    "func:3/diag/"
+   ],
+   "verify": [
+    "func:3/probe/rtl-read",
+    "func:3/probe/rtl-read",
+    "func:3/control/rtl-read"
    ]
   }
  },
