@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { ArrowRight, ChevronLeft } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Download } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
@@ -13,6 +13,8 @@ import { GradeSwitch, joinClass } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import { useAIStatus, leaveFamily } from '@/lib/account.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
+import { useInstall, isStoreApp, isStandalone } from '@/lib/install.js';
+import { count } from '@/lib/metrics.js';
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -271,6 +273,24 @@ function SoundSettings() {
   );
 }
 
+/**
+ * Install the app (STUDENT-10): a row only where the browser offers an install (Chrome and Edge, not yet installed, not
+ * a store app). It opens the browser's own prompt; once used, the browser gives no second one and the row goes.
+ */
+function InstallRow() {
+  const { canOffer, offer } = useInstall();
+  if (!canOffer || isStoreApp() || isStandalone()) return null;
+  const install = () => { count('install_offer'); offer(); };
+  return (
+    <section className="section set-group" aria-labelledby="app-title">
+      <h2 id="app-title" className="set-head">האפליקציה</h2>
+      <div className="set-rows-wrap"><div className="set-rows">
+        <button type="button" className="set-row go" onClick={install}><span>להתקין את האפליקציה</span><Download size={18} aria-hidden="true" /></button>
+      </div></div>
+    </section>
+  );
+}
+
 /** A parent's session and the parents' pages' leftovers on this device go too (lib/parent.js, loaded on demand). */
 async function forgetParent() {
   try { const { forgetParentHere } = await import('@/lib/parent.js'); await forgetParentHere(); } catch { /* nothing kept */ }
@@ -305,6 +325,7 @@ export default function Settings() {
       <AISection />
       <ThemeSetting />
       <SoundSettings />
+      <InstallRow />
       <AdvancedRow />
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>

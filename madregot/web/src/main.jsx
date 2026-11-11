@@ -11,8 +11,10 @@ import './styles/motion.css';
 import './styles/v4.css';
 import './styles/canon.css';
 import './styles/dark.css'; // last: the dark values of the tokens (STUDENT-2)
+import { toast } from 'sonner';
 import App from './App.jsx';
 import { registerSW } from './lib/swClient.js';
+import { initInstall, INSTALLED_TEXT } from './lib/install.js';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).
 try {
@@ -22,6 +24,9 @@ try {
     Math.random = () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
   }
 } catch { /* storage blocked */ }
+
+// the install offer (STUDENT-10): keep the browser's prompt for the app's own moment; after an install, say where it is
+initInstall(window, { onInstalled: () => toast.success(INSTALLED_TEXT) });
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

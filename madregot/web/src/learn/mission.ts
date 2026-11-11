@@ -1,7 +1,7 @@
 // "המשימה שלי להיום": about five minutes, chosen from the ranked actions and fixed for the day once made
 // (so it does not change under the student's feet). Mixed on purpose: something to strengthen and something new.
 import type { Action, LearnState, MissionItem, Stage } from './types';
-import { STAGE_NAME, STAGE_N, titleOf } from './recommend';
+import { STAGE_NAME, STAGE_N, routeOf, titleOf } from './recommend';
 
 export const MISSION_MINUTES = 5;
 export const MISSION_MAX = 3;
@@ -65,4 +65,15 @@ export function partialStairNote(items: MissionItem[]): string | null {
 }
 
 export const missionDone = (items: MissionItem[]) => items.length > 0 && items.every((i) => i.done);
+
+/**
+ * Where "today's lesson" leads (the installed app's shortcut, ./#/?go=today, STUDENT-10): where TodayCard's button
+ * goes, the mission's next part; an item saved without its route gets it from routeOf. With nothing left to do, the
+ * missions tab, where the day's card says so.
+ */
+export function todayRoute(items: MissionItem[]): string {
+  const next = items.find((i) => !i.done);
+  if (!next) return '/quests';
+  return next.to || (next.stage ? routeOf.stage(next.skill, next.stage) : routeOf.journey(next.skill));
+}
 export const missionMinutes = (items: MissionItem[]) => items.reduce((t, i) => t + i.minutes, 0);

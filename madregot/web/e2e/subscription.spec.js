@@ -100,6 +100,8 @@ async function fakeServer(target, over = {}, base = 'http://127.0.0.1:4173/') {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     const url = new URL(req.url()); const path = url.pathname; const h = req.headers();
+    // a reach count (lib/metrics.js) is a beacon with a plain name, answered 204 as the Worker does
+    if (path === '/api/metrics') { log.push({ path, method: req.method(), body: req.postData(), headers: h }); return route.fulfill({ status: 204, headers: CORS }); }
     const body = req.postData() ? JSON.parse(req.postData()) : {};
     log.push({ path, method: req.method(), body, headers: h });
     const token = h['x-account-token'];

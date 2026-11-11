@@ -38,7 +38,10 @@ const empty = {
   // one-time notes already seen: the repair card closed today (repairDismissed: day), the week a new best was shown
   // (pbWeek: its Sunday). Later items add their own keys here; a missing key reads as not seen.
   // goalSeen: { [week]: day } the class goal's moment was shown for that week (STUDENT-4), at most 8 weeks kept
-  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {} },
+  // installOffers / installDismissedAt: how often the install was offered after a lesson, and the day of the last offer,
+  // which counts as set aside unless the app got installed (STUDENT-10, lib/install.js). They belong to the device: a
+  // progress reset keeps them.
+  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null },
   goalXp: 20, // daily goal in XP
   sound: true, // short sounds; off from the start for a student who joins a class and never chose (quietForClass)
   haptics: true, // short vibrations where the phone can (lib/sound.js haptic), never under reduced motion
@@ -331,7 +334,7 @@ export const useApp = create(
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
         set({ profile: rest, outbox: [], stepsOut: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {}, exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges, goalSeen: {} }, gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook() }),
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {}, exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges, goalSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null }, gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
       // the theme chosen for this device (prefs) stays too; Madi's look belongs to the student and goes back to the default
       // (sound goes back to its default, so the next student's own choice starts unset)

@@ -4,7 +4,7 @@ import { TOPIC_ORDER, ALL_SKILLS, PREREQS, ancestorsOf, prereqsOf } from './skil
 import { addAttempt, markTaught, masteryState, recordMasteryCheck, recordReview, nextStage, dueReviews, MASTERY_N, REVIEW_DAYS, addDays } from './mastery';
 import { addEvidence, addCounter, slipOf, diagnose, discriminating, narrow, startRepair, finishVerify, canOffer, CONFIRM_SCORE } from './misconceptions';
 import { nextActions, smallestMissing, isMissing } from './recommend';
-import { buildMission, completeMissionItems, missionDone, partialStairNote } from './mission';
+import { buildMission, completeMissionItems, missionDone, partialStairNote, todayRoute } from './mission';
 import { examPlan, newPlan, recordDiagnostic, validInput } from './examRescue';
 import { tutorReply } from './tutor';
 import { metrics, logEvent } from './analytics';
@@ -293,6 +293,20 @@ describe('the daily mission', () => {
     expect(completeMissionItems(items, { skill: fresh.skill, kind: 'repair', misc: 'x' }, NOW).find((i) => i.kind === 'new')!.done).toBeUndefined();
     items.forEach((i) => { done = completeMissionItems(done, { skill: i.skill, kind: i.kind === 'new' ? 'continue' : i.kind, stage: i.stage }, NOW); });
     expect(missionDone(done)).toBe(true);
+  });
+  it('"today\'s lesson" (the app\'s shortcut, STUDENT-10) opens where the mission\'s button does', () => {
+    const items = buildMission(nextActions(ctx(empty())));
+    expect(todayRoute(items)).toBe('/learn/signed/1/A');
+    // the next part not done yet
+    const two = [{ ...items[0], done: NOW }, { ...items[0], kind: 'continue' as const, stage: 'B' as const, to: '/learn/signed/1/B' }];
+    expect(todayRoute(two)).toBe('/learn/signed/1/B');
+    // an item saved without its route gets it from routeOf
+    expect(todayRoute([{ ...items[0], to: '' }])).toBe('/learn/signed/1/A');
+    expect(todayRoute([{ ...items[0], to: '', stage: 'D' }])).toBe('/lesson/signed/1?part=1&from=journey');
+    expect(todayRoute([{ ...items[0], to: '', stage: undefined }])).toBe('/learn/signed/1');
+    // nothing left (or no mission): the missions tab, where the day's card is
+    expect(todayRoute(two.map((i) => ({ ...i, done: NOW })))).toBe('/quests');
+    expect(todayRoute([])).toBe('/quests');
   });
 });
 

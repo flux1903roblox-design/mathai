@@ -164,9 +164,17 @@ describe('the earned repair (STUDENT-5), through the store', async () => {
   it('resetProgress clears the repair and the one-time notes', () => {
     start('2026-11-01');
     useApp.getState().setNudge({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08' });
-    expect(useApp.getState().nudges).toEqual({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08', goalSeen: {} });
+    expect(useApp.getState().nudges).toEqual({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08', goalSeen: {}, installOffers: 0, installDismissedAt: null });
     useApp.getState().resetProgress();
     expect(useApp.getState()).toMatchObject({ streak: { lastRepair: null }, nudges: { repairDismissed: null, pbWeek: null, goalSeen: {} } });
+  });
+  it('resetProgress keeps the install offers: they belong to the device, not to the progress', () => {
+    start('2026-11-01');
+    useApp.getState().setNudge({ installOffers: 1, installDismissedAt: '2026-11-01', pbWeek: '2026-11-01' });
+    useApp.getState().resetProgress();
+    expect(useApp.getState().nudges).toEqual({ repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 1, installDismissedAt: '2026-11-01' });
+    useApp.getState().signOut();
+    expect(useApp.getState().nudges).toMatchObject({ installOffers: 0, installDismissedAt: null });
   });
 });
 

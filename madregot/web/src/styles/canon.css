@@ -537,8 +537,8 @@ a { color: var(--brand-d); }
 .ai-advanced { margin-top: var(--s2); }
 
 /* a row that opens another screen: its name, then a chevron at the far end */
-a.set-row { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }
-a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
+a.set-row, .set-row.go { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }
+a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 /* ------------------------------------------------------------------ a teaching stage done (lighter than a lesson's end) */
 /* מדי, the stage, the stair's five stages with this one filled, what it earned as quiet pills, what comes next */
 .stage-done .done-hero { min-height: 128px; }
@@ -565,6 +565,15 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .goal-xp { color: var(--gold-ink); font-weight: 800; }
 .goal-xp bdi { font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-height: 640px) { .goal-ring { width: 164px; height: 164px; } .goal-madi { width: 88px; height: auto; } }
+/* the install offer (STUDENT-10): a home screen with the app's icon in the middle, then one sentence and two answers */
+.install-stage .install-hero { min-height: 0; margin-top: auto; }
+.install-home { display: grid; grid-template-columns: repeat(3, 56px); gap: var(--s5); padding: var(--s5) var(--s6) var(--s4); border: 2px solid var(--rule); border-radius: 28px; background: var(--ground); }
+.install-app { display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
+.install-app i { display: block; width: 56px; height: 56px; border-radius: 16px; background: var(--track); }
+.install-app b { display: block; width: 40px; height: 8px; margin-block: 6px; border-radius: 4px; background: var(--track); }
+.install-app.ours img { display: block; width: 56px; height: 56px; border-radius: 16px; box-shadow: 0 0 0 4px var(--brand-tint); }
+.install-app.ours b { width: auto; height: auto; margin: 0; background: none; color: var(--ink); font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap; }
+.install-text { margin: 0; max-width: 32ch; color: var(--ink-2); font-size: 17px; line-height: 26px; text-wrap: balance; }
 /* the pinned button's band is the page's own colour (in dark, --surface would show as a lighter box) */
 .done-screen .done-actions { background: var(--paper); }
 @media (max-height: 700px) { .done-screen .done-actions { background: linear-gradient(transparent, var(--paper) 28%); } }

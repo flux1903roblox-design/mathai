@@ -31,6 +31,8 @@ async function fakeServer(page, over = {}) {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     const path = new URL(req.url()).pathname; const h = req.headers();
+    // a reach count (lib/metrics.js) is a beacon with a plain name, answered 204 as the Worker does
+    if (path === '/api/metrics') { log.push({ path, method: req.method(), body: req.postData(), headers: h }); return route.fulfill({ status: 204, headers: CORS }); }
     const body = req.postData() ? JSON.parse(req.postData()) : {};
     log.push({ path, method: req.method(), body, headers: h });
     const reply = (code, data) => route.fulfill({ status: code, contentType: 'application/json', headers: CORS, body: JSON.stringify(data) });
@@ -187,7 +189,7 @@ test.describe('the class goal of the week', () => {
   });
 
   test('the moment\'s button opens the wardrobe with the class scarf on Madi', async ({ page }) => {
-    await fakeServer(page, { goal: goal({ have: 64, mine: 1, reached: true, last: null }) });
+    const { log } = await fakeServer(page, { goal: goal({ have: 64, mine: 1, reached: true, last: null }) });
     await open(page, '#/quests', classStudent());
     const sheet = page.getByRole('dialog', { name: 'עשינו את זה יחד' });
     await expect(sheet).toContainText('ואתם הוספתם צעד אחד.');
@@ -195,6 +197,9 @@ test.describe('the class goal of the week', () => {
     await expect(page).toHaveURL(/#\/me\/madi/);
     await expect(page.getByRole('radio', { name: /צעיף הכיתה/ })).toBeChecked();
     expect((await saved(page)).look.neck).toBe('class-scarf');
+    // opening the wardrobe is counted by name only (STUDENT-14): a plain-text beacon, no token, no id
+    await expect.poll(() => log.filter((l) => l.path === '/api/metrics').map((l) => l.body)).toEqual(['wardrobe_open']);
+    expect(log.find((l) => l.path === '/api/metrics').headers.authorization).toBeUndefined();
   });
 
   test('reached without the student\'s part: a calm line, no moment and no scarf', async ({ page }) => {

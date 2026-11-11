@@ -16,6 +16,8 @@ import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import RepairCard from '@/components/learn/RepairCard.jsx';
 import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
+import { todayRoute } from '@/learn/mission.ts';
+import { useMission } from '@/lib/useLearn.js';
 import { skillId } from '@/learn/skills.ts';
 import { chestItem } from '@/lib/wardrobe.js';
 import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard.jsx';
@@ -191,7 +193,32 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
   );
 }
 
+/**
+ * The installed app's shortcut "השיעור של היום" (./#/?go=today, STUDENT-10) opens what TodayCard's button opens: the
+ * mission's next part, or the missions tab when the day's mission is done. The mission is fixed for the day once
+ * shown, as TodayCard fixes it. The address is replaced, so Back does not come here again.
+ */
+function GoToday() {
+  const navigate = useNavigate();
+  const { items, fresh } = useMission();
+  const went = useRef(false);
+  useEffect(() => {
+    if (went.current) return;
+    went.current = true;
+    const { saveMission, learnEvent } = useApp.getState();
+    if (fresh && items.length) { saveMission(today(), items); learnEvent({ e: 'mission-start' }); }
+    navigate(todayRoute(items), { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 export default function Learn() {
+  const { search } = useLocation();
+  if (new URLSearchParams(search).get('go') === 'today') return <GoToday />;
+  return <LearnMap />;
+}
+
+function LearnMap() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { profile, path, days, xp, goalXp, freezes, settleStreak, lastTopic } = useApp();
