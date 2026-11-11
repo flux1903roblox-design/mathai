@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { LearnState, SkillRecord } from './types';
-import { TOPIC_ORDER, ALL_SKILLS, PREREQS, STAIRS, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS } from './skills';
+import { TOPIC_ORDER, ALL_SKILLS, PREREQS, STAIRS, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS, ALSO_ON_PATH, onGradePath, pathTopicsOf } from './skills';
 // @ts-ignore: plain JS
 import { topicsFor, bridgeTopicsFor, rescueTopicsFor } from '@/content/index.js';
 import { addAttempt, markTaught, masteryState, recordMasteryCheck, recordReview, nextStage, dueReviews, MASTERY_N, REVIEW_DAYS, addDays } from './mastery';
@@ -117,12 +117,53 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
     const { topicsFor, placementTopicsFor, rescueTopicsFor } = await import('@/content/index.js');
-    // ratio and pct are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3
-    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 3)).toEqual(['ratio', 'pct', 'line']);
+    // ratio and pct are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3; this
+    // year's ח׳ also climbs the ז׳ transformations unit (8.5, November), right after percent (ALSO_ON_PATH)
+    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 4)).toEqual(['ratio', 'pct', 'transf', 'line']);
     expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('pct');
     expect(placementMax('8')).toBe(18);
     // ז׳ meets percents in relative frequency: Exam Rescue offers the unit to ז׳ too
     expect(rescueTopicsFor('7').map((t: { id: string }) => t.id)).toContain('pct');
+  });
+});
+
+describe('a unit on two grades\' paths (ALSO_ON_PATH): this year\'s ח׳ learns the ז׳ transformations unit', () => {
+  it('draws transf on the ח׳ path right after percent, and on the ז׳ path where it is filed', () => {
+    expect(ALSO_ON_PATH).toEqual({ transf: { grade: '8', after: 'pct' } });
+    const ids8 = (topicsFor('8') as { id: string }[]).map((t) => t.id);
+    expect(ids8.indexOf('transf')).toBe(ids8.indexOf('pct') + 1);
+    expect(ids8.filter((id) => id === 'transf')).toHaveLength(1);
+    const ids7 = (topicsFor('7') as { id: string }[]).map((t) => t.id);
+    expect(ids7.slice(ids7.indexOf('angles'), ids7.indexOf('angles') + 3)).toEqual(['angles', 'transf', 'expr']);
+    expect(pathTopicsOf('8')).toEqual(ids8);
+    expect(pathTopicsOf('7')).toEqual(ids7);
+  });
+  it('puts transf:1-4 in ח׳\'s stairs, in path order, and keeps the bridge out', () => {
+    const g8 = gradeSkillsOf('8');
+    expect(g8).toEqual(expect.arrayContaining(['transf:1', 'transf:2', 'transf:3', 'transf:4']));
+    expect(g8.indexOf('transf:1')).toBe(g8.indexOf('pct:5') + 1);
+    expect(g8[0]).toBe('ratio:1');
+    expect(gradeSkillsOf('7')).toEqual(expect.arrayContaining(['transf:1', 'transf:4']));
+    expect(onGradePath('transf', '8')).toBe(true);
+    expect(onGradePath('transf', '7')).toBe(true);
+    expect(onGradePath('frac', '7')).toBe(false);
+    expect(onGradePath('ratio', '7')).toBe(false);
+  });
+  it('a ח׳ student who never started transf:1 is missing it, as a stair of their own grade', () => {
+    expect(isMissing(ctx(empty(), '8'), 'transf:1')).toBe(true);
+    expect(isMissing(ctx(empty(), '7'), 'transf:1')).toBe(true);
+    // a ז׳ unit not on ח׳'s path is still evidence only
+    expect(isMissing(ctx(empty(), '8'), 'coord:2')).toBe(false);
+  });
+  it('Exam Rescue lists no unit twice, and the first-day test is unchanged (transf is placement: false)', async () => {
+    for (const g of ['7', '8']) {
+      const ids = (rescueTopicsFor(g) as { id: string }[]).map((t) => t.id);
+      expect(new Set(ids).size, g).toBe(ids.length);
+    }
+    expect((rescueTopicsFor('8') as { id: string }[]).map((t) => t.id)).toContain('transf');
+    // @ts-ignore: plain JS
+    const { placementMax } = await import('@/lib/placement.js');
+    expect(placementMax('8')).toBe(18);
   });
 });
 

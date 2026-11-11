@@ -111,6 +111,57 @@ for (const [what, route, grade, want = () => true] of CASES) {
   });
 }
 
+// GEOM-2: the transform object's controls. Only the moves an item lists are drawn, in at most two rows (the arrows with
+// התחלה מחדש, then the flips and turns), and on a 320px phone every row fits the screen. The busiest of the unit is
+// transf:4's teaching step that covers a dashed shape (arrows, a flip and a turn); a practice flip has arrows and one.
+test('the transform object: at most two rows of controls, none wider than the screen', async ({ page }) => {
+  test.skip(!['phone', 'phone-small'].includes(test.info().project.name), 'the phones');
+  const rowsOf = () => page.evaluate(() => {
+    const ctl = document.querySelector('.mp-tf-controls');
+    const btns = [...ctl.querySelectorAll('button')].map((b) => b.getBoundingClientRect());
+    const tops = [...new Set(btns.map((r) => Math.round(r.top)))];
+    return {
+      rows: ctl.querySelectorAll('.mp-tf-row').length, lines: tops.length, vw: innerWidth,
+      left: Math.min(...btns.map((r) => r.left)), right: Math.max(...btns.map((r) => r.right)),
+      over: [...ctl.querySelectorAll('.mp-tf-row')].some((r) => r.scrollWidth > r.clientWidth + 1),
+      small: btns.filter((r) => r.width < 44 || r.height < 44).length,
+    };
+  });
+  const expectFits = async (what) => {
+    const r = await rowsOf();
+    expect(r.rows, `${what}: rows`).toBeLessThanOrEqual(2);
+    expect(r.lines, `${what}: lines of buttons on screen`).toBeLessThanOrEqual(2);
+    expect(r.over, `${what}: a row overflows`).toBe(false);
+    expect(r.left, `${what}: starts on screen`).toBeGreaterThanOrEqual(0);
+    expect(r.right, `${what}: ends on screen`).toBeLessThanOrEqual(r.vw);
+    expect(r.small, `${what}: buttons under 44px`).toBe(0);
+    await expectNoSidewaysScroll(page);
+  };
+  // the teaching step of transf:4 with the most moves
+  await open(page, '#/learn/transf/4/A', student('7'));
+  for (let i = 0; i < 12; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.kind === 'explore' && st.manip.kind === 'transform' && st.manip.moves.flips && st.manip.moves.turns) break;
+    if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+    if (st.kind === 'explore') {
+      await expect.poll(() => page.evaluate(() => !!window.__madregotSolveStep && window.__madregotSolveStep.forStep === window.__madregotStep)).toBe(true);
+      await page.evaluate(() => window.__madregotSolveStep());
+      await page.locator('.lm-check').click();
+    }
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    await page.locator('.sp-next').click();
+    await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+  }
+  await expect(page.locator('.ls-explore .mp-tf-controls')).toBeVisible();
+  await expectFits('transf:4, arrows, a flip and a turn');
+  await expectUsable(page, page.locator('.ls-explore .manip-canvas'), 'the grid');
+  // a practice flip in a line x = k (its button's label is the longest)
+  await openOn(page, '#/lesson/transf/2?part=1', student('7'), (x) => x.form === 'manip' && x.manip.kind === 'transform');
+  await expect(page.locator('.mp-tf-controls')).toBeVisible();
+  await expectFits('transf:2, arrows and a flip');
+});
+
 test('the keypad: minus, decimal point, fraction, next field and delete', async ({ page }) => {
   await openOn(page, '#/lesson/coord/1', student('7'), (x) => x.form === 'pt');
   const key = (name) => page.getByRole('button', { name, exact: true }).click();

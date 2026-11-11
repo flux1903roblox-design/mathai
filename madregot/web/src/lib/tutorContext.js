@@ -13,6 +13,7 @@
 // Every string is clipped here with the server's own limits, so what leaves the device is already what the server keeps.
 import { TOPIC, catLabel, answerText, itemPlain, diagnosisLine } from '@/content/index.js';
 import { contentOf, topicsReady } from '@/learn/content/index.ts';
+import { onGradePath } from '@/learn/skills.ts';
 
 /**
  * A stair's teaching content once its topic has loaded (the durable lane's split, DURABLE-11: topics load on demand);
@@ -133,6 +134,12 @@ function misconOf(content, id, remedy) {
 }
 
 // ---------------------------------------------------------------- the surfaces
+/**
+ * The grade a lesson's tutor is told: the student's when the unit is on their path (learn/skills.ts ALSO_ON_PATH: this
+ * year's ח׳ climbs the ז׳ transformations unit, so a ח׳ student there is in ח׳), else the grade the unit is filed under.
+ */
+export const lessonGrade = (topicId, profileGrade) => (profileGrade && onGradePath(topicId, String(profileGrade)) ? String(profileGrade) : TOPIC[topicId]?.grade);
+
 function lessonContext({ surface, item, s = {}, last, spec, guide = false, learn, grade, now }) {
   const topicId = item.topic || spec?.topic || s.topic;
   const level = item.level || spec?.level || s.level;

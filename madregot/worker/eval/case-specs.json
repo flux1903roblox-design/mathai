@@ -204,6 +204,104 @@
       "tags": ["transf"]
     },
     {
+      "id": "D1-transf1-shiftsign", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "diag", "params": { "a1": 3, "a2": -3, "dx": -5, "dy": 2, "c1": -1, "c2": -2, "ask": "y" }, "wrong": [-4, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "shift-sign", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the slide went the other way along the y-axis. From A(3, -3) to A'(-2, -1) the y-coordinate goes up 2 (from -3 to -1), so the y of C goes up 2 too: -2 + 2 = 0, not -2 - 2 = -4. Ends at 0. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf1-shiftswap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "diag", "params": { "a1": -2, "a2": -2, "dx": -2, "dy": 3, "c1": -3, "c2": 1, "ask": "x" }, "wrong": [0, 4], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "shift-swap", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the shift along y was added to x. From A(-2, -2) to A'(-4, 1) the slide is 2 to the left (x: -2 to -4) and 3 up (y: -2 to 1); the x of C changes by the left-right part only: -3 + (-2) = -5, not -3 + 3 = 0. Ends at -5. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf1-oneaxis", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "transfer", "params": { "p1": -3, "p2": 1, "dx": 3, "dy": -5, "ask": "y" }, "wrong": [1, 2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-axis", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the spaceship was moved along one axis only, so its y stayed 1. The command moves it 3 to the right (that changes x) and 5 down (that changes y): y = 1 - 5 = -4. Ends at -4. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf1-gen-gap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "gen", "key": "tf1w:5:3:2:1", "wrong": [2], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "gap", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the gap between the two triangles was measured instead of the way from a point to its image. 3 to the right and 2 up is the space between them, and it depends on the triangle's own width and height. Does not say which choice is right and does not give the slide (withhold): asks the student to count the squares from A to A'. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf2-axisnotline", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "diag", "params": { "t": 0, "k": -3, "a": -2, "b": 5 }, "wrong": [2, 0], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "axis-not-line", "maxWords": 130,
+        "describe": "Names the app's diagnosis: A was reflected in the y-axis instead of in the line x = -3. A(-2, 5) is 1 to the right of x = -3, so A' is 1 to its left: x = -3 - 1 = -4 (that is 2 · (-3) - (-2)). Reflecting in the axis gives 2. Ends at -4. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf2-wrongaxis", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "transfer", "params": { "t": 0, "k": 7, "a": 4, "b": 3 }, "wrong": [4, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-axis", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the lamp was reflected in the other direction, so its x stayed 4. The mirror is the wall x = 7, an up-down line, so the image moves across it, left to right, and y stays 3. The lamp is 3 to the left of the wall, so its image is 3 to the right of it: x = 7 + 3 = 10. Ends at 10. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf2-gen-bothsigns", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "gen", "key": "tf2a:2:5:x", "wrong": [[-2, -5], [0, 0]], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "both-signs", "maxWords": 130,
+        "describe": "Names the app's diagnosis: both signs were changed, which is a half turn about the origin, not a reflection. In the x-axis a point moves straight down (or up) to the same distance on the other side of the axis: x stays 2 and y changes sign, 5 to -5. Ends at (2, -5). Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf2-gen-diagonal", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "gen", "key": "tf2s:rectangle", "wrong": [4, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "diagonal-axis", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the diagonals of the rectangle were taken for axes of symmetry. Folding a 5 by 3 rectangle along a diagonal does not lay one half on the other (the corners miss); only the two lines through the middles of opposite sides do. Ends at 2. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf3-reflectnotturn", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "transfer", "params": { "c1": -1, "c2": -1, "a1": -4, "a2": -4, "ask": "y" }, "wrong": [-4, 5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "reflect-not-turn", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the point was reflected instead of turned, so its y stayed -4. In a half turn about O(-1, -1) the point goes to the other side of O: A is 3 below O, so A' is 3 above it: y = -1 + 3 = 2 (that is 2 · (-1) - (-4)). Ends at 2. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf3-gen-turndirection", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "gen", "key": "tf3q:4:5:cw", "wrong": [[-5, 4], [1, 1]], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "turn-direction", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the quarter turn went the other way, counterclockwise. Clockwise, a step to the right becomes a step down and a step up becomes a step to the right: from O, A(4, 5) is 4 to the right and 5 up, so A' is 5 to the right and 4 down. Ends at (5, -4). Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf3-gen-rotswap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "gen", "key": "tf3q:-5:2:ccw", "wrong": [[2, -5], [3, 3]], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rot-swap", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the two coordinates were swapped without changing a sign. Counterclockwise, a step to the left becomes a step down and a step up becomes a step to the left: from O, A(-5, 2) is 5 to the left and 2 up, so A' is 2 to the left and 5 down. Ends at (-2, -5). Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf4-gen-doubleperim", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:4", "source": "gen", "key": "tf4g:3:9:8:10:t", "wrong": [60, 52], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "double-perimeter", "maxWords": 130,
+        "describe": "Names the app's diagnosis: both perimeters were added, so the glued slanted side was counted twice. Turned half a turn and glued along the side 10, the two trapezoids make a rectangle 12 by 8 (3 + 9 = 12): its perimeter is 2 · (12 + 8) = 40. Adding both perimeters gives 60, with the two sides of 10 inside. Ends at 40. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf4-gen-equalarea", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:4", "source": "gen", "key": "tf4m:none:1:-4,-5,-1,-5,-1,-4,-3,-4,-3,-3,-4,-3:2,0,4,0,4,2,2,2", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "equal-area", "maxWords": 130,
+        "describe": "Names the app's diagnosis: equal areas were taken for congruence. Both shapes have area 4, four squares each, but the same area does not make the same shape. Does not say which choice is right (withhold): asks whether a slide, a flip or a turn could lay shape א exactly on shape ב, side on side and corner on corner. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf4-gen-equalperim", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:4", "source": "gen", "key": "tf4r:6:2:5:3", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "equal-perimeter", "maxWords": 130,
+        "describe": "Names the app's diagnosis: rectangles with the same perimeter were taken for congruent. 6 by 2 and 5 by 3 both have perimeter 16, but perimeter alone does not fix the shape (their areas, 12 and 15, differ too). Does not say which choice is right (withhold): leads the student to compare the sides, 6 and 2 against 5 and 3. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

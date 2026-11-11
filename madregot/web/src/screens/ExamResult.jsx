@@ -52,13 +52,14 @@ function GradeChip({ by }) {
   return <span className={clsx('grade-chip', `by-${by}`)}><Icon size={14} aria-hidden="true" />{GRADE_COPY[by]}</span>;
 }
 
-/** A unit's number among its grade's own units; 0 for the fractions floor, which has none. */
-const topicN = (id) => { const t = TOPIC[id]; return t ? topicsFor(t.grade).indexOf(t) + 1 : 0; };
+/** A unit's number on the viewer's path when it is on it, else among its own grade's units; 0 for the fractions floor. */
+const topicN = (id, grade) => { const t = TOPIC[id]; return t ? topicsFor(grade || t.grade).indexOf(t) + 1 || topicsFor(t.grade).indexOf(t) + 1 : 0; };
 
 function TopicTag({ id, mark = false }) {
   const t = TOPIC[id];
+  const n = topicN(id, useApp((s) => s.profile?.grade));
   if (!t) return <span className="topic-tag muted">נושא אחר</span>;
-  return <span className={`topic-tag ch-${t.color}`}>{mark && topicN(id) > 0 && <ChapterMark color={t.color} n={topicN(id)} size="sm" />}{t.title}</span>;
+  return <span className={`topic-tag ch-${t.color}`}>{mark && n > 0 && <ChapterMark color={t.color} n={n} size="sm" />}{t.title}</span>;
 }
 
 function QuestionCard({ q, onAsk }) {

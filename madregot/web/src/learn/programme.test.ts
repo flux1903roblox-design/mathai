@@ -1,7 +1,7 @@
 // The programme map against the stairs this build really has. The coverage numbers themselves are not asserted here:
 // they move with every content stage (the fixtures in worker/test/coverage.test.js carry the numbers).
 import { describe, expect, it } from 'vitest';
-import { ALL_SKILLS, GRADE_OF, parseSkill } from './skills';
+import { ALL_SKILLS, ALSO_ON_PATH, GRADE_OF, parseSkill } from './skills';
 import { PROGRAMME, ROADMAP_NEXT, coverageOf, notYetOf, monthIndex, schoolMonth } from './programme';
 import { TOPIC, TOPICS } from '@/content/index.js';
 
@@ -22,6 +22,17 @@ describe('every stair of the app has a place in the Ministry programme', () => {
       expect(m).toBeGreaterThanOrEqual(0);
       expect(m).toBeLessThanOrEqual(9);
     });
+  });
+  it('a unit also on another grade\'s path (ALSO_ON_PATH) is in a unit of that grade, with a month there', () => {
+    // the entry is this school year's (תשפ״ז); when programme.js moves on and no unit of that grade lists the topic,
+    // this fails: remove the entry from learn/skills.ts then
+    (Object.entries(ALSO_ON_PATH) as [string, { grade: '7' | '8'; after: string }][]).forEach(([topic, { grade }]) => {
+      const units = PROGRAMME.units.filter((u) => u.grade === grade && u.parts.some((p) => p.skills.some((s) => s.startsWith(`${topic}:`))));
+      expect(units.length, `${topic} is in no unit of grade ${grade}`).toBeGreaterThan(0);
+      ALL_SKILLS.filter((s) => parseSkill(s).topic === topic).forEach((s) => expect(typeof monthIndex(s, grade), `${s} in grade ${grade}`).toBe('number'));
+    });
+    // 8.5: the transformations are taught in ח׳ in November
+    expect(monthIndex('transf:1', '8')).toBe(2);
   });
   it('a bridge stair (elementary fractions) is in no unit: it adds no hours', () => {
     [...programmeStairs].forEach((s) => expect(s.startsWith('frac:'), s).toBe(false));
@@ -79,7 +90,7 @@ describe('coverage, bound to the stairs this build has', () => {
 });
 
 describe('the "not yet" list (AI-5\'s rules, checked here until shared/stairs.js exists)', () => {
-  const titles = new Set<string>(TOPICS.flatMap((t) => [t.title, ...t.levels.map((l) => l.title)]));
+  const titles = new Set<string>(TOPICS.flatMap((t) => [t.title, ...t.levels.map((l: { title: string }) => l.title)]));
   it('has the keys 7 and 8, each a list of non-empty strings without repeats', () => {
     const NOT_YET = { '7': notYetOf('7'), '8': notYetOf('8') };
     expect(Object.keys(NOT_YET)).toEqual(['7', '8']);

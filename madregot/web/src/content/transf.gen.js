@@ -256,12 +256,13 @@ export function glueFig({ a, b, h, s, v }, label = true) {
     view: [320, 200], pad: [30, 26],
   };
 }
-export const glueText = (p) => `טרפז ישר־זווית: בסיסים $${p.a}$ ו־$${p.b}$, גובה $${p.h}$, השוק המשופעת $${p.s}$. ${p.v === 'm' ? 'משקפים אותו ביחס לגובה, ומצמידים את הטרפז ואת תמונת המראה שלו לאורך הגובה' : 'מסובבים עותק שלו ב־$180°$, ומצמידים את שני הטרפזים לאורך השוק המשופעת'}. מה ההיקף של הצורה החדשה?`;
+// (four lines at most on a 320px phone, so a check's drawing keeps 150px: the drawing shows every length again)
+export const glueText = (p) => `טרפז ישר־זווית: בסיסים $${p.a}$ ו־$${p.b}$, גובה $${p.h}$, שוק משופעת $${p.s}$. ${p.v === 'm' ? 'מצמידים אליו לאורך הגובה את תמונת המראה שלו ביחס לגובה' : 'מצמידים אליו לאורך השוק המשופעת עותק שלו מסובב ב־$180°$'}. מה היקף הצורה החדשה?`;
 export const glueSolution = (p) => (p.v === 'm'
   ? ['הצורה החדשה היא טרפז שווה־שוקיים. הגובה בפנים, ולא נספר.', `בסיסים $${2 * p.a}$ ו־$${2 * p.b}$, ושתי שוקיים $${p.s}$: $${2 * p.a} + ${2 * p.b} + ${p.s} + ${p.s} = ${2 * p.a + 2 * p.b + 2 * p.s}$`]
   : ['נוצר מלבן: הצלע הארוכה היא שני הבסיסים יחד, $' + `${p.a} + ${p.b} = ${p.a + p.b}` + '$, והקצרה היא הגובה.', `$2 \\cdot ${p.a + p.b} + 2 \\cdot ${p.h} = ${2 * (p.a + p.b) + 2 * p.h}$`]);
 export const glueHint = () => 'היקף הוא רק השפה. הצלע שבה מצמידים נכנסת פנימה, ולא נספרת.';
-export const transf4TText = (p) => `שני אריחים חופפים בצורת טרפז ישר־זווית (בסיסים $${p.a}$ ו־$${p.b}$ ס״מ, גובה $${p.h}$ ס״מ, שוק משופעת $${p.s}$ ס״מ). מניחים אחד מסובב לצד השני ויוצרים מלבן. מה ההיקף שלו, בס״מ?`;
+export const transf4TText = (p) => `שני אריחים חופפים בצורת טרפז ישר־זווית: בסיסים $${p.a}$ ו־$${p.b}$, גובה $${p.h}$, שוק משופעת $${p.s}$ (בס״מ). אחד מסובב לצד השני, ונוצר מלבן. מה היקפו בס״מ?`;
 
 // ---------------------------------------------------------------- transf:1 generators
 /** A right triangle ABC with the right angle at B: legs along the grid, every vertex on the plane. */
@@ -590,7 +591,9 @@ function rectCong() {
   const [a, b, c, d] = pick(rnd, RECT_PAIRS);
   const same = a === d && b === c;
   const tag = same ? null : a * b === c * d ? 'equal-area' : 'equal-perimeter';
-  const options = shuffle([{ text: 'כן', ok: same, bug: same ? undefined : tag }, { text: 'לא', ok: !same }]);
+  // the choice says what it means (a bare "לא" is a word every explanation uses, so a tutor told to keep the answer back
+  // could not be checked for it)
+  const options = shuffle([{ text: 'כן, הם חופפים', ok: same, bug: same ? undefined : tag }, { text: 'לא, הם לא חופפים', ok: !same }]);
   const two = {
     type: 'geo', label: `מלבן ${a} על ${b} ומלבן ${c} על ${d}`,
     pts: { _A: [0, 0], _B: [a, 0], _C: [a, b], _D: [0, b], _E: [a + 1.5, 0], _F: [a + 1.5 + c, 0], _G: [a + 1.5 + c, d], _H: [a + 1.5, d] },

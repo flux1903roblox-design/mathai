@@ -11,7 +11,7 @@ import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx, useNext } from '@/lib/useLearn.js';
 import { TOPIC, rescueTopicsFor } from '@/content/index.js';
 import { examPlan, validInput, isShabbatDay, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
-import { skillId } from '@/learn/skills.ts';
+import { skillId, onGradePath } from '@/learn/skills.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { ensureTopics } from '@/learn/content/index.ts';
 import { aiReady } from '@/lib/ai.js';
@@ -91,8 +91,9 @@ function Setup({ onSave }) {
               const all = ids.every((x) => skills.includes(x));
               const some = ids.filter((x) => skills.includes(x)).length;
               // a topic of an earlier grade is revision and says so ("מכיתה ז׳"); Pythagoras, filed under ח׳, is taught in
-              // ז׳ too by this year's programme, so for ז׳ it is simply one of theirs
-              const earlier = Number(t.grade) < Number(grade);
+              // ז׳ too by this year's programme, so for ז׳ it is simply one of theirs; and a unit on this grade's path this
+              // year (skills.ts ALSO_ON_PATH: ח׳'s transformations) is this year's, not revision
+              const earlier = Number(t.grade) < Number(grade) && !onGradePath(t.id, grade);
               return (
                 <fieldset key={t.id} className={clsx('rescue-topic', `ch-${t.color}`)}>
                   <legend className="visually-hidden">{t.title}</legend>

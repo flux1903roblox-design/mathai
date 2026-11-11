@@ -3,7 +3,7 @@
 // a real drag moves it, the keyboard and the step buttons move it too, checking is off until it has been moved,
 // and the "not yet" and "right" paths work with the object still in view.
 import { test, expect } from '@playwright/test';
-import { open, student, item, openOn, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, student, item, openOn, answer, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
 
 const KINDS = [
   ['numberline', 'signed/1', '7', [0.5, 0.75, 0.85, 0.75]],
@@ -280,3 +280,141 @@ for (const [w, h] of [[390, 664], [320, 568]]) {
     await expect(page.locator('.lm-actions.has-warm')).toHaveCount(0);
   });
 }
+
+// GEOM-2 on the phones (390×844 and 320×568): the transform object in the transformations unit's practice. transf:1
+// slides the copy (a drag in whole steps, the arrow buttons, the arrow keys), transf:2 flips it (in an axis, and in a
+// line x = k, where a flip far from the line would leave the plane and is refused), transf:3 turns it about O. The
+// copy's vertices are read from the drawing's name (practice names them; a check never does).
+const isTf = (it) => it.form === 'manip' && it.manip.kind === 'transform';
+const TF = [
+  ['transf:1, a slide', 'transf/1', (it) => isTf(it) && !it.manip.moves.flips && !it.manip.moves.turns],
+  ['transf:2, a flip in an axis', 'transf/2', (it) => isTf(it) && typeof it.manip.moves.flips?.[0] === 'string'],
+  ['transf:2, a flip in a line x = k', 'transf/2', (it) => isTf(it) && it.manip.moves.flips?.[0]?.x != null],
+  ['transf:3, a turn', 'transf/3', (it) => isTf(it) && !!it.manip.moves.turns],
+];
+/** The copy's vertices, read from the drawing's name ("… A′ ב־(1, −1), B′ ב־(4, −1) …"). */
+const copyOf = (page) => page.locator('.manip-transform .manip-canvas').getAttribute('aria-label')
+  .then((l) => [...l.replace(/−/g, '-').matchAll(/\((-?\d+), (-?\d+)\)/g)].map((m) => [Number(m[1]), Number(m[2])]));
+const moved = (a, b) => b.map((p, i) => [p[0] - a[i][0], p[1] - a[i][1]]);
+/** Open a practice item of this kind: the first exercise of a practice lesson, seed after seed. */
+async function openTf(page, route, want) {
+  for (let sd = 1; sd <= 60; sd += 1) {
+    await open(page, `#/lesson/${route}?part=1`, student('7'), String(sd));
+    await expect.poll(() => item(page)).toBeTruthy();
+    const it = await item(page);
+    if (want(it)) { await expect(page.locator('.manip-transform .mp-tf-controls')).toBeVisible(); return it; }
+  }
+  throw new Error(`no practice item of this kind in ${route}`);
+}
+
+for (const [name, route, want] of TF) {
+  test(`the transform object: ${name}`, async ({ page }) => {
+    test.skip(!['phone', 'phone-small'].includes(test.info().project.name), 'the phones');
+    test.setTimeout(120_000); // the line x = k is one practice exercise in sixteen: several seeds are opened
+    const it = await openTf(page, route, want);
+    const canvas = page.locator('.manip-transform .manip-canvas');
+    await expectNoSidewaysScroll(page);
+    await expectUsable(page, canvas, 'the grid');
+    await expectUsable(page, checkBtn(page), 'the check button');
+    const box = await canvas.boundingBox();
+    // the square plane is drawn in the middle of its box (the box can be wider than tall where the controls take room)
+    const side = Math.min(box.width, box.height);
+    expect(side, 'the plane is large enough to count on').toBeGreaterThanOrEqual(200);
+    await expect(checkBtn(page)).toBeDisabled();
+    const s = side / 316; // the viewBox is 316 square; a grid step is 22 of it
+    const x0 = box.x + (box.width - side) / 2; const y0 = box.y + (box.height - side) / 2;
+    const px = ([x, y]) => [x0 + (158 + 22 * x) * s, y0 + (158 - 22 * y) * s];
+
+    // a real drag from a vertex: the copy moves in whole steps, every vertex by the same step
+    const p0 = await copyOf(page);
+    const dirX = p0[0][0] > 0 ? -1 : 1; const dirY = p0[0][1] > 0 ? -1 : 1;
+    const [ax, ay] = px(p0[0]); const [bx, by] = px([p0[0][0] + 2.3 * dirX, p0[0][1] + 1.2 * dirY]);
+    await page.mouse.move(ax, ay); await page.mouse.down();
+    for (let i = 1; i <= 8; i += 1) await page.mouse.move(ax + ((bx - ax) * i) / 8, ay + ((by - ay) * i) / 8);
+    await page.mouse.up();
+    await expect.poll(() => copyOf(page), 'the drag moved the copy').not.toEqual(p0);
+    const p1 = await copyOf(page);
+    const d = moved(p0, p1);
+    d.forEach((v) => expect(v, 'every vertex moves by the same whole step').toEqual([2 * dirX, dirY]));
+    await expect(checkBtn(page)).toBeEnabled();
+
+    // the arrow buttons and the arrow keys: one step each
+    const right = page.getByRole('button', { name: 'הזיזו ימינה' }); const left = page.getByRole('button', { name: 'הזיזו שמאלה' });
+    const btn = (await right.isEnabled()) ? right : left; const bx1 = (await right.isEnabled()) ? 1 : -1;
+    await btn.click();
+    await expect.poll(() => copyOf(page)).toEqual(p1.map(([x, y]) => [x + bx1, y]));
+    const p2 = await copyOf(page);
+    await canvas.focus();
+    const up = p2.every(([, y]) => y < 6);
+    await page.keyboard.press(up ? 'ArrowUp' : 'ArrowDown');
+    await expect.poll(() => copyOf(page), 'an arrow key moves the copy one step').toEqual(p2.map(([x, y]) => [x, y + (up ? 1 : -1)]));
+    await expect(page.locator('.manip-transform .visually-hidden[aria-live]')).toHaveText(up ? 'העותק זז למעלה' : 'העותק זז למטה');
+
+    const mr = it.manip.moves.flips?.[0];
+    if (mr) {
+      // a flip button reflects the copy where it is now
+      const flip = page.getByRole('button', { name: typeof mr === 'string' ? `שיקוף ביחס לציר ${mr}` : `שיקוף ביחס לישר x = ${String(mr.x).replace('-', '−')}` });
+      await expectUsable(page, flip, 'the flip button');
+      // back to the start, so the copy is near the line
+      await page.getByRole('button', { name: 'התחלה מחדש' }).click();
+      const f0 = await copyOf(page);
+      await flip.click();
+      const k = typeof mr === 'string' ? 0 : mr.x;
+      const want = f0.map(([x, y]) => (mr === 'x' ? [x, -y] : [2 * k - x, y]));
+      await expect.poll(() => copyOf(page), 'the flip reflected the copy').toEqual(want);
+      await expect(page.locator('.manip-transform .visually-hidden[aria-live]')).toContainText('העותק שוקף');
+      if (typeof mr !== 'string') {
+        // far from the line, a flip would carry the copy off the plane: nothing moves, and the object and מדי say why
+        const away = page.getByRole('button', { name: mr.x > 0 ? 'הזיזו שמאלה' : 'הזיזו ימינה' });
+        while (await away.isEnabled()) await away.click();
+        const far = await copyOf(page);
+        await flip.click();
+        await expect(page.locator('.mp-tf-refuse')).toHaveText('העותק ייצא מהרשת. הזיזו אותו קודם קרוב יותר לישר השיקוף.');
+        await expect(page.locator('.manip-transform .visually-hidden[aria-live]')).toHaveText('העותק ייצא מהרשת. הזיזו אותו קודם קרוב יותר לישר השיקוף.');
+        expect(await copyOf(page), 'the refused flip did nothing').toEqual(far);
+      }
+    }
+    const turns = it.manip.moves.turns;
+    if (turns) {
+      await page.getByRole('button', { name: 'התחלה מחדש' }).click();
+      const t0 = await copyOf(page);
+      const [cx, cy] = turns.centre;
+      const half = turns.by === 180;
+      // a quarter turn either way, whichever keeps the copy on the plane (the item's own turn always does)
+      const ccw = t0.map(([x, y]) => [cx - (y - cy), cy + (x - cx)]); const cw = t0.map(([x, y]) => [cx + (y - cy), cy - (x - cx)]);
+      const onPlane = (pts) => pts.every((p) => p.every((v) => Math.abs(v) <= 6));
+      const want = half ? t0.map(([x, y]) => [2 * cx - x, 2 * cy - y]) : onPlane(ccw) ? ccw : cw;
+      await page.getByRole('button', { name: half ? 'חצי סיבוב סביב O' : `סיבוב של 90° ${want === ccw ? 'נגד' : 'עם'} כיוון השעון סביב O` }).click();
+      await expect.poll(() => copyOf(page), 'the turn moved every vertex about O').toEqual(want);
+      await expect(page.locator('.manip-transform .visually-hidden[aria-live]')).toContainText('העותק הסתובב');
+    }
+
+    // the right state is accepted, the copy locked
+    await page.evaluate(() => window.__madregotSolve(true));
+    await checkBtn(page).click();
+    await expect(page.locator('section.fb-good')).toBeVisible();
+    for (const b of await page.locator('.manip-transform .step-btn').all()) await expect(b).toBeDisabled();
+  });
+}
+
+// In a check the object says nothing about where the copy is: no chips, and the drawing's name counts the moves. The
+// transform items are practice only, so the QA hook draws the exercise on screen as a check draws it.
+test('the transform object in a check render: no coordinate text anywhere in the object', async ({ page }) => {
+  test.skip(!['phone', 'phone-small'].includes(test.info().project.name), 'the phones');
+  await openTf(page, 'transf/1', TF[0][2]);
+  await expect(page.locator('.mp-tf-chip').first()).toBeVisible(); // practice: the chips are there
+  expect(await page.evaluate(() => window.__madregotAsCheck(true))).toBe(true);
+  await expect(page.locator('.mp-tf-chip')).toHaveCount(0);
+  await expect(page.locator('.manip-transform .manip-readout')).toHaveCount(0);
+  await expect(page.locator('.manip-coach')).toHaveCount(0);
+  const coords = /\(\s*[−-]?\d+\s*,\s*[−-]?\d+\s*\)/;
+  const look = () => page.evaluate(() => {
+    const m = document.querySelector('.manip-transform');
+    return [m.textContent, ...[...m.querySelectorAll('[aria-label]')].map((el) => el.getAttribute('aria-label'))].join(' | ');
+  });
+  expect(await look()).not.toMatch(coords);
+  expect(await look()).not.toContain('′(');
+  await page.getByRole('button', { name: 'הזיזו ימינה' }).or(page.getByRole('button', { name: 'הזיזו שמאלה' })).first().click();
+  await expect(page.locator('.manip-transform .manip-canvas')).toHaveAttribute('aria-label', /העותק זז 1 (ימינה|שמאלה) מההתחלה/);
+  expect(await look()).not.toMatch(coords);
+});

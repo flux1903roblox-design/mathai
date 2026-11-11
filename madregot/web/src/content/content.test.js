@@ -359,6 +359,10 @@ describe('each unit has its own identity', () => {
       expect(list.length, `grade ${grade} has units`).toBeGreaterThan(1);
       for (let i = 1; i < list.length; i += 1) expect(list[i].color, `grade ${grade}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(list[i - 1].color);
     }
+    // this year's ח׳ path climbs the transformations after percent (ALSO_ON_PATH): petrol, violet, cobalt
+    const g8 = topicsFor('8');
+    const at = g8.findIndex((t) => t.id === 'transf');
+    expect(g8.slice(at - 1, at + 2).map((t) => `${t.id} ${t.color}`)).toEqual(['pct petrol', 'transf violet', 'line cobalt']);
   });
   it('every topic has three drawings: its emblem and two for beside the path', () => {
     for (const t of TOPICS) {

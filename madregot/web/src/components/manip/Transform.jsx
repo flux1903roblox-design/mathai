@@ -257,12 +257,17 @@ export default function Transform({ m, value, onChange, locked, reveal, good, an
               {letters(answer.pts, answer.match === 'set' ? null : primed, 'ghost')}
             </g>
           )}
-          {turns && (
-            <g className="mp-tf-centre">
-              <circle cx={X(turns.centre[0])} cy={Y(turns.centre[1])} r="4.5" />
-              <text x={X(turns.centre[0]) + 8} y={Y(turns.centre[1]) + 19} textAnchor="start" className="mp-tf-letter">O</text>
-            </g>
-          )}
+          {turns && (() => {
+            // the letter O beside its dot, on the side away from both axes, so a centre such as (−1, 1) is never read as
+            // the origin; the origin's own O sits up and to the left, where no axis number is
+            const [ox, oy] = turns.centre; const right = ox > 0; const up = oy >= 0;
+            return (
+              <g className="mp-tf-centre">
+                <circle cx={X(ox)} cy={Y(oy)} r="4.5" />
+                <text x={X(ox) + (right ? 8 : -8)} y={Y(oy) + (up ? -8 : 19)} textAnchor={right ? 'start' : 'end'} className="mp-tf-letter">O</text>
+              </g>
+            );
+          })()}
           <g ref={copyRef} className="mp-tf-copy">
             <polygon points={poly(cur)} />
             {cur.map(([x, y], i) => <circle key={`v${i}`} cx={X(x)} cy={Y(y)} r="5" />)}

@@ -598,11 +598,12 @@ describe('one next: every surface names the same step', () => {
   });
 
   it('a ח׳ student is not offered sys:1 (equations with percents) as new while pct:5 is not done', () => {
-    // February: sys:1 (December) is taught by now. Ratio, line, Pythagoras and statistics are done; percent is not started
+    // February: sys:1 (December) is taught by now. Ratio, the transformations (on this year's ח׳ path, November), line,
+    // Pythagoras and statistics are done; percent is not started
     const day = '2027-02-09'; const now = `${day}T09:00:00.000Z`;
     const done = (L: LearnState, ids: SkillId[]) => ids.forEach((s) => { L.skills[s] = masteredRec(ago(5, now), 60); });
     const L = emptyLearn();
-    done(L, ALL_SKILLS.filter((s) => ['ratio', 'line', 'pyth', 'stats'].includes(parseSkill(s).topic)));
+    done(L, ALL_SKILLS.filter((s) => ['ratio', 'transf', 'line', 'pyth', 'stats'].includes(parseSkill(s).topic)));
     const news = () => planNext(ctxOf(L, { grade: '8', day })).items.filter((x) => x.kind === 'new').map((x) => x.skill);
     expect(prereqsOf('sys:1')).toContain('pct:5');
     expect(news()).toEqual(['pct:1']);
@@ -643,6 +644,22 @@ describe('one next: every surface names the same step', () => {
     expect(mapFocus({ from: null, top: pm.top, lastTopic: 'line', topicIds: ids, firstId: ids[0], path: mid.path! })).toMatchObject({ topic: 'line', key: 'line:node:3' });
     // slope as steps leans on ratio: line:3 is not offered as new before ratio:1 is in place
     expect(p.items.some((x) => x.kind === 'new' && x.skill === 'line:3')).toBe(false);
+  });
+
+  it('this year\'s ח׳ student meets the transformations (8.5, November) after ratio and percent, by the calendar', () => {
+    // 2026-11-11 is school month 2 (November): ratio (September) and percent (October) mastered, transf:1 is next
+    const day = '2026-11-11'; const now = `${day}T09:00:00.000Z`;
+    const L = emptyLearn();
+    ALL_SKILLS.filter((s) => ['ratio', 'pct'].includes(parseSkill(s).topic)).forEach((s) => { L.skills[s] = masteredRec(ago(5, now), 60); });
+    const first = planNext(ctxOf(L, { grade: '8', day, now })).items.find((x) => x.kind === 'new')!;
+    expect(first).toMatchObject({ kind: 'new', skill: 'transf:1', to: '/learn/transf/1/A' });
+    expect(first.reason).toContain('לפי תוכנית הלימודים, זה נלמד בכיתה בנובמבר.');
+    // the cross-grade edge (coord:2, ז׳) holds nothing back without evidence; the map draws the unit third
+    expect(mapTopics('8', false).map((t) => t.id).slice(0, 4)).toEqual(['ratio', 'pct', 'transf', 'line']);
+    // and with only ratio done, percent (October) still comes first: the path is in school order
+    const R = emptyLearn();
+    ALL_SKILLS.filter((s) => parseSkill(s).topic === 'ratio').forEach((s) => { R.skills[s] = masteredRec(ago(5, now), 60); });
+    expect(planNext(ctxOf(R, { grade: '8', day, now })).items.find((x) => x.kind === 'new')!.skill).toBe('pct:1');
   });
 
   it('a brand-new student\'s first step is the map\'s focused stair, the one Welcome opens in November', () => {

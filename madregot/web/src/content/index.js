@@ -6,12 +6,24 @@ import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWord
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
+import { ALSO_ON_PATH } from '@/learn/skills.ts';
 
 // Each topic's misconception names include those the 2.0 teaching content adds.
 export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
-/** A grade's own units, in order. A bridge unit (bridge: true, the fractions floor) is not one of them. */
-export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grade) && !t.bridge);
+/**
+ * A grade's units, in order: its own, and a unit also climbed in it (learn/skills.ts ALSO_ON_PATH: this year's ח׳ learns
+ * the ז׳ transformations unit) right after the unit named there. A bridge unit (bridge: true, the fractions floor) is not
+ * one of them.
+ */
+export const topicsFor = (grade) => {
+  const g = String(grade);
+  const out = TOPICS.filter((t) => t.grade === g && !t.bridge);
+  TOPICS.filter((t) => !t.bridge && ALSO_ON_PATH[t.id]?.grade === g).forEach((t) => {
+    const i = out.findIndex((x) => x.id === ALSO_ON_PATH[t.id].after); out.splice(i < 0 ? out.length : i + 1, 0, t);
+  });
+  return out;
+};
 /** The bridge units under a grade: of that grade, or with it in alsoFor (the floor; shown only when it is switched on). */
 export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.grade === String(grade) || (t.alsoFor || []).includes(String(grade))));
 /**
@@ -23,8 +35,8 @@ export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.gr
  *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8
  */
 export const placementTopicsFor = (grade) => topicsFor(grade).filter((t) => t.placement !== false);
-/** The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it (no bridge unit). */
-export const rescueTopicsFor = (grade) => [...topicsFor(grade), ...TOPICS.filter((t) => !t.bridge && t.grade !== String(grade) && (t.alsoFor || []).includes(String(grade)))];
+/** The topics Exam Rescue offers a grade: those on its path, then those of another grade revised in it (no bridge unit, none twice). */
+export const rescueTopicsFor = (grade) => { const own = topicsFor(grade); return [...own, ...TOPICS.filter((t) => !t.bridge && !own.includes(t) && (t.alsoFor || []).includes(String(grade)))]; };
 
 /**
  * The words for a mistake on one stair: the stair's own misconception when it has one (one id can mean different

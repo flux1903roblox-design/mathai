@@ -424,13 +424,13 @@ const PROPS = {
         const [, type, , a, b] = it.key.split(':');
         return type === 'none' && area2Of(a) === area2Of(b) && choiceText(it, u) !== 'הצורות לא חופפות';
       }
-      if (it.key.startsWith('tf4r:')) { const [a, b, c, d] = nums(it.key); return choiceText(it, u) === 'כן' && !(a === d && b === c) && a * b === c * d; }
+      if (it.key.startsWith('tf4r:')) { const [a, b, c, d] = nums(it.key); return choiceText(it, u) === 'כן, הם חופפים' && !(a === d && b === c) && a * b === c * d; }
       return false;
     },
     // "yes" for two rectangles with equal perimeters and different sides
     'equal-perimeter': (it, u) => {
       const [a, b, c, d] = nums(it.key);
-      return it.key.startsWith('tf4r:') && choiceText(it, u) === 'כן' && !(a === d && b === c) && a + b === c + d;
+      return it.key.startsWith('tf4r:') && choiceText(it, u) === 'כן, הם חופפים' && !(a === d && b === c) && a + b === c + d;
     },
   },
   ratio: {

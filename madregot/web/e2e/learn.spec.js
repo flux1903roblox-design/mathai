@@ -2,9 +2,13 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll, expectUsable } from './helpers.js';
 
-test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
+// journeys run on phone and desktop; a test tagged @phone-small measures the smallest phone and runs there only
+test.beforeEach(({}, info) => {
+  if (info.tags.includes('@phone-small')) test.skip(info.project.name !== 'phone-small', 'measured on the smallest phone');
+  else test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop');
+});
 
 const step = (page) => page.evaluate(() => window.__madregotStep);
 
@@ -223,6 +227,65 @@ test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of the
   await toTopics();
   await expect(heads.filter({ hasText: 'משפט פיתגורס' })).toHaveText('משפט פיתגורס (כל הנושא)');
   await expect(heads.filter({ hasText: 'משוואות' }).last()).toHaveText('משוואות מכיתה ז׳ (כל הנושא)');
+  // this year's ח׳ learns the transformations (8.5, November): on its path, so this year's unit, not revision
+  await expect(heads.filter({ hasText: 'טרנספורמציות' })).toHaveText('טרנספורמציות (כל הנושא)');
+  await expect(heads.nth(2)).toHaveText('טרנספורמציות (כל הנושא)');
+});
+
+test('this year\'s ח׳ map climbs the transformations right after percent, as unit 3', async ({ page }) => {
+  await open(page, '#/', student('8'));
+  const titles = page.locator('.unit .unit-title');
+  await expect(titles.nth(0)).toHaveText('יחס וקנה מידה');
+  await expect(titles.nth(1)).toHaveText('אחוזים');
+  await expect(titles.nth(2)).toHaveText('טרנספורמציות');
+  await expect(titles.nth(3)).toHaveText('פונקציה קווית');
+  const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: 'טרנספורמציות' }) });
+  await expect(unit.locator('.unit-label')).toContainText('יחידה 3');
+  // its guidebook numbers it from the student's path too
+  await page.goto('./#/topic/transf');
+  await expect(page.locator('.unit-label').first()).toHaveText('יחידה 3');
+  await expectNoSidewaysScroll(page);
+});
+
+// GEOM-4 on the smallest phone: the point answer (two slots) of a transformations lesson fits, and the drawing of a
+// "which move" mastery check is large enough to read
+test('transf:1 on a 320×568 phone: the point answer row fits beside the drawing', { tag: '@phone-small' }, async ({ page }) => {
+  const it = await openOn(page, '#/lesson/transf/1', student('7'), (x) => x.form === 'pt');
+  expect(it.form).toBe('pt');
+  await expectNoSidewaysScroll(page);
+  const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
+  expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
+  await expectUsable(page, page.locator('#qtext'), 'the question');
+  const row = page.locator('.answer-bar .answer');
+  await expectUsable(page, row, 'the answer row');
+  const r = await row.boundingBox();
+  expect(r.x, 'the row starts on screen').toBeGreaterThanOrEqual(0);
+  expect(r.x + r.width, 'the row ends on screen').toBeLessThanOrEqual(320);
+  for (const slot of await page.locator('.answer-bar .answer [id^="slot-"]').all()) {
+    const b = await slot.boundingBox();
+    expect(b.height, 'a slot a finger can press').toBeGreaterThanOrEqual(40);
+    expect(b.x + b.width).toBeLessThanOrEqual(320);
+  }
+  await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
+  // the drawing (when the question has one) is inside the maths region
+  const fig = page.locator('.lesson-main svg.figure').first();
+  if (await fig.count()) {
+    const f = await fig.boundingBox(); const m = await page.locator('.lesson-main').boundingBox();
+    expect(f.y + f.height).toBeLessThanOrEqual(m.y + m.height + 1);
+  }
+  await answer(page, true);
+  await expect(page.locator('section.fb-good')).toBeVisible();
+});
+
+test('transf:4 on a 320×568 phone: a mastery check\'s drawing is at least 150px tall', { tag: '@phone-small' }, async ({ page }) => {
+  await openOn(page, '#/lesson/transf/4?kind=check&purpose=mastery', student('7'), (x) => !!x.fig);
+  const fig = page.locator('.lesson-main svg.figure').first();
+  await expect(fig).toBeVisible();
+  const f = await fig.boundingBox();
+  expect(f.height, 'the drawing is readable on a 320×568 phone').toBeGreaterThanOrEqual(150);
+  expect(f.x + f.width).toBeLessThanOrEqual(320);
+  await expectNoSidewaysScroll(page);
+  await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
 });
 
 test('the profile shows what the evidence says, on this device, and can delete everything', async ({ page }) => {

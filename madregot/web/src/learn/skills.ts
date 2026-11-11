@@ -19,8 +19,27 @@ export const parseSkill = (id: SkillId) => { const [topic, l] = id.split(':'); r
 
 /** Every skill in curriculum order (grade 7 topics, then grade 8). */
 export const ALL_SKILLS: SkillId[] = TOPIC_ORDER.flatMap((t) => Array.from({ length: STAIRS[t] }, (_, i) => skillId(t, i + 1)));
-/** A grade's own stairs, in order: its topics' stairs without the bridge units. */
-export const gradeSkillsOf = (g: '7' | '8'): SkillId[] => ALL_SKILLS.filter((id) => { const t = id.split(':')[0] as TopicId; return GRADE_OF[t] === g && !BRIDGE.has(t); });
+// The Ministry's תשפ״ז transition year: ח׳ learns the ז׳ transformations unit too (8.5, taught in November). The unit is
+// filed under ז׳ (7.11, the updated programme's home) and also drawn on the ח׳ path, right after `after`.
+// programme.test.ts fails when no unit of that grade lists one of its stairs. The entry leaves with 8.5 when
+// shared/programme.js moves to תשפ״ח (then 8.5 no longer lists transf, and that test says so).
+export const ALSO_ON_PATH: Partial<Record<TopicId, { grade: '7' | '8'; after: TopicId }>> = { transf: { grade: '8', after: 'pct' } };
+/** Is a topic on a grade's path: filed in it, or also climbed in it (never a bridge unit)? */
+export const onGradePath = (t: TopicId, g: '7' | '8' | string) => !BRIDGE.has(t) && (GRADE_OF[t] === g || ALSO_ON_PATH[t]?.grade === g);
+/**
+ * A grade's path in school order: the units on it (onGradePath) in TOPIC_ORDER, and a unit also climbed in it right
+ * after the unit its ALSO_ON_PATH entry names, as content/index.js topicsFor draws the map. So a ח׳ student meets ratio
+ * (September) and percent (October) before transformations (November), though ALL_SKILLS files transf under ז׳.
+ */
+export const pathTopicsOf = (g: '7' | '8'): TopicId[] => {
+  const out = TOPIC_ORDER.filter((t) => onGradePath(t, g) && ALSO_ON_PATH[t]?.grade !== g);
+  TOPIC_ORDER.filter((t) => onGradePath(t, g) && ALSO_ON_PATH[t]?.grade === g).forEach((t) => {
+    const i = out.indexOf(ALSO_ON_PATH[t]!.after); out.splice(i < 0 ? out.length : i + 1, 0, t);
+  });
+  return out;
+};
+/** A grade's own stairs, in path order: its topics' stairs and those also climbed in it, without the bridge units. */
+export const gradeSkillsOf = (g: '7' | '8'): SkillId[] => pathTopicsOf(g).flatMap((t) => Array.from({ length: STAIRS[t] }, (_, i) => skillId(t, i + 1)));
 /** Is this stair in a bridge unit (the floor under both grades)? */
 export const isBridgeSkill = (id: SkillId) => BRIDGE.has(id.split(':')[0] as TopicId);
 /** The bridge stairs, in order: the floor under every grade. */

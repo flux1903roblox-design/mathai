@@ -4,7 +4,7 @@
 // The bridge unit (fractions, skills.ts BRIDGE) is the floor under the grade, not a stair of it: a bridge stair is
 // missing only on evidence (never because it was not started), and it is offered as new only when the floor is on.
 import type { Action, LearnState, MasteryState, SkillId, SkillRecord, Stage } from './types';
-import { ALL_SKILLS, GRADE_OF, isBridgeSkill, parseSkill, prereqsOf } from './skills';
+import { ALL_SKILLS, onGradePath, parseSkill, prereqsOf } from './skills';
 import { masteryState, nextStage } from './mastery';
 import { openMisconceptions } from './misconceptions';
 import { hasContent } from './content/index';
@@ -103,7 +103,8 @@ export function isMissing(ctx: Context, id: SkillId, st = states(ctx)): boolean 
   if (missedSince(ctx.learn.floor?.results?.[id], ctx.learn.floor?.at, rec)) return true;
   // in the student's own grade, a stair never started and not passed on the map is not known yet (a bridge stair is
   // below the grade: not having started it says nothing)
-  return GRADE_OF[parseSkill(id).topic] === ctx.grade && !isBridgeSkill(id) && s === 'not-started' && !onPath(ctx, id);
+  // (onGradePath: filed in the grade, or also climbed in it this year, skills.ts ALSO_ON_PATH; never a bridge unit)
+  return onGradePath(parseSkill(id).topic, ctx.grade) && s === 'not-started' && !onPath(ctx, id);
 }
 
 /** The smallest missing prerequisite under a skill: follow missing prerequisites down to one whose own prerequisites are in place. */

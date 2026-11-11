@@ -7,7 +7,7 @@
 // Unlocks are derived from progress, so they need no migration. The first time an id is derived it is remembered in
 // look.earned (earnIds), and from then on it stays earned, even if a stair later falls back to needs-review.
 // Pure functions only; the store keeps `look` (lib/store.js), Mascot draws it (components/mascot/Accessories.jsx).
-import { TOPICS, TOPIC } from '@/content/index.js';
+import { TOPICS, TOPIC, topicsFor } from '@/content/index.js';
 import { doneCount, chestOpen, chestAfter } from './path.js';
 
 export const SLOTS = ['head', 'face', 'neck', 'body'];
@@ -72,8 +72,11 @@ export function cleanLook(look) {
   return out;
 }
 
-/** The units in the order a student meets them: their own grade first, then the other grade's. */
-const unitsFor = (grade) => [...TOPICS.filter((t) => t.grade === String(grade || '7')), ...TOPICS.filter((t) => t.grade !== String(grade || '7'))];
+/**
+ * The units in the order a student meets them: their own path first (topicsFor: a ח׳ student this year meets the
+ * transformations unit after percent), then the rest (the other grade's units and the fractions floor).
+ */
+const unitsFor = (grade) => { const own = topicsFor(String(grade || '7')); return [...own, ...TOPICS.filter((t) => !own.includes(t))]; };
 const unitComplete = (topic, path) => doneCount(topic, path) === TOPIC[topic].levels.length;
 
 /** The unit a colour is named for: the first completed one of its family, else the first of its family the student meets. */

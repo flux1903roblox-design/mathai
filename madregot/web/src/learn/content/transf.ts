@@ -13,7 +13,10 @@
 // the lane's spec/facts-transf.mjs, and the maths of every step by learn/content.test.ts.
 import type { DiagModel, FigSpec, ManipSpec, StairContent } from '../types';
 // @ts-ignore: plain JS, the practice generators' draws, texts and worked solutions
-import * as G from '@/content/transf.gen.js';
+import * as GEN from '@/content/transf.gen.js';
+
+/** The plain-JS module, untyped here: its drawings are checked by learn/figures.test.ts, not by the compiler. */
+const G: any = GEN;
 
 // ---------------------------------------------------------------- figures
 type Pt = [number, number];
