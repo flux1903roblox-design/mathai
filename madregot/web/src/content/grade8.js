@@ -86,8 +86,13 @@ function nearMiss() {
 const isRightSet = (s) => { const [u, v, w] = [...s].sort((x, y) => x - y); return u * u + v * v === w * w; };
 const setTex = (s) => s.join(',\\ ');
 const checkLine = (s) => { const [u, v, w] = [...s].sort((x, y) => x - y); return `$${setTex(s)}$: $${u}^2 + ${v}^2 = ${u * u + v * v}$, $${w}^2 = ${w * w}$, ${u * u + v * v === w * w ? 'שווים: ישר־זווית' : 'לא שווים'}.`; };
-/** Four triangles: each one right-angled (a triple, its sides in any order) or a near miss. */
-function fourSets(right) { return Array.from({ length: 4 }, (_, i) => (right(i) ? shuffle(scaled()) : nearMiss())); }
+/** Four different triangles (never the same three sides twice, in any order): each right-angled (a triple) or a near miss. */
+function fourSets(right) {
+  for (;;) {
+    const sets = Array.from({ length: 4 }, (_, i) => (right(i) ? shuffle(scaled()) : nearMiss()));
+    if (new Set(sets.map((s) => [...s].sort((x, y) => x - y).join(','))).size === 4) return sets;
+  }
+}
 
 // Which of four triangles is right-angled (or none): five answers, each as likely, so testing is the only way.
 function whichRight() {
@@ -119,32 +124,38 @@ function howManyRight() {
   };
 }
 
+/**
+ * A ladder in metres, never decimetres (PRODUCT2-9): its sides are drawn whole in tenths of a metre (1.2 to 3 m) and
+ * shown in metres, so a triple still gives an exact answer (2.4 מטר for 2.5 and 0.7).
+ */
 function ladder() {
   const askHeight = Math.random() < 0.6;
   const whole = Math.random() < 0.5;
-  let wall; let foot; let len;
-  if (whole) { const [a, b, c] = pick(TRIPLES.filter((t) => t[2] <= 26)); wall = Math.max(a, b); foot = Math.min(a, b); len = c; } else if (askHeight) {
-    for (;;) { len = R(8, 26); foot = R(2, Math.floor(len / 2)); if (!isSquare(len * len - foot * foot)) break; }
+  let wall; let foot; let len; // in tenths of a metre
+  if (whole) { const [a, b, c] = pick(TRIPLES.filter((t) => t[2] >= 10 && t[2] <= 30)); wall = Math.max(a, b); foot = Math.min(a, b); len = c; } else if (askHeight) {
+    for (;;) { len = R(12, 30); foot = R(3, Math.floor(len / 2)); if (!isSquare(len * len - foot * foot)) break; }
     wall = Math.sqrt(len * len - foot * foot);
   } else {
-    for (;;) { wall = R(6, 24); foot = R(2, Math.min(12, wall - 1)); if (!isSquare(wall * wall + foot * foot)) break; }
+    for (;;) { wall = R(10, 28); foot = R(3, Math.min(12, wall - 1)); if (!isSquare(wall * wall + foot * foot)) break; }
     len = Math.sqrt(wall * wall + foot * foot);
   }
-  const exact = askHeight ? wall : len;
-  const n = askHeight ? len * len - foot * foot : wall * wall + foot * foot;
+  const m = (d) => Math.round(d * 1e5) / 1e6; // tenths to metres, as shown
+  const exact = (askHeight ? wall : len) / 10;
+  const n = askHeight ? len * len - foot * foot : wall * wall + foot * foot; // in hundredths of a square metre, whole
+  const root = isSquare(n) ? `= ${m(Math.sqrt(n))}` : `\\approx ${r1(exact)}`;
   return {
-    key: `py4:${askHeight ? 'h' : 'L'}:${foot}:${askHeight ? len : wall}`,
+    key: `py4:${askHeight ? 'h' : 'L'}:${m(foot)}:${m(askHeight ? len : wall)}`,
     // short enough to stay three lines on a 320px phone, so the drawing below keeps its room (e2e/layout.spec.js)
     text: askHeight
-      ? `סולם באורך ${len} דצ״מ נשען על קיר, ורגלו ${foot} דצ״מ מהקיר. לאיזה גובה הוא מגיע? ${ROUND}`
-      : `סולם נשען על קיר ומגיע לגובה ${wall} דצ״מ, ורגלו ${foot} דצ״מ מהקיר. מה אורך הסולם? ${ROUND}`,
-    form: 'num', answer: isSquare(n) ? exact : r1(exact), exact, unit: 'דצ״מ',
-    fig: { type: 'ladder', wall: askHeight ? '?' : wall, foot, len: askHeight ? len : '?' },
+      ? `סולם באורך ${m(len)} מטר נשען על קיר, ורגלו ${m(foot)} מטר מהקיר. לאיזה גובה הוא מגיע? ${ROUND}`
+      : `סולם נשען על קיר ומגיע לגובה ${m(wall)} מטר, ורגלו ${m(foot)} מטר מהקיר. מה אורך הסולם? ${ROUND}`,
+    form: 'num', answer: isSquare(n) ? exact : r1(exact), exact, unit: 'מטר',
+    fig: { type: 'ladder', wall: askHeight ? '?' : m(wall), foot: m(foot), len: askHeight ? m(len) : '?' },
     hint: 'הקיר, הרצפה והסולם יוצרים משולש ישר־זווית. הסולם הוא היתר.',
     solution: askHeight
-      ? [`$h^2 = ${len}^2 - ${foot}^2 = ${n}$`, `$h = \\sqrt{${n}} ${eqRoot(n)}$`]
-      : [`$L^2 = ${wall}^2 + ${foot}^2 = ${n}$`, `$L = \\sqrt{${n}} ${eqRoot(n)}$`],
-    diag: (u) => [askHeight && near(u, Math.sqrt(len * len + foot * foot), 0.06) && 'add-not-sub', !askHeight && near(u, wall + foot) && 'add-legs'].filter(Boolean),
+      ? [`$h^2 = ${m(len)}^2 - ${m(foot)}^2 = ${n / 100}$`, `$h = \\sqrt{${n / 100}} ${root}$`]
+      : [`$L^2 = ${m(wall)}^2 + ${m(foot)}^2 = ${n / 100}$`, `$L = \\sqrt{${n / 100}} ${root}$`],
+    diag: (u) => [askHeight && near(u, Math.sqrt(len * len + foot * foot) / 10, 0.06) && 'add-not-sub', !askHeight && near(u, (wall + foot) / 10) && 'add-legs'].filter(Boolean),
   };
 }
 

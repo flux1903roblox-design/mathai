@@ -24,6 +24,8 @@
 import { near, plainNum, gcd, linText } from './util.js';
 
 const QUAD_NAMES = ['', 'הרביע הראשון', 'הרביע השני', 'הרביע השלישי', 'הרביע הרביעי'];
+/** In a quadrant: ברביע הראשון (the article goes into the ב, never בהרביע). */
+const inQuad = (q) => `ב${QUAD_NAMES[q].replace(/^ה/, '')}`;
 export const quadOf = ([x, y]) => (x > 0 && y > 0 ? 1 : x < 0 && y > 0 ? 2 : x < 0 && y < 0 ? 3 : x > 0 && y < 0 ? 4 : 0);
 
 // ---------------------------------------------------------------- the balance (מאזניים)
@@ -332,7 +334,7 @@ export function triangleAngles(m, c) {
 }
 // maths inside a Hebrew sentence is isolated left to right, so it reads 6² + 8² = 10² and not backwards
 const ltr = (t) => `⁦${t}⁩`;
-export const lineText = ({ m, b }) => `y = ${m === 1 ? '' : m === -1 ? '-' : num(m)}x${b === 0 ? '' : b > 0 ? ` + ${num(b)}` : ` - ${num(-b)}`}`;
+export const lineText = ({ m, b }) => (m === 0 ? `y = ${num(b)}` : `y = ${m === 1 ? '' : m === -1 ? '-' : num(m)}x${b === 0 ? '' : b > 0 ? ` + ${num(b)}` : ` - ${num(-b)}`}`);
 
 /** The answer (or a student's state) as plain text. */
 export function manipText(it, u = it.answer) {
@@ -342,7 +344,7 @@ export function manipText(it, u = it.answer) {
     case 'numberline': return lineNum(m, u);
     case 'bars': return num(u);
     case 'angle': return `${num(u)}°`;
-    case 'plot': return m.quadrant && u === it.answer ? `נקודה ב${QUAD_NAMES[m.quadrant]}, למשל ${ltr(`(${num(u[0])}, ${num(u[1])})`)}` : `(${num(u[0])}, ${num(u[1])})`;
+    case 'plot': return m.quadrant && u === it.answer ? `נקודה ${inQuad(m.quadrant)}, למשל ${ltr(`(${num(u[0])}, ${num(u[1])})`)}` : `(${num(u[0])}, ${num(u[1])})`;
     case 'line': return lineText(u);
     case 'squares': return u.c != null ? `ניצבים ${u.a} ו־${u.b}: ${ltr(`${u.a}² + ${u.b}² = ${u.c}²`)}` : `ניצבים ${u.a} ו־${u.b}`;
     case 'pins': return m.labels.map((l, i) => `${labelPlain(l)} ב־${ltr(lineNum(m, u[i]))}`).join(', ');
@@ -375,7 +377,7 @@ export function manipPlain(it) {
     case 'numberline': return m.den
       ? `[ציר מספרים מ־${m.min} עד ${m.max}, כל יחידה מחולקת ל־${m.den} חלקים שווים; מזיזים סמן מהנקודה ${m.from}]`
       : `[ציר מספרים מ־${m.min} עד ${m.max}; מזיזים סמן מהנקודה ${m.from}]`;
-    case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ב${QUAD_NAMES[m.quadrant]}${m.fixX != null ? ` שה־x שלה ${m.fixX}` : m.fixY != null ? ` שה־y שלה ${m.fixY}` : ''}]`
+    case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ${inQuad(m.quadrant)}${m.fixX != null ? ` שה־x שלה ${m.fixX}` : m.fixY != null ? ` שה־y שלה ${m.fixY}` : ''}]`
       : m.line ? `[מערכת צירים עם הישר; שמים עליו את הנקודה שבה x = ${it.answer[0]}]`
         : m.lines ? `[מערכת צירים עם שני ישרים, ${m.lines.map(lineText).join(' ו־')}; שמים את נקודת המפגש שלהם]`
           : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;

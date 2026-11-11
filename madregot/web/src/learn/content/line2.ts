@@ -127,7 +127,7 @@ const equationStory: DiagModel<EqStory> = {
     const out = [`הקצב הוא השיפוע: $m = \\frac{${T(y2)} - ${T(y1, true)}}{${T(p.x2)} - ${T(p.x1, true)}} = ${T(p.m)}$`];
     out.push(`ההתחלה היא $x = 0$, כלומר $b$. מציבים את $(${T(p.x1)}, ${T(y1)})$: $${T(y1)} = ${T(p.m)} \\cdot ${T(p.x1, true)} + b$`);
     out.push(bLine(y1, p.m * p.x1, p.b));
-    if (p.k === 0) out.push(`הנר היה בגובה $${p.b}$ ס״מ: בכל שעה הוא התקצר ב־$${-p.m}$, ו־$${p.x1}$ שעות אחורה מוסיפות $${-p.m * p.x1}$ ס״מ.`);
+    if (p.k === 0) out.push(`הנר היה בגובה $${p.b}$ ס״מ: בכל שעה הוא התקצר ב־$${-p.m}$, ו${p.x1 === 1 ? 'שעה אחת אחורה מוסיפה' : `־$${p.x1}$ שעות אחורה מוסיפות`} $${-p.m * p.x1}$ ס״מ.`);
     else if (p.k === 1) out.push(`בהתחלה היו במיכל $${p.b}$ ליטר.`);
     else out.push(`הפונקציה: $${lineTex(p.m, p.b)}$`);
     return out;

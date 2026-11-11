@@ -134,7 +134,7 @@ const stepsWhy = (s, d) => `מהאיבר הראשון לאיבר ה־$n$ יש $n
 function patternLin() {
   const { s, d, P } = patternParams();
   return {
-    key: `ex2l:${s}:${d}:${P.head[0]}`, text: `${P.story(s, d)} כתבו ביטוי ל${P.what} ה־$n$.`, form: 'lin', var: 'n',
+    key: `ex2l:${s}:${d}:${P.head[0]}`, text: `${P.story(s, d)} כתבו ביטוי ל${P.what.replace(/^ה/, '')} ה־$n$.`, form: 'lin', var: 'n',
     answer: { k: d, c: s - d }, fig: { type: 'table', head: P.head, rows: patternRows(s, d, 4) },
     hint: `בכל צעד מוסיפים $${d}$, ולכן יש $${d}n$ בביטוי. בדקו את $n = 1$: הביטוי צריך לתת $${s}$.`,
     solution: [stepsWhy(s, d), `$${s} + ${d}(n - 1) = ${s} + ${d}n - ${d} = ${linTex(d, s - d, 'n')}$`, `בדיקה: כש־$n = 1$ יוצא $${d} ${s - d < 0 ? '-' : '+'} ${abs(s - d)} = ${s}$, כמו בטבלה.`],
@@ -293,7 +293,7 @@ function identityMc() {
       choices, answer: choices.findIndex((c) => c.ok),
       hint: 'כנסו איברים דומים, ובדקו בהצבה של שני מספרים, למשל $x = 0$ ו־$x = 1$.',
       solution: [
-        `מכנסים: $${T(p)}x ${r < 0 ? '-' : '+'} ${abs(r)}x = ${linTex(K, 0)}$, והמספרים: $${T(C)}$. התשובה: $${linTex(K, C)}$`,
+        `מכנסים: $${T(p)}x ${r < 0 ? '-' : '+'} ${abs(r) === 1 ? '' : abs(r)}x = ${linTex(K, 0)}$, והמספרים: $${T(C)}$. התשובה: $${linTex(K, C)}$`,
         `$${linTex(conj.k, conj.c)}$ שווה לביטוי כש־$x = 1$ (שניהם $${orig(1)}$), אבל כש־$x = 0$ הביטוי $${orig(0)}$ ו־$${linTex(conj.k, conj.c)}$ נותן $${at(conj, 0)}$.`,
         `$${linTex(drop.k, drop.c)}$ שווה לביטוי כש־$x = 0$, אבל כש־$x = 1$ הוא $${at(drop, 1)}$ ולא $${orig(1)}$. הצבה אחת יכולה רק לגלות שביטויים שונים.`,
       ],

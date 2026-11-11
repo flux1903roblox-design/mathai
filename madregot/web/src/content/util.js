@@ -211,5 +211,61 @@ export function linText({ k, c }, v = 'x') {
 /** Pythagorean triples with small sides, scaled. */
 export const TRIPLES = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15], [8, 15, 17], [12, 16, 20], [7, 24, 25], [20, 21, 29], [15, 20, 25], [10, 24, 26]];
 
+/**
+ * A count and its noun as Hebrew says it (PRODUCT2-9): one is written after the noun (חלק אחד, כוס סוכר אחת), a part
+ * of one takes the noun in the singular ($0.25$ כוס), and any other count the plural ($3$ חלקים, $1.5$ כוסות).
+ * `shown` is the number as TeX (a fraction, a decimal); `oneWord` is אחד or אחת, by the noun.
+ */
+export const countOf = (n, one, many, { shown = String(n), oneWord = 'אחד' } = {}) => (n === 1 ? `${one} ${oneWord}` : n > 0 && n < 1 ? `$${shown}$ ${one}` : `$${shown}$ ${many}`);
+
 /** When, in words: "מחר" for one day, "בעוד יומיים", "בעוד 3 ימים" (never "בעוד 1 יום"). */
 export const inDays = (n) => (n <= 0 ? 'היום' : n === 1 ? 'מחר' : n === 2 ? 'בעוד יומיים' : `בעוד ${n} ימים`);
+
+// ---------------------------------------------------------------- choices whose look tells nothing (PRODUCT2-8)
+/**
+ * How wide a choice looks on screen: its words, or its TeX with each command one sign (\cdot is one dot), the braces
+ * gone and a fraction as wide as its wider part. The source writes a space around + and =, where KaTeX puts one too.
+ */
+export function choiceWidth(c) {
+  if (c.tex == null) return [...String(c.text ?? '')].length;
+  return String(c.tex)
+    .replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, (_, a, b) => '#'.repeat(Math.max(a.length, b.length)))
+    .replace(/\\(?:left|right)\b/g, '').replace(/\\[a-zA-Z]+/g, '#').replace(/\\[,;:! ]/g, ' ').replace(/[{}]/g, '').length;
+}
+/** Where choice `right` stands by width: 'narrowest', 'widest' or 'between'; null when it ties another at an end. */
+export function widthPlace(choices, right) {
+  const w = choices.map(choiceWidth); const r = w[right]; const others = w.filter((_, j) => j !== right);
+  if (others.every((x) => x > r)) return 'narrowest';
+  if (others.every((x) => x < r)) return 'widest';
+  return others.some((x) => x < r) && others.some((x) => x > r) ? 'between' : null;
+}
+/**
+ * A place for the right one of n choices: the narrowest one time in n, the widest one time in n, between otherwise.
+ * `narrowest: false` when another choice is always the narrowest (y = 5 among lines): that time goes to between.
+ */
+export function drawPlace(n, rnd = Math.random, { narrowest = true } = {}) {
+  const u = rnd() * n;
+  return u < 1 ? (narrowest ? 'narrowest' : 'between') : u < 2 ? 'widest' : 'between';
+}
+const subsetsOf = (xs, k) => (k === 0 ? [[]] : xs.length < k ? [] : [...subsetsOf(xs.slice(1), k - 1).map((s) => [xs[0], ...s]), ...subsetsOf(xs.slice(1), k)]);
+const eachForm = (lists) => lists.reduce((acc, l) => acc.flatMap((a) => l.map((f) => [...a, f])), [[]]);
+/**
+ * Choices that give nothing away by their width (PRODUCT2-8). Each option is one answer and the ways it can be written
+ * (`forms`: the same equation or the same words each time) with its other fields (ok, bug); the right one comes first,
+ * then the wrong ones always used (`keep` of them), then the others, of which as many are taken as fill `n` choices.
+ * Of every way to take and write them that puts the right choice at `place` (drawPlace), no two choices reading the
+ * same, one is drawn, and the choices come back shuffled; null when none does (the caller draws new numbers).
+ */
+export function byWidth(options, place, { n = options.length, keep = 0, rnd = Math.random } = {}) {
+  const [right, ...wrong] = options;
+  const shown = (c) => String(c.tex ?? c.text).replace(/\s+/g, '');
+  const fits = subsetsOf(wrong.slice(keep), n - 1 - keep).flatMap((s) => {
+    const set = [right, ...wrong.slice(0, keep), ...s];
+    return eachForm(set.map((o) => o.forms)).filter((fs) => widthPlace(fs, 0) === place && new Set(fs.map(shown)).size === fs.length)
+      .map((fs) => set.map(({ forms, ...rest }, i) => ({ ...rest, ...fs[i] })));
+  });
+  if (!fits.length) return null;
+  const a = fits[Math.floor(rnd() * fits.length)];
+  for (let i = a.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}

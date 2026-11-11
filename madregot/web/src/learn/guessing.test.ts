@@ -23,11 +23,11 @@ import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from './mastery';
 import { VERIFY_N, VERIFY_NEED } from './misconceptions';
 import { seeded } from './expr';
 // @ts-ignore: plain JS
-import { isCorrect, TOPIC, topicsFor, figPlain } from '@/content/index.js';
+import { isCorrect, TOPIC, topicsFor, figPlain, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { manipSolution } from '@/content/manip.js';
 // @ts-ignore: plain JS
-import { toFrac } from '@/content/util.js';
+import { toFrac, choiceWidth } from '@/content/util.js';
 // @ts-ignore: plain JS
 import { probeItem, startLevel, nextProbe, PER_TOPIC, PROBE_LEN, KNOW } from '@/lib/placement.js';
 // @ts-ignore: plain JS
@@ -154,6 +154,96 @@ describe('a check cannot be passed by guessing', () => {
     expect(plan).toHaveLength(VERIFY_N);
     const rate = passRate(plan.map((q) => drawOf(q.skill, q.source, q.candidates)), VERIFY_NEED);
     expect(rate, `${skill} verify ${misc}: ${(100 * rate).toFixed(2)}%`).toBeLessThan(LIMIT);
+  }, SLOW);
+});
+
+// PRODUCT2-8: guessing by how the choices look. A student who does not read the maths can still pick the longest
+// choice (as written, and as wide on screen), the shortest, the middle number, or the choice in the same place every
+// time. On every choice question a check can ask, no such look may pick the right choice more often than a blind
+// guess (one in three for three choices, one in four for four), within the measure's noise; and a mastery check stays
+// under 2% for a guesser who answers its choice questions by look and its typed questions by the best guess above.
+/** A choice as written, and its number when it is one (−12, 3.5, \frac{3}{4}). */
+const shownOf = (c: { tex?: string; text?: string }) => String(c.tex ?? c.text);
+function valueOf(c: { tex?: string; text?: string }) {
+  const s = shownOf(c).replace(/−/g, '-').replace(/\\[,;! ]|\s+/g, '');
+  const f = s.match(/^(-?)\\frac\{(\d+)\}\{(\d+)\}$/);
+  return f ? (f[1] ? -1 : 1) * Number(f[2]) / Number(f[3]) : s === '' ? NaN : Number(s);
+}
+const allTies = (xs: number[], m: number) => xs.map((x, j) => (x === m ? j : -1)).filter((j) => j >= 0);
+const most = (f: (c: Item) => number, pickMax: boolean) => (it: Item) => { const L = it.choices.map(f); return allTies(L, pickMax ? Math.max(...L) : Math.min(...L)); };
+/** Each look names the choices it would pick (a guesser picks one of them at random); none: it cannot be used here. */
+const LOOKS: Record<string, (it: Item) => number[]> = {
+  longest: most((c) => shownOf(c).length, true),
+  shortest: most((c) => shownOf(c).length, false),
+  widest: most(choiceWidth, true),
+  narrowest: most(choiceWidth, false),
+  // the middle number (of an even count, either of the middle two)
+  'middle value': (it) => {
+    const v: number[] = it.choices.map(valueOf); if (v.some((x) => !Number.isFinite(x))) return [];
+    const s = [...v].sort((a, b) => a - b); const k = s.length; const mids = k % 2 ? [s[(k - 1) / 2]] : [s[k / 2 - 1], s[k / 2]];
+    return v.map((x, j) => (mids.includes(x) ? j : -1)).filter((j) => j >= 0);
+  },
+  ...Object.fromEntries([0, 1, 2, 3, 4].map((p) => [`always place ${p + 1}`, (it: Item) => (p < it.choices.length ? [p] : [])])),
+};
+/** The chance a look picks the right choice of this question; a look that names nothing here is a blind guess. */
+function lookChance(it: Item, look: string) {
+  const named = LOOKS[look](it); const pool = named.length ? named : it.choices.map((_: unknown, j: number) => j);
+  return pool.filter((j: number) => isCorrect(it, j)).length / pool.length;
+}
+/**
+ * Tells known and left for another change, each with its reason. A kind of question not listed here may not have one.
+ * - ex1m (3x at x = −4: −12, 12, −1): the right product of a negative is the widest of its readings, and the right
+ *   one is the middle number whenever x ≥ 2. Both follow from which readings are offered, which FOLLOWUP-36 redesigns.
+ * - ex2w, ex5e, eq1w and lf2 were not in the council's list (PRODUCT2-8 names sn2, sy1e, lf2p, sy3m, sy5g and ex1m).
+ * - eq5p is a tell only on screen, where a fraction is narrow: the right equation, with every part, is the widest.
+ */
+const KNOWN_TELLS = new Set([
+  'expr:1 ex1m|longest', 'expr:1 ex1m|widest', 'expr:1 ex1m|middle value',
+  'expr:2 ex2w|shortest', 'expr:2 ex2w|narrowest', 'expr:5 ex5e|longest', 'expr:5 ex5e|widest',
+  'eq:1 eq1w|middle value', 'eq:1 eq1w|shortest', 'eq:1 eq1w|narrowest',
+  'line:2 lf2|shortest', 'line:2 lf2|narrowest', 'line:2 lf2|always place 1', 'eq:5 eq5p|widest',
+]);
+
+describe('a check cannot be passed by how its choices look', () => {
+  // every kind of choice question a check can ask (its stair and its key's prefix), from every source a check draws
+  const LOOK_N = 3000; // questions per stair and source; a kind is measured once it has 150
+  const kinds: Record<string, { blind: number; n: number; right: Record<string, number> }> = {};
+  it('no look picks the right choice of a check\'s choice question more often than a blind guess', () => {
+    for (const skill of ALL_SKILLS) {
+      for (const source of ['gen', 'diag', 'transfer'] as Source[]) {
+        for (let i = 0; i < LOOK_N; i += 1) {
+          const it = itemFor(skill, source, rnd, undefined, undefined, { test: true });
+          if (it.form !== 'mc' || !fairForCheck(it)) continue;
+          const r = (kinds[`${skill} ${String(it.key).split(':')[0]}`] ||= { blind: 0, n: 0, right: {} });
+          r.n += 1; r.blind += 1 / it.choices.length; // a kind can mix three and four choices
+          Object.keys(LOOKS).forEach((look) => { r.right[look] = (r.right[look] || 0) + lookChance(it, look); });
+        }
+      }
+    }
+    expect(Object.keys(kinds).length).toBeGreaterThan(10);
+    const tells: string[] = [];
+    Object.entries(kinds).filter(([, r]) => r.n >= 150).forEach(([kind, r]) => {
+      // a blind guess, and the noise of a sample of n (four standard errors, at least 4 points)
+      const blind = r.blind / r.n; const noise = Math.max(0.04, 4 * Math.sqrt(blind * (1 - blind) / r.n));
+      Object.entries(r.right).forEach(([look, ok]) => {
+        if (ok / r.n >= blind + noise && !KNOWN_TELLS.has(`${kind}|${look}`)) tells.push(`${kind}: "${look}" is right ${(100 * ok / r.n).toFixed(1)}% of ${r.n} (a blind guess ${(100 * blind).toFixed(0)}%)`);
+      });
+    });
+    expect(tells).toEqual([]);
+    // the kinds PRODUCT2-8 fixed are measured, and fair to every look
+    ['signed:2 sn2', 'sys:1 sy1e', 'line:2 lf2p', 'sys:3 sy3m', 'sys:5 sy5g'].forEach((k) => expect(kinds[k]?.n, k).toBeGreaterThanOrEqual(150));
+  }, 4 * SLOW);
+  it.each(ALL_SKILLS)('%s: the mastery check, answered by look and the best typed guess', (skill) => {
+    const draws = planDraws('mastery', skill);
+    const samples = draws.map((d) => Array.from({ length: N }, d));
+    // each typed strategy's chance on each question: the learned guesses (right or wrong) and the numbers shown
+    const typed: ((it: Item) => number)[] = [...learnGuesses(samples.flat()).map((g) => (it: Item) => { const v = g(it); return v !== undefined && isCorrect(it, v) ? 1 : 0; }), ...SHOWN];
+    let best = 0;
+    Object.keys(LOOKS).forEach((look) => typed.forEach((t) => {
+      const per = samples.map((xs) => xs.reduce((a, it) => a + (it.form === 'mc' ? lookChance(it, look) : t(it)), 0) / N);
+      best = Math.max(best, atLeast(per, MASTERY_NEED));
+    }));
+    expect(best, `${skill} mastery by look: ${(100 * best).toFixed(2)}%`).toBeLessThan(LIMIT);
   }, SLOW);
 });
 

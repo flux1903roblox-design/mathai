@@ -592,7 +592,8 @@ const PROPS = {
       return v < 0 && lo === Math.ceil(v) && hi === Math.ceil(v) + 1;
     },
     'ignore-sign': (it, u) => Array.isArray(u) && it.answer.some((v, i) => v < 0 && u[i] === -v),
-    'neg-compare': (it, u) => { const [a, b] = nums(it.key); return a < 0 && b < 0 && a !== b && u === 2 - it.answer; },
+    // the sign chosen is the reverse of the right one (the three signs stand in a new order each time)
+    'neg-compare': (it, u) => { const [a, b] = nums(it.key); return a < 0 && b < 0 && a !== b && chosen(it, u) === (a < b ? '>' : '<'); },
     order: (it, u) => {
       const t = signedFacts(it);
       if (it.key.startsWith('sn4:') && t[3] === '*') return near(u, (t[1] === '+' ? t[0] + t[2] : t[0] - t[2]) * t[4]);

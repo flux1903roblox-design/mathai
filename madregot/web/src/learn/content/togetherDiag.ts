@@ -214,7 +214,8 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { bugs: { 'add-legs': 21 } },
   ],
   'pyth:4': [
-    { model: 'diag', p: { k: 0, ask: 1, c: 17, big: 15, small: 8 } }, // the kite: string 17, 8 along the ground
+    // the kite: string 17, 8 along the ground, in whole metres (the role of a cable, k 2: a ladder's sides are in tenths)
+    { model: 'diag', p: { k: 2, ask: 1, c: 17, big: 15, small: 8 } },
     // the screen 96 by 72: 120. The sides added: 168. The square not rooted: 14400
     { bugs: { 'add-legs': 168, 'no-root': 14400 } },
   ],

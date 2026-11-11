@@ -288,7 +288,7 @@ export function figPlain(f) {
     case 'table': return `טבלה: ${f.rows.map((r) => r.join(' → ')).join('; ')}`;
     case 'coord': return [
       f.points?.length ? `נקודות: ${f.points.map(pt).join(', ')}` : '',
-      f.line ? `ישר y = ${f.line.m}x + ${f.line.b}` : '',
+      f.line ? `ישר y = ${linText({ k: f.line.m, c: f.line.b })}` : '',
       f.lines?.length ? `ישרים: ${f.lines.map(lineText).join(', ')}` : '',
       f.polygon ? `מצולע: ${f.polygon.map(([x, y]) => `(${x}, ${y})`).join(' ')}` : '',
     ].filter(Boolean).join('; ');

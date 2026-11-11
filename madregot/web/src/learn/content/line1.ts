@@ -32,8 +32,8 @@ const tableTex = (xs: (number | string)[], ys: (number | string)[]) =>
   `\\begin{array}{c|${'c'.repeat(xs.length)}} x & ${xs.map(cell).join(' & ')} \\\\ \\hline y & ${ys.map(cell).join(' & ')} \\end{array}`;
 /** The "+ b" after a product: " + 3", " - 3" or nothing. */
 const plusB = (b: number) => (b === 0 ? '' : ` ${b < 0 ? '-' : '+'} ${Math.abs(b)}`);
-/** p/q as written, then reduced when that reads differently: \frac{6}{4} = \frac{3}{2}. */
-const fracEq = (p: number, q: number) => { const f = `\\frac{${p}}{${q}}`; const r = T(p / q); return f === r ? f : `${f} = ${r}`; };
+/** p/q as written, then reduced when that reads differently: \frac{6}{4} = \frac{3}{2}. Over 1 it is p itself (never \frac{6}{1}). */
+const fracEq = (p: number, q: number) => { if (q === 1) return T(p); const f = `\\frac{${p}}{${q}}`; const r = T(p / q); return f === r ? f : `${f} = ${r}`; };
 
 // ================================================================ stair 1: a table of values
 

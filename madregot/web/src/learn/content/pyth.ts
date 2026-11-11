@@ -646,12 +646,21 @@ const stair3: StairContent = {
 
 // ---------------------------------------------------------------- stair 4: a word problem
 
-/** A right triangle hidden in a story. big, small: the legs; c: the hypotenuse; ask 0 the hypotenuse, 1 big, 2 small. */
+/**
+ * A right triangle hidden in a story. big, small: the legs; c: the hypotenuse; ask 0 the hypotenuse, 1 big, 2 small.
+ * The sides are drawn whole in the story's own small unit, and shown divided by its `per` (a ladder's sides are drawn
+ * in tenths of a metre and shown in metres: 2.4 מטר, never decimetres).
+ */
 type RT = { k: number; ask: number; c: number; big: number; small: number };
-const rtExact = (p: RT) => (p.ask === 0 ? p.c : p.ask === 1 ? p.big : p.small);
+const per = (p: RT) => ROLES[p.k].per;
+/** A number as shown: 2.4, 5.76 (no floating-point tail). */
+const shown = (v: number) => String(Math.round(v * 1e6) / 1e6);
+const rtExact = (p: RT) => (p.ask === 0 ? p.c : p.ask === 1 ? p.big : p.small) / per(p);
 const rtAnswer = (p: RT) => len(rtExact(p));
-/** The square of the missing side: a whole number even when the side is not. */
+/** The square of the missing side, in the drawn unit: a whole number even when the side is not. */
 const rtSq = (p: RT) => (p.ask === 0 ? p.big * p.big + p.small * p.small : p.c * p.c - rtKnown(p) ** 2);
+/** Its root as the solution writes it: "= 2.4" when it is exact, "≈ 2.2" when not. */
+const rtRoot = (p: RT) => (isSq(rtSq(p)) ? `= ${shown(Math.sqrt(rtSq(p)) / per(p))}` : `\\approx ${r1(Math.sqrt(rtSq(p)) / per(p))}`);
 const rtKnown = (p: RT) => (p.ask === 1 ? p.small : p.big);
 const askOf = (rnd: Rng) => { const r = rnd(); return r < 0.4 ? 0 : r < 0.75 ? 1 : 2; };
 const rtOf = (rnd: Rng, k: number, pool: Triple[]): RT => {
@@ -672,32 +681,33 @@ const rtRootOf = (rnd: Rng, k: number): RT => {
   }
 };
 
+// each prediction in the unit shown (a ladder's in metres)
 const rtBugs: DiagModel<RT>['bugs'] = {
-  'add-legs': (p) => (p.ask === 0 ? p.big + p.small : null),
-  'no-root': rtSq,
+  'add-legs': (p) => (p.ask === 0 ? (p.big + p.small) / per(p) : null),
+  'no-root': (p) => rtSq(p) / per(p) ** 2,
   // the larger given leg taken as the hypotenuse: subtracted when the hypotenuse was missing
-  'wrong-hyp': (p) => (p.ask === 0 ? Math.sqrt(p.big * p.big - p.small * p.small) : null),
-  'add-not-sub': (p) => (p.ask === 0 ? null : Math.sqrt(p.c * p.c + rtKnown(p) ** 2)),
-  'subtract-sides': (p) => (p.ask === 0 ? null : p.c - rtKnown(p)),
+  'wrong-hyp': (p) => (p.ask === 0 ? Math.sqrt(p.big * p.big - p.small * p.small) / per(p) : null),
+  'add-not-sub': (p) => (p.ask === 0 ? null : Math.sqrt(p.c * p.c + rtKnown(p) ** 2) / per(p)),
+  'subtract-sides': (p) => (p.ask === 0 ? null : (p.c - rtKnown(p)) / per(p)),
 };
 
 const ROLES = [
-  { hyp: 'הסולם', angle: 'הקיר והרצפה', unit: 'דצ״מ' },
-  { hyp: 'האלכסון', angle: 'הרוחב והגובה של המסך', unit: 'אינץ׳' },
-  { hyp: 'הכבל', angle: 'העמוד והקרקע', unit: 'מטר' },
+  { hyp: 'הסולם', angle: 'הקיר והרצפה', unit: 'מטר', per: 10 },
+  { hyp: 'האלכסון', angle: 'הרוחב והגובה של המסך', unit: 'אינץ׳', per: 1 },
+  { hyp: 'הכבל', angle: 'העמוד והקרקע', unit: 'מטר', per: 1 },
 ];
 const rtSolution = (p: RT) => {
-  const n = ROLES[p.k];
+  const n = ROLES[p.k]; const s = (v: number) => shown(v / n.per); const s2 = (v: number) => shown(v / n.per ** 2);
   const first = `הזווית הישרה היא בין ${n.angle}, ו${n.hyp} מולה: ${n.hyp} הוא היתר.`;
   if (p.ask === 0) {
     return [first,
-      `חסר היתר, ולכן מחברים ריבועים: $${p.big}^2 + ${p.small}^2 = ${p.big ** 2} + ${p.small ** 2} = ${rtSq(p)}$.`,
-      `מוציאים שורש: $\\sqrt{${rtSq(p)}} ${eqRoot(rtSq(p))}$ ${n.unit}.`];
+      `חסר היתר, ולכן מחברים ריבועים: $${s(p.big)}^2 + ${s(p.small)}^2 = ${s2(p.big ** 2)} + ${s2(p.small ** 2)} = ${s2(rtSq(p))}$.`,
+      `מוציאים שורש: $\\sqrt{${s2(rtSq(p))}} ${rtRoot(p)}$ ${n.unit}.`];
   }
   const k = rtKnown(p);
   return [first,
-    `חסר ניצב, ולכן מחסרים מריבוע היתר: $${p.c}^2 - ${k}^2 = ${p.c ** 2} - ${k ** 2} = ${rtSq(p)}$.`,
-    `מוציאים שורש: $\\sqrt{${rtSq(p)}} ${eqRoot(rtSq(p))}$ ${n.unit}.`];
+    `חסר ניצב, ולכן מחסרים מריבוע היתר: $${s(p.c)}^2 - ${s(k)}^2 = ${s2(p.c ** 2)} - ${s2(k ** 2)} = ${s2(rtSq(p))}$.`,
+    `מוציאים שורש: $\\sqrt{${s2(rtSq(p))}} ${rtRoot(p)}$ ${n.unit}.`];
 };
 const rtHint = (p: RT) => {
   const n = ROLES[p.k];
@@ -707,18 +717,26 @@ const rtHint = (p: RT) => {
 };
 
 const ladderModel: DiagModel<RT> = {
-  params: (rnd) => (rnd() < 0.5 ? rtOf(rnd, 0, ALL.filter((t) => t[2] <= 26)) : rtRootOf(rnd, 0)),
+  // a ladder of 1.2 to 3 metres, whose every mistake gives an answer at least a tenth of a metre away from the right one
+  // (in metres to tenths, a prediction nearer than that is typed as the right answer: 2.39 and 2.41 are both 2.4)
+  params: (rnd) => {
+    for (;;) {
+      const p = rnd() < 0.5 ? rtOf(rnd, 0, ALL.filter((t) => t[2] <= 26)) : rtRootOf(rnd, 0);
+      if (p.c >= 12 && Object.values(rtBugs).every((f) => { const v = f(p); return v == null || Math.abs(v - rtExact(p)) >= 0.1; })) return p;
+    }
+  },
+  // in metres (the sides are drawn in tenths of a metre): 2.4 מטר
   text: (p) => [
-    `סולם נשען על קיר ומגיע לגובה $${p.big}$ דצ״מ. רגל הסולם רחוקה $${p.small}$ דצ״מ מהקיר. מה אורך הסולם?`,
-    `סולם באורך $${p.c}$ דצ״מ נשען על קיר. רגל הסולם רחוקה $${p.small}$ דצ״מ מהקיר. לאיזה גובה על הקיר מגיע הסולם?`,
-    `סולם באורך $${p.c}$ דצ״מ נשען על קיר ומגיע לגובה $${p.big}$ דצ״מ. כמה רחוקה רגל הסולם מהקיר?`,
+    `סולם נשען על קיר ומגיע לגובה $${shown(p.big / 10)}$ מטר. רגל הסולם רחוקה $${shown(p.small / 10)}$ מטר מהקיר. מה אורך הסולם?`,
+    `סולם באורך $${shown(p.c / 10)}$ מטר נשען על קיר. רגל הסולם רחוקה $${shown(p.small / 10)}$ מטר מהקיר. לאיזה גובה על הקיר מגיע הסולם?`,
+    `סולם באורך $${shown(p.c / 10)}$ מטר נשען על קיר ומגיע לגובה $${shown(p.big / 10)}$ מטר. כמה רחוקה רגל הסולם מהקיר?`,
   ][p.ask] + ` ${ROUND}`,
   answer: rtAnswer,
   exact: rtExact,
   bugs: rtBugs,
   solution: rtSolution,
   hint: rtHint,
-  unit: 'דצ״מ',
+  unit: 'מטר',
 };
 
 const storyModel: DiagModel<RT> = {
@@ -788,12 +806,12 @@ const stair4: StairContent = {
     { kind: 'say', fig: ladder({ labels: { len: 'סולם', wall: 'גובה' } }), text: 'ובסוף בודקים בשכל: סולם ארוך מהגובה שהוא מגיע אליו, ואלכסון של מסך ארוך מהרוחב שלו. תשובה שלא מסתדרת עם זה אומרת שהתפקידים התבלבלו.' },
   ],
   examples: [
-    { problem: 'סולם באורך $26$ דצ״מ נשען על קיר. רגל הסולם רחוקה $10$ דצ״מ מהקיר. לאיזה גובה על הקיר מגיע הסולם?', answer: 24, check: 'sqrt(26^2 - 10^2)',
+    { problem: 'סולם באורך $2.6$ מטר נשען על קיר. רגל הסולם רחוקה מטר אחד מהקיר. לאיזה גובה על הקיר מגיע הסולם?', answer: 2.4, check: 'sqrt(2.6^2 - 1^2)',
       steps: [
-        { action: 'מציירים: קיר, רצפה וסולם. הזווית הישרה בין הקיר לרצפה.', why: 'הסולם מולה, ולכן הוא היתר. הגובה והמרחק מהקיר הם הניצבים.', result: 'c = 26,\\ a = 10,\\ h = ?' },
-        { action: 'הגובה הוא ניצב, ולכן מחסרים.', why: 'היתר נתון: הריבוע עליו הוא השלם.', result: 'h^2 = 26^2 - 10^2 = 676 - 100 = 576', calc: { expr: '26^2 - 10^2', value: 576 } },
-        { action: 'מוציאים שורש.', why: 'מהשטח לאורך.', result: 'h = \\sqrt{576} = 24', value: 'sqrt(576)' },
-        { action: 'בודקים שהתשובה הגיונית.', why: 'הסולם ארוך מהגובה שהוא מגיע אליו, כמו שצריך.', result: '24 < 26' },
+        { action: 'מציירים: קיר, רצפה וסולם. הזווית הישרה בין הקיר לרצפה.', why: 'הסולם מולה, ולכן הוא היתר. הגובה והמרחק מהקיר הם הניצבים.', result: 'c = 2.6,\\ a = 1,\\ h = ?' },
+        { action: 'הגובה הוא ניצב, ולכן מחסרים.', why: 'היתר נתון: הריבוע עליו הוא השלם.', result: 'h^2 = 2.6^2 - 1^2 = 6.76 - 1 = 5.76', calc: { expr: '2.6^2 - 1^2', value: 5.76 } },
+        { action: 'מוציאים שורש.', why: 'מהשטח לאורך.', result: 'h = \\sqrt{5.76} = 2.4', value: 'sqrt(5.76)' },
+        { action: 'בודקים שהתשובה הגיונית.', why: 'הסולם ארוך מהגובה שהוא מגיע אליו, כמו שצריך.', result: '2.4 < 2.6' },
       ] },
     { problem: 'מסך בגודל $125$ ס״מ: זה אורך האלכסון שלו. גובה המסך $75$ ס״מ. מה הרוחב שלו?', answer: 100, check: 'sqrt(125^2 - 75^2)',
       steps: [

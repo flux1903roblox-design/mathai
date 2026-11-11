@@ -2,7 +2,7 @@ import { describe, it, expect, afterAll, vi } from 'vitest';
 import katex from 'katex';
 import { TOPICS, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem } from './index.js';
 import { SCENERY } from '@/components/map/Scenery.jsx';
-import { parseNum, plainNum, gcd, needsFormat, FORMAT_LINE } from './util.js';
+import { parseNum, plainNum, gcd, needsFormat, FORMAT_LINE, choiceWidth } from './util.js';
 import { ALL_SKILLS } from '@/learn/skills.ts';
 import { itemFor } from '@/learn/items.ts';
 import { loadAllContent, contentOf } from '@/learn/content/index.ts';
@@ -342,6 +342,34 @@ describe('a choice is not given away by its look', () => {
       expect(n, rule).toBeGreaterThan(100);
       expect(ok / n, `${rule}: ${(100 * ok / n).toFixed(1)}% of ${n}`).toBeLessThan(0.55);
     });
+  });
+  // PRODUCT2-8: the council found these six guessable by look (sn2's '<' always first and right 62%, sy1e's shortest
+  // right 49%, lf2p's longest 45%, sy3m's shortest 40%, sy5g's middle value 41%, ex1m's longest 59%). Now the place,
+  // the length as written, the width on screen and the middle value are each right as often as a blind guess, within
+  // 6 points over 1,200 questions of each. ex1m's readings (−12, 12 and −1 for 3x at x = −4) are FOLLOWUP-36's to
+  // redesign, with its rank: its rules above stay as they are.
+  it('the place, the length, the width and the middle value of sn2, sy1e, lf2p, sy3m and sy5g', () => {
+    Math.random = seeded(2612);
+    const KINDS = { sn2: ['signed', 2], sy1e: ['sys', 1], lf2p: ['line', 2], sy3m: ['sys', 3], sy5g: ['sys', 5] };
+    const median = (it) => { const v = it.choices.map(numOf); if (v.some((x) => !Number.isFinite(x))) return []; const s = [...v].sort((a, b) => a - b); const k = s.length; const m = k % 2 ? [s[(k - 1) / 2]] : [s[k / 2 - 1], s[k / 2]]; return v.map((x, j) => (m.includes(x) ? j : -1)).filter((j) => j >= 0); };
+    const ends = (f) => (it, max) => { const L = it.choices.map(f); const e = max ? Math.max(...L) : Math.min(...L); return L.map((l, j) => (l === e ? j : -1)).filter((j) => j >= 0); };
+    const len = ends((c) => plain(c).length); const wide = ends(choiceWidth);
+    const looks = {
+      longest: (it) => len(it, true), shortest: (it) => len(it, false), widest: (it) => wide(it, true), narrowest: (it) => wide(it, false),
+      'middle value': median, ...Object.fromEntries([0, 1, 2, 3].map((p) => [`place ${p + 1}`, (it) => (p < it.choices.length ? [p] : [])])),
+    };
+    try {
+      Object.entries(KINDS).forEach(([kind, [topic, level]]) => {
+        const right = {}; let n = 0; let k = 0;
+        for (let i = 0; i < 60000 && n < 1200; i += 1) {
+          const it = makeItem(topic, level); if (!String(it.key).startsWith(`${kind}:`)) continue;
+          n += 1; k = it.choices.length;
+          Object.entries(looks).forEach(([look, f]) => { const ix = f(it); if (ix.length) right[look] = (right[look] || 0) + ix.filter((j) => j === it.answer).length / ix.length; });
+        }
+        expect(n, kind).toBe(1200);
+        Object.entries(right).forEach(([look, ok]) => expect(ok / n, `${kind} "${look}": ${(100 * ok / n).toFixed(1)}% (a blind guess ${(100 / k).toFixed(0)}%)`).toBeLessThan(1 / k + 0.06));
+      });
+    } finally { Math.random = real; }
   });
   it('the same question every time is practice only, never a check', () => {
     expect(fairForCheck({ key: 'sy4l:0', fixed: true, topic: 'sys' })).toBe(false);

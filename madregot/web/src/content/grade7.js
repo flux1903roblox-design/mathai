@@ -86,8 +86,9 @@ function compare() {
   let a = R(-15, 15); let b = R(-15, 15);
   if (Math.random() < 0.6 && a > -2) a = -R(2, 15); // most items compare negatives
   if (Math.random() < 0.1) b = a;
-  const ans = a < b ? 0 : a === b ? 1 : 2;
-  const choices = ['<', '=', '>'];
+  const sign = a < b ? '<' : a === b ? '=' : '>';
+  // the three signs in a new order each time, so where the right one stands tells nothing (PRODUCT2-8)
+  const choices = shuffle(['<', '=', '>']); const ans = choices.indexOf(sign);
   return {
     key: `sn2:${a}:${b}`, text: 'איזה סימן מתאים במקום הריבוע?', display: `${T(a)} \\;\\square\\; {${T(b)}}`,
     form: 'mc', choices: choices.map((c) => ({ tex: c })), answer: ans,
@@ -96,7 +97,7 @@ function compare() {
       a === b ? `שני המספרים שווים: $${T(a)}$ ו־$${T(b)}$ הם אותה נקודה על ציר המספרים.` : `על ציר המספרים $${T(Math.min(a, b))}$ נמצא משמאל ל־$${T(Math.max(a, b))}$.`,
       `לכן $${T(a)} ${choices[ans]} ${T(b)}$`,
     ],
-    diag: (u) => (a < 0 && b < 0 && a !== b && u !== ans && u !== 1 ? 'neg-compare' : null),
+    diag: (u) => (a < 0 && b < 0 && a !== b && u !== ans && choices[u] !== '=' ? 'neg-compare' : null),
   };
 }
 

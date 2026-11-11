@@ -3,7 +3,7 @@
 // m and b, slope as "steps" on the graph, slope between two points, the line
 // through two points, meeting the axes, the triangle with the axes, and the
 // point where two lines meet.
-import { R, NZ, pick, shuffle, T, ratioTex, reduce, near, plainNum } from './util.js';
+import { R, NZ, pick, shuffle, T, ratioTex, reduce, near, plainNum, byWidth, drawPlace } from './util.js';
 
 export const lineTex = (m, b, name = 'y') => {
   const mt = m === 1 ? '' : m === -1 ? '-' : ratioTex(Math.round(m * 1e6), 1e6);
@@ -34,21 +34,28 @@ function table() {
   };
 }
 
+/** y = b + mx, the constant first, as a textbook also writes it: y = 5 - 3x, y = -4 + x. */
+const lineTexB = (m, b) => (m === 0 || b === 0 ? lineTex(m, b) : `y = ${T(b)} ${m < 0 ? '-' : '+'} ${Math.abs(m) === 1 ? '' : Math.abs(m)}x`);
+
 // Which of four functions is increasing (or decreasing)? Two of the others have b with the asked sign and m with the
 // other one: chosen by b, not by m (sign-from-b). Four choices, so a verification of that misconception, which asks
-// these, is not a coin flip between "עולה" and "יורדת".
+// these, is not a coin flip between "עולה" and "יורדת". Each line is written y = mx + b or y = b + mx, so the minus in
+// front of a decreasing line does not make the right one the widest: it is the widest one time in four (PRODUCT2-8;
+// the constant, y = 5, is always the narrowest).
 function dirPick() {
+  const place = drawPlace(4, Math.random, { narrowest: false });
   for (;;) {
     const up = Math.random() < 0.5; const s = up ? 1 : -1;
     const fs = [{ m: s * R(1, 5), b: NZ(-8, 8) }, { m: -s * R(1, 5), b: s * R(1, 8) }, { m: -s * R(1, 5), b: s * R(1, 8) }, { m: 0, b: NZ(-8, 8) }];
     if (new Set(fs.map((f) => `${f.m},${f.b}`)).size < 4) continue;
-    const choices = shuffle(fs.map((f, i) => ({ tex: lineTex(f.m, f.b), ok: i === 0, bug: i === 1 || i === 2 ? 'sign-from-b' : undefined })));
-    const r = fs[0];
+    const choices = byWidth(fs.map((f, i) => ({ forms: [...new Set([lineTex(f.m, f.b), lineTexB(f.m, f.b)])].map((t) => ({ tex: t })), ok: i === 0, bug: i === 1 || i === 2 ? 'sign-from-b' : undefined })), place);
+    if (!choices) continue;
+    const r = fs[0]; const shown = choices.find((c) => c.ok).tex;
     return {
       key: `lf2p:${up ? 'up' : 'down'}:${fs.map((f) => `${f.m},${f.b}`).join(';')}`, text: `איזו מהפונקציות ${up ? 'עולה' : 'יורדת'}?`, form: 'mc',
       choices, answer: choices.findIndex((c) => c.ok),
       hint: 'מסתכלים רק על $m$, המספר שלפני $x$: חיובי זה עולה, שלילי זה יורד, ואפס זה קו אופקי. $b$ לא משנה את הכיוון.',
-      solution: [`ב־$${lineTex(r.m, r.b)}$ השיפוע $m = ${T(r.m)}$, ${up ? 'חיובי, לכן היא עולה' : 'שלילי, לכן היא יורדת'}.`, `בשתיים אחרות $b$ ${up ? 'חיובי' : 'שלילי'}, אבל $m$ ${up ? 'שלילי' : 'חיובי'}: הן ${up ? 'יורדות' : 'עולות'}. ו־$m = 0$ הוא קו אופקי.`],
+      solution: [`ב־$${shown}$ השיפוע $m = ${T(r.m)}$, ${up ? 'חיובי, לכן היא עולה' : 'שלילי, לכן היא יורדת'}.`, `בשתיים אחרות $b$ ${up ? 'חיובי' : 'שלילי'}, אבל $m$ ${up ? 'שלילי' : 'חיובי'}: הן ${up ? 'יורדות' : 'עולות'}. ו־$m = 0$ הוא קו אופקי.`],
       diag: (u) => choices[u]?.bug || null,
     };
   }
@@ -114,7 +121,7 @@ function slopeTwoPoints() {
       key: `lf4:${x1}:${y1}:${x2}:${y2}`, text: `מה השיפוע של הישר שעובר דרך הנקודות $(${x1}, ${y1})$ ו־$(${x2}, ${y2})$?`,
       form: 'num', answer: m, label: 'm =',
       hint: '$m = \\frac{y_2 - y_1}{x_2 - x_1}$. אסור לערבב את הסדר: הנקודה שמתחילים ממנה למעלה היא גם זו שמתחילים ממנה למטה. מספר שלילי כותבים בסוגריים.',
-      solution: [`$m = \\frac{${T(y2)} - ${T(y1, true)}}{${T(x2)} - ${T(x1, true)}} = \\frac{${dy}}{${dx}}$`, `$m = ${ratioTex(p, q)}$`],
+      solution: [`$m = \\frac{${T(y2)} - ${T(y1, true)}}{${T(x2)} - ${T(x1, true)}} = ${dx === 1 ? T(dy) : `\\frac{${dy}}{${dx}}`}$`, ...(dx === 1 ? [] : [`$m = ${ratioTex(p, q)}$`])],
       diag: (u) => [near(u, dx / dy) && !near(m, dx / dy) && 'inverse', near(u, -m) && 'mixed-order'].filter(Boolean),
     };
   }

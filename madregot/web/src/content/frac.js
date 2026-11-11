@@ -18,7 +18,7 @@
 //   bigger-den      a bigger denominator read as a bigger fraction (Ni & Zhou 2005, Educational Psychologist 40(1))
 // and for frac:3-4 (stage 6) add-across, num-not-scaled, keep-den (Siegler & Pyke 2013), divide-flip, mult-bigger
 // (Fischbein et al. 1985; Tirosh 2000).
-import { shuffle, gcd, listMath, shortDec, needsFormat } from './util.js';
+import { shuffle, gcd, listMath, shortDec, needsFormat, countOf } from './util.js';
 import { diagOf } from './eq.js';
 import { slipOf } from '@/learn/misconceptions.ts';
 
@@ -157,7 +157,7 @@ export function fracChain(k, d) {
 }
 export const pointSolution = ({ d, k }) => [
   `בין $0$ ל־$1$ יש $${d - 1}$ שנתות, והן מחלקות את היחידה ל־$${d}$ חלקים שווים.`,
-  `כל חלק הוא $${fracTex(1, d)}$, ו־$A$ נמצאת $${k}$ חלקים מ־$0$.`,
+  `כל חלק הוא $${fracTex(1, d)}$, ו־$A$ נמצאת ${countOf(k, 'חלק', 'חלקים')} מ־$0$.`,
   `$A = ${fracChain(k, d)}$`,
 ];
 export const pointHint = () => 'ספרו את הרווחים בין $0$ ל־$1$, לא את הקווים.';
@@ -263,8 +263,8 @@ function placePoint() {
   return {
     key: `fr1p:${d}:${max}:${k}`, text: `שימו את הסמן על $${fracTex(k, d)}$.`, form: 'manip', practiceOnly: true,
     manip: { kind: 'numberline', min: 0, max, from: 0, start: 0, den: d }, answer: k / d,
-    hint: `כל יחידה מחולקת ל־$${d}$ חלקים. ספרו $${k}$ חלקים מ־$0$.`,
-    solution: [`המכנה $${d}$: כל יחידה מחולקת ל־$${d}$ חלקים שווים.`, `המונה $${k}$: סופרים $${k}$ חלקים מ־$0$${k > d ? `, כלומר יחידה שלמה ועוד $${k - d}$ חלקים` : ''}.`],
+    hint: `כל יחידה מחולקת ל־$${d}$ חלקים. ספרו ${countOf(k, 'חלק', 'חלקים')} מ־$0$.`,
+    solution: [`המכנה $${d}$: כל יחידה מחולקת ל־$${d}$ חלקים שווים.`, `המונה $${k}$: סופרים ${countOf(k, 'חלק', 'חלקים')} מ־$0$${k > d ? `, כלומר יחידה שלמה ועוד ${countOf(k - d, 'חלק', 'חלקים')}` : ''}.`],
     diag: () => null,
   };
 }
