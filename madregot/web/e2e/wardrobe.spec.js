@@ -178,6 +178,21 @@ test.describe('on a phone', () => {
     await expect(page.locator('.wardrobe-madi g[data-item="bars-pin"]')).toHaveCount(1);
     await expectTextContrast(page, '(wardrobe, dark)');
   });
+
+  test('7. with a server, opening the wardrobe sends one count by name and nothing else (STUDENT-14)', async ({ page }) => {
+    const sent = [];
+    await page.route('https://api.madregot.test/**', (route) => {
+      const r = route.request();
+      if (new URL(r.url()).pathname === '/api/metrics') sent.push({ method: r.method(), body: r.postData(), type: r.headers()['content-type'] });
+      return route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*' } });
+    });
+    // version 3: a saved server address survives (older saves lose it in builds without a personal key)
+    await open(page, '#/me/madi', { ...dressed(), version: 3, state: { ...dressed().state, ai: { mode: 'server', apiUrl: 'https://api.madregot.test', key: '' } } });
+    await expect(page.locator('.wardrobe-madi')).toBeVisible();
+    await expect.poll(() => sent.length).toBeGreaterThan(0);
+    // the plain name as text: no id, no page, no answer to wait for
+    for (const s of sent) expect(s).toEqual({ method: 'POST', body: 'wardrobe_open', type: expect.stringMatching(/^text\/plain/) });
+  });
 });
 
 test.describe('on a small phone', () => {

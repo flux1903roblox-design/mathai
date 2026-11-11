@@ -191,6 +191,7 @@ npm run owner -- requests --open                                      # בקשו
 npm run owner -- request-done --id <מזהה בקשה>
 npm run owner -- revoke-device --id <מזהה מכשיר>                      # ניתוק מכשיר של ילד
 npm run owner -- usage --from 2027-01-01 --to 2027-01-07
+npm run owner -- reach --days 28                                      # ספירות הגעה לפי שבועות, בלי זיהוי (דוגמה: qa-evidence/student/reach.txt)
 ```
 
 תאריך פירושו סוף אותו יום בשעון ישראל. הערות נשמרות רק עם אותיות, ספרות, רווחים ו־`.,-/`.

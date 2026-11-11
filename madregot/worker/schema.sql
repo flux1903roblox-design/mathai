@@ -337,6 +337,7 @@ CREATE INDEX IF NOT EXISTS audit_target ON audit_log (target);
 --   other:        mail:e:<email_hash> mail:n:<net> mail:all  create:n:<net>  join:n:<net>  pin:<student>  classinfo:n:<net>
 --                 link:d:<device>  link:n:<net>  linkpoll:<code_hash[0:16]>  linkpoll:n:<net>  claim:a:<account>
 --                 checkout:a:<account> (hourly)  licreq:c:<class>  licclaim:n:<net> (hourly)  licclaim:c:<class>  mint:n:<net>
+--                 metric:n:<net> (reach counts a network may add in a day, STUDENT-14)
 
 -- ---------- the student lane (migrations/0003_student.sql) ----------
 
@@ -367,4 +368,14 @@ CREATE TABLE IF NOT EXISTS class_goal_settings (
   on_flag INTEGER NOT NULL DEFAULT 1,
   target INTEGER,
   updated_at TEXT NOT NULL
+);
+
+-- Reach numbers with no tracker (STUDENT-14): how many times a named step happened on a Jerusalem day (an install
+-- offered, a landing page seen), and nothing else. No device, address, user agent, account, class or student: the
+-- three columns below are the whole table. Kept 400 days (cron purge).
+CREATE TABLE IF NOT EXISTS metrics_daily (
+  day TEXT NOT NULL,                           -- YYYY-MM-DD in Jerusalem
+  name TEXT NOT NULL,                          -- one of metrics.js METRIC_NAMES or SERVER_METRICS
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, name)
 );

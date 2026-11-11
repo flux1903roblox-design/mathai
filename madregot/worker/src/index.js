@@ -20,6 +20,7 @@ import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFa
 import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
 import { run as runCron } from './cron.js';
 import { stepStatements, classGoal, setClassGoal, teacherGoal } from './goal.js';
+import { postMetric } from './metrics.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -427,6 +428,8 @@ async function route(req, env, ctx, cors) {
   }
   if (M === 'POST' && (m = p.match(/^\/api\/ai\/(\w+)$/))) return handleAI(m[1], req, env, ctx, cors);
   if (M === 'POST' && p === '/api/devices') return mintDevice(req, env, cors);
+  // reach counts (metrics.js): a name on the list adds 1 to its day; 204 always
+  if (M === 'POST' && p === '/api/metrics') return postMetric(req, env, cors);
   // parent and teacher accounts
   if (M === 'POST' && p === '/api/account/code') return startLogin(req, env, cors);
   if (M === 'POST' && p === '/api/account/verify') return verifyLogin(req, env, cors);

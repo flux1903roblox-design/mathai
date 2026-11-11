@@ -18,14 +18,18 @@
 //   forget --email E
 //   list [--class C | --email E | --status S]   requests [--open]   request-done --id R
 //   usage --from D --to D                        events [--outcome mismatch]
+//   reach [--days 28]                            reach counts by week (STUDENT-14), as a table
+//
+// Read-only commands run with --command, so the rows come back (a remote --file runs D1's import, which returns none).
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { endOfDayIso, CODE_ALPHABET } from '../src/util.js';
+import { endOfDayIso, CODE_ALPHABET, dayOf } from '../src/util.js';
 import { cleanEmail } from '../src/account.js';
+import { shiftDay, weekOf } from '../src/goal.js';
 
 const DAY = 864e5;
 export class InputError extends Error {}
@@ -258,6 +262,85 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
   }
 }
 
+// ---------------------------------------------------------------- reach (STUDENT-14)
+/** The rows of the reach table, by group: every name metrics.js accepts or counts appears once. */
+export const REACH_GROUPS = [
+  ['Landing pages', ['landing_view_mivchan', 'landing_cta_mivchan', 'landing_view_pilot', 'landing_cta_pilot', 'welcome_from_landing']],
+  ['Install', ['install_offer', 'install_accept', 'installed']],
+  ['Reminders', ['push_offer', 'push_on', 'push_off', 'push_open']],
+  ['Store apps', ['store_open_play', 'store_open_ios']],
+  ['In the app', ['wardrobe_open', 'recap_open']],
+  ['Classes', ['class_goal_reached']],
+];
+// a Jerusalem day's Sunday, in SQL (strftime %w: 0 is Sunday)
+const WEEK_SQL = "date(day, '-' || strftime('%w', day) || ' days')";
+
+/**
+ * The weeks a reach report covers: from the Sunday on or before the first of the last `days` Jerusalem days, to today.
+ * Returns { from, to, weeks, sql: [statements] }; the statements read counts only (no id leaves the database).
+ */
+export function reachPlan(o = {}, now = new Date()) {
+  const days = o.days === undefined || o.days === true ? 28 : intArg(o.days, 1, 400, 'days');
+  const to = dayOf(now);
+  const from = weekOf(shiftDay(to, -(days - 1)));
+  const weeks = [];
+  for (let w = from; w <= to; w = shiftDay(w, 7)) weeks.push(w);
+  const range = `day >= ${q(from)} AND day <= ${q(to)}`;
+  return {
+    days, from, to, weeks,
+    sql: [
+      `SELECT ${WEEK_SQL} AS week, name, SUM(n) AS n FROM metrics_daily WHERE ${range} GROUP BY week, name`,
+      `SELECT ${WEEK_SQL} AS week, COUNT(DISTINCT student_id) AS n FROM class_steps WHERE ${range} GROUP BY week`,
+      `SELECT COUNT(DISTINCT student_id) AS n FROM class_steps WHERE ${range}`,
+      "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = 'family_daily'",
+    ],
+    // the parents lane's table, read only where it exists (a statement naming a missing table would fail the rest)
+    familySql: [
+      `SELECT ${WEEK_SQL} AS week, COUNT(DISTINCT device_id) AS n FROM family_daily WHERE ${range} GROUP BY week`,
+      `SELECT COUNT(DISTINCT device_id) AS n FROM family_daily WHERE ${range}`,
+    ],
+  };
+}
+
+/** The reach table as text. `res` holds the rows of plan.sql in order; `family` those of plan.familySql, or null. */
+export function reachTable(plan, res, family = null) {
+  const { weeks } = plan;
+  const byName = {};
+  for (const r of res[0] || []) (byName[r.name] ||= {})[r.week] = Number(r.n) || 0;
+  const perWeek = (rows) => Object.fromEntries((rows || []).map((r) => [r.week, Number(r.n) || 0]));
+  const sum = (m) => weeks.reduce((a, w) => a + (m[w] || 0), 0);
+  const LABEL = 36; const CELL = 8;
+  const lines = [];
+  const row = (label, cells) => lines.push(label.padEnd(LABEL) + cells.map((c) => String(c).padStart(CELL)).join(''));
+  const counts = (label, m, total = sum(m)) => row(`  ${label}`, [...weeks.map((w) => m[w] || 0), total]);
+  lines.push(`Reach, ${plan.from} to ${plan.to} (Jerusalem days; a week starts on Sunday; * this week so far)`);
+  lines.push('Counts of steps only: no person, device or address is behind any number.', '');
+  row('week of', [...weeks.map((w, i) => `${w.slice(5)}${i === weeks.length - 1 ? '*' : ''}`), 'total']);
+  for (const [title, names] of REACH_GROUPS) {
+    lines.push(title);
+    for (const name of names) counts(name, byName[name] || {});
+    if (title === 'Install') {
+      const offer = byName.install_offer || {}; const accept = byName.install_accept || {};
+      const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : '-');
+      row('  accepted per offer', [...weeks.map((w) => pct(accept[w] || 0, offer[w] || 0)), pct(sum(accept), sum(offer))]);
+    }
+    if (title === 'Classes') counts('students who learned (class_steps)', perWeek(res[1]), Number(res[2]?.[0]?.n || 0));
+  }
+  lines.push('Families');
+  if (family) counts('linked devices that learned', perWeek(family[0]), Number(family[1]?.[0]?.n || 0));
+  else lines.push('  (no family_daily table on this database yet)');
+  lines.push('', 'Kept: metrics_daily 400 days, class_steps 120 days. A student is counted once a week however much they learned.');
+  return lines.join('\n');
+}
+
+/** The whole reach command: `query(statements)` runs SQL and returns each statement's rows. */
+export function reach(o, query, now = new Date()) {
+  const plan = reachPlan(o, now);
+  const res = query(plan.sql);
+  const family = Number(res[3]?.[0]?.n || 0) > 0 ? query(plan.familySql) : null;
+  return reachTable(plan, res, family);
+}
+
 /** --name value pairs and --flags. */
 export function parseArgs(argv) {
   const [cmd, ...rest] = argv;
@@ -271,17 +354,28 @@ export function parseArgs(argv) {
   return { cmd, o };
 }
 
+const workerDir = () => path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const wrangler = (o, args) => execFileSync('npx', ['wrangler', 'd1', 'execute', 'madregot', o.local ? '--local' : '--remote', ...args, '--json'], { cwd: workerDir(), encoding: 'utf8' });
+
 function main(argv) {
   const { cmd, o } = parseArgs(argv);
   if (!cmd) { console.log('usage: npm run owner -- <command> [options] [--local]  (see scripts/owner.mjs)'); return; }
+  if (cmd === 'reach') {
+    // each statement's rows, from wrangler's JSON (one result per statement)
+    console.log(reach(o, (sql) => JSON.parse(wrangler(o, ['--command', sql.join(';\n')])).map((r) => r.results || [])));
+    return;
+  }
   const b = build(cmd, o);
+  if (b.readOnly) {
+    console.log(wrangler(o, ['--command', b.sql]));
+    return;
+  }
   const dir = mkdtempSync(path.join(tmpdir(), 'madregot-owner-'));
   const file = path.join(dir, 'command.sql');
   writeFileSync(file, `${b.sql}\n`);
   try {
-    const worker = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-    const out = execFileSync('npx', ['wrangler', 'd1', 'execute', 'madregot', o.local ? '--local' : '--remote', '--file', file, '--json'], { cwd: worker, encoding: 'utf8' });
-    console.log(b.readOnly ? out : 'done');
+    wrangler(o, ['--file', file]);
+    console.log('done');
     if (b.print) console.log(b.print);
   } finally {
     rmSync(dir, { recursive: true, force: true });

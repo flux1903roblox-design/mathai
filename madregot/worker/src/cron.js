@@ -16,6 +16,7 @@ import { purgeFamilySql } from './family.js';
 import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
+import { shiftDay } from './goal.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -120,7 +121,7 @@ export function purgeCountersSql(env, now = new Date()) {
 
 /** Retention (spec §6.9): notices 90 days after sending, expired orders after 30 days, spend after 400 days, the audit
  *  log after 2 years, provider events after 7 years. Payments are kept. The class goal (STUDENT-4): steps after 120
- *  days, its weeks after 400 days (Jerusalem days). */
+ *  days, its weeks after 400 days (Jerusalem days). Reach counts (STUDENT-14) after 400 days. */
 export function purgeRecordsSql(env, now = new Date()) {
   const t = now.getTime();
   const iso = (days) => new Date(t - days * DAY).toISOString();
@@ -134,6 +135,7 @@ export function purgeRecordsSql(env, now = new Date()) {
     env.DB.prepare('DELETE FROM billing_events WHERE received_at < ?').bind(iso(7 * 365 + 2)),
     env.DB.prepare('DELETE FROM class_steps WHERE day < ?').bind(dayOf(new Date(t - 120 * DAY))),
     env.DB.prepare('DELETE FROM class_goal_weeks WHERE week < ?').bind(dayOf(new Date(t - 400 * DAY))),
+    env.DB.prepare('DELETE FROM metrics_daily WHERE day < ?').bind(dayOf(new Date(t - 400 * DAY))),
   ];
 }
 
@@ -143,9 +145,21 @@ export async function purge(env, now = new Date()) {
 }
 
 /**
+ * The summary's reach block (STUDENT-14): yesterday's counts by name (metrics_daily, names with a count only), and the
+ * class students who added a class-goal step in the 7 days up to yesterday (class_steps, distinct students). Counts only:
+ * nothing in them tells who. `npm run owner -- reach` shows the weeks.
+ */
+export async function reachSummary(env, day) {
+  const counts = Object.fromEntries((await all(env, 'SELECT name, n FROM metrics_daily WHERE day = ? AND n > 0 ORDER BY name', day)).map((r) => [r.name, Number(r.n)]));
+  const week = await first(env, 'SELECT COUNT(DISTINCT student_id) AS n FROM class_steps WHERE day > ? AND day <= ?', shiftDay(day, -7), day);
+  return { counts, classStudents7: Number(week?.n || 0) };
+}
+
+/**
  * The owner's daily summary of yesterday (Jerusalem): spend by pool, free calls, plans started, cancelled and ended;
  * what needs a hand (unsynced cancels, manual refunds, odd provider events, open licence requests); and the invariant
- * checks: a running paid plan with no payment covering now, a paid order with no plan, spend over a budget.
+ * checks: a running paid plan with no payment covering now, a paid order with no plan, spend over a budget. Then the
+ * reach block (reachSummary).
  */
 export async function dailySummary(env, now = new Date()) {
   const L = limits(env);
@@ -171,6 +185,7 @@ export async function dailySummary(env, now = new Date()) {
     badEvents: await count("SELECT COUNT(*) AS n FROM billing_events WHERE outcome IN ('mismatch', 'unknown', 'test_mode') AND received_at >= ? AND received_at < ?", startIso, endIso),
     openRequests: await count('SELECT COUNT(*) AS n FROM licence_requests WHERE handled_at IS NULL'),
     violations: [],
+    reach: await reachSummary(env, day),
   };
   const v = params.violations;
   for (const s of await all(env, `SELECT s.id, s.kind, s.plan FROM subscriptions s WHERE s.status = 'active' AND s.provider != 'manual'

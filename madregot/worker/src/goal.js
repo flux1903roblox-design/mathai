@@ -14,6 +14,7 @@
 // Rows are kept 120 days (steps) and 400 days (weeks) by the nightly purge; removing a student deletes their steps.
 import { dayOf, nowIso, HttpError, body, json } from './util.js';
 import { requireStudent, requireTeacher } from './entitle.js';
+import { countServer } from './metrics.js';
 
 export const GOAL = { maxItems: 50, dayPts: 30, dayThrees: 6, min: 10, max: 400, perActive: 4, activeDays: 14 };
 const SID = /^[0-9a-f-]{36}$/;
@@ -80,11 +81,15 @@ async function fixedTarget(env, code, week, settings) {
   return weekRow(env, code, week);
 }
 
-/** Reached once, for good: reached_at is set the first time the total meets the target. */
+/**
+ * Reached once, for good: reached_at is set the first time the total meets the target. That first time also adds 1 to
+ * the owner's class_goal_reached count (metrics.js; two reads at once set it once, so they count it once).
+ */
 async function reachedOf(env, code, week, row, have) {
   if (row.reached_at) return true;
   if (have < row.target) return false;
-  await env.DB.prepare('UPDATE class_goal_weeks SET reached_at = ? WHERE class_code = ? AND week = ? AND reached_at IS NULL').bind(nowIso(), code, week).run();
+  const r = await env.DB.prepare('UPDATE class_goal_weeks SET reached_at = ? WHERE class_code = ? AND week = ? AND reached_at IS NULL').bind(nowIso(), code, week).run();
+  if (Number(r?.meta?.changes || 0) > 0) await countServer(env, 'class_goal_reached');
   return true;
 }
 

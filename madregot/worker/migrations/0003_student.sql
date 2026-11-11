@@ -30,3 +30,13 @@ CREATE TABLE IF NOT EXISTS class_goal_settings (
   target INTEGER,
   updated_at TEXT NOT NULL
 );
+
+-- Reach numbers with no tracker (STUDENT-14): how many times a named step happened on a Jerusalem day (an install
+-- offered, a landing page seen), and nothing else. No device, address, user agent, account, class or student: the
+-- three columns below are the whole table. Kept 400 days (cron purge).
+CREATE TABLE IF NOT EXISTS metrics_daily (
+  day TEXT NOT NULL,                           -- YYYY-MM-DD in Jerusalem
+  name TEXT NOT NULL,                          -- one of metrics.js METRIC_NAMES or SERVER_METRICS
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, name)
+);

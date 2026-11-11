@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { build, parseArgs, licenceCode, licenceHash, noteArg, InputError } from '../scripts/owner.mjs';
+import { build, parseArgs, licenceCode, licenceHash, noteArg, InputError, reach, reachPlan } from '../scripts/owner.mjs';
+import { REACH_NOW, seedReach, seedFamily } from './fixtures/reach-rows.js';
 import { endOfDayIso } from '../src/util.js';
 import { makeEnv, rows, one } from './helpers.js';
 
@@ -110,4 +111,66 @@ test('read-only commands are marked read-only; arguments parse as --name value a
   assert.equal(build('events', { outcome: 'mismatch' }, fixed).readOnly, true);
   assert.throws(() => build('events', { outcome: "x' OR 1=1" }, fixed), InputError);
   assert.deepEqual(parseArgs(['grant-class', '--class', 'ABC234', '--trial', '--seats', '10', '--local']), { cmd: 'grant-class', o: { class: 'ABC234', trial: true, seats: '10', local: true } });
+});
+
+// ---------------------------------------------------------------- reach (STUDENT-14)
+const REACH_EXPECTED = `Reach, 2026-10-11 to 2026-11-10 (Jerusalem days; a week starts on Sunday; * this week so far)
+Counts of steps only: no person, device or address is behind any number.
+
+week of                                10-11   10-18   10-25   11-01  11-08*   total
+Landing pages
+  landing_view_mivchan                    71      52      47      66      25     261
+  landing_cta_mivchan                      9      12      10      15       6      52
+  landing_view_pilot                       0       8       0      11       0      19
+  landing_cta_pilot                        0       0       0       2       0       2
+  welcome_from_landing                     7      10       9      13       5      44
+Install
+  install_offer                            6       9       8      12       3      38
+  install_accept                           2       4       3       6       0      15
+  installed                                2       4       3       5       1      15
+  accepted per offer                     33%     44%     38%     50%      0%     39%
+Reminders
+  push_offer                               0       0       0       0       0       0
+  push_on                                  0       0       0       0       0       0
+  push_off                                 0       0       0       0       0       0
+  push_open                                0       0       0       0       0       0
+Store apps
+  store_open_play                          0       0       0       0       0       0
+  store_open_ios                           0       0       0       0       0       0
+In the app
+  wardrobe_open                           21      30      26      34       8     119
+  recap_open                               0       0       0       0       0       0
+Classes
+  class_goal_reached                       0       0       1       2       0       3
+  students who learned (class_steps)       3       5       6       8       3       8
+Families
+  (no family_daily table on this database yet)
+
+Kept: metrics_daily 400 days, class_steps 120 days. A student is counted once a week however much they learned.`;
+
+test('reach on synthetic rows prints the weekly table (snapshot); family_daily is read only where it exists', () => {
+  const env = makeEnv();
+  const db = env.DB.raw;
+  seedReach(db);
+  const ran = [];
+  const query = (stmts) => { ran.push(...stmts); return stmts.map((s) => db.prepare(s).all()); };
+  assert.equal(reach({ days: '28' }, query, new Date(REACH_NOW)), REACH_EXPECTED);
+  assert.ok(!ran.some((s) => s.includes('FROM family_daily')), 'no statement names a table that is not there');
+  // every statement reads counts only: no column that names a person comes back
+  for (const s of ran) for (const row of db.prepare(s).all()) assert.deepEqual(Object.keys(row).filter((k) => !['week', 'name', 'n'].includes(k)), [], s);
+  // with the parents lane's table: its devices that learned, per week and in all
+  seedFamily(db);
+  const withFamily = reach({}, query, new Date(REACH_NOW));
+  assert.equal(withFamily, REACH_EXPECTED.replace('  (no family_daily table on this database yet)', '  linked devices that learned              1       2       0       3       1       3'));
+});
+
+test('reach --days: whole weeks from the Sunday before, 1 to 400 days', () => {
+  const now = new Date(REACH_NOW);
+  assert.deepEqual(reachPlan({ days: '1' }, now).weeks, ['2026-11-08']);
+  assert.deepEqual(reachPlan({ days: '3' }, now).weeks, ['2026-11-08'], 'Sunday to Tuesday');
+  assert.deepEqual(reachPlan({ days: '4' }, now).weeks, ['2026-11-01', '2026-11-08']);
+  assert.equal(reachPlan({}, now).days, 28);
+  assert.equal(reachPlan({ days: '400' }, now).weeks.length, 58);
+  for (const days of ['0', '401', '7.5', "7'; DROP TABLE metrics_daily; --"]) assert.throws(() => reachPlan({ days }, now), InputError, days);
+  assert.deepEqual(parseArgs(['reach', '--days', '14', '--local']), { cmd: 'reach', o: { days: '14', local: true } });
 });

@@ -16,6 +16,7 @@ import { TOPIC } from '@/content/index.js';
 import Mascot from '@/components/Mascot.jsx';
 import { ItemArt } from '@/components/mascot/Accessories.jsx';
 import { Sheet, Button } from '@/components/ui.jsx';
+import { count } from '@/lib/metrics.js';
 
 const NONE = 'none';
 // how long Madi looks happy after a change (no hop under reduced motion: Mascot keeps still)
@@ -118,6 +119,8 @@ export default function Wardrobe() {
   const [locked, setLocked] = useState(null);
   const timer = useRef(null);
   useEffect(() => () => clearTimeout(timer.current), []);
+  // one more opening of the wardrobe today, counted with no one behind it (STUDENT-14; nothing without a server)
+  useEffect(() => { count('wardrobe_open'); }, []);
 
   const choose = (group, v) => {
     setLook(group === 'color' ? { color: v } : { [group]: v === NONE ? null : v });
