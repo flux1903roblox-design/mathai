@@ -22,7 +22,7 @@ test('the names are the spec\'s list; the server adds its own; the owner\'s tabl
     'landing_view_mivchan', 'landing_view_pilot', 'landing_cta_mivchan', 'landing_cta_pilot', 'welcome_from_landing',
     'install_offer', 'install_accept', 'installed', 'push_offer', 'push_on', 'push_off', 'push_open',
     'store_open_play', 'store_open_ios', 'recap_open', 'wardrobe_open']);
-  assert.deepEqual(SERVER_METRICS, ['class_goal_reached']);
+  assert.deepEqual(SERVER_METRICS, ['class_goal_reached', 'push_sent', 'push_deferred', 'push_failed', 'push_rejected', 'push_paused']);
   const shown = REACH_GROUPS.flatMap(([, names]) => names);
   assert.deepEqual([...shown].sort(), [...METRIC_NAMES, ...SERVER_METRICS].sort());
   assert.equal(new Set(shown).size, shown.length);
@@ -143,10 +143,10 @@ test('the owner\'s daily summary has a reach block: yesterday\'s counts and the 
   step.run(crypto.randomUUID(), 's3', dayOf(new Date(now.getTime() - 9 * DAY)));
   await dailySummary(h.env, now);
   const p = JSON.parse(one(h.env, 'SELECT params FROM notices WHERE kind = ?', `owner:summary:${yesterday}`).params);
-  assert.deepEqual(p.reach, { counts: { install_offer: 3, installed: 1 }, classStudents7: 2 });
+  assert.deepEqual(p.reach, { counts: { install_offer: 3, installed: 1 }, classStudents7: 2, reminders: { on: 0, paused: 0, learned7: 0 } });
   await flushNotices(h.env);
   const mail = h.net.log.email.find((m) => m.subject.startsWith('[מדרגות] סיכום יומי'));
-  assert.match(mail.text, /הגעה \(ספירות בלי זיהוי\):\ninstall_offer 3 · installed 1\nתלמידי כיתות שלמדו ב־7 הימים האחרונים: 2/);
+  assert.match(mail.text, /הגעה \(ספירות בלי זיהוי\):\ninstall_offer 3 · installed 1\nתלמידי כיתות שלמדו ב־7 הימים האחרונים: 2\nתזכורות יומיות: 0 פועלות · 0 בהשהיה · 0 מהן של תלמידים שלמדו ב־7 הימים האחרונים/);
 });
 
 test('a request with no body or a broken stream is still 204', async () => {

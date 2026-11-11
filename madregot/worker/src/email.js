@@ -200,6 +200,9 @@ function reachLines(r) {
     'הגעה (ספירות בלי זיהוי):',
     counts.length ? counts.map(([name, n]) => `${name} ${Number(n) || 0}`).join(' · ') : 'אתמול לא נספר כלום.',
     `תלמידי כיתות שלמדו ב־7 הימים האחרונים: ${Number(r.classStudents7) || 0}`,
+    ...(r.reminders && typeof r.reminders === 'object'
+      ? [`תזכורות יומיות: ${Number(r.reminders.on) || 0} פועלות · ${Number(r.reminders.paused) || 0} בהשהיה · ${Number(r.reminders.learned7) || 0} מהן של תלמידים שלמדו ב־7 הימים האחרונים`]
+      : []),
     'לפי שבועות: npm run owner -- reach',
   ];
 }

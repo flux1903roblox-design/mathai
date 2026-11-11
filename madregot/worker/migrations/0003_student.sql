@@ -40,3 +40,24 @@ CREATE TABLE IF NOT EXISTS metrics_daily (
   n INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (day, name)
 );
+
+-- The opt-in daily reminder (STUDENT-11): a browser's push address and keys, the hour chosen (16-20, Jerusalem), and
+-- three days: when the app was last opened, when a lesson was last finished, when a reminder was last sent. No name,
+-- class, account or device id. The id and secret were given to the browser once; only the secret's hash is kept.
+-- misses counts reminders ignored in a row (the night step in push.js); 'paused' sends nothing until it is turned on
+-- again. Deleted when it is turned off, when the push service says it is gone, or 45 days after the app was last opened.
+CREATE TABLE IF NOT EXISTS push_subs (
+  id TEXT PRIMARY KEY,                         -- 16 hex, given to the browser
+  secret_hash TEXT NOT NULL,                   -- sha256 of the 32-hex secret given to the browser once
+  endpoint TEXT NOT NULL UNIQUE,               -- https on an allowed push service (push.js pushEndpointOk)
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  slot INTEGER NOT NULL CHECK (slot BETWEEN 16 AND 20),
+  status TEXT NOT NULL DEFAULT 'on' CHECK (status IN ('on', 'paused')),
+  created_at TEXT NOT NULL,
+  last_seen_day TEXT,                          -- YYYY-MM-DD in Jerusalem
+  last_done_day TEXT,
+  last_sent_day TEXT,
+  misses INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS push_subs_slot ON push_subs (slot, status);

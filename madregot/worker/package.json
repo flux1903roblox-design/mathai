@@ -9,6 +9,7 @@
     "db:migrate:local": "wrangler d1 migrations apply madregot --local",
     "db:init": "npm run db:migrate",
     "owner": "node scripts/owner.mjs",
+    "push:keys": "node scripts/push-keys.mjs",
     "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {

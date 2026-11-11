@@ -1,0 +1,54 @@
+Worker tests of the daily reminder (STUDENT-11): node --test --test-reporter=spec test/webpush.test.js test/push.test.js
+Run on 2026-11-11 in madregot/worker. Synthetic push addresses and a fake push service only; nothing left the machine.
+Case 3 lists each date: the Shabbat (Friday 2026-11-13 is its eve), Yom Kippur eve (2026-09-20) and Pesach eve (2027-04-21) skips.
+The lines without a mark are the Worker's own error log for the failures the tests cause on purpose.
+
+✔ 1. subscribe: a push service address -> 200 and a row with the secret hashed; any other host -> 400 bad_endpoint
+✔ 2b. the endpoint check matches a push service on a label boundary, https only, with no port
+✔ subscribe checks the keys and the hour; replaces deletes the old row; the same address again takes its place; 20 a day
+✔ key, seen and off: the key while on; seen moves the days forward and answers the status; off deletes
+✔ 2. pushDue at 17:07 Jerusalem on a Tuesday sends to slot 17 only, with the headers, the token and the declarative message
+✔ 2a. a batch: 30 due, PUSH_BATCH 10 -> 10 sent, one VAPID token per push service, 20 deferred; the oldest send first
+✔ 2a. the schedules: "7 * * * *" runs the billing jobs and never sends; "37 * * * *" sends and runs nothing else
+▶ 3. never on Shabbat, Yom Tov, memorial days or Tish'a B'Av, nor on their eve; a plain weekday sends
+  ✔ 2026-11-13 17:07 Friday: the eve of Shabbat: nothing
+  ✔ 2026-11-14 17:07 Shabbat: nothing
+  ✔ 2026-09-20 17:07 Sunday 20 Sept: the eve of Yom Kippur: nothing
+  ✔ 2026-09-21 17:07 Yom Kippur: nothing
+  ✔ 2026-09-17 17:07 Thursday 17 Sept: a plain weekday: sends
+  ✔ 2027-04-21 17:07 Wednesday 21 Apr 2027: the eve of Pesach I: nothing
+  ✔ 2027-05-11 17:07 Yom HaZikaron 2027: nothing
+  ✔ 2027-05-10 17:37 Monday 10 May 2027: the eve of Yom HaZikaron: nothing
+  ✔ 2026-10-05 17:07 the Swords of Iron War Memorial Day: nothing
+  ✔ 2026-10-04 17:37 Sunday 4 Oct: its eve: nothing
+  ✔ 2027-08-12 17:07 Tish'a B'Av 2027: nothing
+  ✔ 2027-05-10 11:37: outside 16-20 anyway
+✔ 3. never on Shabbat, Yom Tov, memorial days or Tish'a B'Av, nor on their eve; a plain weekday sends
+✔ 4. a student who already learned today is skipped, and a second run the same day sends nothing again
+push send network down
+✔ 5. what each answer does: 404/410 delete, 429/5xx and no answer keep, other 4xx delete and count push_rejected
+✔ 6. ignored reminders: 3 in a row -> even days of the year only; 6 -> paused, and nothing more is sent
+✔ 6. the night step: a lesson the day of the reminder (or since) sets the misses back to 0; not sent yesterday, no change
+✔ 7. the six texts: never a price, the plan, a streak, a number or a name; one a day in turn; the title is the app
+✔ 8. a reminder whose app was not opened for 45 days is deleted
+✔ 9. PUSH = "off": every endpoint 404 and pushDue does nothing
+push config VAPID_PUBLIC_KEY
+push config VAPID_PRIVATE_JWK
+push config VAPID_PRIVATE_JWK
+push config VAPID_SUBJECT
+push config VAPID_SUBJECT
+push config PUBLIC_URL
+push config PUBLIC_URL
+✔ nothing is sent while the keys, the subject or the app address are wrong (a refusal would delete every row)
+✔ RFC 8291 §5: the example message encrypts to the RFC's body, byte for byte
+✔ fresh keys every message: a new salt and key pair each time, and the subscriber reads it
+✔ base64url both ways; anything that is not base64url is refused
+✔ RFC 8292 VAPID: an ES256 JWT { aud, exp ≤ 12 h, sub } that verifies with the public key
+✔ push-keys.mjs: a P-256 pair whose JWK and public key belong together, printed and never written
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0

@@ -21,6 +21,7 @@ import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, 
 import { run as runCron } from './cron.js';
 import { stepStatements, classGoal, setClassGoal, teacherGoal } from './goal.js';
 import { postMetric } from './metrics.js';
+import { pushKey, pushSubscribe, pushSeen, pushOff, pushDue, PUSH_CRON } from './push.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -430,6 +431,11 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/devices') return mintDevice(req, env, cors);
   // reach counts (metrics.js): a name on the list adds 1 to its day; 204 always
   if (M === 'POST' && p === '/api/metrics') return postMetric(req, env, cors);
+  // the opt-in daily reminder (push.js): 404 while PUSH is off
+  if (M === 'GET' && p === '/api/push/key') return pushKey(req, env, cors);
+  if (M === 'POST' && p === '/api/push/subscribe') return pushSubscribe(req, env, cors);
+  if (M === 'POST' && p === '/api/push/seen') return pushSeen(req, env, cors);
+  if (M === 'POST' && p === '/api/push/off') return pushOff(req, env, cors);
   // parent and teacher accounts
   if (M === 'POST' && p === '/api/account/code') return startLogin(req, env, cors);
   if (M === 'POST' && p === '/api/account/verify') return verifyLogin(req, env, cors);
@@ -490,7 +496,9 @@ export default {
       return json({ error: 'server_error' }, 500, cors);
     }
   },
+  // two schedules (wrangler.toml): the reminders run alone in theirs, so their crypto never shares the billing jobs' CPU
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runCron(env, { now: new Date(event?.scheduledTime || Date.now()) }));
+    const now = new Date(event?.scheduledTime || Date.now());
+    ctx.waitUntil(event?.cron === PUSH_CRON ? pushDue(env, now).catch((e) => console.error('push', e?.message)) : runCron(env, { now }));
   },
 };
