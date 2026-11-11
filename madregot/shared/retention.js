@@ -2,8 +2,9 @@
 // jobs, the privacy page and the teacher's "how long we keep it" screen, so no number is written twice. Days unless the
 // name says years. The privacy notice (and the lawyer, TRUST-13) must agree with these numbers.
 export const RETENTION = Object.freeze({
-  classIdleDays: 400, // a class with no activity for this long is deleted with its students' records
-  attemptsDays: 400, // a class student's practice answers on the server
+  classIdleDays: 400, // a class with no activity (teacher or student) for this long and no running licence is deleted
+  studentIdleDays: 400, // a class student nobody has seen for this long is deleted with everything they have on the server
+  attemptsDays: 400, // a class student's practice answers on the server; older ones are not accepted from a device either
   examsDays: 400, // exam results kept for the class
   helpImageAfterDoneDays: 30, // a help request's notebook page, after the teacher closes the request
   helpImageMaxDays: 60, // ... and at most this long after it was sent, closed or not

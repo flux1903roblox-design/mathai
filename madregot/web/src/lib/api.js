@@ -111,9 +111,18 @@ const MESSAGES = {
   too_large: 'הקובץ גדול מדי. נסו תמונה קטנה יותר.',
 };
 export const errorText = (code) => MESSAGES[code] || 'משהו השתבש. נסו שוב.';
+/**
+ * A code the server uses for two things, told apart by the request it answers: class_has_licence is a school code
+ * for a class that already has a licence, and also a class the teacher wants to delete while its licence still runs
+ * (trust spec TRUST-7 §4, Appendix E §E.6).
+ */
+const BY_ROUTE = {
+  '/api/teacher/class/delete': { class_has_licence: 'לכיתה יש רישיון פעיל. אפשר למחוק אותה אחרי שהרישיון מסתיים, או לכתוב לנו.' },
+};
+export const routeErrorText = (code, path = '') => BY_ROUTE[String(path).split('?')[0]]?.[code] || errorText(code);
 
 export class ApiError extends Error {
-  constructor(code, status, data = {}) { super(errorText(code)); this.code = code; this.status = status; this.data = data; }
+  constructor(code, status, data = {}, path = '') { super(routeErrorText(code, path)); this.code = code; this.status = status; this.data = data; }
 }
 
 /**
@@ -137,7 +146,7 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
   }
   onResponse?.(res);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(data.error || 'server_error', res.status, data);
+  if (!res.ok) throw new ApiError(data.error || 'server_error', res.status, data, path);
   return data;
 }
 

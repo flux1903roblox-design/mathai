@@ -82,3 +82,11 @@ CREATE TABLE IF NOT EXISTS order_renewals (
   prev_start TEXT NOT NULL,
   prev_end TEXT NOT NULL
 );
+
+-- Indexes for the class data's retention (trust spec TRUST-7 §1): the night purge finds old notebook pages, help
+-- requests, attempts and exams, and idle students, by these columns instead of reading every row (cron.js purgeClassSql).
+CREATE INDEX IF NOT EXISTS help_done ON help_requests (done_at);
+CREATE INDEX IF NOT EXISTS help_created ON help_requests (created_at);
+CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
+CREATE INDEX IF NOT EXISTS exams_created ON exams (created_at);
+CREATE INDEX IF NOT EXISTS students_last_seen ON students (last_seen);

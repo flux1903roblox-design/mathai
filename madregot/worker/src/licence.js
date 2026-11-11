@@ -1,11 +1,13 @@
 // The teacher's side of class licences (spec §5.4, §6.8): the licence card on the dashboard, a request for a trial or a
 // school quote (answered by the owner, who grants with npm run owner; a trial is never granted automatically), a school
-// licence code that attaches the class, the join lock, and removing a student who does not belong to the class.
-// Every route needs X-Class-Code and X-Teacher-Key. The licence card shows class totals only: no per-student AI data and
-// no sign of which students have a family plan.
-import { HttpError, body, json, nowIso, daysAgo, sha256, randomToken, netKey, key, take, limitOrThrow, CODE_ALPHABET } from './util.js';
+// licence code that attaches the class, the join lock, removing a student who does not belong to the class, and the
+// class itself: its last day of activity, and deleting it (spec TRUST-7). Every route needs X-Class-Code and
+// X-Teacher-Key. The licence card shows class totals only: no per-student AI data and no sign of which students have a
+// family plan.
+import { HttpError, body, json, nowIso, dayOf, daysAgo, sha256, randomToken, netKey, key, take, limitOrThrow, CODE_ALPHABET } from './util.js';
 import { requireTeacher, liveLicence, legacyWindow } from './entitle.js';
 import { requireAccount } from './account.js';
+import { studentDeleteStmts, studentCountersStmt, classDeleteSteps, countSteps } from './forget.js';
 import { prices, vatExempt, onlineCheckout, SEATS } from './billing.js';
 import { flushNotices } from './email.js';
 import { refuseSchoolSale } from './classai.js';
@@ -190,23 +192,54 @@ export async function lockClass(req, env, cors) {
 export const pinKeysWhere = "(who = 'pin:' || ?1 OR who LIKE 'pin:' || ?1 || ':%')";
 
 /**
- * POST /api/teacher/students/:id/remove {}: one batch deletes the student's attempts, levels, help requests (and their
- * help_meta rows) and exams, the PIN counters, the student's AI switch (student_ai_off) and the student; the student's token stops working. The practice saved on the device itself stays there.
+ * POST /api/teacher/students/:id/remove {}: one batch deletes the student's rows (STUDENT_ROWS in forget.js: attempts,
+ * levels, help requests with their help_meta rows, exams, the student's AI switch), their counters (PIN tries, every AI
+ * tier, care and reports; it used to leave all but the PIN ones behind) and the student; the student's token stops
+ * working. The practice saved on the device itself stays there.
  */
 export async function removeStudent(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
   await body(req, SMALL);
   const st = await first(env, 'SELECT id FROM students WHERE id = ? AND class_code = ?', String(id), cls.code);
   if (!st) throw new HttpError(404, 'not_found');
-  const mine = 'SELECT id FROM students WHERE id = ? AND class_code = ?';
   await env.DB.batch([
-    ...['attempts', 'levels', 'help_requests', 'exams'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE student_id IN (${mine})`).bind(st.id, cls.code)),
-    // help_meta goes with its requests (its foreign key cascades too; this also covers a database without it)
-    env.DB.prepare('DELETE FROM help_meta WHERE help_id NOT IN (SELECT id FROM help_requests)'),
-    env.DB.prepare(`DELETE FROM ai_usage WHERE ${pinKeysWhere}`).bind(st.id),
-    env.DB.prepare('DELETE FROM student_ai_off WHERE student_id = ?').bind(st.id),
+    ...studentDeleteStmts(env, st.id),
+    studentCountersStmt(env, st.id),
     env.DB.prepare('DELETE FROM students WHERE id = ? AND class_code = ?').bind(st.id, cls.code),
     audit(env, cls.code, 'student.remove', `student:${st.id}`),
   ]);
   return json({ ok: true }, 200, cors);
+}
+
+/**
+ * The class was used today (its teacher's dashboard, or a student's progress, help request or exam): class_settings
+ * last_seen, a Jerusalem day, is written at most once a day. The night purge deletes a class idle for 400 days.
+ */
+export const classSeenStmt = (env, code) => env.DB.prepare(`INSERT INTO class_settings (code, last_seen) VALUES (?2, ?1)
+  ON CONFLICT (code) DO UPDATE SET last_seen = ?1 WHERE class_settings.last_seen IS NULL OR class_settings.last_seen < ?1`).bind(dayOf(), code);
+
+// A class licence that still runs: a trial, a term or a yearly licence, also one canceled that runs to its end.
+const LIVE_CLASS_SUB = "SELECT 1 AS x FROM subscriptions WHERE kind = 'class' AND class_code = ? AND status IN ('active', 'past_due', 'canceled')";
+
+/**
+ * POST /api/teacher/class/delete {confirm: 'DELETE'}: the class and everything of it on the server, in one batch, as the
+ * night purge deletes an idle class (forget.js classDeleteSteps): the students with their rows and counters, the join
+ * lock, settings, counters, notices and audit rows of the class, and the class. The practice saved on the students'
+ * devices stays there. Without the confirm: 400 confirm_required. A class whose licence still runs (a trial too) is
+ * 409 class_has_licence. Audit class.delete (target class:<code>, detail {students}); returns {ok, students}.
+ */
+export async function deleteClass(req, env, cors) {
+  const cls = await requireTeacher(req, env);
+  const b = await body(req, SMALL);
+  if (b.confirm !== 'DELETE') throw new HttpError(400, 'confirm_required');
+  if (await first(env, LIVE_CLASS_SUB, cls.code)) throw new HttpError(409, 'class_has_licence');
+  const steps = [
+    // first, so it counts the students before they go; the class's own audit cleanup keeps class.delete rows
+    ['audit', env.DB.prepare(`INSERT INTO audit_log (at, actor, action, target, detail)
+      SELECT ?1, 'teacher:' || ?2, 'class.delete', 'class:' || ?2, json_object('students', (SELECT COUNT(*) FROM students WHERE class_code = ?2))`)
+      .bind(nowIso(), cls.code)],
+    ...classDeleteSteps(env, 'SELECT ?1', [cls.code]),
+  ];
+  const counts = countSteps(steps, await env.DB.batch(steps.map(([, s]) => s)));
+  return json({ ok: true, students: counts.students || 0 }, 200, cors);
 }

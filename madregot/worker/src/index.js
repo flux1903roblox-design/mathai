@@ -22,7 +22,10 @@ import {
 } from './billing.js';
 import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
-import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, pinKeysWhere } from './licence.js';
+import {
+  licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, pinKeysWhere, deleteClass, classSeenStmt,
+} from './licence.js';
+import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
 import { newClassSetting, newClassStmts, classSettings, aiPolicyView, setClassAi, setStudentAi } from './classai.js';
 
@@ -601,14 +604,22 @@ async function joinClass(code, req, env, cors) {
 }
 
 // ---------- student data ----------
+/**
+ * POST /api/progress {events, levels}: the student's answers and stairs. An answer older than the attempts' retention
+ * (RETENTION.attemptsDays, 400 days, trust spec TRUST-7 §5) is not stored, so an old outbox cannot bring back what the
+ * night purge removed; it is still counted in `saved`, as received, so the app lets go of it. Any student activity
+ * marks the class as used today (class_settings.last_seen).
+ */
 async function saveProgress(req, env, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.progress);
   const events = (Array.isArray(b.events) ? b.events : []).slice(0, 300);
   const now = Date.now();
+  const oldest = now - RETENTION.attemptsDays * 864e5;
   const stmts = [];
   for (const e of events) {
     const at = Math.min(Number(new Date(e.at)) || now, now);
+    if (at < oldest) continue;
     stmts.push(env.DB.prepare(
       'INSERT INTO attempts (student_id, topic, level, ok, first_try, hint, cat, secs, day, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(s.id, String(e.topic).slice(0, 20), Number(e.level) || 1, e.ok ? 1 : 0, e.first ? 1 : 0, e.hint ? 1 : 0,
@@ -620,6 +631,7 @@ async function saveProgress(req, env, cors) {
     ).bind(s.id, String(topic).slice(0, 20), Number(v.level) || 1, Number(v.max) || 1, nowIso()));
   }
   stmts.push(env.DB.prepare('UPDATE students SET last_seen = ? WHERE id = ?').bind(nowIso(), s.id));
+  stmts.push(classSeenStmt(env, s.class_code));
   await env.DB.batch(stmts);
   return json({ saved: events.length }, 200, cors);
 }
@@ -635,8 +647,11 @@ async function saveExam(req, env, cors) {
     level: Number.isInteger(q.level) && q.level > 0 && q.level <= 12 ? q.level : 0,
   }));
   const weak = (Array.isArray(b.weakTopics) ? b.weakTopics : []).filter((t) => TOPIC_IDS.includes(t)).slice(0, 6);
-  await env.DB.prepare('INSERT INTO exams (student_id, title, correct, total, questions, weak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(s.id, examTitle(b.title), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()).run();
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO exams (student_id, title, correct, total, questions, weak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(s.id, examTitle(b.title), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()),
+    classSeenStmt(env, s.class_code),
+  ]);
   return json({ ok: true }, 200, cors);
 }
 
@@ -658,6 +673,7 @@ async function askHelp(req, env, ctx, cors) {
     await env.DB.batch([
       env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, \'\', NULL, \'\', \'\', \'\', NULL, ?)').bind(s.id, nowIso()),
       env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'talk\', 0 FROM help_requests WHERE student_id = ?').bind(s.id),
+      classSeenStmt(env, s.class_code),
     ]);
     return json({ ok: true }, 200, cors);
   }
@@ -680,6 +696,7 @@ async function askHelp(req, env, ctx, cors) {
         .bind(note, note, image, String(b.answer || '').slice(0, 100), same.id),
       // once a note read as distress, the request stays marked for the teacher
       ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) VALUES (?, \'help\', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1').bind(same.id)] : []),
+      classSeenStmt(env, s.class_code),
     ]);
     return json({ ok: true, again: true }, 200, cors);
   }
@@ -687,6 +704,7 @@ async function askHelp(req, env, ctx, cors) {
     env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(s.id, String(b.topic || '').slice(0, 20), Number(b.level) || null, question, String(b.answer || '').slice(0, 100), note, image, nowIso()),
     ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'help\', 1 FROM help_requests WHERE student_id = ?').bind(s.id)] : []),
+    classSeenStmt(env, s.class_code),
   ]);
   return json({ ok: true }, 200, cors);
 }
@@ -719,6 +737,8 @@ async function dashboard(req, env, cors) {
     // the Ministry's AI rules for this class (trust spec TRUST-11 §3): the class's switch and each student's own
     q('SELECT so.student_id FROM student_ai_off so JOIN students s ON s.id = so.student_id WHERE s.class_code = ?', cls.code),
     classSettings(env, cls.code),
+    // the teacher looked at the class today (TRUST-7 §2): written at most once a day
+    classSeenStmt(env, cls.code).run(),
   ]);
   const aiOff = new Set(aiOffRows.map((r) => r.student_id));
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
@@ -838,6 +858,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/delete') return deleteClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);
   if (M === 'GET' && p === '/api/teacher/licence') return licenceStatus(req, env, cors);
