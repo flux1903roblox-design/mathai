@@ -190,6 +190,13 @@ export interface DiagModel<P = Record<string, number>> {
   /** The exact value when the answer is rounded (a root that is not whole): an answer within half a tenth of it is right. */
   exact?: (p: P) => number;
   bugs: Record<string, (p: P) => number | null>;
+  /**
+   * The stair's own mistake, the one its teaching is built around (signed:1: subtracting a negative as a positive). Where
+   * it predicts the answer, it names it alone: another bug that predicts the same number there is not a second
+   * explanation the lesson can tell apart, and the stair's exercises name it the same way (content/grade7.js level
+   * `flagship`, learn/misconceptions.ts diagnose).
+   */
+  flagship?: string;
   solution: (p: P) => Text[];
   hint: (p: P) => Text;
   unit?: string;

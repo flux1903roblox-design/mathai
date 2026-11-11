@@ -16,20 +16,23 @@ const txt = (t) => ({ text: t });
 /** Is u the value v rounded to tenths or to hundredths (v not whole), halves away from zero (−0.75 is −0.8)? */
 export const roundsTo = (u, v) => roundings(v).some((r) => near(u, r, 1e-9));
 /**
- * The first error whose prediction the answer u matches. A prediction that is the right answer, or that an ordinary
+ * The errors whose prediction the answer u matches: one name, or a list when several predict the same number (the
+ * answer is then ambiguous: content/index.js makeItem). A prediction that is the right answer, or that an ordinary
  * slip of the hand also gives (one off, ten off, two digits swapped), names nothing: a slip is not a misconception.
  */
 export function diagOf(ans, bugs) {
+  const one = (ids) => (ids.length > 1 ? ids : ids[0] || null);
+  // an error may predict two numbers (the x-term moved over from either side): a list of values
+  const all = Object.entries(bugs).flatMap(([id, v]) => (Array.isArray(v) ? v : [v]).map((x) => [id, x]));
   return (u) => {
     if (typeof u !== 'number') return null;
-    const real = Object.entries(bugs).filter(([, v]) => v != null && Number.isFinite(v) && !near(v, ans) && !slipOf(v, ans));
-    const exact = real.find(([, v]) => near(u, v, 1e-6));
-    if (exact) return exact[0];
-    // a fraction typed rounded to tenths or hundredths (−35/9 as −3.9 or −3.89) names an error only when no other one
-    // rounds there too; a number near the prediction that is not its rounding (4.45 for 4.5) names nothing, and nor
-    // does a rounding that is also a slip from the answer (418.95 typed 419 for 420): the rule of learn/misconceptions
-    const close = [...new Set(real.filter(([, v]) => !Number.isInteger(v) && matchesValue(v, u, ans)).map(([id]) => id))];
-    return close.length === 1 ? close[0] : null;
+    const real = all.filter(([, v]) => v != null && Number.isFinite(v) && !near(v, ans) && !slipOf(v, ans));
+    const exact = [...new Set(real.filter(([, v]) => near(u, v, 1e-6)).map(([id]) => id))];
+    if (exact.length) return one(exact);
+    // a fraction typed rounded to tenths or hundredths (−35/9 as −3.9 or −3.89) names the errors that round there; a
+    // number near the prediction that is not its rounding (4.45 for 4.5) names nothing, and nor does a rounding that is
+    // also a slip from the answer (418.95 typed 419 for 420): the rule of learn/misconceptions
+    return one([...new Set(real.filter(([, v]) => !Number.isInteger(v) && matchesValue(v, u, ans)).map(([id]) => id))]);
   };
 }
 /** "Remove b from both sides", in words: b is the number added to the x-term. */
@@ -59,7 +62,8 @@ function oneStepParams() {
   const a = R(2, 6); const b = NZ(-9, 9); return { k, a, x: a * b, b };
 }
 const oneStepBugs = ({ k, a, b, x }) => ({
-  'move-no-flip': k === 0 ? b + a : k === 1 ? b - a : k === 3 ? b / a : null,
+  // ax = b: the coefficient multiplied over where it divides (3x = 12 made x = 36), the same mistake as x : a = b made b / a
+  'move-no-flip': k === 0 ? b + a : k === 1 ? b - a : k === 2 ? b * a : b / a,
   'divide-flip': k === 2 && abs(a) > abs(b) ? a / b : null,
   sign: k === 2 && a < 0 ? -x : null,
   'sub-coef': k === 2 ? b - a : null,
@@ -302,7 +306,8 @@ function bothParams() {
     return { a, b, c, d, x };
   }
 }
-const bothBugs = ({ a, b, c, d }) => ({ 'move-no-flip': (d + b) / (a - c), 'move-x-no-flip': (d - b) / (a + c) });
+// the x-term moved over keeping its sign, from the right (ax − cx… = d − b) or from the left (b = cx + ax + d)
+const bothBugs = ({ a, b, c, d }) => ({ 'move-no-flip': (d + b) / (a - c), 'move-x-no-flip': [(d - b) / (a + c), (b - d) / (a + c)] });
 /** The worked solution of ax + b = cx + d: the x-terms go where there are more of them, so the coefficient stays positive. */
 function bothSolution({ a, b, c, d, x }) {
   const lines = [];

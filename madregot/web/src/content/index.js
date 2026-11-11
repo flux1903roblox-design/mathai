@@ -6,6 +6,7 @@ import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWord
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
+import { GENERATOR_WEIGHT } from '@/learn/misconceptions.ts';
 
 // Each topic's misconception names include those the 2.0 teaching content adds.
 export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
@@ -36,23 +37,49 @@ export function catLabel(topicId, level, cat) {
   return own?.title || TOPIC[topicId]?.cats[cat] || null;
 }
 
-/** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
-export function ambiguousText(topic, level, candidates) {
+/**
+ * An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. Three or more are
+ * not listed (a long "maybe this, maybe that" helps no one): one short sentence says the answer fits several mistakes.
+ * `more`: the lesson will ask one more question that tells them apart (lib/lesson.js); without one, the line only
+ * names them. Only a question that shows a number line can name a move on it ('direction'), so a typed question's line
+ * never speaks of the line.
+ */
+export function ambiguousText(topic, level, candidates, more = true) {
   const names = (candidates || []).map((c) => catLabel(topic, level, c.id)).filter(Boolean);
-  if (names.length < 2) return 'עוד שאלה אחת בסוף השיעור תעזור לדעת מה בדיוק בלבל.';
-  return `מה כנראה קרה: אולי ${names.join(', ואולי ')}. עוד שאלה אחת בסוף השיעור תעזור לדעת מה מהן.`;
+  const then = more ? ' עוד שאלה בסוף השיעור תעזור לדעת מה בדיוק בלבל.' : '';
+  if (names.length === 2) return `מה כנראה קרה: אולי ${names[0]}, ואולי ${names[1]}.${then}`;
+  if (names.length > 2) return `התשובה הזאת מתאימה לכמה טעויות שונות.${then}`;
+  return more ? then.trim() : null;
 }
 
 /**
- * The line a lesson shows under a first miss, from the answer's result ({ cat, diagnosis }): the app's name for the
- * mistake ("מה כנראה קרה: …."), the two candidates of an ambiguous answer, or null. The screen and the tutor's context
- * read it from here, so the tutor is told exactly what the student saw (ai spec AI-1 Design 4).
+ * The line a lesson shows under a first miss, from the answer's result ({ cat, diagnosis, more }): the app's name for
+ * the mistake ("מה כנראה קרה: …."), the candidates of an ambiguous answer, or null. `more: false` when no question at the
+ * end of the lesson will tell the candidates apart (lib/lesson.js; the AI practice screen has none). The screen and the
+ * tutor's context read it from here, so the tutor is told exactly what the student saw (ai spec AI-1 Design 4).
  */
 export function diagnosisLine(topic, level, result) {
   if (!result) return null;
-  if (result.diagnosis?.ambiguous) return ambiguousText(topic, level, result.diagnosis.candidates);
+  if (result.diagnosis?.ambiguous) return ambiguousText(topic, level, result.diagnosis.candidates, result.more !== false);
   const label = catLabel(topic, level, result.cat);
   return label ? `מה כנראה קרה: ${label}.` : null;
+}
+
+/**
+ * The mistakes a generator's diag() names for a wrong answer, as a list. A diag may return one category, or several
+ * when their predictions are the same number for this question (sn5: the order mistake and the sign mistake can both
+ * give one number). The level's `flagship`, the stair's own mistake, names an answer it predicts alone (signed:1:
+ * −4 − (−11) answered −15 is subtracting the negative as a positive, though adding the distances gives −15 too), as
+ * the stair's diagnostic model does (learn/misconceptions.ts diagnose).
+ */
+const NONE = Object.freeze([]);
+function namedBy(it, L, u) {
+  if (isCorrect(it, u)) return NONE;
+  const c = it.diag(u);
+  if (!c) return NONE;
+  if (!Array.isArray(c)) return [c];
+  const all = [...new Set(c.filter(Boolean))];
+  return L.flagship && all.includes(L.flagship) ? [L.flagship] : all;
 }
 
 /** Generate one item for a topic level, with bookkeeping fields attached. */
@@ -63,9 +90,17 @@ export function makeItem(topicId, level, avoidKey) {
   do { it = L.gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
   // a typed answer that has no short decimal (7/12) says once how to write it
   if (it.precise && it.form === 'num') it = withFormatNote(it);
-  // A misconception can only be diagnosed for an answer that is actually wrong.
-  const diag = (u) => (isCorrect(it, u) ? null : it.diag(u));
-  return { ...it, diag, topic: topicId, level, levelTitle: L.title };
+  // A misconception can only be diagnosed for an answer that is actually wrong. diag() gives the first name (the one a
+  // lesson counts and shows when there is one); diagnosis() gives them all in the diagnostic models' contract, so an
+  // answer two mistakes explain is ambiguous wherever it is shown or recorded, never named as one of them by chance.
+  // Each name weighs GENERATOR_WEIGHT, shared between the names when there are several.
+  const diag = (u) => namedBy(it, L, u)[0] || null;
+  const diagnosis = (u) => {
+    const ids = namedBy(it, L, u);
+    if (!ids.length) return null;
+    return { kind: 'misconception', candidates: ids.map((id) => ({ id, conf: GENERATOR_WEIGHT / ids.length })), ambiguous: ids.length > 1 };
+  };
+  return { ...it, diag, diagnosis, topic: topicId, level, levelTitle: L.title };
 }
 
 /**
@@ -117,12 +152,17 @@ function* tryAnswers(it) {
  * verification after a repair asks such exercises when no diagnostic model of the stair predicts that misconception
  * (learn/items.ts). `want`: stop as soon as all of these are found.
  */
-export function namesOf(it, want = []) {
+export function namesOf(it, want = [], alone = false) {
   const found = new Set();
   for (const u of tryAnswers(it)) {
-    if (isCorrect(it, u)) continue;
-    const cat = it.diag(u);
-    if (cat) { found.add(cat); if (want.length && want.every((w) => found.has(w))) break; }
+    // (diagnosis and diag name nothing for a right answer)
+    if (!it.diagnosis && isCorrect(it, u)) continue;
+    // every name of an answer, an ambiguous one's too (makeItem diagnosis); `alone`: only names an answer has by itself,
+    // so a question can tell them apart (a probe after an ambiguous answer, lib/lesson.js)
+    let cats;
+    if (it.diagnosis) { const d = it.diagnosis(u); cats = d?.kind !== 'misconception' || (alone && d.ambiguous) ? NONE : d.candidates.map((c) => c.id); } else { const c = it.diag(u); cats = c ? [c] : NONE; }
+    cats.forEach((cat) => found.add(cat));
+    if (cats.length && want.length && want.every((w) => found.has(w))) break;
   }
   return [...found];
 }

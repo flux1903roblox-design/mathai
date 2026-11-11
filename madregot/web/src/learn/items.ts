@@ -54,6 +54,9 @@ const PROBE_PICK = 4;
  * written the other way round, a relation reversed in words, a bar set to the mean). Null when none can.
  */
 function genProbe(topic: string, level: number, ids: string[], avoidKey?: string) {
+  // two or more misconceptions (an ambiguous answer): a question where each can show by itself, so the answer tells them
+  // apart; one (a verification): anywhere it can show
+  const alone = ids.length > 1;
   const k = `${topic}:${level}|${ids.join(',')}`;
   let forms = PROBE_FORMS.get(k);
   if (!forms) {
@@ -61,7 +64,7 @@ function genProbe(topic: string, level: number, ids: string[], avoidKey?: string
     forms = new Set();
     // (only exercises a check may ask: a practice-only one, such as the curriculum lane's two-choice questions, is one a
     // guesser gets right half the time, content/index.js fairForCheck)
-    for (let i = 0; i < PROBE_SAMPLE; i += 1) { const it = makeItem(topic, level); if (!fairForCheck(it)) continue; const n = namesOf(it, ids); if (ids.every((id) => n.includes(id))) forms.add(it.form); }
+    for (let i = 0; i < PROBE_SAMPLE; i += 1) { const it = makeItem(topic, level); if (!fairForCheck(it)) continue; const n = namesOf(it, ids, alone); if (ids.every((id) => n.includes(id))) forms.add(it.form); }
     PROBE_FORMS.set(k, forms);
   }
   if (!forms.size) return null;
@@ -71,7 +74,7 @@ function genProbe(topic: string, level: number, ids: string[], avoidKey?: string
   for (let i = 0, found = 0; i < PROBE_TRIES && found < PROBE_PICK; i += 1) {
     const it = makeItem(topic, level, avoidKey);
     if (!forms.has(it.form) || it.key === avoidKey || !fairForCheck(it)) continue;
-    const could = namesOf(it, ids);
+    const could = namesOf(it, ids, alone);
     if (!ids.every((id) => could.includes(id))) continue;
     found += 1;
     if (!best || odds(it) < odds(best)) best = { ...it, source: 'probe' as const, probe: ids, could };

@@ -212,7 +212,8 @@ function GeneratedQuestion({ ex, n }) {
       }, 0);
     }
     if (ok) { setPhase('right'); return; }
-    if (phase === 'answer') { setLine(diagnosisLine(seed.topic, seed.level, { cat, diagnosis })); setPhase('retry'); return; }
+    // no lesson follows here, so an ambiguous answer's line promises no question at the end
+    if (phase === 'answer') { setLine(diagnosisLine(seed.topic, seed.level, { cat, diagnosis, more: false })); setPhase('retry'); return; }
     setPhase('shown');
   };
   const steps = story ? story.solution : seed.solution;

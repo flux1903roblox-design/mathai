@@ -315,26 +315,43 @@ describe('misconceptions', () => {
     }
   });
   it('splits the evidence when two misconceptions explain one answer, and finds a question that tells them apart', () => {
-    // −4 − (−7): "minus-minus", "abs-add" and "direction" all predict −11
-    const d = diagnose(addSubModel, { a: -4, b: -7, s: -1 }, -11);
+    // −4 − (−6): dropping the first minus and "minus and minus make plus" both predict 10
+    const d = diagnose(addSubModel, { a: -4, b: -6, s: -1 }, 10);
     expect(d.kind).toBe('misconception');
-    const ids = ['abs-add', 'direction', 'minus-minus'];
-    if (d.kind === 'misconception') { expect(d.ambiguous).toBe(true); expect(d.candidates.map((c) => c.id).sort()).toEqual(ids); expect(d.candidates[0].conf).toBeCloseTo(1 / 3); }
-    // no one question separates all three ("minus-minus" and "direction" agree wherever the first applies),
-    // so the engine narrows: whatever the student answers, at most two questions leave one candidate
+    if (d.kind === 'misconception') { expect(d.ambiguous).toBe(true); expect(d.candidates.map((c) => c.id).sort()).toEqual(['drop-sign', 'neg-neg-plus']); expect(d.candidates[0].conf).toBeCloseTo(1 / 2); }
+    const p = discriminating(addSubModel, ['drop-sign', 'neg-neg-plus'], seeded(3), 4000)!;
+    const ans = addSubModel.answer(p);
+    expect(new Set(['drop-sign', 'neg-neg-plus'].map((id) => addSubModel.bugs[id](p) ?? ans)).size).toBe(2);
+  });
+  it('the stair\'s own mistake names an answer it predicts alone (DiagModel.flagship)', () => {
+    // −4 − (−7) answered −11: subtracting the negative as a positive; adding the distances predicts −11 too
+    const d = diagnose(addSubModel, { a: -4, b: -7, s: -1 }, -11);
+    expect(d).toEqual({ kind: 'misconception', candidates: [{ id: 'minus-minus', conf: 1 }], ambiguous: false });
+    // where the flagship does not predict the answer, the others are named as before: 3 + (−8) answered 11 adds distances
+    expect(diagnose(addSubModel, { a: 3, b: -8, s: 1 }, 11)).toMatchObject({ candidates: [{ id: 'abs-add' }], ambiguous: false });
+  });
+  it('narrows three candidates that no one question separates over two questions', () => {
+    // b and c agree wherever b applies (q > 0), as minus-minus and direction did on the number line: a first question
+    // splits a from them, and a second one tells b and c apart
+    const model = {
+      params: (r: () => number) => ({ q: Math.floor(r() * 9) - 4, t: Math.floor(r() * 5) + 1 }), text: () => '', answer: (p: any) => p.q * 10 + p.t,
+      bugs: { a: (p: any) => p.q * 10 - p.t, b: (p: any) => (p.q > 0 ? p.q * 10 + p.t + 1 : null), c: (p: any) => p.q * 10 + p.t + 1 + (p.q > 0 ? 0 : 2) },
+      solution: () => [''], hint: () => '',
+    };
+    const ids = ['a', 'b', 'c'];
     const rnd = seeded(3);
-    const p1 = discriminating(addSubModel, ids, rnd, 4000)!;
+    const p1 = discriminating(model as any, ids, rnd, 4000)!;
     expect(p1).not.toBeNull();
-    const ans1 = addSubModel.answer(p1);
-    const outcomes = [...new Set(ids.map((id) => addSubModel.bugs[id](p1) ?? ans1))];
+    const ans1 = model.answer(p1);
+    const outcomes = [...new Set(ids.map((id) => (model.bugs as any)[id](p1) ?? ans1))];
     expect(outcomes.length).toBeGreaterThanOrEqual(2);
     outcomes.forEach((u) => {
-      const left = narrow(addSubModel, ids, p1, u);
+      const left = narrow(model as any, ids, p1, u);
       expect(left.length).toBeLessThan(ids.length);
       if (left.length > 1) {
-        const p2 = discriminating(addSubModel, left, rnd, 4000)!;
-        const ans2 = addSubModel.answer(p2);
-        expect(new Set(left.map((id) => addSubModel.bugs[id](p2) ?? ans2)).size).toBe(left.length);
+        const p2 = discriminating(model as any, left, rnd, 4000)!;
+        const ans2 = model.answer(p2);
+        expect(new Set(left.map((id) => (model.bugs as any)[id](p2) ?? ans2)).size).toBe(left.length);
       }
     });
   });

@@ -414,7 +414,12 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
         if (v == null || same(v, c.diag.answer(p))) return;
         const d = diagnose(c.diag, p, v);
         expect(d.kind).toBe('misconception');
-        if (d.kind === 'misconception') expect(d.candidates.map((x) => x.id)).toContain(id);
+        // or the stair's own mistake predicts the same number, and names it alone (DiagModel.flagship)
+        const own = c.diag.flagship;
+        if (d.kind === 'misconception') {
+          const named = d.candidates.map((x) => x.id);
+          expect(named.includes(id) || (!!own && named.length === 1 && named[0] === own && same(c.diag.bugs[own](p) ?? NaN, v)), `${c.skill} ${id}`).toBe(true);
+        }
       });
     }
   });

@@ -47,9 +47,12 @@ const addSubModel: DiagModel<AddSub> = {
     'drop-sign': (p) => (p.a < 0 ? -p.a + p.s * p.b : null),
     // "minus and minus make plus" applied to everything: −a − (−b) read as a + b
     'neg-neg-plus': (p) => (p.a < 0 && p.s < 0 && p.b < 0 ? -p.a - p.b : null),
-    // moved the wrong way on the line for the second number
-    direction: (p) => p.a - p.s * p.b,
+    // (no 'direction': these questions are typed, with no number line to move on. The number-line exercises name it,
+    // content/grade7.js addSubLine, and a verification of it asks them, learn/items.ts genProbe.)
   },
+  // −4 − (−11) answered −15: subtracting the negative as a positive. Adding the distances (abs-add) predicts the same
+  // number wherever the first number is negative, and the stair's own mistake names it, as the exercises do
+  flagship: 'minus-minus',
   solution: (p) => {
     const bb = p.s * p.b; const ans = value(p); const out: string[] = [];
     if (p.s < 0) out.push(`חיסור הוא חיבור של הנגדי: $${show(p)} = ${T(p.a)} + ${T(bb, true)}$`);

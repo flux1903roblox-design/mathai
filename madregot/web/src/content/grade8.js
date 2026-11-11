@@ -29,7 +29,7 @@ function hypotenuse() {
     fig: { type: 'right', a, b, c: '?' },
     hint: 'במשולש ישר־זווית: $a^2 + b^2 = c^2$, כש־$c$ הוא היתר (מול הזווית הישרה).',
     solution: [`$c^2 = ${a}^2 + ${b}^2 = ${a * a} + ${b * b} = ${n}$`, `$c = \\sqrt{${n}} ${eqRoot(n)}$`],
-    diag: (u) => (near(u, a + b) ? 'add-legs' : near(u, n) ? 'no-root' : null),
+    diag: (u) => [near(u, a + b) && 'add-legs', near(u, n) && 'no-root'].filter(Boolean),
   };
 }
 
@@ -70,7 +70,7 @@ function leg() {
     fig: { type: 'right', a, b: '?', c },
     hint: 'מחפשים ניצב, אז מחסרים: $b^2 = c^2 - a^2$.',
     solution: [`$b^2 = ${c}^2 - ${a}^2 = ${c * c} - ${a * a} = ${n}$`, `$b = \\sqrt{${n}} ${eqRoot(n)}$`],
-    diag: (u) => (near(u, Math.sqrt(a * a + c * c), 0.06) ? 'add-not-sub' : near(u, c - a) ? 'subtract-sides' : near(u, n) ? 'no-root' : null),
+    diag: (u) => [near(u, Math.sqrt(a * a + c * c), 0.06) && 'add-not-sub', near(u, c - a) && 'subtract-sides', near(u, n) && 'no-root'].filter(Boolean),
   };
 }
 
@@ -115,7 +115,7 @@ function howManyRight() {
     fig: { type: 'table', head: ['משולש', 'אורכי הצלעות (ס״מ)'], rows: sets.map((s, i) => [['א', 'ב', 'ג', 'ד'][i], s.join(', ')]) },
     hint: 'בודקים כל משולש לבד: האם הריבוע של הצלע הארוכה שווה לסכום הריבועים של שתי האחרות?',
     solution: [...sets.map(checkLine), `ישרי־זווית: $${n}$`],
-    diag: (u) => (u === 4 && n < 4 ? 'assume-right' : u === lastHyp && lastHyp !== n ? 'wrong-hyp' : null),
+    diag: (u) => [u === 4 && n < 4 && 'assume-right', u === lastHyp && lastHyp !== n && 'wrong-hyp'].filter(Boolean),
   };
 }
 
@@ -144,7 +144,7 @@ function ladder() {
     solution: askHeight
       ? [`$h^2 = ${len}^2 - ${foot}^2 = ${n}$`, `$h = \\sqrt{${n}} ${eqRoot(n)}$`]
       : [`$L^2 = ${wall}^2 + ${foot}^2 = ${n}$`, `$L = \\sqrt{${n}} ${eqRoot(n)}$`],
-    diag: (u) => (askHeight && near(u, Math.sqrt(len * len + foot * foot), 0.06) ? 'add-not-sub' : !askHeight && near(u, wall + foot) ? 'add-legs' : null),
+    diag: (u) => [askHeight && near(u, Math.sqrt(len * len + foot * foot), 0.06) && 'add-not-sub', !askHeight && near(u, wall + foot) && 'add-legs'].filter(Boolean),
   };
 }
 
@@ -163,7 +163,7 @@ function distance() {
       fig: { type: 'coord', range: 6, points: [{ x: x1, y: y1, label: 'A' }, { x: x2, y: y2, label: 'B' }], segments: [[[x1, y1], [x2, y2]]], helper: [[x1, y1], [x2, y1], [x2, y2]] },
       hint: 'משלימים משולש ישר־זווית: הניצבים הם השינוי ב־$x$ והשינוי ב־$y$.',
       solution: [`$\\Delta x = ${a}$, $\\Delta y = ${b}$`, `$d = \\sqrt{${a}^2 + ${b}^2} = \\sqrt{${n}} ${eqRoot(n)}$`],
-      diag: (u) => (near(u, a + b) ? 'add-legs' : near(u, n) ? 'no-root' : null),
+      diag: (u) => [near(u, a + b) && 'add-legs', near(u, n) && 'no-root'].filter(Boolean),
     };
   }
 }
@@ -189,7 +189,7 @@ function mode() {
       key: `st1:${list.join(',')}`, text: `מה השכיח של הנתונים ${listMath(list)}?`, form: 'num', answer: m,
       hint: 'השכיח הוא הערך שמופיע הכי הרבה פעמים.',
       solution: [`$${m}$ מופיע ${counts[m]} פעמים, יותר מכל ערך אחר.`],
-      diag: (u) => (near(u, max) ? 'mode-max' : near(u, sortNum(list)[Math.floor(n / 2)]) ? 'mode-median' : near(u, counts[m]) ? 'mode-count' : null),
+      diag: (u) => [near(u, max) && 'mode-max', near(u, sortNum(list)[Math.floor(n / 2)]) && 'mode-median', near(u, counts[m]) && 'mode-count'].filter(Boolean),
     };
   }
 }
@@ -207,7 +207,7 @@ function median() {
       key: `st2:${list.join(',')}`, text: `מה החציון של הנתונים ${listMath(list)}?`, form: 'num', answer: med,
       hint: n % 2 ? 'מסדרים את הנתונים מהקטן לגדול. החציון הוא הערך שבאמצע.' : 'מסדרים מהקטן לגדול. במספר זוגי של נתונים, החציון הוא הממוצע של שני האמצעיים.',
       solution: [`מסודר: $${listTex(s)}$`, n % 2 ? `האמצעי: $${med}$` : `$\\frac{${s[n / 2 - 1]} + ${s[n / 2]}}{2} = ${med}$`],
-      diag: (u) => (near(u, unsortedMid) ? 'unsorted' : near(u, arr.reduce((x, y) => x + y, 0) / n) ? 'mean-not-median' : null),
+      diag: (u) => [near(u, unsortedMid) && 'unsorted', near(u, arr.reduce((x, y) => x + y, 0) / n) && 'mean-not-median'].filter(Boolean),
     };
   }
 }
@@ -224,7 +224,7 @@ function mean() {
       key: `st3:${arr.join(',')}`, text: `מה הממוצע של הנתונים ${listMath(arr)}?`, form: 'num', answer: avg,
       hint: 'מחברים את כל הנתונים ומחלקים במספר הנתונים.',
       solution: [`סכום: $${arr.join(' + ')} = ${sum}$`, `$${sum} : ${n} = ${avg}$`],
-      diag: (u) => (near(u, med) ? 'median-not-mean' : near(u, sum) ? 'no-divide' : null),
+      diag: (u) => [near(u, med) && 'median-not-mean', near(u, sum) && 'no-divide'].filter(Boolean),
     };
   }
 }
@@ -281,7 +281,7 @@ function freqMean() {
       fig: { type: 'table', head: ['ציון', 'מספר תלמידים'], rows: vals.map((v, i) => [v, freqs[i]]) },
       hint: 'כופלים כל ציון במספר התלמידים שקיבלו אותו, מחברים, ומחלקים במספר התלמידים הכולל.',
       solution: [`$${vals.map((v, i) => `${v} \\cdot ${freqs[i]}`).join(' + ')} = ${sum}$`, `מספר התלמידים: $${n}$`, `$${sum} : ${n} = ${avg}$`],
-      diag: (u) => (near(u, naive) ? 'ignore-freq' : near(u, sum / vals.length) ? 'wrong-count' : null),
+      diag: (u) => [near(u, naive) && 'ignore-freq', near(u, sum / vals.length) && 'wrong-count'].filter(Boolean),
     };
   }
 }

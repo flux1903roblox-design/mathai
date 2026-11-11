@@ -29,7 +29,8 @@ function table() {
     fig: { type: 'table', head: ['x', 'y'], rows },
     hint: `מציבים את $x$ במשוואה, במקום $x$: $y = ${T(m)} \\cdot ${T(ask, true)}${plusB(b)}$. כפל לפני חיבור.`,
     solution: [`$y = ${T(m)} \\cdot ${T(ask, true)}${plusB(b)}$`, b === 0 ? `$y = ${T(y)}$` : `$y = ${T(m * ask)}${plusB(b)} = ${T(y)}$`],
-    diag: (u) => (near(u, m * ask) && b !== 0 ? 'forgot-b' : near(u, m * Math.abs(ask) + b) && ask < 0 ? 'neg-sub' : near(u, m + ask + b) ? 'added-m' : null),
+    // every mistake that gives this number (several: an ambiguous answer, content/index.js makeItem)
+    diag: (u) => [near(u, m * ask) && b !== 0 && 'forgot-b', near(u, m * Math.abs(ask) + b) && ask < 0 && 'neg-sub', near(u, m + ask + b) && 'added-m'].filter(Boolean),
   };
 }
 
@@ -75,7 +76,7 @@ function meaning() {
     form: 'num', answer: ans, label: kind === 'm' ? 'm =' : 'b =',
     hint: '$m$ הוא המקדם, המספר שלפני $x$ (כולל הסימן שלו). $b$ הוא המספר החופשי, גם הוא עם הסימן.',
     solution: [`$m = ${T(m)}$, $b = ${T(b)}$`, kind === 'b' ? `החיתוך עם ציר $y$: $(0, ${b})$` : `השיפוע: $${T(m)}$`],
-    diag: (u) => (near(u, kind === 'm' ? b : m) && m !== b ? 'm-b' : near(u, -ans) ? 'sign' : null),
+    diag: (u) => [near(u, kind === 'm' ? b : m) && m !== b && 'm-b', near(u, -ans) && 'sign'].filter(Boolean),
   };
 }
 
@@ -96,7 +97,7 @@ function stepsFromGraph() {
         ? 'כאן "המדרגה" לא נגמרת אחרי צעד אחד: בדקו כמה עולים אחרי שני צעדים ימינה, וחלקו ב־2.'
         : 'מתחילים בנקודה $A$, זזים צעד אחד ימינה, וסופרים כמה משבצות צריך לעלות (או לרדת) כדי לחזור לישר.',
       solution: [`מ־$A$ ל־$B$: ימינה $${2 * run}$, ${rise > 0 ? 'למעלה' : 'למטה'} $${2 * Math.abs(rise)}$`, `$m = \\frac{${2 * rise}}{${2 * run}} = ${ratioTex(rise, run)}$`],
-      diag: (u) => (near(u, run / rise) && !near(m, run / rise) ? 'inverse' : near(u, -m) ? 'sign' : null),
+      diag: (u) => [near(u, run / rise) && !near(m, run / rise) && 'inverse', near(u, -m) && 'sign'].filter(Boolean),
     };
   }
 }
@@ -114,11 +115,7 @@ function slopeTwoPoints() {
       form: 'num', answer: m, label: 'm =',
       hint: '$m = \\frac{y_2 - y_1}{x_2 - x_1}$. אסור לערבב את הסדר: הנקודה שמתחילים ממנה למעלה היא גם זו שמתחילים ממנה למטה. מספר שלילי כותבים בסוגריים.',
       solution: [`$m = \\frac{${T(y2)} - ${T(y1, true)}}{${T(x2)} - ${T(x1, true)}} = \\frac{${dy}}{${dx}}$`, `$m = ${ratioTex(p, q)}$`],
-      diag: (u) => {
-        if (near(u, dx / dy) && !near(m, dx / dy)) return 'inverse';
-        if (near(u, -m)) return 'mixed-order';
-        return null;
-      },
+      diag: (u) => [near(u, dx / dy) && !near(m, dx / dy) && 'inverse', near(u, -m) && 'mixed-order'].filter(Boolean),
     };
   }
 }
@@ -138,7 +135,8 @@ function lineEquation() {
       solution: [
         ...(withSlope ? [] : [`$m = \\frac{${y2} - ${T(y1, true)}}{${x2} - ${T(x1, true)}} = ${T(m)}$`]),
         `$${y1} = ${T(m)} \\cdot ${T(x1, true)} + b$`, `$${y1} = ${T(m * x1)} + b \\Rightarrow b = ${T(b)}$`, `$${lineTex(m, b)}$`],
-      diag: (v) => (v && near(v.m, m) && near(v.b, -b) && b !== 0 ? 'b-sign' : v && near(v.m, m) && near(v.b, y1) && y1 !== b ? 'b-is-y' : v && near(v.m, -m) ? 'sign' : null),
+      // b with the wrong sign and b read off the point can be the same number: then both
+      diag: (v) => (v ? [near(v.m, m) && near(v.b, -b) && b !== 0 && 'b-sign', near(v.m, m) && near(v.b, y1) && y1 !== b && 'b-is-y', near(v.m, -m) && 'sign'].filter(Boolean) : null),
     };
   }
 }
@@ -164,7 +162,7 @@ function buildLine() {
     manip: { kind: 'line', range: 6, start: { m: 1, b: 0 } }, answer: { m, b },
     hint: '$b$ הוא המקום שבו הישר חותך את ציר $y$. השיפוע $m$: צעד אחד ימינה, ו־$m$ צעדים למעלה (או למטה כשהוא שלילי).',
     solution: [`חיתוך עם ציר $y$: $b = ${b}$, הנקודה $(0, ${b})$.`, `שיפוע $m = ${m}$: מ־$(0, ${b})$ צעד אחד ימינה ו־$${Math.abs(m)}$ ${m > 0 ? 'למעלה' : 'למטה'}, אל $(1, ${m + b})$.`],
-    diag: (u) => (u && u.m === b && u.b === m && m !== b ? 'm-b' : u && u.m === -m && u.b === b ? 'sign' : null),
+    diag: (u) => (u ? [u.m === b && u.b === m && m !== b && 'm-b', u.m === -m && u.b === b && 'sign'].filter(Boolean) : null),
   };
 }
 
@@ -183,13 +181,12 @@ function axes() {
       solution: onX
         ? [`$0 = ${kx(m)}${plusB(b)}$`, `$${kx(m)} = ${T(-b)}$`, Math.abs(m) === 1 ? `$x = ${plainNum(x0)}$` : `$x = \\frac{${T(-b)}}{${T(m)}} = ${plainNum(x0)}$`, `הנקודה: $(${plainNum(x0)}, 0)$`]
         : [`$${name}(0) = ${T(m)} \\cdot 0 ${b < 0 ? '-' : '+'} ${Math.abs(b)} = ${T(b)}$`, `הנקודה: $(0, ${b})$`],
-      diag: ([u, v]) => {
-        if (near(u, ans[1]) && near(v, ans[0]) && ans[0] !== ans[1]) return 'swap';
-        if (onX && near(u, -x0) && near(v, 0)) return 'sign';
-        if (onX && near(u, 0) && near(v, b)) return 'axes-mixed';
-        if (!onX && near(u, x0) && near(v, 0)) return 'axes-mixed';
-        return null;
-      },
+      // the pair the other way round can also be the other axis's point (y = −x + 3: (3, 0) and (0, 3)): then both
+      diag: ([u, v]) => [
+        near(u, ans[1]) && near(v, ans[0]) && ans[0] !== ans[1] && 'swap',
+        onX && near(u, -x0) && near(v, 0) && 'sign',
+        ((onX && near(u, 0) && near(v, b)) || (!onX && near(u, x0) && near(v, 0))) && 'axes-mixed',
+      ].filter(Boolean),
     };
   }
 }
@@ -206,7 +203,7 @@ function triangle() {
       fig: { type: 'coord', range: 6, line: { m, b }, polygon: [[0, 0], [x0, 0], [0, b]], points: [{ x: 0, y: b, label: 'A' }, { x: x0, y: 0, label: 'B' }] },
       hint: 'מוצאים את שתי נקודות החיתוך עם הצירים. הצלעות של המשולש הן המרחקים שלהן מהראשית, והשטח הוא מכפלתן חלקי 2.',
       solution: [`חיתוך עם ציר $y$: $A(0, ${b})$`, `חיתוך עם ציר $x$: $0 = ${lineTex(m, b, '').replace(/^ = /, '')} \\Rightarrow B(${x0}, 0)$`, `שטח: $\\frac{${Math.abs(b)} \\cdot ${Math.abs(x0)}}{2} = ${plainNum(area)}$`],
-      diag: (u) => (near(u, 2 * area) ? 'no-half' : near(u, Math.abs(b) + Math.abs(x0)) ? 'added-sides' : null),
+      diag: (u) => [near(u, 2 * area) && 'no-half', near(u, Math.abs(b) + Math.abs(x0)) && 'added-sides'].filter(Boolean),
     };
   }
 }
@@ -227,7 +224,7 @@ function meet() {
         `$${kx(m1 - m2)} = ${T(b2 - b1)} \\Rightarrow x = ${T(x)}$`,
         `$y = ${T(m1)} \\cdot ${T(x, true)}${plusB(b1)} = ${T(y)}$`, `הנקודה: $E(${x}, ${y})$`],
       // 'forgot-y' only when y clearly was not worked out: the x written again, or left at 0
-      diag: ([u, v]) => (near(u, y) && near(v, x) && x !== y ? 'swap' : near(u, x) && !near(v, y) && (near(v, x) || near(v, 0)) ? 'forgot-y' : null),
+      diag: ([u, v]) => [near(u, y) && near(v, x) && x !== y && 'swap', near(u, x) && !near(v, y) && (near(v, x) || near(v, 0)) && 'forgot-y'].filter(Boolean),
     };
   }
 }

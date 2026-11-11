@@ -34,7 +34,8 @@ import { holds, rint, rnz, rpick } from '@/learn/expr.ts';
 const abs = Math.abs;
 const tex = (t) => ({ tex: t });
 const txt = (t) => ({ text: t });
-const rnd0 = Math.random;
+// read at each draw (not kept from load), so a test that seeds Math.random draws the same questions every run
+const rnd0 = () => Math.random();
 
 /** A decimal as written in school, never as a fraction: 1.2, 0.85, 2.5. */
 export const dec = (v) => String(Math.round(v * 1e6) / 1e6);
@@ -232,7 +233,8 @@ function substItem() {
     key: `sy2:${substShow(s)}`, text: 'פתרו את מערכת המשוואות.', display: substShow(s), form: 'pt', label: '', answer: [s.x, s.y],
     hint: substHint(s), solution: substSolution(s),
     // the coordinate found first: the one the error changes
-    diag: (u) => (isSwap(u, s.x, s.y) ? 'swap' : Array.isArray(u) ? diagOf([s.x, s.y][first], { 'partial-dist': bad[first] })(u[first]) : null),
+    // the pair the other way round can also be the bracket mistake's number: then both (an ambiguous answer)
+    diag: (u) => [isSwap(u, s.x, s.y) && 'swap', Array.isArray(u) && diagOf([s.x, s.y][first], { 'partial-dist': bad[first] })(u[first])].flat().filter(Boolean),
   };
 }
 
@@ -404,7 +406,7 @@ function elimItem() {
     key: `sy3:${elimShow(e)}`, text: 'פתרו את מערכת המשוואות.', display: elimShow(e), form: 'pt', label: '', answer: [e.x, e.y],
     hint: elimHint(e), solution: elimSolution(e),
     // the constants added instead of subtracted, whichever equation was subtracted from which
-    diag: (u) => (isSwap(u, e.x, e.y) ? 'swap' : Array.isArray(u) && bad ? diagOf(right, { 'minus-bracket': bad[i] })(u[i]) || diagOf(right, { 'minus-bracket': bad2[i] })(u[i]) : null),
+    diag: (u) => [isSwap(u, e.x, e.y) && 'swap', Array.isArray(u) && bad && (diagOf(right, { 'minus-bracket': bad[i] })(u[i]) || diagOf(right, { 'minus-bracket': bad2[i] })(u[i]))].flat().filter(Boolean),
   };
 }
 

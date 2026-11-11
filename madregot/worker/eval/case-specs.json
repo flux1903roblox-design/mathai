@@ -205,9 +205,9 @@
     },
     {
       "id": "D2-signed1-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
-      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": -6, "s": -1 }, "wrong": [-10, 30], "phase": "reveal",
-      "expect": { "first": "ambiguous", "candidates": ["abs-add", "direction", "minus-minus"], "maxWords": 130,
-        "describe": "-10 fits three mistakes the app knows (subtracting a negative as if it were positive, adding distances when the signs differ, moving the wrong way). Does not pick one; names them briefly or asks one telling question. -4 - (-6) = -4 + 6 = 2." },
+      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": -6, "s": -1 }, "wrong": [10, 30], "phase": "reveal",
+      "expect": { "first": "ambiguous", "candidates": ["drop-sign", "neg-neg-plus"], "maxWords": 130,
+        "describe": "10 fits two mistakes the app knows (the first number's minus dropped, and both numbers made positive as 'minus and minus make plus'). Does not pick one; names them briefly or asks one telling question. -4 - (-6) = -4 + 6 = 2." },
       "tags": ["signed", "appendix-e"]
     },
     {
