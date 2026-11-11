@@ -63,6 +63,11 @@ describe('the new figure types render with role="img" and their Hebrew name', ()
     expect(named({ type: 'dots', values: [3, 6, 9], axis: [0, 10], mark: { median: 6 }, unit: 'שלושה נתונים' })).toBe('תרשים נקודות של 3 ערכים בין 0 ל־10, החציון מסומן: שלושה נתונים');
   });
 
+  it('sgraph: the graph read in words, every number it draws (FUNC-1)', () => {
+    expect(named({ type: 'sgraph', x: { max: 15, step: 5, label: 'זמן', unit: 'דקות' }, y: { max: 600, step: 100, label: 'מרחק מהבית', unit: 'מטרים' }, series: [{ pts: [[0, 0], [5, 400], [10, 400], [15, 0]] }] }))
+      .toBe('גרף: מרחק מהבית (מטרים) לפי זמן (דקות); ציר x מ־0 עד 15, קו כל 5; ציר y מ־0 עד 600, קו כל 100; (0, 0) → (5, 400) → (10, 400) → (15, 0)');
+  });
+
   it('coord: still "מערכת צירים", with what the new fields add, and never where a point is', () => {
     expect(named({ type: 'coord', range: 6, points: [{ x: 3, y: 4, label: 'A' }] })).toBe('מערכת צירים, הנקודה A');
     expect(named({ type: 'coord', range: 6, quadrants: true, path: [[3, 0], [3, 4]], points: [{ x: 3, y: 4, label: 'D' }] }))
@@ -196,6 +201,9 @@ describe('drawing in, once, and never under reduced motion', () => {
       { type: 'thermo', value: -3, min: -10, max: 10, anim: true },
       { type: 'bars', labels: ['א', 'ב'], values: [2, 4], level: 3, anim: true },
       { type: 'coord', range: 6, segments: [[[-5, 4], [-1, 4]]], anim: true }, // segments alone (pyth:5#0) draw in too
+      // a situation graph (FUNC-1): its line, its dots, its marked interval and its guides
+      { type: 'sgraph', x: { max: 45, step: 5, label: 'זמן', every: 2 }, y: { max: 700, step: 100, label: 'מרחק' }, series: [{ pts: [[0, 0], [10, 600], [45, 0]] }], bands: [{ from: 10, to: 25 }], guide: { x: 5 }, anim: true },
+      { type: 'sgraph', x: { max: 4, step: 1, label: 'x' }, y: { max: 8, step: 1, label: 'y' }, series: [{ pts: [[0, 1], [1, 3], [2, 5]], dots: true }], anim: true },
     ]; // (a table's rows: in "a table keeps a heading that is maths left to right…" above)
     for (const f of animated) {
       expect(html(f), f.type).toMatch(/opacity="0"/);

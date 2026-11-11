@@ -7,6 +7,7 @@ import NumberLine from '@/components/manip/NumberLine.jsx';
 import NumberPins from '@/components/manip/NumberPins.jsx';
 import FracBar from '@/components/manip/FracBar.jsx';
 import DoubleLine from '@/components/manip/DoubleLine.jsx';
+import GraphDraw from '@/components/manip/GraphDraw.jsx';
 import { loadKatex } from '@/components/MathText.jsx';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
@@ -14,6 +15,7 @@ import {
   balanceTilt, balanceSolved, balanceDivisor, balanceReachable, boxesDivisor, balanceSplits, balanceDivide, balanceTex, balanceWords, panWords,
   tilesTex, tilesPairs, tilesWords, areaTex, areaSumTex, rayText, rayTex, rayHas, TILES_MAX,
   fbarDenFor, fbarWords, dlineAt, dlineNum, withUnit, ticksWords, manipCorrect,
+  graphMove, graphKey, graphShape, graphXs, squaresWords, seriesAt, seriesCrossings, seriesMeet, figWords,
 } from './manip.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
@@ -593,5 +595,135 @@ describe('the still figures of stage 1 are drawn, and said in words with every n
     // a line with no parts is the student lane's teaching figure (STUDENT-8): its words are that lane's (content/manip.js
     // teachLineWords): real minus signs, and each point with its place
     expect(figPlain({ type: 'numline', from: -6, to: 6, marks: [{ x: -2, label: 'B' }, { x: 0.75, label: '0.75' }] })).toBe('ציר מספרים מ־−6 עד 6, נקודה B ב־−2, נקודה ב־0.75');
+  });
+});
+
+// ---------------------------------------------------------------- stage 5: the graph you draw and the situation graph
+describe('the graph you draw (גרף שמציירים, FUNC-1)', () => {
+  const time = { max: 15, step: 5, label: 'זמן', unit: 'דקות' };
+  const dist = { max: 600, step: 100, label: 'מרחק מהבית', unit: 'מטרים' };
+  const walk = fixture({ kind: 'graph', x: time, y: dist, start: [0, 200, 200, 200], fixed: [0] }, { mode: 'values', values: [0, 400, 400, 0] });
+  const shape = fixture({ kind: 'graph', x: { max: 6, step: 1, label: 'x' }, y: { max: 8, step: 1, label: 'y' }, start: [4, 4, 4, 4, 4, 4, 4] }, { mode: 'shape', shape: ['up', 'up', 'flat', 'flat', 'down', 'down'] });
+  const story = fixture({ kind: 'graph', x: time, y: dist, start: [0, 0, 0, 0], fixed: [0] }, { mode: 'shape', shape: ['up', 'flat', 'down'] });
+  // a rate continued: two fixed points between... on the grid (y from 38 every 10), the rest to draw
+  const heat = fixture({ kind: 'graph', x: { min: 4, max: 9, step: 1, label: 'זמן', unit: 'דקות' }, y: { min: 38, max: 98, step: 10, label: 'טמפרטורה', unit: 'מעלות' }, start: [48, 58, 58, 58, 58, 58], fixed: [0, 1] }, { mode: 'uniform' });
+  const rate = fixture({ kind: 'graph', x: { max: 5, step: 1, label: 'זמן', unit: 'שעות' }, y: { max: 300, step: 60, label: 'מרחק', unit: 'ק״מ' }, start: [0, 0, 0, 0, 0, 0], fixed: [0], ref: { pts: [[0, 300], [5, 100]], label: 'רכב ב' } }, { mode: 'uniform', start: 0, rate: 60 });
+  const perFive = fixture({ kind: 'graph', x: time, y: dist, start: [100, 100, 100, 100] }, { mode: 'uniform', rate: 20 }); // 20 a minute: 100 a column
+  const free = fixture({ kind: 'graph', x: { max: 4, step: 1, label: 'x' }, y: { max: 8, step: 2, label: 'y' }, start: [8, 2, 0, 0, 0] }, { mode: 'uniform', start: 2 });
+
+  it('every mode: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
+    for (const it of [walk, shape, story, heat, rate, perFive, free]) solves(it);
+  });
+  it('values: every point exactly; shape: each segment\'s direction at any height; uniform: one change for every segment', () => {
+    expect(isCorrect(walk, [0, 400, 400, 0])).toBe(true);
+    expect(isCorrect(walk, [0, 400, 300, 0])).toBe(false);
+    expect(manipWrong(walk)).toEqual([0, 500, 400, 0]); // the first point that moves, one step up
+    expect(isCorrect(shape, [0, 1, 2, 2, 2, 1, 0])).toBe(true); // the same shape lower down
+    expect(isCorrect(shape, [0, 1, 2, 2, 3, 1, 0])).toBe(false);
+    expect(graphShape(manipSolution(shape))).toEqual(shape.answer.shape);
+    expect(manipSolution(story)).toEqual([0, 100, 100, 0]); // from the fixed start, one step a segment
+    expect(graphShape(manipWrong(story))[0]).toBe('flat'); // its first sloping segment made flat
+    expect(manipSolution(heat)).toEqual([48, 58, 68, 78, 88, 98]); // the rate the fixed points give
+    expect(isCorrect(heat, [48, 58, 68, 78, 88, 88])).toBe(false);
+    expect(manipSolution(rate)).toEqual([0, 60, 120, 180, 240, 300]);
+    expect(isCorrect(rate, [0, 0, 0, 0, 0, 0])).toBe(false); // flat is uniform, but not 60 an hour
+    expect(manipSolution(perFive)).toEqual([0, 100, 200, 300]); // a rate is per one unit of x: 20 a minute is 100 in five
+    expect(isCorrect(perFive, [100, 200, 300, 400])).toBe(true); // no start asked: any start at that rate
+    expect(isCorrect(perFive, [0, 20, 40, 60])).toBe(false); // off the grid: not a state the object can be in
+    // only a start asked: a step up would leave the axis (2 to 10), a step down too, so the example is flat, also uniform
+    expect(manipSolution(free)).toEqual([2, 2, 2, 2, 2]);
+    expect(isCorrect(free, [2, 3.5, 5, 6.5, 8])).toBe(false); // uniform, but between grid lines
+  });
+  it('a fixed point stays where it is, under a drag, a step button and every key, and never counts as moved', () => {
+    const m = walk.manip; const v = [0, 200, 200, 200];
+    expect(graphMove(m, v, 0, 400)).toBe(v); // the drag and the step buttons go through graphMove
+    for (const key of ['ArrowUp', 'ArrowDown', 'Home', 'End', 'ArrowLeft', 'ArrowRight', 'a']) expect(graphKey(m, v, 0, key)).toBe(v);
+    expect(isCorrect(walk, [100, 400, 400, 0])).toBe(false); // a state with the fixed point elsewhere is not one
+    // a point that moves: snapped to a grid line, kept on the axis; a move to where it is changes nothing
+    expect(graphMove(m, v, 1, 437)).toEqual([0, 400, 200, 200]);
+    expect(graphMove(m, v, 1, 9999)).toEqual([0, 600, 200, 200]);
+    expect(graphMove(m, v, 1, -50)).toEqual([0, 0, 200, 200]);
+    expect(graphMove(m, v, 1, 210)).toBe(v);
+    expect(graphKey(m, v, 2, 'ArrowUp')).toEqual([0, 200, 300, 200]);
+    expect(graphKey(m, v, 2, 'End')).toEqual([0, 200, 600, 200]);
+    expect(graphKey(m, v, 2, 'Home')).toEqual([0, 200, 0, 200]);
+    // a fixed point between grid lines keeps its value (a given), and the others still move on the grid
+    const h = heat.manip; const hv = h.start;
+    expect(graphMove(h, hv, 1, 70)).toBe(hv);
+    expect(graphKey(h, hv, 2, 'ArrowUp')).toEqual([48, 58, 68, 58, 58, 58]);
+  });
+  it('is written as points with their units, as a shape in words, and set out for the tutor', () => {
+    expect(answerText(walk)).toBe('⁦(0, 0) → (5, 400) → (10, 400) → (15, 0)⁩ (x בדקות, y במטרים)');
+    expect(answerText(walk, [0, 300, 300, 0])).toBe('⁦(0, 0) → (5, 300) → (10, 300) → (15, 0)⁩ (x בדקות, y במטרים)');
+    expect(answerText(shape)).toBe('קטעים משמאל לימין: עולה, עולה, קבוע, קבוע, יורד, יורד');
+    expect(answerText(rate)).toBe('קצב אחיד: כל קטע משתנה באותו מספר, מתחילים ב־0, 60 לכל יחידה של x; למשל ⁦(0, 0) → (1, 60) → (2, 120) → (3, 180) → (4, 240) → (5, 300)⁩ (x בשעות, y בק״מ)');
+    expect(manipPlain(walk)).toBe('[גרף: ציר x זמן מ־0 עד 15 כל 5; ציר y מרחק מהבית מ־0 עד 600 כל 100; מזיזים נקודה מעל כל ערך של x; הנקודה הראשונה קבועה]');
+    expect(manipPlain(shape)).toBe('[גרף: ציר x x מ־0 עד 6 כל 1; ציר y y מ־0 עד 8 כל 1; מזיזים נקודה מעל כל ערך של x]');
+    expect(manipPlain(heat)).toMatch(/; שתי הנקודות הראשונות קבועות\]$/);
+    expect(manipPlain(rate)).toMatch(/; קו קבוע נוסף רכב ב: \(0, 300\) → \(5, 100\)\]$/);
+    expect(graphXs(heat.manip)).toEqual([4, 5, 6, 7, 8, 9]);
+  });
+  it('draws each point as a slider; in a check no value is shown or spoken, only squares above the axis', () => {
+    const open = html(GraphDraw, { m: walk.manip, value: [0, 400, 300, 200], answer: walk.answer });
+    expect(open).toContain('role="group" aria-label="גרף: מרחק מהבית לפי זמן"');
+    expect(open.match(/role="slider"/g)).toHaveLength(4);
+    expect(open).toContain('aria-valuetext="ב־5 דקות: 400 מטרים"');
+    expect(open).toMatch(/<g[^>]*aria-readonly="true"[^>]*aria-valuetext="ב־0 דקות: 0 מטרים"/); // the fixed start
+    expect(open).toContain('class="manip-readout"');
+    expect(open).toContain('<b dir="ltr">400</b>'); // the step label of the chosen point (5)
+    const check = html(GraphDraw, { m: walk.manip, value: [0, 400, 300, 200], answer: walk.answer, test: true });
+    expect(check).not.toContain('manip-readout');
+    expect(check).not.toMatch(/<b[ >]/);
+    expect(check).toContain('aria-valuetext="ב־5 דקות: 4 משבצות מעל הציר"');
+    expect(check).toContain('aria-valuetext="ב־0 דקות: על הציר"');
+    expect(check).not.toMatch(/מטרים"/); // no value in words (the axes keep their numbers: the eye reads the grid)
+    expect(squaresWords(walk.manip, 100)).toBe('משבצת אחת מעל הציר');
+    for (const out of [open, check]) expect(out).not.toMatch(/NaN|undefined/);
+  });
+  it('shows the answer once it is revealed, and a hint marks only what is off', () => {
+    const shown = html(GraphDraw, { m: walk.manip, value: [0, 300, 400, 100], answer: walk.answer, reveal: true, locked: true });
+    expect(shown).toContain('class="mp-graph-ghost"');
+    expect(html(GraphDraw, { m: walk.manip, value: [0, 400, 400, 0], answer: walk.answer, reveal: true, locked: true })).not.toContain('mp-graph-ghost');
+    const hinted = html(GraphDraw, { m: walk.manip, value: [0, 400, 300, 200], answer: walk.answer, hint: true });
+    expect(hinted.match(/class="mp-graph-hint"/g)).toHaveLength(2); // the points at 10 and 15
+    const seg = html(GraphDraw, { m: shape.manip, value: [4, 5, 6, 6, 5, 4, 4], answer: shape.answer, hint: true });
+    expect(seg.match(/class="mp-graph-hint-seg"/g)).toHaveLength(2); // down where flat, flat where down were asked
+    expect(html(GraphDraw, { m: rate.manip, value: rate.manip.start, answer: rate.answer })).toMatch(/class="mp-graph-ref"><polyline/);
+  });
+});
+
+describe('the situation graph (sgraph, FUNC-1) is drawn and said with every number', () => {
+  const walk = { type: 'sgraph', x: { max: 45, step: 5, label: 'זמן', unit: 'דקות', every: 2 }, y: { max: 700, step: 100, label: 'מרחק מהבית', unit: 'מטרים' }, series: [{ pts: [[0, 0], [10, 600], [25, 600], [45, 0]] }], bands: [{ from: 10, to: 25 }], guide: { x: 5, y: 300 } };
+  const temp = { type: 'sgraph', x: { min: 6, max: 18, step: 2, label: 'שעה' }, y: { min: 10, max: 26, step: 1, every: 2, label: 'טמפרטורה', unit: 'מעלות' }, series: [{ pts: [[6, 12], [8, 15], [10, 18], [12, 22], [14, 24], [16, 21], [18, 18]], dots: true }], marks: [{ x: 14, y: 24, label: 'A' }] };
+  const meet = { type: 'sgraph', x: { max: 4, step: 1, label: 'זמן', unit: 'שעות' }, y: { max: 240, step: 60, label: 'מרחק מתל אביב', unit: 'ק״מ' }, series: [{ pts: [[0, 0], [4, 240]], label: 'רכב א' }, { pts: [[0, 240], [4, 0]], label: 'רכב ב', dashed: true }], meet: true, riseRun: { from: 1, to: 3 }, dirArrow: true };
+  const vase = { type: 'sgraph', x: { max: 10, step: 1, label: 'זמן', unit: 'שניות', every: 2 }, y: { max: 20, step: 2, label: 'גובה המים', unit: 'ס״מ' }, series: [{ pts: [[0, 0], [4, 4], [7, 10], [9, 16], [10, 20]], smooth: true }] };
+  it('figPlain reads the axes, every point in order and what is marked', () => {
+    expect(figPlain(walk)).toBe('גרף: מרחק מהבית (מטרים) לפי זמן (דקות); ציר x מ־0 עד 45, קו כל 5, מספר כל 10; ציר y מ־0 עד 700, קו כל 100; (0, 0) → (10, 600) → (25, 600) → (45, 0); מסומן על ציר x מ־10 עד 25; קו עזר מ־x = 5 עד הגרף, בגובה 300; קו עזר מ־y = 300 עד הגרף, ב־x = 5 וב־x = 35');
+    expect(figPlain(temp)).toBe('גרף: טמפרטורה (מעלות) לפי שעה; ציר x מ־6 עד 18, קו כל 2; ציר y מ־10 עד 26, קו כל 1, מספר כל 2; נקודות (6, 12), (8, 15), (10, 18), (12, 22), (14, 24), (16, 21), (18, 18); הנקודה A ב־(14, 24)');
+    expect(figPlain(meet)).toBe('גרף: מרחק מתל אביב (ק״מ) לפי זמן (שעות); ציר x מ־0 עד 4, קו כל 1; ציר y מ־0 עד 240, קו כל 60; רכב א: (0, 0) → (4, 240); רכב ב: (0, 240) → (4, 0); שינוי ב־x: 2, שינוי ב־y: 120; הקווים נפגשים ב־(2, 120); חץ משמאל לימין');
+    expect(figPlain(vase)).toMatch(/\(קו מעוגל\)$/);
+    // a screen reader hears the same as the tutor: the reading is the picture's content
+    for (const f of [walk, temp, meet, vase]) expect(figWords(f)).toBe(figPlain(f));
+  });
+  it('places what it marks on the series', () => {
+    const pts = walk.series[0].pts;
+    expect(seriesAt(pts, 5)).toBe(300); expect(seriesAt(pts, 35)).toBe(300); expect(seriesAt(pts, 50)).toBeNull();
+    expect(seriesCrossings(pts, 300)).toEqual([5, 35]);
+    expect(seriesCrossings(pts, 600)).toEqual([10, 25]); // a flat piece at that height: its two ends
+    expect(seriesMeet(meet.series[0].pts, meet.series[1].pts)).toEqual([2, 120]);
+    expect(seriesMeet([[0, 0], [5, 100]], [[0, 50], [5, 150]])).toBeNull(); // parallel
+  });
+  it('each renders as one picture, with its words and no broken numbers', () => {
+    for (const f of [walk, temp, meet, vase]) {
+      const out = renderToStaticMarkup(createElement(Figure, { fig: f }));
+      expect(out).toMatch(/<svg [^>]*class="figure fig-obj fig-sgraph" role="img"/);
+      expect(out).not.toMatch(/NaN|undefined|Infinity/);
+      expect(out).toContain(`aria-label="${figPlain(f)}"`);
+    }
+    const out = renderToStaticMarkup(createElement(Figure, { fig: meet }));
+    expect(out).toContain('משמאל לימין');
+    expect(out.match(/class="fig-sgraph-rr-num"[^>]*>([^<]+)</g).map((t) => t.replace(/.*>|<$/g, ''))).toEqual(['2', '120']);
+    expect(out).toContain('class="fig-sgraph-meet"');
+    expect(renderToStaticMarkup(createElement(Figure, { fig: temp })).match(/class="fig-sgraph-dot"/g)).toHaveLength(7);
   });
 });

@@ -1764,6 +1764,42 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 /* the same drawings as still figures */
 .figure.fg-obj { max-width: 340px; }
 
+/* ---------- the graph you draw (FUNC-1) ----------
+   Ink for the frame, the unit's colour for the student's line and points, orange for a line drawn to compare with (ref),
+   green only for the answer once it is shown. The chosen point's column is tinted: it is what the step buttons move.
+   Text sizes are set on the drawing itself (graphAxes.jsx GRAPH_FONT). */
+.manip-graph .manip-canvas { max-width: 460px; }
+.mp-graph-units { font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+.mp-graph-grid { stroke: color-mix(in srgb, var(--ink-2) 32%, transparent); stroke-width: 1; }
+.mp-graph-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.mp-graph-axis-head { fill: var(--ink); }
+.mp-graph-num { fill: var(--ink-2); font-weight: 500; }
+.mp-graph-name { fill: var(--ink); font-weight: 600; }
+.mp-graph-col { fill: color-mix(in srgb, var(--c) 10%, transparent); }
+.mp-graph-line { fill: none; stroke: var(--c); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.mp-graph-ref polyline { fill: none; stroke: var(--streak-d); stroke-width: 3; stroke-dasharray: 9 6; stroke-linecap: round; stroke-linejoin: round; }
+.mp-graph-key text { fill: var(--streak-ink); font-weight: 700; }
+.mp-graph-key line { stroke: var(--streak-d); stroke-width: 3; stroke-linecap: round; }
+.mp-graph-key line.dashed { stroke-dasharray: 7 4; }
+.mp-graph-ghost polyline { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 8 6; stroke-linecap: round; stroke-linejoin: round; }
+.mp-graph-ghost circle { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 5 4; }
+.mp-graph-fixed { fill: var(--ink); stroke: var(--paper); stroke-width: 2.5; }
+.mp-graph-pt { outline: none; cursor: grab; }
+.mp-graph-pt.fixed { cursor: default; }
+.mp-graph-pt .mp-halo { opacity: 0; transition: opacity var(--duration-fast) var(--ease-out); }
+.mp-graph-pt.on .mp-halo { opacity: 1; }
+.mp-graph-ring { fill: none; stroke: transparent; stroke-width: 3; }
+.mp-graph-pt:focus-visible .mp-graph-ring { stroke: var(--brand); }
+.mp-graph-hint { fill: color-mix(in srgb, var(--brand) 6%, transparent); stroke: var(--brand); stroke-width: 2.5; stroke-dasharray: 6 5; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; pointer-events: none; }
+.mp-graph-hint-seg { stroke: color-mix(in srgb, var(--brand) 30%, transparent); stroke-width: 12; stroke-linecap: round; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; pointer-events: none; }
+@media (max-height: 700px) and (max-width: 899px) {
+  .manip-graph .manip-readout { font-size: var(--t-base); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mp-graph-pt .mp-halo { transition: none; }
+  .mp-graph-hint, .mp-graph-hint-seg { animation: none; }
+}
+
 @media (max-height: 700px) and (max-width: 899px) {
   .manip-balance .manip-readout, .manip-tiles .manip-readout, .manip-area .manip-readout, .manip-ray .manip-readout { min-height: 28px; font-size: 19px; }
 }

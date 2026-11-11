@@ -14,6 +14,10 @@ import { contentOf, loadAllContent } from './content/index';
 import type { DiscoverStep, FigSpec } from './types';
 // @ts-ignore: plain JS
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
+// @ts-ignore: plain JS
+import { axisName, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, figNum } from '@/content/manip.js';
+// @ts-ignore: plain JS
+import { graphFrame, numWidth, numbered, GRAPH_FONT } from '@/components/manip/graphAxes.jsx';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -189,6 +193,13 @@ function labelsOf(f: AnyFig): Set<string> {
       case 'right': return [f.a, f.b, f.c];
       case 'ladder': return [f.wall, f.foot, f.len];
       case 'table': return [...f.head, ...f.rows.flat()];
+      // a situation graph writes its axes' names, its series' and points' names, the numbers of its rise and run, and the
+      // direction arrow's words (not the numbers along its axes)
+      case 'sgraph': {
+        const rr = sgraphRiseRun(f);
+        return [axisName(f.x), axisName(f.y), ...(f.series || []).map((s: any) => s.label), ...(f.marks || []).map((k: any) => k.label),
+          ...(rr ? [fmt(rr.run), fmt(rr.rise)] : []), f.dirArrow && 'משמאל לימין'];
+      }
       default: return [];
     }
   })();
@@ -245,6 +256,51 @@ function selfProblems(skill: string, f: AnyFig): string[] {
       }
     }
   }
+  if (f.type === 'sgraph') bad.push(...sgraphProblems(f));
+  return bad;
+}
+
+/**
+ * A situation graph agrees with itself: axes of whole steps with names; every point of every series, and every lettered
+ * point, on a grid crossing inside the axes (so what the eye reads off it is exact), a series read left to right (x
+ * growing: one y for each x); bands, guides and the rise and run on the first series and inside the axes; two series that
+ * meet, meeting on the grid; and numbers that fit side by side where they are drawn.
+ */
+function sgraphProblems(f: AnyFig): string[] {
+  const bad: string[] = [];
+  const lo = (a: any) => a.min ?? 0;
+  const steps = (a: any, v: number) => (v - lo(a)) / a.step;
+  const onGrid = (a: any, v: number) => v >= lo(a) - 1e-9 && v <= a.max + 1e-9 && Math.abs(steps(a, v) - Math.round(steps(a, v))) < 1e-9;
+  for (const [name, a] of [['x', f.x], ['y', f.y]] as const) {
+    if (!a || !(a.step > 0 && a.max > lo(a)) || !onGrid(a, a.max)) bad.push(`sgraph ${name} axis ${a && `${lo(a)}..${a.max} every ${a.step}`} is not a whole number of steps`);
+    else if (!a.label) bad.push(`sgraph ${name} axis has no name`);
+  }
+  if (bad.length) return bad;
+  const at = ([x, y]: Pt, what: string) => { if (!onGrid(f.x, x) || !onGrid(f.y, y)) bad.push(`sgraph ${what} (${x}, ${y}) is not on the grid inside the axes`); };
+  const series = (f.series || []) as { pts: Pt[] }[];
+  if (!series.length) bad.push('sgraph with no series');
+  series.forEach((s, i) => {
+    s.pts.forEach((p) => at(p, `series ${i + 1} point`));
+    if (s.pts.some((p, k) => k > 0 && !(p[0] > s.pts[k - 1][0]))) bad.push(`sgraph series ${i + 1} does not go left to right`);
+  });
+  (f.marks || []).forEach((k: any) => at([k.x, k.y], `point ${k.label}`));
+  const first = series[0]?.pts || [];
+  (f.bands || []).forEach((b: any) => { if (!(b.from < b.to) || !onGrid(f.x, b.from) || !onGrid(f.x, b.to)) bad.push(`sgraph band ${b.from}..${b.to} is not an interval of the x axis`); });
+  if (f.guide?.x != null && (!onGrid(f.x, f.guide.x) || seriesAt(first, f.guide.x) == null)) bad.push(`sgraph guide from x = ${f.guide.x} does not reach the graph`);
+  if (f.guide?.y != null && (!onGrid(f.y, f.guide.y) || !seriesCrossings(first, f.guide.y).length)) bad.push(`sgraph guide from y = ${f.guide.y} does not reach the graph`);
+  if (f.riseRun) { const rr = sgraphRiseRun(f); if (!rr || !(rr.run > 0)) bad.push(`sgraph riseRun ${f.riseRun.from}..${f.riseRun.to} is not on the first series`); }
+  if (f.meet) {
+    const p = series.length > 1 ? seriesMeet(series[0].pts, series[1].pts) : null;
+    if (!p) bad.push('sgraph meet: the first two series do not meet');
+    else at(p as Pt, 'meeting point');
+  }
+  // numbers side by side: on the x axis each number needs its width and a gap; up the y axis, its height
+  const fr = graphFrame(f.x, f.y);
+  const xs = numbered(f.x) as number[]; const ys = numbered(f.y) as number[];
+  const xGap = xs.length > 1 ? fr.X(xs[1]) - fr.X(xs[0]) : Infinity; const xWide = Math.max(...xs.map((v) => numWidth(figNum(v))));
+  if (xGap < xWide + 4) bad.push(`sgraph x numbers ${xGap.toFixed(1)} apart, ${xWide.toFixed(1)} wide: set x.every`);
+  const yGap = ys.length > 1 ? fr.Y(ys[0]) - fr.Y(ys[1]) : Infinity;
+  if (yGap < GRAPH_FONT.num + 2) bad.push(`sgraph y numbers ${yGap.toFixed(1)} apart: set y.every`);
   return bad;
 }
 
@@ -302,6 +358,14 @@ function textProblems(st: DiscoverStep, f: AnyFig): string[] {
   return bad;
 }
 
+/** Situation graphs that agree with themselves (the fixtures of FUNC-1; the func stairs bring their own). */
+const SGRAPHS: AnyFig[] = [
+  { type: 'sgraph', x: { max: 45, step: 5, label: 'זמן', unit: 'דקות', every: 2 }, y: { max: 700, step: 100, label: 'מרחק מהבית', unit: 'מטרים' }, series: [{ pts: [[0, 0], [10, 600], [25, 600], [45, 0]] }], bands: [{ from: 10, to: 25 }], guide: { x: 5, y: 300 } },
+  { type: 'sgraph', x: { min: 6, max: 18, step: 2, label: 'שעה' }, y: { min: 10, max: 26, step: 1, every: 2, label: 'טמפרטורה', unit: 'מעלות' }, series: [{ pts: [[6, 12], [8, 15], [10, 18], [12, 22], [14, 24], [16, 21], [18, 18]], dots: true }], marks: [{ x: 14, y: 24, label: 'A' }] },
+  { type: 'sgraph', x: { max: 4, step: 1, label: 'זמן', unit: 'שעות' }, y: { max: 240, step: 60, label: 'מרחק מתל אביב', unit: 'ק״מ' }, series: [{ pts: [[0, 0], [4, 240]], label: 'רכב א' }, { pts: [[0, 240], [4, 0]], label: 'רכב ב', dashed: true }], meet: true, riseRun: { from: 1, to: 3 }, dirArrow: true },
+  { type: 'sgraph', x: { max: 10, step: 1, label: 'זמן', unit: 'שניות', every: 2 }, y: { max: 20, step: 2, label: 'גובה המים', unit: 'ס״מ' }, series: [{ pts: [[0, 0], [4, 4], [7, 10], [9, 16], [10, 20]], smooth: true }] },
+];
+
 const ALL_STEPS = () => Object.values(CONTENT).flatMap((c) => [
   ...c.discover.map((st, i) => ({ skill: c.skill, where: `${c.skill} #${i}`, st, main: true })),
   ...c.misconceptions.flatMap((mc) => mc.remedy.map((st, i) => ({ skill: c.skill, where: `${c.skill} ${mc.id} remedy #${i}`, st, main: false }))),
@@ -350,6 +414,26 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(both('coord:1', predict('ואיפה $E(0, -3)$?', asked, ['על ציר $y$', 'בראשית'], 0))).toEqual([]);
     const corner = { type: 'coord', range: 6, points: [{ x: 1, y: -3, label: 'A' }, { x: 1, y: 2, label: 'D', hidden: true }] };
     expect(both('coord:5', predict('נתון $A(1, -3)$. מה השיעורים של $D$?', corner, ['$(1, 2)$', '$(2, 1)$'], 0))).toEqual([]);
+    // situation graphs (FUNC-1): a walk with a marked interval and guides; a dot graph with a lettered point; two movers
+    // that meet, with a rise and run and the direction arrow; a smooth curve
+    for (const f of SGRAPHS) expect(both('signed:1', say('הגרף מספר סיפור.', f)), f.series[0].pts.join(' ')).toEqual([]);
+    expect(both('signed:1', say('הנקודה $A$ היא השעה החמה ביותר.', SGRAPHS[1]))).toEqual([]);
+    expect(both('signed:1', predict('בכמה ק״מ התקדם רכב א בשעתיים?', SGRAPHS[2], ['$120$', '$2$'], 0))).toEqual(['the answer 120 is written in the figure']);
+  });
+
+  it('catches a situation graph that disagrees with itself', () => {
+    const [walk, , meet] = SGRAPHS;
+    expect(selfProblems('signed:1', { ...walk, series: [{ pts: [[0, 0], [10, 650], [25, 600], [45, 0]] }] })).toEqual(['sgraph series 1 point (10, 650) is not on the grid inside the axes']);
+    expect(selfProblems('signed:1', { ...walk, series: [{ pts: [[0, 0], [10, 600], [50, 0]] }] })).toEqual(['sgraph series 1 point (50, 0) is not on the grid inside the axes']);
+    expect(selfProblems('signed:1', { ...walk, series: [{ pts: [[0, 0], [25, 600], [10, 600]] }] })).toContain('sgraph series 1 does not go left to right');
+    expect(selfProblems('signed:1', { ...walk, bands: [{ from: 25, to: 10 }] })).toEqual(['sgraph band 25..10 is not an interval of the x axis']);
+    expect(selfProblems('signed:1', { ...walk, guide: { y: 650 } })).toEqual(['sgraph guide from y = 650 does not reach the graph']);
+    expect(selfProblems('signed:1', { ...walk, x: { max: 90, step: 5, label: 'זמן' } })[0]).toMatch(/x numbers .* set x.every/);
+    expect(selfProblems('signed:1', { ...walk, y: { max: 700, step: 25, label: 'מרחק' }, series: [{ pts: [[0, 0], [10, 600]] }], guide: undefined })[0]).toMatch(/y numbers .* set y.every/);
+    expect(selfProblems('signed:1', { ...walk, x: { max: 44, step: 5, label: 'זמן' } })[0]).toMatch(/not a whole number of steps/);
+    expect(selfProblems('signed:1', { ...meet, series: [meet.series[0], { pts: [[0, 240], [4, 60]] }] })[0]).toMatch(/^sgraph meeting point \(2\.28\d+, 137\.1\d+\) is not on the grid/);
+    expect(selfProblems('signed:1', { ...meet, series: [meet.series[0]] })).toEqual(['sgraph meet: the first two series do not meet']);
+    expect(selfProblems('signed:1', { ...meet, riseRun: { from: 1, to: 7 } })).toEqual(['sgraph riseRun 1..7 is not on the first series']);
   });
 
   it('catches a figure that disagrees with itself', () => {

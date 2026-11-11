@@ -23,8 +23,16 @@ export type Rng = () => number;
  * is { mode: 'value', value } | { mode: 'common', of } | { mode: 'exact', den, shaded }) and 'dline' (the double number
  * line { top, bottom, move: 't' | 'max', start: { t, max? }, fixT? }; the answer is the marker's top value or the bottom
  * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`.
+ * Functions (FUNC-1): 'graph' (the graph you draw { x: GraphAxis, y: GraphAxis, start: number[], fixed?: number[], ref?:
+ * { pts: [x, y][], label? } }: one point above each x of the x axis, at most 7, at most 9 heights; the value is the
+ * points' heights; the answer is { mode: 'values', values } | { mode: 'shape', shape: ('up' | 'flat' | 'down')[] } |
+ * { mode: 'uniform', start?, rate? }, rate being the change for one unit of x).
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'graph';
+/** An axis of a graph: from min (0 when not given) to max, a grid line every step, a number on every `every`-th line. */
+export type GraphAxis = { min?: number; max: number; step: number; label: string; unit?: string; every?: number };
+/** The answer of a 'graph' object. */
+export type GraphAnswer = { mode: 'values'; values: number[] } | { mode: 'shape'; shape: ('up' | 'flat' | 'down')[] } | { mode: 'uniform'; start?: number; rate?: number };
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand
@@ -52,6 +60,19 @@ export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] }
 /** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
 export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig;
 /**
+ * A situation graph (FUNC-1, components/Figure.jsx SGraph): series of points on two named, scaled axes (a line through
+ * them, the points alone with `dots`, or a curve with `smooth`); lettered points, intervals of the x axis marked, dashed
+ * guides from an axis value to the first series, its rise and run between two x values, where two series meet, and an
+ * arrow "משמאל לימין". Every point lies on the grid inside the axes (learn/figures.test.ts).
+ */
+export type SgraphFig = {
+  type: 'sgraph'; x: GraphAxis; y: GraphAxis;
+  series: { pts: [number, number][]; dots?: boolean; smooth?: boolean; dashed?: boolean; label?: string; tone?: 'brand' | 'alt' }[];
+  marks?: { x: number; y: number; label: string }[];
+  bands?: { from: number; to: number; tone?: 'gold' | 'brand' | 'alt' }[];
+  guide?: { x?: number; y?: number }; riseRun?: { from: number; to: number }; meet?: boolean; dirArrow?: boolean; anim?: boolean;
+};
+/**
  * A drawing, in the shape components/Figure draws. The teaching figures of STUDENT-8 and the fraction figures have their
  * fields checked; the older types are listed by name (a catch-all `{ type: string }` member would swallow the new ones
  * and check nothing). A function's graph is a `coord` with `line` or `lines`, never `linear` (that one draws a linear
@@ -75,6 +96,7 @@ export type FigSpec =
   }
   | GeoFig
   | FbarFig | FgridFig | DlineFig | GroupsFig
+  | SgraphFig
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
 /** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };

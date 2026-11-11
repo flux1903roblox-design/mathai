@@ -39,6 +39,17 @@
 //          on the top line; show which values are written at the marker; label writes one value under it ('1400', '?');
 //          blank writes no number on the bottom line but 0 (the whole is what the picture asks)
 //   groups { rows: [{ n, label }] }                     dots in fives, a Hebrew label at the start of each row
+// Functions and motion (stage 5, FUNC-1):
+//   sgraph { x: Axis, y: Axis, series: [{ pts: [x, y][], dots?, smooth?, dashed?, label?, tone? }], marks?: [{ x, y, label }],
+//          bands?: [{ from, to, tone? }], guide?: { x?, y? }, riseRun?: { from, to }, meet?, dirArrow?, anim? }
+//          Axis = { min?, max, step, label, unit, every? }: a situation graph on two named, scaled axes (graphAxes.jsx, the
+//          frame the graph object draws on too). A series is a polyline through its points, or its points alone (dots), or
+//          a Catmull-Rom curve through them (smooth, never overshooting a point); the second series is orange, and named
+//          series are named in a row above the graph, each after a piece of its line (graphAxes.jsx GraphLegend). marks are
+//          lettered points; bands shade intervals of the x axis (the Ministry's "סמנו במרקר"); guide draws dashed lines
+//          from x to the first series and across to the y axis, and from y across to it (each time it is there) and down;
+//          riseRun the change in x and in y between two x values of the first series, with their numbers; meet a dot where
+//          the first two series cross; dirArrow an arrow under the x axis, "משמאל לימין".
 import { useEffect, useId, useState } from 'react';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
@@ -50,7 +61,8 @@ import { TilesArt, TILES_VIEW } from './manip/Tiles.jsx';
 import { BarArt, MarksArt, WholeArt, HatchDef } from './manip/FracBar.jsx';
 import { DlineArt, DLINE_VIEW } from './manip/DoubleLine.jsx';
 import { SvgLabel, minus } from './manip/core.jsx';
-import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO } from '@/content/manip.js';
+import { GraphAxes, GraphLegend, graphFrame, GRAPH_FONT, LEGEND_ROW } from './manip/graphAxes.jsx';
+import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun } from '@/content/manip.js';
 import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
@@ -890,11 +902,101 @@ function Groups({ fig }) {
   );
 }
 
+// ---------------------------------------------------------------- functions and motion (FUNC-1)
+/**
+ * A Catmull-Rom curve through points (drawing units), as cubic Béziers. Each piece's two control points are kept
+ * between its ends' heights, so the curve never rises above or dips below a point it passes through: a graph of a rate
+ * that only grows is drawn only growing.
+ */
+export function smoothPath(P) {
+  if (P.length < 3) return `M ${P.map((p) => p.join(' ')).join(' L ')}`;
+  const cl = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
+  let d = `M ${P[0][0]} ${P[0][1]}`;
+  for (let i = 0; i < P.length - 1; i += 1) {
+    const p0 = P[i - 1] || P[i]; const p1 = P[i]; const p2 = P[i + 1]; const p3 = P[i + 2] || P[i + 1];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, cl(p1[1] + (p2[1] - p0[1]) / 6, p1[1], p2[1])];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, cl(p2[1] - (p3[1] - p1[1]) / 6, p1[1], p2[1])];
+    d += ` C ${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${p2[0]} ${p2[1]}`;
+  }
+  return d;
+}
+
+const BAND_TONES = ['gold', 'brand', 'alt'];
+/** A situation graph: axes with names and scales, its series, and what it marks on them (see the list at the top). */
+function SGraph({ fig }) {
+  const { x, y } = fig;
+  const draw = useDraw(fig.anim);
+  const series = fig.series || [];
+  const toneOfSeries = (s, i) => (s.tone === 'alt' || (!s.tone && i > 0) ? 'alt' : 'brand');
+  const named = series.map((s, i) => ({ label: s.label, tone: toneOfSeries(s, i), dashed: !!s.dashed })).filter((s) => s.label);
+  const fr = graphFrame(x, y, { foot: fig.dirArrow ? 30 : 0, head: named.length ? LEGEND_ROW : 0 });
+  const { X, Y, W, H, TOP, BOT, PADL, plotW } = fr;
+  const first = series[0]?.pts || [];
+  const at = (pts) => pts.map(([a, b]) => [X(a), Y(b)]);
+  const g = fig.guide || {};
+  const gx = g.x != null ? seriesAt(first, g.x) : null;
+  const gys = g.y != null ? seriesCrossings(first, g.y) : [];
+  const rr = sgraphRiseRun(fig);
+  const meet = fig.meet && series.length > 1 ? seriesMeet(series[0].pts, series[1].pts) : null;
+  const k0 = series.length; // the parts drawn after the series, in turn
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="figure fig-obj fig-sgraph" role="img" aria-label={figWords(fig)}>
+      {(fig.bands || []).map((b, i) => (
+        <m.g key={`b${i}`} className={`fig-sgraph-band tone-${b.tone || BAND_TONES[i % BAND_TONES.length]}`} {...draw(k0 + i, 'fade')}>
+          <rect x={X(b.from)} y={TOP} width={X(b.to) - X(b.from)} height={BOT - TOP} />
+          <line x1={X(b.from)} x2={X(b.to)} y1={BOT} y2={BOT} />
+        </m.g>
+      ))}
+      <GraphAxes fr={fr} x={x} y={y} cls="fig-sgraph" />
+      {named.length > 0 && <GraphLegend fr={fr} items={named} cls="fig-sgraph" />}
+      {(gx != null || gys.length > 0) && (
+        <m.g className="fig-sgraph-guide" {...draw(k0, 'fade')}>
+          {gx != null && <path d={`M ${X(g.x)} ${BOT} V ${Y(gx)} H ${PADL}`} />}
+          {gys.length > 0 && <path d={`M ${PADL} ${Y(g.y)} H ${X(Math.max(...gys))} ${gys.map((c) => `M ${X(c)} ${Y(g.y)} V ${BOT}`).join(' ')}`} />}
+          {gx != null && <circle cx={X(g.x)} cy={Y(gx)} r="5" />}
+          {gys.map((c) => <circle key={c} cx={X(c)} cy={Y(g.y)} r="5" />)}
+        </m.g>
+      )}
+      {series.map((s, i) => {
+        const P = at(s.pts); const tone = toneOfSeries(s, i);
+        return (
+          <g key={`s${i}`} className={clsx('fig-sgraph-series', `tone-${tone}`)}>
+            {!s.dots && <m.path d={s.smooth ? smoothPath(P) : `M ${P.map((p) => p.join(' ')).join(' L ')}`} className={clsx('fig-sgraph-line', s.dashed && 'dashed')} {...draw(i, s.dashed ? 'fade' : 'path')} />}
+            {s.dots && P.map(([px, py], j) => <m.circle key={j} cx={px} cy={py} r="5.5" className="fig-sgraph-dot" {...draw(i, 'fade')} />)}
+          </g>
+        );
+      })}
+      {rr && (
+        <m.g className="fig-sgraph-rr" {...draw(k0 + 1, 'fade')}>
+          <path d={`M ${X(rr.from)} ${Y(rr.y0)} H ${X(rr.to)}`} />
+          <path d={`M ${X(rr.to)} ${Y(rr.y0)} V ${Y(rr.y1)}`} />
+          <text x={(X(rr.from) + X(rr.to)) / 2} y={Y(rr.y0) + (rr.y1 > rr.y0 ? 21 : -9)} textAnchor="middle" fontSize={GRAPH_FONT.tag} className="fig-sgraph-rr-num">{figNum(rr.run)}</text>
+          <text x={X(rr.to) + 8} y={(Y(rr.y0) + Y(rr.y1)) / 2 + 6} textAnchor="start" fontSize={GRAPH_FONT.tag} className="fig-sgraph-rr-num">{figNum(rr.rise)}</text>
+        </m.g>
+      )}
+      {meet && <m.circle cx={X(meet[0])} cy={Y(meet[1])} r="7" className="fig-sgraph-meet" {...draw(k0 + 1, 'end')} />}
+      {(fig.marks || []).map((k, i) => (
+        <m.g key={`k${i}`} className="fig-sgraph-mark" {...draw(k0 + 1 + i, 'fade')}>
+          <circle cx={X(k.x)} cy={Y(k.y)} r="6" />
+          <text x={X(k.x) + (X(k.x) > W - 40 ? -10 : 10)} y={Y(k.y) - 9} textAnchor={X(k.x) > W - 40 ? 'end' : 'start'} fontSize={GRAPH_FONT.tag} className="fig-sgraph-mark-label" style={{ fontFamily: MATH_FONT }}>{k.label}</text>
+        </m.g>
+      ))}
+      {fig.dirArrow && (
+        <g className="fig-sgraph-dir">
+          <text x={PADL + plotW / 2} y={BOT + 66} textAnchor="middle" direction="rtl" fontSize={GRAPH_FONT.name}>משמאל לימין</text>
+          <path d={`M ${PADL} ${BOT + 76} H ${PADL + plotW}`} />
+          <path d={head(PADL + plotW + 2, BOT + 76, 0, 9)} />
+        </g>
+      )}
+    </svg>
+  );
+}
+
 /** One numline type: a line cut into parts (den) is the fraction lane's PartsLine, any other the teaching NumLine. */
 const NumberLine = ({ fig }) => (fig.den ? <PartsLine fig={fig} /> : <NumLine fig={fig} />);
 
 export default function Figure({ fig }) {
   if (!fig) return null;
-  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups }[fig.type];
+  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph }[fig.type];
   return C ? <div className="figure-wrap"><C fig={fig} /></div> : null;
 }

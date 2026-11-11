@@ -17,13 +17,14 @@ import AreaModel, { areaCoach } from './AreaModel.jsx';
 import Ray, { rayCoach } from './Ray.jsx';
 import FracBar, { fbarCoach } from './FracBar.jsx';
 import DoubleLine, { dlineCoach } from './DoubleLine.jsx';
+import GraphDraw from './GraphDraw.jsx';
 import { triangleAngles } from '@/content/manip.js';
 import { minus, partsTex } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 
 export const KINDS = {
   numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag,
-  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine,
+  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, graph: GraphDraw,
 };
 
 // A number inside Hebrew text keeps its minus sign on the left.
@@ -94,6 +95,8 @@ function coach(it, v, touched) {
     case 'ray': return rayCoach(m, v, touched);
     case 'fbar': return fbarCoach(m, v, touched);
     case 'dline': return dlineCoach(m, v, touched);
+    // a story drawn as a shape: decide each segment first; anything else: each column is one moment, dragged to its height
+    case 'graph': return it.answer?.mode === 'shape' ? 'קודם מחליטים בכל קטע: עולה, יורד או נשאר. אחר כך גוררים.' : 'גררו כל נקודה לגובה הנכון. כל עמודה היא רגע אחד.';
     default: return null;
   }
 }
