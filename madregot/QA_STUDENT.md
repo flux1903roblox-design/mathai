@@ -304,8 +304,14 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
   (`worker/test/paid.test.js`, `web/src/lib/aiConsent.test.js`, `web/scripts/store-ios.test.mjs`).
 
 **Library work left to task #76**
-- **canvas-confetti** (M1, maths confetti) is not installed, so the existing Lottie confetti plays. If wanted, add the
-  package `canvas-confetti` (1.9.3) in a separate change. It is already on `budget.json`'s `lazyOnly` list.
+- **canvas-confetti (M1, the maths burst): built (PKG-3)**, with the package the owner approved (1.9.3).
+  `web/src/lib/mathBurst.js` plays + − × ÷ = in `--brand`, `--gold` and `--good` (read when it plays, so dark mode has
+  its own), from the moment's hero, on a canvas of its own (`canvas.math-burst`, aria-hidden, pointer-events none,
+  removed when the burst ends or the moment closes). Only on a new colour (`UnlockStage`, a completed unit) and the
+  class-goal moment (`ClassGoalMoment`, once a week), where it replaced the Lottie confetti; never on an answer, never
+  under the system's reduced motion or on a hidden page (the app has no motion setting of its own). canvas-confetti
+  is its own on-demand chunk (4.3 KB gzipped), on `budget.json`'s `lazyOnly`. Tests: `web/src/lib/mathBurst.test.js`,
+  `e2e/wardrobe.spec.js` 5c to 5e, `e2e/class-goal.spec.js` › "with motion", `scripts/check-budget.test.mjs`.
 - Also left to task #76:
   - B2 (Drawer for Sheet) and M2 (ProgressRing, the parents' report);
   - Segmented on the other screens (GradeSwitch, Quests' daily goal, the advanced AI mode, Welcome, Rescue).

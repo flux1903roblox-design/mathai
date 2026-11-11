@@ -1120,6 +1120,9 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .unlock-reason { margin: 0; max-width: 34ch; color: var(--ink); font-size: 18px; line-height: 27px; text-align: center; text-wrap: pretty; }
 .unlock-more { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-align: center; }
 @media (max-height: 640px) { .unlock-stage .done-hero { min-height: 128px; } .unlock-madi { width: 112px; height: auto; } }
+/* the maths burst (lib/mathBurst.js) on a new colour and on the class goal: its own canvas over the screen, above a
+   sheet, that never takes a tap; removed when the burst ends */
+.math-burst { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 45; pointer-events: none; }
 /* the class goal of the week (STUDENT-4): one shared total and the student's own share, no names; brand blue on the
    way, gold once the class reached it */
 .class-goal-card { display: flex; flex-direction: column; gap: var(--s3); }

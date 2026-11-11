@@ -87,7 +87,7 @@ let dists = [];
 afterEach(() => { for (const d of dists) rmSync(d, { recursive: true, force: true }); dists = []; });
 
 /** A build: the entry (with its static import modulepreloaded), a chunk loaded on demand, and the module map. */
-function lazyDist(vendorModules = ['node_modules/react/index.js'], { map = true } = {}) {
+function lazyDist(vendorModules = ['node_modules/react/index.js'], { map = true, lazyModules = [] } = {}) {
   const d = mkdtempSync(join(tmpdir(), 'budget-lazy-'));
   dists.push(d);
   mkdirSync(join(d, 'assets'));
@@ -98,7 +98,7 @@ function lazyDist(vendorModules = ['node_modules/react/index.js'], { map = true 
     writeFileSync(join(d, '.vite', 'modules.json'), JSON.stringify({
       'assets/index-a1.js': { isEntry: true, imports: ['assets/vendor-b2.js'], dynamicImports: ['assets/Wardrobe-c3.js'], modules: ['src/main.jsx', 'src/lib/store.js'] },
       'assets/vendor-b2.js': { isEntry: false, imports: [], dynamicImports: [], modules: vendorModules },
-      'assets/Wardrobe-c3.js': { isEntry: false, imports: [], dynamicImports: [], modules: ['src/screens/Wardrobe.jsx', 'src/components/mascot/Accessories.jsx'] },
+      'assets/Wardrobe-c3.js': { isEntry: false, imports: [], dynamicImports: [], modules: ['src/screens/Wardrobe.jsx', 'src/components/mascot/Accessories.jsx', ...lazyModules] },
     }));
   }
   return d;
@@ -120,6 +120,18 @@ describe('check-budget: modules that must load on demand (STUDENT-15)', () => {
     expect(r.problems[0]).toMatch(/^push must load on demand, but src\/lib\/push\.js is in the first load \(assets\/vendor-b2\.js\)/);
     expect(r.problems[1]).toMatch(/^cmdk must load on demand, but node_modules\/cmdk\/dist\/index\.mjs/);
     expect(r.text).toMatch(/FAIL push must load on demand/);
+  });
+
+  it('canvas-confetti (the maths burst, PKG-3): passes in a chunk loaded on demand, refused in a boot file', () => {
+    const confetti = 'node_modules/canvas-confetti/dist/confetti.module.mjs';
+    const budget = { ...LAZY, lazyOnly: [...LAZY.lazyOnly, 'canvas-confetti'] };
+    const lazy = check(lazyDist(undefined, { lazyModules: [confetti, 'src/lib/mathBurst.js'] }), budget);
+    expect(lazy.problems).toEqual([]);
+    expect(lazy.ok).toBe(true);
+    const boot = check(lazyDist(['node_modules/react/index.js', confetti]), budget);
+    expect(boot.ok).toBe(false);
+    expect(boot.problems).toEqual([expect.stringMatching(/^canvas-confetti must load on demand, but node_modules\/canvas-confetti\/dist\/confetti\.module\.mjs is in the first load \(assets\/vendor-b2\.js\)/)]);
+    expect(boot.text).toMatch(/FAIL canvas-confetti must load on demand/);
   });
 
   it('a name matches a file by its base name or a package by its name, nothing looser', () => {

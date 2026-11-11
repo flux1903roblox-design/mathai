@@ -1,8 +1,11 @@
 // "מדי שלי" (STUDENT-3): Madi on the profile, the wardrobe (colours and one group per slot, built on Base UI radio
 // groups in RTL), locked options that stay focusable and say how they open, the path's chests that say what they hold,
-// and the unlock moment after a result. The clock is fixed on Thursday 5 November 2026 (helpers.js NOW).
+// and the unlock moment after a result, with the maths burst on a new colour (PKG-3). The clock is fixed on Thursday 5
+// November 2026 (helpers.js NOW).
+// PKG_SHOTS=<folder> saves pictures of the burst for a look (nothing is compared).
 import { test, expect } from '@playwright/test';
-import { open, student, answer, proceed, proceedToNext, saved, item, expectNoSidewaysScroll } from './helpers.js';
+import { mkdirSync } from 'node:fs';
+import { open, student, answer, proceed, proceedToNext, saved, item, expectNoSidewaysScroll, expectUsable } from './helpers.js';
 import { expectTextContrast } from './contrast.js';
 
 const only = (...names) => ({}, info) => test.skip(!names.includes(info.project.name), `runs on ${names.join(' and ')}`);
@@ -11,6 +14,31 @@ const done = (levels) => ({ parts: {}, reviews: 0, jumped: 0, done: Object.fromE
 const look = (extra = {}) => ({ color: 'sky', head: null, face: null, neck: null, body: null, earned: ['petrol'], seen: ['petrol', 'fuchsia', 'protractor-crown', 'bars-pin'], earnedAt: { petrol: '2026-10-20' }, ...extra });
 const dressed = (extra = {}) => student('7', { path: { angles: done([1, 2, 3]), stats: done([1, 2, 3, 4, 5]) }, look: look(extra) });
 const lo = (page) => page.locator('.wardrobe-madi').getAttribute('style');
+
+// the last stair of זוויות still to master; the unit's chest (the crown) was opened and shown before
+const lastStair = () => student('7', { path: { angles: done([1, 2, 3, 4]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } } });
+/** Pass a mastery check of five and go on to the unlock moment. */
+async function passCheck(page, route, state) {
+  await open(page, route, state);
+  for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, true); await proceed(page); }
+  await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
+  await page.getByRole('button', { name: 'למפה' }).click();
+  await expect(page.locator('.unlock-stage')).toBeVisible();
+  return page.locator('.unlock-stage');
+}
+const COLOUR_REASON = 'סיימתם את כל המדרגות של זוויות. מדי יכול להיות עכשיו טורקיז.';
+/** Requests for canvas-confetti's chunk (assets/confetti.module-*.js; none: it was never imported). */
+const confettiRequests = (page) => { const urls = []; page.on('request', (r) => { if (/confetti\.module/.test(r.url())) urls.push(r.url()); }); return urls; };
+async function burstShots(page, name) {
+  const dir = process.env.PKG_SHOTS; if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  await page.waitForTimeout(350); // mid-burst: the symbols are up and spreading
+  await page.screenshot({ path: `${dir}/${name}-390x844.png` });
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${dir}/${name}-320x568.png` });
+  await page.setViewportSize({ width: 390, height: 844 });
+}
 
 test.describe('on a phone', () => {
   test.beforeEach(only('phone'));
@@ -145,6 +173,47 @@ test.describe('on a phone', () => {
     await expect(page.locator('.streak-screen')).toBeVisible();
     const st = await saved(page);
     expect(st.look).toMatchObject({ head: null, earned: ['compass-cap'], seen: ['compass-cap'] });
+  });
+
+  test('5c. a completed unit gives its colour; under reduced motion (the default here) no burst plays and none is loaded', async ({ page }) => {
+    const asked = confettiRequests(page);
+    const stage = await passCheck(page, '#/lesson/angles/5?kind=check&purpose=mastery', lastStair());
+    await expect(stage.locator('.unlock-reason')).toHaveText(COLOUR_REASON);
+    await page.waitForTimeout(600);
+    await expect(page.locator('canvas.math-burst')).toHaveCount(0);
+    expect(asked).toEqual([]);
+  });
+
+  test.describe('with motion (PKG-3)', () => {
+    test.use({ reducedMotion: 'no-preference' });
+
+    test('5d. a new colour: the maths burst plays from the moment, takes no tap, and goes when the student goes on', async ({ page }) => {
+      const stage = await passCheck(page, '#/lesson/angles/5?kind=check&purpose=mastery', lastStair());
+      await expect(stage.locator('.unlock-reason')).toHaveText(COLOUR_REASON);
+      const burst = page.locator('canvas.math-burst');
+      await expect(burst).toHaveCount(1);
+      await expect(burst).toHaveAttribute('aria-hidden', 'true');
+      expect(await burst.evaluate((el) => { const s = getComputedStyle(el); return [s.position, s.pointerEvents, el.width > 0]; })).toEqual(['fixed', 'none', true]);
+      // both buttons are what a finger meets, the canvas over them or not; the first still has the focus
+      const keep = stage.getByRole('button', { name: 'לשמור על מדי' });
+      await expectUsable(page, keep, 'לשמור על מדי');
+      await expectUsable(page, stage.getByRole('button', { name: 'אחר כך' }), 'אחר כך');
+      await expect(keep).toBeFocused();
+      await burstShots(page, 'unlock-colour');
+      await keep.click();
+      await expect(page).toHaveURL(/#\/$/);
+      await expect(burst).toHaveCount(0); // the moment closed: its canvas went with it
+      expect((await saved(page)).look.color).toBe('petrol');
+    });
+
+    test('5e. a new accessory gets no burst', async ({ page }) => {
+      const asked = confettiRequests(page);
+      const stage = await passCheck(page, '#/lesson/angles/3?kind=check&purpose=mastery', student('7', { path: { angles: done([1, 2]) } }));
+      await expect(stage.locator('.unlock-reason')).toHaveText('שלטתם בחצי הראשון של זוויות, ומדי קיבל כתר מד־זווית.');
+      await page.waitForTimeout(600);
+      await expect(page.locator('canvas.math-burst')).toHaveCount(0);
+      expect(asked).toEqual([]);
+    });
   });
 
   test('the path\'s chests say what they hold, and an open one can be tried on', async ({ page }) => {
