@@ -3,7 +3,7 @@
 // with no request at all, so every state can be screenshotted. The choice is kept for the visit (sessionStorage).
 //   qa-ai:      free2 | free1 | free0 | family | family-off | family-parent-off | class | shared | paused | economy | ended
 //               (family: the parents' summary on; family-off: the child stopped it; family-parent-off: the parents did)
-//   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
+//   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | pass | nosrv
 //               report | report-empty | report-off (each device's progress: components/report/qaFamily.js)
 //   qa-teacher: demo (the demo class of TEACHER-15, lib/demo.js: every teacher screen with no request)
 //   qa-report:  week | empty (the weekly summary from a fixed week and clock: components/report/qaWeek.js)
@@ -18,7 +18,7 @@ const QA_TEXT = 'זו תשובה לדוגמה של העוזר החכם במצב 
 
 const AI_STATES = ['free2', 'free1', 'free0', 'family', 'family-off', 'family-parent-off', 'class', 'shared', 'paused', 'economy', 'ended'];
 const TEACHER_STATES = ['demo'];
-const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv', 'report', 'report-empty', 'report-off', 'report-old'];
+const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'pass', 'nosrv', 'report', 'report-empty', 'report-off', 'report-old'];
 const REPORT_STATES = ['week', 'empty'];
 
 function param(name, allowed) {
@@ -121,6 +121,8 @@ const PLANS = {
   plans: [
     { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: 2990, vatAgorot: 456, renews: true },
     { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: 24900, vatAgorot: 3798, renews: false, termMonths: 12 },
+    // the exam pass (COUNCIL2-33) at wrangler.toml's placeholder price
+    { id: 'exam_pass', kind: 'family', interval: 'once', amountAgorot: 3900, vatAgorot: 595, renews: false, termDays: 30 },
     { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: 4900, minSeats: 10, maxSeats: 45, renews: false },
   ],
   limits: { family: { tutor: 30, check: 6, generate: 5, exam: 2, examMonthly: 10, devices: 3 }, class: { tutor: 20, check: 3, generate: 3, exam: 1 }, free: { tutor: 2 } },
@@ -162,6 +164,8 @@ export function qaParentView() {
     case 'canceled': return { ...base, account: account(plan({ status: 'canceled', cancelAtPeriodEnd: true, cancelRequestedAt: '2026-11-10T09:00:00Z', canResume: true })) };
     case 'past_due': return { ...base, account: account(plan({ status: 'past_due' })) };
     case 'economy': return { ...base, account: account(plan({ economy: true })) };
+    // an exam pass in its 14 days (COUNCIL2-33): 30 days, no next charge, the whole price back on cancelling
+    case 'pass': return { ...base, account: account(plan({ plan: 'exam_pass', priceAgorot: 3900, periodEnd: '2026-12-02T10:00:00Z', refundUntil: '2026-11-16T10:00:00Z', canRefundNow: true, canResume: false, portal: false, renews: false })) };
     // the progress report (PARENTS-5, PARENTS-6): the account's devices here, their summaries in qaFamily.js
     case 'report': {
       const a = account(plan());

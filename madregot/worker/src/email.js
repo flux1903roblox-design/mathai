@@ -94,7 +94,7 @@ const hebDateTime = (iso) => {
   try { return new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: TZ }); } catch { return ''; }
 };
 const vatWords = (env) => (String(env.VAT_MODE) === 'exempt' ? 'המחיר סופי' : 'כולל מע״מ');
-const PLAN_NAME = { family_month: 'מנוי משפחתי חודשי', family_year: 'מנוי משפחתי לשנה', class_year: 'רישיון כיתה לשנה', term: 'מנוי', trial: 'ניסיון לכיתה' };
+const PLAN_NAME = { family_month: 'מנוי משפחתי חודשי', family_year: 'מנוי משפחתי לשנה', exam_pass: 'חבילת מבחן ל־30 יום', class_year: 'רישיון כיתה לשנה', term: 'מנוי', trial: 'ניסיון לכיתה' };
 /** The one-year plan's renewal link (trust spec TRUST-10 §2): the parents' page opens its renewal. */
 const renewLink = (env) => `${env.PUBLIC_URL || ''}/parents?renew=year`;
 /** The end-date email of a one-year plan, 30-45 days ahead (Appendix E §E.7). */
@@ -136,7 +136,7 @@ export function renderNotice(env, row) {
       // renewed year (welcome:<order>) is a new transaction with its own confirmation and its own 14 days.
       const renews = p.plan === 'family_month';
       return {
-        subject: p.renewal ? 'המנוי לעוזר החכם של מדרגות חודש לשנה נוספת' : 'המנוי לעוזר החכם של מדרגות פעיל',
+        subject: p.renewal ? 'המנוי לעוזר החכם של מדרגות חודש לשנה נוספת' : p.plan === 'exam_pass' ? 'חבילת המבחן של מדרגות פעילה' : 'המנוי לעוזר החכם של מדרגות פעיל',
         lines: billing([
           'שלום,',
           renews

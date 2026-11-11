@@ -14,7 +14,7 @@ import {
   familyVaults, deleteFamilyVault,
 } from '@/lib/parent.js';
 import { qaParentView } from '@/lib/qaFixtures.js';
-import { formatAgorot, vatLine, perMonth, dateNum, chargeDay } from '@/lib/price.js';
+import { formatAgorot, vatLine, perMonth, dateNum, chargeDay, PASS_DAYS, addDaysIso, passPrice } from '@/lib/price.js';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
 import AdultGate from '@/components/account/AdultGate.jsx';
 import { needsAdultStep } from '@/lib/parentGate.js';
@@ -35,8 +35,19 @@ const planOf = (plans, id) => plans?.plans?.find((p) => p.id === id) || null;
  * Grow before it may stop a standing order, the one-year plan alone). Only these are offered and priced on the page.
  */
 const soldPlan = (plans, id) => { const p = planOf(plans, id); return plans?.online && p && p.online !== false ? p : null; };
-/** How a one-year plan is cancelled (terms.md: the 14 days, then the unused days), where it is the only plan sold. */
+/**
+ * How a plan paid once is cancelled (terms.md: the 14 days, then the unused days): the one-year plan and the exam pass,
+ * where no monthly plan is sold.
+ */
 export const YEAR_CANCEL = 'אפשר לבטל כאן באתר בשתי לחיצות. ב־14 הימים הראשונים מקבלים את כל הכסף בחזרה, ואחר כך החזר יחסי על הימים שנשארו.';
+/**
+ * The exam pass (COUNCIL2-33), on the parents' pages only (never a child's screen): its name, and its line before the
+ * purchase (TRUST-10 §4: until when, that it never charges again, and the 14 days).
+ */
+export const PASS_NAME = 'חבילת מבחן';
+export const passLine = (until) => `החבילה ל־${PASS_DAYS} יום, עד ${until}. היא לא מתחדשת מעצמה ולא נחייב אתכם שוב. ב־14 הימים הראשונים אפשר לבטל ולקבל את כל הכסף בחזרה.`;
+/** The order the plans are offered in, and the one picked first when the page asks for none (or for one not sold). */
+const FAMILY_ORDER = ['family_month', 'family_year', 'exam_pass'];
 
 // ---------------------------------------------------------------- what the tutor is, for a parent who is not signed in
 /**
@@ -72,7 +83,7 @@ export const FIRST_LINK_REPORT = 'אחרי החיבור יופיע כאן סיכ
 function About({ plans }) {
   const f = plans?.limits?.family;
   // the price of each plan sold online here, and only those: the monthly line only while the monthly plan is sold
-  const month = soldPlan(plans, 'family_month'); const year = soldPlan(plans, 'family_year');
+  const month = soldPlan(plans, 'family_month'); const year = soldPlan(plans, 'family_year'); const pass = soldPlan(plans, 'exam_pass');
   const vat = vatLine(plans?.vatMode);
   return (
     <section className="card parents-card parents-about" aria-labelledby="about-title">
@@ -90,8 +101,10 @@ function About({ plans }) {
       {month && year && <p className="parents-price">{formatAgorot(month.amountAgorot)} לחודש, {vat}<br />או {formatAgorot(year.amountAgorot)} לשנה, {vat}</p>}
       {month && !year && <p className="parents-price">{formatAgorot(month.amountAgorot)} לחודש, {vat}</p>}
       {year && !month && <p className="parents-price">{formatAgorot(year.amountAgorot)} לשנה, {vat}<br />לשנה אחת, לא מתחדש מעצמו</p>}
+      {/* the exam pass (COUNCIL2-33): the same plan for 30 days, for the weeks before an exam */}
+      {pass && <p className="parents-pass-price">{month || year ? 'או ' : ''}{PASS_NAME}: {passPrice(pass.amountAgorot)}, {vat}<br />תשלום אחד, לא מתחדשת מעצמה</p>}
       {month && <p>בלי התחייבות. מבטלים כאן באתר בשתי לחיצות. ב־14 הימים הראשונים אפשר לבטל ולקבל את כל הכסף בחזרה.</p>}
-      {year && !month && <p>{YEAR_CANCEL}</p>}
+      {(year || pass) && !month && <p>{YEAR_CANCEL}</p>}
       {/* what is kept, as the data map says it (trust spec TRUST-1 §5), with the parents lane's summary sentences (PARENTS-9) */}
       <p className="muted parents-data">{ABOUT_DATA.join(' ')} <Link to="/privacy">{ABOUT_DATA_LINK}</Link></p>
     </section>
@@ -129,19 +142,18 @@ function Checkout({ plans, linkCode, onError, initial = 'family_month' }) {
   // stop the standing order, and the one-year plan always, as one charge) is not offered; the one asked for first, else
   // the other
   const sold = (id) => soldPlan(plans, id);
-  const other = initial === 'family_year' ? 'family_month' : 'family_year';
-  const [choice, setChoice] = useState(() => (sold(initial) || !sold(other) ? initial : other));
+  const [choice, setChoice] = useState(() => (sold(initial) ? initial : FAMILY_ORDER.find(sold) || initial));
   const [adult, setAdult] = useState(false);
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const month = sold('family_month'); const year = sold('family_year');
+  const month = sold('family_month'); const year = sold('family_year'); const pass = sold('exam_pass');
   const vat = vatLine(plans?.vatMode);
   const exempt = plans?.vatMode === 'exempt';
-  const picked = choice === 'family_year' ? year : month;
+  const picked = { family_month: month, family_year: year, exam_pass: pass }[choice] || null;
   const now = new Date().toISOString();
-  const next = dateNum(addMonths(new Date(), choice === 'family_year' ? 12 : 1).toISOString());
-  if (!plans?.online || (!month && !year)) {
+  const next = dateNum(choice === 'exam_pass' ? addDaysIso(now, PASS_DAYS) : addMonths(new Date(), choice === 'family_year' ? 12 : 1).toISOString());
+  if (!plans?.online || (!month && !year && !pass)) {
     return (
       <p className="parents-note">ההצטרפות באתר עוד לא פתוחה. כתבו אל {plans?.contact ? <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a> : 'מדרגות'} ונפעיל את המנוי לחשבון הזה.</p>
     );
@@ -165,6 +177,11 @@ function Checkout({ plans, linkCode, onError, initial = 'family_month' }) {
             <span className="ob-opt-text"><b>שנתי</b><span>{formatAgorot(year.amountAgorot)} לשנה, {vat} ({perMonth(year.amountAgorot)} לחודש) · לשנה אחת, לא מתחדש מעצמו</span></span>
           </button>
         )}
+        {pass && (
+          <button type="button" role="radio" aria-checked={choice === 'exam_pass'} className={clsx('ob-opt', choice === 'exam_pass' && 'on')} onClick={() => setChoice('exam_pass')}>
+            <span className="ob-opt-text"><b>{PASS_NAME}</b><span>{passPrice(pass.amountAgorot)}, {vat} · תשלום אחד, לא מתחדשת מעצמה</span></span>
+          </button>
+        )}
       </div>
       {picked && (
         <p className="parents-sum">סה״כ לתשלום היום: {formatAgorot(picked.amountAgorot)} ({exempt ? 'המחיר סופי' : 'כולל מע״מ 18%'}).{choice === 'family_month' ? ` החיוב הבא: ${next}.` : ''}</p>
@@ -175,6 +192,7 @@ function Checkout({ plans, linkCode, onError, initial = 'family_month' }) {
         <p className="parents-terms-line">המנוי מתחדש אוטומטית בכל חודש, {chargeDay(now)}, ב־{formatAgorot(month.amountAgorot)} {vat}, עד שמבטלים. מבטלים בכל רגע באתר, במייל או בטלפון, בלי קנס.</p>
       )}
       {picked && choice === 'family_year' && <p className="parents-terms-line">{yearLine(next)}</p>}
+      {picked && choice === 'exam_pass' && <p className="parents-terms-line">{passLine(next)}</p>}
       {linkCode && <p className="muted">אחרי התשלום אפשר יהיה לחבר את המכשיר של הילד עם הקוד <bdi dir="ltr" className="mono">{linkCode}</bdi>.</p>}
       <Disclosure plans={plans} />
       <ConsentBoxes adult={adult} setAdult={setAdult} terms={terms} setTerms={setTerms} />
@@ -260,11 +278,21 @@ function OrderWait({ id, onDone, onClosed }) {
 }
 
 // ---------------------------------------------------------------- cancelling: at most two taps from the plan card
+/**
+ * The ways an exam pass can be cancelled now (COUNCIL2-33): it never charges again, so "at the end of the period" stops
+ * nothing; only a refund is a cancellation worth offering (the whole price in the first 14 days, then the unused days).
+ */
+export const passCancels = (plan) => (plan?.plan === 'exam_pass' ? [
+  plan.canRefundNow && 'refund_now', plan.canProrata && plan.prorataAgorot > 0 && 'prorata',
+].filter(Boolean) : null);
+
 function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
-  const [mode, setMode] = useState('period_end');
+  const pass = plan?.plan === 'exam_pass';
+  const first = pass ? passCancels(plan)[0] || 'refund_now' : 'period_end';
+  const [mode, setMode] = useState(first);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => { if (open) { setMode('period_end'); setError(''); } }, [open]);
+  useEffect(() => { if (open) { setMode(first); setError(''); } }, [open, first]);
   if (!plan) return null;
   const ends = dateNum(plan.periodEnd);
   // a failed payment: the grace days end with the cancellation, so the tutor works only to the period end, which may
@@ -280,16 +308,26 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
   // the latest payment renewed a one-year plan whose new year has not started: a refund takes only the new year back
   const keeps = plan.renewalUndoEnd ? dateNum(plan.renewalUndoEnd) : null;
   const options = [
-    { id: 'period_end', text: endsNow ? 'לבטל עכשיו, בלי חיובים נוספים' : `לבטל בסוף התקופה (העוזר החכם פתוח עד ${ends})` },
+    !pass && { id: 'period_end', text: endsNow ? 'לבטל עכשיו, בלי חיובים נוספים' : `לבטל בסוף התקופה (העוזר החכם פתוח עד ${ends})` },
     plan.canRefundNow && { id: 'refund_now', text: keeps ? `לבטל את החידוש ולקבל החזר מלא של ${formatAgorot(plan.priceAgorot)} (המנוי ממשיך עד ${keeps})` : `לבטל עכשיו ולקבל החזר מלא של ${formatAgorot(plan.priceAgorot)} (העוזר החכם ייסגר מיד)` },
     plan.canProrata && plan.prorataAgorot > 0 && { id: 'prorata', text: keeps ? `לבטל את החידוש ולקבל החזר של ${formatAgorot(plan.prorataAgorot)} (המנוי ממשיך עד ${keeps})` : `לבטל עכשיו ולקבל החזר יחסי של ${formatAgorot(plan.prorataAgorot)} (העוזר החכם ייסגר מיד)` },
   ].filter(Boolean);
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="לבטל את המנוי?">
+    <Sheet open={open} onOpenChange={onOpenChange} title={pass ? 'לבטל את חבילת המבחן?' : 'לבטל את המנוי?'}>
       <div className="cancel-sheet stack">
-        <p className="lead">{endsNow
+        {pass && !options.length && (
+          // nothing to give back any more (its last day): it ends by itself, with no charge to stop (/cancel opens this)
+          <p className="lead">החבילה לא מתחדשת מעצמה ומסתיימת ב־{ends}. אין חיוב נוסף שצריך לבטל. התרגול, ההתקדמות ומדי נשארים כמו שהם.</p>
+        )}
+        {pass && options.length > 0 && (
+          <>
+            <p className="lead">החבילה לא מתחדשת מעצמה, אז אין חיובים נוספים. אם מבטלים עכשיו, העוזר החכם יחזור מיד ל־2 שאלות ביום. התרגול, ההתקדמות ומדי נשארים כמו שהם.</p>
+            {options.length === 1 && <p className="cancel-opt">{options[0].text}</p>}
+          </>
+        )}
+        {!pass && <p className="lead">{endsNow
           ? 'לא יהיו חיובים נוספים. התשלום האחרון לא עבר, אז העוזר החכם יחזור עכשיו ל־2 שאלות ביום. התרגול, ההתקדמות ומדי נשארים כמו שהם.'
-          : `לא יהיו חיובים נוספים. העוזר החכם ימשיך לעבוד עד ${ends}, ואז יחזור ל־2 שאלות ביום. התרגול, ההתקדמות ומדי נשארים כמו שהם.`}</p>
+          : `לא יהיו חיובים נוספים. העוזר החכם ימשיך לעבוד עד ${ends}, ואז יחזור ל־2 שאלות ביום. התרגול, ההתקדמות ומדי נשארים כמו שהם.`}</p>}
         {options.length > 1 && (
           <div className="ob-opts" role="radiogroup" aria-label="איך לבטל">
             {options.map((o) => (
@@ -300,8 +338,8 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
           </div>
         )}
         {error && <p className="form-error" role="alert">{error}</p>}
-        <Button className="btn-block btn-lg" onClick={go} disabled={busy}>{busy ? 'מבטלים…' : 'כן, לבטל'}</Button>
-        <Button variant="secondary" className="btn-block" onClick={() => onOpenChange(false)}>להשאיר את המנוי</Button>
+        {(!pass || options.length > 0) && <Button className="btn-block btn-lg" onClick={go} disabled={busy}>{busy ? 'מבטלים…' : 'כן, לבטל'}</Button>}
+        <Button variant="secondary" className="btn-block" onClick={() => onOpenChange(false)}>{!pass ? 'להשאיר את המנוי' : options.length ? 'להשאיר את החבילה' : 'סגירה'}</Button>
       </div>
     </Sheet>
   );
@@ -414,8 +452,9 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vau
   let status;
   if (canceled) status = `המנוי בוטל. העוזר החכם פתוח עד ${dateNum(p.periodEnd)}, ולא יהיו חיובים נוספים.`;
   else if (pastDue) status = 'התשלום האחרון לא עבר';
-  // a one-year plan has no next charge (TRUST-10 §1): only its end
+  // a one-year plan and the exam pass have no next charge (TRUST-10 §1, COUNCIL2-33): only their end
   else if (p.plan === 'family_year') status = `המנוי לשנה פעיל עד ${dateNum(p.periodEnd)}`;
+  else if (p.plan === 'exam_pass') status = `${PASS_NAME} פעילה עד ${dateNum(p.periodEnd)}`;
   else if (p.priceAgorot) status = `המנוי פעיל · החיוב הבא: ${formatAgorot(p.priceAgorot)} ב־${dateNum(p.periodEnd)}`;
   else status = `המנוי פעיל עד ${dateNum(p.periodEnd)}`;
   const unlinkName = unlink?.label ? `במכשיר "${unlink.label}"` : 'במכשיר של הילד';
@@ -424,6 +463,7 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vau
       <h2 id="plan-title" className="card-title">{status}</h2>
       {pastDue && <p className="parents-warn">חברת הסליקה תנסה שוב בימים הקרובים, והעוזר החכם ממשיך לעבוד עד {dateNum(p.accessUntil || p.periodEnd)}.</p>}
       {p.plan === 'family_year' && !canceled && <p className="muted">הוא לא מתחדש מעצמו, ולא נחייב אתכם שוב בלי שתבקשו.</p>}
+      {p.plan === 'exam_pass' && !canceled && <p className="muted">היא לא מתחדשת מעצמה, ולא נחייב אתכם שוב.</p>}
       {p.economy && <p className="parents-note">החודש השימוש גבוה במיוחד, אז עד ה־1 בחודש העוזר עונה בשיחה בגרסה קצרה, ובדיקות הצילום והמבחן נחות. כך כתוב בתקנון, בסעיף שימוש הוגן.</p>}
       {canceled && !renewing && <Button className="btn-block" onClick={resume} disabled={busy}>לחדש את המנוי</Button>}
       <p className="parents-usage">השבוע: {u.tutor || 0} שאלות לעוזר, {u.check || 0} בדיקות דף</p>
@@ -453,7 +493,10 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vau
         {open === 'card' && (
           <p className="parents-note">עדכון אמצעי תשלום נעשה מול חברת הסליקה. כתבו לנו{plans?.contact ? <> אל <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a></> : ''} ונעזור.</p>
         )}
-        {!canceled && <button type="button" className="set-row" onClick={onCancel}>ביטול המנוי</button>}
+        {/* an exam pass stops by itself: its row is there only while cancelling gives money back */}
+        {!canceled && (passCancels(p) ? passCancels(p).length > 0 : true) && (
+          <button type="button" className="set-row" onClick={onCancel}>{p.plan === 'exam_pass' ? 'ביטול החבילה' : 'ביטול המנוי'}</button>
+        )}
         <button type="button" className="set-row" aria-expanded={open === 'payments'} onClick={() => setOpen(open === 'payments' ? null : 'payments')}>קבלות וחשבוניות</button>
         {open === 'payments' && <Receipts payments={payments} qa={qa} />}
       </div>
@@ -815,7 +858,7 @@ export default function Parents({ mode = 'home' }) {
   const linkCard = !!plan && !here && !claimed && (!!linkCode || (acct?.devices?.length || 0) === 0);
   const dropOrderParam = () => { const next = new URLSearchParams(params); next.delete('order'); setParams(next, { replace: true }); };
   const orderDone = (o) => {
-    say({ tone: 'good', text: o?.plan === 'class_year' ? 'רישיון הכיתה פעיל' : 'המנוי פעיל' });
+    say({ tone: 'good', text: o?.plan === 'class_year' ? 'רישיון הכיתה פעיל' : o?.plan === 'exam_pass' ? 'חבילת המבחן פעילה' : 'המנוי פעיל' });
     dropOrderParam(); loadAccount();
   };
   // a payment that did not go through, or has not arrived after 90 s: the plans and the pay button come back

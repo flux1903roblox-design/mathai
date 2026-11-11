@@ -19,9 +19,9 @@ export const REFUND_DAYS = 14;
  * one-year plan (Consumer Protection Law s.13א) and the class licence are one payment each; a new year is a new act of
  * the payer. A lawyer who reads s.13א otherwise changes the one list, in shared/sold.js (the pages read it too).
  */
-import { RECURRING_PLANS, recurringPlan } from '../../shared/sold.js';
+import { RECURRING_PLANS, recurringPlan, PLAN_DAYS } from '../../shared/sold.js';
 
-export { RECURRING_PLANS, recurringPlan };
+export { RECURRING_PLANS, recurringPlan, PLAN_DAYS };
 const DAY = 864e5;
 
 /**
@@ -44,6 +44,13 @@ export function addMonths(iso, months) {
 const iso = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t).toISOString() : null; };
 const maxIso = (...v) => v.filter(Boolean).sort().at(-1) || null;
 const minIso = (...v) => v.filter(Boolean).sort()[0] || null;
+/**
+ * Where a plan's term ends when it starts at `from`: PLAN_DAYS days later for a plan counted in days (the exam pass, 30
+ * days, COUNCIL2-33), else PLAN_MONTHS calendar months later (addMonths).
+ */
+export const planEnd = (plan, from) => (PLAN_DAYS[plan]
+  ? new Date(Date.parse(from) + PLAN_DAYS[plan] * DAY).toISOString()
+  : addMonths(from, PLAN_MONTHS[plan] || 1));
 /** An end date for a plan ending at `at`: never later than its period end, always after its start (a CHECK). */
 export const endAt = (sub, at) => maxIso(minIso(sub.current_period_end, at), new Date(Date.parse(sub.current_period_start) + 1000).toISOString());
 /** A short reason for billing_events.detail: no address, no long number, at most 200 characters. */
@@ -220,16 +227,15 @@ function firstPayment(truth, ctx, order, at, amount, done) {
       notices: [ownerN(ctx, 'duplicate_payment', { order: order.id, amountAgorot: amount })],
     });
   }
-  const months = PLAN_MONTHS[order.plan] || 1;
   const start = iso(truth.periodStart) || at;
-  const end = iso(truth.periodEnd) || addMonths(at, months);
+  const end = iso(truth.periodEnd) || planEnd(order.plan, at);
   const row = {
     id: ctx.ids.sub, kind: family ? 'family' : 'class', account_id: order.account_id || null, class_code: family ? null : order.class_code,
     plan: order.plan, status: 'active', provider: ctx.provider,
     // a standing order only for the plan that renews by itself (TRUST-10 §1): a one-year plan keeps none
     provider_subscription_id: recurringPlan(order.plan) ? (truth.providerSubscriptionId || null) : null,
     price_agorot: order.amount_agorot, seats: family ? null : order.seats, invoice_ref: null,
-    current_period_start: start, current_period_end: end > start ? end : addMonths(start, months || 1),
+    current_period_start: start, current_period_end: end > start ? end : planEnd(order.plan, start),
     cancel_at_period_end: 0, cancel_requested_at: null, ended_reason: null, first_paid_at: at, refund_until: new Date(Date.parse(at) + REFUND_DAYS * DAY).toISOString(), last_event_at: at,
     note: null, created_at: ctx.now, updated_at: ctx.now,
   };
@@ -305,8 +311,7 @@ function renewal(truth, ctx, sub, at, amount, done) {
       ops: [stopCharging(ctx, sub.id)], notices: parentNotice('החיוב היה אחרי שהמנוי הסתיים.'),
     });
   }
-  const months = PLAN_MONTHS[sub.plan] || 1;
-  const candidate = iso(truth.periodEnd) || addMonths(maxIso(sub.current_period_end, at), months);
+  const candidate = iso(truth.periodEnd) || planEnd(sub.plan, maxIso(sub.current_period_end, at));
   const newEnd = maxIso(sub.current_period_end, candidate);
   const extended = newEnd > sub.current_period_end;
   const newer = !sub.last_event_at || at >= sub.last_event_at;

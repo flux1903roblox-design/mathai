@@ -173,7 +173,7 @@
       "personal": "pseudonymous",
       "about": ["parent", "teacher"],
       "fields": ["id", "account_id", "plan", "class_code", "seats", "amount_agorot", "vat_agorot", "currency", "provider", "mode", "provider_checkout_id", "idempotency_key", "status", "subscription_id", "created_at", "expires_at", "paid_at"],
-      "purpose": "A checkout priced on the server: the plan, the amount and the payment company's reference. It loses its account id when the account is deleted.",
+      "purpose": "A checkout priced on the server: the plan (the monthly or one-year family plan, the 30-day exam pass, or a class licence), the amount and the payment company's reference. It loses its account id when the account is deleted.",
       "retention": "An order never paid: 30 days after it expired. A paid order is a money record: to the end of the 7th calendar year after its tax year (RETENTION.taxYears).",
       "recipients": ["cloudflare", "payment"],
       "purgedBy": ["cron.purgeRecordsSql", "cron.purgeLongTermSql"]
@@ -191,7 +191,7 @@
       "personal": "pseudonymous",
       "about": ["parent", "teacher"],
       "fields": ["id", "kind", "account_id", "class_code", "plan", "status", "provider", "provider_subscription_id", "price_agorot", "seats", "invoice_ref", "current_period_start", "current_period_end", "cancel_at_period_end", "cancel_requested_at", "cancel_synced_at", "first_paid_at", "refund_until", "ended_reason", "last_event_at", "note", "created_at", "updated_at"],
-      "purpose": "A family plan or a class licence: its dates, price, cancellation and refund window. It loses its account id when the account is deleted.",
+      "purpose": "A family plan (monthly, one-year, or the 30-day exam pass, which is paid once and never renews) or a class licence: its dates, price, cancellation and refund window. It loses its account id when the account is deleted.",
       "retention": "While it runs; an ended plan is a money record: to the end of the 7th calendar year after its tax year, and longer while a kept payment, refund or renewal still points at it.",
       "recipients": ["cloudflare", "payment"],
       "purgedBy": ["cron.purgeLongTermSql"]

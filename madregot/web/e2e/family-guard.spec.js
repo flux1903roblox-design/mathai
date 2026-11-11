@@ -186,11 +186,13 @@ test('/parents offers only the plans the payment company can sell online here (G
   st.sessions.add(PARENT);
   await openParent(page);
   const plans = page.getByRole('radiogroup', { name: 'מסלול' });
-  await expect(plans.getByRole('radio')).toHaveCount(1);
+  // the plans paid once: the year, and the exam pass (COUNCIL2-33); the year is picked first
+  await expect(plans.getByRole('radio')).toHaveCount(2);
   await expect(plans.getByRole('radio', { name: /שנתי/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(plans.getByRole('radio', { name: /חבילת מבחן/ })).toHaveAttribute('aria-checked', 'false');
   await expect(plans.getByRole('radio', { name: /חודשי/ })).toHaveCount(0);
-  // neither family plan online: the page says joining online is not open yet
-  st.planOnline = { family_month: false, family_year: false };
+  // no family plan online: the page says joining online is not open yet
+  st.planOnline = { family_month: false, family_year: false, exam_pass: false };
   await page.reload(); await appReady(page);
   await expect(page.getByText(/ההצטרפות באתר עוד לא פתוחה/)).toBeVisible();
 });

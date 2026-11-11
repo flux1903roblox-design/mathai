@@ -10,7 +10,7 @@ import { refuseSchoolSale } from './classai.js';
 import { reportOn, summaryState, rowToDay } from './report.js';
 import { decide, endAt, cleanDetail, recurringPlan } from './apply.js';
 import { providerById, currentProvider, webhookProvider, capsOf } from './providers/index.js';
-import { sellsOnline, PLAN_IDS } from '../../shared/sold.js';
+import { sellsOnline, PLAN_IDS, PLAN_DAYS, PRORATA_PLANS, passPrice } from '../../shared/sold.js';
 import { testSignature } from './providers/test.js';
 import { noticeStmt, ownerNotice, monthSpendUsd } from './spend.js';
 import { flushNotices, escapeHtml, shekels } from './email.js';
@@ -29,17 +29,23 @@ const RUNNING_STATUSES = ['active', 'past_due', 'canceled'];
 
 // ---------------------------------------------------------------- plans and prices
 const agorot = (env, name, d) => { const v = Number(env[name]); return Number.isInteger(v) && v > 0 ? v : d; };
+/**
+ * The prices in agorot, VAT included. The family plans and the class seat fall back to the owner's decided list prices;
+ * the exam pass has no fallback (its price is the owner's decision, COUNCIL2-33): null until PRICE_EXAM_PASS_AGOROT is
+ * set, and with no price it is not sold (shared/sold.js).
+ */
 export function prices(env) {
   return {
     family_month: agorot(env, 'PRICE_FAMILY_MONTH_AGOROT', 2990),
     family_year: agorot(env, 'PRICE_FAMILY_YEAR_AGOROT', 24900),
+    exam_pass: passPrice(env),
     seat: agorot(env, 'PRICE_CLASS_SEAT_YEAR_AGOROT', 4900),
   };
 }
 export const vatExempt = (env) => String(env.VAT_MODE) === 'exempt';
 /** The VAT inside a VAT-included price, in whole agorot (0 for an exempt dealer). */
 export const vatOf = (env, amount) => (vatExempt(env) ? 0 : Math.round((amount * 18) / 118));
-export const termsVersion = (env) => String(env.TERMS_VERSION || '2026-11');
+export const termsVersion = (env) => String(env.TERMS_VERSION || '2026-11-11');
 export const SEATS = { min: 10, max: 45 };
 const publicUrl = (env) => String(env.PUBLIC_URL || '').replace(/\/+$/, '');
 
@@ -101,7 +107,7 @@ export function plansView(env) {
   const p = currentProvider(env);
   return {
     // online: a family plan can be bought on /parents (each plan says it for itself too)
-    paywall: paywallOn(env), online: planOnline(env, 'family_month') || planOnline(env, 'family_year'), vatMode: vatExempt(env) ? 'exempt' : 'included', vatRate: vatExempt(env) ? 0 : 0.18,
+    paywall: paywallOn(env), online: ['family_month', 'family_year', 'exam_pass'].some((id) => planOnline(env, id)), vatMode: vatExempt(env) ? 'exempt' : 'included', vatRate: vatExempt(env) ? 0 : 0.18,
     // a child alone needs a parent's OK for the tutor (trust spec TRUST-9): the parents' page offers the free OK
     parentOk: parentOkRequired(env),
     currency: 'ILS', termsVersion: termsVersion(env), billing: p?.id || null,
@@ -111,6 +117,8 @@ export function plansView(env) {
       { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: pr.family_month, vatAgorot: vatOf(env, pr.family_month), renews: true, online: planOnline(env, 'family_month') },
       // a one-year plan (Consumer Protection Law s.13א, trust spec TRUST-10 §1): it never renews by itself
       { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: pr.family_year, vatAgorot: vatOf(env, pr.family_year), renews: false, termMonths: 12, online: planOnline(env, 'family_year') },
+      // the exam pass (COUNCIL2-33): the family plan for 30 days, one charge, never renewed; no price, not sold
+      { id: 'exam_pass', kind: 'family', interval: 'once', amountAgorot: pr.exam_pass, vatAgorot: pr.exam_pass ? vatOf(env, pr.exam_pass) : null, renews: false, termDays: PLAN_DAYS.exam_pass, online: planOnline(env, 'exam_pass') },
       { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: pr.seat, minSeats: SEATS.min, maxSeats: SEATS.max, renews: false, online: planOnline(env, 'class_year') },
     ],
     limits: {
@@ -247,6 +255,16 @@ async function refuseLive(env, account, plan, classCode) {
   if (!sub) return null;
   const now = nowIso();
   if (plan === 'family_year' && (await renewable(env, sub, now))) return sub;
+  // a plan paid once (the exam pass, a one-year plan) whose term is over: it ends here, as the night's endFinished would
+  // end it, so the family can buy again at once (a new exam pass the day the last one ended)
+  if (!recurringPlan(sub.plan) && sub.current_period_end <= now) {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE subscriptions SET status = 'ended', ended_reason = 'expired', updated_at = ? WHERE id = ? AND status = 'active' AND current_period_end <= ?")
+        .bind(now, sub.id, now),
+      auditStmt(env, `account:${account.id}`, 'subscription.reconcile', `sub:${sub.id}`, { ended: 'expired', at: 'checkout' }),
+    ]);
+    if (sub.status === 'active') return null;
+  }
   const graceEnd = new Date(Date.parse(sub.current_period_end) + limits(env).graceDays * DAY).toISOString();
   if (graceEnd > now) throw new HttpError(409, 'already_subscribed');
   await env.DB.batch([
@@ -518,7 +536,7 @@ export async function cancelSubscription(env, ctx, sub, mode, { actor, inline = 
     if (undo) { status = sub.status; endsAt = undo.prev_end; } else { status = 'ended'; endedReason = 'refunded'; endsAt = endAt(sub, now); }
     refund = { amount: charge.amount_agorot, reason: 'cooling_off' };
   } else if (mode === 'prorata') {
-    if (!['family_year', 'class_year'].includes(sub.plan) || !sub.refund_until || now < sub.refund_until || !charge) throw new HttpError(409, 'prorata_not_offered');
+    if (!PRORATA_PLANS.includes(sub.plan) || !sub.refund_until || now < sub.refund_until || !charge) throw new HttpError(409, 'prorata_not_offered');
     if (undo) {
       // none of the renewed year was used: all of it comes back, and the year before runs on
       status = sub.status; endsAt = undo.prev_end;
@@ -700,7 +718,7 @@ function planView(env, sub, charge, economy, { canRenew = false, undo = null } =
   const now = nowIso();
   const provider = providerById(env, sub.provider);
   const running = ['active', 'past_due', 'canceled'].includes(sub.status);
-  const canProrata = running && ['family_year', 'class_year'].includes(sub.plan) && !!sub.refund_until && now >= sub.refund_until && !!charge;
+  const canProrata = running && PRORATA_PLANS.includes(sub.plan) && !!sub.refund_until && now >= sub.refund_until && !!charge;
   // a renewal not yet started comes back whole, as cancelSubscription does
   const prorataAgorot = canProrata ? (undo ? charge.amount_agorot : prorataOf(sub)) : null;
   // until when the tutor works on the child's devices: a failed payment keeps it for the grace days after the period

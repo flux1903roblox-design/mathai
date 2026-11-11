@@ -437,7 +437,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('with only the one-year plan sold online (Grow before it may stop a standing order), /parents offers and prices it alone, never "write to us"', async ({ page }) => {
-    const { st, log } = await fakeServer(page, { parentOk: true, planOnline: { family_month: false } }, baseOf());
+    const { st, log } = await fakeServer(page, { parentOk: true, planOnline: { family_month: false, exam_pass: false } }, baseOf());
     // a parent who has not signed in: what the plan is, the yearly price alone, how a one-year plan is cancelled
     await open(page, '#/parents', parentPhone());
     await expect(page.getByRole('heading', { name: 'העוזר החכם של מדרגות · להורים' })).toBeVisible();
@@ -466,6 +466,58 @@ test.describe('the smart tutor', () => {
     await page.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
     await page.waitForURL(`${PAY}/**`);
     expect(log.find((r) => r.path === '/api/billing/checkout').body).toMatchObject({ plan: 'family_year', adult: true, terms: '2026-11' });
+  });
+
+  test('the exam pass (COUNCIL2-33): Grow at launch sells the year and the pass; the pass is 30 days, one charge, never renewed, and cancelled for its whole price', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true, planOnline: { family_month: false } }, baseOf());
+    // signed out: the yearly price, then the pass with its days, and how a plan paid once is cancelled
+    await open(page, '#/parents', parentPhone());
+    await expect(page.locator('.parents-price')).toHaveText('₪249 לשנה, כולל מע״מלשנה אחת, לא מתחדש מעצמו');
+    await expect(page.locator('.parents-pass-price')).toHaveText('או חבילת מבחן: ₪39 ל־30 יום, כולל מע״מתשלום אחד, לא מתחדשת מעצמה');
+    await expect(page.getByText('אפשר לבטל כאן באתר בשתי לחיצות. ב־14 הימים הראשונים מקבלים את כל הכסף בחזרה, ואחר כך החזר יחסי על הימים שנשארו.')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('לחודש,');
+    await shot(page, 'parents-pass-info');
+    // signed in: two plans paid once; the pass, picked, with its line before the button
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: 'parent@example.test' }) } });
+    const plans = page.getByRole('radiogroup', { name: 'מסלול' });
+    await expect(plans.getByRole('radio')).toHaveCount(2);
+    const pass = plans.getByRole('radio', { name: /חבילת מבחן/ });
+    await expect(pass).toContainText('₪39 ל־30 יום, כולל מע״מ · תשלום אחד, לא מתחדשת מעצמה');
+    await pass.click();
+    await expect(pass).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByText('סה״כ לתשלום היום: ₪39 (כולל מע״מ 18%).', { exact: true })).toBeVisible();
+    // NOW is 5.11.2026 10:00 (helpers.js): 30 days later
+    await expect(page.getByText('החבילה ל־30 יום, עד 05.12.2026. היא לא מתחדשת מעצמה ולא נחייב אתכם שוב. ב־14 הימים הראשונים אפשר לבטל ולקבל את כל הכסף בחזרה.')).toBeVisible();
+    await expect(page.getByText(/החיוב הבא|מתחדש אוטומטית/)).toHaveCount(0);
+    for (const b of await page.getByRole('radio').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'parents-pass-checkout');
+    await page.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await page.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await page.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    await page.waitForURL(`${PAY}/**`);
+    const order = log.find((r) => r.path === '/api/billing/checkout');
+    expect(order.body).toMatchObject({ plan: 'exam_pass', adult: true, terms: '2026-11' });
+    expect(order.body.amountAgorot).toBeUndefined();
+    // paid: back on the page, the order is polled until the pass is active
+    await page.getByRole('link', { name: 'חזרה לאתר' }).click();
+    await expect(page.getByText('חבילת המבחן פעילה', { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'חבילת מבחן פעילה עד 05.12.2026' })).toBeVisible();
+    await expect(page.getByText('היא לא מתחדשת מעצמה, ולא נחייב אתכם שוב.')).toBeVisible();
+    await expect(page.getByText(/החיוב הבא/)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toHaveCount(0);
+    await shot(page, 'parents-pass-active');
+    // cancelling in its 14 days: no "end of period" (nothing renews), the whole price back, at once
+    await page.getByRole('button', { name: 'ביטול החבילה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'לבטל את חבילת המבחן?' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText('החבילה לא מתחדשת מעצמה, אז אין חיובים נוספים.');
+    await expect(sheet).toContainText('לבטל עכשיו ולקבל החזר מלא של ₪39 (העוזר החכם ייסגר מיד)');
+    await expect(sheet.getByText(/בסוף התקופה/)).toHaveCount(0);
+    await shot(page, 'parents-pass-cancel');
+    await sheet.getByRole('button', { name: 'כן, לבטל' }).click();
+    expect(log.filter((r) => r.path === '/api/billing/cancel').at(-1).body).toMatchObject({ mode: 'refund_now' });
+    await expect(page.getByRole('status').filter({ hasText: 'ביטלתם.' })).toContainText('ההחזר יגיע לאמצעי התשלום תוך 14 ימים לכל היותר.');
   });
 
   test('the end-date email\'s link (?renew=year): a one-year plan in its last 45 days renews here, a new consent; earlier, the page says from when', async ({ page }) => {

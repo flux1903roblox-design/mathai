@@ -62,6 +62,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { endOfDayIso, startOfDayIso, CODE_ALPHABET, dayOf } from '../src/util.js';
 import { cleanEmail } from '../src/account.js';
 import { classAiPolicy, rulesEnv, notSellable } from '../../shared/schoolRules.js';
+import { PRORATA_PLANS } from '../../shared/sold.js';
 import { pilotQueries, pilotReport, pilotText, examListSql, examListText } from './pilot.mjs';
 import { shiftDay, weekOf } from '../src/goal.js';
 import { readiness, formatReadiness } from '../src/readiness.js';
@@ -305,9 +306,9 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
         const total = `MAX(1, CAST(ROUND(julianday(current_period_end) - julianday(current_period_start)) AS INTEGER))`;
         lines.push(`INSERT INTO refund_queue (subscription_id, payment_id, amount_agorot, reason, requested_at)
   SELECT ${q(sub)}, ${charge}, CAST(price_agorot * ${unused} / ${total} AS INTEGER), 'prorata', ${q(now)} FROM subscriptions
-  WHERE id = ${q(sub)} AND status != 'ended' AND plan IN ('family_year', 'class_year') AND refund_until <= ${q(now)} AND CAST(price_agorot * ${unused} / ${total} AS INTEGER) > 0;`);
+  WHERE id = ${q(sub)} AND status != 'ended' AND plan IN (${PRORATA_PLANS.map((p) => `'${p}'`).join(', ')}) AND refund_until <= ${q(now)} AND CAST(price_agorot * ${unused} / ${total} AS INTEGER) > 0;`);
         lines.push(`UPDATE subscriptions SET cancel_requested_at = COALESCE(cancel_requested_at, ${q(now)}), cancel_at_period_end = 1, status = 'ended', ended_reason = 'canceled',
-  current_period_end = ${endNow}, updated_at = ${q(now)} WHERE id = ${q(sub)} AND status != 'ended' AND plan IN ('family_year', 'class_year') AND refund_until <= ${q(now)};`);
+  current_period_end = ${endNow}, updated_at = ${q(now)} WHERE id = ${q(sub)} AND status != 'ended' AND plan IN (${PRORATA_PLANS.map((p) => `'${p}'`).join(', ')}) AND refund_until <= ${q(now)};`);
       }
       lines.push(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
   SELECT id, 'canceled:' || ${q(mode)} || ':' || cancel_requested_at, account_id, json_object('requestedAt', cancel_requested_at, 'endsAt', current_period_end,

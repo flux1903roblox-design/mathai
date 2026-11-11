@@ -34,7 +34,8 @@ export default defineConfig({
     cwd: '..',
     // no server, as the public site; VITE_TEACHER_URL: the public teacher page points to the full app (TEACHER-1);
     // the landing pages' stand-in owner values (scripts/landing-build.mjs), selling as Grow does at launch, before it
-    // lets us stop a standing order: the one-year plan only (COUNCIL2-30)
+    // lets us stop a standing order: the plans paid once, the one-year plan (COUNCIL2-30) and the exam pass at
+    // wrangler.toml's price (COUNCIL2-33)
     env: {
       VITE_API_URL: 'none', VITE_TEACHER_URL: 'https://example.test/',
       PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', BUSINESS_NAME: 'מדרגות (דוגמה)', API_BASE: 'https://api.madregot.test',

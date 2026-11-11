@@ -73,6 +73,7 @@ export const PLANS = {
   plans: [
     { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: 2990, vatAgorot: 456, renews: true },
     { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: 24900, vatAgorot: 3798, renews: false, termMonths: 12 },
+    { id: 'exam_pass', kind: 'family', interval: 'once', amountAgorot: 3900, vatAgorot: 595, renews: false, termDays: 30 },
     { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: 4900, minSeats: 10, maxSeats: 45, renews: false },
   ],
   limits: { family: { ...FAMILY, examMonthly: 10, devices: 3 }, class: CLASS, free: { tutor: 2 } },
@@ -596,7 +597,9 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       o.polls += 1;
       if (o.paidOnPage && o.polls >= 2 && o.status === 'open') {
         o.status = 'paid';
-        if (o.plan !== 'class_year') st.plan = livePlan({ plan: o.plan });
+        // an exam pass: its own price, 30 days, no next charge (COUNCIL2-33)
+        if (o.plan === 'exam_pass') st.plan = livePlan({ plan: o.plan, priceAgorot: 3900, periodEnd: '2026-12-05T10:00:00Z', canResume: false, renews: false });
+        else if (o.plan !== 'class_year') st.plan = livePlan({ plan: o.plan });
       }
       return reply(route, 200, { status: o.status, plan: o.plan, subscription: o.status === 'paid' ? { status: 'active', periodEnd: '2026-12-05T10:00:00Z' } : null });
     }
@@ -605,7 +608,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (lic) { lic.status = 'ended'; delete lic.plan; return reply(route, 200, { ok: true, status: 'ended', endsAt: '2026-11-05T10:00:00Z', refundAgorot: 58800, refundManual: false, synced: true, reference: 'C-1B00' }); }
       const p = st.plan;
       if (!p || p.id !== body.subscriptionId) return reply(route, 404, { error: 'no_subscription' });
-      if (body.mode === 'refund_now') { st.plan = { ...p, status: 'ended' }; return reply(route, 200, { ok: true, status: 'ended', endsAt: '2026-11-05T10:00:00Z', refundAgorot: 2990, refundManual: false, synced: true, reference: 'C-7F3A' }); }
+      if (body.mode === 'refund_now') { st.plan = { ...p, status: 'ended' }; return reply(route, 200, { ok: true, status: 'ended', endsAt: '2026-11-05T10:00:00Z', refundAgorot: p.priceAgorot || 2990, refundManual: false, synced: true, reference: 'C-7F3A' }); }
       st.plan = { ...p, status: 'canceled', cancelAtPeriodEnd: true, cancelRequestedAt: '2026-11-05T10:00:00Z', canRefundNow: false };
       return reply(route, 200, { ok: true, status: 'canceled', endsAt: p.periodEnd, refundAgorot: 0, refundManual: false, synced: true, reference: 'C-7F3A' });
     }

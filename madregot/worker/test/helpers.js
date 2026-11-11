@@ -91,6 +91,8 @@ export function makeEnv(over = {}) {
     ALLOW_TEST_BILLING: 'true',
     PRICE_FAMILY_MONTH_AGOROT: '2990',
     PRICE_FAMILY_YEAR_AGOROT: '24900',
+    // the exam pass's placeholder price, as wrangler.toml has it (COUNCIL2-33): set, so the pass is sold as it would be
+    PRICE_EXAM_PASS_AGOROT: '3900',
     PRICE_CLASS_SEAT_YEAR_AGOROT: '4900',
     VAT_MODE: 'included',
     TERMS_VERSION: '2026-11',

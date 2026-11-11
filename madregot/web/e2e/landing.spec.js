@@ -54,6 +54,8 @@ test('/mivchan/: the question, the plan in one screen, and its button leads to E
   // before it may stop a standing order: the one-year plan, which never renews, and no "cancel on the site"), and the
   // topics are the app's
   await expect(page.getByText('₪249 לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.', { exact: true })).toBeVisible();
+  // the exam pass (COUNCIL2-33): one charge too, so Grow sells it at launch, at wrangler.toml's price
+  await expect(page.getByText('לפני מבחן: חבילה ל־30 יום ב־₪39, כולל מע״מ. תשלום אחד, לא מתחדשת מעצמה.', { exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('לחודש');
   await expect(page.locator('body')).not.toContainText('מבטלים באתר');
   await expect(page.getByRole('listitem').filter({ hasText: 'כיתה ז׳:' })).toContainText('מספרים מכוונים');

@@ -9,7 +9,7 @@ import { topicsFor } from '@/content/index.js';
 import { GOALS } from '@/lib/quests.js';
 import { LIST_PRICES, formatAgorot, vatLine } from '@/lib/price.js';
 import { APP_NAME } from '../../shared/brand.js';
-import { WEB, IMAGES, buildLanding, imageSize, wranglerVars, repoCode, renderClaims, saleVars, priceLine } from './landing-build.mjs';
+import { WEB, IMAGES, buildLanding, imageSize, wranglerVars, repoCode, renderClaims, saleVars, priceLine, passLine } from './landing-build.mjs';
 import { soldOnline } from '../../shared/sold.js';
 import { CLAIMS, CLAIM, claimStatus, claimData } from '@/content/claims.js';
 import { codeWith, MERGED } from '@/lib/testing/claimCode.js';
@@ -119,13 +119,40 @@ describe('landing-build', () => {
     expect(manual.warn).toContain('no family plan is sold online with BILLING_PROVIDER "manual": the parents\' page shows no price');
     // the settings come from the build env first, then wrangler.toml (the owner's [vars])
     const toml = wranglerVars(read(WEB, '../worker/wrangler.toml'));
-    expect(saleVars({}, toml)).toEqual({ BILLING_PROVIDER: toml.BILLING_PROVIDER || 'manual', GROW_DIRECT_DEBIT_API: toml.GROW_DIRECT_DEBIT_API || 'off' });
-    expect(saleVars({ BILLING_PROVIDER: 'grow' }, { BILLING_PROVIDER: 'manual', GROW_DIRECT_DEBIT_API: 'on' })).toEqual({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'on' });
+    expect(saleVars({}, toml)).toEqual({ BILLING_PROVIDER: toml.BILLING_PROVIDER || 'manual', GROW_DIRECT_DEBIT_API: toml.GROW_DIRECT_DEBIT_API || 'off', PRICE_EXAM_PASS_AGOROT: toml.PRICE_EXAM_PASS_AGOROT || '' });
+    expect(saleVars({ BILLING_PROVIDER: 'grow' }, { BILLING_PROVIDER: 'manual', GROW_DIRECT_DEBIT_API: 'on' })).toEqual({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'on', PRICE_EXAM_PASS_AGOROT: '' });
     // the sentence for each case
     const fmt = { month, year, vat: 'כולל מע״מ' };
     expect(priceLine(soldOnline({ BILLING_PROVIDER: 'test' }), fmt)).toBe(`${month} לחודש או ${year} לשנה, כולל מע״מ.`);
     expect(priceLine({ family_month: true, family_year: false }, fmt)).toBe(`${month} לחודש, כולל מע״מ.`);
     expect(priceLine(soldOnline({ BILLING_PROVIDER: 'manual' }), fmt)).toBe('');
+  });
+
+  it('prints the exam pass from the same rule (COUNCIL2-33): sold through Grow as one charge, at the Worker\'s price, never with the manual provider or with no price', async () => {
+    const built = async (env) => {
+      const other = fakeDist();
+      try { return read((await buildLanding(other, { env: { ...ENV, ...env }, app: smallApp() }), other), 'mivchan/index.html'); } finally { rmSync(other, { recursive: true, force: true }); }
+    };
+    const toml = wranglerVars(read(WEB, '../worker/wrangler.toml'));
+    const price = formatAgorot(Number(toml.PRICE_EXAM_PASS_AGOROT));
+    const line = `<p class="price">לפני מבחן: חבילה ל־30 יום ב־${price}, כולל מע״מ. תשלום אחד, לא מתחדשת מעצמה.</p>`;
+    // the real build (Grow with the permission): both family plans and the pass, each on its own line
+    expect(page.mivchan).toContain(line);
+    // Grow at launch (no direct debit): the year and the pass, both one charge; and no "מבטלים באתר"
+    const launch = await built({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off' });
+    expect(launch).toContain(line);
+    expect(launch).toContain(`${formatAgorot(LIST_PRICES.year)} לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.`);
+    expect(launch).not.toContain('מבטלים באתר');
+    // the page's own price for it, from the build env
+    expect(await built({ LANDING_PRICE_PASS_AGOROT: '4490' })).toContain('חבילה ל־30 יום ב־₪44.90, כולל מע״מ.');
+    // nothing sells it: the manual provider, or no price
+    expect(await built({ BILLING_PROVIDER: 'manual' })).not.toContain('חבילה ל־30 יום');
+    expect(passLine(soldOnline({ BILLING_PROVIDER: 'grow' }), { pass: price, vat: 'כולל מע״מ' })).toBe('');
+    expect(passLine(soldOnline({ BILLING_PROVIDER: 'grow', PRICE_EXAM_PASS_AGOROT: '3900' }), { pass: '₪39', vat: 'המחיר סופי' }))
+      .toBe('לפני מבחן: חבילה ל־30 יום ב־₪39, המחיר סופי. תשלום אחד, לא מתחדשת מעצמה.');
+    // the placeholder in wrangler.toml is the same in both tables (the owner changes both at once)
+    const staging = /^\[env\.staging\.vars\]$([\s\S]*?)(?=^\[)/m.exec(read(WEB, '../worker/wrangler.toml'))[1];
+    expect(staging).toContain(`PRICE_EXAM_PASS_AGOROT = "${toml.PRICE_EXAM_PASS_AGOROT}"`);
   });
 
   it('lists the topics the app has, from topicsFor, and the daily goals from GOALS', () => {

@@ -239,7 +239,8 @@ test('GROW_DIRECT_DEBIT_API "off": the monthly plan is not sold online and the p
   assert.equal(onlineCheckout(h.env), true);
   const plans = plansView(h.env);
   assert.equal(plans.online, true, 'the yearly plan on /parents');
-  assert.deepEqual(plans.plans.map((p) => [p.id, p.online]), [['family_month', false], ['family_year', true], ['class_year', true]]);
+  // the exam pass is one charge too (COUNCIL2-33): sold through Grow with no permission, on the one-time page
+  assert.deepEqual(plans.plans.map((p) => [p.id, p.online]), [['family_month', false], ['family_year', true], ['exam_pass', true], ['class_year', true]]);
   const t = await signIn(h, 'buyer@example.test');
   const r = await buy(t, 'family_month');
   assert.equal(r.status, 501);
@@ -295,11 +296,17 @@ async function yearSetup({ refund = ok({ refundTransactionId: 7200002 }), ...ove
 }
 
 test('the one rule of what is sold online (shared/sold.js): Grow sells the one-year plans always and the monthly one with the permission', () => {
-  assert.deepEqual(soldOnline({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off' }),
-    { family_month: false, family_year: true, class_year: true, family: true, recurring: false });
-  assert.deepEqual(soldOnline({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'on' }),
-    { family_month: true, family_year: true, class_year: true, family: true, recurring: true });
-  assert.deepEqual(soldOnline({ BILLING_PROVIDER: 'manual' }), { family_month: false, family_year: false, class_year: false, family: false, recurring: false });
+  const pass = { PRICE_EXAM_PASS_AGOROT: '3900' };
+  assert.deepEqual(soldOnline({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off', ...pass }),
+    { family_month: false, family_year: true, exam_pass: true, class_year: true, family: true, recurring: false });
+  assert.deepEqual(soldOnline({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'on', ...pass }),
+    { family_month: true, family_year: true, exam_pass: true, class_year: true, family: true, recurring: true });
+  assert.deepEqual(soldOnline({ BILLING_PROVIDER: 'manual', ...pass }), { family_month: false, family_year: false, exam_pass: false, class_year: false, family: false, recurring: false });
+  // the exam pass has no price until the owner sets one (COUNCIL2-33): with none, no provider sells it
+  for (const v of [undefined, '', '0', '-100', '39.90', 'abc']) {
+    assert.equal(sellsOnline({ BILLING_PROVIDER: 'test', PRICE_EXAM_PASS_AGOROT: v }, 'exam_pass'), false, `price ${v}`);
+  }
+  assert.equal(sellsOnline({ BILLING_PROVIDER: 'test', PRICE_EXAM_PASS_AGOROT: ' 3900 ' }, 'exam_pass'), true);
   assert.deepEqual(soldOnline({}), soldOnline({ BILLING_PROVIDER: 'manual' }), 'no provider set: the manual one');
   assert.equal(soldOnline({ BILLING_PROVIDER: 'test' }).recurring, true);
   assert.equal(sellsOnline({ BILLING_PROVIDER: 'grow' }, 'family_year'), true);
@@ -307,8 +314,8 @@ test('the one rule of what is sold online (shared/sold.js): Grow sells the one-y
   assert.equal(sellsOnline({ BILLING_PROVIDER: 'grow' }, 'term'), false, 'an unknown plan sells nothing');
   assert.equal(sellsOnline({ BILLING_PROVIDER: 'stripe' }, 'family_year'), false, 'an unknown provider sells nothing');
   // the adapter and the Worker read the same rule
-  for (const dd of ['on', 'off']) for (const plan of ['family_month', 'family_year', 'class_year']) {
-    assert.equal(grow.planOnline({ GROW_DIRECT_DEBIT_API: dd }, plan), sellsOnline({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: dd }, plan), `${plan} ${dd}`);
+  for (const dd of ['on', 'off']) for (const plan of ['family_month', 'family_year', 'exam_pass', 'class_year']) {
+    assert.equal(grow.planOnline({ GROW_DIRECT_DEBIT_API: dd, ...pass }, plan), sellsOnline({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: dd, ...pass }, plan), `${plan} ${dd}`);
   }
 });
 

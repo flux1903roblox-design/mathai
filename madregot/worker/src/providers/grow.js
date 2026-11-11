@@ -13,7 +13,7 @@
 // carries userId (GROW_USER_ID) and, when Grow issued one, apiKey (GROW_API_KEY). The answer is { status, err, data }:
 // status 1 is success.
 //   createPaymentProcess  pageCode (GROW_PAGE_CODE_RECURRING for the monthly plan, GROW_PAGE_CODE_ONCE for the one-year
-//                         family plan and the class licence: one charge, no standing order), sum,
+//                         family plan, the exam pass and the class licence: one charge, no standing order), sum,
 //                         description, successUrl, cancelUrl, notifyUrl, cField1 (our order id), pageField[email] (Grow
 //                         sends its receipt there). No name or phone is sent: Grow's page asks the payer. The standing
 //                         order's period is the recurring page's own setting at Grow (monthly, no end).
@@ -38,6 +38,7 @@ export const GROW_SANDBOX = 'https://sandbox.meshulam.co.il/api/light/server/1.0
 export const GROW_DESCRIPTIONS = {
   family_month: 'מדרגות · מנוי משפחתי חודשי',
   family_year: 'מדרגות · מנוי משפחתי לשנה',
+  exam_pass: 'מדרגות · חבילת מבחן ל־30 יום',
   class_year: 'מדרגות · רישיון כיתה לשנה',
 };
 const STATUS = { 2: 'paid', 6: 'refunded', 4: 'canceled', 9: 'failed' };
@@ -130,9 +131,10 @@ const grow = {
   /** The capabilities for this deployment: cancelApi only once Grow enabled updateDirectDebit. */
   capabilitiesOf(env) { return { ...grow.capabilities, cancelApi: directDebit(env) }; },
   /**
-   * Plans sold online here (shared/sold.js, the one rule the pages read too): the one-year plans, the family year
-   * (TRUST-10: it never renews by itself) and the class licence, are one charge on GROW_PAGE_CODE_ONCE, always; the
-   * monthly plan (a standing order) once Grow enabled updateDirectDebit (COUNCIL2-30).
+   * Plans sold online here (shared/sold.js, the one rule the pages read too): the plans paid once, the family year
+   * (TRUST-10: it never renews by itself), the exam pass (COUNCIL2-33, once its price is set) and the class licence, are
+   * one charge on GROW_PAGE_CODE_ONCE, always; the monthly plan (a standing order) once Grow enabled updateDirectDebit
+   * (COUNCIL2-30).
    */
   planOnline(env, plan) { return sellsOnline(env, plan, 'grow'); },
   enabled: (env) => !!(env.GROW_USER_ID && env.GROW_PAGE_CODE_ONCE && growBase(env)),

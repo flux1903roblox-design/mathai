@@ -156,7 +156,7 @@ CREATE INDEX IF NOT EXISTS link_codes_expires ON link_codes (expires_at);
 CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY,                         -- 16 hex; our reference at the provider
   account_id TEXT REFERENCES accounts (id) ON DELETE SET NULL,
-  plan TEXT NOT NULL CHECK (plan IN ('family_month', 'family_year', 'class_year')),
+  plan TEXT NOT NULL CHECK (plan IN ('family_month', 'family_year', 'exam_pass', 'class_year')),  -- exam_pass added by migration 0010
   class_code TEXT,                             -- class_year only, checked with the teacher key when the order is made
   seats INTEGER CHECK (seats IS NULL OR seats BETWEEN 10 AND 45),  -- class_year only: the price is seats x the seat price
   amount_agorot INTEGER NOT NULL CHECK (amount_agorot > 0),   -- VAT included, copied from the price var
@@ -176,13 +176,14 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS orders_open ON orders (status, expires_at);
 
--- A family subscription (one parent account, up to 3 linked devices) or a class licence (one class code).
+-- A family subscription (one parent account, up to 3 linked devices: the monthly plan, the one-year plan or the 30-day
+-- exam pass) or a class licence (one class code).
 CREATE TABLE IF NOT EXISTS subscriptions (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('family', 'class')),
   account_id TEXT REFERENCES accounts (id) ON DELETE SET NULL,  -- family: the payer; class: the buyer, or NULL for an invoice grant
   class_code TEXT,
-  plan TEXT NOT NULL CHECK (plan IN ('family_month', 'family_year', 'class_year', 'term', 'trial')),
+  plan TEXT NOT NULL CHECK (plan IN ('family_month', 'family_year', 'exam_pass', 'class_year', 'term', 'trial')),  -- exam_pass: 0010
   status TEXT NOT NULL CHECK (status IN ('active', 'past_due', 'canceled', 'ended')),
   provider TEXT NOT NULL,                      -- 'manual' | 'test' | the chosen provider
   provider_subscription_id TEXT,               -- recurring plans at the provider

@@ -19,6 +19,10 @@
 //                        (read through Vite, as the app's code), with LANDING_VAT_MODE, else wrangler.toml VAT_MODE
 //                        ('כולל מע״מ', or 'המחיר סופי' for an exempt dealer). "מבטלים באתר" is the claim cancel-web,
 //                        shown only when a plan that renews is sold online.
+//   PASS_LINE            the exam pass (COUNCIL2-33), when it is sold online (the same rule: shared/sold.js, which sells
+//                        it only once its price is set): 'לפני מבחן: חבילה ל־30 יום ב־₪39, כולל מע״מ. תשלום אחד, לא
+//                        מתחדשת מעצמה.' The price: LANDING_PRICE_PASS_AGOROT, else the Worker's PRICE_EXAM_PASS_AGOROT
+//                        (the owner's decision; no default). No price, no pass, no line.
 //   PUBLIC_URL, CONTACT_EMAIL, BUSINESS_NAME   the build env, else wrangler.toml [vars] (the owner fills them once there)
 //   API_BASE             where count.js sends: API_BASE in the env, else from VITE_API_URL ('none' → none; unset or '/'
 //                        → '' = this Worker; an address → that address)
@@ -36,7 +40,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFi
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_NAME } from '../../shared/brand.js';
-import { soldOnline, recurringPlan } from '../../shared/sold.js';
+import { soldOnline, recurringPlan, PLAN_DAYS } from '../../shared/sold.js';
 
 export const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** The madregot/ folder: claims read the code by paths from here (web/src/…, worker/src/…, shared/…). */
@@ -99,7 +103,11 @@ const orList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(',
  */
 export function saleVars(env, toml) {
   const pick = (name) => String(env[name] ?? toml[name] ?? '').trim();
-  return { BILLING_PROVIDER: pick('BILLING_PROVIDER') || 'manual', GROW_DIRECT_DEBIT_API: pick('GROW_DIRECT_DEBIT_API') || 'off' };
+  return {
+    BILLING_PROVIDER: pick('BILLING_PROVIDER') || 'manual', GROW_DIRECT_DEBIT_API: pick('GROW_DIRECT_DEBIT_API') || 'off',
+    // the exam pass is sold only with a price (shared/sold.js passPrice): the page's own, else the Worker's
+    PRICE_EXAM_PASS_AGOROT: String(env.LANDING_PRICE_PASS_AGOROT ?? '').trim() || pick('PRICE_EXAM_PASS_AGOROT'),
+  };
 }
 
 /**
@@ -111,6 +119,12 @@ export function priceLine(sold, { month, year, vat }) {
   if (sold.family_year) return `${year} לשנה, ${vat}.${recurringPlan('family_year') ? '' : ' לשנה אחת, לא מתחדש מעצמו.'}`;
   if (sold.family_month) return `${month} לחודש, ${vat}.`;
   return '';
+}
+
+/** The exam pass's sentence, when it is sold online (COUNCIL2-33): its days, its price, and that it is paid once. */
+export function passLine(sold, { pass, vat, days = PLAN_DAYS.exam_pass }) {
+  if (!sold.exam_pass || !pass) return '';
+  return `לפני מבחן: חבילה ל־${days} יום ב־${pass}, ${vat}. תשלום אחד, לא מתחדשת מעצמה.`;
 }
 
 /**
@@ -136,12 +150,15 @@ export function landingVars(env, toml, app, tokens) {
   if (api && api !== 'none' && !isUrl(api)) { warn.push(`API_BASE "${api}" is not an address: nothing is counted`); api = 'none'; }
   const month = agorot(env.LANDING_PRICE_MONTH_AGOROT, toml.PRICE_FAMILY_MONTH_AGOROT, LIST_PRICES.month);
   const year = agorot(env.LANDING_PRICE_YEAR_AGOROT, toml.PRICE_FAMILY_YEAR_AGOROT, LIST_PRICES.year);
-  const sold = soldOnline(saleVars(env, toml));
+  const sale = saleVars(env, toml);
+  const sold = soldOnline(sale);
+  const vat = vatLine(pick('LANDING_VAT_MODE') || toml.VAT_MODE || 'included');
   if (!sold.family) warn.push(`no family plan is sold online with BILLING_PROVIDER "${saleVars(env, toml).BILLING_PROVIDER}": the parents' page shows no price`);
   return {
     vars: {
       APP_NAME, PUBLIC_URL: publicUrl, CONTACT_EMAIL: email, BUSINESS_NAME: business,
-      PRICE_LINE: priceLine(sold, { month: formatAgorot(month), year: formatAgorot(year), vat: vatLine(pick('LANDING_VAT_MODE') || toml.VAT_MODE || 'included') }),
+      PRICE_LINE: priceLine(sold, { month: formatAgorot(month), year: formatAgorot(year), vat }),
+      PASS_LINE: passLine(sold, { pass: sold.exam_pass ? formatAgorot(Number(sale.PRICE_EXAM_PASS_AGOROT)) : '', vat }),
       TOPICS_7: app.topics['7'].join(', '), TOPICS_8: app.topics['8'].join(', '), GOAL_MINUTES: orList(app.minutes.map(String)),
       THEME_LIGHT: tokenValue(tokens.root, '--paper'), THEME_DARK: tokenValue(tokens.dark, '--paper'),
     },

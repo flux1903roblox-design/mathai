@@ -48,6 +48,7 @@ export function legalValues(plans) {
     CONTACT_EMAIL: b.email || plans?.contact, CONTACT_PHONE: b.phone,
     TERMS_VERSION: plans?.termsVersion, LEGAL_DATE: asDay(plans?.legalDate),
     PRICE_MONTH: asPrice(plan('family_month').amountAgorot), PRICE_YEAR: asPrice(plan('family_year').amountAgorot),
+    PRICE_PASS: asPrice(plan('exam_pass').amountAgorot),
     PRICE_SEAT: asPrice(plan('class_year').seatAgorot), VAT_LINE: plans?.vatMode ? vatLine(plans.vatMode) : '',
     FAMILY_TUTOR: fam.tutor, FAMILY_CHECK: fam.check, FAMILY_EXAM: fam.exam, FAMILY_EXAM_MONTH: fam.examMonthly,
     FAMILY_GENERATE: fam.generate, FAMILY_DEVICES: fam.devices, FREE_TUTOR: plans?.limits?.free?.tutor,

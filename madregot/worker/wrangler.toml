@@ -66,9 +66,15 @@ OWNER_DAILY_SUMMARY = "true"
 # Prices in agorot, VAT included (VAT_MODE "included", or "exempt" for an exempt dealer).
 PRICE_FAMILY_MONTH_AGOROT = "2990"
 PRICE_FAMILY_YEAR_AGOROT = "24900"
+# The exam pass (COUNCIL2-33): the family plan for 30 days, one charge, never renewed. PLACEHOLDER: ₪39 is not a decided
+# price. The owner sets it before LEGAL_APPROVED (SUBSCRIPTION.md "Exam pass" has the cost numbers to decide with); the
+# terms quote it, and empty ("") sells no pass at all: no page offers it and checkout refuses it.
+PRICE_EXAM_PASS_AGOROT = "3900"
 PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
 VAT_MODE = "included"
-TERMS_VERSION = "2026-11"
+# The version of the legal texts (src/content/legal). A new one closes checkout until LEGAL_APPROVED names it:
+# "2026-11-11" added the exam pass to the terms.
+TERMS_VERSION = "2026-11-11"
 # Payments: "manual" (the owner grants plans with npm run owner; schools pay by invoice), "grow" (Grow / משולם, the
 # Israeli provider: src/providers/grow.js, SUBSCRIPTION.md "Grow"), or "test", which rehearses the whole flow on a preview
 # Worker (also needs BILLING_MODE "test" and ALLOW_TEST_BILLING "true").
@@ -286,9 +292,11 @@ FREE_GLOBAL_DAILY = "3000"
 OWNER_DAILY_SUMMARY = "false"
 PRICE_FAMILY_MONTH_AGOROT = "2990"
 PRICE_FAMILY_YEAR_AGOROT = "24900"
+# the exam pass's placeholder price, as in [vars] (the owner's decision, SUBSCRIPTION.md "Exam pass")
+PRICE_EXAM_PASS_AGOROT = "3900"
 PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
 VAT_MODE = "included"
-TERMS_VERSION = "2026-11"
+TERMS_VERSION = "2026-11-11"
 BILLING_PROVIDER = "manual"
 BILLING_MODE = "live"
 BILLING_CHECKOUT_HOSTS = ""

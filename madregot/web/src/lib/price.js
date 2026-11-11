@@ -1,6 +1,7 @@
 // Prices as the parents page shows them: integer agorot from the server, written as shekels. A whole amount has no
 // decimals (₪249); any other has two (₪29.90). Only the parents' pages use this: no child screen shows a price.
 import { isStoreApp } from './install.js';
+import { PLAN_DAYS } from '@shared/sold.js';
 
 /**
  * May this copy of the app show a price, a plan, a buy button or a way to the parents' purchase pages? Not in a store
@@ -17,6 +18,17 @@ export const canSell = () => !isStoreApp();
  * the static parents' landing page (scripts/landing-build.mjs) is built from wrangler.toml, else from these.
  */
 export const LIST_PRICES = Object.freeze({ month: 2990, year: 24900 });
+
+/**
+ * The exam pass (COUNCIL2-33): the family plan for this many days, paid once, never renewed (shared/sold.js PLAN_DAYS,
+ * as the Worker's apply.js planEnd counts them). It has no list price: its price is the owner's decision
+ * (PRICE_EXAM_PASS_AGOROT), and a page shows it only as the server, or the landing build, sends it.
+ */
+export const PASS_DAYS = PLAN_DAYS.exam_pass;
+/** An ISO time `days` whole days later: the end of an exam pass bought at `iso` (30 × 24 hours, as the server counts). */
+export const addDaysIso = (iso, days) => new Date(Date.parse(iso) + days * 864e5).toISOString();
+/** The pass's price as the pages write it: '₪39 ל־30 יום'. */
+export const passPrice = (agorot, days = PASS_DAYS) => `${formatAgorot(agorot)} ל־${days} יום`;
 
 /** 2990 → '₪29.90'; 24900 → '₪249'. */
 export function formatAgorot(agorot) {

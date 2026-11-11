@@ -185,7 +185,7 @@ test('a provider with no cancel API sells no plan that renews online; the one-ch
   try {
     const plans = await (await h.call('GET', '/api/billing/plans')).json();
     // (COUNCIL2-30: before, no plan at all was sold; the one-year plan never renews, so nothing has to be stopped)
-    assert.deepEqual(plans.plans.map((p) => [p.id, p.online]), [['family_month', false], ['family_year', true], ['class_year', true]]);
+    assert.deepEqual(plans.plans.map((p) => [p.id, p.online]), [['family_month', false], ['family_year', true], ['exam_pass', true], ['class_year', true]]);
     assert.equal(plans.online, true, 'the yearly plan on /parents');
     const token = await signIn(h, 'nocancel@example.test');
     const r = await h.call('POST', '/api/billing/checkout', { headers: { 'X-Account-Token': token, 'Idempotency-Key': 'no-cancel-api-012345' }, body: { plan: 'family_month', adult: true, terms: '2026-11' } });

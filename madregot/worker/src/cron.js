@@ -34,6 +34,7 @@ import { flushNotices } from './email.js';
 import { SUPPORT } from '../../shared/safety.js';
 import { studentsDeleteSteps, classDeleteSteps, countSteps } from './forget.js';
 import { RETENTION } from '../../shared/retention.js';
+import { PLAN_IDS, recurringPlan } from '../../shared/sold.js';
 import { helpDigest, digestHour } from './help.js';
 import { errorsOf, errorsNoticeDue, purgeErrorsSql } from './errors.js';
 import { vaultNight, vaultStats, purgeIdentitySql } from './vault.js';
@@ -53,8 +54,14 @@ const auditStmt = (env, action, target, detail) => env.DB.prepare('INSERT INTO a
   .bind(nowIso(), 'cron', action, target, JSON.stringify(detail || {}));
 
 /**
+ * The plans that end at their end: the owner's grants (term, trial) and every plan paid once (the one-year plans, the
+ * exam pass): every plan but the one that renews by itself (shared/sold.js).
+ */
+export const ENDS_AT_END = Object.freeze(['term', 'trial', ...PLAN_IDS.filter((p) => !recurringPlan(p))]);
+/**
  * Plans whose time is over. The monthly plan, which renews by itself, is left to the provider's renewal events while it
- * is active; a one-year plan ends at its end like a licence (trust spec TRUST-10 §1): nothing is charged again.
+ * is active; a one-year plan and the exam pass end at their end like a licence (trust spec TRUST-10 §1, COUNCIL2-33):
+ * nothing is charged again.
  */
 export async function endFinished(env) {
   const now = nowIso();
@@ -62,7 +69,7 @@ export async function endFinished(env) {
   const r = await env.DB.batch([
     env.DB.prepare("UPDATE subscriptions SET status = 'ended', ended_reason = 'payment_failed', updated_at = ? WHERE status = 'past_due' AND current_period_end <= ?").bind(now, grace),
     env.DB.prepare(`UPDATE subscriptions SET status = 'ended', ended_reason = 'expired', updated_at = ?
-      WHERE status = 'active' AND plan IN ('term', 'trial', 'class_year', 'family_year') AND current_period_end <= ?`).bind(now, now),
+      WHERE status = 'active' AND plan IN (${ENDS_AT_END.map((p) => `'${p}'`).join(', ')}) AND current_period_end <= ?`).bind(now, now),
     env.DB.prepare("UPDATE subscriptions SET status = 'ended', ended_reason = COALESCE(ended_reason, 'canceled'), updated_at = ? WHERE status = 'canceled' AND current_period_end <= ?").bind(now, now),
   ]);
   return changes(r);
