@@ -4,12 +4,14 @@
 // - where the class learns (a school, or a private group with the teacher's attestation); a change asks first, since it
 //   changes the rule and starts the switch and the consent over (the server does the same);
 // - a school class before catalogue approval, or below the approved grade: off, the reason, the teacher's own use;
-// - consent needed: the Ministry's parent form (school) or the parents' agreement (private), a checkbox and "שמירה";
+// - consent needed: the Ministry's parent form (school) or the parents' agreement (private), the pilot kit's parent
+//   letter, a checkbox and "שמירה";
 // - after consent: the switch, and the day the consent was recorded.
 // Every change is POST /api/teacher/class/ai; its answer is the new policy.
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Printer } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
 import { dateNum } from '@/lib/price.js';
 import { AI_CARD_TITLE, AI_COPY, classAiView } from '@/content/classAi.js';
@@ -63,6 +65,8 @@ function ConsentForm({ policy, box, links, onSave }) {
           <li><Ext href={policy.consentPdfUrl}>{AI_COPY.consentPdf}</Ext></li>
         </ul>
       )}
+      {/* the pilot kit's letter to parents, which says what the AI does in this class (TEACHER-10 §3) */}
+      <Link className="cai-link cai-letter" to="/teacher/guide/parent-letter"><Printer size={16} aria-hidden="true" />מכתב להורים להדפסה</Link>
       <label className="check-row cai-box">
         <input type="checkbox" checked={ticked} onChange={(e) => setTicked(e.target.checked)} />
         <span>{box}</span>

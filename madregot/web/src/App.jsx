@@ -33,6 +33,7 @@ const TeacherAssistant = fromTeacher('TeacherAssistant');
 const TeacherExamNew = fromTeacher('TeacherExamNew');
 const TeacherExamSheet = fromTeacher('TeacherExamSheet');
 const ClassReport = fromTeacher('ClassReport');
+const TeacherGuide = fromTeacher('TeacherGuide');
 const PreviewFrame = fromTeacher('PreviewFrame');
 const DemoBanner = fromTeacher('DemoBanner');
 // The parents' area (its own header, no tab bar) works with or without a profile: one chunk, loaded on demand.
@@ -211,6 +212,7 @@ function Root() {
               <Route path="/teacher/exam/new" element={<TeacherExamNew />} />
               <Route path="/teacher/exam/:id" element={<TeacherExamSheet />} />
               <Route path="/teacher/report" element={<ClassReport />} />
+              <Route path="/teacher/guide/:doc?" element={<TeacherGuide />} />
             </Route>
             {/* the student view: the student screens of a stair, under the "תצוגת תלמיד" bar */}
             <Route element={<PreviewFrame />}>

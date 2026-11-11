@@ -16,6 +16,8 @@ export const DEMO_KEY = `${STORE_KEY}-demo`;
 export const DEMO_CODE = 'DEMO01';
 export const DEMO_CLASS_NAME = 'ז׳3 (דוגמה)';
 export const DEMO_TEACHER = 'מורה לדוגמה';
+/** The pilot kit's school in the demo (TEACHER-15 §5: the guide and kit open with the demo class's details). */
+export const DEMO_SCHOOL = 'בית ספר לדוגמה';
 /** The words of the demo (spec TEACHER-15, Hebrew copy). */
 export const DEMO_COPY = {
   link: 'לראות לוח לדוגמה, בלי הרשמה',

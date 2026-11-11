@@ -35,6 +35,12 @@
 // switch once approved; the per-student switch and badge; "איפה הכיתה הזו לומדת?" in TeacherStart, AddClass and the
 // settings (a change asks first; a private group needs the attestation).
 //
+// TEACHER-10: the pilot kit from the board's tools: the list of five documents; the parent letter filled in from the
+// pilot's form (kept on the class), the preview with the class and the dates, the print (the document only, the slip
+// on a new page under a dashed cut line: test-results/teacher-guide-letter.pdf), "העתקה" and the short version on the
+// clipboard; the principal form with the same details (test-results/teacher-guide-principal.pdf); the new class's link
+// and the consent block's; the demo class's guide with "בית ספר לדוגמה" and no request to /api.
+//
 // TEACHER-15: the demo class on this suite's own build (no server): from "אני מורה" to a board of 24 invented students
 // under the demo banner, every tab, a student's page, the settings (no delete, no new key), assigning, a reply, the
 // library and a stage, the exam key under print media, the report's CSV (the demo's file name, the BOM) and the
@@ -1929,6 +1935,146 @@ test.describe('TEACHER-8: each student has a page, and a short ranked list', () 
     await page.getByRole('region', { name: 'טבלת הדוח' }).getByRole('button', { name: 'יואב', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'יואב' })).toBeVisible();
     expect(log.some((r) => r.path === '/api/teacher/students/b2')).toBe(true);
+  });
+});
+
+test.describe('TEACHER-10: the pilot kit, in the app', () => {
+  const tools = (page) => page.getByRole('navigation', { name: 'כלים' });
+  const doc = (page) => page.locator('article.sd-doc');
+  const PDF_DIR = path.join(process.cwd(), 'test-results');
+  const AI_OFF = 'העוזר החכם (בינה מלאכותית) כבוי לתלמידים בכיתה הזו, לפי ההנחיות של משרד החינוך.';
+  /** What the page put on the clipboard. */
+  const clip = (page) => page.evaluate(() => navigator.clipboard.readText());
+
+  test('the guide, the parent letter filled in from the form, printed with its slip on a new page, copied, and the principal form', async ({ page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await tools(page).getByRole('link', { name: 'מדריך למורה' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/guide$/);
+    await expect(page.getByRole('heading', { name: 'ערכת פיילוט ומדריכים', level: 1 })).toBeVisible();
+    const list = page.getByRole('navigation', { name: 'המסמכים בערכה' });
+    await expect(list.getByRole('link')).toHaveText([/^מדריך למורה/, /^מכתב להורים ואישור השתתפות/, /^אישור מנהל\/ת/, /^תוכנית פיילוט לשבועיים/, /^מדרגות בכיתה: דף מידע/]);
+    await shot(page, 'teacher-guide-list');
+    await list.getByRole('link', { name: /מכתב להורים ואישור השתתפות/ }).click();
+    await expect(page).toHaveURL(/#\/teacher\/guide\/parent-letter$/);
+    await expect(page.getByRole('heading', { name: 'מכתב להורים ואישור השתתפות', level: 1 })).toBeVisible();
+    // before the form: blanks to fill by hand, never a stray rule
+    await expect(doc(page)).toContainText('בתקופה __________–__________ כיתה ז׳3 תתרגל מתמטיקה');
+    await expect(doc(page).locator('hr')).toHaveCount(1);
+    // the form: the school, the dates, the contact; the preview follows, and the class keeps them
+    await page.getByLabel('שם בית הספר').fill('בית ספר לדוגמה');
+    await page.getByLabel('תאריך התחלה').fill('2026-11-15');
+    await page.getByLabel('תאריך סיום').fill('2026-11-12');
+    await expect(page.getByText('תאריך הסיום לפני תאריך ההתחלה.')).toBeVisible();
+    await page.getByLabel('תאריך סיום').fill('2026-11-26');
+    await expect(page.getByText('תאריך הסיום לפני תאריך ההתחלה.')).toHaveCount(0);
+    await page.getByLabel('איך ההורים יכולים לפנות אליכם (מייל או טלפון בבית הספר)').fill('teacher@example.test');
+    await expect(doc(page)).toContainText('בתקופה 15.11.2026–26.11.2026 כיתה ז׳3 תתרגל מתמטיקה גם באפליקציה "מדרגות", במסגרת ניסיון בהובלת רונית.');
+    await expect(doc(page)).toContainText('בית ספר לדוגמה');
+    await expect(doc(page)).toContainText(AI_OFF);
+    await expect(doc(page)).toContainText(`הפרטים במדיניות הפרטיות: ${baseOf()}#/privacy`);
+    await expect(doc(page)).toContainText('שם התלמיד או התלמידה: ______________________   כיתה: ז׳3');
+    expect((await saved(page)).profile.classes[0].pilot).toEqual({ school: 'בית ספר לדוגמה', start: '2026-11-15', end: '2026-11-26', contact: 'teacher@example.test' });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'teacher-guide-letter');
+    await doc(page).locator('hr').scrollIntoViewIfNeeded();
+    await shot(page, 'teacher-guide-letter-slip');
+
+    // "העתקה": the whole letter, as plain text; "גרסה קצרה לווטסאפ": the short one
+    await page.getByRole('button', { name: 'העתקה' }).click();
+    await expect(page.getByText('הועתק', { exact: true })).toBeVisible();
+    const copied = await clip(page);
+    expect(copied.startsWith('מכתב להורים: תרגול מתמטיקה באפליקציה "מדרגות"')).toBe(true);
+    expect(copied).toContain('בתקופה 15.11.2026–26.11.2026 כיתה ז׳3');
+    expect(copied).not.toMatch(/\*\*|\\|^#/m);
+    await page.getByRole('button', { name: 'גרסה קצרה לווטסאפ' }).click();
+    expect(await clip(page)).toBe('הורים יקרים, בתאריכים 15.11.2026–26.11.2026 כיתה ז׳3 תתרגל מתמטיקה גם באפליקציה "מדרגות" (10–15 דקות ביום, בדפדפן, בלי התקנה ובלי פרסומות). נשמרים רק שם פרטי ואות משם המשפחה והתשובות בתרגול, ורק המורה רואה אותם. ההשתתפות מרצון. מי שלא משתתף מקבל דפי תרגול. המכתב המלא ואישור ההשתתפות יישלחו הביתה. לשאלות: teacher@example.test. רונית');
+
+    // "הדפסה" prints the document mode; printed, only the letter shows, and the slip starts a new page under a dashed line
+    await page.evaluate(() => { window.__printed = []; window.print = () => window.__printed.push(document.documentElement.dataset.print); });
+    await page.getByRole('button', { name: 'הדפסה' }).click();
+    expect(await page.evaluate(() => window.__printed)).toEqual(['doc']);
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await page.emulateMedia({ media: 'print' });
+    const printed = page.locator('.print-sheet[data-mode="doc"]');
+    await expect(printed).toBeVisible();
+    await expect(doc(page)).toBeHidden();
+    await expect(page.locator('.screen-bar')).toBeHidden();
+    await expect(page.getByLabel('שם בית הספר')).toBeHidden();
+    await expect(printed.getByRole('heading', { name: 'מכתב להורים: תרגול מתמטיקה באפליקציה "מדרגות"', level: 1 })).toBeVisible();
+    await expect(printed.getByRole('heading', { name: 'אישור הורה (לגזור ולהחזיר למורה)' })).toBeVisible();
+    const cut = await printed.locator('hr').evaluate((el) => { const s = getComputedStyle(el); return { brk: s.breakBefore, line: s.borderTopStyle, colour: s.borderTopColor }; });
+    expect(cut).toEqual({ brk: 'page', line: 'dashed', colour: 'rgb(0, 0, 0)' });
+    mkdirSync(PDF_DIR, { recursive: true });
+    const letterPdf = await page.pdf({ path: path.join(PDF_DIR, 'teacher-guide-letter.pdf'), preferCSSPageSize: true });
+    // the letter on one page, the slip on the next
+    expect((letterPdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length).toBe(2);
+    await page.emulateMedia({ media: 'screen' });
+
+    // the principal form: the same school and dates, no contact field; ten checks, each its own line; items 3 and 8
+    await page.getByRole('button', { name: 'חזרה לערכה' }).click();
+    await page.getByRole('link', { name: /אישור מנהל\/ת/ }).click();
+    await expect(page.getByLabel('שם בית הספר')).toHaveValue('בית ספר לדוגמה');
+    await expect(page.getByLabel('תאריך התחלה')).toHaveValue('2026-11-15');
+    await expect(page.getByLabel(/איך ההורים יכולים לפנות/)).toHaveCount(0);
+    await expect(doc(page).locator('li')).toHaveCount(10);
+    await expect(doc(page)).toContainText('הכיתה: ז׳3 (שכבה ז׳)');
+    await expect(doc(page)).toContainText('תקופה: 15.11.2026–26.11.2026');
+    await expect(doc(page)).toContainText(`קראתי את הצהרת הנגישות: ${baseOf()}#/accessibility`);
+    await expect(doc(page)).toContainText('באחריותי לפי סעיף 8 במכתב המשרד');
+    await expect(doc(page).locator('hr')).toHaveCount(0);
+    await page.emulateMedia({ media: 'print' });
+    await expect(page.locator('.print-sheet[data-mode="doc"]')).toContainText('שם המנהל/ת:');
+    await page.pdf({ path: path.join(PDF_DIR, 'teacher-guide-principal.pdf'), preferCSSPageSize: true });
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'teacher-guide-principal');
+    // the teacher guide: Madregot's own contact from the server, and no form
+    await page.goto('./#/teacher/guide/teacher-guide');
+    await expect(page.getByRole('heading', { name: 'מדריך למורה', level: 1 })).toBeVisible();
+    await expect(doc(page)).toContainText('כל שאלה אחרת: hello@example.test');
+    await expect(page.getByLabel('שם בית הספר')).toHaveCount(0);
+    // an unknown document is the list
+    await page.goto('./#/teacher/guide/nope');
+    await expect(page).toHaveURL(/#\/teacher\/guide$/);
+  });
+
+  test('the ways in: the new class\'s link and the consent block both open the parent letter; with consent to gather, it tells parents about the AI', async ({ page }) => {
+    await fakeServer(page, { ai: { approval: 'approved' } }, baseOf());
+    await open(page, '#/teacher', keyTeacher({ fresh: true }));
+    await expect(page.getByRole('heading', { name: 'הכיתה מוכנה!' })).toBeVisible();
+    await page.getByRole('link', { name: 'מכתב להורים להדפסה' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/guide\/parent-letter$/);
+    await expect(doc(page)).toContainText('Claude של Anthropic');
+    await expect(doc(page)).toContainText(`בטופס של משרד החינוך: ${MOE_RULES.consentPdfUrl}`);
+    await page.goto('./#/teacher/settings');
+    const card = page.getByRole('region', { name: AI_COPY.switch });
+    await expect(card.getByText(AI_COPY.consentSchool)).toBeVisible();
+    await card.getByRole('link', { name: 'מכתב להורים להדפסה' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/guide\/parent-letter$/);
+  });
+
+  test('the demo class: the guide opens with the demo class and "בית ספר לדוגמה", and asks nothing of a server', async ({ page }) => {
+    const calls = []; page.on('request', (r) => { if (r.url().includes('/api/')) calls.push(r.url()); });
+    await open(page, '#/?start=demo');
+    await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();
+    await tools(page).getByRole('link', { name: 'מדריך למורה' }).click();
+    await expect(page.getByRole('region', { name: 'כיתה לדוגמה' })).toBeVisible();
+    await page.getByRole('link', { name: /מכתב להורים ואישור השתתפות/ }).click();
+    await expect(page.getByLabel('שם בית הספר')).toHaveValue('בית ספר לדוגמה');
+    await expect(doc(page)).toContainText('כיתה ז׳3 (דוגמה) תתרגל מתמטיקה גם באפליקציה "מדרגות", במסגרת ניסיון בהובלת מורה לדוגמה.');
+    await expect(doc(page)).toContainText(AI_OFF);
+    // no server here: no privacy address to print, a line to fill by hand
+    await expect(doc(page)).toContainText('הפרטים במדיניות הפרטיות: __________');
+    await page.getByRole('button', { name: 'חזרה לערכה' }).click();
+    await page.getByRole('link', { name: /דף מידע/ }).click();
+    await expect(doc(page)).toContainText('הנושאים: כיתה ז׳: מספרים מכוונים');
+    await expect(doc(page)).toContainText(`לוח מורה לדוגמה, עם כיתה בדויה, בלי הרשמה: ${baseOf()}#/?start=demo`);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'teacher-guide-demo-sheet');
+    expect(calls).toEqual([]);
   });
 });
 

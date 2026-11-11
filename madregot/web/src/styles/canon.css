@@ -1014,3 +1014,37 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 /* a scrolling table contains what is positioned inside it: KaTeX's hidden MathML (position: absolute) in a far column
    would otherwise widen the whole page on a phone (the report's mistake column) */
 .table-wrap { position: relative; }
+
+/* the pilot kit (TEACHER-10): the list of documents, the pilot's details, the actions, and the document on screen as a
+   sheet of paper. Its printed copy is in styles/app.css (.print-sheet[data-mode="doc"]). */
+.t-guide { display: flex; flex-direction: column; gap: var(--s4); }
+.t-guide > .screen-bar { margin-bottom: calc(-1 * var(--s2)); }
+.t-guide .screen-bar-title { text-wrap: balance; overflow-wrap: anywhere; }
+.t-guide-sub { margin: 0; color: var(--ink-2); }
+.t-guide > .section { margin-top: 0; }
+.sd-list ul { list-style: none; margin: 0; padding: 0; }
+.sd-list li + li { border-top: 2px solid var(--rule); }
+a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0; }
+.sd-row svg { color: var(--ink-2); }
+.sd-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sd-row-title { font-weight: 700; color: var(--ink); }
+.sd-row-line { font-weight: 400; font-size: 15px; line-height: 21px; color: var(--ink-2); }
+.sd-form .field { margin: 0; }
+.sd-form .input { width: 100%; min-height: 48px; }
+.sd-form-note, .sd-late { margin: 0; }
+.sd-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+@media (max-width: 359px) { .sd-dates { grid-template-columns: minmax(0, 1fr); } }
+.sd-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.sd-actions .btn { min-height: 44px; }
+.sd-actions .btn svg { flex: none; }
+.sd-paper { padding: var(--s5) var(--s4); border: 1px solid var(--rule-strong); border-radius: var(--r-md); background: #fff; box-shadow: 0 2px 0 var(--rule); overflow-wrap: anywhere; }
+.sd-doc h2 { margin: 0; font-size: 22px; line-height: 28px; }
+.sd-doc h3 { margin: var(--s3) 0 0; font-size: 18px; line-height: 24px; }
+.sd-doc ol { margin: 0; padding-inline-start: var(--s5); }
+.sd-doc li + li { margin-top: 4px; }
+.sd-doc ul:has(> li.sd-check) { padding-inline-start: 0; list-style: none; }
+.sd-doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; direction: ltr; unicode-bidi: isolate; }
+.sd-doc hr { width: 100%; margin: var(--s4) 0; border: 0; border-top: 2px dashed var(--ink-2); }
+.t-fresh-letter { align-self: center; }
+.t-fresh-letter svg, .cai-letter svg { flex: none; }
+.cai-letter { align-self: flex-start; }

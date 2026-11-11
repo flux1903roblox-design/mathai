@@ -1,8 +1,9 @@
 // The teacher's email on the board (spec TEACHER-1 §6): the first look at a new class, the card that binds a class
 // that only its key opens, signing in again when the sign-in has ended, and more classes from the same email.
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Copy } from 'lucide-react';
+import { Copy, Printer } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { useParent } from '@/lib/parent.js';
 import { bindClass, myClasses, restore, remindBindLater } from '@/lib/teacher.js';
@@ -20,7 +21,10 @@ const GRADE = { 7: 'ז׳', 8: 'ח׳' };
  */
 export const JOIN_PATH = 'תנו לתלמידים את קוד הכיתה. הם לוחצים "מתחילים", כותבים שם פרטי ואות משם המשפחה, ובשאלה "יש לכם קוד כיתה מהמורה?" מקלידים את הקוד ובוחרים קוד אישי של 4 ספרות. מי שכבר משתמש באפליקציה מצטרף מהמסך "אני".';
 
-/** A new class: its code and how students join. A class bound to the email shows no key; one opened without email does. */
+/**
+ * A new class: its code and how students join. A class bound to the email shows no key; one opened without email does.
+ * Under the way on, a link to the parent letter (the pilot kit, TEACHER-10).
+ */
 export function FreshClass({ cls, onDone }) {
   const email = useParent((s) => s.session?.email);
   return (
@@ -36,6 +40,8 @@ export function FreshClass({ cls, onDone }) {
         <p className="muted">הכיתה שמורה בחשבון שלכם{email ? <> (<bdi dir="ltr">{email}</bdi>)</> : null}. מכל מכשיר אחר נכנסים עם המייל, בלי מפתח.</p>
       ) : <p className="muted">שמרו את מפתח המורה במקום בטוח. בעזרתו פותחים את הלוח ממחשב אחר.</p>}
       <Button className="btn-block btn-lg" onClick={onDone}>{cls.owned ? 'אפשר להמשיך' : 'שמרתי, אפשר להמשיך'}</Button>
+      {/* the pilot kit's parent letter, filled in for this class (TEACHER-10 §3) */}
+      <Link className="link-btn t-fresh-letter" to="/teacher/guide/parent-letter"><Printer size={18} aria-hidden="true" />מכתב להורים להדפסה</Link>
     </section>
   );
 }

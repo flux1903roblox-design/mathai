@@ -533,6 +533,20 @@ details.sol[open] summary { margin-bottom: var(--s2); }
   .ps-key-steps ol { margin: 0; padding-inline-start: 5mm; }
   .ps-key-steps .katex { font-size: 10.5pt; }
   .ps-key-foot { margin: 6mm 0 0; padding-top: 2mm; border-top: 0.75pt solid #000; font-size: 9pt; line-height: 1.45; }
+  /* the pilot kit's documents (TEACHER-10 §2): the document only, A4; in the parent letter the slip starts on a new
+     page under a dashed cut line */
+  :root:not([data-print]) .print-sheet[data-mode="doc"], :root[data-print="doc"] .print-sheet[data-mode="doc"] { display: block; page: school; }
+  @page school { size: A4; margin: 14mm 15mm 14mm; }
+  .sd-print-doc { font-size: 11pt; line-height: 1.45; }
+  .sd-print-doc h1 { margin: 0 0 3.5mm; font-size: 15pt; line-height: 1.3; font-weight: 800; }
+  .sd-print-doc h2 { margin: 4mm 0 1.5mm; font-size: 12.5pt; line-height: 1.3; font-weight: 700; break-after: avoid; }
+  .sd-print-doc p { margin: 0 0 2mm; }
+  .sd-print-doc ul, .sd-print-doc ol { margin: 0 0 2mm; padding-inline-start: 6mm; }
+  .sd-print-doc li { margin: 0 0 1.2mm; break-inside: avoid; }
+  .sd-print-doc ul:has(> li.sd-check) { padding-inline-start: 0; list-style: none; }
+  .sd-print-doc code { font-family: ui-monospace, Menlo, monospace; font-size: 10pt; direction: ltr; unicode-bidi: isolate; }
+  .sd-print-doc hr { break-before: page; margin: 0 0 8mm; border: 0; border-top: 1pt dashed #000; }
+  .sd-print-doc hr + h2 { margin-top: 0; }
 }
 .plan-meter { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .qstrip { display: inline-flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
