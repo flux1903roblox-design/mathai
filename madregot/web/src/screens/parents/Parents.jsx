@@ -319,7 +319,7 @@ function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro =
         <input id="pl-code" className="input mono sub-code" dir="ltr" value={code} maxLength={6} autoCapitalize="characters" autoComplete="off"
           onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} />
       </Field>
-      <Field label="איך לקרוא למכשיר? (לא חובה, למשל: הטאבלט)" id="pl-label">
+      <Field label="איך לקרוא למכשיר? (לא חובה. בלי שם הילד, למשל: הטאבלט)" id="pl-label">
         <input id="pl-label" className="input" value={label} maxLength={30} onChange={(e) => setLabel(e.target.value)} />
       </Field>
       {choose && <ContinueFrom vaults={vaults} value={choice} onChange={(v) => { setError(''); setChoice(v); }} id="pl-from" />}
@@ -444,7 +444,7 @@ function ConsentCard({ plans, linkCode, here, qa, onDone, onFailed }) {
           </Field>
         )}
         {!here && !linkCode && <p className="muted">{LINK_HOW}</p>}
-        <Field label="איך לקרוא למכשיר? (לא חובה, למשל: הטאבלט)" id="pc-label">
+        <Field label="איך לקרוא למכשיר? (לא חובה. בלי שם הילד, למשל: הטאבלט)" id="pc-label">
           <input id="pc-label" className="input" value={label} maxLength={30} onChange={(e) => setLabel(e.target.value)} />
         </Field>
         <label className="check-row parents-check"><input type="checkbox" checked={ok} onChange={(e) => { setOk(e.target.checked); if (e.target.checked) setError(''); }} required aria-describedby={error ? 'pc-error' : undefined} /><span>אני ההורה או האפוטרופוס, ואני מאשר/ת לילד/ה להשתמש בעוזר החכם</span></label>

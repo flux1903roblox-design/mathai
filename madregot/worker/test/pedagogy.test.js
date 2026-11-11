@@ -111,6 +111,13 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   const signedSrc = read(new URL('signed.ts', CONTENT));
   assert.ok(signedSrc.includes(title) && signedSrc.includes(cause), 'still the stair\'s own words');
   for (const q of [title, cause, 'הכלל ״מינוס ומינוס זה פלוס״ לא נכון כאן', "אומרים 'מינוס ומינוס זה פלוס', אבל"]) assert.ok(!any(TOPIC_WAYS.signed.avoidRe, q), q);
+  // the rote forms the first list missed (the AI review), each caught; with its reason, subtracting a negative is the app's own way
+  for (const said of ['פחות מינוס זה פלוס.', 'חיסור של מינוס זה תמיד פלוס.', 'שני מינוסים ביחד נותנים פלוס.', 'מינוס ועוד מינוס זה פלוס', 'זכרו: פחות מינוס זה חיבור']) {
+    assert.ok(any(TOPIC_WAYS.signed.avoidRe, said), said);
+  }
+  for (const ok of ['חיסור של מינוס זה חיבור, כי חיסור מבטל חיבור.', 'פחות מינוס זה פלוס? נבדוק על הציר, כי חיסור מבטל חיבור.', '$-4 - 6$ זה מינוס ועוד מינוס? לא: זה $-10$.']) {
+    assert.ok(!any(TOPIC_WAYS.signed.avoidRe, ok), ok);
+  }
   assert.ok(any(TOPIC_WAYS.signed.avoidRe, 'שמים את הסימן של המספר הגדול'), 'bigger, without farther from zero');
   assert.ok(!any(TOPIC_WAYS.signed.avoidRe, 'שמים את הסימן של המספר הגדול יותר, כלומר הרחוק יותר מאפס'));
   // the balance move: a rule on its own is caught; the app's quote, or the move named with its reason, is not

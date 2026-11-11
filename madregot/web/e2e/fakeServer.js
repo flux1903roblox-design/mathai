@@ -75,8 +75,9 @@ export const livePlan = (over = {}) => ({
 /**
  * A fake Worker with the paid tutor's endpoints. `st` is its state (tests may change it); `log` lists every call.
  * `target` is a page or a whole browser context (two pages: the child's device and the parent's phone).
- * `parentOk` (trust spec TRUST-9): false, as on the real server, answers a device alone (no class, no teacher, no linked
- * device) with the parent_ok_needed state and refusal; tests about the tutor itself pass parentOk: true.
+ * `parentOk` (trust spec TRUST-9): false, as on the real server, answers a device alone (no class, no linked device),
+ * and a teacher whose class is neither bound to an email nor licensed, with the parent_ok_needed state and refusal;
+ * tests about the tutor itself pass parentOk: true.
  */
 export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:4173/') {
   const st = {
@@ -132,8 +133,13 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     return 'free';
   };
   const who = (h) => h['x-family-device'] || h['x-device'] || h.authorization || h['x-class-code'] || 'anon';
-  // a child alone, on a device no parent has approved (TRUST-9)
-  const waits = (h) => !st.parentOk && !h.authorization && !h['x-class-code'] && !famOf(h);
+  // A class's teacher is an adult only when the class is bound to a signed-in email (the session sent, K7Q2MD owned, or
+  // another class of the account) or has a licence or trial in force (TRUST-9, the trust review): a key alone proves no
+  // adult, as on the Worker (entitle.js classHasAdult).
+  const adultClass = (h) => !!h['x-account-token'] || ['trial', 'active', 'ending'].includes(st.licence.status)
+    || (h['x-class-code'] === 'K7Q2MD' ? st.owned : st.accountClasses.some((c) => c.code === h['x-class-code']));
+  // a child alone, on a device no parent has approved, or a teacher of a class with no adult behind it (TRUST-9)
+  const waits = (h) => !st.parentOk && !h.authorization && !famOf(h) && (!h['x-class-code'] || !adultClass(h));
   const limitsOf = (tier) => (tier === 'family' ? FAMILY : CLASS);
   const status = (h) => {
     if (waits(h)) return { paywall: st.paywall, tier: null, state: 'parent_ok_needed', kinds: [], groups: {}, resetsAt: '2026-11-06T00:00:00+02:00', aiReady: true };

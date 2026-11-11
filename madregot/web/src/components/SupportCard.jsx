@@ -54,6 +54,11 @@ export default function SupportCard({ variant = 'after-message', bare = false, c
         <Mascot mood="idle" size={52} still className="support-madi" />
         <div className="support-head-text">
           {!bare && <p className="support-title">{lines.title}</p>}
+          {lines.quick && (
+            <a className="support-link is-phone support-quick" href={lines.quick.href} aria-label={lines.quick.aria}>
+              <Phone size={18} aria-hidden="true" /><span>{lines.quick.label}</span>
+            </a>
+          )}
           <p className="support-opening">{lines.opening}</p>
         </div>
       </div>

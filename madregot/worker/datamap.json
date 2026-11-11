@@ -334,8 +334,8 @@
       "personal": "pseudonymous",
       "about": ["teacher"],
       "fields": ["class_code", "account_id", "bound_at", "help_digest"],
-      "purpose": "The teacher's account a class is bound to (TEACHER-1), so the teacher opens it with an email sign-in instead of the key, and whether the teacher asked for the daily help email (TEACHER-6).",
-      "retention": "With the class (deleted by the teacher, or idle 400 days) or with the account.",
+      "purpose": "The teacher's account a class is bound to (TEACHER-1), so the teacher opens it with an email sign-in instead of the key, and whether the teacher asked for the daily help email (TEACHER-6). It is also the adult behind the class (TRUST-9): a teacher key alone proves no adult, so a class's teacher may use the AI tutor only when the class is bound to an email or has a licence in force.",
+      "retention": "With the class (deleted by the teacher, or idle 400 days); at once when the account is deleted.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.classDeleteSteps", "forget.forgetAccount"]
     },

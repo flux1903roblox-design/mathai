@@ -108,9 +108,83 @@ describe('legal texts and their placeholders', () => {
     // the photo step (trust spec TRUST-5): built, so the statement says what it does, and that no PDF is sent
     expect(s).toContain('בדף הראשון של מבחן השורה העליונה נחתכת, ואפשר להשחיר בשחור מלא כל דבר נוסף.');
     expect(s).toContain('קובץ PDF לא נשלח');
-    expect(s).toContain('בתרגילים של האפליקציה, העוזר לא נותן את התשובה הסופית לפני שפתרתם.');
+    expect(s).toContain('בתרגילים של האפליקציה, העוזר מתבקש לא לתת את התשובה הסופית לפני שפתרתם, ובשרת יש בדיקה שמסתירה את התשובה כשהיא נכתבת בצורות הנפוצות.');
+    expect(s).toContain('כיתה שנפתחה בלי מייל לא פותחת את העוזר');
     expect(s).toContain('במבחן שהעליתם בלי מפתח תשובות העוזר בודק את התשובות, וזה מסומן ליד כל שאלה.');
     expect(s).not.toContain('את התשובות של התרגילים בודקת האפליקציה, לא העוזר');
     for (const n of ['1201', '105', '100', '101']) expect(s).toContain(n);
   });
 });
+
+describe('what the law asks each text to say (TRUST-2 tests, TRUST-13)', () => {
+  const datamap = JSON.parse(readFileSync(path.resolve(dir, '../../../../worker/datamap.json'), 'utf8'));
+  const packet = readFileSync(path.resolve(dir, '../../../../docs/legal/LAWYER_PACKET.md'), 'utf8');
+  const notes = (text) => [...String(text).matchAll(/<!--([\s\S]*?)-->/g)].map((m) => m[1].trim());
+
+  it('every document has a version or date line near the top, filled from the server', () => {
+    const line = /^(?:גרסה \{\{TERMS_VERSION\}\} · )?עודכ(?:ן|נה) ב־\{\{(?:LEGAL_DATE|ACCESS_DATE)\}\}$/m;
+    for (const f of files) {
+      const top = read(f).split('\n').slice(0, 4).join('\n');
+      expect(top, f).toMatch(line);
+      expect(fillLegal(top, FULL), f).toMatch(/ב־\d{2}\.\d{2}\.2026$/m);
+    }
+    expect(read('privacy.md')).toContain('גרסה {{TERMS_VERSION}}');
+    expect(read('terms.md')).toContain('גרסה {{TERMS_VERSION}}');
+  });
+
+  it('the privacy notice names the controller and the rights of access and correction by their legal names (s.11, s.13, s.14)', () => {
+    const p = read('privacy.md');
+    for (const t of ['זכות עיון', 'תיקון מידע', 'בעל השליטה', 'סעיף 13', 'סעיף 14']) expect(p, t).toContain(t);
+    // s.11: voluntary or not, and what happens without; the purpose; who receives it; transfers abroad
+    for (const t of ['אין חובה לפי חוק למסור לנו מידע', 'למה:', '## למי המידע עובר', 'העברת מידע אל מאגרי מידע שמחוץ לגבולות המדינה', 'לרשות להגנת הפרטיות']) expect(p, t).toContain(t);
+    // every service the data map says receives data is named, with where it is
+    for (const name of ['Cloudflare', 'Anthropic', 'Resend', '{{PAYMENT_PROVIDER}}']) expect(section(p, 'share'), name).toContain(name);
+    expect(Object.keys(datamap.recipients).sort()).toEqual(['anthropic', 'cloudflare', 'payment', 'resend']);
+    expect(section(p, 'share')).toContain('{{DB_PLACE}}');
+  });
+
+  it('the privacy notice says what reaches the AI and what never does, as the data map does', () => {
+    const ai = section(read('privacy.md'), 'ai');
+    expect(datamap.ai.sent).toHaveLength(4);
+    for (const t of ['השכבה (ז׳ או ח׳)', 'מה שהקלדתם בתרגיל הזה', 'שמות הטעויות', 'הודעות בשיחה, שאלה ליד תמונה, או הסבר ששלחתם למשוב', 'תמונות של דפים',
+      'בתרגילים חדשים', 'שום דבר שכתבתם']) expect(ai, t).toContain(t);
+    for (const t of ['לא נשלחים אף פעם: השם, הכיתה בבית הספר או קוד הכיתה, המספר של המכשיר, מייל, תאריכים', 'קובץ PDF לא נשלח', 'תוך 30 יום',
+      'לא משתמשת בהן כדי לאמן', 'מדרגות לא שומרת את השיחות']) expect(ai, t).toContain(t);
+    // the masking says exactly which words make a number an ID (shared/safety.js ID_WORD)
+    expect(ai).toContain('"תעודת זהות", "מספר זהות" או "ת״ז"');
+    // no line still says the old "email only" or "cannot be reversed"
+    expect(read('privacy.md')).not.toMatch(/כתובת המייל בלבד|אי אפשר לשחזר/);
+  });
+
+  it('the terms carry the cancellation section, its 14 days and the one-year plan that never renews by itself', () => {
+    const t = read('terms.md');
+    for (const s of ['ביטול', '14 ימים', '{#cancel}', 'לפי המאוחר מביניהם', 'בלי דמי ביטול', 'מספר אישור', 'לא מתחדש מעצמו', 'בין 45 ל־30 ימים לפני הסוף']) expect(t, s).toContain(s);
+    // no automatic renewal of the yearly plan anywhere (Consumer Protection Law s.13א, TRUST-10)
+    expect(section(t, 'family')).not.toMatch(/לשנה[^.\n]*מתחדש אוטומטית/);
+  });
+
+  it('the accessibility statement names its coordinator, and claims only what a check backs (trust.spec.js "accessibility statement")', () => {
+    const a = read('accessibility.md');
+    expect(a).toContain('## רכז הנגישות {#contact}');
+    for (const n of ['{{ACCESS_NAME}}', '{{ACCESS_PHONE}}', '{{ACCESS_EMAIL}}', '{{ACCESS_TESTED}}', '{{ACCESS_DATE}}']) expect(a, n).toContain(n);
+    expect(a).toContain('## מה עוד לא נגיש {#not-yet}');
+    expect(section(a, 'not-yet').split('\n').filter((l) => l.startsWith('- ')).length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('a note for the lawyer is never shown, and every one is listed in the owner\'s packet', () => {
+    const all = files.flatMap((f) => notes(read(f)).map((n) => [f, n]));
+    expect(all.length).toBeGreaterThan(0);
+    for (const [f, n] of all) {
+      expect(n, f).toMatch(/^לעורך הדין/);
+      expect(packet, `${f}: ${n}`).toContain(n);
+      expect(html(read(f)), f).not.toContain(n);
+    }
+    for (const f of files) expect(html(read(f)), f).not.toMatch(/<!--|--&gt;/);
+    expect(legalBody('# כותרת\n\nא. <!-- הערה -->\n\n<!-- עוד\nהערה -->\n\nב.')).toBe('א. \n\nב.');
+  });
+});
+
+/** One "## … {#id}" section of a text, up to the next "## ". */
+function section(text, id) {
+  return String(text).split(/^## /m).find((s) => s.includes(`{#${id}}`)) || '';
+}

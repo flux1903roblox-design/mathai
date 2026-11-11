@@ -6,6 +6,8 @@
 -- A class follows its teacher's email: the account that may open it with a sign-in instead of the teacher key.
 -- At most 20 classes per account. The key keeps working beside it (co-teachers, devices without email) until the owner
 -- replaces it. Deleting the account deletes these rows (the code does it; the foreign key only documents it).
+-- 0004_safety creates the same table word for word (TRUST-9: a class bound to an email has an adult teacher), so on a
+-- database that has it these two statements do nothing. Keep the two copies and schema.sql the same.
 CREATE TABLE IF NOT EXISTS class_owners (
   class_code TEXT PRIMARY KEY,
   account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,

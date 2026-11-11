@@ -813,6 +813,7 @@ export async function forgetAccount(env, accountId, { actor }) {
     // the devices' daily summaries (PARENTS-3), found through the devices, so before them
     env.DB.prepare('DELETE FROM family_daily WHERE device_id IN (SELECT id FROM family_devices WHERE account_id = ?)').bind(accountId),
     env.DB.prepare('DELETE FROM family_devices WHERE account_id = ?').bind(accountId),
+    env.DB.prepare('DELETE FROM class_owners WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM licence_requests WHERE account_id = ?').bind(accountId),
     // the classes it owned stay, and keep opening with their teacher key
     env.DB.prepare('DELETE FROM class_owners WHERE account_id = ?').bind(accountId),

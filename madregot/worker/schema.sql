@@ -516,10 +516,14 @@ CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
 CREATE INDEX IF NOT EXISTS exams_created ON exams (created_at);
 CREATE INDEX IF NOT EXISTS students_last_seen ON students (last_seen);
 
--- ---------------------------------------------------------------- the teacher and school lane (migration 0005_teacher)
--- A class follows its teacher's email: the account that may open it with a sign-in instead of the teacher key.
--- At most 20 classes per account. The key keeps working beside it (co-teachers, devices without email) until the owner
--- replaces it. Deleting the account deletes these rows (the code does it; the foreign key only documents it).
+-- A class bound to a teacher's signed-in email. Two lanes need it: the school lane's TEACHER-1 (the account that may
+-- open the class with a sign-in instead of the teacher key; at most 20 classes per account; the key keeps working
+-- beside it for co-teachers and devices without email until the owner replaces it) and the trust spec's TRUST-9 (a
+-- teacher key alone proves no adult, so a class's teacher reaches the tutor only when the class is bound to an email
+-- or has a licence in force; entitle.js classHasAdult reads it). Written by POST /api/classes with a session and by
+-- POST /api/teacher/class/owner. Migrations 0004_safety and 0005_teacher both create it word for word (IF NOT
+-- EXISTS), so either lane's migration could land first. Deleting the account deletes these rows (the code does it;
+-- the foreign key only documents it).
 CREATE TABLE IF NOT EXISTS class_owners (
   class_code TEXT PRIMARY KEY,
   account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
@@ -527,6 +531,8 @@ CREATE TABLE IF NOT EXISTS class_owners (
   help_digest INTEGER NOT NULL DEFAULT 0 CHECK (help_digest IN (0, 1))   -- TEACHER-6: one email a day, counts only
 );
 CREATE INDEX IF NOT EXISTS class_owners_account ON class_owners (account_id);
+
+-- ---------------------------------------------------------------- the teacher and school lane (migration 0005_teacher)
 -- New values elsewhere (no table change):
 --   audit_log.action  'class.owner' (a class bound to an account) | 'class.rekey' (the owner made a new teacher key);
 --                     a teacher action taken with the account credential adds {"via":"account"} to detail
@@ -534,9 +540,9 @@ CREATE INDEX IF NOT EXISTS class_owners_account ON class_owners (account_id);
 --   ai_usage.who      tclasses:a:<account> (hourly: the owner's class list)
 --   audit_log.action  'class.rename' | 'class.delete' (target class:<code>, detail {"students": n})
 
--- class_settings (above, in the safety section) is also created by migration 0005_teacher, word for word, so either
--- lane's migration could land first; the night purge (TRUST-7) reads its last_seen. The same holds for the five
--- retention indexes at the end of the safety section.
+-- class_settings and class_owners (above, in the safety section) are also created by migration 0005_teacher, word for
+-- word, so either lane's migration could land first; the night purge (TRUST-7) reads class_settings.last_seen. The
+-- same holds for the five retention indexes at the end of the safety section.
 
 -- Work a teacher gives the class, or chosen students, with a due date (spec TEACHER-4). Dates are YYYY-MM-DD in
 -- Jerusalem. Deleted with the class, and by the night purge 400 days after the due date (shared/retention.js).

@@ -297,7 +297,7 @@ function summaryNotice(p, day) {
       `הודעות תשלום חריגות (mismatch, unknown, test_mode): ${p.badEvents ?? 0}`,
       `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
       p.safety ? safetyLine(p.safety) : '',
-      p.parentOkNeeded != null ? `בקשות לעוזר ממכשירים שמחכים לאישור של הורה: ${p.parentOkNeeded}` : '',
+      p.parentOkNeeded != null ? `רשתות שמהן ילדים ביקשו את העוזר ומחכים לאישור של הורה: ${p.parentOkNeeded}` : '',
       ...errorLines(p.errors),
       ...(p.vaults ? [`גיבויים מוצפנים: ${p.vaults.count ?? 0} (${p.vaults.mb ?? 0} MB) · חדשים: ${p.vaults.newYesterday ?? 0}`] : []),
       p.quality ? qualityLine(p.quality) : '',

@@ -240,6 +240,30 @@ test('a normal chat whose reply the model marked [[care]] gives the question bac
   assert.equal(rows(h.env, "SELECT * FROM ai_spend WHERE pool = 'free'").length, 2, 'what Claude did is still priced');
 });
 
+test('a care marker on a later line (the trust review) is taken out, and the reply is a care reply: whole and streamed', async () => {
+  const said = 'שמח שכתבת.\n[[care]]\nאפשר להתקשר לער״ן 1201.';
+  h = await setup({}, { claude: (p) => claudeReply(p, { text: said }) });
+  const dev = await devOf(h.env);
+  const r = await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chat('לא בא לי כלום היום') });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { text: 'שמח שכתבת.\nאפשר להתקשר לער״ן 1201.', care: true });
+  assert.equal(countOf(h.env, `free:d:${dev}`), 0, 'the question is given back');
+  h.done();
+  // streamed, with the marker split across pieces: never shown, not even in part
+  h = await setup({}, { claude: (p) => sse(p, ['שמח ', 'שכתבת.\n[[', 'ca', 're]]\nאפשר להתקשר ', 'לער״ן 1201.']) });
+  const s = await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chat('לא בא לי כלום היום', { stream: true }) });
+  const text = await s.text();
+  assert.equal(text, 'שמח שכתבת.\nאפשר להתקשר לער״ן 1201.\n[[care]]');
+  await h.ctx.flush();
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 0, 'the question is given back');
+  assert.equal(events().at(-1).source, 'model');
+  h.done();
+  // a marker inside a line counts the same; an ordinary "[" is still sent
+  h = await setup({}, { claude: (p) => sse(p, ['בסוגריים [', 'a, b] ', 'יש מספרים. [[care]] ', 'אני כאן.']) });
+  const t = await (await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chat('לא בא לי כלום היום', { stream: true }) })).text();
+  assert.equal(t, 'בסוגריים [a, b] יש מספרים. אני כאן.\n[[care]]');
+});
+
 test('a streamed chat whose model starts with [[care]] never begins with the marker and ends with \\n[[care]]', async () => {
   h = await setup({}, { claude: (p) => sse(p, ['[[ca', 're]]', '\nאני', ' כאן. ', 'ער״ן 1201.']) });
   const dev = await devOf(h.env);
@@ -421,7 +445,29 @@ test('a distress note always reaches the teacher, even past the 10 open requests
   assert.equal((await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: 'עוד שאלה', answer: '1' } })).status, 429);
   const r = await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: 'עוד שאלה', answer: '1', note: 'אני רוצה למות' } });
   assert.equal(r.status, 200);
-  assert.equal((await helpOf(cls)).filter((x) => x.care === 1).length, 1);
+  const help = await helpOf(cls);
+  assert.equal(help.filter((x) => x.care === 1).length, 1);
+  assert.equal(help.find((x) => x.care === 1).note, 'אני רוצה למות', 'the teacher reads it');
+});
+
+test('past the cap a distress note joins the newest open request: no new row and no page, however many are sent (the trust review\'s flood)', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const [noa] = cls.students;
+  const page = `data:image/jpeg;base64,${'A'.repeat(590_000)}`;
+  for (let i = 0; i < 10; i++) await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: `שאלה ${i}`, answer: '1' } });
+  for (let i = 0; i < 40; i++) {
+    const r = await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: `לולאה ${i}`, answer: '1', note: 'אני רוצה למות', image: page } });
+    assert.equal(r.status, 200);
+  }
+  const db = one(h.env, 'SELECT COUNT(*) AS n, COALESCE(SUM(length(image)), 0) AS bytes FROM help_requests WHERE done_at IS NULL');
+  assert.equal(db.n, 10, 'still ten open requests');
+  assert.equal(db.bytes, 0, 'no page stored past the cap');
+  assert.equal(rows(h.env, 'SELECT * FROM help_meta WHERE care = 1').length, 1, 'one request carries the mark');
+  // a plain note is still refused
+  assert.equal((await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: 'x', answer: '1' } })).status, 429);
+  await h.ctx.flush();
+  assert.ok(rows(h.env, "SELECT * FROM safety_events WHERE surface = 'help_note'").length <= 20, 'the safety log is capped per network too');
 });
 
 test('"ask the teacher to talk with me": an empty question and note, kind talk, one open at a time, nothing of the chat sent', async () => {

@@ -353,7 +353,8 @@ export function clipWords(s, n) {
  * The feedback reply as the student may see it (Design 4): one entry per rubric point, in order (a missing one is "no",
  * an extra or repeated one is dropped); a quote that is not the student's own words blanked (and none on "no"); a tip
  * only on "partly" and "no", at most 20 words, and dropped when it repeats the model answer; the summary at most 40
- * words. A care reply keeps its summary whole: it carries the help lines. → { points, summary, care }.
+ * words, and a fixed neutral line when it repeats the model answer. A care reply keeps its summary whole: it carries the
+ * help lines. → { points, summary, care }.
  */
 function readFeedback(data, input) {
   if (!data || !Array.isArray(data.points) || typeof data.summary !== 'string') throw Object.assign(new Error('not a feedback reply'), { code: 'bad_output' });
@@ -371,8 +372,13 @@ function readFeedback(data, input) {
     return { i, status: p.status, quote, tip };
   });
   const care = data.care === true;
-  return { points, summary: care ? data.summary.trim() : clipWords(data.summary, FEEDBACK_SUMMARY_WORDS), care };
+  // a summary that writes the model answer out for the student is replaced, as a tip that does is dropped (the AI
+  // review: the explanation is the student's to write)
+  const summary = care ? data.summary.trim() : sample && copiesRun(data.summary, sample) ? FEEDBACK_SUMMARY_FALLBACK : clipWords(data.summary, FEEDBACK_SUMMARY_WORDS);
+  return { points, summary, care };
 }
+/** The summary shown instead of one that copies the model answer. */
+export const FEEDBACK_SUMMARY_FALLBACK = 'סימנו אילו נקודות כבר יש בהסבר שלכם, ומה עוד אפשר להוסיף.';
 
 /** The grade line that leads the exam and generate requests ('' with no grade): those kinds keep their own inputs. */
 export function gradeLine(grade) {
@@ -517,11 +523,21 @@ export function buildCare(input = {}, { model } = {}) {
   return supportsFallback(params.model) ? params : dropFallback(params);
 }
 
-const CARE_LEAD = new RegExp(`^\\s*${CARE_MARK.replace(/[[\]]/g, '\\$&')}[ \\t]*\\r?\\n?`);
-/** A reply that starts with the care line: the line is removed and the reply is marked care. */
+const MARK_RE = CARE_MARK.replace(/[[\]]/g, '\\$&');
+const CARE_LEAD = new RegExp(`^\\s*${MARK_RE}[ \\t]*\\r?\\n?`);
+// the marker on a line of its own anywhere else (with that line's end), and any marker left inside a line
+const CARE_LINE = new RegExp(`\\r?\\n[ \\t]*${MARK_RE}[ \\t]*(?=\\r?\\n|$)`, 'g');
+const CARE_ANY = new RegExp(`[ \\t]*${MARK_RE}`, 'g');
+/**
+ * A reply with the care line: the line is removed and the reply is marked care. The model is asked to put it first, but
+ * a marker on any line (the trust review: "שמח שכתבת.\n[[care]]\n…") counts the same and is never shown.
+ */
 export function splitCare(text) {
-  const m = String(text ?? '').match(CARE_LEAD);
-  return m ? { text: String(text).slice(m[0].length), care: true } : { text: String(text ?? ''), care: false };
+  const t = String(text ?? '');
+  const m = t.match(CARE_LEAD);
+  const rest = m ? t.slice(m[0].length) : t;
+  if (!m && !rest.includes(CARE_MARK)) return { text: t, care: false };
+  return { text: rest.replace(CARE_LINE, '').replace(CARE_ANY, ''), care: true };
 }
 
 function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, messageChars = 2000, fromUser = false } = {}) {
@@ -684,7 +700,8 @@ export function readBlind(message) {
  * evaluation all run, so they cannot drift apart.
  *   1. the rewrite (the main model writes a story, a hint and a solution around each of the app's seeds);
  *   2. the blind solve of the new stories on the low-cost model, which never sees a seed or an answer; an error or a
- *      refusal is tried once more, and then the stories go on without it (blind 'skipped': code checks 1-4 still apply);
+ *      refusal is tried once more, and then no new story is shown (blind 'skipped': only seeds kept in their own
+ *      wording pass, and dropped.blind_skipped counts the stories left out);
  *   3. finishRewrite (shared/verify.js): the code checks; only what passes may be shown, in seed order.
  * call(params) sends one request and resolves to the Claude message (it throws on an API error; the caller records what
  * each message cost). An error, a refusal or unreadable JSON on the rewrite is thrown, with code 'refusal' or
@@ -717,7 +734,13 @@ export async function generateVerified(call, input = {}, { model, blindModel } =
       blind = readBlind(m);
     } catch { /* an error or a refusal: once more, then without it */ }
   }
-  const { items, dropped } = finishRewrite(seeds, data, blind);
+  const checked = finishRewrite(seeds, data, blind);
+  const skipped = !!blindParams && !blind;
+  // A blind solve that failed twice proves nothing about a new story (the AI review: a story that flipped a sign passed
+  // checks 1-4 and was graded against its seed): only seeds kept in their own wording are shown, and the screen fills
+  // the rest from the app's bank. The stories dropped are counted as blind_skipped.
+  const items = skipped ? checked.items.filter((it) => it.kept) : checked.items;
+  const dropped = { ...checked.dropped, blind_skipped: checked.items.length - items.length };
   return { items, dropped, blind: !blindParams ? 'none' : blind ? 'ok' : 'skipped', blindAnswers: blind?.answers ?? null, messages, fallback: items.length === 0 };
 }
 

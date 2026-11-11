@@ -852,7 +852,8 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
   });
 
   test('4. the teacher\'s assistant: the note and the Ministry\'s line, and its questions go as the class', async ({ page }) => {
-    const { st, log } = await fakeServer(page, {}, baseOf());
+    // the tutor itself (as with AI_PARENT_OK "off"): a class opened with a key alone waits for an email (test 4b, TRUST-9)
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/teacher', keyTeacher());
     await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'העוזר החכם' }).click();
     await expect(page).toHaveURL(/#\/teacher\/assistant$/);
@@ -878,6 +879,38 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
     await open(page, '#/teacher/assistant', keyTeacher());
     await expect(note).toContainText('בלי שמות של תלמידים, ציונים או פרטים מזהים.');
     await expect(note).not.toContainText('בכיתה לא מציגים את העוזר לתלמידים.');
+  });
+
+  test('4b. TRUST-9: a class opened with a key alone has no adult behind it; the teacher signs in from the assistant and the class is bound', async ({ page }, info) => {
+    test.skip(info.project.name !== 'phone', 'one sheet, the same on every device');
+    const { st, log } = await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher/assistant', keyTeacher());
+    // the teacher's words and way on (a sign-in), never the parents' screen
+    await expect(page.getByText('קודם, כניסה עם מייל')).toBeVisible();
+    await expect(page.getByText('העוזר החכם נפתח למורים אחרי כניסה עם המייל, פעם אחת.', { exact: false })).toBeVisible();
+    await expect(page.getByLabel('ההודעה שלכם')).toHaveAttribute('placeholder', 'נפתח אחרי כניסה עם מייל');
+    await expect(page.getByRole('button', { name: 'להראות להורים' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'כניסה עם מייל' }).click();
+    const sheet = page.getByRole('dialog', { name: 'קודם, כניסה עם מייל' });
+    await expect(sheet.getByText('נכנסים עם המייל שלכם ומקשרים אליו את הכיתה. זה פעם אחת, ואחר כך העוזר החכם פתוח לכם.')).toBeVisible();
+    await expect(sheet.getByText('המייל משמש לכניסה ולקישור הכיתה אליכם.', { exact: false })).toBeVisible();
+    await expect(sheet.getByText('להראות להורים')).toHaveCount(0);
+    await shot(page, 'teacher-bind-sheet');
+    await signIn(sheet);
+    await sheet.getByRole('button', { name: 'לקשר את הכיתה למייל' }).click();
+    // bound with the key and the session (the school lane's route, TEACHER-1); the class is the email's now
+    await expect.poll(() => st.owned).toBe(true);
+    const bind = log.find((r) => r.path === '/api/teacher/class/owner');
+    expect(bind.headers['x-teacher-key']).toBe('tkey-123');
+    expect(bind.headers['x-account-token']).toBeTruthy();
+    await expect(sheet).toHaveCount(0);
+    // the tutor opens: the next question goes as the class, with the email session
+    await page.getByLabel('ההודעה שלכם').fill('איך להסביר חיבור של מספר חיובי ומספר שלילי?');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.getByText('כדי לחבר מספרים עם סימנים שונים')).toBeVisible();
+    const chat = log.find((r) => r.path === '/api/ai/chat');
+    expect(chat.headers['x-class-code']).toBe('K7Q2MD');
+    expect(chat.headers['x-account-token']).toBeTruthy();
   });
 
   test('5. at 320×568 the lesson\'s keypad and its check button stay on screen under the bar', async ({ page }) => {

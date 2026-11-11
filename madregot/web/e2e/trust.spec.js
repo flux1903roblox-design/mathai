@@ -3,8 +3,8 @@
 // any answer, and never meets a limit sheet; a care reply that streams in pieces never shows its marker. The server is
 // a fake (page.route, or a fetch that streams in pieces); nothing leaves the machine.
 import { test, expect } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { NOW, student, answer, proceed, appReady } from './helpers.js';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { NOW, student, livedIn, answer, proceed, appReady } from './helpers.js';
 import { fakeServer, API, CORS, livePlan } from './fakeServer.js';
 
 /** Open a route with a saved state, seeded before the app starts (as subscription.spec.js does). */
@@ -46,7 +46,10 @@ async function shot(page, name) {
 
 /** Every way in on the card is a real link a phone can follow, at least 44px tall. */
 async function expectCard(card) {
-  await expect(card.getByRole('link', { name: /חיוג 1201/ })).toHaveAttribute('href', 'tel:1201');
+  // under a message the number is in the card's head too: every link to it dials it
+  const eran = await card.getByRole('link', { name: /חיוג 1201/ }).all();
+  expect(eran.length).toBeGreaterThanOrEqual(1);
+  for (const l of eran) await expect(l).toHaveAttribute('href', 'tel:1201');
   await expect(card.getByRole('link', { name: /וואטסאפ 052-845-1201/ })).toHaveAttribute('href', 'https://wa.me/972528451201');
   await expect(card.getByRole('link', { name: /וואטסאפ 055-957-1399/ })).toHaveAttribute('href', 'https://wa.me/972559571399');
   await expect(card.getByRole('link', { name: /חיוג 105/ })).toHaveAttribute('href', 'tel:105');
@@ -134,6 +137,32 @@ test.describe('distress', () => {
     // a class student could also ask the teacher; this device is not in a class, so the card does not offer it
     await expect(card.getByRole('button', { name: 'לבקש מהמורה לדבר איתי' })).toHaveCount(0);
   });
+
+  for (const used of [false, true]) {
+    test(`(e) the first number is on the screen at once after a distress message, with no scrolling${used ? ', the questions used up' : ''} (the trust review)`, async ({ page }) => {
+      await fakeServer(page, { parentOk: true, freeLimit: used ? 0 : 2 }, baseOf());
+      await page.route(`${API}/api/ai/chat`, async (route) => {
+        if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+        return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: CORS, body: `${CARE_TEXT}\n[[care]]` });
+      });
+      await open(page, '#/assistant', withServer());
+      const draft = page.getByLabel('ההודעה שלכם');
+      await draft.fill('אני רוצה למות'); await draft.press('Enter');
+      await expect(page.locator('.msg-row.assistant').last()).toContainText('תודה שכתבתם');
+      const quick = page.locator('.chat .support-card .support-quick');
+      await expect(quick).toHaveAttribute('href', 'tel:1201');
+      // no manual scroll: the link is inside the window, above the docked input, and nothing covers its middle
+      await expect.poll(() => quick.evaluate((el) => {
+        const b = el.getBoundingClientRect();
+        const dock = document.querySelector('.chat-dock-live')?.getBoundingClientRect().top ?? innerHeight;
+        const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+        return b.top >= 0 && b.bottom <= Math.min(innerHeight, dock) && !!hit && (hit === el || el.contains(hit));
+      }), { timeout: 4000 }).toBe(true);
+      const box = await quick.boundingBox();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      await shot(page, `card-first-number${used ? '-used' : ''}`);
+    });
+  }
 
   test('(c) a care reply arriving in pieces never shows "[[", and the card follows it', async ({ page }) => {
     await fakeServer(page, { parentOk: true }, baseOf());
@@ -752,7 +781,7 @@ test.describe('legal pages', () => {
   test('a link inside a page moves inside the app, with no new page load', async ({ page }) => {
     await open(page, '#/terms');
     await page.evaluate(() => { window.__samePage = 'yes'; });
-    await page.locator('article.legal').getByRole('link', { name: 'בטיחות בעוזר החכם' }).click();
+    await page.locator('article.legal').getByRole('link', { name: 'בטיחות בעוזר החכם' }).last().click();
     await expect(page).toHaveURL(/#\/safety$/);
     await expect(page.getByRole('heading', { level: 1, name: 'בטיחות בעוזר החכם' })).toBeVisible();
     expect(await page.evaluate(() => window.__samePage)).toBe('yes');
@@ -767,7 +796,7 @@ test.describe('legal pages', () => {
     st.legalApproved = false;
     await open(page, '#/terms', withServer());
     await expect(page.getByRole('note')).toHaveText('טיוטה לבדיקה משפטית. הנוסח עוד לא סופי.');
-    await expect(page.locator('article.legal')).toContainText('מדרגות בדיקה, מספר עוסק 000000000');
+    await expect(page.locator('article.legal')).toContainText('מדרגות בדיקה, עוסק מורשה 000000000');
     await expect(page.locator('article.legal')).toContainText('גרסה 2026-11 · עודכן ב־01.11.2026');
     st.legalApproved = true;
     await page.reload();
@@ -863,6 +892,8 @@ test.describe('delete all', () => {
       });
     });
     await open(page, '#/settings', repro());
+    // the tutor's status answer is saved into the store (ai.lastTier): wait for it, so a "before" taken next is final
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('madregot') || '{}').state?.ai?.lastTier || null)).toBe('family');
     await page.evaluate((p) => {
       localStorage.setItem('madregot-parent', JSON.stringify(p));
       localStorage.setItem('madregot-staging', '{}');
@@ -1226,5 +1257,181 @@ test.describe('privacy lines', () => {
     await expect(name).toHaveAttribute('placeholder', 'למשל: המורה כהן');
     await expect(name).toHaveAccessibleDescription('השם יופיע לתלמידים שמצטרפים עם קוד הכיתה. אפשר לכתוב רק שם משפחה, למשל \'המורה כהן\'.');
     await shot(page, 'privacy-teacher');
+  });
+});
+
+test.describe('accessibility statement', () => {
+  // trust spec TRUST-2, Appendix C: accessibility.md says only what a check backs. Every line under "מה הותאם" maps to
+  // a check here and runs on every screen its "מה בדקנו" names; a line with no check fails the first test, so a new
+  // claim either gets a check or goes under "מה עוד לא נגיש". The owner's own pass with a screen reader is separate
+  // (ACCESS_TESTED, TRUST-13 step 4).
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const md = readFileSync(new URL('../src/content/legal/accessibility.md', import.meta.url), 'utf8');
+  const section = (id) => md.split(/^## /m).find((s) => s.includes(`{#${id}}`)) || '';
+  const bullets = (id) => section(id).split('\n').filter((l) => l.startsWith('- ')).map((l) => l.slice(2).trim());
+  const SCREENS = [
+    ['מסך הפתיחה', '#/', null], ['המסך הראשי', '#/', livedIn('7')], ['שיעור ותרגול', '#/lesson/signed/1', student('7')],
+    ['העוזר החכם', '#/assistant', livedIn('7')], ['ההגדרות', '#/settings', livedIn('7')], ['המסך "אני"', '#/me', livedIn('7')],
+    ['הנושאים', '#/topics', livedIn('8')], ['המשימות', '#/quests', livedIn('7')], ['המבחנים', '#/exams', livedIn('7')],
+    ['הכניסה לעמוד ההורים', '#/parents', null], ['ביטול המנוי', '#/cancel', null],
+    ['התקנון', '#/terms', null], ['הפרטיות', '#/privacy', null], ['הנגישות', '#/accessibility', null], ['הבטיחות', '#/safety', null],
+  ];
+  // each line of "מה הותאם", word for word, and the check that backs it: a check run on every screen, or a test below
+  const CLAIMS = {
+    'השפה של הדף מוגדרת כעברית, וכיוון הכתיבה מימין לשמאל.': 'lang',
+    'לכל כפתור, קישור ושדה יש שם שקוראי מסך מקריאים.': 'names',
+    'אפשר להגיע לכל כפתור, קישור ושדה במקלדת (במקש Tab), ורואים מסגרת סביב מה שנבחר.': 'keyboard',
+    'משוב על תשובה בתרגול מוקרא בקורא מסך מיד.': 'feedback',
+    'לכל תרגיל עם גרירה (ציר מספרים, נקודות, קווים, זוויות ועוד) יש גם כפתורים שמזיזים בלי לגרור.': 'drag',
+    'הניגודיות בין הטקסט לרקע עומדת בתקן: לפחות 4.5 ל־1, ובטקסט גדול לפחות 3 ל־1.': 'contrast',
+    'המסכים מתאימים לטלפון ברוחב 320 פיקסלים, בלי גלילה הצידה.': 'narrow',
+    'כשמבקשים ממערכת ההפעלה להפחית תנועה, שום דבר לא קופץ, מחליק או חוזר על עצמו. נשארות רק הופעות רכות.': 'motion',
+  };
+  const PER_SCREEN = ['lang', 'names', 'keyboard', 'contrast', 'narrow'];
+  const claimOf = (id) => Object.keys(CLAIMS).find((k) => CLAIMS[k] === id);
+
+  test('every line under "מה הותאם" has its check, and "מה בדקנו" names every screen the checks visit', () => {
+    expect(bullets('done').sort()).toEqual(Object.keys(CLAIMS).sort());
+    const tested = section('tested');
+    for (const [label] of SCREENS) expect(tested, label).toContain(label);
+    // the owner's pass is the owner's words, never ours
+    expect(tested).toContain('{{ACCESS_TESTED}}');
+  });
+
+  /** A role with no name in the accessibility tree: "- button" or "- link [disabled]", with no quoted name. */
+  const NAMELESS = /^\s*- (button|link|textbox|checkbox|radio|combobox|switch|slider|spinbutton|searchbox|tab|menuitem)(?=\s*(?::|\[|$))/;
+
+  for (const [label, route, state] of SCREENS) {
+    test(`on ${label}: language, names, keyboard, contrast and 320px`, async ({ page }) => {
+      await open(page, route, state);
+      // the screen itself, not the loading line its code shows while it arrives
+      await expect(page.locator('.loading-state')).toHaveCount(0);
+      await expect(page.locator('h1, h2').first()).toBeVisible();
+      await page.waitForTimeout(200);
+
+      const [lang, dir] = await page.evaluate(() => [document.documentElement.lang, document.documentElement.dir]);
+      expect([lang, dir], claimOf('lang')).toEqual(['he', 'rtl']);
+
+      const nameless = (await page.locator('body').ariaSnapshot()).split('\n').filter((l) => NAMELESS.test(l));
+      expect(nameless, claimOf('names')).toEqual([]);
+
+      // keyboard: Tab from the top reaches every control on the page, and each one shows a ring when it has the focus
+      // (an outline or a shadow on it or on its row that is not there without the focus)
+      const total = await page.evaluate(() => {
+        const sig = (el) => { const out = []; for (let e = el, i = 0; e && i < 4; e = e.parentElement, i += 1) { const c = getComputedStyle(e); out.push(`${c.outlineStyle} ${c.outlineWidth} ${c.outlineColor} ${c.boxShadow}`); } return out.join('|'); };
+        const all = [...document.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+          .filter((el) => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden' && !el.closest('[inert], [aria-hidden="true"]'))
+          .filter((el) => !(el.type === 'radio' && !el.checked && document.querySelector(`input[type="radio"][name="${el.name}"]:checked`)));
+        window.__a11y = { rest: new Map(all.map((el) => [el, sig(el)])), sig, hit: new Set() };
+        document.activeElement?.blur?.(); window.scrollTo(0, 0);
+        return all.length;
+      });
+      const reached = [];
+      for (let i = 0; i < total + 6; i += 1) {
+        await page.keyboard.press('Tab');
+        const f = await page.evaluate(() => {
+          const el = document.activeElement;
+          if (!el || el === document.body) return null;
+          const { rest, sig, hit } = window.__a11y;
+          hit.add(el);
+          el.dataset.a11yN ||= String(rest.size + Math.random());
+          const what = `${el.tagName.toLowerCase()} "${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30)}"`;
+          return { n: el.dataset.a11yN, what, known: rest.has(el), ring: rest.has(el) ? rest.get(el) !== sig(el) : true };
+        });
+        if (!f) continue;
+        if (reached.length && reached[0].n === f.n) break;
+        if (!reached.some((r) => r.n === f.n)) reached.push(f);
+      }
+      expect(reached.filter((r) => !r.ring).map((r) => r.what), `${claimOf('keyboard')} (a ring)`).toEqual([]);
+      // (a control the page took away meanwhile, like the map's "back to the next step" once that step is in view, is not missed)
+      const missed = await page.evaluate(() => [...window.__a11y.rest.keys()].filter((el) => el.isConnected && !window.__a11y.hit.has(el))
+        .map((el) => `${el.tagName.toLowerCase()}.${el.className} "${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30)}"`));
+      expect(missed, `${claimOf('keyboard')} (every control reached)`).toEqual([]);
+
+      const low = await page.evaluate(() => {
+        const rgb = (c) => { const m = String(c).match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(',').map(parseFloat); return { r: p[0], g: p[1], b: p[2], a: p[3] ?? 1 }; };
+        const mix = (top, base) => ({ r: top.r * top.a + base.r * (1 - top.a), g: top.g * top.a + base.g * (1 - top.a), b: top.b * top.a + base.b * (1 - top.a) });
+        const lum = ({ r, g, b }) => { const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+        // the colour under an element: its own and its parents' backgrounds, down to the white page; unknown over a picture
+        const under = (el) => {
+          const layers = [];
+          for (let e = el; e; e = e.parentElement) {
+            const c = getComputedStyle(e);
+            if (c.backgroundImage !== 'none') return null;
+            const b = rgb(c.backgroundColor);
+            if (b && b.a > 0) { layers.push(b); if (b.a >= 1) break; }
+          }
+          return layers.reverse().reduce((base, l) => mix(l, base), { r: 255, g: 255, b: 255 });
+        };
+        const out = []; const seen = new Set();
+        const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        while (walk.nextNode()) {
+          const el = walk.currentNode.parentElement;
+          if (!el || seen.has(el) || !walk.currentNode.textContent.trim()) continue;
+          seen.add(el);
+          const r = el.getBoundingClientRect(); const c = getComputedStyle(el);
+          if (!r.width || !r.height || c.visibility === 'hidden' || Number(c.opacity) === 0) continue;
+          if (el.closest('[aria-hidden="true"], .visually-hidden, [disabled], [aria-disabled="true"], svg')) continue;
+          const bg = under(el); const fg = rgb(c.color);
+          if (!bg || !fg) continue;
+          const L1 = lum(mix(fg, bg)); const L2 = lum(bg);
+          const ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+          const size = parseFloat(c.fontSize); const large = size >= 24 || (Number(c.fontWeight) >= 700 && size >= 18.66);
+          if (ratio < (large ? 3 : 4.5)) out.push(`${ratio.toFixed(2)} "${walk.currentNode.textContent.trim().slice(0, 30)}"`);
+        }
+        return out;
+      });
+      expect(low, claimOf('contrast')).toEqual([]);
+
+      await page.setViewportSize({ width: 320, height: 568 });
+      await page.waitForTimeout(150);
+      const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(over, claimOf('narrow')).toBeLessThanOrEqual(0);
+    });
+  }
+
+  test('feedback on an answer is announced at once', async ({ page }) => {
+    await open(page, '#/lesson/signed/1', student('7'));
+    await expect.poll(() => page.evaluate(() => !!window.__madregotItem)).toBe(true);
+    await answer(page, false);
+    const fb = page.locator('section.fb');
+    await expect(fb, claimOf('feedback')).toBeVisible();
+    await expect(fb).toHaveAttribute('aria-live', 'assertive');
+    await expect(fb).toHaveAccessibleName(/.+/);
+  });
+
+  test('every exercise you drag also moves with buttons (manip.spec.js checks each kind)', () => {
+    // manip.spec.js opens every interactive kind and moves it with a step button, without a drag, on every device
+    const spec = readFileSync(new URL('./manip.spec.js', import.meta.url), 'utf8');
+    expect(spec, claimOf('drag')).toContain("'a step button moved the object'");
+    expect(spec).toContain('] of KINDS) {\n  test(`interactive exercise: ${name}`');
+  });
+
+  test('with reduced motion nothing moves or loops; without it, the same screens do move (so the check can see motion)', async ({ page }) => {
+    // every CSS animation and transition ends at once (tokens.css), and the app's own animations (motion, with
+    // reducedMotion "user") change no position, size or angle: only opacity is left
+    const sample = async () => page.evaluate(() => ({
+      slow: [...document.querySelectorAll('*')].filter((e) => {
+        const c = getComputedStyle(e);
+        const long = (v) => String(v).split(',').some((d) => parseFloat(d) * (d.trim().endsWith('ms') ? 0.001 : 1) > 0.001);
+        return long(c.transitionDuration) || (c.animationName !== 'none' && (long(c.animationDuration) || c.animationIterationCount !== '1'));
+      }).length,
+      moving: document.getAnimations().filter((a) => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition))
+        .filter((a) => (a.effect?.getKeyframes?.() || []).some((k) => ['transform', 'translate', 'scale', 'rotate'].some((p) => p in k))).length,
+    }));
+    const visit = async () => {
+      const seen = [];
+      await open(page, '#/', livedIn('7')); seen.push(await sample());
+      await open(page, '#/lesson/signed/1', student('7'));
+      await expect.poll(() => page.evaluate(() => !!window.__madregotItem)).toBe(true);
+      await answer(page, true); seen.push(await sample());
+      await open(page, '#/settings', livedIn('7'));
+      await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+      seen.push(await sample());
+      return seen;
+    };
+    for (const s of await visit()) expect(s, claimOf('motion')).toEqual({ slow: 0, moving: 0 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    expect((await visit()).some((s) => s.slow > 0), 'without reduced motion the screens do animate').toBe(true);
   });
 });

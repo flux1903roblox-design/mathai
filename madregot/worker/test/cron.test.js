@@ -324,6 +324,20 @@ test('distress alerts at max(3, 3 × its 14-day average): one event on a quiet d
   assert.deepEqual(p, { distress: 6, pii_masked: 0, output_blocked: 0, refusal: 0, user_report: 0, distressAvg: 2, reported: false, distressHigh: true });
 });
 
+test('the spike counts networks, not rows: one network that writes 20 distress events is one (the trust review)', async () => {
+  h = await setup();
+  const y = dayBack(1);
+  const counter = h.env.DB.raw.prepare('INSERT INTO ai_usage (who, day, count) VALUES (?, ?, ?)');
+  // what recordSafety leaves for a script on one network: 20 rows and one counter
+  events(h.env, y, 'distress', 20);
+  counter.run('evt:distress:n:aaaa', y, 20);
+  events(h.env, y, 'user_report', 20); counter.run('evt:user_report:n:aaaa', y, 20);
+  assert.deepEqual(await safetySpike(h.env, night()), { day: y, alert: false }, 'one network is not a spike');
+  // three networks are
+  counter.run('evt:distress:n:bbbb', y, 1); counter.run('evt:distress:n:cccc', y, 1);
+  assert.equal((await safetySpike(h.env, night())).alert, true);
+});
+
 // ---------------------------------------------------------------- the tutor's quality counts (ai spec AI-3 Design 6)
 test('the daily summary carries yesterday\'s quality counts; the purge keeps them 400 days', async () => {
   h = await setup({ OWNER_DAILY_SUMMARY: 'true' });

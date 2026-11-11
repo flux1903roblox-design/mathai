@@ -125,10 +125,12 @@ test('every kind and every shape, and the care request, start with the safety bl
   assert.match(systemText(buildRequest('chat', INPUTS.chat)), /neither mathematics nor their safety, say kindly in one sentence that you are here for maths/);
 });
 
-test('a leading [[care]] line is removed and the reply is marked care; elsewhere it is left alone', () => {
+test('a [[care]] line is removed and the reply is marked care, first or on any later line (the trust review), never shown', () => {
   assert.deepEqual(readResult('chat', { content: [{ type: 'text', text: '[[care]]\nאני כאן…' }] }), { text: 'אני כאן…', care: true });
   assert.deepEqual(readResult('explain', msg('  [[care]]\r\nתודה שכתבתם.')), { text: 'תודה שכתבתם.', care: true });
-  assert.deepEqual(readResult('chat', msg('הסבר [[care]]')), { text: 'הסבר [[care]]' });
+  assert.deepEqual(readResult('chat', msg('שמח שכתבת.\n[[care]]\nאפשר להתקשר לער״ן 1201.')), { text: 'שמח שכתבת.\nאפשר להתקשר לער״ן 1201.', care: true });
+  assert.deepEqual(readResult('chat', msg('הסבר [[care]]')), { text: 'הסבר', care: true });
+  assert.deepEqual(readResult('chat', msg('א [[care]] ב')), { text: 'א ב', care: true });
   assert.throws(() => readResult('chat', msg('[[care]]\n  ')), (e) => e.code === 'bad_output', 'a care line with nothing after it');
   assert.deepEqual(splitCare('[[care]] שלום'), { text: 'שלום', care: true });
   assert.deepEqual(splitCare('שלום'), { text: 'שלום', care: false });
@@ -538,6 +540,31 @@ test('a streamed chat under WITHHOLD: the leaked answer is masked mid-stream, MA
   assert.deepEqual(quality(), [{ kind: 'chat', reason: 'answer_masked', n: 2 }]);
 });
 
+test('streamed under WITHHOLD, the AI review\'s phrasings never reach the child, in 3-character pieces, and each is counted', async () => {
+  const ctx8 = { ...openCtx(), item: { text: 'חשבו: 3 - (-5)', form: 'num', answer: '8', answerFrom: 'app', solution: ['$3 - (-5) = 8$'] } };
+  const replies = [
+    ['חיסור של מספר שלילי מזיז ימינה. מתחילים ב־$3$ וזזים $5$ ימינה, ומקבלים $8$.', 'ומקבלים $?$.'],
+    ['חיסור של שלילי הוא חיבור: $3 + 5$. התשובה היא **8**.', 'התשובה היא **?**.'],
+    ['נחשב: $3 + 5$, שזה $8$.', 'שזה $?$.'],
+    ['קיבלנו $8$. ', 'קיבלנו $?$.'],
+    ['ולכן $3 - (-5) = \\boxed{8}$', '\\boxed{?}$'],
+    ['נגיע ל־$8$ על הציר.', 'נגיע ל־$?$ על'],
+    ['התוצאה היא $+8$.', 'התוצאה היא $?$.'],
+    ['**התשובה: 8**', '**התשובה: ?**'],
+  ];
+  for (const [said, shown] of replies) {
+    h?.done();
+    const pieces = said.match(/[\s\S]{1,3}/g);
+    h = await setup({}, { claude: (p) => sse(p, pieces) });
+    const text = await (await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chatBody(ctx8) })).text();
+    await h.ctx.flush();
+    assert.ok(text.includes(shown), `${said} → ${text}`);
+    assert.ok(!/(?:^|[^\d.])8(?![\d])/.test(text.replace(MASK_NOTE, '')), `${said}: no 8 on the screen: ${text}`);
+    assert.ok(text.endsWith(`\n\n${MASK_NOTE}`), text);
+    assert.deepEqual(quality(), [{ kind: 'chat', reason: 'answer_masked', n: 1 }], said);
+  }
+});
+
 test('the same reply under REVEAL (the answer is on the screen) goes out unchanged, with no row', async () => {
   h = await setup({}, { claude: (p) => sse(p, [LEAK, 'ולכן $-4 + 6 = ', '2$. נסו ', 'בעצמכם.']) });
   const text = await (await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chatBody(openCtx('reveal')) })).text();
@@ -593,6 +620,24 @@ test('a notebook check under WITHHOLD: final unknown, withheld, the line with th
   const own = await (await ai(h, 'check', d2.headers, { body: { ctx: { v: 2, surface: 'assistant', grade: '7', policy: { answer: 'homework' } }, image: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' } })).json();
   assert.equal(own.final, 'correct');
   assert.equal(own.withheld, undefined);
+});
+
+test('a notebook check under WITHHOLD never puts ✓ on a line that holds the answer: a check line after it, or "תשובה: 5" (the AI review)', async () => {
+  const eqCtx = { v: 2, surface: 'notebook', grade: '7', topicId: 'eq', level: 2, item: { text: '3x + 7 = 22', form: 'num', answer: '5' }, policy: { answer: 'withhold', why: '' } };
+  const run = async (steps) => {
+    h?.done();
+    h = await setup({}, { claude: (p) => claudeReply(p, { text: JSON.stringify({ readable: true, care: false, transcript: '', steps, final: 'correct', summary: '' }) }) });
+    await signIn(h, 'fam@example.test');
+    const a = accountId(h.env, 'fam@example.test');
+    insertSub(h.env, { kind: 'family', account_id: a });
+    const d = await linkDevice(h.env, a);
+    return (await ai(h, 'check', d.headers, { body: { ctx: eqCtx, image: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' } })).json();
+  };
+  const A = await run([{ text: '$3x + 7 = 22$', ok: true, comment: '' }, { text: '$3x = 15$', ok: true, comment: '' }, { text: '$x = 5$', ok: true, comment: '' }, { text: 'בדיקה: $3 \\cdot 5 + 7 = 22$', ok: true, comment: '' }]);
+  assert.deepEqual(A.steps.map((s) => s.ok), [true, true, null, null]);
+  assert.equal(A.final, 'unknown');
+  const B = await run([{ text: '$3x + 7 = 22$', ok: true, comment: '' }, { text: '$3x = 15$', ok: true, comment: '' }, { text: 'תשובה: 5', ok: true, comment: '' }]);
+  assert.deepEqual(B.steps.map((s) => s.ok), [true, true, null]);
 });
 
 test('a streamed reply that stopped on max_tokens after only thinking: [[error:bad_output]], and the question is given back', async () => {
@@ -661,7 +706,7 @@ test('generate: the rewrite, then the blind solve; 3 of 5 stories pass, each dro
   assert.deepEqual(body.items.map((it) => it.seed), [0, 3, 4], 'the passing stories, in seed order');
   assert.ok(body.items.every((it) => it.blind === 'ok' && it.kept === false));
   assert.equal(body.items[0].prompt, STORIES[0].prompt);
-  assert.deepEqual(body.dropped, { kept: 0, latex: 0, numbers: 1, leak: 0, solution: 0, equations: 0, blind: 1 });
+  assert.deepEqual(body.dropped, { kept: 0, latex: 0, numbers: 1, leak: 0, solution: 0, equations: 0, blind: 1, blind_skipped: 0 });
   assert.equal(body.fallback, false);
   // no number the model wrote is sent back as an answer: the reply has none
   assert.ok(!JSON.stringify(body).includes('"answer"'));
@@ -692,27 +737,49 @@ test('generate: when every story fails, the question is given back and the reply
   assert.equal(r.status, 200);
   const body = await r.json();
   await h.ctx.flush();
-  assert.deepEqual(body, { items: [], dropped: { kept: 0, latex: 0, numbers: 5, leak: 0, solution: 0, equations: 0, blind: 0 }, fallback: true });
+  assert.deepEqual(body, { items: [], dropped: { kept: 0, latex: 0, numbers: 5, leak: 0, solution: 0, equations: 0, blind: 0, blind_skipped: 0 }, fallback: true });
   assert.equal(countOf(h.env, `fam:${a}:generate`), 0, 'given back');
   assert.equal(r.headers.get('X-AI-Left'), '5', 'the count on the screen says so');
   assert.deepEqual(quality(), [{ kind: 'generate', reason: 'gen_all_failed', n: 1 }, { kind: 'generate', reason: 'gen_numbers', n: 5 }]);
   assert.equal(spendCalls(`fam:${a}`), 2, 'what Claude did is still priced');
 });
 
-test('generate: a blind solve that fails twice leaves the stories to code checks 1-4 (blind skipped), counted once', async () => {
+test('generate: a blind solve that fails twice shows no new story (the AI review): the app fills from its bank, the question given back', async () => {
   h = await setup({}, { claude: genClaude(STORIES, { blindDown: true }) });
   const { a, d } = await genFamily();
   const r = await ai(h, 'generate', d.headers);
   assert.equal(r.status, 200);
   const body = await r.json();
   await h.ctx.flush();
-  // the story the blind solve would have caught passes the code checks; the changed number is still dropped
-  assert.deepEqual(body.items.map((it) => [it.seed, it.blind]), [[0, 'skipped'], [2, 'skipped'], [3, 'skipped'], [4, 'skipped']]);
+  // the four stories that passed code checks 1-4 (one of them the blind solve would have caught) are not shown: with
+  // no independent solve there is no proof a story asks what its seed asks; the changed number is dropped as before
+  assert.deepEqual(body.items, []);
   assert.equal(body.dropped.numbers, 1);
+  assert.equal(body.dropped.blind_skipped, 4);
+  assert.equal(body.fallback, true);
   assert.equal(h.net.log.claude.filter(isBlind).length, 2, 'tried once more, then without it');
-  assert.deepEqual(quality(), [{ kind: 'generate', reason: 'blind_skipped', n: 1 }, { kind: 'generate', reason: 'gen_numbers', n: 1 }]);
+  assert.deepEqual(quality(), [{ kind: 'generate', reason: 'blind_skipped', n: 4 }, { kind: 'generate', reason: 'gen_all_failed', n: 1 }, { kind: 'generate', reason: 'gen_numbers', n: 1 }]);
   assert.equal(spendCalls(`fam:${a}`), 1, 'only the rewrite came back to be priced');
-  assert.equal(countOf(h.env, `fam:${a}:generate`), 1);
+  assert.equal(countOf(h.env, `fam:${a}:generate`), 0, 'nothing new was shown: the question is given back');
+});
+
+test('generate: with the blind solve down, a seed kept in its own wording is still shown; a re-storied one never is', async () => {
+  const { generateVerified: gv } = await import('../../shared/ai.js');
+  const seeds = [{ i: 0, text: 'חשבו: 3 - (-5)', answer: '8', round: false, fig: false }, { i: 1, text: 'חשבו: -8 - (-7)', answer: '-1', round: false, fig: false }];
+  // the AI review's case: a story whose true answer is -2, with a true equation that ends at the seed's 8
+  const flipped = { seed: 0, kept: false, prompt: 'בבוקר היו בחרמון 3 מעלות. עד הערב הטמפרטורה ירדה ב־5 מעלות. כמה מעלות היו בערב?', hint: 'מה קורה כשהטמפרטורה יורדת?', solution: ['בבוקר: $3$', 'בערב: $3 + 5 = 8$'] };
+  const kept = { seed: 1, kept: true, prompt: 'חשבו: -8 - (-7)', hint: 'חיסור של שלילי מזיז ימינה.', solution: ['$-8 - (-7) = -8 + 7$', '$= -1$'] };
+  let n = 0;
+  const call = async () => {
+    n += 1;
+    if (n > 1) throw Object.assign(new Error('overloaded'), { status: 529 }); // the blind solve, twice
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ items: [flipped, kept] }) }], usage: { input_tokens: 1, output_tokens: 1 } };
+  };
+  const out = await gv(call, { grade: '7', skill: 'signed:1', topic: 'מספרים מכוונים', stair: 'חיבור וחיסור', count: 2, seeds }, { model: 'm', blindModel: 'b' });
+  assert.equal(out.blind, 'skipped');
+  assert.equal(n, 3, 'the rewrite, then the blind solve twice');
+  assert.deepEqual(out.items.map((it) => [it.seed, it.kept]), [[1, true]]);
+  assert.equal(out.dropped.blind_skipped, 1);
 });
 
 test('generate: seeds that kept their wording need no blind solve; an app that sends no seeds is 400 and nothing is counted', async () => {
@@ -852,6 +919,23 @@ test('readResult(feedback): a care reply keeps its whole summary; a reply that i
     assert.throws(() => readResult('feedback', msg(bad), FEEDBACK_INPUT), (e) => e.code === 'bad_output', bad);
   }
   assert.throws(() => readResult('feedback', msg('', 'refusal'), FEEDBACK_INPUT), (e) => e.code === 'refusal');
+});
+
+test('feedback: a summary that writes the model answer out for the student is replaced by a neutral line (the AI review)', async () => {
+  const { FEEDBACK_SUMMARY_FALLBACK } = await import('../../shared/ai.js');
+  const { sample } = FEEDBACK_INPUT;
+  const copied = {
+    points: FEEDBACK_INPUT.rubric.map((_, i) => ({ i, status: 'no', quote: '', tip: `כתבו: ${sample}` })),
+    summary: `כדאי לכתוב כך: ${sample}`,
+    care: false,
+  };
+  const out = readResult('feedback', msg(JSON.stringify(copied)), FEEDBACK_INPUT);
+  assert.ok(out.points.every((p) => p.tip === ''), 'every tip that copies it is dropped');
+  assert.equal(out.summary, FEEDBACK_SUMMARY_FALLBACK);
+  assert.equal(copiesRun(out.summary, sample), false);
+  // a summary in its own words stays
+  const own = readResult('feedback', msg(JSON.stringify({ ...copied, summary: 'יש כאן התחלה טובה. חסר להסביר למה השטחים מתחברים.' })), FEEDBACK_INPUT);
+  assert.equal(own.summary, 'יש כאן התחלה טובה. חסר להסביר למה השטחים מתחברים.');
 });
 
 test('the helpers behind the feedback checks: the student\'s words, a run copied from the model answer, clipping by words', () => {

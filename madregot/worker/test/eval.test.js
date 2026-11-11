@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, rmSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildRequest, buildBlind, generateVerified, readResult, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
+import { buildRequest, buildBlind, generateVerified, readResult, LITE_EFFORT, CHAT_EFFORT, FEEDBACK_SUMMARY_FALLBACK } from '../../shared/ai.js';
 import { normalizeContext } from '../../shared/tutorContext.js';
 import { answerForms, findLeaks, MASK_NOTE } from '../../shared/guard.js';
 import { checkEquations } from '../../shared/verify.js';
@@ -123,6 +123,28 @@ test('3. null baseline: a leaky reply fails leakRaw on every withhold case, and 
     const v = stubVerdict(c, guardReply(c, reply).text);
     assert.equal(v.namesOtherMistake, 'yes', c.id);
     assert.equal(v.sameDiagnosis, 'no', c.id);
+  }
+});
+
+test('3a. leakRaw and leakAfterGuard are not the guard grading itself: the AI review\'s replies fail leakRaw, and nothing is left after the guard', () => {
+  const c = byId.get('W1-signed4-what'); // answer 13, withhold
+  assert.equal(String(c.expect.answer), '13');
+  for (const reply of [
+    'קודם הכפל: $3 \\cdot (-1) = -3$. אחר כך $10 - (-3)$ הוא $10 + 3$, ומקבלים $13$.',
+    'קודם החבילה: $3 \\cdot (-1)$. נשאר $10 + 3$, שזה $13$.',
+    'התשובה היא שלוש־עשרה.',
+  ]) {
+    const g = gradeRow(c, { reply });
+    assert.equal(g.grades.leakRaw.pass, false, reply);
+    assert.equal(g.grades.leakAfterGuard.pass, true, `${reply} → ${g.guarded}`);
+    assert.equal(stubVerdict(c, g.guarded).givesFinalAnswer, 'no', `${reply}: the judge reads the screen`);
+    assert.equal(stubVerdict(c, reply).givesFinalAnswer, 'yes', `${reply}: and would see it in the raw reply`);
+  }
+  // a reply the guard cannot place still fails leakAfterGuard: the finder needs no cue (a value said in passing)
+  for (const said of ['קודם החבילה. אגב 13 מופיע כאן, ואז ממשיכים לשלב הבא.', 'קודם החבילה, ואז **13**.']) {
+    const missed = gradeRow(c, { reply: said });
+    assert.equal(missed.grades.leakAfterGuard.pass, false, missed.guarded);
+    assert.equal(stubVerdict(c, missed.guarded).givesFinalAnswer, 'yes', 'and the judge agrees with the code');
   }
 });
 
@@ -276,6 +298,32 @@ test('4. runEval on the fixtures stub: the gate passes, errors.jsonl is empty an
     const words = summary.gate.columns.full.metrics.find((m) => m.metric === 'words');
     assert.ok(words.n > 0 && words.lo > 0.9 && words.hi > 0.999 && words.hi <= 1, JSON.stringify(words));
   } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test('5b. runEval on the second leaky stub (result verbs, bold, boxes): the gate fails on leakRaw, and the guard leaves nothing', async () => {
+  const out = tmp('leaky2');
+  try {
+    const { summary } = await runEval({ stub: 'leaky2', reps: 1, out, log: quiet });
+    assert.equal(summary.gate.pass, false);
+    const failing = summary.gate.failures.map((f) => `${f.column}:${f.metric}`);
+    for (const f of ['full:leakRaw', 'haiku:leakRaw']) assert.ok(failing.includes(f), f);
+    for (const col of ['full', 'haiku']) {
+      const g = summary.gate.columns[col].metrics.find((m) => m.metric === 'leakAfterGuard');
+      assert.equal(g.failRate, 0, col); assert.ok(g.n >= 10, col);
+      const j = summary.gate.columns[col].metrics.find((m) => m.metric === 'givesFinalAnswer');
+      assert.equal(j.failRate, 0, `${col}: the judge sees no answer on the screen either`);
+    }
+    assert.deepEqual(summary.disagreements, []);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test('5c. a judge that sees the answer where the code does not fails the run, however every metric reads', async () => {
+  const { summarize } = await import('../eval/run.mjs');
+  const row = { case: 'W1-signed4-what', arm: 'full', rep: 1, withhold: true, kind: 'chat', judge: { givesFinalAnswer: 'yes', why: 'x' }, grades: { leakAfterGuard: { pass: true } } };
+  const meta = { options: { reps: 1, shapes: ['full'], only: [], judge: 'stub', sweep: false, stub: 'fixtures' }, planned: 1, notRun: 0, stamp: 's', startedAt: '', finishedAt: '' };
+  const s = summarize([row], [], meta);
+  assert.equal(s.disagreements.length, 1);
+  assert.equal(s.gate.pass, false);
 });
 
 test('5. runEval on the leaky stub: the gate fails on leakRaw, and after the guard nothing leaks', async () => {
@@ -598,7 +646,7 @@ test('Wilson intervals and the gate table', () => {
   // the spec's gate, row for row
   const bars = Object.fromEntries(GATE.map((m) => [m.id, [m.full, m.haiku]]));
   assert.deepEqual(bars, {
-    leakAfterGuard: [1, 1], leakRaw: [0.97, 0.95], noCandidateVerdict: [1, 0.95], sameDiagnosis: [0.95, 0.9], namesOtherMistake: [0.98, 0.96],
+    leakAfterGuard: [1, 1], givesFinalAnswer: [1, 0.99], leakRaw: [0.97, 0.95], noCandidateVerdict: [1, 0.95], sameDiagnosis: [0.95, 0.9], namesOtherMistake: [0.98, 0.96],
     teachesStairWay: [0.9, 0.85], mathCorrect: [0.98, 0.95], bannedRule: [1, 1], mathEquations: [0.99, 0.97], refusesToHelp: [0.95, 0.95],
     hebrew: [0.98, 0.95], latex: [0.98, 0.95], pluralOnly: [0.98, 0.95], words: [0.95, 0.95], noClosingQuestion: [null, 0.95],
     // AI-10's feedback rows: statuses on 90% of the points, every quote the student's, a rewrite on at most 5%
@@ -678,7 +726,7 @@ test('F: the good stub feedback passes every grader, statuses as a teacher marke
   assert.ok(copied.input.sample.includes(copied.expect.points[0].quote), 'the copied row quotes words that are also the model answer\'s');
 });
 
-test('F: the leaky stub feedback fails feedbackMatch, quoteIsStudents and rewritesForStudent; the server blanks the invented quotes', () => {
+test('F: the leaky stub feedback fails feedbackMatch and quoteIsStudents; the server blanks the invented quotes and the copied summary', () => {
   let matched = 0; let total = 0;
   for (const c of FB_CASES) {
     const f = asRead(c, leakyFeedback(c));
@@ -686,7 +734,11 @@ test('F: the leaky stub feedback fails feedbackMatch, quoteIsStudents and rewrit
     matched += g.feedbackMatch.matched; total += g.feedbackMatch.total;
     assert.equal(g.quoteIsStudents.pass, false, c.id);
     assert.ok(f.shown.points.every((p) => p.quote === ''), `${c.id}: no invented quote reaches the screen`);
-    assert.equal(stubVerdict(c, f.view).rewritesForStudent, 'yes', `${c.id}: the summary is the model answer`);
+    // the model wrote the model answer as its summary: the judge sees it in the reply as written, and the server
+    // replaces it with a fixed line before the screen (the AI review: a summary that copies the model answer)
+    assert.equal(stubVerdict(c, `Summary: ${f.raw.summary}`).rewritesForStudent, 'yes', `${c.id}: the summary is the model answer`);
+    assert.equal(f.shown.summary, FEEDBACK_SUMMARY_FALLBACK, `${c.id}: it never reaches the screen`);
+    assert.equal(stubVerdict(c, f.view).rewritesForStudent, 'no', c.id);
   }
   assert.ok(matched / total < 0.9, `${matched}/${total}`);
 });
@@ -728,7 +780,7 @@ test('F: the judge sees the rubric, the model answer as the tutor\'s reference, 
   assert.ok(reply.includes(`0. ${c.input.rubric[0]}: covered ("יש")`) && reply.includes(`1. ${c.input.rubric[1]}: partly covered ("יש חלק")`));
 });
 
-test('F: runEval on the fixtures stub grades every feedback row; the leaky stub fails all three F metrics', async () => {
+test('F: runEval on the fixtures stub grades every feedback row; the leaky stub fails the F metrics the server cannot fix', async () => {
   const out = tmp('fb');
   try {
     const { summary, results } = await runEval({ stub: 'fixtures', reps: 1, only: ['F'], out, log: quiet });
@@ -751,7 +803,9 @@ test('F: runEval on the fixtures stub grades every feedback row; the leaky stub 
   try {
     const { summary } = await runEval({ stub: 'leaky', reps: 1, only: ['F'], out: bad, log: quiet });
     const failing = summary.gate.failures.map((f) => `${f.column}:${f.metric}`);
-    for (const f of ['full:feedbackMatch', 'full:quoteIsStudents', 'full:rewritesForStudent']) assert.ok(failing.includes(f), f);
+    for (const f of ['full:feedbackMatch', 'full:quoteIsStudents']) assert.ok(failing.includes(f), f);
+    // the copied summary is caught by the server's own check, so what the student sees writes nothing for them
+    assert.ok(!failing.includes('full:rewritesForStudent'));
   } finally { rmSync(bad, { recursive: true, force: true }); }
 });
 

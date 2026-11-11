@@ -383,18 +383,33 @@ export async function safetyCounts(env, day) {
 }
 
 /**
- * Yesterday (Jerusalem) against the rule: output_blocked + user_report of 10 or more, or distress at least
- * max(3, 3 × its daily average over the 14 days before yesterday). On a hit the owner gets one alert for that day
- * (owner:safety_spike:<day>), with the counts only. Runs every night, whether or not the daily summary is on.
+ * How many networks wrote a kind's events in [from, to): the per-network caps' counters (recordSafety in src/safety.js,
+ * evt:<kind>:n:<network>, one row a network a day), so one device or one script counts once however much it writes.
+ * Events written with no network (no counters in the range at all) are counted as rows instead.
+ */
+export async function eventNetworks(env, kind, from, to) {
+  const nets = Number((await first(env, 'SELECT COUNT(*) AS n FROM ai_usage WHERE who LIKE ? AND day >= ? AND day < ?', `evt:${kind}:n:%`, from, to))?.n || 0);
+  if (nets) return nets;
+  return Number((await first(env, 'SELECT COUNT(*) AS n FROM safety_events WHERE kind = ? AND day >= ? AND day < ?', kind, from, to))?.n || 0);
+}
+
+/**
+ * Yesterday (Jerusalem) against the rule, counted in networks (eventNetworks: one script on one network is one): blocked
+ * and reported answers from 10 or more networks, or distress from at least max(3, 3 × its daily average over the 14
+ * days before yesterday) networks. On a hit the owner gets one alert for that day (owner:safety_spike:<day>), with the
+ * counts only. Runs every night, whether or not the daily summary is on.
  */
 export async function safetySpike(env, now = new Date()) {
   const day = dayOf(new Date(now.getTime() - DAY));
+  const next = dayOf(now);
   const counts = await safetyCounts(env, day);
   const from = dayOf(new Date(now.getTime() - (SPIKE_BASE_DAYS + 1) * DAY));
-  const base = Number((await first(env, "SELECT COUNT(*) AS n FROM safety_events WHERE kind = 'distress' AND day >= ? AND day < ?", from, day))?.n || 0);
+  const base = await eventNetworks(env, 'distress', from, day);
   const avg = base / SPIKE_BASE_DAYS;
-  const reported = counts.output_blocked + counts.user_report >= SPIKE_REPORTED_MIN;
-  const distress = counts.distress >= Math.max(SPIKE_DISTRESS_MIN, 3 * avg);
+  const distressNets = await eventNetworks(env, 'distress', day, next);
+  const reportedNets = (await eventNetworks(env, 'output_blocked', day, next)) + (await eventNetworks(env, 'user_report', day, next));
+  const reported = reportedNets >= SPIKE_REPORTED_MIN;
+  const distress = distressNets >= Math.max(SPIKE_DISTRESS_MIN, 3 * avg);
   if (!reported && !distress) return { day, alert: false };
   await queueNotices(env, [ownerNotice(day, `owner:safety_spike:${day}`, { ...counts, distressAvg: Math.round(avg * 10) / 10, reported, distressHigh: distress })]);
   return { day, alert: true };
@@ -469,8 +484,9 @@ export async function dailySummary(env, now = new Date()) {
     openRequests: await count('SELECT COUNT(*) AS n FROM licence_requests WHERE handled_at IS NULL'),
     // counts only: what kind of safety event, never who or what was written (trust spec TRUST-4 §4.4)
     safety: await safetyCounts(env, day),
-    // tutor requests from a child alone that waited for a parent's OK (trust spec TRUST-9): how many children wait
-    parentOkNeeded: await count("SELECT COUNT(*) AS n FROM safety_events WHERE day = ? AND kind = 'parent_ok_needed'", day),
+    // tutor requests from a child alone that waited for a parent's OK (trust spec TRUST-9), in networks: how many
+    // places a child waits from (one device asking again and again counts once)
+    parentOkNeeded: await eventNetworks(env, 'parent_ok_needed', day, dayOf(new Date(Date.parse(`${day}T12:00:00Z`) + DAY))),
     errors: await errorsOf(env, day).then(({ total, top }) => ({ total, top })),
     vaults: await vaultStats(env, startIso, endIso),
     // the tutor's answers (ai spec AI-3 Design 6), counts only: final answers the guard masked, empty streamed replies,

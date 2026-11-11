@@ -48,6 +48,11 @@ describe('streamEnd: the finished reply', () => {
     expect(streamEnd('[[care]]\nאני כאן')).toEqual({ text: 'אני כאן', care: true });
     expect(streamEnd('הסבר.')).toEqual({ text: 'הסבר.', care: false });
   });
+  it('a care line the model put on a later line is taken out and the reply is care (the trust review)', () => {
+    expect(streamEnd('שמח שכתבת.\n[[care]]\nאפשר להתקשר לער״ן 1201.')).toEqual({ text: 'שמח שכתבת.\nאפשר להתקשר לער״ן 1201.', care: true });
+    expect(streamView('שמח שכתבת.\n[[care]]\nאפשר')).toBe('שמח שכתבת.\nאפשר');
+    expect(streamView('שמח שכתבת.\n[[ca')).toBe('שמח שכתבת.');
+  });
   it('throws only for a refusal or an error marker', () => {
     expect(() => streamEnd('\n[[refusal]]')).toThrow(expect.objectContaining({ code: 'refusal' }));
     expect(() => streamEnd('חלק\n[[care]]\n[[error:upstream]]')).toThrow(expect.objectContaining({ code: 'upstream' }));

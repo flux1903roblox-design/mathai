@@ -75,6 +75,32 @@ const MUST_FLAG = [
   ['זה הורג אותי בבית', 'distress'],
   // niqqud, gershayim and geresh do not hide a phrase
   ['אֲנִי רוֹצֶה לָמוּת', 'self_harm'],
+  // common teen phrasings the first build missed (the trust review's battery)
+  ['הלוואי שהייתי מת', 'self_harm'],
+  ['הלוואי שהייתי מתה', 'self_harm'],
+  ['הלוואי שאמות', 'self_harm'],
+  ['הלוואי שלא הייתי נולדת', 'self_harm'],
+  ['אין לי כוח לחיות', 'self_harm'],
+  ['אני לא רוצה להיות בחיים', 'self_harm'],
+  ['לא רוצה להיות פה יותר', 'self_harm'],
+  ['אני חותכת לעצמי את היד', 'self_harm'],
+  ['חתכתי לעצמי', 'self_harm'],
+  ['i wish i was dead', 'self_harm'],
+  ['מישהו ביקש שאשלח לו תמונה', 'danger'],
+  ['הוא רוצה שאשלח לו תמונות', 'danger'],
+  ['מישהו בטיקטוק ביקש תמונה שלי', 'danger'],
+  ['ביקש שאצטלם בלי חולצה', 'danger'],
+  ['ילד מהכיתה הציע להיפגש איתי בסוד', 'danger'],
+  ['מישהו מהאינטרנט הציע לי להיפגש', 'danger'],
+  ['כולם שונאים אותי', 'distress'],
+  ['כולם מתעלמים ממני', 'distress'],
+  ['אני מרגישה בדיכאון', 'distress'],
+  ['נמאס לי מהכל', 'distress'],
+  // a maths word that says where or since when, or why, never hides bullying
+  ['כל יום צוחקים עליי בשיעור מתמטיקה', 'bullying'],
+  ['עושים לי חרם מאז המבחן', 'bullying'],
+  ['עושים לי חרם בגלל המבחן', 'bullying'],
+  ['כולם צוחקים עליי כי לא הבנתי את התרגיל', 'bullying'],
 ];
 
 const MUST_NOT_FLAG = [
@@ -106,11 +132,31 @@ const MUST_NOT_FLAG = [
   'the line cuts the axis',
   // more maths frustration and slang
   'אני לא יכולה יותר עם המשוואות',
-  'כולם צוחקים עליי כי לא הבנתי את התרגיל',
   'אני הולכת למות מצחוק',
   'הישר נוגע בנקודה (2,3)',
   'מה זה שבר?',
   '',
+  // "תמונה" is the image of a point or a shape under a transformation, and a request for a picture of school work is
+  // about maths (the trust review's false positives)
+  'השאלה מבקשת תמונה של המשולש אחרי שיקוף',
+  'מבקשים תמונה של הנקודה A בהזזה',
+  'ביקשו תמונה של הגרף אחרי הזזה ב-3',
+  'המורה ביקשה תמונה של המחברת, איך עושים את תרגיל 3?',
+  'ביקשו ממני תמונה של הדף',
+  'המורה ביקשה לשלוח תמונות של המחברת',
+  'המורה ביקש סרטון של הפתרון',
+  'אני רוצה לשלוח תמונה של המחברת',
+  // the app's own topics, in the singular and the plural, are maths frustration
+  'אני לא יכול יותר עם האחוזים',
+  'אני לא יכול יותר עם החזקות',
+  'אני לא יכולה יותר עם השבר הזה',
+  'אני לא יכול יותר עם הגאומטריה',
+  'אני לא יכול יותר עם הזוויות',
+  'אני לא יכול יותר עם מספרים מכוונים',
+  'אני לא יכולה יותר עם כל השברים האלה',
+  'אני לא יכול יותר מהשאלה הזאת',
+  'אני לא יכולה יותר עם משפט פיתגורס',
+  'אני לא יכול יותר עם שיטת ההצבה',
 ];
 
 test('every Appendix G phrase that must flag flags, with its category', () => {
@@ -123,6 +169,16 @@ test('maths sentences, algebra vocabulary and maths frustration do not flag', ()
   for (const text of MUST_NOT_FLAG) assert.deepEqual(detectDistress(text), { flag: false, category: null }, text);
   assert.deepEqual(detectDistress(null), { flag: false, category: null });
   assert.deepEqual(detectDistress(undefined), { flag: false, category: null });
+});
+
+test('the maths words are the app\'s own topics and stairs: each name after "עם" is maths frustration', async () => {
+  const { TOPIC_NAMES, STAIR_NAMES } = await import('../../shared/stairs.js');
+  for (const name of [...Object.values(TOPIC_NAMES), ...Object.values(STAIR_NAMES)]) {
+    assert.equal(detectDistress(`אני לא יכול יותר עם ${name}`).flag, false, name);
+  }
+  // ... but only as the object of the complaint: where it happens is not maths frustration
+  assert.equal(detectDistress('אני לא יכול יותר עם מה שקורה בבית').flag, true);
+  assert.equal(detectDistress('אני לא יכול יותר, בבית צועקים כל הזמן').flag, true);
 });
 
 test('maths frustration drops only distress and bullying: self-harm, abuse and danger near a maths word still flag', () => {
@@ -210,7 +266,10 @@ test('maskPersonal: an ID is masked only when it passes the check digit and an I
   assert.equal(validIsraeliId('123456782'), true);
   assert.equal(validIsraeliId('123456789'), false);
   assert.deepEqual(maskPersonal('תעודת זהות 123456782'), { text: 'תעודת זהות [ת״ז]', found: ['id'] });
-  for (const word of ['ת״ז', 'ת"ז', 'תז', 'ת.ז', 'מספר זהות']) assert.equal(maskPersonal(`${word}: 123456782`).text, `${word}: [ת״ז]`, word);
+  for (const word of ['ת״ז', 'ת"ז', 'תז', 'ת.ז', 'מספר זהות', 'מספר הזהות', 'תעודת הזהות', 'id', 'ID', 'id number']) assert.equal(maskPersonal(`${word}: 123456782`).text, `${word}: [ת״ז]`, word);
+  assert.deepEqual(maskPersonal('מספר הזהות שלי הוא 123456782'), { text: 'מספר הזהות שלי הוא [ת״ז]', found: ['id'] });
+  assert.deepEqual(maskPersonal('my id is 123456782'), { text: 'my id is [ת״ז]', found: ['id'] });
+  assert.equal(maskPersonal('the idea is 123456782').found.length, 0, '"id" only as a whole word');
   assert.deepEqual(maskPersonal('123456782 + 1'), { text: '123456782 + 1', found: [] }, 'a maths number with no ID word');
   assert.deepEqual(maskPersonal('ת״ז 123456789'), { text: 'ת״ז 123456789', found: [] }, 'a bad check digit');
   assert.equal(maskPersonal(`תעודת זהות ${'ש'.repeat(25)} 123456782`).text.includes('123456782'), true, 'the ID word is more than 20 characters away');
@@ -218,13 +277,15 @@ test('maskPersonal: an ID is masked only when it passes the check digit and an I
 });
 
 test('maskPersonal: Israeli phones in six formats, and a phone is a phone even in a maths question', () => {
-  for (const p of ['0521234567', '052-1234567', '052-123-4567', '052 123 4567', '+972-52-1234567', '+972521234567', '03-1234567', '972 52 123 4567', '077-1234567']) {
+  for (const p of ['0521234567', '052-1234567', '052-123-4567', '052 123 4567', '+972-52-1234567', '+972521234567', '03-1234567', '972 52 123 4567', '077-1234567',
+    '(054) 123-4567', '054.123.4567', '(03) 123 4567', '+972 (54) 123 4567']) {
     assert.deepEqual(maskPersonal(`תתקשרו ${p} בערב`), { text: 'תתקשרו [טלפון] בערב', found: ['phone'] }, p);
   }
   assert.equal(maskPersonal('x = 0521234567').text, 'x = [טלפון]', 'documented: a phone is a phone');
   assert.equal(maskPersonal('1234567890').found.length, 0, 'not a phone: no 0 or 972 in front');
   assert.equal(maskPersonal('3 + 052').found.length, 0);
   assert.equal(maskPersonal('105201234567').found.length, 0, 'digits right before the number: not a phone');
+  for (const m of ['0.5 + 0.25', '3.1234567', '(0.5)', '0.125 * 8']) assert.equal(maskPersonal(m).found.length, 0, `${m}: a decimal is not a phone`);
 });
 
 test('maskPersonal: emails; several kinds at once in a fixed order; scanPersonal counts them together', () => {
@@ -275,6 +336,11 @@ test('the blocklist: 40-80 terms that block a reply; a care reply that names wha
     assert.deepEqual(screenOutput(`בתשובה: ${t}`), { text: '', blocked: true, linksRemoved: 0 }, t);
   }
   assert.equal(blockHit('WHAT THE FUUUCK'), true, 'case and repeated letters do not hide a word');
+  // the long and brand forms, and words spelled out or starred (the trust review's battery)
+  for (const w of ['פורנוגרפיה', 'אתר פורנוגרפי', 'pornhub', 'xvideos', 'pornstars', 'sexual', 'ס ק ס', 'ס.ק.ס', 'f*ck', 'f**k', 'p*rn', 'ז*ן', 'f-u-c-k']) {
+    assert.equal(blockHit(w), true, w);
+    assert.equal(screenOutput(`בתשובה: ${w}`).blocked, true, w);
+  }
   // a care reply (a child wrote that someone hurt them) must be able to name it; its links are still screened
   const care = 'פגיעה מינית היא אף פעם לא באשמתכם. אם מישהו ניסה לאנוס אתכם, ספרו למבוגר. [עוד](https://evil.example)';
   assert.deepEqual(screenOutput(care, { care: true }), { text: care.replace('[עוד](https://evil.example)', 'עוד'), blocked: false, linksRemoved: 1 });
@@ -285,7 +351,9 @@ test('the blocklist: 40-80 terms that block a reply; a care reply that names wha
 
 test('maths and teaching words are never blocked, nor any text the app itself shows', () => {
   for (const w of ['sextant', 'Essex', 'analysis', 'therapist', 'sussex', 'spice', 'scunthorpe', 'סקאלה', 'מכפלה', 'חזקה', 'שורש', 'ציר',
-    'מזינים את המספר', 'זינוק', 'מקסימום', 'אנליזה', 'כוס מים', 'מזין', 'המפגש', 'שחיטת', 'אונסקו', 'זינה', 'זיונית']) {
+    'מזינים את המספר', 'זינוק', 'מקסימום', 'אנליזה', 'כוס מים', 'מזין', 'המפגש', 'שחיטת', 'אונסקו', 'זינה', 'זיונית',
+    // maths with stars, spaced letters and markdown is never read as a hidden word
+    'a * b', '2*3 = 6', 'x*y', '3*4=12', 'x y z', 'a b c d', 'ש ל ו ם', 'ס ק א ל ה', '**התשובה: 8**', 'x_1 + x_2', 'כ ו ס', '***', 'f***']) {
     assert.equal(blockHit(w), false, w);
   }
   // every string in the app's content (lessons, generators, copy) and the prompts

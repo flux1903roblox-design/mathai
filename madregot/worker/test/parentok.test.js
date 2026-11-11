@@ -65,7 +65,8 @@ test('a child alone gets 403 parent_ok_needed and the status says so: nothing co
   // no device id at all: the same
   assert.equal((await ai(h, 'explain')).status, 403);
   assert.equal(h.net.log.claude.length, 0);
-  assert.equal(rows(h.env, 'SELECT * FROM ai_usage').length, 0, 'no counter moved, not even the free taste\'s');
+  assert.equal(rows(h.env, "SELECT * FROM ai_usage WHERE who NOT LIKE 'evt:%'").length, 0, 'no counter moved, not even the free taste\'s');
+  assert.equal(rows(h.env, "SELECT * FROM ai_usage WHERE who LIKE 'evt:parent_ok_needed:n:%'").length, 1, 'only the safety log\'s own cap, per network');
   assert.deepEqual(events(), [
     { kind: 'parent_ok_needed', surface: 'chat', source: 'server' },
     { kind: 'parent_ok_needed', surface: 'explain', source: 'server' },
@@ -89,7 +90,7 @@ test('a child alone gets 403 parent_ok_needed and the status says so: nothing co
   assert.equal(open.status, 403); assert.equal((await open.json()).error, 'parent_ok_needed');
   const so = await status({ 'X-Device': DEVICE });
   assert.equal(so.body.state, 'parent_ok_needed'); assert.equal(so.body.paywall, false);
-  assert.equal(rows(h.env, 'SELECT * FROM ai_usage').length, 0);
+  assert.equal(rows(h.env, "SELECT * FROM ai_usage WHERE who NOT LIKE 'evt:%'").length, 0);
 });
 
 test('with AI_PARENT_OK = "off" a child alone is served as before; with ALLOW_SOLO_AI = "false" no OK is asked for', async () => {
@@ -225,20 +226,126 @@ test('the parent\'s email at that moment: the AI and privacy summary (E.4), with
   assert.ok(!h.net.log.email.some((m) => m.subject === 'אישרתם את העוזר החכם במכשיר של הילד'));
 });
 
-test('a class student and a teacher are not asked for a parent\'s OK', async () => {
+test('a class student and a teacher with an adult behind the class are not asked for a parent\'s OK', async () => {
   h = await required();
   const cls = await makeClass(h, { students: ['נועה'], studentAi: true });
   const s = await ai(h, 'explain', bearer(cls.students[0]));
   assert.equal(s.status, 200);
+  assert.equal((await status(bearer(cls.students[0]))).body.state, undefined);
+  // the class's teacher: bound to a signed-in email
+  const token = await signIn(h, 'teacher@example.test');
+  assert.equal((await h.call('POST', '/api/teacher/class/owner', { headers: { ...cls.teacher, 'X-Account-Token': token }, body: {} })).status, 200);
   const t = await ai(h, 'explain', cls.teacher);
   assert.equal(t.status, 200);
-  assert.equal((await status(bearer(cls.students[0]))).body.state, undefined);
   assert.equal((await status(cls.teacher)).body.state, undefined);
   // a school class keeps its own answer (the class's rule, not a parent's OK)
   const school = await makeClass(h, { students: ['יואב'] });
   const sc = await ai(h, 'explain', bearer(school.students[0]));
   assert.equal(sc.status, 403); assert.equal((await sc.json()).error, 'class_ai_off');
   assert.equal(rows(h.env, "SELECT * FROM safety_events WHERE kind = 'parent_ok_needed'").length, 0);
+});
+
+test('"אני מורה" is no way round the parent\'s OK: a class opened with no email gives its teacher no tutor until it is bound', async () => {
+  h = await required();
+  const chat = { messages: [{ role: 'user', content: 'איך פותרים?' }], context: { question: '3x + 5 = 11', correct: '2' } };
+  // a child alone is refused ...
+  const alone = await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chat });
+  assert.equal(alone.status, 403);
+  // ... and opening a class with names only (no account) does not change that (the trust review's bypass)
+  const c = await (await h.call('POST', '/api/classes', { body: { className: 'הכיתה שלי', teacherName: 'המורה כהן', grade: '7' } })).json();
+  assert.equal(c.owned, undefined);
+  const teacher = { 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey, 'X-Device': DEVICE };
+  for (let i = 0; i < 3; i++) {
+    const r = await ai(h, 'chat', teacher, { body: chat });
+    assert.equal(r.status, 403);
+    assert.equal((await r.json()).error, 'parent_ok_needed');
+  }
+  assert.equal((await status(teacher)).body.state, 'parent_ok_needed');
+  assert.equal(rows(h.env, "SELECT who FROM ai_usage WHERE who LIKE 'free:%'").length, 0, 'nothing counted, nothing asked');
+  assert.equal(h.net.log.claude.length, 0);
+  // a message that reads as distress still answers at once, with the fixed reply and no AI call
+  const care = await ai(h, 'chat', teacher, { body: { messages: [{ role: 'user', content: 'אני רוצה למות' }] } });
+  assert.equal(care.status, 200);
+  assert.equal((await care.json()).care, true);
+  assert.equal(h.net.log.claude.length, 0);
+  // the teacher signs in and binds the class: now an adult is behind it
+  const token = await signIn(h, 'teacher@example.test');
+  const bind = await h.call('POST', '/api/teacher/class/owner', { headers: { ...teacher, 'X-Account-Token': token }, body: {} });
+  assert.equal(bind.status, 200);
+  assert.deepEqual(await bind.json(), { owner: 'you', email: 'teacher@example.test' });
+  assert.equal((await ai(h, 'chat', teacher, { body: chat })).status, 200);
+  // bound once, it stays with that email: another account cannot take it
+  const other = await signIn(h, 'other@example.test');
+  const steal = await h.call('POST', '/api/teacher/class/owner', { headers: { ...teacher, 'X-Account-Token': other }, body: {} });
+  assert.equal(steal.status, 409);
+  assert.equal((await steal.json()).error, 'owned_by_other');
+  // binding needs the class's key and a session
+  assert.equal((await h.call('POST', '/api/teacher/class/owner', { headers: { 'X-Account-Token': token }, body: {} })).status, 401);
+  assert.equal((await h.call('POST', '/api/teacher/class/owner', { headers: teacher, body: {} })).status, 401);
+});
+
+test('a class opened with a session is bound at once; a class with a licence in force has an adult behind it too', async () => {
+  h = await required();
+  const chat = { messages: [{ role: 'user', content: 'איך פותרים?' }], context: { question: '3 - 8', correct: '-5' } };
+  const token = await signIn(h, 'teacher@example.test');
+  const r = await h.call('POST', '/api/classes', { headers: { 'X-Account-Token': token }, body: { className: 'ז׳2', teacherName: 'רונית', grade: '7' } });
+  const c = await r.json();
+  assert.equal(c.owned, true);
+  assert.deepEqual(rows(h.env, 'SELECT class_code, account_id FROM class_owners').map((x) => ({ ...x })), [{ class_code: c.code, account_id: accountId(h.env, 'teacher@example.test') }]);
+  assert.equal((await ai(h, 'chat', { 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey }, { body: chat })).status, 200);
+  // a session that is not valid opens nothing
+  assert.equal((await h.call('POST', '/api/classes', { headers: { 'X-Account-Token': 'nope' }, body: { className: 'ז׳4', teacherName: 'רונית' } })).status, 401);
+  // a licence (or a trial the owner approved): an adult paid or the owner agreed
+  const lic = await makeClass(h);
+  assert.equal((await ai(h, 'chat', lic.teacher, { body: chat })).status, 403);
+  insertSub(h.env, { kind: 'class', class_code: lic.code });
+  assert.equal((await ai(h, 'chat', lic.teacher, { body: chat })).status, 200);
+  // deleting the account lets go of the class: its teacher is asked again
+  const a = accountId(h.env, 'teacher@example.test');
+  const { forgetAccount } = await import('../src/billing.js');
+  await forgetAccount(h.env, a, { actor: 'owner:cli' });
+  assert.equal(rows(h.env, 'SELECT * FROM class_owners').length, 0);
+});
+
+// The two lanes together (the school's TEACHER-1 account credential, the trust review's TRUST-9 rule): a teacher who
+// opens the class with the owner's email session and no key at all is the adult behind it.
+test('a teacher who opens an owned class with the email session alone (no key) has the tutor; another account\'s session opens nothing', async () => {
+  h = await required();
+  const chat = { messages: [{ role: 'user', content: 'איך פותרים?' }], context: { question: '3 - 8', correct: '-5' } };
+  const token = await signIn(h, 'teacher@example.test');
+  const c = await (await h.call('POST', '/api/classes', { headers: { 'X-Account-Token': token }, body: { className: 'ז׳2', teacherName: 'רונית', grade: '7' } })).json();
+  assert.equal(c.owned, true);
+  const bySession = { 'X-Class-Code': c.code, 'X-Account-Token': token };
+  assert.equal((await ai(h, 'chat', bySession, { body: chat })).status, 200);
+  assert.equal((await status(bySession)).body.state, undefined);
+  // a session of an account that does not own the class is no teacher of it
+  const other = await signIn(h, 'other@example.test');
+  assert.equal((await ai(h, 'chat', { 'X-Class-Code': c.code, 'X-Account-Token': other }, { body: chat })).status, 401);
+  assert.equal(rows(h.env, "SELECT * FROM safety_events WHERE kind = 'parent_ok_needed'").length, 0);
+});
+
+test('a student whose class has the tutor off gets no tutor by opening a class of their own', async () => {
+  h = await required();
+  const school = await makeClass(h, { students: ['יואב'] });
+  const yoav = bearer(school.students[0]);
+  assert.equal((await ai(h, 'explain', yoav)).status, 403);
+  const c = await (await h.call('POST', '/api/classes', { headers: yoav, body: { className: 'שלי', teacherName: 'יואב' } })).json();
+  const r = await ai(h, 'explain', { 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey });
+  assert.equal(r.status, 403);
+  assert.equal((await r.json()).error, 'parent_ok_needed');
+});
+
+test('with AI_PARENT_OK = "off" a teacher key is enough again (the one-variable rollback)', async () => {
+  h = await setup({ AI_PARENT_OK: 'off' });
+  const cls = await makeClass(h);
+  assert.equal((await ai(h, 'explain', cls.teacher)).status, 200);
+  h.done();
+  // ... and with ALLOW_SOLO_AI = "false" and the OK required, a teacher of an unbound class is alone: solo_ai_off
+  h = await required({ ALLOW_SOLO_AI: 'false' });
+  const c2 = await makeClass(h);
+  const r = await ai(h, 'explain', c2.teacher);
+  assert.equal(r.status, 403);
+  assert.equal((await r.json()).error, 'solo_ai_off');
 });
 
 test('the owner\'s daily summary counts yesterday\'s requests that waited for a parent\'s OK', async () => {
@@ -252,5 +359,5 @@ test('the owner\'s daily summary counts yesterday\'s requests that waited for a 
   const p = JSON.parse(one(h.env, 'SELECT params FROM notices WHERE kind = ?', `owner:summary:${y}`).params);
   assert.equal(p.parentOkNeeded, 3);
   const mail = h.net.log.email.find((m) => m.subject.startsWith(`[מדרגות] סיכום יומי ${y}`));
-  assert.match(mail.text, /בקשות לעוזר ממכשירים שמחכים לאישור של הורה: 3/);
+  assert.match(mail.text, /רשתות שמהן ילדים ביקשו את העוזר ומחכים לאישור של הורה: 3/);
 });
