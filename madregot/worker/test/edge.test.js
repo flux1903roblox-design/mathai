@@ -1,11 +1,12 @@
 // The edge rate limit (DURABLE-16, src/edge.js) with a stub of Cloudflare's binding: sign-in, verify, class lookup,
-// join and new devices count per network (IPv6 by its /48); the AI routes per caller, so two devices behind one school
-// address are counted apart; over the limit is 429 slow_down with Retry-After: 60; with no binding nothing is checked
-// and the D1 counters (counters.test.js) still hold.
+// join and new devices count per network (IPv6 by its /48); the AI routes per checked caller (COUNCIL2-11), so two class
+// students behind one school address are counted apart and a made-up device id counts the network; over the limit is
+// 429 slow_down with Retry-After: 60; with no binding nothing is checked and the D1 counters (counters.test.js) still
+// hold.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { edgeLimit, AUTH_ROUTES } from '../src/edge.js';
-import { setup } from './helpers.js';
+import { setup, makeClass, bearer } from './helpers.js';
 
 let h;
 afterEach(() => { h?.done(); h = null; });
@@ -55,20 +56,24 @@ test('every guarded route goes through RL_AUTH: code, verify, class lookup, join
   assert.notEqual((await h.call('POST', '/api/classes', { body: { className: 'ז׳3', teacherName: 'רונית', grade: '7' } })).status, 429);
 });
 
-test('the AI limiter keys by caller: two devices behind one school network are limited apart; no credential counts the network', async () => {
+test('the AI limiter keys by checked caller: two class students behind one school network are limited apart; a made-up device id counts the network', async () => {
   const RL_AI = stubLimiter(1);
-  h = await setup({ RL_AI });
-  const ask = (device) => h.call('POST', '/api/ai/explain', { ip: '192.0.2.10', headers: device ? { 'X-Device': device } : {}, body: { question: '1+1' } });
-  assert.notEqual((await ask('a'.repeat(32))).status, 429);
-  assert.notEqual((await ask('b'.repeat(32))).status, 429, 'another device on the same network');
-  const again = await ask('a'.repeat(32));
+  h = await setup({ RL_AI, AI_PAYWALL: 'off' });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה', 'איתי'] });
+  const ask = (headers) => h.call('POST', '/api/ai/explain', { ip: '192.0.2.10', headers, body: { question: '1+1' } });
+  assert.notEqual((await ask(bearer(cls.students[0]))).status, 429);
+  assert.notEqual((await ask(bearer(cls.students[1]))).status, 429, 'another student on the same network');
+  const again = await ask(bearer(cls.students[0]));
   assert.equal(again.status, 429);
   assert.equal((await again.json()).error, 'slow_down');
   const keys = [...RL_AI.seen.keys()];
   assert.equal(keys.length, 2);
-  for (const k of keys) { assert.match(k, /^c:[0-9a-f]{32}$/); assert.ok(!k.includes('aaaa')); }
-  assert.notEqual((await ask(null)).status, 429);
-  assert.ok([...RL_AI.seen.keys()].some((k) => /^n:[0-9a-f]{16}$/.test(k)), 'no credential: the network');
+  for (const k of keys) { assert.match(k, /^c:[0-9a-f]{32}$/); assert.ok(!k.includes(cls.students[0].token.slice(0, 12))); }
+  // an X-Device the server never minted is no credential: the first takes the network's one request, the next is over
+  assert.notEqual((await ask({ 'X-Device': 'a'.repeat(32) })).status, 429);
+  assert.equal((await ask({ 'X-Device': 'b'.repeat(32) })).status, 429, 'a different made-up id is the same network');
+  assert.equal((await ask(null)).status, 429, 'no credential: the network');
+  assert.equal([...RL_AI.seen.keys()].filter((k) => /^n:[0-9a-f]{16}$/.test(k)).length, 1);
 });
 
 test('no binding: 50 requests pass the edge, and only the D1 caps apply', async () => {

@@ -42,6 +42,7 @@ import { skillId, parseSkill, BRIDGE_SKILLS } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
+import { CHECK_IMAGE_MAX } from '@shared/ai.js';
 
 /** True while a media query matches (and follows it as the window changes). */
 function useMedia(query) {
@@ -514,7 +515,8 @@ export default function Lesson() {
     const g = gate('check', { onMadi: askMadi, then: checkWork });
     if (g === 'locked' || g === 'economy') { setNbCheck({ state: 'locked', kind: g }); return; }
     if (g) return;
-    const image = nbRef.current?.toImage();
+    // at most the server's limit for a check's photo (shared/ai.js CHECK_IMAGE_MAX): a tall page is encoded smaller
+    const image = nbRef.current?.toImage({ max: CHECK_IMAGE_MAX });
     if (!image) { setNbCheck({ state: 'error', message: 'כתבו קודם את הדרך במחברת.' }); return; }
     setNbCheck({ state: 'loading' });
     const ctx = tutorCtx(s, last, 'notebook');

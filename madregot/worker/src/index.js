@@ -2,7 +2,7 @@
 // (entitlement, sign-in by email code, family devices, class licences, checkout and payments, cancellation).
 // The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare, answerGuard, generateVerified } from '../../shared/ai.js';
+import { AI_KINDS, AI_BODY_MAX, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare, answerGuard, generateVerified } from '../../shared/ai.js';
 import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
 import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
@@ -10,7 +10,7 @@ import {
   limitOrThrow, hmacHex, cleanName,
 } from './util.js';
 import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
-import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
+import { resolve, precheck, counted, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
 import { recordSafety, eventNet } from './safety.js';
 import { recordSpend } from './spend.js';
 import { bumpQuality } from './quality.js';
@@ -61,10 +61,15 @@ function corsHeaders(req, env) {
   };
 }
 
-// Body limits, checked before JSON.parse (413 too_large above them).
+// Body limits, checked before JSON.parse (413 too_large above them). The AI kinds' caps are shared/ai.js AI_BODY_MAX
+// (COUNCIL2-17: exam 12 MiB, check 4 MiB, sized to what the app sends).
 const KB = 1024;
-const AI_BODY_MAX = { chat: 32 * KB, explain: 32 * KB, generate: 16 * KB, check: 8 * KB * KB, exam: 100 * KB * KB, feedback: 8_000 };
 const LIMIT = { small: 4 * KB, help: 700 * KB, progress: 256 * KB, exams: 64 * KB };
+/**
+ * The photo kinds: their bodies are megabytes, so who is asking and whether they may is decided before the body is read
+ * (precheck), and a caller who would be refused never makes the Worker read it (COUNCIL2-11).
+ */
+const PHOTO_KINDS = new Set(['check', 'exam']);
 
 // ---------- secrets ----------
 async function hashPin(pin) {
@@ -133,21 +138,29 @@ function lastUser(messages) {
 }
 
 /**
- * The free text a child writes to the AI in this request, read for distress before anything else (trust spec TRUST-3
- * §3.4): the newest chat message, and a challenge explanation sent for feedback (ai spec AI-10 Design 2).
+ * The free text a child writes to the AI in this request, read for distress (trust spec TRUST-3 §3.4): the newest chat
+ * message, a challenge explanation sent for feedback (ai spec AI-10 Design 2), and the question typed beside the photo
+ * of a check (read after the photo, COUNCIL2-17). An exam carries no typed text.
  */
 function freeText(kind, input) {
   if (kind === 'chat') return lastUser(input.messages);
   if (kind === 'feedback') return typeof input.text === 'string' ? input.text.slice(0, 4000) : '';
+  if (kind === 'check') return typeof input.question === 'string' ? input.question.slice(0, 4000) : '';
   return '';
 }
+
+/**
+ * A care reply as the kind's screen reads it: { text, care: true }, and for a photo kind also the shape of an unreadable
+ * check (readable: false, the text as its summary), so the check screens show the words beside the support card.
+ */
+const careBody = (kind, text) => (PHOTO_KINDS.has(kind) ? { text, care: true, readable: false, summary: text } : { text, care: true });
 
 /** The fixed care reply, with no AI call: JSON, or for a streamed chat the same text followed by the care marker. */
 function careStaticReply(kind, input, cors, headers) {
   if (kind === 'chat' && input.stream) {
     return new Response(`${CARE_STATIC}\n${CARE_MARK}`, { headers: { ...cors, ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
-  return json({ text: CARE_STATIC, care: true }, 200, cors, headers);
+  return json(careBody(kind, CARE_STATIC), 200, cors, headers);
 }
 
 /** What a child typed that this request sends to the AI for the first time: the newest chat message, or a typed answer. */
@@ -236,15 +249,34 @@ function wordStart(text, i) {
 
 async function handleAI(kind, req, env, ctx, cors) {
   if (!AI_KINDS.includes(kind)) throw new HttpError(404, 'not_found');
-  // Distress first (trust spec TRUST-3 §3.4): the body is read and checked before anything can refuse, so a child who
-  // writes that they are in distress gets an answer even when the server has no AI key, the day's questions are used
-  // up, or the plan does not cover the AI. That answer is never counted against a question.
-  const input = await body(req, AI_BODY_MAX[kind]);
-  // a PDF never reaches Claude, and nothing is counted for it
-  if (sendsPdf(kind, input)) throw new HttpError(400, 'pdf_not_allowed');
-  const hit = detectDistress(freeText(kind, input));
-  if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
-  const r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
+  const max = AI_BODY_MAX[kind];
+  // a declared length over the kind's cap is refused before anything else (COUNCIL2-17); rawBody also stops reading
+  // the moment a body without one passes the cap
+  const declared = req.headers.has('Content-Length') ? Number(req.headers.get('Content-Length')) : NaN;
+  if (Number.isFinite(declared) && declared > max) throw new HttpError(413, 'too_large');
+  let input; let hit; let r;
+  if (PHOTO_KINDS.has(kind)) {
+    // A photo kind (check, exam): the caller is checked before the body is read (COUNCIL2-11): no AI key, an invalid
+    // credential, the class's rule, the parent's OK, paid_only or solo off are each refused with the photos unread, and
+    // nothing is counted. The counters are taken only after the read. The question typed beside a check's photo is
+    // still read for distress, and a hit gets the care answer (never counted), as in the text kinds.
+    if (!env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
+    const pre = await precheck(req, env, kind);
+    input = await body(req, max);
+    // a PDF never reaches Claude, and nothing is counted for it
+    if (sendsPdf(kind, input)) throw new HttpError(400, 'pdf_not_allowed');
+    hit = detectDistress(freeText(kind, input));
+    r = hit.flag ? await resolveCare(req, env, kind, input) : await counted(pre, env, kind, input);
+  } else {
+    // A text kind (chat, explain, generate, feedback; at most 32 KB): distress first (trust spec TRUST-3 §3.4). The body
+    // is read and checked before anything can refuse, so a child who writes that they are in distress gets an answer
+    // even when the server has no AI key, the day's questions are used up, or the plan does not cover the AI. That
+    // answer is never counted against a question.
+    input = await body(req, max);
+    hit = detectDistress(freeText(kind, input));
+    if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
+    r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
+  }
   const careTier = r.tier === 'care';
   // every safety row of this request is capped per network and kind (src/safety.js EVENTS_PER_NET)
   const logged = { net: eventNet(req, env) };
@@ -473,7 +505,7 @@ async function handleAI(kind, req, env, ctx, cors) {
   }
   if (checkedOut.linksRemoved) event('link_removed');
   result = checkedOut.data;
-  if (careTier) return json({ ...result, care: true }, 200, cors, headers);
+  if (careTier) return json(PHOTO_KINDS.has(kind) ? careBody(kind, result?.text) : { ...result, care: true }, 200, cors, headers);
   // The final-answer guard on a whole reply (ai spec AI-3 Design 3): a leaked answer masked in explain and chat (with
   // MASK_NOTE), and a check withheld (comments and summary masked, no mark on the line with the final value). It runs
   // after the blocklist, on what the child would see; a care reply is never touched.

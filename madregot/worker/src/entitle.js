@@ -399,21 +399,47 @@ async function openKey(req, env, id, { strict = false } = {}) {
  * Decide the tier for one AI request and count it. Returns
  * { tier, pool, group, shape, params, input, refund (keys to give back on failure), left, limit, economy, linkedBad }.
  * Throws the refusal as an HttpError (with X-AI-Linked: 0 when a family-device token was sent but is no longer valid).
+ * The same as precheck() then counted(): the small text kinds read their body first (distress is checked before any
+ * refusal), so both halves run here together.
  */
 export async function resolve(req, env, kind, input) {
+  return counted(await precheck(req, env, kind), env, kind, input);
+}
+
+/**
+ * The half of resolve() that needs no body (COUNCIL2-17): who is asking (an invalid teacher credential is 401 here),
+ * the class's AI rule, the parent's OK, and whether any tier could serve this kind at all (paid_only, solo_ai_off, a
+ * paused pool, fair use). Nothing is counted. handleAI runs it before reading the body of a photo kind (check, exam), so
+ * a caller who would be refused is refused before megabytes are read. → { id, plan } for counted().
+ */
+export async function precheck(req, env, kind) {
   const id = await identify(req, env);
   try {
-    // input: what the request was built from (a teacher's text masked), for a kind that sends more than one request
-    const sent = id.teacher ? maskFields(input) : input;
-    return { ...(await decide(req, env, kind, sent, id)), input: sent, linkedBad: id.famBad, linked: id.fam };
+    return { id, plan: await planFor(req, env, kind, id) };
   } catch (e) {
-    if (e instanceof HttpError && id.famBad) e.headers = { ...(e.headers || {}), 'X-AI-Linked': '0' };
-    throw e;
+    throw linkedHeader(e, id);
   }
 }
 
-async function decide(req, env, kind, input, id) {
-  const g = KIND_GROUP[kind];
+/** The counted half: the request built from the body, then the counters taken (util.js take()). → resolve()'s result. */
+export async function counted(pre, env, kind, input) {
+  const { id, plan } = pre;
+  try {
+    // input: what the request was built from (a teacher's text masked), for a kind that sends more than one request
+    const sent = id.teacher ? maskFields(input) : input;
+    return { ...(await takePlan(env, kind, sent, plan)), input: sent, linkedBad: id.famBad, linked: id.fam };
+  } catch (e) {
+    throw linkedHeader(e, id);
+  }
+}
+
+const linkedHeader = (e, id) => {
+  if (e instanceof HttpError && id.famBad) e.headers = { ...(e.headers || {}), 'X-AI-Linked': '0' };
+  return e;
+};
+
+/** Every refusal that needs no body, in the order the rules apply; the plan of what counted() will take. */
+async function planFor(req, env, kind, id) {
   const code = id.student?.class_code;
   if (classGate(env, id) === 'off') {
     // counted with no person and no text (trust spec TRUST-4 §4.4), at most EVENTS_PER_NET a day from one network, and
@@ -428,25 +454,49 @@ async function decide(req, env, kind, input, id) {
     await recordSafety(env, { kind: 'parent_ok_needed', surface: kind, source: 'server' }, null, { net: eventNet(req, env) });
     throw new HttpError(403, 'parent_ok_needed');
   }
-  if (!paywallOn(env)) {
-    const k = await openKey(req, env, id, { strict: true });
+  if (!paywallOn(env)) return { mode: 'open', key: await openKey(req, env, id, { strict: true }) };
+
+  const buckets = await paidBuckets(env, id);
+  if (buckets.length) {
+    // what each bucket can say without a body: the kind is not in it, its pool is paused, or it is in economy mode and
+    // the kind is not one economy answers
+    const fails = []; const usable = [];
+    for (const b of buckets) {
+      if (!b.kinds.includes(kind)) fails.push(paidOnlyErr(kind));
+      else if (b.paused) fails.push(pausedErr());
+      else if (b.economy && !FREE_KINDS.includes(kind)) fails.push(fairUseErr());
+      else usable.push(b);
+    }
+    if (!usable.length) throw best(fails);
+    return { mode: 'paid', buckets: usable, fails };
+  }
+
+  // ---- the free taste
+  if (!FREE_KINDS.includes(kind)) throw paidOnlyErr(kind);
+  // a teacher of a class with no adult behind it is alone here too (TRUST-9): no tutor when solo is off
+  if (alone(env, id) && soloOff(env)) throw new HttpError(403, 'solo_ai_off');
+  if ((await daySpendUsd(env, 'free')) >= limits(env).budgets.freeDailyUsd) {
+    const day = dayOf();
+    await queueNotices(env, [ownerNotice(day, `owner:free_paused:${day}`, { day })]);
+    throw pausedErr();
+  }
+  return { mode: 'free', keys: (await freeKeys(req, env, id)).keys };
+}
+
+/** Build the request from the body, then take the plan's counters, all or nothing. */
+async function takePlan(env, kind, input, plan) {
+  const g = KIND_GROUP[kind];
+  if (plan.mode === 'open') {
+    const k = plan.key;
     const p = params(env, kind, input, 'full');
     const r = await take(env, [k]);
     if (!r.ok) throw r.error;
     return { tier: 'open', pool: 'open', group: 'all', shape: 'full', params: p, refund: [k], left: k.limit - r.counts[0], limit: k.limit, economy: false };
   }
-
-  const buckets = await paidBuckets(env, id);
-  if (buckets.length) {
-    const fails = [];
-    for (const b of buckets) {
-      if (!b.kinds.includes(kind)) { fails.push(paidOnlyErr(kind)); continue; }
-      if (b.paused) { fails.push(pausedErr()); continue; }
-      let shape = 'full';
-      if (b.economy) {
-        if (!FREE_KINDS.includes(kind)) { fails.push(fairUseErr()); continue; }
-        shape = 'economy';
-      }
+  if (plan.mode === 'paid') {
+    const fails = [...plan.fails];
+    for (const b of plan.buckets) {
+      const shape = b.economy ? 'economy' : 'full';
       const p = params(env, kind, input, shape);
       const keys = b.keysFor(kind);
       const r = await take(env, keys);
@@ -460,20 +510,9 @@ async function decide(req, env, kind, input, id) {
     }
     throw best(fails);
   }
-
-  // ---- the free taste
-  if (!FREE_KINDS.includes(kind)) throw paidOnlyErr(kind);
-  // a teacher of a class with no adult behind it is alone here too (TRUST-9): no tutor when solo is off
-  if (alone(env, id) && soloOff(env)) throw new HttpError(403, 'solo_ai_off');
-  if ((await daySpendUsd(env, 'free')) >= limits(env).budgets.freeDailyUsd) {
-    const day = dayOf();
-    await queueNotices(env, [ownerNotice(day, `owner:free_paused:${day}`, { day })]);
-    throw pausedErr();
-  }
-  const { keys } = await freeKeys(req, env, id);
+  const { keys } = plan;
   const p = params(env, kind, input, 'lite');
-  const list = [keys.person, keys.tries, keys.net, keys.cls, keys.all];
-  const r = await take(env, list);
+  const r = await take(env, [keys.person, keys.tries, keys.net, keys.cls, keys.all]);
   if (!r.ok) throw r.error;
   return { tier: 'free', pool: 'free', group: 'tutor', shape: 'lite', params: p, refund: [keys.person], left: keys.person.limit - r.counts[0], limit: keys.person.limit, economy: false };
 }

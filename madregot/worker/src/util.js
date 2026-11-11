@@ -69,23 +69,39 @@ export class HttpError extends Error {
   }
 }
 
-/** Read the raw body, at most `max` bytes: the declared length first, then a capped read. Else 413 too_large. */
+/**
+ * Read the raw body, at most `max` bytes. Else 413 too_large: on the declared Content-Length before anything is read,
+ * or the moment the bytes read pass `max` (the rest is never pulled). One buffer holds the bytes, sized to the declared
+ * length (grown by doubling, up to `max`, when there is none or it was short), then decoded once: no list of chunks
+ * beside a joined copy.
+ */
 export async function rawBody(req, max) {
-  const declared = Number(req.headers.get('Content-Length'));
-  if (Number.isFinite(declared) && declared > max) throw new HttpError(413, 'too_large');
+  const declared = req.headers.has('Content-Length') ? Number(req.headers.get('Content-Length')) : NaN;
+  const known = Number.isInteger(declared) && declared >= 0;
+  if (known && declared > max) throw new HttpError(413, 'too_large');
   if (!req.body) return '';
   const reader = req.body.getReader();
-  const chunks = []; let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > max) { try { await reader.cancel(); } catch { /* the body is dropped either way */ } throw new HttpError(413, 'too_large'); }
-    chunks.push(value);
+  let buf = new Uint8Array(known ? declared : Math.min(max, 64 * 1024));
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const end = size + value.byteLength;
+      if (end > max) throw new HttpError(413, 'too_large');
+      if (end > buf.byteLength) {
+        const grown = new Uint8Array(Math.min(max, Math.max(end, buf.byteLength * 2)));
+        grown.set(buf.subarray(0, size));
+        buf = grown;
+      }
+      buf.set(value, size);
+      size = end;
+    }
+  } catch (e) {
+    try { await reader.cancel(); } catch { /* the body is dropped either way */ }
+    throw e;
   }
-  const all = new Uint8Array(size); let at = 0;
-  for (const c of chunks) { all.set(c, at); at += c.byteLength; }
-  return new TextDecoder().decode(all);
+  return new TextDecoder().decode(buf.subarray(0, size));
 }
 
 /** A JSON body of at most `max` bytes (default 4 KB), checked before JSON.parse. */

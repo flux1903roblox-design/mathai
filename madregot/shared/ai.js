@@ -20,6 +20,20 @@ export const AI_KINDS = ['explain', 'chat', 'generate', 'check', 'exam', 'feedba
 export const TOPIC_IDS = Object.freeze([...Object.keys(TOPIC_NAMES), 'other']);
 export const MAX_EXAM_PAGES = 8;
 
+// Request sizes (COUNCIL2-11, COUNCIL2-17). The Worker refuses a body over its kind's cap with 413 too_large: on the
+// declared length before anything is read, and while reading otherwise (worker/src/util.js rawBody). The photo kinds are
+// sized to what the app sends: an exam of MAX_EXAM_PAGES pages of at most EXAM_PAGE_MAX characters each (PhotoPrep
+// encodes a page smaller until it fits), and a check of one photo of at most CHECK_IMAGE_MAX, each with room left for
+// the rest of the request. Anthropic refuses a request over 32 MB in any case.
+const KiB = 1024;
+const MiB = 1024 * KiB;
+/** The most a request body of each kind may be, in bytes. */
+export const AI_BODY_MAX = Object.freeze({ chat: 32 * KiB, explain: 32 * KiB, generate: 16 * KiB, check: 4 * MiB, exam: 12 * MiB, feedback: 8_000 });
+/** The most one exam page may be, as a data URL or base64 (characters, one byte each). */
+export const EXAM_PAGE_MAX = 1_450_000;
+/** The most the photo of a check may be, as a data URL or base64. */
+export const CHECK_IMAGE_MAX = 3_600_000;
+
 // The stable first block of every tutor request (ai spec AI-2, AI-5, AI-6): the safety block first (trust spec TRUST-3),
 // then the tutor, the pedagogy, the stair map and the topic ways (shared/pedagogy.js). The same bytes for every kind,
 // shape, context and user on a model, so it is the prompt-cache prefix (cache_control on this block).
@@ -509,8 +523,9 @@ export function buildCare(input = {}, { model } = {}) {
     .map((m) => ({ role: m.role, content: own(m.content, 2000) }));
   while (history.length && history[0].role !== 'user') history.shift();
   if (!history.length) {
-    // an explain's typed answer, a help note, or a challenge explanation sent for feedback (ai spec AI-10)
-    const said = [input.studentAnswer, input.note, input.text].filter((x) => typeof x === 'string' && x.trim()).map((x) => own(x, 2000)).join('\n');
+    // an explain's typed answer, a help note, a challenge explanation sent for feedback (ai spec AI-10), or the
+    // question typed beside a check's photo (the photo itself never goes into a care request)
+    const said = [input.studentAnswer, input.note, input.text, input.question].filter((x) => typeof x === 'string' && x.trim()).map((x) => own(x, 2000)).join('\n');
     if (!said) throw new Error('care needs a student message');
     history = [{ role: 'user', content: said }];
   }
@@ -605,7 +620,7 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     const data = String(input.image || '').replace(/^data:[^,]+,/, '');
     const media = /^image\/(png|jpeg|webp|gif)$/.test(input.mediaType) ? input.mediaType : 'image/jpeg';
     if (!data) throw new Error('check needs an image');
-    if (data.length > 7_000_000) throw new Error('image too large');
+    if (data.length > CHECK_IMAGE_MAX) throw new Error('image too large');
     const { text, ctx, v2 } = appContext();
     // the question typed next to the photo is the student's own words (masked, in their turn); an older lesson sent the
     // exercise on screen in the same field, which the app context already carries
@@ -628,7 +643,8 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     if (!pages.length) throw new Error('exam needs at least one page');
     const blocks = pages.map((pg) => {
       const data = String(pg.data || '').replace(/^data:[^,]+,/, '');
-      if (!data || data.length > 12_000_000) throw new Error('page missing or too large');
+      // MAX_EXAM_PAGES of these fit under AI_BODY_MAX.exam with room for the rest of the request
+      if (!data || data.length > EXAM_PAGE_MAX) throw new Error('page missing or too large');
       if (pg.mediaType === 'application/pdf') return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } };
       const media = /^image\/(png|jpeg|webp|gif)$/.test(pg.mediaType) ? pg.mediaType : 'image/jpeg';
       return { type: 'image', source: { type: 'base64', media_type: media, data } };

@@ -4,7 +4,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { prepImage, fitSize, keepBox, EXAM_HEADER, CUT_MAX, PREP_COPY } from './PhotoPrep.jsx';
+import { prepImage, fitSize, keepBox, fitPage, EXAM_HEADER, CUT_MAX, PREP_COPY, PREP_MAX, PREP_QUALITY, PREP_TRIES, PREP_DATA_MAX } from './PhotoPrep.jsx';
+import { AI_BODY_MAX, EXAM_PAGE_MAX, CHECK_IMAGE_MAX, MAX_EXAM_PAGES } from '@shared/ai.js';
+import { TOPICS } from '@/content/index.js';
 import { PHOTO_WARN, PHOTO_WARNED, photoWarned, PhotoWarn } from './PhotoWarn.jsx';
 
 function picture(W = 100, H = 100) {
@@ -112,5 +114,52 @@ describe('the warning before the camera', () => {
     expect(photoWarned()).toBe(true);
     globalThis.sessionStorage = { getItem() { throw new Error('blocked'); } };
     expect(photoWarned()).toBe(false); // blocked storage: the warning simply comes again
+  });
+});
+
+// ---- the largest exam the app can send fits the server's cap (COUNCIL2-17)
+describe('the largest output: 8 pages of 1800 px at q0.85 fit the exam\'s request cap', () => {
+  const PREFIX = 'data:image/jpeg;base64,';
+  // a stand-in for canvas.toDataURL at a scale and quality: `bytes(scale, quality)` JPEG bytes, as base64
+  const encoder = (bytes) => (scale, quality) => PREFIX + 'A'.repeat(Math.ceil(bytes(scale, quality) / 3) * 4);
+  // the most a page can be: the picture unpacked (3 bytes a pixel) at the long side PREP_MAX, square, at every quality
+  const unpacked = (scale) => (PREP_MAX * scale) ** 2 * 3;
+
+  it('the usual page is sent as before: 1800 px at q0.85 first, and only a page over the limit is encoded smaller', () => {
+    expect(PREP_MAX).toBe(1800);
+    expect(PREP_QUALITY).toBe(0.85);
+    expect(PREP_TRIES[0]).toEqual([1, PREP_QUALITY]);
+    expect(PREP_DATA_MAX).toBe(EXAM_PAGE_MAX);
+    // a photo of a page at 1800 px, q0.85, about 700 KB: kept as it is
+    const calls = [];
+    const page = fitPage((s, q) => { calls.push([s, q]); return encoder(() => 700_000)(s, q); });
+    expect(calls).toEqual([[1, 0.85]]);
+    expect(page.length).toBeLessThanOrEqual(PREP_DATA_MAX);
+  });
+
+  it('whatever the page shows, the output is at most PREP_DATA_MAX: the last step fits even unpacked', () => {
+    const [lastScale] = PREP_TRIES.at(-1);
+    expect(PREFIX.length + Math.ceil(unpacked(lastScale) / 3) * 4).toBeLessThanOrEqual(PREP_DATA_MAX);
+    // the worst encoder there is (no compression at all): a page still comes back, within the limit
+    const worst = fitPage(encoder((s) => unpacked(s)));
+    expect(worst).not.toBeNull();
+    expect(worst.length).toBeLessThanOrEqual(PREP_DATA_MAX);
+    // a noisy photo at 1.6 MB at q0.85 (bigger than any page of handwriting): a smaller try is taken, not the full one
+    const noisy = fitPage(encoder((s, q) => 1_600_000 * s * s * (q / 0.85)));
+    expect(noisy.length).toBeLessThanOrEqual(PREP_DATA_MAX);
+  });
+
+  it('eight of the largest pages, with the grade\'s topics, a full key and the prep counts, are under AI_BODY_MAX.exam', () => {
+    // the largest page PhotoPrep can hand over (the tests above: never more than PREP_DATA_MAX)
+    const largest = PREFIX + 'A'.repeat(PREP_DATA_MAX - PREFIX.length);
+    const topics = TOPICS.map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
+    const key = Array.from({ length: 40 }, () => ({ prompt: 'פתרו את המשוואה $3(x - 4) + 2 = 5x - 10$ וכתבו את הדרך.', answer: '-2' }));
+    const body = JSON.stringify({ grade: '8', pages: Array.from({ length: MAX_EXAM_PAGES }, () => ({ data: largest, mediaType: 'image/jpeg' })), topics, prep: { crop: true, boxes: 40 }, key });
+    const bytes = new TextEncoder().encode(body).length;
+    expect(MAX_EXAM_PAGES).toBe(8);
+    expect(bytes).toBeLessThanOrEqual(AI_BODY_MAX.exam);
+    // and the photo check of one prepared page fits its own cap with room for the app's context
+    expect(PREP_DATA_MAX + 256 * 1024).toBeLessThanOrEqual(CHECK_IMAGE_MAX);
+    expect(CHECK_IMAGE_MAX + 256 * 1024).toBeLessThanOrEqual(AI_BODY_MAX.check);
   });
 });
