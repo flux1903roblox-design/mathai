@@ -18,6 +18,9 @@ import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
 import { axisName, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, figNum } from '@/content/manip.js';
 // @ts-ignore: plain JS
 import { graphFrame, numWidth, numbered, GRAPH_FONT } from '@/components/manip/graphAxes.jsx';
+// @ts-ignore: plain JS
+import { protractorLabels } from '@/components/manip/protractor.jsx';
+import { protractorFig, clockFig } from './content/geo';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -195,6 +198,9 @@ function labelsOf(f: AnyFig): Set<string> {
       case 'table': return [...f.head, ...f.rows.flat()];
       // a situation graph writes its axes' names, its series' and points' names, the numbers of its rise and run, and the
       // direction arrow's words (not the numbers along its axes)
+      // a protractor's numbers are its scales (like an axis's): it writes its letters; a clock writes only its hours
+      case 'protractor': return f.letters ? [f.letters.vertex, f.letters.a, f.letters.b] : [];
+      case 'clock': return [];
       case 'sgraph': {
         const rr = sgraphRiseRun(f);
         return [axisName(f.x), axisName(f.y), ...(f.series || []).map((s: any) => s.label), ...(f.marks || []).map((k: any) => k.label),
@@ -257,6 +263,18 @@ function selfProblems(skill: string, f: AnyFig): string[] {
     }
   }
   if (f.type === 'sgraph') bad.push(...sgraphProblems(f));
+  if (f.type === 'protractor') {
+    const [a, b] = f.arms || [];
+    const five = (v: number) => Number.isInteger(v) && v % 5 === 0;
+    if (![a, b].every((v) => five(v) && v >= 0 && v <= 180)) bad.push(`protractor arms ${a}, ${b}: each a multiple of 5 from 0 to 180`);
+    else if (Math.abs(a - b) < 15) bad.push(`protractor arms ${a}, ${b} are less than 15° apart`);
+    if (!Number.isInteger((f.base || 0) / 15)) bad.push(`protractor turned ${f.base}°: not a multiple of 15`);
+    if (f.letters && ![f.letters.vertex, f.letters.a, f.letters.b].every((l: string) => /^[A-Z]$/.test(l))) bad.push('protractor letters are not capital letters');
+    // on a 320px phone (288px drawn) its numbers never touch
+    const L = protractorLabels({ drawn: 288, base: f.base || 0, arms: [a, b] });
+    L.forEach((p: any, i: number) => L.slice(i + 1).forEach((q: any) => { if (!(p.box[2] <= q.box[0] || q.box[2] <= p.box[0] || p.box[3] <= q.box[1] || q.box[3] <= p.box[1])) bad.push(`protractor numbers ${p.text} and ${q.text} touch`); }));
+  }
+  if (f.type === 'clock' && !(Number.isInteger(f.h) && f.h >= 1 && f.h <= 12 && Number.isInteger(f.m) && f.m >= 0 && f.m < 60)) bad.push(`clock at ${f.h}:${f.m}`);
   return bad;
 }
 
@@ -419,6 +437,22 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     for (const f of SGRAPHS) expect(both('signed:1', say('הגרף מספר סיפור.', f)), f.series[0].pts.join(' ')).toEqual([]);
     expect(both('signed:1', say('הנקודה $A$ היא השעה החמה ביותר.', SGRAPHS[1]))).toEqual([]);
     expect(both('signed:1', predict('בכמה ק״מ התקדם רכב א בשעתיים?', SGRAPHS[2], ['$120$', '$2$'], 0))).toEqual(['the answer 120 is written in the figure']);
+    // a protractor and a clock (FUNC-1.3b): their scale numbers and hours are not "written answers", their letters are names
+    expect(both('angles:1', predict('השוק $BA$ על $0$ של הסולם שמתחיל משמאל. מה גודל $\\sphericalangle ABC$?', protractorFig([180, 130], { letters: { vertex: 'B', a: 'A', b: 'C' } }) as AnyFig, ['$50^\\circ$', '$130^\\circ$'], 0))).toEqual([]);
+    expect(both('angles:1', say('מד זווית מוטה.', protractorFig([0, 65], { base: 45 }) as AnyFig))).toEqual([]);
+    expect(both('angles:1', predict('מה הזווית בין המחוגים בשעה $2{:}30$?', clockFig(2, 30) as AnyFig, ['$105^\\circ$', '$120^\\circ$'], 0))).toEqual([]);
+    expect(textProblems(say('הנקודה $D$ על השוק.', protractorFig([0, 40], { letters: { vertex: 'B', a: 'A', b: 'C' } }) as AnyFig), protractorFig([0, 40], { letters: { vertex: 'B', a: 'A', b: 'C' } }) as AnyFig)).toEqual(['the text names D, the figure does not']);
+  });
+
+  it('catches a protractor or a clock that disagrees with itself', () => {
+    expect(selfProblems('angles:1', protractorFig([0, 200] as [number, number]) as AnyFig)).toEqual(['protractor arms 0, 200: each a multiple of 5 from 0 to 180']);
+    expect(selfProblems('angles:1', protractorFig([0, 37] as [number, number]) as AnyFig)).toEqual(['protractor arms 0, 37: each a multiple of 5 from 0 to 180']);
+    expect(selfProblems('angles:1', protractorFig([40, 45]) as AnyFig)).toEqual(['protractor arms 40, 45 are less than 15° apart']);
+    expect(selfProblems('angles:1', protractorFig([0, 40], { base: 20 }) as AnyFig)).toEqual(['protractor turned 20°: not a multiple of 15']);
+    expect(selfProblems('angles:1', protractorFig([0, 40], { letters: { vertex: 'b', a: 'A', b: 'C' } }) as AnyFig)).toEqual(['protractor letters are not capital letters']);
+    expect(selfProblems('angles:1', clockFig(13, 0) as AnyFig)).toEqual(['clock at 13:0']);
+    expect(selfProblems('angles:1', clockFig(4, 60) as AnyFig)).toEqual(['clock at 4:60']);
+    expect(selfProblems('angles:1', clockFig(4, 30) as AnyFig)).toEqual([]);
   });
 
   it('catches a situation graph that disagrees with itself', () => {

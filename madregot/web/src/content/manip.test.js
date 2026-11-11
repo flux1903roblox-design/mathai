@@ -8,6 +8,7 @@ import NumberPins from '@/components/manip/NumberPins.jsx';
 import FracBar from '@/components/manip/FracBar.jsx';
 import DoubleLine from '@/components/manip/DoubleLine.jsx';
 import GraphDraw from '@/components/manip/GraphDraw.jsx';
+import AngleTurner from '@/components/manip/AngleTurner.jsx';
 import { loadKatex } from '@/components/MathText.jsx';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
@@ -16,6 +17,7 @@ import {
   tilesTex, tilesPairs, tilesWords, areaTex, areaSumTex, rayText, rayTex, rayHas, TILES_MAX,
   fbarDenFor, fbarWords, dlineAt, dlineNum, withUnit, ticksWords, manipCorrect,
   graphMove, graphKey, graphShape, graphXs, squaresWords, seriesAt, seriesCrossings, seriesMeet, figWords,
+  protAligned, armTurns, baselineOnArm, buildWords, alignWords, clockHands, mod360,
 } from './manip.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
@@ -725,5 +727,112 @@ describe('the situation graph (sgraph, FUNC-1) is drawn and said with every numb
     expect(out.match(/class="fig-sgraph-rr-num"[^>]*>([^<]+)</g).map((t) => t.replace(/.*>|<$/g, ''))).toEqual(['2', '120']);
     expect(out).toContain('class="fig-sgraph-meet"');
     expect(renderToStaticMarkup(createElement(Figure, { fig: temp })).match(/class="fig-sgraph-dot"/g)).toHaveLength(7);
+  });
+});
+
+// ---------------------------------------------------------------- stage 5: the protractor and the clock (FUNC-1.2, 1.3b)
+describe('the protractor in the angle object (FUNC-1.2)', () => {
+  const build = (target, extra = {}) => fixture({ kind: 'angle', protractor: true, mode: 'build', from: 'right', start: 90, ...extra }, target);
+  const align = (arms, answer, extra = {}) => fixture({ kind: 'angle', protractor: true, mode: 'align', arms, start: 0, ...extra }, answer);
+  it('build: the target is right, the other scale\'s reading is the near miss (a right angle: one step off)', () => {
+    for (const it of [build(40), build(130, { from: 'left' }), build(90, { start: 45 }), build(15, { base: 30 })]) solves(it);
+    expect(manipWrong(build(40))).toBe(140);
+    expect(manipWrong(build(130, { from: 'left' }))).toBe(50);
+    expect(manipWrong(build(90, { start: 45 }))).toBe(95);
+    expect(isCorrect(build(40), 140)).toBe(false);
+  });
+  it('align: right at exactly two turns for every pair of arms, wrong at the other two that put the baseline on an arm', () => {
+    let pairs = 0;
+    for (let a = 0; a < 360; a += 5) {
+      for (let s = 5; s <= 175; s += 5) {
+        const arms = [a, mod360(a + s)]; const turns = armTurns(arms);
+        expect(turns, `${arms}`).toHaveLength(4);
+        const right = turns.filter((r) => protAligned(arms, r));
+        expect(right, `${arms}`).toHaveLength(2);
+        expect(turns.filter((r) => !protAligned(arms, r)).every((r) => baselineOnArm(arms, r)), `${arms}`).toBe(true);
+        // and no turn off an arm is right
+        for (let r = 0; r < 360; r += 5) if (!turns.includes(r)) expect(protAligned(arms, r), `${arms} at ${r}`).toBe(false);
+        pairs += 1;
+      }
+    }
+    expect(pairs).toBe(72 * 35);
+    // the spec's own case: arms 30° and 95°: 30 and 275 are right, 95 and 210 put the baseline on an arm with the angle outside
+    expect(armTurns([30, 95]).filter((r) => protAligned([30, 95], r))).toEqual([30, 275]);
+    expect(armTurns([30, 95]).filter((r) => !protAligned([30, 95], r))).toEqual([95, 210]);
+  });
+  it('align: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
+    const it = align([30, 95], 30, { letters: { vertex: 'B', a: 'A', b: 'C' } });
+    solves(it);
+    expect(manipWrong(it)).toBe(95);
+    expect(isCorrect(it, 275)).toBe(true);
+    expect(manipSolution(align([30, 95], 40))).toBe(30); // an answer that is not a right turn is replaced by one
+  });
+  it('is said in words: build by its angle, align by its turn; the setup for the tutor', () => {
+    expect(answerText(build(40))).toBe('40°');
+    expect(answerText(align([30, 95], 30), 210)).toBe('מד הזווית מסובב ב־210°');
+    expect(manipPlain(build(40))).toBe('[מד זווית על הקודקוד; השוק הקבועה על 0 של הסולם שמתחיל מימין; מסובבים את הקרן]');
+    expect(manipPlain(build(130, { from: 'left', letters: { vertex: 'B', a: 'A', b: 'C' } }))).toBe('[מד זווית על הקודקוד B; השוק הקבועה על 0 של הסולם שמתחיל משמאל; מסובבים את הקרן]');
+    expect(manipPlain(align([30, 95], 30))).toBe('[זווית ששוקיה בכיוונים 30° ו־95°; מסובבים את מד הזווית עד שקו האפס שלו על אחת השוקיים]');
+  });
+  it('a screen reader hears the two numbers at the ray, by scale; and where the baseline is', () => {
+    expect(buildWords(build(40).manip, 65)).toBe('הקרן מול 65 בסולם שמתחיל מימין ומול 115 בסולם שמתחיל משמאל');
+    expect(buildWords(build(130, { from: 'left' }).manip, 50)).toBe('הקרן מול 130 בסולם שמתחיל מימין ומול 50 בסולם שמתחיל משמאל');
+    const m = align([30, 95], 30, { letters: { vertex: 'B', a: 'A', b: 'C' } }).manip;
+    expect(alignWords(m, 30)).toBe('קו האפס על השוק BA, והזווית מתחת למד הזווית');
+    expect(alignWords(m, 275)).toBe('קו האפס על השוק BC, והזווית מתחת למד הזווית');
+    expect(alignWords(m, 210)).toBe('קו האפס על השוק BA, אבל הזווית מחוץ למד הזווית');
+    expect(alignWords(m, 60)).toBe('קו האפס בין השוקיים, 30 מעלות מהשוק BA');
+    expect(alignWords(m, 0)).toBe('קו האפס 30 מעלות מהשוק BA');
+    expect(alignWords({ arms: [30, 95] }, 0)).toBe('קו האפס 30 מעלות מהשוק הראשונה');
+  });
+  it('draws both modes with their sliders, nothing shown as a number but the scales, and no broken numbers', () => {
+    const b = html(AngleTurner, { m: build(40).manip, value: 65, answer: 40 });
+    expect(b).toContain('role="slider" aria-label="הקרן"');
+    expect(b).toContain('aria-valuetext="הקרן מול 65 בסולם שמתחיל מימין ומול 115 בסולם שמתחיל משמאל"');
+    expect(b).not.toContain('manip-readout');
+    expect(b).not.toMatch(/<b[ >]/); // no value on the step buttons: the protractor is the reading
+    expect(b).toMatch(/viewBox="0 0 300 /);
+    const a = html(AngleTurner, { m: align([30, 95], 30).manip, value: 210, answer: 30 });
+    expect(a).toContain('role="slider" aria-label="מד הזווית"');
+    expect(a).toMatch(/viewBox="0 0 300 300"/);
+    // the old mode keeps its 360-wide box
+    expect(html(AngleTurner, { m: { kind: 'angle', start: 90 }, value: 90, answer: 120 })).toMatch(/viewBox="0 0 360 212"/);
+    for (const out of [b, a]) expect(out).not.toMatch(/NaN|undefined|Infinity/);
+  });
+});
+
+describe('the protractor and the clock, still (FUNC-1.3b)', () => {
+  const prot = { type: 'protractor', arms: [180, 130], letters: { vertex: 'B', a: 'A', b: 'C' } };
+  it('figPlain reads the protractor arm by arm, the arm on a 0 first, each arm\'s two numbers by scale', () => {
+    expect(figPlain(prot)).toBe('מד זווית על ∢ABC; השוק BA: 180 בסולם שמתחיל מימין, 0 בסולם שמתחיל משמאל; השוק BC: 130 בסולם שמתחיל מימין, 50 בסולם שמתחיל משמאל');
+    expect(figPlain({ type: 'protractor', arms: [65, 0], letters: { vertex: 'O', a: 'P', b: 'Q' } })).toBe('מד זווית על ∢POQ; השוק OQ: 0 בסולם שמתחיל מימין, 180 בסולם שמתחיל משמאל; השוק OP: 65 בסולם שמתחיל מימין, 115 בסולם שמתחיל משמאל');
+    expect(figPlain({ type: 'protractor', arms: [20, 75] })).toBe('מד זווית על הזווית; השוק הראשונה: 20 בסולם שמתחיל מימין, 160 בסולם שמתחיל משמאל; השוק השנייה: 75 בסולם שמתחיל מימין, 105 בסולם שמתחיל משמאל');
+    expect(figWords(prot)).toBe(figPlain(prot));
+  });
+  it('the clock says its time, and its hands are at their true angles', () => {
+    expect(figPlain({ type: 'clock', h: 2, m: 30 })).toBe('שעון: השעה 2:30');
+    expect(figPlain({ type: 'clock', h: 10, m: 5 })).toBe('שעון: השעה 10:05');
+    expect(clockHands(2, 30)).toEqual({ hour: 75, minute: 180 });
+    expect(clockHands(4, 30)).toEqual({ hour: 135, minute: 180 });
+    expect(clockHands(12, 0)).toEqual({ hour: 0, minute: 0 });
+    expect(clockHands(7, 30)).toEqual({ hour: 225, minute: 180 });
+    for (let h = 1; h <= 12; h += 1) for (let m = 0; m < 60; m += 5) {
+      const out = renderToStaticMarkup(createElement(Figure, { fig: { type: 'clock', h, m } }));
+      const hands = [...out.matchAll(/<line x1="120" y1="120" x2="([\d.-]+)" y2="([\d.-]+)" class="fig-clock-hand (hour|minute)"/g)];
+      expect(hands, `${h}:${m}`).toHaveLength(2);
+      for (const [, x, y, which] of hands) {
+        const deg = mod360((Math.atan2(Number(x) - 120, 120 - Number(y)) * 180) / Math.PI); // clockwise from 12
+        expect(Math.abs(mod360(deg - clockHands(h, m)[which] + 180) - 180), `${h}:${m} ${which}`).toBeLessThan(0.05);
+      }
+    }
+  });
+  it('each renders as one picture with its words, and no broken numbers', () => {
+    for (const fig of [prot, { type: 'protractor', arms: [0, 65], base: 45 }, { type: 'clock', h: 10, m: 0, marks: true }]) {
+      const out = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(out).toMatch(/<svg [^>]*role="img"/);
+      expect(out).not.toMatch(/NaN|undefined|Infinity/);
+      expect(out).toContain(`aria-label="${figPlain(fig)}"`);
+    }
+    expect(renderToStaticMarkup(createElement(Figure, { fig: { type: 'clock', h: 1, m: 0, marks: true } })).match(/class="fig-clock-tick/g)).toHaveLength(60);
   });
 });

@@ -63,6 +63,11 @@ describe('the new figure types render with role="img" and their Hebrew name', ()
     expect(named({ type: 'dots', values: [3, 6, 9], axis: [0, 10], mark: { median: 6 }, unit: 'שלושה נתונים' })).toBe('תרשים נקודות של 3 ערכים בין 0 ל־10, החציון מסומן: שלושה נתונים');
   });
 
+  it('protractor and clock: each arm\'s two readings by scale, the time (FUNC-1.3b)', () => {
+    expect(named({ type: 'protractor', arms: [0, 40] })).toBe('מד זווית על הזווית; השוק הראשונה: 0 בסולם שמתחיל מימין, 180 בסולם שמתחיל משמאל; השוק השנייה: 40 בסולם שמתחיל מימין, 140 בסולם שמתחיל משמאל');
+    expect(named({ type: 'clock', h: 4, m: 30 })).toBe('שעון: השעה 4:30');
+  });
+
   it('sgraph: the graph read in words, every number it draws (FUNC-1)', () => {
     expect(named({ type: 'sgraph', x: { max: 15, step: 5, label: 'זמן', unit: 'דקות' }, y: { max: 600, step: 100, label: 'מרחק מהבית', unit: 'מטרים' }, series: [{ pts: [[0, 0], [5, 400], [10, 400], [15, 0]] }] }))
       .toBe('גרף: מרחק מהבית (מטרים) לפי זמן (דקות); ציר x מ־0 עד 15, קו כל 5; ציר y מ־0 עד 600, קו כל 100; (0, 0) → (5, 400) → (10, 400) → (15, 0)');

@@ -15,6 +15,8 @@ import Figure from '@/components/Figure.jsx';
 // @ts-ignore: plain JS
 import GraphDraw from '@/components/manip/GraphDraw.jsx';
 // @ts-ignore: plain JS
+import AngleTurner from '@/components/manip/AngleTurner.jsx';
+// @ts-ignore: plain JS
 import { numWidth, nameWidth } from '@/components/manip/graphAxes.jsx';
 
 // the teaching content loads one topic at a time (DURABLE-11): every topic, loaded
@@ -81,17 +83,20 @@ describe('a picture or an object on every teaching step (STUDENT-8)', () => {
 
 // ---------------------------------------------------------------- stage 5: the new drawings fit a 320px phone
 // A 320px phone draws a figure or an object 288px wide. Every drawing stage 5 adds (the situation graph, the graph you
-// draw) must then keep each of its texts at 12px or more and inside its box: nothing is cut at the edge. Each text's box
+// draw) must then keep each of its texts at 12px or more and inside its box: nothing is cut at the edge (the protractor's
+// numbers at their own 11px and 10px, Critique note 8; a clock is shown at most 220px wide). Each text's box
 // is estimated from its size and its characters (graphAxes.jsx numWidth, nameWidth), its anchor and its direction; circles,
 // lines and rectangles must be inside the box too. Every such drawing in the content is checked, and the fixtures below.
 const DRAWN = 288; const MIN_PX = 12;
+/** How wide each kind of drawing is shown on a 320px phone, and the smallest text it may have. */
+const SHOWN: Record<string, { drawn: number; min: number }> = { protractor: { drawn: 288, min: 10 }, clock: { drawn: 220, min: 12 } };
 const HEB = /[\u0590-\u05ff]/;
 const attrs = (tag: string) => Object.fromEntries([...tag.matchAll(/([a-zA-Z-]+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));
 /** What does not fit: a text under 12px at 288px wide, or anything drawn outside the box. */
-export function fitProblems(html: string): string[] {
+export function fitProblems(html: string, { drawn = DRAWN, min = MIN_PX } = {}): string[] {
   const head = /<svg [^>]*viewBox="0 0 ([\d.]+) ([\d.]+)"[^>]*class="(?:figure|manip-canvas)[^"]*"[^>]*>/.exec(html);
   if (!head) return ['no drawing'];
-  const [W, H] = [Number(head[1]), Number(head[2])]; const k = DRAWN / W;
+  const [W, H] = [Number(head[1]), Number(head[2])]; const k = drawn / W;
   const body = html.slice(head.index + head[0].length, html.indexOf('</svg>', head.index));
   const bad: string[] = [];
   const inside = (what: string, x0: number, y0: number, x1: number, y1: number) => {
@@ -100,7 +105,7 @@ export function fitProblems(html: string): string[] {
   for (const m of body.matchAll(/<text ([^>]*)>([^<]*)<\/text>/g)) {
     const a = attrs(m[1]); const t = m[2]; const size = Number(a['font-size']);
     if (!size) { bad.push(`"${t}" has no size of its own`); continue; }
-    if (size * k < MIN_PX - 1e-9) bad.push(`"${t}" is ${(size * k).toFixed(1)}px at ${DRAWN}px wide`);
+    if (size * k < min - 1e-9) bad.push(`"${t}" is ${(size * k).toFixed(1)}px at ${drawn}px wide`);
     const w = HEB.test(t) ? nameWidth(t, size) : numWidth(t, size); const x = Number(a.x); const y = Number(a.y);
     const rtl = a.direction === 'rtl'; const anchor = a['text-anchor'] || 'start';
     const [x0, x1] = anchor === 'middle' ? [x - w / 2, x + w / 2] : (anchor === 'start') !== rtl ? [x, x + w] : [x - w, x];
@@ -137,6 +142,21 @@ describe('the drawings of stage 5 fit a 320px phone: texts of 12px or more, noth
     for (const o of [...inContent, ...GRAPH_OBJECTS]) {
       for (const extra of [{}, { reveal: true, locked: true }, { test: true }, { hint: true }]) expect(fitProblems(drawObject(o, extra)), JSON.stringify(o.m).slice(0, 80)).toEqual([]);
     }
+  });
+  it('every protractor and clock in the content and the fixtures, and the protractor\'s two modes', () => {
+    const inContent = Object.values(CONTENT).flatMap((c) => [...c.discover, ...c.misconceptions.flatMap((mc) => mc.remedy)])
+      .map((st) => (st as { fig?: { type: string } }).fig).filter((f) => f?.type === 'protractor' || f?.type === 'clock') as { type: string }[];
+    const figs = [...inContent, { type: 'protractor', arms: [0, 40] }, { type: 'protractor', arms: [180, 130], letters: { vertex: 'B', a: 'A', b: 'C' } },
+      { type: 'protractor', arms: [20, 75] }, { type: 'protractor', arms: [0, 165], base: 45, letters: { vertex: 'O', a: 'P', b: 'Q' } },
+      { type: 'protractor', arms: [15, 180], base: 330 }, { type: 'clock', h: 2, m: 30 }, { type: 'clock', h: 10, m: 0, marks: true }];
+    for (const f of figs) expect(fitProblems(renderToStaticMarkup(createElement(Figure, { fig: f })), SHOWN[f.type]), JSON.stringify(f)).toEqual([]);
+    const turner = (m: object, value: number, extra = {}) => renderToStaticMarkup(createElement(AngleTurner, { m: { kind: 'angle', protractor: true, ...m }, value, onChange: () => {}, answer: 40, locked: false, reveal: false, good: false, hint: false, ...extra }));
+    const objects = [
+      ...[5, 40, 90, 135, 175].map((v) => turner({ mode: 'build', from: 'right', start: 90 }, v)),
+      turner({ mode: 'build', from: 'left', base: 30, start: 90, letters: { vertex: 'B', a: 'A', b: 'C' } }, 65, { hint: true }),
+      ...[0, 30, 95, 165, 210, 275, 300].map((r) => turner({ mode: 'align', arms: [30, 95], start: 0, letters: { vertex: 'B', a: 'A', b: 'C' } }, r)),
+    ];
+    for (const out of objects) expect(fitProblems(out, SHOWN.protractor)).toEqual([]);
   });
   it('catches a text that is too small or runs off the drawing', () => {
     const long = { ...GRAPH_OBJECTS[2], m: { ...(GRAPH_OBJECTS[2].m as object), ref: { pts: [[0, 300], [5, 0]], label: 'המכונית הכחולה שיצאה מבאר שבע בבוקר מוקדם' } } };

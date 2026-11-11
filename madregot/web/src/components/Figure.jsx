@@ -50,7 +50,13 @@
 //          from x to the first series and across to the y axis, and from y across to it (each time it is there) and down;
 //          riseRun the change in x and in y between two x values of the first series, with their numbers; meet a dot where
 //          the first two series cross; dirArrow an arrow under the x axis, "משמאל לימין".
-import { useEffect, useId, useState } from 'react';
+//   protractor { arms: [θ1, θ2], base?, letters?: { vertex, a, b } }   a protractor laid on an angle (manip/protractor.jsx,
+//          the same drawing as the angle object's protractor): θ is an arm's direction counterclockwise from the right end
+//          of the baseline, which is its reading on the scale that starts on the right; base turns the whole drawing
+//          (multiples of 15), the numbers upright; letters name the vertex and the arms (θ1 is a, θ2 is b)
+//   clock  { h, m, marks? }   a clock at h:m, its hands at their true angles (the hour hand at 30h + m/2, the minute
+//          hand at 6m, from 12, clockwise); marks adds the 60 minute ticks
+import { useEffect, useId, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
 import { DUR, EASE } from '@/lib/motion.js';
@@ -62,7 +68,8 @@ import { BarArt, MarksArt, WholeArt, HatchDef } from './manip/FracBar.jsx';
 import { DlineArt, DLINE_VIEW } from './manip/DoubleLine.jsx';
 import { SvgLabel, minus } from './manip/core.jsx';
 import { GraphAxes, GraphLegend, graphFrame, GRAPH_FONT, LEGEND_ROW } from './manip/graphAxes.jsx';
-import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun } from '@/content/manip.js';
+import { PROT, protractorLabels, protExtent, polar, useDrawnWidth, ProtractorArt } from './manip/protractor.jsx';
+import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, clockHands } from '@/content/manip.js';
 import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
@@ -992,11 +999,67 @@ function SGraph({ fig }) {
   );
 }
 
+/**
+ * A protractor laid on an angle: its centre on the vertex, the arms from the vertex to the rim, a small arc for the angle
+ * measured, the letters; the numbers sized for the width it is shown at (protractorLabels).
+ */
+function ProtractorFigure({ fig }) {
+  const ref = useRef(null);
+  const drawn = useDrawnWidth(ref);
+  const base = fig.base || 0; const L = fig.letters; const [a1, a2] = fig.arms;
+  const labels = protractorLabels({ drawn, base, arms: fig.arms });
+  const [top0, bottom0] = protExtent(base, labels);
+  // the vertex's letter stands under the centre (turned with the drawing)
+  const vy = 26 * Math.cos((base * Math.PI) / 180);
+  const top = Math.min(top0, L ? vy - 10 : top0); const bottom = Math.max(bottom0, L ? vy + 10 : bottom0);
+  const PAD = 8; const O = [PROT.W / 2, PAD - top]; const H = Math.ceil(bottom - top + 2 * PAD);
+  const arm = (d) => { const [x, y] = polar(O, d + base, PROT.R); return <line x1={O[0]} y1={O[1]} x2={x} y2={y} className="fig-prot-arm" />; };
+  const letter = (d, t, side) => { const [x, y] = polar(O, d + base + side * 9, PROT.R * 0.62); return <text x={x} y={y + 6} textAnchor="middle" fontSize="17" className="fig-prot-letter" style={{ fontFamily: MATH_FONT }}>{t}</text>; };
+  return (
+    <svg ref={ref} viewBox={`0 0 ${PROT.W} ${H}`} className="figure fig-obj fig-prot" role="img" aria-label={figWords(fig)}>
+      <ProtractorArt O={O} base={base} labels={labels} cls="fig-prot">
+        <path d={arcPath(O[0], O[1], 22, Math.min(a1, a2) + base, Math.max(a1, a2) + base)} className="fig-prot-arc" />
+        {arm(a1)}{arm(a2)}
+      </ProtractorArt>
+      <circle cx={O[0]} cy={O[1]} r="3.5" className="fg-vertex" />
+      {L && (
+        <>
+          {letter(a1, L.a, a1 <= a2 ? -1 : 1)}{letter(a2, L.b, a2 < a1 ? -1 : 1)}
+          {(() => { const [x, y] = polar(O, base - 90, 26); return <text x={x} y={y + 6} textAnchor="middle" fontSize="17" className="fig-prot-letter" style={{ fontFamily: MATH_FONT }}>{L.vertex}</text>; })()}
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** A clock: the twelve hours, the hands at their true angles (clockHands), and with `marks` the minute ticks. */
+function Clock({ fig }) {
+  const S = 240; const C = [S / 2, S / 2]; const R = 106;
+  const at = (deg, r) => [C[0] + r * Math.sin((deg * Math.PI) / 180), C[1] - r * Math.cos((deg * Math.PI) / 180)]; // clockwise from 12
+  const { hour, minute } = clockHands(fig.h, fig.m);
+  const hand = (deg, len, cls) => { const [x, y] = at(deg, len); return <line x1={C[0]} y1={C[1]} x2={x.toFixed(2)} y2={y.toFixed(2)} className={cls} data-deg={deg} />; };
+  return (
+    <svg viewBox={`0 0 ${S} ${S}`} className="figure fig-obj fig-clock" role="img" aria-label={figWords(fig)}>
+      <circle cx={C[0]} cy={C[1]} r={R} className="fig-clock-face" />
+      {Array.from({ length: fig.marks ? 60 : 12 }, (_, i) => {
+        const deg = i * (fig.marks ? 6 : 30); const big = deg % 30 === 0;
+        const [x1, y1] = at(deg, R - 3); const [x2, y2] = at(deg, R - (big ? 13 : 7));
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} className={big ? 'fig-clock-tick big' : 'fig-clock-tick'} />;
+      })}
+      {Array.from({ length: 12 }, (_, i) => { const [x, y] = at((i + 1) * 30, R - 30); return <text key={i} x={x} y={y + 6.5} textAnchor="middle" fontSize="18" className="fig-clock-num">{i + 1}</text>; })}
+      {/* both hands end inside the ring of numbers, so none is hidden */}
+      {hand(hour, 46, 'fig-clock-hand hour')}
+      {hand(minute, 64, 'fig-clock-hand minute')}
+      <circle cx={C[0]} cy={C[1]} r="6" className="fig-clock-pin" />
+    </svg>
+  );
+}
+
 /** One numline type: a line cut into parts (den) is the fraction lane's PartsLine, any other the teaching NumLine. */
 const NumberLine = ({ fig }) => (fig.den ? <PartsLine fig={fig} /> : <NumLine fig={fig} />);
 
 export default function Figure({ fig }) {
   if (!fig) return null;
-  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph }[fig.type];
+  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph, protractor: ProtractorFigure, clock: Clock }[fig.type];
   return C ? <div className="figure-wrap"><C fig={fig} /></div> : null;
 }

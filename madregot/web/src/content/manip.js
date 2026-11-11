@@ -6,6 +6,10 @@
 //   plot        a point [x, y] on the grid                 answer: [x, y], or any point in manip.quadrant (with manip.fixX / fixY: on that line)
 //   line        a line {m, b} built from two handles       answer: {m, b}
 //   angle       the turning ray's angle ∠AOB in degrees    answer: degrees
+//               with protractor: true (FUNC-1.2), mode 'build' { from?: 'right' | 'left', base?, start }: the angle between
+//               the fixed arm (on the 0 of the scale that starts on that side) and the ray, 5..175, answer the target;
+//               mode 'align' { arms: [θ1, θ2], start }: the protractor's turn in degrees (0..355), right when its baseline
+//               lies on an arm and the angle is under the half disc (two of the four turns that put it on an arm)
 //   squares     the legs {a, b} of a right triangle        answer: {c} (any whole a, b with a² + b² = c²)
 //   bars        the height of the movable bar              answer: the value (manip.stat 'median': the median is the target)
 //   pins        several labelled markers on a number line  answer: the position of each, in order
@@ -373,6 +377,58 @@ export function sgraphWords(f) {
   ].filter(Boolean).join('; ');
 }
 
+// ---------------------------------------------------------------- the protractor and the clock (FUNC-1.2, FUNC-1.3b)
+// A direction is in degrees counterclockwise from the right. A protractor turned by ρ has its baseline along ρ and
+// ρ + 180 and covers the directions from ρ to ρ + 180 (its half disc). It has two scales, laid out as on the class's
+// plastic one: the scale that starts on the right (its 0 at the right end of the baseline, the inner ring) reads a
+// direction d as d − ρ, and the scale that starts on the left (the outer ring) as 180 − (d − ρ). The words name a scale
+// only by the side its 0 is on.
+
+export const mod360 = (d) => ((Math.round(d * 1e9) / 1e9) % 360 + 360) % 360;
+/** Does a protractor turned by ρ cover direction d (under its half disc, the baseline's ends included)? */
+export const protCovers = (rho, d) => mod360(d - rho) <= 180 + 1e-9;
+/** Is the baseline of a protractor turned by ρ on one of the arms (either end of it on an arm)? */
+export const baselineOnArm = (arms, rho) => arms.some((t) => { const d = mod360(t - rho); return d < 1e-9 || d > 360 - 1e-9 || Math.abs(d - 180) < 1e-9; });
+/** align is right: the baseline on an arm and the angle under the half disc, where it can be read. */
+export const protAligned = (arms, rho) => baselineOnArm(arms, rho) && arms.every((t) => protCovers(rho, t));
+/** The four turns that put the baseline on an arm, smallest first. */
+export const armTurns = (arms) => [...new Set(arms.flatMap((t) => [mod360(t), mod360(t + 180)]))].sort((p, q) => p - q);
+/** The smaller angle between two directions. */
+export const armsAngle = ([a, b]) => { const d = mod360(b - a); return d > 180 ? 360 - d : d; };
+/** Where the build mode's ray points on the protractor (its reading on the scale that starts on the right). */
+export const buildRay = (m, v) => (m.from === 'left' ? 180 - v : v);
+/** The words for the two numbers a direction meets on the protractor, one by scale. */
+export const protReadingWords = (r) => `${plainNum(r)} בסולם שמתחיל מימין, ${plainNum(180 - r)} בסולם שמתחיל משמאל`;
+/** What a screen reader hears for the build mode's ray: the two numbers a sighted student sees at it (choosing is the skill). */
+export const buildWords = (m, v) => { const r = buildRay(m, v); return `הקרן מול ${plainNum(r)} בסולם שמתחיל מימין ומול ${plainNum(180 - r)} בסולם שמתחיל משמאל`; };
+const armLetter = (m, i) => (m.letters ? (i === 0 ? m.letters.a : m.letters.b) : (i === 0 ? 'הראשונה' : 'השנייה'));
+/**
+ * What a screen reader hears for the align mode: on an arm, and whether the angle is under the protractor; otherwise how
+ * far the nearer end of the baseline is from the nearest arm (and that it is between the arms, when it is).
+ */
+export function alignWords(m, rho) {
+  const arms = m.arms; const dist = (a, b) => { const d = mod360(a - b); return Math.min(d, 360 - d); };
+  let best = { d: Infinity, i: 0 };
+  arms.forEach((t, i) => [rho, rho + 180].forEach((end) => { const d = dist(t, end); if (d < best.d - 1e-9) best = { d, i }; }));
+  const L = armLetter(m, best.i); const name = m.letters ? `השוק ${m.letters.vertex}${L}` : `השוק ${L}`;
+  if (best.d < 1e-9) return `קו האפס על ${name}, ${protAligned(arms, rho) ? 'והזווית מתחת למד הזווית' : 'אבל הזווית מחוץ למד הזווית'}`;
+  // the angle runs counterclockwise from its first arm for `span` degrees; is an end of the baseline inside it?
+  const span = armsAngle(arms); const start = mod360(arms[1] - arms[0]) <= 180 ? arms[0] : arms[1];
+  const between = [rho, rho + 180].some((e) => { const d = mod360(e - start); return d > 1e-9 && d < span - 1e-9; });
+  return `קו האפס ${between ? 'בין השוקיים, ' : ''}${plainNum(Math.round(best.d))} מעלות מ${name}`;
+}
+/** The clock's hands, in degrees clockwise from 12: the hour hand moves on with the minutes (30h + m/2), the minute hand 6m. */
+export const clockHands = (h, m) => ({ hour: mod360(30 * (h % 12) + m / 2), minute: mod360(6 * m) });
+/** The time as a clock shows it: 4:30, 10:05. */
+export const clockText = (h, m) => `${h}:${String(m).padStart(2, '0')}`;
+/** The protractor figure in words: arm by arm, the arm on a 0 first, each arm's two readings named by scale. */
+export function protractorWords(f) {
+  const L = f.letters;
+  const order = f.arms.map((r, i) => ({ r, i })).sort((p, q) => Number(q.r === 0 || q.r === 180) - Number(p.r === 0 || p.r === 180));
+  const arm = ({ r, i }) => `${L ? `השוק ${L.vertex}${i === 0 ? L.a : L.b}` : `השוק ${i === 0 ? 'הראשונה' : 'השנייה'}`}: ${protReadingWords(r)}`;
+  return [`מד זווית על ${L ? `∢${L.a}${L.vertex}${L.b}` : 'הזווית'}`, ...order.map(arm)].join('; ');
+}
+
 /** A point's height in squares above the x axis, for a screen reader in a check: "4 משבצות מעל הציר". */
 export function squaresWords(m, v) {
   const k = Math.round((v - axisLo(m.y)) / m.y.step);
@@ -477,6 +533,9 @@ export function figWords(f) {
     }
     // a graph is read: its words give every number it draws, as the eye reads them off the grid
     case 'sgraph': return sgraphWords(f);
+    // a protractor is read arm by arm, each arm's two numbers named by scale; a clock says its time
+    case 'protractor': return protractorWords(f);
+    case 'clock': return `שעון: השעה ${clockText(f.h, f.m)}`;
     default: return '';
   }
 }
@@ -488,7 +547,8 @@ export function manipCorrect(it, u) {
   const m = it.manip; const a = it.answer;
   switch (m.kind) {
     case 'numberline': return samePlace(m, u, a);
-    case 'angle': case 'bars': return u === a;
+    case 'angle': return m.protractor && m.mode === 'align' ? typeof u === 'number' && protAligned(m.arms, u) : u === a;
+    case 'bars': return u === a;
     case 'plot': return m.quadrant ? quadOf(u) === m.quadrant && (m.fixX == null || u[0] === m.fixX) && (m.fixY == null || u[1] === m.fixY) : u[0] === a[0] && u[1] === a[1];
     case 'line': return near(u.m, a.m, 1e-9) && near(u.b, a.b, 1e-9);
     case 'squares': return Number.isInteger(u.a) && Number.isInteger(u.b) && u.a * u.a + u.b * u.b === a.c * a.c;
@@ -530,7 +590,7 @@ export function manipText(it, u = it.answer) {
   switch (m.kind) {
     case 'numberline': return lineNum(m, u);
     case 'bars': return num(u);
-    case 'angle': return `${num(u)}°`;
+    case 'angle': return m.protractor && m.mode === 'align' ? `מד הזווית מסובב ב־${num(u)}°` : `${num(u)}°`;
     case 'plot': return m.quadrant && u === it.answer ? `נקודה ב${QUAD_NAMES[m.quadrant]}, למשל ${ltr(`(${num(u[0])}, ${num(u[1])})`)}` : `(${num(u[0])}, ${num(u[1])})`;
     case 'line': return lineText(u);
     case 'squares': return u.c != null ? `ניצבים ${u.a} ו־${u.b}: ${ltr(`${u.a}² + ${u.b}² = ${u.c}²`)}` : `ניצבים ${u.a} ו־${u.b}`;
@@ -573,7 +633,10 @@ export function manipPlain(it) {
         : m.lines ? `[מערכת צירים עם שני ישרים, ${m.lines.map(lineText).join(' ו־')}; שמים את נקודת המפגש שלהם]`
           : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
     case 'line': return '[מערכת צירים; בונים ישר בעזרת שתי נקודות: החיתוך עם ציר y וצעד אחד ימינה]';
-    case 'angle': return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
+    case 'angle':
+      if (m.protractor && m.mode === 'align') return `[זווית ששוקיה בכיוונים ${num(m.arms[0])}° ו־${num(m.arms[1])}°; מסובבים את מד הזווית עד שקו האפס שלו על אחת השוקיים]`;
+      if (m.protractor) return `[מד זווית על הקודקוד${m.letters?.vertex ? ` ${m.letters.vertex}` : ''}; השוק הקבועה על 0 של הסולם ש${m.from === 'left' ? 'מתחיל משמאל' : 'מתחיל מימין'}; מסובבים את הקרן]`;
+      return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
     case 'squares': return `[משולש ישר־זווית עם ריבועים על הצלעות; שטח הריבוע על היתר צריך להיות ${it.answer.c * it.answer.c}]`;
     case 'bars': return m.stat === 'median' ? `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; החציון צריך להיות ${m.target}]` : `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; הממוצע צריך להיות ${m.mean}]`;
     case 'pins': return `[ציר מספרים מ־${m.min} עד ${m.max}${m.den ? `, כל יחידה מחולקת ל־${m.den} חלקים שווים` : ''}; שמים עליו את המספרים ${m.labels.map(labelPlain).join(', ')}]`;
@@ -615,6 +678,8 @@ export function manipSolution(it) {
       return { den, shaded: Math.round(a.value * den) };
     }
     case 'graph': return graphSolution(m, a);
+    // align: the answer when it is a right turn, else the first right one
+    case 'angle': return m.protractor && m.mode === 'align' && !protAligned(m.arms, a) ? armTurns(m.arms).find((r) => protAligned(m.arms, r)) : a;
     default: return a;
   }
 }
@@ -624,7 +689,12 @@ export function manipWrong(it) {
   const m = it.manip; const a = it.answer;
   switch (m.kind) {
     case 'numberline': { const d = lineStep(m); return a + d <= m.max + 1e-9 ? a + d : a - d; }
-    case 'angle': return a < 175 ? a + 5 : a - 5;
+    // the protractor: the other scale's reading (a right angle reads 90 on both: one step off), or the baseline on an
+    // arm with the angle outside the half disc
+    case 'angle':
+      if (m.protractor && m.mode === 'align') return armTurns(m.arms).find((r) => !protAligned(m.arms, r));
+      if (m.protractor) return a === 90 ? 95 : 180 - a;
+      return a < 175 ? a + 5 : a - 5;
     case 'bars': return a < m.max ? a + 1 : a - 1;
     case 'plot': return m.quadrant ? (m.fixX != null ? [a[0], -a[1]] : [-a[0], a[1]]) : [a[0] < (m.range || 6) ? a[0] + 1 : a[0] - 1, a[1]];
     case 'line': { const r = m.range || 6; return Math.abs(a.b + a.m + 1) <= r && a.m + 1 !== 0 ? { m: a.m + 1, b: a.b } : { m: a.m - 1, b: a.b }; }

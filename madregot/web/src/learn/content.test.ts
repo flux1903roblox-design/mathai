@@ -15,7 +15,7 @@ import { checkPlan, itemFor, canProbe } from './items';
 import { ALL_SKILLS } from './skills';
 import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togetherDiag';
 // @ts-ignore: plain JS
-import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX, GRAPH_MAX, graphXs, axisSteps, onAxisGrid } from '@/content/manip.js';
+import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX, GRAPH_MAX, graphXs, axisSteps, onAxisGrid, protAligned, armsAngle } from '@/content/manip.js';
 // @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
@@ -104,6 +104,7 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       if (s.manip.kind === 'area') checkArea(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'ray') checkRay(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'graph') checkGraph(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'angle' && (s.manip as { protractor?: boolean }).protractor) checkProtractor(s.manip as any, s.answer as number, at);
       expect(s.hint, at).toBeTruthy();
       expect(s.success, at).toBeTruthy();
     }
@@ -180,6 +181,27 @@ function checkGraph(m: { x: Axis; y: Axis; start: number[]; fixed?: number[]; re
   } else {
     expect(a.mode, at).toBe('uniform');
     if (a.start == null && a.rate == null) expect(n - fixed.size >= 2 && n >= 3, `${at}: with no start or rate, any start is already uniform`).toBe(true);
+  }
+}
+
+/**
+ * A protractor (FUNC-1.2): every angle and turn in 5° steps (the ray and the protractor move 5° at a time). build: the
+ * target and the start between 5 and 175, the fixed arm on the side its 0 is named by, the drawing turned in 15° steps;
+ * align: arms 15° to 165° apart, the answer itself a right turn (the baseline on an arm, the angle under the protractor).
+ */
+function checkProtractor(m: { mode: string; from?: string; base?: number; start: number; arms?: [number, number] }, a: number, at: string) {
+  const five = (v: number) => Number.isInteger(v / 5);
+  if (m.mode === 'build') {
+    expect(five(a) && a >= 5 && a <= 175, `${at}: a protractor target ${a} is not a multiple of 5 between 5 and 175`).toBe(true);
+    expect(five(m.start) && m.start >= 5 && m.start <= 175, `${at}: the ray starts at ${m.start}`).toBe(true);
+    expect(m.from == null || m.from === 'right' || m.from === 'left', `${at}: from ${m.from}`).toBe(true);
+    expect(Number.isInteger((m.base || 0) / 15), `${at}: base ${m.base} is not a multiple of 15`).toBe(true);
+  } else {
+    expect(m.mode, at).toBe('align');
+    const arms = m.arms || [NaN, NaN]; const span = armsAngle(arms);
+    expect(arms.every(five) && span >= 15 && span <= 165, `${at}: arms ${arms} are not 15° to 165° apart in 5° steps`).toBe(true);
+    expect(five(a) && five(m.start), `${at}: a turn not in 5° steps`).toBe(true);
+    expect(protAligned(arms, a), `${at}: the answer ${a} is not a right turn`).toBe(true);
   }
 }
 
@@ -630,6 +652,18 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'graph', x, y, start: [0, 0, 0, 0] }, { mode: 'shape', shape: ['up', 'down'] })); // three segments, two directions
     bad(explore({ kind: 'graph', x: { max: 1, step: 1, label: 'x' }, y: { max: 8, step: 1, label: 'y' }, start: [0, 3] }, { mode: 'uniform' })); // any two points are uniform
     bad(explore({ kind: 'graph', x: { max: 15, step: 5 }, y, start: [0, 200, 200, 200], fixed: [0] }, { mode: 'values', values: [0, 400, 400, 0] })); // an axis with no name
+  });
+  it('a protractor: targets and turns in 5° steps, a right turn as the answer, a start that is not it', () => {
+    const b = (extra: object, target: number) => explore({ kind: 'angle', protractor: true, mode: 'build', from: 'right', start: 90, ...extra }, target);
+    const al = (arms: number[], start: number, answer: number) => explore({ kind: 'angle', protractor: true, mode: 'align', arms, start }, answer);
+    ok(b({}, 40)); ok(b({ from: 'left', base: 30 }, 130)); ok(al([30, 95], 0, 30)); ok(al([30, 95], 0, 275));
+    bad(b({}, 42)); // not a multiple of 5
+    bad(b({}, 180)); // a straight line is not built
+    bad(b({ start: 40 }, 40)); // starts on the goal
+    bad(b({ base: 20 }, 40)); // turned 20°: not a multiple of 15
+    bad(al([30, 95], 0, 95)); // the baseline on an arm, the angle outside the protractor
+    bad(al([30, 95], 30, 275)); // starts right
+    bad(al([30, 38], 0, 30)); // arms 8° apart
   });
   it('two lines: the goal is their meeting point', () => {
     ok(explore({ kind: 'plot', lines: [{ m: 2, b: -1 }, { m: -1.5, b: 6 }] }, [2, 3]));

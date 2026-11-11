@@ -76,6 +76,8 @@ function coach(it, v, touched) {
       return <>הישר חותך את ציר y ב־<N v={v.b} />. בכל צעד ימינה הוא {rise}.</>;
     }
     case 'angle':
+      // a protractor: build an angle from the 0 on the fixed arm, or turn the protractor onto an arm
+      if (m.protractor) return m.mode === 'align' ? 'מרכז מד הזווית כבר על הקודקוד. סובבו עד שקו האפס יונח על שוק.' : 'השוק הקבועה על 0. סופרים מעלות על הסולם שמתחיל ב־0 הזה.';
       if (!touched) return 'סובבו את הקרן. שתי הזוויות יחד יוצרות קו ישר.';
       return <>הזווית הימנית עכשיו <bdi dir="ltr">{v}°</bdi>. כמה נשאר לשמאלית עד קו ישר?</>;
     case 'squares': {

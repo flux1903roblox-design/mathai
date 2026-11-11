@@ -98,3 +98,28 @@
 .fig-sgraph-mark-label { fill: var(--ink); font-style: italic; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
 .fig-sgraph-dir text { fill: var(--ink-2); font-weight: 600; }
 .fig-sgraph-dir path { fill: none; stroke: var(--ink-2); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+/* the protractor and the clock (FUNC-1.3b): the protractor as the angle object draws it (manip/protractor.jsx), the scale
+   that starts on the right in the brand blue and the one that starts on the left in orange; the clock in ink, its
+   minute hand in the brand blue; still pictures, nothing moves */
+.fig-prot-plastic { fill: color-mix(in srgb, var(--surface) 72%, transparent); stroke: var(--ink-2); stroke-width: 1.5; }
+.fig-prot-tick { stroke: var(--ink-2); stroke-width: 1.2; }
+.fig-prot-tick.long { stroke: var(--ink); stroke-width: 1.8; }
+.fig-prot-base { stroke: var(--ink); stroke-width: 2; }
+.fig-prot-centre { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.fig-prot-zero.right { fill: var(--brand); }
+.fig-prot-zero.left { fill: var(--streak-d); }
+.fig-prot-num { font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.fig-prot-num.right { fill: var(--brand-d); }
+.fig-prot-num.left { fill: var(--streak-ink); }
+.fig-prot-arm { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.fig-prot-arc { fill: none; stroke: var(--ink-2); stroke-width: 2; }
+.fig-prot-letter { fill: var(--ink); font-style: italic; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.figure.fig-clock { max-width: 220px; }
+.fig-clock-face { fill: var(--surface); stroke: var(--ink); stroke-width: 3; }
+.fig-clock-tick { stroke: var(--ink-2); stroke-width: 1.5; }
+.fig-clock-tick.big { stroke: var(--ink); stroke-width: 3; }
+.fig-clock-num { fill: var(--ink); font-weight: 600; }
+.fig-clock-hand { stroke-linecap: round; }
+.fig-clock-hand.hour { stroke: var(--ink); stroke-width: 7; }
+.fig-clock-hand.minute { stroke: var(--brand-d); stroke-width: 4; }
+.fig-clock-pin { fill: var(--ink); }

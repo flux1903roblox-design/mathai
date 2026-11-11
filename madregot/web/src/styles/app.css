@@ -1795,6 +1795,28 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 @media (max-height: 700px) and (max-width: 899px) {
   .manip-graph .manip-readout { font-size: var(--t-base); }
 }
+
+/* ---------- the protractor in the angle object (FUNC-1.2) ----------
+   Clear plastic over the paper, ink ticks; the scale that starts on the right in the brand blue, the one that starts on
+   the left in orange, each with a dot of its colour at its 0 (never red or green: those are feedback). The numbers have
+   a halo of the plastic, so an arm under them never hides them; their sizes are set on the drawing (protractor.jsx). */
+.manip-prot .manip-canvas { max-width: 420px; }
+.mp-prot-plastic { fill: color-mix(in srgb, var(--surface) 60%, transparent); stroke: var(--ink-2); stroke-width: 1.5; }
+.mp-prot-letter { fill: var(--ink-2); font-style: italic; font-weight: 700; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.mp-prot-tick { stroke: var(--ink-2); stroke-width: 1.2; }
+.mp-prot-tick.long { stroke: var(--ink); stroke-width: 1.8; }
+.mp-prot-base { stroke: var(--ink); stroke-width: 2; }
+.mp-prot-base.zero { stroke: var(--brand); stroke-width: 4; stroke-dasharray: 9 5; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; }
+.mp-prot-centre { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.mp-prot-zero.right { fill: var(--brand); }
+.mp-prot-zero.left { fill: var(--streak-d); }
+.mp-prot-num { font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.mp-prot-num.right { fill: var(--brand-d); }
+.mp-prot-num.left { fill: var(--streak-ink); }
+.mp-prot.hint-right .mp-prot-num.left, .mp-prot.hint-left .mp-prot-num.right { opacity: 0.3; }
+.mp-prot-arm { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
+.mp-prot-arm.ray { stroke: var(--c); }
+@media (prefers-reduced-motion: reduce) { .mp-prot-base.zero { animation: none; } }
 @media (prefers-reduced-motion: reduce) {
   .mp-graph-pt .mp-halo { transition: none; }
   .mp-graph-hint, .mp-graph-hint-seg { animation: none; }

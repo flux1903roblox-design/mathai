@@ -23,6 +23,12 @@ export type Rng = () => number;
  * is { mode: 'value', value } | { mode: 'common', of } | { mode: 'exact', den, shaded }) and 'dline' (the double number
  * line { top, bottom, move: 't' | 'max', start: { t, max? }, fixT? }; the answer is the marker's top value or the bottom
  * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`.
+ * Angles: 'angle' is a ray turned on a straight line ({ start, labels?: { left, vertex, right, ray } }; the answer is the
+ * right angle in degrees), or with `protractor: true` a protractor (FUNC-1.2) in one of two modes: 'build' ({ mode:
+ * 'build', from?: 'right' | 'left', base?: number, start: number, letters?: { vertex, a, b } }: the fixed arm on the 0 of
+ * the scale that starts on that side, the value and the answer the angle between the arms, 5..175 in 5° steps) or
+ * 'align' ({ mode: 'align', arms: [θ1, θ2], start: number, letters? }: the arms' directions counterclockwise from the
+ * right, the value the protractor's turn, 0..355; right when its baseline is on an arm and the angle under it).
  * Functions (FUNC-1): 'graph' (the graph you draw { x: GraphAxis, y: GraphAxis, start: number[], fixed?: number[], ref?:
  * { pts: [x, y][], label? } }: one point above each x of the x axis, at most 7, at most 9 heights; the value is the
  * points' heights; the answer is { mode: 'values', values } | { mode: 'shape', shape: ('up' | 'flat' | 'down')[] } |
@@ -65,6 +71,14 @@ export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig
  * guides from an axis value to the first series, its rise and run between two x values, where two series meet, and an
  * arrow "משמאל לימין". Every point lies on the grid inside the axes (learn/figures.test.ts).
  */
+/**
+ * A protractor laid on an angle (FUNC-1.3b, components/Figure.jsx): θ is an arm's direction counterclockwise from the
+ * right end of the baseline, which is its reading on the scale that starts on the right (180 − θ on the other); base
+ * turns the whole drawing (multiples of 15); letters name the vertex and the arms (θ1 is a, θ2 is b).
+ */
+export type ProtractorFig = { type: 'protractor'; arms: [number, number]; base?: number; letters?: { vertex: string; a: string; b: string } };
+/** A clock at h:m, its hands at their true angles (the hour hand at 30h + m/2); marks adds the minute ticks. */
+export type ClockFig = { type: 'clock'; h: number; m: number; marks?: boolean };
 export type SgraphFig = {
   type: 'sgraph'; x: GraphAxis; y: GraphAxis;
   series: { pts: [number, number][]; dots?: boolean; smooth?: boolean; dashed?: boolean; label?: string; tone?: 'brand' | 'alt' }[];
@@ -96,7 +110,7 @@ export type FigSpec =
   }
   | GeoFig
   | FbarFig | FgridFig | DlineFig | GroupsFig
-  | SgraphFig
+  | SgraphFig | ProtractorFig | ClockFig
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
 /** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };

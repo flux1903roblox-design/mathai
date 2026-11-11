@@ -2,7 +2,7 @@ import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
 import { LESSONS } from './lessons.js';
-import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords } from './manip.js';
+import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords, protractorWords, clockText } from './manip.js';
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
@@ -267,6 +267,10 @@ export function figPlain(f) {
     // a situation graph (FUNC-1): its axes with their names, units and steps, each series' points in order, and what it
     // marks (points, bands on the x axis, guides, rise and run, where two lines meet): every number a sighted student reads
     case 'sgraph': return sgraphWords(f);
+    // a protractor (FUNC-1.3b): arm by arm, the arm on a 0 first, each arm's two readings named by its scale, as a sighted
+    // student sees them; a clock: its time (its hands drawn at their true angles)
+    case 'protractor': return protractorWords(f);
+    case 'clock': return `שעון: השעה ${clockText(f.h, f.m)}`;
     // the fraction figures (numline with parts, fbar, fgrid, dline, groups) and the teaching figures (STUDENT-8: numline,
     // thermo, machine, dots, bars) say in words what they draw
     default: return figWords(f);
