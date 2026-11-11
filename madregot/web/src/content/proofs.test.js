@@ -1,7 +1,7 @@
 // The proof templates and the reason bank (GEOM-3.7, 3.8), and the true-triangle tool (GEOM-5 topic-wide): every
 // template passes the template test in every letter set, its drawing is true, and triFromAngles draws what it is asked.
 import { describe, it, expect } from 'vitest';
-import { REASONS, R, PROOFS, PROOF, LETTER_SETS, proofIn, proofManip, proofRows, proofDiag, triFromAngles } from './congr.js';
+import { REASONS, R, PROOFS, PROOF, LETTER_SETS, proofIn, proofManip, proofRows, proofDiag, triFromAngles } from './proofs.js';
 import { templateFaults, figureFaults } from './proof.check.js';
 import { firstOutOfPlace, shuffledOrder } from '@/learn/challenges/grade.ts';
 import { fairForCheck } from './index.js';

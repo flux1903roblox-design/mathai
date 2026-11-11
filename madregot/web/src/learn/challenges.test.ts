@@ -1,5 +1,5 @@
 // The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, the set is stage 1's 36
-// and curriculum stage 4's transformations (transf:c1-c3, GEOM-7), 39 (three per topic, one claim, one error or proof, one literacy task each), and the grading rules (two tries, XP, the
+// and curriculum stage 4's transformations and congruence (transf:c1-c3, congr:c1-c3, GEOM-7), 42 (three per topic, one claim, one error or proof, one literacy task each), and the grading rules (two tries, XP, the
 // order check, the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
@@ -10,7 +10,7 @@ import { ALL_SKILLS, TOPIC_ORDER, parseSkill } from './skills';
 import { evaluate, same } from './expr';
 import { contentOf, loadAllContent } from './content/index';
 // @ts-ignore: plain JS
-import { PROOFS, LETTER_SETS, proofIn } from '@/content/congr.js';
+import { PROOFS, PROOF, LETTER_SETS, proofIn } from '@/content/proofs.js';
 
 // every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
 await loadAllContent();
@@ -36,9 +36,9 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('stage 1 and the transformations have 39 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
+  it('stage 1, the transformations and congruence have 42 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
-    expect(CHALLENGES).toHaveLength(39);
+    expect(CHALLENGES).toHaveLength(42);
     expect(challengesOf('transf').map((t) => [t.id, t.kind, t.after])).toEqual([['transf:c1', 'claim', 'transf:3'], ['transf:c2', 'error', 'transf:3'], ['transf:c3', 'literacy', 'transf:4']]);
     TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
     expect(TOPIC_ORDER).toContain('frac');
@@ -126,6 +126,16 @@ describe('the challenge tasks', () => {
       p.steps.forEach((s) => { if (s.reason) expect(Number.isInteger(s.reason.answer) && s.reason.answer >= 0 && s.reason.answer < s.reason.choices.length, id).toBe(true); });
       (p.free || []).forEach((g) => g.forEach((k) => expect(k >= 0 && k < p.steps.length, id).toBe(true)));
     });
+  });
+
+  it('congr:c2 orders template T1\'s rows, written into the challenge (the track loads first): the same claims, the same right reasons', () => {
+    const order = challengeById('congr:c2')!.parts.find((p) => p.type === 'order') as Order;
+    const right = (st: any) => st.fixed ?? st.reason.choices[st.reason.answer];
+    expect(order.steps.map((st) => st.text)).toEqual(PROOF.T1.steps.map((st: any) => st.text));
+    expect(order.steps.map(right)).toEqual(PROOF.T1.steps.map(right));
+    expect(order.free).toEqual(PROOF.T1.free);
+    // the two givens show their reason, נתון; the vertical angles, the congruence and the conclusion are asked
+    expect(order.steps.map((st) => (st.fixed ? 'fixed' : 'asked'))).toEqual(['fixed', 'fixed', 'asked', 'asked', 'asked']);
   });
 
   it('the seven proof templates follow the same rules, so a template that serves a challenge passes both engines (GEOM-3)', () => {

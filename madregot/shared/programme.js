@@ -114,7 +114,9 @@ export const PROGRAMME = {
     { id: '8.11', grade: '8', domain: 'uncertainty', title: 'אינטרפולציה, אקסטרפולציה', months: [1],
       parts: [{ hours: 4, skills: [], note: 'אינטרפולציה ואקסטרפולציה', later: 'S3' }] },
     { id: '8.12', grade: '8', domain: 'geometry', title: 'חפיפת משולשים, צלעות במשולש, תיכון', months: [1, 2],
-      parts: [{ hours: 16, skills: [], note: 'חפיפת משולשים, צלעות במשולש ותיכון', later: 'S4' }] },
+      // congr:1-4 now, congr:5 (the sides of a triangle) with its own stage: the part is taught, and its 16 hours count,
+      // once every stair it lists exists (shared/coverage.js)
+      parts: [{ hours: 16, skills: range('congr', 1, 5), note: 'חפיפת משולשים, צלעות במשולש ותיכון' }] },
     { id: '8.13', grade: '8', domain: 'geometry', title: 'זווית חיצונית, שווה־שוקיים ומשפטים הפוכים, דמיון משולשים', months: [3, 4],
       parts: [
         { hours: 3, skills: ['angles:5'] }, // isosceles and exterior angles

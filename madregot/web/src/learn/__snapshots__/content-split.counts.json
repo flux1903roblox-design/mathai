@@ -90,6 +90,88 @@
   "stairs": 5,
   "steps": 139
  },
+ "congr": {
+  "skills": {
+   "congr:1": {
+    "discover": 8,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "congr:2": {
+    "discover": 8,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1,
+     2,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "congr:3": {
+    "discover": 8,
+    "examples": [
+     4,
+     4
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1,
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "congr:4": {
+    "discover": 8,
+    "examples": [
+     3,
+     2
+    ],
+    "misconceptions": [
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   }
+  },
+  "stairs": 4,
+  "steps": 91
+ },
  "coord": {
   "skills": {
    "coord:1": {

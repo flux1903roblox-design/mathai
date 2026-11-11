@@ -2,7 +2,7 @@
 // (content/labels.test.js: every label describes the answer; lib/teacherText.test.js: the teacher reads the student's
 // words for each). Only tests import this file.
 import { tfSlide, tfImages, tfInside, TF_RANGE } from './transform.js';
-import { proofRows } from './congr.js';
+import { proofRows } from './proofs.js';
 import { proofSolution, askedSteps } from './proof.js';
 
 /**

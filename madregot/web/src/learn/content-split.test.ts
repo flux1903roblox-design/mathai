@@ -25,6 +25,7 @@ import { CATS_SIGNED6 } from './content/signed6';
 import { CATS_RATIO } from './content/ratio';
 import { CATS_PCT } from './content/pct';
 import { CATS_TRANSF } from './content/transf';
+import { CATS_CONGR } from './content/congr';
 // @ts-ignore: no Node types in this project
 import { spawnSync } from 'node:child_process';
 // @ts-ignore: no Node types in this project
@@ -124,6 +125,8 @@ describe('meta.gen.ts', () => {
       frac: CATS_FRAC, ratio: CATS_RATIO, pct: CATS_PCT,
       // curriculum stage 4's transformations: every name is already the topic's own (content/transf.js)
       transf: CATS_TRANSF,
+      // and its congruent triangles: every name is the topic's own too (content/congr.js)
+      congr: CATS_CONGR,
     };
     expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
     for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));

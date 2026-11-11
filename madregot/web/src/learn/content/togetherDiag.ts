@@ -99,6 +99,31 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // shows on an angle
     { bugs: {} },
   ],
+  // curriculum stage 4's congruent triangles (learn/content/congr.ts)
+  'congr:1': [
+    // DEF ≅ RPQ, ∢E = 80°, ∢F = 40°, ∢R: R, last of P, Q, R, paired with F gives 40; only 80 taken from 180 gives 100
+    { bugs: { 'alpha-order': 40, 'one-angle': 100 } },
+    // ABC ≅ NML, BC = 3x − 4: BC taken equal to NM (the alphabet's pair), 3x − 4 = 8 gives 4
+    { bugs: { 'alpha-order': 4 } },
+  ],
+  'congr:2': [
+    // ∢F after ז.צ.ז: F matches C, so the alphabet's order cannot show on this one; only 50 taken from 180 gives 130
+    { bugs: { 'one-angle': 130 } },
+    // AB = QR, BC = RP, CA = PQ: R, last of P, Q, R, paired with C gives 95; only 35 taken from 180 gives 145
+    { bugs: { 'alpha-order': 95, 'one-angle': 145 } },
+  ],
+  'congr:3': [
+    // the perpendicular to the middle, ∢CAD = 62°: one triangle's angle only 28, only 62 taken from 180 gives 118
+    { model: 'diag', p: { T: 'K5', a: 62, c: 0 } },
+    // the crossing segments, (2x + 10)° = 50°: ∢ACM taken equal to ∢MBD, 70°, gives 30
+    { model: 'diag', p: { T: 'K2', f: 'x', th: 50, ph: 70, p: 2, q: 10, x: 20 } },
+  ],
+  'congr:4': [
+    // the rectangle 8 by 6, the area of ABE (12): the whole BC as the base gives 24
+    { bugs: { 'full-base': 24 } },
+    // the height from the area 15 of ADC on BC = 12 (5): BC as the base gives 2.5, the median 13 taken for the height
+    { model: 'diag', p: { f: 'h', b: 12, h: 5, t: 12, m: 13, S: 15 } },
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)

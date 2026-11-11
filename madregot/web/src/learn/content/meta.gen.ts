@@ -95,6 +95,110 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "congr:1": {
+    "title": "צלעות וזוויות מתאימות",
+    "misconceptions": [
+      {
+        "id": "alpha-order",
+        "title": "התאימו קודקודים לפי סדר האלף־בית, ולא לפי הסדר שבחפיפה"
+      },
+      {
+        "id": "match-by-place",
+        "title": "התאימו קודקודים לפי המקום בשרטוט, ולא לפי החפיפה"
+      },
+      {
+        "id": "one-angle",
+        "title": "חיסרו מ־$180°$ רק זווית אחת"
+      },
+      {
+        "id": "wrong-pair",
+        "title": "השוו חלקים שאינם מתאימים בחפיפה"
+      }
+    ],
+    "transfer": true
+  },
+  "congr:2": {
+    "title": "משפטי החפיפה",
+    "misconceptions": [
+      {
+        "id": "ssa",
+        "title": "השתמשו בשתי צלעות ובזווית שאינה ביניהן כאילו זה משפט חפיפה"
+      },
+      {
+        "id": "aaa",
+        "title": "חשבו ששלוש זוויות שוות מספיקות לחפיפה"
+      },
+      {
+        "id": "alpha-order",
+        "title": "התאימו קודקודים לפי סדר האלף־בית, ולא לפי הסדר שבחפיפה"
+      },
+      {
+        "id": "one-angle",
+        "title": "חיסרו מ־$180°$ רק זווית אחת"
+      },
+      {
+        "id": "wrong-pair",
+        "title": "השוו חלקים שאינם מתאימים בחפיפה"
+      }
+    ],
+    "transfer": true
+  },
+  "congr:3": {
+    "title": "הוכחה בחפיפה",
+    "misconceptions": [
+      {
+        "id": "wrong-pair",
+        "title": "השוו חלקים שאינם מתאימים בחפיפה"
+      },
+      {
+        "id": "one-angle",
+        "title": "חיסרו מ־$180°$ רק זווית אחת"
+      },
+      {
+        "id": "half-only",
+        "title": "מצאו את הזווית של משולש אחד, ולא של שני המשולשים יחד"
+      },
+      {
+        "id": "circular",
+        "title": "השתמשו במה שצריך להוכיח כאילו הוא כבר ידוע"
+      },
+      {
+        "id": "ssa",
+        "title": "השתמשו בשתי צלעות ובזווית שאינה ביניהן כאילו זה משפט חפיפה"
+      },
+      {
+        "id": "no-half",
+        "title": "לקחו את כל הזווית במקום חצי ממנה"
+      }
+    ],
+    "transfer": true
+  },
+  "congr:4": {
+    "title": "תיכון ושטחים",
+    "misconceptions": [
+      {
+        "id": "median-as-height",
+        "title": "השתמשו בתיכון כאילו הוא הגובה"
+      },
+      {
+        "id": "full-base",
+        "title": "לקחו את כל הצלע כבסיס של חצי המשולש"
+      },
+      {
+        "id": "median-congruent",
+        "title": "חשבו שתיכון מחלק משולש לשני משולשים חופפים"
+      },
+      {
+        "id": "median-altitude",
+        "title": "בלבלו בין תיכון, גובה וחוצה זווית"
+      },
+      {
+        "id": "full-side",
+        "title": "חיברו את כל הצלע במקום את החצי שלה"
+      }
+    ],
+    "transfer": true
+  },
   "coord:1": {
     "title": "קריאת נקודה",
     "misconceptions": [
@@ -1263,6 +1367,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
   "angles": {
     "apex-base-swap": "התבלבלו בין זווית הראש לזווית הבסיס"
   },
+  "congr": {},
   "coord": {
     "axis-zero": "חשבו שנקודה על ציר $x$ היא נקודה שבה $x = 0$",
     "quad-order": "מספרו את הרביעים עם כיוון השעון",

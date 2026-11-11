@@ -89,4 +89,5 @@
 .fg-proof-table td { padding: 5px 8px; border: 1px solid var(--rule-strong); color: var(--ink); vertical-align: middle; }
 .fg-proof-table .n { width: 26px; text-align: center; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .fg-proof-table tr.ask td { background: var(--gold-tint); }
+.fg-proof-table tr.hl td { background: var(--brand-tint); font-weight: 600; }
 .fg-proof-ask { font-weight: 800; font-size: 18px; color: var(--gold-ink); }

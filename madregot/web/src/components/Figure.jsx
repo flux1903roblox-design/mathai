@@ -44,7 +44,7 @@
 //          blank writes no number on the bottom line but 0 (the whole is what the picture asks)
 //   groups { rows: [{ n, label }] }                     dots in fives, a Hebrew label at the start of each row
 // Geometry (curriculum stage 4):
-//   proof  { given?, goal?, rows: [{ claim, reason }], ask? }   a proof as a still table, the class's two columns
+//   proof  { given?, goal?, rows: [{ claim, reason }], ask?, hl? }   a proof as a still table, the class's two columns
 //          טענה | נימוק under the נתון and צ״ל lines (HTML, maths by MathText); `ask` writes "?" in that row's reason
 //          (a step that asks why). A teaching figure only, never in a check (GEOM-3.9)
 import { useEffect, useId, useState } from 'react';
@@ -952,7 +952,7 @@ function Groups({ fig }) {
   );
 }
 
-/** A proof as a still table (GEOM-3.9): נתון and צ״ל, then טענה | נימוק; the asked row's reason is "?". */
+/** A proof as a still table (GEOM-3.9): נתון and צ״ל, then טענה | נימוק; the asked row's reason is "?", the row `hl` is shaded. */
 function ProofFig({ fig }) {
   return (
     <div className="fg-proof">
@@ -966,7 +966,7 @@ function ProofFig({ fig }) {
         <thead><tr><th scope="col" className="n"><span className="visually-hidden">שורה</span></th><th scope="col">טענה</th><th scope="col">נימוק</th></tr></thead>
         <tbody>
           {fig.rows.map((r, i) => (
-            <tr key={i} className={i === fig.ask ? 'ask' : undefined}>
+            <tr key={i} className={i === fig.ask ? 'ask' : i === fig.hl ? 'hl' : undefined}>
               <td className="n">{i + 1}</td>
               <td><MathText text={r.claim} /></td>
               <td>{i === fig.ask ? <span className="fg-proof-ask" aria-label="סימן שאלה: מה הנימוק?">?</span> : <MathText text={r.reason} />}</td>

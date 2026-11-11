@@ -16,6 +16,7 @@ import { PCT_CHALLENGES } from './pct';
 import { LINE_CHALLENGES } from './line';
 import { PYTH_CHALLENGES } from './pyth';
 import { STATS_CHALLENGES } from './stats';
+import { CONGR_CHALLENGES } from './congr';
 import { SYS_CHALLENGES } from './sys';
 
 /**
@@ -24,7 +25,8 @@ import { SYS_CHALLENGES } from './sys';
  */
 export const CHALLENGES: ChallengeTask[] = [
   ...FRAC_CHALLENGES, ...SIGNED_CHALLENGES, ...COORD_CHALLENGES, ...ANGLES_CHALLENGES, ...TRANSF_CHALLENGES, ...EXPR_CHALLENGES,
-  ...EQ_CHALLENGES, ...RATIO_CHALLENGES, ...PCT_CHALLENGES, ...LINE_CHALLENGES, ...PYTH_CHALLENGES, ...STATS_CHALLENGES, ...SYS_CHALLENGES,
+  ...EQ_CHALLENGES, ...RATIO_CHALLENGES, ...PCT_CHALLENGES, ...LINE_CHALLENGES, ...PYTH_CHALLENGES, ...STATS_CHALLENGES,
+  ...CONGR_CHALLENGES, ...SYS_CHALLENGES,
 ].sort((a, b) => TOPIC_ORDER.indexOf(a.topic) - TOPIC_ORDER.indexOf(b.topic));
 const BY_ID: Record<string, ChallengeTask> = Object.fromEntries(CHALLENGES.map((t) => [t.id, t]));
 

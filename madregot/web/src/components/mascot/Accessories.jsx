@@ -128,6 +128,16 @@ const DRAW = {
       <path d="M107.5 89.5 L112 92 L107.5 94.5Z" style={{ ...F(WHITE), ...S(ch('violet')) }} strokeWidth="1.2" strokeLinejoin="round" />
     </>
   ),
+  // congruent triangles: two triangles, one the mirror image of the other, with the same tick on their bases (the
+  // unit's emblem, small)
+  'twin-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('cobalt', '-d')) }} strokeWidth="2" />
+      <path d="M96 100.5 L103 100.5 L98 89.5Z" style={F(ch('cobalt'))} />
+      <path d="M112 100.5 L105 100.5 L110 89.5Z" style={{ ...F(WHITE), ...S(ch('cobalt')) }} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M99.5 99 V102 M108.5 99 V102" style={S(ch('cobalt', '-d'))} strokeWidth="1.2" {...round} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

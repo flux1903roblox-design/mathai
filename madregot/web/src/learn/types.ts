@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'transf' | 'expr' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'stats' | 'sys';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'transf' | 'expr' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'stats' | 'congr' | 'sys';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -48,7 +48,7 @@ export type TransformSpec = {
  * what to prove, with the drawing it is read against. Without lockOrder the rows start in the seeded shuffle (never
  * already right); with it they stay in order and only the missing reasons are asked. The value is { order, reasons }:
  * the step at each place, and per step the chosen choice (null until chosen). tpl and set name the template and its
- * letter set (content/congr.js), which a teaching step is checked against.
+ * letter set (content/proofs.js), which a teaching step is checked against.
  */
 export type ProofSpec = {
   kind: 'proof'; given: Text; goal: Text;
@@ -116,9 +116,10 @@ export type FigSpec =
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };
 /**
  * A proof as a still table (GEOM-3.9): `נתון` and `צ״ל` lines, then the rows טענה | נימוק; `ask` writes "?" in that row's
- * reason (a predict step that asks why). A teaching figure only, never in a check.
+ * reason (a predict step that asks why), and `hl` shades a row (the one a step talks about). A teaching figure only,
+ * never in a check.
  */
-export type ProofFig = { type: 'proof'; given?: Text; goal?: Text; rows: { claim: Text; reason: Text }[]; ask?: number };
+export type ProofFig = { type: 'proof'; given?: Text; goal?: Text; rows: { claim: Text; reason: Text }[]; ask?: number; hl?: number };
 
 export interface SayStep { kind: 'say'; text: Text; display?: string; mood?: Mood; fig?: FigSpec }
 /** A prediction before the explanation: the student commits, then sees why. Any choice moves on. */

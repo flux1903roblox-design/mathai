@@ -184,6 +184,154 @@
    ]
   }
  },
+ "congr:1": {
+  "items": [
+   "mastery0:cg1a:third:70:65:45:A|45|gen",
+   "mastery1:cg1a:x:45:70:65:4:-15:15|15|gen",
+   "mastery2:congr:1:diag:{\"form\":\"x\",\"th\":75,\"ph\":40,\"tt\":65,\"p\":3,\"q\":21,\"x\":18}|18|diag",
+   "mastery3:cg1x:5:-1:29:14:16:FDE|6|gen",
+   "mastery4:congr:1:transfer:{\"form\":\"x\",\"th\":95,\"ph\":35,\"tt\":50,\"p\":2,\"q\":27,\"x\":34}|34|transfer",
+   "review0:congr:1:transfer:{\"form\":\"x\",\"th\":70,\"ph\":50,\"tt\":60,\"p\":4,\"q\":22,\"x\":12}|12|transfer",
+   "review1:cg1a:x:80:65:35:5:15:13|13|gen",
+   "review2:congr:1:diag:{\"form\":\"x\",\"th\":75,\"ph\":40,\"tt\":65,\"p\":3,\"q\":21,\"x\":18}|18|diag",
+   "verify0:congr:1:probe:{\"form\":\"x\",\"th\":70,\"ph\":50,\"tt\":60,\"p\":4,\"q\":22,\"x\":12}|12|probe",
+   "verify1:congr:1:probe:{\"form\":\"third\",\"al\":80,\"be\":60,\"ga\":40,\"alpha\":\"B\"}|40|probe",
+   "verify2:congr:1:diag:{\"form\":\"third\",\"al\":60,\"be\":35,\"ga\":85,\"alpha\":\"B\"}|85|diag",
+   "gen:cg1p:EDF:BC|1|gen",
+   "diag:congr:1:diag:{\"form\":\"x\",\"th\":40,\"ph\":65,\"tt\":75,\"p\":3,\"q\":-17,\"x\":19}|19|diag",
+   "transfer:congr:1:transfer:{\"form\":\"x\",\"th\":40,\"ph\":65,\"tt\":75,\"p\":3,\"q\":-17,\"x\":19}|19|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "congr:1/gen/",
+    "congr:1/gen/",
+    "congr:1/diag/",
+    "congr:1/gen/",
+    "congr:1/transfer/"
+   ],
+   "review": [
+    "congr:1/transfer/",
+    "congr:1/gen/",
+    "congr:1/diag/"
+   ],
+   "verify": [
+    "congr:1/probe/alpha-order",
+    "congr:1/probe/alpha-order",
+    "congr:1/control/alpha-order"
+   ]
+  }
+ },
+ "congr:2": {
+  "items": [
+   "mastery0:cg2m:third:70:65:45:A|45|gen",
+   "mastery1:cg2m:x:45:70:65:4:-15:15|15|gen",
+   "mastery2:congr:2:diag:{\"form\":\"x\",\"th\":75,\"ph\":40,\"tt\":65,\"p\":3,\"q\":21,\"x\":18}|18|diag",
+   "mastery3:cg2m:x:80:65:35:5:15:13|13|gen",
+   "mastery4:congr:2:transfer:{\"form\":\"x\",\"th\":95,\"ph\":35,\"tt\":50,\"p\":2,\"q\":27,\"x\":34}|34|transfer",
+   "review0:congr:2:transfer:{\"form\":\"x\",\"th\":70,\"ph\":50,\"tt\":60,\"p\":4,\"q\":22,\"x\":12}|12|transfer",
+   "review1:cg2m:x:45:100:35:5:15:6|6|gen",
+   "review2:congr:2:diag:{\"form\":\"x\",\"th\":75,\"ph\":40,\"tt\":65,\"p\":3,\"q\":21,\"x\":18}|18|diag",
+   "verify0:congr:2:probe:{\"form\":\"x\",\"th\":70,\"ph\":50,\"tt\":60,\"p\":4,\"q\":22,\"x\":12}|12|probe",
+   "verify1:congr:2:probe:{\"form\":\"third\",\"al\":80,\"be\":60,\"ga\":40,\"alpha\":\"B\"}|40|probe",
+   "verify2:congr:2:control:{\"form\":\"x\",\"th\":75,\"ph\":40,\"tt\":65,\"p\":3,\"q\":21,\"x\":18}|18|control",
+   "gen:cg2n:KLM:B:60:75|1|gen",
+   "diag:congr:2:diag:{\"form\":\"x\",\"th\":40,\"ph\":65,\"tt\":75,\"p\":3,\"q\":-17,\"x\":19}|19|diag",
+   "transfer:congr:2:transfer:{\"form\":\"x\",\"th\":40,\"ph\":65,\"tt\":75,\"p\":3,\"q\":-17,\"x\":19}|19|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "congr:2/gen/",
+    "congr:2/gen/",
+    "congr:2/diag/",
+    "congr:2/gen/",
+    "congr:2/transfer/"
+   ],
+   "review": [
+    "congr:2/transfer/",
+    "congr:2/gen/",
+    "congr:2/diag/"
+   ],
+   "verify": [
+    "congr:2/probe/ssa",
+    "congr:2/probe/ssa",
+    "congr:2/control/ssa"
+   ]
+  }
+ },
+ "congr:3": {
+  "items": [
+   "mastery0:cg3u:K5:82:0|16|gen",
+   "mastery1:cg3u:K5:72:0|36|gen",
+   "mastery2:congr:3:diag:{\"T\":\"K2\",\"f\":\"third\",\"a\":45,\"c\":95}|40|diag",
+   "mastery3:cg3u:K1:whole:35:45|70|gen",
+   "mastery4:congr:3:transfer:{\"a\":50,\"c\":20}|110|transfer",
+   "review0:congr:3:transfer:{\"a\":25,\"c\":20}|135|transfer",
+   "review1:cg3u:K2:x:65:35:2:9:28|28|gen",
+   "review2:congr:3:diag:{\"T\":\"K2\",\"f\":\"third\",\"a\":45,\"c\":95}|40|diag",
+   "verify0:congr:3:probe:{\"T\":\"K2\",\"f\":\"x\",\"th\":35,\"ph\":70,\"p\":2,\"q\":13,\"x\":11}|11|probe",
+   "verify1:congr:3:probe:{\"T\":\"K2\",\"f\":\"third\",\"a\":50,\"c\":110}|20|probe",
+   "verify2:congr:3:control:{\"T\":\"K5\",\"a\":50,\"c\":0}|80|control",
+   "gen:cg3f:T2:1:23|{\"order\":[0,1,2,3,4],\"reasons\":[null,null,0,1,null]}|gen",
+   "diag:congr:3:diag:{\"T\":\"K1\",\"f\":\"third\",\"a\":45,\"c\":50}|85|diag",
+   "transfer:congr:3:transfer:{\"a\":40,\"c\":30}|110|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "congr:3/gen/",
+    "congr:3/gen/",
+    "congr:3/diag/",
+    "congr:3/gen/",
+    "congr:3/transfer/"
+   ],
+   "review": [
+    "congr:3/transfer/",
+    "congr:3/gen/",
+    "congr:3/diag/"
+   ],
+   "verify": [
+    "congr:3/probe/wrong-pair",
+    "congr:3/probe/wrong-pair",
+    "congr:3/control/wrong-pair"
+   ]
+  }
+ },
+ "congr:4": {
+  "items": [
+   "mastery0:cg4a:area:16:12:9:15:201|48|gen",
+   "mastery1:cg4p:13:11:18:8:1032|30|gen",
+   "mastery2:congr:4:diag:{\"f\":\"h\",\"b\":18,\"h\":5,\"t\":12,\"m\":13,\"S\":22.5,\"ord\":[0,1,2]}|5|diag",
+   "mastery3:cg4a:h:8:5:12:13:10:201|5|gen",
+   "mastery4:congr:4:transfer:{\"b\":20,\"h\":12,\"t\":9,\"m\":15,\"story\":1}|60|transfer",
+   "review0:congr:4:transfer:{\"b\":14,\"h\":9,\"t\":12,\"m\":15,\"story\":1}|31.5|transfer",
+   "review1:cg4p:14:8:18:7:2103|30|gen",
+   "review2:congr:4:diag:{\"f\":\"h\",\"b\":18,\"h\":5,\"t\":12,\"m\":13,\"S\":22.5,\"ord\":[0,1,2]}|5|diag",
+   "verify0:congr:4:probe:{\"f\":\"area\",\"b\":14,\"h\":6,\"t\":8,\"m\":10,\"ord\":[0,1,2]}|21|probe",
+   "verify1:congr:4:probe:{\"f\":\"area\",\"b\":14,\"h\":8,\"t\":15,\"m\":17,\"ord\":[2,0,1]}|28|probe",
+   "verify2:congr:4:diag:{\"f\":\"area\",\"b\":12,\"h\":6,\"t\":8,\"m\":10,\"ord\":[1,2,0]}|18|diag",
+   "gen:cg4a:area:20:8:15:17:021|40|gen",
+   "diag:congr:4:diag:{\"f\":\"area\",\"b\":14,\"h\":5,\"t\":12,\"m\":13,\"ord\":[0,2,1]}|17.5|diag",
+   "transfer:congr:4:transfer:{\"b\":14,\"h\":5,\"t\":12,\"m\":13,\"story\":1}|17.5|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "congr:4/gen/",
+    "congr:4/gen/",
+    "congr:4/diag/",
+    "congr:4/gen/",
+    "congr:4/transfer/"
+   ],
+   "review": [
+    "congr:4/transfer/",
+    "congr:4/gen/",
+    "congr:4/diag/"
+   ],
+   "verify": [
+    "congr:4/probe/median-as-height",
+    "congr:4/probe/median-as-height",
+    "congr:4/control/median-as-height"
+   ]
+  }
+ },
  "coord:1": {
   "items": [
    "mastery0:cp1p:-6:6|[-6,6]|gen",
@@ -494,6 +642,14 @@
   "stats:4/gen",
   "stats:5/diag",
   "stats:5/gen",
+  "congr:1/diag",
+  "congr:1/gen",
+  "congr:2/diag",
+  "congr:2/gen",
+  "congr:3/diag",
+  "congr:3/gen",
+  "congr:4/diag",
+  "congr:4/gen",
   "sys:1/diag",
   "sys:1/gen",
   "sys:2/diag",

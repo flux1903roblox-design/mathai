@@ -39,6 +39,8 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'line': return import('./line').then((m) => [...m.LINE1, ...m.LINE2]);
     case 'pyth': return import('./pyth').then((m) => m.PYTH);
     case 'stats': return import('./stats').then((m) => m.STATS);
+    // congruent triangles: the teaching, and the topic's practice generators, which register as the file loads
+    case 'congr': return import('./congr').then((m) => m.CONGR);
     case 'sys': return import('./sys').then((m) => m.SYS);
     // a topic with no teaching content has nothing to load
     default: return Promise.resolve([]);

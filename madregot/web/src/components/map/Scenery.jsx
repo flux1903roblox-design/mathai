@@ -3,7 +3,7 @@
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
 // statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems, a
 // fraction bar, a pie in eighths and a jug in tenths for the fractions floor, a flag and its mirror image, a turned L
-// and a tiling for transformations. Colours
+// and a tiling for transformations, twin triangles, a pair of compasses and a roof truss for congruence. Colours
 // come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
 // banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
 
@@ -410,6 +410,44 @@ const TileFloor = () => {
   );
 };
 
+// congruent triangles (GEOM-5): two triangles, the second the mirror image of the first, with matching tick marks and
+// arcs (the emblem); a pair of compasses (מחוגה) copying a segment; a roof truss of congruent triangles
+const TwinTriangles = () => (
+  <svg viewBox="0 0 112 92">
+    <path d="M8 80 L48 80 L20 18 Z" className="sc-c sc-line" />
+    <path d="M104 80 L64 80 L92 18 Z" className="sc-t sc-line" />
+    {/* one tick on the bases, two on the long sides, and the same arc at the base corner of each */}
+    <path d="M28 76 V84 M84 76 V84" className="sc-stroke" />
+    <path d="M30 47 L38 45 M31 51 L39 49 M82 47 L74 45 M81 51 L73 49" className="sc-stroke" />
+    <path d="M40 80 A8 8 0 0 0 44 72" className="sc-stroke-gold" />
+    <path d="M72 80 A8 8 0 0 1 68 72" className="sc-stroke-gold" />
+  </svg>
+);
+const Dividers = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="50" cy="12" r="6" className="sc-d" />
+    <path d="M50 14 L24 82" className="sc-stroke" />
+    <path d="M50 14 L74 82" className="sc-stroke" />
+    <path d="M24 82 L22 90" className="sc-stroke-gold" />
+    <path d="M74 82 L76 88" className="sc-stroke" />
+    {/* the segment it copies, and its copy under it */}
+    <path d="M12 94 H86" className="sc-route" />
+    <circle cx="22" cy="92" r="3.5" className="sc-c" />
+    <circle cx="76" cy="92" r="3.5" className="sc-c" />
+  </svg>
+);
+const RoofTruss = () => (
+  <svg viewBox="0 0 120 80">
+    <path d="M8 70 L60 12 L112 70 Z" className="sc-w sc-line" />
+    {/* the king post and two struts cut the truss into four congruent right triangles in pairs */}
+    <path d="M60 12 V70" className="sc-stroke" />
+    <path d="M34 70 L60 41 L86 70" className="sc-stroke" />
+    <path d="M8 70 L34 70 L60 41 Z" className="sc-c" opacity="0.55" />
+    <path d="M112 70 L86 70 L60 41 Z" className="sc-c" opacity="0.55" />
+    <path d="M4 72 H116" className="sc-stroke-gold" />
+  </svg>
+);
+
 export const SCENERY = {
   signed: [Thermometer, SeaLevel, Cloud],
   coord: [GridMap, Compass, Pin],
@@ -418,6 +456,7 @@ export const SCENERY = {
   line: [SlopeSteps, FlagHill, Plane],
   pyth: [Squares, Ladder, Pyramid],
   stats: [BarSkyline, PieSun, Dice],
+  congr: [TwinTriangles, Dividers, RoofTruss],
   expr: [ExprTiles, XBox, Brackets],
   eq: [EqScale, Seesaw, Keyhole],
   sys: [SysCross, TwoRoads, MeetFlag],

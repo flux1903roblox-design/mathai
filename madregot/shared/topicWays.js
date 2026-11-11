@@ -82,7 +82,9 @@ export const SIGNED_FRACTIONS = String.raw`Fractions and decimals with a sign (s
 
 /**
  * The tutor's ways for curriculum stage 4's geometry (stage4 spec GEOM-1 item 8, through AI-2's rules as above):
- * transformations (transf:1-4, web/src/learn/content/transf.ts). pedagogy.js takes it into TOPIC_WAYS after the angles.
+ * transformations (transf:1-4, web/src/learn/content/transf.ts) and congruent triangles (congr:1-4,
+ * web/src/learn/content/congr.ts). pedagogy.js takes them into TOPIC_WAYS in school order: the transformations after the
+ * angles, congruence after statistics. (The congruence model leaves out the triangle inequality: it comes with congr:5.)
  */
 export const TOPIC_WAYS_GEOM = Object.freeze({
   transf: {
@@ -100,6 +102,21 @@ export const TOPIC_WAYS_GEOM = Object.freeze({
       re(String.raw`מחליפים\s+(?:בין\s+)?(?:ה־)?\$?x\$?\s*(?:ל|ו)[^.\n]*?(?:סיבוב|לסובב|מסתובבת|מסתובב)${unless('סימן|סימנים')}`),
       re(String.raw`(?:ב)?שיקוף\s+(?:\S+\s+){0,3}(?:מחליפים|מחליף|משנים|משנה|מתחלפים|מתהפכים)\s+(?:את\s+)?(?:ה)?סימנים\s+של\s+שני`),
       re(String.raw`(?:צורות|משולשים|מלבנים)\s+(?:עם|שלהם|שלהן)\s+(?:אותו|שטח\s+שווה)\s+(?:שטח\s+)?(?:הם|הן)\s+חופפ`),
+    ],
+  },
+  congr: {
+    models: String.raw`$\triangle ABC \cong \triangle KML$ is read in the order of its letters: $A \leftrightarrow K$, $B \leftrightarrow M$, $C \leftrightarrow L$, wherever the second triangle is drawn (turned or mirrored); corresponding sides join corresponding vertices, and equal sides face equal angles. Without a written congruence the correspondence comes from the equal parts: a vertex matches the point where the sides equal to its two sides meet. The theorems: צ.ז.צ (two sides and the angle between them), ז.צ.ז (two angles and the side between them; the third angle can be found first) and צ.צ.צ. Two sides with an angle not between them, three angles, or an equal perimeter or area are not enough. A proof is a two-column table, טענה and נימוק: the givens, what the drawing adds (a common side, vertical angles), the congruence with its theorem, and only then the conclusions, "corresponding sides (angles) in congruent triangles". A median goes to the middle of the opposite side: it halves the side and the area (equal bases, the same height), not the shape; the height is the perpendicular, not the median.`,
+    words: ['צלעות מתאימות', 'זוויות מתאימות', 'משפט חפיפה', 'צ.ז.צ', 'ז.צ.ז', 'צ.צ.צ', 'טענה', 'נימוק', 'נתון', 'צ״ל', 'צלע משותפת', 'זוויות קודקודיות', 'תיכון', 'דלתון'],
+    avoid: [
+      '"two sides and an angle are enough" (the angle must be between them)',
+      '"equal area means congruent" (a median makes two halves of equal area that are not congruent)',
+      'matching vertices by where they are drawn or by the alphabet instead of the order of the congruence',
+    ],
+    avoidRe: [
+      // two sides and an angle said to be enough, with nothing in the sentence about where the angle is
+      re(String.raw`שתי\s+צלעות\s+וזווית\s+(?:אחת\s+)?(?:מספיקות|מספיק|זה\s+מספיק|הן\s+מספיקות)${unless('ביניהן|כלואה|בין שתי')}`),
+      // equal areas (or perimeters) given as the reason for congruence: "שווי שטח, ולכן הם חופפים"
+      re(String.raw`(?:שווי|שוות|שווים|אותו)\s+(?:שטח|היקף)[^.\n]*?(?:ולכן|לכן|אז)\s+(?:הם\s+|הן\s+|המשולשים\s+)?חופפ`),
     ],
   },
 });

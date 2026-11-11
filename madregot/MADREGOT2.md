@@ -227,6 +227,10 @@ the row to paste when one differs.
 | stats:3 | ממוצע | 10 (bars) | 2 | 2 | 4 (mean-as-answer, no-divide, median-not-mean, midrange) | yes | complete, tested |
 | stats:4 | ממוצע מטבלה | 9 (pins) | 2 | 2 | 5 (ignore-freq, wrong-count, no-divide, freq-as-data, skip-zero) | yes | complete, tested |
 | stats:5 | נתון חסר | 9 (bars) | 2 | 2 | 2 (mean-as-answer, known-count) | yes | complete, tested |
+| congr:1 | צלעות וזוויות מתאימות | 8 (transform) | 2 | 2 | 4 (alpha-order, match-by-place, one-angle, wrong-pair) | yes | complete, tested |
+| congr:2 | משפטי החפיפה | 8 (transform) | 2 | 2 | 5 (ssa, aaa, alpha-order, one-angle, wrong-pair) | yes | complete, tested |
+| congr:3 | הוכחה בחפיפה | 8 (proof) | 2 | 2 | 6 (wrong-pair, one-angle, half-only, circular, ssa, no-half) | yes | complete, tested |
+| congr:4 | תיכון ושטחים | 8 | 2 | 2 | 5 (median-as-height, full-base, median-congruent, median-altitude, full-side) | yes | complete, tested |
 | sys:1 | משוואות עם אחוזים | 7 | 3 | 2 | 2 (pct-of-new, wrong-unknown) | yes | complete, tested |
 | sys:2 | שיטת ההצבה | 9 (plot) | 3 | 2 | 3 (partial-dist, forgot-y, swap) | yes | complete, tested |
 | sys:3 | השוואת מקדמים | 10 (plot) | 3 | 2 | 3 (minus-bracket, forgot-y, swap) | yes | complete, tested |

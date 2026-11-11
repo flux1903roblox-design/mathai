@@ -62,8 +62,10 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // about 19,000 at the next merge, so it moved again; the lane's own stage 1 ways (shared/topicWays.js) and the "not
   // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
   // purpose. A further topic moves it only on purpose too: curriculum stage 4's transformations (their way, with the
-  // gap, the line x = k, the turn's direction and the glued side, and four stair names) took it to about 21,400.
-  assert.ok(s.length < 22000, `stable block is ${s.length} characters`);
+  // gap, the line x = k, the turn's direction and the glued side, and four stair names) took it to about 21,400; the
+  // congruent triangles (their way: the order of the letters, the three theorems and what is not one, the proof's table
+  // and the median, and four stair names) to about 23,050, so the cap moved to 24,000, on purpose.
+  assert.ok(s.length < 24000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');

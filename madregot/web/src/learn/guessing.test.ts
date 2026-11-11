@@ -28,7 +28,7 @@ import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from './mastery';
 import { VERIFY_N, VERIFY_NEED } from './misconceptions';
 import { seeded } from './expr';
 // @ts-ignore: plain JS
-import { isCorrect, TOPIC, topicsFor, figPlain } from '@/content/index.js';
+import { isCorrect, TOPIC, placementTopicsFor, figPlain } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { manipSolution } from '@/content/manip.js';
 // @ts-ignore: plain JS
@@ -129,8 +129,12 @@ export function printedParts(it: Item): { angles: number[]; lengths: number[] } 
   const angles = [...said.matchAll(DEG)].map((m) => Number(m[1]));
   const lengths = printed({ ...it, text: said.replace(DEG, ' '), display: '' });
   if (it.fig?.type === 'geo') {
-    for (const g of it.fig.angles || []) for (const m of String(g.text || '').matchAll(DEG)) angles.push(Number(m[1]));
-    for (const sg of it.fig.segs || []) if (/^-?\d+(\.\d+)?$/.test(String(sg.label ?? ''))) lengths.push(Number(sg.label));
+    // a drawing that repeats a number the text prints shows it once, not twice: a mark is added only past the text's
+    // own count of that number (the 62° of "∢CAD = 62°" drawn at A is one printed angle, so "180° minus the first two"
+    // does not become 180° − 2 · 62°, which is a stair's real answer and no shortcut)
+    const more = (to: number[], vs: number[]) => { const left = [...to]; vs.forEach((v) => { const i = left.indexOf(v); if (i >= 0) left.splice(i, 1); else to.push(v); }); };
+    more(angles, (it.fig.angles || []).flatMap((g: any) => [...String(g.text || '').matchAll(DEG)].map((m) => Number(m[1]))));
+    more(lengths, (it.fig.segs || []).filter((sg: any) => /^-?\d+(\.\d+)?$/.test(String(sg.label ?? ''))).map((sg: any) => Number(sg.label)));
   }
   return { angles, lengths };
 }
@@ -188,7 +192,10 @@ describe('a check cannot be passed by guessing', () => {
 });
 
 describe('the placement test cannot be passed by guessing', () => {
-  const topics = [...topicsFor('7'), ...topicsFor('8')] as { id: string; levels: unknown[] }[];
+  // the topics the first-day placement test asks (content/index.js placementTopicsFor): a unit taught later in the year
+  // (placement: false, the transformations and congruence) is never probed there, and each of its stairs' jump tests is
+  // held to the same 2% above
+  const topics = [...placementTopicsFor('7'), ...placementTopicsFor('8')] as { id: string; levels: unknown[] }[];
   it.each(topics.map((t) => t.id))('%s: a guesser is placed on or above any stair less than 2% of the time', (topic) => {
     const top = TOPIC[topic].levels.length;
     // the chance of passing a probe at each level: all PROBE_LEN questions right
@@ -239,8 +246,8 @@ describe('the guessing measure itself', () => {
     expect(passRate([copy, copy, copy, copy, copy], 4)).toBeGreaterThan(0.9);
   });
   it('the arithmetic shortcuts of congruence and similarity run, and only there (GEOM-1 Tests)', () => {
-    // no congr or sim item exists yet (GEOM-5, GEOM-6): synthetic ones show the guessers guess, so they cannot pass a
-    // real check later by never running
+    // synthetic items show the guessers guess (the congruence unit's real ones run in the checks above; similarity's,
+    // GEOM-6, are still to come), so they cannot pass a real check by never running
     const third = { form: 'num', topic: 'congr', text: 'במשולש $ABC$: $\\sphericalangle A = 50^\\circ$, $\\sphericalangle B = 60^\\circ$. כמה מעלות $\\sphericalangle C$?', answer: 70, key: 'syn:third' };
     expect(printedParts(third)).toEqual({ angles: [50, 60], lengths: [] });
     expect(ARITH[0](third)).toBe(1);

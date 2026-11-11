@@ -18,15 +18,17 @@ import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
 import { mirrorWords } from '@/content/transform.js';
 // @ts-ignore: plain JS
 import { TRANSF_KINDS } from '@/content/transf.gen.js';
+// @ts-ignore: plain JS
+import { CONGR_KINDS } from '@/content/congr.gen.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
 const CONTENT = await loadAllContent();
 
 type Pt = [number, number];
-type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[] };
+type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[]; match?: [string, string][] };
 
-const TOPICS = { angles: 5, pyth: 5 } as Record<string, number>;
+const TOPICS = { angles: 5, pyth: 5, congr: 4 } as Record<string, number>;
 
 const steps = () => Object.entries(TOPICS).flatMap(([topic, n]) => Array.from({ length: n }, (_, i) => `${topic}:${i + 1}`))
   .flatMap((skill) => contentOf(skill)!.discover.map((st, i) => ({ skill, i, st })));
@@ -36,7 +38,8 @@ const figOf = (st: DiscoverStep) => (st as { fig?: FigSpec }).fig;
 function mathOf(st: DiscoverStep) {
   const parts = [...st.text.matchAll(/\$([^$]+)\$/g)].map((m) => m[1]);
   if ('display' in st && st.display) parts.push(st.display);
-  return parts.join(' ').replace(/\\[a-zA-Z]+/g, ' ');
+  // an area written S with a subscript (S_{\triangle ABD}) names no point
+  return parts.join(' ').replace(/[A-Z](?=_\{)/g, ' ').replace(/\\[a-zA-Z]+/g, ' ');
 }
 const capitals = (s: string) => new Set([...s.matchAll(/[A-Z]/g)].map((m) => m[0]));
 /** Point letters in the text: capitals, except the letter-shapes of angle pairs ("Z", "C" as shapes) when the drawing has none. */
@@ -54,7 +57,8 @@ describe('teaching drawings: every step that names a shape shows it', () => {
     for (const { skill, i, st } of steps()) {
       const fig = figOf(st); if (!fig) continue;
       const html = renderToStaticMarkup(createElement(Figure, { fig }));
-      expect(html, `${skill} #${i}`).toMatch(/<svg/);
+      // a drawing, or a proof's table (GEOM-3.9)
+      expect(html, `${skill} #${i}`).toMatch(/<svg|<table/);
       expect(html, `${skill} #${i}`).not.toMatch(/NaN|undefined|Infinity/);
     }
   });
@@ -80,6 +84,8 @@ describe('teaching drawings agree with their text and with themselves', () => {
     for (const { where, st, f } of geos) {
       const drawn = new Set(Object.keys(f.pts).filter((k) => !k.startsWith('_') && !(f.hide || []).includes(k)));
       drawn.forEach((k) => expect(k, `${where}: a point is named by one capital letter`).toMatch(/^[A-Z]$/));
+      // a point named with a subscript (C₁ and C₂, the two places the same data allow) is a word on a hidden point
+      for (const w of f.words || []) { const m = /^([A-Z])[₀-₉]+$/.exec(w.text); if (m) drawn.add(m[1]); }
       const said = capitals(mathOf(st));
       // the drawing names no point the text does not
       expect([...drawn].filter((k) => !said.has(k)), `${where}: letters in the drawing but not in the text`).toEqual([]);
@@ -309,7 +315,9 @@ function textProblems(st: DiscoverStep, f: AnyFig): string[] {
   const given = new Set([...`${st.text} ${'display' in st ? st.display || '' : ''}`.matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => m[0]));
   const written = f.type === 'table' ? new Set((f.head as unknown[]).map(plainOf))
     : f.type === 'bars' ? new Set([...labelsOf({ ...f, values: f.values.filter((v: number | null) => v == null || !given.has(fmt(v))) })]) : labelsOf(f);
-  if (st.kind === 'predict' && written.has(plainOf(st.choices[st.answer]))) bad.push(`the answer ${plainOf(st.choices[st.answer])} is written in the figure`);
+  // (a choice that is a point's own letter picks a vertex of the drawing, as "to which vertex does B correspond?")
+  const ans = st.kind === 'predict' ? plainOf(st.choices[st.answer]) : '';
+  if (st.kind === 'predict' && written.has(ans) && !(f.type === 'geo' && /^[A-Z]$/.test(ans) && ans in f.pts)) bad.push(`the answer ${ans} is written in the figure`);
   return bad;
 }
 
@@ -433,6 +441,76 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
       return st.kind === 'say' && f && DRAWS.has(f.type) && !f.anim ? [`${c.skill} #0: ${f.type} without anim`] : [];
     });
     expect(bad).toEqual([]);
+  });
+});
+
+// curriculum stage 4: every drawn kind of the congruence questions (content/congr.gen.js), 200 draws of each: the
+// figure renders, agrees with itself and with its text; every angle written in degrees is drawn that size; two
+// triangles drawn for a congruence are congruent under the correspondence they were drawn for (fig.match: each side of
+// the first as long as its image); and an angle written as an expression, (2x + 10)°, is drawn at its value at the
+// answer
+describe('the congruence questions\' drawings (GEOM-5)', () => {
+  const drawn = Object.entries(CONGR_KINDS as Record<string, () => any>).filter(([, gen]) => gen().fig);
+  it('cover every kind that draws', () => {
+    expect(drawn.map(([k]) => k).sort()).toEqual(['angleVia', 'claims', 'findError', 'matchData', 'medArea', 'medPerim', 'rectMedian', 'samePerimeter', 'sideX', 'ticks', 'useCong', 'whatMissing', 'whichSeg', 'whichThm']);
+  });
+  const expr = /^\((\d)x ([+−]) (\d+)\)°$/;
+  for (const [kind, gen] of drawn) {
+    it(`${kind}: 200 drawings`, () => {
+      let matched = 0;
+      for (let i = 0; i < 200; i += 1) {
+        const it = gen();
+        const f = it.fig as AnyFig;
+        const html = renderToStaticMarkup(createElement(Figure, { fig: f }));
+        expect(html, `${kind} ${it.key}`).toMatch(/<svg|<table/);
+        expect(html, `${kind} ${it.key}`).not.toMatch(/NaN|undefined|Infinity/);
+        expect(selfProblems('congr:1', f), `${kind} ${it.key}`).toEqual([]);
+        const st = (it.form === 'mc'
+          ? { kind: 'predict', text: it.text, fig: f, choices: it.choices.map((c: any) => c.text ?? c.tex), answer: it.answer, why: '' }
+          : { kind: 'say', text: it.text, fig: f }) as DiscoverStep;
+        expect(textProblems(st, f), `${kind} ${it.key}: ${it.text}`).toEqual([]);
+        if (f.type !== 'geo') continue;
+        const g = f as Geo;
+        for (const a of g.angles || []) {
+          const { deg } = geoSweep(g.pts, a);
+          const m = /^(\d+)°$/.exec(a.text || '');
+          if (m) expect(Math.abs(deg - Number(m[1])), `${kind} ${it.key}: ${a.text} at ${a.at} is drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+          const e = expr.exec(a.text || '');
+          if (e && it.form === 'num') {
+            const v = Number(e[1]) * it.answer + (e[2] === '+' ? 1 : -1) * Number(e[3]);
+            expect(Math.abs(deg - v), `${kind} ${it.key}: ${a.text} at x = ${it.answer} is ${v}°, drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+          }
+          if (a.right) expect(Math.min(deg, 360 - deg), `${kind} ${it.key}: right angle at ${a.at}`).toBeCloseTo(90, 1);
+          if (!a.right) expect(deg, `${kind} ${it.key}: the arc at ${a.at}`).toBeLessThanOrEqual(180.0001);
+        }
+        if (g.match) {
+          const pairs = g.match as [string, string][];
+          const to = Object.fromEntries(pairs);
+          for (const [u, v] of [['A', 'B'], ['B', 'C'], ['C', 'A']]) {
+            expect(Math.abs(dist(g.pts[u], g.pts[v]) - dist(g.pts[to[u]], g.pts[to[v]])), `${kind} ${it.key}: ${u}${v} and ${to[u]}${to[v]}`).toBeLessThan(1e-6);
+          }
+          matched += 1;
+        }
+      }
+      if (['angleVia', 'sideX', 'ticks', 'matchData'].includes(kind)) expect(matched, `${kind}: drawn as a congruent pair`).toBe(200);
+    });
+  }
+  it('the teaching steps\' pairs of triangles are congruent under their correspondence too', () => {
+    let n = 0;
+    for (let k = 1; k <= 4; k += 1) {
+      const c = contentOf(`congr:${k}`)!;
+      const figs = [...c.discover, ...c.misconceptions.flatMap((m) => m.remedy)].map(figOf).concat(c.examples.map((e) => e.fig), c.together.map((t) => t.fig)) as AnyFig[];
+      for (const f of figs) {
+        if (!f?.match) continue;
+        const m = f.match as [string, string][];
+        for (let i = 0; i < 3; i += 1) {
+          const [u, U] = m[i]; const [v, V] = m[(i + 1) % 3];
+          expect(Math.abs(dist(f.pts[u], f.pts[v]) - dist(f.pts[U], f.pts[V])), `congr:${k} ${f.label}: ${u}${v} and ${U}${V}`).toBeLessThan(1e-6);
+        }
+        n += 1;
+      }
+    }
+    expect(n).toBeGreaterThan(15);
   });
 });
 

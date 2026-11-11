@@ -1,4 +1,4 @@
-// The template test of the proof templates (GEOM-3 Tests), shared by content/congr.test.js and learn/content.test.ts
+// The template test of the proof templates (GEOM-3 Tests), shared by content/proofs.test.js and learn/content.test.ts
 // (checkSteps on a proof explore). Only tests import this file.
 //   templateFaults(T)  what is wrong with a template, as sentences ([] when nothing is): at least three rows; the free
 //                      groups in range and contiguous; every reason (fixed or a choice) in the bank, every asked reason
@@ -8,7 +8,7 @@
 //   figureFaults(T)    where the drawing is not true: every equality, ⊥ and ∥ a claim, the givens or the goal state
 //                      holds in the drawing's points, and every letter they name is a point of it
 import katex from 'katex';
-import { REASONS, THEOREMS, R, proofRows } from './congr.js';
+import { REASONS, THEOREMS, R, proofRows } from './proofs.js';
 
 const tex = (s) => (String(s).match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1));
 const isAngle = (claim) => /\\sphericalangle/.test(claim);

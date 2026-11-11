@@ -258,8 +258,12 @@ describe('practice-only questions are kept out of checks', () => {
   // pct: shade, estimate and over100 (pct:1, estimate also in pct:2), classes (pct:2), the stretch (pct:4), multMc (pct:5)
   // transf (curriculum stage 4): the copy slid, flipped and turned (tf1c, tf2c, tf3c), which slide (tf1w), the axes of
   // symmetry (tf2s), the least turn (tf3r), which move (tf4m), two rectangles congruent? (tf4r), tiles at a point (tf4t)
+  // congr (curriculum stage 4): the angle by the ticks (cg1t: its answer is always 180° minus both printed), which side
+  // (cg1p), which theorem (cg2w), what is missing (cg2n), the same perimeter (cg2p), the proof object (cg3f, cg3o), which
+  // row is wrong (cg3e), which segment (cg4s), a claim about the median (cg4c)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
-    'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'tf1c', 'tf1w', 'tf2c', 'tf2s', 'tf3c', 'tf3r', 'tf4m', 'tf4r', 'tf4t'];
+    'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'tf1c', 'tf1w', 'tf2c', 'tf2s', 'tf3c', 'tf3r', 'tf4m', 'tf4r', 'tf4t',
+    'cg1t', 'cg1p', 'cg2w', 'cg2n', 'cg2p', 'cg3f', 'cg3o', 'cg3e', 'cg4s', 'cg4c'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

@@ -19,7 +19,7 @@ import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TIL
 // @ts-ignore: plain JS
 import { transformReachable, tfStart, tfSame, tfSameSet, tfInside, TF_RANGE } from '@/content/transform.js';
 // @ts-ignore: plain JS
-import { PROOF, proofIn, proofManip } from '@/content/congr.js';
+import { PROOF, proofIn, proofManip } from '@/content/proofs.js';
 // @ts-ignore: plain JS
 import { proofStart, rightReason, askedSteps } from '@/content/proof.js';
 // @ts-ignore: plain JS
@@ -146,7 +146,7 @@ function checkTransform(m: { shape: { pts: [number, number][]; names: string[] }
 }
 
 /**
- * The proof object (GEOM-3): made from a template (content/congr.js) in one of its letter sets, the template passes the
+ * The proof object (GEOM-3): made from a template (content/proofs.js) in one of its letter sets, the template passes the
  * template test, the rows are the template's (the same claims, the same right reasons, the same free groups; which
  * reasons are asked may differ), something is asked, and without lockOrder the first order shown is not already right.
  */

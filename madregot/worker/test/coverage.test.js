@@ -29,6 +29,13 @@ const STAGE1 = [
 ];
 const TRANSF = ['transf:1', 'transf:2', 'transf:3', 'transf:4'];
 const STAGE4 = [...STAGE1, ...TRANSF];
+// congruence (GEOM-5): 8.12 lists congr:1-5; the lane's stage 6 builds congr:1-4 and congr:5 comes with its own stage, so
+// the part (16 hours) is not taught yet and the coverage stays stage 4's
+const CONGR = ['congr:1', 'congr:2', 'congr:3', 'congr:4', 'congr:5'];
+const STAGE6 = [...STAGE4, ...CONGR.slice(0, 4)];
+/** The later stage that brings an untaught part: its `later`, or, for a part that lists its stairs, the stage of the ones still missing. */
+const STAGE_OF_TOPIC = { congr: 'S4' };
+const laterOf = (p, have) => p.later || (p.skills.length ? STAGE_OF_TOPIC[p.skills.find((s) => !have.has(s))?.split(':')[0]] || null : null);
 const BRIDGE = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
 
 // The schedules' hours per unit (7.1-7.17, 8.1-8.17) and the hours each milestone teaches, unit by unit.
@@ -92,11 +99,11 @@ test('the programme: 17 units a grade, in the schedules\' order, with their hour
   assert.equal(coverage('8', []).hours, 147);
 });
 
-test('every stair a part lists is one of stage 1\'s or a transformation; a part with none is a later stage\'s, with a note', () => {
-  const known = new Set(STAGE4);
+test('every stair a part lists is one of stage 1\'s, a transformation or a congruence stair; a part with none is a later stage\'s, with a note', () => {
+  const known = new Set([...STAGE4, ...CONGR]);
   for (const { unit, part } of allParts) {
     if (part.skills.length) {
-      part.skills.forEach((s) => assert.ok(known.has(s), `${unit.id} lists ${s}, which is not a stage-1 stair or a transformation`));
+      part.skills.forEach((s) => assert.ok(known.has(s), `${unit.id} lists ${s}, which is not a stage-1 stair, a transformation or a congruence stair`));
       assert.equal(part.later, undefined, `${unit.id}: a part with stairs is not waiting for a later stage`);
     } else {
       assert.ok(['S2', 'S3', 'S4', 'S5'].includes(part.later), `${unit.id}: an empty part names its stage`);
@@ -112,6 +119,8 @@ test('every stair a part lists is one of stage 1\'s or a transformation; a part 
   assert.deepEqual(listing('7.11'), TRANSF);
   assert.deepEqual(listing('8.5'), TRANSF);
   for (const id of ['7.11', '8.5']) assert.ok(PROGRAMME.units.find((u) => u.id === id).parts.every((p) => p.later !== 'S4'), id);
+  // congruence: 8.12 lists its five stairs (the fifth, the sides of a triangle, still to come)
+  assert.deepEqual(listing('8.12'), CONGR);
   // one stair can serve several units
   assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => p.skills.includes('pyth:1'))).map((u) => u.id), ['7.6', '7.14', '8.3']);
   assert.ok(listing('7.9').includes('line:1'));
@@ -157,6 +166,16 @@ test('coverage from the four fixtures: the council\'s 33 stairs, HEAD\'s 48, sta
   assert.deepEqual([coverage('7', STAGE4).pct, coverage('8', STAGE4).pct], [73, 48]);
   assert.equal(Math.round((100 * (109 + 71)) / 297), 61);
   assert.deepEqual([coverage('7', STAGE4).units.find((u) => u.id === '7.11').state, coverage('8', STAGE4).units.find((u) => u.id === '8.5').state], ['yes', 'yes']);
+  // congr:1-4 (the lane's stage 6): the same hours, since 8.12 is taught only with congr:5; its four stairs are links
+  const c8 = coverage('8', STAGE6);
+  assert.deepEqual([coverage('7', STAGE6).taught, c8.taught], [109, 71]);
+  assert.deepEqual(c8.units.find((u) => u.id === '8.12'), {
+    id: '8.12', domain: 'geometry', title: 'חפיפת משולשים, צלעות במשולש, תיכון', months: [1, 2], hours: 16, taught: 0, state: 'no',
+    stairs: CONGR.slice(0, 4), missing: ['חפיפת משולשים, צלעות במשולש ותיכון'],
+    parts: [{ hours: 16, skills: CONGR, note: 'חפיפת משולשים, צלעות במשולש ותיכון', later: null, taught: false }],
+  });
+  // with congr:5 too, the whole unit
+  assert.equal(coverage('8', [...STAGE6, 'congr:5']).units.find((u) => u.id === '8.12').state, 'yes');
 });
 
 test('a unit\'s state, stairs and missing parts', () => {
@@ -182,20 +201,24 @@ test('a unit\'s state, stairs and missing parts', () => {
   assert.equal(at('8', [...STAGE1, 'func:1', 'func:2'], '8.7').taught, 0);
 });
 
-test('with the stage-1 stairs and the transformations, every untaught part names the later stage that brings it, and the stages add up', () => {
-  for (const g of ['7', '8']) {
-    const c = coverage(g, STAGE4);
-    let taught = c.taught;
-    for (const u of c.units) {
-      for (const p of u.parts.filter((x) => !x.taught)) assert.ok(['S2', 'S3', 'S4', 'S5'].includes(p.later), `${u.id}: ${p.note}`);
+test('with the stage-1 stairs and the transformations (and congr:1-4), every untaught part names the later stage that brings it, and the stages add up', () => {
+  for (const skills of [STAGE4, STAGE6]) {
+    const have = new Set(skills);
+    for (const g of ['7', '8']) {
+      const c = coverage(g, skills);
+      let taught = c.taught;
+      for (const u of c.units) {
+        for (const p of u.parts.filter((x) => !x.taught)) assert.ok(['S2', 'S3', 'S4', 'S5'].includes(laterOf(p, have)), `${u.id}: ${p.note}`);
+      }
+      for (const stage of ['S2', 'S3', 'S4', 'S5']) {
+        taught += sum(c.units.flatMap((u) => u.parts.filter((p) => !p.taught && laterOf(p, have) === stage).map((p) => p.hours)));
+        assert.equal(taught, AFTER[g][stage], `grade ${g} after ${stage}`);
+      }
     }
-    for (const stage of ['S2', 'S3', 'S4', 'S5']) {
-      taught += sum(c.units.flatMap((u) => u.parts.filter((p) => !p.taught && p.later === stage).map((p) => p.hours)));
-      assert.equal(taught, AFTER[g][stage], `grade ${g} after ${stage}`);
+    for (const [stage, ids] of Object.entries(COMPLETES)) {
+      const units = ['7', '8'].flatMap((g) => coverage(g, skills).units);
+      assert.deepEqual(units.filter((u) => u.parts.some((p) => !p.taught && laterOf(p, have) === stage)).map((u) => u.id), ids, stage);
     }
-  }
-  for (const [stage, ids] of Object.entries(COMPLETES)) {
-    assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => p.later === stage)).map((u) => u.id), ids, stage);
   }
 });
 
@@ -248,6 +271,8 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
   STAGE1.forEach((s) => assert.equal(typeof monthIndex(s, gradeOf(s)), 'number', s));
   // the transformations: November in ז׳ (7.11) and in ח׳ (8.5)
   TRANSF.forEach((s) => { assert.equal(monthIndex(s, '7'), 2, s); assert.equal(monthIndex(s, '8'), 2, s); });
+  // congruence: January in ח׳ (8.12), not in ז׳'s programme
+  CONGR.forEach((s) => { assert.equal(monthIndex(s, '8'), 4, s); assert.equal(monthIndex(s, '7'), null, s); });
 
   assert.equal(schoolMonth('2026-09-01'), 0);
   assert.equal(schoolMonth('2026-11-10'), 2);

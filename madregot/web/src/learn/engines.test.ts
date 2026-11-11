@@ -111,8 +111,13 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
   it('puts pct after ratio and before line, and keeps the first-day test at 18 questions', async () => {
     expect(TOPIC_ORDER.indexOf('pct')).toBe(TOPIC_ORDER.indexOf('ratio') + 1);
     expect(TOPIC_ORDER.indexOf('pct')).toBeLessThan(TOPIC_ORDER.indexOf('line'));
-    // ז׳ in school order too: the transformations (November and December) between the angles and the expressions
-    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'transf', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys']);
+    // ז׳ in school order too: the transformations (November and December) between the angles and the expressions; ח׳'s
+    // congruence (January and February) after statistics, before the systems
+    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'transf', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'congr', 'sys']);
+    // @ts-ignore: plain JS
+    const { TOPIC } = await import('@/content/index.js');
+    // taught mid-year: on the ח׳ map, not in the first-day test
+    expect((TOPIC.congr as { placement?: boolean }).placement).toBe(false);
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
@@ -169,7 +174,7 @@ describe('a unit on two grades\' paths (ALSO_ON_PATH): this year\'s ח׳ learns 
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(66); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year) and transf:1-4
+    expect(ALL_SKILLS).toHaveLength(70); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), transf:1-4 and congr:1-4
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));

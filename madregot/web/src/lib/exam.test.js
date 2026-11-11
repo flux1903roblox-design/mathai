@@ -39,7 +39,8 @@ describe('exam', () => {
   });
   it('a printed practice exam has no practice-only question and nothing dragged on the screen (council2, GEOM-1 Tests)', () => {
     // coord, ratio and frac have practice-only choices and dragged objects (coord:2 is mostly dragging); transf has its
-    // practice-only transform object and choices (GEOM-4), and congr and sim join it when their stairs land (GEOM-5, -6)
+    // practice-only transform object and choices (GEOM-4), congr its proofs and choices (GEOM-5), and sim joins them when
+    // its stairs land (GEOM-6)
     const topics = ['coord', 'ratio', 'frac', 'transf', 'congr', 'sim'];
     made.length = 0;
     const items = makePracticeExam(topics, 40);

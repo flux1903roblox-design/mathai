@@ -14,11 +14,12 @@ import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
-import { PROOFS, LETTER_SETS, proofManip, proofDiag } from './congr.js';
+import { PROOFS, LETTER_SETS, proofManip, proofDiag } from './proofs.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { TRANSF } from './transf.js';
 import { shiftPlain } from './transf.gen.js';
+import { CONGR } from './congr.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -272,6 +273,8 @@ const gcdOf = (x, y) => { let a = Math.abs(x); let b = Math.abs(y); while (b) [a
  */
 /** The text of the chosen choice of a practice question whose choices are words (transformations). */
 const choiceText = (it, u) => it.choices?.[u]?.text || '';
+/** The chosen choice, words or maths (a side, an angle, a segment of the congruence questions). */
+const choiceAny = (it, u) => it.choices?.[u]?.tex || it.choices?.[u]?.text || '';
 /** Twice the area of a polygon given as "x,y,x,y,…" (the shoelace formula). */
 const area2Of = (flat) => {
   const v = flat.split(',').map(Number); const pts = [];
@@ -294,6 +297,47 @@ function tfMove(key) {
   return { p };
 }
 const isSlide = (m) => m.p === 'tf1s' || m.p === 'tf1v';
+
+// ---------------------------------------------------------------- congruent triangles: read back from what is on screen
+/** Every angle the text prints in degrees, by its name: { A: 50, MBD: 70 }. */
+const anglesIn = (text) => Object.fromEntries([...text.matchAll(/\\sphericalangle ([A-Z]+) = (\d+)°/g)].map((m) => [m[1], Number(m[2])]));
+/** Every length the text prints: { BC: 14, AD: 6 } (a side with a number, `$XY = n$`). */
+const lengthsIn = (text) => Object.fromEntries([...text.matchAll(/\$([A-Z]{2}) = (\d+(?:\.\d+)?)\$/g)].map((m) => [m[1], Number(m[2])]));
+/** The angle written as an expression: ∢V = (px ± q)°, as { V, p, q }. */
+const exprIn = (text) => { const m = /\\sphericalangle ([A-Z]+) = \((\d)x ([+-]) (\d+)\)°/.exec(text); return m && { V: m[1], p: Number(m[2]), q: (m[3] === '+' ? 1 : -1) * Number(m[4]) }; };
+/** The vertex a question asks about: "מה גודל ∢X?" (the third form). */
+const askedIn = (text) => (/מה גודל \$\\sphericalangle ([A-Z])\$/.exec(text) || [])[1];
+/** The second triangle's letters, as the drawing pairs them with A, B, C (its `match`). */
+const partnerOf = (it) => Object.fromEntries(it.fig.match);
+/** The letter the alphabet pairs with a vertex of ABC: the second triangle's letters in alphabetical order. */
+const alphaOf = (it, V) => Object.values(partnerOf(it)).sort()[['A', 'B', 'C'].indexOf(V)];
+/** The vertex of ABC the alphabet pairs with a letter of the second triangle. */
+const alphaBack = (it, X) => ['A', 'B', 'C'][Object.values(partnerOf(it)).sort().indexOf(X)];
+/** Where a point of a two-triangle drawing is: 'top', or 'left' / 'right' at the base of its own triangle. */
+function placeIn(f, X) {
+  const own = ['A', 'B', 'C'].includes(X) ? ['A', 'B', 'C'] : Object.values(Object.fromEntries(f.match));
+  const [x, y] = f.pts[X]; const ys = own.map((k) => f.pts[k][1]);
+  if (y === Math.max(...ys)) return 'top';
+  const other = own.find((k) => k !== X && f.pts[k][1] !== Math.max(...ys));
+  return x > f.pts[other][0] ? 'right' : 'left';
+}
+/** The letters of a side choice, `$KM$`, as a sorted string. */
+const sideSet = (t) => [...String(t).replace(/\$/g, '')].sort().join('');
+/** The proof row a "which row is wrong?" question passes over: the congruence row (SSA data), or the conclusion above it. */
+function wrongRowOf(it) {
+  const rows = it.fig.rows; const thm = rows.findIndex((r) => /\\cong/.test(r.claim));
+  if (it.key.startsWith('cg3e:ssa:')) return thm;
+  return rows.findIndex((r, i) => i < thm && /מתאימות במשולשים/.test(r.reason));
+}
+/** In a triangle with segments from A to BC: is AX the median, the altitude or the bisector? */
+function segKind(f, X) {
+  const P = f.pts; const [A, B, C, Q] = [P.A, P.B, P.C, P[X]];
+  const ang = (u, v) => Math.acos(((u[0] - A[0]) * (v[0] - A[0]) + (u[1] - A[1]) * (v[1] - A[1])) / (Math.hypot(u[0] - A[0], u[1] - A[1]) * Math.hypot(v[0] - A[0], v[1] - A[1])));
+  if (near(Q[0], (B[0] + C[0]) / 2, 1e-6)) return 'median';
+  if (near(Q[0], A[0], 1e-6)) return 'altitude';
+  if (near(ang(B, Q), ang(Q, C), 1e-6)) return 'bisector';
+  return null;
+}
 
 const PROPS = {
   frac: {
@@ -431,6 +475,122 @@ const PROPS = {
     'equal-perimeter': (it, u) => {
       const [a, b, c, d] = nums(it.key);
       return it.key.startsWith('tf4r:') && choiceText(it, u) === 'כן, הם חופפים' && !(a === d && b === c) && a + b === c + d;
+    },
+  },
+  // curriculum stage 4's congruent triangles (content/congr.gen.js): every property reads what the student saw, the
+  // question's text (its angles and lengths, the congruence in letters, the angle written as an expression) and the
+  // drawing's letters (the second triangle's, as the drawing pairs them, and where each vertex is drawn); a choice is
+  // read back from the chosen choice's text, a proof from the table the student left (PROOF_PROPS)
+  congr: {
+    // matched by the alphabet: the angle of the vertex the second triangle's letters, in alphabetical order, pair with
+    // the asked one (the third form), or the expression set equal to that vertex's angle (the x form); for a side, AB
+    // set equal to the side of the alphabet's first two letters
+    'alpha-order': (it, u) => {
+      const p = it.key.split(':')[0]; const A = anglesIn(it.text);
+      if (p === 'cg1x') {
+        const [a, b] = nums(it.key); const s = Object.values(partnerOf(it)).sort();
+        const side = Object.entries(lengthsIn(it.text)).find(([n]) => sideSet(n) === [s[0], s[1]].sort().join(''));
+        return !!side && near(a * u + b, side[1]);
+      }
+      if (p === 'cg1p') { const [, name, st] = it.key.split(':'); return sideSet(choiceAny(it, u)) === [...st].map((v) => [...name].sort()['ABC'.indexOf(v)]).sort().join(''); }
+      if (!['cg1a', 'cg2m', 'cg1t'].includes(p)) return false;
+      const e = exprIn(it.text);
+      if (e) { const v = A[alphaOf(it, e.V)]; return v != null && near(e.p * u + e.q, v); }
+      const back = alphaBack(it, askedIn(it.text));
+      return A[back] != null && near(u, A[back]);
+    },
+    // matched by where the vertex is drawn: the printed angle of the vertex of ABC drawn where the asked one is
+    'match-by-place': (it, u) => {
+      if (!['cg1a', 'cg1t'].includes(it.key.split(':')[0]) || exprIn(it.text)) return false;
+      const place = placeIn(it.fig, askedIn(it.text));
+      const V = { top: 'A', right: 'B', left: 'C' }[place];
+      const A = anglesIn(it.text);
+      return A[V] != null && near(u, A[V]);
+    },
+    // only one printed angle taken from 180°
+    'one-angle': (it, u) => Object.values(anglesIn(it.text)).some((n) => near(u, 180 - n)),
+    // a part that does not match: the angle set equal to the third angle (180° minus both printed: the x form), a side
+    // that is neither the matching one nor the alphabet's (a choice), the kite's ∢BCA taken for ∢ADC, the crossing's ∢CAM
+    // for ∢MDB, or ∢ACM set equal to ∢MBD
+    'wrong-pair': (it, u) => {
+      const p = it.key.split(':')[0]; const A = anglesIn(it.text); const e = exprIn(it.text);
+      if (p === 'cg1p') {
+        const [, name, st] = it.key.split(':'); const partner = { A: name[0], B: name[1], C: name[2] };
+        const right = sideSet(`${partner[st[0]]}${partner[st[1]]}`);
+        const alpha = [...st].map((v) => [...name].sort()['ABC'.indexOf(v)]).sort().join('');
+        const c = sideSet(choiceAny(it, u));
+        return c.length === 2 && c !== right && c !== alpha;
+      }
+      if ((p === 'cg1a' || p === 'cg2m') && e) { const vals = Object.values(A); return vals.length === 2 && near(e.p * u + e.q, 180 - vals[0] - vals[1]); }
+      if (p === 'cg3u') {
+        if (e) return A.MBD != null && near(e.p * u + e.q, A.MBD);
+        if (A.BCA != null && /ADC\$\?/.test(it.text)) return near(u, A.BCA);
+        if (A.CAM != null && /MDB\$\?/.test(it.text)) return near(u, A.CAM);
+      }
+      return false;
+    },
+    // the angle of one of the two triangles only: half of ∢ACB (90° − ∢CAD), or the half ∢BAC when the whole ∢BAD is asked
+    'half-only': (it, u) => {
+      const A = anglesIn(it.text);
+      if (A.CAD != null && /ACB\$\?/.test(it.text)) return near(u, 90 - A.CAD);
+      if (A.BAC != null && /BAD\$\?/.test(it.text)) return near(u, A.BAC);
+      return false;
+    },
+    // two sides and an angle that is not between them taken as a theorem: "congruent" on SSA data, an angle that is not
+    // where the two equal sides meet, or a proof's rows read past the congruence row that says צ.ז.צ on SSA data
+    ssa: (it, u) => {
+      const p = it.key.split(':')[0];
+      if (p === 'cg2w') return it.key.split(':')[1] === 'ssa' && choiceText(it, u).startsWith('חופפים');
+      if (p === 'cg2n') {
+        const sides = [...it.text.matchAll(/\$([A-C]{2}) = /g)].map((m) => m[1]);
+        const meet = [...sides[0]].find((v) => sides[1].includes(v));
+        const m = /\\sphericalangle ([A-C]) =/.exec(choiceAny(it, u));
+        return !!m && m[1] !== meet;
+      }
+      if (p === 'cg3e' && it.key.startsWith('cg3e:ssa:')) return u !== wrongRowOf(it);
+      return false;
+    },
+    // three equal angles taken for congruence
+    aaa: (it, u) => it.key.startsWith('cg2w:aaa:') && choiceText(it, u).startsWith('חופפים'),
+    // two triangles with the same perimeter (and different sides) taken for congruent
+    'equal-perimeter': (it, u) => {
+      if (!it.key.startsWith('cg2p:')) return false;
+      const [s, t] = it.key.split(':').slice(1).map((x) => x.split(',').map(Number));
+      return choiceText(it, u) === 'כן' && sum(s) === sum(t) && sortN(s).join() !== sortN(t).join();
+    },
+    // a conclusion before the congruence it follows from: in a table the student ordered, or a "which row is wrong?"
+    // answered with another row than the conclusion placed above the congruence
+    circular: (it, u) => {
+      if (it.form === 'manip') return PROOF_PROPS.circular(it, u);
+      return it.key.startsWith('cg3e:') && !it.key.startsWith('cg3e:ssa:') && wrongRowOf(it) >= 0 && u !== wrongRowOf(it);
+    },
+    'wrong-theorem': (it, u) => it.form === 'manip' && PROOF_PROPS['wrong-theorem'](it, u),
+    // the whole side as the base of half the triangle: BC · AH / 2 (or AB · BC / 2 in the rectangle); in the height form
+    // 2S / BC
+    'full-base': (it, u) => {
+      const L = lengthsIn(it.text);
+      if (it.key.startsWith('cg4r:')) return near(u, (L.AB * L.BC) / 2);
+      if (!it.key.startsWith('cg4a:')) return false;
+      if (L.AH != null) return near(u, (L.BC * L.AH) / 2);
+      const S = Number((/הוא \$(\d+(?:\.\d+)?)\$/.exec(it.text) || [])[1]);
+      return near(u, (2 * S) / L.BC);
+    },
+    // the median taken for the height: BC · AD / 4, or AD itself when the height is asked
+    'median-as-height': (it, u) => {
+      if (!it.key.startsWith('cg4a:')) return false;
+      const L = lengthsIn(it.text);
+      return L.AH != null ? near(u, (L.BC * L.AD) / 4) : near(u, L.AD);
+    },
+    // the whole side added: AB + BC + AD
+    'full-side': (it, u) => { const L = lengthsIn(it.text); return it.key.startsWith('cg4p:') && near(u, L.AB + L.BC + L.AD); },
+    // "the median makes two congruent triangles" (or two of the same perimeter) said always true
+    'median-congruent': (it, u) => it.key.startsWith('cg4c:') && choiceText(it, u) === 'נכון תמיד' && !/שווי שטח/.test(it.text),
+    // the segment chosen is not the one asked: a median, an altitude or a bisector taken for another
+    'median-altitude': (it, u) => {
+      if (!it.key.startsWith('cg4s:')) return false;
+      const X = (/^A([A-Z])$/.exec(choiceAny(it, u)) || [])[1];
+      const asked = /התיכון/.test(it.text) ? 'median' : /הגובה/.test(it.text) ? 'altitude' : 'bisector';
+      return !!X && segKind(it.fig, X) !== asked;
     },
   },
   ratio: {
@@ -833,6 +993,9 @@ describe('the algebra, fraction, ratio, percent and transformation topics name o
   it('every category of expressions, equations, systems, fractions, ratio, percent and transformations has its property here', () => {
     for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, TRANSF]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
     expect(Object.keys(TRANSF.cats)).toHaveLength(15);
+    // congruence: every category but 'no-half', which only the kite transfer model predicts (no exercise names it)
+    for (const cat of Object.keys(CONGR.cats)) if (cat !== 'no-half') expect(PROPS.congr[cat], `congr '${cat}'`).toBeTypeOf('function');
+    expect(Object.keys(CONGR.cats)).toHaveLength(16);
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not
@@ -890,6 +1053,38 @@ describe('the council\'s reproductions', () => {
   it('a negative length is named as a negative length on its own stair', () => {
     expect(catLabel('coord', 3, 'sign')).toBe('יצא אורך שלילי');
     expect(catLabel('coord', 1, 'sign')).toBe('טעות בסימן של אחד השיעורים');
+  });
+});
+
+describe('the congruence choices name what the student chose (GEOM-5)', () => {
+  const pick = (it, text) => it.choices.findIndex((c) => c.text === text || c.text.startsWith(text));
+  it('"congruent" on two sides and an angle not between them is ssa; on three angles aaa; "not enough data" is right', () => {
+    const ssa = find('congr', 2, (x) => x.key.startsWith('cg2w:ssa:'));
+    expect(ssa.diag(pick(ssa, 'חופפים לפי צ.ז.צ'))).toBe('ssa');
+    expect(PROPS.congr.ssa(ssa, pick(ssa, 'חופפים לפי צ.ז.צ'))).toBe(true);
+    expect(isCorrect(ssa, pick(ssa, 'אין מספיק נתונים'))).toBe(true);
+    const aaa = find('congr', 2, (x) => x.key.startsWith('cg2w:aaa:'));
+    expect(aaa.diag(pick(aaa, 'חופפים לפי ז.צ.ז'))).toBe('aaa');
+    expect(PROPS.congr.aaa(aaa, pick(aaa, 'חופפים לפי ז.צ.ז'))).toBe(true);
+    // with the angle between the sides it is a theorem: no tag on "not enough data" there
+    const sas = find('congr', 2, (x) => x.key.startsWith('cg2w:sas:'));
+    expect(isCorrect(sas, pick(sas, 'חופפים לפי צ.ז.צ'))).toBe(true);
+    expect(sas.diag(pick(sas, 'אין מספיק נתונים'))).toBe(null);
+  });
+  it('the same perimeter taken for congruence, the median taken for a cut into congruent halves, a segment for another', () => {
+    const per = find('congr', 2, (x) => x.key.startsWith('cg2p:'));
+    expect(per.diag(pick(per, 'כן'))).toBe('equal-perimeter');
+    expect(PROPS.congr['equal-perimeter'](per, pick(per, 'כן'))).toBe(true);
+    const cl = find('congr', 4, (x) => x.key === 'cg4c:0');
+    expect(cl.diag(pick(cl, 'נכון תמיד'))).toBe('median-congruent');
+    expect(PROPS.congr['median-congruent'](cl, pick(cl, 'נכון תמיד'))).toBe(true);
+    const ok = find('congr', 4, (x) => x.key === 'cg4c:1');
+    expect(isCorrect(ok, pick(ok, 'נכון תמיד'))).toBe(true); // the halves do have equal areas
+    const seg = find('congr', 4, (x) => x.key.startsWith('cg4s:median:'));
+    const wrong = seg.choices.findIndex((c) => !c.ok);
+    expect(seg.diag(wrong)).toBe('median-altitude');
+    expect(PROPS.congr['median-altitude'](seg, wrong)).toBe(true);
+    expect(PROPS.congr['median-altitude'](seg, seg.answer)).toBe(false);
   });
 });
 

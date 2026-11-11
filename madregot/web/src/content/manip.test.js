@@ -20,7 +20,7 @@ import Transform from '@/components/manip/Transform.jsx';
 import ProofTable from '@/components/manip/ProofTable.jsx';
 import OrderPart from '@/components/challenge/OrderPart.jsx';
 import { KINDS, transformCoach, proofCoach } from '@/components/manip/Manip.jsx';
-import { PROOFS, PROOF, LETTER_SETS, R, proofManip } from './congr.js';
+import { PROOFS, PROOF, LETTER_SETS, R, proofManip } from './proofs.js';
 import { proofStart, proofFirstWrong, askedSteps } from './proof.js';
 import { texText } from '@/components/MathText.jsx';
 import { linText, listMath } from './util.js';

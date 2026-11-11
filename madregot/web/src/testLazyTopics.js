@@ -3,3 +3,4 @@
 // app does once a lesson, a check or an exam screen has waited for ensureTopics. content/lazyGen.test.js checks the
 // waiting itself: a gen() before the topic loaded says what to wait for, and ensureTopics loads it.
 import '@/content/transf.gen.js';
+import '@/content/congr.gen.js';

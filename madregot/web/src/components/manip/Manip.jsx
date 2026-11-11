@@ -21,7 +21,7 @@ import { lazy, Suspense, useState } from 'react';
 import { triangleAngles } from '@/content/manip.js';
 import { tfStart, tfSlide, tfSame, tfSlideWords } from '@/content/transform.js';
 import { proofStart, proofValueOk, proofOrderRight, proofChosen, askedSteps, rightReason } from '@/content/proof.js';
-import { THEOREMS } from '@/content/congr.js';
+import { THEOREMS } from '@/content/proofs.js';
 import { minus, partsTex } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 

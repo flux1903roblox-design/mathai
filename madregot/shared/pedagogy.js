@@ -169,6 +169,8 @@ export const TOPIC_WAYS = Object.freeze({
     // a reply that calls the median the middle number and never mentions sorting (a lookahead from the start of the text)
     avoidRe: [new RegExp(String.raw`^(?![\s\S]*(?:מסדר|סידור|לפי הסדר|ממוינ|ממיינ|מהקטן לגדול|מהגדול לקטן))[\s\S]*?${Q}החציון\s+(?:הוא|זה)\s+(?:פשוט\s+)?(?:המספר|הערך)\s+(?:ה)?אמצעי`)],
   },
+  // curriculum stage 4's congruent triangles (congr:1-4, web/src/learn/content/congr.ts), the lane's own entry
+  congr: TOPIC_WAYS_GEOM.congr,
   sys: {
     models: String.raw`A solution is checked by putting it back in. A percent is of the original quantity: call it $x$ and write the change as multiplication (20% more is $1.2x$, 30% off $0.7x$; $1.2x = 60$). A system's solution is a pair true in both equations, where the two lines meet. Substitute, in brackets, when one equation gives $y$ (or $x$); else subtract the equations when a variable's coefficients are equal, add them when opposite. 0, 1 or infinitely many solutions. A story with two unknowns has two "equals" sentences, one equation each. An inequality is solved like an equation; its direction reverses only when multiplying or dividing both sides by a negative number ($2 < 3$ but $-2 > -3$). Check the direction with one number from the range; the answer is a ray with a full or an empty end.`,
     words: ['אחוז מהכמות המקורית', 'מערכת משוואות', 'שיטת ההצבה', 'השוואת מקדמים', 'אי־שוויון', 'תחום', 'עיגול מלא', 'עיגול ריק'],

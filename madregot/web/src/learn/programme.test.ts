@@ -49,6 +49,8 @@ describe('stage 1\'s coverage with the transformations, live', () => {
     ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
     'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
     'transf:1', 'transf:2', 'transf:3', 'transf:4',
+    // congruence, 8.12: listed, but its part is taught only with congr:5 (the hours stay as they were)
+    'congr:1', 'congr:2', 'congr:3', 'congr:4',
   ];
   it('has exactly those stairs (the bridge unit aside), and their hours', () => {
     expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE4].sort());

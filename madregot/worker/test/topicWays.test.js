@@ -110,7 +110,7 @@ test('no lookbehind: the file ships to the browser (Safari before 16.4 cannot lo
 const GEOM_ALL = Object.values(GEOM).flatMap((w) => w.avoidRe);
 
 test('transf has models, the app\'s words and a pattern for every shortcut, and the tutor\'s ways take it after the angles', () => {
-  assert.deepEqual(Object.keys(GEOM), ['transf']);
+  assert.deepEqual(Object.keys(GEOM), ['transf', 'congr']);
   const w = GEOM.transf;
   assert.ok(w.models.length > 200);
   assert.match(w.models, /same distance in the same direction.*from a point to its image.*perpendicular.*\(x, -y\).*line \$x = k\$.*centre, an angle and a direction.*\(-x, -y\).*congruent.*equal areas or equal perimeters.*shared side.*360/s);
@@ -143,14 +143,42 @@ test('transf: a shortcut stated as a rule is caught; the app\'s own words and th
   ].forEach((l) => assert.ok(!GEOM_ALL.some((r) => r.test(l)), l));
 });
 
+// ---------------------------------------------------------------- curriculum stage 4: congruent triangles (GEOM-1 item 8)
+test('congr has models, the app\'s words and a pattern for every shortcut, and the tutor\'s ways take it after statistics', () => {
+  const w = GEOM.congr;
+  assert.ok(w.models.length > 200);
+  assert.match(w.models, /read in the order of its letters.*turned or mirrored.*sides equal to its two sides meet.*צ\.ז\.צ.*ז\.צ\.ז.*third angle can be found first.*צ\.צ\.צ.*not between them.*three angles.*perimeter or area.*טענה.*נימוק.*common side.*vertical angles.*only then the conclusions.*median.*halves the side and the area.*not the shape.*height is the perpendicular/s);
+  assert.deepEqual(w.words, ['צלעות מתאימות', 'זוויות מתאימות', 'משפט חפיפה', 'צ.ז.צ', 'ז.צ.ז', 'צ.צ.צ', 'טענה', 'נימוק', 'נתון', 'צ״ל', 'צלע משותפת', 'זוויות קודקודיות', 'תיכון', 'דלתון']);
+  assert.ok(w.avoid.length === 3 && w.avoidRe.length >= 2);
+  assert.equal(TOPIC_WAYS.congr, w);
+  const order = Object.keys(TOPIC_WAYS);
+  assert.equal(order.indexOf('congr'), order.indexOf('stats') + 1);
+});
+
+test('congr: a shortcut stated as a rule is caught; the app\'s own words and the right rule pass', () => {
+  [
+    'שתי צלעות וזווית מספיקות כדי שהמשולשים יהיו חופפים.',
+    'שתי צלעות וזווית זה מספיק.',
+    'המשולשים שווי שטח, ולכן הם חופפים.',
+    'לשני המשולשים אותו היקף, אז הם חופפים.',
+  ].forEach((l) => assert.ok(GEOM.congr.avoidRe.some((r) => r.test(l)), l));
+  [
+    'שתי צלעות והזווית שביניהן מספיקות: צ.ז.צ.',
+    'שתי צלעות וזווית מספיקות רק כשהזווית כלואה ביניהן.',
+    'השתמשו בשתי צלעות ובזווית שאינה ביניהן כאילו זה משפט חפיפה',
+    'חשבו שתיכון מחלק משולש לשני משולשים חופפים',
+    'התיכון מחלק את המשולש לשני משולשים שווי שטח, אבל הם לא חופפים.',
+    'לשני המשולשים אותו היקף, $18$. הם חופפים?',
+  ].forEach((l) => assert.ok(!GEOM.congr.avoidRe.some((r) => r.test(l)), l));
+});
+
 test('transf: no line of the app\'s content, generators or challenges trips a pattern, and none uses lookbehind', () => {
   const dirs = ['../../web/src/learn/content/', '../../web/src/content/', '../../web/src/learn/challenges/'].map((d) => new URL(d, import.meta.url));
   const files = dirs.flatMap((dir) => readdirSync(dir).filter((f) => /\.(ts|js)$/.test(f) && !f.includes('.test.')).map((f) => new URL(f, dir)));
   for (const url of files) {
     read(url).split('\n').forEach((line, i) => assert.ok(!GEOM_ALL.some((r) => r.test(line)), `${url.pathname.split('/').slice(-2).join('/')}:${i + 1} ${line.trim().slice(0, 90)}`));
   }
-  const w = GEOM.transf;
-  [w.models, ...w.avoid, ...w.words].forEach((t) => assert.ok(!GEOM_ALL.some((r) => r.test(t)), t));
+  for (const w of Object.values(GEOM)) [w.models, ...w.avoid, ...w.words].forEach((t) => assert.ok(!GEOM_ALL.some((r) => r.test(t)), t));
   GEOM_ALL.forEach((r) => assert.equal(r.source.includes('(?<'), false, r.source));
   // and stage 1's patterns do not trip on the new unit's lines either (the loop above covers every file)
 });

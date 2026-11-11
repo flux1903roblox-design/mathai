@@ -41,6 +41,8 @@ export const ITEMS = [
   { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
   // curriculum stage 4's transformations (ז׳): a flag and its mirror image, drawn with the unit, for the same reason
   { id: 'mirror-pin', slot: 'body', topic: 'transf', name: 'סיכת מראה', unlock: { chest: 'transf' } },
+  // curriculum stage 4's congruent triangles (ח׳): two triangles, one the mirror image of the other
+  { id: 'twin-pin', slot: 'body', topic: 'congr', name: 'סיכת משולשים חופפים', unlock: { chest: 'congr' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 

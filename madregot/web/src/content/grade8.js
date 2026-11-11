@@ -4,6 +4,7 @@ import { LINEAR } from './linear.js';
 import { SYS } from './sys.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { CONGR } from './congr.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -352,5 +353,7 @@ export const GRADE8 = [
       'mean-as-answer': 'כתבו את הממוצע במקום המספר החסר',
     },
   },
+  // congruent triangles, January and February (8.12), before the systems of February–May, which end the year
+  CONGR,
   SYS,
 ];

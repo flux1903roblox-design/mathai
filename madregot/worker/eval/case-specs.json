@@ -204,6 +204,13 @@
       "tags": ["transf"]
     },
     {
+      "id": "D1-congr1-alphaorder", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:1", "source": "diag", "params": {"form": "third", "al": 70, "be": 45, "ga": 65, "alpha": "A"}, "wrong": [70, 62], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "alpha-order", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the vertices were matched by the alphabet, so X was taken to match A and the 70° at A was copied. In △ABC ≅ △YZX the letters match by their places in the statement: X is third, so it matches C, the third of ABC. ∢X = ∢C = 180° − 70° − 45° = 65°. Ends at 65. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
       "id": "D1-transf1-shiftsign", "cat": "D1", "kind": "explain", "shapes": ["full"],
       "skill": "transf:1", "source": "diag", "params": { "a1": 3, "a2": -3, "dx": -5, "dy": 2, "c1": -1, "c2": -2, "ask": "y" }, "wrong": [-4, 7], "phase": "reveal",
       "expect": { "first": "misconception", "diagnosis": "shift-sign", "maxWords": 130,

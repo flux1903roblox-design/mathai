@@ -5,11 +5,11 @@
 //   spec   { kind: 'proof', given, goal, part, lockOrder?, seed, fig?, tpl?, set? }
 //          lockOrder keeps the rows in order (only the missing reasons are asked); otherwise the rows start in the
 //          challenge track's seeded shuffle (learn/challenges/grade.ts shuffledOrder), which is never already right.
-//          fig is the drawing the proof is read against; tpl and set name the template it was made from (content/congr.js)
+//          fig is the drawing the proof is read against; tpl and set name the template it was made from (content/proofs.js)
 //   value  { order: the step shown at each place, reasons: per step the chosen choice (null until chosen) }
 // This file registers the kind with content/manip.js when it loads, so manipCorrect, manipText, manipPlain,
 // manipSolution and manipWrong answer for it; it is not part of the first screen. Whatever makes a proof item imports
-// it: components/manip/ProofTable.jsx and content/congr.js (the templates).
+// it: components/manip/ProofTable.jsx and content/proofs.js (the templates).
 import { registerManipKind } from './manip.js';
 import { firstOutOfPlace, shuffledOrder } from '@/learn/challenges/grade.ts';
 import { texToPlain } from '@shared/plain.js';
