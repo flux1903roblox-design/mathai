@@ -266,7 +266,9 @@ function textProblems(st: DiscoverStep, f: AnyFig): string[] {
     const one = /^\s*([A-Za-z])\s*$/.exec(m[2]); if (one && !m[1]) letters.add(one[1]);
     for (const p of m[2].matchAll(/([A-Z])\s*\(\s*-?\d/g)) letters.add(p[1]);
   }
-  for (const k of letters) if (!labels.has(k)) bad.push(`the text names ${k}, the figure does not`);
+  // a letter is written in the figure on its own (A, x) or inside a label: m = 2, (0, b), y = 2x + 1
+  const words = new Set([...labels].flatMap((l) => l.split(/[^A-Za-z]+/)).filter(Boolean));
+  for (const k of letters) if (!labels.has(k) && !words.has(k)) bad.push(`the text names ${k}, the figure does not`);
   // a point named with its coordinates is drawn there
   for (const g of groups) {
     for (const m of g.matchAll(/(?:([A-Z])\s*)?\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/g)) {
@@ -381,6 +383,11 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(textProblems(predict('ואיפה $E(0, -3)$?', off, ['$1$', '$2$'], 0), off)).toEqual(['E(0, -3) is not drawn there']);
     const side = { type: 'coord', words: [{ at: [0, 0], text: 'a' }] };
     expect(textProblems(say('רוחב $a$ כפול גובה $b$.', side), side)).toEqual(['the text names b, the figure does not']);
+    // a letter inside a label counts (m = 2, (0, b)); a letter inside a longer name does not (AB is not A)
+    const mb = { type: 'coord', points: [{ x: 0, y: 1, label: '(0, b)' }], words: [{ at: [3, 3], text: 'm = 2' }] };
+    expect(textProblems(say('שני מספרים: $m$ ו־$b$.', mb), mb)).toEqual([]);
+    const ab = { type: 'coord', words: [{ at: [0, 0], text: 'AB' }] };
+    expect(textProblems(say('הנקודה $A$.', ab), ab)).toEqual(['the text names A, the figure does not']);
     const pair = { type: 'thermo', value: -3, also: { value: -8 }, min: -10, max: 10 };
     expect(textProblems(predict('איפה קר יותר?', pair, ['$-8$', '$-3$'], 0), pair)).toEqual(['the answer -8 is written in the figure']);
   });

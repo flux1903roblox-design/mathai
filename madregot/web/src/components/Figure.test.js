@@ -117,6 +117,12 @@ describe('what each figure draws', () => {
     expect(html({ type: 'coord', range: 5, words: [{ at: [2, -0.6], text: 'a' }] })).toMatch(/class="fig-cd-word fig-var">a</);
   });
 
+  it('a point\'s name near the right edge goes to its left, so it stays on the drawing', () => {
+    const out = html({ type: 'coord', range: 7, points: [{ x: 2, y: 0, label: '(2, 0)' }, { x: 7, y: 0, label: '(7, 0)' }] });
+    expect(out).toMatch(/text-anchor="start"[^>]*>\(2, 0\)</);
+    expect(out).toMatch(/text-anchor="end"[^>]*>\(7, 0\)</);
+  });
+
   it('bars: the first bar is on the right', () => {
     const out = html({ type: 'bars', labels: ['א', 'ב'], values: [2, 4] });
     const x = (name) => Number(new RegExp(`<text x="([\\d.]+)"[^>]*class="fig-bar-name"[^>]*>${name}<`).exec(out)[1]);

@@ -106,3 +106,33 @@ named point drawn or, in a prediction, hidden in its place) and to "a say step t
 `e2e/teach-all.spec.js` walks every step of every drawn topic at 320x568 and finds its visual region, with a drawing or an
 object in it, at least 120px tall. Made with `walk.cjs` (every step of a stair, at a size), `firsts.cjs` and `proof.py`
 against a `vite preview` of the build on port 4232.
+
+## Stage 15: every teaching step of the linear function is drawn
+
+The 57 bare steps of `line` (line1.ts, line2.ts) now have a figure but one, the Hebrew text unchanged, and `line` left
+`PENDING_VISUALS` (79 of 80 drawn, 1 exempt).
+
+| File | What it shows |
+| --- | --- |
+| `line-first-steps.png` | The first step of each of the eight stairs, light and dark, 390x844: the machine of y = 2x + 1; m and b on a line; a stair on the squares; a stair between two far points; a line to write the equation of; a line crossing both axes; the triangle with the axes and O; two lines meeting at (−1, 1) |
+
+- A rule is a machine (`machine`): x goes in, y comes out; when a prediction asks what comes out, the machine shows `?`
+  (its name reads "יוצא סימן שאלה").
+- Slope and intercept are a line on the plane (`coord` with `lines`, never `linear`, which is a pair of angles) with its
+  stair (`riseRun`), `(0, b)` at the intercept and `m = …` beside it. A prediction that asks for the slope, the
+  intercept or the meeting point draws the line without that number: the stair as two plain segments, a run without its
+  rise, the two lines without their meeting point, a dashed x = 2 for "what is the meeting point?".
+- Tables of values are the `table` figure: the check-the-step tip shows a table whose steps are +2, +3, +1; "where does
+  y = −2x + 8 cross the x axis?" shows the table that stops one column before 0.
+- `line:6#6` (3x = 6, what is x?) is the balance of eq: three boxes against six weights.
+- One step is exempt (`VISUAL_EXEMPT`): `line:5#4` is about the point (7, 30), which on purpose does not fit on any
+  grid; that is the step's reason to compute b instead of drawing.
+
+What changed while drawing these, after looking at every step at 320px: an equation beside a steep line is written as
+a word in the line's colour (`words` with `tone`) in free space, since the name the plane puts at a line's end crossed
+the line; a point's name near the right edge goes to its left; and the text check now finds a letter inside a label
+(`m = 2`, `(0, b)`), not only a label that is the letter alone.
+
+The 320px check in `e2e/teach-all.spec.js` now waits for the step it measures to be on screen (the steps swap one after
+the other, and the leaving one could be measured), honours `VISUAL_EXEMPT`, and was shown to fail on a step with its
+drawing taken out (`signed:1#3`).

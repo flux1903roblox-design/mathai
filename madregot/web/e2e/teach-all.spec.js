@@ -5,7 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { open, student } from './helpers.js';
 import { STAIRS, GRADE_OF as GRADE } from '../src/learn/skills.ts';
-import { PENDING_VISUALS } from '../src/learn/visualPlan.ts';
+import { PENDING_VISUALS, VISUAL_EXEMPT } from '../src/learn/visualPlan.ts';
 
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'one phone is enough for the content walk'); });
 const plain = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 1e6) / 1e6));
@@ -92,7 +92,7 @@ for (const [topic, n] of Object.entries(STAIRS)) {
 
 // STUDENT-8: a picture or an object on every teaching step. On a small phone (320×568), every step of Stage A in a fully
 // drawn topic (one not in learn/visualPlan.ts PENDING_VISUALS) has its visual region, with a drawing or an object to
-// move in it, at least 120px tall.
+// move in it, at least 120px tall; a step in VISUAL_EXEMPT is the one allowed to have none.
 test.describe('every teaching step of a drawn topic shows its drawing on a small phone', () => {
   test.use({ viewport: { width: 320, height: 568 } });
   for (const topic of Object.keys(STAIRS).filter((t) => !PENDING_VISUALS.has(t))) {
@@ -103,11 +103,19 @@ test.describe('every teaching step of a drawn topic shows its drawing on a small
         for (let i = 0; i < 20 && !done; i += 1) {
           await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
           const st = await page.evaluate(() => window.__madregotStep);
-          await expect(page.locator('.sp-step')).toHaveCount(1); // the step before has left
+          // the step on screen is this one: the one before has left and this one has come in (they swap one after the other)
+          const at = Number(await page.locator('.sp-progress').getAttribute('aria-valuenow'));
+          const id = `${topic}:${level}#${at}`;
+          await expect(page.locator(`.sp-step[aria-label^="צעד ${at + 1} מתוך"]`), id).toHaveCount(1);
+          await expect(page.locator('.sp-step')).toHaveCount(1);
           const visual = page.locator('.sp-step [data-region="visual"]');
-          await expect(visual, `${topic}:${level} #${i}`).toHaveCount(1);
-          await expect(visual.locator('.lm-fig [role="img"], .lm-fig table, .manip').first(), `${topic}:${level} #${i}: a drawing or an object`).toBeVisible();
-          expect((await visual.boundingBox()).height, `${topic}:${level} #${i}: the visual's height`).toBeGreaterThanOrEqual(120);
+          if (VISUAL_EXEMPT[id]) {
+            await expect(visual.locator('.lm-fig, .manip'), `${id} is exempt: ${VISUAL_EXEMPT[id]}`).toHaveCount(0);
+          } else {
+            await expect(visual, id).toHaveCount(1);
+            await expect(visual.locator('.lm-fig [role="img"], .lm-fig table, .manip').first(), `${id}: a drawing or an object`).toBeVisible();
+            expect((await visual.boundingBox()).height, `${id}: the visual's height`).toBeGreaterThanOrEqual(120);
+          }
           if (st.kind === 'explore') {
             await expect.poll(() => page.evaluate(() => window.__madregotSolveStep?.forStep === window.__madregotStep)).toBe(true);
             await page.evaluate(() => window.__madregotSolveStep());

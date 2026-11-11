@@ -7,10 +7,13 @@
 // finished topic is still listed, so the set never goes stale). The shared figure types landed first; the topics follow.
 
 /** Topics whose teaching steps are not all drawn yet. */
-export const PENDING_VISUALS: ReadonlySet<string> = new Set(['line', 'stats', 'expr', 'eq', 'sys', 'pyth']);
+export const PENDING_VISUALS: ReadonlySet<string> = new Set(['stats', 'expr', 'eq', 'sys', 'pyth']);
 
 /**
  * Steps that may stay without a drawing or an object, `${skill}#${index}` → why (one sentence). At most 5% of a topic's
  * discover steps; each must name a step that really has none.
  */
-export const VISUAL_EXEMPT: Record<string, string> = {};
+export const VISUAL_EXEMPT: Record<string, string> = {
+  // "על הרשת אפשר לנסות ולתקן. אבל הנקודה (7, 30) בכלל לא נכנסת למסך": the point is chosen not to fit on any plane
+  'line:5#4': 'The step is about the point (7, 30), which on purpose does not fit on the grid: that is why b is computed, not drawn.',
+};

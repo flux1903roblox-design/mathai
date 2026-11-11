@@ -45,7 +45,7 @@ export type FigSpec =
     line?: { m: number; b: number };
     lines?: { m: number; b: number; label?: string; tone?: FigTone }[];
     meet?: boolean; riseRun?: { x: number; run: number }; quadrants?: boolean; path?: [number, number][]; anim?: boolean;
-    words?: { at: [number, number]; text: string }[];
+    words?: { at: [number, number]; text: string; tone?: FigTone | 'alt' }[];
   }
   | GeoFig
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'table' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };

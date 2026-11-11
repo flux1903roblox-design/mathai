@@ -65,8 +65,8 @@ const withVars = (t) => String(t).split(/([a-zA-Z])/).map((p, i) => (i % 2 ? <ts
 // The coordinate plane: points, a polygon, segments and one line { m, b } (the generators' figures), and for teaching
 // (STUDENT-8): quadrants (רביע 1…4), path (a walk from the origin, one arrow a leg), lines (more than one line, each with
 // an optional label and tone), meet (a dot and the coordinates where lines[0] and lines[1] cross) and riseRun { x, run }
-// (on the first line: a dashed run of `run` from x, then the rise, each with its number), and words: [{ at: [x, y], text }]
-// (a side's letter, a shape's name), written centred at that place.
+// (on the first line: a dashed run of `run` from x, then the rise, each with its number), and words: [{ at: [x, y], text,
+// tone? }] (a side's letter, a shape's name, or a line's equation in its line's colour), written centred at that place.
 function Coord({ fig }) {
   const r = fig.range || 6; const c = 22; const pad = 26;
   const size = 2 * r * c + 2 * pad; const o = size / 2;
@@ -140,15 +140,21 @@ function Coord({ fig }) {
         );
       })}
       {(fig.words || []).map((w, i) => (
-        <text key={`wd${i}`} x={X(w.at[0])} y={Y(w.at[1]) + 6} textAnchor="middle" direction={WORD.test(w.text) ? 'rtl' : undefined} className={clsx('fig-cd-word', /^[a-z]$/.test(w.text) && 'fig-var')}>{w.text}</text>
+        <text key={`wd${i}`} x={X(w.at[0])} y={Y(w.at[1]) + 6} textAnchor="middle" direction={WORD.test(w.text) ? 'rtl' : undefined}
+          className={w.tone ? clsx('fig-cd-tag', toneOf(w.tone)) : clsx('fig-cd-word', /^[a-z]$/.test(w.text) && 'fig-var')} style={w.tone ? { fontFamily: MATH_FONT } : undefined}>{w.text}</text>
       ))}
-      {visible.map((p) => (
-        <g key={p.label}>
-          <circle cx={X(p.x)} cy={Y(p.y)} r="5" className="fg-pt" />
-          {/* the letter sits on the side away from both axes, so it never lands on their numbers */}
-          <text x={X(p.x) + (p.x >= 0 ? 9 : -9)} y={p.y >= 0 ? Y(p.y) - 9 : Y(p.y) + 21} textAnchor={p.x >= 0 ? 'start' : 'end'} className="fg-pt-label" style={{ fontFamily: MATH_FONT }}>{p.label}</text>
-        </g>
-      ))}
+      {visible.map((p) => {
+        // the letter sits on the side away from both axes, so it never lands on their numbers; a long name, like
+        // (7, 0), near the edge goes to the other side so it stays on the drawing
+        const w = String(p.label).length * 10; const out = X(p.x) + 9 + w > size; const back = X(p.x) - 9 - w < 0;
+        const right = p.x >= 0 ? !out || back : back && !out;
+        return (
+          <g key={p.label}>
+            <circle cx={X(p.x)} cy={Y(p.y)} r="5" className="fg-pt" />
+            <text x={X(p.x) + (right ? 9 : -9)} y={p.y >= 0 ? Y(p.y) - 9 : Y(p.y) + 21} textAnchor={right ? 'start' : 'end'} className="fg-pt-label" style={{ fontFamily: MATH_FONT }}>{p.label}</text>
+          </g>
+        );
+      })}
       {meet && (
         <m.g className="fig-cd-meet" {...draw(lines.length, 'end')}>
           <circle cx={X(meet[0])} cy={Y(meet[1])} r="6" />
