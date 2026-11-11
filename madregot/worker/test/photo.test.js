@@ -16,7 +16,7 @@ const exam = (pages, extra = {}) => ({ body: { pages, grade: '7', ...extra } });
 
 test('an exam with a PDF page is refused with 400 pdf_not_allowed: no Claude call, nothing counted', async () => {
   h = await off();
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { setting: 'private' }); // a private group: its teacher may check work (not prep_only)
   const cases = [
     [{ data: `data:application/pdf;base64,${PDF}`, mediaType: 'application/pdf' }],
     [{ data: JPEG, mediaType: 'image/jpeg' }, { data: PDF, mediaType: 'application/pdf' }], // one PDF among images
@@ -44,7 +44,7 @@ test('an exam with a PDF page is refused with 400 pdf_not_allowed: no Claude cal
 
 test('input.prep is counted as photo_redacted (crop, black or none), from the client, with nothing of the pages', async () => {
   h = await off();
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { setting: 'private' });
   const events = () => rows(h.env, "SELECT kind, category, surface, source, tier FROM safety_events WHERE kind = 'photo_redacted' ORDER BY id").map((x) => ({ ...x }));
   const page = { data: JPEG, mediaType: 'image/jpeg' };
   assert.equal((await ai(h, 'exam', cls.teacher, exam([page, page], { prep: { crop: true, boxes: 3 } }))).status, 200);

@@ -61,6 +61,13 @@ export function classAiPolicy(cls = {}, env = {}) {
   return { students: 'on', canTurnOn: true, reason: 'ok', teacherAi: 'on' };
 }
 
+/**
+ * What a teacher's own tutor may do while the class's rule is teacherAi 'prep' (a school class before the catalogue
+ * approval, or below its grade): prepare materials (exercises, explanations, ideas for a lesson). Checking or grading
+ * students' work (check, exam, feedback) is refused there (the Worker's 403 prep_only).
+ */
+export const TEACHER_PREP_KINDS = Object.freeze(['explain', 'chat', 'generate']);
+
 /** May this student reach the tutor in their class? Only when the class's student AI is on and theirs is not off. */
 export const studentAiAllowed = (policy, student) => policy?.students === 'on' && !student?.aiOff;
 

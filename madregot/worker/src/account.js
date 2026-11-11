@@ -101,10 +101,17 @@ export async function startLogin(req, env, cors) {
   return json({ sent: true, expiresInMinutes: CODE_TTL_MIN, resendAfter: RESEND_SECONDS }, 200, cors);
 }
 
-/** POST /api/account/verify: the code from the email. Returns a new session token (a sign-in always makes a new one). */
+/**
+ * POST /api/account/verify {email, code, adultTeacher?}: the code from the email. Returns a new session token (a sign-in
+ * always makes a new one) and whether the account's holder has declared they are 18 or over ({ token, email, adult }).
+ * adultTeacher: true is a teacher's explicit "I am over 18, a teacher or a tutor" (COUNCIL2-5), ticked by hand on the
+ * teacher's sign-in; it is stored as accounts.adult_confirmed_at (as a checkout's adult tick is), and only then does a
+ * class bound to this email count as having an adult behind it (entitle.js classHasAdult). Without it, nothing changes.
+ */
 export async function verifyLogin(req, env, cors) {
   const b = await body(req);
   const email = cleanEmail(b.email);
+  if (b.adultTeacher !== undefined && b.adultTeacher !== true && b.adultTeacher !== false) throw new HttpError(400, 'bad_request');
   const code = String(b.code ?? '').trim();
   if (!/^\d{6}$/.test(code)) throw new HttpError(400, 'bad_code');
   const eh = await emailHash(env, email);
@@ -139,7 +146,8 @@ export async function verifyLogin(req, env, cors) {
 
   await env.DB.prepare('INSERT INTO accounts (id, email, created_at, last_seen) VALUES (?, ?, ?, ?) ON CONFLICT (email) DO NOTHING')
     .bind(randomToken(8), email, now, dayOf()).run();
-  const account = await env.DB.prepare('SELECT id FROM accounts WHERE email = ?').bind(email).first();
+  const account = await env.DB.prepare('SELECT id, adult_confirmed_at FROM accounts WHERE email = ?').bind(email).first();
+  const declared = b.adultTeacher === true;
   const token = randomToken(32);
   // a step-up (a new code while signed in) replaces the session that asked for it
   const old = await sessionOf(req, env);
@@ -152,8 +160,9 @@ export async function verifyLogin(req, env, cors) {
       'DELETE FROM account_sessions WHERE account_id = ? AND token_hash NOT IN (SELECT token_hash FROM account_sessions WHERE account_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?)',
     ).bind(account.id, account.id, MAX_SESSIONS),
     env.DB.prepare('UPDATE accounts SET last_seen = ? WHERE id = ?').bind(dayOf(), account.id),
+    ...(declared ? [env.DB.prepare('UPDATE accounts SET adult_confirmed_at = ? WHERE id = ?').bind(now, account.id)] : []),
   ]);
-  return json({ token, email }, 200, cors);
+  return json({ token, email, adult: declared || !!account.adult_confirmed_at }, 200, cors);
 }
 
 async function sessionOf(req, env) {

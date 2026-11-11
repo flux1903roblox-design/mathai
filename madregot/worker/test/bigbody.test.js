@@ -113,7 +113,8 @@ test('the caps: exam about 12 MB and check about 4 MB; a body with no length sto
   assert.equal(AI_BODY_MAX.check, 4 * MiB);
   assert.equal(AI_BODY_MAX.chat, 32 * 1024);
   h = await setup({ AI_PAYWALL: 'off' });
-  const cls = await makeClass(h);
+  // a private group: its teacher may check work (a school class's teacher prepares materials only: prep_only)
+  const cls = await makeClass(h, { setting: 'private' });
   // an entitled teacher, 30 MB with no Content-Length: refused once the bytes pass 12 MiB, the rest never pulled
   const s = examStream(30);
   const r = await post('exam', { body: s.stream, headers: cls.teacher });
@@ -132,7 +133,7 @@ test('the largest exam the app sends (8 pages at EXAM_PAGE_MAX) is read and chec
   assert.ok(MAX_EXAM_PAGES * EXAM_PAGE_MAX + 512 * 1024 <= AI_BODY_MAX.exam);
   assert.ok(CHECK_IMAGE_MAX + 512 * 1024 <= AI_BODY_MAX.check);
   h = await setup({ AI_PAYWALL: 'off' });
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { setting: 'private' }); // a private group's teacher may check an exam (not prep_only)
   const page = `data:image/jpeg;base64,${'A'.repeat(EXAM_PAGE_MAX - 'data:image/jpeg;base64,'.length)}`;
   const topics = Array.from({ length: 12 }, (_, i) => ({ id: `t${i}`, title: 'נושא לבדיקה', levels: Array.from({ length: 12 }, () => 'מדרגה בנושא') }));
   const key = Array.from({ length: 30 }, () => ({ prompt: 'חשבו: 3 - (-5)', answer: '8' }));

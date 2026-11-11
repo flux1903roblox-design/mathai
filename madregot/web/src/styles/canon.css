@@ -450,6 +450,9 @@ a { color: var(--brand-d); }
 .parents-disclosure p { margin: 0; }
 .parents-check { align-items: flex-start; font-size: var(--t-base); line-height: var(--lh-base); }
 .parents-check input { margin-top: 3px; }
+/* a teacher's "over 18, a teacher or a tutor" (COUNCIL2-5): the box and, under it, what happens without it */
+.adult-teacher { display: flex; flex-direction: column; gap: 2px; }
+.adult-teacher .field-hint { margin: 0; padding-inline-start: 30px; }
 .parents-plan.is-on { border-color: var(--brand-line); }
 .parents-rows > .set-row { min-height: 56px; padding: 0 var(--s5); border-bottom: 2px solid var(--rule); width: 100%; }
 .parents-rows > .set-row:last-child { border-bottom: 0; }
@@ -1486,6 +1489,8 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .cai-rules { margin: 0; }
 .cai-consent { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
 .cai-save { align-self: flex-start; min-width: 96px; }
+.cai-adult { align-self: flex-start; min-height: 44px; }
+.cs-adult { margin: var(--s1) 0 0; }
 .cai-switch { display: flex; flex-direction: column; gap: 4px; }
 .cai-sheet p { margin: 0; }
 .licence-before { margin-bottom: 0; }

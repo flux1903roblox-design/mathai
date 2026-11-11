@@ -361,7 +361,7 @@ export default function Assistant({ head = null, lead = null, className }) {
   const profile = useApp((s) => s.profile);
   const ready = aiReady();
   const status = useAIStatus((x) => x.status); // the tools follow what the server says
-  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return ['locked', 'economy', 'class_off', 'parent_ok_needed'].includes(st) ? st : null; };
+  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return ['locked', 'economy', 'class_off', 'parent_ok_needed', 'prep_only'].includes(st) ? st : null; };
   // the class has the tutor off under the Ministry's rules (TRUST-11 §6), or no parent has approved the tutor on this
   // device yet (TRUST-9 §4): Madi's bubble says so calmly, with no tools, and the card under it leads on (for a parent's
   // OK, to the screen for the parents); the input stays usable, so a message that reads as distress still shows the
@@ -379,7 +379,7 @@ export default function Assistant({ head = null, lead = null, className }) {
   const open = (kind, name) => {
     // before the first AI action on this device the introduction opens, and the tool after it ('intro')
     const g = gate(kind, { then: () => open(kind, name) });
-    if (g === 'locked' || g === 'economy') { setLocked(g); setTool(name); return; }
+    if (g === 'locked' || g === 'economy' || g === 'prep_only') { setLocked(g); setTool(name); return; }
     if (!g) { setLocked(null); setTool(name); }
   };
   // A conversation (LAYOUT_SPEC B3): the bar with the title, מדי's messages, and the input docked at the bottom with

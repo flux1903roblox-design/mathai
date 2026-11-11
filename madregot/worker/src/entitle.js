@@ -27,9 +27,14 @@
 // Then a parent's OK (trust spec TRUST-9): with AI_PARENT_OK = "required" (the default), a child alone (no class, no
 // adult teacher, no device a parent linked) gets 403 parent_ok_needed, before the free taste and before the switch-off
 // path. Opening a class needs no account, so a teacher key alone proves no adult (the trust review: a child tapped
-// "אני מורה" and had the tutor): a teacher counts as an adult only when the class is bound to a signed-in email
-// (class_owners) or has a licence or trial in force (an adult paid, or the owner approved it). A teacher of any other
-// class is asked to sign in with an email, the same 403 parent_ok_needed with teacher copy on the screen.
+// "אני מורה" and had the tutor). Nor does an email alone (COUNCIL2-2, COUNCIL2-5: a child with their own email could sign
+// in as a teacher): a teacher counts as an adult only when the class is bound to an email whose holder declared "18+, a
+// teacher or a tutor" (accounts.adult_confirmed_at, set by the teacher's sign-in or bind with { adultTeacher: true }, or
+// by a checkout's adult tick), or has a licence or trial in force (an adult paid, or the owner approved it). A teacher
+// of any other class is asked to sign in with an email, the same 403 parent_ok_needed with teacher copy on the screen.
+// The same adult is needed before a class's student AI can be turned on (classai.js setClassAi: 403 adult_needed).
+// In a school class the rules keep the teacher's own tutor to preparing materials (teacherAi 'prep', shared/
+// schoolRules.js TEACHER_PREP_KINDS): checking or grading students' work there is 403 prep_only.
 // A parent approves a device once, for free, from the parents' page (family.js, purpose 'consent'): the approval is a
 // signed-in adult email, an audit row and an email with the AI and privacy summary. "off" is the one-variable rollback.
 import { AI_KINDS, AI_GROUPS, KIND_GROUP, AI_UNITS, FREE_KINDS, LITE_MODEL, buildRequest, buildCare } from '../../shared/ai.js';
@@ -37,7 +42,7 @@ import {
   HttpError, key, take, peek, sha256, hmacHex, netKey, devKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
 } from './util.js';
 import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice, worstCaseNano } from './spend.js';
-import { classAiPolicy, studentAiAllowed, rulesEnv } from '../../shared/schoolRules.js';
+import { classAiPolicy, studentAiAllowed, rulesEnv, TEACHER_PREP_KINDS } from '../../shared/schoolRules.js';
 import { maskPersonal } from '../../shared/safety.js';
 import { recordSafety, eventNet } from './safety.js';
 import { accountFrom } from './account.js';
@@ -123,10 +128,30 @@ const alone = (env, id) => !id.student && !adultTeacher(env, id) && !id.fam;
  */
 const needsParentOk = (env, id) => parentOkRequired(env) && alone(env, id) && !soloOff(env);
 
-/** Is a signed-in adult behind this class: an email it is bound to, or a licence or trial in force? */
+/**
+ * Is an adult behind this class: an email it is bound to whose holder declared they are 18 or over
+ * (accounts.adult_confirmed_at, COUNCIL2-5), or a licence or trial in force?
+ */
 export async function classHasAdult(env, code) {
-  const owner = await env.DB.prepare('SELECT 1 AS x FROM class_owners WHERE class_code = ?').bind(code).first();
+  const owner = await env.DB.prepare(`SELECT 1 AS x FROM class_owners o JOIN accounts a ON a.id = o.account_id
+    WHERE o.class_code = ? AND a.adult_confirmed_at IS NOT NULL`).bind(code).first();
   return !!owner || !!(await liveLicence(env, code));
+}
+/**
+ * Is this teacher (requireTeacher's class row) an adult? One who came with the session of an email that declared it, or
+ * any teacher of a class with an adult behind it (classHasAdult: a co-teacher with the key of such a class too).
+ */
+export async function teacherIsAdult(env, cls) {
+  return (cls.via === 'account' && !!cls.adultAt) || classHasAdult(env, cls.code);
+}
+
+/**
+ * The Ministry's rule for a teacher's own tutor in their class (shared/schoolRules.js): 'prep' (preparing materials
+ * only: TEACHER_PREP_KINDS) in a school class before the catalogue approval or below its grade, else 'on'.
+ */
+export async function teacherAiRule(env, cls) {
+  const row = await env.DB.prepare('SELECT setting, student_ai, ai_consent_at FROM class_settings WHERE code = ?').bind(cls.code).first();
+  return classAiPolicy({ setting: row?.setting, grade: cls.grade, studentAi: row?.student_ai, consentAt: row?.ai_consent_at }, rulesEnv(env)).teacherAi;
 }
 
 // ---------------------------------------------------------------- who is asking
@@ -217,7 +242,8 @@ export async function requireTeacher(req, env) {
     const a = await accountFrom(req, env);
     if (!a && !k) throw new HttpError(401, 'not_account');
     const owns = a && (await env.DB.prepare('SELECT 1 AS x FROM class_owners WHERE class_code = ? AND account_id = ?').bind(cls.code, a.id).first());
-    if (owns) return { ...cls, via: 'account', accountId: a.id };
+    // adultAt: when this email's holder declared they are 18 or over (COUNCIL2-5), or null
+    if (owns) return { ...cls, via: 'account', accountId: a.id, adultAt: a.adultConfirmedAt || null };
   }
   throw new HttpError(401, 'not_teacher');
 }
@@ -259,8 +285,9 @@ export async function identify(req, env) {
   if (!id.student && asTeacher) {
     id.teacher = await requireTeacher(req, env);
     // read only when it matters (TRUST-9): a teacher of a class with no adult behind it is a child alone there. A
-    // teacher who came with the owner's email session (via 'account') is that adult: the class is bound to it.
-    if (parentOkRequired(env)) id.teacher = { ...id.teacher, adult: id.teacher.via === 'account' || await classHasAdult(env, id.teacher.code) };
+    // teacher who came with the owner's email session (via 'account') is that adult only when the email's holder
+    // declared it (COUNCIL2-2, COUNCIL2-5): an email alone proves no age.
+    if (parentOkRequired(env)) id.teacher = { ...id.teacher, adult: await teacherIsAdult(env, id.teacher) };
   }
   const fd = req.headers.get('X-Family-Device');
   if (fd) { id.fam = await familyDeviceFrom(env, fd); id.famBad = !id.fam; }
@@ -514,6 +541,11 @@ async function planFor(req, env, kind, id) {
     await recordSafety(env, { kind: 'parent_ok_needed', surface: kind, source: 'server' }, null, { net: eventNet(req, env) });
     throw new HttpError(403, 'parent_ok_needed');
   }
+  // a teacher of a school class before the Ministry's approval prepares materials only (teacherAi 'prep'): no check or
+  // exam of students' work, and no feedback on it (Trust skeptic add-on: the rule was returned and enforced nowhere)
+  if (id.teacher && !TEACHER_PREP_KINDS.includes(kind) && (await teacherAiRule(env, id.teacher)) === 'prep') {
+    throw new HttpError(403, 'prep_only', undefined, { kinds: TEACHER_PREP_KINDS });
+  }
   if (!paywallOn(env)) {
     const keys = await openKeys(req, env, id, kind, { strict: true });
     // the open tier's day in dollars (COUNCIL2-19): the same calm answer and owner notice as the free taste's
@@ -649,6 +681,16 @@ const left = (k, count) => Math.max(0, k.limit - count);
  */
 export async function aiStatus(req, env) {
   const id = await identify(req, env);
+  const r = await statusFor(req, env, id);
+  // a teacher whose class's rule is 'prep' (a school class before the approval): only the kinds that prepare materials,
+  // so the screens do not offer a check they would refuse (prep_only)
+  if (!id.teacher || !r.body.kinds?.length || (await teacherAiRule(env, id.teacher)) !== 'prep') return r;
+  const kinds = r.body.kinds.filter((k) => TEACHER_PREP_KINDS.includes(k));
+  const groups = Object.fromEntries(Object.entries(r.body.groups || {})
+    .map(([g, v]) => [g, AI_GROUPS.includes(g) && !kinds.some((k) => KIND_GROUP[k] === g) ? null : v]));
+  return { ...r, body: { ...r.body, kinds, groups, prepOnly: true } };
+}
+async function statusFor(req, env, id) {
   const aiReady = !!env.ANTHROPIC_API_KEY;
   const headers = id.famBad ? { 'X-AI-Linked': '0' } : {};
   // the class's tutor is off for this student (TRUST-11 §4): the same answer an AI request gets, so the screens show the

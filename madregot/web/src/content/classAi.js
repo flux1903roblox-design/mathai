@@ -10,6 +10,11 @@ export const SETTINGS = {
   private: { title: 'בשיעורים פרטיים, חוג או תגבור', sub: 'ההורים מחליטים על העוזר החכם' },
 };
 export const ATTEST = 'הקבוצה הזו לא פועלת במסגרת בית ספר.';
+/**
+ * Under the setting question and on the AI card (COUNCIL2-2): who may turn the tutor on for students. A teacher key alone
+ * is not enough, and neither is an email without the declaration (the server's 403 adult_needed).
+ */
+export const ADULT_LINE = 'את העוזר החכם לתלמידים פותח רק מורה שנכנס עם מייל ואישר שהוא מעל גיל 18.';
 
 export const AI_CARD_TITLE = 'העוזר החכם לתלמידים';
 export const AI_COPY = {
@@ -36,6 +41,9 @@ export const AI_COPY = {
   licenceTitle: 'רישיון כיתה',
   licenceBeforeApproval: 'העוזר החכם לתלמידים בבתי ספר יופעל אחרי שמדרגות תאושר בקטלוג החינוכי של משרד החינוך. אפשר כבר עכשיו לבקש הצעת מחיר, ונעדכן כשהאישור יגיע.',
   quote: 'הצעת מחיר לבית הספר',
+  // the class has no adult behind it yet (aiPolicy.adultNeeded, COUNCIL2-2): the way on is the email sign-in
+  adultNeeded: 'כדי לפתוח את העוזר לתלמידים, צריך קודם להיכנס עם מייל ולאשר שאתם מעל גיל 18. כך יודעים שמבוגר אחראי על הכיתה.',
+  adultButton: 'כניסה עם מייל',
 };
 
 const GRADE = { 7: 'ז׳', 8: 'ח׳', 9: 'ט׳' };
@@ -50,7 +58,8 @@ export const perStudentAi = (policy) => !!policy && ['ok', 'teacher_off'].includ
 
 /**
  * What the card shows for a policy:
- *   { on, status, text: [paragraphs], rules: bool (the Ministry's link), consent: null | { links: bool, box }, toggle: bool }
+ *   { on, status, text: [paragraphs], rules: bool (the Ministry's link), consent: null | { links: bool, box }, toggle: bool,
+ *     adult: bool (the email sign-in first: no consent box and no switch on, COUNCIL2-2) }
  * Unknown or missing: off, the Ministry's link only (fail closed, as the server does).
  */
 export function classAiView(policy) {
@@ -64,5 +73,10 @@ export function classAiView(policy) {
     view.text = [school ? AI_COPY.consentSchool : AI_COPY.consentPrivate];
     view.consent = { links: school, box: school ? AI_COPY.consentSchoolBox : AI_COPY.consentPrivateBox };
   } else if (p.reason === 'teacher_off' || p.reason === 'ok') view.toggle = !!p.canTurnOn;
+  // no adult behind the class yet: the consent and the switch on wait for the email sign-in (turning off never does)
+  if (p.adultNeeded && !on && (view.consent || view.toggle)) {
+    view.text = [...view.text, AI_COPY.adultNeeded];
+    view.consent = null; view.toggle = false; view.adult = true;
+  }
   return view;
 }

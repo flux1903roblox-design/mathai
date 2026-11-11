@@ -3,11 +3,14 @@
 // signs in with an email (a code, no password) and the class is bound to it, once: POST /api/teacher/class/owner with the
 // class's key and the session. Then the tutor opens for the class's teacher. The binding is the school lane's (spec
 // TEACHER-1, lib/teacher.js bindClass): the class is marked owned on this device, so the board opens with the email too.
+// An email alone proves no age (COUNCIL2-5): a teacher whose sign-in has not declared "over 18, a teacher or a tutor"
+// ticks it here, and the bind carries it. Without the tick nothing would open, so the button waits for it.
 import { useState } from 'react';
 import { bindClass } from '@/lib/teacher.js';
 import { useParent } from '@/lib/parent.js';
 import { teacherClass, refreshStatus } from '@/lib/account.js';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
+import AdultTeacherBox from '@/components/account/AdultTeacherBox.jsx';
 import { Button } from '@/components/ui.jsx';
 
 export const BIND_COPY = Object.freeze({
@@ -24,11 +27,13 @@ export default function TeacherBind({ onDone }) {
   const session = useParent((s) => s.session);
   const cls = teacherClass();
   const [state, setState] = useState({ phase: 'idle' });
+  const [adult, setAdult] = useState(false);
   if (!cls) return null;
+  const needsTick = !!session && !session.adult;
   const bind = async () => {
     setState({ phase: 'busy' });
     try {
-      const r = await bindClass(cls);
+      const r = await bindClass(cls, { adultTeacher: needsTick ? adult : undefined });
       setState({ phase: 'done', email: r.email });
       await refreshStatus();
       onDone?.();
@@ -43,9 +48,12 @@ export default function TeacherBind({ onDone }) {
       {!session ? (
         <EmailCodeForm idPrefix="tb" purpose="bind" />
       ) : (
-        <Button className="btn-block btn-lg" onClick={bind} disabled={state.phase === 'busy'} aria-busy={state.phase === 'busy'}>
-          {state.phase === 'busy' ? BIND_COPY.busy : BIND_COPY.bind}
-        </Button>
+        <>
+          {needsTick && <AdultTeacherBox id="tb-adult-bind" checked={adult} onChange={setAdult} />}
+          <Button className="btn-block btn-lg" onClick={bind} disabled={state.phase === 'busy' || (needsTick && !adult)} aria-busy={state.phase === 'busy'}>
+            {state.phase === 'busy' ? BIND_COPY.busy : BIND_COPY.bind}
+          </Button>
+        </>
       )}
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
     </div>

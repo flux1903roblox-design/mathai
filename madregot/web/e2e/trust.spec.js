@@ -1441,3 +1441,128 @@ test.describe('accessibility statement', () => {
     expect((await visit()).some((s) => s.slow > 0), 'without reduced motion the screens do animate').toBe(true);
   });
 });
+
+// An adult behind the class (COUNCIL2-2, COUNCIL2-5): an email alone proves no age. The fake server answers as the Worker
+// with declaredOnly: an email counts only once its holder ticked "אני מעל גיל 18, ואני מורה או נותן/ת שיעורים פרטיים".
+test.describe('an adult behind the class', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const DECLARE = 'אני מעל גיל 18, ואני מורה או נותן/ת שיעורים פרטיים';
+  const fresh = () => withServer({ profile: null });
+  /** TRUST_SHOTS: the screen at the project's width and at 320 x 568, scrolled to `what`. */
+  async function both(page, name, what) {
+    if (!process.env.TRUST_SHOTS) return;
+    const size = page.viewportSize();
+    await what.scrollIntoViewIfNeeded(); await shot(page, name);
+    await page.setViewportSize({ width: 320, height: 568 });
+    await what.scrollIntoViewIfNeeded(); await shot(page, `${name}-320`);
+    await page.setViewportSize(size);
+  }
+  /** From the first screen to the teacher's email step, a new class. */
+  async function toEmail(page) {
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await expect(page.getByLabel('כתובת המייל שלכם')).toBeVisible();
+  }
+  async function signInAndOpen(page, { tick, privateGroup = false }) {
+    await page.getByLabel('כתובת המייל שלכם').fill('teacher@example.test');
+    if (tick) await page.getByRole('checkbox', { name: DECLARE }).check();
+    await page.getByRole('button', { name: 'שליחת קוד' }).click();
+    await page.getByLabel('הקוד מהמייל').fill('123456');
+    await page.getByLabel('השם שלכם (כך התלמידים יראו אותו)').fill('המורה כהן');
+    await page.getByLabel('שם הכיתה').fill('ז׳3');
+    if (privateGroup) {
+      await page.getByRole('radio', { name: /בשיעורים פרטיים, חוג או תגבור/ }).check();
+      await page.getByRole('checkbox', { name: 'הקבוצה הזו לא פועלת במסגרת בית ספר.' }).check();
+      await expect(page.getByText('את העוזר החכם לתלמידים פותח רק מורה שנכנס עם מייל ואישר שהוא מעל גיל 18.')).toBeVisible();
+    }
+    await page.getByRole('button', { name: 'פתיחת הכיתה' }).click();
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+  }
+
+  test('the declaration on TeacherStart starts unticked; ticked, it goes with the code and the teacher\'s tutor answers', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { declaredOnly: true }, baseOf());
+    await open(page, '#/', fresh());
+    await toEmail(page);
+    const box = page.getByRole('checkbox', { name: DECLARE });
+    await expect(box).not.toBeChecked();
+    await expect(page.getByText('בלי הסימון הזה אפשר לנהל את הכיתה, אבל העוזר החכם לא ייפתח.')).toBeVisible();
+    await expect(box).toHaveAttribute('aria-describedby', 'ts-adult-hint');
+    expect((await page.locator('label').filter({ has: box }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await both(page, 'teacher-declare-email', page.getByRole('button', { name: 'שליחת קוד' }));
+    await signInAndOpen(page, { tick: true });
+    expect(log.find((r) => r.path === '/api/account/verify').body).toMatchObject({ adultTeacher: true });
+    expect([...st.adults]).toEqual(['teacher@example.test']);
+    await page.evaluate(() => { window.location.hash = '#/teacher/assistant'; });
+    await page.getByLabel('ההודעה שלכם').fill('איך להסביר חיבור של מספר חיובי ומספר שלילי?');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.getByText('כדי לחבר מספרים עם סימנים שונים')).toBeVisible();
+  });
+
+  test('without it the teacher\'s tutor waits (parent_ok_needed) and the AI card says why; the bind asks for the tick and then the tutor opens', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { declaredOnly: true }, baseOf());
+    await open(page, '#/', fresh());
+    await toEmail(page);
+    await signInAndOpen(page, { tick: false, privateGroup: true });
+    expect(log.find((r) => r.path === '/api/account/verify').body).toMatchObject({ adultTeacher: false });
+    expect(st.adults.size).toBe(0);
+    // the class's AI card: no consent box and no switch, a calm line and the way on
+    await page.evaluate(() => { window.location.hash = '#/teacher/settings'; });
+    const card = page.getByRole('region', { name: 'העוזר החכם לתלמידים' });
+    await expect(card.getByText('כדי לפתוח את העוזר לתלמידים, צריך קודם להיכנס עם מייל ולאשר שאתם מעל גיל 18. כך יודעים שמבוגר אחראי על הכיתה.')).toBeVisible();
+    await expect(card.getByRole('checkbox')).toHaveCount(0);
+    await expect(card.getByRole('switch')).toHaveCount(0);
+    const way = card.getByRole('button', { name: 'כניסה עם מייל' });
+    expect((await way.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await both(page, 'teacher-ai-card-adult', way);
+    // the teacher's own tutor waits too: parent_ok_needed, with the teacher's words
+    await page.evaluate(() => { window.location.hash = '#/teacher/assistant'; });
+    await expect(page.getByText('קודם, כניסה עם מייל')).toBeVisible();
+    await page.getByRole('button', { name: 'כניסה עם מייל' }).click();
+    const sheet = page.getByRole('dialog', { name: 'קודם, כניסה עם מייל' });
+    const bind = sheet.getByRole('button', { name: 'לקשר את הכיתה למייל' });
+    await expect(bind).toBeDisabled();
+    await both(page, 'teacher-bind-declare', bind);
+    await sheet.getByRole('checkbox', { name: DECLARE }).check();
+    await bind.click();
+    await expect(sheet).toHaveCount(0);
+    expect(log.filter((r) => r.path === '/api/teacher/class/owner').at(-1).body).toEqual({ adultTeacher: true });
+    expect([...st.adults]).toEqual(['teacher@example.test']);
+    await page.getByLabel('ההודעה שלכם').fill('איך להסביר חיבור של מספר חיובי ומספר שלילי?');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.getByText('כדי לחבר מספרים עם סימנים שונים')).toBeVisible();
+  });
+
+  test('on a device a student used, "אני מורה" asks the birth year first; a child\'s year closes it, an adult\'s opens the teacher\'s way in', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    const used = withServer({ profile: null, durable: { tag: null, persistAsked: null, installHintAt: null, nudgeAt: null, nudgeCount: 0, escrowClass: true, wasStudent: true } });
+    await open(page, '#/', used);
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'לוח המורה בשביל מבוגרים' })).toBeVisible();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toHaveCount(0);
+    await both(page, 'teacher-adult-step', page.getByRole('button', { name: 'חזרה לתרגול' }));
+    const year = page.getByLabel('שנת הלידה שלכם');
+    await year.fill('2013');
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await expect(page.getByText('לוח המורה מיועד למורים מעל גיל 18. אפשר לחזור לתרגול.')).toBeVisible();
+    await expect(year).toBeDisabled();
+    expect(await page.evaluate(() => JSON.stringify(localStorage) + JSON.stringify(sessionStorage))).not.toContain('2013');
+    await page.getByRole('button', { name: 'חזרה לתרגול' }).click();
+    await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+    // a sign-out keeps the mark, so a reload asks again; an adult (another tab, after the wait) passes
+    await page.evaluate(() => localStorage.removeItem('madregot-adult-wait'));
+    await page.reload(); await appReady(page);
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await page.getByLabel('שנת הלידה שלכם').fill('1980');
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+  });
+
+  test('a device nobody studied on goes straight to the teacher\'s way in', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/', fresh());
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'לוח המורה בשביל מבוגרים' })).toHaveCount(0);
+  });
+});

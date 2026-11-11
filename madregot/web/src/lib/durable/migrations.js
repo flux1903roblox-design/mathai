@@ -32,7 +32,9 @@ export const CURRENT_VERSION = 6;
  */
 export const AI_DEFAULTS = Object.freeze({ mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label, sharingSeen, lastSent} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null });
 /** This device's save settings: its tag (xpBy), when the browser was asked to keep the data, and the save prompts. */
-export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, installHintAt: null, nudgeAt: null, nudgeCount: 0, escrowClass: true });
+// wasStudent: a student signed out on this device (it stays through the sign-out, a wipe clears it), so "אני מורה" there
+// asks the adult step first (COUNCIL2-5, lib/parentGate.js needsTeacherAdultStep).
+export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, installHintAt: null, nudgeAt: null, nudgeCount: 0, escrowClass: true, wasStudent: false });
 /**
  * The backup of this student's progress: off until the student or a parent turns it on. With the backup code (DURABLE-5,
  * durable/vault.js): the code, its lookup token, the vault's rev and when it was last pushed, the hash of what was pushed,

@@ -136,14 +136,19 @@ function readLinked(res) {
  *   economy  a paid plan's month is over its fair use: checks come back on the 1st
  *   class_off  the student's class has the tutor off, under the Ministry's rules (TRUST-11)
  *   parent_ok_needed  a child alone: a parent approves the tutor on this device once, for free (TRUST-9)
+ *   prep_only  a teacher of a school class before the Ministry's approval: the tutor prepares materials, and does not
+ *              check or grade students' work (the status's prepOnly; the server's 403 prep_only)
  * An unknown status gives 'open', so a failed status call never blocks anything.
  */
+/** shared/schoolRules.js TEACHER_PREP_KINDS, kept here so the rules module stays out of the first load (account.test.js). */
+export const TEACHER_PREP = Object.freeze(['explain', 'chat', 'generate']);
 export function aiAccess(kind, status = useAIStatus.getState().status) {
   const mode = aiMode();
   if (mode === 'none') return { state: 'offline', left: null, tier: null };
   if (mode === 'personal') return { state: 'open', left: null, tier: 'personal' };
   if (status?.classOff) return { state: 'class_off', left: null, tier: null };
   if (waitsForParent(status)) return { state: 'parent_ok_needed', left: null, tier: null };
+  if (status?.prepOnly && !TEACHER_PREP.includes(kind)) return { state: 'prep_only', left: null, tier: status.tier ?? null };
   if (!status || !status.tier) return { state: 'open', left: null, tier: null };
   const tier = status.tier;
   const group = KIND_GROUP[kind] || 'tutor';
@@ -204,7 +209,7 @@ export function autoAskAllowed() {
  */
 export function gate(kind, { onMadi, then } = {}) {
   const a = aiAccess(kind);
-  if (a.state === 'locked' || a.state === 'economy') return a.state;
+  if (a.state === 'locked' || a.state === 'economy' || a.state === 'prep_only') return a.state;
   if (a.state === 'class_off') { openLimitSheet({ reason: 'class_ai_off', onMadi }); return a.state; }
   if (a.state === 'parent_ok_needed') { openLimitSheet({ reason: 'parent_ok_needed', onMadi }); return a.state; }
   if (a.state === 'used') { openLimitSheet({ reason: 'daily_limit', tier: a.tier, onMadi }); return a.state; }

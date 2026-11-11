@@ -11,7 +11,7 @@ import {
 } from './util.js';
 import { meterDbSize } from './dbsize.js';
 import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
-import { resolve, precheck, counted, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
+import { resolve, precheck, counted, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify, teacherIsAdult, parentOkRequired } from './entitle.js';
 import { recordSafety, eventNet } from './safety.js';
 import { recordSpend } from './spend.js';
 import { bumpQuality } from './quality.js';
@@ -686,7 +686,10 @@ async function mintDevice(req, env, cors) {
  * once). With a session (X-Account-Token) the class is bound to that account in the same batch and the answer says
  * owned: true; a session that is sent but not valid is 401 not_account, never a class left unbound by mistake.
  * setting (TRUST-11): missing is 'school' (student AI off by the Ministry's rules); 'private' needs privateAttest: true
- * (400 private_attest_required), and stores the attestation with an audit row.
+ * (400 private_attest_required), and stores the attestation with an audit row. A private group still starts with student
+ * AI off: only an adult turns it on (classai.js setClassAi, COUNCIL2-2). adultTeacher: true with a session is the
+ * teacher's "I am over 18, a teacher or a tutor" (COUNCIL2-5), stored on the account as at sign-in, for a teacher who
+ * signed in before the declaration was asked; the answer then says adult: true.
  */
 async function createClass(req, env, cors) {
   const b = await body(req, LIMIT.small);
@@ -699,6 +702,8 @@ async function createClass(req, env, cors) {
   // teacher may use the tutor; without one it opens as before, and the tutor waits until it is bound
   const account = String(req.headers.get('X-Account-Token') || '').trim() ? await requireAccount(req, env) : null;
   if (account) await checkOwnedCap(env, account.id);
+  if (b.adultTeacher !== undefined && b.adultTeacher !== true && b.adultTeacher !== false) throw new HttpError(400, 'bad_request');
+  const declared = !!account && b.adultTeacher === true;
   await limitOrThrow(env, `create:n:${await netKey(req, env)}`, 10, 429, 'too_many_classes');
   const teacherKey = randomToken(12);
   const keyHash = await sha256(teacherKey);
@@ -712,6 +717,7 @@ async function createClass(req, env, cors) {
         const res = await env.DB.batch([
           ...ownedClassStmts(env, { code, name, grade, teacherName, keyHash, now }, account.id),
           ...newClassStmts(env, code, setting, { now, via: 'account' }),
+          ...(declared ? [env.DB.prepare('UPDATE accounts SET adult_confirmed_at = ? WHERE id = ?').bind(now, account.id)] : []),
         ]);
         if (Number(res[0].meta?.changes) !== 1) throw new HttpError(409, 'too_many_classes_owned');
       } else {
@@ -721,7 +727,7 @@ async function createClass(req, env, cors) {
           ...newClassStmts(env, code, setting, { now }),
         ]);
       }
-      return json({ code, teacherKey, className: name, grade, teacherName, setting, ...(account ? { owned: true } : {}) }, 200, cors);
+      return json({ code, teacherKey, className: name, grade, teacherName, setting, ...(account ? { owned: true, adult: declared || !!account.adultConfirmedAt } : {}) }, 200, cors);
     } catch (e) { if (!String(e?.message).includes('UNIQUE')) throw e; }
   }
   throw new HttpError(500, 'code_collision');
@@ -983,7 +989,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings, , assignments, classExams, threads, owner, lateRows, binding, goal] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings, , assignments, classExams, threads, owner, lateRows, binding, goal, adult] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -1033,6 +1039,8 @@ async function dashboard(req, env, cors) {
     // a class bound to an email after it was opened, told to the devices that come with the key (teacherAccount.js)
     bindingView(env, cls),
     teacherGoal(env, cls.code),
+    // is an adult behind this class (COUNCIL2-2): the AI card says what turning student AI on needs
+    parentOkRequired(env) ? teacherIsAdult(env, cls) : true,
   ]);
   const aiOff = new Set(aiOffRows.map((r) => r.student_id));
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
@@ -1043,7 +1051,7 @@ async function dashboard(req, env, cors) {
     class: { code: cls.code, name: cls.name, grade: cls.grade, teacherName: cls.teacher_name },
     today,
     joinLocked: locked,
-    aiPolicy: aiPolicyView(env, cls, aiSettings),
+    aiPolicy: aiPolicyView(env, cls, aiSettings, adult),
     // the class goal of the week: the class total only (goal.js)
     goal,
     students: students.map((s) => ({

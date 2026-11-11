@@ -33,6 +33,9 @@ const MESSAGES = {
   // after the teacher reset the personal code (COUNCIL2-25): the one-time code the teacher gave, calmly
   claim_code_needed: 'המורה איפס את הקוד האישי שלכם. כתבו את הקוד שקיבלתם מהמורה, ובחרו קוד אישי חדש.',
   claim_code_bad: 'הקוד מהמורה לא מתאים. בדקו אותו שוב, או בקשו מהמורה קוד חדש.',
+  // an adult behind the class (COUNCIL2-2) and the Ministry's rule for a school class's teacher (teacherAi 'prep')
+  adult_needed: 'כדי לפתוח את העוזר לתלמידים, צריך קודם להיכנס עם מייל ולאשר שאתם מעל גיל 18.',
+  prep_only: 'בכיתה של בית ספר, עד שמדרגות תאושר בקטלוג של משרד החינוך, העוזר החכם עוזר למורים רק בהכנת חומרים. בדיקת עבודות של תלמידים לא פתוחה בו.',
   missing_name: 'כתבו את השם שלכם.',
   missing_fields: 'מלאו את כל השדות.',
   not_signed_in: 'צריך להתחבר לכיתה מחדש. עברו למסך "אני".',

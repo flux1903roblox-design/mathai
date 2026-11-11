@@ -128,7 +128,7 @@
       "personal": "yes",
       "about": ["parent", "teacher"],
       "fields": ["id", "email", "created_at", "last_seen", "adult_confirmed_at", "terms_version", "billing_hold_at", "report_email_at"],
-      "purpose": "A parent or a teacher who signs in by email: the address (to sign in, and for receipts and notices), the day last seen, the 18+ tick and the terms accepted at checkout, and a hold after a chargeback. report_email_at: when the parents' weekly report email last went to this address (PARENTS-7).",
+      "purpose": "A parent or a teacher who signs in by email: the address (to sign in, and for receipts and notices), the day last seen, the 18+ declaration (adult_confirmed_at: the 18+ tick at checkout, or a teacher's \"I am over 18, a teacher or a tutor\" at sign-in or when binding a class, COUNCIL2-5; without it a class bound to the email has no adult behind it, so its student AI cannot be turned on), the terms accepted at checkout, and a hold after a chargeback. report_email_at: when the parents' weekly report email last went to this address (PARENTS-7).",
       "retention": "Until the account is deleted (the parents' page, or the owner on request), or 730 days with no sign-in and nothing running (RETENTION.accountIdleDays).",
       "recipients": ["cloudflare", "resend", "payment"],
       "purgedBy": ["cron.purgeLongTerm", "forget.forgetAccount"]

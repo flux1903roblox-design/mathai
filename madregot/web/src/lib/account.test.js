@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useApp } from './store.js';
 import {
   aiAccess, autoAskAllowed, aiHeaders, useAIStatus, gate, useLimitSheet, closeLimitSheet, hasTool, noteLimit, refreshIfNewDay,
-  useAIIntro, needIntro, acceptAIIntro, closeAIIntro, introSeen, refreshStatus, CLASS_OFF, PARENT_OK_NEEDED, LIMIT_ERRORS, leaveFamily,
+  useAIIntro, needIntro, acceptAIIntro, closeAIIntro, introSeen, refreshStatus, CLASS_OFF, PARENT_OK_NEEDED, LIMIT_ERRORS, leaveFamily, TEACHER_PREP,
 } from './account.js';
+import { TEACHER_PREP_KINDS } from '../../../shared/schoolRules.js';
 import { BACKUP_DEFAULTS } from './durable/migrations.js';
 import { runAI } from './ai.js';
 
@@ -367,5 +368,21 @@ describe('leaveFamily: the device leaves only when the server heard it', () => {
     vi.stubGlobal('fetch', answer(400, { error: 'need_device' }));
     await leaveFamily();
     expect(useApp.getState().ai.familyDevice).toBeNull();
+  });
+});
+
+describe('a school class\'s teacher prepares materials only (teacherAi \'prep\', the status\'s prepOnly)', () => {
+  it('the kinds that prepare stay as the tier says; checking students\' work is prep_only, on every tier', () => {
+    expect(TEACHER_PREP).toEqual(TEACHER_PREP_KINDS);
+    for (const status of [
+      { paywall: false, tier: 'open', kinds: ['explain', 'chat', 'generate'], groups: { all: { left: 100, limit: 200 } }, prepOnly: true },
+      { paywall: true, tier: 'free', kinds: ['explain', 'chat'], groups: groups({ left: 5, limit: 5 }), prepOnly: true },
+      { paywall: true, tier: 'teacher', kinds: ['explain', 'chat', 'generate'], groups: { tutor: { left: 90, limit: 100 }, generate: { left: 30, limit: 30 }, check: null, exam: null }, prepOnly: true },
+    ]) {
+      for (const kind of ['check', 'exam', 'feedback']) expect(aiAccess(kind, status).state, `${status.tier} ${kind}`).toBe('prep_only');
+      expect(aiAccess('chat', status).state, status.tier).not.toBe('prep_only');
+    }
+    // without prepOnly nothing changes
+    expect(aiAccess('check', { paywall: false, tier: 'open', kinds: ALL, groups: { all: { left: 100, limit: 200 } } }).state).toBe('open');
   });
 });

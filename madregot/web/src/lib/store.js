@@ -534,12 +534,14 @@ export const appState = (set, get) => ({
       // (PARENTS-4). `earlier` remembers that summaries went from this device before, so the next student is told they
       // stay with the parents.
       signOut: () => {
-        const { persistAsked, installHintAt } = get().durable || {};
+        const { persistAsked, installHintAt, wasStudent } = get().durable || {};
+        // a student used this device: "אני מורה" here asks the adult step first (COUNCIL2-5)
+        const student = !!wasStudent || get().profile?.role === 'student';
         const fd = get().ai?.familyDevice;
         set({
           ...empty, xpBy: {}, learn: emptyLearn(), look: emptyLook(), classWork: emptyClassWork(), workOutbox: {}, ai: { ...get().ai, pendingLink: null, lastTier: null, familyDevice: fd ? { ...fd, sharingSeen: null, lastSent: null, earlier: !!(fd.lastSent || fd.earlier) } : null },
           prefs: { ...get().prefs, soundSet: false },
-          durable: { ...DURABLE_DEFAULTS, persistAsked: persistAsked ?? null, installHintAt: installHintAt ?? null, tag: newTag() }, backup: { ...BACKUP_DEFAULTS },
+          durable: { ...DURABLE_DEFAULTS, persistAsked: persistAsked ?? null, installHintAt: installHintAt ?? null, tag: newTag(), wasStudent: student }, backup: { ...BACKUP_DEFAULTS },
           // a sign-out clears the progress on purpose, like a reset: another tab still open cannot bring it back
           resetAt: new Date().toISOString(),
         });

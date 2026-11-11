@@ -43,7 +43,7 @@ test('a school class while Madregot is not in the catalogue: no student AI whate
   // the dashboard says why, with the rules' version and the links
   const d = await board(cls);
   assert.deepEqual(d.aiPolicy, {
-    students: 'off', canTurnOn: false, reason: 'not_in_catalogue', teacherAi: 'prep', setting: 'school', studentAi: 'off', consentAt: null, fromGrade: 7,
+    students: 'off', canTurnOn: false, reason: 'not_in_catalogue', teacherAi: 'prep', setting: 'school', studentAi: 'off', consentAt: null, adultNeeded: false, fromGrade: 7,
     rulesVersion: '2026-01-20', rulesUrl: MOE_RULES.url, consentFormUrl: MOE_RULES.consentFormUrl, consentPdfUrl: MOE_RULES.consentPdfUrl,
   });
   assert.deepEqual(d.students.map((s) => s.aiOff), [false]);

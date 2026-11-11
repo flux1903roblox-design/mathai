@@ -286,13 +286,16 @@ export const INPUT = {
 export const DEVICE = 'a'.repeat(32);
 export const ai = (h, kind, headers = {}, { ip, body } = {}) => h.call('POST', `/api/ai/${kind}`, { headers, ip, body: body ?? INPUT[kind] });
 
-/** Sign in by email code; returns the session token. */
-export async function signIn(h, email, headers = {}) {
+/**
+ * Sign in by email code; returns the session token. `adultTeacher: true`: the teacher's "I am over 18, a teacher or a
+ * tutor" ticked on the sign-in (COUNCIL2-5), without which a class bound to the email has no adult behind it.
+ */
+export async function signIn(h, email, headers = {}, { adultTeacher } = {}) {
   h.env.DB.raw.prepare('DELETE FROM login_codes').run();
   const sent = await h.call('POST', '/api/account/code', { body: { email } });
   if (sent.status !== 200) throw new Error(`code: ${sent.status} ${await sent.text()}`);
   const code = codeFromEmail(h.net.log.email.at(-1));
-  const res = await h.call('POST', '/api/account/verify', { body: { email, code }, headers });
+  const res = await h.call('POST', '/api/account/verify', { body: { email, code, ...(adultTeacher === undefined ? {} : { adultTeacher }) }, headers });
   if (res.status !== 200) throw new Error(`verify: ${res.status} ${await res.text()}`);
   return (await res.json()).token;
 }

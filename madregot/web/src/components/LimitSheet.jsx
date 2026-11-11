@@ -1,6 +1,7 @@
 // The sheet that opens when the tutor says "not now": today's questions are used, it rests today, a shared ceiling is
 // reached, or this month's checks are over. Mounted once in the app. It speaks to a child calmly (Madi encouraging,
 // no red, no countdown, no price): Madi and practice are always open, and the questions come back tomorrow.
+import { lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/lib/store.js';
 import { useLimitSheet, closeLimitSheet } from '@/lib/account.js';
@@ -9,7 +10,9 @@ import { limitVariant } from './limitCopy.js';
 import { Button, Sheet } from './ui.jsx';
 import Mascot from './Mascot.jsx';
 import { SupportLink } from './SupportSheet.jsx';
-import TeacherBind from './teacher/TeacherBind.jsx';
+// the teacher's sign-in and bind (with the 18+ declaration, COUNCIL2-5): loaded only when a teacher's sheet needs it, so
+// the email form stays out of the first load
+const TeacherBind = lazy(() => import('./teacher/TeacherBind.jsx'));
 
 const PRACTICE = /^\/(lesson|practice|placement|learn|repair|rescue\/)/;
 
@@ -45,7 +48,7 @@ export default function LimitSheet() {
           // the screen to hand to a parent (a QR code, no price): the one way to the parent's OK (TRUST-9)
           if (a === 'parents') return <Button key={a} variant={variant} className={cls} onClick={() => go('/parents/info')}>להראות להורים</Button>;
           // a teacher whose class has no adult behind it signs in here, and the class is bound to that email (TRUST-9)
-          if (a === 'bind') return <TeacherBind key={a} onDone={closeLimitSheet} />;
+          if (a === 'bind') return <Suspense key={a} fallback={<p className="muted" role="status">טוענים…</p>}><TeacherBind onDone={closeLimitSheet} /></Suspense>;
           return <Button key={a} variant={variant} className={cls} onClick={practice}>להמשיך לתרגל</Button>;
         })}
         {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>מידע להורים</button>}

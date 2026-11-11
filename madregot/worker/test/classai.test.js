@@ -53,7 +53,7 @@ test('a school class before the catalogue approval: no student reaches the tutor
   // the dashboard says why, with the Ministry's links
   const d = await dashboard(cls);
   assert.deepEqual(d.aiPolicy, {
-    students: 'off', canTurnOn: false, reason: 'not_in_catalogue', teacherAi: 'prep', setting: 'school', studentAi: 'off', consentAt: null,
+    students: 'off', canTurnOn: false, reason: 'not_in_catalogue', teacherAi: 'prep', setting: 'school', studentAi: 'off', consentAt: null, adultNeeded: false,
     fromGrade: 7, rulesVersion: '2026-01-20', rulesUrl: MOE_RULES.url, consentFormUrl: MOE_RULES.consentFormUrl, consentPdfUrl: MOE_RULES.consentPdfUrl,
   });
   assert.equal(d.students[0].aiOff, false);
@@ -275,7 +275,7 @@ test('a private group buys as before: checkout, a trial request, a licence code'
 // ---------------------------------------------------------------- no personal data from teachers (TRUST-11 §7)
 test('a teacher\'s free text is masked before it reaches the AI, as a child\'s is; the pictures are untouched', async () => {
   h = await setup({ AI_PAYWALL: 'off' });
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { setting: 'private' }); // a private group: its teacher may check work (not prep_only)
   const said = 'תרגילים לנועה, הטלפון של אמא 052-1234567, noa@example.test';
   const r = await ai(h, 'generate', cls.teacher, { body: { topic: said, stair: 'ת"ז 000000018', count: 3, seeds: [{ i: 0, text: `${said} חשבו: 3 - (-5)`, answer: '8' }] } });
   assert.equal(r.status, 200);

@@ -23,6 +23,7 @@ import { findCode, formatCode } from '@/lib/durable/code.js';
 import { afterClassJoin } from '@/lib/durable/escrow.js';
 import { deepLink, countFromLanding } from '@/lib/deepLink.js';
 import { canSell } from '@/lib/price.js';
+import { needsTeacherAdultStep } from '@/lib/parentGate.js';
 
 /**
  * The first open of the Home Screen app (DURABLE-3): on an iPhone it keeps its data apart from Safari, so the front page
@@ -383,6 +384,27 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
 // The teacher's way in (sign-in by email, the classes on any device, the key flow, and the public site's page) is its
 // own screen: screens/teacher/TeacherStart.jsx, loaded when a teacher asks for it.
 const TeacherStart = lazy(() => import('./teacher/TeacherStart.jsx'));
+// the adult step (TRUST-8's AdultGate) with the teacher's words, loaded only on a device that needs it (COUNCIL2-5)
+const TeacherAdultGate = lazy(() => import('@/components/account/AdultGate.jsx').then((m) => ({ default: (p) => <m.default {...p} copy={m.TEACHER_ADULT_COPY} /> })));
+
+/**
+ * "אני מורה" on a device a student used (a profile that signed out here, or a child's device a parent linked): the
+ * parents' birth-year step comes first (COUNCIL2-5). A speed bump, as for the parents' area: the server's checks are
+ * the email code and the teacher's 18+ declaration. Back goes to the first screen.
+ */
+function TeacherAdultStep({ onPass, onBack }) {
+  return (
+    <div className="ob ob-flow teacher-adult">
+      <header className="ob-top" data-region="header">
+        <button type="button" className="icon-btn" onClick={onBack} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
+        <span className="ob-top-title">כניסת מורה</span>
+      </header>
+      <main className="ob-main" data-region="content">
+        <Suspense fallback={<LoadingState />}><TeacherAdultGate onPass={onPass} onBack={onBack} /></Suspense>
+      </main>
+    </div>
+  );
+}
 
 /**
  * "יש לי קובץ גיבוי" on a new device (DURABLE-4): choose the file, see what it holds, continue from it. Once the
@@ -431,8 +453,11 @@ export default function Welcome() {
   useEffect(() => { countFromLanding(link); }, [link]);
   const asked = deepLink(`?${params}`).teacher;
   const [mode, setMode] = useState(asked ? 'teacher' : null); // null: the first visit; 'teacher'; 'restore'
-  const back = () => { setMode(null); if (asked) setParams({}, { replace: true }); };
+  // the adult step before the teacher's way in, on a device a student used (COUNCIL2-5)
+  const [adultOk, setAdultOk] = useState(false);
+  const back = () => { setMode(null); setAdultOk(false); if (asked) setParams({}, { replace: true }); };
   if (mode === 'restore') return <RestoreStart onBack={() => setMode(null)} />;
   if (mode !== 'teacher' && !asked) return <Onboarding onTeacher={() => setMode('teacher')} onRestore={() => setMode('restore')} next={link.next} />;
+  if (!adultOk && needsTeacherAdultStep(useApp.getState())) return <TeacherAdultStep onPass={() => setAdultOk(true)} onBack={back} />;
   return <Suspense fallback={<LoadingState />}><TeacherStart onBack={back} /></Suspense>;
 }

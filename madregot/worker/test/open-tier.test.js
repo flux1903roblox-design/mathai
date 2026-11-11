@@ -33,12 +33,16 @@ const usd = (env, pool) => Number(one(env, 'SELECT nano_usd FROM ai_spend WHERE 
 const notices = (env, what) => rows(env, 'SELECT kind FROM notices WHERE kind LIKE ?', `owner:${what}:%`).map((r) => r.kind);
 const held = (env, pool) => Number(one(env, 'SELECT count FROM ai_usage WHERE who = ? AND day = ?', `usd:${pool}`, dayOf())?.count || 0);
 
-/** n classes bound to one signed-in email (each from its own address: class creation is 10 a day per network). */
+/**
+ * n classes bound to one signed-in email (each from its own address: class creation is 10 a day per network). The
+ * teacher declared 18+ on the sign-in (COUNCIL2-5), and the classes are private groups, so their teacher may check
+ * exams (a school class's teacher prepares materials only: prep_only).
+ */
 async function classesOf(email, n) {
-  const token = await signIn(h, email);
+  const token = await signIn(h, email, {}, { adultTeacher: true });
   const out = [];
   for (let i = 0; i < n; i++) {
-    const r = await h.call('POST', '/api/classes', { ip: `198.51.100.${i + 1}`, headers: { 'X-Account-Token': token }, body: { className: `ז׳${i + 1}`, teacherName: 'רונית', grade: '7' } });
+    const r = await h.call('POST', '/api/classes', { ip: `198.51.100.${i + 1}`, headers: { 'X-Account-Token': token }, body: { className: `ז׳${i + 1}`, teacherName: 'רונית', grade: '7', setting: 'private', privateAttest: true } });
     assert.equal(r.status, 200, `class ${i + 1}`);
     const c = await r.json();
     out.push({ code: c.code, key: { 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey }, session: { 'X-Class-Code': c.code, 'X-Account-Token': token } });

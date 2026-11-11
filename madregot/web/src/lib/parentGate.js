@@ -47,3 +47,14 @@ export function needsAdultStep({ mode, role, session: parentSession }) {
   if (mode !== 'home' && mode !== 'link') return false;
   return role === 'student' && !parentSession && !adultPassed();
 }
+
+/**
+ * Does "אני מורה" show the adult step first (COUNCIL2-5)? On a device that holds a student (a profile, or one that signed
+ * out here: durable.wasStudent) or that a parent linked for a child (ai.familyDevice), until the step is passed in this
+ * tab. `state`: the app's store (useApp.getState()). The same speed bump as the parents' area, never a verification: the
+ * server's checks are the email code and the teacher's 18+ declaration.
+ */
+export function needsTeacherAdultStep(state) {
+  if (adultPassed()) return false;
+  return state?.profile?.role === 'student' || !!state?.durable?.wasStudent || !!state?.ai?.familyDevice?.token;
+}

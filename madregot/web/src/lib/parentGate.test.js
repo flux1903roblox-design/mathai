@@ -1,7 +1,7 @@
 // The adult step before the parents' area on a child's device (trust spec TRUST-8): the year rule, where it applies, and
 // what it keeps (a flag for the tab and a time; never the year).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { adultYearOk, needsAdultStep, adultPassed, setAdultPassed, startWait, waitUntil, ADULT_KEY, WAIT_KEY, WAIT_MS } from './parentGate.js';
+import { adultYearOk, needsAdultStep, needsTeacherAdultStep, adultPassed, setAdultPassed, startWait, waitUntil, ADULT_KEY, WAIT_KEY, WAIT_MS } from './parentGate.js';
 import { STORE_KEY } from './store.js';
 
 /** A plain Storage in memory, for node. */
@@ -75,5 +75,20 @@ describe('the 10-minute wait after a year that is not an adult\'s', () => {
     expect(() => { setAdultPassed(); startWait(); }).not.toThrow();
     expect(adultPassed()).toBe(false);
     expect(waitUntil()).toBe(0);
+  });
+});
+
+describe('before "אני מורה" on a device a student used (COUNCIL2-5)', () => {
+  it('asks on a device with a student profile, one a student signed out of, or a child\'s device a parent linked', () => {
+    expect(needsTeacherAdultStep({ profile: { role: 'student' } })).toBe(true);
+    expect(needsTeacherAdultStep({ profile: null, durable: { wasStudent: true } })).toBe(true);
+    expect(needsTeacherAdultStep({ profile: null, ai: { familyDevice: { token: 'fd1.x', label: '' } } })).toBe(true);
+  });
+  it('not on a new device or a teacher\'s, and not again in this tab once passed', () => {
+    expect(needsTeacherAdultStep({ profile: null, durable: { wasStudent: false } })).toBe(false);
+    expect(needsTeacherAdultStep({ profile: { role: 'teacher' } })).toBe(false);
+    expect(needsTeacherAdultStep(undefined)).toBe(false);
+    setAdultPassed();
+    expect(needsTeacherAdultStep({ profile: null, durable: { wasStudent: true } })).toBe(false);
   });
 });

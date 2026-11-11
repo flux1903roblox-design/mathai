@@ -28,6 +28,11 @@
 // Worker starts); the dashboard's aiPolicy from shared/schoolRules.js, the students' aiOff, POST /api/teacher/class/ai
 // and /api/teacher/students/:id/ai, a new class's setting, and 409 school_ai_not_approved for a trial, a licence code
 // or a class purchase while the rules do not allow selling to the class.
+// An adult behind the class (COUNCIL2-2, COUNCIL2-5): `declaredOnly: true` answers as the Worker does, where an email
+// counts as an adult only once its holder declared "over 18, a teacher or a tutor" (adultTeacher: true on the sign-in,
+// a new class or the bind; st.adults holds those emails): without it the teacher gets parent_ok_needed, the dashboard's
+// aiPolicy says adultNeeded, and turning student AI on is 403 adult_needed. By default every sign-in counts as declared
+// (verify answers adult: true), as the flows written before the declaration expect.
 // `st.down = true` makes every call fail as a lost connection.
 // The family lane's routes:
 // POST /api/errors keeps each report it is sent (st.errors, DURABLE-9). The backup code's vault (DURABLE-5) keeps sealed
@@ -128,13 +133,14 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     // the parents' report (the Worker's PARENT_REPORT): off unless a spec turns it on, so the flows written before it
     // run as they did; report.spec.js turns it on
     report: false, summaries: {}, feedback: [], reportEmail: false,
+    declaredOnly: false, adults: new Set(), // the 18+ declaration (COUNCIL2-5): see the head of this file
     ...over,
   };
   // the class's student AI (TRUST-11): a school class, off, no consent, Madregot not in the catalogue, unless the test says
   st.ai = { setting: 'school', studentAi: 'off', consentAt: null, approval: 'none', fromGrade: 7, ...(over.ai || {}) };
   const policyOf = (a = st.ai) => classAiPolicy({ setting: a.setting, grade: st.classGrade, studentAi: a.studentAi, consentAt: a.consentAt }, { approval: a.approval, approvedFromGrade: a.fromGrade });
   const aiPolicy = () => ({
-    ...policyOf(), setting: st.ai.setting, studentAi: st.ai.studentAi, consentAt: st.ai.consentAt, fromGrade: Math.max(st.ai.fromGrade, MOE_RULES.independentFromGrade),
+    ...policyOf(), setting: st.ai.setting, studentAi: st.ai.studentAi, consentAt: st.ai.consentAt, adultNeeded: !!st.declaredOnly && !classAdult(), fromGrade: Math.max(st.ai.fromGrade, MOE_RULES.independentFromGrade),
     rulesVersion: MOE_RULES.version, rulesUrl: MOE_RULES.url, consentFormUrl: MOE_RULES.consentFormUrl, consentPdfUrl: MOE_RULES.consentPdfUrl,
   });
   const cannotSell = () => notSellable(policyOf());
@@ -154,8 +160,12 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
   // A class's teacher is an adult only when the class is bound to a signed-in email (the session sent, K7Q2MD owned, or
   // another class of the account) or has a licence or trial in force (TRUST-9, the trust review): a key alone proves no
   // adult, as on the Worker (entitle.js classHasAdult).
-  const adultClass = (h) => !!h['x-account-token'] || ['trial', 'active', 'ending'].includes(st.licence.status)
-    || (h['x-class-code'] === 'K7Q2MD' ? st.owned : st.accountClasses.some((c) => c.code === h['x-class-code']));
+  // with declaredOnly, an email counts only once its holder declared 18+ (COUNCIL2-5): the session's own, or K7Q2MD's owner's
+  const declared = (email) => !st.declaredOnly || st.adults.has(email);
+  const licensed = () => ['trial', 'active', 'ending'].includes(st.licence.status);
+  const classAdult = () => licensed() || (st.owned && declared(st.ownerEmail));
+  const adultClass = (h) => (!!h['x-account-token'] && declared(emails.get(h['x-account-token']))) || licensed()
+    || (h['x-class-code'] === 'K7Q2MD' ? st.owned && declared(st.ownerEmail) : st.accountClasses.some((c) => c.code === h['x-class-code']));
   // a child alone, on a device no parent has approved, or a teacher of a class with no adult behind it (TRUST-9)
   const waits = (h) => !st.parentOk && !h.authorization && !famOf(h) && (!h['x-class-code'] || !adultClass(h));
   /** The summary's state for a device, derived as the Worker's summaryState is. */
@@ -552,7 +562,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (body.code !== '123456') return reply(route, 403, { error: 'wrong_code', left: 4 });
       if (token) st.sessions.delete(token);
       st.n += 1; const t = TOKEN(st.n); st.sessions.add(t); st.recent.add(t); emails.set(t, body.email);
-      return reply(route, 200, { token: t, email: body.email });
+      if (body.adultTeacher === true) st.adults.add(body.email);
+      return reply(route, 200, { token: t, email: body.email, adult: declared(body.email) });
     }
     // `planOnline` ({ family_month: false, … }): plans the provider cannot sell online here (each plan's own `online`)
     if (path === '/api/billing/plans') {
@@ -699,8 +710,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (setting === 'private' && body.privateAttest !== true) return reply(route, 400, { error: 'private_attest_required' });
       st.ai = { ...st.ai, setting, studentAi: 'off', consentAt: null };
       st.className = body.className; st.classGrade = body.grade === '8' ? '8' : '7';
-      if (signed) { st.owned = true; st.ownerEmail = emails.get(token) || null; }
-      return reply(route, 200, { code: 'K7Q2MD', teacherKey: st.key, className: st.className, grade: st.classGrade, teacherName: body.teacherName, setting, ...(signed ? { owned: true } : {}) });
+      if (signed) { st.owned = true; st.ownerEmail = emails.get(token) || null; if (body.adultTeacher === true) st.adults.add(st.ownerEmail); }
+      return reply(route, 200, { code: 'K7Q2MD', teacherKey: st.key, className: st.className, grade: st.classGrade, teacherName: body.teacherName, setting, ...(signed ? { owned: true, adult: declared(st.ownerEmail) } : {}) });
     }
     if (path === '/api/teacher/classes') {
       if (!signed) return reply(route, 401, { error: 'not_account' });
@@ -718,7 +729,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         if (!byKey) return reply(route, 401, { error: 'not_teacher' });
         if (st.owned && !mine()) return reply(route, 409, { error: 'owned_by_other' });
         st.owned = true; st.ownerEmail = emails.get(token) || null;
-        return reply(route, 200, { owner: 'you', email: emails.get(token) || 'teacher@example.test' });
+        if (body.adultTeacher === true) st.adults.add(st.ownerEmail);
+        return reply(route, 200, { owner: 'you', email: emails.get(token) || 'teacher@example.test', adult: declared(st.ownerEmail) });
       }
       if (path === '/api/teacher/class/rekey') {
         if (!signed) return reply(route, 401, { error: 'not_account' });
@@ -799,6 +811,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
           if (!next.consentAt) return reply(route, 409, { error: 'consent_needed' });
           next.studentAi = 'on';
         } else if (body.studentAi === 'off') next.studentAi = 'off';
+        // the consent and the switch on need an adult behind the class (COUNCIL2-2)
+        if ((body.consent === true || body.studentAi === 'on') && st.declaredOnly && !classAdult() && !(byAccount && declared(emails.get(token)))) return reply(route, 403, { error: 'adult_needed' });
         st.ai = next;
         return reply(route, 200, { policy: aiPolicy() });
       }

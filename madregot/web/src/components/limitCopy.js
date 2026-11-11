@@ -115,6 +115,8 @@ export const CLASS_OFF_LINE = 'בכיתה הזו העוזר החכם כבוי.';
 export const PARENT_OK_LINE = 'העוזר החכם מחכה לאישור של הורה.';
 /** The same place for a teacher whose class is not bound to an email yet (TRUST-9, the trust review). */
 export const TEACHER_EMAIL_LINE = 'העוזר החכם נפתח למורים אחרי כניסה עם המייל.';
+/** A school class's teacher before the catalogue approval (teacherAi 'prep'): what the tutor does there, and what it does not. */
+export const PREP_ONLY_LINE = 'בכיתה של בית ספר, עד שמדרגות תאושר בקטלוג של משרד החינוך, העוזר החכם עוזר למורים בהכנת חומרים. בדיקת עבודות של תלמידים לא פתוחה בו.';
 /** The line for a device that waits: a parent's OK for a child, an email for a teacher. */
 export const waitingLine = (role) => (role === 'teacher' ? TEACHER_EMAIL_LINE : PARENT_OK_LINE);
 
@@ -131,6 +133,8 @@ function lockedLines(kind, { state, inClass, role }) {
   if (state === 'parent_ok_needed' && role === 'teacher') return { lines: [TEACHER_EMAIL_LINE, 'הלוח והשיעורים פתוחים כמו תמיד.'], teacher: false, parents: false, bind: true };
   if (state === 'parent_ok_needed') return { lines: [PARENT_OK_LINE, 'מדי, השיעורים והתרגול פתוחים כמו תמיד.'], teacher: false, parents: true };
   if (state === 'economy') return { lines: ['הבדיקה הזו חוזרת ב־1 בחודש.'], teacher: false, parents: false };
+  // a teacher of a school class before the Ministry's approval: the tutor prepares materials only (no price, no way round)
+  if (state === 'prep_only') return { lines: [PREP_ONLY_LINE], teacher: false, parents: false };
   if (kind === 'check') {
     return inClass
       ? { lines: ['את הבדיקה הזו עושה העוזר החכם המלא.', 'רוצים שמישהו יסתכל על הפתרון? אפשר לשלוח את הדף למורה.'], teacher: true, parents: false }

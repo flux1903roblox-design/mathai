@@ -110,6 +110,11 @@ describe('legal texts and their placeholders', () => {
     expect(s).toContain('קובץ PDF לא נשלח');
     expect(s).toContain('בתרגילים של האפליקציה, העוזר מתבקש לא לתת את התשובה הסופית לפני שפתרתם, ובשרת יש בדיקה שמסתירה את התשובה כשהיא נכתבת בצורות הנפוצות.');
     expect(s).toContain('כיתה שנפתחה בלי מייל לא פותחת את העוזר');
+    // an adult behind the class (COUNCIL2-2, COUNCIL2-5): the email's holder declared 18+, and a key alone opens nothing
+    expect(s).toContain('רק בכיתה שמקושרת למייל של מורה שאישר שהוא מעל גיל 18, או שיש לה רישיון.');
+    expect(s).toContain('רק מורה שנכנס עם מייל ואישר שהוא מעל גיל 18 יכול לרשום הסכמת הורים ולפתוח את העוזר לתלמידים. מפתח מורה לבד לא מספיק.');
+    // teacherAi 'prep', enforced by the Worker (prep_only)
+    expect(s).toContain('והמורה משתמש בו רק כדי להכין חומרים, לא כדי לבדוק עבודות של תלמידים.');
     expect(s).toContain('במבחן שהעליתם בלי מפתח תשובות העוזר בודק את התשובות, וזה מסומן ליד כל שאלה.');
     expect(s).not.toContain('את התשובות של התרגילים בודקת האפליקציה, לא העוזר');
     for (const n of ['1201', '105', '100', '101']) expect(s).toContain(n);
