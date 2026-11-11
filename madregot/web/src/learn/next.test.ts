@@ -4,10 +4,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { LearnState, SkillId, SkillRecord } from './types';
 import { planNext, examLosses, mapTopics, mapFocus, onMap, nodeRoute, cardRoute, missionNext, strongToday, BAND } from './next';
 import type { NextContext, CheckedExam } from './next';
-import { nextActions } from './recommend';
+import { nextActions, isMissing, states, titleOf, RECOVER_RIGHT } from './recommend';
 import { buildMission, completeMissionItems, missionDone, missionFor } from './mission';
 import { examPlan, newPlan, recordDiagnostic, isShabbatDay } from './examRescue';
-import { ALL_SKILLS, STAIRS, TOPIC_ORDER, isBridgeSkill, parseSkill, skillId, prereqsOf } from './skills';
+import { ALL_SKILLS, GRADE_OF, STAIRS, TOPIC_ORDER, isBridgeSkill, parseSkill, skillId, prereqsOf } from './skills';
 import { contentOf } from './content/index';
 import { seeded } from './expr';
 import { addDays } from './mastery';
@@ -101,7 +101,7 @@ describe('planNext: the bands, highest first, for each learner', () => {
   it('offers the floor check for a hard stair that leans on fractions, only while there is no floor evidence', () => {
     const c = LEARNERS.hardFractionsNoFloor();
     expect(planNext(c).top).toMatchObject({ kind: 'floor', title: 'בדיקה קצרה של יסודות', minutes: 3, to: '/floor' });
-    expect(planNext(c).top!.reason).toBe('שברים ועשרוניים מכוונים נשען על שברים. שש שאלות יראו אם כדאי לחזק אותם קודם.');
+    expect(planNext(c).top!.reason).toBe('המדרגה "שברים ועשרוניים מכוונים" נשענת על יסודות השברים. שש שאלות יראו אם כדאי לחזק אותם קודם.');
     // after a check that went well, it is not offered again
     const after = { ...c.learn, floor: { at: NOW, on: false, results: { 'frac:3': { asked: 1, right: 1 } }, facts: { asked: 2, right: 2 } } };
     expect(planNext({ ...c, learn: after }).items.some((x) => x.kind === 'floor')).toBe(false);
@@ -135,6 +135,121 @@ describe('planNext: the bands, highest first, for each learner', () => {
     // a stair not yet learned is practised from its next stage
     const fresh = planNext(ctxOf(emptyLearn(), { exams: [exam] })).items.find((x) => x.kind === 'exam-loss')!;
     expect(fresh).toMatchObject({ skill: 'coord:3', stage: 'A', to: '/learn/coord/3/A' });
+  });
+});
+
+describe('old evidence that a stair is weak counts only until newer work says otherwise', () => {
+  // the floor check ran 20 days ago; the stairs were mastered 5 days ago (reviews far off)
+  const FLOOR_AT = ago(20);
+  const floorWith = (missed: SkillId[]) => ({ at: FLOOR_AT, on: true, results: Object.fromEntries(['frac:1', 'frac:2', 'frac:3', 'frac:4'].map((id) => [id, { asked: 1, right: missed.includes(id) ? 0 : 1 }])), facts: { asked: 2, right: 2 } });
+  const learner = (grade: '7' | '8', mastered: SkillId[], missed: SkillId[], extra: Record<SkillId, SkillRecord> = {}) => {
+    const L = emptyLearn();
+    mastered.forEach((id) => { L.skills[id] = masteredRec(ago(5), 40, 4); });
+    Object.assign(L.skills, extra);
+    L.floor = floorWith(missed);
+    return ctxOf(L, { grade });
+  };
+  const FRAC = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
+  const newOf = (c: NextContext) => planNext(c).items.find((x) => x.kind === 'new')?.skill;
+
+  it('a ח׳ student who missed frac:2 in the floor check and has mastered it since is offered percent', () => {
+    const c = learner('8', [...FRAC, 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4'], ['frac:2']);
+    expect(states(c)['frac:2']).toBe('mastered');
+    expect(isMissing(c, 'frac:2')).toBe(false);
+    expect(newOf(c)).toBe('pct:1');
+    // the same student with frac:2 right in the floor check: the same plan
+    expect(newOf(learner('8', [...FRAC, 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4'], []))).toBe('pct:1');
+  });
+
+  it('a ז׳ student who missed frac:3 in the floor check and has mastered it since is offered signed:6', () => {
+    const SIGNED = ['signed:1', 'signed:2', 'signed:3', 'signed:4', 'signed:5'];
+    const c = learner('7', [...SIGNED, ...FRAC], ['frac:3']);
+    expect(isMissing(c, 'frac:3')).toBe(false);
+    expect(newOf(c)).toBe('signed:6');
+    // signed:6 hard now (two failed checks): no prerequisite item sends the student back to a stair mastered since
+    const hard: SkillRecord = { taught: { A: ago(3), B: ago(3), C: ago(3) }, attempts: [], failedChecks: 2 };
+    const p = planNext(learner('7', [...SIGNED, ...FRAC], ['frac:3'], { 'signed:6': hard }));
+    expect(p.items.filter((x) => x.kind === 'prereq')).toEqual([]);
+    expect(p.top).toMatchObject({ skill: 'signed:6' });
+  });
+
+  it('no prerequisite item ever points at a stair mastered after the evidence against it', () => {
+    const SIGNED = ['signed:1', 'signed:2', 'signed:3', 'signed:4', 'signed:5'];
+    const hard: SkillRecord = { taught: { A: ago(3), B: ago(3), C: ago(3) }, attempts: [], failedChecks: 2 };
+    for (const missed of FRAC) {
+      const c = learner('7', [...SIGNED, ...FRAC], [missed], { 'signed:6': hard });
+      const st = states(c);
+      planNext(c).items.filter((x) => x.kind === 'prereq').forEach((x) => expect(st[x.skill], `${missed}: ${x.skill}`).not.toBe('mastered'));
+    }
+  });
+
+  it('the floor evidence still counts when nothing since contradicts it, and stops counting after three right answers of the student\'s own', () => {
+    // mastered before the floor check, missed in it: the check is the newer evidence
+    const L = emptyLearn();
+    L.skills['frac:3'] = masteredRec(ago(30), 60, 4);
+    L.floor = floorWith(['frac:3']);
+    expect(isMissing(ctxOf(L), 'frac:3')).toBe(true);
+    // not mastered since, but RECOVER_RIGHT independent right answers after the check
+    const M = emptyLearn();
+    M.floor = floorWith(['frac:3']);
+    M.skills['frac:3'] = { taught: { A: ago(4), B: ago(4), C: ago(4) }, attempts: Array.from({ length: RECOVER_RIGHT }, () => ({ at: ago(2), ok: true, independent: true, purpose: 'practice' as const })) };
+    expect(isMissing(ctxOf(M), 'frac:3')).toBe(false);
+    // two are not enough, and right answers with help do not count
+    M.skills['frac:3'] = { ...M.skills['frac:3'], attempts: M.skills['frac:3'].attempts.slice(1) };
+    expect(isMissing(ctxOf(M), 'frac:3')).toBe(true);
+    M.skills['frac:3'] = { ...M.skills['frac:3'], attempts: Array.from({ length: 5 }, () => ({ at: ago(2), ok: true, independent: false, purpose: 'practice' as const })) };
+    expect(isMissing(ctxOf(M), 'frac:3')).toBe(true);
+    // a passed review after the check
+    const R = emptyLearn();
+    R.floor = floorWith(['frac:3']);
+    R.skills['frac:3'] = { ...masteredRec(ago(30), 60, 4) };
+    R.skills['frac:3'].mastered = { ...R.skills['frac:3'].mastered!, lastReview: { at: ago(3), ok: true } };
+    expect(isMissing(ctxOf(R), 'frac:3')).toBe(false);
+  });
+
+  it('Exam Rescue\'s diagnostic follows the same rule', () => {
+    const L = emptyLearn();
+    L.exam = recordDiagnostic(newPlan({ grade: '7', date: '2026-11-30', skills: ['signed:1'], confidence: 2, minutes: 20 }, ago(20)), 'signed:1', 0, 2, ago(20));
+    expect(isMissing(ctxOf(L), 'signed:1')).toBe(true);
+    L.skills['signed:1'] = masteredRec(ago(5), 40, 4);
+    expect(isMissing(ctxOf(L), 'signed:1')).toBe(false);
+  });
+});
+
+describe('every reason reads as Hebrew: a stair\'s title never takes a verb that may not agree with it', () => {
+  // titles are any noun phrase (מציאת השלם, חלוקה ביחס, שברים ועשרוניים מכוונים): a verb right after one is a guess
+  const titles = ALL_SKILLS.map((id) => titleOf(id));
+  const esc = (t: string) => t.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
+  const VERB_AFTER_TITLE = (reason: string) => titles.find((t) => new RegExp(`${esc(t)}\\s+(?:נשען|נשענת|נשענים|נשענות)`).test(reason));
+
+  it('the floor check and the prerequisite name the stair as "המדרגה \"…\"", for every stair that leans on fractions', () => {
+    const reasons: string[] = [];
+    ALL_SKILLS.filter((id) => !isBridgeSkill(id)).forEach((id) => {
+      const grade = GRADE_OF[parseSkill(id).topic] as '7' | '8';
+      const L = emptyLearn();
+      L.skills[id] = strugglingRec(ago(1));
+      planNext(ctxOf(L, { grade })).items.filter((x) => x.kind === 'floor' || x.kind === 'prereq').forEach((x) => reasons.push(x.reason));
+      // and the same stair after a floor check that missed everything: the prerequisite is a fractions stair
+      const M = emptyLearn();
+      M.skills[id] = strugglingRec(ago(1));
+      M.floor = { at: ago(2), on: true, results: { 'frac:1': { asked: 1, right: 0 }, 'frac:2': { asked: 1, right: 0 }, 'frac:3': { asked: 1, right: 0 }, 'frac:4': { asked: 1, right: 0 } }, facts: { asked: 2, right: 2 } };
+      planNext(ctxOf(M, { grade })).items.filter((x) => x.kind === 'prereq').forEach((x) => reasons.push(x.reason));
+    });
+    expect(reasons.length).toBeGreaterThan(10);
+    reasons.forEach((r) => {
+      expect(VERB_AFTER_TITLE(r), r).toBeUndefined();
+      expect(r, r).toMatch(/^המדרגה ".+" נשענת על (?:יסודות השברים|".+")\./);
+    });
+    // the reviewer's learner: percent 1-3 and ratio mastered, pct:4 going badly, no floor check yet
+    const L = emptyLearn();
+    ['pct:1', 'pct:2', 'pct:3', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4'].forEach((id) => { L.skills[id] = masteredRec(ago(12), 40, 4); });
+    L.skills['pct:4'] = strugglingRec(ago(1));
+    expect(planNext(ctxOf(L, { grade: '8' })).items.find((x) => x.kind === 'floor')!.reason).toBe('המדרגה "מציאת השלם" נשענת על יסודות השברים. שש שאלות יראו אם כדאי לחזק אותם קודם.');
+    expect(reasons.some((r) => /^המדרגה ".+" נשענת על ".+"\. שלב \d מתוך 5 שם יעזור לחזור לזה\.$/.test(r)), 'a prerequisite reason').toBe(true);
+  });
+
+  it('no reason of any learner puts a verb straight after a stair\'s title', () => {
+    Object.values(LEARNERS).forEach((f) => planNext(f()).items.forEach((x) => expect(VERB_AFTER_TITLE(x.reason), x.reason).toBeUndefined()));
   });
 });
 

@@ -50,7 +50,10 @@ describe('public counts of topics and stairs are the computed ones', () => {
 
   it('the store frame takes its counts from counts.json, which holds the computed ones', () => {
     expect(DOCS['../../../store/frames.cjs']).toContain("require('./counts.json')");
-    expect(JSON.parse(countsJson)).toEqual({ topics: TOPIC_COUNT, stairs: STAIRS });
+    const coverage = { '7': coverageSentence('7', coverageOf('7')), '8': coverageSentence('8', coverageOf('8')) };
+    expect(JSON.parse(countsJson)).toEqual({ topics: TOPIC_COUNT, stairs: STAIRS, coverage });
+    // the sentences are the /programme page's own (the store listing quotes them, never a share typed by hand)
+    expect(coverage['7']).toMatch(/^במדרגות יש כבר את החומר של \d+ מתוך \d+ שעות ההוראה של כיתה ז׳ \(\d+%\)\.$/);
     expect(countsOf()).toEqual({ topics: TOPIC_COUNT, stairs: STAIRS });
   });
 });

@@ -68,7 +68,9 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
   up to just after the exam losses when the student is strong today: the last three mastery checks passed on the first
   attempt, or every stair of the grade mastered). Every item carries its reason. A
   prerequisite counts as missing only on evidence (or, in the student's own grade, never started and not passed on
-  the map); stairs passed on the old map count as known. The home map focuses the plan's top when it is a stair of the
+  the map); stairs passed on the old map count as known. A short check's miss (the floor check, Exam Rescue's
+  diagnostic) counts until the stair is mastered, passes a review or gets three independent right answers after it
+  (recommend.ts recoveredSince, the exam-loss rule), so one early miss never blocks the units above that stair. The home map focuses the plan's top when it is a stair of the
   map, and shows it in a banner above the path when it is not; today's mission starts with it; Exam Rescue's "today"
   is the plan's exam steps. So two buttons never send the student to two different next things. The older improvement
   plan (raw mistake counts, `/plan`) is retired: its exam evidence is the exam-loss band, listed as "מה לחזק אחרי

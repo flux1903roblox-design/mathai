@@ -44,11 +44,13 @@ function fracTex(x, wrap) {
  */
 export function plainNum(x, { decimal = false, maxDen = 12, places = 2 } = {}) {
   if (Number.isInteger(x)) return String(x);
+  // a whole number that floating point left a hair off (2.9999999999999996) is that whole number, never "3/1"
+  if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x) || 0);
   const k = 10 ** places;
   if (decimal && Math.abs(Math.round(x * k) / k - x) < 1e-9) return String(Math.round(x * k) / k);
   for (let q = 2; q <= maxDen; q++) {
     const p = Math.round(x * q);
-    if (Math.abs(p / q - x) < 1e-9) { const [a, b] = reduce(p, q); return `${a}/${b}`; }
+    if (Math.abs(p / q - x) < 1e-9) { const [a, b] = reduce(p, q); return b === 1 ? String(a) : `${a}/${b}`; }
   }
   return String(Math.round(x * k) / k);
 }

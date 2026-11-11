@@ -236,3 +236,63 @@ test('a passed mastery check offers the stair\'s challenge in a quiet card, whic
   await expect(page).toHaveURL(/#\/challenge\/pct:c1$/);
   await expect(page.locator('.ch-count')).toHaveText('חלק 1 מתוך 4');
 });
+
+// ------------------------------------------------------------------ every task, every step, on the small phone
+// A review found two solutions cut off at 320 px inside the part's own scroller (sys:c3's sample read "0 · 30" for
+// "70 · 30"), where the page itself did not scroll sideways. Every task is walked to its end the way a struggling student
+// meets the most text: each part missed twice (so its solution shows), each explanation sent for the self-check. At every
+// step nothing inside the challenge screen scrolls sideways, and no piece of maths sits past the screen's edge.
+const TOPICS = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
+
+async function nothingCutOff(page, where) {
+  const over = await page.evaluate(async () => {
+    await document.fonts.ready; // KaTeX's fonts load when maths first shows: measure with them
+    const out = [];
+    for (const e of document.querySelectorAll('.ch-screen, .ch-screen *')) {
+      if (e.closest('.katex-mathml')) continue; // KaTeX's copy for screen readers: clipped to 1px on purpose
+      const cs = getComputedStyle(e);
+      if (cs.overflowX !== 'visible' && e.scrollWidth > e.clientWidth + 1) out.push(`${e.tagName.toLowerCase()}.${String(e.className).split(' ').join('.')} ${e.scrollWidth} > ${e.clientWidth}`);
+    }
+    for (const k of document.querySelectorAll('.ch-screen .katex')) {
+      const b = k.getBoundingClientRect();
+      if (b.width > 0 && (b.left < -1 || b.right > window.innerWidth + 1)) out.push(`maths at ${Math.round(b.left)}..${Math.round(b.right)}: ${k.querySelector('annotation')?.textContent}`);
+    }
+    return out;
+  });
+  expect(over, where).toEqual([]);
+  await expectNoSidewaysScroll(page);
+}
+
+async function walk(page, id) {
+  await page.goto(`./#/challenge/${id}`);
+  await page.reload();
+  await expect(page.locator('.ch-title')).toBeVisible();
+  const goBtn = page.locator('.ch-foot .ch-go');
+  for (let step = 0; step < 80; step += 1) {
+    await nothingCutOff(page, `${id}, step ${step}`);
+    if (await page.locator('.ch-done').count()) return step;
+    const label = (await goBtn.textContent())?.trim();
+    if (label === 'סיימתי') { await page.locator('.ch-explain').fill('בדקתי.'); await goBtn.click(); continue; }
+    if (label !== 'בדיקה' && await goBtn.isEnabled()) { await goBtn.click(); continue; }
+    // a part to answer: 1 in every open slot, else the first choice still open (a proof is checked as it stands)
+    const slots = page.locator('input.ch-slot:not([readonly])');
+    const radio = page.locator('[role=radio]:not([disabled]):not([aria-checked="true"])');
+    if (await slots.count()) { for (const s of await slots.all()) await s.fill('1'); }
+    else if (await radio.count()) await radio.first().click();
+    await expect(goBtn, `${id}, step ${step}: nothing to press`).toBeEnabled();
+    await goBtn.click();
+  }
+  throw new Error(`${id} did not end in 80 steps`);
+}
+
+for (const topic of TOPICS) {
+  test(`at 320 px nothing is cut off in ${topic}'s three challenges, at any step`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'phone-small', 'the narrow phone is the one that cuts');
+    await open(page, '#/', student(['ratio', 'pct', 'line', 'pyth', 'stats', 'sys'].includes(topic) ? '8' : '7'));
+    for (const n of [1, 2, 3]) {
+      const steps = await walk(page, `${topic}:c${n}`);
+      expect(steps, `${topic}:c${n} walked`).toBeGreaterThan(2);
+      await nothingCutOff(page, `${topic}:c${n}, the end`);
+    }
+  });
+}

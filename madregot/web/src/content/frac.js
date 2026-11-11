@@ -126,10 +126,11 @@ export const FRAC4 = mk({
     if (!mul && Math.abs(a / b - c / d) < 1e-9) return null;
     return { mul, a, b, c, d };
   },
-  answer: ({ mul, a, b, c, d }) => (mul ? (a * c) / (b * d) : (a / b) / (c / d)),
+  // one division of two whole numbers, so a whole answer is exactly whole (3/5 : 1/5 is 15 / 5 = 3, not 2.9999999999999996)
+  answer: ({ mul, a, b, c, d }) => (mul ? (a * c) / (b * d) : (a * d) / (b * c)),
   bugs: {
-    'keep-den': ({ mul, a, b, c, d }) => (d !== b ? null : mul ? (a * c) / b : (a / c) / b), // the common denominator kept (Siegler & Pyke 2013)
-    'divide-flip': ({ mul, a, b, c, d }) => (mul ? null : (c / d) / (a / b)), // the divisor divided by the dividend (Fischbein et al. 1985; Tirosh 2000)
+    'keep-den': ({ mul, a, b, c, d }) => (d !== b ? null : mul ? (a * c) / b : a / (c * b)), // the common denominator kept (Siegler & Pyke 2013)
+    'divide-flip': ({ mul, a, b, c, d }) => (mul ? null : (b * c) / (a * d)), // the divisor divided by the dividend (Fischbein et al. 1985; Tirosh 2000)
   },
 });
 /** frac:4 transfer — a/b litre poured into cups of 1/(b·m) litre: how many cups. */
