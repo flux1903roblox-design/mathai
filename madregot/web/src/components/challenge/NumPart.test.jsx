@@ -5,8 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import NumPart from './NumPart.jsx';
 import ErrorPart from './ErrorPart.jsx';
-import { NumFields } from './common.jsx';
-import { piValueTyped, answerTexOf, numCheck } from '@/learn/challenges/grade.ts';
+import { NumFields, piValueTyped, answerTexOf } from './common.jsx';
+import { numCheck } from '@/learn/challenges/grade.ts';
 
 const part = { type: 'num', prompt: 'מה שטח עיגול שרדיוסו $5$ ס״מ? כתבו בעזרת $\\pi$.', answer: 25, check: '5^2', unit: 'סמ״ר', after: '\\pi', solution: ['$5^2 = 25$'] };
 

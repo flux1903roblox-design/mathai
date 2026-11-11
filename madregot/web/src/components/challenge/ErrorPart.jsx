@@ -5,9 +5,8 @@ import clsx from 'clsx';
 import { Check, X } from 'lucide-react';
 import { MathText, mathPlain } from '@/components/MathText.jsx';
 import { play } from '@/lib/sound.js';
-import { numCheck, piValueTyped, answerTexOf } from '@/learn/challenges/grade.ts';
-import { PI_VALUE_LINE } from '@/content/util.js';
-import { useTries, resultOf, PartFooter, NumFields, CHECK, GO_ON } from './common.jsx';
+import { numCheck } from '@/learn/challenges/grade.ts';
+import { useTries, resultOf, PartFooter, NumFields, CHECK, GO_ON, PI_VALUE_LINE, piValueTyped, answerTexOf } from './common.jsx';
 
 export const WHICH_LINE = 'איזו שורה שגויה?';
 

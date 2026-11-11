@@ -1755,6 +1755,38 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .mp-iq-seg .seg { flex: 1; padding: 0 8px; }
 }
 
+/* shapes on a grid (רשת משבצות, stage 2): the grid, the shape, a piece in the unit's colour and where it was, a cut,
+   the dashed parallel of a triangle's vertex; green only when the state is right (practice), dashed green for the answer */
+.mp-grid-line { stroke: color-mix(in srgb, var(--c-d, var(--brand-d)) 18%, transparent); stroke-width: 1; }
+.mp-grid-line.edge { stroke: color-mix(in srgb, var(--c-d, var(--brand-d)) 32%, transparent); stroke-width: 1.5; }
+.mp-grid-shape { fill: color-mix(in srgb, var(--c, var(--brand)) 18%, transparent); stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; transition: fill var(--duration-fast) var(--ease-out), stroke var(--duration-fast) var(--ease-out); }
+.mp-grid-shape.hit { fill: var(--good-tint); stroke: var(--good-d); }
+.mp-grid-piece { fill: color-mix(in srgb, var(--c, var(--brand)) 48%, var(--surface)); stroke: var(--c-d, var(--brand-d)); stroke-width: 2.5; stroke-linejoin: round; }
+.mp-grid-piece.hit { fill: color-mix(in srgb, var(--good) 40%, var(--surface)); stroke: var(--good-d); }
+.mp-grid-was { fill: none; stroke: var(--c-d, var(--brand-d)); stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; }
+.mp-grid-cut { stroke: var(--c-d, var(--brand-d)); stroke-width: 4; stroke-dasharray: 9 6; stroke-linecap: round; }
+.mp-grid-cut.hit { stroke: var(--good-d); }
+.mp-grid-par { stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 6 6; }
+.mp-grid-height { stroke: var(--c-d, var(--brand-d)); stroke-width: 2; stroke-dasharray: 4 4; }
+.mp-grid-right { fill: none; stroke: var(--good-d); stroke-width: 2; }
+.mp-grid-ghost { fill: color-mix(in srgb, var(--good) 14%, transparent); stroke: var(--good); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linejoin: round; }
+.mp-grid-ghost-line { stroke: var(--good); stroke-width: 3; stroke-dasharray: 8 6; stroke-linecap: round; }
+.mp-grid-readout { font-variant-numeric: tabular-nums; }
+.mp-grid-num { font-size: 12px; }
+/* a readout that can show a second line keeps room for it, so the drawing under a dragging finger never moves */
+.mp-grid-readout.two { flex-direction: column; gap: 0; min-height: 2.6em; justify-content: flex-start; }
+.mp-grid-parts { color: var(--good-ink); font-weight: 700; }
+.mp-grid-controls { align-items: center; }
+.mp-grid-seg .seg { min-width: 0; white-space: nowrap; }
+/* at 320 the cut's two direction buttons share a row and the line's stepper goes under them */
+@media (max-width: 389px) {
+  .manip-grid-cut .mp-grid-controls { flex-direction: column; gap: 6px; }
+  .manip-grid-move .mp-grid-controls, .manip-grid-rect .mp-grid-controls { flex-wrap: nowrap; gap: 6px; }
+  .manip-grid-move .stepper, .manip-grid-rect .stepper { gap: 2px; padding: 2px; }
+  .manip-grid-move .step-label, .manip-grid-rect .step-label { min-width: 0; padding-inline: 2px; }
+}
+@media (prefers-reduced-motion: reduce) { .mp-grid-shape { transition: none; } }
+
 /* two lines on the plane, and where they meet */
 .mp-line.two { stroke: var(--ink-2); stroke-width: 3.5; stroke-dasharray: 10 6; }
 .mp-lines-legend { gap: var(--s4); font-size: 19px; color: var(--ink); }

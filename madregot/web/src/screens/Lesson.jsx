@@ -9,7 +9,7 @@ import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
-import { piRow, PI_VALUE_LINE } from '@/content/util.js';
+import { piRow } from '@/content/util.js';
 import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
@@ -88,7 +88,9 @@ const FRAC_FIELD = { n: 'מונה', d: 'מכנה' };
 /** What to type when a slot is empty or unreadable. */
 const INVALID = { pt: 'מלאו את שני השיעורים.', line: 'מלאו את m ואת b.', lin: 'מלאו את המקדם ואת המספר החופשי.', frac: 'מלאו מונה ומכנה, מספרים שלמים.' };
 /** A right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake. */
-const PARTIAL = { 'not-reduced': 'נכון, ואפשר לצמצם עוד. צמצמו עד הסוף.', 'pi-value': PI_VALUE_LINE };
+// 'pi-value': the whole value typed into a □π row (31.4 for 10π), right in another form; the challenge screens say the
+// same (components/challenge/common.jsx PI_VALUE_LINE). Kept here, not in content/util.js, so it is not in the first download.
+const PARTIAL = { 'not-reduced': 'נכון, ואפשר לצמצם עוד. צמצמו עד הסוף.', 'pi-value': 'נכון בקירוב. כאן כותבים רק את המספר שלפני\u00a0$\\pi$.' };
 
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
 // Help named honestly (ai spec AI-3 Hebrew copy): a first try that was right with the hint or the tutor open is not

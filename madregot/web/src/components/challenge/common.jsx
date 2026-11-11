@@ -9,11 +9,26 @@ import { MathText, Tex, mathPlain } from '@/components/MathText.jsx';
 import { ResultWhy } from '@/components/learn/StepPlayer.jsx';
 import { enter } from '@/lib/motion.js';
 import { TRIES } from '@/learn/challenges/grade.ts';
+import { numRight, piNear, PI_AFTER } from '@/content/util.js';
 
 export const RETRY = 'עוד לא. נסו שוב, יש עוד ניסיון.';
 export const SHOWN = 'הנה הפתרון. ממשיכים.';
 export const CHECK = 'בדיקה';
 export const GO_ON = 'המשך';
+/**
+ * A part whose slot is followed by π (`after: '\\pi'`, the answer the number before π), answered with the whole value
+ * as a decimal: 31.4 for 10π. Right, in another form: the part says so and the try does not count (content/index.js
+ * partialOf 'pi-value', as in a lesson).
+ */
+export function piValueTyped(answer, after, u) {
+  return after === PI_AFTER && answer !== 0 && !numRight(u, answer, true) && piNear(u, answer);
+}
+
+/** A number part's answer as TeX, with what is drawn after its slot: 25\pi. */
+export const answerTexOf = (answer, after) => `${answer}${after || ''}`;
+
+/** The whole value typed into a □π slot (31.4 for 10π): right, in another form; the try does not count (as in a lesson). */
+export const PI_VALUE_LINE = 'נכון בקירוב. כאן כותבים רק את המספר שלפני\u00a0$\\pi$.';
 
 /**
  * Two tries at one question. miss() after a wrong check: 'retry' while a try is left, then 'shown' (the solution is

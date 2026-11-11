@@ -168,8 +168,8 @@ export const piValue = (k) => Math.round(31.4 * k) / 10;
 // (a no-break space keeps "שלפני π" on one line: π alone at the start of a line reads as a stray sign)
 /** The note after a □π row's first question in a lesson: what to type (the question already says "בעזרת π"). */
 export const PI_NOTE = '(כותבים רק את המספר שלפני\u00a0$\\pi$.)';
-/** The line shown when the value of the answer is typed into a □π row as a decimal: right, and in another form. */
-export const PI_VALUE_LINE = 'נכון בקירוב. כאן כותבים רק את המספר שלפני\u00a0$\\pi$.';
+// (the line a □π row shows for the whole value typed as a decimal, "נכון בקירוב…", is in the lesson and the challenge
+// screens, which alone show it: it stays out of the first download)
 
 /**
  * A question whose answer row ends with π says what to type there: the item comes back with PI_NOTE after its text.

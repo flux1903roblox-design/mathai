@@ -181,7 +181,8 @@ function labelsOf(f: AnyFig): Set<string> {
           ...(meet ? [`(${fmt(meet[0])}, ${fmt(meet[1])})`] : []), ...rr, ...(f.words || []).map((w: any) => w.text)];
       }
       case 'geo': return [...Object.keys(f.pts).filter((k) => !k.startsWith('_') && !(f.hide || []).includes(k)), ...(f.segs || []).map((s: any) => s.label),
-        ...(f.angles || []).map((g: any) => g.text), ...(f.squares || []).map((q: any) => q.text), ...(f.words || []).map((w: any) => w.text)];
+        ...(f.angles || []).map((g: any) => g.text), ...(f.squares || []).map((q: any) => q.text), ...(f.words || []).map((w: any) => w.text),
+        ...(f.circles || []).map((c: any) => c.label)];
       // the algebra objects write x on a box or a long tile, and the rectangle its sides (and parts' areas)
       case 'tiles': return [f.px && 'x', f.nx && '-x', f.p1 && '1', f.n1 && '-1'];
       case 'scale': return [(f.left.x || f.right.x) && 'x'];

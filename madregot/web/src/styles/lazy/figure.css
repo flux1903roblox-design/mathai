@@ -12,6 +12,16 @@
 .fg-angle { fill: var(--cyan); font-size: 15px; font-weight: 700; }
 .fg-par { fill: none; stroke: var(--ink); stroke-width: 1.5; }
 .fg-tri { fill: color-mix(in srgb, var(--cyan) 7%, transparent); stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+/* stage 2 (measurement): unit squares under a shape, circles and arcs, a part taken away (hatched) or added (accent) */
+.fg-geo-grid { stroke: var(--rule-strong); stroke-width: 1; }
+.fg-tri.fg-tone-cut { stroke: var(--ink-2); stroke-dasharray: 6 4; }
+.fg-hatch-line { stroke: var(--ink-2); stroke-width: 2; opacity: 0.55; }
+.fg-tri.fg-tone-add { fill: color-mix(in srgb, var(--brand) 22%, transparent); stroke: var(--brand-d); }
+.fg-circle { fill: none; stroke: var(--ink); stroke-width: 2; }
+.fg-circle.filled { fill: color-mix(in srgb, var(--cyan) 10%, transparent); }
+.fg-circle.dashed { stroke: var(--ink-2); stroke-dasharray: 6 5; }
+.fg-radius { stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; }
+.fg-geo-arc { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
 .fg-side { fill: var(--ink); font-size: 16px; font-weight: 700; }
 .fg-wall { fill: var(--ground); stroke: var(--rule-strong); }
 .fg-ladder { stroke: var(--streak); stroke-width: 4; stroke-linecap: round; }

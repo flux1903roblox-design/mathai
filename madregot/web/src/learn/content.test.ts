@@ -17,6 +17,8 @@ import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togeth
 // @ts-ignore: plain JS
 import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX } from '@/content/manip.js';
 // @ts-ignore: plain JS
+import { GRID_MAX, cutRange, moveRange, cutMakesRectangles } from '@/content/grid.js';
+// @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
@@ -103,6 +105,7 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       if (s.manip.kind === 'tiles') checkTiles(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'area') checkArea(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'ray') checkRay(s.manip as any, s.answer as any, s.display, at);
+      if (s.manip.kind === 'polygon') checkPolygon(s.manip as any, s.answer as any, at);
       expect(s.hint, at).toBeTruthy();
       expect(s.success, at).toBeTruthy();
     }
@@ -184,6 +187,46 @@ function checkArea(m: { start: { a: number; b: number }; maxA?: number; maxB?: n
   [a, m.start].forEach((p) => expect(Number.isInteger(p.a) && Number.isInteger(p.b) && p.a >= 1 && p.a <= maxA && p.b >= 0 && p.b <= maxB, `${at}: ${JSON.stringify(p)} is outside the object`).toBe(true));
   expect(m.start.a === a.a && m.start.b === a.b, `${at}: starts on the answer`).toBe(false);
   if (display) expect(identical(texToExpr(display), `${a.a}*(x+${a.b})`), `${at}: ${display} is not ${a.a}(x + ${a.b})`).toBe(true);
+}
+/**
+ * Shapes on a grid (stage 2): a grid of at most 11 by 8 whose shapes sit on it, a start the object can show, and a goal
+ * the object can reach inside the grid: the solving rectangle fits, the move keeps the piece on the grid, every right
+ * cut is a grid line inside the shape that leaves two rectangles, every right vertex is on the grid.
+ */
+function checkPolygon(m: any, a: any, at: string) {
+  const [cols, rows] = m.grid;
+  const [maxC, maxR] = GRID_MAX;
+  expect(Number.isInteger(cols) && Number.isInteger(rows) && cols >= 1 && rows >= 1 && cols <= maxC && rows <= maxR, `${at}: grid ${cols} by ${rows}`).toBe(true);
+  const onGrid = (pts: number[][]) => pts.every(([x, y]) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x <= cols && y >= 0 && y <= rows);
+  if (m.shape) expect(onGrid(m.shape), `${at}: the shape is off the grid`).toBe(true);
+  if (m.piece) expect(onGrid(m.piece.pts), `${at}: the piece is off the grid`).toBe(true);
+  const sol = manipSolution({ manip: m, answer: a });
+  expect(sol, `${at}: no state answers it`).toBeTruthy();
+  if (m.task === 'rect') {
+    expect(['rect', 'maxArea']).toContain(a.mode);
+    [sol, m.start].forEach((r: any) => expect(r.w >= 1 && r.w <= cols && r.h >= 1 && r.h <= rows, `${at}: ${JSON.stringify(r)} does not fit the grid`).toBe(true));
+  }
+  if (m.task === 'move') {
+    expect(a.mode).toBe('move');
+    const r = moveRange(m);
+    [a, m.start].forEach((v: any) => expect(v.dx >= r.dx[0] && v.dx <= r.dx[1] && (v.dy || 0) >= r.dy[0] && (v.dy || 0) <= r.dy[1], `${at}: the move ${JSON.stringify(v)} leaves the grid`).toBe(true));
+  }
+  if (m.task === 'cut') {
+    expect(a.mode).toBe('cut');
+    expect(a.lines.length, at).toBeGreaterThan(0);
+    for (const l of [...a.lines, m.start]) {
+      const [lo, hi] = cutRange(m, l.axis);
+      expect(['x', 'y']).toContain(l.axis);
+      expect(Number.isInteger(l.at) && l.at >= lo && l.at <= hi, `${at}: the line ${l.axis} = ${l.at} is not inside the shape`).toBe(true);
+    }
+    for (const l of a.lines) expect(cutMakesRectangles(m.shape, l), `${at}: ${l.axis} = ${l.at} does not leave two rectangles`).toBe(true);
+  }
+  if (m.task === 'apex') {
+    expect(a.mode).toBe('apex');
+    const y = m.base.y || 0;
+    expect(m.base.x0 >= 0 && m.base.x1 <= cols && m.base.x0 < m.base.x1 && y + m.base.h <= rows && m.base.h > 0, `${at}: the base or its height is off the grid`).toBe(true);
+    [...a.xs, m.start.x].forEach((x: number) => expect(Number.isInteger(x) && x >= 0 && x <= cols, `${at}: x = ${x} is off the grid`).toBe(true));
+  }
 }
 /** A ray: on the line, not the start; an inequality shown with it has exactly the ray's numbers as solutions. */
 function checkRay(m: { start: { at: number; dir: number; closed: boolean }; min?: number; max?: number }, a: { at: number; dir: number; closed: boolean }, display: string | undefined, at: string) {
@@ -552,6 +595,22 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'ray', start: { at: 0, dir: 1, closed: false } }, { at: -3, dir: 1, closed: false }, '-2x > 6')); // not flipped
     bad(explore({ kind: 'ray', start: { at: 0, dir: 1, closed: false } }, { at: -3, dir: -1, closed: true }, '-2x > 6')); // the boundary
     bad(explore({ kind: 'ray', start: { at: 4, dir: -1, closed: true } }, { at: 4, dir: -1, closed: true }));
+  });
+  it('shapes on a grid (stage 2): the start is not the goal, and the goal is reachable inside the grid', () => {
+    const L = [[0, 0], [8, 0], [8, 4], [5, 4], [5, 6], [0, 6]];
+    const para = [[2, 0], [6, 0], [8, 4], [2, 4]]; // the parallelogram (0, 0) (6, 0) (8, 4) (2, 4) less the triangle cut off its left
+    ok(explore({ kind: 'polygon', grid: [10, 8], task: 'rect', start: { w: 2, h: 2 } }, { mode: 'rect', area: 12, perim: 14 }));
+    ok(explore({ kind: 'polygon', grid: [10, 8], task: 'rect', start: { w: 7, h: 1 } }, { mode: 'maxArea', perim: 16 }));
+    ok(explore({ kind: 'polygon', grid: [10, 6], task: 'move', shape: para, piece: { pts: [[0, 0], [2, 0], [2, 4]], name: 'המשולש' }, start: { dx: 0, dy: 0 } }, { mode: 'move', dx: 6, dy: 0 }));
+    ok(explore({ kind: 'polygon', grid: [8, 6], task: 'cut', shape: L, start: { axis: 'y', at: 1 } }, { mode: 'cut', lines: [{ axis: 'y', at: 4 }, { axis: 'x', at: 5 }] }));
+    ok(explore({ kind: 'polygon', grid: [10, 6], task: 'apex', base: { x0: 0, x1: 8, h: 4 }, start: { x: 6 } }, { mode: 'apex', xs: [0, 8] }));
+    bad(explore({ kind: 'polygon', grid: [10, 8], task: 'rect', start: { w: 3, h: 4 } }, { mode: 'rect', area: 12, perim: 14 })); // starts on it
+    bad(explore({ kind: 'polygon', grid: [4, 2], task: 'rect', start: { w: 1, h: 1 } }, { mode: 'rect', area: 12, perim: 14 })); // 3 by 4 does not fit a grid 2 high
+    bad(explore({ kind: 'polygon', grid: [12, 8], task: 'rect', start: { w: 1, h: 1 } }, { mode: 'rect', area: 12 })); // a grid wider than 11
+    bad(explore({ kind: 'polygon', grid: [10, 6], task: 'move', shape: para, piece: { pts: [[0, 0], [2, 0], [2, 4]] }, start: { dx: 0, dy: 0 } }, { mode: 'move', dx: 9, dy: 0 })); // off the grid
+    bad(explore({ kind: 'polygon', grid: [8, 6], task: 'cut', shape: L, start: { axis: 'y', at: 1 } }, { mode: 'cut', lines: [{ axis: 'y', at: 2 }] })); // not two rectangles
+    bad(explore({ kind: 'polygon', grid: [8, 6], task: 'cut', shape: L, start: { axis: 'y', at: 4 } }, { mode: 'cut', lines: [{ axis: 'y', at: 4 }] })); // starts on it
+    bad(explore({ kind: 'polygon', grid: [10, 6], task: 'apex', base: { x0: 0, x1: 8, h: 7 }, start: { x: 6 } }, { mode: 'apex', xs: [0, 8] })); // above the grid
   });
   it('a cut number line: the goal is a whole number of parts, and the display is its value', () => {
     ok(explore({ kind: 'numberline', min: 0, max: 2, from: 0, start: 0, den: 3 }, 5 / 3, '\\frac{5}{3}'));

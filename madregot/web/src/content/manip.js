@@ -20,6 +20,9 @@
 //   fbar        a bar cut into equal parts, some shaded {den, shaded}     answer: { mode: 'value', value } (shaded/den is the
 //               value, any den), { mode: 'common', of: [3, 4] } (den a multiple of each), { mode: 'exact', den, shaded }
 //   dline       a double number line (move 't': the marker; 'max': the bottom line's end)  answer: that number
+//   polygon     shapes on a grid of unit squares (stage 2): task rect { w, h }, move { dx, dy }, cut { axis, at },
+//               apex { x }; answer { mode: 'rect' | 'maxArea' | 'move' | 'cut' | 'apex', … }; its rules are in
+//               content/grid.js, which registers them here (see "kinds whose rules load with their object")
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -150,7 +153,7 @@ export function ticksWords(m, v, from) {
   return `${n === 1 ? 'שנתה אחת' : `${n} שנתות`} ${k > 0 ? 'ימינה' : 'שמאלה'} מ־${f}`;
 }
 /** A label of a marker as plain text: \frac{1}{4} is 1/4. */
-const labelPlain = (l) => String(l).replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2');
+export const labelPlain = (l) => String(l).replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2');
 
 // ---------------------------------------------------------------- the fraction bar (פס שברים)
 // One bar, the whole: the student chooses how many equal parts (den) and how many are shaded, from the left.
@@ -192,6 +195,21 @@ export const dlineNum = (v) => {
 };
 /** A number with its unit, the unit word outside the number: "30%", "7 ס״מ", "72". */
 export const withUnit = (v, unit) => (!unit ? dlineNum(v) : unit === '%' ? `${dlineNum(v)}%` : `${dlineNum(v)} ${unit}`);
+
+// ---------------------------------------------------------------- kinds whose rules load with their object
+// The objects of stage 2 on (the grid shapes, content/grid.js) keep their rules out of the first download: the file
+// registers them here when it loads. It is asked for as soon as this module loads (a small file after the first
+// screen), and it is also part of the object's own file, so a lesson or a teaching step that draws the object always
+// has them. Asked for before they are here, a rule throws: a missing rule is a bug, never a wrong answer.
+const LATE_KINDS = ['polygon'];
+const LATE = {};
+/** Called by a late kind's file: its correct, text, plain, solution and wrong. */
+export const registerKind = (kind, rules) => { LATE[kind] = rules; };
+/** Called by content/grid.js: the words of a geo drawing's stage-2 parts (a grid, circles, arcs, tones). */
+export const registerGeoWords = (fn) => { LATE.geoWords = fn; };
+const late = (kind) => { if (!LATE[kind]) throw new Error(`${kind} rules not loaded`); return LATE[kind]; };
+// asked for now, after the first screen's own files (a test imports content/grid.js itself)
+import('./grid.js');
 
 // ---------------------------------------------------------------- the teaching figures in words (STUDENT-8)
 // The spoken name of each drawing (components/Figure.jsx puts it in aria-label): what a sighted student sees, never
@@ -235,6 +253,9 @@ function teachLineWords(f) {
 
 export function figWords(f) {
   switch (f.type) {
+    // the measurement additions of a geo drawing (stage 2) are read by content/grid.js; before it loads (a moment after
+    // the first screen), a geo drawing says nothing, as every geo drawing did before
+    case 'geo': return LATE.geoWords ? LATE.geoWords(f) : '';
     case 'numline': return f.den ? partsLineWords(f) : teachLineWords(f);
     case 'fbar': {
       const rows = f.rows?.length ? f.rows : [{ den: f.den, shaded: f.shaded }];
@@ -318,7 +339,7 @@ export function manipCorrect(it, u) {
       return near(u.shaded / u.den, a.value, 1e-9);
     }
     case 'dline': { const v = dlineValue(m, u); return typeof v === 'number' && near(v, a, 1e-9); }
-    default: return false;
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).correct(it, u) : false;
   }
 }
 
@@ -359,7 +380,7 @@ export function manipText(it, u = it.answer) {
       return `${u.shaded}/${u.den}`;
     }
     case 'dline': { const v = dlineValue(m, u); return v == null ? '' : withUnit(v, m.move === 'max' ? m.bottom.unit : m.top.unit); }
-    default: return '';
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).text(it, u) : '';
   }
 }
 
@@ -391,7 +412,7 @@ export function manipPlain(it) {
         ? `[ציר כפול: למעלה ${line(m.top)}, למטה ${m.bottom.label}; הסמן קבוע על ${withUnit(m.fixT, m.top.unit)}; מותחים את הציר התחתון (השלם) בצעדים של ${dlineNum(m.bottom.step)}, עד ${withUnit(m.bottom.max, m.bottom.unit)}]`
         : `[ציר כפול: למעלה ${line(m.top)}, למטה ${line(m.bottom)}; מזיזים את הסמן בצעדים של ${withUnit(m.top.step, m.top.unit)}]`;
     }
-    default: return '';
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).plain(it) : '';
   }
 }
 
@@ -410,7 +431,7 @@ export function manipSolution(it) {
       const den = m.lockDen ? m.start.den : fbarDenFor(a.value, m.maxDen || FBAR_MAX_DEN);
       return { den, shaded: Math.round(a.value * den) };
     }
-    default: return a;
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).solution(it) : a;
   }
 }
 
@@ -444,6 +465,6 @@ export function manipWrong(it) {
       const L = m.move === 'max' ? m.bottom : m.top; const lo = m.move === 'max' ? L.step : 0;
       return a + L.step <= L.max + 1e-9 ? a + L.step : Math.max(lo, a - L.step);
     }
-    default: return null;
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).wrong(it) : null;
   }
 }

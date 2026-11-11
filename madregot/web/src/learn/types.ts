@@ -23,8 +23,12 @@ export type Rng = () => number;
  * is { mode: 'value', value } | { mode: 'common', of } | { mode: 'exact', den, shaded }) and 'dline' (the double number
  * line { top, bottom, move: 't' | 'max', start: { t, max? }, fixT? }; the answer is the marker's top value or the bottom
  * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`.
+ * Measurement (stage 2): 'polygon' (shapes on a grid of unit squares { grid: [cols, rows] ≤ [11, 8], task, start, shape?,
+ * piece?, base? }; task 'rect' { w, h } answered { mode: 'rect', area?, perim? } | { mode: 'maxArea', perim }, 'move'
+ * { dx, dy } answered { mode: 'move', dx, dy }, 'cut' { axis, at } answered { mode: 'cut', lines }, 'apex' { x } answered
+ * { mode: 'apex', xs }).
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'polygon';
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand

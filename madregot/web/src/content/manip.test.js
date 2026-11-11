@@ -7,6 +7,7 @@ import NumberLine from '@/components/manip/NumberLine.jsx';
 import NumberPins from '@/components/manip/NumberPins.jsx';
 import FracBar from '@/components/manip/FracBar.jsx';
 import DoubleLine from '@/components/manip/DoubleLine.jsx';
+import GridShape from '@/components/manip/GridShape.jsx';
 import { loadKatex } from '@/components/MathText.jsx';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
@@ -15,6 +16,7 @@ import {
   tilesTex, tilesPairs, tilesWords, areaTex, areaSumTex, rayText, rayTex, rayHas, TILES_MAX,
   fbarDenFor, fbarWords, dlineAt, dlineNum, withUnit, ticksWords, manipCorrect,
 } from './manip.js';
+import { maxRectArea, polyArea, cutAreas, cutMakesRectangles, cutAt, gridControls, gridStep } from './grid.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
 
@@ -593,5 +595,177 @@ describe('the still figures of stage 1 are drawn, and said in words with every n
     // a line with no parts is the student lane's teaching figure (STUDENT-8): its words are that lane's (content/manip.js
     // teachLineWords): real minus signs, and each point with its place
     expect(figPlain({ type: 'numline', from: -6, to: 6, marks: [{ x: -2, label: 'B' }, { x: 0.75, label: '0.75' }] })).toBe('ציר מספרים מ־−6 עד 6, נקודה B ב־−2, נקודה ב־0.75');
+  });
+});
+
+// ---------------------------------------------------------------- shapes on a grid (stage 2, MEASURE-1.1)
+// No stair uses the object yet: these are fixtures, the spec's own explores (area:1, area:2, area:3, area:4, area:5).
+describe('shapes on a grid (רשת משבצות)', () => {
+  const iso = (t) => `\u2066${t}\u2069`;
+  const L = [[0, 0], [8, 0], [8, 4], [5, 4], [5, 6], [0, 6]];
+  const para = [[2, 0], [6, 0], [8, 4], [2, 4]]; // the parallelogram (0, 0) (6, 0) (8, 4) (2, 4) less the triangle cut off its left
+  const grid = (manip, answer) => fixture({ kind: 'polygon', ...manip }, answer);
+  const rect = grid({ grid: [10, 8], task: 'rect', start: { w: 2, h: 2 } }, { mode: 'rect', area: 12, perim: 14 });
+  const area = grid({ grid: [10, 8], task: 'rect', start: { w: 1, h: 1 } }, { mode: 'rect', area: 12 });
+  const maxA = grid({ grid: [10, 8], task: 'rect', start: { w: 7, h: 1 } }, { mode: 'maxArea', perim: 16 });
+  const max14 = grid({ grid: [10, 8], task: 'rect', start: { w: 6, h: 1 } }, { mode: 'maxArea', perim: 14 });
+  const move = grid({ grid: [10, 6], task: 'move', shape: para, piece: { pts: [[0, 0], [2, 0], [2, 4]], name: 'המשולש' }, start: { dx: 0, dy: 0 } }, { mode: 'move', dx: 6, dy: 0 });
+  const moveUp = grid({ grid: [10, 8], task: 'move', shape: [[0, 0], [6, 0], [6, 3], [0, 3]], piece: { pts: [[0, 4], [3, 4], [3, 7], [0, 7]] }, start: { dx: 0, dy: 0 } }, { mode: 'move', dx: 3, dy: -4 });
+  const cut = grid({ grid: [8, 6], task: 'cut', shape: L, start: { axis: 'y', at: 1 } }, { mode: 'cut', lines: [{ axis: 'y', at: 4 }, { axis: 'x', at: 5 }] });
+  const cutNear = grid({ grid: [8, 6], task: 'cut', shape: [[0, 0], [6, 0], [6, 2], [3, 2], [3, 4], [0, 4]], start: { axis: 'x', at: 1 } }, { mode: 'cut', lines: [{ axis: 'x', at: 3 }, { axis: 'y', at: 2 }] });
+  const cutPair = grid({ grid: [8, 6], task: 'cut', shape: [[0, 0], [6, 0], [6, 4], [0, 4]], start: { axis: 'y', at: 1 } }, { mode: 'cut', lines: [{ axis: 'x', at: 3 }, { axis: 'x', at: 4 }] });
+  const apex = grid({ grid: [10, 6], task: 'apex', base: { x0: 0, x1: 8, h: 4 }, start: { x: 6 } }, { mode: 'apex', xs: [0, 8] });
+  const all = [rect, area, maxA, max14, move, moveUp, cut, cutNear, cutPair, apex];
+
+  it('every mode: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
+    for (const it of all) solves(it);
+  });
+  it('rect: every property given holds, either way round; maxArea: the perimeter and the largest area', () => {
+    expect([isCorrect(rect, { w: 3, h: 4 }), isCorrect(rect, { w: 4, h: 3 }), isCorrect(rect, { w: 2, h: 6 }), isCorrect(rect, { w: 5, h: 2 })]).toEqual([true, true, false, false]);
+    expect(isCorrect(area, { w: 6, h: 2 }) && isCorrect(area, { w: 2, h: 6 }) && isCorrect(area, { w: 3, h: 4 })).toBe(true);
+    expect(manipSolution(rect)).toEqual({ w: 4, h: 3 }); // the wider one
+    expect(manipWrong(rect)).toEqual({ w: 5, h: 3 });
+    expect(manipSolution(area)).toEqual({ w: 6, h: 2 }); // 12 by 1 does not fit the grid
+    expect(maxRectArea(16)).toBe(16); expect(maxRectArea(14)).toBe(12); expect(maxRectArea(18)).toBe(20);
+    expect(manipSolution(maxA)).toEqual({ w: 4, h: 4 });
+    expect(manipSolution(max14)).toEqual({ w: 3, h: 4 });
+    expect([isCorrect(max14, { w: 4, h: 3 }), isCorrect(max14, { w: 5, h: 2 }), isCorrect(max14, { w: 3, h: 3 })]).toEqual([true, false, false]);
+    expect(isCorrect(rect, { w: 3.5, h: 4 })).toBe(false);
+  });
+  it('move: exactly the move that fills the gap; cut: any listed line; apex: every x listed', () => {
+    expect(isCorrect(move, { dx: 6, dy: 0 })).toBe(true);
+    expect(isCorrect(move, { dx: 6 })).toBe(true); // no dy is no move up
+    expect(isCorrect(move, { dx: 5, dy: 0 })).toBe(false);
+    expect(isCorrect(moveUp, { dx: 3, dy: 0 })).toBe(false);
+    expect(isCorrect(cut, { axis: 'x', at: 5 }) && isCorrect(cut, { axis: 'y', at: 4 })).toBe(true);
+    expect(isCorrect(cut, { axis: 'x', at: 4 }) || isCorrect(cut, { axis: 'y', at: 5 })).toBe(false);
+    // the near miss of a cut: the next line, or the one before when the next is right too
+    expect(manipWrong(cut)).toEqual({ axis: 'y', at: 5 });
+    expect(manipWrong(cutNear)).toEqual({ axis: 'x', at: 4 });
+    expect(manipWrong(cutPair)).toEqual({ axis: 'x', at: 2 }); // 4 is right too
+    // a rectangle cut anywhere one way leaves two rectangles: the near miss is a line the other way not listed
+    const box = grid({ grid: [8, 6], task: 'cut', shape: [[0, 0], [3, 0], [3, 4], [0, 4]], start: { axis: 'y', at: 1 } }, { mode: 'cut', lines: [{ axis: 'x', at: 1 }, { axis: 'x', at: 2 }] });
+    expect(manipWrong(box)).toEqual({ axis: 'y', at: 1 });
+    // apex: a right angle above either end of the base
+    expect([isCorrect(apex, { x: 0 }), isCorrect(apex, { x: 8 }), isCorrect(apex, { x: 1 })]).toEqual([true, true, false]);
+    expect(manipSolution(apex)).toEqual({ x: 0 });
+    expect(manipWrong(apex)).toEqual({ x: 1 });
+    expect(manipWrong(grid({ grid: [10, 6], task: 'apex', base: { x0: 3, x1: 4, h: 4 }, start: { x: 6 } }, { mode: 'apex', xs: [3, 4] }))).toEqual({ x: 2 }); // never another right place
+  });
+  it('a cut is two rectangles only along the lines that continue the missing corner, and each part has its area', () => {
+    for (let at = 1; at <= 7; at += 1) expect(cutMakesRectangles(L, { axis: 'x', at }), `x = ${at}`).toBe(at === 5);
+    for (let at = 1; at <= 5; at += 1) expect(cutMakesRectangles(L, { axis: 'y', at }), `y = ${at}`).toBe(at === 4);
+    expect(cutAreas(L, { axis: 'y', at: 4 })).toEqual([32, 10]);
+    expect(cutAreas(L, { axis: 'x', at: 5 })).toEqual([30, 12]);
+    expect(polyArea(L)).toBe(42);
+  });
+  it('tapping a grid line sets the cut there: the nearest line of the cut\'s direction, inside the shape', () => {
+    expect(cutAt(cut.manip, 'x', 4.7)).toEqual({ axis: 'x', at: 5 });
+    expect(cutAt(cut.manip, 'x', 5.4)).toEqual({ axis: 'x', at: 5 });
+    expect(cutAt(cut.manip, 'y', 3.6)).toEqual({ axis: 'y', at: 4 });
+    expect(cutAt(cut.manip, 'x', -2)).toEqual({ axis: 'x', at: 1 }); // never on the shape's edge
+    expect(cutAt(cut.manip, 'y', 9)).toEqual({ axis: 'y', at: 5 });
+    expect(isCorrect(cut, cutAt(cut.manip, 'x', 4.8))).toBe(true);
+  });
+  it('every task reaches its answer by its steppers alone, without a drag', () => {
+    for (const it of all) {
+      const keys = gridControls(it.manip, it.answer);
+      const seen = new Set([JSON.stringify(it.manip.start)]); const queue = [it.manip.start]; let found = null;
+      while (queue.length && !found) {
+        const v = queue.shift();
+        if (isCorrect(it, v)) { found = v; break; }
+        for (const k of keys) for (const d of [-1, 1]) {
+          const n = gridStep(it.manip, v, k, d, it.answer); const s = JSON.stringify(n);
+          if (!seen.has(s)) { seen.add(s); queue.push(n); }
+        }
+      }
+      expect(found, `${it.manip.task} ${JSON.stringify(it.answer)}`).toBeTruthy();
+    }
+    // the up stepper is there only when the answer moves the piece up or down
+    expect(gridControls(move.manip, move.answer)).toEqual(['dx']);
+    expect(gridControls(moveUp.manip, moveUp.answer)).toEqual(['dx', 'dy']);
+    // a step never leaves the grid
+    expect(gridStep(rect.manip, { w: 10, h: 8 }, 'w', 1, rect.answer)).toEqual({ w: 10, h: 8 });
+    expect(gridStep(move.manip, { dx: 8, dy: 0 }, 'dx', 1, move.answer)).toEqual({ dx: 8, dy: 0 }); // the triangle's right end is at x 10
+    expect(gridStep(move.manip, { dx: 2, dy: 0 }, 'dy', 1, move.answer)).toEqual({ dx: 2, dy: 0 }); // no move up when the answer has none
+    expect(gridStep(cut.manip, { axis: 'y', at: 4 }, 'axis', 1, cut.answer)).toEqual({ axis: 'x', at: 4 });
+  });
+  it('is said in words, as the spec writes them', () => {
+    expect(answerText(rect)).toBe('מלבן 4 על 3');
+    expect(answerText(maxA)).toBe('מלבן 4 על 4');
+    expect(answerText(rect, { w: 3, h: 4 })).toBe('מלבן 3 על 4');
+    expect(answerText(move)).toBe('המשולש הוזז 6 משבצות ימינה');
+    expect(answerText(moveUp)).toBe('החלק הוזז 3 משבצות ימינה ו־4 משבצות למטה');
+    expect(answerText(move, { dx: -1, dy: 0 })).toBe('המשולש הוזז משבצת אחת שמאלה');
+    expect(answerText(cut, { axis: 'x', at: 5 })).toBe(`חיתוך לאורך בקו ${iso('x = 5')}`);
+    expect(answerText(cut)).toBe(`חיתוך לרוחב בקו ${iso('y = 4')} או חיתוך לאורך בקו ${iso('x = 5')}`);
+    expect(answerText(apex, { x: 0 })).toBe(`הקודקוד מעל ${iso('x = 0')}`);
+    expect(answerText(apex)).toBe(`הקודקוד מעל ${iso('x = 0')} או מעל ${iso('x = 8')}`);
+    expect(manipPlain(rect)).toBe('[רשת משבצות 10 על 8; בונים מלבן מהפינה השמאלית התחתונה: גוררים את הפינה שמולה, או משנים רוחב וגובה]');
+    expect(manipPlain(apex)).toBe(`[רשת משבצות 10 על 6; משולש שבסיסו על הקו ${iso('y = 0')} מ־${iso('x = 0')} עד ${iso('x = 8')}, והקודקוד העליון זז על קו מקווקו בגובה 4]`);
+    for (const it of all) expect(itemPlain(it)).not.toMatch(/undefined|NaN/);
+  });
+  it('draws: the readout and the spoken state in practice; in a check only what the student set', () => {
+    const open = html(GridShape, { m: rect.manip, value: { w: 3, h: 4 }, answer: rect.answer });
+    expect(open).toContain('aria-roledescription="רשת משבצות"');
+    expect(open).toContain('aria-valuetext="מלבן ברוחב 3 ובגובה 4 משבצות, שטח 12, היקף 14"');
+    expect(open).toContain('<span>רוחב 3 · גובה 4</span><span>שטח 12 משבצות · היקף 14</span>');
+    const check = html(GridShape, { m: rect.manip, value: { w: 3, h: 4 }, answer: rect.answer, test: true });
+    expect(check).toContain('aria-valuetext="מלבן ברוחב 3 ובגובה 4 משבצות"');
+    expect(check).toContain('רוחב 3 · גובה 4');
+    expect(check).not.toMatch(/שטח|היקף|mp-grid-shape hit/);
+    // a right cut shows each part's area outside a check, and not in one
+    expect(html(GridShape, { m: cut.manip, value: { axis: 'y', at: 4 }, answer: cut.answer })).toContain('שני מלבנים: 32 ו־10 משבצות');
+    expect(html(GridShape, { m: cut.manip, value: { axis: 'y', at: 4 }, answer: cut.answer, test: true })).not.toContain('שני מלבנים');
+    expect(html(GridShape, { m: cut.manip, value: { axis: 'y', at: 3 }, answer: cut.answer })).not.toContain('שני מלבנים');
+    // the apex keeps its base, height and area wherever the vertex is: the area does not change
+    for (const x of [0, 3, 8]) expect(html(GridShape, { m: apex.manip, value: { x }, answer: apex.answer })).toContain('בסיס 8 · גובה 4 · שטח 16 משבצות');
+    // the move steppers: הזזה, and למעלה only when the answer has a dy
+    expect(html(GridShape, { m: move.manip, value: { dx: 2, dy: 0 }, answer: move.answer })).not.toContain('למעלה');
+    expect(html(GridShape, { m: moveUp.manip, value: { dx: 0, dy: 0 }, answer: moveUp.answer })).toContain('aria-label="למעלה"');
+    // the cut's direction: two buttons, pressed as the cut lies
+    expect(html(GridShape, { m: cut.manip, value: { axis: 'x', at: 5 }, answer: cut.answer })).toMatch(/aria-pressed="true"[^>]*>לחתוך לאורך/);
+    for (const it of all) {
+      const out = html(GridShape, { m: it.manip, value: it.manip.start, answer: it.answer, reveal: true });
+      expect(out, it.manip.task).not.toMatch(/NaN|undefined/);
+      expect(out, `${it.manip.task}: the answer is drawn after a miss`).toMatch(/mp-grid-ghost/);
+    }
+  });
+});
+
+describe('the geo figure of stage 2: a grid, circles and arcs, parts taken away or added', () => {
+  const iso = (t) => `\u2066${t}\u2069`;
+  const gridFig = { type: 'geo', label: 'משולש על רשת', pts: { A: [0, 0], B: [5, 0], C: [2, 3] }, polys: [{ pts: ['A', 'B', 'C'] }], grid: [0, 0, 6, 4] };
+  const circleFig = { type: 'geo', pts: { O: [0, 0], _e: [5, 0] }, circles: [{ c: 'O', r: 5, label: '5' }], dots: ['O'] };
+  const ring = { type: 'geo', pts: { M: [0, 0] }, circles: [{ c: 'M', r: 4, fill: true }, { c: 'M', r: 6, dash: true, label: '6' }], arcs: [{ c: 'M', r: 2, from: 0, to: 180 }] };
+  const tones = { type: 'geo', pts: { A: [0, 0], B: [8, 0], C: [8, 6], D: [0, 6], E: [5, 4], F: [8, 4], G: [5, 6] }, polys: [{ pts: ['A', 'B', 'C', 'D'] }, { pts: ['E', 'F', 'C', 'G'], tone: 'cut' }, { pts: ['A', 'B', 'F'], tone: 'add' }], segs: [{ a: 'A', b: 'B', label: '8' }, { a: 'B', b: 'C', label: '6' }] };
+  it('each renders, with no broken numbers, and draws what it holds', () => {
+    for (const fig of [gridFig, circleFig, ring, tones]) {
+      const out = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(out).toMatch(/<svg/);
+      expect(out).not.toMatch(/NaN|undefined|Infinity/);
+    }
+    const g = renderToStaticMarkup(createElement(Figure, { fig: gridFig }));
+    expect((g.match(/fg-geo-grid/g) || []).length).toBe(7 + 5); // 7 lines across x 0..6, 5 across y 0..4
+    const c = renderToStaticMarkup(createElement(Figure, { fig: ring }));
+    expect((c.match(/class="fg-circle/g) || []).length).toBe(2);
+    expect(c).toMatch(/fg-circle dashed/); expect(c).toMatch(/fg-circle filled/); expect(c).toMatch(/fg-geo-arc/); expect(c).toMatch(/>6</);
+    const t = renderToStaticMarkup(createElement(Figure, { fig: tones }));
+    expect(t).toMatch(/fg-tone-cut[^>]*style="fill:url\(#geo-hatch-/); expect(t).toMatch(/<pattern id="geo-hatch-/); expect(t).toMatch(/fg-tone-add/);
+  });
+  it('figPlain reads every number drawn: the corners on a grid, the radius written on a circle, the sides', () => {
+    expect(figPlain(gridFig)).toBe(`רשת משבצות 6 על 4, כל משבצת ריבוע שצלעו 1; צורה שקודקודיה A${iso('(0, 0)')} B${iso('(5, 0)')} C${iso('(2, 3)')}`);
+    expect(figPlain(circleFig)).toBe('עיגול שמרכזו O ורדיוסו 5');
+    expect(figPlain(ring)).toBe('עיגול שמרכזו M; עיגול מקווקו שמרכזו M ורדיוסו 6; חצי עיגול שמרכזו M');
+    expect(figPlain({ type: 'geo', pts: { _o: [0, 0] }, circles: [{ c: '_o', r: 3, label: 'r' }] })).toBe('עיגול שרדיוסו r');
+    expect(figPlain(tones)).toBe('מצולע ABCD; מצולע EFCG (חלק שהוסר, מקווקו); מצולע ABF (חלק שנוסף, צבוע); על הקטעים כתוב: 8, 6');
+    // a geo drawing with none of these says what it said before
+    expect(figPlain({ type: 'geo', pts: { A: [0, 0], B: [1, 0], C: [0, 1] }, polys: [{ pts: ['A', 'B', 'C'] }] })).toBe('');
+    // every number written in the drawings is in its words
+    for (const fig of [gridFig, circleFig, ring, tones]) {
+      const words = figPlain(fig);
+      const drawn = [...(fig.circles || []).map((x) => x.label), ...(fig.segs || []).map((x) => x.label)].filter((x) => x != null);
+      drawn.forEach((n) => expect(words).toContain(n));
+    }
   });
 });
