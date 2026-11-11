@@ -4,7 +4,9 @@
 import { PROGRAMME } from './programme.js';
 
 /**
- * @typedef {{ hours: number, skills: string[], note?: string, later?: 'S2' | 'S3' | 'S4' | 'S5' }} ProgrammePart
+ * @typedef {{ hours: number, skills: string[], note?: string, later?: 'S2' | 'S3' | 'S4' | 'S5', months?: number[] }} ProgrammePart
+ *   `months`, when a part has it: the months the schedule teaches that part, a non-empty subset of its unit's months
+ *   in school order (7.12's parallelogram is April though the unit starts in December). monthIndex reads it.
  * @typedef {{ hours: number, skills: string[], note: string | null, later: string | null, taught: boolean }} PartState
  * @typedef {{ id: string, domain: string, title: string, months: number[], hours: number, taught: number,
  *   state: 'yes' | 'part' | 'no', stairs: string[], missing: string[], parts: PartState[] }} UnitCoverage
@@ -59,12 +61,13 @@ const schoolIndex = (month) => (month >= 9 ? month - 9 : Math.min(month + 3, 9))
 /**
  * The earliest month of the school year (September 0 … June 9) in which a grade's programme teaches a stair, or null
  * when no unit of that grade lists it. A stair can serve both grades (pyth:1 is December in ז׳ and September in ח׳).
+ * A part that carries its own `months` is read by them, any other part by its unit's months.
  * @param {string} skill
  * @param {'7' | '8' | string | number} grade
  * @returns {number | null}
  */
 export function monthIndex(skill, grade) {
-  const months = unitsOf(grade).filter((u) => u.parts.some((p) => p.skills.includes(skill))).flatMap((u) => u.months.map(schoolIndex));
+  const months = unitsOf(grade).flatMap((u) => u.parts.filter((p) => p.skills.includes(skill)).flatMap((p) => (p.months || u.months).map(schoolIndex)));
   return months.length ? Math.min(...months) : null;
 }
 
