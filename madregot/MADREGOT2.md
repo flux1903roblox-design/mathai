@@ -260,6 +260,18 @@ the row to paste when one differs.
   (78%)." and "במדרגות יש כבר את החומר של 87 מתוך 147 שעות ההוראה של כיתה ח׳ (59%)." (`learn/claims.test.ts` checks
   every quoted sentence against the code). A few authored items go slightly beyond the old generators (three-factor products in
   signed:3, side-length questions in coord:5, a "30° larger" problem in angles:1).
+- **Not yet read by a teacher** (CURRICULUM-9, DATA-9; owner-only). `npm run review:sheet -- <topic> [stairs]` (in
+  `madregot/web`; `scripts/review-sheet.mjs`) writes `madregot/review/<topic>.html`, a printable right-to-left sheet of
+  everything a student meets on each stair (objectives, discover steps with their drawings, worked examples, solve
+  together, misconceptions with their remedies, 20 practice exercises with answers and solutions, the diagnostic
+  models' rates) with a comment column beside every block, and no student data. The owner's one action for curriculum
+  stage 3: `cd madregot/web && npm run review:sheet -- data`, then `npm run review:sheet -- stats 6-8` and
+  `npm run review:sheet -- prob`, and send `review/data.html`, `review/stats.html` and `review/prob.html` to one ז׳–ח׳
+  maths teacher, asking in particular whether "נתונים ושכיחות" is the name the class uses for the unit, whether the
+  charts read right to left as in their book, and whether the two-dice table is drawn as in class (rows the first
+  die); each sheet prints these questions for its unit. The comments go into issues with
+  `.github/ISSUE_TEMPLATE/content-review.md` (נושא, מדרגה, שלב / שאלה, מה לא תקין, הצעה), and the next build round
+  fixes them first. The sheets are not committed (`madregot/.gitignore`).
 - **Some misconceptions are research-based rather than observed in Israeli classrooms** (e.g. proportional reasoning
   in line:1, midrange in stats:3, clockwise quadrant numbering in coord:2). They only act on evidence from at least two
   questions.
