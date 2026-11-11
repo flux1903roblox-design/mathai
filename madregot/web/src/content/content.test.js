@@ -11,6 +11,8 @@ import { manipWrong } from './manip.js';
 import { polyArea, boundsOf, movedPts } from './grid.js';
 // boxes and prisms (stage 2, MEASURE-3): their practice layer, and the net object's rules and words it draws with
 import * as SW from './solid.js';
+import * as CW from './circle.js';
+import { PI_AFTER } from './util.js';
 import { solidLabels } from './net.js';
 
 /**
@@ -1380,4 +1382,333 @@ describe('boxes and prisms: the diagnostic and transfer models', () => {
     expect(SW.SOLID2T.bugs['no-convert'](p)).toBe(60000);
     expect(SW.tankSolution(p).at(-1)).toBe('בליטר יש $1000$ סמ״ק: $60000 : 1000 = 60$ ליטר');
   });
+});
+
+// The circle, the cylinder and the cone (stage 2, MEASURE-4): the practice and diagnosis layer (content/circle.js), not
+// on the path yet, tested on its topic object. Every check reads the question as the student sees it. Two answer forms:
+// "with π" (after: \pi, a whole number typed before π) and "with π ≈ 3.14" (pk, tenths, the calculator's π right too).
+describe('the circle, the cylinder and the cone: every practice kind, from the numbers in its text', () => {
+  const { CIRCLE, KIND_KEYS, UNIT, PK_END } = CW;
+  const circleItem = (level) => {
+    const L = CIRCLE.levels[level - 1]; const it = L.gen();
+    return { ...it, diag: (u) => (isCorrect(it, u) ? null : it.diag(u)), topic: 'circle', level, levelTitle: L.title };
+  };
+  const all = (level, n = RUNS) => Array.from({ length: n }, () => circleItem(level));
+  const seededRun = (seed, fn) => () => { const real = Math.random; Math.random = seeded(seed); try { fn(); } finally { Math.random = real; } };
+  const kindOf = (it) => it.key.split(':')[0];
+  // the numbers of the question, with π's coefficient read as a number (26\pi is 26) and 3.14 as itself
+  const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).flatMap((m) => (m.match(/\d+(?:\.\d+)?/g) || []).map(Number));
+  const given = (text) => shown(text).filter((v) => v !== 3.14);
+  const close = (a, b) => Math.abs(a - b) < 1e-9;
+  const tenth = (v) => Math.round(v * 10) / 10;
+  let checked = 0;
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || [])
+    .map((m) => m.slice(1, -1).replace(/\\cdot/g, '*').replace(/\\pi/g, '(1)').replace(/\\approx[^=]*/g, ''))
+    .filter((m) => m.includes('=') && !/[a-zA-Z□]/.test(m.replace(/\\frac|\\sqrt/g, '')))
+    .forEach((m) => {
+      m.split('=').reduce((a, b) => { expect(same(evaluate(texToExpr(a)), evaluate(texToExpr(b))), `${it.key}: ${m}`).toBe(true); checked += 1; return b; });
+    }));
+  afterAll(() => expect(checked).toBeGreaterThan(1000));
+
+  /**
+   * The answer computed from the text alone: for a □π question the multiple of π, for a pk question the multiple of π
+   * (its answer is then 3.14 times it, to tenths); null for an object or a choice.
+   */
+  function fromText(it) {
+    const n = given(it.text); const t = it.text;
+    switch (kindOf(it)) {
+      case 'ci1p': case 'ci1r': { const [v] = n; return /מה הרדיוס/.test(t) ? v / 2 : 2 * v; }
+      case 'ci1n': { const [v] = n; return /שקוטרו/.test(t) ? v : 2 * v; }
+      case 'ci1w': { const [r, k] = n; return 2 * r * k; }
+      case 'ci2p': { const [v] = n; return /שקוטרו/.test(t) ? (v / 2) ** 2 : v * v; }
+      case 'ci2n': { const [r] = n; return r * r; }
+      case 'ci2h': { const [r] = n; return /רבע/.test(t) ? (r * r) / 4 : (r * r) / 2; }
+      case 'ci2r': { const [r, w] = n; return (r + w) ** 2 - r * r; }
+      case 'ci3v': { const [r, h] = n; return r * r * h; }
+      case 'ci3l': { const [r, h] = n; return 2 * r * h; }
+      case 'ci3s': { const [r, h] = n; return 2 * r * r + 2 * r * h; }
+      case 'ci3f': { expect(t, it.key).toMatch(/ליטר/); const [B, L] = n; return (1000 * L) / B; }
+      case 'ci4v': { const [r, h, l] = n; expect(r * r + h * h, it.key).toBe(l * l); return (r * r * h) / 3; }
+      case 'ci4h': { const [r, l] = n; return Math.sqrt(l * l - r * r); }
+      case 'ci4a': { const [v, h] = n; return /שקוטרו/.test(t) ? (v * h) / 2 : v * h; }
+      case 'ci4c': { const [V] = n; return V / 3; }
+      default: return null;
+    }
+  }
+  const unitOf = (it) => {
+    const k = kindOf(it);
+    if (['ci1p', 'ci1n', 'ci1r', 'ci1w', 'ci3f', 'ci4h'].includes(k)) return UNIT.cm;
+    if (k === 'ci2r') return UNIT.m2;
+    if (['ci2p', 'ci2n', 'ci2h', 'ci3l', 'ci3s', 'ci4a'].includes(k)) return UNIT.cm2;
+    return UNIT.cm3; // ci3v, ci4v, ci4c
+  };
+
+  for (let level = 1; level <= 4; level += 1) {
+    it(`circle:${level}: ${RUNS} draws, every kind; right answers are right, the words and the maths render`, () => {
+      const kinds = new Set();
+      for (const item of all(level)) {
+        kinds.add(kindOf(item));
+        expect(item.key).toBeTruthy();
+        expect(item.hint).toBeTruthy();
+        expect(item.solution?.length).toBeGreaterThan(0);
+        expect(isCorrect(item, answerInput(item)), item.key).toBe(true);
+        expect(item.diag(answerInput(item))).toBeNull();
+        if (item.form === 'manip') { expect(isCorrect(item, manipWrong(item)), item.key).toBe(false); expect(item.practiceOnly, item.key).toBe(true); }
+        if (item.form === 'num') expect(parseNum(answerText(item).replace(/π$/, ''))).toBe(item.answer);
+        if (item.form === 'mc') {
+          expect(item.choices[item.answer]).toBeTruthy();
+          expect(item.practiceOnly, item.key).toBe(true);
+          expect(item.choices.filter((c) => c.ok)).toHaveLength(1);
+        }
+        for (const tex of texChunks(item)) expect(() => katex.renderToString(tex, { throwOnError: true }), `${item.key}: ${tex}`).not.toThrow();
+        for (const s of [item.text, item.hint, ...item.solution]) (s.match(/\$[^$]+\$/g) || []).forEach((m) => expect(m, item.key).not.toMatch(/[֐-׿]/));
+        expect(itemPlain(item)).not.toMatch(/undefined|NaN|\[object/);
+        expect([item.text, item.hint, ...item.solution].join(' ')).not.toMatch(/undefined|NaN/);
+        if (item.fig) expect(figPlain(item.fig), item.key).toBeTruthy();
+        const wrong = item.form === 'num' ? item.answer + 1 : null;
+        if (wrong != null) { const c = item.diag(wrong); if (c) expect(CIRCLE.cats[c]).toBeTruthy(); }
+        solutionHolds(item);
+      }
+      expect([...kinds].sort()).toEqual([...KIND_KEYS[level]].sort());
+    });
+  }
+
+  it('every answer is the computation from the numbers in its text, with π or with π ≈ 3.14', () => {
+    let n = 0;
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level)) {
+        const want = fromText(it);
+        if (want == null) continue;
+        if (Number.isFinite(it.pk)) { expect(it.pk, it.key).toBeCloseTo(want, 9); expect(it.answer, it.key).toBeCloseTo(tenth(3.14 * want), 9); } else expect(it.answer, it.key).toBeCloseTo(want, 9);
+        n += 1;
+        if (kindOf(it) === 'ci1m') expect(tenth(2 * Math.PI * it.answer.r)).toBe(given(it.text)[0]);
+      }
+      for (const it of all(level, 100)) {
+        const k = kindOf(it);
+        if (k === 'ci1m') { expect(it.answer.mode).toBe('r'); expect(tenth(2 * Math.PI * it.answer.r), it.key).toBe(given(it.text)[0]); expect(it.manip.start.r).not.toBe(it.answer.r); }
+        if (k === 'ci2m') { expect(it.answer.mode).toBe('r'); expect(tenth(Math.PI * it.answer.r ** 2), it.key).toBe(given(it.text)[0]); expect(it.manip.radius).toBe(true); }
+        if (k === 'ci3m') { const [a, b] = given(it.text); expect(a > b, it.key).toBe(true); expect(it.choices[it.answer].text, it.key).toMatch(/הארוכה/); }
+        if (k === 'ci4m') expect(it.choices[it.answer].text).toBe('$3$');
+      }
+    }
+    expect(n).toBeGreaterThan(900);
+  });
+
+  it('a question with π: its answer is whole, its text says \\pi, and the answer is written with π after it', () => {
+    let pi = 0;
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level)) {
+        if (it.after == null) continue;
+        pi += 1;
+        expect(it.after, it.key).toBe(PI_AFTER);
+        expect(Number.isInteger(it.answer), it.key).toBe(true);
+        expect(it.text, it.key).toContain('\\pi');
+        expect(answerText(it).endsWith('π'), `${it.key}: ${answerText(it)}`).toBe(true);
+        // the radius from a circumference is typed with no π
+        expect(/מה הרדיוס/.test(it.text), it.key).toBe(false);
+      }
+    }
+    expect(pi).toBeGreaterThan(500);
+  });
+
+  it('a question with π ≈ 3.14 says so at its end, and takes the 3.14 value and the calculator\'s π value, to tenths', () => {
+    let pks = 0;
+    for (let level = 1; level <= 2; level += 1) {
+      for (const it of all(level)) {
+        if (!Number.isFinite(it.pk)) continue;
+        pks += 1;
+        expect(it.text, it.key).toContain('3.14');
+        expect(it.text.endsWith(PK_END), it.key).toBe(true);
+        expect(it.after, it.key).toBeUndefined();
+        expect(isCorrect(it, tenth(3.14 * it.pk)), it.key).toBe(true);
+        expect(isCorrect(it, tenth(Math.PI * it.pk)), it.key).toBe(true);
+        // two tenths past both values (past π·pk, the larger) is wrong
+        expect(isCorrect(it, tenth(Math.PI * it.pk) + 0.2), it.key).toBe(false);
+        expect(isCorrect(it, it.pk), `${it.key}: the multiple of π alone`).toBe(false);
+        expect(answerText(it), it.key).toBe(String(it.answer)); // a decimal, never a fraction
+      }
+    }
+    expect(pks).toBeGreaterThan(150);
+  });
+
+  it('every typed answer has the unit of what is asked; a question in litres says ליטר', () => {
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level)) {
+        if (it.form !== 'num') continue;
+        expect(it.unit, it.key).toBe(unitOf(it));
+        if (kindOf(it) === 'ci3f') expect(it.text, it.key).toMatch(/ליטר/);
+      }
+    }
+  });
+
+  it('no question\'s answer is a number its text prints, and every number a drawing writes is in the text', () => {
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level)) {
+        const printed = shown(it.text);
+        if (it.form === 'num') expect(printed.some((v) => close(v, it.answer)), `${it.key}: ${it.answer} is printed`).toBe(false);
+        if (!it.fig) continue;
+        const written = it.fig.type === 'solid' ? Object.values(solidLabels(it.fig))
+          : [...(it.fig.segs || []).map((s) => s.label), ...(it.fig.circles || []).map((c) => c.label)];
+        written.filter((l) => /^\d+(\.\d+)?$/.test(String(l))).forEach((l) => expect(printed, `${it.key}: the drawing writes ${l}`).toContain(Number(l)));
+        // the length asked for is drawn as ?, never as its number
+        if (it.form === 'num' && /מה (הרדיוס|גובהו)/.test(it.text)) expect(written.map(String), it.key).not.toContain(String(it.answer));
+      }
+    }
+  });
+
+  it('every mistake a kind is built to name, it names (from the text\'s own numbers, in its 3.14 and π versions), and only those', seededRun(8141, () => {
+    // the wrong answer each mistake gives, computed from the numbers in the text: a number, or { pk } a multiple of π
+    const PRED = {
+      ci1p: ([v], t) => (/מה הרדיוס/.test(t) ? [['d-for-r', v]] : [['r-for-d', v], ['area-for-circ', v * v]]),
+      ci1r: ([c]) => [['d-for-r', c]],
+      ci1n: ([v], t) => (/שקוטרו/.test(t) ? [['d-for-r', { pk: 2 * v }], ['area-for-circ', { pk: (v / 2) ** 2 }]] : [['r-for-d', { pk: v }], ['area-for-circ', { pk: v * v }]]),
+      ci1w: ([r, k]) => [['r-for-d', { pk: r * k }]],
+      ci2p: ([v], t) => (/שקוטרו/.test(t) ? [['circ-for-area', v], ['d-in-area', v * v]] : [['circ-for-area', 2 * v]]),
+      ci2n: ([r]) => [['circ-for-area', { pk: 2 * r }]],
+      ci2h: ([r]) => [['whole-circle', r * r]],
+      ci2r: ([r, w]) => [['ring-sub-radii', w * w], ['no-subtract', (r + w) ** 2]],
+      ci3v: ([r, h]) => [['d-in-area', 4 * r * r * h], ['lateral-for-vol', 2 * r * h]],
+      ci3l: ([r, h]) => [['r-for-d', r * h], ['area-for-circ', r * r * h]],
+      ci3s: ([r, h]) => [['one-base', r * r + 2 * r * h], ['no-bases', 2 * r * h]],
+      ci3f: ([B, L]) => [['no-convert', L / B]],
+      ci4v: ([r, h, l]) => [['no-third', r * r * h], ['slant-as-height', (r * r * l) / 3]],
+      ci4h: ([r, l]) => [['add-not-sub', Math.sqrt(l * l + r * r)], ['subtract-sides', l - r]],
+      ci4a: ([v, h], t) => { const r = /שקוטרו/.test(t) ? v / 2 : v; return [['no-half', 2 * r * h], ['r-for-d', (r * h) / 2]]; },
+      ci4c: ([V]) => [['no-third', V]],
+    };
+    const WANT = {
+      ci1p: ['r-for-d', 'area-for-circ', 'd-for-r'], ci1n: ['r-for-d', 'd-for-r', 'area-for-circ'], ci1r: ['d-for-r'], ci1w: ['r-for-d'], ci1m: [],
+      ci2p: ['circ-for-area', 'd-in-area'], ci2n: ['circ-for-area'], ci2h: ['whole-circle'], ci2r: ['ring-sub-radii', 'no-subtract'], ci2m: [],
+      ci3v: ['d-in-area', 'lateral-for-vol'], ci3l: ['r-for-d', 'area-for-circ'], ci3s: ['one-base', 'no-bases'], ci3f: ['no-convert'], ci3m: ['same-sheet'],
+      ci4v: ['no-third', 'slant-as-height'], ci4h: ['add-not-sub', 'subtract-sides'], ci4a: ['no-half', 'r-for-d'], ci4c: ['no-third'], ci4m: ['no-third'],
+    };
+    const got = {};
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level, 200)) {
+        const k = kindOf(it); got[k] ||= new Set();
+        if (PRED[k]) {
+          for (const [id, v] of PRED[k](given(it.text), it.text)) {
+            if (typeof v === 'object') {
+              if (close(v.pk, it.pk)) continue; // the mistake gives the answer here (a diameter of 4: (4/2)² = 4)
+              // a pk mistake, typed with 3.14 or with the calculator's π, to tenths
+              for (const u of [tenth(3.14 * v.pk), tenth(Math.PI * v.pk)]) { expect(isCorrect(it, u), `${it.key} ${id}`).toBe(false); expect(it.diag(u), `${it.key} ${id}: ${u}`).toBe(id); }
+            } else {
+              if (close(v, it.answer)) continue; // the mistake does not show on this question (2rh and r²h at r = 2)
+              expect(it.diag(Number.isInteger(v) ? v : Math.round(v * 10) / 10), `${it.key} ${id}: ${v}`).toBe(id);
+            }
+            got[k].add(id);
+          }
+        }
+        if (it.form === 'mc') it.choices.forEach((c, i) => { const d = it.diag(i); if (d) { expect(c.ok, it.key).toBeFalsy(); got[k].add(d); } });
+        namesOf(it).forEach((c) => expect(WANT[k], `${it.key} names ${c}`).toContain(c));
+      }
+    }
+    for (const [k, ids] of Object.entries(WANT)) expect([...(got[k] || [])].sort(), k).toEqual([...ids].sort());
+    expect([...new Set(Object.values(WANT).flat())].sort()).toEqual(Object.keys(CIRCLE.cats).sort());
+  }), 30_000); // 200 draws a level, each mistake typed two ways: a few seconds alone, more beside the full suite
+
+  it('the axial section is redrawn at rh = 20, where half of it would also read as a ten-off slip', () => {
+    for (const it of all(4, 800)) if (kindOf(it) === 'ci4a') expect(it.answer, it.key).not.toBe(20);
+  });
+
+  it('the topic: grade 8, cobalt, not in the placement test, four stairs, its words, and not on the path yet', () => {
+    expect(CIRCLE).toMatchObject({ id: 'circle', grade: '8', title: 'מעגל, גליל וחרוט', desc: 'היקף מעגל, שטח עיגול, גליל וחרוט', color: 'cobalt', placement: false });
+    expect(CIRCLE.levels.map((L) => L.title)).toEqual(['היקף מעגל', 'שטח עיגול', 'גליל', 'חרוט']);
+    expect(CIRCLE.lesson.points).toHaveLength(5);
+    expect(CIRCLE.lesson.words).toContain('קו יוצר');
+    expect(TOPICS.map((t) => t.id)).not.toContain('circle');
+    // the ids other topics use keep their names but for one-base, no-convert and slant-as-height, said in this unit's words
+    for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
+      if (CIRCLE.cats[id] && !['one-base', 'no-convert', 'slant-as-height'].includes(id)) expect(CIRCLE.cats[id], `${t.id} ${id}`).toBe(name);
+    }
+    expect(CIRCLE.cats['no-convert']).toBe(SW.SOLID.cats['no-convert'].replace('סמ״ק לליטרים', 'ליטרים לסמ״ק'));
+  });
+});
+
+// The eight models of the circle, the cylinder and the cone (stage2.md Appendix B): 4,000 seeded draws of each.
+describe('the circle, the cylinder and the cone: the diagnostic and transfer models', () => {
+  const B = {
+    CIRCLE1: [[2, 30], { 'r-for-d': 47, 'area-for-circ': 43, 'd-for-r': 53 }],
+    CIRCLE1T: [[2, 30], { 'r-for-d': 47, 'area-for-circ': 43, 'd-for-r': 53 }],
+    CIRCLE2: [[9, 144], { 'circ-for-area': 100, 'd-in-area': 50 }],
+    CIRCLE2T: [[5, 125], { 'ring-sub-radii': 100, 'no-subtract': 100 }],
+    CIRCLE3: [[12, 2000], { 'd-in-area': 100, 'lateral-for-vol': 89 }],
+    CIRCLE3T: [[12, 400], { 'r-for-d': 100, 'area-for-circ': 89 }],
+    CIRCLE4: [[12, 800], { 'no-third': 100, 'slant-as-height': 100 }],
+    CIRCLE4T: [[12, 800], { 'no-third': 100, 'slant-as-height': 100 }],
+  };
+  const { UNIT } = CW;
+  const WORDS = {
+    CIRCLE1: [CW.circle1Text, CW.circle1Fig, CW.circle1Solution, CW.circle1Hint, UNIT.cm],
+    CIRCLE1T: [CW.trackText, CW.trackFig, CW.trackSolution, CW.trackHint, UNIT.m],
+    CIRCLE2: [CW.circle2Text, CW.circle2Fig, CW.circle2Solution, CW.circle2Hint, UNIT.cm2],
+    CIRCLE2T: [CW.poolText, CW.poolFig, CW.poolSolution, CW.poolHint, UNIT.m2],
+    CIRCLE3: [CW.circle3Text, CW.circle3Fig, CW.circle3Solution, CW.circle3Hint, UNIT.cm3],
+    CIRCLE3T: [CW.labelText, CW.labelFig, CW.labelSolution, CW.labelHint, UNIT.cm2],
+    CIRCLE4: [CW.circle4Text, CW.circle4Fig, CW.circle4Solution, CW.circle4Hint, UNIT.cm3],
+    CIRCLE4T: [CW.iceText, CW.iceFig, CW.iceSolution, CW.iceHint, UNIT.cm3],
+  };
+  const near = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+  const N = 4000;
+
+  it('the stairs\' models are these eight, and all ask with π but the radius from a circumference', () => {
+    expect(CW.STAIR_MODELS).toEqual({ 'circle:1': [CW.CIRCLE1, CW.CIRCLE1T], 'circle:2': [CW.CIRCLE2, CW.CIRCLE2T], 'circle:3': [CW.CIRCLE3, CW.CIRCLE3T], 'circle:4': [CW.CIRCLE4, CW.CIRCLE4T] });
+    expect(CW.CIRCLE1.after({ k: 0, r: 13, c: 26 })).toBe(PI_AFTER);
+    expect(CW.CIRCLE1.after({ k: 1, r: 13, c: 26 })).toBeUndefined();
+    expect(CW.CIRCLE1T.after({ k: 1, r: 13, c: 26 })).toBeUndefined();
+    for (const m of [CW.CIRCLE2, CW.CIRCLE2T, CW.CIRCLE3, CW.CIRCLE3T, CW.CIRCLE4, CW.CIRCLE4T]) expect(m.after).toBe(PI_AFTER);
+  });
+
+  it('Appendix B\'s worked models: a few draws by hand', () => {
+    expect(CW.CIRCLE1.answer({ k: 0, r: 6, c: 12 })).toBe(12); // 2π · 6 = 12π
+    expect(CW.CIRCLE1.answer({ k: 1, r: 13, c: 26 })).toBe(13); // 26π → 13
+    expect(CW.CIRCLE2.answer({ k: 1, r: 5, d: 10 })).toBe(25); expect(CW.CIRCLE2.bugs['d-in-area']({ k: 1, r: 5, d: 10 })).toBe(100);
+    expect(CW.CIRCLE2T.answer({ r: 4, w: 2, R: 6 })).toBe(20); expect(CW.CIRCLE2T.bugs['ring-sub-radii']({ r: 4, w: 2, R: 6 })).toBe(4);
+    expect(CW.CIRCLE3.answer({ r: 5, h: 8 })).toBe(200); expect(CW.CIRCLE3T.answer({ r: 6, h: 10 })).toBe(120);
+    expect(CW.CIRCLE4.answer({ r: 3, h: 4, l: 5 })).toBe(12); expect(CW.CIRCLE4.bugs['slant-as-height']({ r: 3, h: 4, l: 5 })).toBe(15);
+    // a diameter-given circumference with π is never asked: a draw has k 0 (from the radius) or k 1 (the radius asked)
+    const r = seeded(5); for (let i = 0; i < 500; i += 1) { const p = CW.CIRCLE1.params(r); expect(CW.circle1Text(p)).not.toMatch(/שקוטרו/); }
+  });
+
+  for (const [name, [[lo, hi], rates]] of Object.entries(B)) {
+    it(`${name}: whole answers in ${lo}..${hi}, clean draws, every bug as Appendix B says, every pair told apart`, () => {
+      const m = CW[name]; const r = seeded(name.length * 7919 + 17 + name.charCodeAt(6));
+      const fired = {}; const draws = []; let min = Infinity; let max = -Infinity;
+      for (let i = 0; i < N; i += 1) {
+        const p = m.params(r); const a = m.answer(p); draws.push(p); min = Math.min(min, a); max = Math.max(max, a);
+        expect(Number.isInteger(a), `${name} ${JSON.stringify(p)}`).toBe(true);
+        expect(AW.clean(m, p), `${name} ${JSON.stringify(p)}`).toBe(true);
+        for (const [id, f] of Object.entries(m.bugs)) { const v = f(p); if (v != null && Number.isFinite(v) && !near(v, a)) fired[id] = (fired[id] || 0) + 1; }
+      }
+      expect(min, name).toBeGreaterThanOrEqual(lo); expect(max, name).toBeLessThanOrEqual(hi);
+      expect(Object.keys(m.bugs).sort()).toEqual(Object.keys(rates).sort());
+      for (const [id, want] of Object.entries(rates)) {
+        const rate = (100 * (fired[id] || 0)) / N;
+        expect(Math.abs(rate - want), `${name} ${id}: ${rate.toFixed(1)}% against ${want}%`).toBeLessThanOrEqual(3);
+      }
+      const ids = Object.keys(m.bugs);
+      for (let i = 0; i < ids.length; i += 1) for (let j = i + 1; j < ids.length; j += 1) {
+        const ties = draws.filter((p) => { const x = m.bugs[ids[i]](p); const y = m.bugs[ids[j]](p); return x != null && y != null && near(x, y); }).length;
+        expect(ties / N, `${name}: ${ids[i]} and ${ids[j]}`).toBeLessThan(0.02);
+      }
+      const [text, fig, solution, hint, unit] = WORDS[name];
+      draws.filter((_, i) => i % 40 === 0).forEach((p) => {
+        const words = [text(p), hint(p), ...solution(p)];
+        words.forEach((w) => expect(w, name).not.toMatch(/undefined|NaN/));
+        words.forEach((w) => (w.match(/\$([^$]+)\$/g) || []).forEach((t) => expect(() => katex.renderToString(t.slice(1, -1), { throwOnError: true }), `${name}: ${t}`).not.toThrow()));
+        const last = solution(p).at(-1);
+        expect(last, name).toContain(String(m.answer(p)));
+        expect(last.endsWith(unit), `${name}: ${last}`).toBe(true);
+        const inText = (text(p).match(/\$([^$]+)\$/g) || []).flatMap((t) => (t.match(/\d+(?:\.\d+)?/g) || []).map(Number));
+        expect(inText.some((v) => near(v, m.answer(p))), `${name}: the answer is printed`).toBe(false);
+        // with π after the answer, the text says בעזרת π; the radius asked from a circumference does not
+        const after = typeof m.after === 'function' ? m.after(p) : m.after;
+        expect(text(p).includes('כתבו בעזרת $\\pi$'), name).toBe(after === PI_AFTER);
+        const f = fig(p);
+        const written = f.type === 'solid' ? Object.values(solidLabels(f)) : [...(f.segs || []).map((s) => s.label), ...(f.circles || []).map((c) => c.label)];
+        written.filter((l) => /^\d+(\.\d+)?$/.test(String(l))).forEach((l) => expect(inText, `${name}: ${l}`).toContain(Number(l)));
+        expect(figPlain(f), name).toBeTruthy();
+      });
+    });
+  }
 });

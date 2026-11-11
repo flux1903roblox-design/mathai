@@ -21,7 +21,7 @@ import { GRID_MAX, cutRange, moveRange, cutMakesRectangles } from '@/content/gri
 // @ts-ignore: plain JS
 import { netModel, netControls, netStep, BUILD_MAX } from '@/content/net.js';
 // @ts-ignore: plain JS
-import { circleRange, SECTORS } from '@/content/circle.js';
+import { circleRange, SECTORS } from '@/content/roll.js';
 // @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
@@ -244,7 +244,7 @@ function checkCircle(m: any, a: any, at: string) {
   const { step, max } = circleRange(m);
   const onSteps = (r: number) => r >= step - 1e-9 && r <= max + 1e-9 && Math.abs(r / step - Math.round(r / step)) < 1e-9;
   expect(onSteps(m.start.r), `${at}: the start's radius ${m.start.r} is not a step between ${step} and ${max}`).toBe(true);
-  if (a.mode === 'r') { expect(m.show).toBe('circumference'); expect(onSteps(a.r), `${at}: the radius ${a.r} cannot be set`).toBe(true); }
+  if (a.mode === 'r') { expect(m.show === 'circumference' || m.radius === true, `${at}: no radius to set`).toBe(true); expect(onSteps(a.r), `${at}: the radius ${a.r} cannot be set`).toBe(true); }
   if (a.mode === 'unrolled') { expect(m.show).toBe('circumference'); expect(m.start.t ?? 0, `${at}: already rolled`).toBeLessThan(1); }
   if (a.mode === 'sectors') {
     expect(m.show).toBe('area');

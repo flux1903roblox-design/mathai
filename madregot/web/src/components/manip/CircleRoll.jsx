@@ -6,17 +6,18 @@
 //                  at a time, leaving the length of its rim behind as a coloured segment: a little more than three
 //                  diameters.
 //   area           the disc cut into sectors (the Stepper פרוסות: 4 … 32), laid alternately up and down into a shape
-//                  whose base is half the circumference and whose height is the radius: nearly a rectangle.
+//                  whose base is half the circumference and whose height is the radius: nearly a rectangle. With
+//                  radius: true the Stepper רדיוס (and ↑/↓) changes the radius too, the drawing keeping its size.
 // Keys: ←/→ the roll (or the sectors), ↑/↓ the radius, Home/End the roll's ends. Each step moves in 300 ms, at once under
 // reduced motion. In a check (`test`) the readout keeps the radius and the diameter only: no circumference, base or
-// area, and nothing marks a right state. The rules are content/circle.js.
+// area, and nothing marks a right state. The rules are content/roll.js.
 import { useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useReducedMotion } from 'motion/react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Stepper, useTween, svgPoint } from './core.jsx';
 import { manipCorrect, manipSolution } from '@/content/manip.js';
-import { circleStep, circleRange, circleWords, circNum, SECTORS } from '@/content/circle.js';
+import { circleStep, circleRange, circleWords, circNum, SECTORS } from '@/content/roll.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // circumference: the circle is RHO units in radius whatever r is, so four diameters (8 RHO) span the line from X0
@@ -64,7 +65,8 @@ export default function CircleRoll({ m, value, onChange, locked, reveal, good, a
   const [grab, setGrab] = useState(null);
 
   const keys = area
-    ? { ArrowLeft: () => press('n', -1), ArrowRight: () => press('n', 1), Home: () => emit({ ...v, n: SECTORS[0] }), End: () => emit({ ...v, n: SECTORS[SECTORS.length - 1] }) }
+    ? { ArrowLeft: () => press('n', -1), ArrowRight: () => press('n', 1), Home: () => emit({ ...v, n: SECTORS[0] }), End: () => emit({ ...v, n: SECTORS[SECTORS.length - 1] }),
+      ...(m.radius ? { ArrowDown: () => press('r', -1), ArrowUp: () => press('r', 1) } : {}) }
     : { ArrowLeft: () => press('t', -1), ArrowRight: () => press('t', 1), ArrowDown: () => press('r', -1), ArrowUp: () => press('r', 1), Home: () => emit({ ...v, t: 0 }), End: () => emit({ ...v, t: 1 }) };
   const onKeyDown = (e) => { const f = keys[e.key]; if (!f || locked) return; e.preventDefault(); e.stopPropagation(); f(); };
 
@@ -139,9 +141,16 @@ export default function CircleRoll({ m, value, onChange, locked, reveal, good, a
         {!test && <text x={(left + right2) / 2} y={STRIP_Y + RA + 22} textAnchor="middle" className="mp-num">≈ {circNum(Math.PI * v.r)}</text>}
       </g>
     );
+    // with radius: true (circle:2's ci2m) the radius changes too: the drawing keeps its size, and the numbers follow
     controls = (
-      <Stepper label="פרוסות" value={n} onDec={() => press('n', -1)} onInc={() => press('n', 1)} decLabel="פחות פרוסות" incLabel="יותר פרוסות"
-        disabled={locked} decDisabled={stuck('n', -1)} incDisabled={stuck('n', 1)} />
+      <>
+        {m.radius && (
+          <Stepper label="רדיוס" value={circNum(v.r)} onDec={() => press('r', -1)} onInc={() => press('r', 1)} decLabel={`רדיוס קטן ב־${circNum(step)}`} incLabel={`רדיוס גדול ב־${circNum(step)}`}
+            disabled={locked} decDisabled={stuck('r', -1)} incDisabled={stuck('r', 1)} />
+        )}
+        <Stepper label="פרוסות" value={n} onDec={() => press('n', -1)} onInc={() => press('n', 1)} decLabel="פחות פרוסות" incLabel="יותר פרוסות"
+          disabled={locked} decDisabled={stuck('n', -1)} incDisabled={stuck('n', 1)} />
+      </>
     );
   }
 

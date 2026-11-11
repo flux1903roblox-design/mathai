@@ -26,7 +26,7 @@
 //   net         a solid's net (stage 3): task fold { t }, face { face }, fix { slot }, build { a, b, c } | { p, q, L };
 //               rules in content/net.js
 //   circle      a circle (stage 4): show circumference { r, t } or area { r, n }; answer { mode: 'r' | 'unrolled' |
-//               'sectors', … }; rules in content/circle.js
+//               'sectors', … }; rules in content/roll.js
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -201,7 +201,7 @@ export const dlineNum = (v) => {
 export const withUnit = (v, unit) => (!unit ? dlineNum(v) : unit === '%' ? `${dlineNum(v)}%` : `${dlineNum(v)} ${unit}`);
 
 // ---------------------------------------------------------------- kinds whose rules load with their object
-// The objects of stage 2 on (the grid shapes, content/grid.js; the nets, content/net.js; the circle, content/circle.js)
+// The objects of stage 2 on (the grid shapes, content/grid.js; the nets, content/net.js; the circle, content/roll.js)
 // keep their rules out of the first download: each file registers them here when it loads. content/late.js asks for
 // them as soon as this module loads (after the first screen), and each is also part of its object's own file, so a
 // lesson or a teaching step that draws the object always has them. Asked for before they are here, a

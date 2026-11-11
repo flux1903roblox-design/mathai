@@ -18,6 +18,8 @@ import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { AREA } from './area.js';
 import { SOLID, CUBE_OPPOSITE } from './solid.js';
+import { CIRCLE } from './circle.js';
+import { piNear } from './util.js';
 // the grid object's rules, which the app loads after the first screen (content/late.js)
 import './grid.js';
 import './net.js';
@@ -873,6 +875,69 @@ PROPS.solid = {
   'linear-volume': (it, u) => { const [k] = nums(it.key); return areaKind(it) === 'so4k' && fits(u, k); },
   'square-scale': (it, u) => { const [k] = nums(it.key); return areaKind(it) === 'so4k' && fits(u, k * k); },
 };
+/**
+ * Stage 2's circle, cylinder and cone (content/circle.js, not on the path yet), from the numbers in each key: ci1p:k:r
+ * (k 1 asks the radius from 2r·π), ci1n:g:v (g 0 the diameter v, g 1 the radius v; π ≈ 3.14), ci1r:c, ci1w:r:n,
+ * ci2p:k:r (k 1 gives the diameter 2r), ci2n:r, ci2h:q:r (q 1 a quarter), ci2r:r:w, ci3v:r:h, ci3l:r:h, ci3s:r:h,
+ * ci3f:B:L, ci3m:a:b, ci4v:r:h:l, ci4h:r:l, ci4a:g:r:h, ci4c:V, ci4m:r:h. A π ≈ 3.14 question's mistake is its multiple of
+ * π computed with 3.14 or with the calculator's π, to tenths (piNear), the "3.14 and π versions".
+ */
+PROPS.circle = {
+  'r-for-d': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'ci1p') { const [q, r] = n; return q === 0 && fits(u, r); }
+    if (k === 'ci1n') { const [g, v] = n; return g === 1 && piNear(u, v); }
+    if (k === 'ci1w') { const [r, t] = n; return piNear(u, r * t); }
+    if (k === 'ci3l') { const [r, h] = n; return fits(u, r * h); }
+    if (k === 'ci4a') { const [, r, h] = n; return fits(u, (r * h) / 2); }
+    return false;
+  },
+  'd-for-r': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'ci1p') { const [q, r] = n; return q === 1 && fits(u, 2 * r); }
+    if (k === 'ci1r') return fits(u, n[0]);
+    if (k === 'ci1n') { const [g, v] = n; return g === 0 && piNear(u, 2 * v); }
+    return false;
+  },
+  'area-for-circ': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'ci1p') { const [q, r] = n; return q === 0 && fits(u, r * r); }
+    if (k === 'ci1n') { const [g, v] = n; return piNear(u, g ? v * v : (v / 2) ** 2); }
+    if (k === 'ci3l') { const [r, h] = n; return fits(u, r * r * h); }
+    return false;
+  },
+  'circ-for-area': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'ci2p') return fits(u, 2 * n[1]);
+    if (k === 'ci2n') return piNear(u, 2 * n[0]);
+    return false;
+  },
+  'd-in-area': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'ci2p') { const [q, r] = n; return q === 1 && fits(u, 4 * r * r); }
+    if (k === 'ci3v') { const [r, h] = n; return fits(u, 4 * r * r * h); }
+    return false;
+  },
+  'whole-circle': (it, u) => { const [, r] = nums(it.key); return areaKind(it) === 'ci2h' && fits(u, r * r); },
+  'ring-sub-radii': (it, u) => { const [, w] = nums(it.key); return areaKind(it) === 'ci2r' && fits(u, w * w); },
+  'no-subtract': (it, u) => { const [r, w] = nums(it.key); return areaKind(it) === 'ci2r' && fits(u, (r + w) ** 2); },
+  'lateral-for-vol': (it, u) => { const [r, h] = nums(it.key); return areaKind(it) === 'ci3v' && fits(u, 2 * r * h); },
+  'one-base': (it, u) => { const [r, h] = nums(it.key); return areaKind(it) === 'ci3s' && fits(u, r * r + 2 * r * h); },
+  'no-bases': (it, u) => { const [r, h] = nums(it.key); return areaKind(it) === 'ci3s' && fits(u, 2 * r * h); },
+  'no-convert': (it, u) => { const [B, L] = nums(it.key); return areaKind(it) === 'ci3f' && fits(u, L / B); },
+  'no-third': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'ci4v') { const [r, h] = n; return fits(u, r * r * h); }
+    if (k === 'ci4c') return fits(u, n[0]);
+    if (k === 'ci4m') return it.choices[u]?.text === '$1$';
+    return false;
+  },
+  'slant-as-height': (it, u) => { const [r, , l] = nums(it.key); return areaKind(it) === 'ci4v' && fits(u, (r * r * l) / 3); },
+  'add-not-sub': (it, u) => { const [r, l] = nums(it.key); return areaKind(it) === 'ci4h' && fits(u, Math.sqrt(l * l + r * r)); },
+  'subtract-sides': (it, u) => { const [r, l] = nums(it.key); return areaKind(it) === 'ci4h' && fits(u, l - r); },
+  'no-half': (it, u) => { const [, r, h] = nums(it.key); return areaKind(it) === 'ci4a' && fits(u, 2 * r * h); },
+  'same-sheet': (it, u) => areaKind(it) === 'ci3m' && it.choices[u]?.text === 'לשניהם אותו נפח',
+};
 
 /**
  * An inequality item answered as if it said x rel' B with rel' = wrong(q): the ray drawn that way, the count of the
@@ -913,11 +978,12 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-// Areas and perimeters are on the path (the loop above samples them through makeItem); boxes and prisms (stage 2) are
-// not yet: their generators are sampled straight from the topic object, as makeItem would give them (an answer that is
-// right is never a mistake), and the words come from its own cats. Areas run here too, from their topic object.
+// Areas and perimeters, and boxes and prisms, are on the path (the loop above samples them through makeItem); the circle,
+// the cylinder and the cone (stage 2) are not yet: their generators are sampled straight from the topic object, as
+// makeItem would give them (an answer that is right is never a mistake), and the words come from its own cats. Areas and
+// boxes run here too, from their topic objects.
 describe('every mistake label describes the answer: sampled from the topic objects of stage 2', () => {
-  for (const T of [AREA, SOLID]) {
+  for (const T of [AREA, SOLID, CIRCLE]) {
     T.levels.forEach((L, i) => {
       const level = i + 1;
       it(`${T.id} level ${level}: ${L.title}`, () => {
@@ -943,7 +1009,7 @@ describe('every mistake label describes the answer: sampled from the topic objec
 
 describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
   it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, AREA, SOLID]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, AREA, SOLID, CIRCLE]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

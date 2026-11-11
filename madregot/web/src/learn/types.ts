@@ -31,7 +31,7 @@ export type Rng = () => number;
  * loose?, start }; task 'fold' { t } answered { mode: 'fold', t: 1 | 0 }, 'face' { face } answered { mode: 'face', face },
  * 'fix' { slot } answered { mode: 'slot', ok }, 'build' { a, b, c } or a prism's { p, q, L } answered { mode: 'build', V?, S?,
  * d2?, fixed? }.
- * 'circle' (stage 4; content/circle.js): { show: 'circumference' | 'area', start: { r, t } | { r, n }, rMax?, rStep? };
+ * 'circle' (stage 4; content/roll.js): { show: 'circumference' | 'area', start: { r, t } | { r, n }, rMax?, rStep?, radius? };
  * answered { mode: 'r', r } (the radius set), { mode: 'unrolled' } (rolled one turn) or { mode: 'sectors', min }.
  */
 export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'polygon' | 'net' | 'circle';

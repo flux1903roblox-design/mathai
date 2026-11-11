@@ -7,6 +7,7 @@ import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrec
 import { startLesson, answer, next } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
 import { modelItem } from '../learn/items.ts';
+import * as CW from './circle.js';
 
 /** A typed item, as a generator makes one. */
 const num = (answer, extra = {}) => ({ form: 'num', answer, topic: 'test', level: 1, key: 'k', text: 'כמה?', ...extra });
@@ -419,5 +420,30 @@ describe('a model asks with π per question', () => {
     // the model's own bug is a misconception, not a form: 13 typed for 26π
     expect(partialOf(fwd, 13)).toBeNull();
     expect(partialOf(fwd, 81.64)).toBe('pi-value');
+  });
+});
+
+// The circle's model (stage 2, MEASURE-4), as the teaching will wrap it: the circumference asked with π (□π), the radius
+// from a circumference without it (13, not 13π); a pk question never comes from a model.
+describe('circle1 asks with π per question', () => {
+  const stair = { skill: 'circle:1', topic: 'circle', level: 1, title: 'היקף מעגל' };
+  const model = {
+    params: CW.CIRCLE1.params, answer: CW.CIRCLE1.answer, bugs: CW.CIRCLE1.bugs, after: CW.CIRCLE1.after,
+    text: CW.circle1Text, fig: CW.circle1Fig, solution: CW.circle1Solution, hint: CW.circle1Hint, unit: CW.UNIT.cm,
+  };
+  it('the inverse (k = 1) has no after, the forward (k = 0) has π after its slot, and neither carries pk', () => {
+    const inv = modelItem(stair, model, { k: 1, r: 13, c: 26 }, 'diag');
+    expect(inv.after).toBeUndefined();
+    expect(inv.answer).toBe(13);
+    expect(inv.text).toBe('היקף מעגל $26\\pi$ ס״מ. מה הרדיוס?');
+    const fwd = modelItem(stair, model, { k: 0, r: 13, c: 26 }, 'diag');
+    expect(fwd.after).toBe(PI_AFTER);
+    expect(fwd.answer).toBe(26);
+    expect(answerText(fwd)).toBe('26π');
+    for (const it of [inv, fwd]) expect(it.pk).toBeUndefined();
+    // and the inverse's diagnosis: the diameter typed for the radius
+    expect(inv.diag(26)).toBe('d-for-r');
+    expect(fwd.diag(13)).toBe('r-for-d');
+    expect(fwd.diag(169)).toBe('area-for-circ');
   });
 });

@@ -20,7 +20,7 @@ import {
 } from './manip.js';
 import { maxRectArea, polyArea, cutAreas, cutMakesRectangles, cutAt, gridControls, gridStep } from './grid.js';
 import { NET_LAYOUTS, netModel, netView, netWithSlot, foldFaces, oblique, netStep, netControls, oppositeFace, closedNeighbours, netfigLabels, prismSides, CYL_N, solidLabels } from './net.js';
-import { circleStep, circleControls, SECTORS } from './circle.js';
+import { circleStep, circleControls, SECTORS } from './roll.js';
 import * as SW from './solid.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
@@ -1107,13 +1107,16 @@ describe('nets of solids (פריסה)', () => {
 });
 
 // ---------------------------------------------------------------- the circle (stage 4, MEASURE-1.3)
-// No stair uses the object yet: these are fixtures, the spec's own explores (circle:1, circle:2) and a radius to set.
+// No stair uses the object yet: these are fixtures, the spec's own explores (circle:1, circle:2), a radius to set, and
+// circle:2's practice ci2m (a radius set on the disc in sectors).
 describe('the circle (עיגול)', () => {
   const circ = (manip, answer) => fixture({ kind: 'circle', rMax: 8, rStep: 0.5, ...manip }, answer);
   const radius = circ({ show: 'circumference', start: { r: 2, t: 0 } }, { mode: 'r', r: 5 });
   const roll = circ({ show: 'circumference', start: { r: 2, t: 0 } }, { mode: 'unrolled' });
   const slices = circ({ show: 'area', start: { r: 4, n: 4 } }, { mode: 'sectors', min: 16 });
-  const all = [radius, roll, slices];
+  // circle:2's ci2m: the disc in sectors, its radius set until its area is about S (radius: true gives it a Stepper)
+  const areaR = circ({ show: 'area', radius: true, start: { r: 2, n: 16 } }, { mode: 'r', r: 5 });
+  const all = [radius, roll, slices, areaR];
   it('every answer kind: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
     for (const it of all) solves(it);
     expect(manipSolution(radius)).toEqual({ r: 5, t: 0 }); expect(manipWrong(radius)).toEqual({ r: 5.5, t: 0 });
@@ -1124,6 +1127,18 @@ describe('the circle (עיגול)', () => {
     expect(isCorrect(radius, { r: 5, t: 1 })).toBe(true); // the roll does not matter to the radius
     expect(isCorrect(radius, { r: 9, t: 0 }) || isCorrect(radius, { r: 0, t: 0 })).toBe(false);
     expect(manipWrong(circ({ show: 'circumference', start: { r: 2, t: 0 } }, { mode: 'r', r: 8 }))).toEqual({ r: 7.5, t: 0 });
+    expect(manipSolution(areaR)).toEqual({ r: 5, n: 16 }); expect(manipWrong(areaR)).toEqual({ r: 5.5, n: 16 });
+    expect(isCorrect(areaR, { r: 5, n: 4 })).toBe(true); // the sectors do not matter to the radius
+  });
+  it('the disc in sectors has a radius Stepper only when its task sets the radius', () => {
+    expect(circleControls(slices.manip)).toEqual(['n']);
+    expect(circleControls(areaR.manip)).toEqual(['r', 'n']);
+    expect(circleControls(radius.manip)).toEqual(['r', 't']);
+    expect(circleStep(areaR.manip, { r: 2, n: 16 }, 'r', 1)).toEqual({ r: 2.5, n: 16 });
+    const out = html(CircleRoll, { m: areaR.manip, value: { r: 5, n: 16 }, answer: areaR.answer });
+    expect(out).toContain('רדיוס גדול ב־0.5'); expect(out).toContain('יותר פרוסות');
+    expect(out.replace(/<[^>]+>/g, '')).toContain('שטח ≈ 78.5');
+    expect(html(CircleRoll, { m: slices.manip, value: { r: 4, n: 4 }, answer: slices.answer })).not.toContain('רדיוס גדול');
   });
   it('every task reaches its answer by its steppers alone, within rMax', () => {
     for (const it of all) {

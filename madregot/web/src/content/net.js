@@ -22,7 +22,7 @@
 import { registerKind, registerFigWords, figNum } from './manip.js';
 // the circle's rules (stage 4) travel with the nets' and the solids': a cylinder and a cone are drawn from circles, and
 // so content/late.js's one request for the drawings brings all three
-import './circle.js';
+import './roll.js';
 
 // maths inside a Hebrew sentence is isolated left to right
 const ltr = (t) => `⁦${t}⁩`;
