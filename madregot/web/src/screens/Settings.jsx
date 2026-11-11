@@ -7,14 +7,16 @@ import clsx from 'clsx';
 import { toast } from 'sonner';
 import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { api, hasServer } from '@/lib/api.js';
-import { Button, Field } from '@/components/ui.jsx';
+import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
+import Mascot from '@/components/Mascot.jsx';
 import { openSupport } from '@/components/SupportSheet.jsx';
 import { SUPPORT_LINK } from '@/content/support.js';
 import { useAIStatus, leaveFamily } from '@/lib/account.js';
 import { PARENT_OK_LINE } from '@/components/limitCopy.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
+import { wipeEverything, wipeDeviceOnly, wipeText, deviceOnlyText, WIPE_FAILED } from '@/lib/wipe.js';
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -258,6 +260,52 @@ function SafetySection() {
   );
 }
 
+/**
+ * "מחיקת כל הנתונים" (trust spec TRUST-6 §3): the server first (lib/wipe.js). While it works, "מוחקים…" and nothing can
+ * be pressed or closed. If the server part fails nothing was deleted, and the sheet says so, with "לנסות שוב" and a
+ * quiet "למחוק רק מהמכשיר", which asks once more and says what stays on the server. As every sheet that deletes: the
+ * big button is the safe one, and the delete is the quiet one under it.
+ */
+function WipeSheet({ open, onClose }) {
+  const profile = useApp((s) => s.profile);
+  const ai = useApp((s) => s.ai);
+  const tier = useAIStatus((x) => x.status?.tier);
+  const server = hasServer();
+  const [view, setView] = useState('ask'); // 'ask' | 'failed' | 'local'
+  const [busy, setBusy] = useState(false);
+  const onOpenChange = (o) => { if (o || busy) return; setView('ask'); onClose(); };
+  const run = async (fn) => {
+    setBusy(true);
+    try { await fn(); } catch { setView('failed'); setBusy(false); }
+  };
+  const label = (text) => (busy ? 'מוחקים…' : text);
+  let body; let primary; let quiet;
+  if (view === 'failed') {
+    body = <p role="alert">{WIPE_FAILED}</p>;
+    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => run(wipeEverything)}>{label('לנסות שוב')}</Button>;
+    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => setView('local')}>למחוק רק מהמכשיר</Button>;
+  } else if (view === 'local') {
+    body = <p>{deviceOnlyText({ profile, ai })}</p>;
+    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => onOpenChange(false)}>לא למחוק</Button>;
+    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => run(wipeDeviceOnly)}>{label('כן, למחוק רק מהמכשיר')}</Button>;
+  } else {
+    body = <p>{wipeText({ profile, ai, server, tier })}</p>;
+    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => onOpenChange(false)}>לא למחוק</Button>;
+    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => run(wipeEverything)}>{label('כן, למחוק הכול')}</Button>;
+  }
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} title={view === 'local' ? 'למחוק רק מהמכשיר?' : 'למחוק הכול?'}>
+      <div className="exit-sheet confirm-sheet wipe-sheet" aria-busy={busy || undefined}>
+        <Mascot mood="oops" size={88} />
+        <div className="lead confirm-text">{body}</div>
+        {primary}
+        {quiet}
+        <p className="visually-hidden" role="status">{busy ? 'מוחקים…' : ''}</p>
+      </div>
+    </Sheet>
+  );
+}
+
 export default function Settings() {
   const { profile, patchProfile, resetProgress, signOut } = useApp();
   const { state: nav } = useLocation();
@@ -302,13 +350,11 @@ export default function Settings() {
         confirm="כן, לאפס" onConfirm={() => { resetProgress(); setDanger(null); toast('ההתקדמות אופסה'); }}>
         <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
       </ConfirmSheet>
-      <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => !o && setDanger(null)} title="למחוק הכול?" keep="לא למחוק"
-        confirm="כן, למחוק הכול" onConfirm={async () => { await leaveFamily(); await forgetParent(); useApp.persist.clearStorage(); signOut(); }}>
-        <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. אי אפשר לבטל.</p>
-      </ConfirmSheet>
+      <WipeSheet open={danger === 'wipe'} onClose={() => setDanger(null)} />
       <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"
         confirm="כן, להתנתק" onConfirm={async () => { await forgetParent(); signOut(); }}>
         <p>המכשיר יחזור למסך הפתיחה, וההתקדמות שנשמרה בו תימחק.</p>
+        <p>ההגדרות של העוזר במכשיר נשארות. כדי למחוק הכול, בחרו 'מחיקת כל הנתונים'.</p>
       </ConfirmSheet>
       <p className="footnote">מדרגות{hasServer() ? '' : '. בלי שרת: ההתקדמות נשמרת רק במכשיר הזה.'}</p>
     </div>

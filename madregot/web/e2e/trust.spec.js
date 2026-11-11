@@ -5,7 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { NOW, student, answer, proceed } from './helpers.js';
-import { fakeServer, API, CORS } from './fakeServer.js';
+import { fakeServer, API, CORS, livePlan } from './fakeServer.js';
 
 /** Open a route with a saved state, seeded before the app starts (as subscription.spec.js does). */
 let seeds = 0;
@@ -830,5 +830,117 @@ test.describe('legal pages', () => {
     await expect(page.getByLabel('ההודעה שלכם')).toBeVisible();
     await page.getByLabel('ההודעה שלכם').fill('שוב'); await page.getByLabel('ההודעה שלכם').press('Enter');
     await expect(intro).toBeVisible();
+  });
+});
+
+test.describe('delete all', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  // the council's repro (trust#56, council/trust/audit.json afterWipe): a dev build's key, the device id, the class
+  // token, a family-device token and a parent's session were all still in localStorage after "delete all"
+  const KEY = 'sk-ant-SYNTHETIC-TEST-KEY';
+  const FD = `fd1.${'b'.repeat(64)}`;
+  const DEVICE = 'c0ffee'.repeat(5) + 'c0';
+  const PARENT = { token: 'd'.repeat(64), email: 'parent@example.com' };
+  const repro = () => withServer({
+    profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' },
+    ai: { mode: 'server', apiUrl: API, key: KEY, device: DEVICE, familyDevice: { token: FD, label: 'הטאבלט' }, introSeen: true },
+  });
+  const appKeys = (page) => page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].filter((k) => k.startsWith('madregot')).sort());
+  const storage = (page) => page.evaluate(() => ({ local: { ...localStorage }, session: { ...sessionStorage } }));
+  /** Settings of the repro's device, with the server's forget route under the test's control (`ctl.fail`, `ctl.hold`). */
+  async function setUp(page, ctl = {}) {
+    const server = await fakeServer(page, { parentOk: true, devices: [{ id: 'fd01', token: FD, label: 'הטאבלט' }], plan: livePlan() }, baseOf());
+    const forgets = [];
+    await page.route(`${API}/api/me/forget`, async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      forgets.push(route.request().headers());
+      if (ctl.hold) await ctl.hold;
+      return route.fulfill({
+        status: ctl.fail ? 500 : 200, contentType: 'application/json', headers: CORS,
+        body: JSON.stringify(ctl.fail ? { error: 'server_error' } : { ok: true, student: true, familyDevice: true, device: true }),
+      });
+    });
+    await open(page, '#/settings', repro());
+    await page.evaluate((p) => {
+      localStorage.setItem('madregot-parent', JSON.stringify(p));
+      localStorage.setItem('madregot-staging', '{}');
+      sessionStorage.setItem('madregot-checkout-family_month', 'checkout-key-0123456789');
+    }, PARENT);
+    return { ...server, forgets };
+  }
+  const wipeSheet = (page) => page.getByRole('dialog', { name: 'למחוק הכול?' });
+
+  test('the council\'s repro: the key, the device id, the tokens and the parent\'s address are gone, here and on the server', async ({ page }) => {
+    const s = await setUp(page);
+    expect(await appKeys(page)).toEqual(expect.arrayContaining(['madregot', 'madregot-checkout-family_month', 'madregot-parent', 'madregot-staging']));
+    expect(JSON.stringify(await storage(page))).toContain(KEY);
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    const sheet = wipeSheet(page);
+    await expect(sheet).toContainText('נמחק את כל מה שנשמר במכשיר הזה, וגם את מה שנשמר עליכם בשרת של הכיתה: השם, ההתקדמות, הבקשות למורה והמבחנים. המורה כבר לא יראה אתכם ברשימה.');
+    await expect(sheet).toContainText('המכשיר גם ינותק מהמנוי המשפחתי, וההורים יקבלו על זה מייל. אי אפשר לבטל.');
+    for (const b of await sheet.getByRole('button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    // both answers in view, at 320x568 too
+    for (const name of ['לא למחוק', 'כן, למחוק הכול']) await expect(sheet.getByRole('button', { name })).toBeInViewport();
+    await shot(page, 'wipe-ask');
+    await sheet.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'כל הנתונים נמחקו מהמכשיר הזה ומהשרת.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+    // the server got every identity in one call, and the parent's session was ended there
+    expect(s.forgets).toHaveLength(1);
+    expect(s.forgets[0]).toMatchObject({ authorization: 'Bearer stu_token_1', 'x-family-device': FD, 'x-device': DEVICE });
+    expect(s.log.find((r) => r.path === '/api/account/signout')?.headers['x-account-token']).toBe(PARENT.token);
+    // and nothing is left on the device
+    expect(await appKeys(page)).toEqual([]);
+    const left = JSON.stringify(await storage(page)) + await page.content();
+    for (const v of [KEY, DEVICE, FD, 'stu_token_1', PARENT.token, 'parent@example.com']) expect(left).not.toContain(v);
+    await expect(page).not.toHaveURL(/wiped/);
+    await shot(page, 'wipe-done');
+  });
+
+  test('a 500 deletes nothing and says why; "לנסות שוב" waits ("מוחקים…"), then deletes everything', async ({ page }) => {
+    const ctl = { fail: true };
+    const s = await setUp(page, ctl);
+    const before = await storage(page);
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    const sheet = wipeSheet(page);
+    await sheet.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await expect(sheet.getByRole('alert')).toHaveText('לא הצלחנו למחוק מהשרת, ולכן עוד לא מחקנו כלום. בדקו את החיבור לאינטרנט ונסו שוב.');
+    expect(await storage(page)).toEqual(before);
+    expect(s.log.filter((r) => r.path === '/api/account/signout')).toHaveLength(0);
+    await shot(page, 'wipe-failed');
+    let release;
+    Object.assign(ctl, { fail: false, hold: new Promise((r) => { release = r; }) });
+    await sheet.getByRole('button', { name: 'לנסות שוב' }).click();
+    await expect(sheet.getByRole('button', { name: 'מוחקים…' })).toBeDisabled();
+    await expect(sheet.getByRole('button', { name: 'למחוק רק מהמכשיר' })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeVisible(); // it cannot be closed while it works
+    release();
+    await expect(page.getByRole('status').filter({ hasText: 'כל הנתונים נמחקו מהמכשיר הזה ומהשרת.' })).toBeVisible();
+    expect(s.forgets).toHaveLength(2);
+    expect(await appKeys(page)).toEqual([]);
+  });
+
+  test('when the server stays down, "למחוק רק מהמכשיר" asks once more, says what stays on the server, and clears the device', async ({ page }) => {
+    const s = await setUp(page, { fail: true });
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    await wipeSheet(page).getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await wipeSheet(page).getByRole('button', { name: 'למחוק רק מהמכשיר' }).click();
+    const second = page.getByRole('dialog', { name: 'למחוק רק מהמכשיר?' });
+    await expect(second).toContainText('המידע בשרת של הכיתה יישאר עד שהמורה ימחק אותו, או עד שיימחק מעצמו אחרי 400 יום.');
+    await shot(page, 'wipe-device-only');
+    // the safe answer is the big one
+    await second.getByRole('button', { name: 'לא למחוק' }).click();
+    await expect(second).toHaveCount(0);
+    expect(await appKeys(page)).toEqual(expect.arrayContaining(['madregot', 'madregot-parent']));
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    await wipeSheet(page).getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await wipeSheet(page).getByRole('button', { name: 'למחוק רק מהמכשיר' }).click();
+    await page.getByRole('dialog', { name: 'למחוק רק מהמכשיר?' }).getByRole('button', { name: 'כן, למחוק רק מהמכשיר' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'כל הנתונים נמחקו מהמכשיר הזה.' })).toBeVisible();
+    await expect(page.getByText('ומהשרת')).toHaveCount(0);
+    expect(s.forgets).toHaveLength(2);
+    expect(await appKeys(page)).toEqual([]);
+    await shot(page, 'wipe-done-device');
   });
 });

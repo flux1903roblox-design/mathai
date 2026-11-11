@@ -27,6 +27,7 @@ import {
 } from './licence.js';
 import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
+import { forgetMe } from './forget.js';
 import { newClassSetting, newClassStmts, classSettings, aiPolicyView, setClassAi, setStudentAi } from './classai.js';
 
 // ---------- http helpers ----------
@@ -819,6 +820,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/ai/report') return reportAnswer(req, env, ctx, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/ai\/(\w+)$/))) return handleAI(m[1], req, env, ctx, cors);
   if (M === 'POST' && p === '/api/devices') return mintDevice(req, env, cors);
+  // the device's own "delete all" on the server (trust spec TRUST-6 §1): the student, the family device and the install
+  if (M === 'POST' && p === '/api/me/forget') return forgetMe(req, env, ctx, cors);
   // parent and teacher accounts
   if (M === 'POST' && p === '/api/account/code') return startLogin(req, env, cors);
   if (M === 'POST' && p === '/api/account/verify') return verifyLogin(req, env, cors);

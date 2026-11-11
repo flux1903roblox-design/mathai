@@ -22,7 +22,8 @@ const safeStorage = createJSONStorage(() => {
   }
 });
 
-const empty = {
+/** A new device's saved state ("delete all" puts it back whole: lib/wipe.js). */
+export const empty = {
   profile: null, // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? } | { role: 'teacher', name, classes: [], active }
   progress: {}, // topicId -> { level, max }
   days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
@@ -246,6 +247,7 @@ export const useApp = create(
       },
       resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
+      // ("delete all" is lib/wipe.js: the server first, then every key of the app)
       signOut: () => set({ ...empty, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null } }),
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')

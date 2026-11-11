@@ -39,7 +39,7 @@ function help(studentId, { created, done = null, image = IMAGE }) {
 /**
  * Student data in every student table, through the API: progress (attempts, levels), a help request with a page, a
  * "talk with me" request (its help_meta row, TRUST-3), an exam; and the teacher's AI switch for the student
- * (student_ai_off, TRUST-11), written directly.
+ * (student_ai_off, TRUST-11) with its audit row (student.ai, target student:<id>), written directly.
  */
 async function practise(s) {
   await h.call('POST', '/api/progress', { headers: bearer(s), body: { events: [{ topic: 'neg', level: 1, ok: false, first: false, cat: 'sign', secs: 9 }], levels: { neg: { level: 2, max: 2 } } } });
@@ -47,6 +47,8 @@ async function practise(s) {
   await h.call('POST', '/api/help', { headers: bearer(s), body: { kind: 'talk' } });
   await h.call('POST', '/api/exams', { headers: bearer(s), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
   raw().prepare('INSERT OR IGNORE INTO student_ai_off (student_id, at) VALUES (?, ?)').run(s.studentId, new Date().toISOString());
+  raw().prepare(`INSERT INTO audit_log (at, actor, action, target, detail) SELECT ?, 'teacher:' || class_code, 'student.ai', 'student:' || id, '{"off":true}'
+    FROM students WHERE id = ?`).run(new Date().toISOString(), s.studentId);
 }
 /** help_meta rows whose help request is gone (none may be left behind). */
 const orphanMeta = () => rows(h.env, 'SELECT * FROM help_meta WHERE help_id NOT IN (SELECT id FROM help_requests)');
@@ -143,7 +145,7 @@ test('a student nobody has seen for 400 days is deleted with all their rows and 
   assert.deepEqual(mentions(noa.studentId), [], 'nothing of her is left in any table');
   assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM students WHERE id = ?', itai.studentId).n, 1);
   for (const [t, col, via] of STUDENT_ROWS) {
-    const where = via === 'help' ? `${col} IN (SELECT id FROM help_requests WHERE student_id = ?)` : `${col} = ?`;
+    const where = via === 'help' ? `${col} IN (SELECT id FROM help_requests WHERE student_id = ?)` : via === 'tag' ? `${col} = 'student:' || ?` : `${col} = ?`;
     assert.ok(rows(h.env, `SELECT * FROM ${t} WHERE ${where}`, itai.studentId).length > 0, `${t} of the other student stays`);
   }
   assert.deepEqual(orphanMeta(), [], 'her help_meta rows went with her help requests');

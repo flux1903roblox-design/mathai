@@ -64,8 +64,30 @@ function Option({ on, onPick, title, sub, glyph, aside, badge }) {
  * First time on the app: a few short questions, one per screen, then a choice
  * between a placement test and starting from the first stair.
  */
+/**
+ * After "delete all" (lib/wipe.js) the app reloads at ?wiped=1 (the device and the server) or ?wiped=device (this
+ * device only): the front page says so once, as a status line, and the parameter leaves the address at once, so a
+ * reload or a shared link does not say it again (trust spec TRUST-6 §4).
+ */
+export const WIPED_TEXT = { 1: 'כל הנתונים נמחקו מהמכשיר הזה ומהשרת.', device: 'כל הנתונים נמחקו מהמכשיר הזה.' };
+function useWiped() {
+  const [wiped] = useState(() => {
+    try { const w = new URLSearchParams(window.location.search).get('wiped'); return w && WIPED_TEXT[w] ? w : null; } catch { return null; }
+  });
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      if (!u.searchParams.has('wiped')) return;
+      u.searchParams.delete('wiped');
+      window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`);
+    } catch { /* the address keeps it: the line shows again on a reload, nothing else */ }
+  }, []);
+  return wiped;
+}
+
 function Onboarding({ onTeacher }) {
   const navigate = useNavigate();
+  const wiped = useWiped();
   const setProfile = useApp((s) => s.setProfile);
   const setGoalXp = useApp((s) => s.setGoalXp);
   const server = hasServer();
@@ -121,6 +143,7 @@ function Onboarding({ onTeacher }) {
     return (
       <div className="ob ob-hello hello-duo">
         <main className="hello-center" data-region="content">
+          {wiped && <p className="hello-wiped" role="status"><Check size={20} aria-hidden="true" /><span>{WIPED_TEXT[wiped]}</span></p>}
           <Mascot mood="excited" size={168} className="hello-madi" />
           <p className="hello-brand"><span className="wordmark">מדרגות</span></p>
           <h1 className="hello-title">מתמטיקה שמבינים.<br />ומתקדמים.</h1>

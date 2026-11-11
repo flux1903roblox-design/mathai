@@ -1,5 +1,5 @@
 // Service email through Resend's HTTP API (https://resend.com/docs/api-reference/emails/send-email): the sign-in code,
-// and the notices outbox (welcome, cancellation, refund, payment failed, renewal reminder, device linked, licence
+// and the notices outbox (welcome, cancellation, refund, payment failed, renewal reminder, device linked and unlinked, licence
 // ending, owner alerts and the owner's daily summary). Settings: RESEND_API_KEY (secret), EMAIL_FROM (a domain verified
 // in Resend), CONTACT_EMAIL (reply-to), OWNER_EMAIL (owner alerts). Every inserted value is HTML-escaped. Nothing a
 // parent or child typed goes into their own emails except the recipient address and a device label; a teacher's licence
@@ -166,6 +166,17 @@ export function renderNotice(env, row) {
         subject: 'מכשיר חדש חובר למנוי',
         lines: billing(['שלום,', `חובר מכשיר חדש${p.label ? ` (${p.label})` : ''} ב־${hebDate(p.at)}. לא אתם? אפשר לנתק אותו בעמוד ההורים: ${env.PUBLIC_URL || ''}/parents`]),
       };
+    // a child's device deleted everything of itself from the server ("delete all", trust spec TRUST-6 §1): the parent
+    // is told, with the label they gave it; for a device on the plan, as any billing email, else as the OK's email
+    case 'device_unlinked': {
+      const name = p.label ? `המכשיר (${p.label})` : 'אחד המכשירים';
+      const lines = [
+        'שלום,',
+        `${name} נותק ${p.plan ? 'מהמנוי' : 'מהחשבון שלכם במדרגות'}, והמידע שלו נמחק מהשרת לבקשת מי שהשתמש בו.`,
+        `אפשר לחבר אותו שוב מעמוד ההורים: ${env.PUBLIC_URL || ''}/parents`,
+      ];
+      return { subject: p.plan ? 'מכשיר נותק מהמנוי' : 'מכשיר נותק מהחשבון', lines: p.plan ? billing(lines) : [...lines, '', business(env)] };
+    }
     case 'licence_ending':
       return {
         subject: `רישיון הכיתה מסתיים ב־${hebDate(p.until)}`,

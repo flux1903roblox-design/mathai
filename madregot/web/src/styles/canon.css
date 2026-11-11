@@ -485,6 +485,14 @@ a { color: var(--brand-d); }
 .hello-legal a { color: var(--ink-2); font-weight: 600; padding: 6px 0; min-height: 32px; }
 /* how to cancel, beside the cancel link (Consumer Protection Law s.14ט(ה)(2)) */
 .hello-legal-note { margin: calc(-1 * var(--s1)) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
+/* after "delete all" (trust spec TRUST-6 §4): one calm line on the front page, a check and the words, read out once */
+.hello-wiped { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; max-width: 34ch; padding: var(--s3) var(--s4); border-radius: 14px;
+  background: var(--ok-tint); color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); text-align: start; text-wrap: pretty; }
+.hello-wiped svg { flex: none; margin-top: 3px; color: var(--ok); }
+/* a sheet that asks before deleting: a second paragraph keeps a little room */
+.confirm-sheet .confirm-text p + p { margin-top: var(--s2); }
+/* "delete all" says more than the other sheets: on a short phone the character steps aside, so both answers fit */
+@media (max-height: 640px) { .wipe-sheet .mascot { display: none; } .wipe-sheet .confirm-text { font-size: var(--t-base); line-height: var(--lh-base); } }
 /* the profile's last row: the legal pages, quiet, each a full-size target */
 .me-foot { margin-top: var(--s5); padding-top: var(--s3); border-top: 2px solid var(--rule); }
 .me-foot-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); }
