@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import Mascot from '@/components/Mascot.jsx';
 import clsx from 'clsx';
-import { Camera, MessageCircle, Wand2, Check, X, ImageUp } from 'lucide-react';
+import { Camera, MessageCircle, Wand2, Check, ImageUp } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady, aiMode } from '@/lib/ai.js';
 import { gate, aiAccess, useAIStatus, needIntro } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import { limitVariant } from '@/components/limitCopy.js';
 import ReportAnswer, { checkText, generateText } from '@/components/ReportAnswer.jsx';
+import CheckResult, { FINAL } from '@/components/CheckResult.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import { SupportLink } from '@/components/SupportSheet.jsx';
 import { TOPIC, topicsFor, readAnswer, isCorrect, diagnosisLine, answerText, displayTex, itemPlain } from '@/content/index.js';
@@ -83,6 +84,9 @@ function AiOffline() {
   );
 }
 
+/** The photo check's verdict lines: homework the app does not know, so "right" is about the final answer. */
+const PHOTO_FINAL = { ...FINAL, correct: 'התשובה הסופית נכונה.' };
+
 /**
  * The notebook photo check (trust spec TRUST-5 §4): the warning before the camera (once a session), then PhotoPrep with
  * no default cut, where the child can black out anything personal. Only the prepared picture is kept and sent.
@@ -140,25 +144,9 @@ function PhotoCheck() {
       <div ref={outRef} className="reveal-anchor" />
       {state.phase === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['קורא את כתב היד', 'בודק כל שלב', 'מסכם']} /></Box>}
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
-      {state.phase === 'done' && (
-        <Box tone="ai" title="בדיקת העוזר" live>
-          {!r.readable && <p>{r.care ? '' : 'קשה לקרוא את התמונה. '}{r.summary}</p>}
-          {r.readable && (
-            <>
-              <p className="check-final">{{ correct: 'התשובה הסופית נכונה.', wrong: 'יש טעות בדרך.', unfinished: 'הפתרון עוד לא גמור.', unknown: 'לא ברור מה התשובה הסופית.' }[r.final]}</p>
-              <ol className="check-steps">
-                {r.steps.map((st, i) => (
-                  <li key={i} className={st.ok ? 'ok' : 'bad'}>
-                    <span className="check-icon" aria-label={st.ok ? 'נכון' : 'טעות'}>{st.ok ? <Check size={16} /> : <X size={16} />}</span>
-                    <div><RichText>{st.text}</RichText>{st.comment && <RichText className="check-comment">{st.comment}</RichText>}</div>
-                  </li>
-                ))}
-              </ol>
-              <RichText>{r.summary}</RichText>
-            </>
-          )}
-        </Box>
-      )}
+      {/* the result the lesson's notebook check shows too (one component, the summary's maths drawn also when the page
+          could not be read, FOLLOWUP-26), in the assistant's own words */}
+      {state.phase === 'done' && <CheckResult r={r} title="בדיקת העוזר" unreadable="קשה לקרוא את התמונה." finals={PHOTO_FINAL} />}
       {state.phase === 'done' && <div className="ai-report-row"><ReportAnswer kind="check" reply={checkText(r)} /></div>}
       {state.phase === 'done' && r.care && <SupportCard variant="after-message" />}
     </div>

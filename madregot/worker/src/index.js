@@ -1093,7 +1093,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
   if (M === 'POST' && p === '/api/help') return askHelp(req, env, ctx, cors);
   // the student's side of a help request's thread (help.js)
-  if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/reply$/))) return studentReply(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/reply$/))) return studentReply(m[1], req, env, cors, ctx);
   if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/read$/))) return readHelp(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
   // the teacher's assignments, as the student sees them (assignments.js)

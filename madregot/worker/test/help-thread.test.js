@@ -1,7 +1,7 @@
 // Help both ways (spec TEACHER-6) against the in-memory D1: the teacher's reply and its limits, what the student sees in
 // GET /api/class/work and their answers, the contact guard both ways, the dashboard's threads, deleting a student and
 // the night purge, and the daily email with counts only. Claude and the email service are stubbed; every name and
-// address is synthetic (example.test). (TRUST-3's distress check on a student's reply is not in this lane's code yet.)
+// address is synthetic (example.test). (The distress check on a student's answer is in care.test.js, FOLLOWUP-9.)
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { hasContact, HELP, helpDigest } from '../src/help.js';

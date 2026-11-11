@@ -11,12 +11,18 @@
 //
 // helpThreads() feeds the dashboard's help rows and myHelp() the student's GET /api/class/work; helpDigest() is the
 // cron step at 16:00 in Jerusalem.
+//
+// A student's own words in an answer are read for distress (trust spec TRUST-3, the same check as askHelp's note in
+// index.js; FOLLOWUP-9) before any other rule, so the teacher's "כדאי לבדוק מה שלום התלמיד/ה" mark is set even when the
+// answer itself is then refused. The safety log keeps a count only, never the text.
 import { HttpError, json, body, nowIso, dayOf, hourOf, limitOrThrow } from './util.js';
 import { requireTeacher, requireStudent } from './entitle.js';
 import { requireAccount } from './account.js';
 import { teacherDetail, classSeenStmt } from './licence.js';
 import { cleanNote } from './assignments.js';
+import { recordSafety, eventNet } from './safety.js';
 import { hasContact } from '../../shared/contact.js';
+import { detectDistress } from '../../shared/safety.js';
 
 export const HELP = Object.freeze({
   /** Messages per side on one request. */
@@ -135,12 +141,27 @@ async function ownRequest(env, s, id) {
  * 'thanks' is "תודה, הבנתי"; 'still' is the text (or "עדיין לא ברור לי") and reopens a request the teacher closed. Only
  * after the teacher has written (409 no_reply_yet), at most 3 (409 reply_limit), 300 characters, no contact details,
  * 30 a day. The teacher's messages count as read. → 201 {message, status}.
+ * Before all of these, the student's own words (the body, with 'still' or alone; never the two fixed quick texts) are
+ * read for distress (FOLLOWUP-9): on a hit the request is marked help_meta.care = 1 and opened again if the teacher had
+ * closed it, so it stands on the teacher's board with "כדאי לבדוק מה שלום התלמיד/ה" even when the answer is then
+ * refused, and the safety log gets a count with no text. The surface is 'help_note', the child's own words to the
+ * teacher: safety_events.surface is a fixed CHECK list (migration 0004), and a new value would need the table rebuilt,
+ * which schema.test.js does not allow.
  */
-export async function studentReply(id, req, env, cors) {
+export async function studentReply(id, req, env, cors, ctx) {
   const s = await requireStudent(req, env);
   const b = await body(req, SMALL);
   const h = await ownRequest(env, s, id);
   const quick = b.quick == null ? null : String(b.quick);
+  const own = quick === 'thanks' || b.body == null ? '' : String(b.body);
+  const hit = detectDistress(own);
+  if (hit.flag) {
+    recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: 'regex' }, ctx, { net: eventNet(req, env) });
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO help_meta (help_id, kind, care) VALUES (?, 'help', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1").bind(h.id),
+      env.DB.prepare('UPDATE help_requests SET done_at = NULL WHERE id = ? AND student_id = ?').bind(h.id, s.id),
+    ]);
+  }
   if (quick && !QUICK[quick]) throw new HttpError(400, 'bad_reply');
   let text;
   if (quick === 'thanks') text = QUICK.thanks;

@@ -3,7 +3,7 @@
 // Tapping one opens its thread in a sheet (opening it marks the teacher's messages read). After a reply from the teacher
 // the student answers "תודה, הבנתי" or "עדיין לא ברור לי" (with a few words, 300 characters at most): an answer, never
 // a chat. `openId`: a request to open at once (the reply notice's "לקריאה").
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { MessageCircleQuestion, ChevronLeft, Check, HelpCircle } from 'lucide-react';
@@ -12,6 +12,8 @@ import { STATUS, STUDENT_MAX, SIDE_MAX, HELP_NOTICE, canAnswer, sideCount, openT
 import { dm } from '@/lib/workDates.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
+import SupportCard from '@/components/SupportCard.jsx';
+import { detectDistress } from '@shared/safety.js';
 
 const localDay = (iso) => new Date(iso).toLocaleDateString('en-CA');
 
@@ -31,15 +33,28 @@ function Thread({ h, teacherName, onClose }) {
   const [still, setStill] = useState(false);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  // an answer in the child's own words that reads as distress (trust spec TRUST-3, FOLLOWUP-9), read as the lesson's
+  // help sheet reads its note: { sent: true } shows the support card under the thread in place of the toast; { sent:
+  // false, why } shows it too, with why it did not go, and the words stay in the field to send again. The server reads
+  // the words again on its own and marks the request for the teacher.
+  const [care, setCare] = useState(null);
+  const careLine = useRef(null);
+  useEffect(() => { if (care) careLine.current?.scrollIntoView?.({ block: 'nearest' }); }, [care]);
   const full = sideCount(h, 'student') >= SIDE_MAX;
   const send = async (quick) => {
+    const words = quick === 'still' ? text.trim() : '';
+    const flagged = !!words && detectDistress(words).flag;
     setBusy(true);
     try {
-      await sendStudentReply(h, { quick, text: quick === 'still' ? text.trim() : '' });
-      toast.success('שלחנו למורה.');
+      await sendStudentReply(h, { quick, text: words });
       setStill(false); setText('');
+      if (flagged) { setCare({ sent: true }); return; }
+      setCare(null);
+      toast.success('שלחנו למורה.');
       if (quick === 'thanks') onClose();
-    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+    } catch (e) {
+      if (flagged) setCare({ sent: false, why: e.message }); else toast.error(e.message);
+    } finally { setBusy(false); }
   };
   return (
     <div className="mh-thread">
@@ -68,6 +83,14 @@ function Thread({ h, teacherName, onClose }) {
           <span id="mh-count" className="mh-count" aria-live="polite">{text.length}/{STUDENT_MAX}</span>
           <Button type="submit" className="btn-block" disabled={busy}>{busy ? 'שולחים…' : 'שליחה למורה'}</Button>
         </form>
+      )}
+      {/* under the field, so words that did not go stay right above it; its line is brought into view */}
+      {care && (
+        <div className="help-sent mh-care">
+          <p className="help-sent-line" role="status" ref={careLine}>{care.sent ? 'שלחנו למורה.' : care.why}</p>
+          {/* when it did not go, the card says nothing about the teacher seeing the words */}
+          <SupportCard variant={care.sent ? 'help-note' : 'opened'} />
+        </div>
       )}
       {full && <p className="mh-limit">על בקשה אחת אפשר לכתוב עד 3 פעמים. את השאר כדאי לשאול בכיתה.</p>}
     </div>

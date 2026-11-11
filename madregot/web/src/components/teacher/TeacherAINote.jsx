@@ -4,6 +4,7 @@
 // §E.8's school sentence also repeats "no names or grades"; right under the line that already says so, only its new
 // part is kept.
 import { ShieldCheck } from 'lucide-react';
+import { TEACHER_AI_RULE } from '@/content/aiSafety.js';
 
 export default function TeacherAINote({ setting }) {
   const school = setting !== 'private';
@@ -13,7 +14,7 @@ export default function TeacherAINote({ setting }) {
       <p className="t-ai-note-rule">
         <ShieldCheck size={18} aria-hidden="true" />
         <span>
-          לפי ההנחיות של משרד החינוך: בלי שמות של תלמידים, ציונים או פרטים מזהים.
+          {TEACHER_AI_RULE}
           {school && <> בכיתה לא מציגים את העוזר לתלמידים.</>}
         </span>
       </p>

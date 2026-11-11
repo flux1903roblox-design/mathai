@@ -114,6 +114,13 @@ async function shot(page, name) {
   mkdirSync(dir, { recursive: true });
   await page.screenshot({ path: `${dir}/${test.info().project.name}-${file}.png` });
 }
+/** A screen to look at with no baseline: written only to TEACHER_SHOTS. */
+async function look(page, name) {
+  const dir = process.env.TEACHER_SHOTS; if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  await page.evaluate(() => document.fonts.ready);
+  await page.screenshot({ path: `${dir}/${test.info().project.name}-teacher-${name}.png` });
+}
 
 /** The email code form, wherever it is (the page or a sheet). */
 async function signIn(scope, { email = EMAIL, shared = false } = {}) {
@@ -879,6 +886,39 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
     await open(page, '#/teacher/assistant', keyTeacher());
     await expect(note).toContainText('בלי שמות של תלמידים, ציונים או פרטים מזהים.');
     await expect(note).not.toContainText('בכיתה לא מציגים את העוזר לתלמידים.');
+  });
+
+  test('4a. FOLLOWUP-1: a teacher\'s first question meets the introduction written for teachers, and "הבנתי" sends it', async ({ page }) => {
+    test.skip(test.info().project.use.viewport.width > 800, 'one sheet, phone layouts');
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    const first = keyTeacher(); first.state.ai = { ...first.state.ai, introSeen: false };
+    await open(page, '#/teacher/assistant', first);
+    await page.getByLabel('ההודעה שלכם').fill('איך להסביר חיבור של מספר חיובי ומספר שלילי?');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    const intro = page.getByRole('dialog', { name: 'לפני שמתחילים: העוזר החכם למורים' });
+    await expect(intro).toBeVisible();
+    await expect(intro.locator('li')).toHaveText([
+      'העוזר החכם הוא תוכנת בינה מלאכותית (Claude של Anthropic), לא אדם. הוא יכול לטעות, אז כדאי לבדוק כל תרגיל והסבר לפני שמביאים אותו לכיתה.',
+      'מה שכותבים או מצלמים נשלח ל־Anthropic בארה״ב כדי לקבל תשובה. מדרגות לא שומרת את השיחות.',
+      'לפי ההנחיות של משרד החינוך: בלי שמות של תלמידים, ציונים או פרטים מזהים. גם לא מצלמים דף שכתוב עליו שם.',
+    ]);
+    // nothing written for a child: no "talk to someone", no "it does not solve for you"
+    await expect(intro).not.toContainText('צריכים לדבר עם מישהו?');
+    await expect(intro).not.toContainText('הוא לא פותר במקומכם');
+    await expect(intro.getByRole('link', { name: 'עוד על בטיחות ופרטיות' })).toHaveAttribute('href', /safety$/);
+    expect(log.filter((r) => r.path === '/api/ai/chat')).toHaveLength(0); // nothing goes before it is read
+    const ok = intro.getByRole('button', { name: 'הבנתי, אפשר להתחיל' });
+    expect((await ok.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await look(page, 'assistant-intro');
+    await ok.click();
+    await expect(intro).toHaveCount(0);
+    await expect(page.getByText('כדי לחבר מספרים עם סימנים שונים')).toBeVisible();
+    await expect.poll(() => log.filter((r) => r.path === '/api/ai/chat').length).toBe(1);
+    // once on this device: the next question goes at once
+    await page.getByLabel('ההודעה שלכם').fill('ועוד שאלה');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect.poll(() => log.filter((r) => r.path === '/api/ai/chat').length).toBe(2);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
   test('4b. TRUST-9: a class opened with a key alone has no adult behind it; the teacher signs in from the assistant and the class is bound', async ({ page }, info) => {
@@ -1961,6 +2001,47 @@ test.describe('TEACHER-6: help both ways', () => {
     await ask.getByRole('button', { name: 'שליחה למורה' }).click();
     await expect(page.getByText('הבקשה נשלחה למורה. התשובה תופיע במסך המשימות.')).toBeVisible();
     expect(replies(log, '/api/help').at(-1).body).toMatchObject({ topic: 'signed', level: 1, note: 'לא הבנתי את הסימן' });
+  });
+
+  test('4c. FOLLOWUP-9: an answer that reads as distress shows the people to talk to; one that did not go keeps its words', async ({ page }) => {
+    test.skip(test.info().project.use.viewport.width > 800, 'phone layouts');
+    const help = threads().filter((x) => x.studentId === 'a1');
+    help[0].messages = [m(31, 'teacher', 'כתבו לי איפה בדיוק נתקעתם')];
+    help[0].seen_at = '2026-11-05T07:20:00.000Z';
+    const { log } = await fakeServer(page, { help }, baseOf());
+    await open(page, '#/quests', inClass());
+    await page.getByRole('region', { name: 'הבקשות שלי למורה' }).locator('.mh-row').nth(0).click();
+    const sheet = page.getByRole('dialog', { name: 'הבקשה שלי' });
+    await sheet.getByRole('button', { name: 'עדיין לא ברור לי' }).click();
+    const field = sheet.getByLabel('מה עדיין לא ברור?');
+    // with a phone number in it the server refuses it: the card shows (and says nothing of the teacher reading it), why
+    // it did not go is said above it, and the words wait in the field
+    const words = 'לא הבנתי, וגם עושים לי חרם בכיתה. 050-1234567';
+    await field.fill(words);
+    await sheet.getByRole('button', { name: 'שליחה למורה' }).click();
+    const card = sheet.locator('.support-card');
+    await expect(card).toHaveAttribute('data-variant', 'opened');
+    await expect(sheet.locator('.help-sent-line')).toHaveText('בלי קישורים, מספרי טלפון או כתובות מייל בתשובה. כל השאר אפשר להמשיך בכיתה.');
+    await expect(sheet.locator('.help-sent-line')).toBeInViewport();
+    await expect(card.getByText('המורה יראה את מה שכתבתם בבקשה.')).toHaveCount(0);
+    await expect(field).toHaveValue(words);
+    await look(page, 'help-reply-care-failed');
+    // without the number it goes: the line says so in place of the toast, and the card says the teacher will read it
+    await field.fill('לא הבנתי, וגם עושים לי חרם בכיתה');
+    await sheet.getByRole('button', { name: 'שליחה למורה' }).click();
+    await expect(sheet.locator('.help-sent-line')).toHaveText('שלחנו למורה.');
+    await expect(sheet.locator('.help-sent-line')).toBeInViewport();
+    await expect(card).toHaveAttribute('data-variant', 'help-note');
+    await expect(card.getByText('המורה יראה את מה שכתבתם בבקשה.')).toBeVisible();
+    for (const l of await card.getByRole('link').all()) expect((await l.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await expect(page.getByText('שלחנו למורה.')).toHaveCount(1);
+    expect(replies(log, '/api/help/1/reply').at(-1).body).toEqual({ quick: 'still', body: 'לא הבנתי, וגם עושים לי חרם בכיתה' });
+    await expect(sheet.locator('.hb-text').last()).toHaveText('לא הבנתי, וגם עושים לי חרם בכיתה');
+    await look(page, 'help-reply-care-sent');
+    // opened again, the thread starts clean: the card was for that moment
+    await sheet.getByRole('button', { name: 'סגירה' }).click();
+    await page.getByRole('region', { name: 'הבקשות שלי למורה' }).locator('.mh-row').nth(0).click();
+    await expect(sheet.locator('.support-card')).toHaveCount(0);
   });
 });
 

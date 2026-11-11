@@ -510,3 +510,80 @@ test('removing a student removes the help_meta rows of their requests too', asyn
   assert.equal(rows(h.env, 'SELECT * FROM help_meta').length, 1, 'only איתי\'s talk request is left');
   assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM help_meta WHERE help_id NOT IN (SELECT id FROM help_requests)').n, 0, 'no orphans');
 });
+
+// ---------------------------------------------------------------- the student's answer to the teacher (FOLLOWUP-9)
+/** A help request of the student's, answered by the teacher: its id. */
+async function answered(cls, s, question) {
+  await h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'signed', level: 1, question, answer: '5', note: 'לא הבנתי' } });
+  const id = one(h.env, 'SELECT id FROM help_requests WHERE student_id = ? AND question = ?', s.studentId, question).id;
+  assert.equal((await h.call('POST', `/api/teacher/help/${id}/reply`, { headers: cls.teacher, body: { body: 'כתבו לי איפה נתקעתם' } })).status, 201);
+  return id;
+}
+const say = (s, id, body) => h.call('POST', `/api/help/${id}/reply`, { headers: bearer(s), body });
+const careOf = (id) => Number(one(h.env, 'SELECT COALESCE((SELECT care FROM help_meta WHERE help_id = ?), 0) AS care', id).care);
+
+test('an answer to the teacher that reads as distress marks the request for the teacher, with a count and no text in the log', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const [noa, itai] = cls.students;
+  const a = await answered(cls, noa, '3 - 8');
+  const b = await answered(cls, itai, '3 - 8');
+  // a plain answer, and the two fixed quick answers: nothing marked, nothing logged
+  assert.equal((await say(itai, b, { quick: 'still', body: 'לא הבנתי את השלב השני' })).status, 201);
+  assert.equal((await say(itai, b, { quick: 'still' })).status, 201);
+  assert.equal((await say(itai, b, { quick: 'thanks' })).status, 201);
+  assert.equal((await say(noa, a, { quick: 'thanks', body: 'אבא שלי מרביץ לי' })).status, 201, '"thanks" sends its own fixed words');
+  await h.ctx.flush();
+  assert.equal(careOf(b), 0); assert.equal(careOf(a), 0);
+  assert.deepEqual(events(), []);
+  // the child's own words read as distress: sent as written, and the request marked
+  const r = await say(noa, a, { quick: 'still', body: 'אבא שלי מרביץ לי' });
+  assert.equal(r.status, 201);
+  assert.equal((await r.json()).message.body, 'אבא שלי מרביץ לי', 'the words the child chose to send reach the teacher');
+  await h.ctx.flush();
+  assert.equal(careOf(a), 1);
+  const row = (await helpOf(cls)).find((x) => x.id === a);
+  assert.equal(row.care, 1, 'the teacher\'s board shows the mark');
+  assert.deepEqual(events(), [{ kind: 'distress', category: 'abuse', surface: 'help_note', source: 'regex', tier: '' }]);
+  assert.equal(careOf(b), 0, 'another student\'s request is not touched');
+});
+
+test('the mark reaches the teacher even when the answer itself is refused, and a closed request opens again', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const [noa] = cls.students;
+  // past the three answers on a request: 409 reply_limit, and still marked
+  const a = await answered(cls, noa, '3 - 8');
+  for (let i = 0; i < 3; i++) assert.equal((await say(noa, a, { quick: 'still', body: `שאלה ${i}` })).status, 201);
+  assert.equal(careOf(a), 0);
+  const limit = await say(noa, a, { quick: 'still', body: 'אני רוצה למות' });
+  assert.equal(limit.status, 409);
+  assert.equal((await limit.json()).error, 'reply_limit');
+  assert.equal(careOf(a), 1);
+  assert.equal(rows(h.env, "SELECT * FROM help_messages WHERE help_id = ? AND from_role = 'student'", a).length, 3, 'the refused answer is not kept');
+  // before the teacher wrote (409 no_reply_yet), and with a phone number (400 reply_has_contact): marked all the same
+  await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', level: 1, question: '-2 + 7', answer: '5' } });
+  const b = one(h.env, 'SELECT id FROM help_requests WHERE question = ?', '-2 + 7').id;
+  const early = await say(noa, b, { body: 'עושים לי חרם בכיתה' });
+  assert.equal(early.status, 409);
+  assert.equal(careOf(b), 1);
+  const c = await answered(cls, noa, '4 - 9');
+  const phone = await say(noa, c, { quick: 'still', body: 'אני רוצה למות, תתקשרי 050-1234567' });
+  assert.equal(phone.status, 400);
+  assert.equal((await phone.json()).error, 'reply_has_contact');
+  assert.equal(careOf(c), 1);
+  // a request the teacher closed opens again, so it is on the board with the mark (closed ones leave it after 7 days)
+  const d = await answered(cls, noa, '5 - 11');
+  await h.call('POST', `/api/teacher/help/${d}`, { headers: cls.teacher, body: { action: 'done' } });
+  await setCount(h.env, `helpreply:s:${noa.studentId}`, 30);
+  const slow = await say(noa, d, { quick: 'still', body: 'אני כל הזמן בוכה' });
+  assert.equal(slow.status, 429, 'past the 30 answers a day');
+  assert.equal(careOf(d), 1);
+  assert.equal(one(h.env, 'SELECT done_at FROM help_requests WHERE id = ?', d).done_at, null);
+  await h.ctx.flush();
+  assert.equal(events().length, 4);
+  for (const e of events()) assert.deepEqual(Object.keys(e), ['kind', 'category', 'surface', 'source', 'tier']);
+  // another student cannot mark a request that is not theirs
+  const other = await makeClass(h, { students: ['זר'] });
+  assert.equal((await say(other.students[0], d, { quick: 'still', body: 'אני רוצה למות' })).status, 404);
+});

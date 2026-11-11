@@ -83,7 +83,7 @@
       "personal": "pseudonymous",
       "about": ["student"],
       "fields": ["help_id", "kind", "care"],
-      "purpose": "What a help request is: a question about an exercise or a request to talk (with no text), and whether the note read as distress, so the teacher sees a line asking to check on the student.",
+      "purpose": "What a help request is: a question about an exercise or a request to talk (with no text), and whether the note or the student's answer on it read as distress, so the teacher sees a line asking to check on the student.",
       "retention": "With its help request.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
@@ -272,7 +272,7 @@
       "personal": "no",
       "about": ["none"],
       "fields": ["id", "day", "kind", "category", "surface", "source", "tier"],
-      "purpose": "Safety counts with no content (distress noticed, personal details masked, an answer blocked or reported, a photo cropped or blacked out): what happened, where, on which day. No person, device, class or text.",
+      "purpose": "Safety counts with no content (distress noticed, personal details masked, an answer blocked or reported, a photo cropped or blacked out): what happened, where (a help note counts the student's own words to the teacher: the note and the answers on it), on which day. No person, device, class or text.",
       "retention": "400 days (RETENTION.safetyEventsDays).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeSafetySql"]

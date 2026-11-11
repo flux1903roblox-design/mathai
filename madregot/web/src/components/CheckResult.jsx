@@ -2,7 +2,7 @@ import { Check, X, CircleDashed } from 'lucide-react';
 import { RichText } from './RichText.jsx';
 import { Box } from './ui.jsx';
 
-const FINAL = {
+export const FINAL = {
   correct: 'הדרך נכונה והתשובה נכונה.',
   wrong: 'יש טעות בדרך.',
   unfinished: 'הפתרון עוד לא גמור.',
@@ -16,14 +16,17 @@ const OPEN_LABEL = 'השורה עם התשובה הסופית נבדקת בתי�
 /**
  * The AI's step-by-step check of handwritten work. A withheld check (an exercise still open) says where the final answer
  * is checked instead of a verdict, and the line that states the final value has neither ✓ nor ✗ (ok: null) nor a comment.
+ * The lesson's notebook check and the assistant's photo check both show it; the assistant names its own box, its own
+ * "hard to read" and its own verdict lines (`title`, `unreadable`, `finals`).
  */
-export default function CheckResult({ r, title = 'בדיקת הדרך' }) {
+export default function CheckResult({ r, title = 'בדיקת הדרך', unreadable = 'קשה לקרוא את הכתב.', finals = FINAL }) {
   return (
     <Box tone="ai" title={title} live>
-      {/* a care result (the page worried the tutor) speaks for itself, without "hard to read" */}
-      {!r.readable ? <p>{!r.care && 'קשה לקרוא את הכתב. '}<RichText>{r.summary}</RichText></p> : (
+      {/* a care result (the page worried the tutor) speaks for itself, without "hard to read". A block, not a <p>: the
+          summary is a RichText, which is a <div> (FOLLOWUP-26) */}
+      {!r.readable ? <div className="check-unreadable">{!r.care && `${unreadable} `}<RichText>{r.summary}</RichText></div> : (
         <>
-          <p className="check-final">{r.withheld ? WITHHELD_LINE : FINAL[r.final] || ''}</p>
+          <p className="check-final">{r.withheld ? WITHHELD_LINE : finals[r.final] || ''}</p>
           <ol className="check-steps">
             {r.steps.map((st, i) => {
               const open = st.ok === null;
