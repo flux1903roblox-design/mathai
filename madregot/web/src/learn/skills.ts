@@ -26,6 +26,17 @@ export const isBridgeSkill = (id: SkillId) => BRIDGE.has(id.split(':')[0] as Top
 /** The bridge stairs, in order: the floor under every grade. */
 export const BRIDGE_SKILLS: SkillId[] = ALL_SKILLS.filter(isBridgeSkill);
 
+/**
+ * Guest stairs (stage5.md FUNC-6): a guest stair belongs to another grade's topic and is listed in this grade's
+ * programme (ח׳ 8.9 lists motion problems and equations with denominators; ז׳ 7.9 a graph that describes a situation).
+ * It is offered as new, in the month the grade's school teaches it, from the banner above the path: its unit stays on
+ * its own grade's map. It is never counted in the grade's own "X מתוך N", and never part of strongToday's "every stair
+ * of the grade". A stair is never both a guest and one of the grade's own (gradeSkillsOf); a grade's guest stairs are
+ * listed in the order they are offered (eq:7 after eq:6).
+ */
+export const GUEST: Record<'7' | '8', SkillId[]> = { '7': ['func:1'], '8': ['eq:6', 'eq:7'] };
+export const guestSkillsOf = (g: '7' | '8' | string): SkillId[] => GUEST[g as '7' | '8'] || [];
+
 /** What each stair uses. Comments say why, so the graph can be reviewed by a teacher. */
 export const PREREQS: Record<SkillId, SkillId[]> = {
   'frac:1': [], // a fraction is a place on the number line: equal parts of one unit

@@ -11,7 +11,8 @@
 //     prereq     otherwise the smallest missing prerequisite of a hard stair
 //   7 mastery    the stair in progress (its next stage, or its mastery check), then a kept stair's mastery check
 //     continue
-//   8 new        the next new stair: taught by now in the school calendar first, in school order
+//   8 new        the next new stair: taught by now in the school calendar first, in school order; a guest stair
+//                (skills.ts GUEST) after the grade's own in each half, and off the map (the home's banner)
 //   9 challenge  the first unsolved challenge task of a mastered stair (the most recently mastered first). When the
 //                student is strong today (their last 3 mastery checks passed on the first attempt, or every stair of
 //                the grade mastered) it moves up into band 5, right after the points lost in an exam: never above an
@@ -22,7 +23,7 @@
 // planNext is pure: the same context gives the same plan. It never reads the clock: `now`, `day` and the school `month`
 // come in the context (lib/useLearn.js useNext fills them).
 import type { Action, ActionKind, LearnEvent, MissionItem, RescueTask, SkillId, SkillRecord, Stage } from './types';
-import { ALL_SKILLS, BRIDGE_SKILLS, STAIRS, ancestorsOf, gradeSkillsOf, isBridgeSkill, parseSkill, prereqsOf, skillId } from './skills';
+import { ALL_SKILLS, BRIDGE_SKILLS, STAIRS, ancestorsOf, gradeSkillsOf, guestSkillsOf, isBridgeSkill, parseSkill, prereqsOf, skillId } from './skills';
 import { dueReviews, daysBetween, STATE_LABEL } from './mastery';
 import { openMisconceptions, canOffer } from './misconceptions';
 import { metaOf } from './content/index';
@@ -158,6 +159,16 @@ export const challengeReason = (after: SkillId) => `עברתם את בדיקת �
  */
 export const leansOn = (id: SkillId, what: string) => `המדרגה "${titleOf(id)}" נשענת על ${what}.`;
 
+/**
+ * Why a guest stair (skills.ts GUEST): it is part of the student's own grade's programme, and where it sits (its unit is
+ * on the other grade's map). Never "of כיתה ז׳": to a ח׳ student that reads as being sent back a year.
+ */
+export const GUEST_REASON: Record<SkillId, string> = {
+  'eq:6': 'שאלות תנועה הן חלק מהתוכנית של כיתה ח׳. המדרגה נמצאת ביחידת המשוואות.',
+  'eq:7': 'משוואות עם מכנים ופרופורציה הן חלק מהתוכנית של כיתה ח׳. המדרגה נמצאת ביחידת המשוואות.',
+  'func:1': 'קריאת גרף של מצב היא חלק מהתוכנית של כיתה ז׳. המדרגה נמצאת ביחידה "מבוא לפונקציות".',
+};
+
 /** Is a stair taught by now in the student's grade (the Ministry's school calendar)? */
 const taughtByNow = (ctx: NextContext, id: SkillId) => { const m = monthIndex(id, ctx.grade); return m != null && m <= ctx.month; };
 
@@ -172,9 +183,13 @@ export function planNext(ctx: NextContext): NextPlan {
     items.push({ ...a, source, rank: band * 100 + n });
   };
   const own = gradeSkillsOf(ctx.grade);
+  // another grade's stairs this grade's programme lists (skills.ts GUEST): new after the grade's own, and once started,
+  // continued and helped like them
+  const guest = guestSkillsOf(ctx.grade);
   // with the floor switched on, the bridge stairs come first; otherwise only one already in progress is continued
   const floorOn = !!ctx.learn.floor?.on;
   const gradeSkills = floorOn ? [...BRIDGE_SKILLS, ...own] : own;
+  const climbed = [...gradeSkills, ...guest];
   const restDay = isShabbatDay(ctx.day);
 
   // 2. an exam in the next two weeks: Exam Rescue's steps for today, in its order (teaching before checking)
@@ -220,7 +235,7 @@ export function planNext(ctx: NextContext): NextPlan {
   // 6. a stair that is hard right now: its smallest missing prerequisite, or, when nothing below it is known to be
   // missing but it leans on fractions and there is no floor evidence yet, the short floor check
   let floorOffered = false;
-  gradeSkills.forEach((id) => {
+  climbed.forEach((id) => {
     if (!struggling(ctx, id, st[id])) return;
     const p = smallestMissing(ctx, id, st);
     if (p) {
@@ -233,7 +248,7 @@ export function planNext(ctx: NextContext): NextPlan {
   });
 
   // 7. the stair in progress: the next stage of its journey (or the mastery check)
-  const inProgress = [...(floorOn ? [] : BRIDGE_SKILLS), ...gradeSkills].filter((id) => ['learning', 'practicing', 'needs-support'].includes(st[id]));
+  const inProgress = [...(floorOn ? [] : BRIDGE_SKILLS), ...climbed].filter((id) => ['learning', 'practicing', 'needs-support'].includes(st[id]));
   inProgress.forEach((id) => {
     const stage = stairStage(id, ctx.learn.skills[id]);
     if (stage === 'E') learnAdd(BAND.mastery, { kind: 'mastery', skill: id, stage, title: `בדיקת שליטה: ${titleOf(id)}`, reason: 'תרגלתם מספיק. חמש שאלות בלי רמזים יראו אם אתם שולטים בזה לבד.', minutes: MINUTES.mastery, to: routeOf.check(id, 'mastery') });
@@ -245,20 +260,33 @@ export function planNext(ctx: NextContext): NextPlan {
 
   // 8. the next new stair. A candidate is the first stair of its unit not started and not passed on the map (so the
   // engine never skips ahead inside a unit the map climbs in order), with its prerequisites in place. The bridge
-  // stairs come first while the floor is on; then stairs the school calendar has taught by now, in school order;
-  // then the rest, in the same order.
+  // stairs come first while the floor is on; then stairs the school calendar has taught by now, in school order, the
+  // grade's own and then its guest stairs; then the rest, in the same order. A guest stair is the first of its kind
+  // when the guest stairs listed before it are started (eq:7 after eq:6): the other grade's stairs below it in its unit
+  // (eq:1 to eq:5) are that grade's, so a ח׳ student is never sent to them first; its prerequisites are read as any
+  // stair's, and another grade's are missing only on evidence (recommend.ts isMissing).
   const fresh = (id: SkillId) => st[id] === 'not-started' && !onPath(ctx, id);
-  const firstOfUnit = (id: SkillId) => { const { topic, level } = parseSkill(id); for (let l = 1; l < level; l += 1) if (fresh(skillId(topic, l))) return false; return true; };
+  const isGuest = (id: SkillId) => guest.includes(id);
+  const firstOfUnit = (id: SkillId) => {
+    if (isGuest(id)) return guest.slice(0, guest.indexOf(id)).every((g) => !fresh(g));
+    const { topic, level } = parseSkill(id); for (let l = 1; l < level; l += 1) if (fresh(skillId(topic, l))) return false; return true;
+  };
   const ready = (id: SkillId) => fresh(id) && firstOfUnit(id) && prereqsOf(id).every((p) => !isMissing(ctx, p, st));
-  const candidates = [...(floorOn ? BRIDGE_SKILLS : []), ...own.filter((id) => taughtByNow(ctx, id)), ...own.filter((id) => !taughtByNow(ctx, id))];
+  const taught = (id: SkillId) => taughtByNow(ctx, id);
+  const candidates = [...(floorOn ? BRIDGE_SKILLS : []), ...own.filter(taught), ...guest.filter(taught), ...own.filter((id) => !taught(id)), ...guest.filter((id) => !taught(id))];
   const next = candidates.find((id) => ready(id) && !examStairs.has(id));
   if (next) {
     const sg = stairStage(next, ctx.learn.skills[next]);
-    // a bridge stair the student never touched is not named as something they have: it is only absent from the evidence
-    const have = prereqsOf(next).filter((p) => !isBridgeSkill(p) || st[p] !== 'not-started');
-    const why = have.length ? `מה שצריך בשבילה כבר אצלכם (${have.map(titleOf).join(', ')}).` : `המדרגה הבאה ב${topicTitleOf(next)}.`;
     const when = !isBridgeSkill(next) && taughtByNow(ctx, next) ? ` לפי תוכנית הלימודים, זה נלמד בכיתה ב${monthNameOf(monthIndex(next, ctx.grade)!)}.` : '';
-    learnAdd(BAND.new, { kind: 'new', skill: next, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(next)}`, reason: `מדרגה חדשה, שלב ${STAGE_N[sg]} מתוך 5. ${why}${when}`, minutes: STAGE_MIN[sg], to: routeOf.stage(next, sg) });
+    let reason: string;
+    if (isGuest(next)) reason = `${GUEST_REASON[next]}${when}`;
+    else {
+      // a bridge stair the student never touched is not named as something they have: it is only absent from the evidence
+      const have = prereqsOf(next).filter((p) => !isBridgeSkill(p) || st[p] !== 'not-started');
+      const why = have.length ? `מה שצריך בשבילה כבר אצלכם (${have.map(titleOf).join(', ')}).` : `המדרגה הבאה ב${topicTitleOf(next)}.`;
+      reason = `מדרגה חדשה, שלב ${STAGE_N[sg]} מתוך 5. ${why}${when}`;
+    }
+    learnAdd(BAND.new, { kind: 'new', skill: next, stage: sg, ...(isGuest(next) ? { guest: true } : {}), title: `${STAGE_NAME[sg]}: ${titleOf(next)}`, reason, minutes: STAGE_MIN[sg], to: routeOf.stage(next, sg) });
   }
 
   if (challenge && !strong) add(BAND.challenge, 'challenge', challenge);

@@ -1256,8 +1256,8 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 @media (prefers-reduced-motion: reduce) { .prog-entry:active { transform: none; } }
 /* the topics screen's floor (יסודות לחיזוק, CURRICULUM-3): the fractions unit's card, then rows of the same build as the
    programme row, each a name and one line, then the quiet way to take the unit off the map */
-.floor-section { display: flex; flex-direction: column; gap: var(--s3); }
-.floor-section > .h-section { margin: var(--s3) 0 0; }
+.floor-section, .guest-section { display: flex; flex-direction: column; gap: var(--s3); }
+.floor-section > .h-section, .guest-section > .h-section { margin: var(--s3) 0 0; }
 .floor-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
 .floor-row { font-weight: 400; }
 .floor-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -1743,6 +1743,8 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .next-banner-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .next-banner-title { margin: 0; font-family: var(--font-ui); font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
 .next-banner-meta { margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+/* a guest stair's reason (FUNC-6): where the stair sits, since its unit is not on this map */
+.next-banner-why { margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
 .node-card-next { color: var(--ink); font-weight: 600; }
 /* the map starts closer under it: the banner belongs to the path */
 .next-banner + .unit { margin-top: calc(var(--s4) * -1); }

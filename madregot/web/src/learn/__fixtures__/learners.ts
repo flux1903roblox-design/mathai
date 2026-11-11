@@ -2,8 +2,8 @@
 // way the app builds its state (a passed mastery check also marks the stair done on the map). No real student data.
 import type { LearnState, LearnEvent, SkillId, SkillRecord, MisconRecord } from '../types';
 import type { NextContext, CheckedExam } from '../next';
-import { gradeSkillsOf, parseSkill } from '../skills';
-import { schoolMonth } from '../programme';
+import { gradeSkillsOf, guestSkillsOf, parseSkill } from '../skills';
+import { schoolMonth, monthIndex } from '../programme';
 import { newPlan, recordDiagnostic } from '../examRescue';
 import { addDays } from '../mastery';
 
@@ -61,6 +61,18 @@ function rescue(date: string, diag: [SkillId, number][] | null, skills: SkillId[
   let plan = newPlan({ grade: '7', date, skills, confidence: 2, minutes: 15 }, `${day}T08:00:00.000Z`);
   (diag || []).forEach(([s, right]) => { plan = recordDiagnostic(plan, s, right, 2, `${day}T08:00:00.000Z`); });
   return plan;
+}
+
+/**
+ * A student of `grade` on `day` who has mastered every stair of their own grade the school calendar has taught by then
+ * (skills.ts gradeSkillsOf; no guest stair), except `but`. Mastered six days before, reviews far off, no mastery-check
+ * log (so not strong today unless every stair of the grade is mastered).
+ */
+export function taughtByNowDone(grade: '7' | '8', day: string, but: SkillId[] = []): NextContext {
+  const now = `${day}T09:00:00.000Z`;
+  const L = emptyLearn();
+  gradeSkillsOf(grade).filter((id) => (monthIndex(id, grade) ?? 99) <= schoolMonth(day) && !but.includes(id)).forEach((id) => { L.skills[id] = masteredRec(ago(6, now), 40, 3); });
+  return ctxOf(L, { grade, day });
 }
 
 export const LEARNERS: Record<string, () => NextContext> = {
@@ -144,12 +156,16 @@ export const LEARNERS: Record<string, () => NextContext> = {
     L.exam = plan;
     return ctxOf(L, { grade: '8', exams: [checkedExam(5, [['pct', 1, 'wrong'], ['ratio', 1, 'correct']])] });
   },
-  /** Every ז׳ stair mastered, no review due. */
+  /** Every ז׳ stair mastered, the guest stair of the grade too (func:1, skills.ts GUEST), no review due. */
   allSeventhMastered: () => {
     const L = emptyLearn();
-    gradeSkillsOf('7').forEach((id) => { L.skills[id] = masteredRec(ago(6), 20, 3); });
+    [...gradeSkillsOf('7'), ...guestSkillsOf('7')].forEach((id) => { L.skills[id] = masteredRec(ago(6), 20, 3); });
     return ctxOf(L);
   },
+  /** A ח׳ student in December (school month 3) with every own stair taught by now mastered: the guest eq:6 is next. */
+  eighthDecemberGuest: () => taughtByNowDone('8', '2026-12-08'),
+  /** A ז׳ student in May (school month 8) with every own stair taught by now mastered: the guest func:1 is next. */
+  seventhMayGuest: () => taughtByNowDone('7', '2027-05-11'),
   /** Two stairs kept from before mastery checks existed (done on the old map, never checked). */
   keptStairs: () => ctxOf(emptyLearn(), { path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } } }),
   /** A photo-checked exam five days ago lost points on coord:4 (a stair mastered before it). */

@@ -404,6 +404,8 @@ export interface Action {
   task?: RescueTask;
   /** A challenge: which task (its skill is the stair it follows), so the mission item is done only by that task. */
   challengeId?: string;
+  /** A new stair that is a guest of the student's grade (skills.ts GUEST): off the map, so its reason shows with it. */
+  guest?: boolean;
   title: Text; reason: Text; minutes: number;
   /** The route that starts it. */
   to: string;
