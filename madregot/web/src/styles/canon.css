@@ -447,6 +447,7 @@ a { color: var(--brand-d); }
 .parents-main { display: flex; flex-direction: column; gap: var(--s4); flex: 1; }
 .parents-card { display: flex; flex-direction: column; gap: var(--s3); }
 .parents-card p { margin: 0; }
+.store-parents-card { align-items: center; text-align: center; } /* a store app's parents' page (STUDENT-12) */
 .parents-card .card-title { margin: 0; }
 .parents-card.is-good { border-color: var(--good-line); background: var(--good-tint); }
 .parents-card.is-good .mascot, .parents-card.is-good svg.mascot { align-self: center; }

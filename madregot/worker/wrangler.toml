@@ -6,7 +6,8 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 # Comma-separated origins allowed to call the API from another address (local dev, or a copy of the
 # app hosted elsewhere). The app served by this Worker itself is same-origin and needs no entry.
-ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+# capacitor://localhost is the iPhone store app (STUDENT-12): its pages load from the phone and call this API.
+ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173,capacitor://localhost"
 # The address of the app (links, QR codes, payment return pages and emails use it), e.g. https://madregot.example
 PUBLIC_URL = ""
 

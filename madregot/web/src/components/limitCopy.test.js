@@ -67,3 +67,38 @@ describe('allowanceText: the quiet line about today', () => {
     expect(allowanceText({ state: 'free', left: 2, tier: 'free', ended: true })).toBe('העוזר החכם עובד עכשיו עם 2 שאלות ביום.');
   });
 });
+
+describe('in a store app (STUDENT-12): when the questions come back, and no way to the parents\' pages', () => {
+  const REASONS = ['daily_limit', 'shared_limit', 'free_paused', 'monthly_fair_use', 'paid_only'];
+  it('the day\'s limit says only that the questions come back tomorrow', () => {
+    for (const tier of ['free', 'family', 'class', null]) {
+      const v = limitVariant({ reason: 'daily_limit', tier, store: true });
+      expect(v.text).toEqual(['סיימתם את השאלות לעוזר החכם להיום. מחר יש עוד. השיעורים, התרגול ומדי פתוחים תמיד.']);
+      expect(v.actions).toEqual(['madi', 'practice']);
+      expect(v.parents).toBe(false);
+    }
+  });
+  it('no variant and no locked tool links to the parents, or names a price, a plan or the website', () => {
+    for (const reason of REASONS) {
+      for (const tier of ['free', 'family', null]) {
+        const v = limitVariant({ reason, tier, store: true });
+        expect(v.parents, reason).toBe(false);
+        expect(words(v)).not.toMatch(/₪|מנוי|תוכנית|באתר|לקנות|קנו|שדרגו/);
+      }
+    }
+    for (const kind of ['check', 'generate', 'exam']) {
+      for (const inClass of [false, true]) {
+        const t = lockedText(kind, { inClass, store: true });
+        expect(t.parents, kind).toBe(false);
+        expect(words(t)).not.toMatch(/₪|מנוי|באתר|לקנות/);
+      }
+    }
+  });
+  it('a teacher keeps the class licence (sold to schools by invoice)', () => {
+    expect(limitVariant({ reason: 'daily_limit', tier: 'free', role: 'teacher', store: true }).actions).toEqual(['licence']);
+  });
+  it('the web keeps its own words', () => {
+    expect(limitVariant({ reason: 'daily_limit', tier: 'free' }).parents).toBe(true);
+    expect(lockedText('check', {}).parents).toBe(true);
+  });
+});

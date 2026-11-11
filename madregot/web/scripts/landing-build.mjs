@@ -10,7 +10,8 @@
 // What fills the {{…}} slots, so the pages say what the app and the server really do:
 //   TOPICS_7, TOPICS_8   the grade's topic names (src/content topicsFor), GOAL_MINUTES the daily goals (lib/quests GOALS)
 //   PRICE_MONTH/_YEAR    LANDING_PRICE_MONTH_AGOROT / LANDING_PRICE_YEAR_AGOROT, else the Worker's
-//                        PRICE_FAMILY_*_AGOROT in worker/wrangler.toml, else lib/price.js LIST_PRICES (₪29.90, ₪249)
+//                        PRICE_FAMILY_*_AGOROT in worker/wrangler.toml, else lib/price.js LIST_PRICES (₪29.90, ₪249),
+//                        written by lib/price.js formatAgorot and vatLine (read through Vite, as the app's code)
 //   VAT_LINE             LANDING_VAT_MODE, else wrangler.toml VAT_MODE: 'כולל מע״מ' (or 'המחיר סופי' for an exempt dealer)
 //   PUBLIC_URL, CONTACT_EMAIL, BUSINESS_NAME   the build env, else wrangler.toml [vars] (the owner fills them once there)
 //   API_BASE             where count.js sends: API_BASE in the env, else from VITE_API_URL ('none' → none; unset or '/'
@@ -24,7 +25,6 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFi
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_NAME } from '../../shared/brand.js';
-import { LIST_PRICES, formatAgorot, vatLine } from '../src/lib/price.js';
 
 export const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const LANDING = join(WEB, 'landing');
@@ -81,9 +81,10 @@ const orList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(',
 
 /**
  * The values of the slots, from the build env, then wrangler.toml, then the defaults. `app` is appData() (topics,
- * goal minutes, Madi); `warn` collects what the owner has not filled in.
+ * goal minutes, Madi, lib/price.js); `warn` collects what the owner has not filled in.
  */
 export function landingVars(env, toml, app, tokens) {
+  const { LIST_PRICES, formatAgorot, vatLine } = app.price;
   const warn = [];
   const pick = (name) => String(env[name] ?? toml[name] ?? '').trim();
   let publicUrl = pick('PUBLIC_URL').replace(/\/+$/, '');
@@ -154,8 +155,9 @@ export function buildCount(src, api) {
 }
 
 /**
- * What the pages read from the app's own code, through Vite (the content is TypeScript behind the @ alias): the topic
- * names per grade, the daily goal minutes, and מדי drawn by the app's Mascot (one small, one large).
+ * What the pages read from the app's own code, through Vite (the content is TypeScript behind the @ alias, and
+ * lib/price.js reads the store mode): the topic names per grade, the daily goal minutes, מדי drawn by the app's Mascot
+ * (one small, one large), and the price helpers.
  */
 export async function appData() {
   const { createServer } = await import('vite');
@@ -167,6 +169,7 @@ export async function appData() {
     const content = await server.ssrLoadModule('/src/content/index.js');
     const { GOALS } = await server.ssrLoadModule('/src/lib/quests.js');
     const { default: Mascot } = await server.ssrLoadModule('/src/components/Mascot.jsx');
+    const { LIST_PRICES, formatAgorot, vatLine } = await server.ssrLoadModule('/src/lib/price.js');
     const { createElement } = await import('react');
     const { renderToStaticMarkup } = await import('react-dom/server');
     // React's generated ids («R0») become plain ones, distinct for the two drawings on a page
@@ -175,6 +178,7 @@ export async function appData() {
       topics: { 7: content.topicsFor('7').map((t) => t.title), 8: content.topicsFor('8').map((t) => t.title) },
       minutes: GOALS.map((g) => g.mins),
       madi: { small: madi('idle', 36, 's'), big: madi('happy', 96, 'b') },
+      price: { LIST_PRICES, formatAgorot, vatLine },
     };
   } finally {
     await server.close();

@@ -20,9 +20,17 @@ export function randomHex(bytes) {
   return [...crypto.getRandomValues(new Uint8Array(bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Does this build use a family plan at all? Not the iPhone store build (VITE_STORE=ios, STUDENT-12): Apple 3.1.3(b)/(c)
+ * lets an app unlock a consumer plan bought elsewhere only when the app also sells it by in-app purchase, which it does
+ * not. So that build never sends the family-device token and shows no family rows; the AI runs on the free daily taste
+ * or a class licence (sold to schools). VITE_STORE_FAMILY=1 turns it back on, for the day the owner adds in-app purchase.
+ */
+export const familyInApp = () => import.meta.env.VITE_STORE !== 'ios' || import.meta.env.VITE_STORE_FAMILY === '1';
+
 /** The headers of every tutor call from this device: its id, and its family-device token when it has one. */
 export function aiHeaders() {
-  const fd = useApp.getState().ai.familyDevice;
+  const fd = familyInApp() ? useApp.getState().ai.familyDevice : null;
   return { 'X-Device': deviceId(), ...(fd?.token ? { 'X-Family-Device': fd.token } : {}) };
 }
 
@@ -231,7 +239,7 @@ export async function pollLink() {
 export async function leaveFamily() {
   const { ai, setAI } = useApp.getState();
   const token = ai.familyDevice?.token;
-  if (token && hasServer()) {
+  if (token && hasServer() && familyInApp()) { // the iPhone store build never sends the token, not even to leave
     try { await api('/api/family/devices/leave', { method: 'POST', body: {}, headers: { 'X-Family-Device': token }, auth: false }); } catch { /* forgotten here either way */ }
   }
   setAI({ familyDevice: null, pendingLink: null });

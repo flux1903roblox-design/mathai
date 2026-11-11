@@ -12,7 +12,8 @@ import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
-import { useAIStatus, leaveFamily } from '@/lib/account.js';
+import { useAIStatus, leaveFamily, familyInApp } from '@/lib/account.js';
+import { canSell } from '@/lib/price.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 import { useInstall, isStoreApp, isStandalone } from '@/lib/install.js';
 import { count } from '@/lib/metrics.js';
@@ -163,6 +164,9 @@ export function AdvancedSettings() {
  * העוזר החכם: what the tutor is on this device and the ways a parent links or cancels. On the free taste: two
  * questions a day, with the rows for parents. On a linked device: the family plan, and unlinking. In a licensed class:
  * open for the class. With the paywall off or no server: as before.
+ * A store app (STUDENT-12) has no row that leads to buying or cancelling a plan: only "מידע להורים". A Play Store app
+ * already linked to a family plan keeps it (Play allows using a plan bought elsewhere) and can unlink; the iPhone build
+ * uses no family plan at all (familyInApp), so it shows neither the plan nor unlinking.
  */
 function AISection() {
   const { ai, profile } = useApp();
@@ -180,7 +184,8 @@ function AISection() {
   };
   const tier = status?.tier;
   const paid = served && status?.paywall === true && tier && tier !== 'open';
-  const linked = !!ai.familyDevice;
+  const sell = canSell();
+  const linked = familyInApp() && !!ai.familyDevice;
   const rows = [];
   let text;
   if (paid && linked && tier === 'family') {
@@ -193,10 +198,10 @@ function AISection() {
   } else if (paid) {
     text = `בכל יום אפשר לשאול את העוזר החכם ${status.groups?.tutor?.limit ?? 2} שאלות. מדי, השיעורים והתרגול פתוחים תמיד.`;
     if (linked) rows.push(<button key="unlink" type="button" className="set-row" onClick={() => setUnlink(true)}>ניתוק המכשיר מהמנוי</button>);
-    else rows.push(<Link key="link" to="/parents/info" className="set-row"><span>חיבור למנוי משפחתי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+    else if (sell) rows.push(<Link key="link" to="/parents/info" className="set-row"><span>חיבור למנוי משפחתי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
     rows.push(<Link key="info" to="/parents/info" className="set-row"><span>מידע להורים</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   }
-  if (paid) rows.push(<Link key="cancel" to="/cancel" className="set-row"><span>ביטול מנוי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+  if (paid && sell) rows.push(<Link key="cancel" to="/cancel" className="set-row"><span>ביטול מנוי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   if (!paid) {
     text = inClass ? `העוזר מחובר דרך הכיתה${profile.teacherName ? ` של ${profile.teacherName}` : ''}. אין צורך להגדיר כלום.`
       : served ? 'העוזר עובד דרך השרת של האפליקציה.'

@@ -35,8 +35,9 @@ createRoot(document.getElementById('root')).render(
   </StrictMode>,
 );
 
-// the offline service worker (production builds only; it waits for the page to finish loading)
-registerSW();
+// the offline service worker (production builds only; it waits for the page to finish loading). Not in the iPhone store
+// build (STUDENT-12): WKWebView runs no service worker on capacitor://, and the app's files are on the phone already.
+if (import.meta.env.VITE_STORE !== 'ios') registerSW();
 
 // the daily reminder (STUDENT-11): the first open of a day keeps it alive on the server (only while it is on)
 remindOnOpen();

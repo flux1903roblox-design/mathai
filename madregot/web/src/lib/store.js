@@ -67,7 +67,7 @@ const empty = {
   // the tutor on this device: the server (or a personal key, only in builds with VITE_ALLOW_PERSONAL_KEY=1), an anonymous
   // device id, the family-device token (AI only, never the parent's session), a link code waiting for a parent, and the
   // tier the server reported last (to say once that a plan ended)
-  ai: { mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null },
+  ai: { mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null, consentAt: '' /* the store build's AI permission (STUDENT-12), an ISO time */ },
   helpSent: 0,
   solveMode: 'answer', // 'answer' (keypad) or 'notebook' (write the working on a squared page)
   exams: [], // checked exams, newest first: { id, at, title, source, practiceId, result, score, levels }

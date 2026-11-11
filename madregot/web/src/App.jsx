@@ -9,6 +9,7 @@ import { qaActive } from '@/lib/qaFixtures.js';
 import { applyTheme } from '@/lib/theme.js';
 import { MadiLookProvider } from '@/lib/madiLook.js';
 import { deepLink } from '@/lib/deepLink.js';
+import { canSell } from '@/lib/price.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
@@ -29,6 +30,10 @@ const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
 const ParentHandoff = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.ParentHandoff })));
 const Legal = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Legal })));
+// a store app's parents' pages (STUDENT-12): how a parent lets the child ask the tutor, and nothing to buy
+const StoreParents = lazy(() => import('@/screens/parents/StoreParents.jsx'));
+// a store build asks before the first AI request (STUDENT-12, Apple 5.1.2(i)); the web build does not carry the sheet
+const AIConsentSheet = import.meta.env.VITE_STORE ? lazy(() => import('@/components/AIConsentSheet.jsx')) : null;
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
 const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
@@ -127,11 +132,13 @@ function StudentLook() {
 /** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
 function Root() {
   const role = useApp((s) => s.profile?.role);
+  const sell = canSell();
   useAIStatusBoot();
   return (
     <>
       <Toasts />
       {role && <LimitSheet />}
+      {role && AIConsentSheet && <Suspense fallback={null}><AIConsentSheet /></Suspense>}
       {role && <StatusWatch />}
       {role === 'student' && <LinkTarget />}
       {/* a new screen opens at the top; back restores where the student was */}
@@ -141,10 +148,14 @@ function Root() {
       <Routes>
         {/* the parents' area and the legal pages come first: they open from a QR code, a payment page or an email
             link on a device with no profile at all */}
-        <Route path="/parents" element={<Parents mode="home" />} />
-        <Route path="/parents/link" element={<Parents mode="link" />} />
-        <Route path="/parents/info" element={<ParentHandoff />} />
-        <Route path="/cancel" element={<Parents mode="cancel" />} />
+        {sell ? (
+          <>
+            <Route path="/parents" element={<Parents mode="home" />} />
+            <Route path="/parents/link" element={<Parents mode="link" />} />
+            <Route path="/parents/info" element={<ParentHandoff />} />
+            <Route path="/cancel" element={<Parents mode="cancel" />} />
+          </>
+        ) : ['/parents', '/parents/link', '/parents/info', '/cancel'].map((p) => <Route key={p} path={p} element={<StoreParents />} />)}
         <Route path="/terms" element={<Legal doc="terms" />} />
         <Route path="/privacy" element={<Legal doc="privacy" />} />
         <Route path="/accessibility" element={<Legal doc="accessibility" />} />

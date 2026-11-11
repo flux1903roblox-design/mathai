@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { topicsFor } from '@/content/index.js';
 import { GOALS } from '@/lib/quests.js';
-import { LIST_PRICES, formatAgorot } from '@/lib/price.js';
+import { LIST_PRICES, formatAgorot, vatLine } from '@/lib/price.js';
 import { APP_NAME } from '../../shared/brand.js';
 import { WEB, IMAGES, buildLanding, imageSize, wranglerVars } from './landing-build.mjs';
 
@@ -150,7 +150,7 @@ describe('landing-build', () => {
     expect(read(dist, 'l/count.js')).toContain('var A="https://api.example.test"');
     const other = fakeDist();
     try {
-      const app = { topics: { 7: ['א'], 8: ['ב'] }, minutes: [5, 10], madi: { small: '<svg></svg>', big: '<svg></svg>' } };
+      const app = { topics: { 7: ['א'], 8: ['ב'] }, minutes: [5, 10], madi: { small: '<svg></svg>', big: '<svg></svg>' }, price: { LIST_PRICES, formatAgorot, vatLine } };
       const { warn } = await buildLanding(other, { env: { VITE_API_URL: 'none', PUBLIC_URL: '', CONTACT_EMAIL: '', BUSINESS_NAME: '' }, app });
       expect(read(other, 'l/count.js')).toContain('var A="none"');
       // without the owner's values the parts that need them are left out, and the build says so

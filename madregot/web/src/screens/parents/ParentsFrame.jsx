@@ -3,6 +3,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
+import { canSell } from '@/lib/price.js';
 
 /** Back only where there is somewhere in the app to go back to: a profile on this device, or a page before this one. */
 function useBack() {
@@ -17,9 +18,9 @@ export function ParentsFooter({ business }) {
   const b = business || {};
   const details = [b.name && b.id ? `${b.name}, ${b.id}` : b.name, b.address].filter(Boolean).join(', ');
   return (
-    <footer className="parents-foot" aria-label="ביטול מנוי ומידע משפטי">
+    <footer className="parents-foot" aria-label={canSell() ? 'ביטול מנוי ומידע משפטי' : 'מידע משפטי'}>
       <nav className="parents-foot-links" aria-label="קישורים">
-        <Link to="/cancel">ביטול מנוי</Link>
+        {canSell() && <Link to="/cancel">ביטול מנוי</Link>}
         <Link to="/terms">תקנון</Link>
         <Link to="/privacy">פרטיות</Link>
         <Link to="/accessibility">הצהרת נגישות</Link>

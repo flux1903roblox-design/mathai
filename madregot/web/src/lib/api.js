@@ -28,6 +28,7 @@ const MESSAGES = {
   need_device: 'צריך לרענן את האפליקציה כדי להמשיך.',
   paid_only: 'את הפעולה הזו עושה העוזר החכם המלא.',
   daily_limit: 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.',
+  no_consent: 'בסדר. אפשר לשאול את העוזר החכם בפעם אחרת.', // a store build's permission sheet: "לא עכשיו" (lib/aiConsent.js)
   // sign-in and the parent's account
   bad_email: 'כתובת המייל לא נראית תקינה. בדקו אותה ונסו שוב.',
   bad_code: 'הקוד צריך להיות 6 ספרות.',

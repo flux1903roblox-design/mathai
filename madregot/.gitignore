@@ -2,6 +2,7 @@ node_modules/
 dist/
 .impeccable/refs/
 web/dist-test/
+web/dist-ios-test/
 web/test-results/
 web/playwright-report/
 .impeccable/review/

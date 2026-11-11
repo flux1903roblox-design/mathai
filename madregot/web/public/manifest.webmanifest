@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "מדרגות",
-  "short_name": "מדרגות",
+  "name": "%APP_NAME%",
+  "short_name": "%APP_NAME%",
   "description": "תרגול מתמטיקה יומי לכיתות ז׳ וח׳, בעברית.",
   "lang": "he",
   "dir": "rtl",

@@ -2,12 +2,14 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import serviceWorker from './scripts/vite-plugin-sw.mjs';
+import brand from './scripts/vite-plugin-brand.mjs';
 
 // BASE_PATH lets the same build live at a GitHub Pages sub-path, e.g. /madregot/.
 export default defineConfig({
   base: process.env.BASE_PATH || '/',
   // serviceWorker: dist/sw.js with the list of files kept for offline use (DURABLE-10)
-  plugins: [react(), serviceWorker()],
+  // brand: the product's name from shared/brand.js in index.html and the web manifest (STUDENT-12)
+  plugins: [react(), brand(), serviceWorker()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -29,5 +31,5 @@ export default defineConfig({
     },
   },
   // Unit tests only; the browser tests in e2e/ run with Playwright (npm run test:e2e).
-  test: { environment: 'node', exclude: ['**/node_modules/**', 'e2e/**', 'dist-test/**'] },
+  test: { environment: 'node', exclude: ['**/node_modules/**', 'e2e/**', 'dist-test/**', 'dist-ios-test/**'] },
 });

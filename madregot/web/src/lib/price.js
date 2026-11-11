@@ -1,5 +1,14 @@
 // Prices as the parents page shows them: integer agorot from the server, written as shekels. A whole amount has no
 // decimals (₪249); any other has two (₪29.90). Only the parents' pages use this: no child screen shows a price.
+import { isStoreApp } from './install.js';
+
+/**
+ * May this copy of the app show a price, a plan, a buy button or a way to the parents' purchase pages? Not in a store
+ * app (STUDENT-12): the Play Store app (a TWA) and the iPhone build sell nothing, so Play Billing and Apple 3.1.1 never
+ * apply. Families buy on the website. Every such place checks it: limitCopy/LimitSheet, ToolLocked, Settings, the hello
+ * screen, the teacher's licence card, and the /parents, /parents/link, /parents/info and /cancel routes.
+ */
+export const canSell = () => !isStoreApp();
 
 /**
  * The family plan's list prices in agorot, VAT included: the owner's decided ₪29.90 a month and ₪249 a year. They are

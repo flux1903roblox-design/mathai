@@ -6,6 +6,7 @@ import { useApp } from './store.js';
 import { apiBase, ApiError, errorText } from './api.js';
 import { aiHeaders, aiMode, aiReady, noteUsage, noteLimit, openLimitSheet, LIMIT_ERRORS, useAIStatus } from './account.js';
 import { qaActive, qaReply } from './qaFixtures.js';
+import { needsConsent, askConsent } from './aiConsent.js';
 
 export { aiMode, aiReady };
 
@@ -47,6 +48,9 @@ function limited(kind, data, status, onMadi) {
 export async function runAI(kind, input, { onText, signal, onMadi } = {}) {
   const mode = aiMode();
   if (mode === 'none') throw new ApiError('no_server');
+  // a store build asks before the first request on this device (STUDENT-12): "לא עכשיו" sends nothing, and the screen
+  // goes quietly back to where it was (callers treat .limit as "already said")
+  if (needsConsent() && !(await askConsent())) throw Object.assign(new ApiError('no_consent'), { limit: true });
 
   if (qaActive()) {
     try {

@@ -16,6 +16,7 @@ import { KNOW, placementMax } from '@/lib/placement.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
 import { deepLink, countFromLanding } from '@/lib/deepLink.js';
+import { canSell } from '@/lib/price.js';
 
 /** The grade's topics in one short line: up to three names, then how many more (it stays on two lines at 320px). */
 const topicLine = (g) => { const ts = topicsFor(g).map((t) => t.title); return ts.length <= 3 ? ts.join(', ') : `${ts.slice(0, 3).join(', ')} ועוד ${ts.length - 3}`; };
@@ -99,7 +100,8 @@ function Onboarding({ onTeacher, next = null }) {
   const status = useAIStatus((x) => x.status);
   useEffect(() => { if (server && !useAIStatus.getState().status) refreshStatus(); }, [server]);
   const parentHere = (() => { try { return !!(localStorage.getItem(`${STORE_KEY}-parent`) || sessionStorage.getItem(`${STORE_KEY}-parent`)); } catch { return false; } })();
-  const billing = server && (status?.paywall === true || parentHere);
+  // a store app sells nothing, so its first screen has no way to the parents' or the cancel page (STUDENT-12)
+  const billing = server && canSell() && (status?.paywall === true || parentHere);
 
   const go = async () => {
     if (step === 'name' && !f.name.trim()) { setError('כתבו את השם שלכם.'); return; }

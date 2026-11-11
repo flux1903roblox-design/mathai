@@ -4,6 +4,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/lib/store.js';
 import { useLimitSheet, closeLimitSheet } from '@/lib/account.js';
+import { canSell } from '@/lib/price.js';
 import { limitVariant } from './limitCopy.js';
 import { Button, Sheet } from './ui.jsx';
 import Mascot from './Mascot.jsx';
@@ -14,7 +15,8 @@ export default function LimitSheet() {
   const { open, reason, tier, scope, onMadi } = useLimitSheet();
   const role = useApp((s) => s.profile?.role);
   const navigate = useNavigate();
-  const v = limitVariant({ reason, tier, scope, role });
+  // a store app sells nothing: the store's words, and no way to the parents' pages (STUDENT-12)
+  const v = limitVariant({ reason, tier, scope, role, store: !canSell() });
   const go = (to, state) => { closeLimitSheet(); navigate(to, state ? { state } : undefined); };
   // Where practice is (a lesson, a check, a teaching stage): read when the sheet opens or is tapped, not subscribed,
   // so the sheet does not re-render on every navigation.

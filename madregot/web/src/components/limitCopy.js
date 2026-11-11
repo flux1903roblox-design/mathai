@@ -1,8 +1,20 @@
 // The words of the tutor's limits, in one place so a test can read every one of them. They speak to a child calmly:
 // no price, no plan, no buy button, no countdown, no lock. Madi and practice are always the way on.
+// In a store app (store: !canSell(), STUDENT-12) no variant has a way to the parents' pages, and the day's limit says
+// only when the questions come back: nothing that points to a plan or to buying anything.
+
+/** The free questions are over for today, in a store app. */
+export const STORE_DAILY_TEXT = 'סיימתם את השאלות לעוזר החכם להיום. מחר יש עוד. השיעורים, התרגול ומדי פתוחים תמיד.';
 
 /** What the sheet says when the tutor says "not now". actions: 'madi' | 'practice' | 'licence'; parents: a small link. */
-export function limitVariant({ reason, tier = null, scope = null, role = 'student' } = {}) {
+export function limitVariant({ reason, tier = null, scope = null, role = 'student', store = false } = {}) {
+  const v = variant({ reason, tier, scope, role });
+  if (!store) return v;
+  if (reason === 'daily_limit' && role !== 'teacher') return { title: 'העוזר החכם חוזר מחר', text: [STORE_DAILY_TEXT], actions: ['madi', 'practice'], parents: false };
+  return { ...v, parents: false };
+}
+
+function variant({ reason, tier, scope, role }) {
   const free = tier === 'free';
   const teacher = role === 'teacher';
   if (reason === 'daily_limit' && free && teacher) {
@@ -64,8 +76,13 @@ export function allowanceText({ state, left, tier, ended = false }) {
   return `נשארו היום ${left} שאלות לעוזר החכם.`;
 }
 
-/** What a tool says instead of opening the camera (ToolLocked). */
-export function lockedText(kind, { state = 'locked', inClass = false } = {}) {
+/** What a tool says instead of opening the camera (ToolLocked). In a store app (store: true) there is no parents' link. */
+export function lockedText(kind, { state = 'locked', inClass = false, store = false } = {}) {
+  const t = lockedLines(kind, { state, inClass });
+  return store ? { ...t, parents: false } : t;
+}
+
+function lockedLines(kind, { state, inClass }) {
   if (state === 'economy') return { lines: ['הבדיקה הזו חוזרת ב־1 בחודש.'], teacher: false, parents: false };
   if (kind === 'check') {
     return inClass
