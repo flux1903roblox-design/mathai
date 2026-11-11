@@ -1921,18 +1921,18 @@
  },
  "signed:3": {
   "items": [
-   "mastery0:sn3:-11 \\cdot 9|-99|gen",
-   "mastery1:sn3:2 : (-2)|-1|gen",
+   "mastery0:sn3:-20 : 4|-5|gen",
+   "mastery1:sn3:18 : (-6)|-3|gen",
    "mastery2:signed:3:diag:{\"f\":1,\"a\":-48,\"b\":6,\"c\":1}|-8|diag",
-   "mastery3:sn3:-9 \\cdot 5|-45|gen",
+   "mastery3:sn3:-40 : (-4)|10|gen",
    "mastery4:signed:3:transfer:{\"k\":2,\"r\":6,\"t\":5}|-6|transfer",
    "review0:signed:3:transfer:{\"k\":0,\"r\":3,\"t\":4}|-12|transfer",
-   "review1:sn3:18 : (-6)|-3|gen",
+   "review1:sn3:42 : (-6)|-7|gen",
    "review2:signed:3:diag:{\"f\":1,\"a\":-48,\"b\":6,\"c\":1}|-8|diag",
    "verify0:signed:3:probe:{\"f\":0,\"a\":5,\"b\":-6,\"c\":1}|-30|probe",
    "verify1:signed:3:probe:{\"f\":0,\"a\":-10,\"b\":6,\"c\":1}|-60|probe",
    "verify2:signed:3:diag:{\"f\":1,\"a\":27,\"b\":-3,\"c\":1}|-9|diag",
-   "gen:sn3:1 \\cdot (-4)|-4|gen",
+   "gen:sn3:1 \\cdot 5|5|gen",
    "diag:signed:3:diag:{\"f\":1,\"a\":-42,\"b\":6,\"c\":1}|-7|diag",
    "transfer:signed:3:transfer:{\"k\":1,\"r\":4,\"t\":5}|20|transfer"
   ],
@@ -1995,19 +1995,19 @@
  },
  "signed:5": {
   "items": [
-   "mastery0:sn5:-10 - (-7 - 8) \\cdot 2|20|gen",
-   "mastery1:sn5:-2 - (-1 - (-4)) \\cdot 2|-8|gen",
-   "mastery2:signed:5:diag:{\"f\":0,\"a\":7,\"b\":-6,\"c\":5,\"s\":1,\"o\":-1,\"d\":1}|8|diag",
-   "mastery3:sn5:-5 - (-6 - 4) \\cdot (-3)|-35|gen",
+   "mastery0:sn5:-9 - (8 - 3) \\cdot (-1)|-4|gen",
+   "mastery1:sn5:-5 - (1 - 4) \\cdot (-2)|-11|gen",
+   "mastery2:signed:5:diag:{\"f\":2,\"a\":-5,\"b\":13,\"c\":9,\"d\":7,\"s\":1,\"o\":-1}|-55|diag",
+   "mastery3:sn5:6 - (-5 - (-2)) \\cdot (-2)|0|gen",
    "mastery4:signed:5:transfer:{\"k\":1,\"a\":-3,\"b\":9,\"c\":7,\"n\":3}|3|transfer",
    "review0:signed:5:transfer:{\"k\":1,\"a\":-6,\"b\":6,\"c\":2,\"n\":2}|2|transfer",
-   "review1:sn5:-3 - (-4 - 1) \\cdot (-2)|-13|gen",
-   "review2:signed:5:diag:{\"f\":0,\"a\":7,\"b\":-6,\"c\":5,\"s\":1,\"o\":-1,\"d\":1}|8|diag",
-   "verify0:signed:5:probe:{\"f\":0,\"a\":1,\"b\":-4,\"c\":5,\"s\":1,\"o\":-1,\"d\":1}|0|probe",
-   "verify1:signed:5:probe:{\"f\":0,\"a\":-2,\"b\":5,\"c\":5,\"s\":1,\"o\":-1,\"d\":1}|-12|probe",
-   "verify2:signed:5:control:{\"f\":1,\"a\":2,\"b\":4,\"c\":7,\"s\":-1,\"o\":-1,\"d\":-4}|-10|control",
-   "gen:sn5:10 - (-4 - 6) \\cdot (-3)|-20|gen",
-   "diag:signed:5:diag:{\"f\":1,\"a\":7,\"b\":1,\"c\":5,\"s\":1,\"o\":-1,\"d\":-4}|31|diag",
+   "review1:sn5:-4 - (8 - (-4)) \\cdot 3|-40|gen",
+   "review2:signed:5:diag:{\"f\":2,\"a\":-5,\"b\":13,\"c\":9,\"d\":7,\"s\":1,\"o\":-1}|-55|diag",
+   "verify0:signed:5:probe:{\"f\":2,\"a\":-2,\"b\":13,\"c\":2,\"d\":9,\"s\":1,\"o\":-1}|-40|probe",
+   "verify1:signed:5:probe:{\"f\":2,\"a\":-4,\"b\":15,\"c\":4,\"d\":7,\"s\":1,\"o\":-1}|-72|probe",
+   "verify2:signed:5:control:{\"f\":3,\"e\":32,\"a\":3,\"b\":-8,\"c\":8,\"d\":3,\"g\":-3,\"s\":1,\"o\":-1}|11|control",
+   "gen:sn5:-7 - (-6 - (-4)) \\cdot 2|-3|gen",
+   "diag:signed:5:diag:{\"f\":1,\"a\":1,\"b\":2,\"c\":5,\"s\":1,\"o\":-1,\"d\":4}|-27|diag",
    "transfer:signed:5:transfer:{\"k\":1,\"a\":8,\"b\":5,\"c\":6,\"n\":5}|3|transfer"
   ],
   "plans": {
@@ -2024,9 +2024,9 @@
     "signed:5/diag/"
    ],
    "verify": [
-    "signed:5/probe/minus-bracket",
-    "signed:5/probe/minus-bracket",
-    "signed:5/control/minus-bracket"
+    "signed:5/probe/factor-sign",
+    "signed:5/probe/factor-sign",
+    "signed:5/control/factor-sign"
    ]
   }
  },

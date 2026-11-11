@@ -7,7 +7,7 @@
 // a slip of it (learn/misconceptions.ts slipOf), no two mistakes predict one value, and the answer is never a number
 // printed in the question. The numbers are checked by the lane's verify script (spec_check.mjs, section C).
 import { S, T } from './util.js';
-import { slipOf } from '@/learn/misconceptions.ts';
+import { slipOf, matchesValue } from '@/learn/misconceptions.ts';
 
 const rint = (r, a, b) => a + Math.floor(r() * (b - a + 1));
 const rnz = (r, a, b) => { let v; do { v = rint(r, a, b); } while (v === 0); return v; };
@@ -222,5 +222,167 @@ export function absMc(r) {
     hint: `הערך המוחלט הוא המרחק מאפס. כמה מספרים נמצאים ${n} צעדים מאפס?`,
     solution: [`גם $${n}$ וגם $${-n}$ נמצאים ${n} צעדים מאפס, משני צדדיו.`, `$${abs(n)} = ${abs(-n)} = ${n}$`],
     diag: () => null,
+  };
+}
+
+// ---------------------------------------------------------------- dividing with 0 and 1 (CLASSROOM-3)
+
+/**
+ * signed:3, a practice-only choice among four (key sn3z:k:a): k 0 is 0 : a, k 1 a : 0, k 2 a : 1, k 3 a : (−1), with a
+ * in ±2..12; the choices are 0, a, −a and "לא מוגדר". A guesser gets one in four, so it never counts in a check.
+ */
+export function zeroOne(r) {
+  const k = rint(r, 0, 3); const a = (r() < 0.5 ? -1 : 1) * rint(r, 2, 12);
+  const display = [`0 : ${T(a, true)}`, `${T(a, true)} : 0`, `${T(a, true)} : 1`, `${T(a, true)} : (-1)`][k];
+  const choices = mix([{ tex: '0', v: '0' }, { tex: T(a), v: 'a' }, { tex: T(-a), v: '-a' }, { text: 'לא מוגדר', v: 'none' }], r);
+  const right = ['0', 'none', 'a', '-a'][k];
+  const solution = [
+    [`בודקים בכפל: $0 \\cdot ${T(a, true)} = 0$.`, `לכן $0 : ${T(a, true)} = 0$.`],
+    [`בודקים בכפל: איזה מספר כפול $0$ נותן $${T(a)}$? כל מספר כפול $0$ נותן $0$.`, 'אין מספר כזה, ולכן חילוק באפס לא מוגדר.'],
+    [`חילוק ב־$1$ לא משנה את המספר: $${T(a, true)} : 1 = ${T(a)}$.`, `בדיקה: $${T(a, true)} \\cdot 1 = ${T(a)}$.`],
+    [`חילוק ב־$-1$ הופך את הסימן: $${T(a, true)} : (-1) = ${T(-a)}$.`, `בדיקה: $${T(-a, true)} \\cdot (-1) = ${T(a)}$.`],
+  ][k];
+  return {
+    key: `sn3z:${k}:${a}`, text: 'מה התוצאה?', display, form: 'mc',
+    choices: choices.map(({ tex, text }) => (tex != null ? { tex } : { text })), answer: choices.findIndex((c) => c.v === right), practiceOnly: true,
+    hint: 'בודקים בכפל: איזה מספר, כפול המספר שמחלקים בו, נותן את המספר שמחלקים?',
+    solution,
+    diag: (u) => {
+      const v = choices[u]?.v;
+      // a : 0 taken as 0 or as a itself; 0 : a taken as undefined
+      if (k === 1 && (v === '0' || v === 'a')) return 'div-zero';
+      if (k === 0 && v === 'none') return 'zero-div';
+      return null;
+    },
+  };
+}
+
+// ---------------------------------------------------------------- brackets inside brackets (CLASSROOM-4)
+// The three shapes of the class's exercise 129, outer [ ] and inner ( ):
+//   n 1  a[b − (c − d)]           a in ±2..5 (negative 70% of the time), b in 4..15, c ≠ d in 1..9, b ≠ c, c − d < 0 70%
+//   n 2  e − a[b − (c − d)·g]     e in 10..40, a in 2..5, b in ±1..9, c ≠ d in 1..9, g in ±1..3
+//   n 3  e : [p + g·(h − i)]      p in ±2..9, g in 2..5, h ≠ i in 1..9, the bracket v with 2 ≤ |v| ≤ 10, the answer q in
+//                                 ±2..9 with the sign of v and q ≠ v, e = v·q
+// nestedItem draws n 3 15% of the time and n 1 and n 2 the rest 60 : 40.
+
+/** The numbers a question prints, read as a guesser reads them (learn/guessing.test.ts printed): "2 - 7" gives 2, −7. */
+export const shownIn = (tex) => (String(tex).replace(/\\(qquad|quad|[,;:! ])/g, ' ').replace(/\\[a-zA-Z]+/g, ' ').replace(/−/g, '-')
+  .replace(/-\s+(?=\d)/g, '-').match(/-?\d+(\.\d+)?/g) || []).map(Number);
+
+export function nestedValue(q) {
+  if (q.n === 1) return q.a * (q.b - (q.c - q.d));
+  if (q.n === 2) return q.e - q.a * (q.b - (q.c - q.d) * q.g);
+  return q.e / (q.p + q.g * (q.h - q.i));
+}
+export function nestedBugs(q) {
+  const ans = nestedValue(q);
+  if (q.n === 1) {
+    return {
+      // the factor's minus lost at the end: −2[16] written 2·16 (the notebook's 129א)
+      'factor-sign': q.a < 0 ? -ans : null,
+      // the inner double minus read as a minus: b − (c − d) with c − d < 0 taken as b + (c − d)
+      'minus-minus': q.c - q.d < 0 ? q.a * (q.b + (q.c - q.d)) : null,
+      // the minus before the inner brackets turned only their first number
+      'minus-bracket': q.a * (q.b - q.c - q.d),
+      // the outer brackets ignored: the factor takes only b
+      'ignore-brackets': q.a * q.b - (q.c - q.d),
+    };
+  }
+  if (q.n === 2) {
+    const inner = (q.c - q.d) * q.g;
+    return {
+      // a negative product subtracted as if positive, inside the outer brackets (the notebook's 129ד)
+      'minus-minus': inner < 0 ? q.e - q.a * (q.b + inner) : null,
+      // left to right: e − a first, then times the bracket
+      order: (q.e - q.a) * (q.b - inner),
+      // the outer brackets ignored: a times b only
+      'ignore-brackets': q.e - q.a * q.b - inner,
+    };
+  }
+  const o = (q.p + q.g) * (q.h - q.i);
+  return {
+    // inside the bracket left to right: (p + g)·(h − i)
+    order: o ? q.e / o : null,
+    // the outer bracket ignored: e : p, then + g·(h − i)
+    'ignore-brackets': q.e / q.p + q.g * (q.h - q.i),
+  };
+}
+export function nestedTex(q) {
+  if (q.n === 1) return `${T(q.a)}[${q.b} - (${q.c} - ${q.d})]`;
+  if (q.n === 2) return `${q.e} - ${q.a}[${T(q.b)} - (${q.c} - ${q.d}) \\cdot ${T(q.g, true)}]`;
+  return `${q.e} : [${T(q.p)} + ${q.g} \\cdot (${q.h} - ${q.i})]`;
+}
+const nestedRaw = (r, n) => {
+  if (n === 1) {
+    const a = (r() < 0.7 ? -1 : 1) * rint(r, 2, 5); const b = rint(r, 4, 15); const neg = r() < 0.7;
+    let c; let d; do { c = rint(r, 1, 9); d = rint(r, 1, 9); } while (c === d || (neg ? c > d : c < d));
+    return b === c ? null : { n, a, b, c, d };
+  }
+  if (n === 2) {
+    const c = rint(r, 1, 9); const d = rint(r, 1, 9);
+    return c === d ? null : { n, e: rint(r, 10, 40), a: rint(r, 2, 5), b: rnz(r, -9, 9), c, d, g: rnz(r, -3, 3) };
+  }
+  const p = (r() < 0.5 ? -1 : 1) * rint(r, 2, 9); const g = rint(r, 2, 5); const h = rint(r, 1, 9); const i = rint(r, 1, 9);
+  const v = p + g * (h - i);
+  if (h === i || Math.abs(v) < 2 || Math.abs(v) > 10) return null;
+  const q = Math.sign(v) * rint(r, 2, 9);
+  return q === v ? null : { n, e: v * q, p, g, h, i };
+};
+/** A nested-brackets question of shape n (or of the item's mix when n is not given), redrawn by the rule above. */
+export function drawNested(r, n) {
+  // the shape is chosen once, then redrawn within it: a shape that is redrawn more often keeps its share
+  let x = n;
+  if (!x) { const y = r(); x = y < 0.15 ? 3 : y < 0.15 + 0.85 * 0.6 ? 1 : 2; }
+  for (;;) {
+    const q = nestedRaw(r, x);
+    if (!q || !fair(nestedValue(q), nestedBugs(q), shownIn(nestedTex(q)))) continue;
+    // a division's prediction is often a fraction, typed rounded: it may come no nearer than a tenth to the answer or to
+    // another prediction, so a rounded answer is never read as the wrong mistake
+    const ans = nestedValue(q); const vals = Object.values(nestedBugs(q)).filter((v) => v != null);
+    if (vals.some((v) => Math.abs(v - ans) <= 0.06) || vals.some((v, k) => vals.some((w, j) => j > k && Math.abs(v - w) <= 0.06))) continue;
+    return q;
+  }
+}
+export function nestedSolution(q) {
+  const ans = nestedValue(q);
+  if (q.n === 1) {
+    const cd = q.c - q.d; const outer = q.b - cd;
+    return [
+      `סוגריים פנימיים: $${q.c} - ${q.d} = ${T(cd)}$`,
+      `סוגריים חיצוניים: $${q.b} - ${T(cd, true)} = ${T(outer)}$`,
+      `כופלים במספר שלפני הסוגריים, עם הסימן שלו: $${T(q.a)} \\cdot ${T(outer, true)} = ${T(ans)}$`,
+      `התשובה: $${T(ans)}$`,
+    ];
+  }
+  if (q.n === 2) {
+    const cd = q.c - q.d; const inner = cd * q.g; const outer = q.b - inner;
+    return [
+      `סוגריים פנימיים: $${q.c} - ${q.d} = ${T(cd)}$`,
+      `בתוך הסוגריים החיצוניים, קודם הכפל: $${T(cd, true)} \\cdot ${T(q.g, true)} = ${T(inner)}$, ואז $${T(q.b)} - ${T(inner, true)} = ${T(outer)}$`,
+      `כפל לפני חיסור: $${q.a} \\cdot ${T(outer, true)} = ${T(q.a * outer)}$, ואז $${q.e} - ${T(q.a * outer, true)} = ${T(ans)}$`,
+      `התשובה: $${T(ans)}$`,
+    ];
+  }
+  const hi = q.h - q.i; const v = q.p + q.g * hi;
+  return [
+    `סוגריים פנימיים: $${q.h} - ${q.i} = ${T(hi)}$`,
+    `בתוך הסוגריים החיצוניים, קודם הכפל: $${q.g} \\cdot ${T(hi, true)} = ${T(q.g * hi)}$, ואז $${T(q.p)} + ${T(q.g * hi, true)} = ${T(v)}$`,
+    `ובסוף החילוק: $${q.e} : ${T(v, true)} = ${T(ans)}$`,
+    `התשובה: $${T(ans)}$`,
+  ];
+}
+export const nestedHint = (q) => (q.n === 3
+  ? 'קודם כל מה שבתוך הסוגריים המרובעים: הסוגריים הפנימיים, אחר כך הכפל ואז החיבור. רק בסוף מחלקים.'
+  : 'סוגריים בתוך סוגריים: קודם הפנימיים $(\\;)$, אחר כך החיצוניים $[\\;]$, ובסוף מה שמחוץ להם. המספר שלפני הסוגריים נשאר עם הסימן שלו.');
+/** The key of a nested question: sn5n:1:a:b:c:d, sn5n:2:e:a:b:c:d:g, sn5d:e:p:g:h:i (labels.test.js reads it back). */
+export const nestedKey = (q) => (q.n === 1 ? `sn5n:1:${q.a}:${q.b}:${q.c}:${q.d}` : q.n === 2 ? `sn5n:2:${q.e}:${q.a}:${q.b}:${q.c}:${q.d}:${q.g}` : `sn5d:${q.e}:${q.p}:${q.g}:${q.h}:${q.i}`);
+
+/** signed:5, brackets inside brackets (keys as nestedKey). */
+export function nestedItem(r) {
+  const q = drawNested(r); const ans = nestedValue(q); const bugs = nestedBugs(q);
+  return {
+    key: nestedKey(q), text: 'חשבו:', display: nestedTex(q), form: 'num', answer: ans,
+    hint: nestedHint(q), solution: nestedSolution(q),
+    diag: (u) => Object.keys(bugs).find((id) => bugs[id] != null && matchesValue(bugs[id], u, ans)) || null,
   };
 }

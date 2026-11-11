@@ -5,7 +5,7 @@ import { rint, rnz } from '../expr';
 // @ts-ignore: plain JS helpers shared with the exercise generators
 import { T } from '@/content/util.js';
 // @ts-ignore: plain JS, the class's chains, absolute value and opposites (CLASSROOM-1, -2), shared with grade7.js
-import { drawChain, chainValue, chainBugs, chainTex, chainSolution, CHAIN_HINT, signOutside, drawAbs, absValue, absBug, absTex, absSolution, ABS_HINT, drawOpp, oppText, oppTex, oppSolution, oppHint } from '@/content/signedItems.js';
+import { drawChain, chainValue, chainBugs, chainTex, chainSolution, CHAIN_HINT, signOutside, drawAbs, absValue, absBug, absTex, absSolution, ABS_HINT, drawOpp, oppText, oppTex, oppSolution, oppHint, drawNested, nestedValue, nestedBugs, nestedTex, nestedSolution, nestedHint } from '@/content/signedItems.js';
 
 // The teaching steps' drawings (STUDENT-8): the number line the words walk on. A point named by its own number lights
 // that number up; a jump is a move, an arc from where it starts to where it lands, with its size over it.
@@ -656,6 +656,10 @@ const stair3: StairContent = {
       hint: 'נסו את $-4$: $(-4) \\cdot (-3)$ יוצא חיובי, לא $-12$. חפשו בצד השני של האפס.', success: '$4 \\cdot (-3) = -12$, ולכן $(-12) : (-3) = 4$. גם בחילוק, סימנים זהים נותנים חיובי.' },
     { kind: 'rule', fig: axis(-14, 2, [at(-12)], [jump(0, -3, '−3'), jump(-3, -6, '−3'), jump(-6, -9, '−3'), jump(-9, -12, '−3')]), text: 'בחילוק אותו כלל סימנים כמו בכפל: סימנים זהים נותנים חיובי, סימנים שונים נותנים שלילי.', display: '4 \\cdot (-3) = -12 \\;\\Rightarrow\\; (-12) : (-3) = 4',
       why: 'כל חילוק אפשר לבדוק בכפל. אם $(-12) : (-3)$ היה $-4$, אז $(-4) \\cdot (-3)$ היה צריך להיות $-12$. אבל $(-4) \\cdot (-3) = 12$, ולכן התשובה היא $4$.' },
+    // CLASSROOM-3: dividing with 0 and 1, checked by multiplying (0 is written 0, never −0)
+    { kind: 'rule', fig: axis(-8, 8, [at(0), at(-6)]), text: '$(-6) : 0$ לא מוגדר: אין מספר שכפול $0$ נותן $-6$. אבל את $0$ אפשר לחלק, וגם לחלק ב־$1$ וב־$-1$.',
+      display: aligned(['0 : (-6) &= 0', '(-6) : 1 &= -6', '(-6) : (-1) &= 6']),
+      why: 'בודקים בכפל: $0 \\cdot (-6) = 0$, $(-6) \\cdot 1 = -6$ ו־$6 \\cdot (-1) = -6$. אבל כל מספר כפול $0$ נותן $0$, אף פעם לא $-6$, ולכן לחילוק באפס אין תשובה.' },
     { kind: 'predict', fig: axis(-4, 4, [at(-2), at(2)], [jump(-2, 2, '·(−1)')]), text: 'ומה עם שלושה גורמים? בלי לחשב את הגודל: התוצאה חיובית או שלילית?', display: '(-2) \\cdot (-1) \\cdot (-3)', choices: ['חיובית', 'שלילית'], answer: 1,
       why: 'כופלים שניים שניים: $(-2) \\cdot (-1) = 2$, ואז $2 \\cdot (-3) = -6$. כל זוג מינוסים נותן פלוס. כשמספר הגורמים השליליים אי־זוגי, נשאר מינוס אחד והתוצאה שלילית.' },
   ],
@@ -731,6 +735,28 @@ const stair3: StairContent = {
           why: 'בחיבור, שתי תזוזות שמאלה: $-7$. בכפל, שלילי כפול שלילי: $12$. לכל פעולה כלל משלה.' },
         { kind: 'explore', text: 'ב־$5 \\cdot (-2)$ המספר החיובי רחוק יותר מאפס. בדקו מה יוצא: חמש קפיצות של $-2$ מאפס.', display: '(-2) + (-2) + (-2) + (-2) + (-2)', manip: nl(0), answer: -10,
           hint: 'כל קפיצה היא 2 צעדים שמאלה. חמש קפיצות.', success: '$5 \\cdot (-2) = -10$. סימנים שונים נותנים שלילי, לא משנה מי גדול יותר.' },
+      ] },
+    { id: 'div-zero', title: 'חשבו שחילוק באפס נותן $0$ או את המספר עצמו (חילוק באפס לא מוגדר)',
+      cause: 'חילוק בודקים בכפל. כל מספר כפול $0$ נותן $0$, ולכן אין מספר שכפול $0$ נותן $-6$: לחילוק באפס אין תשובה.',
+      explain: [
+        'נראה שחילוק באפס נראה כמו חילוק רגיל.',
+        '$(-6) : 0$ שואל: איזה מספר כפול $0$ נותן $-6$? אין מספר כזה, ולכן אומרים שחילוק באפס לא מוגדר.',
+      ],
+      remedy: [
+        { kind: 'predict', fig: axis(-8, 8, [at(0), at(-6)]), text: 'בודקים בכפל: איזה מספר כפול $0$ נותן $-6$?', choices: ['$0$', '$-6$', 'אין מספר כזה'], answer: 2,
+          why: '$0 \\cdot 0 = 0$, וגם $(-6) \\cdot 0 = 0$: כל מספר כפול $0$ נותן $0$, אף פעם לא $-6$. לכן $(-6) : 0$ לא מוגדר.',
+          wrongWhy: { 0: '$0 \\cdot 0 = 0$, לא $-6$.', 1: '$(-6) \\cdot 0 = 0$, לא $-6$.' } },
+        { kind: 'say', fig: axis(-8, 8, [at(0), at(-6)]), text: 'חילוק באפס לא מוגדר. אבל את האפס עצמו אפשר לחלק: $0 : (-6) = 0$, כי $0 \\cdot (-6) = 0$.' },
+      ] },
+    { id: 'zero-div', title: 'חשבו ש־$0$ חלקי מספר לא מוגדר (התוצאה $0$)',
+      cause: 'רק חלוקה באפס לא מוגדרת. כשהאפס הוא המספר שמחלקים, יש תשובה: $0$ חלקי כל מספר הוא $0$.',
+      explain: [
+        'נראה שהאפס בחילוק הזכיר את החילוק באפס.',
+        '$0 : (-6)$ שואל: איזה מספר כפול $-6$ נותן $0$? התשובה היא $0$, כי $0 \\cdot (-6) = 0$.',
+      ],
+      remedy: [
+        { kind: 'predict', text: 'בודקים בכפל: איזה מספר כפול $-6$ נותן $0$?', choices: ['$0$', 'אין מספר כזה'], answer: 0,
+          why: '$0 \\cdot (-6) = 0$, ולכן $0 : (-6) = 0$. רק חילוק באפס לא מוגדר.' },
       ] },
     { id: 'neg-many', title: 'חשבו שכפל של שלושה מספרים שליליים יוצא חיובי',
       cause: 'זוכרים ש"מינוס כפול מינוס זה פלוס", אבל שוכחים שאחרי שני המינוסים הראשונים נשאר עוד אחד.',
@@ -947,14 +973,25 @@ const stair4: StairContent = {
 // ---------------------------------------------------------------- stair 5: brackets
 // The model: brackets make a package that is worked out first; a minus before brackets takes away the whole package.
 
-type Br = { f: number; a: number; b: number; c: number; s: number; o: number; d: number }; // f = 0: a − (b ± c), 1: a ± (b ± c)·d
+// f = 0: a − (b ± c), 1: a ± (b ± c)·d; and the class's brackets inside brackets (CLASSROOM-4, content/signedItems.js):
+// 2: a[b − (c − d)], 3: e − a[b − (c − d)·g]
+type Br = { f: number; a: number; b: number; c: number; s: number; o: number; d: number; e?: number; g?: number };
+const isNest = (p: Br) => p.f >= 2;
+const nestOf = (p: Br) => (p.f === 2 ? { n: 1, a: p.a, b: p.b, c: p.c, d: p.d } : { n: 2, e: p.e, a: p.a, b: p.b, c: p.c, d: p.d, g: p.g });
+const nestBug = (p: Br, id: string): number | null => (nestedBugs(nestOf(p)) as unknown as Record<string, number | null>)[id] ?? null;
 const brInner = (p: Br) => p.b + p.s * p.c;
-const brValue = (p: Br) => (p.f === 0 ? p.a - brInner(p) : p.a + p.o * brInner(p) * p.d);
+const brValue = (p: Br): number => (isNest(p) ? nestedValue(nestOf(p)) : p.f === 0 ? p.a - brInner(p) : p.a + p.o * brInner(p) * p.d);
 const brBracket = (p: Br) => `(${T(p.b)} ${opTex(p.s)} ${p.c})`;
-const brShow = (p: Br) => (p.f === 0 ? `${T(p.a)} - ${brBracket(p)}` : `${T(p.a)} ${opTex(p.o)} ${brBracket(p)} \\cdot ${T(p.d, true)}`);
+const brShow = (p: Br): string => (isNest(p) ? nestedTex(nestOf(p)) : p.f === 0 ? `${T(p.a)} - ${brBracket(p)}` : `${T(p.a)} ${opTex(p.o)} ${brBracket(p)} \\cdot ${T(p.d, true)}`);
 
 const bracketModel: DiagModel<Br> = {
   params: (rnd) => {
+    // 40% brackets inside brackets, half of each shape, as the exercises draw them
+    const r0 = rnd();
+    if (r0 < 0.4) {
+      const q = drawNested(rnd, r0 < 0.2 ? 1 : 2);
+      return q.n === 1 ? { f: 2, a: q.a, b: q.b, c: q.c, d: q.d, s: 1, o: -1 } : { f: 3, e: q.e, a: q.a, b: q.b, c: q.c, d: q.d, g: q.g, s: 1, o: -1 };
+    }
     for (;;) {
       const f = rnd() < 0.5 ? 0 : 1;
       const b = rnz(rnd, -9, 9); const c = rint(rnd, 1, f ? 8 : 9); const s = rnd() < 0.5 ? -1 : 1;
@@ -969,15 +1006,18 @@ const bracketModel: DiagModel<Br> = {
   answer: brValue,
   bugs: {
     // the brackets opened after a minus, but only the first number changed sign
-    'minus-bracket': (p) => (p.f === 0 ? p.a - p.b + p.s * p.c : null),
+    'minus-bracket': (p) => (isNest(p) ? nestBug(p, 'minus-bracket') : p.f === 0 ? p.a - p.b + p.s * p.c : null),
     // the brackets ignored: the multiplication takes only the number next to it
-    'ignore-brackets': (p) => (p.f === 1 ? p.a + p.o * p.b + p.s * p.c * p.d : null),
+    'ignore-brackets': (p) => (isNest(p) ? nestBug(p, 'ignore-brackets') : p.f === 1 ? p.a + p.o * p.b + p.s * p.c * p.d : null),
     // after the brackets, left to right: the first number joins before the multiplication
-    order: (p) => (p.f === 1 ? (p.a + p.o * brInner(p)) * p.d : null),
-    // what is subtracted is negative, but it was subtracted as if positive
-    'minus-minus': (p) => { const t = p.f === 0 ? brInner(p) : brInner(p) * p.d; return p.o < 0 && t < 0 ? p.a + t : null; },
+    order: (p) => (isNest(p) ? nestBug(p, 'order') : p.f === 1 ? (p.a + p.o * brInner(p)) * p.d : null),
+    // what is subtracted is negative, but it was subtracted as if positive (inside the outer brackets too)
+    'minus-minus': (p) => { if (isNest(p)) return nestBug(p, 'minus-minus'); const t = p.f === 0 ? brInner(p) : brInner(p) * p.d; return p.o < 0 && t < 0 ? p.a + t : null; },
+    // the minus of the number before the brackets lost at the end (CLASSROOM-4, the notebook's 129א)
+    'factor-sign': (p) => (p.f === 2 ? nestBug(p, 'factor-sign') : null),
   },
   solution: (p) => {
+    if (isNest(p)) return nestedSolution(nestOf(p));
     const inner = brInner(p); const ans = brValue(p);
     if (p.f === 0) {
       const opened = `${T(p.a)} ${p.b < 0 ? '+' : '-'} ${Math.abs(p.b)} ${p.s > 0 ? '-' : '+'} ${p.c}`;
@@ -995,7 +1035,7 @@ const bracketModel: DiagModel<Br> = {
       `התשובה: $${T(ans)}$`,
     ];
   },
-  hint: (p) => (p.f === 0
+  hint: (p) => (isNest(p) ? nestedHint(nestOf(p)) : p.f === 0
     ? 'מינוס לפני סוגריים מוריד את כל מה שבתוכם. חשבו קודם את הסוגריים, או הפכו את הסימן של כל מספר בפנים.'
     : 'סדר הפעולות: קודם הסוגריים, אחר כך הכפל, ובסוף החיבור או החיסור.'),
 };
@@ -1042,6 +1082,7 @@ const stair5: StairContent = {
     'לחשב תרגיל עם סוגריים: קודם מה שבסוגריים, אחר כך כפל וחילוק, ובסוף חיבור וחיסור.',
     'להבין מה עושה מינוס לפני סוגריים, ולפתוח סוגריים נכון.',
     'לבדוק תשובה בשתי דרכים: לחשב קודם את הסוגריים, או לפתוח אותם.',
+    'לחשב סוגריים בתוך סוגריים: קודם הפנימיים, אחר כך החיצוניים, ובסוף המספר שלפניהם עם הסימן שלו.',
   ],
   idea: 'סוגריים הופכים כמה מספרים לחבילה אחת שמחשבים לפני הכל. מינוס לפני סוגריים מוריד את כל החבילה, ולכן כשפותחים אותם, הסימן של כל מספר בפנים מתהפך.',
   why: [
@@ -1078,6 +1119,10 @@ const stair5: StairContent = {
       wrongWhy: { 1: 'כאן אף מספר לא התהפך: $-3$ נשאר מינוס ו־$8$ נשאר פלוס. אבל המינוס שלפני הסוגריים הופך את שניהם.', 2: 'רק $-3$ התהפך. גם $+8$ מתהפך, ל־$-8$.' } },
     { kind: 'rule', fig: axis(0, 16, [at(8), at(14)], [jump(8, 14, '−(−6)')]), text: 'הסדר המלא: קודם סוגריים, אחר כך כפל וחילוק, ובסוף חיבור וחיסור משמאל לימין.', display: '8 - \\underbrace{(1 - 4)}_{-3} \\cdot 2 = 8 - (-6) = 14',
       why: 'הסוגריים הם הדרך לשנות את הסדר הרגיל, ולכן מתחילים בהם. אחרי שמחשבים אותם הם מספר אחד, וממשיכים לפי הסדר הרגיל: הכפל, ואז החיסור.' },
+    // CLASSROOM-4: brackets inside brackets, in the class's words
+    { kind: 'rule', fig: { type: 'table', head: ['שלב', 'מחשבים', 'יוצא'], rows: [['סוגריים פנימיים', '2 − 7', '−5'], ['סוגריים חיצוניים', '12 − (−5)', '17'], ['המספר שלפניהם', '−3 · 17', '−51']] },
+      text: 'סוגריים בתוך סוגריים: מתחילים בסוגריים הפנימיים $(\\;)$, אחר כך הסוגריים החיצוניים $[\\;]$, ובסוף כופלים במספר שלפניהם, עם הסימן שלו.', display: '-3[12 - (2 - 7)]',
+      why: 'כל זוג סוגריים הוא חבילה, והחבילה הפנימית היא חלק מהחיצונית. לכן מחשבים מבפנים החוצה: $2 - 7 = -5$, אחר כך $12 - (-5) = 17$, ובסוף $-3 \\cdot 17 = -51$. המינוס של $-3$ נשאר עד הסוף.' },
   ],
   examples: [
     { problem: 'חשבו:', display: '-6 - (2 - 9) \\cdot 3', answer: 15, check: '-6 - (2 - 9) * 3',
@@ -1092,6 +1137,20 @@ const stair5: StairContent = {
         { action: 'פותחים סוגריים: הסימן של כל מספר בפנים מתהפך.', why: 'ביטול ההפקדה מוריד $20$, וביטול המשיכה מחזיר $45$.', result: '35 - 20 + 45', value: '35 - 20 + 45' },
         { action: 'מחשבים משמאל לימין.', why: '$35 - 20 = 15$, ועוד $45$.', result: '15 + 45 = 60', value: '15 + 45', calc: { expr: '35 - 20', value: 15 } },
         { action: 'בודקים בדרך השנייה: קודם הסוגריים.', why: 'שתי הדרכים חייבות לתת אותה תוצאה. $20 - 45 = -25$, וחיסור של $-25$ הוא חיבור של $25$.', result: '35 - (-25) = 60', value: '35 - (-25)', calc: { expr: '20 - 45', value: -25 } },
+      ] },
+    // CLASSROOM-4: brackets inside brackets (synthetic numbers; the notebook's 129 is not reused)
+    { problem: 'חשבו:', display: '-3[12 - (2 - 7)]', answer: -51, check: '-3*(12 - (2 - 7))',
+      steps: [
+        { action: 'סוגריים פנימיים: $2 - 7 = -5$.', why: 'מתחילים בחבילה הפנימית, זו שבתוך הסוגריים החיצוניים.', result: '-3[12 - (-5)]', value: '-3[12 - (-5)]', calc: { expr: '2 - 7', value: -5 } },
+        { action: 'סוגריים חיצוניים: $12 - (-5) = 17$.', why: 'חיסור של מספר שלילי הוא חיבור: $12 + 5 = 17$.', result: '-3 \\cdot 17', value: '-3 * 17', calc: { expr: '12 - (-5)', value: 17 } },
+        { action: 'כופלים במספר שלפני הסוגריים, עם הסימן שלו.', why: 'סימנים שונים, ולכן התוצאה שלילית. המינוס של $-3$ נשאר עד הסוף.', result: '-3 \\cdot 17 = -51', value: '-51', calc: { expr: '3 * 17', value: 51 } },
+      ] },
+    { problem: 'חשבו:', display: '30 - 4[-3 - (8 - 2) \\cdot (-1)]', answer: 18, check: '30 - 4*(-3 - (8 - 2)*(-1))',
+      steps: [
+        { action: 'סוגריים פנימיים: $8 - 2 = 6$.', why: 'מבפנים החוצה: קודם החבילה הפנימית.', result: '30 - 4[-3 - 6 \\cdot (-1)]', value: '30 - 4[-3 - 6*(-1)]', calc: { expr: '8 - 2', value: 6 } },
+        { action: 'בתוך הסוגריים החיצוניים, קודם הכפל: $6 \\cdot (-1) = -6$.', why: 'גם בתוך סוגריים, כפל לפני חיסור.', result: '30 - 4[-3 - (-6)]', value: '30 - 4*(-3 - (-6))', calc: { expr: '6 * (-1)', value: -6 } },
+        { action: 'חיסור של מספר שלילי הוא חיבור: $-3 - (-6) = 3$.', why: 'מחסרים $-6$, ולכן מוסיפים $6$: $-3 + 6 = 3$. מי שכותב כאן $-3 - 6$ מקבל בסוף תשובה אחרת.', result: '30 - 4 \\cdot 3', value: '30 - 4 * 3', calc: { expr: '-3 - (-6)', value: 3 } },
+        { action: 'כפל לפני חיסור: $4 \\cdot 3 = 12$, ואז $30 - 12 = 18$.', why: 'המספר $30$ לא בתוך הסוגריים, ולכן הוא מחכה לסוף.', result: '30 - 12 = 18', value: '18', calc: { expr: '4 * 3', value: 12 } },
       ] },
   ],
   together: [
@@ -1125,6 +1184,30 @@ const stair5: StairContent = {
   diag: bracketModel,
   transfer: groupsModel,
   misconceptions: [
+    { id: 'factor-sign', title: 'המינוס של המספר שלפני הסוגריים נעלם בסוף',
+      cause: 'הסוגריים חושבו נכון, אבל המספר שלפניהם נכפל בלי הסימן שלו. המינוס שלו נכתב בהתחלה, ונשכח בשורה האחרונה.',
+      explain: [
+        'נראה שהמינוס של המספר שלפני הסוגריים נעלם בשורה האחרונה.',
+        'ב־$-3[12 - (2 - 7)]$ הסוגריים שווים $17$, ונשאר $-3 \\cdot 17$. סימנים שונים, ולכן $-51$, לא $51$.',
+      ],
+      remedy: [
+        { kind: 'predict', fig: { type: 'numline', from: -60, to: 60, step: 10, marks: [at(-51), at(51)] }, text: 'סימנים שונים: $(-3) \\cdot 17$ חיובי או שלילי?', choices: ['חיובי', 'שלילי'], answer: 1,
+          why: 'סימנים שונים נותנים תוצאה שלילית: $(-3) \\cdot 17 = -51$.' },
+        { kind: 'say', fig: { type: 'table', head: ['שורה', 'כותבים'], rows: [['1', '−3[12 − (2 − 7)]'], ['2', '−3[12 − (−5)]'], ['3', '−3 · 17'], ['4', '−51']] },
+          text: 'המינוס של $-3$ נשאר עד הסוף. כותבים אותו בכל שורה, כמו שכתבנו אותו בהתחלה.', display: '-3[17] = -3 \\cdot 17 = -51' },
+      ] },
+    { id: 'sign', title: 'התשובה יצאה עם הסימן ההפוך',
+      cause: 'הסדר והחישוב היו נכונים, אבל באחד הצעדים הסימן של התוצאה התהפך.',
+      explain: [
+        'המספר יצא נכון, רק הסימן התהפך.',
+        'אחרי כל צעד שואלים: התוצאה חיובית או שלילית? ב־$1 - (3 - 7)$ הסוגריים שווים $-4$, ו־$1 - (-4) = 5$: חיובי.',
+      ],
+      remedy: [
+        { kind: 'predict', fig: axis(-6, 6, [at(1)]), text: 'בלי לחשב עד הסוף: $1 - (3 - 7)$ יוצא חיובי או שלילי?', choices: ['חיובי', 'שלילי'], answer: 0,
+          why: 'בסוגריים $3 - 7 = -4$, וחיסור של $-4$ הוא חיבור: $1 + 4 = 5$, חיובי.' },
+        { kind: 'explore', text: 'בדקו על הציר: $1 - (-4)$. מתחילים ב־$1$.', display: '1 - (-4)', manip: nl(1), answer: 5,
+          hint: 'חיסור של מספר שלילי מזיז ימינה.', success: '$1 - (3 - 7) = 1 - (-4) = 5$.' },
+      ] },
     { id: 'minus-bracket', title: 'מינוס לפני סוגריים הפך רק את המספר הראשון',
       cause: 'כשפותחים סוגריים אחרי מינוס, קל להפוך רק את המספר הראשון. אבל המינוס חל על כל מה שבסוגריים.',
       explain: [

@@ -896,7 +896,7 @@
     ]
    },
    "signed:3": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
      4,
      4
@@ -904,6 +904,8 @@
     "misconceptions": [
      3,
      3,
+     2,
+     1,
      2
     ],
     "objectives": 3,
@@ -930,8 +932,10 @@
     ]
    },
    "signed:5": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
+     3,
+     4,
      3,
      4
     ],
@@ -939,9 +943,11 @@
      2,
      2,
      2,
+     2,
+     2,
      2
     ],
-    "objectives": 3,
+    "objectives": 4,
     "together": [
      2,
      2
@@ -968,7 +974,7 @@
    }
   },
   "stairs": 6,
-  "steps": 187
+  "steps": 203
  },
  "stats": {
   "skills": {

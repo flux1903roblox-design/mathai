@@ -17,7 +17,9 @@ import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togeth
 // @ts-ignore: plain JS
 import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX } from '@/content/manip.js';
 // @ts-ignore: plain JS
-import { TOPIC, fairForCheck } from '@/content/index.js';
+import { TOPIC, fairForCheck, makeItem, namesOf } from '@/content/index.js';
+// @ts-ignore: plain JS
+import { drawNested, nestedBugs, nestedValue } from '@/content/signedItems.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
 
@@ -678,5 +680,55 @@ describe('the real classroom: signed:1 and signed:2', () => {
     expect(s2.misconceptions.map((m) => m.id)).toEqual(expect.arrayContaining(['abs-keep-sign', 'opp-same']));
     // each remedy draws: an arrow from 0 for the absolute value, two marks at one distance for the opposite
     for (const id of ['abs-keep-sign', 'opp-same']) expect(s2.misconceptions.find((m) => m.id === id)!.remedy.some((st) => (st as { fig?: FigSpec }).fig?.type === 'numline'), id).toBe(true);
+  });
+});
+
+// CLASSROOM-3 and -4: dividing with 0 and 1 on signed:3, brackets inside brackets on signed:5
+describe('the real classroom: signed:3 and signed:5', () => {
+  const s3 = CONTENT['signed:3'];
+  const s5 = CONTENT['signed:5'];
+  it('signed:3 teaches 0 : a, a : 0, a : 1 and a : (−1) after its division rule, with no value for a : 0', () => {
+    const division = s3.discover.findIndex((st) => st.kind === 'rule' && st.text.includes('בחילוק אותו כלל סימנים'));
+    const zero = s3.discover.findIndex((st) => st.kind === 'rule' && st.text.includes('לא מוגדר'));
+    expect(division).toBeGreaterThanOrEqual(0);
+    expect(zero).toBe(division + 1);
+    const st = s3.discover[zero] as Extract<DiscoverStep, { kind: 'rule' }>;
+    expect(st.display).not.toMatch(/: 0(?!\d)/); // the undefined part is said in words, never computed
+    expect(evaluate('0 : (-6)') + 0).toBe(0); // written 0, not −0
+    expect([evaluate('(-6) : 1'), evaluate('(-6) : (-1)')]).toEqual([-6, 6]);
+    for (const id of ['div-zero', 'zero-div']) {
+      const m = s3.misconceptions.find((x) => x.id === id)!;
+      expect(m, id).toBeTruthy();
+      expect(JSON.stringify(m.remedy), id).toContain('בודקים בכפל');
+    }
+  });
+  it('every mistake a signed:5 exercise can name has a repair on the stair, so a repair always finds its remedy', () => {
+    const named = new Set<string>();
+    for (let i = 0; i < 400; i += 1) namesOf(makeItem('signed', 5)).forEach((id: string) => named.add(id));
+    const own = new Set(s5.misconceptions.map((m) => m.id));
+    expect([...named].filter((id) => !own.has(id))).toEqual([]);
+    for (const id of ['factor-sign', 'sign', 'minus-minus', 'order', 'ignore-brackets', 'minus-bracket']) expect(named.has(id), id).toBe(true);
+  });
+  it('the nested-brackets rule and its two worked examples are in the class\'s words, and every step evaluates', () => {
+    const rule = s5.discover.findIndex((st) => st.kind === 'rule' && st.text.includes('סוגריים בתוך סוגריים'));
+    expect(rule).toBe(s5.discover.length - 1);
+    for (const w of ['סוגריים הפנימיים', 'סוגריים החיצוניים', 'עם הסימן שלו']) expect(s5.discover[rule].text).toContain(w);
+    const nested = s5.examples.filter((e) => /\d\[/.test(e.display || ''));
+    expect(nested.map((e) => e.answer)).toEqual([-51, 18]);
+    nested.forEach((e, k) => checkExample(e, k));
+    expect(evaluate('-3[12 - (2 - 7)]')).toBe(-51);
+    expect(evaluate('30 - 4[-3 - (8 - 2)*(-1)]')).toBe(18);
+  });
+  it('factor-sign shows on a fair share of the shapes a[b − (c − d)] and e − a[b − (c − d)·g] (spec 41%), and in the model', () => {
+    const rnd = seeded(2028);
+    let n = 0; let fs = 0;
+    for (let i = 0; i < 4000; i += 1) {
+      const q = drawNested(rnd, rnd() < 0.6 ? 1 : 2); n += 1;
+      const v = nestedBugs(q)['factor-sign']; if (v != null && !same(v, nestedValue(q))) fs += 1;
+    }
+    expect(fs / n).toBeGreaterThan(0.3);
+    const r2 = seeded(2029); let f2 = 0;
+    for (let i = 0; i < DRAWS * 5; i += 1) { const p = s5.diag.params(r2); const v = s5.diag.bugs['factor-sign'](p); if (v != null && !same(v, s5.diag.answer(p))) f2 += 1; }
+    expect(f2 / (DRAWS * 5)).toBeGreaterThan(0.04);
   });
 });

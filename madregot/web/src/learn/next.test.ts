@@ -270,7 +270,7 @@ describe('planNext: the challenge band', () => {
     const solve = (ids: string[]) => { c.learn.challenges = Object.fromEntries(ids.map((id) => [id, { startedAt: NOW, doneAt: NOW, firstTry: 1, parts: 2 }])); };
     solve(['signed:c1']);
     expect(planNext(c).top?.challengeId).toBe('signed:c2');
-    solve(['signed:c1', 'signed:c2', 'signed:c3', 'coord:c1', 'coord:c2', 'coord:c3', 'angles:c2']);
+    solve(['signed:c1', 'signed:c2', 'signed:c3', 'signed:c4', 'coord:c1', 'coord:c2', 'coord:c3', 'angles:c2']);
     expect(planNext(c).top?.challengeId).toBe('angles:c1');
     // the most recently mastered stair's task comes first: a check passed again on angles:4 yesterday
     c.learn.skills['angles:4'] = masteredRec(ago(1), 20, 0);

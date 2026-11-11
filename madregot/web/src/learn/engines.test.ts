@@ -39,6 +39,16 @@ describe('expressions', () => {
     expect(() => evaluate('alert(1)')).toThrow();
     expect(() => evaluate('2 +')).toThrow();
   });
+  it('reads the class\'s square brackets: outer [ ], inner ( ), the number before [ multiplies it (CLASSROOM-4)', () => {
+    expect(evaluate('-3[12 - (2 - 7)]')).toBe(-51);
+    expect(evaluate('-3*(12 - (2 - 7))')).toBe(-51);
+    expect(evaluate('30 - 4[-3 - (8 - 2)*(-1)]')).toBe(18);
+    expect(evaluate('48 : [-2 + 3*(1 - 3)]')).toBe(-6);
+    expect(evaluate('[2 + 3]*4')).toBe(20);
+    expect(evaluate('(1 + 1)[2 + 3]')).toBe(10);
+    expect(() => evaluate('-3[12 - 5')).toThrow();
+    expect(() => evaluate('x[2]')).toThrow(); // a letter before [ is not a number: no implicit multiplication there
+  });
   it('reads variables, and refuses a name it was not given', () => {
     expect(evaluate('3*x+1', { x: 2 })).toBe(7);
     expect(evaluate('2*x - 3*y', { x: 4, y: -1 })).toBe(11);

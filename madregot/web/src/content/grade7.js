@@ -5,7 +5,7 @@ import { EQ } from './eq.js';
 import { FRAC } from './frac.js';
 import { SIGNED6_LEVEL } from './signed6.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
-import { signOutside, chainItem, regroupItem, absItem, oppItem, absMc } from './signedItems.js';
+import { signOutside, chainItem, regroupItem, absItem, oppItem, absMc, zeroOne, nestedItem } from './signedItems.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 const rnd = () => Math.random();
@@ -430,9 +430,11 @@ export const GRADE7 = [
       { title: 'חיבור וחיסור', gen: () => { const x = Math.random(); return x < 0.35 ? addSubLine() : x < 0.7 ? addSub() : x < 0.925 ? chainItem(rnd) : regroupItem(rnd); } },
       // CLASSROOM-1: 40% comparing (as before), 25% absolute value, 20% opposites, 15% a practice-only choice
       { title: 'השוואה וערך מוחלט', gen: () => { const x = Math.random(); return x < 0.4 ? (Math.random() < 0.4 ? orderPins() : compare()) : x < 0.65 ? absItem(rnd) : x < 0.85 ? oppItem(rnd) : absMc(rnd); } },
-      { title: 'כפל וחילוק', gen: mulDiv },
+      // CLASSROOM-3: one question in ten divides with 0 or 1 (a practice-only choice)
+      { title: 'כפל וחילוק', gen: () => (Math.random() < 0.1 ? zeroOne(rnd) : mulDiv()) },
       { title: 'סדר פעולות', gen: order },
-      { title: 'סוגריים', gen: brackets },
+      // CLASSROOM-4: 40% brackets inside brackets, the shapes of the class's exercise 129
+      { title: 'סוגריים', gen: () => (Math.random() < 0.6 ? brackets() : nestedItem(rnd)) },
       // signed fractions and decimals (content/signed6.js): the programme's "שלמים, שברים פשוטים ועשרוניים"
       SIGNED6_LEVEL,
     ],
@@ -451,6 +453,10 @@ export const GRADE7 = [
       // CLASSROOM-1
       'abs-keep-sign': 'חישבו ערך מוחלט של מספר שלילי כאילו הוא נשאר שלילי ($\\lvert -7 \\rvert = -7$)',
       'opp-same': 'כתבו את אותו מספר במקום הנגדי שלו',
+      // CLASSROOM-3 and -4
+      'div-zero': 'חשבו שחילוק באפס נותן $0$ או את המספר עצמו (חילוק באפס לא מוגדר)',
+      'zero-div': 'חשבו ש־$0$ חלקי מספר לא מוגדר (התוצאה $0$)',
+      'factor-sign': 'המינוס של המספר שלפני הסוגריים נעלם בסוף',
     },
   },
   {

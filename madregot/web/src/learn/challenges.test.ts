@@ -1,6 +1,6 @@
 // The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, the set is stage 1's 36
-// (three per topic, one claim, one error or proof, one literacy task each), and the grading rules (two tries, XP, the
-// order check, the counterexample check) are pinned.
+// (three per topic, at least one claim, one error or proof and one literacy task each) and the classroom lane's
+// signed:c4 (CLASSROOM-4), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import type { ChallengePart, ChallengeTask } from './types';
@@ -34,24 +34,30 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('stage 1 has 36 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
+  it('37 tasks: at least three per topic of TOPIC_ORDER, the bridge included, numbered in order and in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
-    expect(CHALLENGES).toHaveLength(36);
-    TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
+    // stage 1's 36 and signed:c4 (CLASSROOM-4); 39 once signed:c5 and expr:c4 come (CLASSROOM-5 and -6)
+    expect(CHALLENGES).toHaveLength(37);
+    TOPIC_ORDER.forEach((tp) => {
+      const ids = challengesOf(tp).map((t) => t.id);
+      expect(ids.length, tp).toBeGreaterThanOrEqual(3);
+      expect(ids, tp).toEqual(ids.map((_, i) => `${tp}:c${i + 1}`));
+    });
+    expect(challengesOf('signed').map((t) => t.id)).toEqual(['signed:c1', 'signed:c2', 'signed:c3', 'signed:c4']);
     expect(TOPIC_ORDER).toContain('frac');
-    expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => [tp, tp, tp]));
+    expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => challengesOf(tp).map(() => tp)));
     expect(challengeById('pct:c1')?.after).toBe('pct:2');
     expect(challengeById('nope')).toBeNull();
     expect(challengesAfter('ratio:2').map((t) => t.id)).toEqual(['ratio:c1']);
     expect(challengesAfter('expr:4').map((t) => t.id)).toEqual(['expr:c1', 'expr:c2']);
   });
 
-  it('each topic has one claim, one error or proof, and one literacy task', () => {
+  it('each topic has at least one claim, one error or proof, and one literacy task', () => {
     TOPIC_ORDER.forEach((tp) => {
       const kinds = challengesOf(tp).map((t) => t.kind);
-      expect(kinds.filter((k) => k === 'claim'), tp).toHaveLength(1);
-      expect(kinds.filter((k) => k === 'error' || k === 'proof'), tp).toHaveLength(1);
-      expect(kinds.filter((k) => k === 'literacy'), tp).toHaveLength(1);
+      expect(kinds.filter((k) => k === 'claim').length, tp).toBeGreaterThanOrEqual(1);
+      expect(kinds.filter((k) => k === 'error' || k === 'proof').length, tp).toBeGreaterThanOrEqual(1);
+      expect(kinds.filter((k) => k === 'literacy').length, tp).toBeGreaterThanOrEqual(1);
     });
     // a task's kind is what its parts do: a claim task has a claim part, an error task an error part, a proof an order
     CHALLENGES.forEach((t) => {
@@ -72,6 +78,13 @@ describe('the challenge tasks', () => {
     ]);
     // the spec names the mistake of each error task
     expect(['expr:c2', 'eq:c2', 'sys:c2'].map((id) => challengeById(id)!.misc)).toEqual(['partial-dist', 'move-no-flip', 'move-no-flip']);
+    // the signed tasks, the classroom lane's signed:c4 among them: the factor's minus lost, after brackets inside brackets
+    expect(challengesOf('signed').map((t) => [t.id, t.kind, t.after, t.minutes, t.misc || null])).toEqual([
+      ['signed:c1', 'claim', 'signed:1', 4, null], ['signed:c2', 'error', 'signed:1', 4, null], ['signed:c3', 'literacy', 'signed:3', 6, null],
+      ['signed:c4', 'error', 'signed:5', 4, 'factor-sign'],
+    ]);
+    const c4 = challengeById('signed:c4')!.parts[0] as Extract<ChallengePart, { type: 'error' }>;
+    expect([c4.wrong, c4.fix.answer, evaluate('-4[9 - (1 - 6)]')]).toEqual([2, -56, -56]);
     const named = new Set(ALL_SKILLS.flatMap((id) => contentOf(id)?.misconceptions.map((m) => m.id) || []));
     CHALLENGES.filter((t) => t.misc).forEach((t) => expect(named.has(t.misc!), `${t.id}: ${t.misc}`).toBe(true));
   });

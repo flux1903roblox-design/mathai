@@ -33,7 +33,7 @@ import { probeItem, startLevel, nextProbe, PER_TOPIC, PROBE_LEN, KNOW } from '@/
 // @ts-ignore: plain JS
 import { JUMP_SOURCES, JUMP_MISTAKES } from '@/lib/lesson.js';
 // @ts-ignore: plain JS
-import { chainItem, absItem, oppItem } from '@/content/signedItems.js';
+import { chainItem, absItem, oppItem, nestedItem, drawNested, nestedTex, nestedValue } from '@/content/signedItems.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -193,7 +193,12 @@ describe('the placement test cannot be passed by guessing', () => {
 // CLASSROOM-1 and -2: the class's new kinds alone, as the spec simulated them (the chain 3.8%, absItem 4.6%, oppItem 4.0%
 // for the most common answer): never answered by a number printed in them, and no answer common enough to pass a check
 describe('the class\'s signed kinds cannot be guessed', () => {
-  it.each([['the chain of five', chainItem, 0.05], ['absolute value', absItem, 0.06], ['the opposite', oppItem, 0.055]] as const)('%s', (_name, make, most) => {
+  // brackets inside brackets (CLASSROOM-4): a[b − (c − d)] and e − a[b − (c − d)·g] alone (spec 3.0%), e : [p + g(h − i)]
+  // alone (spec 11.9%), and the mix the exercises draw
+  const shape = (n: number) => (r: () => number) => { const q = drawNested(r, n); return { form: 'num', text: 'חשבו:', display: nestedTex(q), answer: nestedValue(q), key: `n${n}` }; };
+  const twoShapes = (r: () => number) => shape(r() < 0.6 ? 1 : 2)(r);
+  it.each([['the chain of five', chainItem, 0.05], ['absolute value', absItem, 0.06], ['the opposite', oppItem, 0.055],
+    ['brackets inside brackets, the first two shapes', twoShapes, 0.05], ['dividing by a bracket, alone', shape(3), 0.15], ['brackets inside brackets, as drawn', nestedItem, 0.05]] as const)('%s', (_name, make, most) => {
     const items = Array.from({ length: 4000 }, () => make(Math.random));
     const freq = new Map<number, number>();
     items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));

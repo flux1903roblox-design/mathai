@@ -929,6 +929,14 @@ export const META: Record<SkillId, StairMeta> = {
         "title": "השתמשו בכלל הסימנים של חיבור, למשל $(-3) \\cdot (-4) = -12$"
       },
       {
+        "id": "div-zero",
+        "title": "חשבו שחילוק באפס נותן $0$ או את המספר עצמו (חילוק באפס לא מוגדר)"
+      },
+      {
+        "id": "zero-div",
+        "title": "חשבו ש־$0$ חלקי מספר לא מוגדר (התוצאה $0$)"
+      },
+      {
         "id": "neg-many",
         "title": "חשבו שכפל של שלושה מספרים שליליים יוצא חיובי"
       }
@@ -956,6 +964,14 @@ export const META: Record<SkillId, StairMeta> = {
   "signed:5": {
     "title": "סוגריים",
     "misconceptions": [
+      {
+        "id": "factor-sign",
+        "title": "המינוס של המספר שלפני הסוגריים נעלם בסוף"
+      },
+      {
+        "id": "sign",
+        "title": "התשובה יצאה עם הסימן ההפוך"
+      },
       {
         "id": "minus-bracket",
         "title": "מינוס לפני סוגריים הפך רק את המספר הראשון"

@@ -16,7 +16,7 @@ import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
-import { chainItem, regroupItem, absItem, oppItem } from './signedItems.js';
+import { chainItem, regroupItem, absItem, oppItem, nestedItem, zeroOne } from './signedItems.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -34,7 +34,7 @@ const ptEq = (u, p) => Array.isArray(u) && near(u[0], p[0]) && near(u[1], p[1]);
  * (\lvert -7 \rvert, CLASSROOM-1).
  */
 function signedFacts(it) {
-  const d = String(it.display || '').replace(/\\left|\\right/g, '').replace(/\\[lr]vert/g, ' | ').replace(/\\cdot/g, '*').replace(/[()]/g, '').trim();
+  const d = String(it.display || '').replace(/\\left|\\right/g, '').replace(/\\[lr]vert/g, ' | ').replace(/\\cdot/g, '*').replace(/[()[\]]/g, ' ').trim();
   const num = (x) => {
     const f = x.match(/^(-?)(\d*)\\frac\{(\d+)\}\{(\d+)\}$/);
     if (f) { const v = Number(f[2] || 0) + Number(f[3]) / Number(f[4]); return f[1] ? -v : v; }
@@ -50,6 +50,13 @@ function chainOf(key) {
 /** Each term once the brackets are removed, the right way, and with every −(−n) read as −n. */
 const chainRight = (c) => c.o.map((o, i) => o * c.v[i]);
 const chainMm = (c) => c.o.map((o, i) => (o < 0 && c.v[i] < 0 ? c.v[i] : o * c.v[i]));
+/** A nested-brackets question from its key: sn5n:1:a:b:c:d, sn5n:2:e:a:b:c:d:g, sn5d:e:p:g:h:i (CLASSROOM-4). */
+function nestOf(key) {
+  const [kind, ...v] = key.split(':'); const n = v.map(Number);
+  if (kind === 'sn5d') { const [e, p, g, h, i] = n; return { form: 3, e, p, g, h, i }; }
+  if (n[0] === 1) { const [, a, b, c, d] = n; return { form: 1, a, b, c, d }; }
+  const [, e, a, b, c, d, g] = n; return { form: 2, e, a, b, c, d, g };
+}
 /** A line of signed numbers, "-8 - 9 + 3", as its terms [-8, -9, 3]. */
 const lineTerms = (tex) => (String(tex).replace(/\s+/g, '').match(/[+-]?\d+/g) || []).map(Number);
 /** The regrouped line: the negatives in order, then the positives (no zero in a regroup question). */
@@ -582,8 +589,28 @@ const PROPS = {
       if (it.key.startsWith('sn1c:')) { const c = chainOf(it.key); return chainMm(c).some((w, i) => w !== chainRight(c)[i]) && fits(u, chainMm(c).reduce((a, w) => a + w, 0)); }
       // the regrouping choice: the line chosen holds exactly the terms of the brackets removed that wrong way
       if (it.key.startsWith('sn1r:')) { const c = chainOf(it.key); const got = sortN(lineTerms(it.choices[u]?.tex)); return JSON.stringify(got) === JSON.stringify(sortN(chainMm(c))) && JSON.stringify(got) !== JSON.stringify(sortN(chainRight(c))); }
+      // brackets inside brackets: the negative inside the outer bracket (c − d, or (c − d)·g) subtracted as if positive
+      if (it.key.startsWith('sn5n:')) {
+        const q = nestOf(it.key);
+        if (q.form === 1) return q.c - q.d < 0 && fits(u, q.a * (q.b + (q.c - q.d)));
+        const inner = (q.c - q.d) * q.g; return inner < 0 && fits(u, q.e - q.a * (q.b + inner));
+      }
       const q = subtractedNegative(it); return q != null && fits(u, it.answer - 2 * Math.abs(q));
     },
+    // a[b − (c − d)] with a < 0: the factor's minus lost, the answer's opposite (CLASSROOM-4)
+    'factor-sign': (it, u) => { if (!it.key.startsWith('sn5n:1:')) return false; const q = nestOf(it.key); return q.a < 0 && fits(u, -it.answer); },
+    // the minus before the inner brackets turned only their first number: a(b − c − d)
+    'minus-bracket': (it, u) => { if (!it.key.startsWith('sn5n:1:')) return false; const q = nestOf(it.key); return fits(u, q.a * (q.b - q.c - q.d)); },
+    // the outer brackets ignored: a·b − (c − d); e − a·b − (c − d)·g; e : p + g·(h − i)
+    'ignore-brackets': (it, u) => {
+      if (it.key.startsWith('sn5d:')) { const q = nestOf(it.key); return fits(u, q.e / q.p + q.g * (q.h - q.i)); }
+      if (!it.key.startsWith('sn5n:')) return false;
+      const q = nestOf(it.key);
+      return q.form === 1 ? fits(u, q.a * q.b - (q.c - q.d)) : fits(u, q.e - q.a * q.b - (q.c - q.d) * q.g);
+    },
+    // a : 0 answered 0 or a; 0 : a answered "not defined" (CLASSROOM-3)
+    'div-zero': (it, u) => { if (!it.key.startsWith('sn3z:1:')) return false; const a = Number(it.key.split(':')[2]); const c = it.choices[u]; return !!c?.tex && (c.tex === '0' || Number(c.tex) === a); },
+    'zero-div': (it, u) => it.key.startsWith('sn3z:0:') && it.choices[u]?.text === 'לא מוגדר',
     // the first number's minus dropped (a chain: the first number in brackets is negative)
     'drop-sign': (it, u) => { if (!it.key.startsWith('sn1c:')) return false; const c = chainOf(it.key); return c.v[0] < 0 && fits(u, it.answer - 2 * c.v[0]); },
     // the regrouped line with one negative number's minus gone, everything else as it should be
@@ -618,6 +645,9 @@ const PROPS = {
       const t = signedFacts(it);
       if (it.key.startsWith('sn4:') && t[3] === '*') return near(u, (t[1] === '+' ? t[0] + t[2] : t[0] - t[2]) * t[4]);
       if (it.key.startsWith('sn5:')) { const [a, , b, , c, , d] = t; return near(u, (a - (b - c)) * d); }
+      // e − a[b − (c − d)·g] left to right: (e − a)·[…]; e : [p + g(h − i)] inside left to right: e : ((p + g)(h − i))
+      if (it.key.startsWith('sn5n:2:')) { const q = nestOf(it.key); return fits(u, (q.e - q.a) * (q.b - (q.c - q.d) * q.g)); }
+      if (it.key.startsWith('sn5d:')) { const q = nestOf(it.key); const o = (q.p + q.g) * (q.h - q.i); return o !== 0 && fits(u, q.e / o); }
       return false;
     },
   },
@@ -870,6 +900,51 @@ describe('the class\'s signed questions name only what the answer shows', () => 
         const [, a] = nums(it.key);
         expect(it.answer).toBe(-a);
         sweep(it, { 'opp-same': a });
+      }
+    } finally { Math.random = real; }
+  });
+});
+
+// CLASSROOM-3 and -4: dividing with 0 and 1, and brackets inside brackets, every label against the key
+describe('dividing with 0 and 1, and brackets inside brackets, name only what the answer shows', () => {
+  const real = Math.random;
+  const props = PROPS.signed;
+  it('reads square brackets, plain or \\left[ … \\right], as the numbers in them', () => {
+    expect(signedFacts({ display: '-3[12 - (2 - 7)]' })).toEqual([-3, 12, '-', 2, '-', 7]);
+    expect(signedFacts({ display: '-3\\left[12 - (2 - 7)\\right]' })).toEqual([-3, 12, '-', 2, '-', 7]);
+  });
+  it('brackets inside brackets: factor-sign, minus-minus, minus-bracket, ignore-brackets and order from the key', () => {
+    const seen = {};
+    try {
+      Math.random = seeded(1115);
+      for (let i = 0; i < 2000; i += 1) {
+        const it = { ...nestedItem(Math.random), topic: 'signed', level: 5 };
+        // the key is the question: its value is the answer
+        const q = nestOf(it.key);
+        const v = q.form === 1 ? q.a * (q.b - (q.c - q.d)) : q.form === 2 ? q.e - q.a * (q.b - (q.c - q.d) * q.g) : q.e / (q.p + q.g * (q.h - q.i));
+        expect(near(v, it.answer), it.key).toBe(true);
+        for (let u = -300; u <= 300; u += 1) {
+          if (isCorrect(it, u)) continue;
+          const cat = it.diag(u);
+          if (cat) { expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true); seen[cat] = (seen[cat] || 0) + 1; }
+        }
+        // factor-sign: a < 0 and the answer's opposite
+        if (q.form === 1 && q.a < 0) expect(it.diag(-it.answer), it.key).toBe('factor-sign');
+      }
+    } finally { Math.random = real; }
+    for (const id of ['factor-sign', 'minus-minus', 'minus-bracket', 'ignore-brackets', 'order']) expect(seen[id], id).toBeGreaterThan(50);
+  });
+  it('dividing with 0: div-zero is 0 or a chosen for a : 0, zero-div is "not defined" chosen for 0 : a', () => {
+    try {
+      Math.random = seeded(1116);
+      for (let i = 0; i < 2000; i += 1) {
+        const it = zeroOne(Math.random);
+        expect(it.practiceOnly).toBe(true);
+        expect(it.choices).toHaveLength(4);
+        it.choices.forEach((c, u) => { const cat = it.diag(u); if (u === it.answer) expect(cat).toBeNull(); else if (cat) expect(props[cat](it, u), `${it.key}: ${c.tex || c.text} as ${cat}`).toBe(true); });
+        const [, k, a] = it.key.split(':').map(Number);
+        const shown = it.choices[it.answer];
+        expect(k === 0 ? shown.tex === '0' : k === 1 ? shown.text === 'לא מוגדר' : Number(shown.tex) === (k === 2 ? a : -a), it.key).toBe(true);
       }
     } finally { Math.random = real; }
   });

@@ -172,9 +172,9 @@ the row to paste when one differs.
 | frac:4 | כפל וחילוק שברים | 8 (numberline) | 3 | 2 | 3 (keep-den, divide-flip, mult-bigger) | yes | יסודות; complete, tested |
 | signed:1 | חיבור וחיסור | 13 (numberline) | 4 | 2 | 7 (minus-minus, sign, abs-add, drop-sign, neg-neg-plus, drop-minus, direction) | yes | complete, tested |
 | signed:2 | השוואה וערך מוחלט | 11 (pins, numberline) | 2 | 2 | 4 (neg-compare, abs-keep-sign, opp-same, ignore-sign) | yes | complete, tested |
-| signed:3 | כפל וחילוק | 10 (numberline) | 2 | 2 | 3 (sign, add-sign, neg-many) | yes | complete, tested |
+| signed:3 | כפל וחילוק | 11 (numberline) | 2 | 2 | 5 (sign, add-sign, div-zero, zero-div, neg-many) | yes | complete, tested |
 | signed:4 | סדר פעולות | 10 (numberline) | 2 | 2 | 3 (order, minus-minus, mul-sign) | yes | complete, tested |
-| signed:5 | סוגריים | 10 (numberline) | 2 | 2 | 4 (minus-bracket, ignore-brackets, order, minus-minus) | yes | complete, tested |
+| signed:5 | סוגריים | 11 (numberline) | 4 | 2 | 6 (factor-sign, sign, minus-bracket, ignore-brackets, order, minus-minus) | yes | complete, tested |
 | signed:6 | שברים ועשרוניים מכוונים | 8 (numberline) | 3 | 2 | 4 (abs-add, minus-minus, sign, toward-zero) | yes | complete, tested |
 | coord:1 | קריאת נקודה | 10 (plot) | 2 | 2 | 3 (swap, sign, axis-zero) | yes | complete, tested |
 | coord:2 | רביעים | 10 (plot) | 2 | 2 | 4 (swap, quad-order, sign, axis-quadrant) | yes | complete, tested |
