@@ -17,7 +17,12 @@ import {
 } from './manip.js';
 import { tfSlide, tfReflect, tfRotate, tfInside, tfOrient, tfMoves, tfImages, transformReachable } from './transform.js';
 import Transform from '@/components/manip/Transform.jsx';
-import { KINDS, transformCoach } from '@/components/manip/Manip.jsx';
+import ProofTable from '@/components/manip/ProofTable.jsx';
+import OrderPart from '@/components/challenge/OrderPart.jsx';
+import { KINDS, transformCoach, proofCoach } from '@/components/manip/Manip.jsx';
+import { PROOFS, PROOF, LETTER_SETS, R, proofManip } from './congr.js';
+import { proofStart, proofFirstWrong, askedSteps } from './proof.js';
+import { texText } from '@/components/MathText.jsx';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
 
@@ -813,5 +818,191 @@ describe('the coord figure twin of the transform object (GEOM-2.8)', () => {
     expect(figPlain(fig)).toBe('צורות: ABC (A(−4, 1), B(−1, 1), C(−4, 3)), A′B′C′ (A′(1, −1), B′(4, −1), C′(1, 1)), ((2, 2), (5, 2), (2, 4)) יעד; חץ מ־(−4, 1) ל־(1, −1); ישר שיקוף x = 2; מרכז סיבוב O(1, 1), 90° נגד כיוון השעון');
     expect(figPlain({ type: 'coord', mirror: 'y', centre: [0, 0], turn: 180 })).toBe('ישר השיקוף: ציר y; מרכז סיבוב O(0, 0), חצי סיבוב');
     expect(figPlain({ type: 'coord', centre: [2, -1], turn: -90 })).toBe('מרכז סיבוב O(2, −1), 90° עם כיוון השעון');
+  });
+});
+
+// ---------------------------------------------------------------- the proof object (GEOM-3)
+/** Every order of a list. */
+const perms = (a) => (a.length <= 1 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map((p) => [x, ...p])));
+const proofItem = (m) => ({ form: 'manip', manip: m, answer: manipSolution({ form: 'manip', manip: m }) });
+const proofItems = () => PROOFS.flatMap((T) => LETTER_SETS.flatMap((_, set) => [
+  proofItem(proofManip(T, { set, seed: 'a' })), proofItem(proofManip(T, { set, lockOrder: true })), proofItem(proofManip(T, { set, ask: 'theorem', seed: 'b' })),
+]));
+
+describe('the proof object: checking and words (GEOM-3.6)', () => {
+  it('for every template, its solution is right and its near miss is not; every order the free groups allow is right', () => {
+    for (const it of proofItems()) {
+      const m = it.manip; const at = `${m.tpl} set ${m.set}${m.lockOrder ? ' locked' : ''}`;
+      expect(manipCorrect(it, manipSolution(it)), at).toBe(true);
+      expect(manipCorrect(it, manipWrong(it)), at).toBe(false);
+      expect(manipCorrect(it, null), at).toBe(false);
+      expect(manipCorrect(it, proofStart(m)), `${at}: the start is not already right`).toBe(false);
+      const sol = manipSolution(it);
+      // every order the free groups allow: each group's rows in any order, in the group's own places
+      const groups = m.part.free || [];
+      let orders = [sol.order];
+      for (const g of groups) orders = orders.flatMap((o) => perms(g).map((p) => { const n = [...o]; g.forEach((place, k) => { n[place] = p[k]; }); return n; }));
+      expect(orders.length, at).toBe(groups.reduce((n, g) => n * perms(g).length, 1));
+      orders.forEach((order) => expect(manipCorrect(it, { order, reasons: sol.reasons }), `${at}: ${order}`).toBe(true));
+      // a wrong reason on any asked row is wrong, and so is a reason left out
+      askedSteps(m.part).forEach((i) => {
+        const n = m.part.steps[i].reason.choices.length;
+        for (let k = 0; k < n; k += 1) {
+          if (k === sol.reasons[i]) continue;
+          const reasons = [...sol.reasons]; reasons[i] = k;
+          expect(manipCorrect(it, { order: sol.order, reasons }), `${at} row ${i + 1} choice ${k}`).toBe(false);
+        }
+        const reasons = [...sol.reasons]; reasons[i] = null;
+        expect(manipCorrect(it, { order: sol.order, reasons }), at).toBe(false);
+      });
+      // a row moved out of its group is wrong
+      const swapped = [...sol.order]; [swapped[0], swapped[swapped.length - 1]] = [swapped[swapped.length - 1], swapped[0]];
+      expect(manipCorrect(it, { order: swapped, reasons: sol.reasons }), at).toBe(false);
+    }
+  });
+
+  it('manipText reads every row with its reason, in the order shown; manipPlain the givens, the goal and the choices', () => {
+    for (const it of proofItems()) {
+      const text = manipText(it, manipSolution(it));
+      const m = it.manip;
+      expect(text.split('; '), m.tpl).toHaveLength(m.part.steps.length);
+      expect(text).toMatch(/^1\. /);
+      expect(text).not.toMatch(/undefined|null|\$|\\[a-z]/);
+      const plain = manipPlain(it);
+      expect(plain).toMatch(/^\[הוכחה בטבלה, טענה ונימוק\. נתון: /);
+      expect(plain).toContain('צ״ל:');
+      expect(plain).not.toMatch(/undefined|null|\$|\\[a-z]/);
+      expect(plain).toContain(m.lockOrder ? 'הסדר נכון, משלימים את הנימוקים החסרים' : 'מסדרים את השורות ובוחרים נימוקים');
+    }
+    const t1 = proofItem(proofManip(PROOF.T1));
+    expect(manipText(t1, manipSolution(t1))).toBe('1. ⁦AM = MB⁩ — נתון; 2. ⁦CM = MD⁩ — נתון; 3. ⁦∢AMC = ∢BMD⁩ — זוויות קודקודיות; 4. ⁦△AMC ≅ △BMD⁩ — לפי צ.ז.צ; 5. ⁦AC = BD⁩ — צלעות מתאימות במשולשים חופפים');
+    // a reason not chosen yet reads "?"
+    expect(manipText(t1, { order: [0, 1, 2, 3, 4], reasons: [null, null, null, null, null] })).toContain('3. ⁦∢AMC = ∢BMD⁩ — ?');
+    expect(answerText(t1)).toBe(manipText(t1, t1.answer));
+  });
+
+  it('a check outlines the first row out of place, or, when the order is right, the first wrong reason', () => {
+    const m = proofManip(PROOF.T5);
+    const sol = proofItem(m).answer;
+    expect(proofFirstWrong(m, sol)).toBeNull();
+    // the conclusion above the congruence: row 4 (place 3) is out of place
+    expect(proofFirstWrong(m, { order: [0, 1, 2, 4, 3, 5, 6], reasons: sol.reasons })).toEqual({ place: 3, why: 'order' });
+    // the order right, the bisector's reason wrong
+    const r = [...sol.reasons]; r[1] = (r[1] + 1) % 3;
+    expect(proofFirstWrong(m, { order: sol.order, reasons: r })).toEqual({ place: 1, why: 'reason' });
+    // a free group in another order is still right; the first reason not chosen is found
+    const gaps = [...sol.reasons]; gaps[5] = null;
+    expect(proofFirstWrong(m, { order: [2, 0, 1, 3, 5, 4, 6], reasons: gaps })).toEqual({ place: 4, why: 'missing' });
+  });
+
+  it('מדי says what to do, then counts the reasons and says when the order is right (GEOM-3.6)', () => {
+    const all = proofManip(PROOF.T1);
+    expect(proofCoach(all, null, false)).toBe('סדרו את השורות מהנתונים אל המסקנה, ובחרו נימוק לכל שורה.');
+    expect(proofCoach(proofManip(PROOF.T1, { lockOrder: true }), null, false)).toBe('השלימו את הנימוקים החסרים. הסדר כבר נכון.');
+    expect(proofCoach(proofManip(PROOF.T1, { ask: 'theorem' }), null, false)).toBe('סדרו את השורות, ובחרו לפי איזה משפט המשולשים חופפים.');
+    expect(proofCoach(proofManip(PROOF.T7, { ask: 'theorem' }), null, false)).toBe('סדרו את השורות, ובחרו לפי איזה משפט המשולשים דומים.');
+    const start = proofStart(all);
+    expect(proofCoach(all, start, true)).toBe('בחרתם 0 מתוך 3 נימוקים.');
+    const one = { ...start, reasons: [null, null, 0, null, null] };
+    expect(proofCoach(all, one, true)).toBe('בחרתם 1 מתוך 3 נימוקים.');
+    expect(proofCoach(all, { order: [0, 1, 2, 3, 4], reasons: [null, null, 0, null, null] }, true)).toBe('בחרתם 1 מתוך 3 נימוקים. הסדר נכון. נשארו הנימוקים.');
+    expect(proofCoach(all, { order: [0, 1, 2, 3, 4], reasons: [null, null, 0, 1, 2] }, true)).toBe('בחרתם 3 מתוך 3 נימוקים.');
+    const only = proofManip(PROOF.T1, { ask: 'theorem' });
+    expect(proofCoach(only, proofStart(only), true)).toBe('עוד לא בחרתם נימוק.');
+    expect(proofCoach(only, { ...proofStart(only), reasons: [null, null, null, 2, null] }, true)).toBe('בחרתם נימוק.');
+  });
+
+  it('screen-reader words read the class\'s signs', () => {
+    expect(texText('\\sphericalangle AMC = \\sphericalangle BMD')).toBe('∢AMC = ∢BMD');
+    expect(texText('\\triangle ABC \\cong \\triangle KML')).toBe('△ABC ≅ △KML');
+    expect(texText('\\triangle ADE \\sim \\triangle ABC')).toBe('△ADE ∼ △ABC');
+    expect(texText('AB \\parallel CD, CD \\perp AB')).toBe('AB ∥ CD, CD ⊥ AB');
+    expect(texText('\\angle A')).toBe('∢A');
+  });
+});
+
+describe('the proof table drawn (GEOM-3.4, 3.5)', () => {
+  beforeAll(() => loadKatex());
+  const m = proofManip(PROOF.T1, { seed: 'x' });
+  const ans = proofItem(m).answer;
+  const buttons = (out) => [...out.matchAll(/<button[^>]*aria-label="([^"]*)"/g)].map((x) => x[1]);
+  it('the drawing on top, נתון and צ״ל, a table with טענה and נימוק, rows with 44px moves described by their claim', () => {
+    const out = html(ProofTable, { m, value: null, answer: ans });
+    expect(out).toMatch(/class="mp-proof-fig"[\s\S]*<svg/);
+    expect(out.indexOf('mp-proof-fig')).toBeLessThan(out.indexOf('<table'));
+    expect(out).toContain('נתון:');
+    expect(out).toContain('צ״ל:');
+    expect(out).toMatch(/<th role="columnheader" scope="col" class="claim">טענה<\/th>/);
+    expect(out).toMatch(/<th role="columnheader" scope="col" class="why">נימוק<\/th>/);
+    expect((out.match(/class="mp-proof-row/g) || []).length).toBe(5);
+    // the start is the seeded shuffle, never already right
+    const start = proofStart(m).order;
+    expect(start).not.toEqual([0, 1, 2, 3, 4]);
+    // two move buttons a row, each described by its claim; the fixed reasons are text, the asked ones chips
+    expect(buttons(out).filter((b) => b === 'הזיזו למעלה')).toHaveLength(5);
+    expect(buttons(out).filter((b) => b === 'הזיזו למטה')).toHaveLength(5);
+    const desc = [...out.matchAll(/aria-label="הזיזו למעלה" aria-describedby="([^"]+)"/g)].map((x) => x[1]);
+    desc.forEach((id) => expect(out).toContain(`id="${id}"`));
+    expect((out.match(/aria-label="בחרו נימוק לשורה \d"/g) || []).length).toBe(3);
+    expect((out.match(/class="mp-proof-fixed"/g) || []).length).toBe(2);
+    expect(out).toMatch(/aria-expanded="false"/);
+    expect(out).not.toMatch(/role="radiogroup"/); // closed until a chip is pressed
+    expect(out).not.toMatch(/undefined|NaN/);
+  });
+  it('with lockOrder the rows stay in order and nothing moves', () => {
+    const out = html(ProofTable, { m: proofManip(PROOF.T1, { lockOrder: true }), value: null });
+    expect(buttons(out).filter((b) => /הזיזו/.test(b))).toHaveLength(0);
+    expect(out).not.toContain('class="mv"');
+    const claims = [...out.matchAll(/class="claim" id="[^"]+">([\s\S]*?)<\/td>/g)].length;
+    expect(claims).toBe(5);
+  });
+  it('after a wrong check: the first row out of place is outlined; with the order right, the first wrong reason; never in a check', () => {
+    const wrongOrder = { order: [0, 1, 2, 4, 3], reasons: ans.reasons };
+    const out = html(ProofTable, { m, value: wrongOrder, checked: true });
+    expect((out.match(/mp-proof-row off/g) || []).length).toBe(1);
+    expect(out).toContain('השורה הזאת עוד לא במקום');
+    const r = [...ans.reasons]; r[2] = (r[2] + 1) % 3;
+    const why = html(ProofTable, { m, value: { order: ans.order, reasons: r }, checked: true });
+    expect(why).toContain('הנימוק הזה לא מתאים לשורה');
+    expect(html(ProofTable, { m, value: wrongOrder, checked: true, test: true })).not.toMatch(/mp-proof-row off|עוד לא במקום/);
+    expect(html(ProofTable, { m, value: wrongOrder, checked: false })).not.toMatch(/mp-proof-row off/);
+  });
+  it('reveal shows the whole right table; locked shows the choices as text', () => {
+    const out = html(ProofTable, { m, value: { order: [4, 3, 2, 1, 0], reasons: [null, null, null, null, null] }, reveal: true });
+    const claims = [...out.matchAll(/class="claim" id="[^"]+">([\s\S]*?)<\/td>/g)].map((x) => x[1]);
+    expect(claims[0]).toContain('AM');
+    expect(out).toContain('זוויות קודקודיות');
+    expect(out).toContain('לפי צ.ז.צ');
+    expect(buttons(out)).toHaveLength(0);
+  });
+  it('Manip draws it as KINDS.proof, loaded when needed', () => {
+    expect(KINDS.proof.$$typeof).toBe(Symbol.for('react.lazy'));
+  });
+});
+
+describe('a proof as a still figure (GEOM-3.9)', () => {
+  const fig = { type: 'proof', given: '$AM = MB$', goal: '$AC = BD$', rows: [{ claim: '$AM = MB$', reason: 'נתון' }, { claim: '$\\sphericalangle AMC = \\sphericalangle BMD$', reason: 'זוויות קודקודיות' }], ask: 1 };
+  it('is an HTML table, טענה | נימוק, with "?" in the asked row', () => {
+    const out = renderToStaticMarkup(createElement(Figure, { fig }));
+    expect(out).toMatch(/<table class="fg-proof-table">/);
+    expect(out).toMatch(/<th scope="col">טענה<\/th><th scope="col">נימוק<\/th>/);
+    expect(out).toContain('נתון:');
+    expect(out).toMatch(/class="fg-proof-ask"[^>]*>\?</);
+    expect(out).not.toContain('זוויות קודקודיות');
+  });
+  it('figPlain reads it: הוכחה. נתון: …; צ״ל: …; 1. … — …', () => {
+    expect(figPlain(fig)).toBe('הוכחה. נתון: AM = MB; צ״ל: AC = BD; 1. AM = MB — נתון; 2. \\sphericalangle AMC = \\sphericalangle BMD — ?');
+    expect(figPlain({ type: 'proof', rows: [{ claim: '$x$', reason: 'נתון' }] })).toBe('הוכחה. 1. x — נתון');
+  });
+});
+
+describe('the challenge\'s order part shows a fixed reason, and grades only the asked ones (GEOM-3.1)', () => {
+  beforeAll(() => loadKatex());
+  it('a step with `fixed` shows its reason under its text', () => {
+    const part = { type: 'order', prompt: 'סדרו.', steps: PROOF.T1.steps, free: PROOF.T1.free };
+    const out = renderToStaticMarkup(createElement(OrderPart, { part, seed: 't1', onDone: () => {}, last: true }));
+    expect((out.match(/class="ch-step-fixed"/g) || []).length).toBe(2);
+    expect(out).toContain('נימוק: </span>');
+    expect(out).toContain(R.given);
   });
 });

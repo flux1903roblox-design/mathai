@@ -1,7 +1,8 @@
 // A proof to put in order (CURRICULUM-6.1): its steps are shown shuffled (a seeded shuffle that is never a right order),
 // and the student moves them with ↑/↓ buttons, 44px and labelled, so a keyboard and a screen reader do it all (there is
 // no drag: the buttons are the whole method). "בדיקה" marks the first step out of place. Then each step that has a
-// reason asks for it, as a choice.
+// reason asks for it, as a choice. A step with a `fixed` reason (`נתון` on a given, GEOM-3.1) shows it under its text
+// and asks nothing: the grading never sees it.
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { ArrowUp, ArrowDown } from 'lucide-react';
@@ -10,6 +11,16 @@ import { play } from '@/lib/sound.js';
 import { firstOutOfPlace, shuffledOrder, moveStep } from '@/learn/challenges/grade.ts';
 import { useTries, resultOf, PartFooter, CHECK, GO_ON } from './common.jsx';
 import { Choices } from './McPart.jsx';
+
+/** A step's text, and its fixed reason under it when it has one (shown, not asked). */
+function StepText({ step, id }) {
+  return (
+    <span className="ch-step-text" id={id}>
+      <MathText text={step.text} />
+      {step.fixed != null && <span className="ch-step-fixed"><span className="ch-step-fixed-lab">נימוק: </span><MathText text={step.fixed} /></span>}
+    </span>
+  );
+}
 
 /** One reason to choose: two tries, then the right one. */
 function Reason({ step, n, onDone, last }) {
@@ -77,7 +88,7 @@ export default function OrderPart({ part, seed, onDone, last }) {
       <>
         <div className="lm-prompt ch-prompt" data-region="question"><div className="lm-say"><p>ועכשיו הנימוקים.</p></div></div>
         <ol className="ch-order done" aria-label="ההוכחה">
-          {part.steps.map((s, i) => <li key={i} className={clsx('ch-step', i === at && 'now')}><span className="ch-step-n" aria-hidden="true">{i + 1}</span><span className="ch-step-text"><MathText text={s.text} /></span></li>)}
+          {part.steps.map((s, i) => <li key={i} className={clsx('ch-step', i === at && 'now')}><span className="ch-step-n" aria-hidden="true">{i + 1}</span><StepText step={s} /></li>)}
         </ol>
         <Reason key={at} step={part.steps[at]} n={at + 1} onDone={afterReason} last={last && reasonAt === withReason.length - 1} />
       </>
@@ -90,11 +101,11 @@ export default function OrderPart({ part, seed, onDone, last }) {
       <div className="lm-prompt ch-prompt" data-region="question"><div className="lm-say"><p><MathText text={part.prompt} /></p></div></div>
       <ol className="ch-order" aria-label="שלבי ההוכחה">
         {order.map((step, place) => {
-          const text = part.steps[step].text; const id = `ch-step-${step}`;
+          const id = `ch-step-${step}`;
           return (
             <li key={step} ref={mark === place ? marked : undefined} className={clsx('ch-step', mark === place && 'off', t.done && 'set')} aria-current={mark === place ? 'step' : undefined}>
               <span className="ch-step-n" aria-hidden="true">{place + 1}</span>
-              <span className="ch-step-text" id={id}><MathText text={text} /></span>
+              <StepText step={part.steps[step]} id={id} />
               {!t.done && (
                 <span className="ch-step-moves">
                   <button type="button" className="icon-btn ch-move" aria-label="הזיזו למעלה" aria-describedby={id} disabled={place === 0}

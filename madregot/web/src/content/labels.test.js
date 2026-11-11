@@ -14,6 +14,7 @@ import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
+import { PROOFS, LETTER_SETS, proofManip, proofDiag } from './congr.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 
@@ -811,5 +812,54 @@ describe('the wrong answers sampled for a transform object (GEOM-1 Tests, GEOM-2
     const edge = { ...item, answer: { pts: [[3, 0], [6, 0], [3, 2]] } };
     expect(candidates(edge).every((p) => p.every(([x, y]) => Math.abs(x) <= 6 && Math.abs(y) <= 6))).toBe(true);
     expect(candidates(edge).map((p) => JSON.stringify(p))).not.toContain(JSON.stringify([[4, 0], [7, 0], [4, 2]]));
+  });
+});
+
+/**
+ * The proof tags (GEOM-3.6), read back from the table the student left, not from proofDiag: the congruence row is the
+ * one whose claim says ≅ (or ∼); 'circular' is a row whose own reason is "corresponding parts" placed above it, and
+ * 'wrong-theorem' a theorem chosen on it that is not its own. The congruence and similarity topics plug these into their
+ * properties (curriculum stage 4, GEOM-5 and GEOM-6).
+ */
+const PROOF_PROPS = {
+  circular: (it, u) => {
+    const steps = it.manip.part.steps;
+    const thm = steps.findIndex((s) => /\\cong|\\sim/.test(s.text));
+    const own = (s) => s.fixed ?? s.reason.choices[s.reason.answer];
+    return thm >= 0 && steps.some((s, i) => /מתאימות במשולשים/.test(own(s)) && u.order.indexOf(i) < u.order.indexOf(thm));
+  },
+  'wrong-theorem': (it, u) => {
+    const steps = it.manip.part.steps;
+    const thm = steps.findIndex((s) => /\\cong|\\sim/.test(s.text));
+    const s = steps[thm];
+    const chosen = s?.reason && u.reasons[thm] != null ? s.reason.choices[u.reasons[thm]] : '';
+    return /^לפי /.test(chosen) && u.reasons[thm] !== s.reason.answer;
+  },
+};
+
+describe('the wrong tables sampled for a proof object, and the proof tags they show (GEOM-1 Tests, GEOM-3)', () => {
+  it('are the right order with each asked reason varied, and each conclusion above the congruence; each tag has its property', () => {
+    const seen = new Set();
+    for (const T of PROOFS) {
+      for (let set = 0; set < LETTER_SETS.length; set += 1) {
+        for (const opts of [{ set }, { set, lockOrder: true }, { set, ask: 'theorem' }]) {
+          const m = proofManip(T, opts);
+          const item = { form: 'manip', manip: m, answer: null };
+          item.answer = candidates(item)[0];
+          const cands = candidates(item);
+          const asked = m.part.steps.filter((s) => s.reason);
+          const moved = opts.lockOrder ? 0 : m.part.steps.filter((s) => /מתאימות במשולשים/.test(s.fixed ?? s.reason.choices[s.reason.answer])).length;
+          expect(cands, `${T.id} ${JSON.stringify(opts)}`).toHaveLength(1 + asked.reduce((n, s) => n + s.reason.choices.length - 1, 0) + moved);
+          for (const u of cands) {
+            if (isCorrect(item, u)) continue;
+            const cat = proofDiag(m.part, u);
+            if (!cat) continue;
+            seen.add(cat);
+            expect(PROOF_PROPS[cat](item, u), `${T.id}: ${JSON.stringify(u)} labelled ${cat}`).toBe(true);
+          }
+        }
+      }
+    }
+    expect([...seen].sort()).toEqual(['circular', 'wrong-theorem']);
   });
 });

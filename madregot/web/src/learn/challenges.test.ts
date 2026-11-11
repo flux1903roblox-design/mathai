@@ -9,6 +9,8 @@ import { challengeXP, scoredParts, numCheck, exampleHolds, domainValues, firstOu
 import { ALL_SKILLS, TOPIC_ORDER, parseSkill } from './skills';
 import { evaluate, same } from './expr';
 import { contentOf, loadAllContent } from './content/index';
+// @ts-ignore: plain JS
+import { PROOFS, LETTER_SETS, proofIn } from '@/content/congr.js';
 
 // every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
 await loadAllContent();
@@ -122,6 +124,35 @@ describe('the challenge tasks', () => {
       expect(p.steps.length, id).toBeGreaterThanOrEqual(3);
       p.steps.forEach((s) => { if (s.reason) expect(Number.isInteger(s.reason.answer) && s.reason.answer >= 0 && s.reason.answer < s.reason.choices.length, id).toBe(true); });
       (p.free || []).forEach((g) => g.forEach((k) => expect(k >= 0 && k < p.steps.length, id).toBe(true)));
+    });
+  });
+
+  it('the seven proof templates follow the same rules, so a template that serves a challenge passes both engines (GEOM-3)', () => {
+    const parts = (PROOFS as any[]).flatMap((T) => LETTER_SETS.map((_: string, set: number) => {
+      const U = proofIn(T, set);
+      return [`${T.id}/${set}`, { type: 'order', prompt: 'סדרו את שלבי ההוכחה.', steps: U.steps, free: U.free } as Order] as const;
+    }));
+    expect(parts).toHaveLength(21);
+    parts.forEach(([id, p]) => {
+      expect(p.steps.length, id).toBeGreaterThanOrEqual(3);
+      p.steps.forEach((s) => {
+        if (s.reason) expect(Number.isInteger(s.reason.answer) && s.reason.answer >= 0 && s.reason.answer < s.reason.choices.length, id).toBe(true);
+        // a reason is asked or shown, never both
+        expect(!!s.reason !== (s.fixed != null), id).toBe(true);
+      });
+      // every free group is in range and contiguous: rows that may swap stand next to each other
+      (p.free || []).forEach((g) => {
+        g.forEach((k) => expect(k >= 0 && k < p.steps.length, id).toBe(true));
+        const sorted = [...g].sort((a, b) => a - b);
+        expect(sorted.every((k, i) => !i || k === sorted[i - 1] + 1), `${id}: ${g}`).toBe(true);
+      });
+      // the shuffle never starts right
+      for (let k = 0; k < 20; k += 1) expect(firstOutOfPlace(p, shuffledOrder(p, `${id}:${k}`)), id).not.toBe(-1);
+      // every piece of maths renders, and no Latin word stands outside it
+      p.steps.flatMap((s) => [s.text, ...(s.reason?.choices || []), s.fixed || '']).filter(Boolean).forEach((t) => {
+        tex(t).forEach((m) => expect(() => katex.renderToString(m, { throwOnError: true }), `${id}: ${m}`).not.toThrow());
+        expect(outsideTex(t), `${id}: "${t}"`).not.toMatch(/[A-Za-z]/);
+      });
     });
   });
 

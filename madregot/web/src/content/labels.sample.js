@@ -2,6 +2,23 @@
 // (content/labels.test.js: every label describes the answer; lib/teacherText.test.js: the teacher reads the student's
 // words for each). Only tests import this file.
 import { tfSlide, tfImages, tfInside, TF_RANGE } from './transform.js';
+import { proofRows } from './congr.js';
+import { proofSolution, askedSteps } from './proof.js';
+
+/**
+ * Wrong tables to try on a proof object (GEOM-3): the right order with each asked reason varied over its choices, and
+ * the right order with each conclusion ("corresponding parts") moved above the congruence row.
+ */
+function proofCandidates(m) {
+  const sol = proofSolution(m);
+  const out = [sol];
+  askedSteps(m.part).forEach((i) => m.part.steps[i].reason.choices.forEach((_, k) => {
+    if (k !== sol.reasons[i]) { const reasons = [...sol.reasons]; reasons[i] = k; out.push({ order: sol.order, reasons }); }
+  }));
+  const { thm, parts } = proofRows(m.part);
+  if (!m.lockOrder && thm >= 0) parts.forEach((p) => { const order = sol.order.filter((s) => s !== p); order.splice(thm, 0, p); out.push({ order, reasons: sol.reasons }); });
+  return out;
+}
 
 /** Wrong answers to try, in the shape of the item: wide enough to reach every prediction a diag() makes. */
 export function candidates(it) {
@@ -30,6 +47,7 @@ export function candidates(it) {
         const a = it.answer.pts;
         return [a, ...[[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => tfSlide(a, dx, dy)), ...tfImages(m, a)].filter((p) => tfInside(p, m.range || TF_RANGE));
       }
+      case 'proof': return proofCandidates(m);
       default: return [];
     }
   }

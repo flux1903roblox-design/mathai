@@ -76,7 +76,8 @@ export function makeItem(topicId, level, avoidKey) {
  * "5 + 3") says nothing about signs: they skip it too. Practice keeps them all.
  */
 export function fairForCheck(it) {
-  if (it.practiceOnly) return false;
+  // a proof's skeleton is the same every time (givens, the theorem, the conclusion): practice only, flagged or not (GEOM-3.10)
+  if (it.practiceOnly || it.manip?.kind === 'proof') return false;
   if (it.fixed) return false;
   if (it.topic !== 'signed') return true;
   const shown = [it.display, it.text, ...(it.manip?.labels || []), ...(it.choices || []).map((c) => c.tex || c.text)].join(' ');
@@ -277,6 +278,13 @@ export function figPlain(f) {
         ...(f.segs || []).filter((sg) => sg.ticks).map((sg) => `${nm(sg.a)}${nm(sg.b)}: ${sg.ticks} סימונים`),
       ];
       return marks.length ? `שרטוט: ${marks.join(', ')}` : 'שרטוט';
+    }
+    // a proof as a still table (GEOM-3.9): the givens, what to prove, and each row's claim and reason ("?" where asked)
+    case 'proof': {
+      const strip = (t) => String(t ?? '').replace(/\$/g, '');
+      const head = [f.given && `נתון: ${strip(f.given)}`, f.goal && `צ״ל: ${strip(f.goal)}`].filter(Boolean);
+      const rows = f.rows.map((r, i) => `${i + 1}. ${strip(r.claim)} — ${i === f.ask ? '?' : strip(r.reason)}`);
+      return `הוכחה. ${[...head, ...rows].join('; ')}`;
     }
     // the fraction figures (numline with parts, fbar, fgrid, dline, groups) and the teaching figures (STUDENT-8: numline,
     // thermo, machine, dots, bars) say in words what they draw

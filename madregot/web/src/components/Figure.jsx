@@ -43,6 +43,10 @@
 //          on the top line; show which values are written at the marker; label writes one value under it ('1400', '?');
 //          blank writes no number on the bottom line but 0 (the whole is what the picture asks)
 //   groups { rows: [{ n, label }] }                     dots in fives, a Hebrew label at the start of each row
+// Geometry (curriculum stage 4):
+//   proof  { given?, goal?, rows: [{ claim, reason }], ask? }   a proof as a still table, the class's two columns
+//          טענה | נימוק under the נתון and צ״ל lines (HTML, maths by MathText); `ask` writes "?" in that row's reason
+//          (a step that asks why). A teaching figure only, never in a check (GEOM-3.9)
 import { useEffect, useId, useState } from 'react';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
@@ -54,6 +58,7 @@ import { TilesArt, TILES_VIEW } from './manip/Tiles.jsx';
 import { BarArt, MarksArt, WholeArt, HatchDef } from './manip/FracBar.jsx';
 import { DlineArt, DLINE_VIEW } from './manip/DoubleLine.jsx';
 import { SvgLabel, minus } from './manip/core.jsx';
+import { MathText } from './MathText.jsx';
 import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO } from '@/content/manip.js';
 // the transform object's still twin on the plane: its words register with figWords when this loads (GEOM-2.8)
 import { mirrorWords } from '@/content/transform.js';
@@ -947,11 +952,37 @@ function Groups({ fig }) {
   );
 }
 
+/** A proof as a still table (GEOM-3.9): נתון and צ״ל, then טענה | נימוק; the asked row's reason is "?". */
+function ProofFig({ fig }) {
+  return (
+    <div className="fg-proof">
+      {(fig.given || fig.goal) && (
+        <div className="mp-proof-head">
+          {fig.given && <p><b>נתון:</b> <MathText text={fig.given} /></p>}
+          {fig.goal && <p><b>צ״ל:</b> <MathText text={fig.goal} /></p>}
+        </div>
+      )}
+      <table className="fg-proof-table">
+        <thead><tr><th scope="col" className="n"><span className="visually-hidden">שורה</span></th><th scope="col">טענה</th><th scope="col">נימוק</th></tr></thead>
+        <tbody>
+          {fig.rows.map((r, i) => (
+            <tr key={i} className={i === fig.ask ? 'ask' : undefined}>
+              <td className="n">{i + 1}</td>
+              <td><MathText text={r.claim} /></td>
+              <td>{i === fig.ask ? <span className="fg-proof-ask" aria-label="סימן שאלה: מה הנימוק?">?</span> : <MathText text={r.reason} />}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** One numline type: a line cut into parts (den) is the fraction lane's PartsLine, any other the teaching NumLine. */
 const NumberLine = ({ fig }) => (fig.den ? <PartsLine fig={fig} /> : <NumLine fig={fig} />);
 
 export default function Figure({ fig }) {
   if (!fig) return null;
-  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups }[fig.type];
+  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, proof: ProofFig }[fig.type];
   return C ? <div className="figure-wrap"><C fig={fig} /></div> : null;
 }

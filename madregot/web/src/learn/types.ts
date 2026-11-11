@@ -43,6 +43,18 @@ export type TransformSpec = {
   range?: number;
   target?: { pts: [number, number][]; names?: string[] };
 };
+/**
+ * The proof object (GEOM-3): the challenge track's `order` part in the class's table טענה | נימוק, under the givens and
+ * what to prove, with the drawing it is read against. Without lockOrder the rows start in the seeded shuffle (never
+ * already right); with it they stay in order and only the missing reasons are asked. The value is { order, reasons }:
+ * the step at each place, and per step the chosen choice (null until chosen). tpl and set name the template and its
+ * letter set (content/congr.js), which a teaching step is checked against.
+ */
+export type ProofSpec = {
+  kind: 'proof'; given: Text; goal: Text;
+  part: Extract<ChallengePart, { type: 'order' }>;
+  lockOrder?: boolean; seed: string; fig?: FigSpec; tpl?: string; set?: number;
+};
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand

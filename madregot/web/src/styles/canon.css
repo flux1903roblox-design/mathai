@@ -1808,6 +1808,9 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .ch-step-n { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--ground); font-weight: 700; font-size: 15px; color: var(--ink-2); }
 .ch-step-text { flex: 1; min-width: 0; font-size: 16px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
 .ch-step-moves { flex: none; display: flex; flex-direction: column; gap: 4px; }
+/* a reason shown and not asked (GEOM-3.1): נתון on a given, under its step */
+.ch-step-fixed { display: block; margin-top: 2px; font-size: var(--t-sm); line-height: 1.4; color: var(--ink-2); }
+.ch-step-fixed-lab { font-weight: 700; }
 .ch-move { width: 44px; height: 44px; border: 2px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--brand-d); }
 .ch-move:disabled { color: var(--disabled-ink); background: var(--ground); border-color: var(--ground); }
 .ch-order.done .ch-step { padding-inline-end: var(--s3); }

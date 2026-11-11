@@ -614,7 +614,7 @@ export default function Lesson() {
             )}
           </div>
         )}
-        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind)} />}
+        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind)} checked={feedback === 'retry'} />}
         {item.form === 'mc' && (
           <div className={clsx('choices', inlineChoices(item) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
             {item.choices.map((c, i) => {

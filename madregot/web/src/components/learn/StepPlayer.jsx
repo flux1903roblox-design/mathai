@@ -144,7 +144,7 @@ function Explore({ step, done, onDone, onCtl }) {
       <Canvas display={step.display ? `${step.display}${step.manip.kind === 'numberline' ? ' = \\,?' : ''}` : null}>
         {C ? (
           <Suspense fallback={<div className="manip manip-loading" aria-busy="true" />}>
-            <C m={step.manip} value={v} onChange={(x) => { setV(x); setTouched(true); if (miss > 0) setMiss(0); }} locked={ok} reveal={false} good={ok} answer={step.answer} hint={miss > 0} />
+            <C m={step.manip} value={v} onChange={(x) => { setV(x); setTouched(true); if (miss > 0) setMiss(0); }} locked={ok} reveal={false} good={ok} answer={step.answer} hint={miss > 0} checked={miss > 0} />
           </Suspense>
         ) : <p className="form-error">האובייקט הזה לא זמין.</p>}
       </Canvas>

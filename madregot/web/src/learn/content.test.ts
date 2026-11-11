@@ -19,6 +19,13 @@ import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TIL
 // @ts-ignore: plain JS
 import { transformReachable, tfStart, tfSame, tfSameSet, tfInside, TF_RANGE } from '@/content/transform.js';
 // @ts-ignore: plain JS
+import { PROOF, proofIn, proofManip } from '@/content/congr.js';
+// @ts-ignore: plain JS
+import { proofStart, rightReason, askedSteps } from '@/content/proof.js';
+// @ts-ignore: plain JS
+import { templateFaults } from '@/content/proof.check.js';
+import { firstOutOfPlace } from './challenges/grade';
+// @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
@@ -106,6 +113,7 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       if (s.manip.kind === 'area') checkArea(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'ray') checkRay(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'transform') checkTransform(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'proof') checkProof(s.manip as any, at);
       expect(s.hint, at).toBeTruthy();
       expect(s.success, at).toBeTruthy();
     }
@@ -135,6 +143,23 @@ function checkTransform(m: { shape: { pts: [number, number][]; names: string[] }
   expect(transformReachable(m, a.pts, a.match || 'labels'), `${at}: the goal cannot be reached with the item's moves`).toBe(true);
   // a named target is the goal the question shows
   if (m.target) expect(tfSameSet(m.target.pts, a.pts), `${at}: the dashed target is not the goal`).toBe(true);
+}
+
+/**
+ * The proof object (GEOM-3): made from a template (content/congr.js) in one of its letter sets, the template passes the
+ * template test, the rows are the template's (the same claims, the same right reasons, the same free groups; which
+ * reasons are asked may differ), something is asked, and without lockOrder the first order shown is not already right.
+ */
+function checkProof(m: { tpl: string; set?: number; lockOrder?: boolean; seed: string; part: { steps: any[]; free?: number[][] } }, at: string) {
+  const T = PROOF[m.tpl];
+  expect(T, `${at}: a proof is made from a template`).toBeTruthy();
+  const U = proofIn(T, m.set || 0);
+  expect(templateFaults(U), at).toEqual([]);
+  expect(m.part.steps.map((s) => s.text), `${at}: not the template's rows`).toEqual(U.steps.map((s: any) => s.text));
+  expect(m.part.steps.map(rightReason), `${at}: not the template's reasons`).toEqual(U.steps.map(rightReason));
+  expect(m.part.free || [], at).toEqual(U.free || []);
+  expect(askedSteps(m.part).length, `${at}: nothing to choose`).toBeGreaterThan(0);
+  if (!m.lockOrder) expect(firstOutOfPlace(m.part as any, proofStart(m).order), `${at}: the rows start in a right order`).not.toBe(-1);
 }
 
 /** A value is a whole number of parts of size 1/den. */
@@ -625,6 +650,19 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'transform', shape, start: [[-6, 0], [-3, 0], [-6, 2]], moves: { flips: [{ x: 4 }] } }, { pts: [[6, 0], [3, 0], [6, 2]] }));
     ok(explore({ kind: 'transform', shape, start: [[-6, 0], [-3, 0], [-6, 2]], moves: { drag: true, flips: [{ x: 4 }] } }, { pts: [[6, 0], [3, 0], [6, 2]] }));
     bad(explore({ kind: 'transform', shape, moves: { drag: true }, target: { pts: [[2, 3], [5, 3], [2, 5]] } }, { pts: [[-3, -3], [0, -3], [-3, -1]] })); // the target is not the goal
+  });
+  it('a proof: made from a template that passes the template test, not starting right', () => {
+    ok(explore(proofManip(PROOF.T1), null));
+    ok(explore(proofManip(PROOF.T5, { set: 1, lockOrder: true }), null));
+    ok(explore(proofManip(PROOF.T7, { set: 2, ask: 'theorem', seed: 'q' }), null));
+    const m = proofManip(PROOF.T2);
+    bad(explore({ ...m, tpl: 'T9' }, null)); // no such template
+    bad(explore({ ...m, part: { ...m.part, steps: m.part.steps.slice(0, -1) } }, null)); // a row lost
+    bad(explore({ ...m, part: { ...m.part, steps: [m.part.steps[3], ...m.part.steps.filter((_: unknown, i: number) => i !== 3)] } }, null)); // the congruence first
+    const told = { ...m, lockOrder: true, part: { ...m.part, steps: m.part.steps.map((st: any) => (st.reason ? { text: st.text, fixed: rightReason(st) } : st)) } };
+    bad(explore(told, null)); // nothing left to choose
+    // every row in one free group: no shuffle can start wrong
+    bad(explore({ ...m, part: { ...m.part, free: [[0, 1, 2, 3, 4]] } }, null));
   });
   it('two lines: the goal is their meeting point', () => {
     ok(explore({ kind: 'plot', lines: [{ m: 2, b: -1 }, { m: -1.5, b: 6 }] }, [2, 3]));

@@ -20,15 +20,19 @@ import DoubleLine, { dlineCoach } from './DoubleLine.jsx';
 import { lazy, Suspense, useState } from 'react';
 import { triangleAngles } from '@/content/manip.js';
 import { tfStart, tfSlide, tfSame, tfSlideWords } from '@/content/transform.js';
+import { proofStart, proofValueOk, proofOrderRight, proofChosen, askedSteps, rightReason } from '@/content/proof.js';
+import { THEOREMS } from '@/content/congr.js';
 import { minus, partsTex } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 
-// the transform object (GEOM-2) is loaded when an exercise needs it: the first screen's try-out never does
+// the transform object (GEOM-2) and the proof table (GEOM-3) are loaded when an exercise needs them: the first
+// screen's try-out never does
 const Transform = lazy(() => import('./Transform.jsx'));
+const ProofTable = lazy(() => import('./ProofTable.jsx'));
 
 export const KINDS = {
   numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag,
-  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, transform: Transform,
+  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, transform: Transform, proof: ProofTable,
 };
 
 // A number inside Hebrew text keeps its minus sign on the left.
@@ -49,6 +53,25 @@ export function transformCoach(m, v, touched, last) {
   if (!tfSame(tfSlide(s, dx, dy), cur)) return 'העותק זז. כל הקודקודים זזים יחד, באותו כיוון ובאותו מרחק.';
   if (!dx && !dy) return 'העותק במקום שבו התחלתם.';
   return `מהמקום שבו התחלתם: ${tfSlideWords(dx, dy)}.`;
+}
+
+/**
+ * What מדי says about the proof table (GEOM-3.6): before a move, what to do (put the rows in order and choose the
+ * reasons; with lockOrder only the missing reasons; with only the theorem asked, which theorem); then how many reasons
+ * are chosen, and that the order is right when it is (practice only: in a check מדי says nothing).
+ */
+export function proofCoach(m, v, touched) {
+  const asked = askedSteps(m.part);
+  if (!touched) {
+    if (m.lockOrder) return 'השלימו את הנימוקים החסרים. הסדר כבר נכון.';
+    const only = asked.length === 1 && THEOREMS.includes(rightReason(m.part.steps[asked[0]])) ? rightReason(m.part.steps[asked[0]]) : null;
+    if (only) return `סדרו את השורות, ובחרו לפי איזה משפט המשולשים ${only === THEOREMS[3] ? 'דומים' : 'חופפים'}.`;
+    return 'סדרו את השורות מהנתונים אל המסקנה, ובחרו נימוק לכל שורה.';
+  }
+  const cur = proofValueOk(m.part, v) ? v : proofStart(m);
+  const { k, n } = proofChosen(m, cur);
+  const count = n === 1 ? (k ? 'בחרתם נימוק.' : 'עוד לא בחרתם נימוק.') : `בחרתם ${k} מתוך ${n} נימוקים.`;
+  return !m.lockOrder && k < n && proofOrderRight(m, cur) ? `${count} הסדר נכון. נשארו הנימוקים.` : count;
 }
 
 /** What מדי says about the object as it is now (`last`: what the object said its last move did, for transform). */
@@ -116,11 +139,16 @@ function coach(it, v, touched, last) {
     case 'fbar': return fbarCoach(m, v, touched);
     case 'dline': return dlineCoach(m, v, touched);
     case 'transform': return transformCoach(m, v, touched, last);
+    case 'proof': return proofCoach(m, v, touched);
     default: return null;
   }
 }
 
-export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint, test = false }) {
+/**
+ * `checked`: the last check was wrong and nothing has moved since (the lesson's "עוד לא"): an object that can say where
+ * (the proof table outlines the first row out of place, or the first wrong reason) shows it, never in a check.
+ */
+export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint, test = false, checked = false }) {
   // an object that says what its last move did (transform: a flip, a turn, a move it refused), for this exercise only
   const [said, setSaid] = useState({ key: null, last: null });
   const C = KINDS[item.manip.kind];
@@ -130,7 +158,7 @@ export default function Manip({ item, value, onChange, locked, reveal, good, tou
     <>
       <Suspense fallback={<div className="manip manip-loading" aria-busy="true" />}>
         <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} test={test && !reveal && !good}
-          onSay={(x) => setSaid({ key: item.key, last: x })} />
+          checked={checked && !test} onSay={(x) => setSaid({ key: item.key, last: x })} />
       </Suspense>
       {!test && (
         <div className="manip-coach">
