@@ -36,6 +36,9 @@ export const ITEMS = [
   { id: 'cross-pin', slot: 'body', topic: 'sys', name: 'סיכת שני ישרים', unlock: { chest: 'sys' } },
   // the curriculum lane's bridge unit (fractions and decimals): drawn at the merge, so every unit in TOPICS has its piece
   { id: 'fraction-pin', slot: 'body', topic: 'frac', name: 'סיכת שבר', unlock: { chest: 'frac' } },
+  // the curriculum lane's grade 8 units (ratio and scale, percent): drawn at the merge, for the same reason
+  { id: 'scale-pin', slot: 'body', topic: 'ratio', name: 'סיכת קנה מידה', unlock: { chest: 'ratio' } },
+  { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 

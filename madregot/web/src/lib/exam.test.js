@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreOf, makePracticeExam, weakTopics, buildPlan, focusLevel, baseEntry, PLAN_WINS } from './exam.js';
+import { scoreOf, makePracticeExam, weakTopics, focusLevel } from './exam.js';
 import { TOPIC } from '@/content/index.js';
 import { startSession, nextQuestion, submit, withHint, FAST, NEED } from './ladder.js';
 import { readAnswer } from '@/content/index.js';
@@ -39,31 +39,15 @@ describe('exam', () => {
     expect(w[0].examLost).toBe(1.5);
     expect(w[0].skills).toContain('שיפוע');
   });
-  it('targets the level where the exam lost points, and counts wins there', () => {
-    const t0 = '2026-11-01T10:00:00.000Z';
-    const exams = [{ at: t0, result: { questions: [
+  it('reads the level where the exam lost points', () => {
+    const exams = [{ at: '2026-11-01T10:00:00.000Z', result: { questions: [
       { topic: 'line', status: 'wrong', level: 6, skill: 'חיתוך עם הצירים' },
       { topic: 'line', status: 'partial', level: 4 },
       { topic: 'line', status: 'correct', level: 2 },
     ] } }];
     expect(focusLevel('line', exams)).toBe(6);
     expect(focusLevel('pyth', exams)).toBe(null);
-    const base = { line: baseEntry('line', 6, { 'line:6': 1 }, t0) };
-    const before = buildPlan({ exams, progress: { line: { level: 2, max: 2 } }, streak: 1, base, wins: { 'line:6': 3 } });
-    expect(before.steps.map((s) => s.kind)).toEqual(['practice', 'exam', 'habit']);
-    expect(before.steps[0]).toMatchObject({ level: 6, have: 2, need: PLAN_WINS, done: false, to: '/practice/line?level=6&from=plan' });
-    expect(before.steps[1].done).toBe(false);
-    // two wins at level 6, then two more after climbing to level 7
-    const after = buildPlan({ exams: [{ at: '2026-11-03T10:00:00.000Z', result: { questions: [] } }, ...exams], progress: {}, streak: 6, base, wins: { 'line:5': 9, 'line:6': 3, 'line:7': 2 } });
-    expect(after.steps[0].done).toBe(true);
-    expect(after.steps[1].done).toBe(true); // a later exam is the retest
-    expect(after.steps[2].done).toBe(true);
-    expect(buildPlan({}).steps.map((s) => s.kind)).toEqual(['habit']);
-  });
-  it('keeps a practice-only step at the level it started on', () => {
-    const base = { stats: baseEntry('stats', 2, {}, '2026-11-01T10:00:00.000Z') };
-    const plan = buildPlan({ mistakes: { 'stats:mode-max': 3 }, progress: { stats: { level: 4, max: 4 } }, base, wins: { 'stats:2': 4 } });
-    expect(plan.steps[0]).toMatchObject({ topic: 'stats', level: 2, done: true });
+    expect(focusLevel('nope', exams)).toBe(null);
   });
 });
 

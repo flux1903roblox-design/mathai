@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'line' | 'pyth' | 'stats' | 'sys';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'stats' | 'sys';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -42,8 +42,11 @@ export type NumlineFig = { type: 'numline'; from: number; to: number; step?: num
 export type FbarFig = { type: 'fbar'; den?: number; shaded?: number; marks?: number[]; whole?: number; labels?: boolean; hatch?: number; cross?: number; rows?: { den: number; shaded: number; label?: string }[] };
 /** A rectangle cut both ways, the overlap of the shaded columns and rows darkest. */
 export type FgridFig = { type: 'fgrid'; rows: number; cols: number; shadeRows: number; shadeCols: number; label?: string };
-/** The double number line, still: the marker at `at` on the top line, which values it shows, or one value under it. */
-export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: number; show?: 'both' | 'top' | 'bottom'; label?: string };
+/**
+ * The double number line, still: the marker at `at` on the top line, which values it shows, or one value under it;
+ * `blank` writes no number on the bottom line but 0 (a picture that asks for the whole).
+ */
+export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: number; show?: 'both' | 'top' | 'bottom'; label?: string; blank?: boolean };
 /** Things counted in rows of dots, with a Hebrew label at the start of each row. */
 export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] };
 /** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
@@ -192,8 +195,8 @@ export interface DiagModel<P = Record<string, number>> {
   unit?: string;
   /** Compare the typed answer exactly (content/util.js numRight), as an exercise marked `precise`. */
   precise?: boolean;
-  /** Show the answer as a decimal (-1.3, not -13/10). */
-  fmt?: 'dec';
+  /** Show the answer as a decimal (-1.3, not -13/10); a function chooses per question (decimals, or quarters as fractions). */
+  fmt?: 'dec' | ((p: P) => 'dec' | undefined);
 }
 
 // ------------------------------------------------------------------ the stair
@@ -273,7 +276,9 @@ export interface LearnEvent { t: string; e: string; s?: SkillId; m?: string; ok?
 
 /**
  * The floor check of the bridge unit (בדיקת יסודות): when it ran, whether the unit is on the map, what each fractions
- * stair showed, and the multiplication facts. Written by the floor check (curriculum stage 8); read by recommend.ts.
+ * stair showed, and the multiplication facts. Written by the floor check (storeGlue.ts learnAfterCheck, purpose 'floor');
+ * read by recommend.ts. `on` puts the bridge unit on the map: a missed fractions question switches it on, and only the
+ * student switches it off again (Topics, "להסתיר את היסודות מהמפה"), which keeps the evidence.
  */
 export interface FloorState {
   at: string;
@@ -282,24 +287,87 @@ export interface FloorState {
   facts: { asked: number; right: number };
 }
 
+// ------------------------------------------------------------------ the challenge track (CURRICULUM-6)
+
+/** What a challenge asks for: judging a claim, finding someone's error, ordering a proof, or a real-world task. */
+export type ChallengeKind = 'claim' | 'error' | 'proof' | 'literacy';
+/**
+ * A challenge task for a strong student: optional, graded by code (offline, no AI), shown once its `after` stair is
+ * mastered. Its parts are solved in order, each with two tries; an `explain` part is the student's own words, a
+ * self-check with no score. Content lives in learn/challenges/<topic>.ts.
+ */
+export interface ChallengeTask {
+  id: string; // 'pct:c1'
+  topic: TopicId;
+  after: SkillId; // shown once this stair is mastered
+  kind: ChallengeKind;
+  title: Text;
+  story?: Text; // the context, at most 400 characters
+  fig?: FigSpec;
+  parts: ChallengePart[]; // 2..5, solved in order
+  minutes: number; // 4..10
+  /** The mistake (a misconception id of the content, e.g. 'partial-dist') the task is built on, when it is one. */
+  misc?: string;
+}
+/**
+ * One part of a challenge.
+ *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested)
+ *   mc       one right choice among several, each with its own feedback
+ *   claim    always / sometimes / never true; with `example`, a counterexample typed into the slots: `expr` evaluated
+ *            at the slots' values (learn/expr.ts) must satisfy `rel value`, the values in `domain`
+ *   order    a proof's steps, shown shuffled, put in order; a step with `reason` then asks why, as a choice. `free`
+ *            lists groups of steps that may come in any order among themselves (two equal angles found one after the
+ *            other): the proof is right either way, so the check accepts both
+ *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`)
+ *   explain  the student's own words (kept on the screen only), then the sample answer and the rubric to tick
+ */
+export type ChallengePart =
+  | { type: 'num'; prompt: Text; answer: number; check: string; unit?: string; solution: Text[] }
+  | { type: 'mc'; prompt: Text; choices: { text: Text; ok: boolean; feedback: Text }[] }
+  | { type: 'claim'; prompt: Text; claim: Text; verdict: 'always' | 'sometimes' | 'never'; why: Text;
+      example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
+                  expr: string; rel: '<' | '<=' | '>' | '>=' | '!='; value: number; hint: Text } }
+  | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number } }[]; free?: number[][] }
+  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string } }
+  | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
+/** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */
+export interface ChallengeRecord { startedAt: string; doneAt?: string; firstTry: number; parts: number }
+
 export interface LearnState {
   skills: Record<SkillId, SkillRecord>;
   miscon: Record<string, MisconRecord>; // key `${skill}|${id}`
   exam: ExamPlanState | null;
   missions: Record<string, { items: MissionItem[] }>; // by day 'YYYY-MM-DD'
   events: LearnEvent[];
-  /** The floor check's record; absent or null until it runs (a v4 save has none). */
+  /**
+   * The floor check's record; null until it runs. A save from before it existed has none: the store's persist merge
+   * fills null in (lib/store.js), and every reader still reads it as `learn.floor ?? null`.
+   */
   floor?: FloorState | null;
+  /** Challenge tasks by id ({} until one starts; read as `learn.challenges ?? {}`, as floor is). */
+  challenges?: Record<string, ChallengeRecord>;
 }
 
 // ------------------------------------------------------------------ what to do next
 
-export type ActionKind = 'exam' | 'repair' | 'review' | 'prereq' | 'continue' | 'new' | 'mastery';
+/**
+ * What a suggestion is (learn/next.ts planNext ranks them): an Exam Rescue step, a misconception to repair, a due
+ * review, points lost in a checked exam ('exam-loss'), the floor check of the fractions unit ('floor'), a missing
+ * prerequisite, a mastery check, the stair in progress, a new stair, or a challenge task of a mastered stair.
+ */
+export type ActionKind = 'exam' | 'repair' | 'review' | 'exam-loss' | 'floor' | 'prereq' | 'continue' | 'new' | 'mastery' | 'challenge';
 export type Stage = 'A' | 'B' | 'C' | 'D' | 'E';
+/** The kind of an Exam Rescue step, as its plan names it (examRescue.ts PlanTask), plus the diagnostic before a plan. */
+export type RescueTask = 'learn' | 'practice' | 'mastery' | 'review' | 'exam' | 'diagnostic';
 export interface Action {
+  /** The stair it is about; '' for an Exam Rescue step on no single stair (the diagnostic, the practice exam). */
   kind: ActionKind; skill: SkillId; misc?: string;
   /** For learning a stair: the one stage this action is (a mission item is done when this stage is, not the stair). */
   stage?: Stage;
+  /** An Exam Rescue step: which step of the plan it is, so the mission item is done only by that step. */
+  task?: RescueTask;
+  /** A challenge: which task (its skill is the stair it follows), so the mission item is done only by that task. */
+  challengeId?: string;
   title: Text; reason: Text; minutes: number;
   /** The route that starts it. */
   to: string;

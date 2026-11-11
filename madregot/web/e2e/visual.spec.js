@@ -54,6 +54,8 @@ test('visual: a right answer', async ({ page }) => {
 // מדי's wardrobe (STUDENT-3): a student who completed a unit and opened two chests, wearing gold and the scarf
 test('visual: wardrobe', async ({ page }) => {
   const st = livedIn('7');
+  // the completed unit: every stair of signed numbers, its sixth (signed:6, the curriculum lane's) included
+  st.state.path = { ...st.state.path, signed: { ...st.state.path.signed, jumped: 6 } };
   st.state.look = { color: 'gold', head: null, face: null, neck: 'thermo-scarf', body: null, earned: [], seen: ['gold', 'thermo-scarf'], earnedAt: {} };
   await open(page, '#/me/madi', st);
   await expect(page.locator('.wardrobe-madi g[data-item="thermo-scarf"]')).toHaveCount(1);

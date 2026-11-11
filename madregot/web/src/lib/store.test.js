@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
-import { migrateState, useApp, TEACHER_EXAMS } from './store.js';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { migrateState, mergeSaved, useApp, today, streakOf, TEACHER_EXAMS } from './store.js';
 
 const v2 = (ai) => ({ profile: { role: 'student', name: 'נועה', grade: '7' }, xp: 40, days: { '2026-11-05': { q: 3 } }, learn: { skills: {} }, ai });
 
@@ -333,5 +333,96 @@ describe('the class goal (STUDENT-4): steps for a class student, the weeks the s
       Object.defineProperty(globalThis.crypto, 'randomUUID', { value: undefined, configurable: true });
       expect(uuid()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     } finally { Object.defineProperty(globalThis.crypto, 'randomUUID', { value: real, configurable: true }); }
+  });
+});
+
+// A save already at the current version is not migrated: zustand only merges it over the defaults, and its own merge is
+// shallow. learn.floor and learn.challenges (curriculum stage 1) came after it, so the persist merge fills them in.
+describe('a save at the current version without the new learn fields', () => {
+  const v4 = { profile: { role: 'student', name: 'נועה', grade: '7' }, xp: 120, learn: { skills: { 'signed:1': { attempts: [] } }, miscon: {}, exam: null, missions: {}, events: [] } };
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); });
+
+  it('rehydrates with floor === null and challenges equal to {}, and keeps what was saved', async () => {
+    // at CURRENT_VERSION no migration step runs: only the persist merge (store.js mergeSaved) can fill the fields
+    const { CURRENT_VERSION } = await import('./durable/migrations.js');
+    const mem = new Map([['madregot', JSON.stringify({ state: v4, version: CURRENT_VERSION })]]);
+    vi.stubGlobal('localStorage', { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) });
+    vi.resetModules();
+    const { useApp } = await import('./store.js');
+    await useApp.persist.rehydrate();
+    const { learn, xp, profile } = useApp.getState();
+    expect(learn.floor).toBeNull();
+    expect(learn.challenges).toEqual({});
+    expect(learn.skills['signed:1']).toEqual({ attempts: [] });
+    expect(xp).toBe(120);
+    expect(profile.name).toBe('נועה');
+  });
+  it('keeps a saved floor record and saved challenges as they are', () => {
+    const floor = { at: '2026-11-05T10:00:00.000Z', on: true, results: { 'frac:3': { asked: 1, right: 0 } }, facts: { asked: 2, right: 2 } };
+    const out = mergeSaved({ ...v4, learn: { ...v4.learn, floor, challenges: { 'eq:c1': { startedAt: 'x', firstTry: 1, parts: 3 } } } }, { xp: 0, learn: {} });
+    expect(out.learn.floor).toEqual(floor);
+    expect(out.learn.challenges).toEqual({ 'eq:c1': { startedAt: 'x', firstTry: 1, parts: 3 } });
+  });
+  it('a first visit (nothing saved) starts from the defaults', () => {
+    const cur = { xp: 0, learn: { skills: {} }, setFloor: () => {} };
+    const out = mergeSaved(undefined, cur);
+    expect(out.xp).toBe(0);
+    expect(out.setFloor).toBe(cur.setFloor);
+    expect(out.learn).toMatchObject({ skills: {}, floor: null, challenges: {} });
+  });
+});
+
+// A challenge task (CURRICULUM-6.2): it counts for the day like a lesson and never touches mastery.
+describe('a finished challenge', () => {
+  beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ goalXp: 20, freezes: 0 }); });
+
+  it('adds its XP to the day, counts once as a lesson, keeps the streak, and leaves the skills as they were', () => {
+    const skills = { 'pct:2': { attempts: [{ at: '2026-11-05T10:00:00.000Z', ok: true, independent: true, purpose: 'mastery' }], mastered: { at: '2026-11-05T10:00:00.000Z', box: 0, due: '2026-11-06T10:00:00.000Z' } } };
+    useApp.setState({ learn: { ...useApp.getState().learn, skills } });
+    useApp.getState().startChallenge('pct:c1');
+    expect(useApp.getState().learn.challenges['pct:c1']).toMatchObject({ firstTry: 0, parts: 0 });
+    // three scored parts, two right on the first try: 20 + 2 × 5
+    const a = useApp.getState().finishChallenge('pct:c1', { firstTry: 2, parts: 3 });
+    expect(a).toMatchObject({ xp: 30, again: false, streakExtended: true, streak: 1, goalReached: true });
+    const st = useApp.getState();
+    expect(st.xp).toBe(30);
+    expect(st.days[today()]).toMatchObject({ lessons: 1, xp: 30 });
+    expect(streakOf(st.days)).toBe(1);
+    expect(st.learn.skills).toEqual(skills); // never mastery, never a check
+    expect(st.learn.challenges['pct:c1']).toMatchObject({ firstTry: 2, parts: 3 });
+    expect(st.learn.challenges['pct:c1'].doneAt).toBeTruthy();
+    // the events carry the task and the share right first time: no text
+    const ev = st.learn.events.filter((e) => e.e.startsWith('challenge-'));
+    expect(ev.map((e) => [e.e, e.m, e.n])).toEqual([['challenge-start', 'pct:c1', undefined], ['challenge-done', 'pct:c1', 2 / 3]]);
+    ev.forEach((e) => expect(Object.keys(e).sort()).toEqual(e.e === 'challenge-done' ? ['e', 'm', 'n', 't'] : ['e', 'm', 't']));
+  });
+
+  it('a second finish of the same task gives nothing, and the XP is at most 40', () => {
+    useApp.getState().startChallenge('stats:c1');
+    expect(useApp.getState().finishChallenge('stats:c1', { firstTry: 4, parts: 4 }).xp).toBe(40);
+    const again = useApp.getState().finishChallenge('stats:c1', { firstTry: 4, parts: 4 });
+    expect(again).toMatchObject({ xp: 0, again: true });
+    const st = useApp.getState();
+    expect(st.xp).toBe(40);
+    expect(st.days[today()]).toMatchObject({ lessons: 1, xp: 40 });
+    // a second start keeps the first start time
+    const started = st.learn.challenges['stats:c1'].startedAt;
+    useApp.getState().startChallenge('stats:c1');
+    expect(useApp.getState().learn.challenges['stats:c1'].startedAt).toBe(started);
+  });
+
+  it('ticks its own item of today\'s mission (and only it), and the mission quest when that finishes the mission', () => {
+    const d = today();
+    const item = { kind: 'challenge', skill: 'pct:2', challengeId: 'pct:c1', title: 'אתגר: שתי דרכים לשלם עמלה', reason: 'x', minutes: 6, to: '/challenge/pct:c1' };
+    const other = { ...item, skill: 'stats:3', challengeId: 'stats:c1', to: '/challenge/stats:c1' };
+    useApp.getState().saveMission(d, [item, other]);
+    useApp.getState().finishChallenge('pct:c1', { firstTry: 3, parts: 3 });
+    let items = useApp.getState().learn.missions[d].items;
+    expect(items.map((x) => !!x.done)).toEqual([true, false]);
+    expect(useApp.getState().days[d].missionDone).toBeUndefined();
+    useApp.getState().finishChallenge('stats:c1', { firstTry: 1, parts: 4 });
+    items = useApp.getState().learn.missions[d].items;
+    expect(items.every((x) => x.done)).toBe(true);
+    expect(useApp.getState().days[d].missionDone).toBe(1);
   });
 });

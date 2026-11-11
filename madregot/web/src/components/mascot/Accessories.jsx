@@ -100,6 +100,24 @@ const DRAW = {
       <path d="M104 87.5 V102.5 M96.5 95 H111.5" style={S(ch('violet', '-d'))} strokeWidth="1.2" {...round} />
     </>
   ),
+  // ratio and scale: a map's scale bar, its parts in two colours, with a tick at each part
+  'scale-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('sky', '-d')) }} strokeWidth="2" />
+      <path d="M96 92.5 h4 v5 h-4Z M104 92.5 h4 v5 h-4Z" style={F(ch('sky'))} />
+      <path d="M96 92.5 H112 V97.5 H96Z" style={S(ch('sky', '-d'))} strokeWidth="1.2" fill="none" />
+      <path d="M96 90 V100 M104 90 V100 M112 90 V100" style={S(ch('sky', '-d'))} strokeWidth="1.2" {...round} />
+    </>
+  ),
+  // percent: a percent sign
+  'percent-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('petrol', '-d')) }} strokeWidth="2" />
+      <circle cx="100" cy="91" r="2.4" style={F(ch('petrol'))} />
+      <circle cx="108" cy="99" r="2.4" style={F(ch('petrol'))} />
+      <path d="M109 89.5 L99 100.5" style={S(ch('petrol', '-d'))} strokeWidth="2" {...round} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

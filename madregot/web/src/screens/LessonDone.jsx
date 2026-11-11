@@ -164,7 +164,8 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   // What moved: this stair's five stages (practice fills the fourth), and the unit's stairs once one is done (a stair
   // counts once its mastery check is passed). A review or a jump test speaks of the unit only.
   const steps = topic.levels.length;
-  const unit = unitProgress(topic.id, path, skills);
+  // multiplication facts (/facts) are a lesson on no stair: no stair line and no unit count
+  const unit = steps ? unitProgress(topic.id, path, skills) : { done: 0 };
   const stairLine = result.kind !== 'review' && result.kind !== 'jump' && !!levelTitle;
   const stairRec = stairLine ? skills[skillId(topic.id, result.level)] : null;
   const stairParts = stairLine ? partsOf(path, topic.id, result.level) : 0;

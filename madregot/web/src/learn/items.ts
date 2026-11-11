@@ -11,12 +11,24 @@ import { DIAG_PER_SKILL } from './examRescue';
 // @ts-ignore: plain JS
 import { makeItem, fairForCheck, namesOf } from '@/content/index.js';
 // @ts-ignore: plain JS
+import { factsItem } from '@/content/frac.js';
+// @ts-ignore: plain JS
 import { withFormatNote } from '@/content/util.js';
 
-/** probe: where a misconception would show; control: where it would not (so a fixed answer cannot pass a verification). */
-export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control';
+/**
+ * probe: where a misconception would show; control: where it would not (so a fixed answer cannot pass a verification);
+ * facts: a multiplication fact (content/frac.js factsItem), which belongs to no stair.
+ */
+export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control' | 'facts';
+/** The skill a facts question is filed under in a check's plan and its per-skill count: no stair (level 0). */
+export const FACTS_SKILL = 'facts:0';
+/** The floor check: one question from each fractions stair, and two multiplication facts. */
+export const FLOOR_SKILLS = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
+export const FLOOR_FACTS = 2;
 
 export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source: Source) {
+  // a model whose questions are of two kinds may choose the answer's form per question (decimals, or quarters)
+  const fmt = typeof model.fmt === 'function' ? model.fmt(p) : model.fmt;
   const it = {
     key: `${c.skill}:${source}:${JSON.stringify(p)}`,
     text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form: 'num' as const, unit: model.unit,
@@ -25,7 +37,7 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
     diagnosis: (u: number) => diagnose(model, p, u),
     could: couldShow(model, p),
     topic: c.topic, level: c.level, levelTitle: c.title, source,
-    ...(model.precise ? { precise: true } : {}), ...(model.fmt ? { fmt: model.fmt } : {}),
+    ...(model.precise ? { precise: true } : {}), ...(fmt ? { fmt } : {}),
   };
   // an exact answer with no short decimal (7/12) says once how to write it, as a generated exercise does
   return model.precise ? withFormatNote(it) : it;
@@ -47,7 +59,9 @@ function genProbe(topic: string, level: number, ids: string[], avoidKey?: string
   if (!forms) {
     // which kinds of exercise can show them at all, so a search skips the others at once
     forms = new Set();
-    for (let i = 0; i < PROBE_SAMPLE; i += 1) { const it = makeItem(topic, level); const n = namesOf(it, ids); if (ids.every((id) => n.includes(id))) forms.add(it.form); }
+    // (only exercises a check may ask: a practice-only one, such as the curriculum lane's two-choice questions, is one a
+    // guesser gets right half the time, content/index.js fairForCheck)
+    for (let i = 0; i < PROBE_SAMPLE; i += 1) { const it = makeItem(topic, level); if (!fairForCheck(it)) continue; const n = namesOf(it, ids); if (ids.every((id) => n.includes(id))) forms.add(it.form); }
     PROBE_FORMS.set(k, forms);
   }
   if (!forms.size) return null;
@@ -56,7 +70,7 @@ function genProbe(topic: string, level: number, ids: string[], avoidKey?: string
   let best: any = null;
   for (let i = 0, found = 0; i < PROBE_TRIES && found < PROBE_PICK; i += 1) {
     const it = makeItem(topic, level, avoidKey);
-    if (!forms.has(it.form) || it.key === avoidKey) continue;
+    if (!forms.has(it.form) || it.key === avoidKey || !fairForCheck(it)) continue;
     const could = namesOf(it, ids);
     if (!ids.every((id) => could.includes(id))) continue;
     found += 1;
@@ -66,8 +80,22 @@ function genProbe(topic: string, level: number, ids: string[], avoidKey?: string
   return best;
 }
 
+/**
+ * Can a check's question show these misconceptions at all: a diagnostic model predicts them, or an exercise a check may
+ * ask (fairForCheck) names them? Not always: the curriculum lane's ratio:1 add-same and signed:6 toward-zero show
+ * only in practice-only choices (two or three options, which a guesser gets right too often for a check), so their
+ * verification asks the stair's ordinary questions and cannot see a relapse.
+ */
+export function canProbe(skill: SkillId, ids: string[]): boolean {
+  const c = contentOf(skill);
+  if (c && [c.diag, c.transfer].some((x) => x && ids.every((id) => id in x.bugs))) return true;
+  const { topic, level } = parseSkill(skill);
+  return !!genProbe(topic, level, ids);
+}
+
 /** One question of a skill from a source; falls back to the stair's exercise generator. */
 function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, candidates?: string[]) {
+  if (source === 'facts') return factsItem(avoidKey);
   const { topic, level } = parseSkill(skill);
   // 'gen' is the stair's own generator and never reads the teaching content, so it needs no topic loaded (the teacher's
   // class exam, lib/exam.js, draws only these)
@@ -108,7 +136,7 @@ export function itemFor(skill: SkillId, source: Source, rnd: Rng, avoidKey?: str
   return it;
 }
 
-export type CheckPurpose = 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam';
+export type CheckPurpose = 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'floor';
 export interface CheckSpec { purpose: CheckPurpose; skill?: SkillId; skills?: SkillId[]; misc?: string }
 
 const shuffle = <T>(a: T[], rnd: Rng) => { const b = [...a]; for (let i = b.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
@@ -143,6 +171,13 @@ export function checkPlan(spec: CheckSpec, rnd: Rng): { skill: SkillId; source: 
       const list = spec.skills || [];
       const per = list.length >= 6 ? 1 : 2;
       return shuffle(list.flatMap((s) => Array.from({ length: per }, (_, i) => ({ skill: s, source: (hasT(s) && i === 1 ? 'transfer' : 'gen') as Source }))), rnd).slice(0, 14);
+    }
+    case 'floor': {
+      // the floor check (בדיקת יסודות): a diagnostic question of each fractions stair, so a wrong answer names its
+      // misconception, and two multiplication facts; six questions in all, in a shuffled order
+      const list = spec.skills?.length ? spec.skills : FLOOR_SKILLS;
+      const facts = Array.from({ length: FLOOR_FACTS }, () => ({ skill: FACTS_SKILL, source: 'facts' as Source }));
+      return shuffle([...list.map((s) => ({ skill: s, source: (has(s) ? 'diag' : 'gen') as Source })), ...facts], rnd);
     }
     default: return [];
   }

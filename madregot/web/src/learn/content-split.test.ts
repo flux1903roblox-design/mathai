@@ -21,6 +21,9 @@ import { CATS_PYTH } from './content/pyth';
 import { CATS_STATS } from './content/stats';
 import { CATS_SYS } from './content/sys';
 import { CATS_FRAC } from './content/frac';
+import { CATS_SIGNED6 } from './content/signed6';
+import { CATS_RATIO } from './content/ratio';
+import { CATS_PCT } from './content/pct';
 // @ts-ignore: no Node types in this project
 import { spawnSync } from 'node:child_process';
 // @ts-ignore: no Node types in this project
@@ -114,9 +117,10 @@ describe('meta.gen.ts', () => {
   });
   it('keeps NEW_CATS as the registry had it before the split, keys in the same order', () => {
     const before: Record<string, Record<string, string>> = {
-      signed: CATS_SIGNED, coord: CATS_COORD, angles: CATS_ANGLES, expr: CATS_EXPR, eq: CATS_EQ, line: { ...CATS_LINE1, ...CATS_LINE2 }, pyth: CATS_PYTH, stats: CATS_STATS, sys: CATS_SYS,
-      // the curriculum lane's bridge unit, on the main branch (its registry had frac: CATS_FRAC)
-      frac: CATS_FRAC,
+      signed: { ...CATS_SIGNED, ...CATS_SIGNED6 }, coord: CATS_COORD, angles: CATS_ANGLES, expr: CATS_EXPR, eq: CATS_EQ, line: { ...CATS_LINE1, ...CATS_LINE2 }, pyth: CATS_PYTH, stats: CATS_STATS, sys: CATS_SYS,
+      // the curriculum lane's units, as its registry had them: the bridge unit (frac), signed:6 in its own file (its
+      // names join signed's), and grade 8's ratio and percent
+      frac: CATS_FRAC, ratio: CATS_RATIO, pct: CATS_PCT,
     };
     expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
     for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));

@@ -12,6 +12,8 @@ export const TOPIC_NAMES = Object.freeze({
   angles: 'זוויות',
   expr: 'ביטויים אלגבריים',
   eq: 'משוואות',
+  ratio: 'יחס וקנה מידה', // the curriculum lane's first unit of grade 8 (school order: ratio, percent, then linear functions)
+  pct: 'אחוזים',
   line: 'פונקציה קווית',
   pyth: 'משפט פיתגורס',
   stats: 'סטטיסטיקה',
@@ -23,11 +25,14 @@ export const STAIR_NAMES = Object.freeze({
   // the curriculum lane's bridge unit (each stair the curriculum adds needs its name here: stairs.test.ts, report.test.ts)
   'frac:1': 'שבר ושברים שווים',
   'frac:2': 'השוואת שברים ועשרוניים',
+  'frac:3': 'חיבור וחיסור שברים',
+  'frac:4': 'כפל וחילוק שברים',
   'signed:1': 'חיבור וחיסור',
   'signed:2': 'השוואת מספרים',
   'signed:3': 'כפל וחילוק',
   'signed:4': 'סדר פעולות',
   'signed:5': 'סוגריים',
+  'signed:6': 'שברים ועשרוניים מכוונים',
   'coord:1': 'קריאת נקודה',
   'coord:2': 'רביעים',
   'coord:3': 'אורך קטע',
@@ -48,6 +53,15 @@ export const STAIR_NAMES = Object.freeze({
   'eq:3': 'נעלם בשני האגפים',
   'eq:4': 'משוואות עם סוגריים',
   'eq:5': 'בעיות מילוליות',
+  'ratio:1': 'יחס',
+  'ratio:2': 'חלוקה ביחס',
+  'ratio:3': 'פרופורציה',
+  'ratio:4': 'קנה מידה',
+  'pct:1': 'מהו אחוז',
+  'pct:2': 'אחוז מכמות',
+  'pct:3': 'איזה אחוז?',
+  'pct:4': 'מציאת השלם',
+  'pct:5': 'הגדלה והקטנה באחוזים',
   'line:1': 'טבלת ערכים',
   'line:2': 'מה אומרים m ו־b',
   'line:3': 'שיפוע מהגרף: מדרגות',
@@ -89,7 +103,7 @@ export const stairName = (id) => {
  * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
  * it today. (ai spec AI-5)
  */
-export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8', sys: '8' });
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' });
 
 /**
  * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic
@@ -98,6 +112,7 @@ export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', a
  * (CURRICULUM-1), so it shrinks with every new stage. (ai spec AI-5)
  */
 export const NOT_YET = Object.freeze({
-  '7': Object.freeze(['שברים ומספרים עשרוניים מכוונים', 'חזקות ושורשים', 'שטחים והיקפים', 'תיבה ומנסרה', 'טרנספורמציות', 'שכיחות והסתברות']),
-  '8': Object.freeze(['פונקציות (כללי)', 'יחס ופרופורציה', 'קנה מידה', 'אחוזים (מעבר למשוואות עם אחוזים)', 'חפיפת משולשים', 'תיכון במשולש', 'דמיון משולשים', 'אומדן שורשים', 'הסתברות']),
+  // signed fractions and decimals (signed:6), ratio and scale (ratio:1-4) and percent (pct:1-5) are taught now
+  '7': Object.freeze(['חזקות ושורשים', 'שטחים והיקפים', 'תיבה ומנסרה', 'טרנספורמציות', 'שכיחות והסתברות']),
+  '8': Object.freeze(['פונקציות (כללי)', 'חפיפת משולשים', 'תיכון במשולש', 'דמיון משולשים', 'אומדן שורשים', 'הסתברות']),
 });

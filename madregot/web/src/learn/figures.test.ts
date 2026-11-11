@@ -268,7 +268,13 @@ function textProblems(st: DiscoverStep, f: AnyFig): string[] {
   const words = new Set([...labels].flatMap((l) => l.split(/[^A-Za-z]+/)).filter(Boolean));
   // the letters of a fraction written in general ($\frac{a}{b}$, the fraction unit's rule) are its numerator and
   // denominator, not points: the figure shows one case of them (3/5), never the letters
-  const general = new Set([...st.text.matchAll(/\\[dt]?frac\{([a-z])\}\{([a-z])\}/g)].flatMap((m) => [m[1], m[2]]));
+  // (in either case: the percent unit's $\frac{A}{p}$), and a letter a rule multiplies or divides by is a quantity too
+  // ($\frac{p}{100} \cdot N$; "כופלים ב־$S$", a map's scale): the figure shows one case of them, never the letters
+  const general = new Set([
+    ...[...st.text.matchAll(/\\[dt]?frac\{([A-Za-z])\}\{([A-Za-z0-9]+)\}|\\[dt]?frac\{([A-Za-z0-9]+)\}\{([A-Za-z])\}/g)].flatMap((m) => m.slice(1)),
+    ...[...st.text.matchAll(/\\cdot\s*([A-Za-z])(?![A-Za-z])|(?<![A-Za-z\\])([A-Za-z])\s*\\cdot/g)].flatMap((m) => m.slice(1)),
+    ...[...st.text.matchAll(/(?:כופלים|מחלקים)\s+ב־?\$([A-Za-z])\$/g)].map((m) => m[1]),
+  ].filter(Boolean));
   for (const k of letters) if (!labels.has(k) && !words.has(k) && !general.has(k)) bad.push(`the text names ${k}, the figure does not`);
   // a point named with its coordinates is drawn there
   for (const g of groups) {

@@ -64,7 +64,8 @@ export function Stepper({ label, sub, value, onDec, onInc, decLabel, incLabel, d
 export const minus = (v) => (v < 0 ? `−${-v}` : `${v}`);
 
 // ---------------------------------------------------------------- numbers and fractions drawn in SVG
-const FRAC_TEX = /^([-−])?\\[dt]?frac\{(\d+)\}\{(\d+)\}$/;
+// a sign before the fraction is kept: −\frac{3}{4} on a point, +\frac{1}{2} on a jump
+const FRAC_TEX = /^([-−+])?\\[dt]?frac\{(\d+)\}\{(\d+)\}$/;
 const HEB = /[֐-׿]/;
 /** A label as plain text: \frac{3}{4} is 3/4, −2 keeps its real minus. */
 export const labelText = (s) => String(s ?? '').replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2').replace(/\\%/g, '%').replace(/\{,\}/g, ',').replace(/^-/, '−');
@@ -84,7 +85,7 @@ export function SvgLabel({ x, y, text, className = 'mp-num', anchor = 'middle', 
     const cx = x + dx; const g = size === 'sm' ? 8 : 10;
     return (
       <g className={`svg-frac ${className}`} aria-hidden="true">
-        {sign && <text x={cx - w / 2 - 3} y={y + 5} textAnchor="end" className={className}>−</text>}
+        {sign && <text x={cx - w / 2 - 3} y={y + 5} textAnchor="end" className={className}>{sign === '+' ? '+' : '−'}</text>}
         <text x={cx} y={y - 3} textAnchor="middle" className={className}>{n}</text>
         <line x1={cx - w / 2} x2={cx + w / 2} y1={y + 1} y2={y + 1} className="svg-frac-bar" />
         <text x={cx} y={y + g + 6} textAnchor="middle" className={className}>{d}</text>

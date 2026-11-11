@@ -120,7 +120,9 @@ describe('what each step keeps', () => {
   it('a v4 save keeps its path as it is', () => {
     const out = migrate(v4.state, 4, fixed);
     expect(out.path).toEqual(v4.state.path);
-    expect(out.learn).toEqual(v4.state.learn);
+    // the learning model is kept; only the parts a later build added are filled in (the curriculum lane's floor and
+    // challenges, store defaults with no step of their own)
+    expect(out.learn).toEqual({ ...v4.state.learn, floor: null, challenges: {} });
   });
   // the school lane's step (its own v5 before the lanes were merged): class work from the teacher
   it('a v5 save gets an empty classWork and workOutbox, and keeps the rest', () => {

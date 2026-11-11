@@ -3,6 +3,7 @@
 // and a similar exercise comes back at the end of the lesson. The lesson ends
 // when every slot has been answered correctly (each slot can come back twice at most).
 import { TOPIC, makeItem, testItem, isCorrect, partialOf, placementTopicsFor } from '@/content/index.js';
+import { factsItem } from '@/content/frac.js';
 import { startPlacement, placementAnswer, placementNext, placementProgress, placementResult } from './placement.js';
 import { checkPlan, itemFor } from '@/learn/items.ts';
 import { metaOf } from '@/learn/content/index.ts';
@@ -12,6 +13,8 @@ import { VERIFY_NEED } from '@/learn/misconceptions.ts';
 
 export const LESSON_LEN = 8;
 export const REVIEW_LEN = 10;
+/** Multiplication facts practice (/facts): eight facts, practice rules (hints, a second try, a miss comes back). */
+export const FACTS_LEN = 8;
 export const JUMP_LEN = 5;
 export const JUMP_MISTAKES = 1; // a jump test allows one mistake
 export const PARTS = 2; // lessons that complete a node on the path
@@ -73,6 +76,7 @@ function startCheck(opts) {
 
 /** In a practice lesson on a stair with teaching content: a diagnostic question and a transfer question join in. */
 function practiceItem(topic, level, slot, avoidKey) {
+  if (topic === 'facts') return factsItem(avoidKey);
   const skill = skillId(topic, level); const m = metaOf(skill);
   if (m && slot === 3) return itemFor(skill, 'diag', Math.random, avoidKey);
   if (m?.transfer && slot === 6) return itemFor(skill, 'transfer', Math.random, avoidKey);
@@ -105,11 +109,13 @@ export function lessonTopics(spec) {
 export function startLesson(opts) {
   if (opts.kind === 'placement') return startPlacement(opts);
   if (opts.kind === 'check') return startCheck(opts);
-  const levels = planLevels(opts);
+  // multiplication facts are practice with no stair: level 0 everywhere, so nothing is filed under a stair or the path
+  const facts = opts.kind === 'facts';
+  const levels = facts ? Array(opts.n || FACTS_LEN).fill(0) : planLevels(opts);
   return {
-    kind: opts.kind || 'node', topic: opts.topic, level: opts.level, part: opts.part || 1,
+    kind: opts.kind || 'node', topic: facts ? 'facts' : opts.topic, level: facts ? 0 : opts.level, part: opts.part || 1,
     levels, slot: 0, total: levels.length, solved: 0, redo: [], redoing: false, probes: [],
-    item: opts.kind === 'jump' ? jumpItem(opts.topic, levels[0], 0) : practiceItem(opts.topic, levels[0], 0), attempt: 1, hint: false, phase: 'answer', wrong: [],
+    item: opts.kind === 'jump' ? jumpItem(opts.topic, levels[0], 0) : practiceItem(facts ? 'facts' : opts.topic, levels[0], 0), attempt: 1, hint: false, phase: 'answer', wrong: [],
     combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, missedSlots: [], cats: {}, lastCat: null,
     finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),
   };
@@ -141,8 +147,9 @@ export function answer(s, u) {
   const it = s.item;
   const ok = isCorrect(it, u);
   const secs = Math.round((Date.now() - s.itemStartedAt) / 1000);
-  // a practice exam's and a class exam's answers are independent evidence that moves no stair's stages
-  const purpose = s.kind === 'check' ? (s.purpose === 'exam' || s.purpose === 'class' ? 'diagnostic' : s.purpose) : 'practice';
+  // a practice exam's, a class exam's and the floor check's answers are evidence of the same kind as a diagnostic: one
+  // try, no hints, before teaching; they move no stair's stages
+  const purpose = s.kind === 'check' ? (s.purpose === 'exam' || s.purpose === 'class' || s.purpose === 'floor' ? 'diagnostic' : s.purpose) : 'practice';
   // a question from a diagnostic model knows every misconception that predicts this answer, and which could have shown
   const diagnosis = !ok && it.diagnosis ? it.diagnosis(u) : null;
   const cands = diagnosis?.kind === 'misconception' ? diagnosis.candidates : undefined;
@@ -217,7 +224,8 @@ export function next(s) {
   }
   if (s.redo.length) {
     const [r, ...rest] = s.redo;
-    return { ...s, ...fresh, slot, redo: rest, redoing: true, item: { ...makeItem(s.topic, r.level, s.item.key), redo: true, tries: r.tries } };
+    const again = s.kind === 'facts' ? factsItem(s.item.key) : makeItem(s.topic, r.level, s.item.key);
+    return { ...s, ...fresh, slot, redo: rest, redoing: true, item: { ...again, redo: true, tries: r.tries } };
   }
   return { ...s, finished: true };
 }
@@ -230,8 +238,8 @@ export function resultOf(s) {
     const passed = s.purpose === 'mastery' ? asked >= MASTERY_N && right >= MASTERY_NEED
       : s.purpose === 'review' ? right >= Math.min(REVIEW_NEED, asked)
         : s.purpose === 'verify' ? right >= VERIFY_NEED && s.showed === 0 : true;
-    // a class exam earns what a practice exam earns
-    const xp = !passed ? 0 : { mastery: XP.mastery, review: XP.recall, verify: XP.verify, diagnostic: XP.diagnostic, exam: XP.exam, class: XP.exam }[s.purpose] || 0;
+    // a class exam earns what a practice exam earns; the floor check what a diagnostic earns
+    const xp = !passed ? 0 : { mastery: XP.mastery, review: XP.recall, verify: XP.verify, diagnostic: XP.diagnostic, exam: XP.exam, class: XP.exam, floor: XP.diagnostic }[s.purpose] || 0;
     // a class exam's questions, one by one, as the teacher's report reads them (correct or wrong; the server also knows
     // partial and missing, from photo-checked exams)
     const questions = s.fixedItems ? s.fixedItems.map((it, i) => ({ topic: it.topic, level: it.level, status: s.slotOk[i] ? 'correct' : 'wrong' })) : undefined;

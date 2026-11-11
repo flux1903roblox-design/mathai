@@ -3,6 +3,7 @@ import { R, NZ, pick, shuffle, T, near } from './util.js';
 import { EXPR } from './expr.js';
 import { EQ } from './eq.js';
 import { FRAC } from './frac.js';
+import { SIGNED6_LEVEL } from './signed6.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
@@ -426,6 +427,8 @@ export const GRADE7 = [
       { title: 'כפל וחילוק', gen: mulDiv },
       { title: 'סדר פעולות', gen: order },
       { title: 'סוגריים', gen: brackets },
+      // signed fractions and decimals (content/signed6.js): the programme's "שלמים, שברים פשוטים ועשרוניים"
+      SIGNED6_LEVEL,
     ],
     cats: {
       sign: 'התשובה יצאה עם הסימן ההפוך',
@@ -436,6 +439,7 @@ export const GRADE7 = [
       'drop-sign': 'התעלמו מהמינוס של המספר הראשון',
       'neg-neg-plus': 'הפכו גם את המספר הראשון לחיובי ("מינוס ומינוס זה פלוס")',
       direction: 'זזו לכיוון ההפוך על ציר המספרים',
+      'toward-zero': 'מיקמו שבר שלילי בצד הלא נכון של השלם',
     },
   },
   {

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { streakRepair } from '@/lib/streak.js';
-import { useActions } from '@/lib/useLearn.js';
+import { useNext } from '@/lib/useLearn.js';
 import Mascot from '@/components/Mascot.jsx';
 import { Button } from '@/components/ui.jsx';
 
@@ -35,14 +35,15 @@ export default function RepairCard() {
 
 function RepairCardView({ r }) {
   const navigate = useNavigate();
-  const actions = useActions();
+  // the one plan's next step (learn/next.ts planNext), the same one the home and the mission name
+  const plan = useNext();
   const d = today();
   return (
     <section className="repair-card" aria-labelledby="repair-text">
       <Mascot mood="idle" size={52} className="repair-madi" />
       <div className="repair-main">
         <p id="repair-text" className="repair-text">{repairText(r, d)}</p>
-        <Button className="btn-sm repair-go" onClick={() => navigate(actions[0]?.to || '/quests')}>לשיעור</Button>
+        <Button className="btn-sm repair-go" onClick={() => navigate(plan.top?.to || '/quests')}>לשיעור</Button>
       </div>
       <button type="button" className="icon-btn repair-close" aria-label="סגירה" onClick={() => useApp.getState().setNudge({ repairDismissed: d })}>
         <X size={20} aria-hidden="true" />

@@ -30,12 +30,26 @@ const CASES = [
   ['a system by equal coefficients', 'sys/3', '8'],
   ['a word problem with two unknowns', 'sys/4', '8'],
   ['an inequality (which numbers solve it)', 'sys/5', '8'],
+  // a scale question writes its large numbers with the thousands grouped (1 : 50{,}000): they fit the smallest phone
+  ['a scale question (thousands in TeX)', 'ratio/4', '8', (x) => /\d\{,\}\d/.test(x.text || '')],
+  // (a choice with no maths above it keeps its choices low, by the check button: the typed question is the one measured)
+  ['a ratio completed in lowest terms', 'ratio/1', '8', (x) => x.form === 'num'],
+  ['a missing value in a proportional table', 'ratio/3', '8', (x) => x.fig?.type === 'table'],
+  // percent: finding the whole (the hardest of the three questions) and the volunteers' table, on every phone
+  ['finding the whole from a percent', 'pct/4', '8'],
+  ['what percent, from a table', 'pct/3', '8', (x) => x.fig?.type === 'table'],
 ];
 
-for (const [what, route, grade] of CASES) {
+for (const [what, route, grade, want = () => true] of CASES) {
   test(`exercise layout: ${what}`, async ({ page }) => {
     // typed and multiple-choice exercises (the interactive ones have their own spec, manip.spec.js)
-    const it = await openOn(page, `#/lesson/${route}`, student(grade), (x) => x.form !== 'manip');
+    const it = await openOn(page, `#/lesson/${route}`, student(grade), (x) => x.form !== 'manip' && want(x));
+    // every piece of maths in the question sits inside the question's own box (a long number is not cut or pushed out)
+    const outside = await page.evaluate(() => {
+      const q = document.querySelector('#qtext').getBoundingClientRect();
+      return [...document.querySelectorAll('#qtext .katex')].map((k) => k.getBoundingClientRect()).filter((r) => r.left < q.left - 1 || r.right > q.right + 1).length;
+    });
+    expect(outside, 'maths that sticks out of the question').toBe(0);
     await expect(page.locator('#qtext')).toBeVisible();
     const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
     expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
@@ -136,6 +150,33 @@ test('the fraction answer row: two stacked fields, the next key between them', a
   await page.getByRole('button', { name: /^מעבר ל/ }).click();
   await expect(n).toBeFocused();
   await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
+});
+
+// signed:6 (signed fractions and decimals) is the sixth stair of the signed unit: a student who finished the five
+// before it finds it current, its card saying that the stair is new; the unit and the card fit every phone.
+test('a signed-number unit with six stairs: the new stair is current and says so', async ({ page }) => {
+  const done = { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'mastered', 5: 'mastered' };
+  await open(page, '#/', student('7', { path: { signed: { parts: {}, reviews: 1, jumped: 0, done } } }));
+  const unit = page.locator('.unit').first();
+  await expect(unit.locator('.unit-title')).toHaveText('מספרים מכוונים');
+  await expect(unit.locator('.unit-label')).toHaveText('יחידה 1 · 5 מתוך 6 מדרגות');
+  const nodes = unit.locator('.path-step:not(.path-chest) .node');
+  await expect(nodes).toHaveCount(7); // six stairs and the unit's review
+  for (let k = 0; k < 7; k += 1) { const b = await nodes.nth(k).boundingBox(); expect(Math.min(b.width, b.height), `node ${k + 1} is thumb-sized`).toBeGreaterThanOrEqual(44); }
+  await expect(nodes.nth(5)).toHaveClass(/node-current/);
+  await expect(nodes.nth(6)).toHaveClass(/node-locked/); // the unit review waits for the new stair
+  await expectNoSidewaysScroll(page);
+  await nodes.nth(5).click();
+  const card = page.locator('.node-card');
+  await expect(card.locator('.node-card-title')).toHaveText('שברים ועשרוניים מכוונים');
+  await expect(card.locator('.node-card-added')).toHaveText('נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.');
+  await card.locator('.node-start-btn').scrollIntoViewIfNeeded();
+  await expectUsable(page, card.locator('.node-start-btn'), 'the start button');
+  await expectNoSidewaysScroll(page);
+  // a stair already climbed says nothing about it
+  await nodes.nth(4).click();
+  await expect(page.locator('.node-card')).toHaveCount(1);
+  await expect(page.locator('.node-card-added')).toHaveCount(0);
 });
 
 test('on a computer: digits typed anywhere go to the answer, Enter checks and Enter continues', async ({ page }, info) => {

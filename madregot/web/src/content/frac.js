@@ -18,7 +18,7 @@
 //   bigger-den      a bigger denominator read as a bigger fraction (Ni & Zhou 2005, Educational Psychologist 40(1))
 // and for frac:3-4 (stage 6) add-across, num-not-scaled, keep-den (Siegler & Pyke 2013), divide-flip, mult-bigger
 // (Fischbein et al. 1985; Tirosh 2000).
-import { shuffle, gcd, listMath } from './util.js';
+import { shuffle, gcd, listMath, shortDec } from './util.js';
 import { diagOf } from './eq.js';
 import { slipOf } from '@/learn/misconceptions.ts';
 
@@ -53,7 +53,7 @@ export function clean(model, p) {
   return true;
 }
 const draw = (model, raw) => (r) => { for (;;) { const p = raw(r); if (p && clean(model, p)) return p; } };
-function mk(m) { m.params = draw(m, m.raw); return m; }
+export function mk(m) { m.params = draw(m, m.raw); return m; }
 
 /** frac:1 — which number is marked on a number line (0..L, each unit cut into d parts, A at the k-th mark). */
 export const FRAC1 = mk({
@@ -97,6 +97,49 @@ export const FRAC2T = mk({
   raw: (r) => { const p = FRAC2.raw(r); if (!p || p.k !== 0) return null; return { a: 1 + p.a, b: r9(1 + p.b), c: r9(1 + p.c), e: r9(1 + p.e) }; },
   answer: (p) => p.b,
   bugs: { 'longer-larger': (p) => p.c, 'shorter-larger': (p) => p.a },
+});
+
+const lcm = (a, b) => (a * b) / gcd(a, b);
+/** frac:3 — a/b ± c/d, b ≠ d, lcm ≤ 36, proper fractions in lowest terms; + on 65%, − only with a positive result. */
+export const FRAC3 = mk({
+  raw: (r) => {
+    const b = rint(r, 2, 9); const d = rint(r, 2, 9); if (b === d) return null;
+    const L = lcm(b, d); if (L > 36) return null;
+    const a = rint(r, 1, b - 1); const c = rint(r, 1, d - 1); if (gcd(a, b) !== 1 || gcd(c, d) !== 1) return null;
+    const op = r() < 0.65 ? 1 : -1; if (op < 0 && a / b - c / d <= 0) return null;
+    return { a, b, c, d, op, L };
+  },
+  answer: ({ a, b, c, d, op }) => a / b + op * c / d,
+  bugs: {
+    'add-across': ({ a, b, c, d, op }) => (op > 0 ? (a + c) / (b + d) : null), // tops and bottoms added (Siegler & Pyke 2013)
+    'num-not-scaled': ({ a, c, op, L }) => (a + op * c > 0 ? (a + op * c) / L : null), // denominators changed, numerators not
+  },
+});
+/** frac:3 transfer — two amounts of juice in litres, together. */
+export const FRAC3T = mk({ raw: (r) => { const p = FRAC3.raw(r); return p && p.op > 0 ? p : null; }, answer: FRAC3.answer, bugs: FRAC3.bugs });
+/** frac:4 — a/b · c/d or a/b : c/d (half of them with one denominator). */
+export const FRAC4 = mk({
+  raw: (r) => {
+    const mul = r() < 0.4; const b = rint(r, 2, 6); const d = r() < 0.5 ? b : rint(r, 2, 6);
+    const a = rint(r, 1, b - 1); const c = rint(r, 1, d - 1);
+    if (gcd(a, b) !== 1 || gcd(c, d) !== 1) return null;
+    if (!mul && Math.abs(a / b - c / d) < 1e-9) return null;
+    return { mul, a, b, c, d };
+  },
+  answer: ({ mul, a, b, c, d }) => (mul ? (a * c) / (b * d) : (a / b) / (c / d)),
+  bugs: {
+    'keep-den': ({ mul, a, b, c, d }) => (d !== b ? null : mul ? (a * c) / b : (a / c) / b), // the common denominator kept (Siegler & Pyke 2013)
+    'divide-flip': ({ mul, a, b, c, d }) => (mul ? null : (c / d) / (a / b)), // the divisor divided by the dividend (Fischbein et al. 1985; Tirosh 2000)
+  },
+});
+/** frac:4 transfer — a/b litre poured into cups of 1/(b·m) litre: how many cups. */
+export const FRAC4T = mk({
+  raw: (r) => { const b = pick(r, [2, 3, 4, 5]); const a = rint(r, 1, b - 1); if (gcd(a, b) !== 1) return null; const m = rint(r, 2, 4); return { a, b, m, d: b * m }; },
+  answer: ({ a, m }) => a * m,
+  bugs: {
+    'divide-flip': ({ a, b, d }) => (1 / d) / (a / b),
+    'mult-bigger': ({ a, b, d }) => (a / b) * (1 / d), // multiplied because "dividing should make it smaller" (Fischbein et al. 1985)
+  },
 });
 
 // ---------------------------------------------------------------- shared words
@@ -144,6 +187,58 @@ export function biggestSolution(p) {
   ];
 }
 export const biggestHint = (p) => (p.k === 0 ? 'השלימו אפסים בסוף, עד שלכולם אותו מספר ספרות אחרי הנקודה, ואז השוו.' : 'לכולם אותו מונה. כשמחלקים לפחות חלקים, כל חלק גדול יותר.');
+
+/** A value rounded to hundredths, as written: 0.58. */
+const r2 = (v) => String(Math.round(v * 100) / 100);
+/**
+ * The end of a computation: n/d as written, reduced and as a mixed number, then its decimal (exact, or rounded with
+ * \approx when it has no short one): \frac{14}{12} = \frac{7}{6} = 1\frac{1}{6} \approx 1.17.
+ */
+export function fracResult(n, d) {
+  const v = n / d; const chain = fracChain(n, d);
+  if (Number.isInteger(r9(v))) return chain;
+  return `${chain} ${shortDec(v) ? `= ${dec(v)}` : `\\approx ${r2(v)}`}`;
+}
+/** "Compute": a fraction or a decimal is fine; an answer with no short decimal gets the format note (makeItem). */
+export const calcText = (ans) => (Number.isInteger(r9(ans)) ? 'חשבו:' : shortDec(ans) ? 'חשבו. אפשר לכתוב כשבר או כמספר עשרוני.' : 'חשבו.');
+
+/** frac:3: a/b ± c/d as shown. */
+export const addSubTex = (p) => `${fracTex(p.a, p.b)} ${p.op > 0 ? '+' : '-'} ${fracTex(p.c, p.d)}`;
+export function addSubSolution(p) {
+  const { a, b, c, d, op, L } = p;
+  const A = (a * L) / b; const C = (c * L) / d; const N = A + op * C;
+  return [
+    `מכנה משותף: $${L}$, המספר הקטן ביותר שמתחלק גם ב־$${b}$ וגם ב־$${d}$.`,
+    // only a fraction whose denominator is not already the common one is expanded
+    `מרחיבים: ${[[a, b, A], [c, d, C]].filter(([, q]) => q !== L).map(([n, q, m]) => `$${fracTex(n, q)} = ${fracTex(m, L)}$`).join(' ו־')}.`,
+    `$${fracTex(A, L)} ${op > 0 ? '+' : '-'} ${fracTex(C, L)} = ${fracResult(N, L)}$`,
+  ];
+}
+export const addSubHint = (p) => `מחפשים מכנה משותף: מספר שמתחלק גם ב־$${p.b}$ וגם ב־$${p.d}$. מרחיבים את שני השברים, ורק אז ${p.op > 0 ? 'מחברים' : 'מחסירים'} את המונים.`;
+
+/** frac:4: a/b · c/d or a/b : c/d as shown. */
+export const mulDivTex = (p) => `${fracTex(p.a, p.b)} ${p.mul ? '\\cdot' : ':'} ${fracTex(p.c, p.d)}`;
+export function mulDivSolution(p) {
+  const { mul, a, b, c, d } = p;
+  if (mul) {
+    return [
+      'מונה כפול מונה, מכנה כפול מכנה.',
+      `$${mulDivTex(p)} = \\frac{${a} \\cdot ${c}}{${b} \\cdot ${d}} = ${fracResult(a * c, b * d)}$`,
+    ];
+  }
+  return [
+    `חילוק בשבר הוא כפל בהפכי שלו. ההפכי של $${fracTex(c, d)}$ הוא $${fracTex(d, c)}$.`,
+    `$${mulDivTex(p)} = ${fracTex(a, b)} \\cdot ${fracTex(d, c)} = \\frac{${a} \\cdot ${d}}{${b} \\cdot ${c}} = ${fracResult(a * d, b * c)}$`,
+  ];
+}
+export const mulDivHint = (p) => (p.mul ? 'בכפל שברים לא צריך מכנה משותף: מונה כפול מונה, ומכנה כפול מכנה.' : `כמה פעמים $${fracTex(p.c, p.d)}$ נכנס ב־$${fracTex(p.a, p.b)}$? כופלים בהפכי של המחלק.`);
+/** frac:4 transfer: a/b litre poured into cups of 1/d litre. */
+export const cupsText = ({ a, b, d }) => `בבקבוק $${fracTex(a, b)}$ ליטר מיץ. מוזגים אותו לכוסות של $${fracTex(1, d)}$ ליטר. כמה כוסות מתמלאות?`;
+export const cupsSolution = ({ a, b, m, d }) => [
+  `שואלים כמה פעמים כוס נכנסת בבקבוק: $${fracTex(a, b)} : ${fracTex(1, d)}$.`,
+  `חילוק בשבר הוא כפל בהפכי: $${fracTex(a, b)} \\cdot ${d} = ${fracChain(a * d, b)}$`,
+  `מתמלאות $${a * m}$ כוסות.`,
+];
 
 // ---------------------------------------------------------------- frac:1 generators
 
@@ -325,6 +420,189 @@ function orderPins() {
   }
 }
 
+// ---------------------------------------------------------------- frac:3 generators
+
+/** Every prediction of a model for one draw. */
+const bugsAt = (model, p) => Object.fromEntries(Object.entries(model.bugs).map(([id, f]) => [id, f(p)]));
+/** A mixed number as TeX: 4\frac{1}{4}; a whole number alone; a proper fraction alone. */
+export function mixedTex(n, d) {
+  const g = gcd(n, d); const N = n / g; const D = d / g;
+  if (D === 1) return `${N}`;
+  const w = Math.floor(N / D); const r = N % D;
+  return `${w || ''}${fracTex(r, D)}`;
+}
+/** The decimal of a value after its exact form: "= 4.25", or "\approx 4.58" when it has no short one. */
+const decTail = (v) => (Number.isInteger(r9(v)) ? '' : shortDec(v) ? ` = ${dec(v)}` : ` \\approx ${r2(v)}`);
+
+/** a/b ± c/d, the model's own draw: a common denominator first. */
+function addSub() {
+  const p = FRAC3.params(rnd); const ans = FRAC3.answer(p);
+  return {
+    key: `fr3a:${p.a}:${p.b}:${p.c}:${p.d}:${p.op > 0 ? 'add' : 'sub'}`, text: calcText(ans), display: addSubTex(p), form: 'num', answer: ans, precise: true,
+    hint: addSubHint(p), solution: addSubSolution(p), diag: diagOf(ans, bugsAt(FRAC3, p)),
+  };
+}
+
+const MIXED_DENS = [2, 3, 4];
+/**
+ * Mixed numbers with halves, thirds and quarters (wholes 1..5): wholes with wholes, fractions with fractions. A sum, or
+ * a difference with no whole to break (its fraction part is the larger). 17/4, 4.25 and, on a keyboard, 4 1/4 are right.
+ */
+function mixed() {
+  for (;;) {
+    const b = pick(rnd, MIXED_DENS); const d = pick(rnd, MIXED_DENS);
+    const a = rint(rnd, 1, b - 1); const c = rint(rnd, 1, d - 1);
+    if (gcd(a, b) !== 1 || gcd(c, d) !== 1) continue;
+    const w1 = rint(rnd, 1, 5); const w2 = rint(rnd, 1, 5);
+    const add = Math.random() < 0.7;
+    const L = lcm(b, d); const A = (a * L) / b; const C = (c * L) / d;
+    if (!add && (w1 <= w2 || A <= C)) continue;
+    const W = add ? w1 + w2 : w1 - w2; const N = add ? A + C : A - C;
+    const ans = W + N / L; const sign = add ? '+' : '-';
+    const sameDen = b === d;
+    const steps = [
+      `שלמים עם שלמים: $${w1} ${sign} ${w2} = ${W}$.`,
+      `שברים עם שברים${sameDen ? '' : `, במכנה $${L}$`}: $${fracTex(A, L)} ${sign} ${fracTex(C, L)} = ${fracTex(N, L)}$.`,
+    ];
+    if (N === L) steps.push(`$${fracTex(N, L)} = 1$: עוד שלם אחד.`);
+    else if (N > L) steps.push(`$${fracTex(N, L)}$ הם שלם ועוד $${fracTex(N - L, L)}$: $${fracTex(N, L)} = ${mixedTex(N, L)}$.`);
+    steps.push(`יחד: $${W} + ${fracTex(N, L)} = ${mixedTex(W * L + N, L)}${decTail(ans)}$`);
+    return {
+      key: `fr3m:${w1}:${a}:${b}:${w2}:${c}:${d}:${add ? 'add' : 'sub'}`, text: calcText(ans), display: `${w1}${fracTex(a, b)} ${sign} ${w2}${fracTex(c, d)}`,
+      form: 'num', answer: ans, precise: true,
+      hint: `${add ? 'מחברים' : 'מחסירים'} שלמים עם שלמים ושברים עם שברים${sameDen ? '' : ', אחרי שמביאים את השברים למכנה משותף'}.`,
+      solution: steps, diag: () => null,
+    };
+  }
+}
+
+/** Decimals with one and with two places: 0.5 + 0.25, 1.2 − 0.35 (digits under digits of the same place). */
+function decimals() {
+  for (;;) {
+    const i = rint(rnd, 1, 29); const j = rint(rnd, 11, 99);
+    if (i % 10 === 0 || j % 10 === 0) continue;
+    const one = i / 10; const two = j / 100;
+    const add = Math.random() < 0.6;
+    const [x, y] = add ? (Math.random() < 0.5 ? [one, two] : [two, one]) : one > two ? [one, two] : [two, one];
+    const ans = r9(add ? x + y : x - y);
+    const pad = (v) => v.toFixed(2);
+    const sign = add ? '+' : '-';
+    return {
+      key: `fr3d:${x}:${y}:${add ? 'add' : 'sub'}`, text: 'חשבו:', display: `${dec(x)} ${sign} ${dec(y)}`, form: 'num', answer: ans, precise: true, fmt: 'dec',
+      hint: `כתבו את שני המספרים עם שתי ספרות אחרי הנקודה (אפס בסוף לא משנה), ו${add ? 'חברו' : 'חסרו'} ספרה מתחת לספרה באותו מקום.`,
+      solution: [`משלימים לאותו מספר ספרות: $${pad(x)} ${sign} ${pad(y)}$.`, `מאיות עם מאיות, עשיריות עם עשיריות: $${pad(x)} ${sign} ${pad(y)} = ${dec(ans)}$.`],
+      diag: () => null,
+    };
+  }
+}
+
+/** Pairs of denominators that need a common one larger than both (neither divides the other), at most 24 parts. */
+const COMMON_PAIRS = [];
+for (let b = 2; b <= 9; b += 1) for (let d = b + 1; d <= 9; d += 1) if (d % b && lcm(b, d) <= 24) COMMON_PAIRS.push([b, d]);
+/** Cut the bar so both marks fall on lines: a common denominator, built (the marks are named: practice only). */
+function common() {
+  const [p, q] = pick(rnd, COMMON_PAIRS); const [b, d] = Math.random() < 0.5 ? [p, q] : [q, p];
+  const L = lcm(b, d);
+  return {
+    key: `fr3c:${b}:${d}`, text: `על הפס מסומנים $${fracTex(1, b)}$ ו־$${fracTex(1, d)}$. חלקו את הפס לחלקים שווים כך ששני הסימונים ייפלו על קווים.`,
+    form: 'manip', practiceOnly: true,
+    manip: { kind: 'fbar', start: { den: 1, shaded: 0 }, marks: [1 / b, 1 / d] }, answer: { mode: 'common', of: [b, d] },
+    hint: `נסו מספר חלקים שמתחלק גם ב־$${b}$ וגם ב־$${d}$.`,
+    solution: [`$${L}$ מתחלק גם ב־$${b}$ וגם ב־$${d}$, והוא הקטן ביותר כזה.`, `$${fracTex(1, b)} = ${fracTex(L / b, L)}$ ו־$${fracTex(1, d)} = ${fracTex(L / d, L)}$: שני הסימונים על קווים.`],
+    diag: () => null,
+  };
+}
+
+// ---------------------------------------------------------------- frac:4 generators
+
+/** "a/b of N": N a multiple of b (at most 120); the answer is never a number the question prints. */
+function ofQty() {
+  for (;;) {
+    const b = rint(rnd, 2, 10); const a = rint(rnd, 1, b - 1); if (gcd(a, b) !== 1) continue;
+    const m = rint(rnd, 2, Math.min(12, Math.floor(120 / b))); const N = b * m; const ans = a * m;
+    if (ans === a || ans === b) continue;
+    return {
+      key: `fr4q:${a}:${b}:${N}`, text: `כמה הם $${fracTex(a, b)}$ מ־$${N}$?`, form: 'num', answer: ans,
+      hint: `קודם חלק אחד: $${N} : ${b}$.${a > 1 ? ` אחר כך כופלים ב־$${a}$.` : ''}`,
+      solution: [`$${fracTex(1, b)}$ מ־$${N}$: $${N} : ${b} = ${m}$.`, ...(a > 1 ? [`$${fracTex(a, b)}$ מ־$${N}$: $${a} \\cdot ${m} = ${ans}$.`] : []), `התשובה: $${ans}$`],
+      diag: () => null,
+    };
+  }
+}
+
+/** a/b · c/d (mul) or a/b : c/d, the model's own draw of that operation. */
+function mulDiv(mul) {
+  let p; do { p = FRAC4.params(rnd); } while (p.mul !== mul);
+  const ans = FRAC4.answer(p);
+  return {
+    key: `${mul ? 'fr4m' : 'fr4v'}:${p.a}:${p.b}:${p.c}:${p.d}:${mul ? 'mul' : 'div'}`, text: calcText(ans), display: mulDivTex(p), form: 'num', answer: ans,
+    ...(Number.isInteger(r9(ans)) ? {} : { precise: true }),
+    hint: mulDivHint(p), solution: mulDivSolution(p), diag: diagOf(ans, bugsAt(FRAC4, p)),
+  };
+}
+
+const SHRINK = [['0.5', 0.5], ['0.8', 0.8], ['0.25', 0.25], ['0.75', 0.75], ['0.9', 0.9], ['\\frac{1}{2}', 1 / 2], ['\\frac{3}{4}', 3 / 4], ['\\frac{2}{3}', 2 / 3]];
+const GROW = [['1.5', 1.5], ['1.2', 1.2], ['2.5', 2.5], ['\\frac{3}{2}', 3 / 2]];
+/**
+ * Larger or smaller than N, without computing: N · 0.8, N : 0.5 (and, a quarter of the time, a number larger than 1, so
+ * the answer is read from the number and not from the operation). Two choices, so practice only; a wrong choice with a
+ * number smaller than 1 is "multiplying makes bigger, dividing makes smaller".
+ */
+function bigger() {
+  const small = Math.random() < 0.75; const [tex, x] = pick(rnd, small ? SHRINK : GROW);
+  const mul = Math.random() < 0.5; const N = 12 * rint(rnd, 1, 5);
+  const val = mul ? N * x : N / x; const up = val > N;
+  const choices = [
+    { text: `גדולה מ־${N}`, ok: up, bug: !up && small ? 'mult-bigger' : undefined },
+    { text: `קטנה מ־${N}`, ok: !up, bug: up && small ? 'mult-bigger' : undefined },
+  ];
+  const op = mul ? '\\cdot' : ':';
+  const why = mul
+    ? (small ? `כפל במספר קטן מ־$1$ לוקח רק חלק מ־$${N}$, ולכן התוצאה קטנה מ־$${N}$.` : `כפל במספר גדול מ־$1$ מגדיל: יותר מפעם אחת $${N}$.`)
+    : (small ? `חילוק במספר קטן מ־$1$ סופר כמה פעמים הוא נכנס ב־$${N}$, ויש יותר מ־$${N}$ פעמים כאלה.` : `חילוק במספר גדול מ־$1$ מקטין: הוא נכנס ב־$${N}$ פחות מ־$${N}$ פעמים.`);
+  return {
+    key: `fr4g:${N}:${r9(x)}:${mul ? 'mul' : 'div'}`, text: `$${N} ${op} ${tex}$: התוצאה גדולה מ־$${N}$ או קטנה ממנו?`, form: 'mc', choices, answer: up ? 0 : 1, practiceOnly: true,
+    hint: `האם $${tex}$ גדול מ־$1$ או קטן ממנו? ${mul ? 'כפל ב־$1$ משאיר את המספר כמו שהוא.' : 'חילוק ב־$1$ משאיר את המספר כמו שהוא.'}`,
+    solution: [why, `$${N} ${op} ${tex} = ${shortDec(val) ? dec(val) : `${r2(val)}\\ldots`}$`],
+    diag: (u) => choices[u]?.bug || null,
+  };
+}
+
+// ---------------------------------------------------------------- multiplication facts
+
+export const FACTS_TITLE = 'לוח הכפל';
+/** What a lesson screen needs of a topic for the facts items: their name and the floor unit's colour (no stairs). */
+export const FACTS = { id: 'facts', grade: '7', title: FACTS_TITLE, color: 'violet', levels: [], cats: {} };
+
+/**
+ * One multiplication fact, as the floor check and the facts practice (/facts) ask it: a · b, or the product divided by
+ * a (ab : a), with a and b from 3 to 9. Multiplication facts are not a stair: the programme assumes them, so these
+ * items carry topic 'facts' and level 0, record nothing about any stair (learn/storeGlue.ts learnAfterAnswer) and name
+ * no misconception. key: facts:{a}:{b}:{op}.
+ */
+export function factsItem(avoidKey) {
+  for (let i = 0; ; i += 1) {
+    const a = rint(rnd, 3, 9); const b = rint(rnd, 3, 9); const op = Math.random() < 0.6 ? 'mul' : 'div';
+    const key = `facts:${a}:${b}:${op}`;
+    if (key === avoidKey && i < 20) continue;
+    const p = a * b;
+    const common = { key, text: 'חשבו:', form: 'num', diag: () => null, topic: 'facts', level: 0, levelTitle: FACTS_TITLE };
+    if (op === 'mul') {
+      return {
+        ...common, display: `${a} \\cdot ${b}`, answer: p,
+        // a fact not remembered is built from a near one: one group fewer, then one more group
+        hint: `אם לא זוכרים, מתחילים ממה שקרוב: $${a} \\cdot ${b - 1} = ${a * (b - 1)}$, ועוד $${a}$.`,
+        solution: [`$${a} \\cdot ${b - 1} = ${a * (b - 1)}$`, `ועוד $${a}$: $${a * (b - 1)} + ${a} = ${p}$`, `$${a} \\cdot ${b} = ${p}$`],
+      };
+    }
+    return {
+      ...common, display: `${p} : ${a}`, answer: b,
+      hint: `חילוק הוא כפל הפוך: איזה מספר כפול $${a}$ נותן $${p}$?`,
+      solution: [`$${a} \\cdot ${b} = ${p}$`, `ולכן $${p} : ${a} = ${b}$`],
+    };
+  }
+}
+
 // ---------------------------------------------------------------- the topic
 
 export const FRAC = {
@@ -333,6 +611,8 @@ export const FRAC = {
   levels: [
     { title: 'שבר ושברים שווים', gen: () => { const r = Math.random(); return r < 0.35 ? readPoint() : r < 0.6 ? placePoint() : r < 0.85 ? equiv() : reduceFrac(); } },
     { title: 'השוואת שברים ועשרוניים', gen: () => { const r = Math.random(); return r < 0.35 ? biggest() : r < 0.65 ? pair() : r < 0.85 ? toDec() : orderPins(); } },
+    { title: 'חיבור וחיסור שברים', gen: () => { const r = Math.random(); return r < 0.45 ? addSub() : r < 0.65 ? mixed() : r < 0.85 ? decimals() : common(); } },
+    { title: 'כפל וחילוק שברים', gen: () => { const r = Math.random(); return r < 0.3 ? ofQty() : r < 0.55 ? mulDiv(true) : r < 0.8 ? mulDiv(false) : bigger(); } },
   ],
   cats: {
     'count-marks': 'ספרו את השנתות במקום את החלקים',

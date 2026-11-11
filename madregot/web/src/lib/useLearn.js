@@ -1,8 +1,9 @@
-// The learning model as the screens need it: the context for recommendations, the actions, today's mission.
+// The learning model as the screens need it: the context, and the one ranked plan of what is worth doing next
+// (learn/next.ts planNext). Every surface that suggests a next step reads it, so they all name the same step.
 import { useMemo } from 'react';
 import { useApp, today } from './store.js';
-import { nextActions } from '@/learn/recommend.ts';
-import { missionFor } from '@/learn/mission.ts';
+import { planNext } from '@/learn/next.ts';
+import { schoolMonth } from '@/learn/programme.ts';
 
 export function useLearnCtx() {
   const learn = useApp((s) => s.learn);
@@ -12,14 +13,9 @@ export function useLearnCtx() {
   return useMemo(() => ({ learn, grade, path, progress, now: new Date().toISOString(), day: today() }), [learn, grade, path, progress]);
 }
 
-export function useActions() {
+/** The plan: its ranked items, the top one, Exam Rescue's steps for today, and whether today is a rest day. */
+export function useNext() {
   const ctx = useLearnCtx();
-  return useMemo(() => nextActions(ctx), [ctx]);
-}
-
-/** Today's mission: the saved one, or a new one built now (saved by the screen that shows it). */
-export function useMission() {
-  const ctx = useLearnCtx();
-  const actions = useActions();
-  return useMemo(() => missionFor(ctx.learn, ctx.day, actions), [ctx, actions]);
+  const exams = useApp((s) => s.exams);
+  return useMemo(() => planNext({ ...ctx, exams: exams || [], month: schoolMonth(ctx.day) }), [ctx, exams]);
 }

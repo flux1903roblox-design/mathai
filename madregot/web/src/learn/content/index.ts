@@ -25,11 +25,15 @@ function importTopic(topic: string): Promise<StairContent[]> {
   switch (topic) {
     // the curriculum lane's bridge unit (fractions)
     case 'frac': return import('./frac').then((m) => m.FRAC);
-    case 'signed': return import('./signed').then((m) => m.SIGNED);
+    // signed:6 (signed fractions and decimals) is the curriculum lane's sixth stair of signed numbers, in its own file
+    case 'signed': return Promise.all([import('./signed'), import('./signed6')]).then(([a, b]) => [...a.SIGNED, ...b.SIGNED6]);
     case 'coord': return import('./coord').then((m) => m.COORD);
     case 'angles': return import('./angles').then((m) => m.ANGLES);
     case 'expr': return import('./expr').then((m) => m.EXPR);
     case 'eq': return import('./eq').then((m) => m.EQ);
+    // the curriculum lane's grade 8 units in school order: ratio and scale, then percent
+    case 'ratio': return import('./ratio').then((m) => m.RATIO);
+    case 'pct': return import('./pct').then((m) => m.PCT);
     case 'line': return import('./line').then((m) => [...m.LINE1, ...m.LINE2]);
     case 'pyth': return import('./pyth').then((m) => m.PYTH);
     case 'stats': return import('./stats').then((m) => m.STATS);

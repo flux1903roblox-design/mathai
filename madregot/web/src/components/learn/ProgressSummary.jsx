@@ -3,7 +3,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Award, Route, Target, ArrowLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
-import { useActions } from '@/lib/useLearn.js';
+import { useNext } from '@/lib/useLearn.js';
 import { topicsFor } from '@/content/index.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState, STATE_LABEL } from '@/learn/mastery.ts';
@@ -17,13 +17,13 @@ export default function ProgressSummary({ tiles = true }) {
   const navigate = useNavigate();
   const grade = useApp((s) => s.profile?.grade) || '7';
   const skills = useApp((s) => s.learn.skills);
-  const actions = useActions();
+  // the one next step of the plan, the same the home and the mission name
+  const { top: next } = useNext();
   const now = new Date().toISOString();
   const all = topicsFor(grade).flatMap((t) => t.levels.map((L, i) => ({ t, level: i + 1, title: L.title, st: masteryState(skills[skillId(t.id, i + 1)], now) })));
   const mastered = all.filter((x) => x.st === 'mastered').length;
   const onWay = all.filter((x) => x.st === 'learning' || x.st === 'practicing').length;
   const work = all.filter((x) => x.st === 'needs-support' || x.st === 'needs-review');
-  const next = actions[0];
   return (
     <section className="progress-summary" aria-labelledby="ps-title">
       <h2 id="ps-title" className="h-section">ההתקדמות שלי</h2>

@@ -8,6 +8,7 @@ import { masteryState } from './mastery';
 import { addSubModel } from './content/signed';
 import { ALL_SKILLS } from './skills';
 import { contentOf, loadAllContent } from './content/index';
+import { canProbe } from './items';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 await loadAllContent();
@@ -154,8 +155,9 @@ describe('every stair supports its checks', () => {
     const ids = new Set<string>([...c.misconceptions.map((m) => m.id), ...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})]);
     ids.forEach((misc) => {
       const s0 = startLesson({ kind: 'check', purpose: 'verify', skill, misc });
-      // the verification asks questions where this misconception would show
-      expect(s0.item.could, `${skill} verify ${misc}`).toContain(misc);
+      // the verification asks questions where this misconception would show, when a question a check may ask can show
+      // it at all (items.ts canProbe: a few show only in practice-only choices, which a check never asks)
+      if (canProbe(skill, [misc])) expect(s0.item.could, `${skill} verify ${misc}`).toContain(misc);
       const r = resultOf(play(s0).s);
       expect(r.passed, `${skill} verify ${misc}`).toBe(true);
     });

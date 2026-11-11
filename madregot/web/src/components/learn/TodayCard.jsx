@@ -3,19 +3,22 @@
 // inside), and ONE big button that starts the next part. A row can be tapped to open that part (it is a link, not a
 // second button). This card is the whole mission: the old separate mission page (/mission) now opens this tab.
 // Under it the exam entry as its own card. The mission is fixed for the day once shown.
+// It is one view of the one plan (learn/next.ts planNext): its items, its first unfinished item is the button, and the
+// exam card names Exam Rescue's step for today, so the home, this card and Rescue name the same next step.
 // A student in a class sees the teacher's work first, inside the card (ClassWork, TEACHER-5 §5): the big button starts
 // the earliest unfinished work from the teacher, and the minutes count it too. The stairs the teacher gave report how
 // far they are whenever this card opens or the learning record changes (lib/classWork.js).
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Play, CalendarClock, Footprints, Target, ChevronLeft, Sparkles, Check, Wrench, RotateCcw, Award, ArrowLeft } from 'lucide-react';
+import { Play, CalendarClock, Footprints, Target, ChevronLeft, Sparkles, Check, Wrench, RotateCcw, Award, ArrowLeft, FileCheck, Layers, Puzzle } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
-import { useMission } from '@/lib/useLearn.js';
+import { useNext } from '@/lib/useLearn.js';
 import { boardOf } from '@/lib/board.js';
-import { missionDone, missionMinutes, partialStairNote } from '@/learn/mission.ts';
+import { missionFor, missionDone, missionMinutes, partialStairNote } from '@/learn/mission.ts';
+import { missionNext, toStrengthen } from '@/learn/next.ts';
 import { STAGE_N } from '@/learn/recommend.ts';
 import { daysBetween } from '@/learn/mastery.ts';
 import { MathText } from '@/components/MathText.jsx';
@@ -26,12 +29,12 @@ import { Bar } from '@/components/ds.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { enter } from '@/lib/motion.js';
 
-export const KIND_ICON = { repair: Wrench, review: RotateCcw, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock };
-export const KIND_LABEL = { repair: 'תיקון', review: 'בדיקת זיכרון', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן' };
+export const KIND_ICON = { repair: Wrench, review: RotateCcw, 'exam-loss': FileCheck, floor: Layers, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock, challenge: Puzzle };
+export const KIND_LABEL = { repair: 'תיקון', review: 'בדיקת זיכרון', 'exam-loss': 'מהמבחן', floor: 'יסודות', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן', challenge: 'אתגר' };
 
 /** A part's bar: a stage of a stair shows how far the stair is (stage n of 5); anything else is done or not yet. */
 function partBar(it) {
-  if (it.stage && it.kind !== 'mastery') {
+  if (it.stage && ['new', 'continue', 'prereq', 'exam-loss'].includes(it.kind)) {
     const n = STAGE_N[it.stage];
     return { value: it.done ? n : n - 1, max: 5, text: it.done ? `שלב ${n} מתוך 5 ✓` : `שלב ${n} מתוך 5` };
   }
@@ -43,17 +46,22 @@ export default function TodayCard({ grade, onBoard }) {
   const navigate = useNavigate();
   const { path, progress, gaps, placement, saveMission, learnEvent } = useApp();
   const exam = useApp((s) => s.learn.exam);
-  const { items, fresh } = useMission();
+  const learn = useApp((s) => s.learn);
+  const plan = useNext();
+  const day = today();
+  // today's mission: the saved one, or one made now from the plan's items (saved below, fixed for the day)
+  const { items, fresh } = useMemo(() => missionFor(learn, day, plan.items), [learn, day, plan.items]);
   // the teacher's work (only in a class, with a server: classWork stays empty otherwise)
   const inClass = useApp((s) => !!s.profile?.token);
   const classWork = useApp((s) => s.classWork);
   const workOutbox = useApp((s) => s.workOutbox);
-  const skills = useApp((s) => s.learn.skills);
-  const work = inClass ? classRows(classWork, workOutbox, today()) : null;
-  useEffect(() => { if (inClass) reportStairs(); }, [inClass, classWork.at, skills]);
-  useEffect(() => { if (fresh && items.length) { saveMission(today(), items); learnEvent({ e: 'mission-start' }); } }, [fresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  const work = inClass ? classRows(classWork, workOutbox, day) : null;
+  useEffect(() => { if (inClass) reportStairs(); }, [inClass, classWork.at, learn.skills]);
+  useEffect(() => { if (fresh && items.length) { saveMission(day, items); learnEvent({ e: 'mission-start' }); } }, [fresh]); // eslint-disable-line react-hooks/exhaustive-deps
   const b = boardOf({ grade, path, progress, gaps, placement });
-  const next = items.find((i) => !i.done);
+  const next = missionNext(items);
+  const strengthen = toStrengthen(plan.items);
+  const examStep = plan.examToday[0];
   const done = missionDone(items);
   useEffect(() => { if (done) learnEvent({ e: 'mission-done' }); }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
   const started = items.some((i) => i.done);
@@ -79,7 +87,7 @@ export default function TodayCard({ grade, onBoard }) {
               const bar = partBar(it);
               const plain = it.title.replace(/\$/g, '');
               return (
-                <li key={`${it.kind}-${it.skill}-${it.misc || ''}`} className={clsx('today-row', it.done && 'done', it === next && 'next')}>
+                <li key={`${it.kind}-${it.skill}-${it.stage || ''}-${it.misc || ''}-${it.task || ''}`} className={clsx('today-row', it.done && 'done', it === next && 'next')}>
                   <span className={clsx('quest-icon', `qk-${it.kind}`)} aria-hidden="true"><Icon size={22} strokeWidth={it.done ? 3 : 2} /></span>
                   <span className="quest-body">
                     <Link to={it.to} className="today-item-title today-link"><MathText text={it.title} /></Link>
@@ -102,13 +110,13 @@ export default function TodayCard({ grade, onBoard }) {
         <span className="exam-cta-icon" aria-hidden="true"><CalendarClock size={24} /></span>
         <span className="exam-cta-text">
           <span className="exam-cta-title">{exam ? (examDays === 0 ? 'המבחן היום: ההכנה שלי' : `ההכנה למבחן: עוד ${examDays} ${examDays === 1 ? 'יום' : 'ימים'}`) : 'יש לי מבחן בקרוב'}</span>
-          <span className="exam-cta-sub">{exam ? 'התוכנית של היום מחכה' : 'תוכנית הכנה לפי הימים שנשארו והנושאים במבחן'}</span>
+          <span className="exam-cta-sub">{!exam ? 'תוכנית הכנה לפי הימים שנשארו והנושאים במבחן' : plan.restDay ? 'היום שבת, ואין בו משימות. ממשיכים אחריה.' : examStep ? <MathText text={examStep.title} /> : 'התוכנית של היום מחכה'}</span>
         </span>
         <ChevronLeft size={22} aria-hidden="true" className="exam-cta-go" />
       </button>
       <div className="continue-links">
         <button type="button" className="continue-chip" onClick={onBoard}><Footprints size={16} aria-hidden="true" />עליתם {b.done} מתוך {b.total}</button>
-        {b.open > 0 && <button type="button" className="continue-chip work" onClick={onBoard}><Target size={16} aria-hidden="true" />{b.open === 1 ? 'דבר אחד לחזק' : `${b.open} דברים לחזק`}</button>}
+        {strengthen > 0 && <button type="button" className="continue-chip work" onClick={onBoard}><Target size={16} aria-hidden="true" />{strengthen === 1 ? 'דבר אחד לחזק' : `${strengthen} דברים לחזק`}</button>}
       </div>
     </m.section>
   );

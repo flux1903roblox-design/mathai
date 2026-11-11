@@ -745,6 +745,14 @@ script. They now load one topic at a time, and nothing the student sees changed.
   install offer) added their rules to the main screens' stylesheet: the merge measured render-blocking CSS 56.45 KB, and
   the CSS gate moved by the same rule to **59 KB** (boot JS 366.1 KB, under its 367 KB gate). Open work: the wardrobe's,
   the class goal's and the teaching figures' rules into files that load with their screens.
+  The curriculum lane's stages 6-17 (the floor's last two stairs, signed:6, ratio and percent, the floor check and the
+  facts practice, the one ranked plan, the challenge track's 36 tasks) put the new topics' exercise generators
+  (`content/*.js`, read by the map and the placement test) and the challenge track (`learn/challenges/*`, which the plan
+  `learn/next.ts` and the store read) in the first download; their teaching content loads per topic as before
+  (`frac`, `signed6`, `ratio`, `pct` chunks). The merge measured boot JS 412.3 KB and the service worker's precache
+  4.56 MB, so both gates moved by the same rule to **433 KB** and **4.79 MB** (CSS 57.3 KB, under its 59 KB gate). Open
+  work: the challenge tasks behind a dynamic import per topic (the curriculum spec asks for it), with the plan reading
+  only their ids and stairs at boot.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

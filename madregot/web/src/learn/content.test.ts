@@ -10,14 +10,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 // @ts-ignore: plain JS
 import Figure from '@/components/Figure.jsx';
 import { evaluate, same, seeded, identical, texToExpr, texRelation, holds } from './expr';
-import { discriminating, diagnose } from './misconceptions';
-import { checkPlan, itemFor } from './items';
+import { discriminating, diagnose, roundAway } from './misconceptions';
+import { checkPlan, itemFor, canProbe } from './items';
 import { ALL_SKILLS } from './skills';
 import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togetherDiag';
 // @ts-ignore: plain JS
 import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX } from '@/content/manip.js';
 // @ts-ignore: plain JS
-import { TOPIC } from '@/content/index.js';
+import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
 
@@ -337,7 +337,8 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
         Object.values(sp.bugs).flat().forEach((v) => expect(same(v, ans), `together ${k + 1}: a prediction equals the answer`).toBe(false));
       }
       // every prediction is diagnosed back to its misconception
-      finalPredictions(c, k).forEach(([id, v]) => expect(diagnoseFinal(c, k, Math.round(v * 10) / 10), `together ${k + 1}: ${v}`).toContain(id));
+      // typed rounded to tenths the way the checker rounds (half away from zero: −4.25 is −4.3, misconceptions.ts roundAway)
+      finalPredictions(c, k).forEach(([id, v]) => expect(diagnoseFinal(c, k, roundAway(v, 1)), `together ${k + 1}: ${v}`).toContain(id));
       expect(diagnoseFinal(c, k, ans), `together ${k + 1}: the right answer is no mistake`).toEqual([]);
     });
   });
@@ -358,6 +359,13 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
     // a repair is offered for any misconception the stair can confirm, from a model or from its exercises' labels;
     // its verification must be able to see a relapse: each of its probes can show it
     c.misconceptions.forEach((m) => {
+      // a misconception that shows only in practice-only choices has no question a check may ask (items.ts canProbe):
+      // its verification asks the stair's ordinary questions, never a practice-only one
+      if (!canProbe(c.skill, [m.id])) {
+        const plan = checkPlan({ purpose: 'verify', skill: c.skill, misc: m.id }, Math.random);
+        plan.forEach((q) => expect(fairForCheck(itemFor(q.skill, q.source, Math.random, undefined, q.candidates, { test: true })), `${c.skill} verify ${m.id}`).toBe(true));
+        return;
+      }
       for (let r = 0; r < 3; r += 1) {
         const plan = checkPlan({ purpose: 'verify', skill: c.skill, misc: m.id }, Math.random);
         expect(plan.filter((q) => q.source === 'probe').length, `${c.skill} verify ${m.id}`).toBeGreaterThanOrEqual(2);
@@ -438,9 +446,10 @@ describe('solving together: the last step names the mistake', () => {
 // The fractions floor is for students who need to see a fraction before they compute with it: every teaching step of
 // its stairs draws one (a figure or an object to move), and every drawing renders with real numbers.
 describe('the fractions floor teaches with pictures', () => {
-  const frac = stairs.filter((c) => c.topic === 'frac');
-  it('every discover step of frac:1-2 has a figure or an object', () => {
-    expect(frac.map((c) => c.skill)).toEqual(['frac:1', 'frac:2']);
+  // the floor's four stairs, and the signed fractions and decimals of signed:6 (the same pictures, below zero)
+  const frac = stairs.filter((c) => c.topic === 'frac' || c.skill === 'signed:6');
+  it('every discover step of frac:1-4 and signed:6 has a figure or an object', () => {
+    expect(frac.map((c) => c.skill)).toEqual(['frac:1', 'frac:2', 'frac:3', 'frac:4', 'signed:6']);
     const bare = frac.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
     expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
   });
@@ -455,6 +464,59 @@ describe('the fractions floor teaches with pictures', () => {
       expect(html, fig.type).toMatch(/<svg/);
       expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
     });
+  });
+});
+
+// Ratio and scale is taught with the same pictures (the beads on the fraction bar, the scouts in rows, the double number
+// line, the 1 by 1 square inside the 3 by 3 one): every teaching step of its stairs draws one, and every drawing renders.
+describe('ratio and scale teach with pictures', () => {
+  const ratio = stairs.filter((c) => c.topic === 'ratio');
+  it('every discover step of ratio:1-4 has a figure or an object', () => {
+    expect(ratio.map((c) => c.skill)).toEqual(['ratio:1', 'ratio:2', 'ratio:3', 'ratio:4']);
+    const bare = ratio.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+  });
+  it('every figure of the unit renders, with no broken numbers', () => {
+    const figs = ratio.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(new Set(figs.map((f) => f.type))).toEqual(new Set(['groups', 'fbar', 'geo', 'dline', 'table', 'fgrid']));
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg|<table/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
+  });
+});
+
+// Percent is taught with the percent bar (the double number line, the fraction bar with its whole written under it), the
+// volunteers' table and two price changes in a table: every teaching step draws one, and every drawing renders. A
+// picture that asks for the whole writes no number on its bottom line but 0 (blank), so it does not give the answer.
+describe('percent teaches with pictures', () => {
+  const pct = stairs.filter((c) => c.topic === 'pct');
+  it('every discover step of pct:1-5 has a figure or an object', () => {
+    expect(pct.map((c) => c.skill)).toEqual(['pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5']);
+    const bare = pct.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+  });
+  it('every figure of the unit renders, with no broken numbers, and a blank line hides its end', () => {
+    const figs = pct.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(new Set(figs.map((f) => f.type))).toEqual(new Set(['dline', 'fbar', 'table']));
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg|<table/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
+    // pct:4 step 1: 35% of the download is 1400; the file's size (4000) is the question, and is not drawn
+    const first = CONTENT['pct:4'].discover[0] as { fig: FigSpec };
+    const html = renderToStaticMarkup(createElement(Figure, { fig: first.fig }));
+    expect(html).toMatch(/>1400</);
+    expect(html).not.toMatch(/>4,?000</); // no text of the drawing says it
+    expect(html.match(/aria-label="([^"]*)"/)![1]).not.toMatch(/4,?000/); // nor its words for a screen reader
   });
 });
 

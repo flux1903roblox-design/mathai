@@ -191,10 +191,26 @@ const learnFirst = (keys) => [...keys.filter((k) => k !== 'path'), ...(keys.incl
 /** A day's mission when both sides have it: the chosen side's items, done when either side did them. */
 function missionJoin(chosen, other) {
   if (!isObj(chosen) || !Array.isArray(chosen.items)) return chosen ?? other;
+  // an item is its kind, stair and stage, and for a challenge its task (the curriculum lane's challenge items)
+  const itemKey = (it) => `${it.kind}|${it.skill}|${it.stage ?? ''}|${it.task ?? ''}`;
   const doneOther = new Map();
-  for (const it of Array.isArray(other?.items) ? other.items : []) if (it?.done) doneOther.set(`${it.kind}|${it.skill}|${it.stage ?? ''}`, it.done);
-  return { ...chosen, items: chosen.items.map((it) => (it && !it.done && doneOther.has(`${it.kind}|${it.skill}|${it.stage ?? ''}`) ? { ...it, done: doneOther.get(`${it.kind}|${it.skill}|${it.stage ?? ''}`) } : it)) };
+  for (const it of Array.isArray(other?.items) ? other.items : []) if (it?.done) doneOther.set(itemKey(it), it.done);
+  return { ...chosen, items: chosen.items.map((it) => (it && !it.done && doneOther.has(itemKey(it)) ? { ...it, done: doneOther.get(itemKey(it)) } : it)) };
 }
+
+/**
+ * One challenge task's record (learn.challenges[id], CURRICULUM-6): the finished one wins (it carries the first-try
+ * counts its XP was earned with; of two finished, the earlier finish); of two started only, the newer start.
+ */
+function challengeJoin(a, b) {
+  if (!isObj(a)) return b ?? a; if (!isObj(b)) return a;
+  const da = str(a.doneAt); const db = str(b.doneAt);
+  if (da || db) return !db ? a : !da ? b : db < da ? b : a;
+  return str(b.startedAt) > str(a.startedAt) ? b : a;
+}
+
+/** The floor check's record (learn.floor, CURRICULUM-3): the newer check, or the newer switch of the unit on or off. */
+const floorJoin = (a, b, newerB) => (!isObj(a) ? b ?? a : !isObj(b) ? a : str(b.at) > str(a.at) ? b : str(a.at) > str(b.at) ? a : newerB ? b : a);
 
 /** The exam plan: the one made later; the same plan joins its diagnostics (each skill's later result). */
 function examJoin(a, b, newerB) {
@@ -308,6 +324,8 @@ function tabLearn(b, m, t, c) {
     else if (f === 'missions') v = perKey3(z, x, y, (bd, md, td) => three(bd, md, td, () => (c.wins ? missionJoin(md, td) : missionJoin(td, md))));
     else if (f === 'events') v = three(z, x, y, (bb, mm, tt) => sortEvents(set3(bb, mm, tt, eventKey)));
     else if (f === 'exam') v = three(z, x, y, (bb, mm, tt) => examJoin(mm, tt, !c.wins));
+    else if (f === 'challenges') v = perKey3(z, x, y, (bc, mc, tc) => three(bc, mc, tc, () => challengeJoin(mc, tc)));
+    else if (f === 'floor') v = three(z, x, y, (bb, mm, tt) => floorJoin(mm, tt, !c.wins));
     else v = three(z, x, y, (bb, mm, tt) => generic3(bb, mm, tt, c.wins));
     if (v !== undefined) out[f] = v;
   }
@@ -469,6 +487,8 @@ function deviceLearn(x, y, c) {
     else if (f === 'missions') v = perKeyJoin(a, b, (p, q) => (c.newerRemote ? missionJoin(q, p) : missionJoin(p, q)));
     else if (f === 'events') v = sortEvents(union(a, b, eventKey));
     else if (f === 'exam') v = examJoin(a, b, c.newerRemote);
+    else if (f === 'challenges') v = isObj(a) && isObj(b) ? perKeyJoin(a, b, challengeJoin) : c.newer(a, b);
+    else if (f === 'floor') v = floorJoin(a, b, c.newerRemote);
     else v = isNum(a) && isNum(b) ? Math.max(a, b) : c.newer(a, b);
     if (v !== undefined) out[f] = v;
   }

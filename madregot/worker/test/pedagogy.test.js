@@ -54,10 +54,11 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   }
   // the safety numbers are all still there
   for (const n of ['1201', '052-845-1201', '055-957-1399', '105', 'משטרה 100', 'מד״א 101', '[[care]]']) assert.ok(s.includes(n), n);
-  // under 17,500 characters (about 5k tokens) and well above the 512-token minimum a cached prefix needs. The ai spec's
+  // under 19,500 characters (about 5.5k tokens) and well above the 512-token minimum a cached prefix needs. The ai spec's
   // 16,000 held for the nine topics; the curriculum lane's fractions (frac) took it to about 16,700 at the merge, so the
-  // cap moved up once. Each later topic (pct, ratio) adds its ways and its stairs: move it again only on purpose.
-  assert.ok(s.length < 17500, `stable block is ${s.length} characters`);
+  // cap moved up to 17,500; ratio and percent (their ways and their nine stairs) and the floor's frac:3-4 took it to
+  // about 19,000 at the next merge, so it moved again, on purpose. A further topic moves it only on purpose too.
+  assert.ok(s.length < 19500, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');

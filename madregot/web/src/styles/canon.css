@@ -531,7 +531,7 @@ a { color: var(--brand-d); }
 /* the profile's last row: the legal pages, quiet, each a full-size target */
 .me-foot { margin-top: var(--s5); padding-top: var(--s3); border-top: 2px solid var(--rule); }
 .me-foot-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); }
-.me-foot-links a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: var(--s1); color: var(--ink-2); font-size: var(--t-sm); font-weight: 600; }
+.me-foot-links a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding-inline: var(--s1); color: var(--ink-2); font-size: var(--t-sm); font-weight: 600; }
 /* a short phone: the character and the gaps give up a little room, so every way in (start, teacher, the backup file,
    and the links when there is a server) stays in view */
 @media (max-height: 700px) {
@@ -1298,6 +1298,16 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .prog-entry::after { content: ""; flex: none; width: 10px; height: 10px; margin-inline-end: var(--s1); border-left: 2px solid var(--ink-2); border-bottom: 2px solid var(--ink-2); transform: rotate(45deg); }
 .prog-entry:active { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press); }
 @media (prefers-reduced-motion: reduce) { .prog-entry:active { transform: none; } }
+/* the topics screen's floor (יסודות לחיזוק, CURRICULUM-3): the fractions unit's card, then rows of the same build as the
+   programme row, each a name and one line, then the quiet way to take the unit off the map */
+.floor-section { display: flex; flex-direction: column; gap: var(--s3); }
+.floor-section > .h-section { margin: var(--s3) 0 0; }
+.floor-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.floor-row { font-weight: 400; }
+.floor-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.floor-row-text b { font-weight: 700; color: var(--ink); }
+.floor-row-text span { color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.floor-hide { color: var(--ink-2); }
 /* the end of the path: two ways on, each a full-height target on its own line (the column is in the 44px block above);
    the programme link wraps, so it is a link with a 44px row, not a one-line button like the topics link */
 .path-end a:not(.btn) { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; text-wrap: balance; }
@@ -1787,3 +1797,134 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .goal-moment-hero { min-height: 150px; }
 .goal-moment-text { margin: var(--s2) auto 0; max-width: 34ch; color: var(--ink); font-size: 18px; line-height: 27px; text-align: center; text-wrap: pretty; }
 @media (prefers-reduced-motion: reduce) { .cg-track .cg-fill { transition: none; } }
+
+/* ------------------------------------------------------------------ the next step (CURRICULUM-7)
+   Above the home map when the plan's next step is not a stop of it: one card, its icon, its title, how long, and one
+   button. On the map, the stair the plan points at (when it is not the path's current stop) wears the same bubble as
+   the current stop, saying "הצעד הבא". */
+.next-banner { margin: var(--s4) var(--gutter) 0; padding: var(--s4); display: flex; flex-direction: column; gap: var(--s3);
+  background: var(--surface); border: 2px solid var(--rule); border-radius: 16px; color: var(--ink); }
+.next-banner-row { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
+.next-banner .quest-icon { width: 44px; height: 44px; border-radius: 14px; }
+.next-banner-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.next-banner-title { margin: 0; font-family: var(--font-ui); font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.next-banner-meta { margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.node-card-next { color: var(--ink); font-weight: 600; }
+/* the map starts closer under it: the banner belongs to the path */
+.next-banner + .unit { margin-top: calc(var(--s4) * -1); }
+/* as wide as the unit banner under it at every width: the gutter on phones and on a computer (the unit banner keeps
+   it there), the full width on small phones (the student lane's rule for the unit banner, above) */
+@media (max-width: 360px) { .next-banner { margin-inline: 0; } }
+.rescue-rest { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-align: center; }
+
+/* ------------------------------------------------------------------ the challenge track (CURRICULUM-6.4)
+   A task outside the tab bar, like a lesson: one pinned top (close, the title, "חלק 2 מתוך 4", and the story with its
+   figure; on a phone under 700px tall the story folds into a "לסיפור" button), the part, and the lesson's bottom strip
+   and button. Every control is a 44px target; nothing moves under reduced motion but the chevron, which only turns. */
+/* the screen is one column the height of the window: the pinned top, then the part, which scrolls by itself (positioned,
+   so the hidden MathML of its maths stays inside it and never makes the page scroll), its strip
+   and button kept at the bottom */
+.ch-screen { display: flex; flex-direction: column; height: 100dvh; min-height: 0; overflow: hidden; }
+.ch-pin { position: relative; flex: none; z-index: 7; background: var(--surface); border-bottom: 1px solid var(--rule); padding: var(--s2) var(--gutter) var(--s3); display: flex; flex-direction: column; gap: var(--s2); }
+.ch-top { display: flex; align-items: center; gap: var(--s2); width: 100%; max-width: 640px; margin-inline: auto; }
+.ch-x { flex: none; width: 44px; height: 44px; }
+.ch-head { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ch-title { margin: 0; font-family: var(--font-ui); font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.ch-count { margin: 0; font-size: 14px; line-height: 20px; color: var(--ink-2); font-weight: 600; }
+.ch-story { width: 100%; max-width: 640px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); max-height: 34dvh; overflow-y: auto; }
+.ch-story-text { margin: 0; font-size: 17px; line-height: 1.6; color: var(--ink); }
+.ch-story-fig { display: flex; justify-content: center; }
+.ch-story-fig .figure { width: 100%; max-width: 320px; max-height: 22dvh; height: auto; }
+.ch-story-fold { width: 100%; max-width: 640px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--s2); }
+.ch-story-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--brand-d); font-weight: 700; font-size: 16px; }
+.ch-chev { transition: transform var(--duration-quick) var(--ease-out); }
+.ch-chev.open { transform: rotate(180deg); }
+.ch-pin.short .ch-story { max-height: 40dvh; }
+.ch-main { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: var(--s4) var(--gutter) 0; }
+.ch-part { flex: 1 0 auto; outline: none; }
+.ch-part > .ch-foot { margin-top: auto; }
+.ch-sub { margin: 0; font-family: var(--font-ui); font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.ch-ask { margin: 0; font-size: 17px; line-height: 1.6; color: var(--ink); }
+/* a typed number: the field (or the fields of a counterexample, each named) over the lesson's keypad */
+.ch-num { display: flex; flex-direction: column; gap: var(--s3); }
+.ch-fields { display: flex; justify-content: center; gap: var(--s3); flex-wrap: wrap; }
+.ch-field { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ch-field-label { font-size: 15px; line-height: 20px; color: var(--ink-2); font-weight: 600; }
+.ch-field-row { display: inline-flex; align-items: center; gap: var(--s2); }
+.ch-slot { width: clamp(96px, 34vw, 160px); height: 52px; font-size: 24px; }
+.ch-fields.many .ch-slot { width: clamp(72px, 24vw, 110px); }
+.ch-slot.good { border-color: var(--good-d); background: var(--good-tint); }
+.ch-num .keypad { max-width: 420px; width: 100%; margin-inline: auto; }
+.ch-num .key { height: 46px; }
+/* a claim: the quote, then three answers in one segmented row */
+.ch-claim { margin: 0; padding: var(--s3) var(--s4); border-inline-start: 4px solid var(--brand); background: var(--brand-tint); border-radius: 12px; font-size: 18px; line-height: 1.6; color: var(--ink); }
+.ch-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 4px; border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.ch-seg-opt { min-height: 48px; padding: 4px 6px; border: 2px solid transparent; border-radius: 12px; background: transparent; color: var(--ink); font-family: var(--font-ui); font-size: 16px; font-weight: 700; line-height: 20px; }
+.ch-seg-opt.on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); }
+.ch-seg-opt.good { border-color: var(--good-d); background: var(--good-tint); color: var(--good-ink); }
+.ch-seg-opt.bad { border-color: var(--gold); background: var(--gold-tint); }
+.ch-seg-opt:disabled { cursor: default; }
+.ch-example, .ch-fix { display: flex; flex-direction: column; gap: var(--s3); }
+/* a proof to order: numbered steps, each with its two move buttons */
+.ch-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.ch-step { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s2) var(--s2) var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); }
+.ch-step.off { border-color: var(--gold); background: var(--gold-tint); }
+.ch-step.set { border-color: var(--good-line); }
+.ch-step.now { border-color: var(--brand); background: var(--brand-tint); }
+.ch-step-n { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--ground); font-weight: 700; font-size: 15px; color: var(--ink-2); }
+.ch-step-text { flex: 1; min-width: 0; font-size: 16px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
+.ch-step-moves { flex: none; display: flex; flex-direction: column; gap: 4px; }
+.ch-move { width: 44px; height: 44px; border: 2px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--brand-d); }
+.ch-move:disabled { color: var(--disabled-ink); background: var(--ground); border-color: var(--ground); }
+.ch-order.done .ch-step { padding-inline-end: var(--s3); }
+.ch-reason { display: flex; flex-direction: column; gap: var(--s2); }
+.ch-reason-step { margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink-2); }
+/* someone's solution: each line a choice */
+.ch-lines { display: flex; flex-direction: column; gap: var(--s2); }
+.ch-line { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: var(--s2) var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); box-shadow: 0 3px 0 var(--rule-press); text-align: start; color: var(--ink); font-size: 17px; line-height: 1.5; }
+.ch-line.on { border-color: var(--brand); background: var(--brand-tint); box-shadow: 0 3px 0 var(--brand-line); }
+.ch-line.found { border-color: var(--good-d); background: var(--good-tint); box-shadow: 0 3px 0 var(--good-line); }
+.ch-line.tried { border-color: var(--gold); background: var(--gold-tint); box-shadow: 0 3px 0 var(--gold-line); }
+.ch-line:disabled { cursor: default; }
+.ch-line-n { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--ground); font-weight: 700; font-size: 15px; color: var(--ink-2); }
+.ch-line-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* an explanation: the student's words, then the self-check */
+.ch-explain { width: 100%; min-height: 120px; resize: vertical; font-size: 17px; line-height: 1.6; padding: var(--s3); border: 2px solid var(--rule); border-radius: 14px; }
+.ch-explain:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-tint); }
+.ch-check { display: flex; flex-direction: column; gap: var(--s3); }
+.ch-rubric { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.ch-tick { display: flex; align-items: flex-start; gap: var(--s3); min-height: 44px; padding: var(--s2) var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); font-size: 16px; line-height: 1.5; cursor: pointer; }
+.ch-tick input { flex: none; width: 24px; height: 24px; margin-top: 2px; accent-color: var(--brand); }
+.ch-sample { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); font-size: 16px; line-height: 1.6; }
+.ch-sample p { margin: 0; }
+.ch-sample-tag { margin-bottom: 4px !important; font-weight: 700; color: var(--ink-2); font-size: 14px; }
+/* the end: the lesson-complete screen's words and numbers */
+.ch-done .done-title { text-wrap: balance; }
+.ch-done-stats { grid-template-columns: minmax(0, 160px); justify-content: center; }
+@media (max-width: 360px) { .ch-seg-opt { font-size: 15px; } .ch-step-text { font-size: 15px; } }
+@media (prefers-reduced-motion: reduce) { .ch-chev { transition: none; } }
+
+/* ------------------------------------------------------------------ where challenges appear (CURRICULUM-6.3) */
+/* after a passed mastery check: a quiet card under the stat tiles, never the main button */
+.check-challenge { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); text-align: start; }
+.check-challenge-row { display: flex; align-items: center; gap: var(--s3); }
+.check-challenge-icon, .jchallenge-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; background: var(--brand-tint); color: var(--brand); }
+.check-challenge-text { flex: 1; min-width: 0; }
+.check-challenge-title { margin: 0; font-family: var(--font-ui); font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); text-wrap: balance; }
+.check-challenge-sub { margin: 2px 0 0; font-size: 15px; line-height: 22px; color: var(--ink-2); overflow-wrap: anywhere; }
+.check-challenge-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.check-challenge-actions .btn { flex: 1 1 120px; min-height: 44px; }
+/* the stair page: a sixth card under the five stages, optional (a dashed edge) and locked until the mastery check */
+.jchallenge { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); padding: var(--s3); border: 2px dashed var(--rule-strong); border-radius: 16px; background: var(--surface); }
+.jchallenge + .jchallenge { margin-top: var(--s2); }
+.jchallenge.locked .jchallenge-icon { background: var(--ground); color: var(--ink-2); }
+.jchallenge.solved .jchallenge-icon { background: var(--good); color: var(--on-good); }
+.jchallenge-text { flex: 1; min-width: 0; }
+.jchallenge-title { margin: 0; font-weight: 700; color: var(--ink); }
+.jchallenge-sub { margin: 2px 0 0; font-size: 15px; line-height: 22px; color: var(--ink-2); overflow-wrap: anywhere; }
+.jchallenge .btn { flex: none; min-height: 44px; }
+.journey-challenges { list-style: none; margin: 0; padding: 0; }
+/* the topics screen: a unit's challenges, once one is open */
+.section-card-ch { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0; font-size: 15px; line-height: 22px; font-weight: 600; color: var(--ink-2); }
+a.section-card-ch { color: var(--brand-d); text-decoration: none; }
+a.section-card-ch:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }

@@ -23,6 +23,7 @@ const HEB = /[֐-׿]/;
  * drawn line is too short for its labels (so they never touch); the end is always labelled. hideInner keeps 0 and the end.
  */
 function ticksOf(line, max, len, hideInner = false) {
+  // hideInner 'zero': only 0 is written (the whole is the question, so its end is not)
   const n = Math.round(max / line.step);
   const longest = Math.max(...[0, max, line.step * Math.max(1, n - 1)].map((v) => tickText(v, line.unit).length));
   const room = longest * 7.6 + 10; const gap = len / Math.max(n, 1);
@@ -31,7 +32,7 @@ function ticksOf(line, max, len, hideInner = false) {
   const lastK = Math.floor(n / every) * every; const tooClose = lastK !== n && (n - lastK) * gap < room;
   return Array.from({ length: n + 1 }, (_, i) => ({
     v: i * line.step,
-    label: hideInner ? i === 0 || i === n : i === n || (i % every === 0 && !(tooClose && i === lastK && i !== 0)),
+    label: hideInner === 'zero' ? i === 0 : hideInner ? i === 0 || i === n : i === n || (i % every === 0 && !(tooClose && i === lastK && i !== 0)),
   }));
 }
 /** Units other than % and Latin letters (₪, ס״מ) read right to left after the number. */
@@ -54,7 +55,8 @@ function Pill({ x, y, text, cls, rtl }) {
 /**
  * The two lines. `end` is the bottom line's end value (its max); with `scale` (move 'max') the bottom line keeps a fixed
  * scale up to scale (its longest) and the drawing stretches with `end`, else both lines span the whole width.
- * `at` is the marker's place on the top line; pills: the texts over and under it (null: not shown).
+ * `at` is the marker's place on the top line; pills: the texts over and under it (null: not shown). hideBottom keeps the
+ * bottom line's 0 and end only (a check); 'zero' keeps its 0 only (a still picture whose whole is the question).
  */
 export function DlineArt({ top, bottom, end = bottom.max, scale = null, at = null, pills = {}, hideBottom = false, handle = null, ghost = null }) {
   const len = scale ? (end / scale) * L : L;

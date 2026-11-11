@@ -31,6 +31,9 @@ const BUSY = [
   // the teacher lane's later screens: a class exam being built (TEACHER-3), and a class exam a student is solving (TEACHER-5)
   /^\/teacher\/exam\/new(\/|\?|$)/,
   /^\/class\/exam\/[^/?]+\/run(\/|\?|$)/,
+  // the curriculum lane's floor check and multiplication facts (lessons), and a challenge task being solved
+  /^\/(floor|facts)(\/|\?|$)/,
+  /^\/challenge\/[^/?]+/,
 ];
 
 /** Whether a reload on this route (the hash path, e.g. '/lesson/signed/1') would interrupt the student. */

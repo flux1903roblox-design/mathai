@@ -14,6 +14,8 @@ import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
+import { RATIO } from './ratio.js';
+import { PCT } from './pct.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -24,17 +26,24 @@ const median = (a) => { const s = sortN(a); const n = s.length; return n % 2 ? s
 const quadIndex = (x, y) => (x > 0 ? (y > 0 ? 0 : 3) : y > 0 ? 1 : 2);
 const ptEq = (u, p) => Array.isArray(u) && near(u[0], p[0]) && near(u[1], p[1]);
 
-/** The numbers of a signed-number exercise, read from what is on screen. */
+/**
+ * The numbers of a signed-number exercise, read from what is on screen: whole numbers, decimals (-2.5) and fractions,
+ * mixed numbers included (\frac{3}{4}, -\frac{3}{4}, -1\frac{1}{4}, in \left( \right) brackets or not).
+ */
 function signedFacts(it) {
-  const d = it.display.replace(/\\cdot/g, '*').replace(/[()]/g, '').trim();
-  const t = d.split(/\s+/);
-  return t.map((x) => (/^-?\d+$/.test(x) ? Number(x) : x));
+  const d = it.display.replace(/\\left|\\right/g, '').replace(/\\cdot/g, '*').replace(/[()]/g, '').trim();
+  const num = (x) => {
+    const f = x.match(/^(-?)(\d*)\\frac\{(\d+)\}\{(\d+)\}$/);
+    if (f) { const v = Number(f[2] || 0) + Number(f[3]) / Number(f[4]); return f[1] ? -v : v; }
+    return /^-?\d+(\.\d+)?$/.test(x) ? Number(x) : x;
+  };
+  return d.split(/\s+/).map(num);
 }
 /** The value subtracted in a signed exercise, when it is negative: the "minus-minus" spot. */
 function subtractedNegative(it) {
   const p = it.key.split(':')[0];
   const t = signedFacts(it);
-  if (p === 'sn1' || p === 'sn1n') return t[1] === '-' && t[2] < 0 ? t[2] : null; // a - b
+  if (p === 'sn1' || p === 'sn1n' || p === 'sn6s') return t[1] === '-' && t[2] < 0 ? t[2] : null; // a - b
   if (p === 'sn4') {
     if (t[3] === '*') return t[1] === '-' && t[2] * t[4] < 0 ? t[2] * t[4] : null; // a - b·c
     return t[3] === '-' && t[4] < 0 ? t[4] : null; // a·b - c
@@ -223,8 +232,9 @@ const isFn = (it, u, g) => { const t = chosen(it, u); if (!t) return false; cons
 // ---------------------------------------------------------------- fractions and decimals: read from the key
 // frac:1  fr1r:d:L:k  the point A at the k-th of d parts a unit on a line 0..L;  fr1e:p:q:r  p/q = ?/r
 // frac:2  fr2b:<list> and fr2p:<A>,<B>  the numbers as shown ('0.6', '0.125', '1/6')
-// frac:3-4 (their generators come next; these are the keys they write):  fr3…:a:b:c:d:add|sub  a/b ± c/d;
-//          fr4…:a:b:c:d:mul|div  a/b · c/d or a/b : c/d
+// frac:3  fr3a:a:b:c:d:add|sub  a/b ± c/d  (mixed numbers, decimals and the bar name no mistake)
+// frac:4  fr4m:a:b:c:d:mul and fr4v:a:b:c:d:div  a/b · c/d or a/b : c/d;  fr4g:N:x:mul|div  N · x or N : x, larger
+//         or smaller than N (a choice)
 const shownList = (it) => it.key.split(':')[1].split(',');
 const valueOf = (s) => { const [a, b] = s.split('/'); return b === undefined ? Number(a) : Number(a) / Number(b); };
 const placesOf = (s) => (s.includes('.') ? s.split('.')[1].length : 0);
@@ -251,6 +261,7 @@ function byPlaces(it, u, most) {
 }
 const fracOp = (it) => { const p = it.key.split(':'); return { a: +p[1], b: +p[2], c: +p[3], d: +p[4], op: p[5] }; };
 const lcmOf = (x, y) => { let a = x; let b = y; while (b) [a, b] = [b, a % b]; return (x * y) / a; };
+const gcdOf = (x, y) => { let a = Math.abs(x); let b = Math.abs(y); while (b) [a, b] = [b, a % b]; return a || 1; };
 
 /**
  * The property each category names, per topic. (it, u) → does the answer u really show this mistake?
@@ -277,8 +288,105 @@ const PROPS = {
     'num-not-scaled': (it, u) => { const q = fracOp(it); return (q.op === 'add' || q.op === 'sub') && fits(u, (q.a + (q.op === 'add' ? q.c : -q.c)) / lcmOf(q.b, q.d)); },
     'keep-den': (it, u) => { const q = fracOp(it); return q.b === q.d && (q.op === 'mul' ? fits(u, (q.a * q.c) / q.b) : q.op === 'div' && fits(u, q.a / q.c / q.b)); },
     'divide-flip': (it, u) => { const q = fracOp(it); return q.op === 'div' && fits(u, (q.c / q.d) / (q.a / q.b)); },
-    // a product where a quotient was asked (typed), or a product chosen as the way to find a quotient
-    'mult-bigger': (it, u) => { const q = fracOp(it); return q.op === 'div' && (it.form === 'mc' ? /\\cdot/.test(chosen(it, u)) : fits(u, (q.a / q.b) * (q.c / q.d))); },
+    // N · x or N : x with x smaller than 1, "larger or smaller than N": the product chosen as larger, or the quotient as
+    // smaller (multiplying makes bigger, dividing smaller); typed, a product where a quotient was asked
+    'mult-bigger': (it, u) => {
+      if (it.key.startsWith('fr4g:')) {
+        const [, , x, op] = it.key.split(':'); const larger = /^גדולה/.test(it.choices[u]?.text || '');
+        return Number(x) < 1 && (op === 'mul' ? larger : !larger);
+      }
+      const q = fracOp(it); return q.op === 'div' && it.form !== 'mc' && fits(u, (q.a / q.b) * (q.c / q.d));
+    },
+  },
+  // pct:1-5, each property from the numbers the student saw (the key): a, b of pc1f (a/b) and x of pc1d and pc1o; N and p
+  // of pc1e (a vote of p% of N); p, N of pc2 and pc2m (p% of N); A, B of pc3 and pc3g (A of B) and c, T of pc3t (c of all
+  // T volunteers); p, A of pc4 and pc4d (p% is A); up, p, N of pc5 (one change), p, N of pc5w (up and down), N, M of pc5b
+  pct: {
+    // the parts, the percent itself, or the part written as the amount
+    'count-as-pct': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'pc1f') return fits(u, n[0]);
+      if (p === 'pc1e') return it.choices[u]?.text === `${n[1]} אנשים`;
+      if (p === 'pc2' || p === 'pc2m') return fits(u, n[0]);
+      if (p === 'pc3' || p === 'pc3g' || p === 'pc3t') return fits(u, n[0]);
+      return false;
+    },
+    // the digits after the point read as the percent: 0.4 as 4, 1.5 as 15
+    'digit-pct': (it, u) => {
+      const p = it.key.split(':')[0]; const x = it.key.split(':')[1]; const digits = Number(x.replace('.', ''));
+      if (p === 'pc1d') return x.includes('.') && fits(u, digits);
+      if (p === 'pc1o') return chosen(it, u) === `${digits}\\%`;
+      return false;
+    },
+    // the amount divided by the percent number
+    'div-by-pct': (it, u) => { const [p, N] = nums(it.key); return /^pc2m?:/.test(it.key) && fits(u, N / p); },
+    // the whole over the part, times 100
+    'inverse-ratio': (it, u) => { const [A, B] = nums(it.key); return /^pc3[gt]?:/.test(it.key) && fits(u, (100 * B) / A); },
+    // the percent taken of the part given
+    'pct-of-part': (it, u) => { const [p, A] = nums(it.key); return /^pc4d?:/.test(it.key) && fits(u, (A * p) / 100); },
+    // 1% found and the answer stopped there
+    'stop-at-one': (it, u) => { const [p, A] = nums(it.key); return /^pc4d?:/.test(it.key) && fits(u, A / p); },
+    // p shekels added or taken off, not p percent
+    'add-pct': (it, u) => { const [up, p, N] = nums(it.key); return it.key.startsWith('pc5:') && fits(u, N + (up ? p : -p)); },
+    // the size of the change given as the new price
+    'change-only': (it, u) => { const [, p, N] = nums(it.key); return it.key.startsWith('pc5:') && fits(u, (p * N) / 100); },
+    // a rise and a fall by the same percent taken to cancel: the price before
+    'additive-changes': (it, u) => { const [, N] = nums(it.key); return it.key.startsWith('pc5w:') && fits(u, N); },
+    // the change as a percent of the new price
+    'pct-of-new': (it, u) => { const [N, M] = nums(it.key); return it.key.startsWith('pc5b:') && fits(u, (100 * Math.abs(M - N)) / M); },
+  },
+  // ratio:1-4, each property from the numbers the student saw (the key): a, b of ra1; m, n, T of ra2s; m, n, P of ra2r;
+  // the investments X, Y and the profit P of ra2p; b, a, c of ra3m (b units need a, how much for c); the table rows of
+  // ra3t; the scale S and the distance of ra4r (d cm) and ra4m (D m); d cm and D km of ra4f; k of ra4a
+  ratio: {
+    // the ratio read in the other order: the other term's value
+    'reversed-ratio': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'ra1') { const [a, b] = n; const g = gcdOf(a, b); return fits(u, ((a / g) * a) / b); }
+      if (p === 'ra1m') { const [a, b] = n; const g = gcdOf(a, b); return chosen(it, u) === `${a / g} : ${b / g}`; }
+      if (p === 'ra2s') { const [m, nn, T] = n; return fits(u, (T * nn) / (m + nn)); }
+      if (p === 'ra2r') { const [m, nn, P] = n; return fits(u, ((P / 2) * Math.min(m, nn)) / (m + nn)); }
+      if (p === 'ra2p') { const [X, Y, P] = n; return fits(u, (P * Y) / (X + Y)); }
+      if (p === 'ra2t') { const [m, nn] = n; return chosen(it, u) === `\\frac{${nn}}{${m + nn}}`; }
+      return false;
+    },
+    // a part compared with the whole: ra1 the total over the common divisor, ra2 m/n of the total
+    'part-whole': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'ra1') { const [a, b] = n; return fits(u, (a + b) / gcdOf(a, b)); }
+      if (p === 'ra1m') { const [a, b] = n; const g = gcdOf(a, b); return chosen(it, u) === `${b / g} : ${(a + b) / g}`; }
+      if (p === 'ra2s') { const [m, nn, T] = n; return fits(u, (T * m) / nn); }
+      if (p === 'ra2p') { const [X, Y, P] = n; return fits(u, (P * X) / Y); }
+      if (p === 'ra2t') { const [m, nn] = n; return chosen(it, u) === `\\frac{${m}}{${nn}}`; }
+      return false;
+    },
+    // the whole perimeter shared as if it were one long and one short side: twice the long side
+    'whole-perimeter': (it, u) => { const [m, n, P] = nums(it.key); return it.key.startsWith('ra2r:') && fits(u, (P * Math.max(m, n)) / (m + n)); },
+    // the same difference kept: a + (c − b); in a table, from one of the given rows
+    additive: (it, u) => {
+      if (it.key.startsWith('ra3m:')) { const [b, a, c] = nums(it.key); return fits(u, a + (c - b)); }
+      if (it.key.startsWith('ra3t:')) {
+        const [rows, x3] = [it.key.slice(5).split(';').slice(0, 2).map((r) => r.split(',').map(Number)), Number(it.key.split(';')[2])];
+        return rows.some(([x, y]) => fits(u, y + (x3 - x)));
+      }
+      return false;
+    },
+    // the rate per the other unit: c divided by a/b
+    'divide-flip': (it, u) => { const [b, a, c] = nums(it.key); return it.key.startsWith('ra3m:') && fits(u, (c * b) / a); },
+    // centimetres never converted: d·S cm for metres; D/S for centimetres; D km over d cm for the scale
+    'no-convert': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'ra4r') { const [S, d] = n; return fits(u, d * S); }
+      if (p === 'ra4m') { const [S, D] = n; return fits(u, D / S); }
+      if (p === 'ra4f') { const [d, D] = n; return fits(u, D / d); }
+      return false;
+    },
+    // kilometres written as metres: d·S / 100000
+    'cm-km': (it, u) => { const [S, d] = nums(it.key); return it.key.startsWith('ra4r:') && fits(u, (d * S) / 100000); },
+    // the area scaled like a length: k
+    'linear-area': (it, u) => { const [k] = nums(it.key); return it.key.startsWith('ra4a:') && fits(u, k); },
+    // "the same added to both keeps the ratio": the "no" choice, for legs p ≠ q
+    'add-same': (it, u) => { const [p, q] = nums(it.key); return it.key.startsWith('ra1a:') && p !== q && /^לא/.test(it.choices[u]?.text || ''); },
   },
   expr: {
     concat: (it, u) => { const q = substOf(it); return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x)); },
@@ -451,10 +559,24 @@ const PROPS = {
     },
   },
   signed: {
-    sign: (it, u) => it.answer !== 0 && near(u, -it.answer),
+    // a fraction's prediction may be typed rounded, as diagOf reads it (-2.25 as -2.2): fits is near for whole numbers
+    sign: (it, u) => it.answer !== 0 && fits(u, -it.answer),
     direction: (it, u) => it.manip?.kind === 'numberline' && u - it.manip.from === -(it.answer - it.manip.from),
-    'minus-minus': (it, u) => { const q = subtractedNegative(it); return q != null && near(u, it.answer - 2 * Math.abs(q)); },
-    'abs-add': (it, u) => { const [a, op, b] = signedFacts(it); const bb = op === '-' ? -b : b; return sgn(a) !== sgn(bb) && near(u, sgn(a) * (Math.abs(a) + Math.abs(bb))); },
+    'minus-minus': (it, u) => { const q = subtractedNegative(it); return q != null && fits(u, it.answer - 2 * Math.abs(q)); },
+    // whole numbers: the distances added, with the first number's sign; signed:6 (sn6a, decimals): with the sign of
+    // the one farther from zero, as the plan's model predicts (-2.5 + 1.2 as -3.7)
+    'abs-add': (it, u) => {
+      const [a, op, b] = signedFacts(it); const bb = op === '-' ? -b : b;
+      if (sgn(a) === sgn(bb)) return false;
+      const sign = it.key.startsWith('sn6a:') ? sgn(Math.abs(a) > Math.abs(bb) ? a : bb) : sgn(a);
+      return fits(u, sign * (Math.abs(a) + Math.abs(bb)));
+    },
+    // between which two whole numbers is v: the pair just to the right of the right one (toward zero)
+    'toward-zero': (it, u) => {
+      if (!it.key.startsWith('sn6b:') || it.form !== 'mc') return false;
+      const v = Number(it.key.split(':')[1]); const [lo, hi] = (chosen(it, u).match(/-?\d+/g) || []).map(Number);
+      return v < 0 && lo === Math.ceil(v) && hi === Math.ceil(v) + 1;
+    },
     'ignore-sign': (it, u) => Array.isArray(u) && it.answer.some((v, i) => v < 0 && u[i] === -v),
     'neg-compare': (it, u) => { const [a, b] = nums(it.key); return a < 0 && b < 0 && a !== b && u === 2 - it.answer; },
     order: (it, u) => {
@@ -612,9 +734,9 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra and fraction topics name only what a property can check', () => {
-  it('every category of expressions, equations, systems and fractions has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

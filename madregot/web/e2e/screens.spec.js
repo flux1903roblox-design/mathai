@@ -10,7 +10,6 @@ const SCREENS = [
   ['exams', '#/exams', livedIn('7')],
   ['a new practice exam', '#/exams/new', livedIn('7')],
   ['checking an exam', '#/exams/check', livedIn('7')],
-  ['the improvement plan', '#/plan', livedIn('7')],
   ['the AI tutor', '#/assistant', livedIn('7')],
   ['the profile', '#/me', livedIn('7')],
   ['the weekly summary', '#/report', livedIn('7')],

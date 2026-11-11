@@ -15,7 +15,8 @@ describe('the update rule', () => {
   it('never reloads inside a lesson, a teaching stage, a repair, a check or placement', () => {
     for (const r of ['/lesson/signed/1', '/lesson/signed/3?kind=check', '/practice/abc', '/placement', '/learn/signed/1/A',
       '/learn/eq/2/C', '/repair/signed/1/sub-neg', '/rescue/check', '/rescue/exam', '/exams/check', '/exams/new', '/assistant', '/parents/link?c=K7M4QX',
-      '/teacher/assistant', '/teacher/settings', '/teacher/exam/new', '/class/exam/0123456789abcdef/run', '/restore']) {
+      '/teacher/assistant', '/teacher/settings', '/teacher/exam/new', '/class/exam/0123456789abcdef/run', '/restore',
+      '/floor', '/facts', '/challenge/pct:c1']) {
       expect(isBusyRoute(r), r).toBe(true);
       expect(shouldUpdate({ waiting: {}, hiddenMs: 2 * HIDDEN_LONG_MS, route: r }), r).toBe(false);
     }

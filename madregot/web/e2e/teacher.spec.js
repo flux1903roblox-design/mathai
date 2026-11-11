@@ -984,7 +984,8 @@ test.describe('TEACHER-3: a class practice exam, printed with its key, in two ve
     const unit = page.getByRole('checkbox', { name: 'כל היחידה: מספרים מכוונים' });
     await unit.click();
     await expect(unit).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByRole('group', { name: 'מספרים מכוונים' }).getByRole('checkbox', { checked: true })).toHaveCount(5);
+    // all six stairs of signed numbers (the sixth, signed fractions and decimals, is the curriculum lane's)
+    await expect(page.getByRole('group', { name: 'מספרים מכוונים' }).getByRole('checkbox', { checked: true })).toHaveCount(6);
     await page.getByRole('checkbox', { name: '1. חיבור וחיסור' }).click();
     await expect(unit).toHaveAttribute('aria-checked', 'mixed');
     await unit.click(); await unit.click();
@@ -992,6 +993,8 @@ test.describe('TEACHER-3: a class practice exam, printed with its key, in two ve
     await page.getByRole('checkbox', { name: '3. כפל וחילוק' }).click();
     await page.getByRole('checkbox', { name: '3. אורך קטע' }).click();
     await expect(page.getByText('נבחרו 2 מדרגות.')).toBeVisible();
+    // the builder from its top (ticking "3. אורך קטע", below signed numbers' six stairs, scrolled the page)
+    await page.evaluate(() => window.scrollTo(0, 0));
     await shot(page, 'teacher-exam-new');
     await next.click();
     await expect(page.getByText('כמה שאלות?')).toBeVisible();
@@ -1872,6 +1875,9 @@ test.describe('TEACHER-6: help both ways', () => {
     await expect(sheet.locator('.hb-text')).toHaveText(['נסו שוב, והתחילו מהשלב הראשון בדרך']);
     await expect.poll(() => replies(log, '/api/help/1/read').length).toBe(1);
     await expect(page.locator('.tab-dot')).toHaveCount(0);
+    // the exercise's maths in KaTeX (it loads on demand: the day's mission above may have no maths to load it first)
+    await expect(sheet.locator('.mh-ex-q .katex').first()).toBeVisible();
+    await page.evaluate(async () => { await document.fonts.load('16px KaTeX_Main'); await document.fonts.load('italic 16px KaTeX_Math'); });
     await shot(page, 'student-my-help');
     // "עדיין לא ברור לי": a few words, then "שליחה למורה"
     await sheet.getByRole('button', { name: 'עדיין לא ברור לי' }).click();
@@ -1979,7 +1985,8 @@ test.describe('TEACHER-8: each student has a page, and a short ranked list', () 
     await expect(sheet.getByText('הצטרף/ה ב־2.9 · תרגול אחרון היום')).toBeVisible();
     await expect(sheet.getByRole('img', { name: 'ב־14 הימים האחרונים: 6 ימים עם תרגול' })).toBeVisible();
     await expect(sheet.getByText('4 ימים עם תרגול · 16 תרגילים · 32 דקות')).toBeVisible();
-    await expect(sheet.getByRole('img', { name: 'מדרגה 2 מתוך 5' }).first()).toBeVisible();
+    // signed numbers has six stairs now (signed:6, the curriculum lane's)
+    await expect(sheet.getByRole('img', { name: 'מדרגה 2 מתוך 6' }).first()).toBeVisible();
     await expect(sheet.getByText('4 פעמים בחודש האחרון')).toBeVisible();
     await expect(sheet.locator('.ss-row-main').first()).toHaveText('מספרים מכוונים, מדרגה 1: חיבור וחיסור. התשובה יצאה עם הסימן ההפוך');
     await expect(sheet.locator('#ss-work').locator('..').getByText('אין עדיין')).toBeVisible();

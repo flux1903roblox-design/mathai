@@ -8,7 +8,8 @@ import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
-import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics } from '@/lib/lesson.js';
+import { FACTS } from '@/content/frac.js';
+import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { buildTutorContext } from '@/lib/tutorContext.js';
@@ -37,7 +38,7 @@ import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
 import { contentOf, metaOf } from '@/learn/content/index.ts';
 import { useTopics } from '@/learn/useStairContent.js';
-import { skillId, parseSkill } from '@/learn/skills.ts';
+import { skillId, parseSkill, BRIDGE_SKILLS } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
@@ -167,6 +168,10 @@ function useLessonSpec() {
     return { kind: 'check', purpose: 'class', fixedItems: items.map(thawItem), assignmentId: examId, topic: items[0].topic, level: items[0].level };
   }
   if (pathname === '/placement') return { kind: 'placement', grade: ['7', '8'].includes(params.get('grade')) ? params.get('grade') : profile?.grade || '7', know: profile?.know ?? 1 };
+  // the floor check (בדיקת יסודות): a question of each fractions stair and two multiplication facts
+  if (pathname === '/floor') return { kind: 'check', purpose: 'floor', skills: BRIDGE_SKILLS, topic: 'frac', level: 1 };
+  // multiplication facts: a short practice on no stair (not /practice/:id, which reads its id as a topic)
+  if (pathname === '/facts') return { kind: 'facts', n: FACTS_LEN };
   // Exam Rescue: the diagnostic and the practice exam run over the exam's stairs
   if (pathname === '/rescue/check' || pathname === '/rescue/exam') {
     const ex = useApp.getState().learn?.exam;
@@ -191,7 +196,7 @@ function useLessonSpec() {
   const node = nodes.find((n) => n.kind === 'node' && n.level === level);
   const part = Number(params.get('part')) || (node?.state === 'done' ? PARTS : Math.min(PARTS, (node?.parts || 0) + 1));
   const max = progress[topic]?.max || level;
-  return { kind, topic, level, part, max, fromPlan: params.get('from') === 'plan', fromJourney: params.get('from') === 'journey' };
+  return { kind, topic, level, part, max, fromJourney: params.get('from') === 'journey' };
 }
 
 export default function Lesson() {
@@ -249,8 +254,10 @@ export default function Lesson() {
   const qRef = useRef(null);
   const nbResRef = useRef(null);
   const item = s?.item;
-  // A placement test moves across topics: the colours and the misconceptions follow the question.
-  const t = spec ? TOPIC[item?.topic || spec.topic] : null;
+  // A placement test moves across topics: the colours and the misconceptions follow the question. A multiplication
+  // fact belongs to no topic: it takes its own name and the colour of the fractions floor.
+  const isFacts = (x) => x === 'facts';
+  const t = !spec ? null : isFacts(item?.topic) || spec.kind === 'facts' ? FACTS : TOPIC[item?.topic] || TOPIC[spec.topic];
   const placement = spec?.kind === 'placement';
   const isTest = (k) => k === 'jump' || k === 'placement' || k === 'check'; // a check, not practice: one try, no hints
   const isCheck = spec?.kind === 'check';
@@ -306,7 +313,7 @@ export default function Lesson() {
   const focusSlot = useCallback((k) => { document.getElementById(`slot-${k}`)?.focus({ preventScroll: true }); }, []);
 
   // the learning record: a lesson or a check started (for the outcome metrics, on this device only)
-  useEffect(() => { if (spec && !placement) useApp.getState().learnEvent({ e: 'lesson-start', s: skillId(spec.topic, spec.level), p: spec.kind === 'check' ? spec.purpose : spec.kind }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (spec && !placement) useApp.getState().learnEvent({ e: 'lesson-start', ...(spec.kind === 'facts' || spec.purpose === 'floor' ? {} : { s: skillId(spec.topic, spec.level) }), p: spec.kind === 'check' ? spec.purpose : spec.kind }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // a mastery check the teacher gave (named by the address, or an open one on this stair): the teacher sees it started
   // a class exam is its own assignment
   const [workId] = useState(() => (classExam ? spec.assignmentId : spec?.kind === 'check' && spec.purpose === 'mastery' ? checkAssignment(spec.skill, spec.assignmentId) : null));
@@ -405,14 +412,20 @@ export default function Lesson() {
   const finish = (ns) => {
     const result = resultOf(ns);
     const app = useApp.getState();
-    const award = placement ? app.completePlacement(result) : isCheck ? app.completeCheck(result) : app.completeLesson(result, { fromPlan: spec.fromPlan });
-    // a finished activity completes its item of today's mission (a class exam is the teacher's, not a mission item)
-    if (!placement && result.topic && result.level) {
+    let award = placement ? app.completePlacement(result) : isCheck ? app.completeCheck(result) : app.completeLesson(result);
+    // a finished activity completes its item of today's mission (a class exam is the teacher's, not a mission item).
+    // Multiplication facts are on no stair (level 0), and the floor check is about the whole floor, not one stair: it
+    // completes the floor check's own item only. When that finishes the mission and its quest is the day's last, the
+    // chest opens: the celebration says so.
+    const ticked = (m) => { if (m?.questsDone) award = { ...award, questsDone: true, freezeEarned: award.freezeEarned || m.freezeEarned }; };
+    const onStair = !!(result.topic && result.level) && result.purpose !== 'floor';
+    if (result.purpose === 'floor') ticked(app.completeMission({ kind: 'floor' }));
+    if (!placement && onStair && !classExam) {
       const kindOf = { mastery: 'mastery', review: 'review', verify: 'repair', diagnostic: 'exam', exam: 'exam' };
       // practice (stage D) or a check: each completes only the mission item it is
-      if (!classExam) (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined }));
-      app.learnEvent({ e: 'lesson-done', s: skillId(result.topic, result.level), p: isCheck ? result.purpose : result.kind, ok: result.passed });
+      (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => ticked(app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined })));
     }
+    if (!placement) app.learnEvent({ e: 'lesson-done', ...(onStair ? { s: skillId(result.topic, result.level) } : {}), p: isCheck ? result.purpose : result.kind, ok: result.passed });
     // the teacher's work: a mastery check or a class exam reports its first finished result (an exam, how each question
     // went); the stairs report how far they are
     if (workId && classExam) {
@@ -527,7 +540,7 @@ export default function Lesson() {
   if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/topics', { replace: true, state: { placed: true } })} />;
   if (done && classExam) return <CheckDone result={done.result} award={done.award} work={{ id: workId, tried: !!workSent }} onExit={() => navigate('/quests', { replace: true })} />;
   if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: done.award?.stairDone ? { from: spec.topic, nodeDone: true } : undefined })} />;
-  if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!done.award.unitDone } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
+  if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: spec.kind === 'facts' ? undefined : { from: spec.topic, nodeDone: !!done.award.unitDone } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
 
   const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;
   const fbToken = `${item.key}|${feedback}|${s.wrong.length}`;

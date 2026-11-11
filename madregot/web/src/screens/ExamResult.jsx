@@ -5,7 +5,7 @@ import { Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler, ChevronLef
 import { useApp } from '@/lib/store.js';
 import { STATUS, focusLevel } from '@/lib/exam.js';
 import { gradedBy } from '@/lib/examGrade.js';
-import { TOPIC, TOPICS, displayTex } from '@/content/index.js';
+import { TOPIC, topicsFor, displayTex } from '@/content/index.js';
 import { aiReady } from '@/lib/ai.js';
 import { Box, Button, ChapterMark, Sheet } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
@@ -51,12 +51,13 @@ function GradeChip({ by }) {
   return <span className={clsx('grade-chip', `by-${by}`)}><Icon size={14} aria-hidden="true" />{GRADE_COPY[by]}</span>;
 }
 
-const topicN = (id) => { const t = TOPIC[id]; return t ? TOPICS.filter((x) => x.grade === t.grade).indexOf(t) + 1 : 0; };
+/** A unit's number among its grade's own units; 0 for the fractions floor, which has none. */
+const topicN = (id) => { const t = TOPIC[id]; return t ? topicsFor(t.grade).indexOf(t) + 1 : 0; };
 
 function TopicTag({ id, mark = false }) {
   const t = TOPIC[id];
   if (!t) return <span className="topic-tag muted">נושא אחר</span>;
-  return <span className={`topic-tag ch-${t.color}`}>{mark && <ChapterMark color={t.color} n={topicN(id)} size="sm" />}{t.title}</span>;
+  return <span className={`topic-tag ch-${t.color}`}>{mark && topicN(id) > 0 && <ChapterMark color={t.color} n={topicN(id)} size="sm" />}{t.title}</span>;
 }
 
 function QuestionCard({ q, onAsk }) {
@@ -176,9 +177,9 @@ export default function ExamResult() {
                   {t && <ChevronLeft className="chev" size={20} aria-hidden="true" />}
                 </>
               );
-              return <li key={w.topic}>{t ? <Link className={clsx('hub-row', 'weak-row', `ch-${t.color}`)} to={`/practice/${w.topic}?level=${lv}&from=plan`} aria-label={`תרגול: ${t.title}, ${t.levels[lv - 1].title}`}>{body}</Link> : <div className="hub-row weak-row">{body}</div>}</li>;
+              return <li key={w.topic}>{t ? <Link className={clsx('hub-row', 'weak-row', `ch-${t.color}`)} to={`/practice/${w.topic}?level=${lv}`} aria-label={`תרגול: ${t.title}, ${t.levels[lv - 1].title}`}>{body}</Link> : <div className="hub-row weak-row">{body}</div>}</li>;
             })}
-            <li><Link to="/plan" className="hub-row"><span className="hub-row-icon" aria-hidden="true"><Route size={22} /></span><span className="hub-row-text"><span className="hub-row-title">התוכנית לשיפור</span><span className="hub-row-desc">כל הצעדים, לפי הסדר</span></span><ChevronLeft className="chev" size={20} aria-hidden="true" /></Link></li>
+            <li><Link to="/quests" className="hub-row"><span className="hub-row-icon" aria-hidden="true"><Route size={22} /></span><span className="hub-row-text"><span className="hub-row-title">מה לחזק אחרי המבחן</span><span className="hub-row-desc">בדף המשימות, ליד המשימה של היום</span></span><ChevronLeft className="chev" size={20} aria-hidden="true" /></Link></li>
           </ul>
         </section>
       )}
@@ -215,7 +216,7 @@ export default function ExamResult() {
 
       <ScreenFoot>
         {first
-          ? <Link className="btn btn-primary btn-block btn-lg" to={`/practice/${first.topic}?level=${lvOf(first)}&from=plan`} data-region="primary"><PencilRuler size={18} aria-hidden="true" />תרגול: {TOPIC[first.topic].levels[lvOf(first) - 1].title}</Link>
+          ? <Link className="btn btn-primary btn-block btn-lg" to={`/practice/${first.topic}?level=${lvOf(first)}`} data-region="primary"><PencilRuler size={18} aria-hidden="true" />תרגול: {TOPIC[first.topic].levels[lvOf(first) - 1].title}</Link>
           : <Link className="btn btn-primary btn-block btn-lg" to="/" data-region="primary">להמשיך במסלול</Link>}
       </ScreenFoot>
 

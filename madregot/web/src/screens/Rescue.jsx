@@ -1,12 +1,14 @@
 // מציל המבחנים (Exam Rescue): the exam's date and stairs, a short diagnostic, then a day-by-day plan that follows
 // the student's real answers. Never a promised grade. Choosing the topics by photo needs the server (AI); without it
 // the topics are chosen by hand, and the screen says so.
+// Today's steps and their start button are the plan's (learn/next.ts planNext().examToday), so Rescue, the mission's
+// exam step and the home's next step always name the same step. On Shabbat there are none.
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
-import { useLearnCtx } from '@/lib/useLearn.js';
+import { useLearnCtx, useNext } from '@/lib/useLearn.js';
 import { TOPIC, rescueTopicsFor } from '@/content/index.js';
 import { examPlan, validInput, isShabbatDay, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
 import { skillId } from '@/learn/skills.ts';
@@ -133,6 +135,7 @@ function Plan({ plan }) {
   // the diagnostic and the practice exam ask from the exam topics' teaching content: fetched while the plan is read, so
   // the check opens at once (the lesson screen waits for it too, lib/lesson.js lessonTopics)
   useEffect(() => { ensureTopics(plan.skills).catch(() => {}); }, [plan.skills]);
+  const { examToday, restDay } = useNext();
   return (
     <div className="rescue-plan">
       <section className="rescue-hero" aria-label="הזמן עד המבחן">
@@ -143,7 +146,11 @@ function Plan({ plan }) {
         </div>
       </section>
       {!p.diagnosed ? (
-        <Button className="btn-block btn-lg" onClick={() => navigate('/rescue/check')}><ClipboardCheck size={20} aria-hidden="true" />לבדיקה הקצרה ({plan.skills.length * DIAG_PER_SKILL} שאלות)</Button>
+        <>
+          {/* on Shabbat the plan asks nothing: the short check waits, and can still be done by choice */}
+          {restDay && <p className="rescue-rest" role="status">היום שבת, ואין בו משימות. ממשיכים אחריה.</p>}
+          <Button variant={restDay ? 'secondary' : 'primary'} className="btn-block btn-lg" onClick={() => navigate(examToday[0]?.to || '/rescue/check')}><ClipboardCheck size={20} aria-hidden="true" />לבדיקה הקצרה ({plan.skills.length * DIAG_PER_SKILL} שאלות)</Button>
+        </>
       ) : (
         <>
           <section className="card readiness" aria-labelledby="ready-title">
@@ -160,20 +167,22 @@ function Plan({ plan }) {
             <ol className="rescue-days day-path">
               {p.days.map((d, k) => {
                 const isToday = d.day === today();
+                // today's steps are the plan's, in its order; the other days are Rescue's calendar
+                const tasks = isToday ? examToday : d.tasks;
                 return (
                   <li key={d.day} className={clsx('rescue-day', isToday && 'today')} style={{ '--x': `${DAY_SWING[k % DAY_SWING.length]}px` }}>
                     {isToday && <span className="day-start" aria-hidden="true">היום</span>}
                     <span className="day-node" aria-hidden="true">{isToday ? <Star size={30} fill="currentColor" /> : k + 1}</span>
                     <p className="rescue-day-name">{dayName(d.day)}</p>
                     <ul className={clsx('plain-list', 'day-tasks', !isToday && 'visually-hidden')}>
-                      {d.tasks.map((t, i) => (
+                      {tasks.map((t, i) => (
                         <li key={i} className="rescue-task">
                           <span><MathText text={t.title} /></span>
                           {isToday && <Button variant={i === 0 ? 'primary' : 'ghost'} className="btn-sm" onClick={() => navigate(t.to)}>{i === 0 ? 'מתחילים' : 'פתיחה'}</Button>}
                         </li>
                       ))}
                     </ul>
-                    {!isToday && <p className="day-count" aria-hidden="true">{d.tasks.length === 1 ? 'משימה אחת' : `${d.tasks.length} משימות`}</p>}
+                    {!isToday && <p className="day-count" aria-hidden="true">{tasks.length === 1 ? 'משימה אחת' : `${tasks.length} משימות`}</p>}
                   </li>
                 );
               })}

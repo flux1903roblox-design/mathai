@@ -29,6 +29,24 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   });
 });
 
+// Stage 1 is complete with percent: the live coverage, from the stairs this build has, is the stage-1 fixture's of
+// worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4 and pct:1-5): ז׳ 104 of 150, ח׳ 66 of 147, 57%.
+describe('stage 1\'s coverage, live', () => {
+  const STAGE1 = [
+    ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+    ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+    'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+  ];
+  it('has exactly the stage-1 stairs (the bridge unit aside), and their hours', () => {
+    expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE1].sort());
+    const c7 = coverageOf('7'); const c8 = coverageOf('8');
+    expect([c7.taught, c7.hours]).toEqual([104, 150]);
+    expect([c8.taught, c8.hours]).toEqual([66, 147]);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(57);
+    expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+  });
+});
+
 describe('coverage, bound to the stairs this build has', () => {
   it('counts every hour of both schedules, and only taught hours as taught', () => {
     const c7 = coverageOf('7'); const c8 = coverageOf('8');

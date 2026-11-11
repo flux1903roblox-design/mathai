@@ -256,6 +256,42 @@ function tab(state, clock) {
   };
 }
 
+// The curriculum lane's learn fields (CURRICULUM-3, CURRICULUM-6; its spec's DURABLE-2 rules): a challenge task per id,
+// the finished record first; the floor check by its date.
+describe('learn.challenges and learn.floor across devices and tabs', () => {
+  const learnWith = (extra) => ({ ...emptyLearn(), ...extra });
+  const started = (at) => ({ startedAt: at, firstTry: 0, parts: 0 });
+  const finished = (at, done, firstTry) => ({ startedAt: at, doneAt: done, firstTry, parts: 3 });
+
+  it('devices: each task keeps the finished record (the earlier finish of two), else the newer start; tasks of either side stay', () => {
+    const a = { learn: learnWith({ challenges: { 'pct:c1': finished('2026-11-04T10:00:00.000Z', '2026-11-04T10:05:00.000Z', 2), 'eq:c1': started('2026-11-03T09:00:00.000Z'), 'line:c2': finished('2026-11-02T09:00:00.000Z', '2026-11-02T09:10:00.000Z', 3) } }) };
+    const b = { learn: learnWith({ challenges: { 'pct:c1': started('2026-11-05T08:00:00.000Z'), 'eq:c1': started('2026-11-05T08:00:00.000Z'), 'line:c2': finished('2026-11-01T09:00:00.000Z', '2026-11-01T09:10:00.000Z', 1), 'sys:c1': started('2026-11-05T08:30:00.000Z') } }) };
+    for (const [l, r] of [[a, b], [b, a]]) {
+      const ch = mergeDevices(l, r, { localAt: A0, remoteAt: B0 }).learn.challenges;
+      expect(ch['pct:c1']).toEqual(a.learn.challenges['pct:c1']);
+      expect(ch['eq:c1']).toEqual(b.learn.challenges['eq:c1']);
+      expect(ch['line:c2']).toEqual(b.learn.challenges['line:c2']);
+      expect(ch['sys:c1']).toEqual(b.learn.challenges['sys:c1']);
+    }
+  });
+
+  it('devices: the floor check with the later date wins, whichever device has it', () => {
+    const old = { at: '2026-11-01T10:00:00.000Z', on: true, results: { 'frac:3': { asked: 1, right: 0 } } };
+    const later = { at: '2026-11-04T10:00:00.000Z', on: false, results: { 'frac:3': { asked: 1, right: 1 } } };
+    expect(mergeDevices({ learn: learnWith({ floor: old }) }, { learn: learnWith({ floor: later }) }, { localAt: B0, remoteAt: A0 }).learn.floor).toEqual(later);
+    expect(mergeDevices({ learn: learnWith({ floor: later }) }, { learn: learnWith({ floor: old }) }, { localAt: A0, remoteAt: B0 }).learn.floor).toEqual(later);
+    expect(mergeDevices({ learn: learnWith({ floor: null }) }, { learn: learnWith({ floor: later }) }).learn.floor).toEqual(later);
+  });
+
+  it('tabs: a challenge finished in one tab and another started in the other tab are both kept', () => {
+    const base = deepFreeze({ learn: learnWith({ challenges: { 'pct:c1': started('2026-11-05T08:00:00.000Z') } }) });
+    const mine = { learn: learnWith({ challenges: { 'pct:c1': finished('2026-11-05T08:00:00.000Z', '2026-11-05T08:06:00.000Z', 2) } }) };
+    const theirs = { learn: learnWith({ challenges: { 'pct:c1': started('2026-11-05T08:00:00.000Z'), 'eq:c1': started('2026-11-05T08:07:00.000Z') } }) };
+    const ch = mergeTabs(base, mine, theirs).learn.challenges;
+    expect(ch).toEqual({ 'pct:c1': mine.learn.challenges['pct:c1'], 'eq:c1': theirs.learn.challenges['eq:c1'] });
+  });
+});
+
 describe('mergeTabs', () => {
   it('property: two tabs from one base add their XP and their day counters, and a setting both changed is the last one set', () => {
     const rnd = seeded(77);

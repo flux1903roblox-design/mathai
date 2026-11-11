@@ -61,13 +61,14 @@ test('the first session gives something back: the first stage earns XP and the s
   await expect(page.locator('.top-stat.xp')).toContainText('10/20');
   await expect(page.locator('.top-stat.streak')).toContainText('1');
   const unit = page.locator('.unit').first();
-  await expect(unit.locator('.unit-label')).toHaveText('יחידה 1 · 1 מתוך 25 שלבים');
+  // signed numbers: six stairs (signed:6, signed fractions and decimals), so 30 stages
+  await expect(unit.locator('.unit-label')).toHaveText('יחידה 1 · 1 מתוך 30 שלבים');
   await expect(unit.locator('.unit-bar')).toHaveAttribute('aria-valuenow', '1');
   await expect(unit.locator('.node-start')).toHaveText('המשך');
   await expect(page.locator('.unit-label').nth(1)).toHaveText('יחידה 2 · 5 מדרגות'); // a unit not started says its size, not "0 of 5"
   // the topics screen: the unit's bar moved, one board says it in words, and no counter reads zero
   await page.goto('./#/topics');
-  await expect(page.locator('.section-card').first().locator('.qbar')).toHaveAttribute('aria-valuetext', '1 מתוך 25 שלבים');
+  await expect(page.locator('.section-card').first().locator('.qbar')).toHaveAttribute('aria-valuetext', '1 מתוך 30 שלבים');
   await expect(page.locator('.section-card').first()).toContainText('עכשיו: חיבור וחיסור');
   await expect(page.locator('.board-level')).toHaveText('מדרגה אחת בדרך לשליטה');
   await expect(page.locator('.mm-tile').first()).toHaveAttribute('aria-label', /לומדים/);
@@ -297,16 +298,26 @@ test('the QA hook: the current exercise is in <html data-qa-item>, readable from
   expect(JSON.parse(await page.locator('html').getAttribute('data-qa-item')).key).toBe(next.key);
 });
 
-test('a lesson from the improvement plan counts for the daily plan quest', async ({ page }) => {
-  await open(page, '#/plan', student('7', { mistakes: { 'signed:sign': 3 } }));
-  const link = page.locator('a[href*="from=plan"]').first();
-  await expect(link).toBeVisible();
-  await link.click();
-  await expect.poll(() => item(page)).toBeTruthy(); // the lesson's first exercise is on screen
-  for (let n = 0; n < 20 && !(await page.locator('.done-screen').count()); n += 1) {
-    await proceedToNext(page, await answer(page, true));
-    if (await page.locator('.combo-pop').count()) await page.locator('.combo-pop').click();
-  }
-  await expect(page.locator('.done-screen')).toBeVisible();
-  expect((await saved(page)).days['2026-11-05'].planLessons).toBe(1);
+test('the improvement plan is retired: an old /plan bookmark opens the quests, and what the exam lost is listed there', async ({ page }) => {
+  // a checked exam two days ago lost a point on coord:2 and got signed:1 right
+  const exam = { id: 'e1', at: '2026-11-03T10:00:00.000Z', title: 'מבחן במערכת צירים', source: 'upload', score: { correct: 1, total: 2, pct: 50 },
+    result: { readable: true, questions: [{ number: 1, topic: 'coord', level: 2, status: 'wrong' }, { number: 2, topic: 'signed', level: 1, status: 'correct' }] } };
+  await open(page, '#/plan', student('7', { exams: [exam], mistakes: { 'signed:sign': 3 } }));
+  await expect(page).toHaveURL(/#\/quests$/);
+  await expect(page.getByText('התוכנית שלי לשיפור')).toHaveCount(0);
+  const lost = page.getByRole('region', { name: 'מה לחזק אחרי המבחן' });
+  await expect(lost.locator('li')).toHaveCount(1);
+  await expect(lost).toContainText('במבחן מ־3.11 ירדו כאן נקודות. תרגול קצר ואז בדיקה.');
+  // the exams tab lists the same step, and no plan
+  await page.getByRole('link', { name: 'מבחנים', exact: true }).click();
+  await expect(page.getByText('התוכנית שלי לשיפור')).toHaveCount(0);
+  const row = page.getByRole('region', { name: 'מה לחזק אחרי המבחן' }).locator('a.hub-row');
+  await expect(row).toHaveCount(1);
+  await row.click();
+  // a stair not started yet: its step starts with its first stage
+  await expect(page).toHaveURL(/#\/learn\/coord\/2\/A$/);
+  // nothing in the saved state counts plan lessons or wins any more
+  const st = await saved(page);
+  expect(st.wins || {}).toEqual({});
+  expect(st.planBase || {}).toEqual({});
 });

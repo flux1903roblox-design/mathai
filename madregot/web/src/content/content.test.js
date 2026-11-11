@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import katex from 'katex';
 import { TOPICS, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem } from './index.js';
 import { SCENERY } from '@/components/map/Scenery.jsx';
-import { parseNum, plainNum } from './util.js';
-import { holds, identical, texToExpr, texRelation, seeded } from '@/learn/expr.ts';
+import { parseNum, plainNum, gcd } from './util.js';
+import { factsItem } from './frac.js';
+import { holds, identical, texToExpr, texRelation, seeded, evaluate, same } from '@/learn/expr.ts';
 
 /**
  * The maths a student sees, checked as displayed (not from the generator's parameters), for every topic:
@@ -362,5 +363,321 @@ describe('each unit has its own identity', () => {
       expect(SCENERY[t.id].length, `${t.id} has three drawings`).toBe(3);
       for (const piece of SCENERY[t.id]) expect(typeof piece, `${t.id}: a drawing is a component`).toBe('function');
     }
+  });
+});
+
+/**
+ * The fractions floor: every answer is the computation its question shows, read back from the TeX the student sees with
+ * learn/expr.ts texToExpr (2\frac{1}{2} is a mixed number, 2 + 1/2). A display with no "=" is the answer itself; an
+ * equation with a box (\frac{2}{3} = \frac{\square}{12}) holds with the answer in the box; "how much is a/b of N" is
+ * a/b · N; a number to put on a line, or a point marked on one, is the answer; the answer of "the largest" is the
+ * largest listed number; "larger or smaller than N" agrees with N · x or N : x; the bar's common parts are those of its
+ * marks. Returns false when the question shows no computation (nothing to read back).
+ */
+function checkFracMaths(it) {
+  const value = (tex) => evaluate(texToExpr(tex));
+  const firstMath = (text) => (String(text || '').match(/\$([^$]+)\$/) || [])[1];
+  const listed = (s) => (s.includes('/') ? Number(s.split('/')[0]) / Number(s.split('/')[1]) : Number(s));
+  const kind = it.key.split(':')[0];
+  if (it.display && it.form !== 'mc') {
+    if (it.display.includes('\\square')) expect(holds(it.display.replace('\\square', String(it.answer)), {}), `${it.key}: ${it.display} with ${it.answer}`).toBe(true);
+    else expect(same(value(it.display), it.answer), `${it.key}: ${it.display} is ${value(it.display)}, not ${it.answer}`).toBe(true);
+    return true;
+  }
+  const of = String(it.text).match(/^כמה הם \$([^$]+)\$ מ־\$(\d+)\$\?/);
+  if (of) { expect(same(value(of[1]) * Number(of[2]), it.answer), `${it.key}: ${of[1]} of ${of[2]} is not ${it.answer}`).toBe(true); return true; }
+  if (kind === 'fr4g') {
+    const [N] = it.key.split(':').slice(1).map(Number);
+    const larger = value(firstMath(it.text)) > N;
+    expect(it.choices[it.answer].text.startsWith(larger ? 'גדולה' : 'קטנה'), `${it.key}: ${firstMath(it.text)} against ${N}`).toBe(true);
+    return true;
+  }
+  if (kind === 'fr2b') {
+    const list = it.key.slice(5).split(',');
+    expect(same(Math.max(...list.map(listed)), it.answer), `${it.key}: the largest is not ${it.answer}`).toBe(true);
+    return true;
+  }
+  if (kind === 'fr2p') {
+    const [A, B] = it.key.slice(5).split(',').map(listed);
+    expect(it.answer, `${it.key}: which is larger`).toBe(same(A, B) ? 2 : A > B ? 0 : 1);
+    return true;
+  }
+  if (kind === 'fr1r') { expect(same(it.fig.marks[0].x, it.answer), `${it.key}: A is not at ${it.answer}`).toBe(true); return true; }
+  if (kind === 'fr1p') { expect(same(value(firstMath(it.text)), it.answer), `${it.key}: ${firstMath(it.text)} is not ${it.answer}`).toBe(true); return true; }
+  if (kind === 'fr2o') {
+    it.manip.labels.forEach((l, i) => expect(same(value(l), it.answer[i]), `${it.key}: ${l} is not at ${it.answer[i]}`).toBe(true));
+    return true;
+  }
+  if (kind === 'fr3c') {
+    expect(it.manip.marks.map((x) => Math.round(1 / x)), `${it.key}: the marks are not 1/${it.answer.of.join(' and 1/')}`).toEqual(it.answer.of);
+    return true;
+  }
+  // signed:6, between which two whole numbers: the chosen pair is consecutive and holds the number asked about
+  if (kind === 'sn6b') {
+    const v = value(firstMath(it.text)); const [lo, hi] = it.choices[it.answer].tex.match(/-?\d+/g).map(Number);
+    expect(hi - lo === 1 && lo < v && v < hi, `${it.key}: ${v} is not between ${lo} and ${hi}`).toBe(true);
+    return true;
+  }
+  if (kind === 'sn6p') { expect(same(value(firstMath(it.text)), it.answer), `${it.key}: ${firstMath(it.text)} is not ${it.answer}`).toBe(true); return true; }
+  return false;
+}
+
+describe('fractions: every answer is the computation its question shows', () => {
+  it('frac:1-4, every kind of question', () => {
+    const kinds = new Set(); const checked = new Set();
+    for (const level of [1, 2, 3, 4]) {
+      for (let r = 0; r < 600; r += 1) {
+        const it = makeItem('frac', level); const kind = it.key.split(':')[0];
+        kinds.add(kind);
+        if (checkFracMaths(it)) checked.add(kind);
+      }
+    }
+    expect([...kinds].filter((k) => !checked.has(k)), 'kinds whose answer nothing reads back').toEqual([]);
+    expect(kinds.size).toBeGreaterThanOrEqual(15);
+  });
+  it('signed:6 (signed fractions and decimals), every kind of question', () => {
+    const kinds = new Set(); const checked = new Set();
+    for (let r = 0; r < 800; r += 1) {
+      const it = makeItem('signed', 6); const kind = it.key.split(':')[0];
+      kinds.add(kind);
+      if (checkFracMaths(it)) checked.add(kind);
+    }
+    expect([...kinds].sort()).toEqual(['sn6a', 'sn6b', 'sn6m', 'sn6p', 'sn6s']);
+    expect([...kinds].filter((k) => !checked.has(k))).toEqual([]);
+  });
+  it('catches an answer that is not the computation shown', () => {
+    const ok = (it) => expect(() => checkFracMaths({ key: 'x:1', ...it })).not.toThrow();
+    const bad = (it) => expect(() => checkFracMaths({ key: 'x:1', ...it })).toThrow();
+    ok({ form: 'num', display: '\\frac{1}{3} + \\frac{1}{4}', answer: 7 / 12 });
+    bad({ form: 'num', display: '\\frac{1}{3} + \\frac{1}{4}', answer: 2 / 7 }); // tops and bottoms added
+    ok({ form: 'num', display: '2\\frac{1}{2} + 1\\frac{3}{4}', answer: 4.25 });
+    bad({ form: 'num', display: '2\\frac{1}{2} + 1\\frac{3}{4}', answer: 2.75 }); // 2·½ + 1·¾ read as products
+    ok({ form: 'num', display: '\\frac{3}{4} : \\frac{3}{8}', answer: 2 });
+    bad({ form: 'num', display: '\\frac{3}{4} : \\frac{3}{8}', answer: 0.5 }); // divided the other way
+    ok({ form: 'num', display: '\\frac{2}{3} = \\frac{\\square}{12}', answer: 8 });
+    bad({ form: 'num', display: '\\frac{2}{3} = \\frac{\\square}{12}', answer: 11 }); // the same number added
+    ok({ form: 'num', text: 'כמה הם $\\frac{3}{4}$ מ־$20$?', answer: 15 });
+    bad({ form: 'num', text: 'כמה הם $\\frac{3}{4}$ מ־$20$?', answer: 5 });
+    ok({ key: 'fr4g:12:0.8:mul', form: 'mc', text: '$12 \\cdot 0.8$: התוצאה גדולה מ־$12$ או קטנה ממנו?', choices: [{ text: 'גדולה מ־12' }, { text: 'קטנה מ־12' }], answer: 1 });
+    bad({ key: 'fr4g:12:0.8:mul', form: 'mc', text: '$12 \\cdot 0.8$: התוצאה גדולה מ־$12$ או קטנה ממנו?', choices: [{ text: 'גדולה מ־12' }, { text: 'קטנה מ־12' }], answer: 0 });
+  });
+});
+
+describe('multiplication facts (the floor check and /facts)', () => {
+  it('a·b or ab : a with a and b from 3 to 9, and every answer is the computation shown', () => {
+    const seen = new Set();
+    for (let r = 0; r < 600; r += 1) {
+      const it = factsItem();
+      const [tag, a, b, op] = it.key.split(':');
+      expect(tag).toBe('facts');
+      expect(Number(a)).toBeGreaterThanOrEqual(3); expect(Number(a)).toBeLessThanOrEqual(9);
+      expect(Number(b)).toBeGreaterThanOrEqual(3); expect(Number(b)).toBeLessThanOrEqual(9);
+      expect(['mul', 'div']).toContain(op);
+      seen.add(op);
+      expect(it).toMatchObject({ topic: 'facts', level: 0, form: 'num' });
+      expect(same(evaluate(texToExpr(it.display)), it.answer), `${it.key}: ${it.display} is not ${it.answer}`).toBe(true);
+      expect(it.answer).toBe(op === 'mul' ? Number(a) * Number(b) : Number(b));
+      // every equation in the worked solution is true
+      it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1)).filter((m) => m.includes('=')).forEach((m) => expect(holds(m, {}), `${it.key}: ${m}`).toBe(true)));
+      expect(isCorrect(it, it.answer)).toBe(true);
+      expect(it.diag(it.answer + 1)).toBeNull(); // a missed fact names no misconception
+      expect(() => katex.renderToString(it.display, { throwOnError: true })).not.toThrow();
+    }
+    expect([...seen].sort()).toEqual(['div', 'mul']);
+  });
+  it('never repeats the question it is asked to avoid', () => {
+    for (let r = 0; r < 200; r += 1) { const a = factsItem(); expect(factsItem(a.key).key).not.toBe(a.key); }
+  });
+});
+
+// Ratio and scale (ratio:1-4): every share adds up to the amount shared and is in the stated ratio, every scale answer
+// converts back to the distance given, the legs of "add the same to both" are never equal (equal legs keep 1 : 1), and
+// every equation of every worked solution is true (a ratio statement 12 : 18 = 2 : 3 is an equality of quotients).
+describe('ratio and scale: the numbers of every question', () => {
+  const nums = (key) => key.split(':').slice(1).map(Number);
+  const all = (level, n = 800) => Array.from({ length: n }, () => makeItem('ratio', level));
+  const unTeX = (m) => m.replace(/\{,\}/g, '').replace(/\\cdot/g, '*');
+  let checked = 0;
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => unTeX(m.slice(1, -1))).filter((m) => m.includes('=') && !/[a-zA-Z□]|\\square/.test(m.replace(/\\frac/g, ''))).forEach((m) => {
+    m.split('=').reduce((a, b) => { expect(same(evaluate(texToExpr(a)), evaluate(texToExpr(b))), `${it.key}: ${m}`).toBe(true); checked += 1; return b; });
+  }));
+  afterAll(() => expect(checked).toBeGreaterThan(2000));
+
+  it('every share sums to the total and has the stated ratio', () => {
+    for (const it of all(2)) {
+      const kind = it.key.split(':')[0];
+      if (kind === 'ra2s') { const [m, n, T] = nums(it.key); const other = T - it.answer; expect(it.answer * n, it.key).toBe(other * m); expect(it.answer + other).toBe(T); }
+      if (kind === 'ra2r') {
+        const [m, n, P] = nums(it.key); const half = P / 2; const short = half - it.answer;
+        expect(it.answer * Math.min(m, n), it.key).toBe(short * Math.max(m, n)); expect(2 * (it.answer + short)).toBe(P);
+      }
+      if (kind === 'ra2p') { const [X, Y, P] = nums(it.key); const other = P - it.answer; expect(it.answer * Y, it.key).toBe(other * X); }
+      if (kind === 'ra2t') {
+        const [m, n, T] = nums(it.key); expect(T % (m + n), it.key).toBe(0); expect(it.choices[it.answer].tex).toBe(`\\frac{${m}}{${m + n}}`);
+        expect(m < n, it.key).toBe(true); // every choice is a part smaller than the whole
+      }
+      solutionHolds(it);
+    }
+    // ratio:1: the completed ratio is the one in the story, in the order asked, in lowest terms
+    for (const it of all(1)) {
+      if (it.key.startsWith('ra1:')) {
+        const [a, b] = nums(it.key); const p = Number(it.text.match(/\$(\d+) : \\square\$/)[1]);
+        expect(a * it.answer, it.key).toBe(b * p); expect(gcd(p, it.answer), it.key).toBe(1);
+      }
+      if (it.key.startsWith('ra1b:')) { const [n, a, b] = nums(it.key); expect(n % (a + b)).toBe(0); expect(it.answer.value * n).toBeCloseTo((n / (a + b)) * a, 9); }
+      solutionHolds(it);
+    }
+  });
+
+  it('every proportion keeps one ratio, and a table\'s missing value is never printed in it', () => {
+    for (const it of all(3)) {
+      const kind = it.key.split(':')[0];
+      if (kind === 'ra3m') { const [b, a, c] = nums(it.key); expect(it.answer * b, it.key).toBeCloseTo(a * c, 9); }
+      if (kind === 'ra3t') {
+        const rows = it.fig.rows; const u = rows[0][1] / rows[0][0];
+        expect(rows[1][1] / rows[1][0]).toBeCloseTo(u, 9); expect(it.answer).toBeCloseTo(u * rows[2][0], 9);
+        expect(rows.flat().filter((v) => v !== '?')).not.toContain(it.answer);
+      }
+      if (kind === 'ra3p') {
+        const per100 = it.fig.rows.map((r) => (r[2] * 100) / r[1]);
+        const odd = per100.findIndex((v, i) => per100.filter((w) => same(w, v)).length === 1 && i >= 0);
+        expect(odd, it.key).toBe(it.answer);
+      }
+      solutionHolds(it);
+    }
+  });
+
+  it('every scale answer converts back to the distance given', () => {
+    for (const it of all(4)) {
+      const kind = it.key.split(':')[0];
+      if (kind === 'ra4r') { const [S, d] = nums(it.key); expect((it.answer * 100) / S, it.key).toBe(d); }
+      if (kind === 'ra4m') { const [S, D] = nums(it.key); expect((it.answer * S) / 100, it.key).toBe(D); }
+      if (kind === 'ra4f') { const [d, D] = nums(it.key); expect((d * it.answer) / 100000, it.key).toBe(D); }
+      if (kind === 'ra4a') { const [k] = nums(it.key); expect(it.answer).toBe(k * k); }
+      if (kind === 'ra4b') { const [B, t] = nums(it.key); expect(it.answer).toBe(t); expect((t * B) / 10).toBe((t * it.manip.bottom.max) / it.manip.top.max); }
+      // a number of 10,000 or more is written with its thousands grouped: 50{,}000, never 50000
+      expect(`${it.text} ${it.solution.join(' ')}`, it.key).not.toMatch(/\d{5,}/);
+      solutionHolds(it);
+    }
+  });
+
+  it('"add the same to both legs" never draws equal legs, so its answer (the ratio changes) is always true', () => {
+    let n = 0;
+    for (const it of all(1, 2000)) {
+      if (!it.key.startsWith('ra1a:')) continue;
+      n += 1;
+      const [p, q, k] = nums(it.key);
+      expect(p, it.key).not.toBe(q);
+      expect(p * (q + k), it.key).not.toBe(q * (p + k)); // p : q and (p + k) : (q + k) differ
+      expect(it.choices[it.answer].text).toMatch(/^כן/);
+    }
+    expect(n).toBeGreaterThan(100);
+  });
+});
+
+// Percent (pct:1-5): every answer is the computation from the numbers the student sees, read back out of the question's
+// text (and its table), not from the generator's parameters; and every equation of every worked solution is true (a
+// percent is read as hundredths: 35% = 0.35).
+describe('percent: every answer from the numbers shown', () => {
+  /** The numbers of a question's maths, in order: 35\% is 35, \frac{7}{20} is 0.35, 12{,}000 is 12000. */
+  const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).map((m) => {
+    const t = m.slice(1, -1).replace(/\\%/g, '').replace(/\{,\}/g, '').trim();
+    const f = t.match(/^\\frac\{(\d+)\}\{(\d+)\}$/);
+    return f ? Number(f[1]) / Number(f[2]) : Number(t);
+  });
+  const all = (level, n = 800) => Array.from({ length: n }, () => makeItem('pct', level));
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  let checked = 0;
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || [])
+    .map((m) => m.slice(1, -1).replace(/\{,\}/g, '').replace(/\\cdot/g, '*').replace(/(\d+(?:\.\d+)?)\\%/g, '($1/100)'))
+    .filter((m) => m.includes('=') && !/[a-zA-Z□]|\\square/.test(m.replace(/\\frac/g, '')))
+    .forEach((m) => {
+      m.split('=').reduce((a, b) => { expect(same(evaluate(texToExpr(a)), evaluate(texToExpr(b))), `${it.key}: ${m}`).toBe(true); checked += 1; return b; });
+    }));
+  afterAll(() => expect(checked).toBeGreaterThan(3000));
+
+  it('pct:1: a fraction or a decimal as a percent, the bar shaded, the vote, a number above 1', () => {
+    for (const it of all(1)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      if (kind === 'pc1f' || kind === 'pc1d') { expect(n).toHaveLength(1); expect(it.answer, it.key).toBeCloseTo(100 * n[0], 9); expect(it.unit).toBe('%'); }
+      if (kind === 'pc1s') { const [den, p] = n; expect(it.answer.value, it.key).toBeCloseTo(p / 100, 9); expect(Number.isInteger((p * den) / 100), it.key).toBe(true); expect(it.manip.start.den).toBe(den); }
+      if (kind === 'pc1e') { const [, p] = n; expect(it.choices[it.answer].text, it.key).toBe(p < 50 ? 'קצת פחות מחצי' : 'קצת יותר מחצי'); expect(p).not.toBe(50); }
+      if (kind === 'pc1o') { const [x] = n; expect(it.choices[it.answer].tex, it.key).toBe(`${Math.round(100 * x)}\\%`); }
+      solutionHolds(it);
+    }
+  });
+
+  it('pct:2: p% of N, in the head, and the two classes', () => {
+    for (const it of all(2)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      if (kind === 'pc2' || kind === 'pc2m') { const [p, N] = n; expect(it.answer, it.key).toBeCloseTo((p * N) / 100, 9); expect(Number.isInteger(it.answer), it.key).toBe(true); }
+      if (kind === 'pc2c') {
+        const [n1, p1, n2, p2] = n; const c1 = (n1 * p1) / 100; const c2 = (n2 * p2) / 100;
+        expect(Number.isInteger(c1) && Number.isInteger(c2), it.key).toBe(true);
+        expect(it.answer, it.key).toBe(c1 > c2 ? 0 : c2 > c1 ? 1 : 2);
+      }
+      if (kind === 'pc1e') { const [, p] = n; expect(it.choices[it.answer].text).toBe(p < 50 ? 'קצת פחות מחצי' : 'קצת יותר מחצי'); }
+      solutionHolds(it);
+    }
+  });
+
+  it('pct:3: what percent, from the table of volunteers, and this year against last', () => {
+    for (const it of all(3)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      if (kind === 'pc3') { const [A, B] = n; expect(it.answer, it.key).toBeCloseTo((100 * A) / B, 9); }
+      if (kind === 'pc3g') { const [A, B] = n; expect(A > B, it.key).toBe(true); expect(it.answer).toBeCloseTo((100 * A) / B, 9); expect(it.answer).toBeGreaterThan(100); }
+      if (kind === 'pc3t') {
+        const [T] = n; const rows = it.fig.rows; const place = rows.find(([name]) => it.text.includes(`ב${name}?`));
+        expect(rows.reduce((a, r) => a + r[1], 0), it.key).toBe(T); // the table adds up to everyone
+        expect(place, it.key).toBeTruthy();
+        expect(it.answer, it.key).toBeCloseTo((100 * place[1]) / T, 9);
+      }
+      expect(Number.isInteger(it.answer), it.key).toBe(true);
+      solutionHolds(it);
+    }
+  });
+
+  it('pct:4: the whole, from p% and the part (and stretched on the double line)', () => {
+    for (const it of all(4)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      const [p, A] = n;
+      expect(it.answer, it.key).toBeCloseTo((100 * A) / p, 9);
+      expect((p * it.answer) / 100, it.key).toBeCloseTo(A, 9); // the check: p% of the whole is the part
+      if (kind === 'pc4s') {
+        expect(it.manip.fixT).toBe(p);
+        expect(Math.abs((it.answer - it.manip.start.max) % it.manip.bottom.step), it.key).toBe(0);
+        expect(it.manip.start.max).not.toBe(it.answer);
+        expect(it.answer).toBeLessThanOrEqual(it.manip.bottom.max);
+      }
+      solutionHolds(it);
+    }
+  });
+
+  it('pct:5: one change, a rise then a fall, by what percent, and the change from its multiplier', () => {
+    let twice = 0;
+    for (const it of all(5)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      if (kind === 'pc5') {
+        const [N, p] = n; const up = /התייקר ב־/.test(it.text); expect(up || /הוזל ב־/.test(it.text), it.key).toBe(true);
+        expect(it.answer, it.key).toBeCloseTo(N * (1 + (up ? p : -p) / 100), 9);
+      }
+      if (kind === 'pc5w') {
+        twice += 1; const [N, p, q] = n; expect(p).toBe(q);
+        expect(it.answer, it.key).toBeCloseTo(N * (1 + p / 100) * (1 - p / 100), 9);
+        expect(it.answer).toBeLessThan(N); // never the price again
+      }
+      if (kind === 'pc5b') {
+        const [N, M] = n; const up = /בכמה אחוזים התייקר/.test(it.text);
+        expect(up, it.key).toBe(M > N);
+        expect(it.answer, it.key).toBeCloseTo((100 * Math.abs(M - N)) / N, 9);
+      }
+      if (kind === 'pc5m') {
+        const [m] = n; const right = it.choices[it.answer].text;
+        expect(right, it.key).toBe(`${m > 1 ? 'התייקרות' : 'הוזלה'} של ${Math.round(Math.abs(m - 1) * 100)}%`);
+      }
+      if (it.form === 'num') expect(Number.isInteger(it.answer), it.key).toBe(true);
+      solutionHolds(it);
+    }
+    expect(twice).toBeGreaterThan(80);
   });
 });

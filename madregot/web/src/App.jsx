@@ -64,10 +64,10 @@ const Restore = lazy(() => import('@/screens/Restore.jsx'));
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
 const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
-const Plan = lazy(() => import('@/screens/Plan.jsx'));
 const Journey = lazy(() => import('@/screens/Journey.jsx'));
 const Teach = lazy(() => import('@/screens/Teach.jsx'));
 const Repair = lazy(() => import('@/screens/Repair.jsx'));
+const Challenge = lazy(() => import('@/screens/Challenge.jsx'));
 const Rescue = lazy(() => import('@/screens/Rescue.jsx'));
 const NewPracticeExam = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.NewPracticeExam })));
 const PracticeSheet = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.PracticeSheet })));
@@ -138,7 +138,7 @@ function StatusWatch() {
 function Toasts() {
   const { pathname } = useLocation();
   useEffect(() => { toast.dismiss(); }, [pathname]);
-  const lesson = /^\/(lesson|practice|placement)/.test(pathname) || /^\/class\/exam\/[^/]+\/run$/.test(pathname);
+  const lesson = /^\/(lesson|practice|placement|floor|facts)/.test(pathname) || /^\/class\/exam\/[^/]+\/run$/.test(pathname);
   return lesson
     ? <Toaster key="top" position="top-center" dir="rtl" offset={72} mobileOffset={{ top: 72 }} toastOptions={{ className: 'toast' }} />
     : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
@@ -327,7 +327,8 @@ function Root() {
               <Route path="/exams/new" element={<NewPracticeExam />} />
               <Route path="/exams/practice/:id" element={<PracticeSheet />} />
               <Route path="/exams/:id" element={<ExamResult />} />
-              <Route path="/plan" element={<Plan />} />
+              {/* the improvement plan is retired: its evidence is the plan's exam-loss band; old bookmarks land on the quests */}
+              <Route path="/plan" element={<Navigate to="/quests" replace />} />
               <Route path="/learn/:topic/:level" element={<Journey />} />
               <Route path="/mission" element={<Navigate to="/quests" replace />} />
               <Route path="/rescue" element={<Rescue />} />
@@ -336,8 +337,13 @@ function Root() {
             <Route path="/lesson/:topic/:level" element={<LessonRoute />} />
             <Route path="/practice/:id" element={<LessonRoute />} />
             <Route path="/placement" element={<LessonRoute />} />
+            {/* the floor check and multiplication facts: like the placement test, outside the tab bar */}
+            <Route path="/floor" element={<LessonRoute />} />
+            <Route path="/facts" element={<LessonRoute />} />
             <Route path="/learn/:topic/:level/:stage" element={<TeachRoute />} />
             <Route path="/repair/:topic/:level/:misc" element={<Repair />} />
+            {/* a challenge task (אתגר): outside the tab bar, like a lesson */}
+            <Route path="/challenge/:id" element={<Challenge />} />
             <Route path="/rescue/check" element={<LessonRoute />} />
             <Route path="/rescue/exam" element={<LessonRoute />} />
             <Route path="/class/exam/:id/run" element={<LessonRoute />} />

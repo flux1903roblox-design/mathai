@@ -183,6 +183,20 @@
       "tags": ["frac", "bridge"]
     },
     {
+      "id": "D1-ratio2-reversed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "ratio:2", "source": "diag", "params": { "m": 9, "n": 7, "k": 7, "T": 112 }, "wrong": [49, 70], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "reversed-ratio", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the ratio was read in reverse, so Uri got Dan's share. 9 : 7 is 16 equal parts of 112 marbles, 7 in each part; Uri's 9 parts are 9 · 7 = 63, and Dan's 7 parts are 49. Ends at 63. Names no other mistake." },
+      "tags": ["ratio"]
+    },
+    {
+      "id": "D1-pct2-div-by-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "pct:2", "source": "diag", "params": { "p": 5, "N": 60 }, "wrong": [12, 6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "div-by-pct", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the amount was divided by the percent instead of taking hundredths of it. 5% of 60 is 5/100 of 60, which is 3 (10% is 6, and 5% is half of that), not 60 : 5 = 12. Ends at 3. Names no other mistake." },
+      "tags": ["pct"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

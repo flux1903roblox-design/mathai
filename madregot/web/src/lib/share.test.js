@@ -222,8 +222,9 @@ describe('the message the child sends', () => {
   it('when only the third practised name is too much, the line shows 2 and every mastered name stays', () => {
     const shortest = [...ALL_STAIRS].sort((a, b) => STAIR_NAMES[a].length - STAIR_NAMES[b].length);
     const w = { ...maximal(), worked: [...shortest].reverse().slice(0, 12), mastered: shortest.slice(0, 12) };
-    // a copy of the app at a longer address: the link (never cut) takes more of the message
-    const l = shareLink(encodeShare(w), `${BASE}${'copy/'.repeat(30)}`);
+    // a copy of the app at a longer address: the link (never cut) takes more of the message (35: in the middle of the
+    // lengths where exactly two names fit, with the curriculum lane's short stair names such as "יחס" among them)
+    const l = shareLink(encodeShare(w), `${BASE}${'copy/'.repeat(35)}`);
     const text = shareText(w, { link: l });
     expect(waHref(text).length).toBeLessThanOrEqual(WA_MAX);
     expect(text.endsWith(l)).toBe(true);

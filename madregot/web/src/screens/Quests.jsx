@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { Flame, Snowflake, Zap, Check, Target, Route, ChevronLeft, BookOpen, Star, Trophy, Footprints } from 'lucide-react';
+import { Flame, Snowflake, Zap, Check, Target, BookOpen, Star, Trophy, Footprints, ListChecks } from 'lucide-react';
 import { m, useReducedMotion } from 'motion/react';
 import { Progress } from '@base-ui/react/progress';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { learnDaysThisMonth, learnDaysTotal, weekStart, weekSteps, bestWeek } from '@/lib/streak.js';
 import { useRepair, repairText } from '@/components/learn/RepairCard.jsx';
 import { questProgress, GOALS } from '@/lib/quests.js';
-import { usePlan } from '@/lib/usePlan.js';
 import { Week } from './LessonDone.jsx';
 import PageHero from '@/components/PageHero.jsx';
 import Lottie from '@/components/Lottie.jsx';
@@ -17,9 +16,10 @@ import TodayCard from '@/components/learn/TodayCard.jsx';
 import { markSeen } from '@/lib/classWork.js';
 import MyHelp from '@/components/learn/MyHelp.jsx';
 import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard.jsx';
+import ExamLoss from '@/components/learn/ExamLoss.jsx';
 
 
-const QUEST_ICON = { lessons: BookOpen, xp: Zap, combo: Flame, perfect: Star, correct: Target, review: Trophy };
+const QUEST_ICON = { lessons: BookOpen, xp: Zap, combo: Flame, perfect: Star, correct: Target, mission: ListChecks };
 const stepsText = (n) => (n === 1 ? 'צעד אחד' : `${n} צעדים`);
 
 /**
@@ -49,7 +49,6 @@ export default function Quests() {
   const reduce = useReducedMotion();
   const navigate = useNavigate();
   const { days, goalXp, setGoalXp, freezes, profile } = useApp();
-  const plan = usePlan();
   const d = today(); const day = days[d] || {};
   const quests = questProgress(d, day);
   const streak = streakOf(days);
@@ -145,13 +144,8 @@ export default function Quests() {
         </div>
       </section>
 
-      {plan.weak.length > 0 && (
-        <Link to="/plan" className="card card-link">
-          <Route size={24} aria-hidden="true" className="brand-icon" />
-          <span className="card-link-text"><b>התוכנית שלי לשיפור</b><span className="muted">{plan.done} מתוך {plan.steps.length} צעדים הושלמו</span></span>
-          <ChevronLeft size={22} aria-hidden="true" className="chev" />
-        </Link>
-      )}
+      {/* what a checked exam lost and is not recovered yet: the plan's exam-loss items (nothing when there are none) */}
+      <ExamLoss id="q-exam-loss" />
 
       {profile.classCode && <p className="footnote">אתם בכיתה {profile.className}. המורה רואה את ההתקדמות שלכם, לא את הרצף או את ה-XP.</p>}
     </div>

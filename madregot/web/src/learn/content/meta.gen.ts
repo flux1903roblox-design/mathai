@@ -417,6 +417,38 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "frac:3": {
+    "title": "חיבור וחיסור שברים",
+    "misconceptions": [
+      {
+        "id": "add-across",
+        "title": "חיברו מונה עם מונה ומכנה עם מכנה"
+      },
+      {
+        "id": "num-not-scaled",
+        "title": "הרחיבו את המכנים ושכחו להרחיב את המונים"
+      }
+    ],
+    "transfer": true
+  },
+  "frac:4": {
+    "title": "כפל וחילוק שברים",
+    "misconceptions": [
+      {
+        "id": "keep-den",
+        "title": "כפלו או חילקו את המונים והשאירו את המכנה, כמו בחיבור"
+      },
+      {
+        "id": "divide-flip",
+        "title": "חילקו הפוך: את המחלק במחולק"
+      },
+      {
+        "id": "mult-bigger",
+        "title": "חשבו שכפל תמיד מגדיל ושחילוק תמיד מקטין"
+      }
+    ],
+    "transfer": true
+  },
   "line:1": {
     "title": "טבלת ערכים",
     "misconceptions": [
@@ -589,6 +621,84 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "pct:1": {
+    "title": "מהו אחוז",
+    "misconceptions": [
+      {
+        "id": "count-as-pct",
+        "title": "כתבו את מספר החלקים כאילו הוא האחוז"
+      },
+      {
+        "id": "digit-pct",
+        "title": "קראו את הספרות שאחרי הנקודה כאחוז"
+      }
+    ],
+    "transfer": true
+  },
+  "pct:2": {
+    "title": "אחוז מכמות",
+    "misconceptions": [
+      {
+        "id": "count-as-pct",
+        "title": "כתבו את האחוז עצמו כאילו הוא הכמות"
+      },
+      {
+        "id": "div-by-pct",
+        "title": "חילקו את הכמות במספר האחוזים"
+      }
+    ],
+    "transfer": true
+  },
+  "pct:3": {
+    "title": "איזה אחוז?",
+    "misconceptions": [
+      {
+        "id": "inverse-ratio",
+        "title": "חילקו את השלם בחלק במקום את החלק בשלם"
+      },
+      {
+        "id": "count-as-pct",
+        "title": "כתבו את החלק כאילו הוא האחוז"
+      }
+    ],
+    "transfer": true
+  },
+  "pct:4": {
+    "title": "מציאת השלם",
+    "misconceptions": [
+      {
+        "id": "pct-of-part",
+        "title": "חישבו אחוז מהחלק הנתון במקום למצוא את השלם"
+      },
+      {
+        "id": "stop-at-one",
+        "title": "מצאו כמה הם $1\\%$ ועצרו שם"
+      }
+    ],
+    "transfer": true
+  },
+  "pct:5": {
+    "title": "הגדלה והקטנה באחוזים",
+    "misconceptions": [
+      {
+        "id": "add-pct",
+        "title": "הוסיפו או הורידו את מספר האחוזים כאילו הוא שקלים"
+      },
+      {
+        "id": "change-only",
+        "title": "ענו את גודל השינוי במקום את המחיר החדש"
+      },
+      {
+        "id": "additive-changes",
+        "title": "חשבו שהתייקרות והוזלה באותו אחוז מבטלות זו את זו"
+      },
+      {
+        "id": "pct-of-new",
+        "title": "האחוזים חושבו מהמחיר החדש במקום מהמחיר המקורי"
+      }
+    ],
+    "transfer": true
+  },
   "pyth:1": {
     "title": "מציאת היתר",
     "misconceptions": [
@@ -679,6 +789,74 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "coord-diff",
         "title": "חיסרו שיעורים בלי הסימנים, כשהקטע חוצה ציר"
+      }
+    ],
+    "transfer": true
+  },
+  "ratio:1": {
+    "title": "יחס",
+    "misconceptions": [
+      {
+        "id": "reversed-ratio",
+        "title": "קראו את היחס בסדר ההפוך"
+      },
+      {
+        "id": "part-whole",
+        "title": "השוו חלק לכל הכמות במקום לחלק השני"
+      },
+      {
+        "id": "add-same",
+        "title": "חשבו שהוספה של אותו מספר לשני חלקי היחס שומרת עליו"
+      }
+    ],
+    "transfer": true
+  },
+  "ratio:2": {
+    "title": "חלוקה ביחס",
+    "misconceptions": [
+      {
+        "id": "reversed-ratio",
+        "title": "קראו את היחס בסדר ההפוך"
+      },
+      {
+        "id": "part-whole",
+        "title": "השוו חלק לכל הכמות במקום לחלק השני"
+      },
+      {
+        "id": "whole-perimeter",
+        "title": "חילקו את כל ההיקף ביחס, כאילו הוא צלע ארוכה וצלע קצרה"
+      }
+    ],
+    "transfer": true
+  },
+  "ratio:3": {
+    "title": "פרופורציה",
+    "misconceptions": [
+      {
+        "id": "additive",
+        "title": "שמרו על אותו הפרש במקום על אותו יחס"
+      },
+      {
+        "id": "divide-flip",
+        "title": "חילקו הפוך כשמצאו כמה ליחידה"
+      }
+    ],
+    "transfer": true
+  },
+  "ratio:4": {
+    "title": "קנה מידה",
+    "misconceptions": [
+      {
+        "id": "no-convert",
+        "title": "שכחו להמיר בין סנטימטרים למטרים"
+      },
+      {
+        "id": "cm-km",
+        "title": "המירו לקילומטרים וכתבו כאילו אלה מטרים"
+      },
+      {
+        "id": "linear-area",
+        "title": "חשבו שהשטח גדל פי אותו מספר כמו האורכים"
       }
     ],
     "transfer": true
@@ -781,6 +959,28 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "minus-minus",
         "title": "חיסור של תוצאה שלילית חושב כמו חיסור של חיובי"
+      }
+    ],
+    "transfer": true
+  },
+  "signed:6": {
+    "title": "שברים ועשרוניים מכוונים",
+    "misconceptions": [
+      {
+        "id": "abs-add",
+        "title": "חיברו מרחקים כשהסימנים שונים, במקום לחסר"
+      },
+      {
+        "id": "minus-minus",
+        "title": "חיסור של מספר שלילי חושב כמו חיסור של חיובי"
+      },
+      {
+        "id": "sign",
+        "title": "הסימן של התוצאה יצא הפוך"
+      },
+      {
+        "id": "toward-zero",
+        "title": "מיקמו שבר שלילי בצד הלא נכון של השלם"
       }
     ],
     "transfer": true
@@ -999,11 +1199,13 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "no-divide": "שכחו לחלק במקדם של $x$",
     "neg-length": "השאירו אורך שלילי, והשטח יצא שלילי"
   },
+  "pct": {},
   "pyth": {
     "wrong-hyp": "זיהו לא נכון מי היתר",
     "assume-right": "הניחו שהמשולש ישר־זווית בלי לבדוק",
     "coord-diff": "חיסרו שיעורים בלי הסימנים כשהקטע חוצה ציר"
   },
+  "ratio": {},
   "signed": {
     "ignore-sign": "השוו רק את המרחקים מאפס והתעלמו מהסימן",
     "add-sign": "השתמשו בכלל הסימנים של חיבור בכפל או בחילוק",

@@ -1,13 +1,17 @@
 // The learning model's side of the store: pure functions from (state, event) to state, so the store stays small
 // and every rule here is tested without React. Called by lib/store.js.
-import type { Attempt, LearnState, MisconRecord, Purpose } from './types';
+import type { Attempt, FloorState, LearnState, MisconRecord, Purpose } from './types';
 import { addAttempt, recordMasteryCheck, recordReview, daysBetween, MASTERY_N, MASTERY_NEED } from './mastery';
 import { addEvidence, addCounter, finishVerify, GENERATOR_WEIGHT, COUNTER_WEIGHT, GUIDED_WEIGHT, CONFIRM_SCORE, misconKey } from './misconceptions';
 import { recordDiagnostic } from './examRescue';
 import { logEvent } from './analytics';
 import { skillId } from './skills';
 
-export const emptyLearn = (): LearnState => ({ skills: {}, miscon: {}, exam: null, missions: {}, events: [] });
+/**
+ * A fresh learning record. floor and challenges came after the store's v4: a save without them gets these defaults from
+ * the store's persist merge (lib/store.js), and readers still read `learn.floor ?? null` and `learn.challenges ?? {}`.
+ */
+export const emptyLearn = (): LearnState => ({ skills: {}, miscon: {}, exam: null, missions: {}, events: [], floor: null, challenges: {} });
 
 /** One graded answer, as the lesson engine reports it (lib/lesson.js). */
 export interface AnswerEvent {
@@ -22,6 +26,8 @@ export interface AnswerEvent {
 }
 
 export function learnAfterAnswer(learn: LearnState, e: AnswerEvent): LearnState {
+  // a multiplication fact (the floor check, /facts) belongs to no stair: it changes nothing in the learning record
+  if (e?.topic === 'facts') return learn;
   if (!e?.topic || !e.level) return learn;
   const at = e.at || new Date().toISOString();
   const skill = skillId(e.topic, e.level);
@@ -48,8 +54,9 @@ export function learnAfterAnswer(learn: LearnState, e: AnswerEvent): LearnState 
 
 /** A finished check (lib/lesson.js resultOf for kind 'check'). */
 export interface CheckResult {
-  /** class: the teacher's class exam (TEACHER-5 §4); its answers were already recorded as diagnostic evidence. */
-  purpose: 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'class';
+  /** class: the teacher's class exam (TEACHER-5 §4); its answers were already recorded as diagnostic evidence. floor: the
+   * curriculum lane's floor check (CURRICULUM-3). */
+  purpose: 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'class' | 'floor';
   skill?: string; misc?: string;
   right: number; asked: number;
   perSkill: Record<string, { right: number; asked: number }>;
@@ -57,8 +64,20 @@ export interface CheckResult {
   showed?: number;
 }
 
+/**
+ * The floor check's record: what each fractions stair showed and the multiplication facts. A missed fractions question
+ * puts the bridge unit on the map (on), and a unit already on stays on: only the student hides it (setFloor).
+ */
+export function floorAfterCheck(prev: FloorState | null | undefined, perSkill: CheckResult['perSkill'], at: string): FloorState {
+  const results = Object.fromEntries(Object.entries(perSkill).filter(([s]) => s.startsWith('frac:')).map(([s, x]) => [s, { asked: x.asked, right: x.right }]));
+  const f = perSkill['facts:0'] || { asked: 0, right: 0 };
+  const missed = Object.values(results).some((x) => x.right < x.asked);
+  return { at, on: !!prev?.on || missed, results, facts: { asked: f.asked, right: f.right } };
+}
+
 export function learnAfterCheck(learn: LearnState, r: CheckResult, at: string, _day: string): LearnState {
   let { skills, miscon, exam, events } = learn;
+  let floor = learn.floor ?? null;
   const share = (x: { right: number; asked: number }) => (x.asked ? x.right / x.asked : 0);
   if (r.purpose === 'mastery' && r.skill) {
     skills = { ...skills, [r.skill]: recordMasteryCheck(skills[r.skill], r.right, r.asked, at) };
@@ -82,8 +101,12 @@ export function learnAfterCheck(learn: LearnState, r: CheckResult, at: string, _
   } else if (r.purpose === 'class') {
     // the class exam is the teacher's: it is logged, and changes no stair, misconception or Exam Rescue plan
     events = logEvent(events, { e: 'class-exam-done', n: share(r) }, at);
+  } else if (r.purpose === 'floor') {
+    floor = floorAfterCheck(floor, r.perSkill, at);
+    Object.entries(r.perSkill).filter(([s]) => s.startsWith('frac:')).forEach(([s, x]) => { events = logEvent(events, { e: 'check-done', s, p: 'floor', n: share(x) }, at); });
+    events = logEvent(events, { e: 'floor-done', ok: Object.values(floor.results).every((x) => x.right >= x.asked), n: share(r) }, at);
   }
-  return { ...learn, skills, miscon, exam, events };
+  return { ...learn, skills, miscon, exam, events, floor };
 }
 
 /** v1 → v2: the misconceptions the app already recorded (gaps 'topic:cat' → level, n, ok) become evidence. */

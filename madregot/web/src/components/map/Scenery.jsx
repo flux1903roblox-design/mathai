@@ -262,6 +262,73 @@ const TenthsJug = () => (
     <path d="M14 33 H34" className="sc-stroke-gold" />
   </svg>
 );
+/** Ratio and scale: a route between two places on a map, over the map's scale bar (its parts in two colours). */
+const ScaleBarArt = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M18 34 Q40 14 58 32 T84 28" className="sc-stroke" strokeDasharray="6 6" />
+    <circle cx="18" cy="34" r="7" className="sc-g" />
+    <circle cx="84" cy="28" r="7" className="sc-c" />
+    <rect x="10" y="60" width="80" height="14" className="sc-w sc-line" />
+    {[10, 50].map((x) => <rect key={x} x={x} y="60" width="20" height="14" className="sc-c" />)}
+    {[10, 30, 50, 70, 90].map((x) => <path key={x} d={`M${x} 54 V80`} className="sc-stroke" />)}
+  </svg>
+);
+/** Ratio: a small glass and a big one of the same juice, syrup and water mixed in the same ratio in both. */
+const MixGlasses = () => (
+  <svg viewBox="0 0 100 100">
+    <ellipse cx="50" cy="94" rx="40" ry="4" className="sc-t" />
+    <path d="M14 30 H40 L37 90 H17 Z" className="sc-w sc-line" />
+    <path d="M15.6 54 H38.4 L37 90 H17 Z" className="sc-c" />
+    <path d="M16 66 H38" className="sc-stroke" />
+    <path d="M56 22 H86 L82 90 H60 Z" className="sc-w sc-line" />
+    <path d="M57.8 50 H84.2 L82 90 H60 Z" className="sc-c" />
+    <path d="M58.4 63 H83.6" className="sc-stroke" />
+    <circle cx="27" cy="20" r="5" className="sc-g" />
+    <circle cx="71" cy="12" r="5" className="sc-g" />
+  </svg>
+);
+/** Scale: a big triangle and its copy at half the size, the same shape with every side halved. */
+const ScaleCopy = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M8 88 L56 88 L8 24 Z" className="sc-c sc-line" />
+    <path d="M66 88 L90 88 L66 56 Z" className="sc-w sc-line" />
+    <path d="M14 82 L20 82 M14 82 L14 76" className="sc-stroke" />
+    <path d="M69 85 L72 85 M69 85 L69 82" className="sc-stroke" />
+    <path d="M60 30 Q76 24 80 44" className="sc-stroke-gold" strokeDasharray="4 5" />
+    <circle cx="80" cy="46" r="4" className="sc-g" />
+  </svg>
+);
+/** Percent: the percent bar, filled to 60% with a tick at every 20%, over a percent sign. */
+const PctBarArt = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="8" y="18" width="84" height="26" rx="6" className="sc-w sc-line" />
+    <rect x="8" y="18" width="50" height="26" rx="6" className="sc-c" />
+    {[25, 41, 58, 75].map((x) => <path key={x} d={`M${x} 12 V18`} className="sc-stroke" />)}
+    <circle cx="36" cy="66" r="8" className="sc-g" />
+    <circle cx="64" cy="86" r="8" className="sc-g" />
+    <path d="M70 58 L30 94" className="sc-stroke-c" />
+  </svg>
+);
+/** Percent: a hundred squares, ten by ten, with 35 of them shaded. */
+const HundredGrid = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="10" y="10" width="80" height="80" className="sc-w sc-line" />
+    <rect x="10" y="10" width="24" height="80" className="sc-c" />
+    <rect x="34" y="10" width="8" height="40" className="sc-c" />
+    {[18, 26, 34, 42, 50, 58, 66, 74, 82].map((v) => <path key={`v${v}`} d={`M${v} 10 V90 M10 ${v} H90`} className="sc-stroke" />)}
+  </svg>
+);
+/** Percent off: a price tag on its string, with a percent sign on it. */
+const SaleTag = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M30 14 Q12 10 16 30" className="sc-stroke" />
+    <path d="M30 18 L84 18 L84 82 L30 82 L14 50 Z" className="sc-c sc-line" />
+    <circle cx="30" cy="50" r="5" className="sc-w sc-line" />
+    <circle cx="50" cy="36" r="6" className="sc-g" />
+    <circle cx="70" cy="64" r="6" className="sc-g" />
+    <path d="M74 30 L46 70" className="sc-stroke-w" />
+  </svg>
+);
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -308,6 +375,8 @@ export const SCENERY = {
   eq: [EqScale, Seesaw, Keyhole],
   sys: [SysCross, TwoRoads, MeetFlag],
   frac: [FracBarArt, PieEighths, TenthsJug],
+  ratio: [ScaleBarArt, MixGlasses, ScaleCopy],
+  pct: [PctBarArt, HundredGrid, SaleTag],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

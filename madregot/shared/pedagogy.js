@@ -74,14 +74,15 @@ const re = (body, flags = '') => new RegExp(`${Q}${body}`, flags);
 const unless = (words) => `(?![^.\\n]*(?:${words}))`;
 
 export const TOPIC_WAYS = Object.freeze({
-  // the curriculum lane's bridge unit (frac:1-2, web/src/learn/content/frac.ts), the floor under both grades
+  // the curriculum lane's bridge unit (frac:1-4, web/src/learn/content/frac.ts), the floor under both grades
   frac: {
-    models: String.raw`A fraction is a place on the number line: split the unit, $0$ to $1$, into equal parts and count parts. The denominator is the number of parts in the unit: count the gaps, not the marks. Expanding multiplies the numerator and the denominator by the same number (smaller parts, more of them, the same amount); reducing divides both. Same denominator: compare the numerators; same numerator: the smaller parts are smaller ($\frac{1}{8} < \frac{1}{6}$); else a common denominator. Decimals by place value: zeros at the end change nothing ($0.4 = 0.40$, shekels and agorot), so give both the same number of digits.`,
-    words: ['מונה', 'מכנה', 'הרחבה', 'צמצום', 'מכנה משותף', 'ערך המקום', 'ציר המספרים'],
+    models: String.raw`A fraction is a place on the number line: split the unit, $0$ to $1$, into equal parts and count parts. The denominator is the number of parts in the unit: count the gaps, not the marks. Expanding multiplies the numerator and the denominator by the same number (smaller parts, more of them, the same amount); reducing divides both. Same denominator: compare the numerators; same numerator: the smaller parts are smaller ($\frac{1}{8} < \frac{1}{6}$); else a common denominator. Decimals by place value: zeros at the end change nothing ($0.4 = 0.40$, shekels and agorot), so give both the same number of digits. Adding needs parts of one size, so a common denominator first. "Of" is multiplying; dividing by a fraction counts how many times it fits, so multiply by the reciprocal.`,
+    words: ['מונה', 'מכנה', 'הרחבה', 'צמצום', 'מכנה משותף', 'ערך המקום', 'ציר המספרים', 'ההפכי'],
     avoid: [
       'adding the same number to the numerator and the denominator (the app\'s mistake "הוסיפו אותו מספר למונה ולמכנה במקום לכפול")',
       'a bigger denominator as a bigger fraction',
       'comparing decimals by their number of digits',
+      'adding the numerators and adding the denominators',
     ],
     avoidRe: [
       // the wrong expansion stated as the way to make an equal fraction
@@ -91,7 +92,7 @@ export const TOPIC_WAYS = Object.freeze({
     ],
   },
   signed: {
-    models: String.raw`The number line: a positive addend moves right, a negative one left; subtracting moves the other way, because subtraction undoes addition (check: $5 - (-3) = 8$ because $8 + (-3) = 5$). Also a thermometer, a cancelled debt, the pattern $5-2, 5-1, 5-0, 5-(-1)$. Multiplying is repeated adding; a negative factor reverses the direction, so same signs give a positive result and different signs a negative one, in division too. Order of operations: each product or quotient is a "חבילה" with its sign, computed first; then left to right. A minus before brackets changes every sign inside.`,
+    models: String.raw`The number line: a positive addend moves right, a negative one left; subtracting moves the other way, because subtraction undoes addition (check: $5 - (-3) = 8$ because $8 + (-3) = 5$). Also a thermometer, a cancelled debt, the pattern $5-2, 5-1, 5-0, 5-(-1)$. Multiplying is repeated adding; a negative factor reverses the direction, so same signs give a positive result and different signs a negative one, in division too. Order of operations: each product or quotient is a "חבילה" with its sign, computed first; then left to right. A minus before brackets changes every sign inside. Negative fractions and decimals follow the same rules on the same line (signed:6).`,
     words: ['ציר המספרים', 'תזוזה ימינה ושמאלה', 'המספר הנגדי', 'חבילה'],
     avoid: [
       String.raw`"מינוס ומינוס זה פלוס" or "שני מינוסים עושים פלוס" as a rule ($-4 - 6$ has two minuses and is $-10$). The app quotes it only to name the mistake "הפכו גם את המספר הראשון לחיובי", or for subtracting a negative number with the reason (subtraction undoes addition); do the same`,
@@ -130,6 +131,38 @@ export const TOPIC_WAYS = Object.freeze({
     words: ['נעלם', 'אגף ימין', 'אגף שמאל', 'משוואות שקולות', 'בדיקה בהצבה', '"עושים אותו דבר בשני האגפים"'],
     avoid: ['"מעבירים אגף ומחליפים סימן" as a rule on its own: the app uses it only as a short name for adding or subtracting the same on both sides, and says so', 'subtracting the coefficient instead of dividing by it'],
     avoidRe: [re(String.raw`(?:מעבירים|להעביר|מעביר|תעבירו|העבירו)\s+(?:את\s+\S+\s+)?(?:ל)?אגף\s+(?:ו|ו־)?(?:מחליפים|להחליף|מחליף|החליפו|משנים|לשנות)\s+(?:את\s+ה)?סימן${unless('בשני האגפים|משני האגפים|לשני האגפים|אותו דבר')}`)],
+  },
+  // the curriculum lane's grade 8 units, in school order (ratio:1-4, pct:1-5; web/src/learn/content/ratio.ts, pct.ts)
+  ratio: {
+    models: String.raw`A ratio compares two quantities in the order the question asks ("שלוש לארבע"), and is also a quotient. Simplify or expand by multiplying or dividing both terms. $m : n$ is $m + n$ equal parts of the whole. A proportion is two equal ratios, solved through one unit ("ליחידה אחת") or "פי כמה", and shown on a double number line. A scale $1 : S$ has both sides in the same unit, then converts (cm to m to km); areas scale by $S^2$.`,
+    words: ['יחס', 'יחס מצומצם', 'חלוקה ביחס', 'פרופורציה', 'ליחידה אחת', 'קנה מידה'],
+    avoid: [
+      'keeping the same difference instead of the same ratio (adding the same number to both terms)',
+      'cross-multiplication taught as a trick before the one-unit way',
+      '"the area grows like the length" (an area scales by the square)',
+    ],
+    avoidRe: [
+      // the same difference stated as the way to keep a ratio
+      re(String.raw`(?:כדי\s+(?:לשמור\s+על|לקבל)\s+(?:את\s+)?(?:אותו\s+)?(?:ה)?יחס|ביחס\s+שווה)\s*,?\s+(?:מוסיפים|מחברים)\s+(?:את\s+)?(?:אותו\s+(?:ה)?מספר|מספר\s+זהה)`),
+      // the area said to grow as the length does (an area scales by the square of the scale)
+      re(String.raw`(?:ה)?שטח\s+(?:גדל|קטן|משתנה)\s+(?:(?:באותו\s+(?:יחס|מספר|קנה\s+מידה)\s+)?כמו|באותו\s+(?:יחס|מספר|קנה\s+מידה)\s+של)\s+(?:ש)?(?:ה)?(?:אורך|צלע|אורכים|צלעות)${unless('בריבוע|ריבוע|פעמיים')}`),
+    ],
+  },
+  pct: {
+    models: String.raw`A percent is hundredths of a whole: the percent bar ($0$ to $100\%$ above, $0$ to the whole below) and the double number line. Benchmarks: $50\%$, $25\%$, $10\%$, $5\%$, $1\%$. "$p\%$ of" is multiplying by $\frac{p}{100}$; "what percent" is part over whole times $100$; the whole is found through $1\%$ or a benchmark, and checked. A change is multiplying by $1 \pm \frac{p}{100}$, always of the amount before the change, so two changes multiply ($+10\%$ then $-10\%$ is $0.99$ of the start).`,
+    words: ['אחוז', 'השלם', 'מאית', 'התייקרות', 'הוזלה', 'הנחה', 'פי'],
+    avoid: [
+      '"a percent cannot be more than 100"',
+      'subtracting the percent number as shekels',
+      '"+10% then -10% gives the price back"',
+      '"divide by the percent"',
+    ],
+    avoidRe: [
+      // "a percent cannot be more than 100" stated as a rule
+      re(String.raw`(?:אחוז|אחוזים)\s+(?:לא\s+יכול(?:ים)?|אי\s+אפשר(?:\s+ש)?)\s+(?:להיות\s+)?(?:יותר|מעל|גדול(?:ים)?\s+(?:מ־?|מ))\s*(?:מ־?)?\s*\$?100`),
+      // a rise and the same fall said to bring the price back
+      re(String.raw`(?:מתייקר|התייקר|עולה|עלה)\s+(?:ב־?)?\s*\$?10\\?%\$?\s+(?:ואז|ואחר\s+כך|ואחר־כך)\s+(?:מוזל|הוזל|יורד|ירד)\s+(?:ב־?)?\s*\$?10\\?%\$?\s*,?\s+(?:חוזרים|חוזר|חוזרת|מקבלים\s+את)\s+(?:ל)?(?:ה)?(?:מחיר|מחיר\s+המקורי|מקור)${unless('לא חוזר|לא מקבלים')}`),
+    ],
   },
   line: {
     models: 'A table of values is repeated substitution. $b$ is the start, the $y$ at $x = 0$; $m$ is the step: how much the line rises (falls, when negative) per step right. Slope on a graph is a staircase, rise over steps right. Between two points: difference in $y$ over difference in $x$, both from the same point. A point on a line satisfies its equation: substitute it. Intercepts come from substituting $0$ and are the legs of the triangle with the axes. Two lines meet where the same $x$ gives the same $y$.',

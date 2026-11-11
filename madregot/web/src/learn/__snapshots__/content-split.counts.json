@@ -408,10 +408,45 @@
      1,
      1
     ]
+   },
+   "frac:3": {
+    "discover": 8,
+    "examples": [
+     3,
+     3,
+     4
+    ],
+    "misconceptions": [
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "frac:4": {
+    "discover": 8,
+    "examples": [
+     2,
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1
+    ],
+    "objectives": 4,
+    "together": [
+     1,
+     1
+    ]
    }
   },
-  "stairs": 2,
-  "steps": 47
+  "stairs": 4,
+  "steps": 94
  },
  "line": {
   "skills": {
@@ -562,6 +597,97 @@
   "stairs": 8,
   "steps": 252
  },
+ "pct": {
+  "skills": {
+   "pct:1": {
+    "discover": 8,
+    "examples": [
+     3,
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "pct:2": {
+    "discover": 8,
+    "examples": [
+     3,
+     2,
+     2
+    ],
+    "misconceptions": [
+     1,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "pct:3": {
+    "discover": 8,
+    "examples": [
+     2,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "pct:4": {
+    "discover": 8,
+    "examples": [
+     3,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "pct:5": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     2
+    ],
+    "misconceptions": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 97
+ },
  "pyth": {
   "skills": {
    "pyth:1": {
@@ -653,6 +779,79 @@
   "stairs": 5,
   "steps": 145
  },
+ "ratio": {
+  "skills": {
+   "ratio:1": {
+    "discover": 8,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "ratio:2": {
+    "discover": 8,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     1,
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "ratio:3": {
+    "discover": 8,
+    "examples": [
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "ratio:4": {
+    "discover": 8,
+    "examples": [
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   }
+  },
+  "stairs": 4,
+  "steps": 76
+ },
  "signed": {
   "skills": {
    "signed:1": {
@@ -742,10 +941,29 @@
      2,
      2
     ]
+   },
+   "signed:6": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     1
+    ],
+    "objectives": 2,
+    "together": [
+     2,
+     1
+    ]
    }
   },
-  "stairs": 5,
-  "steps": 144
+  "stairs": 6,
+  "steps": 168
  },
  "stats": {
   "skills": {

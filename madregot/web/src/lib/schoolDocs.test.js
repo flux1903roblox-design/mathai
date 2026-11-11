@@ -50,7 +50,8 @@ describe('the pilot kit', () => {
     // the product sheet: the topics of both grades, and the demo address
     const sheet = fillSchoolDoc(DOCS['product-sheet'], full());
     expect(sheet).toContain('**הנושאים:** כיתה ז׳: מספרים מכוונים, מערכת צירים');
-    expect(sheet).toContain('; כיתה ח׳: פונקציה קווית');
+    // grade 8 in school order: the curriculum lane's ratio and percent units come before linear functions
+    expect(sheet).toContain('; כיתה ח׳: יחס וקנה מידה, אחוזים, פונקציה קווית');
     expect(sheet).toContain(`${escapeMd(BASE)}\\#/?start=demo`);
   });
 

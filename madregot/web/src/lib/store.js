@@ -9,7 +9,7 @@ import { learnAfterAnswer, learnAfterCheck, emptyLearn } from '@/learn/storeGlue
 import { markTaught as markTaughtRec } from '@/learn/mastery.ts';
 import { logEvent } from '@/learn/analytics.ts';
 import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
-import { completeMissionItems } from '@/learn/mission.ts';
+import { completeMissionItems, missionDone } from '@/learn/mission.ts';
 import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 import { randomHex } from './random.js';
 import { migrate, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS, emptyClassWork } from './durable/migrations.js';
@@ -20,6 +20,8 @@ import { applyTheme } from './theme.js';
 import { streakRepair, itemsOn } from './streak.js';
 import { isRestDay } from '@shared/restDays.js';
 import { emptyLook, earnIds, unlockedLook, unlockedIds } from './wardrobe.js';
+import { challengeXP } from '@/learn/challenges/grade.ts';
+import { challengeById } from '@/learn/challenges/index.ts';
 
 import { today, dayBefore, learnedOn, isActiveDay, isShabbat, keptDay, streakOf } from './days.js';
 
@@ -56,7 +58,8 @@ export const empty = {
   progress: {}, // topicId -> { level, max }
   // 'YYYY-MM-DD' -> { q, ok, secs (answer time), tsecs (time on learning screens, lib/learnClock.js: never makes a day
   // active), lessons, stages (teaching stages finished), mp (passed mastery checks), xp, combo, perfect, reviews,
-  // planLessons, frozen (true: a freeze; 'repair': an earned repair), questsRewarded }
+  // missionDone (today's mission finished: the daily quest), frozen (true: a freeze; 'repair': an earned repair),
+  // questsRewarded } (planLessons: written by the retired improvement plan, read by nothing any more)
   days: {},
   xp: 0, // always the sum of xpBy: every XP write goes through addXp (lib/durable/xp.js)
   xpBy: {}, // device tag -> XP earned on that device
@@ -99,8 +102,10 @@ export const empty = {
   solveMode: 'answer', // 'answer' (keypad) or 'notebook' (write the working on a squared page)
   exams: [], // checked exams, newest first: { id, at, title, source, practiceId, result, score, levels }
   practiceExams: [], // printable practice exams with their answer key
-  planBase: {}, // topic -> { level, wins, at }: the focus level and wins counted there when the plan step started
-  wins: {}, // 'topic:level' -> correct answers at that level
+  // the retired improvement plan's baselines and counts (CURRICULUM-7): nothing writes them any more. Older saves keep
+  // theirs until a DURABLE migration drops the fields; a reset or a sign-out clears them.
+  planBase: {},
+  wins: {},
   gaps: {}, // 'topic:cat' (or 'topic:exam:skill') -> { level, n, ok, at, text? }: what is not clear yet; clears after GAP_CLEAR right answers at that level
   placement: null, // { at, grade, results: { topic: { level, asked, right } } }
   learn: emptyLearn(), // Madregot 2.0: skills (evidence, mastery, reviews), misconceptions, exam plan, missions, events (src/learn/types.ts)
@@ -163,6 +168,19 @@ export function migrateState(saved, version, { personal = PERSONAL_KEY } = {}) {
 }
 
 /**
+ * Saved state over the defaults. zustand's own merge is shallow: a saved `learn` would replace emptyLearn() whole, so a
+ * save from before a new learn field (floor, challenges: curriculum stage 1) would come back without it, and migrate
+ * does not run for a save already at this version. The learn fields are merged one level deeper instead. With nothing
+ * read (a first visit, or saving held by the demo class: heldStorage reads nothing) the learn in memory stays, with any
+ * missing part added.
+ */
+export const mergeSaved = (saved, cur) => {
+  const s = saved && typeof saved === 'object' ? saved : {};
+  const learn = s.learn && typeof s.learn === 'object' ? s.learn : cur?.learn;
+  return { ...cur, ...s, learn: { ...emptyLearn(), ...(learn && typeof learn === 'object' ? learn : {}) } };
+};
+
+/**
  * The store's state and actions, without the saving around them: useApp below wraps it in persist; the tests of the
  * merges between tabs make two stores of it on one storage (durable/tabs.test.js).
  */
@@ -184,7 +202,6 @@ export const appState = (set, get) => ({
       /** A new class exam (TEACHER-3): first in the list, and the oldest beyond TEACHER_EXAMS goes. */
       addTeacherExam: (te) => set({ teacherExams: [te, ...(get().teacherExams || []).filter((x) => x.id !== te.id)].slice(0, TEACHER_EXAMS) }),
       updateTeacherExam: (id, patch) => set({ teacherExams: (get().teacherExams || []).map((x) => (x.id === id ? { ...x, ...patch } : x)) }),
-      resetPlanBase: (patch) => set({ planBase: { ...get().planBase, ...patch } }),
       setLevel: (topicId, level, max) => set({
         progress: { ...get().progress, [topicId]: { level, max: Math.max(max, get().progress[topicId]?.max || 1) } },
         lastTopic: topicId,
@@ -192,14 +209,12 @@ export const appState = (set, get) => ({
       recordAnswer: (event, xpGain) => {
         const d = today(); const cur = get().days[d] || { q: 0, ok: 0, secs: 0 };
         const mistakes = { ...get().mistakes };
-        const wins = event.ok && event.level ? { ...get().wins, [`${event.topic}:${event.level}`]: (get().wins[`${event.topic}:${event.level}`] || 0) + 1 } : get().wins;
         if (event.cat && !event.ok) mistakes[`${event.topic}:${event.cat}`] = (mistakes[`${event.topic}:${event.cat}`] || 0) + 1;
         set({
           // lessons: 0 marks a day of this version: answers alone do not keep the streak, a finished lesson does
           days: { ...get().days, [d]: { ...cur, lessons: cur.lessons ?? 0, q: (cur.q || 0) + 1, ok: (cur.ok || 0) + (event.ok ? 1 : 0), secs: (cur.secs || 0) + Math.min(event.secs || 0, 300) } },
           ...addXp(get(), xpGain),
           mistakes,
-          wins,
           gaps: noteGap(get().gaps, event),
           // a class student's answer waits here until the server has it; its id makes a resent answer count once
           outbox: get().profile?.token ? [...get().outbox, toWire({ ...event, id: randomHex(6) })].slice(-OUTBOX_MAX) : get().outbox,
@@ -251,10 +266,21 @@ export const appState = (set, get) => ({
         // what the path unlocks for Madi is earned for good, before this check (a kept stair it reopens) and after it
         const look = earnIds(st.look, [...lookIds(st, st.path), ...lookIds(st, path)], d, { seen: false });
         const stepsOut = withStep(st, r.purpose === 'mastery' && r.passed ? 3 : 1);
-        set({ learn, days, streak, ...addXp(st, r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic, look, stepsOut });
+        // the floor check is about the fractions floor, not practice in it: the map's "where I am" stays where it was
+        set({ learn, days, streak, ...addXp(st, r.xp || 0), path, progress, lastTopic: r.purpose === 'floor' ? st.lastTopic : r.topic || st.lastTopic, look, stepsOut });
         return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
+      /**
+       * The student's own say over the floor (Topics → יסודות לחיזוק): { on: false } takes the bridge unit off the map.
+       * The evidence of the floor check stays; a later check that misses a fractions question puts the unit back.
+       * Only an existing record changes: with no floor check there is nothing to switch.
+       */
+      setFloor: (patch) => {
+        const L = get().learn; const floor = L.floor ?? null;
+        if (!floor) return;
+        set({ learn: { ...L, floor: { ...floor, ...patch } } });
+      },
       /**
        * A teaching stage finished, as the student lives it: the stage is recorded as learning (never mastery), the
        * first time it earns XP towards the daily goal (STAGE_XP), and the day counts for the streak like a lesson.
@@ -283,7 +309,77 @@ export const appState = (set, get) => ({
       setStagePos: (skill, stage, i) => { const L = get().learn; const r = L.skills[skill] || { attempts: [] }; set({ learn: { ...L, skills: { ...L.skills, [skill]: { ...r, pos: { ...(r.pos || {}), [stage]: i } } } } }); },
       startRepair: (skill, misc) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, miscon: startRepairRec(L.miscon, skill, misc, today(), at), events: logEvent(L.events, { e: 'repair-start', s: skill, m: misc }, at) } }); },
       saveMission: (day, items) => { const L = get().learn; const keep = Object.fromEntries(Object.entries(L.missions).filter(([d]) => d >= dayBefore(dayBefore(day)))); set({ learn: { ...L, missions: { ...keep, [day]: { items } } } }); },
-      completeMission: (done) => { const L = get().learn; const d = today(); const m = L.missions[d]; if (!m) return; set({ learn: { ...L, missions: { ...L.missions, [d]: { items: completeMissionItems(m.items, done, new Date().toISOString()) } } } }); },
+      /**
+       * A finished activity ticks its item of today's mission. When that finishes the mission, the day records it
+       * (days[d].missionDone: the daily quest "השלימו את המשימה שלי להיום"), and when that quest is the day's last, the
+       * chest opens here (a streak freeze, as completeLesson does). Returns what to celebrate: { questsDone, freezeEarned }.
+       */
+      completeMission: (done) => {
+        const st = get(); const L = st.learn; const d = today(); const m = L.missions[d];
+        if (!m) return { questsDone: false, freezeEarned: false };
+        const items = completeMissionItems(m.items, done, new Date().toISOString());
+        const patch = { learn: { ...L, missions: { ...L.missions, [d]: { items } } } };
+        const cur = st.days[d] || {};
+        let questsDone = false; let freezeEarned = false;
+        if (missionDone(items) && !cur.missionDone) {
+          const questsBefore = questProgress(d, cur).every((q) => q.done);
+          const day = { ...cur, missionDone: 1 };
+          questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
+          freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
+          if (questsDone) day.questsRewarded = true;
+          patch.days = { ...st.days, [d]: day };
+          patch.freezes = Math.min(2, st.freezes + (freezeEarned ? 1 : 0));
+        }
+        set(patch);
+        return { questsDone, freezeEarned };
+      },
+      /**
+       * A challenge task opened (CURRICULUM-6): its record starts once (a second visit keeps the first start), and the
+       * analytics event says which task, never any text.
+       */
+      startChallenge: (id) => {
+        const L = get().learn; const at = new Date().toISOString(); const all = L.challenges ?? {};
+        set({ learn: { ...L, challenges: all[id] ? all : { ...all, [id]: { startedAt: at, firstTry: 0, parts: 0 } }, events: logEvent(L.events, { e: 'challenge-start', m: id }, at) } });
+      },
+      /**
+       * A challenge task finished: { firstTry, parts } counts the scored parts and those right on the first try (explain
+       * parts are not among them). The first finish earns 20 XP and 5 per first-try part (at most 40), and counts for the
+       * day like a lesson (days[d].lessons and its XP, for the streak, the daily goal and the quests); a second finish earns
+       * nothing. It never touches mastery: learn.skills and the checks are left as they are. The analytics event carries
+       * the share right on the first try (n), and no text. The finish is reported to today's mission (Done.kind
+       * 'challenge'): it ticks that task's item, and when that finishes the mission, its quest (and maybe the chest).
+       * Returns what to celebrate.
+       */
+      finishChallenge: (id, result) => {
+        const st = get(); const L = st.learn; const at = new Date().toISOString(); const all = L.challenges ?? {};
+        const task = challengeById(id);
+        const toMission = (out) => {
+          const m = get().completeMission({ kind: 'challenge', challengeId: id, ...(task ? { skill: task.after } : {}) });
+          return { ...out, questsDone: out.questsDone || m.questsDone, freezeEarned: out.freezeEarned || m.freezeEarned };
+        };
+        const firstTry = Math.max(0, result?.firstTry || 0); const parts = Math.max(0, result?.parts || 0);
+        const n = parts ? firstTry / parts : 0;
+        if (all[id]?.doneAt) {
+          set({ learn: { ...L, events: logEvent(L.events, { e: 'challenge-done', m: id, n }, at) } });
+          return toMission({ xp: 0, again: true, streakExtended: false, streak: streakOf(st.days), goalReached: false, questsDone: false, freezeEarned: false });
+        }
+        const xp = challengeXP(firstTry);
+        const d = today(); const cur = st.days[d] || {};
+        const questsBefore = questProgress(d, cur).every((q) => q.done);
+        const goalBefore = (cur.xp || 0) >= st.goalXp;
+        const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + xp };
+        const questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
+        const freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
+        if (questsDone) day.questsRewarded = true;
+        // like a lesson: the streak's repair (main's lib/streak.js), every XP write through addXp, a class goal step
+        const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
+        const rec = { startedAt: all[id]?.startedAt || at, doneAt: at, firstTry, parts };
+        set({
+          days, streak, ...addXp(st, xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), stepsOut: withStep(st, 1),
+          learn: { ...L, challenges: { ...all, [id]: rec }, events: logEvent(L.events, { e: 'challenge-done', m: id, n }, at) },
+        });
+        return toMission({ xp, again: false, streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned });
+      },
       setExam: (input) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, exam: input ? newPlan(input, at) : null, events: input ? logEvent(L.events, { e: 'rescue-created' }, at) : L.events } }); },
       recordExamDiagnostic: (skill, right, asked) => { const L = get().learn; if (!L.exam) return; set({ learn: { ...L, exam: recordDiagnostic(L.exam, skill, right, asked, new Date().toISOString()) } }); },
       addXP: (n) => set(addXp(get(), n)),
@@ -304,18 +400,23 @@ export const appState = (set, get) => ({
        * Returns what to celebrate: { streakExtended, streakRepaired, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
        * Practice never marks a stair done (only its mastery check does): practiceDone says the check is next.
        */
-      completeLesson: (r, { fromPlan = false } = {}) => {
+      completeLesson: (r) => {
         const st = get(); const d = today(); const cur = st.days[d] || {};
         const questsBefore = questProgress(d, cur).every((q) => q.done);
         const goalBefore = (cur.xp || 0) >= st.goalXp;
         const day = {
           ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + r.xp, combo: Math.max(cur.combo || 0, r.bestCombo || 0),
           perfect: (cur.perfect || 0) + (r.perfect ? 1 : 0), reviews: (cur.reviews || 0) + (r.kind === 'review' ? 1 : 0),
-          planLessons: (cur.planLessons || 0) + (fromPlan ? 1 : 0),
         };
         const questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
         const freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
         if (questsDone) day.questsRewarded = true;
+        // multiplication facts (/facts) are a lesson of the day (XP, streak, quests) on no stair: no path, no topic level
+        if (r.kind === 'facts') {
+          const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
+          set({ days, streak, ...addXp(st, r.xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), stepsOut: withStep(st, 1) });
+          return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), practiceDone: false, unitDone: false, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
+        }
         const { path, practiceDone, unitDone } = recordOnPath(st.path, r);
         // The topic level follows the path: a passed jump test moves it on (a stair's own move is its mastery check).
         const p = st.progress[r.topic] || { level: 1, max: 1 };
@@ -422,8 +523,8 @@ export const appState = (set, get) => ({
       },
 });
 
-/** How the store is saved: under STORE_KEY, at CURRENT_VERSION, migrated from older saves. */
-export const persistOptions = (storage) => ({ name: STORE_KEY, storage, version: CURRENT_VERSION, migrate: (saved, version) => migrateState(saved, version) });
+/** How the store is saved: under STORE_KEY, at CURRENT_VERSION, migrated from older saves, learn merged a level deeper. */
+export const persistOptions = (storage) => ({ name: STORE_KEY, storage, version: CURRENT_VERSION, migrate: (saved, version) => migrateState(saved, version), merge: mergeSaved });
 
 // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot').
 // Saved through the safe write path (lib/durable/storage.js): one write per tick, the copy on the device, quarantine,

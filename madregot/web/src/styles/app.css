@@ -449,7 +449,6 @@ details.sol[open] summary { margin-bottom: var(--s2); }
 .q-answers dd.struck { color: var(--magenta); text-decoration: line-through; text-decoration-thickness: 2px; }
 .q-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
 .weak-reason { font-size: var(--t-sm); }
-.plan-target { font-weight: 600; }
 .pick { display: flex; align-items: center; gap: var(--s2); min-height: 52px; padding: 0 var(--s3); border-radius: 12px; border: 2px solid var(--rule-strong); background: var(--paper); font-weight: 700; text-align: start; }
 .pick.on { border-color: var(--c); background: var(--c-tint); }
 .exam-sheet { display: flex; flex-direction: column; gap: var(--s5); border: 1px solid var(--rule); border-radius: var(--r-md); padding: var(--s5); }
@@ -550,7 +549,6 @@ details.sol[open] summary { margin-bottom: var(--s2); }
   .sd-print-doc hr { break-before: page; margin: 0 0 8mm; border: 0; border-top: 1pt dashed #000; } /* colour-ok: printed on paper, black ink whatever the theme */
   .sd-print-doc hr + h2 { margin-top: 0; }
 }
-.plan-meter { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .qstrip { display: inline-flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
 .qstrip i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 5px; font-style: normal; font-size: 11px; font-weight: 800; }
 .qstrip i.ok { background: var(--ok-tint); color: var(--ok); }
@@ -1420,7 +1418,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .quest-icon { position: relative; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: var(--brand-tint); color: var(--brand-d); }
 .quest-xp .quest-icon, .quest-perfect .quest-icon { background: var(--gold-tint); color: var(--gold-ink); }
 .quest-combo .quest-icon { background: var(--streak-tint); color: var(--streak-ink); }
-.quest-review .quest-icon, .quest-correct .quest-icon { background: var(--ch-petrol-tint); color: var(--ch-petrol-ink); }
+.quest-mission .quest-icon, .quest-correct .quest-icon { background: var(--ch-petrol-tint); color: var(--ch-petrol-ink); }
 .quest-tick { position: absolute; inset-inline-end: -6px; bottom: -6px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--good); color: var(--on-good); box-shadow: 0 0 0 2px var(--paper); }
 .quest-bar { height: 12px; border-radius: 999px; background: var(--rule); overflow: hidden; }
 .quest-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(180deg, #ffd34d, var(--gold)); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08); } /* colour-ok: a shade (black at low alpha), the same in both themes */

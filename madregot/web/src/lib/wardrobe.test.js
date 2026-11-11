@@ -51,7 +51,8 @@ describe('the wardrobe catalogue', () => {
     // petrol: angles (grade 7) and sys (grade 8); a grade 8 student who completed sys
     const u = unlockedLook({ path: withDone('sys', all('sys')), grade: '8' });
     expect(u.why.get('petrol')).toBe('מיחידת משוואות ומערכות');
-    expect(lockedReason('petrol', '8').text).toBe('נפתח כשתשלטו בכל המדרגות ביחידת משוואות ומערכות.');
+    // grade 8's first petrol unit is percent now (the curriculum lane's units come before linear functions)
+    expect(lockedReason('petrol', '8').text).toBe('נפתח כשתשלטו בכל המדרגות ביחידת אחוזים.');
     expect(lockedReason('petrol', '7').text).toBe('נפתח כשתשלטו בכל המדרגות ביחידת זוויות.');
   });
 
@@ -95,7 +96,9 @@ describe('the wardrobe catalogue', () => {
   it('the locked and unlock sentences', () => {
     expect(lockedReason('protractor-crown', '7')).toEqual({ text: `נפתח כשתשלטו במדרגות 1 עד ${chestAfter('angles')} ביחידת זוויות.`, topic: 'angles' });
     expect(unlockReason('protractor-crown')).toBe('שלטתם בחצי הראשון של זוויות, ומדי קיבל כתר מד־זווית.');
-    expect(lockedReason('gold', '8')).toEqual({ text: 'נפתח כשתשלטו בכל המדרגות ביחידת מספרים מכוונים.', topic: 'signed' });
+    // gold comes with a sky unit: in grade 8 the first one is ratio and scale (grade 7's, signed numbers)
+    expect(lockedReason('gold', '8')).toEqual({ text: 'נפתח כשתשלטו בכל המדרגות ביחידת יחס וקנה מידה.', topic: 'ratio' });
+    expect(lockedReason('gold', '7')).toEqual({ text: 'נפתח כשתשלטו בכל המדרגות ביחידת מספרים מכוונים.', topic: 'signed' });
   });
 
   it('the unlock moment leads with the result\'s own unit', () => {

@@ -396,3 +396,103 @@ describe('lessonTopics: the teaching content a lesson waits for (DURABLE-11)', (
     expect(lessonTopics(null)).toEqual([]);
   });
 });
+
+// The floor check (/floor) and multiplication facts (/facts): curriculum stage 1, CURRICULUM-3.
+describe('the floor check', () => {
+  const FLOOR = { kind: 'check', purpose: 'floor', skills: ['frac:1', 'frac:2', 'frac:3', 'frac:4'], topic: 'frac', level: 1 };
+  /** Play a floor check: `wrong(item)` says which questions to miss. Returns the finished state and every answer event. */
+  const play = (wrong) => {
+    let s = startLesson(FLOOR); const events = [];
+    for (let k = 0; k < 10 && !s.finished; k += 1) {
+      const r = answer(s, wrong(s.item) ? wrongOf(s) : right(s));
+      events.push(r.result.event);
+      s = next(r.s);
+    }
+    return { s, events };
+  };
+  beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ goalXp: 20, lastTopic: 'coord' }); });
+
+  it('runs 6 questions: one of each fractions stair and two multiplication facts, one try each', () => {
+    const { s, events } = play(() => false);
+    expect(s.total).toBe(6);
+    expect(events).toHaveLength(6);
+    expect(events.map((e) => `${e.topic}:${e.level}`).sort()).toEqual(['facts:0', 'facts:0', 'frac:1', 'frac:2', 'frac:3', 'frac:4']);
+    // the fractions answers are diagnostic evidence (as an Exam Rescue diagnostic), never practice
+    expect(new Set(events.map((e) => e.purpose))).toEqual(new Set(['diagnostic']));
+    const r = resultOf(s);
+    expect(r).toMatchObject({ kind: 'check', purpose: 'floor', right: 6, asked: 6, passed: true, xp: XP.diagnostic });
+    expect(r.perSkill).toEqual({ 'frac:1': { right: 1, asked: 1 }, 'frac:2': { right: 1, asked: 1 }, 'frac:3': { right: 1, asked: 1 }, 'frac:4': { right: 1, asked: 1 }, 'facts:0': { right: 2, asked: 2 } });
+  });
+  it('a missed fractions question writes learn.floor with the unit on; the day counts a lesson; the map stays where it was', () => {
+    const { s, events } = play((it) => it.topic === 'frac' && it.level === 3);
+    events.forEach((e) => useApp.getState().recordAnswer(e, 0));
+    const award = useApp.getState().completeCheck(resultOf(s));
+    const st = useApp.getState();
+    expect(st.learn.floor).toMatchObject({ on: true, results: { 'frac:3': { asked: 1, right: 0 }, 'frac:1': { asked: 1, right: 1 } }, facts: { asked: 2, right: 2 } });
+    expect(st.learn.skills['frac:3'].attempts).toHaveLength(1);
+    expect(st.learn.skills['facts:0']).toBeUndefined(); // facts are on no stair
+    expect(st.days[today()]).toMatchObject({ lessons: 1, q: 6, ok: 5, xp: XP.diagnostic });
+    expect(award.streakExtended).toBe(true);
+    expect(st.lastTopic).toBe('coord'); // a check of the basics is not practice in them
+    expect(st.path).toEqual({}); // nothing on the path is done or started by it
+  });
+  it('nothing missed: the floor is recorded and stays off the map', () => {
+    const { s } = play(() => false);
+    useApp.getState().completeCheck(resultOf(s));
+    expect(useApp.getState().learn.floor).toMatchObject({ on: false, facts: { asked: 2, right: 2 } });
+  });
+  it('facts missed only: recorded, and the fractions unit stays off', () => {
+    const { s } = play((it) => it.topic === 'facts');
+    const r = resultOf(s);
+    expect(r).toMatchObject({ right: 4, asked: 6, passed: true });
+    useApp.getState().completeCheck(r);
+    expect(useApp.getState().learn.floor).toMatchObject({ on: false, facts: { asked: 2, right: 0 } });
+  });
+  it('the student hides the unit again (setFloor): the evidence stays', () => {
+    const { s } = play((it) => it.topic === 'frac' && it.level === 1);
+    useApp.getState().completeCheck(resultOf(s));
+    const before = useApp.getState().learn.floor;
+    useApp.getState().setFloor({ on: false });
+    expect(useApp.getState().learn.floor).toEqual({ ...before, on: false });
+  });
+  it('with no floor check yet there is nothing to switch', () => {
+    useApp.getState().setFloor({ on: true });
+    expect(useApp.getState().learn.floor).toBeNull();
+  });
+});
+
+describe('multiplication facts (/facts)', () => {
+  beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ goalXp: 20, lastTopic: 'signed' }); });
+
+  it('is 8 facts with practice rules, on no stair', () => {
+    let s = startLesson({ kind: 'facts', n: 8 });
+    expect(s.total).toBe(8);
+    expect(s.item).toMatchObject({ topic: 'facts', level: 0 });
+    // a first miss gets a hint and a second try; a second miss shows the answer and a fact comes back at the end
+    let r = answer(s, wrongOf(s)); s = r.s;
+    expect(r.result.retry).toBe(true); expect(s.hint).toBe(true);
+    expect(r.result.event).toMatchObject({ topic: 'facts', level: 0, purpose: 'practice', cat: null });
+    r = answer(s, wrongOf(s)); s = next(r.s);
+    s = run(s, Array(7).fill(true));
+    expect(s.redoing).toBe(true); expect(s.item).toMatchObject({ topic: 'facts', redo: true });
+    s = run(s, [true]);
+    expect(s.finished).toBe(true);
+    expect(resultOf(s)).toMatchObject({ kind: 'facts', topic: 'facts', level: 0, passed: true, xp: XP.lesson + XP.fix });
+  });
+  it('a finished facts lesson is a lesson of the day with practice XP, and records nothing in learn.skills, the path or the topic levels', () => {
+    let s = startLesson({ kind: 'facts', n: 8 }); const events = [];
+    for (let k = 0; k < 8; k += 1) { const r = answer(s, right(s)); events.push(r.result.event); s = next(r.s); }
+    events.forEach((e) => useApp.getState().recordAnswer(e, 0));
+    const learnBefore = useApp.getState().learn;
+    const award = useApp.getState().completeLesson(resultOf(s));
+    const st = useApp.getState();
+    expect(st.learn).toBe(learnBefore); // the facts answers changed nothing in the learning record
+    expect(st.learn.skills).toEqual({});
+    expect(st.path).toEqual({});
+    expect(st.progress).toEqual({});
+    expect(st.lastTopic).toBe('signed');
+    expect(st.days[today()]).toMatchObject({ lessons: 1, q: 8, ok: 8, xp: XP.lesson + XP.perfect, perfect: 1 });
+    expect(st.xp).toBe(XP.lesson + XP.perfect);
+    expect(award).toMatchObject({ streakExtended: true, streak: 1, practiceDone: false, unitDone: false });
+  });
+});

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { LearnState, SkillRecord } from './types';
-import { TOPIC_ORDER, ALL_SKILLS, PREREQS, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS } from './skills';
+import { TOPIC_ORDER, ALL_SKILLS, PREREQS, STAIRS, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS } from './skills';
 // @ts-ignore: plain JS
 import { topicsFor, bridgeTopicsFor, rescueTopicsFor } from '@/content/index.js';
 import { addAttempt, markTaught, masteryState, recordMasteryCheck, recordReview, nextStage, dueReviews, MASTERY_N, REVIEW_DAYS, addDays } from './mastery';
@@ -107,9 +107,27 @@ describe('the topic list the tutor and the exam check use', () => {
   });
 });
 
+describe('grade 8 in school order (percent after ratio, before linear functions)', () => {
+  it('puts pct after ratio and before line, and keeps the first-day test at 18 questions', async () => {
+    expect(TOPIC_ORDER.indexOf('pct')).toBe(TOPIC_ORDER.indexOf('ratio') + 1);
+    expect(TOPIC_ORDER.indexOf('pct')).toBeLessThan(TOPIC_ORDER.indexOf('line'));
+    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys']);
+    // @ts-ignore: plain JS
+    const { placementMax } = await import('@/lib/placement.js');
+    // @ts-ignore: plain JS
+    const { topicsFor, placementTopicsFor, rescueTopicsFor } = await import('@/content/index.js');
+    // ratio and pct are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3
+    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 3)).toEqual(['ratio', 'pct', 'line']);
+    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('pct');
+    expect(placementMax('8')).toBe(18);
+    // ז׳ meets percents in relative frequency: Exam Rescue offers the unit to ז׳ too
+    expect(rescueTopicsFor('7').map((t: { id: string }) => t.id)).toContain('pct');
+  });
+});
+
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(50);
+    expect(ALL_SKILLS).toHaveLength(62); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year)
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
@@ -124,7 +142,7 @@ describe('the prerequisite graph', () => {
 describe('the bridge unit (fractions): the floor under the grade, never a stair of it', () => {
   it('is in no grade\'s own list, and topicsFor shows no bridge unit', () => {
     expect([...BRIDGE]).toEqual(['frac']);
-    expect(BRIDGE_SKILLS).toEqual(['frac:1', 'frac:2']);
+    expect(BRIDGE_SKILLS).toEqual(['frac:1', 'frac:2', 'frac:3', 'frac:4']);
     for (const g of ['7', '8'] as const) {
       expect(gradeSkillsOf(g).some((id) => id.startsWith('frac:'))).toBe(false);
       expect((topicsFor(g) as { bridge?: boolean }[]).some((t) => t.bridge)).toBe(false);
@@ -134,7 +152,7 @@ describe('the bridge unit (fractions): the floor under the grade, never a stair 
     expect(topicsFor('7')[0].id).toBe('signed');
     expect(gradeSkillsOf('7')[0]).toBe('signed:1');
     // its stairs come first in the catalogue, so ALL_SKILLS stays in prerequisite order
-    expect(ALL_SKILLS.slice(0, 2)).toEqual(['frac:1', 'frac:2']);
+    expect(ALL_SKILLS.slice(0, 4)).toEqual(['frac:1', 'frac:2', 'frac:3', 'frac:4']);
   });
   it('a fractions stair is not missing for a grade 7 student with no evidence', () => {
     expect(isMissing(ctx(empty(), '7'), 'frac:1')).toBe(false);
@@ -170,6 +188,18 @@ describe('the bridge unit (fractions): the floor under the grade, never a stair 
     const learn = empty();
     learn.skills['frac:1'] = { attempts: [att(true)], taught: { A: NOW } };
     expect(nextActions(ctx(learn, '7')).find((a) => a.skill === 'frac:1')).toMatchObject({ kind: 'continue' });
+  });
+  it('an edge into a bridge stair counts on evidence only: equations are still new for grade 7 with no fraction evidence', () => {
+    expect(PREREQS['eq:1']).toContain('frac:4');
+    // every grade 7 unit before equations passed on the map; nothing at all is known about fractions
+    const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: STAIRS[t] }]));
+    const fresh = nextActions(ctx(empty(), '7', { path })).find((a) => a.kind === 'new');
+    expect(fresh).toMatchObject({ skill: 'eq:1' });
+    // and the reason does not claim the fractions stair as something the student already has
+    expect(fresh!.reason).not.toContain('כפל וחילוק שברים');
+    // a failed floor check on frac:4 holds equations back, and points at it
+    const failed = { ...empty(), floor: { at: NOW, on: true, results: { 'frac:4': { asked: 1, right: 0 } }, facts: { asked: 2, right: 2 } } };
+    expect(nextActions(ctx(failed, '7', { path })).some((a) => a.kind === 'new' && a.skill === 'eq:1')).toBe(false);
   });
 });
 
@@ -359,10 +389,10 @@ describe('recommendations', () => {
   it('counts stairs already passed on the map as known', () => {
     // done before mastery checks existed (kept), or passed over by the placement test
     const kept = ctx(empty(), '7', { path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } } });
-    expect(nextActions(kept)[0]).toMatchObject({ kind: 'new', skill: 'signed:3' });
+    expect(nextActions(kept).find((a) => a.kind === 'new')).toMatchObject({ skill: 'signed:3' });
     expect(nextActions(ctx(empty(), '7', { path: { signed: { parts: {}, reviews: 0, jumped: 2 } } }))[0]).toMatchObject({ kind: 'new', skill: 'signed:3' });
-    // and a stair kept green is offered its mastery check
-    expect(nextActions(kept).find((a) => a.kind === 'mastery')).toMatchObject({ skill: 'signed:1', to: '/lesson/signed/1?kind=check&purpose=mastery' });
+    // and a stair kept green is offered its mastery check, before anything new (the stair in progress's band)
+    expect(nextActions(kept)[0]).toMatchObject({ kind: 'mastery', skill: 'signed:1', to: '/lesson/signed/1?kind=check&purpose=mastery' });
   });
 });
 
@@ -410,7 +440,8 @@ describe('the daily mission', () => {
     expect(todayRoute(two)).toBe('/learn/signed/1/B');
     // an item saved without its route gets it from routeOf
     expect(todayRoute([{ ...items[0], to: '' }])).toBe('/learn/signed/1/A');
-    expect(todayRoute([{ ...items[0], to: '', stage: 'D' }])).toBe('/lesson/signed/1?part=1&from=journey');
+    // practice names no part (the curriculum lane's one route for a stair's practice: the map's button and the plan's)
+    expect(todayRoute([{ ...items[0], to: '', stage: 'D' }])).toBe('/lesson/signed/1');
     expect(todayRoute([{ ...items[0], to: '', stage: undefined }])).toBe('/learn/signed/1');
     // nothing left (or no mission): the missions tab, where the day's card is
     expect(todayRoute(two.map((i) => ({ ...i, done: NOW })))).toBe('/quests');

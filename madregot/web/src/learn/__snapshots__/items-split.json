@@ -380,6 +380,8 @@
   "signed:4/gen",
   "signed:5/diag",
   "signed:5/gen",
+  "signed:6/diag",
+  "signed:6/gen",
   "coord:1/diag",
   "coord:1/gen",
   "coord:2/diag",
@@ -422,6 +424,24 @@
   "eq:5/gen"
  ],
  "diagnostic-8": [
+  "ratio:1/diag",
+  "ratio:1/gen",
+  "ratio:2/diag",
+  "ratio:2/gen",
+  "ratio:3/diag",
+  "ratio:3/gen",
+  "ratio:4/diag",
+  "ratio:4/gen",
+  "pct:1/diag",
+  "pct:1/gen",
+  "pct:2/diag",
+  "pct:2/gen",
+  "pct:3/diag",
+  "pct:3/gen",
+  "pct:4/diag",
+  "pct:4/gen",
+  "pct:5/diag",
+  "pct:5/gen",
   "line:1/diag",
   "line:1/gen",
   "line:2/diag",
@@ -667,16 +687,16 @@
   "signed:4/gen"
  ],
  "exam-8": [
-  "line:3/transfer",
-  "line:2/transfer",
-  "line:4/transfer",
-  "line:5/gen",
-  "line:2/gen",
-  "line:1/gen",
-  "line:3/gen",
-  "line:1/transfer",
-  "line:5/transfer",
-  "line:4/gen"
+  "ratio:3/transfer",
+  "ratio:2/transfer",
+  "ratio:4/transfer",
+  "pct:1/gen",
+  "ratio:2/gen",
+  "ratio:1/gen",
+  "ratio:3/gen",
+  "ratio:1/transfer",
+  "pct:1/transfer",
+  "ratio:4/gen"
  ],
  "expr:1": {
   "items": [
@@ -934,6 +954,80 @@
     "frac:2/probe/longer-larger",
     "frac:2/probe/longer-larger",
     "frac:2/control/longer-larger"
+   ]
+  }
+ },
+ "frac:3": {
+  "items": [
+   "mastery0:fr3a:1:2:5:9:add|1.0555555555555556|gen",
+   "mastery1:fr3m:1:1:2:4:1:3:add|5.833333333333333|gen",
+   "mastery2:frac:3:diag:{\"a\":5,\"b\":8,\"c\":1,\"d\":4,\"op\":1,\"L\":8}|0.875|diag",
+   "mastery3:fr3a:5:6:1:4:sub|0.5833333333333334|gen",
+   "mastery4:frac:3:transfer:{\"a\":1,\"b\":6,\"c\":2,\"d\":3,\"op\":1,\"L\":6}|0.8333333333333333|transfer",
+   "review0:frac:3:transfer:{\"a\":2,\"b\":3,\"c\":3,\"d\":4,\"op\":1,\"L\":12}|1.4166666666666665|transfer",
+   "review1:fr3a:3:4:1:6:sub|0.5833333333333334|gen",
+   "review2:frac:3:diag:{\"a\":5,\"b\":8,\"c\":1,\"d\":4,\"op\":1,\"L\":8}|0.875|diag",
+   "verify0:frac:3:probe:{\"a\":2,\"b\":3,\"c\":3,\"d\":4,\"op\":1,\"L\":12}|1.4166666666666665|probe",
+   "verify1:frac:3:probe:{\"a\":2,\"b\":3,\"c\":5,\"d\":8,\"op\":1,\"L\":24}|1.2916666666666665|probe",
+   "verify2:frac:3:control:{\"a\":3,\"b\":5,\"c\":1,\"d\":2,\"op\":-1,\"L\":10}|0.09999999999999998|control",
+   "gen:fr3m:2:1:4:3:1:4:add|5.5|gen",
+   "diag:frac:3:diag:{\"a\":3,\"b\":5,\"c\":1,\"d\":7,\"op\":1,\"L\":35}|0.7428571428571429|diag",
+   "transfer:frac:3:transfer:{\"a\":3,\"b\":5,\"c\":1,\"d\":7,\"op\":1,\"L\":35}|0.7428571428571429|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "frac:3/gen/",
+    "frac:3/gen/",
+    "frac:3/diag/",
+    "frac:3/gen/",
+    "frac:3/transfer/"
+   ],
+   "review": [
+    "frac:3/transfer/",
+    "frac:3/gen/",
+    "frac:3/diag/"
+   ],
+   "verify": [
+    "frac:3/probe/add-across",
+    "frac:3/probe/add-across",
+    "frac:3/control/add-across"
+   ]
+  }
+ },
+ "frac:4": {
+  "items": [
+   "mastery0:fr4q:1:2:18|9|gen",
+   "mastery1:fr4m:3:4:1:4:mul|0.1875|gen",
+   "mastery2:frac:4:diag:{\"mul\":false,\"a\":5,\"b\":6,\"c\":2,\"d\":5}|2.0833333333333335|diag",
+   "mastery3:fr4m:1:4:3:4:mul|0.1875|gen",
+   "mastery4:frac:4:transfer:{\"a\":1,\"b\":2,\"m\":2,\"d\":4}|2|transfer",
+   "review0:frac:4:transfer:{\"a\":1,\"b\":2,\"m\":3,\"d\":6}|3|transfer",
+   "review1:fr4m:1:2:1:2:mul|0.25|gen",
+   "review2:frac:4:diag:{\"mul\":false,\"a\":5,\"b\":6,\"c\":2,\"d\":5}|2.0833333333333335|diag",
+   "verify0:frac:4:probe:{\"mul\":true,\"a\":1,\"b\":2,\"c\":1,\"d\":2}|0.25|probe",
+   "verify1:frac:4:probe:{\"mul\":true,\"a\":2,\"b\":5,\"c\":3,\"d\":5}|0.24|probe",
+   "verify2:frac:4:control:{\"mul\":false,\"a\":5,\"b\":6,\"c\":2,\"d\":5}|2.0833333333333335|control",
+   "gen:fr4q:3:7:14|6|gen",
+   "diag:frac:4:diag:{\"mul\":false,\"a\":1,\"b\":5,\"c\":1,\"d\":2}|0.4|diag",
+   "transfer:frac:4:transfer:{\"a\":3,\"b\":5,\"m\":2,\"d\":10}|6|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "frac:4/gen/",
+    "frac:4/gen/",
+    "frac:4/diag/",
+    "frac:4/gen/",
+    "frac:4/transfer/"
+   ],
+   "review": [
+    "frac:4/transfer/",
+    "frac:4/gen/",
+    "frac:4/diag/"
+   ],
+   "verify": [
+    "frac:4/probe/keep-den",
+    "frac:4/probe/keep-den",
+    "frac:4/control/keep-den"
    ]
   }
  },
@@ -1233,6 +1327,191 @@
    ]
   }
  },
+ "pct:1": {
+  "items": [
+   "mastery0:pc1f:2:5|40|gen",
+   "mastery1:pc1f:7:25|28|gen",
+   "mastery2:pct:1:diag:{\"k\":1,\"x\":0.7}|70|diag",
+   "mastery3:pc1d:0.2|20|gen",
+   "mastery4:pct:1:transfer:{\"a\":48,\"b\":50}|96|transfer",
+   "review0:pct:1:transfer:{\"a\":2,\"b\":5}|40|transfer",
+   "review1:pc1f:3:10|30|gen",
+   "review2:pct:1:diag:{\"k\":1,\"x\":0.7}|70|diag",
+   "verify0:pct:1:probe:{\"k\":0,\"a\":3,\"b\":5}|60|probe",
+   "verify1:pct:1:probe:{\"k\":0,\"a\":13,\"b\":25}|52|probe",
+   "verify2:pct:1:control:{\"k\":1,\"x\":0.7}|70|control",
+   "gen:pc1o:1.4|1|gen",
+   "diag:pct:1:diag:{\"k\":0,\"a\":13,\"b\":25}|52|diag",
+   "transfer:pct:1:transfer:{\"a\":11,\"b\":20}|55|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pct:1/gen/",
+    "pct:1/gen/",
+    "pct:1/diag/",
+    "pct:1/gen/",
+    "pct:1/transfer/"
+   ],
+   "review": [
+    "pct:1/transfer/",
+    "pct:1/gen/",
+    "pct:1/diag/"
+   ],
+   "verify": [
+    "pct:1/probe/count-as-pct",
+    "pct:1/probe/count-as-pct",
+    "pct:1/control/count-as-pct"
+   ]
+  }
+ },
+ "pct:2": {
+  "items": [
+   "mastery0:pc2:5:800|40|gen",
+   "mastery1:pc2m:5:780|39|gen",
+   "mastery2:pct:2:diag:{\"p\":50,\"N\":444}|222|diag",
+   "mastery3:pc2:40:390|156|gen",
+   "mastery4:pct:2:transfer:{\"p\":60,\"N\":200}|120|transfer",
+   "review0:pct:2:transfer:{\"p\":15,\"N\":260}|39|transfer",
+   "review1:pc2m:50:240|120|gen",
+   "review2:pct:2:diag:{\"p\":50,\"N\":444}|222|diag",
+   "verify0:pct:2:probe:{\"p\":15,\"N\":260}|39|probe",
+   "verify1:pct:2:probe:{\"p\":10,\"N\":620}|62|probe",
+   "verify2:pct:2:diag:{\"p\":10,\"N\":640}|64|diag",
+   "gen:pc2:30:150|45|gen",
+   "diag:pct:2:diag:{\"p\":30,\"N\":430}|129|diag",
+   "transfer:pct:2:transfer:{\"p\":30,\"N\":430}|129|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pct:2/gen/",
+    "pct:2/gen/",
+    "pct:2/diag/",
+    "pct:2/gen/",
+    "pct:2/transfer/"
+   ],
+   "review": [
+    "pct:2/transfer/",
+    "pct:2/gen/",
+    "pct:2/diag/"
+   ],
+   "verify": [
+    "pct:2/probe/count-as-pct",
+    "pct:2/probe/count-as-pct",
+    "pct:2/control/count-as-pct"
+   ]
+  }
+ },
+ "pct:3": {
+  "items": [
+   "mastery0:pc3:32:20|160|gen",
+   "mastery1:pc3t:12:240:60,36,12,132|5|gen",
+   "mastery2:pct:3:diag:{\"A\":220,\"B\":250}|88|diag",
+   "mastery3:pc3t:24:160:24,56,40,40|15|gen",
+   "mastery4:pct:3:transfer:{\"A\":95,\"B\":250}|38|transfer",
+   "review0:pct:3:transfer:{\"A\":22,\"B\":40}|55|transfer",
+   "review1:pc3:43:50|86|gen",
+   "review2:pct:3:diag:{\"A\":220,\"B\":250}|88|diag",
+   "verify0:pct:3:probe:{\"A\":22,\"B\":40}|55|probe",
+   "verify1:pct:3:probe:{\"A\":31,\"B\":25}|124|probe",
+   "verify2:pct:3:diag:{\"A\":380,\"B\":400}|95|diag",
+   "gen:pc3:200:500|40|gen",
+   "diag:pct:3:diag:{\"A\":102,\"B\":120}|85|diag",
+   "transfer:pct:3:transfer:{\"A\":102,\"B\":120}|85|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pct:3/gen/",
+    "pct:3/gen/",
+    "pct:3/diag/",
+    "pct:3/gen/",
+    "pct:3/transfer/"
+   ],
+   "review": [
+    "pct:3/transfer/",
+    "pct:3/gen/",
+    "pct:3/diag/"
+   ],
+   "verify": [
+    "pct:3/probe/inverse-ratio",
+    "pct:3/probe/inverse-ratio",
+    "pct:3/control/inverse-ratio"
+   ]
+  }
+ },
+ "pct:4": {
+  "items": [
+   "mastery0:pc4:5:98|1960|gen",
+   "mastery1:pc4d:35:294|840|gen",
+   "mastery2:pct:4:diag:{\"p\":40,\"W\":1105,\"A\":442}|1105|diag",
+   "mastery3:pc4:20:225|1125|gen",
+   "mastery4:pct:4:transfer:{\"p\":75,\"W\":1924,\"A\":1443}|1924|transfer",
+   "review0:pct:4:transfer:{\"p\":20,\"W\":655,\"A\":131}|655|transfer",
+   "review1:pc4d:20:69|345|gen",
+   "review2:pct:4:diag:{\"p\":40,\"W\":1105,\"A\":442}|1105|diag",
+   "verify0:pct:4:probe:{\"p\":20,\"W\":655,\"A\":131}|655|probe",
+   "verify1:pct:4:probe:{\"p\":10,\"W\":1540,\"A\":154}|1540|probe",
+   "verify2:pct:4:diag:{\"p\":30,\"W\":680,\"A\":204}|680|diag",
+   "gen:pc4s:40:40:10|100|gen",
+   "diag:pct:4:diag:{\"p\":35,\"W\":1080,\"A\":378}|1080|diag",
+   "transfer:pct:4:transfer:{\"p\":35,\"W\":1080,\"A\":378}|1080|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pct:4/gen/",
+    "pct:4/gen/",
+    "pct:4/diag/",
+    "pct:4/gen/",
+    "pct:4/transfer/"
+   ],
+   "review": [
+    "pct:4/transfer/",
+    "pct:4/gen/",
+    "pct:4/diag/"
+   ],
+   "verify": [
+    "pct:4/probe/pct-of-part",
+    "pct:4/probe/pct-of-part",
+    "pct:4/control/pct-of-part"
+   ]
+  }
+ },
+ "pct:5": {
+  "items": [
+   "mastery0:pc5:0:50:332:2|166|gen",
+   "mastery1:pc5w:20:1200:0|1152|gen",
+   "mastery2:pct:5:diag:{\"k\":1,\"p\":30,\"N\":1000}|910|diag",
+   "mastery3:pc5:0:15:480:0|408|gen",
+   "mastery4:pct:5:transfer:{\"p\":50,\"up\":false,\"N\":298,\"M\":149}|50|transfer",
+   "review0:pct:5:transfer:{\"p\":10,\"up\":true,\"N\":220,\"M\":242}|10|transfer",
+   "review1:pc5:1:15:40:0|46|gen",
+   "review2:pct:5:diag:{\"k\":1,\"p\":30,\"N\":1000}|910|diag",
+   "verify0:pct:5:probe:{\"k\":0,\"p\":15,\"up\":false,\"N\":540}|459|probe",
+   "verify1:pct:5:probe:{\"k\":0,\"p\":40,\"up\":false,\"N\":400}|240|probe",
+   "verify2:pct:5:control:{\"k\":1,\"p\":30,\"N\":1000}|910|control",
+   "gen:pc5b:200:240:4|20|gen",
+   "diag:pct:5:diag:{\"k\":0,\"p\":25,\"up\":false,\"N\":372}|279|diag",
+   "transfer:pct:5:transfer:{\"p\":25,\"up\":true,\"N\":252,\"M\":315}|25|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pct:5/gen/",
+    "pct:5/gen/",
+    "pct:5/diag/",
+    "pct:5/gen/",
+    "pct:5/transfer/"
+   ],
+   "review": [
+    "pct:5/transfer/",
+    "pct:5/gen/",
+    "pct:5/diag/"
+   ],
+   "verify": [
+    "pct:5/probe/add-pct",
+    "pct:5/probe/add-pct",
+    "pct:5/control/add-pct"
+   ]
+  }
+ },
  "pyth:1": {
   "items": [
    "mastery0:py1s:5:4|{\"c\":5,\"a\":4,\"b\":3}|gen",
@@ -1418,6 +1697,154 @@
    ]
   }
  },
+ "ratio:1": {
+  "items": [
+   "mastery0:ra1:6:15|5|gen",
+   "mastery1:ra1:6:10|5|gen",
+   "mastery2:ratio:1:diag:{\"a\":12,\"b\":22,\"g\":2,\"p\":6}|11|diag",
+   "mastery3:ra1:12:9|3|gen",
+   "mastery4:ratio:1:transfer:{\"a\":10,\"b\":8,\"g\":2,\"p\":5}|4|transfer",
+   "review0:ratio:1:transfer:{\"a\":9,\"b\":21,\"g\":3,\"p\":3}|7|transfer",
+   "review1:ra1:10:4|2|gen",
+   "review2:ratio:1:diag:{\"a\":12,\"b\":22,\"g\":2,\"p\":6}|11|diag",
+   "verify0:ratio:1:probe:{\"a\":9,\"b\":21,\"g\":3,\"p\":3}|7|probe",
+   "verify1:ratio:1:probe:{\"a\":6,\"b\":22,\"g\":2,\"p\":3}|11|probe",
+   "verify2:ratio:1:diag:{\"a\":6,\"b\":15,\"g\":3,\"p\":2}|5|diag",
+   "gen:ra1m:10:21:3|0|gen",
+   "diag:ratio:1:diag:{\"a\":6,\"b\":21,\"g\":3,\"p\":2}|7|diag",
+   "transfer:ratio:1:transfer:{\"a\":6,\"b\":21,\"g\":3,\"p\":2}|7|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "ratio:1/gen/",
+    "ratio:1/gen/",
+    "ratio:1/diag/",
+    "ratio:1/gen/",
+    "ratio:1/transfer/"
+   ],
+   "review": [
+    "ratio:1/transfer/",
+    "ratio:1/gen/",
+    "ratio:1/diag/"
+   ],
+   "verify": [
+    "ratio:1/probe/reversed-ratio",
+    "ratio:1/probe/reversed-ratio",
+    "ratio:1/control/reversed-ratio"
+   ]
+  }
+ },
+ "ratio:2": {
+  "items": [
+   "mastery0:ra2s:5:4:63|35|gen",
+   "mastery1:ra2r:7:3:60|21|gen",
+   "mastery2:ratio:2:diag:{\"m\":7,\"n\":5,\"k\":10,\"T\":120}|70|diag",
+   "mastery3:ra2p:6000:2000:1600|1200|gen",
+   "mastery4:ratio:2:transfer:{\"m\":7,\"n\":3,\"k\":6,\"T\":60,\"P\":120,\"hi\":7,\"lo\":3}|42|transfer",
+   "review0:ratio:2:transfer:{\"m\":2,\"n\":3,\"k\":7,\"T\":35,\"P\":70,\"hi\":3,\"lo\":2}|21|transfer",
+   "review1:ra2r:3:8:88|32|gen",
+   "review2:ratio:2:diag:{\"m\":7,\"n\":5,\"k\":10,\"T\":120}|70|diag",
+   "verify0:ratio:2:probe:{\"m\":2,\"n\":3,\"k\":7,\"T\":35}|14|probe",
+   "verify1:ratio:2:probe:{\"m\":2,\"n\":7,\"k\":7,\"T\":63}|14|probe",
+   "verify2:ratio:2:diag:{\"m\":4,\"n\":3,\"k\":3,\"T\":21}|12|diag",
+   "gen:ra2s:2:3:40|16|gen",
+   "diag:ratio:2:diag:{\"m\":8,\"n\":5,\"k\":2,\"T\":26}|16|diag",
+   "transfer:ratio:2:transfer:{\"m\":8,\"n\":5,\"k\":2,\"T\":26,\"P\":52,\"hi\":8,\"lo\":5}|16|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "ratio:2/gen/",
+    "ratio:2/gen/",
+    "ratio:2/diag/",
+    "ratio:2/gen/",
+    "ratio:2/transfer/"
+   ],
+   "review": [
+    "ratio:2/transfer/",
+    "ratio:2/gen/",
+    "ratio:2/diag/"
+   ],
+   "verify": [
+    "ratio:2/probe/reversed-ratio",
+    "ratio:2/probe/reversed-ratio",
+    "ratio:2/control/reversed-ratio"
+   ]
+  }
+ },
+ "ratio:3": {
+  "items": [
+   "mastery0:ra3m:6:9:10|15|gen",
+   "mastery1:ra3t:2,8;3,12;8|32|gen",
+   "mastery2:ratio:3:diag:{\"u\":4,\"a\":48,\"b\":12,\"c\":15}|60|diag",
+   "mastery3:ra3t:2,3;4,6;8|12|gen",
+   "mastery4:ratio:3:transfer:{\"u\":4,\"a\":48,\"b\":12,\"c\":15}|60|transfer",
+   "review0:ratio:3:transfer:{\"u\":3,\"a\":24,\"b\":8,\"c\":15}|45|transfer",
+   "review1:ra3m:4:16:18|72|gen",
+   "review2:ratio:3:diag:{\"u\":4,\"a\":48,\"b\":12,\"c\":15}|60|diag",
+   "verify0:ratio:3:probe:{\"u\":3,\"a\":24,\"b\":8,\"c\":15}|45|probe",
+   "verify1:ratio:3:probe:{\"u\":2,\"a\":12,\"b\":6,\"c\":15}|30|probe",
+   "verify2:ratio:3:diag:{\"u\":0.5,\"a\":3.5,\"b\":7,\"c\":17}|8.5|diag",
+   "gen:ra3m:5:2.5:12|6|gen",
+   "diag:ratio:3:diag:{\"u\":1.5,\"a\":10.5,\"b\":7,\"c\":13}|19.5|diag",
+   "transfer:ratio:3:transfer:{\"u\":1.5,\"a\":10.5,\"b\":7,\"c\":13}|19.5|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "ratio:3/gen/",
+    "ratio:3/gen/",
+    "ratio:3/diag/",
+    "ratio:3/gen/",
+    "ratio:3/transfer/"
+   ],
+   "review": [
+    "ratio:3/transfer/",
+    "ratio:3/gen/",
+    "ratio:3/diag/"
+   ],
+   "verify": [
+    "ratio:3/probe/additive",
+    "ratio:3/probe/additive",
+    "ratio:3/control/additive"
+   ]
+  }
+ },
+ "ratio:4": {
+  "items": [
+   "mastery0:ra4r:10000:7|700|gen",
+   "mastery1:ra4r:10000:12|1200|gen",
+   "mastery2:ratio:4:diag:{\"k\":1,\"S\":20000,\"d\":9,\"D\":1800}|9|diag",
+   "mastery3:ra4r:25000:9|2250|gen",
+   "mastery4:ratio:4:transfer:{\"k\":10}|100|transfer",
+   "review0:ratio:4:transfer:{\"k\":3}|9|transfer",
+   "review1:ra4r:5000:9|450|gen",
+   "review2:ratio:4:diag:{\"k\":1,\"S\":20000,\"d\":9,\"D\":1800}|9|diag",
+   "verify0:ratio:4:probe:{\"k\":0,\"S\":2000,\"d\":6}|120|probe",
+   "verify1:ratio:4:probe:{\"k\":0,\"S\":1000,\"d\":12}|120|probe",
+   "verify2:ratio:4:diag:{\"k\":1,\"S\":50000,\"d\":3,\"D\":1500}|3|diag",
+   "gen:ra4b:5:8|8|gen",
+   "diag:ratio:4:diag:{\"k\":1,\"S\":10000,\"d\":9,\"D\":900}|9|diag",
+   "transfer:ratio:4:transfer:{\"k\":6}|36|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "ratio:4/gen/",
+    "ratio:4/gen/",
+    "ratio:4/diag/",
+    "ratio:4/gen/",
+    "ratio:4/transfer/"
+   ],
+   "review": [
+    "ratio:4/transfer/",
+    "ratio:4/gen/",
+    "ratio:4/diag/"
+   ],
+   "verify": [
+    "ratio:4/probe/no-convert",
+    "ratio:4/probe/no-convert",
+    "ratio:4/control/no-convert"
+   ]
+  }
+ },
  "signed:1": {
   "items": [
    "mastery0:sn1n:-2 + (-1)|-3|gen",
@@ -1600,6 +2027,43 @@
     "signed:5/probe/minus-bracket",
     "signed:5/probe/minus-bracket",
     "signed:5/control/minus-bracket"
+   ]
+  }
+ },
+ "signed:6": {
+  "items": [
+   "mastery0:sn6a:2.4 + (-5.5)|-3.1|gen",
+   "mastery1:sn6m:2.5 \\cdot (-3)|-7.5|gen",
+   "mastery2:signed:6:diag:{\"k\":1,\"x\":-1.5,\"y\":1.5,\"xi\":-6,\"yi\":6}|0|diag",
+   "mastery3:sn6a:1.6 + (-2.9)|-1.3|gen",
+   "mastery4:signed:6:transfer:{\"ai\":-89,\"bi\":96}|0.7|transfer",
+   "review0:signed:6:transfer:{\"ai\":-27,\"bi\":39}|1.2|transfer",
+   "review1:sn6s:-\\frac{1}{4} - \\left(-1\\frac{3}{4}\\right)|1.5|gen",
+   "review2:signed:6:diag:{\"k\":1,\"x\":-1.5,\"y\":1.5,\"xi\":-6,\"yi\":6}|0|diag",
+   "verify0:signed:6:probe:{\"k\":0,\"a\":5.3,\"b\":-8.8,\"ai\":53,\"bi\":-88}|-3.5|probe",
+   "verify1:signed:6:probe:{\"k\":0,\"a\":-5.4,\"b\":6.4,\"ai\":-54,\"bi\":64}|1|probe",
+   "verify2:signed:6:control:{\"k\":1,\"x\":-1.5,\"y\":1.5,\"xi\":-6,\"yi\":6}|0|control",
+   "gen:sn6m:(-9) \\cdot 0.3|-2.7|gen",
+   "diag:signed:6:diag:{\"k\":0,\"a\":-6.1,\"b\":5.9,\"ai\":-61,\"bi\":59}|-0.2|diag",
+   "transfer:signed:6:transfer:{\"ai\":-51,\"bi\":58}|0.7|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "signed:6/gen/",
+    "signed:6/gen/",
+    "signed:6/diag/",
+    "signed:6/gen/",
+    "signed:6/transfer/"
+   ],
+   "review": [
+    "signed:6/transfer/",
+    "signed:6/gen/",
+    "signed:6/diag/"
+   ],
+   "verify": [
+    "signed:6/probe/abs-add",
+    "signed:6/probe/abs-add",
+    "signed:6/control/abs-add"
    ]
   }
  },
