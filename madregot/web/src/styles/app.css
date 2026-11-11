@@ -638,9 +638,6 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 }
 .node-start::after { content: ""; position: absolute; top: 100%; left: calc(50% - 8px); border: 8px solid transparent; border-top-color: var(--c); }
 @keyframes start-bob { 50% { transform: translateY(-4px); } }
-.path-mascot { position: absolute; top: 4px; pointer-events: none; }
-.path-mascot.left { right: calc(100% + 16px); }
-.path-mascot.right { left: calc(100% + 16px); }
 
 /* the card under a tapped stop, re-centred on the screen */
 .node-card {
@@ -904,7 +901,6 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 }
 /* מדי asks; the bubble's tail points back at him */
 .ob-ask { display: flex; align-items: flex-end; gap: var(--s3); }
-.ob-mascot { flex: none; }
 .ob-bubble {
   position: relative; flex: 1; min-width: 0; margin-bottom: var(--s5); padding: var(--s3) var(--s4);
   border: 2px solid var(--rule); border-radius: var(--r-lg); background: var(--paper);
@@ -957,38 +953,14 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 /* ---------- the level board, above the map ---------- */
 .board { display: flex; flex-direction: column; gap: var(--s4); }
 .board-hero { display: flex; align-items: center; gap: var(--s3); }
-.board-mascot { flex: none; }
 .board-hero-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .board-title { font-size: var(--t-xl); line-height: var(--lh-xl); color: var(--ink); }
 .board-level { font-size: var(--t-md); line-height: var(--lh-md); color: var(--ink-2); }
 .board-level b { font-family: var(--font-display); font-weight: 700; color: var(--ink); }
 /* the grade as one long track: each topic is a segment as long as its stairs */
-.board-track { display: flex; gap: 4px; height: 14px; }
-.board-track span { flex-basis: 0; min-width: 0; border-radius: 999px; background: var(--c-tint); overflow: hidden; }
-.board-track i { display: block; height: 100%; border-radius: 999px; background: var(--c); transition: width var(--duration-slow) var(--ease-smooth-out); }
 .board-topics { list-style: none; margin: 0; padding: 0; border: 2px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
 .board-topic + .board-topic { border-top: 2px solid var(--rule); }
-.board-topic-head {
-  width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s3);
-  min-height: 76px; padding: var(--s3) var(--s4); border: 0; background: none; text-align: start; color: var(--ink);
-  transition: background-color var(--duration-quick) var(--ease-out);
-}
-.board-topic-head:focus-visible { outline-offset: -3px; }
-.board-meter { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 66px; }
-.board-meter-num { font-family: var(--font-display); font-weight: 700; font-size: var(--t-sm); line-height: 1; color: var(--c-d); }
-.board-topic-text { display: flex; flex-direction: column; gap: 2px; }
-.board-topic-text b { font-size: var(--t-md); line-height: var(--lh-md); }
-.board-topic-text span { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
 /* on a small phone the status moves under the topic name, so the name keeps its width */
-@media (max-width: 400px) {
-  .board-topic-head { grid-template-columns: auto minmax(0, 1fr); row-gap: var(--s1); }
-  .board-pill { grid-column: 2; justify-self: start; }
-}
-.board-pill { padding: 3px 10px; border-radius: 999px; font-size: var(--t-xs); line-height: var(--lh-xs); font-weight: 700; white-space: nowrap; }
-.pill-done { background: var(--gold-tint); color: var(--gold-ink); }
-.pill-going { background: var(--c-tint); color: var(--c-d); }
-.pill-work { background: var(--bad-tint); color: var(--bad-ink); }
-.pill-new { background: var(--ground); color: var(--ink-2); }
 .board-gaps { margin: 0 var(--s3) var(--s3); padding: var(--s3); border-radius: var(--r-md); background: var(--ground); }
 .board-gaps-title { font-size: var(--t-base); line-height: var(--lh-base); }
 .gap-list { list-style: none; margin: 0; padding: 0; }
@@ -1019,7 +991,6 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
   .node:hover { filter: brightness(1.06); }
   .lesson-x:hover { color: var(--ink-2); }
   .tool:hover:not(:disabled) { border-color: var(--rule-strong); color: var(--ink); }
-  .board-topic-head:hover { background: var(--ground); }
   .ob-opt:hover:not(.on) { border-color: var(--rule-strong); }
 }
 
@@ -1134,8 +1105,6 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 .page-hero-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
 .page-hero-title { font-size: var(--t-2xl); line-height: var(--lh-2xl); color: var(--c-d); }
 .page-hero-sub { color: var(--ink-2); font-size: var(--t-base); line-height: var(--lh-base); max-width: 42ch; text-wrap: pretty; }
-.page-hero-art { flex: none; width: clamp(108px, 30vw, 150px); }
-.page-hero-art img { display: block; width: 100%; height: auto; filter: drop-shadow(0 10px 14px color-mix(in srgb, var(--c-d) 18%, transparent)); }
 @media (min-width: 640px) { .page-hero { margin: 0 0 var(--s1); border-radius: 28px; padding: var(--s6); } }
 
 /* lists of choices become stacks of chunky cards with a coloured icon tile */
@@ -1374,7 +1343,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .page.wide > * { grid-column: 1 / -1; min-width: 0; }
   .page-hero { padding: var(--s8); }
   .page-hero-title { font-size: 40px; line-height: 48px; }
-  .page-hero-art { width: 190px; }
   .me-page > .medals-section { grid-column: 1; }
   .me-page > .me-settings { grid-column: 2; display: flex; flex-direction: column; gap: var(--s5); }
   .quests > .streak-card { grid-column: 1; height: 100%; }
@@ -1702,7 +1670,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .manip-canvas { direction: ltr; unicode-bidi: isolate; }
 /* מדי under the object, saying what just happened; only where the screen has room for him */
 .manip-coach { display: none; flex: none; align-items: flex-end; gap: var(--s2); width: 100%; max-width: 520px; margin-inline: auto; }
-.coach-mascot { flex: none; width: 52px; height: auto; }
 .coach-say {
   position: relative; flex: 1 1 auto; margin: 0 0 6px; padding: 8px 12px; border-radius: 16px; border-end-start-radius: 4px;
   background: var(--paper); border: 2px solid var(--rule); color: var(--ink); font-size: var(--t-sm); line-height: 1.45; font-weight: 500; text-wrap: pretty;
@@ -2010,7 +1977,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .sc-sand { fill: color-mix(in srgb, var(--gold) 40%, #fff); }
 .sc-flag { fill: var(--gold); stroke: var(--gold-d); stroke-width: 2.5; stroke-linejoin: round; }
 .sc-math { fill: var(--c-d); font-family: var(--font-display); font-weight: 700; font-size: 17px; direction: ltr; }
-.page-hero-art { width: clamp(120px, 34vw, 170px); }
 /* the topics list: each topic card opens with its world's landscape, as on the map */
 .topic-row.has-world { grid-template-columns: auto minmax(0, 1fr) auto auto; padding-top: 0; overflow: hidden; }
 /* a topic's page opens on its world, then its band */
@@ -2170,9 +2136,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
 /* --- the mastery map */
 .mastery-map { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4); border-radius: 22px; border: 2px solid var(--rule); background: var(--paper); }
-.mm-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
-.mm-head .h-section { margin: 0; }
-.mm-count { font-size: var(--t-sm); font-weight: 700; color: var(--good-ink); }
 .mm-row { display: flex; align-items: center; gap: var(--s2); }
 .mm-topic { flex: 0 0 96px; font-size: var(--t-sm); font-weight: 700; color: var(--c-d); }
 .mm-tiles { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }

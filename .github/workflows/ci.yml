@@ -32,7 +32,8 @@ jobs:
       - run: npm ci
       - run: npx tsc -p tsconfig.json --noEmit
       - run: npx vitest run
-      # vite build, then scripts/check-dist.mjs (no personal-key code and no secrets in the bundle)
+      # the content meta, vite build, scripts/check-dist.mjs (no personal-key code and no secrets in the bundle), then
+      # scripts/check-budget.mjs (the load-time budget in web/budget.json: over a gate, the build fails)
       - run: npm run build
 
   worker:

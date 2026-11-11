@@ -47,10 +47,9 @@ a { color: var(--brand-d); }
 .page-hero-text { gap: 6px; }
 .page-hero-title { font-size: 30px; line-height: 36px; font-weight: 800; color: var(--ink); letter-spacing: -0.015em; }
 .page-hero-sub { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink-2); max-width: 46ch; }
-.page-hero-art { display: none; }
 
 /* section headings inside a screen: 20px, ink, with room above */
-.set-head, .h-section, .section > h2, .section-title { font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; margin: 0 0 var(--s3); text-transform: none; }
+.set-head, .h-section, .section > h2 { font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; margin: 0 0 var(--s3); text-transform: none; }
 .section { margin-top: var(--s6); }
 
 /* pushed screens: the bar with the way back and the title */
@@ -176,7 +175,7 @@ a { color: var(--brand-d); }
 .lesson .choice.on, .ls-choice.on, .ls-choice[aria-checked="true"] { border-color: var(--brand); background: var(--brand-tint); box-shadow: 0 4px 0 var(--brand-line); color: var(--brand-d); }
 .choice-key { border: 2px solid var(--rule); border-radius: 10px; color: var(--ink-2); background: #fff; }
 .redo-note { color: var(--ink-2); font-size: 15px; }
-.lesson-tool, .lesson .tool, .dock-row .tool { color: var(--ink-2); border-color: var(--rule); }
+.lesson .tool, .dock-row .tool { color: var(--ink-2); border-color: var(--rule); }
 
 /* feedback: the panel that rises from the bottom */
 .fb-good { --fb-bg: var(--good-tint); --fb-line: #bfe9c9; --fb-ink: var(--good-ink); --fb-mark: var(--good-d); }
@@ -187,7 +186,7 @@ a { color: var(--brand-d); }
 .lm-canvas { background: var(--ground); border-radius: 16px; }
 .lm .ls-why { border-inline-start: 0; border: 2px solid var(--rule); background: #fff; border-radius: 16px; }
 .lm .ls-why.good { border-color: #bfe9c9; background: var(--good-tint); }
-.lm-say, .lm-prompt, .ls-text, .lm .ls-q { font-size: 19px; line-height: 29px; color: var(--ink); }
+.lm-say, .lm-prompt { font-size: 19px; line-height: 29px; color: var(--ink); }
 .ob-bubble { font-family: var(--font-ui); font-size: 19px; line-height: 28px; font-weight: 600; border-color: var(--rule); }
 .ob-bar { background: #e9ecf1; }
 .ob-bar > i { background: var(--brand); }
@@ -205,7 +204,7 @@ a { color: var(--brand-d); }
 .stat-brand, .stat-sky { --tone: var(--brand); --tone-on: #fff; --tone-ink: var(--brand-d); }
 .stat-good { --tone: var(--good); --tone-on: #000; --tone-ink: var(--good-ink); }
 .stat-gold { --tone: var(--gold); --tone-on: #000; --tone-ink: var(--gold-ink); }
-.reward-badge, .badge { font-weight: 700; }
+.badge { font-weight: 700; }
 
 /* ------------------------------------------------------------------ profile */
 .profile-top { background: var(--brand-tint); border: 0; }
@@ -341,9 +340,7 @@ a { color: var(--brand-d); }
 }
 
 /* the teacher's board: white, its sections as cards */
-.teacher, .teacher .t-body { background: #fff; }
-.t-section, .t-panel, .t-block { background: #fff; border: 2px solid var(--rule); border-radius: 16px; padding: var(--s4); }
-.t-section h2, .t-panel h2, .t-block h2 { color: var(--ink); font-size: 18px; font-weight: 800; }
+.teacher { background: #fff; }
 /* the result: מדי, one title, what was earned as quiet labels, three tiles, one button */
 .done-madi { margin-inline: auto; }
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
@@ -511,7 +508,6 @@ a { color: var(--brand-d); }
 .sub-links { display: flex; flex-wrap: wrap; gap: var(--s2); justify-content: space-between; }
 .email-code .footnote { margin: 0; }
 .email-code-sent { margin: 0; }
-.ai-advanced { margin-top: var(--s2); }
 
 /* a row that opens another screen: its name, then a chevron at the far end */
 a.set-row { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }

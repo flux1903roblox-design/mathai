@@ -5,8 +5,8 @@ import './lib/pathToHash.js';
 import './lib/historySeed.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/rubik';
-import 'katex/dist/katex.min.css';
+// Rubik's Hebrew and Latin subsets only (DURABLE-11)
+import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/app.css';
 import './styles/motion.css';

@@ -30,11 +30,12 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // Libraries change less often than the app: separate files stay cached between releases.
+        // Libraries change less often than the app: a separate file stays cached between releases. The markdown
+        // libraries need no rule: only components/Markdown.jsx imports them, and it loads on demand, so they are in its
+        // file (a manual chunk also pulled React in with them, which put the whole chunk on the first download).
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('/katex/')) return 'katex';
-          if (/\/(react-markdown|remark-|rehype-|micromark|mdast-|hast-|unist-|unified|vfile|property-information|space-separated|comma-separated|decode-named|character-entities|estree-|devlop|bail|trough|zwitch|ccount|longest-streak|markdown-table|html-url-attributes|style-to|inline-style)/.test(id)) return 'markdown';
           return undefined;
         },
       },

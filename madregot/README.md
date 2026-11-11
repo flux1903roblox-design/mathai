@@ -143,15 +143,17 @@ npm run test:e2e --prefix madregot/web   # בדפדפן (Playwright): מסך ה�
 
 הקובץ `.github/workflows/ci.yml` (בשורש המאגר) מריץ שלוש בדיקות על כל push ל־`main` ועל כל pull request:
 
-- **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`), `npx vitest run`, ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs`).
+- **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`), `npx vitest run`, ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs` ואת `scripts/check-budget.mjs`: אם ההורדה הראשונה של האפליקציה גדולה מהתקציב שב־`web/budget.json`, הבנייה נכשלת).
 - **worker**: `npm ci` ו־`npm test`, כל בדיקות השרת, כולל בדיקות הבקשות המקבילות (קוד אישי, סנכרון התקדמות, תשלום).
 - **e2e**: אחרי ש־web עובר. מתקין Chromium ומריץ את כל קובצי Playwright בפרויקט `phone` (390×844), בלי בדיקות שמסומנות `@perf`. אם משהו נכשל, תיקיית `test-results` נשמרת בריצה בשם `playwright-report`.
 
 Node 22, ו־npm שומר את החבילות במטמון לפי `package-lock.json` של כל תיקייה. אף שלב לא צריך סודות.
 
+`.github/workflows/perf.yml` רץ כל לילה (02:23 UTC, ואפשר גם ידנית): בנייה עם התקציב, ואז בדיקת הזמנים `e2e/perf.spec.js` על טלפון איטי מדומה (מעבד איטי פי 4, השהיה של 150 ms, 1.6 Mbit/s), בביקור ראשון ובביקור חוזר. הוא נכשל אם הזמנים חורגים ביותר מ־10% מהתקציב, ושומר את `test-results/perf.json` בכל מקרה (בשם `perf`), כדי להשוות לילה ללילה. הוא לא חלק מבדיקות המיזוג. מקומית: `PERF=1 npx playwright test -c e2e/playwright.config.js --project=phone --grep @perf` בתיקייה `web`. מספר אמין רק על מחשב שלא עסוק בדברים אחרים.
+
 **מה הבעלים עושה פעם אחת:**
 
-1. מעלים את הקובץ ל־GitHub. דחיפה של קובץ בתוך `.github/workflows/` צריכה טוקן עם ההרשאה `workflow`. אם הדחיפה נדחית: ב־GitHub, ‏Add file › Create new file, השם `.github/workflows/ci.yml`, ומדביקים את התוכן.
+1. מעלים את הקבצים ל־GitHub. דחיפה של קובץ בתוך `.github/workflows/` צריכה טוקן עם ההרשאה `workflow`. אם הדחיפה נדחית: ב־GitHub, ‏Add file › Create new file, השם `.github/workflows/ci.yml` (ואחר כך `.github/workflows/perf.yml`), ומדביקים את התוכן.
 2. ‏Settings › Branches › Add rule ל־`main`: מסמנים Require status checks to pass ובוחרים את `web`, `worker` ו־`e2e`. מעכשיו אי אפשר למזג שינוי שאחת מהן נכשלת בו.
 
 צילומי המסך להשוואה צולמו ב־Chromium על Linux. אם בריצה הראשונה ב־GitHub הם שונים רק בהחלקת הגופן, מייצרים אותם פעם אחת שם עם `--update-snapshots`, מסתכלים על התמונות, ורק אז מכניסים אותן.

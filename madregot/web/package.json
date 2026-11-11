@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/gen-content-meta.mjs && vite",
-    "build": "node scripts/gen-content-meta.mjs && vite build && node scripts/check-dist.mjs dist",
+    "build": "node scripts/gen-content-meta.mjs && vite build && node scripts/check-dist.mjs dist && node scripts/check-budget.mjs dist",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test -c e2e/playwright.config.js",

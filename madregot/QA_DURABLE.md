@@ -460,3 +460,80 @@ script. They now load one topic at a time, and nothing the student sees changed.
 - **Numbers** (gzip level 9, `dist/index.html`'s entry and modulepreloads, measured on this machine): boot JS
   666.6 KB before (main script 544.2 + KaTeX 77.0 + markdown 45.4) and 475.8 KB after (main 353.5 + 77.0 + 45.4).
   Render-blocking CSS unchanged at 50.7 KB. The ten new files are 3.8 to 36.7 KB gzip each. Stage 17 sets the gate.
+
+## A load-time budget enforced by the build, and the timing test (DURABLE-11, second half; DURABLE-12 nightly)
+
+- **Markdown off the first download.** `components/MathText.jsx` is plain text with `$…$` maths and imports no
+  markdown. `components/RichText.jsx` (markdown plus maths) is lazy: its file (`components/Markdown.jsx`, with
+  react-markdown, remark-math and rehype-katex) loads the first time such text is shown, and until then the text shows
+  as written, lines kept, its maths drawn, in the same box. It is used by the assistant, the tutor chat (`AIChat`, which
+  fetches the file as the chat opens), the exam check (`CheckResult`), `ExamResult`, `Plan`, the explanation box in a
+  lesson, and the legal pages (`Legal.jsx`: `as="article"`, no maths, so a `$` stays a `$`; the existing loading screen
+  until the file is there). `vite.config.js` drops its `markdown` manual chunk: it had pulled React in with the markdown
+  libraries, which put the whole chunk on the first download. `dist/index.html` now has no `modulepreload` at all: one
+  script, one stylesheet.
+- **Rubik.** `@fontsource-variable/rubik` 5.3.0 ships no stylesheet per subset (only `index.css`, `wght.css`,
+  `wght-italic.css`; the spec's `wght-hebrew.css` and `wght-latin.css` do not exist in it), so `src/styles/fonts.css`
+  copies the Hebrew and Latin `@font-face` rules from its `index.css`, files and ranges unchanged, and `main.jsx`
+  imports it. The build emits two Rubik files instead of six. ₪ is in the Hebrew subset too.
+- **What was tried for boot JS, in order, each kept only with every visual baseline identical** (gzip-9, the entry and
+  its modulepreloads):
+
+  | step | boot JS | render-blocking CSS |
+  |---|---|---|
+  | before DURABLE-11 (`b0fbcb2`) | 666.6 KB (main 544.2 + KaTeX 77.0 + markdown 45.4) | 50.7 KB |
+  | Stage 16: teaching content per topic | 475.8 KB (353.5 + 77.0 + 45.4) | 50.7 KB |
+  | markdown off the first download, Rubik subsets | 433.7 KB (356.7 + 77.0) | 50.1 KB |
+  | Topics, Topic and Quests lazy | 423.6 KB | 50.1 KB |
+  | KaTeX lazy, with its stylesheet | 346.6 KB | 42.2 KB |
+  | the lesson screen lazy, fetched ahead | 291.4 KB | 42.2 KB |
+  | dead CSS removed | 291.4 KB | **41.8 KB** |
+
+  KaTeX: `components/katex.js` (KaTeX and its stylesheet) loads once the first screen is up; until then an expression
+  shows as plain words (`texText`, escaped, `.tex-plain`) and every `Tex` draws itself when it arrives (`useKatex`).
+  KaTeX's stylesheet now comes after the app's, so the two app rules that override it with the same specificity
+  (`tokens.css` `.katex` font size, `.katex-display` margin) became `:root .katex` and `:root .katex-display`: the
+  first try without that changed the exercise baselines (KaTeX's own 1.21em and display margin won: a bigger
+  question box), so the cause was fixed, and no baseline was updated.
+  The lesson screen (`lib/lazyScreen.js`): at 346.6 KB boot JS was still over the 330 KB gate, so the practice route
+  went lazy too, with a preload: a lesson opened straight (reload, link) waits for its file, its topic and KaTeX together
+  (`lib/bootTopics.js`, at most 2 s), and after the first screen the browser fetches it when idle, with the last topic.
+  Once fetched it renders at once, and a mounted lesson never switches component (that would start it over).
+  Dead CSS: 31 classes no markup uses (found by searching every source file, dynamic class prefixes excluded), 48
+  selectors, 38 rules, in `app.css`, `v4.css` and `canon.css`. The 260 KB and 32 KB targets are still missed (a
+  warning); what is left is mostly React, React Router, motion and Base UI.
+- **The gate** (`web/scripts/check-budget.mjs`, `web/budget.json`, run by `npm run build` after `check-dist`): boot
+  JS from `dist/index.html`'s entry and modulepreloads, render-blocking CSS from every stylesheet link, each gzipped at
+  level 9 and summed; the largest chunk that loads on demand (150 KB); the service worker's precache, from `sw.js`'s
+  own list (4.5 MB). It prints value, gate and target, exits 1 over a gate and only warns on a missed target. KB is
+  1000 bytes, as in the spec's measurements. The boot JS gate started at 330 KB and is now the measured 291.4 KB + 5%
+  = **306 KB** (the ratchet: a later commit that makes boot smaller lowers it again; nobody raises it). CSS stays at 42
+  KB. Today: 291.4 / 306, 41.8 / 42, largest lazy chunk 77.0 (KaTeX) / 150, precache 3.58 / 4.5 MB.
+- **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
+  `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
+  Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from
+  `PerformanceObserver`, the longest task from `longtask`; a second visit with the service worker for the repeat LCP;
+  `test-results/perf.json`; it fails over `budget.json`'s timing × 1.1. `PERF_DIST=<folder>` measures another build.
+  `.github/workflows/perf.yml` runs the build and the test every night at 02:23 UTC and keeps `perf.json`.
+- **Measured once, on this shared 4-CPU machine while four other builds ran (load average about 8)**, so the numbers
+  are slower than a quiet machine or a CI runner would give:
+
+  | release | FCP | LCP | longest boot task | repeat LCP |
+  |---|---|---|---|---|
+  | council (`43e4948`, from the council's run, vite preview without gzip) | 3.3 s | | 368 ms | |
+  | before DURABLE-11 (`b0fbcb2`, this test) | 4.79 s | 4.79 s | 242 ms | 0.72 s |
+  | this release (this test) | **2.79 s** | **2.79 s** | **178 ms** | **0.41 s** |
+  | budget (fails over × 1.1) | 2.5 s | 3.0 s | 200 ms | 1.5 s |
+
+  LCP, the longest task and the repeat visit are within budget; FCP is 2.79 s against 2.75 s (2.5 × 1.1), so the test
+  failed here by 38 ms. The council's 3.3 s was measured differently (no gzip, no throttling profile of this test), so
+  the comparable before/after is the middle two rows: 2.0 s faster to the first paint.
+- **Tests.** `scripts/check-budget.test.mjs` (a fake dist: the boot files found in `index.html`, the CSS summed over
+  two stylesheets, a target miss that only warns, each gate failing, the CLI's exit codes). `components/MathText.test.js`
+  (plain words, escaped, before KaTeX; drawn after; fetched once). `components/RichText.test.jsx` (the text as written
+  before its file, markdown after, inline, a fallback, the legal page's element with `$` kept; Markdown never renders
+  raw HTML). `lib/bootTopics.test.js` (the routes that fetch the lesson screen). Visual baselines (`visual.spec.js` on
+  phone, phone-small and desktop) and `screens.spec.js`: unchanged.
+- **Screenshots, looked at** (`qa-evidence/durable/budget-*.png`): `terms-before-390` and `terms-after-390`
+  (the legal page drawn by the lazy markdown: the same), `lesson-eq2-after-320/390` (a lesson opened straight: its
+  maths drawn), `lesson-eq2-no-katex-390/320` (KaTeX blocked: `7x - 10 = -80` as plain words, readable).

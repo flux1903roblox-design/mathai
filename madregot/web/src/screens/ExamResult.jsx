@@ -7,7 +7,8 @@ import { STATUS, focusLevel } from '@/lib/exam.js';
 import { TOPIC, TOPICS, displayTex } from '@/content/index.js';
 import { aiReady } from '@/lib/ai.js';
 import { Box, Button, ChapterMark, Sheet } from '@/components/ui.jsx';
-import { Markdown, MathText, Tex } from '@/components/MathText.jsx';
+import { MathText, Tex } from '@/components/MathText.jsx';
+import { RichText } from '@/components/RichText.jsx';
 import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -20,7 +21,7 @@ const asMath = (s) => (!s || s.includes('$') || /[\u0590-\u05FF]/.test(s) ? s : 
 
 /** The question as the student saw it: our own item for a practice exam, else the AI's transcription. */
 function Prompt({ q }) {
-  if (!q.item) return <Markdown className="q-prompt">{q.prompt}</Markdown>;
+  if (!q.item) return <RichText className="q-prompt">{q.prompt}</RichText>;
   const it = q.item;
   return (
     <div className="q-prompt">
@@ -53,15 +54,15 @@ function QuestionCard({ q, onAsk }) {
       <div className="q-compare">
         <span className="q-compare-lab">כתבתם</span>
         {q.studentAnswer
-          ? <span className={clsx('q-mine', !ok && 'struck')}><Markdown inline>{asMath(q.studentAnswer)}</Markdown></span>
+          ? <span className={clsx('q-mine', !ok && 'struck')}><RichText inline>{asMath(q.studentAnswer)}</RichText></span>
           : <span className="muted">לא נכתבה תשובה</span>}
-        {!ok && <><span className="q-compare-lab">נכון</span><span className="q-right"><Markdown inline>{asMath(q.correctAnswer)}</Markdown></span></>}
+        {!ok && <><span className="q-compare-lab">נכון</span><span className="q-right"><RichText inline>{asMath(q.correctAnswer)}</RichText></span></>}
       </div>
-      <Box tone={ok ? 'ok' : 'attention'} title={ok ? 'יפה' : 'שימו לב'}><Markdown>{q.feedback}</Markdown></Box>
+      <Box tone={ok ? 'ok' : 'attention'} title={ok ? 'יפה' : 'שימו לב'}><RichText>{q.feedback}</RichText></Box>
       {q.solution?.length > 0 && (
         <details className="sol">
           <summary>פתרון לדוגמה</summary>
-          <ol className="steps">{q.solution.map((s, i) => <li key={i}><Markdown>{s}</Markdown></li>)}</ol>
+          <ol className="steps">{q.solution.map((s, i) => <li key={i}><RichText>{s}</RichText></li>)}</ol>
         </details>
       )}
       <div className="q-actions">
@@ -128,7 +129,7 @@ export default function ExamResult() {
           <span className="stat-value"><Route size={20} aria-hidden="true" />{weak.length}</span>
         </div>
       </div>
-      {exam.result.summary && <div className="result-say"><Markdown>{exam.result.summary}</Markdown></div>}
+      {exam.result.summary && <div className="result-say"><RichText>{exam.result.summary}</RichText></div>}
 
       {weak.length > 0 && (
         <section className="section" aria-labelledby="weak-title">
@@ -141,7 +142,7 @@ export default function ExamResult() {
                   <span className="hub-row-text">
                     <span className="hub-row-title"><TopicTag id={w.topic} mark />{t && <span className="weak-level">{t.levels[lv - 1].title}</span>}</span>
                     <span className="hub-row-desc">{w.n === 1 ? 'שאלה אחת עם טעות' : `${w.n} שאלות עם טעות`}{w.skills.length ? `: ${w.skills.slice(0, 3).join(', ')}` : ''}</span>
-                    {w.reason && <Markdown className="weak-reason">{w.reason}</Markdown>}
+                    {w.reason && <RichText className="weak-reason">{w.reason}</RichText>}
                   </span>
                   {t && <ChevronLeft className="chev" size={20} aria-hidden="true" />}
                 </>
@@ -167,7 +168,7 @@ export default function ExamResult() {
       {exam.result.nextSteps?.length > 0 && (
         <section className="section" aria-labelledby="next-title">
           <h2 id="next-title" className="set-head">מה עושים עכשיו</h2>
-          <ol className="steps result-next">{exam.result.nextSteps.map((s, i) => <li key={i}><Markdown>{s}</Markdown></li>)}</ol>
+          <ol className="steps result-next">{exam.result.nextSteps.map((s, i) => <li key={i}><RichText>{s}</RichText></li>)}</ol>
         </section>
       )}
 

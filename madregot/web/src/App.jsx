@@ -11,17 +11,19 @@ import { qaActive } from '@/lib/qaFixtures.js';
 import { useDurable } from '@/lib/durable/useDurable.js';
 import { watchPersisted } from '@/lib/durable/persist.js';
 import { loadTopic } from '@/learn/content/index.ts';
+import { loadKatex } from '@/components/MathText.jsx';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import BackupNudge from '@/components/durable/BackupNudge.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
 import Welcome from '@/screens/Welcome.jsx';
 import Learn from '@/screens/Learn.jsx';
-import Topics from '@/screens/Topics.jsx';
-import Topic from '@/screens/Topic.jsx';
-import Lesson from '@/screens/Lesson.jsx';
-import Quests from '@/screens/Quests.jsx';
-// Screens that are not on the daily path load on demand.
+import { LessonScreen as Lesson } from '@/lib/lazyScreen.js';
+// Screens that are not on the daily path load on demand (the topics, a topic's guide and the quests too: DURABLE-11).
+// The lesson is its own file too, fetched ahead of time (lib/lazyScreen.js).
+const Topics = lazy(() => import('@/screens/Topics.jsx'));
+const Topic = lazy(() => import('@/screens/Topic.jsx'));
+const Quests = lazy(() => import('@/screens/Quests.jsx'));
 const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
 const Settings = lazy(() => import('@/screens/Settings.jsx'));
@@ -115,14 +117,15 @@ function RestoreToast() {
 }
 
 /**
- * The teaching content loads one topic at a time (DURABLE-11, learn/content/index.ts). After the first screen, when the
- * browser is idle, the topic the student worked on last loads in the background, so its stairs open without a wait.
+ * The teaching content loads one topic at a time, and the lesson screen is its own file (DURABLE-11). After the first
+ * screen, when the browser is idle, the lesson and the topic the student worked on last load in the background, so
+ * the next lesson opens without a wait.
  */
 function usePreloadLastTopic(role) {
   useEffect(() => {
-    const topic = role === 'student' ? useApp.getState().lastTopic : null;
-    if (!topic) return undefined;
-    const run = () => { loadTopic(topic).catch(() => {}); };
+    if (role !== 'student') return undefined;
+    const topic = useApp.getState().lastTopic;
+    const run = () => { Lesson.preload().catch(() => {}); if (topic) loadTopic(topic).catch(() => {}); };
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(run, { timeout: 5000 });
       return () => window.cancelIdleCallback(id);
@@ -221,6 +224,8 @@ function Root() {
 const router = createHashRouter([{ path: '*', element: <Root /> }]);
 
 export default function App() {
+  // KaTeX is not part of the first download (DURABLE-11): fetched once the first screen is up, never waited for
+  useEffect(() => { loadKatex().catch(() => {}); }, []);
   useMoments();
   useSync();
   // the backup code's copy keeps in step at the same moments, after the class outbox (lib/durable/vault.js)

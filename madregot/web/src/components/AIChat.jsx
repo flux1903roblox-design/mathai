@@ -4,7 +4,7 @@ import { Send } from 'lucide-react';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { aiAccess, useAIStatus } from '@/lib/account.js';
 import { Button } from './ui.jsx';
-import { Markdown } from './MathText.jsx';
+import { RichText, preloadRichText } from './RichText.jsx';
 import { Thinking } from './ui.jsx';
 import AIAllowance from './AIAllowance.jsx';
 import Mascot from './Mascot.jsx';
@@ -20,6 +20,8 @@ const THINK = ['קורא את התרגיל', 'חושב על הדרך', 'מנסח
  */
 export default function AIChat({ context, intro, messages: kept, onMessages, tools, onDone, onMadi }) {
   const navigate = useNavigate();
+  // the answers are markdown: its file is fetched as the chat opens, before the first answer arrives
+  useEffect(() => { preloadRichText(); }, []);
   const status = useAIStatus((x) => x.status);
   const access = aiAccess('chat', status);
   const resting = ['used', 'paused', 'resting'].includes(access.state);
@@ -87,7 +89,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
           <div key={i} className={`msg-row ${m.role}`} ref={!pending && i === messages.length - 1 ? endRef : undefined}>
             {m.role === 'assistant' && <Mascot mood="idle" size={34} className="msg-avatar" />}
             <div className={`msg ${m.role}`}>
-              {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : <p>{m.content}</p>}
+              {m.role === 'assistant' ? <RichText>{m.content}</RichText> : <p>{m.content}</p>}
             </div>
           </div>
         ))}

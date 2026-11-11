@@ -1,0 +1,9 @@
+{
+  "bootJsGzipKB": 306,
+  "bootJsTargetKB": 260,
+  "cssGzipKB": 42,
+  "cssTargetKB": 32,
+  "anyChunkGzipKB": 150,
+  "precacheMB": 4.5,
+  "timing": { "fcpMs": 2500, "lcpMs": 3000, "longestBootTaskMs": 200, "repeatLcpMs": 1500 }
+}

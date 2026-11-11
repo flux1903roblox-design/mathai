@@ -16,7 +16,8 @@ import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
 import { play, buzz } from '@/lib/sound.js';
-import { Tex, MathText, Markdown, texText, FitDisplay } from '@/components/MathText.jsx';
+import { Tex, MathText, texText, FitDisplay } from '@/components/MathText.jsx';
+import { RichText } from '@/components/RichText.jsx';
 import Figure from '@/components/Figure.jsx';
 import Manip from '@/components/manip/Manip.jsx';
 import AIChat from '@/components/AIChat.jsx';
@@ -597,7 +598,7 @@ export default function Lesson() {
                   <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>
                   {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}
                   {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
-                  {explain.state === 'done' && <Box tone="ai" title="העוזר"><Markdown>{explain.text}</Markdown></Box>}
+                  {explain.state === 'done' && <Box tone="ai" title="העוזר"><RichText>{explain.text}</RichText></Box>}
                   {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
                   {explain.state === 'idle' && !isTest(s.kind) && ['free', 'open'].includes(explainState) && (
                     <>

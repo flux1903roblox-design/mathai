@@ -1,6 +1,6 @@
 // Opened straight on a screen that asks from the teaching content: which topics load before the first screen (DURABLE-11).
 import { describe, it, expect } from 'vitest';
-import { routeTopics, bootTopics } from './bootTopics.js';
+import { routeTopics, bootTopics, lessonRoute } from './bootTopics.js';
 import { placementTopicsFor } from '@/content/index.js';
 import { topicsReady } from '@/learn/content/index.ts';
 
@@ -28,6 +28,13 @@ describe('routeTopics', () => {
     for (const h of ['', '#/', '#/me', '#/topics', '#/rescue', '#/lesson/nope/1']) expect(routeTopics(h, kid()), h).toEqual([]);
     expect(routeTopics('#/lesson/signed/1', { profile: { role: 'teacher' } })).toEqual([]);
     expect(routeTopics('#/lesson/signed/1', { profile: null })).toEqual([]);
+  });
+});
+
+describe('lessonRoute: the routes that show the lesson screen, whose file is fetched with them', () => {
+  it('a lesson, a practice route, the placement test, Exam Rescue\'s check and exam', () => {
+    for (const h of ['#/lesson/signed/1', '#/lesson/eq/2?kind=check&purpose=mastery', '#/practice/coord', '#/placement', '#/placement?grade=8', '#/rescue/check', '#/rescue/exam']) expect(lessonRoute(h), h).toBe(true);
+    for (const h of ['#/', '#/learn/signed/1', '#/learn/signed/1/A', '#/repair/stats/3/x', '#/rescue', '#/lessons', '#/me']) expect(lessonRoute(h), h).toBe(false);
   });
 });
 
