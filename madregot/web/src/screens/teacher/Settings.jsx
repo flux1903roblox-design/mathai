@@ -1,8 +1,12 @@
 // The class settings (spec TEACHER-9, TEACHER-1 §6), at /teacher/settings, for the class open on the board, in the
 // spec's order: its name, grade, code and join lock; how the teacher gets in (the email it is bound to, the teacher key
-// for a co-teacher, a new key); student AI by the Ministry's rules (ClassAICard, TRUST-11); the class licence (when the
-// paid tutor is on; "מחר" keeps a one-line link to it while it ends); the daily help email (its owner only); how long
-// the server keeps the class's data; and, at the end of the year, the year's report (its CSV) and deleting the class.
+// for a co-teacher, a new key), and under it how this device keeps the teacher's classes (the durable lane's
+// SaveSection with the teacher's note: the backup file and code carry the class keys, and teachers have no /settings of
+// their own); student AI by the Ministry's rules (ClassAICard, TRUST-11); the class licence (when the paid tutor is on;
+// "מחר" keeps a one-line link to it while it ends); the daily help email (its owner only); the weekly class goal
+// (STUDENT-4's block, when the board has one); how long the server keeps the class's data; and, at the end of the year,
+// the year's report (its CSV) and deleting the class. The demo class has no save section: its profile is never saved
+// on the device, so the section would promise something that is not true.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -21,6 +25,8 @@ import { Button, Field, Sheet } from '@/components/ui.jsx';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
 import ClassAICard from '@/components/teacher/ClassAICard.jsx';
 import LicenceCard from '@/components/teacher/LicenceCard.jsx';
+import ClassGoalSettings from '@/components/teacher/ClassGoalSettings.jsx';
+import SaveSection from '@/components/durable/SaveSection.jsx';
 import { copy } from './common.jsx';
 import { useBind, BoundElsewhere, BindFromKeyDevice } from './ClassAccount.jsx';
 import DeleteClassSheet, { useClassDeleted } from './DeleteClass.jsx';
@@ -210,6 +216,7 @@ export default function ClassSettings() {
   const [digest, setDigest] = useState(null);
   const [aiPolicy, setAiPolicy] = useState(null);
   const [binding, setBinding] = useState(null); // the dashboard's boundElsewhere, boundAt and rekeyFrom
+  const [goal, setGoal] = useState(null); // the dashboard's class goal of the week (goal.js teacherGoal)
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const gone = useClassDeleted();
@@ -222,9 +229,10 @@ export default function ClassSettings() {
       rememberBoard(cls.code, d);
       setLocked(!!d.joinLocked); setDigest(typeof d.helpDigest === 'boolean' ? d.helpDigest : null); setAiPolicy(d.aiPolicy || null); setError('');
       setBinding({ boundElsewhere: !!d.boundElsewhere, boundAt: d.boundAt || null, rekeyFrom: d.rekeyFrom || null });
+      setGoal(d.goal || null);
     } catch (e) { setError(e.message); }
   }, [cls]);
-  useEffect(() => { setLocked(null); setDigest(null); setAiPolicy(null); setBinding(null); load(); }, [load]);
+  useEffect(() => { setLocked(null); setDigest(null); setAiPolicy(null); setBinding(null); setGoal(null); load(); }, [load]);
   // a new policy: this page, and the board's copy the other teacher screens read (the assistant's note)
   const onPolicy = (p) => { setAiPolicy(p); const b = boardOf(cls.code); if (b) rememberBoard(cls.code, { ...b, aiPolicy: p }); };
   // "על רישיון כיתה" (the tutor's sheet) and the line on "מחר" open this page at the licence
@@ -256,6 +264,7 @@ export default function ClassSettings() {
       {error && <p className="form-error t-set-error" role="alert">{error}</p>}
       <ClassSection cls={cls} locked={locked} onLock={lock} />
       <AccessSection cls={cls} demo={demo} board={binding} />
+      {!demo && <SaveSection role="teacher" />}
       <ClassAICard cls={cls} policy={aiPolicy} onPolicy={onPolicy} />
       {paywall && aiPolicy && (
         <section className="section set-group t-set" aria-labelledby="ts-licence">
@@ -264,6 +273,7 @@ export default function ClassSettings() {
         </section>
       )}
       <NoticesSection cls={cls} on={digest} onChange={setDigest} />
+      {goal && <ClassGoalSettings cls={cls} goal={goal} onSaved={load} />}
       <section className="section set-group t-set" aria-labelledby="ts-keep">
         <h2 id="ts-keep" className="set-head">כמה זמן נשמר המידע</h2>
         <ul className="set-box t-keep">{retentionLines().map((line) => <li key={line}>{line}</li>)}</ul>

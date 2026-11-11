@@ -2,7 +2,8 @@
 // sees, on Quests above today's missions, the class total and their own share, and never a classmate's name; the
 // moment for a reached goal comes once and never after a reload; a goal the teacher turned off and a student with no
 // class show no card at all; the steps waiting on the device go with the next sync; the teacher turns the goal on or
-// off and sets its size, and sees the total in the board's header.
+// off and sets its size on the class settings page (TEACHER-9 §1.8, FOLLOWUP-43), and sees the total in the board's
+// header.
 // CLASS_GOAL_SHOTS=<folder> saves screenshots for a look (nothing is compared).
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
@@ -246,16 +247,31 @@ test.describe('the class goal of the week', () => {
     await expect.poll(async () => (await saved(page)).stepsOut).toEqual([]);
   });
 
-  test('the teacher: the total in the header, the goal on or off, and its size from next week', async ({ page }) => {
+  test('the teacher: the total in the header, the goal on or off and its size on the class settings page, from next week', async ({ page }) => {
     const { log } = await fakeServer(page);
-    await open(page, '#/teacher?tab=students', teacher());
-    await expect(page.locator('.t-goal-chip')).toHaveText('מטרת הכיתה: 23/60');
+    const chip = page.locator('.t-goal-chip');
     const block = page.getByRole('region', { name: 'מטרת כיתה שבועית' });
+    // the board: the class total in the header; the block is no longer on the students' view (one copy, on the settings)
+    await open(page, '#/teacher?tab=students', teacher());
+    await expect(chip).toHaveText('מטרת הכיתה: 23/60');
+    await expect(page.getByRole('tab', { name: 'תלמידים' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('region', { name: 'טבלת התלמידים' })).toBeVisible();
+    await expect(block).toHaveCount(0);
+    // the settings, from the board's tools: the block after the daily email and before how long data is kept
+    await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'הגדרות הכיתה' }).click();
+    await expect(page.getByRole('heading', { name: 'הגדרות הכיתה ז׳3' })).toBeVisible();
+    await expect(block).toBeVisible();
+    await expect(block).toHaveCount(1);
+    // (this fake board has no AI policy, no licence and no daily email: those sections are not drawn)
+    expect(await page.locator('.t-settings h2').allTextContents()).toEqual(['הכיתה', 'הכניסה לכיתה', 'שמירת ההתקדמות', 'מטרת כיתה שבועית', 'כמה זמן נשמר המידע', 'סוף שנת הלימודים']);
     await expect(block.getByRole('radio', { name: 'פועלת' })).toBeChecked();
     const size = block.getByLabel('גודל המטרה (צעדים בשבוע)');
     await expect(size).toHaveAttribute('placeholder', 'אוטומטי');
     await expect(size).toHaveValue('');
     await expect(block).toContainText('התלמידים רואים רק את הסכום של כל הכיתה ואת החלק של עצמם. אין דירוג ואין שמות. בלי מספר, המטרה היא 4 צעדים לכל תלמיד פעיל.');
+    for (const el of [block.getByRole('radio', { name: 'פועלת' }), size, block.getByRole('button', { name: 'שמירה' })]) {
+      expect((await el.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    }
     await block.scrollIntoViewIfNeeded();
     await shot(page, 'teacher-block');
     // a size out of range is explained, and nothing is sent
@@ -273,12 +289,18 @@ test.describe('the class goal of the week', () => {
     await expect(block.getByRole('radio', { name: 'כבויה' })).toBeChecked();
     await expect(block.getByRole('radio', { name: 'כבויה' })).toBeFocused();
     await expect.poll(() => log.filter((r) => r.path === '/api/teacher/class/goal').at(-1).body).toEqual({ on: false, target: 50 });
-    await expect(page.locator('.t-goal-chip')).toHaveCount(0);
     await expect(size).toHaveCount(0);
     await shot(page, 'teacher-block-off');
-    // and on again with a click
+    // the board's header follows: no chip while the goal is off
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await expect(chip).toHaveCount(0);
+    // and on again with a click, the size kept
+    await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'הגדרות הכיתה' }).click();
     await block.getByRole('radio', { name: 'פועלת' }).click();
-    await expect(page.locator('.t-goal-chip')).toHaveText('מטרת הכיתה: 23/60');
     await expect(size).toHaveValue('50');
+    await expect.poll(() => log.filter((r) => r.path === '/api/teacher/class/goal').at(-1).body).toEqual({ on: true, target: 50 });
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await expect(chip).toHaveText('מטרת הכיתה: 23/60');
   });
 });

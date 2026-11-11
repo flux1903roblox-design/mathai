@@ -394,6 +394,16 @@ describe('turning it on and off', () => {
     expect(server.posts()).toHaveLength(1);
   });
 
+  it('a teacher\'s backup code (FOLLOWUP-10, the class settings\' save section): the sealed copy keeps the class keys, never a token', async () => {
+    const classes = [{ code: 'K7Q2MD', key: 'teacher-key-example', className: 'ז׳3', grade: '7' }, { code: 'AAA222', key: null, className: 'ח׳1', grade: '8', owned: true }];
+    useApp.setState({ ...HERE, profile: { role: 'teacher', name: 'רונית', grade: '7', classes, active: 'K7Q2MD' } });
+    const code = await createBackup();
+    const back = (await held(code)).state.profile;
+    expect(back.role).toBe('teacher');
+    expect(back.classes).toEqual(classes);
+    expect(JSON.stringify(server.posts()[0].body)).not.toContain('teacher-key-example'); // sealed: the server sees no key
+  });
+
   it('a code that is taken already gets another; a server that refuses keeps the backup off', async () => {
     useApp.setState({ ...HERE });
     let first = true;

@@ -776,9 +776,14 @@ export async function accountExport(req, env, cors) {
     payments: await all(env, `SELECT p.id, p.kind, p.amount_agorot, p.currency, p.status, p.occurred_at, p.period_end FROM payments p JOIN subscriptions s ON s.id = p.subscription_id
       WHERE s.account_id = ?`, a.id),
     orders: await all(env, 'SELECT id, plan, class_code, seats, amount_agorot, status, created_at, paid_at FROM orders WHERE account_id = ?', a.id),
-    // the classes bound to this account (a teacher's): their code and name, never their students
-    classes: await all(env, `SELECT o.class_code AS code, c.name, o.bound_at AS boundAt FROM class_owners o JOIN classes c ON c.code = o.class_code
-      WHERE o.account_id = ? ORDER BY o.bound_at, o.class_code`, a.id),
+    // the classes bound to this account (a teacher's): their code and name, never their students, and the teacher's
+    // choice for the class goal of the week (STUDENT-4, goal.js): on or off (on until the teacher changes it), and the
+    // size the teacher fixed (null: automatic, 4 steps for each active student)
+    classes: (await all(env, `SELECT o.class_code AS code, c.name, o.bound_at AS boundAt, g.on_flag AS goalOn, g.target AS goalSize
+      FROM class_owners o JOIN classes c ON c.code = o.class_code LEFT JOIN class_goal_settings g ON g.class_code = o.class_code
+      WHERE o.account_id = ? ORDER BY o.bound_at, o.class_code`, a.id)).map(({ goalOn, goalSize, ...c }) => ({
+      ...c, goal: { on: goalOn == null || !!goalOn, size: goalSize ?? null },
+    })),
     // the progress kept for the family's devices (DURABLE-6): which, for which device, and when; never the code or the content
     vaults: await all(env, `SELECT e.id, e.label, e.device_id AS deviceId, e.created_at AS createdAt, COALESCE(v.updated_at, e.updated_at) AS updatedAt
       FROM vault_escrow e LEFT JOIN vaults v ON v.id_hash = e.vault_id WHERE e.owner_kind = 'account' AND e.owner_id = ? ORDER BY e.created_at`, a.id),

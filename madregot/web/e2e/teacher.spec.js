@@ -30,7 +30,8 @@
 // TEACHER-9: the class settings, opened from the board's tools: the class's name, grade, code and join lock; the email
 // it is bound to and the teacher key, with a new key after a fresh code; how long the data is kept (the words come from
 // shared/retention.js); and deleting the class, which waits for its name to be typed and, for a class bound to an
-// email, for the owner's fresh code. Student AI by the Ministry's rules (TRUST-11's screens, trust §E.8's words): the
+// email, for the owner's fresh code. Under the way in, the durable lane's save section with the teacher's note
+// (FOLLOWUP-10): no class switch, the key in the backup file, a backup code, the restore screen; none in the demo. Student AI by the Ministry's rules (TRUST-11's screens, trust §E.8's words): the
 // card in a school class before approval (off, the reason, no switch) and its licence (the quote only); consent and the
 // switch once approved; the per-student switch and badge; "איפה הכיתה הזו לומדת?" in TeacherStart, AddClass and the
 // settings (a change asks first; a private group needs the attestation).
@@ -505,6 +506,50 @@ test.describe('TEACHER-9: the class settings and deleting a class', () => {
     await expect(page.getByText('דפי מחברת נמחקים חודש אחרי שסוגרים בקשה, ובקשות נמחקות אחרי חצי שנה.')).toBeVisible();
     await page.getByRole('button', { name: 'יציאה מהלוח' }).click();
     await expect(page.getByRole('dialog', { name: 'לצאת מהלוח?' })).toContainText('המידע של הכיתות בשרת נשאר: כדי למחוק אותו, מוחקים כל כיתה בלוח המורה לפני כן.');
+  });
+
+  test('FOLLOWUP-10: under "הכניסה לכיתה", how this device keeps the classes: the teacher\'s note, no class switch, the key in the file and the code, the restore screen', async ({ page }, info) => {
+    const { st } = await fakeServer(page.context(), {}, baseOf());
+    // this browser cannot share files: the backup file is a download
+    await page.addInitScript(() => { delete Navigator.prototype.canShare; delete Navigator.prototype.share; });
+    await open(page, '#/teacher/settings', keyTeacher());
+    const save = page.getByRole('region', { name: 'שמירת ההתקדמות' });
+    await expect(save).toBeVisible();
+    // right under the way in (TEACHER-9 §1.2)
+    const heads = await page.locator('.t-settings h2').allTextContents();
+    expect(heads.indexOf('שמירת ההתקדמות')).toBe(heads.indexOf('הכניסה לכיתה') + 1);
+    await expect(save).toContainText('בקובץ יש גם את מפתח המורה של הכיתות. מי שמקבל אותו יכול להיכנס ללוח הכיתה, אז שמרו אותו רק אצלכם.');
+    await expect(save).not.toContainText('כולל השם');
+    // the class's copy of a student's code is a student's switch, never a teacher's
+    await expect(save.getByRole('switch')).toHaveCount(0);
+    await expect(page.getByText('שמירת עותק בשרת הכיתה')).toHaveCount(0);
+    for (const name of ['לשמור קובץ גיבוי', 'ליצור קוד גיבוי', 'לשחזר מקוד או מקובץ']) {
+      expect((await save.getByRole('button', { name }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+    }
+    await save.scrollIntoViewIfNeeded();
+    await look(page, 'settings-save');
+    // the file holds the class key: the only way back to a class with no email
+    const [download] = await Promise.all([page.waitForEvent('download'), save.getByRole('button', { name: 'לשמור קובץ גיבוי' }).click()]);
+    const file = info.outputPath('teacher-backup.json');
+    await download.saveAs(file);
+    const { state } = JSON.parse(readFileSync(file, 'utf8'));
+    expect(state.profile).toMatchObject({ role: 'teacher', classes: [{ code: 'K7Q2MD', key: 'tkey-123' }] });
+    expect(state.backup).toBeUndefined();
+    // a backup code: the sealed copy goes to the server (lib/durable/vault.test.js opens a teacher's and finds the keys)
+    await save.getByRole('button', { name: 'ליצור קוד גיבוי' }).click();
+    const code = page.getByRole('dialog', { name: 'קוד הגיבוי שלכם' });
+    await expect(code).toBeVisible();
+    expect(Object.keys(st.vaults)).toHaveLength(1);
+    await page.keyboard.press('Escape');
+    await expect(code).toBeHidden();
+    await expect(save.locator('[data-backup]')).toHaveAttribute('data-backup', 'idle');
+    await expect(save.getByRole('button', { name: 'להציג את קוד הגיבוי' })).toBeVisible();
+    // the restore screen, and back to the settings
+    await save.getByRole('button', { name: 'לשחזר מקוד או מקובץ' }).click();
+    await expect(page).toHaveURL(/#\/restore$/);
+    await expect(page.getByRole('heading', { name: 'יש לי קוד גיבוי' })).toBeVisible();
+    await page.goBack();
+    await expect(page.getByRole('heading', { name: 'הגדרות הכיתה ז׳3' })).toBeVisible();
   });
 
   test('a new teacher key: a fresh code to the email, then the key to copy; the old one is replaced on this device', async ({ page }) => {
@@ -2388,6 +2433,9 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
     await expect(page.getByRole('button', { name: 'מחיקת הכיתה' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'החלפת מפתח המורה' })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'הכניסה לכיתה' })).toContainText('בכיתה לדוגמה אי אפשר למחוק או להחליף מפתח.');
+    // the demo is never saved on the device, so there is no save section to promise it (FOLLOWUP-10)
+    await expect(page.getByRole('region', { name: 'שמירת ההתקדמות' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'לשמור קובץ גיבוי' })).toHaveCount(0);
     await page.evaluate(() => window.scrollTo(0, 0));
     await shot(page, 'teacher-demo-settings');
     await page.getByRole('button', { name: 'מחיקת הכיתה' }).scrollIntoViewIfNeeded();

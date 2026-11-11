@@ -188,12 +188,33 @@ test('7. deleting the account unbinds its classes (they still open with the key)
   const data = await exp.json();
   assert.equal(data.classes.length, 1);
   assert.equal(data.classes[0].code, c.code); assert.equal(data.classes[0].name, 'ז׳3'); assert.match(data.classes[0].boundAt, /^\d{4}-/);
-  assert.deepEqual(Object.keys(data.classes[0]).sort(), ['boundAt', 'code', 'name']);
+  assert.deepEqual(Object.keys(data.classes[0]).sort(), ['boundAt', 'code', 'goal', 'name']);
+  assert.deepEqual(data.classes[0].goal, { on: true, size: null }, 'a goal never changed: on, with the automatic size');
   const del = await h.call('POST', '/api/account/delete', { headers: acct(t), body: { confirm: 'DELETE' } });
   assert.equal(del.status, 200);
   assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM class_owners').n, 0);
   assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM classes WHERE code = ?', c.code).n, 1, 'the class stays');
   assert.equal((await dash({ 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey })).status, 200, 'and opens with its key');
+});
+
+test('7b. the export carries each bound class\'s goal setting (on or off, and the size), and only the bound classes', async () => {
+  h = await setup();
+  const t = await signIn(h, 'teacher@example.test');
+  const a = await ownedClass(t, { className: 'ז׳3' });
+  const b = await ownedClass(t, { className: 'ח׳1' });
+  const key = (c) => ({ 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey });
+  assert.equal((await h.call('POST', '/api/teacher/class/goal', { headers: key(a), body: { on: false, target: 30 } })).status, 200);
+  assert.equal((await h.call('POST', '/api/teacher/class/goal', { headers: owner(b.code, t), body: { on: true, target: 120 } })).status, 200);
+  // a class with a goal setting that is not bound to this account stays out of the export
+  const loose = await (await h.call('POST', '/api/classes', { body: BODY })).json();
+  assert.equal((await h.call('POST', '/api/teacher/class/goal', { headers: key(loose), body: { on: false, target: null } })).status, 200);
+  const data = await (await h.call('GET', '/api/account/export', { headers: acct(t) })).json();
+  const goals = Object.fromEntries(data.classes.map((c) => [c.code, c.goal]));
+  assert.deepEqual(goals, { [a.code]: { on: false, size: 30 }, [b.code]: { on: true, size: 120 } });
+  // back to automatic: the size is null again
+  assert.equal((await h.call('POST', '/api/teacher/class/goal', { headers: key(b), body: { on: true, target: null } })).status, 200);
+  const again = await (await h.call('GET', '/api/account/export', { headers: acct(t) })).json();
+  assert.deepEqual(again.classes.find((c) => c.code === b.code).goal, { on: true, size: null });
 });
 
 test('8. an account owns at most 20 classes: the 21st bind and a 21st new class are 409 too_many_classes_owned', async () => {

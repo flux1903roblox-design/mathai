@@ -79,6 +79,14 @@
 .t-lock { margin-bottom: var(--s4); }
 .t-lock-row { font-weight: 700; }
 .t-goal-chip { min-height: 36px; }
+/* the weekly class goal's block (STUDENT-4) on the class settings page (TEACHER-9 §1.8): a settings group like the
+   others there (its set-box lays it out); the switch and the size field keep a phone's width on a wide screen */
+.t-goal-seg { max-width: 360px; }
+.t-goal-size { display: flex; flex-direction: column; gap: var(--s2); }
+.t-goal-size .field-label { margin: 0; }
+.t-goal-row { display: flex; gap: var(--s2); align-items: stretch; max-width: 360px; }
+.t-goal-row .input { flex: 1; min-width: 0; min-height: 48px; }
+.t-goal-size .form-error, .t-goal .field-hint { margin: 0; }
 .t-actions { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); white-space: nowrap; }
 /* (moved here from canon.css at the integration: .t-head's own rules above now load after canon.css, so the wide-screen
    inner width has to come after them, as it did there) */

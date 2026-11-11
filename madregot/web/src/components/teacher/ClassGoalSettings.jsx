@@ -1,6 +1,7 @@
 // The teacher's "מטרת כיתה שבועית" block (STUDENT-4 §7): on or off, and the size of the goal (empty: automatic, 4 steps
-// for each active student). Its temporary home is the "תלמידים" view of the teacher's board; TEACHER-9's class settings
-// page takes it over. The students see only the class total and their own share.
+// for each active student). Its home is the class settings page (TEACHER-9 §1.8, screens/teacher/Settings.jsx), between
+// the daily help email and how long the data is kept; the board shows only the class total in its header. The students
+// see only the class total and their own share.
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
@@ -43,22 +44,24 @@ export default function ClassGoalSettings({ cls, goal, onSaved }) {
   const pick = (v) => { if (busy || v === on) return; setOn(v); save(v, size, 'switch'); };
 
   return (
-    <section className="set-group t-goal" aria-labelledby="t-goal-title">
+    <section className="section set-group t-set t-goal" aria-labelledby="t-goal-title">
       <h2 id="t-goal-title" className="set-head">מטרת כיתה שבועית</h2>
-      <Segmented className="t-goal-seg" value={on} onValueChange={pick} busy={busy} options={OPTIONS} labelledBy="t-goal-title" />
-      {on && (
-        <form className="t-goal-size" onSubmit={(e) => { e.preventDefault(); save(true, size, 'size'); }} noValidate>
-          <label htmlFor="t-goal-n" className="field-label">גודל המטרה (צעדים בשבוע)</label>
-          <div className="t-goal-row">
-            <input id="t-goal-n" className="input" inputMode="numeric" autoComplete="off" placeholder="אוטומטי" value={size} maxLength={3}
-              onChange={(e) => { setSize(e.target.value.replace(/[^\d]/g, '')); setError(''); }}
-              aria-invalid={!!error} aria-describedby={clsx('t-goal-hint', error && 't-goal-err')} />
-            <Button type="submit" variant="secondary" disabled={busy}>שמירה</Button>
-          </div>
-          {error && <p id="t-goal-err" className="form-error" role="alert">{error}</p>}
-        </form>
-      )}
-      <p id="t-goal-hint" className="field-hint">התלמידים רואים רק את הסכום של כל הכיתה ואת החלק של עצמם. אין דירוג ואין שמות. בלי מספר, המטרה היא 4 צעדים לכל תלמיד פעיל.</p>
+      <div className="set-box">
+        <Segmented className="t-goal-seg" value={on} onValueChange={pick} busy={busy} options={OPTIONS} labelledBy="t-goal-title" />
+        {on && (
+          <form className="t-goal-size" onSubmit={(e) => { e.preventDefault(); save(true, size, 'size'); }} noValidate>
+            <label htmlFor="t-goal-n" className="field-label">גודל המטרה (צעדים בשבוע)</label>
+            <div className="t-goal-row">
+              <input id="t-goal-n" className="input" inputMode="numeric" autoComplete="off" placeholder="אוטומטי" value={size} maxLength={3}
+                onChange={(e) => { setSize(e.target.value.replace(/[^\d]/g, '')); setError(''); }}
+                aria-invalid={!!error} aria-describedby={clsx('t-goal-hint', error && 't-goal-err')} />
+              <Button type="submit" variant="secondary" disabled={busy}>שמירה</Button>
+            </div>
+            {error && <p id="t-goal-err" className="form-error" role="alert">{error}</p>}
+          </form>
+        )}
+        <p id="t-goal-hint" className="field-hint">התלמידים רואים רק את הסכום של כל הכיתה ואת החלק של עצמם. אין דירוג ואין שמות. בלי מספר, המטרה היא 4 צעדים לכל תלמיד פעיל.</p>
+      </div>
     </section>
   );
 }

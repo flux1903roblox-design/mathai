@@ -255,9 +255,12 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
   numbers: the parents' ProgressRing (UI plan M2) and the Drawer (B2) still wait for task #76.
 - **The iPhone install guide** (DURABLE-3's InstallSheet) is on the family lane. In iPhone Safari (not the App Store
   app) the install offer (STUDENT-10) shows nothing, and the reminder in Settings shows only the Home Screen sentence.
-- **TEACHER-9's class settings page.** The teacher's "מטרת כיתה שבועית" block sits in its allowed temporary home, the
-  "תלמידים" view of `Teacher.jsx`, until TEACHER-9 moves it. That page's class deletion must also delete `class_steps`
-  and `class_goal_weeks`.
+- **TEACHER-9's class settings page: done on the integrated branch (FOLLOWUP-43).** The teacher's "מטרת כיתה שבועית"
+  block left its temporary home on the board's "תלמידים" view: it is on the class settings page, between the daily
+  help email and how long the data is kept, and nowhere else (the board keeps only the total in its header).
+  `e2e/class-goal.spec.js` follows it there. The account export lists each bound class's goal setting (on or off, and
+  the size; `worker/test/teacher-account.test.js` 7b). The class deletion deletes `class_steps`, `class_goal_weeks` and
+  `class_goal_settings` (`worker/src/forget.js`).
 - **DURABLE-7's sync envelope.** The class-goal steps ride in the existing `/api/progress` body.
 - **The pages' other-lane lines** (TEACHER-4/7/9/10/11/15, PARENTS-2, TRUST-4/9/11, AI-1/3, CURRICULUM-1) are claims
   that turn on at merge; after merging, run `npm run build` and `node madregot/store/make-listing.mjs` and read the

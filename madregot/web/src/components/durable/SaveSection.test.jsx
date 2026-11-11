@@ -21,10 +21,16 @@ describe('SaveSection', () => {
     expect(out).not.toContain('לבטל את השחזור האחרון');
   });
 
-  it('a teacher: the note says the class keys are in the file, so keep it to yourself', () => {
+  it('a teacher (the class settings place it, FOLLOWUP-10): the note says the class keys are in the file; the same rows', () => {
     const out = html(<SaveSection role="teacher" />);
     expect(out).toContain('בקובץ יש גם את מפתח המורה של הכיתות. מי שמקבל אותו יכול להיכנס ללוח הכיתה, אז שמרו אותו רק אצלכם.');
     expect(out).not.toContain('כולל השם');
+    expect(out).toContain('שמירת ההתקדמות');
+    expect(out).toContain('לשמור קובץ גיבוי');
+    expect(out).toContain('ליצור קוד גיבוי');
+    expect(out).toContain('לשחזר מקוד או מקובץ');
+    // the class's copy of a student's code is a student's switch: never on a teacher's page
+    expect(out).not.toContain('שמירת עותק בשרת הכיתה');
   });
 
   it('the file input (Settings without a server, Welcome, the restore screen) has the button\'s words as its name', () => {

@@ -133,6 +133,10 @@ In the table, `teacher-x` means the four files `__screens__/{phone-small,phone,t
   email brings the classes back, with no key typed. A class opened with its key alone is offered a one-tap bind to the
   email. The key keeps working until the owner replaces it, which needs a fresh code and sends an email; it is never
   replaced behind the teacher's back. A shared staff-room computer keeps the sign-in for the tab only (TEACHER-1).
+  For a class that still has only its key, the class settings show "שמירת ההתקדמות" right under "הכניסה לכיתה"
+  (FOLLOWUP-10, the durable lane's `SaveSection role="teacher"`): the backup file and the backup code carry the class
+  keys, the note says so ("בקובץ יש גם את מפתח המורה של הכיתות…"), "לשחזר מקוד או מקובץ" opens the restore screen, and
+  the class switch of a student's copy never shows. The demo class has no such section (it is never saved).
 - **Worker tests.** `teacher-account.test.js` cases 1-10 (bound at once, the dashboard with the owner's session, binding
   and `owned_by_other`, the class list, a new key only with a fresh code, the teacher's AI tier, account deletion
   unbinding, 20 classes, the key checked first, an invalid session making no class).
@@ -143,7 +147,11 @@ In the table, `teacher-x` means the four files `__screens__/{phone-small,phone,t
   second device signs in and gets the class back with no key", "an email with no classes …", "the sign-in survives a
   reload, and with "shared computer" …",
   "FreshClass explains the real student path …", "without email on the server …", ""להמשיך בלי מייל" asks first …",
-  "a class opened with its key: the board offers to bind it …", "signed in, the board adds the email's other classes …".
+  "a class opened with its key: the board offers to bind it …", "signed in, the board adds the email's other classes …";
+  TEACHER-9 "FOLLOWUP-10: under "הכניסה לכיתה", how this device keeps the classes …" (the key in the downloaded file, a
+  backup code, the restore screen) and TEACHER-15 case 1 (no save section in the demo). Vitest:
+  `components/durable/SaveSection.test.jsx` (the teacher's note and rows), `lib/durable/vault.test.js` (a teacher's sealed
+  copy keeps the class keys).
 - **Pictures.** `teacher-start-choose`, `teacher-start-email`, `teacher-start-details`, `teacher-fresh-bound`,
   `teacher-restore`, `teacher-restore-empty`, `teacher-signin-again`, `teacher-no-email-sheet`, `teacher-fresh-key`,
   `teacher-bind-card`, `teacher-more-classes`.
@@ -357,8 +365,6 @@ The code for each is done and tested; each needs the owner once.
   those; contrast and axe's other rules are not checked here.
 - **TRUST-3's distress check on a student's help reply** and its care marker: `detectDistress` is the trust lane's and
   is not on this branch yet; the reply route is where it goes (`worker/src/help.js`, the student's side).
-- **The backup row in the class settings (TEACHER-9 §1.2, `SaveSection role="teacher"`)**: it waits on DURABLE-3/4,
-  which are not on this branch.
 - **A sync asked for while another is running is dropped** (`syncNow` in `web/src/lib/api.js`), so a class exam's
   result that waited offline can take up to the next minute's sync to reach the teacher. This is one possible cause of
   the one TEACHER-5 failure above; it belongs to the sync code, not this lane, and was left as it is.
