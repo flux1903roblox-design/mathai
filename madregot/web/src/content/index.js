@@ -55,12 +55,16 @@ export function diagnosisLine(topic, level, result) {
   return label ? `מה כנראה קרה: ${label}.` : null;
 }
 
-/** Generate one item for a topic level, with bookkeeping fields attached. */
-export function makeItem(topicId, level, avoidKey) {
+/**
+ * Generate one item for a topic level, with bookkeeping fields attached. A check (`opts.test`) draws from the level's
+ * testGen when it has one (CURRICULUM-10: the angle stairs mix two-step questions into their checks); practice keeps gen.
+ */
+export function makeItem(topicId, level, avoidKey, opts = {}) {
   const t = TOPIC[topicId];
   const L = t.levels[Math.min(Math.max(level, 1), t.levels.length) - 1];
+  const gen = opts.test && L.testGen ? L.testGen : L.gen;
   let it; let guard = 0;
-  do { it = L.gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
+  do { it = gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
   // a typed answer that has no short decimal (7/12) says once how to write it
   if (it.precise && it.form === 'num') it = withFormatNote(it);
   // A misconception can only be diagnosed for an answer that is actually wrong: wrong as the finished item reads it, on
@@ -134,7 +138,7 @@ export function namesOf(it, want = []) {
 /** An exercise of a stair for a check or the placement test (see fairForCheck). */
 export function testItem(topicId, level, avoidKey) {
   let it;
-  for (let i = 0; i < 40; i += 1) { it = makeItem(topicId, level, avoidKey); if (fairForCheck(it)) return it; }
+  for (let i = 0; i < 40; i += 1) { it = makeItem(topicId, level, avoidKey, { test: true }); if (fairForCheck(it)) return it; }
   return it;
 }
 

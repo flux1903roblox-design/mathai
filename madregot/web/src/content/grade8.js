@@ -241,6 +241,9 @@ function medianBars() {
   return {
     key: `st2b:${vals.join(',')}:${t}`, text: `גררו את העמודה האחרונה כך שהחציון של כל העמודות יהיה $${t}$.`, form: 'manip',
     manip: { kind: 'bars', stat: 'median', values: vals, target: t, max: 12, start }, answer: t,
+    // the bar that makes the median t is t itself, the number the question names: practice, never a check
+    // (CURRICULUM-10: the guessing test sets an object to a number it prints, and passed stats:2 3.7% of the time)
+    practiceOnly: true,
     hint: 'מסדרים את חמשת המספרים מהקטן לגדול. החציון הוא המספר האמצעי, השלישי.',
     solution: [`בסדר עולה: $${sorted.join(',\\ ')}$`, `כדי שהמספר האמצעי יהיה $${t}$, העמודה האחרונה צריכה להיות $${t}$.`],
     diag: (u) => ((vals.reduce((s, v) => s + v, 0) + u) / 5 === t ? 'mean-not-median' : null),

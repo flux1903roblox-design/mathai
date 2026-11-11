@@ -18,6 +18,7 @@ import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { chainItem, regroupItem, absItem, oppItem, nestedItem, zeroOne } from './signedItems.js';
 import { powItem } from './signed7.js';
+import { straightThree, linearPairDiff, threeLines, crossBisect, parallelTriangle, parallelBisect } from './angleItems.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -766,9 +767,27 @@ const PROPS = {
       if (p === 'an1t') return u === a; // the measured angle turned to the given size, as if the two were equal
       if (p === 'an2') return it.key.endsWith('false') && near(u, a);
       if (p === 'an4') return it.key.endsWith('cointerior') && near(u, a);
+      // CURRICULUM-10: the angle beside the given one (an2b s) or its co-interior angle (an4b s) taken as equal, then halved
+      if (p === 'an2b' || p === 'an4b') return it.key.split(':')[2] === 's' && near(u, a / 2);
       return near(u, a) && near(it.answer, 180 - a);
     },
-    'supp-not-equal': (it, u) => { const [a] = nums(it.key); return near(it.answer, a) && near(u, 180 - a); },
+    'supp-not-equal': (it, u) => {
+      const p = it.key.split(':')[0]; const [a, b] = nums(it.key);
+      // CURRICULUM-10: the opposite angle (an2b v), or the corresponding or alternate one (an4b e), completed to 180°
+      // and halved; the alternate angle at the triangle's base completed to 180°, so the top angle comes out a − b (an4t)
+      if (p === 'an2b') return it.key.split(':')[2] === 'v' && near(u, (180 - a) / 2);
+      if (p === 'an4b') return it.key.split(':')[2] === 'e' && near(u, (180 - a) / 2);
+      if (p === 'an4t') return a > b && near(u, a - b);
+      return near(it.answer, a) && near(u, 180 - a);
+    },
+    // CURRICULUM-10: two adjacent angles d apart (an1d:d): the larger found, or the difference taken off and not halved
+    'took-larger': (it, u) => { const [d] = nums(it.key); return it.key.startsWith('an1d:') && near(u, (180 + d) / 2); },
+    'diff-not-halved': (it, u) => { const [d] = nums(it.key); return it.key.startsWith('an1d:') && near(u, 180 - d); },
+    // a bisector (an2b:a:v|s, an4b:g:e|s): the whole angle it halves, the given one (v, e) or 180° minus it (s)
+    'no-half': (it, u) => {
+      const [p, g, kind] = it.key.split(':');
+      return (p === 'an2b' || p === 'an4b') && near(u, kind === 'v' || kind === 'e' ? Number(g) : 180 - Number(g));
+    },
     'wrong-total': (it, u) => { const [a] = nums(it.key); return near(u, 90 - a) || near(u, 360 - a); },
     'sum-360': (it, u) => { const [a, b] = nums(it.key); return near(u, 360 - a - b); },
     'one-angle': (it, u) => { const [a, b] = nums(it.key); return near(u, 180 - a) || near(u, 180 - b); },
@@ -1301,5 +1320,63 @@ describe('the class\'s word problems name only what the answer shows', () => {
     // 2x, 4x − 15, 3x + 15, x in a quadrilateral: x = 36; with 180°, 18; the minus of −15 dropped, (360 − 30) : 10 = 33
     expect(props['wrong-total']({ key: 'eq5g:4:2,4,3,1:0,-15,15,0:-1', answer: 36, form: 'num' }, 18)).toBe(true);
     expect(props['drop-minus']({ key: 'eq5g:4:2,4,3,1:0,-15,15,0:-1', answer: 36, form: 'num' }, 33)).toBe(true);
+  });
+});
+
+// CURRICULUM-10: the two-step angle questions, 2,000 of each. The key is the question (its numbers give the answer), every
+// label is true of the answer it names, and each mistake of the kind shows on more than 4% of the questions.
+describe('the two-step angle questions name only what the answer shows', () => {
+  const real = Math.random;
+  const props = PROPS.angles;
+  const N = 2000;
+  /** The answer from the key alone: the given angles, a difference, a halved angle. */
+  const fromKey = (key) => {
+    const [p, x, y] = key.split(':'); const a = Number(x); const b = Number(y);
+    if (p === 'an1s' || p === 'an2t' || p === 'an4t') return 180 - a - b;
+    if (p === 'an1d') return (180 - a) / 2;
+    if (p === 'an2b') return y === 'v' ? a / 2 : (180 - a) / 2;
+    if (p === 'an4b') return y === 'e' ? a / 2 : (180 - a) / 2;
+    return NaN;
+  };
+  const kinds = [
+    ['three angles on a straight line', straightThree, 1, ['one-angle', 'sum-360'], 1201],
+    ['two adjacent angles and their difference', linearPairDiff, 1, ['took-larger', 'diff-not-halved'], 1202],
+    ['three lines through one point', threeLines, 2, ['one-angle', 'sum-360'], 1203],
+    ['a ray that halves an angle of a crossing', crossBisect, 2, ['no-half', 'supp-not-equal', 'equal-not-supp'], 1204],
+    ['a triangle between parallel lines', parallelTriangle, 4, ['one-angle', 'supp-not-equal'], 1205],
+    ['a ray that halves an angle after parallel lines', parallelBisect, 4, ['no-half', 'supp-not-equal', 'equal-not-supp'], 1206],
+  ];
+  it.each(kinds)('%s', (_name, make, level, ids, seed) => {
+    const shows = {};
+    try {
+      Math.random = seeded(seed);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...make(), topic: 'angles', level };
+        expect(it.answer, it.key).toBe(fromKey(it.key));
+        const seen = new Set();
+        for (let u = 1; u <= 360; u += 0.5) {
+          if (isCorrect(it, u)) continue;
+          const cat = it.diag(u);
+          if (!cat) continue;
+          expect(props[cat], cat).toBeTypeOf('function');
+          expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
+          expect(catLabel('angles', level, cat), cat).toBeTruthy();
+          seen.add(cat);
+        }
+        seen.forEach((id) => { shows[id] = (shows[id] || 0) + 1; });
+      }
+    } finally { Math.random = real; }
+    expect(Object.keys(shows).sort()).toEqual([...ids].sort());
+    ids.forEach((id) => expect(shows[id] / N, id).toBeGreaterThan(0.04));
+  }, 120_000);
+  it('the properties read the key: 180° minus one given angle, the difference not halved, the whole angle', () => {
+    expect(props['one-angle']({ key: 'an1s:40:75:2:40:75', answer: 65, form: 'num' }, 140)).toBe(true);
+    expect(props['one-angle']({ key: 'an1s:40:75:2:40:75', answer: 65, form: 'num' }, 105)).toBe(true);
+    expect(props['took-larger']({ key: 'an1d:40:r', answer: 70, form: 'num' }, 110)).toBe(true);
+    expect(props['diff-not-halved']({ key: 'an1d:40:r', answer: 70, form: 'num' }, 140)).toBe(true);
+    expect(props['no-half']({ key: 'an2b:70:s:ul', answer: 55, form: 'num' }, 110)).toBe(true);
+    expect(props['no-half']({ key: 'an4b:80:e:ur:ur:80', answer: 40, form: 'num' }, 80)).toBe(true);
+    expect(props['equal-not-supp']({ key: 'an2b:70:s:ul', answer: 55, form: 'num' }, 35)).toBe(true);
+    expect(props['supp-not-equal']({ key: 'an4t:65:55:0', answer: 60, form: 'num' }, 10)).toBe(true);
   });
 });

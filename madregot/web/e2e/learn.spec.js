@@ -4,7 +4,11 @@
 import { test, expect } from '@playwright/test';
 import { open, openOn, type, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
 
-test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
+// (a test whose title says "on both phones" runs on the two phones instead)
+test.beforeEach(({}, info) => {
+  const phones = /on both phones/.test(info.title);
+  test.skip(!(phones ? ['phone', 'phone-small'] : ['phone', 'desktop']).includes(info.project.name), phones ? 'this one is checked on the two phones' : 'journeys run on phone and desktop');
+});
 
 const step = (page) => page.evaluate(() => window.__madregotStep);
 
@@ -397,4 +401,26 @@ test('a constant-first expression on expr:3 counts as right, with a note on the 
   // the next exercise clears the note
   await proceed(page);
   await expect(note).toHaveCount(0);
+});
+
+// CURRICULUM-10: an angle check draws its numbers in the figure only (a triangle between parallels, a bisector, a split
+// angle), so on the smallest phone the drawing must open readable with the question and the keypad, and nothing scrolls
+// sideways
+test('an angles:4 mastery check shows its drawing, the question and the keypad on both phones', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/angles/4?kind=check&purpose=mastery', student('7'), (x) => x.fig?.type === 'geo' && /^an4[tb]:/.test(x.key));
+  const fig = page.locator('.lesson-main svg.figure.geo');
+  await expect(fig).toBeVisible();
+  expect((await fig.boundingBox()).height, 'the drawing is at least 150px tall').toBeGreaterThanOrEqual(150);
+  await expect(page.locator('#qtext')).toBeVisible();
+  await expect(page.locator('#qtext')).toContainText('המסומנת');
+  await expect(page.locator('.keypad')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'בדיקה', exact: true })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  // the figure carries the numbers: the question names none, and the drawing says them to a screen reader
+  expect(it.text.replace(/\$[^$]*\$/g, '')).not.toMatch(/\d/);
+  await expect(fig).toHaveAttribute('aria-label', /\d+°/);
+  // a check: no hint, and a right answer is taken
+  await expect(page.getByRole('button', { name: 'רמז' })).toHaveCount(0);
+  await answer(page, true);
+  await expect(page.locator('section.fb-good')).toBeVisible();
 });

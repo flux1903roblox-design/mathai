@@ -190,6 +190,12 @@ export interface Misconception {
  */
 export interface DiagModel<P = Record<string, number>> {
   params: (rnd: Rng) => P;
+  /**
+   * The params a check draws (CURRICULUM-10), when its practice params include one-step questions a guesser passes by
+   * copying the number or completing it to 180°: the two-step kinds only. Practice and the misconception searches keep
+   * `params`; a verification's probe tries these first (learn/items.ts).
+   */
+  testParams?: (rnd: Rng) => P;
   text: (p: P) => Text;
   display?: (p: P) => string;
   /** A drawing for the question, when the question needs one. */

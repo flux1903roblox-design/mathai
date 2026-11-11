@@ -892,3 +892,49 @@ describe('eq:5, the class\'s word problems (CLASSROOM-8)', () => {
     expect(JSON.stringify(s5.discover)).not.toMatch(/S = 6P|6S = P/);
   });
 });
+
+// CURRICULUM-10: a check's angle questions take two steps. The stairs' new worked examples solve such a question in two
+// written steps, and the models' check params (testParams) never ask what a copied number, or 180°, 90° or 360° minus
+// one, answers; their mistakes still show, and practice keeps the one-step kinds too.
+describe('the angle stairs: two-step checks and their worked examples', () => {
+  const geoSweep = (P: Record<string, [number, number]>, g: { at: string; from: string; to: string }) => {
+    const v = P[g.at]; const f = P[g.from]; const t = P[g.to];
+    let d = ((Math.atan2(t[1] - v[1], t[0] - v[0]) - Math.atan2(f[1] - v[1], f[0] - v[0])) * 180) / Math.PI;
+    while (d <= 0) d += 360;
+    return d;
+  };
+  it.each([['angles:2', 110, 55], ['angles:4', null, 60]] as const)('%s: a two-step example in two written steps, then a check', (skill, first, answer) => {
+    const c = CONTENT[skill];
+    const ex = c.examples.find((e) => /^שלב 1/.test(e.steps[0].action))!;
+    expect(ex, `${skill} has no two-step example`).toBeTruthy();
+    expect(ex.answer).toBe(answer);
+    // two solving steps, named שלב 1 and שלב 2, the second reaching the answer; the third checks it another way
+    expect(ex.steps.map((s) => s.action.slice(0, 5))).toEqual(['שלב 1', 'שלב 2', 'בודקי']);
+    if (first != null) expect(ex.steps[0].calc?.value).toBe(first);
+    expect(same(evaluate(ex.steps[1].value!), answer)).toBe(true);
+    expect(ex.steps[2].calc?.value).toBe(180);
+    // its drawing: the '?' drawn the size of the answer, every given angle its size
+    const f = ex.fig as { pts: Record<string, [number, number]>; angles: { at: string; from: string; to: string; text?: string; target?: boolean }[] };
+    const target = f.angles.find((g) => g.target)!;
+    expect(Math.abs(geoSweep(f.pts, target) - answer)).toBeLessThan(0.6);
+    f.angles.filter((g) => /°$/.test(g.text || '')).forEach((g) => expect(Math.abs(geoSweep(f.pts, g) - parseFloat(g.text!))).toBeLessThan(0.6));
+    expect(renderToStaticMarkup(createElement(Figure, { fig: ex.fig }))).not.toMatch(/NaN|undefined|Infinity/);
+  });
+  const withCheck = stairs.flatMap((c) => [['diag', c.diag], ['transfer', c.transfer]].filter(([, m]) => (m as DiagModel<any> | undefined)?.testParams).map(([n, m]) => [`${c.skill} ${n}`, c, m] as const));
+  it('the angle stairs 1 to 4 have check params on each model that needed them', () => {
+    expect(withCheck.map(([n]) => n)).toEqual(['angles:1 diag', 'angles:1 transfer', 'angles:2 diag', 'angles:2 transfer', 'angles:3 diag', 'angles:4 diag', 'angles:4 transfer']);
+  });
+  it.each(withCheck)('%s: a check question is never a copied number, nor 180°, 90° or 360° minus one, and its mistakes still show', (_n, c, model) => {
+    const m = model as DiagModel<any>; const rnd = seeded(31);
+    const fired: Record<string, number> = {};
+    for (let i = 0; i < 2000; i += 1) {
+      const p = m.testParams!(rnd); const ans = m.answer(p);
+      const printed = (String(m.text(p)).replace(/\\[a-zA-Z]+/g, ' ').match(/\d+(\.\d+)?/g) || []).map(Number);
+      // a right triangle's 90° is no copy: the drawing never prints it, and 90 − a is the skill there (one in ten checks)
+      if (!(c.skill === 'angles:3' && p.k === 1)) expect(printed.flatMap((n) => [n, 180 - n, 90 - n, 360 - n]).some((g) => same(g, ans)), `${c.skill} ${JSON.stringify(p)}`).toBe(false);
+      Object.entries(m.bugs).forEach(([id, f]) => { const v = f(p); if (v != null && Number.isFinite(v) && !same(v, ans)) fired[id] = (fired[id] || 0) + 1; });
+      expect(m.solution(p).join(' ')).toContain(String(ans));
+    }
+    expect(Object.values(fired).some((n) => n > 2000 * 0.04), c.skill).toBe(true);
+  });
+});

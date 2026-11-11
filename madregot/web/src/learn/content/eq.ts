@@ -896,7 +896,7 @@ const stair5: StairContent = {
     // CLASSROOM-8: the class's rectangle, in the class's layout (נתון, צ״ל, the asked side boxed, the found lengths
     // written on the drawing at the end)
     { problem: 'צלעות המלבן הן $x$ ו־$x + 5$ (בס״מ), וההיקף שלו $54$ ס״מ. מה אורכי הצלעות, ומה השטח?', fig: rectFig('x + 5', 'x'),
-      answer: 176, answerTex: 'x = 11,\\; x + 5 = 16,\\; S = 176', check: 'x * (x + 5)', vars: { x: 11 },
+      answer: 176, answerTex: '\\begin{gathered} x = 11,\\; x + 5 = 16 \\\\ S = 176 \\end{gathered}', check: 'x * (x + 5)', vars: { x: 11 },
       steps: [
         { action: 'נתון: $P = 54$ ס״מ. צ״ל: $x = ?$, $x + 5 = ?$, $S = ?$', why: 'במלבן הצלעות הנגדיות שוות, ולכן בשרטוט הן מסומנות באותם קווים: שתי צלעות $x$ ושתי צלעות $x + 5$.', result: 'x,\\quad x + 5' },
         { action: 'ההיקף הוא סכום ארבע הצלעות.', why: 'שתי צלעות $x$ ושתי צלעות $x + 5$.', result: '2x + 2(x + 5) = 54', eq: '2*x + 2*(x + 5) = 54' },

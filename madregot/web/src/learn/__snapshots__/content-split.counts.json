@@ -23,7 +23,8 @@
     "discover": 10,
     "examples": [
      4,
-     4
+     4,
+     3
     ],
     "misconceptions": [
      2,
@@ -56,7 +57,8 @@
     "discover": 10,
     "examples": [
      4,
-     4
+     4,
+     3
     ],
     "misconceptions": [
      2,
@@ -88,7 +90,7 @@
    }
   },
   "stairs": 5,
-  "steps": 139
+  "steps": 145
  },
  "coord": {
   "skills": {

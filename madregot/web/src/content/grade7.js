@@ -7,6 +7,7 @@ import { SIGNED6_LEVEL } from './signed6.js';
 import { SIGNED7_LEVEL } from './signed7.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
 import { signOutside, chainItem, regroupItem, absItem, oppItem, absMc, zeroOne, nestedItem } from './signedItems.js';
+import { straightThree, linearPairDiff, threeLines, crossBisect, parallelTriangle, parallelBisect } from './angleItems.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 const rnd = () => Math.random();
@@ -308,6 +309,8 @@ function missingVertex() {
 
 // ---------------------------------------------------------------- angles
 const deg = (n) => `${n}^\\circ`;
+/** One of several makers, by weight: [[0.3, make], …] (weights summing to 1). */
+const mix = (parts) => { let r = Math.random(); for (const [w, make] of parts) { if (r < w) return make(); r -= w; } return parts[parts.length - 1][1](); };
 
 function linearPair() {
   let a; do { a = R(4, 32) * 5; } while (a === 90);
@@ -334,9 +337,8 @@ function linearPairTurn() {
   };
 }
 
-function vertical() {
+function vertical(askVertical = Math.random() < 0.6) {
   let a; do { a = R(4, 32) * 5; } while (a === 90);
-  const askVertical = Math.random() < 0.6;
   const ans = askVertical ? a : 180 - a;
   return {
     key: `an2:${a}:${askVertical}`, text: 'שני ישרים נחתכים. מה גודל הזווית המסומנת ב־$?$', form: 'num', answer: ans, unit: 'מעלות',
@@ -385,9 +387,8 @@ function triangleSum() {
   };
 }
 
-function parallel() {
+function parallel(kind = pick(['corresponding', 'alternate', 'cointerior'])) {
   let a; do { a = R(7, 29) * 5; } while (a === 90); // angle of the transversal
-  const kind = pick(['corresponding', 'alternate', 'cointerior']);
   const ans = kind === 'cointerior' ? 180 - a : a;
   const names = { corresponding: 'מתאימות', alternate: 'מתחלפות', cointerior: 'חד־צדדיות' };
   return {
@@ -492,11 +493,18 @@ export const GRADE7 = [
   {
     id: 'angles', grade: '7', title: 'זוויות', color: 'petrol',
     desc: 'צמודות, קודקודיות, משולש וישרים מקבילים',
+    // CURRICULUM-10: a check draws from testGen, practice from gen. A one-step question (equal to the drawn angle, or
+    // 180° minus it) is passed by a student who copies the number or completes it to a line, so each check mixes in
+    // two-step questions (content/angleItems.js), each practised first at 30% of its stair's exercises. The mixes keep
+    // every kind at 15% or more of a check and every check under the 2% guessing limit (learn/guessing.test.ts).
     levels: [
-      { title: 'זוויות צמודות', gen: () => (Math.random() < 0.5 ? linearPairTurn() : linearPair()) },
-      { title: 'זוויות קודקודיות', gen: vertical },
+      { title: 'זוויות צמודות', gen: () => mix([[0.2, linearPairTurn], [0.2, linearPair], [0.3, straightThree], [0.3, linearPairDiff]]),
+        testGen: () => mix([[0.25, linearPair], [0.5, straightThree], [0.25, linearPairDiff]]) },
+      { title: 'זוויות קודקודיות', gen: () => mix([[0.4, vertical], [0.3, threeLines], [0.3, crossBisect]]),
+        testGen: () => mix([[0.2, () => vertical(true)], [0.2, () => vertical(false)], [0.3, threeLines], [0.3, crossBisect]]) },
       { title: 'סכום זוויות במשולש', gen: () => (Math.random() < 0.4 ? rightTriangleDrag() : triangleSum()) },
-      { title: 'ישרים מקבילים', gen: parallel },
+      { title: 'ישרים מקבילים', gen: () => mix([[0.4, parallel], [0.3, parallelTriangle], [0.3, parallelBisect]]),
+        testGen: () => mix([[0.2, () => parallel(pick(['corresponding', 'alternate']))], [0.2, () => parallel('cointerior')], [0.3, parallelTriangle], [0.3, parallelBisect]]) },
       { title: 'שווה־שוקיים וזווית חיצונית', gen: isosceles },
     ],
     cats: {
@@ -507,6 +515,10 @@ export const GRADE7 = [
       'one-angle': 'החסירו רק זווית אחת',
       'forgot-half': 'שכחו לחלק לשתי זוויות הבסיס',
       'interior-not-exterior': 'חישבו את הזווית הפנימית במקום החיצונית',
+      // CURRICULUM-10's two-step questions (content/angleItems.js); one given angle taken off alone is one-angle
+      'took-larger': 'חישבו את הזווית הגדולה במקום הקטנה',
+      'diff-not-halved': 'חיסרו את ההפרש מ־$180^\\circ$ ולא חילקו לשתיים',
+      'no-half': 'לקחו את כל הזווית במקום חצי ממנה',
     },
   },
   EXPR,

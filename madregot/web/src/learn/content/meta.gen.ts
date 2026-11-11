@@ -22,7 +22,7 @@ export const META: Record<SkillId, StairMeta> = {
       },
       {
         "id": "one-angle",
-        "title": "השלימו ל־$180^\\circ$ רק את הזווית השכנה, ושכחו זווית נוספת על הישר"
+        "title": "הורידו מ־$180^\\circ$ רק זווית אחת, ושכחו זווית נוספת על הישר"
       }
     ],
     "transfer": true

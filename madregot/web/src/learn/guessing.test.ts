@@ -5,12 +5,14 @@
 //  - most common answer: for each kind of question (its form and where it comes from), the answer that question
 //    has most often, learned from a sample of the same check's questions;
 //  - best constant: one fixed answer per form (number, choice, point, line, object), the one right most often;
-//  - a number from the question: one of the numbers printed in it (its text, its expression, its table), picked at
-//    random, or always the first one, or always the last one; for an answer of two numbers (a point, a line, an
-//    expression's coefficient and constant), two of them: a pair at random, the first two, or the last two. Not yet the number inside a drawing: an angle check can
-//    still be passed by copying the angle drawn (angles:2 about 31%, angles:4 about 47%, from a run with drawings in),
-//    because its questions are one step, equal or adding to 180°. That needs the angle checks to mix in other kinds of
-//    questions, and is left for that change.
+//  - a number from the question: one of the numbers printed in it (its text, its expression, its drawing in words,
+//    content/index.js figPlain, and the numbers an object draws: a number line's start, the bars and their target, the
+//    angle tool's goal), picked at random, or always the first one, or always the last one; for an answer of two
+//    numbers (a point, a line, an expression's coefficient and constant), two of them: a pair at random, the first two,
+//    or the last two. An object whose answer is one number (a number line, the angle tool, a bar) is set to it;
+//  - for a question in degrees (CURRICULUM-10), 180° minus a printed number, 90° minus one, and 360° minus one, each
+//    at random, the first or the last: what a student who copies the angle drawn, or completes it to a straight
+//    line, a right angle or a full turn, types without reading which angle is asked.
 // Each question's chance is measured on a fresh sample; a check's pass rate is then exact (its questions are drawn
 // independently): mastery and jump tests need 4 of 5, a review 3 of 3, a verification 3 of 3; a placement probe needs
 // all three of its questions, and a topic's placement is followed through both its probes.
@@ -93,14 +95,32 @@ function chances(draws: Draw[], guess: (it: Item) => unknown) {
   return draws.map((d) => { let ok = 0; for (let i = 0; i < N; i += 1) { const it = d(); const g = guess(it); if (g !== undefined && isCorrect(it, g)) ok += 1; } return ok / N; });
 }
 
-/** The numbers a typed question prints: in its text, its expression and its table, in reading order. */
+/** The objects whose answer is one number a guesser can set them to: a point on a number line, a ray's angle, a bar. */
+const ONE_NUMBER = new Set(['numberline', 'angle', 'bars', 'dline']);
+const oneNumber = (it: Item) => it.form === 'num' || (it.form === 'manip' && ONE_NUMBER.has(it.manip?.kind) && typeof it.answer === 'number');
+/** The numbers a typed question (or an object set to one number) prints: in its text, its expression, its drawing. */
 export function shownNumbers(it: Item): number[] {
-  if (it.form !== 'num') return [];
+  if (!oneNumber(it)) return [];
   return printed(it);
 }
-/** Every number printed in a question, whatever its form. */
+/** The numbers an object draws as numbers: a number line's start, the bars and their target, the angle tool's goal. */
+function drawnByObject(m: any): string {
+  if (!m) return '';
+  const nums = m.kind === 'numberline' ? [m.from, m.start] : m.kind === 'bars' ? [...(m.values || []), m.target ?? m.mean]
+    : m.kind === 'angle' ? [m.target] : m.kind === 'pins' ? (m.labels || []).filter((l: unknown) => typeof l === 'number') : [];
+  return nums.filter((v: unknown) => typeof v === 'number').join(' ');
+}
+/** Every number printed in a question, whatever its form: its text, its expression, its drawing in words, its object. */
+const PRINTED = new WeakMap<object, number[]>();
 function printed(it: Item): number[] {
-  const shown = [it.text, it.display, it.fig?.type === 'table' ? figPlain(it.fig) : ''].filter(Boolean).join(' ')
+  // read once per question: every guessing strategy asks for them
+  if (it && typeof it === 'object' && PRINTED.has(it)) return PRINTED.get(it)!;
+  const ns = readPrinted(it);
+  if (it && typeof it === 'object') PRINTED.set(it, ns);
+  return ns;
+}
+function readPrinted(it: Item): number[] {
+  const shown = [it.text, it.display, it.fig ? figPlain(it.fig) : '', it.form === 'manip' ? drawnByObject(it.manip) : ''].filter(Boolean).join(' ')
     // a TeX thousands group is one number: 50{,}000 is 50000, not 50 and 0 (a scale's 1 : 50{,}000)
     .replace(/(\d)\{,\}(?=\d{3})/g, '$1')
     .replace(/\\(qquad|quad|[,;:! ])/g, ' ').replace(/\\[a-zA-Z]+/g, ' ').replace(/−/g, '-')
@@ -123,6 +143,17 @@ const SHOWN: ((it: Item) => number)[] = [
   (it) => { if (!TWO.has(it.form)) return 0; const ns = printed(it); return ns.length >= 2 && isCorrect(it, twoOf(it, ns[0], ns[1])) ? 1 : 0; },
   (it) => { if (!TWO.has(it.form)) return 0; const ns = printed(it); return ns.length >= 2 && isCorrect(it, twoOf(it, ns[ns.length - 2], ns[ns.length - 1])) ? 1 : 0; },
 ];
+/**
+ * For a question in degrees: 180° − n, 90° − n and 360° − n for a printed number n (at random, the first, the last).
+ * Copying the angle drawn is the number strategy above.
+ */
+const DEG_GUESS: ((n: number) => number)[] = [(n) => 180 - n, (n) => 90 - n, (n) => 360 - n];
+const inDegrees = (it: Item) => it.unit === 'מעלות';
+export const DEGREES: ((it: Item) => number)[] = DEG_GUESS.flatMap((f) => [
+  (it: Item) => { if (!inDegrees(it)) return 0; const ns = shownNumbers(it); return ns.length ? ns.filter((v) => isCorrect(it, f(v))).length / ns.length : 0; },
+  (it: Item) => { if (!inDegrees(it)) return 0; const ns = shownNumbers(it); return ns.length && isCorrect(it, f(ns[0])) ? 1 : 0; },
+  (it: Item) => { if (!inDegrees(it)) return 0; const ns = shownNumbers(it); return ns.length && isCorrect(it, f(ns[ns.length - 1])) ? 1 : 0; },
+]);
 
 
 /** P(at least `need` right) for independent questions with these chances. */
@@ -136,7 +167,7 @@ function atLeast(qs: number[], need: number) {
 function passRate(draws: Draw[], need: number) {
   const samples = draws.map((d) => Array.from({ length: N }, d));
   // the numbers-from-the-question guesses learn nothing, so they are measured on the same sample
-  const fromQuestion = SHOWN.map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
+  const fromQuestion = [...SHOWN, ...DEGREES].map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
   return Math.max(...learnGuesses(samples.flat()).map((g) => atLeast(chances(draws, g), need)), ...fromQuestion);
 }
 

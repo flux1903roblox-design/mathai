@@ -16,6 +16,10 @@ import type { DiscoverStep, FigSpec } from './types';
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
 // @ts-ignore: plain JS
 import { rectStory, angleEqStory, rectFig } from '@/content/eq.js';
+// @ts-ignore: plain JS
+import { straightThree, linearPairDiff, threeLines, crossBisect, parallelTriangle, parallelBisect } from '@/content/angleItems.js';
+// @ts-ignore: plain JS
+import { figPlain } from '@/content/index.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -467,5 +471,49 @@ describe('the class\'s word-problem drawings', () => {
       });
       expect(renderToStaticMarkup(createElement(Figure, { fig: f }))).not.toMatch(/NaN|undefined|Infinity/);
     }
+  });
+});
+
+// CURRICULUM-10: the two-step angle questions draw their numbers in the figure only. 200 of each kind: the drawing has no
+// letter (no text names a point), every given angle is drawn its size and is a number of the key, the '?' is drawn the
+// size of the answer, a bisector's two halves are equal, and no arc marks a reflex angle.
+describe('the two-step angle questions are drawn to size', () => {
+  const kinds = [
+    ['three angles on a line', straightThree, (k: string[]) => [Number(k[1]), Number(k[2])]],
+    ['two adjacent angles and their difference', linearPairDiff, () => []],
+    ['three lines through one point', threeLines, (k: string[]) => [Number(k[1]), Number(k[2])]],
+    ['a bisector after a crossing', crossBisect, (k: string[]) => [Number(k[1])]],
+    ['a triangle between parallel lines', parallelTriangle, (k: string[]) => [Number(k[1]), Number(k[2])]],
+    ['a bisector after parallel lines', parallelBisect, (k: string[]) => [Number(k[1])]],
+  ] as const;
+  it.each(kinds)('%s', (_name, make, givens) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make(); const f = it.fig as Geo;
+      expect(f.type, it.key).toBe('geo');
+      expect(Object.keys(f.pts).filter((k) => !k.startsWith('_')), `${it.key}: a letter no text names`).toEqual([]);
+      const shown: number[] = []; const asked: number[] = []; const halves: number[] = [];
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(f.pts, g);
+        expect(deg, `${it.key}: the arc at ${g.at} spans ${deg.toFixed(1)}°`).toBeLessThanOrEqual(180.0001);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) { expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6); shown.push(Number(m[1])); }
+        if (g.target) { expect(g.text, it.key).toBe('?'); asked.push(deg); }
+        if (g.n === 2) halves.push(deg);
+      }
+      expect(asked, it.key).toHaveLength(1);
+      expect(Math.abs(asked[0] - it.answer), `${it.key}: the '?' is drawn ${asked[0].toFixed(1)}°, the answer is ${it.answer}°`).toBeLessThan(0.6);
+      expect(shown.sort((a, b) => a - b), it.key).toEqual([...givens(String(it.key).split(':'))].sort((a, b) => a - b));
+      if (halves.length) { expect(halves, it.key).toHaveLength(2); expect(Math.abs(halves[0] - halves[1]), it.key).toBeLessThan(0.01); }
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+  it('reads a drawing in words, so the tutor, an answer key and the guessing test see its numbers', () => {
+    // figPlain's geo case (GEOM-1.5, which landed first in this branch): each angle with its vertex, CURRICULUM-10's
+    // "שרטוט: 40°, ?" with the vertex named
+    expect(figPlain({ type: 'geo', angles: [{ at: 'O', from: 'A', to: 'B', text: '40°' }, { at: 'O', from: 'B', to: 'C', text: '?', target: true }] })).toBe('שרטוט: ∢O 40°, ∢O ?');
+    const it = parallelTriangle();
+    const [, a, b] = String(it.key).split(':');
+    expect(figPlain(it.fig)).toContain(`${a}°`);
+    expect(figPlain(it.fig)).toContain(`${b}°`);
   });
 });
