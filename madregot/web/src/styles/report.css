@@ -1,0 +1,62 @@
+/* ======================================================================= the weekly summary (PARENTS-2)
+   Part of the canon (canon.css: its tokens, its one card, its type scale and nothing else), kept in its own file so it
+   loads with the report screens (components/report/ReportView.jsx and ShareSheet.jsx import it) and not with the first
+   screen: the render-blocking stylesheet stays within the load budget (web/budget.json, scripts/check-budget.mjs).
+   One renderer for the child's preview, the parent's /r link and the family's synced report: white cards, the brand
+   for practised days and "being repaired", green only for "mastered" and "fixed", grey for rest. No percentages. A
+   7-day strip of 32px dots, each with its day's letter (and a full sentence for a screen reader). Works at 320px. */
+.report { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.report-week { display: flex; flex-direction: column; gap: var(--s4); }
+.report-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--s3); }
+.report-title { margin: 0; font-size: 22px; line-height: 28px; font-weight: 800; color: var(--ink); }
+.report-dates { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--ink-2); }
+.report-strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--s1); }
+.report-day { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.report-dot { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--rule-strong); background: #fff; color: #fff; }
+.report-day.is-on .report-dot { background: var(--brand); border-color: var(--brand); }
+.report-day.is-rest .report-dot { background: var(--ground); border-color: var(--ground); color: var(--ink-2); }
+.report-day.is-future .report-dot { border-style: dashed; }
+.report-day.is-today .report-dot { box-shadow: 0 0 0 3px var(--brand-tint); }
+.report-day-name { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ink-2); }
+.report-day.is-today .report-day-name { color: var(--brand-d); font-weight: 800; }
+.report-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+.report-sec { display: flex; flex-direction: column; gap: var(--s3); }
+.report-sec-title { margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); }
+.report-sub, .report-empty-line, .report-asof { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.report-line { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.report-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.report-list li { display: flex; align-items: flex-start; gap: var(--s2); min-width: 0; font-size: 17px; line-height: 24px; color: var(--ink); }
+.report-checks svg { flex: none; margin-top: 3px; color: var(--good-ink); }
+.report-dots li::before { content: ''; flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--brand); }
+.report-dots li.report-more { color: var(--ink-2); }
+.report-dots li.report-more::before { background: var(--rule-strong); }
+.report-fix-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.report-fix { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); padding: var(--s3) 0; }
+.report-fix:first-child { padding-top: 0; }
+.report-fix + .report-fix { border-top: 2px solid var(--rule); }
+.report-fix-text { display: flex; flex-direction: column; min-width: 0; }
+.report-fix-stair { font-size: 15px; line-height: 22px; color: var(--ink-2); }
+.report-fix-name { font-size: 17px; line-height: 24px; font-weight: 600; color: var(--ink); }
+.report-tag { flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap; }
+.report-tag.is-open { background: var(--brand-tint); color: var(--brand-d); }
+.report-tag.is-done { background: var(--good-tint); color: var(--good-ink); }
+.report-tips { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s2); font-size: 17px; line-height: 26px; color: var(--ink); }
+.report-note, .report-intro, .report-foot-note { margin: 0; }
+.report-send-hint { margin: 0; text-align: center; }
+.report-about { margin: 0; text-align: center; }
+.report-about a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s3); font-weight: 600; }
+.shared-report .state-card p { margin: 0; }
+
+/* the share sheet: the exact message in a quoted box (its link on one line), one choice, then the ways to send it */
+.share-body { display: flex; flex-direction: column; gap: var(--s3); }
+.share-lead, .share-empty { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.share-lead { font-weight: 700; }
+.share-quote { margin: 0; padding: var(--s3) var(--s4); border-inline-start: 4px solid var(--brand-line); border-radius: 12px; background: var(--ground); display: flex; flex-direction: column; gap: 2px; font-size: 16px; line-height: 24px; color: var(--ink); }
+.share-quote p { margin: 0; overflow-wrap: anywhere; }
+.share-quote .share-quote-link { display: flex; gap: 4px; min-width: 0; white-space: nowrap; }
+.share-quote-link > span { flex: none; }
+.share-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--brand-d); }
+.share-check { display: flex; align-items: center; gap: var(--s3); min-height: 44px; font-size: 17px; line-height: 24px; color: var(--ink); cursor: pointer; }
+.share-check input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--brand); }
+.share-actions { display: flex; flex-direction: column; gap: var(--s1); }
+.share-actions .btn { width: 100%; margin-inline: 0; }

@@ -1,8 +1,9 @@
 // The profile, laid out like Duolingo's profile screen: a wide header with the avatar (מדי) and the settings gear,
-// the name and the class, a "סטטיסטיקה" grid of four tiles, then what to do next, the stairs that need work, the
-// medals, and the learning numbers. Settings (details, class, assistant, sound, deleting data) live on /settings.
+// the name and the class, a "סטטיסטיקה" grid of four tiles and the weekly summary's card, then what to do next, the
+// stairs that need work, the medals, and the learning numbers. Settings (details, class, assistant, sound, deleting
+// data) live on /settings.
 import { Link } from 'react-router-dom';
-import { Settings as Gear, Flame, Zap, Footprints, Award } from 'lucide-react';
+import { Settings as Gear, Flame, Zap, Footprints, Award, CalendarCheck, ChevronLeft } from 'lucide-react';
 import { useApp, streakOf } from '@/lib/store.js';
 import { TOPICS, topicsFor } from '@/content/index.js';
 import { doneCount } from '@/lib/path.js';
@@ -13,6 +14,24 @@ import Achievements from '@/components/Achievements.jsx';
 import ProgressSummary from '@/components/learn/ProgressSummary.jsx';
 import MyNumbers from '@/components/learn/MyNumbers.jsx';
 import { qaThrow } from '@/lib/qaFixtures.js';
+import { useReportWeek } from '@/components/report/useReportWeek.js';
+import { he } from '@/learn/report.ts';
+
+/** "הסיכום השבועי": one line about this week, and the way to the summary the child can send a parent (PARENTS-2). */
+function ReportCard() {
+  const { week } = useReportWeek();
+  return (
+    <ul className="hub-rows">
+      <li>
+        <Link to="/report" className="hub-row">
+          <span className="hub-row-icon" aria-hidden="true"><CalendarCheck size={22} /></span>
+          <span className="hub-row-text"><span className="hub-row-title">הסיכום השבועי</span><span className="hub-row-desc">{he.practiceWeek(week.activeDays)}</span></span>
+          <ChevronLeft className="chev" size={20} aria-hidden="true" />
+        </Link>
+      </li>
+    </ul>
+  );
+}
 
 export default function Me() {
   if (qaThrow() === 'render') throw new Error('QA: a test error while the profile renders');
@@ -40,6 +59,7 @@ export default function Me() {
           <Stat tone="brand" icon={Footprints} value={stairs} label="מדרגות שעליתם" />
           <Stat tone="good" icon={Award} value={mastered} label="שולטים לבד" />
         </div>
+        <ReportCard />
       </section>
       <ProgressSummary tiles={false} />
       <Achievements stats={false} />

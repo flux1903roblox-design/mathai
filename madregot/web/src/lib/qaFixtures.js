@@ -3,6 +3,7 @@
 // with no request at all, so every state can be screenshotted. The choice is kept for the visit (sessionStorage).
 //   qa-ai:      free2 | free1 | free0 | family | class | shared | paused | economy | ended
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
+//   qa-report:  week | empty (the weekly summary from a fixed week and clock: components/report/qaWeek.js)
 // The family state's tablet (qa-ai=family names it 'הטאבלט') keeps its backup code with the family, and an older phone's
 // progress is kept in the account (DURABLE-6): every parents state with a plan lists both, so the device line, the kept
 // list and the "continue from" choice can be seen without a server.
@@ -10,6 +11,7 @@ import { qaOn } from './qa.js';
 
 const AI_STATES = ['free2', 'free1', 'free0', 'family', 'class', 'shared', 'paused', 'economy', 'ended'];
 const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv'];
+const REPORT_STATES = ['week', 'empty'];
 
 function param(name, allowed) {
   if (typeof window === 'undefined' || !qaOn()) return null;
@@ -35,6 +37,8 @@ export function qaThrow() {
   return v === 'render' ? v : null;
 }
 export const qaParent = () => param('qa-parent', PARENT_STATES);
+/** The weekly summary's QA week (PARENTS-2): 'week' | 'empty' | null. */
+export const qaReport = () => param('qa-report', REPORT_STATES);
 export const qaActive = () => !!qaAI();
 
 // the next midnight, as the server sends it (a day ahead is close enough for screenshots)

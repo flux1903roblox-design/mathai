@@ -63,6 +63,9 @@ describe('the route is a pattern', () => {
     expect(routePattern('#/learn/coord/2/B')).toBe('/learn/:topic/:level/:stage');
     expect(routePattern('#/exams/check')).toBe('/exams/check');
     expect(routePattern('#/exams/e1f2')).toBe('/exams/:id');
+    // the week a child sent a parent rides in the route: an error report carries the pattern only
+    expect(routePattern('#/r/1.eyJ2IjoxLCJ3IjoiMjAyNi0xMS0wOCJ9')).toBe('/r/:data');
+    expect(routePattern('#/report')).toBe('/report');
     expect(routePattern('#/teacher/class/K7Q2MD')).toBe('/teacher/*');
     expect(routePattern('#/')).toBe('/');
     expect(routePattern('')).toBe('/');

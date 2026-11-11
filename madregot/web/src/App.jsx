@@ -28,12 +28,15 @@ const Quests = lazy(() => import('@/screens/Quests.jsx'));
 const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
 const Settings = lazy(() => import('@/screens/Settings.jsx'));
+const Report = lazy(() => import('@/screens/Report.jsx'));
 const AdvancedSettings = lazy(() => import('@/screens/Settings.jsx').then((m) => ({ default: m.AdvancedSettings })));
 const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
 // The parents' area (its own header, no tab bar) works with or without a profile: one chunk, loaded on demand.
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
 const ParentHandoff = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.ParentHandoff })));
 const Legal = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Legal })));
+// the week a child sent a parent (#/r/<data>): on any phone, with no profile, and with no request (PARENTS-2)
+const SharedReport = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.SharedReport })));
 // "יש לי קוד גיבוי": with or without a profile, so it is routed with the parents' area (DURABLE-5)
 const Restore = lazy(() => import('@/screens/Restore.jsx'));
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
@@ -172,8 +175,9 @@ function Root() {
       <ErrorBoundary>
       <Suspense fallback={<LoadingState />}>
       <Routes>
-        {/* the parents' area, the legal pages and the restore screen come first: they open from a QR code, a payment
-            page, an email link or a new phone, on a device with no profile at all */}
+        {/* the parents' area, the legal pages, the restore screen and a child's weekly summary come first: they open
+            from a QR code, a payment page, an email link, a new phone or a WhatsApp message, on a device with no
+            profile at all */}
         <Route path="/parents" element={<Parents mode="home" />} />
         <Route path="/parents/link" element={<Parents mode="link" />} />
         <Route path="/parents/info" element={<ParentHandoff />} />
@@ -182,6 +186,8 @@ function Root() {
         <Route path="/privacy" element={<Legal doc="privacy" />} />
         <Route path="/accessibility" element={<Legal doc="accessibility" />} />
         <Route path="/restore" element={<Restore />} />
+        <Route path="/r/:data" element={<SharedReport />} />
+        <Route path="/r" element={<SharedReport />} />
         {!role && <Route path="*" element={<Welcome />} />}
         {role === 'teacher' && (
           <>
@@ -201,6 +207,7 @@ function Root() {
               <Route path="/me" element={<Me />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/advanced" element={<AdvancedSettings />} />
+              <Route path="/report" element={<Report />} />
               <Route path="/subscription" element={<Navigate to="/parents/info" replace />} />
               <Route path="/exams" element={<Exams />} />
               <Route path="/exams/check" element={<ExamCheck />} />

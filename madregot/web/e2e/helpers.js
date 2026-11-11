@@ -25,6 +25,49 @@ export function livedIn(grade = '7') {
   });
 }
 
+/**
+ * A week to report on (PARENTS-2), Sunday 1 to Shabbat 7 November with "today" Thursday the 5th: four practice days
+ * (62 minutes on learning screens, 43 questions), two stairs that passed a mastery check, a repair done and two
+ * mistakes being repaired now, and an exam on the 12th with 2 of its 3 stairs mastered. Synthetic.
+ */
+export function reportWeek(grade = '7') {
+  const ev = (t, e, extra = {}) => ({ t, e, ...extra });
+  const misc = (skill, id, score, state) => ({ skill, id, score, seen: [], state, at: '2026-11-04T14:00:00.000Z' });
+  return student(grade, {
+    xp: 140,
+    days: {
+      '2026-10-29': { lessons: 1, q: 6, ok: 5, secs: 240, xp: 12 },
+      '2026-11-01': { lessons: 1, stages: 1, q: 8, ok: 7, secs: 300, tsecs: 720, xp: 20 },
+      '2026-11-02': { lessons: 2, q: 16, ok: 13, secs: 600, tsecs: 1500, xp: 30 },
+      '2026-11-04': { lessons: 1, stages: 1, q: 10, ok: 8, secs: 420, tsecs: 900, xp: 18 },
+      '2026-11-05': { lessons: 1, q: 9, ok: 8, secs: 330, tsecs: 600, xp: 14 },
+    },
+    learn: {
+      skills: {
+        'signed:1': { attempts: [], mastered: { at: '2026-11-02T15:10:00.000Z', box: 0, due: '2026-11-20T00:00:00.000Z' } },
+        'signed:2': { attempts: [], mastered: { at: '2026-11-04T14:30:00.000Z', box: 0, due: '2026-11-22T00:00:00.000Z' } },
+      },
+      miscon: {
+        'signed:2|neg-compare': misc('signed:2', 'neg-compare', 2.5, 'confirmed'),
+        'coord:1|swap': misc('coord:1', 'swap', 2, 'repairing'),
+      },
+      exam: { grade, date: '2026-11-12', skills: ['signed:1', 'signed:2', 'coord:1'], confidence: 2, minutes: 30, createdAt: '2026-10-29T10:00:00.000Z' },
+      missions: {},
+      events: [
+        ev('2026-11-01T10:00:00.000Z', 'answer', { s: 'signed:1', ok: true }),
+        ev('2026-11-01T10:20:00.000Z', 'lesson-done', { s: 'signed:1', p: 'practice', ok: true }),
+        ev('2026-11-02T15:00:00.000Z', 'answer', { s: 'signed:2', ok: false }),
+        ev('2026-11-02T15:10:00.000Z', 'check-done', { s: 'signed:1', p: 'mastery', ok: true }),
+        ev('2026-11-02T15:30:00.000Z', 'repair-done', { s: 'signed:1', m: 'minus-minus', ok: true }),
+        ev('2026-11-04T14:00:00.000Z', 'stage-A', { s: 'coord:1' }),
+        ev('2026-11-04T14:10:00.000Z', 'answer', { s: 'coord:1', ok: true }),
+        ev('2026-11-04T14:30:00.000Z', 'check-done', { s: 'signed:2', p: 'mastery', ok: true }),
+        ev('2026-11-05T07:00:00.000Z', 'answer', { s: 'coord:1', ok: true }),
+      ],
+    },
+  });
+}
+
 /** The app's copy of the progress on the device (IndexedDB, lib/durable/idb.js). */
 export const DURABLE_DB = 'madregot-durable';
 

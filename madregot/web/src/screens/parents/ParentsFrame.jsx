@@ -32,7 +32,8 @@ export function ParentsFooter({ business }) {
   );
 }
 
-export default function ParentsFrame({ title = 'מדרגות · להורים', business, children, className }) {
+/** `online`: the page needs the network (the account pages). A child's shared week (/r) does not: it reads its link only. */
+export default function ParentsFrame({ title = 'מדרגות · להורים', business, children, className, online = true }) {
   const back = useBack();
   return (
     <div className={`page parents ${className || ''}`}>
@@ -42,7 +43,7 @@ export default function ParentsFrame({ title = 'מדרגות · להורים', b
         <span className="icon-btn-spacer" aria-hidden="true" />
       </header>
       {/* the parents' area works only online (sign-in, the plan, the devices): said once at its top (DURABLE-10) */}
-      <main className="parents-main" data-region="content"><NeedOnline />{children}</main>
+      <main className="parents-main" data-region="content">{online && <NeedOnline />}{children}</main>
       <ParentsFooter business={business} />
     </div>
   );

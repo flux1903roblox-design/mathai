@@ -1,0 +1,176 @@
+// "הסיכום השבועי": the one renderer of a week report (PARENTS-2), for the child on their own device (source 'local'),
+// the parent who opened the child's link (/r, source 'link') and the family's synced report (source 'synced'). The
+// wording is the same for child and parent: what the child previews is what the parent sees. No percentage of right
+// answers appears anywhere (accuracy invites grade pressure; passed mastery checks are the honest signal), and the
+// maths in mistake names is plain text, so the report needs no KaTeX.
+import { useId } from 'react';
+import clsx from 'clsx';
+import { CalendarCheck, Clock, ListChecks, Flame, Check, Moon } from 'lucide-react';
+import { Stat } from '@/components/ds.jsx';
+import { stairName, misconName, withPrefix } from '@/learn/report.ts';
+import { MASTERY_N, MASTERY_NEED } from '@/learn/mastery.ts';
+import { dm, newestFirst } from '@/lib/share.js';
+import '@/styles/report.css';
+
+const LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const WORKED_SHOWN = 6;
+
+/** Where the report came from, and what it leaves out. */
+export const SOURCE_NOTE = {
+  local: 'לא נכלל בסיכום: התשובות עצמן, שיחות עם העוזר החכם ותמונות.',
+  link: 'הסיכום נוצר במכשיר של הילד ונשלח ממנו. מדרגות לא שומרת אותו. לא נכלל: התשובות עצמן, שיחות עם העוזר החכם ותמונות.',
+  synced: 'הסיכום מתעדכן מהמכשיר במהלך היום ונשמר 90 יום. לא נכלל: התשובות עצמן, שיחות עם העוזר החכם ותמונות.',
+};
+
+/** 'א׳ 8.11 – ש׳ 14.11' */
+export const weekRange = (week) => `${LETTERS[0]} ${dm(week.start)} – ${LETTERS[6]} ${dm(week.end)}`;
+
+/** What a screen reader hears for one day of the strip. */
+function dayText(day, i) {
+  if (day.on) return `${DAY_NAMES[i]} ${dm(day.d)}: היה תרגול`;
+  if (day.rest) return i === 6 ? 'שבת, מנוחה' : `${DAY_NAMES[i]} ${dm(day.d)}: מנוחה`;
+  if (day.future) return `${DAY_NAMES[i]} ${dm(day.d)}: עוד לא הגיע`;
+  return `${DAY_NAMES[i]} ${dm(day.d)}: בלי תרגול`;
+}
+
+function Strip({ week, today }) {
+  return (
+    <ol className="report-strip" aria-label={`ימי תרגול השבוע: ${week.activeDays}`}>
+      {week.days.map((day, i) => {
+        const state = day.on ? 'on' : day.rest ? 'rest' : day.future ? 'future' : 'off';
+        return (
+          <li key={day.d} className={clsx('report-day', `is-${state}`, day.d === today && 'is-today')}>
+            <span className="report-dot" aria-hidden="true">
+              {state === 'on' && <Check size={18} strokeWidth={3} />}
+              {state === 'rest' && <Moon size={16} strokeWidth={2.4} />}
+            </span>
+            <span className="report-day-name" aria-hidden="true">{LETTERS[i]}</span>
+            <span className="visually-hidden">{dayText(day, i)}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function Section({ title, children, className }) {
+  const id = useId();
+  return (
+    <section className={clsx('card report-sec', className)} aria-labelledby={id}>
+      <h3 id={id} className="report-sec-title">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function Mastered({ week }) {
+  const list = newestFirst(week.mastered);
+  return (
+    <Section title="חדש בשליטה" className="report-mastered">
+      <p className="report-sub">{`עברו בדיקת שליטה: ${MASTERY_N} שאלות בלי רמזים, ולפחות ${MASTERY_NEED} נכונות.`}</p>
+      {list.length
+        ? <ul className="report-list report-checks">{list.map((s) => <li key={s}><Check size={18} strokeWidth={3} aria-hidden="true" /><span>{stairName(s)}</span></li>)}</ul>
+        : <p className="report-empty-line">השבוע לא הייתה בדיקת שליטה. היא מגיעה בסוף כל מדרגה, אחרי ההסבר והתרגול.</p>}
+    </Section>
+  );
+}
+
+function Worked({ week }) {
+  const list = newestFirst(week.worked);
+  const more = list.length - WORKED_SHOWN;
+  return (
+    <Section title="מה תורגל" className="report-worked">
+      {list.length > 0 && (
+        <ul className="report-list report-dots">
+          {list.slice(0, WORKED_SHOWN).map((s) => <li key={s}><span>{stairName(s)}</span></li>)}
+          {more > 0 && <li className="report-more"><span>{`ועוד ${more}`}</span></li>}
+        </ul>
+      )}
+      <p className="report-line">{`שלבי לימוד שהושלמו: ${week.stages} · שיעורים ובדיקות: ${week.lessons}`}</p>
+      {week.reviews > 0 && <p className="report-line">{`חזרות קצרות שעברו בהצלחה: ${week.reviews}`}</p>}
+    </Section>
+  );
+}
+
+function Fixes({ week, today }) {
+  const items = [...week.open.map((f) => [...f, 'o']), ...week.fixed.map((f) => [...f, 'd'])];
+  if (!items.length) return null;
+  return (
+    <Section title="טעויות שחוזרות, ומה מתקנים" className="report-fixes">
+      <p className="report-sub">כשאותה טעות מופיעה בשתי שאלות שונות לפחות, מדרגות מסבירה אותה מחדש ובודקת שוב. זה חלק רגיל מהלמידה.</p>
+      <ul className="report-fix-list">
+        {items.map(([skill, id, state]) => (
+          <li key={`${state}|${skill}|${id}`} className="report-fix">
+            <span className="report-fix-text">
+              <span className="report-fix-stair">{stairName(skill)}</span>
+              <span className="report-fix-name">{misconName(skill, id)}</span>
+            </span>
+            <span className={clsx('report-tag', state === 'o' ? 'is-open' : 'is-done')}>{state === 'o' ? 'בתיקון' : 'תוקן השבוע'}</span>
+          </li>
+        ))}
+      </ul>
+      {week.open.length > 0 && week.openAt && week.openAt !== today && <p className="report-asof">{`נכון ל־${dm(week.openAt)}`}</p>}
+    </Section>
+  );
+}
+
+function Exam({ exam }) {
+  const when = withPrefix('ב', dm(exam.d));
+  return (
+    <Section title="מבחן קרוב" className="report-exam">
+      <p className="report-line">
+        {exam.n > 0
+          ? `מבחן ${when}. ${exam.n} מתוך ${exam.of} המדרגות של המבחן כבר בשליטה.`
+          : `מבחן ${when}. בתוכנית ההכנה ${exam.of} מדרגות, ובדיקות השליטה עליהן עוד לא נעשו.`}
+      </p>
+    </Section>
+  );
+}
+
+function Help({ week }) {
+  const newest = newestFirst(week.worked)[0];
+  return (
+    <Section title="איך אפשר לעזור" className="report-help">
+      <ol className="report-tips">
+        <li>{newest
+          ? `שאלו מה היה הכי מעניין השבוע, ובקשו שיסבירו לכם דוגמה אחת מ"${stairName(newest)}".`
+          : 'שאלו מה היה הכי מעניין השבוע, ובקשו שיראו לכם איך נראה שיעור במדרגות.'}</li>
+        <li>שבחו את המאמץ ואת הדרך, לא את המהירות.</li>
+        <li>אין צורך ללמד בעצמכם. לכל טעות שחוזרת יש במדרגות הסבר משלה.</li>
+      </ol>
+    </Section>
+  );
+}
+
+/**
+ * One week (learn/report.ts WeekReport) in order: the dates, the 7-day strip, four tiles, mastered, practised,
+ * repairs (only if any), an exam ahead (only if any), how to help, and where the report came from.
+ * `today`: the day on the device that shows it (marks today on the strip; repairs from another day say their day).
+ */
+export default function ReportView({ week, audience = 'child', source = 'local', today }) {
+  const titleId = useId();
+  return (
+    <article className="report" aria-labelledby={titleId} data-audience={audience} data-source={source}>
+      <section className="card report-week">
+        <header className="report-head">
+          <h2 id={titleId} className="report-title">השבוע במדרגות</h2>
+          <p className="report-dates">{weekRange(week)}</p>
+        </header>
+        <Strip week={week} today={today} />
+      </section>
+      <div className="report-tiles">
+        <Stat icon={CalendarCheck} value={week.activeDays} label="ימי תרגול" />
+        <Stat icon={Clock} value={week.minutes} label="דקות" />
+        <Stat icon={ListChecks} value={week.questions} label="שאלות" />
+        <Stat icon={Flame} value={week.streak} label="ימים ברצף" />
+      </div>
+      <Mastered week={week} />
+      <Worked week={week} />
+      <Fixes week={week} today={today} />
+      {week.exam && <Exam exam={week.exam} />}
+      <Help week={week} />
+      <p className="footnote report-note">{SOURCE_NOTE[source] || SOURCE_NOTE.local}</p>
+    </article>
+  );
+}
