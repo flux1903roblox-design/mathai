@@ -39,9 +39,12 @@ export default defineConfig({
         // Libraries change less often than the app: a separate file stays cached between releases. The markdown
         // libraries need no rule: only components/Markdown.jsx imports them, and it loads on demand, so they are in its
         // file (a manual chunk also pulled React in with them, which put the whole chunk on the first download).
+        // pdf.js (PKG-2) is a chunk of its own, loaded only when a PDF is chosen (lib/pdfPages.js); its worker is a
+        // file of its own already (the ?url import), and neither is kept for offline use (scripts/vite-plugin-sw.mjs).
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('/katex/')) return 'katex';
+          if (id.includes('/pdfjs-dist/')) return 'pdf';
           return undefined;
         },
       },

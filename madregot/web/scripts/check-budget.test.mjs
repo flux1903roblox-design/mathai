@@ -134,6 +134,24 @@ describe('check-budget: modules that must load on demand (STUDENT-15)', () => {
     expect(boot.text).toMatch(/FAIL canvas-confetti must load on demand/);
   });
 
+  it('pdf.js and pdfPages (PDFs drawn on the device, PKG-2): pass in a chunk loaded on demand, refused in a boot file', () => {
+    const pdf = ['node_modules/pdfjs-dist/legacy/build/pdf.min.mjs', 'node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'];
+    const budget = { ...LAZY, lazyOnly: [...LAZY.lazyOnly, 'pdfjs-dist', 'pdfPages'] };
+    const lazy = check(lazyDist(undefined, { lazyModules: [...pdf, 'src/lib/pdfPages.js'] }), budget);
+    expect(lazy.problems).toEqual([]);
+    expect(lazy.ok).toBe(true);
+    const boot = check(lazyDist(['node_modules/react/index.js', pdf[0], 'src/lib/pdfPages.js']), budget);
+    expect(boot.ok).toBe(false);
+    expect(boot.problems).toEqual([
+      expect.stringMatching(/^pdfjs-dist must load on demand, but node_modules\/pdfjs-dist\/legacy\/build\/pdf\.min\.mjs is in the first load \(assets\/vendor-b2\.js\)/),
+      expect.stringMatching(/^pdfPages must load on demand, but src\/lib\/pdfPages\.js is in the first load/),
+    ]);
+    expect(boot.text).toMatch(/FAIL pdfjs-dist must load on demand/);
+    // a name is the package, not a part of it: pdfjs-dist-viewer or a file called pdf.js is something else
+    expect(matches('node_modules/pdfjs-dist-viewer/index.js', 'pdfjs-dist')).toBe(false);
+    expect(matches('src/lib/pdfPagesOld.js', 'pdfPages')).toBe(false);
+  });
+
   it('a name matches a file by its base name or a package by its name, nothing looser', () => {
     expect(matches('src/lib/push.js', 'push')).toBe(true);
     expect(matches('src/lib/pushState.js', 'push')).toBe(false);
@@ -158,8 +176,8 @@ describe('the budget as configured', () => {
   const budget = JSON.parse(readFileSync(join(WEB, 'budget.json'), 'utf8'));
   const pkg = JSON.parse(readFileSync(join(WEB, 'package.json'), 'utf8'));
 
-  it('names the lazy-only modules (the student lane\'s, and the demo class and the tutor\'s code of FOLLOWUP-23), beside the load-time gates', () => {
-    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk', 'ai', 'pedagogy', 'guard', 'topicWays']);
+  it('names the lazy-only modules (the student lane\'s, the demo class and the tutor\'s code of FOLLOWUP-23, pdf.js of PKG-2), beside the load-time gates', () => {
+    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk', 'ai', 'pedagogy', 'guard', 'topicWays', 'pdfjs-dist', 'pdfPages']);
     // the ratchet (FOLLOWUP-23): the measured 403.3 KB + 5%, never back up to the 433 KB it was
     expect(budget.bootJsGzipKB).toBeLessThanOrEqual(424);
     for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');
