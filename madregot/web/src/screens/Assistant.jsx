@@ -377,7 +377,15 @@ export default function Assistant() {
       </header>
       {!ready ? <AiOffline /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
-          {!off && <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
+          {/* who answers and where what is written goes (trust spec TRUST-1 §5); the link opens in a new tab, so the
+              conversation stays */}
+          {!off && (
+            <p className="footnote assistant-note">
+              {aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'}
+              {' '}העוזר הוא Claude של Anthropic, תוכנה ולא אדם. מה שכותבים כאן נשלח ל־Anthropic בארה״ב ולא נשמר אצלנו.{' '}
+              <Link to="/safety" target="_blank" rel="noopener noreferrer">בטיחות ופרטיות<span className="visually-hidden"> (נפתח בכרטיסייה חדשה)</span></Link>
+            </p>
+          )}
           {off ? (
             <AIChat context={ctx} introTitle={off.title} intro={off.text[0]} restLine={null} />
           ) : (

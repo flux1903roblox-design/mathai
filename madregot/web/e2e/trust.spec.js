@@ -1115,3 +1115,107 @@ test.describe('photo', () => {
     expect(Math.max(...px.px[0]), `pixel ${px.px[0]}`).toBeLessThan(40);
   });
 });
+
+test.describe('privacy lines', () => {
+  // trust spec TRUST-1 §5: every line in the app about what is kept says it truly, beside the moment it is collected,
+  // and points to the privacy notice (or, for the tutor, the safety statement) without losing what was typed
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const OLD = 'שומרים רק את כתובת המייל';
+
+  test('the name step says where the name stays; the class step says what joining keeps, and "מה נשמר ולמה" opens the notice in a new tab', async ({ page }) => {
+    await fakeServer(page.context(), { parentOk: true }, baseOf());
+    const fresh = withServer(); fresh.state.profile = null;
+    await open(page, '#/', fresh);
+    await page.getByRole('button', { name: 'מתחילים' }).click();
+    const name = page.getByLabel('השם שלכם');
+    await expect(name).toHaveAccessibleDescription('השם נשמר רק במכשיר הזה, אלא אם תצטרפו לכיתה. אפשר גם כינוי.');
+    await expect(page.getByText('השם נשמר רק במכשיר הזה')).toBeVisible();
+    await shot(page, 'privacy-name');
+    await name.fill('נועה');
+    const next = page.getByRole('button', { name: 'המשך', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /כיתה ז׳/ }).click(); await next.click();
+    await page.getByRole('radio').first().click(); await next.click();
+    await next.click(); // the daily goal keeps its default
+    await expect(page.getByText('יש לכם קוד כיתה מהמורה?')).toBeVisible();
+    await expect(page.getByText('השם שלכם והתשובות בתרגול יישמרו בשרת של מדרגות, והמורה יראה אותם. אפשר למחוק אותם בכל רגע בהגדרות')).toBeVisible();
+    await page.getByLabel('קוד כיתה').fill('K7Q2MD');
+    await shot(page, 'privacy-class-step');
+    const more = page.getByRole('link', { name: /מה נשמר ולמה/ });
+    await expect(more).toHaveAttribute('target', '_blank');
+    const [tab] = await Promise.all([page.waitForEvent('popup'), more.click()]);
+    await expect(tab).toHaveURL(/#\/privacy$/);
+    await expect(tab.getByRole('heading', { level: 1, name: 'מדיניות פרטיות' })).toBeVisible();
+    await tab.close();
+    // the step and what was typed are still there
+    await expect(page.getByLabel('קוד כיתה')).toHaveValue('K7Q2MD');
+    await expect(page.getByText('יש לכם קוד כיתה מהמורה?')).toBeVisible();
+  });
+
+  test('the parents\' page says what is kept, never "only the email", and the email form says where the address goes', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/parents', withServer({ profile: null }));
+    const about = page.getByText(/^מה נשמר אצלנו: כתובת המייל שלכם, פרטי המנוי והתשלומים \(בלי פרטי כרטיס\) והמכשירים שחיברתם\./);
+    await expect(about).toBeVisible();
+    await expect(about).toContainText('מה שכותבים לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה.');
+    await expect(about.getByRole('link', { name: 'כל הפרטים במדיניות הפרטיות' })).toHaveAttribute('href', /#\/privacy$/);
+    await expect(page.locator('body')).not.toContainText(OLD);
+    const form = page.getByRole('region', { name: 'כניסה עם המייל' }).or(page.locator('section[aria-labelledby="signin-title"]'));
+    await expect(form.getByText('המייל משמש לכניסה, לאישורים, לקבלות ולהודעות על המנוי. הוא עובר לשירות שליחת המיילים Resend (בארה״ב) ולחברת הסליקה.')).toBeVisible();
+    const link = form.getByRole('link', { name: /מדיניות הפרטיות/ });
+    await expect(link).toHaveAttribute('href', /#\/privacy$/);
+    await expect(link).toHaveAttribute('target', '_blank');
+    await about.scrollIntoViewIfNeeded();
+    await shot(page, 'privacy-parents');
+    await link.scrollIntoViewIfNeeded();
+    await shot(page, 'privacy-email-note');
+  });
+
+  test('the tutor says who answers and where it goes; Settings opens the three pages; a class student\'s numbers say where they go', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    const note = page.locator('.assistant-note');
+    await expect(note).toContainText('העוזר הוא Claude של Anthropic, תוכנה ולא אדם. מה שכותבים כאן נשלח ל־Anthropic בארה״ב ולא נשמר אצלנו.');
+    const safety = note.getByRole('link', { name: /בטיחות ופרטיות/ });
+    await expect(safety).toHaveAttribute('href', /#\/safety$/);
+    await expect(safety).toHaveAttribute('target', '_blank');
+    await shot(page, 'privacy-assistant');
+
+    await open(page, '#/settings', student());
+    const group = page.locator('section[aria-labelledby="safe-title"]');
+    for (const [row, title] of [['מדיניות הפרטיות', 'מדיניות פרטיות'], ['בטיחות בעוזר החכם', 'בטיחות בעוזר החכם'], ['הצהרת נגישות', 'הצהרת נגישות']]) {
+      const link = group.getByRole('link', { name: row });
+      await link.scrollIntoViewIfNeeded();
+      expect((await link.boundingBox()).height, row).toBeGreaterThanOrEqual(44);
+      await link.click();
+      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+      await page.goBack();
+      await expect(group.getByRole('link', { name: row })).toBeVisible();
+    }
+
+    await open(page, '#/me', classStudent());
+    await expect(page.getByText('המספרים האלה מחושבים במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה.')).toBeAttached();
+    await expect(page.getByText('המספרים נשמרים רק במכשיר הזה')).toHaveCount(0);
+    await open(page, '#/me', student());
+    await expect(page.getByText('המספרים נשמרים רק במכשיר הזה ולא נשלחים לשום מקום.', { exact: false })).toBeAttached();
+  });
+
+  test('the help sheet says where the request is kept; a new teacher is told who sees the name, and the example is a family name', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/lesson/signed/1', classStudent());
+    await page.getByRole('button', { name: 'למורה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'לבקש עזרה מהמורה' });
+    await expect(sheet.getByLabel('מה לא ברור? (לא חובה)')).toHaveAccessibleDescription(/^הבקשה נשמרת בשרת של הכיתה\./);
+    await shot(page, 'privacy-help');
+
+    const fresh = withServer(); fresh.state.profile = null;
+    await open(page, '#/', fresh);
+    await page.getByRole('button', { name: 'אני מורה' }).click();
+    await page.getByRole('radio', { name: /כיתה חדשה/ }).click();
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    const name = page.getByLabel('השם שלכם (כך התלמידים יראו אותו)');
+    await expect(name).toHaveAttribute('placeholder', 'למשל: המורה כהן');
+    await expect(name).toHaveAccessibleDescription('השם יופיע לתלמידים שמצטרפים עם קוד הכיתה. אפשר לכתוב רק שם משפחה, למשל \'המורה כהן\'.');
+    await shot(page, 'privacy-teacher');
+  });
+});

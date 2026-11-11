@@ -746,7 +746,9 @@ function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
             <p className="ob-bubble">המורה יראה את התרגיל ואת מה שכתבתם{hasPage ? ', כולל הדף מהמחברת' : ''}, ויוכל לעבור עליו איתכם.</p>
           </div>
           <label htmlFor="help-note" className="field-label">מה לא ברור? (לא חובה)</label>
-          <textarea id="help-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
+          <textarea id="help-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} aria-describedby="help-kept" />
+          {/* where the request is kept, and for how long (trust spec TRUST-1 §5; shared/retention.js) */}
+          <p className="footnote" id="help-kept">הבקשה נשמרת בשרת של הכיתה.{hasPage ? ' דף המחברת נמחק חודש אחרי שהמורה סוגר את הבקשה.' : ''}</p>
         </>
       )}
     </Sheet>

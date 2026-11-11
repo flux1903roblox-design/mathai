@@ -46,7 +46,8 @@ function About({ plans }) {
       {f && <p>במנוי: עד {f.tutor} שאלות ביום, {f.check} בדיקות דף, {f.exam} בדיקות מבחן ביום (עד {f.examMonthly} בחודש), {f.generate} סדרות תרגילים, עד {f.devices} מכשירים. בחודש עם שימוש גבוה במיוחד השיחה ממשיכה, ובדיקות הצילום והמבחן נחות עד ה־1 בחודש (שימוש הוגן, מפורט בתקנון).</p>}
       {month && year && <p className="parents-price">{formatAgorot(month.amountAgorot)} לחודש, {vat}<br />או {formatAgorot(year.amountAgorot)} לשנה, {vat}</p>}
       <p>בלי התחייבות. מבטלים כאן באתר בשתי לחיצות. ב־14 הימים הראשונים אפשר לבטל ולקבל את כל הכסף בחזרה.</p>
-      <p className="muted">שומרים רק את כתובת המייל שלכם. לא שומרים את השיחות של הילד ולא מבקשים את שמו. פרטי התשלום נשארים אצל חברת הסליקה.</p>
+      {/* what is kept, as the data map says it (trust spec TRUST-1 §5); the parents lane's summary sentence (PARENTS-9) joins this line */}
+      <p className="muted">מה נשמר אצלנו: כתובת המייל שלכם, פרטי המנוי והתשלומים (בלי פרטי כרטיס) והמכשירים שחיברתם. לא מבקשים את שם הילד, ולא שומרים את השיחות עם העוזר. מה שכותבים לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה. <Link to="/privacy">כל הפרטים במדיניות הפרטיות</Link></p>
     </section>
   );
 }

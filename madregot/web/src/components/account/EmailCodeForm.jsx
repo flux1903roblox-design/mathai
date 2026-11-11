@@ -7,14 +7,17 @@
 //   buy      a teacher buying a class licence by card (receipts; Resend and the payment company)
 //   stepup   a fresh code before deleting the account: no notice, and the button says what it does
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { requestCode, verifyCode } from '@/lib/parent.js';
 import { Button, Field } from '@/components/ui.jsx';
 
+// Each note says what the address is for, who receives it and in which country (trust spec TRUST-1 §5), and ends with
+// the link to the privacy notice.
 const NOTES = {
-  join: 'המייל משמש לכניסה, לקבלות ולהודעות על המנוי. צריך אותו רק כדי להצטרף. הוא עובר לשירות שליחת המיילים (Resend) ולחברת הסליקה.',
-  cancel: 'נכנסים עם המייל שאיתו נרשמתם, כדי שרק אתם תוכלו לבטל. הקוד נשלח דרך שירות שליחת המיילים (Resend).',
-  teacher: 'המייל משמש לכניסה, לתשובה על הבקשה ולהצעת המחיר. הוא עובר לשירות שליחת המיילים (Resend).',
-  buy: 'המייל משמש לכניסה, לקבלות ולהודעות על הרישיון. הוא עובר לשירות שליחת המיילים (Resend) ולחברת הסליקה.',
+  join: 'המייל משמש לכניסה, לאישורים, לקבלות ולהודעות על המנוי. הוא עובר לשירות שליחת המיילים Resend (בארה״ב) ולחברת הסליקה.',
+  cancel: 'נכנסים עם המייל שאיתו נרשמתם, כדי שרק אתם תוכלו לבטל. הקוד נשלח דרך שירות שליחת המיילים Resend (בארה״ב).',
+  teacher: 'המייל משמש לכניסה, לתשובה על הבקשה ולהצעת המחיר. הוא עובר לשירות שליחת המיילים Resend (בארה״ב).',
+  buy: 'המייל משמש לכניסה, לקבלות ולהודעות על הרישיון. הוא עובר לשירות שליחת המיילים Resend (בארה״ב) ולחברת הסליקה.',
   stepup: null,
 };
 
@@ -66,7 +69,8 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
           <input id={`${idPrefix}-email`} type="email" inputMode="email" autoComplete="email" dir="ltr" className="input" value={email}
             onChange={(e) => setEmail(e.target.value)} maxLength={254} readOnly={!!lockedEmail} />
         </Field>
-        {note && <p className="footnote">{note}</p>}
+        {/* in the middle of a sign-in: the notice opens in a new tab, so the address typed here stays */}
+        {note && <p className="footnote">{note} <Link to="/privacy" target="_blank" rel="noopener noreferrer">מדיניות הפרטיות<span className="visually-hidden"> (נפתח בכרטיסייה חדשה)</span></Link></p>}
         {error && <p className="form-error" role="alert">{error}</p>}
         <Button type="submit" className="btn-block" disabled={busy || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())}>{busy ? 'שולחים…' : 'שליחת קוד'}</Button>
       </form>

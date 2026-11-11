@@ -23,6 +23,9 @@ import { studentsDeleteSteps, classDeleteSteps, countSteps } from './forget.js';
 import { SUPPORT } from '../../shared/safety.js';
 import { RETENTION } from '../../shared/retention.js';
 import { qualityCounts, QUALITY_KEEP_DAYS } from './quality.js';
+// The purge rules of the sign-in and family tables live beside their routes; they are named here too, so the data map
+// (worker/datamap.json, purgedBy) can name every purge as cron.<export> (test/datamap.test.js).
+export { purgeAccountsSql, purgeFamilySql };
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();

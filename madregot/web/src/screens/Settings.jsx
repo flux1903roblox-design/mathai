@@ -246,8 +246,8 @@ async function forgetParent() {
 }
 
 /**
- * Privacy and safety: a person to talk to, one tap away (trust spec TRUST-3 §3.5). The legal pages join this group
- * later (TRUST-2).
+ * Privacy and safety: a person to talk to, one tap away (trust spec TRUST-3 §3.5), then the privacy notice, the tutor's
+ * safety statement and the accessibility statement (trust spec TRUST-1 §5), above the danger zone.
  */
 function SafetySection() {
   return (
@@ -255,6 +255,9 @@ function SafetySection() {
       <h2 id="safe-title" className="set-head">פרטיות ובטיחות</h2>
       <div className="set-rows-wrap"><div className="set-rows">
         <button type="button" className="set-row" onClick={openSupport} aria-haspopup="dialog"><span>{SUPPORT_LINK}</span><ChevronLeft size={18} aria-hidden="true" /></button>
+        <Link to="/privacy" className="set-row"><span>מדיניות הפרטיות</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+        <Link to="/safety" className="set-row"><span>בטיחות בעוזר החכם</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+        <Link to="/accessibility" className="set-row"><span>הצהרת נגישות</span><ChevronLeft size={18} aria-hidden="true" /></Link>
       </div></div>
     </section>
   );

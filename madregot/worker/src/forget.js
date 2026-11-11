@@ -14,6 +14,11 @@ import { flushNotices } from './email.js';
 // (The same file as the school lane's on the main branch, without the teacher lane's tables, which this lane does not
 // have: class_owners and the three assignment tables, and their counters.)
 
+// An account's deletion (the parents' page, the owner's CLI, and the idle-account purge) lives in billing.js beside the
+// money records it unlinks; it is named here too, so the data map (worker/datamap.json, purgedBy) finds every way a
+// row is deleted in cron.js or this file (test/datamap.test.js).
+export { forgetAccount } from './billing.js';
+
 /**
  * [table, column] pairs: every row of a student, deleted before the student row itself. help_meta (a help request's
  * kind and care mark, TRUST-3) is keyed by the help request: [table, column, 'help'] means the column holds the ids of

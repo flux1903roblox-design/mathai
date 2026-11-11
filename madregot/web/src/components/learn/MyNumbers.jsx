@@ -5,8 +5,18 @@ import { metrics, MIN_N } from '@/learn/analytics.ts';
 
 const pct = (r) => (r.value == null ? null : `${Math.round(r.value * 100)}%`);
 
+/**
+ * Where these numbers live (trust spec TRUST-1 §5). A class student's practice answers also go to the teacher's board,
+ * so "only on this device" would not be true for them. (The durable lane moves this into durable/copy.js whereSavedText.)
+ */
+export const whereSaved = (inClass) => (inClass
+  ? 'המספרים האלה מחושבים במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה.'
+  : 'המספרים נשמרים רק במכשיר הזה ולא נשלחים לשום מקום.');
+
 export default function MyNumbers() {
   const learn = useApp((s) => s.learn);
+  // a student signed in to a class: only then are the answers sent (store.js recordAnswer)
+  const inClass = useApp((s) => s.profile?.role === 'student' && !!s.profile.token);
   const m = metrics(learn, new Date().toISOString());
   const rows = [
     { label: 'מדרגות שאתם שולטים בהן לבד', value: String(m.masteredNow) },
@@ -37,7 +47,7 @@ export default function MyNumbers() {
         </dl>
         <p className="field-hint">מספר מוצג רק כשיש מאחוריו לפחות {MIN_N} מקרים.</p>
       </details>
-      <p className="field-hint">המספרים נשמרים רק במכשיר הזה ולא נשלחים לשום מקום. הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.</p>
+      <p className="field-hint">{whereSaved(inClass)} הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.</p>
     </section>
   );
 }

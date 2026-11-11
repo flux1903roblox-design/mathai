@@ -197,7 +197,9 @@ function Onboarding({ onTeacher }) {
         {step === 'name' && (
           <div className="ob-field">
             <label htmlFor="w-name" className="visually-hidden">השם שלכם</label>
-            <input id="w-name" className="input input-lg" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="given-name" maxLength={30} placeholder="שם פרטי" autoFocus enterKeyHint="next" />
+            <input id="w-name" className="input input-lg" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="given-name" maxLength={30} placeholder="שם פרטי" autoFocus enterKeyHint="next" aria-describedby="w-name-hint" />
+            {/* where the name is kept (trust spec TRUST-1 §5) */}
+            <p className="ob-note" id="w-name-hint">השם נשמר רק במכשיר הזה, אלא אם תצטרפו לכיתה. אפשר גם כינוי.</p>
           </div>
         )}
         {step === 'grade' && (
@@ -232,7 +234,12 @@ function Onboarding({ onTeacher }) {
               <p className="ob-joined" role="status"><Check size={20} strokeWidth={3} aria-hidden="true" />אתם בכיתה {joined.className}{joined.teacherName ? ` של ${joined.teacherName}` : ''}.</p>
             ) : (
               <>
-                <p className="ob-note">עם קוד, המורה יראה את ההתקדמות ויוכל לעזור כשמשהו לא ברור. אפשר להמשיך גם בלי, ולהצטרף אחר כך מהמסך "אני".</p>
+                {/* what joining keeps on the server, and where it says more (trust spec TRUST-1 §5); the link opens in a new tab,
+                    so nothing typed here is lost */}
+                <p className="ob-note">
+                  עם קוד, המורה יראה את ההתקדמות ויוכל לעזור כשמשהו לא ברור. השם שלכם והתשובות בתרגול יישמרו בשרת של מדרגות, והמורה יראה אותם. אפשר למחוק אותם בכל רגע בהגדרות, ואפשר גם להמשיך בלי קוד ולהצטרף אחר כך מהמסך "אני".{' '}
+                  <Link to="/privacy" target="_blank" rel="noopener noreferrer">מה נשמר ולמה<span className="visually-hidden"> (נפתח בכרטיסייה חדשה)</span></Link>
+                </p>
                 <Field label="קוד כיתה" id="w-code">
                   <input id="w-code" className="input mono" dir="ltr" value={f.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="למשל K7Q2MD" />
                 </Field>
@@ -350,7 +357,10 @@ function TeacherStart({ onBack }) {
         </div>
       ) : mode === 'new' ? (
         <div className="ob-field" data-region="answers">
-          <Field label="השם שלכם (כך התלמידים יראו אותו)" id="t-name"><input id="t-name" className="input input-lg" value={f.teacherName} onChange={set('teacherName')} maxLength={30} placeholder="למשל: רונית כהן" /></Field>
+          {/* the name students see: a family name is enough (trust spec TRUST-1 §5) */}
+          <Field label="השם שלכם (כך התלמידים יראו אותו)" id="t-name" hint="השם יופיע לתלמידים שמצטרפים עם קוד הכיתה. אפשר לכתוב רק שם משפחה, למשל 'המורה כהן'.">
+            <input id="t-name" className="input input-lg" value={f.teacherName} onChange={set('teacherName')} maxLength={30} placeholder="למשל: המורה כהן" aria-describedby="t-name-hint" />
+          </Field>
           <Field label="שם הכיתה" id="t-class"><input id="t-class" className="input input-lg" value={f.className} onChange={set('className')} maxLength={30} placeholder="למשל: ז׳3" /></Field>
           <div className="field"><span className="field-label" id="t-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="t-grade" /></div>
         </div>

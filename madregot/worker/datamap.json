@@ -1,0 +1,393 @@
+{
+  "about": "Madregot's data map (trust spec TRUST-1 §1). One entry for every D1 table and every key the web app keeps on a device. worker/test/datamap.test.js keeps \"tables\" equal to the tables of schema.sql (and \"fields\" equal to their columns), and every name in \"purgedBy\" an export of src/cron.js or src/forget.js that really deletes from that table; web/src/lib/storageKeys.test.js keeps \"client\" equal to the keys web/src writes. A table or a key with no entry fails the suite. docs/privacy/DATA_MAP.md is the readable twin; the privacy notice is written from both. Retention numbers come from shared/retention.js.",
+  "values": {
+    "personal": {
+      "yes": "names a person (a name, an email address, words a person wrote) or points at a row that does",
+      "pseudonymous": "only a random id or a keyed hash; it points at a person only together with another table or a secret the server holds",
+      "no": "cannot point at a person"
+    },
+    "about": ["student", "parent", "teacher", "device", "network", "none"]
+  },
+  "recipients": {
+    "cloudflare": "Cloudflare runs the Worker and keeps the D1 database: in the EU once it was created with --jurisdiction=eu (setup.ps1, DB_JURISDICTION = \"eu\"). Invocation logs are off (wrangler.toml), so request headers and bodies are not logged; our own console lines and errors are kept 3-7 days and hold no request contents (test/logs.test.js).",
+    "resend": "Resend (in the US) sends the service emails: the recipient's address and the email itself (a sign-in code, a receipt or notice with dates, amounts and a device label).",
+    "payment": "The payment company receives the payer's email address, the order id, the plan and the amount; card details are typed only on its page and never reach us.",
+    "anthropic": "Anthropic (in the US) runs the tutor. It receives what the \"ai\" block lists, per request; nothing of it is kept in these tables."
+  },
+  "tables": {
+    "classes": {
+      "personal": "yes",
+      "about": ["teacher"],
+      "fields": ["code", "name", "grade", "teacher_name", "teacher_key_hash", "created_at"],
+      "purpose": "A class: its code, name and grade, the name its students see for the teacher, and the hash of the teacher key that opens the dashboard.",
+      "retention": "Until the teacher deletes the class, or 400 days with no activity and no running licence (RETENTION.classIdleDays).",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.classDeleteSteps"]
+    },
+    "class_settings": {
+      "personal": "no",
+      "about": ["teacher"],
+      "fields": ["code", "setting", "student_ai", "ai_consent_at", "private_attested_at", "last_seen"],
+      "purpose": "A class's AI rules under the Ministry of Education guidelines (school or private group, the students' AI switch, when the teacher said the parents agreed or that the group is private) and the last day the class was active, for the idle purge.",
+      "retention": "With the class.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.classDeleteSteps"]
+    },
+    "class_locks": {
+      "personal": "no",
+      "about": ["none"],
+      "fields": ["class_code", "locked_at"],
+      "purpose": "The teacher closed the class to new names.",
+      "retention": "With the class.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.classDeleteSteps"]
+    },
+    "students": {
+      "personal": "yes",
+      "about": ["student"],
+      "fields": ["id", "class_code", "name", "pin_hash", "token_hash", "created_at", "last_seen"],
+      "purpose": "A student who joined a class with its code: the name the teacher sees, a salted hash of the 4-digit personal code, the hash of the device's class token, and when the student was last seen.",
+      "retention": "400 days after the student was last seen (RETENTION.studentIdleDays); at once when the student deletes all from the device, the teacher removes the student, or the class is deleted.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.studentsDeleteSteps", "forget.classDeleteSteps", "forget.forgetMe"]
+    },
+    "attempts": {
+      "personal": "yes",
+      "about": ["student"],
+      "fields": ["id", "student_id", "topic", "level", "ok", "first_try", "hint", "cat", "secs", "day", "at"],
+      "purpose": "Each practice answer of a class student, for the teacher's board: the stair, right or wrong, first try, hint, the kind of mistake, the seconds it took.",
+      "retention": "400 days (RETENTION.attemptsDays); with the student.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
+    },
+    "levels": {
+      "personal": "yes",
+      "about": ["student"],
+      "fields": ["student_id", "topic", "level", "max_level", "updated_at"],
+      "purpose": "A class student's stair in each topic, for the teacher's board.",
+      "retention": "With the student.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
+    },
+    "help_requests": {
+      "personal": "yes",
+      "about": ["student"],
+      "fields": ["id", "student_id", "topic", "level", "question", "answer", "note", "image", "created_at", "seen_at", "done_at"],
+      "purpose": "A class student's request for help, sent to the teacher: the exercise, what the student answered, an optional note in the student's words (it may hold words of distress the child chose to send the teacher), and an optional notebook page.",
+      "retention": "The notebook page 30 days after the teacher closes the request, 60 days at most (RETENTION.helpImageAfterDoneDays, helpImageMaxDays); the request 180 days after it is closed, 365 days at most (helpAfterDoneDays, helpMaxDays); with the student.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
+    },
+    "help_meta": {
+      "personal": "pseudonymous",
+      "about": ["student"],
+      "fields": ["help_id", "kind", "care"],
+      "purpose": "What a help request is: a question about an exercise or a request to talk (with no text), and whether the note read as distress, so the teacher sees a line asking to check on the student.",
+      "retention": "With its help request.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
+    },
+    "exams": {
+      "personal": "yes",
+      "about": ["student"],
+      "fields": ["id", "student_id", "title", "correct", "total", "questions", "weak", "created_at"],
+      "purpose": "The result of an exam a class student checked, for the teacher: the subject (the title keeps nothing else), the score and the topics to work on. Never the pages.",
+      "retention": "400 days (RETENTION.examsDays); with the student.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
+    },
+    "student_ai_off": {
+      "personal": "pseudonymous",
+      "about": ["student"],
+      "fields": ["student_id", "at"],
+      "purpose": "The teacher turned the tutor off for one student (the Ministry's alternative activity for a student without the parents' consent).",
+      "retention": "With the student.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
+    },
+    "ai_usage": {
+      "personal": "pseudonymous",
+      "about": ["student", "parent", "teacher", "device", "network"],
+      "fields": ["who", "day", "count"],
+      "purpose": "Counters that keep the limits: questions to the tutor, sign-in codes, joins, PIN tries, care messages and reported answers, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey). Never a raw device id or address.",
+      "retention": "Daily and hourly counters 35 days, monthly ones 13 months; a student's, family device's or install's counters at once when it deletes all, and a student's or class's when the teacher removes or deletes them.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeCountersSql", "forget.studentCountersStmt", "forget.familyDeviceCountersStmt", "forget.deviceCountersStmt", "forget.classDeleteSteps"]
+    },
+    "ai_quality": {
+      "personal": "no",
+      "about": ["none"],
+      "fields": ["day", "kind", "reason", "n"],
+      "purpose": "How the tutor's answers fared, as counts per day (an answer masked, an empty reply, a generated exercise dropped). No person, device or text.",
+      "retention": "400 days (src/quality.js QUALITY_KEEP_DAYS).",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeCountersSql"]
+    },
+    "accounts": {
+      "personal": "yes",
+      "about": ["parent", "teacher"],
+      "fields": ["id", "email", "created_at", "last_seen", "adult_confirmed_at", "terms_version", "billing_hold_at"],
+      "purpose": "A parent or a teacher who signs in by email: the address (to sign in, and for receipts and notices), the day last seen, the 18+ tick and the terms accepted at checkout, and a hold after a chargeback.",
+      "retention": "Until the account is deleted (the parents' page, or the owner on request), or 730 days with no sign-in and nothing running (RETENTION.accountIdleDays).",
+      "recipients": ["cloudflare", "resend", "payment"],
+      "purgedBy": ["cron.purgeLongTerm", "forget.forgetAccount"]
+    },
+    "login_codes": {
+      "personal": "pseudonymous",
+      "about": ["parent", "teacher"],
+      "fields": ["email_hash", "code_hash", "expires_at", "tries", "sent_at"],
+      "purpose": "A sign-in code waiting to be typed, keyed by a keyed hash of the address, so an address that never signs in is never stored.",
+      "retention": "Until it expires (10 minutes), then deleted by the hourly job.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeAccountsSql"]
+    },
+    "account_sessions": {
+      "personal": "pseudonymous",
+      "about": ["parent", "teacher"],
+      "fields": ["token_hash", "account_id", "created_at", "last_seen", "verified_at"],
+      "purpose": "A signed-in browser of a parent or teacher: the hash of its token.",
+      "retention": "Until signing out, 180 days unused, or the account is deleted.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeAccountsSql", "forget.forgetAccount"]
+    },
+    "family_devices": {
+      "personal": "pseudonymous",
+      "about": ["device", "parent"],
+      "fields": ["id", "account_id", "token_hash", "label", "created_at", "last_seen"],
+      "purpose": "A child's device linked to a parent's account (the family plan, or the parent's OK for the tutor): the hash of its token and an optional label the parent chose. Never the child's name.",
+      "retention": "Until the parent unlinks it or the device deletes all; a year unused; a day if it never collected its token; with the account.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeFamilySql", "forget.familyDeviceDeleteStmts", "forget.forgetAccount"]
+    },
+    "link_codes": {
+      "personal": "pseudonymous",
+      "about": ["device", "parent"],
+      "fields": ["code_hash", "secret_hash", "device_hint", "account_id", "device_id", "created_at", "expires_at", "claimed_at", "collected_at"],
+      "purpose": "A pending link between a child's device and a parent's account: hashes of the 6-character code and of the device's secret. device_hint is always NULL: the device is not recorded here.",
+      "retention": "A day after it expires (it expires an hour after it was made); with the device or the account.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeFamilySql", "forget.familyDeviceDeleteStmts", "forget.forgetAccount"]
+    },
+    "orders": {
+      "personal": "pseudonymous",
+      "about": ["parent", "teacher"],
+      "fields": ["id", "account_id", "plan", "class_code", "seats", "amount_agorot", "vat_agorot", "currency", "provider", "mode", "provider_checkout_id", "idempotency_key", "status", "subscription_id", "created_at", "expires_at", "paid_at"],
+      "purpose": "A checkout priced on the server: the plan, the amount and the payment company's reference. It loses its account id when the account is deleted.",
+      "retention": "An order never paid: 30 days after it expired. A paid order is a money record: to the end of the 7th calendar year after its tax year (RETENTION.taxYears).",
+      "recipients": ["cloudflare", "payment"],
+      "purgedBy": ["cron.purgeRecordsSql", "cron.purgeLongTermSql"]
+    },
+    "order_renewals": {
+      "personal": "no",
+      "about": ["parent"],
+      "fields": ["order_id", "subscription_id", "prev_start", "prev_end"],
+      "purpose": "Which one-year plan a renewal order extends, and the year that plan was paid for (to restore it after a cooling-off refund).",
+      "retention": "With its order (ON DELETE CASCADE, and the long-term purge deletes it first).",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeLongTermSql"]
+    },
+    "subscriptions": {
+      "personal": "pseudonymous",
+      "about": ["parent", "teacher"],
+      "fields": ["id", "kind", "account_id", "class_code", "plan", "status", "provider", "provider_subscription_id", "price_agorot", "seats", "invoice_ref", "current_period_start", "current_period_end", "cancel_at_period_end", "cancel_requested_at", "cancel_synced_at", "first_paid_at", "refund_until", "ended_reason", "last_event_at", "note", "created_at", "updated_at"],
+      "purpose": "A family plan or a class licence: its dates, price, cancellation and refund window. It loses its account id when the account is deleted.",
+      "retention": "While it runs; an ended plan is a money record: to the end of the 7th calendar year after its tax year, and longer while a kept payment, refund or renewal still points at it.",
+      "recipients": ["cloudflare", "payment"],
+      "purgedBy": ["cron.purgeLongTermSql"]
+    },
+    "payments": {
+      "personal": "pseudonymous",
+      "about": ["parent", "teacher"],
+      "fields": ["id", "provider", "provider_payment_id", "kind", "subscription_id", "order_id", "amount_agorot", "currency", "status", "period_end", "invoice_url", "occurred_at", "recorded_at"],
+      "purpose": "Money that moved (charges, refunds, chargebacks), for the tax records. No card numbers, names or phones.",
+      "retention": "To the end of the 7th calendar year after its tax year (Jerusalem years), and longer while a kept refund points at it.",
+      "recipients": ["cloudflare", "payment"],
+      "purgedBy": ["cron.purgeLongTermSql"]
+    },
+    "refund_queue": {
+      "personal": "pseudonymous",
+      "about": ["parent", "teacher"],
+      "fields": ["id", "subscription_id", "payment_id", "amount_agorot", "reason", "requested_at", "tries", "manual", "done_at", "result"],
+      "purpose": "Refunds to make (cooling-off, pro rata, duplicates), and their outcome.",
+      "retention": "Until done; then a money record: to the end of the 7th calendar year after its tax year.",
+      "recipients": ["cloudflare", "payment"],
+      "purgedBy": ["cron.purgeLongTermSql"]
+    },
+    "billing_events": {
+      "personal": "no",
+      "about": ["none"],
+      "fields": ["provider", "event_id", "type", "outcome", "subscription_id", "amount_agorot", "detail", "occurred_at", "received_at"],
+      "purpose": "Every event from the payment company, once, so none is applied twice. A reason only, never a payload, name, phone or card data.",
+      "retention": "7 years after it was received.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeRecordsSql"]
+    },
+    "notices": {
+      "personal": "pseudonymous",
+      "about": ["parent", "teacher"],
+      "fields": ["ref", "kind", "to_account", "params", "created_at", "sent_at", "tries"],
+      "purpose": "The outbox of service emails (receipts, cancellations, plan reminders, a device linked, the owner's alerts). The address is looked up only when the email is sent; params hold dates, amounts and labels, never a code or card data.",
+      "retention": "90 days after it was sent (or gave up); a pending one goes with its account, class or device.",
+      "recipients": ["cloudflare", "resend"],
+      "purgedBy": ["cron.purgeRecordsSql", "forget.classDeleteSteps", "forget.familyDeviceDeleteStmts", "forget.forgetAccount"]
+    },
+    "licence_requests": {
+      "personal": "yes",
+      "about": ["teacher"],
+      "fields": ["id", "class_code", "account_id", "wants", "school", "classes", "students", "note", "created_at", "handled_at"],
+      "purpose": "A teacher's request for a class trial or a school quote: the school's name, how many classes and students, and a note in the teacher's words. The owner gets it by email.",
+      "retention": "730 days after the owner handled it (RETENTION.licenceRequestAfterHandledDays); with the account.",
+      "recipients": ["cloudflare", "resend"],
+      "purgedBy": ["cron.purgeLongTermSql", "forget.forgetAccount"]
+    },
+    "licence_codes": {
+      "personal": "no",
+      "about": ["none"],
+      "fields": ["code_hash", "seats", "classes_left", "until", "invoice_ref", "note", "created_at", "expires_at"],
+      "purpose": "A school licence paid by invoice: the hash of the code teachers enter, its seats and dates.",
+      "retention": "365 days after the code expired (RETENTION.licenceCodeAfterExpiryDays).",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeLongTermSql"]
+    },
+    "ai_spend": {
+      "personal": "pseudonymous",
+      "about": ["parent", "teacher", "none"],
+      "fields": ["pool", "period", "calls", "input_tokens", "output_tokens", "cache_tokens", "nano_usd"],
+      "purpose": "What the tutor cost, per pool (a family account id, a class code, or a shared pool) and day or month, to keep the budget caps.",
+      "retention": "400 days after its day or month.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeRecordsSql"]
+    },
+    "audit_log": {
+      "personal": "pseudonymous",
+      "about": ["parent", "teacher", "student", "device"],
+      "fields": ["id", "at", "actor", "action", "target", "detail"],
+      "purpose": "Who changed money or access, and when (licences, cancellations, refunds, linked devices, a student removed, a class's AI rules). Ids only; no personal data in detail.",
+      "retention": "730 days; the rows about a student, class or family device go with it (a licence's rows stay as the licence does).",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeRecordsSql", "forget.studentDeleteStmts", "forget.classDeleteSteps", "forget.familyDeviceDeleteStmts"]
+    },
+    "safety_events": {
+      "personal": "no",
+      "about": ["none"],
+      "fields": ["id", "day", "kind", "category", "surface", "source", "tier"],
+      "purpose": "Safety counts with no content (distress noticed, personal details masked, an answer blocked or reported, a photo cropped or blacked out): what happened, where, on which day. No person, device, class or text.",
+      "retention": "400 days (RETENTION.safetyEventsDays).",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeSafetySql"]
+    },
+    "answer_reports": {
+      "personal": "no",
+      "about": ["none"],
+      "fields": ["id", "created_at", "reason", "kind", "reply", "tier"],
+      "purpose": "A tutor answer a child reported: why, where, and the tutor's own text with personal details masked. Never the child's message, never who sent it.",
+      "retention": "60 days (RETENTION.answerReportsDays).",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeSafetySql"]
+    }
+  },
+  "client": {
+    "<STORE_KEY>": {
+      "store": "localStorage",
+      "personal": "yes",
+      "holds": "The student's saved state: the name, grade and (in a class) the class code and name, the teacher's name, the class token and student id; progress, days, XP, mistakes, the learning model, checked exam summaries and practice exams; the tutor's settings (server address, the install id sent as X-Device, the family-device token and its label, a pending link code, the plan the server reported last, whether the introduction was read; a personal key only in the owner's own dev build); answers waiting to be sent to the class.",
+      "purpose": "The app works on the device, with or without a network. STORE_KEY is 'madregot' in production; a staging copy sets VITE_STORE_KEY.",
+      "removedBy": "Delete all (lib/wipe.js clearDevice), or clearing the browser's data."
+    },
+    "<STORE_KEY>-parent": {
+      "store": "localStorage or sessionStorage",
+      "personal": "yes",
+      "holds": "The parent's or teacher's session token and email address.",
+      "purpose": "Stay signed in to the parents' page: in localStorage on a device with no student profile (the parent's own phone), in sessionStorage (this tab only) on a device with a student or teacher profile.",
+      "removedBy": "Signing out (also on the server), delete all, or closing the tab where it is kept for the tab only."
+    },
+    "<STORE_KEY>-checkout-*": {
+      "store": "sessionStorage",
+      "personal": "no",
+      "holds": "A random key per plan for one checkout attempt.",
+      "purpose": "Pressing again, or after a network error, returns the same order instead of a second one.",
+      "removedBy": "Closing the tab, signing out, or delete all."
+    },
+    "<STORE_KEY>-order": {
+      "store": "sessionStorage",
+      "personal": "pseudonymous",
+      "holds": "The id of the order being paid.",
+      "purpose": "Find the order again after the payment company's page sends the parent back.",
+      "removedBy": "When the order is settled, closing the tab, signing out, or delete all."
+    },
+    "<STORE_KEY>-link-code": {
+      "store": "sessionStorage",
+      "personal": "pseudonymous",
+      "holds": "A child's device link code (from its QR code) waiting to be claimed.",
+      "purpose": "Link the child's device after the parent signs in and pays.",
+      "removedBy": "When it is claimed, closing the tab, signing out, or delete all."
+    },
+    "<STORE_KEY>-here": {
+      "store": "sessionStorage",
+      "personal": "no",
+      "holds": "A flag: the parents' page was opened on the child's own device.",
+      "purpose": "After paying there, offer to link this device.",
+      "removedBy": "When the device is linked, closing the tab, signing out, or delete all."
+    },
+    "<STORE_KEY>-adult": {
+      "store": "sessionStorage",
+      "personal": "no",
+      "holds": "A flag: the adult step before the parents' area was passed in this tab. Never the year typed.",
+      "purpose": "Ask once per tab on a child's device (trust spec TRUST-8).",
+      "removedBy": "Closing the tab, or delete all."
+    },
+    "<STORE_KEY>-adult-wait": {
+      "store": "localStorage",
+      "personal": "no",
+      "holds": "A time, at most 10 minutes ahead, until which the adult step stays closed after a year that is not an adult's. Never the year.",
+      "purpose": "The step cannot simply be tried again at once.",
+      "removedBy": "Read as nothing once the time has passed; delete all."
+    },
+    "<STORE_KEY>-photo-warned": {
+      "store": "sessionStorage",
+      "personal": "no",
+      "holds": "A flag: the warning before exam and notebook photos was read in this session.",
+      "purpose": "Show the warning the first time in each session (trust spec TRUST-5).",
+      "removedBy": "Closing the tab, or delete all."
+    },
+    "madregot-debug": {
+      "store": "localStorage",
+      "personal": "no",
+      "holds": "A flag set by hand on a test device.",
+      "purpose": "QA only: turns the test hooks on.",
+      "removedBy": "Delete all, or by hand."
+    },
+    "madregot-seed": {
+      "store": "localStorage",
+      "personal": "no",
+      "holds": "A number set by hand on a test device.",
+      "purpose": "QA only: the same exercises on every run.",
+      "removedBy": "Delete all, or by hand."
+    },
+    "madregot-*": {
+      "store": "sessionStorage",
+      "personal": "no",
+      "holds": "The mocked state a QA link chose (madregot-qa-ai, madregot-qa-parent), on QA builds only.",
+      "purpose": "QA only: screenshots of every tutor and parent state with no server.",
+      "removedBy": "Closing the tab, or delete all."
+    },
+    "__t": {
+      "store": "localStorage",
+      "personal": "no",
+      "holds": "A probe value, removed at once.",
+      "purpose": "Find out whether the browser lets the app keep anything (a private window may not); if not, the app keeps its state in memory only.",
+      "removedBy": "Removed the moment it is written."
+    }
+  },
+  "ai": {
+    "sent": [
+      "The context of the exercise the student asks about: the stair and its name, the exercise, the app's answer and solution, the answers the student typed in this exercise, the names of the mistakes the app found, the stair's explanations, and the counts of the learning summary.",
+      "The messages the student writes in the chat, the question written beside a photo, and an explanation the student chose to send for feedback, after the server masks email addresses, phone numbers and ID numbers.",
+      "For new exercises: the exercises the app chose with their answers, the topic and stair names, and the grade. Nothing the student wrote.",
+      "Photos (a notebook page, a photographed solution, exam pages), only after the device's photo step: cropped (the top 15% of an exam's first page by default), blacked out where the child chose, and re-encoded as JPEG, so no camera data (EXIF) leaves the device. No PDF is sent."
+    ],
+    "neverSent": "A name, a class or class code, the device id or its token, an email address, dates, or any other text the student wrote in the app (web/src/lib/tutorContext.test.js fails on a context field that is not on the list).",
+    "keptByUs": "Nothing of a conversation or a photo. Safety events are counts with no text (safety_events); a reported answer keeps the tutor's text only (answer_reports).",
+    "keptByAnthropic": "API inputs and outputs are deleted within 30 days by default, unless kept longer to enforce its usage policy or by law; zero data retention is available on request (an owner step, TRUST-15). No training on API data by default."
+  }
+}
