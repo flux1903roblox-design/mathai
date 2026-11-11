@@ -1,5 +1,6 @@
 // Settings, laid out like Duolingo's settings screen: a bar with the way back and the title, then grouped sections,
-// each a bordered group with a small heading (my details, class, the assistant, the look, sound, vibration, deleting data).
+// each a bordered group with a small heading (my details, class, the assistant, the look, sound, vibration, the daily
+// reminder, the app, deleting data).
 // A student sees nothing about servers or keys: those are for the adult who sets the app up, behind "מתקדם".
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
@@ -15,6 +16,8 @@ import { useAIStatus, leaveFamily } from '@/lib/account.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 import { useInstall, isStoreApp, isStandalone } from '@/lib/install.js';
 import { count } from '@/lib/metrics.js';
+import { disable as disableReminder } from '@/lib/push.js';
+import ReminderSettings from '@/components/learn/ReminderSettings.jsx';
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -291,6 +294,11 @@ function InstallRow() {
   );
 }
 
+/** The daily reminder goes with the device's data: the server deletes its row, the browser drops it (STUDENT-11). */
+async function forgetReminder() {
+  if (useApp.getState().reminder?.on) await disableReminder({ quiet: true }).catch(() => {});
+}
+
 /** A parent's session and the parents' pages' leftovers on this device go too (lib/parent.js, loaded on demand). */
 async function forgetParent() {
   try { const { forgetParentHere } = await import('@/lib/parent.js'); await forgetParentHere(); } catch { /* nothing kept */ }
@@ -325,6 +333,7 @@ export default function Settings() {
       <AISection />
       <ThemeSetting />
       <SoundSettings />
+      <ReminderSettings />
       <InstallRow />
       <AdvancedRow />
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
@@ -342,11 +351,11 @@ export default function Settings() {
         <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => !o && setDanger(null)} title="למחוק הכול?" keep="לא למחוק"
-        confirm="כן, למחוק הכול" onConfirm={async () => { await leaveFamily(); await forgetParent(); useApp.persist.clearStorage(); signOut(); useApp.getState().setTheme('system'); }}>
+        confirm="כן, למחוק הכול" onConfirm={async () => { await forgetReminder(); await leaveFamily(); await forgetParent(); useApp.persist.clearStorage(); signOut(); useApp.getState().setTheme('system'); }}>
         <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. אי אפשר לבטל.</p>
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"
-        confirm="כן, להתנתק" onConfirm={async () => { await forgetParent(); signOut(); }}>
+        confirm="כן, להתנתק" onConfirm={async () => { await forgetReminder(); await forgetParent(); signOut(); }}>
         <p>המכשיר יחזור למסך הפתיחה, וההתקדמות שנשמרה בו תימחק.</p>
       </ConfirmSheet>
       <p className="footnote">מדרגות{hasServer() ? '' : '. בלי שרת: ההתקדמות נשמרת רק במכשיר הזה.'}</p>

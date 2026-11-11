@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import App from './App.jsx';
 import { registerSW } from './lib/swClient.js';
 import { initInstall, INSTALLED_TEXT } from './lib/install.js';
+import { remindOnOpen } from './lib/reminder.js';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).
 try {
@@ -36,3 +37,7 @@ createRoot(document.getElementById('root')).render(
 
 // the offline service worker (production builds only; it waits for the page to finish loading)
 registerSW();
+
+// the daily reminder (STUDENT-11): the first open of a day keeps it alive on the server (only while it is on)
+remindOnOpen();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') remindOnOpen(); });

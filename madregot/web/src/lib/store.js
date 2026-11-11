@@ -41,7 +41,12 @@ const empty = {
   // installOffers / installDismissedAt: how often the install was offered after a lesson, and the day of the last offer,
   // which counts as set aside unless the app got installed (STUDENT-10, lib/install.js). They belong to the device: a
   // progress reset keeps them.
-  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null },
+  // pushOffered: the daily reminder's card after a lesson was shown (STUDENT-11, once ever; a progress reset keeps it)
+  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false },
+  // the opt-in daily reminder (STUDENT-11, lib/push.js): on, the hour (16-20), the id and secret the server gave once,
+  // 'paused' when the server stopped it because it did not help, and the days already told to the server (opened,
+  // learned). It belongs to the device: a progress reset keeps it; deleting everything or signing out turns it off.
+  reminder: { on: false, slot: 17, id: null, secret: null, state: null, seenDay: null, doneDay: null },
   goalXp: 20, // daily goal in XP
   sound: true, // short sounds; off from the start for a student who joins a class and never chose (quietForClass)
   haptics: true, // short vibrations where the phone can (lib/sound.js haptic), never under reduced motion
@@ -199,6 +204,7 @@ export const useApp = create(
         const look = earnIds(st.look, [...lookIds(st, st.path), ...lookIds(st, path)], d, { seen: false });
         const stepsOut = withStep(st, r.purpose === 'mastery' && r.passed ? 3 : 1);
         set({ learn, days, streak, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic, look, stepsOut });
+        remindLearned(get());
         return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
@@ -224,6 +230,7 @@ export const useApp = create(
           learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
           stepsOut: withStep(st, 1),
         });
+        remindLearned(get());
         return { xp, first, streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
       },
       /** Where the student is inside a teaching stage, so leaving keeps the place. */
@@ -246,6 +253,8 @@ export const useApp = create(
       markEarned: (ids, opts) => set({ look: earnIds(get().look, ids, today(), opts) }),
       /** A one-time note was seen: e.g. { repairDismissed: today() } or { pbWeek: '2026-11-01' }. */
       setNudge: (patch) => set({ nudges: { ...get().nudges, ...patch } }),
+      /** The daily reminder's state (lib/push.js writes it). */
+      setReminder: (patch) => set({ reminder: { ...empty.reminder, ...get().reminder, ...patch } }),
       /**
        * A finished lesson: XP, today's counters, the path, the topic level, and the daily quests.
        * Returns what to celebrate: { streakExtended, streakRepaired, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
@@ -273,6 +282,7 @@ export const useApp = create(
           days, streak, path, xp: st.xp + r.xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
           progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic, stepsOut: withStep(st, 1),
         });
+        remindLearned(get());
         return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
       },
       /** The placement test settles where each topic starts (the stairs before it are passed over, not done); it counts as the day's first lesson. */
@@ -334,7 +344,7 @@ export const useApp = create(
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
         set({ profile: rest, outbox: [], stepsOut: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {}, exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges, goalSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null }, gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook() }),
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {}, exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges, goalSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null, pushOffered: !!get().nudges?.pushOffered }, gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
       // the theme chosen for this device (prefs) stays too; Madi's look belongs to the student and goes back to the default
       // (sound goes back to its default, so the next student's own choice starts unset)
@@ -346,6 +356,16 @@ export const useApp = create(
 );
 
 const active = isActiveDay;
+
+/**
+ * A finished lesson, check or teaching stage tells the daily reminder's server that today was learned, so no reminder
+ * comes today (STUDENT-11): once a day, only while the reminder is on, and lib/push.js loads only then.
+ */
+function remindLearned(st) {
+  const r = st.reminder;
+  if (!r?.on || r.doneDay === today()) return;
+  import('./push.js').then((mod) => mod.markDone()).catch(() => { /* told on the next finished item */ });
+}
 /** The pieces a path unlocks for Madi (lib/wardrobe.js). */
 const lookIds = (st, path) => unlockedIds(unlockedLook({ path, classGoals: st.classGoals, grade: st.profile?.grade }));
 /** A Saturday. Kept for old callers: the streak's rule is isRestDay (Shabbat and Yom Tov, shared/restDays.js). */

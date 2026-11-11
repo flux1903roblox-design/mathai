@@ -574,6 +574,23 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .install-app.ours img { display: block; width: 56px; height: 56px; border-radius: 16px; box-shadow: 0 0 0 4px var(--brand-tint); }
 .install-app.ours b { width: auto; height: auto; margin: 0; background: none; color: var(--ink); font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap; }
 .install-text { margin: 0; max-width: 32ch; color: var(--ink-2); font-size: 17px; line-height: 26px; text-wrap: balance; }
+/* the daily reminder's offer (STUDENT-11): a notification as it would arrive, then one sentence, the hour and two answers */
+.remind-stage .remind-hero { min-height: 0; margin-top: auto; }
+.remind-note { display: grid; grid-template-columns: 40px 1fr auto; align-items: start; gap: var(--s3); width: min(100%, 340px); padding: var(--s3) var(--s4);
+  border: 2px solid var(--rule); border-radius: 20px; background: var(--surface); box-shadow: 0 6px 18px color-mix(in srgb, var(--ink) 10%, transparent); text-align: start; }
+.remind-note img { display: block; width: 40px; height: 40px; border-radius: 10px; }
+.remind-note-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.remind-note-text b { color: var(--ink); font-size: 15px; line-height: 20px; font-weight: 700; }
+.remind-note-text span { color: var(--ink-2); font-size: 14px; line-height: 20px; }
+.remind-note-time { color: var(--ink-2); font-size: 13px; line-height: 20px; font-variant-numeric: tabular-nums; }
+.remind-slots { display: flex; flex-direction: column; gap: var(--s2); width: 100%; }
+.remind-stage .remind-slots { max-width: 360px; text-align: start; }
+.remind-set .remind-slots { margin-top: var(--s2); }
+.remind-slots .segmented { gap: 6px; }
+.remind-slots .seg { min-width: 0; padding-inline: 0; font-size: 15px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+@media (max-width: 360px) { .remind-slots .seg { font-size: 14px; } }
+.remind-paused { margin: 0; color: var(--ink); font-size: var(--t-sm); line-height: var(--lh-sm); }
+@media (max-height: 640px) { .remind-stage .done-copy { gap: var(--s3); } .remind-stage .install-text { font-size: 16px; line-height: 24px; } }
 /* the pinned button's band is the page's own colour (in dark, --surface would show as a lighter box) */
 .done-screen .done-actions { background: var(--paper); }
 @media (max-height: 700px) { .done-screen .done-actions { background: linear-gradient(transparent, var(--paper) 28%); } }
