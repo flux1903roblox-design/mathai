@@ -38,8 +38,8 @@ describe('exam', () => {
     expect(makePracticeExam(['nope'], 5)).toEqual([]);
   });
   it('a printed practice exam has no practice-only question and nothing dragged on the screen (council2, GEOM-1 Tests)', () => {
-    // coord, ratio and frac have practice-only choices and dragged objects (coord:2 is mostly dragging); transf, congr
-    // and sim join the list when their stairs land (GEOM-4 to -6), with their practice-only transform and proof objects
+    // coord, ratio and frac have practice-only choices and dragged objects (coord:2 is mostly dragging); transf has its
+    // practice-only transform object and choices (GEOM-4), and congr and sim join it when their stairs land (GEOM-5, -6)
     const topics = ['coord', 'ratio', 'frac', 'transf', 'congr', 'sim'];
     made.length = 0;
     const items = makePracticeExam(topics, 40);

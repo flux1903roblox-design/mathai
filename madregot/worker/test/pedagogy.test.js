@@ -61,8 +61,9 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // cap moved up to 17,500; ratio and percent (their ways and their nine stairs) and the floor's frac:3-4 took it to
   // about 19,000 at the next merge, so it moved again; the lane's own stage 1 ways (shared/topicWays.js) and the "not
   // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
-  // purpose. A further topic moves it only on purpose too.
-  assert.ok(s.length < 21000, `stable block is ${s.length} characters`);
+  // purpose. A further topic moves it only on purpose too: curriculum stage 4's transformations (their way, with the
+  // gap, the line x = k, the turn's direction and the glued side, and four stair names) took it to about 21,400.
+  assert.ok(s.length < 22000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');

@@ -1152,5 +1152,82 @@
   },
   "stairs": 5,
   "steps": 163
+ },
+ "transf": {
+  "skills": {
+   "transf:1": {
+    "discover": 8,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "transf:2": {
+    "discover": 8,
+    "examples": [
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     1,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "transf:3": {
+    "discover": 8,
+    "examples": [
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "transf:4": {
+    "discover": 8,
+    "examples": [
+     3,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   }
+  },
+  "stairs": 4,
+  "steps": 86
  }
 }

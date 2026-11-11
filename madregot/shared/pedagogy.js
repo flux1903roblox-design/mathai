@@ -6,7 +6,7 @@
 // before 16.4 fails to load a chunk that has one): a word start is a prefix group, (?:^|[^א-ת]), and an end a lookahead.
 import { safetyPrompt } from './safety.js';
 import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, NOT_YET } from './stairs.js';
-import { TOPIC_WAYS_STAGE1, SIGNED_FRACTIONS } from './topicWays.js';
+import { TOPIC_WAYS_STAGE1, TOPIC_WAYS_GEOM, SIGNED_FRACTIONS } from './topicWays.js';
 
 /** The one sentence that names the singular forms to avoid (the plural-only check skips it). */
 export const SINGULAR_EXAMPLES = 'Never use singular imperatives such as "תנסה" or "תנסי".';
@@ -124,6 +124,8 @@ export const TOPIC_WAYS = Object.freeze({
     avoid: ['deciding from how the drawing looks ("נראה ישר", "נראה שווה")', 'a name for an angle pair without the reason'],
     avoidRe: [re(String.raw`נראה\s+(?:ישר|שווה|שוות|שווים|מקבילים)(?=$|[^א-ת])`)],
   },
+  // curriculum stage 4's transformations (transf:1-4, web/src/learn/content/transf.ts), the lane's own entry
+  transf: TOPIC_WAYS_GEOM.transf,
   expr: {
     models: String.raw`A letter keeps the place of a number. Substituting turns it into arithmetic: write the multiplication sign ($3 \cdot 4$, never "34") and bracket a negative value. An expression is built from small cases of a pattern and checked on a known case. Only like terms join (the tiles). The distributive law is a rectangle's area in two parts: the outside factor multiplies every term inside. To simplify: open brackets, collect, check by substituting. One substitution can mislead; equal expressions agree for every number.`,
     words: ['הצבה', 'ביטוי אלגברי', 'איברים דומים', 'כינוס איברים דומים', 'חוק הפילוג', 'מקדם', 'מספר חופשי'],

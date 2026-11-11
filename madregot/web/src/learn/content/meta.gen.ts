@@ -1172,6 +1172,90 @@ export const META: Record<SkillId, StairMeta> = {
       }
     ],
     "transfer": true
+  },
+  "transf:1": {
+    "title": "הזזה",
+    "misconceptions": [
+      {
+        "id": "shift-sign",
+        "title": "הזיזו לכיוון ההפוך באחד הצירים"
+      },
+      {
+        "id": "shift-swap",
+        "title": "הוסיפו את ההזזה שמאלה־ימינה ל־$y$ ואת ההזזה למעלה־למטה ל־$x$"
+      },
+      {
+        "id": "one-axis",
+        "title": "הזיזו רק לאורך ציר אחד"
+      },
+      {
+        "id": "gap",
+        "title": "מדדו את הרווח בין הצורות במקום את הדרך מנקודה לתמונה שלה"
+      }
+    ],
+    "transfer": true
+  },
+  "transf:2": {
+    "title": "שיקוף",
+    "misconceptions": [
+      {
+        "id": "axis-not-line",
+        "title": "שיקפו ביחס לציר במקום ביחס לישר שבשאלה"
+      },
+      {
+        "id": "wrong-axis",
+        "title": "שיקפו ביחס לציר השני"
+      },
+      {
+        "id": "both-signs",
+        "title": "החליפו את הסימן של שני השיעורים: זה חצי סיבוב, לא שיקוף"
+      },
+      {
+        "id": "diagonal-axis",
+        "title": "חשבו שאלכסון של מלבן הוא ציר סימטריה שלו"
+      }
+    ],
+    "transfer": true
+  },
+  "transf:3": {
+    "title": "סיבוב",
+    "misconceptions": [
+      {
+        "id": "wrong-centre",
+        "title": "סובבו סביב ראשית הצירים במקום סביב מרכז הסיבוב"
+      },
+      {
+        "id": "reflect-not-turn",
+        "title": "שיקפו במקום לסובב: רק שיעור אחד השתנה"
+      },
+      {
+        "id": "turn-direction",
+        "title": "סובבו לכיוון ההפוך"
+      },
+      {
+        "id": "rot-swap",
+        "title": "החליפו בין השיעורים בלי לשנות סימן"
+      }
+    ],
+    "transfer": true
+  },
+  "transf:4": {
+    "title": "צורות חופפות וריצוף",
+    "misconceptions": [
+      {
+        "id": "double-perimeter",
+        "title": "חיברו את שני ההיקפים, וספרו פעמיים את הצלע המשותפת"
+      },
+      {
+        "id": "equal-area",
+        "title": "חשבו שצורות עם אותו שטח הן חופפות"
+      },
+      {
+        "id": "equal-perimeter",
+        "title": "חשבו שצורות עם אותו היקף הן חופפות"
+      }
+    ],
+    "transfer": true
   }
 };
 
@@ -1222,5 +1306,6 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "skip-zero": "לא ספרו את הנתונים שערכם אפס",
     "known-count": "כפלו את הממוצע רק במספר הנתונים הידועים"
   },
-  "sys": {}
+  "sys": {},
+  "transf": {}
 };

@@ -71,6 +71,34 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { k: 0, p: 15, up: false, N: 300 } }, // 300 less 15%: 15 shekels off 285; the discount alone 45
     { model: 'diag', p: { k: 0, p: 15, up: true, N: 300 } }, // 300 plus 15%: 15 shekels on 315; the rise alone 45
   ],
+  // curriculum stage 4's transformations (learn/content/transf.ts)
+  'transf:1': [
+    // P(−3, 2) moved 4 right and 5 down, the y of P′: the other way 7, the shifts swapped 6, along x only 2
+    { model: 'transfer', p: { p1: -3, p2: 2, dx: 4, dy: -5, ask: 'y' } },
+    // A(1, 1) → A′(4, −1), so B(−2, 3) → the x of B′: the other way −5, the shifts swapped −4, along y only −2
+    { model: 'diag', p: { a1: 1, a2: 1, dx: 3, dy: -2, c1: -2, c2: 3, ask: 'x' } },
+  ],
+  'transf:2': [
+    // C(−2, −5) in the x-axis, the y of C′: in the other axis y stays −5 (the model's line y = k needs k ≠ 0: in the
+    // axis itself "the axis, not the line" is the answer, and both signs changed gives the same y, 5)
+    { bugs: { 'wrong-axis': -5 } },
+    // D(5, 2) in the line x = 3, the x of D′: in the y-axis instead −5, in the other direction x stays 5
+    { model: 'diag', p: { t: 0, k: 3, a: 5, b: 2 } },
+  ],
+  'transf:3': [
+    // P(−3, 1) a half turn about O(1, 2), the x of P′: about the origin 3, reflected through O (x kept) −3
+    { model: 'diag', p: { c1: 1, c2: 2, a1: -3, a2: 1, ask: 'x' } },
+    // Q(2, 3) a quarter turn clockwise about the origin is (3, −2), the y of Q′: swapped with no sign (3, 2) and turned
+    // the other way (−3, 2) both give 2; reflected in an axis instead (2, −3) or (−2, 3) gives −3 or 3
+    { bugs: { 'rot-swap': 2, 'turn-direction': 2, 'reflect-not-turn': [-3, 3] } },
+  ],
+  'transf:4': [
+    // two right triangles 3, 4, 5 glued along the hypotenuse make a 3 by 4 rectangle, 14: both perimeters added, 24
+    { bugs: { 'double-perimeter': 24 } },
+    // the fourth tile at a point with two squares and an equilateral triangle, 120°: no misconception of the stair
+    // shows on an angle
+    { bugs: {} },
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)

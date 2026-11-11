@@ -24,6 +24,7 @@ import { CATS_FRAC } from './content/frac';
 import { CATS_SIGNED6 } from './content/signed6';
 import { CATS_RATIO } from './content/ratio';
 import { CATS_PCT } from './content/pct';
+import { CATS_TRANSF } from './content/transf';
 // @ts-ignore: no Node types in this project
 import { spawnSync } from 'node:child_process';
 // @ts-ignore: no Node types in this project
@@ -121,6 +122,8 @@ describe('meta.gen.ts', () => {
       // the curriculum lane's units, as its registry had them: the bridge unit (frac), signed:6 in its own file (its
       // names join signed's), and grade 8's ratio and percent
       frac: CATS_FRAC, ratio: CATS_RATIO, pct: CATS_PCT,
+      // curriculum stage 4's transformations: every name is already the topic's own (content/transf.js)
+      transf: CATS_TRANSF,
     };
     expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
     for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));

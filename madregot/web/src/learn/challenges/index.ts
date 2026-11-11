@@ -8,6 +8,7 @@ import { FRAC_CHALLENGES } from './frac';
 import { SIGNED_CHALLENGES } from './signed';
 import { COORD_CHALLENGES } from './coord';
 import { ANGLES_CHALLENGES } from './angles';
+import { TRANSF_CHALLENGES } from './transf';
 import { EXPR_CHALLENGES } from './expr';
 import { EQ_CHALLENGES } from './eq';
 import { RATIO_CHALLENGES } from './ratio';
@@ -22,8 +23,8 @@ import { SYS_CHALLENGES } from './sys';
  * per topic, one claim, one error or proof and one real-world (literacy) task each.
  */
 export const CHALLENGES: ChallengeTask[] = [
-  ...FRAC_CHALLENGES, ...SIGNED_CHALLENGES, ...COORD_CHALLENGES, ...ANGLES_CHALLENGES, ...EXPR_CHALLENGES, ...EQ_CHALLENGES,
-  ...RATIO_CHALLENGES, ...PCT_CHALLENGES, ...LINE_CHALLENGES, ...PYTH_CHALLENGES, ...STATS_CHALLENGES, ...SYS_CHALLENGES,
+  ...FRAC_CHALLENGES, ...SIGNED_CHALLENGES, ...COORD_CHALLENGES, ...ANGLES_CHALLENGES, ...TRANSF_CHALLENGES, ...EXPR_CHALLENGES,
+  ...EQ_CHALLENGES, ...RATIO_CHALLENGES, ...PCT_CHALLENGES, ...LINE_CHALLENGES, ...PYTH_CHALLENGES, ...STATS_CHALLENGES, ...SYS_CHALLENGES,
 ].sort((a, b) => TOPIC_ORDER.indexOf(a.topic) - TOPIC_ORDER.indexOf(b.topic));
 const BY_ID: Record<string, ChallengeTask> = Object.fromEntries(CHALLENGES.map((t) => [t.id, t]));
 

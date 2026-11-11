@@ -2,7 +2,8 @@
 // line for signed numbers, a treasure grid for coordinates, a protractor for angles, slope stairs
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
 // statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems, a
-// fraction bar, a pie in eighths and a jug in tenths for the fractions floor. Colours
+// fraction bar, a pie in eighths and a jug in tenths for the fractions floor, a flag and its mirror image, a turned L
+// and a tiling for transformations. Colours
 // come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
 // banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
 
@@ -364,10 +365,56 @@ const MeetFlag = () => (
   </svg>
 );
 
+// transformations (GEOM-4): a flag and its mirror image across a dashed line (the emblem), a small L turned about a dot
+// three times with a curved arrow, and a piece of a tiling: three hexagons and the six triangles between them
+const MirrorFlag = () => (
+  <svg viewBox="0 0 110 96">
+    <path d="M55 6 V90" className="sc-route" />
+    <path d="M38 84 V18" className="sc-stroke" />
+    <path d="M38 18 L14 27 L38 36 Z" className="sc-c" />
+    <path d="M72 84 V18" className="sc-stroke" />
+    <path d="M72 18 L96 27 L72 36 Z" className="sc-t sc-line" />
+    <path d="M28 86 H48 M62 86 H82" className="sc-stroke" />
+  </svg>
+);
+const TurnStar = () => {
+  // an L of three cells, turned a quarter, a half and three quarters about the dot in the middle
+  const L = 'M4 4 H22 V10 H10 V28 H4 Z';
+  return (
+    <svg viewBox="0 0 100 100">
+      {[0, 90, 180, 270].map((a, i) => <path key={a} d={L} transform={`translate(50 50) rotate(${a}) translate(2 2)`} className={i ? 'sc-t sc-line' : 'sc-c'} />)}
+      <circle cx="50" cy="50" r="4.5" className="sc-d" />
+      <path d="M78 34 A32 32 0 0 0 34 20" className="sc-stroke-gold" />
+      <path d="M42 14 L34 20 L43 25" className="sc-stroke-gold" />
+    </svg>
+  );
+};
+const TileFloor = () => {
+  // the trihexagonal tiling: hexagons with side s whose centres are 2s apart share their corners, and a triangle fills
+  // each gap between three of them
+  const s = 16; const h = (s * Math.sqrt(3)) / 2; const x0 = s + 6; const y0 = h + 6;
+  const v = ([cx, cy], k) => [cx + s * Math.cos((Math.PI / 3) * k), cy + s * Math.sin((Math.PI / 3) * k)];
+  const c1 = [x0, y0]; const c2 = [x0 + 2 * s, y0]; const c3 = [x0 + s, y0 + 2 * h];
+  const poly = (pts) => pts.map((p) => p.map((n) => Math.round(n * 10) / 10).join(',')).join(' ');
+  const hexes = [c1, c2, c3].map((c) => [0, 1, 2, 3, 4, 5].map((k) => v(c, k)));
+  const tris = [
+    [v(c1, 0), v(c1, 1), v(c2, 2)], [v(c1, 0), v(c1, 5), v(c2, 4)],
+    [v(c3, 3), v(c1, 1), v(c1, 2)], [v(c3, 0), v(c2, 2), v(c2, 1)],
+    [v(c3, 3), v(c3, 2), [v(c3, 3)[0] - s / 2, v(c3, 2)[1]]], [v(c3, 0), v(c3, 1), [v(c3, 0)[0] + s / 2, v(c3, 1)[1]]],
+  ];
+  return (
+    <svg viewBox="0 0 76 68">
+      {hexes.map((p, i) => <polygon key={i} points={poly(p)} className="sc-c sc-line" />)}
+      {tris.map((p, i) => <polygon key={`t${i}`} points={poly(p)} className="sc-t sc-line" />)}
+    </svg>
+  );
+};
+
 export const SCENERY = {
   signed: [Thermometer, SeaLevel, Cloud],
   coord: [GridMap, Compass, Pin],
   angles: [Protractor, Peaks, Kite],
+  transf: [MirrorFlag, TurnStar, TileFloor],
   line: [SlopeSteps, FlagHill, Plane],
   pyth: [Squares, Ladder, Pyramid],
   stats: [BarSkyline, PieSun, Dice],

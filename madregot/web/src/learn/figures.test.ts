@@ -14,6 +14,10 @@ import { contentOf, loadAllContent } from './content/index';
 import type { DiscoverStep, FigSpec } from './types';
 // @ts-ignore: plain JS
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
+// @ts-ignore: plain JS
+import { mirrorWords } from '@/content/transform.js';
+// @ts-ignore: plain JS
+import { TRANSF_KINDS } from '@/content/transf.gen.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -178,7 +182,10 @@ function labelsOf(f: AnyFig): Set<string> {
         const meet = f.meet && f.lines?.length > 1 ? meetOf(f.lines[0], f.lines[1]) : null;
         const rr = f.riseRun && lines[0] ? [fmt(f.riseRun.run), fmt(lines[0].m * f.riseRun.run)] : [];
         return ['x', 'y', ...(f.points || []).filter((p: any) => !p.hidden).map((p: any) => p.label), ...(f.lines || []).map((l: any) => l.label),
-          ...(meet ? [`(${fmt(meet[0])}, ${fmt(meet[1])})`] : []), ...rr, ...(f.words || []).map((w: any) => w.text)];
+          ...(meet ? [`(${fmt(meet[0])}, ${fmt(meet[1])})`] : []), ...rr, ...(f.words || []).map((w: any) => w.text),
+          // the transform object's still twin (GEOM-2.8): each shape's letters and name, the centre O, the mirror's equation
+          ...(f.shapes || []).flatMap((sh: any) => [...(sh.names || []), sh.label]), ...(f.arrows || []).map((a: any) => a.label),
+          ...(f.centre ? ['O'] : []), ...(f.mirror && typeof f.mirror !== 'string' ? [mirrorWords(f.mirror)] : [])];
       }
       case 'geo': return [...Object.keys(f.pts).filter((k) => !k.startsWith('_') && !(f.hide || []).includes(k)), ...(f.segs || []).map((s: any) => s.label),
         ...(f.angles || []).map((g: any) => g.text), ...(f.squares || []).map((q: any) => q.text), ...(f.words || []).map((w: any) => w.text)];
@@ -285,7 +292,11 @@ function textProblems(st: DiscoverStep, f: AnyFig): string[] {
       const meet = f.meet && lines.length > 1 ? meetOf(lines[0], lines[1]) : null;
       const at = (p: Pt) => Math.abs(p[0] - x) < 1e-9 && Math.abs(p[1] - y) < 1e-9;
       const ok = (f.points || []).some((p: any) => (asks || !p.hidden) && (!m[1] || p.label === m[1]) && at([p.x, p.y]))
-        || (!m[1] && ((meet && at(meet)) || (f.path || []).some((p: Pt) => at(p))));
+        || (!m[1] && ((meet && at(meet)) || (f.path || []).some((p: Pt) => at(p))))
+        // a shape's vertex by its letter (or any vertex, unnamed), the centre O, an arrow's end
+        || (f.shapes || []).some((sh: any) => sh.pts.some((p: Pt, j: number) => (!m[1] || sh.names?.[j] === m[1]) && at(p)))
+        || (!!f.centre && (!m[1] || m[1] === 'O') && at(f.centre))
+        || (!m[1] && (f.arrows || []).some((a: any) => at(a.from) || at(a.to)));
       if (!ok) bad.push(`${m[0]} is not drawn there`);
     }
     for (const m of g.matchAll(/([A-Z])\s*\(\s*(-?\d+(?:\.\d+)?)\s*\)/g)) {
@@ -423,4 +434,35 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     });
     expect(bad).toEqual([]);
   });
+});
+
+// curriculum stage 4: every drawn kind of the transformations' practice questions (content/transf.gen.js), 200 draws of
+// each: the figure renders with no broken numbers, agrees with itself, writes every letter and point its text names, and
+// a choice question's figure never writes its answer
+describe('the transformations\' practice drawings (GEOM-4)', () => {
+  const drawn = Object.entries(TRANSF_KINDS as Record<string, () => any>).filter(([, gen]) => gen().fig || gen().manip);
+  it('cover every kind that draws', () => {
+    expect(drawn.map(([k]) => k).sort()).toEqual(['glue', 'halfTurnPt', 'mirrorCopy', 'quarterPt', 'rectCong', 'reflectAxis', 'reflectLine', 'rotSym', 'slideCopy', 'slidePt', 'symAxes', 'tiling', 'turnCopy', 'vectorPt', 'whichMove', 'whichShift']);
+  });
+  for (const [kind, gen] of drawn) {
+    it(`${kind}: 200 drawings`, () => {
+      for (let i = 0; i < 200; i += 1) {
+        const it = gen();
+        const f = (it.fig || (it.manip?.kind === 'transform' ? { type: 'coord', shapes: [it.manip.shape], ...(it.manip.moves.flips ? { mirror: it.manip.moves.flips[0] } : {}), ...(it.manip.moves.turns ? { centre: it.manip.moves.turns.centre } : {}) } : null)) as AnyFig;
+        const html = renderToStaticMarkup(createElement(Figure, { fig: f }));
+        expect(html, `${kind} ${it.key}`).toMatch(/<svg/);
+        expect(html, `${kind} ${it.key}`).not.toMatch(/NaN|undefined|Infinity/);
+        expect(selfProblems('transf:1', f), `${kind} ${it.key}`).toEqual([]);
+        const st = (it.form === 'mc'
+          ? { kind: 'predict', text: it.text, fig: f, choices: it.choices.map((c: any) => c.text), answer: it.answer, why: '' }
+          : { kind: 'say', text: it.text, fig: f }) as DiscoverStep;
+        expect(textProblems(st, f), `${kind} ${it.key}: ${it.text}`).toEqual([]);
+        if (f.type === 'coord') {
+          // every point and vertex on the plane the figure shows
+          const r = f.range || 6; const pts: Pt[] = [...(f.points || []).map((p: any) => [p.x, p.y]), ...(f.shapes || []).flatMap((sh: any) => sh.pts), ...(f.centre ? [f.centre] : [])];
+          for (const [x, y] of pts) expect(Math.abs(x) <= r && Math.abs(y) <= r, `${kind} ${it.key}: (${x}, ${y})`).toBe(true);
+        }
+      }
+    });
+  }
 });

@@ -79,3 +79,27 @@ export const TOPIC_WAYS_STAGE1 = Object.freeze({
 
 /** The sentence TOPIC_WAYS.signed.models gains with stair 6 (signed fractions and decimals). */
 export const SIGNED_FRACTIONS = String.raw`Fractions and decimals with a sign (stair 6) follow the same rules on the same number line: $-2.5 + 1.2 = -1.3$, because the signs differ, the distances are subtracted, and $-2.5$ is farther from zero.`;
+
+/**
+ * The tutor's ways for curriculum stage 4's geometry (stage4 spec GEOM-1 item 8, through AI-2's rules as above):
+ * transformations (transf:1-4, web/src/learn/content/transf.ts). pedagogy.js takes it into TOPIC_WAYS after the angles.
+ */
+export const TOPIC_WAYS_GEOM = Object.freeze({
+  transf: {
+    models: String.raw`A translation moves every point the same distance in the same direction (add the same to every $x$ and to every $y$; right and up add, left and down subtract), and is measured from a point to its image, never by the gap between the shapes. A reflection in a line sends each point to the same distance on the other side, along a perpendicular; in the $x$-axis $(x, y) \to (x, -y)$, in the $y$-axis $(x, y) \to (-x, y)$, in the line $x = k$ measure the distance to that line, not to the axis. A rotation needs a centre, an angle and a direction; every point keeps its distance from the centre (measure from the centre first, then turn the steps: counterclockwise "right" becomes "up"); a half turn about the origin is $(x, y) \to (-x, -y)$. All three keep lengths, angles and area, so the image is congruent; equal areas or equal perimeters alone do not make shapes congruent. Glued shapes lose the shared side from the perimeter; tiles meeting at a point fill $360°$.`,
+    words: ['הזזה', 'שיקוף', 'ישר שיקוף', 'ציר סימטריה', 'סיבוב', 'מרכז הסיבוב', 'עם כיוון השעון', 'נגד כיוון השעון', 'תמונה', 'חופפות', 'ריצוף'],
+    avoid: [
+      '"swap x and y" as the rule for a rotation (a quarter turn also changes one sign, and its direction matters)',
+      '"a reflection changes both signs" (that is a half turn)',
+      '"shapes with the same area are congruent"',
+    ],
+    avoidRe: [
+      // the swap said of a turn, either order (coord:c1 quotes "מחליפים בין $x$ ל־$y$" about a point, not a turn); the
+      // tutor writes $x$, so the dollar signs are optional; a swap that also names the sign change is the whole rule
+      re(String.raw`(?:(?:ו?ב|ה)?סיבוב|לסובב|מסובבים|מסובב)[^.\n]*?מחליפים\s+(?:בין\s+)?(?:(?:ה)?שיעורים|(?:ה־)?\$?x\$?\s*(?:ל|ו))${unless('סימן|סימנים')}`),
+      re(String.raw`מחליפים\s+(?:בין\s+)?(?:ה־)?\$?x\$?\s*(?:ל|ו)[^.\n]*?(?:סיבוב|לסובב|מסתובבת|מסתובב)${unless('סימן|סימנים')}`),
+      re(String.raw`(?:ב)?שיקוף\s+(?:\S+\s+){0,3}(?:מחליפים|מחליף|משנים|משנה|מתחלפים|מתהפכים)\s+(?:את\s+)?(?:ה)?סימנים\s+של\s+שני`),
+      re(String.raw`(?:צורות|משולשים|מלבנים)\s+(?:עם|שלהם|שלהן)\s+(?:אותו|שטח\s+שווה)\s+(?:שטח\s+)?(?:הם|הן)\s+חופפ`),
+    ],
+  },
+});

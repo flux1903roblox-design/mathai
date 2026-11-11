@@ -17,6 +17,8 @@ import { candidates } from './labels.sample.js';
 import { PROOFS, LETTER_SETS, proofManip, proofDiag } from './congr.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { TRANSF } from './transf.js';
+import { shiftPlain } from './transf.gen.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -268,6 +270,31 @@ const gcdOf = (x, y) => { let a = Math.abs(x); let b = Math.abs(y); while (b) [a
  * The property each category names, per topic. (it, u) → does the answer u really show this mistake?
  * A category a stair defines for itself is checked with that stair's meaning (catLabel shows the same).
  */
+/** The text of the chosen choice of a practice question whose choices are words (transformations). */
+const choiceText = (it, u) => it.choices?.[u]?.text || '';
+/** Twice the area of a polygon given as "x,y,x,y,…" (the shoelace formula). */
+const area2Of = (flat) => {
+  const v = flat.split(',').map(Number); const pts = [];
+  for (let i = 0; i < v.length; i += 2) pts.push([v[i], v[i + 1]]);
+  return Math.abs(pts.reduce((a, [x, y], i) => { const [x2, y2] = pts[(i + 1) % pts.length]; return a + x * y2 - x2 * y; }, 0));
+};
+/**
+ * A transformations item's point and its move, from the key: tf1s B(x, y) and the shift; tf1v A, A′ and C (the shift
+ * is A′ − A, the point C); tf2a A and the axis; tf2l the line (t 0: x = k, 1: y = k) and A; tf3h A and the centre;
+ * tf3q A and the direction of the quarter turn.
+ */
+function tfMove(key) {
+  const [p, ...r] = key.split(':'); const n = r.map(Number);
+  if (p === 'tf1s') return { p, x: n[0], y: n[1], dx: n[2], dy: n[3] };
+  if (p === 'tf1v') return { p, x: n[4], y: n[5], dx: n[2] - n[0], dy: n[3] - n[1] };
+  if (p === 'tf2a') return { p, x: n[0], y: n[1], ax: r[2] };
+  if (p === 'tf2l') return { p, t: n[0], k: n[1], x: n[2], y: n[3] };
+  if (p === 'tf3h') return { p, x: n[0], y: n[1], c1: n[2], c2: n[3] };
+  if (p === 'tf3q') return { p, x: n[0], y: n[1], cw: r[2] === 'cw' };
+  return { p };
+}
+const isSlide = (m) => m.p === 'tf1s' || m.p === 'tf1v';
+
 const PROPS = {
   frac: {
     // the marks counted instead of the gaps: k/(d − 1)
@@ -339,6 +366,73 @@ const PROPS = {
   // ratio:1-4, each property from the numbers the student saw (the key): a, b of ra1; m, n, T of ra2s; m, n, P of ra2r;
   // the investments X, Y and the profit P of ra2p; b, a, c of ra3m (b units need a, how much for c); the table rows of
   // ra3t; the scale S and the distance of ra4r (d cm) and ra4m (D m); d cm and D km of ra4f; k of ra4a
+  // curriculum stage 4's transformations (content/transf.gen.js): the point typed, read against the move in the key;
+  // a word choice read back from the chosen choice
+  transf: {
+    // moved the other way along one axis (a point), or the whole slide backwards (a choice of slides)
+    'shift-sign': (it, u) => {
+      const m = tfMove(it.key);
+      if (isSlide(m)) return ptEq(u, [m.x - m.dx, m.y + m.dy]) || ptEq(u, [m.x + m.dx, m.y - m.dy]);
+      if (it.key.startsWith('tf1w:')) { const [dx, dy] = nums(it.key); return choiceText(it, u) === shiftPlain(-dx, -dy); }
+      return false;
+    },
+    // the shift along x added to y and the shift along y to x
+    'shift-swap': (it, u) => {
+      const m = tfMove(it.key);
+      if (isSlide(m)) return m.dx !== m.dy && ptEq(u, [m.x + m.dy, m.y + m.dx]);
+      if (it.key.startsWith('tf1w:')) { const [dx, dy] = nums(it.key); return dx !== dy && choiceText(it, u) === shiftPlain(dy, dx); }
+      return false;
+    },
+    // moved along one axis only
+    'one-axis': (it, u) => { const m = tfMove(it.key); return isSlide(m) && (ptEq(u, [m.x + m.dx, m.y]) || ptEq(u, [m.x, m.y + m.dy])); },
+    // the gap between the triangles taken for the slide: each shift less the triangle's width or height
+    gap: (it, u) => {
+      if (!it.key.startsWith('tf1w:')) return false;
+      const [dx, dy, w, h] = nums(it.key);
+      return choiceText(it, u) === shiftPlain(Math.sign(dx) * (Math.abs(dx) - w), Math.sign(dy) * (Math.abs(dy) - h));
+    },
+    // reflected in the axis, not in the line x = k (or y = k)
+    'axis-not-line': (it, u) => { const m = tfMove(it.key); return m.p === 'tf2l' && m.k !== 0 && ptEq(u, m.t === 0 ? [-m.x, m.y] : [m.x, -m.y]); },
+    // reflected the other way: in the other axis, or across the other kind of line
+    'wrong-axis': (it, u) => {
+      const m = tfMove(it.key);
+      if (m.p === 'tf2a') return ptEq(u, m.ax === 'x' ? [-m.x, m.y] : [m.x, -m.y]);
+      if (m.p === 'tf2l') return ptEq(u, m.t === 0 ? [m.x, 2 * m.k - m.y] : [2 * m.k - m.x, m.y]);
+      return false;
+    },
+    // both signs changed: a half turn about the origin instead of a reflection
+    'both-signs': (it, u) => { const m = tfMove(it.key); return m.p === 'tf2a' && ptEq(u, [-m.x, -m.y]); },
+    // the diagonals counted as axes: the shape's own axes and two more (a rectangle 4, a parallelogram 2)
+    'diagonal-axis': (it, u) => {
+      const id = it.key.split(':')[1];
+      return ['rectangle', 'parallelogram'].includes(id) && u === it.answer + 2;
+    },
+    // turned about the origin, not about the given centre
+    'wrong-centre': (it, u) => { const m = tfMove(it.key); return m.p === 'tf3h' && (m.c1 !== 0 || m.c2 !== 0) && ptEq(u, [-m.x, -m.y]); },
+    // reflected instead of turned: one coordinate kept
+    'reflect-not-turn': (it, u) => { const m = tfMove(it.key); return m.p === 'tf3h' && (ptEq(u, [m.x, 2 * m.c2 - m.y]) || ptEq(u, [2 * m.c1 - m.x, m.y])); },
+    // a quarter turn the other way round
+    'turn-direction': (it, u) => { const m = tfMove(it.key); return m.p === 'tf3q' && ptEq(u, m.cw ? [-m.y, m.x] : [m.y, -m.x]); },
+    // the coordinates swapped with no sign changed (a reflection in y = x, never a turn)
+    'rot-swap': (it, u) => { const m = tfMove(it.key); return (m.p === 'tf3q' || m.p === 'tf2a') && ptEq(u, [m.y, m.x]); },
+    // both perimeters added: the glued side counted twice
+    'double-perimeter': (it, u) => { const [a, b, h, s] = nums(it.key); return it.key.startsWith('tf4g:') && u === 2 * (a + b + h + s); },
+    // shapes of equal area taken for congruent: a move chosen for two shapes that are not the same shape, or "yes"
+    // for two rectangles with equal areas and different sides
+    'equal-area': (it, u) => {
+      if (it.key.startsWith('tf4m:')) {
+        const [, type, , a, b] = it.key.split(':');
+        return type === 'none' && area2Of(a) === area2Of(b) && choiceText(it, u) !== 'הצורות לא חופפות';
+      }
+      if (it.key.startsWith('tf4r:')) { const [a, b, c, d] = nums(it.key); return choiceText(it, u) === 'כן' && !(a === d && b === c) && a * b === c * d; }
+      return false;
+    },
+    // "yes" for two rectangles with equal perimeters and different sides
+    'equal-perimeter': (it, u) => {
+      const [a, b, c, d] = nums(it.key);
+      return it.key.startsWith('tf4r:') && choiceText(it, u) === 'כן' && !(a === d && b === c) && a + b === c + d;
+    },
+  },
   ratio: {
     // the ratio read in the other order: the other term's value
     'reversed-ratio': (it, u) => {
@@ -735,9 +829,10 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
-  it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+describe('the algebra, fraction, ratio, percent and transformation topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems, fractions, ratio, percent and transformations has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, TRANSF]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+    expect(Object.keys(TRANSF.cats)).toHaveLength(15);
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

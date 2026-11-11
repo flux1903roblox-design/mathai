@@ -4,6 +4,7 @@
 import { TOPIC, makeItem, answerText, itemPlain, fairForCheck } from '@/content/index.js';
 import { itemFor } from '@/learn/items.ts';
 import { parseSkill } from '@/learn/skills.ts';
+import { gensReady } from '@/content/lazyGen.js';
 
 export const STATUS = {
   correct: { label: 'נכון', tone: 'ok' },
@@ -28,7 +29,9 @@ export function scoreOf(result) {
  * Some stairs give a printable question only one draw in three, so a question has up to twelve draws on average.
  */
 export function makePracticeExam(topicIds, count, progress = {}) {
-  const ids = topicIds.filter((id) => TOPIC[id]);
+  // a unit whose generators load with its teaching (content/lazyGen.js) and have not loaded is left out: the screen
+  // waits for ensureTopics first, so this happens only offline before the unit was ever kept
+  const ids = topicIds.filter((id) => TOPIC[id] && gensReady(id));
   if (!ids.length) return [];
   const items = []; const seen = new Set();
   for (let i = 0; items.length < count && i < count * 12; i++) {
@@ -115,15 +118,16 @@ function classQuestion(skill, seen) {
 /**
  * A class practice exam (spec TEACHER-3 §1): `count` questions spread round-robin over the chosen stairs, each at the
  * stair's own level (not a student's). A stair whose exercises are all dragged on the screen cannot be printed: it is
- * left out and named in `skipped`. `avoid`: keys not to repeat (version ב is built with version א's keys).
+ * left out and named in `skipped`, as is one whose unit's generators could not load. `avoid`: keys not to repeat (version ב is built with version א's keys).
  * Returns { items: frozen questions, skipped: stairs left out }.
  */
 export function makeClassExam(skills, count, { avoid = [] } = {}) {
   const stairs = [...new Set(skills)].filter((s) => { const { topic, level } = parseSkill(s); return !!TOPIC[topic]?.levels[level - 1]; });
   const seen = new Set(avoid);
-  const skipped = [];
+  // a stair whose unit's generators have not loaded (content/lazyGen.js; ExamNew waits for ensureTopics) is named too
+  const skipped = stairs.filter((s) => !gensReady(parseSkill(s).topic));
   const gave = new Set();
-  let live = [...stairs];
+  let live = stairs.filter((s) => !skipped.includes(s));
   const items = [];
   while (items.length < count && live.length) {
     const skill = live[items.length % live.length];

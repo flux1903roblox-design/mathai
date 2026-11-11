@@ -94,8 +94,13 @@ describe('planNext: the bands, highest first, for each learner', () => {
     // September: signed starts in October, angles is taught now; the unit's own order is kept (no signed:2 before signed:1)
     expect(planNext(LEARNERS.newSeventhSeptember()).top).toMatchObject({ kind: 'new', skill: 'angles:1' });
     expect(planNext(LEARNERS.newSeventhSeptember()).top!.reason).toContain('בספטמבר');
+    // November: with the units before it passed, the transformations (7.11, November and December) come next, by the calendar
+    const before = Object.fromEntries((['signed', 'coord', 'angles'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }]));
+    const tf = planNext(ctxOf(emptyLearn(), { path: before })).top!;
+    expect(tf).toMatchObject({ kind: 'new', skill: 'transf:1', to: '/learn/transf/1/A' });
+    expect(tf.reason).toContain('לפי תוכנית הלימודים');
     // a stair the calendar has not reached says nothing about the calendar
-    const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }]));
+    const path = Object.fromEntries((['signed', 'coord', 'angles', 'transf', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }]));
     const eq = planNext(ctxOf(emptyLearn(), { path })).top!;
     expect(eq).toMatchObject({ kind: 'new', skill: 'eq:1' });
     expect(eq.reason).not.toContain('לפי תוכנית הלימודים');

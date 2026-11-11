@@ -60,7 +60,7 @@ export const PROGRAMME = {
         { hours: 4, skills: [], note: 'מדידה ואומדן של זוויות, חוצה זווית וזוויות במרובע', later: 'S5' },
       ] },
     { id: '7.11', grade: '7', domain: 'geometry', title: 'צורות חופפות במישור וטרנספורמציות', months: [11, 12],
-      parts: [{ hours: 5, skills: [], note: 'הזזה, שיקוף וסיבוב, וצורות חופפות', later: 'S4' }] },
+      parts: [{ hours: 5, skills: range('transf', 1, 4) }] },
     { id: '7.12', grade: '7', domain: 'geometry', title: 'שטחים א, שטחים ב, חישוב היקפים', months: [12, 1, 4, 5],
       parts: [
         { hours: 1, skills: ['coord:4'] }, // the area of a rectangle on the grid
@@ -90,7 +90,7 @@ export const PROGRAMME = {
     { id: '8.4', grade: '8', domain: 'geometry', title: 'גליל, חרוט (ולפניהם היקף מעגל ושטח עיגול)', months: [10, 11],
       parts: [{ hours: 6, skills: [], note: 'היקף מעגל, שטח עיגול, גליל וחרוט', later: 'S2' }] },
     { id: '8.5', grade: '8', domain: 'geometry', title: 'טרנספורמציות וצורות חופפות', months: [11],
-      parts: [{ hours: 5, skills: [], note: 'הזזה, שיקוף וסיבוב, וצורות חופפות', later: 'S4' }] },
+      parts: [{ hours: 5, skills: range('transf', 1, 4) }] },
     { id: '8.6', grade: '8', domain: 'uncertainty', title: 'איסוף וקריאת מידע, שכיחות, שכיחות יחסית', months: [10, 11],
       parts: [
         { hours: 1, skills: ['stats:1'] }, // the mode

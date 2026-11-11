@@ -53,6 +53,6 @@ export default defineConfig({
     environment: 'node',
     include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)', '../shared/**/*.test.js'],
     exclude: ['**/node_modules/**', 'e2e/**', 'dist-test/**', 'dist-ios-test/**'],
-    setupFiles: ['./src/testYield.js'],
+    setupFiles: ['./src/testYield.js', './src/testLazyTopics.js'],
   },
 });

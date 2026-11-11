@@ -6,6 +6,7 @@ import { useApp } from '@/lib/store.js';
 import { hasTool, useAIStatus } from '@/lib/account.js';
 import { makePracticeExam, weakTopics } from '@/lib/exam.js';
 import { TOPIC, topicsFor, displayTex } from '@/content/index.js';
+import { ensureTopics } from '@/learn/content/index.ts';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
@@ -24,9 +25,17 @@ export function NewPracticeExam() {
   const [count, setCount] = useState(6);
   const toggle = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
-  const create = () => {
+  const [busy, setBusy] = useState(false);
+  const create = async () => {
+    if (busy) return;
+    setBusy(true);
+    // a unit whose practice generators load with its teaching (transformations, content/lazyGen.js) is fetched first;
+    // offline, before it was ever kept, it is left out of the exam
+    await ensureTopics(picked).catch(() => {});
     const items = makePracticeExam(picked, count, progress);
-    const pe = { id: Math.random().toString(36).slice(2) + Date.now().toString(36), at: new Date().toISOString(), title: `מבחן תרגול: ${picked.map((id) => TOPIC[id].title).join(', ')}`, items };
+    if (!items.length) { setBusy(false); return; }
+    const titled = picked.filter((id) => items.some((it) => it.topic === id));
+    const pe = { id: Math.random().toString(36).slice(2) + Date.now().toString(36), at: new Date().toISOString(), title: `מבחן תרגול: ${titled.map((id) => TOPIC[id].title).join(', ')}`, items };
     addPracticeExam(pe);
     navigate(`/exams/practice/${pe.id}`, { replace: true });
   };

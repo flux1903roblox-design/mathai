@@ -1,5 +1,5 @@
 // The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, the set is stage 1's 36
-// (three per topic, one claim, one error or proof, one literacy task each), and the grading rules (two tries, XP, the
+// and curriculum stage 4's transformations (transf:c1-c3, GEOM-7), 39 (three per topic, one claim, one error or proof, one literacy task each), and the grading rules (two tries, XP, the
 // order check, the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
@@ -36,9 +36,10 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('stage 1 has 36 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
+  it('stage 1 and the transformations have 39 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
-    expect(CHALLENGES).toHaveLength(36);
+    expect(CHALLENGES).toHaveLength(39);
+    expect(challengesOf('transf').map((t) => [t.id, t.kind, t.after])).toEqual([['transf:c1', 'claim', 'transf:3'], ['transf:c2', 'error', 'transf:3'], ['transf:c3', 'literacy', 'transf:4']]);
     TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
     expect(TOPIC_ORDER).toContain('frac');
     expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => [tp, tp, tp]));

@@ -197,6 +197,13 @@
       "tags": ["pct"]
     },
     {
+      "id": "D1-transf3-wrongcentre", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "diag", "params": { "c1": 2, "c2": 1, "a1": 5, "a2": 3, "ask": "x" }, "wrong": [-5, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-centre", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the half turn was made about the origin instead of about O. Measured from O(2, 1), A is 3 to the right along the x-axis, so after a half turn A' is 3 to the left of O: x = 2 - 3 = -1 (that is 2 · 2 - 5). Turning about the origin gives -5. Ends at -1. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

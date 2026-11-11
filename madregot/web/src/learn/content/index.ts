@@ -29,6 +29,8 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'signed': return Promise.all([import('./signed'), import('./signed6')]).then(([a, b]) => [...a.SIGNED, ...b.SIGNED6]);
     case 'coord': return import('./coord').then((m) => m.COORD);
     case 'angles': return import('./angles').then((m) => m.ANGLES);
+    // transformations: the teaching, and the topic's practice generators, which register as the file loads
+    case 'transf': return import('./transf').then((m) => m.TRANSF);
     case 'expr': return import('./expr').then((m) => m.EXPR);
     case 'eq': return import('./eq').then((m) => m.EQ);
     // the curriculum lane's grade 8 units in school order: ratio and scale, then percent

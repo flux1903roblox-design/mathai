@@ -29,21 +29,25 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   });
 });
 
-// Stage 1 is complete with percent: the live coverage, from the stairs this build has, is the stage-1 fixture's of
-// worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4 and pct:1-5): ז׳ 104 of 150, ח׳ 66 of 147, 57%.
-describe('stage 1\'s coverage, live', () => {
-  const STAGE1 = [
+// Stage 1 is complete with percent, and curriculum stage 4 adds the transformations (transf:1-4, units 7.11 and 8.5): the
+// live coverage, from the stairs this build has, is the stage-4 fixture's of worker/test/coverage.test.js (HEAD's 48
+// stairs, signed:6, ratio:1-4, pct:1-5 and transf:1-4): ז׳ 109 of 150, ח׳ 71 of 147, 61%.
+describe('stage 1\'s coverage with the transformations, live', () => {
+  const STAGE4 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
     ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
     'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+    'transf:1', 'transf:2', 'transf:3', 'transf:4',
   ];
-  it('has exactly the stage-1 stairs (the bridge unit aside), and their hours', () => {
-    expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE1].sort());
+  it('has exactly those stairs (the bridge unit aside), and their hours', () => {
+    expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE4].sort());
     const c7 = coverageOf('7'); const c8 = coverageOf('8');
-    expect([c7.taught, c7.hours]).toEqual([104, 150]);
-    expect([c8.taught, c8.hours]).toEqual([66, 147]);
-    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(57);
+    expect([c7.taught, c7.hours]).toEqual([109, 150]);
+    expect([c8.taught, c8.hours]).toEqual([71, 147]);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(61);
     expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+    expect(c7.units.find((u) => u.id === '7.11')).toMatchObject({ taught: 5, state: 'yes', stairs: ['transf:1', 'transf:2', 'transf:3', 'transf:4'] });
+    expect(c8.units.find((u) => u.id === '8.5')).toMatchObject({ taught: 5, state: 'yes', stairs: ['transf:1', 'transf:2', 'transf:3', 'transf:4'] });
   });
 });
 

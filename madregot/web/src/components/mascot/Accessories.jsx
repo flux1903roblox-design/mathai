@@ -118,6 +118,16 @@ const DRAW = {
       <path d="M109 89.5 L99 100.5" style={S(ch('petrol', '-d'))} strokeWidth="2" {...round} />
     </>
   ),
+  // transformations: a flag and its mirror image across a dashed line (the unit's emblem, small)
+  'mirror-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('violet', '-d')) }} strokeWidth="2" />
+      <path d="M104 87 V103" style={S(ch('violet', '-d'))} strokeWidth="1.2" strokeDasharray="1.6 1.8" {...round} />
+      <path d="M100.5 101 V89.5 M107.5 101 V89.5" style={S(ch('violet', '-d'))} strokeWidth="1.4" {...round} />
+      <path d="M100.5 89.5 L96 92 L100.5 94.5Z" style={F(ch('violet'))} />
+      <path d="M107.5 89.5 L112 92 L107.5 94.5Z" style={{ ...F(WHITE), ...S(ch('violet')) }} strokeWidth="1.2" strokeLinejoin="round" />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

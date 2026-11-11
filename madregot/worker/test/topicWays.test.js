@@ -4,7 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { TOPIC_WAYS_STAGE1 as WAYS, SIGNED_FRACTIONS } from '../../shared/topicWays.js';
+import { TOPIC_WAYS_STAGE1 as WAYS, TOPIC_WAYS_GEOM as GEOM, SIGNED_FRACTIONS } from '../../shared/topicWays.js';
+import { TOPIC_WAYS } from '../../shared/pedagogy.js';
 
 const read = (url) => readFileSync(url, 'utf8');
 const any = (res, text) => res.some((r) => r.test(text));
@@ -103,4 +104,53 @@ test('no line of the app\'s teaching content, generators or challenges trips a p
 test('no lookbehind: the file ships to the browser (Safari before 16.4 cannot load one)', () => {
   assert.equal(read(new URL('../../shared/topicWays.js', import.meta.url)).includes('(?<'), false);
   ALL.forEach((r) => assert.equal(r.source.includes('(?<'), false, r.source));
+});
+
+// ---------------------------------------------------------------- curriculum stage 4: transformations (GEOM-1 item 8)
+const GEOM_ALL = Object.values(GEOM).flatMap((w) => w.avoidRe);
+
+test('transf has models, the app\'s words and a pattern for every shortcut, and the tutor\'s ways take it after the angles', () => {
+  assert.deepEqual(Object.keys(GEOM), ['transf']);
+  const w = GEOM.transf;
+  assert.ok(w.models.length > 200);
+  assert.match(w.models, /same distance in the same direction.*from a point to its image.*perpendicular.*\(x, -y\).*line \$x = k\$.*centre, an angle and a direction.*\(-x, -y\).*congruent.*equal areas or equal perimeters.*shared side.*360/s);
+  assert.deepEqual(w.words, ['הזזה', 'שיקוף', 'ישר שיקוף', 'ציר סימטריה', 'סיבוב', 'מרכז הסיבוב', 'עם כיוון השעון', 'נגד כיוון השעון', 'תמונה', 'חופפות', 'ריצוף']);
+  assert.ok(w.avoid.length === 3 && w.avoidRe.length >= w.avoid.length);
+  assert.equal(TOPIC_WAYS.transf, w);
+  const order = Object.keys(TOPIC_WAYS);
+  assert.equal(order.indexOf('transf'), order.indexOf('angles') + 1);
+});
+
+test('transf: a shortcut stated as a rule is caught; the app\'s own words and the right rule pass', () => {
+  [
+    'ברבע סיבוב מחליפים בין $x$ ל־$y$.',
+    'כדי לסובב ברבע סיבוב, מחליפים x ו y.',
+    'מחליפים בין $x$ ל־$y$, וזה רבע סיבוב.',
+    'בסיבוב של $90°$ פשוט מחליפים בין השיעורים.',
+    'בשיקוף מחליפים את הסימנים של שני השיעורים.',
+    'שיקוף ביחס לציר משנה את הסימנים של שני השיעורים.',
+    'צורות עם אותו שטח הן חופפות.',
+    'מלבנים עם שטח שווה הם חופפים.',
+  ].forEach((l) => assert.ok(GEOM_ALL.some((r) => r.test(l)), l));
+  [
+    'החליפו בין השיעורים בלי לשנות סימן',
+    'ברבע סיבוב עם כיוון השעון מחליפים בין $x$ ל־$y$ ומשנים את הסימן של השיעור החדש.',
+    'בחצי סיבוב סביב $O(0, 0)$ שני השיעורים מחליפים סימן.',
+    'חשבו שצורות עם אותו שטח הן חופפות',
+    'לשני המלבנים אותו שטח, $12$. הם חופפים?',
+    'הזיזו את המשולש $3$ ימינה.',
+    '"אם מחליפים בין $x$ ל־$y$, הנקודה נשארת באותו רביע."',
+  ].forEach((l) => assert.ok(!GEOM_ALL.some((r) => r.test(l)), l));
+});
+
+test('transf: no line of the app\'s content, generators or challenges trips a pattern, and none uses lookbehind', () => {
+  const dirs = ['../../web/src/learn/content/', '../../web/src/content/', '../../web/src/learn/challenges/'].map((d) => new URL(d, import.meta.url));
+  const files = dirs.flatMap((dir) => readdirSync(dir).filter((f) => /\.(ts|js)$/.test(f) && !f.includes('.test.')).map((f) => new URL(f, dir)));
+  for (const url of files) {
+    read(url).split('\n').forEach((line, i) => assert.ok(!GEOM_ALL.some((r) => r.test(line)), `${url.pathname.split('/').slice(-2).join('/')}:${i + 1} ${line.trim().slice(0, 90)}`));
+  }
+  const w = GEOM.transf;
+  [w.models, ...w.avoid, ...w.words].forEach((t) => assert.ok(!GEOM_ALL.some((r) => r.test(t)), t));
+  GEOM_ALL.forEach((r) => assert.equal(r.source.includes('(?<'), false, r.source));
+  // and stage 1's patterns do not trip on the new unit's lines either (the loop above covers every file)
 });

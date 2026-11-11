@@ -1,7 +1,7 @@
 // The Ministry programme in code (shared/programme.js) and the coverage computed from it (shared/coverage.js).
 // The fixtures are skill lists typed here, so these numbers do not move when a stage lands: the council's 33 stairs,
-// HEAD's 48 (after the algebra build), and stage 1's (HEAD plus signed:6, ratio:1-4 and pct:1-5). The hours and the
-// per-unit taught hours are those of the Ministry's תשפ״ז schedules, as the curriculum spec checked them (§0.3).
+// HEAD's 48 (after the algebra build), stage 1's (HEAD plus signed:6, ratio:1-4 and pct:1-5), and stage 1's with the
+// transformations of curriculum stage 4 (transf:1-4, GEOM-4: units 7.11 and 8.5). The hours and the per-unit taught hours are those of the Ministry's תשפ״ז schedules, as the curriculum spec checked them (§0.3).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PROGRAMME, ROADMAP_NEXT } from '../../shared/programme.js';
@@ -27,6 +27,8 @@ const STAGE1 = [
   'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4',
   'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
 ];
+const TRANSF = ['transf:1', 'transf:2', 'transf:3', 'transf:4'];
+const STAGE4 = [...STAGE1, ...TRANSF];
 const BRIDGE = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
 
 // The schedules' hours per unit (7.1-7.17, 8.1-8.17) and the hours each milestone teaches, unit by unit.
@@ -39,21 +41,24 @@ const TAUGHT = {
     council: [5, 4, 5, 5, 6, 2, 0, 0, 1, 16, 0, 1, 0, 6, 2, 0, 0],
     head: [5, 4, 5, 5, 6, 2, 25, 21, 1, 16, 0, 1, 0, 6, 2, 0, 0],
     stage1: [5, 5, 7, 5, 8, 2, 25, 21, 1, 16, 0, 1, 0, 6, 2, 0, 0],
+    stage4: [5, 5, 7, 5, 8, 2, 25, 21, 1, 16, 5, 1, 0, 6, 2, 0, 0],
   },
   '8': {
     council: [0, 0, 8, 0, 0, 1, 0, 8, 1, 8, 0, 0, 3, 1, 0, 0, 0],
     head: [0, 0, 8, 0, 0, 1, 0, 8, 6, 8, 0, 0, 3, 13, 4, 0, 0],
     stage1: [8, 7, 8, 0, 0, 1, 0, 8, 6, 8, 0, 0, 3, 13, 4, 0, 0],
+    stage4: [8, 7, 8, 0, 5, 1, 0, 8, 6, 8, 0, 0, 3, 13, 4, 0, 0],
   },
 };
 // After stage 1, the hours each later stage adds (§0.3: S2 = 7.6, 7.12, 7.13, 8.4, 8.17; S3 = 7.15-7.17, 8.6, 8.10,
 // 8.11, 8.16; S4 = 7.11, 8.5, 8.12, 8.13; S5 = 7.9, 7.10, 8.7, 8.9), and the totals after each (ז׳ 126, 139, 144, 150;
-// ח׳ 78, 99, 133, 147).
-const AFTER = { '7': { S2: 126, S3: 139, S4: 144, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
+// ח׳ 78, 99, 133, 147). With the transformations (7.11 and 8.5, 5 hours each) S4 still brings 8.12 and 8.13: from
+// stage 4's fixture the totals are ז׳ 131, 144, 144, 150 and ח׳ 83, 104, 133, 147.
+const AFTER = { '7': { S2: 131, S3: 144, S4: 144, S5: 150 }, '8': { S2: 83, S3: 104, S4: 133, S5: 147 } };
 const COMPLETES = {
   S2: ['7.6', '7.12', '7.13', '8.4', '8.17'],
   S3: ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'],
-  S4: ['7.11', '8.5', '8.12', '8.13'],
+  S4: ['8.12', '8.13'],
   S5: ['7.9', '7.10', '8.7', '8.9'],
 };
 
@@ -87,11 +92,11 @@ test('the programme: 17 units a grade, in the schedules\' order, with their hour
   assert.equal(coverage('8', []).hours, 147);
 });
 
-test('every stair a part lists is one of stage 1\'s; a part with none is a later stage\'s, with a note', () => {
-  const known = new Set(STAGE1);
+test('every stair a part lists is one of stage 1\'s or a transformation; a part with none is a later stage\'s, with a note', () => {
+  const known = new Set(STAGE4);
   for (const { unit, part } of allParts) {
     if (part.skills.length) {
-      part.skills.forEach((s) => assert.ok(known.has(s), `${unit.id} lists ${s}, which is not a stage-1 stair`));
+      part.skills.forEach((s) => assert.ok(known.has(s), `${unit.id} lists ${s}, which is not a stage-1 stair or a transformation`));
       assert.equal(part.later, undefined, `${unit.id}: a part with stairs is not waiting for a later stage`);
     } else {
       assert.ok(['S2', 'S3', 'S4', 'S5'].includes(part.later), `${unit.id}: an empty part names its stage`);
@@ -103,6 +108,10 @@ test('every stair a part lists is one of stage 1\'s; a part with none is a later
   for (const id of ['7.2', '7.3', '7.5']) assert.ok(listing(id).includes('signed:6'), id);
   assert.deepEqual(listing('8.1'), ['ratio:1', 'ratio:2', 'ratio:3', 'ratio:4']);
   assert.deepEqual(listing('8.2'), ['pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5']);
+  // the transformations are taught in ז׳ (7.11) and, in the transition year, in ח׳ too (8.5): one unit, two places
+  assert.deepEqual(listing('7.11'), TRANSF);
+  assert.deepEqual(listing('8.5'), TRANSF);
+  for (const id of ['7.11', '8.5']) assert.ok(PROGRAMME.units.find((u) => u.id === id).parts.every((p) => p.later !== 'S4'), id);
   // one stair can serve several units
   assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => p.skills.includes('pyth:1'))).map((u) => u.id), ['7.6', '7.14', '8.3']);
   assert.ok(listing('7.9').includes('line:1'));
@@ -124,11 +133,12 @@ test('no part lists a bridge stair: elementary fractions add no hours', () => {
   for (const g of ['7', '8']) assert.equal(coverage(g, [...STAGE1, ...BRIDGE]).taught, coverage(g, STAGE1).taught);
 });
 
-test('coverage from the three fixtures: the council\'s 33 stairs, HEAD\'s 48, stage 1', () => {
+test('coverage from the four fixtures: the council\'s 33 stairs, HEAD\'s 48, stage 1, stage 1 with the transformations', () => {
   assert.equal(COUNCIL.length, 33);
   assert.equal(HEAD.length, 48);
   assert.equal(STAGE1.length, 58);
-  const want = { council: [COUNCIL, 53, 30], head: [HEAD, 99, 51], stage1: [STAGE1, 104, 66] };
+  assert.equal(STAGE4.length, 62);
+  const want = { council: [COUNCIL, 53, 30], head: [HEAD, 99, 51], stage1: [STAGE1, 104, 66], stage4: [STAGE4, 109, 71] };
   for (const [name, [skills, t7, t8]] of Object.entries(want)) {
     const c7 = coverage('7', skills); const c8 = coverage('8', skills);
     assert.deepEqual([c7.taught, c7.hours, c8.taught, c8.hours], [t7, 150, t8, 147], name);
@@ -143,6 +153,10 @@ test('coverage from the three fixtures: the council\'s 33 stairs, HEAD\'s 48, st
   assert.deepEqual([coverage('7', HEAD).pct, coverage('8', HEAD).pct], [66, 35]);
   assert.deepEqual([coverage('7', STAGE1).pct, coverage('8', STAGE1).pct], [69, 45]);
   assert.equal(Math.round((100 * (104 + 66)) / 297), 57);
+  // the transformations: ז׳ 109 of 150 (73%), ח׳ 71 of 147 (48%), both grades 61%
+  assert.deepEqual([coverage('7', STAGE4).pct, coverage('8', STAGE4).pct], [73, 48]);
+  assert.equal(Math.round((100 * (109 + 71)) / 297), 61);
+  assert.deepEqual([coverage('7', STAGE4).units.find((u) => u.id === '7.11').state, coverage('8', STAGE4).units.find((u) => u.id === '8.5').state], ['yes', 'yes']);
 });
 
 test('a unit\'s state, stairs and missing parts', () => {
@@ -168,9 +182,9 @@ test('a unit\'s state, stairs and missing parts', () => {
   assert.equal(at('8', [...STAGE1, 'func:1', 'func:2'], '8.7').taught, 0);
 });
 
-test('with the stage-1 stairs, every untaught part names the later stage that brings it, and the stages add up', () => {
+test('with the stage-1 stairs and the transformations, every untaught part names the later stage that brings it, and the stages add up', () => {
   for (const g of ['7', '8']) {
-    const c = coverage(g, STAGE1);
+    const c = coverage(g, STAGE4);
     let taught = c.taught;
     for (const u of c.units) {
       for (const p of u.parts.filter((x) => !x.taught)) assert.ok(['S2', 'S3', 'S4', 'S5'].includes(p.later), `${u.id}: ${p.note}`);
@@ -232,6 +246,8 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
   // every stage-1 stair has a month in its own grade
   const gradeOf = (s) => (/^(signed|coord|angles|expr|eq):/.test(s) ? '7' : '8');
   STAGE1.forEach((s) => assert.equal(typeof monthIndex(s, gradeOf(s)), 'number', s));
+  // the transformations: November in ז׳ (7.11) and in ח׳ (8.5)
+  TRANSF.forEach((s) => { assert.equal(monthIndex(s, '7'), 2, s); assert.equal(monthIndex(s, '8'), 2, s); });
 
   assert.equal(schoolMonth('2026-09-01'), 0);
   assert.equal(schoolMonth('2026-11-10'), 2);

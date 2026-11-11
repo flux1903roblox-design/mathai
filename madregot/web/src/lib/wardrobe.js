@@ -39,6 +39,8 @@ export const ITEMS = [
   // the curriculum lane's grade 8 units (ratio and scale, percent): drawn at the merge, for the same reason
   { id: 'scale-pin', slot: 'body', topic: 'ratio', name: 'סיכת קנה מידה', unlock: { chest: 'ratio' } },
   { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
+  // curriculum stage 4's transformations (ז׳): a flag and its mirror image, drawn with the unit, for the same reason
+  { id: 'mirror-pin', slot: 'body', topic: 'transf', name: 'סיכת מראה', unlock: { chest: 'transf' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 
