@@ -99,6 +99,44 @@ describe('stage 5\'s motion problems and equations with denominators, live', () 
   });
 });
 
+// Stage 5 as a whole (stage5.md FUNC-8 Design 3 and §0.3), before the classroom split: its six stairs are in the app,
+// every ח׳ unit it completes is taught whole, and the one part left with `later: 'S5'` is 7.10's measuring part, which
+// waits for the classroom lane's angles:6-7 and this stage's angles:8 (STAIRS.angles is a count).
+describe('stage 5, before the classroom split', () => {
+  const S5 = ['func:1', 'func:2', 'func:3', 'func:4', 'eq:6', 'eq:7'];
+  it('has its six stairs, each in the programme', () => {
+    S5.forEach((s) => expect(ALL_SKILLS, s).toContain(s));
+    S5.forEach((s) => expect(programmeStairs.has(s), s).toBe(true));
+  });
+  it('8.7, 8.8 and 8.9 are taught whole', () => {
+    const units = coverageOf('8').units;
+    for (const id of ['8.7', '8.8', '8.9']) expect(units.find((u) => u.id === id), id).toMatchObject({ state: 'yes', missing: [] });
+    expect(['8.7', '8.8', '8.9'].map((id) => units.find((u) => u.id === id)!.taught)).toEqual([8, 8, 12]);
+    expect(coverageOf('7').units.find((u) => u.id === '7.9')).toMatchObject({ hours: 3, taught: 3, state: 'yes' });
+  });
+  it('places every stage-5 stair in its school month', () => {
+    expect([monthIndex('func:1', '7'), monthIndex('func:1', '8')]).toEqual([8, 2]);
+    for (const s of ['func:2', 'func:3', 'func:4']) expect(monthIndex(s, '8'), s).toBe(2);
+    for (const s of ['eq:6', 'eq:7']) expect([monthIndex(s, '7'), monthIndex(s, '8')], s).toEqual([9, 3]);
+    for (let k = 1; k <= 5; k += 1) expect(monthIndex(`eq:${k}`, '7'), `eq:${k}`).toBe(6);
+  });
+  it('leaves one part waiting for stage 5: 7.10\'s, for the classroom split', () => {
+    const waiting = PROGRAMME.units.flatMap((u) => u.parts.filter((p) => (p as { later?: string }).later === 'S5').map((p) => ({ id: u.id, skills: p.skills })));
+    expect(waiting).toEqual([{ id: '7.10', skills: [] }]);
+    expect(PROGRAMME.units.flatMap((u) => u.parts.flatMap((p) => p.skills))).not.toContain('angles:8');
+  });
+  it('gives the "stage 5 before classroom" numbers on stage 1\'s stairs and its own: ז׳ 106/150, ח׳ 80/147, 63%', () => {
+    const STAGE1 = [
+      ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+      ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+      'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+    ];
+    const c7 = coverage('7', [...STAGE1, ...S5]); const c8 = coverage('8', [...STAGE1, ...S5]);
+    expect([c7.taught, c7.pct, c8.taught, c8.pct]).toEqual([106, 71, 80, 54]);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(63);
+  });
+});
+
 describe('coverage, bound to the stairs this build has', () => {
   it('counts every hour of both schedules, and only taught hours as taught', () => {
     const c7 = coverageOf('7'); const c8 = coverageOf('8');
