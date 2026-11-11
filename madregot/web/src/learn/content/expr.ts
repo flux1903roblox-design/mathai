@@ -54,6 +54,10 @@ const subBugs: Record<string, (p: Sub) => number | null> = {
   order: (p) => (p.f ? (p.b - p.a) * p.x : (p.b + p.a) * p.x),
   // a negative value put in without brackets: its minus is lost
   'neg-sub': (p) => (p.x < 0 ? subWith(p, p.a * -p.x) : null),
+  // 3x read as 3 + x, and 3x read as x alone (the 3 dropped): the other two readings of ax that the stair's choice
+  // question offers (content/expr.js substMc), so the stair diagnoses the same named mistakes (FOLLOWUP-36)
+  plus: (p) => subWith(p, p.a + p.x),
+  coef: (p) => subWith(p, p.x),
 };
 const substModel: DiagModel<Sub> = {
   params: (rnd) => fair(() => ({ f: rint(rnd, 0, 1), a: rint(rnd, 2, 9), b: rnz(rnd, -12, 12), x: rnz(rnd, -6, 9) }), subValue, subBugs),
@@ -199,7 +203,8 @@ const stair1: StairContent = {
         { kind: 'explore', text: 'מתחילים ב־$8$. $3 \\cdot (-2) = -6$, ומחסרים אותו. חיסור של שלילי מזיז ימינה.', display: '8 - 3 \\cdot (-2)', manip: nl(8, 0, 20), answer: 14,
           hint: 'חיסור של $-6$ הוא חיבור של $6$: שישה צעדים ימינה.', success: '$8 - 3 \\cdot (-2) = 8 + 6 = 14$.' },
       ] },
-    // two more readings of ax that the stair's choice question offers (content/expr.js substMc, FOLLOWUP-36)
+    // two more readings of ax: the stair's choice question offers them, and its typed questions and diagnostic model
+    // predict them (content/expr.js substMc and substBugs, subBugs above; FOLLOWUP-36)
     { id: 'plus', title: '$3x$ נקרא כחיבור',
       cause: 'בחשבון יש מקומות שבהם מה שכתוב צמוד מתחבר: $2\\frac{1}{2}$ הוא $2 + \\frac{1}{2}$. באלגברה מספר צמוד לאות כופל אותה.',
       explain: ['נראה ש־$3x$ נקרא כמו $3 + x$.', '$3x$ הוא $3 \\cdot x$, שלוש פעמים $x$. כש־$x = 4$: $3 \\cdot 4 = 12$, ולא $3 + 4 = 7$.'],

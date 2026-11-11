@@ -558,7 +558,8 @@ test('the mark reaches the teacher even when the answer itself is refused, and a
   assert.equal(careOf(a), 0);
   const limit = await say(noa, a, { quick: 'still', body: 'אני רוצה למות' });
   assert.equal(limit.status, 409);
-  assert.equal((await limit.json()).error, 'reply_limit');
+  // the refusal says the mark was set, so the child's screen can say the teacher sees only the mark (FOLLOWUP-9)
+  assert.deepEqual(await limit.json(), { error: 'reply_limit', message: 'reply_limit', care: true });
   assert.equal(careOf(a), 1);
   assert.equal(rows(h.env, "SELECT * FROM help_messages WHERE help_id = ? AND from_role = 'student'", a).length, 3, 'the refused answer is not kept');
   // before the teacher wrote (409 no_reply_yet), and with a phone number (400 reply_has_contact): marked all the same
@@ -566,11 +567,16 @@ test('the mark reaches the teacher even when the answer itself is refused, and a
   const b = one(h.env, 'SELECT id FROM help_requests WHERE question = ?', '-2 + 7').id;
   const early = await say(noa, b, { body: 'עושים לי חרם בכיתה' });
   assert.equal(early.status, 409);
+  assert.equal((await early.json()).care, true);
   assert.equal(careOf(b), 1);
   const c = await answered(cls, noa, '4 - 9');
+  const plainPhone = await say(noa, c, { quick: 'still', body: 'לא הבנתי, תתקשרי 050-1234567' });
+  assert.equal(plainPhone.status, 400);
+  assert.deepEqual(await plainPhone.json(), { error: 'reply_has_contact', message: 'reply_has_contact' }, 'words that do not read as distress: no mark, and the refusal says none');
+  assert.equal(careOf(c), 0);
   const phone = await say(noa, c, { quick: 'still', body: 'אני רוצה למות, תתקשרי 050-1234567' });
   assert.equal(phone.status, 400);
-  assert.equal((await phone.json()).error, 'reply_has_contact');
+  assert.deepEqual(await phone.json(), { error: 'reply_has_contact', message: 'reply_has_contact', care: true });
   assert.equal(careOf(c), 1);
   // a request the teacher closed opens again, so it is on the board with the mark (closed ones leave it after 7 days)
   const d = await answered(cls, noa, '5 - 11');
@@ -578,6 +584,7 @@ test('the mark reaches the teacher even when the answer itself is refused, and a
   await setCount(h.env, `helpreply:s:${noa.studentId}`, 30);
   const slow = await say(noa, d, { quick: 'still', body: 'אני כל הזמן בוכה' });
   assert.equal(slow.status, 429, 'past the 30 answers a day');
+  assert.equal((await slow.json()).care, true);
   assert.equal(careOf(d), 1);
   assert.equal(one(h.env, 'SELECT done_at FROM help_requests WHERE id = ?', d).done_at, null);
   await h.ctx.flush();

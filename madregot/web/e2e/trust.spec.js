@@ -286,6 +286,31 @@ test.describe('distress', () => {
     await sheet.getByRole('button', { name: 'חזרה' }).click();
     await expect(sheet).toHaveCount(0);
   });
+
+  test('a help note that reads as distress and does not go (no network): the card says it waits here, and nothing about the tutor (FOLLOWUP-9)', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await page.route(`${API}/api/help`, (route) => route.abort());
+    await open(page, '#/lesson/signed/1', classStudent());
+    await page.getByRole('button', { name: 'למורה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'לבקש עזרה מהמורה' });
+    const note = 'לא הבנתי, וגם עושים לי חרם בכיתה';
+    await sheet.getByLabel('מה לא ברור? (לא חובה)').fill(note);
+    await sheet.getByRole('button', { name: 'שליחה למורה' }).click();
+    const line = sheet.locator('.help-sent-line');
+    await expect(line).toHaveText('לא הצלחנו לשלוח את הבקשה למורה. בדקו את החיבור לאינטרנט ונסו שוב.');
+    await expect(line).toHaveClass(/is-quiet/);
+    const card = sheet.locator('.support-card');
+    await expect(card).toHaveAttribute('data-variant', 'help-unsent');
+    await expect(card.locator('.support-opening')).toHaveText('מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.');
+    await expect(card.locator('.support-quick')).toHaveAttribute('href', 'tel:1201');
+    await expect(card.locator('.support-foot')).toHaveText('מה שכתבתם עוד לא נשלח. הוא מחכה כאן, ואפשר לשלוח שוב.');
+    await expect(card).not.toContainText('העוזר החכם');
+    await expectCard(card);
+    await shot(page, 'help-note-unsent');
+    // the note waits in the form
+    await sheet.getByRole('button', { name: 'לנסות לשלוח שוב' }).click();
+    await expect(sheet.getByLabel('מה לא ברור? (לא חובה)')).toHaveValue(note);
+  });
 });
 
 test.describe('moderation', () => {

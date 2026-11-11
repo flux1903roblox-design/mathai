@@ -17,6 +17,15 @@ import { detectDistress } from '@shared/safety.js';
 
 const localDay = (iso) => new Date(iso).toLocaleDateString('en-CA');
 
+/** The support card under an answer that reads as distress (FOLLOWUP-9): it went, the server held it, or it never got there. */
+const CARE_VARIANT = { sent: 'help-note', held: 'help-held', unsent: 'help-unsent' };
+/**
+ * Why such words did not go, in a calm line: a refusal's first sentence only ("כל השאר אפשר להמשיך בכיתה" is for an
+ * answer about the exercise, not for a child who just wrote this); any other reason as the app says it.
+ */
+const HELD_WHY = { reply_has_contact: 'בלי קישורים, מספרי טלפון או כתובות מייל בתשובה.' };
+const heldWhy = (e) => HELD_WHY[e?.code] || e?.message || '';
+
 /** One message as a bubble: the teacher's on one side, the student's on the other. */
 function Bubble({ m, teacherName }) {
   const teacher = m.from === 'teacher';
@@ -34,12 +43,17 @@ function Thread({ h, teacherName, onClose }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   // an answer in the child's own words that reads as distress (trust spec TRUST-3, FOLLOWUP-9), read as the lesson's
-  // help sheet reads its note: { sent: true } shows the support card under the thread in place of the toast; { sent:
-  // false, why } shows it too, with why it did not go, and the words stay in the field to send again. The server reads
-  // the words again on its own and marks the request for the teacher.
+  // help sheet reads its note: { state: 'sent' } shows the support card under the thread in place of the toast. One
+  // that did not go shows it too, with why in a calm line, and the words stay in the field to send again: 'held' when
+  // the server read them, marked the request for the teacher and then refused them (its error says care: true),
+  // 'unsent' when they never reached it. The server reads the words again on its own.
   const [care, setCare] = useState(null);
-  const careLine = useRef(null);
-  useEffect(() => { if (care) careLine.current?.scrollIntoView?.({ block: 'nearest' }); }, [care]);
+  const careBox = useRef(null);
+  // the card's head, with its first number, is brought into view (the line just above it comes with it)
+  useEffect(() => {
+    const box = careBox.current;
+    if (care && box) (box.querySelector('.support-head') || box).scrollIntoView?.({ block: 'nearest' });
+  }, [care]);
   const full = sideCount(h, 'student') >= SIDE_MAX;
   const send = async (quick) => {
     const words = quick === 'still' ? text.trim() : '';
@@ -48,12 +62,12 @@ function Thread({ h, teacherName, onClose }) {
     try {
       await sendStudentReply(h, { quick, text: words });
       setStill(false); setText('');
-      if (flagged) { setCare({ sent: true }); return; }
+      if (flagged) { setCare({ state: 'sent' }); return; }
       setCare(null);
       toast.success('שלחנו למורה.');
       if (quick === 'thanks') onClose();
     } catch (e) {
-      if (flagged) setCare({ sent: false, why: e.message }); else toast.error(e.message);
+      if (flagged) setCare({ state: e.data?.care === true ? 'held' : 'unsent', why: heldWhy(e) }); else toast.error(e.message);
     } finally { setBusy(false); }
   };
   return (
@@ -84,12 +98,12 @@ function Thread({ h, teacherName, onClose }) {
           <Button type="submit" className="btn-block" disabled={busy}>{busy ? 'שולחים…' : 'שליחה למורה'}</Button>
         </form>
       )}
-      {/* under the field, so words that did not go stay right above it; its line is brought into view */}
+      {/* under the field, so words that did not go stay right above it */}
       {care && (
-        <div className="help-sent mh-care">
-          <p className="help-sent-line" role="status" ref={careLine}>{care.sent ? 'שלחנו למורה.' : care.why}</p>
-          {/* when it did not go, the card says nothing about the teacher seeing the words */}
-          <SupportCard variant={care.sent ? 'help-note' : 'opened'} />
+        <div className="help-sent mh-care" ref={careBox}>
+          <p className={clsx('help-sent-line', care.state !== 'sent' && 'is-quiet')} role="status">{care.state === 'sent' ? 'שלחנו למורה.' : care.why}</p>
+          {/* when it did not go, the card never says the teacher reads the words, nor speaks of the tutor */}
+          <SupportCard variant={CARE_VARIANT[care.state]} />
         </div>
       )}
       {full && <p className="mh-limit">על בקשה אחת אפשר לכתוב עד 3 פעמים. את השאר כדאי לשאול בכיתה.</p>}

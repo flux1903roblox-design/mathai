@@ -127,7 +127,8 @@ test('Sunday after a week with learning: the card, the sheet, the parents\' shar
   await expect(sheet.locator('.recap-fixed')).toHaveText(/^טעויות שתיקנתם: \S/);
   await expect(sheet.locator('.recap-best')).toHaveText('שיא שבועי חדש: 8 צעדים!');
   await expect(sheet.locator('.recap-class')).toHaveCount(0); // no class
-  await expect(sheet.locator('.recap-earned')).toHaveText('מדי קיבל השבוע: צעיף מדחום.');
+  // the sheet is about last week, and on a Sunday "השבוע" would be the week just begun (FOLLOWUP-38)
+  await expect(sheet.locator('.recap-earned')).toHaveText('בשבוע שעבר מדי קיבל: צעיף מדחום.');
   await expect(sheet.locator('.recap-earned g[data-item="thermo-scarf"]')).toHaveCount(1); // Madi wears it
   await expect(sheet).not.toContainText(/₪|מחיר|תשלום|מנוי/); // nothing about prices on a child's screen
   const fixedName = (await sheet.locator('.recap-fixed').textContent()).replace('טעויות שתיקנתם: ', '');

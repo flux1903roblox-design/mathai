@@ -432,6 +432,14 @@ describe('solving together: the last step names the mistake', () => {
   it('the algebra stairs name the mistake their number shows, and none the steps ruled out', () => {
     // expr:1, 3(x + 5) at x = −1 after the step −1 + 5 = 4: 34 is 3 next to the bracket read as digits
     expect(diagnoseFinal(CONTENT['expr:1'], 1, 34)).toEqual(['concat']);
+    // expr:1's own questions: 5 + 3x at x = 4 is 17; 12 reads 3x as 3 + 4, and 9 as x alone (FOLLOWUP-36: the readings
+    // its choice question offers, so a typed answer names them too)
+    const sub = CONTENT['expr:1'].diag as DiagModel<{ f: number; a: number; b: number; x: number }>;
+    const named = (u: number) => { const d = diagnose(sub, { f: 0, a: 3, b: 5, x: 4 }, u); return d.kind === 'misconception' ? d.candidates.map((c) => c.id) : []; };
+    expect(sub.answer({ f: 0, a: 3, b: 5, x: 4 })).toBe(17);
+    expect(named(12)).toEqual(['plus']);
+    expect(named(9)).toEqual(['coef']);
+    expect(named(39)).toEqual(['concat']);
     // expr:5, the steps opened −(x − 5) as −x + 5: 3, what −x − 5 would give, is not named
     expect(diagnoseFinal(CONTENT['expr:5'], 0, 3)).toEqual([]);
     // eq:2, 17 = 4x + 5 after the step 12 = 4x: 8 is the coefficient subtracted instead of divided by

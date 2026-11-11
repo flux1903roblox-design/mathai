@@ -823,9 +823,10 @@ function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
     <Sheet open={open} onOpenChange={close} title="לבקש עזרה מהמורה" footer={footer}>
       {care ? (
         <div className="help-sent">
-          <p className="help-sent-line" role="status">{care === 'sent' ? 'הבקשה נשלחה למורה.' : 'לא הצלחנו לשלוח את הבקשה למורה. בדקו את החיבור לאינטרנט ונסו שוב.'}</p>
-          {/* when it did not go, the card says nothing about the teacher seeing the note */}
-          <SupportCard variant={care === 'sent' ? 'help-note' : 'opened'} />
+          <p className={clsx('help-sent-line', care !== 'sent' && 'is-quiet')} role="status">{care === 'sent' ? 'הבקשה נשלחה למורה.' : 'לא הצלחנו לשלוח את הבקשה למורה. בדקו את החיבור לאינטרנט ונסו שוב.'}</p>
+          {/* when it did not go (the server never read it: askHelp refuses nothing after its check), the card says the
+              note waits here, and nothing about the teacher seeing it or about the tutor (FOLLOWUP-9) */}
+          <SupportCard variant={care === 'sent' ? 'help-note' : 'help-unsent'} />
         </div>
       ) : (
         <>

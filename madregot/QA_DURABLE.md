@@ -909,6 +909,23 @@ script. They now load one topic at a time, and nothing the student sees changed.
   use): the next step toward 32 KB. `e2e/perf.spec.js` holds only the timing test (`PERF=1`), and a timing taken on
   this shared machine means little (FOLLOWUP-29), so the bytes here come from `check-budget.mjs` and the nightly run
   keeps the timings.
+  **Room under the boot gate** (the follow-ups review: 432.9 against 433, and the public site's build, made with
+  `VITE_API_URL=none` as `publish-pages.sh` and `publish-staging.sh` make it, measured 433.1 and failed). The vite
+  module map (`scripts/vite-plugin-budget.mjs`, ranked by each module's gzipped size in the entry chunk) put the
+  tutor's code next after React, React Router, motion and Base UI: `shared/ai.js` (the prompts, the answer schemas, the
+  exam and feedback readers) with `shared/pedagogy.js`, `topicWays.js`, `guard.js`, `verify.js` and `tutorContext.js`,
+  about 60 KB of source gzipped, all in the first load because `lib/account.js` and `lib/qaFixtures.js` read five
+  constants from `shared/ai.js` (the kinds, their daily groups and weights, the free taste's kinds). Those five now live
+  in `shared/aiKinds.js`, which `shared/ai.js` re-exports for the Worker, so the rest loads with the tutor (`lib/ai.js`,
+  a screen with the assistant, the lesson's help, the exam check). `src/styles/lazy.test.js` walks every static import
+  from `main.jsx` and fails if `shared/ai.js`, `pedagogy.js`, `topicWays.js`, `guard.js` or `lib/ai.js` is reached, and
+  `budget.json`'s `lazyOnly` now names `ai`, `pedagogy`, `guard` and `topicWays`, so a build that pulls them back fails
+  too. Measured: boot JS 432.9 → **403.3 KB** (`npm run build`'s `vite build`) and **403.5 KB** (the public site's
+  build), CSS 45.5 KB (gate 46). The ratchet set the boot gate to 403.3 + 5% = **424 KB**: about **20.7 KB of room**
+  (20.5 KB for the public site's build), where there was 0.1. The 306 KB family gate of FOLLOWUP-23's text belonged
+  to the family lane alone; the merged app holds every lane's first screens, so its gate is this one, and the 260 KB
+  target stays the aim (next in size: the exercise generators of `content/*.js` that the map and the placement test
+  read, about 60 KB gzipped after minifying; they would need the map to read only titles and levels at boot).
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

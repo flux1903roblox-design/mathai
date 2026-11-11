@@ -76,8 +76,8 @@ function AiOffline() {
         <div className="ai-offline-actions">
           {teacher ? <Link to="/teacher" className="btn btn-primary btn-block">חזרה ללוח</Link> : <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>}
           {!inClass && !teacher && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
-          {/* the support card is for a student; a teacher's assistant leads back to the board */}
-          {!teacher && <SupportLink className="ai-offline-support" />}
+          {/* the quiet link is a student's (SupportLink shows nothing on a teacher's device); a teacher's assistant leads back to the board */}
+          <SupportLink className="ai-offline-support" />
         </div>
       </div>
     </section>

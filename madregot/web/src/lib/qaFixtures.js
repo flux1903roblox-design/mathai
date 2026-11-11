@@ -11,7 +11,7 @@
 // The family state's tablet (qa-ai=family names it 'הטאבלט') keeps its backup code with the family, and an older phone's
 // progress is kept in the account (DURABLE-6): every parents state with a plan lists both, so the device line, the kept
 // list and the "continue from" choice can be seen without a server.
-import { AI_KINDS, FREE_KINDS } from '@shared/ai.js';
+import { AI_KINDS, FREE_KINDS } from '@shared/aiKinds.js';
 import { qaOn } from './qa.js';
 
 const QA_TEXT = 'זו תשובה לדוגמה של העוזר החכם במצב בדיקה. בגרסה הזו אין שרת, אז שום שאלה לא נשלחה.';

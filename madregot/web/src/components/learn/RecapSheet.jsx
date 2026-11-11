@@ -50,6 +50,11 @@ export function earnedIn(look, start, end) {
     .map(([id]) => id);
 }
 const pieceName = (id) => (colorOf(id) ? `צבע ${nameOf(id)}` : nameOf(id));
+/**
+ * What Madi got in the recap's week. The sheet is about last week and opens on a Sunday, when "השבוע" is the week that
+ * has just begun, so the line names the week it means (FOLLOWUP-38). '' with nothing earned.
+ */
+export const earnedLine = (ids) => (ids.length ? `בשבוע שעבר מדי קיבל: ${ids.map(pieceName).join(', ')}.` : '');
 
 /** Last week's days: learned, a rest day (Shabbat, or a holiday), or neither. */
 function Strip({ week }) {
@@ -114,7 +119,7 @@ export default function RecapSheet({ view, week, onClose, onShare, onShareClose 
         {earned.length > 0 && (
           <div className="recap-earned">
             <Mascot mood="happy" size={72} still look={dressed} />
-            <p>{`מדי קיבל השבוע: ${earned.map(pieceName).join(', ')}.`}</p>
+            <p>{earnedLine(earned)}</p>
           </div>
         )}
       </Sheet>

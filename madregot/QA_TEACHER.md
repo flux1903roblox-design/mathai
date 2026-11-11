@@ -364,8 +364,13 @@ The code for each is done and tested; each needs the owner once.
   one e2e case per screen: `/teacher`, `/teacher/lessons`, `/teacher/settings`, `/teacher/report`, the demo board and the
   student's Quests class block. Until then the e2e finds every control by its role and accessible name, which checks
   those; contrast and axe's other rules are not checked here.
-- **TRUST-3's distress check on a student's help reply** and its care marker: `detectDistress` is the trust lane's and
-  is not on this branch yet; the reply route is where it goes (`worker/src/help.js`, the student's side).
+- **TRUST-3's distress check on a student's help reply** (no longer open: FOLLOWUP-9 built it after the merge).
+  `worker/src/help.js` `studentReply` reads the child's own words first, marks the request "כדאי לבדוק מה שלום
+  התלמיד/ה" and opens it again, and a refusal after that (a phone number, the third answer, 30 a day) says `care: true`.
+  The thread shows the support card with ער״ן's number in its head: "שלחנו למורה." when the words went; a calm line
+  and "מה שכתבתם לא נשלח. המורה יראה ליד הבקשה רק סימון…" when the server held them; "מה שכתבתם עוד לא נשלח…" when
+  they never got there; never a word about the tutor. Proof: worker `care.test.js` "the mark reaches the teacher even
+  when the answer itself is refused …"; web `support.test.js`; e2e `teacher.spec.js` 4c (the number in view at 320 px).
 - **A sync asked for while another is running is dropped** (`syncNow` in `web/src/lib/api.js`), so a class exam's
   result that waited offline can take up to the next minute's sync to reach the teacher. This is one possible cause of
   the one TEACHER-5 failure above; it belongs to the sync code, not this lane, and was left as it is.

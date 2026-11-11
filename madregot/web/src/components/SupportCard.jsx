@@ -42,7 +42,8 @@ function TalkButton({ lines }) {
 }
 
 /**
- * variant: 'after-message' | 'opened' | 'help-note' (the opening line and the footer differ). In a sheet pass `bare`:
+ * variant: 'after-message' | 'opened' | 'help-note' | 'help-held' | 'help-unsent' (content/support.js: the opening
+ * line, the number in the head and the footer differ). In a sheet pass `bare`:
  * the sheet carries the title and the frame.
  */
 export default function SupportCard({ variant = 'after-message', bare = false, className }) {

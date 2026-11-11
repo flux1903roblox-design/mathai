@@ -5,25 +5,39 @@
 /** The quiet link that opens the support sheet: the chat, the resting chat, the "not connected" chat, the limit sheet, Settings. */
 export const SUPPORT_LINK = 'צריכים לדבר עם מישהו?';
 
-/** The card's variants: under a message that flagged, opened from a link (nothing was written), in the help sheet. */
-export const SUPPORT_VARIANTS = Object.freeze(['after-message', 'opened', 'help-note']);
+/**
+ * The card's variants: under a message to the tutor that flagged ('after-message'), opened from a link with nothing
+ * written ('opened'), and under words to the teacher that read as distress (FOLLOWUP-9): they went ('help-note'), the
+ * server read them, marked the request and refused them, a phone number in an answer say ('help-held'), or they never
+ * reached the server ('help-unsent'). Only the tutor's two speak of the tutor.
+ */
+export const SUPPORT_VARIANTS = Object.freeze(['after-message', 'opened', 'help-note', 'help-held', 'help-unsent']);
 
+const WROTE = 'מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.';
 const OPENING = {
-  'after-message': 'מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.',
+  'after-message': WROTE,
   opened: 'אם משהו מציק לכם, מפחיד או מעציב אתכם, לא צריך להתמודד עם זה לבד.',
-  'help-note': 'מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.',
+  'help-note': WROTE,
+  'help-held': WROTE,
+  'help-unsent': WROTE,
 };
+// what is true about the words after this moment: the tutor keeps none; the teacher reads them, sees only the mark
+// (worker/src/help.js studentReply), or nothing has gone yet and they wait in the field
 const FOOTER = {
   'after-message': 'העוזר החכם הוא תוכנה, לא אדם. מה שכתבתם לעוזר לא נשמר אצלנו.',
   opened: 'העוזר החכם הוא תוכנה, לא אדם.',
   'help-note': 'המורה יראה את מה שכתבתם בבקשה.',
+  'help-held': 'מה שכתבתם לא נשלח. המורה יראה ליד הבקשה רק סימון: ״כדאי לבדוק מה שלום התלמיד/ה״.',
+  'help-unsent': 'מה שכתבתם עוד לא נשלח. הוא מחכה כאן, ואפשר לשלוח שוב.',
 };
-// After "ask the teacher to talk with me": only under a message does "what you wrote was not sent" add anything (from a
-// link nothing was written; in the help sheet the note did go to the teacher).
+// After "ask the teacher to talk with me": only under a message to the tutor does "what you wrote was not sent" add
+// anything (from a link nothing was written; in the help sheet the note went, or the footer already says it did not).
 const TALK_SENT = {
   'after-message': 'שלחנו למורה שאתם רוצים לדבר. מה שכתבתם לא נשלח.',
   opened: 'שלחנו למורה שאתם רוצים לדבר.',
   'help-note': 'שלחנו למורה שאתם רוצים לדבר.',
+  'help-held': 'שלחנו למורה שאתם רוצים לדבר.',
+  'help-unsent': 'שלחנו למורה שאתם רוצים לדבר.',
 };
 
 const digits = (phone) => String(phone).replace(/\D/g, '');
@@ -41,7 +55,7 @@ export function supportLines(SUPPORT, variant = 'opened') {
   return {
     link: SUPPORT_LINK,
     title: 'חשוב לנו שתהיו בסדר',
-    // under a message, the first number is in the card's head too, so it is on the screen at once on a small phone
+    // under anything written, the first number is in the card's head too, so it is on the screen at once on a small phone
     quick: v === 'opened' ? null : { label: `${eran.name} · חיוג ${eran.phone}`, href: tel(eran.phone), aria: `${eran.name}, חיוג ${eran.phone}, ${eran.phoneHours}` },
     opening: OPENING[v],
     adult: 'כדאי לספר עוד היום למבוגר שסומכים עליו: הורה, היועצת או היועץ בבית הספר, או מורה.',

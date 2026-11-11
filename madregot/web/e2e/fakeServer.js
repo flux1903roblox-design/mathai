@@ -52,6 +52,7 @@
 // while the child's switch is on; restoreFrom on a still-linked device's escrow is 409 escrow_in_use; GET
 // /api/family/summary gives each device `kept` (all its rows, also those older than the days asked for).
 import { MOE_RULES, classAiPolicy, notSellable } from '../../shared/schoolRules.js';
+import { detectDistress } from '../../shared/safety.js';
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -438,11 +439,17 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (!x) return reply(route, 404, { error: 'not_found' });
       const readTeacher = () => { x.messages = x.messages.map((m) => (m.from === 'teacher' ? { ...m, read: true } : m)); };
       if (hm[2] === 'read') { readTeacher(); return reply(route, 200, { ok: true }); }
-      if (!x.messages.some((m) => m.from === 'teacher')) return reply(route, 409, { error: 'no_reply_yet' });
-      if (x.messages.filter((m) => m.from === 'student').length >= 3) return reply(route, 409, { error: 'reply_limit' });
+      // as worker/src/help.js studentReply: the child's own words are read for distress before any other rule; a hit
+      // marks the request for the teacher and opens it again, and a refusal after that says so (care: true)
+      const own = body.quick === 'thanks' ? '' : String(body.body || '');
+      const care = detectDistress(own).flag;
+      if (care) { x.care = 1; x.done_at = null; }
+      const refuse = (status, error) => reply(route, status, { error, ...(care ? { care: true } : {}) });
+      if (!x.messages.some((m) => m.from === 'teacher')) return refuse(409, 'no_reply_yet');
+      if (x.messages.filter((m) => m.from === 'student').length >= 3) return refuse(409, 'reply_limit');
       const text = body.quick === 'thanks' ? 'תודה, הבנתי' : String(body.body || '').trim() || (body.quick === 'still' ? 'עדיין לא ברור לי' : '');
-      if (!text || text.length > 300) return reply(route, 400, { error: 'bad_reply' });
-      if (contact(text)) return reply(route, 400, { error: 'reply_has_contact' });
+      if (!text || text.length > 300) return refuse(400, 'bad_reply');
+      if (contact(text)) return refuse(400, 'reply_has_contact');
       readTeacher();
       if (body.quick === 'still') x.done_at = null;
       const message = { id: msgId += 1, from: 'student', body: text, at: helpNow(), read: false };

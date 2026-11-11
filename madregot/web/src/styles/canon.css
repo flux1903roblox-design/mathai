@@ -652,6 +652,8 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .chat-support { display: flex; flex-direction: column; gap: var(--s3); }
 .help-sent { display: flex; flex-direction: column; gap: var(--s3); }
 .help-sent-line { margin: 0; font-weight: 700; font-size: var(--t-md); line-height: var(--lh-md); }
+/* why words that read as distress did not go: plain body text, so the support card below is what stands out */
+.help-sent-line.is-quiet { font-weight: 400; font-size: var(--t-base); line-height: var(--lh-base); }
 .exam-support { margin-top: var(--s4); }
 /* under a child's message: what the tutor did not receive (personal details are masked before it is sent) */
 .msg-pii { margin: calc(-1 * var(--s1)) 0 0; max-width: min(86%, 560px); align-self: flex-end; text-align: end; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }

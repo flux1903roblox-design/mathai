@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { SUPPORT, maskPersonal } from '@shared/safety.js';
 import { supportLines, supportText, SUPPORT_VARIANTS, SUPPORT_LINK, waLink, piiLine } from './support.js';
@@ -38,7 +39,7 @@ describe('supportLines: the support card, built from SUPPORT', () => {
   });
 
   it('under a message the card\'s head carries the first number too, so a small phone shows it at once (the trust review)', () => {
-    for (const v of ['after-message', 'help-note']) {
+    for (const v of ['after-message', 'help-note', 'help-held', 'help-unsent']) {
       const q = supportLines(SUPPORT, v).quick;
       expect(q.href).toBe('tel:1201');
       expect(q.label).toBe('ער״ן · חיוג 1201');
@@ -63,6 +64,23 @@ describe('supportLines: the support card, built from SUPPORT', () => {
     expect(supportLines(SUPPORT, 'help-note').footer).toBe('המורה יראה את מה שכתבתם בבקשה.');
     expect(supportLines(SUPPORT, 'help-note').talkSent).not.toContain('לא נשלח'); // the note did go to the teacher
     expect(supportLines(SUPPORT, 'unknown')).toEqual(supportLines(SUPPORT, 'opened'));
+  });
+
+  it('words to the teacher that did not go (FOLLOWUP-9): what was written matters, and the footer says what is true', () => {
+    for (const v of ['help-held', 'help-unsent']) {
+      const lines = supportLines(SUPPORT, v);
+      expect(lines.opening).toBe('מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.');
+      // a thread with the teacher: nothing about the tutor, and never that the teacher reads the words
+      expect(supportText(lines)).not.toMatch(/העוזר|תוכנה/);
+      expect(lines.footer).not.toContain('המורה יראה את מה שכתבתם');
+      expect(lines.talkSent).toBe('שלחנו למורה שאתם רוצים לדבר.');
+    }
+    // the server read them and marked the request: the teacher sees the mark, not the words
+    expect(supportLines(SUPPORT, 'help-held').footer).toBe('מה שכתבתם לא נשלח. המורה יראה ליד הבקשה רק סימון: ״כדאי לבדוק מה שלום התלמיד/ה״.');
+    // they never reached the server: nothing was marked either, and they wait in the field
+    expect(supportLines(SUPPORT, 'help-unsent').footer).toBe('מה שכתבתם עוד לא נשלח. הוא מחכה כאן, ואפשר לשלוח שוב.');
+    // the teacher's board says exactly these words beside a marked request
+    expect(readFileSync(new URL('../screens/teacher/HelpTab.jsx', import.meta.url), 'utf8')).toContain('<p className="help-care">כדאי לבדוק מה שלום התלמיד/ה</p>');
   });
 
   it('speaks calmly: the link, the title, no price, no countdown, no pressure', () => {

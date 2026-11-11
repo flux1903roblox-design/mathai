@@ -146,8 +146,10 @@ describe('the budget as configured', () => {
   const budget = JSON.parse(readFileSync(join(WEB, 'budget.json'), 'utf8'));
   const pkg = JSON.parse(readFileSync(join(WEB, 'package.json'), 'utf8'));
 
-  it('names the lazy-only modules (the student lane\'s, and the demo class of FOLLOWUP-23), beside the load-time gates', () => {
-    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk']);
+  it('names the lazy-only modules (the student lane\'s, and the demo class and the tutor\'s code of FOLLOWUP-23), beside the load-time gates', () => {
+    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk', 'ai', 'pedagogy', 'guard', 'topicWays']);
+    // the ratchet (FOLLOWUP-23): the measured 403.3 KB + 5%, never back up to the 433 KB it was
+    expect(budget.bootJsGzipKB).toBeLessThanOrEqual(424);
     for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');
   });
 

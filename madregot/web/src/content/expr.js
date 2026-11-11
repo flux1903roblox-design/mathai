@@ -5,6 +5,7 @@
 // Taught from December, so the first-day placement test skips it (placement: false); a grade 8 test that revises
 // equations with brackets can include it in Exam Rescue (alsoFor).
 import { R, NZ, pick, shuffle, T, near } from './util.js';
+import { slipOf } from '@/learn/misconceptions.ts';
 
 const abs = Math.abs;
 
@@ -26,8 +27,10 @@ const tex = (t) => ({ tex: t });
 const is = (u, k, c) => !!u && typeof u === 'object' && near(u.k, k) && near(u.c, c);
 
 // ---------------------------------------------------------------- 1. substituting (הצבה בביטוי)
-// Forms: 0 b + ax, 1 b − ax, 2 ax + b. The three documented errors: 3x read as the number 34 (concat), left to right
-// without multiplication first (order), and a negative value put in without brackets, its minus lost (neg-sub).
+// Forms: 0 b + ax, 1 b − ax, 2 ax + b. The documented errors: 3x read as the number 34 (concat), left to right
+// without multiplication first (order), a negative value put in without brackets, its minus lost (neg-sub), 3x read
+// as 3 + x (plus), and the 3 before the letter dropped (coef). The last two are the choice question's readings of ax
+// too (substMc), so a typed answer and a chosen one name the same mistakes (FOLLOWUP-36).
 
 const SUB_FORMS = {
   show: (f, a, b) => (f === 0 ? `${T(b)} + ${a}x` : f === 1 ? `${T(b)} - ${a}x` : `${a}x ${b < 0 ? '-' : '+'} ${abs(b)}`),
@@ -37,17 +40,23 @@ const SUB_FORMS = {
   ltr: (f, a, b, x) => (f === 0 ? (b + a) * x : f === 1 ? (b - a) * x : null),
 };
 const substValue = (f, a, b, x) => SUB_FORMS.with(f, b, a * x);
-/** The three predictions of a wrong substitution; null when it does not apply here. */
+/** The predictions of a wrong substitution; null when it does not apply here. */
 function substBugs(f, a, b, x) {
   return {
     concat: x >= 1 && x <= 9 ? SUB_FORMS.with(f, b, 10 * a + x) : null,
     order: SUB_FORMS.ltr(f, a, b, x),
     'neg-sub': x < 0 ? SUB_FORMS.with(f, b, a * -x) : null,
+    plus: SUB_FORMS.with(f, b, a + x),
+    coef: SUB_FORMS.with(f, b, x),
   };
 }
+/**
+ * The first error whose prediction the answer is. A prediction that is the right answer, or that a slip of the hand
+ * also gives (one off, ten off, two digits swapped: 2x + 5 at x = 1 read as x + 5 is one off), names nothing.
+ */
 const substDiag = (f, a, b, x) => (u) => {
   const ans = substValue(f, a, b, x);
-  const hit = Object.entries(substBugs(f, a, b, x)).find(([, v]) => v != null && v !== ans && near(u, v));
+  const hit = Object.entries(substBugs(f, a, b, x)).find(([, v]) => v != null && v !== ans && !slipOf(v, ans) && near(u, v));
   return hit ? hit[0] : null;
 };
 /** The worked substitution: put the number in (brackets for a negative), multiply, then add or subtract. */
@@ -91,17 +100,23 @@ function substTable() {
 }
 
 // 3x at x = 4 is 12, not 34 and not 7: the right value beside two misreadings of ax, each a documented mistake with
-// its own name in the topic's cats: the digits written side by side (concat: 34; with a negative x its minus kept in
-// front, 3x at x = −4 read as −34), the term read as addition (plus: 3 + 4 = 7), a negative x put in without brackets
-// so that its minus is lost (neg-sub: 12 for x = −4), and the number before the letter dropped (coef: 3x read as x, 4).
-// Which two are shown makes the answer the smallest, the middle or the largest of the three about a third of the time
-// each (FOLLOWUP-36), so "never the largest" or "the middle one" is not a rule a student can follow:
-//   x < 0 (40%): neg-sub and plus lie above ax, concat below: {neg-sub, plus} (smallest) 2/3, concat and one of them 1/3
-//   x = 1 (10%): concat and plus lie above a, coef (1) below: {concat, plus} (smallest) 2/3, coef and one of them 1/3
-//   x ≥ 2 (50%): plus and coef lie below ax, concat above: {plus, coef} (largest) 2/3, concat and one of them 1/3
-// so the smallest is 0.5 · 2/3 = 1/3 of all, the largest 0.5 · 2/3 = 1/3, and the middle the other third.
+// its own name in the topic's cats: the digits written side by side (concat: 34, for a digit x from 1 to 9), the term
+// read as addition (plus: 3 + 4 = 7; at x = −4, 3 + (−4) = −1, the notebook's 3 − 4), a negative x put in without
+// brackets so that its minus is lost (neg-sub: 12 for x = −4), and the number before the letter dropped (coef: 3x read
+// as x, 4). Where each lies against ax decides where the answer stands among the three:
+//   x < 0: neg-sub, plus and coef all lie above ax (ax is the most negative of them), so the answer is the smallest
+//   x = 1: concat and plus lie above a, coef (1) below
+//   x ≥ 2: concat lies above ax, plus and coef below
+// so the share of each case makes the answer the smallest, the middle or the largest a third of the time each
+// (FOLLOWUP-36), and "the middle one" or "never the largest" is not a rule a student can follow:
+//   x < 0 (1/3): neg-sub and coef, or neg-sub and plus when a + x is below 0: the smallest. ax is negative, so a plus
+//     at or above 0 (7 + (−3) = 4 beside −21 and 21) would leave the answer the only choice with a minus; with coef
+//     (−3) or a negative plus there are always two
+//   x = 1 (1/10): coef and one of concat, plus: the middle
+//   x ≥ 2 (17/30): plus and coef (10 in 17): the largest; concat and one of them (7 in 17): the middle
+// the smallest 1/3, the largest 17/30 · 10/17 = 1/3, the middle 1/10 + 17/30 · 7/17 = 1/3.
 const SUB_READ = {
-  concat: (a, x) => (x > 0 ? 10 * a + x : -(10 * a - x)),
+  concat: (a, x) => 10 * a + x,
   plus: (a, x) => a + x,
   'neg-sub': (a, x) => -a * x,
   coef: (a, x) => x,
@@ -113,15 +128,20 @@ const SUB_WHY = {
   'neg-sub': (v, a, x) => `$${T(v)}$ יוצא כשהמינוס של $${T(x)}$ נעלם`,
   coef: (v, a) => `$${T(v)}$ הוא רק $x$, בלי ה־$${a}$`,
 };
-/** The two misreadings shown beside ax: both on one side of it (2/3), or one on each side (1/3). */
-function substPair(x) {
-  if (Math.random() < 2 / 3) return x < 0 ? ['neg-sub', 'plus'] : x === 1 ? ['concat', 'plus'] : ['plus', 'coef'];
-  return x < 0 ? ['concat', pick(['neg-sub', 'plus'])] : x === 1 ? ['coef', pick(['concat', 'plus'])] : ['concat', pick(['plus', 'coef'])];
+/** One of the three cases above: how x is drawn, and the two misreadings shown beside ax (for its a and x). */
+function substCase() {
+  const r = Math.random();
+  if (r < 1 / 3) return { x: () => -R(1, 6), pair: (a, x) => ['neg-sub', a + x < 0 ? pick(['plus', 'coef']) : 'coef'] };
+  if (r < 1 / 3 + 1 / 10) { const pair = ['coef', pick(['concat', 'plus'])]; return { x: () => 1, pair: () => pair }; }
+  const pair = Math.random() < 10 / 17 ? ['plus', 'coef'] : ['concat', pick(['plus', 'coef'])];
+  return { x: () => R(2, 9), pair: () => pair };
 }
 function substMc() {
+  const c = substCase();
   for (;;) {
-    const a = R(2, 9); const r = Math.random(); const x = r < 0.4 ? -R(1, 6) : r < 0.5 ? 1 : R(2, 9);
-    const wrong = substPair(x).map((bug) => [SUB_READ[bug](a, x), bug]);
+    // the case stays and only the numbers are drawn again, so the shares above hold exactly
+    const a = R(2, 9); const x = c.x();
+    const wrong = c.pair(a, x).map((bug) => [SUB_READ[bug](a, x), bug]);
     if (new Set([a * x, ...wrong.map(([v]) => v)]).size < 3) continue; // 2x at x = 2: 2 + 2 would be the answer itself
     const choices = shuffle([{ ...tex(T(a * x)), ok: true }, ...wrong.map(([v, bug]) => ({ ...tex(T(v)), bug }))]);
     const why = wrong.map(([v, bug]) => SUB_WHY[bug](v, a, x));

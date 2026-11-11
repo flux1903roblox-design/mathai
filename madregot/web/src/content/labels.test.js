@@ -389,10 +389,12 @@ const PROPS = {
     'add-same': (it, u) => { const [p, q] = nums(it.key); return it.key.startsWith('ra1a:') && p !== q && /^לא/.test(it.choices[u]?.text || ''); },
   },
   expr: {
-    // ax read as the digits a and x side by side: 3x at x = 4 is 34, and at x = −4, with its minus kept in front, −34
+    // ax read as the digits a and x side by side: 3x at x = 4 is 34. Only a digit x from 1 to 9: −34 for 3x at x = −4
+    // is no reading a student writes (the notebook's mistake there is 3 − 4, plus), so nothing may call it concat
+    // (FOLLOWUP-36)
     concat: (it, u) => {
-      const q = substOf(it); const digits = 10 * q.a + Math.abs(q.x);
-      return Math.abs(q.x) >= 1 && Math.abs(q.x) <= 9 && near(substVal(it, u), withProd(q, q.x > 0 ? digits : -digits));
+      const q = substOf(it);
+      return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x));
     },
     order: (it, u) => { const q = substOf(it); return q.f < 2 && near(u, (q.f === 0 ? q.b + q.a : q.b - q.a) * q.x); },
     'neg-sub': (it, u) => { const q = substOf(it); return q.x < 0 && near(substVal(it, u), withProd(q, q.a * -q.x)); },

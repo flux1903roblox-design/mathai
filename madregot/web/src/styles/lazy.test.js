@@ -155,6 +155,33 @@ describe('the first load (FOLLOWUP-23)', () => {
     expect(left).toEqual([]);
   });
 
+  it('the tutor\'s prompts, schemas and checks load with the tutor, never with the first screen', () => {
+    // every file main.jsx reaches by static imports (the first load: its chunk and what that chunk preloads), the
+    // shared code included; an import() is where loading on demand starts
+    const SHARED = join(SRC, '../../shared');
+    const find = (from, spec) => {
+      if (!spec.startsWith('@shared/')) return resolve(from, spec);
+      const base = join(SHARED, spec.slice('@shared/'.length));
+      return [base, `${base}.js`].find((c) => existsSync(c) && statSync(c).isFile()) || null;
+    };
+    const boot = new Set();
+    const walk = (f) => {
+      if (boot.has(f)) return;
+      boot.add(f);
+      const text = raw.get(f) ?? read(f);
+      for (const m of text.matchAll(/(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*['"]([^'"]+)['"]/g)) {
+        const to = find(f, m[1] || m[2]);
+        if (to) walk(to);
+      }
+    };
+    walk(join(SRC, 'main.jsx'));
+    const rel = [...boot].map((f) => relative(join(SRC, '../..'), f));
+    // the kinds and limits the first load reads (lib/account.js) are in their own small file (FOLLOWUP-23)
+    expect(rel).toContain('web/src/lib/account.js');
+    expect(rel).toContain('shared/aiKinds.js');
+    for (const f of ['shared/ai.js', 'shared/pedagogy.js', 'shared/topicWays.js', 'shared/guard.js', 'web/src/lib/ai.js']) expect(rel, f).not.toContain(f);
+  });
+
   it('the demo class\'s code loads only when the address or this tab asks for it', () => {
     expect(main).not.toMatch(/from '\.\/lib\/demo\.js'/);
     expect(main).toMatch(/if \(demoWanted\(\)\) \{[^}]*\(await import\('\.\/lib\/demo\.js'\)\)\.bootDemo\(\);/);

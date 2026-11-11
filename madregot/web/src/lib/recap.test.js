@@ -5,7 +5,7 @@ import { recapStart, recapDue, recapShown } from './recap.js';
 import { today } from './store.js';
 import { weekLocal } from '@/learn/report.ts';
 import { emptyLearn } from '@/learn/storeGlue.ts';
-import { bestLine, classLine, earnedIn } from '@/components/learn/RecapSheet.jsx';
+import { bestLine, classLine, earnedIn, earnedLine } from '@/components/learn/RecapSheet.jsx';
 
 /** Last week (Sunday 8 to Shabbat 14 November 2026): three days with lessons and a mastery check passed. Synthetic. */
 const lastWeek = () => ({
@@ -80,5 +80,12 @@ describe('the recap sheet\'s lines', () => {
     const look = { earned: ['thermo-scarf', 'gold', 'compass-cap'], earnedAt: { 'compass-cap': '2026-11-12', 'thermo-scarf': '2026-11-03', gold: '2026-11-09', 'x-cap': '2026-11-10' } };
     expect(earnedIn(look, '2026-11-08', '2026-11-14')).toEqual(['gold', 'compass-cap']);
     expect(earnedIn({}, '2026-11-08', '2026-11-14')).toEqual([]);
+  });
+
+  it('the line says it was last week: the sheet opens on a Sunday, when "השבוע" is the new week (FOLLOWUP-38)', () => {
+    expect(earnedLine(['thermo-scarf', 'class-scarf'])).toBe('בשבוע שעבר מדי קיבל: צעיף מדחום, צעיף הכיתה.');
+    expect(earnedLine(['gold'])).toBe('בשבוע שעבר מדי קיבל: צבע זהב.');
+    expect(earnedLine([])).toBe('');
+    expect(earnedLine(['thermo-scarf'])).not.toMatch(/מדי קיבל השבוע/);
   });
 });

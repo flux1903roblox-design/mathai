@@ -4,7 +4,7 @@
 // and X-Family-Device, never X-Account-Token. A teacher's carry the class's credentials (lib/teacher.js), which for a
 // class bound to the teacher's email are the class code and the teacher's session. Nothing secret is stored: the Claude key stays on the server.
 import { create } from 'zustand';
-import { KIND_GROUP, FREE_KINDS } from '@shared/ai.js';
+import { KIND_GROUP, FREE_KINDS } from '@shared/aiKinds.js';
 import { useApp, PERSONAL_KEY } from './store.js';
 import { api, apiBase, hasServer, ApiError } from './api.js';
 import { qaStatus, qaActive } from './qaFixtures.js';

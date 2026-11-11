@@ -147,6 +147,8 @@ async function ownRequest(env, s, id) {
  * refused, and the safety log gets a count with no text. The surface is 'help_note', the child's own words to the
  * teacher: safety_events.surface is a fixed CHECK list (migration 0004), and a new value would need the table rebuilt,
  * which schema.test.js does not allow.
+ * A refusal after the mark says so with care: true beside its error (400 reply_has_contact {error, care: true}), so the
+ * child's screen can say what is true: the words did not go, and the teacher sees only the mark.
  */
 export async function studentReply(id, req, env, cors, ctx) {
   const s = await requireStudent(req, env);
@@ -155,13 +157,22 @@ export async function studentReply(id, req, env, cors, ctx) {
   const quick = b.quick == null ? null : String(b.quick);
   const own = quick === 'thanks' || b.body == null ? '' : String(b.body);
   const hit = detectDistress(own);
-  if (hit.flag) {
-    recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: 'regex' }, ctx, { net: eventNet(req, env) });
-    await env.DB.batch([
-      env.DB.prepare("INSERT INTO help_meta (help_id, kind, care) VALUES (?, 'help', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1").bind(h.id),
-      env.DB.prepare('UPDATE help_requests SET done_at = NULL WHERE id = ? AND student_id = ?').bind(h.id, s.id),
-    ]);
+  if (!hit.flag) return replyAfterCheck(s, b, h, quick, env, cors);
+  recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: 'regex' }, ctx, { net: eventNet(req, env) });
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO help_meta (help_id, kind, care) VALUES (?, 'help', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1").bind(h.id),
+    env.DB.prepare('UPDATE help_requests SET done_at = NULL WHERE id = ? AND student_id = ?').bind(h.id, s.id),
+  ]);
+  try {
+    return await replyAfterCheck(s, b, h, quick, env, cors);
+  } catch (e) {
+    if (e instanceof HttpError) e.extra = { ...(e.extra || {}), care: true };
+    throw e;
   }
+}
+
+/** The rules of studentReply after the distress check: the answer is kept, or refused with its error. */
+async function replyAfterCheck(s, b, h, quick, env, cors) {
   if (quick && !QUICK[quick]) throw new HttpError(400, 'bad_reply');
   let text;
   if (quick === 'thanks') text = QUICK.thanks;

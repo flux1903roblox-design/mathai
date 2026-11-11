@@ -8,13 +8,16 @@ import { stableSystem } from './pedagogy.js';
 import { guardFor } from './guard.js';
 import { TOPIC_NAMES } from './stairs.js';
 import { finishRewrite } from './verify.js';
+import { AI_KINDS, KIND_GROUP, AI_UNITS, AI_GROUPS, FREE_KINDS } from './aiKinds.js';
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 // Server-side refusal fallback: a declined request is re-run on Anthropic's
 // recommended model for that refusal category instead of coming back empty.
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
-export const AI_KINDS = ['explain', 'chat', 'generate', 'check', 'exam', 'feedback'];
+// The kinds, their daily groups and weights, and the free taste's kinds: in shared/aiKinds.js, which the app's first load
+// reads without this file (FOLLOWUP-23); the same names here for the Worker and the tutor's code.
+export { AI_KINDS, KIND_GROUP, AI_UNITS, AI_GROUPS, FREE_KINDS };
 // Topic ids the exam check maps each question to, so the app can recommend practice: every topic the app teaches
 // (shared/stairs.js, one list for the app, the Worker and the prompt), and 'other'.
 export const TOPIC_IDS = Object.freeze([...Object.keys(TOPIC_NAMES), 'other']);
@@ -416,13 +419,6 @@ const base = (model, effort, maxTokens) => ({
 });
 const AUTO_CACHE = { cache_control: { type: 'ephemeral' } };
 
-// Which AI kinds share a daily limit (a "group"), and what each kind weighs against a class-wide cap.
-export const KIND_GROUP = { explain: 'tutor', chat: 'tutor', check: 'check', generate: 'generate', exam: 'exam', feedback: 'tutor' };
-export const AI_UNITS = { explain: 1, chat: 1, check: 4, generate: 3, exam: 20, feedback: 1 };
-export const AI_GROUPS = ['tutor', 'check', 'generate', 'exam'];
-// The free taste covers only the short kinds: the tutor's group (feedback on a written explanation is one of its
-// questions, ai spec AI-10).
-export const FREE_KINDS = ['explain', 'chat', 'feedback'];
 // The model for the free taste and for economy mode when FREE_MODEL is empty. Never the main model.
 export const LITE_MODEL = 'claude-haiku-5-5';
 // Effort and max_tokens per kind and shape (ai spec AI-6 §2). The low-cost model runs the free taste and economy mode at

@@ -5,6 +5,7 @@ import { SCENERY } from '@/components/map/Scenery.jsx';
 import { parseNum, plainNum, gcd } from './util.js';
 import { factsItem } from './frac.js';
 import { holds, identical, texToExpr, texRelation, seeded, evaluate, same } from '@/learn/expr.ts';
+import { slipOf } from '@/learn/misconceptions.ts';
 
 /**
  * The maths a student sees, checked as displayed (not from the generator's parameters), for every topic:
@@ -299,6 +300,59 @@ describe('the displayed maths is checked as the student sees it', () => {
     ok({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 5, whole: ['x > -2', 'x \\le 3'] });
     bad({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 6, whole: ['x > -2', 'x \\le 3'] });
     bad({ form: 'pt', display: '\\begin{cases} y = 2x - 1 \\\\ x + y = 5 \\end{cases}', answer: [3, 2], label: '' });
+  });
+});
+
+describe('expr:1: a typed answer and a chosen one name the same readings of ax (FOLLOWUP-36)', () => {
+  const real = Math.random;
+  it('the typed questions name plus (3 + x) and coef (x alone), and never a slip of the hand', () => {
+    Math.random = seeded(3611);
+    const named = new Set();
+    try {
+      for (let n = 0; n < 4000; n += 1) {
+        const it = makeItem('expr', 1);
+        const [k, f, a, b, ...rest] = String(it.key).split(':');
+        if (k !== 'ex1' && k !== 'ex1t') continue;
+        const x = Number(rest.at(-1)); const F = Number(f); const A = Number(a); const B = Number(b);
+        const at = (prod) => (F === 1 ? B - prod : B + prod);
+        const ans = at(A * x);
+        expect(it.answer).toBe(ans);
+        for (const [cat, v] of [['plus', at(A + x)], ['coef', at(x)]]) {
+          if (v === ans) continue;
+          const got = it.diag(v);
+          // a number a slip of the hand also gives (6x + 5 at x = 1 read as 1 + 5 is one off) names nothing
+          if (slipOf(v, ans)) { expect(got, `${it.key} ${v}`).toBe(null); continue; }
+          if (got === cat) named.add(cat);
+          // another error may predict the same number first; never a name that does not predict it
+          if (got) expect(['concat', 'order', 'neg-sub', 'plus', 'coef']).toContain(got);
+        }
+      }
+    } finally { Math.random = real; }
+    expect([...named].sort()).toEqual(['coef', 'plus']);
+  });
+
+  it('the choice question never offers −(10a + |x|) for a negative x: every wrong choice is a real reading, and a minus gives nothing away', () => {
+    Math.random = seeded(3612);
+    let neg = 0;
+    try {
+      for (let n = 0; n < 3000; n += 1) {
+        const it = makeItem('expr', 1);
+        if (!String(it.key).startsWith('ex1m:')) continue;
+        const [, a, x] = it.key.split(':').map(Number);
+        const read = { concat: 10 * a + x, plus: a + x, 'neg-sub': -a * x, coef: x };
+        for (const c of it.choices.filter((ch) => !ch.ok)) {
+          expect(Number(c.tex), `${it.key} ${c.bug}`).toBe(read[c.bug]);
+          if (c.bug === 'concat') expect(x >= 1 && x <= 9, it.key).toBe(true);
+        }
+        if (x < 0) {
+          neg += 1;
+          expect(it.choices.filter((ch) => !ch.ok).map((ch) => ch.bug)).toContain('neg-sub');
+          // the answer (negative) is never the only choice with a minus
+          expect(it.choices.filter((ch) => Number(ch.tex) < 0).length, it.key).toBeGreaterThanOrEqual(2);
+        }
+      }
+    } finally { Math.random = real; }
+    expect(neg).toBeGreaterThan(100);
   });
 });
 

@@ -922,6 +922,8 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
     expect(chat.headers['x-class-code']).toBe('K7Q2MD');
     expect(chat.headers['x-teacher-key']).toBe('tkey-123');
     expect(chat.headers.authorization).toBeUndefined();
+    // the child's quiet link "צריכים לדבר עם מישהו?" is not on a teacher's own screen (FOLLOWUP-1)
+    await expect(page.getByRole('button', { name: 'צריכים לדבר עם מישהו?' })).toHaveCount(0);
     await shot(page, 'teacher-assistant');
     await page.getByRole('button', { name: 'חזרה ללוח' }).click();
     await expect(page.getByText('תרגלו היום')).toBeVisible();
@@ -980,6 +982,8 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
     await expect(sheet.getByText('נכנסים עם המייל שלכם ומקשרים אליו את הכיתה. זה פעם אחת, ואחר כך העוזר החכם פתוח לכם.')).toBeVisible();
     await expect(sheet.getByText('המייל משמש לכניסה ולקישור הכיתה אליכם.', { exact: false })).toBeVisible();
     await expect(sheet.getByText('להראות להורים')).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'צריכים לדבר עם מישהו?' })).toHaveCount(0); // a child's link (FOLLOWUP-1)
+    await expect(page.getByRole('button', { name: 'צריכים לדבר עם מישהו?' })).toHaveCount(0);
     await shot(page, 'teacher-bind-sheet');
     await signIn(sheet);
     await sheet.getByRole('button', { name: 'לקשר את הכיתה למייל' }).click();
@@ -2063,24 +2067,46 @@ test.describe('TEACHER-6: help both ways', () => {
     const sheet = page.getByRole('dialog', { name: 'הבקשה שלי' });
     await sheet.getByRole('button', { name: 'עדיין לא ברור לי' }).click();
     const field = sheet.getByLabel('מה עדיין לא ברור?');
-    // with a phone number in it the server refuses it: the card shows (and says nothing of the teacher reading it), why
-    // it did not go is said above it, and the words wait in the field
+    // with a phone number in it the server reads it, marks the request for the teacher and refuses it (care: true):
+    // the card opens on what was written and has the first number in its head, in view at 320 px; why it did not go is
+    // a calm line above it; the footer says the words did not go and the teacher sees only the mark, and nothing about
+    // the tutor; and the words wait in the field
     const words = 'לא הבנתי, וגם עושים לי חרם בכיתה. 050-1234567';
     await field.fill(words);
     await sheet.getByRole('button', { name: 'שליחה למורה' }).click();
     const card = sheet.locator('.support-card');
-    await expect(card).toHaveAttribute('data-variant', 'opened');
-    await expect(sheet.locator('.help-sent-line')).toHaveText('בלי קישורים, מספרי טלפון או כתובות מייל בתשובה. כל השאר אפשר להמשיך בכיתה.');
-    await expect(sheet.locator('.help-sent-line')).toBeInViewport();
+    const line = sheet.locator('.help-sent-line');
+    await expect(card).toHaveAttribute('data-variant', 'help-held');
+    await expect(line).toHaveText('בלי קישורים, מספרי טלפון או כתובות מייל בתשובה.');
+    await expect(line).toHaveClass(/is-quiet/);
+    expect(await line.evaluate((el) => getComputedStyle(el).fontWeight)).toBe('400');
+    await expect(card.locator('.support-opening')).toHaveText('מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.');
+    const quick = card.locator('.support-quick');
+    await expect(quick).toHaveAttribute('href', 'tel:1201');
+    await expect(quick).toHaveAccessibleName('ער״ן, חיוג 1201, בכל שעה');
+    await expect(quick).toBeInViewport();
+    await expect(line).toBeInViewport();
+    await expect(card.locator('.support-foot')).toHaveText('מה שכתבתם לא נשלח. המורה יראה ליד הבקשה רק סימון: ״כדאי לבדוק מה שלום התלמיד/ה״.');
+    await expect(card).not.toContainText('העוזר החכם');
     await expect(card.getByText('המורה יראה את מה שכתבתם בבקשה.')).toHaveCount(0);
     await expect(field).toHaveValue(words);
     await look(page, 'help-reply-care-failed');
+    // when the words never reach the server (no network), nothing is marked: the card says they wait here
+    await page.route(`${API}/api/help/1/reply`, (route) => route.abort(), { times: 1 });
+    await sheet.getByRole('button', { name: 'שליחה למורה' }).click();
+    await expect(card).toHaveAttribute('data-variant', 'help-unsent');
+    await expect(card.locator('.support-foot')).toHaveText('מה שכתבתם עוד לא נשלח. הוא מחכה כאן, ואפשר לשלוח שוב.');
+    await expect(quick).toBeInViewport();
+    await expect(card).not.toContainText('העוזר החכם');
+    await expect(field).toHaveValue(words);
     // without the number it goes: the line says so in place of the toast, and the card says the teacher will read it
     await field.fill('לא הבנתי, וגם עושים לי חרם בכיתה');
     await sheet.getByRole('button', { name: 'שליחה למורה' }).click();
     await expect(sheet.locator('.help-sent-line')).toHaveText('שלחנו למורה.');
+    await expect(sheet.locator('.help-sent-line')).not.toHaveClass(/is-quiet/);
     await expect(sheet.locator('.help-sent-line')).toBeInViewport();
     await expect(card).toHaveAttribute('data-variant', 'help-note');
+    await expect(card.locator('.support-quick')).toBeInViewport();
     await expect(card.getByText('המורה יראה את מה שכתבתם בבקשה.')).toBeVisible();
     for (const l of await card.getByRole('link').all()) expect((await l.boundingBox()).height).toBeGreaterThanOrEqual(44);
     await expect(page.getByText('שלחנו למורה.')).toHaveCount(1);
@@ -2520,6 +2546,7 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
     await expect(page.getByText('בכיתה לדוגמה העוזר מראה תשובה לדוגמה, ושום שאלה לא נשלחת.')).toBeVisible();
     // the answer as the app shows it once its markdown has loaded (RichText loads it on demand, DURABLE-11)
     await expect(page.locator('.msg.assistant .md p').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'צריכים לדבר עם מישהו?' })).toHaveCount(0); // a child's link (FOLLOWUP-1)
     await shot(page, 'teacher-demo-assistant');
     expect(calls).toEqual([]);
   });
