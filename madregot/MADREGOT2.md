@@ -206,6 +206,7 @@ the row to paste when one differs.
 | pct:4 | מציאת השלם | 8 (dline) | 2 | 2 | 2 (pct-of-part, stop-at-one) | yes | complete, tested |
 | pct:5 | הגדלה והקטנה באחוזים | 8 (dline) | 3 | 2 | 4 (add-pct, change-only, additive-changes, pct-of-new) | yes | complete, tested |
 | func:1 | קריאת גרף של מצב | 8 (graph) | 3 | 2 | 4 (graph-picture, count-squares, end-for-duration, value-not-change) | yes | complete, tested |
+| func:2 | פונקציה וייצוגיה | 8 (graph) | 3 | 2 | 4 (forgot-b, forward, order-ops, const-not-function) | yes | complete, tested |
 | line:1 | טבלת ערכים | 10 (plot) | 2 | 2 | 4 (forgot-b, neg-sub, added-m, proportional) | yes | complete, tested |
 | line:2 | מה אומרים m ו־b | 10 (line) | 2 | 2 | 6 (m-b, sign, hidden-one, b-first, rise-only, sign-from-b) | yes | complete, tested |
 | line:3 | שיפוע מהגרף: מדרגות | 10 (plot) | 2 | 2 | 3 (inverse, sign, rise-only) | yes | complete, tested |

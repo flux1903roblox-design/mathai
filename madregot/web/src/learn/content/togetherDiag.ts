@@ -58,6 +58,10 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the litres added from hour 2 to hour 6: the value at the end, 500, instead of the change
     { bugs: { 'value-not-change': 500 } },
   ],
+  'func:2': [
+    { model: 'diag', p: { m: 4, b: 12, x: 8, y: 44, q: 0 } }, // 8 km at 4 ₪ and 12 ₪ once: the fixed part left out gives 32
+    { model: 'diag', p: { m: 4, b: 12, x: 12, y: 60, q: 1 } }, // paid 60 ₪: 60 : 4 = 15 without the 12; 60 put in for x, 252
+  ],
   'pct:1': [
     { model: 'transfer', p: { a: 19, b: 25 } }, // 19 of 25 questions: the count of right answers, 19, written as the percent
     { model: 'diag', p: { k: 1, x: 0.6 } }, // 0.6 as a percent: the digit read as the percent gives 6

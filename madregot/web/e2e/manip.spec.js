@@ -32,6 +32,8 @@ const KINDS = [
   ['dline', 'pct/4', '8', [0.5, 0.72, 0.85, 0.72], (it) => it.manip.move === 'max', 'the whole, by stretching the percent bar'],
   // a story drawn as a graph: a drag in a point's column moves that point to the finger's height (func:1 drawStory)
   ['graph', 'func/1', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'shape', 'a story drawn as a situation graph'],
+  // a function's table drawn point by point: a drag in a column moves that point (func:2 drawTable)
+  ['graph', 'func/2', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'values', 'a table of a function drawn as a graph'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');

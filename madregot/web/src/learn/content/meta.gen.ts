@@ -471,6 +471,28 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "func:2": {
+    "title": "פונקציה וייצוגיה",
+    "misconceptions": [
+      {
+        "id": "forgot-b",
+        "title": "שכחו את החלק הקבוע (דמי פתיחה, עמלה, ערך ההתחלה)"
+      },
+      {
+        "id": "forward",
+        "title": "הציבו את ערך הפונקציה במקום $x$"
+      },
+      {
+        "id": "order-ops",
+        "title": "חיברו לפני שכפלו"
+      },
+      {
+        "id": "const-not-function",
+        "title": "חשבו שקבוע אינו פונקציה"
+      }
+    ],
+    "transfer": true
+  },
   "line:1": {
     "title": "טבלת ערכים",
     "misconceptions": [

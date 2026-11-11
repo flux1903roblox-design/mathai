@@ -231,6 +231,34 @@
       "tags": ["func"]
     },
     {
+      "id": "D1-func2-forgot-b", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "diag", "params": { "m": 7, "b": 5, "x": 4, "y": 33, "q": 0 }, "wrong": [28, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "forgot-b", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the fixed part was left out. The price of a night refuel is y = 7x + 5: 7 shekels for each litre and 5 shekels once a refuel, so 4 litres cost 7 · 4 + 5 = 33, not only 7 · 4 = 28. Ends at 33. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-forward", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "diag", "params": { "m": 7, "b": 5, "x": 10, "y": 75, "q": 1 }, "wrong": [530, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "forward", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the value of the function was put in for x. 75 shekels is the price, the y of y = 7x + 5, and the question asks for the litres, x: 7x + 5 = 75, so 7x = 70 and x = 10. Putting 75 in for x gives the price of 75 litres. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-order-ops", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "transfer", "params": { "C": 25, "F": 77, "q": 0 }, "wrong": [102.6, 80], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "order-ops", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 32 was added before multiplying. In F = 1.8C + 32 the multiplication comes first: 1.8 · 25 = 45, then 45 + 32 = 77, not 1.8 · (25 + 32). Ends at 77. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-const-not-function", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "gen", "key": "fu2i:1:3:8:6:rldc", "wrong": [3, 0], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "const-not-function", "maxWords": 130,
+        "describe": "Names the app's diagnosis: a constant was taken for not a function. The table where every y is 6 gives each x one value, so it is a function, a constant one; the table that is not a function gives x = 1 two values, 3 and 8. Ends at that table. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

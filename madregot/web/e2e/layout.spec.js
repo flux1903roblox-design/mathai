@@ -41,6 +41,8 @@ const CASES = [
   ['what percent, from a table', 'pct/3', '8', (x) => x.fig?.type === 'table'],
   // functions: a walk read off its situation graph, the axes numbered on every second line (stage5.md FUNC-2)
   ['a situation graph to read', 'func/1', '8', (x) => x.form === 'num' && x.fig?.type === 'sgraph'],
+  // the function and its representations: a value from a table of y = mx + b
+  ['a function from its table of values', 'func/2', '8', (x) => x.form === 'num' && x.fig?.type === 'table'],
 ];
 
 for (const [what, route, grade, want = () => true] of CASES) {
@@ -212,8 +214,9 @@ test('the graph you draw (func:1 step 3): room, a column drag, Tab and up, light
   }
   const canvas = page.locator('.ls-explore .manip-graph .manip-canvas');
   await expect(canvas).toBeVisible();
-  // the step before has slid away and this one has slid in (while they slide, they sit beside each other)
-  await expect.poll(() => page.evaluate(() => { const s = [...document.querySelectorAll('.sp-step')]; return s.length === 1 && getComputedStyle(s[0]).transform === 'none'; }), { timeout: 20_000 }).toBe(true);
+  // the step before has slid away and this one has slid in (while they slide, they sit beside each other; the new one
+  // waits a moment unmoved and unseen, opacity 0, before it slides in, so it has settled only once it is seen too)
+  await expect.poll(() => page.evaluate(() => { const s = [...document.querySelectorAll('.sp-step')]; return s.length === 1 && getComputedStyle(s[0]).transform === 'none' && getComputedStyle(s[0]).opacity === '1'; }), { timeout: 20_000 }).toBe(true);
   await expect(canvas).toHaveAttribute('role', 'group');
   await expect(canvas).toHaveAttribute('aria-label', 'גרף: מרחק מהבית לפי זמן');
   await expectNoSidewaysScroll(page);
@@ -261,4 +264,21 @@ test('the graph you draw (func:1 step 3): room, a column drag, Tab and up, light
   await expect(page.locator('.ls-explore .manip-readout')).toContainText('(10, 0)');
   // the dump of every point's words, for the proof
   info.annotations.push({ type: 'aria-valuetext', description: (await pts.evaluateAll((els) => els.map((e) => e.getAttribute('aria-valuetext')))).join(' | ') });
+});
+
+// func:2's "which table is not a function": four tables as the choices. Each choice is a table a screen reader reads row
+// by row ("x: 1, 2, 2, 3; y: …"), never its TeX; all four are thumb-sized and inside the screen; nothing scrolls sideways.
+test('four tables as choices (func:2): read row by row, thumb-sized, inside the screen', async ({ page }) => {
+  await openOn(page, '#/lesson/func/2', student('8'), (x) => x.form === 'mc' && x.key.startsWith('fu2i:'));
+  const choices = page.locator('.choices .choice');
+  await expect(choices).toHaveCount(4);
+  for (let i = 0; i < 4; i += 1) await expect(choices.nth(i)).toHaveAttribute('aria-label', /^x: \d, \d, \d, \d; y: \d+, \d+, \d+, \d+$/);
+  await expectNoSidewaysScroll(page);
+  const width = page.viewportSize().width;
+  for (let i = 0; i < 4; i += 1) {
+    await choices.nth(i).scrollIntoViewIfNeeded();
+    const b = await choices.nth(i).boundingBox();
+    expect(b.height, 'a choice is thumb-sized').toBeGreaterThanOrEqual(44);
+    expect(b.x >= 0 && b.x + b.width <= width + 1, 'a choice is inside the screen').toBe(true);
+  }
 });

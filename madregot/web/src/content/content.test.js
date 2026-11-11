@@ -735,7 +735,7 @@ describe('functions: every answer from the graph and the text', () => {
   /** The y of the polyline at x. */
   const at = (pts, x) => { for (let i = 1; i < pts.length; i += 1) { const [x0, y0] = pts[i - 1]; const [x1, y1] = pts[i]; if (x >= x0 && x <= x1) return y0 + ((x - x0) * (y1 - y0)) / (x1 - x0); } return null; };
   /** Every "$a - b = c$" a solution writes holds. */
-  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1).replace(/\\cdot/g, '*'))
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1).replace(/\\cdot/g, '*').replace(/:/g, '/'))
     .filter((m) => m.includes('=') && !/[a-zA-Z]/.test(m)).forEach((m) => { const [a, b] = m.split('='); expect(same(evaluate(a), evaluate(b)), `${it.key}: ${m}`).toBe(true); }));
   const all = (n = 1500) => Array.from({ length: n }, () => makeItem('func', 1));
   const kinds = {};
@@ -794,6 +794,64 @@ describe('functions: every answer from the graph and the text', () => {
     // every kind was drawn, in about the spec's mix (55%, 20%, 10%, 10%, 5%)
     expect(Object.keys(kinds).sort()).toEqual(['fu1', 'fu1d', 'fu1f', 'fu1p', 'fu1s']);
     expect(kinds.fu1 / 1500).toBeGreaterThan(0.45);
+  });
+
+  /** A table as figPlain writes it: its rows, each [x, y]. */
+  const rowsOf = (fig) => figPlain(fig).replace(/^טבלה: /, '').split('; ').map((r) => r.split(' → ').map(Number));
+  /** A TeX table x | y as the choices write it: its xs and ys. */
+  const texRows = (tex) => { const [xr, yr] = tex.replace(/\\(begin|end)\{array\}(\{[^}]*\})?/g, '').split('\\\\ \\hline'); const cells = (r) => r.split('&').slice(1).map((v) => Number(v.trim())); return [cells(xr), cells(yr)]; };
+
+  it('func:2: the price rule, Fahrenheit, a table, which table is a function, and a table drawn', () => {
+    const kinds2 = {};
+    for (let i = 0; i < 1500; i += 1) {
+      const it = makeItem('func', 2);
+      const kind = it.key.split(':')[0]; kinds2[kind] = (kinds2[kind] || 0) + 1;
+      if (kind === 'fu2') {
+        // the rule as the text writes it, and the number asked about (the last number of the text)
+        const [, m, b] = it.text.match(/\$y = (\d+)x \+ (\d+)\$/).map(Number); const n = shown(it.text).filter(Number.isFinite).pop();
+        if (/כמה (עולה|עולים) /.test(it.text)) { expect(it.answer, it.key).toBe(m * n + b); expect(it.unit).toBe('ש״ח'); }
+        else { expect(it.text, it.key).toMatch(/(עלה|עלתה|שילמו) \$\d+\$ ש״ח/); expect(m * it.answer + b, it.key).toBe(n); expect(Number.isInteger(it.answer) && it.answer > 0).toBe(true); }
+      }
+      if (kind === 'fu2c') {
+        expect(it.text, it.key).toContain('$F = 1.8C + 32$');
+        const n = shown(it.text).filter(Number.isFinite).pop();
+        if (/כמה מעלות פרנהייט/.test(it.text)) expect(same(it.answer, 1.8 * n + 32), it.key).toBe(true);
+        else expect(same(1.8 * it.answer + 32, n), it.key).toBe(true);
+        expect(Number.isInteger(it.answer), it.key).toBe(true);
+      }
+      if (kind === 'fu2t') {
+        const rows = rowsOf(it.fig); const n = Number(it.text.match(/\$x = (\d+)\$/)[1]);
+        expect(rows.map(([x]) => x), it.key).toEqual([0, 1, 2, 3]);
+        const d = rows[1][1] - rows[0][1];
+        expect(rows.every(([x, y]) => y === rows[0][1] + d * x), `${it.key}: the table is of y = mx + b`).toBe(true);
+        expect(it.answer, it.key).toBe(rows[0][1] + d * n);
+        expect([...rows.flat(), n], `${it.key}: the answer is printed`).not.toContain(it.answer);
+      }
+      if (kind === 'fu2i') {
+        // exactly one table gives an x two values, and it is the answer; the constant one is tagged when chosen
+        const tables = it.choices.map((c) => texRows(c.tex));
+        const notFunction = tables.map(([xs]) => new Set(xs).size < xs.length);
+        expect(notFunction.filter(Boolean), it.key).toHaveLength(1);
+        expect(notFunction[it.answer], it.key).toBe(true);
+        const constant = tables.findIndex(([xs, ys]) => new Set(xs).size === xs.length && ys.every((y) => y === ys[0]));
+        expect(constant, it.key).toBeGreaterThanOrEqual(0);
+        expect(it.diag(constant), it.key).toBe('const-not-function');
+        expect(tables.every(([xs, ys]) => xs.length === 4 && ys.length === 4 && [...xs, ...ys].every(Number.isFinite)), it.key).toBe(true);
+      }
+      if (kind === 'fu2d') {
+        const [xs, ys] = texRows(it.display);
+        expect(xs, it.key).toEqual([0, 1, 2, 3]);
+        expect(it.answer.values, it.key).toEqual(ys);
+        expect(manipCorrect(it, manipSolution(it)), it.key).toBe(true);
+        expect(manipCorrect(it, it.manip.start), `${it.key}: starts on the goal`).toBe(false);
+      }
+      if (['fu2', 'fu2c', 'fu2t'].includes(kind)) expect(fairForCheck(it), it.key).toBe(true);
+      else expect(fairForCheck(it), `${it.key}: a choice or a table to copy is practice only`).toBe(false);
+      solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (45%, 15%, 15%, 15%, 10%)
+    expect(Object.keys(kinds2).sort()).toEqual(['fu2', 'fu2c', 'fu2d', 'fu2i', 'fu2t']);
+    expect(kinds2.fu2 / 1500).toBeGreaterThan(0.38);
   });
 
   it('catches an answer that is not the graph\'s', () => {

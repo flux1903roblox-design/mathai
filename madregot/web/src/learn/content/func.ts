@@ -1,6 +1,7 @@
 // Introduction to functions (מבוא לפונקציות): unit 8.7 of grade 8 (ח׳), November in the Ministry's תשפ״ז schedule, in
 // the order of the Ministry's updated ח׳ algebra curriculum (stage5.md FUNC-2). This file holds the stairs built so far:
-// func:1, reading a graph of a situation (also ז׳ 7.9's "קריאת גרף שמתאר מצב").
+// func:1, reading a graph of a situation (also ז׳ 7.9's "קריאת גרף שמתאר מצב"), and func:2, the function and its
+// representations.
 //
 // One picture carries the stair: a graph of a situation is a story told point by point. Each point is a pair, a moment
 // (x) and what was true then (y); it is read both ways, by the scale of each axis; a flat part means the value did not
@@ -194,7 +195,176 @@ const stair1: StairContent = {
   ],
 };
 
-export const FUNC: StairContent[] = [stair1];
+// ================================================================ stair 2: the function and its representations
+// One idea carries the stair: a function gives every x exactly one y, and it is the same function in words, in a table,
+// on a graph and as a rule. The night refuel (7 ₪ a litre and a fixed 2 ₪ a refuel) is the Ministry's own example
+// (algebra_8); F = 1.8C + 32 too. A y given is a value of the function: its x is found by undoing the rule.
+
+type P2 = { m: number; b: number; x: number; y: number; q: number };
+const func2: DiagModel<P2> = {
+  params: (rnd) => G.FUNC2.params(rnd),
+  text: (p) => G.func2Text(p),
+  answer: (p) => G.FUNC2.answer(p),
+  bugs: G.FUNC2.bugs,
+  solution: (p) => G.func2Solution(p),
+  hint: (p) => G.func2Hint(p),
+};
+type P2T = { C: number; F: number; q: number };
+const func2T: DiagModel<P2T> = {
+  params: (rnd) => G.FUNC2T.params(rnd),
+  text: (p) => G.func2TText(p),
+  answer: (p) => G.FUNC2T.answer(p),
+  bugs: G.FUNC2T.bugs,
+  solution: (p) => G.func2TSolution(p),
+  hint: (p) => G.func2THint(p),
+  unit: 'מעלות',
+};
+
+/** The night refuel: 7 ₪ a litre and 2 ₪ once a refuel, for 1 to 4 litres. */
+const FUEL: Pt[] = [[1, 9], [2, 16], [3, 23], [4, 30]];
+const fuelTable: FigSpec = { type: 'table', head: ['ליטרים', 'ש״ח'], rows: FUEL };
+/** The same function as points on a graph (the litres are counted, so points, not a line). */
+const fuelDots: FigSpec = { type: 'sgraph', x: { max: 5, step: 1, label: 'דלק', unit: 'ליטרים' }, y: { max: 35, step: 1, every: 5, label: 'מחיר', unit: 'ש״ח' }, series: [{ pts: FUEL, dots: true }] };
+/**
+ * A big wheel's cabin: its height by the minute, a curve; a vertical line from minute 4 meets it once, at the top (there
+ * the guide's line across to the y axis touches the curve once too, so no dashed line crosses it twice).
+ */
+const wheel: FigSpec = { type: 'sgraph', x: { max: 8, step: 1, label: 'זמן', unit: 'דקות' }, y: { max: 40, step: 5, label: 'גובה', unit: 'מטרים' }, series: [{ pts: [[0, 5], [2, 20], [4, 35], [6, 20], [8, 5]], smooth: true }], guide: { x: 4 } };
+/** A gym membership: 150 ₪ a month whatever the number of workouts. */
+const gym: FigSpec = { type: 'sgraph', x: { max: 12, step: 1, every: 2, label: 'אימונים בחודש' }, y: { max: 200, step: 50, label: 'מחיר', unit: 'ש״ח' }, series: [{ pts: [[0, 150], [12, 150]] }] };
+
+/** The fixed fee is paid once (discover step 2, and the forgot-b remedy). */
+const feeStep = {
+  kind: 'predict' as const, text: 'בלילה מוסיפים עמלה קבועה של $2$ ש״ח לכל תדלוק. כמה יעלו $5$ ליטרים?', fig: fuelTable,
+  choices: ['$37$', '$35$', '$45$'], answer: 0,
+  why: '$7 \\cdot 5 + 2 = 37$. העמלה משולמת פעם אחת, לא על כל ליטר.',
+  wrongWhy: { 1: '$35$ הוא רק מחיר הדלק. העמלה מתווספת פעם אחת.', 2: '$45$ הוא כאילו העמלה על כל ליטר: $9 \\cdot 5$.' },
+};
+/** A price paid is a value of the function: find its x (discover step 7, and the forward remedy). */
+const paidStep = {
+  kind: 'predict' as const, text: 'שילמו בלילה $72$ ש״ח. כמה ליטרים תדלקו?', fig: fuelTable,
+  choices: ['$10$', '$506$', '$70$'], answer: 0,
+  why: '$7x + 2 = 72$, כלומר $7x = 70$ ו־$x = 10$. כאן $72$ הוא ערך הפונקציה ($y$), ומחפשים את $x$.',
+  wrongWhy: { 1: '$506$ הוא המחיר של $72$ ליטרים: הציבו את $72$ במקום $x$.', 2: '$70$ הוא מחיר הדלק בלי העמלה, עוד לא מספר הליטרים.' },
+};
+/** A constant is a function (discover step 8, and the const-not-function remedy). */
+const gymStep = {
+  kind: 'predict' as const, text: 'מנוי לחדר כושר עולה $150$ ש״ח בחודש, בלי קשר למספר האימונים. האם זו פונקציה?', fig: gym,
+  choices: ['כן: לכל מספר אימונים יש מחיר אחד, $150$', 'לא: אין בה $x$'], answer: 0,
+  why: 'פונקציה צריכה ערך אחד לכל $x$, לא ערכים שונים. קבוע הוא פונקציה, והגרף שלו קו אופקי.',
+  wrongWhy: { 1: 'גם בלי $x$ בכלל, לכל מספר אימונים יש מחיר אחד: $y = 150$. זו פונקציה קבועה.' },
+};
+/** Multiply before adding (the order-ops remedy, example 1 as a question). */
+const orderStep = {
+  kind: 'predict' as const, text: 'לפי $F = 1.8C + 32$, כמה מעלות פרנהייט הן $25$ מעלות צלזיוס?', fig: { type: 'machine', inX: 25, rule: '1.8C + 32', outY: '?' } as FigSpec,
+  choices: ['$77$', '$102.6$', '$45$'], answer: 0,
+  why: 'קודם כופלים: $1.8 \\cdot 25 = 45$, ואז מוסיפים: $45 + 32 = 77$.',
+  wrongWhy: { 1: '$102.6$ יוצא כשמחברים קודם: $1.8 \\cdot (25 + 32)$. בנוסחה כופלים לפני שמחברים.', 2: '$45$ הוא רק $1.8 \\cdot 25$: עוד צריך להוסיף $32$.' },
+};
+/** The taxi with and without its opening fee, drawn against y = 4x (the forgot-b remedy). */
+const taxiStep = {
+  kind: 'explore' as const,
+  text: 'מונית: $12$ ש״ח דמי פתיחה ועוד $4$ ש״ח לכל ק״מ. הקו המקווקו הוא $y = 4x$, המחיר בלי דמי הפתיחה. גררו כל נקודה למחיר האמיתי.',
+  manip: { kind: 'graph', x: { max: 3, step: 1, label: 'נסיעה', unit: 'ק״מ' }, y: { max: 24, step: 4, label: 'מחיר', unit: 'ש״ח' }, start: [0, 4, 8, 12], ref: { pts: [[0, 0], [1, 4], [2, 8], [3, 12]], label: 'y = 4x' } } as ManipSpec,
+  answer: { mode: 'values', values: [12, 16, 20, 24] },
+  hint: 'כבר ב־$0$ ק״מ משלמים $12$ ש״ח: כל נקודה עולה $12$ מעל הקו המקווקו.',
+  success: 'כל נקודה גבוהה ב־$12$ מהקו המקווקו: $y = 4x + 12$. את דמי הפתיחה משלמים פעם אחת בכל נסיעה.',
+};
+
+const stair2: StairContent = {
+  skill: 'func:2', topic: 'func', level: 2, title: 'פונקציה וייצוגיה',
+  objectives: [
+    'לדעת שפונקציה נותנת לכל $x$ ערך אחד בדיוק של $y$, ולזהות מתי זו לא פונקציה.',
+    'לעבור בין מילים, טבלה, גרף וביטוי של אותה פונקציה.',
+    'לחשב ערך של פונקציה, ולמצוא את $x$ שנותן ערך נתון.',
+  ],
+  idea: 'פונקציה היא כלל שנותן לכל $x$ ערך אחד של $y$. אפשר לכתוב אותה במילים, בטבלה, בגרף או בביטוי, וזו אותה פונקציה.',
+  why: [
+    'ליטר דלק עולה $7$ ש״ח: לכל כמות יש מחיר אחד. בלילה מוסיפים $2$ ש״ח לכל תדלוק: $y = 7x + 2$.',
+    'כש־$x$ אחד מקבל שני ערכים, כבר לא יודעים מה הערך שלו: זו לא פונקציה.',
+  ],
+  alt: ['מכונה: מכניסים $x$, יוצא $y$ אחד. אותו $x$ תמיד מוציא אותו $y$.'],
+  discover: [
+    { kind: 'say', text: 'פונקציה היא כלל: לכל ערך של $x$ היא נותנת ערך אחד בדיוק של $y$. ליטר דלק עולה $7$ ש״ח, אז $3$ ליטרים עולים $21$ ש״ח.',
+      fig: { type: 'machine', inX: 3, rule: 'y = 7x', outY: 21, anim: true } },
+    feeStep,
+    { kind: 'rule', text: 'ארבעה ייצוגים לאותה פונקציה: מילים, טבלה, גרף וביטוי.', display: 'y = 7x + 2', fig: fuelDots,
+      why: 'כל ייצוג אומר אותו דבר: לכל כמות דלק יש מחיר אחד. בגרף, מעל כל כמות יש נקודה אחת.' },
+    { kind: 'explore', text: 'סמנו את הנקודות של $y = 2x + 1$ עבור $x = 0, 1, 2, 3$.',
+      manip: { kind: 'graph', x: { max: 3, step: 1, label: 'x' }, y: { max: 8, step: 1, label: 'y' }, start: [0, 0, 0, 0] },
+      answer: { mode: 'values', values: [1, 3, 5, 7] },
+      hint: 'הציבו כל $x$: $2 \\cdot 0 + 1 = 1$.', success: 'ארבע נקודות, וכל צעד ימינה עולה $2$.' },
+    { kind: 'predict', text: 'בטבלה הזאת $x = 2$ מופיע פעמיים, עם $y = 5$ ועם $y = 7$. האם זו פונקציה?',
+      fig: { type: 'table', head: ['x', 'y'], rows: [[1, 4], [2, 5], [2, 7], [3, 8]] },
+      choices: ['לא: ל־$x = 2$ יש שני ערכים', 'כן: כל ה־$y$ שונים'], answer: 0,
+      why: 'בפונקציה לכל $x$ יש ערך אחד. כשמבקשים את $y$ של $x = 2$, צריכה להיות תשובה אחת.',
+      wrongWhy: { 1: 'מה ש־$y$ שונים לא עוזר: ל־$x = 2$ יש גם $5$ וגם $7$, ואז לא יודעים מה הערך שלו.' } },
+    { kind: 'rule', text: 'בגרף של פונקציה כל קו אנכי פוגש את הגרף לכל היותר פעם אחת.', fig: wheel,
+      why: 'קו אנכי הוא $x$ אחד. שתי נקודות עליו הן שני ערכים לאותו $x$.' },
+    paidStep,
+    gymStep,
+  ],
+  examples: [
+    { problem: 'בארצות הברית מודדים טמפרטורה במעלות פרנהייט: $F = 1.8C + 32$. כמה מעלות פרנהייט הן $25^\\circ$ צלזיוס?', answer: 77, check: '1.8*25+32',
+      steps: [
+        { action: 'קודם כופלים.', why: 'בנוסחה כופלים לפני שמחברים: $1.8$ כפול מספר המעלות בצלזיוס.', result: '1.8 \\cdot 25 = 45', calc: { expr: '1.8*25', value: 45 } },
+        { action: 'אחר כך מוסיפים $32$.', why: 'את $32$ מוסיפים פעם אחת, אחרי הכפל.', result: '45 + 32 = 77', value: '45+32' },
+      ] },
+    { problem: 'מד חום מראה $50$ מעלות פרנהייט. כמה זה בצלזיוס?', answer: 10, check: '(50-32)/1.8',
+      steps: [
+        { action: 'מחפשים את $C$ שנותן $F = 50$: מבטלים קודם את ההוספה.', why: 'ב־$F = 1.8C + 32$ את $32$ מוסיפים אחרון, ולכן מורידים אותו ראשון.', result: '50 - 32 = 18', calc: { expr: '50-32', value: 18 } },
+        { action: 'ואז את הכפל.', why: 'נשאר $1.8C = 18$, ולכן מחלקים ב־$1.8$.', result: '18 : 1.8 = 10', value: '18/1.8' },
+      ] },
+    { problem: 'בטבלה ארבעה ערכים של פונקציה מהצורה $y = mx + b$. מה $y$ כש־$x = 10$?', fig: { type: 'table', head: ['x', 'y'], rows: [[0, 5], [1, 8], [2, 11], [3, 14]] }, answer: 35, check: '3*10+5',
+      steps: [
+        { action: 'כל צעד של $1$ ב־$x$ מוסיף ל־$y$ אותו מספר.', why: 'מ־$5$ ל־$8$, מ־$8$ ל־$11$ ומ־$11$ ל־$14$: בכל צעד $3$.', result: '8 - 5 = 3', calc: { expr: '8-5', value: 3 } },
+        { action: 'כש־$x = 0$ יש $5$, ולכן $y = 3x + 5$.', why: 'הערך ב־$x = 0$ הוא החלק הקבוע. עכשיו מציבים $x = 10$.', result: 'y = 3 \\cdot 10 + 5 = 35', value: '3*10 + 5' },
+      ] },
+  ],
+  together: [
+    { problem: 'מונית: $12$ ש״ח בתחילת הנסיעה ועוד $4$ ש״ח לכל ק״מ. כמה עולה נסיעה של $8$ ק״מ?',
+      steps: [
+        { prompt: 'איזה ביטוי מתאר את המחיר?', choices: [
+          { text: '$y = 4x + 12$', ok: true, feedback: 'נכון: $4$ ש״ח על כל ק״מ, ו־$12$ פעם אחת.' },
+          { text: '$y = 12x + 4$', ok: false, feedback: '$12$ משלמים פעם אחת, ו־$4$ על כל ק״מ.' },
+          { text: '$y = 16x$', ok: false, feedback: 'אז $8$ ק״מ היו עולים $128$. דמי הפתיחה לא חוזרים בכל ק״מ.' },
+        ], hints: ['מה משלמים על כל ק״מ, ומה משלמים פעם אחת?', 'על כל ק״מ $4$ ש״ח, כלומר $4x$, ועוד $12$ פעם אחת.'], done: 'המחיר: $y = 4x + 12$.' },
+      ],
+      final: { prompt: 'כמה עולה נסיעה של $8$ ק״מ?', answer: 44, check: '4*8+12', hints: ['הציבו $x = 8$ ב־$y = 4x + 12$.', '$4 \\cdot 8 = 32$, ועוד $12$ פעם אחת.'] } },
+    { problem: 'באותה מונית שילמו $60$ ש״ח. כמה ק״מ נסעו?',
+      steps: [
+        { prompt: 'מה פותרים?', choices: [
+          { text: '$4x + 12 = 60$', ok: true, feedback: 'נכון: $60$ הוא המחיר, $y$, ומחפשים את $x$ שנותן אותו.' },
+          { text: '$4 \\cdot 60 + 12$', ok: false, feedback: '$60$ הוא המחיר, ערך של $y$. מחפשים את $x$.' },
+          { text: '$60 : 4$', ok: false, feedback: 'כך שוכחים את $12$ ש״ח של הפתיחה.' },
+        ], hints: ['$60$ הוא מספר הק״מ או המחיר?', 'המחיר הוא $y$: כותבים $4x + 12 = 60$ ומוצאים את $x$.'], done: 'פותרים $4x + 12 = 60$.' },
+      ],
+      final: { prompt: 'כמה ק״מ נסעו?', answer: 12, check: '(60-12)/4', hints: ['קודם מחסירים $12$ משני האגפים.', '$4x = 48$, ואז מחלקים ב־$4$.'] } },
+  ],
+  diag: func2,
+  transfer: func2T,
+  words: ['פונקציה', 'ערך הפונקציה', 'משתנה בלתי תלוי', 'ייצוג', 'טבלת ערכים', 'פונקציה קבועה'],
+  misconceptions: [
+    { id: 'forgot-b', title: 'שכחו את החלק הקבוע (דמי פתיחה, עמלה, ערך ההתחלה)',
+      cause: 'התרגלנו ש"כל אחד עולה כך וכך", ושוכחים את מה שמשלמים פעם אחת.',
+      explain: ['ב־$y = 7x + 2$ יש שני חלקים: $7x$ גדל עם כל ליטר, ו־$2$ משולם פעם אחת בכל תדלוק.', 'לכן $5$ ליטרים עולים $7 \\cdot 5 + 2 = 37$, ולא $35$.'],
+      remedy: [feeStep, taxiStep] },
+    { id: 'forward', title: 'הציבו את ערך הפונקציה במקום $x$',
+      cause: 'שני המספרים נראים אותו דבר, ושוכחים מי $x$ ומי $y$.',
+      explain: ['כששואלים "שילמו $72$ ש״ח, כמה ליטרים?", $72$ הוא המחיר, כלומר $y$. מחפשים את $x$.', 'פותרים $7x + 2 = 72$ ומקבלים $x = 10$. כשמציבים $72$ במקום $x$, מקבלים את המחיר של $72$ ליטרים.'],
+      remedy: [paidStep] },
+    { id: 'order-ops', title: 'חיברו לפני שכפלו',
+      cause: 'מחברים קודם את $C$ ו־$32$, כאילו יש סביבם סוגריים.',
+      explain: ['ב־$F = 1.8C + 32$ כופלים קודם, $1.8 \\cdot C$, ורק אחר כך מוסיפים $32$.', 'ל־$25$ מעלות צלזיוס: $1.8 \\cdot 25 = 45$, ועוד $32$ זה $77$.'],
+      remedy: [orderStep] },
+    { id: 'const-not-function', title: 'חשבו שקבוע אינו פונקציה',
+      cause: 'נדמה שפונקציה חייבת להשתנות, או שחייב להיות בה $x$.',
+      explain: ['פונקציה צריכה ערך אחד לכל $x$, לא ערכים שונים.', 'מנוי של $150$ ש״ח בחודש נותן לכל מספר אימונים אותו מחיר: זו פונקציה קבועה, והגרף שלה קו אופקי.'],
+      remedy: [gymStep] },
+  ],
+};
+
+export const FUNC: StairContent[] = [stair1, stair2];
 /** Names of misconceptions new to this topic: none beyond the topic's own (content/func.js names them all). */
 export const CATS_FUNC: Record<string, string> = {};
-export { func1, func1T };
+export { func1, func1T, func2, func2T };

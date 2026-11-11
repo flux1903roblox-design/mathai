@@ -411,6 +411,30 @@ const PROPS = {
     'value-not-change': (it, u) => { const n = nums(it.key); return it.key.startsWith('fu1d:') && n[0] === 0 && fits(u, n[4]); },
     // the flat line read as flat ground: the choice that says so
     'graph-picture': (it, u) => it.key.startsWith('fu1f:') && /בדרך ישרה ושטוחה$/.test(it.choices[u]?.text || ''),
+    // func:2, from m, b, x and q of fu2 (y = m·x + b; q asks y at x, or the x of y), C and q of fu2c (F = 1.8C + 32), and
+    // m, b and n of fu2t (a table of y = m·x + b at x = 0..3, asked at n)
+    // the fixed part left out: m·x, or y/m; 1.8C, or F/1.8; m·n
+    'forgot-b': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu2') { const [m, b, x, q] = n; return fits(u, q === 0 ? m * x : (m * x + b) / m); }
+      if (p === 'fu2c') { const [C, q] = n; return fits(u, q === 0 ? 1.8 * C : (1.8 * C + 32) / 1.8); }
+      if (p === 'fu2t') { const [m, , k] = n; return fits(u, m * k); }
+      return false;
+    },
+    // the value of the function put in for x: m·y + b, or 1.8F + 32
+    forward: (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu2') { const [m, b, x, q] = n; return q === 1 && fits(u, m * (m * x + b) + b); }
+      if (p === 'fu2c') { const [C, q] = n; return q === 1 && fits(u, 1.8 * (1.8 * C + 32) + 32); }
+      return false;
+    },
+    // added before multiplying: 1.8(C + 32)
+    'order-ops': (it, u) => { const n = nums(it.key); return it.key.startsWith('fu2c:') && n[1] === 0 && fits(u, 1.8 * (n[0] + 32)); },
+    // a constant table chosen as the one that is not a function: every y of the chosen table the same
+    'const-not-function': (it, u) => {
+      const tex = it.choices[u]?.tex || ''; const ys = (tex.split('\\hline y &')[1] || '').split('&').map((v) => Number(v.replace(/\\end\{array\}/, '').trim()));
+      return it.key.startsWith('fu2i:') && ys.length === 4 && ys.every((v) => Number.isFinite(v) && v === ys[0]);
+    },
   },
   expr: {
     concat: (it, u) => { const q = substOf(it); return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x)); },

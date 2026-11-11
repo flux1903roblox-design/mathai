@@ -1,7 +1,8 @@
 // Introduction to functions (מבוא לפונקציות): unit 8.7 of grade 8 (ח׳), November in the Ministry's תשפ״ז schedule, in
 // the order of the Ministry's updated ח׳ algebra curriculum (algebra_8): reading a graph of a situation first (its first
 // subject, and all of ז׳ 7.9's "קריאת גרף שמתאר מצב"), then the function and its representations, increasing and
-// decreasing, and rate (stage5.md FUNC-2). This file holds the stairs built so far: func:1, reading a situation graph.
+// decreasing, and rate (stage5.md FUNC-2). This file holds the stairs built so far: func:1, reading a situation graph,
+// and func:2, the function and its representations.
 // Taught in November, so the first-day placement test skips it (placement: false); a ח׳ student who learned it in class
 // uses the unit's jump test.
 //
@@ -307,29 +308,225 @@ function drawStory() {
   };
 }
 
+// ================================================================ func:2, the function and its representations
+// A function gives every x exactly one y, and it is the same function in words, a table, a graph and a rule. The
+// models are the spec's (models.mjs func2, func2T), ported unchanged; F = 1.8C + 32 is computed as 9C/5 + 32, the same
+// number without a binary 1.8 (so 77 is 77, never 76.99999999999999). Errors and their sources:
+//   forgot-b            the fixed part left out, y = m·x (Van Dooren, De Bock, Hessels, Janssens & Verschaffel 2005,
+//                       the proportional model applied to y = mx + b: confirm pages)
+//   forward             the value of the function put in for x, m·y + b (the Ministry: "ההבדל … בין המשתנה הבלתי תלוי
+//                       לבין ערך הפונקציה", algebra_8 p. 11; Leinhardt, Zaslavsky & Stein 1990 on y → x tasks)
+//   order-ops           added before multiplying, 1.8(C + 32) (Linchevski & Livneh 1999)
+//   const-not-function  a constant taken for "not a function" (Markovits, Eylon & Bruckheimer 1986; Vinner & Dreyfus
+//                       1989): a choice in practice only
+
+/** A price rule y = m·x + b in a story: q0 the value at x; q1 the x of a value (the spec's func2). */
+export const FUNC2 = mk({
+  raw: (r) => {
+    const m = rint(r, 3, 9); const b = pick(r, [5, 6, 8, 10, 12, 15, 20]); const x = rint(r, 2, 15); const q = r() < 0.5 ? 0 : 1;
+    return { m, b, x, y: m * x + b, q };
+  },
+  answer: (p) => (p.q === 0 ? p.y : p.x),
+  bugs: {
+    // y = mx: the fixed part left out (the proportional assumption)
+    'forgot-b': (p) => (p.q === 0 ? p.m * p.x : p.y / p.m),
+    // the value of y put in for x
+    forward: (p) => (p.q === 1 ? p.m * p.y + p.b : null),
+  },
+  textNums: (p) => [p.m, p.b, ...(p.q === 0 ? [p.x] : [p.y])],
+});
+
+/** 1.8·v, exactly (9v/5): the factor of F = 1.8C + 32. */
+const f18 = (v) => (9 * v) / 5;
+/** func:2 transfer: F = 1.8C + 32, the Ministry's example of a rule with no story of its own (the spec's func2T). */
+export const FUNC2T = mk({
+  raw: (r) => { const C = 5 * rint(r, 1, 8); return { C, F: f18(C) + 32, q: r() < 0.5 ? 0 : 1 }; },
+  answer: (p) => (p.q === 0 ? p.F : p.C),
+  bugs: {
+    'forgot-b': (p) => (p.q === 0 ? f18(p.C) : (5 * p.F) / 9),
+    // added before multiplying
+    'order-ops': (p) => (p.q === 0 ? f18(p.C + 32) : null),
+    forward: (p) => (p.q === 1 ? f18(p.F) + 32 : null),
+  },
+  textNums: (p) => [1.8, 32, p.q === 0 ? p.C : p.F],
+});
+
+/** The three price stories of func2: what is bought, what x counts, the unit of x, and the two questions. */
+export const PRICE_STORIES = [
+  { what: 'נסיעה במונית', x: 'מספר הק״מ', unit: 'ק״מ',
+    ask: [(x) => `כמה עולה נסיעה של $${x}$ ק״מ?`, (y) => `נסיעה עלתה $${y}$ ש״ח. כמה ק״מ נסעו?`] },
+  { what: 'תדלוק בלילה', x: 'מספר הליטרים', unit: 'ליטרים',
+    ask: [(x) => `כמה עולים $${x}$ ליטרים?`, (y) => `שילמו $${y}$ ש״ח. כמה ליטרים תדלקו?`] },
+  { what: 'משלוח', x: 'המשקל של החבילה בק״ג', unit: 'ק״ג',
+    ask: [(x) => `כמה עולה משלוח של חבילה של $${x}$ ק״ג?`, (y) => `משלוח עלה $${y}$ ש״ח. כמה ק״ג שקלה החבילה?`] },
+];
+/** The story of a draw: the same draw always tells the same story. */
+export const storyOf = (p) => PRICE_STORIES[(p.m + p.b + p.x) % PRICE_STORIES.length];
+
+export function func2Text(p, s = storyOf(p)) {
+  return `המחיר של ${s.what} בש״ח הוא $y = ${p.m}x + ${p.b}$, כש־$x$ הוא ${s.x}. ${s.ask[p.q](p.q === 0 ? p.x : p.y)}`;
+}
+export function func2Solution(p) {
+  if (p.q === 0) return [`מציבים את $${p.x}$ במקום $x$: $y = ${p.m} \\cdot ${p.x} + ${p.b}$`, `קודם כופלים, ואז מוסיפים את $${p.b}$ פעם אחת: $${p.m * p.x} + ${p.b} = ${p.y}$`];
+  return [
+    `$${p.y}$ הוא המחיר, כלומר ערך הפונקציה $y$. מחפשים את $x$ שנותן אותו: $${p.m}x + ${p.b} = ${p.y}$`,
+    `מחסירים $${p.b}$ משני האגפים: $${p.m}x = ${p.y - p.b}$`,
+    `מחלקים ב־$${p.m}$: $x = ${p.x}$`,
+  ];
+}
+export const func2Hint = (p) => (p.q === 0
+  ? `הציבו $${p.x}$ במקום $x$. את $${p.b}$ משלמים פעם אחת.`
+  : `$${p.y}$ הוא המחיר, כלומר $y$. איזה $x$ נותן $${p.m}x + ${p.b} = ${p.y}$?`);
+
+const F_RULE = 'לפי הנוסחה $F = 1.8C + 32$ ממירים מעלות צלזיוס ($C$) למעלות פרנהייט ($F$).';
+export const func2TText = (p) => (p.q === 0
+  ? `${F_RULE} כמה מעלות פרנהייט הן $${p.C}$ מעלות צלזיוס?`
+  : `${F_RULE} מד חום מראה $${p.F}$ מעלות פרנהייט. כמה מעלות צלזיוס זה?`);
+export function func2TSolution(p) {
+  if (p.q === 0) return [`קודם כופלים: $1.8 \\cdot ${p.C} = ${f18(p.C)}$`, `ואז מוסיפים $32$: $${f18(p.C)} + 32 = ${p.F}$`];
+  return [
+    `מחפשים את $C$ שנותן $F = ${p.F}$. קודם מבטלים את מה שנעשה אחרון, ההוספה: $${p.F} - 32 = ${p.F - 32}$`,
+    `ואז את הכפל: $${p.F - 32} : 1.8 = ${p.C}$`,
+  ];
+}
+export const func2THint = (p) => (p.q === 0
+  ? `קודם כופלים את $${p.C}$ ב־$1.8$, ורק אחר כך מוסיפים $32$.`
+  : 'הולכים בסדר הפוך: קודם מחסירים $32$, ואז מחלקים ב־$1.8$.');
+
+// ---------------------------------------------------------------- func:2 generators
+
+/** The price rule (the model's own draw): the price of x, or the x of a price. */
+function priceItem() {
+  const p = FUNC2.params(rnd); const ans = FUNC2.answer(p);
+  return {
+    key: `fu2:${p.m}:${p.b}:${p.x}:${p.q}`, text: func2Text(p),
+    form: 'num', answer: ans, unit: p.q === 0 ? 'ש״ח' : storyOf(p).unit,
+    hint: func2Hint(p), solution: func2Solution(p), diag: diagOf(ans, bugsAt(FUNC2, p)),
+  };
+}
+
+/** Fahrenheit and Celsius (the transfer model's own draw). */
+function fahrenheitItem() {
+  const p = FUNC2T.params(rnd); const ans = FUNC2T.answer(p);
+  return {
+    key: `fu2c:${p.C}:${p.q}`, text: func2TText(p),
+    form: 'num', answer: ans, unit: 'מעלות',
+    hint: func2THint(p), solution: func2TSolution(p), diag: diagOf(ans, bugsAt(FUNC2T, p)),
+  };
+}
+
+/**
+ * A table of y = m·x + b at x = 0, 1, 2, 3, asked at x = n (5 to 12): the answer is never a number of the table or the
+ * text, and the fixed part left out (m·n) is never a slip of the hand away from it (the models' draw rule).
+ */
+function tableItem() {
+  for (;;) {
+    const m = rint(rnd, 2, 9); const b = rint(rnd, 1, 12); const n = rint(rnd, 5, 12);
+    const rows = [0, 1, 2, 3].map((x) => [x, m * x + b]); const ans = m * n + b;
+    if (guessable(ans, [...rows.flat(), n]) || slipLike(m * n, ans)) continue;
+    return {
+      key: `fu2t:${m}:${b}:${n}`,
+      text: `בטבלה ארבעה ערכים של פונקציה מהצורה $y = mx + b$. מה $y$ כש־$x = ${n}$?`,
+      fig: { type: 'table', head: ['x', 'y'], rows },
+      form: 'num', answer: ans,
+      hint: 'בכמה גדל $y$ בכל צעד של $1$ ב־$x$? ומה $y$ כש־$x = 0$?',
+      solution: [`כל צעד של $1$ ב־$x$ מוסיף ל־$y$ את $${m}$, וכש־$x = 0$ יש $${b}$. לכן $y = ${m}x + ${b}$`, `מציבים: $${m} \\cdot ${n} + ${b} = ${ans}$`],
+      diag: diagOf(ans, { 'forgot-b': m * n }),
+    };
+  }
+}
+
+/** A table as the student writes it, x on top and y under it (TeX). */
+export const tableTex = (xs, ys) => `\\begin{array}{c|${'c'.repeat(xs.length)}} x & ${xs.join(' & ')} \\\\ \\hline y & ${ys.join(' & ')} \\end{array}`;
+/** n different whole numbers from lo to hi, in a random order. */
+const distinct = (n, lo, hi) => shuffle(Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)).slice(0, n);
+/**
+ * Which table is not a function? Four tables: one with an x given two values (the answer); one constant (still one y for
+ * each x: chosen, it is const-not-function); one with a y repeated at two x's (a function too); one of y = m·x + b. The
+ * spec keeps it in practice: the tables are read off the screen, and the odd one can be spotted without the idea.
+ */
+function isFunctionMc() {
+  const xs = [1, 2, 3, 4];
+  const d = rint(rnd, 1, 3); // the x given two values
+  const dupXs = [1, 2, 3].flatMap((x) => (x === d ? [x, x] : [x]));
+  const dupYs = distinct(4, 1, 9);
+  const c = rint(rnd, 2, 9);
+  const m = rint(rnd, 2, 4); const b = rint(rnd, 0, 3);
+  const [rep, o1, o2] = distinct(3, 1, 9);
+  const options = shuffle([
+    { tex: tableTex(dupXs, dupYs), ok: true, kind: 'd' },
+    { tex: tableTex(xs, xs.map(() => c)), ok: false, bug: 'const-not-function', kind: 'c' },
+    { tex: tableTex(xs, [rep, o1, rep, o2]), ok: false, kind: 'r' },
+    { tex: tableTex(xs, xs.map((x) => m * x + b)), ok: false, kind: 'l' },
+  ]);
+  const i = dupXs.indexOf(d);
+  return {
+    key: `fu2i:${d}:${dupYs[i]}:${dupYs[i + 1]}:${c}:${options.map((o) => o.kind).join('')}`,
+    text: 'איזו מהטבלאות אינה מתארת פונקציה?',
+    form: 'mc', choices: options.map(({ tex, ok, bug }) => ({ tex, ok, ...(bug ? { bug } : {}) })), answer: options.findIndex((o) => o.ok),
+    practiceOnly: true,
+    hint: 'בפונקציה לכל $x$ יש ערך אחד של $y$. חפשו $x$ שמופיע פעמיים.',
+    solution: [
+      `בטבלה שבה $x = ${d}$ מופיע פעמיים, עם $y = ${dupYs[i]}$ ועם $y = ${dupYs[i + 1]}$, ל־$x$ אחד יש שני ערכים: זו לא פונקציה.`,
+      `בטבלה שבה כל ערכי $y$ הם $${c}$ יש לכל $x$ ערך אחד, ולכן גם היא פונקציה: פונקציה קבועה.`,
+    ],
+    diag: (u) => options[u]?.bug || null,
+  };
+}
+
+/**
+ * A function given by a table, drawn point by point on the graph object (values mode): four points at x = 0..3 on a y
+ * axis of 9 heights, every 1, 2 or 5 (a number on every second line when a square is more than 1). The table prints the
+ * values, so practice only. The table is written across (display), so on a 320×568 phone the graph keeps its room.
+ */
+function drawTable() {
+  const s = pick(rnd, [1, 2, 5]);
+  let v;
+  do { v = [0, 1, 2, 3].map(() => s * rint(rnd, 0, 8)); } while (new Set(v).size < 3);
+  return {
+    key: `fu2d:${s}:${v.join(',')}`,
+    text: 'הטבלה מתארת פונקציה. סמנו בגרף את הנקודות שלה.',
+    // the table written across, x over y, as in the class's notebook: short, so the graph keeps its room on a phone
+    display: tableTex([0, 1, 2, 3], v),
+    form: 'manip', practiceOnly: true,
+    manip: { kind: 'graph', x: { max: 3, step: 1, label: 'x' }, y: { max: 8 * s, step: s, label: 'y', ...(s > 1 ? { every: 2 } : {}) }, start: [0, 0, 0, 0] },
+    answer: { mode: 'values', values: v },
+    hint: s === 1 ? 'כל שורה בטבלה היא נקודה: מעל כל $x$ גוררים לגובה של ה־$y$ שלו.' : `כל שורה בטבלה היא נקודה. כל משבצת לגובה היא $${s}$.`,
+    solution: [`כל שורה בטבלה היא נקודה: ${v.map((y, x) => `$(${x}, ${y})$`).join(', ')}.`, 'מעל כל $x$ יש נקודה אחת בדיוק: זה גרף של פונקציה.'],
+    diag: () => null,
+  };
+}
+
 // ---------------------------------------------------------------- the topic
 
 export const FUNC = {
   id: 'func', grade: '8', title: 'מבוא לפונקציות', color: 'fuchsia',
   // what the unit teaches today; its later stairs add their own words here as they land
-  desc: 'קריאת גרף של מצב: מה היה ברגע נתון, ומתי',
+  desc: 'קריאת גרף של מצב, ופונקציה וייצוגיה: מילים, טבלה, גרף וביטוי',
   // taught in November of ח׳: the first-day placement test does not ask about it (the jump test does)
   placement: false,
   levels: [
     { title: 'קריאת גרף של מצב', gen: () => { const r = Math.random(); return r < 0.55 ? walkItem() : r < 0.75 ? dayItem() : r < 0.85 ? flatMc() : r < 0.95 ? pointMc() : drawStory(); } },
+    // the spec's mix: the price rule 45%, Fahrenheit 15%, a table 15%, which table is a function 15%, a table drawn 10%
+    { title: 'פונקציה וייצוגיה', gen: () => { const r = Math.random(); return r < 0.45 ? priceItem() : r < 0.6 ? fahrenheitItem() : r < 0.75 ? tableItem() : r < 0.9 ? isFunctionMc() : drawTable(); } },
   ],
   cats: {
     'count-squares': 'ספרו משבצות ולא כפלו בגודל של כל משבצת',
     'end-for-duration': 'ענו את הרגע שבו זה נגמר, ולא כמה זמן זה נמשך',
     'value-not-change': 'ענו את הערך בסוף, ולא בכמה הוא השתנה',
     'graph-picture': 'קראו את הגרף כמו ציור של הדרך, ולא כקשר בין שני גדלים',
+    'forgot-b': 'שכחו את החלק הקבוע (דמי פתיחה, עמלה, ערך ההתחלה)',
+    forward: 'הציבו את ערך הפונקציה במקום $x$',
+    'order-ops': 'חיברו לפני שכפלו',
+    'const-not-function': 'חשבו שקבוע אינו פונקציה',
   },
   lesson: {
     // one point per stair, each landing with its stair
     points: [
       'גרף של מצב קוראים בשני כיוונים: מ־$x$ אל $y$ (מה היה ברגע הזה) ומ־$y$ אל $x$ (מתי זה היה).',
       'קו שטוח בגרף אומר שהערך לא השתנה, לא שהדרך שטוחה.',
+      'פונקציה נותנת לכל $x$ ערך אחד בלבד של $y$: $y = 7x + 2$ נותן ל־$x = 5$ את $37$.',
     ],
-    words: ['גרף של מצב', 'ציר', 'משבצת', 'נקודה על גרף', 'קנה מידה של ציר', 'משך זמן'],
+    words: ['גרף של מצב', 'ציר', 'משבצת', 'נקודה על גרף', 'קנה מידה של ציר', 'משך זמן', 'פונקציה', 'ערך הפונקציה', 'משתנה בלתי תלוי', 'ייצוג', 'טבלת ערכים', 'פונקציה קבועה'],
   },
 };
