@@ -69,7 +69,12 @@ test('a paid order: one subscription, the order paid, one payment, a welcome not
   const sub = one(h.env, 'SELECT * FROM subscriptions');
   assert.equal(sub.account_id, o.account); assert.equal(sub.plan, 'family_month'); assert.equal(sub.status, 'active');
   assert.equal(sub.price_agorot, 2990); assert.equal(sub.provider_subscription_id, `sub_${o.id}`);
-  assert.equal(Date.parse(sub.refund_until) - Date.parse(sub.first_paid_at), 14 * DAY);
+  // 14 days from the payment, or from the welcome email when it left later (TRUST-10 §5: here it left at once)
+  await h.ctx.flush();
+  const welcome = one(h.env, "SELECT sent_at FROM notices WHERE kind = 'welcome'");
+  const until = Date.parse(one(h.env, 'SELECT refund_until FROM subscriptions').refund_until);
+  assert.ok(until >= Date.parse(sub.first_paid_at) + 14 * DAY);
+  assert.equal(until, Math.max(Date.parse(sub.first_paid_at), Date.parse(welcome.sent_at)) + 14 * DAY, 'the later of payment and the email');
   assert.equal(one(h.env, 'SELECT status, subscription_id FROM orders').subscription_id, sub.id);
   assert.equal(count('payments'), 1);
   assert.ok(one(h.env, "SELECT * FROM notices WHERE kind = 'welcome'"));

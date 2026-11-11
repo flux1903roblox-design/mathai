@@ -31,3 +31,17 @@ export function dateNum(iso) {
 export function dateWords(iso) {
   try { return new Date(iso).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jerusalem' }); } catch { return ''; }
 }
+
+/**
+ * The day of the month a monthly plan bought at `iso` is charged, in words that fit "המנוי מתחדש … בכל חודש, {here}"
+ * (trust spec TRUST-10 §4): 'ב־10 לחודש'. A month without that day is charged on its last day, as the server's addMonths
+ * clamps it (apply.js): the 29th and 30th say so for February, and the 31st is the last day of every month.
+ */
+export function chargeDay(iso) {
+  let d = 0;
+  try { d = Number(new Intl.DateTimeFormat('en-GB', { day: 'numeric', timeZone: 'Asia/Jerusalem' }).format(new Date(iso))); } catch { /* below */ }
+  if (!Number.isInteger(d) || d < 1) return '';
+  if (d === 31) return 'ביום האחרון של החודש';
+  if (d >= 29) return `ב־${d} לחודש (ובפברואר ביום האחרון שלו)`;
+  return `ב־${d} לחודש`;
+}

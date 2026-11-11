@@ -427,6 +427,11 @@ a { color: var(--brand-d); }
 .parents-list { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s1); }
 .parents-price { font-weight: 700; color: var(--ink); }
 .parents-sum { margin: 0; font-weight: 700; color: var(--ink); }
+/* how a plan goes on, next to the pay button (trust spec TRUST-10 §4) */
+.parents-terms-line { margin: 0; color: var(--ink); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.parents-renew { border-color: var(--brand-line); }
+/* the renewal button carries its price (Appendix E): on a narrow phone it takes two lines, never cut */
+.parents-renew .btn { white-space: normal; text-align: center; padding-block: var(--s2); line-height: var(--lh-sm); }
 .parents-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); color: var(--ink); }
 .parents-warn { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
 .parents-disclosure { display: flex; flex-direction: column; gap: 2px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 14px; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }

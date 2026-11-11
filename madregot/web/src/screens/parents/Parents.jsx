@@ -13,7 +13,7 @@ import {
   linkThisDevice, signOut, exportData, deleteAccount, keepLinkCode, keptLinkCode, dropLinkCode, endAttempt, dropOrder, openInvoice,
 } from '@/lib/parent.js';
 import { qaParentView } from '@/lib/qaFixtures.js';
-import { formatAgorot, vatLine, perMonth, dateNum } from '@/lib/price.js';
+import { formatAgorot, vatLine, perMonth, dateNum, chargeDay } from '@/lib/price.js';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
 import AdultGate from '@/components/account/AdultGate.jsx';
 import { needsAdultStep } from '@/lib/parentGate.js';
@@ -52,8 +52,33 @@ function About({ plans }) {
 }
 
 // ---------------------------------------------------------------- joining: the plan, the disclosure, two boxes
-function Checkout({ plans, linkCode, onError }) {
-  const [choice, setChoice] = useState('family_month');
+/** The business behind the plan and the legal pages, shown before any payment (Consumer Protection Law s.14ג). */
+function Disclosure({ plans }) {
+  const b = plans?.business || {};
+  return (
+    <section className="parents-disclosure" aria-label="פרטי העסק">
+      <p><b>{b.name || 'מדרגות'}</b>{b.id ? ` · ${b.id}` : ''}</p>
+      {b.address && <p>{b.address}</p>}
+      <p>{b.email && <a href={`mailto:${b.email}`} dir="ltr">{b.email}</a>}{b.email && b.phone ? ' · ' : ''}{b.phone && <a href={`tel:${b.phone}`} dir="ltr">{b.phone}</a>}</p>
+      <p><Link to="/terms">התקנון</Link> · <Link to="/privacy">מדיניות הפרטיות</Link> · <Link to="/terms">מדיניות הביטול</Link></p>
+    </section>
+  );
+}
+/** The two boxes every payment asks for, a renewal too (a new consent, trust spec TRUST-10 §3). */
+function ConsentBoxes({ adult, setAdult, terms, setTerms }) {
+  return (
+    <>
+      <label className="check-row parents-check"><input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} required /><span>אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה</span></label>
+      <label className="check-row parents-check"><input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} required /><span>קראתי את התקנון ואת מדיניות הביטול</span></label>
+    </>
+  );
+}
+const consentError = (adult) => (!adult ? 'כדי להמשיך צריך לאשר שאתם מעל גיל 18 וההורים או האפוטרופוס.' : 'כדי להמשיך צריך לאשר את התקנון ואת מדיניות הביטול.');
+/** The one-year plan's line before purchase (TRUST-10 §4): until when, and that it never charges again by itself. */
+const yearLine = (until) => `המנוי לשנה אחת, עד ${until}. הוא לא מתחדש מעצמו ולא נחייב אתכם שוב. 45 ימים לפני הסוף נשלח מייל, ואם תרצו, תחדשו בלחיצה.`;
+
+function Checkout({ plans, linkCode, onError, initial = 'family_month' }) {
+  const [choice, setChoice] = useState(initial);
   const [adult, setAdult] = useState(false);
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,15 +87,15 @@ function Checkout({ plans, linkCode, onError }) {
   const vat = vatLine(plans?.vatMode);
   const exempt = plans?.vatMode === 'exempt';
   const picked = choice === 'family_year' ? year : month;
+  const now = new Date().toISOString();
   const next = dateNum(addMonths(new Date(), choice === 'family_year' ? 12 : 1).toISOString());
-  const b = plans?.business || {};
   if (!plans?.online) {
     return (
       <p className="parents-note">ההצטרפות באתר עוד לא פתוחה. כתבו אל {plans?.contact ? <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a> : 'מדרגות'} ונפעיל את המנוי לחשבון הזה.</p>
     );
   }
   const go = async () => {
-    if (!adult || !terms) { setError(!adult ? 'כדי להמשיך צריך לאשר שאתם מעל גיל 18 וההורים או האפוטרופוס.' : 'כדי להמשיך צריך לאשר את התקנון ואת מדיניות הביטול.'); return; }
+    if (!adult || !terms) { setError(consentError(adult)); return; }
     setError(''); setBusy(true);
     try { await startCheckout(choice, { terms: plans.termsVersion }); } catch (e) { setError(e.message); onError?.(e); setBusy(false); }
   };
@@ -84,24 +109,71 @@ function Checkout({ plans, linkCode, onError }) {
         )}
         {year && (
           <button type="button" role="radio" aria-checked={choice === 'family_year'} className={clsx('ob-opt', choice === 'family_year' && 'on')} onClick={() => setChoice('family_year')}>
-            <span className="ob-opt-text"><b>שנתי</b><span>{formatAgorot(year.amountAgorot)} לשנה, {vat} ({perMonth(year.amountAgorot)} לחודש) · מתחדש כל שנה</span></span>
+            <span className="ob-opt-text"><b>שנתי</b><span>{formatAgorot(year.amountAgorot)} לשנה, {vat} ({perMonth(year.amountAgorot)} לחודש) · לשנה אחת, לא מתחדש מעצמו</span></span>
           </button>
         )}
       </div>
-      {picked && <p className="parents-sum">סה״כ לתשלום היום: {formatAgorot(picked.amountAgorot)} ({exempt ? 'המחיר סופי' : 'כולל מע״מ 18%'}). החיוב הבא: {next}.</p>}
+      {picked && (
+        <p className="parents-sum">סה״כ לתשלום היום: {formatAgorot(picked.amountAgorot)} ({exempt ? 'המחיר סופי' : 'כולל מע״מ 18%'}).{choice === 'family_month' ? ` החיוב הבא: ${next}.` : ''}</p>
+      )}
+      {/* how the plan goes on, next to the button (trust spec TRUST-10 §4): the monthly plan renews until cancelled, the
+          yearly one is one payment for one year */}
+      {picked && choice === 'family_month' && (
+        <p className="parents-terms-line">המנוי מתחדש אוטומטית בכל חודש, {chargeDay(now)}, ב־{formatAgorot(month.amountAgorot)} {vat}, עד שמבטלים. מבטלים בכל רגע באתר, במייל או בטלפון, בלי קנס.</p>
+      )}
+      {picked && choice === 'family_year' && <p className="parents-terms-line">{yearLine(next)}</p>}
       {linkCode && <p className="muted">אחרי התשלום אפשר יהיה לחבר את המכשיר של הילד עם הקוד <bdi dir="ltr" className="mono">{linkCode}</bdi>.</p>}
-      <section className="parents-disclosure" aria-label="פרטי העסק">
-        <p><b>{b.name || 'מדרגות'}</b>{b.id ? ` · ${b.id}` : ''}</p>
-        {b.address && <p>{b.address}</p>}
-        <p>{b.email && <a href={`mailto:${b.email}`} dir="ltr">{b.email}</a>}{b.email && b.phone ? ' · ' : ''}{b.phone && <a href={`tel:${b.phone}`} dir="ltr">{b.phone}</a>}</p>
-        <p><Link to="/terms">התקנון</Link> · <Link to="/privacy">מדיניות הפרטיות</Link> · <Link to="/terms">מדיניות הביטול</Link></p>
-      </section>
-      <label className="check-row parents-check"><input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} required /><span>אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה</span></label>
-      <label className="check-row parents-check"><input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} required /><span>קראתי את התקנון ואת מדיניות הביטול</span></label>
+      <Disclosure plans={plans} />
+      <ConsentBoxes adult={adult} setAdult={setAdult} terms={terms} setTerms={setTerms} />
       {error && <p className="form-error" role="alert">{error}</p>}
       <Button className="btn-block btn-lg" onClick={go} disabled={busy}>{busy ? 'פותחים את דף התשלום…' : 'למעבר לתשלום מאובטח'}</Button>
       <p className="footnote">התשלום נעשה בדף של חברת הסליקה. פרטי הכרטיס לא עוברים דרך מדרגות.</p>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- renewing a one-year plan (trust spec TRUST-10 §3)
+// The year_ending emails link here (/parents?renew=year). A renewal is a new consent: the price, the new year's end,
+// the disclosure and the two boxes again, then the payment page. It opens 45 days before the end (renewFrom); earlier,
+// the card says from when. The parents lane restyles this card; its rules are the server's (canRenew).
+function RenewYear({ plan, plans }) {
+  const [adult, setAdult] = useState(false);
+  const [terms, setTerms] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const year = planOf(plans, 'family_year');
+  const vat = vatLine(plans?.vatMode);
+  const ends = dateNum(plan.periodEnd);
+  if (!plan.canRenew || !year) {
+    return (
+      <section className="card parents-card parents-renew" aria-labelledby="renew-title">
+        <h2 id="renew-title" className="card-title">חידוש לשנה נוספת</h2>
+        <p>{plan.renewFrom && Date.parse(plan.renewFrom) > Date.now()
+          ? `אפשר לחדש את המנוי לשנה נוספת מ־${dateNum(plan.renewFrom)}. נשלח לכם מייל לפני כן.`
+          : `השנה הזו כבר חודשה פעם אחת. אחרי ${ends} אפשר להצטרף שוב כאן.`}</p>
+      </section>
+    );
+  }
+  const newEnd = dateNum(addMonths(new Date(plan.periodEnd), 12).toISOString());
+  const go = async () => {
+    if (!adult || !terms) { setError(consentError(adult)); return; }
+    setError(''); setBusy(true);
+    try { await startCheckout('family_year', { terms: plans.termsVersion }); } catch (e) { setError(e.message); setBusy(false); }
+  };
+  return (
+    <section className="card parents-card parents-renew" aria-labelledby="renew-title">
+      <h2 id="renew-title" className="card-title">המנוי לשנה מסתיים ב־{ends}</h2>
+      <div className="stack">
+        <p>הוא לא מתחדש מעצמו. אם תרצו להמשיך, אפשר לחדש עכשיו לשנה נוספת.</p>
+        <p className="parents-sum">שנה נוספת: {formatAgorot(year.amountAgorot)} ({plans?.vatMode === 'exempt' ? 'המחיר סופי' : 'כולל מע״מ 18%'}), מ־{ends} עד {newEnd}.</p>
+        <p className="parents-terms-line">גם השנה הנוספת לא מתחדשת מעצמה. ב־14 הימים אחרי התשלום אפשר לבטל אותה ולקבל החזר מלא, והמנוי הנוכחי ממשיך עד {ends}.</p>
+        <Disclosure plans={plans} />
+        <ConsentBoxes adult={adult} setAdult={setAdult} terms={terms} setTerms={setTerms} />
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <Button className="btn-block btn-lg" onClick={go} disabled={busy}>{busy ? 'פותחים את דף התשלום…' : `חידוש לשנה נוספת (${formatAgorot(year.amountAgorot)}, ${vat})`}</Button>
+        <p className="muted">אחרי {ends} אפשר להצטרף גם למנוי חודשי.</p>
+      </div>
+    </section>
   );
 }
 
@@ -152,10 +224,12 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
       onCancelled(r);
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
+  // the latest payment renewed a one-year plan whose new year has not started: a refund takes only the new year back
+  const keeps = plan.renewalUndoEnd ? dateNum(plan.renewalUndoEnd) : null;
   const options = [
     { id: 'period_end', text: endsNow ? 'לבטל עכשיו, בלי חיובים נוספים' : `לבטל בסוף התקופה (העוזר החכם פתוח עד ${ends})` },
-    plan.canRefundNow && { id: 'refund_now', text: `לבטל עכשיו ולקבל החזר מלא של ${formatAgorot(plan.priceAgorot)} (העוזר החכם ייסגר מיד)` },
-    plan.canProrata && plan.prorataAgorot > 0 && { id: 'prorata', text: `לבטל עכשיו ולקבל החזר יחסי של ${formatAgorot(plan.prorataAgorot)} (העוזר החכם ייסגר מיד)` },
+    plan.canRefundNow && { id: 'refund_now', text: keeps ? `לבטל את החידוש ולקבל החזר מלא של ${formatAgorot(plan.priceAgorot)} (המנוי ממשיך עד ${keeps})` : `לבטל עכשיו ולקבל החזר מלא של ${formatAgorot(plan.priceAgorot)} (העוזר החכם ייסגר מיד)` },
+    plan.canProrata && plan.prorataAgorot > 0 && { id: 'prorata', text: keeps ? `לבטל את החידוש ולקבל החזר של ${formatAgorot(plan.prorataAgorot)} (המנוי ממשיך עד ${keeps})` : `לבטל עכשיו ולקבל החזר יחסי של ${formatAgorot(plan.prorataAgorot)} (העוזר החכם ייסגר מיד)` },
   ].filter(Boolean);
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title="לבטל את המנוי?">
@@ -240,6 +314,8 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing }) {
   let status;
   if (canceled) status = `המנוי בוטל. העוזר החכם פתוח עד ${dateNum(p.periodEnd)}, ולא יהיו חיובים נוספים.`;
   else if (pastDue) status = 'התשלום האחרון לא עבר';
+  // a one-year plan has no next charge (TRUST-10 §1): only its end
+  else if (p.plan === 'family_year') status = `המנוי לשנה פעיל עד ${dateNum(p.periodEnd)}`;
   else if (p.priceAgorot) status = `המנוי פעיל · החיוב הבא: ${formatAgorot(p.priceAgorot)} ב־${dateNum(p.periodEnd)}`;
   else status = `המנוי פעיל עד ${dateNum(p.periodEnd)}`;
   const unlinkName = unlink?.label ? `במכשיר "${unlink.label}"` : 'במכשיר של הילד';
@@ -247,6 +323,7 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing }) {
     <section className={clsx('card parents-card parents-plan', !canceled && 'is-on')} aria-labelledby="plan-title">
       <h2 id="plan-title" className="card-title">{status}</h2>
       {pastDue && <p className="parents-warn">חברת הסליקה תנסה שוב בימים הקרובים, והעוזר החכם ממשיך לעבוד עד {dateNum(p.accessUntil || p.periodEnd)}.</p>}
+      {p.plan === 'family_year' && !canceled && <p className="muted">הוא לא מתחדש מעצמו, ולא נחייב אתכם שוב בלי שתבקשו.</p>}
       {p.economy && <p className="parents-note">החודש השימוש גבוה במיוחד, אז עד ה־1 בחודש העוזר עונה בשיחה בגרסה קצרה, ובדיקות הצילום והמבחן נחות. כך כתוב בתקנון, בסעיף שימוש הוגן.</p>}
       {canceled && !renewing && <Button className="btn-block" onClick={resume} disabled={busy}>לחדש את המנוי</Button>}
       <p className="parents-usage">השבוע: {u.tutor || 0} שאלות לעוזר, {u.check || 0} בדיקות דף</p>
@@ -507,6 +584,8 @@ export default function Parents({ mode = 'home' }) {
   const adultStep = !qa && !adultOk && needsAdultStep({ mode, role, session });
   const server = !qa?.nosrv && (qa || hasServer());
   const orderId = params.get('order');
+  // the one-year plan's end-date emails link here with ?renew=year (trust spec TRUST-10 §2)
+  const renewAsked = params.get('renew') === 'year';
 
   // a code from the QR (?c=) and "continue on this device" (?here=1) survive sign-in and the payment page
   useEffect(() => {
@@ -564,7 +643,7 @@ export default function Parents({ mode = 'home' }) {
   const cancelled = (r, { licence = false } = {}) => {
     setCancelOpen(false);
     const refund = r.refundAgorot > 0 ? ' ההחזר יגיע לאמצעי התשלום תוך 14 ימים לכל היותר.' : '';
-    const lead = licence ? 'ביטלתם את רישיון הכיתה.' : 'ביטלתם.';
+    const lead = licence ? 'ביטלתם את רישיון הכיתה.' : r.status === 'active' ? 'ביטלתם את החידוש.' : 'ביטלתם.';
     say({ tone: 'good', text: `${lead} שלחנו אישור למייל. מספר אישור: ${r.reference}.${refund}`, node: <>{lead} שלחנו אישור למייל. מספר אישור: <Reference value={r.reference} />.{refund}</> });
     if (qa) { if (!licence) setAcct({ ...acct, plan: { ...acct.plan, status: r.status, cancelAtPeriodEnd: true } }); } else loadAccount();
   };
@@ -650,6 +729,9 @@ export default function Parents({ mode = 'home' }) {
         {acct.billingHold && <p className="parents-warn">יש בירור פתוח על תשלום קודם. כתבו אלינו אל {plans.contact ? <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a> : 'מדרגות'}.</p>}
         {plans.paywall === false && <section className="card parents-card"><p className="card-title">כרגע העוזר החכם פתוח בלי מנוי.</p></section>}
         {plan && <PlanCard acct={acct} plans={plans} qa={!!qa} onChanged={loadAccount} onCancel={() => setCancelOpen(true)} onRenew={() => setRenewing(true)} renewing={renewing} />}
+        {plan?.plan === 'family_year' && plan.status === 'active' && (plan.canRenew || renewAsked) && !orderId && !acct.billingHold && plans.paywall !== false && (
+          <RenewYear plan={plan} plans={plans} />
+        )}
         {plan && here && (
           <section className="card parents-card" aria-labelledby="here-title">
             <h2 id="here-title" className="card-title">המכשיר הזה</h2>
@@ -679,7 +761,7 @@ export default function Parents({ mode = 'home' }) {
         {(!plan || renewing) && !acct.billingHold && plans.paywall !== false && !orderId && role !== 'teacher' && (
           <section className="card parents-card" aria-labelledby="join-title">
             <h2 id="join-title" className="card-title">{plan ? 'מנוי חדש' : 'אין מנוי פעיל'}</h2>
-            <Checkout plans={plans} linkCode={linkCode} />
+            <Checkout plans={plans} linkCode={linkCode} initial={renewAsked ? 'family_year' : 'family_month'} />
           </section>
         )}
         <CancelSheet open={cancelOpen} onOpenChange={setCancelOpen} plan={plan} onCancelled={cancelled} qa={!!qa} />

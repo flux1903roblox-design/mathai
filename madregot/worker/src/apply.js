@@ -5,13 +5,22 @@
 //   truth = { status: paid|failed|canceled|refunded|chargeback, mode, currency, amountAgorot, orderRef,
 //             providerPaymentId, providerSubscriptionId, periodStart, periodEnd, occurredAt, invoiceUrl }
 //   ctx   = { mode, now, provider, eventId, graceDays, order, sub, live, liveTrial, liveOther, charge, latestCharge,
-//             chargeRefunds, chargebackExists, paymentExists, ids: { sub, payment } }
+//             chargeRefunds, chargebackExists, paymentExists, renewal, renewalSub, chargeRenewal, ids: { sub, payment } }
 //   (liveOther: another running plan of the same family or class, for a renewal of an ended plan; chargeRefunds: the
-//   refunds already recorded against the charge, so a repeated or second refund report never clashes or double-counts)
+//   refunds already recorded against the charge, so a repeated or second refund report never clashes or double-counts;
+//   renewal: the order_renewals row of an order that renews a one-year plan, and renewalSub that plan; chargeRenewal: the
+//   order_renewals row of the charge a refund report is about)
 import { tzOffsetMinutes } from './util.js';
 
 export const PLAN_MONTHS = { family_month: 1, family_year: 12, class_year: 12, term: 12, trial: 0 };
 export const REFUND_DAYS = 14;
+/**
+ * The plans with a standing order at the provider (trust spec TRUST-10 §1): only the monthly plan renews by itself. The
+ * one-year plan (Consumer Protection Law s.13א) and the class licence are one payment each; a new year is a new act of
+ * the payer. A lawyer who reads s.13א otherwise changes this one list.
+ */
+export const RECURRING_PLANS = Object.freeze(['family_month']);
+export const recurringPlan = (plan) => RECURRING_PLANS.includes(plan);
 const DAY = 864e5;
 
 /**
@@ -82,10 +91,11 @@ export function decide(truth, ctx) {
 
   if (truth.status === 'paid') {
     if (ctx.paymentExists) return done('ignored_old', 'payment already recorded');
-    if (order && order.status !== 'paid') return firstPayment(truth, ctx, order, at, amount, done);
-    // a further charge for an order that was already paid: a class licence never renews, and a charge from another
-    // standing order is not this plan's renewal, so it is a second payment for the same thing and goes back
-    if (order && sub && (order.plan === 'class_year' || (truth.providerSubscriptionId || null) !== (sub.provider_subscription_id || null))) {
+    if (order && order.status !== 'paid') return ctx.renewal ? renewYear(truth, ctx, order, at, amount, done) : firstPayment(truth, ctx, order, at, amount, done);
+    // a further charge for an order that was already paid: a class licence and a one-year plan never renew by
+    // themselves, and a charge from another standing order is not this plan's renewal, so it is a second payment for
+    // the same thing and goes back
+    if (order && sub && (!recurringPlan(order.plan) || (truth.providerSubscriptionId || null) !== (sub.provider_subscription_id || null))) {
       if (amount !== order.amount_agorot) {
         return done('mismatch', `amount ${amount}≠${order.amount_agorot}`, { notices: [ownerN(ctx, 'mismatch', { order: order.id, amountAgorot: amount, expected: order.amount_agorot })] });
       }
@@ -142,8 +152,16 @@ export function decide(truth, ctx) {
     if (refunded <= 0) return done('ignored_old', 'nothing left to refund', { notices: [ownerN(ctx, 'refund_unmatched', { charge: charge.id, amountAgorot: Math.abs(amount) })] });
     const full = refundedBefore + refunded >= charge.amount_agorot && (!ctx.latestCharge || ctx.latestCharge.id === charge.id);
     const ops = [payment(ctx, truth, { kind: 'refund', amount: -refunded, sub: charge.subscription_id, order: charge.order_id, at, ppid: keyOf })];
-    // a plan refunded in full ends, and the provider is told to stop its standing order
-    if (full && target && target.status !== 'ended') ops.push({ op: 'sub.end', id: target.id, reason: 'refunded', end: endAt(target, at), now: ctx.now, stop: true });
+    // the charge renewed a one-year plan whose new year has not started (trust spec TRUST-10 §3): the refund takes the
+    // new year back, and the year that was paid before runs to its end. When the cooling-off cancellation already did
+    // that, the plan is no longer renewed and nothing changes.
+    const undo = ctx.chargeRenewal && target && target.status !== 'ended' && ctx.now < ctx.chargeRenewal.prev_end;
+    if (full && undo) {
+      if (target.current_period_start === ctx.chargeRenewal.prev_end) ops.push(unrenewOp(ctx, target, ctx.chargeRenewal));
+    } else if (full && target && target.status !== 'ended') {
+      // a plan refunded in full ends, and the provider is told to stop its standing order
+      ops.push({ op: 'sub.end', id: target.id, reason: 'refunded', end: endAt(target, at), now: ctx.now, stop: true });
+    }
     ops.push(audit(ctx, 'refund', `sub:${charge.subscription_id}`, { amountAgorot: refunded }));
     return done('applied', full ? 'full refund' : 'partial refund', {
       subscriptionId: charge.subscription_id, amount: -refunded, ops,
@@ -207,7 +225,8 @@ function firstPayment(truth, ctx, order, at, amount, done) {
   const row = {
     id: ctx.ids.sub, kind: family ? 'family' : 'class', account_id: order.account_id || null, class_code: family ? null : order.class_code,
     plan: order.plan, status: 'active', provider: ctx.provider,
-    provider_subscription_id: family ? (truth.providerSubscriptionId || null) : null,
+    // a standing order only for the plan that renews by itself (TRUST-10 §1): a one-year plan keeps none
+    provider_subscription_id: recurringPlan(order.plan) ? (truth.providerSubscriptionId || null) : null,
     price_agorot: order.amount_agorot, seats: family ? null : order.seats, invoice_ref: null,
     current_period_start: start, current_period_end: end > start ? end : addMonths(start, months || 1),
     cancel_at_period_end: 0, cancel_requested_at: null, ended_reason: null, first_paid_at: at, refund_until: new Date(Date.parse(at) + REFUND_DAYS * DAY).toISOString(), last_event_at: at,
@@ -224,7 +243,44 @@ function firstPayment(truth, ctx, order, at, amount, done) {
   );
   return done('applied', `start ${order.plan}`, {
     subscriptionId: row.id, ops, acknowledge: true,
-    notices: order.account_id ? [{ ref: row.id, kind: 'welcome', to: order.account_id, params: { plan: order.plan, priceAgorot: amount, periodEnd: row.current_period_end } }] : [],
+    notices: order.account_id ? [{ ref: row.id, kind: 'welcome', to: order.account_id, params: { plan: order.plan, priceAgorot: amount, periodEnd: row.current_period_end, paidAt: at } }] : [],
+  });
+}
+
+/** Back to the year that was paid before a renewal (TRUST-10 §3): its start and end, still active, with no refund window left. */
+export const unrenewOp = (ctx, sub, renewal) => ({ op: 'sub.unrenew', id: sub.id, start: renewal.prev_start, end: renewal.prev_end, renewedStart: renewal.prev_end, now: ctx.now });
+
+/**
+ * A payment for an order that renews a one-year plan (trust spec TRUST-10 §3): a renewal is a new consent, so it is an
+ * order of its own, and paying it extends that plan by a year from where it ends (prev_end), with a payment of its own
+ * and a cooling-off window from this payment. A second payment for the same renewal (the plan already moved past
+ * prev_end) goes back. When the plan ended before the payment came, the renewal is a new plan from the payment.
+ */
+function renewYear(truth, ctx, order, at, amount, done) {
+  const r = ctx.renewal; const sub = ctx.renewalSub;
+  if (amount !== order.amount_agorot) {
+    return done('mismatch', `amount ${amount}≠${order.amount_agorot}`, { notices: [ownerN(ctx, 'mismatch', { order: order.id, amountAgorot: amount, expected: order.amount_agorot })] });
+  }
+  const running = sub && sub.kind === 'family' && sub.account_id && sub.account_id === order.account_id && ['active', 'past_due', 'canceled'].includes(sub.status);
+  if (!running) return firstPayment(truth, ctx, order, at, amount, done);
+  if (sub.current_period_end !== r.prev_end) {
+    return giveBackCharge(ctx, truth, done, {
+      outcome: 'duplicate_payment', status: 'duplicate', reason: 'duplicate', sub: sub.id, order: order.id, amount, at,
+      detail: 'the year was already renewed', owner: 'duplicate_payment', ops: [{ op: 'order.paid', id: order.id, subscriptionId: null, at }],
+    });
+  }
+  const newEnd = addMonths(r.prev_end, PLAN_MONTHS[order.plan] || 12);
+  const refundUntil = new Date(Date.parse(at) + REFUND_DAYS * DAY).toISOString();
+  return done('applied', `renew ${order.plan}`, {
+    subscriptionId: sub.id, acknowledge: true,
+    ops: [
+      { op: 'sub.extendYear', id: sub.id, prevEnd: r.prev_end, newEnd, price: amount, refundUntil, lastEventAt: maxIso(sub.last_event_at, at), now: ctx.now },
+      { op: 'order.paid', id: order.id, subscriptionId: sub.id, at },
+      payment(ctx, truth, { amount, sub: sub.id, order: order.id, periodEnd: newEnd, at }),
+      audit(ctx, 'subscription.renew', `sub:${sub.id}`, { plan: order.plan, amountAgorot: amount, from: r.prev_end, to: newEnd }),
+    ],
+    // the written confirmation of this new transaction; its cooling-off clock starts when it really leaves (email.js)
+    notices: [{ ref: sub.id, kind: `welcome:${order.id}`, to: order.account_id, params: { plan: order.plan, priceAgorot: amount, periodEnd: newEnd, prevEnd: r.prev_end, renewal: true, paidAt: at } }],
   });
 }
 

@@ -405,6 +405,70 @@ test.describe('the smart tutor', () => {
     await expect(page.getByRole('contentinfo', { name: 'ביטול מנוי ומידע משפטי' })).toContainText('רחוב הבדיקה 1');
   });
 
+  test('before paying: the monthly plan renews each month until cancelled; the yearly plan is one year and never renews by itself', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: 'parent@example.test' }) } });
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible();
+    // the monthly plan (s.13ד): when it renews, for how much, until when, and how to stop it, next to the button
+    await expect(page.getByText('סה״כ לתשלום היום: ₪29.90 (כולל מע״מ 18%). החיוב הבא: 05.12.2026.')).toBeVisible();
+    await expect(page.getByText('המנוי מתחדש אוטומטית בכל חודש, ב־5 לחודש, ב־₪29.90 כולל מע״מ, עד שמבטלים. מבטלים בכל רגע באתר, במייל או בטלפון, בלי קנס.')).toBeVisible();
+    await expect(page.getByRole('radio', { name: /חודשי/ })).toContainText('מתחדש כל חודש');
+    await shot(page, 'checkout-month');
+    // the yearly plan (s.13א): one year, no further charge, the email before the end
+    await expect(page.getByRole('radio', { name: /שנתי/ })).toContainText('₪249 לשנה, כולל מע״מ (₪20.75 לחודש) · לשנה אחת, לא מתחדש מעצמו');
+    await page.getByRole('radio', { name: /שנתי/ }).click();
+    await expect(page.getByText('המנוי לשנה אחת, עד 05.11.2027. הוא לא מתחדש מעצמו ולא נחייב אתכם שוב. 45 ימים לפני הסוף נשלח מייל, ואם תרצו, תחדשו בלחיצה.')).toBeVisible();
+    await expect(page.getByText('סה״כ לתשלום היום: ₪249 (כולל מע״מ 18%).', { exact: true })).toBeVisible();
+    await expect(page.getByText(/החיוב הבא|מתחדש אוטומטית/)).toHaveCount(0);
+    await shot(page, 'checkout-year');
+    await page.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await page.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await page.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    await page.waitForURL(`${PAY}/**`);
+    expect(log.find((r) => r.path === '/api/billing/checkout').body).toMatchObject({ plan: 'family_year', adult: true, terms: '2026-11' });
+  });
+
+  test('the end-date email\'s link (?renew=year): a one-year plan in its last 45 days renews here, a new consent; earlier, the page says from when', async ({ page }) => {
+    const year = { plan: 'family_year', priceAgorot: 24900, renews: false, canRefundNow: false, canResume: false };
+    const { st, log } = await fakeServer(page, { parentOk: true, plan: livePlan({ ...year, periodEnd: '2026-11-25T10:00:00Z', canRenew: true, renewFrom: '2026-10-11T10:00:00Z' }) }, baseOf());
+    st.sessions.add(TOKEN(10));
+    const session = { 'madregot-parent': JSON.stringify({ token: TOKEN(10), email: 'parent@example.test' }) };
+    await open(page, '#/parents?renew=year', parentPhone(), { local: session });
+    // the plan card: an end, no next charge
+    await expect(page.getByRole('heading', { name: 'המנוי לשנה פעיל עד 25.11.2026' })).toBeVisible();
+    await expect(page.getByText('הוא לא מתחדש מעצמו, ולא נחייב אתכם שוב בלי שתבקשו.')).toBeVisible();
+    await expect(page.getByText(/החיוב הבא/)).toHaveCount(0);
+    const card = page.locator('section', { has: page.getByRole('heading', { name: 'המנוי לשנה מסתיים ב־25.11.2026' }) });
+    await expect(card).toContainText('שנה נוספת: ₪249 (כולל מע״מ 18%), מ־25.11.2026 עד 25.11.2027.');
+    await expect(card).toContainText('ב־14 הימים אחרי התשלום אפשר לבטל אותה ולקבל החזר מלא, והמנוי הנוכחי ממשיך עד 25.11.2026.');
+    await expect(card).toContainText('אחרי 25.11.2026 אפשר להצטרף גם למנוי חודשי.');
+    await expect(card.getByLabel('פרטי העסק')).toContainText('מדרגות בדיקה');
+    await card.scrollIntoViewIfNeeded();
+    await shot(page, 'renew-year');
+    // a renewal is a new consent: the two boxes again
+    const renew = card.getByRole('button', { name: 'חידוש לשנה נוספת (₪249, כולל מע״מ)' });
+    await renew.click();
+    await expect(card.getByRole('alert')).toContainText('מעל גיל 18');
+    await card.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await card.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await renew.click();
+    await page.waitForURL(`${PAY}/**`);
+    expect(log.find((r) => r.path === '/api/billing/checkout').body).toMatchObject({ plan: 'family_year', adult: true, terms: '2026-11' });
+    // the link opened too early: never a dead end, the page says from when
+    st.plan = livePlan({ ...year, periodEnd: '2027-06-01T10:00:00Z', canRenew: false, renewFrom: '2027-04-17T10:00:00Z' });
+    await open(page, '#/parents?renew=year', parentPhone(), { local: session });
+    await expect(page.getByRole('heading', { name: 'חידוש לשנה נוספת' })).toBeVisible();
+    await expect(page.getByText('אפשר לחדש את המנוי לשנה נוספת מ־17.04.2027. נשלח לכם מייל לפני כן.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /חידוש לשנה נוספת \(/ })).toHaveCount(0);
+    // a renewal in its 14 days: cancelling it keeps the year that was paid before
+    st.plan = livePlan({ ...year, periodEnd: '2027-11-25T10:00:00Z', canRenew: false, canRefundNow: true, renewalUndoEnd: '2026-11-25T10:00:00Z' });
+    await open(page, '#/parents', parentPhone(), { local: session });
+    await page.getByRole('button', { name: 'ביטול המנוי' }).click();
+    await expect(page.getByRole('radio', { name: 'לבטל את החידוש ולקבל החזר מלא של ₪249 (המנוי ממשיך עד 25.11.2026)' })).toBeVisible();
+    await shot(page, 'renew-undo');
+  });
+
   test('a teacher: the licence card, a request with code sign-in, a licence code, the join lock and removing a student', async ({ page }) => {
     const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/teacher', teacher());

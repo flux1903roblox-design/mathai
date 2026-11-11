@@ -138,7 +138,7 @@ test('reconciliation extends a renewing plan only from the truth pulled from the
   assert.ok(st(silent).current_period_end > new Date().toISOString());
 });
 
-test('the yearly renewal reminder is queued once at 45 days, the licence-ending email once at 30 days', async () => {
+test('the one-year plan\'s end-date email is queued once at 30-45 days, the licence-ending email once at 30 days', async () => {
   h = await setup();
   await signIn(h, 'year@example.test'); await signIn(h, 'buyer@example.test'); await signIn(h, 'teacher@example.test');
   const year = accountId(h.env, 'year@example.test');
@@ -155,13 +155,13 @@ test('the yearly renewal reminder is queued once at 45 days, the licence-ending 
   insertSub(h.env, { kind: 'class', class_code: 'PQR234', plan: 'term', end: ago(-40 * DAY) });
   await run(h.env, { now: night() });
   await run(h.env, { now: night() });
-  const kinds = rows(h.env, "SELECT ref, kind, to_account FROM notices WHERE kind LIKE 'renewal_reminder:%' OR kind LIKE 'licence_ending:%' ORDER BY kind");
-  assert.deepEqual(kinds.map((n) => [n.ref, n.kind.split(':')[0]]).sort(), [[bought.id, 'licence_ending'], [granted.id, 'licence_ending'], [due.id, 'renewal_reminder']].sort());
+  const kinds = rows(h.env, "SELECT ref, kind, to_account FROM notices WHERE kind LIKE 'year_ending%' OR kind LIKE 'renewal_reminder:%' OR kind LIKE 'licence_ending:%' ORDER BY kind");
+  assert.deepEqual(kinds.map((n) => [n.ref, n.kind.split(':')[0]]).sort(), [[bought.id, 'licence_ending'], [granted.id, 'licence_ending'], [due.id, 'year_ending']].sort());
   assert.equal(kinds.find((n) => n.ref === granted.id).to_account, accountId(h.env, 'teacher@example.test'), 'to the teacher who asked');
   const mail = (subject) => h.net.log.email.filter((m) => m.subject.startsWith(subject));
-  assert.equal(mail('המנוי השנתי מתחדש ב־').length, 1);
-  assert.match(mail('המנוי השנתי מתחדש ב־')[0].text, /₪249\.00, כולל מע״מ/);
-  assert.match(mail('המנוי השנתי מתחדש ב־')[0].text, /לביטול המנוי: https:\/\/madregot\.example\.test\/cancel/);
+  assert.equal(mail('המנוי לשנה מסתיים ב־').length, 1);
+  assert.match(mail('המנוי לשנה מסתיים ב־')[0].text, /₪249\.00 \(כולל מע״מ\): https:\/\/madregot\.example\.test\/parents\?renew=year/);
+  assert.match(mail('המנוי לשנה מסתיים ב־')[0].text, /לביטול המנוי: https:\/\/madregot\.example\.test\/cancel/);
   assert.equal(mail('רישיון הכיתה מסתיים ב־').length, 2);
   assert.ok(mail('רישיון הכיתה מסתיים ב־').some((m) => m.to[0] === 'buyer@example.test' && /ABC234/.test(m.text)));
 });

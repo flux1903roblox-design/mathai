@@ -1,17 +1,17 @@
 // The hourly cron ([triggers] crons = ["7 * * * *"] in wrangler.toml; scheduled() in index.js calls run()).
 //
-// Every hour: end plans whose time is over (past_due after the grace days, finished terms, trials and class licences,
-// canceled plans at their period end), expire open orders after 2 h, retry cancellations the provider has not confirmed
-// (owner notice after 24 h), process the refund queue, and send pending notices.
+// Every hour: end plans whose time is over (past_due after the grace days, finished terms, trials, class licences and
+// one-year family plans, canceled plans at their period end), expire open orders after 2 h, retry cancellations the
+// provider has not confirmed (owner notice after 24 h), process the refund queue, and send pending notices.
 //
-// In the 03:00 hour in Jerusalem: reconcile renewing plans whose period is over with the provider (extend only from the
-// truth pulled from it, or end the plan), queue the yearly renewal reminder (45 days ahead) and the licence-ending email
-// (30 days ahead), purge what is no longer needed (spec §6.9, and the safety records), alert the owner when yesterday's
+// In the 03:00 hour in Jerusalem: reconcile the monthly plans whose period is over with the provider (extend only from
+// the truth pulled from it, or end the plan), queue the one-year plan's end-date emails (30-45 days and 7 days ahead,
+// trust spec TRUST-10 §2) and the licence-ending email (30 days ahead), purge what is no longer needed (spec §6.9, and the safety records), alert the owner when yesterday's
 // safety events jumped, and queue the owner's daily summary when OWNER_DAILY_SUMMARY = "true". Each step runs on its
 // own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
-import { retryCancels, processRefundQueue } from './billing.js';
+import { retryCancels, processRefundQueue, prices, vatOf } from './billing.js';
 import { purgeAccountsSql } from './account.js';
 import { purgeFamilySql } from './family.js';
 import { providerById } from './providers/index.js';
@@ -28,14 +28,17 @@ const changes = (r) => (Array.isArray(r) ? r : [r]).reduce((n, x) => n + Number(
 const auditStmt = (env, action, target, detail) => env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
   .bind(nowIso(), 'cron', action, target, JSON.stringify(detail || {}));
 
-/** Plans whose time is over. Recurring plans that are still active are left to the provider's renewal events. */
+/**
+ * Plans whose time is over. The monthly plan, which renews by itself, is left to the provider's renewal events while it
+ * is active; a one-year plan ends at its end like a licence (trust spec TRUST-10 §1): nothing is charged again.
+ */
 export async function endFinished(env) {
   const now = nowIso();
   const grace = addDays(now, -limits(env).graceDays);
   const r = await env.DB.batch([
     env.DB.prepare("UPDATE subscriptions SET status = 'ended', ended_reason = 'payment_failed', updated_at = ? WHERE status = 'past_due' AND current_period_end <= ?").bind(now, grace),
     env.DB.prepare(`UPDATE subscriptions SET status = 'ended', ended_reason = 'expired', updated_at = ?
-      WHERE status = 'active' AND plan IN ('term', 'trial', 'class_year') AND current_period_end <= ?`).bind(now, now),
+      WHERE status = 'active' AND plan IN ('term', 'trial', 'class_year', 'family_year') AND current_period_end <= ?`).bind(now, now),
     env.DB.prepare("UPDATE subscriptions SET status = 'ended', ended_reason = COALESCE(ended_reason, 'canceled'), updated_at = ? WHERE status = 'canceled' AND current_period_end <= ?").bind(now, now),
   ]);
   return changes(r);
@@ -44,7 +47,8 @@ export async function endFinished(env) {
 export const expireOrders = (env) => env.DB.prepare("UPDATE orders SET status = 'expired' WHERE status = 'open' AND expires_at < ?").bind(nowIso()).run();
 
 /**
- * Renewing plans (family_month, family_year) whose period is over with no renewal event: ask the provider. Its pulled
+ * Monthly plans (the one plan that renews by itself; a one-year plan ends in endFinished) whose period is over with no
+ * renewal event: ask the provider. Its pulled
  * truth may extend the plan (never shorten it) or end it. With no answer to go on (a provider without the API, or a
  * plan the provider does not know), an active plan ends once the grace days have passed as well, as a failed payment:
  * a late renewal event still brings it back (apply.js), and the family can subscribe again meanwhile.
@@ -55,7 +59,7 @@ export async function reconcile(env, { limit = 100 } = {}) {
   const grace = addDays(now, -limits(env).graceDays);
   // every renewing plan past its period, also one stored without the provider's subscription id (nothing can be pulled
   // for it, so it ends after the grace days like a plan the provider does not know, instead of staying 'active' forever)
-  const due = await all(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND plan IN ('family_month', 'family_year')
+  const due = await all(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND plan = 'family_month'
     AND status IN ('active', 'past_due') AND current_period_end <= ? ORDER BY current_period_end LIMIT ?`, now, limit);
   const out = { checked: due.length, extended: 0, ended: 0, failed: 0 };
   for (const sub of due) {
@@ -86,20 +90,28 @@ export async function reconcile(env, { limit = 100 } = {}) {
   return out;
 }
 
-export const RENEWAL_REMINDER_DAYS = 45;
+/**
+ * The one-year plan's end-date notice (trust spec TRUST-10 §2): the law asks for it 60 to 30 days before the end, so it
+ * is queued on the first night inside 30-45 days (a missed night still lands in the window), and once more at 7 days.
+ */
+export const YEAR_ENDING_DAYS = Object.freeze({ from: 30, to: 45, last: 7 });
 export const LICENCE_ENDING_DAYS = 30;
 /**
- * The yearly renewal reminder 45 days ahead (to the payer), and the licence-ending email 30 days ahead (to the buyer, or
+ * The one-year plan's end-date emails, year_ending:<end> (30-45 days ahead) and year_ending_7:<end> (7 days ahead), to
+ * the payer, with the price of a new year as it is now; and the licence-ending email 30 days ahead (to the buyer, or
  * else the teacher who last asked about the class). Each is queued once per period end: the notice key holds the date.
  */
 export async function reminders(env) {
   const now = nowIso();
+  const price = prices(env).family_year;
+  const year = (kind, from, to) => env.DB.prepare(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
+      SELECT id, '${kind}:' || current_period_end, account_id, json_object('periodEnd', current_period_end, 'priceAgorot', ?4, 'vatAgorot', ?5), ?1
+      FROM subscriptions WHERE kind = 'family' AND plan = 'family_year' AND status = 'active' AND account_id IS NOT NULL
+        AND current_period_end > ?2 AND current_period_end <= ?3`).bind(now, from, to, price, vatOf(env, price));
+  const Y = YEAR_ENDING_DAYS;
   const r = await env.DB.batch([
-    env.DB.prepare(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
-      SELECT id, 'renewal_reminder:' || current_period_end, account_id, json_object('periodEnd', current_period_end, 'priceAgorot', price_agorot), ?1
-      FROM subscriptions WHERE kind = 'family' AND plan = 'family_year' AND status = 'active' AND cancel_at_period_end = 0
-        AND account_id IS NOT NULL AND price_agorot IS NOT NULL AND current_period_end > ?1 AND current_period_end <= ?2`)
-      .bind(now, addDays(now, RENEWAL_REMINDER_DAYS)),
+    year('year_ending', addDays(now, Y.from), addDays(now, Y.to)),
+    year('year_ending_7', now, addDays(now, Y.last)),
     env.DB.prepare(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
       SELECT id, 'licence_ending:' || current_period_end, recipient, json_object('until', current_period_end, 'classCode', class_code), ?1 FROM (
         SELECT s.id, s.current_period_end, s.class_code, COALESCE(s.account_id, (SELECT r.account_id FROM licence_requests r
@@ -108,7 +120,7 @@ export async function reminders(env) {
           AND s.current_period_end > ?1 AND s.current_period_end <= ?2)
       WHERE recipient IS NOT NULL`).bind(now, addDays(now, LICENCE_ENDING_DAYS)),
   ]);
-  return { renewal: changes(r[0]), licence: changes(r[1]) };
+  return { yearEnding: changes(r[0]), yearEnding7: changes(r[1]), licence: changes(r[2]) };
 }
 
 /**

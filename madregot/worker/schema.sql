@@ -413,3 +413,14 @@ CREATE TABLE IF NOT EXISTS ai_quality (
   n INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (day, kind, reason)
 );
+
+-- An order that renews a one-year plan (trust spec TRUST-10 §3): a renewal is a new consent, so it is an order of its
+-- own, and this row says which plan it renews and the year that plan was paid for (prev_start, prev_end). Written in
+-- the same batch as the order. On payment the plan runs to prev_end + 12 months; a cooling-off refund of the renewal
+-- puts the plan back to prev_start-prev_end, still active. Goes with its order (an expired order is purged after 30 days).
+CREATE TABLE IF NOT EXISTS order_renewals (
+  order_id TEXT PRIMARY KEY REFERENCES orders (id) ON DELETE CASCADE,
+  subscription_id TEXT NOT NULL REFERENCES subscriptions (id),
+  prev_start TEXT NOT NULL,
+  prev_end TEXT NOT NULL
+);
