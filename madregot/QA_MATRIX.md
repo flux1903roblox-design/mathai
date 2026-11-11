@@ -128,3 +128,38 @@ Share of the screen taken by the bottom region (answer, keypad, tools, check) / 
 | AI failure states | 8 of 8 |
 | axe-core | 30 scans, 0 violations |
 | Keyboard focus walk | 7 screens, every control shows a ring |
+
+## The parents' progress report (PARENTS-1 to PARENTS-10)
+
+Added 11 November 2026 on the family lane. Each PASS below is a check that ran on this build: `e2e/report.spec.js` on
+S (320×568) and C (390×844), the Worker's `test/report.test.js` and `test/week.test.js`, the web's unit tests, and the
+`parents-report` and `report-week` visual baselines on S, C and L. Screenshots of every state are in
+`qa-evidence/parent-report/` (C, and `-phone-small` for S). Real phones, real WhatsApp, real mail programs and a real
+Resend send: NOT TESTED (owner steps, `SUBSCRIPTION.md`, "דוח להורים").
+
+| Flow or state | Check | S | C | L |
+|---|---|---|---|---|
+| 1. The child's weekly summary: tiles, mastered, repairs, Shabbat as rest; the share sheet; the `wa.me` text with `#/r/1.`; unticking repairs drops `fx`; at most 4,096 characters; no request reaches the API host and no request carries the payload | `report.spec.js` › flow 1 | PASS | PASS | NOT TESTED |
+| 2. The parent opens the link on another phone: the same numbers, no `/api/` request, every request same-origin; a cut link says so | `report.spec.js` › flow 2 | PASS | PASS | NOT TESTED |
+| 3. A linked device: the notice before anything is sent, nothing before "הבנתי", then one post with `X-Family-Device` only; the Me chip; the sheet lists the day; stop and delete posts `{on:false, forget:true}`; a new profile is told again | `report.spec.js` › flow 3, and the two notice tests | PASS | PASS | NOT TESTED |
+| 4. `/parents`: each device's week and last week, 8 weeks with an 8-row table, the parent's switch, deleting history, the feedback question once, the unlink sentence, the checkout line, the Sunday email switch (`role="switch"`, posts `{on}`, toasts) | `report.spec.js` › flow 4 (four tests) | PASS | PASS | Visual baseline PASS |
+| 4. The first day: signed out (About and the free summary), a plan with no device, linked with nothing yet (with the example), nothing this week, a consent-only device (6b) | `report.spec.js` › flow 4, the first day | PASS | PASS | NOT TESTED |
+| 5. A class student's numbers say the teacher sees every answer | `report.spec.js` › flow 5 | PASS | PASS | NOT TESTED |
+| States 8 and 9: an empty week on the child's summary; a broken link | `report.spec.js` › state 8, flow 2 | PASS | PASS | NOT TESTED |
+| The Sunday email: queued only Sunday 07:00-20:00 in Jerusalem, once a week; sent after the other notices in Resend batches of 50, 100 a run in at most 3 SELECTs; no mistake names, no price; RFC 8058 headers; two empty weeks in a row not sent; opted out, unlinked or plan ended between queue and send not sent; the report off sends nothing | Worker `test/report.test.js` W1-W10 | n/a | n/a | n/a |
+| The unsubscribe link: the GET page changes nothing; multipart, urlencoded and empty POSTs stop it; never a 3xx; a bad token is 400; CSP and no-store; 200 a day per network | Worker `test/report.test.js` W7; pages in `qa-evidence/parent-report/unsubscribe-*.png` | PASS (screenshot) | PASS (screenshot) | n/a |
+| The rendered email at a phone width | `node scripts/preview-weekly.mjs`, then `weekly-email.png` and `weekly-email-empty.png` | PASS (no sideways scroll) | PASS (no sideways scroll) | n/a |
+| The words: `/privacy` has the family device's section, the 90 days, the Sunday email and the family exception; `/parents` says what is kept in one merged text, with the 90 days and the progress copy, never "only the email" | `report.spec.js` › the words (PARENTS-9); `src/screens/parents/Legal.test.js`; Worker `test/notice.test.js` | PASS | PASS | NOT TESTED |
+
+**Commands for a judge** (in `madregot/`; nothing here deploys, sends an email or calls a paid service):
+
+```bash
+cd web && npx vitest run && npx tsc -p tsconfig.json
+cd web && npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-small e2e/report.spec.js
+cd web && npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-small --project=desktop e2e/visual.spec.js -g "report"
+cd worker && node --test test/*.test.js
+cd worker && node scripts/preview-weekly.mjs    # writes qa-evidence/parent-report/weekly-email.html and .txt, no network
+```
+
+Add `REPORT_SHOTS=<folder>` before the `report.spec.js` run to save its screenshots; `E2E_PORT=<port>` when another copy
+of the suite is running.

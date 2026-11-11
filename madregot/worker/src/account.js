@@ -1,8 +1,9 @@
 // Parent and teacher accounts: sign-in with a 6-digit code sent by email, no password. Sign-up and sign-in are one flow.
-// The only personal data kept is the email address (the payer's), and only once a code was entered: a pending code is
-// keyed by HMAC(AUTH_SECRET, email), so an address that never signs in is never stored. A session token is stored
-// hashed and sent as X-Account-Token. Sessions are for a parent's or teacher's own browser, never a child's device
-// (those get family-device tokens that work for the AI routes only).
+// The account's personal data is the email address (the payer's), and only once a code was entered: a pending code is
+// keyed by HMAC(AUTH_SECRET, email), so an address that never signs in is never stored. (A family plan also keeps its
+// devices' daily summaries, report.js, and the progress copies' codes, vault.js.) A session token is stored hashed and
+// sent as X-Account-Token. Sessions are for a parent's or teacher's own browser, never a child's device (those get
+// family-device tokens, which reach the AI routes, the device's own summary and its own escrow, never the account).
 import {
   HttpError, body, json, sha256, hmacHex, randomToken, nowIso, addDays, dayOf, safeEqual, netKey, key, take, giveBack,
 } from './util.js';

@@ -10,8 +10,9 @@
 // shows the sign, the sheet shows what was sent, the child can stop it and delete what was sent; and a new profile on
 // the same device is told again before anything goes. Flow 4 (PARENTS-5, PARENTS-6): the paying parent's /parents shows
 // each device's progress, the week switch, 8 weeks with a table, their own switch, deleting a device's history, the
-// usefulness question once, the unlink sentence, the checkout line, and every first-day state. Flow 5: a class
-// student's numbers say the teacher sees them.
+// usefulness question once, the Sunday email's switch (PARENTS-7), the unlink sentence, the checkout line, and every
+// first-day state. Flow 5: a class student's numbers say the teacher sees them. The words (PARENTS-9): /privacy has the
+// family device's section and the 90 days, and /parents says what is kept in one merged text, with no "only the email".
 // Screenshots for the evidence folder with REPORT_SHOTS=<folder>.
 import { mkdirSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
@@ -675,4 +676,30 @@ test('flow 4: the staging copy shows two devices\' progress with ?qa-parent=repo
   await shot(page, 'parents-report');
   await shot(page, 'parents-report-full', { fullPage: true });
   expect(reqs.filter((r) => r.url.includes('/api/'))).toEqual([]);
+});
+
+test('the words (PARENTS-9): /privacy names the family device\'s summary, its 90 days and the Sunday email; /parents says what is kept', async ({ page }) => {
+  await open(page, '#/privacy');
+  const sub = page.getByRole('heading', { level: 3, name: 'מכשיר של ילד שמחובר למנוי המשפחתי' });
+  await expect(sub).toBeVisible();
+  const article = page.locator('article.legal');
+  await expect(article).toContainText('לא נשלחים: התשובות עצמן, שיחות עם העוזר החכם, תמונות, ושם הילד.');
+  await expect(article).toContainText('סיכומי ההתקדמות מהמכשיר של הילד: 90 יום.');
+  await expect(article).toContainText('והסיכום השבועי למי שביקש אותו');
+  await expect(article).toContainText('(חוץ מהסיכום הקצר, כשהמכשיר מחובר למנוי המשפחתי)');
+  await expect(article).not.toContainText('ההתקדמות בתרגול נשמרת במכשיר עצמו.');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await sub.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await page.evaluate(() => window.scrollBy(0, -72));
+  await shot(page, 'privacy-report');
+  // the parents' page, signed out: one merged text that names the summary, its 90 days and the progress copy
+  await open(page, '#/parents?qa-parent=signed-out');
+  const data = page.locator('.parents-about .parents-data');
+  await expect(data).toContainText('מה נשמר אצלנו: כתובת המייל שלכם, פרטי המנוי והתשלומים (בלי פרטי כרטיס), והמכשירים שחיברתם.');
+  await expect(data).toContainText('והוא נמחק אחרי 90 יום.');
+  await expect(data).toContainText('נשמר גם עותק של ההתקדמות בכל מכשיר מחובר, כדי שאפשר יהיה להעביר אותה למכשיר חדש.');
+  await expect(data).not.toContainText('שומרים רק את כתובת המייל');
+  await expect(data.getByRole('link', { name: 'כל הפרטים במדיניות הפרטיות' })).toHaveAttribute('href', '#/privacy');
+  await data.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await shot(page, 'parents-about');
 });
