@@ -435,7 +435,7 @@ CREATE TABLE IF NOT EXISTS safety_events (
   day TEXT NOT NULL,                                   -- YYYY-MM-DD Jerusalem; no time of day
   kind TEXT NOT NULL CHECK (kind IN ('distress','pii_masked','output_blocked','link_removed','refusal','user_report','class_ai_off','parent_ok_needed','photo_redacted')),
   category TEXT NOT NULL DEFAULT '' CHECK (length(category) <= 20),
-  surface TEXT NOT NULL CHECK (surface IN ('chat','explain','check','exam','generate','help_note','photo')),
+  surface TEXT NOT NULL CHECK (surface IN ('chat','explain','check','exam','generate','feedback','help_note','photo')),
   source TEXT NOT NULL CHECK (source IN ('regex','model','client','server')),
   tier TEXT NOT NULL DEFAULT '' CHECK (length(tier) <= 10)
 );
@@ -458,7 +458,7 @@ CREATE TABLE IF NOT EXISTS answer_reports (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL,
   reason TEXT NOT NULL CHECK (reason IN ('wrong_math','not_nice','not_for_kids','other')),
-  kind TEXT NOT NULL CHECK (kind IN ('chat','explain','check','exam','generate')),
+  kind TEXT NOT NULL CHECK (kind IN ('chat','explain','check','exam','generate','feedback')),
   reply TEXT NOT NULL CHECK (length(reply) <= 4000),
   tier TEXT NOT NULL DEFAULT ''
 );
@@ -483,6 +483,38 @@ CREATE TABLE IF NOT EXISTS class_settings (
 -- with the student.
 CREATE TABLE IF NOT EXISTS student_ai_off (student_id TEXT PRIMARY KEY, at TEXT NOT NULL);
 
+-- How the tutor's answers fared (ai spec AI-3 Design 6): counts only, one row per Jerusalem day, kind and reason. A reply
+-- whose final answer the guard masked (answer_masked), a streamed reply that came back empty (empty_stream), and the
+-- generated exercises code dropped (gen_*, AI-4). No person, device, pool or text column. Written by bumpQuality
+-- (src/quality.js) with an upsert; read by the owner's daily summary; kept 400 days (cron.js purgeCountersSql).
+CREATE TABLE IF NOT EXISTS ai_quality (
+  day TEXT NOT NULL,                                   -- YYYY-MM-DD Jerusalem
+  kind TEXT NOT NULL CHECK (kind IN ('explain','chat','check','generate')),
+  reason TEXT NOT NULL CHECK (reason IN ('answer_masked','empty_stream','gen_kept','gen_latex','gen_numbers','gen_leak','gen_solution','gen_equations','gen_blind','gen_all_failed','blind_skipped')),
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, kind, reason)
+);
+
+-- An order that renews a one-year plan (trust spec TRUST-10 §3): a renewal is a new consent, so it is an order of its
+-- own, and this row says which plan it renews and the year that plan was paid for (prev_start, prev_end). Written in
+-- the same batch as the order. On payment the plan runs to prev_end + 12 months; a cooling-off refund of the renewal
+-- puts the plan back to prev_start-prev_end, still active. Goes with its order (an expired order is purged after 30 days).
+CREATE TABLE IF NOT EXISTS order_renewals (
+  order_id TEXT PRIMARY KEY REFERENCES orders (id) ON DELETE CASCADE,
+  subscription_id TEXT NOT NULL REFERENCES subscriptions (id),
+  prev_start TEXT NOT NULL,
+  prev_end TEXT NOT NULL
+);
+
+-- Indexes for the class data's retention (trust spec TRUST-7 §1): the night purge finds old notebook pages, help
+-- requests, attempts and exams, and idle students, by these columns instead of reading every row (cron.js purgeClassSql).
+-- Migration 0005_teacher creates the same five indexes (IF NOT EXISTS), so either lane's migration could land first.
+CREATE INDEX IF NOT EXISTS help_done ON help_requests (done_at);
+CREATE INDEX IF NOT EXISTS help_created ON help_requests (created_at);
+CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
+CREATE INDEX IF NOT EXISTS exams_created ON exams (created_at);
+CREATE INDEX IF NOT EXISTS students_last_seen ON students (last_seen);
+
 -- ---------------------------------------------------------------- the teacher and school lane (migration 0005_teacher)
 -- A class follows its teacher's email: the account that may open it with a sign-in instead of the teacher key.
 -- At most 20 classes per account. The key keeps working beside it (co-teachers, devices without email) until the owner
@@ -502,14 +534,8 @@ CREATE INDEX IF NOT EXISTS class_owners_account ON class_owners (account_id);
 --   audit_log.action  'class.rename' | 'class.delete' (target class:<code>, detail {"students": n})
 
 -- class_settings (above, in the safety section) is also created by migration 0005_teacher, word for word, so either
--- lane's migration could land first; the night purge (TRUST-7) reads its last_seen.
-
--- What the night purge looks up by date (shared/retention.js holds the periods).
-CREATE INDEX IF NOT EXISTS help_done ON help_requests (done_at);
-CREATE INDEX IF NOT EXISTS help_created ON help_requests (created_at);
-CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
-CREATE INDEX IF NOT EXISTS exams_created ON exams (created_at);
-CREATE INDEX IF NOT EXISTS students_last_seen ON students (last_seen);
+-- lane's migration could land first; the night purge (TRUST-7) reads its last_seen. The same holds for the five
+-- retention indexes at the end of the safety section.
 
 -- Work a teacher gives the class, or chosen students, with a due date (spec TEACHER-4). Dates are YYYY-MM-DD in
 -- Jerusalem. Deleted with the class, and by the night purge 400 days after the due date (shared/retention.js).

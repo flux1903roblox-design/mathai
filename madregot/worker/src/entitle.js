@@ -375,13 +375,15 @@ async function openKey(req, env, id, { strict = false } = {}) {
 // ---------------------------------------------------------------- resolve: decide and count one AI request
 /**
  * Decide the tier for one AI request and count it. Returns
- * { tier, pool, group, shape, params, refund (keys to give back on failure), left, limit, economy, linkedBad }.
+ * { tier, pool, group, shape, params, input, refund (keys to give back on failure), left, limit, economy, linkedBad }.
  * Throws the refusal as an HttpError (with X-AI-Linked: 0 when a family-device token was sent but is no longer valid).
  */
 export async function resolve(req, env, kind, input) {
   const id = await identify(req, env);
   try {
-    return { ...(await decide(req, env, kind, id.teacher ? maskFields(input) : input, id)), linkedBad: id.famBad, linked: id.fam };
+    // input: what the request was built from (a teacher's text masked), for a kind that sends more than one request
+    const sent = id.teacher ? maskFields(input) : input;
+    return { ...(await decide(req, env, kind, sent, id)), input: sent, linkedBad: id.famBad, linked: id.fam };
   } catch (e) {
     if (e instanceof HttpError && id.famBad) e.headers = { ...(e.headers || {}), 'X-AI-Linked': '0' };
     throw e;

@@ -10,16 +10,19 @@
 //   rekey    a fresh code before replacing a class's teacher key: no notice, and the button says what it does
 // `askShared` (a teacher's sign-in) offers "shared computer": the session is then kept for this tab only (lib/parent.js).
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { requestCode, verifyCode } from '@/lib/parent.js';
 import { Button, Field } from '@/components/ui.jsx';
 
+// Each note says what the address is for, who receives it and in which country (trust spec TRUST-1 §5), and ends with
+// the link to the privacy notice.
 const NOTES = {
-  join: 'המייל משמש לכניסה, לקבלות ולהודעות על המנוי. צריך אותו רק כדי להצטרף. הוא עובר לשירות שליחת המיילים (Resend) ולחברת הסליקה.',
-  cancel: 'נכנסים עם המייל שאיתו נרשמתם, כדי שרק אתם תוכלו לבטל. הקוד נשלח דרך שירות שליחת המיילים (Resend).',
-  teacher: 'המייל משמש לכניסה, לתשובה על הבקשה ולהצעת המחיר. הוא עובר לשירות שליחת המיילים (Resend).',
-  buy: 'המייל משמש לכניסה, לקבלות ולהודעות על הרישיון. הוא עובר לשירות שליחת המיילים (Resend) ולחברת הסליקה.',
+  join: 'המייל משמש לכניסה, לאישורים, לקבלות ולהודעות על המנוי. הוא עובר לשירות שליחת המיילים Resend (בארה״ב) ולחברת הסליקה.',
+  cancel: 'נכנסים עם המייל שאיתו נרשמתם, כדי שרק אתם תוכלו לבטל. הקוד נשלח דרך שירות שליחת המיילים Resend (בארה״ב).',
+  teacher: 'המייל משמש לכניסה, לתשובה על הבקשה ולהצעת המחיר. הוא עובר לשירות שליחת המיילים Resend (בארה״ב).',
+  buy: 'המייל משמש לכניסה, לקבלות ולהודעות על הרישיון. הוא עובר לשירות שליחת המיילים Resend (בארה״ב) ולחברת הסליקה.',
   stepup: null,
-  teacherAccount: 'המייל משמש רק לכניסה ללוח המורה ולהודעות על הכיתות שלכם. הוא עובר לשירות שליחת המיילים (Resend). התלמידים לא רואים אותו.',
+  teacherAccount: 'המייל משמש רק לכניסה ללוח המורה ולהודעות על הכיתות שלכם. הוא עובר לשירות שליחת המיילים Resend (בארה״ב). התלמידים לא רואים אותו.',
   rekey: null,
 };
 /** The code step's button: what a step-up does, or plain sign-in. */
@@ -80,7 +83,8 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
             <span>מחשב משותף (למשל בחדר המורים): לא לזכור את הכניסה אחרי שסוגרים את הלשונית</span>
           </label>
         )}
-        {note && <p className="footnote">{note}</p>}
+        {/* in the middle of a sign-in: the notice opens in a new tab, so the address typed here stays */}
+        {note && <p className="footnote">{note} <Link to="/privacy" target="_blank" rel="noopener noreferrer">מדיניות הפרטיות<span className="visually-hidden"> (נפתח בכרטיסייה חדשה)</span></Link></p>}
         {error && <p className="form-error" role="alert">{error}</p>}
         <Button type="submit" className="btn-block" disabled={busy || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())}>{busy ? 'שולחים…' : 'שליחת קוד'}</Button>
       </form>

@@ -6,7 +6,7 @@ import { dayOf } from './util.js';
 
 export const SAFETY_KINDS = Object.freeze(['distress', 'pii_masked', 'output_blocked', 'link_removed', 'refusal', 'user_report',
   'class_ai_off', 'parent_ok_needed', 'photo_redacted']);
-export const SAFETY_SURFACES = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate', 'help_note', 'photo']);
+export const SAFETY_SURFACES = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate', 'feedback', 'help_note', 'photo']);
 export const SAFETY_SOURCES = Object.freeze(['regex', 'model', 'client', 'server']);
 /** Rows one request may write; more is a bug in the caller, not something to store. */
 export const MAX_SAFETY_ROWS = 20;

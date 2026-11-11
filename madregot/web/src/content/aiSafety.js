@@ -12,6 +12,8 @@ export const AI_INTRO = Object.freeze({
     'אם קורה משהו שמדאיג אתכם, אפשר לכתוב גם על זה, או ללחוץ על ״צריכים לדבר עם מישהו?״.',
   ]),
   ok: 'הבנתי, אפשר להתחיל',
+  // the public safety statement (trust spec TRUST-2, Appendix D): closes the introduction and sends nothing
+  more: 'עוד על בטיחות ופרטיות',
 });
 
 /** ReportAnswer: the button under an AI answer, its sheet, and what is said after. */

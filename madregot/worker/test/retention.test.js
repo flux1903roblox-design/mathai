@@ -1,13 +1,13 @@
-// Class data retention and class deletion (spec TRUST-7, TRUST-6's shared helper): what the night purge removes and
-// keeps, by the periods in shared/retention.js; the class's last day of activity, written once a day; the 400-day guard
-// on progress uploads; and the teacher deleting a class, proved by a scan of every table. Claude and the email service
-// are stubbed; every name and address is synthetic (example.test).
+// Class data retention and class deletion (trust spec TRUST-7, TRUST-6 §1's shared helper): what the night purge removes
+// and keeps, by the periods in shared/retention.js; the class's last day of activity, written once a day; the 400-day
+// guard on progress uploads; the teacher removing a student or deleting a class, proved by a scan of every table.
+// Claude and the email service are stubbed; every name and address is synthetic (example.test).
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { RETENTION as R } from '../../shared/retention.js';
 import { purge, run, PURGE_BATCH } from '../src/cron.js';
-import { keyIn, STUDENT_ROWS, studentWhere } from '../src/forget.js';
+import { keyIn, STUDENT_ROWS, studentWhere, STUDENT_COUNTERS, CLASS_COUNTERS } from '../src/forget.js';
 import { dayOf, jerusalemMidnight } from '../src/util.js';
 import { setup, makeClass, bearer, signIn, insertSub, setCount, rows, one, advanceClock } from './helpers.js';
 
@@ -53,7 +53,12 @@ async function practise(s, teacher = null) {
   await h.call('POST', '/api/exams', { headers: bearer(s), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
   // the teacher turns the AI off for the student (TRUST-11: student_ai_off)
   if (teacher) assert.equal((await h.call('POST', `/api/teacher/students/${s.studentId}/ai`, { headers: teacher, body: { off: true } })).status, 200);
-  else raw().prepare('INSERT OR IGNORE INTO student_ai_off (student_id, at) VALUES (?, ?)').run(s.studentId, new Date().toISOString());
+  else {
+    // ... or written directly, with its audit row (student.ai, target student:<id>)
+    raw().prepare('INSERT OR IGNORE INTO student_ai_off (student_id, at) VALUES (?, ?)').run(s.studentId, new Date().toISOString());
+    raw().prepare(`INSERT INTO audit_log (at, actor, action, target, detail) SELECT ?, 'teacher:' || class_code, 'student.ai', 'student:' || id, '{"off":true}'
+      FROM students WHERE id = ?`).run(new Date().toISOString(), s.studentId);
+  }
   // the restore code the class keeps for the student (DURABLE-6, vault_escrow), written directly: its route needs
   // VAULT_SECRET and a vault (escrow.test.js). The student's device token (student_tokens) came with the join.
   raw().prepare("INSERT OR IGNORE INTO vault_escrow (id, vault_id, owner_kind, owner_id, sealed, created_at, updated_at) VALUES (?, ?, 'student', ?, 'sealed', ?, ?)")
@@ -81,10 +86,14 @@ async function assignWork(cls) {
   }
   return ids;
 }
-/** The counters a student and a class have, written for today. */
+/** The counters a student and a class have (every prefix forget.js lists, and longer keys), written for today. */
+const STUDENT_KEYS = (id) => [`pin:${id}`, `pin:${id}:n0123456789abcdef`, `s:${id}`, `s:${id}:tutor`, `free:s:${id}`, `care:s:${id}`, `report:s:${id}`,
+  `work:s:${id}`, `helpreply:s:${id}`, `vault:miss:s:${id}`, `escrow:s:${id}`];
+const CLASS_KEYS = (code) => [`t:${code}`, `t:${code}:tutor`, `free:t:${code}`, `free:c:${code}`, `cls:${code}`, `care:t:${code}`, `report:t:${code}`,
+  `licreq:c:${code}`, `licclaim:c:${code}`, `assign:c:${code}`, `report:c:${code}`, `aioff:c:${code}`];
 async function counters(studentIds, code) {
-  for (const id of studentIds) for (const who of [`pin:${id}`, `pin:${id}:n0123456789abcdef`, `s:${id}`, `s:${id}:tutor`, `free:s:${id}`, `care:s:${id}`, `report:s:${id}`, `work:s:${id}`, `helpreply:s:${id}`]) await setCount(h.env, who, 1);
-  for (const who of [`t:${code}`, `t:${code}:tutor`, `free:t:${code}`, `free:c:${code}`, `cls:${code}`, `care:t:${code}`, `report:t:${code}`, `licreq:c:${code}`, `licclaim:c:${code}`, `assign:c:${code}`, `report:c:${code}`, `aioff:c:${code}`]) await setCount(h.env, who, 1);
+  for (const id of studentIds) for (const who of STUDENT_KEYS(id)) await setCount(h.env, who, 1);
+  for (const who of CLASS_KEYS(code)) await setCount(h.env, who, 1);
 }
 /** Make a student, everything of them, and their class look `days` old. */
 function age(code, days) {
@@ -121,6 +130,9 @@ test('notebook pages: 30 days after the request is closed, 60 at most; the reque
     open366: help(id, { created: ago(R.helpMaxDays + 1) }),
     open364: help(id, { created: ago(R.helpMaxDays - 1) }),
   };
+  // the teacher's care mark on a request (TRUST-3) goes with it
+  raw().prepare("INSERT INTO help_meta (help_id, kind, care) VALUES (?, 'help', 1)").run(r.done181);
+  raw().prepare("INSERT INTO help_meta (help_id, kind, care) VALUES (?, 'help', 1)").run(r.done179);
   await purge(h.env);
   const left = Object.fromEntries(rows(h.env, 'SELECT id, image IS NOT NULL AS page FROM help_requests').map((x) => [x.id, x.page]));
   assert.equal(left[r.done31], 0, 'a page closed 31 days ago is gone');
@@ -131,9 +143,11 @@ test('notebook pages: 30 days after the request is closed, 60 at most; the reque
   assert.equal(left[r.done179], 0, 'a request closed 179 days ago stays (without its page)');
   assert.equal(left[r.open366], undefined, 'an open request sent 366 days ago is gone');
   assert.equal(left[r.open364], 0, 'one sent 364 days ago stays, without its page');
+  assert.deepEqual(orphanMeta(), [], 'the gone request took its help_meta row');
+  assert.deepEqual(rows(h.env, 'SELECT help_id FROM help_meta').map((x) => x.help_id), [r.done179]);
 });
 
-test('attempts and exams are kept 400 days; an upload of answers older than that is skipped', async () => {
+test('attempts and exams are kept 400 days; an uploaded answer older than that is not stored again', async () => {
   h = await setup();
   const cls = await makeClass(h, { students: ['נועה'] });
   const [noa] = cls.students;
@@ -142,6 +156,7 @@ test('attempts and exams are kept 400 days; an upload of answers older than that
   // every answer sent is acknowledged (DURABLE-7: the app's outbox lets go of it), but the 401-day-old one is not stored
   assert.deepEqual(res, { saved: 3 }, 'the 401-day-old answer is acknowledged, not stored again');
   assert.equal(rows(h.env, 'SELECT * FROM attempts').length, 2);
+  assert.equal(rows(h.env, 'SELECT * FROM attempts WHERE at < ?', ago(R.attemptsDays)).length, 0);
   raw().prepare('INSERT INTO attempts (student_id, topic, level, ok, first_try, hint, day, at) VALUES (?, ?, 1, 1, 1, 0, ?, ?)')
     .run(noa.studentId, 'neg', '2025-01-01', ago(R.attemptsDays + 1));
   for (const d of [R.examsDays + 1, R.examsDays - 1]) {
@@ -173,12 +188,29 @@ test('a student nobody has seen for 400 days is deleted with all their rows and 
   assert.deepEqual(orphanMeta(), [], 'her help_meta rows went with her help requests');
   assert.equal(noaMessages, 2);
   assert.deepEqual(orphanMessages(), [], 'the replies on her requests went with them');
-  assert.equal(rows(h.env, "SELECT * FROM ai_usage WHERE who LIKE ?", `%${itai.studentId}%`).length, 9, 'his counters stay');
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who LIKE ?', `%${itai.studentId}%`).length, STUDENT_KEYS(itai.studentId).length, 'his counters stay');
   assert.equal(rows(h.env, 'SELECT * FROM assignments WHERE class_code = ?', cls.code).length, 3, "the class's assignments stay");
   assert.ok(one(h.env, 'SELECT * FROM classes WHERE code = ?', cls.code), 'the class stays');
 });
 
-test('counter keys are matched whole: one id is never taken for the start of another', () => {
+test('the teacher removing a student leaves no row with the student in any table, counters included (TRUST-6 §1)', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const [noa, itai] = cls.students;
+  for (const s of cls.students) await practise(s, cls.teacher);
+  await assignWork(cls);
+  await counters([noa.studentId, itai.studentId], cls.code);
+  const r = await h.call('POST', `/api/teacher/students/${noa.studentId}/remove`, { headers: cls.teacher, body: {} });
+  assert.equal(r.status, 200);
+  // the teacher's own audit row names the id it removed; nothing else does
+  assert.deepEqual(mentions(noa.studentId, (table, row) => table === 'audit_log' && row.includes('"student.remove"')), []);
+  assert.deepEqual(orphanMeta(), []);
+  assert.deepEqual(orphanMessages(), []);
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who LIKE ?', `%${itai.studentId}%`).length, STUDENT_KEYS(itai.studentId).length);
+  assert.equal((await h.call('POST', '/api/progress', { headers: bearer(noa), body: { events: [] } })).status, 401, 'her token stops working');
+});
+
+test('counter keys are matched whole: one id is never taken for the start of another; every prefix is a counter forget.js deletes', () => {
   const sql = `SELECT who FROM ai_usage WHERE ${keyIn('s:', "SELECT 'ab12'")} ORDER BY who`;
   const db = new DatabaseSync(':memory:');
   db.exec('CREATE TABLE ai_usage (who TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY (who, day))');
@@ -187,6 +219,11 @@ test('counter keys are matched whole: one id is never taken for the start of ano
   }
   assert.deepEqual(db.prepare(sql).all().map((r) => r.who), ['s:ab12', 's:ab12:check:tries', 's:ab12:tutor']);
   assert.throws(() => keyIn("s'; DROP TABLE x; --", 'SELECT 1'), /bad counter prefix/);
+  const prefixOf = (key, list) => list.some((p) => key.startsWith(p));
+  for (const k of STUDENT_KEYS('ab12')) assert.ok(prefixOf(k, STUDENT_COUNTERS), k);
+  for (const k of CLASS_KEYS('ABC234')) assert.ok(prefixOf(k, CLASS_COUNTERS), k);
+  for (const p of STUDENT_COUNTERS) assert.ok(STUDENT_KEYS('ab12').some((k) => k.startsWith(p)), `the test writes a ${p} counter`);
+  for (const p of CLASS_COUNTERS) assert.ok(CLASS_KEYS('ABC234').some((k) => k.startsWith(p)), `the test writes a ${p} counter`);
 });
 
 test('a class idle for 400 days with no running licence is deleted from every table; activity or a licence keeps a class', async () => {
@@ -256,6 +293,7 @@ test('the night purge runs in batches of 2000 rows, goes on until done, and repo
   assert.equal(report.purge.class.attempts, PURGE_BATCH + 500);
   assert.equal(report.purge.class.helpImages, 1);
   assert.deepEqual(Object.keys(report.purge.class).sort(), ['assignments', 'attempts', 'classes', 'exams', 'help', 'helpImages', 'helpMessages', 'students']);
+  assert.equal(typeof report.purge.rows, 'number');
   assert.equal(rows(h.env, 'SELECT * FROM attempts').length, 1);
 });
 
@@ -271,22 +309,27 @@ test("the class's last day of activity is written once a day, by the dashboard a
     return out;
   };
   const progress = () => h.call('POST', '/api/progress', { headers: bearer(noa), body: { events: [{ topic: 'neg', level: 1, ok: true, first: true, secs: 5 }] } });
-  assert.equal(rows(h.env, 'SELECT * FROM class_settings').length, 0, 'a new class has no row');
+  assert.equal(rows(h.env, 'SELECT * FROM class_settings').length, 0, 'a new school class has no row');
   await progress(); await progress();
   assert.deepEqual(changed, [1, 0], 'two uploads on one day write one row');
   assert.deepEqual({ ...one(h.env, 'SELECT * FROM class_settings WHERE code = ?', cls.code) }, {
     code: cls.code, setting: 'school', student_ai: 'off', ai_consent_at: null, private_attested_at: null, last_seen: dayOf(),
-  });
+  }, "the Ministry's safe default stays (TRUST-11): a school class, student AI off");
   await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'neg', question: '3 - 8', answer: '5' } });
+  await h.call('POST', '/api/help', { headers: bearer(noa), body: { kind: 'talk' } });
   await h.call('POST', '/api/exams', { headers: bearer(noa), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
-  assert.deepEqual(changed, [1, 0, 0, 0]);
+  assert.deepEqual(changed, [1, 0, 0, 0, 0]);
   advanceClock(DAY);
   await h.call('POST', '/api/exams', { headers: bearer(noa), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
-  assert.deepEqual(changed, [1, 0, 0, 0, 1], 'the next day, once more');
+  assert.deepEqual(changed, [1, 0, 0, 0, 0, 1], 'the next day, once more');
   assert.equal(one(h.env, 'SELECT last_seen FROM class_settings').last_seen, dayOf());
   raw().prepare('UPDATE class_settings SET last_seen = ?').run('2025-01-01');
   await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher });
   assert.equal(one(h.env, 'SELECT last_seen FROM class_settings').last_seen, dayOf(), "the teacher's dashboard counts too");
+  // a private group's choices are kept when its day is written
+  const p = await makeClass(h, { studentAi: true, students: ['דנה'] });
+  await h.call('POST', '/api/progress', { headers: bearer(p.students[0]), body: { events: [] } });
+  assert.deepEqual({ ...one(h.env, 'SELECT setting, student_ai, last_seen FROM class_settings WHERE code = ?', p.code) }, { setting: 'private', student_ai: 'on', last_seen: dayOf() });
 });
 
 test('deleting a class: confirm needed, not while a licence runs, then every table is free of its students and its code', async () => {
@@ -305,7 +348,7 @@ test('deleting a class: confirm needed, not while a licence runs, then every tab
   const mia = cls.students[2];
   await h.call('POST', `/api/teacher/students/${mia.studentId}/remove`, { headers: cls.teacher, body: {} });
   const del = (body, headers = cls.teacher) => h.call('POST', '/api/teacher/class/delete', { headers, body });
-  assert.equal((await del({}, {})).status, 401, 'the teacher key is needed');
+  assert.equal((await del({ confirm: 'DELETE' }, {})).status, 401, 'the teacher key is needed');
   const noConfirm = await del({});
   assert.equal(noConfirm.status, 400); assert.equal((await noConfirm.json()).error, 'confirm_required');
   assert.equal((await del({ confirm: 'delete' })).status, 400, 'the word exactly');

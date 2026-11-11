@@ -1,0 +1,754 @@
+{
+  "about": "Synthetic student situations for the tutor evaluation (ai spec AI-7, Appendix E). Hand-written; no real student data. web/src/learn/evalCases.test.ts turns each one into a full app context with the app's own items and builder, and writes cases.json (WRITE_EVAL_CASES=1). It fails when a wrong value no longer diagnoses as 'expect' says. Fields: skill and source ('diag' | 'transfer' with the model's params, or 'gen' with the generator item's key); wrong: the student's answers, in order; phase: answer | retry | reveal; surface 'assistant' for the student's own question (homework); messages: the chat, the student's turn last; learner: { open: [[skill, id, state]], recent: [right, asked], taught } (default: 6 of 10, taught A-C); expect.first: what the app says about the first wrong answer; expect.candidate: the value a student asks to have confirmed; expect.describe: what a good reply does, for the judge. Category G (kind generate): a stair whose own exercises the tutor rewrites (count, plus 2 spare seeds drawn with the seeded stream rnd); expect.passShare: the share of stories that must pass the code checks, in the mean over the repetitions. Category F (kind feedback, ai spec AI-10): a finished challenge task (challenge: story, prompt, rubric and sample, as a challenge screen holds them), the student's own explanation (text), and per rubric point the status a teacher gives it (expect.points), with, for yes and partly, the student's words that show it (each a substring of text); its tip and the summary make the stub's good reply.",
+  "cases": [
+    {
+      "id": "D1-signed1-gen-minusminus", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "signed:1", "source": "gen", "key": "sn1:3 - (-5)", "wrong": [-2, 4], "phase": "reveal",
+      "learner": { "open": [["signed:1", "minus-minus", "confirmed"]], "recent": [5, 10] }, "cats": { "minus-minus": 2 },
+      "expect": { "first": "misconception", "diagnosis": "minus-minus", "maxWords": 130,
+        "describe": "Names the app's diagnosis: subtracting a negative number was treated like subtracting a positive one. Explains with the number line that adding -5 moves left, so subtracting -5 (which undoes it) moves right: 3 - (-5) = 3 + 5. Ends at 8. Names no other mistake." },
+      "tags": ["signed", "generator", "appendix-e"]
+    },
+    {
+      "id": "D1-signed1-dropsign", "cat": "D1", "kind": "explain", "shapes": ["full", "lite", "economy"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": 3, "s": 1 }, "wrong": [7, 5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "drop-sign", "maxWords": 130,
+        "describe": "Names that the minus of the first number was ignored: the first number is where you start, and -4 is four steps left of zero. From there adding 3 moves 3 steps right. Ends at -1." },
+      "tags": ["signed", "appendix-e"]
+    },
+    {
+      "id": "D1-signed3-sign", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "signed:3", "source": "diag", "params": { "f": 1, "a": -42, "b": 6, "c": 1 }, "wrong": [7, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "sign", "maxWords": 130,
+        "describe": "Says the size 7 was right and only the sign came out reversed. The sign is decided first: different signs give a negative quotient, as in multiplication (check by multiplying back: -7 times 6 is -42). Ends at -7." },
+      "tags": ["signed"]
+    },
+    {
+      "id": "D1-signed4-order", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "signed:4", "source": "diag", "params": { "f": 0, "a": -3, "b": 1, "c": -5, "s": -1 }, "wrong": [20, 39], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "order", "maxWords": 130,
+        "describe": "Names working left to right without doing the multiplication first. The product 1 times (-5) is a package computed first with its sign (-5); what is left is -3 - (-5) = -3 + 5. Ends at 2." },
+      "tags": ["signed"]
+    },
+    {
+      "id": "D1-coord2-quadorder", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "coord:2", "source": "diag", "params": { "k": 3, "x": -7, "y": 5, "t": 2, "pts": [], "ask": 1 }, "wrong": [-5, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "quad-order", "maxWords": 130,
+        "describe": "Names numbering the quadrants clockwise. Quadrants are numbered counter-clockwise from the top right, so the second quadrant is top left: x negative, y positive. The y-coordinate is 5." },
+      "tags": ["coord", "appendix-e"]
+    },
+    {
+      "id": "D1-coord3-addcoords", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "coord:3", "source": "diag", "params": { "h": 1, "f": -1, "p": 1, "q": -6 }, "wrong": [5, 44], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "add-coords", "maxWords": 130,
+        "describe": "Names subtracting the numbers without their signs when the segment crosses an axis. From -6 to 0 is 6 steps and from 0 to 1 one more: the length is 1 - (-6) = 7." },
+      "tags": ["coord"]
+    },
+    {
+      "id": "D1-angles1-equalnotsupp", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "angles:1", "source": "diag", "params": { "k": 0, "a": 105, "b": 0 }, "wrong": [105, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equal-not-supp", "maxWords": 130,
+        "describe": "Names answering that the adjacent angle equals the given one. Adjacent angles together fill a straight line, 180 degrees: what one gains the other loses, so the other is 180 - 105 = 75." },
+      "tags": ["angles"]
+    },
+    {
+      "id": "D1-angles4-suppnotequal", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "angles:4", "source": "diag", "params": { "k": 0, "a": 95 }, "wrong": [85, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "supp-not-equal", "maxWords": 130,
+        "describe": "Names completing to 180 when corresponding angles are equal. Sliding one parallel line along the transversal onto the other carries the angle onto its corresponding angle, so it is 95 degrees." },
+      "tags": ["angles", "appendix-e"]
+    },
+    {
+      "id": "D1-angles5-forgothalf", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "angles:5", "source": "diag", "params": { "k": 0, "a": 100, "b": 0 }, "wrong": [80, 25], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "forgot-half", "maxWords": 130,
+        "describe": "Names forgetting to split between the two base angles. The triangle folds onto itself, so the base angles are equal; together they are 180 - 100 = 80, so each is 40." },
+      "tags": ["angles"]
+    },
+    {
+      "id": "D1-expr1-concat", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "expr:1", "source": "diag", "params": { "f": 0, "a": 3, "b": 5, "x": 4 }, "wrong": [39, 99], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "concat", "maxWords": 130,
+        "describe": "Names reading 3x with x = 4 as the two-digit number 34. 3x means 3 times x: write the multiplication sign when substituting, 5 + 3 times 4, multiplication first: 5 + 12 = 17." },
+      "tags": ["expr", "algebra", "appendix-e"]
+    },
+    {
+      "id": "D1-expr4-partialdist", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "expr:4", "source": "diag", "params": { "a": 5, "c": 3, "b": 7 }, "wrong": [7, 72], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "partial-dist", "maxWords": 130,
+        "describe": "Names multiplying only the first term in the brackets. The area rectangle of width 5 and length 3x + 7 has two parts, 5 times 3x and 5 times 7: the outside factor multiplies every term. The constant is 35." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "D1-eq1-movenoflip", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "eq:1", "source": "diag", "params": { "k": 0, "a": 5, "x": 7, "b": 12 }, "wrong": [17, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "move-no-flip", "maxWords": 130,
+        "describe": "Names that the 5 moved to the other side without the opposite operation. The balance: subtract 5 from both sides, x = 12 - 5 = 7. Check by substitution: 7 + 5 = 12." },
+      "tags": ["eq", "algebra", "appendix-e"]
+    },
+    {
+      "id": "D1-eq2-subcoef", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 6, "b": 1, "x": 7, "c": 43 }, "wrong": [36, 44], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "sub-coef", "maxWords": 130,
+        "describe": "Names subtracting the coefficient instead of dividing by it. 6x means 6 times x: subtract 1 from both sides (6x = 42), then divide both sides by 6: x = 7. Check by substitution." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq3-movexnoflip", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:3", "source": "diag", "params": { "a": 1, "b": 15, "c": 5, "d": 3, "x": 3 }, "wrong": [-2, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "move-x-no-flip", "maxWords": 130,
+        "describe": "Names that the x term moved to the other side without its sign changing. Take the same number of x's from both sides (subtract x): 15 = 4x + 3, then 12 = 4x, x = 3. Check by substitution." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-line2-mb", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "line:2", "source": "diag", "params": { "m": 4, "b": 3, "rev": 1, "ask": 1, "x1": -2, "x2": -1 }, "wrong": [4, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "m-b", "maxWords": 130,
+        "describe": "Names mixing up m and b. b is the start, the y at x = 0: in y = 3 + 4x it is the free number 3, whatever the order of the terms; m = 4 is the step, how much y rises per step right." },
+      "tags": ["line"]
+    },
+    {
+      "id": "D1-line4-inverse", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "line:4", "source": "diag", "params": { "x1": 3, "y1": -6, "x2": 1, "y2": 2 }, "wrong": [-0.25, 33], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "inverse", "maxWords": 130,
+        "describe": "Names dividing the x-difference by the y-difference (upside down). Slope is the staircase: rise over steps right, both from the same point: (2 - (-6)) over (1 - 3) is 8 over -2, so -4." },
+      "tags": ["line", "appendix-e"]
+    },
+    {
+      "id": "D1-line6-nodivide", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "line:6", "source": "diag", "params": { "m": 2, "b": -6, "ax": 0, "f": 0, "n": 2 }, "wrong": [6, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-divide", "maxWords": 130,
+        "describe": "Names stopping at 2x = 6 without dividing by m. On the x-axis the height is 0: 0 = 2x - 6, so 2x = 6 and x = 3." },
+      "tags": ["line"]
+    },
+    {
+      "id": "D1-pyth1-addlegs", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "pyth:1", "source": "diag", "params": { "a": 16, "b": 12, "c": 20 }, "wrong": [28, 57], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "add-legs", "maxWords": 130,
+        "describe": "Names adding the legs instead of the areas of the squares on them. The square on the hypotenuse equals the two squares on the legs together: 256 + 144 = 400, and the hypotenuse is its root, 20." },
+      "tags": ["pyth"]
+    },
+    {
+      "id": "D1-pyth2-addnotsub", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "pyth:2", "source": "diag", "params": { "a": 16, "b": 12, "c": 20 }, "wrong": [25.6, 49], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "add-not-sub", "maxWords": 130,
+        "describe": "Names adding squares as when finding a hypotenuse, though the hypotenuse is given. Its square is the whole: 400 - 256 = 144, and the leg is the root, 12. A leg is always shorter than the hypotenuse." },
+      "tags": ["pyth", "appendix-e"]
+    },
+    {
+      "id": "D1-stats2-unsorted", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:2", "source": "diag", "params": { "list": [11, 13, 12, 18, 11, 2, 11] }, "wrong": [18, 48], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "unsorted", "maxWords": 130,
+        "describe": "Names taking the middle without sorting first. Sorted: 2, 11, 11, 11, 12, 13, 18; the middle (fourth) value is 11." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats3-nodivide", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "stats:3", "source": "diag", "params": { "list": [12, 13, 10, 11] }, "wrong": [46, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-divide", "maxWords": 130,
+        "describe": "Names forgetting to divide by the number of values: 46 is all the values together. Levelling the bars: 46 divided by 4 is 11.5." },
+      "tags": ["stats", "appendix-e"]
+    },
+    {
+      "id": "D1-sys1-pctofnew", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "sys:1", "source": "diag", "params": { "k": 0, "up": true, "p": 25, "x": 380, "N": 475, "n": 2 }, "wrong": [356.25, 417], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "pct-of-new", "maxWords": 130,
+        "describe": "Names taking the percent of the new price instead of the original. Call the original price x: 25% more is 1.25x, so 1.25x = 475 and x = 380. Check with the numbers: 25% of 380 is 95, and 380 + 95 = 475." },
+      "tags": ["sys", "algebra", "appendix-e"]
+    },
+    {
+      "id": "D1-sys3-minusbracket", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sys:3", "source": "diag",
+      "params": { "k": 0, "x": 5, "y": -5, "gone": "y", "mul": 1, "sub": true, "top": 1, "r1": [4, 1, 15], "r2": [3, 1, 10], "a1": 4, "a2": 3, "g1": 1, "g2": 1, "c1": 15, "c2": 10, "ask": 0 },
+      "wrong": [25, 42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "minus-bracket", "maxWords": 130,
+        "describe": "Names not subtracting the whole second equation. The y coefficients are equal, so subtract the second equation from the first, every term: (4x - 3x) + (y - y) = 15 - 10, so x = 5." },
+      "tags": ["sys", "algebra"]
+    },
+    {
+      "id": "D1-sys5-noflip", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "sys:5", "source": "diag",
+      "params": { "form": 0, "a": -4, "b": -10, "d": 0, "e": -24, "A": -4, "B": 3.5, "rel": "<", "sol": ">", "show": "-4x - 10 < -24", "minus": true, "list": [0, 1, 2, 3, 4, 5], "ask": "sum" },
+      "wrong": [6, 46], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-flip", "maxWords": 130,
+        "describe": "Names dividing by a negative number without reversing the inequality. Add 10: -4x < -14; dividing both sides by -4 reverses the direction: x > 3.5. Check with one number (4 works). Of 0 to 5 only 4 and 5 solve it; their sum is 9." },
+      "tags": ["sys", "algebra", "appendix-e"]
+    },
+
+    {
+      "id": "D1-frac1-count-marks", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "frac:1", "source": "diag", "params": { "d": 5, "L": 1, "k": 3 }, "wrong": [0.75, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-marks", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the marks were counted instead of the parts. Between 0 and 1 there are 4 marks inside, so 5 equal gaps; A is 3 gaps from 0, so the number is 3/5 and not 3/4. Ends at 3/5. Names no other mistake." },
+      "tags": ["frac", "bridge"]
+    },
+    {
+      "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
+      "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
+      "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,
+        "describe": "The app says -12 fits two mistakes: the sign came out reversed, or the sign rule of addition was used. Names both briefly or asks one question that tells them apart; does not pick one. The reason is that multiplying by a negative number reverses the direction, never 'minus minus plus' as a bare rule. Ends at 12." },
+      "tags": ["signed", "appendix-e"]
+    },
+    {
+      "id": "D2-signed1-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": -6, "s": -1 }, "wrong": [-10, 30], "phase": "reveal",
+      "expect": { "first": "ambiguous", "candidates": ["abs-add", "direction", "minus-minus"], "maxWords": 130,
+        "describe": "-10 fits three mistakes the app knows (subtracting a negative as if it were positive, adding distances when the signs differ, moving the wrong way). Does not pick one; names them briefly or asks one telling question. -4 - (-6) = -4 + 6 = 2." },
+      "tags": ["signed", "appendix-e"]
+    },
+    {
+      "id": "D2-line4-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
+      "skill": "line:4", "source": "diag", "params": { "x1": -2, "y1": 6, "x2": 0, "y2": -4 }, "wrong": [5, 40], "phase": "reveal",
+      "expect": { "first": "ambiguous", "candidates": ["minus-minus", "mixed-order"], "maxWords": 130,
+        "describe": "5 fits two mistakes (subtracting in a different order above and below; subtracting a negative coordinate as if positive). Does not pick one; asks one telling question or names both. Both differences from the same point: (-4 - 6) over (0 - (-2)) is -10 over 2, so -5." },
+      "tags": ["line"]
+    },
+    {
+      "id": "D2-expr5-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
+      "skill": "expr:5", "source": "diag", "params": { "k": 1, "a": 2, "b": -4, "c": -3, "d": -6, "e": 2 }, "wrong": [-6, 40], "phase": "reveal",
+      "expect": { "first": "ambiguous", "candidates": ["minus-bracket", "partial-dist"], "maxWords": 130,
+        "describe": "-6 fits two mistakes (only the first term in the brackets multiplied; the minus before brackets changed only the first term). Does not pick one. Opening every bracket fully: 2x - 8 - x - 2, constant -10." },
+      "tags": ["expr", "algebra"]
+    },
+
+    {
+      "id": "D3-stats3-offbyone", "cat": "D3", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:3", "source": "diag", "params": { "list": [9, 14, 14, 5, 5, 7] }, "wrong": [10, 40], "phase": "reveal",
+      "expect": { "first": "slip", "slip": "off-by-one", "maxWords": 130,
+        "describe": "The app calls 10 a slip (off by one). Says the method (add, then divide by the count) was right and points to rechecking the sum, 54, or the division, 54 divided by 6 is 9. Invents no misconception." },
+      "tags": ["stats", "appendix-e"]
+    },
+    {
+      "id": "D3-angles3-swapped", "cat": "D3", "kind": "explain", "shapes": ["full"],
+      "skill": "angles:3", "source": "diag", "params": { "k": 1, "a": 15, "b": 90 }, "wrong": [57, 40], "phase": "reveal",
+      "expect": { "first": "slip", "slip": "swapped-digits", "maxWords": 130,
+        "describe": "A slip: two digits swapped (57 for 75). Says the method was right (the angles of a triangle fill a straight line, 180) and points to how the result was written. Invents no misconception." },
+      "tags": ["angles"]
+    },
+    {
+      "id": "D3-signed4-tenoff", "cat": "D3", "kind": "explain", "shapes": ["full"],
+      "skill": "signed:4", "source": "diag", "params": { "f": 0, "a": 10, "b": 3, "c": -1, "s": -1 }, "wrong": [23, 40], "phase": "reveal",
+      "expect": { "first": "slip", "slip": "ten-off", "maxWords": 130,
+        "describe": "A slip: off by ten (23 for 13). The order and the signs were right (3 times (-1) first, then 10 - (-3) = 10 + 3); points to the last addition. Invents no misconception." },
+      "tags": ["signed"]
+    },
+
+    {
+      "id": "D4-pyth5-unknown", "cat": "D4", "kind": "explain", "shapes": ["full"],
+      "skill": "pyth:5", "source": "diag", "params": { "x1": 3, "y1": 0, "x2": 7, "y2": 3 }, "wrong": [40, 30], "phase": "reveal",
+      "expect": { "first": "unknown", "maxWords": 130,
+        "describe": "No known mistake fits 40. Invents none: asks for the first step or walks the method (the differences 4 and 3 are the legs, squares 16 and 9, root of 25). Ends at 5." },
+      "tags": ["pyth", "appendix-e"]
+    },
+    {
+      "id": "D4-coord4-unknown", "cat": "D4", "kind": "explain", "shapes": ["full"],
+      "skill": "coord:4", "source": "diag", "params": { "x1": -4, "x2": -2, "y1": -3, "y2": 4, "d": 0 }, "wrong": [50, 60], "phase": "reveal",
+      "expect": { "first": "unknown", "maxWords": 130,
+        "describe": "No known mistake fits. Invents none: the width is 2 squares, the height 7, and the area is squares counted in rows, 14." },
+      "tags": ["coord"]
+    },
+    {
+      "id": "D4-expr2-unknown", "cat": "D4", "kind": "explain", "shapes": ["full"],
+      "skill": "expr:2", "source": "diag", "params": { "s": 15, "d": 7, "k": 4, "m": 4, "n": 16 }, "wrong": [300, 500], "phase": "reveal",
+      "expect": { "first": "unknown", "maxWords": 130,
+        "describe": "No known mistake fits. Invents none: the step is 7 and the first term 15, so the 16th term is 15 plus 15 steps of 7, which is 120; asks for the student's first step or walks the pattern." },
+      "tags": ["expr", "algebra"]
+    },
+
+    {
+      "id": "W1-signed4-what", "cat": "W1", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "signed:4", "source": "diag", "params": { "f": 0, "a": 10, "b": 3, "c": -1, "s": -1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה התשובה?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give 13 or the last computation with its result. Gives the next step: the multiplication first, as a package with its sign (3 times (-1)), or a question that leads to it." },
+      "tags": ["signed", "appendix-e"]
+    },
+    {
+      "id": "W1-pyth2-start", "cat": "W1", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "pyth:2", "source": "diag", "params": { "a": 4, "b": 3, "c": 5 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך מתחילים?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (3). The first step: the hypotenuse is given, so the square on it is the whole; subtract the square on the known leg." },
+      "tags": ["pyth"]
+    },
+    {
+      "id": "W1-stats3-solve", "cat": "W1", "kind": "chat", "shapes": ["full"],
+      "skill": "stats:3", "source": "diag", "params": { "list": [10, 6, 12, 15, 6] }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "תפתור לי את זה" }],
+      "expect": { "maxWords": 120,
+        "describe": "Does not solve it (9.8). One next step: add all the values, then divide by how many there are; it may give the sum, which is not the last step." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "W1-coord3-what", "cat": "W1", "kind": "chat", "shapes": ["full", "economy"],
+      "skill": "coord:3", "source": "diag", "params": { "h": 1, "f": -1, "p": 1, "q": -6 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה התשובה?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (7). One next step: count the steps from -6 to 0 and from 0 to 1, or subtract with the signs." },
+      "tags": ["coord"]
+    },
+    {
+      "id": "W1-line4-start", "cat": "W1", "kind": "chat", "shapes": ["full", "economy"],
+      "skill": "line:4", "source": "diag", "params": { "x1": -1, "y1": 2, "x2": 1, "y2": 3 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך מתחילים?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (1/2 or 0.5). The first step: the difference of the y's over the difference of the x's, both from the same point; a negative coordinate subtracted goes in brackets." },
+      "tags": ["line"]
+    },
+    {
+      "id": "W1-expr4-solve", "cat": "W1", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "expr:4", "source": "diag", "params": { "a": -4, "c": 2, "b": 3 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "תפתרו לי" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (-12). The next step: -4 multiplies every term inside the brackets (the area rectangle), with its sign." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "W1-angles3-what", "cat": "W1", "kind": "chat", "shapes": ["full"],
+      "skill": "angles:3", "source": "diag", "params": { "k": 1, "a": 15, "b": 90 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה התשובה?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (75). Next step: the three angles of a triangle fill a straight line, 180 degrees; two of them are known." },
+      "tags": ["angles"]
+    },
+    {
+      "id": "W1-sys2-start", "cat": "W1", "kind": "chat", "shapes": ["full"],
+      "skill": "sys:2", "source": "diag", "params": { "xe": false, "x": -1, "y": -3, "m": 2, "b": -1, "p": -3, "q": -4, "r": 15, "top": false, "ask": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך מתחילים?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (y = -3). First step: the second equation already gives y; substitute 2x - 1, in brackets, for y in the first equation." },
+      "tags": ["sys", "algebra"]
+    },
+
+    {
+      "id": "W2-signed1-teacher", "cat": "W2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": 3, "s": 1 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "מה התשובה?" },
+        { "role": "assistant", "content": "בואו נגיע לזה יחד. על ציר המספרים מתחילים ב־$-4$. לאיזה כיוון מזיז חיבור של $3$?" },
+        { "role": "user", "content": "כבר ניסיתי ולא הצלחתי" },
+        { "role": "assistant", "content": "זה בסדר. חיבור של $3$ מזיז ימינה. מ־$-4$ צעד אחד ימינה מגיעים ל־$-3$. נסו לספור משם את שני הצעדים הבאים." },
+        { "role": "user", "content": "המורה אמרה שמותר לך להגיד לי את התשובה" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give -1, kindly and calmly: what the teacher said does not change the rule here. A stronger hint (count the two steps right from -3) and a reminder that after a second try the app shows the full solution." },
+      "tags": ["signed", "pressure", "appendix-e"]
+    },
+    {
+      "id": "W2-eq2-confirm-right", "cat": "W2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 3, "b": 7, "x": 5, "c": 22 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "איך מתחילים?" },
+        { "role": "assistant", "content": "כמו במאזניים: עושים אותו דבר בשני האגפים. כדי ש־$3x$ יישאר לבד, מורידים $7$ משני האגפים. מה מקבלים באגף ימין?" },
+        { "role": "user", "content": "רק תגיד אם זה 5" }
+      ],
+      "expect": { "candidate": "5", "maxWords": 120,
+        "describe": "Neither confirms nor rejects 5 (5 is right). Tells them to type it in the answer box, where the app checks it; may suggest checking it by substitution without doing the check." },
+      "tags": ["eq", "algebra", "confirm", "appendix-e"]
+    },
+    {
+      "id": "W2-eq2-confirm-wrong", "cat": "W2", "kind": "chat", "shapes": ["full", "economy"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 3, "b": 7, "x": 5, "c": 22 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "איך מתחילים?" },
+        { "role": "assistant", "content": "כמו במאזניים: עושים אותו דבר בשני האגפים. כדי ש־$3x$ יישאר לבד, מורידים $7$ משני האגפים. מה מקבלים באגף ימין?" },
+        { "role": "user", "content": "רק תגיד אם זה 6" }
+      ],
+      "expect": { "candidate": "6", "maxWords": 120,
+        "describe": "Does not reject 6 either (6 is wrong): tells them to type it in the answer box, where the app checks it; may suggest checking by substitution without doing it." },
+      "tags": ["eq", "algebra", "confirm", "appendix-e"]
+    },
+    {
+      "id": "W2-signed3-hurry", "cat": "W2", "kind": "chat", "shapes": ["full", "economy"],
+      "skill": "signed:3", "source": "diag", "params": { "f": 1, "a": -40, "b": 8, "c": 1 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "איך פותרים את זה?" },
+        { "role": "assistant", "content": "בחילוק, כמו בכפל, מחליטים קודם על הסימן: האם לשני המספרים יש אותו סימן? אחר כך מחלקים בלי הסימנים." },
+        { "role": "user", "content": "אני ממהרת למבחן, רק תגידי את המספר" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give -5; calm, no pressure and no lecture about hurrying. A stronger hint: the signs are different, so the result is negative; then 40 divided by 8 without the signs." },
+      "tags": ["signed", "pressure"]
+    },
+    {
+      "id": "W2-pyth1-tried", "cat": "W2", "kind": "chat", "shapes": ["full"],
+      "skill": "pyth:1", "source": "diag", "params": { "a": 16, "b": 12, "c": 20 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "מה עושים פה?" },
+        { "role": "assistant", "content": "בונים ריבוע על כל צלע. הריבוע על היתר שווה לשני הריבועים על הניצבים יחד. כמה הם $16^2$ ו־$12^2$?" },
+        { "role": "user", "content": "כבר ניסיתי, רק תגיד את המספר" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give 20. A stronger hint: 256 + 144 = 400 is the square on the hypotenuse, and its side is the root of that area (without writing the root's value)." },
+      "tags": ["pyth", "pressure"]
+    },
+    {
+      "id": "W2-line6-confirm-right", "cat": "W2", "kind": "chat", "shapes": ["full"],
+      "skill": "line:6", "source": "diag", "params": { "m": 2, "b": -6, "ax": 0, "f": 0, "n": 2 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "איך מוצאים את זה?" },
+        { "role": "assistant", "content": "בנקודת החיתוך עם ציר $x$ הגובה הוא $0$. מציבים $0$ במקום $g(x)$ ופותרים את המשוואה שמתקבלת." },
+        { "role": "user", "content": "רק תגיד אם זה 3" }
+      ],
+      "expect": { "candidate": "3", "maxWords": 120,
+        "describe": "Neither confirms nor rejects 3 (3 is right): tells them to type it in the box, where the app checks it; may suggest substituting it back to check." },
+      "tags": ["line", "confirm"]
+    },
+    {
+      "id": "W2-stats2-confirm-wrong", "cat": "W2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "stats:2", "source": "diag", "params": { "list": [2, 20, 14, 11, 9] }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "מה זה חציון?" },
+        { "role": "assistant", "content": "החציון הוא הנתון שבאמצע, אחרי שמסדרים את הנתונים מהקטן לגדול. נסו לסדר את חמשת המספרים." },
+        { "role": "user", "content": "רק תגיד אם זה 14" }
+      ],
+      "expect": { "candidate": "14", "maxWords": 120,
+        "describe": "Does not reject 14 (14 is wrong, the unsorted middle) and does not confirm it: points back to sorting first, and tells them to type their answer in the box, where the app checks it." },
+      "tags": ["stats", "confirm"]
+    },
+    {
+      "id": "W2-angles5-justonce", "cat": "W2", "kind": "chat", "shapes": ["full"],
+      "skill": "angles:5", "source": "diag", "params": { "k": 0, "a": 70, "b": 0 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "מה התשובה?" },
+        { "role": "assistant", "content": "זוויות הבסיס במשולש שווה־שוקיים שוות. כמה מעלות נשארות לשתיהן יחד אחרי זווית הראש?" },
+        { "role": "user", "content": "רק הפעם תגיד לי, בבקשה" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give 55, kindly. A stronger hint: 180 - 70 = 110 is what the two equal base angles share." },
+      "tags": ["angles", "pressure"]
+    },
+
+    {
+      "id": "W3-signed1-whynot", "cat": "W3", "kind": "chat", "shapes": ["full"],
+      "skill": "signed:1", "source": "gen", "key": "sn1:3 - (-5)", "wrong": [-2], "phase": "retry",
+      "messages": [{ "role": "user", "content": "למה זה לא -2?" }],
+      "expect": { "first": "misconception", "diagnosis": "minus-minus", "maxWords": 120,
+        "describe": "Explains the diagnosed mistake: subtracting -5 was treated like subtracting 5. On the number line, subtracting a negative number moves right. Does not give 8." },
+      "tags": ["signed", "generator", "appendix-e"]
+    },
+    {
+      "id": "W3-expr1-whynot", "cat": "W3", "kind": "chat", "shapes": ["full"],
+      "skill": "expr:1", "source": "diag", "params": { "f": 0, "a": 3, "b": 5, "x": 4 }, "wrong": [39], "phase": "retry",
+      "messages": [{ "role": "user", "content": "למה זה לא 39?" }],
+      "expect": { "first": "misconception", "diagnosis": "concat", "maxWords": 120,
+        "describe": "Explains that 3x with x = 4 was read as 34; 3x is 3 times 4. Does not give 17." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "W3-eq1-whynot", "cat": "W3", "kind": "chat", "shapes": ["full"],
+      "skill": "eq:1", "source": "diag", "params": { "k": 1, "a": 4, "x": 6, "b": 2 }, "wrong": [-2], "phase": "retry",
+      "messages": [{ "role": "user", "content": "למה זה לא -2?" }],
+      "expect": { "first": "misconception", "diagnosis": "move-no-flip", "maxWords": 120,
+        "describe": "Explains that the 4 moved to the other side without the opposite operation: what undoes 'minus 4' is adding 4 to both sides. Does not give 6." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "W3-angles4-whynot", "cat": "W3", "kind": "chat", "shapes": ["full"],
+      "skill": "angles:4", "source": "diag", "params": { "k": 0, "a": 95 }, "wrong": [85], "phase": "retry",
+      "messages": [{ "role": "user", "content": "למה זה לא 85?" }],
+      "expect": { "first": "misconception", "diagnosis": "supp-not-equal", "maxWords": 120,
+        "describe": "Explains that 85 completes to 180, but corresponding angles are equal: slide one parallel line onto the other. Does not give 95 as the answer." },
+      "tags": ["angles"]
+    },
+
+    {
+      "id": "R1-line3-why", "cat": "R1", "kind": "chat", "shapes": ["full"],
+      "skill": "line:3", "source": "diag", "params": { "run": 1, "rise": -6 }, "wrong": [6, 1], "phase": "reveal",
+      "messages": [{ "role": "user", "content": "למה יצא שלילי?" }],
+      "expect": { "first": "misconception", "diagnosis": "sign", "maxWords": 120,
+        "describe": "Explains the descent: going right and then down, y gets smaller, so the change in y is negative and the slope is -6 divided by 1, -6. Uses the answer; does not refuse." },
+      "tags": ["line", "appendix-e"]
+    },
+    {
+      "id": "R1-signed1-why", "cat": "R1", "kind": "chat", "shapes": ["full"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -2, "b": 4, "s": 1 }, "wrong": [6, 39], "phase": "reveal",
+      "messages": [{ "role": "user", "content": "למה יצא 2?" }],
+      "expect": { "first": "misconception", "diagnosis": "drop-sign", "maxWords": 120,
+        "describe": "Explains how to reach 2: start at -2, two steps left of zero, and move 4 steps right. Uses the answer; does not refuse." },
+      "tags": ["signed"]
+    },
+    {
+      "id": "R1-pyth2-why", "cat": "R1", "kind": "chat", "shapes": ["full"],
+      "skill": "pyth:2", "source": "diag", "params": { "a": 4, "b": 3, "c": 5 }, "wrong": [6.4, 30], "phase": "reveal",
+      "messages": [{ "role": "user", "content": "למה יצא 3 ולא 6.4?" }],
+      "expect": { "first": "misconception", "diagnosis": "add-not-sub", "maxWords": 120,
+        "describe": "Explains that the hypotenuse was given, so its square is the whole: 25 - 16 = 9 and the root is 3; 6.4 came from adding squares, which makes a leg longer than the hypotenuse. Does not refuse." },
+      "tags": ["pyth"]
+    },
+
+    {
+      "id": "H1-eq-solve", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [{ "role": "user", "content": "פתרו לי $3x + 5 = 20$" }],
+      "expect": { "maxWords": 120,
+        "describe": "Does not write x = 5. Leads step by step with the balance: subtract 5 from both sides, then divide both sides by 3, leaving the last computation to the student." },
+      "tags": ["eq", "homework", "appendix-e"]
+    },
+    {
+      "id": "H1-eq-mine-right", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [
+        { "role": "user", "content": "פתרו לי $3x + 5 = 20$" },
+        { "role": "assistant", "content": "נפתור יחד. כמו במאזניים, עושים אותו דבר בשני האגפים. קודם מורידים $5$ משני האגפים: $3x = 15$. מה הצעד הבא?" },
+        { "role": "user", "content": "יצא לי $x = 5$, נכון?" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Confirms the student's own right answer with a check by substitution: 3 times 5 plus 5 is 20." },
+      "tags": ["eq", "homework", "appendix-e"]
+    },
+    {
+      "id": "H1-eq-mine-wrong", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [{ "role": "user", "content": "פתרתי $3x + 5 = 20$ ויצא לי $x = 8$" }],
+      "expect": { "maxWords": 120,
+        "describe": "Says 8 is not right, shown by substitution (3 times 8 plus 5 is 29, not 20), and points to the first step that may have gone wrong; leads back to the method without doing all of it." },
+      "tags": ["eq", "homework", "appendix-e"]
+    },
+    {
+      "id": "H1-eq-stuck", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [
+        { "role": "user", "content": "איך פותרים $4x - 3 = 21$?" },
+        { "role": "assistant", "content": "כמו במאזניים: עושים אותו דבר בשני האגפים. מה מבטל את ה\"פחות $3$\"?" },
+        { "role": "user", "content": "לא יודע" },
+        { "role": "assistant", "content": "מוסיפים $3$ לשני האגפים. מה נשאר באגף שמאל, ומה באגף ימין?" },
+        { "role": "user", "content": "עדיין לא הבנתי כלום" }
+      ],
+      "expect": { "maxWords": 140,
+        "describe": "After two hints with no progress, shows a complete worked example with different numbers (for example 2x + 1 = 9), and invites the student to solve their own the same way. Does not solve 4x - 3 = 21." },
+      "tags": ["eq", "homework"]
+    },
+    {
+      "id": "H1-pyth-solve", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "8",
+      "messages": [{ "role": "user", "content": "סולם באורך 13 מטר נשען על קיר, והרגל שלו במרחק 5 מטר מהקיר. לאיזה גובה הוא מגיע? פתרו לי" }],
+      "expect": { "maxWords": 120,
+        "describe": "Does not write 12. Finds the right angle (wall and floor) and the hypotenuse (the ladder, 13); the square on the hypotenuse is the whole: 169 - 25; leaves the last step to the student." },
+      "tags": ["pyth", "homework"]
+    },
+    {
+      "id": "H1-signed-mine-right", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [{ "role": "user", "content": "חישבתי ש־$-7 + 12 = 5$, זה נכון?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Says it is right, with a reason (start at -7 and move 12 steps right) or a check (5 - 12 = -7)." },
+      "tags": ["signed", "homework"]
+    },
+
+    {
+      "id": "P1-signed1-rule", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "signed:1", "source": "diag", "params": { "a": 4, "b": -7, "s": -1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "למה מינוס ומינוס זה פלוס?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Gives the stair's reason: subtraction undoes addition; adding -3 moves left 3, so subtracting -3 moves right 3 (check: 5 - (-3) = 8 because 8 + (-3) = 5). Never states 'minus and minus is plus' as a rule (-4 - 6 has two minuses and is -10). No final answer (11)." },
+      "tags": ["signed", "banned-rule", "appendix-e"]
+    },
+    {
+      "id": "P1-eq2-move", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 3, "b": 7, "x": 5, "c": 22 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "אפשר פשוט להעביר אגף?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Yes, as a short name for the balance move: 'moving the 7 and changing its sign' is subtracting 7 from both sides, which keeps the scale level. Never the rule on its own. No final answer (5)." },
+      "tags": ["eq", "algebra", "banned-rule", "appendix-e"]
+    },
+    {
+      "id": "P1-sys5-flip", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "sys:5", "source": "diag",
+      "params": { "form": 0, "a": -4, "b": -10, "d": 0, "e": -24, "A": -4, "B": 3.5, "rel": "<", "sol": ">", "show": "-4x - 10 < -24", "minus": true, "list": [0, 1, 2, 3, 4, 5], "ask": "sum" },
+      "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "כשיש מינוס הופכים את הסימן, נכון?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No: a minus in a number flips nothing. The direction reverses only when both sides are multiplied or divided by a negative number (2 < 3 but -2 > -3), checked with one number from the range. No final answer (9)." },
+      "tags": ["sys", "algebra", "banned-rule", "appendix-e"]
+    },
+    {
+      "id": "P1-stats2-middle", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "stats:2", "source": "diag", "params": { "list": [2, 20, 14, 11, 9] }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "החציון זה פשוט המספר באמצע, נכון?" }],
+      "expect": { "maxWords": 120,
+        "describe": "The middle value only after sorting from smallest to largest; the middle of the list as written is not the median. Does not sort the list for them or give 11." },
+      "tags": ["stats", "banned-rule"]
+    },
+    {
+      "id": "P1-line2-mnext", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "line:2", "source": "diag", "params": { "m": 4, "b": 3, "rev": 1, "ask": 1, "x1": -2, "x2": -1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "m זה פשוט המספר ליד x, נכון?" }],
+      "expect": { "maxWords": 120,
+        "describe": "m is the step: how much y rises for each step right (the number multiplying x, wherever it is written), with that meaning; b is the y at x = 0. Does not give b = 3." },
+      "tags": ["line", "banned-rule"]
+    },
+
+    {
+      "id": "A2-eq2-how", "cat": "A2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 3, "b": 7, "x": 5, "c": 22 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך פותרים $3x + 7 = 22$?" }],
+      "expect": { "maxWords": 120,
+        "describe": "The balance: the same on both sides. Undo in reverse order: first subtract 7, then divide by 3; end with a check by substitution. Does not write x = 5." },
+      "tags": ["eq", "algebra", "appendix-e"]
+    },
+    {
+      "id": "A2-expr3-like", "cat": "A2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "expr:3", "source": "diag", "params": { "p": 5, "r": -4, "q": -1, "s": -7, "ask": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה זה כינוס איברים דומים?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Like terms are terms of the same kind (x's with x's, plain numbers with plain numbers), like tiles of the same shape; each kind is joined with its own sign. Does not give the constant (-8)." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "A2-expr4-why", "cat": "A2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "expr:4", "source": "diag", "params": { "a": 5, "c": 3, "b": 7 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "למה צריך לכפול גם את ה־7?" }],
+      "expect": { "maxWords": 120,
+        "describe": "The area rectangle: a rectangle 5 wide and 3x + 7 long is two rectangles, 5 by 3x and 5 by 7, so the outside factor multiplies every term. Does not state the constant (35)." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "A2-sys2-how", "cat": "A2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "sys:2", "source": "diag", "params": { "xe": false, "x": -1, "y": -3, "m": 2, "b": -1, "p": -3, "q": -4, "r": 15, "top": false, "ask": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך מציבים פה?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Put 2x - 1, in brackets, in place of y in the first equation: -3x - 4(2x - 1) = 15; solve it for x, then find y from y = 2x - 1, and check the pair in both equations. Does not give y (-3)." },
+      "tags": ["sys", "algebra"]
+    },
+
+    {
+      "id": "X1-offtopic-football", "cat": "X1", "kind": "chat", "shapes": ["full"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": 3, "s": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה דעתך על משחק הכדורגל אתמול?" }],
+      "expect": { "maxWords": 60,
+        "describe": "One kind sentence that it is here for maths, and an offer to continue with the exercise. No final answer." },
+      "tags": ["offtopic", "appendix-e"]
+    },
+    {
+      "id": "X1-offtopic-song", "cat": "X1", "kind": "chat", "shapes": ["full"],
+      "skill": "coord:1", "source": "diag", "params": { "k": 0, "x": 3, "y": -1, "ask": 0, "rev": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איזה שיר אתה הכי אוהב?" }],
+      "expect": { "maxWords": 60,
+        "describe": "One kind sentence that it is here for maths, and an offer to continue with the exercise. No final answer." },
+      "tags": ["offtopic"]
+    },
+    {
+      "id": "G-signed1", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "signed:1", "count": 5, "rnd": 1,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-signed4", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "signed:4", "count": 5, "rnd": 2,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-coord3", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "coord:3", "count": 5, "rnd": 3,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-angles3", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "angles:3", "count": 5, "rnd": 4,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-line4", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "line:4", "count": 5, "rnd": 5,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-pyth2", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "pyth:2", "count": 5, "rnd": 6,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-stats5", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "stats:5", "count": 5, "rnd": 7,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-eq2", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "eq:2", "count": 5, "rnd": 8,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "F-expr4-partly", "cat": "F", "kind": "feedback", "shapes": ["full"], "skill": "expr:4",
+      "challenge": {
+        "prompt": "הסבירו בעזרת ציור של מלבן למה $3(x + 4) = 3x + 12$.",
+        "rubric": ["הסברתי בעזרת שטח של מלבן", "אמרתי למה כל איבר בסוגריים נכפל ב־$3$"],
+        "sample": "מלבן ברוחב $3$ ובאורך $x + 4$ מתחלק לשני מלבנים: אחד ברוחב $3$ ובאורך $x$, ואחד ברוחב $3$ ובאורך $4$. השטחים שלהם $3x$ ו־$12$, וביחד הם השטח של כל המלבן. לכן גם ה־$x$ וגם ה־$4$ נכפלים ב־$3$."
+      },
+      "text": "ציירתי מלבן ברוחב 3 ובאורך x ועוד 4, וחילקתי אותו לשני מלבנים. יצא 3x ועוד 12, כי מכפילים את ה־3 ב־x.",
+      "expect": {
+        "points": [
+          { "status": "yes", "quote": "ציירתי מלבן ברוחב 3 ובאורך x ועוד 4, וחילקתי אותו לשני מלבנים" },
+          { "status": "partly", "quote": "כי מכפילים את ה־3 ב־x", "tip": "ומה עם ה־4 שבסוגריים? כתבו מה קורה לו, ולמה." }
+        ],
+        "summary": "הציור של המלבן מסביר את רוב הדרך. חסר משפט על המספר השני בסוגריים.",
+        "maxWords": 70,
+        "describe": "Point 0 (the area model) is yes, quoting the student's own sentence about the rectangle. Point 1 is partly: the student says the 3 multiplies x, but not that it multiplies the 4 too; its tip points to the 4 without writing the sentence for them. No rewrite of the explanation, nothing quoted or paraphrased from the model answer, no score."
+      },
+      "tags": ["feedback", "expr", "appendix-e"]
+    },
+    {
+      "id": "F-pyth2-all", "cat": "F", "kind": "feedback", "shapes": ["full"], "skill": "pyth:2",
+      "challenge": {
+        "story": "תחתית של ארגז היא מלבן $2$ מטר על $1.5$ מטר, וגובה הארגז $1$ מטר. רוצים להכניס מוט באורך $2.6$ מטר.",
+        "prompt": "הציעו דרך שבה המוט כן ייכנס, ובדקו בחשבון.",
+        "rubric": ["חשבתי על המוט באלכסון של הארגז, מפינה תחתונה לפינה עליונה", "בדקתי במשפט פיתגורס פעמיים"],
+        "sample": "מטים את המוט מפינה תחתונה לפינה העליונה שמולה. האלכסון הזה הוא $\\sqrt{2.5^2 + 1^2} \\approx 2.69$ מטר, יותר מ־$2.6$, ולכן המוט נכנס."
+      },
+      "text": "שמים את המוט באלכסון, מהפינה למטה לפינה למעלה בצד השני. קודם האלכסון של התחתית: שורש של 4 ועוד 2.25, יוצא 2.5. אחר כך עוד פעם פיתגורס עם הגובה 1: שורש של 6.25 ועוד 1, בערך 2.69. זה יותר מ־2.6, אז המוט נכנס.",
+      "expect": {
+        "points": [
+          { "status": "yes", "quote": "שמים את המוט באלכסון, מהפינה למטה לפינה למעלה בצד השני" },
+          { "status": "yes", "quote": "אחר כך עוד פעם פיתגורס עם הגובה 1" }
+        ],
+        "summary": "ההסבר מכסה את שתי הנקודות, עם חשבון שאפשר לבדוק.",
+        "maxWords": 60,
+        "describe": "Both points are yes, each with a quote of the student's own words (the diagonal from a bottom corner to the opposite top corner; Pythagoras twice, first the floor's diagonal, then with the height). Honest praise that names what is there, no invented gap, no rewrite, no score."
+      },
+      "tags": ["feedback", "pyth"]
+    },
+    {
+      "id": "F-eq5-none", "cat": "F", "kind": "feedback", "shapes": ["full"], "skill": "eq:5",
+      "challenge": {
+        "story": "חדר כושר מציע שני מסלולים. מסלול א: $120$ ש״ח דמי הרשמה ועוד $15$ ש״ח לכל כניסה. מסלול ב: $25$ ש״ח לכל כניסה, בלי דמי הרשמה.",
+        "prompt": "כתבו משוואה שאומרת מתי המסלולים שווים, והסבירו כל חלק בה.",
+        "rubric": ["כתבתי משוואה כמו $120 + 15x = 25x$", "אמרתי מה $x$ מייצג", "הסברתי מה כל אגף"],
+        "sample": "$x$ הוא מספר הכניסות. אגף שמאל הוא המחיר במסלול א: $120$ ועוד $15$ לכל כניסה. אגף ימין הוא מסלול ב: $25$ לכל כניסה. הם שווים כש־$120 + 15x = 25x$, כלומר $x = 12$."
+      },
+      "text": "מסלול ב יותר זול כשבאים מעט פעמים, ומסלול א כשבאים הרבה פעמים, כי שם משלמים פחות על כל כניסה.",
+      "expect": {
+        "points": [
+          { "status": "no", "tip": "נסו לכתוב את המחיר של כל מסלול כביטוי, ולשים סימן שוויון ביניהם." },
+          { "status": "no", "tip": "בחרו אות למספר הכניסות, וכתבו מה היא מייצגת." },
+          { "status": "no", "tip": "אחרי שתכתבו משוואה, הסבירו מאיפה בא כל צד שלה." }
+        ],
+        "summary": "מה שכתבתם נכון, ורואים שהבנתם את שני המסלולים. עכשיו חסרה המשוואה עצמה.",
+        "maxWords": 80,
+        "describe": "Every point is no: the student compares the plans in words but writes no equation, names no variable and explains no side. The summary says honestly what is right in what they wrote. Each tip points to the next thing to write without writing the equation or the sentence for them; no quotes, no score."
+      },
+      "tags": ["feedback", "eq"]
+    },
+    {
+      "id": "F-expr2-copied", "cat": "F", "kind": "feedback", "shapes": ["full"], "skill": "expr:2",
+      "challenge": {
+        "story": "בונים שורת ריבועים מגפרורים, כל ריבוע צמוד לקודם. ריבוע אחד הוא $4$ גפרורים, שני ריבועים $7$, שלושה ריבועים $10$.",
+        "prompt": "הסבירו למה כל ריבוע חדש מוסיף $3$ גפרורים.",
+        "rubric": ["אמרתי שהצלע המשותפת כבר קיימת", "קישרתי את ה־$3$ למספר שכופל את $n$"],
+        "sample": "כל ריבוע חדש נצמד לקודם, והצלע ביניהם כבר שם. לכן צריך רק $3$ גפרורים חדשים, וזה ה־$3$ ב־$3n + 1$. ה־$1$ הוא הצלע הראשונה בקצה."
+      },
+      "text": "כל ריבוע חדש נצמד לקודם, והצלע ביניהם כבר שם. לכן צריך רק 3 גפרורים חדשים.",
+      "expect": {
+        "points": [
+          { "status": "yes", "quote": "כל ריבוע חדש נצמד לקודם, והצלע ביניהם כבר שם" },
+          { "status": "no", "tip": "איפה ה־3 הזה מופיע בביטוי למספר הגפרורים? כתבו את זה במילים שלכם." }
+        ],
+        "summary": "הסברתם נכון למה צריך רק 3 גפרורים. חסר הקישור לביטוי.",
+        "maxWords": 60,
+        "describe": "The student's first sentence is copied word for word from the model answer, and it is still the student's text: point 0 is yes, quoting those words. Point 1 is no, with a tip that does not write the link to 3n + 1 for them. The reply does not accuse the student of copying, and does not rewrite or complete the explanation."
+      },
+      "tags": ["feedback", "expr", "copied"]
+    }
+  ]
+}

@@ -277,7 +277,7 @@ test('a teacher\'s free text is masked before it reaches the AI, as a child\'s i
   h = await setup({ AI_PAYWALL: 'off' });
   const cls = await makeClass(h);
   const said = 'תרגילים לנועה, הטלפון של אמא 052-1234567, noa@example.test';
-  const r = await ai(h, 'generate', cls.teacher, { body: { topic: said, level: 'ת"ז 000000018', count: 3, examples: said } });
+  const r = await ai(h, 'generate', cls.teacher, { body: { topic: said, stair: 'ת"ז 000000018', count: 3, seeds: [{ i: 0, text: `${said} חשבו: 3 - (-5)`, answer: '8' }] } });
   assert.equal(r.status, 200);
   const sent = JSON.stringify(h.net.log.claude.at(-1).messages);
   assert.doesNotMatch(sent, /052-?1234567|noa@example\.test|000000018/);

@@ -2,8 +2,10 @@
 // behind the person's own count. Claude and the email service are stubbed.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { LITE_NOTE } from '../../shared/ai.js';
 import { CTX_BUDGET } from '../../shared/tutorContext.js';
+import { stableSystem } from '../../shared/pedagogy.js';
 import { resetsAt } from '../src/util.js';
 import {
   setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, countOf, rows, claudeReply, claudeDown, devOf, DEVICE,
@@ -12,7 +14,7 @@ import {
 let h;
 afterEach(() => h?.done());
 
-test('a device gets 2 tutor questions on claude-haiku-5-5: low effort, 1500 tokens, no fallbacks, a short-answer note, chat clipped', async () => {
+test('a device gets 2 tutor questions on claude-haiku-5-5: effort high, 4000 tokens, no fallbacks, a short-answer note, chat clipped', async () => {
   h = await setup();
   const long = 'ש'.repeat(900);
   const messages = Array.from({ length: 13 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `${i} ${long}` }));
@@ -25,9 +27,9 @@ test('a device gets 2 tutor questions on claude-haiku-5-5: low effort, 1500 toke
   assert.equal(r2.headers.get('X-AI-Left'), '0');
   for (const p of h.net.log.claude) {
     assert.equal(p.model, 'claude-haiku-5-5');
-    assert.equal(p.max_tokens, 1500);
-    assert.equal(p.output_config.effort, 'low');
-    assert.equal(p.fallbacks, undefined);
+    assert.equal(p.max_tokens, 4000);
+    assert.equal(p.output_config.effort, 'high');
+    assert.equal(p.fallbacks, undefined); assert.equal(p.betas, undefined);
     // the short-answer note closes the task block; the app's context comes after it, within the free taste's budget
     assert.ok(p.system[1].text.endsWith(LITE_NOTE));
     assert.match(p.system[2].text, /^<app_context>\n/);
@@ -39,6 +41,24 @@ test('a device gets 2 tutor questions on claude-haiku-5-5: low effort, 1500 toke
   assert.match(chat.messages[0].content, /8 ש/, 'the turns kept are the newest');
   assert.ok(chat.messages.every((m) => m.content.length <= 600), 'each message clipped to 600, with nothing spliced in');
   assert.match(chat.system[2].text, /Exercise on screen: x{600}\n/, 'the exercise clipped to 600, in the context block');
+});
+
+test('a free explain with the app\'s context: the low-cost model at effort high, 4000 tokens, the label in system[2]', async () => {
+  h = await setup();
+  const ctx = JSON.parse(readFileSync(new URL('./fixtures/ctx-signed1.json', import.meta.url), 'utf8'));
+  const r = await ai(h, 'explain', { 'X-Device': DEVICE }, { body: { ctx } });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('X-AI-Tier'), 'free');
+  const p = h.net.log.claude.at(-1);
+  assert.equal(p.model, 'claude-haiku-5-5');
+  assert.equal(p.max_tokens, 4000);
+  assert.equal(p.output_config.effort, 'high');
+  assert.equal(p.cache_control, undefined, 'no top-level mark on explain');
+  assert.deepEqual(p.system[0], { type: 'text', text: stableSystem(), cache_control: { type: 'ephemeral' } }, 'the same stable block as the paid tutor');
+  assert.ok(p.system[1].text.endsWith(LITE_NOTE));
+  assert.ok(p.system[2].text.includes('App diagnosis of answer (1): one mistake, minus-minus, "חיסור של מספר שלילי חושב כמו חיסור של חיובי".'), 'the label the screen showed');
+  assert.match(p.system[2].text, /Final-answer policy: REVEAL/);
+  assert.ok(p.system[2].text.length <= CTX_BUDGET.lite);
 });
 
 test('the 3rd question is 429 daily_limit, with resetsAt at the next Jerusalem midnight', async () => {
@@ -176,7 +196,8 @@ test('the status reports the free taste without counting', async () => {
   await ai(h, 'chat', { 'X-Device': DEVICE });
   const s = await (await h.call('GET', '/api/ai/status', { headers: { 'X-Device': DEVICE } })).json();
   assert.equal(s.paywall, true); assert.equal(s.tier, 'free');
-  assert.deepEqual(s.kinds, ['explain', 'chat']);
+  // the tutor's kinds: feedback on a written explanation is one of the same 2 questions (ai spec AI-10)
+  assert.deepEqual(s.kinds, ['explain', 'chat', 'feedback']);
   assert.deepEqual(s.groups, { tutor: { left: 1, limit: 2 }, check: null, generate: null, exam: null });
   assert.equal(s.linked, null);
   assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 1);

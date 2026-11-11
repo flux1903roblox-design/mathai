@@ -2329,6 +2329,8 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
     await page.getByRole('button', { name: 'שליחה' }).click();
     await expect(page.getByText('תשובה לדוגמה. בכיתה אמיתית העוזר עונה על השאלה שלכם.')).toBeVisible();
     await expect(page.getByText('בכיתה לדוגמה העוזר מראה תשובה לדוגמה, ושום שאלה לא נשלחת.')).toBeVisible();
+    // the answer as the app shows it once its markdown has loaded (RichText loads it on demand, DURABLE-11)
+    await expect(page.locator('.msg.assistant .md p').first()).toBeVisible();
     await shot(page, 'teacher-demo-assistant');
     expect(calls).toEqual([]);
   });

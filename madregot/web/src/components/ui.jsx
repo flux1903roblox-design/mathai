@@ -166,7 +166,7 @@ export function Field({ label, hint, children, id }) {
     <div className="field">
       <label htmlFor={id} className="field-label">{label}</label>
       {children}
-      {hint && <p className="field-hint">{hint}</p>}
+      {hint && <p className="field-hint" id={id ? `${id}-hint` : undefined}>{hint}</p>}
     </div>
   );
 }

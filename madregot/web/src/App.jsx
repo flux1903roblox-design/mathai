@@ -269,6 +269,7 @@ function Root() {
         <Route path="/terms" element={<Legal doc="terms" />} />
         <Route path="/privacy" element={<Legal doc="privacy" />} />
         <Route path="/accessibility" element={<Legal doc="accessibility" />} />
+        <Route path="/safety" element={<Legal doc="safety" />} />
         <Route path="/programme" element={<Programme />} />
         <Route path="/restore" element={<Restore />} />
         <Route path="/r/:data" element={<SharedReport />} />

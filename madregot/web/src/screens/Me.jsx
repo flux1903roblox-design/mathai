@@ -1,10 +1,13 @@
 // The profile, laid out like Duolingo's profile screen: a wide header with the avatar (מדי) and the settings gear,
 // the name and the class, a "סטטיסטיקה" grid of four tiles and the weekly summary's card, then what to do next, the
 // stairs that need work, the medals, and the learning numbers. Settings (details, class, assistant, sound, deleting
-// data) live on /settings.
+// data) live on /settings. At the bottom, small and quiet, the legal pages and the AI safety statement (trust spec
+// TRUST-2 §7), and the cancel link when the app has a server: a second way there for a returning family (the front page
+// carries the one the law asks for).
 import { Link } from 'react-router-dom';
 import { Settings as Gear, Flame, Zap, Footprints, Award, CalendarCheck, ChevronLeft } from 'lucide-react';
 import { useApp, streakOf } from '@/lib/store.js';
+import { hasServer } from '@/lib/api.js';
 import { TOPICS, topicsFor } from '@/content/index.js';
 import { doneCount } from '@/lib/path.js';
 import { skillId } from '@/learn/skills.ts';
@@ -64,6 +67,15 @@ export default function Me() {
       <ProgressSummary tiles={false} />
       <Achievements stats={false} />
       <MyNumbers />
+      <footer className="me-foot">
+        <nav className="me-foot-links" aria-label="מידע משפטי">
+          <Link to="/privacy">פרטיות</Link>
+          <Link to="/terms">תקנון</Link>
+          <Link to="/accessibility">נגישות</Link>
+          <Link to="/safety">בטיחות</Link>
+          {hasServer() && <Link to="/cancel">ביטול מנוי</Link>}
+        </nav>
+      </footer>
     </div>
   );
 }

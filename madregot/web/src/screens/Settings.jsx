@@ -8,28 +8,25 @@ import { toast } from 'sonner';
 import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
-import { Button, Field } from '@/components/ui.jsx';
+import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass, joinedProfile } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
+import Mascot from '@/components/Mascot.jsx';
 import { openSupport } from '@/components/SupportSheet.jsx';
 import { SUPPORT_LINK } from '@/content/support.js';
 import { useAIStatus, leaveFamily } from '@/lib/account.js';
 import { PARENT_OK_LINE } from '@/components/limitCopy.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
-import { durableWipe } from '@/lib/durable/storage.js';
 import SaveSection from '@/components/durable/SaveSection.jsx';
 import SupportInfo from '@/components/durable/SupportInfo.jsx';
 import { whereSavedText } from '@/lib/durable/copy.js';
-import { stopBackup, syncVault, vaultErrorText } from '@/lib/durable/vault.js';
+import { syncVault } from '@/lib/durable/vault.js';
 import { afterClassJoin } from '@/lib/durable/escrow.js';
+import { wipeEverything, wipeDeviceOnly, wipeText, deviceOnlyText, WIPE_FAILED } from '@/lib/wipe.js';
+// the durable lane's parts of "delete all" (the backup on the server, the copy in the browser's database)
+import { WIPE_VAULT, WIPE_KEPT } from '@/lib/durable/wipeSteps.js';
 
-/** The danger zone's lines about the backup code (DURABLE-5), added while it is on. */
-export const WIPE_VAULT = 'גם הגיבוי המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.';
-/** The same, when the class or the family keeps the code (DURABLE-6): that copy is not called "מוצפן". */
-export const WIPE_KEPT = 'גם הגיבוי בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.';
 export const SIGNOUT_VAULT = 'הגיבוי בשרת נשאר. כדי לחזור להתקדמות, פותחים את מדרגות ובוחרים "יש לי קוד גיבוי".';
-/** "Delete all" could not delete the backup on the server, so it deleted nothing (the reason follows). */
-export const WIPE_FAILED = 'לא הצלחנו למחוק את הגיבוי בשרת, ולכן לא מחקנו כלום.';
 /** How long a sign-out waits for the last push of the backup before it goes on anyway. */
 const LAST_PUSH_MS = 4000;
 
@@ -308,8 +305,8 @@ async function forgetParent() {
 }
 
 /**
- * Privacy and safety: a person to talk to, one tap away (trust spec TRUST-3 §3.5). The legal pages join this group
- * later (TRUST-2).
+ * Privacy and safety: a person to talk to, one tap away (trust spec TRUST-3 §3.5), then the privacy notice, the tutor's
+ * safety statement and the accessibility statement (trust spec TRUST-1 §5), above the danger zone.
  */
 function SafetySection() {
   return (
@@ -317,8 +314,63 @@ function SafetySection() {
       <h2 id="safe-title" className="set-head">פרטיות ובטיחות</h2>
       <div className="set-rows-wrap"><div className="set-rows">
         <button type="button" className="set-row" onClick={openSupport} aria-haspopup="dialog"><span>{SUPPORT_LINK}</span><ChevronLeft size={18} aria-hidden="true" /></button>
+        <Link to="/privacy" className="set-row"><span>מדיניות הפרטיות</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+        <Link to="/safety" className="set-row"><span>בטיחות בעוזר החכם</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+        <Link to="/accessibility" className="set-row"><span>הצהרת נגישות</span><ChevronLeft size={18} aria-hidden="true" /></Link>
       </div></div>
     </section>
+  );
+}
+
+/**
+ * "מחיקת כל הנתונים" (trust spec TRUST-6 §3): the server first (lib/wipe.js). While it works, "מוחקים…" and nothing can
+ * be pressed or closed. If the server part fails nothing was deleted, and the sheet says so, with "לנסות שוב" and a
+ * quiet "למחוק רק מהמכשיר", which asks once more and says what stays on the server. As every sheet that deletes: the
+ * big button is the safe one, and the delete is the quiet one under it.
+ */
+function WipeSheet({ open, onClose }) {
+  const profile = useApp((s) => s.profile);
+  const ai = useApp((s) => s.ai);
+  const tier = useAIStatus((x) => x.status?.tier);
+  const server = hasServer();
+  const backup = useApp((s) => s.backup);
+  const [view, setView] = useState('ask'); // 'ask' | 'failed' | 'local'
+  const [busy, setBusy] = useState(false);
+  // a step that failed may say why in its own words (the backup on the server: lib/durable/wipeSteps.js)
+  const [failText, setFailText] = useState(null);
+  const onOpenChange = (o) => { if (o || busy) return; setView('ask'); setFailText(null); onClose(); };
+  const run = async (fn) => {
+    setBusy(true);
+    try { await fn(); } catch (e) { setFailText(e?.wipeText || null); setView('failed'); setBusy(false); }
+  };
+  // with the backup code on, the sheet says that the backup goes too (DURABLE-5); a copy the class or the family keeps
+  // is not called "מוצפן" (DURABLE-6)
+  const vaultLine = server && backup?.on ? (backup.escrow ? WIPE_KEPT : WIPE_VAULT) : null;
+  const label = (text) => (busy ? 'מוחקים…' : text);
+  let body; let primary; let quiet;
+  if (view === 'failed') {
+    body = <p role="alert">{failText || WIPE_FAILED}</p>;
+    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => run(wipeEverything)}>{label('לנסות שוב')}</Button>;
+    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => setView('local')}>למחוק רק מהמכשיר</Button>;
+  } else if (view === 'local') {
+    body = <p>{deviceOnlyText({ profile, ai })}</p>;
+    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => onOpenChange(false)}>לא למחוק</Button>;
+    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => run(wipeDeviceOnly)}>{label('כן, למחוק רק מהמכשיר')}</Button>;
+  } else {
+    body = <><p>{wipeText({ profile, ai, server, tier })}</p>{vaultLine && <p>{vaultLine}</p>}</>;
+    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => onOpenChange(false)}>לא למחוק</Button>;
+    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => run(wipeEverything)}>{label('כן, למחוק הכול')}</Button>;
+  }
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} title={view === 'local' ? 'למחוק רק מהמכשיר?' : 'למחוק הכול?'}>
+      <div className="exit-sheet confirm-sheet wipe-sheet" aria-busy={busy || undefined}>
+        <Mascot mood="oops" size={88} />
+        <div className="lead confirm-text">{body}</div>
+        {primary}
+        {quiet}
+        <p className="visually-hidden" role="status">{busy ? 'מוחקים…' : ''}</p>
+      </div>
+    </Sheet>
   );
 }
 
@@ -337,25 +389,9 @@ export default function Settings() {
   // the name can change under this screen (a restore, another tab): the field follows it
   useEffect(() => { setName(profile.name); }, [profile.name]);
   const [danger, setDanger] = useState(null);
-  const [wiping, setWiping] = useState(false);
-  const [wipeError, setWipeError] = useState('');
   const vaultOn = !!backup?.on;
-  // "מחיקת כל הנתונים": with the backup code on, the copy on the server goes first; if that fails nothing is deleted
-  // here either, and the sheet says why. Then the family link and a parent's session, the saved progress, its copy on
-  // the device and the quarantine; this page writes nothing again, so it reloads.
-  const wipe = async () => {
-    if (wiping) return;
-    setWiping(true); setWipeError('');
-    if (vaultOn) {
-      try { await stopBackup(); } catch (e) { setWipeError(`${WIPE_FAILED} ${vaultErrorText(e)}`); setWiping(false); return; }
-    }
-    await leaveFamily(); await forgetParent();
-    // the saved progress, its copy on the device and the quarantine go; this page writes nothing again, so it reloads
-    await durableWipe(); signOut();
-    // the look goes back to following the phone (its mirror for public/theme-boot.js is removed too)
-    useApp.getState().setTheme('system');
-    window.location.hash = '#/'; window.location.reload();
-  };
+  // "מחיקת כל הנתונים" is the WipeSheet above (lib/wipe.js): the server first, the durable lane's steps
+  // (lib/durable/wipeSteps.js: the backup on the server, the copy in the browser's database), then the device.
   // "התנתקות מהמכשיר" keeps the backup on the server (the code brings the progress back); what was learned since its
   // last update is sent first, if the server answers within a few seconds
   const [leaving, setLeaving] = useState(false);
@@ -404,15 +440,12 @@ export default function Settings() {
         confirm="כן, לאפס" onConfirm={() => { resetProgress(); setDanger(null); toast('ההתקדמות אופסה'); }}>
         <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
       </ConfirmSheet>
-      <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => { if (!o && !wiping) { setDanger(null); setWipeError(''); } }} title="למחוק הכול?" keep="לא למחוק"
-        confirm={wiping ? 'מוחקים…' : 'כן, למחוק הכול'} onConfirm={wipe}>
-        <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. {vaultOn && `${backup?.escrow ? WIPE_KEPT : WIPE_VAULT} `}אי אפשר לבטל.</p>
-        {wipeError && <p className="form-error" role="alert">{wipeError}</p>}
-      </ConfirmSheet>
+      <WipeSheet open={danger === 'wipe'} onClose={() => setDanger(null)} />
       <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"
         confirm={leaving ? 'מתנתקים…' : 'כן, להתנתק'} onConfirm={signOutHere}>
         <p>המכשיר יחזור למסך הפתיחה, וההתקדמות שנשמרה בו תימחק.</p>
         {vaultOn && <p>{SIGNOUT_VAULT}</p>}
+        <p>ההגדרות של העוזר במכשיר נשארות. כדי למחוק הכול, בחרו 'מחיקת כל הנתונים'.</p>
       </ConfirmSheet>
       <SupportInfo />
       {/* where the progress lives, in the words the whole app uses (lib/durable/copy.js) */}

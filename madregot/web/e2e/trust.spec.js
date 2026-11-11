@@ -5,7 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { NOW, student, answer, proceed, appReady } from './helpers.js';
-import { fakeServer, API, CORS } from './fakeServer.js';
+import { fakeServer, API, CORS, livePlan } from './fakeServer.js';
 
 /** Open a route with a saved state, seeded before the app starts (as subscription.spec.js does). */
 let seeds = 0;
@@ -709,5 +709,522 @@ test.describe('parent OK', () => {
     await expect(approved).toBeVisible();
     await expect(approved.getByRole('button', { name: 'ביטול האישור' })).toBeVisible();
     await shot(page, 'parent-ok-approved');
+  });
+});
+
+test.describe('legal pages', () => {
+  // trust spec TRUST-2: the four pages and the AI safety statement, their anchors in a hash router, the draft banner
+  // that follows the owner's sign-off, and the links to them from the front page, the profile and the introduction
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const PAGES = [['#/privacy', 'מדיניות פרטיות'], ['#/terms', 'תקנון'], ['#/accessibility', 'הצהרת נגישות'], ['#/safety', 'בטיחות בעוזר החכם']];
+  const noSideScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+
+  test('each page has its h1 and no sideways scroll at 320px; without a server each shows the draft banner and visible blanks', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await open(page, '#/');
+    for (const [route, title] of PAGES) {
+      await page.goto(`./${route}`);
+      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+      await expect(page.getByRole('note')).toHaveText('טיוטה לבדיקה משפטית. הנוסח עוד לא סופי.');
+      expect(await noSideScroll(page), route).toBe(true);
+      await expect(page.locator('article.legal')).not.toContainText('{{');
+      await expect(page.locator('article.legal')).not.toContainText('{#');
+      await shot(page, `legal-${route.slice(2)}-320`);
+    }
+    await expect(page.locator('article.legal')).toContainText('ער״ן 1201');
+    await expect(page.locator('article.legal')).toContainText('______'); // no server: the contact is a visible blank
+  });
+
+  test('the plain path /terms#cancel opens the cancel section, scrolled to and focused', async ({ page }) => {
+    await open(page, '#/');
+    await page.goto('./terms#cancel');
+    await expect(page).toHaveURL(/\/#\/terms#cancel$/);
+    const heading = page.getByRole('heading', { level: 2, name: 'ביטול והחזר' });
+    await expect(heading).toBeFocused();
+    await expect(heading).toBeInViewport();
+    // under the sticky bar, not behind it
+    const bar = await page.locator('.parents-bar').boundingBox();
+    expect((await heading.boundingBox()).y).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+    await shot(page, 'legal-terms-cancel');
+  });
+
+  test('a link inside a page moves inside the app, with no new page load', async ({ page }) => {
+    await open(page, '#/terms');
+    await page.evaluate(() => { window.__samePage = 'yes'; });
+    await page.locator('article.legal').getByRole('link', { name: 'בטיחות בעוזר החכם' }).click();
+    await expect(page).toHaveURL(/#\/safety$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'בטיחות בעוזר החכם' })).toBeVisible();
+    expect(await page.evaluate(() => window.__samePage)).toBe('yes');
+    // and the statement links back to the cancel section of the terms the same way
+    await page.locator('article.legal').getByRole('link', { name: 'תקנון' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'תקנון' })).toBeVisible();
+    expect(await page.evaluate(() => window.__samePage)).toBe('yes');
+  });
+
+  test('the draft banner follows the server\'s legalApproved, and the details fill in from it', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.legalApproved = false;
+    await open(page, '#/terms', withServer());
+    await expect(page.getByRole('note')).toHaveText('טיוטה לבדיקה משפטית. הנוסח עוד לא סופי.');
+    await expect(page.locator('article.legal')).toContainText('מדרגות בדיקה, מספר עוסק 000000000');
+    await expect(page.locator('article.legal')).toContainText('גרסה 2026-11 · עודכן ב־01.11.2026');
+    st.legalApproved = true;
+    await page.reload();
+    await expect(page.locator('article.legal')).toContainText('מדרגות בדיקה');
+    await expect(page.getByRole('note')).toHaveCount(0);
+    await expect(page.getByText('טיוטה')).toHaveCount(0);
+    await expect(page.locator('article.legal')).not.toContainText('______');
+    await shot(page, 'legal-terms-approved');
+  });
+
+  test('the profile ends with the legal links; with a server, "ביטול מנוי" opens the cancel page', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/me', withServer());
+    const nav = page.getByRole('navigation', { name: 'מידע משפטי' });
+    for (const name of ['פרטיות', 'תקנון', 'נגישות', 'בטיחות', 'ביטול מנוי']) {
+      const link = nav.getByRole('link', { name, exact: true });
+      await expect(link).toBeVisible();
+      expect((await link.boundingBox()).height, name).toBeGreaterThanOrEqual(44);
+    }
+    await nav.scrollIntoViewIfNeeded();
+    await shot(page, 'me-footer');
+    await nav.getByRole('link', { name: 'ביטול מנוי' }).click();
+    await expect(page).toHaveURL(/#\/cancel$/);
+    await expect(page.getByRole('heading', { name: 'ביטול מנוי' })).toBeVisible();
+    // a copy without a server sells nothing: no cancel link there
+    await open(page, '#/me', student());
+    await expect(page.getByRole('navigation', { name: 'מידע משפטי' }).getByRole('link', { name: 'בטיחות' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'ביטול מנוי' })).toHaveCount(0);
+  });
+
+  test('the front page always links privacy, accessibility and safety; the cancel link and its note come with the paid tutor', async ({ page }) => {
+    await open(page, '#/');
+    let nav = page.getByRole('navigation', { name: 'מידע משפטי' });
+    for (const name of ['פרטיות', 'נגישות', 'בטיחות']) await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
+    for (const name of ['תקנון', 'ביטול מנוי', 'להורים']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
+    await nav.getByRole('link', { name: 'בטיחות' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'בטיחות בעוזר החכם' })).toBeVisible();
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/', withServer({ profile: null }));
+    nav = page.getByRole('navigation', { name: 'להורים ומידע משפטי' });
+    for (const name of ['להורים', 'ביטול מנוי', 'תקנון', 'פרטיות', 'נגישות', 'בטיחות']) await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
+    const cancel = nav.getByRole('link', { name: 'ביטול מנוי' });
+    await expect(cancel).toHaveAccessibleDescription('ביטול בשתי לחיצות, באתר, במייל או בטלפון');
+    await expect(page.getByText('ביטול בשתי לחיצות, באתר, במייל או בטלפון')).toBeVisible();
+    for (const b of ['מתחילים', 'אני מורה']) await expect(page.getByRole('button', { name: b })).toBeInViewport();
+    await shot(page, 'welcome-legal');
+  });
+
+  test('the introduction links the safety statement: it closes, sends nothing, and comes again next time', async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', firstTime());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('מה זה מספר שלילי?'); await draft.press('Enter');
+    const intro = page.getByRole('dialog', { name: 'לפני שמתחילים עם העוזר החכם' });
+    const more = intro.getByRole('link', { name: 'עוד על בטיחות ופרטיות' });
+    expect((await more.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await more.click();
+    await expect(page.getByRole('heading', { level: 1, name: 'בטיחות בעוזר החכם' })).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(chatCalls(log)).toHaveLength(0);
+    await page.getByRole('button', { name: 'חזרה' }).click();
+    await expect(page.getByLabel('ההודעה שלכם')).toBeVisible();
+    await page.getByLabel('ההודעה שלכם').fill('שוב'); await page.getByLabel('ההודעה שלכם').press('Enter');
+    await expect(intro).toBeVisible();
+  });
+});
+
+test.describe('delete all', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  // the council's repro (trust#56, council/trust/audit.json afterWipe): a dev build's key, the device id, the class
+  // token, a family-device token and a parent's session were all still in localStorage after "delete all"
+  const KEY = 'sk-ant-SYNTHETIC-TEST-KEY';
+  const FD = `fd1.${'b'.repeat(64)}`;
+  const DEVICE = 'c0ffee'.repeat(5) + 'c0';
+  const PARENT = { token: 'd'.repeat(64), email: 'parent@example.com' };
+  const repro = () => withServer({
+    profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' },
+    ai: { mode: 'server', apiUrl: API, key: KEY, device: DEVICE, familyDevice: { token: FD, label: 'הטאבלט' }, introSeen: true },
+  });
+  const appKeys = (page) => page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].filter((k) => k.startsWith('madregot')).sort());
+  const storage = (page) => page.evaluate(() => ({ local: { ...localStorage }, session: { ...sessionStorage } }));
+  /** Settings of the repro's device, with the server's forget route under the test's control (`ctl.fail`, `ctl.hold`). */
+  async function setUp(page, ctl = {}) {
+    const server = await fakeServer(page, { parentOk: true, devices: [{ id: 'fd01', token: FD, label: 'הטאבלט' }], plan: livePlan() }, baseOf());
+    const forgets = [];
+    await page.route(`${API}/api/me/forget`, async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      forgets.push(route.request().headers());
+      if (ctl.hold) await ctl.hold;
+      return route.fulfill({
+        status: ctl.fail ? 500 : 200, contentType: 'application/json', headers: CORS,
+        body: JSON.stringify(ctl.fail ? { error: 'server_error' } : { ok: true, student: true, familyDevice: true, device: true }),
+      });
+    });
+    await open(page, '#/settings', repro());
+    await page.evaluate((p) => {
+      localStorage.setItem('madregot-parent', JSON.stringify(p));
+      localStorage.setItem('madregot-staging', '{}');
+      sessionStorage.setItem('madregot-checkout-family_month', 'checkout-key-0123456789');
+    }, PARENT);
+    return { ...server, forgets };
+  }
+  const wipeSheet = (page) => page.getByRole('dialog', { name: 'למחוק הכול?' });
+
+  test('the council\'s repro: the key, the device id, the tokens and the parent\'s address are gone, here and on the server', async ({ page }) => {
+    const s = await setUp(page);
+    expect(await appKeys(page)).toEqual(expect.arrayContaining(['madregot', 'madregot-checkout-family_month', 'madregot-parent', 'madregot-staging']));
+    expect(JSON.stringify(await storage(page))).toContain(KEY);
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    const sheet = wipeSheet(page);
+    await expect(sheet).toContainText('נמחק את כל מה שנשמר במכשיר הזה, וגם את מה שנשמר עליכם בשרת של הכיתה: השם, ההתקדמות, הבקשות למורה והמבחנים. המורה כבר לא יראה אתכם ברשימה.');
+    await expect(sheet).toContainText('המכשיר גם ינותק מהמנוי המשפחתי, וההורים יקבלו על זה מייל. אי אפשר לבטל.');
+    for (const b of await sheet.getByRole('button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    // both answers in view, at 320x568 too
+    for (const name of ['לא למחוק', 'כן, למחוק הכול']) await expect(sheet.getByRole('button', { name })).toBeInViewport();
+    await shot(page, 'wipe-ask');
+    await sheet.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'כל הנתונים נמחקו מהמכשיר הזה ומהשרת.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+    // the server got every identity in one call, and the parent's session was ended there
+    expect(s.forgets).toHaveLength(1);
+    expect(s.forgets[0]).toMatchObject({ authorization: 'Bearer stu_token_1', 'x-family-device': FD, 'x-device': DEVICE });
+    expect(s.log.find((r) => r.path === '/api/account/signout')?.headers['x-account-token']).toBe(PARENT.token);
+    // and nothing is left on the device
+    expect(await appKeys(page)).toEqual([]);
+    const left = JSON.stringify(await storage(page)) + await page.content();
+    for (const v of [KEY, DEVICE, FD, 'stu_token_1', PARENT.token, 'parent@example.com']) expect(left).not.toContain(v);
+    await expect(page).not.toHaveURL(/wiped/);
+    await shot(page, 'wipe-done');
+  });
+
+  test('a 500 deletes nothing and says why; "לנסות שוב" waits ("מוחקים…"), then deletes everything', async ({ page }) => {
+    const ctl = { fail: true };
+    const s = await setUp(page, ctl);
+    const before = await storage(page);
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    const sheet = wipeSheet(page);
+    await sheet.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await expect(sheet.getByRole('alert')).toHaveText('לא הצלחנו למחוק מהשרת, ולכן עוד לא מחקנו כלום. בדקו את החיבור לאינטרנט ונסו שוב.');
+    expect(await storage(page)).toEqual(before);
+    expect(s.log.filter((r) => r.path === '/api/account/signout')).toHaveLength(0);
+    await shot(page, 'wipe-failed');
+    let release;
+    Object.assign(ctl, { fail: false, hold: new Promise((r) => { release = r; }) });
+    await sheet.getByRole('button', { name: 'לנסות שוב' }).click();
+    await expect(sheet.getByRole('button', { name: 'מוחקים…' })).toBeDisabled();
+    await expect(sheet.getByRole('button', { name: 'למחוק רק מהמכשיר' })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeVisible(); // it cannot be closed while it works
+    release();
+    await expect(page.getByRole('status').filter({ hasText: 'כל הנתונים נמחקו מהמכשיר הזה ומהשרת.' })).toBeVisible();
+    expect(s.forgets).toHaveLength(2);
+    expect(await appKeys(page)).toEqual([]);
+  });
+
+  test('when the server stays down, "למחוק רק מהמכשיר" asks once more, says what stays on the server, and clears the device', async ({ page }) => {
+    const s = await setUp(page, { fail: true });
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    await wipeSheet(page).getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await wipeSheet(page).getByRole('button', { name: 'למחוק רק מהמכשיר' }).click();
+    const second = page.getByRole('dialog', { name: 'למחוק רק מהמכשיר?' });
+    await expect(second).toContainText('המידע בשרת של הכיתה יישאר עד שהמורה ימחק אותו, או עד שיימחק מעצמו אחרי 400 יום.');
+    await shot(page, 'wipe-device-only');
+    // the safe answer is the big one
+    await second.getByRole('button', { name: 'לא למחוק' }).click();
+    await expect(second).toHaveCount(0);
+    expect(await appKeys(page)).toEqual(expect.arrayContaining(['madregot', 'madregot-parent']));
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    await wipeSheet(page).getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await wipeSheet(page).getByRole('button', { name: 'למחוק רק מהמכשיר' }).click();
+    await page.getByRole('dialog', { name: 'למחוק רק מהמכשיר?' }).getByRole('button', { name: 'כן, למחוק רק מהמכשיר' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'כל הנתונים נמחקו מהמכשיר הזה.' })).toBeVisible();
+    await expect(page.getByText('ומהשרת')).toHaveCount(0);
+    expect(s.forgets).toHaveLength(2);
+    expect(await appKeys(page)).toEqual([]);
+    await shot(page, 'wipe-done-device');
+  });
+});
+
+test.describe('photo', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  // a device with the family plan, where the exam check and the photo check are open (trust spec TRUST-5)
+  const FD = `fd1.${'c'.repeat(64)}`;
+  const family = () => withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: FD, label: 'הטאבלט' } } });
+  async function setUp(page) {
+    const server = await fakeServer(page, { parentOk: true }, baseOf());
+    server.st.devices.push({ id: 'd1', label: 'הטאבלט', token: FD }); server.st.plan = livePlan();
+    return server;
+  }
+  /** A synthetic 1200×1600 exam page drawn in the page itself: the top 10% red (where a name and an ID would be). */
+  const examPng = async (page, { red = true } = {}) => Buffer.from(await page.evaluate((r) => {
+    const c = document.createElement('canvas'); c.width = 1200; c.height = 1600;
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, 1200, 1600);
+    if (r) { x.fillStyle = '#ff0000'; x.fillRect(0, 0, 1200, 160); }
+    x.fillStyle = '#222'; x.font = '48px sans-serif';
+    for (let i = 0; i < 10; i += 1) x.fillText(`${i + 1})  3x + ${i} = ${3 * (i + 2) + i}`, 80, 320 + i * 110);
+    return c.toDataURL('image/png').split(',')[1];
+  }, red), 'base64');
+  /** The page as the server got it, drawn into a canvas inside the page: its size and the colour of some pixels. */
+  const sentPixels = (page, src, points) => page.evaluate(async ([s, pts]) => {
+    const img = new Image(); img.src = s; await img.decode();
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    return { width: c.width, height: c.height, px: pts.map(([px, py]) => [...x.getImageData(px, py, 1, 1).data].slice(0, 3)) };
+  }, [src, points]);
+  const prepSheet = (page) => page.getByRole('dialog', { name: 'מסתירים פרטים אישיים' });
+  const warnSheet = (page) => page.getByRole('dialog', { name: 'לפני שמצלמים' });
+
+  test('exam: the warning comes first, page 1 loses its top band on the device, and the header pixel sent is not red', async ({ page }) => {
+    const { log } = await setUp(page);
+    await open(page, '#/exams/check', family());
+    // pictures only: no PDF is offered or mentioned
+    for (const input of await page.locator('input[type=file]').all()) await expect(input).toHaveAttribute('accept', 'image/*');
+    await expect(page.getByText(/PDF/)).toHaveCount(0);
+    await expect(page.getByText('לתמונה טובה: אור טוב, הדף שטוח וכולו בתמונה. בלי שם ובלי תעודת זהות.')).toBeVisible();
+    // "צילום דף" opens the warning, never the camera
+    let choosers = 0; page.on('filechooser', () => { choosers += 1; });
+    await page.getByRole('button', { name: 'צילום דף' }).click();
+    const warn = warnSheet(page);
+    await expect(warn).toBeVisible();
+    await expect(warn).toContainText('בדף של מבחן יש לפעמים שם, תעודת זהות, ציון, כיתה ובית ספר. את הפרטים האלה לא שולחים לעוזר.');
+    await expect(warn).toContainText('התמונה נשלחת לעוזר החכם (Anthropic, בארה״ב) כדי לבדוק אותה, ולא נשמרת אצלנו.');
+    expect(choosers).toBe(0);
+    await shot(page, 'photo-warn');
+    // its button opens the camera itself, in the same tap
+    const camera = page.waitForEvent('filechooser');
+    await warn.getByRole('button', { name: 'הבנתי, לצלם' }).click();
+    const fc = await camera;
+    expect(fc.isMultiple()).toBe(false);
+    expect(await page.evaluate(() => sessionStorage.getItem('madregot-photo-warned'))).toBe('1');
+    await fc.setFiles({ name: 'page1.png', mimeType: 'image/png', buffer: await examPng(page) });
+    const prep = prepSheet(page);
+    await expect(prep).toBeVisible();
+    await expect(warn).toHaveCount(0);
+    // page 1 of an exam: the top 15% is shaded and will not be sent
+    const cut = prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' });
+    await expect(cut).toHaveAttribute('aria-valuenow', '15');
+    await expect(prep.getByText('השורה הזו לא תישלח')).toBeVisible();
+    // the whole page is on the screen, nothing to scroll
+    const frame = await prep.locator('.prep-frame').boundingBox();
+    const vp = page.viewportSize();
+    expect(frame.y).toBeGreaterThanOrEqual(0);
+    expect(frame.y + frame.height).toBeLessThanOrEqual(vp.height);
+    expect(frame.width / frame.height).toBeCloseTo(1200 / 1600, 1);
+    await shot(page, 'photo-prep');
+    // the keyboard: the line moves with the arrows, a box is added, moved and resized
+    await cut.focus(); await page.keyboard.press('ArrowDown');
+    await expect(cut).toHaveAttribute('aria-valuenow', '16');
+    await page.keyboard.press('ArrowUp');
+    await expect(cut).toHaveAttribute('aria-valuenow', '15');
+    await prep.getByRole('button', { name: 'הוספת מלבן' }).click();
+    const box = prep.getByRole('button', { name: 'מלבן שחור 1' });
+    await expect(box).toBeFocused();
+    const b0 = await box.boundingBox();
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(async () => (await box.boundingBox()).y).toBeGreaterThan(b0.y);
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect.poll(async () => (await box.boundingBox()).width).toBeGreaterThan(b0.width);
+    await shot(page, 'photo-prep-box');
+    // undo takes the last box away; one more box for the request
+    await prep.getByRole('button', { name: 'ביטול האחרון' }).click();
+    await expect(box).toHaveCount(0);
+    await expect(prep.getByRole('button', { name: 'ביטול האחרון' })).toBeDisabled();
+    await prep.getByRole('button', { name: 'הוספת מלבן' }).click();
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(prep).toHaveCount(0);
+    await expect(page.getByRole('img', { name: 'דף 1' })).toBeVisible();
+    // the second photo of the session: no warning, the picker at once, and no cut on page 2
+    const picker = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'בחירת תמונה' }).click();
+    const fc2 = await picker;
+    expect(fc2.isMultiple()).toBe(true);
+    await expect(warnSheet(page)).toHaveCount(0);
+    await fc2.setFiles({ name: 'page2.png', mimeType: 'image/png', buffer: await examPng(page, { red: false }) });
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '0');
+    await expect(prep.getByText('השורה הזו לא תישלח')).toHaveCount(0);
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(page.getByRole('img', { name: 'דף 2' })).toBeVisible();
+    await shot(page, 'photo-pages');
+    // a PDF that slips past the picker is not taken
+    const picker2 = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'בחירת תמונה' }).click();
+    await (await picker2).setFiles({ name: 'exam.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%synthetic\n') });
+    await expect(page.getByText('אי אפשר לבדוק כאן קובץ PDF. אפשר לצלם את הדפים במקום.')).toBeVisible();
+    await expect(prep).toHaveCount(0);
+    await expect(page.getByRole('img', { name: 'דף 3' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'בדיקת המבחן' }).click();
+    await expect.poll(() => log.filter((r) => r.path === '/api/ai/exam').length).toBe(1);
+    const sent = log.find((r) => r.path === '/api/ai/exam').body;
+    expect(JSON.stringify(sent)).not.toContain('application/pdf');
+    expect(sent.pages.map((p) => p.mediaType)).toEqual(['image/jpeg', 'image/jpeg']);
+    expect(sent.prep).toEqual({ crop: true, boxes: 1 });
+    // page 1 as sent: 15% shorter, pixel (10,10) is not the red header, and the box is solid black
+    const one = await sentPixels(page, sent.pages[0].data, [[10, 10], [600, 680]]);
+    expect([one.width, one.height]).toEqual([1200, 1360]);
+    const [r, g] = one.px[0];
+    expect(r < 200 || g > 80, `pixel (10,10) is ${one.px[0]}`).toBe(true);
+    expect(Math.max(...one.px[1]), `the box is ${one.px[1]}`).toBeLessThan(40);
+    // page 2 as sent: the whole page
+    const two = await sentPixels(page, sent.pages[1].data, [[10, 10]]);
+    expect([two.width, two.height]).toEqual([1200, 1600]);
+  });
+
+  test('notebook photo: the warning first, then the step with no cut; the check sends only the prepared picture', async ({ page }) => {
+    const { log } = await setUp(page);
+    await open(page, '#/assistant', family());
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    const sheet = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
+    await sheet.getByRole('button', { name: 'צילום או בחירת תמונה' }).click();
+    const warn = warnSheet(page);
+    await expect(warn).toBeVisible();
+    // closing the warning opens nothing, and it comes again
+    await page.keyboard.press('Escape');
+    await expect(warn).toHaveCount(0);
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: 'צילום או בחירת תמונה' }).click();
+    const camera = page.waitForEvent('filechooser');
+    await warnSheet(page).getByRole('button', { name: 'הבנתי, לצלם' }).click();
+    await (await camera).setFiles({ name: 'work.png', mimeType: 'image/png', buffer: await examPng(page) });
+    const prep = prepSheet(page);
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '0');
+    await expect(prep.getByText('השורה הזו לא תישלח')).toHaveCount(0);
+    await shot(page, 'photo-check-prep');
+    // "השחרה" draws a box with a drag
+    await prep.getByRole('button', { name: 'השחרה' }).click();
+    await expect(prep.getByRole('button', { name: 'השחרה' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(prep.getByText('גררו על הדף כדי להשחיר.')).toBeVisible();
+    const f = await prep.locator('.prep-frame').boundingBox();
+    await page.mouse.move(f.x + f.width * 0.05, f.y + f.height * 0.01);
+    await page.mouse.down();
+    await page.mouse.move(f.x + f.width * 0.6, f.y + f.height * 0.08, { steps: 5 });
+    await page.mouse.up();
+    await expect(prep.getByRole('button', { name: 'מלבן שחור 1' })).toBeVisible();
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(sheet.getByRole('img', { name: 'התמונה שבחרתם' })).toBeVisible();
+    await shot(page, 'photo-check-picked');
+    await sheet.getByRole('button', { name: 'בדיקת הפתרון' }).click();
+    await expect(sheet.getByText('התשובה הסופית נכונה.')).toBeVisible();
+    const sent = log.find((r) => r.path === '/api/ai/check').body;
+    expect(sent.prep).toEqual({ crop: false, boxes: 1 });
+    expect(sent.image).toMatch(/^data:image\/jpeg;base64,/);
+    // the whole page, and the red where the box was drawn is black now
+    const px = await sentPixels(page, sent.image, [[300, 60]]);
+    expect([px.width, px.height]).toEqual([1200, 1600]);
+    expect(Math.max(...px.px[0]), `pixel ${px.px[0]}`).toBeLessThan(40);
+  });
+});
+
+test.describe('privacy lines', () => {
+  // trust spec TRUST-1 §5: every line in the app about what is kept says it truly, beside the moment it is collected,
+  // and points to the privacy notice (or, for the tutor, the safety statement) without losing what was typed
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const OLD = 'שומרים רק את כתובת המייל';
+
+  test('the name step says where the name stays; the class step says what joining keeps, and "מה נשמר ולמה" opens the notice in a new tab', async ({ page }) => {
+    await fakeServer(page.context(), { parentOk: true }, baseOf());
+    const fresh = withServer(); fresh.state.profile = null;
+    await open(page, '#/', fresh);
+    await page.getByRole('button', { name: 'מתחילים' }).click();
+    const name = page.getByLabel('השם שלכם');
+    await expect(name).toHaveAccessibleDescription('השם נשמר רק במכשיר הזה, אלא אם תצטרפו לכיתה. אפשר גם כינוי.');
+    await expect(page.getByText('השם נשמר רק במכשיר הזה')).toBeVisible();
+    await shot(page, 'privacy-name');
+    await name.fill('נועה');
+    const next = page.getByRole('button', { name: 'המשך', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /כיתה ז׳/ }).click(); await next.click();
+    await page.getByRole('radio').first().click(); await next.click();
+    await next.click(); // the daily goal keeps its default
+    await expect(page.getByText('יש לכם קוד כיתה מהמורה?')).toBeVisible();
+    await expect(page.getByText('השם שלכם והתשובות בתרגול יישמרו בשרת של מדרגות, והמורה יראה אותם. אפשר למחוק אותם בכל רגע בהגדרות')).toBeVisible();
+    await page.getByLabel('קוד כיתה').fill('K7Q2MD');
+    await shot(page, 'privacy-class-step');
+    const more = page.getByRole('link', { name: /מה נשמר ולמה/ });
+    await expect(more).toHaveAttribute('target', '_blank');
+    const [tab] = await Promise.all([page.waitForEvent('popup'), more.click()]);
+    await expect(tab).toHaveURL(/#\/privacy$/);
+    await expect(tab.getByRole('heading', { level: 1, name: 'מדיניות פרטיות' })).toBeVisible();
+    await tab.close();
+    // the step and what was typed are still there
+    await expect(page.getByLabel('קוד כיתה')).toHaveValue('K7Q2MD');
+    await expect(page.getByText('יש לכם קוד כיתה מהמורה?')).toBeVisible();
+  });
+
+  test('the parents\' page says what is kept, never "only the email", and the email form says where the address goes', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/parents', withServer({ profile: null }));
+    const about = page.getByText(/^מה נשמר אצלנו: כתובת המייל שלכם, פרטי המנוי והתשלומים \(בלי פרטי כרטיס\) והמכשירים שחיברתם\./);
+    await expect(about).toBeVisible();
+    await expect(about).toContainText('מה שכותבים לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה.');
+    await expect(about.getByRole('link', { name: 'כל הפרטים במדיניות הפרטיות' })).toHaveAttribute('href', /#\/privacy$/);
+    await expect(page.locator('body')).not.toContainText(OLD);
+    const form = page.getByRole('region', { name: 'כניסה עם המייל' }).or(page.locator('section[aria-labelledby="signin-title"]'));
+    await expect(form.getByText('המייל משמש לכניסה, לאישורים, לקבלות ולהודעות על המנוי. הוא עובר לשירות שליחת המיילים Resend (בארה״ב) ולחברת הסליקה.')).toBeVisible();
+    const link = form.getByRole('link', { name: /מדיניות הפרטיות/ });
+    await expect(link).toHaveAttribute('href', /#\/privacy$/);
+    await expect(link).toHaveAttribute('target', '_blank');
+    await about.scrollIntoViewIfNeeded();
+    await shot(page, 'privacy-parents');
+    await link.scrollIntoViewIfNeeded();
+    await shot(page, 'privacy-email-note');
+  });
+
+  test('the tutor says who answers and where it goes; Settings opens the three pages; a class student\'s numbers say where they go', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    const note = page.locator('.assistant-note');
+    await expect(note).toContainText('העוזר הוא Claude של Anthropic, תוכנה ולא אדם. מה שכותבים כאן נשלח ל־Anthropic בארה״ב ולא נשמר אצלנו.');
+    const safety = note.getByRole('link', { name: /בטיחות ופרטיות/ });
+    await expect(safety).toHaveAttribute('href', /#\/safety$/);
+    await expect(safety).toHaveAttribute('target', '_blank');
+    await shot(page, 'privacy-assistant');
+
+    await open(page, '#/settings', student());
+    const group = page.locator('section[aria-labelledby="safe-title"]');
+    for (const [row, title] of [['מדיניות הפרטיות', 'מדיניות פרטיות'], ['בטיחות בעוזר החכם', 'בטיחות בעוזר החכם'], ['הצהרת נגישות', 'הצהרת נגישות']]) {
+      const link = group.getByRole('link', { name: row });
+      await link.scrollIntoViewIfNeeded();
+      expect((await link.boundingBox()).height, row).toBeGreaterThanOrEqual(44);
+      await link.click();
+      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+      await page.goBack();
+      await expect(group.getByRole('link', { name: row })).toBeVisible();
+    }
+
+    await open(page, '#/me', classStudent());
+    await expect(page.getByText('המספרים האלה מחושבים במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה.')).toBeAttached();
+    await expect(page.getByText('המספרים נשמרים רק במכשיר הזה')).toHaveCount(0);
+    // outside a class: the durable lane's one sentence for where the progress lives (lib/durable/copy.js whereSavedText)
+    await open(page, '#/me', student());
+    await expect(page.locator('.nums-where')).toContainText('ההתקדמות נשמרת');
+    await expect(page.locator('.nums-where')).toContainText('במכשיר הזה');
+    await expect(page.locator('.nums-where')).not.toContainText('ללוח של המורה');
+  });
+
+  test('the help sheet says where the request is kept; a new teacher is told who sees the name, and the example is a family name', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/lesson/signed/1', classStudent());
+    await page.getByRole('button', { name: 'למורה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'לבקש עזרה מהמורה' });
+    await expect(sheet.getByLabel('מה לא ברור? (לא חובה)')).toHaveAccessibleDescription(/^הבקשה נשמרת בשרת של הכיתה\./);
+    await shot(page, 'privacy-help');
+
+    const fresh = withServer(); fresh.state.profile = null;
+    await open(page, '#/', fresh);
+    // the school lane's way in (screens/teacher/TeacherStart.jsx): a new class, the teacher's email, then the details
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByRole('radio', { name: /פתיחת כיתה חדשה/ })).toHaveAttribute('aria-checked', 'true');
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await page.getByLabel('כתובת המייל שלכם').fill('teacher@example.test');
+    await page.getByRole('button', { name: 'שליחת קוד' }).click();
+    await page.getByLabel('הקוד מהמייל').fill('123456');
+    const name = page.getByLabel('השם שלכם (כך התלמידים יראו אותו)');
+    await expect(name).toHaveAttribute('placeholder', 'למשל: המורה כהן');
+    await expect(name).toHaveAccessibleDescription('השם יופיע לתלמידים שמצטרפים עם קוד הכיתה. אפשר לכתוב רק שם משפחה, למשל \'המורה כהן\'.');
+    await shot(page, 'privacy-teacher');
   });
 });

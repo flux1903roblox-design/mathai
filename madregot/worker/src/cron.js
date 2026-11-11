@@ -1,12 +1,13 @@
 // The hourly cron ([triggers] crons = ["7 * * * *"] in wrangler.toml; scheduled() in index.js calls run()).
 //
-// Every hour: end plans whose time is over (past_due after the grace days, finished terms, trials and class licences,
-// canceled plans at their period end), expire open orders after 2 h, retry cancellations the provider has not confirmed
-// (owner notice after 24 h), process the refund queue, and send pending notices.
+// Every hour: end plans whose time is over (past_due after the grace days, finished terms, trials, class licences and
+// one-year family plans, canceled plans at their period end), expire open orders after 2 h, retry cancellations the
+// provider has not confirmed (owner notice after 24 h), process the refund queue, and send pending notices.
 //
-// In the 03:00 hour in Jerusalem: reconcile renewing plans whose period is over with the provider (extend only from the
-// truth pulled from it, or end the plan), queue the yearly renewal reminder (45 days ahead) and the licence-ending email
-// (30 days ahead), purge what is no longer needed (spec §6.9, the safety records, and the class data by TRUST-7:
+// In the 03:00 hour in Jerusalem: reconcile the monthly plans whose period is over with the provider (extend only from
+// the truth pulled from it, or end the plan), queue the one-year plan's end-date emails (30-45 days and 7 days ahead,
+// trust spec TRUST-10 §2) and the licence-ending email (30 days ahead), purge what is no longer needed (spec §6.9, the
+// safety records, the class data by TRUST-7, and money records, licence records and idle accounts by TRUST-1 §4:
 // shared/retention.js; error reports after 30 days; class students' device tokens unused for 400 days, and tokens and
 // escrows whose student or account is gone, DURABLE-6; the parents' daily summaries after 90 days, PARENTS-3), alert
 // the owner when yesterday's safety events jumped, queue the owner's notice of yesterday's app errors when there were
@@ -16,7 +17,7 @@
 // rest day). Each step runs on its own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
-import { retryCancels, processRefundQueue } from './billing.js';
+import { retryCancels, processRefundQueue, prices, vatOf, forgetAccount } from './billing.js';
 import { purgeAccountsSql } from './account.js';
 import { purgeFamilySql } from './family.js';
 import { purgeReportSql } from './report.js';
@@ -29,6 +30,11 @@ import { RETENTION } from '../../shared/retention.js';
 import { helpDigest, digestHour } from './help.js';
 import { errorsOf, errorsNoticeDue, purgeErrorsSql } from './errors.js';
 import { vaultNight, vaultStats, purgeIdentitySql } from './vault.js';
+import { qualityCounts, QUALITY_KEEP_DAYS } from './quality.js';
+// The purge rules of the sign-in and family tables, the error reports, the parents' daily summaries, the class tokens and
+// escrows, and the vaults live beside their routes; they are named here too, so the data map (worker/datamap.json,
+// purgedBy) can name every purge as cron.<export> (test/datamap.test.js).
+export { purgeAccountsSql, purgeFamilySql, purgeErrorsSql, purgeReportSql, purgeIdentitySql, vaultNight };
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -37,14 +43,17 @@ const changes = (r) => (Array.isArray(r) ? r : [r]).reduce((n, x) => n + Number(
 const auditStmt = (env, action, target, detail) => env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
   .bind(nowIso(), 'cron', action, target, JSON.stringify(detail || {}));
 
-/** Plans whose time is over. Recurring plans that are still active are left to the provider's renewal events. */
+/**
+ * Plans whose time is over. The monthly plan, which renews by itself, is left to the provider's renewal events while it
+ * is active; a one-year plan ends at its end like a licence (trust spec TRUST-10 §1): nothing is charged again.
+ */
 export async function endFinished(env) {
   const now = nowIso();
   const grace = addDays(now, -limits(env).graceDays);
   const r = await env.DB.batch([
     env.DB.prepare("UPDATE subscriptions SET status = 'ended', ended_reason = 'payment_failed', updated_at = ? WHERE status = 'past_due' AND current_period_end <= ?").bind(now, grace),
     env.DB.prepare(`UPDATE subscriptions SET status = 'ended', ended_reason = 'expired', updated_at = ?
-      WHERE status = 'active' AND plan IN ('term', 'trial', 'class_year') AND current_period_end <= ?`).bind(now, now),
+      WHERE status = 'active' AND plan IN ('term', 'trial', 'class_year', 'family_year') AND current_period_end <= ?`).bind(now, now),
     env.DB.prepare("UPDATE subscriptions SET status = 'ended', ended_reason = COALESCE(ended_reason, 'canceled'), updated_at = ? WHERE status = 'canceled' AND current_period_end <= ?").bind(now, now),
   ]);
   return changes(r);
@@ -53,7 +62,8 @@ export async function endFinished(env) {
 export const expireOrders = (env) => env.DB.prepare("UPDATE orders SET status = 'expired' WHERE status = 'open' AND expires_at < ?").bind(nowIso()).run();
 
 /**
- * Renewing plans (family_month, family_year) whose period is over with no renewal event: ask the provider. Its pulled
+ * Monthly plans (the one plan that renews by itself; a one-year plan ends in endFinished) whose period is over with no
+ * renewal event: ask the provider. Its pulled
  * truth may extend the plan (never shorten it) or end it. With no answer to go on (a provider without the API, or a
  * plan the provider does not know), an active plan ends once the grace days have passed as well, as a failed payment:
  * a late renewal event still brings it back (apply.js), and the family can subscribe again meanwhile.
@@ -64,7 +74,7 @@ export async function reconcile(env, { limit = 100 } = {}) {
   const grace = addDays(now, -limits(env).graceDays);
   // every renewing plan past its period, also one stored without the provider's subscription id (nothing can be pulled
   // for it, so it ends after the grace days like a plan the provider does not know, instead of staying 'active' forever)
-  const due = await all(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND plan IN ('family_month', 'family_year')
+  const due = await all(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND plan = 'family_month'
     AND status IN ('active', 'past_due') AND current_period_end <= ? ORDER BY current_period_end LIMIT ?`, now, limit);
   const out = { checked: due.length, extended: 0, ended: 0, failed: 0 };
   for (const sub of due) {
@@ -95,20 +105,28 @@ export async function reconcile(env, { limit = 100 } = {}) {
   return out;
 }
 
-export const RENEWAL_REMINDER_DAYS = 45;
+/**
+ * The one-year plan's end-date notice (trust spec TRUST-10 §2): the law asks for it 60 to 30 days before the end, so it
+ * is queued on the first night inside 30-45 days (a missed night still lands in the window), and once more at 7 days.
+ */
+export const YEAR_ENDING_DAYS = Object.freeze({ from: 30, to: 45, last: 7 });
 export const LICENCE_ENDING_DAYS = 30;
 /**
- * The yearly renewal reminder 45 days ahead (to the payer), and the licence-ending email 30 days ahead (to the buyer, or
+ * The one-year plan's end-date emails, year_ending:<end> (30-45 days ahead) and year_ending_7:<end> (7 days ahead), to
+ * the payer, with the price of a new year as it is now; and the licence-ending email 30 days ahead (to the buyer, or
  * else the teacher who last asked about the class). Each is queued once per period end: the notice key holds the date.
  */
 export async function reminders(env) {
   const now = nowIso();
+  const price = prices(env).family_year;
+  const year = (kind, from, to) => env.DB.prepare(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
+      SELECT id, '${kind}:' || current_period_end, account_id, json_object('periodEnd', current_period_end, 'priceAgorot', ?4, 'vatAgorot', ?5), ?1
+      FROM subscriptions WHERE kind = 'family' AND plan = 'family_year' AND status = 'active' AND account_id IS NOT NULL
+        AND current_period_end > ?2 AND current_period_end <= ?3`).bind(now, from, to, price, vatOf(env, price));
+  const Y = YEAR_ENDING_DAYS;
   const r = await env.DB.batch([
-    env.DB.prepare(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
-      SELECT id, 'renewal_reminder:' || current_period_end, account_id, json_object('periodEnd', current_period_end, 'priceAgorot', price_agorot), ?1
-      FROM subscriptions WHERE kind = 'family' AND plan = 'family_year' AND status = 'active' AND cancel_at_period_end = 0
-        AND account_id IS NOT NULL AND price_agorot IS NOT NULL AND current_period_end > ?1 AND current_period_end <= ?2`)
-      .bind(now, addDays(now, RENEWAL_REMINDER_DAYS)),
+    year('year_ending', addDays(now, Y.from), addDays(now, Y.to)),
+    year('year_ending_7', now, addDays(now, Y.last)),
     env.DB.prepare(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
       SELECT id, 'licence_ending:' || current_period_end, recipient, json_object('until', current_period_end, 'classCode', class_code), ?1 FROM (
         SELECT s.id, s.current_period_end, s.class_code, COALESCE(s.account_id, (SELECT r.account_id FROM licence_requests r
@@ -117,10 +135,13 @@ export async function reminders(env) {
           AND s.current_period_end > ?1 AND s.current_period_end <= ?2)
       WHERE recipient IS NOT NULL`).bind(now, addDays(now, LICENCE_ENDING_DAYS)),
   ]);
-  return { renewal: changes(r[0]), licence: changes(r[1]) };
+  return { yearEnding: changes(r[0]), yearEnding7: changes(r[1]), licence: changes(r[2]) };
 }
 
-/** Old counters: daily (and hourly) rows after 35 days, monthly rows after 13 months. length(day) keeps them apart. */
+/**
+ * Old counters: daily (and hourly) rows after 35 days, monthly rows after 13 months (length(day) keeps them apart), and
+ * the tutor's quality counts (ai_quality) after 400 days.
+ */
 export function purgeCountersSql(env, now = new Date()) {
   const [y, m] = monthOf(now).split('-').map(Number);
   const back = new Date(Date.UTC(y, m - 1 - 13, 1));
@@ -128,6 +149,7 @@ export function purgeCountersSql(env, now = new Date()) {
   return [
     env.DB.prepare('DELETE FROM ai_usage WHERE length(day) >= 10 AND day < ?').bind(daysAgo(35)),
     env.DB.prepare('DELETE FROM ai_usage WHERE length(day) = 7 AND day < ?').bind(oldMonth),
+    env.DB.prepare('DELETE FROM ai_quality WHERE day < ?').bind(dayOf(new Date(now.getTime() - QUALITY_KEEP_DAYS * DAY))),
   ];
 }
 
@@ -168,11 +190,10 @@ export const PURGE_ROUNDS = 5;
 /**
  * Class data past its time (spec TRUST-7; the periods are in shared/retention.js), as [name, statement] steps:
  * notebook pages 30 days after the request was closed (60 at most), help requests 180 days after closing (365 at most)
- * with the replies on them,
- * attempts and exams after 400 days, assignments 400 days after their due date (with their work and targets),
- * students nobody has seen for 400 days (with all their rows and counters), and
- * classes with no activity for 400 days and no running licence (their students, lock, settings, owner, counters, notices
- * and the class row). Every step is limited to PURGE_BATCH rows (or students, or classes).
+ * with their help_meta rows and the replies on them, attempts and exams after 400 days, assignments 400 days after
+ * their due date (with their work and targets), students nobody has seen for 400 days (with all their rows and
+ * counters), and classes with no activity for 400 days and no running licence (their students, lock, settings, owner,
+ * counters, notices and the class row). Every step is limited to PURGE_BATCH rows (or students, or classes).
  */
 export function purgeClassSteps(env, now = new Date()) {
   const t = now.getTime();
@@ -230,23 +251,114 @@ export async function purgeClass(env, now = new Date()) {
   return total;
 }
 
+/** Idle accounts deleted in one night, at the most (each one is its own forgetAccount batch). */
+export const ACCOUNT_PURGE_LIMIT = 50;
+
+/**
+ * The first instant (UTC ISO) of the oldest tax year still kept: money records of a year Y are kept to the end of the
+ * RETENTION.taxYears-th calendar year after Y (trust spec TRUST-1 §4, §0 "Tax records"), so on a day of year C (Jerusalem)
+ * what happened before 1 January of C − taxYears (Jerusalem) may go. Years are Jerusalem years: a payment at 01:30 on
+ * 1 January in Israel belongs to that year, though it is still 31 December in UTC.
+ */
+export function taxCutoffIso(now = new Date()) {
+  const year = Number(dayOf(now).slice(0, 4));
+  return startOfDayIso(`${year - RETENTION.taxYears}-01-01`);
+}
+
+/**
+ * The long-term records past their time (trust spec TRUST-1 §4; the periods are in shared/retention.js), as [name,
+ * statement] steps for one batch, children before parents (refund_queue → payments → orders and subscriptions):
+ * done refunds, payments, paid or expired orders and ended plans of a tax year that is no longer kept (taxCutoffIso),
+ * each only once nothing kept still points at it; licence codes RETENTION.licenceCodeAfterExpiryDays after the code
+ * expired; and licence requests RETENTION.licenceRequestAfterHandledDays after the owner handled them. Provider events
+ * keep their own rule (purgeRecordsSql). Every step is limited to PURGE_BATCH rows.
+ */
+export function purgeLongTermSql(env, now = new Date()) {
+  const t = now.getTime();
+  const iso = (days) => new Date(t - days * DAY).toISOString();
+  const tax = taxCutoffIso(now);
+  const N = PURGE_BATCH;
+  const stmt = (sql, ...a) => env.DB.prepare(sql).bind(...a);
+  const oldOrders = `SELECT id FROM orders WHERE status IN ('paid', 'expired') AND COALESCE(paid_at, created_at) < ?1
+    AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id = orders.id) LIMIT ${N}`;
+  return [
+    ['refunds', stmt(`DELETE FROM refund_queue WHERE id IN (SELECT id FROM refund_queue WHERE done_at IS NOT NULL AND done_at < ?1 LIMIT ${N})`, tax)],
+    ['payments', stmt(`DELETE FROM payments WHERE id IN (SELECT id FROM payments WHERE occurred_at < ?1
+      AND NOT EXISTS (SELECT 1 FROM refund_queue r WHERE r.payment_id = payments.id) LIMIT ${N})`, tax)],
+    // a renewal's link to its order goes with the order (its foreign key cascades on D1; this also covers a database without it)
+    ['orderRenewals', stmt(`DELETE FROM order_renewals WHERE order_id IN (${oldOrders})`, tax)],
+    ['orders', stmt(`DELETE FROM orders WHERE id IN (${oldOrders})`, tax)],
+    ['subscriptions', stmt(`DELETE FROM subscriptions WHERE id IN (SELECT id FROM subscriptions WHERE status = 'ended' AND updated_at < ?1
+      AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.subscription_id = subscriptions.id)
+      AND NOT EXISTS (SELECT 1 FROM refund_queue r WHERE r.subscription_id = subscriptions.id)
+      AND NOT EXISTS (SELECT 1 FROM order_renewals o WHERE o.subscription_id = subscriptions.id) LIMIT ${N})`, tax)],
+    ['licenceCodes', stmt(`DELETE FROM licence_codes WHERE code_hash IN (SELECT code_hash FROM licence_codes WHERE expires_at < ? LIMIT ${N})`,
+      iso(RETENTION.licenceCodeAfterExpiryDays))],
+    ['licenceRequests', stmt(`DELETE FROM licence_requests WHERE id IN (SELECT id FROM licence_requests WHERE handled_at IS NOT NULL AND handled_at < ? LIMIT ${N})`,
+      iso(RETENTION.licenceRequestAfterHandledDays))],
+  ];
+}
+
+/**
+ * Parent and teacher accounts nobody has signed in to for RETENTION.accountIdleDays (accounts.last_seen is a day), with
+ * nothing live: no plan that still runs (active, past_due, or canceled before its end), no licence request the owner
+ * has not handled, and no class of theirs (one they bought a licence for, asked about, or own: class_owners, TEACHER-1)
+ * with activity in the last
+ * RETENTION.classIdleDays, by the class purge's own rule. The oldest ACCOUNT_PURGE_LIMIT ids.
+ */
+export async function idleAccounts(env, now = new Date()) {
+  const t = now.getTime();
+  const R = RETENTION;
+  const owned = `SELECT class_code FROM subscriptions WHERE kind = 'class' AND account_id = a.id
+    UNION SELECT class_code FROM licence_requests WHERE account_id = a.id
+    UNION SELECT class_code FROM class_owners WHERE account_id = a.id`;
+  return (await all(env, `SELECT a.id FROM accounts a
+    WHERE COALESCE(a.last_seen, substr(a.created_at, 1, 10)) < ?1
+      AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.account_id = a.id AND s.status IN ('active', 'past_due', 'canceled'))
+      AND NOT EXISTS (SELECT 1 FROM licence_requests r WHERE r.account_id = a.id AND r.handled_at IS NULL)
+      AND NOT EXISTS (SELECT 1 FROM classes c LEFT JOIN class_settings cs ON cs.code = c.code WHERE c.code IN (${owned})
+        AND (COALESCE(cs.last_seen, substr(c.created_at, 1, 10)) >= ?2
+          OR EXISTS (SELECT 1 FROM students st WHERE st.class_code = c.code AND COALESCE(st.last_seen, st.created_at) >= ?3)))
+    ORDER BY COALESCE(a.last_seen, a.created_at), a.id LIMIT ?4`,
+  dayOf(new Date(t - R.accountIdleDays * DAY)), dayOf(new Date(t - R.classIdleDays * DAY)), new Date(t - R.classIdleDays * DAY).toISOString(),
+  ACCOUNT_PURGE_LIMIT)).map((r) => r.id);
+}
+
+/**
+ * The long-term purge (cron.purgeLongTerm): the money and licence records of purgeLongTermSql in one batch, then each
+ * idle account through forgetAccount (billing.js: its sessions, devices, link codes, handled requests and pending
+ * notices go, and the money records it paid keep no link to it). Counts by kind.
+ */
+export async function purgeLongTerm(env, now = new Date()) {
+  const steps = purgeLongTermSql(env, now);
+  const out = countSteps(steps, await env.DB.batch(steps.map(([, s]) => s)));
+  out.accounts = 0;
+  for (const id of await idleAccounts(env, now)) {
+    try { await forgetAccount(env, id, { actor: 'cron' }); out.accounts++; } catch { console.error('purge: an idle account was not deleted'); out.accountsFailed = (out.accountsFailed || 0) + 1; }
+  }
+  return out;
+}
+
 /**
  * The night purge. One batch, on the run's clock (sign-in codes and idle sessions on the Worker's own): counters, sign-in
  * codes and idle sessions, family links and devices, records, the safety records, the parents' daily summaries (after
  * the devices, so its orphan sweep sees them gone: PARENTS-3) and the class tokens and escrows (DURABLE-6). Then the
  * class data (purgeClass, which deletes a student's tokens and kept restore code with the student: forget.js
- * STUDENT_ROWS). The vaults have their own night step (vault.js vaultNight). The counts go into the cron report.
+ * STUDENT_ROWS), then the long-term records and idle accounts (purgeLongTerm, TRUST-1 §4). The vaults have their own
+ * night step (vault.js vaultNight). The counts go into the cron report.
  */
 export async function purge(env, now = new Date()) {
   const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env, now), ...purgeRecordsSql(env, now),
     ...purgeSafetySql(env, now), ...purgeReportSql(env, now), ...purgeIdentitySql(env, now)]);
   const cls = await purgeClass(env, now);
+  const long = await purgeLongTerm(env, now);
   return {
     rows: changes(r),
     class: {
       helpImages: cls.helpImages, help: cls.help, helpMessages: cls.helpMessages, attempts: cls.attempts, exams: cls.exams, assignments: (cls.assignmentsOld || 0) + (cls.assignments || 0),
       students: cls.students, classes: cls.classes,
     },
+    longTerm: long,
   };
 }
 
@@ -343,6 +455,9 @@ export async function dailySummary(env, now = new Date()) {
     parentOkNeeded: await count("SELECT COUNT(*) AS n FROM safety_events WHERE day = ? AND kind = 'parent_ok_needed'", day),
     errors: await errorsOf(env, day).then(({ total, top }) => ({ total, top })),
     vaults: await vaultStats(env, startIso, endIso),
+    // the tutor's answers (ai spec AI-3 Design 6), counts only: final answers the guard masked, empty streamed replies,
+    // generated exercises code dropped, and generate requests where every exercise was dropped
+    quality: await qualityCounts(env, day),
     violations: [],
   };
   const v = params.violations;

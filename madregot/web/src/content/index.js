@@ -36,6 +36,25 @@ export function catLabel(topicId, level, cat) {
   return own?.title || TOPIC[topicId]?.cats[cat] || null;
 }
 
+/** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
+export function ambiguousText(topic, level, candidates) {
+  const names = (candidates || []).map((c) => catLabel(topic, level, c.id)).filter(Boolean);
+  if (names.length < 2) return 'עוד שאלה אחת בסוף השיעור תעזור לדעת מה בדיוק בלבל.';
+  return `מה כנראה קרה: אולי ${names.join(', ואולי ')}. עוד שאלה אחת בסוף השיעור תעזור לדעת מה מהן.`;
+}
+
+/**
+ * The line a lesson shows under a first miss, from the answer's result ({ cat, diagnosis }): the app's name for the
+ * mistake ("מה כנראה קרה: …."), the two candidates of an ambiguous answer, or null. The screen and the tutor's context
+ * read it from here, so the tutor is told exactly what the student saw (ai spec AI-1 Design 4).
+ */
+export function diagnosisLine(topic, level, result) {
+  if (!result) return null;
+  if (result.diagnosis?.ambiguous) return ambiguousText(topic, level, result.diagnosis.candidates);
+  const label = catLabel(topic, level, result.cat);
+  return label ? `מה כנראה קרה: ${label}.` : null;
+}
+
 /** Generate one item for a topic level, with bookkeeping fields attached. */
 export function makeItem(topicId, level, avoidKey) {
   const t = TOPIC[topicId];

@@ -22,5 +22,15 @@ describe('plain paths of the parents area become hash routes', () => {
     expect(hashFor({ pathname: '/lesson/signed/1' })).toBeNull();
     expect(hashFor({ pathname: '/xcancel' })).toBeNull();
     expect(hashFor({ pathname: '/parents', hash: '#/assistant' })).toBeNull();
+    expect(hashFor({ pathname: '/madregot/terms', hash: '#/x' })).toBeNull();
+  });
+  it('opens the public safety statement, and keeps an anchor in a legal page after the route (TRUST-2 §3)', () => {
+    expect(hashFor({ pathname: '/safety' })).toBe('/#/safety');
+    expect(hashFor({ pathname: '/terms', hash: '#cancel' })).toBe('/#/terms#cancel');
+    expect(hashFor({ pathname: '/madregot/terms', hash: '#cancel' })).toBe('/madregot/#/terms#cancel');
+    expect(hashFor({ pathname: '/privacy', search: '?from=mail', hash: '#rights' })).toBe('/#/privacy?from=mail#rights');
+    expect(hashFor({ pathname: '/terms', hash: '#' })).toBe('/#/terms');
+    expect(hashFor({ pathname: '/terms', hash: '#/' })).toBe('/#/terms');
+    expect(hashFor({ pathname: '/', hash: '#cancel' })).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { startLesson, answer, next, resultOf, progressOf, planLevels, LESSON_LEN, REVIEW_LEN, PARTS, XP, lessonTopics } from './lesson.js';
+import { startLesson, answer, next, resultOf, progressOf, planLevels, withHelp, withHint, LESSON_LEN, REVIEW_LEN, PARTS, XP, lessonTopics } from './lesson.js';
 import { unitNodes, recordOnPath, nextNode, markMastered, doneCount, reachedUpTo, stairProgress, migratePath, isKept, chestOpen, reopenKept } from './path.js';
 import { questsFor, questProgress } from './quests.js';
 import { useApp, streakOf, today, dayBefore } from './store.js';
@@ -62,6 +62,57 @@ describe('lesson', () => {
     let s = startLesson({ kind: 'jump', topic: 'pyth', level: 3 });
     s = run(s, [false, true, false]);
     expect(s.finished).toBe(true); expect(resultOf(s).passed).toBe(false); expect(resultOf(s).xp).toBe(0);
+  });
+});
+
+describe('help from the tutor counts as help (ai spec AI-3 Design 4)', () => {
+  it('asking before answering: a right answer is not a first try, earns no combo, and is recorded as with help', () => {
+    let s = startLesson({ kind: 'node', topic: 'signed', level: 1 });
+    // two clean first tries build a combo of 2
+    for (let i = 0; i < 2; i++) { const r = answer(s, right(s)); expect(r.result.first).toBe(true); expect(r.result.assisted).toBe(false); s = next(r.s); }
+    expect(s.combo).toBe(2);
+    s = withHelp(s);
+    expect(s.helped).toBe(true);
+    expect(s.hint).toBe(false); // the app's hint box keys on the hint, not on the tutor
+    const r = answer(s, right(s));
+    expect(r.result).toMatchObject({ ok: true, first: false, assisted: true, combo: 0, comboMark: null });
+    expect(r.result.event.hint).toBe(true);
+    expect(r.s.combo).toBe(0);
+    expect(r.s.firstTry).toBe(2);
+  });
+  it('the hint button alone is help too: "נכון! פתרתם עם קצת עזרה."', () => {
+    const s = withHint(startLesson({ kind: 'node', topic: 'signed', level: 1 }));
+    expect(answer(s, right(s)).result).toMatchObject({ first: false, assisted: true });
+  });
+  it('a right second try after a first miss is fixed, not assisted ("יפה, תיקנתם!")', () => {
+    let s = startLesson({ kind: 'node', topic: 'signed', level: 2 });
+    s = answer(s, wrongOf(s)).s;
+    const r = answer(withHelp(s), right(s));
+    expect(r.result).toMatchObject({ ok: true, first: false, assisted: false });
+    expect(r.result.event.hint).toBe(true);
+  });
+  it('help asked after a miss marks the next try as with help (a wrong answer then is not independent either)', () => {
+    let s = startLesson({ kind: 'node', topic: 'signed', level: 2 });
+    s = withHelp(s);
+    const r = answer(s, wrongOf(s));
+    expect(r.result.event).toMatchObject({ hint: true, retry: true });
+  });
+  it('once the answer is shown, or found, asking changes nothing; a check has no tutor', () => {
+    let s = startLesson({ kind: 'node', topic: 'signed', level: 2 });
+    s = answer(s, wrongOf(s)).s; s = answer(s, wrongOf(s)).s;
+    expect(s.phase).toBe('reveal');
+    expect(withHelp(s)).toBe(s);
+    const solved = answer(startLesson({ kind: 'node', topic: 'signed', level: 1 }), 0).s;
+    if (solved.phase === 'correct') expect(withHelp(solved)).toBe(solved);
+    const jump = startLesson({ kind: 'jump', topic: 'signed', level: 1 });
+    expect(withHelp(jump)).toBe(jump);
+  });
+  it('next() clears it: the next exercise starts without help', () => {
+    let s = withHelp(startLesson({ kind: 'node', topic: 'signed', level: 1 }));
+    s = next(answer(s, right(s)).s);
+    expect(s.helped).toBe(false);
+    const r = answer(s, right(s));
+    expect(r.result).toMatchObject({ first: true, assisted: false });
   });
 });
 

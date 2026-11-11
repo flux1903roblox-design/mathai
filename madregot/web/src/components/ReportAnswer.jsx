@@ -12,7 +12,7 @@ import { REPORT } from '@/content/aiSafety.js';
 import { Button, Sheet } from './ui.jsx';
 
 export const REPORT_MAX = 4000;
-export const REPORT_KINDS = ['chat', 'explain', 'check', 'exam', 'generate'];
+export const REPORT_KINDS = ['chat', 'explain', 'check', 'exam', 'generate', 'feedback'];
 
 /** A photo or notebook check, as the tutor wrote it: its verdict, each line with its comment, and its summary. */
 export function checkText(r) {

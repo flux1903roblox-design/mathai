@@ -2,9 +2,11 @@
 // on its button (deleting the account, or replacing a class's teacher key), with no note. Rendered to HTML on node.
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { MemoryRouter } from 'react-router-dom';
 import EmailCodeForm from './EmailCodeForm.jsx';
 
-const html = (props) => renderToStaticMarkup(<EmailCodeForm {...props} />);
+// the note ends with a link to the privacy notice (trust spec TRUST-1 §5), so the form renders inside a router
+const html = (props) => renderToStaticMarkup(<MemoryRouter><EmailCodeForm {...props} /></MemoryRouter>);
 
 describe('EmailCodeForm', () => {
   it('purpose rekey: the code step\'s button says "אישור והחלפת המפתח", and there is no note', () => {
@@ -22,9 +24,10 @@ describe('EmailCodeForm', () => {
 
   it('purpose teacherAccount: the note says what the email is for, and askShared offers the shared-computer box', () => {
     const t = html({ purpose: 'teacherAccount', askShared: true });
-    expect(t).toContain('המייל משמש רק לכניסה ללוח המורה ולהודעות על הכיתות שלכם. הוא עובר לשירות שליחת המיילים (Resend). התלמידים לא רואים אותו.');
+    expect(t).toContain('המייל משמש רק לכניסה ללוח המורה ולהודעות על הכיתות שלכם. הוא עובר לשירות שליחת המיילים Resend (בארה״ב). התלמידים לא רואים אותו.');
     expect(t).toContain('מחשב משותף (למשל בחדר המורים): לא לזכור את הכניסה אחרי שסוגרים את הלשונית');
     expect(t).toContain('type="checkbox"');
+    expect(t).toContain('מדיניות הפרטיות');
     expect(html({ purpose: 'teacherAccount' })).not.toContain('type="checkbox"');
   });
 });

@@ -15,8 +15,11 @@ export default {
   capabilities: { online: true, cancelApi: true, refundApi: true, resumeApi: true, portal: false, signedWebhooks: true },
   enabled: (env) => String(env.ALLOW_TEST_BILLING) === 'true' && String(env.BILLING_MODE) === 'test',
 
-  async createCheckout(env, { order }) {
-    return { url: `${String(env.PUBLIC_URL || '').replace(/\/+$/, '')}/api/billing/test-pay/${order.id}`, providerCheckoutId: `tco_${order.id}` };
+  // recurring (trust spec TRUST-10 §1): a standing order only when true (the monthly plan). A one-time checkout is marked
+  // in its id (tco1_), and its payment page then reports no standing order (billing.js testPaySubmit), as a real
+  // company's one-time charge would.
+  async createCheckout(env, { order, recurring = false }) {
+    return { url: `${String(env.PUBLIC_URL || '').replace(/\/+$/, '')}/api/billing/test-pay/${order.id}`, providerCheckoutId: `${recurring ? 'tco' : 'tco1'}_${order.id}` };
   },
 
   async verify(env, req, raw) {

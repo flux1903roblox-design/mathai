@@ -451,6 +451,11 @@ a { color: var(--brand-d); }
 .parents-list { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s1); }
 .parents-price { font-weight: 700; color: var(--ink); }
 .parents-sum { margin: 0; font-weight: 700; color: var(--ink); }
+/* how a plan goes on, next to the pay button (trust spec TRUST-10 §4) */
+.parents-terms-line { margin: 0; color: var(--ink); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.parents-renew { border-color: var(--brand-line); }
+/* the renewal button carries its price (Appendix E): on a narrow phone it takes two lines, never cut */
+.parents-renew .btn { white-space: normal; text-align: center; padding-block: var(--s2); line-height: var(--lh-sm); }
 .parents-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); color: var(--ink); }
 .parents-warn { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
 .parents-disclosure { display: flex; flex-direction: column; gap: 2px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 14px; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
@@ -501,6 +506,12 @@ a { color: var(--brand-d); }
 /* the legal pages: plain reading */
 .legal { display: flex; flex-direction: column; gap: var(--s3); font-size: var(--t-base); line-height: 1.7; }
 .legal h2 { font-size: 20px; line-height: 26px; margin: var(--s3) 0 0; }
+.legal h3 { font-size: 17px; line-height: 24px; margin: var(--s2) 0 0; }
+/* a section opened by its anchor (#/terms#cancel) lands under the sticky bar, and its focus ring hugs the words */
+.legal [id] { scroll-margin-top: 72px; border-radius: 6px; }
+.legal a { overflow-wrap: anywhere; }
+/* one note while the texts wait for the lawyer's review (TRUST-2 §2) */
+.legal-draft { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
 .legal ul { margin: 0; padding-inline-start: var(--s5); }
 .legal blockquote { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); }
 .legal p { margin: 0; }
@@ -508,6 +519,20 @@ a { color: var(--brand-d); }
 /* the front page: the parents' and legal links, small, under the two ways in */
 .hello-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
 .hello-legal a { color: var(--ink-2); font-weight: 600; padding: 6px 0; min-height: 32px; }
+/* how to cancel, beside the cancel link (Consumer Protection Law s.14ט(ה)(2)) */
+.hello-legal-note { margin: calc(-1 * var(--s1)) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
+/* after "delete all" (trust spec TRUST-6 §4): one calm line on the front page, a check and the words, read out once */
+.hello-wiped { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; max-width: 34ch; padding: var(--s3) var(--s4); border-radius: 14px;
+  background: var(--ok-tint); color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); text-align: start; text-wrap: pretty; }
+.hello-wiped svg { flex: none; margin-top: 3px; color: var(--ok); }
+/* a sheet that asks before deleting: a second paragraph keeps a little room */
+.confirm-sheet .confirm-text p + p { margin-top: var(--s2); }
+/* "delete all" says more than the other sheets: on a short phone the character steps aside, so both answers fit */
+@media (max-height: 640px) { .wipe-sheet .mascot { display: none; } .wipe-sheet .confirm-text { font-size: var(--t-base); line-height: var(--lh-base); } }
+/* the profile's last row: the legal pages, quiet, each a full-size target */
+.me-foot { margin-top: var(--s5); padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.me-foot-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); }
+.me-foot-links a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: var(--s1); color: var(--ink-2); font-size: var(--t-sm); font-weight: 600; }
 /* a short phone: the character and the gaps give up a little room, so every way in (start, teacher, the backup file,
    and the links when there is a server) stays in view */
 @media (max-height: 700px) {
@@ -780,14 +805,38 @@ button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .ai-intro-madi { flex: none; }
 .ai-intro-list { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
 .ai-intro-list li { position: relative; padding-inline-start: var(--s4); font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+.ai-intro-more { display: inline-flex; align-items: center; min-height: 44px; color: var(--brand-d); font-weight: 700; font-size: var(--t-base); }
 .ai-intro-list li::before { content: ''; position: absolute; inset-inline-start: 0; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
 .report-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; color: var(--ink-2); background: transparent; }
 .report-btn:hover:not(:disabled) { color: var(--brand-d); background: var(--brand-tint); }
 .report-btn.is-sent, .report-btn:disabled { color: var(--ink-2); opacity: 0.75; cursor: default; }
 .msg-tools { display: flex; margin-top: calc(-1 * var(--s2)); padding-inline-start: calc(34px + var(--s2)); }
+/* one quiet line under the first tutor reply on an open exercise (ai spec AI-3): under the bubble, never a box */
+.msg-note { margin: calc(-1 * var(--s1)) 0 0; padding-inline-start: calc(34px + var(--s2)); max-width: min(92%, 600px); }
 .ai-report-row { display: flex; justify-content: flex-end; margin-top: calc(-1 * var(--s1)); }
 .gen-note { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
 .gen-note p { margin: 0; }
+/* new exercises (ai spec AI-4): what the AI wrote and what the app checked, said once above the list; an exercise from
+   the app's own bank carries a quiet neutral label; the mistake the app names sits under "עוד לא." in ink */
+.gen-note { align-items: flex-start; }
+.gen-note-text { display: flex; flex-direction: column; gap: var(--s1); }
+.gen-src { display: inline-flex; align-items: center; min-height: 26px; padding: 2px 10px; border-radius: 999px; background: var(--ground); color: var(--ink-2); font-size: 14px; line-height: 20px; font-weight: 600; }
+.gen-q-text { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); min-width: 0; }
+.gen-q-fig { width: 100%; max-width: 360px; }
+.gen-unit { color: var(--ink-2); }
+.gen-q-result p { margin: 0; }
+.gen-q-result:empty { margin-top: calc(-1 * var(--s2)); }
+.gen-why { display: block; margin-top: 2px; color: var(--ink); font-weight: 400; }
+.gen-shown { display: flex; flex-direction: column; gap: var(--s1); }
+.gen-q .input:disabled { background: var(--ground); color: var(--ink-2); }
+/* who graded an exam question (ai spec AI-8): the app against its key, or the AI; the same neutral chip for both, only
+   the words and the icon differ, so neither reads as a verdict. The line under an answer code re-graded, and the notes. */
+.grade-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 2px 10px; border-radius: 999px; background: var(--ground); color: var(--ink-2); font-size: 14px; line-height: 20px; font-weight: 600; }
+.grade-chip svg { flex: none; }
+.q-overridden { margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.exam-notes { display: flex; flex-direction: column; gap: var(--s2); }
+.exam-notes .footnote { margin: 0; }
+.exam-ai-note .grade-chip { vertical-align: middle; margin-inline-end: 2px; }
 .q-actions .q-report { margin-inline-start: auto; }
 .report-reasons { display: flex; flex-direction: column; gap: var(--s2); margin: 0; padding: 0; border: 0; }
 .report-reason { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); font-size: var(--t-base); line-height: var(--lh-base); cursor: pointer; }
@@ -1480,3 +1529,69 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
 /* the iPhone guide's step 1 with a server: the code that was copied, in case the clipboard said no */
 .install-steps .install-code { margin: 0; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-weight: 800; font-size: 20px;
   line-height: 28px; letter-spacing: 0.04em; text-align: right; white-space: nowrap; color: var(--ink); }
+
+/* ------------------------------------------------------------------ exam and notebook photos (trust spec TRUST-5)
+   The warning before the camera: Madi still beside two short paragraphs, one button. PhotoPrep fills the screen: the
+   tools, the whole page fitted to what is left (nothing scrolls), the cut band in the brand blue at 35% with its line
+   and grip, solid black boxes, and the two answers at the bottom. */
+.photo-warn { display: flex; align-items: flex-start; gap: var(--s3); }
+.photo-warn-madi { flex: none; }
+.photo-warn-text { display: flex; flex-direction: column; gap: var(--s3); min-width: 0; }
+.photo-warn-text p { margin: 0; font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+@media (max-width: 359px) { .photo-warn-madi { display: none; } }
+
+.sheet.photo-prep-sheet { inset: 0; height: 100dvh; max-height: none; border-radius: 0; }
+@media (min-width: 700px) { .sheet.photo-prep-sheet { inset: 3dvh auto auto 50%; width: min(640px, 92vw); height: 94dvh; max-height: 94dvh; border-radius: 18px; } }
+.photo-prep-sheet .sheet-body { overflow: hidden; padding-bottom: var(--s2); }
+.photo-prep-sheet .sheet-foot { padding-block: var(--s2); }
+.photo-prep { display: flex; flex-direction: column; gap: var(--s3); flex: 1; min-height: 0; }
+.prep-lead { display: grid; margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.prep-lead > span { grid-area: 1 / 1; }
+.prep-lead > .is-off { visibility: hidden; }
+.prep-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
+.prep-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: var(--s1);
+  border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 3px 0 var(--rule-press);
+  font-family: inherit; font-size: var(--t-xs); line-height: var(--lh-xs); font-weight: 700; text-align: center; cursor: pointer;
+  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out); }
+.prep-tool svg { color: var(--brand); flex: none; }
+.prep-tool[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 3px 0 var(--brand-line); }
+.prep-tool:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press); }
+.prep-tool:disabled { color: var(--ink-3); background: var(--ground); border-color: var(--ground); box-shadow: none; cursor: default; }
+.prep-tool:disabled svg { color: var(--ink-3); }
+.prep-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding-top: var(--s2); }
+.prep-loading { margin: 0; color: var(--ink-2); }
+.prep-frame { position: relative; flex: none; background: var(--surface); box-shadow: 0 0 0 1px var(--rule-strong); touch-action: none; user-select: none; -webkit-user-select: none; }
+.prep-frame.is-drawing { cursor: crosshair; }
+.prep-canvas { display: block; width: 100%; height: 100%; }
+.prep-band { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; }
+.prep-band::before { content: ''; position: absolute; inset: 0; background: var(--brand); opacity: 0.35; }
+.prep-band-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 92%; padding: 2px var(--s3); border-radius: 999px;
+  background: var(--brand); color: var(--on-brand); font-size: var(--t-xs); line-height: var(--lh-xs); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a thin band has no room for its words: they sit just under the line */
+.prep-band-label.below { top: calc(100% + 24px); transform: translate(-50%, 0); }
+.prep-handle { position: absolute; left: 0; right: 0; z-index: 2; height: 44px; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; cursor: ns-resize; touch-action: none; }
+.prep-handle::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1px; background: var(--brand); }
+.prep-grip { position: relative; width: 56px; height: 22px; border-radius: 11px; background: var(--brand); border: 3px solid var(--paper); box-shadow: 0 0 0 1px var(--brand-d); }
+.prep-grip::after { content: ''; position: absolute; inset: -14px -16px; }
+/* while drawing, only the grip moves the line: the rest of the top of the page stays free to black out */
+.prep-frame.is-drawing .prep-handle { pointer-events: none; }
+.prep-frame.is-drawing .prep-grip { pointer-events: auto; }
+.prep-handle:focus-visible { outline: none; }
+.prep-handle:focus-visible .prep-grip { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.prep-box { position: absolute; z-index: 1; padding: 0; border: 0; border-radius: 0; background: #000; cursor: move; touch-action: none; } /* colour-ok: the box shows what the photo gets, solid black, in either theme */
+.prep-box:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.prep-draft { position: absolute; background: #000; opacity: 0.85; outline: 2px dashed var(--brand); pointer-events: none; } /* colour-ok: the black-out being drawn, as the photo gets it */
+.prep-foot { display: flex; flex-direction: column; gap: var(--s1); }
+.prep-foot .btn { margin-inline: 0; }
+/* the ways in to a photo are buttons now (the warning comes first): they keep the look of the dashed tiles */
+button.page-add { width: 100%; background: transparent; font-family: inherit; }
+button.page-add:focus-visible, button.upload:focus-visible { border-color: var(--brand); outline: 3px solid var(--brand-line); outline-offset: 2px; }
+button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
+.upload-picked { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s3); }
+.upload-picked .upload-preview { border: 2px solid var(--rule); border-radius: var(--r-md); }
+@media (prefers-reduced-motion: reduce) { .prep-tool { transition: none; } .prep-tool:active:not(:disabled) { transform: none; } }
+/* a short phone gives the page the room: the line above the tools is still read aloud, and the warning said it */
+@media (max-height: 640px) {
+  .prep-lead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .photo-prep-sheet .sheet-body { padding-top: var(--s3); }
+}

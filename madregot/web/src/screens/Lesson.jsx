@@ -6,11 +6,12 @@ import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath, catLabel, displayTex } from '@/content/index.js';
+import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
-import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS, lessonTopics } from '@/lib/lesson.js';
+import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
+import { buildTutorContext } from '@/lib/tutorContext.js';
 import { autoAskAllowed, gate, aiAccess, useAIStatus, needIntro, introSeen } from '@/lib/account.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
@@ -87,13 +88,20 @@ const INVALID = { pt: 'מלאו את שני השיעורים.', line: 'מלאו 
 /** A right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake. */
 const PARTIAL = { 'not-reduced': 'נכון, ואפשר לצמצם עוד. צמצמו עד הסוף.' };
 
-/** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
-function ambiguousText(topic, level, candidates) {
-  const names = (candidates || []).map((c) => catLabel(topic, level, c.id)).filter(Boolean);
-  if (names.length < 2) return 'עוד שאלה אחת בסוף השיעור תעזור לדעת מה בדיוק בלבל.';
-  return `מה כנראה קרה: אולי ${names.join(', ואולי ')}. עוד שאלה אחת בסוף השיעור תעזור לדעת מה מהן.`;
-}
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
+// Help named honestly (ai spec AI-3 Hebrew copy): a first try that was right with the hint or the tutor open is not
+// "fixed"; a right second try still is. The tutor opens by where the exercise stands, and on an open exercise one quiet
+// line under its first reply says what help means for the record.
+const ASSISTED_TITLE = 'נכון! פתרתם עם קצת עזרה.';
+const HELP_NOTE = 'תשובה אחרי עזרה נספרת כתרגול, וזה בסדר גמור. בבדיקת השליטה עונים בלי עזרה.';
+const CHAT_INTRO = {
+  open: 'אני רואה את התרגיל. אעזור לכם להגיע לתשובה בעצמכם, צעד אחר צעד. מה לא ברור?',
+  retry: 'אני רואה את התרגיל ואת מה שכתבתם. נבין יחד מה קרה, ואת התשובה תמצאו אתם.',
+  shown: 'אני רואה את התרגיל, את מה שכתבתם ואת הפתרון. מה לא ברור?',
+};
+/** An exercise still being solved: no answer yet, or after a first miss (the tutor withholds the answer there). */
+const openExercise = (s) => s?.phase === 'answer' || s?.phase === 'retry';
+const chatIntro = (s) => (s?.phase === 'retry' ? CHAT_INTRO.retry : openExercise(s) ? CHAT_INTRO.open : CHAT_INTRO.shown);
 /**
  * Three short maths choices (< = >, 12, 43) sit side by side in large type; anything longer (2x - 10) goes in the list,
  * since three expressions in one row overflow a phone.
@@ -256,6 +264,8 @@ export default function Lesson() {
   const chatState = aiAccess('chat', aiStatus).state;
   // when the tutor is done for today, Madi explains the mistake instead (no request)
   const askMadi = () => { setChatOpen(false); setTutorIntent(s?.wrong?.length ? 'mistake' : null); setTutorOpen(true); };
+  // help from the tutor or Madi on an open exercise is help: no first-try credit, no combo, not independent (AI-3)
+  const helped = () => setS((cur) => withHelp(cur));
   const names = item ? slotsFor(item) : [];
   // An interactive exercise: the state of the object the student moves. It belongs to one exercise, so a new
   // exercise starts from its own starting state even before the reset effect runs (the shapes differ by kind).
@@ -304,16 +314,18 @@ export default function Lesson() {
   const [workSent, setWorkSent] = useState(null);
   useEffect(() => { if (workId) reportWork(workId, { state: 'started' }); }, [workId]);
 
-  const aiContext = () => ({
-    grade: t.grade, topic: t.title, level: item.levelTitle, question: itemPlain(item),
-    correct: answerText(item), studentAnswer: s.wrong.map((w) => answerText(item, w)).join(' ; '), attempts: s.attempt,
+  // What the tutor is told (ai spec AI-1): the exercise, the app's diagnosis of each wrong answer, the lines on screen, the
+  // stair's teaching, a learner summary with nothing personal, and the final-answer policy for this phase. `st` and `res`
+  // are the lesson state and the result being shown (after a second miss they are newer than this render's s and last).
+  const tutorCtx = (st = s, res = last, surface = 'lesson') => buildTutorContext({
+    surface, item: st.item, s: st, last: res, spec, guide, learn: useApp.getState().learn, grade: t.grade, now: new Date().toISOString(),
   });
 
   const askExplain = async () => {
     // the first AI action on this device: the introduction first, then this same question
     if (needIntro(askExplain)) return;
     setExplain({ state: 'loading', text: '' });
-    try { const r = await runAI('explain', aiContext(), { onMadi: askMadi }); setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
+    try { const r = await runAI('explain', { ctx: tutorCtx() }, { onMadi: askMadi }); setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
 
   const commit = (event) => {
@@ -376,16 +388,16 @@ export default function Lesson() {
         // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
         // (only when that is not one of the few free questions: on the free taste the student chooses when to ask; and
         // never before the introduction to the tutor was read: then "למה טעיתי?" waits for the student to ask)
-        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && introSeen() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns), 0);
+        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && introSeen() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns, result), 0);
       }
       if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); if (result.event) st.noteLearn(result.event); }
     }
     setS(ns);
   };
-  const askExplainFor = async (ns) => {
+  const askExplainFor = async (ns, res) => {
     setExplain({ state: 'loading', text: '' });
     try {
-      const r = await runAI('explain', { ...aiContext(), studentAnswer: ns.wrong.map((w) => answerText(ns.item, w)).join(' ; ') }, { onMadi: askMadi });
+      const r = await runAI('explain', { ctx: tutorCtx(ns, res) }, { onMadi: askMadi });
       setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true });
     } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
@@ -492,7 +504,10 @@ export default function Lesson() {
     const image = nbRef.current?.toImage();
     if (!image) { setNbCheck({ state: 'error', message: 'כתבו קודם את הדרך במחברת.' }); return; }
     setNbCheck({ state: 'loading' });
-    try { const r = await runAI('check', { ...aiContext(), image, mediaType: 'image/jpeg' }, { onMadi: askMadi }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
+    const ctx = tutorCtx(s, last, 'notebook');
+    // the tutor's check of the way on an open exercise is help with it (ai spec AI-3 Design 5)
+    setS((cur) => withHelp(cur));
+    try { const r = await runAI('check', { ctx, image, mediaType: 'image/jpeg' }, { onMadi: askMadi }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
   };
 
   underway.current = !!(spec && t && !done);
@@ -642,7 +657,7 @@ export default function Lesson() {
             <div className="fb-scroll">
               <div className="fb-head">
                 <FeedbackBadge good={feedback === 'good'} />
-                <h2 id="fb-title" className="fb-title">{feedback === 'good' ? (last.first ? last.praise : 'יפה, תיקנתם!') : feedback === 'retry' ? 'עוד לא. נסו שוב' : 'התשובה הנכונה:'}</h2>
+                <h2 id="fb-title" className="fb-title">{feedback === 'good' ? (last.first ? last.praise : last.assisted ? ASSISTED_TITLE : 'יפה, תיקנתם!') : feedback === 'retry' ? 'עוד לא. נסו שוב' : 'התשובה הנכונה:'}</h2>
                 {feedback === 'good' && s.combo >= 2 && <span className="fb-combo"><Flame size={16} aria-hidden="true" />{s.combo} ברצף</span>}
               </div>
               {folded && (
@@ -653,8 +668,7 @@ export default function Lesson() {
               )}
               {feedback === 'retry' && !folded && (
                 <div className="fb-body">
-                  {last?.cat && catLabel(item.topic || spec.topic, item.level, last.cat) && !last.diagnosis?.ambiguous && <p><MathText text={`מה כנראה קרה: ${catLabel(item.topic || spec.topic, item.level, last.cat)}.`} /></p>}
-                  {last?.diagnosis?.ambiguous && <p><MathText text={ambiguousText(item.topic || spec.topic, item.level, last.diagnosis.candidates)} /></p>}
+                  {diagnosisLine(item.topic || spec.topic, item.level, last) && <p><MathText text={diagnosisLine(item.topic || spec.topic, item.level, last)} /></p>}
                   {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && metaOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
                   )}
@@ -740,11 +754,12 @@ export default function Lesson() {
           action pinned at the bottom (the chat's input, the remedy's button, the help request's "send") */}
       <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר" className="chat-sheet">
         <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
-        <AIChat context={aiContext()} messages={chat} onMessages={setChat} intro="אני רואה את התרגיל ואת מה שכתבתם. מה לא ברור?" onDone={() => setChatOpen(false)} onMadi={askMadi} />
+        <AIChat context={chatOpen ? tutorCtx() : null} messages={chat} onMessages={setChat} intro={chatIntro(s)} onDone={() => setChatOpen(false)} onMadi={askMadi}
+          onAsk={helped} footnote={openExercise(s) ? HELP_NOTE : null} />
       </Sheet>
       <TutorSheet open={tutorOpen} onOpenChange={(o) => { setTutorOpen(o); if (!o) setTutorIntent(null); }} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
         wrong={s.wrong.length ? { cat: last?.cat ?? null, diagnosis: last?.diagnosis ?? null } : null} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null}
-        aiState={chatState} startIntent={tutorIntent} />
+        aiState={chatState} startIntent={tutorIntent} onAsk={helped} />
       <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת" className="flow-sheet">
         {remedy && <RemedyFlow content={contentOf(skillId(item.topic || spec.topic, item.level))} misc={remedy} compact onDone={() => setRemedy(null)} doneLabel="חזרה לשיעור" />}
       </Sheet>
@@ -801,7 +816,9 @@ function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
             <p className="ob-bubble">המורה יראה את התרגיל ואת מה שכתבתם{hasPage ? ', כולל הדף מהמחברת' : ''}, ויוכל לעבור עליו איתכם.</p>
           </div>
           <label htmlFor="help-note" className="field-label">מה לא ברור? (לא חובה)</label>
-          <textarea id="help-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
+          <textarea id="help-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} aria-describedby="help-kept" />
+          {/* where the request is kept, and for how long (trust spec TRUST-1 §5; shared/retention.js) */}
+          <p className="footnote" id="help-kept">הבקשה נשמרת בשרת של הכיתה.{hasPage ? ' דף המחברת נמחק חודש אחרי שהמורה סוגר את הבקשה.' : ''}</p>
         </>
       )}
     </Sheet>

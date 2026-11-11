@@ -55,6 +55,8 @@ const MESSAGES = {
   confirm_required: 'צריך לאשר את המחיקה.',
   // checkout
   checkout_not_configured: 'ההצטרפות באתר עוד לא פתוחה. כתבו לנו ונפעיל את המנוי לחשבון.',
+  // the legal texts are not approved yet (trust spec TRUST-2 §6): no payment page opens
+  legal_not_ready: 'ההצטרפות באתר עוד לא פתוחה. כתבו לנו ונפעיל את המנוי לחשבון.',
   already_subscribed: 'יש לכם כבר מנוי פעיל.',
   adult_required: 'כדי להמשיך צריך לאשר שאתם מעל גיל 18 וההורים או האפוטרופוס.',
   terms_required: 'כדי להמשיך צריך לאשר את התקנון ואת מדיניות הביטול.',
@@ -150,6 +152,8 @@ const MESSAGES = {
   // the class and the family keep the backup code (DURABLE-6)
   escrow_off: 'שמירת עותק בשרת עוד לא הוגדרה. שמרו את קוד הגיבוי.',
   escrow_not_found: 'לא מצאנו את ההתקדמות השמורה. אולי היא נמחקה.',
+  // every page passes the step that hides personal details on the device, and a PDF cannot (trust spec TRUST-5 §3)
+  pdf_not_allowed: 'אי אפשר לשלוח קובץ PDF לבדיקה. אפשר לצלם את הדפים במקום.',
 };
 /**
  * A code the server uses for two things, told apart by the status: too_many_open is 429 for a student's help requests
@@ -159,9 +163,18 @@ const BY_STATUS = {
   'too_many_open:409': 'יש כבר 20 משימות פתוחות בכיתה. אפשר למחוק משימות ישנות ולנסות שוב.',
 };
 export const errorText = (code, status) => BY_STATUS[`${code}:${status}`] || MESSAGES[code] || 'משהו השתבש. נסו שוב.';
+/**
+ * A code the server uses for two things, told apart by the request it answers: class_has_licence is a school code
+ * for a class that already has a licence, and also a class the teacher wants to delete while its licence still runs
+ * (trust spec TRUST-7 §4, Appendix E §E.6).
+ */
+const BY_ROUTE = {
+  '/api/teacher/class/delete': { class_has_licence: 'לכיתה יש רישיון פעיל. אפשר למחוק אותה אחרי שהרישיון מסתיים, או לכתוב לנו.' },
+};
+export const routeErrorText = (code, path = '', status) => BY_ROUTE[String(path).split('?')[0]]?.[code] || errorText(code, status);
 
 export class ApiError extends Error {
-  constructor(code, status, data = {}) { super(errorText(code, status)); this.code = code; this.status = status; this.data = data; }
+  constructor(code, status, data = {}, path = '') { super(routeErrorText(code, path, status)); this.code = code; this.status = status; this.data = data; }
 }
 
 /**
@@ -188,7 +201,7 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
   }
   onResponse?.(res);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(data.error || 'server_error', res.status, data);
+  if (!res.ok) throw new ApiError(data.error || 'server_error', res.status, data, path);
   return data;
 }
 

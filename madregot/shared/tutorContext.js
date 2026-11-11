@@ -107,13 +107,14 @@ function normLearner(l) {
 /**
  * The context as the server will render it, or null when `raw` is not a version-2 context from a known surface (the
  * caller then falls back to legacyToV2). Every string is clipped, every list capped, every unknown key dropped. An
- * unreadable policy becomes the safe one: withhold when there is an exercise, homework when there is none.
+ * unreadable policy becomes the safe one: withhold when there is an exercise, homework when there is none; a challenge
+ * the student asks feedback on is finished, with its model answer on the screen (ai spec AI-10): reveal.
  */
 export function normalizeContext(raw) {
   if (!isObj(raw) || raw.v !== CTX_VERSION || !SURFACES.includes(raw.surface)) return null;
   const surface = raw.surface;
   const item = normItem(raw.item, surface);
-  const answer = oneOf(raw.policy?.answer, POLICIES) ?? (item ? 'withhold' : 'homework');
+  const answer = oneOf(raw.policy?.answer, POLICIES) ?? (surface === 'challenge' ? 'reveal' : item ? 'withhold' : 'homework');
   return tidy({
     v: CTX_VERSION,
     surface,

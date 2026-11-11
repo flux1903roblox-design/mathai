@@ -3,7 +3,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildRequest, AI_KINDS, DEFAULT_MODEL } from '../../shared/ai.js';
+import { buildRequest, AI_KINDS, DEFAULT_MODEL, ECONOMY_NOTE, LITE_NOTE } from '../../shared/ai.js';
 import { limits } from '../src/entitle.js';
 import { priceOf, PRICES } from '../src/spend.js';
 import { dayOf, monthOf, resetsAt } from '../src/util.js';
@@ -56,7 +56,7 @@ test('family: the exam check is capped at 10 a month', async () => {
   assert.deepEqual(s.groups.exam, { left: 1, limit: 2, monthLeft: 0 });
 });
 
-test('family over FAMILY_MONTHLY_BUDGET_USD: chat runs on FREE_MODEL with 2500 tokens; check, generate and exam are monthly_fair_use', async () => {
+test('family over FAMILY_MONTHLY_BUDGET_USD: chat runs on FREE_MODEL at effort high with 4000 tokens and the economy note; check, generate and exam are monthly_fair_use', async () => {
   h = await setup();
   const { a, d1 } = await family();
   await setSpend(h.env, `fam:${a}`, 5.01, 'month');
@@ -64,7 +64,9 @@ test('family over FAMILY_MONTHLY_BUDGET_USD: chat runs on FREE_MODEL with 2500 t
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('X-AI-Economy'), '1');
   const p = h.net.log.claude.at(-1);
-  assert.equal(p.model, 'claude-haiku-5-5'); assert.equal(p.max_tokens, 2500); assert.equal(p.fallbacks, undefined);
+  assert.equal(p.model, 'claude-haiku-5-5'); assert.equal(p.max_tokens, 4000); assert.equal(p.fallbacks, undefined);
+  assert.equal(p.output_config.effort, 'high');
+  assert.ok(p.system[1].text.endsWith(ECONOMY_NOTE)); assert.ok(!p.system[1].text.includes(LITE_NOTE));
   for (const kind of ['check', 'generate', 'exam']) {
     const x = await ai(h, kind, d1.headers);
     assert.equal(x.status, 429, kind);

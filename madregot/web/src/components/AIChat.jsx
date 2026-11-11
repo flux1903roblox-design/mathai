@@ -16,13 +16,16 @@ import { CLASS_OFF_LINE, PARENT_OK_LINE } from './limitCopy.js';
 import { piiLine } from '@/content/support.js';
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
+/** After the student already answered an exercise of the lesson, the first question is about their own answer. */
+const MISTAKE_STARTER = 'מה הטעות שלי?';
 const THINK = ['קורא את התרגיל', 'חושב על הדרך', 'מנסח הסבר'];
 
 /** Only the conversation goes to the tutor: never the support cards, never a flag. */
 const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'assistant').map(({ role, content }) => ({ role, content }));
 
 /**
- * Chat with the AI tutor, optionally about the exercise on screen.
+ * Chat with the AI tutor, optionally about the exercise on screen. `context` is what the tutor is told: the version-2
+ * context from lib/tutorContext.js (the exercise, the app's diagnosis, the final-answer policy), sent as `ctx`.
  * Pass `messages` and `onMessages` to keep the conversation outside (it then survives closing the sheet); onMessages
  * is a React state setter (it is given updater functions, since a reply can arrive after another message was added).
  * When the tutor is done for today the input stays usable: a message keeps its draft and a calm card says when the
@@ -33,8 +36,11 @@ const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'as
  * Distress first (trust spec TRUST-3 §3.5): a message that reads as distress shows the support card at once, on the
  * device, whatever the tutor's state (resting, busy, offline). It still goes to the tutor when there is one (the server
  * answers it on its care path, never counted, never refused); a failure there is silent and the card stays.
+ * Help counts as help (ai spec AI-3 Design 5): `onAsk` is called when a question really goes to the tutor (after the
+ * distress check, which is never help), so the lesson can mark the open exercise as answered with help. `footnote`: one
+ * quiet line kept under the first reply about an exercise that is still open (the lesson says what help means there).
  */
-export default function AIChat({ context, intro, introTitle, restLine, messages: kept, onMessages, tools, onDone, onMadi }) {
+export default function AIChat({ context, intro, introTitle, restLine, messages: kept, onMessages, tools, onDone, onMadi, onAsk, footnote }) {
   const navigate = useNavigate();
   // the answers are markdown: its file is fetched as the chat opens, before the first answer arrives
   useEffect(() => { preloadRichText(); }, []);
@@ -103,6 +109,8 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
     if (!care && needIntro(() => send(content))) return;
     if (care) setRestBack(false);
     if (care && pending) abortRef.current?.abort(); // the maths answer gives way
+    // a question about the exercise is help with it (a message that reads as distress is not)
+    if (!care) onAsk?.();
     const mine = ++sendRef.current;
     // what the tutor will not receive (the request masks it): said quietly under the child's own words
     const pii = maskPersonal(content).found;
@@ -114,9 +122,12 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
     const ctrl = new AbortController(); abortRef.current = ctrl;
     const mineNow = () => sendRef.current === mine;
     try {
-      const res = await runAI('chat', { messages: history, context }, { onText: (t) => { if (mineNow()) setStreaming(t); }, signal: ctrl.signal, onMadi, quiet: care });
+      // the app's context (ai spec AI-1): a version-2 context goes as ctx; an older caller's flat fields still go as context
+      const res = await runAI('chat', context?.v === 2 ? { messages: history, ctx: context } : { messages: history, context }, { onText: (t) => { if (mineNow()) setStreaming(t); }, signal: ctrl.signal, onMadi, quiet: care });
       const reply = { role: 'assistant', content: res.text, ...(res.care ? { care: true } : {}), ...(res.blocked ? { blocked: true } : {}) };
       setMessages((ms) => {
+        // the quiet line goes under the first reply about this exercise only, and stays with it
+        if (footnote && !res.care && !ms.some((m) => m.role === 'assistant')) reply.note = footnote;
         const at = ms.findIndex((m) => m.role === 'support' && m.id === mine);
         if (at >= 0) return [...ms.slice(0, at), reply, ...ms.slice(at)];
         // only the tutor noticed: the card goes under its reply
@@ -186,6 +197,7 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
               {m.pii && <p className="msg-pii">{piiLine(m.pii)}</p>}
               {/* every answer of the tutor can be reported; the calm sentence that replaced a stopped one is ours, not its */}
               {m.role === 'assistant' && !m.blocked && <div className="msg-tools"><ReportAnswer kind="chat" reply={m.content} /></div>}
+              {m.note && <p className="footnote msg-note">{m.note}</p>}
             </Fragment>
           );
         })}
@@ -217,7 +229,8 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
         )}
         {messages.length === 0 && !resting && (
           <div className="starters chat-chips">
-            {STARTERS.map((s) => <button key={s} type="button" className="starter" onClick={() => send(s)}>{s}</button>)}
+            {(context?.surface === 'lesson' && context.tries?.answers?.length > 0 ? [MISTAKE_STARTER, ...STARTERS] : STARTERS)
+              .map((s) => <button key={s} type="button" className="starter" onClick={() => send(s)}>{s}</button>)}
           </div>
         )}
         {tools?.length > 0 && (

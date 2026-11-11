@@ -109,6 +109,20 @@ test('safety_events can hold no person and no text: no student, device, account,
   assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'safety_events_day'").get(), 'the day index');
 });
 
+test('ai_quality can hold no person and no text: a day, a kind, a reason and a count, each from a fixed list', () => {
+  const db = new DatabaseSync(':memory:'); db.exec(schema);
+  const cols = db.prepare('PRAGMA table_info(ai_quality)').all().map((c) => c.name);
+  assert.deepEqual(cols, ['day', 'kind', 'reason', 'n']);
+  const add = (over = {}) => {
+    const r = { day: '2026-11-10', kind: 'chat', reason: 'answer_masked', ...over };
+    db.prepare('INSERT INTO ai_quality (day, kind, reason, n) VALUES (?, ?, ?, 1) ON CONFLICT (day, kind, reason) DO UPDATE SET n = n + 1').run(r.day, r.kind, r.reason);
+  };
+  add(); add();
+  assert.equal(db.prepare('SELECT n FROM ai_quality').get().n, 2, 'one row per day, kind and reason, counted up');
+  assert.throws(() => add({ kind: 'exam' }), /CHECK/);
+  assert.throws(() => add({ reason: 'התשובה היא 8' }), /CHECK/, 'a reason is a label, never text');
+});
+
 test('help_meta: a kind and a care flag per help request, nothing else, and it goes with its request', () => {
   const db = new DatabaseSync(':memory:'); db.exec(schema);
   assert.deepEqual(db.prepare('PRAGMA table_info(help_meta)').all().map((c) => c.name), ['help_id', 'kind', 'care']);

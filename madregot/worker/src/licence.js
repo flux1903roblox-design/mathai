@@ -202,9 +202,10 @@ export const pinKeysWhere = "(who = 'pin:' || ?1 OR who LIKE 'pin:' || ?1 || ':%
 /**
  * POST /api/teacher/students/:id/remove {}: one batch deletes the student's rows (STUDENT_ROWS in forget.js: attempts,
  * levels, help requests with their help_meta rows and the replies on them, exams, assignment work and targets, the
- * student's AI switch, the restore code the class kept and every device token, DURABLE-6), their counters (PIN tries
- * and the AI counters) and the student; the student's devices are signed out. The practice saved on the device itself
- * stays there, and so does its vault, which only the device's own code opens now.
+ * student's AI switch and the audit rows about the student, the restore code the class kept and every device token,
+ * DURABLE-6), their counters (PIN tries, every AI tier, care and reports, assignment reports and replies) and the
+ * student; the student's devices are signed out. The practice saved on the device itself stays there, and so does its
+ * vault, which only the device's own code opens now.
  */
 export async function removeStudent(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
@@ -247,9 +248,10 @@ const LIVE_CLASS_SUB = "SELECT 1 AS x FROM subscriptions WHERE kind = 'class' AN
  * POST /api/teacher/class/delete {confirm: 'DELETE'}: the class and everything of it on the server, in one batch, as the
  * night purge deletes an idle class (forget.js classDeleteSteps): the students with their rows and counters, the join
  * lock, settings, owner, counters, notices and audit rows of the class, and the class. The practice saved on the
- * students' devices stays there. A class bound to an email can be deleted only by its owner, signed in with a code
- * entered in the last 10 minutes: the key alone is 403 not_owner, an older sign-in 401 reauth_needed. A class whose
- * licence still runs is 409 class_has_licence. Audit class.delete (target class:<code>, detail {students}).
+ * students' devices stays there. Without the confirm: 400 confirm_required. A class bound to an email can be deleted
+ * only by its owner, signed in with a code entered in the last 10 minutes: the key alone is 403 not_owner, an older
+ * sign-in 401 reauth_needed. A class whose licence still runs (a trial too) is 409 class_has_licence. Audit
+ * class.delete (target class:<code>, detail {students}); returns {ok, students}.
  */
 export async function deleteClass(req, env, cors) {
   const cls = await requireTeacher(req, env);

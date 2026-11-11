@@ -1,11 +1,12 @@
-// The app's topic and stair names, for every place that cannot load the web content: the Worker (the weekly email,
-// PARENTS-7), the parent's report pages and the tutor's stair map (AI-5 adds TOPIC_GRADE and NOT_YET here). One list,
-// written by hand, kept exactly equal to the content by web/src/learn/report.test.ts: a stair added without its name
-// here (or a title changed in one place only) fails the web tests. Plain JS, no imports.
-// The web imports it as @shared/stairs.js; the Worker as ../../shared/stairs.js.
+// The app's topic and stair names, for every place that cannot load the web content: the Worker (the parents' weekly
+// report and email, PARENTS-7/8), the parent's report pages and the tutor's prompt (the stair map, ai spec AI-5). One
+// list, written by hand and checked: web/src/learn/stairs.test.ts and report.test.ts fail the moment a topic or a stair
+// is added to the app without its name here, or a name here differs from the one on screen. Plain JS, no imports; it
+// ships to the browser too. The web imports it as @shared/stairs.js; the Worker as ../../shared/stairs.js.
 
-/** Topic id → the topic's title, as the app shows it. */
-export const TOPIC_NAMES = {
+/** Each topic's name, in teaching order (learn/skills.ts TOPIC_ORDER). */
+export const TOPIC_NAMES = Object.freeze({
+  frac: 'שברים ועשרוניים', // the curriculum lane's bridge unit, first in teaching order
   signed: 'מספרים מכוונים',
   coord: 'מערכת צירים',
   angles: 'זוויות',
@@ -15,12 +16,13 @@ export const TOPIC_NAMES = {
   pyth: 'משפט פיתגורס',
   stats: 'סטטיסטיקה',
   sys: 'משוואות ומערכות',
-  // the curriculum lane's bridge unit
-  frac: 'שברים ועשרוניים',
-};
+});
 
-/** Stair id ('topic:level') → the stair's title, as the app shows it. */
-export const STAIR_NAMES = {
+/** Each stair's name, as its lesson and its teaching content call it. */
+export const STAIR_NAMES = Object.freeze({
+  // the curriculum lane's bridge unit (each stair the curriculum adds needs its name here: stairs.test.ts, report.test.ts)
+  'frac:1': 'שבר ושברים שווים',
+  'frac:2': 'השוואת שברים ועשרוניים',
   'signed:1': 'חיבור וחיסור',
   'signed:2': 'השוואת מספרים',
   'signed:3': 'כפל וחילוק',
@@ -69,10 +71,7 @@ export const STAIR_NAMES = {
   'sys:3': 'השוואת מקדמים',
   'sys:4': 'בעיות עם שני נעלמים',
   'sys:5': 'אי־שוויונות',
-  // the curriculum lane's bridge unit (each stair the curriculum adds needs its name here: report.test.ts)
-  'frac:1': 'שבר ושברים שווים',
-  'frac:2': 'השוואת שברים ועשרוניים',
-};
+});
 
 /**
  * A stair's full name, 'מספרים מכוונים: חיבור וחיסור', or null for an id this list does not know (a stair from
@@ -85,3 +84,20 @@ export const stairName = (id) => {
   const topic = id.split(':')[0];
   return Object.hasOwn(TOPIC_NAMES, topic) ? `${TOPIC_NAMES[topic]}: ${STAIR_NAMES[id]}` : null;
 };
+
+/**
+ * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
+ * it today. (ai spec AI-5)
+ */
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8', sys: '8' });
+
+/**
+ * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic
+ * ids), so the tutor helps with them without inventing a stair. Systems of equations and inequalities are taught now
+ * (sys:2-5) and are not listed. The curriculum lane owns this list and replaces it with notYet() from its coverage map
+ * (CURRICULUM-1), so it shrinks with every new stage. (ai spec AI-5)
+ */
+export const NOT_YET = Object.freeze({
+  '7': Object.freeze(['שברים ומספרים עשרוניים מכוונים', 'חזקות ושורשים', 'שטחים והיקפים', 'תיבה ומנסרה', 'טרנספורמציות', 'שכיחות והסתברות']),
+  '8': Object.freeze(['פונקציות (כללי)', 'יחס ופרופורציה', 'קנה מידה', 'אחוזים (מעבר למשוואות עם אחוזים)', 'חפיפת משולשים', 'תיכון במשולש', 'דמיון משולשים', 'אומדן שורשים', 'הסתברות']),
+});

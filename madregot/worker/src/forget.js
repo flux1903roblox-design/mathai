@@ -1,12 +1,22 @@
 // Deleting students and classes from the server (spec TRUST-6, TRUST-7). One list of the tables that hold a student's
 // rows and one list of the counters keyed by a student or a class, and the statements built from them, so every path
 // that deletes deletes the same things: the teacher removing a student (licence.js removeStudent), the teacher deleting
-// a class (licence.js deleteClass), and the night purge of idle students and classes (cron.js purgeClassSql). The
-// student's own "delete all" (POST /api/me/forget, the trust lane) uses the same helper.
+// a class (licence.js deleteClass), the night purge of idle students and classes (cron.js purgeClassSql), and the
+// device's own "delete all" (POST /api/me/forget, TRUST-6 §1: forgetMe below), which also deletes a family device and
+// the counters of an install.
+import { body, json, nowIso, sha256, netKey, devKey, limitOrThrow } from './util.js';
+import { studentFrom, deviceFrom, liveFamily } from './entitle.js';
+import { flushNotices } from './email.js';
 //
 // A lane that adds a table holding a student's rows adds it to STUDENT_ROWS (a table keyed by a help request id goes
-// before help_requests); a table or counter keyed by the class goes into classDeleteSteps and CLASS_COUNTERS.
+// before help_requests); a table or counter keyed by the class goes into classDeleteSteps and CLASS_COUNTERS; a table
+// or counter keyed by a family device goes into familyDeviceDeleteStmts and FAMILY_DEVICE_COUNTERS.
 // The practice saved on the devices themselves is never touched from here.
+
+// An account's deletion (the parents' page, the owner's CLI, and the idle-account purge) lives in billing.js beside the
+// money records it unlinks; it is named here too, so the data map (worker/datamap.json, purgedBy) finds every way a
+// row is deleted in cron.js or this file (test/datamap.test.js).
+export { forgetAccount } from './billing.js';
 
 /**
  * [table, column] pairs, or [table, column, via] for a table keyed by another table's id: every row of a student,
@@ -36,10 +46,12 @@ export const STUDENT_ROWS = [
  */
 export const studentWhere = ([, col, via, and], match) => (and ? `${and} AND ` : '') + (via ? `${col} IN (${via} ${match})` : `${col} ${match}`);
 /**
- * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, every AI tier, care, the
- * student's reported AI answers (TRUST-4), the student's assignment reports, and their replies to the teacher, TEACHER-6).
+ * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, also per network (TRUST-12),
+ * every AI tier and its tries, care (TRUST-3), the student's reported AI answers (TRUST-4), the student's assignment
+ * reports, and their replies to the teacher (TEACHER-6), and the student's backup lookups and escrow writes
+ * (DURABLE-5, DURABLE-6: vault.js vault:miss:s:<id>, escrow:s:<id>)).
  */
-export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:', 'report:s:', 'work:s:', 'helpreply:s:'];
+export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:', 'report:s:', 'work:s:', 'helpreply:s:', 'vault:miss:s:', 'escrow:s:'];
 /**
  * ai_usage keys that carry a class code: the teacher's AI, the class's free and paid pools, the teacher's care and
  * reported-answer counters (TRUST-3, TRUST-4), licence requests and claims, the assignments made a day (TEACHER-4), the
@@ -112,4 +124,94 @@ export function countSteps(steps, results) {
   const out = {};
   steps.forEach(([name], i) => { out[name] = (out[name] || 0) + Number(results[i]?.meta?.changes || 0); });
   return out;
+}
+
+// ---------------------------------------------------------------- "delete all" from a device (TRUST-6 §1)
+/**
+ * ai_usage keys that carry a family device id (X-Family-Device): its free taste and tries, care and reported answers,
+ * its daily summaries for the parents (PARENTS-3: report.js sum:d:<id>), its backup lookups and escrow writes
+ * (DURABLE-5, DURABLE-6: vault.js vault:miss:fd:<id>, escrow:fd:<id>). The family's own counters (fam:<account>…) are
+ * the parent's and stay.
+ */
+export const FAMILY_DEVICE_COUNTERS = ['fd:', 'free:fd:', 'care:fd:', 'report:fd:', 'sum:d:', 'vault:miss:fd:', 'escrow:fd:'];
+/**
+ * ai_usage keys that carry an install's devKey (X-Device, hashed: util.js devKey): its free taste and tries, link codes
+ * asked for, care and reported answers. Pending link codes hold no device id (TRUST-1 §2) and expire within the hour.
+ */
+export const DEVICE_COUNTERS = ['free:d:', 'link:d:', 'care:d:', 'report:d:'];
+export const familyDeviceCountersStmt = (env, id) => countersStmt(env, FAMILY_DEVICE_COUNTERS, 'SELECT ?1', [id]);
+export const deviceCountersStmt = (env, dk) => countersStmt(env, DEVICE_COUNTERS, 'SELECT ?1', [dk]);
+
+/**
+ * Everything of one family device, children first: its counters, the link codes that made it, the notices and audit
+ * rows about it (device_linked:<id>, device.link, device.unlink), its daily summaries for the parents (PARENTS-3,
+ * family_daily), and the device row. The device's escrow stays with the account ("התקדמות שמורה", as on an unlink:
+ * family.js leaveFamily), without the device id. Bind nothing: the id is bound here.
+ */
+export function familyDeviceDeleteStmts(env, id) {
+  const stmt = (sql) => env.DB.prepare(sql).bind(id);
+  return [
+    familyDeviceCountersStmt(env, id),
+    stmt('DELETE FROM link_codes WHERE device_id = ?1'),
+    stmt('DELETE FROM notices WHERE ref = ?1'),
+    stmt("DELETE FROM audit_log WHERE target = 'device:' || ?1 OR actor = 'device:' || ?1"),
+    stmt('UPDATE vault_escrow SET device_id = NULL WHERE device_id = ?1'),
+    stmt('DELETE FROM family_daily WHERE device_id = ?1'),
+    stmt('DELETE FROM family_devices WHERE id = ?1'),
+  ];
+}
+
+/** "Delete all" requests a day from one network. */
+export const FORGET_NET_DAILY = 30;
+
+/**
+ * POST /api/me/forget {} (trust spec TRUST-6 §1): the device's "delete all" on the server, one batch for every header
+ * that is valid, before anything is deleted on the device itself. Each header is optional:
+ *   Authorization: Bearer <student token>  the student's rows (STUDENT_ROWS), counters and student row; the audit row
+ *     (student.self_delete, target class:<code>) deliberately names no student;
+ *   X-Family-Device: fd1.…  the device's counters, link codes, notices and audit rows, then the device row; the parent
+ *     is told by email (device_unlinked:<time>, to the account, with the device's label only);
+ *   X-Device  the install's counters, by its devKey.
+ * forget:n:<net> 30 a day. Returns {ok, student, familyDevice, device}: whether anything of each was found and deleted
+ * (so a second call answers false, false, false). Teachers delete students and classes from the dashboard instead;
+ * this route never takes X-Teacher-Key.
+ */
+export async function forgetMe(req, env, ctx, cors) {
+  await body(req, 1024);
+  await limitOrThrow(env, `forget:n:${await netKey(req, env)}`, FORGET_NET_DAILY, 429, 'too_many_requests');
+  const at = nowIso();
+  const out = { ok: true, student: false, familyDevice: false, device: false };
+  const stmts = [];
+  const st = await studentFrom(req, env);
+  if (st) {
+    out.student = true;
+    stmts.push(
+      ...studentDeleteStmts(env, st.id),
+      studentCountersStmt(env, st.id),
+      env.DB.prepare('DELETE FROM students WHERE id = ?').bind(st.id),
+      env.DB.prepare("INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, 'student', 'student.self_delete', ?, '{}')").bind(at, `class:${st.class_code}`),
+    );
+  }
+  const token = String(req.headers.get('X-Family-Device') || '');
+  const fd = /^fd1\.[a-f0-9]{64}$/.test(token)
+    ? await env.DB.prepare('SELECT id, account_id, label FROM family_devices WHERE token_hash = ?').bind(await sha256(token)).first()
+    : null;
+  if (fd) {
+    out.familyDevice = true;
+    const plan = !!(await liveFamily(env, fd.account_id));
+    stmts.push(
+      ...familyDeviceDeleteStmts(env, fd.id),
+      env.DB.prepare(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at) VALUES (?1, 'device_unlinked:' || ?2, ?1, ?3, ?2)`)
+        .bind(fd.account_id, at, JSON.stringify({ label: fd.label || '', plan })),
+      env.DB.prepare("INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, 'device', 'device.self_delete', ?, '{}')").bind(at, `account:${fd.account_id}`),
+    );
+  }
+  const device = await deviceFrom(req, env);
+  const devAt = device ? stmts.push(deviceCountersStmt(env, await devKey(env, device))) - 1 : -1;
+  if (stmts.length) {
+    const res = await env.DB.batch(stmts);
+    if (devAt >= 0) out.device = Number(res[devAt]?.meta?.changes || 0) > 0;
+  }
+  if (fd) ctx?.waitUntil?.(flushNotices(env));
+  return json(out, 200, cors);
 }

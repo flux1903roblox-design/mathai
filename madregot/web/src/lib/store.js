@@ -43,7 +43,8 @@ const heldStorage = {
   removeItem: (name) => (saving ? durableStorage.removeItem(name) : undefined),
 };
 
-const empty = {
+/** A new device's saved state ("delete all" puts it back whole: lib/wipe.js). */
+export const empty = {
   // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? }
   // | { role: 'teacher', name, grade, classes: [{ code, key: string|null, className, grade, owned?: boolean, fresh?: boolean, createdHere?: boolean, bindLater?: 'YYYY-MM-DD', pilot?: {...} }], active, demo?: true }
   // A teacher's email is never kept here: it is read from the signed-in session (lib/parent.js).
@@ -308,7 +309,8 @@ export const appState = (set, get) => ({
       },
       // a reset on purpose: its time travels with the progress, so a later merge cannot bring the old progress back
       resetProgress: () => set({ progress: {}, days: {}, xp: 0, xpBy: {}, resetAt: new Date().toISOString(), mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
-      // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive.
+      // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
+      // ("delete all" is lib/wipe.js: the server first, then every key of the app).
       // The next student here gets a new device tag (their XP is counted apart) and no backup; what the browser was
       // asked, and the install hint, belong to the device and stay. The look chosen for this device (prefs) stays too;
       // sound goes back to its default, so the next student's own choice starts unset (soundSet).

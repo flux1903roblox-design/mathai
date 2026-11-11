@@ -2,7 +2,8 @@
 // (entitlement, sign-in by email code, family devices, class licences, checkout and payments, cancellation).
 // The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare } from '../../shared/ai.js';
+import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare, answerGuard, generateVerified } from '../../shared/ai.js';
+import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
 import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
@@ -12,6 +13,8 @@ import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
 import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
 import { recordSafety } from './safety.js';
 import { recordSpend } from './spend.js';
+import { bumpQuality } from './quality.js';
+import { DROP_REASONS } from '../../shared/verify.js';
 import { emailReady } from './email.js';
 import {
   plansView, checkout, orderStatus, webhook, cancel, resume, portal, invoice, testPayPage, testPaySubmit, accountOverview, accountExport, deleteAccount,
@@ -31,6 +34,7 @@ import { classReport, studentDetail } from './classReport.js';
 import { teacherReply, studentReply, readHelp, setDigest, helpThreads, markReadStmt } from './help.js';
 import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
+import { forgetMe } from './forget.js';
 import { newClassSetting, newClassStmts, classSettings, aiPolicyView, setClassAi, setStudentAi } from './classai.js';
 import { postErrors, recordServerError } from './errors.js';
 import { getVault, putVault, deleteVault, vaultOn, vaultFull, putEscrow, deleteEscrow, studentEscrowCode } from './vault.js';
@@ -52,7 +56,7 @@ function corsHeaders(req, env) {
 
 // Body limits, checked before JSON.parse (413 too_large above them).
 const KB = 1024;
-const AI_BODY_MAX = { chat: 32 * KB, explain: 32 * KB, generate: 16 * KB, check: 8 * KB * KB, exam: 100 * KB * KB };
+const AI_BODY_MAX = { chat: 32 * KB, explain: 32 * KB, generate: 16 * KB, check: 8 * KB * KB, exam: 100 * KB * KB, feedback: 8_000 };
 const LIMIT = { small: 4 * KB, help: 700 * KB, progress: 256 * KB, exams: 64 * KB };
 
 // ---------- secrets ----------
@@ -111,13 +115,23 @@ function aiHeaders(r) {
   };
 }
 
-/** The last thing the student typed in a chat: the only free text a child sends the AI (photos rely on the model's flag). */
+/** The last thing the student typed in a chat (photos rely on the model's flag). */
 function lastUser(messages) {
   const list = Array.isArray(messages) ? messages : [];
   for (let i = list.length - 1; i >= 0; i--) {
     const m = list[i];
     if (m && m.role === 'user' && typeof m.content === 'string') return m.content.slice(0, 4000);
   }
+  return '';
+}
+
+/**
+ * The free text a child writes to the AI in this request, read for distress before anything else (trust spec TRUST-3
+ * §3.4): the newest chat message, and a challenge explanation sent for feedback (ai spec AI-10 Design 2).
+ */
+function freeText(kind, input) {
+  if (kind === 'chat') return lastUser(input.messages);
+  if (kind === 'feedback') return typeof input.text === 'string' ? input.text.slice(0, 4000) : '';
   return '';
 }
 
@@ -137,10 +151,37 @@ function childText(kind, input) {
   if (kind === 'explain') return [input.studentAnswer, ...typed];
   // the question typed next to a photo of the student's own work
   if (kind === 'check') return [input.question, ...typed];
+  // a challenge explanation sent for feedback (ai spec AI-10)
+  if (kind === 'feedback') return [input.text];
   return [];
 }
 
 const hostOf = (url) => { try { return new URL(url).hostname.toLowerCase(); } catch { return ''; } };
+
+// Photos (trust spec TRUST-5). Every page passes the step that crops and blacks out on the device, and a PDF cannot pass
+// it, so the server takes none: an older app cannot skip the step. "%PDF" is "JVBERi" in base64, the start of every PDF.
+const isPdf = (mediaType, data) => {
+  const d = String(data || '');
+  return String(mediaType || '').toLowerCase() === 'application/pdf' || /^data:application\/pdf/i.test(d) || d.replace(/^data:[^,]*,/, '').startsWith('JVBERi');
+};
+function sendsPdf(kind, input) {
+  if (kind === 'exam') return (Array.isArray(input.pages) ? input.pages : []).some((p) => isPdf(p?.mediaType, p?.data));
+  if (kind === 'check') return isPdf(input.mediaType, input.image);
+  return false;
+}
+/**
+ * How the photos of this request were prepared on the device: input.prep = { crop, boxes }. One safety event per thing
+ * done ('crop' for a cut top band, 'black' for blacked-out boxes) or 'none', with nothing of the pages.
+ */
+function photoPrepRows(kind, input, tier) {
+  const p = input.prep;
+  if ((kind !== 'exam' && kind !== 'check') || !p || typeof p !== 'object') return [];
+  const row = (category) => ({ kind: 'photo_redacted', category, surface: kind, source: 'client', tier });
+  const crop = p.crop === true;
+  const black = Number.isInteger(p.boxes) && p.boxes > 0;
+  if (!crop && !black) return [row('none')];
+  return [...(crop ? [row('crop')] : []), ...(black ? [row('black')] : [])];
+}
 
 /**
  * Screen every string of a JSON reply (trust spec TRUST-4 §4.2). → { data, blocked, linksRemoved }. `care`: a care
@@ -185,7 +226,9 @@ async function handleAI(kind, req, env, ctx, cors) {
   // writes that they are in distress gets an answer even when the server has no AI key, the day's questions are used
   // up, or the plan does not cover the AI. That answer is never counted against a question.
   const input = await body(req, AI_BODY_MAX[kind]);
-  const hit = detectDistress(kind === 'chat' ? lastUser(input.messages) : '');
+  // a PDF never reaches Claude, and nothing is counted for it
+  if (sendsPdf(kind, input)) throw new HttpError(400, 'pdf_not_allowed');
+  const hit = detectDistress(freeText(kind, input));
   if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
   const r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
   const careTier = r.tier === 'care';
@@ -197,6 +240,8 @@ async function handleAI(kind, req, env, ctx, cors) {
   // of detail, with nothing of the text (trust spec TRUST-4 §4.1).
   const pii = scanPersonal(childText(kind, input));
   if (pii.length) recordSafety(env, pii.map((category) => ({ kind: 'pii_masked', category, surface: kind, source: 'regex', tier: r.tier })), ctx);
+  const prepped = photoPrepRows(kind, input, r.tier);
+  if (prepped.length) recordSafety(env, prepped, ctx);
   const screen = { hosts: [hostOf(env.PUBLIC_URL)].filter(Boolean) };
   const event = (k) => recordSafety(env, { kind: k, surface: kind, source: 'server', tier: r.tier }, ctx);
   let returned = false;
@@ -213,6 +258,10 @@ async function handleAI(kind, req, env, ctx, cors) {
     recordSafety(env, { kind: 'distress', surface: kind, source: 'model', tier: r.tier }, ctx);
   };
   const record = (message) => recordSpend(env, { pool: r.pool, kind, message }).catch((e) => console.error('spend', e?.message));
+  // The final-answer guard (ai spec AI-3 Design 3): on for chat, explain and check while the app's context says WITHHOLD
+  // and carries the answer. A care reply is never guarded.
+  let guard = { on: false, forms: null };
+  if (!careTier) { try { guard = answerGuard(kind, input); } catch { /* a context that cannot be read guards nothing */ } }
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, ...(env.ANTHROPIC_BASE_URL ? { baseURL: env.ANTHROPIC_BASE_URL } : {}) });
 
   if (kind === 'chat' && input.stream) {
@@ -221,13 +270,22 @@ async function handleAI(kind, req, env, ctx, cors) {
     const writer = writable.getWriter();
     let aborted = false;
     let wrote = false;
-    const write = (text) => { if (text) wrote = true; return writer.write(enc.encode(text)).catch(() => { aborted = true; }); };
+    const write = (text) => { if (!text) return undefined; wrote = true; return writer.write(enc.encode(text)).catch(() => { aborted = true; }); };
     // The start of the reply is held back until it has 9 characters or a line, so a care line the model puts first
     // ([[care]]) is taken out before anything reaches the screen, and sent as a marker at the end instead. Then, in
     // this order (trust spec TRUST-4 §4.2): a care reply goes out as it comes; any other reply is checked against the
-    // blocklist before each piece is sent, and on a hit the stream stops and ends with [[blocked]].
+    // blocklist before each piece is sent, and on a hit the stream stops and ends with [[blocked]]. Then the final-answer
+    // guard (ai spec AI-3): what passed the blocklist goes out a sentence at a time with a leaked answer masked, and the
+    // reply ends with MASK_NOTE when anything was. A care reply skips both.
     let care = careTier; let held = ''; let decided = false;
     let acc = ''; let sent = 0; let checked = 0; let blocked = false;
+    const g = guard.on && guard.forms ? streamGuard(guard.forms) : null;
+    const guarded = (piece) => (care || !g ? piece : g.push(piece));
+    const guardEnd = async () => {
+      if (care || !g) return;
+      await write(g.end());
+      if (g.masked) { await write(`\n\n${MASK_NOTE}`); bumpQuality(env, ctx, kind, 'answer_masked'); }
+    };
     const pass = async (final) => {
       if (blocked) return;
       const end = care || final ? acc.length : stableEnd(acc);
@@ -238,7 +296,7 @@ async function handleAI(kind, req, env, ctx, cors) {
         checked = end;
       }
       const piece = acc.slice(sent, end); sent = end;
-      await write(piece);
+      await write(guarded(piece));
     };
     const settle = async () => {
       if (decided) return;
@@ -288,10 +346,19 @@ async function handleAI(kind, req, env, ctx, cors) {
             await record(final);
             // the links were sent as written; the app shows any it may not open as plain text (SafeLink)
             if (screenOutput(acc, { ...screen, care: true }).linksRemoved) event('link_removed');
+            // nothing visible came back (a reply that stopped on max_tokens after only thinking): not a reply
+            const empty = !acc.trim() && final.stop_reason !== 'refusal';
             if (careTier) {
               if (final.stop_reason === 'refusal') { event('refusal'); await careFallback(); }
+              else if (empty) await careFallback();
               else await write(`\n${CARE_MARK}`);
+            } else if (empty && !care) {
+              // the question is given back, and the app says the tutor could not answer (ai spec AI-3 Design 3)
+              await giveBackOnce();
+              bumpQuality(env, ctx, kind, 'empty_stream');
+              await write('\n[[error:bad_output]]');
             } else {
+              await guardEnd();
               if (care) { await modelCare(); await write(`\n${CARE_MARK}`); }
               // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
               if (final.stop_reason === 'refusal') { event('refusal'); await giveBackOnce(); await write('\n[[refusal]]'); }
@@ -308,6 +375,7 @@ async function handleAI(kind, req, env, ctx, cors) {
           if (blocked) await endBlocked();
           else if (careTier) await careFallback();
           else {
+            await guardEnd();
             await giveBackOnce();
             await write(`\n[[error:${aiErrorCode(e)}]]`);
           }
@@ -323,6 +391,8 @@ async function handleAI(kind, req, env, ctx, cors) {
     return new Response(readable, { headers: { ...cors, ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
+  if (kind === 'generate') return generateReply({ env, ctx, cors, headers, r, input, client, record, event, giveBackOnce, leftBack, screen });
+
   let message;
   const usage = usageTracker();
   try {
@@ -335,19 +405,20 @@ async function handleAI(kind, req, env, ctx, cors) {
       message = await client.beta.messages.create(r.params);
     }
   } catch (e) {
-    const code = aiErrorCode(e);
+    const reason = aiErrorCode(e);
     // a stream that broke part-way was billed for what it did
     const partial = usage.message();
     if (partial) ctx.waitUntil(record(partial));
-    console.error('ai', kind, code, e?.status, e?.message);
+    console.error('ai', kind, reason, e?.status, e?.message);
     if (careTier) return careStaticReply(kind, input, cors, headers);
     await giveBackOnce();
-    throw new HttpError(code === 'busy' ? 429 : 502, code, undefined, undefined, headers);
+    throw new HttpError(reason === 'busy' ? 429 : 502, reason, undefined, undefined, headers);
   }
   ctx.waitUntil(record(message));
   let result;
   try {
-    result = readResult(kind, message);
+    // a care reply is text whatever the kind (buildCare); feedback checks its reply against what was sent (AI-10)
+    result = readResult(careTier ? 'chat' : kind, message, r.input ?? input);
   } catch (e) {
     if (e?.code === 'refusal') event('refusal'); // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
     if (careTier) return careStaticReply(kind, input, cors, headers);
@@ -370,15 +441,68 @@ async function handleAI(kind, req, env, ctx, cors) {
   if (checkedOut.linksRemoved) event('link_removed');
   result = checkedOut.data;
   if (careTier) return json({ ...result, care: true }, 200, cors, headers);
+  // The final-answer guard on a whole reply (ai spec AI-3 Design 3): a leaked answer masked in explain and chat (with
+  // MASK_NOTE), and a check withheld (comments and summary masked, no mark on the line with the final value). It runs
+  // after the blocklist, on what the child would see; a care reply is never touched.
+  if (guard.on) {
+    const out = guardResult(kind, result, guard);
+    result = out.result;
+    if (out.masked) bumpQuality(env, ctx, kind, 'answer_masked');
+  }
   if (result?.care === true) {
     await modelCare();
     leftBack();
   }
   return json(result, 200, cors, headers);
 }
+/**
+ * New exercises (ai spec AI-4 Design 6): the app's seeds are rewritten by the main model, the new stories are solved
+ * blind by the low-cost model (BLIND_MODEL, else FREE_MODEL), and code decides what may be shown (generateVerified,
+ * shared/ai.js; the same path the personal key and the evaluation run). Every message is priced as it comes, both on the
+ * caller's pool under 'generate'. Each drop reason is counted in ai_quality with how many stories it dropped, and a blind
+ * solve that failed twice as blind_skipped. When no story passed, the question is given back and the reply says so
+ * ({ items: [], dropped, fallback: true }): the app then shows its own exercises.
+ */
+async function generateReply({ env, ctx, cors, headers, r, input, client, record, event, giveBackOnce, leftBack, screen }) {
+  const call = async (params) => {
+    const message = await client.beta.messages.create(params);
+    ctx.waitUntil(record(message));
+    return message;
+  };
+  let out;
+  try {
+    out = await generateVerified(call, r.input ?? input, { model: r.params.model, blindModel: env.BLIND_MODEL || env.FREE_MODEL || LITE_MODEL });
+  } catch (e) {
+    const reason = aiErrorCode(e);
+    if (reason === 'refusal') event('refusal'); // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
+    console.error('ai', 'generate', reason, e?.status, e?.message);
+    await giveBackOnce();
+    throw new HttpError(reason === 'refusal' ? 422 : reason === 'busy' ? 429 : 502, reason, undefined, undefined, headers);
+  }
+  for (const reason of DROP_REASONS) bumpQuality(env, ctx, 'generate', `gen_${reason}`, out.dropped[reason] || 0);
+  if (out.blind === 'skipped') bumpQuality(env, ctx, 'generate', 'blind_skipped');
+  const result = { items: out.items, dropped: out.dropped, fallback: out.fallback };
+  if (out.fallback) {
+    bumpQuality(env, ctx, 'generate', 'gen_all_failed');
+    await giveBackOnce();
+    leftBack();
+    return json(result, 200, cors, headers);
+  }
+  // screened like every reply (trust spec TRUST-4 §4.2): exercises cannot be shown in part
+  const checkedOut = screenJson(result, { ...screen, care: false });
+  if (checkedOut.blocked) {
+    await giveBackOnce();
+    event('output_blocked');
+    leftBack();
+    throw new HttpError(502, 'bad_output', undefined, undefined, headers);
+  }
+  if (checkedOut.linksRemoved) event('link_removed');
+  return json(checkedOut.data, 200, cors, headers);
+}
+
 // ---------- a child reports an AI answer (trust spec TRUST-4 §4.5) ----------
 const REPORT_REASONS = Object.freeze(['wrong_math', 'not_nice', 'not_for_kids', 'other']);
-const REPORT_KINDS = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate']);
+const REPORT_KINDS = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate', 'feedback']);
 const REPORT_TIERS = ['free', 'family', 'class', 'teacher', 'trial', 'legacy', 'open', 'care', 'personal'];
 const REPORT_MAX = 4000;
 // 10 a day from one child or device, and a ceiling for a whole network (a school shares one), so the table cannot be
@@ -561,7 +685,8 @@ const EVENT_ID = /^[a-f0-9]{12}$/; // the app's id for one answer (12 hex), so a
  * sent, at most 500): an answer already stored (same id, from a retry) is ignored, an answer older than 400 days is
  * dropped (RETENTION.attemptsDays, shared/retention.js: an old outbox cannot bring back what the night purge removed),
  * and both count as saved, because there is nothing more to send. An answer from an older app has no id and is
- * stored as it comes. One statement writes them all (json_each), so a full batch stays one query.
+ * stored as it comes. One statement writes them all (json_each), so a full batch stays one query. Any student activity
+ * marks the class as used today (class_settings.last_seen, TRUST-7 §2).
  */
 async function saveProgress(req, env, cors) {
   const s = await requireStudent(req, env);
@@ -842,6 +967,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/ai/report') return reportAnswer(req, env, ctx, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/ai\/(\w+)$/))) return handleAI(m[1], req, env, ctx, cors);
   if (M === 'POST' && p === '/api/devices') return mintDevice(req, env, cors);
+  // the device's own "delete all" on the server (trust spec TRUST-6 §1): the student, the family device and the install
+  if (M === 'POST' && p === '/api/me/forget') return forgetMe(req, env, ctx, cors);
   // parent and teacher accounts
   if (M === 'POST' && p === '/api/account/code') return startLogin(req, env, cors);
   if (M === 'POST' && p === '/api/account/verify') return verifyLogin(req, env, cors);
@@ -905,8 +1032,6 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
-  if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
-  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/rename') return renameClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/delete') return deleteClass(req, env, cors);
   if (M === 'GET' && p === '/api/teacher/assignments') return listAssignments(req, env, cors);

@@ -1,7 +1,7 @@
 // Service email through Resend's HTTP API (https://resend.com/docs/api-reference/emails/send-email): the sign-in code,
-// and the notices outbox (welcome, cancellation, refund, payment failed, renewal reminder, device linked, licence
-// ending, a class's teacher key replaced, a teacher's daily count of new help requests, owner alerts and the owner's
-// daily summary). Settings: RESEND_API_KEY (secret), EMAIL_FROM (a domain verified
+// and the notices outbox (welcome, cancellation, refund, payment failed, the one-year plan's end-date emails, device
+// linked and unlinked, licence ending, a class's teacher key replaced, a teacher's daily count of new help requests,
+// owner alerts and the owner's daily summary). Settings: RESEND_API_KEY (secret), EMAIL_FROM (a domain verified
 // in Resend), CONTACT_EMAIL (reply-to), OWNER_EMAIL (owner alerts). Every inserted value is HTML-escaped. Nothing a
 // parent or child typed goes into their own emails except the recipient address, a device label and, to its own
 // teacher, a class name; a teacher's licence request (school, note) goes only to the owner. With EMAIL_DEV_LOG = "true" on a local Worker (PUBLIC_URL on
@@ -67,7 +67,25 @@ const hebDateTime = (iso) => {
   try { return new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: TZ }); } catch { return ''; }
 };
 const vatWords = (env) => (String(env.VAT_MODE) === 'exempt' ? 'המחיר סופי' : 'כולל מע״מ');
-const PLAN_NAME = { family_month: 'מנוי משפחתי חודשי', family_year: 'מנוי משפחתי שנתי', class_year: 'רישיון כיתה לשנה', term: 'מנוי', trial: 'ניסיון לכיתה' };
+const PLAN_NAME = { family_month: 'מנוי משפחתי חודשי', family_year: 'מנוי משפחתי לשנה', class_year: 'רישיון כיתה לשנה', term: 'מנוי', trial: 'ניסיון לכיתה' };
+/** The one-year plan's renewal link (trust spec TRUST-10 §2): the parents' page opens its renewal. */
+const renewLink = (env) => `${env.PUBLIC_URL || ''}/parents?renew=year`;
+/** The end-date email of a one-year plan, 30-45 days ahead (Appendix E §E.7). */
+function yearEndingNotice(env, p) {
+  const date = hebDate(p.periodEnd);
+  const free = limits(env).free.student;
+  return {
+    subject: `המנוי לשנה מסתיים ב־${date}`,
+    lines: [
+      'שלום,',
+      `המנוי לשנה לעוזר החכם של מדרגות מסתיים ב־${date}. הוא לא מתחדש מעצמו, ולא נחייב אתכם שוב.`,
+      `רוצים להמשיך? אפשר לחדש לשנה נוספת ב־${shekels(p.priceAgorot)} (${vatWords(env)}): ${renewLink(env)}. אחרי ${date} אפשר להצטרף גם למנוי חודשי.`,
+      `אם לא תעשו כלום, ב־${date} העוזר החכם יחזור ל־${free === 1 ? 'שאלה אחת' : `${free} שאלות`} ביום. השיעורים, התרגול וההתקדמות נשארים כמו שהם.`,
+      '',
+      footer(env),
+    ],
+  };
+}
 
 function footer(env) {
   const parts = [`לביטול המנוי: ${env.PUBLIC_URL || ''}/cancel`, env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean);
@@ -84,16 +102,19 @@ export function renderNotice(env, row) {
   const billing = (lines) => [...lines, '', footer(env)];
   switch (base) {
     case 'welcome': {
-      const renews = p.plan === 'family_month' || p.plan === 'family_year';
-      const per = p.plan === 'family_month' ? 'לחודש' : 'לשנה';
+      // only the monthly plan renews by itself (TRUST-10 §1); a one-year plan and a licence are one payment each. A
+      // renewed year (welcome:<order>) is a new transaction with its own confirmation and its own 14 days.
+      const renews = p.plan === 'family_month';
       return {
-        subject: 'המנוי לעוזר החכם של מדרגות פעיל',
+        subject: p.renewal ? 'המנוי לעוזר החכם של מדרגות חודש לשנה נוספת' : 'המנוי לעוזר החכם של מדרגות פעיל',
         lines: billing([
           'שלום,',
           renews
-            ? `${PLAN_NAME[p.plan]}: ${shekels(p.priceAgorot)} ${per}, ${vatWords(env)}. מתחדש אוטומטית עד שמבטלים. החיוב הבא: ${hebDate(p.periodEnd)}.`
+            ? `${PLAN_NAME[p.plan]}: ${shekels(p.priceAgorot)} לחודש, ${vatWords(env)}. מתחדש אוטומטית עד שמבטלים. החיוב הבא: ${hebDate(p.periodEnd)}.`
             : `${PLAN_NAME[p.plan] || 'מנוי'}: ${shekels(p.priceAgorot)}, ${vatWords(env)}. תשלום אחד, בלי חידוש אוטומטי. בתוקף עד ${hebDate(p.periodEnd)}.`,
-          'אפשר לבטל בכל רגע באתר, במייל או בטלפון. ב־14 הימים הראשונים מקבלים החזר מלא.',
+          p.renewal
+            ? `ב־14 הימים הקרובים אפשר לבטל את החידוש ולקבל החזר מלא. המנוי הנוכחי ממשיך עד ${hebDate(p.prevEnd)}.`
+            : 'אפשר לבטל בכל רגע באתר, במייל או בטלפון. ב־14 הימים הראשונים מקבלים החזר מלא.',
           'שימוש הוגן: יש מכסה יומית לכל סוג פעולה. בחודש עם שימוש גבוה במיוחד השיחה ממשיכה בגרסה קצרה, ובדיקות הצילום והמבחן חוזרות ב־1 בחודש.',
           `התקנון (גרסה ${env.TERMS_VERSION || ''}): ${env.PUBLIC_URL || ''}/terms`,
           // the payer's own mailbox is one of the real adult checks (trust spec TRUST-8 §5): someone who did not sign up
@@ -105,10 +126,12 @@ export function renderNotice(env, row) {
     }
     case 'canceled':
       return {
-        subject: `אישור ביטול המנוי · ${p.reference || ''}`.trim(),
+        subject: `${p.renewal ? 'אישור ביטול החידוש' : 'אישור ביטול המנוי'} · ${p.reference || ''}`.trim(),
         lines: billing([
           'שלום,',
-          `קיבלנו את הביטול ב־${hebDateTime(p.requestedAt)}. לא יהיו חיובים נוספים. העוזר החכם פתוח עד ${hebDate(p.endsAt)}.`,
+          p.renewal
+            ? `קיבלנו את ביטול החידוש ב־${hebDateTime(p.requestedAt)}. המנוי לשנה ממשיך עד ${hebDate(p.endsAt)}, ולא יהיו חיובים נוספים.`
+            : `קיבלנו את הביטול ב־${hebDateTime(p.requestedAt)}. לא יהיו חיובים נוספים. העוזר החכם פתוח עד ${hebDate(p.endsAt)}.`,
           p.refundAgorot > 0 ? `ההחזר של ${shekels(p.refundAgorot)} יגיע לאמצעי התשלום תוך 14 ימים לכל היותר.` : '',
           p.reference ? `מספר אישור: ${p.reference}` : '',
         ]),
@@ -126,10 +149,17 @@ export function renderNotice(env, row) {
           `חברת הסליקה תנסה שוב בימים הקרובים, והעוזר החכם ממשיך לעבוד עד ${hebDate(p.until)}. לעדכון אמצעי תשלום: ${p.portal || `${env.PUBLIC_URL || ''}/parents`}`,
         ]),
       };
+    case 'year_ending':
+    // an older reminder still in the outbox: the yearly plan no longer renews by itself, so it says the same as year_ending
     case 'renewal_reminder':
+      return yearEndingNotice(env, p);
+    case 'year_ending_7':
       return {
-        subject: `המנוי השנתי מתחדש ב־${hebDate(p.periodEnd)}`,
-        lines: billing(['שלום,', `המנוי השנתי מתחדש ב־${hebDate(p.periodEnd)} במחיר ${shekels(p.priceAgorot)}, ${vatWords(env)}.`]),
+        subject: 'עוד שבוע המנוי לשנה מסתיים',
+        lines: billing([
+          'שלום,',
+          `המנוי לשנה מסתיים ב־${hebDate(p.periodEnd)} ולא מתחדש מעצמו. לחידוש לשנה נוספת: ${renewLink(env)}. אם לא תעשו כלום, לא נחייב אתכם.`,
+        ]),
       };
     case 'device_linked':
       if (p.purpose === 'consent') return consentNotice(env, p);
@@ -137,6 +167,17 @@ export function renderNotice(env, row) {
         subject: 'מכשיר חדש חובר למנוי',
         lines: billing(['שלום,', `חובר מכשיר חדש${p.label ? ` (${p.label})` : ''} ב־${hebDate(p.at)}. לא אתם? אפשר לנתק אותו בעמוד ההורים: ${env.PUBLIC_URL || ''}/parents`]),
       };
+    // a child's device deleted everything of itself from the server ("delete all", trust spec TRUST-6 §1): the parent
+    // is told, with the label they gave it; for a device on the plan, as any billing email, else as the OK's email
+    case 'device_unlinked': {
+      const name = p.label ? `המכשיר (${p.label})` : 'אחד המכשירים';
+      const lines = [
+        'שלום,',
+        `${name} נותק ${p.plan ? 'מהמנוי' : 'מהחשבון שלכם במדרגות'}, והמידע שלו נמחק מהשרת לבקשת מי שהשתמש בו.`,
+        `אפשר לחבר אותו שוב מעמוד ההורים: ${env.PUBLIC_URL || ''}/parents`,
+      ];
+      return { subject: p.plan ? 'מכשיר נותק מהמנוי' : 'מכשיר נותק מהחשבון', lines: p.plan ? billing(lines) : [...lines, '', business(env)] };
+    }
     case 'licence_ending':
       return {
         subject: `רישיון הכיתה מסתיים ב־${hebDate(p.until)}`,
@@ -259,6 +300,7 @@ function summaryNotice(p, day) {
       p.parentOkNeeded != null ? `בקשות לעוזר ממכשירים שמחכים לאישור של הורה: ${p.parentOkNeeded}` : '',
       ...errorLines(p.errors),
       ...(p.vaults ? [`גיבויים מוצפנים: ${p.vaults.count ?? 0} (${p.vaults.mb ?? 0} MB) · חדשים: ${p.vaults.newYesterday ?? 0}`] : []),
+      p.quality ? qualityLine(p.quality) : '',
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),
     ],
@@ -267,6 +309,9 @@ function summaryNotice(p, day) {
 
 /** A day's safety counts in one line (trust spec TRUST-4 §4.4): numbers only, never who or what was written. */
 const safetyLine = (c) => `אירועי בטיחות: מצוקה ${c.distress ?? 0} · פרטים אישיים שהוסתרו ${c.pii_masked ?? 0} · תשובות שנעצרו ${c.output_blocked ?? 0} · סירובים ${c.refusal ?? 0} · דיווחים על תשובות ${c.user_report ?? 0}`;
+
+/** The tutor's answers in one line (ai spec AI-3 Design 6): counts only. */
+const qualityLine = (q) => `איכות העוזר: תשובות סופיות שהוסתרו ${q.masked ?? 0} · תשובות ריקות ${q.emptyStreams ?? 0} · תרגילים שנפסלו ${q.genDropped ?? 0} · בקשות תרגילים שנכשלו ${q.genAllFailed ?? 0}`;
 
 /** Yesterday's safety events jumped (cron.js safetySpike): the counts only, and where to look next. */
 function safetySpikeNotice(p, day) {
@@ -354,19 +399,60 @@ export async function flushNotices(env, { limit = 50 } = {}) {
       params.requestId = row.ref;
     }
     const msg = renderNotice(env, { ...row, params: JSON.stringify(params) });
-    if (!to || !msg) { await done('UPDATE notices SET tries = ? WHERE ref = ? AND kind = ?', MAX_NOTICE_TRIES); continue; }
+    const welcome = isWelcome(row.kind);
+    if (!to || !msg) {
+      await done('UPDATE notices SET tries = ? WHERE ref = ? AND kind = ?', MAX_NOTICE_TRIES);
+      if (welcome) await welcomeFailed(env, row, params);
+      continue;
+    }
     try {
+      let at;
       if (emailReady(env)) {
         const text = msg.lines.filter((l) => l !== '').join('\n');
         await send(env, { to, subject: msg.subject, text, html: wrap(para(msg.lines)) });
+        at = nowIso();
+        // the written disclosure really left: the 14 days of the cooling-off run from now if that is later than the
+        // payment (Consumer Protection Law s.14ג, trust spec TRUST-10 §5). The dev log below sends nothing, so it moves nothing.
+        if (welcome) await welcomeSent(env, row.ref, at);
       } else {
         console.log(`[dev] notice ${row.kind}: ${msg.subject}`);
       }
-      await done('UPDATE notices SET sent_at = ? WHERE ref = ? AND kind = ?', nowIso());
+      await done('UPDATE notices SET sent_at = ? WHERE ref = ? AND kind = ?', at || nowIso());
       sent++;
     } catch {
       await done('UPDATE notices SET tries = tries + 1 WHERE ref = ? AND kind = ?');
+      if (welcome && row.tries + 1 >= MAX_NOTICE_TRIES) await welcomeFailed(env, row, params);
     }
   }
   return { sent };
+}
+
+// ---------------------------------------------------------------- the cooling-off clock (trust spec TRUST-10 §5)
+export const REFUND_DAYS_AFTER_DISCLOSURE = 14;
+export const REFUND_DAYS_NO_DISCLOSURE = 60;
+const DAY_MS = 864e5;
+/** A plan's confirmation email: the first payment's (welcome), or a renewed year's (welcome:<order>). */
+const isWelcome = (kind) => kind === 'welcome' || String(kind).startsWith('welcome:');
+
+/** The confirmation reached Resend: the refund window ends 14 days from now, unless the payment's 14 days end later. */
+async function welcomeSent(env, subId, sentAt) {
+  const until = new Date(Date.parse(sentAt) + REFUND_DAYS_AFTER_DISCLOSURE * DAY_MS).toISOString();
+  await env.DB.prepare("UPDATE subscriptions SET refund_until = MAX(COALESCE(refund_until, ''), ?) WHERE id = ? AND first_paid_at IS NOT NULL")
+    .bind(until, subId).run();
+}
+
+/**
+ * The confirmation could not be sent after every try: the payer may never have received the disclosure, so the refund
+ * window runs to 60 days after the payment, and the owner is told to send it by hand.
+ */
+async function welcomeFailed(env, row, params) {
+  const sub = await env.DB.prepare('SELECT id, first_paid_at FROM subscriptions WHERE id = ?').bind(row.ref).first();
+  if (!sub?.first_paid_at) return;
+  const paid = Date.parse(params.paidAt || sub.first_paid_at);
+  const until = new Date((Number.isFinite(paid) ? paid : Date.parse(sub.first_paid_at)) + REFUND_DAYS_NO_DISCLOSURE * DAY_MS).toISOString();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE subscriptions SET refund_until = MAX(COALESCE(refund_until, ''), ?) WHERE id = ?").bind(until, sub.id),
+    env.DB.prepare('INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at) VALUES (?, ?, NULL, ?, ?)')
+      .bind(sub.id, `owner:welcome_failed:${sub.id}`, JSON.stringify({ subscription: sub.id, refundUntil: until }), nowIso()),
+  ]);
 }

@@ -32,7 +32,9 @@ const ROUTES = [
     '/api/vault/delete', '/api/vault/escrow', '/api/vault/escrow/delete', '/api/family/vaults', '/api/family/summary', '/api/family/summary/sharing',
     // the safety and school lanes' routes
     '/api/ai/report', '/api/class/work', '/api/teacher/report', '/api/teacher/class/digest', '/api/teacher/class/ai', '/api/teacher/class/rename',
-    '/api/teacher/class/delete', '/api/teacher/assignments', '/api/teacher/classes', '/api/teacher/class/owner', '/api/teacher/class/rekey'].map((p) => [p, p]),
+    '/api/teacher/class/delete', '/api/teacher/assignments', '/api/teacher/classes', '/api/teacher/class/owner', '/api/teacher/class/rekey',
+    // the safety lane's "delete all" (TRUST-6)
+    '/api/me/forget'].map((p) => [p, p]),
   [/^\/api\/ai\/[^/]+$/, '/api/ai/:kind'],
   [/^\/api\/billing\/orders\/[^/]+$/, '/api/billing/orders/:id'],
   [/^\/api\/billing\/payments\/[^/]+\/invoice$/, '/api/billing/payments/:id/invoice'],

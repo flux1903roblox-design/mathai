@@ -79,8 +79,30 @@ function Option({ on, onPick, title, sub, glyph, aside, badge }) {
  * First time on the app: a few short questions, one per screen, then a choice
  * between a placement test and starting from the first stair.
  */
+/**
+ * After "delete all" (lib/wipe.js) the app reloads at ?wiped=1 (the device and the server) or ?wiped=device (this
+ * device only): the front page says so once, as a status line, and the parameter leaves the address at once, so a
+ * reload or a shared link does not say it again (trust spec TRUST-6 §4).
+ */
+export const WIPED_TEXT = { 1: 'כל הנתונים נמחקו מהמכשיר הזה ומהשרת.', device: 'כל הנתונים נמחקו מהמכשיר הזה.' };
+function useWiped() {
+  const [wiped] = useState(() => {
+    try { const w = new URLSearchParams(window.location.search).get('wiped'); return w && WIPED_TEXT[w] ? w : null; } catch { return null; }
+  });
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      if (!u.searchParams.has('wiped')) return;
+      u.searchParams.delete('wiped');
+      window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`);
+    } catch { /* the address keeps it: the line shows again on a reload, nothing else */ }
+  }, []);
+  return wiped;
+}
+
 function Onboarding({ onTeacher, onRestore }) {
   const navigate = useNavigate();
+  const wiped = useWiped();
   const setProfile = useApp((s) => s.setProfile);
   const setGoalXp = useApp((s) => s.setGoalXp);
   const server = hasServer();
@@ -160,6 +182,7 @@ function Onboarding({ onTeacher, onRestore }) {
     return (
       <div className={clsx('ob ob-hello hello-duo', standalone && 'hello-standalone')}>
         <main className="hello-center" data-region="content">
+          {wiped && <p className="hello-wiped" role="status"><Check size={20} aria-hidden="true" /><span>{WIPED_TEXT[wiped]}</span></p>}
           <Mascot mood="excited" size={168} className="hello-madi" />
           <p className="hello-brand"><span className="wordmark">מדרגות</span></p>
           <h1 className="hello-title">מתמטיקה שמבינים.<br />ומתקדמים.</h1>
@@ -181,17 +204,19 @@ function Onboarding({ onTeacher, onRestore }) {
             {server && !standalone && <Button variant="ghost" className="hello-restore" onClick={() => navigate('/restore')}>יש לי קוד גיבוי</Button>}
             <Button variant="ghost" className="hello-restore" onClick={onRestore}>יש לי קובץ גיבוי</Button>
           </div>
-          {/* the site's front page carries the dedicated cancel link and the parents' page while the tutor is sold,
-              and the legal pages (with a server) */}
-          {server && (
-            <nav className="hello-legal" aria-label={billing ? 'להורים ומידע משפטי' : 'מידע משפטי'}>
-              {billing && <Link to="/parents">להורים</Link>}
-              {billing && <Link to="/cancel">ביטול מנוי</Link>}
-              <Link to="/terms">תקנון</Link>
-              <Link to="/privacy">פרטיות</Link>
-              <Link to="/accessibility">נגישות</Link>
-            </nav>
-          )}
+          {/* the site's front page (trust spec TRUST-2 §7): the privacy notice, the accessibility statement and the AI
+              safety statement always (each page renders without a server); while the tutor is sold, also the parents'
+              page, the terms, and the dedicated cancel link with how to cancel beside it (Consumer Protection Law
+              s.14ט(ב), (ה)(2)). Every device without a profile opens here, the parent's own phone too. */}
+          <nav className="hello-legal" aria-label={billing ? 'להורים ומידע משפטי' : 'מידע משפטי'}>
+            {billing && <Link to="/parents">להורים</Link>}
+            {billing && <Link to="/cancel" aria-describedby="hello-cancel-how">ביטול מנוי</Link>}
+            {billing && <Link to="/terms">תקנון</Link>}
+            <Link to="/privacy">פרטיות</Link>
+            <Link to="/accessibility">נגישות</Link>
+            <Link to="/safety">בטיחות</Link>
+          </nav>
+          {billing && <p id="hello-cancel-how" className="hello-legal-note">ביטול בשתי לחיצות, באתר, במייל או בטלפון</p>}
         </footer>
       </div>
     );
@@ -224,7 +249,9 @@ function Onboarding({ onTeacher, onRestore }) {
         {step === 'name' && (
           <div className="ob-field">
             <label htmlFor="w-name" className="visually-hidden">השם שלכם</label>
-            <input id="w-name" className="input input-lg" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="given-name" maxLength={30} placeholder="שם פרטי" autoFocus enterKeyHint="next" />
+            <input id="w-name" className="input input-lg" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="given-name" maxLength={30} placeholder="שם פרטי" autoFocus enterKeyHint="next" aria-describedby="w-name-hint" />
+            {/* where the name is kept (trust spec TRUST-1 §5) */}
+            <p className="ob-note" id="w-name-hint">השם נשמר רק במכשיר הזה, אלא אם תצטרפו לכיתה. אפשר גם כינוי.</p>
           </div>
         )}
         {step === 'grade' && (
@@ -259,7 +286,12 @@ function Onboarding({ onTeacher, onRestore }) {
               <p className="ob-joined" role="status"><Check size={20} strokeWidth={3} aria-hidden="true" />אתם בכיתה {joined.className}{joined.teacherName ? ` של ${joined.teacherName}` : ''}.</p>
             ) : (
               <>
-                <p className="ob-note">עם קוד, המורה יראה את ההתקדמות ויוכל לעזור כשמשהו לא ברור. אפשר להמשיך גם בלי, ולהצטרף אחר כך מהמסך "אני". {CLASS_COPY_NOTE}</p>
+                {/* what joining keeps on the server, and where it says more (trust spec TRUST-1 §5); the link opens in a new tab,
+                    so nothing typed here is lost */}
+                <p className="ob-note">
+                  עם קוד, המורה יראה את ההתקדמות ויוכל לעזור כשמשהו לא ברור. השם שלכם והתשובות בתרגול יישמרו בשרת של מדרגות, והמורה יראה אותם. אפשר למחוק אותם בכל רגע בהגדרות, ואפשר גם להמשיך בלי קוד ולהצטרף אחר כך מהמסך "אני". {CLASS_COPY_NOTE}{' '}
+                  <Link to="/privacy" target="_blank" rel="noopener noreferrer">מה נשמר ולמה<span className="visually-hidden"> (נפתח בכרטיסייה חדשה)</span></Link>
+                </p>
                 <Field label="קוד כיתה" id="w-code">
                   <input id="w-code" className="input mono" dir="ltr" value={f.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="למשל K7Q2MD" />
                 </Field>

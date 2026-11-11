@@ -16,9 +16,18 @@ AI_PAYWALL = "off"
 # Classes created before BILLING_START keep the old limits until LEGACY_CLASS_AI_UNTIL (both YYYY-MM-DD, Jerusalem).
 BILLING_START = ""
 LEGACY_CLASS_AI_UNTIL = ""
-# Claude model for every full answer; FREE_MODEL for the free taste and economy mode (empty = the low-cost default in shared/ai.js).
+# The models of the request shapes (shared/ai.js; SUBSCRIPTION.md has the table). CLAUDE_MODEL answers every full request,
+# at an effort set per kind (explain medium, chat low, the rewrite of new exercises medium, the photo check and the exam
+# check high).
+# FREE_MODEL answers explain and chat in the free taste (shape "lite") and in economy mode (shape "economy", a paid pool
+# over its monthly budget): the same tutor block, at effort high with 4000 tokens and a note that only shortens the reply.
+# Empty FREE_MODEL = the low-cost default in shared/ai.js, never CLAUDE_MODEL.
 CLAUDE_MODEL = "claude-sonnet-5-5"
 FREE_MODEL = "claude-haiku-5-5"
+# New exercises (ai spec AI-4): the app makes the numbers and the answers, CLAUDE_MODEL rewrites the words, and a second
+# model solves each new story blind (it never sees the app's numbers or answers) before code decides what is shown.
+# BLIND_MODEL is that second model; empty = FREE_MODEL (effort high, 6000 tokens).
+BLIND_MODEL = ""
 # With the switch off: AI actions a day per class student, per teacher, and per network for students without a class.
 AI_DAILY_LIMIT = "40"
 TEACHER_DAILY_LIMIT = "200"
@@ -69,13 +78,37 @@ FREE_DEVICE_MINT = "off"
 # midnight), and at most this many wrong codes a day from one network (so a stranger cannot burn a parent's codes).
 MAIL_DAILY_CAP = "3000"
 VERIFY_FAIL_NET_DAILY = "30"
-# Business details for the checkout disclosure and the emails.
+# Business details for the checkout disclosure, the legal pages and the emails (trust spec TRUST-2 §4-5).
 BUSINESS_NAME = ""
 BUSINESS_ID = ""
+# "עוסק מורשה", "עוסק פטור" or "חברה בע״מ", as the terms say it before the number
+BUSINESS_KIND = ""
 BUSINESS_ADDRESS = ""
 CONTACT_EMAIL = ""
 CONTACT_PHONE = ""
 OWNER_EMAIL = ""
+# The payment company's name as the terms show it, e.g. "Grow (משולם)"
+PAYMENT_PROVIDER_NAME = ""
+# ---- the legal pages and the go-live gate (trust spec TRUST-2, TRUST-13) ----
+# The date the legal texts were last changed (YYYY-MM-DD), shown on them.
+LEGAL_DATE = ""
+# Where the D1 database is: "eu" once it was created with --jurisdiction=eu (TRUST-15 step 1; setup.ps1 creates it so
+# and writes "eu" here with the database id, the only time a jurisdiction can be set). The privacy notice says
+# "באיחוד האירופי" only then; any other value keeps checkout closed.
+DB_JURISDICTION = ""
+# THE OWNER'S ONE ACTION after the lawyer approved the texts: set LEGAL_APPROVED to the TERMS_VERSION above (e.g.
+# "2026-11") and deploy. Until it matches, and while any business detail above, PAYMENT_PROVIDER_NAME, LEGAL_DATE or
+# DB_JURISDICTION is empty, online checkout answers 503 legal_not_ready for every plan and the legal pages show "טיוטה".
+# A new TERMS_VERSION closes checkout again until it is approved too. GET /api/billing/plans lists what is missing
+# (legalMissing). A school licence code (npm run owner -- grant-school) is not gated by this.
+LEGAL_APPROVED = ""
+# The accessibility statement's coordinator, the date of the last check and what it was checked with (TRUST-13 step 4),
+# e.g. ACCESS_TESTED = "axe 4.10.2, VoiceOver iOS 26, TalkBack 16, Chrome ו־Safari".
+ACCESS_COORD_NAME = ""
+ACCESS_COORD_PHONE = ""
+ACCESS_COORD_EMAIL = ""
+ACCESS_STATEMENT_DATE = ""
+ACCESS_TESTED = ""
 # Codes and notices are sent from this address through Resend (the domain must be verified there).
 EMAIL_FROM = ""
 # The parents' progress report (needs AI_PAYWALL "on": only then is there a family plan). See worker/src/report.js.
@@ -97,6 +130,15 @@ VAULT_MAX_MB = "200"
 #   TURNSTILE_SECRET, DEVICE_SECRET   only with FREE_DEVICE_MINT = "turnstile"
 #   VAULT_SECRET            seals the class and family copies of a restore code (openssl rand -hex 32); the vault itself does not need it
 # TEST_WEBHOOK_SECRET belongs in .dev.vars only (the test provider).
+
+# Worker logs (trust spec TRUST-1 §3). Cloudflare keeps logs for new Workers by default, and its invocation logs hold
+# every request's address and headers: X-Device, X-Family-Device, X-Teacher-Key, X-Account-Token, the student's
+# Authorization token and the network address. They stay off, so only the Worker's own console lines (which name no
+# person, header or request content: worker/test/logs.test.js) and uncaught errors are kept, for 3 to 7 days.
+[observability]
+enabled = true
+[observability.logs]
+invocation_logs = false
 
 # The hourly jobs: notices, cancellation retries, refunds, expired orders and plans. At 03:00 (Jerusalem): reconciliation
 # with the payment provider, renewal and licence-ending reminders, the retention purge and the owner's daily summary.

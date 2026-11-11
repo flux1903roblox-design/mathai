@@ -18,6 +18,9 @@ async function bought({ plan = 'family_month', ago = 0, email = `c${n++}@example
   const amount = plan === 'family_year' ? 24900 : 2990;
   const s = await signedTestEvent(h.env, { id: `ev${n++}`, type: 'paid', order: orderId, payment: `pay_${orderId}`, subscription: `sub_${orderId}`, amountAgorot: amount, currency: 'ILS', occurredAt: new Date(Date.now() - ago).toISOString() });
   assert.equal((await h.call('POST', `/api/billing/webhook/test/${h.env.WEBHOOK_PATH_SECRET}`, { body: s.body, headers: s.headers })).status, 200);
+  // the welcome email went out at the payment, `ago` ms back: the cooling-off clock ran from then (TRUST-10 §5)
+  await h.ctx.flush();
+  if (ago) h.env.DB.raw.prepare('UPDATE subscriptions SET refund_until = ? WHERE account_id = ?').run(new Date(Date.now() - ago + 14 * DAY).toISOString(), accountId(h.env, email));
   const sub = one(h.env, 'SELECT * FROM subscriptions WHERE account_id = ?', accountId(h.env, email));
   return { token, sub, email };
 }

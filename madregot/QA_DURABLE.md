@@ -735,7 +735,12 @@ script. They now load one topic at a time, and nothing the student sees changed.
   lane's sheets, the student lane's theme and goal screens, the curriculum's fractions), the merge measured boot JS
   327.2 KB and render-blocking CSS 52.7 KB, so the gates there were set by the same rule (measured + 5%) to **344 KB**
   and **56 KB**; bringing the merged app back under 306 / 42 is open work (the teacher and trust CSS into files that
-  load with their screens, and the demo's boot behind its own import).
+  load with their screens, and the demo's boot behind its own import). The safety lane's stages 11-28 added the
+  tutor's whole stable prompt (pedagogy, stair map, topic ways), the final-answer guard and the code checks of written
+  exercises to `shared/ai.js`, which `lib/account.js` and `lib/ai.js` import at boot: the merge measured boot JS
+  348.7 KB (CSS 54.0 KB), and the boot gate moved by the same rule to **367 KB** (CSS stays 56). Open work there too: the
+  personal-key path of `lib/ai.js` (dev builds only) and the prompt builders behind a dynamic import, and the few
+  constants the boot needs (`KIND_GROUP`, `FREE_KINDS`, `AI_KINDS`) in a module of their own.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

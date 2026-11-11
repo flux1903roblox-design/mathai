@@ -11,6 +11,8 @@
     "staging:migrate": "wrangler d1 migrations apply madregot-staging --env staging --remote",
     "staging:deploy": "wrangler deploy --env staging",
     "owner": "node scripts/owner.mjs",
+    "eval:tutor": "node eval/run.mjs",
+    "eval:estimate": "node eval/run.mjs --estimate",
     "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {

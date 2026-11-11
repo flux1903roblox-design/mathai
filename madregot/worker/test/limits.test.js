@@ -1,7 +1,10 @@
 // Size limits before JSON.parse, and the rate limits that stop guessing and floods (class lookups, joins, locks).
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { setup, makeClass, setCount, netOf, DEVICE } from './helpers.js';
+import {
+  setup, makeClass, setCount, netOf, DEVICE, ai, countOf, devOf, rows, claudeReply, signIn, accountId, insertSub, linkDevice,
+  FEEDBACK_INPUT, FEEDBACK_REPLY, bearer,
+} from './helpers.js';
 
 let h;
 afterEach(() => h?.done());
@@ -87,4 +90,59 @@ test('a help request keeps a notebook page of up to 600,000 characters; a larger
   assert.equal((await ask(page(650_000), 'q2')).status, 200);
   assert.equal(one(h.env, "SELECT image FROM help_requests WHERE question = 'q2'").image, null, 'the question arrives, the page is dropped');
   assert.equal((await ask(page(720_000), 'q3')).status, 413, 'the app never sends this: it shrinks the page first (lib/fitImage.js)');
+});
+
+// ---------------------------------------------------------------- feedback on a written explanation (ai spec AI-10)
+test('feedback: one tutor question, given back when the reply is not the asked JSON; its body limit is 8,000 bytes', async () => {
+  let mode = 'ok';
+  h = await setup({}, { claude: (p) => claudeReply(p, mode === 'ok' ? {} : { text: '{"points": oops' }) });
+  const dev = await devOf(h.env);
+  const r = await ai(h, 'feedback', { 'X-Device': DEVICE });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('X-AI-Group'), 'tutor'); assert.equal(r.headers.get('X-AI-Left'), '1');
+  const body = await r.json();
+  assert.deepEqual(body.points, FEEDBACK_REPLY.points, 'the stub\'s quotes are the student\'s words, so they stay');
+  assert.equal(body.summary, FEEDBACK_REPLY.summary); assert.equal(body.care, false);
+  assert.equal(countOf(h.env, `free:d:${dev}`), 1, 'one of the free taste\'s 2 tutor questions');
+  // the free taste sends it on the low-cost model, at high effort with 4,000 tokens
+  const sent = h.net.log.claude.at(-1);
+  assert.equal(sent.model, h.env.FREE_MODEL || 'claude-haiku-5-5'); assert.equal(sent.max_tokens, 4000); assert.equal(sent.output_config.effort, 'high');
+  mode = 'broken';
+  const bad = await ai(h, 'feedback', { 'X-Device': DEVICE });
+  assert.equal(bad.status, 502); assert.equal((await bad.json()).error, 'bad_output');
+  assert.equal(countOf(h.env, `free:d:${dev}`), 1, 'the broken reply\'s question was given back');
+  // a body over 8,000 bytes is refused before it is read
+  const big = await ai(h, 'feedback', { 'X-Device': DEVICE }, { body: { ...FEEDBACK_INPUT, text: 'א'.repeat(5000) } });
+  assert.equal(big.status, 413);
+  // a request with no rubric is 400 and counts nothing
+  const none = await ai(h, 'feedback', { 'X-Device': DEVICE }, { body: { ...FEEDBACK_INPUT, rubric: [] } });
+  assert.equal(none.status, 400); assert.equal((await none.json()).error, 'bad_input');
+  assert.equal(countOf(h.env, `free:d:${dev}`), 1);
+});
+
+test('feedback on a family plan: one unit of the tutor group on the paid model; a class student\'s one unit of the class cap', async () => {
+  h = await setup();
+  await signIn(h, 'fam@example.test');
+  const a = accountId(h.env, 'fam@example.test');
+  insertSub(h.env, { kind: 'family', account_id: a });
+  const d = await linkDevice(h.env, a);
+  const r = await ai(h, 'feedback', d.headers);
+  assert.equal(r.status, 200); assert.equal(r.headers.get('X-AI-Tier'), 'family'); assert.equal(r.headers.get('X-AI-Group'), 'tutor');
+  assert.equal(countOf(h.env, `fam:${a}:tutor`), 1);
+  const sent = h.net.log.claude.at(-1);
+  assert.equal(sent.model, h.env.CLAUDE_MODEL); assert.equal(sent.max_tokens, 3000); assert.equal(sent.output_config.effort, 'low');
+  // the student's explanation was masked before it left; the safety log counts it, with no text
+  const pii = await ai(h, 'feedback', d.headers, { body: { ...FEEDBACK_INPUT, text: `${FEEDBACK_INPUT.text} תתקשרו 050-1234567` } });
+  assert.equal(pii.status, 200);
+  assert.ok(!JSON.stringify(h.net.log.claude.at(-1)).includes('050-1234567'));
+  await h.ctx.flush();
+  assert.deepEqual(rows(h.env, "SELECT kind, category, surface FROM safety_events WHERE kind = 'pii_masked'").map((x) => ({ ...x })), [{ kind: 'pii_masked', category: 'phone', surface: 'feedback' }]);
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
+  insertSub(h.env, { kind: 'class', class_code: cls.code });
+  const s = cls.students[0];
+  const before = countOf(h.env, `cls:${cls.code}`);
+  const sr = await ai(h, 'feedback', bearer(s));
+  assert.equal(sr.status, 200); assert.equal(sr.headers.get('X-AI-Group'), 'tutor');
+  assert.equal(countOf(h.env, `cls:${cls.code}`) - before, 1, 'one unit, as explain and chat');
+  assert.equal(countOf(h.env, `s:${s.studentId}:tutor`), 1);
 });

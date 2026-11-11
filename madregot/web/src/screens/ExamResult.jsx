@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler, ChevronLeft } from 'lucide-react';
+import { Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler, ChevronLeft, KeyRound } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { STATUS, focusLevel } from '@/lib/exam.js';
+import { gradedBy } from '@/lib/examGrade.js';
 import { TOPIC, TOPICS, displayTex } from '@/content/index.js';
 import { aiReady } from '@/lib/ai.js';
 import { Box, Button, ChapterMark, Sheet } from '@/components/ui.jsx';
@@ -11,6 +12,8 @@ import { MathText, Tex } from '@/components/MathText.jsx';
 import { RichText } from '@/components/RichText.jsx';
 import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
+import { buildTutorContext, examAnswerFrom } from '@/lib/tutorContext.js';
+import { ensureTopics } from '@/learn/content/index.ts';
 import Mascot from '@/components/Mascot.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import ReportAnswer, { examText } from '@/components/ReportAnswer.jsx';
@@ -34,6 +37,20 @@ function Prompt({ q }) {
     </div>
   );
 }
+// Who decided right or wrong (ai spec AI-8): the app against its answer key, or the AI. Said on every question, in calm
+// words, with the same neutral chip; an exam stored before this has no mark and was graded by the AI.
+const GRADE_COPY = {
+  key: 'נבדק מול מפתח התשובות',
+  ai: 'נבדק על ידי העוזר החכם',
+  overridden: 'בדקנו את התשובה שכתבתם מול מפתח התשובות.',
+  keyLine: 'את הכתב קרא העוזר החכם, ואת ההשוואה למפתח התשובות עשתה האפליקציה. אם הוא קרא משהו לא נכון, כדאי להראות למורה.',
+  aiLine: 'את השאלות שמסומנות כך בדק העוזר החכם, ולפעמים הוא טועה. אם משהו נראה לא נכון, כדאי להראות למורה.',
+};
+function GradeChip({ by }) {
+  const Icon = by === 'key' ? KeyRound : Sparkles;
+  return <span className={clsx('grade-chip', `by-${by}`)}><Icon size={14} aria-hidden="true" />{GRADE_COPY[by]}</span>;
+}
+
 const topicN = (id) => { const t = TOPIC[id]; return t ? TOPICS.filter((x) => x.grade === t.grade).indexOf(t) + 1 : 0; };
 
 function TopicTag({ id, mark = false }) {
@@ -51,6 +68,7 @@ function QuestionCard({ q, onAsk }) {
         <span className="ex-num" id={`q-${q.number}`} aria-label={`שאלה ${q.number}`}>{q.number}</span>
         <span className={clsx('status-chip', st.tone)}><Icon size={15} aria-hidden="true" />{st.label}</span>
         <TopicTag id={q.topic} />
+        <GradeChip by={gradedBy(q)} />
       </header>
       <Prompt q={q} />
       <div className="q-compare">
@@ -60,6 +78,7 @@ function QuestionCard({ q, onAsk }) {
           : <span className="muted">לא נכתבה תשובה</span>}
         {!ok && <><span className="q-compare-lab">נכון</span><span className="q-right"><RichText inline>{asMath(q.correctAnswer)}</RichText></span></>}
       </div>
+      {q.graded === 'key' && q.overridden && <p className="q-overridden">{GRADE_COPY.overridden}</p>}
       <Box tone={ok ? 'ok' : 'attention'} title={ok ? 'יפה' : 'שימו לב'}><RichText>{q.feedback}</RichText></Box>
       {q.solution?.length > 0 && (
         <details className="sol">
@@ -86,6 +105,11 @@ export default function ExamResult() {
   const setFilter = (f) => setParams(f === 'wrong' ? { show: 'wrong' } : {}, { replace: true });
   const [asking, setAsking] = useState(null);
   const [confirmDel, setConfirmDel] = useState(false);
+  // the teaching of the exam's stairs, for the tutor's context when a question is asked about (tutorContext.js)
+  useEffect(() => {
+    const topics = [...new Set((exam?.result?.questions || []).map((q) => q.topic).filter((t) => TOPIC[t]))];
+    if (topics.length) ensureTopics(topics).catch(() => {});
+  }, [exam]);
 
   const weak = useMemo(() => {
     if (!exam) return [];
@@ -177,7 +201,11 @@ export default function ExamResult() {
         </section>
       )}
 
-      <p className="footnote">תשובה נכונה בחלקה נספרת כחצי נקודה. המבחן נבדק על ידי העוזר (Claude).{exam.source === 'practice' ? ' התשובות הנכונות נלקחו ממפתח התשובות של האפליקציה.' : ' אם משהו נראה לא נכון, בדקו עם המורה.'}</p>
+      <div className="exam-notes">
+        <p className="footnote">תשובה נכונה בחלקה נספרת כחצי נקודה.</p>
+        {qs.some((q) => gradedBy(q) === 'key') && <p className="footnote">{GRADE_COPY.keyLine}</p>}
+        {qs.some((q) => gradedBy(q) === 'ai') && <p className="footnote exam-ai-note"><GradeChip by="ai" /> {GRADE_COPY.aiLine}</p>}
+      </div>
       <section className="section set-group">
         <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmDel(true)}>מחיקת הבדיקה</button></div></div>
       </section>
@@ -192,7 +220,7 @@ export default function ExamResult() {
       </ScreenFoot>
 
       <Sheet open={!!asking} onOpenChange={(o) => !o && setAsking(null)} title={asking ? `שאלה ${asking.number}` : ''}>
-        {asking && <AIChat context={{ grade: profile.grade, topic: TOPIC[asking.topic]?.title, question: asking.prompt, correct: asking.correctAnswer, studentAnswer: asking.studentAnswer }} intro="שאלו מה לא ברור בשאלה הזו. אני מכיר את השאלה, את מה שכתבתם ואת התשובה הנכונה." />}
+        {asking && <AIChat context={buildTutorContext({ surface: 'exam-review', grade: profile?.grade, exam: asking, answerFrom: examAnswerFrom(exam, asking) })} intro="שאלו מה לא ברור בשאלה הזו. אני מכיר את השאלה, את מה שכתבתם ואת התשובה הנכונה." />}
       </Sheet>
     </div>
   );

@@ -329,12 +329,13 @@ test.describe('restoring from the backup code', () => {
     const sheet = page.getByRole('dialog', { name: 'למחוק הכול?' });
     await expect(sheet).toContainText('גם הגיבוי המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.');
     await sheet.getByRole('button', { name: 'כן, למחוק הכול' }).click();
-    await expect(sheet.getByRole('alert')).toHaveText('לא הצלחנו למחוק את הגיבוי בשרת, ולכן לא מחקנו כלום. השרת נתקל בתקלה. נסו שוב בעוד רגע.');
+    await expect(sheet.getByRole('alert')).toHaveText('לא הצלחנו למחוק את הגיבוי בשרת, ולכן עוד לא מחקנו כלום מהמכשיר. השרת נתקל בתקלה. נסו שוב בעוד רגע.');
     expect(st.vaults[lookup]).toBeTruthy();
     const kept = await saved(page);
     expect(kept.profile.name).toBe('נועה');
     expect(kept.backup).toMatchObject({ on: true, code: shown.replace(/-/g, '') });
-    await sheet.getByRole('button', { name: 'לא למחוק' }).click();
+    // the delete sheet after a failure (trust spec TRUST-6 §3) offers "לנסות שוב" and "למחוק רק מהמכשיר"; it is closed here
+    await sheet.getByRole('button', { name: 'סגירה' }).click();
 
     // the server works: the vault goes with x-vault, then everything here, and the app starts again
     st.failVaultDelete = false;

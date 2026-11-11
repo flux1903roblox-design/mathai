@@ -11,12 +11,18 @@ import { limitVariant } from '@/components/limitCopy.js';
 import ReportAnswer, { checkText, generateText } from '@/components/ReportAnswer.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import { SupportLink } from '@/components/SupportSheet.jsx';
-import { TOPIC, topicsFor } from '@/content/index.js';
-import { parseNum, near } from '@/content/util.js';
+import { TOPIC, topicsFor, readAnswer, isCorrect, diagnosisLine, answerText, displayTex, itemPlain } from '@/content/index.js';
+import { skillId } from '@/learn/skills.ts';
+import { ensureTopics } from '@/learn/content/index.ts';
+import { seedsFor, seedPayload, exercisesFrom } from '@/lib/seeds.js';
+import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
+import { buildTutorContext } from '@/lib/tutorContext.js';
 import { Box, Button, Field, Sheet, Thinking } from '@/components/ui.jsx';
 import { RichText } from '@/components/RichText.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
+import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
+import PhotoPrep from '@/components/PhotoPrep.jsx';
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */
 function useReveal(dep) {
@@ -76,31 +82,34 @@ function AiOffline() {
   );
 }
 
-async function shrinkImage(file) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
-    const c = document.createElement('canvas'); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.85);
-  } finally { URL.revokeObjectURL(url); }
-}
-
+/**
+ * The notebook photo check (trust spec TRUST-5 §4): the warning before the camera (once a session), then PhotoPrep with
+ * no default cut, where the child can black out anything personal. Only the prepared picture is kept and sent.
+ */
 function PhotoCheck() {
   const grade = useApp((s) => s.profile.grade) || '7';
   const [image, setImage] = useState(null);
+  const [prep, setPrep] = useState(null);
+  const [file, setFile] = useState(null); // the picture in PhotoPrep
   const [question, setQuestion] = useState('');
   const [state, setState] = useState({ phase: 'idle' });
-  const pick = async (e) => {
-    const f = e.target.files?.[0]; if (!f) return;
+  const inputRef = useRef(null);
+  const { ask, warn } = usePhotoWarn();
+  const pick = (e) => {
+    const f = e.target.files?.[0]; e.target.value = '';
+    if (!f) return;
     setState({ phase: 'idle' });
-    try { setImage(await shrinkImage(f)); } catch { setState({ phase: 'error', message: 'לא הצלחנו לפתוח את התמונה. נסו תמונה אחרת.' }); }
+    if (!f.type.startsWith('image/')) { setState({ phase: 'error', message: 'אפשר לבדוק כאן רק תמונה. צלמו את הדף מהמחברת.' }); return; }
+    setFile(f);
   };
+  const prepared = ({ data, prep: p }) => { setImage(data); setPrep(p); setFile(null); };
   const send = async () => {
     setState({ phase: 'loading' });
     try {
-      const r = await runAI('check', { image: image, mediaType: 'image/jpeg', question, grade });
+      // the photo is the student's own question (policy homework): the check may say whether their final answer is right;
+      // the question they typed goes as their own words, never as the app's
+      const ctx = buildTutorContext({ surface: 'assistant', grade, learn: useApp.getState().learn });
+      const r = await runAI('check', { ctx, image, mediaType: 'image/jpeg', question, prep });
       setState({ phase: 'done', r });
     } catch (e) { setState(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message }); }
   };
@@ -109,10 +118,20 @@ function PhotoCheck() {
   return (
     <div className="stack">
       <p>צלמו את הדרך שכתבתם במחברת. אבדוק כל שלב ואראה איפה כדאי לתקן.</p>
-      <label className="upload">
-        <input type="file" accept="image/*" capture="environment" onChange={pick} className="visually-hidden" />
-        {image ? <img src={image} alt="התמונה שבחרתם" className="upload-preview" /> : <span className="upload-empty"><ImageUp size={28} aria-hidden="true" />צילום או בחירת תמונה</span>}
-      </label>
+      {image ? (
+        <div className="upload-picked">
+          <img src={image} alt="התמונה שבחרתם" className="upload-preview" />
+          <Button variant="secondary" className="btn-sm" onClick={() => ask(inputRef.current)}><Camera size={20} aria-hidden="true" />צילום אחר</Button>
+        </div>
+      ) : (
+        <button type="button" className="upload" onClick={() => ask(inputRef.current)}>
+          <span className="upload-empty"><ImageUp size={28} aria-hidden="true" />צילום או בחירת תמונה</span>
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={pick} className="visually-hidden" tabIndex={-1} aria-hidden="true" />
+      {warn}
+      <PhotoPrep file={file} crop={0} onDone={prepared} onRetake={() => { setFile(null); ask(inputRef.current); }} onCancel={() => setFile(null)}
+        onError={() => { setFile(null); setState({ phase: 'error', message: 'לא הצלחנו לפתוח את התמונה. נסו תמונה אחרת.' }); }} />
       <Field label="על איזה תרגיל מדובר? (לא חובה)" id="pc-q">
         <input id="pc-q" className="input" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={300} placeholder="למשל: פתרו את המשוואה 3x − 5 = 10" />
       </Field>
@@ -145,25 +164,111 @@ function PhotoCheck() {
   );
 }
 
-function GeneratedQuestion({ q, i }) {
-  const [val, setVal] = useState(''); const [res, setRes] = useState(null);
-  const check = () => { const u = parseNum(val); const a = parseNum(q.answer); setRes(u == null ? 'empty' : a != null && near(u, a, 0.01) ? 'ok' : 'bad'); };
+const GEN_COPY = {
+  intro: 'אכתוב תרגילים חדשים באותה מדרגה, בסיפורים חדשים. את המספרים ואת התשובות קובעת האפליקציה, והיא גם בודקת כל תרגיל.',
+  loading: ['בוחרים מספרים מהמדרגה', 'כותבים סיפורים חדשים', 'בודקים כל תרגיל'],
+  note: 'העוזר כתב את הסיפורים, הרמזים והפתרונות. האפליקציה קבעה את המספרים ובדקה כל תשובה.',
+  some: 'חלק מהסיפורים לא עברו את הבדיקה, אז השלמנו בתרגילים מהמאגר.',
+  none: 'הפעם הסיפורים לא עברו את הבדיקה, אז הנה תרגילים מהמאגר.',
+  notCounted: 'הבקשה הזו לא נספרה.',
+  bank: 'מהמאגר',
+  locked: 'הפתרון כבר פתוח, אז את התרגיל הזה לא בודקים. אפשר לנסות את הבא.',
+};
+
+/**
+ * One generated exercise (ai spec AI-4 Design 7). It holds its seed, the app's own exercise: the app grades the answer
+ * (readAnswer and isCorrect, as in a lesson) and names the mistake (the stair's diagnosis), never the AI. The first
+ * answer is recorded as practice. Opening the solution before answering locks the exercise and records nothing.
+ */
+function GeneratedQuestion({ ex, n }) {
+  const { seed, story } = ex;
+  const id = `gq-${n}`;
+  const [val, setVal] = useState('');
+  // answer → retry (a first miss) → shown (a second miss); right; locked (the solution was opened first)
+  const [phase, setPhase] = useState('answer');
+  const [line, setLine] = useState(null); // the diagnosis line under a first miss
+  const [empty, setEmpty] = useState(false);
+  const [solOpen, setSolOpen] = useState(false);
+  const answered = useRef(false);
+  const hinted = useRef(false);
+  const started = useRef(Date.now());
+  const done = phase === 'right' || phase === 'shown' || phase === 'locked';
+  const check = () => {
+    if (done) return;
+    const u = readAnswer(seed, { v: val });
+    if (u == null) { setEmpty(true); return; }
+    setEmpty(false);
+    const ok = isCorrect(seed, u);
+    const diagnosis = !ok && seed.diagnosis ? seed.diagnosis(u) : null;
+    const cat = ok ? null : (seed.diag ? seed.diag(u) : null);
+    if (!answered.current) {
+      answered.current = true;
+      // the lesson's event (lib/lesson.js): practice evidence, the mistake counted, a misconception's evidence
+      useApp.getState().recordAnswer({
+        topic: seed.topic, level: seed.level, ok, first: true, hint: hinted.current, secs: Math.round((Date.now() - started.current) / 1000),
+        at: new Date().toISOString(), purpose: 'practice', key: seed.key, cat,
+        cands: diagnosis?.kind === 'misconception' ? diagnosis.candidates : undefined, could: seed.could, src: 'gen-ai',
+      }, 0);
+    }
+    if (ok) { setPhase('right'); return; }
+    if (phase === 'answer') { setLine(diagnosisLine(seed.topic, seed.level, { cat, diagnosis })); setPhase('retry'); return; }
+    setPhase('shown');
+  };
+  const steps = story ? story.solution : seed.solution;
+  const hint = (story && story.hint) || seed.hint;
+  const prompt = story ? story.prompt : `${seed.text || ''}${seed.display ? ` $${displayTex(seed)}$` : ''}`;
+  const answer = answerText(seed);
+  // the app's own solutions end "התשובה: …"; the line is not said twice
+  const saysAnswer = /^התשובה:/.test(String(steps.at(-1) || '').trim());
+  const onSolution = (e) => {
+    const open = e.currentTarget.open;
+    setSolOpen(open);
+    // the answer is on the screen now: nothing more is checked, and an exercise not answered yet is not recorded
+    if (open && !done) setPhase(answered.current ? 'shown' : 'locked');
+  };
   return (
-    <li className="gen-q">
-      <div className="gen-q-head"><span className="ex-num">{i + 1}</span><RichText>{q.prompt}</RichText></div>
-      <div className="gen-q-answer">
-        <label className="visually-hidden" htmlFor={`gq-${i}`}>התשובה לתרגיל {i + 1}</label>
-        <input id={`gq-${i}`} className="input slot-inline" dir="ltr" value={val} onChange={(e) => { setVal(e.target.value); setRes(null); }} onKeyDown={(e) => e.key === 'Enter' && check()} placeholder="?" />
-        <Button variant="secondary" className="btn-sm" onClick={check}>בדיקה</Button>
-        {res === 'ok' && <span className="gen-ok"><Check size={18} aria-hidden="true" />נכון</span>}
-        {res === 'bad' && <span className="gen-bad">עוד לא</span>}
-        {res === 'empty' && <span className="gen-bad">כתבו מספר</span>}
+    <li className="gen-q" aria-labelledby={`${id}-q`}>
+      <div className="gen-q-head">
+        <span className="ex-num" aria-hidden="true">{n}</span>
+        <div className="gen-q-text" id={`${id}-q`}>
+          {ex.from === 'bank' && <span className="gen-src">{GEN_COPY.bank}</span>}
+          <RichText>{prompt}</RichText>
+        </div>
       </div>
-      <details className="sol"><summary>רמז</summary><RichText>{q.hint}</RichText></details>
-      <details className="sol"><summary>פתרון ותשובה</summary><RichText>{q.solution.map((s, k) => `${k + 1}. ${s}`).join('\n')}</RichText><p>התשובה: <b className="mathline">{q.answer}</b></p></details>
+      {seed.fig && <div className="gen-q-fig"><Figure fig={seed.fig} /></div>}
+      <div className="gen-q-answer">
+        <label className="visually-hidden" htmlFor={id}>התשובה לתרגיל {n}</label>
+        <input id={id} className="input slot-inline" dir="ltr" inputMode="decimal" value={val} disabled={done}
+          onChange={(e) => { setVal(e.target.value); setEmpty(false); }} onKeyDown={(e) => e.key === 'Enter' && check()} placeholder="?" />
+        {seed.unit && <span className="gen-unit">{seed.unit}</span>}
+        <Button variant="secondary" className="btn-sm" onClick={check} disabled={done}>בדיקה</Button>
+      </div>
+      <div className="gen-q-result" role="status">
+        {empty && <p className="gen-bad">כתבו מספר</p>}
+        {phase === 'right' && <p className="gen-ok"><Check size={18} aria-hidden="true" />נכון!</p>}
+        {phase === 'retry' && <p className="gen-bad">עוד לא.{line ? <span className="gen-why">{line}</span> : null}</p>}
+        {phase === 'shown' && !solOpen && (
+          <div className="gen-shown">
+            <p>התשובה: <b className="mathline" dir="ltr">{answer}</b></p>
+            <RichText>{steps.map((st, k) => `${k + 1}. ${st}`).join('\n')}</RichText>
+          </div>
+        )}
+        {phase === 'locked' && <p className="muted">{GEN_COPY.locked}</p>}
+      </div>
+      <details className="sol" onToggle={(e) => { if (e.currentTarget.open && !answered.current) hinted.current = true; }}><summary>רמז</summary><RichText>{hint}</RichText></details>
+      <details className="sol" onToggle={onSolution}>
+        <summary>פתרון ותשובה</summary>
+        <RichText>{steps.map((st, k) => `${k + 1}. ${st}`).join('\n')}</RichText>
+        {!saysAnswer && <p>התשובה: <b className="mathline" dir="ltr">{answer}</b></p>}
+      </details>
     </li>
   );
 }
+
+/** The tutor's report flag reads what was shown: each exercise's text, the app's answer, the hint and the solution. */
+const shownText = (list) => generateText(list.map(({ seed, story }) => ({
+  prompt: story ? story.prompt : itemPlain(seed), answer: answerText(seed), hint: (story && story.hint) || seed.hint, solution: story ? story.solution : seed.solution,
+})));
 
 function Generate({ initialTopic, initialLevel }) {
   const grade = useApp((s) => s.profile.grade) || '7';
@@ -172,6 +277,7 @@ function Generate({ initialTopic, initialLevel }) {
   const [level, setLevel] = useState(Number(initialLevel) || 1);
   const [count, setCount] = useState(3);
   const [state, setState] = useState({ phase: 'idle' });
+  const runs = useRef(0); // each new list starts its exercises afresh
   const t = TOPIC[topic];
   const outRef = useReveal(state.phase !== 'idle' ? state.phase : null);
   const go = async () => {
@@ -179,15 +285,27 @@ function Generate({ initialTopic, initialLevel }) {
     if (needIntro(go)) return;
     setState({ phase: 'loading' });
     try {
-      const sample = t.levels[level - 1].gen();
-      const r = await runAI('generate', { grade: t.grade, topic: t.title, level: t.levels[level - 1].title, count, examples: `${sample.text} ${sample.display || ''}` });
-      if (!r.questions?.length) throw new Error('העוזר לא החזיר תרגילים. נסו שוב.');
-      setState({ phase: 'done', qs: r.questions });
+      // the stair's teaching content (its diagnostic models: the exercises and the mistakes the app names) loads on
+      // demand (the durable lane's split, DURABLE-11); then the app chooses the exercises and computes the answers (two
+      // spares, in case a story does not pass)
+      await ensureTopics([skillId(topic, level)]);
+      const seeds = seedsFor(skillId(topic, level), count + 2, Math.random);
+      const r = await runAI('generate', { grade: t.grade, skill: skillId(topic, level), topic: t.title, stair: t.levels[level - 1].title, count, seeds: seedPayload(seeds) });
+      runs.current += 1;
+      setState({ phase: 'done', run: runs.current, ...exercisesFrom(seeds, r, count) });
     } catch (e) { setState(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message }); }
   };
+  const short = state.phase === 'done' && state.stories < state.list.length;
+  // Test hook for automated checks, as in a lesson (QA builds, or localStorage 'madregot-debug'): the exercises' seeds,
+  // with their answers and diagnoses, as window.__madregotGen
+  useEffect(() => {
+    let on = import.meta.env.VITE_QA_HOOKS === '1';
+    try { on = on || !!localStorage.getItem('madregot-debug'); } catch { /* storage blocked */ }
+    if (on) window.__madregotGen = state.phase === 'done' ? state.list.map((x) => x.seed) : null;
+  }, [state]);
   return (
     <div className="stack">
-      <p>אכתוב תרגילים חדשים באותה רמה, עם רמז ופתרון לכל אחד.</p>
+      <p>{GEN_COPY.intro}</p>
       <div className="grid2 gen-pick">
         <Field label="נושא" id="g-topic">
           <select id="g-topic" className="input" value={topic} onChange={(e) => { setTopic(e.target.value); setLevel(1); }}>
@@ -207,15 +325,19 @@ function Generate({ initialTopic, initialLevel }) {
       </div>
       <div className="sheet-cta"><Button className="btn-block btn-lg" onClick={go} disabled={state.phase === 'loading'}>כתיבת תרגילים</Button></div>
       <div ref={outRef} className="reveal-anchor" />
-      {state.phase === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['כותב תרגילים', 'פותר כל תרגיל', 'בודק את התשובות']} /></Box>}
+      {state.phase === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={GEN_COPY.loading} /></Box>}
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
       {state.phase === 'done' && (
         <>
           <div className="gen-note">
-            <p className="muted">התרגילים נכתבו על ידי העוזר. אם משהו נראה לא נכון, ספרו למורה.</p>
-            <ReportAnswer kind="generate" reply={generateText(state.qs)} />
+            <div className="gen-note-text">
+              {state.stories > 0 && <p className="muted">{GEN_COPY.note}</p>}
+              {state.stories === 0 && <p className="muted">{GEN_COPY.none}{state.fallback ? ` ${GEN_COPY.notCounted}` : ''}</p>}
+              {state.stories > 0 && short && <p className="muted">{GEN_COPY.some}</p>}
+            </div>
+            {state.stories > 0 && <ReportAnswer kind="generate" reply={shownText(state.list)} />}
           </div>
-          <ol className="gen-list">{state.qs.map((q, i) => <GeneratedQuestion key={i} q={q} i={i} />)}</ol>
+          <ol className="gen-list">{state.list.map((ex, i) => <GeneratedQuestion key={`${state.run}:${ex.seed.key}`} ex={ex} n={i + 1} />)}</ol>
         </>
       )}
     </div>
@@ -242,6 +364,9 @@ export default function Assistant({ head = null, lead = null, className }) {
   // OK, to the screen for the parents); the input stays usable, so a message that reads as distress still shows the
   // card and still gets an answer
   const chatState = ready ? aiAccess('chat', status).state : null;
+  // what the tutor is told here: the student's own questions (policy homework) and a learner summary, nothing personal
+  const learn = useApp((s) => s.learn);
+  const ctx = buildTutorContext({ surface: 'assistant', grade, learn });
   const classOff = chatState === 'class_off';
   const waiting = chatState === 'parent_ok_needed';
   const off = classOff ? limitVariant({ reason: 'class_ai_off' }) : waiting ? limitVariant({ reason: 'parent_ok_needed' }) : null;
@@ -268,14 +393,22 @@ export default function Assistant({ head = null, lead = null, className }) {
       {lead}
       {!ready ? <AiOffline /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
-          {/* the teacher lane's demo class (TEACHER-15): no question leaves the device, and the note says so */}
+          {/* who answers and where what is written goes (trust spec TRUST-1 §5); the link opens in a new tab, so the
+              conversation stays. The teacher lane's demo class (TEACHER-15): no question leaves the device, and the note
+              says so */}
           {!off && (aiMode() === 'demo'
             ? <p className="footnote assistant-note">בכיתה לדוגמה העוזר מראה תשובה לדוגמה, ושום שאלה לא נשלחת.</p>
-            : <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode || profile?.role === 'teacher' ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>)}
+            : (
+              <p className="footnote assistant-note">
+                {aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode || profile?.role === 'teacher' ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'}
+                {' '}העוזר הוא Claude של Anthropic, תוכנה ולא אדם. מה שכותבים כאן נשלח ל־Anthropic בארה״ב ולא נשמר אצלנו.{' '}
+                <Link to="/safety" target="_blank" rel="noopener noreferrer">בטיחות ופרטיות<span className="visually-hidden"> (נפתח בכרטיסייה חדשה)</span></Link>
+              </p>
+            ))}
           {off ? (
-            <AIChat context={{ grade }} introTitle={off.title} intro={off.text[0]} restLine={null} />
+            <AIChat context={ctx} introTitle={off.title} intro={off.text[0]} restLine={null} />
           ) : (
-            <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
+            <AIChat context={ctx} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
               tools={[
                 { label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => open('check', 'photo') },
                 { label: 'תרגילים חדשים', icon: Wand2, onClick: () => open('generate', 'generate') },

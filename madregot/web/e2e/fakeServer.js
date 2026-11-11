@@ -53,12 +53,15 @@ export const PLANS = {
   paywall: true, online: true, vatMode: 'included', vatRate: 0.18, currency: 'ILS', termsVersion: '2026-11', checkoutHosts: ['pay.example.test'],
   plans: [
     { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: 2990, vatAgorot: 456, renews: true },
-    { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: 24900, vatAgorot: 3798, renews: true },
+    { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: 24900, vatAgorot: 3798, renews: false, termMonths: 12 },
     { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: 4900, minSeats: 10, maxSeats: 45, renews: false },
   ],
   limits: { family: { ...FAMILY, examMonthly: 10, devices: 3 }, class: CLASS, free: { tutor: 2 } },
-  business: { name: 'מדרגות בדיקה', id: '000000000', address: 'רחוב הבדיקה 1, תל אביב', email: 'hello@example.test', phone: '03-0000000' },
+  business: { name: 'מדרגות בדיקה', id: '000000000', kind: 'עוסק מורשה', address: 'רחוב הבדיקה 1, תל אביב', email: 'hello@example.test', phone: '03-0000000', provider: 'ספק בדיקה' },
+  accessibility: { name: 'רכזת בדיקה', phone: '03-0000001', email: 'access@example.test', date: '2026-11-02', tested: 'axe, VoiceOver' },
   contact: 'hello@example.test',
+  // the legal gate (trust spec TRUST-2 §5): approved here; st.legalApproved = false shows the draft banner
+  legalDate: '2026-11-01', dbJurisdiction: 'eu', legalApproved: true, legalMissing: [],
 };
 export const TOKEN = (n) => String(n).padStart(64, 'a');
 
@@ -77,13 +80,14 @@ export const livePlan = (over = {}) => ({
  */
 export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:4173/') {
   const st = {
-    paywall: true, online: true, shared: null, breakNext: null, economy: false, parentOk: false,
+    paywall: true, online: true, legalApproved: true, shared: null, breakNext: null, economy: false, parentOk: false,
     freeUsed: {}, freeLimit: 2, famUsed: { tutor: 0, check: 0, generate: 0, exam: 0 }, classLicence: false,
     plan: null, sessions: new Set(), recent: new Set(), devices: [], links: {}, orders: {}, n: 0,
     licence: { status: 'none', until: null, seats: null, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } },
     classes: [], classPayments: [], failPayment: false,
     joinLocked: false, students: [{ id: 'a1', name: 'דנה' }, { id: 'b2', name: 'יואב' }],
     answers: [], loseProgressReplies: 0,
+    forgets: [], failForget: false, // "delete all" on the server (TRUST-6): each request's headers; failForget answers 500
     owned: false, // the class K7Q2MD is bound to the signed-in account: its session opens it like the key (TEACHER-1)
     ownerEmail: null, // the email it is bound to (null: any signed-in session, as tests that seed a session expect)
     key: 'tkey-123', // K7Q2MD's teacher key (a new key replaces it)
@@ -281,6 +285,13 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (kind === 'chat') return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: { ...CORS, ...hdr }, body: 'כדי לחבר מספרים עם סימנים שונים, מחסרים ושמים את הסימן של הגדול.' });
       if (kind === 'explain') return reply(route, 200, { text: 'הסבר קצר מהעוזר.' }, hdr);
       if (kind === 'check') return reply(route, 200, { readable: true, final: 'correct', steps: [{ text: '3 + 4 = 7', ok: true }], summary: 'יפה.' }, hdr);
+      // new exercises (ai spec AI-4): the app's seeds come back in their own wording, each ending at the app's answer;
+      // a test can write its own stories (st.genReply(body) → { items, dropped, fallback })
+      if (kind === 'generate') {
+        const seeds = Array.isArray(body.seeds) ? body.seeds : [];
+        const echo = { items: seeds.map((sd) => ({ seed: sd.i, prompt: sd.text, hint: '', solution: [`התשובה: $= ${sd.answer}$`], kept: true, blind: 'skipped' })), dropped: {}, fallback: false };
+        return reply(route, 200, st.genReply ? st.genReply(body) : echo, hdr);
+      }
       return reply(route, 200, { questions: [{ prompt: '2+2', answer: '4', hint: 'חברו', solution: ['2+2=4'] }] }, hdr);
     }
     // the backup code's vault (DURABLE-5): sealed copies by X-Vault; the fake never opens them
@@ -345,6 +356,16 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     }
     // the app's error reports (DURABLE-9): a text/plain body holding JSON, kept as they came
     if (path === '/api/errors' && req.method() === 'POST') { st.errors.push(body); return reply(route, 202, { ok: true }); }
+    // "delete all" (TRUST-6 §1): the server's part, as the Worker answers it (trust.spec.js routes it itself to hold or
+    // break it); the joined student's token stops working
+    if (path === '/api/me/forget' && req.method() === 'POST') {
+      st.forgets.push({ ...h });
+      if (st.failForget) return reply(route, 500, { error: 'server_error' });
+      const bearer = String(h.authorization || '').replace(/^Bearer /, '');
+      const sid = bearer && st.studentTokens[bearer];
+      if (sid) for (const [t, id] of Object.entries(st.studentTokens)) if (id === sid) delete st.studentTokens[t];
+      return reply(route, 200, { ok: true, student: !!sid, familyDevice: !!famOf(h), device: /^[a-f0-9]{32}$/.test(h['x-device'] || '') });
+    }
     if (path === '/api/progress') {
       // a class student's answers, kept as the Worker keeps them: once per id (an answer without one, every time), and
       // every event sent is acknowledged. `loseProgressReplies`: store, then answer with an error (the reply was lost).
@@ -446,7 +467,10 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       st.n += 1; const t = TOKEN(st.n); st.sessions.add(t); st.recent.add(t); emails.set(t, body.email);
       return reply(route, 200, { token: t, email: body.email });
     }
-    if (path === '/api/billing/plans') return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online });
+    if (path === '/api/billing/plans') {
+      const legal = st.legalApproved !== false;
+      return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online && legal, legalApproved: legal, legalMissing: legal ? [] : ['LEGAL_APPROVED'] });
+    }
     if (path.startsWith('/api/account') || path.startsWith('/api/billing') || path === '/api/family/link/claim' || path.startsWith('/api/family/devices') || path.startsWith('/api/family/vaults') || path === '/api/teacher/licence/request') {
       if (path.startsWith('/api/teacher')) { /* checked below with the class too */ } else if (!signed) return reply(route, 401, { error: 'not_account' });
     }

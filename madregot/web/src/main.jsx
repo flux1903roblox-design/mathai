@@ -21,6 +21,8 @@ import { registerSW } from './lib/swClient.js';
 import { useApp } from './lib/store.js';
 import { bootTopics } from './lib/bootTopics.js';
 import { bootDemo } from './lib/demo.js';
+// the durable lane's parts of "delete all" (lib/wipe.js): the backup on the server and the copy in the browser's database
+import './lib/durable/wipeSteps.js';
 
 // Which release this page runs (the update test reads it; error reports carry the same name).
 window.__RELEASE = import.meta.env.VITE_RELEASE;

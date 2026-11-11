@@ -2,13 +2,13 @@
 // us pull the truth, applied in one atomic batch behind its billing_events row), cancellation (which stands even when
 // the provider is down), resume, refunds, and the parent's account page (overview, export, deletion).
 import {
-  HttpError, body, json, rawBody, sha256, randomToken, nowIso, dayOf, daysAgo, secretEqual, limitOrThrow,
+  HttpError, body, json, rawBody, sha256, randomToken, nowIso, dayOf, daysAgo, secretEqual, limitOrThrow, isDay,
 } from './util.js';
 import { requireAccount, requireRecentCode } from './account.js';
 import { requireTeacher, limits, paywallOn, parentOkRequired, liveFamily } from './entitle.js';
 import { refuseSchoolSale } from './classai.js';
 import { reportOn, summaryState, rowToDay } from './report.js';
-import { decide, endAt, cleanDetail } from './apply.js';
+import { decide, endAt, cleanDetail, recurringPlan } from './apply.js';
 import { providerById, currentProvider, webhookProvider } from './providers/index.js';
 import { testSignature } from './providers/test.js';
 import { noticeStmt, ownerNotice, monthSpendUsd } from './spend.js';
@@ -16,6 +16,11 @@ import { flushNotices, escapeHtml, shekels } from './email.js';
 
 const DAY = 864e5;
 export const ORDER_TTL_MIN = 120;
+/**
+ * A one-year plan can be renewed by its payer from this many days before its end (trust spec TRUST-10 §3): the
+ * year_ending email goes out 30-45 days ahead, and its link opens the renewal.
+ */
+export const RENEW_DAYS = 45;
 export const CHECKOUT_PER_HOUR = 10;
 const LIVE_STRICT = "status IN ('active', 'past_due')";
 const RUNNING = "status IN ('active', 'past_due', 'canceled')";
@@ -37,10 +42,40 @@ export const termsVersion = (env) => String(env.TERMS_VERSION || '2026-11');
 export const SEATS = { min: 10, max: 45 };
 const publicUrl = (env) => String(env.PUBLIC_URL || '').replace(/\/+$/, '');
 
-/** Online sign-up opens only when the switch is on and the provider can both take payments and cancel them online. */
+// ---------------------------------------------------------------- the legal gate (trust spec TRUST-2 §5-6, TRUST-13)
+/**
+ * The vars the legal pages and the checkout disclosure are filled from. Every one must be set before money can be
+ * taken: the business (name, number, kind, address), how to reach it, the payment company's name, the date of the
+ * legal texts, and where the database is. DB_JURISDICTION must be "eu", the only place the privacy notice has words
+ * for (TRUST-15 step 1), so the notice never names a place the database is not in.
+ */
+export const LEGAL_VARS = Object.freeze([
+  'BUSINESS_NAME', 'BUSINESS_ID', 'BUSINESS_KIND', 'BUSINESS_ADDRESS', 'CONTACT_EMAIL', 'CONTACT_PHONE', 'PAYMENT_PROVIDER_NAME', 'LEGAL_DATE', 'DB_JURISDICTION',
+]);
+const filled = (env, k) => String(env[k] ?? '').trim();
+/**
+ * The names of the vars that keep the legal gate closed: each LEGAL_VARS entry that is empty or wrong (LEGAL_DATE not a
+ * YYYY-MM-DD day, DB_JURISDICTION not "eu"), and LEGAL_APPROVED unless it names the current TERMS_VERSION. The owner's
+ * one action after the lawyer's review is LEGAL_APPROVED = "<TERMS_VERSION>"; a new terms version closes the gate again
+ * until it is approved too.
+ */
+export function legalMissing(env) {
+  const out = LEGAL_VARS.filter((k) => !filled(env, k));
+  if (filled(env, 'LEGAL_DATE') && !isDay(filled(env, 'LEGAL_DATE'))) out.push('LEGAL_DATE');
+  if (filled(env, 'DB_JURISDICTION') && filled(env, 'DB_JURISDICTION') !== 'eu') out.push('DB_JURISDICTION');
+  if (filled(env, 'LEGAL_APPROVED') !== termsVersion(env)) out.push('LEGAL_APPROVED');
+  return out;
+}
+/** The lawyer-approved texts are live and every detail they quote is set: online checkout may open. */
+export const legalReady = (env) => legalMissing(env).length === 0;
+
+/**
+ * Online sign-up opens only when the switch is on, the legal texts are approved (legalReady), and the provider can both
+ * take payments and cancel them online.
+ */
 export function onlineCheckout(env) {
   const p = currentProvider(env);
-  return paywallOn(env) && !!p && p.capabilities.online && p.capabilities.cancelApi;
+  return paywallOn(env) && legalReady(env) && !!p && p.capabilities.online && p.capabilities.cancelApi;
 }
 function checkoutHosts(env) {
   const hosts = String(env.BILLING_CHECKOUT_HOSTS || '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
@@ -63,7 +98,8 @@ export function plansView(env) {
     report: reportOn(env),
     plans: [
       { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: pr.family_month, vatAgorot: vatOf(env, pr.family_month), renews: true },
-      { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: pr.family_year, vatAgorot: vatOf(env, pr.family_year), renews: true },
+      // a one-year plan (Consumer Protection Law s.13א, trust spec TRUST-10 §1): it never renews by itself
+      { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: pr.family_year, vatAgorot: vatOf(env, pr.family_year), renews: false, termMonths: 12 },
       { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: pr.seat, minSeats: SEATS.min, maxSeats: SEATS.max, renews: false },
     ],
     limits: {
@@ -72,8 +108,19 @@ export function plansView(env) {
       free: { tutor: L.free.student },
     },
     checkoutHosts: checkoutHosts(env),
-    business: { name: env.BUSINESS_NAME || '', id: env.BUSINESS_ID || '', address: env.BUSINESS_ADDRESS || '', email: env.CONTACT_EMAIL || '', phone: env.CONTACT_PHONE || '' },
+    // the details the legal pages and the checkout disclosure quote (TRUST-2 §4-5); the web app fills {{NAME}} from them
+    business: {
+      name: env.BUSINESS_NAME || '', id: env.BUSINESS_ID || '', kind: env.BUSINESS_KIND || '', address: env.BUSINESS_ADDRESS || '',
+      email: env.CONTACT_EMAIL || '', phone: env.CONTACT_PHONE || '', provider: env.PAYMENT_PROVIDER_NAME || '',
+    },
+    accessibility: {
+      name: env.ACCESS_COORD_NAME || '', phone: env.ACCESS_COORD_PHONE || '', email: env.ACCESS_COORD_EMAIL || '',
+      date: env.ACCESS_STATEMENT_DATE || '', tested: env.ACCESS_TESTED || '',
+    },
     contact: env.CONTACT_EMAIL || '',
+    legalDate: env.LEGAL_DATE || '', dbJurisdiction: env.DB_JURISDICTION || '',
+    // false until the owner's sign-off (TRUST-13): the legal pages show the draft banner and checkout stays closed
+    legalApproved: legalReady(env), legalMissing: legalMissing(env),
   };
 }
 
@@ -92,6 +139,8 @@ export const cancelReference = async (subId, requestedAt) => `C-${(await sha256(
 export async function checkout(req, env, cors) {
   const account = await requireAccount(req, env);
   if (!paywallOn(env)) throw new HttpError(503, 'paywall_off');
+  // no money before the lawyer-approved texts are live, for every plan (a school code, licenceClaim, is not gated here)
+  if (!legalReady(env)) throw new HttpError(503, 'legal_not_ready');
   const b = await body(req);
   const idem = String(req.headers.get('Idempotency-Key') || '');
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(idem)) throw new HttpError(400, 'bad_idempotency_key');
@@ -111,6 +160,7 @@ export async function checkout(req, env, cors) {
 
   const plan = String(b.plan || '');
   if (!['family_month', 'family_year', 'class_year'].includes(plan)) throw new HttpError(422, 'bad_plan');
+  let renewal = null;
   if (b.adult !== true) throw new HttpError(400, 'adult_required');
   if (String(b.terms || '') !== termsVersion(env)) throw new HttpError(400, 'terms_required');
 
@@ -126,7 +176,8 @@ export async function checkout(req, env, cors) {
     await refuseLive(env, account, plan, classCode);
     amount = seats * pr.seat;
   } else {
-    await refuseLive(env, account, plan, null);
+    // a one-year plan in its last 45 days: this order renews it (a new consent, TRUST-10 §3)
+    renewal = await refuseLive(env, account, plan, null);
     amount = pr[plan];
   }
   await limitOrThrow(env, `checkout:a:${account.id}`, CHECKOUT_PER_HOUR, 429, 'too_many_checkouts', 'hour');
@@ -144,6 +195,9 @@ export async function checkout(req, env, cors) {
         `INSERT INTO orders (id, account_id, plan, class_code, seats, amount_agorot, vat_agorot, currency, provider, mode, idempotency_key, status, created_at, expires_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'ILS', ?, ?, ?, 'open', ?, ?)`,
       ).bind(order.id, order.account_id, plan, classCode, seats, amount, order.vat_agorot, order.provider, order.mode, idem, now, order.expires_at),
+      // the plan this order renews and where its paid year ends, written with the order (apply.js renewYear)
+      ...(renewal ? [env.DB.prepare('INSERT INTO order_renewals (order_id, subscription_id, prev_start, prev_end) VALUES (?, ?, ?, ?)')
+        .bind(order.id, renewal.id, renewal.current_period_start, renewal.current_period_end)] : []),
     ]);
   } catch (e) {
     if (!/UNIQUE/.test(String(e?.message))) throw e;
@@ -155,19 +209,32 @@ export async function checkout(req, env, cors) {
 }
 
 /**
+ * The one-year plan this checkout may renew (trust spec TRUST-10 §3), or null: an active family_year plan in its last
+ * RENEW_DAYS days whose renewal was never taken back (one cooling-off and one pro-rata refund per plan: the second would
+ * have nowhere to go). Shared with the account page, so its button and the server agree.
+ */
+export async function renewable(env, sub, now = nowIso()) {
+  if (!sub || sub.kind !== 'family' || sub.plan !== 'family_year' || sub.status !== 'active') return false;
+  if (sub.current_period_end <= now || Date.parse(sub.current_period_end) - Date.parse(now) > RENEW_DAYS * DAY) return false;
+  return !(await first(env, "SELECT 1 AS x FROM refund_queue WHERE subscription_id = ? AND reason IN ('cooling_off', 'prorata')", sub.id));
+}
+
+/**
  * 409 when the plan would run beside one already live: a family plan that is active or past_due (one that is past
  * its period end and grace days is ended here first, as the nightly reconciliation would end it, so the family can
- * join again at once), or a paid class licence.
+ * join again at once), or a paid class licence. The one exception (TRUST-10 §3): a yearly checkout for a one-year plan
+ * in its last 45 days renews it; that plan is returned, so the order records what it renews. → the plan or null.
  */
 async function refuseLive(env, account, plan, classCode) {
   if (plan === 'class_year') {
     const lic = await first(env, `SELECT id FROM subscriptions WHERE kind = 'class' AND class_code = ? AND plan != 'trial' AND ${LIVE_STRICT} LIMIT 1`, classCode);
     if (lic) throw new HttpError(409, 'class_has_licence');
-    return;
+    return null;
   }
   const sub = await liveFamilyStrict(env, account.id);
-  if (!sub) return;
+  if (!sub) return null;
   const now = nowIso();
+  if (plan === 'family_year' && (await renewable(env, sub, now))) return sub;
   const graceEnd = new Date(Date.parse(sub.current_period_end) + limits(env).graceDays * DAY).toISOString();
   if (graceEnd > now) throw new HttpError(409, 'already_subscribed');
   await env.DB.batch([
@@ -175,13 +242,16 @@ async function refuseLive(env, account, plan, classCode) {
       .bind(now, sub.id, new Date(Date.parse(now) - limits(env).graceDays * DAY).toISOString()),
     auditStmt(env, `account:${account.id}`, 'subscription.reconcile', `sub:${sub.id}`, { ended: 'payment_failed', at: 'checkout' }),
   ]);
+  return null;
 }
 
 export async function checkoutUrl(env, provider, order, account, idempotencyKey) {
   if (!provider) throw new HttpError(501, 'checkout_not_configured');
   const base = publicUrl(env);
   const { url, providerCheckoutId } = await provider.createCheckout(env, {
-    order, plan: order.plan, customerEmail: account.email, idempotencyKey,
+    // a standing order only for the monthly plan (TRUST-10 §1): the one-year plan and a class licence are one charge.
+    // An adapter for a real payment company must honour it: no standing order when recurring is false.
+    order, plan: order.plan, recurring: recurringPlan(order.plan), customerEmail: account.email, idempotencyKey,
     returnUrl: `${base}/parents?order=${order.id}`, cancelUrl: `${base}/parents`,
     notifyUrl: `${base}/api/billing/webhook/${provider.id}/${env.WEBHOOK_PATH_SECRET || ''}`,
   });
@@ -249,6 +319,10 @@ async function loadCtx(env, provider, hint, truth) {
       ? (sub.account_id ? await first(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND account_id = ? AND id != ? AND ${LIVE_STRICT} LIMIT 1`, sub.account_id, sub.id) : null)
       : await first(env, `SELECT * FROM subscriptions WHERE kind = 'class' AND class_code = ? AND id != ? AND ${LIVE_STRICT} LIMIT 1`, sub.class_code, sub.id);
   }
+  // an order that renews a one-year plan, and that plan (TRUST-10 §3); the renewal behind a refunded charge
+  const renewal = order && truth?.status === 'paid' ? await first(env, 'SELECT * FROM order_renewals WHERE order_id = ?', order.id) : null;
+  const renewalSub = renewal ? await first(env, 'SELECT * FROM subscriptions WHERE id = ?', renewal.subscription_id) : null;
+  const chargeRenewal = charge?.order_id && truth?.status === 'refunded' ? await first(env, 'SELECT * FROM order_renewals WHERE order_id = ?', charge.order_id) : null;
   let live = null; let liveTrial = null;
   if (truth?.status === 'paid' && order) {
     if (order.plan === 'class_year') {
@@ -260,7 +334,7 @@ async function loadCtx(env, provider, hint, truth) {
   }
   return {
     mode: env.BILLING_MODE === 'test' ? 'test' : 'live', now: nowIso(), provider: provider.id, eventId: hint.eventId, graceDays: limits(env).graceDays,
-    order, sub, live, liveTrial, liveOther, charge, chargeRefunds, chargebackExists, latestCharge: sub ? await latestCharge(env, sub.id) : null,
+    order, sub, live, liveTrial, liveOther, charge, chargeRefunds, chargebackExists, renewal, renewalSub, chargeRenewal, latestCharge: sub ? await latestCharge(env, sub.id) : null,
     paymentExists: truth?.status === 'paid' && !!charge, ids: { sub: randomToken(8), payment: randomToken(8) },
   };
 }
@@ -289,6 +363,16 @@ function opStmt(env, op) {
        current_period_end = MAX(current_period_end, ?1), status = CASE WHEN ?3 THEN 'active' ELSE status END,
        ended_reason = CASE WHEN ?3 THEN NULL ELSE ended_reason END, last_event_at = MAX(COALESCE(last_event_at, ''), ?4), updated_at = ?5 WHERE id = ?6`,
     ).bind(op.newEnd, op.newStart, op.activate ? 1 : 0, op.lastEventAt, op.now, op.id);
+    // a one-year plan renewed by its payer (TRUST-10 §3): the next year from where this one ends, active again
+    case 'sub.extendYear': return env.DB.prepare(
+      `UPDATE subscriptions SET current_period_start = ?1, current_period_end = ?2, price_agorot = ?3, refund_until = ?4, status = 'active',
+       cancel_at_period_end = 0, cancel_requested_at = NULL, cancel_synced_at = NULL, ended_reason = NULL,
+       last_event_at = MAX(COALESCE(last_event_at, ''), ?5), updated_at = ?6 WHERE id = ?7 AND current_period_end = ?1`,
+    ).bind(op.prevEnd, op.newEnd, op.price, op.refundUntil, op.lastEventAt, op.now, op.id);
+    // a renewal taken back before its year started: the year paid before, still active, its refund window used
+    case 'sub.unrenew': return env.DB.prepare(
+      'UPDATE subscriptions SET current_period_start = ?, current_period_end = ?, refund_until = NULL, updated_at = ? WHERE id = ? AND current_period_start = ? AND status != \'ended\'',
+    ).bind(op.start, op.end, op.now, op.id, op.renewedStart);
     case 'sub.pastDue': return env.DB.prepare(
       "UPDATE subscriptions SET status = CASE WHEN status = 'active' THEN 'past_due' ELSE status END, last_event_at = MAX(COALESCE(last_event_at, ''), ?), updated_at = ? WHERE id = ?",
     ).bind(op.lastEventAt, nowIso(), op.id);
@@ -365,7 +449,9 @@ export async function testPaySubmit(orderId, req, env, ctx) {
   if (o.status === 'open') {
     const event = {
       id: `tev_${randomToken(8)}`, type: result, order: o.id, payment: `tpay_${o.id}${result === 'failed' ? `_${randomToken(4)}` : ''}`,
-      subscription: o.plan === 'class_year' ? undefined : `tsub_${o.id}`, amountAgorot: o.amount_agorot, currency: 'ILS', occurredAt: nowIso(),
+      // a standing order only where the checkout asked for one (TRUST-10 §1: the monthly plan)
+      subscription: String(o.provider_checkout_id || '').startsWith('tco_') && recurringPlan(o.plan) ? `tsub_${o.id}` : undefined,
+      amountAgorot: o.amount_agorot, currency: 'ILS', occurredAt: nowIso(),
     };
     const rawEvent = JSON.stringify(event);
     const at = Math.floor(Date.now() / 1000);
@@ -410,17 +496,24 @@ export async function cancelSubscription(env, ctx, sub, mode, { actor, inline = 
   let status = ['active', 'past_due'].includes(sub.status) ? 'canceled' : sub.status;
   let endsAt = sub.current_period_end; let endedReason = null; let refund = null;
   const charge = await latestCharge(env, sub.id);
+  // The latest charge renewed a one-year plan whose new year has not started (trust spec TRUST-10 §3): giving that
+  // money back takes the new year back, and the year paid before runs to its end with the plan still active.
+  const undo = mode !== 'period_end' ? await renewalToUndo(env, sub, charge, now) : null;
   if (mode === 'refund_now') {
     if (!sub.refund_until || now >= sub.refund_until || !charge) throw new HttpError(409, 'refund_window_closed');
-    status = 'ended'; endedReason = 'refunded'; endsAt = endAt(sub, now);
+    if (undo) { status = sub.status; endsAt = undo.prev_end; } else { status = 'ended'; endedReason = 'refunded'; endsAt = endAt(sub, now); }
     refund = { amount: charge.amount_agorot, reason: 'cooling_off' };
   } else if (mode === 'prorata') {
     if (!['family_year', 'class_year'].includes(sub.plan) || !sub.refund_until || now < sub.refund_until || !charge) throw new HttpError(409, 'prorata_not_offered');
-    const start = Date.parse(sub.current_period_start); const end = Date.parse(sub.current_period_end);
-    const unused = Math.max(0, Math.floor((end - Date.now()) / DAY)); const total = Math.max(1, Math.round((end - start) / DAY));
-    const amount = Math.floor((sub.price_agorot || 0) * unused / total);
-    status = 'ended'; endedReason = 'canceled'; endsAt = endAt(sub, now);
-    if (amount > 0) refund = { amount, reason: 'prorata' };
+    if (undo) {
+      // none of the renewed year was used: all of it comes back, and the year before runs on
+      status = sub.status; endsAt = undo.prev_end;
+      refund = { amount: charge.amount_agorot, reason: 'prorata' };
+    } else {
+      const amount = prorataOf(sub);
+      status = 'ended'; endedReason = 'canceled'; endsAt = endAt(sub, now);
+      if (amount > 0) refund = { amount, reason: 'prorata' };
+    }
   }
   const reference = await cancelReference(sub.id, requestedAt);
   // Two requests at once (two tabs, two devices, a retry after a timeout) must not both cancel: the UPDATE runs only
@@ -428,21 +521,27 @@ export async function cancelSubscription(env, ctx, sub, mode, { actor, inline = 
   // UPDATE did (it checks the row the UPDATE wrote). The loser gets the winner's answer. A partial unique index on
   // refund_queue is the last guard against a second cooling-off or pro-rata refund.
   const refundMode = mode !== 'period_end';
-  const won = refundMode
-    ? ["SELECT 1 FROM subscriptions WHERE id = ? AND status = 'ended' AND ended_reason = ? AND updated_at = ?", [sub.id, endedReason, now]]
-    : ['SELECT 1 FROM subscriptions WHERE id = ? AND cancel_requested_at = ?', [sub.id, now]];
+  const won = undo
+    ? ['SELECT 1 FROM subscriptions WHERE id = ? AND current_period_end = ? AND updated_at = ?', [sub.id, undo.prev_end, now]]
+    : refundMode
+      ? ["SELECT 1 FROM subscriptions WHERE id = ? AND status = 'ended' AND ended_reason = ? AND updated_at = ?", [sub.id, endedReason, now]]
+      : ['SELECT 1 FROM subscriptions WHERE id = ? AND cancel_requested_at = ?', [sub.id, now]];
   const stmts = [
-    env.DB.prepare(
-      `UPDATE subscriptions SET cancel_requested_at = COALESCE(cancel_requested_at, ?), cancel_at_period_end = 1, status = ?, ended_reason = COALESCE(?, ended_reason),
-       current_period_end = ?, updated_at = ? WHERE id = ? AND status != 'ended' ${refundMode ? '' : 'AND cancel_requested_at IS NULL'} RETURNING id`,
-    ).bind(now, status, endedReason, endsAt, now, sub.id),
+    undo
+      // the renewal taken back: the year paid before, still active; its refund window is used (one per plan)
+      ? env.DB.prepare(`UPDATE subscriptions SET current_period_start = ?, current_period_end = ?, refund_until = NULL, updated_at = ?
+          WHERE id = ? AND current_period_start = ? AND status != 'ended' RETURNING id`).bind(undo.prev_start, undo.prev_end, now, sub.id, undo.prev_end)
+      : env.DB.prepare(
+        `UPDATE subscriptions SET cancel_requested_at = COALESCE(cancel_requested_at, ?), cancel_at_period_end = 1, status = ?, ended_reason = COALESCE(?, ended_reason),
+         current_period_end = ?, updated_at = ? WHERE id = ? AND status != 'ended' ${refundMode ? '' : 'AND cancel_requested_at IS NULL'} RETURNING id`,
+      ).bind(now, status, endedReason, endsAt, now, sub.id),
     // right after the UPDATE, changes() is what it changed: 1 for the request that won, even within the same millisecond
-    env.DB.prepare("INSERT INTO audit_log (at, actor, action, target, detail) SELECT ?, ?, 'subscription.cancel', ?, ? WHERE changes() = 1")
+    env.DB.prepare(`INSERT INTO audit_log (at, actor, action, target, detail) SELECT ?, ?, '${undo ? 'subscription.unrenew' : 'subscription.cancel'}', ?, ? WHERE changes() = 1`)
       .bind(now, actor, `sub:${sub.id}`, JSON.stringify({ mode, refundAgorot: refund?.amount || 0 })),
     refund && env.DB.prepare(`INSERT INTO refund_queue (subscription_id, payment_id, amount_agorot, reason, requested_at)
       SELECT ?, ?, ?, ?, ? WHERE EXISTS (${won[0]}) RETURNING id`).bind(sub.id, charge?.id || null, refund.amount, refund.reason, now, ...won[1]),
     sub.account_id && env.DB.prepare(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at) SELECT ?, ?, ?, ?, ? WHERE EXISTS (${won[0]})`)
-      .bind(sub.id, `canceled:${mode}:${requestedAt}`, sub.account_id, JSON.stringify({ requestedAt, endsAt, refundAgorot: refund?.amount || 0, reference }), now, ...won[1]),
+      .bind(sub.id, `canceled:${mode}:${requestedAt}`, sub.account_id, JSON.stringify({ requestedAt, endsAt, refundAgorot: refund?.amount || 0, reference, ...(undo ? { renewal: true } : {}) }), now, ...won[1]),
   ].filter(Boolean);
   let res;
   try {
@@ -455,12 +554,30 @@ export async function cancelSubscription(env, ctx, sub, mode, { actor, inline = 
   const refundId = refund ? res[2]?.results?.[0]?.id : null;
   let synced = false;
   if (inline) {
-    synced = await syncCancel(env, { ...sub, cancel_requested_at: requestedAt }, actor);
+    // a renewal taken back stops nothing at the provider: a one-year plan has no standing order
+    synced = undo ? true : await syncCancel(env, { ...sub, cancel_requested_at: requestedAt }, actor);
     if (refundId) await processRefund(env, await first(env, 'SELECT * FROM refund_queue WHERE id = ?', refundId));
     ctx?.waitUntil?.(flushNotices(env));
   }
   const provider = providerById(env, sub.provider);
   return { ok: true, status, endsAt, refundAgorot: refund?.amount || 0, refundManual: !provider?.capabilities.refundApi, synced, reference };
+}
+
+/**
+ * The renewal a refund would take back (TRUST-10 §3): the order_renewals row of the plan's latest charge, while the
+ * plan still carries that renewal (its period starts at the old end) and the renewed year has not started. Else null.
+ */
+async function renewalToUndo(env, sub, charge, now) {
+  if (!charge?.order_id || sub.plan !== 'family_year') return null;
+  const r = await first(env, 'SELECT * FROM order_renewals WHERE order_id = ? AND subscription_id = ?', charge.order_id, sub.id);
+  return r && sub.current_period_start === r.prev_end && now < r.prev_end ? r : null;
+}
+
+/** The unused share of a plan's price, from now (or from its start, for a year that has not started) to its end. */
+function prorataOf(sub, at = Date.now()) {
+  const start = Date.parse(sub.current_period_start); const end = Date.parse(sub.current_period_end);
+  const unused = Math.max(0, Math.floor((end - Math.max(at, start)) / DAY)); const total = Math.max(1, Math.round((end - start) / DAY));
+  return Math.min(sub.price_agorot || 0, Math.floor((sub.price_agorot || 0) * unused / total));
 }
 
 /** Tell the provider to stop charging. A failure leaves cancel_synced_at empty for the hourly retry and is recorded. */
@@ -564,18 +681,14 @@ export async function invoice(id, req, env, cors = {}) {
 }
 
 // ---------------------------------------------------------------- the parent's account page
-function planView(env, sub, charge, economy) {
+function planView(env, sub, charge, economy, { canRenew = false, undo = null } = {}) {
   if (!sub) return null;
   const now = nowIso();
   const provider = providerById(env, sub.provider);
   const running = ['active', 'past_due', 'canceled'].includes(sub.status);
   const canProrata = running && ['family_year', 'class_year'].includes(sub.plan) && !!sub.refund_until && now >= sub.refund_until && !!charge;
-  let prorataAgorot = null;
-  if (canProrata) {
-    const unused = Math.max(0, Math.floor((Date.parse(sub.current_period_end) - Date.now()) / DAY));
-    const total = Math.max(1, Math.round((Date.parse(sub.current_period_end) - Date.parse(sub.current_period_start)) / DAY));
-    prorataAgorot = Math.floor((sub.price_agorot || 0) * unused / total);
-  }
+  // a renewal not yet started comes back whole, as cancelSubscription does
+  const prorataAgorot = canProrata ? (undo ? charge.amount_agorot : prorataOf(sub)) : null;
   // until when the tutor works on the child's devices: a failed payment keeps it for the grace days after the period
   const accessUntil = sub.status === 'past_due'
     ? new Date(Date.parse(sub.current_period_end) + limits(env).graceDays * DAY).toISOString() : sub.current_period_end;
@@ -585,6 +698,10 @@ function planView(env, sub, charge, economy) {
     cancelAtPeriodEnd: !!sub.cancel_at_period_end, cancelRequestedAt: sub.cancel_requested_at, refundUntil: sub.refund_until,
     canRefundNow: running && !!sub.refund_until && now < sub.refund_until && !!charge,
     canProrata, prorataAgorot,
+    // a one-year plan (TRUST-10): whether it renews by itself (only the monthly plan does), whether its payer can renew
+    // it now (its last 45 days), and, when the latest payment renewed it, the end that a refund of it goes back to
+    renews: recurringPlan(sub.plan), canRenew, renewFrom: sub.plan === 'family_year' ? new Date(Date.parse(sub.current_period_end) - RENEW_DAYS * DAY).toISOString() : null,
+    ...(undo ? { renewalUndoEnd: undo.prev_end } : {}),
     canResume: sub.status === 'canceled' && !!sub.cancel_at_period_end && now < sub.current_period_end && !sub.ended_reason && !!provider?.capabilities.resumeApi,
     portal: !!provider?.portalUrl(env, sub), economy,
   };
@@ -596,6 +713,7 @@ export async function accountOverview(req, env, cors) {
   const L = limits(env);
   const live = await first(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND account_id = ? AND ${RUNNING} ORDER BY current_period_end DESC LIMIT 1`, a.id);
   const charge = live ? await latestCharge(env, live.id) : null;
+  const yearly = live ? { canRenew: await renewable(env, live), undo: await renewalToUndo(env, live, charge, nowIso()) } : {};
   const economy = live ? (await monthSpendUsd(env, `fam:${a.id}`)) >= L.budgets.familyMonthlyUsd : false;
   // linked devices, and devices whose code the parent claimed while the child's device has yet to collect its token
   const devices = await all(env, `SELECT d.id, d.account_id, d.label, d.created_at, d.last_seen, d.token_hash IS NULL AS pending,
@@ -620,7 +738,7 @@ export async function accountOverview(req, env, cors) {
   }
   return json({
     email: a.email, billingHold: !!a.billingHoldAt, maxDevices: L.family.devices,
-    plan: planView(env, live, charge, economy),
+    plan: planView(env, live, charge, economy, yearly),
     devices: devices.map((d, i) => ({
       id: d.id, label: d.label, linkedAt: d.created_at, lastSeen: d.last_seen, ...(d.pending ? { pending: true } : {}),
       sharing: sharing[i], sharingAt: d.share_at || null, lastSync: d.summary_sent_at || null,

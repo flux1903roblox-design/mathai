@@ -216,7 +216,10 @@ function ServerTeacherStart({ onBack }) {
       <Flow {...flow} steps={steps} className="teacher-flow" ask="איך קוראים לכם ולכיתה?" onSubmit={() => can && !busy && openClass()}
         foot={<Button type="submit" className="btn-block btn-lg" disabled={!can || busy}>{busy ? 'רגע…' : 'פתיחת הכיתה'}</Button>}>
         <div className="ob-field" data-region="answers">
-          <Field label="השם שלכם (כך התלמידים יראו אותו)" id="t-name"><input id="t-name" className="input input-lg" value={f.teacherName} onChange={set('teacherName')} maxLength={30} placeholder="למשל: רונית כהן" /></Field>
+          {/* the name students see: a family name is enough (trust spec TRUST-1 §5) */}
+          <Field label="השם שלכם (כך התלמידים יראו אותו)" id="t-name" hint="השם יופיע לתלמידים שמצטרפים עם קוד הכיתה. אפשר לכתוב רק שם משפחה, למשל 'המורה כהן'.">
+            <input id="t-name" className="input input-lg" value={f.teacherName} onChange={set('teacherName')} maxLength={30} placeholder="למשל: המורה כהן" aria-describedby="t-name-hint" />
+          </Field>
           <Field label="שם הכיתה" id="t-class"><input id="t-class" className="input input-lg" value={f.className} onChange={set('className')} maxLength={30} placeholder="למשל: ז׳3" /></Field>
           <div className="field"><span className="field-label" id="t-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="t-grade" /></div>
           <ClassSettingQuestion idPrefix="t" setting={f.setting} attest={f.attest} onChange={({ setting, attest }) => setF({ ...f, setting, attest })} />
