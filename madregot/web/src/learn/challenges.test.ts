@@ -1,0 +1,177 @@
+// The challenge track (CURRICULUM-6): every task present is checked mathematically and for its wording, and the grading
+// rules (two tries, XP, the order check, the counterexample check) are pinned. The "36 tasks, three per topic" count
+// comes when stage 1 fills the rest of the tasks.
+import { describe, it, expect } from 'vitest';
+import katex from 'katex';
+import type { ChallengePart, ChallengeTask } from './types';
+import { CHALLENGES, challengeById, challengesAfter, challengesOf } from './challenges/index';
+import { challengeXP, scoredParts, numCheck, exampleHolds, domainValues, firstOutOfPlace, shuffledOrder, moveStep } from './challenges/grade';
+import { ALL_SKILLS, TOPIC_ORDER, parseSkill } from './skills';
+import { evaluate, same } from './expr';
+
+type Claim = Extract<ChallengePart, { type: 'claim' }>;
+type Order = Extract<ChallengePart, { type: 'order' }>;
+
+/** Every piece of text a task shows (titles, stories, prompts, choices, lines, steps, reasons, rubrics, samples). */
+function texts(t: ChallengeTask): string[] {
+  const out = [t.title, t.story || ''];
+  t.parts.forEach((p) => {
+    out.push(p.prompt);
+    if (p.type === 'num') out.push(...p.solution);
+    if (p.type === 'mc') p.choices.forEach((c) => out.push(c.text, c.feedback));
+    if (p.type === 'claim') { out.push(p.claim, p.why); if (p.example) out.push(p.example.ask, p.example.hint, ...p.example.slots.map((s) => s.label)); }
+    if (p.type === 'order') p.steps.forEach((s) => out.push(s.text, ...(s.reason?.choices || [])));
+    if (p.type === 'error') out.push(...p.lines, p.why, p.fix.prompt);
+    if (p.type === 'explain') out.push(...p.rubric, p.sample);
+  });
+  return out.filter(Boolean);
+}
+const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1));
+const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
+
+describe('the challenge tasks', () => {
+  it('has the six complete exemplars of stage 1', () => {
+    expect(CHALLENGES.map((t) => t.id).sort()).toEqual(['angles:c1', 'frac:c1', 'pct:c1', 'pyth:c1', 'ratio:c1', 'stats:c1']);
+    expect(challengeById('pct:c1')?.after).toBe('pct:2');
+    expect(challengeById('nope')).toBeNull();
+    expect(challengesAfter('ratio:2').map((t) => t.id)).toEqual(['ratio:c1']);
+    expect(challengesOf('stats').map((t) => t.id)).toEqual(['stats:c1']);
+  });
+
+  it('ids are unique, each follows a real stair of its own topic, and has its kind, minutes and 2 to 5 parts', () => {
+    expect(new Set(CHALLENGES.map((t) => t.id)).size).toBe(CHALLENGES.length);
+    CHALLENGES.forEach((t) => {
+      expect(t.id, t.id).toMatch(new RegExp(`^${t.topic}:c\\d+$`));
+      expect(TOPIC_ORDER).toContain(t.topic);
+      expect(ALL_SKILLS, t.id).toContain(t.after);
+      expect(parseSkill(t.after).topic, t.id).toBe(t.topic);
+      expect(['claim', 'error', 'proof', 'literacy']).toContain(t.kind);
+      expect(t.minutes >= 4 && t.minutes <= 10, t.id).toBe(true);
+      expect(t.parts.length >= 2 && t.parts.length <= 5, `${t.id}: ${t.parts.length} parts`).toBe(true);
+      expect(t.title.trim().length, t.id).toBeGreaterThan(0);
+      expect(scoredParts(t).length, `${t.id}: at least one part is scored`).toBeGreaterThan(0);
+    });
+  });
+
+  it('every number part\'s check evaluates to its answer, and every error\'s fix too', () => {
+    CHALLENGES.forEach((t) => t.parts.forEach((p, i) => {
+      if (p.type === 'num') {
+        expect(same(evaluate(p.check), p.answer), `${t.id} part ${i + 1}: ${p.check} ≠ ${p.answer}`).toBe(true);
+        expect(p.solution.length, `${t.id} part ${i + 1}`).toBeGreaterThan(0);
+        expect(numCheck(p.answer, String(p.answer))?.ok, `${t.id} part ${i + 1}: the answer typed is right`).toBe(true);
+      }
+      if (p.type === 'error') {
+        expect(same(evaluate(p.fix.check), p.fix.answer), `${t.id} part ${i + 1}: ${p.fix.check} ≠ ${p.fix.answer}`).toBe(true);
+        expect(Number.isInteger(p.wrong) && p.wrong >= 0 && p.wrong < p.lines.length, `${t.id}: wrong line ${p.wrong}`).toBe(true);
+      }
+    }));
+  });
+
+  it('every choice question has exactly one right choice, with feedback on each', () => {
+    CHALLENGES.forEach((t) => t.parts.forEach((p, i) => {
+      if (p.type !== 'mc') return;
+      expect(p.choices.filter((c) => c.ok).length, `${t.id} part ${i + 1}`).toBe(1);
+      expect(p.choices.length).toBeGreaterThanOrEqual(2);
+      p.choices.forEach((c) => expect(c.feedback.trim().length, `${t.id} part ${i + 1}`).toBeGreaterThan(0));
+      expect(new Set(p.choices.map((c) => c.text)).size).toBe(p.choices.length);
+    }));
+  });
+
+  it('every proof has at least three steps, and every reason\'s answer is one of its choices', () => {
+    const orders = CHALLENGES.flatMap((t) => t.parts.filter((p): p is Order => p.type === 'order').map((p) => [t.id, p] as const));
+    expect(orders.length).toBeGreaterThan(0);
+    orders.forEach(([id, p]) => {
+      expect(p.steps.length, id).toBeGreaterThanOrEqual(3);
+      p.steps.forEach((s) => { if (s.reason) expect(Number.isInteger(s.reason.answer) && s.reason.answer >= 0 && s.reason.answer < s.reason.choices.length, id).toBe(true); });
+      (p.free || []).forEach((g) => g.forEach((k) => expect(k >= 0 && k < p.steps.length, id).toBe(true)));
+    });
+  });
+
+  it('a claim is a plain sentence; "sometimes" or "never" has a counterexample a search finds, "always" has no example', () => {
+    const claims = CHALLENGES.flatMap((t) => t.parts.filter((p): p is Claim => p.type === 'claim').map((p) => [t.id, p] as const));
+    expect(claims.length).toBeGreaterThanOrEqual(3);
+    claims.forEach(([id, p]) => {
+      // "תמיד", "אף פעם" and "לכל" would make "sometimes" a wrong answer to a false universal sentence
+      expect(p.claim, id).not.toMatch(/תמיד|אף פעם|לכל/);
+      expect(['always', 'sometimes', 'never']).toContain(p.verdict);
+      if (p.verdict === 'always') { expect(p.example, `${id}: an always-true claim has no counterexample`).toBeUndefined(); return; }
+      if (!p.example) return;
+      const ex = p.example;
+      const vals = domainValues(ex.domain);
+      // brute force over the slots: some combination of small values in the domain is a counterexample
+      let found = false;
+      const tryFrom = (k: number, cur: Record<string, number>) => {
+        if (found) return;
+        if (k === ex.slots.length) { if (exampleHolds(ex, cur)) found = true; return; }
+        for (const v of vals) { tryFrom(k + 1, { ...cur, [ex.slots[k].name]: v }); if (found) return; }
+      };
+      tryFrom(0, {});
+      expect(found, `${id}: no counterexample among small values`).toBe(true);
+    });
+  });
+
+  it('a story is at most 400 characters; every piece of maths renders; no Latin word stands outside the maths', () => {
+    CHALLENGES.forEach((t) => {
+      if (t.story) expect(t.story.length, t.id).toBeLessThanOrEqual(400);
+      texts(t).forEach((s) => {
+        expect((s.match(/\$/g) || []).length % 2, `${t.id}: unbalanced $ in "${s}"`).toBe(0);
+        tex(s).forEach((m) => expect(() => katex.renderToString(m, { throwOnError: true }), `${t.id}: ${m}`).not.toThrow());
+        expect(outsideTex(s), `${t.id}: "${s}"`).not.toMatch(/[A-Za-z]/);
+      });
+    });
+  });
+});
+
+describe('grading a challenge', () => {
+  it('a finished task gives 20 XP and 5 per part right on the first try, at most 40', () => {
+    expect(challengeXP(0)).toBe(20);
+    expect(challengeXP(2)).toBe(30);
+    expect(challengeXP(4)).toBe(40);
+    expect(challengeXP(7)).toBe(40);
+    // an explain part carries no score
+    expect(scoredParts(challengeById('pct:c1')!).map((p) => p.type)).toEqual(['num', 'num', 'mc']);
+  });
+
+  it('a typed number is read as students type it, and compared exactly', () => {
+    expect(numCheck(7.5, '7.5')?.ok).toBe(true);
+    expect(numCheck(7.5, '7,5')?.ok).toBe(true);
+    expect(numCheck(7.5, '7.6')?.ok).toBe(false);
+    expect(numCheck(14000, '14,000')?.ok).toBe(true);
+    expect(numCheck(14000, '14000')?.ok).toBe(true);
+    expect(numCheck(2.5, '2.51')?.ok).toBe(false);
+    expect(numCheck(70, '')).toBeNull();
+  });
+
+  it('a counterexample: the values in the domain, the expression real, the relation holding', () => {
+    const frac = (challengeById('frac:c1')!.parts[0] as Claim).example!;
+    expect(exampleHolds(frac, { a: 3, b: 2, k: 1 })).toBe(true); // 3/2 → 4/3: smaller
+    expect(exampleHolds(frac, { a: 2, b: 2, k: 5 })).toBe(true); // 1 stays 1: it does not grow
+    expect(exampleHolds(frac, { a: 1, b: 2, k: 1 })).toBe(false); // 1/2 → 2/3: it grows
+    expect(exampleHolds(frac, { a: 3, b: 2, k: 0.5 })).toBe(false); // not a positive whole number
+    expect(exampleHolds(frac, { a: 3, b: -2, k: 1 })).toBe(false);
+    expect(exampleHolds(frac, { a: 3, b: 2 })).toBe(false); // a slot left empty
+    const mean = (challengeById('stats:c1')!.parts[3] as Claim).example!;
+    expect(exampleHolds(mean, { x: 1, y: 2 })).toBe(true);
+    expect(exampleHolds(mean, { x: -1.5, y: 4 })).toBe(true);
+    expect(exampleHolds(mean, { x: 3, y: 3 })).toBe(false);
+    // an expression that cannot be evaluated there (a zero denominator) is not a counterexample
+    expect(exampleHolds({ ...frac, domain: 'int' }, { a: 1, b: 0, k: 0 })).toBe(false);
+  });
+
+  it('the proof: the first step out of place, steps found in either order accepted, and a shuffle never already right', () => {
+    const proof = challengeById('angles:c1')!.parts[0] as Order;
+    expect(firstOutOfPlace(proof, [0, 1, 2, 3, 4])).toBe(-1);
+    expect(firstOutOfPlace(proof, [0, 2, 1, 3, 4])).toBe(-1); // A's angle and B's, either order: still a proof
+    expect(firstOutOfPlace(proof, [1, 0, 2, 3, 4])).toBe(0);
+    expect(firstOutOfPlace(proof, [0, 1, 2, 4, 3])).toBe(3);
+    for (let k = 0; k < 50; k += 1) {
+      const o = shuffledOrder(proof, `seed${k}`);
+      expect([...o].sort()).toEqual([0, 1, 2, 3, 4]);
+      expect(firstOutOfPlace(proof, o), `seed${k}: ${o}`).not.toBe(-1);
+    }
+    expect(shuffledOrder(proof, 'angles:c1:0')).toEqual(shuffledOrder(proof, 'angles:c1:0')); // the same task opens the same way
+    expect(moveStep([0, 1, 2], 1, -1)).toEqual([1, 0, 2]);
+    expect(moveStep([0, 1, 2], 0, -1)).toEqual([0, 1, 2]);
+    expect(moveStep([0, 1, 2], 2, 1)).toEqual([0, 1, 2]);
+  });
+});

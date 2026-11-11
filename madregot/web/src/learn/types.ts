@@ -248,6 +248,47 @@ export interface FloorState {
   facts: { asked: number; right: number };
 }
 
+// ------------------------------------------------------------------ the challenge track (CURRICULUM-6)
+
+/** What a challenge asks for: judging a claim, finding someone's error, ordering a proof, or a real-world task. */
+export type ChallengeKind = 'claim' | 'error' | 'proof' | 'literacy';
+/**
+ * A challenge task for a strong student: optional, graded by code (offline, no AI), shown once its `after` stair is
+ * mastered. Its parts are solved in order, each with two tries; an `explain` part is the student's own words, a
+ * self-check with no score. Content lives in learn/challenges/<topic>.ts.
+ */
+export interface ChallengeTask {
+  id: string; // 'pct:c1'
+  topic: TopicId;
+  after: SkillId; // shown once this stair is mastered
+  kind: ChallengeKind;
+  title: Text;
+  story?: Text; // the context, at most 400 characters
+  fig?: FigSpec;
+  parts: ChallengePart[]; // 2..5, solved in order
+  minutes: number; // 4..10
+}
+/**
+ * One part of a challenge.
+ *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested)
+ *   mc       one right choice among several, each with its own feedback
+ *   claim    always / sometimes / never true; with `example`, a counterexample typed into the slots: `expr` evaluated
+ *            at the slots' values (learn/expr.ts) must satisfy `rel value`, the values in `domain`
+ *   order    a proof's steps, shown shuffled, put in order; a step with `reason` then asks why, as a choice. `free`
+ *            lists groups of steps that may come in any order among themselves (two equal angles found one after the
+ *            other): the proof is right either way, so the check accepts both
+ *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`)
+ *   explain  the student's own words (kept on the screen only), then the sample answer and the rubric to tick
+ */
+export type ChallengePart =
+  | { type: 'num'; prompt: Text; answer: number; check: string; unit?: string; solution: Text[] }
+  | { type: 'mc'; prompt: Text; choices: { text: Text; ok: boolean; feedback: Text }[] }
+  | { type: 'claim'; prompt: Text; claim: Text; verdict: 'always' | 'sometimes' | 'never'; why: Text;
+      example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
+                  expr: string; rel: '<' | '<=' | '>' | '>=' | '!='; value: number; hint: Text } }
+  | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number } }[]; free?: number[][] }
+  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string } }
+  | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
 /** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */
 export interface ChallengeRecord { startedAt: string; doneAt?: string; firstTry: number; parts: number }
 

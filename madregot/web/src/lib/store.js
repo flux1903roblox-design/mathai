@@ -11,6 +11,7 @@ import { logEvent } from '@/learn/analytics.ts';
 import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
 import { completeMissionItems, missionDone } from '@/learn/mission.ts';
 import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
+import { challengeXP } from '@/learn/challenges/grade.ts';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
@@ -216,6 +217,45 @@ export const useApp = create(
         }
         set(patch);
         return { questsDone, freezeEarned };
+      },
+      /**
+       * A challenge task opened (CURRICULUM-6): its record starts once (a second visit keeps the first start), and the
+       * analytics event says which task, never any text.
+       */
+      startChallenge: (id) => {
+        const L = get().learn; const at = new Date().toISOString(); const all = L.challenges ?? {};
+        set({ learn: { ...L, challenges: all[id] ? all : { ...all, [id]: { startedAt: at, firstTry: 0, parts: 0 } }, events: logEvent(L.events, { e: 'challenge-start', m: id }, at) } });
+      },
+      /**
+       * A challenge task finished: { firstTry, parts } counts the scored parts and those right on the first try (explain
+       * parts are not among them). The first finish earns 20 XP and 5 per first-try part (at most 40), and counts for the
+       * day like a lesson (days[d].lessons and xp: the streak, the daily goal and the quests); a second finish earns
+       * nothing. It never touches mastery: learn.skills and the checks are left as they are. The analytics event carries
+       * the share right on the first try (n), and no text. Returns what to celebrate.
+       */
+      finishChallenge: (id, result) => {
+        const st = get(); const L = st.learn; const at = new Date().toISOString(); const all = L.challenges ?? {};
+        const firstTry = Math.max(0, result?.firstTry || 0); const parts = Math.max(0, result?.parts || 0);
+        const n = parts ? firstTry / parts : 0;
+        if (all[id]?.doneAt) {
+          set({ learn: { ...L, events: logEvent(L.events, { e: 'challenge-done', m: id, n }, at) } });
+          return { xp: 0, again: true, streakExtended: false, streak: streakOf(st.days), goalReached: false, questsDone: false, freezeEarned: false };
+        }
+        const xp = challengeXP(firstTry);
+        const d = today(); const cur = st.days[d] || {};
+        const questsBefore = questProgress(d, cur).every((q) => q.done);
+        const goalBefore = (cur.xp || 0) >= st.goalXp;
+        const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + xp };
+        const questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
+        const freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
+        if (questsDone) day.questsRewarded = true;
+        const days = { ...st.days, [d]: day };
+        const rec = { startedAt: all[id]?.startedAt || at, doneAt: at, firstTry, parts };
+        set({
+          days, xp: st.xp + xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
+          learn: { ...L, challenges: { ...all, [id]: rec }, events: logEvent(L.events, { e: 'challenge-done', m: id, n }, at) },
+        });
+        return { xp, again: false, streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
       },
       setExam: (input) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, exam: input ? newPlan(input, at) : null, events: input ? logEvent(L.events, { e: 'rescue-created' }, at) : L.events } }); },
       recordExamDiagnostic: (skill, right, asked) => { const L = get().learn; if (!L.exam) return; set({ learn: { ...L, exam: recordDiagnostic(L.exam, skill, right, asked, new Date().toISOString()) } }); },

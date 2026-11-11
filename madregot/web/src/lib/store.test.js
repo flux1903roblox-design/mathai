@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { migrateState, mergeSaved } from './store.js';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { migrateState, mergeSaved, useApp, today, streakOf } from './store.js';
 
 const v2 = (ai) => ({ profile: { role: 'student', name: 'נועה', grade: '7' }, xp: 40, days: { '2026-11-05': { q: 3 } }, learn: { skills: {} }, ai });
 
@@ -79,5 +79,45 @@ describe('saved data v4 without the new learn fields', () => {
     expect(out.xp).toBe(0);
     expect(out.setFloor).toBe(cur.setFloor);
     expect(out.learn).toMatchObject({ skills: {}, floor: null, challenges: {} });
+  });
+});
+
+// A challenge task (CURRICULUM-6.2): it counts for the day like a lesson and never touches mastery.
+describe('a finished challenge', () => {
+  beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ goalXp: 20, freezes: 0 }); });
+
+  it('adds its XP to the day, counts once as a lesson, keeps the streak, and leaves the skills as they were', () => {
+    const skills = { 'pct:2': { attempts: [{ at: '2026-11-05T10:00:00.000Z', ok: true, independent: true, purpose: 'mastery' }], mastered: { at: '2026-11-05T10:00:00.000Z', box: 0, due: '2026-11-06T10:00:00.000Z' } } };
+    useApp.setState({ learn: { ...useApp.getState().learn, skills } });
+    useApp.getState().startChallenge('pct:c1');
+    expect(useApp.getState().learn.challenges['pct:c1']).toMatchObject({ firstTry: 0, parts: 0 });
+    // three scored parts, two right on the first try: 20 + 2 × 5
+    const a = useApp.getState().finishChallenge('pct:c1', { firstTry: 2, parts: 3 });
+    expect(a).toMatchObject({ xp: 30, again: false, streakExtended: true, streak: 1, goalReached: true });
+    const st = useApp.getState();
+    expect(st.xp).toBe(30);
+    expect(st.days[today()]).toMatchObject({ lessons: 1, xp: 30 });
+    expect(streakOf(st.days)).toBe(1);
+    expect(st.learn.skills).toEqual(skills); // never mastery, never a check
+    expect(st.learn.challenges['pct:c1']).toMatchObject({ firstTry: 2, parts: 3 });
+    expect(st.learn.challenges['pct:c1'].doneAt).toBeTruthy();
+    // the events carry the task and the share right first time: no text
+    const ev = st.learn.events.filter((e) => e.e.startsWith('challenge-'));
+    expect(ev.map((e) => [e.e, e.m, e.n])).toEqual([['challenge-start', 'pct:c1', undefined], ['challenge-done', 'pct:c1', 2 / 3]]);
+    ev.forEach((e) => expect(Object.keys(e).sort()).toEqual(e.e === 'challenge-done' ? ['e', 'm', 'n', 't'] : ['e', 'm', 't']));
+  });
+
+  it('a second finish of the same task gives nothing, and the XP is at most 40', () => {
+    useApp.getState().startChallenge('stats:c1');
+    expect(useApp.getState().finishChallenge('stats:c1', { firstTry: 4, parts: 4 }).xp).toBe(40);
+    const again = useApp.getState().finishChallenge('stats:c1', { firstTry: 4, parts: 4 });
+    expect(again).toMatchObject({ xp: 0, again: true });
+    const st = useApp.getState();
+    expect(st.xp).toBe(40);
+    expect(st.days[today()]).toMatchObject({ lessons: 1, xp: 40 });
+    // a second start keeps the first start time
+    const started = st.learn.challenges['stats:c1'].startedAt;
+    useApp.getState().startChallenge('stats:c1');
+    expect(useApp.getState().learn.challenges['stats:c1'].startedAt).toBe(started);
   });
 });

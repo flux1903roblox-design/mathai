@@ -33,6 +33,7 @@ const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
 const Journey = lazy(() => import('@/screens/Journey.jsx'));
 const Teach = lazy(() => import('@/screens/Teach.jsx'));
 const Repair = lazy(() => import('@/screens/Repair.jsx'));
+const Challenge = lazy(() => import('@/screens/Challenge.jsx'));
 const Rescue = lazy(() => import('@/screens/Rescue.jsx'));
 const NewPracticeExam = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.NewPracticeExam })));
 const PracticeSheet = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.PracticeSheet })));
@@ -164,6 +165,8 @@ function Root() {
             <Route path="/facts" element={<LessonRoute />} />
             <Route path="/learn/:topic/:level/:stage" element={<TeachRoute />} />
             <Route path="/repair/:topic/:level/:misc" element={<Repair />} />
+            {/* a challenge task (אתגר): outside the tab bar, like a lesson */}
+            <Route path="/challenge/:id" element={<Challenge />} />
             <Route path="/rescue/check" element={<LessonRoute />} />
             <Route path="/rescue/exam" element={<LessonRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
