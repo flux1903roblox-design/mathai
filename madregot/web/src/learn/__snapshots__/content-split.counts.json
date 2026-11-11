@@ -504,10 +504,29 @@
      1,
      1
     ]
+   },
+   "func:4": {
+    "discover": 8,
+    "examples": [
+     2,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
    }
   },
-  "stairs": 3,
-  "steps": 65
+  "stairs": 4,
+  "steps": 87
  },
  "line": {
   "skills": {

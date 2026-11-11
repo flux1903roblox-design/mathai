@@ -511,6 +511,32 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "func:4": {
+    "title": "קצב אחיד ולא אחיד",
+    "misconceptions": [
+      {
+        "id": "from-zero",
+        "title": "חישבו את הקצב כאילו ההתחלה הייתה $0$"
+      },
+      {
+        "id": "whole-change",
+        "title": "ענו את כל השינוי, ולא את השינוי ליחידה אחת"
+      },
+      {
+        "id": "height-for-slope",
+        "title": "בחרו לפי הגובה של הקו ולא לפי התלילות שלו"
+      },
+      {
+        "id": "forgot-b",
+        "title": "שכחו את החלק הקבוע (דמי פתיחה, עמלה, ערך ההתחלה)"
+      },
+      {
+        "id": "wrong-unknown",
+        "title": "ענו כמה זמן נשאר מעכשיו, ולא מתי זה נגמר מההתחלה"
+      }
+    ],
+    "transfer": true
+  },
   "line:1": {
     "title": "טבלת ערכים",
     "misconceptions": [

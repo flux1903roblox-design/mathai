@@ -36,6 +36,8 @@ const KINDS = [
   ['graph', 'func/2', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'values', 'a table of a function drawn as a graph'],
   // a graph drawn to a named shape, up, flat and down: a drag in a column moves that point (func:3 drawShape)
   ['graph', 'func/3', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'shape', 'a graph drawn to rise, stay and fall'],
+  // a uniform rate continued from two given minutes: a drag in a free column moves that point (func:4 continueRate)
+  ['graph', 'func/4', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'values', 'a uniform rate continued on a graph'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');

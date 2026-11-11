@@ -69,6 +69,12 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the same graph, how long it falls: the rising part 3, the change in y 4
     { model: 'diag', p: { s: 1, x0: 1, x1: 4, x2: 6, x3: 9, y0: 3, y1: 9, y2: 5, q: 1 } },
   ],
+  'func:4': [
+    // the pool, 40 m³ at 8:00 and 130 at 11:00: per hour, 30; as if it started empty, 130 : 3; the whole change, 90
+    { model: 'diag', p: { s: 40, r: 30, T: 3, v: 130, t: 0, q: 0 } },
+    // the same pool at 13:00, five hours after 8:00: 190; from empty, 5 · 130 : 3; the start left out, 5 · 30 = 150
+    { model: 'diag', p: { s: 40, r: 30, T: 3, v: 130, t: 5, q: 1 } },
+  ],
   'pct:1': [
     { model: 'transfer', p: { a: 19, b: 25 } }, // 19 of 25 questions: the count of right answers, 19, written as the percent
     { model: 'diag', p: { k: 1, x: 0.6 } }, // 0.6 as a percent: the digit read as the percent gives 6

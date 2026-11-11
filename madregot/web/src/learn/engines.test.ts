@@ -11,6 +11,7 @@ import { nextActions, smallestMissing, isMissing } from './recommend';
 import { buildMission, completeMissionItems, missionDone, partialStairNote, todayRoute } from './mission';
 import { examPlan, newPlan, recordDiagnostic, validInput } from './examRescue';
 import { tutorReply } from './tutor';
+import { monthIndex } from './programme';
 import { metrics, logEvent } from './analytics';
 import { evaluate, seeded, identical, texToExpr, texRelation, holds } from './expr';
 import { contentOf, loadAllContent } from './content/index';
@@ -143,6 +144,38 @@ describe('the prerequisite graph', () => {
   });
   it('reaches down through several stairs', () => {
     expect(ancestorsOf('line:4')).toEqual(expect.arrayContaining(['line:3', 'signed:3', 'line:2', 'coord:1', 'line:1', 'signed:1']));
+  });
+});
+
+describe('slope after uniform rate: line:3 leans on func:4 (stage5.md FUNC-2, an own-grade edge)', () => {
+  it('is an edge of the graph, and the graph stays acyclic', () => {
+    expect(prereqsOf('line:3')).toContain('func:4');
+    expect(ancestorsOf('line:3')).toEqual(expect.arrayContaining(['func:4', 'func:3', 'func:1', 'ratio:3']));
+    expect(ancestorsOf('func:4')).not.toContain('line:3');
+    ALL_SKILLS.forEach((id) => expect(ancestorsOf(id), id).not.toContain(id));
+  });
+  // a ח׳ student who has passed every stair the school calendar teaches by November, except: func:3 is going badly (so
+  // func:4 is not ready as new either), func:4 is not started, and line:3 on are not started; line:1-2 are mastered
+  const learner = (rateDone: boolean) => {
+    const learn = empty();
+    const passed = () => recordMasteryCheck(undefined, 5, 5, addDays(NOW, -3));
+    gradeSkillsOf('8').filter((s) => (monthIndex(s, '8') ?? 99) <= 2 && !/^line:[3-8]$/.test(s)).forEach((s) => { learn.skills[s] = passed(); });
+    if (rateDone) return learn;
+    delete learn.skills['func:4'];
+    learn.skills['func:3'] = { taught: { A: NOW, B: NOW, C: NOW }, attempts: [att(false), att(false), att(false), att(false)] };
+    return learn;
+  };
+  it('a ח׳ learner with line:1-2 mastered and func:4 not started is not offered line:3 as new', () => {
+    const c = ctx(learner(false), '8');
+    expect(c.learn.skills['line:2']).toBeDefined();
+    expect(c.learn.skills['func:4']).toBeUndefined();
+    expect(isMissing(c, 'func:4')).toBe(true);
+    const acts = nextActions(c);
+    expect(acts.some((a) => a.kind === 'new' && a.skill === 'line:3')).toBe(false);
+    expect(acts.some((a) => a.kind === 'new' && a.skill === 'func:4')).toBe(false); // func:3 first
+  });
+  it('once func:4 is done, line:3 is the new stair', () => {
+    expect(nextActions(ctx(learner(true), '8')).find((a) => a.kind === 'new')).toMatchObject({ skill: 'line:3' });
   });
 });
 

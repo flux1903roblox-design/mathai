@@ -10,7 +10,7 @@ import type { SkillId, TopicId } from './types';
 // introduction to functions the third (November), all before linear functions (rate and slope, December).
 export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys'];
 export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, func: 3, line: 8, pyth: 5, stats: 5, sys: 5 };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, func: 4, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -70,9 +70,14 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'func:1': ['coord:1'], // a point of a graph is a pair, read on two axes (ז׳ September)
   'func:2': ['func:1', 'expr:1'], // a rule gives each x one y; its value is a substitution (expr:1, ז׳: evidence only for ח׳)
   'func:3': ['func:1'], // increasing and decreasing are read on the graph, left to right
+  'func:4': ['func:3', 'ratio:3'], // a rate is the change per one unit (a unit rate, ratio:3); uniform is straight
   'line:1': ['signed:4', 'coord:1', 'expr:1'], // a table of values: substitute x in mx + b (expr:1, signed:4), plot the points
   'line:2': ['line:1'], // what m and b mean in y = mx + b
-  'line:3': ['line:2', 'coord:1', 'ratio:1'], // slope from the graph: steps on the grid, "up 2 for every 3 to the right" is a ratio
+  // slope from the graph: steps on the grid, "up 2 for every 3 to the right" is a ratio; and a slope is a uniform rate
+  // of change (func:4, an own-grade edge: not new before func:4 is done, as in school order, rate before slope; a
+  // student already in line:3 keeps going, as the edge is read only when choosing a new stair or the stairs under a
+  // hard one)
+  'line:3': ['line:2', 'coord:1', 'ratio:1', 'func:4'],
   'line:4': ['line:3', 'signed:3', 'frac:1'], // slope between two points: a quotient of signed differences, simplified like a fraction (bridge edge)
   'line:5': ['line:4', 'eq:1'], // the equation of a line from two points or a point and a slope; b solves y₁ = m·x₁ + b, one step
   'line:6': ['line:2', 'signed:3', 'eq:2'], // intercepts: x = 0 gives b; y = 0 is the two-step equation 0 = mx + b

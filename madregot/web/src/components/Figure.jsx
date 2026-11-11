@@ -955,7 +955,9 @@ function SGraph({ fig }) {
         </m.g>
       ))}
       <GraphAxes fr={fr} x={x} y={y} cls="fig-sgraph" />
-      {named.length > 0 && <GraphLegend fr={fr} items={named} cls="fig-sgraph" />}
+      {/* on a phone an exercise puts its zoom button (40px, Lesson.jsx .fig-zoom) in the figure's top right corner, where
+          the row of names starts: the names start left of it (two runners' A and B, func:4) */}
+      {named.length > 0 && <GraphLegend fr={fr} items={named} cls="fig-sgraph" inset={48} />}
       {(gx != null || gys.length > 0) && (
         <m.g className="fig-sgraph-guide" {...draw(k0, 'fade')}>
           {gx != null && <path d={`M ${X(g.x)} ${BOT} V ${Y(gx)} H ${PADL}`} />}

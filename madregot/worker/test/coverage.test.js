@@ -48,8 +48,8 @@ const TAUGHT = {
   },
 };
 // After stage 1, the hours each later stage adds (§0.3: S2 = 7.6, 7.12, 7.13, 8.4, 8.17; S3 = 7.15-7.17, 8.6, 8.10,
-// 8.11, 8.16; S4 = 7.11, 8.5, 8.12, 8.13; S5 = 7.9, 7.10, 8.7, 8.9), and the totals after each (ז׳ 126, 139, 144, 150;
-// ח׳ 78, 99, 133, 147).
+// 8.11, 8.16; S4 = 7.11, 8.5, 8.12, 8.13; S5 = 7.9, 7.10, 8.7, 8.9, and 8.8's 0-hour func:4), and the totals after each
+// (ז׳ 126, 139, 144, 150; ח׳ 78, 99, 133, 147).
 const AFTER = { '7': { S2: 126, S3: 139, S4: 144, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
 // The stairs a later stage brings, by stage (stage5.md FUNC-8 Design 2 (a) and (d)). A part may list one before it exists
 // (8.7 lists func:1-3 while only func:1 is built); such a part is untaught (coverage.js) and its stage is its stairs'.
@@ -65,7 +65,7 @@ const COMPLETES = {
   S2: ['7.6', '7.12', '7.13', '8.4', '8.17'],
   S3: ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'],
   S4: ['7.11', '8.5', '8.12', '8.13'],
-  S5: ['7.9', '7.10', '8.7', '8.9'],
+  S5: ['7.9', '7.10', '8.7', '8.8', '8.9'],
 };
 
 const sum = (a) => a.reduce((x, y) => x + y, 0);
@@ -89,7 +89,9 @@ test('the programme: 17 units a grade, in the schedules\' order, with their hour
       const order = u.months.map((m) => (m >= 9 ? m - 9 : m + 3));
       assert.ok(u.months.every((m) => Number.isInteger(m) && ((m >= 9 && m <= 12) || (m >= 1 && m <= 6))), u.id);
       assert.deepEqual(order, [...order].sort((a, b) => a - b), `${u.id}: months in school order`);
-      assert.ok(u.parts.every((p) => Number.isInteger(p.hours) && p.hours > 0), u.id);
+      // a part has hours, or none with its stairs listed: a cross-listing of a stair a class meets without hours of its
+      // own (8.8's func:4, uniform and non-uniform rate, whose December row's hours are line's: stage5.md FUNC-8 (f))
+      assert.ok(u.parts.every((p) => Number.isInteger(p.hours) && (p.hours > 0 || (p.hours === 0 && p.skills.length > 0))), u.id);
     }
   }
   assert.equal(sum(HOURS['7']), 150);
@@ -178,6 +180,16 @@ test('a unit\'s state, stairs and missing parts', () => {
   // 8.7 lists func:1-3 (stage5.md FUNC-8): untaught while one of them is missing, all 8 hours once they are there
   assert.equal(at('8', [...STAGE1, 'func:1', 'func:2'], '8.7').taught, 0);
   assert.equal(at('8', [...STAGE1, 'func:1', 'func:2', 'func:3'], '8.7').taught, 8);
+  // 8.8 lists func:4 in a part of 0 hours (the schedule's December row, whose hours are line's): it moves no hour, and
+  // while func:4 is missing the unit names it as missing though every hour is taught; with it, nothing is missing
+  const u88 = at('8', [...STAGE1, 'func:1', 'func:2', 'func:3'], '8.8');
+  assert.deepEqual([u88.taught, u88.hours, u88.missing], [8, 8, ['קצב שינוי אחיד ולא אחיד']]);
+  assert.deepEqual(u88.parts.map((p) => [p.hours, p.skills, p.taught]), [[8, ['line:1', 'line:2', 'line:3', 'line:4', 'line:5', 'line:6', 'line:7', 'line:8'], true], [0, ['func:4'], false]]);
+  const with4 = [...STAGE1, 'func:1', 'func:2', 'func:3', 'func:4'];
+  assert.deepEqual(at('8', with4, '8.8').missing, []);
+  assert.equal(coverage('8', with4).taught, coverage('8', [...STAGE1, 'func:1', 'func:2', 'func:3']).taught);
+  assert.equal(coverage('8', with4).taught, 74);
+  assert.equal(monthIndex('func:4', '8'), 2); // 8.8, November
   // func:1 teaches ז׳ 7.9's situation graph (2 hours): ז׳ 104 + 2 = 106 of 150, ח׳ unchanged at 66 of 147
   assert.deepEqual([coverage('7', [...STAGE1, 'func:1']).taught, coverage('8', [...STAGE1, 'func:1']).taught], [106, 66]);
   assert.deepEqual(at('7', [...STAGE1, 'func:1'], '7.9'), {

@@ -1,8 +1,9 @@
 // Introduction to functions (מבוא לפונקציות): unit 8.7 of grade 8 (ח׳), November in the Ministry's תשפ״ז schedule, in
 // the order of the Ministry's updated ח׳ algebra curriculum (algebra_8): reading a graph of a situation first (its first
 // subject, and all of ז׳ 7.9's "קריאת גרף שמתאר מצב"), then the function and its representations, increasing and
-// decreasing, and rate (stage5.md FUNC-2). This file holds the stairs built so far: func:1, reading a situation graph,
-// func:2, the function and its representations, and func:3, increasing, decreasing and constant.
+// decreasing, and rate (stage5.md FUNC-2). Its four stairs: func:1, reading a situation graph, func:2, the function and
+// its representations, func:3, increasing, decreasing and constant, and func:4, uniform and non-uniform rate (the
+// December row of the schedule, which shared/programme.js lists with slope in 8.8).
 // Taught in November, so the first-day placement test skips it (placement: false); a ח׳ student who learned it in class
 // uses the unit's jump test.
 //
@@ -691,12 +692,212 @@ function drawShape() {
   }
 }
 
+// ================================================================ func:4, uniform and non-uniform rate
+// A rate is the change in y for one unit of x: the change divided by the units it took, from two readings (the start
+// need not be 0). A uniform rate gives a straight graph and equal differences in a table; steeper is faster, higher is
+// not. The models are the critique's func4 (critique/models.mjs: water in a pot, every temperature named or asked at
+// most 95°, the plan's draws went past boiling) and the spec's func4T (a candle), ported unchanged. Errors and their
+// sources:
+//   from-zero         the rate taken as if the start were 0: v / T, t·v / T, or h₀·T / h₁ (Van Dooren et al. 2005, the
+//                     illusion of linearity; the Ministry's own heating item, algebra_8 p. 29)
+//   whole-change      the whole change given for the change in one unit, v − s (the unit rate of ratio:3)
+//   forgot-b          (func:2's) the start left out, r·t
+//   wrong-unknown     the hours left from now, h₁ / r, for the hours from lighting (eq's id: an answer to another
+//                     unknown of the story)
+//   height-for-slope  the higher line taken for the faster one (Bell & Janvier 1981; Clement 1989): a choice in practice
+//                     only
+
+/** Water in a pot does not pass boiling: every temperature the question names or asks is at most 95°. */
+const CAP = 95;
+/** Uniform heating: s° at the start and v° after T minutes. q0 the rate per minute; q1 the value after t minutes. */
+export const FUNC4 = mk({
+  raw: (rnd) => {
+    const s = 5 * rint(rnd, 1, 8); const r = rint(rnd, 2, 12); const T = rint(rnd, 2, 6); const v = s + r * T; const q = rnd() < 0.5 ? 0 : 1;
+    if (v > CAP) return null;
+    let t = 0; if (q === 1) { t = rint(rnd, 1, 9); if (t === T || s + r * t > CAP) return null; }
+    return { s, r, T, v, t, q };
+  },
+  answer: (p) => (p.q === 0 ? p.r : p.s + p.r * p.t),
+  bugs: {
+    // as if it started at 0 (the illusion of linearity)
+    'from-zero': (p) => (p.q === 0 ? p.v / p.T : (p.t * p.v) / p.T),
+    // the whole change, not the change in one minute
+    'whole-change': (p) => (p.q === 0 ? p.v - p.s : null),
+    // the start left out
+    'forgot-b': (p) => (p.q === 1 ? p.r * p.t : null),
+  },
+  textNums: (p) => [p.s, p.T, p.v, ...(p.q === 1 ? [p.t] : [])],
+});
+
+/** func:4 transfer: a candle burns down uniformly, h0 cm and h1 cm after T hours. After how many hours from lighting is it gone? */
+export const FUNC4T = mk({
+  raw: (rnd) => {
+    const r = rint(rnd, 2, 5); const n = rint(rnd, 4, 10); const h0 = r * n; const T = rint(rnd, 1, 3); const h1 = h0 - r * T;
+    if (h1 <= 0 || T >= n) return null; return { r, n, h0, T, h1 };
+  },
+  answer: (p) => p.h0 / p.r,
+  bugs: {
+    // the rate taken as h1 / T, as if the candle had grown from 0
+    'from-zero': (p) => (p.h0 * p.T) / p.h1,
+    // the hours left from now, not from lighting
+    'wrong-unknown': (p) => p.h1 / p.r,
+  },
+  textNums: (p) => [p.h0, p.T, p.h1],
+});
+
+/** A number of minutes or hours in words: one is "דקה אחת" (never "$1$ דקות"). */
+const minutes = (t) => (t === 1 ? 'דקה אחת' : `$${t}$ דקות`);
+const hoursW = (t) => (t === 1 ? 'שעה' : `$${t}$ שעות`);
+
+const POT = (p) => `מים בסיר מתחממים בקצב אחיד: בהתחלה $${p.s}^\\circ$, ואחרי $${p.T}$ דקות $${p.v}^\\circ$.`;
+export const func4Text = (p) => (p.q === 0
+  ? `${POT(p)} בכמה מעלות הם מתחממים בכל דקה?`
+  : `${POT(p)} מה תהיה הטמפרטורה אחרי ${minutes(p.t)}?`);
+export function func4Solution(p) {
+  if (p.q === 0) return [`השינוי: $${p.v} - ${p.s} = ${p.v - p.s}$ מעלות ב־$${p.T}$ דקות.`, `בכל דקה: $${p.v - p.s} : ${p.T} = ${p.r}$`];
+  return [
+    `הקצב: $(${p.v} - ${p.s}) : ${p.T} = ${p.r}$ מעלות בכל דקה.`,
+    `מתחילים מ־$${p.s}^\\circ$ ומוסיפים ${p.t === 1 ? 'דקה אחת' : `$${p.t}$ דקות`} של $${p.r}$: $${p.s} + ${p.t} \\cdot ${p.r} = ${p.s + p.r * p.t}$`,
+  ];
+}
+export const func4Hint = (p) => (p.q === 0
+  ? `בכמה מעלות השתנתה הטמפרטורה? מחלקים את השינוי במספר הדקות. ההתחלה היא $${p.s}^\\circ$, לא $0$.`
+  : `מצאו קודם בכמה מעלות עולה הטמפרטורה בכל דקה. אחר כך מתחילים מ־$${p.s}^\\circ$.`);
+
+export const func4TText = (p) => `נר בגובה $${p.h0}$ ס״מ נשרף בקצב אחיד. אחרי ${hoursW(p.T)} גובהו $${p.h1}$ ס״מ. כעבור כמה שעות מהדלקתו ייגמר?`;
+export function func4TSolution(p) {
+  const burnt = p.h0 - p.h1;
+  return [
+    `בכמה ס״מ הנר התקצר: $${p.h0} - ${p.h1} = ${burnt}$, ב־${hoursW(p.T)}.`,
+    `בכל שעה: $${burnt} : ${p.T} = ${p.r}$ ס״מ.`,
+    `כל הנר, $${p.h0}$ ס״מ, נשרף מההדלקה: $${p.h0} : ${p.r} = ${p.h0 / p.r}$ שעות.`,
+  ];
+}
+export const func4THint = () => 'מצאו קודם כמה ס״מ נשרפים בכל שעה. השאלה היא כמה שעות נשרף כל הנר, מההדלקה.';
+
+// ---------------------------------------------------------------- func:4 generators
+
+/** The pot (the critique's model, its own draw): the rate per minute, or the temperature after t minutes. */
+function heatItem() {
+  const p = FUNC4.params(rnd); const ans = FUNC4.answer(p);
+  return {
+    key: `fu4:${p.s}:${p.r}:${p.T}:${p.t}:${p.q}`, text: func4Text(p),
+    form: 'num', answer: ans, unit: 'מעלות',
+    hint: func4Hint(p), solution: func4Solution(p), diag: diagOf(ans, bugsAt(FUNC4, p)),
+  };
+}
+
+/** The candle (the transfer model's own draw): the hours from lighting until it is gone. */
+function candleItem() {
+  const p = FUNC4T.params(rnd); const ans = FUNC4T.answer(p);
+  return {
+    key: `fu4c:${p.h0}:${p.T}:${p.h1}`, text: func4TText(p),
+    form: 'num', answer: ans, unit: 'שעות',
+    hint: func4THint(), solution: func4TSolution(p), diag: diagOf(ans, bugsAt(FUNC4T, p)),
+  };
+}
+
+/**
+ * Which table has a uniform rate? Four tables at x = 0..3, each from its own start: one with equal differences (the
+ * answer), one whose differences grow, one whose differences shrink, and one with a single difference off. The tables
+ * are read off the screen and the odd one out can be spotted without the idea, so practice only.
+ */
+function uniformMc() {
+  const d = rint(rnd, 2, 6); const e = rint(rnd, 1, 3); const k = rint(rnd, 0, 2);
+  const run = (a, diffs) => diffs.reduce((ys, x) => [...ys, ys[ys.length - 1] + x], [a]);
+  const starts = distinct(4, 1, 12);
+  const tables = [
+    { ys: run(starts[0], [d, d, d]), ok: true, kind: 'u' },
+    { ys: run(starts[1], [d, d + e, d + 2 * e]), ok: false, kind: 'g' },
+    { ys: run(starts[2], [d + 2 * e, d + e, d]), ok: false, kind: 's' },
+    { ys: run(starts[3], [d, d, d].map((x, i) => (i === k ? x + e : x))), ok: false, kind: 'o' },
+  ];
+  const options = shuffle(tables);
+  return {
+    key: `fu4u:${starts[0]}:${d}:${e}:${k}:${options.map((o) => o.kind).join('')}`,
+    text: 'באיזו טבלה הקצב אחיד?',
+    form: 'mc', choices: options.map(({ ys, ok }) => ({ tex: tableTex([0, 1, 2, 3], ys), ok })), answer: options.findIndex((o) => o.ok),
+    practiceOnly: true,
+    hint: 'בכל טבלה $x$ עולה ב־$1$ בכל צעד. חשבו את ההפרשים בין ערכי $y$ שכנים: בקצב אחיד הם שווים.',
+    solution: [
+      `בטבלה שבה $y = ${tables[0].ys.join(', ')}$ הערך עולה ב־$${d}$ בכל צעד: הקצב אחיד.`,
+      'בשאר הטבלאות ההפרשים בין ערכי $y$ שכנים לא שווים, ולכן הקצב שם לא אחיד.',
+    ],
+    diag: () => null,
+  };
+}
+
+/**
+ * Who runs faster? Two runners' distance from the start line by the second: the slow one starts ahead and stays higher,
+ * the fast one starts at 0 and climbs more steeply. The higher line chosen is height-for-slope. Three choices, so practice
+ * only.
+ */
+function fasterMc() {
+  const ra = rint(rnd, 1, 3); const rb = ra + rint(rnd, 2, 3); const a0 = 10 * (rb - ra) + 10 * rint(rnd, 1, 2);
+  const fast = pick(rnd, ['A', 'B']); const slow = fast === 'A' ? 'B' : 'A';
+  const slowPts = [[0, a0], [10, a0 + 10 * ra]]; const fastPts = [[0, 0], [10, 10 * rb]];
+  const series = [
+    { pts: fast === 'A' ? fastPts : slowPts, label: 'A' },
+    { pts: fast === 'B' ? fastPts : slowPts, label: 'B' },
+  ];
+  const options = shuffle([
+    // a choice in words is plain text (no maths): the runner's letter is written as it is in the legend
+    { text: `הרץ ${fast}: הקו שלו תלול יותר`, ok: true },
+    { text: `הרץ ${slow}: הקו שלו גבוה יותר`, ok: false, bug: 'height-for-slope' },
+    { text: 'שניהם רצים באותה מהירות', ok: false },
+  ]);
+  return {
+    key: `fu4f:${ra}:${rb}:${a0}:${fast}`,
+    text: 'הגרף מראה את המרחק של שני רצים מקו הזינוק לפי הזמן. מי רץ מהר יותר?',
+    fig: {
+      type: 'sgraph', x: { max: 10, step: 1, every: 2, label: 'זמן', unit: 'שניות' },
+      y: { max: a0 + 10 * ra + 10, step: 10, label: 'מרחק', unit: 'מטרים' }, series,
+    },
+    form: 'mc', choices: options.map(({ text, ok, bug }) => ({ text, ok, ...(bug ? { bug } : {}) })), answer: options.findIndex((o) => o.ok),
+    practiceOnly: true,
+    hint: 'כמה מטרים עובר כל רץ ב־$10$ השניות? הקו התלול יותר הוא של מי שעובר יותר בכל שנייה.',
+    solution: [
+      `$${fast}$ עובר $${10 * rb}$ מטרים ב־$10$ שניות, כלומר $${rb}$ מטרים בשנייה. $${slow}$ עובר מ־$${a0}$ עד $${a0 + 10 * ra}$, כלומר $${ra}$ מטרים בשנייה.`,
+      `לכן $${fast}$ מהיר יותר: הקו שלו תלול יותר. הגובה אומר רק איפה כל אחד נמצא.`,
+    ],
+    diag: (u) => options[u]?.bug || null,
+  };
+}
+
+/**
+ * Continue a uniform rate on the graph object (values mode): the water's first two minutes are given (fixed), and the
+ * student marks the next four at the same rate. One square up a minute, on an axis of at most 9 heights, never above
+ * 95°. The text names the rate's numbers, so practice only.
+ */
+function continueRate() {
+  for (;;) {
+    const r = pick(rnd, [2, 5, 10]); const x0 = rint(rnd, 1, 4); const below = rint(rnd, 0, 2); const above = rint(rnd, 0, 3 - below);
+    const lo = 10 * rint(rnd, 1, 6); const v0 = lo + below * r; const values = Array.from({ length: 6 }, (_, i) => v0 + i * r);
+    const max = values[5] + above * r;
+    if (values[5] > CAP) continue;
+    return {
+      key: `fu4n:${x0}:${v0}:${r}:${lo}:${max}`,
+      text: `מים בסיר מתחממים בקצב אחיד. בדקה ה־$${x0}$ הם $${v0}^\\circ$, ובדקה ה־$${x0 + 1}$ הם $${v0 + r}^\\circ$. סמנו את הטמפרטורה עד הדקה ה־$${x0 + 5}$.`,
+      form: 'manip', practiceOnly: true,
+      manip: {
+        kind: 'graph', x: { min: x0, max: x0 + 5, step: 1, label: 'זמן', unit: 'דקות' },
+        y: { min: lo, max, step: r, label: 'טמפרטורה', unit: 'מעלות' },
+        start: [v0, v0 + r, v0 + r, v0 + r, v0 + r, v0 + r], fixed: [0, 1],
+      },
+      answer: { mode: 'values', values },
+      hint: `בכל דקה עוד $${r}^\\circ$: כל נקודה משבצת אחת מעל הקודמת.`,
+      solution: [`בכל דקה הטמפרטורה עולה ב־$${v0 + r} - ${v0} = ${r}$ מעלות.`, `לכן בדקות ה־$${x0 + 2}$ עד ה־$${x0 + 5}$: $${values.slice(2).join(', ')}$. הנקודות על קו ישר.`],
+      diag: () => null,
+    };
+  }
+}
+
 // ---------------------------------------------------------------- the topic
 
 export const FUNC = {
   id: 'func', grade: '8', title: 'מבוא לפונקציות', color: 'fuchsia',
-  // what the unit teaches today; its later stairs add their own words here as they land
-  desc: 'קריאת גרף של מצב, פונקציה וייצוגיה, ועלייה, ירידה וקבוע',
+  // what the unit teaches: its four stairs
+  desc: 'קריאת גרף של מצב, פונקציה וייצוגיה, עלייה וירידה, וקצב אחיד ולא אחיד',
   // taught in November of ח׳: the first-day placement test does not ask about it (the jump test does)
   placement: false,
   levels: [
@@ -705,6 +906,8 @@ export const FUNC = {
     { title: 'פונקציה וייצוגיה', gen: () => { const r = Math.random(); return r < 0.45 ? priceItem() : r < 0.6 ? fahrenheitItem() : r < 0.75 ? tableItem() : r < 0.9 ? isFunctionMc() : drawTable(); } },
     // the spec's mix: a graph 50%, a table of temperatures 20%, which way between two x's 15%, a shape drawn 15%
     { title: 'עלייה, ירידה וקבוע', gen: () => { const r = Math.random(); return r < 0.5 ? intervalItem() : r < 0.7 ? tableHoursItem() : r < 0.85 ? whichMc() : drawShape(); } },
+    // the spec's mix: the pot 45%, the candle 25%, which table is uniform 15%, who is faster 10%, a rate continued 5%
+    { title: 'קצב אחיד ולא אחיד', gen: () => { const r = Math.random(); return r < 0.45 ? heatItem() : r < 0.7 ? candleItem() : r < 0.85 ? uniformMc() : r < 0.95 ? fasterMc() : continueRate(); } },
   ],
   cats: {
     'count-squares': 'ספרו משבצות ולא כפלו בגודל של כל משבצת',
@@ -717,6 +920,10 @@ export const FUNC = {
     'const-not-function': 'חשבו שקבוע אינו פונקציה',
     'rtl-read': 'ענו את אורך התחום השני (יורד במקום עולה, או להפך), כמו מי שקורא את הגרף מימין לשמאל',
     'y-not-x': 'ענו בערך של $y$ (השינוי או הגובה), אבל התחום נמדד על ציר $x$',
+    'from-zero': 'חישבו את הקצב כאילו ההתחלה הייתה $0$',
+    'whole-change': 'ענו את כל השינוי, ולא את השינוי ליחידה אחת',
+    'wrong-unknown': 'ענו כמה זמן נשאר מעכשיו, ולא מתי זה נגמר מההתחלה',
+    'height-for-slope': 'בחרו לפי הגובה של הקו ולא לפי התלילות שלו',
   },
   lesson: {
     // one point per stair, each landing with its stair
@@ -725,7 +932,9 @@ export const FUNC = {
       'קו שטוח בגרף אומר שהערך לא השתנה, לא שהדרך שטוחה.',
       'פונקציה נותנת לכל $x$ ערך אחד בלבד של $y$: $y = 7x + 2$ נותן ל־$x = 5$ את $37$.',
       'עולה, יורדת או קבועה: קוראים משמאל לימין, כש־$x$ גדל. התחום הוא קטע על ציר $x$.',
+      'קצב השינוי הוא השינוי ב־$y$ לכל יחידה של $x$: מ־$8^\\circ$ ל־$58^\\circ$ ב־$5$ דקות זה $10^\\circ$ בדקה.',
+      'קצב אחיד נותן גרף ישר; גרף תלול יותר משתנה מהר יותר, גם אם הוא נמוך יותר.',
     ],
-    words: ['גרף של מצב', 'ציר', 'משבצת', 'נקודה על גרף', 'קנה מידה של ציר', 'משך זמן', 'פונקציה', 'ערך הפונקציה', 'משתנה בלתי תלוי', 'ייצוג', 'טבלת ערכים', 'פונקציה קבועה', 'עולה', 'יורדת', 'קבועה', 'תחום', 'שיא', 'משמאל לימין'],
+    words: ['גרף של מצב', 'ציר', 'משבצת', 'נקודה על גרף', 'קנה מידה של ציר', 'משך זמן', 'פונקציה', 'ערך הפונקציה', 'משתנה בלתי תלוי', 'ייצוג', 'טבלת ערכים', 'פונקציה קבועה', 'עולה', 'יורדת', 'קבועה', 'תחום', 'שיא', 'משמאל לימין', 'קצב שינוי', 'קצב אחיד', 'קצב לא אחיד', 'תלול', 'ליחידה אחת'],
   },
 };

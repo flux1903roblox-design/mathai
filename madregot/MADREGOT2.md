@@ -208,6 +208,7 @@ the row to paste when one differs.
 | func:1 | קריאת גרף של מצב | 8 (graph) | 3 | 2 | 4 (graph-picture, count-squares, end-for-duration, value-not-change) | yes | complete, tested |
 | func:2 | פונקציה וייצוגיה | 8 (graph) | 3 | 2 | 4 (forgot-b, forward, order-ops, const-not-function) | yes | complete, tested |
 | func:3 | עלייה, ירידה וקבוע | 8 (graph) | 2 | 2 | 3 (rtl-read, y-not-x, graph-picture) | yes | complete, tested |
+| func:4 | קצב אחיד ולא אחיד | 8 (graph) | 2 | 2 | 5 (from-zero, whole-change, height-for-slope, forgot-b, wrong-unknown) | yes | complete, tested |
 | line:1 | טבלת ערכים | 10 (plot) | 2 | 2 | 4 (forgot-b, neg-sub, added-m, proportional) | yes | complete, tested |
 | line:2 | מה אומרים m ו־b | 10 (line) | 2 | 2 | 6 (m-b, sign, hidden-one, b-first, rise-only, sign-from-b) | yes | complete, tested |
 | line:3 | שיפוע מהגרף: מדרגות | 10 (plot) | 2 | 2 | 3 (inverse, sign, rise-only) | yes | complete, tested |

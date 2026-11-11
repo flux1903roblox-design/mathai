@@ -59,6 +59,23 @@ describe('stage 1\'s coverage, live', () => {
   });
 });
 
+// Stage 5 (stage5.md FUNC-8 Design 3): the functions unit is whole. 8.7 lists func:1-3 (November, 8 hours); func:4 is
+// a 0-hour part of 8.8, the schedule's December row "קצב שינוי אחיד/לא אחיד", whose hours are line's.
+describe('stage 5\'s functions unit, live', () => {
+  it('8.7 and 8.8 are taught whole, with no missing part', () => {
+    const c8 = coverageOf('8');
+    expect(c8.units.find((u) => u.id === '8.7')).toMatchObject({ hours: 8, taught: 8, state: 'yes', missing: [], stairs: ['func:1', 'func:2', 'func:3'] });
+    const u88 = c8.units.find((u) => u.id === '8.8')!;
+    expect(u88).toMatchObject({ hours: 8, taught: 8, state: 'yes', missing: [] });
+    expect(u88.stairs).toContain('func:4');
+    expect(u88.parts.find((p) => p.skills.includes('func:4'))).toMatchObject({ hours: 0, taught: true, note: 'קצב שינוי אחיד ולא אחיד' });
+  });
+  it('places each func stair in its school month: func:1 in ז׳ May and ח׳ November, func:2-4 in ח׳ November', () => {
+    expect([monthIndex('func:1', '7'), monthIndex('func:1', '8')]).toEqual([8, 2]);
+    for (const s of ['func:2', 'func:3', 'func:4']) expect(monthIndex(s, '8'), s).toBe(2);
+  });
+});
+
 describe('coverage, bound to the stairs this build has', () => {
   it('counts every hour of both schedules, and only taught hours as taught', () => {
     const c7 = coverageOf('7'); const c8 = coverageOf('8');

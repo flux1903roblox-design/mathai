@@ -443,6 +443,15 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
   });
 
+  it('200 graphs of func:4\'s two runners agree with themselves and render', () => {
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 20000; i += 1) { const it = makeItem('func', 4); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    expect(figs.length).toBe(200);
+    const bad = figs.flatMap(({ where, f }) => selfProblems('func:4', f).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
   it('lets right figures through', () => {
     expect(both('signed:1', say('מתחילים ב־$-2$ וזזים $5$ ימינה.', { type: 'numline', from: -6, to: 6, marks: [{ x: 0, label: '0' }], jumps: [{ from: -2, to: 3, label: '+5' }], anim: true }))).toEqual([]);
     expect(both('signed:1', say('הנקודה $A(-3)$ על הציר.', { type: 'numline', from: -6, to: 6, marks: [{ x: -3, label: 'A' }] }))).toEqual([]);

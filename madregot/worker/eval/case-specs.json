@@ -273,6 +273,34 @@
       "tags": ["func"]
     },
     {
+      "id": "D1-func4-from-zero", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "diag", "params": { "s": 8, "r": 10, "T": 5, "v": 58, "t": 0, "q": 0 }, "wrong": [11.6, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "from-zero", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the rate was worked out as if the water started at 0 degrees. It started at 8 and was 58 after 5 minutes, so it changed by 58 - 8 = 50 degrees in 5 minutes, 50 : 5 = 10 degrees a minute; 58 : 5 = 11.6 is the rate from 0. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-whole-change", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "diag", "params": { "s": 20, "r": 10, "T": 4, "v": 60, "t": 0, "q": 0 }, "wrong": [40, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "whole-change", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole change was given, not the change in one minute. From 20 degrees to 60 is 40 degrees in 4 minutes; the question asks for one minute, so 40 : 4 = 10. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-wrong-unknown", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "transfer", "params": { "r": 3, "n": 8, "h0": 24, "T": 3, "h1": 15 }, "wrong": [5, 6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-unknown", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the hours left from now were given, not the hours from lighting. The candle burnt 24 - 15 = 9 cm in 3 hours, 3 cm an hour; the 15 cm left last 5 more hours, but the question counts from lighting, so the whole 24 cm take 24 : 3 = 8 hours. Ends at 8. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-height-for-slope", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "gen", "key": "fu4f:2:5:40:B", "wrong": [2, 1], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "height-for-slope", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the higher line was taken for the faster runner. A starts 40 metres ahead, so his line is higher all the way, but he covers only 20 metres in 10 seconds, 2 metres a second; B covers 50 metres, 5 a second, and his line is steeper. Ends at the choice that B is faster. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

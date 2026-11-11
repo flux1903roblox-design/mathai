@@ -1,7 +1,8 @@
 // Introduction to functions (מבוא לפונקציות): unit 8.7 of grade 8 (ח׳), November in the Ministry's תשפ״ז schedule, in
-// the order of the Ministry's updated ח׳ algebra curriculum (stage5.md FUNC-2). This file holds the stairs built so far:
-// func:1, reading a graph of a situation (also ז׳ 7.9's "קריאת גרף שמתאר מצב"), func:2, the function and its
-// representations, and func:3, increasing, decreasing and constant (with func:3 the November unit 8.7 is whole).
+// the order of the Ministry's updated ח׳ algebra curriculum (stage5.md FUNC-2). Its four stairs: func:1, reading a graph
+// of a situation (also ז׳ 7.9's "קריאת גרף שמתאר מצב"), func:2, the function and its representations, func:3, increasing,
+// decreasing and constant (with func:3 the November unit 8.7 is whole), and func:4, uniform and non-uniform rate (the
+// schedule's December row, filed with slope in 8.8).
 //
 // One picture carries the stair: a graph of a situation is a story told point by point. Each point is a pair, a moment
 // (x) and what was true then (y); it is read both ways, by the scale of each axis; a flat part means the value did not
@@ -514,7 +515,188 @@ const stair3: StairContent = {
   ],
 };
 
-export const FUNC: StairContent[] = [stair1, stair2, stair3];
+// ================================================================ stair 4: uniform and non-uniform rate
+// One idea carries the stair: a rate is how much y changes for one unit of x, the change divided by the units it took,
+// from two readings; the start need not be 0 (the Ministry's own heating item: 8° and 58° after 5 minutes is 10° a
+// minute, not 58 : 5). A uniform rate gives a straight graph and equal differences; a vase that narrows upward fills
+// faster at the top, a curve. Steeper is faster; higher only says where it is (Bell & Janvier 1981; Clement 1989).
+
+type P4 = { s: number; r: number; T: number; v: number; t: number; q: number };
+const func4: DiagModel<P4> = {
+  params: (rnd) => G.FUNC4.params(rnd),
+  text: (p) => G.func4Text(p),
+  answer: (p) => G.FUNC4.answer(p),
+  bugs: G.FUNC4.bugs,
+  solution: (p) => G.func4Solution(p),
+  hint: (p) => G.func4Hint(p),
+  unit: 'מעלות',
+};
+type P4T = { r: number; n: number; h0: number; T: number; h1: number };
+const func4T: DiagModel<P4T> = {
+  params: (rnd) => G.FUNC4T.params(rnd),
+  text: (p) => G.func4TText(p),
+  answer: (p) => G.FUNC4T.answer(p),
+  bugs: G.FUNC4T.bugs,
+  solution: (p) => G.func4TSolution(p),
+  hint: () => G.func4THint(),
+  unit: 'שעות',
+};
+
+/** Minutes 0 to 6: the line ends at minute 5, and the rise's number has room to its right on a 320px phone. */
+const MIN6: GraphAxis = { max: 6, step: 1, label: 'זמן', unit: 'דקות' };
+/** 8° to 58° in 5 minutes: a line every 2°, a number every 10° (so both readings sit on grid lines, and 0 is drawn). */
+const DEG60: GraphAxis = { max: 60, step: 2, every: 5, label: 'טמפרטורה', unit: 'מעלות' };
+const heat = (extra: Record<string, unknown> = {}) => sgraph(MIN6, DEG60, [[0, 8], [5, 58]], extra);
+/** Water poured into a vase that narrows upward, the same amount each second: its height, h = t² / 8 (a curve). */
+const VASE: Pt[] = [[0, 0], [4, 2], [8, 8], [12, 18]];
+const SEC12: GraphAxis = { max: 12, step: 2, label: 'זמן', unit: 'שניות' };
+const CM20: GraphAxis = { max: 20, step: 2, label: 'גובה המים', unit: 'ס״מ' };
+const vase: FigSpec = { type: 'sgraph', x: SEC12, y: CM20, series: [{ pts: VASE, smooth: true }] };
+/** The same rise in the same time, uniform (straight) and not (the vase's curve). */
+const twoRates: FigSpec = { type: 'sgraph', x: SEC12, y: CM20, series: [{ pts: [[0, 0], [12, 18]], label: 'קצב אחיד' }, { pts: VASE, smooth: true, label: 'קצב לא אחיד' }] };
+/** Two runners: A starts 40 m ahead and runs 2 m a second, B starts at 0 and runs 5 m a second. */
+const runners: FigSpec = {
+  type: 'sgraph', x: { max: 10, step: 1, every: 2, label: 'זמן', unit: 'שניות' }, y: { max: 60, step: 10, label: 'מרחק', unit: 'מטרים' },
+  series: [{ pts: [[0, 40], [10, 60]], label: 'A' }, { pts: [[0, 0], [10, 50]], label: 'B' }],
+};
+
+/** 8° to 58° in 5 minutes: how many degrees a minute (discover step 2, and the from-zero remedy). */
+const rateStep = {
+  kind: 'predict' as const, text: 'נוזל מתחמם בקצב אחיד מ־$8^\\circ$ ל־$58^\\circ$ ב־$5$ דקות. בכמה מעלות בכל דקה?', fig: heat(),
+  choices: ['$10$', '$11.6$', '$50$'], answer: 0,
+  why: '$58 - 8 = 50$ מעלות ב־$5$ דקות: $50 : 5 = 10$. מתחילים מ־$8^\\circ$, לא מ־$0$.',
+  wrongWhy: { 1: '$58 : 5$ הוא כאילו התחילו מ־$0^\\circ$.', 2: '$50$ הוא השינוי בכל $5$ הדקות, לא בדקה אחת.' },
+};
+/** The rate is the change in y over the change in x (discover step 3, and the whole-change remedy). */
+const rateRule = {
+  kind: 'rule' as const, text: 'קצב השינוי הוא השינוי ב־$y$ חלקי השינוי ב־$x$.', display: '\\frac{58 - 8}{5 - 0} = 10',
+  why: '"בכל דקה" הוא השינוי ליחידה אחת של $x$.', fig: heat({ riseRun: { from: 0, to: 5 } }),
+};
+/** A pot from 20° to 60° in 4 minutes (the from-zero and whole-change remedies). */
+const potStep = {
+  kind: 'predict' as const, text: 'מים בסיר מתחממים בקצב אחיד: בהתחלה $20^\\circ$, ואחרי $4$ דקות $60^\\circ$. בכמה מעלות בכל דקה?',
+  choices: ['$10$', '$15$', '$40$'], answer: 0,
+  why: '$60 - 20 = 40$ מעלות ב־$4$ דקות: $40 : 4 = 10$ מעלות בכל דקה.',
+  wrongWhy: { 1: '$60 : 4 = 15$ הוא כאילו המים התחילו מ־$0^\\circ$. הם התחילו מ־$20^\\circ$.', 2: '$40$ מעלות הם כל השינוי, ב־$4$ דקות. בדקה אחת: רבע מזה.' },
+};
+/** Who runs faster: the steeper line, not the higher one (discover step 7, and the height-for-slope remedy). */
+const runnersStep = {
+  kind: 'predict' as const, text: 'הגרף מראה את המרחק של שני רצים מקו הזינוק לפי הזמן. מי רץ מהר יותר?', fig: runners,
+  choices: ['$B$: הקו שלו תלול יותר', '$A$: הקו שלו גבוה יותר'], answer: 0,
+  why: '$A$ עובר $2$ מטרים בשנייה, $B$ עובר $5$. הגובה אומר איפה כל אחד נמצא, התלילות אומרת כמה מהר.',
+  wrongWhy: { 1: '$A$ גבוה כי הוא התחיל $40$ מטרים לפני קו הזינוק של $B$. ב־$10$ שניות הוא עובר רק $20$ מטרים, ו־$B$ עובר $50$.' },
+};
+/** The start is added once (the forgot-b remedy, example 1 as a question). */
+const startStep = {
+  kind: 'predict' as const, text: 'נוזל מתחיל מ־$8^\\circ$ ומתחמם $10^\\circ$ בכל דקה. מה הטמפרטורה אחרי $3$ דקות?', fig: heat(),
+  choices: ['$38$', '$30$'], answer: 0,
+  why: 'מתחילים מ־$8^\\circ$ ומוסיפים $3$ דקות של $10^\\circ$: $8 + 3 \\cdot 10 = 38$.',
+  wrongWhy: { 1: '$30$ הוא רק מה שנוסף ב־$3$ דקות. הנוזל לא התחיל מ־$0^\\circ$, אלא מ־$8^\\circ$.' },
+};
+/** A candle: the hours from lighting, not the hours left (the wrong-unknown remedy). */
+const candleStep = {
+  kind: 'predict' as const, text: 'נר בגובה $30$ ס״מ נשרף בקצב אחיד. אחרי $2$ שעות גובהו $24$ ס״מ. כעבור כמה שעות מהדלקתו ייגמר?',
+  choices: ['$10$', '$8$', '$2.5$'], answer: 0,
+  why: 'בשעתיים נשרפו $30 - 24 = 6$ ס״מ, כלומר $3$ ס״מ בשעה. כל הנר, $30$ ס״מ, נשרף ב־$30 : 3 = 10$ שעות מההדלקה.',
+  wrongWhy: { 1: '$24 : 3 = 8$ הן השעות שנשארו מעכשיו. השאלה היא כמה שעות מההדלקה, ולכן מוסיפים את השעתיים שכבר עברו.', 2: '$2.5$ יוצא כשמחשבים את הקצב כאילו הנר גדל מ־$0$ ל־$24$ בשעתיים.' },
+};
+
+const stair4: StairContent = {
+  skill: 'func:4', topic: 'func', level: 4, title: 'קצב אחיד ולא אחיד',
+  objectives: [
+    'לחשב קצב שינוי: השינוי ב־$y$ חלקי השינוי ב־$x$, גם כשההתחלה אינה $0$.',
+    'לזהות קצב אחיד (גרף ישר, הפרשים שווים בטבלה) וקצב לא אחיד.',
+    'להשוות קצבים לפי התלילות, לא לפי הגובה.',
+  ],
+  idea: 'קצב השינוי הוא כמה $y$ משתנה בכל יחידה של $x$. קצב אחיד: אותו שינוי בכל יחידה, והגרף ישר.',
+  why: [
+    '$8^\\circ$ בהתחלה ו־$58^\\circ$ אחרי $5$ דקות: השינוי $50^\\circ$, ב־$5$ דקות, כלומר $10^\\circ$ בדקה.',
+    'גרף תלול משתנה מהר; גבוה רק אומר שהערך גדול.',
+  ],
+  alt: ['ברז שממלא בריכה: בקצב אחיד, בכל שעה אותה כמות. בקצב לא אחיד, פעם יותר ופעם פחות.'],
+  discover: [
+    { kind: 'say', text: 'בכל דקה הטמפרטורה עולה באותו מספר מעלות, $10$. זה קצב אחיד.',
+      fig: { type: 'table', head: ['דקות', 'מעלות'], rows: [[0, 8], [1, 18], [2, 28], [3, 38], [4, 48], [5, 58]], anim: true } },
+    rateStep,
+    rateRule,
+    // the minutes 4 to 9 on lines 10° apart through the liquid's own values (38 … 98), so each minute is one square up
+    { kind: 'explore', text: 'הנוזל ממשיך להתחמם באותו קצב. סמנו את הטמפרטורה בדקות $6$ עד $9$.',
+      manip: { kind: 'graph', x: { min: 4, max: 9, step: 1, label: 'זמן', unit: 'דקות' }, y: { min: 38, max: 98, step: 10, label: 'טמפרטורה', unit: 'מעלות' }, start: [48, 58, 58, 58, 58, 58], fixed: [0, 1] } as ManipSpec,
+      answer: { mode: 'values', values: [48, 58, 68, 78, 88, 98] },
+      hint: 'בכל דקה עוד $10^\\circ$.', success: 'קצב אחיד: הנקודות על קו ישר.' },
+    { kind: 'predict', text: 'מים זורמים לאגרטל, אותה כמות בכל שנייה. האגרטל רחב למטה וצר למעלה. מה קורה לגובה המים?', fig: vase,
+      choices: ['עולה לאט בהתחלה ומהר יותר בסוף', 'עולה באותו קצב כל הזמן', 'עולה מהר בהתחלה ולאט בסוף'], answer: 0,
+      why: 'למטה אותה כמות מים מתפזרת על שטח רחב; למעלה היא מגביהה יותר. הקצב לא אחיד, והגרף מתעקל.',
+      wrongWhy: { 1: 'באותו קצב היה קורה באגרטל ישר, כמו גליל. כאן הוא צר למעלה, ושם אותה כמות מים מגביהה יותר.', 2: 'מהר בהתחלה היה קורה באגרטל צר למטה. כאן הוא רחב למטה, ושם המים מתפזרים.' } },
+    { kind: 'rule', text: 'קצב אחיד: גרף ישר, ובטבלה עם צעדים שווים ב־$x$ ההפרשים ב־$y$ שווים. קצב לא אחיד: הגרף מתעקל או נשבר.', fig: twoRates,
+      why: 'בקצב אחיד כל צעד ימינה מוסיף אותו גובה, ולכן הנקודות על קו ישר. שני הגרפים מגיעים לאותו גובה, אבל רק אחד מהם בצעדים שווים.' },
+    runnersStep,
+    { kind: 'predict', text: 'האם הקצב אחיד?', fig: { type: 'table', head: ['x', 'y'], rows: [[0, 0], [1, 1], [2, 4], [3, 9]] },
+      choices: ['לא: ההפרשים $1, 3, 5$ שונים', 'כן: $y$ עולה כל הזמן'], answer: 0,
+      why: 'עולה עוד לא אומר אחיד: אחיד הוא אותו הפרש בכל צעד.',
+      wrongWhy: { 1: '$y$ אכן עולה, אבל פעם ב־$1$, פעם ב־$3$ ופעם ב־$5$. בקצב אחיד כל צעד מוסיף אותו מספר.' } },
+  ],
+  examples: [
+    { problem: 'נוזל מתחמם בקצב אחיד: בהתחלה $8^\\circ$, ואחרי $5$ דקות $58^\\circ$. מה הטמפרטורה אחרי $3$ דקות?', fig: heat(), answer: 38, check: '8 + 3*(58-8)/5',
+      steps: [
+        { action: 'מוצאים את הקצב.', why: 'השינוי, $58 - 8 = 50$ מעלות, חלקי $5$ הדקות שלקח.', result: '\\frac{58 - 8}{5} = 10', calc: { expr: '(58-8)/5', value: 10 } },
+        { action: 'מתחילים מ־$8$ ומוסיפים $3$ דקות של $10$.', why: 'ההתחלה היא $8^\\circ$, לא $0$: מוסיפים לה את מה שנוסף ב־$3$ דקות.', result: '8 + 3 \\cdot 10 = 38', value: '8 + 3*10' },
+      ] },
+    { problem: 'נר בגובה $24$ ס״מ נשרף בקצב אחיד. אחרי $3$ שעות גובהו $15$ ס״מ. כעבור כמה שעות מהדלקתו ייגמר?', answer: 8, check: '24/((24-15)/3)',
+      steps: [
+        { action: 'כמה נשרף.', why: 'בשלוש שעות הנר התקצר מ־$24$ ל־$15$ ס״מ.', result: '24 - 15 = 9', calc: { expr: '24-15', value: 9 } },
+        { action: 'בכל שעה.', why: 'הקצב אחיד: $9$ ס״מ ב־$3$ שעות.', result: '9 : 3 = 3', calc: { expr: '9/3', value: 3 } },
+        { action: 'כל הנר.', why: 'השאלה היא מתי ייגמר מההדלקה, ולכן מחלקים את כל הגובה, $24$, ולא רק את מה שנשאר.', result: '24 : 3 = 8', value: '24/3' },
+      ] },
+  ],
+  together: [
+    { problem: 'בריכה מתמלאת בקצב אחיד: בשעה $8{:}00$ היו בה $40$ מ״ק, ובשעה $11{:}00$ היו $130$ מ״ק. כמה מ״ק נכנסו בכל שעה?',
+      steps: [
+        { prompt: 'מה השתנה?', choices: [
+          { text: '$130 - 40 = 90$ מ״ק בשלוש שעות', ok: true, feedback: 'נכון: מ־$40$ ל־$130$, בשלוש שעות.' },
+          { text: '$130$ מ״ק בשלוש שעות', ok: false, feedback: 'הבריכה לא הייתה ריקה בשמונה: היו בה $40$.' },
+          { text: '$90$ מ״ק בשעה', ok: false, feedback: '$90$ נכנסו בשלוש שעות. בשעה אחת: שליש.' },
+        ], hints: ['כמה היו בשמונה, וכמה באחת־עשרה?', 'השינוי הוא ההפרש: $130 - 40$, ומשמונה עד אחת־עשרה עברו שלוש שעות.'], done: 'נכנסו $90$ מ״ק בשלוש שעות.' },
+      ],
+      final: { prompt: 'כמה מ״ק בכל שעה?', answer: 30, check: '(130-40)/3', hints: ['מחלקים את השינוי במספר השעות.', '$90$ מ״ק בשלוש שעות: $90 : 3$.'] } },
+    { problem: 'כמה מ״ק יהיו בבריכה בשעה $13{:}00$?',
+      steps: [
+        { prompt: 'מאיפה ממשיכים?', choices: [
+          { text: 'מ־$130$ מ״ק בשעה $11{:}00$, ועוד שעתיים של $30$', ok: true, feedback: 'נכון: בשעה $11{:}00$ היו $130$ מ״ק, ובכל שעה נכנסים עוד $30$.' },
+          { text: 'מ־$0$: חמש שעות של $30$', ok: false, feedback: 'הבריכה לא התחילה ריקה: בשמונה היו בה $40$ מ״ק. חמש שעות של $30$ הן רק מה שנכנס.' },
+          { text: 'פעמיים $130$', ok: false, feedback: 'בשעתיים נכנסים עוד $2 \\cdot 30$ מ״ק, לא עוד $130$.' },
+        ], hints: ['כמה היו בשעה $11{:}00$, וכמה שעות עוברות עד $13{:}00$?', 'בשעה $11{:}00$ היו $130$ מ״ק, ועד $13{:}00$ עוברות שעתיים של $30$ מ״ק.'], done: 'ממשיכים מ־$130$ מ״ק, ועוד שעתיים.' },
+      ],
+      final: { prompt: 'כמה מ״ק?', answer: 190, check: '130 + 2*30', hints: ['בשעתיים נכנסים $2 \\cdot 30$ מ״ק.', '$130 + 60$.'] } },
+  ],
+  diag: func4,
+  transfer: func4T,
+  words: ['קצב שינוי', 'קצב אחיד', 'קצב לא אחיד', 'תלול', 'ליחידה אחת'],
+  misconceptions: [
+    { id: 'from-zero', title: 'חישבו את הקצב כאילו ההתחלה הייתה $0$',
+      cause: 'מניחים בלי לשים לב שההתחלה היא $0$.',
+      explain: ['קצב הוא השינוי חלקי הזמן. השינוי הוא ההפרש בין הסוף להתחלה, לא הערך בסוף.', 'מ־$8^\\circ$ ל־$58^\\circ$ ב־$5$ דקות: השינוי $50$, והקצב $10$ בדקה. $58 : 5 = 11.6$ מתאים רק אם התחילו מ־$0$.'],
+      remedy: [rateStep, potStep] },
+    { id: 'whole-change', title: 'ענו את כל השינוי, ולא את השינוי ליחידה אחת',
+      cause: 'השינוי כולו בולט, ושוכחים לחלק ביחידות.',
+      explain: ['"בכל דקה" שואל על דקה אחת. את כל השינוי מחלקים במספר הדקות שלקח.', '$50^\\circ$ ב־$5$ דקות הם $10^\\circ$ בכל דקה.'],
+      remedy: [rateRule, potStep] },
+    { id: 'height-for-slope', title: 'בחרו לפי הגובה של הקו ולא לפי התלילות שלו',
+      cause: 'הקו הגבוה בולט בציור, ונראה כאילו הוא מקדים.',
+      explain: ['הגובה של הקו אומר איפה כל אחד נמצא. כמה מהר הוא זז רואים בתלילות: כמה הקו עולה בכל צעד ימינה.', 'מי שהתחיל $40$ מטרים לפני האחר יכול להיות גבוה בגרף כל הזמן, ועדיין לרוץ לאט יותר.'],
+      remedy: [runnersStep] },
+    { id: 'forgot-b', title: 'שכחו את החלק הקבוע (דמי פתיחה, עמלה, ערך ההתחלה)',
+      cause: 'מחשבים רק את מה שנוסף, ושוכחים מאיפה התחילו.',
+      explain: ['הטמפרטורה אחרי כמה דקות היא ההתחלה ועוד מה שנוסף: $8 + 3 \\cdot 10 = 38$.', '$3 \\cdot 10 = 30$ הוא רק מה שנוסף ב־$3$ דקות.'],
+      remedy: [startStep] },
+    { id: 'wrong-unknown', title: 'ענו כמה זמן נשאר מעכשיו, ולא מתי זה נגמר מההתחלה',
+      cause: 'מחשבים את מה שנשאר, ושוכחים את הזמן שכבר עבר.',
+      explain: ['"כעבור כמה שעות מהדלקתו" סופר מההדלקה, לא מעכשיו.', 'אם $15$ ס״מ נשרפים בעוד $5$ שעות, וכבר עברו $3$, הנר ייגמר $8$ שעות אחרי שהדליקו אותו.'],
+      remedy: [candleStep] },
+  ],
+};
+
+export const FUNC: StairContent[] = [stair1, stair2, stair3, stair4];
 /** Names of misconceptions new to this topic: none beyond the topic's own (content/func.js names them all). */
 export const CATS_FUNC: Record<string, string> = {};
-export { func1, func1T, func2, func2T, func3, func3T };
+export { func1, func1T, func2, func2T, func3, func3T, func4, func4T };

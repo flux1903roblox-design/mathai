@@ -46,6 +46,9 @@ const CASES = [
   // increasing, decreasing and constant: an interval's length read off a graph, and the hours a table rose or fell
   ['how long a graph rises, falls or stays', 'func/3', '8', (x) => x.form === 'num' && x.fig?.type === 'sgraph'],
   ['how many hours a table rose or fell', 'func/3', '8', (x) => x.form === 'num' && x.fig?.type === 'table'],
+  // uniform and non-uniform rate: a pot's rate from two readings, and who runs faster on a graph of two named lines
+  ['a rate from two readings', 'func/4', '8', (x) => x.form === 'num' && x.key.startsWith('fu4:')],
+  ['who is faster: two named lines on a graph', 'func/4', '8', (x) => x.form === 'mc' && x.fig?.type === 'sgraph'],
 ];
 
 for (const [what, route, grade, want = () => true] of CASES) {

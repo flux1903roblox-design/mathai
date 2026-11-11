@@ -419,6 +419,8 @@ const PROPS = {
       if (p === 'fu2') { const [m, b, x, q] = n; return fits(u, q === 0 ? m * x : (m * x + b) / m); }
       if (p === 'fu2c') { const [C, q] = n; return fits(u, q === 0 ? 1.8 * C : (1.8 * C + 32) / 1.8); }
       if (p === 'fu2t') { const [m, , k] = n; return fits(u, m * k); }
+      // func:4's pot after t minutes: the start left out, r·t
+      if (p === 'fu4') { const [, r, , t, q] = n; return q === 1 && fits(u, r * t); }
       return false;
     },
     // the value of the function put in for x: m·y + b, or 1.8F + 32
@@ -452,6 +454,25 @@ const PROPS = {
     'const-not-function': (it, u) => {
       const tex = it.choices[u]?.tex || ''; const ys = (tex.split('\\hline y &')[1] || '').split('&').map((v) => Number(v.replace(/\\end\{array\}/, '').trim()));
       return it.key.startsWith('fu2i:') && ys.length === 4 && ys.every((v) => Number.isFinite(v) && v === ys[0]);
+    },
+    // func:4, from s, r, T, t and q of fu4 (s° at the start, r° a minute, so v = s + r·T after T minutes; q asks the rate,
+    // or the value after t minutes), h0, T and h1 of fu4c (a candle, h0 cm and h1 cm after T hours), and the slow runner
+    // of fu4f (who is faster: the one who starts ahead is the slower)
+    // the rate as if it started at 0: v / T, or t·v / T; the candle's h0·T / h1
+    'from-zero': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu4') { const [s, r, T, t, q] = n; const v = s + r * T; return fits(u, q === 0 ? v / T : (t * v) / T); }
+      if (p === 'fu4c') { const [h0, T, h1] = n; return fits(u, (h0 * T) / h1); }
+      return false;
+    },
+    // the whole change, not the change in one minute: v − s
+    'whole-change': (it, u) => { const [, r, T, , q] = nums(it.key); return it.key.startsWith('fu4:') && q === 0 && fits(u, r * T); },
+    // the candle's hours left from now, not from lighting: h1 / r, with r = (h0 − h1) / T
+    'wrong-unknown': (it, u) => { const [h0, T, h1] = nums(it.key); return it.key.startsWith('fu4c:') && fits(u, h1 / ((h0 - h1) / T)); },
+    // the higher line chosen for the faster runner: the choice names the slow runner, who starts ahead
+    'height-for-slope': (it, u) => {
+      const [p, , , , fast] = it.key.split(':'); const slow = fast === 'A' ? 'B' : 'A';
+      return p === 'fu4f' && (it.choices[u]?.text || '').startsWith(`הרץ ${slow}:`);
     },
   },
   expr: {

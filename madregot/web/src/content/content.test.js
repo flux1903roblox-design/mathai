@@ -908,6 +908,68 @@ describe('functions: every answer from the graph and the text', () => {
     expect(kinds3.fu3 / 1500).toBeGreaterThan(0.42);
   });
 
+  it('func:4: the pot, the candle, which table is uniform, who is faster, and a rate continued', () => {
+    const kinds4 = {};
+    /** The minutes or hours a text names after "אחרי": "דקה אחת" and "שעה" are one. */
+    const after = (text, unit) => [...text.matchAll(unit === 'min' ? /אחרי (?:\$(\d+)\$ דקות|דקה אחת)/g : /אחרי (?:\$(\d+)\$ שעות|שעה)/g)].map((m) => Number(m[1] || 1));
+    for (let i = 0; i < 1500; i += 1) {
+      const it = makeItem('func', 4);
+      const kind = it.key.split(':')[0]; kinds4[kind] = (kinds4[kind] || 0) + 1;
+      if (kind === 'fu4') {
+        // s° at the start, v° after T minutes, in the text's own words; every temperature at most 95° (a pot of water)
+        const [s, v] = [...it.text.matchAll(/\$(\d+)\^\\circ\$/g)].map((m) => Number(m[1])); const [T, t] = after(it.text, 'min');
+        const rate = (v - s) / T;
+        expect(Number.isInteger(rate) && rate > 0, it.key).toBe(true);
+        if (/בכל דקה\?$/.test(it.text)) expect(it.answer, it.key).toBe(rate);
+        else { expect(it.text, it.key).toMatch(/מה תהיה הטמפרטורה אחרי/); expect(it.answer, it.key).toBe(s + rate * t); }
+        expect(Math.max(s, v, it.answer), `${it.key}: water in a pot`).toBeLessThanOrEqual(95);
+        expect(it.unit).toBe('מעלות');
+        expect(it.text, `${it.key}: "$1$ דקות"`).not.toMatch(/\$1\$ דקות/);
+      }
+      if (kind === 'fu4c') {
+        const [h0, h1] = [...it.text.matchAll(/\$(\d+)\$ ס״מ/g)].map((m) => Number(m[1])); const [T] = after(it.text, 'hour');
+        const rate = (h0 - h1) / T;
+        expect(it.answer, it.key).toBe(h0 / rate);
+        expect(Number.isInteger(it.answer) && it.answer > T, it.key).toBe(true);
+        expect(it.text, `${it.key}: "$1$ שעות"`).not.toMatch(/\$1\$ שעות/);
+      }
+      if (kind === 'fu4u') {
+        // exactly one table has equal differences in y, and it is the answer
+        const tables = it.choices.map((c) => texRows(c.tex));
+        const uniform = tables.map(([xs, ys]) => { const d = ys.slice(1).map((y, k) => y - ys[k]); return xs.every((x, k) => x === k) && d.every((v) => v === d[0]); });
+        expect(uniform.filter(Boolean), it.key).toHaveLength(1);
+        expect(uniform[it.answer], it.key).toBe(true);
+        expect(new Set(tables.map(([, ys]) => ys.join())).size, `${it.key}: four different tables`).toBe(4);
+      }
+      if (kind === 'fu4f') {
+        // the right choice names the runner whose line is steeper, and that line is the lower one all the way; the
+        // graph in words names both runners
+        const rise = (s) => (s.pts[1][1] - s.pts[0][1]) / (s.pts[1][0] - s.pts[0][0]);
+        const [steep, flat] = [...it.fig.series].sort((a, b) => rise(b) - rise(a));
+        expect(rise(steep) > rise(flat), it.key).toBe(true);
+        expect(steep.pts.every(([, y], k) => y < flat.pts[k][1]), `${it.key}: the steeper line is the lower one`).toBe(true);
+        expect(figPlain(it.fig), it.key).toMatch(/A[^;]*\(0, \d+\)/);
+        expect(it.choices[it.answer].text, it.key).toBe(`הרץ ${steep.label}: הקו שלו תלול יותר`);
+        it.choices.forEach((c, j) => expect(it.diag(j), `${it.key}: ${c.text}`).toBe(c.text === `הרץ ${flat.label}: הקו שלו גבוה יותר` ? 'height-for-slope' : null));
+      }
+      if (kind === 'fu4n') {
+        // the two minutes the text names are the fixed points; the rest continue at the same rate, at most 95°
+        const [v0, v1] = [...it.text.matchAll(/\$(\d+)\^\\circ\$/g)].map((m) => Number(m[1]));
+        expect(it.manip.start.slice(0, 2), it.key).toEqual([v0, v1]);
+        expect(it.answer.values, it.key).toEqual([0, 1, 2, 3, 4, 5].map((k) => v0 + k * (v1 - v0)));
+        expect(Math.max(...it.answer.values), it.key).toBeLessThanOrEqual(95);
+        expect(manipCorrect(it, manipSolution(it)), it.key).toBe(true);
+        expect(manipCorrect(it, it.manip.start), `${it.key}: starts on the goal`).toBe(false);
+      }
+      if (['fu4', 'fu4c'].includes(kind)) expect(fairForCheck(it), it.key).toBe(true);
+      else expect(fairForCheck(it), `${it.key}: a choice or a rate the text gives is practice only`).toBe(false);
+      solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (45%, 25%, 15%, 10%, 5%)
+    expect(Object.keys(kinds4).sort()).toEqual(['fu4', 'fu4c', 'fu4f', 'fu4n', 'fu4u']);
+    expect(kinds4.fu4 / 1500).toBeGreaterThan(0.38);
+  });
+
   it('catches an answer that is not the graph\'s', () => {
     const it = makeItem('func', 1); const pts = read(it).pts;
     expect(at(pts, pts[1][0])).toBe(pts[1][1]);

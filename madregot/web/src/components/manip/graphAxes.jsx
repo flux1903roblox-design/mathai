@@ -31,10 +31,11 @@ export const LEGEND_ROW = 24;
 /**
  * The names of a graph's lines, in a row of their own above it, each after a short piece of its line (its colour, solid
  * or dashed), the first on the right as a Hebrew reader starts. A name never lands on a line, a point or an axis number,
- * wherever the line ends. items: [{ label, tone, dashed }]; `cls` the class prefix, `${cls}-key` and its tone.
+ * wherever the line ends. items: [{ label, tone, dashed }]; `cls` the class prefix, `${cls}-key` and its tone. `inset`
+ * keeps the row's right end clear (in drawing units): a still figure in an exercise has its zoom button in that corner.
  */
-export function GraphLegend({ fr, items, cls }) {
-  let right = fr.W - 6;
+export function GraphLegend({ fr, items, cls, inset = 0 }) {
+  let right = fr.W - 6 - inset;
   return (
     <g className={`${cls}-legend`}>
       {items.map((it, i) => {

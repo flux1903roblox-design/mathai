@@ -100,7 +100,11 @@ export const PROGRAMME = {
       // the November row of the schedule; taught once func:3 lands (a part counts when all its stairs exist)
       parts: [{ hours: 8, skills: range('func', 1, 3), note: 'פונקציה: גרף של מצב, טבלה וביטוי, עלייה וירידה' }] },
     { id: '8.8', grade: '8', domain: 'algebra', title: 'גרפים לינאריים, קצב שינוי, שיפוע, ייצוג אלגברי', months: [11, 12],
-      parts: [{ hours: 8, skills: range('line', 1, 8) }] },
+      parts: [
+        { hours: 8, skills: range('line', 1, 8) },
+        // the December row "קצב שינוי אחיד/לא אחיד": its hours are line's
+        { hours: 0, skills: ['func:4'], note: 'קצב שינוי אחיד ולא אחיד' },
+      ] },
     { id: '8.9', grade: '8', domain: 'algebra', title: 'משוואות מיוחדות ושאלות מילוליות (אחוזים, תנועה)', months: [12, 1, 2],
       parts: [
         { hours: 1, skills: ['line:8'] },
