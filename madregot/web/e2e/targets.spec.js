@@ -4,6 +4,7 @@
 // before/after table in qa-evidence/student/polish/.
 import { test, expect } from '@playwright/test';
 import { open, openOn, livedIn, student } from './helpers.js';
+import { barLabelPairs } from './contrast.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'touch targets are a phone matter'); });
 
@@ -43,6 +44,25 @@ test('Topics', async ({ page }) => {
   await open(page, '#/topics', livedIn('7'));
   await expect(page.locator('.mm-tile').first()).toBeVisible();
   await check(page, 'topics');
+});
+
+// PRODUCT2-43: a unit's progress pill on Topics carries its count inside it. Dark ink over the saturated blue fill read
+// at 3.4:1 ('3 מתוך 6 מדרגות' ran across the fill's edge). Over the fill the count turns white, so on the fill and on
+// the track it reads at 4.5:1 or more, light and dark. Seeded as the council saw it: half of signed (3 of 6 stairs),
+// the fill's edge under the count, and a unit just started (a short fill) and one not started (no fill).
+test('Topics: the count in a unit\'s progress pill reads at 4.5:1 on the fill and on the track, light and dark', async ({ page }) => {
+  const state = livedIn('7');
+  state.state.path = { signed: { parts: {}, reviews: 0, jumped: 3 }, coord: { parts: { 1: 2 }, reviews: 0, jumped: 0 } };
+  for (const scheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await open(page, '#/topics', state);
+    await expect(page.locator('.section-card .qbar').first()).toBeVisible();
+    const rows = await barLabelPairs(page, '.section-card .qbar');
+    await test.info().attach(`pill-contrast-${scheme}.json`, { body: JSON.stringify(rows, null, 1), contentType: 'application/json' });
+    expect(rows.find((r) => r.label === '3 מתוך 6 מדרגות')?.crosses, `${scheme}: the half-full pill has its fill's edge under the count`).toBe(true);
+    const bad = rows.filter((r) => r.track < 4.5 || (r.fill != null && r.fill < 4.5));
+    expect(bad, `${scheme}: counts under 4.5:1 on the track or the fill`).toEqual([]);
+  }
 });
 
 test('Quests', async ({ page }) => {

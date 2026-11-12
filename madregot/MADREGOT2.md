@@ -203,7 +203,7 @@ the row to paste when one differs.
 | angles:4 | ישרים מקבילים | 10 (angle) | 2 | 2 | 2 (supp-not-equal, equal-not-supp) | yes | complete, tested |
 | angles:5 | שווה־שוקיים וזווית חיצונית | 10 (angle) | 2 | 2 | 4 (forgot-half, one-angle, apex-base-swap, interior-not-exterior) | yes | complete, tested |
 | expr:1 | הצבה בביטוי | 8 (numberline) | 3 | 2 | 3 (concat, order, neg-sub) | yes | complete, tested |
-| expr:2 | כותבים ביטוי | 8 | 2 | 2 | 5 (start-n, diff-only, whole-object, reversal, times-plus) | yes | complete, tested |
+| expr:2 | כותבים ביטוי | 9 (plot) | 2 | 2 | 5 (start-n, diff-only, whole-object, reversal, times-plus) | yes | complete, tested |
 | expr:3 | כינוס איברים דומים | 9 (tiles) | 2 | 2 | 3 (conjoin, detach, drop-minus) | yes | complete, tested |
 | expr:4 | חוק הפילוג | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
 | expr:5 | פישוט ביטויים | 8 (tiles) | 3 | 2 | 3 (partial-dist, minus-bracket, conjoin) | yes | complete, tested |
@@ -239,7 +239,7 @@ the row to paste when one differs.
 | stats:3 | ממוצע | 10 (bars) | 2 | 2 | 4 (mean-as-answer, no-divide, median-not-mean, midrange) | yes | complete, tested |
 | stats:4 | ממוצע מטבלה | 9 (pins) | 2 | 2 | 5 (ignore-freq, wrong-count, no-divide, freq-as-data, skip-zero) | yes | complete, tested |
 | stats:5 | נתון חסר | 9 (bars) | 2 | 2 | 2 (mean-as-answer, known-count) | yes | complete, tested |
-| sys:1 | משוואות עם אחוזים | 7 | 3 | 2 | 2 (pct-of-new, wrong-unknown) | yes | complete, tested |
+| sys:1 | משוואות עם אחוזים | 8 (dline) | 3 | 2 | 2 (pct-of-new, wrong-unknown) | yes | complete, tested |
 | sys:2 | שיטת ההצבה | 9 (plot) | 3 | 2 | 3 (partial-dist, forgot-y, swap) | yes | complete, tested |
 | sys:3 | השוואת מקדמים | 10 (plot) | 3 | 2 | 3 (minus-bracket, forgot-y, swap) | yes | complete, tested |
 | sys:4 | בעיות עם שני נעלמים | 9 (plot) | 2 | 2 | 2 (wrong-unknown, partial-dist) | yes | complete, tested |

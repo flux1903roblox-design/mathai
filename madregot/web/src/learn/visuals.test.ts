@@ -59,6 +59,14 @@ describe('a picture or an object on every teaching step (STUDENT-8)', () => {
     }
   });
 
+  // SK-LEARN-7: every stair has at least one step where the student moves the maths object (an explore step): the newer
+  // topics had one per stair, except expr:2 and sys:1, which had none. Each stair is listed by its own id, so a new
+  // stair without one fails here by name.
+  it('every stair has at least one explore step, an object the student moves (SK-LEARN-7)', () => {
+    const none = Object.entries(CONTENT).filter(([, c]) => !c.discover.some((st) => st.kind === 'explore')).map(([skill]) => skill);
+    expect(none).toEqual([]);
+  });
+
   it('the rule covers every topic of the catalogue, every stair of it', () => {
     // a topic or a stair added to the catalogue (learn/skills.ts) is in CONTENT, so the rule above holds it from its
     // first commit: there is no list of topics still being drawn

@@ -222,9 +222,10 @@ test('the first teaching step has no "previous" button; the second has a working
   await expect(page.locator('.sp-progress')).toHaveAttribute('aria-valuenow', '0');
 });
 
-// STUDENT-9 §3: maths in a sentence uses the sentence's digits. In "כש־$x = -3$" the 3 is Rubik and the x is KaTeX's
-// italic; a bare number ($16$ on a card) is plain Rubik text.
-test('digits inside inline maths are Rubik, letters stay KaTeX', async ({ page }) => {
+// STUDENT-9 §3, as PRODUCT2-41 set it: flat maths in a sentence is in the sentence's font. In "כש־$x = -3$" the 3 and
+// the x are Rubik, the x upright (canon.css .mt-ui; a fraction or a root keeps KaTeX, voice.spec.js); a bare number
+// ($16$ on a card) is plain Rubik text.
+test('inline maths in a sentence is in the sentence\'s font: digits and letters Rubik, letters upright', async ({ page }) => {
   await open(page, '#/learn/expr/1/A', student('7'));
   for (let i = 0; i < 12; i += 1) {
     await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
@@ -239,10 +240,11 @@ test('digits inside inline maths are Rubik, letters stay KaTeX', async ({ page }
     const leaves = [...say.querySelectorAll('.mt-inline .katex-html .mord')].filter((el) => !el.children.length);
     const three = leaves.find((el) => el.textContent === '3');
     const x = leaves.find((el) => el.textContent === 'x');
-    return { three: three && getComputedStyle(three).fontFamily, x: x && getComputedStyle(x).fontFamily };
+    return { three: three && getComputedStyle(three).fontFamily, x: x && getComputedStyle(x).fontFamily, xStyle: x && getComputedStyle(x).fontStyle };
   });
   expect(fonts.three, 'the digit 3 of x = -3').toMatch(/^"?Rubik/);
-  expect(fonts.x, 'the letter x').toMatch(/KaTeX_Math/);
+  expect(fonts.x, 'the letter x').toMatch(/^"?Rubik/);
+  expect(fonts.xStyle, 'the letter x, upright').toBe('normal');
   // the answer cards are bare numbers: plain text, no KaTeX
   await expect(page.locator('.ls-choice bdi.num').first()).toBeVisible();
   await expect(page.locator('.ls-choice .katex')).toHaveCount(0);

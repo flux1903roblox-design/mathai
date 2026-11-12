@@ -20,6 +20,8 @@ const nl = (from: number, min = -10, max = 10): ManipSpec => ({ kind: 'numberlin
 const tiles = (px: number, nx: number, p1: number, n1: number): ManipSpec => ({ kind: 'tiles', start: { px, nx, p1, n1 } });
 // the rectangle starts two units high: one unit high, its labels and both handles crowd a strip of 23px
 const area = (): ManipSpec => ({ kind: 'area', start: { a: 2, b: 0 }, maxA: 6, maxB: 9 });
+/** A sequence's first terms as given points (place, term) on the plane; the student puts a later one (expr:2). */
+const seqPlot = (dots: [number, number][]): ManipSpec => ({ kind: 'plot', range: 6, label: '', start: null, dots });
 /** A table of a pattern: its terms by place (also any small table: a check with a number, who has what). */
 const table = (head: string[], rows: (number | string)[][]) => ({ type: 'table' as const, head, rows });
 /** Still tiles (the picture of the tiles object): x, −x, 1 and −1; a row holds 5 long tiles and 8 small ones. */
@@ -273,6 +275,12 @@ const stair2: StairContent = {
       wrongWhy: { 1: '$40$ הוא $10 \\cdot 4$, כאילו כל ריבוע בנוי לבד. אבל ריבוע חדש משתמש בצלע של הקודם, ולכן מוסיף רק $3$.', 2: '$30$ הוא $10 \\cdot 3$: הצורה הראשונה התחילה ב־$4$, לא ב־$3$.' } },
     { kind: 'rule', fig: table(MATCH_HEAD, [[1, '4'], [2, '4 + 3'], [3, '4 + 3 · 2'], ['n', '4 + 3(n − 1)']]), text: 'האיבר ה־$n$: ההתחלה, ועוד $n - 1$ צעדים.', display: '4 + 3(n - 1)',
       why: 'מהאיבר הראשון לשני יש צעד אחד, לשלישי שני צעדים, ולאיבר ה־$n$ יש $n - 1$ צעדים.' },
+    // SK-LEARN-7: the steps by hand. The terms as points (place, term): from the first point to the fifth are 4 steps
+    // right, each 2 up. A point one step too high is n steps counted (start-n, content/explore.js names it).
+    { kind: 'explore', text: 'אפשר לשים כל איבר של סדרה כנקודה: $x$ הוא המקום שלו, ו־$y$ הוא האיבר. על הרשת שלושת האיברים הראשונים של $-5, -3, -1, \\dots$. שימו את הנקודה של האיבר החמישי.',
+      manip: seqPlot([[1, -5], [2, -3], [3, -1]]), answer: [5, 3],
+      hint: 'מהאיבר הראשון עד האיבר החמישי יש $4$ צעדים, לא $5$. בכל צעד ימינה עולים $2$.',
+      success: 'האיבר החמישי הוא $3$: $-5 + 2 \\cdot 4 = 3$. הצעד תמיד אותו צעד, ולכן הנקודות על קו ישר.' },
     { kind: 'predict', fig: { type: 'table', head: ['צורה', 'מאיה', 'דן'], rows: [[1, 4, 4], [2, 7, 7], [3, 10, 10], [10, 31, 31]] },
       text: 'מאיה כתבה $4 + 3(n - 1)$, ודן כתב $3n + 1$. בטבלה מה שכל ביטוי נותן. מי צודק?', choices: ['מאיה', 'דן', 'שניהם'], answer: 2,
       why: 'בכל הצורות שבדקנו הם שווים. בחוק הפילוג נראה שזה תמיד כך: $4 + 3(n - 1) = 3n + 1$.',

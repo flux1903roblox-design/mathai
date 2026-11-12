@@ -11,7 +11,8 @@
 //   pins        several labelled markers on a number line  answer: the position of each, in order
 //   triangle    the free vertex C of triangle ABC           answer: an example C; right: any C with a right angle at C
 //   plot        also with manip.line (a point of the line), manip.shape (the vertex that completes it)
-//               or manip.lines (two lines [{m, b}, {m, b}]: their meeting point)
+//               or manip.lines (two lines [{m, b}, {m, b}]: their meeting point), or manip.dots ([[x, y], ...]: given
+//               points, the first terms of a sequence as (place, term); the answer is a later term)
 //   balance     a scale {lx, l1, rx, r1}: boxes x and unit weights on the left and right pans
 //               answer: the value of x (one box alone on a pan, that many weights on the other, the beam level)
 //   tiles       algebra tiles {px, nx, p1, n1}: x, −x, 1 and −1 tiles     answer: {k, c} for kx + c, no zero pair left
@@ -380,7 +381,9 @@ export function manipPlain(it) {
     case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ${inQuad(m.quadrant)}${m.fixX != null ? ` שה־x שלה ${m.fixX}` : m.fixY != null ? ` שה־y שלה ${m.fixY}` : ''}]`
       : m.line ? `[מערכת צירים עם הישר; שמים עליו את הנקודה שבה x = ${it.answer[0]}]`
         : m.lines ? `[מערכת צירים עם שני ישרים, ${m.lines.map(lineText).join(' ו־')}; שמים את נקודת המפגש שלהם]`
-          : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
+          : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]`
+            : m.dots ? `[מערכת צירים; עליה הנקודות ${m.dots.map((d) => `(${d.join(', ')})`).join(', ')}, כל איבר של סדרה כנקודה (המקום, האיבר); שמים את הנקודה שבה x = ${it.answer[0]}]`
+              : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
     case 'line': return '[מערכת צירים; בונים ישר בעזרת שתי נקודות: החיתוך עם ציר y וצעד אחד ימינה]';
     case 'angle': return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
     case 'squares': return `[משולש ישר־זווית עם ריבועים על הצלעות; שטח הריבוע על היתר צריך להיות ${it.answer.c * it.answer.c}]`;

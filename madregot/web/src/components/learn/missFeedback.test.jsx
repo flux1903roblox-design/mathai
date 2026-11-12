@@ -78,6 +78,50 @@ describe('a miss on a teaching step names the mistake above the hint', () => {
     const line = { kind: 'explore', manip: { kind: 'line', range: 6 }, answer: { m: 2, b: -1 }, hint: '' };
     expect(exploreCat('line', 5, line, { m: -1, b: 2 })).toBe(catLabel('line', 5, 'm-b') ? 'm-b' : null);
   });
+
+  // SK-LEARN-7: the two stairs that had no object to move get one each, and its likely miss has the stair's own name
+  it('expr:2: the terms of a sequence as points; the asked term one step too far is n steps counted, not n − 1', () => {
+    const s = C['expr:2'].discover.find((x) => x.kind === 'explore');
+    expect(s?.manip.kind).toBe('plot');
+    const [x, y] = s.answer; const d = s.manip.dots[1][1] - s.manip.dots[0][1];
+    const miss = exploreMiss('expr:2', s, [x, y + d]);
+    expect(miss.cat).toBe('start-n');
+    expect(miss.line).toBe(`מה כנראה קרה: ${catLabel('expr', 2, 'start-n')}.`);
+    expect(miss.title).toBe('עוד לא');
+    // the term before it, or a point off the pattern: nothing is named, the hint alone
+    expect(exploreMiss('expr:2', s, [x - 1, y - d]).cat).toBeNull();
+    expect(exploreMiss('expr:2', s, [x, y + 1]).cat).toBeNull();
+    expect(exploreMiss('expr:2', s, s.answer).cat).toBeNull();
+  });
+  it('sys:1: the price before a discount on the double line; 25% of the price after added back is the percent of the new price', () => {
+    const s = C['sys:1'].discover.find((x) => x.kind === 'explore');
+    expect(s?.manip.kind).toBe('dline');
+    // 60 ₪ after 25% off is 75% of 80; 60 + 25% of 60 = 75 takes the percent of the new price
+    const given = (s.manip.fixT * s.answer) / 100;
+    const wrong = given + ((100 - s.manip.fixT) / 100) * given;
+    const miss = exploreMiss('sys:1', s, wrong);
+    expect(miss.cat).toBe('pct-of-new');
+    expect(miss.line).toBe(`מה כנראה קרה: ${catLabel('sys', 1, 'pct-of-new')}.`);
+    expect(exploreMiss('sys:1', s, { t: s.manip.fixT, max: wrong }).cat).toBe('pct-of-new'); // the object's own shape
+    expect(exploreMiss('sys:1', s, given).cat).toBeNull(); // the price after taken as the whole: not this mistake
+    expect(exploreMiss('sys:1', s, s.answer).cat).toBeNull();
+  });
+  it('the readings stay inside what they mean: equal steps from place 1, a percent line up to 100%', () => {
+    const seq = { kind: 'explore', manip: { kind: 'plot', range: 6, dots: [[1, 1], [2, 2], [3, 3]] }, answer: [5, 5], hint: '' };
+    expect(exploreCat('expr', 2, seq, [5, 6])).toBe('start-n');
+    expect(exploreCat('expr', 2, seq, [5, 5])).toBeNull();
+    // the step times the place alone (the start forgotten): its own name
+    const seq2 = { ...seq, manip: { ...seq.manip, dots: [[1, 4], [2, 3], [3, 2]] }, answer: [5, 0] };
+    expect(exploreCat('expr', 2, seq2, [5, -5])).toBe('diff-only');
+    // a stair with no such name names nothing
+    expect(exploreCat('coord', 1, seq, [5, 6])).toBeNull();
+    const top = { max: 100, step: 5, unit: '%', label: 'אחוזים' }; const bottom = { max: 120, step: 5, label: 'מחיר' };
+    const line = { kind: 'explore', manip: { kind: 'dline', top, bottom, move: 'max', fixT: 75, start: { t: 75, max: 40 } }, answer: 80, hint: '' };
+    expect(exploreCat('sys', 1, line, 75)).toBe('pct-of-new');
+    // the marker moved (move 't') or a line that is not a percent of a whole: not read
+    expect(exploreCat('sys', 1, { ...line, manip: { ...line.manip, move: 't' } }, 75)).toBeNull();
+    expect(exploreCat('sys', 1, { ...line, manip: { ...line.manip, top: { ...top, max: 120 } } }, 75)).toBeNull();
+  });
 });
 
 describe('a check\'s end screen names a mistake that came back', () => {

@@ -298,7 +298,7 @@
     ]
    },
    "expr:2": {
-    "discover": 8,
+    "discover": 9,
     "examples": [
      3,
      3
@@ -370,7 +370,7 @@
    }
   },
   "stairs": 5,
-  "steps": 138
+  "steps": 139
  },
  "frac": {
   "skills": {
@@ -1062,7 +1062,7 @@
  "sys": {
   "skills": {
    "sys:1": {
-    "discover": 7,
+    "discover": 8,
     "examples": [
      5,
      3,
@@ -1151,6 +1151,6 @@
    }
   },
   "stairs": 5,
-  "steps": 163
+  "steps": 164
  }
 }

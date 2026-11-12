@@ -197,6 +197,19 @@ a { color: var(--brand-d); }
 .qbar-light { background: var(--track); }
 .qbar-light > i { background: var(--brand); }
 .qbar-light .qbar-text { color: var(--ink); }
+/* a unit's pill (PRODUCT2-43): the count sits inside it, and dark ink on the brand blue read at 3.4:1. Now the fill is
+   painted over the count and carries its copy (Bar's data-text), as wide as the pill and cut to the fill, so each letter
+   reads on what is under it: white on the blue 5.4:1, ink on the track 15:1 (13:1 dark). No gloss line through the
+   letters; 14px, the canon's smallest. */
+.qbar-light { height: 24px; container-type: inline-size; }
+.qbar-light .qbar-text { font-size: 14px; line-height: 24px; white-space: nowrap; }
+.qbar-light > i { z-index: 1; overflow: hidden; }
+.qbar-light > i::after { content: none; }
+.qbar-light > i::before {
+  content: attr(data-text); position: absolute; inset-block: 0; inset-inline-start: 0; width: 100cqi;
+  text-align: center; font-size: 14px; line-height: 24px; font-weight: 700; font-style: normal; font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: var(--on-brand);
+}
 
 /* segmented choices (grade, settings) */
 .seg { border: 2px solid var(--control-line); background: var(--surface); color: var(--ink); box-shadow: 0 3px 0 var(--rule-press); font-weight: 700; }

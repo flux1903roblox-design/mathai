@@ -17,6 +17,8 @@ import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togeth
 // @ts-ignore: plain JS
 import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX } from '@/content/manip.js';
 // @ts-ignore: plain JS
+import { seqStep } from '@/content/explore.js';
+// @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
@@ -106,6 +108,17 @@ function checkSteps(steps: DiscoverStep[], where: string) {
           expect(lines.length, at).toBe(2);
           expect(lines[0].m !== lines[1].m, `${at}: parallel lines never meet`).toBe(true);
           lines.forEach((L) => expect(same(L.m * x + L.b, y), `${at}: (${x}, ${y}) is not on y = ${L.m}x + ${L.b}`).toBe(true));
+        }
+        // given points (expr:2): a sequence's first terms (place, term) from place 1, on the grid; the goal is a later term
+        // of it, and its likely miss (one step too far: n steps counted) is on the grid, so the miss can be named
+        const dots = (s.manip as { dots?: [number, number][] }).dots;
+        if (dots) {
+          const d = seqStep(dots) as number | null;
+          expect(d, `${at}: the given points are not a sequence from place 1`).not.toBeNull();
+          dots.forEach(([px, py]) => expect(Math.abs(px) <= r && Math.abs(py) <= r, `${at}: (${px}, ${py}) is off the grid`).toBe(true));
+          expect(x > dots.length && same(y, dots[0][1] + d! * (x - 1)), `${at}: (${x}, ${y}) is not a later term`).toBe(true);
+          expect(Math.abs(y + d!) <= r, `${at}: one step too far is off the grid`).toBe(true);
+          expect(dots[0][1] !== 0 && dots[0][1] !== d, `${at}: the start must differ from 0 and from the step, so the two mistakes differ`).toBe(true);
         }
       }
       if (s.manip.kind === 'balance') checkBalance(s.manip as any, s.answer as number, s.display, at);
