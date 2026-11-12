@@ -1,3 +1,4 @@
+// @ts-check
 // Where the progress lives, in one sentence (DURABLE-3): the one place the app says it, so every screen that does
 // (MyNumbers on the profile, the end of Settings) says the same, and it stays true in every mode. Each case is added
 // only when what it describes exists: the backup-code clause (DURABLE-5); the server copy kept by the class or the
@@ -31,10 +32,17 @@ export const WHERE_SAVED = {
   device: 'ההתקדמות נשמרת במכשיר הזה.',
 };
 
+/** @typedef {import('./types').Saved | null | undefined} State */
+/**
+ * @param {State} state
+ * @param {'class' | 'family'} kind
+ */
 const has = (state, kind) => !!state?.backup?.on && !!state.backup.code && (state.backup.escrow === kind || state.backup.escrow === 'both');
 /** The backup code's copy is on (not a class or family copy the server could open, DURABLE-6). */
+/** @param {State} state */
 const codeBackupOn = (state) => !!state?.backup?.on && !!state.backup.code && !state.backup.escrow;
 /** A copy the server could open (the class or the family keeps its code). */
+/** @param {State} state */
 const escrowed = (state) => !!state?.backup?.on && !!state.backup.code && !!state.backup.escrow;
 
 /**
@@ -42,6 +50,9 @@ const escrowed = (state) => !!state?.backup?.on && !!state.backup.code && !!stat
  * learning numbers, else 'progress'. A class student is one signed in to a class (profile.token): only then are the
  * answers sent (store.js recordAnswer). `summary`: this device is linked and its parents' summary is on (the server's
  * linked.summary === 'on'): the summary clause follows the sentence.
+ * @param {State} state
+ * @param {{ server?: boolean, about?: 'numbers' | 'progress', summary?: boolean }} [opts]
+ * @returns {string}
  */
 export function whereSavedText(state, { server = hasServer(), about = 'progress', summary = false } = {}) {
   if (!server) return WHERE_SAVED.noServer;
@@ -50,6 +61,10 @@ export function whereSavedText(state, { server = hasServer(), about = 'progress'
   return `${base === WHERE_SAVED.solo ? WHERE_SAVED.device : base} ${WHERE_SAVED.summaryClause}`;
 }
 
+/**
+ * @param {State} state
+ * @param {'numbers' | 'progress'} about
+ */
 function progressText(state, about) {
   const backup = codeBackupOn(state);
   if (state?.profile?.role === 'student' && state.profile.token) {

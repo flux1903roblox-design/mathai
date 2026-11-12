@@ -1,3 +1,4 @@
+// @ts-check
 // Who may ask the AI tutor what, today, decided on the server for every POST /api/ai/:kind (and reported, without
 // counting, by GET /api/ai/status).
 //
@@ -39,7 +40,7 @@
 // signed-in adult email, an audit row and an email with the AI and privacy summary. "off" is the one-variable rollback.
 import { AI_KINDS, AI_GROUPS, KIND_GROUP, AI_UNITS, FREE_KINDS, LITE_MODEL, buildRequest, buildCare } from '../../shared/ai.js';
 import {
-  HttpError, key, take, peek, sha256, hmacHex, netKey, devKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
+  HttpError, key, take, peek, sha256, hmacHex, netKey, devKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual, varOf,
 } from './util.js';
 import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice, worstCaseNano } from './spend.js';
 import { classAiPolicy, studentAiAllowed, rulesEnv, TEACHER_PREP_KINDS } from '../../shared/schoolRules.js';
@@ -48,6 +49,35 @@ import { recordSafety, eventNet } from './safety.js';
 import { accountFrom } from './account.js';
 import { summaryState } from './report.js';
 import { isObj } from '../../shared/obj.js';
+
+/** @typedef {import('./types.js').Env} Env */
+/** @typedef {import('./types.js').Row} Row */
+/** @typedef {import('./util.js').Key} Key */
+/** @typedef {typeof DEFAULT_LIMITS} Limits */
+/** A class student as studentFrom reads them: their row with the class's AI rule. @typedef {Row} Student */
+/** A class's row (requireTeacher), with how the teacher came in and whether an adult is behind it. */
+/** @typedef {Row & { via: 'key' | 'account', accountId?: string, adultAt?: string | null, adult?: boolean }} Teacher */
+/** @typedef {{ device_id: string, account_id: string, label: string, share_child: unknown, share_parent: unknown }} FamilyDevice */
+/**
+ * Everyone a child-side request speaks for (identify).
+ * @typedef {{ student: Student | null, teacher: Teacher | null, fam: FamilyDevice | null, famBad: boolean, device: string | null }} Identity
+ */
+/**
+ * A paid bucket of a caller (paidBuckets): its tier and pool, its limits or flat limit, the kinds it serves, the
+ * counters of one request, and when its month's spend puts it in economy mode.
+ * @typedef {{ tier: string, pool: string, subj: string, lim?: Record<string, number>, flat?: number, kinds: string[],
+ *   keysFor: (kind: string) => Key[], economyAt: number | null, paused: boolean, economy?: boolean }} Bucket
+ */
+/**
+ * What precheck decided and counted() takes: the open tier's keys, the usable paid buckets (and the refusals of the
+ * others), or the free taste's keys.
+ * @typedef {{ mode: 'open', keys: Key[] } | { mode: 'paid', buckets: Bucket[], fails: HttpError[] }
+ *   | { mode: 'free', keys: FreeKeys }} Plan
+ */
+/** @typedef {{ person: Key, tries: Key, net: Key | null, cls: Key | null, all: Key }} FreeKeys */
+/** shared/ai.js's tables, read by a kind or group name that comes from a request. */
+const GROUP_OF = /** @type {Record<string, string>} */ (KIND_GROUP);
+const UNITS = /** @type {Record<string, number>} */ (AI_UNITS);
 
 // ---------------------------------------------------------------- limits
 export const DEFAULT_LIMITS = {
@@ -65,6 +95,7 @@ export const DEFAULT_LIMITS = {
   graceDays: 3,
 };
 // Owner overrides through plain vars; AI_LIMITS (JSON) is deep-merged last for everything else.
+/** @type {Array<[string, ...string[][]]>} */
 const VARS = [
   ['AI_DAILY_LIMIT', ['open', 'student'], ['legacy', 'student']],
   ['TEACHER_DAILY_LIMIT', ['open', 'teacher'], ['legacy', 'teacher']],
@@ -87,6 +118,10 @@ const VARS = [
   ['OWNER_ALERT_USD', ['budgets', 'ownerAlertUsd']],
   ['FAMILY_GRACE_DAYS', ['graceDays']],
 ];
+/**
+ * @param {Record<string, any>} into
+ * @param {unknown} from
+ */
 function merge(into, from) {
   for (const [k, v] of Object.entries(from || {})) {
     if (isObj(v) && isObj(into[k])) merge(into[k], v);
@@ -94,12 +129,17 @@ function merge(into, from) {
   }
   return into;
 }
-const setPath = (o, p, v) => { let t = o; for (const k of p.slice(0, -1)) t = t[k]; t[p.at(-1)] = v; };
-/** The limits in force: the defaults, the owner's vars, then AI_LIMITS. */
+/** @type {(o: Record<string, any>, p: string[], v: number) => void} */
+const setPath = (o, p, v) => { let t = o; for (const k of p.slice(0, -1)) t = t[k]; t[String(p.at(-1))] = v; };
+/**
+ * The limits in force: the defaults, the owner's vars, then AI_LIMITS.
+ * @param {Env} env
+ * @returns {Limits}
+ */
 export function limits(env) {
   const L = structuredClone(DEFAULT_LIMITS);
   for (const [name, ...paths] of VARS) {
-    const raw = env[name];
+    const raw = varOf(env, name);
     if (raw === undefined || raw === null || String(raw).trim() === '') continue;
     const v = Number(raw);
     if (!Number.isFinite(v) || v < 0) continue;
@@ -110,27 +150,35 @@ export function limits(env) {
   }
   return L;
 }
+/** @param {Env} env */
 export const paywallOn = (env) => String(env.AI_PAYWALL || 'off') === 'on';
+/** @param {Env} env */
 const soloOff = (env) => String(env.ALLOW_SOLO_AI) === 'false';
 /** Does a child alone need a parent's OK before the tutor (TRUST-9)? Anything but "off" means yes. */
+/** @param {Env} env */
 export const parentOkRequired = (env) => String(env.AI_PARENT_OK ?? 'required').trim() !== 'off';
 /**
  * A teacher with an adult behind the class: bound to a signed-in email (class_owners) or with a licence or trial in
  * force. With AI_PARENT_OK "off" every teacher counts, as before (the one-variable rollback).
  */
+/** @type {(env: Env, id: Identity) => boolean} */
 const adultTeacher = (env, id) => !!id.teacher && (!parentOkRequired(env) || id.teacher.adult === true);
 /** No student, no adult teacher and no device a parent linked: the free taste and the solo rules apply. */
+/** @type {(env: Env, id: Identity) => boolean} */
 const alone = (env, id) => !id.student && !adultTeacher(env, id) && !id.fam;
 /**
  * A caller who would reach the tutor on their own, with no adult behind them: no class student (their class's rule
  * covers them), no adult teacher, and no device a parent linked (a plan or a free OK). With ALLOW_SOLO_AI "false"
  * such a caller has no tutor at all (solo_ai_off), and a parent's OK would not change that, so it is not asked for.
  */
+/** @type {(env: Env, id: Identity) => boolean} */
 const needsParentOk = (env, id) => parentOkRequired(env) && alone(env, id) && !soloOff(env);
 
 /**
  * Is an adult behind this class: an email it is bound to whose holder declared they are 18 or over
  * (accounts.adult_confirmed_at, COUNCIL2-5), or a licence or trial in force?
+ * @param {Env} env
+ * @param {string} code
  */
 export async function classHasAdult(env, code) {
   const owner = await env.DB.prepare(`SELECT 1 AS x FROM class_owners o JOIN accounts a ON a.id = o.account_id
@@ -140,6 +188,9 @@ export async function classHasAdult(env, code) {
 /**
  * Is this teacher (requireTeacher's class row) an adult? One who came with the session of an email that declared it, or
  * any teacher of a class with an adult behind it (classHasAdult: a co-teacher with the key of such a class too).
+ * @param {Env} env
+ * @param {Teacher} cls
+ * @returns {Promise<boolean>}
  */
 export async function teacherIsAdult(env, cls) {
   return (cls.via === 'account' && !!cls.adultAt) || classHasAdult(env, cls.code);
@@ -148,6 +199,8 @@ export async function teacherIsAdult(env, cls) {
 /**
  * The Ministry's rule for a teacher's own tutor in their class (shared/schoolRules.js): 'prep' (preparing materials
  * only: TEACHER_PREP_KINDS) in a school class before the catalogue approval or below its grade, else 'on'.
+ * @param {Env} env
+ * @param {Teacher} cls
  */
 export async function teacherAiRule(env, cls) {
   const row = await env.DB.prepare('SELECT setting, student_ai, ai_consent_at FROM class_settings WHERE code = ?').bind(cls.code).first();
@@ -161,6 +214,9 @@ export async function teacherAiRule(env, cls) {
  * teacher turned the AI off for this student. The token is one of the student's devices (DURABLE-6: up to 3 devices
  * each, in student_tokens; students.token_hash is no longer read). The token's last_seen is written at most once an
  * hour; a token unused for 400 days is purged at night.
+ * @param {Request} req
+ * @param {Env} env
+ * @returns {Promise<Student | null>}
  */
 export async function studentFrom(req, env) {
   const auth = req.headers.get('Authorization') || '';
@@ -184,7 +240,11 @@ export async function studentFrom(req, env) {
   return student;
 }
 
-/** May this class student reach the tutor? The Ministry's rule for their class (shared/schoolRules.js), then their own switch. */
+/**
+ * May this class student reach the tutor? The Ministry's rule for their class (shared/schoolRules.js), then their own switch.
+ * @param {Env} env
+ * @param {Student} s
+ */
 export function studentAiOn(env, s) {
   const policy = classAiPolicy({ setting: s.setting, grade: s.grade, studentAi: s.student_ai, consentAt: s.ai_consent_at }, rulesEnv(env));
   return studentAiAllowed(policy, { aiOff: !!s.ai_off });
@@ -196,6 +256,9 @@ export function studentAiOn(env, s) {
  * the tutor off gets 'off', except on a device a parent linked to the family (X-Family-Device): that is home use by the
  * parent's choice, so the request is no longer the class's ('home': the student identity is dropped here, the request
  * is decided as the family's or as that device's free taste, and no class counter moves).
+ * @param {Env} env
+ * @param {Identity} id
+ * @returns {'on' | 'home' | 'off'}
  */
 function classGate(env, id) {
   if (!id.student || studentAiOn(env, id.student)) return 'on';
@@ -206,6 +269,11 @@ function classGate(env, id) {
 // Free text a teacher sends the tutor is masked like a child's (TRUST-11 §7, the Ministry's §5.1: nothing identifying
 // goes into an AI tool). Every string of the request is masked except the pictures themselves.
 const PICTURE = new Set(['image', 'data', 'mediaType']);
+/**
+ * @param {unknown} v
+ * @param {string} [name]
+ * @returns {unknown}
+ */
 function maskFields(v, name = '') {
   if (typeof v === 'string') return PICTURE.has(name) ? v : maskPersonal(v).text;
   if (Array.isArray(v)) return v.map((x) => maskFields(x));
@@ -217,7 +285,13 @@ function maskFields(v, name = '') {
  * One more refused request in a class whose AI is off (ai_usage aioff:c:<code>, a day: the owner's view of it, purged
  * with the class's other counters in forget.js CLASS_COUNTERS). The teacher lane's counter, beside the safety event.
  */
+/** @type {(env: Env, code: string) => Promise<unknown>} */
 const noteClassOff = (env, code) => take(env, [key(`aioff:c:${code}`, 1e9)]).catch(() => null);
+/**
+ * @param {Request} req
+ * @param {Env} env
+ * @returns {Promise<Student>}
+ */
 export async function requireStudent(req, env) {
   const s = await studentFrom(req, env);
   if (!s) throw new HttpError(401, 'not_signed_in');
@@ -229,6 +303,9 @@ export async function requireStudent(req, env) {
  * request that carries a key and a purchaser's session together behaves as before. Returns the class row plus
  * via: 'key' | 'account', and accountId when the account opened it. A wrong pair is 401 not_teacher; a request whose
  * only credential is a session that has ended (or never existed) is 401 not_account, so the page asks for the email.
+ * @param {Request} req
+ * @param {Env} env
+ * @returns {Promise<Teacher>}
  */
 export async function requireTeacher(req, env) {
   const code = String(req.headers.get('X-Class-Code') || '').toUpperCase();
@@ -251,18 +328,26 @@ export async function requireTeacher(req, env) {
 /**
  * A child's device linked to a family plan (X-Family-Device: fd1.<64 hex>), or null. With its two sharing switches for
  * the parents' report (report.js); the AI path ignores them.
+ * @param {Env} env
+ * @param {unknown} token
+ * @returns {Promise<FamilyDevice | null>}
  */
 export async function familyDeviceFrom(env, token) {
   if (!/^fd1\.[a-f0-9]{64}$/.test(String(token || ''))) return null;
   const row = await env.DB.prepare('SELECT id, account_id, label, last_seen, share_child, share_parent FROM family_devices WHERE token_hash = ?')
-    .bind(await sha256(token)).first();
+    .bind(await sha256(String(token))).first();
   if (!row) return null;
   const today = dayOf();
   if (row.last_seen !== today) await env.DB.prepare('UPDATE family_devices SET last_seen = ? WHERE id = ?').bind(today, row.id).run();
   return { device_id: row.id, account_id: row.account_id, label: row.label, share_child: row.share_child, share_parent: row.share_parent };
 }
 
-/** The install's own id (X-Device). With FREE_DEVICE_MINT = "turnstile" only the signed form minted by POST /api/devices counts. */
+/**
+ * The install's own id (X-Device). With FREE_DEVICE_MINT = "turnstile" only the signed form minted by POST /api/devices counts.
+ * @param {Request} req
+ * @param {Env} env
+ * @returns {Promise<string | null>}
+ */
 export async function deviceFrom(req, env) {
   const raw = String(req.headers.get('X-Device') || '');
   const signed = raw.match(/^dv1\.([a-f0-9]{32})\.([a-f0-9]{32})$/);
@@ -277,8 +362,12 @@ export async function deviceFrom(req, env) {
 /**
  * Everyone a child-side request speaks for. X-Account-Token is read only together with X-Class-Code, as the owner's
  * teacher credential (requireTeacher); it never gives family or free-device AI: a parent session alone gives no AI.
+ * @param {Request} req
+ * @param {Env} env
+ * @returns {Promise<Identity>}
  */
 export async function identify(req, env) {
+  /** @type {Identity} */
   const id = { student: null, teacher: null, fam: null, famBad: false, device: null };
   id.student = await studentFrom(req, env);
   const asTeacher = req.headers.get('X-Teacher-Key') || (req.headers.get('X-Class-Code') && req.headers.get('X-Account-Token'));
@@ -287,7 +376,8 @@ export async function identify(req, env) {
     // read only when it matters (TRUST-9): a teacher of a class with no adult behind it is a child alone there. A
     // teacher who came with the owner's email session (via 'account') is that adult only when the email's holder
     // declared it (COUNCIL2-2, COUNCIL2-5): an email alone proves no age.
-    if (parentOkRequired(env)) id.teacher = { ...id.teacher, adult: await teacherIsAdult(env, id.teacher) };
+    const t = id.teacher;
+    if (parentOkRequired(env)) id.teacher = { ...t, adult: await teacherIsAdult(env, t) };
   }
   const fd = req.headers.get('X-Family-Device');
   if (fd) { id.fam = await familyDeviceFrom(env, fd); id.famBad = !id.fam; }
@@ -296,64 +386,96 @@ export async function identify(req, env) {
 }
 
 // ---------------------------------------------------------------- live plans
-const liveSql = (env, field) => `SELECT * FROM subscriptions WHERE kind = ? AND ${field} = ? AND (
+/** @type {(field: string) => string} */
+const liveSql = (field) => `SELECT * FROM subscriptions WHERE kind = ? AND ${field} = ? AND (
   (status IN ('active', 'canceled') AND current_period_end > ?) OR (status = 'past_due' AND current_period_end > ?))
   ORDER BY current_period_end DESC LIMIT 1`;
+/**
+ * @param {Env} env
+ * @param {'class' | 'family'} kind
+ * @param {string} field
+ * @param {unknown} value
+ * @returns {Promise<Row | null>}
+ */
 async function live(env, kind, field, value) {
   if (!value) return null;
   const now = nowIso();
   const grace = addDays(now, -limits(env).graceDays);
-  return env.DB.prepare(liveSql(env, field)).bind(kind, value, now, grace).first();
+  return env.DB.prepare(liveSql(field)).bind(kind, value, now, grace).first();
 }
 /** A class licence (or trial) that is in force: active or canceled until its end, past_due for the grace days after. */
+/** @type {(env: Env, classCode: unknown) => Promise<Row | null>} */
 export const liveLicence = (env, classCode) => live(env, 'class', 'class_code', String(classCode || '').toUpperCase());
 /** A family plan that is in force, by the same rule. */
+/** @type {(env: Env, accountId: unknown) => Promise<Row | null>} */
 export const liveFamily = (env, accountId) => live(env, 'family', 'account_id', accountId);
 
-/** Is a class still in the legacy window (made before BILLING_START, before LEGACY_CLASS_AI_UNTIL ends)? */
+/**
+ * Is a class still in the legacy window (made before BILLING_START, before LEGACY_CLASS_AI_UNTIL ends)?
+ * @param {Env} env
+ * @param {unknown} classCreatedAt
+ */
 export function legacyWindow(env, classCreatedAt) {
   if (!isDay(env.BILLING_START) || !isDay(env.LEGACY_CLASS_AI_UNTIL) || !classCreatedAt) return false;
   return String(classCreatedAt) < startOfDayIso(env.BILLING_START) && nowIso() < endOfDayIso(env.LEGACY_CLASS_AI_UNTIL);
 }
 
 // ---------------------------------------------------------------- errors
+/** @type {(tier: string, group: string, limit: number, period?: 'day' | 'month') => HttpError} */
 const dailyErr = (tier, group, limit, period = 'day') => new HttpError(429, 'daily_limit', undefined, { tier, group, limit, left: 0, resetsAt: resetsAt(period) });
+/** @param {string} scope */
 const sharedErr = (scope) => new HttpError(429, 'shared_limit', undefined, { scope, resetsAt: resetsAt('day') });
 const pausedErr = () => new HttpError(503, 'free_paused', undefined, { resetsAt: resetsAt('day') });
 const fairUseErr = () => new HttpError(429, 'monthly_fair_use', undefined, { resetsAt: resetsAt('month') });
+/** @param {string} kind */
 const paidOnlyErr = (kind) => new HttpError(402, 'paid_only', undefined, { kind });
+/** @type {Record<string, number>} */
 const RANK = { daily_limit: 5, shared_limit: 4, monthly_fair_use: 3, free_paused: 2, paid_only: 1 };
 /** The most useful of several refusals: daily_limit > shared_limit > monthly_fair_use > free_paused > paid_only. */
+/** @type {(fails: HttpError[]) => HttpError} */
 export const best = (fails) => fails.reduce((a, b) => ((RANK[b.code] || 0) > (RANK[a.code] || 0) ? b : a));
 
+/**
+ * @param {Env} env
+ * @param {string} kind
+ * @param {unknown} input
+ * @param {'full' | 'economy' | 'lite'} shape
+ */
 function params(env, kind, input, shape) {
   const model = shape === 'full' ? env.CLAUDE_MODEL : (env.FREE_MODEL || LITE_MODEL);
-  try { return buildRequest(kind, input, { model, shape }); } catch (e) { throw new HttpError(400, 'bad_input', e.message); }
+  try { return buildRequest(kind, /** @type {any} */ (input), /** @type {any} */ ({ model, shape })); } catch (e) { throw new HttpError(400, 'bad_input', /** @type {Error} */ (e).message); }
 }
 
 // ---------------------------------------------------------------- the paid buckets of a caller
-/** The paid buckets that apply to this caller, class (or legacy) first, then family. Nothing is counted here. */
+/**
+ * The paid buckets that apply to this caller, class (or legacy) first, then family. Nothing is counted here.
+ * @param {Env} env
+ * @param {Identity} id
+ * @returns {Promise<Bucket[]>}
+ */
 async function paidBuckets(env, id) {
   const L = limits(env);
   const cls = id.student?.class_code ?? id.teacher?.code ?? null;
   const createdAt = id.student?.class_created_at ?? id.teacher?.created_at ?? null;
+  /** @type {Bucket[]} */
   const out = [];
   const lic = cls ? await liveLicence(env, cls) : null;
   if (lic) {
     const trial = lic.plan === 'trial';
     const T = trial ? L.trial : L.class;
+    /** @type {Record<string, number>} */
     const lim = id.student ? T.student : T.teacher;
     const subj = id.student ? `s:${id.student.id}` : `t:${cls}`;
     const tier = trial ? 'trial' : id.student ? 'class' : 'teacher';
     out.push({
       tier, pool: trial ? 'trial' : `cls:${cls}`, subj, lim,
-      kinds: AI_KINDS.filter((k) => lim[KIND_GROUP[k]] > 0),
+      kinds: AI_KINDS.filter((/** @type {string} */ k) => lim[GROUP_OF[k]] > 0),
       keysFor: (kind) => {
-        const g = KIND_GROUP[kind];
+        const g = GROUP_OF[kind];
         return [
           key(`${subj}:${g}`, lim[g], { refundable: true, err: dailyErr(tier, g, lim[g]) }),
           key(`${subj}:${g}:tries`, 3 * lim[g], { err: dailyErr(tier, g, lim[g]) }),
-          key(`cls:${cls}`, (lic.seats || 0) * T.seatUnits, { n: AI_UNITS[kind], err: sharedErr('class') }),
+          key(`cls:${cls}`, (lic.seats || 0) * T.seatUnits, { n: UNITS[kind], err: sharedErr('class') }),
         ];
       },
       economyAt: trial ? null : (lic.seats || 0) * L.budgets.classSeatMonthlyUsd,
@@ -366,24 +488,25 @@ async function paidBuckets(env, id) {
       tier: 'legacy', pool: 'legacy', subj, kinds: AI_KINDS, flat: limit,
       keysFor: (kind) => [
         key(subj, limit, { refundable: true, err: dailyErr('legacy', 'all', limit) }),
-        key(`cls:${cls}`, L.legacy.classUnits, { n: AI_UNITS[kind], err: sharedErr('class') }),
+        key(`cls:${cls}`, L.legacy.classUnits, { n: UNITS[kind], err: sharedErr('class') }),
       ],
       economyAt: null, paused: false,
     });
   }
   const sub = id.fam ? await liveFamily(env, id.fam.account_id) : null;
-  if (sub) {
+  if (sub && id.fam) {
     const a = id.fam.account_id;
     const F = L.family;
     out.push({
-      tier: 'family', pool: `fam:${a}`, subj: `fam:${a}`, lim: F, kinds: AI_KINDS.filter((k) => F[KIND_GROUP[k]] > 0),
+      tier: 'family', pool: `fam:${a}`, subj: `fam:${a}`, lim: F, kinds: AI_KINDS.filter((/** @type {string} */ k) => /** @type {Record<string, number>} */ (F)[GROUP_OF[k]] > 0),
       keysFor: (kind) => {
-        const g = KIND_GROUP[kind];
+        const g = GROUP_OF[kind];
+        const n = /** @type {Record<string, number>} */ (F)[g];
         return [
-          key(`fam:${a}:${g}`, F[g], { refundable: true, err: dailyErr('family', g, F[g]) }),
-          key(`fam:${a}:${g}:tries`, 3 * F[g], { err: dailyErr('family', g, F[g]) }),
+          key(`fam:${a}:${g}`, n, { refundable: true, err: dailyErr('family', g, n) }),
+          key(`fam:${a}:${g}:tries`, 3 * n, { err: dailyErr('family', g, n) }),
           g === 'exam' && key(`fam:${a}:exam`, F.examMonthly, { period: 'month', refundable: true, err: dailyErr('family', 'exam', F.examMonthly, 'month') }),
-        ].filter(Boolean);
+        ].filter((x) => !!x);
       },
       economyAt: L.budgets.familyMonthlyUsd, paused: false,
     });
@@ -392,7 +515,13 @@ async function paidBuckets(env, id) {
   return out;
 }
 
-/** The free taste's counters for this caller and kind. */
+/**
+ * The free taste's counters for this caller and kind.
+ * @param {Request} req
+ * @param {Env} env
+ * @param {Identity} id
+ * @returns {Promise<{ keys: FreeKeys, anon: boolean, limit: number }>}
+ */
 async function freeKeys(req, env, id) {
   const L = limits(env).free;
   const cls = id.student?.class_code ?? id.teacher?.code ?? null;
@@ -413,7 +542,12 @@ async function freeKeys(req, env, id) {
   return { keys, anon, limit };
 }
 
-/** The email a class is bound to (class_owners), or null: the teacher's session says so, else the table. */
+/**
+ * The email a class is bound to (class_owners), or null: the teacher's session says so, else the table.
+ * @param {Env} env
+ * @param {Teacher} teacher
+ * @returns {Promise<string | null>}
+ */
 async function classOwner(env, teacher) {
   if (teacher.accountId) return teacher.accountId;
   const row = await env.DB.prepare('SELECT account_id FROM class_owners WHERE class_code = ?').bind(teacher.code).first();
@@ -430,13 +564,20 @@ async function classOwner(env, teacher) {
  * no class (its own key, open:fd:<device>, SOLO_DAILY_LIMIT: not the network's, which other children at that address
  * share); else the network's solo key. The class key counts in AI_UNITS and carries `units`; the others count actions.
  * `kind` sets the units (status asks with a chat: 1). strict: refuse with 403 solo_ai_off instead of returning null.
+ * @param {Request} req
+ * @param {Env} env
+ * @param {Identity} id
+ * @param {string} [kind]
+ * @param {{ strict?: boolean }} [opts]
+ * @returns {Promise<Key[] | null>}
  */
 async function openKeys(req, env, id, kind = 'chat', { strict = false } = {}) {
   const L = limits(env).open;
+  /** @type {(who: string, limit: number) => Key} */
   const own = (who, limit) => key(who, limit, { refundable: true, err: dailyErr('open', 'all', limit) });
   if (id.student) {
     return [own(`s:${id.student.id}`, L.student),
-      { ...key(`open:c:${id.student.class_code}`, L.classUnits, { n: AI_UNITS[kind] || 1, err: sharedErr('class') }), units: true }];
+      { ...key(`open:c:${id.student.class_code}`, L.classUnits, { n: UNITS[kind] || 1, err: sharedErr('class') }), units: true }];
   }
   if (id.teacher) {
     const account = await classOwner(env, id.teacher);
@@ -451,6 +592,9 @@ async function openKeys(req, env, id, kind = 'chat', { strict = false } = {}) {
 /**
  * Is a pool's day spent (its ai_spend for today at or over budgetUsd)? Then the owner gets that day's notice, once
  * (owner:<pool>_paused:<day>): the free taste's and the open tier's breaker.
+ * @param {Env} env
+ * @param {string} pool
+ * @param {number} budgetUsd
  */
 async function poolSpent(env, pool, budgetUsd) {
   if ((await daySpendUsd(env, pool)) < budgetUsd) return false;
@@ -462,6 +606,11 @@ async function poolSpent(env, pool, budgetUsd) {
 /**
  * A request's dollar hold on a pool (COUNCIL2-19): its worst case (spend.js worstCaseNano) in usd:<pool>, taken with
  * its counters while the pool's spend today plus the holds is under the budget, given back when it has been priced.
+ * @param {Env} env
+ * @param {'open' | 'free'} pool
+ * @param {string} kind
+ * @param {unknown} params
+ * @returns {Key}
  */
 function holdKey(env, pool, kind, params) {
   const budgets = limits(env).budgets;
@@ -473,11 +622,14 @@ function holdKey(env, pool, kind, params) {
  * Why a take() with a hold failed: a counter's own error, or, when the hold is what was refused, the pool's day spent
  * (503 free_paused and the owner's notice) or, while it is not, other requests holding the rest of it right now (429
  * busy, Retry-After 30: they give it back within a minute).
+ * @param {Env} env
+ * @param {{ error?: HttpError, key: Key }} r
+ * @param {Key} hold
  */
 async function heldBack(env, r, hold) {
   if (r.key !== hold) return r.error;
   const budgets = limits(env).budgets;
-  if (await poolSpent(env, hold.spend, hold.spend === 'open' ? budgets.openDailyUsd : budgets.freeDailyUsd)) return pausedErr();
+  if (await poolSpent(env, String(hold.spend), hold.spend === 'open' ? budgets.openDailyUsd : budgets.freeDailyUsd)) return pausedErr();
   return new HttpError(429, 'busy', undefined, undefined, { 'Retry-After': '30' });
 }
 
@@ -488,6 +640,10 @@ async function heldBack(env, r, hold) {
  * Throws the refusal as an HttpError (with X-AI-Linked: 0 when a family-device token was sent but is no longer valid).
  * The same as precheck() then counted(): the small text kinds read their body first (distress is checked before any
  * refusal), so both halves run here together.
+ * @param {Request} req
+ * @param {Env} env
+ * @param {string} kind
+ * @param {unknown} input
  */
 export async function resolve(req, env, kind, input) {
   return counted(await precheck(req, env, kind), env, kind, input);
@@ -498,6 +654,10 @@ export async function resolve(req, env, kind, input) {
  * the class's AI rule, the parent's OK, and whether any tier could serve this kind at all (paid_only, solo_ai_off, a
  * paused pool, fair use). Nothing is counted. handleAI runs it before reading the body of a photo kind (check, exam), so
  * a caller who would be refused is refused before megabytes are read. → { id, plan } for counted().
+ * @param {Request} req
+ * @param {Env} env
+ * @param {string} kind
+ * @returns {Promise<{ id: Identity, plan: Plan }>}
  */
 export async function precheck(req, env, kind) {
   const id = await identify(req, env);
@@ -508,7 +668,13 @@ export async function precheck(req, env, kind) {
   }
 }
 
-/** The counted half: the request built from the body, then the counters taken (util.js take()). → resolve()'s result. */
+/**
+ * The counted half: the request built from the body, then the counters taken (util.js take()). → resolve()'s result.
+ * @param {{ id: Identity, plan: Plan }} pre
+ * @param {Env} env
+ * @param {string} kind
+ * @param {unknown} input
+ */
 export async function counted(pre, env, kind, input) {
   const { id, plan } = pre;
   try {
@@ -520,19 +686,27 @@ export async function counted(pre, env, kind, input) {
   }
 }
 
+/** @type {(e: unknown, id: Identity) => unknown} */
 const linkedHeader = (e, id) => {
   if (e instanceof HttpError && id.famBad) e.headers = { ...(e.headers || {}), 'X-AI-Linked': '0' };
   return e;
 };
 
-/** Every refusal that needs no body, in the order the rules apply; the plan of what counted() will take. */
+/**
+ * Every refusal that needs no body, in the order the rules apply; the plan of what counted() will take.
+ * @param {Request} req
+ * @param {Env} env
+ * @param {string} kind
+ * @param {Identity} id
+ * @returns {Promise<Plan>}
+ */
 async function planFor(req, env, kind, id) {
   const code = id.student?.class_code;
   if (classGate(env, id) === 'off') {
     // counted with no person and no text (trust spec TRUST-4 §4.4), at most EVENTS_PER_NET a day from one network, and
     // on the class's refusal counter; the child sees a calm sheet, never a price
     await recordSafety(env, { kind: 'class_ai_off', surface: kind, source: 'server' }, null, { net: eventNet(req, env) });
-    await noteClassOff(env, code);
+    await noteClassOff(env, String(code));
     throw new HttpError(403, 'class_ai_off');
   }
   if (needsParentOk(env, id)) {
@@ -550,14 +724,14 @@ async function planFor(req, env, kind, id) {
     const keys = await openKeys(req, env, id, kind, { strict: true });
     // the open tier's day in dollars (COUNCIL2-19): the same calm answer and owner notice as the free taste's
     if (await poolSpent(env, 'open', limits(env).budgets.openDailyUsd)) throw pausedErr();
-    return { mode: 'open', keys };
+    return { mode: 'open', keys: keys || [] };
   }
 
   const buckets = await paidBuckets(env, id);
   if (buckets.length) {
     // what each bucket can say without a body: the kind is not in it, its pool is paused, or it is in economy mode and
     // the kind is not one economy answers
-    const fails = []; const usable = [];
+    /** @type {HttpError[]} */ const fails = []; /** @type {Bucket[]} */ const usable = [];
     for (const b of buckets) {
       if (!b.kinds.includes(kind)) fails.push(paidOnlyErr(kind));
       else if (b.paused) fails.push(pausedErr());
@@ -579,9 +753,13 @@ async function planFor(req, env, kind, id) {
 /**
  * Build the request from the body, then take the plan's counters, all or nothing. The open and free pools also take
  * the request's dollar hold (result.hold, given back by index.js handleAI once the reply is priced).
+ * @param {Env} env
+ * @param {string} kind
+ * @param {unknown} input
+ * @param {Plan} plan
  */
 async function takePlan(env, kind, input, plan) {
-  const g = KIND_GROUP[kind];
+  const g = GROUP_OF[kind];
   if (plan.mode === 'open') {
     const p = params(env, kind, input, 'full');
     const hold = holdKey(env, 'open', kind, p);
@@ -609,7 +787,7 @@ async function takePlan(env, kind, input, plan) {
           left: keys[0].limit - r.counts[0], limit: keys[0].limit, economy: shape === 'economy',
         };
       }
-      fails.push(r.error);
+      if (r.error) fails.push(r.error);
     }
     throw best(fails);
   }
@@ -627,6 +805,7 @@ async function takePlan(env, kind, input, plan) {
 
 // ---------------------------------------------------------------- care: a message that reads as distress
 /** The answer when no AI reply is possible or allowed: the fixed care text (CARE_STATIC), no Claude call. */
+/** @param {Identity | null} id */
 const careStatic = (id) => ({ static: true, tier: 'care', pool: 'care', group: 'care', refund: [], linkedBad: !!id?.famBad });
 
 /**
@@ -637,31 +816,37 @@ const careStatic = (id) => ({ static: true, tier: 'care', pool: 'care', group: '
  * { static: true }: the fixed reply, with no AI call. It never throws.
  * A class whose tutor is off for this student (TRUST-11), and a child alone whose parent has not approved the tutor
  * (TRUST-9), lead to { static: true } too: what such a child writes is not sent to the AI company at all.
+ * @param {Request} req
+ * @param {Env} env
+ * @param {string} kind
+ * @param {unknown} input
  */
 export async function resolveCare(req, env, kind, input) {
+  /** @type {Identity | null} */
   let id = null;
   try {
-    id = await identify(req, env);
+    const who0 = await identify(req, env);
+    id = who0;
     // a class whose tutor is off for this student: the fixed reply, with no AI call (TRUST-11 §4); on a device a parent
     // linked, the care path is the family's, as any other request there
-    if (classGate(env, id) === 'off') return careStatic(id);
+    if (classGate(env, who0) === 'off') return careStatic(id);
     // no parent's OK (TRUST-9): distress text is health data, and it does not go to a US AI company for a child whose
     // parent has not agreed to the tutor; the card and the fixed reply are there at once
-    if (needsParentOk(env, id)) return careStatic(id);
+    if (needsParentOk(env, who0)) return careStatic(id);
     if (!env.ANTHROPIC_API_KEY) return careStatic(id);
     const L = limits(env).care;
     const net = await netKey(req, env);
-    const who = id.student ? `s:${id.student.id}`
-      : id.fam ? `fd:${id.fam.device_id}`
-        : id.teacher ? `t:${id.teacher.code}`
-          : id.device ? `d:${await devKey(env, id.device)}`
+    const who = who0.student ? `s:${who0.student.id}`
+      : who0.fam ? `fd:${who0.fam.device_id}`
+        : who0.teacher ? `t:${who0.teacher.code}`
+          : who0.device ? `d:${await devKey(env, who0.device)}`
             : `x:${net}`;
-    const p = buildCare(input, { model: env.CLAUDE_MODEL });
+    const p = buildCare(/** @type {any} */ (input), /** @type {any} */ ({ model: env.CLAUDE_MODEL }));
     const r = await take(env, [key(`care:${who}`, L.person), key(`care:n:${net}`, L.net), key('care:all', L.global)]);
     if (!r.ok) return careStatic(id);
     return {
       tier: 'care', pool: 'care', group: 'care', shape: 'care', params: p, refund: [],
-      left: L.person - r.counts[0], limit: L.person, economy: false, linkedBad: id.famBad, linked: id.fam,
+      left: L.person - r.counts[0], limit: L.person, economy: false, linkedBad: who0.famBad, linked: who0.fam,
     };
   } catch (e) {
     // a caller that cannot be read (a wrong teacher key, no hashing secret) still gets the fixed reply; nothing from the
@@ -672,12 +857,15 @@ export async function resolveCare(req, env, kind, input) {
 }
 
 // ---------------------------------------------------------------- status: the same decision, counting nothing
+/** @type {(k: Key, count: number) => number} */
 const left = (k, count) => Math.max(0, k.limit - count);
 
 /**
  * What this device may ask today (GET /api/ai/status). Never an email, a plan or a price. A linked family device also
  * learns the state of its daily summary for the parents (linked.summary, report.js summaryState): with the paywall off
  * it is 'off', and linked is still there so Settings can show the device as linked.
+ * @param {Request} req
+ * @param {Env} env
  */
 export async function aiStatus(req, env) {
   const id = await identify(req, env);
@@ -685,13 +873,20 @@ export async function aiStatus(req, env) {
   // a teacher whose class's rule is 'prep' (a school class before the approval): only the kinds that prepare materials,
   // so the screens do not offer a check they would refuse (prep_only)
   if (!id.teacher || !r.body.kinds?.length || (await teacherAiRule(env, id.teacher)) !== 'prep') return r;
-  const kinds = r.body.kinds.filter((k) => TEACHER_PREP_KINDS.includes(k));
+  const kinds = r.body.kinds.filter((/** @type {string} */ k) => TEACHER_PREP_KINDS.includes(k));
   const groups = Object.fromEntries(Object.entries(r.body.groups || {})
-    .map(([g, v]) => [g, AI_GROUPS.includes(g) && !kinds.some((k) => KIND_GROUP[k] === g) ? null : v]));
+    .map(([g, v]) => [g, AI_GROUPS.includes(g) && !kinds.some((/** @type {string} */ k) => GROUP_OF[k] === g) ? null : v]));
   return { ...r, body: { ...r.body, kinds, groups, prepOnly: true } };
 }
+/**
+ * @param {Request} req
+ * @param {Env} env
+ * @param {Identity} id
+ * @returns {Promise<{ headers: Record<string, string>, body: Record<string, any> }>}
+ */
 async function statusFor(req, env, id) {
   const aiReady = !!env.ANTHROPIC_API_KEY;
+  /** @type {Record<string, string>} */
   const headers = id.famBad ? { 'X-AI-Linked': '0' } : {};
   // the class's tutor is off for this student (TRUST-11 §4): the same answer an AI request gets, so the screens show the
   // calm state before anything is asked
@@ -721,6 +916,7 @@ async function statusFor(req, env, id) {
     };
   }
   const L = limits(env);
+  /** @type {Record<string, any>} */
   const out = {
     paywall: true, tier: 'free', kinds: [], groups: Object.fromEntries(AI_GROUPS.map((g) => [g, null])),
     economy: false, shared: null, resetsAt: resetsAt('day'),
@@ -734,21 +930,22 @@ async function statusFor(req, env, id) {
       if (b.economy) out.economy = true;
       if (b.paused) { out.shared = 'paused'; continue; }
       for (const g of AI_GROUPS) {
-        const kind = AI_KINDS.find((k) => KIND_GROUP[k] === g && b.kinds.includes(k));
+        const kind = AI_KINDS.find((k) => GROUP_OF[k] === g && b.kinds.includes(k));
         if (!kind || (b.economy && !FREE_KINDS.includes(kind))) continue;
         const keys = b.keysFor(kind);
         const counts = await peek(env, keys);
         const groupLeft = left(keys[0], counts[0]);
         const prev = out.groups[g];
         if (prev && prev.left > 0) continue; // an earlier bucket still serves this group
+        /** @type {{ left: number, limit: number, monthLeft?: number }} */
         const view = { left: groupLeft, limit: keys[0].limit };
         const monthly = keys.find((k) => k.period === 'month');
         if (monthly) view.monthLeft = left(monthly, counts[keys.indexOf(monthly)]);
         out.groups[g] = view;
-        if (!out.kinds.includes(kind)) for (const k of AI_KINDS) if (KIND_GROUP[k] === g && b.kinds.includes(k)) out.kinds.push(k);
+        if (!out.kinds.includes(kind)) for (const k of AI_KINDS) if (GROUP_OF[k] === g && b.kinds.includes(k)) out.kinds.push(k);
       }
     }
-    out.kinds = AI_KINDS.filter((k) => out.kinds.includes(k));
+    out.kinds = AI_KINDS.filter((/** @type {string} */ k) => out.kinds.includes(k));
     return { headers, body: out };
   }
   if (alone(env, id) && soloOff(env)) return { headers, body: out };

@@ -1,3 +1,4 @@
+// @ts-check
 // The restore code (DURABLE-5): 16 symbols from the class-code alphabet (no 0/O, 1/I/L), 15 random ones (31^15, about
 // 2^74) and a check symbol, shown as ABCD-EFGH-JKMN-PQRS (left to right, in mono). The check symbol is
 // Σ (i+1)·v_i mod 31 over the 15 random symbols; 31 is prime, so it catches every single wrong symbol and every swap of
@@ -19,6 +20,7 @@ const N = CODE_ALPHABET.length;
  * final forms ן ך ם sit on I, L and O, which are not in the alphabet, so they fail the check with the "bad characters"
  * message. ׳ (geresh) and ’ come from the W key on some phone keyboards.
  */
+/** @type {Readonly<Record<string, string>>} */
 export const HEBREW_KEYS = {
   ש: 'A', נ: 'B', ב: 'C', ג: 'D', ק: 'E', כ: 'F', ע: 'G', י: 'H', ן: 'I', ח: 'J', ל: 'K', ך: 'L', צ: 'M', מ: 'N', ם: 'O',
   פ: 'P', '/': 'Q', ר: 'R', ד: 'S', א: 'T', ו: 'U', ה: 'V', "'": 'W', '׳': 'W', '’': 'W', ס: 'X', ט: 'Y', ז: 'Z',
@@ -26,16 +28,23 @@ export const HEBREW_KEYS = {
 // spaces, dashes (the Hebrew maqaf and the Unicode dashes too), direction marks and zero-width characters
 const DROP = /[\s\-־‐-―−​-‏‪-‮⁦-⁩﻿]/g;
 
+/** @param {string} ch */
 const valueOf = (ch) => CODE_ALPHABET.indexOf(ch);
 
-/** The check symbol for the first 15 symbols. */
+/**
+ * The check symbol for the first 15 symbols.
+ * @param {string} body
+ */
 export function checkSymbol(body) {
   let sum = 0;
   for (let i = 0; i < BODY; i += 1) sum += (i + 1) * valueOf(body[i]);
   return CODE_ALPHABET[sum % N];
 }
 
-/** A new restore code: 15 symbols drawn uniformly (rejection sampling, no modulo bias) and its check symbol. */
+/**
+ * A new restore code: 15 symbols drawn uniformly (rejection sampling, no modulo bias) and its check symbol.
+ * @param {(n: number) => Uint8Array} [random]
+ */
 export function makeCode(random = (n) => globalThis.crypto.getRandomValues(new Uint8Array(n))) {
   const cap = 256 - (256 % N);
   let body = '';
@@ -46,11 +55,14 @@ export function makeCode(random = (n) => globalThis.crypto.getRandomValues(new U
 }
 
 /** ABCD-EFGH-JKMN-PQRS (show it with dir="ltr"). */
+/** @param {string | null | undefined} code */
 export const formatCode = (code) => String(code || '').match(/.{1,4}/g)?.join('-') || '';
 
 /**
  * What a person typed, as a code: `{ ok: true, code }`, or `{ ok: false, reason }` with reason 'empty', 'chars' (a
  * symbol that is not in the code's alphabet) or 'typo' (the length or the check symbol is wrong).
+ * @param {unknown} input
+ * @returns {{ ok: true, code: string } | { ok: false, reason: 'empty' | 'chars' | 'typo' }}
  */
 export function normalise(input) {
   const raw = String(input ?? '').replace(DROP, '');
@@ -62,11 +74,21 @@ export function normalise(input) {
 }
 
 /** A stored code is sound: 16 symbols of the alphabet with the right check symbol. */
-export const isCode = (code) => typeof code === 'string' && normalise(code).ok && normalise(code).code === code;
+/**
+ * @param {unknown} code
+ * @returns {code is string}
+ */
+export const isCode = (code) => {
+  if (typeof code !== 'string') return false;
+  const n = normalise(code);
+  return n.ok && n.code === code;
+};
 
 /**
  * A code inside a longer text (the message "קוד הגיבוי שלי במדרגות: ABCD-EFGH-JKMN-PQRS…" pasted whole): the first
  * group of 16 symbols, in fours or not, that passes the check. null when there is none.
+ * @param {unknown} text
+ * @returns {string | null}
  */
 export function findCode(text) {
   const whole = normalise(text);

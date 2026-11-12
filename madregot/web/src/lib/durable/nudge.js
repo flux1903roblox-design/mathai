@@ -1,3 +1,4 @@
+// @ts-check
 // When the app asks, once in a while, whether to keep a backup (DURABLE-5, components/durable/BackupNudge.jsx). Since
 // COUNCIL2-24 a solo student's backup is on by default (vault.js defaultBackup), so this is the reminder for the rest:
 // a backup that was stopped, one that could not start, and students from before the default. It keeps reminding, 14
@@ -20,6 +21,7 @@ export const NUDGE_GAP_DAYS = 14;
 const CALM = /^\/(quests|topics|me)?$/;
 
 /** May the question open on this screen? */
+/** @param {string | null | undefined} pathname */
 export const calmRoute = (pathname) => CALM.test(String(pathname ?? ''));
 
 /** The app is installed here: opened from the Home Screen in its own window, or the store app. */
@@ -28,9 +30,11 @@ export const installedHere = () => isStandalone() || isNativeApp();
 /**
  * Should the app ask now? `st`: the app's state; `server`: hasServer(); `installed`: installedHere() (the caller reads
  * it, so a test can say either).
+ * @param {import('./types').Saved | null | undefined} st
+ * @param {{ pathname: string, server: boolean, installed?: boolean, now?: Date }} opts
  */
 export function shouldNudge(st, { pathname, server, installed = false, now = new Date() }) {
-  if (!server || st?.profile?.role !== 'student') return false;
+  if (!server || !st || st.profile?.role !== 'student') return false;
   if (st.backup?.on || st.backup?.escrow || installed) return false;
   if (activeDays(st.days) < NUDGE_FROM_DAYS) return false;
   if (!calmRoute(pathname)) return false;
@@ -38,7 +42,10 @@ export function shouldNudge(st, { pathname, server, installed = false, now = new
   return !(Number.isFinite(at) && now.getTime() - at < NUDGE_GAP_DAYS * 864e5);
 }
 
-/** The question opened now: counted, with its time. */
+/**
+ * The question opened now: counted, with its time.
+ * @param {import('./types').StoreApi} store
+ */
 export const noteNudge = (store, now = new Date()) => store.setState((s) => ({
   durable: { ...s.durable, nudgeCount: (Number(s.durable?.nudgeCount) || 0) + 1, nudgeAt: now.toISOString() },
 }));

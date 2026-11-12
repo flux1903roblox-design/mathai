@@ -1,3 +1,4 @@
+// @ts-check
 // Bringing a copy of the progress back onto this device (DURABLE-4): one rule for every restore (the backup file now;
 // the vault, the class and the family later), so there is one rule to trust.
 //   empty  this device has no progress (no profile, or no XP and no days): the copy replaces it. Nothing was here.
@@ -23,7 +24,19 @@ import { newTag } from './xp.js';
 import { durableQuarantine } from './storage.js';
 import { useDurable } from './useDurable.js';
 import { logEvent } from '@/learn/analytics.ts';
-import { isObj } from '@shared/obj.js';
+import { isRecord as isObj } from '@shared/obj.js';
+
+/** @typedef {import('./types').Saved} Saved */
+/**
+ * @typedef {object} RestoreOpts
+ * @property {string | null} [at]
+ * @property {boolean} [replace]
+ * @property {boolean} [merge]
+ * @property {import('./types').StoreApi} [store]
+ * @property {{ keep(raw: string, reason: string): Promise<boolean>, latest(reason: string): Promise<{ key: IDBValidKey, value: any } | null>, drop(k: IDBValidKey): Promise<void> }} [quarantine]
+ * @property {() => Date} [now]
+ * @property {string | null} [localAt]
+ */
 
 /** How long a replacing restore can be undone. */
 export const UNDO_DAYS = 30;
@@ -35,20 +48,28 @@ export const NO_COPY = 'לא הצלחנו לשמור עותק של ההתקדמ�
 export const NO_UNDO = 'אי אפשר לבטל: העותק של מה שהיה לפני לא נמצא במכשיר.';
 
 /** A name as people write it: no niqqud, one space, no direction marks, any letter case. */
+/** @param {unknown} s */
 export const normName = (s) => (typeof s === 'string' ? s.normalize('NFKC').replace(/[֑-ׇ‎‏]/g, '').replace(/\s+/g, ' ').trim().toLowerCase() : '');
 
 /**
  * Is there progress on this device: a teacher's classes, or a student's XP or days. A day with nothing but time on
  * learning screens (tsecs, lib/learnClock.js: a lesson opened and left) is not progress.
+ * @param {Saved | null | undefined} st
  */
 export function hasProgress(st) {
-  if (!isObj(st?.profile)) return false;
+  if (!st || !isObj(st.profile)) return false;
   if (st.profile.role === 'teacher') return Array.isArray(st.profile.classes) && st.profile.classes.length > 0;
+  /** @param {unknown} d */
   const learned = (d) => isObj(d) && Object.keys(d).some((k) => k !== 'tsecs');
   return (Number(st.xp) || 0) > 0 || (isObj(st.days) && Object.values(st.days).some(learned));
 }
 
-/** 'empty' | 'same' | 'other': what restoring `incoming` here would do (see the top of this file). */
+/**
+ * 'empty' | 'same' | 'other': what restoring `incoming` here would do (see the top of this file).
+ * @param {Saved} local
+ * @param {Saved | null | undefined} incoming
+ * @returns {'empty' | 'same' | 'other'}
+ */
 export function restoreCase(local, incoming) {
   if (!hasProgress(local)) return 'empty';
   const a = normName(local.profile?.name); const b = normName(incoming?.profile?.name);
@@ -58,13 +79,19 @@ export function restoreCase(local, incoming) {
   return 'other';
 }
 
+/** @type {(st: Saved, e: { e: string, m: string }, at: string) => Saved} */
 const withEvent = (st, e, at) => (isObj(st.learn) && Array.isArray(st.learn.events) ? { ...st, learn: { ...st.learn, events: logEvent(st.learn.events, e, at) } } : st);
+/** @type {(a: unknown, b: unknown) => unknown} */
 const later = (a, b) => ((typeof a === 'string' ? a : '') >= (typeof b === 'string' ? b : '') ? a ?? null : b ?? null);
 
 /**
  * Restore `incoming` (a backup state, e.g. importBackup(file).state) from `source` ('file', later 'vault' | 'class' |
  * 'family'). `at`: when the copy was made. 'other' replaces only with `replace: true` (the student chose "להחליף").
  * Resolves `{ kind, applied, undo, error? }`. The rest is for tests.
+ * @param {unknown} incoming
+ * @param {string} source
+ * @param {RestoreOpts} [opts]
+ * @returns {Promise<{ kind: 'empty' | 'same' | 'other', applied: boolean, undo: boolean, error?: string }>}
  */
 export async function applyRestored(incoming, source, {
   at = null, replace = false, merge = false, store = useApp, quarantine = durableQuarantine, now = () => new Date(), localAt = useDurable.getState().savedAt,
@@ -115,18 +142,21 @@ export async function applyRestored(incoming, source, {
 }
 
 /** Can the last replacing restore still be undone? */
-export const canUndo = (st, now = new Date()) => Date.parse(st?.backup?.undoUntil) > now.getTime();
+/** @param {Saved | null | undefined} st */
+export const canUndo = (st, now = new Date()) => Date.parse(st?.backup?.undoUntil ?? '') > now.getTime();
 
 /**
  * "לבטל את השחזור האחרון": the progress kept before the last replacing restore comes back whole, its backup settings
  * included, and the next vault sync pushes before it pulls. Resolves true, or false when the kept copy is gone (then
  * the offer to undo goes too).
+ * @param {RestoreOpts} [opts]
  */
 export async function undoRestore({ store = useApp, quarantine = durableQuarantine } = {}) {
   const rec = await quarantine.latest('before-restore');
+  /** @type {unknown} */
   let st = null;
   try { st = rec ? JSON.parse(rec.value.raw) : null; } catch { st = null; }
-  if (!isObj(st)) {
+  if (!rec || !isObj(st)) {
     const b = store.getState().backup;
     store.setState({ backup: { ...BACKUP_DEFAULTS, ...(isObj(b) ? b : {}), undoUntil: null } });
     return false;

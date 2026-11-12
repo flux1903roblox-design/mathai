@@ -1,3 +1,4 @@
+// @ts-check
 // The app's sync moments, one scheduler for everything that sends or fetches in the background (DURABLE-5): the class
 // outbox (DURABLE-7) now, and later the family summary, the vault and error reports. Each subscribes to the moments it
 // needs instead of keeping its own timers and listeners:
@@ -31,11 +32,13 @@ export const MOMENT_ORDER = { family: 10, classOutbox: 20, vault: 30, other: 50 
 export const KEEPALIVE_BYTES = 60_000;
 const encoder = new TextEncoder();
 /** The size of a request body as it goes on the wire: UTF-8 bytes, not characters (Hebrew letters are two bytes each). */
+/** @param {unknown} body */
 export const bodyBytes = (body) => encoder.encode(typeof body === 'string' ? body : JSON.stringify(body)).length;
 
 let budgetLeft = KEEPALIVE_BYTES;
 export const keepaliveBudget = {
   /** Take `bytes` from this hidden moment's budget: true if they fit (and are now taken), false if not (nothing taken). */
+  /** @param {unknown} bytes */
   claim(bytes) {
     const n = Number(bytes);
     if (!Number.isFinite(n) || n < 0 || n > budgetLeft) return false;
@@ -48,19 +51,29 @@ export const keepaliveBudget = {
 };
 
 // ---------------------------------------------------------------- subscribers
+/** @typedef {{ names: Set<string>, fn: (moment: string) => unknown, priority: number }} Subscriber */
+/** @type {Set<Subscriber>} */
 const subscribers = new Set();
 
 /**
  * Run `fn(moment)` at the given moments (a name or a list). `priority` orders the subscribers of one moment (lowest
  * first). Returns the function that unsubscribes.
+ * @param {string | string[]} names
+ * @param {(moment: string) => unknown} fn
+ * @param {{ priority?: number }} [opts]
+ * @returns {() => void}
  */
 export function onMoment(names, fn, { priority = MOMENT_ORDER.other } = {}) {
-  const sub = { names: new Set([].concat(names)), fn, priority };
+  /** @type {Subscriber} */
+  const sub = { names: new Set(Array.isArray(names) ? names : [names]), fn, priority };
   subscribers.add(sub);
   return () => { subscribers.delete(sub); };
 }
 
-/** Start every subscriber of `name` in priority order; resolves when all have finished. A failure stays inside its own subscriber. */
+/**
+ * Start every subscriber of `name` in priority order; resolves when all have finished. A failure stays inside its own subscriber.
+ * @param {string} name
+ */
 export function emit(name) {
   if (name === 'hidden') keepaliveBudget.reset();
   const list = [...subscribers].filter((s) => s.names.has(name)).sort((a, b) => a.priority - b.priority);
@@ -74,10 +87,14 @@ export function emit(name) {
 /**
  * Listen for the moments (once per app). `doc`, `win` and `store` are the page's own unless a test passes others.
  * Returns the function that stops listening.
+ * @param {{ doc?: Document, win?: Window, store?: import('./types').StoreApi }} [opts]
+ * @returns {() => void}
  */
 export function startMoments({ doc = globalThis.document, win = globalThis.window, store = useApp } = {}) {
   if (!doc || !win) return () => {};
+  /** @type {Set<ReturnType<typeof setTimeout>>} */
   const timers = new Set();
+  /** @type {(fn: () => void, ms: number) => ReturnType<typeof setTimeout>} */
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
   const visible = () => doc.visibilityState !== 'hidden';
 
@@ -88,6 +105,7 @@ export function startMoments({ doc = globalThis.document, win = globalThis.windo
   }, BOOT_DELAY);
 
   // hidden and visible (pagehide too: a closing tab does not always change its visibility first)
+  /** @type {number | null} */
   let hiddenAt = visible() ? null : Date.now();
   const goHidden = () => {
     if (hiddenAt !== null) return; // already told: visibilitychange and pagehide both fire when a tab closes
@@ -111,7 +129,9 @@ export function startMoments({ doc = globalThis.document, win = globalThis.windo
   const tick = setInterval(() => { if (visible()) emit('tick'); }, TICK_EVERY);
 
   // lesson: 30 s after today's finished lessons or teaching stages changed (one moment for a run of them)
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let lessonTimer = null;
+  /** @param {import('./types').Saved} s */
   const doneToday = (s) => { const d = s.days?.[today()]; return `${d?.lessons || 0}:${d?.stages || 0}`; };
   let last = doneToday(store.getState());
   const unsubscribe = store.subscribe((s) => {

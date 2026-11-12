@@ -1,5 +1,5 @@
 # Madregot's merge gate (madregot/README.md, "CI"). Three checks: web, worker and e2e.
-# Protect main with all three, so a type error, a failing unit or Worker test (the parallel PIN, sync and billing
+# Protect main with all three, so a type error (web, and the Worker's money and vault code), a failing unit or Worker test (the parallel PIN, sync and billing
 # races included), a build that fails its checks, or a broken phone flow blocks the merge.
 name: ci
 
@@ -54,8 +54,15 @@ jobs:
           # node:sqlite (test/helpers.js) needs no flag from Node 22.13
           node-version: '22'
           cache: npm
-          cache-dependency-path: madregot/worker/package-lock.json
+          cache-dependency-path: |
+            madregot/worker/package-lock.json
+            madregot/web/package-lock.json
       - run: npm ci
+      # the static check of the money, vault and storage code (COUNCIL2-21: util, entitle, billing and vault, typedefs in
+      # src/types.js) uses the web app's TypeScript, so the web packages are installed here too
+      - run: npm ci
+        working-directory: madregot/web
+      - run: npm run typecheck
       # every Worker test, including test/config.test.js: wrangler's own reader parses wrangler.toml (top level and
       # env.staging), so a file wrangler would refuse at deploy fails here first
       - run: npm test

@@ -1,3 +1,4 @@
+// @ts-check
 // The iPhone Home Screen guide (DURABLE-3): when to offer it. Safari may delete a site's data after seven days of Safari
 // use without it; an app added to the Home Screen is not deleted that way, but it keeps its data apart from Safari, so
 // the guide first makes sure the progress can travel (InstallSheet).
@@ -18,24 +19,32 @@ export function isIos(nav = globalThis.navigator) {
 /** The app was opened from the Home Screen (its own window), not in the browser. */
 export function isStandalone({ win = globalThis.window, nav = globalThis.navigator } = {}) {
   try { if (win?.matchMedia?.('(display-mode: standalone)')?.matches) return true; } catch { /* no matchMedia */ }
-  return nav?.standalone === true;
+  return /** @type {Navigator & { standalone?: boolean }} */ (nav)?.standalone === true;
 }
 
 /** The guide applies here: iOS, in the browser. */
 export const guideHere = ({ win = globalThis.window, nav = globalThis.navigator } = {}) => isIos(nav) && !isStandalone({ win, nav });
 
 /** The days the student learned on (a finished lesson, check or teaching stage). */
+/** @param {unknown} days */
 export const activeDays = (days) => Object.values(days && typeof days === 'object' ? days : {}).filter(isActiveDay).length;
+/** @param {import('./types').Saved | null | undefined} st */
 export const hasProgress = (st) => activeDays(st?.days) > 0 || (Number(st?.xp) || 0) > 0;
 
-/** The guide was offered less than 30 days ago. */
+/**
+ * The guide was offered less than 30 days ago.
+ * @param {string | null | undefined} installHintAt
+ */
 export function hintedRecently(installHintAt, now = new Date()) {
-  const t = Date.parse(installHintAt);
+  const t = Date.parse(installHintAt ?? '');
   return Number.isFinite(t) && now.getTime() - t < HINT_DAYS * 864e5;
 }
 
-/** Learn's card: an iPhone in the browser, a student with progress since the 3rd day they learned, not offered lately. */
+/**
+ * Learn's card: an iPhone in the browser, a student with progress since the 3rd day they learned, not offered lately.
+ * @param {import('./types').Saved | null | undefined} st
+ */
 export function showLearnCard(st, { win = globalThis.window, nav = globalThis.navigator, now = new Date() } = {}) {
   return st?.profile?.role === 'student' && guideHere({ win, nav }) && hasProgress(st)
-    && activeDays(st.days) >= CARD_FROM_DAY && !hintedRecently(st.durable?.installHintAt, now);
+    && activeDays(st?.days) >= CARD_FROM_DAY && !hintedRecently(st?.durable?.installHintAt, now);
 }

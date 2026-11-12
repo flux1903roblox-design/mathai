@@ -1,3 +1,4 @@
+// @ts-check
 // The safe write path for the student's progress (DURABLE-1): the storage zustand's persist middleware saves through.
 // The progress stays one localStorage key in zustand's `{ state, version }` format (the browser tests read it as it
 // is), with a `meta` block beside it:
@@ -27,6 +28,12 @@ import { randomHex } from '../random.js';
 import { report as reportError } from '../monitor.js';
 import { isObj } from '@shared/obj.js';
 
+/** @typedef {import('./types').Saved} Saved */
+/** @typedef {import('./types').SaveMeta} SaveMeta */
+/** @typedef {{ state: Saved, version: number, meta?: unknown }} Envelope */
+/** @typedef {{ state: Saved, keyAt: Record<string, string>, parent: { rev: number, tab: string | null }, seen: Record<string, number> }} Plan */
+/** @typedef {import('zustand').StoreApi<any> & { persist: { rehydrate(): unknown }, getInitialState?: () => unknown }} PersistedStore */
+
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
 export const STORE_KEY = import.meta.env.VITE_STORE_KEY || 'madregot';
 /** The build that wrote a save: the git commit it was built from (vite.config.js), or 'dev'. */
@@ -40,10 +47,13 @@ export const MIRROR_DELAY = 1000;
 export const HISTORY = 8;
 
 /** A full storage, in the words each browser uses for it. */
+/** @param {any} e */
 export const isQuotaError = (e) => !!e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014 || e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
 
 /** The page's localStorage, or null when the browser lets nothing be saved. A full one is still used (it can be read). */
+/** @returns {Storage | null} */
 export function pageStorage() {
+  /** @type {Storage | undefined} */
   let s;
   try { s = globalThis.localStorage; s.getItem('__t'); } catch { return null; }
   if (!s) return null;
@@ -52,13 +62,17 @@ export function pageStorage() {
 }
 
 
-/** A saved value read as zustand's envelope, or null when it is not one. */
+/**
+ * A saved value read as zustand's envelope, or null when it is not one.
+ * @param {unknown} raw
+ * @returns {Envelope | null}
+ */
 function envelope(raw) {
   if (typeof raw !== 'string') return null;
   let v;
   try { v = JSON.parse(raw); } catch { return null; }
   if (!isObj(v) || !isObj(v.state) || typeof v.version !== 'number') return null;
-  return v;
+  return /** @type {Envelope} */ (v);
 }
 
 /**
@@ -67,6 +81,9 @@ function envelope(raw) {
  * - the key, when it has no `meta`: an older build (or a test) wrote it, after any copy this build made;
  * - otherwise the one with the higher revision (the key when they are equal).
  * `key`: { kind: 'missing' | 'corrupt' | 'ok', rev, meta }; `mirror`: { rev } or null.
+ * @param {{ kind: 'missing' | 'corrupt' | 'ok', rev: number, meta?: unknown }} key
+ * @param {{ rev: number } | null} mirror
+ * @returns {'key' | 'mirror'}
  */
 export function pickStart(key, mirror) {
   if (!mirror) return 'key';
@@ -75,7 +92,24 @@ export function pickStart(key, mirror) {
   return mirror.rev > key.rev ? 'mirror' : 'key';
 }
 
-/** Problems in a merged state that neither side had (validateState): a merge must never make a sound state unsound. */
+/**
+ * A save's keyAt as this build reads it: only the slices with a time (a string); anything else in it is dropped.
+ * @param {unknown} v
+ * @returns {Record<string, string>}
+ */
+const timesOf = (v) => {
+  /** @type {Record<string, string>} */
+  const out = {};
+  if (isObj(v)) for (const [k, t] of Object.entries(v)) if (typeof t === 'string') out[k] = t;
+  return out;
+};
+
+/**
+ * Problems in a merged state that neither side had (validateState): a merge must never make a sound state unsound.
+ * @param {(st: unknown) => string[]} validate
+ * @param {unknown} merged
+ * @param {...unknown} sides
+ */
 function newProblems(validate, merged, ...sides) {
   const had = new Set(sides.flatMap((x) => validate(x)));
   return validate(merged).filter((p) => !had.has(p));
@@ -85,6 +119,12 @@ function newProblems(validate, merged, ...sides) {
  * The write path for one key. `ls`: a Storage, or null (nothing can be saved: memory only); `idb`: createIdb(…) or null;
  * `status`: the zustand store that shows health (useDurable); `onRemoved`: another tab deleted everything (the app
  * reloads). The rest is for tests.
+ * @param {{
+ *   key: string, version?: number, ls: Storage | null, idb?: import('./types').Idb | null,
+ *   status?: { setState(patch: Partial<import('./useDurable.js').DurableStatus>): void }, release?: string,
+ *   now?: () => Date, tab?: string, bootWait?: number, mirrorDelay?: number,
+ *   validate?: (st: unknown) => string[], onRemoved?: () => void, report?: (kind: string, fields: Record<string, unknown>) => unknown,
+ * }} opts
  */
 export function createDurable({
   key, version = CURRENT_VERSION, ls, idb = null, status = useDurable, release = RELEASE,
@@ -92,39 +132,60 @@ export function createDurable({
   validate = validateState, onRemoved = () => {}, report = reportError,
 }) {
   const REV = `${key}:rev`;
-  const memory = ls ? null : new Map();
+  /** @type {Map<string, string>} */
+  const memory = new Map(); // what is saved when nothing can be (ls null): memory only
+  /** @type {PersistedStore | null} */
   let store = null; // the zustand store saved here (bind), for a restore from the copy
+  /** @type {import('zustand/middleware').StorageValue<Saved> | null} */
   let pending = null; // the value zustand asked to save, waiting for this tick's flush
   let scheduled = false;
   let wiped = false; // after "delete all", nothing is written again for the rest of the page's life
   let applying = false; // a restore is being applied: memory and storage already agree
+  /** @type {string | null} */
   let override = null; // what getItem reads instead of the key while a restore is applied
+  /** @type {{ kind: 'missing' | 'corrupt' | 'ok', rev: number, meta: Saved | null, raw: string | null } | null} */
   let first = null; // what the first read of the key found: { kind, rev, meta, raw }
   let loadedRev = 0; // the revision this tab's state is based on
+  /** @type {string | null} */
   let lastWriterTab = null;
+  /** @type {Saved | null} */
   let lastLoaded = null; // the state as last read (the base for a merge between tabs)
+  /** @type {Saved | null} */
   let lastWritten = null; // the state as this tab last saved it
+  /** @type {Record<string, string>} */
   let keyAt = {};
+  /** @type {Record<string, number>} */
   let seen = {}; // for each tab, its last save this tab's state includes (tabs.js)
+  /** @type {Array<{ tab: string | null, rev: number, state: Saved }>} */
   const history = []; // this tab's last loaded and saved copies: { tab, rev, state }, oldest first
+  /** @type {string | null} */
   let lastRaw = null; let lastRev = 0; // the newest saved JSON, for the copy
+  /** @type {string | null} */
   let mirrored = null; // the JSON the copy holds
-  let mirrorTimer = null;
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let mirrorTimer;
+  /** @type {Promise<import('./types').Mirror | null> | null} */
   let bootRead = null; let bootDone = !idb; // writes to the copy wait until boot has read it
+  /** @type {Set<string>} */
   const quarantined = new Set();
 
+  /** @param {Partial<import('./useDurable.js').DurableStatus>} patch */
   const setStatus = (patch) => status.setState(patch);
   const iso = () => now().toISOString();
+  /** @returns {string | null} */
   const readRaw = () => { try { return ls ? ls.getItem(key) : memory.get(key) ?? null; } catch { return null; } };
   /** Who saved last: `{ rev, tab }` from the stamp (a stamp from before tabs were counted has no tab). */
   const readStamp = () => {
+    /** @type {string | null | undefined} */
     let v = null;
     try { v = ls ? ls.getItem(REV) : memory.get(REV); } catch { /* blocked */ }
     const [r, t] = String(v ?? '').split(' ');
     const n = Number(r);
     return { rev: Number.isFinite(n) && n > 0 ? n : 0, tab: t || null };
   };
+  /** @type {(writer: string | null | undefined, rev: number, state: Saved) => void} */
   const remember = (writer, rev, state) => { history.push({ tab: writer ?? null, rev, state }); if (history.length > HISTORY) history.shift(); };
+  /** @type {(raw: string, reason: import('./types').QuarantineReason, v: number | null) => void} */
   const keep = (raw, reason, v) => {
     if (reason === 'parse' || reason === 'future-version') {
       report('storage', { name: reason, message: reason === 'parse' ? 'the saved progress is not valid JSON' : `the saved progress is from a newer version (v${v})` });
@@ -136,7 +197,11 @@ export function createDurable({
   if (!ls) setStatus({ health: 'memory' });
 
   // ------------------------------------------------------------------ reading
-  function getItem() {
+  /**
+   * @param {string} [_name]
+   * @returns {{ state: Saved, version: number } | null}
+   */
+  function getItem(_name) {
     const raw = override ?? readRaw();
     const env = envelope(raw);
     if (!first) {
@@ -149,8 +214,8 @@ export function createDurable({
     if (env.version > version) keep(raw, 'future-version', env.version);
     const meta = isObj(env.meta) ? env.meta : null;
     loadedRev = Math.max(loadedRev, Number(meta?.rev) || 0);
-    lastWriterTab = meta?.tab ?? null;
-    keyAt = isObj(meta?.keyAt) ? { ...meta.keyAt } : {};
+    lastWriterTab = typeof meta?.tab === 'string' ? meta.tab : null;
+    keyAt = timesOf(meta?.keyAt);
     seen = seenOf(meta);
     lastLoaded = env.state; lastWritten = env.state;
     remember(lastWriterTab, Number(meta?.rev) || 0, env.state);
@@ -158,6 +223,10 @@ export function createDurable({
   }
 
   // ------------------------------------------------------------------ writing
+  /**
+   * @param {string} _name
+   * @param {import('zustand/middleware').StorageValue<Saved>} value
+   */
   function setItem(_name, value) {
     if (wiped) return;
     if (applying) { pending = null; return; }
@@ -172,6 +241,7 @@ export function createDurable({
     if (!value || wiped) return;
     const at = iso();
     const { state } = value;
+    /** @type {Record<string, string>} */
     const nextKeyAt = { ...keyAt };
     for (const [k, v] of Object.entries(state)) if (typeof v !== 'function' && (!lastWritten || lastWritten[k] !== v)) nextKeyAt[k] = at;
     // Another tab saved since this one last read or saved, and its event has not arrived yet: the stamp says so
@@ -179,45 +249,65 @@ export function createDurable({
     const stamp = readStamp();
     if (ls && (stamp.rev !== loadedRev || (stamp.tab != null && stamp.tab !== lastWriterTab))) {
       const theirs = envelope(readRaw());
-      const tm = isObj(theirs?.meta) ? theirs.meta : null;
-      if (tm && tm.tab !== tab && !includes(seen, tm.tab, Number(tm.rev) || 0)) {
+      const tm = theirs && isObj(theirs.meta) ? theirs.meta : null;
+      if (theirs && tm && tm.tab !== tab && !includes(seen, tm.tab, Number(tm.rev) || 0)) {
         const plan = mergeWith(dataOf(state), nextKeyAt, theirs, at);
-        commit(plan, value.version, at);
+        commit(plan, value.version ?? version, at);
         apply(plan.state);
         return;
       }
     }
-    commit({ state, keyAt: nextKeyAt, parent: { rev: loadedRev, tab: lastWriterTab }, seen }, value.version, at);
+    commit({ state, keyAt: nextKeyAt, parent: { rev: loadedRev, tab: lastWriterTab }, seen }, value.version ?? version, at);
   }
 
-  /** The copy this tab's state and the other tab's save both grew from: the newest one this tab kept that theirs includes. */
+  /**
+   * The copy this tab's state and the other tab's save both grew from: the newest one this tab kept that theirs includes.
+   * @param {unknown} theirMeta
+   * @returns {Saved}
+   */
   function baseFor(theirMeta) {
     const theirSeen = seenOf(theirMeta);
     for (let i = history.length - 1; i >= 0; i -= 1) if (includes(theirSeen, history[i].tab, history[i].rev)) return history[i].state;
     return lastLoaded ?? {};
   }
 
-  /** This tab's state merged with another tab's save (an envelope): what to save, and how. */
+  /**
+   * This tab's state merged with another tab's save (an envelope): what to save, and how.
+   * @param {Saved} mine
+   * @param {Record<string, string>} mineAt
+   * @param {Envelope} theirs
+   * @param {string} at
+   * @returns {Plan}
+   */
   function mergeWith(mine, mineAt, theirs, at) {
-    const tm = theirs.meta;
+    const tm = isObj(theirs.meta) ? /** @type {Saved} */ (theirs.meta) : {};
     const base = baseFor(tm);
-    const theirsAt = isObj(tm.keyAt) ? tm.keyAt : {};
+    const theirsAt = timesOf(tm.keyAt);
     const merged = noteMerge(mergeTabs(base, mine, theirs.state, { mineAt, theirsAt }), 'tab', at);
     // never expected: a merge that makes the state unsound keeps both sides as they were
     const problems = newProblems(validate, merged, mine, theirs.state);
     if (problems.length) keep(JSON.stringify({ base, mine, theirs: theirs.state, problems }), 'before-merge', version);
+    /** @type {Record<string, string>} */
     const k = { ...mineAt };
     for (const [slice, t] of Object.entries(theirsAt)) if (!(k[slice] >= t)) k[slice] = t;
-    return { state: merged, keyAt: k, parent: { rev: Number(tm.rev) || 0, tab: tm.tab ?? null }, seen: joinSeen(seen, seenOf(tm)) };
+    return { state: merged, keyAt: k, parent: { rev: Number(tm.rev) || 0, tab: typeof tm.tab === 'string' ? tm.tab : null }, seen: joinSeen(seen, seenOf(tm)) };
   }
 
-  /** Put a merged state in the store without saving it again (it is saved already). */
+  /**
+   * Put a merged state in the store without saving it again (it is saved already).
+   * @param {Saved} state
+   */
   function apply(state) {
     applying = true;
     try { store?.setState(state); } finally { applying = false; }
   }
 
-  /** Save `plan.state` as the next revision: the key, its stamp, the copy, and what this tab now is. */
+  /**
+   * Save `plan.state` as the next revision: the key, its stamp, the copy, and what this tab now is.
+   * @param {Plan} plan
+   * @param {number} v
+   * @param {string} at
+   */
   function commit({ state, keyAt: nextKeyAt, parent, seen: base }, v, at) {
     const rev = Math.max(readStamp().rev, loadedRev, parent.rev) + 1;
     const nextSeen = pruneSeen({ ...base, [tab]: rev });
@@ -232,7 +322,7 @@ export function createDurable({
     if (ok === true) { setStatus({ health: 'ok', savedAt: at }); scheduleMirror(); return; }
     // localStorage could not take it: the copy on the device, at once
     report('storage', { name: ok === 'quota' ? 'quota' : 'write', message: ok === 'quota' ? 'localStorage is full' : 'localStorage refused the save' });
-    clearTimeout(mirrorTimer); mirrorTimer = null;
+    clearTimeout(mirrorTimer); mirrorTimer = undefined;
     mirrorNow().then((saved) => {
       if (lastRev !== rev || wiped) return;
       setStatus(saved ? { health: 'mirror', savedAt: at } : { health: 'full' });
@@ -243,13 +333,14 @@ export function createDurable({
   /**
    * Another tab saved (its `storage` event; `newValue` null: it removed the save). A save that holds everything this
    * tab has is loaded as it is (zustand's rehydrate writes nothing back); one that diverged is merged and saved.
+   * @param {string | null} newValue
    */
   function receive(newValue) {
     if (wiped || !ls || applying) return;
     const raw0 = readRaw();
     if (newValue === null && raw0 == null) {
       // "delete all" in another tab: this page must not write the progress back, so it stops and starts again
-      wiped = true; pending = null; clearTimeout(mirrorTimer); mirrorTimer = null;
+      wiped = true; pending = null; clearTimeout(mirrorTimer); mirrorTimer = undefined;
       onRemoved();
       return;
     }
@@ -257,13 +348,14 @@ export function createDurable({
     const raw = readRaw();
     const env = envelope(raw);
     if (!env || !isObj(env.meta)) return;
-    const action = tabAction(env.meta, { tab, seen, writer: { tab: lastWriterTab, rev: loadedRev } });
+    const meta = env.meta;
+    const action = tabAction(meta, { tab, seen, writer: { tab: lastWriterTab, rev: loadedRev } });
     if (action === 'ignore') return;
     if (action === 'forward') {
       applying = true;
       try { store?.persist.rehydrate(); } finally { applying = false; }
       // the tab that saved it writes its copy on the device
-      lastRaw = raw; lastRev = Number(env.meta.rev) || 0; mirrored = raw;
+      lastRaw = raw; lastRev = Number(meta.rev) || 0; mirrored = raw;
       return;
     }
     const at = iso();
@@ -272,7 +364,12 @@ export function createDurable({
     apply(plan.state);
   }
 
-  /** Write the key, then its revision: true, or 'quota' / 'error'. */
+  /**
+   * Write the key, then its revision: true, or 'quota' / 'error'.
+   * @param {string} raw
+   * @param {number} rev
+   * @returns {true | 'quota' | 'error'}
+   */
   function put(raw, rev) {
     if (!ls) { memory.set(key, raw); memory.set(REV, `${rev} ${tab}`); return true; }
     try { ls.setItem(key, raw); } catch (e) { return isQuotaError(e) ? 'quota' : 'error'; }
@@ -283,10 +380,13 @@ export function createDurable({
   function scheduleMirror() {
     if (!idb || wiped) return;
     clearTimeout(mirrorTimer);
-    mirrorTimer = setTimeout(() => { mirrorTimer = null; mirrorNow(); }, mirrorDelay);
+    mirrorTimer = setTimeout(() => { mirrorTimer = undefined; mirrorNow(); }, mirrorDelay);
   }
 
-  /** Bring the copy up to the newest save. Resolves true when the copy holds it. */
+  /**
+   * Bring the copy up to the newest save. Resolves true when the copy holds it.
+   * @returns {Promise<boolean>}
+   */
   async function mirrorNow() {
     if (!idb || wiped) return false;
     // never write over the copy before boot has read it (and maybe started from it: then that is the newest save)
@@ -295,7 +395,7 @@ export function createDurable({
     if (!lastRaw || lastRaw === mirrored) return !!lastRaw;
     const raw = lastRaw; const rev = lastRev;
     try { await idb.writeMirror(raw, rev, iso()); } catch (e) {
-      report('storage', { name: 'mirror', message: `the copy on the device was not written: ${e?.name || 'Error'}` });
+      report('storage', { name: 'mirror', message: `the copy on the device was not written: ${/** @type {any} */ (e)?.name || 'Error'}` });
       return false;
     }
     if (lastRaw === raw) mirrored = raw;
@@ -305,26 +405,32 @@ export function createDurable({
   /** The page is being hidden or closed: save what is pending, and the copy, now. */
   function flushNow() {
     if (pending) flush();
-    if (mirrorTimer) { clearTimeout(mirrorTimer); mirrorTimer = null; }
+    if (mirrorTimer) { clearTimeout(mirrorTimer); mirrorTimer = undefined; }
     mirrorNow();
   }
 
-  function removeItem() {
+  /** @param {string} [_name] */
+  function removeItem(_name) {
     pending = null;
-    clearTimeout(mirrorTimer); mirrorTimer = null;
+    clearTimeout(mirrorTimer); mirrorTimer = undefined;
     lastRaw = null; mirrored = null;
     try { if (ls) { ls.removeItem(key); ls.removeItem(REV); } else { memory.delete(key); memory.delete(REV); } } catch { /* blocked */ }
     idb?.deleteMirror().catch(() => {});
   }
 
   // ------------------------------------------------------------------ boot
-  /** Start from the copy on the device: write it back to the key if there is room, and load it into the store. */
+  /**
+   * Start from the copy on the device: write it back to the key if there is room, and load it into the store.
+   * @param {{ raw: string, rev: number }} mirror
+   * @param {Envelope} env
+   */
   function restore(mirror, env) {
     pending = null;
     let wroteBack = false;
+    const meta = isObj(env.meta) ? env.meta : null;
     const rev = Math.max(mirror.rev, readStamp().rev);
     if (ls) {
-      try { ls.setItem(key, mirror.raw); ls.setItem(REV, `${rev} ${env.meta?.tab ?? ''}`.trim()); wroteBack = true; } catch { /* still full */ }
+      try { ls.setItem(key, mirror.raw); ls.setItem(REV, `${rev} ${meta?.tab ?? ''}`.trim()); wroteBack = true; } catch { /* still full */ }
     }
     override = mirror.raw;
     applying = true;
@@ -332,16 +438,19 @@ export function createDurable({
     loadedRev = Math.max(loadedRev, rev);
     lastRaw = mirror.raw; lastRev = mirror.rev; mirrored = mirror.raw;
     // a key that was lost or broken is news worth a word; a copy that is newer only because storage is full is not
-    const noted = first.kind !== 'ok' || wroteBack;
-    setStatus({ restoredFrom: 'mirror', restoreNote: noted, health: wroteBack ? 'ok' : 'mirror', savedAt: env.meta?.at ?? null });
+    const noted = first?.kind !== 'ok' || wroteBack;
+    setStatus({ restoredFrom: 'mirror', restoreNote: noted, health: wroteBack ? 'ok' : 'mirror', savedAt: typeof meta?.at === 'string' ? meta.at : null });
   }
 
-  /** Compare the copy with what the key held at the start, and start from the newer one. */
+  /**
+   * Compare the copy with what the key held at the start, and start from the newer one.
+   * @param {import('./types').Mirror | null} m
+   */
   function decide(m) {
     if (wiped || !first) return;
     const env = m ? envelope(m.raw) : null;
-    const mirror = env ? { raw: m.raw, rev: Number(m.rev) || Number(env.meta?.rev) || 0 } : null;
-    if (pickStart(first, mirror) === 'mirror') { restore(mirror, env); return; }
+    const mirror = m && env ? { raw: m.raw, rev: Number(m.rev) || Number(isObj(env.meta) ? env.meta.rev : 0) || 0 } : null;
+    if (mirror && env && pickStart(first, mirror) === 'mirror') { restore(mirror, env); return; }
     // the key is the newest: the copy is brought up to it (a key without meta has revision 0)
     if (first.kind === 'ok' && (!mirror || !first.meta || mirror.rev < first.rev) && !lastRaw) {
       lastRaw = first.raw; lastRev = first.rev;
@@ -352,6 +461,7 @@ export function createDurable({
   /**
    * Before the first screen: read the copy on the device (at most BOOT_WAIT ms) and start from the newer one; a copy
    * that answers later is applied when it arrives. Old quarantine records go. Listens for the page being hidden.
+   * @param {{ win?: Window, doc?: Document }} [where]
    */
   async function boot({ win = globalThis.window, doc = globalThis.document } = {}) {
     if (typeof doc?.addEventListener === 'function') doc.addEventListener('visibilitychange', () => { if (doc.visibilityState === 'hidden') flushNow(); });
@@ -359,26 +469,31 @@ export function createDurable({
     if (ls) listenTabs({ key, onSave: receive, win });
     if (!ls || !idb || wiped) { bootDone = true; return; }
     if (!first) getItem(); // the store reads the key when it is created; a store not bound yet reads it here
-    bootRead = idb.readMirror().then((m) => m, () => null).finally(() => { bootDone = true; });
+    const db = idb;
+    const read = db.readMirror().then((m) => m, () => null).finally(() => { bootDone = true; });
+    bootRead = read;
     const TIMEOUT = Symbol('timeout');
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
     let timer;
-    const won = await Promise.race([bootRead, new Promise((r) => { timer = setTimeout(() => r(TIMEOUT), bootWait); })]);
+    /** @type {import('./types').Mirror | null | typeof TIMEOUT} */
+    const won = await Promise.race([read, new Promise((r) => { timer = setTimeout(() => r(TIMEOUT), bootWait); })]);
     clearTimeout(timer);
-    if (won === TIMEOUT) bootRead.then(decide);
+    if (won === TIMEOUT) read.then(decide);
     else decide(won);
-    bootRead.then(() => idb.pruneQuarantine(iso())).catch(() => {});
+    read.then(() => db.pruneQuarantine(iso())).catch(() => {});
   }
 
   /** "Delete all": the key, its revision, the copy and the quarantine go, and nothing is written again on this page. */
   async function wipe() {
     wiped = true; pending = null;
-    clearTimeout(mirrorTimer); mirrorTimer = null;
+    clearTimeout(mirrorTimer); mirrorTimer = undefined;
     try { if (ls) { ls.removeItem(key); ls.removeItem(REV); } else memory.clear(); } catch { /* blocked */ }
     try { await idb?.destroy(); } catch { /* nothing to delete */ }
   }
 
   return {
     storage: { getItem, setItem, removeItem },
+    /** @param {PersistedStore} s */
     bind(s) {
       store = s;
       // a key that was missing (or broken): the store's defaults are the copy everything here grew from
@@ -396,8 +511,11 @@ export function createDurable({
      * the copy is kept; `latest(reason)` is the newest record with that reason (`{ key, value }`) or null; `drop(key)`.
      */
     quarantine: {
+      /** @type {(raw: string, reason: import('./types').QuarantineReason) => Promise<boolean>} */
       keep: async (raw, reason) => (idb && !wiped ? idb.quarantine(raw, reason, version, iso()) : false),
+      /** @type {(reason: string) => Promise<{ key: IDBValidKey, value: any } | null>} */
       latest: async (reason) => (idb ? (await idb.listQuarantine()).filter((r) => r.value?.reason === reason).at(-1) ?? null : null),
+      /** @param {IDBValidKey} k */
       drop: async (k) => { try { await idb?.dropQuarantine(k); } catch { /* gone already */ } },
     },
   };
@@ -413,6 +531,7 @@ const durable = createDurable({
 /** The storage for zustand's persist (store.js). */
 export const durableStorage = durable.storage;
 /** store.js hands its store over, so a restore from the copy can load into it. */
+/** @param {PersistedStore} s */
 export const bindDurableStore = (s) => durable.bind(s);
 /** Awaited in main.jsx before the first render. Never rejects. */
 export const durableBoot = () => durable.boot().catch(() => {});
@@ -425,6 +544,7 @@ export const durableQuarantine = durable.quarantine;
  * with or without a server. "Delete all" deletes them with the rest of the database.
  */
 export const errorLog = {
+  /** @param {unknown} rec */
   add: (rec) => (appIdb ? appIdb.addError(rec) : Promise.resolve(false)),
   list: () => (appIdb ? appIdb.listErrors() : Promise.resolve([])),
 };

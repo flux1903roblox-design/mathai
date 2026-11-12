@@ -1,3 +1,4 @@
+// @ts-check
 // The durable lane's parts of "delete all" (lib/wipe.js, trust spec TRUST-6 §2), registered instead of edited in:
 //   - the backup on the server (DURABLE-5): with the backup code on, the vault is deleted after the server's own delete
 //     and before anything on the device; when it cannot be, the wipe stops there and the sheet says why, in the vault's

@@ -1,3 +1,4 @@
+// @ts-check
 // Saved data from an older version, brought up to date one step at a time (DURABLE-1). Each step says which version it
 // produces; migrate() runs every step newer than the saved version, in order. Every step is idempotent: run on data
 // that already went through it, it changes nothing. That matters while two builds share one address for a while (an
@@ -23,7 +24,11 @@ import { emptyLearn, migrateLearn, relabelLegacyEvidence } from '@/learn/storeGl
 import { migratePath } from '../path.js';
 import { newTag as makeNewTag, sumXp, TAG } from './xp.js';
 import { validateState } from './validate.js';
-import { isObj } from '@shared/obj.js';
+import { isRecord as isObj } from '@shared/obj.js';
+
+/** @typedef {import('./types').Saved} Saved */
+/** @typedef {{ personal?: boolean, newTag?: () => string }} MigrateOpts */
+/** @typedef {{ to: number, up: (st: Saved, opts?: MigrateOpts) => Saved }} Migration */
 
 export const CURRENT_VERSION = 7;
 /** Fields an older version kept and this one drops (the v7 step, and both merges in merge.js). */
@@ -60,6 +65,7 @@ export function emptyClassWork() {
 }
 
 
+/** @type {Migration[]} */
 export const MIGRATIONS = [
   {
     to: 2,
@@ -80,7 +86,9 @@ export const MIGRATIONS = [
     up: (st) => {
       const path = isObj(st.path) ? st.path : {};
       const progress = isObj(st.progress) ? st.progress : {};
-      const learn = isObj(st.learn) ? st.learn : emptyLearn();
+      /** @type {import('@/learn/types').LearnState} */
+      const learn = isObj(st.learn) ? /** @type {any} */ (st.learn) : emptyLearn();
+      /** @type {Saved} */
       const next = migratePath(path, progress, isObj(learn.skills) ? learn.skills : {});
       // A topic that has `done` already went through this step (an older build wrote the save back as v3): a stair its
       // mastery check reopened since must stay open, so only a mastery reached meanwhile is added.
@@ -96,11 +104,13 @@ export const MIGRATIONS = [
   {
     to: 5,
     up: (st, { newTag = makeNewTag } = {}) => {
+      /** @type {Saved} */
       const durable = { ...DURABLE_DEFAULTS, ...(isObj(st.durable) ? st.durable : {}) };
       if (!(typeof durable.tag === 'string' && TAG.test(durable.tag))) durable.tag = newTag();
       const xp = Number.isFinite(st.xp) && st.xp > 0 ? st.xp : 0;
+      /** @type {Record<string, number>} */
       let xpBy = {};
-      if (isObj(st.xpBy)) for (const [t, v] of Object.entries(st.xpBy)) if (Number.isFinite(v) && v > 0) xpBy[t] = v;
+      if (isObj(st.xpBy)) for (const [t, v] of Object.entries(st.xpBy)) if (typeof v === 'number' && Number.isFinite(v) && v > 0) xpBy[t] = v;
       const diff = xp - sumXp(xpBy);
       // XP an older build added without the counter was earned here; an older build that lowered XP (a reset) starts it again
       if (diff > 0) xpBy = { ...xpBy, [durable.tag]: (xpBy[durable.tag] || 0) + diff };
@@ -135,9 +145,14 @@ export const MIGRATIONS = [
  * `saved` (the store's state as it was saved at `fromVersion`) brought up to CURRENT_VERSION. `opts.personal`: the build
  * can use a personal Claude key; `opts.newTag`: makes the device tag (tests pass a fixed one). Broken or missing data
  * starts from nothing, and the store's defaults fill it. A save from a newer version runs no step and keeps every field.
+ * @param {unknown} saved
+ * @param {unknown} fromVersion
+ * @param {MigrateOpts} [opts]
+ * @returns {Saved}
  */
 export function migrate(saved, fromVersion, opts = {}) {
-  const from = Number.isFinite(fromVersion) ? fromVersion : 0;
+  const from = typeof fromVersion === 'number' && Number.isFinite(fromVersion) ? fromVersion : 0;
+  /** @type {Saved} */
   let st = isObj(saved) ? { ...saved } : {};
   // from v2 on the learning model is there: it gains any part a later build added, and a broken one starts empty
   if (from >= 2) st.learn = isObj(st.learn) ? { ...emptyLearn(), ...st.learn } : emptyLearn();

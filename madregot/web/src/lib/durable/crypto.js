@@ -1,3 +1,4 @@
+// @ts-check
 // The vault's cryptography (DURABLE-5), WebCrypto only (Node 22 has the same API, so the tests run it as it is).
 //   derive(code)  PBKDF2-SHA-256, 100,000 iterations, salt "madregot-vault-v1", 512 bits: bytes 0-31 become the AES-256-GCM
 //                 key (a CryptoKey that cannot be exported), bytes 32-63 the lookup token (64 hex, sent as X-Vault; the
@@ -21,15 +22,25 @@ export class VaultOpenError extends Error {
 
 const enc = new TextEncoder();
 const subtle = () => globalThis.crypto.subtle;
+/** @param {Uint8Array} bytes */
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
-/** SHA-256 of a text, as 64 hex. */
+/**
+ * SHA-256 of a text, as 64 hex.
+ * @param {string} text
+ */
 export async function sha256Hex(text) {
   return hex(new Uint8Array(await subtle().digest('SHA-256', enc.encode(text))));
 }
 
+/** @typedef {{ key: CryptoKey, lookup: string }} Derived */
+/** @type {Map<string, Promise<Derived>>} */
 const cache = new Map();
-/** The AES key and the lookup token of a code, `{ key, lookup }`, made once per code in this session. */
+/**
+ * The AES key and the lookup token of a code, `{ key, lookup }`, made once per code in this session.
+ * @param {string} code
+ * @returns {Promise<Derived>}
+ */
 export function derive(code) {
   const c = String(code);
   if (!cache.has(c)) {
@@ -43,15 +54,20 @@ export function derive(code) {
     })();
     made.catch(() => cache.delete(c));
     cache.set(c, made);
+    return made;
   }
-  return cache.get(c);
+  return /** @type {Promise<Derived>} */ (cache.get(c));
 }
 /** Forget the derived keys (tests, and when a backup is stopped). */
 export const forgetDerived = () => cache.clear();
 
-/** All of a stream's bytes. */
+/**
+ * All of a stream's bytes.
+ * @param {ReadableStream<Uint8Array>} readable
+ */
 async function drain(readable) {
   const reader = readable.getReader();
+  /** @type {Uint8Array[]} */
   const parts = []; let size = 0;
   for (;;) {
     const { done, value } = await reader.read();
@@ -62,16 +78,26 @@ async function drain(readable) {
   for (const p of parts) { out.set(p, at); at += p.byteLength; }
   return out;
 }
-const through = (bytes, transform) => drain(new ReadableStream({ start(c) { c.enqueue(bytes); c.close(); } }).pipeThrough(transform));
+/** @type {(bytes: Uint8Array, transform: CompressionStream | DecompressionStream) => Promise<Uint8Array>} */
+const through = (bytes, transform) => drain(new ReadableStream({ start(c) { c.enqueue(bytes); c.close(); } }).pipeThrough(/** @type {TransformStream<Uint8Array, Uint8Array>} */ (/** @type {unknown} */ (transform))));
+/** @param {Uint8Array} bytes */
 export const gzip = (bytes) => through(bytes, new CompressionStream('gzip'));
+/** @param {Uint8Array} bytes */
 export const gunzip = (bytes) => through(bytes, new DecompressionStream('gzip'));
 
-/** base64url without padding, in chunks (a 256 KiB copy is too big for one String.fromCharCode call). */
+/**
+ * base64url without padding, in chunks (a 256 KiB copy is too big for one String.fromCharCode call).
+ * @param {Uint8Array} bytes
+ */
 export function toBase64url(bytes) {
   let s = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, /** @type {number[]} */ (/** @type {unknown} */ (bytes.subarray(i, i + 0x8000))));
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
+/**
+ * @param {unknown} text
+ * @returns {Uint8Array}
+ */
 export function fromBase64url(text) {
   if (typeof text !== 'string' || !/^[A-Za-z0-9_-]*$/.test(text)) throw new VaultOpenError('not base64url');
   const s = atob(text.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (text.length % 4)) % 4));
@@ -81,9 +107,16 @@ export function fromBase64url(text) {
 }
 
 /** The size in bytes of the binary a blob holds (what the 256 KiB limit counts). */
+/** @param {unknown} blob */
 export const blobBytes = (blob) => Math.floor((String(blob).length * 3) / 4);
 
-/** Seal a payload with the key: base64url(0x01 | iv | AES-GCM(gzip(JSON))). `aad` is for tests. */
+/**
+ * Seal a payload with the key: base64url(0x01 | iv | AES-GCM(gzip(JSON))). `aad` is for tests.
+ * @param {unknown} payload
+ * @param {CryptoKey} key
+ * @param {{ aad?: string }} [opts]
+ * @returns {Promise<string>}
+ */
 export async function seal(payload, key, { aad = VAULT_AAD } = {}) {
   const packed = await gzip(enc.encode(JSON.stringify(payload)));
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(IV_BYTES));
@@ -93,7 +126,13 @@ export async function seal(payload, key, { aad = VAULT_AAD } = {}) {
   return toBase64url(out);
 }
 
-/** Open a sealed blob: the payload, or a VaultOpenError whatever went wrong. */
+/**
+ * Open a sealed blob: the payload, or a VaultOpenError whatever went wrong.
+ * @param {unknown} blob
+ * @param {CryptoKey} key
+ * @param {{ aad?: string }} [opts]
+ * @returns {Promise<any>}
+ */
 export async function open(blob, key, { aad = VAULT_AAD } = {}) {
   try {
     const bytes = fromBase64url(blob);

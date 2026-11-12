@@ -10,11 +10,13 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "noUnusedLocals": true,
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"], "@shared/*": ["../shared/*"] },
     "types": ["vite/client"]
   },
-  "include": ["src/learn/**/*.ts"]
+  "include": ["src/learn/**/*.ts", "src/lib/durable/*.js", "src/lib/store.js", "src/lib/api.js"],
+  "exclude": ["src/**/*.test.js", "src/lib/durable/testing.js"]
 }

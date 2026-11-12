@@ -7,3 +7,10 @@
  * @returns {v is Record<string, unknown>}
  */
 export const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * The same check for code that walks saved data field by field (the durable layer's merges, migrations and restores):
+ * a plain object whose fields are read as `any` and each checked where it is used (COUNCIL2-21's type check).
+ * @type {(v: unknown) => v is Record<string, any>}
+ */
+export const isRecord = isObj;

@@ -1,3 +1,4 @@
+// @ts-check
 // The copy of the progress on this device, in IndexedDB (DURABLE-1). localStorage stays the main store (it is read
 // synchronously, so the first screen already has the progress); this database keeps three things beside it:
 //   mirror      'current': { raw, rev, at }, the last saved JSON, written a second after each save and when the page
@@ -19,15 +20,21 @@ export const KEEP_ERRORS = 20;
  * The real IndexedDB as a backend: `get`, `put`, `add`, `entries`, `delete`, `close`, `destroy`. Null where the browser
  * has none. After another page deletes or upgrades the database (a "delete all" in another tab), this page stops using
  * it: every call fails, and nothing is written back.
+ * @param {string} name
+ * @param {IDBFactory | undefined} [factory]
+ * @returns {import('./types').Backend | null}
  */
 export function browserBackend(name, factory = globalThis.indexedDB) {
   if (!factory) return null;
+  /** @type {Promise<IDBDatabase> | null} */
   let dbp = null;
   let gone = false;
+  /** @returns {Promise<IDBDatabase>} */
   const open = () => {
     if (gone) return Promise.reject(new Error('the database was closed'));
     if (!dbp) {
       dbp = new Promise((resolve, reject) => {
+        /** @type {IDBOpenDBRequest} */
         let req;
         try { req = factory.open(name, DB_VERSION); } catch (e) { reject(e); return; }
         req.onupgradeneeded = () => {
@@ -49,9 +56,16 @@ export function browserBackend(name, factory = globalThis.indexedDB) {
     return dbp;
   };
   // one transaction: `fn(objectStore)` returns a request (its result is the answer) or a function read at the end
+  /**
+   * @param {string} store
+   * @param {IDBTransactionMode} mode
+   * @param {(s: IDBObjectStore) => IDBRequest | (() => unknown)} fn
+   * @returns {Promise<any>}
+   */
   const tx = async (store, mode, fn) => {
     const db = await open();
     return new Promise((resolve, reject) => {
+      /** @type {IDBTransaction} */
       let t;
       try { t = db.transaction(store, mode); } catch (e) { reject(e); return; }
       const r = fn(t.objectStore(store));
@@ -71,6 +85,7 @@ export function browserBackend(name, factory = globalThis.indexedDB) {
     }),
     close() { gone = true; const p = dbp; dbp = null; p?.then((db) => db.close(), () => {}); },
     /** Delete the database; resolves when it is gone (or after a few seconds if another page keeps it open). */
+    /** @returns {Promise<void>} */
     destroy() {
       this.close();
       return new Promise((resolve) => {
@@ -85,18 +100,33 @@ export function browserBackend(name, factory = globalThis.indexedDB) {
   };
 }
 
-/** The mirror, quarantine and error log over a backend. Reads that fail answer null or []; writes reject. */
+/**
+ * The mirror, quarantine and error log over a backend. Reads that fail answer null or []; writes reject.
+ * @param {import('./types').Backend | null} backend
+ */
 export function createIdb(backend) {
   if (!backend) return null;
+  /** @param {string} store */
   const all = async (store) => { try { return await backend.entries(store); } catch { return []; } };
   return {
-    /** The copy: `{ raw, rev, at }`, or null when there is none (or the database cannot be read). */
+    /**
+     * The copy: `{ raw, rev, at }`, or null when there is none (or the database cannot be read).
+     * @returns {Promise<import('./types').Mirror | null>}
+     */
     async readMirror() {
       try { const v = await backend.get('mirror', 'current'); return v && typeof v.raw === 'string' ? v : null; } catch { return null; }
     },
+    /** @type {(raw: string, rev: number, at: string) => Promise<unknown>} */
     writeMirror: (raw, rev, at) => backend.put('mirror', { raw, rev, at }, 'current'),
     deleteMirror: () => backend.delete('mirror', 'current'),
-    /** Keep data that could not be used, as it was. Resolves true when it is kept. */
+    /**
+     * Keep data that could not be used, as it was. Resolves true when it is kept.
+     * @param {string} raw
+     * @param {import('./types').QuarantineReason} reason
+     * @param {number | null | undefined} version
+     * @param {string} at
+     * @returns {Promise<boolean>}
+     */
     async quarantine(raw, reason, version, at) {
       try { await backend.add('quarantine', { raw, reason, version: version ?? null, at }); } catch { return false; }
       await this.pruneQuarantine(at);
@@ -105,15 +135,22 @@ export function createIdb(backend) {
     /** The quarantined records, oldest first: `[{ key, value }]`. */
     listQuarantine: () => all('quarantine'),
     /** Remove one quarantined record (an undone restore has used its copy). */
+    /** @param {IDBValidKey} k */
     dropQuarantine: (k) => backend.delete('quarantine', k),
-    /** Records older than 30 days go, and only the newest 5 stay. */
+    /**
+     * Records older than 30 days go, and only the newest 5 stay.
+     * @param {string} now
+     */
     async pruneQuarantine(now) {
       const list = await all('quarantine');
       const cutoff = Date.parse(now) - QUARANTINE_DAYS * 864e5;
       const drop = list.filter((r, i) => i < list.length - KEEP_QUARANTINE || !(Date.parse(r.value?.at) >= cutoff));
       await Promise.all(drop.map((r) => backend.delete('quarantine', r.key).catch(() => {})));
     },
-    /** One error record in the ring of the last 20. */
+    /**
+     * One error record in the ring of the last 20.
+     * @param {unknown} rec
+     */
     async addError(rec) {
       try { await backend.add('errors', rec); } catch { return false; }
       const list = await all('errors');

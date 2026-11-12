@@ -1,3 +1,4 @@
+// @ts-check
 // The vault on the device (DURABLE-5): the backup code's copy of the progress on the server, sealed here (crypto.js),
 // kept in step at the app's sync moments (moments.js). It runs only when the app has a server and the backup is on.
 //   boot, tick, online   pull, then push
@@ -41,66 +42,113 @@ import { derive, seal, open, sha256Hex, blobBytes, VaultOpenError } from './cryp
 import { makeCode, isCode } from './code.js';
 import { isObj } from '@shared/obj.js';
 
+/** @typedef {import('./types').StoreApi} Store */
+/** @typedef {import('./types').Backup} Backup */
+/** @typedef {import('./types').Saved} Saved */
+/**
+ * One sync's working state: the store, the code's key and lookup token, the clock, whether the page is going out of view,
+ * and whether the vault was found gone (it is then made again with the same code).
+ * @typedef {{ store: Store, key: CryptoKey, lookup: string, now: () => Date, hidden: boolean, gone: boolean }} SyncCtx
+ */
+
 /** The largest sealed copy (binary), as the server takes it. */
 export const MAX_BLOB_BYTES = 256 * 1024;
 /** Pull, merge and push again after a 409 at most this many times. */
 export const CONFLICT_LOOPS = 3;
 export const VAULT_MOMENTS = ['boot', 'visible', 'lesson', 'hidden', 'tick', 'online'];
 
+/** @type {(store: Store) => Backup} */
 const backupOf = (store) => ({ ...BACKUP_DEFAULTS, ...(isObj(store.getState().backup) ? store.getState().backup : {}) });
+/** @type {(store: Store, patch: Partial<Backup>) => void} */
 const setBackup = (store, patch) => store.setState({ backup: { ...backupOf(store), ...patch } });
 /** The JSON of a copy, with its keys in one order (two copies with the same content compare equal). */
+/** @param {unknown} v */
 const stable = (v) => JSON.stringify(v, (k, x) => (isObj(x) ? Object.fromEntries(Object.keys(x).sort().map((n) => [n, x[n]])) : x));
 /** The SHA-256 a push is compared with: of the JSON of what a backup holds (keys in one order, so a reload that only
  *  reorders them sends nothing). */
+/** @param {unknown} state */
 export const copyHash = (state) => sha256Hex(stable(snapshotForBackup(state)));
 
-/** The headers of a vault call: the lookup token, and the family device's token when this device is linked. */
+/**
+ * The headers of a vault call: the lookup token, and the family device's token when this device is linked.
+ * @param {Saved | null | undefined} st
+ * @param {string} lookup
+ */
 function vaultHeaders(st, lookup) {
+  /** @type {Record<string, string>} */
   const h = { 'X-Vault': lookup };
   const fd = st?.ai?.familyDevice?.token;
   if (fd) h['X-Family-Device'] = fd;
   return h;
 }
+/**
+ * @param {Store} store
+ * @param {string} lookup
+ * @param {string} path
+ * @param {{ method?: string, body?: unknown, keepalive?: boolean, headers?: Record<string, string> }} [opts]
+ * @returns {Promise<any>}
+ */
 const call = (store, lookup, path, { method = 'GET', body, keepalive = false, headers = {} } = {}) => api(path, { method, body, keepalive, headers: { ...vaultHeaders(store.getState(), lookup), ...headers } });
 
 // ---------------------------------------------------------------- the sealed copy
 /**
  * The sealed copy of `snap` (a snapshotForBackup): `{ blob }`, or `{ tooBig: true }` when it is over 256 KiB even after
  * compactForQuota (then the app offers the backup file instead).
+ * @param {Saved} snap
+ * @param {CryptoKey} key
+ * @param {{ now?: Date, rev?: number | null }} [opts]
+ * @returns {Promise<{ blob: string, tooBig?: undefined } | { tooBig: true, blob?: undefined }>}
  */
 export async function sealCopy(snap, key, { now = new Date(), rev = null } = {}) {
+  /** @param {Saved} state */
   const make = (state) => seal({ v: 1, at: now.toISOString(), schema: CURRENT_VERSION, rev, state }, key);
   let blob = await make(snap);
   if (blobBytes(blob) > MAX_BLOB_BYTES) blob = await make(snapshotForBackup(compactForQuota(snap)));
   return blobBytes(blob) > MAX_BLOB_BYTES ? { tooBig: true } : { blob };
 }
 
-/** Open a sealed copy: `{ state, at, rev }`, the state brought up to this version and sound; else a VaultOpenError. */
+/**
+ * Open a sealed copy: `{ state, at, rev }`, the state brought up to this version and sound; else a VaultOpenError.
+ * @param {unknown} blob
+ * @param {CryptoKey} key
+ * @returns {Promise<{ state: Saved, at: string | null, rev: number | null }>}
+ */
 export async function openCopy(blob, key) {
   const p = await open(blob, key);
   if (!isObj(p) || p.v !== 1 || !isObj(p.state)) throw new VaultOpenError('not a backup');
+  /** @type {Saved} */
   let state;
   try {
-    state = snapshotForBackup(migrate(p.state, Number.isFinite(p.schema) ? p.schema : 0, { personal: PERSONAL_KEY }));
+    state = snapshotForBackup(migrate(p.state, typeof p.schema === 'number' && Number.isFinite(p.schema) ? p.schema : 0, { personal: PERSONAL_KEY }));
   } catch { throw new VaultOpenError('broken'); }
   if (validateState(state).length) throw new VaultOpenError('broken');
-  return { state, at: typeof p.at === 'string' ? p.at : null, rev: Number.isFinite(p.rev) ? p.rev : null };
+  return { state, at: typeof p.at === 'string' ? p.at : null, rev: typeof p.rev === 'number' && Number.isFinite(p.rev) ? p.rev : null };
 }
 
-/** Would merging this device into `remote` change it? (false: this device adds nothing the copy does not have) */
+/**
+ * Would merging this device into `remote` change it? (false: this device adds nothing the copy does not have)
+ * @param {Saved} local
+ * @param {Saved} remote
+ * @param {{ localAt: string | null, remoteAt: string | null }} at
+ */
 function addsSomething(local, remote, { localAt, remoteAt }) {
   const merged = mergeDevices(remote, local, { localAt: remoteAt, remoteAt: localAt });
   return stable(snapshotForBackup(merged)) !== stable(snapshotForBackup(remote));
 }
 
 // ---------------------------------------------------------------- the sync engine
-/** Pull: 'same' | 'merged' | 'gone' | 'other_student'. */
+/**
+ * Pull: 'same' | 'merged' | 'gone' | 'other_student'.
+ * @param {SyncCtx} ctx
+ * @returns {Promise<'same' | 'merged' | 'gone' | 'other_student'>}
+ */
 async function pull(ctx) {
   const { store, lookup, key } = ctx;
   const b = backupOf(store);
+  /** @type {any} */
   let r;
-  try { r = await call(store, lookup, '/api/vault/rev'); } catch (e) {
+  try { r = await call(store, lookup, '/api/vault/rev'); } catch (err) {
+    const e = /** @type {any} */ (err);
     if (e?.code !== 'vault_not_found') throw e;
     // gone only if it was ever there: a backup on by default whose first copy has not landed yet was never pushed
     ctx.gone = b.at != null;
@@ -119,6 +167,7 @@ async function pull(ctx) {
   }
   const quiet = !addsSomething(local, remote.state, { localAt: useDurable.getState().savedAt, remoteAt: remote.at });
   await applyRestored(remote.state, 'vault', { merge: true, at: remote.at, store });
+  /** @type {Partial<Backup>} */
   const patch = { rev: full.rev };
   // nothing here that the copy lacks: what was pulled counts as pushed (the merge's own log line stays on this device
   // until there is something new to send)
@@ -127,7 +176,11 @@ async function pull(ctx) {
   return 'merged';
 }
 
-/** Push: 'pushed' | 'unchanged' | 'conflict' | 'too_big'. */
+/**
+ * Push: 'pushed' | 'unchanged' | 'conflict' | 'too_big'.
+ * @param {SyncCtx} ctx
+ * @returns {Promise<'pushed' | 'unchanged' | 'conflict' | 'too_big'>}
+ */
 async function push(ctx) {
   const { store, lookup, key } = ctx;
   const b = backupOf(store);
@@ -147,7 +200,8 @@ async function push(ctx) {
     setBackup(store, { rev: r.rev, hash, at: r.updatedAt || ctx.now().toISOString(), state: 'idle', ...(ctx.gone ? { note: 'recreated' } : {}) });
     ctx.gone = false;
     return 'pushed';
-  } catch (e) {
+  } catch (err) {
+    const e = /** @type {any} */ (err);
     if (e?.code === 'vault_conflict') return 'conflict';
     if (e?.code === 'vault_gone' && !ctx.gone) {
       // expired (a deleted one is 410 vault_deleted, and is never made again): made again with the same code
@@ -159,6 +213,10 @@ async function push(ctx) {
   }
 }
 
+/**
+ * @param {SyncCtx} ctx
+ * @returns {Promise<'pushed' | 'too_big' | 'unchanged' | 'other_student' | 'error'>}
+ */
 async function pushLoop(ctx) {
   for (let i = 0; ; i += 1) {
     const r = await push(ctx);
@@ -174,7 +232,12 @@ async function pushLoop(ctx) {
   return 'error';
 }
 
-/** What went wrong, as the backup's state (and a report when it is a real failure). */
+/**
+ * What went wrong, as the backup's state (and a report when it is a real failure).
+ * @param {Store} store
+ * @param {any} e
+ * @returns {'offline' | 'idle' | 'unavailable' | 'error'}
+ */
 function failed(store, e) {
   if (e?.code === 'network') { setBackup(store, { state: 'offline' }); return 'offline'; }
   // the server asks to slow down (or this network is out of tries today): quietly, until the next moment
@@ -186,7 +249,11 @@ function failed(store, e) {
   return 'error';
 }
 
-/** 410 vault_deleted: the backup was deleted from another device. It turns off here, and Settings says so once. */
+/**
+ * 410 vault_deleted: the backup was deleted from another device. It turns off here, and Settings says so once.
+ * @param {Store} store
+ * @returns {'deleted'}
+ */
 function deletedElsewhere(store) {
   const b = backupOf(store);
   store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil, note: 'deleted' } });
@@ -197,6 +264,7 @@ function deletedElsewhere(store) {
  * The family no longer knows this device (the server said X-AI-Linked: 0 or not_linked): the token is forgotten, and
  * when the family kept this device's code, the next sync moves the backup to a new code first. account.js and
  * familySync.js call it too.
+ * @param {Store} [store]
  */
 export function familyGone(store = useApp) {
   const st = store.getState();
@@ -211,6 +279,9 @@ export function familyGone(store = useApp) {
 /**
  * The move to a new code: a new code and its first copy (createBackup), the one-time note, and the class keeps the new
  * code when it kept the old one. On a failure the flag stays, and the next moment tries again; nothing goes to the old copy.
+ * @param {Store} store
+ * @param {() => Date} now
+ * @returns {Promise<'moved'>}
  */
 async function moveToNewCode(store, now) {
   const classToo = backupOf(store).escrow === 'class' || backupOf(store).escrow === 'both';
@@ -226,6 +297,12 @@ async function moveToNewCode(store, now) {
   return 'moved';
 }
 
+/**
+ * @param {string} moment
+ * @param {Store} store
+ * @param {{ online: () => boolean, now: () => Date }} opts
+ * @returns {Promise<string>}
+ */
 async function runSync(moment, store, { online, now }) {
   const b = backupOf(store);
   if (!hasServer() || !b.on || !isCode(b.code)) return 'off';
@@ -237,11 +314,13 @@ async function runSync(moment, store, { online, now }) {
   }
   try {
     const { key, lookup } = await derive(b.code);
+    /** @type {SyncCtx} */
     const ctx = { store, key, lookup, now, hidden: moment === 'hidden', gone: false };
     if (b.forcePush) {
       // the undo of a replacing restore: push over the server's copy without pulling it
+      /** @type {number | null} */
       let rev = null;
-      try { rev = (await call(store, lookup, '/api/vault/rev')).rev; } catch (e) { if (e?.code !== 'vault_not_found') throw e; }
+      try { rev = (await call(store, lookup, '/api/vault/rev')).rev; } catch (e) { if (/** @type {any} */ (e)?.code !== 'vault_not_found') throw e; }
       setBackup(store, { rev, hash: null, forcePush: false });
       return await pushLoop(ctx);
     }
@@ -254,7 +333,8 @@ async function runSync(moment, store, { online, now }) {
       return 'pulled';
     }
     return await pushLoop(ctx);
-  } catch (e) {
+  } catch (err) {
+    const e = /** @type {any} */ (err);
     if (e?.code === 'vault_deleted') return deletedElsewhere(store);
     if (e?.code === 'not_linked') {
       familyGone(store);
@@ -269,11 +349,14 @@ async function runSync(moment, store, { online, now }) {
   }
 }
 
+/** @type {Promise<string> | null} */
 let running = null;
 /**
  * One sync at a time: a moment that comes while one runs is left to it. `moment`: which moment (see the top of this
  * file). Resolves with what happened: 'off' | 'offline' | 'pulled' | 'pushed' | 'unchanged' | 'too_big' |
  * 'other_student' | 'idle' | 'unavailable' | 'deleted' | 'moved' | 'error'. `store`, `online` and `now` are for tests.
+ * @param {{ moment?: string, store?: Store, online?: () => boolean, now?: () => Date }} [opts]
+ * @returns {Promise<string>}
  */
 export function syncVault({ moment = 'manual', store = useApp, online = () => globalThis.navigator?.onLine !== false, now = () => new Date() } = {}) {
   if (running) return running;
@@ -294,6 +377,8 @@ export function useVaultSync() {
 /**
  * "ליצור קוד גיבוי": a new code, its keys, the first copy pushed (ifRev null), and the backup on. Resolves the code;
  * rejects with an ApiError ('vault_too_big' when even the compacted copy is too big, or the server's code).
+ * @param {{ store?: Store, now?: () => Date }} [opts]
+ * @returns {Promise<string>}
  */
 export async function createBackup({ store = useApp, now = () => new Date() } = {}) {
   if (!hasServer()) throw new ApiError('no_server');
@@ -312,7 +397,8 @@ export async function createBackup({ store = useApp, now = () => new Date() } = 
       const r = await call(store, lookup, '/api/vault', { method: 'POST', body: { ifRev: null, blob: sealed.blob } });
       store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: before.undoUntil, on: true, code, lookup, rev: r.rev, hash, at: r.updatedAt || now().toISOString(), state: 'idle', note: null } });
       return code;
-    } catch (e) {
+    } catch (err) {
+      const e = /** @type {any} */ (err);
       // a code that is taken already (one chance in 2^74): another one
       if (e?.code === 'vault_conflict' && attempt === 0) continue;
       throw e;
@@ -325,8 +411,11 @@ export async function createBackup({ store = useApp, now = () => new Date() } = 
  * right after the first questions. A code is made here, and the backup is on at once; the first copy is pushed by the
  * sync, which tries again at every moment until the copy is there (offline, a full server, a slow down). Learn says once
  * what it is (note 'auto'). Resolves the sync's answer, or 'off' when nothing was turned on.
+ * @param {{ store?: Store, now?: () => Date, sync?: boolean }} [opts]
+ * @returns {Promise<string>}
  */
 export async function defaultBackup({ store = useApp, now = () => new Date(), sync = true } = {}) {
+  /** @param {Saved} st */
   const solo = (st) => st.profile?.role === 'student' && !st.profile?.token && st.profile?.demo !== true;
   const free = () => { const b = backupOf(store); return !b.on && !b.escrow; };
   if (!hasServer() || !solo(store.getState()) || !free()) return 'off';
@@ -339,7 +428,10 @@ export async function defaultBackup({ store = useApp, now = () => new Date(), sy
   return sync ? syncVault({ moment: 'manual', store, now }) : 'on';
 }
 
-/** "להפסיק את הגיבוי": the copy on the server is deleted, and the backup goes back to off. Rejects when the server could not be reached. */
+/**
+ * "להפסיק את הגיבוי": the copy on the server is deleted, and the backup goes back to off. Rejects when the server could not be reached.
+ * @param {{ store?: Store }} [opts]
+ */
 export async function stopBackup({ store = useApp } = {}) {
   const b = backupOf(store);
   if (b.on && isCode(b.code) && hasServer()) {
@@ -356,6 +448,9 @@ export async function stopBackup({ store = useApp } = {}) {
  * ApiError (vault_not_found, too_many_tries, slow_down, network…) or a VaultOpenError (found, but this code does not
  * open it). Nothing on the device changes here. `headers`: an identity the store does not hold yet (a class rejoin during
  * the first questions passes the new class token, so the vault counts its caps for that student).
+ * @param {string} code
+ * @param {{ store?: Store, headers?: Record<string, string> }} [opts]
+ * @returns {Promise<{ code: string, lookup: string, rev: number, updatedAt: string | null, state: Saved, at: string | null }>}
  */
 export async function findVault(code, { store = useApp, headers = {} } = {}) {
   if (!hasServer()) throw new ApiError('no_server');
@@ -371,6 +466,9 @@ export async function findVault(code, { store = useApp, headers = {} } = {}) {
  * unknown here, so the sync that starts at once (no need to wait for a moment) sends what this device now holds: the
  * restore's own line, and with a merge the progress that was only here. `escrow`: who keeps this code too ('class' |
  * 'family', after a class rejoin or a family move; durable/escrow.js), else null (a code the student typed).
+ * @param {{ code: string, lookup: string, rev?: number | null }} found
+ * @param {{ store?: Store, now?: () => Date, sync?: boolean, escrow?: Backup['escrow'] }} [opts]
+ * @returns {Promise<string>}
  */
 export function adoptCode({ code, lookup, rev }, { store = useApp, now = () => new Date(), sync = true, escrow = null } = {}) {
   const b = backupOf(store);
@@ -378,16 +476,21 @@ export function adoptCode({ code, lookup, rev }, { store = useApp, now = () => n
   return sync ? syncVault({ moment: 'manual', store, now }) : Promise.resolve('off');
 }
 
-/** This device lets go of the code without deleting anything on the server (another student's copy stays theirs). */
+/**
+ * This device lets go of the code without deleting anything on the server (another student's copy stays theirs).
+ * @param {{ store?: Store }} [opts]
+ */
 export function detachBackup({ store = useApp } = {}) {
   const b = backupOf(store);
   store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil } });
 }
 
 /** Learn's one-time line is due: a backup turned on by default (note 'auto'), on, the student's own (no class or family). */
+/** @param {Partial<Backup> | null | undefined} b */
 export const showBackupLine = (b) => !!b?.on && b.note === 'auto' && !b.escrow && b.state !== 'other_student';
 
 /** The one-time note in Settings (or Learn's line) is seen. */
+/** @param {{ store?: Store }} [opts] */
 export const clearBackupNote = ({ store = useApp } = {}) => setBackup(store, { note: null });
 
 // ---------------------------------------------------------------- what Settings says
@@ -405,7 +508,11 @@ export const BACKUP_TEXT = {
   otherStudent: 'בגיבוי של הקוד הזה יש התקדמות של מישהו אחר, אז לא איחדנו אותה עם מה שיש כאן. אפשר להפסיק את הגיבוי וליצור קוד חדש.',
 };
 
-/** The words for a vault call that failed: the vault's own where a code means something else on other screens. */
+/**
+ * The words for a vault call that failed: the vault's own where a code means something else on other screens.
+ * @param {any} e
+ * @returns {string}
+ */
 export function vaultErrorText(e) {
   if (e instanceof VaultOpenError) return errorText('vault_open');
   const code = e?.code;
@@ -417,11 +524,13 @@ export function vaultErrorText(e) {
 /**
  * "עכשיו" within a minute, then "לפני דקה", "לפני 3 דקות", "לפני שעה", "לפני שעתיים", "לפני 5 שעות", "אתמול", "לפני
  * יומיים", "לפני 4 ימים". Written out here: browsers' relative-time formats for Hebrew differ (one writes "(2)").
+ * @param {string | null | undefined} iso
  */
 export function agoText(iso, now = Date.now()) {
-  const t = Date.parse(iso);
+  const t = Date.parse(iso ?? '');
   if (!Number.isFinite(t)) return '';
   const s = Math.max(0, (now - t) / 1000);
+  /** @param {number} unit */
   const n = (unit) => Math.floor(s / unit);
   if (s < 60) return 'עכשיו';
   if (s < 3600) return n(60) === 1 ? 'לפני דקה' : `לפני ${n(60)} דקות`;
@@ -429,7 +538,10 @@ export function agoText(iso, now = Date.now()) {
   return n(86400) === 1 ? 'אתמול' : n(86400) === 2 ? 'לפני יומיים' : `לפני ${n(86400)} ימים`;
 }
 
-/** The backup row's words (Settings › שמירת ההתקדמות, and מידע לתמיכה). */
+/**
+ * The backup row's words (Settings › שמירת ההתקדמות, and מידע לתמיכה).
+ * @param {Partial<Backup> | null | undefined} backup
+ */
 export function backupText(backup, now = Date.now()) {
   if (!backup?.on) return BACKUP_TEXT.off;
   switch (backup.state) {

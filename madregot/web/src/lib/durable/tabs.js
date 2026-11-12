@@ -1,3 +1,4 @@
+// @ts-check
 // Two tabs of the app on one device (DURABLE-2). Both save to the same localStorage key, so without care the last
 // writer would replace the other tab's progress (the council's probe: tab A turns the sound off, a stale tab B saves
 // and the sound is on again). The write path (storage.js) prevents that in two places:
@@ -19,36 +20,59 @@ export const SEEN_WINDOW = 500;
 /** At most this many tabs in `seen` (the newest). */
 export const SEEN_MAX = 16;
 
+/** @typedef {Record<string, number>} Seen */
+/** @type {(seen: Seen) => number} */
 const top = (seen) => Object.values(seen).reduce((t, r) => (Number.isFinite(r) && r > t ? r : t), 0);
 
-/** The tabs a save includes, by its meta: `seen`, or (a save from before `seen` existed) just its own writer. */
+/**
+ * The tabs a save includes, by its meta: `seen`, or (a save from before `seen` existed) just its own writer.
+ * @param {unknown} meta
+ * @returns {Seen}
+ */
 export function seenOf(meta) {
   if (!isObj(meta)) return {};
   if (isObj(meta.seen)) {
+    /** @type {Seen} */
     const out = {};
-    for (const [t, r] of Object.entries(meta.seen)) if (Number.isFinite(r)) out[t] = r;
+    for (const [t, r] of Object.entries(meta.seen)) if (typeof r === 'number' && Number.isFinite(r)) out[t] = r;
     return out;
   }
   const rev = Number(meta.rev) || 0;
-  return meta.tab && rev > 0 ? { [meta.tab]: rev } : {};
+  return typeof meta.tab === 'string' && meta.tab && rev > 0 ? { [meta.tab]: rev } : {};
 }
 
-/** Does a save that includes `seen` include the save number `rev` by `tab`? A start with no save (rev 0) always is. */
+/**
+ * Does a save that includes `seen` include the save number `rev` by `tab`? A start with no save (rev 0) always is.
+ * @param {Seen | null | undefined} seen
+ * @param {unknown} tab
+ * @param {number} rev
+ */
 export function includes(seen, tab, rev) {
   if (!(rev > 0) || tab == null) return true;
-  if (Number.isFinite(seen?.[tab])) return seen[tab] >= rev;
+  const at = seen?.[String(tab)];
+  if (typeof at === 'number' && Number.isFinite(at)) return at >= rev;
   // a tab no longer listed was dropped long ago: its saves are in every save since
   return rev <= top(seen || {}) - SEEN_WINDOW;
 }
 
-/** Both sides' tabs, each at its later save. */
+/**
+ * Both sides' tabs, each at its later save.
+ * @param {Seen | null | undefined} a
+ * @param {Seen | null | undefined} b
+ * @returns {Seen}
+ */
 export function joinSeen(a, b) {
+  /** @type {Seen} */
   const out = { ...(a || {}) };
   for (const [t, r] of Object.entries(b || {})) if (!(out[t] >= r)) out[t] = r;
   return out;
 }
 
-/** Drop tabs whose last save is far behind, and keep at most SEEN_MAX. */
+/**
+ * Drop tabs whose last save is far behind, and keep at most SEEN_MAX.
+ * @param {Seen} seen
+ * @returns {Seen}
+ */
 export function pruneSeen(seen) {
   const t = top(seen);
   const kept = Object.entries(seen).filter(([, r]) => r > t - SEEN_WINDOW).sort((x, y) => y[1] - x[1]).slice(0, SEEN_MAX);
@@ -61,6 +85,9 @@ export function pruneSeen(seen) {
  *   'ignore'  this tab already has it
  *   'forward' it holds everything this tab has: load it
  *   'merge'   both have something the other lacks
+ * @param {unknown} theirs
+ * @param {{ tab: string, seen: Seen, writer?: { tab: string | null, rev: number } | null }} mine
+ * @returns {'ignore' | 'forward' | 'merge'}
  */
 export function tabAction(theirs, { tab, seen, writer }) {
   if (!isObj(theirs)) return 'ignore';
@@ -73,9 +100,12 @@ export function tabAction(theirs, { tab, seen, writer }) {
 /**
  * Listen for the other tabs' saves of `key`. `onSave(newValue)` runs for each; a removal (another tab deleted
  * everything) passes null. Returns the function that stops listening.
+ * @param {{ key: string, onSave: (newValue: string | null) => void, win?: Window }} opts
+ * @returns {() => void}
  */
 export function listenTabs({ key, onSave, win = globalThis.window }) {
   if (typeof win?.addEventListener !== 'function') return () => {};
+  /** @param {StorageEvent} e */
   const on = (e) => {
     if (e.key !== key) return;
     try { if (e.storageArea && win.localStorage && e.storageArea !== win.localStorage) return; } catch { return; }

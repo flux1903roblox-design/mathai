@@ -1,3 +1,4 @@
+// @ts-check
 // When the browser's storage is full, the save is made smaller once before giving up on it (DURABLE-1). Only what can
 // be lost without changing anything the app teaches or counts goes: the oldest half of the analytics log, the long
 // written feedback of old checked exams (their questions, answers and scores stay), and old printable practice exams.
@@ -12,21 +13,27 @@ export const KEEP_EXAM_FEEDBACK = 10;
 export const KEEP_PRACTICE_EXAMS = 5;
 
 
-/** A smaller copy of the store's state; the state given is not changed. */
+/**
+ * A smaller copy of the store's state; the state given is not changed.
+ * @template T
+ * @param {T} state
+ * @returns {T}
+ */
 export function compactForQuota(state) {
   if (!isObj(state)) return state;
+  /** @type {import('./types').Saved} */
   const out = { ...state };
   if (isObj(state.learn) && Array.isArray(state.learn.events) && state.learn.events.length > KEEP_EVENTS) {
     out.learn = { ...state.learn, events: state.learn.events.slice(-KEEP_EVENTS) }; // the log grows at its end
   }
   if (Array.isArray(state.exams) && state.exams.length > KEEP_EXAM_FEEDBACK) {
-    out.exams = state.exams.map((ex, i) => {
+    out.exams = state.exams.map((/** @type {any} */ ex, /** @type {number} */ i) => {
       if (i < KEEP_EXAM_FEEDBACK || !Array.isArray(ex?.result?.questions)) return ex;
-      return { ...ex, result: { ...ex.result, questions: ex.result.questions.map((q) => (isObj(q) ? { ...q, feedback: null, solution: null } : q)) } };
+      return { ...ex, result: { ...ex.result, questions: ex.result.questions.map((/** @type {unknown} */ q) => (isObj(q) ? { ...q, feedback: null, solution: null } : q)) } };
     });
   }
   if (Array.isArray(state.practiceExams) && state.practiceExams.length > KEEP_PRACTICE_EXAMS) {
     out.practiceExams = state.practiceExams.slice(0, KEEP_PRACTICE_EXAMS);
   }
-  return out;
+  return /** @type {T} */ (out);
 }
