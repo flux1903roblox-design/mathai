@@ -2456,11 +2456,14 @@ test.describe('FUNC-6: a ח׳ class\'s guest stairs on the teacher\'s screens', 
   test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the guest rows on both phones'); });
   const ROW = 'משוואות: מדרגות 6–7';
   // דנה has passed motion problems (her equations level is the stair after it); יואב has not started the unit
+  // דנה passed eq:6's check and practises eq:7: the class sync sends each guest stair under its own id (lib/path.js
+  // guestStairLevels, 2 mastered, 1 practised) beside the eq unit's own level, which the guest row does not read
+  const dana = { eq: { level: 1, max: 1 }, 'eq:6': { level: 2, max: 2 }, 'eq:7': { level: 1, max: 1 } };
   const eighth = () => ({
     classGrade: '8', className: 'ח׳2',
-    students: [{ id: 'a1', name: 'דנה', levels: { eq: { level: 7, max: 7 } } }, { id: 'b2', name: 'יואב' }],
-    reportRows: { a1: { levels: { eq: { level: 7, max: 7 } } } },
-    studentPages: { a1: { levels: { eq: { level: 7, max: 7 } } } },
+    students: [{ id: 'a1', name: 'דנה', levels: dana }, { id: 'b2', name: 'יואב', levels: { eq: { level: 3, max: 3 } } }],
+    reportRows: { a1: { levels: dana }, b2: { levels: { eq: { level: 3, max: 3 } } } },
+    studentPages: { a1: { levels: dana } },
   });
   const teacher8 = () => keyTeacher({ grade: '8', className: 'ח׳2' });
   const guestShot = async (page, name) => {

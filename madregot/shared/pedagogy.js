@@ -119,9 +119,9 @@ export const TOPIC_WAYS = Object.freeze({
     ],
   },
   angles: {
-    models: String.raw`A ray splits a straight line, $180^\circ$, into two adjacent angles: what one gains the other loses. Vertical angles are equal: each is adjacent to the same angle. A triangle's torn-off corners fill a straight line. Slide one parallel line along the transversal onto the other: corresponding and alternate angles are equal, co-interior angles sum to $180^\circ$. An isosceles triangle folds onto itself, so its base angles are equal. An exterior angle completes its neighbour to $180^\circ$, so it equals the two far angles together.`,
+    models: String.raw`A ray splits a straight line, $180^\circ$, into two adjacent angles: what one gains the other loses. Vertical angles are equal: each is adjacent to the same angle. A triangle's torn-off corners fill a straight line. Slide one parallel line along the transversal onto the other: corresponding and alternate angles are equal, co-interior angles sum to $180^\circ$. An isosceles triangle folds onto itself, so its base angles are equal. An exterior angle completes its neighbour to $180^\circ$, so it equals the two far angles together. Measuring: protractor centre on the vertex, zero on one arm, read the scale that starts there; estimate first; arms' length does not matter; a clock's hour is $30^\circ$.`,
     words: ['זוויות צמודות', 'קודקודיות', 'מתאימות', 'מתחלפות', 'חד־צדדיות', 'זווית חיצונית'],
-    avoid: ['deciding from how the drawing looks ("נראה ישר", "נראה שווה")', 'a name for an angle pair without the reason'],
+    avoid: ['deciding from how the drawing looks ("נראה ישר", "נראה שווה")', 'a name for an angle pair without the reason', '"longer arms make a bigger angle"'],
     avoidRe: [re(String.raw`נראה\s+(?:ישר|שווה|שוות|שווים|מקבילים)(?=$|[^א-ת])`)],
   },
   expr: {

@@ -137,6 +137,16 @@ export function walkFig(p, extra = {}) {
   return { type: 'sgraph', x: TIME(M * p.sx, p.sx), y: AWAY((p.d1 / p.sy + 2) * p.sy, p.sy), series: [{ pts: p.pts }], ...extra };
 }
 
+/**
+ * A choice about a whole part of a walk (what a flat part means, what the point A describes) reads no single value off
+ * the time axis: where every second line would put more than six numbers on it, every fourth line is numbered, so the
+ * numbers stay readable on a 320px phone, where the choices leave the graph about 155px (graphAxes.jsx graphFont).
+ */
+export const roomyTime = (fig) => {
+  const n = Math.floor((fig.x.max - (fig.x.min ?? 0)) / fig.x.step / (fig.x.every || 1)) + 1;
+  return n > 6 ? { ...fig, x: { ...fig.x, every: 2 * (fig.x.every || 1) } } : fig;
+};
+
 /** func:1: the walk's story and the question. */
 export function func1Text(p, w = walkerOf(p)) {
   // short, so the graph keeps its room on a 320×568 phone (the question sits above it)
@@ -235,7 +245,7 @@ function flatMc() {
   return {
     key: `fu1f:${p.sx}:${p.sy}:${p.t1}:${p.d1}:${p.t2}:${p.t3}`,
     text: `הגרף מראה את המרחק של ${w.name} מהבית לפי הזמן. מה ${g(w, 'עשה', 'עשתה')} ${w.name} בין הדקה ה־$${p.t1}$ לדקה ה־$${p.t2}$?`,
-    fig: walkFig(p, { bands: [{ from: p.t1, to: p.t2 }] }),
+    fig: roomyTime(walkFig(p, { bands: [{ from: p.t1, to: p.t2 }] })),
     form: 'mc', choices: options, answer: options.findIndex((c) => c.ok), practiceOnly: true,
     hint: 'מה קורה למרחק מהבית בקטע המסומן: הוא גדל, קטן או נשאר?',
     solution: [`מהדקה ה־$${p.t1}$ עד הדקה ה־$${p.t2}$ המרחק מהבית נשאר $${p.d1}$ מטרים: הקו שטוח.`, `המרחק לא השתנה, ולכן ${w.name} ${g(w, 'עמד', 'עמדה')} במקום. הגרף אינו ציור של הדרך.`],
@@ -272,7 +282,7 @@ function pointMc() {
   return {
     key: `fu1p:${sx}:${sy}:${X.join(',')}:${Y.join(',')}:${k}:${fi}`,
     text: `${w.name} ${g(w, 'יצא', 'יצאה')} מהבית, ${g(w, 'קנה', 'קנתה')} משהו בחנות, ${g(w, 'ביקר', 'ביקרה')} אצל ${friend} ו${g(w, 'חזר', 'חזרה')} הביתה. מה מתארת הנקודה $A$ בגרף של המרחק ${g(w, 'שלו', 'שלה')} מהבית?`,
-    fig: { type: 'sgraph', x: TIME(M * sx, sx), y: AWAY((b + f + 2) * sy, sy), series: [{ pts }], marks: [{ x: ax * sx, y: ay * sy, label: 'A' }] },
+    fig: roomyTime({ type: 'sgraph', x: TIME(M * sx, sx), y: AWAY((b + f + 2) * sy, sy), series: [{ pts }], marks: [{ x: ax * sx, y: ay * sy, label: 'A' }] }),
     form: 'mc', choices: options, answer: options.findIndex((o) => o.ok), practiceOnly: true,
     hint: 'קו שטוח הוא עצירה, והעצירה הראשונה היא החנות. קו עולה מתרחק מהבית, וקו יורד חוזר אליו.',
     solution: [
@@ -288,23 +298,47 @@ const PART = {
   flat: (w) => `${g(w, 'עמד', 'עמדה')} במקום`,
   down: (w) => `${g(w, 'התקרב', 'התקרבה')} הביתה`,
 };
+/** A story's parts: neighbouring segments that go the same way joined into one, [{ d, from, to }] in minutes. */
+export const storyParts = (shape) => shape.reduce((parts, d, i) => {
+  const last = parts.at(-1);
+  if (last && last.d === d) last.to += 5; else parts.push({ d, from: 5 * i, to: 5 * i + 5 });
+  return parts;
+}, []);
 /**
- * A three-part story drawn on the graph object (shape mode): the first point is home, fixed; each part of 5 minutes goes
- * up, stays or comes down, never below home. The text names the shape, so practice only.
+ * The story in one sentence, in order: "קודם … במשך $5$ דקות, אחר כך … $5$ דקות, ובסוף … $5$ דקות". Neighbouring
+ * segments that go the same way are told as one part ("במשך $10$ דקות"); a part that comes back after another says "שוב".
  */
+export function storyText(w, shape) {
+  const parts = storyParts(shape);
+  const said = parts.map((p, i) => {
+    const mins = `$${p.to - p.from}$ דקות`;
+    if (i === 0) return `קודם ${w.name} ${PART[p.d](w)} במשך ${mins}`;
+    const lead = i < parts.length - 1 ? 'אחר כך' : parts.length > 2 ? 'ובסוף' : 'ואחר כך';
+    const again = parts.slice(0, i).some((q) => q.d === p.d) ? ' שוב' : '';
+    return `${lead}${again} ${PART[p.d](w)} ${mins}`;
+  });
+  return `${said.join(', ')}.`;
+}
+/**
+ * The stories drawn on the graph object (shape mode): three segments of 5 minutes, the first point home and fixed. A walk
+ * starts by going out; each later segment goes up, stays or comes down, never below home (no two segments down). A walk
+ * that only goes out is one part, not a story, so it is not drawn: the seven shapes left tell two or three parts.
+ */
+export const STORY_SHAPES = ['up', 'flat', 'down'].flatMap((b) => ['up', 'flat', 'down'].map((c) => ['up', b, c]))
+  .filter(([, b, c]) => !(b === 'down' && c === 'down') && !(b === 'up' && c === 'up'));
+/** A story told in a sentence, drawn as a graph of distance from home. The text names the shape, so practice only. */
 function drawStory() {
   const w = pick(rnd, WALKERS);
-  let shape;
-  do { shape = ['up', pick(rnd, ['up', 'flat', 'down']), pick(rnd, ['up', 'flat', 'down'])]; } while (shape[1] === 'down' && shape[2] === 'down');
+  const shape = pick(rnd, STORY_SHAPES);
   return {
     key: `fu1s:${shape.join('-')}:${WALKERS.indexOf(w)}`,
-    // short, so the graph keeps its room on a phone: three parts of 5 minutes each, in order
-    text: `${w.name}: $5$ דקות ${PART[shape[0]](w)}, $5$ דקות ${PART[shape[1]](w)}, ועוד $5$ דקות ${PART[shape[2]](w)}. סמנו את הגרף של המרחק ${g(w, 'שלו', 'שלה')} מהבית.`,
+    // short, so the graph keeps its room on a phone
+    text: `${storyText(w, shape)} סמנו את הגרף של המרחק ${g(w, 'שלו', 'שלה')} מהבית.`,
     form: 'manip', practiceOnly: true,
     manip: { kind: 'graph', x: { max: 15, step: 5, label: 'זמן', unit: 'דקות' }, y: { max: 400, step: 100, label: 'מרחק מהבית', unit: 'מטרים' }, start: [0, 0, 0, 0], fixed: [0] },
     answer: { mode: 'shape', shape },
     hint: 'בכל קטע שאלו: המרחק מהבית גדל, נשאר או קטן? גדל: הקו עולה. נשאר: שטוח. קטן: יורד.',
-    solution: shape.map((d, i) => `${['ב־$5$ הדקות הראשונות', 'ב־$5$ הדקות הבאות', 'ב־$5$ הדקות האחרונות'][i]} המרחק ${{ up: 'גדל: הקו עולה', flat: 'נשאר: הקו שטוח', down: 'קטן: הקו יורד' }[d]}.`),
+    solution: storyParts(shape).map(({ d, from, to }) => `${from ? `מהדקה ה־$${from}$ עד הדקה ה־$${to}$` : `עד הדקה ה־$${to}$`} המרחק ${{ up: 'גדל: הקו עולה', flat: 'נשאר: הקו שטוח', down: 'קטן: הקו יורד' }[d]}.`),
     diag: () => null,
   };
 }

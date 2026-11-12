@@ -129,11 +129,11 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
             <Part id="ss-levels" title="מדרגות">
               <ul className="ss-list">
                 {topics.map((t, i) => {
-                  const r = rowLevel(t, d.levels[t.id]);
+                  const r = rowLevel(t, d.levels);
                   return (
                     <li key={t.id} className="ss-level">
                       <span className="ss-level-name"><ChapterMark color={t.color} n={t.only ? '' : i + 1} size="sm" />{rowTitle(t)}</span>
-                      {r ? <LevelPips total={r.total} level={r.level} max={r.max} color={t.color} /> : <span className="muted">עוד לא התחיל/ה</span>}
+                      {r ? <LevelPips total={r.total} level={r.level} max={r.max} states={r.states} done={r.done} color={t.color} /> : <span className="muted">עוד לא התחיל/ה</span>}
                     </li>
                   );
                 })}

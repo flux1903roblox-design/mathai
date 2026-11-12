@@ -2,7 +2,9 @@
 // shows, a student's place on them, Rescue's rule for a later grade's unit, class exams drawn from guest stairs, and the
 // report's CSV column.
 import { describe, it, expect } from 'vitest';
-import { TOPIC, topicsFor, guestTopicsFor, classTopicsFor, rowStairs, rowTitle, rowLevel, rescueTopicsFor } from './index.js';
+import { TOPIC, topicsFor, guestTopicsFor, classTopicsFor, rowStairs, rowTitle, rowLevel, rowLevelText, rescueTopicsFor, GUEST_STATE } from './index.js';
+import { guestStairLevels } from '@/lib/path.js';
+import { syncLevels } from '@/lib/api.js';
 import { GUEST, gradeSkillsOf } from '@/learn/skills.ts';
 import { makeClassExam } from '@/lib/exam.js';
 import { reportToCsv, csvTopics } from '@/lib/teacherCsv.js';
@@ -41,16 +43,48 @@ describe('the guest rows of a grade', () => {
     expect(rowTitle({ ...TOPIC.eq, only: ['eq:2', 'eq:6'] })).toBe('משוואות: מדרגות 2, 6');
   });
 
-  it('a student\'s place on a guest row comes from the unit\'s level, among the row\'s own stairs', () => {
-    const eq = guestTopicsFor('8')[0];
+  it('a student\'s place on a guest row comes from each of its own stairs, never from the unit\'s level', () => {
+    const eq = guestTopicsFor('8')[0]; const func = guestTopicsFor('7')[0];
+    const P = { level: GUEST_STATE.practised, max: GUEST_STATE.practised }; const M = { level: GUEST_STATE.mastered, max: GUEST_STATE.mastered };
     expect(rowLevel(eq, null)).toBeNull();
-    // nothing of it yet (level 1), or eq:1-5 done in ז׳ (level 6): eq:6 is the current stair
-    expect(rowLevel(eq, { level: 1, max: 1 })).toEqual({ total: 2, level: 1, max: 1, title: 'שאלות תנועה' });
-    expect(rowLevel(eq, { level: 6, max: 6 })).toEqual({ total: 2, level: 1, max: 1, title: 'שאלות תנועה' });
-    // eq:6 mastered: eq:7 is current
-    expect(rowLevel(eq, { level: 7, max: 7 })).toEqual({ total: 2, level: 2, max: 2, title: 'משוואות עם מכנים ופרופורציה' });
+    expect(rowLevel(eq, {})).toBeNull();
+    // a ח׳ student who only revised a ז׳ eq stair (eq:3, or an eq:1 repair): the unit has a level, the row has nothing
+    expect(rowLevel(eq, { eq: { level: 1, max: 1 } })).toBeNull();
+    expect(rowLevel(eq, { eq: { level: 7, max: 7 } })).toBeNull();
+    // eq:6 opened: eq:6 is the current stair; mastered: eq:7 is; both mastered: the row is done
+    expect(rowLevel(eq, { 'eq:6': P })).toMatchObject({ total: 2, level: 1, title: 'שאלות תנועה', states: ['cur', 'todo'], done: false });
+    expect(rowLevel(eq, { 'eq:6': M })).toMatchObject({ total: 2, level: 2, title: 'משוואות עם מכנים ופרופורציה', states: ['done', 'cur'], done: false });
+    expect(rowLevel(eq, { 'eq:6': M, 'eq:7': P })).toMatchObject({ level: 2, states: ['done', 'cur'], done: false });
+    expect(rowLevel(eq, { 'eq:6': M, 'eq:7': M })).toMatchObject({ level: 2, max: 2, states: ['done', 'done'], done: true });
+    // eq:7 practised first (sent there by the teacher): eq:7 is the stair worked on, eq:6 still ahead
+    expect(rowLevel(eq, { 'eq:7': P })).toMatchObject({ level: 2, states: ['todo', 'cur'], done: false });
+    // a mastered stair that a failed check reopened (now practised, max kept): practised again
+    expect(rowLevel(eq, { 'eq:6': { level: 1, max: 2 } })).toMatchObject({ level: 1, states: ['cur', 'todo'] });
+    // ז׳: func:1 opened and func:1 mastered are two different cells (the unit's func level is not read)
+    expect(rowLevel(func, { 'func:1': P })).toMatchObject({ total: 1, level: 1, states: ['cur'], done: false, title: 'קריאת גרף של מצב' });
+    expect(rowLevel(func, { 'func:1': M })).toMatchObject({ total: 1, level: 1, states: ['done'], done: true });
+    expect(rowLevel(func, { func: { level: 2, max: 2 } })).toBeNull();
+    expect([rowLevelText(rowLevel(func, { 'func:1': P })), rowLevelText(rowLevel(func, { 'func:1': M })), rowLevelText(null)]).toEqual(['1/1', 'הושלם', '–']);
     // a whole unit, as before
-    expect(rowLevel(TOPIC.signed, { level: 2, max: 3 })).toEqual({ total: TOPIC.signed.levels.length, level: 2, max: 3, title: TOPIC.signed.levels[1].title });
+    expect(rowLevel(TOPIC.signed, { signed: { level: 2, max: 3 } })).toEqual({ total: TOPIC.signed.levels.length, level: 2, max: 3, title: TOPIC.signed.levels[1].title });
+    expect(rowLevel(TOPIC.signed, { 'signed:2': M })).toBeNull();
+  });
+
+  it('the levels a class sync sends carry each guest stair the student touched, under its own id', () => {
+    const P = { level: GUEST_STATE.practised, max: GUEST_STATE.practised }; const M = { level: GUEST_STATE.mastered, max: GUEST_STATE.mastered };
+    expect(guestStairLevels({}, { skills: {} })).toEqual({});
+    // eq:6 practised (a practice lesson), eq:7 taught (a teaching stage), func:1 mastered (its check passed)
+    const path = { eq: { parts: { 6: 1 }, done: {} }, func: { parts: { 1: 2 }, done: { 1: 'mastered' } } };
+    const learn = { skills: { 'eq:7': { taught: { A: '2026-12-01' }, attempts: [] } } };
+    expect(guestStairLevels(path, learn)).toEqual({ 'eq:6': P, 'eq:7': P, 'func:1': M });
+    // a ז׳ eq stair or another stair of the unit is never sent under its own id
+    expect(guestStairLevels({ eq: { parts: { 3: 2 }, done: { 3: 'mastered' } } }, { skills: { 'func:2': { attempts: [{}] } } })).toEqual({});
+    // and the sync's levels are the units' progress with them, which rowLevel reads back
+    const app = { progress: { eq: { level: 1, max: 1 }, func: { level: 2, max: 2 } }, path, learn };
+    const sent = syncLevels(app);
+    expect(sent).toEqual({ eq: { level: 1, max: 1 }, func: { level: 2, max: 2 }, 'eq:6': P, 'eq:7': P, 'func:1': M });
+    expect(rowLevel(guestTopicsFor('7')[0], sent)).toMatchObject({ done: true });
+    expect(rowLevel(guestTopicsFor('8')[0], sent)).toMatchObject({ level: 1, states: ['cur', 'todo'] });
   });
 });
 
@@ -94,16 +128,35 @@ describe('the report\'s CSV', () => {
   it('has the guest row\'s column after the grade\'s, with the place among its own stairs', () => {
     const topics = csvTopics('8');
     expect(topics.at(-1)).toMatchObject({ id: 'eq', title: 'משוואות: מדרגות 6–7', only: ['eq:6', 'eq:7'] });
+    const M = { level: GUEST_STATE.mastered, max: GUEST_STATE.mastered };
+    const row = (name, levels) => ({ name, activeDays: 1, exercises: 4, firstTry: 3, minutes: 5, lastPractice: null, levels, topMistakes: [] });
     const report = {
       assignments: [],
       students: [
-        { name: 'דנה', activeDays: 1, exercises: 4, firstTry: 3, minutes: 5, lastPractice: null, levels: { eq: { level: 7, max: 7 } }, topMistakes: [] },
-        { name: 'יואב', activeDays: 0, exercises: 0, firstTry: 0, minutes: 0, lastPractice: null, levels: {}, topMistakes: [] },
+        row('דנה', { eq: { level: 1, max: 1 }, 'eq:6': M }),
+        row('יואב', {}),
+        // only a ז׳ stair revised: the unit has a level, the guest column stays empty
+        row('נועה', { eq: { level: 3, max: 3 } }),
+        row('תמר', { 'eq:6': M, 'eq:7': M }),
       ],
     };
-    const [head, dana, yoav] = reportToCsv(report, { topics, mistakeText: () => '' }).replace(/^\uFEFF/, '').split('\r\n');
+    const [head, dana, yoav, noa, tamar] = reportToCsv(report, { topics, mistakeText: () => '' }).replace(/^\uFEFF/, '').split('\r\n');
     expect(head).toContain(',משוואות: מדרגות 6–7,');
-    expect(dana).toContain(',2/2 – משוואות עם מכנים ופרופורציה,');
+    const col = head.split(',').indexOf('משוואות: מדרגות 6–7');
+    expect([dana, yoav, noa, tamar].map((l) => l.split(',')[col])).toEqual(['2/2 – משוואות עם מכנים ופרופורציה', '', '', '2/2 – הושלם']);
     expect(yoav.split(',')).toHaveLength(head.split(',').length);
+  });
+
+  it('ז׳: a student who opened func:1 and one who mastered it are two different cells', () => {
+    const topics = csvTopics('7');
+    const row = (name, levels) => ({ name, activeDays: 1, exercises: 3, firstTry: 2, minutes: 5, lastPractice: null, levels, topMistakes: [] });
+    const report = { assignments: [], students: [
+      row('א', { func: { level: 1, max: 1 }, 'func:1': { level: GUEST_STATE.practised, max: GUEST_STATE.practised } }),
+      row('ב', { func: { level: 1, max: 1 }, 'func:1': { level: GUEST_STATE.mastered, max: GUEST_STATE.mastered } }),
+    ] };
+    const [head, a, b] = reportToCsv(report, { topics, mistakeText: () => '' }).replace(/^\uFEFF/, '').split('\r\n');
+    const col = head.split(',').indexOf('מבוא לפונקציות: מדרגה 1');
+    expect(col).toBeGreaterThan(0);
+    expect([a.split(',')[col], b.split(',')[col]]).toEqual(['1/1 – קריאת גרף של מצב', '1/1 – הושלם']);
   });
 });

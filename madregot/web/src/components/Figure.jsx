@@ -67,7 +67,7 @@ import { TilesArt, TILES_VIEW } from './manip/Tiles.jsx';
 import { BarArt, MarksArt, WholeArt, HatchDef } from './manip/FracBar.jsx';
 import { DlineArt, DLINE_VIEW } from './manip/DoubleLine.jsx';
 import { SvgLabel, minus } from './manip/core.jsx';
-import { GraphAxes, GraphLegend, graphFrame, GRAPH_FONT, LEGEND_ROW } from './manip/graphAxes.jsx';
+import { GraphAxes, GraphLegend, graphFrame, graphFont, drawnScale, useDrawnBox, LEGEND_ROW } from './manip/graphAxes.jsx';
 import { PROT, protractorLabels, protExtent, polar, useDrawnWidth, ProtractorArt } from './manip/protractor.jsx';
 import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, clockHands } from '@/content/manip.js';
 import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
@@ -929,15 +929,25 @@ export function smoothPath(P) {
 }
 
 const BAND_TONES = ['gold', 'brand', 'alt'];
-/** A situation graph: axes with names and scales, its series, and what it marks on them (see the list at the top). */
-function SGraph({ fig }) {
+/**
+ * A situation graph: axes with names and scales, its series, and what it marks on them (see the list at the top). Its
+ * text keeps 12px however small the lesson shows it (graphAxes.jsx graphFont): measured once on the page; `box` is the
+ * size it is shown at before that (tests).
+ */
+function SGraph({ fig, box: shown = null }) {
   const { x, y } = fig;
+  const ref = useRef(null);
+  const box = useDrawnBox(ref, shown);
   const draw = useDraw(fig.anim);
   const series = fig.series || [];
   const toneOfSeries = (s, i) => (s.tone === 'alt' || (!s.tone && i > 0) ? 'alt' : 'brand');
   const named = series.map((s, i) => ({ label: s.label, tone: toneOfSeries(s, i), dashed: !!s.dashed })).filter((s) => s.label);
-  const fr = graphFrame(x, y, { foot: fig.dirArrow ? 30 : 0, head: named.length ? LEGEND_ROW : 0 });
+  const opts = { foot: fig.dirArrow ? 30 : 0, head: named.length ? LEGEND_ROW : 0 };
+  const plain = graphFrame(x, y, opts);
+  const font = graphFont(drawnScale(box, plain.W, plain.H), x, y, opts);
+  const fr = font.k > 1 ? graphFrame(x, y, { ...opts, font }) : plain;
   const { X, Y, W, H, TOP, BOT, PADL, plotW } = fr;
+  const gt = font.tag - 16; // the tag text grown past its 16 units
   const first = series[0]?.pts || [];
   const at = (pts) => pts.map(([a, b]) => [X(a), Y(b)]);
   const g = fig.guide || {};
@@ -947,7 +957,7 @@ function SGraph({ fig }) {
   const meet = fig.meet && series.length > 1 ? seriesMeet(series[0].pts, series[1].pts) : null;
   const k0 = series.length; // the parts drawn after the series, in turn
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="figure fig-obj fig-sgraph" role="img" aria-label={figWords(fig)}>
+    <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="figure fig-obj fig-sgraph" role="img" aria-label={figWords(fig)}>
       {(fig.bands || []).map((b, i) => (
         <m.g key={`b${i}`} className={`fig-sgraph-band tone-${b.tone || BAND_TONES[i % BAND_TONES.length]}`} {...draw(k0 + i, 'fade')}>
           <rect x={X(b.from)} y={TOP} width={X(b.to) - X(b.from)} height={BOT - TOP} />
@@ -979,22 +989,22 @@ function SGraph({ fig }) {
         <m.g className="fig-sgraph-rr" {...draw(k0 + 1, 'fade')}>
           <path d={`M ${X(rr.from)} ${Y(rr.y0)} H ${X(rr.to)}`} />
           <path d={`M ${X(rr.to)} ${Y(rr.y0)} V ${Y(rr.y1)}`} />
-          <text x={(X(rr.from) + X(rr.to)) / 2} y={Y(rr.y0) + (rr.y1 > rr.y0 ? 21 : -9)} textAnchor="middle" fontSize={GRAPH_FONT.tag} className="fig-sgraph-rr-num">{figNum(rr.run)}</text>
-          <text x={X(rr.to) + 8} y={(Y(rr.y0) + Y(rr.y1)) / 2 + 6} textAnchor="start" fontSize={GRAPH_FONT.tag} className="fig-sgraph-rr-num">{figNum(rr.rise)}</text>
+          <text x={(X(rr.from) + X(rr.to)) / 2} y={Y(rr.y0) + (rr.y1 > rr.y0 ? 21 + gt : -9)} textAnchor="middle" fontSize={font.tag} className="fig-sgraph-rr-num">{figNum(rr.run)}</text>
+          <text x={X(rr.to) + 8} y={(Y(rr.y0) + Y(rr.y1)) / 2 + font.tag * 0.375} textAnchor="start" fontSize={font.tag} className="fig-sgraph-rr-num">{figNum(rr.rise)}</text>
         </m.g>
       )}
       {meet && <m.circle cx={X(meet[0])} cy={Y(meet[1])} r="7" className="fig-sgraph-meet" {...draw(k0 + 1, 'end')} />}
       {(fig.marks || []).map((k, i) => (
         <m.g key={`k${i}`} className="fig-sgraph-mark" {...draw(k0 + 1 + i, 'fade')}>
           <circle cx={X(k.x)} cy={Y(k.y)} r="6" />
-          <text x={X(k.x) + (X(k.x) > W - 40 ? -10 : 10)} y={Y(k.y) - 9} textAnchor={X(k.x) > W - 40 ? 'end' : 'start'} fontSize={GRAPH_FONT.tag} className="fig-sgraph-mark-label" style={{ fontFamily: MATH_FONT }}>{k.label}</text>
+          <text x={X(k.x) + (X(k.x) > W - 40 ? -10 : 10)} y={Y(k.y) - 9} textAnchor={X(k.x) > W - 40 ? 'end' : 'start'} fontSize={font.tag} className="fig-sgraph-mark-label" style={{ fontFamily: MATH_FONT }}>{k.label}</text>
         </m.g>
       ))}
       {fig.dirArrow && (
         <g className="fig-sgraph-dir">
-          <text x={PADL + plotW / 2} y={BOT + 66} textAnchor="middle" direction="rtl" fontSize={GRAPH_FONT.name}>משמאל לימין</text>
-          <path d={`M ${PADL} ${BOT + 76} H ${PADL + plotW}`} />
-          <path d={head(PADL + plotW + 2, BOT + 76, 0, 9)} />
+          <text x={PADL + plotW / 2} y={fr.footY} textAnchor="middle" direction="rtl" fontSize={font.name}>משמאל לימין</text>
+          <path d={`M ${PADL} ${fr.footY + 10} H ${PADL + plotW}`} />
+          <path d={head(PADL + plotW + 2, fr.footY + 10, 0, 9)} />
         </g>
       )}
     </svg>
@@ -1060,8 +1070,9 @@ function Clock({ fig }) {
 /** One numline type: a line cut into parts (den) is the fraction lane's PartsLine, any other the teaching NumLine. */
 const NumberLine = ({ fig }) => (fig.den ? <PartsLine fig={fig} /> : <NumLine fig={fig} />);
 
-export default function Figure({ fig }) {
+/** A figure by its type. `box`: the size it is shown at before it is measured on the page (tests; the situation graph). */
+export default function Figure({ fig, box }) {
   if (!fig) return null;
   const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph, protractor: ProtractorFigure, clock: Clock }[fig.type];
-  return C ? <div className="figure-wrap"><C fig={fig} /></div> : null;
+  return C ? <div className="figure-wrap"><C fig={fig} box={box} /></div> : null;
 }

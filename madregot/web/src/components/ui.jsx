@@ -13,13 +13,17 @@ export function ChapterMark({ color, n, size = 'md' }) {
   return <span className={clsx('chapter-mark', `ch-${color}`, `cm-${size}`)} aria-hidden="true">{n}</span>;
 }
 
-/** Fixed level ramp: one pip per level, the same everywhere in the app. */
-export function LevelPips({ total, level, max, color, label = true }) {
+/**
+ * Fixed level ramp: one pip per level, the same everywhere in the app: done, the current one, and those ahead. `states`
+ * (a guest row, content/index.js rowLevel) gives each square its own state; `done` says every stair of the row is mastered.
+ */
+export function LevelPips({ total, level, max, color, label = true, states, done = false }) {
+  const said = done ? (total === 1 ? 'המדרגה הושלמה' : `כל ${total} המדרגות הושלמו`) : `מדרגה ${level} מתוך ${total}`;
   return (
-    <span className={clsx('pips', `ch-${color}`)} role="img" aria-label={label ? `מדרגה ${level} מתוך ${total}` : undefined}>
+    <span className={clsx('pips', `ch-${color}`)} role="img" aria-label={label ? said : undefined}>
       {Array.from({ length: total }, (_, i) => {
         const n = i + 1;
-        const state = n < level || n <= (max || 0) && n !== level ? 'done' : n === level ? 'cur' : 'todo';
+        const state = states?.[i] || (n < level || n <= (max || 0) && n !== level ? 'done' : n === level ? 'cur' : 'todo');
         return <i key={n} className={state} />;
       })}
     </span>

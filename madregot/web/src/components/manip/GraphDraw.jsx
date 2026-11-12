@@ -9,22 +9,19 @@ import { useRef, useState } from 'react';
 import clsx from 'clsx';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useDrag, arrowKeys, Stepper } from './core.jsx';
-import { GraphAxes, GraphLegend, graphFrame, LEGEND_ROW } from './graphAxes.jsx';
+import { GraphAxes, GraphLegend, graphFrame, graphFont, drawnScale, useDrawnBox, LEGEND_ROW } from './graphAxes.jsx';
 import { graphXs, graphMove, graphKey, graphShape, graphSolution, graphCorrect, squaresWords, axisLo, axisSteps, figNum } from '@/content/manip.js';
 import { near } from '@/content/util.js';
 
 const DRAG_FROM = 4; // drawing units a finger travels before a press is a drag and not a tap
 
-export default function GraphDraw({ m, value, onChange, locked, reveal, good, answer, hint, test = false }) {
+export default function GraphDraw({ m, value, onChange, locked, reveal, good, answer, hint, test = false, box: shown = null }) {
   const xs = graphXs(m);
   const n = xs.length;
   const fixed = new Set(m.fixed || []);
   const free = xs.map((_, i) => i).filter((i) => !fixed.has(i));
   const vals = Array.isArray(value) ? value : m.start;
   const [sel, setSel] = useState(free[0] ?? 0);
-  const fr = graphFrame(m.x, m.y, { head: m.ref?.label ? LEGEND_ROW : 0 });
-  const { X, Y, W, H, TOP, BOT, PADL, plotW } = fr;
-  const col = n > 1 ? plotW / (n - 1) : plotW;
   const pts = useRef([]);
   const press = useRef(null);
   const name = (i) => `${figNum(xs[i])}${m.x.unit ? ` ${m.x.unit}` : ''}`;
@@ -33,7 +30,6 @@ export default function GraphDraw({ m, value, onChange, locked, reveal, good, an
   // every move goes through graphMove (content/manip.js): snapped, on the axis, and never a fixed point
   const send = (next) => { if (!locked && next !== vals) onChange(next); };
   const set = (i, v) => send(graphMove(m, vals, i, v));
-  const columnAt = (px) => Math.max(0, Math.min(n - 1, Math.round((px - PADL) / col)));
   const [ref, drag] = useDrag((p, phase) => {
     if (phase === 'start') {
       const i = columnAt(p.x);
@@ -47,6 +43,17 @@ export default function GraphDraw({ m, value, onChange, locked, reveal, good, an
     pr.moved = true;
     set(pr.i, fr.fromY(p.y));
   }, locked);
+  // the frame, its text grown when the canvas is shown small (graphAxes.jsx graphFont); `box` is the size before it is
+  // measured on the page (tests)
+  const box = useDrawnBox(ref, shown);
+  const opts = { head: m.ref?.label ? LEGEND_ROW : 0 };
+  const plain = graphFrame(m.x, m.y, opts);
+  const font = graphFont(drawnScale(box, plain.W, plain.H), m.x, m.y, opts);
+  const fr = font.k > 1 ? graphFrame(m.x, m.y, { ...opts, font }) : plain;
+  const { X, Y, W, H, TOP, BOT, PADL, plotW } = fr;
+  const col = n > 1 ? plotW / (n - 1) : plotW;
+  // the column a point of the canvas is in (the drag above reads it when a finger goes down)
+  const columnAt = (px) => Math.max(0, Math.min(n - 1, Math.round((px - PADL) / col)));
 
   const focus = (i) => { const k = Math.max(0, Math.min(n - 1, i)); pts.current[k]?.focus(); };
   const keys = (i) => arrowKeys({

@@ -111,6 +111,26 @@ test('junk in the body (not an event, a broken level, a level out of range) neve
   assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM levels WHERE student_id = ?', noa.studentId).n, 1);
 });
 
+test('every unit and every guest stair the app sends is kept: twenty units, then eq:6, eq:7 and func:1 under their own ids', async () => {
+  // the app sends each unit's { level, max } and then each guest stair it touched (web/src/lib/path.js guestStairLevels):
+  // 1 practised, 2 mastered; the teacher's guest row reads them (content/index.js rowLevel). With the later stages'
+  // units, more than twenty entries arrive, and the guest stairs come last, so none may be cut
+  const [noa] = await student();
+  const units = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`t${i}`, { level: 1, max: 1 }]));
+  const levels = { ...units, 'eq:6': { level: 2, max: 2 }, 'eq:7': { level: 1, max: 1 }, 'func:1': { level: 1, max: 1 } };
+  assert.equal((await send(noa, [], levels)).status, 200);
+  const kept = Object.fromEntries(rows(h.env, 'SELECT topic, level, max_level FROM levels WHERE student_id = ?', noa.studentId).map((r) => [r.topic, [r.level, r.max_level]]));
+  assert.equal(Object.keys(kept).length, 23);
+  assert.deepEqual([kept['eq:6'], kept['eq:7'], kept['func:1']], [[2, 2], [1, 1], [1, 1]]);
+  // a stair mastered and then reopened by a failed check: practised now, its highest kept
+  await send(noa, [], { 'eq:6': { level: 1, max: 1 } });
+  assert.deepEqual({ ...one(h.env, "SELECT level, max_level FROM levels WHERE student_id = ? AND topic = 'eq:6'", noa.studentId) }, { level: 1, max_level: 2 });
+  // and no more than forty entries are read from one request
+  const many = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`u${i}`, { level: 1, max: 1 }]));
+  await send(noa, [], many);
+  assert.equal(one(h.env, "SELECT COUNT(*) AS n FROM levels WHERE student_id = ? AND topic LIKE 'u%'", noa.studentId).n, 40);
+});
+
 test('without a class token nothing is stored', async () => {
   await student();
   const r = await h.call('POST', '/api/progress', { body: { events: [answer(1)] } });

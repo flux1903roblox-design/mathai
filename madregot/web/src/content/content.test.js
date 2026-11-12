@@ -916,8 +916,15 @@ describe('functions: every answer from the graph and the text', () => {
         expect([2, 4].includes(seg) === (pts[seg - 1][1] === pts[seg][1]), `${it.key}: the stops are the flat parts`).toBe(true);
       }
       if (kind === 'fu1s') {
-        const parts = [...it.text.matchAll(/(התרחקה?|עמדה? במקום|התקרבה?)/g)].map((m) => (/במקום/.test(m[1]) ? 'flat' : /התקרב/.test(m[1]) ? 'down' : 'up'));
-        expect(it.answer.shape, it.key).toEqual(parts);
+        // the story's parts in order, each with its minutes ("התרחקה מהבית במשך $10$ דקות"): two segments of 5 minutes
+        // that go the same way are one part of 10, never the same clause twice in a row
+        const parts = [...it.text.matchAll(/(התרחקה?|עמדה? במקום|התקרבה?)[^$]*\$(\d+)\$ דקות/g)]
+          .map((m) => ({ d: /במקום/.test(m[1]) ? 'flat' : /התקרב/.test(m[1]) ? 'down' : 'up', n: Number(m[2]) / 5 }));
+        expect(parts.length, it.key).toBeGreaterThanOrEqual(2);
+        parts.forEach((p, j) => { if (j) expect(p.d, `${it.key}: one part told twice in a row`).not.toBe(parts[j - 1].d); });
+        expect(parts.reduce((n, p) => n + p.n, 0), it.key).toBe(3);
+        expect(it.answer.shape, it.key).toEqual(parts.flatMap((p) => Array(p.n).fill(p.d)));
+        expect(it.text, it.key).toMatch(/^קודם /);
         expect(manipCorrect(it, manipSolution(it)), it.key).toBe(true);
         expect(manipCorrect(it, it.manip.start), `${it.key}: starts on the goal`).toBe(false);
         expect(it.practiceOnly, it.key).toBe(true);
@@ -1106,8 +1113,18 @@ describe('functions: every answer from the graph and the text', () => {
   });
 
   it('catches an answer that is not the graph\'s', () => {
-    const it = makeItem('func', 1); const pts = read(it).pts;
-    expect(at(pts, pts[1][0])).toBe(pts[1][1]);
+    // a seeded source, so the run is the same every time: seed 36 draws the story to draw first (fu1s, a graph the
+    // student draws, with no figure to read), which an unseeded single draw met about one run in twenty. Only the items
+    // that show a graph are read, and every point they write lies on the line read back.
+    const real = Math.random;
+    try {
+      Math.random = seeded(36);
+      const drawn = Array.from({ length: 40 }, () => makeItem('func', 1));
+      expect(drawn[0].key, 'the seed starts with the story to draw').toMatch(/^fu1s:/);
+      const shown = drawn.filter((it) => it.fig?.type === 'sgraph');
+      expect(shown.length).toBeGreaterThan(20);
+      for (const it of shown) { const { pts } = read(it); expect(pts.length, it.key).toBeGreaterThan(1); pts.forEach(([x, y]) => expect(at(pts, x), it.key).toBe(y)); }
+    } finally { Math.random = real; }
     expect(() => { expect(at([[0, 0], [10, 600], [25, 600], [45, 0]], 5)).toBe(200); }).toThrow();
   });
 });

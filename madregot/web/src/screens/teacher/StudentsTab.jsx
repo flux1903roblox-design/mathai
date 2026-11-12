@@ -76,7 +76,7 @@ export default function StudentsTab({ cls, data, students, onChanged, onStudent 
                     <td>{s.today.n ? `${s.today.n} תרגילים` : '–'}</td>
                     <td>{s.week.days}</td>
                     <td><Rate value={pct(s.week.first, s.week.n)} /></td>
-                    {topics.map((t) => { const r = rowLevel(t, s.levels[t.id]); return <td key={t.id}>{r ? <LevelPips total={r.total} level={r.level} max={r.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
+                    {topics.map((t) => { const r = rowLevel(t, s.levels); return <td key={t.id}>{r ? <LevelPips total={r.total} level={r.level} max={r.max} states={r.states} done={r.done} color={t.color} /> : <span className="muted">–</span>}</td>; })}
                     <td className="t-actions">
                       {s.pinReset && <span className="muted">קוד אופס</span>}
                       {aiBadge && s.aiOff && <span className="t-chip t-ai-off">{AI_COPY.badge}</span>}

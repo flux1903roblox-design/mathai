@@ -130,6 +130,10 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   assert.ok(any(TOPIC_WAYS.sys.avoidRe, 'מחליפים את כיוון האי־שוויון כשיש מספר שלילי.'));
   assert.ok(any(TOPIC_WAYS.expr.avoidRe, 'יותר מ־ זה תמיד פלוס'));
   assert.ok(any(TOPIC_WAYS.angles.avoidRe, 'הזוויות שוות כי זה נראה שווה'));
+  // measuring (stage5.md FUNC-8 Design 5): a ז׳ class measures angles in September (7.10), so the tutor knows the
+  // protractor's way and the arms' length before the app's own measuring stair lands
+  assert.match(TOPIC_WAYS.angles.models, /Measuring: protractor centre on the vertex, zero on one arm, read the scale that starts there; estimate first; arms' length does not matter; a clock's hour is \$30\^\\circ\$\.$/);
+  assert.ok(TOPIC_WAYS.angles.avoid.includes('"longer arms make a bigger angle"'));
   assert.ok(any(TOPIC_WAYS.coord.avoidRe, 'בנקודה קוראים קודם את $y$.') && any(TOPIC_WAYS.coord.avoidRe, 'קודם y ואחר כך x'));
   assert.ok(!any(TOPIC_WAYS.coord.avoidRe, 'כשמוצאים קודם את $y$, מציבים אותו.'));
   assert.ok(any(TOPIC_WAYS.line.avoidRe, 'm הוא המספר ליד x.'));

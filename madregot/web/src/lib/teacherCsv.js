@@ -77,7 +77,8 @@ export function workText(kind, w) {
 /**
  * The CSV of a report (GET /api/teacher/report). Columns, in order: שם, ימים עם תרגול, תרגילים, נכון בניסיון ראשון (%),
  * דקות, תרגול אחרון (dd/mm/yyyy); one per topic of the class's grade and then its guest rows, "{topic}: מדרגה"
- * ("{level}/{levels} – {stair}", on a guest row the place among its own stairs);
+ * ("{level}/{levels} – {stair}"; on a guest row the place among its own stairs, from each stair's own state, and
+ * "{n}/{n} – הושלם" once every stair of the row is mastered);
  * one per assignment, "{title} (עד dd/mm)"; and טעויות שחוזרות (up to 3, joined by " · ").
  * `topics`: [{ id, title, levels: [stair titles], only? }]; `mistakeText(topic, level, cat)`: the words for a mistake.
  */
@@ -96,8 +97,8 @@ export function reportToCsv(report, { topics, mistakeText: words }) {
     s.minutes,
     s.lastPractice ? dmy(dayIn(s.lastPractice)) : '',
     ...topics.map((t) => {
-      const r = rowLevel(t, s.levels?.[t.id]);
-      return r ? `${r.level}/${r.total} – ${r.title}`.trim() : '';
+      const r = rowLevel(t, s.levels);
+      return !r ? '' : r.done ? `${r.total}/${r.total} – הושלם` : `${r.level}/${r.total} – ${r.title}`.trim();
     }),
     ...report.assignments.map((a) => workText(a.kind, a.work?.[i])),
     (s.topMistakes || []).slice(0, 3).map((m) => stripTex(words(m.topic, m.level, m.cat))).join(' · '),

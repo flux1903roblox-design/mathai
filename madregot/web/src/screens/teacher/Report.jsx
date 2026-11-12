@@ -16,7 +16,7 @@ import { RANGES, rangeDays, customRange, rangeText, dmyDots, fetchReport, saveRe
 import { workText, pctOf, stripTex } from '@/lib/teacherCsv.js';
 import { mistakeLine } from '@/lib/teacherText.js';
 import { plusDays, dm } from '@/lib/workDates.js';
-import { classTopicsFor, rowLevel, rowTitle } from '@/content/index.js';
+import { classTopicsFor, rowLevel, rowLevelText, rowTitle } from '@/content/index.js';
 import { Stat } from '@/components/ds.jsx';
 // the board's rules (tiles, groups, the table) live with the board (STUDENT-15); the report also opens on its own
 import '@/styles/lazy/teacher.css';
@@ -78,7 +78,7 @@ function PrintReport({ report, topics, title }) {
                   <th scope="row">{s.name}</th>
                   <td>{s.activeDays}</td><td>{s.exercises}</td><td>{p == null ? '–' : `${p}%`}</td><td>{s.minutes}</td>
                   <td>{s.lastPractice ? dmyDots(todayOf(new Date(s.lastPractice))) : '–'}</td>
-                  {topics.map((t) => { const r = rowLevel(t, s.levels[t.id]); return <td key={t.id}>{r ? `${r.level}/${r.total}` : '–'}</td>; })}
+                  {topics.map((t) => <td key={t.id}>{rowLevelText(rowLevel(t, s.levels))}</td>)}
                   {many ? <td>{given.length ? `${done}/${given.length}` : '–'}</td> : report.assignments.map((a, k) => <td key={k}>{workText(a.kind, a.work[i]) || '–'}</td>)}
                   <td className="pr-mis">{mistakeWords(s).map(stripTex).join(' · ') || '–'}</td>
                 </tr>
@@ -231,7 +231,7 @@ export default function ClassReport() {
                       <td><Rate value={pctOf(s.firstTry, s.exercises)} /></td>
                       <td>{s.minutes}</td>
                       <td>{s.lastPractice ? shortDay(s.lastPractice, thisYear) : <span className="muted">עוד לא</span>}</td>
-                      {topics.map((t) => { const r = rowLevel(t, s.levels[t.id]); return <td key={t.id}>{r ? <LevelPips total={r.total} level={r.level} max={r.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
+                      {topics.map((t) => { const r = rowLevel(t, s.levels); return <td key={t.id}>{r ? <LevelPips total={r.total} level={r.level} max={r.max} states={r.states} done={r.done} color={t.color} /> : <span className="muted">–</span>}</td>; })}
                       {shown.assignments.map((a, k) => {
                         const w = a.work[i];
                         if (!w) return <td key={k}><span className="muted">–</span></td>;

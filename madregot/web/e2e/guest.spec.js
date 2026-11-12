@@ -7,6 +7,7 @@ import { test, expect } from '@playwright/test';
 import { open, appReady, student, saved, expectUsable, expectNoSidewaysScroll, NOW } from './helpers.js';
 import { gradeSkillsOf } from '../src/learn/skills.ts';
 import { monthIndex } from '../../shared/coverage.js';
+import { API, fakeServer } from './fakeServer.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the guest rule runs on both phones'); });
 
@@ -155,4 +156,34 @@ test('ח׳ Rescue: the equations row is the whole ז׳ unit, eq:6 and eq:7 inclu
   await row.getByRole('checkbox', { name: 'משוואות מכיתה ז׳ (כל הנושא)' }).check();
   await expect(row.locator('.rescue-topic-count')).toHaveText('7/7');
   expect(await buildPlan(page)).toEqual(['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'eq:6', 'eq:7']);
+});
+
+// The teacher's guest column (FUNC-6 item 6, after the review): a ז׳ class's "מבוא לפונקציות: מדרגה 1" reads func:1's own
+// state as the class sync sends it (lib/path.js guestStairLevels), never the unit's level: a student who only opened
+// func:1 and one who mastered it are two different cells, and one who only has a func level (no func:1 state) has none.
+test('a ז׳ teacher\'s guest column tells func:1 opened, mastered and not started apart', async ({ page }) => {
+  const P = { level: 1, max: 1 }; const M = { level: 2, max: 2 };
+  await fakeServer(page.context(), { students: [
+    { id: 'a1', name: 'דנה', levels: { func: { level: 1, max: 1 }, 'func:1': P } },
+    { id: 'b2', name: 'יואב', levels: { func: { level: 2, max: 2 }, 'func:1': M } },
+    { id: 'c3', name: 'נועה', levels: { func: { level: 1, max: 1 }, eq: { level: 3, max: 3 } } },
+  ] }, test.info().project.use.baseURL);
+  const teacher = { ...student('7', { ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true },
+    profile: { role: 'teacher', name: 'רונית', grade: '7', classes: [{ code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7', createdHere: true }], active: 'K7Q2MD' } }), version: 3 };
+  await open(page, '#/teacher?tab=students', teacher);
+  const table = page.getByRole('region', { name: 'טבלת התלמידים' });
+  const head = table.getByRole('columnheader', { name: 'מבוא לפונקציות: מדרגה 1' });
+  await expect(head).toBeVisible();
+  const cells = await page.evaluate(() => {
+    const ths = [...document.querySelectorAll('.t-table thead th')];
+    const col = ths.findIndex((th) => th.textContent.trim() === 'מבוא לפונקציות: מדרגה 1');
+    return Object.fromEntries([...document.querySelectorAll('.t-table tbody tr')].map((tr) => {
+      const cell = tr.children[col];
+      return [tr.querySelector('th').textContent.trim(), cell.querySelector('.pips')?.getAttribute('aria-label') || cell.textContent.trim()];
+    }));
+  });
+  expect(cells).toEqual({ 'דנה': 'מדרגה 1 מתוך 1', 'יואב': 'המדרגה הושלמה', 'נועה': '–' });
+  await head.scrollIntoViewIfNeeded();
+  await expectNoSidewaysScroll(page);
+  await shot(page, 'teacher-7');
 });

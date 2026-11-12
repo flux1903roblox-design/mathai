@@ -64,7 +64,7 @@ describe('teaching drawings: every step that names a shape shows it', () => {
       expect(html, `${skill} #${i}`).toMatch(/<svg/);
       expect(html, `${skill} #${i}`).not.toMatch(/NaN|undefined|Infinity/);
     }
-  });
+  }, 60_000); // every stair's drawings: well under a second alone, more on a busy machine
 });
 
 describe('teaching drawings agree with their text and with themselves', () => {
@@ -406,6 +406,8 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(bad).toEqual([]);
   });
 
+  // every teaching figure of every stair is drawn once: about 2 s alone and up to 9 s on a busy machine, past vitest's 5 s
+  // default, so it gets its own time as engines.test's slip check does
   it('every figure renders, with no broken numbers', () => {
     for (const { where, st } of ALL_STEPS()) {
       const fig = figOf(st); if (!fig) continue;
@@ -413,7 +415,7 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
       expect(html, where).toMatch(/<svg|<table/);
       expect(html, where).not.toMatch(/NaN|undefined|Infinity/);
     }
-  });
+  }, 60_000);
 
   // the checks themselves, on made-up steps: each catches what it is for, and lets a right figure through
   const say = (text: string, fig: AnyFig): DiscoverStep => ({ kind: 'say', text, fig: fig as FigSpec });

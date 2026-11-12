@@ -49,18 +49,34 @@ export function rowTitle(t) {
   return `${t.title}: ${ls.length === 1 ? 'מדרגה' : 'מדרגות'} ${nums}`;
 }
 /**
- * A student's place on a row, from the unit's { level, max } (the levels the class sync sends): on a unit, as is; on a
- * guest row, the place among its own stairs (eq:7 is the second of ח׳'s equations row). { total, level, max, title }:
- * the stair at that place. null when the student has nothing in the unit.
+ * A guest stair's state as the class sync sends it (lib/path.js guestStairLevels): under the stair's own id ("eq:6") in
+ * the levels object, beside the units' { level, max }, with level 1 practised and 2 mastered now (the server keeps the
+ * highest max). A guest row reads only these, never its unit's level: a ח׳ student's eq level says nothing about eq:6,
+ * and a ז׳ student's func level cannot tell func:1 opened from func:1 mastered.
  */
-export function rowLevel(t, l) {
-  if (!l) return null;
+export const GUEST_STATE = Object.freeze({ practised: 1, mastered: 2 });
+/**
+ * A student's place on a row, from the levels the class sync sends ({ [unit]: { level, max }, [guest stair]: state }):
+ * on a unit, its { level, max } as is; on a guest row, from each of its own stairs' states. { total, level, max, title }:
+ * the stair at that place; a guest row adds `states` (each stair 'done', 'cur' or 'todo', for LevelPips) and `done`
+ * (every stair of the row mastered). null when the student has nothing on the row.
+ */
+export function rowLevel(t, levels) {
   const ls = rowStairs(t);
-  if (!t.only) return { total: ls.length, level: l.level, max: l.max, title: ls[l.level - 1]?.title || '' };
-  const at = (n) => Math.min(ls.length, ls.filter((s) => s.level < n).length + 1);
-  const level = at(Number(l.level) || 1);
-  return { total: ls.length, level, max: at(Number(l.max) || 1), title: ls[level - 1].title };
+  if (!t.only) {
+    const l = levels?.[t.id];
+    return l ? { total: ls.length, level: l.level, max: l.max, title: ls[l.level - 1]?.title || '' } : null;
+  }
+  const st = ls.map((s) => { const v = levels?.[s.id]; return !v ? null : Number(v.level) >= GUEST_STATE.mastered ? 'mastered' : 'practised'; });
+  if (st.every((x) => !x)) return null;
+  const done = st.every((x) => x === 'mastered');
+  // the stair being worked on: the first one practised and not mastered, else the first not mastered
+  const k = done ? ls.length - 1 : st.includes('practised') ? st.indexOf('practised') : st.findIndex((x) => x !== 'mastered');
+  const states = st.map((x, i) => (x === 'mastered' ? 'done' : i === k ? 'cur' : 'todo'));
+  return { total: ls.length, level: k + 1, max: Math.max(k + 1, st.lastIndexOf('mastered') + 1), title: ls[k].title, states, done };
 }
+/** A place on a row in a table cell: "1/2", or on a guest row whose stairs are all mastered "הושלם". */
+export const rowLevelText = (r) => (!r ? '–' : r.done ? 'הושלם' : `${r.level}/${r.total}`);
 /**
  * The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it (alsoFor; no
  * bridge unit). An earlier grade's unit is revised whole (a ח׳ test can revise all of the ז׳ equations unit); a later

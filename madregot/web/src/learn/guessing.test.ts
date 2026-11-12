@@ -41,6 +41,10 @@ const CONTENT = await loadAllContent();
 
 const LIMIT = 0.02;
 const SLOW = 60_000; // each test generates thousands of questions
+// a verification's control question looks for a draw the misconception leaves unchanged, up to 400 draws a question
+// (learn/items.ts): signed:6's sign almost never is (only an answer of 0), so that one test makes about 400 times the
+// questions: 60 s run alone and 75-220 s within the whole suite on the shared 4-CPU machine, past SLOW
+const VERIFY_SLOW = 300_000;
 const N = 500; // questions sampled per kind of question, to learn the guess and again to measure it
 
 // a fixed random source (the exercise generators use Math.random), so the measure is the same on every run
@@ -159,7 +163,7 @@ describe('a check cannot be passed by guessing', () => {
     expect(plan).toHaveLength(VERIFY_N);
     const rate = passRate(plan.map((q) => drawOf(q.skill, q.source, q.candidates)), VERIFY_NEED);
     expect(rate, `${skill} verify ${misc}: ${(100 * rate).toFixed(2)}%`).toBeLessThan(LIMIT);
-  }, SLOW);
+  }, VERIFY_SLOW);
 });
 
 describe('the placement test cannot be passed by guessing', () => {
