@@ -31,11 +31,11 @@ export const RELEASE = String(import.meta.env?.VITE_RELEASE || 'dev').slice(0, L
 
 /**
  * The app's screens as patterns: every path in App.jsx's router table (monitor.test.js fails when one is missing).
- * '/teacher/*' covers the teacher's own screens. '/r/:data' keeps a shared week out of an error report: only the
+ * '/teacher/*' covers the teacher's own screens. '/r/:data' (and the family challenge's '/f/:data') keeps a shared link out of an error report: only the
  * pattern is sent, never the link's data.
  */
 export const ROUTES = Object.freeze([
-  '/', '/parents', '/parents/link', '/parents/info', '/cancel', '/terms', '/privacy', '/accessibility', '/safety', '/restore', '/r/:data', '/r',
+  '/', '/parents', '/parents/link', '/parents/info', '/cancel', '/terms', '/privacy', '/accessibility', '/safety', '/restore', '/r/:data', '/r', '/f/:data', '/f',
   '/teacher/*', '/subscription', '/quests', '/topics', '/topic/:id', '/assistant', '/me', '/settings', '/settings/advanced', '/report',
   '/exams', '/exams/check', '/exams/new', '/exams/practice/:id', '/exams/:id', '/plan', '/learn/:topic/:level', '/mission', '/rescue', '/lesson/:topic/:level', '/practice/:id',
   '/placement', '/learn/:topic/:level/:stage', '/repair/:topic/:level/:misc', '/rescue/check', '/rescue/exam',

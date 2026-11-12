@@ -4,7 +4,9 @@
 //  - a missed school day can be repaired by the student's own effort: two finished items the next school day, at most
 //    once in 30 days (streakRepair). A repaired day is saved as frozen: 'repair';
 //  - two counters that never reset: learning days this month and in all;
-//  - a weekly personal best in steps: a lesson, a teaching stage or a check is one, and a passed mastery check is 3.
+//  - the student's own weeks (PRODUCT2-39): each week's stages (a finished lesson, check or teaching stage is one, the
+//    same "שלב" as a stair's five) and practice days, this week against last week (the ghost race on the missions tab),
+//    and the personal best. Only the student's own weeks: never another student's.
 import { isRestDay } from '@shared/restDays.js';
 
 // the calendar itself (today, a day, a learning day, a kept day, the walk back) lives in lib/days.js, which the report
@@ -93,22 +95,40 @@ export function weekStart(key) {
   d.setUTCDate(d.getUTCDate() - d.getUTCDay());
   return d.toISOString().slice(0, 10);
 }
-/** Steps on one day: a finished lesson, stage or check is one step; a passed mastery check (mp) adds two more. */
-export const stepsOn = (d) => (d?.lessons || 0) + (d?.stages || 0) + 2 * (d?.mp || 0);
-/** Steps in the week that starts on `start` (a Sunday). */
-export function weekSteps(days, start) {
-  let n = 0; let k = start;
-  for (let i = 0; i < 7; i += 1) { n += stepsOn(days[k]); k = dayAfter(k); }
-  return n;
-}
 /**
- * The best week before the week that starts on `beforeWeek`: { steps, week } or null when no earlier week has a step.
- * Days saved before mp existed count a mastery check as 1, which can only lower an old best, never raise it.
+ * A week's own totals: { stages, days }. Stages are the finished lessons, checks and teaching stages (itemsOn: each is one,
+ * a passed mastery check too); days are the days with one of them (learnedOn: answers alone, a freeze or a rest day are
+ * not practice days). The same two numbers the weekly summary shows (learn/report.ts: lessons + stages, activeDays).
  */
-export function bestWeek(days, beforeWeek) {
-  const sums = {};
-  Object.keys(days).forEach((k) => { const w = weekStart(k); if (w < beforeWeek) sums[w] = (sums[w] || 0) + stepsOn(days[k]); });
-  let best = null;
-  Object.entries(sums).forEach(([week, steps]) => { if (steps > 0 && (!best || steps > best.steps)) best = { steps, week }; });
-  return best;
+export function weekTotals(days, start) {
+  let stages = 0; let active = 0; let k = start;
+  for (let i = 0; i < 7; i += 1) { const d = days?.[k]; stages += itemsOn(d); if (learnedOn(d)) active += 1; k = dayAfter(k); }
+  return { stages, days: active };
+}
+
+/**
+ * The personal best before the week that starts on `beforeWeek`: { stages: { n, week } | null, days: { n, week } | null },
+ * the most stages in one week and the most practice days in one week (each null when no earlier week had any). A tie
+ * keeps the earlier week.
+ */
+export function personalBest(days, beforeWeek) {
+  const weeks = [...new Set(Object.keys(days || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).map(weekStart))].filter((w) => w < beforeWeek).sort();
+  let stages = null; let most = null;
+  for (const w of weeks) {
+    const t = weekTotals(days, w);
+    if (t.stages > 0 && (!stages || t.stages > stages.n)) stages = { n: t.stages, week: w };
+    if (t.days > 0 && (!most || t.days > most.n)) most = { n: t.days, week: w };
+  }
+  return { stages, days: most };
+}
+
+/**
+ * The ghost race (PRODUCT2-39): this week against the student's own last week, the week just before it (an empty one
+ * too: a week off is a last week of 0, never skipped), and the personal best before this week. No other student.
+ * Returns { week, lastWeek, now, last, best }.
+ */
+export function ghostRace(days, todayKey) {
+  const week = weekStart(todayKey);
+  const lastWeek = weekStart(dayBefore(week));
+  return { week, lastWeek, now: weekTotals(days, week), last: weekTotals(days, lastWeek), best: personalBest(days, week) };
 }

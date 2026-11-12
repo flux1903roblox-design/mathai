@@ -89,32 +89,41 @@ test('two lessons keep the streak: the second says "הרצף נשמר", and the 
   expect(st.nudges.pbWeek).toBe('2026-11-01');
 });
 
-test('this week against the best week: a best of 12 steps, and a passed mastery check is worth 3', async ({ page }) => {
+test('the ghost race: this week against my own last week, two calm bars, the practice days and the best (PRODUCT2-39)', async ({ page }) => {
+  // the clock is Thursday 5.11: last week is 25.10 to 31.10
   const days = {
-    '2026-10-26': { lessons: 3, stages: 2, mp: 1 }, '2026-10-27': { lessons: 2, stages: 1, mp: 1 }, // 12 steps in the week of 25 Oct
-    '2026-11-02': { lessons: 1, stages: 1 }, '2026-11-04': { lessons: 1 },
+    '2026-10-19': { lessons: 6, stages: 3 }, // the best: 9 stages in the week of 18.10
+    '2026-10-26': { lessons: 3, stages: 2, mp: 1 }, '2026-10-27': { lessons: 2, stages: 1, mp: 1 }, // last week: 8 stages on 2 days
+    '2026-11-02': { lessons: 1, stages: 1 }, '2026-11-04': { lessons: 1 }, // this week so far: 3 stages on 2 days
   };
   await open(page, '#/quests', student('7', { days }));
-  const card = page.locator('.week-best-card');
+  const card = page.locator('.ghost-card');
   await expect(card.getByRole('heading', { level: 2 })).toHaveText('השבוע שלי');
-  await expect(card.locator('.wk-line')).toHaveText('השבוע: 3 צעדים');
-  await expect(card.locator('.wk-best')).toHaveText('השיא שלכם: 12 צעדים בשבוע');
-  await expect(card).toContainText('צעד הוא שיעור, שלב לימוד או בדיקה. בדיקת שליטה שעברתם שווה 3.');
-  const bar = card.getByRole('progressbar', { name: 'השבוע שלי' });
-  await expect(bar).toHaveAttribute('aria-valuenow', '3');
-  await expect(bar).toHaveAttribute('aria-valuemax', '12');
-  await expect(bar).toHaveAttribute('aria-valuetext', 'השבוע 3 צעדים, השיא 12 צעדים');
+  await expect(card.locator('.ghost-row.is-last')).toHaveText(/^השבוע שעבר:\s*8 שלבים$/);
+  await expect(card.locator('.ghost-row.is-now')).toHaveText(/^השבוע:\s*3 שלבים$/);
+  await expect(card.locator('.ghost-days')).toHaveText('ימי תרגול: השבוע 2, בשבוע שעבר 2');
+  await expect(card.locator('.ghost-best')).toHaveText('השיא שלכם: 9 שלבים בשבוע');
+  await expect(card).toContainText('שלב הוא שלב לימוד, שיעור או בדיקה.');
+  // the bars are pictures of the words: hidden from screen readers, and drawn on one scale (last week full, this week 3/8)
+  await expect(card.locator('.ghost-bar').first()).toHaveAttribute('aria-hidden', 'true');
+  const widths = await card.locator('.ghost-bar i').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width / e.parentElement.getBoundingClientRect().width));
+  expect(widths[0]).toBeCloseTo(1, 2);
+  expect(widths[1]).toBeCloseTo(3 / 8, 1);
+  // no other student, no countdown, no loss words
+  await expect(card).not.toContainText(/תלמיד|דירוג|ליגה|מקום/);
+  await expect(page.locator('body')).not.toContainText(BLAME);
+  await expectNoSidewaysScroll(page);
   // the profile: learning days, a number that only grows, in place of total XP
   await page.goto('./#/me');
   await expect(page.locator('.profile-stats')).toContainText('ימי לימוד');
   await expect(page.locator('.profile-stats')).not.toContainText('סך הכול XP');
-  await expect(page.locator('.profile-stats .kpi').filter({ hasText: 'ימי לימוד' }).locator('.kpi-num')).toHaveText('4');
+  await expect(page.locator('.profile-stats .kpi').filter({ hasText: 'ימי לימוד' }).locator('.kpi-num')).toHaveText('5');
 });
 
-test('a first week has no best yet, and a student who never learned has no streak yet', async ({ page }) => {
+test('a first week has no last week and no best yet, and a student who never learned has no streak yet', async ({ page }) => {
   await open(page, '#/quests', student('7'));
-  await expect(page.locator('.week-best-card .wk-line')).toHaveText('השבוע עוד לא התחיל. כל שיעור קצר הוא צעד.');
-  await expect(page.locator('.week-best-card .wk-best')).toHaveText('זה השבוע הראשון. מה שתעשו השבוע יהיה השיא.');
+  await expect(page.locator('.ghost-card .ghost-say')).toHaveText('השבוע עוד לא התחיל. כל שלב קטן נספר כאן.');
+  await expect(page.locator('.ghost-card .ghost-best')).toHaveText('זה השבוע הראשון. מה שתעשו השבוע יהיה השיא.');
   await expect(page.locator('.streak-card h2')).toHaveText('עוד אין רצף');
   await expect(page.locator('.streak-month')).toHaveCount(0);
 });

@@ -20,6 +20,7 @@ import { applyTheme } from './theme.js';
 import { streakRepair, streakNow, itemsOn } from './streak.js';
 import { isRestDay } from '@shared/restDays.js';
 import { emptyLook, earnIds, unlockedLook, unlockedIds, chestPieces } from './wardrobe.js';
+import { isGoal, keepWeeks } from './familyChallenge.js';
 import { challengeXP } from '@/learn/challenges/grade.ts';
 import { challengeById } from '@/learn/challenges/index.ts';
 
@@ -121,6 +122,11 @@ export const empty = {
   // shows offline too; when the student last opened the missions tab; and the reports not yet confirmed by the server
   classWork: emptyClassWork(),
   workOutbox: {}, // assignmentId -> the newest report waiting for the server (merged with learn/assignments.ts mergeWork)
+  // the family challenge (PRODUCT2-39, lib/familyChallenge.js): the goals this device's student accepted from a parent's
+  // link, by week ({ [Sunday]: { k, n, at } }, the newest 4 weeks), and the last one a parent sent from this device
+  // ({ w, k, n, at } or null), which the parent's report counts against. It belongs to the device: a backup or a restore
+  // never carries it (durable/merge.js DEVICE_ONLY), and a new profile here starts without it.
+  family: { challenges: {}, sent: null },
   // the teacher's printable class exams on this device (TEACHER-3), newest first, at most TEACHER_EXAMS:
   // { id (12 hex), classCode, at, title, skills: ['signed:2', ...], count, versions: [{ label: 'א', items }, { label: 'ב', items }?],
   //   skipped: stairs left out (dragging only), assignmentId: null }
@@ -252,7 +258,7 @@ export const appState = (set, get) => ({
         const st = get(); const d = today(); const cur = st.days[d] || {};
         const goalBefore = (cur.xp || 0) >= st.goalXp;
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + (r.xp || 0) };
-        // passed mastery checks per day: the weekly best counts them as 3 steps (lib/streak.js weekSteps)
+        // passed mastery checks per day (mp): the class goal counts each as 3 steps (withStep below)
         if (r.purpose === 'mastery' && r.passed) day.mp = (cur.mp || 0) + 1;
         const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         const learn = learnAfterCheck(st.learn, r, new Date().toISOString(), d);
@@ -417,6 +423,29 @@ export const appState = (set, get) => ({
         if (!chestPieces(new Set(l.earned || [])).includes(id) || l.picks?.[day] || !st.days[day]?.questsRewarded) return false;
         set({ look: { ...earnIds(l, [id], today()), picks: { ...(l.picks || {}), [day]: id } } });
         return true;
+      },
+      /**
+       * A family challenge accepted from a parent's link (PRODUCT2-39): { w, k, n } with [k, n] one of the goals. It is
+       * this week's (or the next week's) on the missions tab; a second one for the same week replaces the first. Returns
+       * whether it was kept.
+       */
+      acceptChallenge: ({ w, k, n } = {}) => {
+        if (!isGoal(k, n) || typeof w !== 'string') return false;
+        const f = get().family || empty.family;
+        set({ family: { ...f, challenges: keepWeeks({ ...(f.challenges || {}), [w]: { k, n, at: new Date().toISOString() } }) } });
+        return true;
+      },
+      /** The child let a week's challenge go: it leaves the missions tab and the weekly summary. */
+      dropChallenge: (w) => {
+        const f = get().family || empty.family;
+        if (!f.challenges?.[w]) return;
+        const { [w]: _gone, ...rest } = f.challenges; // eslint-disable-line no-unused-vars
+        set({ family: { ...f, challenges: rest } });
+      },
+      /** The goal a parent just sent from this device ({ w, k, n }): the parent's report counts that week against it. */
+      noteChallengeSent: ({ w, k, n } = {}) => {
+        if (!isGoal(k, n) || typeof w !== 'string') return;
+        set({ family: { ...(get().family || empty.family), sent: { w, k, n, at: new Date().toISOString() } } });
       },
       /** A one-time note was seen: e.g. { repairDismissed: today() } or { pbWeek: '2026-11-01' }. */
       setNudge: (patch) => set({ nudges: { ...get().nudges, ...patch } }),

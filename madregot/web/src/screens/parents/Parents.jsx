@@ -23,6 +23,7 @@ import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import ParentsFrame, { NoServerNote } from './ParentsFrame.jsx';
 import FamilyReport from './FamilyReport.jsx';
+import ChallengeCard from './ChallengeCard.jsx';
 import '@/styles/lazy/parents.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const RUNNING = ['active', 'past_due', 'canceled'];
@@ -812,8 +813,11 @@ export default function Parents({ mode = 'home' }) {
     dropOrderParam(); loadAccount();
   };
 
+  // the family challenge (PRODUCT2-39): free, with no account and no server, so it is offered on the parents' home in
+  // every state but the adult step, a load and an error
+  const challenge = mode === 'home' ? <ChallengeCard /> : null;
   let body;
-  if (!server) body = <NoServerNote />;
+  if (!server) body = <><NoServerNote />{challenge}</>;
   else if (!plans && !error) body = <LoadingState text="טוענים…" />;
   else if (!plans) {
     body = (
@@ -848,6 +852,7 @@ export default function Parents({ mode = 'home' }) {
             <EmailCodeForm onSignedIn={signedIn} idPrefix="pa" purpose={mode === 'cancel' ? 'cancel' : 'join'} startStep={qa?.step === 'code' ? 'code' : 'email'} presetEmail={qa?.step === 'code' ? 'parent@example.test' : ''} />
           </section>
         )}
+        {challenge}
       </>
     );
   } else if (!acct && (loading || !error)) body = <LoadingState text="טוענים את החשבון…" />;
@@ -881,6 +886,7 @@ export default function Parents({ mode = 'home' }) {
           <FamilyReport plan={plan} devices={acct.devices || []} email={acct.email} reportEmail={!!acct.reportEmail}
             onReportEmail={(on) => setAcct((a) => (a ? { ...a, reportEmail: on } : a))} qa={qa ? qa.report || 'none' : null} />
         )}
+        {challenge}
         {plan && kept.length > 0 && <KeptCard kept={kept} qa={!!qa} onMove={(id) => { if (here) { setHereFrom(id); document.getElementById('here-title')?.scrollIntoView({ block: 'start' }); } else moveKept(id); }} onChanged={loadAccount} />}
         {plan && here && (
           <section className="card parents-card" aria-labelledby="here-title">

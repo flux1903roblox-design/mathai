@@ -444,7 +444,7 @@
     "<STORE_KEY>": {
       "store": "localStorage",
       "personal": "yes",
-      "holds": "The student's saved state: the name, grade and (in a class) the class code and name, the teacher's name, the class token and student id; progress, days, XP, mistakes, the learning model, checked exam summaries and practice exams; the tutor's settings (server address, the install id sent as X-Device, the family-device token and its label, a pending link code, the plan the server reported last, whether the introduction was read; a personal key only in the owner's own dev build); answers waiting to be sent to the class.",
+      "holds": "The student's saved state: the name, grade and (in a class) the class code and name, the teacher's name, the class token and student id; progress, days, XP, mistakes, the learning model, checked exam summaries and practice exams; a family challenge accepted from a parent's link, or sent from this device (a goal and its week, no name); the tutor's settings (server address, the install id sent as X-Device, the family-device token and its label, a pending link code, the plan the server reported last, whether the introduction was read; a personal key only in the owner's own dev build); answers waiting to be sent to the class.",
       "purpose": "The app works on the device, with or without a network. STORE_KEY is 'madregot' in production; a staging copy sets VITE_STORE_KEY.",
       "removedBy": "Delete all (lib/wipe.js clearDevice), or clearing the browser's data."
     },

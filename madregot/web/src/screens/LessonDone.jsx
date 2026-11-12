@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { m } from 'motion/react';
 import { Zap, Target, Timer, Snowflake, Star, Trophy, ChevronsUp, Wrench, Medal } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
-import { weekStart, weekSteps, bestWeek, streakMilestone } from '@/lib/streak.js';
+import { weekStart, weekTotals, personalBest, streakMilestone } from '@/lib/streak.js';
 import Mascot from '@/components/Mascot.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { unitProgress, stagesDone, partsOf, isDone, practiceComplete, STAIR_STAGES } from '@/lib/path.js';
@@ -68,15 +68,16 @@ function Hero({ children, confetti = true }) {
 }
 
 /**
- * A new weekly best, said once a week (STUDENT-5): this week's steps just passed the best earlier week, and that best
- * was at least 3 steps. Worked out once, as the screen opens; then the week is marked as told (nudges.pbWeek).
+ * A new weekly best, said once a week (STUDENT-5): this week's stages just passed the best earlier week's (the personal
+ * best the missions tab shows, PRODUCT2-39), and that best was at least 3 stages. Worked out once, as the screen opens;
+ * then the week is marked as told (nudges.pbWeek).
  */
 function useWeekBest(passed) {
   const [pb] = useState(() => {
     const { days, nudges } = useApp.getState();
     const week = weekStart(today());
-    const best = bestWeek(days, week);
-    return passed && !!best && best.steps >= 3 && weekSteps(days, week) > best.steps && nudges?.pbWeek !== week ? week : null;
+    const best = personalBest(days, week).stages;
+    return passed && !!best && best.n >= 3 && weekTotals(days, week).stages > best.n && nudges?.pbWeek !== week ? week : null;
   });
   useEffect(() => { if (pb) useApp.getState().setNudge({ pbWeek: pb }); }, [pb]);
   return !!pb;

@@ -231,6 +231,22 @@ button; in solving together, the first choice above the bottom bar). Pictures:
 `qa-evidence/student/visuals/bc-*.png` (the triangle's angle sum, stage B, and Pythagoras together, stage C, on both
 phones).
 
+Round 2's "no safe social or competitive pull for a solo student" (PRODUCT2-39), with no stranger anywhere: the
+missions tab's "השבוע שלי" is now a race against the student's own last week, two calm bars on one scale
+("השבוע שעבר: 5 שלבים", "השבוע: 5 שלבים"), the practice days of both weeks and the personal best (`lib/streak.js`
+weekTotals, personalBest, ghostRace: a stage is a finished lesson, check or teaching stage, as on the stair). A week
+ahead says "עברתם את השבוע שעבר."; a week behind says nothing about it; there is no countdown. The lesson's "שיא שבועי
+חדש" reads the same best. A parent picks one small weekly goal on /parents (3, 4 or 5 practice days, or 5 or 10 stages;
+a goal of days only when the week still has that many school days; from Thursday it is for next week) and sends it as
+a link; the goal rides in the # fragment like the /r summary, so it works with no server, signed out and on the free
+tier, and holds no name and no text. The child takes it on their own phone (`#/f/…`), sees it on the missions tab as
+dots, can take it off at any time, and its progress is in the weekly summary and in the /r link the child sends
+(`fc`); on a linked device the parent's daily report counts that week against the goal sent from that phone. Checked
+by `lib/streak.test.js`, `lib/familyChallenge.test.js` (the link's round trip and every way it refuses to decode),
+`screens/Quests.test.jsx` and `e2e/family-challenge.spec.js` on both phones (no request to any server, no price, no
+pressure words). Pictures: `qa-evidence/student/family/`. Not built: delivering the goal through family sync itself
+(a parent's write to a linked device needs a new Worker route; see section 7).
+
 Earlier stages' own before and after pictures are in `qa-evidence/student/`: `unit-identity-before/after.png`, `dark/`,
 `madi/`, `streak/`, `class-goal/`, `visuals/`, `polish/`, `install/`, `push/`, `landing/` and `store/`.
 
@@ -310,6 +326,12 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
 - **`web/e2e/fakeServer.js`** (trust lane) is not on this branch. `class-goal.spec.js` and `student-week.spec.js`
   carry their own `page.route` fakes.
 - **The account export of the class-goal settings** belongs to the trust lane's export.
+
+**The family challenge through family sync (PRODUCT2-39).** The goal reaches the child by its link (WhatsApp, the
+share sheet or a copied link), on every build and tier. Sending it to a linked device directly would need a parent's
+write route on the Worker (for example `POST /api/family/devices/:id/challenge`, read back in `GET /api/ai/status`), and
+the server lane (COUNCIL2-18) is capping student writes in `worker/src/index.js` now, so it was not started. The parent's
+daily report already counts the week against the goal sent from that phone, from the device's own rows.
 
 **Owner-side steps for the iPhone app**
 - Building it needs a Mac with Xcode (`store/ios/README.md`). The privacy report (Organizer, Generate Privacy Report) and

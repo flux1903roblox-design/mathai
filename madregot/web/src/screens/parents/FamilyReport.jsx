@@ -13,7 +13,8 @@
 import { useCallback, useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
-import { STORE_KEY, today as dayOf } from '@/lib/store.js';
+import { STORE_KEY, today as dayOf, useApp } from '@/lib/store.js';
+import { withChallenge } from '@/lib/familyChallenge.js';
 import { summary as loadSummary, setDeviceSharing, deleteDeviceHistory, reportFeedback, setReportEmail } from '@/lib/parent.js';
 import { weekStart, weekFrom } from '@/learn/report.ts';
 import { whenText } from '@/lib/when.js';
@@ -171,7 +172,9 @@ function DeviceCard({ device, plan, today, qa, onChange }) {
   const [busy, setBusy] = useState(false);
   const [del, setDel] = useState(false);
   const start = which === 'this' ? weekStart(today) : lastWeekOf(today);
-  const week = weekFrom(rows, start, today);
+  // the family challenge sent from this browser for that week (PRODUCT2-39) is counted against the device's own rows
+  const sent = useApp((s) => s.family?.sent);
+  const week = withChallenge(weekFrom(rows, start, today), sent?.w === start ? sent : null);
   const sw = plan ? PARENT_SWITCH[device.sharing] : null;
   const label = nameOf(device);
   const flip = async () => {

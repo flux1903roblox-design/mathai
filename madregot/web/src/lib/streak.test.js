@@ -1,7 +1,8 @@
 // A calm streak (STUDENT-5): rest days on Shabbat and Yom Tov, an earned repair at most once in 30 days, counters that
-// never reset, and a weekly personal best in steps. Pure functions, on fixed dates.
+// never reset, and the student's own weeks (PRODUCT2-39): each week's stages and practice days, this week against last
+// week (the ghost race), and the personal best. Pure functions, on fixed dates.
 import { describe, it, expect } from 'vitest';
-import { streakAt, streakRepair, streakNow, lastSchoolDay, learnDaysThisMonth, learnDaysTotal, weekStart, weekSteps, bestWeek, stepsOn, daysBetween, STREAK_MILESTONES, streakMilestone } from './streak.js';
+import { streakAt, streakRepair, streakNow, lastSchoolDay, learnDaysThisMonth, learnDaysTotal, weekStart, weekTotals, personalBest, ghostRace, daysBetween, STREAK_MILESTONES, streakMilestone } from './streak.js';
 import { useApp } from './store.js';
 
 const L = (n = 1, extra = {}) => ({ lessons: n, ...extra });
@@ -67,19 +68,49 @@ describe('counters that never reset', () => {
   });
 });
 
-describe('the weekly personal best', () => {
-  it('5. weekSteps counts a passed mastery check as 3, and a day without mp counts its lessons as 1 each', () => {
-    expect(stepsOn({ lessons: 1, mp: 1 })).toBe(3);
+describe('the student\'s own weeks: totals, the ghost race and the personal best (PRODUCT2-39)', () => {
+  it('5. weekTotals: stages are finished lessons, checks and teaching stages (1 each); days are days with one of them', () => {
     expect(weekStart('2026-11-05')).toBe('2026-11-01');
     expect(weekStart('2026-11-01')).toBe('2026-11-01');
     expect(weekStart('2026-11-07')).toBe('2026-11-01');
-    const days = { '2026-11-01': { lessons: 1, mp: 1 }, '2026-11-02': { lessons: 2 }, '2026-11-03': { stages: 2 }, '2026-11-08': L(5) };
-    expect(weekSteps(days, '2026-11-01')).toBe(7); // 3 + 2 + 2; Sunday the 8th is next week
+    const days = {
+      '2026-11-01': { lessons: 1, mp: 1 }, // a passed mastery check is one stage, like any other
+      '2026-11-02': { lessons: 2 },
+      '2026-11-03': { stages: 2 },
+      '2026-11-04': { q: 9, ok: 7, lessons: 0 }, // answers alone: no stage and no practice day
+      '2026-11-05': { frozen: true }, // a freeze keeps the streak, but it is not a practice day
+      '2026-11-08': L(5), // Sunday the 8th is next week
+    };
+    expect(weekTotals(days, '2026-11-01')).toEqual({ stages: 5, days: 3 });
+    expect(weekTotals(days, '2026-11-08')).toEqual({ stages: 5, days: 1 });
+    expect(weekTotals({}, '2026-11-01')).toEqual({ stages: 0, days: 0 });
   });
-  it('6. bestWeek ignores the current week', () => {
-    const days = { '2026-10-26': L(4), '2026-10-19': L(2), '2026-11-02': L(10) };
-    expect(bestWeek(days, '2026-11-01')).toEqual({ steps: 4, week: '2026-10-25' });
-    expect(bestWeek({ '2026-11-02': L(10) }, '2026-11-01')).toBeNull(); // the first week: no best yet
+  it('6. personalBest looks only at weeks before this one: the most stages in a week and the most practice days', () => {
+    const days = {
+      '2026-10-19': L(2), '2026-10-20': L(2), '2026-10-21': L(2), // 6 stages over 3 days, week of 18.10
+      '2026-10-26': L(7), // 7 stages on one day, week of 25.10
+      '2026-11-02': L(10), '2026-11-03': L(1), '2026-11-04': L(1), '2026-11-05': L(1), // this week: not a "before"
+    };
+    expect(personalBest(days, '2026-11-01')).toEqual({ stages: { n: 7, week: '2026-10-25' }, days: { n: 3, week: '2026-10-18' } });
+    expect(personalBest({ '2026-11-02': L(10) }, '2026-11-01')).toEqual({ stages: null, days: null }); // the first week: no best yet
+    // a tie keeps the earlier week
+    expect(personalBest({ '2026-10-19': L(3), '2026-10-26': L(3) }, '2026-11-01').stages).toEqual({ n: 3, week: '2026-10-18' });
+  });
+  it('7. ghostRace: this week against last week (the week just before, even an empty one), and the best before this week', () => {
+    const days = {
+      '2026-10-19': L(8), // the best: 8 stages, week of 18.10
+      '2026-10-26': L(2), '2026-10-28': { stages: 3 }, // last week: 5 stages over 2 days
+      '2026-11-01': L(1), '2026-11-03': { stages: 2 }, // this week so far: 3 stages over 2 days
+    };
+    expect(ghostRace(days, '2026-11-05')).toEqual({
+      week: '2026-11-01', lastWeek: '2026-10-25',
+      now: { stages: 3, days: 2 }, last: { stages: 5, days: 2 },
+      best: { stages: { n: 8, week: '2026-10-18' }, days: { n: 2, week: '2026-10-25' } },
+    });
+    // on Sunday the race starts again: this week 0, last week what was this week until Shabbat
+    expect(ghostRace(days, '2026-11-08')).toMatchObject({ week: '2026-11-08', lastWeek: '2026-11-01', now: { stages: 0, days: 0 }, last: { stages: 3, days: 2 } });
+    // a week with no learning before this one is a last week of 0, never skipped over
+    expect(ghostRace({ '2026-10-19': L(4) }, '2026-11-05')).toMatchObject({ last: { stages: 0, days: 0 }, best: { stages: { n: 4, week: '2026-10-18' } } });
   });
 });
 

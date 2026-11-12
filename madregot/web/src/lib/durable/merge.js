@@ -32,9 +32,10 @@ export const OUTBOX_KEEP = 1000;
  * student lane's class-goal steps waiting for the server (stepsOut) and the weeks it last reported (classGoals,
  * STUDENT-4), this device's one-time notes and install offers (nudges, STUDENT-5/10), and its daily reminder
  * (reminder, STUDENT-11: the id and secret of this browser's push subscription; another device's would remind the wrong
- * phone).
+ * phone), and the family challenge (family, PRODUCT2-39: a weekly goal accepted from a parent's link on this device, and
+ * the one a parent sent from it).
  */
-export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox', 'stepsOut', 'classGoals', 'nudges', 'reminder'];
+export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox', 'stepsOut', 'classGoals', 'nudges', 'reminder', 'family'];
 /** This device's settings: a restore never changes them (haptics and prefs, the look and the sound choice: STUDENT-2/7). */
 export const SETTINGS = ['sound', 'goalXp', 'solveMode', 'helpSent', 'haptics', 'prefs'];
 /**
