@@ -1,17 +1,19 @@
-// PDFs drawn on the device (PKG-2, lib/pdfPages.js). First with the real pdf.js in node, on the synthetic fixture that
-// scripts/make-pdf-fixture.mjs writes (2 A4 pages, a red band across the top of page 1): it opens with 2 pages, each
-// page comes out as a JPEG with a long side of 1800 px, `max` stops early but still says how many there were, and a
-// broken file is refused. The page canvases come from @napi-rs/canvas, which pdfjs-dist installs as its own optional
+// PDFs drawn on the device (PKG-2, lib/pdfPages.js). First with the real pdf.js in node, on the synthetic fixtures that
+// scripts/make-pdf-fixture.mjs writes (2 A4 pages, a red band across the top of page 1; and a scanned page that is one
+// JPEG 2000 picture): it opens with 2 pages, each page comes out as a JPEG with a long side of 1800 px, the scanned
+// page's picture is decoded and drawn, `max` stops early but still says how many there were, and a broken file is
+// refused. The page canvases come from @napi-rs/canvas, which pdfjs-dist installs as its own optional
 // dependency for node (it is not in package.json and the app never uses it). In node pdf.js runs its worker code on
 // the same thread (globalThis.pdfjsWorker), so the worker's URL, which only a browser loads, is a stand-in here; the
 // end-to-end test opens the real one. Then with pdf.js replaced by a stand-in that counts its imports: nothing is
 // imported until the first PDF (or for a file that is too big), the options keep everything local with no eval, and
-// the document is destroyed and every canvas emptied, also when a page fails.
+// the document is destroyed and every canvas emptied, also when a page fails, and a PDF whose every page came out white
+// (a picture the browser could not decode, as under a CSP without 'wasm-unsafe-eval') is refused as 'blank'.
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { examPdf, brokenPdf, PAGE, BAND } from '../../scripts/make-pdf-fixture.mjs';
-import { pdfPages, pdfScale, pageName, isPdf, pdfMessage, PdfError, PDF_COPY, PDF_OPEN, PDF_MAX_BYTES } from './pdfPages.js';
+import { examPdf, scanPdf, brokenPdf, PAGE, BAND, SCAN } from '../../scripts/make-pdf-fixture.mjs';
+import { pdfPages, pdfScale, pageName, isPdf, pdfMessage, whitePage, PdfError, PDF_COPY, PDF_OPEN, PDF_MAX_BYTES } from './pdfPages.js';
 import { PREP_MAX } from '@/components/PhotoPrep.jsx';
 import { MAX_EXAM_PAGES } from '@shared/ai.js';
 
@@ -40,7 +42,13 @@ describe('the fixtures', () => {
   it('are the bytes scripts/make-pdf-fixture.mjs writes: synthetic, the same every run', () => {
     expect(fixture('exam-2-pages.pdf').equals(examPdf())).toBe(true);
     expect(fixture('broken.pdf').equals(brokenPdf())).toBe(true);
+    expect(fixture('scan-jpx.pdf').equals(scanPdf())).toBe(true);
     expect(examPdf().toString('latin1')).toMatch(/^%PDF-1\.4\n/);
+    // the scanned page: one picture, in JPEG 2000 (a JP2 file inside the PDF)
+    const scan = scanPdf().toString('latin1');
+    expect(scan).toMatch(/^%PDF-1\.5\n/);
+    expect(scan.match(/\/Filter \/(\w+)/g)).toEqual(['/Filter /JPXDecode']);
+    expect(scan).toContain('\0\0\0\x0CjP  \r\n\x87\n'); // the JPEG 2000 signature box
   });
 });
 
@@ -70,6 +78,7 @@ describe('which file is a PDF, and what is said when one does not open', () => {
     expect(PDF_COPY.failed).toBe('לא הצלחנו לפתוח את ה־PDF. אפשר לצלם את הדפים במקום.');
     expect(pdfMessage(new PdfError('broken'))).toBe(PDF_COPY.failed);
     expect(pdfMessage(new PdfError('empty'))).toBe(PDF_COPY.failed);
+    expect(pdfMessage(new PdfError('blank'))).toBe(PDF_COPY.failed);
     expect(pdfMessage(new Error('x'))).toBe(PDF_COPY.failed);
     expect(pdfMessage(new PdfError('too_big'))).toBe('ה־PDF גדול מדי לפתיחה כאן. אפשר לצלם את הדפים במקום.');
     expect(PDF_COPY.firstOnly(3)).toBe('ב־PDF יש 3 דפים. כאן בודקים דף אחד: את הדף הראשון.');
@@ -104,6 +113,22 @@ describe('the real pdf.js in node', { timeout: 120_000 }, () => {
     expect([two.width, two.height]).toEqual([1272, 1800]);
     expect(white(two.px), `page 2 at (10,10) is ${two.px}`).toBe(true);
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('a scanned page (one JPEG 2000 picture) is decoded and drawn: the band grey, the bars dark, white between', async () => {
+    const { pages, total } = await pdfPages(pdfFile(fixture('scan-jpx.pdf'), 'scan.pdf'), { canvas: nodeCanvas });
+    expect(total).toBe(1);
+    const at = (x, y) => [Math.round((x * 1272) / SCAN.width), Math.round((y * 1800) / SCAN.height)];
+    const bar = SCAN.bars[3];
+    const [band, onBar, between] = await Promise.all([
+      look(pages[0], at(300, SCAN.band / 2)),
+      look(pages[0], at(200, (bar.y0 + bar.y1) / 2)),
+      look(pages[0], at(200, bar.y1 + 28)),
+    ]);
+    expect([band.width, band.height]).toEqual([1272, 1800]);
+    expect(Math.max(...band.px), `the band is ${band.px}`).toBeLessThan(130);
+    expect(Math.max(...onBar.px), `a bar is ${onBar.px}`).toBeLessThan(80);
+    expect(white(between.px), `between the bars is ${between.px}`).toBe(true);
   });
 
   it('max: 1 draws one page and still says the PDF has 2', async () => {
@@ -141,12 +166,23 @@ function standIn({ numPages = 3, failOn = 0 } = {}) {
   vi.doMock('pdfjs-dist/legacy/build/pdf.min.mjs', () => { seen.imports += 1; return lib; });
   return seen;
 }
-/** Canvases that keep count, and a JPEG of two bytes. */
-function countingCanvas() {
+/**
+ * Canvases that keep count, and a JPEG of two bytes. `white`: the pages (numbered from 1, in the order drawn) that come
+ * out white all over; the others have one grey pixel at the bottom right.
+ */
+function countingCanvas({ white = [] } = {}) {
   const made = []; let freed = 0;
+  const context = (n, w, h) => ({
+    fillRect() {}, set fillStyle(v) {},
+    getImageData: (x, y, cw, ch) => {
+      const data = new Uint8ClampedArray(cw * ch * 4).fill(255);
+      if (!white.includes(n) && y + ch === h) data.fill(128, data.length - 4, data.length - 1);
+      return { data, width: cw, height: ch };
+    },
+  });
   return {
     made, freed: () => freed,
-    create: (w, h) => { const c = { width: w, height: h, getContext: () => ({ fillRect() {}, set fillStyle(v) {} }) }; made.push([w, h]); return c; },
+    create: (w, h) => { made.push([w, h]); const n = made.length; return { width: w, height: h, getContext: () => context(n, w, h) }; },
     jpeg: async () => new Blob([new Uint8Array([0xFF, 0xD8])], { type: 'image/jpeg' }),
     free: (c) => { freed += 1; c.width = 0; c.height = 0; },
   };
@@ -206,6 +242,17 @@ describe('pdf.js loads with the first PDF, and only then', () => {
     expect(seen.destroyed).toBe(1);
   });
 
+  it('a PDF whose every page came out white is "blank"; one page with something on it is enough to keep them all', async () => {
+    const { seen, mod } = await fresh({ numPages: 2 });
+    const all = countingCanvas({ white: [1, 2] });
+    await expect(mod.pdfPages(pdfFile(examPdf()), { canvas: all })).rejects.toMatchObject({ name: 'PdfError', code: 'blank' });
+    expect(all.freed()).toBe(2);
+    expect(seen.destroyed).toBe(1);
+    const one = countingCanvas({ white: [1] });
+    const { pages } = await mod.pdfPages(pdfFile(examPdf()), { canvas: one });
+    expect(pages).toHaveLength(2);
+  });
+
   it('a PDF with no pages is "empty"; a pdf.js that cannot load is "broken" and is tried again next time', async () => {
     const { seen, mod } = await fresh({ numPages: 0 });
     await expect(mod.pdfPages(pdfFile(examPdf()), { canvas: countingCanvas() })).rejects.toMatchObject({ code: 'empty' });
@@ -217,5 +264,24 @@ describe('pdf.js loads with the first PDF, and only then', () => {
     await expect(again.pdfPages(pdfFile(examPdf()), { canvas: countingCanvas() })).rejects.toMatchObject({ code: 'broken' });
     await expect(again.pdfPages(pdfFile(examPdf()), { canvas: countingCanvas() })).rejects.toMatchObject({ code: 'empty' });
     expect(tries).toBe(2);
+  });
+});
+
+describe('whitePage', () => {
+  it('is true only when every pixel is pure white, wherever the first other pixel is', () => {
+    const c = createCanvas(300, 200);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 300, 200);
+    expect(whitePage(ctx, 300, 200)).toBe(true);
+    expect(whitePage(ctx, 300, 200, 7)).toBe(true); // bands that do not divide the height
+    ctx.fillStyle = 'rgb(254, 255, 255)'; ctx.fillRect(299, 199, 1, 1); // the very last pixel, nearly white
+    expect(whitePage(ctx, 300, 200)).toBe(false);
+    expect(whitePage(ctx, 300, 200, 7)).toBe(false);
+  });
+  it('reads only as far as it needs: one band on a page with something at its top', () => {
+    const reads = [];
+    const ctx = { getImageData: (x, y, w, h) => { reads.push(y); const data = new Uint8ClampedArray(w * h * 4).fill(255); data[0] = 0; return { data }; } };
+    expect(whitePage(ctx, 1272, 1800)).toBe(false);
+    expect(reads).toEqual([0]);
   });
 });

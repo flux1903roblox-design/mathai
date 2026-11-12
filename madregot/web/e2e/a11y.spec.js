@@ -14,10 +14,10 @@ import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import {
   NOW, open, openOn, student, livedIn, item, answer, proceed, proceedToNext, appReady, screenReady, DURABLE_DB,
-  withServer, inClass, dressed, doneStairs, linkedWeek, reportWeek, backupFile, examPng, keyTeacher, openLanding, landingMetrics,
+  withServer, inClass, dressed, doneStairs, linkedWeek, reportWeek, backupFile, examPng, keyTeacher, ownedTeacher, openLanding, landingMetrics,
 } from './helpers.js';
 import {
-  fakeServer, API, CORS, livePlan, TABLET, examWork, given, PUSH_KEY, PARENT, parentServer, nine, helpNoa, yoavPage,
+  fakeServer, API, CORS, livePlan, TABLET, examWork, given, PUSH_KEY, PARENT, TOKEN, parentServer, nine, helpNoa, yoavPage,
 } from './fakeServer.js';
 import { expectNoAxeViolations } from './axe.js';
 import { derive } from '../src/lib/durable/crypto.js';
@@ -426,7 +426,7 @@ test.describe('results', () => {
   test.describe('with motion', () => {
     test.use({ reducedMotion: 'no-preference' });
     test('a new colour while the maths burst plays (its canvas is hidden from screen readers)', async ({ page }) => {
-      const last = student('7', { path: { angles: done([1, 2, 3, 4]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } } });
+      const last = student('7', { path: { angles: done([1, 2, 3, 4]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } }, sound: true });
       await open(page, '#/lesson/angles/5?kind=check&purpose=mastery', last);
       for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, true); await proceed(page); }
       await page.getByRole('button', { name: 'למפה' }).click();
@@ -922,7 +922,10 @@ test.describe('the exams', () => {
     await scan(page, 'the exam check');
     const chooser = page.waitForEvent('filechooser');
     await page.getByRole('button', { name: 'תמונה או PDF' }).click();
-    await warnSheet(page).getByRole('button', { name: 'הבנתי, לצלם' }).click();
+    const fileWarn = page.getByRole('dialog', { name: 'לפני ששולחים דף' });
+    await expect(fileWarn).toBeVisible();
+    await scan(page, 'PhotoWarn before the picker (a picture or a PDF)');
+    await fileWarn.getByRole('button', { name: 'הבנתי, לבחור קובץ' }).click();
     await (await chooser).setFiles(PDF);
     const prep = prepSheet(page);
     await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '15');
@@ -1304,5 +1307,203 @@ test.describe('the teacher', () => {
     await open(page, '#/quests', inClass(), undefined, { at: new Date('2026-11-09T10:00:00') });
     await expect(page.getByRole('region', { name: 'מהמורה רונית' }).getByRole('listitem').first()).toBeVisible();
     await scan(page, 'Quests with the teacher\'s work');
+  });
+});
+
+// ---------------------------------------------------------------- the sheets the first pass left out (PKG-1, the review)
+// Each sheet of the app that a person can open is scanned in at least one state: these were missing from the sections
+// above. The lesson's "בואו נראה את זה אחרת" sheet shows the repair's own flow (RemedyFlow), scanned above as the repair
+// screen; the store build's AI permission sheet (AIConsentSheet) belongs to the iPhone store build, which this suite
+// does not build.
+const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
+const teacherSession = (n = 9) => ({ 'madregot-parent': JSON.stringify({ token: TOKEN(n), email: EMAIL, shared: false }) });
+
+test.describe('the remaining sheets: the student', () => {
+  test('the answer-report sheet, from the tutor\'s reply', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך מחברים 3 ועוד מינוס 5?'); await draft.press('Enter');
+    await expect(page.locator('.msg-row.assistant').last()).toContainText('כדי לחבר מספרים');
+    // the reply's report button sits under it (AIChat's .msg-tools)
+    await page.locator('.msg-tools').last().getByRole('button', { name: 'דיווח על התשובה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'מה לא היה בסדר בתשובה?' });
+    await expect(sheet.getByRole('radio', { name: 'יש בה טעות במתמטיקה' })).toBeVisible();
+    await scan(page, 'the answer-report sheet');
+    await sheet.getByRole('radio', { name: 'יש בה טעות במתמטיקה' }).check();
+    await expect(sheet.getByRole('button', { name: 'שליחה' })).toBeEnabled();
+    await scan(page, 'the answer-report sheet, a reason chosen');
+  });
+
+  test('new exercises (the generate sheet): what it does, then the exercises written', async ({ page }) => {
+    await familyServer(page);
+    await open(page, '#/assistant?generate=expr&level=2', family());
+    const sheet = page.getByRole('dialog', { name: 'תרגילים חדשים' });
+    await expect(sheet.getByRole('button', { name: 'כתיבת תרגילים' })).toBeVisible();
+    await scan(page, 'the generate sheet');
+    await sheet.getByRole('button', { name: 'כתיבת תרגילים' }).click();
+    await expect(sheet.locator('.gen-q').first()).toBeVisible();
+    await scan(page, 'the generate sheet, its exercises');
+  });
+
+  test('a class student\'s help request answered: the notice, the thread (MyHelp), and an answer being written', async ({ page }) => {
+    const at = '2026-11-05T07:30:00.000Z';
+    const help = [{
+      id: 1, studentId: 'a1', name: 'דנה', topic: 'signed', level: 1, question: '$3 - 8$', answer: '5', note: 'לא הבנתי למה יוצא מינוס', has_image: 0,
+      created_at: '2026-11-05T07:00:00.000Z', seen_at: '2026-11-05T07:20:00.000Z', done_at: null,
+      messages: [{ id: 31, from: 'teacher', body: 'נסו שוב, והתחילו מהשלב הראשון בדרך', at, read: false }],
+    }];
+    await fakeServer(page, { help }, baseOf());
+    await open(page, '#/', inClass());
+    await expect(page.getByText('יש תשובה מהמורה על בקשת העזרה')).toBeVisible();
+    await scan(page, 'home with the teacher\'s reply notice');
+    await page.getByRole('button', { name: 'לקריאה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'הבקשה שלי' });
+    await expect(sheet.locator('.hb-text')).toHaveText(['נסו שוב, והתחילו מהשלב הראשון בדרך']);
+    await expect(sheet.locator('.mh-ex-q .katex').first()).toBeVisible();
+    await scan(page, 'MyHelp, the teacher\'s reply');
+    await sheet.getByRole('button', { name: 'עדיין לא ברור לי' }).click();
+    await sheet.getByLabel('מה עדיין לא ברור?').fill('למה שמונה פחות שלוש זה לא אותו דבר?');
+    await scan(page, 'MyHelp, an answer being written');
+  });
+
+  test('the backup question on the map, after two days of learning (BackupNudge)', async ({ page }) => {
+    await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/', withServer({ days: { '2026-11-04': { lessons: 2, xp: 25, q: 16, ok: 12 }, '2026-11-05': { lessons: 1, xp: 12, q: 8, ok: 7 } }, xp: 37 }));
+    await expect(page.getByRole('dialog', { name: 'שומרים את ההתקדמות?' })).toBeVisible({ timeout: 8000 });
+    await scan(page, 'BackupNudge');
+  });
+
+  test.describe('on an iPhone in Safari', () => {
+    test.use({ userAgent: IPHONE });
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => { Object.defineProperty(Navigator.prototype, 'standalone', { configurable: true, get: () => false }); });
+    });
+
+    test('Settings › שמירת ההתקדמות: when browsers delete data (PersistInfoSheet) and the Home Screen guide (InstallSheet)', async ({ page }) => {
+      await open(page, '#/settings', student('7'));
+      await page.getByRole('button', { name: 'מתי דפדפן מוחק נתונים' }).click();
+      const info = page.getByRole('dialog', { name: 'מתי דפדפן מוחק נתונים' });
+      await expect(info).toContainText('אפליקציה שהוספתם למסך הבית לא נמחקת כך.');
+      await scan(page, 'PersistInfoSheet');
+      await info.getByRole('button', { name: 'הבנתי' }).click();
+      await expect(info).toHaveCount(0);
+      await page.getByRole('button', { name: 'להוסיף למסך הבית' }).click();
+      const guide = page.getByRole('dialog', { name: 'להוסיף את מדרגות למסך הבית' });
+      await expect(guide.locator('.install-steps > li')).toHaveCount(4);
+      await scan(page, 'InstallSheet');
+    });
+  });
+});
+
+test.describe('the remaining sheets: parents and teachers', () => {
+  test('/parents: the delete-account sheet', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true, plan: livePlan() }, baseOf());
+    st.sessions.add(PARENT);
+    await open(page, '#/parents', parentPhone(), undefined, { local: session });
+    await expect(page.getByRole('heading', { name: /^המנוי פעיל/ })).toBeVisible();
+    await page.getByRole('button', { name: 'מחיקת החשבון' }).click();
+    await expect(page.getByRole('dialog', { name: 'למחוק את החשבון?' })).toBeVisible();
+    await scan(page, 'the delete-account sheet');
+  });
+
+  test('/parents: a class licence and its cancel sheet', async ({ page }) => {
+    const lic = {
+      classCode: 'K7Q2MD', status: 'active', until: '2027-11-05T10:00:00Z',
+      plan: { id: 'c1a0000000000001', kind: 'class', plan: 'class_year', status: 'active', priceAgorot: 58800, periodEnd: '2027-11-05T10:00:00Z', accessUntil: '2027-11-05T10:00:00Z', seats: 12, classCode: 'K7Q2MD', canRefundNow: true, canProrata: false, prorataAgorot: null },
+    };
+    const { st } = await fakeServer(page, { parentOk: true, classes: [lic], classPayments: [{ id: 'p000000000000009', subscriptionId: 'c1a0000000000001', planKind: 'class', at: '2026-11-05T09:00:00Z', amountAgorot: 58800, kind: 'charge', hasInvoice: true }] }, baseOf());
+    st.sessions.add(TOKEN(7));
+    await open(page, '#/parents', keyTeacher(), undefined, { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(7), email: EMAIL }) } });
+    const card = page.locator('section', { has: page.getByRole('heading', { name: /רישיון הכיתה K7Q2MD פעיל עד 05\.11\.2027/ }) });
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: 'קבלות וחשבוניות' }).click();
+    await expect(card.getByText('05.11.2026 · ₪588 · חיוב')).toBeVisible();
+    await scan(page, '/parents with a class licence and its receipts');
+    await card.getByRole('button', { name: 'ביטול הרישיון' }).click();
+    await expect(page.getByRole('dialog', { name: 'לבטל את רישיון הכיתה?' }).getByRole('radio', { name: /החזר מלא של ₪588/ })).toBeVisible();
+    await scan(page, 'the licence\'s cancel sheet');
+  });
+
+  test('the class settings\' sheets: a quote for the school, and changing where the class learns', async ({ page }) => {
+    await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/teacher/settings', keyTeacher());
+    await page.getByRole('button', { name: 'הצעת מחיר לבית הספר' }).click();
+    const quote = page.getByRole('dialog', { name: 'הצעת מחיר לבית הספר' });
+    await expect(quote).toBeVisible();
+    await scan(page, 'the licence sheet, a quote');
+    await page.keyboard.press('Escape');
+    await expect(quote).toHaveCount(0);
+    const card = page.getByRole('region', { name: 'העוזר החכם לתלמידים' });
+    await card.getByRole('radio', { name: /בשיעורים פרטיים/ }).click();
+    const toPrivate = page.getByRole('dialog', { name: 'לשנות לקבוצה פרטית?' });
+    await expect(toPrivate.getByRole('button', { name: 'לשנות', exact: true })).toBeDisabled();
+    await scan(page, 'changing to a private group');
+  });
+
+  test('a new teacher key: the question, the code from the email, the new key', async ({ page }) => {
+    const { st } = await fakeServer(page.context(), { owned: true }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/teacher/settings', ownedTeacher(), undefined, { local: teacherSession() });
+    await page.getByRole('button', { name: 'החלפת מפתח המורה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'ליצור מפתח מורה חדש?' });
+    await expect(sheet.getByRole('button', { name: 'ליצור מפתח חדש' })).toBeVisible();
+    await scan(page, 'the new-key sheet');
+    await sheet.getByRole('button', { name: 'ליצור מפתח חדש' }).click();
+    await expect(sheet.getByLabel('הקוד מהמייל')).toBeVisible();
+    await scan(page, 'the new-key sheet, the code');
+    await sheet.getByLabel('הקוד מהמייל').fill('123456');
+    const done = page.getByRole('dialog', { name: 'מפתח מורה חדש' });
+    await expect(done).toContainText('המפתח החדש מוכן. אפשר להעתיק אותו למורה נוסף.');
+    await scan(page, 'the new key');
+  });
+
+  test('the board: the email\'s other classes (the sheet)', async ({ page }) => {
+    const { st } = await fakeServer(page.context(), { owned: true, accountClasses: [{ code: 'AAA222', name: 'ח׳1', grade: '8', teacherName: 'רונית', students: 3 }] }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/teacher', ownedTeacher(), undefined, { local: teacherSession() });
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await page.getByRole('button', { name: 'עוד כיתות מהחשבון שלי…' }).click();
+    await expect(page.getByRole('dialog', { name: 'עוד כיתות מהחשבון שלי' }).getByText('ח׳1')).toBeVisible();
+    await scan(page, 'the email\'s other classes');
+  });
+
+  test('binding the class to the email: the sheet from the board\'s card, and the question on a device that typed the key', async ({ page }) => {
+    await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await page.getByRole('region', { name: 'קישור הכיתה למייל' }).getByRole('button', { name: 'לקשר למייל שלי' }).click();
+    await expect(page.getByRole('dialog', { name: 'קישור הכיתה למייל' })).toBeVisible();
+    await scan(page, 'binding the class to the email (the sheet)');
+    await open(page, '#/teacher/settings', keyTeacher({ createdHere: false }));
+    await page.getByRole('button', { name: 'אני פתחתי את הכיתה הזו' }).click();
+    await expect(page.getByRole('dialog', { name: 'לקשר את הכיתה למייל שלכם?' })).toContainText('רק מי שפתח את הכיתה מקשר אותה למייל שלו.');
+    await scan(page, 'binding from a device that typed the key (the question)');
+  });
+
+  test('giving work, sent: "לספר לכיתה?" (AssignSheet)', async ({ page }) => {
+    await fakeServer(page, richClass(), baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await page.getByRole('region', { name: 'כדאי לבדוק איתם' }).getByRole('button', { name: 'יואב', exact: true }).click();
+    await page.getByRole('dialog', { name: 'יואב' }).getByRole('button', { name: 'לתת תרגול' }).click();
+    await page.getByRole('dialog', { name: 'משימה לכיתה ז׳3' }).getByRole('button', { name: 'שליחה לכיתה' }).click();
+    await expect(page.getByRole('dialog', { name: 'לספר לכיתה?' })).toBeVisible();
+    await scan(page, 'telling the class (AssignSheet, sent)');
+  });
+
+  test('the demo board asked for on a student\'s device (DemoAsk)', async ({ page }) => {
+    // the address is opened with the student's state already saved (as teacher.spec.js opens it): helpers.js open()
+    // reaches the address before its state is read, and a device with no profile opens the demo without asking
+    await page.clock.setFixedTime(NOW);
+    await page.addInitScript((s) => {
+      if (sessionStorage.getItem('a11y-seeded')) return;
+      sessionStorage.setItem('a11y-seeded', '1');
+      localStorage.clear();
+      localStorage.setItem('madregot-debug', '1');
+      localStorage.setItem('madregot', JSON.stringify(s));
+    }, student('7', { profile: { role: 'student', name: 'נועה', grade: '7' } }));
+    await page.goto('./#/?start=demo');
+    await appReady(page);
+    await expect(page.getByRole('dialog', { name: 'לוח לדוגמה' })).toContainText('הלוח לדוגמה ייפתח בלשונית חדשה');
+    await scan(page, 'DemoAsk');
   });
 });

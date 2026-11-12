@@ -1026,6 +1026,8 @@ test.describe('photo', () => {
   }, [src, points]);
   const prepSheet = (page) => page.getByRole('dialog', { name: 'מסתירים פרטים אישיים' });
   const warnSheet = (page) => page.getByRole('dialog', { name: 'לפני שמצלמים' });
+  // the same warning before the picker, in the words of choosing a file (a picture or a PDF)
+  const fileWarnSheet = (page) => page.getByRole('dialog', { name: 'לפני ששולחים דף' });
 
   test('exam: the warning comes first, page 1 loses its top band on the device, and the header pixel sent is not red', async ({ page }) => {
     const { log } = await setUp(page);
@@ -1176,8 +1178,8 @@ test.describe('photo', () => {
   async function choose(page, scope, file, { warn = false } = {}) {
     const chooser = page.waitForEvent('filechooser');
     await scope.getByRole('button', { name: 'תמונה או PDF' }).click();
-    if (warn) await warnSheet(page).getByRole('button', { name: 'הבנתי, לצלם' }).click();
-    else await expect(warnSheet(page)).toHaveCount(0);
+    if (warn) await fileWarnSheet(page).getByRole('button', { name: 'הבנתי, לבחור קובץ' }).click();
+    else await expect(fileWarnSheet(page)).toHaveCount(0);
     const fc = await chooser;
     await fc.setFiles(file);
     return fc;
@@ -1193,6 +1195,16 @@ test.describe('photo', () => {
     expect(requests.filter((u) => /\/assets\/pdf[-.]/.test(u))).toEqual([]);
     const release = await holdPdfEngine(page);
     const from = requests.length;
+    // the warning before the picker speaks of choosing a file: a PDF opens here, and the file itself is never sent
+    await page.getByRole('button', { name: 'תמונה או PDF' }).click();
+    const fileWarn = fileWarnSheet(page);
+    await expect(fileWarn).toContainText('בדף של מבחן יש לפעמים שם, תעודת זהות, ציון, כיתה ובית ספר. את הפרטים האלה לא שולחים לעוזר.');
+    await expect(fileWarn).toContainText('קובץ PDF נפתח כאן, במכשיר. הקובץ עצמו לא נשלח.');
+    await expect(fileWarn).toContainText('רק התמונות של הדפים נשלחות לעוזר החכם (Anthropic, בארה״ב) כדי לבדוק אותן, והן לא נשמרות אצלנו.');
+    await expect(fileWarn).not.toContainText('לצלם');
+    await shot(page, 'photo-warn-file');
+    await page.keyboard.press('Escape'); // closed, it opens nothing; the button asks again
+    await expect(fileWarn).toHaveCount(0);
     const fc = await choose(page, page, PDF, { warn: true });
     expect(fc.isMultiple()).toBe(true);
     // the opening line, said to a screen reader too; nothing else can be added meanwhile
@@ -1247,8 +1259,8 @@ test.describe('photo', () => {
     expect([two.width, two.height]).toEqual([1272, 1800]);
   });
 
-  test('exam with a PDF: "צילום מחדש" on a PDF page drops that page and opens the picker; a broken PDF says so calmly', async ({ page }) => {
-    await setUp(page);
+  test('exam with a PDF: "צילום מחדש" on page 1 opens the picker, and the photo takes page 1\'s place with its band cut; a broken PDF says so calmly', async ({ page }) => {
+    const { log } = await setUp(page);
     await open(page, '#/exams/check', family());
     await choose(page, page, BROKEN, { warn: true });
     await expect(page.getByText(PDF_FAILED, { exact: true })).toBeVisible();
@@ -1264,16 +1276,29 @@ test.describe('photo', () => {
     const fc = await picker;
     expect(fc.isMultiple()).toBe(true);
     expect(await fc.element().getAttribute('accept')).toBe('image/*,application/pdf');
-    // the PDF's page 2 is next, and with page 1 gone it is the exam's first page now: its top band is cut
+    // a photo of page 1 (its red name band at the top) takes page 1's place: it comes first, with the top 15% cut
     await fc.setFiles({ name: 'page1-photo.png', mimeType: 'image/png', buffer: await examPng(page) });
     await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '15');
+    await expect(prep.locator('.prep-frame')).toBeVisible();
+    expect((await prep.locator('.prep-frame').boundingBox()).width / (await prep.locator('.prep-frame').boundingBox()).height).toBeCloseTo(1200 / 1600, 1);
     await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
-    // then the photo that replaced page 1
+    // then the PDF's page 2, whole
     await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '0');
     await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
     await expect(prep).toHaveCount(0);
     await expect(page.getByRole('img', { name: 'דף 2' })).toBeVisible();
     await expect(page.getByRole('img', { name: 'דף 3' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'בדיקת המבחן' }).click();
+    await expect.poll(() => log.filter((r) => r.path === '/api/ai/exam').length).toBe(1);
+    const sent = log.find((r) => r.path === '/api/ai/exam').body;
+    expect(sent.prep).toEqual({ crop: true, boxes: 0 });
+    // page 1 as sent: the photo, 15% shorter, and pixel (10,10) is not the red name band; page 2: the PDF's, whole
+    const one = await sentPixels(page, sent.pages[0].data, [[10, 10]]);
+    expect([one.width, one.height]).toEqual([1200, 1360]);
+    const [r, g] = one.px[0];
+    expect(r < 200 || g > 80, `pixel (10,10) of page 1 is ${one.px[0]}`).toBe(true);
+    const two = await sentPixels(page, sent.pages[1].data, [[10, 10]]);
+    expect([two.width, two.height]).toEqual([1272, 1800]);
   });
 
   test('notebook photo with a PDF: its first page goes through the step, one JPEG is sent, and a longer PDF says only page 1 is checked', async ({ page }) => {
@@ -1600,6 +1625,12 @@ test.describe('accessibility statement', () => {
     for (const state of ["'the parents\\' report'", "'the board, מחר'", "'the legal pages with no server", "'PhotoPrep on a PDF page'", "openLanding(page, path)", "['mivchan/', ", "['pilot/', "]) {
       expect(spec, state).toContain(state);
     }
+    // the windows the statement names (and the rest of the sheets the review found unscanned): each is scanned
+    expect(section('tested')).toContain('היא עוברת גם על החלונות שנפתחים מעל המסכים');
+    for (const sheet of ["'the answer-report sheet'", "'InstallSheet'", "'PersistInfoSheet'", "'MyHelp, the teacher\\'s reply'", "'home with the teacher\\'s reply notice'",
+      "'PhotoWarn before the picker (a picture or a PDF)'", "'the generate sheet'", "'BackupNudge'", "'the delete-account sheet'", "'the licence\\'s cancel sheet'",
+      "'the licence sheet, a quote'", "'changing to a private group'", "'the new-key sheet'", "'binding the class to the email (the sheet)'", "'DemoAsk'",
+      "'telling the class (AssignSheet, sent)'", "'the email\\'s other classes'"]) expect(spec, sheet).toContain(`scan(page, ${sheet}`);
     expect(read('./playwright.config.js')).toMatch(/name: 'phone-dark'.*testMatch: \/\([^)]*\ba11y\b[^)]*\)\\.spec\\.js\//);
     const ci = readFileSync(new URL('../../../.github/workflows/ci.yml', import.meta.url), 'utf8');
     expect(ci, 'CI scans in light (the phone run takes every spec file)').toContain('--project=phone --grep-invert @perf');

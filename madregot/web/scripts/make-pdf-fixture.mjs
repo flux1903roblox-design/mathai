@@ -1,11 +1,19 @@
 // The PDF fixtures of the PDF tests (PKG-2, trust spec TRUST-5 §3), written by hand: a 2-page A4 exam with synthetic
 // text only, whose page 1 has a red band across the top where a name and an ID number would be (the band the exam
-// check cuts off by default), and a file that says it is a PDF but is not one. The bytes are the same on every run,
-// so the committed files can be checked against this script (src/lib/pdfPages.test.js does).
+// check cuts off by default), a scanned page, and a file that says it is a PDF but is not one. The bytes are the same
+// on every run, so the committed files can be checked against this script (src/lib/pdfPages.test.js does).
 //   e2e/fixtures/exam-2-pages.pdf   2 pages, 595 x 842 pt, Helvetica (a standard font, not embedded)
+//   e2e/fixtures/scan-jpx.pdf       1 page that is one picture in JPEG 2000 (/JPXDecode), as many scanners write:
+//                                   pdf.js decodes it with WebAssembly, which the CSP must allow ('wasm-unsafe-eval')
 //   e2e/fixtures/broken.pdf         a PDF header, then nothing a PDF reader can open
+// The scanned page's picture is e2e/fixtures/scan-page.jp2 (2.5 KB, a JPEG 2000 file): 595 x 842 grey pixels,
+// white, a grey band across the top 100 rows (where a name would be, 90) and 8 dark bars for lines of writing (30).
+// It was made once with Pillow's OpenJPEG encoder; no JavaScript package here writes JPEG 2000:
+//   im = Image.new('L', (595, 842), 255); d = ImageDraw.Draw(im); d.rectangle([0, 0, 594, 99], fill=90)
+//   for i in range(8): d.rectangle([60, 200 + i * 70, 480, 213 + i * 70], fill=30)
+//   im.save('scan-page.jp2', 'JPEG2000', irreversible=True, quality_mode='rates', quality_layers=[200])
 // Usage: node scripts/make-pdf-fixture.mjs [folder]   (default: e2e/fixtures)
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -37,20 +45,12 @@ function page2() {
   ].join('\n');
 }
 
-/** The 2-page exam as bytes: the objects, the cross-reference table at their exact offsets, and the trailer. */
-export function examPdf() {
-  const stream = (s) => `<< /Length ${Buffer.byteLength(s, 'latin1')} >>\nstream\n${s}\nendstream`;
-  const box = `/MediaBox [0 0 ${PAGE.width} ${PAGE.height}]`;
-  const objects = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>',
-    `<< /Type /Page /Parent 2 0 R ${box} /Resources << /Font << /F1 7 0 R >> >> /Contents 4 0 R >>`,
-    stream(page1()),
-    `<< /Type /Page /Parent 2 0 R ${box} /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>`,
-    stream(page2()),
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
-  ];
-  let out = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+const stream = (s) => `<< /Length ${Buffer.byteLength(s, 'latin1')} >>\nstream\n${s}\nendstream`;
+const box = `/MediaBox [0 0 ${PAGE.width} ${PAGE.height}]`;
+
+/** A PDF file from its objects (latin1 strings, object 1 the catalogue): the cross-reference table at their exact offsets. */
+function pdfOf(objects, version = '1.4') {
+  let out = `%PDF-${version}\n%\xE2\xE3\xCF\xD3\n`;
   const offsets = [];
   objects.forEach((body, i) => {
     offsets.push(Buffer.byteLength(out, 'latin1'));
@@ -63,12 +63,40 @@ export function examPdf() {
   return Buffer.from(out, 'latin1');
 }
 
+/** The 2-page exam as bytes: the objects, the cross-reference table at their exact offsets, and the trailer. */
+export function examPdf() {
+  return pdfOf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>',
+    `<< /Type /Page /Parent 2 0 R ${box} /Resources << /Font << /F1 7 0 R >> >> /Contents 4 0 R >>`,
+    stream(page1()),
+    `<< /Type /Page /Parent 2 0 R ${box} /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>`,
+    stream(page2()),
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+  ]);
+}
+
+/** The scanned page's picture: rows and bars as scan-page.jp2 draws them, in its own pixels (1 px = 1 pt). */
+export const SCAN = { width: 595, height: 842, band: 100, bars: Array.from({ length: 8 }, (_, i) => ({ x0: 60, x1: 480, y0: 200 + i * 70, y1: 213 + i * 70 })) };
+
+/** One A4 page that is a single JPEG 2000 picture over the whole page, as a scanner writes it (PDF 1.5: /JPXDecode). */
+export function scanPdf(jp2 = readFileSync(new URL('../e2e/fixtures/scan-page.jp2', import.meta.url))) {
+  const image = `<< /Type /XObject /Subtype /Image /Width ${SCAN.width} /Height ${SCAN.height} /Filter /JPXDecode /Length ${jp2.length} >>\nstream\n`;
+  return pdfOf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    `<< /Type /Page /Parent 2 0 R ${box} /Resources << /XObject << /Scan 5 0 R >> >> /Contents 4 0 R >>`,
+    stream(`q ${PAGE.width} 0 0 ${PAGE.height} 0 0 cm /Scan Do Q`),
+    image + jp2.toString('latin1') + '\nendstream',
+  ], '1.5');
+}
+
 /** A file that starts like a PDF and has no objects, no cross-reference table and no trailer. */
 export function brokenPdf() {
   return Buffer.from('%PDF-1.7\n%\xE2\xE3\xCF\xD3\nThis file is broken on purpose. It has no pages.\n%%EOF\n', 'latin1');
 }
 
-export const FIXTURES = { 'exam-2-pages.pdf': examPdf, 'broken.pdf': brokenPdf };
+export const FIXTURES = { 'exam-2-pages.pdf': examPdf, 'scan-jpx.pdf': scanPdf, 'broken.pdf': brokenPdf };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const dir = process.argv[2] || join(fileURLToPath(new URL('..', import.meta.url)), 'e2e', 'fixtures');

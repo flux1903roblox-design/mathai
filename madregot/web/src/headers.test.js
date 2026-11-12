@@ -18,6 +18,11 @@ describe('public/_headers', () => {
     expect(all).toBeTruthy();
     expect(all['content-security-policy']).toContain("frame-ancestors 'none'");
     expect(all['content-security-policy']).toContain("object-src 'none'");
+    // WebAssembly may compile (pdf.js decodes a scanned PDF page's JPEG 2000 picture with it, PKG-2); eval may not
+    const script = /(?:^|;\s*)script-src ([^;]*)/.exec(all['content-security-policy'])[1].split(/\s+/);
+    expect(script).toContain("'wasm-unsafe-eval'");
+    expect(script).not.toContain("'unsafe-eval'");
+    expect(script).not.toContain("'unsafe-inline'");
     expect(all['x-content-type-options']).toBe('nosniff');
     expect(all['referrer-policy']).toBe('strict-origin-when-cross-origin');
     expect(all['permissions-policy']).toMatch(/microphone=\(\)/);

@@ -9,6 +9,10 @@
 //   the pages instead (ExamCheck, Assistant).
 // - Nothing is fetched from outside the app: no CMaps and no standard fonts from anywhere (a font a PDF does not embed
 //   is drawn with the phone's own), and no eval, which the CSP forbids (public/_headers has no 'unsafe-eval').
+// - A scanned page is often a JPEG 2000 picture, which pdf.js decodes with WebAssembly (OpenJPEG, inside its worker):
+//   the CSP allows that with 'wasm-unsafe-eval' (WebAssembly only, never eval). Where a browser still cannot decode a
+//   picture, pdf.js leaves it out without an error and the page comes out white; a PDF whose every page came out white
+//   is refused as 'blank', so the calm message shows instead of an empty page sent for checking.
 import { MAX_EXAM_PAGES } from '@shared/ai.js';
 import { PREP_MAX } from '@/components/PhotoPrep.jsx';
 
@@ -41,7 +45,10 @@ export const isPdf = (file) => file?.type === 'application/pdf' || (!file?.type 
 /** The calm line for a PDF that did not open: too big, or anything else. */
 export const pdfMessage = (err) => (err?.code === 'too_big' ? PDF_COPY.tooBig : PDF_COPY.failed);
 
-/** Why a PDF did not open: 'too_big' (over PDF_MAX_BYTES), 'empty' (no pages), or 'broken' (pdf.js could not read it). */
+/**
+ * Why a PDF did not open: 'too_big' (over PDF_MAX_BYTES), 'empty' (no pages), 'blank' (every page drawn came out white:
+ * a picture the browser could not decode, or a PDF with nothing on it), or 'broken' (pdf.js could not read it).
+ */
 export class PdfError extends Error {
   constructor(code, cause) {
     super(`pdf ${code}`);
@@ -90,6 +97,20 @@ export const domCanvas = {
   free(canvas) { canvas.width = 0; canvas.height = 0; },
 };
 
+/**
+ * Is the drawn page white all over? It is read in bands of rows and stops at the first pixel that is not pure white, so
+ * a page with anything on it is known within its first band or two. The page was filled white before it was drawn.
+ */
+export function whitePage(ctx, width, height, rows = 64) {
+  for (let y = 0; y < height; y += rows) {
+    const { data } = ctx.getImageData(0, y, width, Math.min(rows, height - y));
+    const px = new Uint32Array(data.buffer, data.byteOffset, data.length >> 2);
+    for (let i = 0; i < px.length; i += 1) if (px[i] !== 0xFFFFFFFF) return false;
+  }
+  return true;
+}
+
+/** Page n drawn: { file, white } (white: nothing was drawn on the page). */
 async function renderPage(doc, n, { name, longSide, canvas }) {
   const page = await doc.getPage(n);
   try {
@@ -103,8 +124,9 @@ async function renderPage(doc, n, { name, longSide, canvas }) {
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, width, height);
       await page.render({ canvasContext: ctx, viewport }).promise;
+      const white = whitePage(ctx, width, height);
       const blob = await canvas.jpeg(c, PDF_JPEG_QUALITY);
-      return new File([blob], pageName(name, n), { type: 'image/jpeg' });
+      return { file: new File([blob], pageName(name, n), { type: 'image/jpeg' }), white };
     } finally {
       canvas.free(c);
     }
@@ -117,7 +139,8 @@ async function renderPage(doc, n, { name, longSide, canvas }) {
  * The pages of a PDF as JPEG files: pages 1 to min(total, max), each with a long side of `longSide` pixels.
  * → { pages: [File], total } (total: the PDF's number of pages). Rejects with a PdfError: 'too_big' before anything is
  * read or loaded, 'broken' when pdf.js cannot open or draw it (pdf.js failing to load counts too), 'empty' with no
- * pages. The document and its worker are always destroyed, and every canvas is emptied.
+ * pages, 'blank' when every page drawn came out white. The document and its worker are always destroyed, and every
+ * canvas is emptied.
  * `canvas` is the canvas maker ({ create, jpeg, free }); the unit tests give one that works in node.
  */
 export async function pdfPages(file, { max = MAX_EXAM_PAGES, longSide = PREP_MAX, canvas = domCanvas } = {}) {
@@ -131,9 +154,10 @@ export async function pdfPages(file, { max = MAX_EXAM_PAGES, longSide = PREP_MAX
     const doc = await task.promise;
     const total = doc.numPages;
     if (!total) throw new PdfError('empty');
-    const pages = [];
-    for (let n = 1; n <= Math.min(total, max); n += 1) pages.push(await renderPage(doc, n, { name: file.name, longSide, canvas }));
-    return { pages, total };
+    const drawn = [];
+    for (let n = 1; n <= Math.min(total, max); n += 1) drawn.push(await renderPage(doc, n, { name: file.name, longSide, canvas }));
+    if (drawn.every((p) => p.white)) throw new PdfError('blank');
+    return { pages: drawn.map((p) => p.file), total };
   } catch (e) {
     throw e instanceof PdfError ? e : new PdfError('broken', e);
   } finally {

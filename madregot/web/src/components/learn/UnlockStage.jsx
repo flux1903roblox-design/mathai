@@ -3,7 +3,7 @@
 // on, or later. Either way the pieces are marked as shown (markEarned), so the moment comes once.
 // A new colour means a whole unit completed: the maths burst (lib/mathBurst.js: + − × ÷ = in the app's colours) plays
 // from the hero, once, on a canvas that takes no tap and is removed when the burst ends or the student goes on. Nothing
-// plays under reduced motion. An accessory gets no extra effect.
+// plays under reduced motion or with the app's sounds off. An accessory gets no extra effect.
 // Loaded on demand (lib/madiLook.js UnlockStage, useNewUnlocks).
 import { useEffect, useRef } from 'react';
 import { m } from 'motion/react';

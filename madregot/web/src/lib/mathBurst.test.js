@@ -1,10 +1,11 @@
 // The maths burst (PKG-3, lib/mathBurst.js) with canvas-confetti mocked by a factory that counts its imports, on a
-// small stand-in page (the unit tests run in node): nothing imported and no canvas under reduced motion or on a hidden
-// page; otherwise one import on the first burst, a canvas of its own that is aria-hidden, the symbols in the token
+// small stand-in page (the unit tests run in node): nothing imported and no canvas under reduced motion, on a hidden
+// page, or with the app's sounds off (the store's `sound`, read at that moment); otherwise one import on the first burst, a canvas of its own that is aria-hidden, the symbols in the token
 // colours read at that moment, and the canvas removed when the burst ends and when stop() runs. The tests run in order:
 // the factory's count is 0 until the first test that lets a burst play.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mathBurst, originOf } from './mathBurst.js';
+import { mathBurst, originOf, burstAllowed } from './mathBurst.js';
+import { useApp } from './store.js';
 
 const lib = vi.hoisted(() => ({ imports: 0, fires: [], creates: [], shapes: [], failShapes: false }));
 vi.mock('canvas-confetti', () => {
@@ -62,6 +63,26 @@ describe('mathBurst: when it does nothing', () => {
     expect(await mathBurst(hero, p).done).toBe(false);
     expect(lib.imports).toBe(0);
     expect(p.canvases()).toEqual([]);
+  });
+
+  it('with the app\'s sounds off (quiet for class): no import, no canvas; the store is read at the moment it plays', async () => {
+    const before = useApp.getState().sound;
+    try {
+      useApp.setState({ sound: false });
+      const p = page();
+      expect(burstAllowed(p)).toBe(false);
+      expect(await mathBurst(hero, p).done).toBe(false);
+      expect(lib.imports).toBe(0);
+      expect(p.canvases()).toEqual([]);
+      useApp.setState({ sound: true });
+      expect(burstAllowed(p)).toBe(true);
+      // said outright, the setting wins over the store
+      expect(burstAllowed({ ...p, sound: false })).toBe(false);
+      expect(await mathBurst(hero, { ...p, sound: false }).done).toBe(false);
+      expect(lib.imports).toBe(0);
+    } finally {
+      useApp.setState({ sound: before });
+    }
   });
 });
 

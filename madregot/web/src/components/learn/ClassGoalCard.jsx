@@ -4,7 +4,8 @@
 // - ClassGoalCard: on Quests (above today's missions); `compact` in Learn's wide side panel.
 // - ClassGoalMoment: the first time the student opens Learn or Quests after the class reached a week's goal they took
 //   part in, a short sheet; once a week (nudges.goalSeen), and the class scarf is Madi's. The maths burst
-//   (lib/mathBurst.js) plays from the sheet's hero as it opens, and stops when it closes; none under reduced motion.
+//   (lib/mathBurst.js) plays from the sheet's hero as it opens, and stops when it closes; none under reduced motion or
+//   with the app's sounds off (a class student's default: quiet for class).
 // Neither renders for a student with no class, a build with no server, or a class whose teacher turned the goal off.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';

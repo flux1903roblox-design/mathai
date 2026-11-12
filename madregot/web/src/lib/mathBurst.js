@@ -1,14 +1,17 @@
 // The maths burst (the student plan's M1, PKG-3): a short shower of + − × ÷ = in the app's own colours, on the two rare
 // moments only: a new colour for מדי (a whole unit completed, UnlockStage) and the class goal reached (ClassGoalMoment).
 // Never on an answer.
-// - Nothing plays, and nothing is loaded, under the system's reduced motion or on a hidden page. The app has no motion
-//   setting of its own (the store keeps sound and haptics, and haptics already follow reduced motion), so the system's
-//   setting is the switch.
+// - Nothing plays, and nothing is loaded, under the system's reduced motion, on a hidden page, or with the app's own
+//   sounds off (the store's `sound`; Settings › צלילים says so). Sounds off is the app's quiet mode: a student who joins
+//   a class starts with it ("a classroom is quiet", quietForClass), so a burst does not fly across a classroom screen
+//   unless the student chose sounds. The app has no motion setting of its own (haptics already follow reduced motion).
 // - canvas-confetti is imported here only, on the first burst (budget.json lazyOnly keeps it out of the first load).
 // - It draws on a canvas of its own, never the library's shared one: `canvas.math-burst` (canon.css), fixed over the
 //   screen with pointer-events none, aria-hidden, so it never takes a tap, the focus or a screen reader's attention. The
 //   canvas goes when the burst ends (under 3 seconds) or when stop() runs (the moment closes first).
 // - Its colours are the tokens --brand, --gold and --good as the page has them now, so dark mode uses its own values.
+import { useApp } from '@/lib/store.js';
+
 const SYMBOLS = ['+', '−', '×', '÷', '='];
 const TOKENS = ['--brand', '--gold', '--good'];
 const FONT = '"Rubik Variable", sans-serif';
@@ -23,9 +26,9 @@ function load() {
   return lib;
 }
 
-/** May a burst play now? Not under reduced motion, not on a hidden page. */
-export function burstAllowed({ win = globalThis.window, doc = globalThis.document } = {}) {
-  return !!doc && !doc.hidden && !win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+/** May a burst play now? Not under reduced motion, not on a hidden page, not with the app's sounds off (`sound`). */
+export function burstAllowed({ win = globalThis.window, doc = globalThis.document, sound = useApp.getState().sound } = {}) {
+  return sound !== false && !!doc && !doc.hidden && !win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 }
 
 /** The centre of an element as a fraction of the window (canvas-confetti's origin); a little above the middle without one. */
@@ -53,7 +56,7 @@ function looks(confetti, win, doc) {
  * Play one burst from the centre of `fromEl`. Returns stop(): it ends the burst at once and removes the canvas (call it
  * when the moment closes). `stop.done` resolves when the burst is over: true when it played, false when it did not.
  */
-export function mathBurst(fromEl, { win = globalThis.window, doc = globalThis.document } = {}) {
+export function mathBurst(fromEl, { win = globalThis.window, doc = globalThis.document, sound } = {}) {
   let stopped = false; let canvas = null; let fire = null;
   const remove = () => { canvas?.remove(); canvas = null; };
   const stop = () => {
@@ -61,7 +64,7 @@ export function mathBurst(fromEl, { win = globalThis.window, doc = globalThis.do
     try { fire?.reset(); } catch { /* already over */ }
     remove();
   };
-  if (!burstAllowed({ win, doc })) {
+  if (!burstAllowed({ win, doc, sound })) {
     stop.done = Promise.resolve(false);
     return stop;
   }

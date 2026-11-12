@@ -14,8 +14,10 @@ const only = (...names) => ({}, info) => test.skip(!names.includes(info.project.
 const done = doneStairs;
 const lo = (page) => page.locator('.wardrobe-madi').getAttribute('style');
 
-// the last stair of זוויות still to master; the unit's chest (the crown) was opened and shown before
-const lastStair = () => student('7', { path: { angles: done([1, 2, 3, 4]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } } });
+// the last stair of זוויות still to master; the unit's chest (the crown) was opened and shown before. The sounds are
+// on (student() keeps them off): the burst also stays away with the app's sounds off (5f), so each burst test holds one
+// reason at a time
+const lastStair = (extra = {}) => student('7', { path: { angles: done([1, 2, 3, 4]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } }, sound: true, ...extra });
 /** Pass a mastery check of five and go on to the unlock moment. */
 async function passCheck(page, route, state) {
   await open(page, route, state);
@@ -207,8 +209,17 @@ test.describe('on a phone', () => {
 
     test('5e. a new accessory gets no burst', async ({ page }) => {
       const asked = confettiRequests(page);
-      const stage = await passCheck(page, '#/lesson/angles/3?kind=check&purpose=mastery', student('7', { path: { angles: done([1, 2]) } }));
+      const stage = await passCheck(page, '#/lesson/angles/3?kind=check&purpose=mastery', student('7', { path: { angles: done([1, 2]) }, sound: true }));
       await expect(stage.locator('.unlock-reason')).toHaveText('שלטתם בחצי הראשון של זוויות, ומדי קיבל כתר מד־זווית.');
+      await page.waitForTimeout(600);
+      await expect(page.locator('canvas.math-burst')).toHaveCount(0);
+      expect(asked).toEqual([]);
+    });
+
+    test('5f. with the app\'s sounds off (its quiet mode), a new colour plays no burst and loads nothing', async ({ page }) => {
+      const asked = confettiRequests(page);
+      const stage = await passCheck(page, '#/lesson/angles/5?kind=check&purpose=mastery', lastStair({ sound: false }));
+      await expect(stage.locator('.unlock-reason')).toHaveText(COLOUR_REASON);
       await page.waitForTimeout(600);
       await expect(page.locator('canvas.math-burst')).toHaveCount(0);
       expect(asked).toEqual([]);

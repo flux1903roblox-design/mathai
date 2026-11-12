@@ -166,7 +166,7 @@ lesson. Then go through the rows. Mark each cell ✓, ✗ (and add a note) or n/
 | 7 | The keyboard | Name field on the first screen and the class code in Settings. The keyboard does not hide the field or the button. Inside lessons the app's own keypad is used, and the phone's keyboard never opens | | | | | |
 | 8 | Install | C: the install offer after a lesson on the second learning day opens Chrome's prompt, and the app opens from the home screen with its icon and name. B: the app opens full screen with its icon | | | | | |
 | 9 | Offline | Turn on flight mode in the installed app (B, C or D). Open the map, a lesson and Settings. The offline chip shows, and the work is kept when the network is back | | | | | |
-| 10 | Animations | Finish a whole unit: with the new colour, the maths burst (+ − × ÷ = in the app's colours) falls for under 3 seconds and never blocks a tap. It plays again only on the class goal's moment, never on an answer. The Lottie confetti at a lesson's end, the streak flame and Madi's moments play smoothly. With reduced motion on in the phone's settings, the burst does not play at all and the rest stand still | | | | | |
+| 10 | Animations | Finish a whole unit: with the new colour, the maths burst (+ − × ÷ = in the app's colours) falls for under 3 seconds and never blocks a tap. It plays again only on the class goal's moment, never on an answer. The Lottie confetti at a lesson's end, the streak flame and Madi's moments play smoothly. With reduced motion on in the phone's settings, the burst does not play at all and the rest stand still. With Settings › צלילים off, the burst does not play either | | | | | |
 
 Date of the check: ________ · Build (version.json): ________ · Who checked (role only, e.g. "owner"): ________
 
@@ -323,9 +323,12 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
   its own), from the moment's hero, on a canvas of its own (`canvas.math-burst`, aria-hidden, pointer-events none,
   removed when the burst ends or the moment closes). Only on a new colour (`UnlockStage`, a completed unit) and the
   class-goal moment (`ClassGoalMoment`, once a week), where it replaced the Lottie confetti; never on an answer, never
-  under the system's reduced motion or on a hidden page (the app has no motion setting of its own). canvas-confetti
-  is its own on-demand chunk (4.3 KB gzipped), on `budget.json`'s `lazyOnly`. Tests: `web/src/lib/mathBurst.test.js`,
-  `e2e/wardrobe.spec.js` 5c to 5e, `e2e/class-goal.spec.js` › "with motion", `scripts/check-budget.test.mjs`.
+  under the system's reduced motion, on a hidden page, or with the app's sounds off (Settings › צלילים, the app's quiet
+  mode: a class student starts with it, so a burst flies on a classroom screen only for a student who chose sounds; the
+  setting's hint says so). The app has no motion setting of its own. canvas-confetti is its own on-demand chunk
+  (4.3 KB gzipped), on `budget.json`'s `lazyOnly`. Tests: `web/src/lib/mathBurst.test.js`, `e2e/wardrobe.spec.js` 5c
+  to 5f, `e2e/class-goal.spec.js` › "with motion" (with sounds on, and "quiet for class" with them off),
+  `scripts/check-budget.test.mjs`.
 - Also left to task #76:
   - B2 (Drawer for Sheet) and M2 (ProgressRing, the parents' report);
   - Segmented on the other screens (GradeSwitch, Quests' daily goal, the advanced AI mode, Welcome, Rescue).

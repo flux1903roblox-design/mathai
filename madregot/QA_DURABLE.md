@@ -994,7 +994,8 @@ instead of the two hand-made stand-ins (`memoryIdb()` for the durable store, and
 The owner approved `@axe-core/playwright` 4.10.2 (a dev dependency of `madregot/web`; it brings axe-core 4.10.3).
 `web/e2e/axe.js` `expectNoAxeViolations(page)` runs axe on the whole page with the tags `wcag2a`, `wcag2aa`, `wcag21a`
 and `wcag21aa` (WCAG 2.0 and 2.1, levels A and AA) and fails with each rule, its impact, its help text and every element
-it hit. `web/e2e/a11y.spec.js` runs it on every screen and state of the app, at phone size (390x844), on the `phone`
+it hit. `web/e2e/a11y.spec.js` runs it on every route of the app, its main states and every kind of sheet (QA_MATRIX.md says
+which), at phone size (390x844), on the `phone`
 project (light) and again on `phone-dark`; CI runs both (`.github/workflows/ci.yml`). `web/e2e/axe-self.spec.js`
 proves the helper fails on a known violation (a button with no name, text under 4.5:1).
 

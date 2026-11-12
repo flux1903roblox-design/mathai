@@ -322,7 +322,10 @@ function OnOff({ id, title, value, onChange, on, off, hint, children }) {
   );
 }
 
-/** Sound and vibration are two choices (STUDENT-7). Vibration is offered only where the browser can vibrate. */
+/**
+ * Sound and vibration are two choices (STUDENT-7). Vibration is offered only where the browser can vibrate. Sounds off
+ * is the app's quiet mode: the maths burst on a rare moment does not play either (lib/mathBurst.js), and the hint says so.
+ */
 function SoundSettings() {
   const sound = useApp((x) => x.sound);
   const setSound = useApp((x) => x.setSound);
@@ -332,7 +335,7 @@ function SoundSettings() {
   const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
   return (
     <>
-      <OnOff id="snd" title="צלילים" value={sound} onChange={setSound} on="פועלים" off="כבויים" hint="צליל קצר אחרי תשובה ובסוף שיעור. למי שהצטרף לכיתה הם כבויים בהתחלה." />
+      <OnOff id="snd" title="צלילים" value={sound} onChange={setSound} on="פועלים" off="כבויים" hint="צליל קצר אחרי תשובה ובסוף שיעור, וסימנים שעפים על המסך ברגעים מיוחדים. למי שהצטרף לכיתה הם כבויים בהתחלה." />
       {canVibrate
         ? <OnOff id="vib" title="רטט" value={haptics} onChange={setHaptics} on="פועל" off="כבוי" hint={reduce ? 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה. בטלפון מופעלת הפחתת תנועה, ולכן עכשיו אין רטט.' : 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה.'} />
         : <OnOff id="vib" title="רטט"><p className="field-hint" id="vib-hint">בדפדפן הזה אין רטט.</p></OnOff>}

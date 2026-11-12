@@ -3,7 +3,9 @@
 // moment for a reached goal comes once and never after a reload; a goal the teacher turned off and a student with no
 // class show no card at all; the steps waiting on the device go with the next sync; the teacher turns the goal on or
 // off and sets its size on the class settings page (TEACHER-9 §1.8, FOLLOWUP-43), and sees the total in the board's
-// header. The moment's maths burst (PKG-3) plays only with motion, from the sheet's hero, and goes with the sheet.
+// header. The moment's maths burst (PKG-3) plays only with motion and with the app's sounds on (a class student starts
+// with them off, "quiet for class", and then no burst flies and its chunk is not loaded), from the sheet's hero, and
+// goes with the sheet.
 // CLASS_GOAL_SHOTS=<folder> saves screenshots for a look (nothing is compared); PKG_SHOTS=<folder> the burst mid-way.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
@@ -205,10 +207,12 @@ test.describe('the class goal of the week', () => {
   test.describe('with motion: the maths burst (PKG-3)', () => {
     test.use({ reducedMotion: 'no-preference' });
     const burst = (page) => page.locator('canvas.math-burst');
+    // the student chose sounds (prefs.soundSet): the app is not in its quiet mode
+    const withSounds = () => classStudent({ sound: true, prefs: { theme: 'system', soundSet: true } });
 
     test('plays from the sheet\'s hero as it opens, takes no tap, ends by itself, and does not come back', async ({ page }) => {
       await fakeServer(page, { goal: goal({ have: 64, mine: 9, reached: true, last: null }) });
-      await open(page, '#/', classStudent());
+      await open(page, '#/', withSounds());
       const sheet = page.getByRole('dialog', { name: 'עשינו את זה יחד' });
       await expect(sheet).toBeVisible();
       await expect(burst(page)).toHaveCount(1);
@@ -230,9 +234,22 @@ test.describe('the class goal of the week', () => {
       await expect(burst(page)).toHaveCount(0);
     });
 
+    test('quiet for class: with the sounds off (a class student\'s start), no burst plays and none is loaded', async ({ page }) => {
+      const asked = [];
+      page.on('request', (r) => { if (/confetti\.module/.test(r.url())) asked.push(r.url()); });
+      await fakeServer(page, { goal: goal({ have: 64, mine: 9, reached: true, last: null }) });
+      await open(page, '#/', classStudent()); // student() keeps sound: false, as quietForClass leaves a class student
+      const sheet = page.getByRole('dialog', { name: 'עשינו את זה יחד' });
+      await expect(sheet).toBeVisible();
+      await page.waitForTimeout(800);
+      await expect(burst(page)).toHaveCount(0);
+      expect(asked).toEqual([]);
+      expect((await saved(page)).sound).toBe(false);
+    });
+
     test('closing the sheet during the burst removes its canvas at once', async ({ page }) => {
       await fakeServer(page, { goal: goal({ have: 64, mine: 9, reached: true, last: null }) });
-      await open(page, '#/quests', classStudent());
+      await open(page, '#/quests', withSounds());
       const sheet = page.getByRole('dialog', { name: 'עשינו את זה יחד' });
       await expect(burst(page)).toHaveCount(1);
       await sheet.getByRole('button', { name: 'סגירה' }).click();

@@ -38,6 +38,9 @@ export default function ExamCheck() {
   const [queue, setQueue] = useState([]);
   const [opening, setOpening] = useState(false); // a PDF's pages are being drawn (lib/pdfPages.js)
   const queued = useRef(0);
+  // "צילום מחדש" was pressed: the next pick takes the dropped page's place at the front of the line, not the end, so the
+  // pages keep their order and the exam's first page is still the one whose top band is cut by default
+  const retaking = useRef(false);
   const camRef = useRef(null);
   const pickRef = useRef(null);
   const lastInput = useRef(null);
@@ -58,9 +61,11 @@ export default function ExamCheck() {
   const openInput = (el) => { if (opening) return; lastInput.current = el; ask(el); };
   // Pictures join the queue as they are; a PDF's pages are drawn on the device first, one JPEG per page (trust spec
   // TRUST-5 §3), and each then passes PhotoPrep like a photo, so no page, a PDF's included, skips the step. The PDF
-  // itself is never sent. The files are taken in the order they were picked.
+  // itself is never sent. The files are taken in the order they were picked; after "צילום מחדש" they go first in line,
+  // where the page they replace was (anything else is added only when the line is empty: PhotoPrep covers the screen).
   const add = async (e) => {
     const files = [...(e.target.files || [])]; e.target.value = '';
+    const replacing = retaking.current; retaking.current = false;
     let room = MAX_EXAM_PAGES - pages.length - queue.length;
     const next = [];
     const take = (file, pdf = false) => { room -= 1; queued.current += 1; next.push({ id: queued.current, file, pdf }); };
@@ -79,7 +84,7 @@ export default function ExamCheck() {
         if (mounted.current) setOpening(false);
       }
     }
-    if (next.length && mounted.current) setQueue((q) => [...q, ...next]);
+    if (next.length && mounted.current) setQueue((q) => (replacing ? [...next, ...q] : [...q, ...next]));
   };
   const current = queue[0] || null;
   const shift = () => setQueue((q) => q.slice(1));
@@ -229,9 +234,9 @@ export default function ExamCheck() {
           {photoWarn}
           {/* every page passes here before it joins the list, a PDF's pages too: the first page of an exam loses its top
               band by default. "צילום מחדש" drops this page and opens the camera again, or for a PDF's page the picker, so a
-              photo of that page (or another file) can take its place; the PDF's other pages stay in line. */}
+              photo of that page (or another file) takes its place, first in line; the PDF's other pages stay after it. */}
           <PhotoPrep file={current?.file || null} crop={pages.length === 0 ? EXAM_HEADER : 0} onDone={prepDone}
-            onRetake={() => { const pdf = current?.pdf; shift(); ask(pdf ? pickRef.current : lastInput.current); }} onCancel={shift}
+            onRetake={() => { const pdf = current?.pdf; retaking.current = true; shift(); ask(pdf ? pickRef.current : lastInput.current); }} onCancel={shift}
             onError={() => { toast.error(`לא הצלחנו לקרוא את ${current?.file.name || 'התמונה'}`); shift(); }} />
         </>
       )}
