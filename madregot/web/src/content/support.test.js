@@ -83,6 +83,8 @@ describe('piiLine: the quiet line under a message whose personal details the tut
     expect(piiLine(['email', 'phone'])).toBe('הסרנו מהשאלה מספר טלפון וכתובת מייל. אין צורך לשלוח לעוזר פרטים אישיים.');
     expect(piiLine(maskPersonal('ת״ז 123456782, 0521234567, a@b.co').found)).toBe('הסרנו מהשאלה מספר טלפון, כתובת מייל ומספר זהות. אין צורך לשלוח לעוזר פרטים אישיים.');
     expect(piiLine([])).toBe('');
+    // COUNCIL2-9: a home address is named too
+    expect(piiLine(maskPersonal('אני גר ברחוב הגפן 3, רמת גן. 0 5 4 1 2 3 4 5 6 7').found)).toBe('הסרנו מהשאלה מספר טלפון וכתובת מגורים. אין צורך לשלוח לעוזר פרטים אישיים.');
     expect(piiLine(maskPersonal('כמה זה 3 + 4?').found)).toBe('');
   });
 });

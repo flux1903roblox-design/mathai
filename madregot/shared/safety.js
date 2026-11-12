@@ -87,6 +87,19 @@ const EMAIL = /[a-z0-9._%+]+(?:-[a-z0-9._%+]+)*@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-
 // digit (and no opening bracket, which the number takes) right before the number, none right after.
 const PHONE = /(^|[^\d(])(\(?(?:\+?972[-\s.]?\(?|0)(?:5\d|[2-4]|[89]|7\d)\)?[-\s.]?\d{3}[-\s.]?\d{4})(?!\d)/g;
 const NINE = /(^|\D)(\d{9})(?!\d)/g;
+// A phone with its digits spread out or cut in odd places (COUNCIL2-9): "0 5 4 1 2 3 4 5 6 7", "05412345 67". Spaces or
+// dashes between any digits; the digits alone must then be an Israeli number (LOOSE_DIGITS). Never a dot (0.521234567 is
+// a decimal), never right after another digit ("3 0 5 4 …" is a list), and never a chain of single digits joined by
+// minus signs (a signed-numbers exercise).
+const LOOSE_PHONE = /(^|[^\d])((?:\+\s?9\s?7\s?2|0)(?:[\s-]{0,2}\d){8,9})(?![\s-]{0,2}\d)/g;
+const LOOSE_DIGITS = /^0(?:5\d{8}|7\d{8}|[2-489]\d{7})$/;
+// A street address (COUNCIL2-9): a street word, one to three words of its name and the house number (with a letter, 5א),
+// and the city after it when it is marked off: ", תל אביב" or "בחיפה". The name's first word is not one of the words a
+// maths story puts after "רחוב" ("ברחוב יש 12 בתים"). Before the street word only a prefix letter (ב, ו, ל, מ, ש):
+// "הרחוב" (the street) is no address.
+const STREET = /((?:^|[^\u05d0-\u05ea])[בולמש]{0,2})((?:רחוב|רח['׳"]|שדרות|שד['׳"])\s+([\u05d0-\u05ea"'׳״-]+)(?:\s+[\u05d0-\u05ea"'׳״-]+){0,2}\s+\d{1,4}[\u05d0-\u05ea]?(?![\d\u05d0-\u05ea])(?:\s*,\s*[\u05d0-\u05ea"'׳״-]+(?:[\s-][\u05d0-\u05ea"'׳״-]+){0,2}|\s+ב[\u05d0-\u05ea"'׳״-]+(?:-[\u05d0-\u05ea"'׳״-]+)?)?)/g;
+const NOT_A_STREET_NAME = new Set(['יש', 'אין', 'שלנו', 'שלי', 'שלו', 'שלה', 'שלהם', 'שלכם', 'הזה', 'הזאת', 'זה', 'זאת', 'אחד', 'אחת', 'ארוך', 'ארוכה', 'קצר', 'קצרה',
+  'היו', 'היה', 'הייתה', 'גרים', 'גר', 'גרה', 'עם', 'של', 'עד', 'כל', 'בו', 'בה', 'רק', 'עוד', 'כמה', 'יותר', 'פחות', 'ישר', 'ראשי', 'צדדי', 'שני', 'הבא', 'אורך', 'באורך']);
 // "ID number" up to 20 characters before nine digits: only then are they an ID (a maths answer of 9 digits is not).
 const ID_WORD = /(?:ת["״']?\.?ז|תעודת (?:ה)?זהות|מספר (?:ה)?זהות|ת\.ז\.?|\bid\b|\bid number\b)/i;
 const ID_GAP = 20;
@@ -103,7 +116,7 @@ export function validIsraeliId(digits) {
   return sum % 10 === 0;
 }
 
-export const PERSONAL_KINDS = Object.freeze(['email', 'phone', 'id']);
+export const PERSONAL_KINDS = Object.freeze(['email', 'phone', 'id', 'address']);
 
 /**
  * Personal details in a text written by a child, masked before it goes to the AI: an email → [מייל], an Israeli phone
@@ -116,12 +129,25 @@ export function maskPersonal(text) {
   let t = String(text ?? '');
   t = t.replace(EMAIL, () => { found.add('email'); return '[מייל]'; });
   t = t.replace(PHONE, (_, pre) => { found.add('phone'); return `${pre}[טלפון]`; });
+  t = t.replace(LOOSE_PHONE, (all, pre, run, offset, whole) => {
+    const digits = run.replace(/^\+\s?9\s?7\s?2/, '0').replace(/[\s-]/g, '');
+    const before = whole.slice(0, offset + pre.length);
+    if (!LOOSE_DIGITS.test(digits) || /\d[\s-]{0,2}$/.test(before)) return all;
+    if (/^\d(?:-\d)+$/.test(run.replace(/^\+972/, ''))) return all;
+    found.add('phone');
+    return `${pre}[טלפון]`;
+  });
   t = t.replace(NINE, (all, pre, digits, offset, whole) => {
     const start = offset + pre.length;
     const before = whole.slice(Math.max(0, start - ID_GAP), start);
     if (!validIsraeliId(digits) || !ID_WORD.test(before)) return all;
     found.add('id');
     return `${pre}[ת״ז]`;
+  });
+  t = t.replace(STREET, (all, pre, addr, name) => {
+    if (NOT_A_STREET_NAME.has(name.replace(/["'׳״-]/g, ''))) return all;
+    found.add('address');
+    return `${pre}[כתובת]`;
   });
   return { text: t, found: PERSONAL_KINDS.filter((k) => found.has(k)) };
 }

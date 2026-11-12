@@ -544,6 +544,28 @@ test('maskPersonal: Israeli phones in six formats, and a phone is a phone even i
   for (const m of ['0.5 + 0.25', '3.1234567', '(0.5)', '0.125 * 8']) assert.equal(maskPersonal(m).found.length, 0, `${m}: a decimal is not a phone`);
 });
 
+test('maskPersonal: a phone with its digits spread out or split oddly (COUNCIL2-9)', () => {
+  // the trust skeptic's two: every digit apart, and a group cut in the wrong place
+  for (const p of ['0 5 4 1 2 3 4 5 6 7', '05412345 67', '054 12 34 567', '0 3 1 2 3 4 5 6 7', '+972 5 4 1 2 3 4 5 6 7', '054-12-34-567']) {
+    assert.deepEqual(maskPersonal(`המספר שלי ${p} תתקשרו`), { text: 'המספר שלי [טלפון] תתקשרו', found: ['phone'] }, p);
+  }
+  // maths stays: a decimal, a list that is longer than a phone, digits that come after other digits, a chain of minus signs
+  for (const m of ['0.521234567', '3 0 5 4 1 2 3 4 5 6 7', '1 2 3 4 5 6 7 8 9 0', '0 5 4 1 2', '0-5-4-1-2-3-4-5-6-7', '0 5 4 1 2 3 4 5 6 7 8']) {
+    assert.equal(maskPersonal(m).found.length, 0, m);
+  }
+});
+
+test('maskPersonal: a street address with its number, and the city after it (COUNCIL2-9)', () => {
+  assert.deepEqual(maskPersonal('אני גרה ברחוב הרצל 12, תל אביב'), { text: 'אני גרה ב[כתובת]', found: ['address'] });
+  assert.deepEqual(maskPersonal('הכתובת: רח׳ בן יהודה 5א בחיפה. מה התשובה?'), { text: 'הכתובת: [כתובת]. מה התשובה?', found: ['address'] });
+  assert.deepEqual(maskPersonal('שדרות רוטשילד 40 תל אביב'), { text: '[כתובת] תל אביב', found: ['address'] }, 'the street and number go even when the city is not marked off');
+  assert.equal(maskPersonal('ברחוב שלנו 12 בתים, בכל בית 3 חלונות').found.length, 0, 'a word problem about a street');
+  assert.equal(maskPersonal('ברחוב יש 12 בתים').found.length, 0);
+  assert.equal(maskPersonal('הרחוב ארוך 300 מטר').found.length, 0, 'no street word right before a name');
+  assert.deepEqual(maskPersonal('0521234567, רחוב הגפן 3, רמת גן, a@b.co').found, ['email', 'phone', 'address'], 'the fixed order, address last');
+  assert.deepEqual(scanPersonal(['רחוב הגפן 3, רמת גן']), ['address']);
+});
+
 test('maskPersonal: emails; several kinds at once in a fixed order; scanPersonal counts them together', () => {
   assert.deepEqual(maskPersonal('כתבו לי ל-noa.k@example.test'), { text: 'כתבו לי ל-[מייל]', found: ['email'] });
   assert.deepEqual(maskPersonal('ת״ז 123456782, 0521234567, a@b.co').found, ['email', 'phone', 'id']);

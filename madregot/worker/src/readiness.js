@@ -14,7 +14,8 @@
 // failure. `ok` is true when every required item is. Rules exist only for what the owner turned on: the email when
 // EMAIL_FROM is set, payments when AI_PAYWALL is "on" (and the open tier's dollar budget while it is off), the provider's
 // own keys for the provider chosen, the backup's secret while VAULT is on, Turnstile with FREE_DEVICE_MINT "turnstile",
-// the daily reminder's keys with PUSH "on" (STUDENT-11), the database's size notice (COUNCIL2-18). A lane that adds a
+// the daily reminder's keys with PUSH "on" (STUDENT-11), the database's size notice (COUNCIL2-18), MODERATION and
+// SAFETY_ALERTS as "off" or "on" and the email an alert needs (COUNCIL2-9). A lane that adds a
 // secret or a switch adds its rule here in the same commit: test/readiness.test.js fails on a secret named in
 // wrangler.toml's secrets comment that no rule covers.
 
@@ -144,6 +145,22 @@ export function readiness(cfg = {}) {
       'worker/wrangler.toml: VAPID_PUBLIC_KEY = "…"');
     add('push:subject', 'push', /^(mailto:\S+@\S+|https:\/\/\S+)$/.test(String(vars.VAPID_SUBJECT || '').trim()), 'VAPID_SUBJECT',
       'VAPID_SUBJECT צריך להיות mailto: עם כתובת אמיתית, או כתובת https:', 'worker/wrangler.toml: VAPID_SUBJECT = "mailto:…"');
+  }
+
+  // ---- the second reader and the adult's alert (COUNCIL2-9): each is "off" or "on"; an alert needs the email to reach a
+  //      parent, and the owner turns it on only on the lawyer's word (legal/safety.md)
+  const MOD = on(vars.MODERATION || 'off');
+  add('ai:moderation', 'ai', MOD === 'off' || MOD === 'on', 'MODERATION', `MODERATION צריך להיות "off" או "on" (עכשיו "${vars.MODERATION}")`,
+    'worker/wrangler.toml: MODERATION = "off"');
+  const ALERTS = on(vars.SAFETY_ALERTS || 'off');
+  add('ai:safety-alerts', 'ai', ALERTS === 'off' || ALERTS === 'on', 'SAFETY_ALERTS', `SAFETY_ALERTS צריך להיות "off" או "on" (עכשיו "${vars.SAFETY_ALERTS}")`,
+    'worker/wrangler.toml: SAFETY_ALERTS = "off"');
+  if (ALERTS === 'on') {
+    add('mail:safety-alerts', 'mail', !!String(vars.EMAIL_FROM || '').trim(), 'EMAIL_FROM (התראות)',
+      'SAFETY_ALERTS דולק אבל EMAIL_FROM ריק: הורה לא יקבל את ההתראה במייל (המורה עדיין רואה אותה בלוח)', 'worker/wrangler.toml: EMAIL_FROM = "…"');
+    // a reminder, never a failure: the public safety page says no alert is sent unless the child chose it
+    add('ai:safety-alerts-text', 'ai', false, 'safety.md וההתראות', 'SAFETY_ALERTS דולק: לוודא שהמשפט על התראות בדף הבטיחות הוחלף בנוסח של עורך הדין',
+      'web/src/content/legal/safety.md (ההערה לעורך הדין ב"כשילד כותב משהו מדאיג")', false);
   }
 
   // ---- Turnstile for new devices on the free taste

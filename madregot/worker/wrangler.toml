@@ -169,6 +169,19 @@ VAPID_SUBJECT = ""
 # Reminders sent per run (one run an hour, at :37). 10 fits Workers Free's 10 ms of CPU a cron; raise to 400 on Workers Paid.
 PUSH_BATCH = "10"
 
+# ---- a second reader for free text, and an adult's alert (COUNCIL2-9, src/moderation.js, src/alerts.js) ----
+# MODERATION "on": besides the word lists, a short classification call on the low-cost model reads a child's message
+# (chat, explain, feedback, a help note) and the tutor's reply (chat, explain, feedback). A flagged message takes the
+# care path; a flagged reply becomes the calm sentence. It costs a little per message (kind:moderation in ai_spend),
+# streamed chat replies then arrive whole instead of word by word, and it fails open to the word lists.
+# MODERATION_MODEL: empty uses FREE_MODEL (else the low-cost model).
+MODERATION = "off"
+MODERATION_MODEL = ""
+# SAFETY_ALERTS "on": when a child's message reads as self-harm, the parent who linked the device gets one email that
+# day, or, in a class, the teacher sees one marked request on the help board; never what was written. Turn it on only
+# if the lawyer says reporting is required (legal/safety.md, docs/legal/LAWYER_PACKET.md). Needs EMAIL_FROM for the email.
+SAFETY_ALERTS = "off"
+
 # ---- the Play Store app (STUDENT-12, store/android/README.md) ----
 # /.well-known/assetlinks.json lets the app open this site with no browser bar. Empty (the default): it answers [].
 # ANDROID_PACKAGE: the package id chosen in store/android/make.sh. ANDROID_CERT_SHA256: Play Console › Test and release ›
@@ -327,6 +340,10 @@ VAULT_MAX_MB = "200"
 DB_SIZE_NOTICE_MB = "400"
 # no reminders on staging (no VAPID_PRIVATE_JWK there)
 PUSH = "off"
+# no AI key on staging: the second reader has nothing to call; no email: no alert
+MODERATION = "off"
+MODERATION_MODEL = ""
+SAFETY_ALERTS = "off"
 # the legal pages' details: empty, so staging shows the draft texts and its checkout stays closed (legal_not_ready)
 BUSINESS_NAME = ""
 BUSINESS_ID = ""

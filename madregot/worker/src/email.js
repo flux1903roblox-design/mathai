@@ -12,6 +12,7 @@ import { HttpError, nowIso, sha256, TZ } from './util.js';
 import { rulesEnv } from '../../shared/schoolRules.js';
 import { limits, paywallOn } from './entitle.js';
 import { stairName } from '../../shared/stairs.js';
+import { SUPPORT } from '../../shared/safety.js';
 
 export function emailReady(env) {
   return !!(env.RESEND_API_KEY && env.EMAIL_FROM);
@@ -125,6 +126,28 @@ export function business(env) {
 /** The welcome email's receipt line when Grow is the payment company: it sends the receipt itself. */
 export const RECEIPT_BY_GROW = 'הקבלה נשלחת אליכם במייל מ־Grow, חברת הסליקה.';
 
+/**
+ * The parent's email when their child's message to the tutor read as self-harm (SAFETY_ALERTS, src/alerts.js). Nothing
+ * of what the child wrote, no time and no device: that it happened today, what the child was shown, and where a parent
+ * can turn. Calm and short, with nothing to click.
+ */
+function safetyAlertNotice(env) {
+  const { eran, police, mda } = SUPPORT;
+  return {
+    subject: 'כדאי לבדוק היום מה שלום הילד או הילדה',
+    lines: [
+      'שלום,',
+      'היום, בשיחה עם העוזר החכם של מדרגות במכשיר שחיברתם, נכתב משהו שנשמע כמו מצוקה.',
+      `העוזר הציע מיד לפנות למבוגר קרוב ולער״ן, ${eran.phone}, בכל שעה. מה שנכתב לא נשמר אצלנו, ולכן אין לנו פרטים נוספים.`,
+      'אולי כדאי למצוא היום רגע שקט ולשאול מה שלומם. גם הורים יכולים להתקשר לער״ן ולהתייעץ.',
+      `אם יש סכנה מיידית: משטרה ${police}, מד״א ${mda}.`,
+      'שלחנו את המייל הזה כי ההתראות האלה פועלות במדרגות. לשאלות: השיבו למייל הזה.',
+      '',
+      business(env),
+    ],
+  };
+}
+
 /** Subject and lines of one notice, or null for a kind this Worker does not know. */
 export function renderNotice(env, row) {
   const p = (() => { try { return JSON.parse(row.params || '{}'); } catch { return {}; } })();
@@ -233,6 +256,9 @@ export function renderNotice(env, row) {
           [env.PUBLIC_URL, env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · '),
         ],
       };
+    // the adult's alert (COUNCIL2-9, src/alerts.js): that something came up today, never what was written
+    case 'safety_alert':
+      return safetyAlertNotice(env);
     case 'help_digest': {
       // a count and the class's name only: no student's name, no exercise and nothing a student wrote (TEACHER-6 §5)
       const n = Math.max(1, Math.round(Number(p.n) || 1));

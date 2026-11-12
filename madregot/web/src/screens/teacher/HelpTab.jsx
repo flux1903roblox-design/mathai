@@ -15,10 +15,11 @@ import { TOPIC } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { helpRetentionNote } from '@/content/retention.js';
-import { fmtDay, StudentName, TALK } from './common.jsx';
+import { fmtDay, StudentName, TALK, ALERT_TOPIC, ALERT_LINE } from './common.jsx';
 
 const FILTERS = [['open', 'פתוחות'], ['waiting', 'מחכות לתשובה שלכם'], ['all', 'הכול']];
-const PICK = { open: (h) => !h.done_at, waiting: waitsForTeacher, all: () => true };
+// an alert (COUNCIL2-9) takes no reply, so it never waits for one
+const PICK = { open: (h) => !h.done_at, waiting: (h) => h.topic !== ALERT_TOPIC && waitsForTeacher(h), all: () => true };
 
 function NotebookPage({ cls, id }) {
   const [src, setSrc] = useState(null); const [busy, setBusy] = useState(false);
@@ -124,17 +125,18 @@ export default function HelpTab({ cls, data, onChanged, onStudent }) {
         )}
         {list.map((h) => {
           const fresh = !h.done_at && (!h.seen_at || h.unreadFromStudent > 0);
+          const alert = h.topic === ALERT_TOPIC;
           return (
             <li key={h.id} className={clsx('help-item', fresh && 'unseen', h.done_at && 'done')}>
-              <div className="help-item-head"><Hand size={16} aria-hidden="true" /><StudentName id={h.studentId} name={h.name} onOpen={onStudent} />{fresh && <span className="new-tag">{h.seen_at ? 'תשובה חדשה' : 'חדש'}</span>}<span className="muted">{h.kind === 'talk' ? fmtDay(h.created_at) : `${TOPIC[h.topic]?.title || ''}, ${fmtDay(h.created_at)}`}</span></div>
+              <div className="help-item-head"><Hand size={16} aria-hidden="true" /><StudentName id={h.studentId} name={h.name} onOpen={onStudent} />{fresh && <span className="new-tag">{h.seen_at ? 'תשובה חדשה' : 'חדש'}</span>}<span className="muted">{h.kind === 'talk' || alert ? fmtDay(h.created_at) : `${TOPIC[h.topic]?.title || ''}, ${fmtDay(h.created_at)}`}</span></div>
               {/* a note that read as distress (trust spec TRUST-3 §3.5) */}
               {!!h.care && <p className="help-care">כדאי לבדוק מה שלום התלמיד/ה</p>}
-              {h.kind === 'talk' ? <p className="help-q">{h.name} {TALK}</p> : <p className="help-q"><MathText text={h.question} /></p>}
+              {alert ? <p className="help-q">{ALERT_LINE}</p> : h.kind === 'talk' ? <p className="help-q">{h.name} {TALK}</p> : <p className="help-q"><MathText text={h.question} /></p>}
               {h.answer && <p className="muted">מה כתב/ה: <span dir="ltr">{h.answer}</span></p>}
               {h.note && <p><span className="hl">“{h.note}”</span></p>}
               {!!h.has_image && <NotebookPage cls={cls} id={h.id} />}
               <Thread h={h} />
-              {!h.done_at && <ReplyBox cls={cls} h={h} onSent={onChanged} />}
+              {!h.done_at && !alert && <ReplyBox cls={cls} h={h} onSent={onChanged} />}
               <div className="form-actions row">
                 {!h.done_at && !h.seen_at && <Button variant="secondary" className="btn-sm" onClick={() => markHelp(h.id, 'seen')}>ראיתי</Button>}
                 {!h.done_at ? <Button variant="secondary" className="btn-sm" onClick={() => markHelp(h.id, 'done')}>טופל</Button> : <Button variant="ghost" className="btn-sm" onClick={() => markHelp(h.id, 'reopen')}>לפתוח שוב</Button>}

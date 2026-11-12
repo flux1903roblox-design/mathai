@@ -1810,6 +1810,27 @@ test.describe('TEACHER-6: help both ways', () => {
   const replies = (log, path) => log.filter((r) => r.path === path && r.method === 'POST');
   const missionsTab = (page) => page.getByRole('navigation', { name: 'ניווט ראשי' }).getByRole('link', { name: /^משימות/ });
 
+  // COUNCIL2-9: with SAFETY_ALERTS on, a student's message to the tutor that read as self-harm leaves one request the
+  // server made (topic 'safety', the care flag, no text) on the board. It says what happened and nothing written, and has
+  // no reply box: the student never sees it.
+  test('a safety alert: the care line and a fixed sentence, no text, no reply box, and it can be marked done', async ({ page }) => {
+    const alert = { id: 9, studentId: 'b2', name: 'יואב', topic: 'safety', level: null, question: '', answer: '', note: '', has_image: 0, care: 1, created_at: '2026-11-05T08:00:00.000Z', seen_at: null, done_at: null, messages: [] };
+    const { log } = await fakeServer(page, { help: [alert, ...threads()] }, baseOf());
+    await open(page, '#/teacher?tab=help', keyTeacher());
+    const item = page.locator('.help-item').filter({ hasText: 'יואב' }).filter({ hasText: 'מצוקה' });
+    await expect(item).toHaveCount(1);
+    await expect(item.locator('.help-care')).toHaveText('כדאי לבדוק מה שלום התלמיד/ה');
+    await expect(item.locator('.help-q')).toHaveText('היום, בשיחה עם העוזר החכם, נכתב משהו שנשמע כמו מצוקה. מה שנכתב לא נשמר אצלנו. העוזר הציע לפנות למבוגר קרוב ולער״ן, 1201.');
+    await expect(item.locator('.help-item-head .muted')).not.toContainText(',');
+    await expect(item.getByRole('textbox')).toHaveCount(0);
+    // it waits for no reply: "מחכות לתשובה שלכם" counts the two real ones only
+    await expect(page.getByRole('radio', { name: 'מחכות לתשובה שלכם (2)' })).toBeVisible();
+    const dir = process.env.TEACHER_SHOTS;
+    if (dir) { await item.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${dir}/${test.info().project.name}-help-alert.png` }); }
+    await item.getByRole('button', { name: 'טופל' }).click();
+    await expect.poll(() => log.filter((r) => r.path === '/api/teacher/help/9' && r.method === 'POST').length).toBe(1);
+  });
+
   test('1. the teacher: filters, the thread, quick replies that fill the box, sending, the contact guard and the limit', async ({ page }) => {
     const { st, log } = await fakeServer(page, { help: threads() }, baseOf());
     await open(page, '#/teacher?tab=help', keyTeacher());

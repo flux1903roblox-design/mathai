@@ -112,6 +112,23 @@ test('the database size notice (COUNCIL2-18): empty or 1-10240 MB passes; the fo
   assert.equal(readiness(complete()).items.find((i) => i.id === 'edge:bindings').ok, true);
 });
 
+test('the second reader and the adult\'s alert (COUNCIL2-9): off as shipped; "off" or "on" only; an alert needs the email', () => {
+  const c = complete();
+  assert.equal(c.vars.MODERATION, 'off', 'wrangler.toml ships it off');
+  assert.equal(c.vars.SAFETY_ALERTS, 'off', 'wrangler.toml ships it off');
+  assert.equal(readiness(c).ok, true);
+  for (const [name, id] of [['MODERATION', 'ai:moderation'], ['SAFETY_ALERTS', 'ai:safety-alerts']]) {
+    const x = complete(); x.vars[name] = 'yes';
+    assert.deepEqual(failing(readiness(x)), [id], name);
+    const y = complete(); y.vars[name] = 'on';
+    assert.equal(readiness(y).ok, true, `${name} on`);
+  }
+  const a = complete(); a.vars.SAFETY_ALERTS = 'on'; a.vars.EMAIL_FROM = '';
+  assert.ok(failing(readiness(a)).includes('mail:safety-alerts'));
+  assert.match(formatReadiness(readiness(a)), /SAFETY_ALERTS דולק אבל EMAIL_FROM ריק/);
+  assert.match(formatReadiness(readiness(a)), /^! בינה מלאכותית: SAFETY_ALERTS דולק: לוודא שהמשפט על התראות בדף הבטיחות/m, 'the public text, as a reminder');
+});
+
 test('the open tier\'s dollar budget (COUNCIL2-19): with the paywall off it must be a positive amount; with it on there is no rule', () => {
   const c = complete(); c.vars.AI_PAYWALL = 'off';
   assert.equal(c.vars.OPEN_DAILY_BUDGET_USD, '25', 'wrangler.toml ships 25');

@@ -14,6 +14,8 @@ import { meterDbSize } from './dbsize.js';
 import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
 import { resolve, precheck, counted, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify, teacherIsAdult, parentOkRequired } from './entitle.js';
 import { recordSafety, eventNet } from './safety.js';
+import { moderate, moderationOn, MODERATED_KINDS, moderatedInput, replyText } from './moderation.js';
+import { safetyAlert, ALERT_TOPIC } from './alerts.js';
 import { recordSpend } from './spend.js';
 import { bumpQuality } from './quality.js';
 import { DROP_REASONS } from '../../shared/verify.js';
@@ -315,12 +317,27 @@ async function answerAI(kind, req, env, ctx, cors, track) {
     hit = detectDistress(freeText(kind, input));
     if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
     r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
+    // The optional second reader (COUNCIL2-9, MODERATION = "on", src/moderation.js): a message the word list let
+    // through is classified once the request is allowed, so it costs nothing to a caller who could not ask. A flag
+    // takes the care path: the question and the dollar hold the request took are given back first. It fails open.
+    if (!hit.flag && moderationOn(env) && MODERATED_KINDS.includes(kind)) {
+      const m = await moderate(env, { role: 'input', text: moderatedInput(kind, input), pool: r.pool, ctx, track });
+      if (m.flag) {
+        await giveBack(env, r.refund);
+        if (r.hold) { try { await release(env, [r.hold]); } catch (e) { console.error('hold', e?.message); } }
+        hit = { flag: true, category: m.category, source: 'model' };
+        r = await resolveCare(req, env, kind, input);
+      }
+    }
   }
   track.hold = r.hold || null;
   const careTier = r.tier === 'care';
   // every safety row of this request is capped per network and kind (src/safety.js EVENTS_PER_NET)
   const logged = { net: eventNet(req, env) };
-  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: kind, source: 'regex', tier: r.static ? 'static' : 'care' }, ctx, logged);
+  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: kind, source: hit.source || 'regex', tier: r.static ? 'static' : 'care' }, ctx, logged);
+  // the adult's alert (COUNCIL2-9, SAFETY_ALERTS = "on", src/alerts.js): on self-harm, a linked parent or the class
+  // teacher hears that something came up today, never what was written; once a day for each child
+  if (hit.flag && hit.category === 'self_harm') ctx.waitUntil(safetyAlert(env, req));
   // a care answer says nothing about the person's questions (no X-AI-Tier or X-AI-Left), so the screen's count stays
   const headers = careTier ? (r.linkedBad ? { 'X-AI-Linked': '0' } : {}) : aiHeaders(r);
   if (r.static) return careStaticReply(kind, input, cors, headers);
@@ -362,7 +379,13 @@ async function answerAI(kind, req, env, ctx, cors, track) {
     const writer = writable.getWriter();
     let aborted = false;
     let wrote = false;
-    const write = (text) => { if (!text) return undefined; wrote = true; return writer.write(enc.encode(text)).catch(() => { aborted = true; }); };
+    // With the second reader on (COUNCIL2-9), a reply that is not a care reply is held whole and read before any of it
+    // goes out (flushed at the end); a flagged one leaves only [[blocked]], which the app shows as the calm sentence.
+    let holdAll = !careTier && moderationOn(env);
+    let heldOut = '';
+    const rawWrite = (text) => writer.write(enc.encode(text)).catch(() => { aborted = true; });
+    const write = (text) => { if (!text) return undefined; wrote = true; if (holdAll) { heldOut += text; return undefined; } return rawWrite(text); };
+    const flush = async () => { if (!holdAll) return; holdAll = false; const t = heldOut; heldOut = ''; if (t) await rawWrite(t); };
     // The start of the reply is held back until it has 9 characters or a line, so a care line the model puts first
     // ([[care]]) is taken out before anything reaches the screen, and sent as a marker at the end instead. Then, in
     // this order (trust spec TRUST-4 §4.2): a care reply goes out as it comes; any other reply is checked against the
@@ -467,10 +490,20 @@ async function answerAI(kind, req, env, ctx, cors, track) {
               bumpQuality(env, ctx, kind, 'empty_stream');
               await write('\n[[error:bad_output]]');
             } else {
-              await guardEnd();
-              if (care) { await modelCare(); await write(`\n${CARE_MARK}`); }
-              // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
-              if (final.stop_reason === 'refusal') { event('refusal'); await giveBackOnce(); await write('\n[[refusal]]'); }
+              const m = holdAll && !care && final.stop_reason !== 'refusal'
+                ? await moderate(env, { role: 'output', text: acc, pool: r.pool, client, ctx, track }) : null;
+              if (m?.flag) {
+                // nothing of the reply goes out: the app shows the calm sentence, and the question is given back
+                heldOut = '';
+                await giveBackOnce();
+                recordSafety(env, { kind: 'output_blocked', category: m.category, surface: kind, source: 'model', tier: r.tier }, ctx, logged);
+                await write('\n[[blocked]]');
+              } else {
+                await guardEnd();
+                if (care) { await modelCare(); await write(`\n${CARE_MARK}`); }
+                // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
+                if (final.stop_reason === 'refusal') { event('refusal'); await giveBackOnce(); await write('\n[[refusal]]'); }
+              }
             }
           }
         }
@@ -493,6 +526,7 @@ async function answerAI(kind, req, env, ctx, cors, track) {
         // the reader left, or the stream broke or was stopped: what Claude already did is still priced
         const partial = recorded ? null : usage.message();
         if (partial) await record(partial);
+        try { await flush(); } catch { /* the client went away */ }
         try { await writer.close(); } catch { /* the client went away */ }
       }
     })();
@@ -551,6 +585,17 @@ async function answerAI(kind, req, env, ctx, cors, track) {
   if (checkedOut.linksRemoved) event('link_removed');
   result = checkedOut.data;
   if (careTier) return json(PHOTO_KINDS.has(kind) ? careBody(kind, result?.text) : { ...result, care: true }, 200, cors, headers);
+  // the optional second reader on the reply (COUNCIL2-9): a flag replaces it as the blocklist does, category only logged
+  if (!isCare && moderationOn(env) && MODERATED_KINDS.includes(kind)) {
+    const m = await moderate(env, { role: 'output', text: replyText(result), pool: r.pool, client, ctx, track });
+    if (m.flag) {
+      await giveBackOnce();
+      recordSafety(env, { kind: 'output_blocked', category: m.category, surface: kind, source: 'model', tier: r.tier }, ctx, logged);
+      leftBack();
+      if (kind === 'explain' || kind === 'chat') return json({ text: BLOCKED_TEXT, blocked: true }, 200, cors, headers);
+      throw new HttpError(502, 'bad_output', undefined, undefined, headers);
+    }
+  }
   // The final-answer guard on a whole reply (ai spec AI-3 Design 3): a leaked answer masked in explain and chat (with
   // MASK_NOTE), and a check withheld (comments and summary masked, no mark on the line with the final value). It runs
   // after the blocklist, on what the child would see; a care reply is never touched.
@@ -943,15 +988,22 @@ async function askHelp(req, env, ctx, cors) {
     return json({ ok: true }, 200, cors);
   }
   const note = String(b.note || '').slice(0, 300);
-  const hit = detectDistress(note);
-  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: 'regex' }, ctx, { net: eventNet(req, env) });
-  const open = await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL').bind(s.id).first();
+  let hit = detectDistress(note);
+  // the optional second reader (COUNCIL2-9): a note the word list let through, read once; a flag marks it for the
+  // teacher as a note that reads as distress does
+  if (!hit.flag && note.trim() && moderationOn(env)) {
+    const m = await moderate(env, { role: 'input', text: note, pool: 'care', ctx });
+    if (m.flag) hit = { flag: true, category: m.category, source: 'model' };
+  }
+  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: hit.source || 'regex' }, ctx, { net: eventNet(req, env) });
+  // the teacher's alert (src/alerts.js) is not one of the child's requests
+  const open = await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL AND topic <> ?').bind(s.id, ALERT_TOPIC).first();
   if (open && open.n >= HELP_OPEN_MAX) {
     if (!hit.flag) throw new HttpError(429, 'too_many_open');
     // A note that reads as distress always reaches the teacher, but past the cap it makes no new request and keeps no
     // page (the trust review: a loop of such notes filled the database): it becomes the note of the student's newest
     // open request, which is marked for the teacher.
-    const newest = await env.DB.prepare('SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL ORDER BY id DESC LIMIT 1').bind(s.id).first();
+    const newest = await env.DB.prepare('SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND topic <> ? ORDER BY id DESC LIMIT 1').bind(s.id, ALERT_TOPIC).first();
     await env.DB.batch([
       env.DB.prepare('UPDATE help_requests SET note = ? WHERE id = ?').bind(note, newest.id),
       env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) VALUES (?, \'help\', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1').bind(newest.id),
@@ -964,8 +1016,10 @@ async function askHelp(req, env, ctx, cors) {
   // The same exercise asked again while its request is still open: one request, with the newest note and page (a
   // talk request, with its empty question, is never one of them).
   const question = String(b.question || '').slice(0, 600);
-  const same = await env.DB.prepare(`SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND question = ?
-    AND id NOT IN (SELECT help_id FROM help_meta WHERE kind = 'talk') LIMIT 1`).bind(s.id, question).first();
+  // the alert's topic is the server's own (src/alerts.js): a request a student sends never carries it
+  const topic = String(b.topic || '').slice(0, 20).replace(new RegExp(`^${ALERT_TOPIC}$`), '');
+  const same = await env.DB.prepare(`SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND question = ? AND topic <> ?
+    AND id NOT IN (SELECT help_id FROM help_meta WHERE kind = 'talk') LIMIT 1`).bind(s.id, question, ALERT_TOPIC).first();
   if (same) {
     await env.DB.batch([
       env.DB.prepare('UPDATE help_requests SET note = CASE WHEN ? <> \'\' THEN ? ELSE note END, image = COALESCE(?, image), answer = ? WHERE id = ?')
@@ -978,7 +1032,7 @@ async function askHelp(req, env, ctx, cors) {
   }
   await env.DB.batch([
     env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(s.id, String(b.topic || '').slice(0, 20), Number(b.level) || null, question, String(b.answer || '').slice(0, 100), note, image, nowIso()),
+      .bind(s.id, topic, Number(b.level) || null, question, String(b.answer || '').slice(0, 100), note, image, nowIso()),
     ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'help\', 1 FROM help_requests WHERE student_id = ?').bind(s.id)] : []),
     classSeenStmt(env, s.class_code),
   ]);

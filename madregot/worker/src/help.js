@@ -17,6 +17,7 @@ import { requireAccount } from './account.js';
 import { teacherDetail, classSeenStmt } from './licence.js';
 import { cleanNote } from './assignments.js';
 import { hasContact } from '../../shared/contact.js';
+import { ALERT_TOPIC } from './alerts.js';
 
 export const HELP = Object.freeze({
   /** Messages per side on one request. */
@@ -77,15 +78,16 @@ export async function helpThreads(env, sel, args) {
 
 /**
  * The student's own requests of the last 30 days for GET /api/class/work, newest first, at most 20: { id, topic, level,
- * question, createdAt, status, messages }. Never the notebook page.
+ * question, createdAt, status, messages }. Never the notebook page, and never the teacher's alert (src/alerts.js): the
+ * child did not send it.
  */
 export async function myHelp(env, studentId) {
   const since = new Date(Date.now() - HELP.studentDays * 864e5).toISOString();
   const rows = await all(env, `SELECT id, topic, level, question, created_at, seen_at, done_at FROM help_requests
-    WHERE student_id = ? AND created_at >= ? ORDER BY created_at DESC, id DESC LIMIT ${HELP.studentList}`, studentId, since);
+    WHERE student_id = ? AND created_at >= ? AND topic <> ? ORDER BY created_at DESC, id DESC LIMIT ${HELP.studentList}`, studentId, since, ALERT_TOPIC);
   if (!rows.length) return [];
   const msgs = await all(env, `SELECT id, help_id, from_role, body, created_at, read_at FROM help_messages
-    WHERE help_id IN (SELECT id FROM help_requests WHERE student_id = ? AND created_at >= ?) ORDER BY help_id, id`, studentId, since);
+    WHERE help_id IN (SELECT id FROM help_requests WHERE student_id = ? AND created_at >= ? AND topic <> ?) ORDER BY help_id, id`, studentId, since, ALERT_TOPIC);
   return rows.map((h) => {
     const mine = msgs.filter((m) => m.help_id === h.id);
     return { id: h.id, topic: h.topic, level: h.level, question: h.question, createdAt: h.created_at, status: statusOf(h, mine), messages: mine.map(view) };
