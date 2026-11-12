@@ -9,6 +9,7 @@ import { migrate, CURRENT_VERSION } from './migrations.js';
 import { validateState } from './validate.js';
 import { RELEASE } from './storage.js';
 import { PERSONAL_KEY } from '../store.js';
+import { isObj } from '@shared/obj.js';
 
 /** The largest file read (a heavy year is about half a megabyte). */
 export const BACKUP_MAX_BYTES = 5 * 1024 * 1024;
@@ -21,7 +22,6 @@ export const FILE_ERRORS = {
   broken: 'הקובץ פגום, ואי אפשר לשחזר ממנו. נסו קובץ אחר.',
 };
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 /** The local date as YYYY-MM-DD (as the store keys its days). */
 const dayOf = (d) => d.toLocaleDateString('en-CA');
 

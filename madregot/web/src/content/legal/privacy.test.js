@@ -30,6 +30,15 @@ describe('privacy notice: what the progress copies and the error reports are', (
     expect(keep).toContain('מחיקת כל הנתונים');
   });
 
+  it('a solo student\'s backup is on by default (COUNCIL2-24): the server holds the encrypted copy, the code stays on the device, and Settings stops it', () => {
+    const vault = bullet(section(SERVER), 'קוד גיבוי.');
+    expect(vault).toContain('לתלמיד שלומד לבד הגיבוי פועל מההתחלה');
+    expect(vault).toContain('הקוד נשאר במכשיר ולא נשמר אצלנו');
+    expect(vault).toContain('"שמירת ההתקדמות" ← "להפסיק את הגיבוי"');
+    expect(section('מה נשמר במכשיר עצמו')).toContain('אלינו מגיע ממנו רק עותק מוצפן לגיבוי');
+    expect(privacy).not.toContain('אם יצרתם אותו');
+  });
+
   it('the class and family copy of the code: the operator can open the copy while it is kept, never called encrypted', () => {
     const escrow = bullet(section(SERVER), 'תלמיד בכיתה');
     expect(escrow).toContain('כל עוד הקוד הזה שמור אצלנו, אנחנו יכולים לפתוח את העותק');

@@ -21,6 +21,10 @@
 // over it without pulling, so the stale copy there cannot be merged back over the undo.
 // Every call carries the identity the device already has (api() adds the class Bearer; X-Family-Device is added here),
 // so the server counts its caps per student or family device and a school behind one address is never blocked.
+// On by default (COUNCIL2-24): once the app has a server, a solo student's backup starts right after the first questions
+// (defaultBackup, called by Welcome). The code is made here and kept only here; the first copy is pushed by the sync
+// above, now and at every moment until it is there (a vault that was never made is not "gone": no note). Learn says
+// once what it is (backup.note 'auto', components/durable/BackupLine.jsx), and Settings › שמירת ההתקדמות stops it.
 import { useEffect } from 'react';
 import { useApp, PERSONAL_KEY } from '../store.js';
 import { api, ApiError, hasServer, sameOrigin, errorText } from '../api.js';
@@ -35,6 +39,7 @@ import { mergeDevices, dataOf } from './merge.js';
 import { useDurable } from './useDurable.js';
 import { derive, seal, open, sha256Hex, blobBytes, VaultOpenError } from './crypto.js';
 import { makeCode, isCode } from './code.js';
+import { isObj } from '@shared/obj.js';
 
 /** The largest sealed copy (binary), as the server takes it. */
 export const MAX_BLOB_BYTES = 256 * 1024;
@@ -42,7 +47,6 @@ export const MAX_BLOB_BYTES = 256 * 1024;
 export const CONFLICT_LOOPS = 3;
 export const VAULT_MOMENTS = ['boot', 'visible', 'lesson', 'hidden', 'tick', 'online'];
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const backupOf = (store) => ({ ...BACKUP_DEFAULTS, ...(isObj(store.getState().backup) ? store.getState().backup : {}) });
 const setBackup = (store, patch) => store.setState({ backup: { ...backupOf(store), ...patch } });
 /** The JSON of a copy, with its keys in one order (two copies with the same content compare equal). */
@@ -98,7 +102,8 @@ async function pull(ctx) {
   let r;
   try { r = await call(store, lookup, '/api/vault/rev'); } catch (e) {
     if (e?.code !== 'vault_not_found') throw e;
-    ctx.gone = true;
+    // gone only if it was ever there: a backup on by default whose first copy has not landed yet was never pushed
+    ctx.gone = b.at != null;
     setBackup(store, { rev: null });
     return 'gone';
   }
@@ -315,6 +320,25 @@ export async function createBackup({ store = useApp, now = () => new Date() } = 
   }
 }
 
+/**
+ * On by default (COUNCIL2-24): a solo student (no class, not the demo) on a device with a server and no backup gets one
+ * right after the first questions. A code is made here, and the backup is on at once; the first copy is pushed by the
+ * sync, which tries again at every moment until the copy is there (offline, a full server, a slow down). Learn says once
+ * what it is (note 'auto'). Resolves the sync's answer, or 'off' when nothing was turned on.
+ */
+export async function defaultBackup({ store = useApp, now = () => new Date(), sync = true } = {}) {
+  const solo = (st) => st.profile?.role === 'student' && !st.profile?.token && st.profile?.demo !== true;
+  const free = () => { const b = backupOf(store); return !b.on && !b.escrow; };
+  if (!hasServer() || !solo(store.getState()) || !free()) return 'off';
+  const code = makeCode();
+  const { lookup } = await derive(code);
+  // a code the student restored or made while the key was derived, or a class joined meanwhile, wins
+  if (!solo(store.getState()) || !free()) return 'off';
+  const b = backupOf(store);
+  store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil, on: true, code, lookup, state: 'idle', note: 'auto' } });
+  return sync ? syncVault({ moment: 'manual', store, now }) : 'on';
+}
+
 /** "להפסיק את הגיבוי": the copy on the server is deleted, and the backup goes back to off. Rejects when the server could not be reached. */
 export async function stopBackup({ store = useApp } = {}) {
   const b = backupOf(store);
@@ -360,7 +384,10 @@ export function detachBackup({ store = useApp } = {}) {
   store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil } });
 }
 
-/** The one-time note in Settings is seen. */
+/** Learn's one-time line is due: a backup turned on by default (note 'auto'), on, the student's own (no class or family). */
+export const showBackupLine = (b) => !!b?.on && b.note === 'auto' && !b.escrow && b.state !== 'other_student';
+
+/** The one-time note in Settings (or Learn's line) is seen. */
 export const clearBackupNote = ({ store = useApp } = {}) => setBackup(store, { note: null });
 
 // ---------------------------------------------------------------- what Settings says

@@ -11,7 +11,9 @@
 //   - for 30 days after a restore replaced another student's progress, "לבטל את השחזור האחרון" brings it back;
 //   - with a server, "גיבוי" is the backup code (DURABLE-5, durable/vault.js): its state, and "ליצור קוד גיבוי" (make a
 //     code, push the first sealed copy, show the code in BackupCodeSheet), or, while it is on, "להציג את קוד הגיבוי"
-//     and "להפסיק את הגיבוי" (after a confirmation: the copy on the server is deleted). When the vault holds another
+//     and "להפסיק את הגיבוי" (after a confirmation: the copy on the server is deleted). A solo student's backup is on by
+//     default (COUNCIL2-24), so this is where it is stopped; while the student's own is on, a note says what the server
+//     holds and where the code is. When the vault holds another
 //     student's progress, a note says so and offers "ליצור קוד חדש" or "להשאיר כך" (both let go of that vault without
 //     deleting it: it is the other student's). After the vault was made again (it expired), after it was deleted from
 //     another device with the same code (the backup is off here then), and after a family let go of this device (the
@@ -46,6 +48,11 @@ import '@/styles/lazy/durable.css'; // the saving rules, loaded with this screen
 
 /** Under "ליצור קוד גיבוי": what the code keeps, and who can read it. */
 export const BACKUP_NOTE = 'קוד גיבוי שומר עותק מוצפן. בלי הקוד אף אחד לא יכול לקרוא אותו, גם לא אנחנו.';
+/**
+ * While the student's own backup is on (on by default for a solo student, COUNCIL2-24): what the server holds, where the
+ * code is, and that it can be stopped here.
+ */
+export const BACKUP_ON_NOTE = 'עותק מוצפן נשמר בשרת, והקוד שפותח אותו נמצא רק במכשיר הזה. אפשר להפסיק את הגיבוי כאן בכל רגע.';
 export const STOPPED = 'הגיבוי הופסק, והעותק בשרת נמחק.';
 /** Stopping the backup: the copy on the server goes (said without "מוצפן" when the class or the family kept its code). */
 export const STOP_TEXT = {
@@ -187,6 +194,7 @@ export default function SaveSection({ role = 'student' }) {
               <p className="save-note">{BACKUP_NOTE}</p>
             </>
           )}
+          {backup?.on && backup.state !== 'other_student' && !backup.escrow && <p className="save-note">{BACKUP_ON_NOTE}</p>}
           {backup?.on && backup.state !== 'other_student' && (
             <Button variant="secondary" className="btn-block" onClick={() => setCodeOpen(true)}>להציג את קוד הגיבוי</Button>
           )}

@@ -93,8 +93,8 @@ test.describe('the backup code', () => {
     expect(vaultPosts(log)[0].headers['x-vault']).toBe(lookup);
     expect(Object.keys(st.vaults)).toEqual([lookup]);
     const first = await openSealed(st.vaults[lookup].blob, key);
-    // schema: the store's version (6 on the main branch since the teacher's class work, durable/migrations.js CURRENT_VERSION)
-    expect(first).toMatchObject({ v: 1, schema: 6 });
+    // schema: the store's version (7 since COUNCIL2-23 dropped planBase and wins, durable/migrations.js CURRENT_VERSION)
+    expect(first).toMatchObject({ v: 1, schema: 7 });
     expect(first.state.days[TODAY].lessons).toBe(1);
 
     await sheet.getByRole('button', { name: 'להעתיק', exact: true }).click();
@@ -381,6 +381,123 @@ test.describe('restoring from the backup code', () => {
     expect(log.slice(n).filter((r) => r.method === 'POST' && r.path.startsWith('/api/vault'))).toEqual([]);
     expect(st.vaults[lookup].blob).toBe(before);
     expect((await vaultOf(st, shown)).profile.name).toBe('נועה');
+  });
+});
+
+// ---------------------------------------------------------------- on by default for a solo student (COUNCIL2-24)
+/** Welcome's questions as a student on their own: no class code, from the first stair. Ends on the first teaching stage. */
+async function welcomeSolo(page, name = 'נועה') {
+  await toClassStep(page, name);
+  await page.getByRole('button', { name: 'המשך בלי קוד', exact: true }).click();
+  await page.getByRole('radio', { name: /מתחילים מההתחלה/ }).click();
+  await page.getByRole('button', { name: 'לשיעור הראשון', exact: true }).click();
+  await expect(page).toHaveURL(/#\/(learn|lesson)\//);
+}
+const LINE = 'ההתקדמות שלכם מגובה';
+
+test.describe('the backup is on by default for a student on their own', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  test('after the first questions: the vault is made at once, the home says once what it is, and Settings stops it', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    const { st, log } = await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/', fresh());
+    await welcomeSolo(page);
+    // the backup is on as soon as the profile is there, and its first copy reaches the server (created with ifRev null)
+    await expect.poll(() => Object.keys(st.vaults).length, { timeout: 15_000 }).toBe(1);
+    const b = (await saved(page)).backup;
+    expect(b).toMatchObject({ on: true, rev: 1, note: 'auto', escrow: null });
+    const { key, lookup } = await derive(b.code);
+    expect(Object.keys(st.vaults)).toEqual([lookup]);
+    expect(vaultPosts(log)[0].body.ifRev).toBeNull();
+    expect((await openSealed(st.vaults[lookup].blob, key)).state.profile.name).toBe('נועה');
+    // the code itself never left the device
+    for (const r of log) expect(JSON.stringify([r.headers, r.body]), r.path).not.toContain(b.code);
+
+    // the home says once what it is, in a quiet card under the header
+    await page.evaluate(() => { window.location.hash = '#/'; });
+    const line = page.getByRole('region', { name: LINE });
+    await expect(line).toBeVisible();
+    await expect(line).toContainText('עותק מוצפן נשמר בשרת, ורק קוד הגיבוי פותח אותו. הקוד נמצא רק במכשיר הזה, אז כדאי לשלוח אותו להורים. אפשר לכבות את הגיבוי בהגדרות.');
+    for (const name of ['להציג את הקוד', 'להגדרות', 'הבנתי']) {
+      const box = await line.getByRole('button', { name, exact: true }).boundingBox();
+      expect(box.height, name).toBeGreaterThanOrEqual(44);
+      expect(box.width, name).toBeGreaterThanOrEqual(44);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // the map opens at its top while the line is due, so a small phone shows it too
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    await expect(line).toBeInViewport();
+    await shot(page, 'backup-default-line');
+    // its code: the sheet with the same code, and closing it ends the line for good
+    await line.getByRole('button', { name: 'להציג את הקוד', exact: true }).click();
+    const sheet = page.getByRole('dialog', { name: 'קוד הגיבוי שלכם' });
+    await expect(sheet.locator('.backup-code')).toHaveText(formatCode(b.code));
+    await sheet.getByRole('button', { name: 'שמרתי', exact: true }).click();
+    await expect(line).toHaveCount(0);
+    expect((await saved(page)).backup.note).toBeNull();
+    await page.reload();
+    await appReady(page);
+    await expect(page.locator('.learn')).toBeVisible();
+    await expect(page.getByRole('region', { name: LINE })).toHaveCount(0);
+
+    // Settings: on, what the server holds and where the code is, and the way to stop it
+    await page.evaluate(() => { window.location.hash = '#/settings'; });
+    const row = page.locator('.save-backup .save-row');
+    await expect(row.locator('dd')).toHaveText(/^פועל/);
+    await expect(page.getByText('עותק מוצפן נשמר בשרת, והקוד שפותח אותו נמצא רק במכשיר הזה. אפשר להפסיק את הגיבוי כאן בכל רגע.')).toBeVisible();
+    await page.getByRole('button', { name: 'להפסיק את הגיבוי' }).click();
+    await page.getByRole('dialog', { name: 'להפסיק את הגיבוי?' }).getByRole('button', { name: 'כן, להפסיק' }).click();
+    await expect(row.locator('dd')).toHaveText('כבוי');
+    expect(st.vaults).toEqual({});
+    const posted = vaultPosts(log).length; // the first copy, and any later push of new progress before the stop
+    // stopped means stopped: nothing turns it on again by itself
+    await page.reload();
+    await appReady(page);
+    await page.waitForTimeout(1500);
+    expect((await saved(page)).backup.on).toBe(false);
+    expect(vaultPosts(log)).toHaveLength(posted);
+    expect(errors).toEqual([]);
+  });
+
+  test('"delete all" still deletes the vault made by default, by its lookup, before anything here', async ({ page }) => {
+    test.setTimeout(120_000);
+    const { st, log } = await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/', fresh());
+    await welcomeSolo(page, 'יואב');
+    await expect.poll(() => Object.keys(st.vaults).length, { timeout: 15_000 }).toBe(1);
+    const { lookup } = await derive((await saved(page)).backup.code);
+    // the home's line closes with its X ("הבנתי")
+    await page.evaluate(() => { window.location.hash = '#/'; });
+    await page.getByRole('region', { name: LINE }).getByRole('button', { name: 'הבנתי' }).click();
+    await expect(page.getByRole('region', { name: LINE })).toHaveCount(0);
+    await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    const sheet = page.getByRole('dialog', { name: 'למחוק הכול?' });
+    await expect(sheet).toContainText('גם הגיבוי המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.');
+    await sheet.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+    expect(log.filter((r) => r.path === '/api/vault/delete').at(-1).headers['x-vault']).toBe(lookup);
+    expect(st.vaults).toEqual({});
+    expect(st.tombstones.has(lookup)).toBe(true);
+  });
+
+  test('a class student is not on this path: the class keeps the code, and the home says nothing about it', async ({ page }) => {
+    test.setTimeout(90_000);
+    const { st } = await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/', fresh());
+    await toClassStep(page, 'דנה');
+    await joinWith(page, '4821');
+    // joining goes on to the last question by itself
+    await page.getByRole('radio', { name: /מתחילים מההתחלה/ }).click();
+    await page.getByRole('button', { name: 'לשיעור הראשון', exact: true }).click();
+    await expect.poll(() => st.escrows.length, { timeout: 15_000 }).toBe(1);
+    await expect.poll(async () => (await saved(page)).backup?.escrow).toBe('class');
+    expect((await saved(page)).backup).toMatchObject({ on: true, escrow: 'class', note: null });
+    await page.evaluate(() => { window.location.hash = '#/'; });
+    await expect(page.locator('.learn')).toBeVisible();
+    await expect(page.getByRole('region', { name: LINE })).toHaveCount(0);
   });
 });
 

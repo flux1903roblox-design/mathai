@@ -48,7 +48,7 @@ Notes:
 
 ## 2. Illustrations (removed)
 
-Until November 2026 the screen headers and the teacher screens used eight unDraw illustrations by Katerina Limpitsouni (unDraw License, <https://undraw.co/license>: free for commercial and non-commercial use, no permission or credit needed, as read on 2026-11-06): Grading Papers, Files Uploading, Question Answered, Stepping Up, Visual Explanation, Winner, Math and Empty Mailbox, recoloured to `#5b4ff0`. They were replaced by original scenes drawn in code (`src/components/PageScene.jsx`, see section 4) and deleted from `src/assets/illustrations/`; nothing in the app uses them any more.
+Until November 2026 the screen headers and the teacher screens used eight unDraw illustrations by Katerina Limpitsouni (unDraw License, <https://undraw.co/license>: free for commercial and non-commercial use, no permission or credit needed, as read on 2026-11-06): Grading Papers, Files Uploading, Question Answered, Stepping Up, Visual Explanation, Winner, Math and Empty Mailbox, recoloured to `#5b4ff0`. They were replaced by original scenes drawn in code and deleted from `src/assets/illustrations/`; those scenes were retired in turn (round 17: no illustration in the screen headers) and their file removed in November 2026 (COUNCIL2-23), so nothing in the app uses either any more.
 
 ## 3. Code libraries used for visuals
 
@@ -86,13 +86,10 @@ Everything below was drawn for Madregot as SVG in the source code. None of it is
 
 | Where | What |
 |---|---|
-| `src/components/map/WorldBackdrop.jsx` | the six world entrances on the map (frost and fire valley, gridded-sea island, angle peaks, slope city, square-block pyramids, market towers) |
 | `src/components/map/Chest.jsx` | the treasure chest halfway along each unit |
 | `src/components/map/Scenery.jsx` | the scenery pieces beside the stops |
-| `src/components/Climb.jsx` | the staircase at the end of a lesson |
 | `src/components/manip/*.jsx` | the interactive maths objects (number line, plane, line builder, angle, Pythagoras squares, bars) |
 | `src/components/Mascot.jsx` | the mascot מדי |
-| `src/components/PageScene.jsx` | the scenes at the top of the screens (מדי on a stair with a chest, a checked sheet, a scanner, a printed sheet, a flagged staircase, a speech bubble, world tiles, a board, a tray) |
 
 ## 5. Data
 

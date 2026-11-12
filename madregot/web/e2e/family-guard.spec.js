@@ -21,7 +21,8 @@ const DEVICE = { id: 'd000000000000001', label: 'הטאבלט', token: FD };
 const linked = () => {
   const s = { ...reportWeek(), version: 3 };
   s.state.ai = { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: FD, label: 'הטאבלט', sharingSeen: '2026-11-05T08:00:00.000Z', lastSent: null } };
-  s.state.durable = { nudgeCount: 2 };
+  // the backup question was just asked (it keeps reminding 14 days apart since COUNCIL2-24)
+  s.state.durable = { nudgeCount: 2, nudgeAt: '2026-11-05T09:00:00.000Z' };
   return s;
 };
 

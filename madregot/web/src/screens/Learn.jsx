@@ -13,6 +13,7 @@ import StorageBanner from '@/components/durable/StorageBanner.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import InstallSheet, { InstallCard } from '@/components/durable/InstallSheet.jsx';
 import { showLearnCard } from '@/lib/durable/install.js';
+import { showBackupLine } from '@/lib/durable/vault.js';
 import Chest from '@/components/map/Chest.jsx';
 import { Emblem, SCENERY } from '@/components/map/Scenery.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -31,6 +32,8 @@ import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard
 
 // the picture of what a unit's chest holds loads with the first chest card opened (Madi's accessories are not in the boot bundle)
 const ItemArt = lazy(() => import('@/components/mascot/Accessories.jsx').then((m) => ({ default: m.ItemArt })));
+// the one-time line about the backup that is on by default (COUNCIL2-24): loaded only while it is due
+const BackupLine = lazy(() => import('@/components/durable/BackupLine.jsx'));
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
@@ -292,11 +295,13 @@ function LearnMap() {
 
   useEffect(() => { settleStreak(); }, [settleStreak]);
   // The screen opens at the top of the path; back from a lesson, or on another grade, it opens on the place to continue from.
-  // On a fresh open the screen opens at the top, unless the plan's next stair is out of view: then it opens on it.
+  // On a fresh open the screen opens at the top, unless the plan's next stair is out of view: then it opens on it. While
+  // the backup's one-time line is due (COUNCIL2-24), it opens at the top, so a small phone shows the line; the arrow
+  // button leads down to the stair.
   useLayoutEffect(() => {
     const first = firstView.current; firstView.current = false;
     if (first && !state?.from) {
-      const r = focus.next ? currentRef.current?.getBoundingClientRect() : null;
+      const r = focus.next && !showBackupLine(useApp.getState().backup) ? currentRef.current?.getBoundingClientRect() : null;
       if (r && (r.top < 0 || r.bottom > window.innerHeight * 0.8)) currentRef.current.scrollIntoView({ block: 'center' });
       else window.scrollTo(0, 0);
       return;
@@ -317,6 +322,7 @@ function LearnMap() {
   const classWork = useApp((s) => s.classWork);
   const workOutbox = useApp((s) => s.workOutbox);
   const urgent = profile.token ? urgentWork(classWork, workOutbox) : null;
+  const backupLine = useApp((s) => showBackupLine(s.backup));
 
   return (
     <div className="learn">
@@ -336,6 +342,8 @@ function LearnMap() {
         </Link>
       )}
       <StorageBanner />
+      {/* a solo student's backup was turned on by default after the first questions: said once, here (COUNCIL2-24) */}
+      {backupLine && <Suspense fallback={null}><BackupLine /></Suspense>}
       {/* on an iPhone in the browser, from the 3rd day: the Home Screen guide, offered once (lib/durable/install.js) */}
       {showLearnCard({ profile, days, xp, durable: { installHintAt } }) && <InstallCard onOpen={() => setInstall(true)} />}
       <InstallSheet open={install} onOpenChange={setInstall} />

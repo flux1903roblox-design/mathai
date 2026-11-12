@@ -10,8 +10,8 @@
 //   kept       everything else, and a teacher's class keys (profile.classes[].key): for a class that is not tied to
 //              an email account the key is the only way back in, so the teacher's file note says who can use it
 import { DEVICE_ONLY, dataOf } from './merge.js';
+import { isObj } from '@shared/obj.js';
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /** A plain copy of `state` for a backup: no device-only slices, no class token or student id. */
 export function snapshotForBackup(state) {

@@ -5,8 +5,11 @@
 // normalise() takes what a person types or pastes: any letter case, spaces, dashes, direction and zero-width marks, and
 // the Hebrew keyboard layout (SI-1452), so a child who types the code with the Hebrew keyboard still gets it right.
 
-/** The class-code alphabet, the same 31 symbols as worker/src/util.js (code.test.js pins them equal). */
-export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+// The class-code alphabet: the one copy the Worker uses too (shared/alphabet.js, COUNCIL2-23). A relative path, not
+// '@shared': the end-to-end tests import this file in Node, where the alias does not exist.
+import { CODE_ALPHABET } from '../../../../shared/alphabet.js';
+
+export { CODE_ALPHABET };
 export const CODE_LENGTH = 16;
 const BODY = CODE_LENGTH - 1;
 const N = CODE_ALPHABET.length;

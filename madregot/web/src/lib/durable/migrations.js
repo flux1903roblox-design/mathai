@@ -15,13 +15,19 @@
 //           save prompts (durable) and the backup settings (backup).
 //   v5 → v6 (class work from the teacher, TEACHER-5): the last class work fetched (classWork) and the reports waiting
 //           for the server (workOutbox). A save that has them already keeps them.
+//   v6 → v7 (COUNCIL2-23): the retired improvement plan's baselines and counts (planBase, wins; nothing writes them since
+//           CURRICULUM-7) are dropped, so the store has one shape. Both merges drop them too (RETIRED, merge.js), so an
+//           older tab or device cannot bring them back.
 // Fields this module does not know are kept as they are, so a field another part of the app adds survives.
 import { emptyLearn, migrateLearn, relabelLegacyEvidence } from '@/learn/storeGlue.ts';
 import { migratePath } from '../path.js';
 import { newTag as makeNewTag, sumXp, TAG } from './xp.js';
 import { validateState } from './validate.js';
+import { isObj } from '@shared/obj.js';
 
-export const CURRENT_VERSION = 6;
+export const CURRENT_VERSION = 7;
+/** Fields an older version kept and this one drops (the v7 step, and both merges in merge.js). */
+export const RETIRED = Object.freeze(['planBase', 'wins']);
 
 /**
  * The tutor on this device: the server (or a personal key, only in builds with VITE_ALLOW_PERSONAL_KEY=1), an anonymous
@@ -36,10 +42,12 @@ export const AI_DEFAULTS = Object.freeze({ mode: 'server', apiUrl: '', key: '', 
 // asks the adult step first (COUNCIL2-5, lib/parentGate.js needsTeacherAdultStep).
 export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, installHintAt: null, nudgeAt: null, nudgeCount: 0, escrowClass: true, wasStudent: false });
 /**
- * The backup of this student's progress: off until the student or a parent turns it on. With the backup code (DURABLE-5,
- * durable/vault.js): the code, its lookup token, the vault's rev and when it was last pushed, the hash of what was pushed,
- * the sync's state ('idle' | 'offline' | 'error' | 'unavailable' | 'too_big' | 'other_student' | 'gone') and a one-time
- * note for Settings ('recreated').
+ * The backup of this student's progress: off until it is turned on. With a server, a solo student's is turned on right
+ * after the first questions (COUNCIL2-24, vault.js defaultBackup); a class or a family turns it on when it keeps the code
+ * (escrow.js); anyone can turn it on in Settings or stop it there. With the backup code (DURABLE-5, durable/vault.js): the
+ * code, its lookup token, the vault's rev and when it was last pushed, the hash of what was pushed, the sync's state
+ * ('idle' | 'offline' | 'error' | 'unavailable' | 'too_big' | 'other_student' | 'gone') and a one-time note: for
+ * Settings ('recreated', 'moved', 'deleted'), or for Learn ('auto': the backup was turned on by default, BackupLine.jsx).
  */
 export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false, moveCode: false, state: null, note: null });
 
@@ -51,7 +59,6 @@ export function emptyClassWork() {
   return { at: null /* iso of the last fetch */, today: null, teacherName: '', assignments: [], help: [], exams: {} /* assignmentId -> frozen items */, seenAt: null /* the last opening of /quests */, noticed: {} /* help messageId -> true */ };
 }
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 export const MIGRATIONS = [
   {
@@ -116,6 +123,11 @@ export const MIGRATIONS = [
       classWork: { ...emptyClassWork(), ...(isObj(st.classWork) ? st.classWork : {}) },
       workOutbox: isObj(st.workOutbox) ? st.workOutbox : {},
     }),
+  },
+  {
+    to: 7,
+    // the improvement plan's leftovers go (COUNCIL2-23); a save without them is left as it is
+    up: (st) => Object.fromEntries(Object.entries(st).filter(([k]) => !RETIRED.includes(k))),
   },
 ];
 

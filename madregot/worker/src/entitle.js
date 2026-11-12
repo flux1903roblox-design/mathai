@@ -47,6 +47,7 @@ import { maskPersonal } from '../../shared/safety.js';
 import { recordSafety, eventNet } from './safety.js';
 import { accountFrom } from './account.js';
 import { summaryState } from './report.js';
+import { isObj } from '../../shared/obj.js';
 
 // ---------------------------------------------------------------- limits
 export const DEFAULT_LIMITS = {
@@ -86,7 +87,6 @@ const VARS = [
   ['OWNER_ALERT_USD', ['budgets', 'ownerAlertUsd']],
   ['FAMILY_GRACE_DAYS', ['graceDays']],
 ];
-const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 function merge(into, from) {
   for (const [k, v] of Object.entries(from || {})) {
     if (isObj(v) && isObj(into[k])) merge(into[k], v);

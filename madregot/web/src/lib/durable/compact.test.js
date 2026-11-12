@@ -28,7 +28,7 @@ describe('compactForQuota', () => {
     expect(out.practiceExams).toEqual(heavy.practiceExams.slice(0, KEEP_PRACTICE_EXAMS));
   });
   it('everything that drives learning stays whole', () => {
-    for (const k of ['days', 'path', 'progress', 'xp', 'xpBy', 'mistakes', 'wins', 'gaps', 'outbox', 'profile', 'durable', 'backup']) expect(out[k], k).toBe(heavy[k]);
+    for (const k of ['days', 'path', 'progress', 'xp', 'xpBy', 'mistakes', 'gaps', 'outbox', 'profile', 'durable', 'backup']) expect(out[k], k).toBe(heavy[k]);
     for (const k of ['skills', 'miscon', 'missions', 'exam']) expect(out.learn[k], k).toBe(heavy.learn[k]);
   });
   it('makes the heavy year smaller than 300 KB, from over 400 KB', () => {

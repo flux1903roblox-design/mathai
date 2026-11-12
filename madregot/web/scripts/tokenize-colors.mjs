@@ -29,7 +29,7 @@ export const LITERAL = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-f
 // page selectors: their white is the page (--paper), not a card (--surface)
 const PAGE = new Set(['html', 'body', '.learn', '.page-hero', '.screen-bar', '.tabbar', '.learn-top', '.lesson-foot', '.lesson', '.lesson-head', '.done-screen', '.chat-dock']);
 // white here is drawn on a coloured fill (a banner, a stop, a coloured card, an illustration): it stays white in dark
-const ON_COLOUR = ['.unit-bar i', '.node-card .btn-primary', '.btn-on-color', '.sc-stroke-w', '.wb-road-dash', '.wb-blocks', '.mp-bal-w line', '.wb-window', '.climb-tread', '.climb-num', '.node-burst i', '.week-day.on .week-dot svg'];
+const ON_COLOUR = ['.unit-bar i', '.node-card .btn-primary', '.btn-on-color', '.sc-stroke-w', '.mp-bal-w line', '.node-burst i', '.week-day.on .week-dot svg'];
 // translucent white over the page or a card (a frosted bar, a veil); every other translucent white sits on a coloured fill
 const VEIL = { '.learn-top': '--paper', '.t-head': '--paper', '.combo-pop': '--paper', '.page-remove': '--surface', '.bl-why': '--surface' };
 

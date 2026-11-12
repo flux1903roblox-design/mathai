@@ -12,13 +12,13 @@
 // Honest limit: localStorage in Chromium is cached per page and kept in step by messages, so tabs can save within the
 // same few milliseconds without seeing each other. The next event or save catches that (nothing is lost); with three
 // or more tabs racing in the same instant, an additive counter can at worst be counted twice, never lost.
+import { isObj } from '@shared/obj.js';
 
 /** How many saves back a tab's entry in `seen` is kept; older saves are taken as included in every later one. */
 export const SEEN_WINDOW = 500;
 /** At most this many tabs in `seen` (the newest). */
 export const SEEN_MAX = 16;
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const top = (seen) => Object.values(seen).reduce((t, r) => (Number.isFinite(r) && r > t ? r : t), 0);
 
 /** The tabs a save includes, by its meta: `seen`, or (a save from before `seen` existed) just its own writer. */

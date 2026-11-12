@@ -13,7 +13,7 @@ const TYPES = {
   profile: ['object', 'null'], progress: ['object'], days: ['object'], xp: ['number'], xpBy: ['object'], path: ['object'],
   freezes: ['number'], goalXp: ['number'], sound: ['boolean'], mistakes: ['object'], lastTopic: ['string', 'null'],
   outbox: ['array'], ai: ['object'], helpSent: ['number'], solveMode: ['string'], exams: ['array'], practiceExams: ['array'],
-  planBase: ['object'], wins: ['object'], gaps: ['object'], placement: ['object', 'null'], learn: ['object'],
+  gaps: ['object'], placement: ['object', 'null'], learn: ['object'],
   resetAt: ['string', 'null'], durable: ['object'], backup: ['object'], haptics: ['boolean'], prefs: ['object'],
   teacherExams: ['array'],
   // the student lane (STUDENT-3/4/5/10): Madi's look, the streak's repair, the one-time notes, the class goal

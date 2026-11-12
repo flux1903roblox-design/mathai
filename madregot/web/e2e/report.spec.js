@@ -280,7 +280,8 @@ const DEVICE = { id: 'd000000000000001', label: 'הטאבלט', token: FD };
 const linkedWeek = () => {
   const s = withServer();
   s.state.ai.familyDevice = { token: FD, label: 'הטאבלט' };
-  s.state.durable = { nudgeCount: 2 };
+  // asked on the morning of the 5th (it keeps reminding 14 days apart since COUNCIL2-24)
+  s.state.durable = { nudgeCount: 2, nudgeAt: '2026-11-05T09:00:00.000Z' };
   return s;
 };
 const notice = (page) => page.getByRole('dialog', { name: 'ההורים יראו סיכום קצר של התרגול' });
@@ -449,7 +450,8 @@ test('flow 5: a class student\'s numbers say the teacher sees every answer, not 
   await fakeServer(page.context(), {}, baseURL);
   const s = withServer();
   s.state.profile = { ...s.state.profile, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_s1_1', studentId: 's1' };
-  s.state.durable = { nudgeCount: 2 };
+  // asked on the morning of the 5th (it keeps reminding 14 days apart since COUNCIL2-24)
+  s.state.durable = { nudgeCount: 2, nudgeAt: '2026-11-05T09:00:00.000Z' };
   await open(page, '#/me', s);
   await expect(page.locator('.nums-where')).toHaveText('המספרים האלה מחושבים במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה. הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.');
   await expect(page.getByText('לשום מקום')).toHaveCount(0);

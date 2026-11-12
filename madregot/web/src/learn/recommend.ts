@@ -27,7 +27,6 @@ export interface Context {
 
 export const titleOf = (id: SkillId): string => { const { topic, level } = parseSkill(id); return TOPIC[topic]?.levels[level - 1]?.title || id; };
 export const topicTitleOf = (id: SkillId): string => TOPIC[parseSkill(id).topic]?.title || '';
-const stairName = (id: SkillId) => `${topicTitleOf(id)}: ${titleOf(id)}`;
 
 /** About how long each kind takes. A challenge item carries its own task's minutes (4 to 10); 6 is only the typical one. */
 export const MINUTES: Record<Action['kind'], number> = { exam: 5, repair: 3, review: 2, 'exam-loss': 4, floor: 3, prereq: 4, continue: 4, new: 5, mastery: 3, challenge: 6 };
@@ -133,4 +132,3 @@ export function nextActions(ctx: Context): Action[] {
   return planNext({ ...ctx, month: schoolMonth(ctx.day), exams: [] }).items;
 }
 
-export { stairName };

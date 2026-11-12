@@ -12,10 +12,13 @@
 // settings and its device-only slices (the tutor, the class outbox, the save settings, the backup, the class work)
 // always stay.
 //
-// In both, a reset on purpose (resetAt) wins every progress field whole: a sync must not bring old progress back.
+// In both, a reset on purpose (resetAt) wins every progress field whole: a sync must not bring old progress back. And
+// in both, the fields the v7 migration retired (RETIRED: planBase, wins) are dropped, so neither side brings them back.
 import { sumXp } from './xp.js';
 import { logEvent, MAX_EVENTS } from '@/learn/analytics.ts';
 import { KEEP_ATTEMPTS } from '@/learn/mastery.ts';
+import { isObj } from '@shared/obj.js';
+import { RETIRED } from './migrations.js';
 
 /** Checked exams and practice exams kept (newest first), as the store keeps them. */
 export const EXAMS_KEEP = 30;
@@ -41,7 +44,7 @@ export const SETTINGS = ['sound', 'goalXp', 'solveMode', 'helpSent', 'haptics', 
  * What a reset on purpose clears (store.js resetProgress): the side with the later reset gives all of it. Madi's look
  * (STUDENT-3) and the streak's last repair (STUDENT-5) go with the progress.
  */
-export const PROGRESS = ['progress', 'days', 'xp', 'xpBy', 'resetAt', 'path', 'mistakes', 'wins', 'gaps', 'placement', 'learn', 'exams', 'practiceExams', 'planBase', 'freezes', 'lastTopic', 'streak', 'look'];
+export const PROGRESS = ['progress', 'days', 'xp', 'xpBy', 'resetAt', 'path', 'mistakes', 'gaps', 'placement', 'learn', 'exams', 'practiceExams', 'freezes', 'lastTopic', 'streak', 'look'];
 /** Class-goal steps waiting for the server, at most (store.js STEPS_MAX; the oldest give way first). */
 export const STEPS_KEEP = 200;
 /** Per-day counters that take the larger value even between tabs (the best combo of the day). */
@@ -51,7 +54,6 @@ const DAY_OR = new Set(['frozen', 'questsRewarded']);
 /** A flag set on either side; a day the streak's repair kept stays frozen: 'repair' (STUDENT-5: "הרצף נשמר"). */
 const orJoin = (x, y) => (x === 'repair' || y === 'repair' ? 'repair' : !!(x || y));
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isFn = (v) => typeof v === 'function';
 /** The same value: the same reference, or the same JSON (parsed copies of one value). */
@@ -257,6 +259,7 @@ export function mergeTabs(base, mine, theirs, { mineAt = {}, theirsAt = {} } = {
   const progress = new Set([...PROGRESS, 'outbox', 'stepsOut', 'classGoals']);
   const out = {};
   for (const k of learnFirst(keysOf(m, t))) {
+    if (RETIRED.includes(k)) continue; // an older tab's leftovers (migrations.js v7)
     if (reset && progress.has(k)) { if (reset[k] !== undefined) out[k] = reset[k]; continue; }
     if (t[k] === undefined) { out[k] = m[k]; continue; }
     if (m[k] === undefined) { out[k] = t[k]; continue; }
@@ -271,7 +274,7 @@ export function mergeTabs(base, mine, theirs, { mineAt = {}, theirsAt = {} } = {
 function tabSlice(k, b, m, t, c) {
   switch (k) {
     case 'xp': return add3(b, m, t);
-    case 'xpBy': case 'mistakes': case 'wins': return addMap3(b, m, t);
+    case 'xpBy': case 'mistakes': return addMap3(b, m, t);
     case 'days': return perKey3(b, m, t, (x, y, z) => three(x, y, z, (bd, md, td) => tabDay(bd, md, td, c.wins)));
     case 'path': return perKey3(b, m, t, (x, y, z, topic) => three(x, y, z, (bu, mu, tu) => tabUnit(bu, mu, tu, topic, c)));
     case 'progress': return perKey3(b, m, t, (x, y, z) => three(x, y, z, (bp, mp, tp) => (isObj(mp) && isObj(tp) ? { ...generic3(bp, mp, tp, c.wins), level: max2(mp.level, tp.level), max: max2(mp.max, tp.max) } : generic3(bp, mp, tp, c.wins))));
@@ -375,6 +378,7 @@ export function mergeDevices(local, remote, { localAt = null, remoteAt = null } 
   const out = {};
   const ctx = { out, newerRemote, newer };
   for (const k of learnFirst(keysOf(l, r))) {
+    if (RETIRED.includes(k)) continue; // an older device's leftovers (migrations.js v7)
     let v;
     if (DEVICE_ONLY.includes(k)) v = l[k];
     else if (SETTINGS.includes(k)) v = l[k] !== undefined ? l[k] : r[k];
@@ -400,7 +404,7 @@ function deviceSlice(k, x, y, c) {
   if (y === undefined) return x;
   switch (k) {
     case 'xp': return max2(x, y); // replaced by the sum of xpBy
-    case 'xpBy': case 'mistakes': case 'wins': return maxMap(x, y);
+    case 'xpBy': case 'mistakes': return maxMap(x, y);
     case 'resetAt': return str(x) >= str(y) ? x : y;
     case 'days': return perKeyJoin(x, y, (a, b) => deviceDay(a, b, c));
     case 'path': return perKeyJoin(x, y, (a, b, topic) => deviceUnit(a, b, topic, c));
@@ -414,7 +418,7 @@ function deviceSlice(k, x, y, c) {
     case 'exams': return newestFirst(unionById(x, y, c), EXAMS_KEEP);
     case 'practiceExams': return newestFirst(unionById(x, y, c), PRACTICE_EXAMS_KEEP);
     case 'teacherExams': return newestFirst(unionById(x, y, c), TEACHER_EXAMS_KEEP);
-    case 'placement': case 'lastTopic': case 'planBase': case 'freezes': return c.newer(x, y);
+    case 'placement': case 'lastTopic': case 'freezes': return c.newer(x, y);
     case 'look': return lookJoin(c.newer(x, y), x, y);
     // the streak's last repair: the later one, so a repair on either device waits its 30 days (lib/streak.js)
     case 'streak': return isObj(x) && isObj(y) ? { ...c.newer(x, y), lastRepair: str(x.lastRepair) >= str(y.lastRepair) ? x.lastRepair ?? null : y.lastRepair ?? null } : c.newer(x, y);

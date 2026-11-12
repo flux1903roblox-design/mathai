@@ -361,12 +361,6 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .unit-world {
   position: relative; margin-top: -22px; padding-top: 22px; border-radius: 0 0 32px 32px;
 }
-.trail { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-.trail path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.trail-edge { stroke: color-mix(in srgb, var(--c-d) 13%, transparent); stroke-width: 28; }
-.trail-road { stroke: var(--paper); stroke-width: 21; }
-.trail-walked { stroke: var(--c); stroke-width: 11; opacity: 0.5; }
-.trail-dots { stroke: color-mix(in srgb, var(--c-d) 32%, transparent); stroke-width: 5; stroke-dasharray: 0.1 15; }
 .sc-w { fill: var(--surface); }
 .sc-c { fill: var(--c); }
 .sc-d { fill: var(--c-d); }
@@ -1085,36 +1079,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .manip-angle .manip-readout { font-size: 1.375rem; }
 
 /* ---------- the adventure map: a world per unit, stairs for stops, a chest halfway ---------- */
-/* each world opens with its landscape behind the first stairs; the land below keeps the world's ground */
-.world-horizon { position: absolute; top: 0; left: 0; width: 100%; height: 168px; pointer-events: none; }
-.wb-white { fill: var(--surface); }
-.wb-ground { fill: color-mix(in srgb, var(--c-tint) 70%, var(--surface)); }
-.wb-far { fill: color-mix(in srgb, var(--c) 22%, var(--surface)); }
-.wb-mid { fill: color-mix(in srgb, var(--c) 34%, var(--surface)); }
-.wb-sun { fill: color-mix(in srgb, var(--gold) 55%, var(--surface)); }
-.wb-frost { fill: color-mix(in srgb, var(--ch-sky) 28%, var(--surface)); }
-.wb-fire { fill: color-mix(in srgb, var(--streak) 30%, var(--surface)); }
-.wb-lava { fill: color-mix(in srgb, var(--streak) 80%, var(--gold)); }
-.wb-ember { fill: var(--gold); }
-.wb-flake path { fill: none; stroke: var(--ch-sky); stroke-width: 2; stroke-linecap: round; opacity: 0.7; }
-.wb-sea { fill: color-mix(in srgb, var(--ch-sky) 18%, var(--surface)); }
-.wb-gridline { stroke: color-mix(in srgb, var(--ch-sky) 30%, transparent); stroke-width: 1; }
-.wb-wave { fill: none; stroke: color-mix(in srgb, var(--ch-sky) 55%, var(--paper)); stroke-width: 2.5; stroke-linecap: round; }
-.wb-sand { fill: color-mix(in srgb, var(--gold) 26%, var(--surface)); }
-.wb-trunk { fill: none; stroke: #b77b3d; stroke-width: 4; stroke-linecap: round; } /* colour-ok: illustration */
-.wb-leaf { fill: color-mix(in srgb, var(--good) 70%, var(--surface)); }
-.wb-x { fill: none; stroke: var(--bad); stroke-width: 4; stroke-linecap: round; }
-.wb-boat { fill: color-mix(in srgb, var(--c) 60%, var(--surface)); }
-.wb-gear { fill: none; stroke: color-mix(in srgb, var(--gold) 70%, var(--paper)); stroke-width: 4; stroke-linecap: round; }
-.wb-arc { fill: none; stroke: var(--streak); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 4 5; }
-.wb-window { fill: color-mix(in srgb, var(--on-brand) 75%, transparent); }
-.wb-road { fill: none; stroke: color-mix(in srgb, var(--c-d) 55%, var(--paper)); stroke-width: 9; stroke-linecap: round; }
-.wb-road-dash { fill: none; stroke: var(--on-brand); stroke-width: 2; stroke-dasharray: 10 9; }
-.wb-blocks { fill: none; stroke: var(--on-brand); stroke-width: 2; opacity: 0.8; }
-.wb-awning { fill: color-mix(in srgb, var(--c) 70%, var(--surface)); }
-.wb-awning.alt { fill: color-mix(in srgb, var(--gold) 70%, var(--surface)); }
-.wb-flag { fill: color-mix(in srgb, var(--c-d) 60%, var(--surface)); stroke: color-mix(in srgb, var(--c-d) 60%, var(--paper)); stroke-width: 1.5; stroke-linejoin: round; }
-.wb-mean { fill: none; stroke: var(--c-d); stroke-width: 2.5; stroke-dasharray: 8 6; opacity: 0.7; }
 
 /* a stop is a stair block: a squared top face lit from above, and a deep riser that sinks when pressed */
 .node-mastered::after { border-radius: 30%; }
@@ -1139,26 +1103,10 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .chest:not(.is-open) .ch-body, .chest:not(.is-open) .ch-lid { filter: saturate(0.55); }
 @media (prefers-reduced-motion: reduce) { .node-marks i { transition: none; } }
 
-/* ---------- the end of a lesson: מדי climbs the unit's stairs ---------- */
-.climb { position: relative; width: min(100%, 380px); aspect-ratio: 360 / 210; margin: 0 auto; }
-.climb-steps { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.climb-face { fill: var(--c); }
-.climb-face { stroke: var(--paper); stroke-width: 2; }
-.climb-tread { fill: none; stroke: color-mix(in srgb, var(--on-brand) 45%, transparent); stroke-width: 4; stroke-linecap: round; }
-.climb-step.off .climb-face { fill: color-mix(in srgb, var(--c-tint) 70%, var(--surface)); stroke: color-mix(in srgb, var(--c) 18%, var(--paper)); }
-.climb-step.cur .climb-face { fill: color-mix(in srgb, var(--c) 26%, var(--surface)); }
-.climb-step.off .climb-tread, .climb-step.cur .climb-tread { stroke: var(--paper); }
-.climb-part { fill: color-mix(in srgb, var(--c) 70%, var(--surface)); }
-.climb-num { font-family: var(--font-display); font-weight: 700; font-size: 15px; fill: color-mix(in srgb, var(--on-brand) 92%, transparent); }
-.climb-step.off .climb-num, .climb-step.cur .climb-num { fill: var(--c-d); opacity: 0.6; }
-.climb-flag path { fill: var(--gold); stroke: var(--gold-d); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.climb-mascot { position: absolute; transform: translate(-50%, -100%); width: 84px; z-index: 2; pointer-events: none; }
-.climb-mascot .mascot { display: block; }
 /* a celebration taller than a small phone scrolls from its top instead of being cut there */
 .done-screen { justify-content: safe center; }
 @media (max-height: 700px) { .done-screen { gap: var(--s3); padding-top: var(--s4); } }
 @media (max-height: 700px) {
-  .climb { width: min(100%, 250px); }
   /* the button to go on stays under the thumb while the medals scroll above it */
   .done-screen { padding-bottom: 0; }
 }
@@ -1233,27 +1181,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
 /* step buttons stay 44px on every screen (the short-phone rule above made them 42px); the fact line never leaves one word alone */
 .hello-fact { text-wrap: pretty; }
-/* the step just earned in the results staircase lights up once (a short glow, none under reduced motion) */
-@keyframes ss-glow { 0% { filter: brightness(1.35) drop-shadow(0 0 0 var(--good)); } 40% { filter: brightness(1.2) drop-shadow(0 0 6px var(--good)); } 100% { filter: none; } }
 
-/* ---------- page scenes: מדי on a stair beside the thing the screen is for (no stock art) ---------- */
-.scene { position: relative; width: 100%; aspect-ratio: 160 / 130; }
-.scene-art { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 8px 12px color-mix(in srgb, var(--c-d) 16%, transparent)); }
-.scene-mascot { position: absolute; left: 72.5%; bottom: 23%; width: 46% !important; height: auto !important; transform: translateX(-50%); }
-.sc-ink { stroke: #7d4f1f; stroke-width: 2; } /* colour-ok: illustration */
-.sc-wood { fill: #b07636; stroke: #7d4f1f; stroke-width: 2.5; stroke-linejoin: round; } /* colour-ok: illustration */
-.sc-wood.light { fill: #c98a43; } /* colour-ok: illustration */
-.sc-band { fill: none; stroke: var(--gold-d); stroke-width: 4; }
-.sc-glow { fill: #fff3b0; } /* colour-ok: illustration */
-.sc-rays { fill: none; stroke: var(--gold); stroke-width: 3.5; stroke-linecap: round; }
-.sc-grid-d { fill: none; stroke: color-mix(in srgb, var(--c-d) 35%, transparent); stroke-width: 3; stroke-linecap: round; }
-.sc-good { fill: var(--good); }
-.sc-frost { fill: color-mix(in srgb, var(--ch-sky) 35%, var(--surface)); }
-.sc-fire { fill: color-mix(in srgb, var(--streak) 45%, var(--surface)); }
-.sc-sea { fill: color-mix(in srgb, var(--ch-sky) 22%, var(--surface)); }
-.sc-sand { fill: color-mix(in srgb, var(--gold) 40%, var(--surface)); }
-.sc-flag { fill: var(--gold); stroke: var(--gold-d); stroke-width: 2.5; stroke-linejoin: round; }
-.sc-math { fill: var(--c-d); font-family: var(--font-display); font-weight: 700; font-size: 17px; direction: ltr; }
 /* a topic's page opens on its world, then its band */
 
 /* more interactive objects: markers to place, a triangle to shape, a line or a shape on the grid, the median */

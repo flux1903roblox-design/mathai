@@ -19,6 +19,7 @@ import { applyRestored } from './apply.js';
 import { derive } from './crypto.js';
 import { isCode } from './code.js';
 import { createBackup, findVault, adoptCode } from './vault.js';
+import { isObj } from '@shared/obj.js';
 
 export const ESCROW_TEXT = {
   /** a class rejoin on a device with no progress */
@@ -31,7 +32,6 @@ export const ESCROW_TEXT = {
   off: errorText('escrow_off'),
 };
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const backupOf = (store) => ({ ...BACKUP_DEFAULTS, ...(isObj(store.getState().backup) ? store.getState().backup : {}) });
 const durableOf = (store) => ({ ...DURABLE_DEFAULTS, ...(isObj(store.getState().durable) ? store.getState().durable : {}) });
 

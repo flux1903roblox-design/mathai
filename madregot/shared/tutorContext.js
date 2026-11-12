@@ -11,6 +11,7 @@
 //                             a cached older app keeps working, with the final-answer policy inferred conservatively
 //   renderContext(ctx, opts)  the <app_context> block, within a budget of characters per request shape
 import { maskPersonal } from './safety.js';
+import { isObj } from './obj.js';
 
 export const CTX_VERSION = 2;
 /** Characters the rendered block may use, per request shape (the free taste is shortest). */
@@ -29,7 +30,6 @@ const OPEN_STATES = ['confirmed', 'repairing'];
 const STAGES = ['A', 'B', 'C'];
 
 // ---------------------------------------------------------------- normalize: validate, clip, drop the rest
-const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 /** A string as it may appear in the block: control characters out, the block's own tag out, clipped. */
 function str(v, n) {
   if (typeof v !== 'string' && typeof v !== 'number') return '';

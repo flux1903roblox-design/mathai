@@ -137,8 +137,9 @@ export async function secretEqual(a, b) {
   return safeEqual(await sha256(String(a ?? '')), await sha256(String(b ?? '')));
 }
 
-// Class codes, link codes and licence codes: no 0/O, 1/I/L. 31 symbols.
-export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+// Class codes, link codes, licence keys and claim codes: no 0/O, 1/I/L, 31 symbols. The one copy is shared with the
+// app's backup code (shared/alphabet.js, COUNCIL2-23).
+export { CODE_ALPHABET } from '../../shared/alphabet.js';
 /** n symbols from an alphabet, uniformly (rejection sampling: no modulo bias). */
 export function randomFrom(alphabet, n) {
   const cap = 256 - (256 % alphabet.length);

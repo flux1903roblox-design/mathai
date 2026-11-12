@@ -15,9 +15,9 @@ export const STYLES = path.resolve(here, '../src/styles');
 // with the browser's zoom), and a label that grew with the text size alone would cover the lines and points it names.
 const SVG_LABELS = {
   'app.css': [
-    '.climb-num', '.fg-angle.target', '.fg-pt-label', '.fg-side.target', '.fg-tick', '.mp-bal-box text', '.mp-dline .mp-num',
+    '.fg-angle.target', '.fg-pt-label', '.fg-side.target', '.fg-tick', '.mp-bal-box text', '.mp-dline .mp-num',
     '.mp-dline-pill text', '.mp-fbar-whole .mp-num', '.mp-ghost-pin text', '.mp-ghost-pt text', '.mp-hint text', '.mp-hint text.big',
-    '.mp-num', '.mp-tile text', '.np-pin text', '.sc-math',
+    '.mp-num', '.mp-tile text', '.np-pin text',
   ],
   'canon.css': ['.geo .fg-pt-label'],
   'lazy/figure.css': [

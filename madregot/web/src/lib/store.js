@@ -108,10 +108,6 @@ export const empty = {
   solveMode: 'answer', // 'answer' (keypad) or 'notebook' (write the working on a squared page)
   exams: [], // checked exams, newest first: { id, at, title, source, practiceId, result, score, levels }
   practiceExams: [], // printable practice exams with their answer key
-  // the retired improvement plan's baselines and counts (CURRICULUM-7): nothing writes them any more. Older saves keep
-  // theirs until a DURABLE migration drops the fields; a reset or a sign-out clears them.
-  planBase: {},
-  wins: {},
   gaps: {}, // 'topic:cat' (or 'topic:exam:skill') -> { level, n, ok, at, text? }: what is not clear yet; clears after GAP_CLEAR right answers at that level
   placement: null, // { at, grade, results: { topic: { level, asked, right } } }
   learn: emptyLearn(), // Madregot 2.0: skills (evidence, mastery, reviews), misconceptions, exam plan, missions, events (src/learn/types.ts)
@@ -518,7 +514,7 @@ export const appState = (set, get) => ({
       // the daily reminder stay (the device's)
       resetProgress: () => set({
         progress: {}, days: {}, xp: 0, xpBy: {}, resetAt: new Date().toISOString(), mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {},
-        exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null },
+        exams: [], practiceExams: [], path: {}, freezes: 0, streak: { lastRepair: null },
         nudges: {
           ...empty.nudges, goalSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null,
           pushOffered: !!get().nudges?.pushOffered, storeOpenDay: get().nudges?.storeOpenDay || null,

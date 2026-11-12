@@ -21,6 +21,7 @@ import RestorePreview from '@/components/durable/RestorePreview.jsx';
 import { isStandalone } from '@/lib/durable/install.js';
 import { findCode, formatCode } from '@/lib/durable/code.js';
 import { afterClassJoin } from '@/lib/durable/escrow.js';
+import { defaultBackup } from '@/lib/durable/vault.js';
 import { deepLink, countFromLanding } from '@/lib/deepLink.js';
 import { canSell } from '@/lib/price.js';
 import { needsTeacherAdultStep } from '@/lib/parentGate.js';
@@ -162,8 +163,11 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
     setGoalXp(f.goal);
     setProfile({ role: 'student', name: j?.name || f.name.trim(), grade: j?.grade || grade, know: f.know ?? 1, ...(j ? joinedProfile(j) : {}) });
     if (j) useApp.getState().quietForClass(); // a classroom is quiet: sounds start off (STUDENT-7)
-    // a class keeps this student's code (DURABLE-6): made in the background once the profile is here, never in the way
+    // a class keeps this student's code (DURABLE-6): made in the background once the profile is here, never in the way.
+    // A student on their own gets the backup on by default (COUNCIL2-24): the same, with the code kept only here; Learn
+    // says once what it is, and Settings stops it.
     if (j) afterClassJoin(j).then((r) => { if (r.toast) toast(r.toast); });
+    else defaultBackup().catch(() => { /* the backup stays off; the reminder on a calm screen offers it again */ });
     if (next) { navigate(next, { replace: true }); return; }
     // "to the first lesson" opens it: the first stair of the grade's first topic
     // from the first stair: it starts by understanding (the stair's first teaching stage), not with exercises

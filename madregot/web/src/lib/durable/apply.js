@@ -23,6 +23,7 @@ import { newTag } from './xp.js';
 import { durableQuarantine } from './storage.js';
 import { useDurable } from './useDurable.js';
 import { logEvent } from '@/learn/analytics.ts';
+import { isObj } from '@shared/obj.js';
 
 /** How long a replacing restore can be undone. */
 export const UNDO_DAYS = 30;
@@ -33,7 +34,6 @@ export const NO_COPY = 'לא הצלחנו לשמור עותק של ההתקדמ�
 /** The copy kept before the restore is gone (the browser cleared it): there is nothing to go back to. */
 export const NO_UNDO = 'אי אפשר לבטל: העותק של מה שהיה לפני לא נמצא במכשיר.';
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 /** A name as people write it: no niqqud, one space, no direction marks, any letter case. */
 export const normName = (s) => (typeof s === 'string' ? s.normalize('NFKC').replace(/[֑-ׇ‎‏]/g, '').replace(/\s+/g, ' ').trim().toLowerCase() : '');
 

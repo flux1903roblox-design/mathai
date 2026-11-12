@@ -2,6 +2,7 @@
 // be lost without changing anything the app teaches or counts goes: the oldest half of the analytics log, the long
 // written feedback of old checked exams (their questions, answers and scores stay), and old printable practice exams.
 // Skills, attempts, mastery, misconceptions, days, the path, progress, XP and the class outbox stay whole.
+import { isObj } from '@shared/obj.js';
 
 /** Analytics events kept when compacting (the log itself keeps up to MAX_EVENTS, 3,000). */
 export const KEEP_EVENTS = 1500;
@@ -10,7 +11,6 @@ export const KEEP_EXAM_FEEDBACK = 10;
 /** Printable practice exams kept (newest first). */
 export const KEEP_PRACTICE_EXAMS = 5;
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /** A smaller copy of the store's state; the state given is not changed. */
 export function compactForQuota(state) {

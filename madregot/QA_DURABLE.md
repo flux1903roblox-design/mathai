@@ -581,7 +581,8 @@ The detail of each item follows, in the order it was built.
   code. If the server cannot make a code, the file button appears under the reason.
 - **The backup question** (`components/durable/BackupNudge.jsx`, `lib/durable/nudge.js`). Only with a server, no code
   and no kept copy, after two different days of learning, on the map, the missions, the topics or "אני" (never a
-  lesson, a teaching stage, a repair, a check, Settings or a screen of its own), at most twice and 14 days apart. It
+  lesson, a teaching stage, a repair, a check, Settings or a screen of its own), 14 days apart. (Until COUNCIL2-24 it
+  stopped after two asks; now it keeps reminding until a backup or an install exists, below.) It
   opens 1.5 s after the screen settles, never over another sheet, and asking counts when it opens. "לקבל קוד גיבוי"
   makes the code and shows its sheet; "לשמור קובץ במקום" saves the file from the tap; "לא עכשיו".
 - **"מחיקת כל הנתונים"** with the code on: `POST /api/vault/delete` with `X-Vault` first. If it fails, nothing is
@@ -954,3 +955,50 @@ script. They now load one topic at a time, and nothing the student sees changed.
 - **Screenshots, looked at** (`qa-evidence/durable/budget-*.png`): `terms-before-390` and `terms-after-390`
   (the legal page drawn by the lazy markdown: the same), `lesson-eq2-after-320/390` (a lesson opened straight: its
   maths drawn), `lesson-eq2-no-katex-390/320` (KaTeX blocked: `7x - 10 = -80` as plain words, readable).
+
+## On by default for a solo student, and one store shape (COUNCIL2-24, COUNCIL2-23)
+
+The council's engineering judge: a solo student who clears the browser loses everything, because the backup was a
+choice behind a question asked twice; and the store still carried the retired plan's fields and four dead components.
+
+- **On by default** (`lib/durable/vault.js` `defaultBackup`, called by `screens/Welcome.jsx` when the first questions end
+  without a class). With a server, a student on their own (no class token, not the demo) gets a restore code made on the
+  device and the backup on at once; the first sealed copy goes up by the sync engine (`ifRev: null`), now and at every
+  later moment until it is there (offline, `vault_off`, a slow down). A vault that was never made is not "gone": the pull's
+  404 sets the "made again" note only when the device had pushed before (`backup.at`). A class student keeps DURABLE-6's
+  path (the class keeps the code); a family device gets the family's escrow when it links.
+- **Said once** (`components/durable/BackupLine.jsx`, loaded by Learn only while `showBackupLine` holds). A quiet card
+  under the header: what it is (an encrypted copy on the server that only the backup code opens), where the code is (only
+  on this device, so worth sending to a parent), and that Settings turns it off. "להציג את הקוד" opens the code's sheet,
+  "להגדרות" opens Settings › שמירת ההתקדמות, and either one or the X ("הבנתי") ends it for good (`backup.note`
+  'auto' cleared). While it is due the map opens at its top, so a 320 px phone shows it; the arrow button leads to the
+  stair. Screenshots looked at: `lanes/council2/shots/s15/backup-default-line.png` (390) and
+  `backup-default-line-phone-small.png` (320).
+- **The opt-out** is Settings › שמירת ההתקדמות › "להפסיק את הגיבוי" (the copy is deleted, a tombstone is left, and nothing
+  turns it on again by itself). While the student's own code is on, a note there says what the server holds and where the
+  code is. "מחיקת כל הנתונים" still deletes the vault first, by its lookup token.
+- **The reminder** (`lib/durable/nudge.js`) no longer stops after two asks: every 14 days on a calm screen, until a
+  backup (made, restored, or kept by the class or the family) or an install (the Home Screen app's own window, or the
+  store app) exists.
+- **Privacy text and data map**: `privacy.md` (the device section and "קוד גיבוי."), `worker/datamap.json` (`vaults`,
+  and what the store key holds), `docs/privacy/DATA_MAP.md`, and the regenerated `DATABASE_DEFINITIONS.md` say that the
+  solo vault is on by default, that the server holds ciphertext, and that the restore code stays on the device.
+- **One store shape** (COUNCIL2-23). The v7 step in `lib/durable/migrations.js` drops `planBase` and `wins` (nothing has
+  written them since CURRICULUM-7); both merges drop them too (`RETIRED`), so an older tab or device cannot bring them
+  back. The spec called it "v6": v6 was taken by the teacher's class work, so this is v7, tested from a frozen v5 save
+  (`fixtures/v5.json`) and from a v6 save an older build wrote back. `isObj` and `CODE_ALPHABET` have one copy each
+  (`shared/obj.js`, `shared/alphabet.js`), imported by the app and the Worker; `stairName` is built only in
+  `shared/stairs.js` (the report wraps it; the teacher screens' numbered label is now `stairLabel`).
+  `components/Climb.jsx`, `PageScene.jsx`, `map/PathTrail.jsx`, `map/WorldBackdrop.jsx` and `lib/ladder.js` are gone
+  with their CSS (nothing imported them: `git grep` and the build; ladder.js was imported only by its own tests, and the
+  one test there that was not about the ladder, `readAnswer`, stays). `shared/obj.test.js` keeps each of the three to one
+  copy.
+- **Tests**: `nudge.test.js` (9: reminds a tenth time 14 days after the ninth; stops for a backup, an escrow, an install;
+  reads the install from the window and the store shell), `vault.test.js` (7 new: on by default, offline first, a server
+  that cannot take it yet, only for a solo student, Learn's line once, the opt-out, a stop before the first copy),
+  `migrations.test.js` (v7 from v5 and v6), `merge.test.js` (both merges drop the retired fields; the 300-pair and the
+  tab property tests stay green, now with room for a loaded machine), `privacy.test.js`, `SaveSection.test.jsx`
+  (BackupLine's words), `shared/obj.test.js`, and `e2e/restore.spec.js` "the backup is on by default" (3 tests on phone
+  and phone-small: the vault after the first questions, the line, the code, Settings stops it; "delete all" still
+  deletes it; a class student is not on this path).
+

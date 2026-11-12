@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import SaveSection, { BACKUP_NOTE } from './SaveSection.jsx';
+import BackupLine, { BACKUP_LINE } from './BackupLine.jsx';
 import FileRestore from './FileRestore.jsx';
 import { shareText, CODE_SHEET } from './BackupCodeSheet.jsx';
 
@@ -64,5 +65,21 @@ describe('BackupCodeSheet', () => {
     expect(shareText('ABCDEFGHJKMNPQRS')).toBe('קוד הגיבוי שלי במדרגות: ABCD-EFGH-JKMN-PQRS\nאם הטלפון יתחלף: פותחים את מדרגות, בוחרים "יש לי קוד גיבוי" ומקלידים את הקוד.');
     expect(CODE_SHEET.title).toBe('קוד הגיבוי שלכם');
     expect(CODE_SHEET.who).toBe('מי שיש לו את הקוד יכול לראות את ההתקדמות שלכם, אז תנו אותו רק למי שאתם סומכים עליו.');
+  });
+
+  // (the on state, BACKUP_ON_NOTE, needs the store's live state: e2e/restore.spec.js "on by default")
+});
+
+describe('BackupLine (Learn, once, after the backup was turned on by default)', () => {
+  it('says what it is in short sentences, with the code, Settings, and "הבנתי"; no price, no countdown', () => {
+    const out = html(<BackupLine />);
+    expect(out).toContain(BACKUP_LINE.title);
+    expect(out).toContain(BACKUP_LINE.text);
+    expect(out).toContain(`>${BACKUP_LINE.code}<`);
+    expect(out).toContain(`>${BACKUP_LINE.settings}<`);
+    expect(out).toContain(`aria-label="${BACKUP_LINE.close}"`);
+    expect(out).toMatch(/<section[^>]*aria-labelledby="backup-line-title"/);
+    for (const s of BACKUP_LINE.text.split('. ')) expect(s.split(' ').length, s).toBeLessThanOrEqual(12);
+    expect(BACKUP_LINE.text).not.toMatch(/₪|\d/);
   });
 });

@@ -25,6 +25,7 @@ import { mergeTabs, noteMerge, dataOf } from './merge.js';
 import { listenTabs, tabAction, seenOf, includes, joinSeen, pruneSeen } from './tabs.js';
 import { randomHex } from '../random.js';
 import { report as reportError } from '../monitor.js';
+import { isObj } from '@shared/obj.js';
 
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
 export const STORE_KEY = import.meta.env.VITE_STORE_KEY || 'madregot';
@@ -50,7 +51,6 @@ export function pageStorage() {
   return s;
 }
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /** A saved value read as zustand's envelope, or null when it is not one. */
 function envelope(raw) {

@@ -607,7 +607,6 @@ a { color: var(--brand-d); }
 }
 /* the path sits on plain white: no tinted world behind it */
 .unit-world, .world-signed .unit-world, .world-coord .unit-world, .world-line .unit-world, .world-pyth .unit-world, .world-angles .unit-world, .world-stats .unit-world { background: none; }
-.world-horizon { display: none; }
 .node-marks { display: none; }
 /* the maths sits on its light panel */
 .lesson .qdisplay { background: var(--ground); border-radius: 16px; padding: var(--s5) var(--s3); font-size: clamp(1.875rem, 5dvh, 2.75rem); }

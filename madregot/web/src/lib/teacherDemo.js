@@ -25,6 +25,7 @@ import { TOPIC_IDS } from '@shared/ai.js';
 import { MOE_RULES, classAiPolicy, notSellable } from '@shared/schoolRules.js';
 // the Worker's own contact guard (worker/src/help.js uses the same function)
 import { hasContact } from '@shared/contact.js';
+import { CODE_ALPHABET } from '@shared/alphabet.js';
 import { makeClassExam, classExamTitle } from './exam.js';
 import { assignTitle } from './assign.js';
 import { ApiError } from './api.js';
@@ -511,7 +512,7 @@ function classAi(st, b) {
 /** One teacher route of the demo class: { status, body } in the Worker's shapes. */
 /** A demo student's one-time code after a PIN reset: 6 characters of the server's alphabet, the same for the same id. */
 export function demoClaimCode(id) {
-  const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const A = CODE_ALPHABET;
   let h = 7;
   return Array.from({ length: 6 }, (_, i) => { for (const ch of `${id}:${i}`) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return A[h % A.length]; }).join('');
 }

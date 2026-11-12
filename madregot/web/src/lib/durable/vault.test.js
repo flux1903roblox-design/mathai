@@ -15,7 +15,7 @@ import { makeCode, isCode } from './code.js';
 import { report } from '../monitor.js';
 import {
   syncVault, createBackup, stopBackup, detachBackup, backupText, agoText, vaultErrorText, openCopy, CONFLICT_LOOPS, BACKUP_TEXT,
-  findVault, adoptCode, familyGone,
+  findVault, adoptCode, familyGone, defaultBackup, showBackupLine, clearBackupNote,
 } from './vault.js';
 import { applyRestored } from './apply.js';
 import { VaultOpenError } from './crypto.js';
@@ -441,6 +441,103 @@ describe('turning it on and off', () => {
     const r = await openCopy(old, key);
     expect(r.state.xp).toBe(30);
     expect(Object.values(r.state.xpBy).reduce((a, b) => a + b, 0)).toBe(30);
+  });
+});
+
+// COUNCIL2-24: a solo student's backup is on by default once the app has a server (Welcome calls defaultBackup).
+describe('on by default for a solo student', () => {
+  it('a code made here, the backup on at once, its first copy pushed (ifRev null), and Learn\'s one-time note', async () => {
+    useApp.setState({ ...HERE, backup: { ...BACKUP_DEFAULTS, undoUntil: '2026-12-01T00:00:00.000Z' } });
+    expect(await defaultBackup()).toBe('pushed');
+    const b = useApp.getState().backup;
+    expect(isCode(b.code)).toBe(true);
+    expect(b).toMatchObject({ on: true, rev: 1, state: 'idle', note: 'auto', escrow: null, undoUntil: '2026-12-01T00:00:00.000Z' });
+    expect(b.lookup).toBe((await derive(b.code)).lookup);
+    expect(server.posts()).toHaveLength(1);
+    expect(server.posts()[0].body.ifRev).toBeNull();
+    expect((await held(b.code)).state.profile.name).toBe('נועה');
+    // the code never leaves the device: only the lookup token and the sealed copy are sent
+    for (const c of server.calls) expect(JSON.stringify([c.headers, c.body])).not.toContain(b.code);
+    expect(backupText(b)).toMatch(/^פועל/);
+  });
+
+  it('offline at first: the backup is on and waits; the next moment pushes the first copy, with no "made again" note', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.down = true;
+    expect(await defaultBackup()).toBe('offline');
+    expect(useApp.getState().backup).toMatchObject({ on: true, rev: null, at: null, state: 'offline', note: 'auto' });
+    expect(server.vaults.size).toBe(0);
+    server.hooks.down = false;
+    expect(await syncVault({ moment: 'boot' })).toBe('pushed');
+    expect(useApp.getState().backup).toMatchObject({ on: true, rev: 1, state: 'idle', note: 'auto' });
+    expect(server.vaults.size).toBe(1);
+  });
+
+  it('a server that cannot take it yet: still on, and every later moment tries again until the copy is there', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.post = async () => new Response(JSON.stringify({ error: 'vault_off' }), { status: 503 });
+    expect(await defaultBackup()).toBe('unavailable');
+    expect(useApp.getState().backup.on).toBe(true);
+    server.hooks.post = null;
+    expect(await syncVault({ moment: 'tick' })).toBe('pushed');
+    expect(server.vaults.size).toBe(1);
+  });
+
+  it('only for a solo student with a server and no backup: never a class student, a teacher, the demo, or over a code', async () => {
+    useApp.setState({ ...HERE, profile: { ...HERE.profile, token: 'tok', classCode: 'K7Q2MD' } });
+    expect(await defaultBackup()).toBe('off');
+    useApp.setState({ profile: { role: 'teacher', name: 'רונית', classes: [] } });
+    expect(await defaultBackup()).toBe('off');
+    useApp.setState({ profile: { ...HERE.profile, demo: true } });
+    expect(await defaultBackup()).toBe('off');
+    const code = makeCode();
+    await device(HERE, code, { rev: null });
+    expect(await defaultBackup()).toBe('off');
+    expect(useApp.getState().backup.code).toBe(code);
+    useApp.setState({ backup: { ...BACKUP_DEFAULTS, escrow: 'family' } });
+    expect(await defaultBackup()).toBe('off');
+    useApp.setState({ ...HERE, backup: { ...BACKUP_DEFAULTS }, ai: { ...useApp.getState().ai, apiUrl: 'none' } });
+    vi.stubEnv('VITE_API_URL', 'none');
+    expect(await defaultBackup()).toBe('off');
+    vi.unstubAllEnvs();
+    expect(server.calls).toHaveLength(0);
+  });
+
+  it('Learn\'s line is due once: after the default turned it on, until it is seen; never for a code the class or family keeps', async () => {
+    useApp.setState({ ...HERE });
+    expect(showBackupLine(useApp.getState().backup)).toBe(false);
+    await defaultBackup();
+    expect(showBackupLine(useApp.getState().backup)).toBe(true);
+    expect(showBackupLine({ ...useApp.getState().backup, escrow: 'family' })).toBe(false);
+    expect(showBackupLine({ ...useApp.getState().backup, state: 'other_student' })).toBe(false);
+    clearBackupNote();
+    expect(showBackupLine(useApp.getState().backup)).toBe(false);
+    expect(useApp.getState().backup.on).toBe(true);
+    // a code made in Settings, or a restored one, is not "on by default": no line
+    const code = await createBackup();
+    expect(isCode(code)).toBe(true);
+    expect(showBackupLine(useApp.getState().backup)).toBe(false);
+  });
+
+  it('the opt-out: "להפסיק את הגיבוי" deletes the copy, and nothing turns it on again by itself', async () => {
+    useApp.setState({ ...HERE });
+    await defaultBackup();
+    await stopBackup();
+    expect(server.vaults.size).toBe(0);
+    expect(useApp.getState().backup).toEqual({ ...BACKUP_DEFAULTS });
+    expect(await syncVault({ moment: 'boot' })).toBe('off');
+    expect(server.posts()).toHaveLength(1);
+  });
+
+  it('stopped before its first copy landed: the delete still leaves the tombstone, so the code is never used', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.down = true;
+    await defaultBackup();
+    const { lookup } = await derive(useApp.getState().backup.code);
+    server.hooks.down = false;
+    await stopBackup();
+    expect(server.deleted.has(lookup)).toBe(true);
+    expect(useApp.getState().backup.on).toBe(false);
   });
 });
 

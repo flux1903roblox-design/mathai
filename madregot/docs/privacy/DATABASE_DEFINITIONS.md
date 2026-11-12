@@ -534,7 +534,7 @@
 
 - **סוג:** בכינוי (פסאודונימי). **על מי:** תלמידים, מכשירים.
 - **עמודות:** `id_hash`, `rev`, `blob`, `prev_rev`, `prev_blob`, `bytes`, `created_at`, `updated_at`, `read_at`.
-- **מטרה:** The encrypted backup of a device's practice (DURABLE-5): ciphertext only, found by the SHA-256 of a lookup token the device derives from its restore code. The key and the code never reach the server, so nobody here can open it; the previous version is kept for one step back.
+- **מטרה:** The encrypted backup of a device's practice (DURABLE-5): ciphertext only, found by the SHA-256 of a lookup token the device derives from its restore code. For a solo student it is on by default once the app has a server (COUNCIL2-24): made right after the first questions, and stopped in Settings (stop the backup). The restore code stays on the device: the key and the code never reach the server, so nobody here can open it (unless a class or a family keeps the code: vault_escrow); the previous version is kept for one step back.
 - **שמירה:** 400 days with no write and no read (vault.js VAULT_KEEP_DAYS); at once when the device stops the backup or deletes all (the app deletes it before anything local).
 - **עובר אל:** Cloudflare.
 - **נמחק על ידי:** `cron.vaultNight`.
@@ -545,7 +545,7 @@
 
 | מפתח | איפה | סוג | מה יש בו |
 |---|---|---|---|
-| `<STORE_KEY>` | localStorage | אישי | The student's saved state: the name, grade and (in a class) the class code and name, the teacher's name, the class token and student id; progress, days, XP, mistakes, the learning model, checked exam summaries and practice exams; the tutor's settings (server address, the install id sent as X-Device, the family-device token and its label, a pending link code, the plan the server reported last, whether the introduction was read; a personal key only in the owner's own dev build); answers waiting to be sent to the class. |
+| `<STORE_KEY>` | localStorage | אישי | The student's saved state: the name, grade and (in a class) the class code and name, the teacher's name, the class token and student id; progress, days, XP, mistakes, the learning model, checked exam summaries and practice exams; the tutor's settings (server address, the install id sent as X-Device, the family-device token and its label, a pending link code, the plan the server reported last, whether the introduction was read; a personal key only in the owner's own dev build); answers waiting to be sent to the class; the backup's settings, with the restore code and its lookup token while the backup is on (on by default for a solo student once there is a server, COUNCIL2-24): the code stays here, and the server gets only the lookup token (stored as its hash) and the encrypted copy. |
 | `<STORE_KEY>-parent` | localStorage or sessionStorage | אישי | The parent's or teacher's session token and email address. |
 | `<STORE_KEY>-checkout-*` | sessionStorage | לא אישי | A random key per plan for one checkout attempt. |
 | `<STORE_KEY>-order` | sessionStorage | בכינוי (פסאודונימי) | The id of the order being paid. |
