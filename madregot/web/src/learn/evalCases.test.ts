@@ -244,6 +244,17 @@ describe('the evaluation cases are built from the app itself (ai spec AI-7)', ()
     expect(count((s) => s.shapes.includes('economy') && ['W1', 'W2'].includes(s.cat))).toBeGreaterThanOrEqual(4);
   });
 
+  // DATA-1.7: the data and probability unit's mistakes, each with a row on a stair of its own topic (a mistake reused
+  // from percent, as data:2-3 reuse pct's, gets its row on the data stair), so the eval sees every one of them
+  it('every mistake of data:1-4, stats:6-8 and prob:1-3 has a D1 row in its topic', () => {
+    const rows = new Set(specs.filter((s) => s.cat === 'D1').map((s) => `${parseSkill(s.skill).topic}|${s.expect.diagnosis}`));
+    const stage3 = ALL_SKILLS.filter((id: string) => /^(data|prob):|^stats:[678]$/.test(id));
+    expect(stage3).toHaveLength(10);
+    const missing = stage3.flatMap((skill: string) => (contentOf(skill)?.misconceptions || [])
+      .filter((m: { id: string }) => !rows.has(`${parseSkill(skill).topic}|${m.id}`)).map((m: { id: string }) => `${skill} ${m.id}`));
+    expect(missing).toEqual([]);
+  });
+
   it('D1 covers every topic, and every algebra topic at least twice', () => {
     const topics = specs.filter((s) => s.cat === 'D1').map((s) => parseSkill(s.skill).topic);
     for (const t of Object.keys(TOPIC)) expect(topics.filter((x) => x === t).length, t).toBeGreaterThanOrEqual(['expr', 'eq', 'sys'].includes(t) ? 2 : 1);

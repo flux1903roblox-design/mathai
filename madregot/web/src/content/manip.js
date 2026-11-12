@@ -516,14 +516,23 @@ const simManip = {
 };
 
 // ---------------------------------------------------------------- building a chart (DATA-2.2)
-// chart { mode: 'bar' | 'pie', cats (2–5 names), start, lock?, tones?, bar: { max, step, every?, unit? }, pie: { parts } }:
-// the value is number[] (a bar's height, a multiple of bar.step; or a category's number of pie slices, their sum at most
-// pie.parts); the answer is { values }. components/manip/Chart.jsx draws it and holds the moves (chartSet, chartKey).
+// chart { mode: 'bar' | 'pie', cats (2–5 names), start, lock?, tones?, bar: { max, step, every?, unit?, unitWord? },
+// pie: { parts } }: the value is number[] (a bar's height, a multiple of bar.step; or a category's number of pie slices,
+// their sum at most pie.parts); the answer is { values }. bar.unit is the axis title ("מספר ילדים"), bar.unitWord the
+// noun said after a value ("ילדים"). components/manip/Chart.jsx draws it and holds the moves (chartSet and chartKey for
+// bars; for a pie, which slice is whose: pieTap, pieStep, pieKey).
 
 /** k slices of a pie of `parts` in percent, to a tenth: "25", "41.7". */
 export const chartPct = (k, parts) => String(Math.round((1000 * k) / parts) / 10);
 /** A category's colour family (figure.css .fig-tone-k): its own in `tones`, else its place. */
 export const chartTone = (m, i) => m.tones?.[i] ?? i;
+/**
+ * The colour word a child would use for each colour family (figure.css .fig-tone-k), or null where no one word fits
+ * (petrol, fuchsia, cobalt). Whatever is drawn and called by a colour (a sector, a ball, a slice, a bar, a part of a
+ * strip) is drawn in that colour: colours.test.ts checks every one. Red and green are not chart colours (they say right
+ * and wrong in the app), so nothing drawn is called אדום or ירוק (review: "the red part" was fuchsia).
+ */
+export const TONE_WORDS = Object.freeze(['כחול', 'כתום', null, null, 'צהוב', 'אפור', 'סגול', null]);
 const chartVals = (u) => (Array.isArray(u) ? u : u?.values);
 const chartManip = {
   correct(m, a, u) { return Array.isArray(u) && u.length === a.values.length && u.every((v, i) => near(v, a.values[i], 1e-9)); },

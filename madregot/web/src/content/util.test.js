@@ -261,9 +261,9 @@ describe('practice-only questions are kept out of checks', () => {
     'da1r', 'da1c', 'da1g', 'da1b', 'da1a', 'da2c', 'da3b', 'da3o', 'da4s', 'da4w',
     // stats:6-8 (curriculum stage 3): which measure moves, what does not fit, between or beyond, a trend carried too far
     'st6o', 'st7c', 'st8w', 'st8l',
-    // prob:1-3: the rain table's scale, a die that is not fair, the gambler, (a, b) and (b, a), a double against a mixed
-    // pair, two dice thrown many times
-    'pr1s', 'pr1f', 'pr2g', 'pr3o', 'pr3s', 'pr3d'];
+    // prob:1-3: the rain table's scale, a die that is not fair, the gambler, what a forecast says, (a, b) and (b, a), a
+    // double against a mixed pair, two dice thrown many times
+    'pr1s', 'pr1f', 'pr2g', 'pr2f', 'pr3o', 'pr3s', 'pr3d'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

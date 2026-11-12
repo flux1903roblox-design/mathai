@@ -20,7 +20,8 @@
 //                    probability between 0 and 1, only the listed outcomes added (the Ministry's "הסכום … הוא 1")
 //   complement-only  the complement found and not taken from 1 (critique)
 //   gambler          after many heads, tails "is due" or heads "is hot" (Tversky & Kahneman 1974)
-//   outcome-approach a probability read as a sure forecast or as a part of the time (Konold 1989; the Ministry's Danny)
+//   outcome-approach a probability read as a sure forecast or as a part of the time (Konold 1989; the Ministry's Danny;
+//                    the forecast choice of prob:2, forecastMc)
 //   equiprob-sums, unordered, space-21   the 11 sums taken as equally likely; (5, 6) and (6, 5) as one; the 21 pairs
 //                    without order as equally likely (Lecoutre 1992; Fischbein, Nello & Marino 1991)
 //   add-probs, one-stage   the two stages' probabilities added; one stage only (teacher-reported)
@@ -219,10 +220,10 @@ export const prob1TSolution = ({ N, a, b, w }) => [
 ];
 export const prob1THint = ({ b, N }) => `כמה מספרים יש מ־$${b}$ עד $${N}$? ספרו גם את שני הקצוות.`;
 
-/** prob:2: the complement on a spinner of four colours. */
-export const COLOURS4 = ['אדום', 'כחול', 'צהוב', 'ירוק'];
-export const prob2Fig = ({ p, g }) => ({ type: 'chart', mode: 'pie', cats: COLOURS4, values: [...p, g], hide: 3, tones: [3, 0, 4, 2] });
-export const prob2Text = ({ p, x }) => `גלגל צבוע בארבעה צבעים. ההסתברות לאדום היא $${num(p[0])}$, לכחול $${num(p[1])}$ ולצהוב $${num(p[2])}$, והשאר ירוק. מה ההסתברות לא לקבל ${COLOURS4[x]}?`;
+/** prob:2: the complement on a spinner of four colours, each named as it is drawn (TONE_WORDS). */
+export const COLOURS4 = ['כתום', 'כחול', 'צהוב', 'סגול'];
+export const prob2Fig = ({ p, g }) => ({ type: 'chart', mode: 'pie', cats: COLOURS4, values: [...p, g], hide: 3, tones: [1, 0, 4, 6] });
+export const prob2Text = ({ p, x }) => `גלגל צבוע בארבעה צבעים. ההסתברות לכתום היא $${num(p[0])}$, לכחול $${num(p[1])}$ ולצהוב $${num(p[2])}$, והשאר סגול. מה ההסתברות לא לקבל ${COLOURS4[x]}?`;
 export const prob2Solution = ({ p, x }) => [
   `"לא ${COLOURS4[x]}" הוא המאורע המשלים: כל מה שיכול לקרות חוץ מ${COLOURS4[x]}.`,
   `$1 - ${num(p[x])} = ${num(Math.round((1 - p[x]) * 100) / 100)}$`,
@@ -406,6 +407,25 @@ function gamblerMc() {
     diag: (x) => choices[x]?.bug || null,
   };
 }
+/**
+ * "p% chance of rain tomorrow": what it says (three choices, practice only; the Ministry's Danny, as the teaching's
+ * DANNY step asks it). Reading it as the part of tomorrow it rains, or as a sure forecast, is the outcome approach.
+ */
+function forecastMc() {
+  const p = pick(rnd, [20, 30, 40, 60, 70, 80]); const at = pick(rnd, PLACES);
+  const choices = shuffle([
+    { text: `בימים כאלה יורד גשם בערך ב־${p}% מהם`, ok: true },
+    { text: `${p}% מהיום יירד גשם`, ok: false, bug: 'outcome-approach' },
+    { text: p > 50 ? 'מחר בטוח יירד גשם' : 'מחר בטוח לא יירד גשם', ok: false, bug: 'outcome-approach' },
+  ]);
+  return {
+    key: `pr2f:${p}:${PLACES.indexOf(at)}`, text: `בתחזית: $${p}\\%$ סיכוי לגשם מחר ב${at}. מה זה אומר?`,
+    form: 'mc', choices, answer: choices.findIndex((c) => c.ok), practiceOnly: true,
+    hint: 'ההסתברות אומרת כמה סביר שיירד גשם. היא לא אומרת כמה זמן, ולא מבטיחה.',
+    solution: [`מתוך הרבה ימים עם תחזית כזאת, בערך ב־$${p}\\%$ מהם יורד גשם.`, 'זה לא אומר כמה זמן יירד גשם מחר, וגם לא שבטוח יירד או לא יירד.'],
+    diag: (x) => choices[x]?.bug || null,
+  };
+}
 
 // ---------------------------------------------------------------- prob:3 generators
 
@@ -480,7 +500,7 @@ export const PROB = {
   placement: false,
   levels: [
     { title: 'תוצאות שוות סיכוי', gen: () => { const r = Math.random(); return r < 0.45 ? eventK() : r < 0.7 ? raffle() : r < 0.85 ? scaleMc() : fairMc(); } },
-    { title: 'מאורע משלים', gen: () => { const r = Math.random(); return r < 0.35 ? notA() : r < 0.4 ? rainPct() : r < 0.65 ? pens() : r < 0.85 ? atLeast() : gamblerMc(); } },
+    { title: 'מאורע משלים', gen: () => { const r = Math.random(); return r < 0.35 ? notA() : r < 0.4 ? rainPct() : r < 0.65 ? pens() : r < 0.85 ? atLeast() : r < 0.95 ? gamblerMc() : forecastMc(); } },
     { title: 'ניסוי בשני שלבים', gen: () => { const r = Math.random(); return r < 0.45 ? diceSum() : r < 0.75 ? twoStage() : r < 0.8 ? orderMc() : r < 0.85 ? sameCellMc() : simDice(); } },
   ],
   cats: {

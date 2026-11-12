@@ -34,16 +34,16 @@ const sports = (extra: ChartExtra = {}) => bar(SPORTS, SPORT_COUNTS, { step: 2, 
 /** The headache ad (the Ministry's): 82% and 88%, drawn from 80 (or honestly from 0). */
 const ad = (from0: boolean) => bar(['ראשקל', 'בלי כאב'], [82, 88], from0 ? { step: 10, max: 100, every: 2, unit: 'אחוז שהרגישו טוב יותר' } : { from: 80, step: 2, max: 90, unit: 'אחוז שהרגישו טוב יותר' });
 /** A chart to build: bars on the axis's steps, or a pie of `parts` equal slices. */
-const buildBars = (cats: string[], start: number[], step: number, max: number, extra: Record<string, unknown> = {}): ManipSpec => ({ kind: 'chart', mode: 'bar', cats, start, bar: { max, step, unit: 'מספר תלמידים' }, ...extra });
+const buildBars = (cats: string[], start: number[], step: number, max: number, extra: Record<string, unknown> = {}): ManipSpec => ({ kind: 'chart', mode: 'bar', cats, start, bar: { max, step, unit: 'מספר תלמידים', unitWord: 'תלמידים' }, ...extra });
 const buildPie = (cats: string[], parts: 10 | 12 | 20, extra: Record<string, unknown> = {}): ManipSpec => ({ kind: 'chart', mode: 'pie', cats, start: cats.map(() => 0), pie: { parts }, ...extra });
 const shadeBar = (den: number, whole?: number): ManipSpec => ({ kind: 'fbar', start: { den, shaded: 0 }, lockDen: true, ...(whole ? { whole } : {}) });
 /** The calls (the Ministry's): 500 tries, 250 talked, 100 no answer, 125 a broken line, 25 busy. */
 const CALLS = ['שיחה', 'אין תשובה', 'קו מקולקל', 'תפוס'];
 const CALL_COUNTS = [250, 100, 125, 25];
-/** The spinner of the explore steps: red 3, blue 5, green 4 of 12 equal parts. */
-const WHEEL = [{ label: 'אדום', parts: 3, tone: 3 }, { label: 'כחול', parts: 5, tone: 0 }, { label: 'ירוק', parts: 4, tone: 2 }];
+/** The spinner of the explore steps: orange 3, blue 5, purple 4 of 12 equal parts (named as drawn: TONE_WORDS). */
+const WHEEL = [{ label: 'כתום', parts: 3, tone: 1 }, { label: 'כחול', parts: 5, tone: 0 }, { label: 'סגול', parts: 4, tone: 6 }];
 const spin = (extra: Record<string, unknown> = {}): ManipSpec => ({ kind: 'simulate', device: 'spinner', sectors: WHEEL, watch: 0, guided: true, truth: true, ...extra });
-/** Another child's ten spins of the same wheel (red, blue, red, red, green, blue, red, green, red, blue): red after each. */
+/** Another child's ten spins of the same wheel (orange, blue, orange, orange, purple, blue, orange, purple, orange, blue): orange after each. */
 const NOA = [1, 1, 2, 3, 3, 3, 4, 4, 5, 5].map((k, i) => Math.round((100 * k) / (i + 1)) / 100);
 
 // ================================================================ stair 1: charts and the frequency table
@@ -134,8 +134,8 @@ const stair1: StairContent = {
       ] },
   ],
   together: [
-    { problem: 'שאלנו ילדים מה הצבע האהוב עליהם. כמה ילדים יותר בחרו בכחול מאשר באדום?',
-      fig: bar(['ירוק', 'כחול', 'אדום'], [6, 10, 4], { step: 2, max: 12, unit: 'מספר ילדים', labels: false, tones: [2, 0, 3] }),
+    { problem: 'שאלנו ילדים מה הצבע האהוב עליהם. כמה ילדים יותר בחרו בכחול מאשר בכתום?',
+      fig: bar(['סגול', 'כחול', 'כתום'], [6, 10, 4], { step: 2, max: 12, unit: 'מספר ילדים', labels: false, tones: [6, 0, 1] }),
       steps: [
         { prompt: 'כמה שווה משבצת אחת בציר?', choices: [
           { text: '$2$ ילדים', ok: true, feedback: 'נכון: המספרים על הציר קופצים ב־$2$.' },
@@ -143,7 +143,7 @@ const stair1: StairContent = {
           { text: '$10$', ok: false, feedback: '$10$ הוא ראש העמודה של כחול, לא משבצת.' },
         ], hints: ['הסתכלו על המספרים שליד הקווים.', '$0$, $2$, $4$, $6$ וכן הלאה.'], done: 'כל משבצת היא $2$ ילדים.' },
       ],
-      final: { prompt: 'כמה ילדים יותר בחרו בכחול מאשר באדום?', answer: 6, check: '10 - 4', hints: ['כחול מגיע ל־$10$, אדום ל־$4$.', '$10 - 4$.'] } },
+      final: { prompt: 'כמה ילדים יותר בחרו בכחול מאשר בכתום?', answer: 6, check: '10 - 4', hints: ['כחול מגיע ל־$10$, כתום ל־$4$.', '$10 - 4$.'] } },
     { problem: 'בכיתה בדקו את מידת הנעליים של כל תלמיד. כמה תלמידים נמדדו?',
       fig: table(['מידה', 'מספר תלמידים'], [[36, 2], [37, 5], [38, 7], [39, 4], [40, 2]]),
       steps: [
@@ -228,7 +228,7 @@ const data2T: DiagModel<P2T> = {
 };
 
 const classes = table(['כיתה', 'תלמידים', 'ספורטאים'], [['ז׳1', 40, 20], ['ז׳2', 25, 15]]);
-const colours = table(['צבע', 'מספר תלמידים'], [['ירוק', 6], ['כחול', 9], ['אדום', 5]]);
+const colours = table(['צבע', 'מספר תלמידים'], [['סגול', 6], ['כחול', 9], ['כתום', 5]]);
 
 const stair2: StairContent = {
   skill: 'data:2', topic: 'data', level: 2, title: 'שכיחות יחסית',
@@ -259,14 +259,14 @@ const stair2: StairContent = {
     { kind: 'predict', text: 'מה השכיחות היחסית של כחול?', fig: colours,
       choices: ['$\\frac{9}{20} = 0.45$', '$\\frac{9}{11}$', '$9$'], answer: 0,
       why: 'מחלקים בכל הנתונים: $6 + 9 + 5 = 20$.',
-      wrongWhy: { 1: '$11$ הם הירוק והאדום בלבד. מחלקים בכולם, גם בכחול.', 2: '$9$ הוא השכיחות. השכיחות היחסית היא החלק: $9$ מתוך $20$.' } },
+      wrongWhy: { 1: '$11$ הם הסגול והכתום בלבד. מחלקים בכולם, גם בכחול.', 2: '$9$ הוא השכיחות. השכיחות היחסית היא החלק: $9$ מתוך $20$.' } },
     { kind: 'predict', text: 'מה יוצא כשמחברים את השכיחויות היחסיות של שלושת הצבעים?', fig: colours,
       choices: ['$1$', '$20$', '$3$'], answer: 0,
       why: '$\\frac{6}{20} + \\frac{9}{20} + \\frac{5}{20} = \\frac{20}{20} = 1$: כל החלקים יחד הם השלם.',
       wrongWhy: { 1: '$20$ הוא מספר התלמידים. החלקים שלהם יחד הם השלם, $1$.', 2: '$3$ הוא מספר הצבעים, לא סכום החלקים.' } },
     { kind: 'rule', text: 'אפשר לכתוב שכיחות יחסית כשבר פשוט או כמספר עשרוני: $\\frac{9}{20} = 0.45$. כל השכיחויות היחסיות יחד הן $1$.',
       why: 'שבר עם מכנה $20$ מרחיבים למכנה $100$: $\\frac{9}{20} = \\frac{45}{100} = 0.45$.',
-      fig: { type: 'fbar', den: 20, tones: [{ n: 6, label: 'ירוק', tone: 2 }, { n: 9, label: 'כחול', tone: 0 }, { n: 5, label: 'אדום', tone: 3 }] } satisfies FractionFig },
+      fig: { type: 'fbar', den: 20, tones: [{ n: 6, label: 'סגול', tone: 6 }, { n: 9, label: 'כחול', tone: 0 }, { n: 5, label: 'כתום', tone: 1 }] } satisfies FractionFig },
     { kind: 'predict', text: 'בכיתה אחת $12$ מתוך $30$ תלמידים מנגנים, ובכיתה אחרת $9$ מתוך $20$. באיזו כיתה החלק של המנגנים גדול יותר?',
       fig: fbars([{ den: 10, shaded: 4, label: '30' }, { den: 20, shaded: 9, label: '20' }]),
       choices: ['בכיתה של $20$', 'בכיתה של $30$', 'שווה'], answer: 0,
@@ -394,7 +394,7 @@ const data3T: DiagModel<P3T> = {
 
 const TRIP = ['ים', 'הרים', 'מדבר'];
 const TRIP_PCT = [35, 40, 25];
-const BLUE = ['כחול', 'ירוק', 'אדום', 'צהוב'];
+const BLUE = ['כחול', 'סגול', 'כתום', 'צהוב'];
 
 const stair3: StairContent = {
   skill: 'data:3', topic: 'data', level: 3, title: 'אחוזים ודיאגרמת עוגה',
@@ -429,7 +429,7 @@ const stair3: StairContent = {
       choices: ['$84$', '$35$', '$6.86$'], answer: 0,
       why: '$10\\%$ מ־$240$ הם $24$, אז $30\\%$ הם $72$ ו־$5\\%$ הם $12$: $72 + 12 = 84$.',
       wrongWhy: { 1: '$35$ הוא האחוז, לא מספר התלמידים.', 2: '$240 : 35$ שואל כמה פעמים $35$ נכנס ב־$240$.' } },
-    { kind: 'predict', text: '$75$ תלמידים בחרו כחול, והם $30\\%$ מהשכבה. כמה תלמידים בשכבה?', fig: pie(BLUE, [30, 25, 25, 20], { pct: true, tones: [0, 2, 3, 4] }),
+    { kind: 'predict', text: '$75$ תלמידים בחרו כחול, והם $30\\%$ מהשכבה. כמה תלמידים בשכבה?', fig: pie(BLUE, [30, 25, 25, 20], { pct: true, tones: [0, 6, 1, 4] }),
       choices: ['$250$', '$22.5$', '$2.5$'], answer: 0,
       why: '$30\\%$ הם $75$, אז $10\\%$ הם $25$, ו־$100\\%$ הם $250$.',
       wrongWhy: { 1: 'חישבתם $30\\%$ מ־$75$. כאן $75$ הוא החלק, ומחפשים את השלם.', 2: '$75 : 30 = 2.5$ הוא $1\\%$. השלם הוא $100\\%$.' } },
@@ -506,7 +506,7 @@ const stair3: StairContent = {
       cause: 'רגילים לחשב אחוז מכמות. כאן הכמות הנתונה היא החלק, ומחפשים את השלם.',
       explain: ['$75$ הם $30\\%$ מהשכבה. השלם גדול מ־$75$.', '$30\\%$ מ־$75$ הם $22.5$, פחות מהחלק עצמו: לא יכול להיות השלם.'],
       remedy: [
-        { kind: 'predict', text: '$75$ תלמידים בחרו כחול, והם $30\\%$ מהשכבה. כמה תלמידים בשכבה?', fig: pie(BLUE, [30, 25, 25, 20], { pct: true, tones: [0, 2, 3, 4] }),
+        { kind: 'predict', text: '$75$ תלמידים בחרו כחול, והם $30\\%$ מהשכבה. כמה תלמידים בשכבה?', fig: pie(BLUE, [30, 25, 25, 20], { pct: true, tones: [0, 6, 1, 4] }),
           choices: ['$250$', '$22.5$'], answer: 0, why: '$10\\%$ הם $25$, ולכן $100\\%$ הם $250$.' },
         { kind: 'explore', text: 'בעוגה $20$ חלקים, כל אחד $5\\%$. צבעו את ה־$30\\%$ של הכחול.', manip: buildPie(['כחול', 'אחר'], 20, { tones: [0, 5], lock: [1] }), answer: { values: [6, 0] },
           hint: '$30\\%$ הם $6$ חלקים של $5\\%$.', success: '$6$ חלקים הם $75$ תלמידים, ולכן כל חלק הוא $12.5$, וכל העוגה $250$.' },
@@ -515,7 +515,7 @@ const stair3: StairContent = {
       cause: 'מוצאים את $1\\%$ ושוכחים שהשאלה היא על כל השכבה, $100\\%$.',
       explain: ['$75 : 30 = 2.5$ הוא $1\\%$.', 'השלם הוא $100\\%$: $2.5 \\cdot 100 = 250$.'],
       remedy: [
-        { kind: 'predict', text: '$75$ תלמידים הם $30\\%$ מהשכבה, ולכן $1\\%$ הוא $2.5$. כמה בשכבה?', fig: pie(BLUE, [30, 25, 25, 20], { pct: true, tones: [0, 2, 3, 4] }),
+        { kind: 'predict', text: '$75$ תלמידים הם $30\\%$ מהשכבה, ולכן $1\\%$ הוא $2.5$. כמה בשכבה?', fig: pie(BLUE, [30, 25, 25, 20], { pct: true, tones: [0, 6, 1, 4] }),
           choices: ['$250$', '$2.5$'], answer: 0, why: 'כל השכבה היא $100\\%$: $2.5 \\cdot 100 = 250$.' },
         { kind: 'explore', text: 'בעוגה $20$ חלקים, כל אחד $5\\%$. צבעו את כל השכבה, $100\\%$.', manip: buildPie(['כל השכבה', 'אחר'], 20, { lock: [1] }), answer: { values: [20, 0] },
           hint: 'כל העוגה היא $100\\%$.', success: '$20$ חלקים: כל השכבה, ולא רק $1\\%$ ממנה.' },
@@ -589,15 +589,15 @@ const stair4: StairContent = {
       wrongWhy: { 1: 'יש $3$ סוגי שטרות, אבל לא מכל סוג אותו מספר.', 2: '$4$ מול $3$ האחרים הוא יחס. הסתברות היא מתוך כולם.' } },
     { kind: 'rule', text: 'כשבוחרים באקראי פריט מקבוצה, ההסתברות לסוג היא השכיחות היחסית שלו בקבוצה.', display: '\\frac{4}{7}',
       why: 'לכל שטר אותו סיכוי לצאת, ו־$4$ מתוך $7$ השטרות הם של $20$.', fig: wallet(true) },
-    { kind: 'explore', text: 'סובבו $10$ פעמים, ואז עוד $100$, ועוד $1000$. מה קורה לשכיחות היחסית של אדום?',
+    { kind: 'explore', text: 'סובבו $10$ פעמים, ואז עוד $100$, ועוד $1000$. מה קורה לשכיחות היחסית של כתום?',
       manip: spin({ seed: 20261111 }), answer: { mode: 'trials', atLeast: 1000 },
       hint: 'קודם $10$, אחר כך $100$, ואז $1000$.',
-      success: 'אחרי מעט סיבובים השכיחות היחסית קופצת. אחרי הרבה היא נשארת ליד $0.25$: האדום הוא $3$ מתוך $12$ חלקים, רבע מהגלגל.' },
-    { kind: 'predict', text: 'נועה סובבה את אותו גלגל $10$ פעמים, ואדום יצא $5$ פעמים. ההסתברות לאדום היא $0.5$?',
-      fig: { type: 'chart', mode: 'line', xs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], values: NOA, step: 0.25, max: 1, dp: 2, labels: false, unit: 'השכיחות היחסית של אדום אחרי כל סיבוב' },
+      success: 'אחרי מעט סיבובים השכיחות היחסית קופצת. אחרי הרבה היא נשארת ליד $0.25$: הכתום הוא $3$ מתוך $12$ חלקים, רבע מהגלגל.' },
+    { kind: 'predict', text: 'נועה סובבה את אותו גלגל $10$ פעמים, וכתום יצא $5$ פעמים. ההסתברות לכתום היא $0.5$?',
+      fig: { type: 'chart', mode: 'line', xs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], values: NOA, step: 0.25, max: 1, dp: 2, labels: false, unit: 'השכיחות היחסית של כתום אחרי כל סיבוב' },
       choices: ['לא: $10$ סיבובים זה מעט, והשכיחות עוד קופצת', 'כן'], answer: 0,
-      why: '$10$ סיבובים הם מעט, והשכיחות היחסית עוד קופצת. אחרי $1000$ סיבובים היא קרובה מאוד ל־$0.25$, כי האדום הוא רבע מהגלגל.',
-      wrongWhy: { 1: 'האדום הוא רבע מהגלגל. ב־$10$ סיבובים יכול לצאת $5$ במקרה, אבל אחרי הרבה סיבובים יוצא רבע.' } },
+      why: '$10$ סיבובים הם מעט, והשכיחות היחסית עוד קופצת. אחרי $1000$ סיבובים היא קרובה מאוד ל־$0.25$, כי הכתום הוא רבע מהגלגל.',
+      wrongWhy: { 1: 'הכתום הוא רבע מהגלגל. ב־$10$ סיבובים יכול לצאת $5$ במקרה, אבל אחרי הרבה סיבובים יוצא רבע.' } },
     { kind: 'predict', text: 'סובבו גלגל $1000$ פעמים. איך בנוי הגלגל?', fig: table(['צבע', 'כמה פעמים יצא'], [['כתום', 510], ['סגול', 243], ['ירוק', 247]]),
       choices: ['חצי כתום, רבע סגול ורבע ירוק', 'שלוש גזרות שוות', 'רבע כתום'], answer: 0,
       why: '$0.51$, $0.243$, $0.247$: קרוב ל־$\\frac{1}{2}$, $\\frac{1}{4}$, $\\frac{1}{4}$.',
@@ -712,7 +712,7 @@ const stair4: StairContent = {
       cause: 'אחרי כמה ניסויים נדמה שכבר יודעים. אבל בעשרה ניסויים השכיחות היחסית עוד קופצת.',
       explain: ['אחרי $10$ סיבובים השכיחות היחסית יכולה להיות רחוקה מההסתברות.', 'אחרי $1000$ סיבובים היא כמעט תמיד קרובה.'],
       remedy: [
-        { kind: 'explore', text: 'סובבו $10$ פעמים, ואז עוד $100$, ועוד $1000$. מתי השכיחות היחסית של אדום מפסיקה לקפוץ?',
+        { kind: 'explore', text: 'סובבו $10$ פעמים, ואז עוד $100$, ועוד $1000$. מתי השכיחות היחסית של כתום מפסיקה לקפוץ?',
           manip: spin(), answer: { mode: 'trials', atLeast: 1000 },
           hint: 'קודם $10$, אחר כך $100$, ואז $1000$.', success: 'אחרי הרבה סיבובים השכיחות היחסית כמעט לא זזה: היא ליד $0.25$.' },
       ] },

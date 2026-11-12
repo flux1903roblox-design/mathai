@@ -575,6 +575,13 @@
       "tags": ["prob", "generator"]
     },
     {
+      "id": "D1-prob2-gen-outcome-approach", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2f:70:0", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "outcome-approach", "maxWords": 110,
+        "describe": "Names the app's diagnosis: a 70% chance of rain was read as the part of tomorrow it rains, or as a sure forecast. A probability says how likely it is: of many days with this forecast, it rains on about 70% of them. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
       "id": "D1-prob2-gen-same-prob-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
       "skill": "prob:2", "source": "gen", "key": "pr2c:65:3", "wrong": [65, 50], "phase": "reveal",
       "expect": { "first": "misconception", "diagnosis": "same-prob", "maxWords": 130,

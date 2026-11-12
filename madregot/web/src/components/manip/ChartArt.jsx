@@ -43,14 +43,14 @@ const val = (f, i, v) => `${chartNum(v, f.dp)}${f.mode === 'pie' && f.pct ? '%' 
 const yScale = (ax, yTop, yBase) => (v) => yBase - ((Math.max(ax.from, Math.min(ax.max, v)) - ax.from) / (ax.max - ax.from)) * (yBase - yTop);
 
 /** The grid (a light line at every step, the base heavier), the axis line with its small ticks, and its numbers. */
-export function AxisArt({ ax, Y, x0, x1, side }) {
+export function AxisArt({ ax, Y, x0, x1, side, numbers = true }) {
   const axX = side === 'left' ? x0 : x1; const out = side === 'left' ? -1 : 1;
   return (
     <g className="fig-ch-axisg">
       {ax.ticks.map((t) => <line key={`g${t}`} x1={x0} x2={x1} y1={Y(t)} y2={Y(t)} className={t === ax.from ? 'fig-ch-base' : 'fig-ch-grid'} />)}
       <line x1={axX} x2={axX} y1={Y(ax.max) - 6} y2={Y(ax.from)} className="fig-ch-axis" />
       {ax.ticks.map((t) => <line key={`t${t}`} x1={axX} x2={axX + out * 5} y1={Y(t)} y2={Y(t)} className="fig-ch-axis" />)}
-      {ax.labelled.map((t) => (
+      {numbers && ax.labelled.map((t) => (
         <text key={`n${t}`} x={axX + out * 9} y={Y(t) + 5} textAnchor={side === 'left' ? 'end' : 'start'} className="fig-ch-tick">{chartNum(t)}</text>
       ))}
     </g>
@@ -83,15 +83,19 @@ function Wrapped({ x, y, wrap, className, lh }) {
 
 // ---------------------------------------------------------------- bar
 
-/** Where everything of a bar chart is: the axis, the slots right to left, the bars' width, the labels' lines. */
-export function barGeom(f, { compact = false } = {}) {
+/**
+ * Where everything of a bar chart is: the axis, the slots right to left, the bars' width, the labels' lines. `bare`
+ * (the chart a student builds, Chart.jsx): the box holds the plot only, and its words are HTML around it at a fixed
+ * size (the axis title over it, the numbers beside it, the names under it), so a narrow phone does not shrink them.
+ */
+export function barGeom(f, { compact = false, bare = false } = {}) {
   const ax = chartAxis(f, compact ? AXIS_LABELS_COMPACT : AXIS_LABELS);
   const cats = f.cats || f.values.map(() => '');
   const n = Math.max(1, cats.length);
   const W = CHART_W;
-  const tickW = Math.max(...ax.labelled.map((v) => textW(chartNum(v), 14))) + 14;
-  const valueRow = f.labels !== false || f.hide != null ? 22 : 10;
-  const top = (f.unit ? 30 : 6) + valueRow;
+  const tickW = Math.max(...ax.labelled.map((v) => textW(chartNum(v), bare ? 16 : 14))) + 14;
+  const valueRow = f.labels !== false || f.hide != null ? 22 : bare ? 18 : 10;
+  const top = (f.unit && !bare ? 30 : 6) + valueRow;
   const PH = compact ? 88 : 150;
   const B = top + PH;
   const x1 = W - tickW - 4; const x0 = f.level != null ? 40 : 8;
@@ -101,16 +105,19 @@ export function barGeom(f, { compact = false } = {}) {
   const size = compact ? 13 : 14; const lh = size + 3;
   const wraps = cats.map((c) => wrapText(c, slot - 6, size));
   const lines = Math.max(1, ...wraps.map((w) => w.lines.length));
-  const H = B + 10 + size + (lines - 1) * lh + 6;
+  const H = bare ? B + 8 : B + 10 + size + (lines - 1) * lh + 6;
   return { W, H, ax, n, top, B, PH, x0, x1, slot, cx, bw, Y: yScale(ax, top, B), wraps, lh, cats };
 }
 
-/** The bars over the axis, their values, the '?' of a hidden one, crossed ones, the level line and the names. */
-export function BarChartArt({ f, g, draw = none, values = f.values }) {
+/**
+ * The bars over the axis, their values, the '?' of a hidden one, crossed ones, the level line and the names. With
+ * `text` false only the shapes are drawn (Chart.jsx writes the words in HTML, barGeom's `bare`).
+ */
+export function BarChartArt({ f, g, draw = none, values = f.values, text = true }) {
   const crossed = new Set(f.cross || []);
   return (
     <g>
-      <AxisArt ax={g.ax} Y={g.Y} x0={g.x0} x1={g.x1} side="right" />
+      <AxisArt ax={g.ax} Y={g.Y} x0={g.x0} x1={g.x1} side="right" numbers={text} />
       {values.map((v, i) => {
         const x = g.cx(i) - g.bw / 2; const hidden = f.hide === i;
         if (v == null) {
@@ -127,13 +134,13 @@ export function BarChartArt({ f, g, draw = none, values = f.values }) {
         return (
           <m.g key={i} className={clsx('fig-ch-bar', `fig-tone-${f.tones ? toneOf(f, i) : 0}`, crossed.has(i) && 'crossed')} {...draw(i, 'fade')}>
             <rect x={x} y={y} width={g.bw} height={Math.max(0, g.B - y)} rx="3" />
-            {(hidden || f.labels !== false) && <text x={g.cx(i)} y={y - 7} textAnchor="middle" className="fig-ch-val">{hidden ? '?' : val(f, i, v)}</text>}
+            {text && (hidden || f.labels !== false) && <text x={g.cx(i)} y={y - 7} textAnchor="middle" className="fig-ch-val">{hidden ? '?' : val(f, i, v)}</text>}
             {crossed.has(i) && <Cross x={x - 3} y={Math.min(y, g.B - 24)} w={g.bw + 6} h={Math.max(24, g.B - y)} />}
           </m.g>
         );
       })}
       <LevelArt f={f} Y={g.Y} x0={g.x0} x1={g.x1} side="left" />
-      {g.wraps.map((w, i) => w.lines.length > 0 && <Wrapped key={`c${i}`} x={g.cx(i)} y={g.B + 10 + w.size} wrap={w} lh={g.lh} className="fig-ch-cat" />)}
+      {text && g.wraps.map((w, i) => w.lines.length > 0 && <Wrapped key={`c${i}`} x={g.cx(i)} y={g.B + 10 + w.size} wrap={w} lh={g.lh} className="fig-ch-cat" />)}
     </g>
   );
 }

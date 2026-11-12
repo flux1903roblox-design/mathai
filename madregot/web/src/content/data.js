@@ -258,10 +258,10 @@ export const sportsOf = (vals, s) => { const o = (vals[0] / s + vals[1] / s) % 3
 export const GENRES = ['מתח', 'הרפתקאות', 'קומיקס', 'מדע בדיוני'];
 export const WAYS = ['ברגל', 'באוטובוס', 'באופניים', 'ברכב'];
 export const HOBBIES = ['ספורט', 'קריאה', 'מוזיקה', 'מחשב'];
-/** Colours as a sector, a ball or a pencil is called, with the figure's colour family (figure.css .fig-tone-k). */
+/** Colours of pencils and balls in words (a table or a sentence; nothing drawn: a drawn colour is named by TONE_WORDS). */
 export const COLOURS = [
-  { one: 'אדום', many: 'אדומים', tone: 3 }, { one: 'כחול', many: 'כחולים', tone: 0 },
-  { one: 'ירוק', many: 'ירוקים', tone: 2 }, { one: 'צהוב', many: 'צהובים', tone: 4 },
+  { one: 'אדום', many: 'אדומים' }, { one: 'כחול', many: 'כחולים' },
+  { one: 'ירוק', many: 'ירוקים' }, { one: 'צהוב', many: 'צהובים' },
 ];
 /** A colour by the numbers of a draw. */
 const colourOf = (...vals) => COLOURS[Math.abs(Math.round(sum(vals))) % COLOURS.length];
@@ -479,7 +479,7 @@ function buildBar() {
     key: `da1b:${step}:${counts.join(',')}`, text: 'בנו את הדיאגרמה לפי הטבלה.',
     fig: tableFig(['פרי', 'מספר ילדים'], counts.map((c, i) => [FRUITS[i], c])),
     form: 'manip', practiceOnly: true,
-    manip: { kind: 'chart', mode: 'bar', cats: FRUITS, start: [0, 0, 0, 0], bar: { max, step, every: 2, unit: 'מספר ילדים' } },
+    manip: { kind: 'chart', mode: 'bar', cats: FRUITS, start: [0, 0, 0, 0], bar: { max, step, every: 2, unit: 'מספר ילדים', unitWord: 'ילדים' } },
     answer: { values: counts },
     hint: `גררו כל עמודה עד הקו של המספר שלה. הציר קופץ ב־$${step}$.`,
     solution: [`הציר קופץ ב־$${step}$: כל משבצת היא $${step}$ ילדים.`, `${FRUITS.map((f, i) => `${f} $${counts[i]}$`).join(', ')}.`],
@@ -759,25 +759,26 @@ function scaleMc() {
 }
 const QUARTERS = [[1, 10], [1, 4], [1, 2], [3, 4]];
 /**
- * A covered wheel (the simulate object's estimate mode): spin, then choose about what part of it is red, among three of
+ * A covered wheel (the simulate object's estimate mode): spin, then choose about what part of it is orange, among three of
  * 1/10, 1/4, 1/2 and 3/4 (at least 0.15 apart). Practice only; a wrong pick under 100 spins is the small sample.
  */
 function simRun() {
   const qi = rint(rnd, 0, 3); const [a, b] = QUARTERS[qi];
   const parts = b === 10 ? 10 : b === 4 ? 12 : pick(rnd, [10, 12]);
   const red = (parts * a) / b; const rest = parts - red;
-  const sectors = [{ label: 'אדום', parts: red, tone: 3 }, { label: 'כחול', parts: Math.ceil(rest / 2), tone: 0 }];
-  if (Math.floor(rest / 2) > 0) sectors.push({ label: 'ירוק', parts: Math.floor(rest / 2), tone: 2 });
+  // named as drawn (TONE_WORDS): orange, blue, purple
+  const sectors = [{ label: 'כתום', parts: red, tone: 1 }, { label: 'כחול', parts: Math.ceil(rest / 2), tone: 0 }];
+  if (Math.floor(rest / 2) > 0) sectors.push({ label: 'סגול', parts: Math.floor(rest / 2), tone: 6 });
   const drop = pick(rnd, [0, 1, 2, 3].filter((i) => i !== qi));
   const picks = [0, 1, 2, 3].filter((i) => i !== drop);
   const choices = picks.map((i) => `\\frac{${QUARTERS[i][0]}}{${QUARTERS[i][1]}}`);
   const item = {
-    key: `da4w:${parts}:${red}:${picks.join(',')}`, text: 'הגלגל מכוסה. סובבו אותו, ובחרו: בערך איזה חלק מהגלגל אדום?',
+    key: `da4w:${parts}:${red}:${picks.join(',')}`, text: 'הגלגל מכוסה. סובבו אותו, ובחרו: בערך איזה חלק מהגלגל כתום?',
     form: 'manip', practiceOnly: true,
     manip: { kind: 'simulate', device: 'spinner', sectors, watch: 0, hidden: true },
     answer: { mode: 'estimate', choices, answer: picks.indexOf(qi) },
-    hint: 'סובבו הרבה פעמים: אחרי $100$ ויותר, השכיחות היחסית של אדום קרובה לחלק שלו בגלגל.',
-    solution: [`האדום הוא $${red}$ מתוך $${parts}$ חלקים: $\\frac{${a}}{${b}}$ מהגלגל.`, 'אחרי הרבה סיבובים השכיחות היחסית של אדום קרובה לזה.'],
+    hint: 'סובבו הרבה פעמים: אחרי $100$ ויותר, השכיחות היחסית של כתום קרובה לחלק שלו בגלגל.',
+    solution: [`הכתום הוא $${red}$ מתוך $${parts}$ חלקים: $\\frac{${a}}{${b}}$ מהגלגל.`, 'אחרי הרבה סיבובים השכיחות היחסית של כתום קרובה לזה.'],
   };
   return { ...item, diag: (u) => simDiag(item, u) };
 }

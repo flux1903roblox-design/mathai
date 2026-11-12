@@ -840,8 +840,8 @@ const PROPS = {
     'complement-only': (it, u) => { if (!it.key.startsWith('pr2a:')) return false; const [n, t] = nums(it.key); return fits(u, (t - 1) / n); },
     // the "due" or the "hot" choice after a run of one side
     gambler: (it, u) => it.key.startsWith('pr2g:') && /תורו|"חם"/.test(it.choices[u]?.text || ''),
-    // never named by an exercise (the challenge track's and the teaching's own): no answer of a generator shows it
-    'outcome-approach': () => false,
+    // the forecast read as the part of tomorrow it rains, or as sure
+    'outcome-approach': (it, u) => it.key.startsWith('pr2f:') && /מהיום|בטוח/.test(it.choices[u]?.text || ''),
     // two dice thrown many times (100 or more) and the share of a sum picked as one of eleven sums
     'equiprob-sums': (it, u) => (it.key.startsWith('pr3:') && fracIs(u, pr3(it).sums.length / 11))
       || (it.key.startsWith('pr3d:') && u?.n >= 100 && near(pickedValue(it, u), 1 / 11)),

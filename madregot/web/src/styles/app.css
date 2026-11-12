@@ -2315,14 +2315,31 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* building a chart (DATA-2.2): bars on the still figure's axis (figure.css draws them), or a pie of equal slices with
-   its category chips under it; the selected category is tinted behind its bar, or outlined on the pie's rim */
-.manip-chart { gap: 6px; }
+   its category chips beside it; the selected category is tinted behind its bar, or outlined on the pie's rim.
+   The chart keeps its size (review: shrunk to fit, the pie was 120px and the bars' words 10px): it does not shrink with
+   the room left under a source table, and the maths region scrolls instead. A bar chart's words are HTML at 14-15px
+   over and under the drawing (Chart.jsx), placed in percent of the drawing's box. */
+.lesson.is-manip .q-stage:has(.manip-chart) { flex: none; height: auto; min-height: 100%; }
+.manip.manip-chart { flex: none; gap: 6px; }
 .manip-readout.mp-chart-read { min-height: 34px; font-size: 20px; }
 .manip-chart-pie .manip-readout.mp-chart-read { flex-direction: column; justify-content: flex-start; gap: 0; }
 .mp-chart-line { font-size: 15px; line-height: 20px; font-weight: 700; }
 .mp-chart-nowrap { white-space: nowrap; }
 .mp-chart-line.sub { font-family: var(--font-ui); font-size: var(--t-sm); line-height: 20px; font-weight: 600; color: var(--ink-2); }
-.manip-canvas.mp-chart-pie { width: auto; max-width: 224px; aspect-ratio: 1 / 1; min-height: 120px; margin-inline: auto; }
+.mp-chart-box { display: flex; flex-direction: column; align-items: stretch; width: 100%; max-width: 440px; }
+.mp-chart-title { margin: 0 0 2px; text-align: center; font-size: 14px; line-height: 18px; font-weight: 600; color: var(--ink-2); }
+.mp-chart-plot { position: relative; }
+.manip-canvas.mp-chart-canvas:not(.mp-chart-pie) { flex: none; min-height: 0; max-width: none; }
+.mp-chart-words { position: absolute; inset: 0; pointer-events: none; }
+.mp-chart-num { position: absolute; transform: translateY(-50%); font-size: 14px; line-height: 16px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.mp-chart-given { position: absolute; transform: translate(-50%, -100%); font-size: 15px; line-height: 18px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.mp-chart-cats { position: relative; min-height: 22px; margin-top: 4px; }
+.mp-chart-cat { position: absolute; top: 0; padding: 0 2px; text-align: center; font-size: 14px; line-height: 17px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.mp-chart-cat.on { font-weight: 800; text-decoration: underline 2px var(--brand); text-underline-offset: 4px; }
+/* the pie: 200px across beside its chips (216 with the rim's outline, 220 with the canvas's border), 160px on a 320px
+   phone */
+.mp-chart-pierow { container: chartrow / inline-size; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; width: 100%; max-width: 440px; }
+.manip-canvas.mp-chart-pie { flex: none; width: clamp(178px, calc(100% - 110px), 220px); min-height: 0; height: auto; aspect-ratio: 1 / 1; margin: 0; }
 .mp-chart-selbg { fill: color-mix(in srgb, var(--c, var(--brand)) 13%, transparent); }
 .mp-chart-slot { outline: none; }
 .mp-chart-focus { fill: none; stroke: none; }
@@ -2330,16 +2347,25 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mp-chart-grey { fill: var(--track); }
 .mp-chart-cut { stroke: var(--paper); stroke-width: 1.5; }
 .mp-chart-cut.grey { stroke: var(--track-edge); }
+.mp-chart-next { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 4 3; stroke-linejoin: round; }
 .mp-chart-arc { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
-.mp-chart-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
-.mp-chart-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 999px; border: 2px solid var(--rule-strong);
-  background: var(--paper); color: var(--ink); font-size: var(--t-sm); font-weight: 600; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.mp-chart-chips { flex: 1 1 0; min-width: 102px; max-width: 200px; display: flex; flex-direction: column; gap: 6px; }
+/* a chip's count goes under its name when the column is too narrow for both: a word is never broken */
+.mp-chart-chip { display: flex; flex-wrap: wrap; align-items: center; column-gap: 5px; row-gap: 0; min-height: 44px; padding: 4px 8px; border-radius: 14px; border: 2px solid var(--rule-strong);
+  background: var(--paper); color: var(--ink); font-size: var(--t-sm); font-weight: 600; line-height: 1.2; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 .mp-chart-chip.on { border-color: var(--brand); background: var(--brand-tint); }
 .mp-chart-chip.fixed { border-style: dashed; }
 .mp-chart-chip:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
-.mp-chart-chip b { font-family: var(--font-display); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mp-chart-chip-name { flex: 1 1 auto; }
+.mp-chart-chip b { flex: none; margin-inline-start: auto; font-family: var(--font-display); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .mp-chart-swatch { flex: none; width: 14px; height: 14px; }
-.mp-chart-chip-goal { font-size: var(--t-xs); font-weight: 700; color: var(--good-ink); }
+.mp-chart-chip-goal { flex: 1 0 100%; font-size: var(--t-xs); font-weight: 700; color: var(--good-ink); }
+/* a column narrower than a 320px phone's (a teaching card): the pie alone on its row, the chips two to a row under it */
+@container chartrow (max-width: 287px) {
+  .manip-canvas.mp-chart-pie { width: min(100%, 220px); }
+  .mp-chart-chips { flex: 1 1 100%; max-width: none; flex-direction: row; flex-wrap: wrap; }
+  .mp-chart-chip { flex: 1 1 calc(50% - 3px); min-width: 0; }
+}
 
 /* the still figures: a number line, bars, a cut rectangle, the double line, dots in rows */
 .figure.fg-numline { max-width: 340px; }
