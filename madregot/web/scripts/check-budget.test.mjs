@@ -87,7 +87,7 @@ let dists = [];
 afterEach(() => { for (const d of dists) rmSync(d, { recursive: true, force: true }); dists = []; });
 
 /** A build: the entry (with its static import modulepreloaded), a chunk loaded on demand, and the module map. */
-function lazyDist(vendorModules = ['node_modules/react/index.js'], { map = true } = {}) {
+function lazyDist(vendorModules = ['node_modules/react/index.js'], { map = true, lazyModules = [] } = {}) {
   const d = mkdtempSync(join(tmpdir(), 'budget-lazy-'));
   dists.push(d);
   mkdirSync(join(d, 'assets'));
@@ -98,7 +98,7 @@ function lazyDist(vendorModules = ['node_modules/react/index.js'], { map = true 
     writeFileSync(join(d, '.vite', 'modules.json'), JSON.stringify({
       'assets/index-a1.js': { isEntry: true, imports: ['assets/vendor-b2.js'], dynamicImports: ['assets/Wardrobe-c3.js'], modules: ['src/main.jsx', 'src/lib/store.js'] },
       'assets/vendor-b2.js': { isEntry: false, imports: [], dynamicImports: [], modules: vendorModules },
-      'assets/Wardrobe-c3.js': { isEntry: false, imports: [], dynamicImports: [], modules: ['src/screens/Wardrobe.jsx', 'src/components/mascot/Accessories.jsx'] },
+      'assets/Wardrobe-c3.js': { isEntry: false, imports: [], dynamicImports: [], modules: ['src/screens/Wardrobe.jsx', 'src/components/mascot/Accessories.jsx', ...lazyModules] },
     }));
   }
   return d;
@@ -120,6 +120,36 @@ describe('check-budget: modules that must load on demand (STUDENT-15)', () => {
     expect(r.problems[0]).toMatch(/^push must load on demand, but src\/lib\/push\.js is in the first load \(assets\/vendor-b2\.js\)/);
     expect(r.problems[1]).toMatch(/^cmdk must load on demand, but node_modules\/cmdk\/dist\/index\.mjs/);
     expect(r.text).toMatch(/FAIL push must load on demand/);
+  });
+
+  it('canvas-confetti (the maths burst, PKG-3): passes in a chunk loaded on demand, refused in a boot file', () => {
+    const confetti = 'node_modules/canvas-confetti/dist/confetti.module.mjs';
+    const budget = { ...LAZY, lazyOnly: [...LAZY.lazyOnly, 'canvas-confetti'] };
+    const lazy = check(lazyDist(undefined, { lazyModules: [confetti, 'src/lib/mathBurst.js'] }), budget);
+    expect(lazy.problems).toEqual([]);
+    expect(lazy.ok).toBe(true);
+    const boot = check(lazyDist(['node_modules/react/index.js', confetti]), budget);
+    expect(boot.ok).toBe(false);
+    expect(boot.problems).toEqual([expect.stringMatching(/^canvas-confetti must load on demand, but node_modules\/canvas-confetti\/dist\/confetti\.module\.mjs is in the first load \(assets\/vendor-b2\.js\)/)]);
+    expect(boot.text).toMatch(/FAIL canvas-confetti must load on demand/);
+  });
+
+  it('pdf.js and pdfPages (PDFs drawn on the device, PKG-2): pass in a chunk loaded on demand, refused in a boot file', () => {
+    const pdf = ['node_modules/pdfjs-dist/legacy/build/pdf.min.mjs', 'node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'];
+    const budget = { ...LAZY, lazyOnly: [...LAZY.lazyOnly, 'pdfjs-dist', 'pdfPages'] };
+    const lazy = check(lazyDist(undefined, { lazyModules: [...pdf, 'src/lib/pdfPages.js'] }), budget);
+    expect(lazy.problems).toEqual([]);
+    expect(lazy.ok).toBe(true);
+    const boot = check(lazyDist(['node_modules/react/index.js', pdf[0], 'src/lib/pdfPages.js']), budget);
+    expect(boot.ok).toBe(false);
+    expect(boot.problems).toEqual([
+      expect.stringMatching(/^pdfjs-dist must load on demand, but node_modules\/pdfjs-dist\/legacy\/build\/pdf\.min\.mjs is in the first load \(assets\/vendor-b2\.js\)/),
+      expect.stringMatching(/^pdfPages must load on demand, but src\/lib\/pdfPages\.js is in the first load/),
+    ]);
+    expect(boot.text).toMatch(/FAIL pdfjs-dist must load on demand/);
+    // a name is the package, not a part of it: pdfjs-dist-viewer or a file called pdf.js is something else
+    expect(matches('node_modules/pdfjs-dist-viewer/index.js', 'pdfjs-dist')).toBe(false);
+    expect(matches('src/lib/pdfPagesOld.js', 'pdfPages')).toBe(false);
   });
 
   it('a name matches a file by its base name or a package by its name, nothing looser', () => {
@@ -150,14 +180,16 @@ describe('the budget as configured', () => {
   const budget = JSON.parse(readFileSync(join(WEB, 'budget.json'), 'utf8'));
   const pkg = JSON.parse(readFileSync(join(WEB, 'package.json'), 'utf8'));
 
-  it('names the lazy-only modules (the student lane\'s, the demo class and the tutor\'s code of FOLLOWUP-23, the safety code the stage-5 merge took out of the first load, and the exercise code of the boot split), beside the load-time gates', () => {
+  it('names the lazy-only modules (the student lane\'s, the demo class and the tutor\'s code of FOLLOWUP-23, the safety code the stage-5 merge took out of the first load, the exercise code of the boot split and pdf.js of PKG-2), beside the load-time gates', () => {
     // shared/safety.js and its blocklist load with the screens that read a child's words; the first screen's help lines
     // are shared/helpLines.js (the stage-5 merge, QA_DURABLE.md)
     // and the exercise code (the boot split): the checkers and the figures' words (content/index.js, manip), each topic
     // file's generators, the challenge tasks' parts, and the engines that make and grade questions; a lane's new topic
-    // file joins the list (src/boot.test.js finds it by its gen: before a build)
+    // file joins the list (src/boot.test.js finds it by its gen: before a build); pdf.js and lib/pdfPages.js (PKG-2) load
+    // only when a PDF is chosen
     expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk', 'ai', 'pedagogy', 'guard', 'topicWays', 'safety', 'blocklist',
-      'src/content/index.js', 'manip', 'grade7', 'grade8', 'signed6', 'src/content/expr.js', 'eq', 'frac', 'linear', 'sys', 'ratio', 'pct', 'func', 'src/content/data.js', 'src/content/prob.js', 'src/content/stats2.js', 'src/learn/challenges/all.ts', 'lesson', 'placement', 'exam', 'items', 'seeds']);
+      'src/content/index.js', 'manip', 'grade7', 'grade8', 'signed6', 'src/content/expr.js', 'eq', 'frac', 'linear', 'sys', 'ratio', 'pct', 'func', 'src/content/data.js', 'src/content/prob.js', 'src/content/stats2.js', 'src/learn/challenges/all.ts', 'lesson', 'placement', 'exam', 'items', 'seeds',
+      'pdfjs-dist', 'pdfPages']);
     // the ratchet: FOLLOWUP-23's measured 403.3 KB + 5% (424), then the boot split's 317.2 KB + 5%; never back up
     expect(budget.bootJsGzipKB).toBeLessThanOrEqual(333);
     for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');

@@ -40,3 +40,10 @@
   .assistant-page { min-height: 100dvh; }
 }
 .sheet-cta { position: sticky; bottom: calc(-1 * var(--s4)); z-index: 2; margin: 0 calc(-1 * var(--s4)); padding: var(--s3) var(--s4); background: var(--paper); border-top: 2px solid var(--line); }
+/* the photo check's two ways in (PKG-2): the camera, and a picture or a PDF; then one calm line about a PDF */
+.photo-pick { display: flex; flex-direction: column; gap: var(--s3); }
+.upload-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.pdf-status { display: flex; align-items: center; gap: var(--s2); margin: 0; font-weight: 600; color: var(--ink-2); }
+.pdf-status:empty { position: absolute; }
+.pdf-status .btn-spin { width: 16px; height: 16px; border-width: 2px; color: var(--brand); }
+.photo-pick [aria-disabled="true"] { opacity: 0.55; cursor: default; }

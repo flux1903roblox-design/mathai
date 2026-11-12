@@ -57,8 +57,8 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NOW, student, item, answer, proceed } from './helpers.js';
-import { API, TOKEN, fakeServer } from './fakeServer.js';
+import { NOW, student, item, answer, proceed, withServer, inClass, KEY_CLASS as keyClass, keyTeacher, ownedTeacher } from './helpers.js';
+import { API, TOKEN, fakeServer, given, EXAM_ITEMS, examWork, nine, helpNoa, yoavPage } from './fakeServer.js';
 import { MOE_RULES } from '../../shared/schoolRules.js';
 import { AI_COPY, SETTING_Q, ATTEST } from '../src/content/classAi.js';
 
@@ -84,14 +84,10 @@ async function open(page, route, state = null, { local = {}, at = NOW } = {}) {
   await page.goto(`./${route}`);
   await page.evaluate(() => document.fonts.ready);
 }
-/** A device with the app pointed at the fake server. `profile: null`: nobody has used the app here yet. */
-// introSeen: the one-time introduction to the tutor (trust spec TRUST-4 §4.6) was read on this device, as helpers.js seeds it
-const withServer = (extra = {}) => ({ ...student('7', { ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true }, ...extra }), version: 3 });
+// a device with the app pointed at the fake server (withServer), the teachers (keyTeacher, ownedTeacher) and the class
+// student (inClass) come from helpers.js, the assignments (given, examWork) from fakeServer.js, shared with a11y.spec.js
+/** `profile: null`: nobody has used the app here yet. */
 const fresh = () => withServer({ profile: null });
-// a class this device opened with the key flow (createdHere): only such a device is offered to bind it to the email
-const keyClass = { code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7', createdHere: true };
-const keyTeacher = (cls = {}) => withServer({ profile: { role: 'teacher', name: 'רונית', grade: '7', classes: [{ ...keyClass, ...cls }], active: 'K7Q2MD' } });
-const ownedTeacher = () => withServer({ profile: { role: 'teacher', name: 'רונית', grade: '7', classes: [{ code: 'K7Q2MD', key: null, className: 'ז׳3', grade: '7', owned: true }], active: 'K7Q2MD' } });
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
 const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('madregot')).state);
 const teacherCalls = (log) => log.filter((r) => r.path.startsWith('/api/teacher/') && r.path !== '/api/teacher/classes');
@@ -1530,9 +1526,6 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
 // has a dot for new work; a student with no class sees none of it.
 test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
   const MONDAY = new Date('2026-11-09T10:00:00');
-  const inClass = (extra = {}) => withServer({ profile: { role: 'student', name: 'דנה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', teacherName: 'רונית', token: 'stok-a1', studentId: 'a1' }, ...extra });
-  const given = (over = {}) => ({ id: 'a000000000000001', kind: 'stair', skill: 'signed:1', title: 'מספרים מכוונים: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי',
-    startsOn: '2026-11-09', dueOn: '2026-11-12', forAll: true, targets: [], createdAt: '2026-11-09T07:00:00.000Z', ...over });
   const check = (over = {}) => given({ id: 'a000000000000002', kind: 'check', skill: 'signed:2', title: 'בדיקת שליטה: השוואת מספרים', note: '', startsOn: '2026-11-02', dueOn: '2026-11-06', createdAt: '2026-11-02T07:00:00.000Z', ...over });
   const later = given({ id: 'a000000000000003', skill: 'coord:1', title: 'מערכת צירים: קריאת נקודה', note: '', dueOn: '2026-11-19', createdAt: '2026-11-09T07:05:00.000Z' });
   const workPosts = (log) => log.filter((r) => r.path.startsWith('/api/class/work/') && r.method === 'POST');
@@ -1606,13 +1599,7 @@ test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
     await expect.poll(async () => (await saved(page)).workOutbox).toEqual({});
   });
 
-  // a class exam of three frozen questions, as the teacher's device made them (lib/exam.js freezeItem)
-  const EXAM_ITEMS = [
-    { key: 'sn3:-8:3', topic: 'signed', level: 3, levelTitle: 'כפל וחילוק', text: 'חשבו:', display: '-8 \\cdot 3', form: 'num', choices: null, fig: null, label: null, unit: null, var: null, exact: null, answer: -24, answerText: '-24', solution: ['הסימנים שונים, לכן התוצאה שלילית.', '$8 \\cdot 3 = 24$'], hint: 'מה קורה לסימן כשכופלים שלילי בחיובי?' },
-    { key: 'sn2c:-3:2', topic: 'signed', level: 2, levelTitle: 'השוואת מספרים', text: 'איזה סימן מתאים?', display: '-3 \;\\square\; 2', form: 'mc', choices: [{ tex: '<' }, { tex: '=' }, { tex: '>' }], fig: null, label: null, unit: null, var: null, exact: null, answer: 0, answerText: '<', solution: ['$-3$ משמאל ל־$2$ על ציר המספרים.'], hint: 'איפה כל מספר על הציר?' },
-    { key: 'py1:5:5', topic: 'pyth', level: 1, levelTitle: 'מציאת היתר', text: 'במשולש ישר־זווית הניצבים $5$ ו־$5$. מה אורך היתר? עגלו לעשיריות.', display: null, form: 'num', choices: null, fig: null, label: null, unit: 'ס״מ', var: null, exact: Math.sqrt(50), answer: 7.1, answerText: '7.1', solution: ['$5^2 + 5^2 = 50$', '$\\sqrt{50} \\approx 7.1$'], hint: 'מחברים את ריבועי הניצבים.' },
-  ];
-  const examWork = (over = {}) => given({ id: 'a000000000000004', kind: 'exam', skill: null, title: 'מבחן תרגול: לפני החנוכה', note: '', exam: EXAM_ITEMS, version: 'b', dueOn: '2026-11-11', ...over });
+  // the class exam (EXAM_ITEMS, examWork) is fakeServer.js's
   const typeIn = async (page, v) => { await page.locator('#slot-v').click(); for (const ch of v) await page.getByRole('button', { name: { '.': 'נקודה עשרונית', '-': 'מינוס' }[ch] || ch, exact: true }).click(); await page.getByRole('button', { name: 'בדיקה', exact: true }).click(); };
   /** Through the exam: right, wrong, then 7.07 for √50 (right: the frozen exact length). */
   async function solveExam(page) {
@@ -1914,7 +1901,6 @@ test.describe('TEACHER-6: help both ways', () => {
     { id: 3, studentId: 'a1', name: 'דנה', topic: 'coord', level: 1, question: 'קראו את הנקודה', answer: '(2, 3)', note: '', has_image: 0, created_at: '2026-11-03T10:00:00.000Z', seen_at: '2026-11-03T11:00:00.000Z', done_at: null,
       messages: [m(21, 'teacher', 'נעבור על זה מחר בכיתה', true), m(22, 'student', 'עדיין לא ברור לי', true), m(23, 'teacher', 'כתבו לי איפה בדיוק נתקעתם', true), m(24, 'student', 'בשלב השני', true), m(25, 'teacher', 'נעבור על זה בכיתה')] },
   ];
-  const inClass = () => withServer({ profile: { role: 'student', name: 'דנה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', teacherName: 'רונית', token: 'stok-a1', studentId: 'a1' } });
   const replies = (log, path) => log.filter((r) => r.path === path && r.method === 'POST');
   const missionsTab = (page) => page.getByRole('navigation', { name: 'ניווט ראשי' }).getByRole('link', { name: /^משימות/ });
 
@@ -2140,29 +2126,7 @@ test.describe('TEACHER-6: help both ways', () => {
 // mistake's "לתת תרגול" opens the assign sheet for that student alone; the sheet's help link filters the help view;
 // the PIN reset and the removal live on the sheet; and the class report's names open the same sheet.
 test.describe('TEACHER-8: each student has a page, and a short ranked list', () => {
-  // the server's day is Thursday 5 November 2026
-  const nine = () => [
-    { id: 's1', name: 'דנה', lastPractice: '2026-10-20T08:00:00Z' }, // idle 16 days: 10
-    { id: 's2', name: 'יואב', week: { n: 10, first: 2, days: 3 } }, // 20% first try: 16
-    { id: 's3', name: 'נועה', late: 2 }, // two late (4) and a help request waiting (3): 7
-    { id: 's4', name: 'איתי', lastPractice: null, joinedOn: '2026-10-31', today: { n: 0 }, week: { n: 0, first: 0, days: 0 } }, // never, 5 days: 5.5
-    { id: 's5', name: 'מאיה', lastPractice: '2026-11-01T08:00:00Z' }, // idle 4: 5
-    { id: 's6', name: 'רוני', week: { n: 8, first: 4, days: 2 } }, // 50%: 4
-    { id: 's7', name: 'עדי', lastPractice: '2026-11-02T08:00:00Z' }, // idle 3: 4.5
-    { id: 's8', name: 'שירה', late: 1 }, // 2
-    { id: 's9', name: 'תמר' }, // practising and doing well
-  ];
-  const helpNoa = () => [{ id: 7, studentId: 's3', name: 'נועה', topic: 'signed', level: 1, question: '$3 - 8$', answer: '5', note: '', has_image: 0, created_at: '2026-11-05T07:00:00.000Z', seen_at: null, done_at: null, messages: [] }];
-  const yoavPage = () => ({
-    days14: Array.from({ length: 14 }, (_, i) => {
-      const day = new Date(Date.UTC(2026, 9, 23 + i)).toISOString().slice(0, 10);
-      const n = [0, 4, 0, 0, 12, 0, 0, 3, 0, 6, 0, 0, 5, 2][i];
-      return { day, n, first: Math.floor(n / 3), minutes: n * 2 };
-    }),
-    levels: { signed: { level: 2, max: 2 } },
-    mistakes: [{ topic: 'signed', cat: 'sign', level: 1, n: 4, lastAt: '2026-11-04T10:00:00.000Z' }],
-    exams: [{ id: '31', title: 'מבחן במספרים מכוונים', correct: 6, total: 10, at: '2026-11-02T10:00:00.000Z', questions: [{ topic: 'signed', status: 'correct' }, { topic: 'signed', status: 'wrong' }] }],
-  });
+  // the nine students, נועה's help request and יואב's page are fakeServer.js's (nine, helpNoa, yoavPage), shared with a11y.spec.js
 
   test('1. "מחר" ranks six with their reasons; a name opens the sheet; "לתת תרגול" gives practice to that student alone', async ({ page }) => {
     const { st, log } = await fakeServer(page, { students: nine(), help: helpNoa(), studentPages: { s2: yoavPage() } }, baseOf());

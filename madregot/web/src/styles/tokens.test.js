@@ -116,6 +116,13 @@ describe('dark theme pairs (dark.css)', () => {
     expect(ratio(token('brand-d'), '#ffffff')).toBeGreaterThanOrEqual(3);
   });
 
+  it('the count written over a progress bar reads on its fill and on its empty track, in light and in dark (PKG-1)', () => {
+    for (const bg of ['bar-fill', 'track']) {
+      expect(ratio(token('ink'), token(bg)), `light --ink on --${bg}`).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(dark('ink'), dark(bg)), `dark --ink on --${bg}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it('buttons keep white text on the brand in both themes', () => {
     expect(dark('brand')).toBe(token('brand'));
     expect(ratio('#ffffff', dark('brand'))).toBeGreaterThanOrEqual(4.5);

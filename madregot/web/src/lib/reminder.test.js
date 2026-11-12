@@ -5,6 +5,8 @@
 //   day: a lesson, a check, a teaching stage (the lane's), and also the multiplication facts and a finished challenge
 //   (the curriculum lane's, which count for the day like a lesson).
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { IDBFactory } from 'fake-indexeddb';
+import { idbRecord, idbNames } from './durable/testing.js';
 
 const markDone = vi.fn(async () => true);
 vi.mock('./push.js', () => ({ markDone, disable: vi.fn(async () => {}) }));
@@ -16,22 +18,18 @@ const { clearDevice } = await import('./wipe.js');
 const ON = { on: true, slot: 18, id: 'a'.repeat(16), secret: 'b'.repeat(32), state: 'on', seenDay: null, doneDay: null };
 const flush = () => new Promise((r) => { setTimeout(r, 0); });
 
-/** A browser with a push subscription and the reminder's database. */
-function fakeWindow() {
-  const calls = { unsubscribed: 0, deleted: [] };
+/**
+ * A browser with a push subscription and a real IndexedDB (fake-indexeddb) that holds the reminder's database, as
+ * lib/push.js leaves it, and another database of the app's that must stay.
+ */
+async function fakeWindow() {
+  const calls = { unsubscribed: 0 };
   const sub = { unsubscribe: async () => { calls.unsubscribed += 1; return true; } };
-  const w = {
-    navigator: { serviceWorker: { getRegistration: async () => ({ pushManager: { getSubscription: async () => sub } }) } },
-    indexedDB: {
-      deleteDatabase(name) {
-        calls.deleted.push(name);
-        const req = {};
-        setTimeout(() => req.onsuccess?.(), 0);
-        return req;
-      },
-    },
-  };
-  return { w, calls };
+  const indexedDB = new IDBFactory();
+  await idbRecord(indexedDB, 'madregot-push', 'sub', 'current', { id: 'a'.repeat(16), secret: 'b'.repeat(32), slot: 18, key: 'BKEY', api: 'https://api.example.test' });
+  await idbRecord(indexedDB, 'other-app-db', 'kv', 'k', 1);
+  const w = { navigator: { serviceWorker: { getRegistration: async () => ({ pushManager: { getSubscription: async () => sub } }) } }, indexedDB };
+  return { w, calls, names: () => idbNames(indexedDB) };
 }
 
 describe('delete all and the daily reminder', () => {
@@ -49,19 +47,21 @@ describe('delete all and the daily reminder', () => {
   });
 
   it('on the device: the push subscription is dropped and the madregot-push database deleted', async () => {
-    const { w, calls } = fakeWindow();
+    const { w, calls, names } = await fakeWindow();
+    expect((await names()).sort()).toEqual(['madregot-push', 'other-app-db']);
     await clearReminderDevice(w);
-    expect(calls).toEqual({ unsubscribed: 1, deleted: ['madregot-push'] });
+    expect(calls).toEqual({ unsubscribed: 1 });
+    expect(await names()).toEqual(['other-app-db']); // really deleted, and only that one
     // a browser with neither: nothing to do, nothing thrown
     await expect(clearReminderDevice({})).resolves.toBeUndefined();
   });
 
   it('is registered with lib/wipe.js: clearing the device deletes the reminder\'s database on every path', async () => {
-    const { w, calls } = fakeWindow();
+    const { w, names } = await fakeWindow();
     const was = globalThis.indexedDB;
     globalThis.indexedDB = w.indexedDB;
     try { await clearDevice(); } finally { globalThis.indexedDB = was; }
-    expect(calls.deleted).toContain('madregot-push');
+    expect(await names()).not.toContain('madregot-push');
   });
 });
 

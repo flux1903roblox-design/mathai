@@ -18,11 +18,19 @@ export const SW_SOURCE = fileURLToPath(new URL('../src/sw/sw.js', import.meta.ur
 const plain = (file) => String(file).replace(/\\/g, '/').replace(/^\.?\//, '');
 
 /**
+ * pdf.js (PKG-2): the chunk vite.config.js names 'pdf' and pdf.js's worker. A phone fetches them only when a PDF is
+ * chosen for a check, which needs the internet anyway, and the worker then keeps them until the next release (its
+ * /assets/ rule). Kept in every release, they would be about 1.8 MB more for every phone, also for those that never
+ * open a PDF.
+ */
+export const PDF_ENGINE = /^(pdf-[\w-]+\.js|pdf\.worker\.min-[\w-]+\.mjs)$/;
+
+/**
  * Which built file the worker keeps (the path is relative to the build folder):
- * index.html, the manifest, the icons and theme-boot.js; every script and style sheet directly under assets/; the woff2
- * fonts of Rubik's Hebrew and Latin parts and of KaTeX. Not source maps, not the .ttf/.woff copies (browsers take the
- * woff2), not Rubik's Arabic, Cyrillic or Latin-extended parts (the app never shows them), not other public files
- * (store screenshots, _headers).
+ * index.html, the manifest, the icons and theme-boot.js; every script and style sheet directly under assets/ but pdf.js
+ * (PDF_ENGINE); the woff2 fonts of Rubik's Hebrew and Latin parts and of KaTeX. Not source maps, not the .ttf/.woff
+ * copies (browsers take the woff2), not Rubik's Arabic, Cyrillic or Latin-extended parts (the app never shows them), not
+ * other public files (store screenshots, _headers).
  */
 export function precacheFilter(file) {
   const f = plain(file);
@@ -31,6 +39,7 @@ export function precacheFilter(file) {
   if (/^icons\/[\w-]+\.(png|svg|ico|webp)$/i.test(f)) return true;
   const name = /^assets\/([^/]+)$/.exec(f)?.[1];
   if (!name) return false;
+  if (PDF_ENGINE.test(name)) return false;
   if (/\.(js|css)$/.test(name)) return true;
   const font = /^(.+)\.woff2$/.exec(name);
   if (!font) return false;

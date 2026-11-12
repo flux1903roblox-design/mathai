@@ -20,7 +20,9 @@ The device matrix and the screen-by-screen results are in [QA_MATRIX.md](QA_MATR
     4 devices, the app keypad, keyboard typing, 8 user journeys on phone and desktop (including the back button and
     the plan quest), 11 screens on 4 devices, and 39 visual regression screenshots (13 screens on 2 phones and desktop).
   - An independent adversarial review (round 4), then scripts that repeat each of its findings (47 checks).
-  - axe-core (WCAG 2.1 A/AA) on 15 screens at two sizes, and a keyboard focus walk through 7 screens.
+  - axe-core (WCAG 2.1 A/AA) on 15 screens at two sizes, and a keyboard focus walk through 7 screens: one-off scripts
+    in the session, not committed. The axe scans in the rounds below were run the same way. A standing axe suite came
+    later (`web/e2e/a11y.spec.js`, PKG-1, 11 November 2026; see QA_MATRIX.md, "The standing axe suite").
   - Audit scripts (session scratchpad, not committed): exercise layout measured on 9 viewports × 14 exercises ×
     3 states (load, wrong answer, revealed answer) = 378 measurements per round; a screen audit of 19 screens ×
     4 viewports (sideways scroll, controls under the tab bar, tap targets under 32 px, broken images,
@@ -295,7 +297,7 @@ has a repo test that fails on the old code and passes on the new one.
 |---|---|---|
 | A-1 | 320×568 with the hint open, or after a second mistake: a coordinate drawing shrinks to about 85 px (whole, with the enlarge button on it) | The smallest supported phone has about 570 px for the question, the maths, the hint, the answer and the keypad. The drawing stays whole and opens full width with one tap. |
 | A-2 | Not tested on a real iPhone, in iOS Safari, in WebKit or on Android Chrome | No device or WebKit run in this environment. Needs one pass on a real iPhone (Safari, home-screen app) before calling mobile done. |
-| A-3 | No test with a real screen reader (VoiceOver, TalkBack) | axe-core and keyboard checks only. |
+| A-3 | No test with a real screen reader (VoiceOver, TalkBack) | axe-core and keyboard checks only (now the standing suite `web/e2e/a11y.spec.js`); the screen-reader pass is the owner's. |
 | A-4 | The wording of the AI's answers was not reviewed | The local build uses a stand-in for the Claude API. |
 
 ## Round 6: the transformation, checked at every size (8 November 2026)

@@ -3,11 +3,13 @@
 // moment for a reached goal comes once and never after a reload; a goal the teacher turned off and a student with no
 // class show no card at all; the steps waiting on the device go with the next sync; the teacher turns the goal on or
 // off and sets its size on the class settings page (TEACHER-9 §1.8, FOLLOWUP-43), and sees the total in the board's
-// header.
-// CLASS_GOAL_SHOTS=<folder> saves screenshots for a look (nothing is compared).
+// header. The moment's maths burst (PKG-3) plays only with motion and with the app's sounds on (a class student starts
+// with them off, "quiet for class", and then no burst flies and its chunk is not loaded), from the sheet's hero, and
+// goes with the sheet.
+// CLASS_GOAL_SHOTS=<folder> saves screenshots for a look (nothing is compared); PKG_SHOTS=<folder> the burst mid-way.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { NOW, student } from './helpers.js';
+import { NOW, student, expectUsable } from './helpers.js';
 
 const API = 'https://api.madregot.test';
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
@@ -85,6 +87,17 @@ const classStudent = (extra = {}) => withServer({ profile: { role: 'student', na
 const teacher = () => withServer({ profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7' }], active: 'K7Q2MD' } });
 const goalCalls = (log) => log.filter((r) => r.path === '/api/class/goal');
 
+async function burstShots(page, name) {
+  const dir = process.env.PKG_SHOTS; if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  await page.waitForTimeout(350); // mid-burst: the symbols are up and spreading
+  await page.screenshot({ path: `${dir}/${name}-390x844.png` });
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${dir}/${name}-320x568.png` });
+  await page.setViewportSize({ width: 390, height: 844 });
+}
+
 async function shot(page, name) {
   const dir = process.env.CLASS_GOAL_SHOTS; if (!dir) return;
   mkdirSync(dir, { recursive: true });
@@ -138,6 +151,8 @@ test.describe('the class goal of the week', () => {
     await expect(sheet).toContainText('הכיתה שלכם עברה את המטרה של השבוע, ואתם הוספתם 9 צעדים. מדי קיבל צעיף כיתה.');
     await expect(sheet.getByRole('button', { name: 'לראות את מדי' })).toBeVisible();
     await shot(page, 'moment');
+    await page.waitForTimeout(400);
+    await expect(page.locator('canvas.math-burst')).toHaveCount(0); // reduced motion (the config's default): no burst
     let st = await saved(page);
     expect(st.nudges.goalSeen[WEEK]).toBe('2026-11-05');
     expect(st.look.earned).toContain('class-scarf');
@@ -187,6 +202,60 @@ test.describe('the class goal of the week', () => {
     const st = await saved(page);
     expect(st.nudges.goalSeen).toEqual({ [LAST]: '2026-11-05' });
     expect(st.classGoals[LAST]).toEqual({ target: 55, have: 61, mine: 7, reached: true });
+  });
+
+  test.describe('with motion: the maths burst (PKG-3)', () => {
+    test.use({ reducedMotion: 'no-preference' });
+    const burst = (page) => page.locator('canvas.math-burst');
+    // the student chose sounds (prefs.soundSet): the app is not in its quiet mode
+    const withSounds = () => classStudent({ sound: true, prefs: { theme: 'system', soundSet: true } });
+
+    test('plays from the sheet\'s hero as it opens, takes no tap, ends by itself, and does not come back', async ({ page }) => {
+      await fakeServer(page, { goal: goal({ have: 64, mine: 9, reached: true, last: null }) });
+      await open(page, '#/', withSounds());
+      const sheet = page.getByRole('dialog', { name: 'עשינו את זה יחד' });
+      await expect(sheet).toBeVisible();
+      await expect(burst(page)).toHaveCount(1);
+      await expect(burst(page)).toHaveAttribute('aria-hidden', 'true');
+      // over the sheet, yet the sheet's buttons are what a tap meets
+      expect(await burst(page).evaluate((el) => [getComputedStyle(el).pointerEvents, Number(getComputedStyle(el).zIndex) > Number(getComputedStyle(document.querySelector('.sheet')).zIndex)])).toEqual(['none', true]);
+      await expectUsable(page, sheet.getByRole('button', { name: 'לראות את מדי' }), 'לראות את מדי');
+      await expectUsable(page, sheet.getByRole('button', { name: 'סגירה' }), 'סגירה');
+      await burstShots(page, 'class-goal');
+      // the symbols fall in under 3 seconds and the canvas goes, while the sheet stays
+      await expect.poll(() => burst(page).count(), { timeout: 8000 }).toBe(0);
+      await expect(sheet).toBeVisible();
+      await sheet.getByRole('button', { name: 'סגירה' }).click();
+      // once a week: after a reload, no sheet and no burst
+      await page.reload();
+      await expect.poll(() => page.evaluate(() => document.querySelector('.learn') !== null)).toBe(true);
+      await page.waitForTimeout(600);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(burst(page)).toHaveCount(0);
+    });
+
+    test('quiet for class: with the sounds off (a class student\'s start), no burst plays and none is loaded', async ({ page }) => {
+      const asked = [];
+      page.on('request', (r) => { if (/confetti\.module/.test(r.url())) asked.push(r.url()); });
+      await fakeServer(page, { goal: goal({ have: 64, mine: 9, reached: true, last: null }) });
+      await open(page, '#/', classStudent()); // student() keeps sound: false, as quietForClass leaves a class student
+      const sheet = page.getByRole('dialog', { name: 'עשינו את זה יחד' });
+      await expect(sheet).toBeVisible();
+      await page.waitForTimeout(800);
+      await expect(burst(page)).toHaveCount(0);
+      expect(asked).toEqual([]);
+      expect((await saved(page)).sound).toBe(false);
+    });
+
+    test('closing the sheet during the burst removes its canvas at once', async ({ page }) => {
+      await fakeServer(page, { goal: goal({ have: 64, mine: 9, reached: true, last: null }) });
+      await open(page, '#/quests', withSounds());
+      const sheet = page.getByRole('dialog', { name: 'עשינו את זה יחד' });
+      await expect(burst(page)).toHaveCount(1);
+      await sheet.getByRole('button', { name: 'סגירה' }).click();
+      await expect(burst(page)).toHaveCount(0, { timeout: 600 });
+      await expect(sheet).toHaveCount(0);
+    });
   });
 
   test('the moment\'s button opens the wardrobe with the class scarf on Madi', async ({ page }) => {

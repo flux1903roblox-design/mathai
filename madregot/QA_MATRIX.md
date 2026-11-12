@@ -35,7 +35,10 @@ screen readers: NOT TESTED** (A-2, A-3 in the audit).
 - **Playwright suite** (`npm run test:e2e`): layout of 14 exercise kinds and the keypad on S, C, T, L; 8 journeys on
   C and L; 11 screens on S, C, T, L; 39 visual baselines on S, C, L; keyboard typing on L.
 - **Retest scripts for the review** (47 checks), **AI failure states** (8), **axe-core** (30 scans), **keyboard focus**
-  (7 screens).
+  (7 screens). These were one-off scripts in that round's session, not files in the repo; the axe numbers in this file
+  above "The standing axe suite" are from them.
+- **The standing axe suite** (since 11 November 2026, PKG-1): `web/e2e/a11y.spec.js`, part of the normal Playwright
+  suite and of CI. See its own section below.
 
 ## Exercise screen
 
@@ -107,7 +110,7 @@ Share of the screen taken by the bottom region (answer, keypad, tools, check) / 
 
 | Check | Result |
 |---|---|
-| axe-core WCAG 2.1 A/AA, 15 screens on C and L (30 scans) | PASS, 0 violations (was 1: math-only choices without a name, fixed) |
+| axe-core WCAG 2.1 A/AA, 15 screens on C and L (30 scans; a one-off script in that round, see "The standing axe suite" for the suite that runs now) | PASS, 0 violations (was 1: math-only choices without a name, fixed) |
 | Keyboard: Tab through 7 screens on L, focus ring on every control | PASS (text inputs had a border-only focus state, fixed) |
 | Keyboard in an exercise: digits, Enter to check and continue; choices with arrows, number keys, one tab stop (D-022, R-22) | PASS (Playwright and retest, L) |
 | App keypad: minus, decimal point, fraction, next field, delete; the phone keyboard stays closed | PASS (Playwright, S C T L) |
@@ -126,8 +129,41 @@ Share of the screen taken by the bottom region (answer, keypad, tools, check) / 
 | Screen audit | 171 checks (19 screens × 9 sizes, both builds): 125 PASS, 46 FIXED AND RETESTED, 0 FAIL, 0 tap targets under 32 px |
 | Review retest scripts | 47 checks, all passing |
 | AI failure states | 8 of 8 |
-| axe-core | 30 scans, 0 violations |
+| axe-core (the round's one-off script) | 30 scans, 0 violations |
 | Keyboard focus walk | 7 screens, every control shows a ring |
+
+## The standing axe suite (PKG-1)
+
+Added 11 November 2026, with the package the owner approved: `@axe-core/playwright` 4.10.2, which brings axe-core
+4.10.3. Unlike the round's one-off 30 scans above, it is a file in the repo that runs with every Playwright run of the
+`phone` project, and CI runs it again on `phone-dark`.
+
+| What | How |
+|---|---|
+| The check | `web/e2e/axe.js` `expectNoAxeViolations(page)`: axe on the whole page, tags `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` (WCAG 2.0 and 2.1, levels A and AA). A failure lists each rule, its impact, its help text and every element it hit |
+| The screens | `web/e2e/a11y.spec.js`: every route of the site and its main states, one test per screen or flow (the student, the tutor and the exams, the parents' area, the legal and landing pages, every teacher screen and the demo), on C (390×844) |
+| The sheets | every kind of sheet in at least one state: each of the 37 files under `web/src` that renders its own `<Sheet>`, and `ConfirmSheet` (one shared component in `Screen.jsx`, used 18 times, scanned in two of its uses: stopping the backup, the bind question). The section "the remaining sheets" adds those the first pass left out (the answer-report sheet, PhotoWarn before the picker, the generate sheet, MyHelp and the reply notice, BackupNudge, PersistInfoSheet and InstallSheet on an iPhone, the delete-account and licence-cancel sheets, the licence quote, the class-AI change, the new teacher key, the bind sheet and its question, the email's other classes, AssignSheet's "לספר לכיתה?", DemoAsk). `e2e/trust.spec.js` › "axe: every screen" fails if one of these scans goes. Not scanned on its own: the lesson's "בואו נראה את זה אחרת" sheet, which holds RemedyFlow (scanned as the repair screen); `PageScene`'s `<Sheet check={false}>` is a drawing of a paper sheet, not a dialog; and the store build's AIConsentSheet belongs to the iPhone store build, which this suite does not build |
+| The themes | light (`phone`) and dark (`phone-dark`) |
+| Left out, turned off | nothing: `NOT_JUDGED` in `axe.js` is empty (KaTeX's MathML twin is judged correctly and stays in), no test passes `exclude` or `disableRules`, and `color-contrast` cannot be turned off at all |
+| Proof the check can fail | `web/e2e/axe-self.spec.js`: a button with no name and text under 4.5:1 each fail, with the rule named |
+| Not judged by axe | control edges at 3:1 (WCAG 1.4.11: `e2e/contrast.js`), keyboard reach with a visible ring and the 320 px width (`e2e/trust.spec.js` › "accessibility statement"), and a real screen reader (VoiceOver, TalkBack: the owner's pass, NOT TESTED) |
+| Run it | `cd madregot/web && npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-dark e2e/a11y.spec.js` |
+
+**Result, 11 November 2026:** 105 tests on `phone` and the same 105 on `phone-dark`, every one passed: no WCAG 2.0 or
+2.1 A/AA violation on any screen, in either theme. The 5 tests of `axe-self.spec.js` passed. Adding the notebook page
+to the suite found one real defect (`scrollable-region-focusable`: the question squeezed into a clipped strip when the
+notebook opens), fixed in `app.css` before this run.
+
+**Result after the merge into the main branch, 12 November 2026:** the units the main branch merged after the lane
+started got scans of their own (the last section of `a11y.spec.js`: the functions unit's teaching step by step with the
+graph object and the situation graph, the graph object in practice, the protractor and clock figures and the protractor
+object in both modes, the data and probability units' teaching with the simulate and chart objects and the chart,
+outcomes and pair figures, both objects in practice, and the guest rule: the banner's reason line, Topics' guest stairs
+and Rescue's functions row). 134 tests on `phone` and the same 134 on `phone-dark`, every one passed, and the 5 of
+`axe-self.spec.js`. The new scans found one real defect: a struck-through row of a figure's table (stats:7) at 4.46:1
+(`.fg-table tr.cross td` on `--ink-3`, a token for icons), fixed in `styles/lazy/figure.css` (`--ink-2`) before this
+run. The protractor has no stair yet (angles:8 comes after the classroom lane), so its scan reaches it through a class
+exam's fixed questions; when angles:8 lands it is scanned on its own stair.
 
 ## The parents' progress report (PARENTS-1 to PARENTS-10)
 

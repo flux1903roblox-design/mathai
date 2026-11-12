@@ -1,9 +1,11 @@
 // The daily reminder on the page (STUDENT-11, lib/push.js and lib/reminder.js), with a stubbed browser: Notification,
 // the service worker's push manager, IndexedDB and fetch (a fake server at api.example.test). Every branch of
 // pushState(), enable(17) from a click, a new hour with `replaces`, disable(), markDone() once a day, a pause and a
-// reminder the server no longer has, and the store's own call after a finished teaching stage.
+// reminder the server no longer has, and the store's own call after a finished teaching stage. IndexedDB is a real one
+// (fake-indexeddb, a new IDBFactory for each test), read and written here through transactions of the test's own.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { fakeIndexedDB } from './testing/fakeIdb.js';
+import { IDBFactory } from 'fake-indexeddb';
+import { idbRecord } from './durable/testing.js';
 
 const counted = [];
 vi.mock('./metrics.js', () => ({ count: (name) => { counted.push(name); return true; } }));
@@ -58,7 +60,7 @@ let push; let reminder; let useApp; let idb;
 beforeEach(async () => {
   vi.resetModules();
   counted.length = 0;
-  idb = fakeIndexedDB();
+  idb = new IDBFactory();
   globalThis.indexedDB = idb;
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-11-10T14:00:00'));
@@ -70,7 +72,27 @@ beforeEach(async () => {
 afterEach(() => { vi.useRealTimers(); delete globalThis.indexedDB; });
 
 const state = () => useApp.getState().reminder;
-const saved = () => idb.peek('madregot-push', 'sub', 'current');
+/** The record the service worker reads: IndexedDB madregot-push / sub / current. */
+const saved = () => idbRecord(idb, 'madregot-push', 'sub', 'current');
+
+describe('idb(): the one record the service worker reads (madregot-push / sub / current)', () => {
+  it('reads nothing, writes, reads it back, deletes, through the database a real IndexedDB keeps', async () => {
+    const rec = { id: 'a'.repeat(16), secret: 'b'.repeat(32), slot: 17, key: KEY, api: API };
+    expect(await push.idb()).toBeNull();
+    expect(await push.idb(rec)).toBe(true);
+    expect(await push.idb()).toEqual(rec);
+    expect(await saved()).toEqual(rec); // the same record, read by another connection
+    expect(await push.idb(null)).toBe(true);
+    expect(await push.idb()).toBeNull();
+    expect((await idb.databases()).map((d) => d.name)).toEqual(['madregot-push']);
+  });
+  it('never throws: no IndexedDB, or one that refuses to open, answers null', async () => {
+    delete globalThis.indexedDB;
+    expect(await push.idb({ id: 'x' })).toBeNull();
+    globalThis.indexedDB = { open: () => { throw new DOMException('IndexedDB is blocked', 'SecurityError'); } };
+    expect(await push.idb()).toBeNull();
+  });
+});
 
 describe('pushState()', () => {
   it('no-server: a build or a setting with no server', async () => {
@@ -125,7 +147,7 @@ describe('enable(slot), disable()', () => {
     const sub = calls.find((c) => c.path === '/api/push/subscribe');
     expect(sub.body).toEqual({ endpoint: 'https://fcm.googleapis.com/fcm/send/synthetic-1', keys: { p256dh: 'BP256dh-from-the-browser', auth: 'auth-from-the-browser' }, slot: '17' });
     expect(state()).toMatchObject({ on: true, slot: 17, id: 'aaaaaaaaaaaaaaa1', secret: 'b'.repeat(31) + '1', state: 'on' });
-    expect(saved()).toEqual({ id: 'aaaaaaaaaaaaaaa1', secret: 'b'.repeat(31) + '1', slot: 17, key: KEY, api: API });
+    expect(await saved()).toEqual({ id: 'aaaaaaaaaaaaaaa1', secret: 'b'.repeat(31) + '1', slot: 17, key: KEY, api: API });
     expect(counted).toEqual(['push_on']);
   });
 
@@ -137,7 +159,7 @@ describe('enable(slot), disable()', () => {
     expect(pushManager.subscribe).toHaveBeenCalledTimes(1);
     expect(calls.filter((c) => c.path === '/api/push/subscribe')[1].body).toMatchObject({ slot: '19', replaces: { id: 'aaaaaaaaaaaaaaa1', secret: 'b'.repeat(31) + '1' } });
     expect(state()).toMatchObject({ on: true, slot: 19, id: 'aaaaaaaaaaaaaaa2' });
-    expect(saved().slot).toBe(19);
+    expect((await saved()).slot).toBe(19);
     expect(counted).toEqual(['push_on']);
   });
 
@@ -157,7 +179,7 @@ describe('enable(slot), disable()', () => {
     await push.disable({ w });
     expect(calls.at(-1)).toEqual({ path: '/api/push/off', body: { id: 'aaaaaaaaaaaaaaa1', secret: 'b'.repeat(31) + '1' } });
     expect(sub.unsubscribe).toHaveBeenCalled();
-    expect(saved()).toBeUndefined();
+    expect(await saved()).toBeUndefined();
     expect(state()).toMatchObject({ on: false, id: null, secret: null, state: null, slot: 18 });
     expect(counted).toEqual(['push_on', 'push_off']);
     // quiet (deleting everything): no count
@@ -212,8 +234,8 @@ describe('markDone(), markSeen()', () => {
 
   it('the id the service worker kept (after pushsubscriptionchange) wins over the store\'s', async () => {
     await on();
-    const rec = saved();
-    idb.dbs.get('madregot-push').get('sub').set('current', { ...rec, id: 'c'.repeat(16), secret: 'd'.repeat(32) });
+    const rec = await saved();
+    await idbRecord(idb, 'madregot-push', 'sub', 'current', { ...rec, id: 'c'.repeat(16), secret: 'd'.repeat(32) });
     await push.markDone();
     expect(seenCalls().at(-1)).toMatchObject({ id: 'c'.repeat(16), secret: 'd'.repeat(32) });
     expect(state()).toMatchObject({ id: 'c'.repeat(16), secret: 'd'.repeat(32) });

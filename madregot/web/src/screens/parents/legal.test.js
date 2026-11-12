@@ -105,9 +105,12 @@ describe('legal texts and their placeholders', () => {
 
   it('the safety statement says what is built, and only that: the photo step, and the reworded final-answer line', () => {
     const s = read('safety.md');
-    // the photo step (trust spec TRUST-5): built, so the statement says what it does, and that no PDF is sent
+    // the photo step (trust spec TRUST-5): built, so the statement says what it does; a PDF is opened on the device and
+    // each page goes through the same step (PKG-2, lib/pdfPages.js), and the PDF itself is never sent
     expect(s).toContain('בדף הראשון של מבחן השורה העליונה נחתכת, ואפשר להשחיר בשחור מלא כל דבר נוסף.');
-    expect(s).toContain('קובץ PDF לא נשלח');
+    expect(s).toContain('קובץ PDF נפתח במכשיר עצמו, וכל דף שלו עובר את אותו שלב כמו תמונה. קובץ ה־PDF עצמו לא נשלח.');
+    expect(s).toContain('או בוחרים תמונה או PDF, האפליקציה מזכירה');
+    expect(s).not.toContain('את הדפים מצלמים');
     expect(s).toContain('בתרגילים של האפליקציה, העוזר מתבקש לא לתת את התשובה הסופית לפני שפתרתם, ובשרת יש בדיקה שמסתירה את התשובה כשהיא נכתבת בצורות הנפוצות.');
     expect(s).toContain('כיתה שנפתחה בלי מייל לא פותחת את העוזר');
     expect(s).toContain('במבחן שהעליתם בלי מפתח תשובות העוזר בודק את התשובות, וזה מסומן ליד כל שאלה.');
@@ -149,7 +152,7 @@ describe('what the law asks each text to say (TRUST-2 tests, TRUST-13)', () => {
     expect(datamap.ai.sent).toHaveLength(4);
     for (const t of ['השכבה (ז׳ או ח׳)', 'מה שהקלדתם בתרגיל הזה', 'שמות הטעויות', 'הודעות בשיחה, שאלה ליד תמונה, או הסבר ששלחתם למשוב', 'תמונות של דפים',
       'בתרגילים חדשים', 'שום דבר שכתבתם']) expect(ai, t).toContain(t);
-    for (const t of ['לא נשלחים אף פעם: השם, הכיתה בבית הספר או קוד הכיתה, המספר של המכשיר, מייל, תאריכים', 'קובץ PDF לא נשלח', 'תוך 30 יום',
+    for (const t of ['לא נשלחים אף פעם: השם, הכיתה בבית הספר או קוד הכיתה, המספר של המכשיר, מייל, תאריכים', 'קובץ PDF נפתח במכשיר עצמו, וכל דף שלו עובר את אותו שלב כמו תמונה. קובץ ה־PDF עצמו לא נשלח.', 'תוך 30 יום',
       'לא משתמשת בהן כדי לאמן', 'מדרגות לא שומרת את השיחות']) expect(ai, t).toContain(t);
     // the masking says exactly which words make a number an ID (shared/safety.js ID_WORD)
     expect(ai).toContain('"תעודת זהות", "מספר זהות" או "ת״ז"');

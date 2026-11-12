@@ -20,6 +20,12 @@ describe('the precache filter', () => {
       expect(precacheFilter(f), f).toBe(false);
     }
   });
+  it('leaves pdf.js out (PKG-2): its chunk and its worker load when a PDF is chosen; the module that loads them is kept', () => {
+    for (const f of ['assets/pdf-BRx2k_9a.js', 'assets/pdf-a1.js', 'assets/pdf.worker.min-Cq1x8Y-z.mjs']) expect(precacheFilter(f), f).toBe(false);
+    for (const f of ['assets/pdfPages-D1f2g3h4.js', 'assets/ExamCheck-x1.js', 'assets/index-pdf.js']) expect(precacheFilter(f), f).toBe(true);
+    expect(precacheList(['index.html', 'assets/pdf-BRx2k_9a.js', 'assets/pdf.worker.min-Cq1x8Y-z.mjs', 'assets/ExamCheck-x1.js']))
+      .toEqual(['assets/ExamCheck-x1.js', 'index.html']);
+  });
   it('the list: each file once, sorted, with Windows separators made plain', () => {
     expect(precacheList(['assets\\b.js', 'index.html', 'assets/b.js', './manifest.webmanifest', 'assets/a.css', 'x.map']))
       .toEqual(['assets/a.css', 'assets/b.js', 'index.html', 'manifest.webmanifest']);

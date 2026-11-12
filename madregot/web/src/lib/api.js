@@ -170,8 +170,10 @@ const MESSAGES = {
   // the class and the family keep the backup code (DURABLE-6)
   escrow_off: 'שמירת עותק בשרת עוד לא הוגדרה. שמרו את קוד הגיבוי.',
   escrow_not_found: 'לא מצאנו את ההתקדמות השמורה. אולי היא נמחקה.',
-  // every page passes the step that hides personal details on the device, and a PDF cannot (trust spec TRUST-5 §3)
-  pdf_not_allowed: 'אי אפשר לשלוח קובץ PDF לבדיקה. אפשר לצלם את הדפים במקום.',
+  // a PDF is opened on the device and its pages go through the step that hides personal details like photos; the file
+  // itself is never sent, and the server refuses one that is (trust spec TRUST-5 §3, PKG-2). The app does not send one,
+  // so a student meets this only from an old copy of the app: choosing the file again opens it here.
+  pdf_not_allowed: 'קובץ PDF לא נשלח כמו שהוא. בחרו אותו שוב, והדפים שלו ייפתחו כאן כתמונות.',
 };
 /**
  * A code the server uses for two things, told apart by the status: too_many_open is 429 for a student's help requests

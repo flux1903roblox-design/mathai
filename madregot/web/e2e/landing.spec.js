@@ -5,34 +5,15 @@
 // LANDING_SHOTS=<folder> saves full-page screenshots for a look (nothing is compared).
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { NOW, student, onboard, expectNoSidewaysScroll } from './helpers.js';
+import { student, onboard, expectNoSidewaysScroll, openLanding, landingMetrics } from './helpers.js';
 import { expectTextContrast } from './contrast.js';
 
-const API = 'https://api.madregot.test'; // API_BASE in playwright.config.js
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 
 test.skip(({ viewport }) => viewport.width > 800, 'the phone sizes; the desktop layout is in qa-evidence/student/landing');
 
-/** The Worker's /api/metrics, as a list of the names counted (204, as the Worker answers). */
-async function metrics(page) {
-  const names = [];
-  await page.route(`${API}/**`, (route) => {
-    const req = route.request();
-    if (new URL(req.url()).pathname === '/api/metrics' && req.method() === 'POST') names.push(req.postData());
-    return route.fulfill({ status: 204, headers: CORS });
-  });
-  return names;
-}
-
-/** A landing page on a device with a saved state (null: nothing saved), at the e2e tests' fixed time. */
-async function openLanding(page, path, state = null) {
-  await page.clock.setFixedTime(NOW);
-  await page.goto('./');
-  await page.evaluate((s) => { localStorage.clear(); if (s) localStorage.setItem('madregot', JSON.stringify(s)); }, state);
-  await page.goto(`./${path}`);
-  if (path.startsWith('#')) await page.reload(); // the app reads a link when it starts, as it does from another page
-  await page.evaluate(() => document.fonts.ready);
-}
+// the Worker's /api/metrics (landingMetrics) and a landing page opened at the fixed time (openLanding): helpers.js,
+// shared with a11y.spec.js
+const metrics = landingMetrics;
 
 async function shot(page, name) {
   const dir = process.env.LANDING_SHOTS; if (!dir) return;

@@ -357,13 +357,38 @@ The code for each is done and tested; each needs the owner once.
 | TEACHER-13: the real pilot | not started (owner) | 3-5 teachers in at least 2 schools, run by `docs/schools/` (the principal's form, the parent letter, the plan), then the TEACHER-11 command per class |
 | The parent letter's legal look | not done (owner) | add the letter (Appendix B) to the lawyer's packet of TRUST-13 |
 
+## Axe on the teacher screens (TEACHER-14 §4): done (PKG-1, FOLLOWUP-11)
+
+The owner approved `@axe-core/playwright` 4.10.2 (dev; it brings axe-core 4.10.3). `web/e2e/axe.js`
+`expectNoAxeViolations(page)` runs axe on the whole page with the tags `wcag2a`, `wcag2aa`, `wcag21a` and `wcag21aa`
+(WCAG 2.0 and 2.1, levels A and AA) and fails with each rule, its impact, its help text and every element it hit.
+`web/e2e/a11y.spec.js` › "the teacher" scans, at 390x844, in light (`phone`) and in dark (`phone-dark`):
+
+- TeacherStart's four steps (the way in, the email, the code, the class's details) and the class ready (FreshClass);
+- the board's five views (מחר, משימות, תלמידים, מבחנים, עזרה) with a class of nine;
+- the board's sheets: a student's page (StudentSheet), giving work (AssignSheet), the work's detail (AssignmentSheet)
+  and the add-class sheet;
+- `/teacher/lessons`, and a stair and a lesson in the student view (PreviewFrame);
+- `/teacher/settings` with the class AI card, the licence and the delete flow (an empty name, then the name typed), and
+  the AI card once approved (the consent, then the switch);
+- `/teacher/report`; `/teacher/assistant` asked and answered; `/teacher/exam/new` and the exam sheet;
+- `/teacher/guide` and the parent letter;
+- the demo board (TEACHER-15): every view, a student's page and its settings;
+- a student's Quests with the teacher's block.
+
+Every scan passes with no violation, light and dark. Nothing is left out of a scan and no rule is turned off
+(`NOT_JUDGED` in `axe.js` is empty; `color-contrast` cannot be turned off at all). `e2e/trust.spec.js` › "accessibility
+statement" also walks the board with the keyboard (every control reached, each with a visible ring), checks its text
+contrast and its width at 320 px. What axe does not judge: control edges at 3:1 (WCAG 1.4.11, measured by
+`e2e/contrast.js` where a spec calls it), and how a screen reader really reads the board, which is the owner's manual
+pass (`docs/legal/LAWYER_PACKET.md` §4).
+
+Run: `cd madregot/web && npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-dark
+e2e/a11y.spec.js -g "the teacher"` (with `E2E_PORT=<port>` when another copy runs its suite). CI runs the whole file on
+both projects.
+
 ## Not covered here
 
-- **Axe on the teacher screens (TEACHER-14 §4).** Not run: neither `axe-core` nor `@axe-core/playwright` is among the
-  installed packages, and this lane adds no dependency. The package to add is `@axe-core/playwright@4.10.1` (dev), then
-  one e2e case per screen: `/teacher`, `/teacher/lessons`, `/teacher/settings`, `/teacher/report`, the demo board and the
-  student's Quests class block. Until then the e2e finds every control by its role and accessible name, which checks
-  those; contrast and axe's other rules are not checked here.
 - **TRUST-3's distress check on a student's help reply** (no longer open: FOLLOWUP-9 built it after the merge).
   `worker/src/help.js` `studentReply` reads the child's own words first, marks the request "כדאי לבדוק מה שלום
   התלמיד/ה" and opens it again, and a refusal after that (a phone number, the third answer, 30 a day) says `care: true`.

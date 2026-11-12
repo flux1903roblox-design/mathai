@@ -117,7 +117,8 @@ DB_JURISDICTION = ""
 # (legalMissing). A school licence code (npm run owner -- grant-school) is not gated by this.
 LEGAL_APPROVED = ""
 # The accessibility statement's coordinator, the date of the last check and what it was checked with (TRUST-13 step 4),
-# e.g. ACCESS_TESTED = "axe 4.10.2, VoiceOver iOS 26, TalkBack 16, Chrome ו־Safari".
+# e.g. ACCESS_TESTED = "VoiceOver iOS 26, TalkBack 16, Chrome ו־Safari" (the statement already names the automated axe
+# pass itself; this line is the owner's manual pass, docs/legal/LAWYER_PACKET.md §4).
 ACCESS_COORD_NAME = ""
 ACCESS_COORD_PHONE = ""
 ACCESS_COORD_EMAIL = ""

@@ -2,7 +2,8 @@
 // and use the WCAG 2 formula (the same as src/styles/tokens.test.js).
 // - expectTextContrast: every visible text node against the background it sits on (4.5:1, or 3:1 for large text).
 // - expectNonTextContrast: control edges, stops and the focus ring (3:1, WCAG 1.4.11), which axe does not check.
-// axe-core is not in this tree yet (TRUST-2 adds web/e2e/axe.js); these probes stand on their own.
+// axe (e2e/axe.js, run on every screen by a11y.spec.js) checks text contrast too; these probes stay for what axe leaves
+// out: control edges, and text over a gradient or a picture, which axe reports as "needs review" rather than a failure.
 import { expect } from '@playwright/test';
 
 // Runs in the page: colour parsing, compositing and the ratio. Kept as a string so both probes share it.

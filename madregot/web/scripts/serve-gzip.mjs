@@ -1,13 +1,17 @@
-// A small static server that compresses, for the timing test (DURABLE-11, e2e/perf.spec.js): vite preview sends
-// files uncompressed, which made the council's slow-phone timing look worse than a real host. Text files go out gzipped
-// (level 9, once per file), with the headers web/public/_headers gives the real host: hashed /assets/ files immutable,
-// sw.js and the page always checked again.
+// A small static server that serves a build the way the real host does, for the tests that need it: the timing test
+// (DURABLE-11, e2e/perf.spec.js; vite preview sends files uncompressed, which made the council's slow-phone timing look
+// worse than a real host) and the PDF test under the production CSP (PKG-2, e2e/pdf-csp.spec.js; vite preview sends no
+// CSP at all). Text files go out gzipped (level 9, once per file), and every file gets the headers of the build's own
+// `_headers` file (web/public/_headers), matched the way Cloudflare matches them: the CSP and the other security headers
+// on every file, hashed /assets/ files immutable, sw.js always checked again. The `_headers` file itself is not served.
 // Usage: node scripts/serve-gzip.mjs <dir> <port>    (ports 4202-4209 on the shared test machine)
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { join, normalize, extname, sep } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { pathToFileURL } from 'node:url';
+import { parseHeaders } from './headers.mjs';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -17,21 +21,50 @@ const TYPES = {
 };
 const COMPRESS = new Set(['.html', '.js', '.mjs', '.css', '.json', '.webmanifest', '.svg', '.txt', '.map']);
 
+/**
+ * The rules of a `_headers` file, in order: { test(path), headers }. A path pattern matches the whole path; `*` matches
+ * anything (a splat) and `:name` one segment, as on Cloudflare. Rules for a full URL (another host) are left out.
+ */
+export function headerRules(text) {
+  return Object.entries(parseHeaders(text)).filter(([pattern]) => pattern.startsWith('/')).map(([pattern, headers]) => {
+    const source = pattern.split(/(\*|:[A-Za-z]\w*)/).map((part) => {
+      if (part === '*') return '.*';
+      if (part.startsWith(':')) return '[^/]+';
+      return part.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+    }).join('');
+    const re = new RegExp(`^${source}$`);
+    return { test: (path) => re.test(path), headers };
+  });
+}
+
+/** The headers the rules give one path: every rule that matches, a name given twice joined with ", " (as Cloudflare does). */
+export function headersFor(rules, path) {
+  const out = {};
+  for (const rule of rules) {
+    if (!rule.test(path)) continue;
+    for (const [name, value] of Object.entries(rule.headers)) out[name] = out[name] ? `${out[name]}, ${value}` : value;
+  }
+  return out;
+}
+
 export function serveGzip(dir, port, host = '127.0.0.1') {
   const root = normalize(dir);
   const gzipped = new Map();
+  let rules = [];
+  try { rules = headerRules(readFileSync(join(root, '_headers'), 'utf8')); } catch { /* a build without _headers: no extra headers */ }
   const server = createServer(async (req, res) => {
     try {
       let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
       if (path.endsWith('/')) path += 'index.html';
       const file = normalize(join(root, path));
       if (file !== root && !file.startsWith(root + sep)) { res.writeHead(403).end(); return; }
-      const info = await stat(file).catch(() => null);
+      const info = path === '/_headers' ? null : await stat(file).catch(() => null);
       if (!info?.isFile()) { res.writeHead(404, { 'content-type': 'text/plain' }).end('not found'); return; }
       const ext = extname(file);
       const headers = {
         'content-type': TYPES[ext] || 'application/octet-stream',
         'cache-control': path.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+        ...headersFor(rules, path),
         vary: 'accept-encoding',
       };
       let body = await readFile(file);

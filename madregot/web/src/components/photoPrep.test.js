@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { prepImage, fitSize, keepBox, EXAM_HEADER, CUT_MAX, PREP_COPY } from './PhotoPrep.jsx';
-import { PHOTO_WARN, PHOTO_WARNED, photoWarned, PhotoWarn } from './PhotoWarn.jsx';
+import { PHOTO_WARN, PHOTO_WARNED, photoWarned, PhotoWarn, warnKind } from './PhotoWarn.jsx';
 
 function picture(W = 100, H = 100) {
   const data = new Uint8ClampedArray(W * H * 4);
@@ -103,6 +103,23 @@ describe('the warning before the camera', () => {
     expect(PHOTO_WARN.ok).toBe('הבנתי, לצלם');
     // closed, it renders nothing into the page
     expect(renderToStaticMarkup(h(PhotoWarn, { open: false, onGo() {}, onClose() {} }))).toBe('');
+  });
+
+  it('before the picker (a picture or a PDF), says so: the PDF opens on the device and only the pages\' pictures go', () => {
+    expect(PHOTO_WARN.file.title).toBe('לפני ששולחים דף');
+    expect(PHOTO_WARN.file.lines[0]).toBe(PHOTO_WARN.lines[0]);
+    expect(PHOTO_WARN.file.lines.slice(1)).toEqual([
+      'קובץ PDF נפתח כאן, במכשיר. הקובץ עצמו לא נשלח.',
+      'רק התמונות של הדפים נשלחות לעוזר החכם (Anthropic, בארה״ב) כדי לבדוק אותן, והן לא נשמרות אצלנו.',
+    ]);
+    expect(PHOTO_WARN.file.ok).toBe('הבנתי, לבחור קובץ');
+    // nothing on either wording speaks of taking a photo where a file is chosen, or hurries
+    for (const line of [PHOTO_WARN.file.title, PHOTO_WARN.file.ok, ...PHOTO_WARN.file.lines.slice(1)]) expect(line).not.toMatch(/מצלמ|לצלם|₪|מהר/);
+    // the input says which: the camera's has `capture`, the picker's not
+    const input = (capture) => ({ hasAttribute: (name) => name === 'capture' && capture });
+    expect(warnKind(input(true))).toBe('camera');
+    expect(warnKind(input(false))).toBe('file');
+    expect(warnKind(null)).toBe('file');
   });
 
   it('is read once a session: the flag lives in sessionStorage under the store\'s key', () => {

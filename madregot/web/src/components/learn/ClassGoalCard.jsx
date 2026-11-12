@@ -3,19 +3,21 @@
 // part. It is reached by practice at home, so nothing here speaks of the classroom or the school day.
 // - ClassGoalCard: on Quests (above today's missions); `compact` in Learn's wide side panel.
 // - ClassGoalMoment: the first time the student opens Learn or Quests after the class reached a week's goal they took
-//   part in, a short sheet; once a week (nudges.goalSeen), and the class scarf is Madi's.
+//   part in, a short sheet; once a week (nudges.goalSeen), and the class scarf is Madi's. The maths burst
+//   (lib/mathBurst.js) plays from the sheet's hero as it opens, and stops when it closes; none under reduced motion or
+//   with the app's sounds off (a class student's default: quiet for class).
 // Neither renders for a student with no class, a build with no server, or a class whose teacher turned the goal off.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Users } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import Mascot from '@/components/Mascot.jsx';
-import Lottie from '@/components/Lottie.jsx';
 import { Button, Sheet, Progress } from '@/components/ui.jsx';
 import { useApp } from '@/lib/store.js';
 import { useClassGoal, dayOfWeek } from '@/lib/classGoal.js';
 import { useMadiLook } from '@/lib/madiLook.js';
+import { mathBurst } from '@/lib/mathBurst.js';
 
 const steps = (n) => (n === 1 ? 'צעד אחד' : `${n} צעדים`);
 /** The student's own share of the week (only theirs; nobody else's is ever shown). */
@@ -83,6 +85,15 @@ export function ClassGoalMoment() {
   const [moment, setMoment] = useState(null); // { week, mine, thisWeek }
   const [open, setOpen] = useState(false);
   const due = g ? [g, g.last].find((w) => w?.reached && w.mine > 0 && !seen?.[w.week]) : null;
+  // the burst starts when the sheet's hero is drawn (the moment comes once a week, so it does too) and ends with it
+  const stopBurst = useRef(null);
+  const hero = useCallback((el) => {
+    if (!el) return undefined;
+    const stop = mathBurst(el);
+    stopBurst.current = stop;
+    return () => { stop(); stopBurst.current = null; };
+  }, []);
+  useEffect(() => { if (!open) stopBurst.current?.(); }, [open]);
   useEffect(() => {
     if (!due || moment) return;
     setMoment({ week: due.week, mine: due.mine, thisWeek: due.week === g.week });
@@ -95,8 +106,7 @@ export function ClassGoalMoment() {
   return (
     <Sheet open={open} onOpenChange={setOpen} title="עשינו את זה יחד" className="goal-moment"
       footer={<Button className="btn-block btn-lg" onClick={() => { setOpen(false); navigate('/me/madi?try=class-scarf'); }}>לראות את מדי</Button>}>
-      <div className="done-hero goal-moment-hero">
-        <Lottie name="confetti" className="done-confetti" decorative />
+      <div className="done-hero goal-moment-hero" ref={hero}>
         <Mascot mood="excited" size={132} look={{ ...look, neck: 'class-scarf' }} />
       </div>
       <p className="goal-moment-text">

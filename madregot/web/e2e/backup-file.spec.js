@@ -3,7 +3,7 @@
 // the three cases of a restore: an empty device, the same student (merged), another student (replace, then undo).
 import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
-import { open, student, livedIn, saved, appReady } from './helpers.js';
+import { open, student, livedIn, saved, appReady, backupFile } from './helpers.js';
 
 // Chromium names a download from its `download` attribute only when the file system's encoding can hold the name; a
 // machine on the POSIX locale cannot hold Hebrew, and the file would be called "download". Phones and computers use
@@ -22,8 +22,6 @@ async function shot(page, name) {
 
 /** This browser cannot share files: the backup is downloaded (whatever this Chromium supports). */
 const noShare = (page) => page.addInitScript(() => { delete Navigator.prototype.canShare; delete Navigator.prototype.share; });
-/** A backup file as Playwright hands it to a file input. */
-const backupFile = (state, name = 'madregot-backup.json') => ({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ app: 'madregot', kind: 'backup', v: 1, at: '2026-11-04T10:00:00.000Z', schema: 1, release: 'test', state })) });
 const restoreInput = (page) => page.getByLabel('לשחזר מקובץ');
 
 test('save a backup file (a download), and restore it on a fresh browser through the first screen', async ({ page, browser }, info) => {

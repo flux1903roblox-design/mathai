@@ -326,11 +326,9 @@ count  kind   route           release  agents  name            message          
 
 ### Still short of the proof the specs ask for
 
-- **DURABLE-3 / PARENTS-5, an automated accessibility pass** on Settings › שמירת ההתקדמות and the `/parents` report: the
-  repo has no axe runner, and this lane may not add a package. It needs `@axe-core/playwright@4.10.2` (dev dependency of
-  `madregot/web`); then one spec per screen, `new AxeBuilder({ page }).include('.save-backup').analyze()` and the same
-  for `.parents-report`, expecting no violations. Until then: keyboard and screen-reader paths are covered by the e2e
-  (roles, names, focus) and the 44 px checks in `layout.spec.js`.
+- **DURABLE-3 / PARENTS-5, an automated accessibility pass** on Settings › שמירת ההתקדמות and the `/parents` report:
+  done since, with the axe package the owner approved (PKG-1, FOLLOWUP-27). See "The automated accessibility pass on
+  the saving and the parents' report" at the end of this file.
 - **DURABLE-3, the manifest panel** screenshot is the owner's (a local CDP check found no installability errors).
 - **DURABLE-11, FCP on the slow-phone profile**: the last measurement on this branch was 2.79 s against the 2.5 s budget
   (the test fails over 2.75 s). Not re-measured here: the machine's load was too high for a timing that means anything.
@@ -1057,3 +1055,69 @@ script. They now load one topic at a time, and nothing the student sees changed.
 - **Screenshots, looked at** (`qa-evidence/durable/budget-*.png`): `terms-before-390` and `terms-after-390`
   (the legal page drawn by the lazy markdown: the same), `lesson-eq2-after-320/390` (a lesson opened straight: its
   maths drawn), `lesson-eq2-no-katex-390/320` (KaTeX blocked: `7x - 10 = -80` as plain words, readable).
+
+## The IndexedDB code on a real IndexedDB (PKG-4)
+
+The owner approved `fake-indexeddb` 6.2.6 (a dev dependency of `madregot/web`): a complete implementation of the
+IndexedDB standard in memory. The unit tests of every IndexedDB path now run on it, a new `IDBFactory` for each test,
+instead of the two hand-made stand-ins (`memoryIdb()` for the durable store, and `lib/testing/fakeIdb.js`, now deleted).
+
+- **`durable/testing.js` `realIdb({ name })`**: `{ factory, backend: browserBackend(name, factory), idb, another(),
+  failPut(), failOpen(), restore() }`; `idbRecord()` and `idbNames()` read, write and list through real transactions.
+- **`durable/idb.test.js`** (new, on `browserBackend` itself): the three stores made on first use; get, put, add, delete
+  and entries; a malformed mirror record reads as none; the quarantine keeps the newest 5 and none older than 30 days;
+  the error ring keeps the newest 20; a failed open is tried again; another page that deletes or upgrades the database
+  stops this one, which writes nothing back; `destroy()` deletes the database without waiting for its 3-second limit,
+  and is held 3 seconds at most by a page that does not let go.
+- **`durable/storage.test.js`**: DURABLE-1 tests (3), (4), (5), (6), (8), (9), (10), the quarantine prune (also at
+  boot), the error ring and the start-from-key cases run on the real database. (3)'s next start is a second write path
+  over the same factory; (4) is a 20 KB quota plus an IndexedDB whose put throws: `health === 'full'`, no exception;
+  (10) checks that `factory.databases()` no longer lists the database, then that nothing creates it again. Test (11)
+  and the two other late-copy cases stay on `memoryIdb({ delay: 400 })`: a real IndexedDB cannot be made to answer
+  after 400 ms on demand.
+- **`durable/apply.test.js`**: the before-restore copy is kept in, and read from, the real quarantine.
+- **`lib/push.test.js`, `sw/sw.test.js`, `lib/reminder.test.js`**: the page's `idb()` writes madregot-push / sub /
+  current and `sw.js` reads and replaces it in the same factory (one test runs both sides); `clearReminderDevice`
+  really deletes madregot-push and leaves other databases alone.
+- `vault.js` and `escrow.js` do not touch IndexedDB; `monitor.js` reaches it only through `storage.js`'s `errorLog`
+  (the error ring above).
+- **Each test fails when its behaviour breaks** (checked by breaking the code on purpose, then restoring it): the quota
+  path without its mirror write fails (3); a wipe that closes instead of deleting fails (10); without the
+  `onversionchange` guard the delete-and-upgrade tests fail; a failed open never retried, a `destroy()` that waits for
+  its timer, a failed mirror write taken as saved (4), a prune that keeps everything, the page's record under another
+  key, and a `clearReminderDevice` that deletes nothing each fail their tests.
+- The real implementation found no bug in `idb.js`, `storage.js`, `push.js`, `sw.js` or `reminder.js`.
+- **The one hand-made stand-in that stayed, and why:** `memoryIdb()` in `durable/testing.js`, used only with
+  `{ delay: 400 }` by DURABLE-1 test (11) and the two other late-copy cases in `storage.test.js`. They need the copy on
+  the device to answer later than the boot waits for it, on demand, and fake-indexeddb answers within a few turns of
+  the event loop. `lib/testing/fakeIdb.js` is gone.
+
+## The automated accessibility pass on the saving and the parents' report (PKG-1, FOLLOWUP-27)
+
+The owner approved `@axe-core/playwright` 4.10.2 (a dev dependency of `madregot/web`; it brings axe-core 4.10.3).
+`web/e2e/axe.js` `expectNoAxeViolations(page)` runs axe on the whole page with the tags `wcag2a`, `wcag2aa`, `wcag21a`
+and `wcag21aa` (WCAG 2.0 and 2.1, levels A and AA) and fails with each rule, its impact, its help text and every element
+it hit. `web/e2e/a11y.spec.js` runs it on every route of the app, its main states and every kind of sheet (QA_MATRIX.md says
+which), at phone size (390x844), on the `phone`
+project (light) and again on `phone-dark`; CI runs both (`.github/workflows/ci.yml`). `web/e2e/axe-self.spec.js`
+proves the helper fails on a known violation (a button with no name, text under 4.5:1).
+
+- **Settings › שמירת ההתקדמות (`.save-backup`):** with no server (the backup file, the reminder's line, the delete-all
+  sheet), a backup file read back (RestorePreview), with a server (joining a class, the backup code made, shown and
+  stopped), a class student whose class keeps the code (escrow), and the restore screen (the code, a typing mistake,
+  the file). No violation, light or dark.
+- **The `/parents` report (`.parents-report`):** each device's week with FamilyReport and WeeksChart, last week, a device
+  switched off, and the first day (a device linked with nothing yet); also the sign-in, the plan card, the devices and
+  the cancel sheet. No violation, light or dark.
+- **Nothing is left out and no rule is turned off.** `NOT_JUDGED` in `axe.js` is empty: KaTeX's MathML twin is read by
+  screen readers and axe judges it correctly, so it stays in every scan. `color-contrast` cannot be turned off at all
+  (the helper throws); any other rule could be turned off only with a written reason, and none is. The one change
+  these screens took is the shared bar fill (`--bar-fill`, canon.css), made when axe found the count on the Topics bar
+  at 3.35:1; the weeks chart in the parents' report uses it too.
+- **What axe does not check**, and what covers it: control edges and the focus ring at 3:1 (WCAG 1.4.11) are measured by
+  `e2e/contrast.js`; keyboard reach with a visible ring and the 320 px width on the main screens by `e2e/trust.spec.js`
+  › "accessibility statement"; the 44 px targets by `layout.spec.js` and `targets.spec.js`. A real screen reader pass
+  (VoiceOver, TalkBack) is the owner's (`docs/legal/LAWYER_PACKET.md` §4).
+- **Run it:** `cd madregot/web && npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-dark
+  e2e/a11y.spec.js` (with `E2E_PORT=<port>` when another copy runs its suite); only these screens:
+  `-g "Settings|restore screen|parents' report"`.

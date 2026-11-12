@@ -1,28 +1,33 @@
 // Bringing a copy back (DURABLE-4, apply.js): the three cases (an empty device, the same student, another student) and
-// undo, on the store's own state and the real quarantine (createDurable over an in-memory IndexedDB).
-import { describe, it, expect, vi } from 'vitest';
+// undo, on the store's own state and the real quarantine (createDurable over a real IndexedDB: fake-indexeddb, a new
+// one for each test, durable/testing.js realIdb).
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createStore } from 'zustand/vanilla';
 import { applyRestored, undoRestore, restoreCase, canUndo, hasProgress, normName, UNDO_DAYS, NO_COPY } from './apply.js';
 import { createDurable } from './storage.js';
-import { createIdb } from './idb.js';
 import { createDurableStatus } from './useDurable.js';
 import { snapshotForBackup } from './payload.js';
 import { dataOf } from './merge.js';
 import { BACKUP_DEFAULTS } from './migrations.js';
-import { memoryIdb, memoryLocalStorage } from './testing.js';
+import { realIdb, memoryLocalStorage } from './testing.js';
 import { appState } from '../store.js';
 import { emptyLearn } from '@/learn/storeGlue.ts';
 
 const NOW = new Date('2026-11-05T10:00:00.000Z');
 const now = () => NOW;
 
-/** This device: a store with `state`, and the quarantine of a write path over an in-memory IndexedDB. */
+const made = [];
+afterEach(() => { made.splice(0).forEach((r) => r.restore()); });
+
+/** This device: a store with `state`, and the quarantine of a write path over a real IndexedDB. */
 function device(state = {}, { failPut = false } = {}) {
   const store = createStore(appState);
   store.setState(state);
-  const backend = memoryIdb({ failPut });
-  const d = createDurable({ key: 'madregot-apply', ls: memoryLocalStorage(), idb: createIdb(backend), status: createDurableStatus(), tab: 'tab00001', release: 'test' });
-  return { store, quarantine: d.quarantine, backend, st: () => dataOf(store.getState()) };
+  const r = realIdb({ name: 'madregot-apply-durable' });
+  made.push(r);
+  if (failPut) r.failPut();
+  const d = createDurable({ key: 'madregot-apply', ls: memoryLocalStorage(), idb: r.idb, status: createDurableStatus(), tab: 'tab00001', release: 'test' });
+  return { store, quarantine: d.quarantine, real: r, st: () => dataOf(store.getState()) };
 }
 /** A student's progress, as a backup file holds it. */
 const progress = (name, tag, xp, extra = {}) => ({
@@ -114,6 +119,8 @@ describe('applyRestored', () => {
     expect(canUndo(st, new Date(NOW.getTime() + 31 * 864e5))).toBe(false);
     const kept = await D.quarantine.latest('before-restore');
     expect(JSON.parse(kept.value.raw)).toEqual(JSON.parse(JSON.stringify({ ...dataOf(createStore(appState).getState()), ...here })));
+    // in the database itself, where the next start of the app finds it
+    expect((await D.real.another().entries('quarantine')).map((q) => q.value.reason)).toEqual(['before-restore']);
     expect(restoreEvents(st)).toEqual([{ e: 'restore', m: 'file' }]);
   });
 

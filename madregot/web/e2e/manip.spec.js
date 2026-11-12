@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { open, student, item, openOn, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
 import { textContrastFailures } from './contrast.js';
+import { expectNoAxeViolations } from './axe.js';
 
 const KINDS = [
   ['numberline', 'signed/1', '7', [0.5, 0.75, 0.85, 0.75]],
@@ -552,21 +553,15 @@ test('chart (data:3 practice): a chip and + colour a slice of the pie', async ({
 
 // DATA-2 tests: "axe on both objects has no violation". The objects of the data unit, in the states a student sees them
 // (a spinner run with its table open, the covered wheel, two dice, a bar chart and a pie being built), pass axe's WCAG
-// 2.1 A/AA rules and the repo's text contrast probe. axe comes from @axe-core/playwright 4.10.2 (the packages lane adds
-// it to package.json with e2e/axe.js, which this scan can use once both are merged); without it the contrast probe
-// still runs and the test says axe was not run.
+// 2.1 A/AA rules (e2e/axe.js, the packages lane's shared check, scoped to the object) and the repo's text contrast
+// probe. a11y.spec.js scans the same objects with the whole page around them, in light and dark.
 test('the data unit\'s objects pass axe (WCAG 2.1 A/AA) and the contrast probe: spinner, covered wheel, two dice, bars, pie', async ({ page }, info) => {
   test.skip(info.project.name !== 'phone', 'scanned on one phone');
   test.slow();
-  let AxeBuilder = null;
-  try { ({ default: AxeBuilder } = await import('@axe-core/playwright')); } catch { info.annotations.push({ type: 'axe', description: 'not run: @axe-core/playwright 4.10.2 is not installed' }); }
   const scan = async (sel, what) => {
     await expect(page.locator(sel)).toBeVisible();
     expect(await textContrastFailures(page, { root: sel }), `text under AA on ${what}`).toEqual([]);
-    if (!AxeBuilder) return;
-    const r = await new AxeBuilder({ page }).include(sel).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
-    const list = r.violations.map((v) => `[${v.id}] ${v.help}: ${v.nodes.map((n) => JSON.stringify(n.target)).join(', ')}`);
-    expect(list, `axe on ${what}`).toEqual([]);
+    const r = await expectNoAxeViolations(page, { include: sel }, what);
     expect(r.passes.length, `axe ran its rules on ${what}`).toBeGreaterThan(5);
   };
   // the spinner in the teaching, after ten spins, its table open

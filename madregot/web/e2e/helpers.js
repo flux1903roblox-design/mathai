@@ -1,6 +1,7 @@
 // Shared helpers for the end-to-end tests.
 import { expect } from '@playwright/test';
 import { toFrac } from '../src/content/util.js';
+import { API, CORS, TABLET } from './fakeServer.js';
 
 /** A fixed Thursday, so streaks, the week strip and daily quests are the same on every run. */
 export const NOW = new Date('2026-11-05T10:00:00');
@@ -70,6 +71,75 @@ export function reportWeek(grade = '7') {
   });
 }
 
+/**
+ * A device whose app talks to the (fake) server (fakeServer.js answers on API), seeded as a v3 save: the v3 migration
+ * drops a saved server address in builds that cannot change it. introSeen: the tutor's introduction was read here.
+ */
+export const withServer = (extra = {}, grade = '7') => ({ ...student(grade, { ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true }, ...extra }), version: 3 });
+/** A student of the class K7Q2MD (the fake server's class), as the device keeps it after joining. */
+export const CLASS_PROFILE = Object.freeze({ role: 'student', name: 'דנה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', teacherName: 'רונית', token: 'stok-a1', studentId: 'a1' });
+export const inClass = (extra = {}) => withServer({ profile: { ...CLASS_PROFILE }, ...extra });
+/** K7Q2MD as opened with its key on this device (createdHere: only such a device is offered to bind it to the email). */
+export const KEY_CLASS = Object.freeze({ code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7', createdHere: true });
+/** A teacher whose class this device opened with the key. */
+export const keyTeacher = (cls = {}) => withServer({ profile: { role: 'teacher', name: 'רונית', grade: '7', classes: [{ ...KEY_CLASS, ...cls }], active: 'K7Q2MD' } });
+/** A teacher whose class is bound to the email: no key on the device, the session opens it. */
+export const ownedTeacher = () => withServer({ profile: { role: 'teacher', name: 'רונית', grade: '7', classes: [{ code: 'K7Q2MD', key: null, className: 'ז׳3', grade: '7', owned: true }], active: 'K7Q2MD' } });
+
+/** A path whose stairs (levels) are mastered. */
+export const doneStairs = (levels) => ({ parts: {}, reviews: 0, jumped: 0, done: Object.fromEntries(levels.map((l) => [l, 'mastered'])) });
+/** Madi's look: blue, nothing worn; טורקיז earned before (and stays earned), the newer pieces already seen. */
+export const madiLook = (extra = {}) => ({ color: 'sky', head: null, face: null, neck: null, body: null, earned: ['petrol'], seen: ['petrol', 'fuchsia', 'protractor-crown', 'bars-pin'], earnedAt: { petrol: '2026-10-20' }, ...extra });
+/** A student with something to choose in the wardrobe: the angles chest open (stairs 1 to 3), the stats unit mastered
+ * (all 8: stats:6-8 since curriculum stage 3). */
+export const dressed = (extra = {}) => student('7', { path: { angles: doneStairs([1, 2, 3]), stats: doneStairs([1, 2, 3, 4, 5, 6, 7, 8]) }, look: madiLook(extra) });
+
+/** The week to report on (reportWeek), on a device linked to a family plan (fakeServer.js's TABLET); the backup question was asked. */
+export const linkedWeek = () => {
+  const s = { ...reportWeek(), version: 3 };
+  s.state.ai = { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: TABLET.token, label: TABLET.label } };
+  s.state.durable = { nudgeCount: 2 };
+  return s;
+};
+
+/** A backup file (DURABLE-4) holding `state`, as Playwright hands it to a file input. */
+export const backupFile = (state, name = 'madregot-backup.json') => ({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ app: 'madregot', kind: 'backup', v: 1, at: '2026-11-04T10:00:00.000Z', schema: 1, release: 'test', state })) });
+
+/** A synthetic 1200×1600 exam page (PNG) drawn in the page itself: the top 10% red (where a name and an ID would be). */
+export const examPng = async (page, { red = true } = {}) => Buffer.from(await page.evaluate((r) => {
+  const c = document.createElement('canvas'); c.width = 1200; c.height = 1600;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, 1200, 1600);
+  if (r) { x.fillStyle = '#ff0000'; x.fillRect(0, 0, 1200, 160); }
+  x.fillStyle = '#222'; x.font = '48px sans-serif';
+  for (let i = 0; i < 10; i += 1) x.fillText(`${i + 1})  3x + ${i} = ${3 * (i + 2) + i}`, 80, 320 + i * 110);
+  return c.toDataURL('image/png').split(',')[1];
+}, red), 'base64');
+
+/**
+ * The landing pages' counts (STUDENT-13): the Worker's /api/metrics on API_BASE (playwright.config.js, the same host as
+ * API), answered 204 as the Worker does; returns the list of the names counted.
+ */
+export async function landingMetrics(page) {
+  const names = [];
+  await page.route(`${API}/**`, (route) => {
+    const req = route.request();
+    if (new URL(req.url()).pathname === '/api/metrics' && req.method() === 'POST') names.push(req.postData());
+    return route.fulfill({ status: 204, headers: CORS });
+  });
+  return names;
+}
+
+/** A landing page (or an app link) on a device with a saved state (null: nothing saved), at the e2e tests' fixed time. */
+export async function openLanding(page, path, state = null) {
+  await page.clock.setFixedTime(NOW);
+  await page.goto('./');
+  await page.evaluate((s) => { localStorage.clear(); if (s) localStorage.setItem('madregot', JSON.stringify(s)); }, state);
+  await page.goto(`./${path}`);
+  if (path.startsWith('#')) await page.reload(); // the app reads a link when it starts, as it does from another page
+  await page.evaluate(() => document.fonts.ready);
+}
+
 /** The app's copy of the progress on the device (IndexedDB, lib/durable/idb.js). */
 export const DURABLE_DB = 'madregot-durable';
 
@@ -77,18 +147,20 @@ export const DURABLE_DB = 'madregot-durable';
  * Open a route with a saved state (null: a first visit), a fixed clock and repeatable exercises.
  * madregot-debug exposes the current exercise as window.__madregotItem; madregot-seed fixes Math.random.
  * The seed is written once: a later reload starts from what the app saved since (and its copy on the device).
+ * `local`: more localStorage keys (a parent's session on their own phone); `at`: the clock (NOW by default).
  */
-export async function open(page, route, state = null, seed = '424242') {
-  await page.clock.setFixedTime(NOW);
+export async function open(page, route, state = null, seed = '424242', { local = {}, at = NOW } = {}) {
+  await page.clock.setFixedTime(at);
   await page.goto('./');
-  await page.evaluate(async ([s, sd, db]) => {
+  await page.evaluate(async ([s, sd, db, extra]) => {
     localStorage.clear();
     localStorage.setItem('madregot-debug', '1');
     localStorage.setItem('madregot-seed', sd);
     if (s) localStorage.setItem('madregot', JSON.stringify(s));
+    Object.entries(extra).forEach(([n, v]) => localStorage.setItem(n, v));
     // the copy of the progress on the device goes too (the app lets go of it at once), so the next start reads the seed
     await new Promise((done) => { const r = indexedDB.deleteDatabase(db); r.onsuccess = done; r.onerror = done; r.onblocked = done; });
-  }, [state, seed, DURABLE_DB]);
+  }, [state, seed, DURABLE_DB, local]);
   await page.goto(`./${route}`);
   await page.reload();
   await appReady(page);
