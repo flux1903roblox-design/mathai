@@ -156,7 +156,7 @@
 
 - **סוג:** בכינוי (פסאודונימי). **על מי:** תלמידים, הורים, מורים, מכשירים, רשתות (כתובת IP מגובבת).
 - **עמודות:** `who`, `day`, `count`.
-- **מטרה:** Counters that keep the limits: questions to the tutor, sign-in codes, joins, PIN tries, care messages, reported answers and a class student's daily writes, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey); and the dollars the free and open pools hold for requests in flight (usd:<pool>, about no one). Never a raw device id or address.
+- **מטרה:** Counters that keep the limits: questions to the tutor, sign-in codes, joins, shared assignment links opened, PIN tries, care messages, reported answers and a class student's daily writes, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey); and the dollars the free and open pools hold for requests in flight (usd:<pool>, about no one). Never a raw device id or address.
 - **שמירה:** Daily and hourly counters 35 days, monthly ones 13 months; a student's, family device's or install's counters at once when it deletes all, and a student's or class's when the teacher removes or deletes them.
 - **עובר אל:** Cloudflare.
 - **נמחק על ידי:** `cron.purgeCountersSql`, `forget.studentCountersStmt`, `forget.familyDeviceCountersStmt`, `forget.deviceCountersStmt`, `forget.classDeleteSteps`.

@@ -15,7 +15,9 @@
 // numbers (st.reportRows by id changes them), the assignments of the range and the mistakes, with no id anywhere.
 // Help both ways (TEACHER-6): st.help holds the requests with their threads; the dashboard's rows, the teacher's reply
 // (three at most, no contact details), ראיתי/טופל/לפתוח שוב, the owner's daily email switch (st.digest), and the
-// student's side (GET /api/class/work's help, the student's answer only after the teacher's, /read).
+// student's side (GET /api/class/work's help, the student's answer only after the teacher's, /read). A shared assignment
+// link (COUNCIL2-35): GET /api/work/:id, public, the assignment and the class's code, name, grade and whether it is open.
+// st.goal puts the class goal of the week on the dashboard (STUDENT-4; the board's goal card, COUNCIL2-36).
 // Each student's page (TEACHER-8): GET /api/teacher/students/:id (st.studentPages by id adds or replaces its parts:
 // days14, levels, mistakes, work, help, exams), a PIN reset with its one-time code (COUNCIL2-25: a member of K7Q2MD with
 // the same name then joins only with it), and the board's rows with whose help it is, joinedOn and
@@ -132,6 +134,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     today: '2026-11-05', // the server's day (Jerusalem): the e2e clock's Thursday
     mistakes: [], // the dashboard's repeated mistakes: [{ topic, cat, level, n, students, ids, names }]
     assignments: [], // [{ id, kind, skill, title, note, startsOn, dueOn, forAll, targets, createdAt, exam?: items, version? }]
+    goal: null, // the dashboard's class goal of the week (STUDENT-4): { on, week, target, have, reached, custom }; none by default
     work: {}, // assignmentId -> studentId -> { state, stage, right, asked, passed, questions, tries, startedAt, doneAt, doneDay }
     studentTokens: { 'stok-a1': 'a1' }, // a student's class token -> their id
     down: false, // every call fails as a lost connection
@@ -240,7 +243,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       : (({ name, grade }) => ({ name, grade, teacherName: 'רונית' }))(st.accountClasses.find((c) => c.code === code)), joinLocked: st.joinLocked,
     help: code === 'K7Q2MD' ? st.help.map((x) => ({ ...x, messages: x.messages.slice(0, 6), unreadFromStudent: x.messages.filter((m) => m.from === 'student' && !m.read).length })) : [],
     helpDigest: st.digest, mistakes: st.mistakes, exams: [],
-    today: st.today,
+    today: st.today, ...(st.goal ? { goal: st.goal } : {}),
     assignments: st.assignments.filter((a) => a.dueOn >= plus(st.today, -7)).sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0)).slice(0, 10).map(viewOf),
     students: st.students.map((s) => ({ lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false, joinedOn: '2026-09-02', late: 0, aiOff: false, ...s })),
     aiPolicy: aiPolicy(),
@@ -481,6 +484,16 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       const message = { id: msgId += 1, from: 'student', body: text, at: helpNow(), read: false };
       x.messages.push(message);
       return reply(route, 201, { message, status: statusOf(x) });
+    }
+    // ---- a shared assignment link (COUNCIL2-35), public: what the Worker's publicAssignment answers, nothing of a student
+    const linkM = path.match(/^\/api\/work\/([a-f0-9]{16})$/);
+    if (linkM && req.method() === 'GET') {
+      const a = st.assignments.find((x) => x.id === linkM[1]);
+      if (!a) return reply(route, 404, { error: 'not_found' });
+      return reply(route, 200, {
+        assignment: { id: a.id, kind: a.kind, skill: a.skill, title: a.title, startsOn: a.startsOn, dueOn: a.dueOn },
+        class: { code: 'K7Q2MD', name: st.className, grade: st.classGrade, open: !st.joinLocked },
+      });
     }
     // ---- the student's class work (TEACHER-5)
     if (path.startsWith('/api/class/work')) {

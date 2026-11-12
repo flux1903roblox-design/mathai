@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon, BookOpen, Sparkles, Printer, FileDown, LifeBuoy, ListChecks } from 'lucide-react';
+import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon, BookOpen, Sparkles, Printer, FileDown, LifeBuoy, ListChecks, Send, Share2 } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api } from '@/lib/api.js';
 import { teacherApi, useEmailSignIn, offerBind } from '@/lib/teacher.js';
@@ -27,6 +27,7 @@ import ClassSettingQuestion, { settingBody, settingReady } from '@/components/te
 import StudentSheet from '@/components/teacher/StudentSheet.jsx';
 import { rememberBoard } from '@/lib/teacherBoard.js';
 import ClassGoalSettings from '@/components/teacher/ClassGoalSettings.jsx';
+import { ColleagueSheet, GoalShareSheet } from '@/components/teacher/TeacherShares.jsx';
 import '@/styles/lazy/teacher.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const TABS = ['tomorrow', 'work', 'students', 'exams', 'help'];
@@ -79,6 +80,9 @@ export default function Teacher() {
   // a view, with its own parameters: the students tab's ?sort=need, the help view's ?student=<id> (TEACHER-8)
   const setTab = (t, extra = {}) => setParams(t === 'tomorrow' ? {} : { tab: t, ...extra }, { replace: true });
   const [adding, setAdding] = useState(false);
+  // passing the app on without passing on the class (COUNCIL2-36): the demo class to a colleague, the goal's card
+  const [colleague, setColleague] = useState(false);
+  const [goalShareOpen, setGoalShareOpen] = useState(false);
   // the assign sheet (TEACHER-4): opened from "משימות" or a repeated mistake on "מחר"; each opening starts fresh
   const [assign, setAssign] = useState(null); // { preset, n } while open
   const [workVersion, setWorkVersion] = useState(0);
@@ -154,13 +158,23 @@ export default function Teacher() {
             </select>
           ) : <h1 className="t-class-name">{cls.className}</h1>}
           <button type="button" className="code-chip t-code" onClick={() => copy(cls.code, 'קוד הכיתה')} aria-label={`העתקת קוד הכיתה ${cls.code}`}><span>קוד</span><span dir="ltr">{cls.code}</span><Copy size={16} aria-hidden="true" /></button>
-          {/* the class goal of the week (STUDENT-4): the class total only, as the students see it */}
-          {data?.goal?.on && <span className="chip t-goal-chip">מטרת הכיתה: <bdi dir="ltr">{data.goal.have}/{data.goal.target}</bdi></span>}
+          {/* the class goal of the week (STUDENT-4): the class total only, as the students see it; it opens the card to
+              share (COUNCIL2-36), with no name in it. Not in the demo class, whose numbers are made up */}
+          {data?.goal?.on && (demo
+            ? <span className="chip t-goal-chip">מטרת הכיתה: <bdi dir="ltr">{data.goal.have}/{data.goal.target}</bdi></span>
+            : (
+              <button type="button" className="chip t-goal-chip t-goal-btn" onClick={() => setGoalShareOpen(true)} aria-haspopup="dialog"
+                aria-label={`מטרת הכיתה: ${data.goal.have} מתוך ${data.goal.target}. שיתוף`}>
+                מטרת הכיתה: <bdi dir="ltr">{data.goal.have}/{data.goal.target}</bdi><Share2 size={16} aria-hidden="true" />
+              </button>
+            ))}
         </div>
         {/* signed in: the email's other classes can be added to this device */}
         {session && <button type="button" className="link-btn t-more" onClick={() => setMoreOpen(true)}>עוד כיתות מהחשבון שלי…</button>}
       </header>
       {!demo && <AddClass open={adding} onClose={() => setAdding(false)} />}
+      <ColleagueSheet open={colleague} onOpenChange={setColleague} />
+      {!demo && data?.goal?.on && <GoalShareSheet open={goalShareOpen} onOpenChange={setGoalShareOpen} goal={data.goal} />}
       {assign && data && (
         <AssignSheet key={`${cls.code}-${assign.n}`} cls={cls} students={students} today={data.today} preset={assign.preset} open
           onOpenChange={(o) => { if (!o) setAssign(null); }} onSent={() => { setWorkVersion((v) => v + 1); load(); }} />
@@ -196,7 +210,8 @@ export default function Teacher() {
 
             {/* the class's tools (TEACHER-2 §7): chips in one row that scrolls sideways on a narrow screen and never
                 wraps; before the last, what the app teaches against the Ministry's programme, on the class's grade
-                (CURRICULUM-1.6); the last is the pilot kit and its guides (TEACHER-10) */}
+                (CURRICULUM-1.6); then the pilot kit and its guides (TEACHER-10); the last sends the demo class to a colleague
+                (COUNCIL2-36) */}
             <nav className="t-tools" aria-label="כלים">
               <ul>
                 <li><Link className="t-tool" to="/teacher/lessons"><BookOpen size={18} aria-hidden="true" />השיעורים</Link></li>
@@ -206,6 +221,8 @@ export default function Teacher() {
                 <li><Link className="t-tool" to="/teacher/settings"><SettingsIcon size={18} aria-hidden="true" />הגדרות הכיתה</Link></li>
                 <li><Link className="t-tool" to={`/programme?grade=${cls.grade === '8' ? '8' : '7'}`}><ListChecks size={18} aria-hidden="true" />מה לומדים במדרגות, לפי תוכנית משרד החינוך</Link></li>
                 <li><Link className="t-tool" to="/teacher/guide"><LifeBuoy size={18} aria-hidden="true" />מדריך למורה</Link></li>
+                {/* the demo class for a colleague (COUNCIL2-36): nothing of this class goes with it */}
+                <li><button type="button" className="t-tool" onClick={() => setColleague(true)} aria-haspopup="dialog"><Send size={18} aria-hidden="true" />שליחה לעמית/ה</button></li>
               </ul>
             </nav>
 

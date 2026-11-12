@@ -68,6 +68,8 @@ const Programme = lazy(() => import('@/screens/Programme.jsx'));
 const SharedReport = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.SharedReport })));
 // "יש לי קוד גיבוי": with or without a profile, so it is routed with the parents' area (DURABLE-5)
 const Restore = lazy(() => import('@/screens/Restore.jsx'));
+// a shared assignment link (COUNCIL2-35): opens the work for a student of the class, or the join first
+const AssignmentOpen = lazy(() => import('@/screens/AssignmentOpen.jsx'));
 // a store app's parents' pages (STUDENT-12): how a parent lets the child ask the tutor, and nothing to buy
 const StoreParents = lazy(() => import('@/screens/parents/StoreParents.jsx'));
 // a store build asks before the first AI request (STUDENT-12, Apple 5.1.2(i)); the web build does not carry the sheet
@@ -307,9 +309,9 @@ function Root() {
       <ErrorBoundary>
       <Suspense fallback={<LoadingState />}>
       <Routes>
-        {/* the parents' area, the legal pages, the programme page, the restore screen and a child's weekly summary come
-            first: they open from a QR code, a payment page, an email link, a new phone or a WhatsApp message, on a device
-            with no profile at all. A store app sells nothing (STUDENT-12): its parents' pages say how a parent lets the
+        {/* the parents' area, the legal pages, the programme page, the restore screen, a teacher's assignment link and a
+            child's weekly summary come first: they open from a QR code, a payment page, an email link, a new phone, a
+            Classroom or Moodle post or a WhatsApp message, on a device with no profile at all. A store app sells nothing (STUDENT-12): its parents' pages say how a parent lets the
             child ask the tutor, and nothing more */}
         {sell ? (
           <>
@@ -325,6 +327,7 @@ function Root() {
         <Route path="/safety" element={<Legal doc="safety" />} />
         <Route path="/programme" element={<Programme />} />
         <Route path="/restore" element={<Restore />} />
+        <Route path="/a/:id" element={<AssignmentOpen />} />
         <Route path="/r/:data" element={<SharedReport />} />
         <Route path="/r" element={<SharedReport />} />
         {!role && <Route path="*" element={<Welcome />} />}

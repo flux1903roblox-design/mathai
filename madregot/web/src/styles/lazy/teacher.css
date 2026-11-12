@@ -691,3 +691,36 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
   .t-head .t-class { padding-inline-end: 0; }
   .t-kpis { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---- passing the class's work and the app on, with no student's name (COUNCIL2-35, COUNCIL2-36) */
+/* an assignment's link: Moodle's three fields, opened under the buttons (components/teacher/ShareWork.jsx) */
+.as-moodle-toggle { min-height: 44px; }
+.as-moodle { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--s4); border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--surface); }
+.as-moodle-lead { margin: 0; color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.as-fields { display: flex; flex-direction: column; gap: var(--s2); margin: 0; }
+.as-fields > div { display: flex; flex-direction: column; gap: 2px; }
+.as-fields dt { color: var(--ink-2); font-size: var(--t-xs); line-height: var(--lh-xs); font-weight: 700; }
+.as-fields dd { margin: 0; color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); overflow-wrap: anywhere; user-select: text; }
+/* the assignment's own sheet, its link section above the rows (AssignmentSheet.jsx) */
+.aw-share { margin-top: var(--s2); }
+/* the class goal in the header opens its card to share (Teacher.jsx) */
+.t-goal-btn { min-height: 44px; border: 2px solid var(--rule); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--t-sm); font-weight: 700; cursor: pointer; }
+.t-goal-btn svg { color: var(--brand); }
+.t-goal-btn:hover { border-color: var(--brand-line); }
+.t-goal-btn:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+button.t-tool { font: inherit; font-weight: 700; font-size: 1rem; cursor: pointer; }
+/* the two sheets (components/teacher/TeacherShares.jsx) */
+.ts-body { display: flex; flex-direction: column; gap: var(--s3); }
+.ts-lead { margin: 0; color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); }
+.ts-actions { display: flex; flex-direction: column; gap: var(--s1); }
+.ts-actions .btn { width: 100%; margin-inline: 0; }
+.ts-goal { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: var(--s4); border: 1px solid var(--brand-line); border-bottom: var(--lip) solid var(--brand-line); border-radius: var(--r-lg); background: var(--brand-tint); }
+.ts-goal.is-reached { border-color: var(--good-line); background: var(--good-tint); }
+.ts-goal-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.ts-goal-brand, .ts-goal-title { margin: 0; }
+.ts-goal-title { color: var(--ink); font-size: var(--t-md); line-height: var(--lh-md); font-weight: 800; }
+.ts-goal-count { margin: 0; color: var(--ink); font-size: var(--t-xl); line-height: var(--lh-xl); font-weight: 800; }
+.ts-goal-bar { height: 12px; border-radius: 999px; background: var(--surface); overflow: hidden; }
+.ts-goal-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--brand); }
+.ts-goal.is-reached .ts-goal-bar > i { background: var(--good); }
+.ts-goal-line { color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }

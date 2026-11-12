@@ -4,15 +4,15 @@
 // It opens from the "משימות" tab, from a repeated mistake on "מחר" (that stair, for the students who made it), from
 // the lessons library, and from a class exam's sheet. "מבחן תרגול" sends one of this class's exams (TEACHER-3), in the
 // version the teacher picks (א׳ unless the sheet showed ב׳): its frozen questions go to the server as they are.
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { Copy, ExternalLink } from 'lucide-react';
 import { useApp, today as localToday } from '@/lib/store.js';
 import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor, TOPIC } from '@/content/index.js';
-import { assignTitle, sendWork, classMessage, classroomLink, publicUrl } from '@/lib/assign.js';
+import { assignTitle, sendWork } from '@/lib/assign.js';
+import ShareWork from './ShareWork.jsx';
 import { plusDays, schoolDay, dayLong, dm } from '@/lib/workDates.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { Choice } from './ClassSettingQuestion.jsx';
@@ -221,27 +221,10 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
   );
 }
 
-/** "לספר לכיתה?": the message for the class's own channel, to copy, and the Classroom link. Nothing is sent from here. */
+/**
+ * "לספר לכיתה?": the assignment's own link, the message for the class's own channel, Classroom's share address and the
+ * Moodle activity's fields (ShareWork, COUNCIL2-35). Nothing is sent from here.
+ */
 function ShareStep({ sent }) {
-  const first = useRef(null);
-  // the step replaces the form under the keyboard's focus: it starts on its first action
-  useEffect(() => { first.current?.focus({ preventScroll: true }); }, []);
-  const url = publicUrl();
-  const msg = classMessage(sent, url);
-  const words = classMessage(sent, '');
-  const link = classroomLink(url);
-  const copyMsg = () => {
-    const done = () => toast.success('ההודעה הועתקה');
-    const failed = () => toast('לא הצלחנו להעתיק. אפשר לסמן את ההודעה ולהעתיק אותה.');
-    try { navigator.clipboard.writeText(msg).then(done, failed); } catch { failed(); }
-  };
-  return (
-    <div className="as-share">
-      <p className="as-share-lead">אפשר לשלוח לתלמידים הודעה בערוץ של הכיתה. אין בה שמות של תלמידים.</p>
-      {/* the address is set left to right inside the Hebrew line, so its slashes stay where they belong */}
-      <blockquote className="as-msg">{words}{url && <> <bdi dir="ltr">{url}</bdi></>}</blockquote>
-      <button ref={first} type="button" className="btn btn-secondary btn-block" onClick={copyMsg}><Copy size={18} aria-hidden="true" />העתקת הודעה לתלמידים</button>
-      {link && <a className="btn btn-secondary btn-block" href={link} target="_blank" rel="noopener noreferrer"><ExternalLink size={18} aria-hidden="true" />שיתוף ב־Google Classroom</a>}
-    </div>
-  );
+  return <ShareWork a={sent} autoFocus />;
 }

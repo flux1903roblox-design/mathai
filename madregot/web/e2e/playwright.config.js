@@ -17,7 +17,7 @@ const IOS_ONLY = /store-ios\.spec\.js/;
 // VITE_API_URL="/". Built and started only when the run includes the 'contract' project (or no --project at all).
 const CONTRACT_PORT = Number(process.env.CONTRACT_PORT) || 4423;
 const WITH_CONTRACT = !/--project[= ]/.test(argv) || /--project[= ]contract\b/.test(argv);
-const CONTRACT_SPECS = /(class-sync|durable|restore|tutor|subscription)\.spec\.js/;
+const CONTRACT_SPECS = /(class-sync|durable|restore|tutor|subscription|school-links)\.spec\.js/;
 
 const phone = (width, height) => ({ viewport: { width, height }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
 

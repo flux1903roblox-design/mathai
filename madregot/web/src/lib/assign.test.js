@@ -54,15 +54,15 @@ describe('telling the class', () => {
     expect(publicUrl(loc('http://localhost:5173/'), false)).toBe('');
     expect(publicUrl(loc('https://madregot.example.test/'), true)).toBe('');
   });
-  it("the Classroom link is Google's documented share address, for the student's missions", async () => {
-    const { classroomLink } = await load();
-    expect(classroomLink('https://madregot.example.test/')).toBe(`https://classroom.google.com/share?url=${encodeURIComponent('https://madregot.example.test/#/quests')}`);
+  it("the Classroom link is Google's documented share address for the assignment's own link", async () => {
+    const { classroomLink, workLink } = await load();
+    expect(classroomLink(workLink('0123456789abcdef', 'https://madregot.example.test/'))).toBe(`https://classroom.google.com/share?url=${encodeURIComponent('https://madregot.example.test/#/a/0123456789abcdef')}`);
     expect(classroomLink('')).toBe('');
   });
-  it('the message says the title and the day, and no student name', async () => {
+  it('the message says the title, the day and the link, and no student name', async () => {
     const { classMessage } = await load();
-    const msg = classMessage({ title: 'מספרים מכוונים: חיבור וחיסור', dueOn: '2026-11-12' }, 'https://madregot.example.test/');
-    expect(msg).toBe('משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". https://madregot.example.test/');
+    const msg = classMessage({ title: 'מספרים מכוונים: חיבור וחיסור', dueOn: '2026-11-12' }, 'https://madregot.example.test/#/a/0123456789abcdef');
+    expect(msg).toBe('משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את הקישור, והמשימה נפתחת. https://madregot.example.test/#/a/0123456789abcdef');
     expect(classMessage({ title: 'x', dueOn: '2026-11-12' }, '')).not.toMatch(/https?:/);
   });
 });

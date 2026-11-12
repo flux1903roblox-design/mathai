@@ -35,7 +35,9 @@ import {
 import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap, bindingView } from './teacherAccount.js';
 import {
   listAssignments, createAssignment, getAssignment, updateAssignment, deleteAssignment, classWork, workExam, postWork, classAssignments,
+  publicAssignment,
 } from './assignments.js';
+import { reportPreview } from './preview.js';
 import { classReport, studentDetail } from './classReport.js';
 import { teacherReply, studentReply, readHelp, setDigest, helpThreads, markReadStmt } from './help.js';
 import { RETENTION } from '../../shared/retention.js';
@@ -1210,6 +1212,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && p === '/api/health') return json(await health(env), 200, cors);
   // the Play Store app's Digital Asset Links (assetlinks.js): [] until the owner sets the package and its fingerprints
   if ((M === 'GET' || M === 'HEAD') && p === '/.well-known/assetlinks.json') return assetLinksResponse(env);
+  // the parents' summary link's card (COUNCIL2-36, preview.js): the app's page with fixed Open Graph tags, no child data
+  if ((M === 'GET' || M === 'HEAD') && p === '/r') return reportPreview(req, env);
   // the edge rate limit (DURABLE-16, edge.js) in front of sign-in, class lookup and join, new devices and the AI routes;
   // the D1 counters in each handler stay the source of truth
   await edgeGuard(M, p, req, env);
@@ -1295,6 +1299,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && p === '/api/class/work') return classWork(req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})\/exam$/))) return workExam(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})$/))) return postWork(m[1], req, env, cors);
+  // a shared assignment link (COUNCIL2-35): public, with nothing about any student (assignments.js publicAssignment)
+  if (M === 'GET' && (m = p.match(/^\/api\/work\/([a-f0-9]{16})$/))) return publicAssignment(m[1], req, env, cors);
   if (M === 'GET' && p === '/api/class/goal') return classGoal(req, env, cors);
   // teacher
   if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);

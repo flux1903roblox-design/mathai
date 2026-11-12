@@ -47,8 +47,9 @@ export const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const MADREGOT = resolve(WEB, '..');
 export const LANDING = join(WEB, 'landing');
 export const PAGES = ['mivchan', 'pilot'];
-/** The images the pages use, made by store/capture.cjs into web/landing/img/ and copied to <dist>/l/. */
-export const IMAGES = ['phone-rescue.webp', 'phone-teacher.webp', 'og-mivchan.png', 'og-pilot.png'];
+/** The images the pages use, made by store/capture.cjs into web/landing/img/ and copied to <dist>/l/. og-report.png is the
+ *  picture of the parent summary's link preview, which the Worker's /r page names (worker/src/preview.js). */
+export const IMAGES = ['phone-rescue.webp', 'phone-teacher.webp', 'og-mivchan.png', 'og-pilot.png', 'og-report.png'];
 
 const read = (p) => readFileSync(p, 'utf8');
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');

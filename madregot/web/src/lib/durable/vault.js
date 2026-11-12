@@ -324,7 +324,12 @@ async function runSync(moment, store, { online, now }) {
       setBackup(store, { rev, hash: null, forcePush: false });
       return await pushLoop(ctx);
     }
-    if (moment !== 'lesson' && moment !== 'hidden') {
+    // the backup on by default (COUNCIL2-24), whose code was made on this device and whose first copy has not landed
+    // yet, has nothing to pull: asking would only be a 404 on every solo student's first open. Should a copy be there
+    // all the same, the first push (ifRev null) meets it as a conflict, and the push loop pulls and merges it first.
+    // A code typed in, or a backup turned on in Settings, pulls as before.
+    const madeHere = b.note === 'auto' && b.rev == null && b.at == null;
+    if (!madeHere && moment !== 'lesson' && moment !== 'hidden') {
       const p = await pull(ctx);
       if (p === 'other_student') return p;
     }

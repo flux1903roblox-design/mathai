@@ -455,6 +455,9 @@ describe('on by default for a solo student', () => {
     expect(b.lookup).toBe((await derive(b.code)).lookup);
     expect(server.posts()).toHaveLength(1);
     expect(server.posts()[0].body.ifRev).toBeNull();
+    // a code made here has no copy to pull yet: no GET /api/vault/rev, whose 404 a browser logs as an error on every
+    // solo student's first open
+    expect(server.calls.filter((c) => c.path === '/api/vault/rev')).toEqual([]);
     expect((await held(b.code)).state.profile.name).toBe('נועה');
     // the code never leaves the device: only the lookup token and the sealed copy are sent
     for (const c of server.calls) expect(JSON.stringify([c.headers, c.body])).not.toContain(b.code);
@@ -471,6 +474,33 @@ describe('on by default for a solo student', () => {
     expect(await syncVault({ moment: 'boot' })).toBe('pushed');
     expect(useApp.getState().backup).toMatchObject({ on: true, rev: 1, state: 'idle', note: 'auto' });
     expect(server.vaults.size).toBe(1);
+    expect(server.calls.filter((c) => c.path === '/api/vault/rev')).toEqual([]);
+    // once the copy is there, every later moment pulls as before
+    await syncVault({ moment: 'boot' });
+    expect(server.calls.filter((c) => c.path === '/api/vault/rev')).toHaveLength(1);
+  });
+
+  it('a code typed in (not made here) still asks the server first, even with no rev yet: another student\'s copy is never written', async () => {
+    const code = makeCode();
+    await remote(code, progress('יואב', 'c3d4e5f6', { '2026-11-03': { lessons: 3, xp: 40, q: 24, ok: 20 } }), 2);
+    await device(HERE, code, { rev: null, at: null });
+    expect(await syncVault({ moment: 'boot' })).toBe('other_student');
+    expect(server.calls.filter((c) => c.path === '/api/vault/rev')).toHaveLength(1);
+    expect(server.posts()).toEqual([]);
+  });
+
+  it('a copy that never landed meets one that is there: the push is a conflict, the pull merges it, nothing is lost', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.down = true;
+    expect(await defaultBackup()).toBe('offline');
+    // the same code's copy, pushed from elsewhere meanwhile (a code made here cannot be elsewhere: this is the guard)
+    await remote(useApp.getState().backup.code, THERE, 3);
+    server.hooks.down = false;
+    const tried = server.posts().length; // the offline try, logged before the connection failed
+    expect(await syncVault({ moment: 'boot' })).toBe('pushed');
+    expect(server.posts().slice(tried).map((c) => c.body.ifRev)).toEqual([null, 3]);
+    expect(useApp.getState().backup.rev).toBe(4);
+    expect(Object.keys(useApp.getState().days).sort()).toEqual(['2026-11-04', '2026-11-05']);
   });
 
   it('a server that cannot take it yet: still on, and every later moment tries again until the copy is there', async () => {

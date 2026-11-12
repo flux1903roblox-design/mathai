@@ -1280,17 +1280,18 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     expect(sent.headers['x-teacher-key']).toBe('tkey-123');
     await expect(page.getByText('המשימה נשלחה. התלמידים יראו אותה בראש המשימה של היום.')).toBeVisible();
 
-    // "לספר לכיתה?": a message with no student's name, and Google's share address
+    // "לספר לכיתה?": the assignment's own link (COUNCIL2-35) in a message with no student's name, and Google's share address
     const share = sheet(page, 'לספר לכיתה?');
     await expect(share).toBeVisible();
     await catchClipboard(page);
     await share.getByRole('button', { name: 'העתקת הודעה לתלמידים' }).click();
     await expect(page.getByText('ההודעה הועתקה')).toBeVisible();
     const copied = await page.evaluate(() => window.__copied);
-    expect(copied).toBe(`משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". ${baseOf()}`);
+    const own = `${baseOf()}#/a/${st.assignments[0].id}`;
+    expect(copied).toBe(`משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את הקישור, והמשימה נפתחת. ${own}`);
     for (const n of ['דנה', 'יואב']) expect(copied).not.toContain(n);
     const link = share.getByRole('link', { name: 'שיתוף ב־Google Classroom' });
-    await expect(link).toHaveAttribute('href', `https://classroom.google.com/share?url=${encodeURIComponent(`${baseOf()}#/quests`)}`);
+    await expect(link).toHaveAttribute('href', `https://classroom.google.com/share?url=${encodeURIComponent(own)}&title=${encodeURIComponent('מספרים מכוונים: חיבור וחיסור')}`);
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', /noopener/);
     await shot(page, 'teacher-assign-share');

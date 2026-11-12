@@ -78,9 +78,14 @@ export function encodeShare(week, { includeFixes = true } = {}) {
   return SHARE_PREFIX + toB64url(JSON.stringify(shareOf(week, { includeFixes })));
 }
 
-/** The whole link: the app's address and #/r/<payload>, never with a name. `base` is the app's address. */
-export function shareLink(payload, base) {
-  return `${base}#/r/${payload}`;
+/**
+ * The whole link: the app's address and #/r/<payload>, never with a name. `base` is the app's address. `preview`: the
+ * Worker serves this app (its API on this page's own address), so the link opens /r, the page the Worker answers with
+ * the link preview (COUNCIL2-36, worker/src/preview.js: a fixed title, line and picture, no child data). The week stays
+ * in the # either way, which a browser never sends to a server.
+ */
+export function shareLink(payload, base, { preview = false } = {}) {
+  return `${base}${preview ? 'r' : ''}#/r/${payload}`;
 }
 
 /** The address of this copy of the app (its base path, without the # route or a query such as a QA state). */

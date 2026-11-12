@@ -224,12 +224,14 @@ crons = ["7 * * * *", "37 * * * *"]
 
 # The same Worker serves the built web app (web/dist), so the app and its API share one address
 # (production builds call the API on their own address unless VITE_API_URL says otherwise).
-# Requests under /api/ (and /.well-known/, for the Play Store app's asset links) run the Worker code; everything else is
-# a static file.
+# Requests under /api/ (and /.well-known/, for the Play Store app's asset links) run the Worker code; so does /r, the
+# parents' summary link, whose page the Worker answers with its link preview (src/preview.js) from the assets binding;
+# everything else is a static file.
 [assets]
 directory = "../web/dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/.well-known/*"]
+run_worker_first = ["/api/*", "/.well-known/*", "/r"]
 
 [[d1_databases]]
 binding = "DB"
