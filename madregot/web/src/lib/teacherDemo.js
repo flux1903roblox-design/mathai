@@ -5,9 +5,10 @@
 // demoState(seed = 7, today) builds the class with a small seeded generator (mulberry32), never Math.random: DEMO01,
 // "ז׳3 (דוגמה)", grade 7, 24 students (a first name and one letter, invented), 14 days of practice drawn so that every
 // group of "מחר", every reason of "כדאי לבדוק איתם" (idle, never started, low first-try rate, help waiting, late work),
-// the overview tiles and the class report have content; 3 assignments (a stair due three days ago, a mastery check due
-// soon, and a class exam built by makeClassExam on grade 7's first two stairs, with Math.random replaced by the seeded
-// generator while it runs, then restored); work of every state; 4 help requests (one answered and closed, one where
+// the overview tiles and the class report have content; 4 assignments (a stair due three days ago, a mastery check due
+// soon, a class exam built by makeClassExam on grade 7's first two stairs, with Math.random replaced by the seeded
+// generator while it runs, then restored, and the repair of the week's second most common mistake for the students who
+// made it, SK-BUYERS-2); work of every state; 4 help requests (one answered and closed, one where
 // the student wrote "עדיין לא ברור לי" after the teacher's answer, two new); 6 finished class-exam rows.
 //
 // demoApi(state, method, path, body) → { status, body }: each teacher route of this lane, worked out the way the
@@ -28,6 +29,7 @@ import { hasContact } from '@shared/contact.js';
 import { makeClassExam, classExamTitle } from './exam.js';
 import { examWeak } from '@shared/examWeak.js';
 import { assignTitle } from './assign.js';
+import { isStairMisc } from '@shared/stairMiscs.gen.js';
 import { ApiError } from './api.js';
 import { DEMO_CODE, DEMO_CLASS_NAME, DEMO_TEACHER, DEMO_COPY, readDemo, writeDemo, onDemoExit } from './demo.js';
 
@@ -159,6 +161,24 @@ export function demoState(seed = 7, today = jerusalemDay()) {
     } else work[exam.id][s.id] = started(plus(exam.startsOn, 2));
   });
 
+  // ---- a repair (SK-BUYERS-2): the week's second most common mistake that is one of its stair's own, given yesterday to
+  // the students who made it (at most 6): two have fixed it, one is on it. No draw from the generator, so everything
+  // after it is as before.
+  const repeated = classMistakes({ students }, attempts.filter((r) => r.day >= plus(today, -6)), { ids: true })
+    .filter((m) => isStairMisc(`${m.topic}:${m.level}`, m.cat));
+  const fix = repeated[1] || repeated[0];
+  if (fix) {
+    const skill = `${fix.topic}:${fix.level}`;
+    const repair = { id: aid(4), kind: 'repair', skill, misc: fix.cat, title: assignTitle('repair', skill), note: '', exam: null, version: null, forAll: false, targets: fix.ids.slice(0, 6), startsOn: plus(today, -1), dueOn: schoolDay(plus(today, 2)).day, createdAt: at(plus(today, -1), 16, 20) };
+    assignments.push(repair);
+    work[repair.id] = {};
+    repair.targets.slice(0, 3).forEach((id, k) => {
+      work[repair.id][id] = k < 2
+        ? { state: 'done', stage: null, right: null, asked: null, passed: null, questions: null, tries: 1, startedAt: at(repair.startsOn, 16, 40 + k), doneAt: at(repair.startsOn, 16, 52 + k), doneDay: repair.startsOn }
+        : { state: 'started', stage: null, right: null, asked: null, passed: null, questions: null, tries: 0, startedAt: at(today, 5, 30), doneAt: null, doneDay: null };
+    });
+  }
+
   // ---- help: one answered and closed, one the student answered "עדיין לא ברור לי", two new
   const S = (i) => students[i].id;
   const help = [
@@ -180,7 +200,7 @@ export function demoState(seed = 7, today = jerusalemDay()) {
     joinLocked: false,
     ai: { setting: 'school', studentAi: 'off', consentAt: null },
     students, attempts, levels, assignments, work, help, messages,
-    next: { assignment: 4, message: 5 },
+    next: { assignment: 5, message: 5 },
   };
 }
 
@@ -217,7 +237,7 @@ function viewOf(st, a) {
   const doneLate = ws.filter((w) => w?.state === 'done' && w.doneDay > a.dueOn).length;
   const assigned = who.length;
   return {
-    id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn,
+    id: a.id, kind: a.kind, skill: a.skill, misc: a.misc ?? null, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn,
     forAll: a.forAll, targets: a.forAll ? [] : [...who].sort(), createdAt: a.createdAt,
     hasExam: !!a.exam, examCount: a.exam ? a.exam.length : null, version: a.version || null,
     counts: { assigned, notStarted: Math.max(0, assigned - started - done), started, done, late: doneLate + (a.dueOn < st.today ? assigned - done : 0) },
@@ -340,7 +360,7 @@ function report(st, params) {
         const w = workOf(st, a, id); const state = w?.state || 'none';
         work[index[id]] = { state, stage: w?.stage ?? null, right: w?.right ?? null, asked: w?.asked ?? null, passed: w?.passed ?? null, tries: num(w?.tries), late: lateOf(st, a, w) };
       }
-      return { title: a.title, kind: a.kind, skill: a.skill, dueOn: a.dueOn, work };
+      return { title: a.title, kind: a.kind, skill: a.skill, misc: a.misc ?? null, dueOn: a.dueOn, work };
     }),
     mistakes: classMistakes(st, inRange),
   });
@@ -399,10 +419,13 @@ function dueDate(st, value, from = st.today) {
 }
 
 function createAssignment(st, b) {
-  const kind = ['stair', 'check', 'exam'].includes(b.kind) ? b.kind : null;
+  const kind = ['stair', 'check', 'exam', 'repair'].includes(b.kind) ? b.kind : null;
   if (!kind) return badAssignment('kind');
   const skill = kind === 'exam' ? null : cleanSkill(b.skill);
   if (kind !== 'exam' && !skill) return badAssignment('skill');
+  // a repair names one of its stair's own misconceptions, as the Worker checks (shared/stairMiscs.gen.js)
+  const misc = kind === 'repair' ? b.misc : null;
+  if (kind === 'repair' ? !(typeof misc === 'string' && isStairMisc(skill, misc)) : b.misc != null) return badAssignment('misc');
   const startsOn = b.startsOn == null ? st.today : String(b.startsOn);
   if (!isDay(startsOn) || startsOn < st.today) return badAssignment('startsOn');
   const due = dueDate(st, b.dueOn, startsOn);
@@ -424,7 +447,7 @@ function createAssignment(st, b) {
   }
   if (st.assignments.filter((a) => a.dueOn >= plus(st.today, -14)).length >= 20) return fail(409, 'too_many_open');
   const a = {
-    id: aid(st.next.assignment), kind, skill, title: cleanLine(b.title, 80) || (kind === 'exam' ? 'מבחן תרגול' : skill), note: cleanNote(b.note, 200),
+    id: aid(st.next.assignment), kind, skill, misc, title: cleanLine(b.title, 80) || (kind === 'exam' ? 'מבחן תרגול' : skill), note: cleanNote(b.note, 200),
     exam, version, forAll: !targets.length, targets, startsOn, dueOn: due.day, createdAt: nowIso(),
   };
   st.next.assignment += 1;

@@ -13,7 +13,7 @@
 // ID number: the class join asks for a first name. 60 reports an hour per class (ai_usage report:c:<code>).
 import { HttpError, json, dayOf, isDay, nowIso, limitOrThrow } from './util.js';
 import { requireTeacher } from './entitle.js';
-import { plusDays } from './assignments.js';
+import { plusDays, KIND_SQL } from './assignments.js';
 import { myHelp } from './help.js';
 
 export const REPORT = Object.freeze({
@@ -85,7 +85,7 @@ export async function classReport(req, env, cors) {
       ORDER BY students DESC, n DESC, a.topic, a.level, a.cat LIMIT ${REPORT.mistakes}`, code, from, to),
     all(env, `SELECT DISTINCT a.topic, a.level, a.cat, s.id, s.name FROM attempts a JOIN students s ON s.id = a.student_id
       WHERE s.class_code = ? AND a.day BETWEEN ? AND ? AND a.cat IS NOT NULL ORDER BY s.name, s.id`, code, from, to),
-    all(env, `SELECT a.id, a.kind, a.skill, a.title, a.for_all, a.due_on FROM assignments a WHERE ${IN_RANGE}
+    all(env, `SELECT a.id, ${KIND_SQL()} AS kind, a.skill, a.misc, a.title, a.for_all, a.due_on FROM assignments a WHERE ${IN_RANGE}
       ORDER BY a.due_on, a.created_at, a.id LIMIT ${REPORT.assignments}`, code, from, to),
     all(env, `SELECT w.assignment_id, w.student_id, w.state, w.stage, w.right_n, w.asked, w.passed, w.tries, w.done_day
       FROM assignment_work w JOIN assignments a ON a.id = w.assignment_id WHERE ${IN_RANGE}`, code, from, to),
@@ -135,7 +135,7 @@ export async function classReport(req, env, cors) {
           late: state === 'done' ? x.done_day > a.due_on : a.due_on < today,
         };
       }
-      return { title: a.title, kind: a.kind, skill: a.skill, dueOn: a.due_on, work: w };
+      return { title: a.title, kind: a.kind, skill: a.skill, misc: a.misc ?? null, dueOn: a.due_on, work: w };
     }),
     mistakes: catRows.map((r) => ({
       topic: r.topic, cat: r.cat, level: r.level == null ? null : Number(r.level), n: num(r.n), students: num(r.students),
@@ -188,7 +188,7 @@ export async function studentDetail(id, req, env, cors) {
     all(env, 'SELECT topic, level, max_level FROM levels WHERE student_id = ?', s.id),
     all(env, `SELECT topic, cat, level, COUNT(*) AS n, MAX(at) AS last_at FROM attempts
       WHERE student_id = ? AND day >= ? AND cat IS NOT NULL GROUP BY topic, cat, level`, s.id, from30),
-    all(env, `SELECT a.id, a.title, a.kind, a.due_on, w.state, w.stage, w.right_n, w.asked, w.passed, w.done_day
+    all(env, `SELECT a.id, a.title, ${KIND_SQL()} AS kind, a.due_on, w.state, w.stage, w.right_n, w.asked, w.passed, w.done_day
       FROM assignments a LEFT JOIN assignment_work w ON w.assignment_id = a.id AND w.student_id = ?1
       WHERE a.class_code = ?2 AND a.due_on >= ?3 AND a.starts_on <= ?4
         AND (a.for_all = 1 OR EXISTS (SELECT 1 FROM assignment_targets t WHERE t.assignment_id = a.id AND t.student_id = ?1))

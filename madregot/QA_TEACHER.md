@@ -353,6 +353,21 @@ looking at each against its old picture, because earlier changes on this branch 
 `teacher-exam-key` (inline maths in Rubik), and `teacher-demo-board` on the tablet (the programme link among the
 teacher's tools, and the demo's exam topics).
 
+## Round 2: practice on the mistake itself, and grades out to Mashov (SK-BUYERS-2, PRODUCT2-32)
+
+| What a teacher could not do | What changed | Tests |
+|---|---|---|
+| "לתת תרגול על זה" on a repeated mistake gave the whole stair, so two different mistakes on one stair got the same work (SK-BUYERS-2) | A fourth kind, "לתקן טעות": the repair of one of the stair's own mistakes, for the students who made it (the app's `/repair` route: the mistake's explanation and activity, then 3 questions). The board gives it whenever the mistake is the stair's own, and the stair otherwise. The sheet asks "איזו טעות?" in the student's words, with the one from the board first and chosen. The Worker checks the mistake against the stair's own (`shared/stairMiscs.gen.js`, generated from the content); migration `0011_repair_work.sql` adds `assignments.misc`. The student's row opens the repair, which says "משימה מהמורה"; done is reported when its check passes (`learn/assignments.ts`). The demo class has one | Worker `assignments.test.js` "10. a repair"; `learn/assignments.test.ts`, `learn/next.test.ts`, `lib/classWork.test.js`, `lib/teacherDemo.test.js`, `learn/content-split.test.ts`; e2e TEACHER-16, "from מחר: the repair…", "a mistake with no repair of its own…", TEACHER-5 "1c", TEACHER-15 "2." |
+| The only way out of the report was a general CSV; Israeli teachers keep grades in Mashov or Webtop (PRODUCT2-32) | "ציונים למשוב או לוובטופ" on the report: a file with a row per student in Hebrew order and a 0-100 column per assignment or class exam in the range, three steps to paste it, and how each grade is worked out (`lib/teacherCsv.js` gradeOf). Same BOM, CRLF and formula guard as the report's file; no ID number | `lib/teacherCsv.test.js` "the grades file for Mashov and Webtop"; e2e TEACHER-7 "1." (the file's bytes) |
+| No Ministry single sign-on | The plan: `docs/schools/MINISTRY_SSO.md` (what the Ministry gives a registered supplier, the code it implies, the owner's step). Not built: it waits for the owner's registration | — |
+
+Pictures: `teacher-report-grades` is new on the four sizes. Taken again, after looking at each next to the old one:
+`teacher-assign-sheet` and `teacher-demo-assign` on the four sizes (the sheet's fourth kind, and from "מחר" the repair
+with its mistake chosen and first), `teacher-assign-exam` and `teacher-assign-restday` on the phone, the tablet and the
+desktop (the fourth kind moves the rest down; at 320 the change is below what the picture shows),
+`teacher-assign-share` on the four sizes (the message names "תיקון טעות"), and `teacher-report` on the tablet and the
+desktop (the grades section shows under the table).
+
 ## Owner-only steps
 
 The code for each is done and tested; each needs the owner once.
@@ -367,6 +382,8 @@ The code for each is done and tested; each needs the owner once.
 | A class bound to the wrong email (a late bind, within its first week) | when a teacher writes in | `cd madregot/worker && npm run owner -- unbind-class --class <CODE>` (the class keeps its key; the teacher who opened it binds it from the device that opened it) |
 | TEACHER-13: the real pilot | not started (owner) | 3-5 teachers in at least 2 schools, run by `docs/schools/` (the principal's form, the parent letter, the plan), then the TEACHER-11 command per class |
 | The parent letter's legal look | not done (owner) | add the letter (Appendix B) to the lawyer's packet of TRUST-13 |
+| SK-BUYERS-2: the repair's migration at deploy (`0011_repair_work.sql`: `assignments.misc`) | not applied anywhere | `cd madregot/worker && npm run db:migrate` (with the others, before the Worker that reads `misc` is deployed) |
+| Ministry single sign-on for teachers | not started (owner) | register as a supplier for the Ministry's single sign-on and ask for teachers only, a stable id and the role (`docs/schools/MINISTRY_SSO.md` §2 and §4); then the code of §3 can be built and tested |
 
 ## Not covered here
 

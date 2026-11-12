@@ -1,7 +1,9 @@
 // The class report (spec TEACHER-7 §2), at /teacher/report, for the class open on the board: a range (this week, two
 // weeks, this month, from the start of the school year, or one the teacher picks), four tiles, a table of the students
-// (by name, the CSV's columns), the class's repeated mistakes in the range, and two actions: the CSV for Excel and a
-// printout (landscape, the table only, a header with the class and the range, 25 students a page). The report has no
+// (by name, the CSV's columns), the class's repeated mistakes in the range, the grades of the range for Mashov or Webtop
+// (PRODUCT2-32: a file with a row per student in Hebrew order and a 0-100 column per assignment or class exam, and how to
+// paste it), and two actions: the CSV for Excel and a printout (landscape, the table only, a header with the class and
+// the range, 25 students a page). The report has no
 // student ids (worker/src/classReport.js): the names on screen open the student's page through the board's name → id map
 // (lib/teacherBoard.js, TEACHER-8), and its "לתת תרגול" opens the assign sheet here.
 // ?range=year&csv=1 (the class settings' "הורדת הדוח של כל השנה") opens the year and starts the CSV once.
@@ -12,7 +14,7 @@ import clsx from 'clsx';
 import { toast } from 'sonner';
 import { Users, CalendarDays, Target, ListChecks, FileDown, Printer } from 'lucide-react';
 import { useApp, today as todayOf } from '@/lib/store.js';
-import { RANGES, rangeDays, customRange, rangeText, dmyDots, fetchReport, saveReportCsv, MAX_DAYS } from '@/lib/report.js';
+import { RANGES, rangeDays, customRange, rangeText, dmyDots, fetchReport, saveReportCsv, saveGradesCsv, MAX_DAYS } from '@/lib/report.js';
 import { workText, pctOf, stripTex } from '@/lib/teacherCsv.js';
 import { mistakeLine } from '@/lib/teacherText.js';
 import { plusDays, dm } from '@/lib/workDates.js';
@@ -31,6 +33,35 @@ import { printSheet } from './ExamSheet.jsx';
 
 export const REPORT_NOTE = 'בקובץ יש רק את השמות כפי שהתלמידים כתבו אותם, בלי תעודות זהות ובלי מספרים מזהים. שמרו אותו במקום מוגן, ומחקו אותו כשכבר לא צריך.';
 export const EMPTY_RANGE = 'בטווח הזה עוד לא היה תרגול בכיתה.';
+/** How each grade in the Mashov file is worked out (lib/teacherCsv.js gradeOf), in one short paragraph. */
+export const GRADES_HOW = 'מבחן ובדיקת שליטה: אחוז התשובות הנכונות בניסיון הראשון. מדרגה: 20 על כל שלב, ו־100 כשבדיקת השליטה עברה. תיקון טעות: 100 כשהבדיקה שלו עברה. תא ריק: עוד אין תוצאה, או שהמשימה לא ניתנה לתלמיד.';
+
+/**
+ * The grades for Mashov or Webtop (PRODUCT2-32): what the file holds, three steps to paste it, how a grade is worked out,
+ * and the download. A range with no assignment has no grades: one line says so.
+ */
+function GradesExport({ report, onSave }) {
+  const n = report.assignments.length;
+  return (
+    <section className="set-group t-group rp-grades" aria-labelledby="rp-grades-h">
+      <h2 id="rp-grades-h" className="set-head">ציונים למשוב או לוובטופ</h2>
+      <div className="t-group-box rp-grades-box">
+        {n === 0 ? <p className="t-row muted">בטווח הזה אין משימות או מבחנים, ולכן אין ציונים להעביר.</p> : (
+          <>
+            <p className="rp-grades-lead">קובץ עם שורה לכל תלמיד, לפי הא״ב, ועמודת ציון מ־0 עד 100 {n === 1 ? 'למשימה שבטווח' : `לכל אחת מ־${n} המשימות שבטווח`}.</p>
+            <ol className="rp-steps">
+              <li>מורידים את הקובץ ופותחים אותו ב־Excel או ב־Google Sheets.</li>
+              <li>במשוב או בוובטופ פותחים את הזנת הציונים של הכיתה ומוסיפים עמודה חדשה.</li>
+              <li>בודקים שסדר השמות זהה, מעתיקים את העמודה של המשימה ומדביקים אותה.</li>
+            </ol>
+            <p className="rp-grades-how">{GRADES_HOW}</p>
+            <Button variant="secondary" className="btn-block" onClick={onSave}><FileDown size={20} aria-hidden="true" />הורדת ציונים למשוב (CSV)</Button>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
 /** Printed: a column per assignment up to this many; more, and one column counts what each student finished. */
 const PRINT_ASSIGNMENTS = 6;
 /** Students on one printed page. */
@@ -161,6 +192,13 @@ export default function ClassReport() {
       if (how === 'saved') toast.success('הקובץ הורד למכשיר.');
     } catch (e) { toast.error(e.message || 'לא הצלחנו להכין את הקובץ. נסו שוב.'); }
   };
+  const downloadGrades = async () => {
+    if (!shown) return;
+    try {
+      const how = await saveGradesCsv(shown);
+      if (how === 'saved') toast.success('קובץ הציונים הורד למכשיר.');
+    } catch (e) { toast.error(e.message || 'לא הצלחנו להכין את הקובץ. נסו שוב.'); }
+  };
   // ?csv=1: the file once, as soon as the asked range is here
   useEffect(() => {
     if (params.get('csv') !== '1' || !shown) return;
@@ -260,6 +298,7 @@ export default function ClassReport() {
               )}
             </div>
           </section>
+          <GradesExport report={shown} onSave={downloadGrades} />
           <p className="footnote t-report-note">{REPORT_NOTE}</p>
           <PrintReport report={shown} topics={topics} title={title} />
         </>

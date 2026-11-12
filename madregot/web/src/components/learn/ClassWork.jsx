@@ -5,12 +5,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { School, Award, ClipboardList, Check, ChevronLeft, ChevronDown } from 'lucide-react';
+import { School, Award, ClipboardList, Wrench, Check, ChevronLeft, ChevronDown } from 'lucide-react';
 import { dueLine } from '@/lib/classWork.js';
 import { Bar } from '@/components/ds.jsx';
 
-const KIND = { stair: 'מדרגה ללמוד', check: 'בדיקת שליטה', exam: 'מבחן תרגול' };
-const ICON = { stair: School, check: Award, exam: ClipboardList };
+const KIND = { stair: 'מדרגה ללמוד', check: 'בדיקת שליטה', exam: 'מבחן תרגול', repair: 'תיקון טעות' };
+const ICON = { stair: School, check: Award, exam: ClipboardList, repair: Wrench };
 
 /** A row's bar: a stair's stages (the one in progress, as the mission rows count it), a check's or an exam's result once done. */
 function barOf(r) {
@@ -21,7 +21,7 @@ function barOf(r) {
     if (r.w?.passed) return { value: 4, max: 5, text: 'בדיקת שליטה חוזרת' };
     return { value: stage, max: 5, text: `שלב ${Math.min(5, stage + 1)} מתוך 5` };
   }
-  if (r.done) return { value: 1, max: 1, text: r.w?.asked ? `${r.w.right}/${r.w.asked}` : 'בוצע' };
+  if (r.done) return { value: 1, max: 1, text: r.w?.asked ? `${r.w.right}/${r.w.asked}` : r.a.kind === 'repair' ? 'תוקן' : 'בוצע' };
   return { value: 0, max: 1, text: `${r.minutes} דק׳` };
 }
 

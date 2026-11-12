@@ -1,7 +1,8 @@
 // "מחר": what to do in tomorrow's lesson. A one-line link to the class licence while it ends or after it ended (the
 // card itself is in the class settings, TEACHER-9 §1.4), mistakes that repeat this week, one row per stair with the
-// words the student saw there (TEACHER-16; each with "לתת תרגול על זה": that stair, for the students who made the mistake
-// there, TEACHER-4 §6), weak topics in
+// words the student saw there (TEACHER-16; each with "לתת תרגול על זה": the repair of that very mistake, for the students
+// who made it there, SK-BUYERS-2; a mistake that is only the topic's, with no repair of its own, gives the stair,
+// TEACHER-4 §6), weak topics in
 // checked exams, who to check in with (TEACHER-8: at most 6, ranked by learn/attention.ts with the reasons as chips, and
 // the rest one tap away on the students tab, sorted the same way), and the newest help requests (those the student
 // answered again count as new). A student's name opens their page.
@@ -13,7 +14,7 @@ import { MathText } from '@/components/MathText.jsx';
 import { useAIStatus } from '@/lib/account.js';
 import { useLicence } from '@/components/teacher/LicenceCard.jsx';
 import { dateNum } from '@/lib/price.js';
-import { isStair } from '@/lib/assign.js';
+import { isStair, isRepair } from '@/lib/assign.js';
 import { lastMessage } from '@/lib/help.js';
 import { attentionList, openHelpBy, reasonText } from '@/learn/attention';
 import { StudentName, MistakeWords, TALK } from './common.jsx';
@@ -81,7 +82,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
                       <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
                       {onAssign && isStair(skill) && ids.length > 0 && (
                         <button type="button" className="btn btn-secondary btn-sm t-row-act" aria-describedby={rowId}
-                          onClick={() => onAssign({ kind: 'stair', skill, targets: ids, targetsLabel: `לתלמידים שטעו בזה (${ids.length})` })}>
+                          onClick={() => onAssign({ kind: isRepair(skill, m.cat) ? 'repair' : 'stair', skill, misc: m.cat, targets: ids, targetsLabel: `לתלמידים שטעו בזה (${ids.length})` })}>
                           <Send size={16} aria-hidden="true" />לתת תרגול על זה
                         </button>
                       )}

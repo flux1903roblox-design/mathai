@@ -5,7 +5,8 @@
 //   reportWork(id, r)  a report joins workOutbox (merged with the same monotonic rules as the server) and is sent
 //   flushWork()        sends each waiting report: confirmed (200) it leaves the outbox; a lost connection keeps it;
 //                      404 (the teacher deleted it) or 400 drops it
-//   reportStairs()     a stair the teacher gave reports its stage and done state, from the learning record
+//   reportStairs()     a stair the teacher gave reports its stage and done state, and a repair (SK-BUYERS-2) whether
+//                      its check passed, from the learning record
 //   fetchExamItems(id) a class exam's frozen questions, kept on the device (classWork.exams)
 //
 // The reports are idempotent and never go backwards (worker/src/assignments.js postWork), so sending one again, late
@@ -13,12 +14,14 @@
 import { useApp, today } from './store.js';
 import { api, hasServer } from './api.js';
 import { daysFrom, weekdayName, dm } from './workDates.js';
-import { mergeWork, workFromLearn, adds } from '@/learn/assignments.ts';
-import { routeOf, STAGE_MIN } from '@/learn/recommend.ts';
+import { mergeWork, workFromLearn, adds, workRoute } from '@/learn/assignments.ts';
+import { STAGE_MIN, MINUTES } from '@/learn/recommend.ts';
 
 const EVERY = 5 * 60_000;
-/** The kinds a student sees: a stair, a mastery check and a class exam. */
-export const SHOWN = ['stair', 'check', 'exam'];
+/** The kinds a student sees: a stair, a mastery check, a class exam and the repair of one mistake (SK-BUYERS-2). */
+export const SHOWN = ['stair', 'check', 'exam', 'repair'];
+/** The kinds whose report comes from the learning record (the others report their own result: Lesson.jsx). */
+const FROM_LEARN = ['stair', 'repair'];
 
 const ready = () => { const p = useApp.getState().profile; return p?.role === 'student' && !!p.token && hasServer(); };
 
@@ -103,11 +106,14 @@ export function reportWork(id, report) {
   return flushWork();
 }
 
-/** The stairs the teacher gave: each reports its stage and done state when that adds to what the server has. */
+/**
+ * The stairs and the repairs the teacher gave: each reports what the learning record says (a stair its stage and done
+ * state, a repair started or done) when that adds to what the server has.
+ */
 export function reportStairs() {
   if (!ready()) return Promise.resolve();
   const st = useApp.getState();
-  const sent = (st.classWork?.assignments || []).filter((a) => a.kind === 'stair').map((a) => {
+  const sent = (st.classWork?.assignments || []).filter((a) => FROM_LEARN.includes(a.kind)).map((a) => {
     const w = workFromLearn(a, st.learn);
     return adds(mineOf(a, st.workOutbox), w) ? reportWork(a.id, w) : null;
   }).filter(Boolean);
@@ -156,17 +162,33 @@ export function workBanner(dueOn, day = today()) {
   return daysFrom(day, dueOn) < 0 ? `משימה מהמורה. ${d}` : `משימה מהמורה, ${d}`;
 }
 
-/** Where a row leads: the stair's page (with its banner), the mastery check counted for it, or the class exam's start. */
-export const workRoute = (a) => (a.kind === 'exam' ? `/class/exam/${a.id}` : a.kind === 'check' ? `${routeOf.check(a.skill, 'mastery')}&assignment=${a.id}` : `${routeOf.journey(a.skill)}?assignment=${a.id}`);
+/**
+ * Where a row leads: the stair's page (with its banner), the mastery check counted for it, the class exam's start, or the
+ * repair of that mistake (learn/assignments.ts workRoute).
+ */
+export { workRoute };
+
+/**
+ * The repair the teacher gave for this mistake on this stair, when it is still open: its id, for the repair's address
+ * (a student may open the same repair from the mission's own band).
+ */
+export function repairAssignment(skill, misc, id) {
+  if (!ready()) return null;
+  const st = useApp.getState();
+  const open = (x) => x.kind === 'repair' && x.skill === skill && x.misc === misc && mineOf(x, st.workOutbox)?.state !== 'done';
+  const list = st.classWork?.assignments || [];
+  return (id && list.some((x) => x.id === id && open(x)) ? id : list.find(open)?.id) || null;
+}
 
 const STAGES = ['A', 'B', 'C', 'D', 'E'];
 /**
- * Minutes left: the stages a stair still has, a check's 3, or 3 for each question of a class exam. A stair passed before it
- * was given (SK-BUYERS-1: earlier mastery never makes it done) has its mastery check again left.
+ * Minutes left: the stages a stair still has, a check's 3, a repair's (MINUTES.repair, as the mission counts it), or 3
+ * for each question of a class exam. A stair passed before it was given (SK-BUYERS-1: earlier mastery never makes it
+ * done) has its mastery check again left.
  */
 export const EXAM_MIN_PER_Q = 3;
 const stairLeft = (w) => (w?.passed && w.state !== 'done' ? STAGE_MIN.E : STAGES.slice(Math.min(5, w?.stage || 0)).reduce((s, x) => s + STAGE_MIN[x], 0));
-const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN_PER_Q : a.kind === 'check' ? 3 : stairLeft(w));
+const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN_PER_Q : a.kind === 'check' ? 3 : a.kind === 'repair' ? MINUTES.repair : stairLeft(w));
 
 /**
  * The rows of the "מהמורה" block on a day: due within 3 days, or past by at most 14 days and not done (`show`), later
@@ -174,7 +196,7 @@ const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN
  * (the big button's target); `minutes` the time the shown unfinished rows still take.
  */
 export function classRows(cw, box = {}, day = today()) {
-  const rows = (cw?.assignments || []).filter((a) => SHOWN.includes(a.kind) && (a.kind === 'exam' ? a.hasExam !== false : !!a.skill)).map((a) => {
+  const rows = (cw?.assignments || []).filter((a) => SHOWN.includes(a.kind) && (a.kind === 'exam' ? a.hasExam !== false : !!a.skill && (a.kind !== 'repair' || !!a.misc))).map((a) => {
     const w = mergeWork(a.mine, box[a.id]);
     const done = w?.state === 'done';
     const left = daysFrom(day, a.dueOn);

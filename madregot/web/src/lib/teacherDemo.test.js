@@ -1,5 +1,5 @@
 // The demo class (spec TEACHER-15 §1): built the same way every time, 24 invented students with a first name and one
-// letter, 3 assignments, 4 help requests and 6 finished class exams; every group of "מחר" and every reason of "כדאי
+// letter, 4 assignments (a repair among them), 4 help requests and 6 finished class exams; every group of "מחר" and every reason of "כדאי
 // לבדוק איתם" has content; and demoApi answers each teacher route in the Worker's shapes (the fields the Worker's
 // handlers return: worker/src/index.js dashboard, classReport.js, assignments.js, help.js, classai.js, licence.js).
 import { describe, it, expect } from 'vitest';
@@ -7,6 +7,8 @@ import { demoState, demoApi, mulberry32, DEMO_NAMES } from './teacherDemo.js';
 import { attentionList, openHelpBy } from '@/learn/attention';
 import { classAiPolicy } from '@shared/schoolRules.js';
 import { examWeak } from '@shared/examWeak.js';
+import { isStairMisc } from '@shared/stairMiscs.gen.js';
+import { assignTitle } from './assign.js';
 
 const DAY = '2026-11-05'; // a Thursday
 const keys = (o) => Object.keys(o).sort();
@@ -21,7 +23,7 @@ const SHAPES = {
   week: ['days', 'first', 'minutes', 'n'],
   exam: ['assignmentId', 'at', 'correct', 'id', 'name', 'questions', 'source', 'studentId', 'title', 'total', 'weak'],
   boardMistake: ['cat', 'ids', 'level', 'n', 'names', 'students', 'topic'],
-  assignment: ['counts', 'createdAt', 'dueOn', 'examCount', 'forAll', 'hasExam', 'id', 'kind', 'note', 'skill', 'startsOn', 'targets', 'title', 'version'],
+  assignment: ['counts', 'createdAt', 'dueOn', 'examCount', 'forAll', 'hasExam', 'id', 'kind', 'misc', 'note', 'skill', 'startsOn', 'targets', 'title', 'version'],
   counts: ['assigned', 'done', 'late', 'notStarted', 'started'],
   help: ['answer', 'care', 'created_at', 'done_at', 'has_image', 'id', 'kind', 'level', 'messages', 'name', 'note', 'question', 'seen_at', 'studentId', 'topic', 'unreadFromStudent'],
   message: ['at', 'body', 'from', 'id', 'read'],
@@ -30,7 +32,7 @@ const SHAPES = {
   reportClass: ['grade', 'name', 'teacherName'],
   reportStudent: ['activeDays', 'correct', 'exercises', 'firstTry', 'hinted', 'joinedOn', 'lastPractice', 'levels', 'minutes', 'name', 'topMistakes'],
   topMistake: ['cat', 'level', 'n', 'topic'],
-  reportAssignment: ['dueOn', 'kind', 'skill', 'title', 'work'],
+  reportAssignment: ['dueOn', 'kind', 'misc', 'skill', 'title', 'work'],
   reportWork: ['asked', 'late', 'passed', 'right', 'stage', 'state', 'tries'],
   reportMistake: ['cat', 'level', 'n', 'names', 'students', 'topic'],
   page: ['days14', 'exams', 'help', 'levels', 'mistakes', 'student', 'work'],
@@ -54,11 +56,11 @@ describe('demoState: one class, the same every time', () => {
     const r1 = mulberry32(7); const r2 = mulberry32(7);
     expect([r1(), r1(), r1()]).toEqual([r2(), r2(), r2()]);
   });
-  it('DEMO01, ז׳3 (דוגמה), grade 7: 24 students, 3 assignments (a stair, a check, a class exam), 4 help requests', () => {
+  it('DEMO01, ז׳3 (דוגמה), grade 7: 24 students, 4 assignments (a stair, a check, a class exam, a repair), 4 help requests', () => {
     const st = demoState(7, DAY);
     expect(st.cls).toEqual({ code: 'DEMO01', name: 'ז׳3 (דוגמה)', grade: '7', teacherName: 'מורה לדוגמה' });
     expect(st.students).toHaveLength(24);
-    expect(st.assignments.map((a) => a.kind)).toEqual(['stair', 'check', 'exam']);
+    expect(st.assignments.map((a) => a.kind)).toEqual(['stair', 'check', 'exam', 'repair']);
     expect(st.assignments[2].exam).toHaveLength(6);
     expect(st.assignments[2].exam.every((it) => ['signed'].includes(it.topic) && [1, 2].includes(it.level))).toBe(true);
     expect(st.help).toHaveLength(4);
@@ -94,8 +96,28 @@ describe('the board has content in every group', () => {
     }
     expect(d.help.filter((h) => !h.done_at)).toHaveLength(3);
     expect(d.exams).toHaveLength(6);
-    expect(d.assignments).toHaveLength(3);
+    expect(d.assignments).toHaveLength(4);
     expect(d.assignments.find((a) => a.kind === 'stair').counts.late).toBeGreaterThan(3);
+  });
+  // SK-BUYERS-2: the demo shows what "לתת תרגול על זה" now gives: the repair of one repeated mistake, for the students
+  // who made it, one of that stair's own misconceptions, with work in each state
+  it('a repair of the week\'s second most common mistake, for the students who made it: two fixed it, one is on it', () => {
+    const st = demoState(7, DAY);
+    const d = get(st, '/api/teacher/dashboard');
+    const fix = d.mistakes.filter((m) => isStairMisc(`${m.topic}:${m.level}`, m.cat))[1];
+    const repair = d.assignments.find((a) => a.kind === 'repair');
+    expect(repair).toMatchObject({ skill: `${fix.topic}:${fix.level}`, misc: fix.cat, forAll: false, title: assignTitle('repair', `${fix.topic}:${fix.level}`) });
+    expect(repair.targets).toEqual([...fix.ids].slice(0, 6).sort());
+    expect(repair.counts).toMatchObject({ assigned: repair.targets.length, done: 2, started: 1, late: 0 });
+    expect(repair.dueOn > DAY).toBe(true);
+    const rows = get(st, `/api/teacher/assignments/${repair.id}`).work;
+    expect(rows.map((w) => w.state).sort()).toEqual([...Array(repair.targets.length - 3).fill('none'), 'done', 'done', 'started'].sort());
+    // a new repair is checked as the Worker checks it: the stair's own mistake only
+    const ok = call(st, 'POST', '/api/teacher/assignments', { kind: 'repair', skill: 'signed:1', misc: 'sign', title: 'תיקון טעות: חיבור וחיסור', dueOn: '2026-11-09' });
+    expect(ok.status).toBe(201);
+    expect(ok.body.assignment).toMatchObject({ kind: 'repair', skill: 'signed:1', misc: 'sign' });
+    expect(call(st, 'POST', '/api/teacher/assignments', { kind: 'repair', skill: 'signed:1', misc: 'neg-compare', dueOn: '2026-11-09' }).body).toEqual({ error: 'bad_assignment', field: 'misc' });
+    expect(call(st, 'POST', '/api/teacher/assignments', { kind: 'stair', skill: 'signed:1', misc: 'sign', dueOn: '2026-11-09' }).body).toEqual({ error: 'bad_assignment', field: 'misc' });
   });
   it('"כדאי לבדוק איתם" has every reason (idle, never started, low, help, late) and more than six students', () => {
     const helpBy = openHelpBy(d.help);
@@ -178,7 +200,7 @@ describe('demoApi answers in the Worker\'s shapes', () => {
     const list = get(st, '/api/teacher/assignments');
     expect(keys(list)).toEqual(['assignments', 'today']);
     // the latest due first (a tie: the newest first): on this Thursday the check's Saturday moved to Sunday, the exam's day
-    expect(list.assignments.map((a) => [a.kind, a.dueOn])).toEqual([['check', '2026-11-08'], ['exam', '2026-11-08'], ['stair', '2026-11-02']]);
+    expect(list.assignments.map((a) => [a.kind, a.dueOn])).toEqual([['repair', '2026-11-08'], ['check', '2026-11-08'], ['exam', '2026-11-08'], ['stair', '2026-11-02']]);
     const exam = list.assignments.find((a) => a.kind === 'exam');
     const one = get(st, `/api/teacher/assignments/${exam.id}`);
     expect(keys(one)).toEqual(SHAPES.detail);
@@ -192,14 +214,14 @@ describe('demoApi answers in the Worker\'s shapes', () => {
     expect(keys(made.body)).toEqual(['assignment', 'moved']);
     expect(made.body.moved).toBe(true);
     expect(made.body.assignment).toMatchObject({ dueOn: '2026-11-08', forAll: false, targets: [st.students[0].id], counts: { assigned: 1, notStarted: 1, started: 0, done: 0, late: 0 } });
-    expect(get(st, '/api/teacher/assignments').assignments).toHaveLength(4);
+    expect(get(st, '/api/teacher/assignments').assignments).toHaveLength(5);
     expect(get(st, '/api/teacher/dashboard').assignments.map((a) => a.id)).toContain(made.body.assignment.id);
     expect(call(st, 'POST', '/api/teacher/assignments', { kind: 'stair', skill: 'nope:1', dueOn: '2026-11-07' })).toEqual({ status: 400, body: { error: 'bad_assignment', field: 'skill' } });
     expect(call(st, 'POST', '/api/teacher/assignments', { kind: 'stair', skill: 'signed:1', dueOn: '2026-10-01' }).body.field).toBe('dueOn');
     const later = call(st, 'POST', `/api/teacher/assignments/${made.body.assignment.id}`, { dueOn: '2026-11-12' });
     expect(later.body.assignment.dueOn).toBe('2026-11-12');
     expect(call(st, 'POST', `/api/teacher/assignments/${made.body.assignment.id}/delete`, {})).toEqual({ status: 200, body: { ok: true } });
-    expect(get(st, '/api/teacher/assignments').assignments).toHaveLength(3);
+    expect(get(st, '/api/teacher/assignments').assignments).toHaveLength(4);
   });
   it('help: a reply (with the contact guard and the limit of three), seen, done and open again', () => {
     const st = demoState(7, DAY);

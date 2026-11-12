@@ -15,6 +15,7 @@ import { addDays } from './mastery';
 import { splitFirstSentence } from '@/components/MathText.jsx';
 import { LEARNERS, ctxOf, emptyLearn, checkedExam, ago, masteredRec, taughtRec, strugglingRec, pathOf, checkEvents, NOW } from './__fixtures__/learners';
 import { challengeById, CHALLENGES } from './challenges/index';
+import { workRoute, type ClassAssignment } from './assignments';
 // @ts-ignore: plain JS
 import { isKept, isPlaced } from '@/lib/path.js';
 // @ts-ignore: plain JS
@@ -720,5 +721,27 @@ describe('one next: every surface names the same step', () => {
     for (const name of ['dueReview', 'misconception', 'examIn3Days', 'examLossCoord4', 'hardFractionsNoFloor'] as const) expect(onMap(planNext(LEARNERS[name]()).top, ids)).toBe(false);
     // a prerequisite of the other grade is not on this grade's map either
     expect(onMap({ kind: 'prereq', skill: 'line:1', title: '', reason: '', minutes: 1, to: '' }, ids)).toBe(false);
+  });
+});
+
+// SK-BUYERS-2: the teacher's work comes first in today's mission (the band above all of planNext's: lib/classWork.js
+// classRows, TodayCard). A repair the teacher gave opens the very repair band 3 offers for the same mistake (its
+// explanation, its activity, then its 3-question check), with the assignment named so its result goes to the teacher.
+describe("the teacher's work band: a repair the teacher gave (SK-BUYERS-2)", () => {
+  const work = (over: Partial<ClassAssignment> = {}): ClassAssignment => ({
+    id: 'a000000000000009', kind: 'repair', skill: 'signed:1', misc: 'minus-minus', title: 'תיקון טעות: חיבור וחיסור', note: '',
+    startsOn: '2026-11-10', dueOn: '2026-11-13', mine: null, ...over,
+  });
+  it('routes to that mistake\'s repair, the same route planNext gives for it, with the assignment', () => {
+    const item = planNext(LEARNERS.misconception()).items.find((x) => x.kind === 'repair')!;
+    expect(item).toMatchObject({ skill: 'signed:1', misc: 'minus-minus', to: '/repair/signed/1/minus-minus' });
+    expect(workRoute(work())).toBe(`${item.to}?assignment=a000000000000009`);
+    // the same mistake on another stair is that stair's repair
+    expect(workRoute(work({ skill: 'coord:3', misc: 'sign' }))).toBe('/repair/coord/3/sign?assignment=a000000000000009');
+  });
+  it('a stair, a check and a class exam keep their own routes', () => {
+    expect(workRoute(work({ kind: 'stair', misc: null }))).toBe('/learn/signed/1?assignment=a000000000000009');
+    expect(workRoute(work({ kind: 'check', misc: null }))).toBe('/lesson/signed/1?kind=check&purpose=mastery&assignment=a000000000000009');
+    expect(workRoute(work({ kind: 'exam', skill: null, misc: null }))).toBe('/class/exam/a000000000000009');
   });
 });

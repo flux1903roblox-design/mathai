@@ -1,0 +1,11 @@
+-- Run with the others: npm run db:migrate (wrangler applies each migration once).
+-- (Numbered 0011: the server lane's branch holds 0009_claim_code and 0010_exam_pass, so the numbers stay apart when the
+-- lanes meet on the main branch.)
+-- SK-BUYERS-2: a teacher gives the repair of one mistake (the "לתת תרגול על זה" of a repeated mistake on the board): a
+-- stair and one of that stair's own misconceptions (shared/stairMiscs.gen.js, checked in worker/src/assignments.js).
+-- assignments.kind is checked against ('stair', 'check', 'exam') and SQLite cannot change a CHECK without rebuilding the
+-- table, which a migration here does not do (test/schema.test.js: new tables, indexes and columns only). So a repair is a
+-- 'stair' row with misc set, and the Worker reads (kind 'stair', misc not null) as kind 'repair' everywhere
+-- (assignments.js KIND_SQL). An older app that does not know repairs still gets kind 'repair' from the server and
+-- leaves the row out (lib/classWork.js SHOWN). misc is NULL on every other row, old ones included.
+ALTER TABLE assignments ADD COLUMN misc TEXT;

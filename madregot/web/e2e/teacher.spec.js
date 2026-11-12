@@ -1247,14 +1247,36 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await expect(group).not.toContainText('טעות בסימן של אחד השיעורים'); // the topic's wording, not what the student saw
     await group.evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await shot(page, 'teacher-tomorrow-stairs');
-    // practice from the level-3 row: that stair, for the two who made the mistake there
+    // practice from the level-3 row: the repair of that mistake on that stair (SK-BUYERS-2), for the two who made it there
     await rows.nth(0).getByRole('button', { name: 'לתת תרגול על זה' }).click();
     const s = sheet(page, 'משימה לכיתה ז׳3');
+    await expect(s.getByRole('radio', { name: /לתקן טעות/ })).toBeChecked();
     await expect(s.getByLabel('איזו מדרגה?')).toHaveValue('signed:3');
+    await expect(s.getByRole('group', { name: 'איזו טעות?' }).getByRole('radio', { name: 'הסימן של המכפלה או של המנה יצא הפוך' })).toBeChecked();
     await expect(s.getByRole('radio', { name: /לתלמידים שטעו בזה \(2\)/ })).toBeChecked();
   });
 
-  test('from "מחר": practice on that stair for the two students who made the mistake, then the message and the Classroom link', async ({ page }) => {
+  // SK-BUYERS-2: a mistake the board names only by its topic (no repair of the stair's own) still gives that stair
+  test('a mistake with no repair of its own on that stair gives the stair to learn, for the students who made it', async ({ page }) => {
+    const { log } = await fakeServer(page, { mistakes: [{ topic: 'signed', level: 2, cat: 'sign', n: 3, students: 2, ids: ['a1', 'b2'], names: ['דנה', 'יואב'] }] }, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await page.getByRole('region', { name: 'טעויות שחוזרות השבוע' }).getByRole('button', { name: 'לתת תרגול על זה' }).click();
+    const s = sheet(page, 'משימה לכיתה ז׳3');
+    await expect(s.getByRole('radio', { name: /ללמוד מדרגה/ })).toBeChecked();
+    await expect(s.getByLabel('איזו מדרגה?')).toHaveValue('signed:2');
+    // switched to "לתקן טעות", the sheet asks which of this stair's own mistakes, and waits for an answer
+    await s.getByRole('radio', { name: /לתקן טעות/ }).check();
+    const which = s.getByRole('group', { name: 'איזו טעות?' });
+    await expect(which.getByRole('radio')).toHaveCount(2);
+    await expect(s.getByRole('button', { name: 'שליחה לכיתה' })).toBeDisabled();
+    await which.getByRole('radio').first().check();
+    await expect(s.getByLabel('כותרת')).toHaveValue('תיקון טעות: השוואת מספרים');
+    await s.getByRole('button', { name: 'שליחה לכיתה' }).click();
+    await expect.poll(() => log.some((r) => r.path === '/api/teacher/assignments' && r.method === 'POST')).toBe(true);
+    expect(log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST').body).toMatchObject({ kind: 'repair', skill: 'signed:2', misc: 'neg-compare', targets: ['a1', 'b2'] });
+  });
+
+  test('from "מחר": the repair of that very mistake for the two students who made it (SK-BUYERS-2), then the message to them', async ({ page }) => {
     const { st, log } = await fakeServer(page, { mistakes: [mistake] }, baseOf());
     await open(page, '#/teacher', keyTeacher());
     const row = page.locator('.t-row', { hasText: 'התשובה יצאה עם הסימן ההפוך' });
@@ -1262,11 +1284,15 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await row.getByRole('button', { name: 'לתת תרגול על זה' }).click();
     const s = sheet(page, 'משימה לכיתה ז׳3');
     await expect(s).toBeVisible();
-    await expect(s.getByRole('radio', { name: /ללמוד מדרגה/ })).toBeChecked();
+    await expect(s.getByRole('radio', { name: /לתקן טעות/ })).toBeChecked();
     await expect(s.getByLabel('איזו מדרגה?')).toHaveValue('signed:1');
+    // the stair's own mistakes, in the words the student saw; the one on the board is chosen
+    const which = s.getByRole('group', { name: 'איזו טעות?' });
+    await expect(which.getByRole('radio')).toHaveCount(6);
+    await expect(which.getByRole('radio', { name: 'התשובה יצאה עם הסימן ההפוך' })).toBeChecked();
     await expect(s.getByRole('radio', { name: /לתלמידים שטעו בזה \(2\)/ })).toBeChecked();
     await expect(s.getByRole('radio', { name: /לכל הכיתה \(2\)/ })).not.toBeChecked();
-    await expect(s.getByLabel('כותרת')).toHaveValue('מספרים מכוונים: חיבור וחיסור');
+    await expect(s.getByLabel('כותרת')).toHaveValue('תיקון טעות: חיבור וחיסור');
     // a week from Thursday is a Thursday: no rest-day line
     await expect(s.getByRole('radio', { name: 'בעוד שבוע' })).toBeChecked();
     await expect(s.getByText('עד יום חמישי, 12.11.')).toBeVisible();
@@ -1278,7 +1304,7 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await s.getByRole('button', { name: 'שליחה לכיתה' }).click();
     await expect.poll(() => log.some((r) => r.path === '/api/teacher/assignments' && r.method === 'POST')).toBe(true);
     const sent = log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST');
-    expect(sent.body).toEqual({ kind: 'stair', skill: 'signed:1', title: 'מספרים מכוונים: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי', dueOn: '2026-11-12', targets: ['a1', 'b2'] });
+    expect(sent.body).toEqual({ kind: 'repair', skill: 'signed:1', misc: 'sign', title: 'תיקון טעות: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי', dueOn: '2026-11-12', targets: ['a1', 'b2'] });
     expect(sent.headers['x-teacher-key']).toBe('tkey-123');
     await expect(page.getByText('המשימה נשלחה. התלמידים יראו אותה בראש המשימה של היום.')).toBeVisible();
 
@@ -1291,7 +1317,7 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await share.getByRole('button', { name: 'העתקת הודעה לתלמידים' }).click();
     await expect(page.getByText('ההודעה הועתקה')).toBeVisible();
     const copied = await page.evaluate(() => window.__copied);
-    expect(copied).toBe(`יש לכם משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". ${baseOf()}`);
+    expect(copied).toBe(`יש לכם משימה חדשה במדרגות: תיקון טעות: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". ${baseOf()}`);
     for (const n of ['דנה', 'יואב']) expect(copied).not.toContain(n);
     await expect(share.getByRole('link', { name: 'שיתוף ב־Google Classroom' })).toHaveCount(0);
     await shot(page, 'teacher-assign-share');
@@ -1300,10 +1326,15 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     // the tab counts the open assignment; its row shows the two students
     expect(st.assignments).toHaveLength(1);
     await page.getByRole('tab', { name: 'משימות (1)' }).click();
-    const r = page.getByRole('list', { name: 'משימות פתוחות' }).getByRole('button', { name: /מספרים מכוונים: חיבור וחיסור/ });
-    await expect(r).toContainText('מדרגה · עד יום ה׳, 12.11 · ל־2 תלמידים');
+    const r = page.getByRole('list', { name: 'משימות פתוחות' }).getByRole('button', { name: /תיקון טעות: חיבור וחיסור/ });
+    await expect(r).toContainText('תיקון טעות · עד יום ה׳, 12.11 · ל־2 תלמידים');
     await expect(r).toContainText('0/2 סיימו');
     await expect(r).toContainText('2 עוד לא התחילו');
+    // its sheet names the mistake, in the student's words
+    await r.click();
+    const one = page.getByRole('dialog', { name: 'תיקון טעות: חיבור וחיסור' });
+    await expect(one.locator('.aw-mis')).toHaveText('הטעות: התשובה יצאה עם הסימן ההפוך');
+    await expect(one.getByRole('row')).toHaveCount(3);
   });
 
   test('a week from a Saturday is a Saturday: the sheet says the date moves to Sunday, as the server does', async ({ page }) => {
@@ -1568,6 +1599,24 @@ test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
     expect(workPosts(log)[0]).toMatchObject({ path: '/api/class/work/a000000000000001', body: { state: 'started', stage: 5, passed: true } });
   });
 
+  // SK-BUYERS-2: the repair of one mistake, as the student meets it: a row in "מהמורה" that opens that mistake's own
+  // repair, which says it is from the teacher; opening it tells the teacher it started (done comes with its check)
+  test('1c. a repair the teacher gave: its row opens that mistake\'s repair, which says it is from the teacher, and reports started', async ({ page }) => {
+    const repair = given({ id: 'a000000000000004', kind: 'repair', misc: 'sign', title: 'תיקון טעות: חיבור וחיסור', note: '' });
+    const { log } = await fakeServer(page, { today: '2026-11-09', assignments: [repair] }, baseOf());
+    await open(page, '#/quests', inClass(), { at: MONDAY });
+    const row = page.getByRole('region', { name: 'מהמורה רונית' }).getByRole('list', { name: 'מהמורה רונית' }).getByRole('listitem');
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText('תיקון טעות · עד יום חמישי, 12.11');
+    await expect(row.getByRole('progressbar')).toHaveAttribute('aria-valuetext', '3 דק׳');
+    await page.locator('.continue-go').click();
+    await expect(page).toHaveURL(/#\/repair\/signed\/1\/sign\?assignment=a000000000000004$/);
+    await expect(page.locator('.bl-kicker')).toHaveText('חיבור וחיסור · משימה מהמורה');
+    await expect(page.getByRole('heading', { name: 'מתקנים: התשובה יצאה עם הסימן ההפוך' })).toBeVisible();
+    await expect.poll(() => workPosts(log).length).toBe(1);
+    expect(workPosts(log)[0]).toMatchObject({ path: '/api/class/work/a000000000000004', body: { state: 'started' } });
+  });
+
   test('2. finishing stage A of the stair the teacher gave reports stage 1', async ({ page }) => {
     const { log, st } = await fakeServer(page, { today: '2026-11-09', assignments: [given()] }, baseOf());
     await open(page, '#/learn/signed/1?assignment=a000000000000001', inClass(), { at: MONDAY });
@@ -1819,6 +1868,28 @@ test.describe('TEACHER-7: the class report, its CSV and its printout', () => {
     expect(lines).toHaveLength(4);
     expect(bytes.toString('utf8')).not.toMatch(/a1|b2|a000000000000001|K7Q2MD/);
     await expect(page.getByText('הקובץ הורד למכשיר.')).toBeVisible();
+
+    // PRODUCT2-32: the grades for Mashov or Webtop: three steps to paste them, how a grade is worked out, and a file
+    // with a row per student in Hebrew order and a 0-100 column per assignment (an empty cell: no result yet)
+    const grades = page.getByRole('region', { name: 'ציונים למשוב או לוובטופ' });
+    await expect(grades.getByRole('listitem')).toHaveText([
+      'מורידים את הקובץ ופותחים אותו ב־Excel או ב־Google Sheets.',
+      'במשוב או בוובטופ פותחים את הזנת הציונים של הכיתה ומוסיפים עמודה חדשה.',
+      'בודקים שסדר השמות זהה, מעתיקים את העמודה של המשימה ומדביקים אותה.',
+    ]);
+    await expect(grades).toContainText('מדרגה: 20 על כל שלב, ו־100 כשבדיקת השליטה עברה.');
+    const getGrades = grades.getByRole('button', { name: 'הורדת ציונים למשוב (CSV)' });
+    expect((await getGrades.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await grades.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await shot(page, 'teacher-report-grades');
+    const [graded] = await Promise.all([page.waitForEvent('download'), getGrades.click()]);
+    await named(page, graded, 'madregot-grades-ז3-2026-11-01-2026-11-05.csv');
+    const gradesFile = path.join(PDF_DIR, 'teacher-grades.csv');
+    await graded.saveAs(gradesFile);
+    const gradeBytes = readFileSync(gradesFile);
+    expect([...gradeBytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(gradeBytes.toString('utf8').slice(1).split('\r\n')).toEqual(['שם,חיבור וחיסור (עד 06/11)', 'דנה,100', 'יואב,', '']);
+    await expect(page.getByText('קובץ הציונים הורד למכשיר.')).toBeVisible();
 
     // printed: the table only, its header with the class, the range and the day, landscape
     await page.evaluate(() => { document.documentElement.dataset.print = 'report'; });
@@ -2372,7 +2443,9 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
     expect(await page.evaluate(() => !!sessionStorage.getItem('madregot-demo'))).toBe(true);
     // each tab
     await page.getByRole('tab', { name: /משימות/ }).click();
-    await expect(page.getByRole('list', { name: 'משימות פתוחות' }).locator('.tw-row')).toHaveCount(2);
+    // the check, the class exam and the repair of a repeated mistake (SK-BUYERS-2)
+    await expect(page.getByRole('list', { name: 'משימות פתוחות' }).locator('.tw-row')).toHaveCount(3);
+    await expect(page.getByRole('list', { name: 'משימות פתוחות' }).locator('.tw-row', { hasText: 'תיקון טעות ·' })).toHaveCount(1);
     await page.getByRole('tab', { name: 'תלמידים' }).click();
     await expect(page.getByRole('region', { name: 'טבלת התלמידים' }).locator('tbody tr')).toHaveCount(24);
     await expect(page.getByRole('button', { name: 'מחיקת הכיתה' })).toBeDisabled();
@@ -2413,16 +2486,28 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
   test('2. assigning, a reply, a lesson stage, the exam key printed, the report\'s CSV and the assistant\'s sample, all on the device', async ({ page }) => {
     const calls = apiCalls(page);
     await enter(page);
-    // assign: practice on a repeated mistake, for the students who made it; the row appears in "משימות"
+    // assign: the repair of a repeated mistake (SK-BUYERS-2), for the students who made it; the row appears in "משימות"
     await page.getByRole('region', { name: 'טעויות שחוזרות השבוע' }).getByRole('button', { name: 'לתת תרגול על זה' }).first().click();
     const assign = page.getByRole('dialog', { name: 'משימה לכיתה ז׳3 (דוגמה)' });
     await expect(assign).toBeVisible();
+    await expect(assign.getByRole('radio', { name: /לתקן טעות/ })).toBeChecked();
+    const which = assign.getByRole('group', { name: 'איזו טעות?' });
+    await expect(which.locator('input:checked')).toHaveCount(1);
+    const words = (await which.locator('.as-choice.on .ob-opt-text').textContent()).trim();
+    await expect(assign.getByRole('radio', { name: /לתלמידים שטעו בזה/ })).toBeChecked();
+    await expect(assign.getByLabel('כותרת')).toHaveValue(/^תיקון טעות: /);
     await shot(page, 'teacher-demo-assign');
     await assign.getByRole('button', { name: 'שליחה לכיתה' }).click();
     await expect(page.getByText('בכיתה לדוגמה זה נשמר רק כאן, עד שתסגרו את הלשונית.')).toBeVisible();
     await page.keyboard.press('Escape');
     await page.getByRole('tab', { name: /משימות/ }).click();
-    await expect(page.getByRole('list', { name: 'משימות פתוחות' }).locator('.tw-row')).toHaveCount(3);
+    const open4 = page.getByRole('list', { name: 'משימות פתוחות' }).locator('.tw-row');
+    await expect(open4).toHaveCount(4);
+    await expect(open4.filter({ hasText: 'תיקון טעות ·' })).toHaveCount(2);
+    // the repair's sheet names the mistake it repairs, in the student's words
+    await open4.filter({ hasText: 'תיקון טעות ·' }).filter({ hasText: '0/' }).first().click();
+    await expect(page.locator('.aw-mis')).toHaveText(`הטעות: ${words}`);
+    await page.keyboard.press('Escape');
     // a reply to a help request: its bubble appears
     await page.getByRole('tab', { name: /עזרה/ }).click();
     // a request with no thread yet: found again by the student's name once the reply is in it

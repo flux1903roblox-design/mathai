@@ -1,4 +1,5 @@
-// The class report as a CSV file (spec TEACHER-7 §3-4): it opens right in Excel and Google Sheets in Hebrew (UTF-8
+// The class report as a CSV file (spec TEACHER-7 §3-4), and the grades of its range for Mashov or Webtop (PRODUCT2-32,
+// gradesToCsv at the end): it opens right in Excel and Google Sheets in Hebrew (UTF-8
 // with a BOM, comma-separated, CRLF line ends), and a name typed as a formula never runs (safeCell, on every text cell,
 // the header cells included: names are typed by students, assignment titles by the teacher). Only what the students
 // typed as their names: no ID number, no internal id (the report itself carries none, GET /api/teacher/report).
@@ -62,13 +63,15 @@ export const pctOf = (a, b) => (b ? Math.round((100 * a) / b) : null);
 
 /**
  * One student's work on an assignment, in plain words (the detail statuses of TEACHER-4 §7): "לא התחיל/ה",
- * "בדרך 3/5", "הושלם 8/10", "הושלם · שולט/ת", and " (באיחור)" after the due date. Empty: not given to them.
+ * "בדרך 3/5", "הושלם 8/10", "הושלם · שולט/ת", a repair's "הושלם · תוקן", and " (באיחור)" after the due date. Empty:
+ * not given to them.
  */
 export function workText(kind, w) {
   if (!w) return '';
   let s;
   if (!w.state || w.state === 'none') s = 'לא התחיל/ה';
   else if (kind === 'stair') s = w.state === 'done' ? `הושלם · ${w.passed ? 'שולט/ת' : 'עוד לא שולט/ת'}` : `בדרך ${w.stage || 0}/5`;
+  else if (kind === 'repair') s = w.state === 'done' ? 'הושלם · תוקן' : 'התחיל/ה';
   else if (w.state !== 'done') s = 'התחיל/ה';
   else s = `הושלם ${w.right}/${w.asked}`;
   return w.late ? `${s} (באיחור)` : s;
@@ -110,10 +113,41 @@ export const csvTopics = (grade) => topicsFor(grade).map((t) => ({ id: t.id, tit
 export const reportCsv = (report) => reportToCsv(report, { topics: csvTopics(report.class?.grade || '7'), mistakeText: mistakeLine });
 
 /** The file's name: madregot-{class}-{from}-{to}.csv, the class name kept to letters, digits and '-'. */
-export function csvName(className, from, to) {
-  const name = String(className || '').normalize('NFC').replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
-  return `madregot-${name || 'class'}-${from}-${to}.csv`;
+const nameOf = (className) => String(className || '').normalize('NFC').replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'class';
+export const csvName = (className, from, to) => `madregot-${nameOf(className)}-${from}-${to}.csv`;
+
+// ---------------------------------------------------------------- grades for Mashov or Webtop (PRODUCT2-32)
+/**
+ * One student's grade on one assignment, 0-100, or null (an empty cell) when there is no result yet or the work was not
+ * given to them. A class exam or a mastery check: the share right on the first finished try. A stair: 20 for each of
+ * its first four stages, and 100 once its mastery check passed in this work (mastery from before is not this work,
+ * SK-BUYERS-1). A repair: 100 once its check passed.
+ */
+export function gradeOf(kind, w) {
+  if (!w || !w.state || w.state === 'none') return null;
+  const done = w.state === 'done';
+  if (kind === 'exam' || kind === 'check') return done && w.asked ? pctOf(w.right || 0, w.asked) : null;
+  if (kind === 'repair') return done ? 100 : null;
+  if (kind === 'stair') return done && w.passed ? 100 : 20 * Math.min(4, Math.max(0, Number(w.stage) || 0));
+  return null;
 }
+
+/** Names in Hebrew alphabetical order, as a class list is (vowel marks aside; Hebrew before Latin). */
+const byName = new Intl.Collator('he', { numeric: true }).compare;
+
+/**
+ * The grades of a report's range as a CSV for Mashov or Webtop: a row per student in Hebrew order, and a column per
+ * assignment or class exam in the range ("{title} (עד dd/mm)") holding gradeOf. The same BOM, CRLF and formula guard as
+ * the report's file, and only the names the students typed: no ID number (the app has none).
+ */
+export function gradesToCsv(report) {
+  const head = ['שם', ...report.assignments.map((a) => `${stripTex(a.title)} (עד ${ddmm(a.dueOn)})`)];
+  const order = report.students.map((s, i) => ({ s, i })).sort((x, y) => byName(x.s.name, y.s.name) || x.i - y.i);
+  const rows = order.map(({ s, i }) => [s.name, ...report.assignments.map((a) => gradeOf(a.kind, a.work?.[i]))]);
+  return toCsv([head, ...rows]);
+}
+/** The grades file's name: madregot-grades-{class}-{from}-{to}.csv. */
+export const gradesCsvName = (className, from, to) => `madregot-grades-${nameOf(className)}-${from}-${to}.csv`;
 
 const isIOS = () => typeof navigator !== 'undefined'
   && (/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));

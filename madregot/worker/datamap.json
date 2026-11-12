@@ -352,8 +352,8 @@
     "assignments": {
       "personal": "yes",
       "about": ["teacher"],
-      "fields": ["id", "class_code", "kind", "skill", "title", "note", "exam", "version", "for_all", "starts_on", "due_on", "created_at"],
-      "purpose": "Work a teacher gives the class or chosen students (TEACHER-4): a stair, a check or a class exam (its frozen questions), with the teacher's title and short note and the dates.",
+      "fields": ["id", "class_code", "kind", "skill", "title", "note", "exam", "version", "for_all", "starts_on", "due_on", "created_at", "misc"],
+      "purpose": "Work a teacher gives the class or chosen students (TEACHER-4): a stair, a check, a class exam (its frozen questions) or the repair of one mistake on a stair (misc: the app's id of that mistake, SK-BUYERS-2), with the teacher's title and short note and the dates.",
       "retention": "400 days after its due date (RETENTION.assignmentsDays); with the class.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.classDeleteSteps"]

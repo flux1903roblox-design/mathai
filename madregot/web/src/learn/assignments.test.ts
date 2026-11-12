@@ -84,6 +84,37 @@ describe('workFromLearn', () => {
   });
 });
 
+// SK-BUYERS-2: the teacher gave the repair of one mistake on one stair. It is done when that repair's check passed
+// since the work started (the 'repair-done' event the verification logs, storeGlue.ts), and started when the repair was
+// opened since then. Nothing else counts: another mistake, another stair, a failed check, or a repair from before.
+describe('workFromLearn: a repair the teacher gave (SK-BUYERS-2)', () => {
+  const repair = (over: Partial<ClassAssignment> = {}) => stair({ kind: 'repair', skill: 'signed:1', misc: 'sign', title: 'תיקון טעות: חיבור וחיסור', startsOn: '2026-11-11', ...over });
+  const ev = (t: string, e: string, extra: any = {}) => ({ t, e, s: 'signed:1', m: 'sign', ...extra });
+  const learn = (events: any[], skills: any = {}) => ({ ...emptyLearn(), skills, events } as any);
+  it('nothing yet is no report; the repair opened since the start is started', () => {
+    expect(workFromLearn(repair(), emptyLearn())).toBeNull();
+    expect(workFromLearn(repair(), learn([ev('2026-11-11T15:00:00Z', 'repair-start')]))).toEqual({ state: 'started' });
+    // opened before the work was given: not this work
+    expect(workFromLearn(repair(), learn([ev('2026-11-10T15:00:00Z', 'repair-start')]))).toBeNull();
+  });
+  it('done when its check passed since the start; a failed check leaves it started', () => {
+    expect(workFromLearn(repair(), learn([ev('2026-11-11T15:00:00Z', 'repair-start'), ev('2026-11-11T15:05:00Z', 'repair-done', { ok: false })]))).toEqual({ state: 'started' });
+    expect(workFromLearn(repair(), learn([ev('2026-11-11T15:00:00Z', 'repair-start'), ev('2026-11-12T09:00:00Z', 'repair-done', { ok: true })]))).toEqual({ state: 'done' });
+  });
+  it('not done by a passed check from before the start, of another mistake, or on another stair', () => {
+    expect(workFromLearn(repair(), learn([ev('2026-11-09T15:00:00Z', 'repair-done', { ok: true })]))).toBeNull();
+    expect(workFromLearn(repair(), learn([ev('2026-11-12T09:00:00Z', 'repair-done', { m: 'minus-minus', ok: true })]))).toBeNull();
+    expect(workFromLearn(repair(), learn([ev('2026-11-12T09:00:00Z', 'repair-done', { s: 'coord:3', ok: true })]))).toBeNull();
+  });
+  it('mastery of the stair, or practice on it, is not the repair', () => {
+    const rec = { attempts: [{ at: '2026-11-12T09:00:00Z', ok: true, independent: true, purpose: 'practice' as const }], mastered: { at: '2026-10-20T10:00:00Z', box: 1, due: '2026-11-20' } };
+    expect(workFromLearn(repair(), learn([{ t: '2026-11-12T09:30:00Z', e: 'check-done', s: 'signed:1', p: 'mastery', ok: true }], { 'signed:1': rec }))).toBeNull();
+  });
+  it('a repair with no misconception gives nothing', () => {
+    expect(workFromLearn(repair({ misc: null }), learn([ev('2026-11-12T09:00:00Z', 'repair-done', { ok: true })]))).toBeNull();
+  });
+});
+
 describe('mergeWork (the server\'s rules)', () => {
   it('never lowers the state, the stage or passed', () => {
     expect(mergeWork({ state: 'done', stage: 4, passed: true }, { state: 'started', stage: 2, passed: false })).toEqual({ state: 'done', stage: 4, passed: true });

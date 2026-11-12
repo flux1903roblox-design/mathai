@@ -53,6 +53,7 @@
 // /api/family/summary gives each device `kept` (all its rows, also those older than the days asked for).
 import { MOE_RULES, classAiPolicy, notSellable } from '../../shared/schoolRules.js';
 import { examWeak } from '../../shared/examWeak.js';
+import { isStairMisc } from '../../shared/stairMiscs.gen.js';
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -206,7 +207,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     const who = forWhom(a); const ws = who.map((sid) => workOf(a, sid));
     const started = ws.filter((w) => w?.state === 'started').length; const done = ws.filter((w) => w?.state === 'done').length;
     return {
-      id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, forAll: a.forAll,
+      id: a.id, kind: a.kind, skill: a.skill, misc: a.misc ?? null, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, forAll: a.forAll,
       targets: a.forAll ? [] : [...a.targets].sort(), createdAt: a.createdAt, hasExam: !!a.exam, examCount: a.exam ? a.exam.length : null, version: a.version || null,
       counts: { assigned: who.length, notStarted: who.length - started - done, started, done, late: who.filter((sid) => lateOf(a, workOf(a, sid))).length },
     };
@@ -284,7 +285,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
           const w = workOf(a, x.id);
           work[i] = { state: w?.state || 'none', stage: w?.stage ?? null, right: w?.right ?? null, asked: w?.asked ?? null, passed: w?.passed ?? null, tries: w?.tries || 0, late: lateOf(a, w) };
         });
-        return { title: a.title, kind: a.kind, skill: a.skill, dueOn: a.dueOn, work };
+        return { title: a.title, kind: a.kind, skill: a.skill, misc: a.misc ?? null, dueOn: a.dueOn, work };
       }),
       mistakes: st.mistakes.map(({ ids, ...m }) => m),
     };
@@ -471,7 +472,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
           .sort((a, b) => ((workOf(a, sid)?.state === 'done') - (workOf(b, sid)?.state === 'done')) || (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0));
         return reply(route, 200, {
           today: st.today, teacherName: 'רונית', help: myHelpOf(sid),
-          assignments: list.map((a) => ({ id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, createdAt: a.createdAt, hasExam: !!a.exam, examCount: a.exam ? a.exam.length : null, mine: mineOf(workOf(a, sid)) })),
+          assignments: list.map((a) => ({ id: a.id, kind: a.kind, skill: a.skill, misc: a.misc ?? null, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, createdAt: a.createdAt, hasExam: !!a.exam, examCount: a.exam ? a.exam.length : null, mine: mineOf(workOf(a, sid)) })),
         });
       }
       // a class exam's frozen questions, for a student it is assigned to
@@ -488,6 +489,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       // as the Worker's cleanWork: a finished class exam reports exactly its questions; a check is a mastery check of 5
       if (a.kind === 'exam' && body.state === 'done' && (body.asked !== a.exam.length || body.questions?.length !== a.exam.length)) return reply(route, 400, { error: 'bad_work', field: 'asked' });
       if (a.kind === 'check' && body.asked > 5) return reply(route, 400, { error: 'bad_work', field: 'asked' });
+      // a repair reports only that it is started or done
+      if (a.kind === 'repair' && ['stage', 'right', 'asked', 'passed', 'questions'].some((k) => body[k] != null)) return reply(route, 400, { error: 'bad_work', field: 'repair' });
       const old = workOf(a, sid); const done = body.state === 'done'; const at = `${st.today}T10:00:00.000Z`;
       const max = (x, y) => (x == null ? (y ?? null) : y == null ? x : Math.max(x, y));
       const first = old?.doneAt ? old : done ? body : old || {};
@@ -838,9 +841,11 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       }
       if (path === '/api/teacher/assignments') {
         const bad = (field) => reply(route, 400, { error: 'bad_assignment', field });
-        if (!['stair', 'check', 'exam'].includes(body.kind)) return bad('kind');
+        if (!['stair', 'check', 'exam', 'repair'].includes(body.kind)) return bad('kind');
         const exam = body.kind === 'exam';
         if (!exam && !/^[a-z]{2,10}:\d{1,2}$/.test(body.skill || '')) return bad('skill');
+        // a repair names one of its stair's own misconceptions, as the Worker checks (shared/stairMiscs.gen.js)
+        if (body.kind === 'repair' ? !isStairMisc(body.skill, body.misc) : body.misc != null) return bad('misc');
         if (exam && (!Array.isArray(body.exam?.items) || body.exam.items.length < 1 || body.exam.items.length > 14 || !['a', 'b'].includes(body.exam.version ?? 'a'))) return bad('exam');
         const raw = String(body.dueOn || '');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(raw) || raw < st.today || raw > plus(st.today, 120)) return bad('dueOn');
@@ -849,7 +854,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         if (st.assignments.filter((x) => x.dueOn >= plus(st.today, -14)).length >= 20) return reply(route, 409, { error: 'too_many_open' });
         let dueOn = raw; while (saturday(dueOn)) dueOn = plus(dueOn, 1);
         const a = {
-          id: `a${String(st.assignments.length + 1).padStart(15, '0')}`, kind: body.kind, skill: exam ? null : body.skill, title: String(body.title || body.skill || 'מבחן תרגול').slice(0, 80),
+          id: `a${String(st.assignments.length + 1).padStart(15, '0')}`, kind: body.kind, skill: exam ? null : body.skill, misc: body.kind === 'repair' ? body.misc : null, title: String(body.title || body.skill || 'מבחן תרגול').slice(0, 80),
           note: String(body.note || '').slice(0, 200), startsOn: st.today, dueOn, forAll: !targets.length, targets, createdAt: `${st.today}T10:00:00.000Z`,
           ...(exam ? { exam: JSON.parse(JSON.stringify(body.exam.items)), version: body.exam.version ?? 'a' } : {}),
         };

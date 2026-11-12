@@ -5,7 +5,7 @@
 import { teacherApi } from './teacher.js';
 import { today as todayOf } from './store.js';
 import { plusDays } from './workDates.js';
-import { reportCsv, csvName, downloadCsv } from './teacherCsv.js';
+import { reportCsv, csvName, downloadCsv, gradesToCsv, gradesCsvName } from './teacherCsv.js';
 import { isDemo } from './demo.js';
 
 /** The range chips, in order. */
@@ -53,6 +53,11 @@ export const fetchReport = (cls, { from, to }) => teacherApi(`/api/teacher/repor
 export const saveReportCsv = (report) => downloadCsv(reportCsv(report), isDemo()
   ? `madregot-demo-${report.from}-${report.to}.csv`
   : csvName(report.class?.name, report.from, report.to));
+
+/** The range's grades for Mashov or Webtop (PRODUCT2-32): madregot-grades-…csv (madregot-demo-grades-… in the demo). */
+export const saveGradesCsv = (report) => downloadCsv(gradesToCsv(report), isDemo()
+  ? `madregot-demo-grades-${report.from}-${report.to}.csv`
+  : gradesCsvName(report.class?.name, report.from, report.to));
 
 /** The whole school year's report as a CSV, in one step (the class settings and the delete sheet). */
 export async function saveYearCsv(cls) {

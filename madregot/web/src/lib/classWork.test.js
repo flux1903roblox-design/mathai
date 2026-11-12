@@ -111,6 +111,40 @@ describe('reportStairs', () => {
   });
 });
 
+// SK-BUYERS-2: a repair the teacher gave reports from the learning record too: started once its repair was opened, done
+// once its check passed; it shows as a row to that mistake's repair, with the minutes the mission gives a repair
+describe('a repair the teacher gave (SK-BUYERS-2)', () => {
+  const repair = () => assignment({ id: 'a000000000000003', kind: 'repair', misc: 'sign', title: 'תיקון טעות: חיבור וחיסור', startsOn: '2026-11-05', dueOn: '2026-11-10' });
+  it('reports started when the repair was opened, done when its check passed, and nothing for another mistake', async () => {
+    const { useApp, cw } = await load();
+    const L = useApp.getState().learn;
+    const ev = (e, extra = {}) => ({ t: '2026-11-06T15:00:00.000Z', e, s: 'signed:1', m: 'sign', ...extra });
+    useApp.setState({ classWork: { ...useApp.getState().classWork, assignments: [repair()] }, learn: { ...L, events: [ev('repair-start', { m: 'minus-minus' })] } });
+    await cw.reportStairs();
+    expect(calls).toHaveLength(0); // another mistake's repair is not this work
+    useApp.setState({ learn: { ...L, events: [ev('repair-start')] } });
+    answer = () => json({ mine: { state: 'started', stage: null, right: null, asked: null, passed: null, doneAt: null } });
+    await cw.reportStairs();
+    expect(calls.map((c) => [c.path, c.body])).toEqual([['/api/class/work/a000000000000003', { state: 'started' }]]);
+    calls = [];
+    useApp.setState({ learn: { ...L, events: [ev('repair-start'), ev('repair-done', { ok: true })] } });
+    answer = () => json({ mine: { state: 'done', stage: null, right: null, asked: null, passed: null, doneAt: '2026-11-06T15:10:00.000Z' } });
+    await cw.reportStairs();
+    expect(calls.map((c) => [c.path, c.body])).toEqual([['/api/class/work/a000000000000003', { state: 'done' }]]);
+  });
+  it('is a row to that mistake\'s repair, 3 minutes; the repair finds it by its stair and mistake', async () => {
+    const { useApp, cw } = await load();
+    const r = cw.classRows({ assignments: [repair()] }, {}, '2026-11-09');
+    expect(r.show.map((x) => [x.to, x.minutes])).toEqual([['/repair/signed/1/sign?assignment=a000000000000003', 3]]);
+    // one with no misconception is left out
+    expect(cw.classRows({ assignments: [{ ...repair(), misc: null }] }, {}, '2026-11-09').show).toEqual([]);
+    useApp.setState({ classWork: { ...useApp.getState().classWork, assignments: [repair()] } });
+    expect(cw.repairAssignment('signed:1', 'sign', null)).toBe('a000000000000003');
+    expect(cw.repairAssignment('signed:1', 'minus-minus', null)).toBeNull();
+    expect(cw.repairAssignment('signed:1', 'sign', 'a000000000000009')).toBe('a000000000000003');
+  });
+});
+
 describe('leaving the class', () => {
   it('clears the class work and the waiting reports', async () => {
     const { useApp, cw } = await load();

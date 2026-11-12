@@ -3,12 +3,16 @@
 // the student's device: practice, not a graded test.
 import { teacherApi } from './teacher.js';
 import { TOPIC } from '@/content/index.js';
+import { metaOf } from '@/learn/content/index.ts';
 import { weekdayName, dm } from './workDates.js';
 
-/** The kinds a teacher gives: a stair to learn, a mastery check, and a class exam made with the exam builder. */
-export const ASSIGN_KINDS = ['stair', 'check', 'exam'];
+/**
+ * The kinds a teacher gives: a stair to learn, a mastery check, a class exam made with the exam builder, and the repair
+ * of one mistake on a stair (SK-BUYERS-2: that mistake's own explanation and activity, then 3 questions to check it).
+ */
+export const ASSIGN_KINDS = ['stair', 'check', 'exam', 'repair'];
 /** The kind as the teacher's rows name it. */
-export const KIND_LABEL = { stair: 'מדרגה', check: 'בדיקת שליטה', exam: 'מבחן' };
+export const KIND_LABEL = { stair: 'מדרגה', check: 'בדיקת שליטה', exam: 'מבחן', repair: 'תיקון טעות' };
 
 const stairOf = (skill) => {
   const [topic, l] = String(skill || '').split(':');
@@ -18,12 +22,21 @@ const stairOf = (skill) => {
 /** A stair the app has ('<topic>:<level>'). */
 export const isStair = (skill) => !!stairOf(skill);
 
-/** The automatic title: "מספרים מכוונים: חיבור וחיסור" or "בדיקת שליטה: חיבור וחיסור" (at most 80 characters). */
+/**
+ * The automatic title: "מספרים מכוונים: חיבור וחיסור", "בדיקת שליטה: חיבור וחיסור" or "תיקון טעות: חיבור וחיסור" (at
+ * most 80 characters; plain text, so it reads the same in a copied message: the mistake's own words have maths in them).
+ */
 export function assignTitle(kind, skill) {
   const s = stairOf(skill);
   if (!s) return '';
-  return (kind === 'check' ? `בדיקת שליטה: ${s.title}` : `${s.t.title}: ${s.title}`).slice(0, 80);
+  const head = { check: 'בדיקת שליטה', repair: 'תיקון טעות' }[kind] || s.t.title;
+  return `${head}: ${s.title}`.slice(0, 80);
 }
+
+/** The misconceptions a repair can be given for: the stair's own, in the content's order ({ id, title }). */
+export const repairsOf = (skill) => (isStair(skill) ? metaOf(skill)?.misconceptions || [] : []);
+/** Is `misc` one of the stair's own misconceptions (the server checks the same: shared/stairMiscs.gen.js)? */
+export const isRepair = (skill, misc) => !!misc && repairsOf(skill).some((m) => m.id === misc);
 
 // ---------------------------------------------------------------- the calls (worker/src/assignments.js)
 export const listWork = (cls) => teacherApi('/api/teacher/assignments', {}, cls);
@@ -37,10 +50,11 @@ export const deleteWork = (cls, id) => teacherApi(`/api/teacher/assignments/${id
  * The two cells of a student's row: { state, result }. A stair: "הושלם" with "שולט/ת" or "עוד לא שולט/ת"; "בדרך" with
  * "שלב n מתוך 5"; a stair the student passed before it was given and has not done again since (SK-BUYERS-1: earlier
  * mastery never makes the work done) "עוד לא חזר/ה" with "עבר/ה בעבר"; a check: "הושלם" with "4/5 · עבר/ה" (the first
- * finished try, marked when there were more).
+ * finished try, marked when there were more); a repair: "הושלם" with "תוקן" (its check passed), or "בדרך".
  */
 export function workStatus(kind, w) {
   if (!w || w.state === 'none' || !w.state) return { state: 'עוד לא התחיל/ה', result: '–' };
+  if (kind === 'repair') return w.state === 'done' ? { state: 'הושלם', result: 'תוקן' } : { state: 'בדרך', result: '–' };
   if (kind === 'stair') {
     if (w.state === 'done') return { state: 'הושלם', result: w.passed ? 'שולט/ת' : 'עוד לא שולט/ת' };
     if (w.passed) return { state: 'עוד לא חזר/ה', result: 'עבר/ה בעבר' };

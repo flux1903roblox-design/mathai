@@ -76,7 +76,7 @@ test('1. create: a stair for all, bad skills and dates, Saturday moves, targets 
   assert.equal(r.moved, false);
   assert.match(r.assignment.id, /^[a-f0-9]{16}$/);
   assert.deepEqual({ ...r.assignment, id: 0, createdAt: 0 }, {
-    id: 0, kind: 'stair', skill: 'signed:1', title: 'מספרים מכוונים: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי', startsOn: '2026-11-12',
+    id: 0, kind: 'stair', skill: 'signed:1', misc: null, title: 'מספרים מכוונים: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי', startsOn: '2026-11-12',
     dueOn: '2026-11-17', forAll: true, targets: [], createdAt: 0, hasExam: false, examCount: null, version: null,
     counts: { assigned: 3, notStarted: 3, started: 0, done: 0, late: 0 },
   });
@@ -417,6 +417,72 @@ test('9. both credentials: the owner\'s session opens the same routes as the key
   assert.equal((await h.call('GET', '/api/teacher/assignments', { headers: { 'X-Class-Code': c.code, 'X-Account-Token': stranger } })).status, 401);
 });
 
+// SK-BUYERS-2: practice on the mistake itself. A repair carries a stair and one of that stair's own misconceptions (the
+// app's teaching content, shared/stairMiscs.gen.js); the student does that mistake's repair and its 3-question check,
+// and reports only that it is started or done.
+const repair = (over = {}) => ({ kind: 'repair', skill: 'signed:1', misc: 'sign', title: 'תיקון טעות: חיבור וחיסור', dueOn: '2026-11-17', ...over });
+
+test('10. a repair (SK-BUYERS-2): a stair and one of its own misconceptions, refused otherwise; the teacher and the student see it as a repair', async () => {
+  h = await setup(); pin();
+  const cls = await makeClass(h, { students: ['דנה', 'יואב', 'נועה'] });
+  const [dana, yoav, noa] = cls.students;
+  const r = await made(await create(cls, repair({ targets: [dana.studentId, yoav.studentId] })));
+  assert.deepEqual({ ...r.assignment, id: 0, createdAt: 0, targets: r.assignment.targets.length }, {
+    id: 0, kind: 'repair', skill: 'signed:1', misc: 'sign', title: 'תיקון טעות: חיבור וחיסור', note: '', startsOn: '2026-11-12',
+    dueOn: '2026-11-17', forAll: false, targets: 2, createdAt: 0, hasExam: false, examCount: null, version: null,
+    counts: { assigned: 2, notStarted: 2, started: 0, done: 0, late: 0 },
+  });
+  // the misconception must be that stair's own: none, an unknown one, another stair's, or one on another kind is refused
+  await refused(await create(cls, repair({ misc: undefined })), 400, 'bad_assignment', 'misc');
+  await refused(await create(cls, repair({ misc: 'no-such-mistake' })), 400, 'bad_assignment', 'misc');
+  await refused(await create(cls, repair({ misc: 'neg-compare' })), 400, 'bad_assignment', 'misc'); // signed:2's, not signed:1's
+  await refused(await create(cls, repair({ misc: 'sign; DROP' })), 400, 'bad_assignment', 'misc');
+  await refused(await create(cls, repair({ misc: ['sign'] })), 400, 'bad_assignment', 'misc');
+  await refused(await create(cls, repair({ skill: 'signed:99' })), 400, 'bad_assignment', 'skill');
+  await refused(await create(cls, stair({ misc: 'sign' })), 400, 'bad_assignment', 'misc');
+  await refused(await create(cls, stair({ kind: 'check', misc: 'sign' })), 400, 'bad_assignment', 'misc');
+  // coord:3 has a 'sign' of its own: the same id on another stair is that stair's repair
+  const coord = (await made(await create(cls, repair({ skill: 'coord:3', title: '' })))).assignment;
+  assert.deepEqual([coord.kind, coord.skill, coord.misc, coord.title], ['repair', 'coord:3', 'sign', 'coord:3']);
+  // kept as a stair row with its misconception (the kind's CHECK predates repairs, and a migration only adds columns)
+  assert.deepEqual(rows(h.env, 'SELECT kind, misc FROM assignments WHERE id = ?', r.assignment.id).map((x) => ({ ...x })), [{ kind: 'stair', misc: 'sign' }]);
+  // the teacher's list, the one assignment and the dashboard all say repair
+  const list = (await listOf(cls)).assignments.find((a) => a.id === r.assignment.id);
+  assert.deepEqual([list.kind, list.misc], ['repair', 'sign']);
+  const one1 = await (await detail(cls, r.assignment.id)).json();
+  assert.deepEqual([one1.assignment.kind, one1.assignment.misc, one1.exam, one1.work.length], ['repair', 'sign', null, 2]);
+  const d = await (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json();
+  assert.deepEqual(d.assignments.filter((a) => a.kind === 'repair').map((a) => a.misc), ['sign', 'sign']);
+  assert.equal((await made(await create(cls, stair()))).assignment.misc, null, 'a stair has no misconception');
+  // the students it was given to see it as a repair, with its misconception; the third does not see it
+  const w = (await classWork(dana)).assignments.find((a) => a.id === r.assignment.id);
+  assert.deepEqual({ ...w, createdAt: 0 }, {
+    id: r.assignment.id, kind: 'repair', skill: 'signed:1', misc: 'sign', title: 'תיקון טעות: חיבור וחיסור', note: '', startsOn: '2026-11-12',
+    dueOn: '2026-11-17', createdAt: 0, hasExam: false, examCount: null, mine: null,
+  });
+  assert.ok(!(await classWork(noa)).assignments.some((a) => a.id === r.assignment.id));
+  // a repair reports only that it is started or done (done: its check passed on the device)
+  const no = async (body, field) => refused(await work(dana, r.assignment.id, body), 400, 'bad_work', field);
+  await no({ state: 'started', stage: 2 }, 'stage');
+  await no({ state: 'done', passed: true }, 'passed');
+  await no({ state: 'done', right: 3, asked: 3 }, 'right');
+  await no({ state: 'done', questions: [] }, 'questions');
+  assert.deepEqual((await made(await work(dana, r.assignment.id, { state: 'started' }), 200)).mine, { state: 'started', stage: null, right: null, asked: null, passed: null, doneAt: null });
+  const done = (await made(await work(dana, r.assignment.id, { state: 'done' }), 200)).mine;
+  assert.deepEqual([done.state, !!done.doneAt], ['done', true]);
+  assert.equal((await made(await work(dana, r.assignment.id, { state: 'started' }), 200)).mine.state, 'done', 'done stays done');
+  const after = (await listOf(cls)).assignments.find((a) => a.id === r.assignment.id);
+  assert.deepEqual(after.counts, { assigned: 2, notStarted: 1, started: 0, done: 1, late: 0 });
+  // the class report and the student's page name it a repair too
+  const rep = await (await h.call('GET', '/api/teacher/report?from=2026-11-06&to=2026-11-12', { headers: cls.teacher })).json();
+  const inReport = rep.assignments.find((a) => a.title === 'תיקון טעות: חיבור וחיסור');
+  assert.deepEqual([inReport.kind, inReport.skill, inReport.misc], ['repair', 'signed:1', 'sign']);
+  assert.deepEqual(Object.values(inReport.work).map((x) => x.state).sort(), ['done', 'none']);
+  const page = await (await h.call('GET', `/api/teacher/students/${dana.studentId}`, { headers: cls.teacher })).json();
+  assert.deepEqual(page.work.filter((x) => x.assignmentId === r.assignment.id).map((x) => [x.kind, x.state]), [['repair', 'done']]);
+  assert.equal(JSON.parse(one(h.env, "SELECT detail FROM audit_log WHERE action = 'assignment.create' ORDER BY id LIMIT 1").detail).misc, 'sign');
+});
+
 test('student: the list has only this student\'s started assignments of their own class, not done first, with the teacher\'s name', async () => {
   h = await setup(); pin();
   const cls = await makeClass(h, { students: ['דנה', 'יואב'] });
@@ -433,7 +499,7 @@ test('student: the list has only this student\'s started assignments of their ow
   assert.deepEqual([w.today, w.teacherName, w.help], ['2026-11-12', 'רונית', []]);
   assert.deepEqual(w.assignments.map((a) => a.title), ['מחר', 'שבוע הבא', 'היום']);
   assert.deepEqual(w.assignments[0], {
-    id: soon.id, kind: 'check', skill: 'signed:1', title: 'מחר', note: '', startsOn: '2026-11-12', dueOn: '2026-11-13', createdAt: soon.createdAt, hasExam: false, examCount: null, mine: null,
+    id: soon.id, kind: 'check', skill: 'signed:1', misc: null, title: 'מחר', note: '', startsOn: '2026-11-12', dueOn: '2026-11-13', createdAt: soon.createdAt, hasExam: false, examCount: null, mine: null,
   });
   assert.match(w.assignments[0].createdAt, /^2026-11-12T/);
   assert.deepEqual({ ...w.assignments[2].mine, doneAt: 0 }, { state: 'done', stage: 5, right: null, asked: null, passed: true, doneAt: 0 });

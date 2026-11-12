@@ -1,8 +1,9 @@
-// A new assignment for the class (spec TEACHER-4 §6): what to do (a stair to learn, or its mastery check), which stair,
-// by when, for whom, a line to the class and the title, then one action, "שליחה לכיתה". After sending, the sheet offers
-// to tell the class (a message to copy, a Google Classroom link); it never sends anything by itself.
-// It opens from the "משימות" tab, from a repeated mistake on "מחר" (that stair, for the students who made it), from
-// the lessons library, and from a class exam's sheet. "מבחן תרגול" sends one of this class's exams (TEACHER-3), in the
+// A new assignment for the class (spec TEACHER-4 §6): what to do (a stair to learn, its mastery check, a class exam, or
+// the repair of one mistake on a stair), which stair (and for a repair, which of its mistakes), by when, for whom, a line
+// to the class and the title, then one action, "שליחה לכיתה". After sending, the sheet offers to tell the class (a
+// message to copy, a Google Classroom link); it never sends anything by itself.
+// It opens from the "משימות" tab, from a repeated mistake on "מחר" (the repair of that mistake, for the students who
+// made it: SK-BUYERS-2), from the lessons library, and from a class exam's sheet. "מבחן תרגול" sends one of this class's exams (TEACHER-3), in the
 // version the teacher picks (א׳ unless the sheet showed ב׳): its frozen questions go to the server as they are.
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -12,7 +13,8 @@ import { Copy, ExternalLink } from 'lucide-react';
 import { useApp, today as localToday } from '@/lib/store.js';
 import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor, TOPIC } from '@/content/index.js';
-import { assignTitle, sendWork, classMessage, publicUrl, shareFor } from '@/lib/assign.js';
+import { assignTitle, sendWork, classMessage, publicUrl, shareFor, repairsOf, isRepair } from '@/lib/assign.js';
+import { MathText } from '@/components/MathText.jsx';
 import { plusDays, schoolDay, dayLong, dm } from '@/lib/workDates.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { Choice } from './ClassSettingQuestion.jsx';
@@ -21,6 +23,7 @@ const KINDS = [
   ['stair', 'ללמוד מדרגה', 'חמשת השלבים, מההסבר ועד בדיקת השליטה'],
   ['check', 'בדיקת שליטה', 'בדיקה קצרה בלי רמזים, בסוף מדרגה'],
   ['exam', 'מבחן תרגול', 'מבחן שהכנתם. נפתר באפליקציה ונבדק מיד'],
+  ['repair', 'לתקן טעות', 'הסבר על הטעות עצמה, פעילות ו־3 שאלות'],
 ];
 const VERSION = { a: 'א', b: 'ב' };
 const DUE = [['1', 'מחר', 1], ['3', 'בעוד 3 ימים', 3], ['7', 'בעוד שבוע', 7]];
@@ -41,7 +44,8 @@ function useRoster(cls, given, open) {
 
 /**
  * Props: `cls`, `students` (the board's list; omitted, the sheet loads it), `today` (the server's day), `preset`
- * { kind?, skill?, examId?, version? ('a'|'b'), targets?, targetsLabel? }, `open`, `onOpenChange`, `onSent(assignment)`.
+ * { kind?, skill?, misc?, examId?, version? ('a'|'b'), targets?, targetsLabel? }, `open`, `onOpenChange`,
+ * `onSent(assignment)`. `misc` names the mistake a repair is for (kept while the stair has it).
  */
 export default function AssignSheet({ cls, students: given, today: serverToday, preset = {}, open, onOpenChange, onSent }) {
   const roster = useRoster(cls, given, open);
@@ -52,8 +56,17 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
   const allExams = useApp((st) => st.teacherExams);
   const exams = useMemo(() => (allExams || []).filter((e) => e.classCode === cls.code), [allExams, cls.code]);
   const updateTeacherExam = useApp((st) => st.updateTeacherExam);
-  const [kind, setKind] = useState(['check', 'exam'].includes(preset.kind) ? preset.kind : 'stair');
+  const [kind, setKind] = useState(['check', 'exam', 'repair'].includes(preset.kind) ? preset.kind : 'stair');
   const [skill, setSkill] = useState(preset.skill || '');
+  // a repair's mistake: one of the stair's own (another stair's choice does not carry over)
+  const [miscPick, setMisc] = useState(preset.misc || '');
+  const misc = isRepair(skill, miscPick) ? miscPick : '';
+  // the mistake the sheet was opened for comes first, so it shows chosen right under the stair
+  const repairs = useMemo(() => {
+    const list = repairsOf(skill);
+    const at = list.findIndex((m) => m.id === preset.misc);
+    return at > 0 ? [list[at], ...list.slice(0, at), ...list.slice(at + 1)] : list;
+  }, [skill, preset.misc]);
   const [examId, setExamId] = useState(() => (exams.some((e) => e.id === preset.examId) ? preset.examId : exams[0]?.id || ''));
   const [version, setVersion] = useState(preset.version === 'b' ? 'b' : 'a');
   const exam = exams.find((e) => e.id === examId) || null;
@@ -83,7 +96,7 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
   const moved = dueOk ? schoolDay(due) : null;
   const ids = students.map((s) => s.id);
   const targets = who === 'all' ? [] : who === 'preset' ? (preset.targets || []).filter((id) => ids.includes(id)) : [...chosen].filter((id) => ids.includes(id));
-  const what = kind === 'exam' ? !!examItems?.length : !!skill;
+  const what = kind === 'exam' ? !!examItems?.length : kind === 'repair' ? !!misc : !!skill;
   const ready = what && dueOk && (who === 'all' ? students.length > 0 : targets.length > 0) && roster.ready;
 
   const toggle = (id) => setChosen((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -95,7 +108,7 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
       const auto = titleOf(kind, skill, exam) || 'מבחן תרגול';
       const body = kind === 'exam'
         ? { kind, title: title.trim() || auto, note: note.trim(), dueOn: due, exam: { items: examItems, version }, ...(targets.length ? { targets } : {}) }
-        : { kind, skill, title: title.trim() || auto, note: note.trim(), dueOn: due, ...(targets.length ? { targets } : {}) };
+        : { kind, skill, ...(kind === 'repair' ? { misc } : {}), title: title.trim() || auto, note: note.trim(), dueOn: due, ...(targets.length ? { targets } : {}) };
       const r = await sendWork(cls, body);
       if (kind === 'exam') updateTeacherExam(exam.id, { assignmentId: r.assignment.id });
       toast.success(r.moved ? `המשימה נשלחה, עד ${dayLong(r.assignment.dueOn)}. התלמידים יראו אותה בראש המשימה של היום.` : 'המשימה נשלחה. התלמידים יראו אותה בראש המשימה של היום.');
@@ -138,6 +151,16 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
               ))}
             </select>
           </Field>
+        )}
+        {kind === 'repair' && skill && (
+          <fieldset className="as-set">
+            <legend className="field-label">איזו טעות?</legend>
+            {repairs.length === 0 ? <p className="as-note-line">למדרגה הזו עוד אין תיקון טעות. אפשר לבחור מדרגה אחרת.</p> : (
+              <div className="as-opts as-miscs">
+                {repairs.map((m) => <Choice key={m.id} name={`${uid}-misc`} value={m.id} checked={misc === m.id} onChange={setMisc} title={<MathText text={m.title} />} />)}
+              </div>
+            )}
+          </fieldset>
         )}
         {kind === 'exam' && (
           <fieldset className="as-set">
