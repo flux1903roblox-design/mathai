@@ -160,9 +160,13 @@ export function workBanner(dueOn, day = today()) {
 export const workRoute = (a) => (a.kind === 'exam' ? `/class/exam/${a.id}` : a.kind === 'check' ? `${routeOf.check(a.skill, 'mastery')}&assignment=${a.id}` : `${routeOf.journey(a.skill)}?assignment=${a.id}`);
 
 const STAGES = ['A', 'B', 'C', 'D', 'E'];
-/** Minutes left: the stages a stair still has, a check's 3, or 3 for each question of a class exam. */
+/**
+ * Minutes left: the stages a stair still has, a check's 3, or 3 for each question of a class exam. A stair passed before it
+ * was given (SK-BUYERS-1: earlier mastery never makes it done) has its mastery check again left.
+ */
 export const EXAM_MIN_PER_Q = 3;
-const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN_PER_Q : a.kind === 'check' ? 3 : STAGES.slice(Math.min(5, w?.stage || 0)).reduce((s, x) => s + STAGE_MIN[x], 0));
+const stairLeft = (w) => (w?.passed && w.state !== 'done' ? STAGE_MIN.E : STAGES.slice(Math.min(5, w?.stage || 0)).reduce((s, x) => s + STAGE_MIN[x], 0));
+const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN_PER_Q : a.kind === 'check' ? 3 : stairLeft(w));
 
 /**
  * The rows of the "מהמורה" block on a day: due within 3 days, or past by at most 14 days and not done (`show`), later

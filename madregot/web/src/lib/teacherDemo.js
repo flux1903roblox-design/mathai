@@ -26,6 +26,7 @@ import { MOE_RULES, classAiPolicy, notSellable } from '@shared/schoolRules.js';
 // the Worker's own contact guard (worker/src/help.js uses the same function)
 import { hasContact } from '@shared/contact.js';
 import { makeClassExam, classExamTitle } from './exam.js';
+import { examWeak } from '@shared/examWeak.js';
 import { assignTitle } from './assign.js';
 import { ApiError } from './api.js';
 import { DEMO_CODE, DEMO_CLASS_NAME, DEMO_TEACHER, DEMO_COPY, readDemo, writeDemo, onDemoExit } from './demo.js';
@@ -257,7 +258,9 @@ function dashboard(st) {
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 100);
   const classExams = st.assignments.filter((a) => a.kind === 'exam').flatMap((a) => Object.entries(st.work[a.id] || {})
     .filter(([id, w]) => w.state === 'done' && live(st).has(id))
-    .map(([id, w]) => ({ id: `a:${a.id}:${id}`, studentId: id, name: nameOf(st, id), title: a.title, correct: w.right, total: w.asked, weak: [], questions: w.questions || [], at: w.doneAt, assignmentId: a.id })));
+    // a school class with the AI off sees the class exams solved in the app, as a real one does (PRODUCT2-31): each marked
+    // 'app', with its topics to strengthen worked out by the Worker's own rule (shared/examWeak.js)
+    .map(([id, w]) => ({ id: `a:${a.id}:${id}`, studentId: id, name: nameOf(st, id), title: a.title, correct: w.right, total: w.asked, weak: examWeak(w.questions || []), questions: w.questions || [], at: w.doneAt, assignmentId: a.id, source: 'app' })));
   const late = (id) => st.assignments.filter((a) => a.dueOn < today && a.dueOn >= daysAgo(today, 30) && forWhom(st, a).includes(id) && workOf(st, a, id)?.state !== 'done').length;
   return {
     class: { ...st.cls },

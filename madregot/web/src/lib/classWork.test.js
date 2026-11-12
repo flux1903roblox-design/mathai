@@ -166,6 +166,10 @@ describe('what the student sees', () => {
     const done = cw.classRows({ assignments: list }, { a1: { state: 'done', stage: 5, passed: true, doneAt: '2026-11-09T09:00:00' } }, day);
     expect(done.next).toBeNull();
     expect(done.allDone).toBe(true);
+    // a stair she passed before it was given (SK-BUYERS-1) is not done: what is left is its mastery check again, 3 minutes
+    const before = cw.classRows({ assignments: list }, { a1: { state: 'started', stage: 5, passed: true } }, day);
+    expect(before.next.done).toBe(false);
+    expect(before.minutes).toBe(3);
   });
   it('the dot: work not done that came after the last look at the missions tab', async () => {
     const { cw } = await load();

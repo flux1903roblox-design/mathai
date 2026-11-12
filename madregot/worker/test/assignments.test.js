@@ -359,11 +359,41 @@ test('8. the dashboard: open assignments with counts, mistakes with ids and thei
   const mine = d.exams.find((e) => String(e.id).startsWith('a:'));
   assert.deepEqual(mine, {
     id: `a:${ex.id}:${dana.studentId}`, studentId: dana.studentId, name: 'דנה', title: 'מבחן תרגול: שבוע 3', correct: 2, total: 3,
-    weak: [], questions, at: mine.at, assignmentId: ex.id,
+    weak: ['signed'], questions, at: mine.at, assignmentId: ex.id, source: 'app',
   });
+  assert.equal(d.exams.find((e) => !String(e.id).startsWith('a:')).source, 'photo', 'the exam checked from a photo says so');
   // the shape the board's "weak topics in exams" reads: questions[].topic and .status
   for (const q of mine.questions) assert.ok(typeof q.topic === 'string' && ['correct', 'partial', 'wrong', 'missing'].includes(q.status));
   assert.equal(d.exams.length, 2, 'the exam checked in the app is still there');
+});
+
+test('8b. the מבחנים tab of a school class with AI off (PRODUCT2-31): a class exam solved in the app is there, with the topics to strengthen from its questions', async () => {
+  h = await setup(); pin();
+  // a school class: its students cannot use the AI, so no exam is checked from a photo; the app's class exams still come in
+  const cls = await makeClass(h, { students: ['דנה', 'יואב'] });
+  const [dana, yoav] = cls.students;
+  const before = await (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json();
+  assert.equal(before.aiPolicy.students, 'off');
+  assert.deepEqual(before.exams, []);
+  const items = [ITEMS[0], ITEMS[1], ITEMS[2], ITEMS[3], ITEMS[8], ITEMS[9]];
+  const ex = (await made(await create(cls, { kind: 'exam', title: 'מבחן תרגול: לפני המבחן', dueOn: '2026-11-19', exam: { items, version: 'a' } }))).assignment;
+  // misses: signed twice, coord twice (partial and missing), line once; stats and angles right
+  const questions = [
+    { topic: 'signed', level: 1, status: 'wrong' }, { topic: 'signed', level: 2, status: 'wrong' }, { topic: 'coord', level: 1, status: 'partial' },
+    { topic: 'line', level: 5, status: 'wrong' }, { topic: 'stats', level: 1, status: 'correct' }, { topic: 'angles', level: 2, status: 'missing' },
+  ];
+  assert.equal((await work(dana, ex.id, { state: 'done', right: 1, asked: 6, questions })).status, 200);
+  // a student who has only started is not a row
+  assert.equal((await work(yoav, ex.id, { state: 'started' })).status, 200);
+  const d = await (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json();
+  assert.equal(d.exams.length, 1);
+  const [row] = d.exams;
+  assert.equal(row.source, 'app');
+  assert.equal(row.studentId, dana.studentId);
+  assert.equal(row.correct, 1); assert.equal(row.total, 6);
+  // the topics with a question not right, the most missed first (a tie keeps the exam's order), as a photo-checked row lists them
+  assert.deepEqual(row.weak, ['signed', 'coord', 'line', 'angles']);
+  assert.deepEqual(row.questions, questions);
 });
 
 test('9. both credentials: the owner\'s session opens the same routes as the key, and the audit says so', async () => {

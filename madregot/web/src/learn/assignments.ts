@@ -51,8 +51,11 @@ const dayOf = (iso: string) => new Date(iso).toLocaleDateString('en-CA');
 
 /**
  * What a stair assignment reports, from the learning record: { state, stage, passed }, or null while nothing was done.
- * Done: the stair is mastered, or its mastery check was finished since the assignment started (a finished check, not a
- * single answer of one). Started: a stage is done, or anything was answered on the stair since it started.
+ * Done only by work since the assignment started (SK-BUYERS-1): its mastery check finished since then (a finished
+ * check, not a single answer of one), or, for a stair the student had mastered, a review check passed or a mistake on
+ * it resolved by its verification since then. Mastery from before stays a fact (`passed`: the teacher's "עבר/ה בעבר"),
+ * never this work done: a student who passed in October and slips in November gets the practice and shows as not done.
+ * Started: a stage is done, or anything was answered on the stair since it started.
  * Checks and class exams report their own events (Lesson.jsx), so this returns null for them.
  */
 export function workFromLearn(a: ClassAssignment, learn: LearnState): WorkReport | null {
@@ -61,9 +64,11 @@ export function workFromLearn(a: ClassAssignment, learn: LearnState): WorkReport
   const stage = stairStage(a.skill, rec);
   const passed = !!rec?.mastered;
   const since = (t: string) => dayOf(t) >= a.startsOn;
-  const checked = learn.events.some((e) => e.e === 'check-done' && e.p === 'mastery' && e.s === a.skill && since(e.t));
+  const mine = learn.events.filter((e) => e.s === a.skill && since(e.t));
+  const checked = mine.some((e) => e.e === 'check-done' && e.p === 'mastery');
+  const kept = passed && mine.some((e) => (e.e === 'check-done' && e.p === 'review' && e.ok) || (e.e === 'repair-done' && e.ok));
   const tried = (rec?.attempts || []).some((x) => since(x.at));
-  const state: WorkState | null = passed || checked ? 'done' : stage > 0 || tried ? 'started' : null;
+  const state: WorkState | null = checked || kept ? 'done' : stage > 0 || tried ? 'started' : null;
   return state ? { state, stage, passed } : null;
 }
 

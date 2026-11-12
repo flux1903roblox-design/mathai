@@ -52,6 +52,7 @@
 // while the child's switch is on; restoreFrom on a still-linked device's escrow is 409 escrow_in_use; GET
 // /api/family/summary gives each device `kept` (all its rows, also those older than the days asked for).
 import { MOE_RULES, classAiPolicy, notSellable } from '../../shared/schoolRules.js';
+import { examWeak } from '../../shared/examWeak.js';
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -211,11 +212,22 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     };
   };
   const mineOf = (w) => (w ? { state: w.state, stage: w.stage ?? null, right: w.right ?? null, asked: w.asked ?? null, passed: w.passed ?? null, doneAt: w.doneAt || null } : null);
+  // the "מבחנים" tab's rows as the Worker merges them (PRODUCT2-31): exams checked from a photo (st.photoExams, already in
+  // the Worker's shape) and the class exams solved in the app, newest first, with their topics to strengthen
+  const examsOf = () => [
+    ...(st.photoExams || []).map((e) => ({ ...e, source: 'photo' })),
+    ...st.assignments.filter((a) => a.kind === 'exam').flatMap((a) => Object.entries(st.work[a.id] || {})
+      .filter(([sid, w]) => w?.state === 'done' && st.students.some((x) => x.id === sid))
+      .map(([sid, w]) => ({
+        id: `a:${a.id}:${sid}`, studentId: sid, name: st.students.find((x) => x.id === sid).name, title: a.title, correct: w.right, total: w.asked,
+        weak: examWeak(w.questions || []), questions: w.questions || [], at: w.doneAt, assignmentId: a.id, source: 'app',
+      }))),
+  ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   const dashboard = (code = 'K7Q2MD') => ({
     class: code === 'K7Q2MD' ? { name: st.className, grade: st.classGrade, teacherName: 'רונית' }
       : (({ name, grade }) => ({ name, grade, teacherName: 'רונית' }))(st.accountClasses.find((c) => c.code === code)), joinLocked: st.joinLocked,
     help: code === 'K7Q2MD' ? st.help.map((x) => ({ ...x, messages: x.messages.slice(0, 6), unreadFromStudent: x.messages.filter((m) => m.from === 'student' && !m.read).length })) : [],
-    helpDigest: st.digest, mistakes: st.mistakes, exams: [],
+    helpDigest: st.digest, mistakes: st.mistakes, exams: code === 'K7Q2MD' ? examsOf() : [],
     today: st.today,
     assignments: st.assignments.filter((a) => a.dueOn >= plus(st.today, -7)).sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0)).slice(0, 10).map(viewOf),
     students: st.students.map((s) => ({ lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false, joinedOn: '2026-09-02', late: 0, aiOff: false, ...s })),

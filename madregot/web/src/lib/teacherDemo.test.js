@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { demoState, demoApi, mulberry32, DEMO_NAMES } from './teacherDemo.js';
 import { attentionList, openHelpBy } from '@/learn/attention';
 import { classAiPolicy } from '@shared/schoolRules.js';
+import { examWeak } from '@shared/examWeak.js';
 
 const DAY = '2026-11-05'; // a Thursday
 const keys = (o) => Object.keys(o).sort();
@@ -18,7 +19,7 @@ const SHAPES = {
   student: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'lastSeen', 'late', 'levels', 'name', 'pinReset', 'today', 'week'],
   today: ['first', 'minutes', 'n', 'ok'],
   week: ['days', 'first', 'minutes', 'n'],
-  exam: ['assignmentId', 'at', 'correct', 'id', 'name', 'questions', 'studentId', 'title', 'total', 'weak'],
+  exam: ['assignmentId', 'at', 'correct', 'id', 'name', 'questions', 'source', 'studentId', 'title', 'total', 'weak'],
   boardMistake: ['cat', 'ids', 'level', 'n', 'names', 'students', 'topic'],
   assignment: ['counts', 'createdAt', 'dueOn', 'examCount', 'forAll', 'hasExam', 'id', 'kind', 'note', 'skill', 'startsOn', 'targets', 'title', 'version'],
   counts: ['assigned', 'done', 'late', 'notStarted', 'started'],
@@ -103,6 +104,21 @@ describe('the board has content in every group', () => {
     expect([...kinds].sort()).toEqual(['help', 'idle', 'late', 'low']);
     expect(all.some((a) => a.reasons.some((r) => r.kind === 'idle' && r.never))).toBe(true);
     expect(more).toBeGreaterThan(0);
+  });
+  it('the מבחנים tab shows what a real school class with AI off sees (PRODUCT2-31): the class exams solved in the app, marked so, with topics to strengthen', () => {
+    expect(d.aiPolicy.students).toBe('off');
+    const exam = st.assignments.find((a) => a.kind === 'exam');
+    const done = Object.values(st.work[exam.id]).filter((w) => w.state === 'done');
+    expect(d.exams).toHaveLength(done.length);
+    for (const e of d.exams) {
+      expect(e.source).toBe('app');
+      expect(e.assignmentId).toBe(exam.id);
+      // the Worker's own rule (shared/examWeak.js), from the row's questions
+      expect(e.weak).toEqual(examWeak(e.questions));
+    }
+    expect(d.exams.some((e) => e.weak.length > 0)).toBe(true);
+    // no exam checked from a photo: that needs the AI, which is off in this class
+    expect(d.exams.filter((e) => e.source !== 'app')).toEqual([]);
   });
   it('the class is a school class while Madregot is not in the catalogue: student AI off, no switch', () => {
     expect(d.aiPolicy).toMatchObject({ ...classAiPolicy({ setting: 'school', grade: '7' }, { approval: 'none' }), setting: 'school', consentAt: null });

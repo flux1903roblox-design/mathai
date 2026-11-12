@@ -12,7 +12,7 @@ import { Copy, ExternalLink } from 'lucide-react';
 import { useApp, today as localToday } from '@/lib/store.js';
 import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor, TOPIC } from '@/content/index.js';
-import { assignTitle, sendWork, classMessage, classroomLink, publicUrl } from '@/lib/assign.js';
+import { assignTitle, sendWork, classMessage, publicUrl, shareFor } from '@/lib/assign.js';
 import { plusDays, schoolDay, dayLong, dm } from '@/lib/workDates.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { Choice } from './ClassSettingQuestion.jsx';
@@ -105,12 +105,14 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
   };
 
   const n = students.length;
-  // one sheet: after sending, the same sheet turns into the "לספר לכיתה?" step
+  // one sheet: after sending, the same sheet turns into the "לספר לכיתה?" step ("לספר לתלמידים?" for work given to a
+  // group: SK-BUYERS-4)
   if (sent) {
+    const share = shareFor(sent, Object.fromEntries(students.map((s) => [s.id, s.name])));
     return (
-      <Sheet open={open} onOpenChange={onOpenChange} title="לספר לכיתה?" className="assign-sheet"
+      <Sheet open={open} onOpenChange={onOpenChange} title={share.title} className="assign-sheet"
         footer={<Button className="btn-block btn-lg" onClick={() => onOpenChange(false)}>סיום</Button>}>
-        <ShareStep sent={sent} />
+        <ShareStep sent={sent} share={share} />
       </Sheet>
     );
   }
@@ -221,15 +223,19 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
   );
 }
 
-/** "לספר לכיתה?": the message for the class's own channel, to copy, and the Classroom link. Nothing is sent from here. */
-function ShareStep({ sent }) {
+/**
+ * "לספר לכיתה?": the message for the class's own channel, to copy, and the Classroom link. For work given to a group,
+ * "לספר לתלמידים?": who got it (names for the teacher only), a message worded to them, and no Classroom post (lib/assign.js
+ * shareFor). Nothing is sent from here.
+ */
+function ShareStep({ sent, share }) {
   const first = useRef(null);
   // the step replaces the form under the keyboard's focus: it starts on its first action
   useEffect(() => { first.current?.focus({ preventScroll: true }); }, []);
   const url = publicUrl();
   const msg = classMessage(sent, url);
   const words = classMessage(sent, '');
-  const link = classroomLink(url);
+  const link = share.classroom;
   const copyMsg = () => {
     const done = () => toast.success('ההודעה הועתקה');
     const failed = () => toast('לא הצלחנו להעתיק. אפשר לסמן את ההודעה ולהעתיק אותה.');
@@ -237,7 +243,8 @@ function ShareStep({ sent }) {
   };
   return (
     <div className="as-share">
-      <p className="as-share-lead">אפשר לשלוח לתלמידים הודעה בערוץ של הכיתה. אין בה שמות של תלמידים.</p>
+      <p className="as-share-lead">{share.lead}</p>
+      {share.group && share.names.length > 3 && <p className="as-share-who"><span className="field-label">קיבלו את המשימה:</span> {share.names.join(', ')}</p>}
       {/* the address is set left to right inside the Hebrew line, so its slashes stay where they belong */}
       <blockquote className="as-msg">{words}{url && <> <bdi dir="ltr">{url}</bdi></>}</blockquote>
       <button ref={first} type="button" className="btn btn-secondary btn-block" onClick={copyMsg}><Copy size={18} aria-hidden="true" />העתקת הודעה לתלמידים</button>

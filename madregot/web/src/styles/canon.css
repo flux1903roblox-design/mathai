@@ -1083,6 +1083,8 @@ a.btn { text-decoration: none; }
 .as-text { min-height: 72px; }
 .as-share { display: flex; flex-direction: column; gap: var(--s3); }
 .as-share-lead { margin: 0; color: var(--ink); }
+.as-share-who { margin: 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.as-share-who .field-label { display: inline; color: var(--ink); }
 .as-msg { margin: 0; padding: var(--s3) var(--s4); border-inline-start: 4px solid var(--brand-line); border-radius: 12px; background: var(--ground); color: var(--ink); line-height: 1.55; overflow-wrap: anywhere; user-select: text; }
 
 /* one assignment's detail: the line under the title, the bar, the table of students, the quiet actions */

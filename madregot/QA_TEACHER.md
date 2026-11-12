@@ -332,6 +332,27 @@ New pictures (each looked at on the four sizes): `teacher-tomorrow-stairs`, `tea
 `teacher-demo-report` and `teacher-assign-share`/`teacher-assign-sheet` (the board under the sheet); and
 `teacher-restore-empty`, whose words now send the teacher to the class settings to bind a class.
 
+## Round 2: what the board shows is true (SK-BUYERS-1, PRODUCT2-31, SK-BUYERS-4)
+
+The buyers' skeptic found three places where the board said something that was not so. Each is fixed, with a test that
+failed before the fix (scratchpad `lanes/product2/s18/fail-before-*.txt`).
+
+| What was not true | What changed | Tests |
+|---|---|---|
+| A stair given to a student who passed it in October and slipped in November showed "done" the moment it was given (`learn/assignments.ts` workFromLearn: `passed \|\| checked`), so that student got no new practice (SK-BUYERS-1, the skeptic's `check-work.ts`) | Done only by work since the assignment started: its mastery check finished since then, or, for a stair mastered before, a review passed or a mistake on it resolved by verification since then. Earlier mastery stays a fact: the teacher's row says "עוד לא חזר/ה" with "עבר/ה בעבר" (lib/assign.js workStatus), and the student's row says what is left, "בדיקת שליטה חוזרת" (3 minutes) | `learn/assignments.test.ts` (the skeptic's case, and each way to be done again); `lib/assign.test.js`; `lib/classWork.test.js`; e2e TEACHER-4 "a stair given to a student who passed it before…" and TEACHER-5 "1b. a stair she mastered in October…" (the report sent is `started`, never `done`) |
+| The "מבחנים" tab of a school class with the AI off: the council read it as empty, and the demo's six rows as an overstatement (PRODUCT2-31). In fact the Worker already merged the class exams solved in the app, but each with no topics to strengthen (`weak: []`) and nothing saying where it came from | Every row says its source ("מבחן כיתה, נפתר באפליקציה" or "נבדק מצילום"); a class exam's topics to strengthen come from its own questions, the most missed first (`shared/examWeak.js`, used by the Worker and the demo alike). The empty tab names both sources, tells a class whose students have the helper off that exams sent from the app will appear, and links to making one. The demo (a school class, AI off) shows exactly that mix: its six class exams, marked and with their topics | Worker `assignments.test.js` "8." (the merge, now with `weak` and `source`) and "8b. the מבחנים tab of a school class with AI off…"; `shared/examWeak.test.js`; `lib/teacherDemo.test.js` "the מבחנים tab shows what a real school class with AI off sees"; e2e "PRODUCT2-31: the מבחנים tab…" (empty, and one row) |
+| "לספר לכיתה?" after work given to some students offered a class-channel message "משימה חדשה במדרגות…" and a Google Classroom post, as if the whole class had new work (SK-BUYERS-4) | Work given to a group gets "לספר לתלמידים?": who got it (names for the teacher only), a line that a class-channel post would reach everyone, a message worded to the students who got it ("יש לכם משימה חדשה במדרגות…", no names) and no Classroom link. Work for the whole class is as before | `lib/assign.test.js` "work given to a group…"; e2e TEACHER-4 "from מחר…" (two students) and "a later date" (one student), and "a week from a Saturday…" (the whole class, with the Classroom link) |
+
+Pictures: `teacher-assign-share` was taken again on the four sizes (the group step). The tab's two new states were looked
+at on the phone (390x844) and are kept as pictures, not baselines: `qa-evidence/teacher/exams-empty-ai-off-phone.png` and
+`exams-row-ai-off-phone.png` (written by the PRODUCT2-31 tests with `TEACHER_SHOTS=<folder>`). Also taken again, after
+looking at each against its old picture, because earlier changes on this branch and on main had already moved them and
+`teacher.spec.js` had not been run since: `teacher-preview-stage` (stage C now draws the right triangle),
+`teacher-student-home-teacher-chip` and `teacher-demo-ask` (signed has six stairs, מדי stands at the current stop),
+`teacher-student-today-teacher-work` and `teacher-student-my-help` (the mission's reason in two lines with "עוד"),
+`teacher-exam-key` (inline maths in Rubik), and `teacher-demo-board` on the tablet (the programme link among the
+teacher's tools, and the demo's exam topics).
+
 ## Owner-only steps
 
 The code for each is done and tested; each needs the owner once.

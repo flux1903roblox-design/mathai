@@ -17,6 +17,8 @@ function barOf(r) {
   if (r.a.kind === 'stair') {
     const stage = r.w?.stage || 0;
     if (r.done) return { value: 5, max: 5, text: 'כל השלבים' };
+    // passed before the teacher gave it (SK-BUYERS-1): the mastery check again is what is left
+    if (r.w?.passed) return { value: 4, max: 5, text: 'בדיקת שליטה חוזרת' };
     return { value: stage, max: 5, text: `שלב ${Math.min(5, stage + 1)} מתוך 5` };
   }
   if (r.done) return { value: 1, max: 1, text: r.w?.asked ? `${r.w.right}/${r.w.asked}` : 'בוצע' };
