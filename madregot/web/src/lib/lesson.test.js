@@ -121,7 +121,8 @@ describe('path: done means mastered', () => {
   it('practice fills a stair\'s ring but never marks it done; its passed mastery check does, and the path moves on', () => {
     let path = {};
     let nodes = unitNodes('stats', path);
-    expect(nodes.map((n) => n.state)).toEqual(['current', 'locked', 'locked', 'locked', 'locked', 'locked']);
+    // eight stairs (stats:6-8 joined in curriculum stage 3) and the unit review after them
+    expect(nodes.map((n) => n.state)).toEqual(['current', ...Array(8).fill('locked')]);
     let r;
     for (let i = 0; i < PARTS; i++) { r = recordOnPath(path, { kind: 'node', topic: 'stats', level: 1, passed: true }); path = r.path; }
     expect(r.practiceDone).toBe(true); // the mastery check is next

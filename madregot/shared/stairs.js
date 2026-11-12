@@ -13,6 +13,7 @@ export const TOPIC_NAMES = Object.freeze({
   coord: 'מערכת צירים',
   angles: 'זוויות',
   expr: 'ביטויים אלגבריים',
+  data: 'נתונים ושכיחות', // curriculum stage 3: ז׳ (January–February), and ח׳ this school year too
   eq: 'משוואות',
   ratio: 'יחס וקנה מידה', // the curriculum lane's first unit of grade 8 (school order: ratio, percent, then linear functions)
   pct: 'אחוזים',
@@ -21,6 +22,7 @@ export const TOPIC_NAMES = Object.freeze({
   pyth: 'משפט פיתגורס',
   stats: 'סטטיסטיקה',
   sys: 'משוואות ומערכות',
+  prob: 'הסתברות', // curriculum stage 3: ח׳'s "הסתברות ב" (March), last of the grade in school order
 });
 
 /** Each stair's name, as its lesson and its teaching content call it. */
@@ -51,6 +53,10 @@ export const STAIR_NAMES = Object.freeze({
   'expr:3': 'כינוס איברים דומים',
   'expr:4': 'חוק הפילוג',
   'expr:5': 'פישוט ביטויים',
+  'data:1': 'דיאגרמות וטבלת שכיחויות',
+  'data:2': 'שכיחות יחסית',
+  'data:3': 'אחוזים ודיאגרמת עוגה',
+  'data:4': 'הסתברות מתוך שכיחות',
   'eq:1': 'משוואה ופתרון',
   'eq:2': 'משוואה בשני צעדים',
   'eq:3': 'נעלם בשני האגפים',
@@ -89,11 +95,19 @@ export const STAIR_NAMES = Object.freeze({
   'stats:3': 'ממוצע',
   'stats:4': 'ממוצע מטבלה',
   'stats:5': 'נתון חסר',
+  // curriculum stage 3 (DATA-5): the rest of ח׳ units 8.10 and 8.11
+  'stats:6': 'טווח ושינוי של כל הנתונים',
+  'stats:7': 'שני מקורות מידע',
+  'stats:8': 'אינטרפולציה ואקסטרפולציה',
   'sys:1': 'משוואות עם אחוזים',
   'sys:2': 'שיטת ההצבה',
   'sys:3': 'השוואת מקדמים',
   'sys:4': 'בעיות עם שני נעלמים',
   'sys:5': 'אי־שוויונות',
+  // curriculum stage 3 (DATA-6): ח׳'s "הסתברות ב" in unit 8.16
+  'prob:1': 'תוצאות שוות סיכוי',
+  'prob:2': 'מאורע משלים',
+  'prob:3': 'ניסוי בשני שלבים',
 });
 
 /**
@@ -112,7 +126,14 @@ export const stairName = (id) => {
  * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
  * it today. (ai spec AI-5)
  */
-export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8' });
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8', prob: '8' });
+
+/**
+ * Units a grade also learns this school year though filed under the other (learn/skills.ts ALSO_ON_PATH: the תשפ״ז
+ * transition year has ח׳ learn the ז׳ data unit): topic → that grade. The tutor's stair map names them on a line of
+ * their own (pedagogy.js curriculumBlock); stairs.test.ts keeps the two tables equal.
+ */
+export const TOPIC_ALSO = Object.freeze({ data: '8' });
 
 /**
  * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic

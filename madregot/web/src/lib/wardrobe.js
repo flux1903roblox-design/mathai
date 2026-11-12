@@ -7,7 +7,7 @@
 // Unlocks are derived from progress, so they need no migration. The first time an id is derived it is remembered in
 // look.earned (earnIds), and from then on it stays earned, even if a stair later falls back to needs-review.
 // Pure functions only; the store keeps `look` (lib/store.js), Mascot draws it (components/mascot/Accessories.jsx).
-import { TOPICS, TOPIC } from '@/content/topics.js';
+import { TOPICS, TOPIC, topicsFor } from '@/content/topics.js';
 import { doneCount, chestOpen, chestAfter } from './path.js';
 
 export const SLOTS = ['head', 'face', 'neck', 'body'];
@@ -41,6 +41,10 @@ export const ITEMS = [
   { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
   // the stage-5 lane's introduction to functions: a walk's graph on its axes
   { id: 'graph-pin', slot: 'body', topic: 'func', name: 'סיכת גרף', unlock: { chest: 'func' } },
+  // curriculum stage 3's data unit: a tally pin, so every unit in TOPICS has its piece
+  { id: 'tally-pin', slot: 'body', topic: 'data', name: 'סיכת ספירה', unlock: { chest: 'data' } },
+  // curriculum stage 3's probability unit: a die pin, so every unit in TOPICS has its piece
+  { id: 'die-pin', slot: 'body', topic: 'prob', name: 'סיכת קובייה', unlock: { chest: 'prob' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 
@@ -72,8 +76,8 @@ export function cleanLook(look) {
   return out;
 }
 
-/** The units in the order a student meets them: their own grade first, then the other grade's. */
-const unitsFor = (grade) => [...TOPICS.filter((t) => t.grade === String(grade || '7')), ...TOPICS.filter((t) => t.grade !== String(grade || '7'))];
+/** The units in the order a student meets them: their own path first (topicsFor), then the rest (the floor, the other grade's). */
+const unitsFor = (grade) => { const path = topicsFor(grade || '7'); return [...path, ...TOPICS.filter((t) => !path.includes(t))]; };
 const unitComplete = (topic, path) => doneCount(topic, path) === TOPIC[topic].levels.length;
 
 /** The unit a colour is named for: the first completed one of its family, else the first of its family the student meets. */

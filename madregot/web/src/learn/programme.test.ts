@@ -1,7 +1,8 @@
 // The programme map against the stairs this build really has. The coverage numbers themselves are not asserted here:
 // they move with every content stage (the fixtures in worker/test/coverage.test.js carry the numbers).
 import { describe, expect, it } from 'vitest';
-import { ALL_SKILLS, GRADE_OF, parseSkill } from './skills';
+import { ALL_SKILLS, ALSO_ON_PATH, GRADE_OF, parseSkill } from './skills';
+import type { AlsoOnPath } from './skills';
 import { PROGRAMME, ROADMAP_NEXT, coverageOf, notYetOf, monthIndex, schoolMonth } from './programme';
 import { coverage } from '@shared/coverage.js';
 import { TOPIC, TOPICS } from '@/content/index.js';
@@ -18,7 +19,7 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   });
   it('has a school month in its own grade', () => {
     stairs.forEach((s) => {
-      const m = monthIndex(s, GRADE_OF[parseSkill(s).topic]);
+      const m = monthIndex(s, GRADE_OF[parseSkill(s).topic]!);
       expect(typeof m, `${s} has no month in grade ${GRADE_OF[parseSkill(s).topic]}`).toBe('number');
       expect(m).toBeGreaterThanOrEqual(0);
       expect(m).toBeLessThanOrEqual(9);
@@ -27,6 +28,46 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   it('a bridge stair (elementary fractions) is in no unit: it adds no hours', () => {
     [...programmeStairs].forEach((s) => expect(s.startsWith('frac:'), s).toBe(false));
     ALL_SKILLS.filter(isBridge).forEach((s) => expect(programmeStairs.has(s), s).toBe(false));
+  });
+});
+
+// A unit also drawn on another grade's path (skills.ts ALSO_ON_PATH) is there because that grade's schedule teaches it
+// this year: some unit of that grade lists one of its stairs. When the programme moves to the next year and the unit is
+// no longer in that grade's schedule, this fails, and the entry is removed.
+// Curriculum stage 3 (DATA-8): its ten stairs, by name, so the rule above is not met by a list that lost one of them
+describe('curriculum stage 3\'s ten stairs are in the programme, each with a month in its own grade', () => {
+  const STAGE3 = ['data:1', 'data:2', 'data:3', 'data:4', 'stats:6', 'stats:7', 'stats:8', 'prob:1', 'prob:2', 'prob:3'];
+  it('every one is a stair of the app, listed in some unit', () => {
+    STAGE3.forEach((s) => expect(ALL_SKILLS, s).toContain(s));
+    STAGE3.forEach((s) => expect(programmeStairs.has(s), `${s} is in no unit of shared/programme.js`).toBe(true));
+  });
+  it('every one has a school month in its own grade (data in ז׳, stats and prob in ח׳)', () => {
+    const months = STAGE3.map((s) => [s, GRADE_OF[parseSkill(s).topic], monthIndex(s, GRADE_OF[parseSkill(s).topic]!)]);
+    expect(months).toEqual([
+      ['data:1', '7', 4], ['data:2', '7', 5], ['data:3', '7', 5], ['data:4', '7', 5],
+      ['stats:6', '8', 3], ['stats:7', '8', 3], ['stats:8', '8', 4],
+      ['prob:1', '8', 6], ['prob:2', '8', 6], ['prob:3', '8', 6],
+    ]);
+    // probability is in no ז׳ unit
+    expect(monthIndex('prob:1', '7')).toBeNull();
+  });
+});
+
+describe('a unit on two grades\' paths is in that grade\'s schedule', () => {
+  const unlisted = (also: AlsoOnPath) => Object.entries(also).filter(([t, e]) => !PROGRAMME.units.some((u) => u.grade === e!.grade
+    && u.parts.some((p) => p.skills.some((s) => parseSkill(s).topic === t)))).map(([t]) => t);
+  it('every entry of ALSO_ON_PATH is listed in a unit of its other grade', () => {
+    expect(Object.keys(ALSO_ON_PATH)).toEqual(['data']); // not vacuous: this year's entry
+    expect(unlisted(ALSO_ON_PATH)).toEqual([]);
+    // 8.6 lists data:1-3 (October–November), 8.16 data:4 (March, "הסתברות א – בסיס")
+    expect(monthIndex('data:1', '8')).toBe(1);
+    expect(monthIndex('data:3', '8')).toBe(1);
+    expect(monthIndex('data:4', '8')).toBe(6);
+    expect(monthIndex('data:1', '7')).toBe(4);
+  });
+  it('the rule bites: expressions are in no ח׳ unit, Pythagoras is in ז׳ 7.6 and 7.14', () => {
+    expect(unlisted({ expr: { grade: '8', after: 'pct' } })).toEqual(['expr']);
+    expect(unlisted({ pyth: { grade: '7', after: 'eq' } })).toEqual([]);
   });
 });
 
@@ -134,6 +175,39 @@ describe('stage 5, before the classroom split', () => {
     const c7 = coverage('7', [...STAGE1, ...S5]); const c8 = coverage('8', [...STAGE1, ...S5]);
     expect([c7.taught, c7.pct, c8.taught, c8.pct]).toEqual([106, 71, 80, 54]);
     expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(63);
+  });
+});
+
+// Curriculum stage 3 (DATA-8): on stage 1's stairs and its own ten (data:1-4: 7.15-7.17, and this year 8.6 and the first
+// half of 8.16; stats:6-8: the rest of 8.10 and 8.11; prob:1-3: the rest of 8.16), worker/test/coverage.test.js's
+// "stage 3" fixture: ז׳ 117 of 150, ח׳ 87 of 147, 69% together. The units it completes are whole in the live coverage.
+describe('curriculum stage 3: the data unit, stats:6-8 and probability', () => {
+  const STAGE1 = [
+    ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+    ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+    'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+  ];
+  const DATA = ['data:1', 'data:2', 'data:3', 'data:4'];
+  // curriculum stage 3, DATA-5: the rest of ח׳ units 8.10 (range, two sources) and 8.11 (interpolation)
+  const STATS2 = ['stats:6', 'stats:7', 'stats:8'];
+  // DATA-6: "הסתברות ב", the rest of 8.16
+  const PROB = ['prob:1', 'prob:2', 'prob:3'];
+  it('has its ten stairs; on stage 1\'s stairs and its own: ז׳ 117/150, ח׳ 87/147, 69%', () => {
+    const have = new Set(ALL_SKILLS);
+    [...DATA, ...STATS2, ...PROB].forEach((s) => expect(have.has(s), `${s} is gone`).toBe(true));
+    const f7 = coverage('7', [...STAGE1, ...DATA, ...STATS2, ...PROB]); const f8 = coverage('8', [...STAGE1, ...DATA, ...STATS2, ...PROB]);
+    expect([f7.taught, f7.hours]).toEqual([117, 150]);
+    expect([f8.taught, f8.hours]).toEqual([87, 147]);
+    expect(Math.round((100 * (f7.taught + f8.taught)) / (f7.hours + f8.hours))).toBe(69);
+  });
+  it('the units it completes are taught whole in the live coverage', () => {
+    const c7 = coverageOf('7'); const c8 = coverageOf('8');
+    expect(c8.units.find((u) => u.id === '8.10')).toMatchObject({ taught: 12, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.11')).toMatchObject({ taught: 4, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.6')).toMatchObject({ taught: 8, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.16')).toMatchObject({ taught: 6, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+    for (const id of ['7.15', '7.16', '7.17']) expect(c7.units.find((u) => u.id === id), id).toMatchObject({ state: 'yes' });
   });
 });
 

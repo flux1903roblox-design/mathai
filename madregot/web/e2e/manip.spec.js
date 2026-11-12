@@ -4,6 +4,7 @@
 // and the "not yet" and "right" paths work with the object still in view.
 import { test, expect } from '@playwright/test';
 import { open, student, item, openOn, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { textContrastFailures } from './contrast.js';
 
 const KINDS = [
   ['numberline', 'signed/1', '7', [0.5, 0.75, 0.85, 0.75]],
@@ -288,3 +289,306 @@ for (const [w, h] of [[390, 664], [320, 568]]) {
     await expect(page.locator('.lm-actions.has-warm')).toHaveCount(0);
   });
 }
+
+// ---------------------------------------------------------------- the data unit's two objects (DATA-2, on DATA-4's routes)
+// A run of a random experiment (simulate) and a chart built (chart), where a student meets them: data:4's teaching and
+// practice, data:1's bar chart, data:3's pie. On a phone and on the small phone: each is whole on screen, nothing scrolls
+// sideways, and the buttons a finger presses are in view.
+
+/** Walk a stair's teaching to its first explore step, answering the steps before it right. */
+async function toExplore(page, route, grade) {
+  await open(page, route, student(grade));
+  await expect(page.locator('.step-player')).toBeVisible();
+  for (let i = 0; i < 12; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.kind === 'explore') {
+      await expect(page.locator('.ls-explore .manip')).toBeVisible();
+      // the step before may still be sliding out (the step card enters from 24px aside): the page settles first (review:
+      // a check of sideways scroll right after this failed once by the 4px still to slide)
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+      return st;
+    }
+    if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); await expect(page.locator('.lm-actions.has-good')).toBeVisible(); }
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    await page.locator('.sp-next').click();
+    await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+  }
+  throw new Error(`no explore step in ${route}`);
+}
+const simBtn = (page, k) => page.locator('.manip-simulate .mp-sim-btn').nth(k);
+const simRows = (page) => page.locator('.manip-simulate .mp-sim-table tbody tr').allTextContents();
+
+test('simulate (data:4 teaching): 100 opens after 10 and 1000 after 100, and each batch changes the table', async ({ page }) => {
+  await toExplore(page, '#/learn/data/4/A', '8');
+  const sim = page.locator('.ls-explore .manip-simulate');
+  await expectNoSidewaysScroll(page);
+  // guided: only 10 is open; a locked button says what comes first
+  await expect(simBtn(page, 0)).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(simBtn(page, 1)).toHaveAttribute('aria-disabled', 'true');
+  await expect(simBtn(page, 1)).toContainText('קודם 10');
+  await expect(simBtn(page, 2)).toHaveAttribute('aria-disabled', 'true');
+  await expect(simBtn(page, 2)).toContainText('קודם 100');
+  await sim.locator('.mp-sim-more').click();
+  await expect(sim.locator('.mp-sim-table')).toBeVisible();
+  const empty = await simRows(page);
+  // pressing a locked batch runs nothing (it is aria-disabled, so the press is forced)
+  await simBtn(page, 2).click({ force: true });
+  expect(await simRows(page)).toEqual(empty);
+  await simBtn(page, 0).click();
+  await expect.poll(() => simRows(page)).not.toEqual(empty);
+  await expect(simBtn(page, 1)).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(simBtn(page, 2)).toHaveAttribute('aria-disabled', 'true');
+  const ten = await simRows(page);
+  await simBtn(page, 1).click();
+  await expect.poll(() => simRows(page)).not.toEqual(ten);
+  await expect(simBtn(page, 2)).not.toHaveAttribute('aria-disabled', 'true');
+  const more = await simRows(page);
+  await simBtn(page, 2).click();
+  await expect.poll(() => simRows(page)).not.toEqual(more);
+  // 1110 spins: the readout says so, and the step can be checked
+  await expect(sim.locator('.mp-sim-small')).toContainText('מתוך 1110');
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
+test('simulate at 320 × 568: the object is at most 300px tall and its buttons are in view', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await toExplore(page, '#/learn/data/4/A', '7');
+  await expectNoSidewaysScroll(page);
+  const box = await page.locator('.ls-explore .manip-simulate').boundingBox();
+  expect(box.height, 'the simulate object').toBeLessThanOrEqual(300);
+  for (let k = 0; k < 4; k += 1) {
+    const b = simBtn(page, k);
+    await expect(b).toBeInViewport();
+    const r = await b.boundingBox();
+    expect(Math.min(r.width, r.height), 'a batch button is thumb-sized').toBeGreaterThanOrEqual(44);
+  }
+  await simBtn(page, 0).click(); await simBtn(page, 1).click(); await simBtn(page, 2).click();
+  await expect(page.locator('.manip-simulate .mp-sim-small')).toContainText('מתוך 1110');
+  expect((await page.locator('.ls-explore .manip-simulate').boundingBox()).height).toBeLessThanOrEqual(300);
+  await expectNoSidewaysScroll(page);
+});
+
+test('simulate (data:4 practice): the covered wheel\'s part is right after many spins; a wrong pick after a few is "few trials"', async ({ page }) => {
+  const est = (it) => it.form === 'manip' && it.manip.kind === 'simulate' && it.answer?.mode === 'estimate';
+  const it = await openOn(page, '#/lesson/data/4?part=1', student('7'), est);
+  await expectNoSidewaysScroll(page);
+  await expect(checkBtn(page)).toBeDisabled();
+  // the right part: the watched sector's share of the wheel, after 10 + 100 + 1000 spins
+  for (let k = 0; k < 3; k += 1) await simBtn(page, k).click();
+  await page.locator('.mp-sim-choice').nth(it.answer.answer).click();
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
+  await proceed(page);
+  // the next one: ten spins and a wrong pick name the mistake of trusting a few trials
+  const next = await openOn(page, '#/lesson/data/4?part=1', student('7'), est);
+  await simBtn(page, 0).click();
+  await page.locator('.mp-sim-choice').nth((next.answer.answer + 1) % next.answer.choices.length).click();
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  // on a short screen the panel is folded under the object until "רמז" opens it
+  const more = page.locator('section.fb-folded').getByRole('button', { name: 'רמז', exact: true });
+  if (await more.count()) await more.click();
+  await expect(page.locator('section.fb-retry')).toContainText('סמכו על מעט ניסויים כאילו הם נותנים את ההסתברות');
+});
+
+// DATA-6: two dice thrown many times (prob:3), in the teaching and in practice, where the documented errors are choices
+test('simulate dice2 (prob:3 teaching) at 320 × 568: sums of two dice, 1110 throws, whole on screen, the step checked', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const st = await toExplore(page, '#/learn/prob/3/A', '8');
+  expect(st.manip).toMatchObject({ kind: 'simulate', device: 'dice2', watch: 7 });
+  // the step before (the 6 × 6 table) may still be sliding out: wait for the page to settle, then nothing scrolls sideways
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await expectNoSidewaysScroll(page);
+  const sim = page.locator('.ls-explore .manip-simulate');
+  expect((await sim.boundingBox()).height, 'the simulate object').toBeLessThanOrEqual(300);
+  for (let k = 0; k < 3; k += 1) { await expect(simBtn(page, k)).toBeInViewport(); await simBtn(page, k).click(); }
+  await expect(sim.locator('.mp-sim-small')).toContainText('מתוך 1110');
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
+test('simulate dice2 (prob:3 practice): 1/11 after many throws names the equally likely sums', async ({ page }) => {
+  const est = (it) => it.form === 'manip' && it.manip.kind === 'simulate' && it.manip.device === 'dice2' && it.answer?.mode === 'estimate';
+  const it = await openOn(page, '#/lesson/prob/3?part=1', student('8'), est);
+  await expectNoSidewaysScroll(page);
+  for (let k = 0; k < 3; k += 1) await simBtn(page, k).click();
+  const sums = it.answer.choices.findIndex((c) => c.tag === 'equiprob-sums');
+  expect(sums).toBeGreaterThanOrEqual(0);
+  await page.locator('.mp-sim-choice').nth(sums).click();
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  const more = page.locator('section.fb-folded').getByRole('button', { name: 'רמז', exact: true });
+  if (await more.count()) await more.click();
+  await expect(page.locator('section.fb-retry')).toContainText('חשבו שכל הסכומים של שתי קוביות שווי סיכוי');
+});
+
+/** The owner of each slice the pie draws, clockwise from 12 o'clock (−1: grey). */
+const piePainted = (pie) => pie.locator('[data-slice]').evaluateAll((els) => els.map((e) => Number(e.dataset.owner)));
+/** The middle of slice s of a pie of `parts`, in screen pixels (at 60% of the radius). */
+async function sliceAt(pie, s, parts) {
+  const b = await pie.locator('svg.mp-chart-pie').boundingBox(); const a = ((s + 0.5) * 2 * Math.PI) / parts;
+  const r = 0.6 * b.width * (100 / 216);
+  return [b.x + b.width / 2 + r * Math.sin(a), b.y + b.height / 2 - r * Math.cos(a)];
+}
+/** Each element is inside the maths region (the part of the lesson that scrolls) at once: [what, top, bottom] off it. */
+const outsideRegion = (page, sels) => page.evaluate((list) => {
+  const m = document.querySelector('.lesson-main').getBoundingClientRect();
+  return list.flatMap((sel) => [...document.querySelectorAll(sel)].map((el) => ({ sel, r: el.getBoundingClientRect() })))
+    .filter(({ r }) => r.top < m.top - 1 || r.bottom > m.bottom + 1).map(({ sel, r }) => `${sel} ${Math.round(r.top)}-${Math.round(r.bottom)} (region ${Math.round(m.top)}-${Math.round(m.bottom)})`);
+}, sels);
+
+test('chart (data:3 practice): a tap on a grey slice colours that slice for the chosen category, while a later one has slices', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/data/3?part=1', student('7'), (x) => x.form === 'manip' && x.manip.kind === 'chart' && x.manip.mode === 'pie' && x.manip.cats.length >= 3);
+  const parts = it.manip.pie.parts; const grey = Array(parts - 5).fill(-1);
+  const pie = page.locator('.manip-chart-pie'); const chips = pie.locator('.mp-chart-chip');
+  const plus = pie.getByRole('button', { name: /^לצבוע עוד חלק ל/ });
+  // the first category two slices, the second three after them: the rest is grey
+  await chips.nth(0).click(); await plus.click(); await plus.click();
+  await chips.nth(1).click(); for (let k = 0; k < 3; k += 1) await plus.click();
+  await expect.poll(() => piePainted(pie)).toEqual([0, 0, 1, 1, 1, ...grey]);
+  // the first category again, and a tap on a grey slice past 6 o'clock: that slice is its, nothing else moves (review:
+  // the tapped slice took the second category's colour, and a slice at the top changed)
+  await chips.nth(0).click();
+  const s = Math.floor(parts / 2) + 1;
+  const [x, y] = await sliceAt(pie, s, parts);
+  await page.mouse.click(x, y);
+  const want = [0, 0, 1, 1, 1, ...grey]; want[s] = 0;
+  await expect.poll(() => piePainted(pie), 'the tapped slice, and only it').toEqual(want);
+  await expect(chips.nth(0)).toHaveAttribute('aria-valuenow', '3');
+  await expect(chips.nth(1)).toHaveAttribute('aria-valuenow', '3');
+  await expect(checkBtn(page)).toBeEnabled();
+  // the same slice tapped again is given back
+  await page.mouse.click(x, y);
+  await expect.poll(() => piePainted(pie)).toEqual([0, 0, 1, 1, 1, ...grey]);
+  // + takes the next grey slice after the category's last one (marked on the rim): slice 5, after the second's three
+  await plus.click();
+  await expect.poll(() => piePainted(pie)).toEqual([0, 0, 1, 1, 1, 0, ...grey.slice(1)]);
+  await expectNoSidewaysScroll(page);
+});
+
+test('chart (data:3 practice): the pie is 200px across (160 on the small phone) beside its chips, and the whole object fits the maths region', async ({ page }, info) => {
+  const small = info.project.name === 'phone-small';
+  // the tallest pie: four categories (the source table five rows), 20 parts
+  await open(page, '#/lesson/data/3?part=1', student('7'), '41');
+  await expect.poll(() => item(page)).toBeTruthy();
+  const it = await item(page);
+  expect(it.manip, 'seed 41 opens a pie of four categories in 20 parts (if the generators change, find another seed)').toMatchObject({ kind: 'chart', mode: 'pie', pie: { parts: 20 } });
+  expect(it.manip.cats).toHaveLength(4);
+  await expectNoSidewaysScroll(page);
+  const pie = page.locator('.manip-chart-pie');
+  // review: the pie was 120px on both phones, shrunk to fit under the source table
+  const circle = await pie.locator('circle.fig-ch-rim').boundingBox();
+  expect(circle.width, 'the pie across').toBeGreaterThanOrEqual(small ? 158 : 198);
+  for (const chip of await pie.locator('.mp-chart-chip').all()) {
+    const b = await chip.boundingBox();
+    expect(Math.min(b.width, b.height), 'a chip is thumb-sized').toBeGreaterThanOrEqual(44);
+  }
+  const object = ['.manip-chart-pie .mp-chart-read', '.manip-chart-pie svg.mp-chart-pie', '.manip-chart-pie .mp-chart-chip', '.manip-chart-pie .manip-controls'];
+  // on the phone it is all in view as the question opens; on the small phone the source table fills the top, and choosing
+  // a category brings the Stepper (the main path) into view with the pie and the chips above it
+  if (small) await pie.locator('.mp-chart-chip').nth(1).click();
+  await expect.poll(() => outsideRegion(page, object), 'the readout, the pie, every chip and the Stepper at once').toEqual([]);
+  await expectUsable(page, pie.getByRole('button', { name: /^לצבוע עוד חלק ל/ }), 'the + of the Stepper');
+  await page.screenshot({ path: test.info().outputPath(`chart-pie-${info.project.name}.png`) });
+  // the whole page never scrolls: the maths region does
+  const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
+  expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
+});
+
+test('chart (data:1 practice): a bar chart\'s words stay 14px, each bar is a 44px column, a drag changes it, and it fits the maths region', async ({ page }, info) => {
+  const small = info.project.name === 'phone-small';
+  await openOn(page, '#/lesson/data/1?part=1', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'chart' && it.manip.mode !== 'pie');
+  await expectNoSidewaysScroll(page);
+  const chart = page.locator('.manip-chart-bar');
+  const canvas = chart.locator('.manip-canvas');
+  // review: at 320 the drawing was at 60% and its names and numbers 10px; they are HTML now, at a fixed size
+  const scale = await canvas.evaluate((svg) => svg.getBoundingClientRect().width / svg.viewBox.baseVal.width);
+  expect(scale, 'the drawing is not shrunk').toBeGreaterThanOrEqual(0.85);
+  const words = await chart.evaluate((el) => [...el.querySelectorAll('.mp-chart-cat, .mp-chart-num, .mp-chart-title')].map((t) => ({ t: t.textContent, px: parseFloat(getComputedStyle(t).fontSize), h: t.getBoundingClientRect().height })));
+  expect(words.length).toBeGreaterThanOrEqual(4 + 3);
+  for (const w of words) expect(w.px, `"${w.t}"`).toBeGreaterThanOrEqual(14);
+  // each name under its own bar, each bar's column at least 44px wide
+  const cols = await chart.locator('.mp-chart-slot').evaluateAll((gs) => gs.map((g) => g.getBoundingClientRect()).map((r) => ({ l: r.left, r: r.right, w: r.width })));
+  const names = await chart.locator('.mp-chart-cat').evaluateAll((ns) => ns.map((n) => { const r = n.getBoundingClientRect(); return (r.left + r.right) / 2; }));
+  cols.forEach((c, i) => {
+    expect(c.w, `bar ${i}'s column`).toBeGreaterThanOrEqual(44);
+    expect(names[i] > c.l && names[i] < c.r, `name ${i} under its bar`).toBe(true);
+  });
+  // a drag on the first bar, from the bottom up, changes its value
+  const read = () => chart.locator('.mp-chart-read').textContent();
+  const before = await read();
+  const box = await canvas.boundingBox(); const slot = await chart.locator('.mp-chart-slot').first().boundingBox();
+  await page.mouse.move(slot.x + slot.width / 2, box.y + box.height * 0.85);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i += 1) await page.mouse.move(slot.x + slot.width / 2, box.y + box.height * (0.85 - 0.5 * i / 8));
+  await page.mouse.up();
+  await expect.poll(read, 'the drag changed the bar').not.toBe(before);
+  await expect(checkBtn(page)).toBeEnabled();
+  // a tap on a bar on the small phone brings the Stepper into view with the chart above it
+  if (small) await page.mouse.click(slot.x + slot.width / 2, box.y + box.height * 0.5);
+  await expect.poll(() => outsideRegion(page, ['.manip-chart-bar .mp-chart-read', '.manip-chart-bar .mp-chart-title', '.manip-chart-bar .manip-canvas', '.manip-chart-bar .mp-chart-cats', '.manip-chart-bar .manip-controls']), 'the chart and its Stepper at once').toEqual([]);
+  await page.screenshot({ path: test.info().outputPath(`chart-bar-${info.project.name}.png`) });
+  await expectNoSidewaysScroll(page);
+});
+
+test('chart (data:3 practice): a chip and + colour a slice of the pie', async ({ page }) => {
+  await openOn(page, '#/lesson/data/3?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'chart' && it.manip.mode === 'pie');
+  await expectNoSidewaysScroll(page);
+  const pie = page.locator('.manip-chart-pie');
+  const grey = () => pie.locator('.mp-chart-grey').count();
+  const before = await grey();
+  const chip = pie.locator('.mp-chart-chip:not(.fixed)').first();
+  await chip.click();
+  await expect(chip).toHaveClass(/\bon\b/);
+  await pie.getByRole('button', { name: /^לצבוע עוד חלק ל/ }).click();
+  await expect.poll(grey, 'one more slice is coloured').toBe(before - 1);
+  await expect(checkBtn(page)).toBeEnabled();
+  await expectNoSidewaysScroll(page);
+});
+
+// DATA-2 tests: "axe on both objects has no violation". The objects of the data unit, in the states a student sees them
+// (a spinner run with its table open, the covered wheel, two dice, a bar chart and a pie being built), pass axe's WCAG
+// 2.1 A/AA rules and the repo's text contrast probe. axe comes from @axe-core/playwright 4.10.2 (the packages lane adds
+// it to package.json with e2e/axe.js, which this scan can use once both are merged); without it the contrast probe
+// still runs and the test says axe was not run.
+test('the data unit\'s objects pass axe (WCAG 2.1 A/AA) and the contrast probe: spinner, covered wheel, two dice, bars, pie', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'scanned on one phone');
+  test.slow();
+  let AxeBuilder = null;
+  try { ({ default: AxeBuilder } = await import('@axe-core/playwright')); } catch { info.annotations.push({ type: 'axe', description: 'not run: @axe-core/playwright 4.10.2 is not installed' }); }
+  const scan = async (sel, what) => {
+    await expect(page.locator(sel)).toBeVisible();
+    expect(await textContrastFailures(page, { root: sel }), `text under AA on ${what}`).toEqual([]);
+    if (!AxeBuilder) return;
+    const r = await new AxeBuilder({ page }).include(sel).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    const list = r.violations.map((v) => `[${v.id}] ${v.help}: ${v.nodes.map((n) => JSON.stringify(n.target)).join(', ')}`);
+    expect(list, `axe on ${what}`).toEqual([]);
+    expect(r.passes.length, `axe ran its rules on ${what}`).toBeGreaterThan(5);
+  };
+  // the spinner in the teaching, after ten spins, its table open
+  await toExplore(page, '#/learn/data/4/A', '7');
+  await simBtn(page, 0).click();
+  await page.locator('.ls-explore .mp-sim-more').click();
+  await scan('.ls-explore .manip-simulate', 'the spinner');
+  // the covered wheel in practice, after a hundred and ten spins
+  await openOn(page, '#/lesson/data/4?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'simulate' && it.answer?.mode === 'estimate');
+  await simBtn(page, 0).click(); await simBtn(page, 1).click();
+  await scan('.manip-simulate', 'the covered wheel');
+  // two dice in practice
+  await openOn(page, '#/lesson/prob/3?part=1', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'simulate' && it.manip.device === 'dice2');
+  await simBtn(page, 0).click();
+  await scan('.manip-simulate', 'two dice');
+  // a bar chart with a bar raised
+  await openOn(page, '#/lesson/data/1?part=1', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'chart' && it.manip.mode !== 'pie');
+  await page.locator('.manip-chart-bar').getByRole('button', { name: /^להרים את העמודה של/ }).click();
+  await scan('.manip-chart-bar', 'the bar chart');
+  // a pie with a category coloured
+  await openOn(page, '#/lesson/data/3?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'chart' && it.manip.mode === 'pie');
+  await page.locator('.manip-chart-pie .mp-chart-chip').first().click();
+  await page.locator('.manip-chart-pie').getByRole('button', { name: /^לצבוע עוד חלק ל/ }).click();
+  await scan('.manip-chart-pie', 'the pie');
+});

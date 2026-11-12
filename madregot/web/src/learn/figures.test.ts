@@ -13,16 +13,16 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { contentOf, loadAllContent } from './content/index';
 import type { DiscoverStep, FigSpec } from './types';
 // @ts-ignore: plain JS
-import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
+import Figure, { geoSweep, geoSquare, FIG_TYPES } from '@/components/Figure.jsx';
 // @ts-ignore: plain JS
-import { axisName, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, figNum } from '@/content/manip.js';
+import { axisName, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, figNum, chartAxis, chartNum, pictoIcons, AXIS_LABELS } from '@/content/manip.js';
 // @ts-ignore: plain JS
 import { graphFrame, numWidth, numbered, GRAPH_FONT } from '@/components/manip/graphAxes.jsx';
 // @ts-ignore: plain JS
 import { protractorLabels } from '@/components/manip/protractor.jsx';
 import { protractorFig, clockFig } from './content/geo';
 // @ts-ignore: plain JS
-import { makeItem } from '@/content/index.js';
+import { makeItem, figPlain } from '@/content/index.js';
 import { seeded } from './expr';
 import { CHALLENGE_TASKS as CHALLENGES } from './challenges/all';
 
@@ -211,10 +211,47 @@ function labelsOf(f: AnyFig): Set<string> {
         return ['x', 'y', axisName(f.x), axisName(f.y), ...(f.series || []).map((s: any) => s.label), ...(f.marks || []).map((k: any) => k.label),
           ...(rr ? [fmt(rr.run), fmt(rr.rise)] : []), f.dirArrow && 'משמאל לימין'];
       }
+      // the data figures (DATA-3): names, the numbers printed on bars, slices and points (not with labels: false), the
+      // '?' of a hidden one, a line's xs and level, a pictogram's key; a table of outcomes its headings and cells
+      case 'chart': return [...(f.cats || []), ...(f.mode === 'line' ? (f.xs || []).map(String) : []), f.unit, f.mode === 'picto' && fmt(f.key),
+        f.level != null && chartNum(f.level, f.dp), f.mark != null && String(f.mark),
+        ...f.values.map((v: number | null, i: number) => (f.hide === i ? '?' : f.labels === false || f.mode === 'picto' || v == null ? null : `${chartNum(v, f.dp)}${f.pct ? '%' : ''}`))];
+      case 'outcomes': return [f.rowHead, f.colHead, ...(f.rows || []), ...f.cols, ...(f.cells || []).flat()];
+      case 'pair': return (f.items || []).flatMap((x: AnyFig) => [...labelsOf(x)]);
       default: return [];
     }
   })();
   return new Set(out.filter((x) => x != null && x !== '' && x !== 0).map(plainOf));
+}
+
+/** A chart agrees with itself: a name for every value, values on its axis, a key that halves, marks on the chart. */
+function chartProblems(f: AnyFig): string[] {
+  const bad: string[] = [];
+  const n = f.values.length; const at = (i: number) => Number.isInteger(i) && i >= 0 && i < n;
+  if (!['bar', 'pie', 'line', 'picto'].includes(f.mode)) bad.push(`chart mode ${f.mode}`);
+  if (f.mode !== 'line' && (f.cats || []).length !== n) bad.push(`chart: ${(f.cats || []).length} names for ${n} values`);
+  if (f.mode === 'line' && f.xs && f.xs.length !== n) bad.push(`chart: ${f.xs.length} xs for ${n} values`);
+  if (f.values.some((v: number | null) => v != null && v < 0)) bad.push('chart with a value under 0');
+  if (f.hide != null && !at(f.hide)) bad.push(`chart hide ${f.hide}`);
+  for (const i of f.cross || []) if (!at(i)) bad.push(`chart cross ${i}`);
+  if (f.mode === 'bar' || f.mode === 'line') {
+    const ax = chartAxis(f);
+    for (const v of f.values) if (v != null && (v < ax.from - 1e-9 || v > ax.max + 1e-9)) bad.push(`chart value ${v} off the axis ${ax.from}..${ax.max}`);
+    if (f.level != null && (f.level < ax.from || f.level > ax.max)) bad.push(`chart level ${f.level} off the axis`);
+    if (f.step && Math.abs((ax.max - ax.from) / f.step - Math.round((ax.max - ax.from) / f.step)) > 1e-9) bad.push(`chart axis ${ax.from}..${ax.max} is not whole steps of ${f.step}`);
+  }
+  if (f.mode === 'line' && f.dashed != null && !(f.dashed >= 1 && f.dashed < n)) bad.push(`chart dashed ${f.dashed}`);
+  if (f.mode === 'line' && f.mark != null) {
+    const xs = f.xs || [];
+    const ok = typeof f.mark === 'number' && xs.every((x: unknown) => typeof x === 'number') ? f.mark >= Math.min(...xs) && f.mark <= Math.max(...xs) : xs.includes(f.mark);
+    if (!ok) bad.push(`chart mark ${f.mark} is not on the line`);
+  }
+  if (f.mode === 'picto') {
+    if (!(f.key > 0)) bad.push(`pictogram key ${f.key}`);
+    else for (const v of f.values) if (v != null && Math.abs(pictoIcons(v, f.key) - (2 * v) / f.key / 2) > 1e-9) bad.push(`pictogram value ${v} is not a whole or half icon of ${f.key}`);
+  }
+  if (f.mode === 'pie' && !(f.values.reduce((a: number, v: number | null) => a + (v || 0), 0) > 0)) bad.push('a pie with nothing in it');
+  return bad;
 }
 
 /** The structural checks: a figure agrees with itself. */
@@ -246,6 +283,16 @@ function selfProblems(skill: string, f: AnyFig): string[] {
     if (f.values.some((v: number | null) => v != null && v < 0)) bad.push('bars with a value under 0');
     if (f.highlight != null && !(f.highlight >= 0 && f.highlight < f.values.length)) bad.push(`bars highlight ${f.highlight}`);
     if (f.level != null && !(f.level >= 0)) bad.push(`bars level ${f.level}`);
+  }
+  if (f.type === 'chart') bad.push(...chartProblems(f));
+  if (f.type === 'outcomes') {
+    const n = f.rows?.length || 1;
+    if (f.cells && (f.cells.length !== n || f.cells.some((r: unknown[]) => r.length !== f.cols.length))) bad.push(`outcomes: cells are not ${n} × ${f.cols.length}`);
+    for (const [i, j] of f.marked || []) if (!(i >= 0 && i < n && j >= 0 && j < f.cols.length)) bad.push(`outcomes: marked (${i}, ${j}) outside the table`);
+  }
+  if (f.type === 'pair') {
+    if (f.items?.length !== 2) bad.push(`pair of ${f.items?.length} sources`);
+    for (const x of f.items || []) if (x?.type === 'pair') bad.push('a pair inside a pair'); else if (x) bad.push(...selfProblems(skill, x).map((p) => `source: ${p}`));
   }
   if (f.type === 'coord') {
     const r = f.range || 6; const inside = ([x, y]: Pt) => Math.abs(x) <= r && Math.abs(y) <= r;
@@ -407,7 +454,7 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
   });
 
   // every teaching figure of every stair is drawn once: about 2 s alone and up to 9 s on a busy machine, past vitest's 5 s
-  // default, so it gets its own time as engines.test's slip check does
+  // default, so it gets its own time as engines.test's slip check does (over 5 s on a busy machine since the data unit too)
   it('every figure renders, with no broken numbers', () => {
     for (const { where, st } of ALL_STEPS()) {
       const fig = figOf(st); if (!fig) continue;
@@ -594,11 +641,183 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
   });
 
   it('in every topic, a say step that opens a stair draws itself in when its figure can', () => {
-    const DRAWS = new Set(['numline', 'thermo', 'machine', 'dots', 'coord', 'bars', 'table']);
+    const DRAWS = new Set(['numline', 'thermo', 'machine', 'dots', 'coord', 'bars', 'table', 'chart']);
     const bad = Object.values(CONTENT).flatMap((c) => {
       const st = c.discover[0]; const f = figOf(st) as AnyFig | undefined;
       return st.kind === 'say' && f && DRAWS.has(f.type) && !f.anim ? [`${c.skill} #0: ${f.type} without anim`] : [];
     });
     expect(bad).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------- DATA-3: the data figures and their extensions
+// chart (bar, pie, line, picto), outcomes and pair, drawn on their own before any topic uses them: each renders with no
+// broken number, says every number it draws in figPlain (and nothing it hides), and keeps its drawing rules (a grid
+// line at every step, at most 8 axis numbers, no value on a labels: false bar, a legend under a pie in its clockwise
+// order, half icons, runs, two sources). The checks of selfProblems and labelsOf above hold the content stages to them.
+describe('the data figures (DATA-3)', () => {
+  const html = (fig: AnyFig) => renderToStaticMarkup(createElement(Figure, { fig: fig as FigSpec }));
+  const count = (h: string, cls: string) => (h.match(new RegExp(`class="${cls}"`, 'g')) || []).length;
+  const sports = { type: 'chart', mode: 'bar', cats: ['כדורגל', 'כדורסל', 'שחייה', 'טניס'], values: [12, 8, 6, 4], max: 14, step: 2 };
+  const FIGS: Record<string, AnyFig> = {
+    bar: sports,
+    barBlank: { ...sports, labels: false },
+    truncated: { type: 'chart', mode: 'bar', cats: ['ראשקל', 'בלי כאב'], values: [82, 88], from: 80, max: 90, step: 2 },
+    clubs: { type: 'chart', mode: 'bar', cats: ['בלי חוג', 'חוג אחד', 'יותר מחוג אחד'], values: [30, 70, 100], max: 140, step: 10, every: 2 },
+    bill: { type: 'chart', mode: 'bar', cats: ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי'], values: [520, 480, 420, 390, 360], step: 100, hide: 2, cross: [0], level: 350 },
+    pie: { type: 'chart', mode: 'pie', cats: ['שיחה', 'אין תשובה', 'קו מקולקל', 'תפוס'], values: [50, 20, 25, 5], pct: true },
+    pieHidden: { type: 'chart', mode: 'pie', cats: ['אדום', 'כחול', 'ירוק'], values: [0.3, 0.25, 0.45], hide: 2 },
+    years: { type: 'chart', mode: 'line', xs: [2010, 2016], values: [2, 3.2], mark: 2014, dp: 1, step: 0.5, max: 3.5 },
+    tickets: { type: 'chart', mode: 'line', xs: ['8:00', '10:00', '12:00', '14:00', '16:00'], values: [200, 350, 500, 650, 800], dashed: 1, step: 100, max: 900, every: 2 },
+    wind: { type: 'chart', mode: 'line', xs: [1, 2, 3, 4], values: [0.5, 1.2, 2.4, 1.8], level: 2, dp: 1, step: 0.5, max: 3, cross: [2] },
+    picto: { type: 'chart', mode: 'picto', cats: ['מתח', 'מדע בדיוני', 'שירה'], values: [14, 8, 2], key: 4, unit: 'ילדים', icon: 'person' },
+    dice: { type: 'outcomes', rowHead: 'קובייה א׳', colHead: 'קובייה ב׳', rows: ['1', '2', '3', '4', '5', '6'], cols: ['1', '2', '3', '4', '5', '6'], cells: [1, 2, 3, 4, 5, 6].map((r) => [1, 2, 3, 4, 5, 6].map((c) => String(r + c))), marked: [[4, 5], [5, 4]], label: 'של שתי קוביות' },
+    coinDie: { type: 'outcomes', rowHead: 'מטבע', colHead: 'קובייה', rows: ['עץ', 'פלי'], cols: ['1', '2', '3', '4', '5', '6'] },
+    raffle: { type: 'outcomes', colHead: 'כרטיסים', cols: ['1–9', '10–45', '46–72'], marked: [[0, 0], [0, 2]] },
+    pair: { type: 'pair', items: [
+      { type: 'chart', mode: 'line', xs: [1, 2, 3, 4], values: [0.5, 1.2, 2.4, 1.8], level: 2, dp: 1, step: 0.5, max: 3, cross: [2] },
+      { type: 'table', head: ['קפיצה', 'מרחק (מטר)'], rows: [[1, '6.20'], [2, '6.45'], [3, '6.80'], [4, '6.50']], cross: [2] },
+    ] },
+  };
+
+  it('every figure renders, with no broken number, agrees with itself and is a type Figure draws', () => {
+    for (const [k, f] of Object.entries(FIGS)) {
+      const h = html(f);
+      expect(h, k).toMatch(/<svg|<table/);
+      expect(h, k).not.toMatch(/NaN|undefined|Infinity|null/);
+      expect(selfProblems('data:1', f), k).toEqual([]);
+      expect(FIG_TYPES, k).toContain(f.type);
+    }
+    expect(FIG_TYPES).toEqual(expect.arrayContaining(['chart', 'outcomes', 'pair']));
+  });
+
+  it('figPlain says every number a chart draws, its axis, and never the value it hides', () => {
+    expect(figPlain(FIGS.bar)).toBe('דיאגרמת עמודות: כדורגל 12, כדורסל 8, שחייה 6, טניס 4; הציר מ־0 עד 14 בקפיצות של 2');
+    expect(figPlain(FIGS.pie)).toBe('דיאגרמת עוגה, בכיוון השעון מלמעלה: שיחה 50%, אין תשובה 20%, קו מקולקל 25%, תפוס 5%');
+    expect(figPlain(FIGS.picto)).toBe('פיקטוגרמה, כל סמל 4 ילדים: מתח 3 סמלים וחצי, מדע בדיוני 2 סמלים, שירה חצי סמל');
+    expect(figPlain(FIGS.truncated)).toContain('הציר מ־80 עד 90 בקפיצות של 2');
+    for (const k of ['bar', 'barBlank', 'truncated', 'clubs', 'bill', 'pie', 'years', 'tickets', 'wind']) {
+      const f = FIGS[k]; const said = figPlain(f);
+      f.values.forEach((v: number, i: number) => { if (f.hide !== i) expect(said, `${k} ${v}`).toContain(chartNum(v, f.dp)); });
+      (f.cats || []).forEach((c: string) => expect(said, k).toContain(c));
+    }
+    // a hidden value is a question mark, in the drawing and in the words
+    expect(figPlain(FIGS.bill)).toContain('מרץ ?'); expect(figPlain(FIGS.bill)).not.toContain('420');
+    expect(figPlain(FIGS.pieHidden)).toContain('ירוק ?'); expect(figPlain(FIGS.pieHidden)).not.toContain('0.45');
+    expect(html(FIGS.pieHidden)).not.toContain('0.45');
+    // what is drawn on a chart is said too: the crossed bar, the level line, the dashed continuation, the marked year
+    expect(figPlain(FIGS.bill)).toContain('ינואר 520 (מחוק)');
+    expect(figPlain(FIGS.bill)).toContain('קו מקווקו בגובה 350');
+    expect(figPlain(FIGS.tickets)).toContain('16:00: 800 (המשך המגמה, בקו מקווקו)');
+    expect(figPlain(FIGS.years)).toBe('גרף: 2010: 2.0, 2016: 3.2; הציר האנכי מ־0 עד 3.5 בקפיצות של 0.5; מסומן 2014');
+  });
+
+  it('a bar chart has a grid line at every step and at most 8 axis numbers; labels: false prints no value on its bars', () => {
+    const bar = html(FIGS.bar);
+    expect(count(bar, 'fig-ch-grid')).toBe(7); // 2, 4, …, 14 (0 is the base)
+    expect(count(bar, 'fig-ch-tick')).toBe(8); // 0, 2, …, 14
+    expect(count(bar, 'fig-ch-val')).toBe(4);
+    expect(count(html(FIGS.barBlank), 'fig-ch-val')).toBe(0);
+    // max 140, step 10, every 2: 15 grid lines' worth of steps, 8 numbers; with no every the axis still says 8 at most
+    const clubs = html(FIGS.clubs);
+    expect(count(clubs, 'fig-ch-grid')).toBe(14);
+    expect(count(clubs, 'fig-ch-tick')).toBe(8);
+    expect(chartAxis({ ...FIGS.clubs, every: undefined }).labelled).toHaveLength(8);
+    expect(chartAxis({ ...FIGS.clubs, every: 1 }).labelled.length).toBeLessThanOrEqual(AXIS_LABELS);
+    expect(chartAxis({ values: [7, 3] })).toMatchObject({ from: 0, step: 1, max: 7 });
+    // the truncated axis starts at 80, and the first category is on the right
+    const tr = html(FIGS.truncated);
+    expect(tr).toMatch(/class="fig-ch-tick">80</);
+    const xOf = (h: string, word: string) => Number(new RegExp(`<text x="([\\d.]+)"[^>]*class="fig-ch-cat"[^>]*><tspan[^>]*>${word}<`).exec(h)?.[1]);
+    expect(xOf(bar, 'כדורגל')).toBeGreaterThan(xOf(bar, 'טניס'));
+    // a long name wraps to two lines in its slot
+    expect((clubs.match(/<tspan/g) || []).length).toBe(4); // בלי חוג, חוג אחד, and יותר מחוג / אחד
+  });
+
+  it('a pie draws its slices clockwise from 12 o\'clock with a legend of chips under it, in that order, never in a slice', () => {
+    const h = html(FIGS.pie);
+    const chips = [...h.matchAll(/class="fig-ch-chip-text"[^>]*>([^<]+)</g)].map((m) => m[1]);
+    expect(chips).toEqual(['שיחה 50%', 'אין תשובה 20%', 'קו מקולקל 25%', 'תפוס 5%']);
+    // the first slice is the right half: it starts at 12 o'clock (160, cy − R) and ends at 6 (160, cy + R)
+    expect(h).toMatch(/d="M 160 70 L 160 6 A 64 64 0 0 1 160 134 Z"/);
+    // tones beyond the first carry a pattern, so colour is never the only cue; no number is written inside the circle
+    expect((h.match(/fill="url\(#/g) || []).length).toBe(2 * 3); // three patterned slices, three patterned chip swatches
+    expect(count(h, 'fig-ch-val')).toBe(0);
+  });
+
+  it('a line chart runs left to right, continues dashed, marks an x, crosses a point and draws a level line', () => {
+    const t = html(FIGS.tickets);
+    expect(count(t, 'fig-ch-line dashed')).toBe(1);
+    expect(count(t, 'fig-ch-line')).toBe(3);
+    expect(count(t, 'fig-ch-pt est')).toBe(1);
+    const xs = [...t.matchAll(/class="fig-ch-x[^"]*">([^<]+)</g)].map((m) => m[1]);
+    expect(xs).toEqual(['8:00', '10:00', '12:00', '14:00', '16:00']);
+    const y = html(FIGS.years);
+    expect(y).toMatch(/class="fig-ch-mark"/);
+    expect(y).toMatch(/class="fig-ch-x on">2014</);
+    const w = html(FIGS.wind);
+    expect(w).toMatch(/class="fig-ch-level"/);
+    expect(w).toMatch(/class="fig-ch-level-num">2\.0</);
+    expect(count(w, 'fig-ch-cross')).toBe(1);
+  });
+
+  it('a pictogram draws whole icons and a half icon as a half, with its key', () => {
+    const h = html(FIGS.picto);
+    expect(pictoIcons(14, 4)).toBe(3.5);
+    expect((h.match(/clip-path="url\(#/g) || []).length).toBe(2); // the half icons of מתח (3.5) and שירה (0.5)
+    expect(h).toContain('מקרא:');
+    expect(h).toMatch(/class="fig-ch-key-text"[^>]*>4 ילדים</);
+  });
+
+  it('a table of outcomes: two stages as rows × cols, one stage as one row (runs), marked cells said', () => {
+    const d = html(FIGS.dice);
+    expect((d.match(/<td/g) || []).length).toBe(36 + 1); // and the empty corner over the row names
+    expect(count(d, 'on')).toBe(2);
+    expect((d.match(/\(מסומן\)/g) || []).length).toBe(2);
+    expect(figPlain(FIGS.dice)).toContain('מסומנים 2 תאים: (5, 6) 11, (6, 5) 11');
+    expect(figPlain(FIGS.dice)).toMatch(/^טבלת תוצאות של שתי קוביות: /);
+    expect(html(FIGS.coinDie)).toContain('(עץ, 1)');
+    const r = html(FIGS.raffle);
+    expect((r.match(/<td/g) || []).length).toBe(3);
+    expect(figPlain(FIGS.raffle)).toBe('טבלת תוצאות: כרטיסים: 1–9, 10–45, 46–72; מסומנים 2 תאים: 1–9, 46–72');
+  });
+
+  it('a pair stacks two titled sources, each compact, and says both; a pair holds no pair', () => {
+    const h = html(FIGS.pair);
+    expect([...h.matchAll(/class="fig-pair-title">([^<]+)</g)].map((m) => m[1])).toEqual(['מקור 1', 'מקור 2']);
+    expect(h).toMatch(/fig-chart fig-chart-line compact/);
+    expect(h).toMatch(/fg-table compact/);
+    expect(figPlain(FIGS.pair)).toMatch(/^מקור 1: גרף: 1: 0\.5, 2: 1\.2, 3: 2\.4 \(מחוק\), 4: 1\.8; .*; מקור 2: טבלה: .*; מחוק: 3 → 6\.80$/);
+    const nested = { type: 'pair', items: [FIGS.pair, FIGS.bar] };
+    expect(selfProblems('stats:7', nested)).toContain('a pair inside a pair');
+    expect(html(nested)).not.toContain('fig-pair-src"><p class="fig-pair-title">מקור 1</p><div class="fig-pair-body"><div');
+  });
+
+  it('the figure extensions: a table\'s shaded cell and struck row, fbar tones, a range arrow, words at 0 and 1', () => {
+    const t = { type: 'table', head: ['שטר', 'כמה'], rows: [['20 ש״ח', 4], ['50 ש״ח', 2], ['100 ש״ח', 1]], highlight: [[0, 1]], cross: [2] };
+    const th = html(t);
+    expect(th).toMatch(/<td class="hi">/);
+    expect(th).toMatch(/<tr class="cross"/);
+    expect(figPlain(t)).toBe('טבלה: 20 ש״ח → 4; 50 ש״ח → 2; 100 ש״ח → 1; מסומן: 4; מחוק: 100 ש״ח → 1');
+    const tones = { type: 'fbar', den: 20, tones: [{ n: 6, label: 'ירוק', tone: 2 }, { n: 9, label: 'כחול' }, { n: 5, label: 'אדום', tone: 3 }] };
+    const fh = html(tones);
+    expect((fh.match(/mp-fbar-part on fig-tone-/g) || []).length).toBe(20);
+    expect((fh.match(/mp-fbar-cut group/g) || []).length).toBe(2);
+    expect(figPlain(tones)).toBe('פס שברים: הפס מחולק ל־20 חלקים; ירוק 6 חלקים, כחול 9 חלקים, אדום 5 חלקים');
+    const dots = { type: 'dots', values: [12, 5, 9, 17, 8], axis: [4, 18], span: { from: 5, to: 17, label: '12' } };
+    expect(html(dots)).toMatch(/class="fig-dt-span-num">12</);
+    expect(figPlain(dots)).toContain('חץ מ־5 עד 17 (12)');
+    expect(selfProblems('stats:6', dots)).toEqual([]);
+    const words = { type: 'numline', from: 0, to: 1, step: 0.5, marks: [{ x: 0, label: 'בלתי אפשרי' }, { x: 0.5, label: 'סיכוי שווה' }, { x: 1, label: 'ודאי' }] };
+    const nh = html(words);
+    expect(figPlain(words)).toBe('ציר מספרים מ־0 עד 1, נקודה ב־0: בלתי אפשרי, נקודה ב־0.5: סיכוי שווה, נקודה ב־1: ודאי');
+    // under the line, held inside the drawing at both ends
+    const placed = [...nh.matchAll(/<text x="([\d.]+)" y="([\d.]+)"[^>]*class="fig-nl-word"[^>]*><tspan[^>]*>([^<]+)</g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]), w: m[3] }));
+    expect(placed.map((p) => p.w)).toEqual(['בלתי אפשרי', 'סיכוי שווה', 'ודאי']);
+    const line = Number(/<line x1="10" y1="([\d.]+)"/.exec(nh)?.[1]);
+    placed.forEach((p) => expect(p.y).toBeGreaterThan(line + 30));
+    expect(placed[0].x).toBeGreaterThan(22); // running inward from 0 (at x = 22)
+    expect(placed[1].x).toBe(160); // a word between the ends is centred on its point
+    expect(placed[2].x).toBeLessThan(298); // and from 1 (at x = 298)
   });
 });

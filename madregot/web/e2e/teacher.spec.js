@@ -1394,6 +1394,21 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await expect(r).toContainText('2 עוד לא התחילו');
   });
 
+  // the תשפ״ז transition year (DATA-1): a ח׳ class learns the ז׳ data unit too, after percent, and its teacher assigns it
+  test('a ח׳ class: the stair list has the data unit, after percent and before linear functions', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher?tab=work', keyTeacher({ className: 'ח׳2', grade: '8' }));
+    await page.getByRole('button', { name: 'משימה חדשה' }).first().click();
+    const s = sheet(page, 'משימה לכיתה ח׳2');
+    const pick = s.getByLabel('איזו מדרגה?');
+    const values = await pick.locator('option').evaluateAll((os) => os.map((o) => o.value));
+    for (const id of ['data:1', 'data:2', 'data:3', 'data:4']) expect(values, id).toContain(id);
+    expect(values.indexOf('data:1')).toBeGreaterThan(values.indexOf('pct:5'));
+    expect(values.indexOf('data:4')).toBeLessThan(values.indexOf('line:1'));
+    await pick.selectOption('data:1');
+    await expect(s.getByLabel('כותרת')).toHaveValue('נתונים ושכיחות: דיאגרמות וטבלת שכיחויות');
+  });
+
   test('a week from a Saturday is a Saturday: the sheet says the date moves to Sunday, as the server does', async ({ page }) => {
     const { log } = await fakeServer(page, { today: '2026-11-07' }, baseOf());
     await open(page, '#/teacher?tab=work', keyTeacher(), { at: new Date('2026-11-07T10:00:00') });

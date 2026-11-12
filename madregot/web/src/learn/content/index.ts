@@ -34,6 +34,7 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'coord': return import('./coord').then((m) => m.COORD);
     case 'angles': return import('./angles').then((m) => m.ANGLES);
     case 'expr': return import('./expr').then((m) => m.EXPR);
+    case 'data': return import('./data').then((m) => m.DATA);
     case 'eq': return import('./eq').then((m) => m.EQ);
     // the curriculum lane's grade 8 units in school order: ratio and scale, then percent
     case 'ratio': return import('./ratio').then((m) => m.RATIO);
@@ -42,7 +43,10 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'func': return import('./func').then((m) => m.FUNC);
     case 'line': return import('./line').then((m) => [...m.LINE1, ...m.LINE2]);
     case 'pyth': return import('./pyth').then((m) => m.PYTH);
-    case 'stats': return import('./stats').then((m) => m.STATS);
+    // stats:6-8 (curriculum stage 3: range, two sources, interpolation) are in their own file
+    case 'stats': return Promise.all([import('./stats'), import('./stats2')]).then(([a, b]) => [...a.STATS, ...b.STATS2]);
+    // curriculum stage 3's probability ("הסתברות ב" of ח׳)
+    case 'prob': return import('./prob').then((m) => m.PROB);
     case 'sys': return import('./sys').then((m) => m.SYS);
     // a topic with no teaching content has nothing to load
     default: return Promise.resolve([]);

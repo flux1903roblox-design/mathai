@@ -13,14 +13,19 @@ import { roundsTo, EQ } from './eq.js';
 import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
-import { candidates } from './labels.sample.js';
+import { candidates, nearCandidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { FUNC } from './func.js';
+import { DATA } from './data.js';
+import { STATS2_CATS } from './stats2.js';
+import { PROB } from './prob.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
 const nums = (key) => key.split(':').slice(1).map(Number);
+/** A data key's fields: numbers, and lists (the bars' values, a table's counts, '6,10,4') as arrays of numbers. */
+const dataKey = (key) => key.split(':').slice(1).map((x) => (x.includes(',') ? x.split(',').map(Number) : Number(x)));
 const sum = (a) => a.reduce((x, y) => x + y, 0);
 const sortN = (a) => [...a].sort((x, y) => x - y);
 const median = (a) => { const s = sortN(a); const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
@@ -821,6 +826,70 @@ const PROPS = {
     },
     'assume-right': (it, u) => it.key.startsWith('py3n:') && u === 4 && it.answer < 4,
   },
+  // data:1-4 (curriculum stage 3), each property from the numbers the student saw (the key). A list in the key (the bars'
+  // values, a table's counts) is read as an array. The P-rule predictions (a share, a probability) may be typed rounded:
+  // they are compared through fits (the value or its rounding to tenths or hundredths), as diagOf reads them.
+  data: {
+    'scale-units': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da1r') { const [s, vals, i] = k; return fits(u, vals[i] / s); }
+      if (p === 'da1d') { const [s, vals, i, j] = k; return fits(u, (vals[i] - vals[j]) / s); }
+      if (p === 'da1l') { const [step, vals, a, b] = k; return fits(u, (vals[b] - vals[a]) / step); }
+      return false;
+    },
+    'one-value': (it, u) => { const [, vals, i] = dataKey(it.key); return it.key.startsWith('da1d:') && fits(u, vals[i]); },
+    'icon-count': (it, u) => { const [, icons, x] = dataKey(it.key); return it.key.startsWith('da1p:') && fits(u, icons[x]); },
+    'half-icon': (it, u) => { const [k, icons, x] = dataKey(it.key); return it.key.startsWith('da1p:') && icons[x] % 1 !== 0 && fits(u, Math.ceil(icons[x]) * k); },
+    // the "yes, r times" choice, where the bars drawn from `from` look r times apart
+    'truncated-axis': (it, u) => { const [from, a, b] = dataKey(it.key); return it.key.startsWith('da1a:') && it.choices[u]?.text === `כן, פי ${(a - from) / (b - from)}`; },
+    'part-part': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da2' || p === 'da4') { const [f, j] = k; const N = sum(f); return fits(u, f[j] / (N - f[j])); }
+      if (p === 'da2b') { const [n1, k1, n2, k2] = k; const [n, c] = k1 / n1 > k2 / n2 ? [n1, k1] : [n2, k2]; return fits(u, c / (n - c)); }
+      return false;
+    },
+    'inverse-ratio': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da2') { const [f, j] = k; return fits(u, sum(f) / f[j]); }
+      if (p === 'da3p') { const [rows, x] = k; return fits(u, (100 * sum(rows)) / rows[x]); }
+      return false;
+    },
+    'freq-only': (it, u) => { const [f, j] = dataKey(it.key); return it.key.startsWith('da2:') && fits(u, f[j]); },
+    'per-category': (it, u) => { const [f] = dataKey(it.key); return it.key.startsWith('da2:') && fits(u, 1 / f.length); },
+    'pct-for-dec': (it, u) => { const [f, j] = dataKey(it.key); return it.key.startsWith('da2:') && fits(u, (100 * f[j]) / sum(f)); },
+    'bigger-count': (it, u) => {
+      const [n1, k1, n2, k2] = dataKey(it.key); const more = k1 > k2 ? 0 : 1;
+      // the share of the class with more of them, which is not the larger share
+      if (it.key.startsWith('da2b:')) return [k1 / n1, k2 / n2][more] < [k1 / n1, k2 / n2][1 - more] && fits(u, [k1 / n1, k2 / n2][more]);
+      if (it.key.startsWith('da2c:')) return u === more && [k1 / n1, k2 / n2][more] <= [k1 / n1, k2 / n2][1 - more] + 1e-9;
+      return false;
+    },
+    'div-by-rel': (it, u) => { const [N, rel] = dataKey(it.key); return it.key.startsWith('da2r:') && fits(u, N / rel); },
+    'count-as-pct': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da3') { const [, ps, x] = k; return fits(u, ps[x]); }
+      if (p === 'da3p') { const [rows, x] = k; return fits(u, rows[x]); }
+      return false;
+    },
+    'div-by-pct': (it, u) => { const [N, ps, x] = dataKey(it.key); return it.key.startsWith('da3:') && fits(u, N / ps[x]); },
+    'pct-of-part': (it, u) => { const [p, c] = dataKey(it.key); return it.key.startsWith('da3w:') && fits(u, (c * p) / 100); },
+    'stop-at-one': (it, u) => { const [p, c] = dataKey(it.key); return it.key.startsWith('da3w:') && fits(u, c / p); },
+    // "yes" for three classes' percents that do not add up to one whole
+    'pie-not-whole': (it, u) => { const [kind, ps] = dataKey(it.key); return it.key.startsWith('da3o:') && kind === 0 && sum(ps) !== 100 && it.choices[u]?.text === 'כן'; },
+    equiprob: (it, u) => { const [c] = dataKey(it.key); return it.key.startsWith('da4:') && fits(u, 1 / c.length); },
+    'old-total': (it, u) => { const [N, p, m] = dataKey(it.key); return it.key.startsWith('da4j:') && fits(u, ((p * N) / 100 + m) / N); },
+    'new-not-counted': (it, u) => { const [N, p, m] = dataKey(it.key); return it.key.startsWith('da4j:') && fits(u, ((p * N) / 100) / (N + m)); },
+    'old-rel': (it, u) => { const [, p] = dataKey(it.key); return it.key.startsWith('da4j:') && fits(u, p / 100); },
+    'rel-not-scaled': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da4e') { const [, n, w] = k; return fits(u, w / n); }
+      if (p === 'da4x') { const [, a, b] = k; return fits(u, a / b); }
+      return false;
+    },
+    'draws-as-count': (it, u) => { const [, , w] = dataKey(it.key); return it.key.startsWith('da4e:') && fits(u, w); },
+    // a covered wheel picked wrong after fewer than 100 spins (the object's own counts)
+    'small-sample': (it, u) => it.manip?.kind === 'simulate' && !!u && u.pick !== it.answer.answer && u.n < 100,
+  },
   stats: {
     'mode-max': (it, u) => near(u, Math.max(...nums(it.key.replace(/,/g, ':')))),
     'mode-median': (it, u) => { const l = sortN(nums(it.key.replace(/,/g, ':'))); return near(u, l[Math.floor(l.length / 2)]); },
@@ -835,8 +904,151 @@ const PROPS = {
     'mean-as-answer': (it, u) => near(u, Number(it.key.split(':').pop())),
     'ignore-freq': (it, u) => { const vals = it.key.split(':')[1].split(',').map(Number); return near(u, sum(vals) / vals.length); },
     'wrong-count': (it, u) => { const [vals, freqs] = it.key.split(':').slice(1).map((x) => x.split(',').map(Number)); return near(u, sum(vals.map((v, i) => v * freqs[i])) / vals.length); },
+    // stats:6-8 (curriculum stage 3, DATA-5), each read from the question's own numbers (its key)
+    // the largest value of the data the question asks about: as given (st6r), or after the change (st6s: M + c, 2M, 1.1M)
+    'range-max': (it, u) => {
+      if (it.key.startsWith('st6r:')) return fits(u, Math.max(...dataKey(it.key)[0]));
+      const st = st6s(it); return !!st && fits(u, st.f(Math.max(...st.vals)));
+    },
+    // the last value minus the first, the list unsorted
+    'first-last': (it, u) => { if (!it.key.startsWith('st6r:')) return false; const v = dataKey(it.key)[0]; return fits(u, Math.abs(v[v.length - 1] - v[0])); },
+    // the number added to every value added to the range too
+    'shift-range': (it, u) => { const st = st6s(it); return !!st && st.op === 'add' && fits(u, st.r + st.c); },
+    // every value multiplied, the range left as it was
+    'range-unchanged': (it, u) => { const st = st6s(it); return !!st && st.op !== 'add' && fits(u, st.r); },
+    // the old mean: all the values changed (st6m), or one wage raised (st6t)
+    'mean-unchanged': (it, u) => {
+      if (it.key.startsWith('st6m:')) return fits(u, Number(it.key.split(':')[2]));
+      const w = st6t(it); return !!w && fits(u, w.S / w.N);
+    },
+    // the whole raise added to the mean
+    'whole-raise': (it, u) => { const w = st6t(it); return !!w && fits(u, w.S / w.N + w.d); },
+    // the jumps' mean with the wind ignored: all five
+    'ignore-source': (it, u) => it.key.startsWith('st7j:') && fits(u, sum(dataKey(it.key)[1]) / 5),
+    // the legal jumps added (wind at most 2.0) and divided by all five
+    'all-count': (it, u) => { if (!it.key.startsWith('st7j:')) return false; const [wind, d] = dataKey(it.key); return fits(u, sum(d.filter((_, i) => wind[i] <= 2)) / 5); },
+    // this spring's total (March-May) against last spring's monthly mean
+    'total-not-mean': (it, u) => { if (!it.key.startsWith('st7b:')) return false; const [m, seasons] = dataKey(it.key); return fits(u, sum(m.slice(2)) - seasons[1]); },
+    // all five months averaged, against last spring's monthly mean
+    'all-months': (it, u) => { if (!it.key.startsWith('st7b:')) return false; const [m, seasons] = dataKey(it.key); return fits(u, sum(m) / 5 - seasons[1]); },
+    // the pie's percent of the chosen hobby written as the count
+    'count-as-pct': (it, u) => { if (!it.key.startsWith('st7p:')) return false; const [, ps, x] = dataKey(it.key); return fits(u, ps[x]); },
+    // interpolation: the middle of the two values, the whole difference each year, the steps counted from the other end,
+    // the change without the start
+    midpoint: (it, u) => { const q = st8i(it); return !!q && fits(u, (q.y1 + q.y2) / 2); },
+    'steps-not-scaled': (it, u) => { const q = st8i(it); return !!q && fits(u, q.y1 + q.j * (q.y2 - q.y1)); },
+    'wrong-end': (it, u) => { const q = st8i(it); return !!q && fits(u, q.y1 + (q.d - q.j) * q.rate); },
+    'no-start': (it, u) => { const q = st8i(it); return !!q && fits(u, Math.abs(q.j * q.rate)); },
+    // extrapolation of the tickets (t0 + i·a by 8, 10, 12, 14; s steps of two hours asked): stopped, one step, hours as steps
+    'last-value': (it, u) => { const q = st8e(it); return !!q && fits(u, q.t0 + 3 * q.a); },
+    'one-step': (it, u) => { const q = st8e(it); return !!q && q.s > 1 && fits(u, q.t0 + 4 * q.a); },
+    'hours-as-steps': (it, u) => { const q = st8e(it); return !!q && fits(u, q.t0 + 3 * q.a + 2 * q.s * q.a); },
+    // the choice that takes the trend far beyond the data as sure: the value carried on to the age asked, and nothing more
+    'far-extrap': (it, u) => {
+      if (!it.key.startsWith('st8l:')) return false;
+      const [, a, r, t1, T] = it.key.split(':').slice(1).map(Number); const c = it.choices[u];
+      return !!c && !c.ok && c.text.startsWith(`${a + r * (T - t1)} `) && !c.text.includes('הגיוני');
+    },
+  },
+  // prob:1-3 (curriculum stage 3, DATA-6), each property from the numbers the student saw (the key). A fraction typed for
+  // prob:3 ({ n, d }) is read by its value, which must be the prediction exactly (nothing is rounded in a fraction).
+  prob: {
+    'count-not-prob': (it, u) => {
+      if (it.key.startsWith('pr1:')) { const { k } = pr1(it); return fits(u, k); }
+      if (it.key.startsWith('pr1r:')) { const [N, a, b] = nums(it.key); return fits(u, a + N - b + 1); }
+      if (it.key.startsWith('pr2p:')) { const [N, a, b, m] = nums(it.key); const blue = (a * N) / b; return fits(u, N - blue - m * blue); }
+      return false;
+    },
+    'one-over-n': (it, u) => it.key.startsWith('pr1:') && fits(u, 1 / pr1(it).n),
+    // "it happens or it does not": one half for an event that is not one half
+    'equiprob-event': (it, u) => it.key.startsWith('pr1:') && pr1(it).k * 2 !== pr1(it).n && fits(u, 0.5),
+    // b to N counted as N − b numbers
+    fencepost: (it, u) => {
+      if (it.key.startsWith('pr1r:')) { const [N, a, b] = nums(it.key); return fits(u, (a + N - b) / N); }
+      if (it.key.startsWith('pr2a:')) { const [n, t] = nums(it.key); return fits(u, (n - t) / n); }
+      return false;
+    },
+    // the "yes, it still has n sides" choice for a die, a coin or a wheel that is not symmetric
+    'no-symmetry': (it, u) => it.key.startsWith('pr1f:') && /^כן, יש/.test(it.choices[u]?.text || ''),
+    'same-prob': (it, u) => {
+      if (it.key.startsWith('pr2:')) { const { p, x } = pr2(it); return fits(u, p[x]); }
+      if (it.key.startsWith('pr2c:')) return fits(u, nums(it.key)[0]);
+      return false;
+    },
+    'hundred-minus': (it, u) => { if (!it.key.startsWith('pr2:')) return false; const { p, x } = pr2(it); return fits(u, 100 - p[x]); },
+    'others-given': (it, u) => { if (!it.key.startsWith('pr2:')) return false; const { p, x } = pr2(it); return fits(u, sum(p.filter((_, i) => i !== x))); },
+    // only blue taken away: 1 − a/b
+    'one-part': (it, u) => { if (!it.key.startsWith('pr2p:')) return false; const [, a, b] = nums(it.key); return fits(u, 1 - a / b); },
+    // "less than t" found and not taken from 1
+    'complement-only': (it, u) => { if (!it.key.startsWith('pr2a:')) return false; const [n, t] = nums(it.key); return fits(u, (t - 1) / n); },
+    // the "due" or the "hot" choice after a run of one side
+    gambler: (it, u) => it.key.startsWith('pr2g:') && /תורו|"חם"/.test(it.choices[u]?.text || ''),
+    // the forecast read as the part of tomorrow it rains, or as sure
+    'outcome-approach': (it, u) => it.key.startsWith('pr2f:') && /מהיום|בטוח/.test(it.choices[u]?.text || ''),
+    // two dice thrown many times (100 or more) and the share of a sum picked as one of eleven sums
+    'equiprob-sums': (it, u) => (it.key.startsWith('pr3:') && fracIs(u, pr3(it).sums.length / 11))
+      || (it.key.startsWith('pr3d:') && u?.n >= 100 && near(pickedValue(it, u), 1 / 11)),
+    unordered: (it, u) => {
+      if (it.key.startsWith('pr3:')) return fracIs(u, sum(pr3(it).sums.map(pairsOf)) / 36);
+      if (it.key.startsWith('pr3o:')) return it.choices[u]?.text === 'תוצאה אחת';
+      // the pairs of the sum watched counted without order, over 36, picked after 100 or more throws
+      if (it.key.startsWith('pr3d:')) return u?.n >= 100 && near(pickedValue(it, u), pairsOf(it.manip.watch) / 36);
+      return false;
+    },
+    'space-21': (it, u) => it.key.startsWith('pr3:') && fracIs(u, sum(pr3(it).sums.map(pairsOf)) / 21),
+    'add-probs': (it, u) => { if (!it.key.startsWith('pr3t:')) return false; const [n1, n2, k1, k2] = it.key.split(':').slice(2).map(Number); return fracIs(u, k1 / n1 + k2 / n2); },
+    'one-stage': (it, u) => { if (!it.key.startsWith('pr3t:')) return false; const [, n2, , k2] = it.key.split(':').slice(2).map(Number); return fracIs(u, k2 / n2); },
+    // the mixed pair in order, picked over the double: each is one cell of 36
+    representativeness: (it, u) => { if (!it.key.startsWith('pr3s:')) return false; const [, a, b] = nums(it.key); return a !== b && it.choices[u]?.text === `${a} ואחר כך ${b}`; },
+    // two dice estimated wrong after fewer than 100 throws (the object's own counts)
+    'small-sample': (it, u) => it.manip?.kind === 'simulate' && !!u && u.pick !== it.answer.answer && u.n < 100,
   },
 };
+
+/** prob:1 eventK's numbers from its key: n outcomes, and k of them that fit the event (even, more than t, a multiple of t, t or less). */
+function pr1(it) {
+  const [, n, e, t] = it.key.split(':'); const N = Number(n); const T = Number(t);
+  const ok = { even: (v) => v % 2 === 0, gt: (v) => v > T, mult: (v) => v % T === 0, le: (v) => v <= T }[e];
+  return { n: N, k: Array.from({ length: N }, (_, i) => i + 1).filter(ok).length };
+}
+/** prob:2 notA's probabilities (red, blue, yellow) and the colour asked about. */
+function pr2(it) { const [, ps, x] = it.key.split(':'); return { p: ps.split(',').map(Number), x: Number(x) }; }
+/** prob:3 diceSum's sums asked about: one sum, t or more, or t or less. */
+function pr3(it) {
+  const [, e, t] = it.key.split(':'); const T = Number(t);
+  return { sums: Array.from({ length: 11 }, (_, i) => i + 2).filter((s) => (e === 'sum' ? s === T : e === 'ge' ? s >= T : s <= T)) };
+}
+/** The pairs of two dice with sum s, order not counted ((5, 6) once). */
+const pairsOf = (s) => { let c = 0; for (let x = 1; x <= 6; x += 1) for (let y = x; y <= 6; y += 1) if (x + y === s) c += 1; return c; };
+/** The value of the choice picked in a simulate estimate ({ pick }): \frac{1}{11} is 1/11. */
+const pickedValue = (it, u) => {
+  const c = it.answer?.choices?.[u?.pick]; const m = String(typeof c === 'string' ? c : c?.tex || '').match(/\\frac\{(\d+)\}\{(\d+)\}/);
+  return m ? Number(m[1]) / Number(m[2]) : NaN;
+};
+/** A typed fraction ({ n, d }) whose value is exactly v. */
+const fracIs = (u, v) => !!u && typeof u === 'object' && u.d !== 0 && near(u.n / u.d, v, 1e-9);
+/** stats:6 shiftRange's numbers from its key: the change, the values, the number added, the range, and the change as f. */
+function st6s(it) {
+  if (!it.key.startsWith('st6s:')) return null;
+  const [op, list, c] = it.key.split(':').slice(1); const vals = list.split(',').map(Number);
+  const f = op === 'add' ? (v) => v + Number(c) : op === 'x2' ? (v) => 2 * v : (v) => 1.1 * v;
+  return { op, vals, c: Number(c), r: Math.max(...vals) - Math.min(...vals), f };
+}
+/** stats:6 raise's numbers: the sum of the wages and the number of workers, and the raise. */
+function st6t(it) {
+  if (!it.key.startsWith('st6t:')) return null;
+  const [a, b, w1, w2, M, d] = nums(it.key); return { S: a * w1 + b * w2 + M, N: a + b + 1, d };
+}
+/** stats:8 interp's numbers: the years apart, the year asked, the change a year, the first value (and the second). */
+function st8i(it) {
+  if (!it.key.startsWith('st8i:')) return null;
+  const [d, j, rate, y1] = nums(it.key); return { d, j, rate, y1, y2: y1 + d * rate };
+}
+/** stats:8 extrap's numbers: the tickets by 8:00, the rise every two hours, the steps asked. */
+function st8e(it) {
+  if (!it.key.startsWith('st8e:')) return null;
+  const [t0, a, s] = nums(it.key); return { t0, a, s };
+}
 
 /**
  * An inequality item answered as if it said x rel' B with rel' = wrong(q): the ray drawn that way, the count of the
@@ -877,9 +1089,37 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra, fraction, ratio, percent and function topics name only what a property can check', () => {
-  it('every category of expressions, equations, systems, fractions, ratio, percent and functions has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, FUNC]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+// The whole-content check of curriculum stage 3 (content/stage3.test.js reads the rest of each exercise): every label
+// of 2,000 exercises of each of the ten new stairs against its property, with the wrong answers that reach every
+// prediction as a student types it (labels.sample.js nearCandidates), not the wide sample above.
+describe('curriculum stage 3: every label of 2,000 exercises a stair describes the answer', () => {
+  const LEVELS = [['data', 1], ['data', 2], ['data', 3], ['data', 4], ['stats', 6], ['stats', 7], ['stats', 8], ['prob', 1], ['prob', 2], ['prob', 3]];
+  it.each(LEVELS)('%s:%i', (topic, level) => {
+    const seen = new Set(); const wrong = [];
+    for (let k = 0; k < 2000 && wrong.length < 10; k += 1) {
+      const item = makeItem(topic, level);
+      for (const u of nearCandidates(item)) {
+        if (isCorrect(item, u)) continue;
+        const cat = item.diag(u);
+        if (!cat) continue;
+        seen.add(cat);
+        const prop = PROPS[topic]?.[cat];
+        if (!prop) wrong.push(`${topic}:${level} returns '${cat}', which has no property here`);
+        else if (!prop(item, u)) wrong.push(`${topic}:${level} ${item.key}: answer ${JSON.stringify(u)} labelled '${cat}' (${catLabel(topic, level, cat)})`);
+      }
+    }
+    expect(wrong).toEqual([]);
+    // the stair's exercises name what its category list promises (none is unreachable from practice)
+    expect(seen.size, `${topic}:${level} names ${[...seen].join(', ')}`).toBeGreaterThan(1);
+  }, 120_000);
+});
+
+describe('the algebra, fraction, ratio, percent, function, data and probability topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems, fractions, ratio, percent, functions, data and probability has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, FUNC, DATA, PROB]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+  });
+  it('every category of statistics stairs 6-8 has its property here', () => {
+    for (const cat of Object.keys(STATS2_CATS)) expect(PROPS.stats[cat], `stats '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

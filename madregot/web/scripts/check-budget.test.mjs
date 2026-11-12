@@ -157,7 +157,7 @@ describe('the budget as configured', () => {
     // file's generators, the challenge tasks' parts, and the engines that make and grade questions; a lane's new topic
     // file joins the list (src/boot.test.js finds it by its gen: before a build)
     expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk', 'ai', 'pedagogy', 'guard', 'topicWays', 'safety', 'blocklist',
-      'src/content/index.js', 'manip', 'grade7', 'grade8', 'signed6', 'src/content/expr.js', 'eq', 'frac', 'linear', 'sys', 'ratio', 'pct', 'func', 'src/learn/challenges/all.ts', 'lesson', 'placement', 'exam', 'items', 'seeds']);
+      'src/content/index.js', 'manip', 'grade7', 'grade8', 'signed6', 'src/content/expr.js', 'eq', 'frac', 'linear', 'sys', 'ratio', 'pct', 'func', 'src/content/data.js', 'src/content/prob.js', 'src/content/stats2.js', 'src/learn/challenges/all.ts', 'lesson', 'placement', 'exam', 'items', 'seeds']);
     // the ratchet: FOLLOWUP-23's measured 403.3 KB + 5% (424), then the boot split's 317.2 KB + 5%; never back up
     expect(budget.bootJsGzipKB).toBeLessThanOrEqual(333);
     for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');

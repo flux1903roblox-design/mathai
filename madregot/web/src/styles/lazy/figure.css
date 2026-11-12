@@ -123,3 +123,78 @@
 .fig-clock-hand.hour { stroke: var(--ink); stroke-width: 7; }
 .fig-clock-hand.minute { stroke: var(--brand-d); stroke-width: 4; }
 .fig-clock-pin { fill: var(--ink); }
+/* ---- data and probability (curriculum stage 3, DATA-3): chart, outcomes, pair, and the figures' extensions ---- */
+/* a category's colour family: bars and icons are the brand colour (tone 0) unless a figure gives tones; a pie's slices
+   take one each, with a pattern over all but the first, so colour is never the only cue */
+.fig-tone-0 { --tone: var(--brand); }
+.fig-tone-1 { --tone: var(--streak); }
+.fig-tone-2 { --tone: var(--ch-petrol); }
+.fig-tone-3 { --tone: var(--ch-fuchsia); }
+.fig-tone-4 { --tone: var(--gold-d); }
+.fig-tone-5 { --tone: var(--ink-3); }
+.fig-tone-6 { --tone: var(--ch-violet); }
+.fig-tone-7 { --tone: var(--ch-cobalt); }
+.figure.fig-chart { max-width: 360px; }
+.fig-ch-grid { stroke: var(--rule); stroke-width: 1; }
+.fig-ch-base { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-ch-axis { stroke: var(--ink-2); stroke-width: 1.5; stroke-linecap: round; }
+.fig-ch-tick { fill: var(--ink-2); font-size: 14px; font-weight: 500; }
+.fig-ch-val { fill: var(--ink); font-size: 15px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-ch-cat { fill: var(--ink-2); font-size: 14px; font-weight: 600; }
+.fig-ch-bar rect { fill: var(--tone); }
+.fig-ch-bar.gone rect { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 5 4; }
+.fig-ch-bar.crossed rect { fill: color-mix(in srgb, var(--tone) 35%, var(--paper)); }
+.fig-ch-cross { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.fig-ch-level line { stroke: var(--streak-d); stroke-width: 2.5; stroke-dasharray: 8 5; }
+.fig-ch-level-num { fill: var(--streak-ink); font-size: 15px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-ch-line { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; }
+.fig-ch-line.dashed { stroke-dasharray: 7 6; }
+.fig-ch-pt circle { fill: var(--brand); stroke: var(--ground); stroke-width: 2; }
+.fig-ch-pt.est circle { fill: var(--ground); stroke: var(--brand); stroke-width: 2.5; }
+.fig-ch-pt.crossed circle { fill: var(--ink-3); }
+.fig-ch-x { fill: var(--ink-2); font-size: 13px; font-weight: 500; }
+.fig-ch-x.on { fill: var(--brand-ink); font-weight: 800; }
+.fig-ch-mark line { stroke: var(--brand); stroke-width: 2; stroke-dasharray: 4 4; }
+.fig-ch-mark circle { fill: var(--ground); stroke: var(--brand); stroke-width: 3; }
+.fig-ch-pie-bg { fill: var(--track); }
+.fig-ch-fill { fill: var(--tone); }
+.fig-ch-patfill { stroke: none; }
+.fig-ch-pat { stroke: var(--paper); stroke-width: 2; stroke-opacity: 0.7; fill: none; }
+.fig-ch-pat.dot { fill: var(--paper); fill-opacity: 0.75; stroke: none; }
+.fig-ch-pat.ring { stroke-width: 1.5; }
+.fig-ch-edge { stroke: var(--paper); stroke-width: 2; }
+.fig-ch-rim { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.fig-ch-chip-bg { fill: var(--surface); stroke: var(--rule-strong); stroke-width: 1.25; }
+.fig-ch-chip-text { fill: var(--ink); font-weight: 600; }
+.fig-ch-ico { fill: var(--tone); }
+.fig-ch-ico-line { fill: none; stroke: var(--paper); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.fig-ch-key-eq, .fig-ch-key-text { fill: var(--ink); font-size: 15px; font-weight: 700; }
+/* a table of outcomes: compact cells; a marked cell shaded, outlined and bold; on a narrow phone it scrolls in its box */
+/* (the wrap is a block, not a flex row: a centred flex row would cut off the start of a table that scrolls) */
+.figure-wrap.outcomes { width: 100%; min-width: 0; }
+.fg-outcomes-wrap { width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; }
+.fg-outcomes { min-width: 0; margin-inline: auto; font-size: var(--t-sm); }
+.fg-outcomes th, .fg-outcomes td { padding: 3px 8px; min-width: 32px; }
+.fg-outcomes.dense th, .fg-outcomes.dense td { padding: 3px 3px; min-width: 30px; font-size: var(--t-xs); }
+.fg-outcomes td.corner { border: 0; background: none; }
+.fg-outcomes th.rowhead { font-size: var(--t-xs); }
+.fg-outcomes td.on, .fg-table td.hi, .fg-table tr.hi td { background: var(--brand-tint); font-weight: 800; box-shadow: inset 0 0 0 2px var(--brand); }
+.fg-table tr.cross td { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 2px; }
+.fg-table.compact th, .fg-table.compact td { padding: 2px 10px; line-height: 1.3; }
+/* two sources stacked, each at most 150px tall (critique note 27), never in tabs */
+.figure-wrap.pair { width: 100%; }
+.fig-pair { display: flex; flex-direction: column; gap: var(--s2); width: 100%; max-width: 360px; margin-inline: auto; }
+.fig-pair-src { display: flex; flex-direction: column; gap: 2px; }
+.fig-pair-title { margin: 0; font-size: var(--t-xs); line-height: var(--lh-xs); font-weight: 700; color: var(--ink-2); }
+.fig-pair-src, .fig-pair-body { min-width: 0; }
+.fig-pair-body { display: flex; justify-content: center; }
+.fig-pair-body > .fg-table { margin-inline: auto; }
+.fig-pair-src .figure, .lesson .q-stage .fig-pair .fig-pair-src .figure { max-height: 150px; width: 100%; }
+/* the extensions: parts of a fraction bar in tones, a range arrow over dots, a word under a number line */
+.mp-fbar-part.on[class*="fig-tone-"] { fill: color-mix(in srgb, var(--tone) 70%, var(--paper)); }
+.mp-fbar-cut.group { stroke-width: 3.5; }
+.fg-fbar-tone { fill: var(--ink); font-weight: 700; }
+.fig-dt-span line, .fig-dt-span path { fill: none; stroke: var(--brand-d); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.fig-dt-span line.guide { stroke: var(--brand-line); stroke-width: 1.5; stroke-dasharray: 3 4; }
+.fig-dt-span-num { fill: var(--brand-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-nl-word { fill: var(--ink); font-weight: 700; }

@@ -8,6 +8,7 @@ import { manipWrong } from '@/content/manip.js';
 import { contentOf, loadAllContent } from '@/learn/content/index.ts';
 import { modelItem, itemFor } from '@/learn/items.ts';
 import { ALL_SKILLS, parseSkill } from '@/learn/skills.ts';
+import { unitGrade } from '@/content/index.js';
 import { seeded } from '@/learn/expr.ts';
 
 // every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
@@ -162,6 +163,17 @@ function wrongOf(item) {
   if (item.form === 'lin') return { k: item.answer.k + 7, c: item.answer.c };
   return item.answer + 37;
 }
+
+// The תשפ״ז transition year: the ז׳ data unit is on the ח׳ path too, and a ח׳ student's lesson in it is described as grade
+// 8 (screens/Lesson.jsx passes unitGrade(t, profile.grade)); without the profile's grade, the unit's own
+describe('the grade the tutor hears for a unit on two grades\' paths', () => {
+  it('data: grade 8 for a ח׳ student, grade 7 for a ז׳ one and when no grade is given', () => {
+    const item = makeItem('data', 2);
+    expect(build(item, [], { o: { grade: unitGrade(TOPIC.data, '8') } }).grade).toBe('8');
+    expect(build(item, [], { o: { grade: unitGrade(TOPIC.data, '7') } }).grade).toBe('7');
+    expect(build(item, []).grade).toBe('7');
+  });
+});
 
 describe('5. every stair', () => {
   const learn = {

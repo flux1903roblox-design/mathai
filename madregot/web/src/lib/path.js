@@ -78,6 +78,8 @@ const ADDED_STAIRS = {
   'signed:6': 'נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.',
   'eq:6': 'נוספה מדרגה חדשה ליחידה: שאלות תנועה.',
   'eq:7': 'נוספה מדרגה חדשה ליחידה: משוואות עם מכנים ופרופורציה.',
+  // curriculum stage 3 (DATA-5): three stairs after stats:5; the first of them says it for all three
+  'stats:6': 'נוספו ליחידה שלוש מדרגות חדשות: טווח, שני מקורות מידע, ואינטרפולציה ואקסטרפולציה.',
 };
 /** The line a stair's card adds while it is the current stair and the stair before it is done; computed, never stored. */
 export const addedStairNote = (n, path = {}) => (n?.kind === 'node' && n.state === 'current' && n.level > 1 && isDone(path, n.topic, n.level - 1)

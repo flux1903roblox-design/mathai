@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'ratio' | 'pct' | 'func' | 'line' | 'pyth' | 'stats' | 'sys';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'data' | 'eq' | 'ratio' | 'pct' | 'func' | 'line' | 'pyth' | 'stats' | 'sys' | 'prob';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -33,8 +33,14 @@ export type Rng = () => number;
  * { pts: [x, y][], label? } }: one point above each x of the x axis, at most 7, at most 9 heights; the value is the
  * points' heights; the answer is { mode: 'values', values } | { mode: 'shape', shape: ('up' | 'flat' | 'down')[] } |
  * { mode: 'uniform', start?, rate? }, rate being the change for one unit of x).
+ * Data and probability (curriculum stage 3, DATA-2): 'simulate' (a random experiment repeated { device: 'spinner' | 'die'
+ * | 'coin' | 'bag' | 'dice2', sectors?, bag?, watch, seed?, truth?, hidden?, guided? }; the value is the run { n, counts,
+ * batches, hist, pick? }; the answer is { mode: 'trials', atLeast } or { mode: 'estimate', choices, answer }) and 'chart'
+ * (a bar chart or a pie the student builds { mode: 'bar' | 'pie', cats, start, lock?, tones?, bar: { max, step, every?,
+ * unit? (the axis title), unitWord? (the short noun a screen reader says after a value: "ילדים") }, pie: { parts: 10 |
+ * 12 | 20 } }; the value is number[]; the answer is { values }).
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'graph';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'graph' | 'simulate' | 'chart';
 /** An axis of a graph: from min (0 when not given) to max, a grid line every step, a number on every `every`-th line. */
 export type GraphAxis = { min?: number; max: number; step: number; label: string; unit?: string; every?: number };
 /** The answer of a 'graph' object. */
@@ -52,8 +58,11 @@ export type FigTone = 'brand' | 'good' | 'bad';
  * fraction lane's PartsLine); without, the teaching figure of STUDENT-8 (components/Figure.jsx NumberLine).
  */
 export type NumlineFig = { type: 'numline'; from: number; to: number; step?: number; den?: number; marks?: { x: number; label?: string; tone?: FigTone }[]; jumps?: { from: number; to: number; label?: string }[]; anim?: boolean };
-/** The fraction bar: rows of bars of one length; hatch the first shaded parts, cross out the last; whole names the bar. */
-export type FbarFig = { type: 'fbar'; den?: number; shaded?: number; marks?: number[]; whole?: number; labels?: boolean; hatch?: number; cross?: number; rows?: { den: number; shaded: number; label?: string }[] };
+/**
+ * The fraction bar: rows of bars of one length; hatch the first shaded parts, cross out the last; whole names the bar.
+ * tones: one bar's parts in several tones, group after group from the left (6, 9 and 5 of 20), each named under it.
+ */
+export type FbarFig = { type: 'fbar'; den?: number; shaded?: number; marks?: number[]; whole?: number; labels?: boolean; hatch?: number; cross?: number; rows?: { den: number; shaded: number; label?: string }[]; tones?: { n: number; label?: string; tone?: number }[] };
 /** A rectangle cut both ways, the overlap of the shaded columns and rows darkest. */
 export type FgridFig = { type: 'fgrid'; rows: number; cols: number; shadeRows: number; shadeCols: number; label?: string };
 /**
@@ -65,6 +74,38 @@ export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: 
 export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] };
 /** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
 export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig;
+
+/**
+ * A data chart (curriculum stage 3, DATA-3; drawn by components/manip/ChartArt.jsx, read by content/manip.js
+ * chartWords). Categories run right to left (the first on the right), a line chart's xs left to right.
+ *   values   a bar's height, a slice's size, a point's value, or a pictogram row's count (in items, not icons)
+ *   max, step, from, every   the value axis: from `from` (above 0 for a truncated axis) to `max` in `step`s, a grid line
+ *            at every step and a number every `every` steps (never more than 8 numbers); chosen from the values if absent
+ *   unit     a line over the chart (what is counted); in a pictogram, the key's word ("ילדים")
+ *   labels   false: no number on the bars, slices or points (a check reads the axis, not a printed value)
+ *   pct      a pie's values are percents (50 → 50%); hide: the item whose number is a '?'; dp: decimals to print (2.0)
+ *   xs       a line chart's horizontal axis (numbers are placed to scale, words evenly); key, icon: a pictogram's key
+ *   level    a dashed line across at that value (the 2.0 m/s wind); dashed: the last n points of a line continue the
+ *            trend (a dashed line, hollow points); mark: an x marked on a line (2014 between 2010 and 2016);
+ *            cross: bars or points crossed out (a jump that does not count); tones: a colour family per category
+ */
+export type ChartFig = {
+  type: 'chart'; mode: 'bar' | 'pie' | 'line' | 'picto'; values: (number | null)[];
+  cats?: string[]; max?: number; step?: number; every?: number; from?: number; unit?: string; labels?: boolean; pct?: boolean;
+  hide?: number; dp?: number; xs?: (number | string)[]; key?: number; icon?: 'person' | 'book' | 'ball';
+  level?: number; dashed?: number; mark?: number | string; cross?: number[]; tones?: number[]; anim?: boolean;
+};
+/**
+ * A table of outcomes: two stages as rows × cols (each cell the pair, or `cells`: the sum of two dice), or one stage as
+ * one row of cols (the six faces; many outcomes as runs, '1–9', '10–45', '46–72'). marked: [row, col] cells (row 0 for
+ * one stage); label: what the table is of, in words ("של שתי קוביות").
+ */
+/** dots: each cell of a two-stage table is a dot, not its pair (a wide table, coin × die, fits a 320 px phone). */
+export type OutcomesFig = { type: 'outcomes'; cols: string[]; rows?: string[]; rowHead?: string; colHead?: string; cells?: string[][]; marked?: [number, number][]; label?: string; dots?: boolean };
+/** Two sources stacked, titled 'מקור 1' and 'מקור 2' unless titles says otherwise (a pair holds no pair). */
+export type PairFig = { type: 'pair'; items: [FigSpec, FigSpec]; titles?: [string, string] };
+/** The figures of curriculum stage 3: content writes them `satisfies DataFig` so their fields are checked. */
+export type DataFig = ChartFig | OutcomesFig | PairFig;
 /**
  * A situation graph (FUNC-1, components/Figure.jsx SGraph): series of points on two named, scaled axes (a line through
  * them, the points alone with `dots`, or a curve with `smooth`); lettered points, intervals of the x axis marked, dashed
@@ -96,9 +137,9 @@ export type FigSpec =
   | NumlineFig
   | { type: 'thermo'; value: number; min: number; max: number; label?: string; also?: { value: number; label?: string }; anim?: boolean }
   | { type: 'machine'; inX?: number | string; rule: string; outY?: number | string; anim?: boolean }
-  | { type: 'dots'; values: number[]; axis: [number, number]; mark?: { mode?: number; median?: number; mean?: number }; unit?: string; anim?: boolean }
+  | { type: 'dots'; values: number[]; axis: [number, number]; mark?: { mode?: number; median?: number; mean?: number }; span?: { from: number; to: number; label?: string }; unit?: string; anim?: boolean }
   | { type: 'bars'; labels: string[]; values: (number | null)[]; highlight?: number; unit?: string; level?: number; ltr?: boolean; anim?: boolean }
-  | { type: 'table'; head: string[]; rows: (number | string)[][]; anim?: boolean; ltr?: boolean }
+  | { type: 'table'; head: string[]; rows: (number | string)[][]; anim?: boolean; ltr?: boolean; highlight?: (number | [number, number])[]; cross?: number[] }
   | {
     type: 'coord'; range?: number;
     points?: { x: number; y: number; label: string; hidden?: boolean }[];
@@ -111,6 +152,7 @@ export type FigSpec =
   | GeoFig
   | FbarFig | FgridFig | DlineFig | GroupsFig
   | SgraphFig | ProtractorFig | ClockFig
+  | ChartFig | OutcomesFig | PairFig
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
 /** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };
@@ -233,6 +275,12 @@ export interface DiagModel<P = Record<string, number>> {
   precise?: boolean;
   /** Show the answer as a decimal (-1.3, not -13/10); a function chooses per question (decimals, or quarters as fractions). */
   fmt?: 'dec' | ((p: P) => 'dec' | undefined);
+  /**
+   * The answer's form: a number (the default), or a fraction typed as a numerator over a denominator ('frac': 6/36 and
+   * 1/6 both right, compared exactly; the diagnosis reads its value n/d). Two dice's probabilities are 1/36 apart, so a
+   * decimal would leave their documented errors ambiguous; a fraction tells them apart.
+   */
+  form?: 'num' | 'frac';
 }
 
 // ------------------------------------------------------------------ the stair

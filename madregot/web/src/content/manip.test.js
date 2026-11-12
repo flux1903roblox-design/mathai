@@ -9,6 +9,9 @@ import FracBar from '@/components/manip/FracBar.jsx';
 import DoubleLine from '@/components/manip/DoubleLine.jsx';
 import GraphDraw from '@/components/manip/GraphDraw.jsx';
 import AngleTurner from '@/components/manip/AngleTurner.jsx';
+import Simulate, { simRun, simTrial, simCoach } from '@/components/manip/Simulate.jsx';
+import Chart, { chartSet, chartKey, pieOwners, pieCounts, pieLayout, pieNext, pieStep, pieKey, pieHit, pieTap, pieRuns, chartCoach, chartValueText } from '@/components/manip/Chart.jsx';
+import Manip from '@/components/manip/Manip.jsx';
 import { loadKatex } from '@/components/MathText.jsx';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
@@ -18,6 +21,7 @@ import {
   fbarDenFor, fbarWords, dlineAt, dlineNum, withUnit, ticksWords, manipCorrect,
   graphMove, graphKey, graphShape, graphXs, squaresWords, seriesAt, seriesCrossings, seriesMeet, figWords,
   protAligned, armTurns, baselineOnArm, buildWords, alignWords, clockHands, mod360,
+  simOutcomes, simEmpty, simSentence, simDiag, simGuidedOrder,
 } from './manip.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
@@ -837,5 +841,351 @@ describe('the protractor and the clock, still (FUNC-1.3b)', () => {
       expect(out).toContain(`aria-label="${figPlain(fig)}"`);
     }
     expect(renderToStaticMarkup(createElement(Figure, { fig: { type: 'clock', h: 1, m: 0, marks: true } })).match(/class="fig-clock-tick/g)).toHaveLength(60);
+  });
+});
+
+describe('a random experiment repeated (simulate, DATA-2.1)', () => {
+  const RYG = [{ label: 'אדום', parts: 3 }, { label: 'כחול', parts: 5 }, { label: 'ירוק', parts: 4 }];
+  const sim = (manip, answer) => fixture({ kind: 'simulate', ...manip }, answer);
+  const wheel = sim({ device: 'spinner', sectors: RYG, watch: 0, seed: 20261111, guided: true, truth: true }, { mode: 'trials', atLeast: 1000 });
+  const free = sim({ device: 'spinner', sectors: RYG, watch: 0 }, { mode: 'trials', atLeast: 100 });
+  const die = sim({ device: 'die', watch: 6, seed: 20261111 }, { mode: 'trials', atLeast: 1000 });
+  const coin = sim({ device: 'coin', watch: 0, guided: true }, { mode: 'trials', atLeast: 100 });
+  const dice2 = sim({ device: 'dice2', watch: 7, seed: 20261111 }, { mode: 'trials', atLeast: 1000 });
+  const QUARTERS = ['\\frac{1}{4}', { tex: '\\frac{1}{2}', tag: 'equiprob' }, '\\frac{3}{4}'];
+  const covered = sim({ device: 'spinner', sectors: [{ label: 'אדום', parts: 3 }, { label: 'כחול', parts: 9 }], watch: 0, hidden: true }, { mode: 'estimate', choices: QUARTERS, answer: 0 });
+  const bag = sim({ device: 'bag', bag: [{ label: 'אדום', n: 1 }, { label: 'כחול', n: 3 }], watch: 0, hidden: true }, { mode: 'estimate', choices: QUARTERS, answer: 0 });
+  const all = [wheel, free, die, coin, dice2, covered, bag];
+
+  it('every device and mode: the solution is right, the near miss is wrong, and the words hold no undefined', () => {
+    for (const it of all) solves(it);
+    for (const it of all) {
+      const s = manipSolution(it);
+      expect(s.counts.reduce((a, b) => a + b, 0), JSON.stringify(it.manip)).toBe(s.n);
+      expect(s.hist.length).toBe(s.n / 10);
+    }
+    // the expected run: 1110 spins of a wheel with red 3 of 12 (a guided run is 10, then 100, then 1000)
+    expect(manipSolution(wheel)).toMatchObject({ n: 1110, batches: [10, 100, 1000] });
+    expect(manipSolution(wheel).counts).toEqual([278, 462, 370]);
+    expect(manipSolution(free).batches).toEqual([100]);
+    expect(manipSolution(dice2).counts[5]).toBe(Math.round(1000 / 6)); // sum 7, 6 ways of 36
+  });
+
+  it('the seeded runs are the ones the spec checked (critique note 29)', () => {
+    const m = { ...wheel.manip, guided: false };
+    const red = (sizes) => simRun(m, sizes).counts[0];
+    expect(Math.abs(red([1000]) / 1000 - 0.25)).toBeLessThanOrEqual(0.05); // 1000 spins from the start: 0.270
+    expect(red([1000])).toBe(270);
+    expect(red([10])).toBe(2); // red 2 of the first 10
+    expect((red([10, 100]) / 110).toFixed(3)).toBe('0.291'); // the stream continues: 10, then 100 more
+    expect((red([10, 100, 1000]) / 1110).toFixed(3)).toBe('0.268');
+    expect(simRun(die.manip, [1000]).counts[5]).toBe(144); // the die: 6 came 144 times
+    expect(simRun(dice2.manip, [1000]).counts[5]).toBe(163); // two dice: sum 7 came 163 times
+    // a spin is part floor(12r), the sectors in order; a roll is 1 + floor(6r)
+    const at = (r) => simTrial(m, () => r).o;
+    expect([at(0), at(2.99 / 12), at(3 / 12), at(7.99 / 12), at(8 / 12), at(0.9999)]).toEqual([0, 0, 1, 1, 2, 2]);
+    expect(simTrial(die.manip, () => 0.9999)).toEqual({ o: 5, f: 6 });
+    // the line holds the watched count after every 10 trials
+    const run = simRun(m, [10, 100]);
+    expect(run.hist.length).toBe(11);
+    expect(run.hist[0]).toBe(2);
+    expect(run.hist[10]).toBe(run.counts[0]);
+  });
+
+  it('a guided run counts only in order: 10 first, a 100 before any 1000', () => {
+    const run = (batches) => ({ ...simRun({ ...wheel.manip, seed: 1 }, batches) });
+    expect(isCorrect(wheel, run([10, 100, 1000]))).toBe(true);
+    expect(isCorrect(wheel, run([10, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100]))).toBe(true); // 1010, never a 1000
+    expect(isCorrect(wheel, run([1000]))).toBe(false); // one tap on 1000 skips the jumpy start
+    expect(isCorrect(wheel, run([100, 1000]))).toBe(false);
+    expect(isCorrect(wheel, run([10, 1000]))).toBe(false);
+    expect(isCorrect(wheel, run([10, 100]))).toBe(false); // 110 is not 1000
+    expect(simGuidedOrder([10, 100, 10, 1000])).toBe(true);
+    // without guided, any batches that reach the count
+    expect(isCorrect(free, simRun(free.manip, [100]))).toBe(true);
+    expect(isCorrect(free, simRun(free.manip, [10, 10]))).toBe(false);
+  });
+
+  it('the estimate: right on the wheel\'s fraction; a wrong pick under 100 trials is the small sample, else its own tag', () => {
+    const at = (n, pick) => ({ ...simEmpty(covered.manip), n, pick });
+    expect(isCorrect(covered, at(0, 0))).toBe(true);
+    expect(isCorrect(covered, at(1000, 2))).toBe(false);
+    expect(simDiag(covered, at(50, 1))).toBe('small-sample');
+    expect(simDiag(covered, at(90, 2))).toBe('small-sample');
+    expect(simDiag(covered, at(100, 1))).toBe('equiprob');
+    expect(simDiag(covered, at(1000, 2))).toBe(null); // a choice with no tag names nothing
+    expect(simDiag(covered, at(10, 0))).toBe(null); // right
+    expect(simDiag(covered, manipWrong(covered))).toBe('small-sample');
+    expect(answerText(covered)).toBe('בערך 1/4');
+    expect(answerText(wheel)).toBe('לפחות 1000 סיבובים');
+    expect(answerText(bag, { ...simRun(bag.manip, [100], seeded(3)), pick: 1 })).toMatch(/^1\/2, 100 הוצאות: אדום \d+ פעמים \(0\.\d\d\)$/);
+  });
+
+  it('is said in words for the tutor; a covered wheel or bag never says its parts', () => {
+    expect(manipPlain(free)).toBe('[גלגל: אדום 3 מתוך 12 חלקים, כחול 5, ירוק 4; מסובבים 10, 100 או 1000 פעמים ורואים את השכיחות היחסית של אדום]');
+    expect(manipPlain(wheel)).toContain('(קודם 10, אחר כך 100, ואז 1000)');
+    expect(manipPlain(covered)).toBe('[גלגל מכוסה, עם החלקים אדום, כחול; מסובבים 10, 100 או 1000 פעמים ורואים את השכיחות היחסית של אדום; בוחרים בערך איזה חלק: 1/4, 1/2, 3/4]');
+    expect(manipPlain(bag)).not.toMatch(/\d כדורים|אדום 1/);
+    expect(manipPlain(dice2)).toContain('כמה פעמים יצא כל סכום, ואת השכיחות היחסית של סכום 7');
+    expect(simSentence(wheel.manip, simRun(wheel.manip, [10, 100]))).toBe('עד עכשיו 110 סיבובים. אדום: 32 פעמים, שכיחות יחסית 0.29.');
+    expect(simSentence(die.manip, simEmpty(die.manip))).toBe('עוד לא הטלתם את הקובייה.');
+    expect(simOutcomes(dice2.manip).reduce((a, o) => a + o.p, 0)).toBeCloseTo(1, 12);
+  });
+
+  it('מדי: the start, a short run, a long run; in the estimate mode, more trials before a pick', () => {
+    const m = wheel.manip;
+    expect(simCoach(m, null, wheel.answer, false)).toBe('סובבו 10 פעמים, ואז עוד 100. מה קורה לשכיחות היחסית?');
+    expect(simCoach(m, simRun(m, [10]), wheel.answer, true)).toBe('עשרה סיבובים זה מעט: השכיחות היחסית עוד קופצת.');
+    expect(simCoach(m, simRun(m, [10, 100, 1000]), wheel.answer, true)).toBe('אחרי הרבה סיבובים השכיחות היחסית כמעט לא זזה.');
+    expect(simCoach(die.manip, simRun(die.manip, [10]), die.answer, true)).toBe('עשר הטלות זה מעט: השכיחות היחסית עוד קופצת.');
+    expect(simCoach(covered.manip, null, covered.answer, false)).toBe('הגלגל מכוסה. סובבו כמה פעמים, ואז בחרו.');
+    expect(simCoach(covered.manip, { ...simRun(covered.manip, [10]), pick: 1 }, covered.answer, true)).toBe('אפשר לסובב עוד לפני שבוחרים.');
+    expect(simCoach(bag.manip, null, bag.answer, false)).toBe('לא רואים מה יש בשקית. הוציאו כדור כמה פעמים, ואז בחרו.');
+  });
+
+  // the visible text of each button, the way a screen reader names it
+  const buttons = (html) => [...html.matchAll(/<button[^>]*?(?:aria-label="([^"]*)")?[^>]*>(.*?)<\/button>/g)]
+    .map(([all, label, inner]) => (/aria-label="/.test(all.slice(0, all.indexOf('>'))) ? all.match(/aria-label="([^"]*)"/)[1] : inner.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()));
+  it('draws the buttons, the locked ones, the readout and a chart that fits a 288px column', () => {
+    const fresh = html(Simulate, { m: wheel.manip, value: null, answer: wheel.answer });
+    expect(buttons(fresh)).toEqual(['כל התוצאות', '10 סיבובים', '100 סיבובים, קודם 10', '1000 סיבובים, קודם 100', 'להתחיל מחדש']);
+    expect((fresh.match(/aria-disabled="true"/g) || []).length).toBe(2);
+    expect(fresh).toContain('קודם 10</span>');
+    expect(fresh).toContain('aria-live="polite"');
+    expect(fresh).toContain('role="img" aria-label="עוד לא סובבתם את הגלגל."');
+    // the line shown before the first trial is short (the long sentence ran past the card at 320 × 568)
+    expect(fresh).toContain('<span class="mp-sim-small" aria-hidden="true">עוד אין סיבובים</span>');
+    const ten = html(Simulate, { m: wheel.manip, value: simRun(wheel.manip, [10]), answer: wheel.answer });
+    expect(buttons(ten).slice(1, 4)).toEqual(['10 סיבובים', '100 סיבובים', '1000 סיבובים, קודם 100']);
+    const run = simRun(wheel.manip, [10, 100, 1000]);
+    const long = html(Simulate, { m: wheel.manip, value: run, answer: wheel.answer });
+    expect(buttons(long).slice(1, 4)).toEqual(['10 סיבובים', '100 סיבובים', '1000 סיבובים']);
+    expect(long).not.toContain('aria-disabled');
+    expect(long).toContain(`class="mp-sim-chart" role="img" aria-label="${simSentence(wheel.manip, run)}"`);
+    expect(long).toContain('mp-sim-truth'); // the dashed line at 1/4, asked for with truth
+    expect(long).toContain('<th scope="col">תוצאה</th><th scope="col">כמה פעמים</th><th scope="col">שכיחות יחסית</th>');
+    for (const out of [fresh, ten, long]) {
+      expect(out).not.toMatch(/NaN|undefined|Infinity/);
+      for (const [, w] of out.matchAll(/viewBox="0 0 ([\d.]+) [\d.]+"/g)) expect(Number(w)).toBeLessThanOrEqual(288);
+    }
+    // no batch past the most a run takes
+    const big = html(Simulate, { m: free.manip, value: simRun(free.manip, Array(10).fill(1000)), answer: free.answer });
+    expect((big.match(/class="mp-sim-btn" disabled=""/g) || []).length).toBe(3);
+    expect(big).not.toMatch(/mp-sim-btn reset" aria-label="להתחיל מחדש" disabled/);
+  });
+
+  it('two dice draw the 11 sums as bars; a covered wheel lifts its cover only after the answer', () => {
+    const sums = html(Simulate, { m: dice2.manip, value: simRun(dice2.manip, [100]), answer: dice2.answer });
+    expect((sums.match(/class="mp-sim-sum( on)?"/g) || []).length).toBe(11);
+    expect(sums).toMatch(/כמה פעמים יצא כל סכום: 2: \d+, 3: \d+/);
+    const shut = html(Simulate, { m: covered.manip, value: null, answer: covered.answer });
+    expect(shut).toContain('aria-label="גלגל מכוסה"');
+    expect(shut).not.toMatch(/חלקים שווים|fig-ch-fill/);
+    expect(shut).toContain('role="group" aria-label="בערך איזה חלק?"');
+    expect(shut).toContain('aria-pressed="false"');
+    expect(shut).not.toContain('mp-sim-truth');
+    const open = html(Simulate, { m: covered.manip, value: { ...simEmpty(covered.manip), pick: 0 }, answer: covered.answer, good: true, locked: true });
+    expect(open).toContain('aria-label="גלגל מחולק ל־12 חלקים שווים: אדום 3, כחול 9"');
+    expect(open).toContain('aria-label="1/4 (התשובה)"');
+    expect(open).toContain('aria-pressed="true"');
+  });
+
+  it('is never drawn in a check: Manip.jsx shows its words instead', () => {
+    const item = { ...free, text: '' };
+    const inTest = renderToStaticMarkup(createElement(Manip, { item, value: null, onChange: () => {}, test: true }));
+    expect(inTest).toBe(`<p class="manip-plain">${manipPlain(free)}</p>`);
+    const inPractice = renderToStaticMarkup(createElement(Manip, { item, value: null, onChange: () => {} }));
+    expect(inPractice).toContain('mp-sim-btns');
+    expect(inPractice).toContain('סובבו 10 פעמים, ואז עוד 100. מה קורה לשכיחות היחסית?');
+  });
+});
+
+describe('building a chart (chart, DATA-2.2)', () => {
+  const cats = ['כדורגל', 'כדורסל', 'שחייה', 'טניס'];
+  const chart = (manip, values) => fixture({ kind: 'chart', cats, ...manip }, { values });
+  const bar = chart({ mode: 'bar', start: [0, 0, 0, 0], bar: { max: 14, step: 2, unit: 'מספר תלמידים', unitWord: 'תלמידים' } }, [12, 8, 6, 4]);
+  const given = chart({ mode: 'bar', start: [12, 0, 0, 0], lock: [0], bar: { max: 14, step: 2 } }, [12, 8, 6, 4]);
+  const tall = chart({ mode: 'bar', start: [0, 0, 0, 0], bar: { max: 140, step: 10, every: 2 } }, [140, 70, 30, 100]);
+  const pie = chart({ mode: 'pie', start: [0, 0, 0, 0], pie: { parts: 12 } }, [6, 3, 2, 1]);
+  const half = chart({ mode: 'pie', start: [0, 0, 0, 0], pie: { parts: 20 } }, [6, 9, 5, 0]);
+  const pieGiven = chart({ mode: 'pie', start: [5, 0, 0, 0], lock: [0], pie: { parts: 10 } }, [5, 2, 2, 0]);
+  const all = [bar, given, tall, pie, half, pieGiven];
+
+  it('every mode: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
+    for (const it of all) solves(it);
+    expect(manipWrong(bar)).toEqual([14, 8, 6, 4]); // the first bar one step up
+    expect(manipWrong(given)).toEqual([12, 10, 6, 4]); // the locked first bar never moves
+    expect(manipWrong(tall)).toEqual([130, 70, 30, 100]); // the first bar is at the top: one step down
+    expect(manipWrong(pie)).toEqual([5, 3, 2, 1]); // every slice coloured: one given back
+    expect(manipWrong(half)).toEqual([5, 9, 5, 0]); // 20 of 20 too
+    expect(manipWrong(pieGiven)).toEqual([5, 3, 2, 0]); // a grey slice left: one more, never for the locked first
+    expect(isCorrect(pie, [6, 3, 2, 1])).toBe(true);
+    expect(isCorrect(pie, [6, 3, 1, 2])).toBe(false);
+    expect(isCorrect(pie, { values: [6, 3, 2, 1] })).toBe(false); // the object holds a list
+  });
+
+  it('is said in words: each category with its value, a pie\'s parts in percent', () => {
+    expect(answerText(bar)).toBe('כדורגל 12, כדורסל 8, שחייה 6, טניס 4');
+    expect(answerText(pie)).toBe('כדורגל 6 חלקים (50%), כדורסל 3 חלקים (25%), שחייה 2 חלקים (16.7%), טניס חלק אחד (8.3%)');
+    expect(manipPlain(bar)).toBe('[דיאגרמת עמודות: כדורגל, כדורסל, שחייה, טניס; הציר עד 14 בקפיצות של 2 (מספר תלמידים); מכוונים את גובה כל עמודה]');
+    expect(manipPlain(given)).toBe('[דיאגרמת עמודות: כדורגל, כדורסל, שחייה, טניס; הציר עד 14 בקפיצות של 2; מכוונים את גובה כל עמודה; קבועה: כדורגל 12]');
+    expect(manipPlain(pie)).toBe('[עוגה מחולקת ל־12 חלקים שווים; צובעים לכל קטגוריה חלקים: כדורגל, כדורסל, שחייה, טניס]');
+    // a bar is said with the short noun, never the axis title ("4 מספר ילדים", review); without one, the number alone
+    expect(chartValueText(bar.manip, 0, 12)).toBe('כדורגל: 12 תלמידים');
+    expect(chartValueText(tall.manip, 2, 30)).toBe('שחייה: 30');
+    expect(chartValueText({ ...bar.manip, bar: { ...bar.manip.bar, step: 1 } }, 3, 1)).toBe('טניס: 1');
+    expect(chartValueText(pie.manip, 1, 3)).toBe('כדורסל: 3 מתוך 12 חלקים');
+    expect(chartCoach(bar.manip, null, false)).toBe('גררו כל עמודה עד הקו של המספר שלה. בדקו בכמה קופץ הציר.');
+    expect(chartCoach(pie.manip, null, false)).toBe('בחרו קטגוריה, וצבעו לה חלקים. כל חלק הוא בערך 8.3% מהעוגה.');
+    expect(chartCoach(half.manip, null, false)).toBe('בחרו קטגוריה, וצבעו לה חלקים. כל חלק הוא 5% מהעוגה.');
+    expect(chartCoach(pie.manip, [6, 3, 2, 0], true)).toBe('צבועים 11 חלקים מתוך 12. עוד חלק אחד לא צבוע.');
+    expect(chartCoach(pie.manip, [6, 3, 2, 1], true)).toBe('כל 12 החלקים צבועים: יחד הם 100%.');
+  });
+
+  it('the moves: a bar snaps to the step within the axis; a locked bar never moves', () => {
+    const m = bar.manip;
+    expect(chartSet(m, [0, 0, 0, 0], 1, 7.2)).toEqual([0, 8, 0, 0]);
+    expect(chartSet(m, [0, 0, 0, 0], 1, 30)).toEqual([0, 14, 0, 0]);
+    expect(chartSet(m, [0, 0, 0, 0], 1, -3)).toEqual([0, 0, 0, 0]);
+    const g = given.manip; const v = [12, 0, 0, 0];
+    expect(chartSet(g, v, 0, 4)).toBe(v);
+    for (const key of ['ArrowUp', 'ArrowDown', 'Home', 'End']) expect(chartKey(g, { sel: 0, values: v }, key).values, key).toBe(v);
+    expect(isCorrect(given, chartSet(g, [12, 8, 6, 4], 0, 10))).toBe(true); // a drag on the locked bar changes nothing
+  });
+
+  it('the keys: ←/→ choose in reading order (the first category is on the right), ↑/↓ a step, Home/End the ends', () => {
+    const m = bar.manip; const values = [2, 4, 6, 8];
+    expect(chartKey(m, { sel: 0, values }, 'ArrowLeft').sel).toBe(1);
+    expect(chartKey(m, { sel: 0, values }, 'ArrowRight').sel).toBe(0);
+    expect(chartKey(m, { sel: 3, values }, 'ArrowLeft').sel).toBe(3);
+    expect(chartKey(m, { sel: 2, values }, 'ArrowUp').values).toEqual([2, 4, 8, 8]);
+    expect(chartKey(m, { sel: 2, values }, 'ArrowDown').values).toEqual([2, 4, 4, 8]);
+    expect(chartKey(m, { sel: 1, values }, 'Home').values).toEqual([2, 0, 6, 8]);
+    expect(chartKey(m, { sel: 1, values }, 'End').values).toEqual([2, 14, 6, 8]);
+    expect(chartKey(m, { sel: 1, values }, 'Enter')).toBe(null);
+    const p = pie.manip; const owners = (vs) => pieOwners(p, vs);
+    expect(pieCounts(p, pieKey(p, { sel: 0, owners: owners([3, 0, 0, 0]) }, 'ArrowUp').owners)).toEqual([4, 0, 0, 0]);
+    expect(pieCounts(p, pieKey(p, { sel: 1, owners: owners([3, 4, 0, 0]) }, 'End').owners)).toEqual([3, 9, 0, 0]); // the rest of the pie
+    expect(pieCounts(p, pieKey(p, { sel: 1, owners: owners([3, 4, 0, 0]) }, 'Home').owners)).toEqual([3, 0, 0, 0]);
+    const full = owners([3, 9, 0, 0]);
+    expect(pieKey(p, { sel: 1, owners: full }, 'ArrowUp').owners).toBe(full); // none grey left: nothing changes
+    expect(pieKey(p, { sel: 2, owners: full }, 'Home').owners).toBe(full); // none of its own to give back
+    expect(pieKey(p, { sel: 0, owners: full }, 'ArrowLeft').sel).toBe(1);
+    expect(pieKey(p, { sel: 0, owners: full }, 'Enter')).toBe(null);
+  });
+
+  it('a pie never has more slices than its parts, whatever is pressed or tapped, and a locked category never moves', () => {
+    const rnd = seeded(20261111);
+    for (const it of [pie, half, pieGiven]) {
+      const m = it.manip; const parts = m.pie.parts;
+      let st = { sel: 0, owners: pieOwners(m, m.start) };
+      for (let k = 0; k < 3000; k += 1) {
+        const r = rnd();
+        if (r < 0.45) st = pieKey(m, st, ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'][Math.floor(rnd() * 7)]);
+        else if (r < 0.9) st = pieTap(m, st, pieHit(m, st.owners, rnd() * 360, 0.5 + rnd()));
+        else st = { ...st, sel: Math.floor(rnd() * 4) };
+        const values = pieCounts(m, st.owners);
+        expect(st.owners).toHaveLength(parts);
+        expect(values.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(parts);
+        (m.lock || []).forEach((i) => expect(values[i]).toBe(m.start[i]));
+        expect(pieLayout(m, st.owners, values)).toBe(st.owners); // the drawing keeps its own slices while the counts hold
+      }
+    }
+  });
+
+  it('the slices: the one a finger touches is the one that changes (review: a tap coloured another slice)', () => {
+    const m = half.manip; // 20 slices of 18°: a slice is about 31px of rim, so the grey one is widened to 44px
+    const o = pieOwners(m, [2, 3, 0, 0]); // כדורגל 0-1, כדורסל 2-4, the rest grey
+    expect(o).toEqual([0, 0, 1, 1, 1, ...Array(15).fill(-1)]);
+    // כדורגל chosen, the grey slice at 6 o'clock tapped: that slice is כדורגל's, and כדורסל keeps 2-4
+    const t = pieTap(m, { sel: 0, owners: o }, 10);
+    expect(t.owners).toEqual([0, 0, 1, 1, 1, ...Array(5).fill(-1), 0, ...Array(9).fill(-1)]);
+    expect(pieCounts(m, t.owners)).toEqual([3, 3, 0, 0]);
+    expect(pieLayout(m, t.owners, [3, 3, 0, 0])).toBe(t.owners); // drawn as tapped, not laid out again
+    expect(pieLayout(m, t.owners, [6, 9, 5, 0])).toEqual(pieOwners(m, [6, 9, 5, 0])); // a value from outside is laid out
+    // one of its own slices tapped: that one is given back; another colour: that category is chosen, nothing changes
+    expect(pieTap(m, { sel: 0, owners: t.owners }, 1).owners).toEqual([0, -1, 1, 1, 1, ...Array(5).fill(-1), 0, ...Array(9).fill(-1)]);
+    expect(pieTap(m, { sel: 0, owners: t.owners }, 3)).toEqual({ sel: 1, owners: t.owners });
+    // a locked category's slices are never taken or given
+    const g = pieGiven.manip; const go = pieOwners(g, [5, 0, 0, 0]);
+    expect(pieTap(g, { sel: 0, owners: go }, 7).owners).toBe(go);
+    expect(pieTap(g, { sel: 0, owners: go }, 2).owners).toBe(go);
+  });
+
+  it('the Stepper: + colours the next grey slice after the category\'s last one, − gives its last one back', () => {
+    const m = half.manip;
+    const o = pieOwners(m, [2, 3, 0, 0]);
+    expect(pieNext(o, 0)).toBe(5); // after כדורגל come כדורסל's slices: the next grey one is 5
+    expect(pieNext(o, 2)).toBe(5); // a category with none starts after the last coloured slice
+    expect(pieNext(pieOwners(m, [0, 0, 0, 0]), 3)).toBe(0); // an empty pie starts at 12 o'clock
+    expect(pieNext(pieOwners(m, [20, 0, 0, 0]), 1)).toBe(-1);
+    const plus = pieStep(m, o, 2, 1);
+    expect(plus.slice(0, 7)).toEqual([0, 0, 1, 1, 1, 2, -1]);
+    expect(pieStep(m, plus, 1, -1).slice(0, 7)).toEqual([0, 0, 1, 1, -1, 2, -1]);
+    expect(pieStep(m, o, 3, -1)).toBe(o); // none to give back
+    // a stepper-only pie, coloured in order, is the counts laid out in order
+    let st = pieOwners(m, [0, 0, 0, 0]);
+    [[0, 6], [1, 9], [2, 5]].forEach(([i, n]) => { for (let k = 0; k < n; k += 1) st = pieStep(m, st, i, 1); });
+    expect(st).toEqual(pieOwners(m, [6, 9, 5, 0]));
+    // the outline on the rim: one arc a run, a run across 12 o'clock is one arc
+    expect(pieRuns(t0(), 0)).toEqual([[18, 4]]);
+    expect(pieRuns(o, 1)).toEqual([[2, 3]]);
+    expect(pieRuns(pieOwners(m, [20, 0, 0, 0]), 0)).toEqual([[0, 20]]);
+    function t0() { const x = Array(20).fill(-1); [18, 19, 0, 1].forEach((s) => { x[s] = 0; }); return x; }
+  });
+
+  it('a tap near a grey slice counts for it, by 44 screen pixels of rim', () => {
+    const m = half.manip; const o = pieOwners(m, [3, 0, 0, 0]);
+    expect(pieHit(m, o, 52)).toBe(3); // in slice 2, 2° from the grey slice 3
+    expect(pieHit(m, o, 47)).toBe(2); // 7° away: still slice 2
+    expect(pieHit(m, o, 100)).toBe(5);
+    // drawn smaller (0.8px a unit: a slice is 25px of rim), the widening is wider in degrees
+    expect(pieHit(m, o, 49, 0.8)).toBe(3);
+    expect(pieHit(m, o, 49, 1)).toBe(2);
+    expect(pieHit(pie.manip, pieOwners(pie.manip, [3, 0, 0, 0]), 88)).toBe(2); // 30° slices are wide enough: no widening
+  });
+
+  const tagged = (out, re) => [...out.matchAll(re)].map((x) => x[1]);
+  it('draws each bar as a slider with its name and value, one in the tab order, on an axis of at most 8 numbers', () => {
+    const out = html(Chart, { m: bar.manip, value: [12, 8, 0, 0], answer: bar.answer });
+    expect(tagged(out, /role="slider"[^>]*?aria-label="([^"]+)"/g)).toEqual(cats.map((c) => `העמודה של ${c}`));
+    expect(tagged(out, /aria-valuetext="([^"]+)"/g)).toEqual(['כדורגל: 12 תלמידים', 'כדורסל: 8 תלמידים', 'שחייה: 0 תלמידים', 'טניס: 0 תלמידים']);
+    expect((out.match(/role="slider"[^>]*?tabindex="0"/g) || []).length).toBe(1);
+    expect(out).toContain('aria-label="העמודה של כדורגל"'); // the Stepper's group
+    expect(out).toContain('aria-live="polite"');
+    expect(out).toMatch(/<span>כדורגל:<\/span> <b dir="ltr">12<\/b>/);
+    // the words are HTML at a fixed size, never SVG text that shrinks with the drawing (review: 10px at 320)
+    expect(out).not.toMatch(/<text[\s>]/);
+    expect(tagged(out, /class="mp-chart-cat[^"]*"[^>]*>([^<]+)</g)).toEqual(cats);
+    expect(out).toContain('<p class="mp-chart-title" aria-hidden="true">מספר תלמידים</p>');
+    expect(tagged(out, /class="mp-chart-num"[^>]*>([^<]+)</g)).toEqual(['0', '2', '4', '6', '8', '10', '12', '14']);
+    const big = html(Chart, { m: tall.manip, value: [0, 0, 0, 0], answer: tall.answer });
+    expect((big.match(/class="mp-chart-num"/g) || []).length).toBe(8);
+    const fixed = html(Chart, { m: given.manip, value: [12, 0, 0, 0], answer: given.answer });
+    expect(fixed).toContain('aria-readonly="true"');
+    expect(fixed).toMatch(/class="mp-chart-given"[^>]*>12</); // a given bar says its value
+    for (const o of [out, big, fixed]) {
+      expect(o).not.toMatch(/NaN|undefined|Infinity/);
+      for (const [, w] of o.matchAll(/viewBox="0 0 ([\d.]+) [\d.]+"/g)) expect(Number(w)).toBeLessThanOrEqual(320);
+    }
+  });
+
+  it('draws a pie\'s chips as sliders, its readout in parts and percent, and no percent in a check', () => {
+    const out = html(Chart, { m: pie.manip, value: [3, 2, 0, 0], answer: pie.answer });
+    expect(tagged(out, /class="mp-chart-chip[^"]*" role="slider"[^>]*?aria-valuetext="([^"]+)"/g)).toEqual(['כדורגל: 3 מתוך 12 חלקים', 'כדורסל: 2 מתוך 12 חלקים', 'שחייה: 0 מתוך 12 חלקים', 'טניס: 0 מתוך 12 חלקים']);
+    const text = (o) => o.replace(/<[^>]+>/g, '');
+    expect(text(out)).toContain('כדורגל: 3 חלקים מתוך 12, כלומר 25%');
+    expect(out).toContain('עוד לא צבועים: 7 חלקים');
+    expect(out).toContain('aria-label="חלקים לכדורגל"');
+    expect((out.match(/class="mp-chart-grey"/g) || []).length).toBe(7);
+    expect(tagged(out, /data-slice="\d+" data-owner="(-?\d+)"/g).map(Number)).toEqual([0, 0, 0, 1, 1, -1, -1, -1, -1, -1, -1, -1]);
+    expect((out.match(/class="mp-chart-next"/g) || []).length).toBe(1); // where + goes next, on the rim
+    expect(out).toMatch(/viewBox="0 0 216 216"/);
+    const check = html(Chart, { m: pie.manip, value: [3, 2, 0, 0], answer: pie.answer, test: true });
+    expect(check).toContain('כדורגל: 3 חלקים מתוך 12');
+    expect(check).not.toMatch(/%/);
+    const shown = html(Chart, { m: pie.manip, value: [3, 2, 0, 0], answer: pie.answer, reveal: true });
+    expect(shown).toContain('צריך 6');
+    for (const o of [out, check, shown]) expect(o).not.toMatch(/NaN|undefined|Infinity/);
   });
 });

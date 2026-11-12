@@ -160,6 +160,7 @@ const GEN_COPY = {
   some: 'חלק מהסיפורים לא עברו את הבדיקה, אז השלמנו בתרגילים מהמאגר.',
   none: 'הפעם הסיפורים לא עברו את הבדיקה, אז הנה תרגילים מהמאגר.',
   notCounted: 'הבקשה הזו לא נספרה.',
+  noSeeds: 'במדרגה הזאת עונים בשבר, ועוד אין לה תרגילים חדשים כאן. אפשר לתרגל אותה מהמפה.',
   bank: 'מהמאגר',
   locked: 'הפתרון כבר פתוח, אז את התרגיל הזה לא בודקים. אפשר לנסות את הבא.',
 };
@@ -281,6 +282,9 @@ function Generate({ initialTopic, initialLevel }) {
       // spares, in case a story does not pass)
       await ensureTopics([skillId(topic, level)]);
       const seeds = seedsFor(skillId(topic, level), count + 2, Math.random);
+      // a stair answered as a fraction (prob:3) has no seed: a story is checked against one number (lib/seeds.js), so
+      // nothing is asked of the server and the screen says why
+      if (!seeds.length) { setState({ phase: 'noseeds' }); return; }
       const r = await runAI('generate', { grade: t.grade, skill: skillId(topic, level), topic: t.title, stair: t.levels[level - 1].title, count, seeds: seedPayload(seeds) });
       runs.current += 1;
       setState({ phase: 'done', run: runs.current, ...exercisesFrom(seeds, r, count) });
@@ -318,6 +322,7 @@ function Generate({ initialTopic, initialLevel }) {
       <div ref={outRef} className="reveal-anchor" />
       {state.phase === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={GEN_COPY.loading} /></Box>}
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
+      {state.phase === 'noseeds' && <p className="muted" role="status">{GEN_COPY.noSeeds}</p>}
       {state.phase === 'done' && (
         <>
           <div className="gen-note">

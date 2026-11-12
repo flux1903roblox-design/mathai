@@ -13,7 +13,8 @@
     "test:week": "playwright test -c e2e/playwright.config.js --grep @student --project=phone --project=phone-small --project=phone-dark",
     "typecheck": "tsc -p tsconfig.json",
     "programme:md": "vite-node scripts/programme-md.mjs --write",
-    "programme:check": "vite-node scripts/programme-md.mjs --check"
+    "programme:check": "vite-node scripts/programme-md.mjs --check",
+    "review:sheet": "vite-node scripts/review-sheet.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.1.0",

@@ -56,6 +56,21 @@
 //          (multiples of 15), the numbers upright; letters name the vertex and the arms (θ1 is a, θ2 is b)
 //   clock  { h, m, marks? }   a clock at h:m, its hands at their true angles (the hour hand at 30h + m/2, the minute
 //          hand at 6m, from 12, clockwise); marks adds the 60 minute ticks
+// Data and probability (curriculum stage 3, DATA-3; learn/types.ts ChartFig, OutcomesFig, PairFig):
+//   chart  { mode: 'bar' | 'pie' | 'line' | 'picto', cats?, values, max?, step?, every?, from?, unit?, labels?, pct?,
+//          hide?, xs?, key?, icon?, level?, dashed?, mark?, cross?, tones?, dp?, anim? }   drawn by manip/ChartArt.jsx:
+//          bars right to left with a grid line at every step and at most 8 axis numbers; a pie clockwise from 12
+//          o'clock with its legend in chips under it; a line chart left to right (level: a dashed line at that value,
+//          dashed: the last points continue the trend in a dashed line, mark: an x marked on the line, cross: points or
+//          bars crossed out); a pictogram with its key and half icons drawn as halves
+//   outcomes { rowHead?, colHead?, rows?, cols, cells?, marked?, label?, dots? }   a table of outcomes (two stages: rows ×
+//          cols, a cell is the pair unless cells says what, or a dot with dots; one stage: one row); marked cells shaded,
+//          outlined and said
+//   pair   { items: [fig, fig], titles? }               two sources stacked ('מקור 1', 'מקור 2'), each at most 150px tall
+// and, for the steps of those units: table { highlight?: (row | [row, col])[], cross?: rows[] }, fbar { tones: [{ n,
+// label?, tone? }] } (parts in several tones, each group named under it), dots { span: { from, to, label? } } (a range
+// arrow over the dots), and a numline mark whose label is a Hebrew word (בלתי אפשרי, ודאי) is written under the line,
+// held inside the drawing at its ends and wrapped when long.
 import { useEffect, useId, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
@@ -69,7 +84,8 @@ import { DlineArt, DLINE_VIEW } from './manip/DoubleLine.jsx';
 import { SvgLabel, minus } from './manip/core.jsx';
 import { GraphAxes, GraphLegend, graphFrame, graphFont, drawnScale, useDrawnBox, LEGEND_ROW } from './manip/graphAxes.jsx';
 import { PROT, protractorLabels, protExtent, polar, useDrawnWidth, ProtractorArt } from './manip/protractor.jsx';
-import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, clockHands } from '@/content/manip.js';
+import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, clockHands, chartWords, outcomesWords } from '@/content/manip.js';
+import { barGeom, lineGeom, pieGeom, pictoGeom, BarChartArt, LineChartArt, PieArt, PictoArt, PatternDefs, textW, wrapText } from './manip/ChartArt.jsx';
 import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
@@ -364,12 +380,31 @@ function Ladder({ fig }) {
 const cell = (v) => String(v).replace(/^-/, '\u2212');
 const vars = (t) => String(t).split(/([a-zA-Z])/).map((p, i) => (i % 2 ? <span key={i} className="fig-var">{p}</span> : p));
 
-function Table({ fig }) {
+// highlight: rows (a number) or cells ([row, col]) shaded, outlined and bold ("the 4 shaded"); cross: rows struck through
+// (a jump that does not count). Each is also said in words, for a screen reader, so the shading is never the only cue.
+function Table({ fig, compact }) {
   const draw = useDraw(fig.anim);
+  const hl = fig.highlight || [];
+  const hiRow = new Set(hl.filter((h) => typeof h === 'number'));
+  const hiCell = new Set(hl.filter(Array.isArray).map(([i, j]) => `${i}:${j}`));
+  const crossed = new Set(fig.cross || []);
   return (
-    <table className={clsx('fg-table', fig.head.length >= 4 && 'cols4', fig.rows.length >= 7 && 'long')} dir={fig.ltr ? 'ltr' : undefined}>
+    <table className={clsx('fg-table', fig.head.length >= 4 && 'cols4', fig.rows.length >= 7 && 'long', compact && 'compact')} dir={fig.ltr ? 'ltr' : undefined}>
       <thead><tr>{fig.head.map((h, j) => <th key={j} scope="col">{WORD.test(h) ? vars(h) : <bdi dir="ltr">{vars(h)}</bdi>}</th>)}</tr></thead>
-      <tbody>{fig.rows.map((r, i) => <m.tr key={i} {...draw(i, 'fade')}>{r.map((v, j) => <td key={j}>{WORD.test(String(v)) ? <bdi dir="rtl">{v}</bdi> : <bdi dir="ltr">{vars(cell(v))}</bdi>}</td>)}</m.tr>)}</tbody>
+      <tbody>{fig.rows.map((r, i) => (
+        <m.tr key={i} className={clsx(hiRow.has(i) && 'hi', crossed.has(i) && 'cross') || undefined} {...draw(i, 'fade')}>
+          {r.map((v, j) => {
+            const on = hiCell.has(`${i}:${j}`);
+            const note = j === r.length - 1 && (crossed.has(i) ? ' (מחוק)' : hiRow.has(i) ? ' (מסומן)' : '');
+            return (
+              <td key={j} className={on ? 'hi' : undefined}>
+                {WORD.test(String(v)) ? <bdi dir="rtl">{v}</bdi> : <bdi dir="ltr">{vars(cell(v))}</bdi>}
+                {(on || note) && <span className="visually-hidden">{on ? ' (מסומן)' : note}</span>}
+              </td>
+            );
+          })}
+        </m.tr>
+      ))}</tbody>
     </table>
   );
 }
@@ -540,7 +575,9 @@ function NumLine({ fig }) {
   const num = (v) => figNum(Math.round(v * 1000) / 1000);
   // a point labelled with its own number lights that number up instead of writing it twice
   const lit = new Map(marks.filter((k) => k.label === num(k.x)).map((k) => [num(k.x), k]));
-  const named = marks.filter((k) => k.label && !lit.has(num(k.x)));
+  // a word at a point (בלתי אפשרי at 0, ודאי at 1) is written under the line, not over it: letters stay where they were
+  const named = marks.filter((k) => k.label && !lit.has(num(k.x)) && !WORD.test(k.label));
+  const words = marks.filter((k) => k.label && WORD.test(k.label)).sort((a, b) => a.x - b.x);
   // an arc rises with its length; one that goes back over an earlier arc (10 − 4 + 3) rises above it, so the two arcs
   // and their labels never cross; with arcs over the line, the points' letters go under the numbers
   const span = (j) => [Math.min(j.from, j.to), Math.max(j.from, j.to)];
@@ -552,7 +589,21 @@ function NumLine({ fig }) {
   });
   const under = jumps.length > 0;
   const L = under ? Math.max(...lifts) + 40 : named.length ? 46 : 22;
-  const H = L + (under && named.length ? 62 : 38);
+  // each word gets the room to its neighbours (wrapped to two lines when longer), and at an end of the line it is held
+  // inside the drawing, reading inward from its point
+  const WS = 15; const WL = 18;
+  const wordY = L + (under && named.length ? 78 : 52);
+  const placed = words.map((k, i) => {
+    const room = Math.min(...[words[i - 1], words[i + 1]].filter(Boolean).map((o) => Math.abs(X(o.x) - X(k.x)) - 8), 150);
+    const wrap = wrapText(k.label, Math.max(40, room), WS);
+    const w = Math.max(...wrap.lines.map((l) => textW(l, wrap.size)));
+    // at an end of the line the word runs inward from its point (0's word starts there, 1's word ends there)
+    const end = k.x <= from + 1e-9 ? -1 : k.x >= to - 1e-9 ? 1 : 0;
+    const cx = end < 0 ? Math.max(2, X(k.x) - 8) + w / 2 : end > 0 ? Math.min(W - 2, X(k.x) + 8) - w / 2 : Math.min(Math.max(X(k.x), 2 + w / 2), W - 2 - w / 2);
+    return { k, wrap, cx };
+  });
+  const wordLines = Math.max(0, ...placed.map((p) => p.wrap.lines.length));
+  const H = Math.max(L + (under && named.length ? 62 : 38), words.length ? wordY + (wordLines - 1) * WL + 8 : 0);
   const per = den || 1 / step; const n = Math.round((to - from) * per);
   // numbers on round values, as many as fit side by side (a minus sign and two digits need about 32px, with room for a
   // small phone that draws the line smaller); a lit number and where a jump starts and lands always show, and an
@@ -580,8 +631,13 @@ function NumLine({ fig }) {
       {marks.map((k, i) => (
         <m.g key={`m${i}`} className={clsx('fig-nl-mark', toneOf(k.tone))} {...draw(i, 'fade')}>
           <circle cx={X(k.x)} cy={L} r="6.5" />
-          {k.label && !lit.has(num(k.x)) && <text x={X(k.x)} y={under ? L + 52 : L - 17} textAnchor="middle" className={clsx('fig-nl-name', /^[A-Z]$/.test(k.label) && 'fig-var')}>{k.label}</text>}
+          {k.label && !lit.has(num(k.x)) && !WORD.test(k.label) && <text x={X(k.x)} y={under ? L + 52 : L - 17} textAnchor="middle" className={clsx('fig-nl-name', /^[A-Z]$/.test(k.label) && 'fig-var')}>{k.label}</text>}
         </m.g>
+      ))}
+      {placed.map(({ k, wrap, cx }, i) => (
+        <text key={`w${i}`} x={cx} y={wordY} textAnchor="middle" direction="rtl" className="fig-nl-word" style={{ fontSize: `${wrap.size}px` }}>
+          {wrap.lines.map((l, j) => <tspan key={j} x={cx} dy={j ? WL : 0}>{l}</tspan>)}
+        </text>
       ))}
       {jumps.map((j, i) => {
         const a = X(j.from); const b = X(j.to); const h = lifts[i]; const y = L - 7; const mid = (a + b) / 2; const k = marks.length + i;
@@ -680,7 +736,9 @@ function Dots({ fig }) {
   const gap = Math.min(hi - lo, ...distinct.slice(1).map((v, i) => v - distinct[i]));
   const r = Math.max(4, Math.min(9, gap * u * 0.4)); const g = 2 * r + 3;
   const high = new Map(); const row = values.map((v) => { const n = high.get(v) || 0; high.set(v, n + 1); return n; });
-  const L = (fig.unit ? 30 : 0) + 14 + Math.max(1, ...high.values()) * g;
+  // span: a double arrow over the dots from one value to another (the range, 5 to 17), its label over it
+  const sp = fig.span; const spanH = sp ? (sp.label ? 40 : 22) : 0;
+  const L = (fig.unit ? 30 : 0) + spanH + 14 + Math.max(1, ...high.values()) * g;
   // the median's dot(s): the middle of the values in order (equal values in the order given, as they stack)
   const order = values.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((p) => p[1]);
   const n = values.length;
@@ -700,6 +758,18 @@ function Dots({ fig }) {
         </g>
       ))}
       {k.mean != null && <path d={`M ${X(k.mean)} ${L + 2} l -9 16 h 18 z`} className="fig-dt-fulcrum" />}
+      {sp && (() => {
+        const ya = (fig.unit ? 30 : 0) + spanH - 8; const a = X(sp.from); const b = X(sp.to);
+        return (
+          <m.g className="fig-dt-span" {...draw(values.length, 'fade')}>
+            <line x1={a} x2={a} y1={ya} y2={L} className="guide" />
+            <line x1={b} x2={b} y1={ya} y2={L} className="guide" />
+            <line x1={a + 2} x2={b - 2} y1={ya} y2={ya} />
+            <path d={`${head(a, ya, Math.PI, 8)} ${head(b, ya, 0, 8)}`} />
+            {sp.label && <text x={(a + b) / 2} y={ya - 10} textAnchor="middle" className="fig-dt-span-num">{sp.label}</text>}
+          </m.g>
+        );
+      })()}
       {values.map((v, i) => (
         <m.circle key={i} cx={X(v)} cy={L - 3 - r - row[i] * g} r={r} className={clsx('fig-dt-dot', lit(i) && 'hi')} {...draw(i * Math.min(1, 12 / n), 'fade')} />
       ))}
@@ -820,6 +890,7 @@ function PartsLine({ fig }) {
 
 /** The fraction bar, still: one bar or rows of bars of one length, with their marks, hatching and crossed parts. */
 function FBar({ fig }) {
+  if (fig.tones?.length) return <FBarTones fig={fig} />;
   const rows = fig.rows?.length ? fig.rows : [{ den: fig.den, shaded: fig.shaded, label: fig.label }];
   const pid = `fgbar-${useId().replace(/[^\w-]/g, '')}`;
   const labelOf = (r) => r.label ?? (fig.labels ? `\\frac{${r.shaded}}{${r.den}}` : null);
@@ -842,6 +913,40 @@ function FBar({ fig }) {
       })}
       {marks.length > 0 && <MarksArt marks={marks} x0={x0} x1={x1} y={y0} />}
       {fig.whole != null && <WholeArt whole={fig.whole} x0={x0} x1={x1} y={H - 10} />}
+    </svg>
+  );
+}
+
+/**
+ * One fraction bar whose parts are in several tones, one group after another from the left (6, 9 and 5 of 20 for
+ * green, blue and red): a heavier line between groups and each group's name and count under it, so the tones are never
+ * the only way to tell the groups apart.
+ */
+function FBarTones({ fig }) {
+  const { den, tones } = fig;
+  const W = 360; const x0 = 20; const x1 = 340; const y = 10; const h = 52; const w = (x1 - x0) / den;
+  let at = 0;
+  const groups = tones.map((t, i) => { const g = { ...t, i, from: at, to: at + t.n }; at += t.n; return g; });
+  const size = 15;
+  const wraps = groups.map((g) => wrapText(`${g.label ? `${g.label} ` : ''}${g.n}`, Math.max(36, (g.to - g.from) * w - 4), size));
+  const lines = Math.max(1, ...wraps.map((x) => x.lines.length));
+  const H = y + h + 10 + size + (lines - 1) * 18 + 8;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="figure fg-obj fg-fbar" role="img" aria-label={figWords(fig)}>
+      {Array.from({ length: den }, (_, k) => {
+        const gi = groups.find((g) => k >= g.from && k < g.to);
+        return <rect key={`p${k}`} x={x0 + k * w} y={y} width={w} height={h} className={clsx('mp-fbar-part', gi && `on fig-tone-${(gi.tone ?? gi.i) % 8}`)} />;
+      })}
+      {Array.from({ length: den - 1 }, (_, k) => k + 1).map((k) => <line key={`l${k}`} x1={x0 + k * w} x2={x0 + k * w} y1={y} y2={y + h} className={clsx('mp-fbar-cut', groups.some((g) => g.to === k) && 'group')} />)}
+      <rect x={x0} y={y} width={x1 - x0} height={h} className="mp-fbar-edge" />
+      {groups.map((g, i) => {
+        const cx = x0 + ((g.from + g.to) / 2) * w;
+        return (
+          <text key={`t${i}`} x={cx} y={y + h + 10 + wraps[i].size} textAnchor="middle" direction="rtl" className="fg-fbar-tone" style={{ fontSize: `${wraps[i].size}px` }}>
+            {wraps[i].lines.map((l, j) => <tspan key={j} x={cx} dy={j ? 18 : 0}>{l}</tspan>)}
+          </text>
+        );
+      })}
     </svg>
   );
 }
@@ -1011,6 +1116,27 @@ function SGraph({ fig, box: shown = null }) {
   );
 }
 
+// ---------------------------------------------------------------- data and probability (curriculum stage 3, DATA-3)
+
+/** A data chart: a bar chart, a pie, a line chart or a pictogram (manip/ChartArt.jsx draws it, chartWords says it). */
+function Chart({ fig, compact }) {
+  const draw = useDraw(fig.anim);
+  const pid = `fgch-${useId().replace(/[^\w-]/g, '')}`;
+  const mode = ['pie', 'line', 'picto'].includes(fig.mode) ? fig.mode : 'bar';
+  const opts = { compact };
+  const g = mode === 'pie' ? pieGeom(fig, opts) : mode === 'line' ? lineGeom(fig, opts) : mode === 'picto' ? pictoGeom(fig, opts) : barGeom(fig, opts);
+  return (
+    <svg viewBox={`0 0 ${g.W} ${g.H}`} className={clsx('figure fig-obj fig-chart', `fig-chart-${mode}`, compact && 'compact')} role="img" aria-label={chartWords(fig)}>
+      <PatternDefs id={pid} />
+      {fig.unit && mode !== 'picto' && <text x={g.W / 2} y="18" textAnchor="middle" direction="rtl" className="fg-word">{fig.unit}</text>}
+      {mode === 'pie' ? <PieArt f={fig} g={g} pid={pid} draw={draw} />
+        : mode === 'line' ? <LineChartArt f={fig} g={g} draw={draw} />
+          : mode === 'picto' ? <PictoArt f={fig} g={g} pid={pid} draw={draw} />
+            : <BarChartArt f={fig} g={g} draw={draw} />}
+    </svg>
+  );
+}
+
 /**
  * A protractor laid on an angle: its centre on the vertex, the arms from the vertex to the rim, a small arc for the angle
  * measured, the letters; the numbers sized for the width it is shown at (protractorLabels).
@@ -1067,12 +1193,76 @@ function Clock({ fig }) {
   );
 }
 
+/**
+ * A table of outcomes: two stages as rows × columns (each cell the pair, or what `cells` says: the sum of two dice), or
+ * one stage as one row (the six faces; many outcomes as runs, 1–9, 10–45, 46–72). Marked cells are shaded, outlined
+ * and bold, and say so to a screen reader. On a narrow phone the table scrolls inside its own box, never the page.
+ */
+function Outcomes({ fig, compact }) {
+  const two = !!fig.rows?.length;
+  const cols = fig.cols || [];
+  // a wide two-stage table (coin × die: six columns) draws each cell as a dot, the pair being its row and column
+  const cellOf = (i, j) => (fig.cells?.[i]?.[j] ?? (two ? (fig.dots ? '•' : `(${fig.rows[i]}, ${cols[j]})`) : cols[j]));
+  const on = new Set((fig.marked || []).map(([i, j]) => `${i}:${j}`));
+  const show = (v) => (WORD.test(String(v)) && !/\d/.test(String(v)) ? <bdi dir="rtl">{v}</bdi> : <bdi dir="ltr">{cell(v)}</bdi>);
+  const td = (i, j) => (
+    <td key={j} className={on.has(`${i}:${j}`) ? 'on' : undefined}>
+      {show(cellOf(i, j))}{on.has(`${i}:${j}`) && <span className="visually-hidden"> (מסומן)</span>}
+    </td>
+  );
+  return (
+    <div className={clsx('fg-outcomes-wrap', compact && 'compact')} role="group" aria-label={outcomesWords(fig)}>
+      <table className={clsx('fg-table fg-outcomes', compact && 'compact', two && cols.length > 4 && 'dense')}>
+        {(fig.colHead || two) && (
+          <thead>
+            {fig.colHead && <tr>{two && <td className="corner" aria-hidden="true" />}<th colSpan={cols.length} scope="colgroup">{fig.colHead}</th></tr>}
+            {two && <tr><th scope="col" className="rowhead">{fig.rowHead || ''}</th>{cols.map((c, j) => <th key={j} scope="col">{show(c)}</th>)}</tr>}
+          </thead>
+        )}
+        <tbody>
+          {two ? fig.rows.map((r, i) => <tr key={i}><th scope="row">{show(r)}</th>{cols.map((_, j) => td(i, j))}</tr>)
+            : <tr>{cols.map((_, j) => td(0, j))}</tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Two sources, stacked: each titled ('מקור 1', 'מקור 2') and drawn compact, at most 150px tall on a phone, so both
+ * and the question fit above the keypad; never in tabs (combining them is the skill). A pair holds no pair.
+ */
+function Pair({ fig }) {
+  const titles = fig.titles || ['מקור 1', 'מקור 2'];
+  return (
+    <div className="fig-pair">
+      {(fig.items || []).slice(0, 2).map((f, i) => (
+        <section key={i} className="fig-pair-src" aria-label={titles[i]}>
+          <p className="fig-pair-title">{titles[i]}</p>
+          <div className="fig-pair-body">{f?.type === 'pair' ? null : drawn(f, true)}</div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 /** One numline type: a line cut into parts (den) is the fraction lane's PartsLine, any other the teaching NumLine. */
 const NumberLine = ({ fig }) => (fig.den ? <PartsLine fig={fig} /> : <NumLine fig={fig} />);
 
+const DRAW = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph, protractor: ProtractorFigure, clock: Clock, chart: Chart, outcomes: Outcomes, pair: Pair };
+/** Every figure type this component draws (learn/visuals.test.ts counts a step's figure only when it is one of them). */
+export const FIG_TYPES = Object.keys(DRAW);
+/**
+ * A figure's drawing, compact inside a pair (a chart with a shorter plot, a table with tighter rows). `box`: the size it
+ * is shown at before it is measured on the page (tests; the situation graph).
+ */
+function drawn(fig, compact = false, box = undefined) {
+  const C = fig && DRAW[fig.type];
+  return C ? <C fig={fig} compact={compact} box={box} /> : null;
+}
+
 /** A figure by its type. `box`: the size it is shown at before it is measured on the page (tests; the situation graph). */
 export default function Figure({ fig, box }) {
-  if (!fig) return null;
-  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph, protractor: ProtractorFigure, clock: Clock }[fig.type];
-  return C ? <div className="figure-wrap"><C fig={fig} box={box} /></div> : null;
+  if (!fig || !DRAW[fig.type]) return null;
+  return <div className={clsx('figure-wrap', (fig.type === 'pair' || fig.type === 'outcomes') && fig.type)}>{drawn(fig, false, box)}</div>;
 }

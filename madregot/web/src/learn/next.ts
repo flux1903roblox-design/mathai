@@ -119,7 +119,7 @@ function stairOf(q: ExamQuestion, exam: CheckedExam): SkillId | null {
   const topic = q.topic;
   if (!topic || !Object.prototype.hasOwnProperty.call(STAIRS, topic)) return null;
   const lv = Number(q.level);
-  const level = Number.isInteger(lv) && lv >= 1 && lv <= STAIRS[topic as keyof typeof STAIRS] ? lv : focusLevel(topic, [exam]);
+  const level = Number.isInteger(lv) && lv >= 1 && lv <= (STAIRS[topic as keyof typeof STAIRS] ?? 0) ? lv : focusLevel(topic, [exam]);
   return level ? skillId(topic, level) : null;
 }
 

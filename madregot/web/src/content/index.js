@@ -1,5 +1,5 @@
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
-import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords, protractorWords, clockText } from './manip.js';
+import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords, protractorWords, clockText, chartWords, outcomesWords } from './manip.js';
 // The first-load side of the content (content/topics.js: every topic's names, stairs, colours and misconception names,
 // the rows the screens list, and the generators' loading) is re-exported here, so code that makes or checks a question
 // imports everything from this file. A screen of the first load imports content/topics.js instead: this file carries
@@ -20,6 +20,8 @@ export function makeItem(topicId, level, avoidKey) {
   if (it.precise && it.form === 'num') it = withFormatNote(it);
   // A misconception can only be diagnosed for an answer that is actually wrong.
   const diag = (u) => (isCorrect(it, u) ? null : it.diag(u));
+  // the answers diag() names, when the generator lists them (content/data.js; namesOf reads them)
+  if (it.diag?.wrongs) diag.wrongs = it.diag.wrongs;
   return { ...it, diag, topic: topicId, level, levelTitle: L.title };
 }
 
@@ -74,7 +76,9 @@ function* tryAnswers(it) {
  */
 export function namesOf(it, want = []) {
   const found = new Set();
-  for (const u of tryAnswers(it)) {
+  // a diag() that lists the answers it names (its predictions, content/data.js) is asked only those: every name the
+  // search below finds, and a prediction off its grid too (0.36), without trying thousands of typed numbers
+  for (const u of it.diag?.wrongs || tryAnswers(it)) {
     if (isCorrect(it, u)) continue;
     const cat = it.diag(u);
     if (cat) { found.add(cat); if (want.length && want.every((w) => found.has(w))) break; }
@@ -202,7 +206,16 @@ export function figPlain(f) {
   const pt = (p) => `${p.label || ''}(${p.x}, ${p.y})`;
   const kinds = { corresponding: 'מתאימות', alternate: 'מתחלפות', cointerior: 'חד־צדדיות' };
   switch (f.type) {
-    case 'table': return `טבלה: ${f.rows.map((r) => r.join(' → ')).join('; ')}`;
+    case 'table': {
+      // a highlighted row or cell ("the 4 shaded") and a row struck through are said after the rows
+      const hl = (f.highlight || []).map((h) => (Array.isArray(h) ? String(f.rows[h[0]]?.[h[1]] ?? '') : f.rows[h]?.join(' → ') ?? '')).filter(Boolean);
+      const crossed = (f.cross || []).map((i) => f.rows[i]?.join(' → ')).filter(Boolean);
+      return `טבלה: ${f.rows.map((r) => r.join(' → ')).join('; ')}${hl.length ? `; מסומן: ${hl.join('; ')}` : ''}${crossed.length ? `; מחוק: ${crossed.join('; ')}` : ''}`;
+    }
+    // the data figures (curriculum stage 3, DATA-3): every number drawn, the axis, the marked and crossed things
+    case 'chart': return chartWords(f);
+    case 'outcomes': return outcomesWords(f);
+    case 'pair': return (f.items || []).slice(0, 2).map((x, i) => `${f.titles?.[i] || `מקור ${i + 1}`}: ${figPlain(x)}`).join('; ');
     case 'coord': return [
       f.points?.length ? `נקודות: ${f.points.map(pt).join(', ')}` : '',
       f.line ? `ישר y = ${f.line.m}x + ${f.line.b}` : '',

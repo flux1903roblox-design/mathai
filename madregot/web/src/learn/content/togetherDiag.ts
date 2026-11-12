@@ -95,6 +95,25 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { k: 0, p: 15, up: false, N: 300 } }, // 300 less 15%: 15 shekels off 285; the discount alone 45
     { model: 'diag', p: { k: 0, p: 15, up: true, N: 300 } }, // 300 plus 15%: 15 shekels on 315; the rise alone 45
   ],
+  // data:1-4 (curriculum stage 3, DATA-4): the spec's entries, each prediction checked by its critique/check.mjs D
+  'data:1': [
+    { model: 'diag', p: { s: 2, vals: [6, 10, 4], i: 1, j: 2, max: 14 } }, // blue − red: the squares counted 3; blue's own 10
+    // the pupils measured: the shoe sizes added (190) and the rows counted (5) are no misconception of the stair
+    { bugs: {} },
+  ],
+  'data:2': [
+    // 7 of 25 chose volleyball: against the other 18 (7/18), the whole over the part (25/7), the count (7), in percent (28)
+    { bugs: { 'part-part': 7 / 18, 'inverse-ratio': 25 / 7, 'freq-only': 7, 'pct-for-dec': 28 } },
+    { bugs: { 'part-part': 6 / 14 } }, // 6 vegetarians of 20 against the other 14
+  ],
+  'data:3': [
+    { model: 'diag', p: { N: 300, ps: [20, 45, 35], x: 1 } }, // 45% of 300: the percent itself 45; 300 : 45
+    { model: 'transfer', p: { p: 25, N: 240, c: 60 } }, // 60 is 25%: 25% of 60 is 15; 60 : 25 = 2.4
+  ],
+  'data:4': [
+    { model: 'diag', p: { c: [5, 2, 3], N: 10, j: 1, k: 3 } }, // red of 5, 2, 3: each colour a third 1/3; red against the rest 2/8
+    { bugs: { equiprob: 1 / 6, 'part-part': 150 / 450 } }, // the fair die's 1/6; 150 against the other 450
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)
@@ -277,6 +296,45 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { bugs: { 'mean-as-answer': 7, 'known-count': 2 } },
     // five friends of mean 12, six of mean 13: 78 − 60 = 18. The mean itself: 13. 13 times five: 65 − 60 = 5
     { bugs: { 'mean-as-answer': 13, 'known-count': 5 } },
+  ],
+  // stats:6-8 (curriculum stage 3, DATA-5): the spec's entries, each prediction checked by its critique/check.mjs D
+  'stats:6': [
+    // 14, 3, 9, 21, 6, 17: the range 18. The largest value: 21. The last minus the first: 17 − 14 = 3
+    { bugs: { 'range-max': 21, 'first-last': 3 } },
+    // a range of 25 and 8 added to every grade: the 8 added to the range
+    { bugs: { 'shift-range': 33 } },
+  ],
+  'stats:7': [
+    // the spring total against a monthly mean: 1050 − 330 = 720; all five months: 390 − 330 = 60
+    { model: 'transfer', p: { m: [460, 440, 380, 350, 320], S: 330, seasons: [600, 330, 500, 400] } },
+    // a warm-up with one right path: no misconception of the stair shows on 155
+    { bugs: {} },
+  ],
+  'stats:8': [
+    // 48 in 2011, 84 in 2017, asked 2013: the midpoint 66, the whole change each year 120, from the other end 72, the
+    // change only 12
+    { model: 'diag', p: { d: 6, j: 2, rate: 6, y1: 48, y2: 84, x1: 2011 } },
+    // 240 by 12:00, 60 more every two hours, asked 18:00: the trend stopped 240, one step 300, hours as steps 600
+    { bugs: { 'last-value': 240, 'one-step': 300, 'hours-as-steps': 600 } },
+  ],
+  // Probability (curriculum stage 3, DATA-6)
+  'prob:1': [
+    // cards 1 to 10, more than 7: the count 3, one card 1/10, "it happens or not" 1/2
+    { model: 'diag', p: { n: 10, e: 'gt', t: 7, k: 3 } },
+    // tickets 1 to 100, winners 1-5 and 91-100: 91 to 100 counted as 9 gives 14/100, the count 15
+    { model: 'transfer', p: { N: 100, a: 5, b: 91, w: 15 } },
+  ],
+  'prob:2': [
+    // red 0.35, blue 0.4, not blue: blue's own 0.4, 100 − 0.4, only red added 0.35
+    { bugs: { 'same-prob': 0.4, 'hundred-minus': 99.6, 'others-given': 0.35 } },
+    // winning 3/8, not winning: the same 3/8, 100 − 3/8
+    { bugs: { 'same-prob': 3 / 8, 'hundred-minus': 100 - 3 / 8 } },
+  ],
+  'prob:3': [
+    // a double of two dice: the 21 pairs without order taken as equally likely, 6/21
+    { bugs: { 'space-21': 6 / 21 } },
+    // red (one of three) and tails (one of two): the two added 1/3 + 1/2, one stage only 1/3 or 1/2
+    { bugs: { 'add-probs': 1 / 3 + 1 / 2, 'one-stage': [1 / 3, 1 / 2] } },
   ],
   // Algebra. As for coord:2 and pyth:3, a prediction counts only when the steps the student has just solved leave it
   // possible: a bracket opened right in a step is not "opened wrong" in the last one, and an equation chosen in a step

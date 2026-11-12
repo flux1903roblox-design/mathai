@@ -79,12 +79,12 @@ export const PROGRAMME = {
     { id: '7.15', grade: '7', domain: 'uncertainty', title: 'איסוף, ייצוג וקריאת מידע, שכיחות', months: [1, 2],
       parts: [
         { hours: 2, skills: ['stats:1'] }, // the mode
-        { hours: 4, skills: [], note: 'איסוף נתונים, ייצוג בדיאגרמות וקריאתן', later: 'S3' },
+        { hours: 4, skills: ['data:1'] }, // charts, the pictogram and the frequency table
       ] },
     { id: '7.16', grade: '7', domain: 'uncertainty', title: 'שכיחות יחסית (בלי ועם אחוזים)', months: [2],
-      parts: [{ hours: 5, skills: [], note: 'שכיחות יחסית, גם באחוזים', later: 'S3' }] },
+      parts: [{ hours: 5, skills: ['data:2', 'data:3'] }] }, // relative frequency; in percent and the pie
     { id: '7.17', grade: '7', domain: 'uncertainty', title: 'הסתברות בהקשר של שכיחות יחסית', months: [2],
-      parts: [{ hours: 4, skills: [], note: 'הסתברות כשכיחות יחסית', later: 'S3' }] },
+      parts: [{ hours: 4, skills: ['data:4'] }] }, // probability from relative frequency
 
     // ---------------- ח׳ (147 hours)
     { id: '8.1', grade: '8', domain: 'numbers', title: 'יחס, פרופורציה וקנה מידה', months: [9, 10],
@@ -100,7 +100,8 @@ export const PROGRAMME = {
     { id: '8.6', grade: '8', domain: 'uncertainty', title: 'איסוף וקריאת מידע, שכיחות, שכיחות יחסית', months: [10, 11],
       parts: [
         { hours: 1, skills: ['stats:1'] }, // the mode
-        { hours: 7, skills: [], note: 'איסוף וקריאת מידע ושכיחות יחסית', later: 'S3' },
+        // the ז׳ data unit, learnt in ח׳ in the transition year (on the ח׳ path through learn/skills.ts ALSO_ON_PATH)
+        { hours: 7, skills: ['data:1', 'data:2', 'data:3'] },
       ] },
     { id: '8.7', grade: '8', domain: 'algebra', title: 'מבוא לפונקציות: ייצוגים, עלייה וירידה', months: [11],
       // the November row of the schedule; taught once func:3 lands (a part counts when all its stairs exist)
@@ -120,10 +121,11 @@ export const PROGRAMME = {
     { id: '8.10', grade: '8', domain: 'uncertainty', title: 'טווח נתונים ומדדי מרכז, שני מקורות מידע', months: [12, 1],
       parts: [
         { hours: 8, skills: range('stats', 2, 5) },
-        { hours: 4, skills: [], note: 'טווח נתונים והשוואה בין שני מקורות מידע', later: 'S3' },
+        // curriculum stage 3 (DATA-5): the range and a change to every value, and two sources of data
+        { hours: 4, skills: ['stats:6', 'stats:7'] },
       ] },
     { id: '8.11', grade: '8', domain: 'uncertainty', title: 'אינטרפולציה, אקסטרפולציה', months: [1],
-      parts: [{ hours: 4, skills: [], note: 'אינטרפולציה ואקסטרפולציה', later: 'S3' }] },
+      parts: [{ hours: 4, skills: ['stats:8'] }] },
     { id: '8.12', grade: '8', domain: 'geometry', title: 'חפיפת משולשים, צלעות במשולש, תיכון', months: [1, 2],
       parts: [{ hours: 16, skills: [], note: 'חפיפת משולשים, צלעות במשולש ותיכון', later: 'S4' }] },
     { id: '8.13', grade: '8', domain: 'geometry', title: 'זווית חיצונית, שווה־שוקיים ומשפטים הפוכים, דמיון משולשים', months: [3, 4],
@@ -136,7 +138,12 @@ export const PROGRAMME = {
     { id: '8.15', grade: '8', domain: 'algebra', title: 'אי שוויונות', months: [5],
       parts: [{ hours: 4, skills: ['sys:5'] }] },
     { id: '8.16', grade: '8', domain: 'uncertainty', title: 'הסתברות א ו־ב', months: [3],
-      parts: [{ hours: 6, skills: [], note: 'הסתברות: מאורע, מאורע משלים וניסוי בשני שלבים', later: 'S3' }] },
+      parts: [
+        // 8.16: "הסתברות א – בסיס" is data:4 (probability from relative frequency); "הסתברות ב" is prob:1-3 (equally
+        // likely outcomes, the complement, a two-stage experiment counted in a table)
+        { hours: 2, skills: ['data:4'] },
+        { hours: 4, skills: ['prob:1', 'prob:2', 'prob:3'] },
+      ] },
     { id: '8.17', grade: '8', domain: 'geometry', title: 'משפט פיתגורס במרחב', months: [5],
       parts: [{ hours: 6, skills: [], note: 'משפט פיתגורס בגופים במרחב', later: 'S2' }] },
   ],

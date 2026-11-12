@@ -431,6 +431,25 @@ describe('each unit has its own identity', () => {
     expect([TOPIC.pct.color, TOPIC.func.color, TOPIC.line.color]).toEqual(['petrol', 'fuchsia', 'cobalt']);
     expect(SCENERY.func.map((piece) => piece.name)).toEqual(['WalkGraph', 'Stopwatch', 'Candle']);
   });
+  // DATA-6: probability (fuchsia) follows systems (petrol), the last unit of ח׳; violet would clash with stage 2's
+  // space unit (violet, May), which school order puts right after it
+  it('probability is fuchsia, beside systems on the ח׳ path, and not violet', () => {
+    const list = topicsFor('8').map((t) => t.id);
+    expect(list.slice(-2)).toEqual(['sys', 'prob']);
+    expect(TOPICS.find((t) => t.id === 'prob').color).toBe('fuchsia');
+    expect(TOPICS.find((t) => t.id === 'sys').color).not.toBe('fuchsia');
+  });
+  // DATA-4: data's colour is the one its neighbours leave. On the ז׳ path it sits between expressions (cobalt) and
+  // equations (violet), and this year on the ח׳ path between percent (petrol) and functions (fuchsia), so sky is the one
+  // left. Stage 2 puts its solids unit (sky) right before it on the ז׳ path: that merge turns data cobalt (stage3.md).
+  it('data is sky, the one colour its four neighbours leave, on both paths', () => {
+    const near = (g) => { const ids = topicsFor(g).map((x) => x.id); const i = ids.indexOf('data'); return [ids[i - 1], ids[i + 1]]; };
+    expect(near('7')).toEqual(['expr', 'eq']);
+    expect(near('8')).toEqual(['pct', 'func']);
+    const taken = new Set([...near('7'), ...near('8')].map((id) => TOPIC[id].color));
+    expect(COLOURS.filter((c) => !taken.has(c))).toEqual([TOPIC.data.color]);
+    expect(TOPIC.data.color).toBe('sky');
+  });
   it('every topic has three drawings: its emblem and two for beside the path', () => {
     for (const t of TOPICS) {
       expect(SCENERY[t.id], `${t.id} has drawings`).toBeTruthy();

@@ -983,6 +983,52 @@ script. They now load one topic at a time, and nothing the student sees changed.
   UI, lucide, sonner, the store and `durable/*`, `parent.js` and `teacher.js` through `account.js`, the topic meta);
   next in size among our own modules: `lib/store.js` 10.9, `durable/merge.js` 8.9, `topics.gen.js` 7.8,
   `durable/vault.js` 7.4, `meta.gen.ts` 6.7, `lib/qaFixtures.js` 4.2 KB (QA fixtures, a candidate to load on demand).
+  The stage-3 lane (data and probability, `finish/specs/stage3.md`) measured its own delta on its own branch, before the
+  boot split (the next paragraph says what the merge measured). Its first stage (one unit on
+  two grades' paths, the fraction answer form) left boot JS at 432.7 KB, 0.3 KB under the gate; its second (the data
+  figures: `chart`, `outcomes`, `pair`) adds their words to the first download, because `figPlain` in
+  `content/index.js` and `figWords` in `content/manip.js` are there and must say every number a drawing writes (the
+  tutor, an answer key and the guessers read them): +1.5 KB, 434.2 KB. The drawing itself (`components/manip/
+  ChartArt.jsx`) and its stylesheet load with the figure, on demand. With no challenge task of the new topics yet to
+  move behind a per-topic import (the spec's first remedy), the gate moved by the same rule (measured + 5%) to
+  **456 KB** (CSS 52.7 KB under 59, precache 4.71 MB under 4.79). Open work, unchanged: the challenge tasks behind a
+  per-topic import, and the figure words (`figPlain`, `figWords`, `itemPlain`) in a module of their own that only the
+  screens that show or send an exercise import.
+  Its data unit (`data:1-4`, the stage's fifth step) adds the unit's exercise generators (`content/data.js`, read by the
+  map, the placement test and the class exam) and its three challenge tasks to the first download: boot JS 436.2 →
+  **449.1 KB** (+12.9 KB, under the 456 KB gate, so the challenge tasks stay where they are), CSS 54.4 KB unchanged. Its
+  teaching content is a chunk of its own (`data-*.js`, 55.9 KB raw), loaded with the unit. The service worker keeps every
+  script for offline use, so the precache grew to 4.84 MB, over its 4.79 MB gate; moving code behind an import cannot
+  shrink it (a lazy chunk is precached too), so that gate moved by the same rule (measured + 5%, rounded down) to
+  **5.08 MB**. Open work, unchanged.
+  Its statistics stairs 6-8 and probability unit (`stats:6-8`, `prob:1-3`, the stage's seventh and eighth steps) add
+  their exercise generators (`content/stats2.js`, `content/prob.js`) and three more challenge tasks: boot JS **465.7 KB**,
+  over the gate. So the first open work item was done: the challenge tasks' stories and parts left the first download
+  (`learn/challenges/all.ts`, imported only by the challenge screen, a chunk of its own: `Challenge-*.js`, 22.8 KB
+  gzipped), and the first load keeps each task's id, topic, stair, kind, title and minutes (`learn/challenges/meta.gen.ts`,
+  written by `scripts/gen-content-meta.mjs` with the content meta and checked the same way). Boot JS **450.7 KB** under
+  the 456 KB gate, CSS 54.4 KB unchanged, precache 4.97 MB under 5.08 MB; no gate moved. Open work: the figure words.
+  The stage's whole delta, measured when it closed (its ninth step, after the whole-content check; the same numbers as
+  after the eighth): boot JS 432.7 → **450.7 KB** (+18.0 KB: the data figures' words +1.5, the two objects' entries and
+  the ח׳ path +2.0, the data unit's generators and its three challenge tasks +12.9, the statistics and probability
+  generators +1.6 net of the challenge stories that moved out), render-blocking CSS 52.7 → 54.4 KB (+1.7), precache 4.68 → 4.97 MB
+  (+0.29), against its base (`b347414`, built the same way). Two gates moved by DURABLE-11's rule (measured + 5%), each
+  said in its commit: boot JS 433 → 456 KB (the second step: no challenge task of its own existed yet to move) and the
+  precache 4.79 → 5.08 MB (the fifth step: a lazy chunk is precached too). When the boot gate failed a second time (the
+  eighth step, 465.7 KB) the first fallback was used, not the gate: the challenge tasks went behind the challenge
+  screen's import, for every topic at once rather than per topic, and the gate stayed at 456 KB.
+  **The stage-3 merge** (onto the boot split) keeps main's gates, not the lane's (456 KB and 5.08 MB were its own
+  branch's, over a first load that still carried every generator). Its generator files (`content/data.js`, `prob.js`,
+  `stats2.js`) load with their topics like every other (`content/topics.js` `importGens` has `data` and `prob`; `stats`
+  loads `grade8.js`, which imports `stats2.js`), and `budget.json`'s `lazyOnly` names the three by path. What it adds to
+  the first load is its topics' meta (`topics.gen.js`, `meta.gen.ts`, the challenge meta), the scenery drawings, the
+  wardrobe pins and the `ALSO_ON_PATH` code: boot JS 317.2 -> **322.6 KB** (gate 333, unchanged). Its two objects' rules
+  (the random experiment and the chart to build, 147 lines the lane had put in `app.css`) took the render-blocking CSS
+  to 47.6 KB, over the 46 KB gate: they moved to `styles/lazy/data.css`, which `components/manip/Simulate.jsx` and
+  `Chart.jsx` import (as the stage-5 merge did with `lazy/graph.css`; `styles/lazy.test.js` checks every selector and
+  pins the two imports), and the CSS is **45.5 KB** again (gate unchanged). The precache is the raw bytes of every
+  offline file: 5.23 MB (the three topics' content and chunks), so its gate moved by the integration rule, measured +
+  5%, to **5.49 MB**. 37 lazy-only modules load on demand.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

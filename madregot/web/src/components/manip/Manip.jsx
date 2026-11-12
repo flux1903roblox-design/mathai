@@ -2,7 +2,8 @@
 // content/manip.js checks it. Every object can be dragged, tapped, used with arrow keys or with step buttons.
 // Under it מדי describes what the student just did (never whether it is right: that is what "בדיקה" is for).
 // In a check or the placement test (`test`), nothing on screen tells the student the target is reached: the objects
-// hide their live readouts of the result, and מדי says nothing. Teaching and practice keep them.
+// hide their live readouts of the result, and מדי says nothing. Teaching and practice keep them. A random experiment
+// (simulate) is not drawn in a check at all: its words stand in its place.
 import NumberLine from './NumberLine.jsx';
 import PlotPoint from './PlotPoint.jsx';
 import LineBuilder from './LineBuilder.jsx';
@@ -18,13 +19,15 @@ import Ray, { rayCoach } from './Ray.jsx';
 import FracBar, { fbarCoach } from './FracBar.jsx';
 import DoubleLine, { dlineCoach } from './DoubleLine.jsx';
 import GraphDraw from './GraphDraw.jsx';
-import { triangleAngles } from '@/content/manip.js';
+import Simulate, { simCoach } from './Simulate.jsx';
+import Chart, { chartCoach } from './Chart.jsx';
+import { triangleAngles, manipPlain } from '@/content/manip.js';
 import { minus, partsTex } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 
 export const KINDS = {
   numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag,
-  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, graph: GraphDraw,
+  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, graph: GraphDraw, simulate: Simulate, chart: Chart,
 };
 
 // A number inside Hebrew text keeps its minus sign on the left.
@@ -99,6 +102,8 @@ function coach(it, v, touched) {
     case 'dline': return dlineCoach(m, v, touched);
     // a story drawn as a shape: decide each segment first; anything else: each column is one moment, dragged to its height
     case 'graph': return it.answer?.mode === 'shape' ? 'קודם מחליטים בכל קטע: עולה, יורד או נשאר. אחר כך גוררים.' : 'גררו כל נקודה לגובה הנכון. כל עמודה היא רגע אחד.';
+    case 'simulate': return simCoach(m, v, it.answer, touched);
+    case 'chart': return chartCoach(m, v, touched);
     default: return null;
   }
 }
@@ -106,6 +111,8 @@ function coach(it, v, touched) {
 export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint, test = false }) {
   const C = KINDS[item.manip.kind];
   if (!C) return null;
+  // a random experiment is never a check (its items are practice-only): in a check it would be read, not run
+  if (test && item.manip.kind === 'simulate') return <p className="manip-plain">{manipPlain(item)}</p>;
   return (
     <>
       <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} test={test && !reveal && !good} />

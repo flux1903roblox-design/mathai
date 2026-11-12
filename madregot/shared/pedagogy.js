@@ -5,7 +5,7 @@
 // This file ships to the browser (shared/ai.js imports it), so no regex here uses lookbehind (ai spec §0.3; Safari
 // before 16.4 fails to load a chunk that has one): a word start is a prefix group, (?:^|[^א-ת]), and an end a lookahead.
 import { safetyPrompt } from './safety.js';
-import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, NOT_YET } from './stairs.js';
+import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, TOPIC_ALSO, NOT_YET } from './stairs.js';
 import { TOPIC_WAYS_STAGE1, SIGNED_FRACTIONS } from './topicWays.js';
 
 /** The one sentence that names the singular forms to avoid (the plural-only check skips it). */
@@ -58,10 +58,16 @@ export const PEDAGOGY = `How Madregot teaches, and how you teach inside it.
 export function curriculumBlock() {
   const stairsOf = (t) => Object.keys(STAIR_NAMES).filter((id) => id.split(':')[0] === t).map((id) => `${id.split(':')[1]} ${STAIR_NAMES[id]}`);
   const grade = (g) => Object.keys(TOPIC_NAMES).filter((t) => TOPIC_GRADE[t] === g).map((t) => `${TOPIC_NAMES[t]}: ${stairsOf(t).join(', ')}`).join(' | ');
+  // a unit filed under one grade that the other also learns this school year: named once more, on a line of its own
+  const also = ['7', '8'].flatMap((g) => {
+    const names = Object.keys(TOPIC_ALSO).filter((t) => TOPIC_ALSO[t] === g).map((t) => TOPIC_NAMES[t]);
+    return names.length ? [`This school year (תשפ״ז) grade ${g} also learns: ${names.join(', ')}.`] : [];
+  });
   return [
     "Madregot's stairs, in teaching order (topic: numbered stairs). Help with any of them; name a stair the way the app does.",
     `Grade 7 (ז׳): ${grade('7')}`,
     `Grade 8 (ח׳): ${grade('8')}`,
+    ...also,
     `Topics of grades 7-8 the app does not teach yet: ז׳: ${NOT_YET['7'].join(', ')}; ח׳: ${NOT_YET['8'].join(', ')}. Help with them in the usual way. Do not invent a stair, a lesson or a link for them.`,
   ].join('\n');
 }
@@ -130,6 +136,14 @@ export const TOPIC_WAYS = Object.freeze({
     avoid: ['key-word rules ("יותר מ… זה תמיד פלוס")', 'joining unlike terms', 'dropping the minus in front of a term'],
     avoidRe: [re(String.raw`(?:יותר|פחות)\s+מ\S*\s+(?:זה\s+)?תמיד\s+(?:פלוס|מינוס|חיבור|חיסור)`)],
   },
+  // curriculum stage 3's data unit (data:1-4, web/src/learn/content/data.ts): ז׳, and ח׳ this school year too
+  data: {
+    models: 'A frequency is how many times a value appears; the frequency table and the bar chart show the same counts (read the axis: its steps can be 2, 5 or 10). The relative frequency is the frequency over the total of all data: a fraction, a decimal or a percent; the relative frequencies add up to 1 (100%). A pie shows the parts of one whole. Picking at random from a group, the probability of a kind is its relative frequency; many repetitions of an experiment estimate a probability, a few do not.',
+    words: ['שכיחות', 'שכיחות יחסית', 'טבלת שכיחויות', 'דיאגרמת עמודות', 'דיאגרמת עוגה', 'פיקטוגרמה', 'הסתברות'],
+    avoid: ['"each bar or each kind is an equal part"', '"more of them means a bigger share"', '"a few tries give the probability"'],
+    // every kind (bar, colour) said to have the same chance or the same part, as a rule
+    avoidRe: [re(String.raw`(?:כל|לכל)\s+(?:עמודה|סוג|צבע)\s+(?:יש\s+)?(?:אותו\s+)?(?:סיכוי|חלק)\s+(?:שווה|זהה)`)],
+  },
   eq: {
     models: String.raw`An equation is a balanced scale: doing the same to both sides keeps it level and keeps its solution (equivalent equations). Undo in reverse order: first what was added to $x$, then what multiplied it. With $x$ on both sides, take the same number of $x$'s from both. A word problem: one unknown, the other quantities written with it, and two expressions the story says are equal. A full solution ends with a check by substituting into the original equation, and a story's answer must fit the story. The scale carries positive whole numbers; negatives follow the same rule without it. Motion: distance = speed × time in the same units, a table row per mover; speeds add when moving toward each other and subtract when one catches up. Denominators: multiply every term of both sides by a common denominator; a numerator is a bracket.`,
     words: ['נעלם', 'אגף ימין', 'אגף שמאל', 'משוואות שקולות', 'בדיקה בהצבה', '"עושים אותו דבר בשני האגפים"'],
@@ -172,11 +186,15 @@ export const TOPIC_WAYS = Object.freeze({
     avoidRe: [re(String.raw`(?:לפי\s+(?:ה)?נוסחה|הנוסחה(?:\s+היא)?|נוסחת\s+פיתגורס(?:\s+היא)?|(?:משתמשים|מציבים)\s+בנוסחה)\s*:?\s*\$?a\^2\s*\+\s*b\^2\s*=\s*c\^2${unless('יתר|ניצב|ישרה|ישר־זווית')}`)],
   },
   stats: {
-    models: 'The mode is the tallest pile of equal values. The median comes after sorting: the middle value, or the mean of the two middle ones. The mean is the height all bars reach when the total is shared equally: the sum over the number of values. In a frequency table each value counts as often as it appears. A missing value: the total is the mean times the count.',
-    words: ['שכיח', 'חציון', 'ממוצע', 'טבלת שכיחויות'],
-    avoid: ['taking the middle without sorting', 'dividing by the number of different values in a frequency table'],
+    models: 'The mode is the tallest pile of equal values. The median comes after sorting: the middle value, or the mean of the two middle ones. The mean is the height all bars reach when the total is shared equally: the sum over the number of values. In a frequency table each value counts as often as it appears. A missing value: the total is the mean times the count. The range is the largest value minus the smallest, one number. Adding the same number to every value moves the mode, median and mean by it and keeps the range; multiplying every value multiplies all of them, the range too. Two sources are joined by what they share (the same jump, the same month) and checked for contradictions. Interpolation estimates between known values (a uniform change: the change per step times the steps); extrapolation continues the trend beyond them, less surely the further it goes.',
+    words: ['שכיח', 'חציון', 'ממוצע', 'טבלת שכיחויות', 'טווח', 'מקור מידע', 'אינטרפולציה', 'אקסטרפולציה'],
+    avoid: ['taking the middle without sorting', 'dividing by the number of different values in a frequency table', '"the range is from … to …" as the answer (it is one number, the difference)', '"the midpoint is always the value in between"'],
     // a reply that calls the median the middle number and never mentions sorting (a lookahead from the start of the text)
-    avoidRe: [new RegExp(String.raw`^(?![\s\S]*(?:מסדר|סידור|לפי הסדר|ממוינ|ממיינ|מהקטן לגדול|מהגדול לקטן))[\s\S]*?${Q}החציון\s+(?:הוא|זה)\s+(?:פשוט\s+)?(?:המספר|הערך)\s+(?:ה)?אמצעי`)],
+    avoidRe: [
+      new RegExp(String.raw`^(?![\s\S]*(?:מסדר|סידור|לפי הסדר|ממוינ|ממיינ|מהקטן לגדול|מהגדול לקטן))[\s\S]*?${Q}החציון\s+(?:הוא|זה)\s+(?:פשוט\s+)?(?:המספר|הערך)\s+(?:ה)?אמצעי`),
+      // the range given as its two ends ("הטווח הוא מ־5 עד 17"), where the app teaches one number, the difference
+      re(String.raw`(?:ה)?טווח\s+(?:הוא|זה)\s+מ־?\s*\$?-?\d`),
+    ],
   },
   sys: {
     models: String.raw`A solution is checked by putting it back in. A percent is of the original quantity: call it $x$ and write the change as multiplication (20% more is $1.2x$, 30% off $0.7x$; $1.2x = 60$). A system's solution is a pair true in both equations, where the two lines meet. Substitute, in brackets, when one equation gives $y$ (or $x$); else subtract the equations when a variable's coefficients are equal, add them when opposite. 0, 1 or infinitely many solutions. A story with two unknowns has two "equals" sentences, one equation each. An inequality is solved like an equation; its direction reverses only when multiplying or dividing both sides by a negative number ($2 < 3$ but $-2 > -3$). Check the direction with one number from the range; the answer is a ray with a full or an empty end.`,
@@ -191,6 +209,15 @@ export const TOPIC_WAYS = Object.freeze({
       re(String.raw`(?:הופכים|להפוך|מחליפים|להחליף|הפכו)\s+(?:את\s+)?(?:ה)?(?:סימן|כיוון)(?:\s+(?:של\s+)?(?:ה)?אי[־-]?שוויון)?\s+(?:כש|אם\s+|כאשר\s+)(?:יש|רואים|מופיע)\s+(?:מינוס|מספר\s+שלילי)`),
       re(String.raw`(?:מעבירים|להעביר|מעביר|תעבירו|העבירו)\s+(?:את\s+\S+\s+)?(?:ל)?אגף\s+(?:ו|ו־)?(?:מחליפים|להחליף|מחליף|החליפו|משנים|לשנות)\s+(?:את\s+ה)?סימן${unless('בשני האגפים|משני האגפים|לשני האגפים|אותו דבר')}`),
     ],
+  },
+  // curriculum stage 3 (DATA-6): ח׳'s "הסתברות ב". No letters for events in grade 8 (the updated curriculum)
+  prob: {
+    models: 'Equally likely outcomes: each of n has probability 1/n, an event of k of them k/n; this needs symmetry (a fair die, equal sectors), otherwise only many repetitions estimate it. The probability that something does not happen is 1 minus the probability that it happens; outcomes that do not overlap add. Grade 8 does not name events with letters: say "the probability of rain", never P(A). A two-stage experiment is a table of pairs: (5, 6) and (6, 5) are two cells, all n1·n2 cells equally likely when each stage is fair; count the cells.',
+    words: ['תוצאות שוות סיכוי', 'מאורע משלים', 'ניסוי בשני שלבים', 'טבלת תוצאות'],
+    avoid: ['"two possible outcomes means 1/2"', '"all sums of two dice are equally likely"', '"after many heads, tails is due"', '"P(A) or a letter for an event"'],
+    // two outcomes said to be a half each, as a rule: not when the sentence says they are equally likely (a fair coin)
+    // or that they are not
+    avoidRe: [re(String.raw`(?:שתי|2)\s+(?:אפשרויות|תוצאות)${unless('לא |אינן|אבל|שוות סיכוי|שווי סיכוי|הוגן')}[\s\S]{0,40}?(?:חצי|1\/2|\\frac\{1\}\{2\}|50\s*\\?%)`)],
   },
 });
 

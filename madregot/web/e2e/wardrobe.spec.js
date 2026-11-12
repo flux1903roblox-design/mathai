@@ -7,9 +7,10 @@ import { expectTextContrast } from './contrast.js';
 
 const only = (...names) => ({}, info) => test.skip(!names.includes(info.project.name), `runs on ${names.join(' and ')}`);
 const done = (levels) => ({ parts: {}, reviews: 0, jumped: 0, done: Object.fromEntries(levels.map((l) => [l, 'mastered'])) });
-// the angles chest open (stairs 1 to 3), the stats unit mastered (all 5); טורקיז earned before, and stays earned
+// the angles chest open (stairs 1 to 3), the stats unit mastered (all 8, stats:6-8 since curriculum stage 3); טורקיז
+// earned before, and stays earned
 const look = (extra = {}) => ({ color: 'sky', head: null, face: null, neck: null, body: null, earned: ['petrol'], seen: ['petrol', 'fuchsia', 'protractor-crown', 'bars-pin'], earnedAt: { petrol: '2026-10-20' }, ...extra });
-const dressed = (extra = {}) => student('7', { path: { angles: done([1, 2, 3]), stats: done([1, 2, 3, 4, 5]) }, look: look(extra) });
+const dressed = (extra = {}) => student('7', { path: { angles: done([1, 2, 3]), stats: done([1, 2, 3, 4, 5, 6, 7, 8]) }, look: look(extra) });
 const lo = (page) => page.locator('.wardrobe-madi').getAttribute('style');
 
 test.describe('on a phone', () => {

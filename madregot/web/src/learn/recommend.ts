@@ -4,7 +4,8 @@
 // The bridge unit (fractions, skills.ts BRIDGE) is the floor under the grade, not a stair of it: a bridge stair is
 // missing only on evidence (never because it was not started), and it is offered as new only when the floor is on.
 import type { Action, LearnState, MasteryState, SkillId, SkillRecord, Stage } from './types';
-import { ALL_SKILLS, GRADE_OF, isBridgeSkill, parseSkill, prereqsOf } from './skills';
+import { ALL_SKILLS, ALSO_ON_PATH, onGradePath, parseSkill, prereqsOf } from './skills';
+import type { AlsoOnPath } from './skills';
 import { masteryState, nextStage } from './mastery';
 import { openMisconceptions } from './misconceptions';
 import { hasContent } from './content/index';
@@ -89,8 +90,11 @@ export function recoveredSince(rec: SkillRecord | undefined, at: string | undefi
 /** Fewer than half right in a short check, and nothing since that says the stair is back. */
 const missedSince = (x: { asked: number; right: number } | undefined, at: string | undefined, rec: SkillRecord | undefined) => !!x && x.asked > 0 && x.right * 2 < x.asked && !recoveredSince(rec, at);
 
-/** Does the evidence say this skill is missing? Only evidence counts: no data about an earlier grade is not a gap. */
-export function isMissing(ctx: Context, id: SkillId, st = states(ctx)): boolean {
+/**
+ * Does the evidence say this skill is missing? Only evidence counts: no data about an earlier grade is not a gap.
+ * `also`: the units on two grades' paths (skills.ts ALSO_ON_PATH; another table in tests).
+ */
+export function isMissing(ctx: Context, id: SkillId, st = states(ctx), also: AlsoOnPath = ALSO_ON_PATH): boolean {
   const s = st[id];
   const rec = ctx.learn.skills[id];
   if (s === 'needs-support') return true;
@@ -102,9 +106,10 @@ export function isMissing(ctx: Context, id: SkillId, st = states(ctx)): boolean 
   const diag = ctx.learn.exam?.diagnostic?.[id];
   if (missedSince(diag, diag?.at, rec)) return true;
   if (missedSince(ctx.learn.floor?.results?.[id], ctx.learn.floor?.at, rec)) return true;
-  // in the student's own grade, a stair never started and not passed on the map is not known yet (a bridge stair is
-  // below the grade: not having started it says nothing)
-  return GRADE_OF[parseSkill(id).topic] === ctx.grade && !isBridgeSkill(id) && s === 'not-started' && !onPath(ctx, id);
+  // on the student's own path, a stair never started and not passed on the map is not known yet (a bridge stair is
+  // below the grade: not having started it says nothing; onGradePath leaves bridge units out). A unit also on this
+  // grade's path this year (ALSO_ON_PATH) is the grade's own
+  return onGradePath(parseSkill(id).topic, ctx.grade, also) && s === 'not-started' && !onPath(ctx, id);
 }
 
 /** The smallest missing prerequisite under a skill: follow missing prerequisites down to one whose own prerequisites are in place. */

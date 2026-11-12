@@ -9,9 +9,9 @@ import { CHALLENGE_META } from './meta.gen';
 /**
  * Every task, in the order of the topics (TOPIC_ORDER), each topic's tasks in their own order. Stage 1 had 36: three
  * per topic, one claim, one error or proof and one real-world (literacy) task each; later stages add their own (the
- * functions unit's three, stage5.md FUNC-7). Only what every screen reads is here (id, topic, stair, kind, title,
- * minutes, misconception): the stories and parts load with the challenge screen (all.ts), so the first load does not
- * carry them.
+ * functions unit's three, stage5.md FUNC-7; curriculum stage 3's data and probability, three each). Only what every
+ * screen reads is here (id, topic, stair, kind, title, minutes, misconception): the stories and parts load with the
+ * challenge screen (all.ts), so the first load does not carry them.
  */
 export const CHALLENGES: ChallengeMeta[] = [...CHALLENGE_META].sort((a, b) => TOPIC_ORDER.indexOf(a.topic) - TOPIC_ORDER.indexOf(b.topic));
 const BY_ID: Record<string, ChallengeMeta> = Object.fromEntries(CHALLENGES.map((t) => [t.id, t]));

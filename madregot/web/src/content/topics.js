@@ -12,7 +12,7 @@ import { TOPIC_META } from './topics.gen.js';
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
-import { GUEST } from '@/learn/skills.ts';
+import { GUEST, ALSO_ON_PATH, onGradePath } from '@/learn/skills.ts';
 
 /**
  * A copy of plain data, so a topic's functions can be put on its own objects once they load (TOPIC_META stays as written).
@@ -30,10 +30,11 @@ export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
 // ---------------------------------------------------------------- the exercise generators, loaded per topic
 // The first load carries the topics' names, colours, stairs and misconception names (topics.gen.js), not their
 // generators: each stair's gen (and any other function a topic has) loads with the topic, one dynamic import per topic
-// file, so the build makes one file per topic file. grade7.js holds signed, coord and angles (and imports the expr, eq
-// and frac files and signed's sixth stair), grade8.js pyth and stats (and imports linear, sys, ratio, pct and func). A
-// topic with no case here loads its grade's file, which holds every topic of the grade: correct, only larger. A topic
-// in a file of its own adds its case (scripts/gen-content-meta.mjs regenerates topics.gen.js from the grade lists).
+// file, so the build makes one file per topic file. grade7.js holds signed, coord and angles (and imports the expr, eq,
+// data and frac files and signed's sixth stair), grade8.js pyth and stats (and imports linear, sys, ratio, pct, func,
+// prob and stats' stairs 6-8 in stats2.js). A topic with no case here loads its grade's file, which holds every topic
+// of the grade: correct, only larger. A topic in a file of its own adds its case (scripts/gen-content-meta.mjs
+// regenerates topics.gen.js from the grade lists).
 // learn/content/index.ts ensureTopics waits for a topic's generators together with its teaching, so a lesson, a check,
 // the placement test, Exam Rescue, the assistant's exercises, the practice exam and the teacher's class exam have them
 // before their first question; App.jsx and the map fetch the likely next topic's when the browser is idle.
@@ -47,6 +48,8 @@ function importGens(topic) {
     case 'ratio': return import('./ratio.js').then((m) => [m.RATIO]);
     case 'pct': return import('./pct.js').then((m) => [m.PCT]);
     case 'func': return import('./func.js').then((m) => [m.FUNC]);
+    case 'data': return import('./data.js').then((m) => [m.DATA]);
+    case 'prob': return import('./prob.js').then((m) => [m.PROB]);
     default: return TOPIC[topic]?.grade === '8' ? import('./grade8.js').then((m) => m.GRADE8) : import('./grade7.js').then((m) => m.GRADE7);
   }
 }
@@ -100,8 +103,27 @@ export const ensureGens = (ids) => Promise.all([...new Set((ids || []).filter(Bo
 /** Every topic's generators (tests, and tools that make exercises of every topic). */
 export const loadAllGens = () => Promise.all(TOPICS.map((t) => loadGens(t.id))).then(() => undefined);
 
-/** A grade's own units, in order. A bridge unit (bridge: true, the fractions floor) is not one of them. */
-export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grade) && !t.bridge);
+/**
+ * A grade's units, in order: its own, and a unit also climbed in it this school year (learn/skills.ts ALSO_ON_PATH)
+ * right after the unit named there (at the end when that one is not on the path). A bridge unit (bridge: true, the
+ * fractions floor) is not one of them. `also`: another table, for tests.
+ */
+export const topicsFor = (grade, also = ALSO_ON_PATH) => {
+  const g = String(grade); const out = TOPICS.filter((t) => t.grade === g && !t.bridge);
+  TOPICS.filter((t) => !t.bridge && t.grade !== g && also[t.id]?.grade === g).forEach((t) => {
+    const i = out.findIndex((x) => x.id === also[t.id].after); out.splice(i < 0 ? out.length : i + 1, 0, t);
+  });
+  return out;
+};
+/**
+ * A unit's number on a viewer's path ("יחידה 3"): among the viewer's grade's units when it is on that path (a unit also
+ * climbed in ח׳ this year is numbered there as ח׳ meets it), else among its own grade's; 0 for the fractions floor.
+ */
+export const unitNumber = (t, viewerGrade, also = ALSO_ON_PATH) => (!t ? 0 : (viewerGrade ? topicsFor(viewerGrade, also).indexOf(t) + 1 : 0) || topicsFor(t.grade, also).indexOf(t) + 1);
+/** Is a unit revision for this grade (filed under an earlier grade and not on this grade's path), labelled "מכיתה ז׳"? */
+export const earlierUnit = (t, grade, also = ALSO_ON_PATH) => Number(t.grade) < Number(grade) && !onGradePath(t.id, String(grade), also);
+/** The grade a student meets a unit in: their own when the unit is on their path, else the unit's (the tutor is told it). */
+export const unitGrade = (t, grade, also = ALSO_ON_PATH) => (grade && t && onGradePath(t.id, String(grade), also) ? String(grade) : t?.grade);
 /** The bridge units under a grade: of that grade, or with it in alsoFor (the floor; shown only when it is switched on). */
 export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.grade === String(grade) || (t.alsoFor || []).includes(String(grade))));
 /**
@@ -167,17 +189,18 @@ export function rowLevel(t, levels) {
 /** A place on a row in a table cell: "1/2", or on a guest row whose stairs are all mastered "הושלם". */
 export const rowLevelText = (r) => (!r ? '–' : r.done ? 'הושלם' : `${r.level}/${r.total}`);
 /**
- * The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it (alsoFor; no
- * bridge unit). An earlier grade's unit is revised whole (a ח׳ test can revise all of the ז׳ equations unit); a later
- * grade's unit is offered through its guest stairs alone when it has any (a ז׳ student who picks "מבוא לפונקציות"
- * gets func:1, the part of it ז׳ learns).
+ * The topics Exam Rescue offers a grade: those on its path (topicsFor, with a unit also climbed in it this year), then
+ * those of another grade that are revised in it (alsoFor; no bridge unit), each once. An earlier grade's unit is revised
+ * whole (a ח׳ test can revise all of the ז׳ equations unit); a later grade's unit is offered through its guest stairs
+ * alone when it has any (a ז׳ student who picks "מבוא לפונקציות" gets func:1, the part of it ז׳ learns).
  */
-export const rescueTopicsFor = (grade) => {
+export const rescueTopicsFor = (grade, also = ALSO_ON_PATH) => {
   const g = String(grade);
+  const own = topicsFor(g, also);
   const guest = Object.fromEntries(guestTopicsFor(g).map((t) => [t.id, t]));
-  const other = TOPICS.filter((t) => !t.bridge && t.grade !== g && (t.alsoFor || []).includes(g))
+  const other = TOPICS.filter((t) => !t.bridge && !own.includes(t) && t.grade !== g && (t.alsoFor || []).includes(g))
     .map((t) => (guest[t.id] && Number(t.grade) > Number(g) ? guest[t.id] : t));
-  return [...topicsFor(g), ...other];
+  return [...own, ...other];
 };
 
 /**

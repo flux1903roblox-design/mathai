@@ -25,6 +25,8 @@ import { CATS_SIGNED6 } from './content/signed6';
 import { CATS_RATIO } from './content/ratio';
 import { CATS_PCT } from './content/pct';
 import { CATS_FUNC } from './content/func';
+import { CATS_DATA } from './content/data';
+import { CATS_PROB } from './content/prob';
 // @ts-ignore: no Node types in this project
 import { spawnSync } from 'node:child_process';
 // @ts-ignore: no Node types in this project
@@ -130,6 +132,8 @@ describe('meta.gen.ts', () => {
       frac: CATS_FRAC, ratio: CATS_RATIO, pct: CATS_PCT,
       // the stage-5 lane's introduction to functions (its names are the topic's own)
       func: CATS_FUNC,
+      // curriculum stage 3's data names all its own in the topic, and so does its probability
+      data: CATS_DATA, prob: CATS_PROB,
     };
     expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
     for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));

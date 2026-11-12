@@ -53,6 +53,32 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "minutes": 6
   },
   {
+    "id": "data:c1",
+    "topic": "data",
+    "after": "data:3",
+    "kind": "literacy",
+    "title": "הקלע המצטיין",
+    "minutes": 6,
+    "misc": "bigger-count"
+  },
+  {
+    "id": "data:c2",
+    "topic": "data",
+    "after": "data:2",
+    "kind": "claim",
+    "title": "יותר מנגנים, חלק גדול יותר?",
+    "minutes": 4
+  },
+  {
+    "id": "data:c3",
+    "topic": "data",
+    "after": "data:4",
+    "kind": "error",
+    "title": "סקר שגדל",
+    "minutes": 5,
+    "misc": "old-total"
+  },
+  {
     "id": "eq:c1",
     "topic": "eq",
     "after": "eq:3",
@@ -209,6 +235,33 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "kind": "error",
     "title": "המחיר לפני ההנחה",
     "minutes": 4
+  },
+  {
+    "id": "prob:c1",
+    "topic": "prob",
+    "after": "prob:1",
+    "kind": "claim",
+    "title": "שתי תוצאות, חצי וחצי?",
+    "minutes": 4,
+    "misc": "equiprob-event"
+  },
+  {
+    "id": "prob:c2",
+    "topic": "prob",
+    "after": "prob:3",
+    "kind": "error",
+    "title": "סכום 11 וסכום 12",
+    "minutes": 5,
+    "misc": "unordered"
+  },
+  {
+    "id": "prob:c3",
+    "topic": "prob",
+    "after": "prob:2",
+    "kind": "literacy",
+    "title": "תחזית גשם",
+    "minutes": 6,
+    "misc": "outcome-approach"
   },
   {
     "id": "pyth:c1",

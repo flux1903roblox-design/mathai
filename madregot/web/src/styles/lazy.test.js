@@ -119,7 +119,7 @@ beforeAll(async () => {
 }, 60_000);
 
 describe('a lazy stylesheet styles only what the screens that load it write', () => {
-  it.each(['teacher.css', 'parents.css', 'legal.css', 'durable.css'])('%s', { timeout: 30_000 }, (sheet) => {
+  it.each(['teacher.css', 'parents.css', 'legal.css', 'durable.css', 'data.css'])('%s', { timeout: 30_000 }, (sheet) => {
     const covered = coveredBy(sheet);
     const bad = [];
     for (const selectors of rules(read(join(SRC, 'styles/lazy', sheet)))) {
@@ -141,6 +141,8 @@ describe('a lazy stylesheet styles only what the screens that load it write', ()
     // still figures reach only through them. Their class names are built from the caller's prefix (`${cls}-grid`, 'mp-graph'
     // or 'fig-sgraph'), which the selector check above cannot read, so graph.css (like figure.css) is pinned here instead
     for (const f of ['components/manip/graphAxes.jsx', 'components/manip/protractor.jsx']) expect(imports(at(f), 'graph.css'), f).toBe(true);
+    // curriculum stage 3's two objects (DATA-2): moved out of the first load at the stage-3 merge
+    for (const f of ['components/manip/Simulate.jsx', 'components/manip/Chart.jsx']) expect(imports(at(f), 'data.css'), f).toBe(true);
   });
 });
 

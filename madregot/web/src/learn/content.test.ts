@@ -15,11 +15,11 @@ import { checkPlan, itemFor, canProbe } from './items';
 import { ALL_SKILLS } from './skills';
 import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togetherDiag';
 // @ts-ignore: plain JS
-import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX, GRAPH_MAX, graphXs, axisSteps, onAxisGrid, protAligned, armsAngle } from '@/content/manip.js';
+import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX, GRAPH_MAX, graphXs, axisSteps, onAxisGrid, protAligned, armsAngle, simOutcomes, simWatch } from '@/content/manip.js';
 // @ts-ignore: plain JS
-import { TOPIC, fairForCheck } from '@/content/index.js';
+import { TOPIC, fairForCheck, makeItem, namesOf } from '@/content/index.js';
 // @ts-ignore: plain JS
-import { T } from '@/content/util.js';
+import { T, exactTex } from '@/content/util.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -86,6 +86,8 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       }
       if (s.manip.kind === 'fbar') checkFbar(s.manip as any, s.answer as any, at);
       if (s.manip.kind === 'dline') checkDline(s.manip as any, s.answer as number, at);
+      if (s.manip.kind === 'simulate') checkSimulate(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'chart') checkChart(s.manip as any, s.answer as any, at);
       // a point goal must be on the drawn grid: the tool clamps every move to it, so a goal off the grid can never be reached
       if (s.manip.kind === 'plot') {
         const r = ((s.manip as { range?: number }).range) || 6;
@@ -110,6 +112,42 @@ function checkSteps(steps: DiscoverStep[], where: string) {
     }
     if (s.kind === 'rule') expect(s.why, at).toBeTruthy();
   });
+}
+
+/**
+ * A random experiment in a teaching step (DATA-2.1): the goal is a number of trials, 100 or 1000 (the estimate mode is
+ * for practice only), the watched outcome is one of the device's, and a wheel is cut into 12 or 10 equal parts.
+ */
+function checkSimulate(m: { device: string; sectors?: { parts: number }[]; bag?: { n: number }[]; watch: number }, a: { mode: string; atLeast?: number }, at: string) {
+  expect(a.mode, `${at}: a teaching run asks for trials`).toBe('trials');
+  expect([100, 1000], `${at}: atLeast ${a.atLeast}`).toContain(a.atLeast);
+  expect(['spinner', 'die', 'coin', 'bag', 'dice2'], at).toContain(m.device);
+  const outs = simOutcomes(m);
+  const w = simWatch(m);
+  expect(w >= 0 && w < outs.length, `${at}: the watched outcome ${m.watch} is not one of the device's`).toBe(true);
+  if (m.device === 'spinner') expect([10, 12], `${at}: a wheel is cut into 12 or 10 parts`).toContain(m.sectors!.reduce((t, x) => t + x.parts, 0));
+}
+
+/**
+ * A chart the student builds (DATA-2.2): 2 to 5 categories; a bar goal and start are multiples of the step within 0..max;
+ * a pie's are whole numbers of slices whose sum is at most the parts (10, 12 or 20); a locked category's goal is its
+ * start (it cannot move).
+ */
+function checkChart(m: { mode: string; cats: string[]; start: number[]; lock?: number[]; bar?: { max: number; step: number; every?: number }; pie?: { parts: number } }, a: { values: number[] }, at: string) {
+  expect(['bar', 'pie'], at).toContain(m.mode);
+  expect(m.cats.length >= 2 && m.cats.length <= 5, `${at}: ${m.cats.length} categories`).toBe(true);
+  for (const vs of [m.start, a.values]) {
+    expect(vs.length, `${at}: one value a category`).toBe(m.cats.length);
+    if (m.mode === 'bar') {
+      const { max, step } = m.bar!;
+      vs.forEach((v) => expect(v >= 0 && v <= max + 1e-9 && onParts(v / step, 1), `${at}: ${v} is not a multiple of ${step} within ${max}`).toBe(true));
+    } else {
+      expect([10, 12, 20], `${at}: a pie of ${m.pie?.parts} parts`).toContain(m.pie?.parts);
+      vs.forEach((v) => expect(Number.isInteger(v) && v >= 0, `${at}: ${v} slices`).toBe(true));
+      expect(vs.reduce((t, v) => t + v, 0), `${at}: more slices than the pie has`).toBeLessThanOrEqual(m.pie!.parts);
+    }
+  }
+  (m.lock || []).forEach((i) => expect(a.values[i], `${at}: the locked ${m.cats[i]} cannot reach its goal`).toBe(m.start[i]));
 }
 
 /** A value is a whole number of parts of size 1/den. */
@@ -309,8 +347,10 @@ function checkModel(model: DiagModel<any>, c: StairContent, name: string) {
     expect(model.hint(p), at).toBeTruthy();
     const sol = model.solution(p);
     expect(sol.length, at).toBeGreaterThan(0);
-    // the worked solution ends at the same answer the checker accepts
-    expect(sol.join(' ').includes(String(T(ans))) || sol.join(' ').includes(String(ans)), `${at}: solution does not reach ${ans}`).toBe(true);
+    // the worked solution ends at the same answer the checker accepts (a model answered as a fraction, at the fraction in
+    // lowest terms: prob:3's 10/36 = 5/18)
+    const reaches = sol.join(' ').includes(String(T(ans))) || sol.join(' ').includes(String(ans)) || (model.form === 'frac' && sol.join(' ').includes(exactTex(ans)));
+    expect(reaches, `${at}: solution does not reach ${ans}`).toBe(true);
     Object.entries(model.bugs).forEach(([id, f]) => {
       const v = f(p);
       if (v != null && Number.isFinite(v) && !same(v, ans)) fired[id] = (fired[id] || 0) + 1;
@@ -584,6 +624,107 @@ describe('percent teaches with pictures', () => {
   });
 });
 
+describe('data and frequency teaches with pictures', () => {
+  const data = stairs.filter((c) => c.topic === 'data');
+  it('every discover step of data:1-4 has a figure or an object', () => {
+    expect(data.map((c) => c.skill)).toEqual(['data:1', 'data:2', 'data:3', 'data:4']);
+    const bare = data.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+  });
+  it('the unit uses both objects in real steps: a chart to build and a run of a spinner (DATA-2)', () => {
+    const kinds = data.flatMap((c) => c.discover.filter((st) => st.kind === 'explore').map((st) => (st as { manip: { kind: string } }).manip.kind));
+    expect(kinds).toEqual(expect.arrayContaining(['chart', 'simulate']));
+  });
+  it('every figure of the unit renders, with no broken numbers, and a check\'s chart prints no number on its bars', () => {
+    const figs = data.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(new Set(figs.map((f) => f.type))).toEqual(new Set(['chart', 'table', 'fbar', 'numline', 'pair']));
+    // a table cell is plain text (a table draws no maths): "20 ש״ח", never "$20$ ש״ח"
+    figs.filter((f) => f.type === 'table').forEach((f) => (f as { rows: (string | number)[][] }).rows.flat().forEach((cell) => expect(String(cell), 'a table cell').not.toMatch(/\$/)));
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg|<table/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
+    // the model's bar chart reads off the axis: no value printed on a bar (the axis labels are the only numbers)
+    const rnd = seeded(3);
+    for (let i = 0; i < 20; i += 1) {
+      const p = CONTENT['data:1'].diag.params(rnd);
+      const fig = CONTENT['data:1'].diag.fig!(p) as { labels?: boolean };
+      expect(fig.labels).toBe(false);
+    }
+  });
+  // its exercises list their predictions, so a verification's probe is found at once (content/index.js namesOf): the
+  // list names everything the search of typed numbers names, and is never shorter
+  it('an exercise\'s listed predictions name every misconception the search finds', () => {
+    let listed = 0;
+    for (const level of [1, 2, 3, 4]) {
+      for (let i = 0; i < 60; i += 1) {
+        const it = makeItem('data', level);
+        if (!it.diag.wrongs) continue;
+        listed += 1;
+        const searched = namesOf({ ...it, diag: (u: unknown) => it.diag(u) });
+        expect(namesOf(it), it.key).toEqual(expect.arrayContaining(searched));
+      }
+    }
+    expect(listed).toBeGreaterThan(150);
+  }, 30_000);
+});
+
+describe('probability teaches with pictures (DATA-6)', () => {
+  const prob = stairs.filter((c) => c.topic === 'prob');
+  it('every discover step of prob:1-3 has a figure or an object, and the unit throws dice and coins for real', () => {
+    expect(prob.map((c) => c.skill)).toEqual(['prob:1', 'prob:2', 'prob:3']);
+    const bare = prob.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+    const devices = prob.flatMap((c) => [...c.discover, ...c.misconceptions.flatMap((m) => m.remedy)].filter((st) => st.kind === 'explore').map((st) => (st as { manip: { kind: string; device?: string } }).manip))
+      .filter((m) => m.kind === 'simulate').map((m) => m.device);
+    expect(new Set(devices)).toEqual(new Set(['die', 'dice2', 'coin']));
+  });
+  it('every figure of the unit renders, and a table of outcomes is plain text', () => {
+    const figs = prob.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(new Set(figs.map((f) => f.type))).toEqual(new Set(['outcomes', 'chart', 'table', 'fbar', 'numline']));
+    figs.filter((f) => f.type === 'outcomes').forEach((f) => {
+      const o = f as unknown as { rows?: string[]; cols: string[]; cells?: string[][] };
+      [...(o.rows || []), ...o.cols, ...(o.cells || []).flat()].forEach((cell) => expect(String(cell), 'an outcome cell').not.toMatch(/\$/));
+    });
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg|<table/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
+  });
+  // the updated curriculum: "בשלב הזה עדיין לא משתמשים בסימון של מאורע באותיות"
+  it('names no event with a letter: no P(A), no "P =", in the teaching or the practice', () => {
+    const LETTER = /P\s*(?:\\left)?\s*\(|P\s*=|\\(?:mathrm|text)\{P\}/;
+    expect(JSON.stringify(prob)).not.toMatch(LETTER);
+    for (const level of [1, 2, 3]) {
+      for (let i = 0; i < 80; i += 1) {
+        const it = makeItem('prob', level);
+        expect(JSON.stringify([it.text, it.display, it.solution, it.hint, it.choices]), it.key).not.toMatch(LETTER);
+      }
+    }
+  });
+  it('an exercise\'s listed predictions name every misconception the search finds', () => {
+    let listed = 0;
+    for (const level of [1, 2]) {
+      for (let i = 0; i < 60; i += 1) {
+        const it = makeItem('prob', level);
+        if (!it.diag.wrongs || it.form !== 'num') continue;
+        listed += 1;
+        const searched = namesOf({ ...it, diag: (u: unknown) => it.diag(u) });
+        expect(namesOf(it), it.key).toEqual(expect.arrayContaining(searched));
+      }
+    }
+    expect(listed).toBeGreaterThan(60);
+  }, 30_000);
+});
+
 // The checks above are what keeps the algebra stairs honest before they exist: each is shown here to pass a right
 // fixture and to fail a broken one, so a check that silently passes everything cannot slip in.
 describe('the algebra checks catch what they are for', () => {
@@ -672,6 +813,30 @@ describe('the algebra checks catch what they are for', () => {
     bad(al([30, 95], 0, 95)); // the baseline on an arm, the angle outside the protractor
     bad(al([30, 95], 30, 275)); // starts right
     bad(al([30, 38], 0, 30)); // arms 8° apart
+  });
+  it('a random experiment: a teaching run asks for 100 or 1000 trials of one of the device\'s outcomes (DATA-2.1)', () => {
+    const sectors = [{ label: 'אדום', parts: 3 }, { label: 'כחול', parts: 5 }, { label: 'ירוק', parts: 4 }];
+    ok(explore({ kind: 'simulate', device: 'spinner', sectors, watch: 0, seed: 20261111, guided: true }, { mode: 'trials', atLeast: 1000 }));
+    ok(explore({ kind: 'simulate', device: 'dice2', watch: 7 }, { mode: 'trials', atLeast: 100 }));
+    bad(explore({ kind: 'simulate', device: 'spinner', sectors, watch: 0 }, { mode: 'trials', atLeast: 10 })); // too few to settle
+    bad(explore({ kind: 'simulate', device: 'die', watch: 6 }, { mode: 'trials', atLeast: 500 }));
+    bad(explore({ kind: 'simulate', device: 'spinner', sectors, watch: 0, hidden: true }, { mode: 'estimate', choices: ['\\frac{1}{4}', '\\frac{1}{2}', '\\frac{3}{4}'], answer: 0 })); // practice only
+    bad(explore({ kind: 'simulate', device: 'die', watch: 7 }, { mode: 'trials', atLeast: 100 })); // no face 7
+    bad(explore({ kind: 'simulate', device: 'spinner', sectors: [{ label: 'אדום', parts: 3 }, { label: 'כחול', parts: 5 }], watch: 0 }, { mode: 'trials', atLeast: 100 })); // 8 parts
+  });
+  it('a chart to build: bars on the axis\'s steps, a pie within its parts, a locked category already there (DATA-2.2)', () => {
+    const cats = ['כדורגל', 'כדורסל', 'שחייה'];
+    const bar = { max: 14, step: 2 };
+    ok(explore({ kind: 'chart', mode: 'bar', cats, start: [0, 0, 0], bar }, { values: [12, 8, 6] }));
+    ok(explore({ kind: 'chart', mode: 'bar', cats, start: [12, 0, 0], lock: [0], bar }, { values: [12, 8, 6] }));
+    ok(explore({ kind: 'chart', mode: 'pie', cats, start: [0, 0, 0], pie: { parts: 12 } }, { values: [6, 3, 2] }));
+    bad(explore({ kind: 'chart', mode: 'bar', cats, start: [0, 0, 0], bar }, { values: [12, 7, 6] })); // 7 is not on a step of 2
+    bad(explore({ kind: 'chart', mode: 'bar', cats, start: [0, 0, 0], bar }, { values: [16, 8, 6] })); // past the top
+    bad(explore({ kind: 'chart', mode: 'bar', cats, start: [0, 0, 0], lock: [0], bar }, { values: [12, 8, 6] })); // locked at 0
+    bad(explore({ kind: 'chart', mode: 'bar', cats, start: [12, 8, 6], bar }, { values: [12, 8, 6] })); // starts on the goal
+    bad(explore({ kind: 'chart', mode: 'pie', cats, start: [0, 0, 0], pie: { parts: 12 } }, { values: [6, 4, 3] })); // 13 of 12
+    bad(explore({ kind: 'chart', mode: 'pie', cats, start: [0, 0, 0], pie: { parts: 8 } }, { values: [4, 2, 2] })); // 8 parts
+    bad(explore({ kind: 'chart', mode: 'pie', cats: ['א'], start: [0], pie: { parts: 10 } }, { values: [4] })); // one category
   });
   it('two lines: the goal is their meeting point', () => {
     ok(explore({ kind: 'plot', lines: [{ m: 2, b: -1 }, { m: -1.5, b: 6 }] }, [2, 3]));

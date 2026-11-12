@@ -4,7 +4,7 @@ import { lazy, Suspense } from 'react';
 import { ArrowRight, Sparkles, Check, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { aiAccess, useAIStatus } from '@/lib/account.js';
-import { TOPIC, topicsFor } from '@/content/topics.js';
+import { TOPIC, unitNumber } from '@/content/topics.js';
 import { Box, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { Emblem } from '@/components/map/Scenery.jsx';
@@ -17,11 +17,13 @@ export default function Topic() {
   const t = TOPIC[id];
   const p = useApp((s) => s.progress[id]) || { level: 1, max: 1 };
   const mistakes = useApp((s) => s.mistakes);
+  const grade = useApp((s) => s.profile?.grade);
   // new exercises from the tutor: only where this device has that tool today
   const genOpen = aiAccess('generate', useAIStatus((x) => x.status)).state === 'open';
   if (!t) return <div className="page pushed"><ScreenBar title="מדריך" back="/topics" /><EmptyState mood="encouraging" title="הנושא לא נמצא"><p>אולי הקישור ישן. כל הנושאים מחכים ברשימה.</p></EmptyState><ScreenFoot><Link to="/topics" className="btn btn-primary btn-block btn-lg">לרשימת הנושאים</Link></ScreenFoot></div>;
-  // the unit's number among its grade's own units (the fractions floor is not numbered, and does not shift them)
-  const n = topicsFor(t.grade).indexOf(t) + 1;
+  // the unit's number on the student's path (a unit also climbed in ח׳ this year is numbered as ח׳ meets it), else among
+  // its grade's own units (the fractions floor is not numbered, and does not shift them)
+  const n = unitNumber(t, grade);
   const mine = Object.entries(mistakes).filter(([k]) => k.startsWith(`${id}:`)).map(([k, v]) => ({ cat: k.split(':')[1], v })).filter((m) => t.cats[m.cat]).sort((a, b) => b.v - a.v);
 
   return (

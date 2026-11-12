@@ -1,0 +1,152 @@
+/* The two objects of curriculum stage 3 (DATA-2): the random experiment repeated (components/manip/Simulate.jsx) and the
+   chart the student builds (components/manip/Chart.jsx). Their rules, moved out of the first-load app.css at the
+   stage-3 merge into a sheet that loads with the two modules (both import it; components/manip/Manip.jsx reaches them
+   only through static imports), in their original order. No first-load rule sets the same properties on these elements
+   with the same weight, so the later load changes nothing on screen. styles/lazy.test.js checks every selector here. */
+/* a random experiment repeated (DATA-2.1): the device beside its readout, the line of the relative frequency, the
+   batch buttons at the bottom; at most 300px tall at 320 × 568 (critique note 22) */
+.manip-simulate { gap: 6px; max-width: 520px; }
+.manip-plain { margin: 0; font-size: var(--t-sm); line-height: 1.5; color: var(--ink-2); }
+.mp-sim-row { display: flex; align-items: center; gap: 12px; width: 100%; }
+.mp-sim-device { flex: none; width: 96px; height: 96px; overflow: visible; }
+.mp-sim-side { flex: 1 1 auto; min-width: 0; height: 96px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
+.manip-readout.mp-sim-read { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 0; max-width: 100%; text-align: start; }
+.mp-sim-big { display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; font-family: var(--font-display); font-size: 18px; font-weight: 700; line-height: 34px; color: var(--ink); white-space: nowrap; }
+.mp-sim-name { overflow: hidden; text-overflow: ellipsis; }
+.mp-sim-big b { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mp-sim-swatch { flex: none; display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: var(--tone, var(--brand)); align-self: center; }
+.mp-sim-small { font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 600; line-height: 18px; color: var(--ink-2); white-space: nowrap; }
+.mp-sim-more { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--brand-d); font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.mp-sim-more svg { transition: transform var(--duration-fast) var(--ease-out); }
+.mp-sim-more svg.up { transform: rotate(180deg); }
+.mp-sim-more:focus-visible, .mp-sim-btn:focus-visible, .mp-sim-choice:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+/* the chart: 100% wide and 96px high; the line keeps its width when the box stretches, the numbers are HTML */
+.mp-sim-chart { position: relative; flex: none; width: 100%; height: 96px; border-radius: 14px; overflow: hidden;
+  background: color-mix(in srgb, var(--c-tint, var(--brand-tint)) 60%, var(--surface)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c, var(--brand)) 20%, var(--rule)); }
+.mp-sim-plot { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mp-sim-grid { stroke: var(--rule-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.mp-sim-base { stroke: var(--ink-2); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.mp-sim-truth { stroke: var(--streak-d); stroke-width: 2; stroke-dasharray: 6 5; vector-effect: non-scaling-stroke; }
+.mp-sim-line { fill: none; stroke: var(--brand); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.mp-sim-dot { stroke: var(--brand-d); stroke-width: 9; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.mp-sim-y { position: absolute; left: 6px; font-size: 12px; font-weight: 600; line-height: 16px; color: var(--ink-2); direction: ltr; }
+.mp-sim-cap { position: absolute; top: 3px; right: 8px; padding: 0 4px; border-radius: 6px; background: color-mix(in srgb, var(--surface) 80%, transparent); font-size: 12px; font-weight: 600; line-height: 16px; color: var(--ink-2); }
+.mp-sim-key { display: inline-block; width: 14px; height: 0; margin-inline-end: 4px; border-top: 2.5px solid var(--brand); vertical-align: middle; }
+.mp-sim-key.dash { margin-inline-start: 8px; border-top: 2px dashed var(--streak-d); }
+/* two dice: the 11 sums as bars, left to right; the watched sum in the brand colour */
+.mp-sim-sums { position: absolute; inset: 6px 6px 2px; display: flex; gap: 3px; direction: ltr; }
+.mp-sim-sum { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.mp-sim-sum .mp-sim-bar { flex: 1 1 auto; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.mp-sim-sum i { display: block; width: 100%; max-width: 22px; border-radius: 3px 3px 0 0; background: color-mix(in srgb, var(--ink-3) 70%, var(--surface)); }
+.mp-sim-sum.on i { background: var(--brand); }
+.mp-sim-sum span { font-size: 12px; font-weight: 600; line-height: 16px; color: var(--ink-2); }
+.mp-sim-sum.on span { color: var(--brand-ink); font-weight: 800; }
+/* every outcome, behind "כל התוצאות" */
+.mp-sim-table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+.mp-sim-table th, .mp-sim-table td { padding: 4px 8px; border-bottom: 1px solid var(--rule); text-align: center; }
+.mp-sim-table thead th { font-size: var(--t-xs); font-weight: 700; color: var(--ink-2); }
+.mp-sim-table tbody th { font-weight: 600; text-align: start; white-space: nowrap; }
+.mp-sim-table tbody th .mp-sim-swatch { margin-inline-end: 6px; vertical-align: -2px; }
+.mp-sim-table tr.on { background: var(--brand-tint); }
+.mp-sim-table tr.on th, .mp-sim-table tr.on td { font-weight: 800; }
+/* the estimate: three fractions, one picked; the right one marked once the answer is shown */
+.mp-sim-pick { display: flex; align-items: center; gap: 6px; width: 100%; }
+.mp-sim-pick-q { flex: 1 1 auto; min-width: 0; font-size: var(--t-sm); font-weight: 700; color: var(--ink); }
+.mp-sim-choice { position: relative; flex: none; min-width: 54px; min-height: 44px; padding: 0 8px; border-radius: 12px; border: 2px solid var(--rule-strong); background: var(--paper); box-shadow: 0 3px 0 var(--rule-press); color: var(--ink); font-size: 16px; }
+.mp-sim-choice .katex { font-size: 1em; }
+.mp-sim-choice.on { border-color: var(--brand); background: var(--brand-tint); }
+.mp-sim-choice.right { border-color: var(--good-d); background: var(--good-tint); }
+.mp-sim-right { position: absolute; top: -8px; left: -8px; padding: 2px; border-radius: 999px; background: var(--good-d); color: var(--paper); }
+.mp-sim-choice:disabled { cursor: default; }
+/* 10, 100, 1000 and "again": one row in the thumb's reach; a button not open yet says what comes first */
+.mp-sim-btns { display: flex; gap: 6px; width: 100%; }
+.mp-sim-btn { flex: 1 1 0; min-width: 0; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px 4px; border: 0; border-radius: 14px;
+  background: var(--c-tint, var(--brand-tint)); color: var(--c-ink, var(--brand-ink)); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--c, var(--brand)) 22%, transparent); line-height: 1.1;
+  transition: transform var(--duration-micro) var(--ease-out); }
+.mp-sim-btn b { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+.mp-sim-noun { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.mp-sim-btn:active:not(:disabled):not([aria-disabled]) { transform: translateY(2px); box-shadow: none; }
+.mp-sim-btn.shut { background: var(--track); color: var(--ink-2); box-shadow: none; cursor: default; }
+.mp-sim-btn.reset { flex: 0 0 56px; background: var(--paper); color: var(--ink-2); box-shadow: inset 0 0 0 2px var(--rule); }
+.mp-sim-btn:disabled { opacity: 0.4; }
+/* the devices */
+.mp-sim-part { stroke: var(--paper); stroke-width: 0.8; stroke-opacity: 0.75; }
+.mp-sim-edge { stroke: var(--paper); stroke-width: 2.2; }
+.mp-sim-rim { fill: none; stroke: var(--ink); stroke-width: 2; }
+.mp-sim-pointer { transition: transform 110ms var(--ease-out); }
+.mp-sim-pointer line { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
+.mp-sim-pointer path { fill: var(--ink); }
+.mp-sim-hub { fill: var(--paper); stroke: var(--ink); stroke-width: 2.5; }
+.mp-sim-cover { fill: var(--track); }
+.mp-sim-q { fill: var(--ink-2); font-family: var(--font-display); font-size: 28px; font-weight: 800; }
+.mp-sim-q.small { font-size: 22px; }
+.mp-sim-die { fill: var(--paper); stroke: var(--ink); stroke-width: 2.5; }
+.mp-sim-pip { fill: var(--ink); }
+.mp-sim-face.tumble { animation: mp-sim-tumble 120ms var(--ease-out); }
+@keyframes mp-sim-tumble { from { transform: rotate(-28deg) scale(0.85); } }
+.mp-sim-coin-face { fill: var(--gold-tint); stroke: var(--gold-d); stroke-width: 2.5; }
+.mp-sim-coin-ring { fill: none; stroke: var(--gold-d); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.mp-sim-coin-text { fill: var(--gold-ink); font-family: var(--font-display); font-size: 24px; font-weight: 800; }
+.mp-sim-coin.flip { animation: mp-sim-flip 120ms var(--ease-out); }
+@keyframes mp-sim-flip { from { transform: scaleX(0.1); } }
+.mp-sim-bag { fill: color-mix(in srgb, var(--track) 45%, var(--paper)); stroke: var(--ink-2); stroke-width: 2.5; stroke-linejoin: round; }
+.mp-sim-bag.shut { fill: var(--track); }
+.mp-sim-bag-neck { fill: none; stroke: var(--ink-2); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.mp-sim-ball-rim { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+@media (prefers-reduced-motion: reduce) {
+  .mp-sim-pointer, .mp-sim-more svg, .mp-sim-btn { transition: none; }
+  .mp-sim-face.tumble, .mp-sim-coin.flip { animation: none; }
+}
+
+/* building a chart (DATA-2.2): bars on the still figure's axis (figure.css draws them), or a pie of equal slices with
+   its category chips beside it; the selected category is tinted behind its bar, or outlined on the pie's rim.
+   The chart keeps its size (review: shrunk to fit, the pie was 120px and the bars' words 10px): it does not shrink with
+   the room left under a source table, and the maths region scrolls instead. A bar chart's words are HTML at 14-15px
+   over and under the drawing (Chart.jsx), placed in percent of the drawing's box. */
+.lesson.is-manip .q-stage:has(.manip-chart) { flex: none; height: auto; min-height: 100%; }
+.manip.manip-chart { flex: none; gap: 6px; }
+.manip-readout.mp-chart-read { min-height: 34px; font-size: 20px; }
+.manip-chart-pie .manip-readout.mp-chart-read { flex-direction: column; justify-content: flex-start; gap: 0; }
+.mp-chart-line { font-size: 15px; line-height: 20px; font-weight: 700; }
+.mp-chart-nowrap { white-space: nowrap; }
+.mp-chart-line.sub { font-family: var(--font-ui); font-size: var(--t-sm); line-height: 20px; font-weight: 600; color: var(--ink-2); }
+.mp-chart-box { display: flex; flex-direction: column; align-items: stretch; width: 100%; max-width: 440px; }
+.mp-chart-title { margin: 0 0 2px; text-align: center; font-size: 14px; line-height: 18px; font-weight: 600; color: var(--ink-2); }
+.mp-chart-plot { position: relative; }
+.manip-canvas.mp-chart-canvas:not(.mp-chart-pie) { flex: none; min-height: 0; max-width: none; }
+.mp-chart-words { position: absolute; inset: 0; pointer-events: none; }
+.mp-chart-num { position: absolute; transform: translateY(-50%); font-size: 14px; line-height: 16px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.mp-chart-given { position: absolute; transform: translate(-50%, -100%); font-size: 15px; line-height: 18px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.mp-chart-cats { position: relative; min-height: 22px; margin-top: 4px; }
+.mp-chart-cat { position: absolute; top: 0; padding: 0 2px; text-align: center; font-size: 14px; line-height: 17px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.mp-chart-cat.on { font-weight: 800; text-decoration: underline 2px var(--brand); text-underline-offset: 4px; }
+/* the pie: 200px across beside its chips (216 with the rim's outline, 220 with the canvas's border), 160px on a 320px
+   phone */
+.mp-chart-pierow { container: chartrow / inline-size; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; width: 100%; max-width: 440px; }
+.manip-canvas.mp-chart-pie { flex: none; width: clamp(178px, calc(100% - 110px), 220px); min-height: 0; height: auto; aspect-ratio: 1 / 1; margin: 0; }
+.mp-chart-selbg { fill: color-mix(in srgb, var(--c, var(--brand)) 13%, transparent); }
+.mp-chart-slot { outline: none; }
+.mp-chart-focus { fill: none; stroke: none; }
+.mp-chart-slot:focus-visible .mp-chart-focus { stroke: var(--brand); stroke-width: 3; }
+.mp-chart-grey { fill: var(--track); }
+.mp-chart-cut { stroke: var(--paper); stroke-width: 1.5; }
+.mp-chart-cut.grey { stroke: var(--track-edge); }
+.mp-chart-next { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 4 3; stroke-linejoin: round; }
+.mp-chart-arc { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+.mp-chart-chips { flex: 1 1 0; min-width: 102px; max-width: 200px; display: flex; flex-direction: column; gap: 6px; }
+/* a chip's count goes under its name when the column is too narrow for both: a word is never broken */
+.mp-chart-chip { display: flex; flex-wrap: wrap; align-items: center; column-gap: 5px; row-gap: 0; min-height: 44px; padding: 4px 8px; border-radius: 14px; border: 2px solid var(--rule-strong);
+  background: var(--paper); color: var(--ink); font-size: var(--t-sm); font-weight: 600; line-height: 1.2; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.mp-chart-chip.on { border-color: var(--brand); background: var(--brand-tint); }
+.mp-chart-chip.fixed { border-style: dashed; }
+.mp-chart-chip:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.mp-chart-chip-name { flex: 1 1 auto; }
+.mp-chart-chip b { flex: none; margin-inline-start: auto; font-family: var(--font-display); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mp-chart-swatch { flex: none; width: 14px; height: 14px; }
+.mp-chart-chip-goal { flex: 1 0 100%; font-size: var(--t-xs); font-weight: 700; color: var(--good-ink); }
+/* a column narrower than a 320px phone's (a teaching card): the pie alone on its row, the chips two to a row under it */
+@container chartrow (max-width: 287px) {
+  .manip-canvas.mp-chart-pie { width: min(100%, 220px); }
+  .mp-chart-chips { flex: 1 1 100%; max-width: none; flex-direction: row; flex-wrap: wrap; }
+  .mp-chart-chip { flex: 1 1 calc(50% - 3px); min-width: 0; }
+}

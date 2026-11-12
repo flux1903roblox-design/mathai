@@ -27,6 +27,9 @@
 //   graph       a situation graph drawn point by point { x, y, start, fixed?, ref? }: one point above each x, the value
 //               is their heights (number[])  answer: { mode: 'values', values } | { mode: 'shape', shape: ('up' | 'flat'
 //               | 'down')[] } | { mode: 'uniform', start?, rate? } (see "the graph you draw" below)
+//   simulate    a random experiment repeated {n, counts, batches, hist, pick?}  answer: { mode: 'trials', atLeast } (with
+//               manip.guided, a batch of 10 first and a 100 before any 1000) or { mode: 'estimate', choices, answer } (pick)
+//   chart       a bar chart or a pie the student builds, number[]       answer: { values } (every value equal)
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -472,13 +475,101 @@ function partsLineWords(f) {
 /** A number line with no parts (a teaching figure, STUDENT-8): the student lane's words. */
 function teachLineWords(f) {
   const at = (v) => figNum(v);
-  return `ציר מספרים מ־${at(f.from)} עד ${at(f.to)}${(f.marks || []).map((k) => `, נקודה${/^[A-Z]$/.test(k.label || '') ? ` ${k.label}` : ''} ב־${at(k.x)}`).join('')}${(f.jumps || []).map((j) => `, קפיצה מ־${at(j.from)} ל־${at(j.to)}`).join('')}`;
+  // a word written at a point (בלתי אפשרי at 0, ודאי at 1) is read with it
+  const name = (k) => (/^[A-Z]$/.test(k.label || '') ? ` ${k.label}` : '');
+  const word = (k) => (HEB.test(k.label || '') ? `: ${k.label}` : '');
+  return `ציר מספרים מ־${at(f.from)} עד ${at(f.to)}${(f.marks || []).map((k) => `, נקודה${name(k)} ב־${at(k.x)}${word(k)}`).join('')}${(f.jumps || []).map((j) => `, קפיצה מ־${at(j.from)} ל־${at(j.to)}`).join('')}`;
+}
+
+// ---------------------------------------------------------------- data figures (curriculum stage 3, DATA-3)
+// chart { mode: 'bar' | 'pie' | 'line' | 'picto' }, outcomes and pair: every number the drawing writes is read (a
+// value printed nowhere, labels: false, is read too: an accessible chart says its values), a '?' as a question mark.
+const HEB = /[\u0590-\u05ff]/;
+/** A number as the data figures write it: up to three decimals (0.243), or exactly dp of them (2.0), a real minus sign. */
+export const chartNum = (v, dp) => (dp != null ? Number(v).toFixed(dp) : plainNum(v, { decimal: true, places: 3 })).replace(/^-/, '−');
+const NICE = [1, 2, 2.5, 5];
+/** The smallest "nice" step (1, 2, 2.5 or 5 times a power of ten) that cuts a span into at most n steps. */
+const niceStep = (span, n) => { for (let e = -3; e <= 6; e += 1) for (const m of NICE) { const s = m * 10 ** e; if (span / s <= n + 1e-9) return Math.round(s * 1e6) / 1e6; } return span; };
+/** At most this many numbers on an axis (critique note 25: a 220px axis with 15 labels is unreadable). */
+export const AXIS_LABELS = 8;
+/** At most this many numbers on a compact axis (a chart in a pair, 88 units high: 14px numbers need room). */
+export const AXIS_LABELS_COMPACT = 5;
+/**
+ * A chart's value axis: from `from` (0 unless the axis starts above it) to `max` in `step`s, with a grid line at every
+ * step and a number every `every` steps, never more than AXIS_LABELS numbers (or `most`). Missing fields are chosen
+ * from the values.
+ */
+export function chartAxis(f, most = AXIS_LABELS) {
+  const vals = (f.values || []).filter((v) => typeof v === 'number' && Number.isFinite(v));
+  const from = f.from ?? 0;
+  const top = Math.max(from + 1e-9, ...vals, f.level ?? -Infinity);
+  const step = f.step || niceStep(top - from, 8);
+  const max = f.max ?? Math.max(from + step, Math.ceil((top - from) / step - 1e-9) * step + from);
+  const n = Math.round((max - from) / step);
+  let every = Math.max(1, f.every || 1);
+  while (Math.floor(n / every) + 1 > most) every += 1;
+  const at = (k) => Math.round((from + k * step) * 1e6) / 1e6;
+  const ticks = Array.from({ length: n + 1 }, (_, k) => at(k));
+  return { from, max, step, every, ticks, labelled: ticks.filter((_, k) => k % every === 0) };
+}
+/** How many icons a value is in a pictogram (key items an icon), in halves: 3.5. */
+export const pictoIcons = (v, key) => Math.round((2 * v) / key) / 2;
+/** "3 סמלים וחצי", "סמל אחד", "חצי סמל": a row of a pictogram as a sighted reader counts it. */
+export function iconWords(n) {
+  const whole = Math.floor(n); const half = n - whole >= 0.5;
+  if (!whole) return half ? 'חצי סמל' : 'אין סמלים';
+  return `${whole === 1 ? 'סמל אחד' : `${whole} סמלים`}${half ? ' וחצי' : ''}`;
+}
+/** The chart's labels in words, in order: what each category or point is called (an empty name is left out). */
+function chartItems(f, value) {
+  const names = f.mode === 'line' ? (f.xs || []).map((x) => `${typeof x === 'number' ? chartNum(x) : x}:`) : f.cats || [];
+  return f.values.map((v, i) => {
+    const said = f.hide === i ? '?' : v == null ? 'חסר' : value(v);
+    const crossed = (f.cross || []).includes(i) ? ' (מחוק)' : '';
+    const est = f.mode === 'line' && f.dashed && i >= f.values.length - f.dashed ? ' (המשך המגמה, בקו מקווקו)' : '';
+    return `${[names[i], said].filter(Boolean).join(' ')}${est}${crossed}`;
+  }).join(', ');
+}
+/** A chart in words: its kind, every value, its axis, and what is drawn on it. */
+export function chartWords(f) {
+  const unit = f.unit ? ` (${f.unit})` : '';
+  if (f.mode === 'pie') {
+    const val = (v) => `${chartNum(v, f.dp)}${f.pct ? '%' : ''}`;
+    return `דיאגרמת עוגה, בכיוון השעון מלמעלה: ${chartItems(f, val)}${unit}`;
+  }
+  if (f.mode === 'picto') {
+    const key = `כל סמל ${chartNum(f.key)}${f.unit ? ` ${f.unit}` : ''}`;
+    return `פיקטוגרמה, ${key}: ${(f.cats || []).map((c, i) => `${c} ${f.hide === i ? '?' : iconWords(pictoIcons(f.values[i], f.key))}`).join(', ')}`;
+  }
+  const ax = chartAxis(f);
+  const axis = `${f.mode === 'line' ? 'הציר האנכי' : 'הציר'} מ־${chartNum(ax.from)} עד ${chartNum(ax.max)} בקפיצות של ${chartNum(ax.step)}`;
+  const level = f.level != null ? `; קו מקווקו בגובה ${chartNum(f.level, f.dp)}` : '';
+  const mark = f.mode === 'line' && f.mark != null ? `; מסומן ${typeof f.mark === 'number' ? chartNum(f.mark) : f.mark}` : '';
+  const kind = f.mode === 'line' ? 'גרף' : 'דיאגרמת עמודות';
+  return `${kind}: ${chartItems(f, (v) => chartNum(v, f.dp))}${unit}; ${axis}${level}${mark}`;
+}
+/** A table of outcomes in words: its headings, every cell row by row, and the marked cells. */
+export function outcomesWords(f) {
+  const two = !!f.rows?.length;
+  const cellOf = (i, j) => (f.cells?.[i]?.[j] ?? (two ? `(${f.rows[i]}, ${f.cols[j]})` : f.cols[j]));
+  const head = two ? `${f.rowHead || 'שורות'}: ${f.rows.join(', ')}; ${f.colHead || 'עמודות'}: ${f.cols.join(', ')}` : `${f.colHead ? `${f.colHead}: ` : ''}${f.cols.join(', ')}`;
+  const body = two && f.cells ? `; בתאים: ${f.rows.map((r, i) => `${r}: ${f.cols.map((_, j) => cellOf(i, j)).join(', ')}`).join('; ')}` : '';
+  const marked = (f.marked || []).map(([i, j]) => (two ? `(${f.rows[i]}, ${f.cols[j]})${f.cells ? ` ${cellOf(i, j)}` : ''}` : cellOf(0, j)));
+  const mk = marked.length ? `; ${marked.length === 1 ? 'מסומן תא אחד' : `מסומנים ${marked.length} תאים`}: ${marked.join(', ')}` : '';
+  return `טבלת תוצאות${f.label ? ` ${f.label}` : ''}: ${head}${body}${mk}`;
 }
 
 export function figWords(f) {
   switch (f.type) {
     case 'numline': return f.den ? partsLineWords(f) : teachLineWords(f);
     case 'fbar': {
+      // parts in several tones (6, 9 and 5 of 20): each group is read with its name
+      if (f.tones?.length) {
+        const parts = [`הפס מחולק ל־${f.den} חלקים`, f.tones.map((t) => `${t.label ? `${t.label} ` : ''}${t.n === 1 ? 'חלק אחד' : `${t.n} חלקים`}`).join(', ')];
+        const rest = f.den - f.tones.reduce((a, t) => a + t.n, 0);
+        if (rest > 0) parts.push(`${rest === 1 ? 'חלק אחד לא צבוע' : `${rest} לא צבועים`}`);
+        return `פס שברים: ${parts.join('; ')}`;
+      }
       const rows = f.rows?.length ? f.rows : [{ den: f.den, shaded: f.shaded }];
       const parts = rows.map((r) => `${r.label ? `${labelPlain(r.label)}: ` : ''}${fbarWords(r)}`);
       if (f.hatch) parts.push(`${f.hatch === 1 ? 'חלק צבוע אחד מקווקו' : `${f.hatch} מהחלקים הצבועים מקווקווים`}`);
@@ -507,8 +598,11 @@ export function figWords(f) {
     }
     case 'dots': {
       const k = f.mark || {};
-      return `תרשים נקודות של ${f.values.length} ערכים בין ${figNum(f.axis[0])} ל־${figNum(f.axis[1])}${k.mode != null ? ', השכיח מסומן' : ''}${k.median != null ? ', החציון מסומן' : ''}${k.mean != null ? ', הממוצע מסומן' : ''}${f.unit ? `: ${f.unit}` : ''}`;
+      const span = f.span ? `, חץ מ־${figNum(f.span.from)} עד ${figNum(f.span.to)}${f.span.label ? ` (${f.span.label})` : ''}` : '';
+      return `תרשים נקודות של ${f.values.length} ערכים בין ${figNum(f.axis[0])} ל־${figNum(f.axis[1])}${k.mode != null ? ', השכיח מסומן' : ''}${k.median != null ? ', החציון מסומן' : ''}${k.mean != null ? ', הממוצע מסומן' : ''}${span}${f.unit ? `: ${f.unit}` : ''}`;
     }
+    case 'chart': return chartWords(f);
+    case 'outcomes': return outcomesWords(f);
     case 'bars': {
       // a bar with no name is read by its value; a missing one says so; the level line is read last
       const bar = (l, v) => [l, v == null ? 'חסר' : figNum(v)].filter(Boolean).join(' ');
@@ -540,6 +634,179 @@ export function figWords(f) {
   }
 }
 
+// ---------------------------------------------------------------- repeating a random experiment (DATA-2.1)
+// simulate { device, sectors?, bag?, watch, seed?, truth?, hidden?, guided? }: a spinner cut into 12 or 10 equal parts
+// (sectors { label, parts, tone? } in order, clockwise from 12 o'clock), a bag of balls drawn and put back (bag
+// { label, n, tone? }), a die, a coin, or two dice whose sum is watched (2..12). `watch` is the outcome followed: a
+// sector's or a bag group's index, a coin side's index (0 עץ, 1 פלי), a die's face, two dice's sum.
+// The value is the run so far { n, counts, batches, hist, pick? }: trials, a count per outcome, the batch sizes pressed
+// in order (since the last restart), the watched count after every 10 trials (the chart's line), and in the estimate
+// mode the chosen fraction's index. The answer is { mode: 'trials', atLeast } or { mode: 'estimate', choices, answer }.
+// The trials themselves are drawn by components/manip/Simulate.jsx (simTrial); this module only reads a run.
+
+/** The three batch sizes, in the order a guided run opens them. */
+export const SIM_BATCHES = [10, 100, 1000];
+/** The most trials one run takes (the line keeps a point every 10: at most a thousand points). */
+export const SIM_MAX = 10000;
+/** A device's words: what a trial is called (plural), the plural command, "not yet", ten of them, the infinitive. */
+const SIM_WORDS = {
+  spinner: { noun: 'סיבובים', act: 'סובבו', none: 'עוד לא סובבתם את הגלגל', ten: 'עשרה סיבובים', inf: 'לסובב' },
+  die: { noun: 'הטלות', act: 'הטילו', none: 'עוד לא הטלתם את הקובייה', ten: 'עשר הטלות', inf: 'להטיל' },
+  coin: { noun: 'הטלות', act: 'הטילו', none: 'עוד לא הטלתם את המטבע', ten: 'עשר הטלות', inf: 'להטיל' },
+  dice2: { noun: 'הטלות', act: 'הטילו', none: 'עוד לא הטלתם את הקוביות', ten: 'עשר הטלות', inf: 'להטיל' },
+  bag: { noun: 'הוצאות', act: 'הוציאו כדור', none: 'עוד לא הוצאתם כדור', ten: 'עשר הוצאות', inf: 'להוציא' },
+};
+export const simWords = (m) => SIM_WORDS[m.device] || SIM_WORDS.spinner;
+const COIN = ['עץ', 'פלי'];
+/**
+ * A device's outcomes in order, each with its table label, its name in a sentence and its probability: the spinner's
+ * sectors, the bag's groups, a coin's two sides, a die's six faces, two dice's sums 2..12.
+ */
+export function simOutcomes(m) {
+  if (m.device === 'spinner' || m.device === 'bag') {
+    const parts = m.device === 'bag' ? (m.bag || []).map((b) => b.n) : (m.sectors || []).map((s) => s.parts);
+    const all = parts.reduce((a, b) => a + b, 0) || 1;
+    return (m.device === 'bag' ? m.bag || [] : m.sectors || []).map((s, i) => ({ label: s.label, name: s.label, p: parts[i] / all, tone: s.tone ?? i }));
+  }
+  if (m.device === 'coin') return COIN.map((label, i) => ({ label, name: label, p: 1 / 2, tone: i }));
+  if (m.device === 'die') return [1, 2, 3, 4, 5, 6].map((f) => ({ label: `${f}`, name: `המספר ${f}`, p: 1 / 6, tone: 0 }));
+  return Array.from({ length: 11 }, (_, i) => ({ label: `${i + 2}`, name: `סכום ${i + 2}`, p: (6 - Math.abs(i + 2 - 7)) / 36, tone: 0 }));
+}
+/** The watched outcome's index among simOutcomes. */
+export const simWatch = (m) => (m.device === 'die' ? m.watch - 1 : m.device === 'dice2' ? m.watch - 2 : m.watch || 0);
+/** A run with nothing in it. */
+export const simEmpty = (m) => ({ n: 0, counts: simOutcomes(m).map(() => 0), batches: [], hist: [] });
+/** Is this a run of this device (any value the object can hold)? */
+const simOk = (m, u) => !!u && typeof u === 'object' && Number.isInteger(u.n) && u.n >= 0 && Array.isArray(u.counts)
+  && u.counts.length === simOutcomes(m).length && Array.isArray(u.batches);
+/** The batches in the order a guided run opens them: 10 before any other, and a 100 before the first 1000. */
+export const simGuidedOrder = (batches) => batches[0] === 10 && batches.every((b, i) => b !== 1000 || batches.slice(0, i).includes(100));
+/** A relative frequency as the object writes it: two places (0.27, 0.20). */
+export const simFreq = (k, n) => (n > 0 ? (k / n).toFixed(2) : '0');
+/** "פעם אחת", "32 פעמים". */
+export const timesWord = (k) => (k === 1 ? 'פעם אחת' : `${k} פעמים`);
+/** The polite readout: "עד עכשיו 110 סיבובים. אדום: 32 פעמים, שכיחות יחסית 0.29." */
+export function simSentence(m, u) {
+  const w = simWords(m); const o = simOutcomes(m)[simWatch(m)];
+  if (!u?.n) return `${w.none}.`;
+  const k = u.counts[simWatch(m)];
+  return `עד עכשיו ${u.n} ${w.noun}. ${o.name}: ${timesWord(k)}, שכיחות יחסית ${simFreq(k, u.n)}.`;
+}
+/** An estimate's choice: a TeX string, or { tex, tag } (tag: the misconception that picks it). */
+export const simChoice = (c) => (typeof c === 'string' ? { tex: c } : c || { tex: '' });
+/**
+ * What a wrong pick in the estimate mode says: a choice made after fewer than 100 trials is the small sample
+ * (Tversky & Kahneman's "law of small numbers"); after that, the wrong choice's own tag. A right pick, or none, is null.
+ */
+export function simDiag(it, u) {
+  const a = it.answer;
+  if (a?.mode !== 'estimate' || u?.pick == null || u.pick === a.answer) return null;
+  if (!(u.n >= 100)) return 'small-sample';
+  return simChoice(a.choices[u.pick]).tag || null;
+}
+/** The batch sizes that reach `atLeast` (a guided run opens them in order): 100 is 10 + 100, 1000 is 10 + 100 + 1000. */
+function simBatchesFor(m, atLeast) {
+  const out = []; let n = 0;
+  if (m.guided) for (const b of SIM_BATCHES) { if (n >= atLeast) break; out.push(b); n += b; }
+  while (n < atLeast) { const b = [...SIM_BATCHES].reverse().find((x) => x <= atLeast - n) || 10; out.push(b); n += b; }
+  return out;
+}
+/** A run of n trials that came out exactly as expected (largest remainders, so the counts add up to n). */
+function simExpected(m, batches) {
+  const n = batches.reduce((a, b) => a + b, 0); const outs = simOutcomes(m);
+  const exact = outs.map((o) => o.p * n); const counts = exact.map(Math.floor);
+  const left = n - counts.reduce((a, b) => a + b, 0);
+  exact.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0]).slice(0, left).forEach(([, i]) => { counts[i] += 1; });
+  const p = outs[simWatch(m)].p;
+  return { n, counts, batches, hist: Array.from({ length: n / 10 }, (_, j) => Math.round(p * 10 * (j + 1))) };
+}
+const simManip = {
+  correct(m, a, u) {
+    if (a.mode === 'estimate') return !!u && u.pick === a.answer;
+    return simOk(m, u) && u.n >= a.atLeast && (!m.guided || simGuidedOrder(u.batches));
+  },
+  text(m, a, u) {
+    const w = simWords(m); const o = simOutcomes(m)[simWatch(m)];
+    if (u.mode === 'trials') return `לפחות ${u.atLeast} ${w.noun}`;
+    if (u.mode === 'estimate') return `בערך ${labelPlain(simChoice(u.choices[u.answer]).tex)}`;
+    const picked = a?.mode === 'estimate' && u.pick != null ? `${labelPlain(simChoice(a.choices[u.pick]).tex)}, ` : '';
+    if (!u.n) return `${picked}${w.none}`;
+    const k = u.counts[simWatch(m)];
+    return `${picked}${u.n} ${w.noun}: ${o.name} ${timesWord(k)} (${simFreq(k, u.n)})`;
+  },
+  plain(m, a) {
+    const outs = simOutcomes(m); const o = outs[simWatch(m)];
+    const est = a?.mode === 'estimate';
+    const run = m.device === 'bag' ? 'מוציאים כדור ומחזירים אותו' : m.device === 'spinner' ? 'מסובבים' : 'מטילים';
+    const watch = m.device === 'dice2' ? `כמה פעמים יצא כל סכום, ואת השכיחות היחסית של ${o.name}` : `את השכיחות היחסית של ${o.name}`;
+    const covered = m.hidden;
+    let what;
+    if (m.device === 'spinner') {
+      const all = m.sectors.reduce((t, x) => t + x.parts, 0);
+      what = covered ? `גלגל מכוסה, עם החלקים ${outs.map((x) => x.label).join(', ')}` : `גלגל: ${m.sectors.map((s, i) => `${s.label} ${s.parts}${i ? '' : ` מתוך ${all} חלקים`}`).join(', ')}`;
+    } else if (m.device === 'bag') {
+      const all = m.bag.reduce((t, b) => t + b.n, 0);
+      what = covered ? `שקית שלא רואים מה יש בה, עם כדורים בצבעים ${outs.map((x) => x.label).join(', ')}` : `שקית עם ${all} כדורים: ${m.bag.map((b) => `${b.label} ${b.n}`).join(', ')}`;
+    } else what = m.device === 'die' ? 'קובייה' : m.device === 'coin' ? 'מטבע' : 'שתי קוביות';
+    const order = m.guided ? ' (קודם 10, אחר כך 100, ואז 1000)' : '';
+    const pick = est ? `; בוחרים בערך איזה חלק: ${a.choices.map((c) => labelPlain(simChoice(c).tex)).join(', ')}` : '';
+    return `[${what}; ${run} 10, 100 או 1000 פעמים${order} ורואים ${watch}${pick}]`;
+  },
+  solution(m, a) {
+    const run = simExpected(m, simBatchesFor(m, a.mode === 'estimate' ? 100 : a.atLeast));
+    return a.mode === 'estimate' ? { ...run, pick: a.answer } : run;
+  },
+  wrong(m, a) {
+    const none = simEmpty(m);
+    return a.mode === 'estimate' ? { ...none, pick: (a.answer + 1) % a.choices.length } : none;
+  },
+};
+
+// ---------------------------------------------------------------- building a chart (DATA-2.2)
+// chart { mode: 'bar' | 'pie', cats (2–5 names), start, lock?, tones?, bar: { max, step, every?, unit?, unitWord? },
+// pie: { parts } }: the value is number[] (a bar's height, a multiple of bar.step; or a category's number of pie slices,
+// their sum at most pie.parts); the answer is { values }. bar.unit is the axis title ("מספר ילדים"), bar.unitWord the
+// noun said after a value ("ילדים"). components/manip/Chart.jsx draws it and holds the moves (chartSet and chartKey for
+// bars; for a pie, which slice is whose: pieTap, pieStep, pieKey).
+
+/** k slices of a pie of `parts` in percent, to a tenth: "25", "41.7". */
+export const chartPct = (k, parts) => String(Math.round((1000 * k) / parts) / 10);
+/** A category's colour family (figure.css .fig-tone-k): its own in `tones`, else its place. */
+export const chartTone = (m, i) => m.tones?.[i] ?? i;
+/**
+ * The colour word a child would use for each colour family (figure.css .fig-tone-k), or null where no one word fits
+ * (petrol, fuchsia, cobalt). Whatever is drawn and called by a colour (a sector, a ball, a slice, a bar, a part of a
+ * strip) is drawn in that colour: colours.test.ts checks every one. Red and green are not chart colours (they say right
+ * and wrong in the app), so nothing drawn is called אדום or ירוק (review: "the red part" was fuchsia).
+ */
+export const TONE_WORDS = Object.freeze(['כחול', 'כתום', null, null, 'צהוב', 'אפור', 'סגול', null]);
+const chartVals = (u) => (Array.isArray(u) ? u : u?.values);
+const chartManip = {
+  correct(m, a, u) { return Array.isArray(u) && u.length === a.values.length && u.every((v, i) => near(v, a.values[i], 1e-9)); },
+  text(m, u) {
+    const vs = chartVals(u) || [];
+    if (m.mode === 'pie') return m.cats.map((c, i) => `${c} ${vs[i] === 1 ? 'חלק אחד' : `${vs[i]} חלקים`} (${chartPct(vs[i], m.pie.parts)}%)`).join(', ');
+    return m.cats.map((c, i) => `${c} ${chartNum(vs[i])}`).join(', ');
+  },
+  plain(m) {
+    const fixed = (m.lock || []).map((i) => `${m.cats[i]} ${m.mode === 'pie' ? m.start[i] : chartNum(m.start[i])}`);
+    const given = fixed.length ? `; ${fixed.length === 1 ? 'קבועה' : 'קבועות'}: ${fixed.join(', ')}` : '';
+    if (m.mode === 'pie') return `[עוגה מחולקת ל־${m.pie.parts} חלקים שווים; צובעים לכל קטגוריה חלקים: ${m.cats.join(', ')}${given}]`;
+    return `[דיאגרמת עמודות: ${m.cats.join(', ')}; הציר עד ${chartNum(m.bar.max)} בקפיצות של ${chartNum(m.bar.step)}${m.bar.unit ? ` (${m.bar.unit})` : ''}; מכוונים את גובה כל עמודה${given}]`;
+  },
+  // the first category that can move by one step (or one slice) and stay on the chart
+  wrong(m, a) {
+    const vs = [...a.values]; const pie = m.mode === 'pie';
+    const step = pie ? 1 : m.bar.step; const top = pie ? m.pie.parts - vs.reduce((t, v) => t + v, 0) : null;
+    for (let i = 0; i < vs.length; i += 1) {
+      if ((m.lock || []).includes(i)) continue;
+      if (pie ? top > 0 : vs[i] + step <= m.bar.max + 1e-9) { vs[i] += step; return vs; }
+      if (vs[i] - step >= -1e-9) { vs[i] -= step; return vs; }
+    }
+    return vs;
+  },
+};
+
 // ---------------------------------------------------------------- checking, words and test states
 
 export function manipCorrect(it, u) {
@@ -567,6 +834,8 @@ export function manipCorrect(it, u) {
     }
     case 'dline': { const v = dlineValue(m, u); return typeof v === 'number' && near(v, a, 1e-9); }
     case 'graph': return graphCorrect(m, a, u);
+    case 'simulate': return simManip.correct(m, a, u);
+    case 'chart': return chartManip.correct(m, a, u);
     default: return false;
   }
 }
@@ -617,6 +886,8 @@ export function manipText(it, u = it.answer) {
       const given = [u.start != null && `מתחילים ב־${plainNum(u.start)}`, u.rate != null && `${plainNum(u.rate)} לכל יחידה של x`].filter(Boolean).join(', ');
       return `קצב אחיד: כל קטע משתנה באותו מספר${given ? `, ${given}` : ''}; למשל ${pts(graphSolution(m, u))}`;
     }
+    case 'simulate': return simManip.text(m, it.answer, u);
+    case 'chart': return chartManip.text(m, u);
     default: return '';
   }
 }
@@ -658,6 +929,8 @@ export function manipPlain(it) {
       const ref = m.ref ? `; קו קבוע נוסף${m.ref.label ? ` ${m.ref.label}` : ''}: ${m.ref.pts.map(([x, y]) => `(${plainNum(x)}, ${plainNum(y)})`).join(' → ')}` : '';
       return `[גרף: ${ax('x', m.x)}; ${ax('y', m.y)}; מזיזים נקודה מעל כל ערך של x${fixed ? `; ${fixed}` : ''}${ref}]`;
     }
+    case 'simulate': return simManip.plain(m, it.answer);
+    case 'chart': return chartManip.plain(m);
     default: return '';
   }
 }
@@ -680,6 +953,8 @@ export function manipSolution(it) {
     case 'graph': return graphSolution(m, a);
     // align: the answer when it is a right turn, else the first right one
     case 'angle': return m.protractor && m.mode === 'align' && !protAligned(m.arms, a) ? armTurns(m.arms).find((r) => protAligned(m.arms, r)) : a;
+    case 'simulate': return simManip.solution(m, a);
+    case 'chart': return [...a.values];
     default: return a;
   }
 }
@@ -720,6 +995,10 @@ export function manipWrong(it) {
       return a + L.step <= L.max + 1e-9 ? a + L.step : Math.max(lo, a - L.step);
     }
     case 'graph': return graphWrong(m, a);
+    // a run not yet made (and, in the estimate mode, another choice)
+    case 'simulate': return simManip.wrong(m, a);
+    // the first category that may move, one step (or one slice) off
+    case 'chart': return chartManip.wrong(m, a);
     default: return null;
   }
 }

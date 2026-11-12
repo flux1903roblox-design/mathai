@@ -34,8 +34,14 @@ export function probeItem(topic, level, k, avoidKey) {
   return { ...it, topic, level };
 }
 
+/**
+ * The highest level the first-day test probes in a topic: its last, or `placementTop` when the topic's later stairs are
+ * taught later in the year (stats:6-8 are December and January stairs, so stats is probed up to stats:5).
+ */
+export const placementTop = (topic) => TOPIC[topic].placementTop ?? TOPIC[topic].levels.length;
+
 const probeFor = (topic, know) => {
-  const top = TOPIC[topic].levels.length;
+  const top = placementTop(topic);
   return { lo: 0, hi: top + 1, asked: 0, right: 0, first: startLevel(top, know), q: 0 };
 };
 

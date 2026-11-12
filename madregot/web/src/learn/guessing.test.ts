@@ -26,13 +26,13 @@ import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from './mastery';
 import { VERIFY_N, VERIFY_NEED } from './misconceptions';
 import { seeded } from './expr';
 // @ts-ignore: plain JS
-import { isCorrect, TOPIC, topicsFor, figPlain } from '@/content/index.js';
+import { isCorrect, topicsFor, figPlain } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { manipSolution } from '@/content/manip.js';
 // @ts-ignore: plain JS
 import { toFrac } from '@/content/util.js';
 // @ts-ignore: plain JS
-import { probeItem, startLevel, nextProbe, PER_TOPIC, PROBE_LEN, KNOW } from '@/lib/placement.js';
+import { probeItem, startLevel, nextProbe, placementTop, PER_TOPIC, PROBE_LEN, KNOW } from '@/lib/placement.js';
 // @ts-ignore: plain JS
 import { JUMP_SOURCES, JUMP_MISTAKES } from '@/lib/lesson.js';
 
@@ -169,7 +169,8 @@ describe('a check cannot be passed by guessing', () => {
 describe('the placement test cannot be passed by guessing', () => {
   const topics = [...topicsFor('7'), ...topicsFor('8')] as { id: string; levels: unknown[] }[];
   it.each(topics.map((t) => t.id))('%s: a guesser is placed on or above any stair less than 2% of the time', (topic) => {
-    const top = TOPIC[topic].levels.length;
+    // the levels the first-day test can reach (lib/placement.js placementTop: stats stops at stats:5)
+    const top = placementTop(topic);
     // the chance of passing a probe at each level: all PROBE_LEN questions right
     const pass = Array.from({ length: top }, (_, i) => {
       const draws = Array.from({ length: PROBE_LEN }, (_, k): Draw => () => probeItem(topic, i + 1, k));

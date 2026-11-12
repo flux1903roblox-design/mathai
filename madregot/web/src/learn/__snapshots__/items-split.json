@@ -369,6 +369,154 @@
    ]
   }
  },
+ "data:1": {
+  "items": [
+   "mastery0:da1d:5:20,15,5,30:3:1|15|gen",
+   "mastery1:da1d:5:35,10,20,40:3:0|5|gen",
+   "mastery2:data:1:diag:{\"s\":5,\"vals\":[15,10,5,35],\"i\":0,\"j\":1,\"max\":45}|5|diag",
+   "mastery3:da1p:6:5.5,6,5.5,4:3|24|gen",
+   "mastery4:data:1:transfer:{\"k\":10,\"icons\":[6,5,2,3],\"x\":0}|60|transfer",
+   "review0:data:1:transfer:{\"k\":2,\"icons\":[2,2.5,6,1],\"x\":2}|12|transfer",
+   "review1:da1l:10:30,30,10,10,90:3:4|80|gen",
+   "review2:data:1:diag:{\"s\":5,\"vals\":[15,10,5,35],\"i\":0,\"j\":1,\"max\":45}|5|diag",
+   "verify0:data:1:probe:{\"s\":2,\"vals\":[14,4,2,10],\"i\":0,\"j\":2,\"max\":18}|12|probe",
+   "verify1:data:1:probe:{\"s\":10,\"vals\":[20,60,50,80],\"i\":3,\"j\":1,\"max\":90}|20|probe",
+   "verify2:data:1:diag:{\"s\":10,\"vals\":[30,60,70,20],\"i\":1,\"j\":3,\"max\":90}|40|diag",
+   "gen:da1r:5:5,15,40,20:2|40|gen",
+   "diag:data:1:diag:{\"s\":5,\"vals\":[5,40,35,30],\"i\":1,\"j\":2,\"max\":45}|5|diag",
+   "transfer:data:1:transfer:{\"k\":6,\"icons\":[3.5,4,4,5.5],\"x\":2}|24|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "data:1/gen/",
+    "data:1/gen/",
+    "data:1/diag/",
+    "data:1/gen/",
+    "data:1/transfer/"
+   ],
+   "review": [
+    "data:1/transfer/",
+    "data:1/gen/",
+    "data:1/diag/"
+   ],
+   "verify": [
+    "data:1/probe/scale-units",
+    "data:1/probe/scale-units",
+    "data:1/control/scale-units"
+   ]
+  }
+ },
+ "data:2": {
+  "items": [
+   "mastery0:da2:2,3,13,7:1|0.12|gen",
+   "mastery1:da2b:40:11:20:9|0.45|gen",
+   "mastery2:data:2:diag:{\"f\":[14,9,6,11],\"N\":40,\"j\":0}|0.35|diag",
+   "mastery3:da2b:40:14:25:13|0.52|gen",
+   "mastery4:data:2:transfer:{\"n1\":40,\"k1\":24,\"n2\":20,\"k2\":14}|0.7|transfer",
+   "review0:data:2:transfer:{\"n1\":40,\"k1\":7,\"n2\":20,\"k2\":6}|0.3|transfer",
+   "review1:da2:12,8,10,10:3|0.25|gen",
+   "review2:data:2:diag:{\"f\":[14,9,6,11],\"N\":40,\"j\":0}|0.35|diag",
+   "verify0:data:2:probe:{\"f\":[12,10,15,3],\"N\":40,\"j\":2}|0.375|probe",
+   "verify1:data:2:probe:{\"f\":[14,8,13,15],\"N\":50,\"j\":2}|0.26|probe",
+   "verify2:data:2:diag:{\"f\":[10,8,10,12],\"N\":40,\"j\":0}|0.25|diag",
+   "gen:da2c:25:10:30:26|1|gen",
+   "diag:data:2:diag:{\"f\":[13,7,10,10],\"N\":40,\"j\":3}|0.25|diag",
+   "transfer:data:2:transfer:{\"n1\":40,\"k1\":22,\"n2\":25,\"k2\":14}|0.56|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "data:2/gen/",
+    "data:2/gen/",
+    "data:2/diag/",
+    "data:2/gen/",
+    "data:2/transfer/"
+   ],
+   "review": [
+    "data:2/transfer/",
+    "data:2/gen/",
+    "data:2/diag/"
+   ],
+   "verify": [
+    "data:2/probe/part-part",
+    "data:2/probe/part-part",
+    "data:2/control/part-part"
+   ]
+  }
+ },
+ "data:3": {
+  "items": [
+   "mastery0:da3:400:55,15,30:0|220|gen",
+   "mastery1:da3:400:10,15,25,50:1|60|gen",
+   "mastery2:data:3:diag:{\"N\":300,\"ps\":[40,10,50],\"x\":1}|30|diag",
+   "mastery3:da3:60:60,15,25:0|36|gen",
+   "mastery4:data:3:transfer:{\"p\":50,\"N\":120,\"c\":60}|120|transfer",
+   "review0:data:3:transfer:{\"p\":20,\"N\":150,\"c\":30}|150|transfer",
+   "review1:da3w:50:190|380|gen",
+   "review2:data:3:diag:{\"N\":300,\"ps\":[40,10,50],\"x\":1}|30|diag",
+   "verify0:data:3:probe:{\"N\":60,\"ps\":[35,50,15],\"x\":1}|30|probe",
+   "verify1:data:3:probe:{\"N\":120,\"ps\":[30,45,10,15],\"x\":0}|36|probe",
+   "verify2:data:3:diag:{\"N\":40,\"ps\":[20,40,30,10],\"x\":1}|16|diag",
+   "gen:da3p:240,40,60,60:2|15|gen",
+   "diag:data:3:diag:{\"N\":200,\"ps\":[40,30,20,10],\"x\":2}|40|diag",
+   "transfer:data:3:transfer:{\"p\":40,\"N\":230,\"c\":92}|230|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "data:3/gen/",
+    "data:3/gen/",
+    "data:3/diag/",
+    "data:3/gen/",
+    "data:3/transfer/"
+   ],
+   "review": [
+    "data:3/transfer/",
+    "data:3/gen/",
+    "data:3/diag/"
+   ],
+   "verify": [
+    "data:3/probe/count-as-pct",
+    "data:3/probe/count-as-pct",
+    "data:3/control/count-as-pct"
+   ]
+  }
+ },
+ "data:4": {
+  "items": [
+   "mastery0:da4:9,7,5:1|0.3333333333333333|gen",
+   "mastery1:da4e:20:150:105|14|gen",
+   "mastery2:data:4:diag:{\"c\":[8,5,2,5],\"N\":20,\"j\":3,\"k\":4}|0.25|diag",
+   "mastery3:da4:7,5,2:1|0.35714285714285715|gen",
+   "mastery4:data:4:transfer:{\"B\":40,\"n\":200,\"w\":145,\"c\":29}|29|transfer",
+   "review0:data:4:transfer:{\"B\":20,\"n\":120,\"w\":66,\"c\":11}|11|transfer",
+   "review1:da4:3,9,3,8:0|0.13043478260869565|gen",
+   "review2:data:4:diag:{\"c\":[8,5,2,5],\"N\":20,\"j\":3,\"k\":4}|0.25|diag",
+   "verify0:data:4:probe:{\"c\":[3,5,8],\"N\":16,\"j\":1,\"k\":3}|0.3125|probe",
+   "verify1:data:4:probe:{\"c\":[7,5,6],\"N\":18,\"j\":1,\"k\":3}|0.2777777777777778|probe",
+   "verify2:data:4:control:{\"c\":[8,5,2,5],\"N\":20,\"j\":3,\"k\":4}|0.25|control",
+   "gen:da4:3,5,7:0|0.2|gen",
+   "diag:data:4:diag:{\"c\":[5,6,6,8],\"N\":25,\"j\":2,\"k\":4}|0.24|diag",
+   "transfer:data:4:transfer:{\"B\":30,\"n\":150,\"w\":90,\"c\":18}|18|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "data:4/gen/",
+    "data:4/gen/",
+    "data:4/diag/",
+    "data:4/gen/",
+    "data:4/transfer/"
+   ],
+   "review": [
+    "data:4/transfer/",
+    "data:4/gen/",
+    "data:4/diag/"
+   ],
+   "verify": [
+    "data:4/probe/equiprob",
+    "data:4/probe/equiprob",
+    "data:4/control/equiprob"
+   ]
+  }
+ },
  "diagnostic-7": [
   "signed:1/diag",
   "signed:1/gen",
@@ -412,6 +560,14 @@
   "expr:4/gen",
   "expr:5/diag",
   "expr:5/gen",
+  "data:1/diag",
+  "data:1/gen",
+  "data:2/diag",
+  "data:2/gen",
+  "data:3/diag",
+  "data:3/gen",
+  "data:4/diag",
+  "data:4/gen",
   "eq:1/diag",
   "eq:1/gen",
   "eq:2/diag",
@@ -446,6 +602,14 @@
   "pct:4/gen",
   "pct:5/diag",
   "pct:5/gen",
+  "data:1/diag",
+  "data:1/gen",
+  "data:2/diag",
+  "data:2/gen",
+  "data:3/diag",
+  "data:3/gen",
+  "data:4/diag",
+  "data:4/gen",
   "func:1/diag",
   "func:1/gen",
   "func:2/diag",
@@ -490,6 +654,12 @@
   "stats:4/gen",
   "stats:5/diag",
   "stats:5/gen",
+  "stats:6/diag",
+  "stats:6/gen",
+  "stats:7/diag",
+  "stats:7/gen",
+  "stats:8/diag",
+  "stats:8/gen",
   "sys:1/diag",
   "sys:1/gen",
   "sys:2/diag",
@@ -499,7 +669,13 @@
   "sys:4/diag",
   "sys:4/gen",
   "sys:5/diag",
-  "sys:5/gen"
+  "sys:5/gen",
+  "prob:1/diag",
+  "prob:1/gen",
+  "prob:2/diag",
+  "prob:2/gen",
+  "prob:3/diag",
+  "prob:3/gen"
  ],
  "eq:1": {
   "items": [
@@ -1746,6 +1922,117 @@
    ]
   }
  },
+ "prob:1": {
+  "items": [
+   "mastery0:pr1:6:le:4|0.6666666666666666|gen",
+   "mastery1:pr1r:72:7:43|0.5138888888888888|gen",
+   "mastery2:prob:1:diag:{\"n\":12,\"e\":\"mult\",\"t\":5,\"k\":2}|0.16666666666666666|diag",
+   "mastery3:pr1r:100:5:57|0.49|gen",
+   "mastery4:prob:1:transfer:{\"N\":120,\"a\":12,\"b\":100,\"w\":33}|0.275|transfer",
+   "review0:prob:1:transfer:{\"N\":120,\"a\":8,\"b\":98,\"w\":31}|0.25833333333333336|transfer",
+   "review1:pr1:10:le:2|0.2|gen",
+   "review2:prob:1:diag:{\"n\":12,\"e\":\"mult\",\"t\":5,\"k\":2}|0.16666666666666666|diag",
+   "verify0:prob:1:probe:{\"n\":6,\"e\":\"gt\",\"t\":3,\"k\":3}|0.5|probe",
+   "verify1:prob:1:probe:{\"n\":8,\"e\":\"mult\",\"t\":4,\"k\":2}|0.25|probe",
+   "verify2:prob:1:diag:{\"n\":12,\"e\":\"gt\",\"t\":4,\"k\":8}|0.6666666666666666|diag",
+   "gen:pr1f:1|0|gen",
+   "diag:prob:1:diag:{\"n\":10,\"e\":\"mult\",\"t\":4,\"k\":2}|0.2|diag",
+   "transfer:prob:1:transfer:{\"N\":80,\"a\":8,\"b\":61,\"w\":28}|0.35|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "prob:1/gen/",
+    "prob:1/gen/",
+    "prob:1/diag/",
+    "prob:1/gen/",
+    "prob:1/transfer/"
+   ],
+   "review": [
+    "prob:1/transfer/",
+    "prob:1/gen/",
+    "prob:1/diag/"
+   ],
+   "verify": [
+    "prob:1/probe/count-not-prob",
+    "prob:1/probe/count-not-prob",
+    "prob:1/control/count-not-prob"
+   ]
+  }
+ },
+ "prob:2": {
+  "items": [
+   "mastery0:pr2:0.2,0.25,0.15:1|0.75|gen",
+   "mastery1:pr2a:6:2|0.8333333333333334|gen",
+   "mastery2:prob:2:diag:{\"p\":[0.3,0.25,0.35],\"g\":0.1,\"x\":2}|0.65|diag",
+   "mastery3:pr2a:10:3|0.8|gen",
+   "mastery4:prob:2:transfer:{\"N\":28,\"a\":1,\"b\":7,\"m\":3,\"blue\":4,\"pink\":12}|0.42857142857142855|transfer",
+   "review0:prob:2:transfer:{\"N\":40,\"a\":1,\"b\":8,\"m\":3,\"blue\":5,\"pink\":15}|0.5|transfer",
+   "review1:pr2c:30:2|70|gen",
+   "review2:prob:2:diag:{\"p\":[0.3,0.25,0.35],\"g\":0.1,\"x\":2}|0.65|diag",
+   "verify0:prob:2:probe:{\"p\":[0.15,0.2,0.25],\"g\":0.4,\"x\":2}|0.75|probe",
+   "verify1:prob:2:probe:{\"p\":[0.2,0.3,0.3],\"g\":0.2,\"x\":2}|0.7|probe",
+   "verify2:prob:2:diag:{\"p\":[0.2,0.1,0.15],\"g\":0.55,\"x\":1}|0.9|diag",
+   "gen:pr2:0.15,0.15,0.15:0|0.85|gen",
+   "diag:prob:2:diag:{\"p\":[0.25,0.25,0.3],\"g\":0.2,\"x\":1}|0.75|diag",
+   "transfer:prob:2:transfer:{\"N\":30,\"a\":1,\"b\":6,\"m\":2,\"blue\":5,\"pink\":10}|0.5|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "prob:2/gen/",
+    "prob:2/gen/",
+    "prob:2/diag/",
+    "prob:2/gen/",
+    "prob:2/transfer/"
+   ],
+   "review": [
+    "prob:2/transfer/",
+    "prob:2/gen/",
+    "prob:2/diag/"
+   ],
+   "verify": [
+    "prob:2/probe/same-prob",
+    "prob:2/probe/same-prob",
+    "prob:2/control/same-prob"
+   ]
+  }
+ },
+ "prob:3": {
+  "items": [
+   "mastery0:pr3:sum:11|0.05555555555555555|gen",
+   "mastery1:pr3t:die-spin:6:4:3:2|0.25|gen",
+   "mastery2:prob:3:diag:{\"e\":\"ge\",\"t\":9,\"sums\":[9,10,11,12]}|0.2777777777777778|diag",
+   "mastery3:pr3:sum:9|0.1111111111111111|gen",
+   "mastery4:prob:3:transfer:{\"kind\":\"spin-spin\",\"n1\":4,\"n2\":5,\"k1\":1,\"k2\":2}|0.1|transfer",
+   "review0:prob:3:transfer:{\"kind\":\"coin-die\",\"n1\":2,\"n2\":6,\"k1\":1,\"k2\":2}|0.16666666666666666|transfer",
+   "review1:pr3:sum:9|0.1111111111111111|gen",
+   "review2:prob:3:diag:{\"e\":\"ge\",\"t\":9,\"sums\":[9,10,11,12]}|0.2777777777777778|diag",
+   "verify0:prob:3:probe:{\"e\":\"sum\",\"t\":5,\"sums\":[5]}|0.1111111111111111|probe",
+   "verify1:prob:3:probe:{\"e\":\"sum\",\"t\":9,\"sums\":[9]}|0.1111111111111111|probe",
+   "verify2:prob:3:diag:{\"e\":\"le\",\"t\":6,\"sums\":[2,3,4,5,6]}|0.4166666666666667|diag",
+   "gen:pr3t:coin-die:2:6:1:2|0.16666666666666666|gen",
+   "diag:prob:3:diag:{\"e\":\"sum\",\"t\":7,\"sums\":[7]}|0.16666666666666666|diag",
+   "transfer:prob:3:transfer:{\"kind\":\"die-spin\",\"n1\":6,\"n2\":4,\"k1\":3,\"k2\":2}|0.25|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "prob:3/gen/",
+    "prob:3/gen/",
+    "prob:3/diag/",
+    "prob:3/gen/",
+    "prob:3/transfer/"
+   ],
+   "review": [
+    "prob:3/transfer/",
+    "prob:3/gen/",
+    "prob:3/diag/"
+   ],
+   "verify": [
+    "prob:3/probe/equiprob-sums",
+    "prob:3/probe/equiprob-sums",
+    "prob:3/control/equiprob-sums"
+   ]
+  }
+ },
  "pyth:1": {
   "items": [
    "mastery0:py1s:5:4|{\"c\":5,\"a\":4,\"b\":3}|gen",
@@ -2483,6 +2770,117 @@
     "stats:5/probe/mean-as-answer",
     "stats:5/probe/mean-as-answer",
     "stats:5/control/mean-as-answer"
+   ]
+  }
+ },
+ "stats:6": {
+  "items": [
+   "mastery0:st6r:59,42,32,25,28,15,34|44|gen",
+   "mastery1:st6m:6:14:x2:2|28|gen",
+   "mastery2:stats:6:diag:{\"op\":\"add\",\"vals\":[69,91,85,85,79,85,58,73],\"c\":3,\"r\":33}|33|diag",
+   "mastery3:st6r:18,33,18,59,15,53,12,9|50|gen",
+   "mastery4:stats:6:transfer:{\"a\":5,\"b\":4,\"w1\":4700,\"w2\":4800,\"M\":12000,\"d\":2500,\"N\":10,\"S\":54700}|5720|transfer",
+   "review0:stats:6:transfer:{\"a\":2,\"b\":2,\"w1\":4800,\"w2\":5200,\"M\":8000,\"d\":2000,\"N\":5,\"S\":28000}|6000|transfer",
+   "review1:st6r:33,46,5,55,34,38,41,58|53|gen",
+   "review2:stats:6:diag:{\"op\":\"add\",\"vals\":[69,91,85,85,79,85,58,73],\"c\":3,\"r\":33}|33|diag",
+   "verify0:stats:6:probe:{\"op\":\"add\",\"vals\":[57,69,89,70,78,40,69,52],\"c\":7,\"r\":49}|49|probe",
+   "verify1:stats:6:probe:{\"op\":\"add\",\"vals\":[82,70,76,61,78,72,93,52],\"c\":3,\"r\":41}|41|probe",
+   "verify2:stats:6:diag:{\"op\":\"x2\",\"vals\":[10,6,16,8,1,12,2,13],\"c\":null,\"r\":15}|30|diag",
+   "gen:st6m:8:35:add:4|39|gen",
+   "diag:stats:6:diag:{\"op\":\"x2\",\"vals\":[11,13,12,18,11,2,11,13],\"c\":null,\"r\":16}|32|diag",
+   "transfer:stats:6:transfer:{\"a\":4,\"b\":3,\"w1\":5100,\"w2\":5400,\"M\":12000,\"d\":1000,\"N\":8,\"S\":48600}|6200|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:6/gen/",
+    "stats:6/gen/",
+    "stats:6/diag/",
+    "stats:6/gen/",
+    "stats:6/transfer/"
+   ],
+   "review": [
+    "stats:6/transfer/",
+    "stats:6/gen/",
+    "stats:6/diag/"
+   ],
+   "verify": [
+    "stats:6/probe/range-max",
+    "stats:6/probe/range-max",
+    "stats:6/control/range-max"
+   ]
+  }
+ },
+ "stats:7": {
+  "items": [
+   "mastery0:st7j:1.7,0.3,0.6,2.5,1:562,571,660,608,615|602|gen",
+   "mastery1:st7b:590,510,510,400,410:520,270,590,350|170|gen",
+   "mastery2:stats:7:diag:{\"L\":4,\"counted\":[0,1,3,4],\"wind\":[1.5,1.5,3,1.1,0.5],\"d\":[628,680,666,666,652]}|656.5|diag",
+   "mastery3:st7j:1.7,2.7,1.7,1,1.3:598,629,661,570,593|605.5|gen",
+   "mastery4:stats:7:transfer:{\"m\":[600,590,520,370,430],\"S\":250,\"seasons\":[680,250,500,330]}|190|transfer",
+   "review0:stats:7:transfer:{\"m\":[360,390,460,570,470],\"S\":410,\"seasons\":[500,410,500,330]}|90|transfer",
+   "review1:st7p:27,24,29:55,20,15,10:3|8|gen",
+   "review2:stats:7:diag:{\"L\":4,\"counted\":[0,1,3,4],\"wind\":[1.5,1.5,3,1.1,0.5],\"d\":[628,680,666,666,652]}|656.5|diag",
+   "verify0:stats:7:probe:{\"L\":4,\"counted\":[0,2,3,4],\"wind\":[2,3.2,1.2,2,0.9],\"d\":[629,592,641,643,657]}|642.5|probe",
+   "verify1:stats:7:probe:{\"L\":3,\"counted\":[0,1,4],\"wind\":[1.5,1.3,3.2,2.3,0.4],\"d\":[610,664,611,674,622]}|632|probe",
+   "verify2:stats:7:diag:{\"L\":3,\"counted\":[0,2,4],\"wind\":[1.3,3,1,3.1,0.4],\"d\":[652,686,596,667,609]}|619|diag",
+   "gen:st7c:0:50,45,15:40|0|gen",
+   "diag:stats:7:diag:{\"L\":4,\"counted\":[0,1,3,4],\"wind\":[1.2,0.4,2.7,1.3,1.1],\"d\":[622,670,615,647,649]}|647|diag",
+   "transfer:stats:7:transfer:{\"m\":[440,560,430,500,510],\"S\":280,\"seasons\":[530,280,450,360]}|200|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:7/gen/",
+    "stats:7/gen/",
+    "stats:7/diag/",
+    "stats:7/gen/",
+    "stats:7/transfer/"
+   ],
+   "review": [
+    "stats:7/transfer/",
+    "stats:7/gen/",
+    "stats:7/diag/"
+   ],
+   "verify": [
+    "stats:7/probe/ignore-source",
+    "stats:7/probe/ignore-source",
+    "stats:7/control/ignore-source"
+   ]
+  }
+ },
+ "stats:8": {
+  "items": [
+   "mastery0:st8i:4:3:12:145:2013|181|gen",
+   "mastery1:st8i:6:4:-4:239:2013|223|gen",
+   "mastery2:stats:8:diag:{\"d\":8,\"j\":7,\"rate\":25,\"y1\":218,\"y2\":418,\"x1\":2015}|393|diag",
+   "mastery3:st8i:5:2:8:295:2011|311|gen",
+   "mastery4:stats:8:transfer:{\"t0\":400,\"a\":290,\"s\":2,\"vals\":[400,690,980,1270],\"at\":18}|1850|transfer",
+   "review0:stats:8:transfer:{\"t0\":120,\"a\":130,\"s\":2,\"vals\":[120,250,380,510],\"at\":18}|770|transfer",
+   "review1:st8e:320:60:3|680|gen",
+   "review2:stats:8:diag:{\"d\":8,\"j\":7,\"rate\":25,\"y1\":218,\"y2\":418,\"x1\":2015}|393|diag",
+   "verify0:stats:8:probe:{\"d\":5,\"j\":2,\"rate\":8,\"y1\":184,\"y2\":224,\"x1\":2014}|200|probe",
+   "verify1:stats:8:probe:{\"d\":4,\"j\":3,\"rate\":8,\"y1\":140,\"y2\":172,\"x1\":2014}|164|probe",
+   "verify2:stats:8:diag:{\"d\":5,\"j\":1,\"rate\":3,\"y1\":127,\"y2\":142,\"x1\":2016}|130|diag",
+   "gen:st8e:270:220:3|1590|gen",
+   "diag:stats:8:diag:{\"d\":8,\"j\":5,\"rate\":20,\"y1\":60,\"y2\":220,\"x1\":2013}|160|diag",
+   "transfer:stats:8:transfer:{\"t0\":230,\"a\":180,\"s\":2,\"vals\":[230,410,590,770],\"at\":18}|1130|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:8/gen/",
+    "stats:8/gen/",
+    "stats:8/diag/",
+    "stats:8/gen/",
+    "stats:8/transfer/"
+   ],
+   "review": [
+    "stats:8/transfer/",
+    "stats:8/gen/",
+    "stats:8/diag/"
+   ],
+   "verify": [
+    "stats:8/probe/midpoint",
+    "stats:8/probe/midpoint",
+    "stats:8/control/midpoint"
    ]
   }
  },

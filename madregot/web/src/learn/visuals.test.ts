@@ -11,7 +11,7 @@ import { VISUAL_EXEMPT } from './visualPlan';
 import { STAIRS } from './skills';
 import type { DiscoverStep } from './types';
 // @ts-ignore: plain JS
-import Figure from '@/components/Figure.jsx';
+import Figure, { FIG_TYPES } from '@/components/Figure.jsx';
 // @ts-ignore: plain JS
 import GraphDraw from '@/components/manip/GraphDraw.jsx';
 // @ts-ignore: plain JS
@@ -24,7 +24,14 @@ import { seeded } from './expr';
 // the teaching content loads one topic at a time (DURABLE-11): every topic, loaded
 const CONTENT = await loadAllContent();
 
-const hasVisual = (st: DiscoverStep) => !!((st as { fig?: unknown }).fig || (st as { manip?: unknown }).manip);
+/**
+ * A step shows something when it has an object to move, or a drawing of a type components/Figure.jsx draws (a figure of
+ * another type would draw nothing): the data figures of curriculum stage 3, chart, outcomes and pair, count as any other.
+ */
+const hasVisual = (st: DiscoverStep) => {
+  const fig = (st as { fig?: { type?: string } }).fig;
+  return !!((fig && FIG_TYPES.includes(fig.type)) || (st as { manip?: unknown }).manip);
+};
 
 /** Every discover step by topic: its id (`signed:1#0`) and whether it shows something. */
 function byTopic() {
@@ -70,6 +77,15 @@ describe('a picture or an object on every teaching step (STUDENT-8)', () => {
       const n = steps.filter((s) => VISUAL_EXEMPT[s.id]).length;
       expect(n, `${t}: ${n} of ${steps.length} steps exempt`).toBeLessThanOrEqual(Math.floor(steps.length * 0.05));
     }
+  });
+
+  it('counts a drawing only of a type Figure draws, the data figures among them', () => {
+    expect(FIG_TYPES).toEqual(expect.arrayContaining(['chart', 'outcomes', 'pair', 'table', 'numline', 'dots', 'fbar']));
+    const step = (fig: unknown): DiscoverStep => ({ kind: 'say', text: '', fig } as DiscoverStep);
+    expect(hasVisual(step({ type: 'chart', mode: 'pie', cats: ['א', 'ב'], values: [1, 1] }))).toBe(true);
+    expect(hasVisual(step({ type: 'outcomes', cols: ['1', '2'] }))).toBe(true);
+    expect(hasVisual(step({ type: 'pair', items: [{ type: 'table', head: ['א'], rows: [[1]] }, { type: 'chart', mode: 'bar', cats: ['א'], values: [1] }] }))).toBe(true);
+    expect(hasVisual(step({ type: 'histogram' }))).toBe(false);
   });
 
   it('the rule covers every topic of the catalogue, every stair of it', () => {

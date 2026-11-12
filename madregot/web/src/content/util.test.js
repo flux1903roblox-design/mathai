@@ -261,8 +261,16 @@ describe('practice-only questions are kept out of checks', () => {
   // uniformMc, fasterMc and a rate continued (func:4; stage5.md FUNC-2)
   // eq: tableMc, which equation fits a motion table (eq:6; stage5.md FUNC-3), and lcdMc, the smallest common denominator
   // (eq:7; FUNC-4)
+  // data: barRead (an axis label), listCount (a number of the list), groupsMc, buildBar and axisMc (data:1), compareMc
+  // (data:2), buildPie and pieOk (data:3), scaleMc and the covered wheel (data:4)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
-    'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'fu1f', 'fu1p', 'fu1s', 'fu2i', 'fu2d', 'fu3w', 'fu3s', 'fu4u', 'fu4f', 'fu4n', 'eq6t', 'eq7l'];
+    'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'fu1f', 'fu1p', 'fu1s', 'fu2i', 'fu2d', 'fu3w', 'fu3s', 'fu4u', 'fu4f', 'fu4n', 'eq6t', 'eq7l',
+    'da1r', 'da1c', 'da1g', 'da1b', 'da1a', 'da2c', 'da3b', 'da3o', 'da4s', 'da4w',
+    // stats:6-8 (curriculum stage 3): which measure moves, what does not fit, between or beyond, a trend carried too far
+    'st6o', 'st7c', 'st8w', 'st8l',
+    // prob:1-3: the rain table's scale, a die that is not fair, the gambler, what a forecast says, (a, b) and (b, a), a
+    // double against a mixed pair, two dice thrown many times
+    'pr1s', 'pr1f', 'pr2g', 'pr2f', 'pr3o', 'pr3s', 'pr3d'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

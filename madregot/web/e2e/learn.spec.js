@@ -215,7 +215,7 @@ test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of the
   const heads = page.locator('.rescue-topic-head .topic-row');
   // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February; and the functions unit
   // through its guest stair alone (func:1, a situation graph in May: stage5.md FUNC-6, guest.spec.js)
-  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'מבוא לפונקציות (מה שלומדים בכיתה ז׳)', 'משפט פיתגורס (כל הנושא)']);
+  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'נתונים ושכיחות (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'מבוא לפונקציות (מה שלומדים בכיתה ז׳)', 'משפט פיתגורס (כל הנושא)']);
   await page.getByText('מציאת ניצב', { exact: true }).click();
   await expect(page.locator('.rescue-topic').last().locator('.rescue-topic-count')).toHaveText('1/5');
   await expectNoSidewaysScroll(page);
@@ -224,6 +224,22 @@ test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of the
   await toTopics();
   await expect(heads.filter({ hasText: 'משפט פיתגורס' })).toHaveText('משפט פיתגורס (כל הנושא)');
   await expect(heads.filter({ hasText: 'משוואות' }).last()).toHaveText('משוואות מכיתה ז׳ (כל הנושא)');
+  // this year ח׳ learns the ז׳ data unit too (8.6): it is theirs, not revision from ז׳
+  await expect(heads.filter({ hasText: 'נתונים ושכיחות' })).toHaveText('נתונים ושכיחות (כל הנושא)');
+});
+
+// The תשפ״ז transition year (DATA-1): ח׳ learns the ז׳ data unit too, in October–November, after percent. On the map it is
+// their third unit, and its page numbers it as theirs.
+test('a ח׳ student\'s map draws the data unit third, after percent, and its page says "יחידה 3"', async ({ page }) => {
+  await open(page, '#/', student('8'));
+  await expect(page.locator('.unit').first()).toBeVisible();
+  await expect(page.locator('.unit-title').nth(1)).toHaveText('אחוזים');
+  await expect(page.locator('.unit-title').nth(2)).toHaveText('נתונים ושכיחות');
+  await expect(page.locator('.unit-title').filter({ hasText: 'נתונים ושכיחות' })).toHaveCount(1);
+  await expectNoSidewaysScroll(page);
+  await open(page, '#/topic/data', student('8'));
+  await expect(page.getByText('יחידה 3', { exact: false }).first()).toBeVisible();
+  await expect(page.getByText('יחידה 5', { exact: false })).toHaveCount(0);
 });
 
 test('the profile shows what the evidence says, on this device, and can delete everything', async ({ page }) => {

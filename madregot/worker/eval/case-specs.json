@@ -350,6 +350,440 @@
       "tags": ["eq", "algebra"]
     },
     {
+      "id": "D1-data1-scale-units", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "diag", "params": { "s": 5, "vals": [25, 20, 30, 10], "i": 2, "j": 3, "max": 45 }, "wrong": [4, 25], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "scale-units", "maxWords": 130,
+        "describe": "Names the app's diagnosis: grid squares were counted as ones instead of reading the axis. The axis goes up in steps of 5, so swimming's bar reaches 30 and tennis's 10, not 6 and 2 squares. 30 - 10 = 20. Ends at 20. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data1-one-value", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "diag", "params": { "s": 5, "vals": [25, 20, 30, 10], "i": 2, "j": 3, "max": 45 }, "wrong": [30, 25], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-value", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the value of one bar (swimming, 30) was given instead of the difference. \"How many more\" asks for the gap between the two bars: 30 - 10 = 20. Ends at 20. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data1T-icon-count", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "transfer", "params": { "k": 4, "icons": [3.5, 2, 2.5, 1.5], "x": 0 }, "wrong": [3.5, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "icon-count", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the icons were counted and the key forgotten. Each icon is 4 children, so 3 whole icons are 12 and half an icon is 2: 14. Ends at 14. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data1T-half-icon", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "transfer", "params": { "k": 4, "icons": [3.5, 2, 2.5, 1.5], "x": 0 }, "wrong": [16, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "half-icon", "maxWords": 130,
+        "describe": "Names the app's diagnosis: half an icon was counted as a whole one. Half an icon is half of 4, that is 2: 12 + 2 = 14. Ends at 14. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data1-gen-truncated-axis", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "gen", "key": "da1a:60:76:64:2", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "truncated-axis", "maxWords": 110,
+        "describe": "Names the app's diagnosis: the bars were compared on an axis that starts at 60, not at 0. Above 60 the bars show 16 and 4, so they look 4 times apart, but the votes are 76 and 64, only 12 apart. Does not say which choice is right." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data2-part-part", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [0.54, 0.42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "part-part", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 14 who walk were divided by the rest (26) instead of by all 40. A relative frequency is the part out of the whole: 14/40 = 0.35. Ends at 0.35. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-freq-only", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [14, 0.42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "freq-only", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the frequency (14) was written instead of the relative frequency. The relative frequency is the part out of all 40: 14/40 = 0.35. Ends at 0.35. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-per-category", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [0.25, 0.4], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "per-category", "maxWords": 130,
+        "describe": "Names the app's diagnosis: each of the four rows was taken as a quarter. The rows hold different numbers of pupils, so the share is 14 out of 8 + 14 + 6 + 12 = 40: 0.35. Ends at 0.35. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-pct-for-dec", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [35, 0.42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "pct-for-dec", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the share was written in percent (35) where a fraction or a decimal is asked. 35% is 35/100 = 0.35, the same part. Ends at 0.35. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-inverse-ratio", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [2.86, 0.42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "inverse-ratio", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole (40) was divided by the part (14). A share is the part over the whole, so it is less than 1: 14/40 = 0.35. Ends at 0.35. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data2T-bigger-count", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "transfer", "params": { "n1": 40, "k1": 20, "n2": 25, "k2": 15 }, "wrong": [0.5, 0.4], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "bigger-count", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the class with more musicians (20) was taken as the one with the larger share. 20 of 40 is 0.5, and 15 of 25 is 0.6: compare parts, not counts. Ends at 0.6. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-gen-div-by-rel", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "gen", "key": "da2r:40:0.3:2", "wrong": [133.33, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "div-by-rel", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 40 pupils were divided by the relative frequency instead of multiplied by it. 0.3 of 40 is a part of the class, less than 40: 0.3 · 40 = 12. Ends at 12. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data3-count-as-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "diag", "params": { "N": 240, "ps": [35, 40, 25], "x": 0 }, "wrong": [35, 80], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-as-pct", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the percent (35) was given as the number of pupils. 35% of 240: 10% is 24, so 30% is 72 and 5% is 12, together 84. Ends at 84. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data3-div-by-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "diag", "params": { "N": 240, "ps": [35, 40, 25], "x": 0 }, "wrong": [6.86, 80], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "div-by-pct", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 240 pupils were divided by the percent number. 35% of 240 is 35/100 of it: 0.35 · 240 = 84. Ends at 84. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data3T-pct-of-part", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "transfer", "params": { "p": 30, "N": 250, "c": 75 }, "wrong": [22.5, 225], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "pct-of-part", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 30% of the 75 pupils was computed, but the 75 are the part and the whole is asked. 30% is 75, so 10% is 25 and 100% is 250. Ends at 250. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data3T-stop-at-one", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "transfer", "params": { "p": 30, "N": 250, "c": 75 }, "wrong": [2.5, 225], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "stop-at-one", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 1% was found (75 : 30 = 2.5) and the answer stopped there. The whole grade is 100%: 2.5 · 100 = 250. Ends at 250. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data3-gen-pie-not-whole", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "gen", "key": "da3o:0:30,45,60", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "pie-not-whole", "maxWords": 110,
+        "describe": "Names the app's diagnosis: percents of three different classes were put in one pie. A pie is one whole whose slices add up to 100%, and 30 + 45 + 60 is 135. Does not say which choice is right." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data4-equiprob", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "diag", "params": { "c": [4, 2, 1], "N": 7, "j": 0, "k": 3 }, "wrong": [0.33, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equiprob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: each of the three colours was taken as equally likely. Every pencil has the same chance, and 4 of the 7 pencils are red: 4/7. Ends at 4/7 (about 0.57). Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data4T-rel-not-scaled", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "transfer", "params": { "B": 24, "n": 120, "w": 70, "c": 14 }, "wrong": [0.58, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rel-not-scaled", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the share of the draws (70/120, about 0.58) was given, not the number of balls. The same share of the 24 balls: 0.58 · 24 is about 14. Ends at 14. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data4T-draws-as-count", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "transfer", "params": { "B": 24, "n": 120, "w": 70, "c": 14 }, "wrong": [70, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "draws-as-count", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the times a colour came out (70) were taken as the number of balls. The bag holds only 24; 70 of 120 draws is the share 70/120, and that share of 24 is 14. Ends at 14. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data4-gen-old-total", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "gen", "key": "da4j:100:30:60", "wrong": [0.9, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "old-total", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the newcomers were added to the count but the total was left at 100. Now there are 30 + 60 = 90 without a club out of 100 + 60 = 160: 90/160 = 0.5625. Ends at 0.5625. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data4-gen-new-not-counted", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "gen", "key": "da4j:100:30:60", "wrong": [0.19, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "new-not-counted", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the total grew to 160 but the 60 newcomers, all without a club, were left out of the count. 30 + 60 = 90 of 160: 0.5625. Ends at 0.5625. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data4-gen-old-rel", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "gen", "key": "da4j:100:30:60", "wrong": [0.3, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "old-rel", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the old share (30%) was used, as if nothing changed. 60 pupils without a club joined, so both the part and the whole grew: 90/160 = 0.5625. Ends at 0.5625. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data4-gen-small-sample", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "gen", "key": "da4w:10:1:0,2,3", "wrong": [{ "n": 10, "counts": [3, 4, 3], "batches": [10], "hist": [3], "pick": 1 }, { "n": 110, "counts": [12, 50, 48], "batches": [10, 100], "hist": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12], "pick": 2 }], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "small-sample", "maxWords": 130,
+        "describe": "Names the app's diagnosis: a choice was made after only 10 spins. With so few spins the relative frequency still jumps; after 100 or 1000 spins it settles near the red part of the wheel, about 1/10 here. Ends at about 1/10. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-stats6-shift-range", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "diag", "params": {"op": "add", "vals": [64, 78, 55, 91, 70, 82, 60, 73], "c": 4, "r": 36}, "wrong": [40, 41], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "shift-range", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 4 added to every grade was added to the range too. Adding the same number to every grade raises the largest and the smallest by 4, so the range stays 91 - 55 = 36. Ends at 36. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6-range-max", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "diag", "params": {"op": "add", "vals": [64, 78, 55, 91, 70, 82, 60, 73], "c": 4, "r": 36}, "wrong": [95, 41], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "range-max", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the largest grade after the change (95) was given instead of the range. The range is the largest minus the smallest, one number: 95 - 59 = 36. Ends at 36. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6-range-unchanged", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "diag", "params": {"op": "x2", "vals": [12, 5, 9, 17, 8, 14, 6, 11], "c": null, "r": 12}, "wrong": [12, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "range-unchanged", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the range was taken to stay as it was when every value was doubled. Multiplying every value by 2 doubles every distance, the range too: 34 - 10 = 24. Ends at 24. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6T-whole-raise", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "transfer", "params": {"a": 4, "b": 5, "w1": 5000, "w2": 5200, "M": 9000, "d": 2000, "N": 10, "S": 55000}, "wrong": [7500, 5600], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "whole-raise", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole raise of 2000 was added to the mean. The raise goes into the sum, which is shared by 10 workers: 2000 : 10 = 200, so the mean is 5500 + 200 = 5700. Ends at 5700. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6T-mean-unchanged", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "transfer", "params": {"a": 4, "b": 5, "w1": 5000, "w2": 5200, "M": 9000, "d": 2000, "N": 10, "S": 55000}, "wrong": [5500, 5600], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "mean-unchanged", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the mean was taken not to move when one wage changed. The manager's raise adds 2000 to the sum of 55000, and 57000 : 10 = 5700. Ends at 5700. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6-gen-first-last", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "gen", "key": "st6r:14,26,18,35,16,57,11,17,57", "wrong": [43, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "first-last", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the range was taken from the first and the last value of the list (57 - 14 = 43) without looking for the largest and the smallest. The largest is 57 and the smallest 11: 57 - 11 = 46. Ends at 46. Names no other mistake." },
+      "tags": ["stats", "generator"]
+    },
+    {
+      "id": "D1-stats7-ignore-source", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "diag", "params": {"L": 3, "counted": [0, 2, 3], "wind": [1.4, 2.3, 0.8, 1.9, 2.6], "d": [612, 640, 628, 635, 655]}, "wrong": [634, 630], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "ignore-source", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only one source was used, so all five jumps were averaged. The wind chart rules out jumps 2 and 5 (2.3 and 2.6, above 2.0); the legal jumps are 612, 628 and 635, and 1875 : 3 = 625. Ends at 625. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7-all-count", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "diag", "params": {"L": 3, "counted": [0, 2, 3], "wind": [1.4, 2.3, 0.8, 1.9, 2.6], "d": [612, 640, 628, 635, 655]}, "wrong": [375, 630], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "all-count", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the three legal jumps were added but divided by all five. Only three jumps count, so 1875 : 3 = 625. Ends at 625. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7T-total-not-mean", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "transfer", "params": {"m": [520, 480, 420, 390, 360], "S": 350, "seasons": [600, 350, 480, 400]}, "wrong": [820, 45], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "total-not-mean", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the spring total (1170) was compared with last spring's monthly mean (350). Compare a monthly mean with a monthly mean: 1170 : 3 = 390, and 390 - 350 = 40. Ends at 40. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7T-all-months", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "transfer", "params": {"m": [520, 480, 420, 390, 360], "S": 350, "seasons": [600, 350, 480, 400]}, "wrong": [84, 45], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "all-months", "maxWords": 130,
+        "describe": "Names the app's diagnosis: all five months were averaged, winter too. Spring is March, April and May: (420 + 390 + 360) : 3 = 390, and 390 - 350 = 40. Ends at 40. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7-gen-count-as-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "gen", "key": "st7p:29,27,24:40,15,45:1", "wrong": [15, 20], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-as-pct", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the percent on the pie (15%) was written as the number of students. The table gives the whole grade, 29 + 27 + 24 = 80, and 15% of 80 is 12. Ends at 12. Names no other mistake." },
+      "tags": ["stats", "generator"]
+    },
+    {
+      "id": "D1-stats8-midpoint", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [200, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "midpoint", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the middle of 140 and 260 was taken, which fits only the middle year, 2016. The change is 120 in 8 years, 15 a year, and 2015 is 3 years after 2012: 140 + 45 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-steps-not-scaled", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [500, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "steps-not-scaled", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole difference of 120 was added for every year. 120 is the change of all 8 years together; one year is 120 : 8 = 15, so 2015 is 140 + 3 * 15 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-wrong-end", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [215, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-end", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the years were counted from the other end (5 years from 2020) and added to 140. 2015 is 3 years after 2012: 140 + 3 * 15 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-no-start", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [45, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-start", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the change (3 years of 15, 45) was given, without the starting value. The change is added to the 140 of 2012: 140 + 45 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8T-last-value", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "transfer", "params": {"t0": 200, "a": 150, "s": 1, "vals": [200, 350, 500, 650], "at": 16}, "wrong": [650, 780], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "last-value", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the trend was taken to stop at the last value (650 by 14:00). Every two hours 150 more tickets are sold, so by 16:00 there are 650 + 150 = 800. Ends at 800. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8T-one-step", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "transfer", "params": {"t0": 120, "a": 60, "s": 3, "vals": [120, 180, 240, 300], "at": 20}, "wrong": [360, 450], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-step", "maxWords": 130,
+        "describe": "Names the app's diagnosis: one step of two hours was added though 20:00 is three steps after 14:00. 300 + 3 * 60 = 480. Ends at 480. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8T-hours-as-steps", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "transfer", "params": {"t0": 120, "a": 60, "s": 3, "vals": [120, 180, 240, 300], "at": 20}, "wrong": [660, 450], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "hours-as-steps", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 6 hours from 14:00 to 20:00 were counted as 6 steps, but the data were taken every two hours, so a step is two hours: 3 steps, 300 + 3 * 60 = 480. Ends at 480. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-gen-far-extrap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "gen", "key": "st8l:0:145:5:10:30", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "far-extrap", "maxWords": 110,
+        "describe": "Names the app's diagnosis: the trend was carried far beyond the data as if it were sure. 145 + 20 * 5 = 245 cm at 30 is not reasonable: people stop growing. The further from the data, the less sure the estimate. Does not say which choice is right." },
+      "tags": ["stats", "generator"]
+    },
+    {
+      "id": "D1-prob1-count-not-prob", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "diag", "params": {"n": 12, "e": "mult", "t": 4, "k": 3}, "wrong": [3, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-not-prob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the number of fitting cards (3: 4, 8 and 12) was written, not the probability. The 12 cards are equally likely, so the probability is 3 out of 12: 3/12 = 0.25. Ends at 0.25. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1-one-over-n", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "diag", "params": {"n": 12, "e": "mult", "t": 4, "k": 3}, "wrong": [0.08, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-over-n", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the probability of one card (1/12, about 0.08) was given, but three cards fit (4, 8 and 12). Three of the 12 equally likely cards: 3/12 = 0.25. Ends at 0.25. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1-equiprob-event", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "diag", "params": {"n": 12, "e": "mult", "t": 4, "k": 3}, "wrong": [0.5, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equiprob-event", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 'it happens or it does not' was taken as two equally likely outcomes, a half. The outcomes are the 12 cards; 3 of them fit: 3/12 = 0.25. Ends at 0.25. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1T-fencepost", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "transfer", "params": {"N": 80, "a": 6, "b": 61, "w": 26}, "wrong": [0.3125, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "fencepost", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the tickets from 61 to 80 were counted as 80 - 61 = 19, but 61 wins too: 20 tickets. With 1 to 6, 26 winning tickets of 80: 26/80 = 0.325. Ends at 0.325. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1-gen-no-symmetry", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "gen", "key": "pr1f:0", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "no-symmetry", "maxWords": 110,
+        "describe": "Names the app's diagnosis: one over the number of sides was assumed for a die, a coin or a wheel that is not symmetric. Without symmetry the outcomes are not equally likely; the probability is estimated from the relative frequency of many trials. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-same-prob", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "diag", "params": {"p": [0.3, 0.25, 0.2], "g": 0.25, "x": 1}, "wrong": [0.25, 0.6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "same-prob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 'not blue' was given blue's own probability, 0.25. Blue and not blue together are everything that can happen, 1: 1 - 0.25 = 0.75. Ends at 0.75. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2-hundred-minus", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "diag", "params": {"p": [0.3, 0.25, 0.2], "g": 0.25, "x": 1}, "wrong": [99.75, 0.6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "hundred-minus", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 0.25 was taken from 100, as if it were a percent. Written as a number, a probability is between 0 and 1, and the whole is 1: 1 - 0.25 = 0.75. Ends at 0.75. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2-others-given", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "diag", "params": {"p": [0.3, 0.25, 0.2], "g": 0.25, "x": 1}, "wrong": [0.5, 0.6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "others-given", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the colours whose probabilities are written (red 0.3 and yellow 0.2) were added, and green, the rest, was left out. Not blue is everything but blue: 1 - 0.25 = 0.75. Ends at 0.75. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2T-one-part", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "transfer", "params": {"N": 28, "a": 2, "b": 7, "m": 2, "blue": 8, "pink": 16}, "wrong": [0.71, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-part", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the blue pens were taken away (1 - 2/7). Neither blue nor pink leaves out the pink pens too: 8 blue and 16 pink of 28 leave 4, and 4/28 = 1/7, about 0.14. Ends at 1/7. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2-gen-complement-only", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2a:6:3", "wrong": [0.33, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "complement-only", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the probability of the complement, less than 3 (1 and 2, so 2/6), was found and not taken from 1. At least 3 is everything else: 1 - 2/6 = 4/6 = 2/3. Ends at 2/3. Names no other mistake." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-gen-gambler", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2g:1:4", "wrong": [2], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "gambler", "maxWords": 110,
+        "describe": "Names the app's diagnosis: after a run of one side the other side was taken as 'due' (or the same side as 'hot'). A fair coin has no memory: on every toss the chance of each side is a half. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-gen-outcome-approach", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2f:70:0", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "outcome-approach", "maxWords": 110,
+        "describe": "Names the app's diagnosis: a 70% chance of rain was read as the part of tomorrow it rains, or as a sure forecast. A probability says how likely it is: of many days with this forecast, it rains on about 70% of them. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-gen-same-prob-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2c:65:3", "wrong": [65, 50], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "same-prob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the dry day was given the chance of rain itself (65%). Rain and no rain together are everything that can happen, 100%: 100% - 65% = 35%. Ends at 35%. Names no other mistake." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob3-equiprob-sums", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "diag", "params": {"e": "sum", "t": 7, "sums": [7]}, "wrong": [{"n": 1, "d": 11}, {"n": 1, "d": 5}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equiprob-sums", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 11 sums from 2 to 12 were taken as equally likely. The 36 cells of the table are equally likely, and sum 7 has 6 of them: 6/36 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3-unordered", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "diag", "params": {"e": "sum", "t": 7, "sums": [7]}, "wrong": [{"n": 3, "d": 36}, {"n": 1, "d": 5}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "unordered", "maxWords": 130,
+        "describe": "Names the app's diagnosis: (1, 6) and (6, 1) were counted as one cell, so sum 7 got 3 cells. They are two cells of the table (a red die and a blue die): 6 cells of 36, 6/36 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3-space-21", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "diag", "params": {"e": "sum", "t": 7, "sums": [7]}, "wrong": [{"n": 3, "d": 21}, {"n": 1, "d": 5}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "space-21", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 21 pairs without order were taken as the equally likely outcomes. They are not: a double is one cell, a pair of two numbers is two. Count the 36 cells: sum 7 has 6, 6/36 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3T-add-probs", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "transfer", "params": {"kind": "coin-die", "n1": 2, "n2": 6, "k1": 1, "k2": 2}, "wrong": [{"n": 5, "d": 6}, {"n": 1, "d": 4}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "add-probs", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the probabilities of the two stages were added (1/2 + 2/6). Heads and then more than 4 is the cells where both hold: in the table of 2 * 6 = 12 cells, (heads, 5) and (heads, 6), so 2/12 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3T-one-stage", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "transfer", "params": {"kind": "coin-die", "n1": 2, "n2": 6, "k1": 1, "k2": 2}, "wrong": [{"n": 1, "d": 3}, {"n": 1, "d": 4}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-stage", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the die was counted (2/6), and the coin was forgotten. The outcome is a pair; in the table of 12 cells, heads and 5 or 6 are 2 cells: 2/12 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3-gen-representativeness", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "gen", "key": "pr3s:1:2:3", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "representativeness", "maxWords": 110,
+        "describe": "Names the app's diagnosis: a result that looks mixed was taken as likelier than a double. Each, in order, is one cell of the 36 in the table, with the same chance, 1/36. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

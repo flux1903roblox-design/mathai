@@ -197,6 +197,134 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "data:1": {
+    "title": "דיאגרמות וטבלת שכיחויות",
+    "misconceptions": [
+      {
+        "id": "scale-units",
+        "title": "ספרו משבצות בציר במקום לקרוא את המספרים שעליו"
+      },
+      {
+        "id": "one-value",
+        "title": "ענו כמה יש בקבוצה אחת במקום את ההפרש"
+      },
+      {
+        "id": "icon-count",
+        "title": "ספרו סמלים ושכחו כמה שווה כל סמל"
+      },
+      {
+        "id": "half-icon",
+        "title": "ספרו חצי סמל כסמל שלם"
+      },
+      {
+        "id": "truncated-axis",
+        "title": "השוו גובה של עמודות בציר שלא מתחיל ב־$0$"
+      }
+    ],
+    "transfer": true
+  },
+  "data:2": {
+    "title": "שכיחות יחסית",
+    "misconceptions": [
+      {
+        "id": "part-part",
+        "title": "חילקו בשאר הנתונים במקום בכל הנתונים"
+      },
+      {
+        "id": "bigger-count",
+        "title": "השוו לפי מספר הפריטים בלי להתחשב בגודל הקבוצה"
+      },
+      {
+        "id": "freq-only",
+        "title": "כתבו את השכיחות במקום את השכיחות היחסית"
+      },
+      {
+        "id": "inverse-ratio",
+        "title": "חילקו את השלם בחלק במקום את החלק בשלם"
+      },
+      {
+        "id": "per-category",
+        "title": "חשבו שכל שורה בטבלה היא חלק שווה מהשלם"
+      },
+      {
+        "id": "pct-for-dec",
+        "title": "כתבו את החלק באחוזים, במקום כשבר או כמספר עשרוני"
+      },
+      {
+        "id": "div-by-rel",
+        "title": "חילקו את מספר כל הנתונים בשכיחות היחסית במקום לכפול בה"
+      }
+    ],
+    "transfer": true
+  },
+  "data:3": {
+    "title": "אחוזים ודיאגרמת עוגה",
+    "misconceptions": [
+      {
+        "id": "count-as-pct",
+        "title": "כתבו את האחוז עצמו כאילו הוא מספר התלמידים"
+      },
+      {
+        "id": "div-by-pct",
+        "title": "חילקו את מספר התלמידים במספר האחוזים"
+      },
+      {
+        "id": "pct-of-part",
+        "title": "חישבו אחוז מהחלק הנתון במקום למצוא את השלם"
+      },
+      {
+        "id": "stop-at-one",
+        "title": "מצאו כמה הם $1\\%$ ועצרו שם"
+      },
+      {
+        "id": "inverse-ratio",
+        "title": "חילקו את כל התלמידים בחלק במקום את החלק בכולם"
+      },
+      {
+        "id": "pie-not-whole",
+        "title": "הציגו בעוגה נתונים שאינם חלקים של שלם אחד"
+      }
+    ],
+    "transfer": true
+  },
+  "data:4": {
+    "title": "הסתברות מתוך שכיחות",
+    "misconceptions": [
+      {
+        "id": "equiprob",
+        "title": "הניחו שלכל סוג אותו סיכוי, בלי להתחשב בכמה יש מכל סוג"
+      },
+      {
+        "id": "part-part",
+        "title": "חילקו בשאר הנתונים במקום בכל הנתונים"
+      },
+      {
+        "id": "old-total",
+        "title": "חילקו בסך הכול הישן, לפני שנוספו פריטים"
+      },
+      {
+        "id": "new-not-counted",
+        "title": "הוסיפו את החדשים לסך הכול ולא לחלק"
+      },
+      {
+        "id": "old-rel",
+        "title": "השתמשו בשכיחות היחסית מלפני השינוי"
+      },
+      {
+        "id": "rel-not-scaled",
+        "title": "עצרו בשכיחות היחסית ולא כפלו במספר הכולל"
+      },
+      {
+        "id": "draws-as-count",
+        "title": "כתבו כמה פעמים יצא הצבע, במקום כמה כדורים כאלה יש בשקית"
+      },
+      {
+        "id": "small-sample",
+        "title": "סמכו על מעט ניסויים כאילו הם נותנים את ההסתברות"
+      }
+    ],
+    "transfer": true
+  },
   "eq:1": {
     "title": "משוואה ופתרון",
     "misconceptions": [
@@ -847,6 +975,100 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "prob:1": {
+    "title": "תוצאות שוות סיכוי",
+    "misconceptions": [
+      {
+        "id": "count-not-prob",
+        "title": "כתבו את מספר התוצאות המתאימות במקום ההסתברות"
+      },
+      {
+        "id": "one-over-n",
+        "title": "כתבו את ההסתברות של תוצאה אחת במקום של כל התוצאות המתאימות"
+      },
+      {
+        "id": "equiprob-event",
+        "title": "חשבו שמה שקורה או לא קורה הוא חצי"
+      },
+      {
+        "id": "fencepost",
+        "title": "ספרו את המספרים מ־$a$ עד $b$ כאילו יש $b - a$ ולא $b - a + 1$"
+      },
+      {
+        "id": "no-symmetry",
+        "title": "הניחו סיכוי שווה גם כשהקובייה או המטבע לא סימטריים"
+      }
+    ],
+    "transfer": true
+  },
+  "prob:2": {
+    "title": "מאורע משלים",
+    "misconceptions": [
+      {
+        "id": "same-prob",
+        "title": "נתנו למשלים אותה הסתברות"
+      },
+      {
+        "id": "hundred-minus",
+        "title": "השלימו ל־$100$ הסתברות שכתובה כמספר בין $0$ ל־$1$"
+      },
+      {
+        "id": "others-given",
+        "title": "חיברו רק את ההסתברויות שכתובות, ושכחו תוצאה שלא כתובה"
+      },
+      {
+        "id": "one-part",
+        "title": "הורידו רק חלק מהתוצאות שאינן מתאימות"
+      },
+      {
+        "id": "count-not-prob",
+        "title": "כתבו את מספר התוצאות המתאימות במקום ההסתברות"
+      },
+      {
+        "id": "gambler",
+        "title": "חשבו שאחרי הרבה פעמים אותה תוצאה, הסיכוי לשנייה גדל"
+      },
+      {
+        "id": "outcome-approach",
+        "title": "קראו הסתברות כתחזית בטוחה או כחלק מהזמן"
+      },
+      {
+        "id": "complement-only",
+        "title": "חישבו את ההסתברות של המשלים, ולא החסירו אותה מ־$1$"
+      }
+    ],
+    "transfer": true
+  },
+  "prob:3": {
+    "title": "ניסוי בשני שלבים",
+    "misconceptions": [
+      {
+        "id": "equiprob-sums",
+        "title": "חשבו שכל הסכומים של שתי קוביות שווי סיכוי"
+      },
+      {
+        "id": "unordered",
+        "title": "ספרו את $(5, 6)$ ואת $(6, 5)$ כתוצאה אחת"
+      },
+      {
+        "id": "space-21",
+        "title": "מנו $21$ זוגות בלי סדר כאילו הם שווי סיכוי"
+      },
+      {
+        "id": "add-probs",
+        "title": "חיברו את ההסתברויות של שני השלבים"
+      },
+      {
+        "id": "one-stage",
+        "title": "חישבו את ההסתברות של שלב אחד בלבד"
+      },
+      {
+        "id": "representativeness",
+        "title": "חשבו שתוצאה שנראית \"מסודרת\" פחות סבירה מתוצאה שנראית מעורבבת"
+      }
+    ],
+    "transfer": true
+  },
   "pyth:1": {
     "title": "מציאת היתר",
     "misconceptions": [
@@ -1235,6 +1457,100 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "stats:6": {
+    "title": "טווח ושינוי של כל הנתונים",
+    "misconceptions": [
+      {
+        "id": "range-max",
+        "title": "כתבו את הערך הגדול ביותר במקום הטווח"
+      },
+      {
+        "id": "first-last",
+        "title": "חישבו טווח מהנתון הראשון והאחרון ברשימה בלי לחפש את הגדול והקטן"
+      },
+      {
+        "id": "shift-range",
+        "title": "חשבו שהוספה של אותו מספר לכל הנתונים מגדילה את הטווח"
+      },
+      {
+        "id": "range-unchanged",
+        "title": "חשבו שכפל של כל הנתונים במספר לא משנה את הטווח"
+      },
+      {
+        "id": "mean-unchanged",
+        "title": "חשבו שהממוצע לא משתנה כשהנתונים משתנים"
+      },
+      {
+        "id": "whole-raise",
+        "title": "הוסיפו לממוצע את כל התוספת של נתון אחד"
+      }
+    ],
+    "transfer": true
+  },
+  "stats:7": {
+    "title": "שני מקורות מידע",
+    "misconceptions": [
+      {
+        "id": "ignore-source",
+        "title": "השתמשו רק במקור מידע אחד"
+      },
+      {
+        "id": "all-count",
+        "title": "חילקו במספר כל הנתונים, גם אלה שהמקור השני פוסל"
+      },
+      {
+        "id": "total-not-mean",
+        "title": "השוו סכום לממוצע"
+      },
+      {
+        "id": "all-months",
+        "title": "חישבו ממוצע של כל החודשים ולא רק של העונה"
+      },
+      {
+        "id": "count-as-pct",
+        "title": "כתבו את האחוז עצמו כאילו הוא מספר התלמידים"
+      }
+    ],
+    "transfer": true
+  },
+  "stats:8": {
+    "title": "אינטרפולציה ואקסטרפולציה",
+    "misconceptions": [
+      {
+        "id": "midpoint",
+        "title": "לקחו את האמצע בין שני הערכים בלי להתחשב במרחק"
+      },
+      {
+        "id": "steps-not-scaled",
+        "title": "הוסיפו את כל ההפרש בכל צעד"
+      },
+      {
+        "id": "wrong-end",
+        "title": "מדדו את המרחק מהקצה השני"
+      },
+      {
+        "id": "no-start",
+        "title": "חישבו רק את השינוי, בלי הערך שממנו מתחילים"
+      },
+      {
+        "id": "last-value",
+        "title": "הניחו שהערך יישאר כמו בפעם האחרונה"
+      },
+      {
+        "id": "one-step",
+        "title": "הוסיפו צעד אחד במקום כל הצעדים עד הזמן המבוקש"
+      },
+      {
+        "id": "hours-as-steps",
+        "title": "ספרו שעות במקום צעדים של שעתיים"
+      },
+      {
+        "id": "far-extrap",
+        "title": "המשיכו מגמה רחוק מעבר לנתונים כאילו היא בטוחה"
+      }
+    ],
+    "transfer": true
+  },
   "sys:1": {
     "title": "משוואות עם אחוזים",
     "misconceptions": [
@@ -1334,6 +1650,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "coord-length": "בלבלו בין שיעור של נקודה לבין אורך",
     "wrong-neighbour": "לקחו שיעור מהשכן הלא נכון של הקודקוד"
   },
+  "data": {},
   "eq": {},
   "expr": {},
   "frac": {},
@@ -1349,6 +1666,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "neg-length": "השאירו אורך שלילי, והשטח יצא שלילי"
   },
   "pct": {},
+  "prob": {},
   "pyth": {
     "wrong-hyp": "זיהו לא נכון מי היתר",
     "assume-right": "הניחו שהמשולש ישר־זווית בלי לבדוק",

@@ -1,6 +1,7 @@
 // The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, every topic has at least
-// one claim, one error or proof and one literacy task (stage 1's 36 were three each; later stages add their own, so the
-// count is computed), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned.
+// one claim, one error or proof and one literacy task (stage 1's 36 were three each; later stages add their own, the data
+// and probability units three each, so the count is computed), and the grading rules (two tries, XP, the order check,
+// the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import type { ChallengePart, ChallengeTask } from './types';
@@ -46,19 +47,24 @@ describe('the challenge tasks', () => {
     for (const t of CHALLENGES) expect(challengeById(t.id)).toEqual({ id: t.id, topic: t.topic, after: t.after, kind: t.kind, title: t.title, minutes: t.minutes, ...(t.misc ? { misc: t.misc } : {}) });
     expect(META_LIST.some((t) => 'parts' in t || 'story' in t)).toBe(false);
     expect(taskById('func:c2')?.parts.length).toBeGreaterThan(0);
+    expect(taskById('prob:c2')?.parts).toHaveLength(2);
     expect(taskById('nope')).toBeNull();
   });
   it('every topic of TOPIC_ORDER has its tasks, the bridge included, numbered c1, c2, … and in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
     // the count is the topics' tasks, every one of them in a topic of TOPIC_ORDER
     expect(CHALLENGES).toHaveLength(TOPIC_ORDER.reduce((n, tp) => n + challengesOf(tp).length, 0));
-    expect(CHALLENGES.length).toBeGreaterThanOrEqual(36);
+    expect(CHALLENGES.length).toBeGreaterThanOrEqual(42);
     TOPIC_ORDER.forEach((tp) => {
       const ids = challengesOf(tp).map((t) => t.id);
       if (!PENDING_CHALLENGES.has(tp)) expect(ids.length, tp).toBeGreaterThanOrEqual(3);
       expect(ids, tp).toEqual(ids.map((_, i) => `${tp}:c${i + 1}`));
     });
     PENDING_CHALLENGES.forEach((tp) => expect(TOPIC_ORDER, `${tp}: a pending unit is a real one`).toContain(tp));
+    // curriculum stage 3 (DATA-7): data's three and probability's three
+    expect(challengesOf('data').map((t) => [t.id, t.kind, t.after])).toEqual([['data:c1', 'literacy', 'data:3'], ['data:c2', 'claim', 'data:2'], ['data:c3', 'error', 'data:4']]);
+    // DATA-7: a claim with no "לכל" (two plain sentences), Danny's unordered pairs, the Ministry's rain table
+    expect(challengesOf('prob').map((t) => [t.id, t.kind, t.after])).toEqual([['prob:c1', 'claim', 'prob:1'], ['prob:c2', 'error', 'prob:3'], ['prob:c3', 'literacy', 'prob:2']]);
     expect(TOPIC_ORDER).toContain('frac');
     expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => challengesOf(tp).map(() => tp)));
     expect(challengeById('pct:c1')?.after).toBe('pct:2');

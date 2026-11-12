@@ -7,7 +7,7 @@ import { buildRequest, AI_KINDS, FREE_KINDS, TOPIC_IDS, stableSystem as fromAi }
 import {
   stableSystem, TUTOR_BODY, PEDAGOGY, TOPIC_WAYS, topicWaysBlock, curriculumBlock, SINGULAR_EXAMPLES, SINGULAR_RE, SINGULAR_WORDS,
 } from '../../shared/pedagogy.js';
-import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, NOT_YET, stairName } from '../../shared/stairs.js';
+import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, TOPIC_ALSO, NOT_YET, stairName } from '../../shared/stairs.js';
 import { safetyPrompt } from '../../shared/safety.js';
 import { TOPIC_WAYS_STAGE1, SIGNED_FRACTIONS } from '../../shared/topicWays.js';
 import { notYet } from '../../shared/coverage.js';
@@ -63,8 +63,11 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
   // purpose. The stage-5 lane's functions (its ways, its stair names and a shorter "not yet" list) take it to about
   // 21,400 once its last stair lands, so the cap moved to 22,000 with its first stair; the merge of stages 2-5, each
-  // adding a unit's ways, measures the block once and sets one cap. A further topic moves it only on purpose too.
-  assert.ok(s.length < 22000, `stable block is ${s.length} characters`);
+  // adding a unit's ways, measures the block once and sets one cap. Curriculum stage 3's statistics stairs 6-8 (the
+  // range, two sources, interpolation and extrapolation, in the stats way) and its data and probability units (a way of
+  // their own each, and seven stairs) took it to 23,789 at its merge, so it is 24,500. A further topic moves it only on
+  // purpose too.
+  assert.ok(s.length < 24500, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');
@@ -144,6 +147,15 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   assert.ok(any(TOPIC_WAYS.stats.avoidRe, 'החציון הוא המספר האמצעי.'));
   assert.ok(!any(TOPIC_WAYS.stats.avoidRe, 'החציון הוא המספר האמצעי אחרי שמסדרים את המספרים.'));
   assert.ok(!any(TOPIC_WAYS.stats.avoidRe, 'קודם מסדרים מהקטן לגדול. החציון הוא המספר האמצעי.'), 'sorting said first');
+  // stats:6: the range is one number, the difference; its two ends given as the range is the book wording the app names once
+  for (const said of ['הטווח הוא מ־5 עד 17.', 'הטווח זה מ $5$ עד $17$.', 'טווח הוא מ-12 עד 40']) assert.ok(any(TOPIC_WAYS.stats.avoidRe, said), said);
+  for (const ok of ['הטווח הוא $17 - 5 = 12$.', 'הטווח הוא ההפרש בין הגדול לקטן.', 'יש ספרים שכותבים "הטווח הוא מ־5 עד 17", אבל הטווח הוא ההפרש.']) assert.ok(!any(TOPIC_WAYS.stats.avoidRe, ok), ok);
+  assert.ok(TOPIC_WAYS.stats.models.includes('The range is the largest value minus the smallest, one number.'));
+  assert.ok(TOPIC_WAYS.stats.models.includes('Interpolation estimates between known values'));
+  // prob (DATA-6): two outcomes are a half each only when they are equally likely; the app's own claim to judge is quoted
+  for (const said of ['יש שתי תוצאות, ולכן ההסתברות לכל אחת היא חצי.', 'יש 2 אפשרויות, כלומר $\\frac{1}{2}$.', 'שתי תוצאות: יורד גשם או יבש, 50% לכל אחת.']) assert.ok(any(TOPIC_WAYS.prob.avoidRe, said), said);
+  for (const ok of ['יש שתי תוצאות במטבע הוגן, ולכל אחת חצי.', 'שתי תוצאות שאינן שוות סיכוי: "6" ו"לא 6".', 'הטענה "יש שתי תוצאות, ולכן חצי" לא נכונה תמיד.', 'יש שתי תוצאות שוות סיכוי, ולכן לכל אחת $\\frac{1}{2}$.']) assert.ok(!any(TOPIC_WAYS.prob.avoidRe, ok), ok);
+  assert.ok(TOPIC_WAYS.prob.models.includes('Grade 8 does not name events with letters'));
   // the curriculum lane's fractions (frac): the wrong expansion and the bigger denominator, never the app's own titles
   assert.ok(any(TOPIC_WAYS.frac.avoidRe, 'בהרחבה מוסיפים אותו מספר למונה ולמכנה.'));
   assert.ok(any(TOPIC_WAYS.frac.avoidRe, 'ככל שהמכנה גדול יותר, כך השבר גדול יותר.'));
@@ -218,6 +230,12 @@ test('the stair map names every stair and topic under its grade, and what the ap
     Object.keys(STAIR_NAMES).filter((s) => s.startsWith(`${id}:`)).forEach((s) => assert.ok(line(g).includes(`${s.split(':')[1]} ${STAIR_NAMES[s]}`), s));
   }
   assert.match(block, /does not teach yet: ז׳: .*; ח׳: .*\. Help with them in the usual way\. Do not invent a stair, a lesson or a link for them\./);
+  // the תשפ״ז transition year: the ז׳ data unit stays on the Grade 7 line only, and one more line says ח׳ learns it too
+  assert.deepEqual({ ...TOPIC_ALSO }, { data: '8' });
+  assert.ok(block.split('\n').includes('This school year (תשפ״ז) grade 8 also learns: נתונים ושכיחות.'));
+  assert.ok(line('7').includes('נתונים ושכיחות: '));
+  assert.ok(!line('8').includes('נתונים ושכיחות'));
+  assert.ok(!block.includes('grade 7 also learns'));
   NOT_YET['7'].concat(NOT_YET['8']).forEach((t) => assert.ok(block.includes(t), t));
 });
 
