@@ -2,9 +2,10 @@
 // (entitlement, sign-in by email code, family devices, class licences, checkout and payments, cancellation).
 // The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_KINDS, AI_BODY_MAX, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare, answerGuard, generateVerified } from '../../shared/ai.js';
+import { AI_KINDS, AI_BODY_MAX, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare, answerGuard, generateVerified, careStatic } from '../../shared/ai.js';
 import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
-import { CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
+import { tutorLocale } from '../../shared/arabic.js';
+import { CARE_MARK, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import { detectDistress } from '../../shared/distress.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
@@ -179,10 +180,12 @@ const careBody = (kind, text) => (PHOTO_KINDS.has(kind) ? { text, care: true, re
 
 /** The fixed care reply, with no AI call: JSON, or for a streamed chat the same text followed by the care marker. */
 function careStaticReply(kind, input, cors, headers) {
+  // in the student's language (COUNCIL2-34): Arabic for an Arabic request, else the Hebrew text
+  const text = careStatic(tutorLocale(input));
   if (kind === 'chat' && input.stream) {
-    return new Response(`${CARE_STATIC}\n${CARE_MARK}`, { headers: { ...cors, ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+    return new Response(`${text}\n${CARE_MARK}`, { headers: { ...cors, ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
-  return json(careBody(kind, CARE_STATIC), 200, cors, headers);
+  return json(careBody(kind, text), 200, cors, headers);
 }
 
 /** What a child typed that this request sends to the AI for the first time: the newest chat message, or a typed answer. */
@@ -447,7 +450,7 @@ async function answerAI(kind, req, env, ctx, cors, track) {
       if (lead.length > CARE_MARK.length || lead.includes('\n')) await settle();
     };
     // a care request that failed or was declined still answers the child: the fixed reply, never an error
-    const careFallback = async () => { if (!wrote) await write(CARE_STATIC); await write(`\n${CARE_MARK}`); };
+    const careFallback = async () => { if (!wrote) await write(careStatic(tutorLocale(input))); await write(`\n${CARE_MARK}`); };
     // a reply that was not fit to show: nothing more of it goes out, the question is given back, and the app shows a
     // calm sentence in its place
     let endedBlocked = false;

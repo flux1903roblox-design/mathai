@@ -97,7 +97,8 @@ describe('every topic, loaded on its own', () => {
 describe('meta.gen.ts', () => {
   it('is what the generator writes from the content files', () => {
     const files = import.meta.glob('./content/*.ts', { eager: true }) as Record<string, Record<string, unknown>>;
-    const content = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen)\.ts$/.test(f)));
+    // the Arabic twins (signed.ar.ts, COUNCIL2-34) are the same stairs in other words: the generator skips them
+    const content = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen)\.ts$/.test(f) && !/\.ar\.ts$/.test(f)));
     expect(renderMeta(collectMeta(content))).toBe(metaText);
   });
   it('and the build\'s own run of the generator agrees (node scripts/gen-content-meta.mjs --check)', () => {

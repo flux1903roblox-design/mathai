@@ -2,7 +2,7 @@
 // when linked to a family plan, its AI-only token: never the parent's session. A personal key (calling Claude from
 // this device) exists only in builds made with VITE_ALLOW_PERSONAL_KEY=1: the owner's own local testing, never a public
 // build (trust spec TRUST-4 §4.8).
-import { buildRequest, readResult, splitCare, STREAMED, answerGuard, generateVerified, LITE_MODEL } from '@shared/ai.js';
+import { splitCare } from '@shared/ai.js';
 import { streamGuard, guardResult, withMaskNote } from '@shared/guard.js';
 import { CARE_MARK, BLOCKED_TEXT } from '@shared/safety.js';
 import { useApp } from './store.js';
@@ -16,6 +16,7 @@ import { DEMO_COPY } from './demo.js';
 const DEMO_AI_SAMPLE = 'למשל, כך אפשר להסביר חיבור של מספר חיובי ומספר שלילי: מתחילים במספר הראשון על ציר המספרים, וזזים שמאלה כמספר היחידות של המספר השלילי. $7 + (-3) = 4$. אחר כך כדאי לתת שני תרגילים דומים, ואחד עם התשובה השלילית: $3 + (-7) = -4$.';
 import { needsConsent, askConsent } from './aiConsent.js';
 
+import { locale } from '@/lib/i18n.js';
 export { aiMode, aiReady };
 
 let clientPromise = null; let clientKey = '';
@@ -92,6 +93,9 @@ function limited(kind, data, status, onMadi, quiet = false) {
  * card: for feedback, the summary is that reply, and the rubric is not shown).
  */
 export async function runAI(kind, input, { onText, signal, onMadi, quiet = false } = {}) {
+  // the student's language (COUNCIL2-34): an Arabic device asks the tutor for Arabic (shared/arabic.js); a Hebrew
+  // request stays exactly as it was
+  if (locale() !== 'he') input = { ...input, locale: locale() };
   const mode = aiMode();
   if (mode === 'none') throw new ApiError('no_server');
   // a store build asks before the first request on this device (STUDENT-12): "לא עכשיו" sends nothing, and the screen
@@ -114,7 +118,10 @@ export async function runAI(kind, input, { onText, signal, onMadi, quiet = false
     } catch (e) { throw limited(kind, e.qa || { error: 'upstream' }, 429, onMadi, quiet); }
   }
 
-  if (mode === 'personal') {
+  // a personal key exists only in a build that allows it (VITE_ALLOW_PERSONAL_KEY): only there does the device build the
+  // tutor's requests itself, so every other build leaves the request builders (and the prompts) out of its files
+  if (mode === 'personal' && import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1') {
+    const { buildRequest, readResult, STREAMED, answerGuard, generateVerified, LITE_MODEL } = await import('@shared/ai.js');
     const client = await personalClient();
     // new exercises run the Worker's own path (ai spec AI-4): the rewrite, the blind solve, the code checks
     if (kind === 'generate') {

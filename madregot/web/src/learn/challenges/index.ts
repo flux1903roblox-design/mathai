@@ -17,16 +17,23 @@ import { LINE_CHALLENGES } from './line';
 import { PYTH_CHALLENGES } from './pyth';
 import { STATS_CHALLENGES } from './stats';
 import { SYS_CHALLENGES } from './sys';
+// an Arabic topic's tasks in Arabic, when the app is in Arabic (COUNCIL2-34): they come with the Arabic catalogue
+import { arabicChallenge } from '@/content/arabic.js';
+import { localized } from '@/lib/i18n.js';
 
 /**
  * Every task, in the order of the topics (TOPIC_ORDER), each topic's tasks in their own order. Stage 1 has 36: three
  * per topic, one claim, one error or proof and one real-world (literacy) task each.
  */
-export const CHALLENGES: ChallengeTask[] = [
+const HEBREW: ChallengeTask[] = [
   ...FRAC_CHALLENGES, ...SIGNED_CHALLENGES, ...COORD_CHALLENGES, ...ANGLES_CHALLENGES, ...EXPR_CHALLENGES, ...EQ_CHALLENGES,
   ...RATIO_CHALLENGES, ...PCT_CHALLENGES, ...LINE_CHALLENGES, ...PYTH_CHALLENGES, ...STATS_CHALLENGES, ...SYS_CHALLENGES,
 ].sort((a, b) => TOPIC_ORDER.indexOf(a.topic) - TOPIC_ORDER.indexOf(b.topic));
-const BY_ID: Record<string, ChallengeTask> = Object.fromEntries(CHALLENGES.map((t) => [t.id, t]));
+const byId = (list: ChallengeTask[]): Record<string, ChallengeTask> => Object.fromEntries(list.map((t) => [t.id, t]));
+let BY_ID: Record<string, ChallengeTask> = {};
+/** Every task in the language on screen (an Arabic topic's tasks in Arabic on an Arabic device). */
+export let CHALLENGES: ChallengeTask[] = localized(() => HEBREW.map((t) => arabicChallenge(t.id) || t), (v) => { CHALLENGES = v; BY_ID = byId(v); });
+BY_ID = byId(CHALLENGES);
 
 export const challengeById = (id: string): ChallengeTask | null => BY_ID[id] || null;
 /** The tasks that open once this stair is mastered. */

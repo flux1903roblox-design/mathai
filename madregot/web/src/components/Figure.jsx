@@ -371,7 +371,7 @@ function Table({ fig }) {
 //   words    [{ at: [x, y] | name, text, dx, dy, anchor }]        a short Hebrew label
 //   moves    [{ from: [x, y], to: [x, y] }]                      a dashed arrow: something slides or turns
 //   dots     ['O']                                               a vertex dot;   lab: { A: [dx, dy] } moves a letter
-const WORD = /[\u0590-\u05ff]/;
+const WORD = /[\u0590-\u05ff\u0600-\u06ff]/; // a word, Hebrew or Arabic
 /** About half the width and half the height of a label, in drawing units (Hebrew words at 16px, numbers at 18px). */
 const labelSize = (t) => [String(t).length * (WORD.test(t) ? 4.6 : 5.4) + 2, 9];
 const unitDir = (p, q) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; return [(q[0] - p[0]) / d, (q[1] - p[1]) / d]; };

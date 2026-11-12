@@ -61,12 +61,28 @@ export function importArabic() {
     .then((parts) => parts.reduce((all, m) => ({ ...all, ...(m.default || m) }), {}));
 }
 
+const loaders = { ar: [] };
+/**
+ * A first-load module's own part of a language (the Arabic names of the topics and stairs, content/arabic.js):
+ * loadLocale waits for it with the catalogue. Register it when the module loads, before initLocale runs.
+ * @param {string} l
+ * @param {() => Promise<unknown>} load
+ */
+export function addLocaleLoader(l, load) { if (loaders[l]) loaders[l].push(load); }
+/**
+ * Run after every change of language, before the screens draw again: a module that keeps words in objects it shares
+ * (the topics' names) puts the language's words in place. Runs in the order the modules registered.
+ * @param {() => void} f
+ */
+export function onLocaleChange(f) { relocalizers.push(f); }
+
 let arabic = null;
 /** Make sure a language's catalogue is here. Hebrew always is; Arabic is fetched once (and again after a failure). */
 export function loadLocale(locale) {
-  if (locale !== 'ar' || messages.ar) return Promise.resolve();
+  if (locale !== 'ar') return Promise.resolve();
   if (!arabic) {
-    arabic = importArabic().then((all) => { addMessages('ar', all); }, (e) => { arabic = null; throw e; });
+    arabic = Promise.all([importArabic(), ...loaders.ar.map((f) => f())])
+      .then(([all]) => { addMessages('ar', all); }, (e) => { arabic = null; throw e; });
   }
   return arabic;
 }

@@ -22,6 +22,7 @@
 //   dline       a double number line (move 't': the marker; 'max': the bottom line's end)  answer: that number
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
+import { t } from '@/lib/i18n.js';
 
 const QUAD_NAMES = ['', 'הרביע הראשון', 'הרביע השני', 'הרביע השלישי', 'הרביע הרביעי'];
 export const quadOf = ([x, y]) => (x > 0 && y > 0 ? 1 : x < 0 && y > 0 ? 2 : x < 0 && y < 0 ? 3 : x > 0 && y < 0 ? 4 : 0);
@@ -342,11 +343,11 @@ export function manipText(it, u = it.answer) {
     case 'numberline': return lineNum(m, u);
     case 'bars': return num(u);
     case 'angle': return `${num(u)}°`;
-    case 'plot': return m.quadrant && u === it.answer ? `נקודה ב${QUAD_NAMES[m.quadrant]}, למשל ${ltr(`(${num(u[0])}, ${num(u[1])})`)}` : `(${num(u[0])}, ${num(u[1])})`;
+    case 'plot': return m.quadrant && u === it.answer ? t('shell.manip.quadPoint', { quad: t(`shell.manip.quad${m.quadrant}`), pt: ltr(`(${num(u[0])}, ${num(u[1])})`) }) : `(${num(u[0])}, ${num(u[1])})`;
     case 'line': return lineText(u);
-    case 'squares': return u.c != null ? `ניצבים ${u.a} ו־${u.b}: ${ltr(`${u.a}² + ${u.b}² = ${u.c}²`)}` : `ניצבים ${u.a} ו־${u.b}`;
-    case 'pins': return m.labels.map((l, i) => `${labelPlain(l)} ב־${ltr(lineNum(m, u[i]))}`).join(', ');
-    case 'triangle': return u === it.answer ? `למשל ${ltr(`C(${num(u[0])}, ${num(u[1])})`)}: הזווית C ישרה` : ltr(`C(${num(u[0])}, ${num(u[1])})`);
+    case 'squares': return u.c != null ? t('shell.manip.legsSum', { a: u.a, b: u.b, eq: ltr(`${u.a}² + ${u.b}² = ${u.c}²`) }) : t('shell.manip.legs', { a: u.a, b: u.b });
+    case 'pins': return m.labels.map((l, i) => t('shell.manip.pinAt', { label: labelPlain(l), at: ltr(lineNum(m, u[i])) })).join(t('shell.manip.listSep'));
+    case 'triangle': return u === it.answer ? t('shell.manip.rightC', { pt: ltr(`C(${num(u[0])}, ${num(u[1])})`) }) : ltr(`C(${num(u[0])}, ${num(u[1])})`);
     // the answer is x's value; a student's state is the scale as an equation (≠ while it leans)
     case 'balance': return typeof u === 'number' ? `x = ${num(u)}` : balanceTex(u, it.answer).replace('\\ne', '≠');
     case 'tiles': return u.px != null ? tilesTex(u) : linText(u);
@@ -355,7 +356,7 @@ export function manipText(it, u = it.answer) {
     // the answer is a rule ({ mode }); a student's state is the bar as built
     case 'fbar': {
       if (u.mode === 'value') return plainNum(u.value, { maxDen: FBAR_MAX_DEN, places: 3 });
-      if (u.mode === 'common') return `מספר חלקים שמתחלק ב־${u.of.join(' וב־')}, למשל ${u.of.reduce(lcm, 1)}`;
+      if (u.mode === 'common') return t('shell.manip.parts', { list: u.of.join(t('shell.manip.andBy')), n: u.of.reduce(lcm, 1) });
       return `${u.shaded}/${u.den}`;
     }
     case 'dline': { const v = dlineValue(m, u); return v == null ? '' : withUnit(v, m.move === 'max' ? m.bottom.unit : m.top.unit); }

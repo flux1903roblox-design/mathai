@@ -24,7 +24,7 @@ const DROPPED = { 'shell.next.14': ['p1'] };
 
 /** The screens whose words were moved into the catalogues: no Hebrew string, template or JSX text is left in them. */
 export const CONVERTED = [
-  'App.jsx', 'components/Shell.jsx', 'components/Screen.jsx', 'components/SheetDialog.jsx', 'components/ui.jsx', 'components/GradeSwitch.jsx',
+  'App.jsx', 'components/MathText.jsx', 'components/Shell.jsx', 'components/Screen.jsx', 'components/SheetDialog.jsx', 'components/ui.jsx', 'components/GradeSwitch.jsx',
   'content/support.js', 'components/SupportCard.jsx', 'components/SupportSheet.jsx', 'components/LangPick.jsx',
   'screens/Welcome.jsx', 'lib/placementRules.js', 'lib/quests.js', 'components/durable/FileRestore.jsx', 'components/durable/RestorePreview.jsx',
   'screens/Learn.jsx', 'lib/path.js', 'learn/recommend.ts', 'learn/next.ts', 'learn/mission.ts', 'learn/mastery.ts', 'lib/classWork.js', 'lib/workDates.js',

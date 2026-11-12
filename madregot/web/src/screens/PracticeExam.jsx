@@ -87,7 +87,7 @@ export function KeyAnswer({ it }) {
   }
   const text = String(it.answerText ?? it.answer);
   // Hebrew words stay in the line's own direction; numbers and expressions are set left to right
-  if (/[\u0590-\u05FF]/.test(text)) return <span>{text}</span>;
+  if (/[\u0590-\u05FF\u0600-\u06FF]/.test(text)) return <span>{text}</span>;
   return <><bdi dir="ltr" className="mathline">{text.replace(/-/g, '\u2212')}</bdi>{it.answerText != null && it.unit ? ` ${it.unit}` : ''}</>;
 }
 

@@ -17,6 +17,7 @@ const WEB = fileURLToPath(new URL('..', import.meta.url));
 const DIR = join(WEB, 'src/learn/content');
 export const META_FILE = join(DIR, 'meta.gen.ts');
 /** Files in learn/content that are not teaching content: the registry itself, and what it generates. */
+// the Arabic twins (signed.ar.ts, COUNCIL2-34) are the same stairs in other words: scripts/gen-arabic.mjs makes them
 const SKIP = new Set(['index.ts', 'meta.gen.ts']);
 
 const isStair = (x) => !!x && typeof x === 'object' && typeof x.skill === 'string' && typeof x.topic === 'string' && Array.isArray(x.misconceptions) && !!x.diag;
@@ -85,7 +86,7 @@ export async function generate() {
   });
   try {
     const modules = {};
-    for (const name of readdirSync(DIR).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !SKIP.has(f))) {
+    for (const name of readdirSync(DIR).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('.ar.ts') && !SKIP.has(f))) {
       modules[name] = await server.ssrLoadModule(`/src/learn/content/${name}`);
     }
     return renderMeta(collectMeta(modules));

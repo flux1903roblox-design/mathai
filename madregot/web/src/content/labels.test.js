@@ -711,8 +711,10 @@ function ineqProp(it, u, when, wrong, edge = false) {
 
 const ITEMS_PER_LEVEL = 60;
 
+// labels.arabic.test.js runs these again with the app in Arabic, on the topics taught in Arabic (COUNCIL2-34)
+const ONLY = globalThis.__ONLY_TOPICS;
 describe('every mistake label describes the answer', () => {
-  TOPICS.forEach((t) => {
+  TOPICS.filter((t) => !ONLY || ONLY.includes(t.id)).forEach((t) => {
     t.levels.forEach((L, i) => {
       const level = i + 1;
       it(`${t.id} level ${level}: ${L.title}`, () => {

@@ -2,9 +2,10 @@
 // and the browser (personal-key mode). Each builder returns the params for
 // client.beta.messages.create / .stream from @anthropic-ai/sdk.
 
-import { safetyPrompt, CARE_MARK, maskPersonal } from './safety.js';
+import { safetyPrompt, CARE_MARK, CARE_STATIC, SUPPORT, maskPersonal } from './safety.js';
 import { normalizeContext, legacyToV2, renderContext, CTX_BUDGET } from './tutorContext.js';
 import { stableSystem } from './pedagogy.js';
+import { tutorLocale, arabicSafetyBlock, careStaticArabic } from './arabic.js';
 import { guardFor } from './guard.js';
 import { TOPIC_NAMES } from './stairs.js';
 import { finishRewrite } from './verify.js';
@@ -493,10 +494,10 @@ const SHAPE_NOTE = { full: '', lite: LITE_NOTE, economy: ECONOMY_NOTE };
  * for explain, chat and check. The context is in the system prompt, never in the student's turn, so nothing a student
  * types can pose as the app.
  */
-function systemBlocks(kind, shape, context) {
+function systemBlocks(kind, shape, context, locale = 'he') {
   const note = SHAPE_NOTE[shape] || '';
   return [
-    { type: 'text', text: stableSystem(), cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: stableSystem(locale), cache_control: { type: 'ephemeral' } },
     { type: 'text', text: note ? `${TASKS[kind]}\n\n${note}` : TASKS[kind] },
     ...(context ? [{ type: 'text', text: context }] : []),
   ];
@@ -506,6 +507,14 @@ function systemBlocks(kind, shape, context) {
 export const CARE_NOTE = "This reply is only about the student's wellbeing. Do not do any mathematics in this reply.";
 export const CARE_MAX_TOKENS = 700;
 export const CARE_MESSAGES = 4;
+
+/**
+ * The safety block in the student's language (COUNCIL2-34): the Arabic form for an Arabic request (shared/arabic.js),
+ * else safetyPrompt() as it always was.
+ */
+export const safetyFor = (locale) => (locale === 'ar' ? arabicSafetyBlock(safetyPrompt(), SUPPORT) : safetyPrompt());
+/** The fixed care reply (no AI) in the student's language: Arabic for an Arabic request, else CARE_STATIC. */
+export const careStatic = (locale) => (locale === 'ar' ? careStaticArabic(SUPPORT) : CARE_STATIC);
 
 /**
  * The request for a message that reads as distress (trust spec TRUST-3 §3.4): the safety block and a "no mathematics"
@@ -528,7 +537,7 @@ export function buildCare(input = {}, { model } = {}) {
   const params = {
     ...base(model, 'low', CARE_MAX_TOKENS),
     ...AUTO_CACHE, // a conversation, like chat
-    system: `${safetyPrompt()}\n\n${CARE_NOTE}`,
+    system: `${safetyFor(tutorLocale(input))}\n\n${CARE_NOTE}`,
     messages: history,
   };
   return supportsFallback(params.model) ? params : dropFallback(params);
@@ -553,6 +562,8 @@ export function splitCare(text) {
 
 function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, messageChars = 2000, fromUser = false } = {}) {
   if (!TASKS[kind]) throw new Error(`unknown AI action: ${kind}`);
+  // the student's language (COUNCIL2-34): 'ar' turns the stable block to Arabic; anything else is Hebrew, unchanged
+  const lang = tutorLocale(input);
   const budget = CTX_BUDGET[shape] ?? CTX_BUDGET.full;
   const appContext = () => {
     const t = tutorContext(kind, input);
@@ -562,7 +573,7 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     const { text } = appContext();
     return {
       ...base(model, 'medium', 4000),
-      system: systemBlocks(kind, shape, text),
+      system: systemBlocks(kind, shape, text, lang),
       messages: [{ role: 'user', content: 'Explain my mistake.' }],
     };
   }
@@ -576,7 +587,7 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     if (!history.length || history[0].role !== 'user') throw new Error('chat needs a user message first');
     // only the student's own words: the app's context is the system block, never spliced into their turn
     // the one kind with the top-level mark: the next turn reads this turn's history from the cache
-    return { ...base(model, CHAT_EFFORT, 4000), ...AUTO_CACHE, system: systemBlocks(kind, shape, appContext().text), messages: history };
+    return { ...base(model, CHAT_EFFORT, 4000), ...AUTO_CACHE, system: systemBlocks(kind, shape, appContext().text, lang), messages: history };
   }
   if (kind === 'generate') {
     // the seeds are the app's exercises with the answers it computed (Design 1-3): the tutor rewrites their words only
@@ -586,7 +597,7 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     const lines = seeds.map((sd) => `${sd.i}. ${sd.text.replace(/\s+/g, ' ')} → ${sd.answer}${sd.fig ? ' [drawing]' : ''}`);
     return {
       ...base(model, REWRITE_EFFORT, REWRITE_MAX_TOKENS),
-      system: systemBlocks(kind, shape),
+      system: systemBlocks(kind, shape, undefined, lang),
       output_config: { effort: REWRITE_EFFORT, format: { type: 'json_schema', schema: REWRITE_SCHEMA } },
       messages: [{
         role: 'user',
@@ -607,7 +618,7 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     ].join('\n');
     return {
       ...base(model, FEEDBACK_EFFORT, FEEDBACK_MAX_TOKENS),
-      system: systemBlocks(kind, shape, context),
+      system: systemBlocks(kind, shape, context, lang),
       output_config: { effort: FEEDBACK_EFFORT, format: { type: 'json_schema', schema: FEEDBACK_SCHEMA } },
       messages: [{ role: 'user', content: turn }],
     };
@@ -623,7 +634,7 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     const asked = v2 || !ctx.item ? own(input.question, 300).trim() : '';
     return {
       ...base(model, 'high', 16000),
-      system: systemBlocks(kind, shape, text),
+      system: systemBlocks(kind, shape, text, lang),
       output_config: { effort: 'high', format: { type: 'json_schema', schema: CHECK_SCHEMA } },
       messages: [{
         role: 'user',
@@ -653,7 +664,7 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
       : '';
     return {
       ...base(model, 'high', 32000),
-      system: systemBlocks(kind, shape),
+      system: systemBlocks(kind, shape, undefined, lang),
       output_config: { effort: 'high', format: { type: 'json_schema', schema: EXAM_SCHEMA } },
       messages: [{
         role: 'user',

@@ -1,6 +1,7 @@
 // Maths in the app's text: $...$ inside Hebrew, drawn by KaTeX. No markdown here: AI answers and the legal pages use
 // RichText (components/RichText.jsx), whose markdown file loads only when such text is shown (DURABLE-11).
 import { memo, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { t as tr } from '@/lib/i18n.js';
 
 // KaTeX and its stylesheet (components/katex.js) are their own file, fetched as the app starts but never waited for by
 // the first screen: until it is here an expression shows as plain words (texText), then every expression on screen
@@ -35,7 +36,8 @@ export const renderTex = (tex, displayMode = false) => {
   try { return katex.renderToString(String(tex ?? ''), { displayMode, throwOnError: false, strict: 'ignore' }); } catch { return escapeHtml(tex); }
 };
 
-const RELATION = { '<': 'קטן מ־', '>': 'גדול מ־', '=': 'שווה ל־', '\\le': 'קטן או שווה ל־', '\\ge': 'גדול או שווה ל־', '\\ne': 'שונה מ־' };
+// a relation sign alone (a comparison's choice) is read as words, in the language on screen
+const RELATION = { '<': 'lt', '>': 'gt', '=': 'eq', '\\le': 'le', '\\ge': 'ge', '\\ne': 'ne' };
 
 /**
  * A TeX expression as plain text, for a screen-reader label where the rendered maths alone gives a
@@ -43,7 +45,7 @@ const RELATION = { '<': 'קטן מ־', '>': 'גדול מ־', '=': 'שווה ל־
  */
 export function texText(tex) {
   const t = String(tex ?? '').trim();
-  if (RELATION[t]) return RELATION[t];
+  if (RELATION[t]) return tr(`shell.math.${RELATION[t]}`);
   return t
     // a system (cases, aligned) is read row by row
     .replace(/\\(begin|end)\{[a-z]+\}/g, ' ').replace(/\\\\/g, ', ').replace(/&/g, '')

@@ -131,11 +131,14 @@ function passRate(draws: Draw[], need: number) {
 }
 
 const rnd = () => Math.random();
+// guessing.arabic.test.ts runs these again with the app in Arabic, on the topics taught in Arabic (COUNCIL2-34)
+const ONLY: string[] | undefined = (globalThis as { __ONLY_TOPICS?: string[] }).__ONLY_TOPICS;
+const inScope = (id: string) => !ONLY || ONLY.includes(id.split(':')[0]);
 const drawOf = (skill: string, source: Source, candidates?: string[]): Draw => () => itemFor(skill, source, rnd, undefined, candidates, { test: true });
 const planDraws = (purpose: 'mastery' | 'review', skill: string) => checkPlan({ purpose, skill }, rnd).map((q) => drawOf(q.skill, q.source));
 
 describe('a check cannot be passed by guessing', () => {
-  it.each(ALL_SKILLS)('%s: the mastery check, the review and the jump test', (skill) => {
+  it.each(ALL_SKILLS.filter(inScope))('%s: the mastery check, the review and the jump test', (skill) => {
     const { topic, level } = parseSkill(skill);
     const mastery = passRate(planDraws('mastery', skill), MASTERY_NEED);
     expect(mastery, `${skill} mastery: ${(100 * mastery).toFixed(2)}%`).toBeLessThan(LIMIT);
@@ -149,7 +152,7 @@ describe('a check cannot be passed by guessing', () => {
 
   // every misconception a stair can confirm and repair: its models' and the ones only its exercises name
   const miscs = Object.values(CONTENT).flatMap((c) => [...new Set([...c.misconceptions.map((m) => m.id), ...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})])].map((m) => [c.skill, m] as const));
-  it.each(miscs)('%s: the verification after repairing %s', (skill, misc) => {
+  it.each(miscs.filter(([skill]) => inScope(skill)))('%s: the verification after repairing %s', (skill, misc) => {
     const plan = checkPlan({ purpose: 'verify', skill, misc }, rnd);
     expect(plan).toHaveLength(VERIFY_N);
     const rate = passRate(plan.map((q) => drawOf(q.skill, q.source, q.candidates)), VERIFY_NEED);
@@ -158,7 +161,7 @@ describe('a check cannot be passed by guessing', () => {
 });
 
 describe('the placement test cannot be passed by guessing', () => {
-  const topics = [...topicsFor('7'), ...topicsFor('8')] as { id: string; levels: unknown[] }[];
+  const topics = ([...topicsFor('7'), ...topicsFor('8')] as { id: string; levels: unknown[] }[]).filter((t) => inScope(t.id));
   it.each(topics.map((t) => t.id))('%s: a guesser is placed on or above any stair less than 2% of the time', (topic) => {
     const top = TOPIC[topic].levels.length;
     // the chance of passing a probe at each level: all PROBE_LEN questions right

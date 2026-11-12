@@ -1,8 +1,9 @@
 // The Arabic app shell (COUNCIL2-34): the language choice on the first screen and in Settings, the page's lang and dir,
 // Rubik's Arabic face fetched only for Arabic, and the shell's screens in Arabic on a phone: Welcome, home and
-// Settings. A Hebrew device never fetches an Arabic file. With AR_SHOTS set, each test also saves its screen there.
+// Settings. A Hebrew device never fetches an Arabic file. And an Arabic topic (content/arabic.js) on an Arabic device:
+// its guide, its teaching and its exercises in Arabic words. With AR_SHOTS set, each test also saves its screen there.
 import { test, expect } from '@playwright/test';
-import { open, student, appReady, screenReady } from './helpers.js';
+import { open, student, appReady, screenReady, item } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the Arabic shell runs on the two phones'); });
 
@@ -134,4 +135,36 @@ test('Settings in Arabic: every word is Arabic, and the language can be changed 
   // the tab bar (hidden under a pushed screen on a phone) followed too
   await expect(page.locator('nav.tabbar')).toHaveAttribute('aria-label', 'التنقّل الرئيسي');
   await expect(page.locator('nav.tabbar .tab').first()).toContainText('تعلّم');
+});
+
+test('an Arabic topic on an Arabic device: its guide, its teaching and its questions are Arabic, a Hebrew topic stays Hebrew', async ({ page }) => {
+  const arabicFiles = [];
+  page.on('request', (r) => { if (/\.ar-[\w-]+\.js$/.test(r.url())) arabicFiles.push(r.url().split('/').pop().replace(/-[\w-]+\.js$/, '')); });
+  await openArabic(page, '#/topic/signed', student('7'));
+  await expect(page.locator('.unit-title')).toHaveText('الأعداد الموجّهة');
+  const guide = page.locator('.guide-cards').first();
+  await expect(guide).toContainText('محور الأعداد');
+  expect(await guide.innerText()).not.toMatch(HEBREW);
+  await shot(page, 'topic');
+
+  // the teaching: the stair's first step, as the app holds it on screen, is Arabic
+  await openArabic(page, '#/learn/signed/1/A', student('7'));
+  await page.waitForFunction(() => window.__madregotStep);
+  const stepText = await page.evaluate(() => JSON.stringify(window.__madregotStep));
+  expect(stepText).toMatch(/[\u0600-\u06FF]/);
+  expect(stepText).not.toMatch(HEBREW);
+  await shot(page, 'teach');
+
+  // a practice question of the stair: Arabic words around the same maths
+  await openArabic(page, '#/lesson/signed/1', student('7'));
+  await page.waitForFunction(() => window.__madregotItem);
+  const q = await item(page);
+  expect(JSON.stringify({ text: q.text, levelTitle: q.levelTitle, choices: q.choices })).not.toMatch(HEBREW);
+  expect(q.levelTitle).toMatch(/[\u0600-\u06FF]/);
+  await shot(page, 'question');
+  expect(arabicFiles).toEqual(expect.arrayContaining(['grade7.ar', 'signed.ar']));
+
+  // a topic without its Arabic yet keeps its Hebrew words
+  await openArabic(page, '#/topic/coord', student('7'));
+  await expect(page.locator('.unit-title')).toHaveText(/[֐-׿]/);
 });

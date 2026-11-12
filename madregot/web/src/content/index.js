@@ -7,11 +7,33 @@ import { TOPIC_META } from './topics.gen.js';
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
+// the Arabic topics (COUNCIL2-34): their names, lesson summaries and exercises when the app is in Arabic
+import { contentLang, hasArabic, arabicTopic, arabicLesson } from './arabic.js';
+import { onLocaleChange, locale, t as tr } from '@/lib/i18n.js';
 
 // Each topic's misconception names include those the 2.0 teaching content adds. Every stair is a fresh object, so a
 // topic's generators can be put on its stairs once they have loaded (loadGens).
 export const TOPICS = TOPIC_META.map((t) => ({ ...t, levels: t.levels.map((L) => ({ ...L })), cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
+
+/**
+ * The topics' words in the language on screen (COUNCIL2-34): an Arabic topic's title, description, stair titles,
+ * misconception names and lesson summary in Arabic, every other topic's in Hebrew. The same objects, so every screen
+ * that holds TOPIC reads the new words when it draws again. arabic.js puts NEW_CATS in place first.
+ */
+function applyTopicWords() {
+  TOPIC_META.forEach((he, i) => {
+    const t = TOPICS[i];
+    const src = arabicTopic(he.id) || he;
+    for (const [k, v] of Object.entries(src)) if (k !== 'levels' && k !== 'cats' && k !== 'lesson') t[k] = v;
+    src.levels.forEach((L, j) => Object.assign(t.levels[j], L));
+    t.cats = { ...src.cats, ...(NEW_CATS[t.id] || {}) };
+    t.lesson = src.lesson || (contentLang(t.id) === 'ar' ? arabicLesson(t.id) : LESSONS[t.id]) || null;
+  });
+}
+onLocaleChange(applyTopicWords);
+// a module loaded after the language was set (a test, a later chunk) starts in it too
+if (locale() !== 'he') applyTopicWords();
 
 // ---------------------------------------------------------------- the exercise generators, loaded per topic
 // COUNCIL2-14: the generators (each stair's gen) are not part of the first download. One dynamic import per file, so
@@ -20,7 +42,14 @@ export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
 // file, which holds every topic of the grade. learn/content/index.ts ensureTopics waits for them with the topic's
 // teaching, so a lesson, a check, the placement test, Exam Rescue and the practice exam have them before their first
 // question; the map fetches the next topic's ahead (lib/bootTopics.js).
-function importGens(topic) {
+function importGens(topic, lang) {
+  // an Arabic topic's generators: the Arabic twin of its file (scripts/gen-arabic.mjs); arabic.test.ts holds the list
+  if (lang === 'ar') {
+    switch (topic) {
+      case 'signed': return import('./grade7.ar.js').then((m) => m.GRADE7);
+      default: return Promise.reject(new Error(`content: no Arabic generators for ${topic}`));
+    }
+  }
   switch (topic) {
     case 'expr': return import('./expr.js').then((m) => [m.EXPR]);
     case 'eq': return import('./eq.js').then((m) => [m.EQ]);
@@ -32,32 +61,44 @@ function importGens(topic) {
     default: return TOPIC[topic]?.grade === '8' ? import('./grade8.js').then((m) => m.GRADE8) : import('./grade7.js').then((m) => m.GRADE7);
   }
 }
-const gensLoaded = new Set();
+// each language's generators, by topic (an Arabic topic has both: the device can change language)
+const gensBy = { he: new Map(), ar: new Map() };
 const gensAsked = new Map();
-/** Put a topic's generators on its stairs (every topic of a file that loaded: they came with it). */
-function attachGens(full) {
-  const t = TOPIC[full?.id];
-  if (!t || gensLoaded.has(t.id)) return;
-  if (full.levels.length !== t.levels.length) throw new Error(`${t.id}: ${full.levels.length} stairs in its file, ${t.levels.length} in topics.gen.js (run node scripts/gen-topic-meta.mjs)`);
-  full.levels.forEach((L, i) => { t.levels[i].gen = L.gen; });
-  gensLoaded.add(t.id);
-}
-/** Have this topic's generators loaded? */
-export const gensReady = (topic) => gensLoaded.has(topic) || !TOPIC[topic];
 /**
- * Load a topic's exercise generators, once (a file that failed to load, offline before it was ever kept, can be asked
- * for again). An unknown id resolves at once: it has none.
+ * Put the generators of the language on screen on a topic's stairs. An Arabic topic whose Arabic set has not come yet
+ * keeps the Hebrew one until then (gensReady says it is not ready, so the screens wait for the Arabic).
+ */
+function applyGens(id) {
+  const g = gensBy[contentLang(id)].get(id) || gensBy.he.get(id);
+  TOPIC[id].levels.forEach((L, i) => { L.gen = g?.[i]; });
+}
+/** Keep a topic's generators (every topic of a file that loaded: they came with it; an Arabic file's Arabic topics). */
+function attachGens(full, lang) {
+  const t = TOPIC[full?.id];
+  if (!t || gensBy[lang].has(t.id) || (lang === 'ar' && !hasArabic(t.id))) return;
+  if (full.levels.length !== t.levels.length) throw new Error(`${t.id}: ${full.levels.length} stairs in its file, ${t.levels.length} in topics.gen.js (run node scripts/gen-topic-meta.mjs)`);
+  gensBy[lang].set(t.id, full.levels.map((L) => L.gen));
+  applyGens(t.id);
+}
+onLocaleChange(() => { for (const t of TOPICS) applyGens(t.id); });
+/** Have this topic's generators, in the language on screen, loaded? */
+export const gensReady = (topic) => !TOPIC[topic] || gensBy[contentLang(topic)].has(topic);
+/**
+ * Load a topic's exercise generators in the language on screen, once (a file that failed to load, offline before it
+ * was ever kept, can be asked for again). An unknown id resolves at once: it has none.
  */
 export function loadGens(topic) {
   if (gensReady(topic)) return Promise.resolve();
-  let p = gensAsked.get(topic);
+  const lang = contentLang(topic);
+  const key = `${lang}:${topic}`;
+  let p = gensAsked.get(key);
   if (!p) {
-    const q = importGens(topic).then((list) => {
-      for (const full of list) attachGens(full);
-      if (!gensLoaded.has(topic)) throw new Error(`content: no generators for ${topic}`);
+    const q = importGens(topic, lang).then((list) => {
+      for (const full of list) attachGens(full, lang);
+      if (!gensBy[lang].has(topic)) throw new Error(`content: no generators for ${topic}`);
     });
-    q.catch(() => { if (gensAsked.get(topic) === q) gensAsked.delete(topic); });
-    gensAsked.set(topic, q);
+    q.catch(() => { if (gensAsked.get(key) === q) gensAsked.delete(key); });
+    gensAsked.set(key, q);
     p = q;
   }
   return p;
@@ -93,8 +134,8 @@ export function catLabel(topicId, level, cat) {
 /** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
 export function ambiguousText(topic, level, candidates) {
   const names = (candidates || []).map((c) => catLabel(topic, level, c.id)).filter(Boolean);
-  if (names.length < 2) return 'עוד שאלה אחת בסוף השיעור תעזור לדעת מה בדיוק בלבל.';
-  return `מה כנראה קרה: אולי ${names.join(', ואולי ')}. עוד שאלה אחת בסוף השיעור תעזור לדעת מה מהן.`;
+  if (names.length < 2) return tr('shell.content.ambiguousOne');
+  return tr('shell.content.ambiguous', { names: names.join(tr('shell.content.orMaybe')) });
 }
 
 /**
@@ -106,7 +147,7 @@ export function diagnosisLine(topic, level, result) {
   if (!result) return null;
   if (result.diagnosis?.ambiguous) return ambiguousText(topic, level, result.diagnosis.candidates);
   const label = catLabel(topic, level, result.cat);
-  return label ? `מה כנראה קרה: ${label}.` : null;
+  return label ? tr('shell.content.whatHappened', { label }) : null;
 }
 
 /** Generate one item for a topic level, with bookkeeping fields attached. */

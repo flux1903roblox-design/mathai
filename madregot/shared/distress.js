@@ -253,6 +253,46 @@ const SQUASHED = [
 /** A maths word anywhere in the message (for the squashed distress phrases). */
 const MATHS_ANY = new RegExp(fold(`(?:^|[^א-ת])[ובהלמש]?(?:ה)?(?:${MATHS_ALT})(?![א-ת])`));
 
+// ---------------------------------------------------------------- Arabic (COUNCIL2-34)
+// A child who uses the app in Arabic writes in Arabic: Modern Standard or the spoken Arabic of Israel ("بدي", "ما بدي",
+// "بيضربني"). The text is folded first (arFold: no vowel marks or tatweel, one alef, ة as ه, ى as ي), and the patterns
+// are written folded. As in Hebrew, a word that is also maths flags only with a person beside it: "يضرب" is "multiplies",
+// so only "يضربني" (hits me) counts; "اقفز" is a jump on the line, so only a jump from a roof or a window does.
+// A first set, to be widened with a counsellor's review (docs/ARABIC.md); worker/test/arabic.test.js holds it.
+export const arFold = (s) => String(s)
+  .replace(/[ً-ْٰـ]/g, '')
+  .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي');
+const AB = '(?:^|[^\\u0600-\\u06FF])'; // an Arabic word starts here (no lookbehind)
+const AE = '(?![\\u0600-\\u06FF])'; // an Arabic word ends here
+const ar = (x) => `${AB}(?:و|ف)?(?:${x})${AE}`;
+const AR_WANT = '(?:بدي|اريد|نفسي|حابب|حابه|بفكر|افكر|راح|رح|ناوي|ناويه|قررت)';
+const AR_RULES = [
+  { cat: 'self_harm', re: ar('(?:ان|ب|ر|ا)?نتحر|انتحار|انتحاريه|بالانتحار|الانتحار') },
+  { cat: 'self_harm', re: `${ar(AR_WANT)}\\s+(?:ان\\s+)?(?:اموت|موت|اقتل\\s+(?:نفسي|حالي)|انهي\\s+حياتي|اخلص\\s+من\\s+حياتي)(?!\\s+(?:من\\s+)?(?:الضحك|ضحك))` },
+  { cat: 'self_harm', re: ar('(?:ب|ا|ن)?(?:قتل|اذي|جرح|اوذي)\\s+(?:نفسي|حالي)') },
+  { cat: 'self_harm', re: `${ar('(?:ما|مش|لا)')}\\s+(?:بدي|اريد|حابب|حابه)\\s+(?:ان\\s+)?(?:اعيش|عيش)` },
+  { cat: 'self_harm', re: `${ar('(?:ما|لا)')}\\s+(?:في|يوجد|عندي)\\s+(?:اشي|شي|شيء)\\s+(?:اعيش|يستاهل\\s+اعيش)` },
+  { cat: 'self_harm', re: `${ar('(?:بدي|اريد)')}\\s+(?:ان\\s+)?انام\\s+(?:وما|ولا)\\s+(?:اصحى|اصحي|افيق|استيقظ)` },
+  { cat: 'self_harm', re: `${ar(AR_WANT)}\\s+(?:انط|اقفز|انزل)\\s+(?:من\\s+)?(?:ال)?(?:سطح|شباك|نافذه|بنايه|عماره)` },
+  { cat: 'self_harm', re: `${ar(AR_WANT)}\\s+(?:اوخذ|اخذ|ابلع|اشرب)\\s+كل\\s+(?:ال)?(?:حبوب|دوا|دواء|ادويه)` },
+  { cat: 'abuse', re: ar('(?:بي|ي|ب)?ضربوني|(?:بي|ي|ب)?ضربني|ضربني') },
+  { cat: 'abuse', re: `${ar('(?:بخاف|اخاف|خايف|خايفه)')}\\s+(?:كثير\\s+|كتير\\s+)?من\\s+(?:ابوي|ابي|بابا|امي|ماما|اخوي|اخي|زوج\\s+(?:امي|ماما)|مرت\\s+(?:ابوي|بابا))` },
+  { cat: 'abuse', re: ar('(?:بي|ي|ب)?تحرش|تحرش|(?:بي|ي)?لمسني|لمسني') },
+  { cat: 'abuse', re: `${ar('(?:ما|مش|لا)')}\\s+(?:بدي|اريد)\\s+(?:ارجع|اروح)\\s+(?:ع|على|الى|ل)?\\s*(?:ال)?(?:بيت|دار)` },
+  { cat: 'danger', re: `${ar('(?:بدو|بدها|يريد|تريد|طلب\\s+مني|طلبت\\s+مني|بطلب\\s+مني|بيطلب\\s+مني)')}\\s+(?:اني\\s+ابعث\\s+|ابعثله\\s+|ابعتله\\s+)?(?:صور|صوره|صوري)` },
+  { cat: 'danger', re: ar('(?:بي|ي|ب)?هددني|هددني|تهديد|تهديدات|(?:بي|ي)?بتزني|ابتزاز') },
+  { cat: 'danger', re: `${ar('(?:راح|رح|بدو|سوف)')}\\s+(?:ي)?نشر\\s+(?:صوري|الصور)` },
+  { cat: 'danger', re: `${ar('(?:بدو|بدها|يريد)')}\\s+(?:يقابلني|نلتقي|نتقابل)` },
+  { cat: 'bullying', re: ar('(?:كلهم|كل\\s+الصف|الكل)\\s+(?:بيكرهوني|يكرهوني|يكرهونني)') },
+  { cat: 'bullying', re: ar('(?:بي|ي|ب)?تنمروا|يتنمرون|تنمر|التنمر|مقاطعيني|مقاطعينني') },
+  { cat: 'distress', re: `${ar('(?:انا\\s+)?(?:حزين|حزينه|مكتئب|مكتئبه|وحيد|وحيده)')}` },
+  { cat: 'distress', re: ar('(?:ما\\s+(?:الي|لي|عندي)\\s+حدا|ما\\s+حدا\\s+بحبني|لا\\s+احد\\s+يحبني)') },
+  { cat: 'distress', re: `${ar(AR_WANT)}\\s+(?:اهرب|اشرد)\\s+(?:من\\s+)?(?:ال)?(?:بيت|دار)` },
+  { cat: 'distress', re: ar('(?:ما\\s+بوكل|ما\\s+باكل|بطلت\\s+اكل|لا\\s+اكل)') },
+  { cat: 'distress', re: `${ar('(?:بعيط|ببكي|ابكي)')}\\s+كل\\s+(?:يوم|الوقت|ليله)` },
+].map((r) => ({ ...r, re: new RegExp(r.re) }));
+const ARABIC_LETTER = /[؀-ۿ]/;
+
 /** The categories, most serious first: a message that matches several gets the first. */
 export const DISTRESS_CATEGORIES = Object.freeze(['self_harm', 'abuse', 'danger', 'bullying', 'distress']);
 
@@ -279,8 +319,10 @@ export function detectDistress(text) {
   if (!t) return { flag: false, category: null };
   // "בא לי למות מצחוק" is laughter, with its spaces or without them
   const squashed = t.replace(/(?:למות|מת|מתה|מתימ)\s*מ?צחוק/g, '').replace(/[^א-תa-z0-9]+/g, '');
+  const a = ARABIC_LETTER.test(t) ? arFold(t) : '';
   for (const cat of DISTRESS_CATEGORIES) {
     if (RULES.some((r) => r.cat === cat && firstMatch(r, t))) return { flag: true, category: cat };
+    if (a && AR_RULES.some((r) => r.cat === cat && r.re.test(a))) return { flag: true, category: cat };
     if (SQUASHED.some((s) => s.cat === cat && squashed.includes(s.stem) && !s.spaced.test(t) && (cat !== 'distress' || !MATHS_ANY.test(t)))) return { flag: true, category: cat };
   }
   return { flag: false, category: null };

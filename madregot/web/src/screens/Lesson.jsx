@@ -683,7 +683,7 @@ export default function Lesson() {
               </div>
               {folded && (
                 <div className="fb-body">
-                  {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>}
+                  {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF\u0600-\u06FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>}
                   <button type="button" className="link-btn" onClick={() => setFbOpen(fbToken)} aria-expanded="false">{feedback === 'retry' ? 'רמז' : 'הפתרון'}</button>
                 </div>
               )}
@@ -704,7 +704,7 @@ export default function Lesson() {
               )}
               {feedback === 'reveal' && !folded && (
                 <div className="fb-body">
-                  <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>
+                  <p className="fb-answer">{/[\u0590-\u05FF\u0600-\u06FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>
                   {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}
                   {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
                   {explain.state === 'done' && <Box tone="ai" title="העוזר"><RichText>{explain.text}</RichText></Box>}
