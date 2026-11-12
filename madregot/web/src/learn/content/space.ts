@@ -229,7 +229,7 @@ const stair2: StairContent = {
       why: '$\\sqrt{25^2 - 7^2} = \\sqrt{576} = 24$.',
       wrongWhy: { 1: '$25 - 7$: מחסרים ריבועים.', 2: '$\\sqrt{25^2 + 7^2}$: מחפשים ניצב, ולכן מחסרים.' } },
     { kind: 'rule', text: 'בגוף: מוצאים משולש ישר־זווית, מחשבים בו את הצלע החסרה, ואחר כך משתמשים בה.',
-      display: '\\ell = 15,\\ r = 9 \\Rightarrow h = 12 \\Rightarrow V = \\frac{\\pi \\cdot 9^2 \\cdot 12}{3} = 324\\pi',
+      display: '\\begin{gathered} \\ell = 15,\\ r = 9 \\Rightarrow h = 12 \\\\ V = \\frac{\\pi \\cdot 9^2 \\cdot 12}{3} = 324\\pi \\end{gathered}',
       why: 'הנפח צריך גובה, ולכן קודם פיתגורס.', fig: cone(9, 12, 15, { labels: { r: 9, l: 15, h: '?' } }) },
     { kind: 'predict', text: 'מנסרה שבסיסה משולש ישר־זווית עם ניצבים $9$ ו־$12$, ואורכה $20$. שטח הפאה שעל היתר:', fig: prism(9, 12, 20),
       choices: ['$300$', '$420$', '$240$'], answer: 0,

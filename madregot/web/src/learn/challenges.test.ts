@@ -70,7 +70,10 @@ describe('the challenge tasks', () => {
     expect((challengeById('space:c2')!.parts[0] as { fix: { answer: number } }).fix.answer).toBe(20);
     const ant = challengeById('space:c3')!;
     expect(ant.parts.filter((p) => p.type === 'num').map((p) => (p as { answer: number }).answer)).toEqual([8.4, 10]);
-    expect(ant.fig?.type).toBe('geo');
+    // MEASURE-7: the box's net (a netfig), its front face and lid shaded, and the straight way across them, 0,0 to 6,8
+    expect(ant.fig).toMatchObject({ type: 'netfig', solid: 'box', dims: { a: 6, b: 5, c: 3 }, shade: ['B', 'E'], path: { from: [0, 0], to: [6, 8] } });
+    const { from, to } = (ant.fig as { path: { from: number[]; to: number[] } }).path;
+    expect(Math.hypot(to[0] - from[0], to[1] - from[1])).toBe(10);
   });
 
   it('each topic has one claim, one error or proof, and one literacy task', () => {

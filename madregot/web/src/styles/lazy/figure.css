@@ -74,6 +74,10 @@
 .fg-net-face { fill: color-mix(in srgb, var(--cyan) 7%, transparent); stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
 .fg-net-face.shade { fill: color-mix(in srgb, var(--brand) 32%, transparent); }
 .fg-net-letter { fill: var(--ink); font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 19px; font-weight: 700; }
+/* a word in a face of a net, and a straight way across it (the ant's path, space:c3) */
+.fg-net-name { fill: var(--ink); font-size: 12px; font-weight: 600; }
+.fg-net-path line { stroke: var(--brand-ink); stroke-width: 3; stroke-linecap: round; }
+.fg-net-path circle { fill: var(--brand-ink); }
 /* stage 4 (measurement): a solid, still (SolidFigs.jsx SolidFig): faces turned to the viewer lightly filled, hidden
    edges dashed, diagonals in two tones, the right triangle inside a box and an axial section shaded */
 .fg-solid-face { fill: color-mix(in srgb, var(--cyan) 8%, transparent); stroke: none; }

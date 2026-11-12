@@ -1018,6 +1018,38 @@ describe('nets of solids (פריסה)', () => {
     expect(netfigLabels(figs[1]).edges.map((e) => e.text)).toEqual(['4', '3', '2']);
     expect(netfigLabels(figs[5]).edges.map((e) => e.text)).toEqual(['3', '4', '5', '10']);
   });
+  it('a netfig writes a word in a face and draws a straight way across the net, and says both (space:c3, MEASURE-7)', () => {
+    const fig = { type: 'netfig', solid: 'box', dims: { a: 6, b: 5, c: 3 }, labels: true, shade: ['B', 'E'], names: { B: 'קדמית', E: 'מכסה' },
+      path: { from: [0, 0], to: [6, 8], words: 'קו ישר מהפינה התחתונה של הדופן הקדמית עד הפינה הרחוקה של המכסה' } };
+    const out = renderToStaticMarkup(createElement(Figure, { fig }));
+    expect(out).not.toMatch(/NaN|undefined|Infinity/);
+    const words = figPlain(fig);
+    expect(out).toContain(`aria-label="${words}"`);
+    for (const t of [...out.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((x) => x[1])) expect(words, t).toContain(t);
+    expect(words).toContain('במלבן בשורה 2 ובעמודה 2: קדמית; במלבן בשורה 1 ובעמודה 2: מכסה');
+    expect(words).toContain('קדמית ומכסה צבועים');
+    // the words sit beside the way, not on it: each word's middle is off the line by more than a third of its face
+    const names = [...out.matchAll(/<text x="([\d.]+)" y="([\d.]+)"[^>]*class="fg-net-name">/g)].map((x) => [Number(x[1]), Number(x[2]) - 5]);
+    expect(names).toHaveLength(2);
+    expect(words).toContain('קו ישר מהפינה התחתונה של הדופן הקדמית עד הפינה הרחוקה של המכסה');
+    // the way is drawn from the front's bottom corner to the lid's far corner: the two shaded faces are one 6 by 8
+    // rectangle, so the line is its diagonal, as long as √(6² + 8²) = 10 net lengths
+    const line = out.match(/<g class="fg-net-path"><line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"/);
+    expect(line).not.toBeNull();
+    const shaded = [...out.matchAll(/<polygon points="([^"]+)" class="fg-net-face shade"/g)].map((x) => x[1].split(' ').map((p) => p.split(',').map(Number)));
+    expect(shaded).toHaveLength(2);
+    const xs = shaded.flat().map((p) => p[0]); const ys = shaded.flat().map((p) => p[1]);
+    const [x1, y1, x2, y2] = line.slice(1).map(Number);
+    expect(Math.min(x1, x2)).toBeCloseTo(Math.min(...xs), 1); expect(Math.max(x1, x2)).toBeCloseTo(Math.max(...xs), 1);
+    expect(Math.min(y1, y2)).toBeCloseTo(Math.min(...ys), 1); expect(Math.max(y1, y2)).toBeCloseTo(Math.max(...ys), 1);
+    const w = Math.max(...xs) - Math.min(...xs); const h = Math.max(...ys) - Math.min(...ys);
+    expect(h / w).toBeCloseTo(8 / 6, 2);
+    // and each word is beside the way, far enough from the line that the line does not cross its letters
+    for (const [x, y] of names) {
+      const d = Math.abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) / Math.hypot(x2 - x1, y2 - y1);
+      expect(d, `a word at ${Math.round(x)}, ${Math.round(y)}`).toBeGreaterThan(14);
+    }
+  });
 
   // ---- the practice layer of boxes and prisms (content/solid.js, MEASURE-3) writes out what net.js computes, so that
   // it does not load the folding code: every net, every opposite face and every slot that closes is checked here

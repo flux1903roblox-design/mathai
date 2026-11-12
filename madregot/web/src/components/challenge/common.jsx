@@ -9,6 +9,7 @@ import { MathText, Tex, mathPlain } from '@/components/MathText.jsx';
 import { ResultWhy } from '@/components/learn/StepPlayer.jsx';
 import { enter } from '@/lib/motion.js';
 import { TRIES } from '@/learn/challenges/grade.ts';
+import { PARTIAL } from '@/content/partial.js';
 import { numRight, piNear, PI_AFTER } from '@/content/util.js';
 
 export const RETRY = 'עוד לא. נסו שוב, יש עוד ניסיון.';
@@ -28,7 +29,7 @@ export function piValueTyped(answer, after, u) {
 export const answerTexOf = (answer, after) => `${answer}${after || ''}`;
 
 /** The whole value typed into a □π slot (31.4 for 10π): right, in another form; the try does not count (as in a lesson). */
-export const PI_VALUE_LINE = 'נכון בקירוב. כאן כותבים רק את המספר שלפני\u00a0$\\pi$.';
+export const PI_VALUE_LINE = PARTIAL['pi-value'];
 
 /**
  * Two tries at one question. miss() after a wrong check: 'retry' while a try is left, then 'shown' (the solution is

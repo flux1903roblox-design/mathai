@@ -939,10 +939,19 @@ describe('areas and perimeters: every practice kind, from the numbers in its tex
     expect(big).toBe(true);
   }));
 
-  it('a grid triangle on area:2 sometimes has its height outside its base; one on area:3 has no side on a grid line', seededRun(7123, () => {
-    let outside = 0;
-    for (const it of all(2, 1500)) if (kindOf(it) === 'ar2q') { const t = Number(it.key.split(':')[3]); const b = Number(it.key.split(':')[1]); if (t < 0 || t > b) outside += 1; }
+  it('a grid triangle on area:2 sometimes has its height outside its base, and its solution says so only then; one on area:3 has no side on a grid line', seededRun(7123, () => {
+    let outside = 0; let atEnd = 0;
+    for (const it of all(2, 1500)) {
+      if (kindOf(it) !== 'ar2q') continue;
+      const t = Number(it.key.split(':')[3]); const b = Number(it.key.split(':')[1]);
+      // the worked solution says where the height falls: outside the base only when it is (t < 0 or t > b); above an end
+      // of the base (a right triangle) the height is the side standing there; inside, nothing more is said
+      const said = it.solution[0];
+      if (t < 0 || t > b) { outside += 1; expect(said, it.key).toContain('נופל מחוץ לבסיס'); } else expect(said, it.key).not.toContain('מחוץ');
+      if (t === 0 || t === b) { atEnd += 1; expect(said, it.key).toContain('ישר־זווית'); } else expect(said, it.key).not.toContain('ישר־זווית');
+    }
     expect(outside).toBeGreaterThan(5);
+    expect(atEnd).toBeGreaterThan(5);
     for (const it of all(3, 800)) {
       if (kindOf(it) !== 'ar3g') continue;
       const p = corners(it); expect(p).toHaveLength(3);

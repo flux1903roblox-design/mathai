@@ -11,7 +11,10 @@ import { limitVariant } from '@/components/limitCopy.js';
 import ReportAnswer, { checkText, generateText } from '@/components/ReportAnswer.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import { SupportLink } from '@/components/SupportSheet.jsx';
-import { TOPIC, topicsFor, readAnswer, isCorrect, diagnosisLine, answerText, displayTex, itemPlain } from '@/content/index.js';
+import { TOPIC, topicsFor, readAnswer, isCorrect, partialOf, diagnosisLine, answerText, displayTex, itemPlain } from '@/content/index.js';
+import { piRow, afterPlain, PI_NOTE } from '@/content/util.js';
+import { PARTIAL } from '@/content/partial.js';
+import { Tex, MathText } from '@/components/MathText.jsx';
 import { skillId } from '@/learn/skills.ts';
 import { ensureTopics } from '@/learn/content/index.ts';
 import { seedsFor, seedPayload, exercisesFrom } from '@/lib/seeds.js';
@@ -180,8 +183,11 @@ const GEN_COPY = {
  * One generated exercise (ai spec AI-4 Design 7). It holds its seed, the app's own exercise: the app grades the answer
  * (readAnswer and isCorrect, as in a lesson) and names the mistake (the stair's diagnosis), never the AI. The first
  * answer is recorded as practice. Opening the solution before answering locks the exercise and records nothing.
+ * An answer row that ends with π (□π, a stage-2 circle stair) draws π after the slot, and the list's first such
+ * exercise says what to type there (piNote); a right value in a form the exercise does not take yet (the whole value
+ * 37.7 for 12π, a fraction not reduced) gets the lesson's note, keeps the exercise open and records nothing.
  */
-function GeneratedQuestion({ ex, n }) {
+function GeneratedQuestion({ ex, n, piNote = false }) {
   const { seed, story } = ex;
   const id = `gq-${n}`;
   const [val, setVal] = useState('');
@@ -189,6 +195,7 @@ function GeneratedQuestion({ ex, n }) {
   const [phase, setPhase] = useState('answer');
   const [line, setLine] = useState(null); // the diagnosis line under a first miss
   const [empty, setEmpty] = useState(false);
+  const [note, setNote] = useState(null); // right in another form: the lesson's line (content/partial.js)
   const [solOpen, setSolOpen] = useState(false);
   const answered = useRef(false);
   const hinted = useRef(false);
@@ -199,6 +206,10 @@ function GeneratedQuestion({ ex, n }) {
     const u = readAnswer(seed, { v: val });
     if (u == null) { setEmpty(true); return; }
     setEmpty(false);
+    // right in a form the exercise does not take yet: said, and nothing is recorded or counted (lib/lesson.js answer)
+    const partial = partialOf(seed, u);
+    if (partial) { setNote(PARTIAL[partial]); return; }
+    setNote(null);
     const ok = isCorrect(seed, u);
     const diagnosis = !ok && seed.diagnosis ? seed.diagnosis(u) : null;
     const cat = ok ? null : (seed.diag ? seed.diag(u) : null);
@@ -219,7 +230,10 @@ function GeneratedQuestion({ ex, n }) {
   const hint = (story && story.hint) || seed.hint;
   // a story is shown in its own words; a seed the AI kept (every seed with a drawing) is shown as the app shows it, with
   // its display and its drawing under it, never as the words the tutor reads for the drawing (the AI review: "[טבלה: …]")
-  const prompt = story && !story.kept ? story.prompt : `${seed.text || ''}${seed.display ? ` $${displayTex(seed)}$` : ''}`;
+  const said = story && !story.kept ? story.prompt : `${seed.text || ''}${seed.display ? ` $${displayTex(seed)}$` : ''}`;
+  // the list's first □π exercise says what to type before π, as a lesson's first one does (content/util.js withPiNote)
+  const prompt = piNote && !String(said).includes(PI_NOTE) ? `${said} ${PI_NOTE}` : said;
+  const after = seed.form === 'num' && seed.after ? seed.after : null;
   const answer = answerText(seed);
   // the app's own solutions end "התשובה: …"; the line is not said twice
   const saysAnswer = /^התשובה:/.test(String(steps.at(-1) || '').trim());
@@ -240,14 +254,19 @@ function GeneratedQuestion({ ex, n }) {
       </div>
       {seed.fig && <div className="gen-q-fig"><Figure fig={seed.fig} /></div>}
       <div className="gen-q-answer">
-        <label className="visually-hidden" htmlFor={id}>התשובה לתרגיל {n}</label>
-        <input id={id} className="input slot-inline" dir="ltr" inputMode="decimal" value={val} disabled={done}
-          onChange={(e) => { setVal(e.target.value); setEmpty(false); }} onKeyDown={(e) => e.key === 'Enter' && check()} placeholder="?" />
+        <label className="visually-hidden" htmlFor={id}>התשובה לתרגיל {n}{after ? `: המספר שלפני ${afterPlain(after)}` : ''}</label>
+        {/* the slot and what is drawn after it (□π) read left to right, as in a lesson */}
+        <span className="gen-slot" dir="ltr">
+          <input id={id} className="input slot-inline" dir="ltr" inputMode="decimal" value={val} disabled={done}
+            onChange={(e) => { setVal(e.target.value); setEmpty(false); setNote(null); }} onKeyDown={(e) => e.key === 'Enter' && check()} placeholder="?" />
+          {after && <span className="gen-after" aria-hidden="true"><Tex tex={after} /></span>}
+        </span>
         {seed.unit && <span className="gen-unit">{seed.unit}</span>}
         <Button variant="secondary" className="btn-sm" onClick={check} disabled={done}>בדיקה</Button>
       </div>
       <div className="gen-q-result" role="status">
         {empty && <p className="gen-bad">כתבו מספר</p>}
+        {note && !done && <p className="gen-partial"><MathText text={note} /></p>}
         {phase === 'right' && <p className="gen-ok"><Check size={18} aria-hidden="true" />נכון!</p>}
         {phase === 'retry' && <p className="gen-bad">עוד לא.{line ? <span className="gen-why">{line}</span> : null}</p>}
         {phase === 'shown' && !solOpen && (
@@ -340,7 +359,7 @@ function Generate({ initialTopic, initialLevel }) {
             </div>
             {state.stories > 0 && <ReportAnswer kind="generate" reply={shownText(state.list)} />}
           </div>
-          <ol className="gen-list">{state.list.map((ex, i) => <GeneratedQuestion key={`${state.run}:${ex.seed.key}`} ex={ex} n={i + 1} />)}</ol>
+          <ol className="gen-list">{state.list.map((ex, i) => <GeneratedQuestion key={`${state.run}:${ex.seed.key}`} ex={ex} n={i + 1} piNote={i === state.list.findIndex((x) => piRow(x.seed))} />)}</ol>
         </>
       )}
     </div>

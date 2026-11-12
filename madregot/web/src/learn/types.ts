@@ -59,11 +59,15 @@ export type FgridFig = { type: 'fgrid'; rows: number; cols: number; shadeRows: n
 export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: number; show?: 'both' | 'top' | 'bottom'; label?: string; blank?: boolean };
 /** Things counted in rows of dots, with a Hebrew label at the start of each row. */
 export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] };
-/** A solid's net, flat (components/SolidFigs.jsx): face letters, a shaded face, each length once or each face's area. */
+/**
+ * A solid's net, flat (components/SolidFigs.jsx): face letters, a shaded face, each length once or each face's area; a
+ * word in a face (names) and a straight way across the net (path, in the net's own lengths), said in its words too.
+ */
 export type NetFig = {
   type: 'netfig'; solid: 'cube' | 'box' | 'prism' | 'cylinder';
   dims: { a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number };
   layout?: string | [number, number][]; letters?: boolean; shade?: string | string[]; labels?: boolean | 'area';
+  names?: Record<string, string>; path?: { from: [number, number]; to: [number, number]; words: string };
 };
 /**
  * A solid, still (components/SolidFigs.jsx): a box, a cube or a prism in the oblique view, a cylinder or a cone on

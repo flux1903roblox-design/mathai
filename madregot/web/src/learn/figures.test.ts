@@ -187,7 +187,7 @@ function labelsOf(f: AnyFig): Set<string> {
         ...(f.circles || []).map((c: any) => c.label)];
       // a net (stage 3) writes its face letters, its lengths or its faces' areas
       case 'netfig': return [...(f.letters && f.solid !== 'cylinder' ? netModel({ ...f, task: 'face' }).ids : []),
-        ...netfigLabels(f).faces.map((x: any) => x.text), ...netfigLabels(f).edges.map((x: any) => x.text)];
+        ...netfigLabels(f).faces.map((x: any) => x.text), ...netfigLabels(f).edges.map((x: any) => x.text), ...Object.values(f.names || {})];
       // a solid (stage 4) writes its lengths and its word
       case 'solid': return [...Object.values(solidLabels(f)), f.label, ...(f.segs || []).map((s: any) => s.label)];
       // the algebra objects write x on a box or a long tile, and the rectangle its sides (and parts' areas)

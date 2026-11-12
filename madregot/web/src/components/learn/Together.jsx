@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
-import { ArrowLeft, Check, Lightbulb, X } from 'lucide-react';
+import { ArrowLeft, Check, Info, Lightbulb, X } from 'lucide-react';
 import { Tex, MathText, mathPlain, FitDisplay } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
@@ -20,6 +20,7 @@ import { play, haptic } from '@/lib/sound.js';
 import { qaOn } from '@/lib/qa.js';
 import { namedMistake } from '@/learn/content/togetherDiag.ts';
 import Figure from '@/components/Figure.jsx';
+import { PARTIAL } from '@/content/partial.js';
 
 function Hints({ hints, level }) {
   if (!level) return null;
@@ -35,8 +36,11 @@ function Hints({ hints, level }) {
  * exactly when the final is marked precise. "2,000" is read as 2 or 2000, whichever is right (else the one nearest the
  * answer, which the diagnosis then sees). Null when nothing readable was typed.
  */
-/** The note on the whole value typed into a □π step, the lesson's words (screens/Lesson.jsx PARTIAL['pi-value']). */
-const PI_NOTE = 'נכון בקירוב. כאן כותבים רק את המספר שלפני\u00a0$\\pi$.';
+/**
+ * The whole value typed into a □π step (602.9 for 192π) is right in another form: the lesson's words (content/partial.js),
+ * in a calm tone of its own, 'note' (brand blue, an i), never the miss colours or "כמעט": nothing was wrong.
+ */
+export const PI_RESULT = { tone: 'note', title: 'נכון, בצורה אחרת' };
 
 export function finalCheck(final, typed) {
   const cands = readNumCandidates(typed);
@@ -115,7 +119,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       ? { tone: 'good', title: 'פתרתם לבד!', body: <>בדיוק! פתרתם את הצעד האחרון לבד.</> }
       : { tone: 'good', title: 'נכון, בעזרת רמז', body: <>הגעתם לתשובה, והרמז עזר בדרך. בתרגול תפתרו תרגילים כאלה לבד.</> })
       : giveUp ? { tone: 'warm', title: 'נחזור על זה בתרגול', body: <>התשובה היא <Tex tex={answerTex} />. נעבור על זה שוב בתרגול.</> }
-        : piVal != null && typed === piVal ? { tone: 'warm', title: 'כמעט', body: <MathText text={PI_NOTE} /> }
+        : piVal != null && typed === piVal ? { ...PI_RESULT, body: <MathText text={PARTIAL['pi-value']} /> }
         : finalMiss > 0 && typed === wrongVal ? { tone: 'warm', title: 'עוד לא. נסו שוב', body: namedMistake(missIds, names) ? <MathText text={namedMistake(missIds, names)} /> : <>בדקו את החישוב, והרמז למטה יכול לעזור.</> } : null;
   const done = stepOk || solved || giveUp;
   const canCheck = onFinal ? readNumCandidates(typed).length > 0 && typed !== wrongVal && typed !== piVal : sel != null;
@@ -175,7 +179,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       <footer className={clsx('lm-actions', result && `has-${result.tone}`)} data-region="footer">
         {result && (
           <m.div key={`${k}-${tried.length}-${finalMiss}-${result.tone}`} className="bl-result" role="status" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)}>
-            <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true">{result.tone === 'good' ? <Check size={18} strokeWidth={3.4} /> : <Lightbulb size={18} />}</span>{result.title}</p>
+            <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true">{result.tone === 'good' ? <Check size={18} strokeWidth={3.4} /> : result.tone === 'note' ? <Info size={18} /> : <Lightbulb size={18} />}</span>{result.title}</p>
             <ResultWhy tone={result.tone}><p>{result.body}</p></ResultWhy>
           </m.div>
         )}

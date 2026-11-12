@@ -43,7 +43,8 @@ Another copy of the repo runs the browser suite on its own port: `E2E_PORT=4431 
 | `7cdcae6`, `464ca56` | `solid:1-4`: generators, models, nets, labels; teaching, the ז׳ path, three challenges, 7.13 | MEASURE-3, -6, -7 |
 | `8441bb3`, `aa60039` | `circle:1-4`: generators, π models, labels; teaching, the ח׳ path, three challenges, 8.4 | MEASURE-4, -6, -7 |
 | `4a068ee` | `space:1-2`: the whole topic, the ח׳ path, three challenges, 8.17 | MEASURE-5, -6, -7 |
-| this commit | the proof pack: the full run, the live screenshots, this note, the merge notes, MEASURE-8's owner action; and what the run and the pictures found: `programme:check` exited 1 on a clean tree, the objects' lines were too dark to see in dark mode, the last unit of ח׳ had one drawing beside its path, a `learn.spec` selector matched two units, two pictures of the teacher's student sheet were stale | build order 7, MEASURE-1, -6, -8 |
+| `acfa79b` | the proof pack: the full run, the live screenshots, this note, the merge notes, MEASURE-8's owner action; and what the run and the pictures found: `programme:check` exited 1 on a clean tree, the objects' lines were too dark to see in dark mode, the last unit of ח׳ had one drawing beside its path, a `learn.spec` selector matched two units, two pictures of the teacher's student sheet were stale | build order 7, MEASURE-1, -6, -8 |
+| the review fix | the stage-2 review's eight findings and its six missing items (section 11) | MEASURE-1.4, -1, -2..5, -7, -8 |
 
 ## 3. What was built
 
@@ -278,11 +279,12 @@ What looking at them found, and what changed in this commit:
   title; eleven `teacher-student-*` pictures in `e2e/__screens__/` were refreshed (section 5). The stage-3 lane refreshed
   the same eleven for its data unit: at the merge, take neither, and refresh them once more on the merged app (each lane
   adds its own rows to the ז׳ sheet).
-- **The review sheet** (MEASURE-8, below): when the stage-3 lane's `scripts/review-sheet.mjs` merges, its `QUESTIONS`
-  table can carry this stage's three questions, so each sheet prints them:
-  `area: ['האם הסדר מתאים לכיתה שלך: צורות מורכבות לפני מקבילית וטרפז?']`,
-  `space: ['האם פיתגורס במרחב כיחידה נפרדת בסוף ח׳ מתאים לכיתה שלך?']`,
-  `circle: ['כברירת מחדל, האם התשובה נכתבת עם π (למשל 25π) או מחושבת עם π ≈ 3.14?']`.
+- **The review sheet** (MEASURE-8, below) is on this branch now: `web/scripts/review-sheet.mjs`, the `review:sheet`
+  npm script, `.github/ISSUE_TEMPLATE/content-review.md` and the `review/` line of `madregot/.gitignore` are the stage-3
+  lane's commit `e289e83`, unchanged, except that the script's `QUESTIONS` table gains three rows (`area`, `circle`,
+  `space`, MEASURE-8's questions). Both branches add the file, so the merge of the second one shows a small conflict
+  in `QUESTIONS`: keep both lanes' rows. The stage-3 lane's `review-sheet.test.mjs` (which reads the `data` topic) and
+  its README and MADREGOT2 paragraphs arrive with that lane; this lane's own test is `review-sheet.measure.test.mjs`.
 
 ## 9. Owner-only: a teacher reads the stage before students do (MEASURE-8)
 
@@ -295,34 +297,44 @@ questions by name:
 
 The comments go into issues, and the next build round fixes them first.
 
-**What is missing for it to be one command:** `npm run review:sheet -- <topic>` (CURRICULUM-9's script) **does not
-exist at `b347414`**, nor on this branch: there is no `web/scripts/review-sheet.mjs`, no `review:sheet` script and no
-`content-review` issue template. It is the curriculum lane's code side (CURRICULUM-9). The stage-3 lane has built it on
-its own branch (`e289e83`, not merged yet); once it merges, the owner's step is
-`cd madregot/web && npm run review:sheet -- area` (and `solid`, `circle`, `space`), then sending the four files
-`madregot/review/<topic>.html` to the teacher. Until then the teacher can review the stairs in the app itself (the
-public build, `#/learn/<topic>/<level>/A`), with this list of what to read: for each of `area:1-5`, `solid:1-4`,
-`circle:1-4` and `space:1-2`, the discover steps, the worked examples, the solve-together problems, the
-misconceptions and a dozen practice exercises.
+**The one command** (on this branch since the review fix):
+
+```
+cd madregot/web
+npm run review:sheet -- area
+npm run review:sheet -- solid
+npm run review:sheet -- circle
+npm run review:sheet -- space
+```
+
+It writes `madregot/review/area.html`, `solid.html`, `circle.html` and `space.html`: one printable right-to-left page a
+unit, with every stair's objectives, discover steps and their drawings, worked examples, solve-together problems,
+misconceptions and remedies, 20 practice exercises with answers and solutions, and the diagnostic models, an empty
+comment column beside every block, and no student data. The `area`, `circle` and `space` sheets print the question
+above for their unit. Send the four files; the comments go into issues with `.github/ISSUE_TEMPLATE/content-review.md`
+(נושא, מדרגה, שלב / שאלה, מה לא תקין, הצעה). Generated on this branch for all four units: no `undefined`, no `NaN`, no
+drawing that failed (`scripts/review-sheet.measure.test.mjs`).
 
 ## 10. Deferred, and why
 
-- **Readouts in practice (MEASURE-1 item 4, CURRICULUM-11).** The spec asks each object to hide the quantity a practice
-  question asks on the first try, and to register its `READOUT_LINE`, *once CURRICULUM-11 has landed*. It has not: no
-  branch has `READOUT_LINE` (main, curriculum, classroom, product2, stages 3-5). Until it lands, a practice item such as
-  `ar1b` ("שטח S והיקף P") shows the live area and perimeter while the student builds. The texts are in the spec
-  (`polygon` "עכשיו רואים גם את השטח ואת ההיקף. נסו שוב.", `net` "… הנפח ואת שטח הפנים …", `circle` "… ההיקף ואת השטח …");
-  whoever lands CURRICULUM-11 adds them, and `could` on the generator items, in the same change.
-- **The review sheet (MEASURE-8).** `npm run review:sheet` does not exist at `b347414` or on this branch; it is the
-  curriculum lane's code side (CURRICULUM-9), built on the stage-3 lane's branch (`e289e83`) and not merged. Building a
-  second copy here would conflict with it. The owner's action is written above for both cases.
-- **The teacher's reading itself (MEASURE-8)** is owner-only.
+- **`could` on the generator items (MEASURE-1 item 4's last sentence, CURRICULUM-11 item 2).** The readouts are done
+  for this stage's three objects (section 11); `could` is not. Setting it on the stage's generators alone would make
+  their right answers count against a suspected misconception at a model item's full weight: CURRICULUM-11 item 2 also
+  adds the generator weight (`GENERATOR_COUNTER_WEIGHT` in `storeGlue.ts`, `gen` on the event) and the labels test's
+  soundness and completeness properties over every generator of every topic. That is one change across all topics, the
+  curriculum lane's; it is not on any branch yet.
+- **The older objects' readouts** (the bars' mean, the squares' sum, the triangle's angle, the line's equation) on a
+  practice first try are CURRICULUM-11 item 1 for those kinds; `readoutLine` (Manip.jsx) is where their lines go.
+- **The teacher's reading itself (MEASURE-8)** is owner-only: the command above makes the sheets.
 - **The classroom-lane coverage fixture and `ROADMAP_NEXT`** belong to the merge of this lane with CLASSROOM-5 (section
   8): before it, `signed:7` is not on this branch, and the fixture's stairs and the "no `later: 'S2'`" test would fail.
 - **`sp2m`** (which triangle in a cone has a right angle) names its three triangles in words over the cone's drawing
   instead of drawing each one: it is practice-only multiple choice, and drawing three triangles needs a new cone option.
-- **`space:c3`** (the ant) draws the unfolded front face and lid as a `geo` figure, not as a `netfig`, because `netfig`
-  has no "two faces plus a path" mode.
+- **Older stairs' wide rules.** The review fix's e2e check (every display of every stair's stage A shows whole at 390
+  and 320) passes for every stair, because a display still too wide at 60% now breaks after its = signs. For this
+  lane's stairs the long rules are written on stacked lines; a few older ones (`signed:5`'s two bracket rules on one
+  line, at 320) break after an = sign instead, which reads less well than two lines: stacking them is their own
+  lanes' one-line change.
 - **The spec's checks** (`verify.mjs`, the `facts-*.mjs` and `port-check-*.mjs`) and the full-size screenshots live in
   the lane's scratch folder, not in the repo: `verify.mjs` reads the spec, which is not in the repo either. Their output
   is in section 6 and in this commit's message; the contact sheets are committed.
@@ -333,3 +345,35 @@ misconceptions and a dozen practice exercises.
 - **Load timeouts.** Under the machine's load (about 30-37 on four CPUs shared by five lanes) the full web unit run hits
   5-second test timeouts; this stage's run had 9 in 8 files, all passing when rerun alone (section 5). No existing
   test's timeout was raised (the one new test, which starts vite-node, has a 3-minute limit of its own).
+
+## 11. The stage-2 review, fixed
+
+The lane's review reproduced eight problems and named six items short of a 10. Each was checked again on the branch
+first (all eight reproduced: by reading the code for the AI exercises, the exam sheet, the semicolons, `ar2q` and the
+copy, and in the browser for the slot, the rule displays and solve-together), then fixed with a test that fails on the
+code before the fix.
+
+| Finding | Fix | Test that failed before |
+|---|---|---|
+| AI exercises with π: no π, the whole value marked wrong and recorded | `Assistant.jsx` GeneratedQuestion draws `after` beside the slot (left to right), the list's first □π exercise says what to type (`PI_NOTE`), and `partialOf` runs first: the whole value gets the lesson's note, the exercise stays open, nothing is recorded | `tutor.spec.js` "a □π exercise draws π, says what to type, and notes the whole value without counting it" |
+| The 320 slot hid the last digits (251.2 as 251) | one number's slot is `clamp(96px, 32vw, 132px)` beside the check button, and a longer number is set smaller until it shows whole (down to 60%) | `layout.spec.js` "a 320×568 phone shows every digit of a measurement answer" (75.4, 251.2, 1080, 153.86, 1004.8), and the π-row test now checks the typed value shows |
+| The printed exam had no π, so "180" read as 180 cm³ | the answer line is `תשובה: ____π` (left to right) and the unit after it, as the lesson's row; the key reads the number before the printed π | `flows.spec.js` "a practice exam on the circle prints π after the blank …" |
+| `\;` with one backslash: "52; /·2" | the three strings fixed; the area:2 rule on stacked lines | `learn/contentText.test.js`: no one-backslash TeX spacing in any content source, no control character left by a lost `\f`, `\t`, `\v`, `\b` |
+| Rule displays cut off (x = 1 for 13, "V = π·") | the cause was app-wide: under reduced motion every element has a 0.01 ms transition, so FitDisplay measured a display at its old size and set it too large. KaTeX's elements take no transition now (`tokens.css`); a display still too wide at 60% breaks after its = signs (`fit-wrap`); area:2, area:5 and space:2's rules are written on stacked lines | `teach-all.spec.js`: every display of stage A of every stair shows whole at 390 (the walk) and at 320 (the drawing walk); before the fix signed:3 failed at 390 and area:2 at 320 |
+| `ar2q` said "outside the base" for a right triangle | three cases: inside (nothing said), above an end (the side standing on that end, a right triangle), outside | `content.test.js` the area:2 grid triangle's solution wording, per case |
+| Solve-together: the whole value shown as "כמעט" in red | its own calm tone, `note` (brand blue, an i), titled "נכון, בצורה אחרת", with the lesson's words | `learn.spec.js` "solve together: the whole value in a □π step is noted calmly" |
+| "הארוכה ובולטת", "מדף נייר" | "הארוכה והבולטת", "מגלגלים דף נייר … לגליל" | `contentText.test.js` "copy the review corrected" |
+
+| Item short of a 10 | Now |
+|---|---|
+| MEASURE-1.4, everywhere a typed answer is shown or graded | the AI's exercises and the printed exam draw the π row (above); the lesson's, solving together's, a challenge's and the exercises' note is one text (`content/partial.js`) |
+| MEASURE-1, "nothing right is marked wrong on a 320 phone" | the slot (above) |
+| MEASURE-1.4 readouts | a practice first try of the grid's rectangle (`ar1b`, `ar5b`), the net's build (`so2b`, `so4b`) and the circle (`ci1m`, `ci2m`) hides the readout of the quantity asked, as a check does; after a miss (an answer with help) it shows, and the feedback says so: `readoutLine` in `Manip.jsx` ("עכשיו רואים גם את השטח ואת ההיקף. נסו שוב." and the others). Tests: `components/manip/readout.test.js` (every stage-2 object exercise has a line exactly when its readout hides something) and `manip.spec.js` "a practice first try hides the grid's area and perimeter". `could` on generator items stays deferred (section 10) |
+| MEASURE-8, one command | `npm run review:sheet -- area` and the rest (section 9) |
+| MEASURE-7 `space:c3` as a `netfig` | the box's whole net, the front face and the lid shaded (one 6 by 8 rectangle), their words beside the ant's straight way from the front's bottom corner to the lid's far corner: `netfig` gained `names` and `path`, said in its words (`manip.test.js`, `challenges.test.ts`) |
+| Proof for MEASURE-2..5 displays | the `teach-all.spec.js` check above |
+
+Pictures looked at (scratch folder `lanes/stage2/shots/fix/`): the AI exercise with π and its note (390), the slot with
+1004.8 at 320, the exam's π line, the solve-together note at 320, the area:2, area:5 and space:2 rules at 390 and 320,
+the readout on a first try and after a miss, the ant's net at 390 and 320 (at 320 the challenge's story keeps every
+drawing within 22% of the screen's height, so the net's numbers are small there, as every story drawing's are).

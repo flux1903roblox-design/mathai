@@ -1493,6 +1493,8 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .lesson-top .tool .tool-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-height: 700px) and (max-width: 899px) {
   .answer-bar.with-check .slot { width: clamp(52px, 16vw, 72px); }
+  /* one number (and π or a unit after it): room for the 4–6 characters a measurement answer has (251.2, 153.86) */
+  .answer-bar.with-check .answer-row > input.slot:only-of-type { width: clamp(96px, 32vw, 132px); }
   .answer-bar.with-check .answer-lab { font-size: 18px; }
   .lesson-foot .fb { max-height: 40dvh; }
 }

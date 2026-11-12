@@ -67,7 +67,8 @@ export const Tex = memo(function Tex({ tex, display = false, className }) {
 
 /**
  * Display maths, as large as it fits: a long expression (3(x - 2) - (x + 4) = ?) is set smaller until it fits
- * the width, down to 60% of the size, instead of scrolling sideways. A display that fits is left alone.
+ * the width, down to 60% of the size, instead of scrolling sideways; one still too wide breaks onto a second line after
+ * an = sign or an operator. A display that fits is left alone.
  * The question of an exercise (className 'qdisplay') and the maths of a teaching step ('lm-expr') use it.
  */
 export function FitDisplay({ tex, className = 'qdisplay' }) {
@@ -87,8 +88,12 @@ export function FitDisplay({ tex, className = 'qdisplay' }) {
       if (!box) return;
       box.style.transition = 'none';
       box.style.fontSize = '';
+      box.classList.remove('fit-wrap');
       const base = parseFloat(getComputedStyle(box).fontSize); const parent = parseFloat(getComputedStyle(box.parentElement).fontSize);
       if (box.scrollWidth - box.clientWidth > 1 && base > 0 && parent > 0) box.style.fontSize = `${(base * Math.max(0.6, (box.clientWidth / box.scrollWidth) * 0.97)) / parent}em`;
+      // still too wide at 60%: the display breaks after its = signs and operators (styles/tokens.css), so its end is
+      // never hidden in a scroll box (a long rule should be written on stacked lines instead; this is the safety net)
+      if (box.scrollWidth - box.clientWidth > 1) box.classList.add('fit-wrap');
     };
     fit();
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;

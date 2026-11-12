@@ -358,6 +358,48 @@ test.describe('generated exercises', () => {
   });
 });
 
+// The circle's exercises "with π" (stage 2, MEASURE-1.4) as new exercises: the answer row draws π after the slot, the
+// first one says what to type there, and the whole value typed as a decimal (3.14 times the answer) is right in another
+// form: the note, the exercise still open, nothing recorded. Then the number before π is right.
+test.describe('generated exercises with π', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  test('a □π exercise draws π, says what to type, and notes the whole value without counting it', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.devices.push({ id: 'd1', label: 'הטאבלט', token: FAMILY }); st.plan = livePlan();
+    await open(page, '#/assistant?generate=circle&level=3', family());
+    const sheet = page.getByRole('dialog', { name: 'תרגילים חדשים' });
+    await sheet.getByRole('button', { name: 'כתיבת תרגילים' }).click();
+    const items = sheet.locator('.gen-q');
+    await expect(items.first()).toBeVisible();
+    const seeds = await page.evaluate(() => window.__madregotGen.map((s) => ({ key: s.key, answer: s.answer, after: s.after })));
+    const k = seeds.findIndex((s) => s.after === '\\pi');
+    expect(k, 'a circle:3 exercise is answered with π').toBeGreaterThanOrEqual(0);
+    const q = items.nth(k);
+    // π after the slot, and the note on the first such exercise only
+    await expect(q.locator('.gen-after')).toContainText('π');
+    await expect(q.locator('.gen-q-text')).toContainText('כותבים רק את המספר שלפני');
+    expect(await sheet.locator('.gen-q-text', { hasText: 'כותבים רק את המספר שלפני' }).count()).toBe(1);
+    const before = (await saved(page)).learn?.skills?.['circle:3']?.attempts?.length || 0;
+    const input = q.getByLabel(`התשובה לתרגיל ${k + 1}`);
+    await expect(input).toHaveAccessibleName(/המספר שלפני π/);
+    // the whole value with 3.14: right in another form
+    await input.fill(String(Math.round(3.14 * seeds[k].answer * 10) / 10));
+    await q.getByRole('button', { name: 'בדיקה' }).click();
+    await expect(q.locator('.gen-partial')).toContainText('נכון בקירוב');
+    await expect(q.getByText('עוד לא.')).toHaveCount(0);
+    await expect(input).toBeEnabled();
+    await page.screenshot({ path: test.info().outputPath('gen-pi-note.png') });
+    expect((await saved(page)).learn?.skills?.['circle:3']?.attempts?.length || 0, 'nothing is recorded for the note').toBe(before);
+    // the number before π: right, and recorded once
+    await input.fill(String(seeds[k].answer));
+    await q.getByRole('button', { name: 'בדיקה' }).click();
+    await expect(q.getByText('נכון!')).toBeVisible();
+    await expect.poll(async () => (await saved(page)).learn?.skills?.['circle:3']?.attempts?.length || 0).toBe(before + 1);
+    expect((await saved(page)).learn.skills['circle:3'].attempts.at(-1).ok).toBe(true);
+  });
+});
+
 // ---------------------------------------------------------------- exam checks: who decided right or wrong (ai spec AI-8)
 test.describe('exam labels', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');

@@ -417,3 +417,29 @@ for (const [w, h] of [[390, 664], [320, 568]]) {
     await expect(page.locator('.lm-actions.has-warm')).toHaveCount(0);
   });
 }
+
+// Stage 2 (MEASURE-1.4; CURRICULUM-11 item 1 for the three new objects): in practice, the first try of "build a
+// rectangle with area S and perimeter P" (ar1b) shows the sides only, so it cannot be solved by stepping until the
+// readout matches; after a miss the readout shows the area and the perimeter, and the feedback says so. The retry is an
+// answer with help (lib/lesson.js: the hint is on after a first miss). The circle's radius exercise does the same.
+test('a practice first try hides the grid\'s area and perimeter; after a miss they show, and the feedback says so', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/area/1?part=1', student('7'), (x) => x.form === 'manip' && x.manip.kind === 'polygon' && x.manip.task === 'rect');
+  const readout = page.locator('.mp-grid-readout');
+  await expect(readout).toContainText('רוחב');
+  await expect(readout).not.toContainText('שטח');
+  await expect(readout).not.toContainText('היקף');
+  await expect(page.locator('.manip-canvas')).not.toHaveAttribute('aria-valuetext', /שטח|היקף/);
+  await page.screenshot({ path: test.info().outputPath('readout-first-try.png') });
+  await page.evaluate(() => window.__madregotSolve(false));
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  await expect(page.locator('section.fb-retry .readout-line')).toHaveText('עכשיו רואים גם את השטח ואת ההיקף. נסו שוב.');
+  await page.screenshot({ path: test.info().outputPath('readout-after-miss.png') });
+  await proceed(page);
+  await expect(readout).toContainText('שטח');
+  await expect(readout).toContainText('היקף');
+  expect(it.key).toMatch(/^ar1/);
+  await openOn(page, '#/lesson/circle/1?part=1', student('8'), (x) => x.form === 'manip' && x.manip.kind === 'circle');
+  await expect(page.locator('.manip-readout').first()).toContainText('רדיוס');
+  await expect(page.locator('.manip-readout').first()).not.toContainText('היקף');
+});

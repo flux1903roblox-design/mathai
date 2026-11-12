@@ -624,7 +624,13 @@ export function netfigWords(f) {
   }
   if (f.labels === 'area' && L.faces.length) out.push(`שטחי הפאות: ${[...L.faces].sort((a, b) => a.id.localeCompare(b.id)).map((x) => `${f.letters ? `${x.id} ` : ''}${x.text}`).join(', ')}`);
   const shade = [].concat(f.shade || []);
-  if (shade.length) out.push(`${shade.map((id) => (f.solid === 'cylinder' ? faceName(f, id) : f.solid === 'prism' || f.letters ? `פאה ${id}` : name(id))).join(', ')} ${shade.length > 1 ? 'צבועים' : f.solid === 'cylinder' || (!f.letters && f.solid !== 'prism') ? 'צבוע' : 'צבועה'}`);
+  // a face with a word in it (names) is said by its word, and the shaded faces by theirs ("דופן קדמית ומכסה צבועים")
+  if (f.names) Object.entries(f.names).forEach(([id, w]) => out.push(`${f.letters ? `בפאה ${id}` : `ב${cellWords(f, id).replace(/^ה/, '')}`}: ${w}`));
+  const said = (id) => (f.names?.[id] ? f.names[id] : f.solid === 'cylinder' ? faceName(f, id) : f.solid === 'prism' || f.letters ? `פאה ${id}` : name(id));
+  const listed = f.names && shade.length > 1 ? `${shade.slice(0, -1).map(said).join(', ')} ו${said(shade.at(-1))}` : shade.map(said).join(', ');
+  if (shade.length) out.push(`${listed} ${shade.length > 1 ? 'צבועים' : f.solid === 'cylinder' || (!f.letters && f.solid !== 'prism') ? 'צבוע' : 'צבועה'}`);
+  // a straight way across the net, in the words the figure gives it
+  if (f.path) out.push(f.path.words);
   return out.join('; ');
 }
 

@@ -2,7 +2,10 @@
 // content/manip.js checks it. Every object can be dragged, tapped, used with arrow keys or with step buttons.
 // Under it מדי describes what the student just did (never whether it is right: that is what "בדיקה" is for).
 // In a check or the placement test (`test`), nothing on screen tells the student the target is reached: the objects
-// hide their live readouts of the result, and מדי says nothing. Teaching and practice keep them.
+// hide their live readouts of the result, and מדי says nothing. Teaching keeps them. Practice keeps them too, except on
+// the first try of an object whose readout shows the quantity the question asks (`firstTry`, readoutLine below): there
+// the readout is hidden as in a check, and appears after a miss or the hint (stage 2, MEASURE-1.4; CURRICULUM-11 item 1
+// for the grid, the net and the circle).
 import NumberLine from './NumberLine.jsx';
 import PlotPoint from './PlotPoint.jsx';
 import LineBuilder from './LineBuilder.jsx';
@@ -28,6 +31,28 @@ export const KINDS = {
   numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag,
   balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, polygon: GridShape, net: NetFold, circle: CircleRoll,
 };
+
+/**
+ * The line a practice retry adds when the first try hid the object's readout (screens/Lesson.jsx): what the student
+ * can see now. Only an object whose readout shows the quantity the question asks hides it on a first try, so the
+ * question is not solved by stepping until two numbers match (ar1b "שטח 12 והיקף 14", so2b's volume, ci1m's
+ * circumference): the grid's rectangle (its area and perimeter), the net's build (its volume and surface, its space
+ * diagonal squared, or a prism's base and volume) and the circle (its circumference, or its area). null: the object's
+ * readout gives nothing away (a fold, a face, a slot, a move, a cut, the apex), and its first try is unchanged.
+ * (The older objects' lines, the mean of the bars and the rest, are CURRICULUM-11's.)
+ */
+export function readoutLine(item) {
+  const m = item?.manip;
+  if (!m) return null;
+  if (m.kind === 'polygon') return m.task === 'rect' ? 'עכשיו רואים גם את השטח ואת ההיקף. נסו שוב.' : null;
+  if (m.kind === 'net') {
+    if (m.task !== 'build') return null;
+    if (m.solid === 'prism') return 'עכשיו רואים גם את שטח הבסיס ואת הנפח. נסו שוב.';
+    return item.answer?.d2 != null ? 'עכשיו רואים גם את האלכסון בריבוע. נסו שוב.' : 'עכשיו רואים גם את הנפח ואת שטח הפנים. נסו שוב.';
+  }
+  if (m.kind === 'circle') return m.show === 'area' ? 'עכשיו רואים גם את השטח. נסו שוב.' : 'עכשיו רואים גם את ההיקף. נסו שוב.';
+  return null;
+}
 
 // A number inside Hebrew text keeps its minus sign on the left.
 const N = ({ v }) => <bdi dir="ltr">{minus(v)}</bdi>;
@@ -104,12 +129,14 @@ function coach(it, v, touched) {
   }
 }
 
-export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint, test = false }) {
+export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint, test = false, firstTry = false }) {
   const C = KINDS[item.manip.kind];
   if (!C) return null;
+  // a check hides the readout of the result; a practice first try hides it too where it shows the quantity asked
+  const hide = test || (firstTry && !!readoutLine(item));
   return (
     <>
-      <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} test={test && !reveal && !good} />
+      <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} test={hide && !reveal && !good} />
       {!test && (
         <div className="manip-coach">
           <p className="coach-say">{coach(item, value, touched)}</p>

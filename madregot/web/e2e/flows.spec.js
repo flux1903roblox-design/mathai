@@ -234,6 +234,33 @@ test('a practice exam is made from the chosen topics and prints without the app 
   await expect(page.locator('.tabbar')).toBeHidden();
 });
 
+// stage 2 (MEASURE-1.4): a practice exam on the circle prints an answer "with π" as the lesson shows it, π after the
+// blank and the unit after that, so the 180 written on the line means 180π, as the answer key reads it; a question
+// without π keeps a plain blank
+test('a practice exam on the circle prints π after the blank of every answer "with π", and the unit', async ({ page }) => {
+  await open(page, '#/exams/new?topics=circle', student('8'));
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: /10 שאלות/ }).click();
+  await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+  await expect(page.locator('.exam-q')).toHaveCount(10);
+  const items = (await page.evaluate(() => JSON.parse(localStorage.getItem('madregot')).state.practiceExams[0].items));
+  const withPi = items.map((it, i) => (it.after === '\\pi' ? i : -1)).filter((i) => i >= 0);
+  expect(withPi.length, 'the circle exam has answers with π').toBeGreaterThan(0);
+  for (let i = 0; i < items.length; i += 1) {
+    const line = page.locator('.exam-q').nth(i).locator('.exam-answer-line');
+    if (withPi.includes(i)) {
+      await expect(line.locator('.exam-answer-slot .blank')).toHaveCount(1);
+      await expect(line.locator('.exam-answer-after')).toContainText('π');
+      // □π reads left to right: π sits to the right of the blank
+      const blank = await line.locator('.blank').boundingBox(); const pi = await line.locator('.exam-answer-after').boundingBox();
+      expect(pi.x, `question ${i + 1}: π after the blank`).toBeGreaterThanOrEqual(blank.x + blank.width - 1);
+    } else await expect(line.locator('.exam-answer-after')).toHaveCount(0);
+    if (items[i].unit && items[i].form !== 'mc') await expect(line.locator('.exam-answer-unit')).toHaveText(items[i].unit);
+  }
+  await page.locator('.exam-q').nth(withPi[0]).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath('exam-pi-row.png') });
+});
+
 test('Back from a lesson started on the map, with a partial answer: it asks, staying keeps the answer, fast repeated Backs keep asking', async ({ page }) => {
   const sheet = page.getByRole('heading', { name: 'לצאת מהשיעור?' });
   await open(page, '#/', student('7'));

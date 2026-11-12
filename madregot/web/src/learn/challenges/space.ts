@@ -4,13 +4,15 @@
 // through the air). Their numbers are checked by the lane's spec/facts-space-teach.mjs and by learn/challenges.test.ts.
 import type { ChallengeTask, FigSpec } from '../types';
 
-/** The box 6 by 5 by 3 with its front face (6 by 3) and its lid (6 by 5) unfolded into one rectangle 6 by 8, and the ant's straight path across it. */
+/**
+ * The net of the box 6 by 5 by 3 (MEASURE-7: a netfig): the whole net, with its front face (B, 6 by 3) and its lid (E,
+ * 6 by 5, hung on the front's top edge) shaded, one rectangle 6 by 8 together, and the ant's straight way across it
+ * from the front's bottom corner to the lid's far corner, (0, 0) to (6, 8) in the net's lengths: √(6² + 8²) = 10.
+ */
 const antNet: FigSpec = {
-  type: 'geo', label: 'הדופן הקדמית והמכסה של הקופסה פרושים למלבן אחד, והדרך הישרה של הנמלה מפינה לפינה',
-  pts: { _a: [0, 0], _b: [6, 0], _c: [6, 3], _d: [0, 3], _e: [6, 8], _f: [0, 8] },
-  polys: [{ pts: ['_a', '_b', '_c', '_d'] }, { pts: ['_d', '_c', '_e', '_f'], tone: 'add' }],
-  segs: [{ a: '_a', b: '_b', label: '6' }, { a: '_b', b: '_c', label: '3' }, { a: '_c', b: '_e', label: '5' }, { a: '_a', b: '_e', hi: true }],
-  words: [{ at: [1.6, 1.5], text: 'דופן קדמית' }, { at: [1.6, 6.4], text: 'מכסה' }],
+  type: 'netfig', solid: 'box', dims: { a: 6, b: 5, c: 3 }, labels: true, shade: ['B', 'E'],
+  names: { B: 'קדמית', E: 'מכסה' },
+  path: { from: [0, 0], to: [6, 8], words: 'קו ישר מהפינה התחתונה של הדופן הקדמית עד הפינה הרחוקה של המכסה' },
 };
 
 export const SPACE_CHALLENGES: ChallengeTask[] = [

@@ -275,6 +275,8 @@ test('a π answer row (circle:3) on a 320×568 phone: □ π סמ״ק on one lin
   // the whole value: 3.14 times the answer, to tenths
   await page.locator('#slot-v').click();
   await type(page, String(Math.round(3.14 * it.answer * 10) / 10));
+  // the whole value shows in the slot, every digit (not only the slot's place on the row)
+  expect(await page.locator('#slot-v').evaluate((el) => el.scrollWidth - el.clientWidth), 'the typed value shows whole').toBeLessThanOrEqual(1);
   await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
   await expect(page.locator('.answer-partial')).toContainText('נכון בקירוב');
   await expect(page.locator('section.fb')).toHaveCount(0);
@@ -286,4 +288,28 @@ test('a π answer row (circle:3) on a 320×568 phone: □ π סמ״ק on one lin
   await type(page, it.answer);
   await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
   await expect(page.locator('section.fb-good')).toBeVisible();
+});
+
+// a measurement answer (stage 2) has 4 to 6 characters: 75.4, 251.2, 1080, 153.86. On the smallest phone the number slot
+// beside the check button shows every digit typed: none is cut off or scrolled out of the slot (MEASURE-1, "nothing right
+// is marked wrong … on a 320 px phone"; the slot was 52px wide and showed 251.2 as 251).
+test('a 320×568 phone shows every digit of a measurement answer in the slot', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openOn(page, '#/lesson/circle/3', student('8'), (x) => x.form === 'num' && x.after === '\\pi');
+  const slot = page.locator('#slot-v');
+  await slot.click();
+  const seen = async () => slot.evaluate((el) => ({ over: el.scrollWidth - el.clientWidth, font: parseFloat(getComputedStyle(el).fontSize) }));
+  for (const value of ['75.4', '251.2', '1080', '153.86', '1004.8']) {
+    for (let k = 0; k < 9 && await slot.inputValue(); k += 1) await page.getByRole('button', { name: 'מחיקה', exact: true }).click();
+    await type(page, value);
+    await expect(slot).toHaveValue(value);
+    const s = await seen();
+    expect(s.over, `${value}: the whole number shows in the slot`).toBeLessThanOrEqual(1);
+    expect(s.font, `${value}: still readable`).toBeGreaterThanOrEqual(14);
+  }
+  await expectNoSidewaysScroll(page);
+  // the row still reads □ π סמ״ק beside the check button
+  await expectUsable(page, page.locator('.answer-bar .answer-after'), 'π after the slot');
+  await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
+  await page.screenshot({ path: test.info().outputPath('slot-long-phone-small.png') });
 });

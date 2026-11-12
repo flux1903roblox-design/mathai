@@ -371,3 +371,48 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
   // the halfway chest opens with every stair up to it done, as the store awards it
   await expect(unit.getByRole('button', { name: /^תיבת אוצר\. נפתחת/ })).toBeVisible();
 });
+
+// Solve together (stage 2, MEASURE-1.4): the last step of a cylinder problem is typed "with π". The whole value typed as a
+// decimal (3.14 times the answer) is right in another form: a calm note in the brand blue with its own title, never the
+// miss colours or "כמעט", and nothing counted; then the number before π solves the step.
+test('solve together: the whole value in a □π step is noted calmly, not as a near miss', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await open(page, '#/learn/circle/3/C', student('8', { goalXp: 50 }));
+  let final = null;
+  for (let g = 0; g < 6 && !final; g += 1) {
+    for (let k = 0; k < 8; k += 1) {
+      await expect.poll(() => page.evaluate(() => window.__madregotGuided)).toBeTruthy();
+      const gd = await page.evaluate(() => window.__madregotGuided);
+      if (gd.final) {
+        if (gd.final.after === '\\pi') { final = gd.final; break; }
+        await page.locator('.tg-input').fill(String(gd.final.answer));
+        await page.getByRole('button', { name: 'בדיקה' }).click();
+        await page.evaluate(() => { window.__madregotGuided = null; });
+        await page.getByRole('button', { name: 'המשך' }).click();
+        break;
+      }
+      const ok = gd.step.choices.findIndex((c) => c.ok);
+      const before = gd.step.prompt;
+      await page.locator('.tg-step .ls-choice').nth(ok).click();
+      await page.locator('.lm-check').click();
+      await page.locator('.lm-actions.has-good .sp-next').click();
+      await expect.poll(() => page.evaluate(() => window.__madregotGuided?.final ? 'final' : window.__madregotGuided?.step?.prompt)).not.toBe(before);
+    }
+  }
+  expect(final, 'circle:3 has a guided problem whose last step is typed with π').not.toBeNull();
+  await page.locator('.tg-input').fill(String(Math.round(3.14 * final.answer * 10) / 10));
+  await page.getByRole('button', { name: 'בדיקה' }).click();
+  const foot = page.locator('.lm-actions');
+  await expect(foot).toHaveClass(/has-note/);
+  await expect(foot).not.toHaveClass(/has-warm/);
+  await expect(foot.locator('.lm-banner')).toHaveText('נכון, בצורה אחרת');
+  await expect(foot).toContainText('נכון בקירוב');
+  await expect(foot).not.toContainText('כמעט');
+  await expect(foot.locator('.bl-result')).toBeVisible();
+  await expect.poll(() => foot.locator('.bl-result').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+  await page.screenshot({ path: test.info().outputPath('together-pi-note-phone-small.png') });
+  // the number before π: solved alone (the note was no miss, so no hint was shown)
+  await page.locator('.tg-input').fill(String(final.answer));
+  await page.getByRole('button', { name: 'בדיקה' }).click();
+  await expect(page.getByText('פתרתם את הצעד האחרון לבד')).toBeVisible();
+});

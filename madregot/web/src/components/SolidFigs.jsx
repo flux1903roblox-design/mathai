@@ -1,8 +1,10 @@
 // The still figures of solids (MEASURE-1.5), drawn by components/Figure.jsx:
-//   netfig { solid: 'cube' | 'box' | 'prism' | 'cylinder', dims, layout?, letters?, shade?, labels? }
+//   netfig { solid: 'cube' | 'box' | 'prism' | 'cylinder', dims, layout?, letters?, shade?, labels?, names?, path? }
 //          a net, flat, with the same geometry as the net object (content/net.js): letters writes the face names (A–F,
 //          a prism's A–E), shade colours a face (or a list of faces), labels: true writes each length once on its edge
-//          (a cylinder's radius on its top disc and 2πr under its side), labels: 'area' each face's area in its middle.
+//          (a cylinder's radius on its top disc and 2πr under its side), labels: 'area' each face's area in its middle;
+//          names writes a word in a face ({ B: 'דופן קדמית' }), path draws a straight way across the net between two
+//          points of it ({ from, to, label }, in the net's own lengths: a box's front face B is 0..a wide, 0..c high).
 //   solid  { shape: 'box' | 'cube' | 'prism' | 'cylinder' | 'cone', a?, b?, c?, p?, q?, r?, L?, h?, l?, labels?, diag?,
 //          cubes?, cut?, open?, label? }   a solid, still: a box, a cube or a prism in the oblique view (depth at 30°, half
 //          its length, content/net.js oblique), hidden edges dashed; a cylinder or a cone on ellipses a third as high as
@@ -16,6 +18,23 @@ import { netModel, netView, netfigMarks, centroid, oblique, bounds, VIEW_DIR, so
 
 const pts2 = (v, ps) => ps.map((p) => `${v.X(p)},${v.Y(p)}`).join(' ');
 const LABEL_OFF = 13; // drawing units between an edge and its label
+
+/**
+ * Where a face's word goes: its middle, or, when the net's straight way crosses the face, the middle of the wider part
+ * of the face's middle row beside the way, so the line never runs through the word.
+ */
+function nameAt(pts, path) {
+  const c = centroid(pts);
+  if (!path) return c;
+  const xs = pts.map((p) => p[0]); const x0 = Math.min(...xs); const x1 = Math.max(...xs);
+  const [P, Q] = [path.from, path.to];
+  if (Q[1] === P[1]) return c;
+  const t = (c[1] - P[1]) / (Q[1] - P[1]);
+  if (t < 0 || t > 1) return c;
+  const xp = P[0] + t * (Q[0] - P[0]);
+  if (xp <= x0 || xp >= x1) return c;
+  return [xp - x0 >= x1 - xp ? (x0 + xp) / 2 : (xp + x1) / 2, c[1]];
+}
 
 /** A net, flat: its faces, the shaded ones, the letters, and the lengths or areas. */
 export function NetFig({ fig }) {
@@ -59,6 +78,18 @@ export function NetFig({ fig }) {
         );
       })()}
       {marks.width && <text x={v.X(marks.width.at)} y={v.Y(marks.width.at) - 9} textAnchor="middle" className="fg-side fg-math">{marks.width.text}</text>}
+      {Object.entries(fig.names || {}).map(([id, word]) => {
+        const f = flat.find((x) => x.id === id); if (!f) return null;
+        const c = nameAt(f.pts, fig.path);
+        return <text key={`n${id}`} x={v.X(c)} y={v.Y(c) + 5} textAnchor="middle" direction="rtl" className="fg-net-name">{word}</text>;
+      })}
+      {fig.path && (
+        <g className="fg-net-path">
+          <line x1={v.X(fig.path.from)} y1={v.Y(fig.path.from)} x2={v.X(fig.path.to)} y2={v.Y(fig.path.to)} />
+          <circle cx={v.X(fig.path.from)} cy={v.Y(fig.path.from)} r="4.5" />
+          <circle cx={v.X(fig.path.to)} cy={v.Y(fig.path.to)} r="4.5" />
+        </g>
+      )}
     </svg>
   );
 }

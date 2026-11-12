@@ -100,6 +100,13 @@ describe('gradeByKey: the spec\'s table', () => {
     expect(gradeByKey(q('π', 'wrong'), num('π', { after: '\\pi' })).status).toBe('correct');
     expect(gradeByKey(q('-π', 'wrong'), num('-π', { after: '\\pi' })).status).toBe('correct');
     expect(gradeByKey(q('בערך', 'correct'), it).graded).toBe('ai');
+    // the printed sheet draws π after the blank of such a question (PracticeExam.jsx ExamQuestion: "תשובה: ____π"), so
+    // the bare 180 a student writes on that line is 180π: right; the whole value 565.2 is partial; 181 is wrong (the
+    // stage-2 review's cylinder, ci3v: r 3, h 20)
+    const cyl = num('180π', { after: '\\pi', text: 'מה נפח גליל שרדיוסו $3$ ס״מ וגובהו $20$ ס״מ? כתבו בעזרת $\\pi$.', unit: 'סמ״ק' });
+    expect(gradeByKey(q('180', 'wrong'), cyl).status).toBe('correct');
+    expect(gradeByKey(q('565.2', 'wrong'), cyl).status).toBe('partial');
+    expect(gradeByKey(q('181', 'correct'), cyl).status).toBe('wrong');
   });
 });
 

@@ -613,13 +613,15 @@ function ar2q() {
     return { b, h, t, lo, hi, answer: (b * h) / 2, printed: [1], bugs: [['no-half', b * h]] };
   });
   const { b, h, t, lo, hi } = p; const x0 = 1 - lo; // one free column on each side
-  const inside = t > 0 && t < b;
+  // where the height falls: inside the base (nothing more to say), above one end of it (a right triangle: the height
+  // is the side standing on that end), or past an end (outside the base)
+  const where = t > 0 && t < b ? '' : t === 0 || t === b ? ', והוא הצלע שעומדת על קצה הבסיס (משולש ישר־זווית)' : ', והוא נופל מחוץ לבסיס';
   return {
     key: `ar2q:${b}:${h}:${t}`, text: 'כל משבצת היא $1$ סמ״ר. מה שטח המשולש?', form: 'num', answer: p.answer, unit: UNIT.cm2,
     fig: gridTriFig([[x0, 0], [x0 + b, 0], [x0 + t, h]], [0, 0, hi - lo + 2, h + 1]),
     hint: 'הבסיס שוכב על קו של הרשת. כמה משבצות אורכו, וכמה משבצות הגובה אליו?',
     solution: [
-      `הבסיס: $${b}$ משבצות. הגובה, מהקודקוד העליון אל הישר של הבסיס: $${h}$ משבצות${inside ? '' : ', והוא נופל מחוץ לבסיס'}.`,
+      `הבסיס: $${b}$ משבצות. הגובה, מהקודקוד העליון אל הישר של הבסיס: $${h}$ משבצות${where}.`,
       `$\\frac{${b} \\cdot ${h}}{2} = ${p.answer}$ סמ״ר`,
     ],
     diag: diagList(p.answer, p.bugs),

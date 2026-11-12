@@ -9,6 +9,21 @@ import { VISUAL_EXEMPT } from '../src/learn/visualPlan.ts';
 
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'one phone is enough for the content walk'); });
 const plain = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 1e6) / 1e6));
+/**
+ * Every display of maths on a teaching step shows whole: none is wider than its box, where its end would hide in a
+ * scroll box with no bar (a rule cut at "x = 1" for x = 13, or at "V = π·"). FitDisplay sets a long one smaller, and
+ * breaks one still too wide after an = sign; a long rule is written on stacked lines.
+ */
+async function expectDisplaysFit(page, id) {
+  // the step on screen is the one the progress bar names (the one before has left and this one has come in)
+  const at = Number(await page.locator('.sp-progress').getAttribute('aria-valuenow'));
+  await expect(page.locator(`.sp-step[aria-label^="צעד ${at + 1} מתוך"]`), id).toHaveCount(1);
+  await expect(page.locator('.sp-step')).toHaveCount(1);
+  await page.evaluate(() => document.fonts.ready);
+  await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('.sp-step .katex-display')]
+    .filter((e) => e.scrollWidth > e.clientWidth + 1)
+    .map((e) => `${e.scrollWidth}>${e.clientWidth}: ${(e.querySelector('annotation')?.textContent || e.textContent).slice(0, 100)}`)), { message: `${id}: a display is cut off`, timeout: 4000 }).toEqual([]);
+}
 
 for (const [topic, n] of Object.entries(STAIRS)) {
   for (let level = 1; level <= n; level += 1) {
@@ -22,6 +37,7 @@ for (const [topic, n] of Object.entries(STAIRS)) {
       for (let i = 0; i < 20; i += 1) {
         await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
         const st = await page.evaluate(() => window.__madregotStep);
+        await expectDisplaysFit(page, `${topic}:${level} A${i} at 390`);
         if (st.kind === 'explore') {
           await expect(page.locator('.ls-explore .manip')).toBeVisible();
           await expect.poll(() => page.evaluate(() => window.__madregotSolveStep?.forStep === window.__madregotStep)).toBe(true);
@@ -116,7 +132,8 @@ for (const [topic, n] of Object.entries(STAIRS)) {
 
 // STUDENT-8: a picture or an object on every teaching step. On a small phone (320×568), every step of Stage A in every
 // topic has its visual region, with a drawing or an object to move in it, at least 120px tall; a step in
-// learn/visualPlan.ts VISUAL_EXEMPT is the one allowed to have none.
+// learn/visualPlan.ts VISUAL_EXEMPT is the one allowed to have none. Its maths shows whole too (expectDisplaysFit), as
+// it does at 390 in the walk above.
 test.describe('every teaching step shows its drawing on a small phone', () => {
   test.use({ viewport: { width: 320, height: 568 } });
   for (const topic of Object.keys(STAIRS)) {
@@ -140,6 +157,7 @@ test.describe('every teaching step shows its drawing on a small phone', () => {
             await expect(visual.locator('.lm-fig [role="img"], .lm-fig table, .manip').first(), `${id}: a drawing or an object`).toBeVisible();
             expect((await visual.boundingBox()).height, `${id}: the visual's height`).toBeGreaterThanOrEqual(120);
           }
+          await expectDisplaysFit(page, `${id} at 320`);
           if (st.kind === 'explore') {
             await expect.poll(() => page.evaluate(() => window.__madregotSolveStep?.forStep === window.__madregotStep)).toBe(true);
             await page.evaluate(() => window.__madregotSolveStep());
