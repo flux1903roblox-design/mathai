@@ -192,14 +192,16 @@ export const roundedLength = (it) => it.exact != null && Math.abs(it.exact - Mat
 /**
  * The class writes an expression constant-first ("−31 − 2x", CLASSROOM-6): on expr:3 only, an expression typed with
  * the constant in the coefficient's box and the coefficient in the constant's box is right, when both numbers are the
- * right ones and they differ. It earns a guesser nothing (the swapped pair is right only when both numbers are), and
- * the lesson shows a note on the boxes (swapNote), not a cross; nothing reaches the misconception record. In eq and sys
- * the boxes are a solution, not an expression, and keep their order.
+ * right ones, they differ, and neither is 0. With a 0 the two boxes are not the same expression in another order: when
+ * the x-terms cancel (0x − 25), −25 in the x box is −25x, an x the expression no longer has (conjoin), and when the
+ * numbers cancel (3x + 0), 3 in the number box has lost the x. It earns a guesser nothing (the swapped pair is right only
+ * when both numbers are), and the lesson shows a note on the boxes (swapNote), not a cross; nothing reaches the
+ * misconception record. In eq and sys the boxes are a solution, not an expression, and keep their order.
  */
 export function swappedLin(it, u) {
   if (it?.form !== 'lin' || it.topic !== 'expr' || Number(it.level) !== 3 || !u || typeof u !== 'object') return false;
   const { k, c } = it.answer;
-  return !near(k, c, 0.01) && near(u.k, c, 0.01) && near(u.c, k, 0.01);
+  return !near(k, 0, 0.01) && !near(c, 0, 0.01) && !near(k, c, 0.01) && near(u.k, c, 0.01) && near(u.c, k, 0.01);
 }
 /** The note under a constant-first answer: which box holds the coefficient, and the two orders as one expression. */
 export function swapNote(it) {

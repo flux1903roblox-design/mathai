@@ -7,6 +7,8 @@ import { useApp, streakOf, today, dayBefore, isActiveDay } from './store.js';
 import { STAGE_XP, PARTS } from './lesson.js';
 import { stagesDone, unitProgress, unitCountText, stairProgress, STAIR_STAGES, unitNodes, addedStairNote, chestAfter, chestOpen } from './path.js';
 import { questProgress, questsFor, QUESTS } from './quests.js';
+import { unlockedLook } from './wardrobe.js';
+import { TOPIC } from '@/content/index.js';
 
 const dayAfter = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA'); };
 import { gradeTiles, tilesSummary } from '@/components/learn/MasteryMap.jsx';
@@ -181,8 +183,15 @@ describe('two angle stairs added after the five (angles:6 and angles:7, CLASSROO
     expect(chestAfter('angles')).toBe(3);
     expect(chestOpen('angles', { angles: { parts: {}, reviews: 0, jumped: 0, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered' } } })).toBe(true);
     // the other units keep the halfway rule
-    expect(chestAfter('signed')).toBe(4);
     expect(chestAfter('coord')).toBe(3);
+  });
+  it('the signed chest stays after the third stair: the powers (signed:7) do not lock a chest opened with six stairs', () => {
+    expect(TOPIC.signed.levels.length).toBe(7);
+    expect(chestAfter('signed')).toBe(3);
+    const path = { signed: { parts: {}, reviews: 0, jumped: 0, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered' } } };
+    expect(chestOpen('signed', path)).toBe(true);
+    // its accessory stays on too
+    expect(unlockedLook({ path }).items.has('thermo-scarf')).toBe(true);
   });
 });
 

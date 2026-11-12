@@ -26,9 +26,12 @@ function addSub() {
   const steps = [];
   if (op === '-') steps.push(`$${display} = ${T(a)} + ${T(bb, true)}$`);
   // the class's line: the sign outside the brackets, the absolute values inside, (+4) + (-11) = -(11 - 4) = -7
-  if (sgn(a) === sgn(bb)) steps.push(`אותו סימן: מחברים את הערכים המוחלטים ושומרים על הסימן, $${signOutside(a, bb)}$.`);
-  else if (ans === 0) steps.push(`סימנים שונים ושני המספרים באותו מרחק מאפס: $${Math.abs(a)} - ${Math.abs(bb)} = 0$. מספר ועוד הנגדי שלו הם אפס.`);
-  else steps.push(`סימנים שונים: מחסרים את הערכים המוחלטים, והסימן של המספר הרחוק יותר מאפס, $${signOutside(a, bb)}$.`);
+  // (two lines: the sum with the sign outside, then "=" the result, so each fits a phone)
+  if (ans === 0) steps.push(`סימנים שונים ושני המספרים באותו מרחק מאפס: $${Math.abs(a)} - ${Math.abs(bb)} = 0$. מספר ועוד הנגדי שלו הם אפס.`);
+  else {
+    const [line, end] = signOutside(a, bb);
+    steps.push(sgn(a) === sgn(bb) ? `אותו סימן: מחברים את הערכים המוחלטים ושומרים על הסימן, $${line}$` : `סימנים שונים: מחסרים את הערכים המוחלטים, והסימן של המספר הרחוק יותר מאפס, $${line}$`, `$${end}$`);
+  }
   steps.push(`התשובה: $${T(ans)}$`);
   return {
     key: `sn1:${display}`, text: 'חשבו:', display, form: 'num', answer: ans, hint, solution: steps,

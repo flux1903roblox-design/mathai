@@ -32,6 +32,8 @@ export function lineTex(ws) {
 /**
  * The class's sign-outside line for a + b: the sign goes outside, the absolute values inside.
  * (+4) + (-11) = -(11 - 4) = -7, and (-6) + (+13) = +(13 - 6) = +7 = 7. Null when the sum is 0.
+ * As two lines, the way it fits a phone (inline maths does not wrap): [the sum with the sign outside, "= " the result]:
+ * ['(+4) + (-11) = -(11 - 4)', '= -7'] and ['(-6) + (+13) = +(13 - 6)', '= +7 = 7'].
  */
 export function signOutside(a, b) {
   const ans = a + b;
@@ -39,7 +41,7 @@ export function signOutside(a, b) {
   const [big, small] = Math.abs(a) >= Math.abs(b) ? [Math.abs(a), Math.abs(b)] : [Math.abs(b), Math.abs(a)];
   const inner = Math.sign(a) === Math.sign(b) ? `${Math.abs(a)} + ${Math.abs(b)}` : `${big} - ${small}`;
   const end = ans < 0 ? `${ans}` : `+${ans} = ${ans}`;
-  return `${S(a)} + ${S(b)} = ${ans < 0 ? '-' : '+'}(${inner}) = ${end}`;
+  return [`${S(a)} + ${S(b)} = ${ans < 0 ? '-' : '+'}(${inner})`, `= ${end}`];
 }
 
 // ---------------------------------------------------------------- chains of five bracketed numbers (CLASSROOM-2)

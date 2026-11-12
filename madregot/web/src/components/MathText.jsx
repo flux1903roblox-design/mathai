@@ -39,12 +39,21 @@ const RELATION = { '<': 'קטן מ־', '>': 'גדול מ־', '=': 'שווה ל־
 
 /**
  * A TeX expression as plain text, for a screen-reader label where the rendered maths alone gives a
- * control no name (a multiple-choice answer). A lone comparison sign is said in words.
+ * control no name (a multiple-choice answer). A lone comparison sign is said in words, and so are the absolute value
+ * (|−9| is "הערך המוחלט של -9", CLASSROOM-1) and the class's angle sign (∢BOC is "זווית BOC", CLASSROOM-9): a
+ * screen reader says the bars and ∢ as "vertical line" and "spherical angle". Any other command is turned into its
+ * sign; one this does not know is left as its name, and components/choiceNames.test.js finds it in any choice.
  */
 export function texText(tex) {
   const t = String(tex ?? '').trim();
   if (RELATION[t]) return RELATION[t];
   return t
+    .replace(/\\lvert(?![a-zA-Z])\s*([^]*?)\s*\\rvert(?![a-zA-Z])/g, 'הערך המוחלט של $1').replace(/\\[lr]vert(?![a-zA-Z])/g, '|')
+    .replace(/\\(?:sphericalangle|angle|measuredangle)(?![a-zA-Z])\s*/g, 'זווית ').replace(/\\triangle(?![a-zA-Z])\s*/g, 'משולש ')
+    .replace(/\\(boxed|underline|underbrace|overbrace|mathrm|mathbf)(?![a-zA-Z])/g, '').replace(/\\q?quad(?![a-zA-Z])/g, ' ')
+    .replace(/\\alpha(?![a-zA-Z])/g, 'α').replace(/\\beta(?![a-zA-Z])/g, 'β').replace(/\\gamma(?![a-zA-Z])/g, 'γ').replace(/\\delta(?![a-zA-Z])/g, 'δ')
+    .replace(/\\approx(?![a-zA-Z])/g, '≈').replace(/\\to(?![a-zA-Z])/g, '→').replace(/\\(?:ldots|cdots|dots)(?![a-zA-Z])/g, '…')
+    .replace(/\\pm(?![a-zA-Z])/g, '±').replace(/\\%/g, '%')
     // a system (cases, aligned) is read row by row
     .replace(/\\(begin|end)\{[a-z]+\}/g, ' ').replace(/\\\\/g, ', ').replace(/&/g, '')
     .replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2')
@@ -64,6 +73,47 @@ export const Tex = memo(function Tex({ tex, display = false, className }) {
   const html = useMemo(() => renderTex(tex, display), [tex, display, drawn]); // eslint-disable-line react-hooks/exhaustive-deps
   return <span className={className} dangerouslySetInnerHTML={{ __html: html }} />;
 });
+
+/**
+ * A line of text with maths that must fit its box (a step of a solution, ui.jsx StairStep): inline maths never wraps
+ * (tokens.css), so an expression wider than the box would scroll sideways inside it, and its start would look cut off.
+ * When it does not fit, the maths of the line is set smaller until it fits, never below 15px, the size of a hint's
+ * text; a line that fits is left alone. A line that still does not fit at 15px is too long for a phone and is split
+ * where it is written (e2e/solutions-fit.spec.js measures every generated solution at 320). The box's own width is
+ * read from its step (the parent), which does not change with the maths, so setting the size never measures again.
+ */
+export function useFitLine(ref, text) {
+  const drawn = useKatex(); // measured again once KaTeX has drawn it
+  useLayoutEffect(() => {
+    const el = ref.current; const frame = el?.parentElement;
+    if (!el || !frame) return undefined;
+    let width = -1;
+    const fit = () => {
+      if (frame.clientWidth === width) return;
+      width = frame.clientWidth;
+      const boxes = [...el.querySelectorAll('.katex')];
+      boxes.forEach((b) => { b.style.transition = 'none'; b.style.fontSize = ''; });
+      if (!boxes.length || el.scrollWidth - el.clientWidth <= 1) return;
+      const base = boxes.map((b) => parseFloat(getComputedStyle(b).fontSize)); const parent = boxes.map((b) => parseFloat(getComputedStyle(b.parentElement).fontSize));
+      if (!(base[0] > 0)) return;
+      const floor = Math.min(1, 15 / base[0]);
+      let scale = 1;
+      for (let k = 0; k < 4 && el.scrollWidth - el.clientWidth > 1 && scale > floor; k += 1) {
+        scale = Math.max(floor, scale * (el.clientWidth / el.scrollWidth) * 0.98);
+        boxes.forEach((b, i) => { if (base[i] > 0 && parent[i] > 0) b.style.fontSize = `${(base[i] * scale) / parent[i]}em`; });
+      }
+    };
+    fit();
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
+    ro?.observe(frame);
+    // the maths font may arrive after the first layout and widen the line: measure again then
+    const refit = () => { if (el.isConnected) { width = -1; fit(); } };
+    const fonts = typeof document !== 'undefined' ? document.fonts : null;
+    fonts?.addEventListener?.('loadingdone', refit);
+    fonts?.ready?.then(refit);
+    return () => { ro?.disconnect(); fonts?.removeEventListener?.('loadingdone', refit); };
+  }, [text, drawn]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 
 /**
  * Display maths, as large as it fits: a long expression (3(x - 2) - (x + 4) = ?) is set smaller until it fits

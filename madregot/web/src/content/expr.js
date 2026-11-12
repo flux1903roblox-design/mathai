@@ -138,7 +138,7 @@ function patternLin() {
     key: `ex2l:${s}:${d}:${P.head[0]}`, text: `${P.story(s, d)} כתבו ביטוי ל${P.what} ה־$n$.`, form: 'lin', var: 'n',
     answer: { k: d, c: s - d }, fig: { type: 'table', head: P.head, rows: patternRows(s, d, 4) },
     hint: `בכל צעד מוסיפים $${d}$, ולכן יש $${d}n$ בביטוי. בדקו את $n = 1$: הביטוי צריך לתת $${s}$.`,
-    solution: [stepsWhy(s, d), `$${s} + ${d}(n - 1) = ${s} + ${d}n - ${d} = ${linTex(d, s - d, 'n')}$`, `בדיקה: כש־$n = 1$ יוצא $${d} ${s - d < 0 ? '-' : '+'} ${abs(s - d)} = ${s}$, כמו בטבלה.`],
+    solution: [stepsWhy(s, d), `$${s} + ${d}(n - 1) = ${s} + ${d}n - ${d}$`, `$= ${linTex(d, s - d, 'n')}$`, `בדיקה: כש־$n = 1$ יוצא $${d} ${s - d < 0 ? '-' : '+'} ${abs(s - d)} = ${s}$, כמו בטבלה.`],
     diag: (u) => (is(u, d, s) ? 'start-n' : is(u, d, 0) ? 'diff-only' : null),
   };
 }
@@ -233,12 +233,13 @@ function collectParams() {
 const pairSlip = (u, a) => (u.k === a.k && !!slipOf(u.c, a.c)) || (u.c === a.c && !!slipOf(u.k, a.k));
 /**
  * The predictions [id, {k, c}] that may name a mistake, from a list of candidates: one that is the right answer, the
- * right answer in swapped boxes (it counts as right on expr:3, content/index.js swappedLin) or a slip of it names
- * nothing, and a value that two different mistakes predict names neither.
+ * right answer in swapped boxes (it counts as right on expr:3 when neither box is 0, content/index.js swappedLin) or a
+ * slip of it names nothing, and a value that two different mistakes predict names neither.
  */
 function fairBugs(list, K, C) {
   const ans = { k: K, c: C };
-  const keep = list.filter(([, u]) => !(u.k === K && u.c === C) && !(u.k === C && u.c === K) && !pairSlip(u, ans));
+  const swap = K !== 0 && C !== 0;
+  const keep = list.filter(([, u]) => !(u.k === K && u.c === C) && !(swap && u.k === C && u.c === K) && !pairSlip(u, ans));
   const ids = new Map();
   keep.forEach(([id, u]) => { const key = `${u.k},${u.c}`; ids.set(key, (ids.get(key) || new Set()).add(id)); });
   return keep.filter(([, u]) => ids.get(`${u.k},${u.c}`).size === 1);
@@ -250,8 +251,9 @@ export function collectBugs(terms) {
   const [K, C] = families(terms);
   const xs = terms.filter(([, v]) => v).map(([k]) => k);
   const list = [];
-  // everything joined into one x-term (with no x left that is the right answer in swapped boxes: nothing to name)
-  if (C !== 0 && K !== 0) list.push(['conjoin', { k: K + C, c: 0 }]);
+  // everything joined into one x-term; when the x-terms cancel (0x + C) that is C written as Cx, an x that is not
+  // there any more: still conjoin, and wrong (swappedLin accepts no swap with a 0 box)
+  if (C !== 0) list.push(['conjoin', { k: K + C, c: 0 }]);
   list.push(...minusEach(terms, K, C));
   // a negative x-term followed by a positive one: −3x + 2x read as −(3x + 2x)
   const i = xs.findIndex((k, j) => k < 0 && xs[j + 1] > 0);

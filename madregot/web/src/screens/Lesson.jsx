@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { Navigate, useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
 import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
+import { qaOn } from '@/lib/qa.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine, swappedLin, swapNote } from '@/content/index.js';
+import { TOPIC, makeItem, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine, swappedLin, swapNote } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
 import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
@@ -30,7 +33,7 @@ import CheckResult from '@/components/CheckResult.jsx';
 import ReportAnswer, { checkText } from '@/components/ReportAnswer.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
-import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
+import { Box, Button, Keypad, Sheet, Steps, StairStep, Thinking, useShake } from '@/components/ui.jsx';
 import { detectDistress } from '@shared/safety.js';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
@@ -309,6 +312,27 @@ export default function Lesson() {
     try { root.setAttribute('data-qa-item', JSON.stringify(item ?? null)); } catch { /* not serialisable */ }
     return () => root.removeAttribute('data-qa-item');
   }, [item, mkey]);
+
+  // Test hooks for e2e/solutions-fit.spec.js (QA only, as above): every step of the generated solutions of a stair, each
+  // line once at the furthest-in place it takes (its step number), and those steps drawn into a list as the feedback
+  // draws them (StairStep), so the test can measure each one inside the real feedback panel of a 320 phone
+  useEffect(() => {
+    if (!qaOn()) return undefined;
+    window.__madregotSolutionLines = (topic, level, n = 200) => {
+      const at = new Map();
+      for (let k = 0; k < n; k += 1) {
+        const it = makeItem(topic, level);
+        (it.solution || []).forEach((line, i) => { if (!(at.get(line)?.i >= i)) at.set(line, { i, key: it.key }); });
+      }
+      return [...at].map(([text, { i, key }]) => ({ text, i, key }));
+    };
+    window.__madregotDrawSteps = (list, lines) => {
+      const root = createRoot(list);
+      flushSync(() => root.render(lines.map(({ text, i }, k) => <StairStep key={k} i={i} text={text} />)));
+      return () => root.unmount();
+    };
+    return () => { delete window.__madregotSolutionLines; delete window.__madregotDrawSteps; };
+  }, []);
 
   const focusSlot = useCallback((k) => { document.getElementById(`slot-${k}`)?.focus({ preventScroll: true }); }, []);
 
@@ -694,7 +718,7 @@ export default function Lesson() {
                   <p className="hint-line"><Lightbulb size={16} aria-hidden="true" /><MathText text={item.hint} /></p>
                   {/* guide, don't just say "again": the first step of the way, never the whole solution */}
                   {item.solution?.length > 1 && !isTest(s.kind) && (guide ? (
-                    <ol className="stair-list guide-step" aria-live="polite"><li className="stair-step" style={{ '--i': 0 }}><span className="stair-n" aria-hidden="true">1</span><span className="stair-text"><MathText text={item.solution[0]} /></span></li></ol>
+                    <ol className="stair-list guide-step" aria-live="polite"><StairStep i={0} text={item.solution[0]} /></ol>
                   ) : (
                     <button type="button" className="link-btn" onClick={() => setGuide(true)}>איך מתחילים?</button>
                   ))}

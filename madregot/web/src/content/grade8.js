@@ -55,7 +55,7 @@ function squaresHyp() {
     key: `py1s:${c}:${a}`, text: `שנו את הניצבים כך שהיתר יהיה $${c}$: הריבוע על היתר צריך שטח $${c * c}$.`, form: 'manip',
     manip: { kind: 'squares', start: { a: 2, b: 2 }, max: 16 }, answer: { c, a, b },
     hint: `במשולש ישר־זווית שטח הריבוע על היתר שווה לסכום שטחי הריבועים על הניצבים: $a^2 + b^2 = c^2$. מחפשים שני ריבועים שיחד הם $${c * c}$.`,
-    solution: [`$${a}^2 + ${b}^2 = ${a * a} + ${b * b} = ${c * c} = ${c}^2$`, `לכן ניצבים $${a}$ ו־$${b}$ נותנים יתר $${c}$.`],
+    solution: [`$${a}^2 + ${b}^2 = ${a * a} + ${b * b} = ${c * c}$`, `$${c * c} = ${c}^2$, ולכן ניצבים $${a}$ ו־$${b}$ נותנים יתר $${c}$.`],
     diag: (u) => (u && u.a + u.b === c ? 'add-legs' : null),
   };
 }
@@ -69,7 +69,7 @@ function leg() {
     key: `py2:${a}:${c}`, text: `במשולש ישר־זווית נתונים היתר וניצב אחד. מה אורך הניצב השני? ${ROUND}`, form: 'num', answer: whole ? b : r1(b), exact: b, unit: 'ס״מ',
     fig: { type: 'right', a, b: '?', c },
     hint: 'מחפשים ניצב, אז מחסרים: $b^2 = c^2 - a^2$.',
-    solution: [`$b^2 = ${c}^2 - ${a}^2 = ${c * c} - ${a * a} = ${n}$`, `$b = \\sqrt{${n}} ${eqRoot(n)}$`],
+    solution: [`$b^2 = ${c}^2 - ${a}^2$`, `$b^2 = ${c * c} - ${a * a} = ${n}$`, `$b = \\sqrt{${n}} ${eqRoot(n)}$`],
     diag: (u) => (near(u, Math.sqrt(a * a + c * c), 0.06) ? 'add-not-sub' : near(u, c - a) ? 'subtract-sides' : near(u, n) ? 'no-root' : null),
   };
 }

@@ -43,7 +43,7 @@ export const takeAway = (t) => (t.startsWith('-') ? `מוסיפים $${t.slice(1
  * One board line: the words that say how it was reached (none on the problem's own line), the equation, and the
  * operation done next, written after a slash at its end.
  */
-export const line = (say, eq, op) => `${say ? `${say}: ` : ''}$${op ? opMark(eq, op) : eq}$`;
+export const line = (say, eq, op, gap) => `${say ? `${say}: ` : ''}$${op ? opMark(eq, op, gap) : eq}$`;
 /** a·v + b with v substituted, as TeX in the order a student writes it: 3 \cdot (-2) + 5, -x as -(-2). */
 function at(a, b, v) {
   const prod = a === 1 ? T(v) : a === -1 ? `-${T(v, true)}` : `${T(a)} \\cdot ${T(v, true)}`;
@@ -841,7 +841,8 @@ export function angleEqStory(n = Math.random() < 0.5 ? 3 : 4) {
       ...(Es ? [line('המשוואה', `${linTex(Cs, Es)} = ${total}`, minusOp(T(Es))), line(`${Es > 0 ? 'מחסירים' : 'מוסיפים'} $${abs(Es)}$ ${Es > 0 ? 'משני' : 'לשני'} האגפים`, `${Cs}x = ${total - Es}`, divOp(Cs))]
         : [line('המשוואה', `${Cs}x = ${total}`, divOp(Cs))]),
       line(`מחלקים ב־$${Cs}$`, `x = ${x}`),
-      ...(q >= 0 ? [`הזווית $\\sphericalangle ${names[q]}$: $\\boxed{${linTex(c[q], e[q])}} =${c[q] === 1 ? x : `${c[q]} \\cdot ${x}`}${e[q] ? ` ${e[q] < 0 ? '-' : '+'} ${abs(e[q])}` : ''} = ${ans}^\\circ$`] : []),
+      // the asked angle boxed, then the substitution after a word, so the line breaks there on a phone, not inside the maths
+      ...(q >= 0 ? [`הזווית $\\sphericalangle ${names[q]}$ היא $\\boxed{${linTex(c[q], e[q])}}$, ובהצבה: $${c[q] === 1 ? x : `${c[q]} \\cdot ${x}`}${e[q] ? ` ${e[q] < 0 ? '-' : '+'} ${abs(e[q])}` : ''} = ${ans}^\\circ$`] : []),
       `בדיקה: ${ang.slice(0, -1).map((v) => `$${v}^\\circ$`).join(', ')} ו־$${ang[n - 1]}^\\circ$, ויחד $${total}^\\circ$`,
     ];
     return {

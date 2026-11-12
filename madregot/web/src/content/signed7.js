@@ -208,7 +208,9 @@ export function powSolution(q) {
   if (q.f === 0) {
     return [
       `הבסיס הוא $-${q.a}$, בתוך הסוגריים: כופלים אותו בעצמו $${q.n}$ פעמים.`,
-      `$(-${q.a})^{${q.n}} = ${factors(`-${q.a}`, q.n, true)} = ${plusTex(ans)}$`,
+      // the factors, then "=" the value on its own line: the whole chain is wider than a phone
+      `$(-${q.a})^{${q.n}} = ${factors(`-${q.a}`, q.n, true)}$`,
+      `$= ${plusTex(ans)}$`,
       signWord(odd),
       `התשובה: $${ans}$`,
     ];
@@ -223,7 +225,8 @@ export function powSolution(q) {
   if (q.f === 2) {
     const pw = (-q.a) ** q.n;
     return [
-      `קודם החזקה: $(-${q.a})^{${q.n}} = ${factors(`-${q.a}`, q.n, true)} = +${pw}$`,
+      `קודם החזקה: $(-${q.a})^{${q.n}} = ${factors(`-${q.a}`, q.n, true)}$`,
+      `$= +${pw}$`,
       `ואז המינוס שבחוץ, לפני הסוגריים: $-(+${pw}) = ${ans}$`,
       `התשובה: $${ans}$`,
     ];
@@ -238,7 +241,8 @@ export function powSolution(q) {
   if (q.f === 4) {
     const pw = (-q.a) ** q.n; const prod = q.c * pw;
     return [
-      `קודם החזקה: $(-${q.a})^{${q.n}} = ${factors(`-${q.a}`, q.n, true)} = ${pw}$`,
+      `קודם החזקה: $(-${q.a})^{${q.n}} = ${factors(`-${q.a}`, q.n, true)}$`,
+      `$= ${pw}$`,
       `אחר כך הכפל: $${q.c} \\cdot ${T(pw, true)} = ${prod}$`,
       `ובסוף החיסור: $${q.b} - ${T(prod, true)} = ${prod < 0 ? `${q.b} + ${-prod} = ` : ''}${ans}$`,
       `התשובה: $${ans}$`,

@@ -65,9 +65,12 @@ const addSubModel: DiagModel<AddSub> = {
     const bb = p.s * p.b; const ans = value(p); const out: string[] = [];
     if (p.s < 0) out.push(`חיסור הוא חיבור של הנגדי: $${show(p)} = ${T(p.a)} + ${T(bb, true)}$`);
     // the class's line: the sign outside the brackets, the absolute values inside, (+4) + (-11) = -(11 - 4) = -7
-    if (sgn(p.a) === sgn(bb)) out.push(`אותו סימן: מחברים את המרחקים מאפס (הערכים המוחלטים) ושומרים על הסימן, $${signOutside(p.a, bb)}$.`);
-    else if (ans === 0) out.push(`סימנים שונים: מחסרים את הערכים המוחלטים, $${Math.abs(p.a)} - ${Math.abs(bb)} = 0$, כי שני המספרים באותו מרחק מאפס, ולכן התוצאה אפס.`);
-    else out.push(`סימנים שונים: מחסרים את הערכים המוחלטים (המרחקים מאפס), והסימן של הרחוק יותר מאפס, $${signOutside(p.a, bb)}$.`);
+    // (two lines: the sum with the sign outside, then "=" the result, so each fits a phone)
+    if (ans === 0) out.push(`סימנים שונים: מחסרים את הערכים המוחלטים, $${Math.abs(p.a)} - ${Math.abs(bb)} = 0$, כי שני המספרים באותו מרחק מאפס, ולכן התוצאה אפס.`);
+    else {
+      const [line, end] = signOutside(p.a, bb) as [string, string];
+      out.push(sgn(p.a) === sgn(bb) ? `אותו סימן: מחברים את המרחקים מאפס (הערכים המוחלטים) ושומרים על הסימן, $${line}$` : `סימנים שונים: מחסרים את הערכים המוחלטים (המרחקים מאפס), והסימן של הרחוק יותר מאפס, $${line}$`, `$${end}$`);
+    }
     out.push(`התשובה: $${T(ans)}$`);
     return out;
   },

@@ -200,10 +200,11 @@ export function unitCountText({ done, stairs, stages, of }) {
 }
 
 /**
- * The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. The angles chest
- * stays after the third stair: students opened it there before the unit grew from five stairs to seven (the bisector and
- * the quadrilateral, CLASSROOM-10 and -12), and a chest once open is not locked again.
+ * The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. A unit that grew
+ * keeps its chest where students opened it, since a chest once open (and the accessory it gave) is not locked again: the
+ * angles chest stays after the third stair (five stairs became seven, the bisector and the quadrilateral, CLASSROOM-10
+ * and -12), and so does the signed chest (six became seven with the powers, CLASSROOM-5).
  */
-const CHEST_KEPT = { angles: 3 };
+const CHEST_KEPT = { angles: 3, signed: 3 };
 export const chestAfter = (topic) => CHEST_KEPT[topic] ?? Math.ceil(TOPIC[topic].levels.length / 2);
 export const chestOpen = (topic, path = {}) => doneUpTo(topic, path) >= chestAfter(topic);

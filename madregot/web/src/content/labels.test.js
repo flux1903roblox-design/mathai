@@ -4,7 +4,7 @@
 // whenever diag() names a category, the answer must have that property. And a label is only recorded as evidence
 // about the student when it is honest: the learning model gets exactly the category the answer shows.
 import { describe, it, expect } from 'vitest';
-import { TOPICS, makeItem, isCorrect, catLabel } from './index.js';
+import { TOPICS, makeItem, isCorrect, catLabel, swappedLin } from './index.js';
 import { quadOf as quadOfPt } from './manip.js';
 import { startLesson, answer } from '@/lib/lesson.js';
 import { learnAfterAnswer, emptyLearn } from '@/learn/storeGlue.ts';
@@ -971,6 +971,20 @@ describe('the algebra, fraction, ratio and percent topics name only what a prope
   });
 });
 
+/**
+ * A stair's item drawn from a fixed list of Math.random values, in the order the generator asks for them (it throws when
+ * the generator asks for more): the same item every run, however rare it is among random draws.
+ */
+function drawnFrom(values, topic, level) {
+  const real = Math.random; const queue = [...values];
+  Math.random = () => { if (!queue.length) throw new Error('the generator asked for more random numbers'); return queue.shift(); };
+  try { return makeItem(topic, level); } finally { Math.random = real; }
+}
+/** The Math.random value that makes R(lo, hi) (content/util.js) give v. */
+const drawOf = (v, lo, hi) => (v - lo + 0.5) / (hi - lo + 1);
+/** signed:5's brackets question a − (b − c) · d, as makeItem gives it: the stair picks brackets() (a draw under 0.6). */
+const signedBrackets = (a, b, c, d) => drawnFrom([0, drawOf(a, -10, 10), drawOf(b, -8, 8), drawOf(c, -8, 8), drawOf(d, -4, 4)], 'signed', 5);
+
 /** An item of a generator with a given display (searched by sampling). */
 function find(topic, level, pred, tries = 20000) {
   for (let i = 0; i < tries; i += 1) { const it = makeItem(topic, level); if (pred(it)) return it; }
@@ -1201,7 +1215,8 @@ describe('the council\'s reproductions', () => {
 
   it('subtracting a positive product is never called "minus-minus"', () => {
     // 6 − (2 − 3)·(−3) = 6 − 3 = 3; typing 9 adds the product, but the product is positive
-    const it = find('signed', 5, (x) => x.key === 'sn5:6 - (2 - 3) \\cdot (-3)', 200000);
+    const it = signedBrackets(6, 2, 3, -3);
+    expect(it.key).toBe('sn5:6 - (2 - 3) \\cdot (-3)');
     expect(it.answer).toBe(3);
     const r = recorded(it, 9);
     expect(r.cat).not.toBe('minus-minus');
@@ -1210,7 +1225,8 @@ describe('the council\'s reproductions', () => {
 
   it('a negative product subtracted as if positive is "minus-minus"', () => {
     // 6 − (2 − 3)·3 = 6 − (−3) = 9; typing 3 subtracts 3
-    const it = find('signed', 5, (x) => x.key === 'sn5:6 - (2 - 3) \\cdot 3', 200000);
+    const it = signedBrackets(6, 2, 3, 3);
+    expect(it.key).toBe('sn5:6 - (2 - 3) \\cdot 3');
     expect(it.answer).toBe(9);
     expect(recorded(it, 3)).toEqual({ cat: 'minus-minus', miscon: ['signed:5|minus-minus'] });
   });
@@ -1306,7 +1322,7 @@ describe('the class\'s collecting questions name only what the answer shows', ()
     ['drop-minus', 'abs-add', 'sign'].forEach((id) => expect(seen[id] || 0, id).toBeGreaterThan(N * 0.04));
   }, 60_000);
   it('a constant-first answer is right on expr:3 and records no mistake', () => {
-    const it = find('expr', 3, (x) => x.key.startsWith('ex3:') && x.answer.k !== x.answer.c && x.answer.k !== 0);
+    const it = find('expr', 3, (x) => x.key.startsWith('ex3:') && x.answer.k !== x.answer.c && x.answer.k !== 0 && x.answer.c !== 0);
     const swapped = { k: it.answer.c, c: it.answer.k };
     expect(isCorrect(it, swapped)).toBe(true);
     expect(it.diag(swapped)).toBe(null);
@@ -1314,6 +1330,34 @@ describe('the class\'s collecting questions name only what the answer shows', ()
     expect(r.cat ?? null).toBe(null);
     expect(r.miscon).toEqual([]);
   });
+  it('with a 0 box the boxes keep their order: a missing or extra x is wrong, and x-terms that cancel typed as Cx are conjoin', () => {
+    // 0x − 25 typed as −25 in the x box is −25x, an x the expression no longer has; 3x + 0 typed as 0 and 3 has lost
+    // its x; the tiles' x typed as 0x + 1 too. None is the same expression in another order (swappedLin).
+    let zeroX = 0; let zeroC = 0; let tiles = 0;
+    try {
+      Math.random = seeded(1123);
+      for (let n = 0; n < 6000; n += 1) {
+        const it = makeItem('expr', 3);
+        if (it.form !== 'lin') continue;
+        const { k, c } = it.answer;
+        if ((k === 0) === (c === 0)) continue;
+        const swapped = { k: c, c: k };
+        expect(isCorrect(it, swapped), `${it.key}: ${JSON.stringify(swapped)}`).toBe(false);
+        expect(swappedLin(it, swapped)).toBe(false);
+        if (it.key.startsWith('ex3t:')) tiles += 1;
+        if (k === 0 && it.key.startsWith('ex3:')) {
+          zeroX += 1;
+          expect(it.diag(swapped), it.key).toBe('conjoin');
+          expect(props.conjoin(it, swapped), it.key).toBe(true);
+          expect(recorded(it, swapped)).toEqual({ cat: 'conjoin', miscon: ['expr:3|conjoin'] });
+        }
+        if (c === 0) zeroC += 1;
+      }
+    } finally { Math.random = real; }
+    expect(zeroX).toBeGreaterThan(50);
+    expect(zeroC).toBeGreaterThan(20);
+    expect(tiles).toBeGreaterThan(20);
+  }, 60_000);
 });
 
 // CLASSROOM-8: the class's word problems, 2,000 of each kind. Every label, on every whole and half answer up to 400 and on

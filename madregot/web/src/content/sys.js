@@ -30,6 +30,7 @@
 // a slash at the end of the line it acts on (util.js opMark, eq.js line), as in the equations topic.
 import { NZ, pick, shuffle, T, gcd, listMath, opMark, minusOp, undoOp, divOp, mulOp, flipLine, unmarkLine } from './util.js';
 import { linTex, sumTex } from './expr.js';
+import { lineTex } from './signedItems.js';
 import { diagOf, line, takeAway } from './eq.js';
 import { holds, rint, rnz, rpick } from '@/learn/expr.ts';
 
@@ -171,7 +172,8 @@ function hallsItem() {
       solution: [
         `נסמן ב־$x$ את הצופים באולם א׳. באולם ב׳: $${total} - x$.`,
         `עוברים $${r}x$ צופים: $${k}x = ${total} - x + ${r}x$`,
-        line('מכנסים', `${k}x = ${total} - ${k}x`, `+${k}x`),
+        // a long decimal line: its mark one quad away instead of two, so it fits a phone
+        line('מכנסים', `${k}x = ${total} - ${k}x`, `+${k}x`, '\\quad'),
         line(`מוסיפים $${k}x$ לשני האגפים`, `${dec(2 * (1 - p / 100))}x = ${total}`, `:${dec(2 * (1 - p / 100))}`),
         line(`מחלקים ב־$${dec(2 * (1 - p / 100))}$`, `x = ${A}`),
         ...(q ? [`באולם ב׳: $${total} - ${A} = ${B}$.`] : []),
@@ -682,7 +684,8 @@ export function countSolution(p) {
   const yes = solving(p.list, p.sol, p.B);
   const edge = Number.isInteger(p.B) ? (relHas(p.sol, p.B, p.B) ? ` גם $${T(p.B)}$ עצמו פותר, כי ב־$${REL[p.sol]}$ השוויון כלול.` : ` $${T(p.B)}$ עצמו לא פותר, כי ב־$${REL[p.sol]}$ השוויון לא כלול.`) : '';
   const last = p.ask === 'sum'
-    ? `הסכום: $${yes.map((v, i) => (i && v < 0 ? T(v, true) : T(v))).join(' + ')} = ${T(countAnswer(p))}$.`
+    // as the class writes signed numbers once the brackets are gone, -9 - 8 - 7, short enough for a phone
+    ? `הסכום: $${lineTex(yes)} = ${T(countAnswer(p))}$.`
     : `סך הכול: $${yes.length}$.`;
   return [...ineqSteps(p), `מהמספרים ברשימה פותרים ${listMath(yes)}.${edge}`, last];
 }

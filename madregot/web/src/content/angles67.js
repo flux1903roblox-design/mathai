@@ -119,7 +119,8 @@ export function bisSolution(p) {
   if (p.k === 'h') return ['חוצה זווית מחלק אותה לשתי זוויות שוות, וכל אחת היא חצי מהזווית כולה.', `$${sa('BOC')} = ${p.w}^\\circ : 2 = ${ans}^\\circ$`];
   if (p.k === 't') {
     return [`$OB$ חוצה את $${sa('AOD')}$: $${sa('BOD')} = ${sa('AOB')} = ${p.a}^\\circ$`, `$OE$ חוצה את $${sa('DOC')}$: $${sa('EOC')} = ${sa('DOE')} = ${p.b}^\\circ$`,
-      `$${sa('AOC')} = ${p.a}^\\circ + ${p.a}^\\circ + ${p.b}^\\circ + ${p.b}^\\circ = ${ans}^\\circ$`];
+      // each half twice, then their sum on its own line: the four angles in one line are wider than a phone
+      `$${sa('AOC')} = 2 \\cdot ${p.a}^\\circ + 2 \\cdot ${p.b}^\\circ$`, `$= ${2 * p.a}^\\circ + ${2 * p.b}^\\circ = ${ans}^\\circ$`];
   }
   return [`$${sa('BOC')}$ צמודה ל־$${sa('AOB')}$: $180^\\circ - ${p.a}^\\circ = ${180 - p.a}^\\circ$`, `$OD$ חוצה אותה: $${sa('DOC')} = ${180 - p.a}^\\circ : 2 = ${ans}^\\circ$`];
 }
@@ -250,8 +251,10 @@ export function quadHint(p) {
 }
 export function quadSolution(p) {
   const ans = quadAnswer(p); const X = sa(CORNER[p.q]); const gs = givenAt(p).map((i) => p.g[i]);
-  if (p.k === 0) return ['סכום זוויות במרובע שווה $360^\\circ$.', `$${X} = 360^\\circ - ${gs.map((v) => `${v}^\\circ`).join(' - ')} = ${ans}^\\circ$`];
-  if (p.k === 1) return ['סכום זוויות במרובע שווה $360^\\circ$, והזווית הישרה היא $90^\\circ$ מתוכן.', `$${X} = 360^\\circ - 90^\\circ - ${gs.map((v) => `${v}^\\circ`).join(' - ')} = ${ans}^\\circ$`];
+  // the known angles added first, then taken from 360°: 360° less three angles in one line is wider than a phone
+  const plus = (vs) => vs.map((v) => `${v}^\\circ`).join(' + ');
+  if (p.k === 0) return ['סכום זוויות במרובע שווה $360^\\circ$.', `שלוש הזוויות הידועות יחד: $${plus(gs)} = ${360 - ans}^\\circ$`, `$${X} = 360^\\circ - ${360 - ans}^\\circ = ${ans}^\\circ$`];
+  if (p.k === 1) return ['סכום זוויות במרובע שווה $360^\\circ$, והזווית הישרה היא $90^\\circ$ מתוכן.', `שלוש הזוויות הידועות יחד, עם הישרה: $${plus([90, ...gs])} = ${360 - ans}^\\circ$`, `$${X} = 360^\\circ - ${360 - ans}^\\circ = ${ans}^\\circ$`];
   const s = 360 - gs[0] - gs[1];
   return [`סכום זוויות במרובע שווה $360^\\circ$. לשתי הזוויות השוות נשאר: $360^\\circ - ${gs[0]}^\\circ - ${gs[1]}^\\circ = ${s}^\\circ$`, `כל אחת מהן חצי: $${X} = ${s}^\\circ : 2 = ${ans}^\\circ$`];
 }

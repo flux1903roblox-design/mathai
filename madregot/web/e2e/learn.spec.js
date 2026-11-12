@@ -380,7 +380,7 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
 // round count as right: the feedback is the right-answer one with no red cross, a quiet note (read politely by a screen
 // reader) says which box holds the coefficient, and the record has a right answer and no misconception.
 test('a constant-first expression on expr:3 counts as right, with a note on the boxes', async ({ page }) => {
-  const it = await openOn(page, '#/lesson/expr/3', student('7'), (x) => x.form === 'lin' && /^ex3[bt]?:/.test(x.key) && x.answer.k !== x.answer.c && x.answer.k !== 0);
+  const it = await openOn(page, '#/lesson/expr/3', student('7'), (x) => x.form === 'lin' && /^ex3[bt]?:/.test(x.key) && x.answer.k !== x.answer.c && x.answer.k !== 0 && x.answer.c !== 0);
   await page.locator('#slot-k').click();
   await type(page, it.answer.c);
   await page.locator('#slot-c').click();
@@ -401,6 +401,24 @@ test('a constant-first expression on expr:3 counts as right, with a note on the 
   // the next exercise clears the note
   await proceed(page);
   await expect(note).toHaveCount(0);
+});
+
+// With a 0 box the two boxes are not the same expression in another order: x-terms that cancel (0x + 26) typed as 26 in
+// the x box is 26x, an x the expression no longer has, and 3x + 0 typed as 0 and 3 has lost its x. That is a wrong
+// answer, in red, with no note about the order of the boxes.
+test('on expr:3 a number typed in the x box when the x-terms cancel is wrong, with no swap note', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/expr/3', student('7'), (x) => x.form === 'lin' && /^ex3[bt]?:/.test(x.key) && (x.answer.k === 0) !== (x.answer.c === 0));
+  await page.locator('#slot-k').click();
+  await type(page, it.answer.c);
+  await page.locator('#slot-c').click();
+  await type(page, it.answer.k);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  await expect(page.locator('section.fb-good')).toHaveCount(0);
+  await expect(page.locator('.answer-swap')).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+  await expect.poll(async () => (await saved(page)).learn.skills['expr:3']?.attempts?.length || 0).toBeGreaterThan(0);
+  expect((await saved(page)).learn.skills['expr:3'].attempts.at(-1).ok).toBe(false);
 });
 
 // CURRICULUM-10: an angle check draws its numbers in the figure only (a triangle between parallels, a bisector, a split

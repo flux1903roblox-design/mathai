@@ -28,16 +28,17 @@ export const S = (n) => (n === 0 ? '0' : n > 0 ? `(+${n})` : `(${n})`);
  * of the line it acts on, after a slash, and the next line is what it gives. `op` is '-3x' or '+5' (added to both
  * sides), ':2' or ':(-3)' (both divided), '\\cdot 2' (both multiplied):
  * opMark('3x + 9 = 4x', '-3x') is '3x + 9 = 4x \\qquad /{-3x}'; ':2' writes '/{:}2' and '\\cdot 2' writes '/{\\cdot}2'.
- * The braces keep KaTeX from spacing the sign or the colon as an operation between two things.
+ * The braces keep KaTeX from spacing the sign or the colon as an operation between two things. `gap` is the space
+ * before the mark, two quads; a long line that must fit a phone takes one ('\\quad').
  */
-export function opMark(tex, op) {
+export function opMark(tex, op, gap = '\\qquad') {
   const o = String(op).trim();
   let mark;
   if (o.startsWith(':')) mark = `/{:}${o.slice(1).trim()}`;
   else if (o.startsWith('\\cdot') || o.startsWith('·')) mark = `/{\\cdot}${o.replace(/^(\\cdot|·)/, '').trim()}`;
   else if (/^[+-]./.test(o)) mark = `/{${o[0]}${o.slice(1).trim()}}`;
   else throw new Error(`opMark: "${op}" is not an operation on both sides`);
-  return `${tex} \\qquad ${mark}`;
+  return `${tex} ${gap} ${mark}`;
 }
 /** The operation that takes a term away from both sides: '3x' gives '-3x', '-5' gives '+5' (for opMark). */
 export const minusOp = (term) => { const t = String(term); return t.startsWith('-') ? `+${t.slice(1)}` : `-${t}`; };
