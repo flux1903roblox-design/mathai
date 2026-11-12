@@ -16,10 +16,14 @@ import type { DiscoverStep, FigSpec } from './types';
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
 // @ts-ignore: plain JS
 import { geoClashes } from '@/components/geoLayout.js';
-import { CHALLENGES } from './challenges/index';
+import { CHALLENGE_TASKS as CHALLENGES } from './challenges/all';
 import { seeded } from './expr';
 // @ts-ignore: plain JS
-import { mirrorWords } from '@/content/transform.js';
+import { mirrorWords, tfStart, TF_RANGE } from '@/content/transform.js';
+// @ts-ignore: plain JS
+import { tfClashes } from '@/components/manip/tfLayout.js';
+// @ts-ignore: plain JSX
+import { gridGeometry } from '@/components/manip/grid.jsx';
 // @ts-ignore: plain JS
 import { TRANSF_KINDS } from '@/content/transf.gen.js';
 // @ts-ignore: plain JS
@@ -635,4 +639,63 @@ describe('the geometry drawings are readable: no label on another, none crossed 
       expect(bad.slice(0, 10)).toEqual([]);
     });
   }
+});
+
+// The transform object's letters (GEOM-2.4, components/manip/tfLayout.js): curriculum stage 4's review found congr:1's
+// step 5 drawing the target's C on the centre's O (an unreadable "Ç/O"), and the shown answer's letters on the copy's
+// and on the axis numbers. Over every transform object of the three topics' teaching (their steps and their repairs)
+// and 200 draws of every practice kind that has one: at the start, with the copy on the answer, and with the answer
+// shown beside a copy left at the start, no letter sits on another, on another shape's corner, on O's dot or on a
+// number of the plane, and none is cut off.
+describe('the transform object\'s letters are readable', () => {
+  const tfIn = (x: any, out: any[] = []): any[] => {
+    if (!x || typeof x !== 'object') return out;
+    if (x.manip?.kind === 'transform') out.push({ m: x.manip, answer: x.answer });
+    for (const v of Array.isArray(x) ? x : Object.values(x)) tfIn(v, out);
+    return out;
+  };
+  const same = (a: Pt[], b: Pt[]) => a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1]);
+  const problems = (m: any, answer: any, where: string) => {
+    const g = gridGeometry(m.range || TF_RANGE);
+    const names = m.shape.names; const primed = names.map((n: string) => `${n}′`);
+    const start: Pt[] = tfStart(m);
+    const states: [string, Pt[], boolean][] = [['at the start', start, false]];
+    if (answer?.pts) { states.push(['on the answer', answer.pts, false]); if (!same(start, answer.pts)) states.push(['answer shown', start, true]); }
+    const bad: string[] = [];
+    for (const [state, cur, ghost] of states) {
+      const taken = new Set(cur.map((p) => p.join(',')));
+      const groups = [
+        ...(m.target ? [{ key: 'target', pts: m.target.pts, labels: m.target.names, hide: taken }] : []),
+        { key: 'orig', pts: m.shape.pts, labels: names, hide: taken },
+        { key: 'copy', pts: cur, labels: primed },
+        ...(ghost ? [{ key: 'ghost', pts: answer.pts, labels: answer.match === 'set' ? null : primed, hideIdx: new Set(cur.map((p, i) => (same([p], [answer.pts[i]]) ? i : -1))) }] : []),
+      ];
+      const c = tfClashes(g, groups, m.moves?.turns?.centre || null);
+      if (c.length) bad.push(`${where} ${state}: ${c.join('; ')}`);
+    }
+    return bad;
+  };
+  it('every transform object of the teaching and the repairs', () => {
+    const bad: string[] = []; let n = 0;
+    for (const skill of Object.keys(CONTENT).filter((s) => /^(transf|congr|sim):/.test(s))) {
+      for (const { m, answer } of tfIn(contentOf(skill))) { n += 1; bad.push(...problems(m, answer, skill)); }
+    }
+    expect(n).toBeGreaterThanOrEqual(10);
+    expect(bad).toEqual([]);
+  });
+  it('200 draws of every practice kind with the object', () => {
+    const bad: string[] = []; let n = 0;
+    const spy = vi.spyOn(Math, 'random').mockImplementation(seeded(20261112));
+    try {
+      for (const [kind, gen] of Object.entries(TRANSF_KINDS as Record<string, () => any>)) {
+        for (let i = 0; i < 200; i += 1) {
+          const it = gen();
+          if (it.manip?.kind !== 'transform') break;
+          n += 1; bad.push(...problems(it.manip, it.answer, `${kind} ${it.key}`));
+        }
+      }
+    } finally { spy.mockRestore(); }
+    expect(n).toBeGreaterThan(200);
+    expect(bad.slice(0, 10)).toEqual([]);
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { startLesson, answer, next, resultOf, progressOf, planLevels, withHelp, withHint, LESSON_LEN, REVIEW_LEN, PARTS, XP, lessonTopics } from './lesson.js';
+import { startLesson, answer, next, resultOf, progressOf, planLevels, withHelp, withHint, LESSON_LEN, REVIEW_LEN, PARTS, XP, lessonTopics, inlineChoices } from './lesson.js';
 import { unitNodes, recordOnPath, nextNode, markMastered, doneCount, reachedUpTo, stairProgress, migratePath, isKept, chestOpen, reopenKept } from './path.js';
 import { questsFor, questProgress } from './quests.js';
 import { useApp, streakOf, today, dayBefore } from './store.js';
@@ -494,5 +494,37 @@ describe('multiplication facts (/facts)', () => {
     expect(st.days[today()]).toMatchObject({ lessons: 1, q: 8, ok: 8, xp: XP.lesson + XP.perfect, perfect: 1 });
     expect(st.xp).toBe(XP.lesson + XP.perfect);
     expect(award).toMatchObject({ streakExtended: true, streak: 1, practiceDone: false, unitDone: false });
+  });
+});
+
+describe('three short choices in a row (inlineChoices)', () => {
+  const mc = (...tex) => ({ form: 'mc', choices: tex.map((t) => ({ tex: t })) });
+  it('short maths sits in a row: signs, numbers, one angle', () => {
+    expect(inlineChoices(mc('<', '=', '>'))).toBe(true);
+    expect(inlineChoices(mc('12', '43', '-7'))).toBe(true);
+    expect(inlineChoices(mc('\\sphericalangle A', '\\sphericalangle B', '\\sphericalangle C'))).toBe(true);
+  });
+  it('a sign drawn by a command counts as a character, and a relation never sits in a row (congr:2, GEOM-5)', () => {
+    // cg2n: "what else is needed": ∢A = ∢P is 132 px of KaTeX, wider than a third of a 390 px phone
+    expect(inlineChoices(mc('\\sphericalangle A = \\sphericalangle P', '\\sphericalangle C = \\sphericalangle R', '\\sphericalangle B = \\sphericalangle Q'))).toBe(false);
+    expect(inlineChoices(mc('\\triangle ABC', '\\triangle KLM', '\\triangle PQR'))).toBe(false);
+    expect(inlineChoices(mc('x=3', 'x=4', 'x=5'))).toBe(false);
+    expect(inlineChoices(mc('2x - 10', '12', '4'))).toBe(false);
+    expect(inlineChoices(mc('\\frac{1}{2}', '1', '2'))).toBe(false);
+  });
+  it('not three, or a choice in words: the list', () => {
+    expect(inlineChoices(mc('1', '2'))).toBe(false);
+    expect(inlineChoices({ form: 'mc', choices: [{ text: 'כן' }, { text: 'לא' }, { text: 'אולי' }] })).toBe(false);
+  });
+  it('every congr:2 "what else is needed" item goes in the list', async () => {
+    const it2 = (seed) => { let t = seed >>> 0; const rnd = () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; return makeItem('congr', 2, rnd); };
+    let seen = 0;
+    for (let s = 1; s <= 400; s += 1) {
+      const item = it2(s);
+      if (!item?.key?.startsWith('cg2n')) continue;
+      seen += 1;
+      expect(inlineChoices(item), item.key).toBe(false);
+    }
+    expect(seen).toBeGreaterThan(5);
   });
 });

@@ -9,6 +9,8 @@ import { startLesson, answer } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
 import { modelItem } from '../learn/items.ts';
 import { notGuessable } from './frac.js';
+import { ensureTopics } from '../learn/content/index.ts';
+import { SYM_SHAPES } from './transf.gen.js';
 
 /** A typed item, as a generator makes one. */
 const num = (answer, extra = {}) => ({ form: 'num', answer, topic: 'test', level: 1, key: 'k', text: 'כמה?', ...extra });
@@ -332,5 +334,59 @@ describe('the answer is never shown (stage 4 §0.5, notGuessable)', () => {
   it('compares to a billionth, as clean() does', () => {
     expect(notGuessable(0.1 + 0.2, [0.3])).toBe(false);
     expect(notGuessable(0.3001, [0.3])).toBe(true);
+  });
+});
+
+// Curriculum stage 4's review: "AB = 5x − 6 ס״מ … מה x?" had x = 6, and "(3x − 20)° … מה x?" x = 20. The models compared
+// the answer with the signed constant (−6), while the student reads the 6 after the minus sign. Over the geometry stairs'
+// questions that a check may ask (fairForCheck), the answer is none of the numbers the question or its drawing prints,
+// whatever their sign.
+describe('a geometry answer is never a number printed in its question or drawing, read without its sign', () => {
+  const seeded = (seed) => { let t = seed >>> 0; return () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; };
+  const strings = (o, out = []) => { if (o == null) return out; if (typeof o === 'string') out.push(o); else if (Array.isArray(o)) o.forEach((x) => strings(x, out)); else if (typeof o === 'object') Object.values(o).forEach((x) => strings(x, out)); return out; };
+  const shown = (it) => [it.text || '', ...strings(it.fig)].join(' ').match(/\d+(\.\d+)?/g)?.map(Number) || [];
+  for (const topic of ['transf', 'congr', 'sim']) {
+    it(`${topic}: 1,500 draws of every stair`, async () => {
+      await ensureTopics([topic]);
+      const real = Math.random; Math.random = seeded(20261112);
+      const bad = [];
+      try {
+        TOPIC[topic].levels.forEach((_, i) => {
+          for (let k = 0; k < 1500; k += 1) {
+            const it = makeItem(topic, i + 1);
+            if (!fairForCheck(it) || typeof it.answer !== 'number') continue;
+            if (shown(it).includes(Math.abs(it.answer))) bad.push(`${topic}:${i + 1} ${it.key}: ${it.text} (${it.answer})`);
+          }
+        });
+      } finally { Math.random = real; }
+      expect(bad.slice(0, 6)).toEqual([]);
+    }, 60_000);
+  }
+});
+
+// Curriculum stage 4's review: "כמה צירי סימטריה יש למשולש שווה־שוקיים?" accepted only 1, while sim:1 teaches that an
+// equilateral triangle is isosceles (it has 3); a rectangle may be a square (4). Every shape counted is named so that it
+// has one count: a class whose special case has another count is named without that case.
+describe('the axes of symmetry are counted for one shape, never for a class with a special case (transf:2)', () => {
+  // a class, the special case inside it, and the special case's count
+  const SPECIAL = [['מלבן', 'ריבוע', 4], ['מעוין', 'ריבוע', 4], ['משולש שווה־שוקיים', 'שווה־צלעות', 3], ['דלתון', 'מעוין', 2], ['מקבילית', 'מלבן', 2], ['מקבילית', 'מעוין', 2]];
+  it('a name with a special case of another count leaves that case out', () => {
+    for (const [id, sh] of Object.entries(SYM_SHAPES)) {
+      for (const [cls, special, m] of SPECIAL) {
+        if (!sh.name.startsWith(cls) || m === sh.n) continue;
+        expect(sh.name, `${id}: ${sh.name}`).toMatch(new RegExp(`שאינ(ו|ה) ${special}|ואינה ${special}`));
+      }
+    }
+  });
+});
+
+// Curriculum stage 4's review read two lines as unnatural Hebrew: "הצלע שלו פי k ארוכה" (the word order) and "איזו זווית
+// הגדולה ביותר?" (no copula). They are written "כל צלע ארוכה פי k" and "איזו זווית היא הגדולה ביותר?"; neither old
+// wording comes back in the geometry units' generators or teaching.
+describe('the geometry units\' Hebrew reads naturally', () => {
+  const sources = import.meta.glob(['./transf.gen.js', './congr.gen.js', './sim.gen.js', '../learn/content/transf.ts', '../learn/content/congr.ts', '../learn/content/sim.ts'], { query: '?raw', import: 'default', eager: true });
+  it.each([/הצלע שלו פי \S+ ארוכה/, /איזו זווית הגדולה/])('never %s', (re) => {
+    expect(Object.keys(sources)).toHaveLength(6);
+    for (const [file, text] of Object.entries(sources)) expect(re.test(text), file).toBe(false);
   });
 });

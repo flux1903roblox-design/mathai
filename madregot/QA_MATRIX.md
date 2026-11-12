@@ -192,6 +192,24 @@ What the look found, and what changed:
 - **transf:c1 at 320 px.** The 320 px walk of every challenge had left out the transformations; with them in, two chains
   of maths were wider than the reason box. Each is two short pieces now.
 
+The stage's review then reproduced these, and each has a test that failed before its fix:
+- **The transform object under the bar.** congr:2's step 5 (4 lines of question) at 320 × 568 and 360 × 640, and three
+  steps at 375 × 667, had buttons under בדיקה's bar. The plane now takes the room the question leaves (Transform.jsx
+  measures it, at least 200 px); the question of congr:2's step 5 is two lines; the vertex chips stay on screen, or, only
+  where they would take the plane under 220 px, leave the screen but not the live region. `manip.spec.js` walks every
+  teaching step and repair with the object at 320 × 568, 360 × 640 and 375 × 667.
+- **C on O.** The transform object's letters (target, original, copy, shown answer, O) go through a clash check
+  (`components/manip/tfLayout.js`); `figures.test.ts` checks every teaching and repair object and 200 draws of each
+  practice kind.
+- **∢A = ∢P three in a row.** A choice that states a relation, or whose drawn signs make it wider than three
+  characters, goes in the list (`lib/lesson.js` inlineChoices); `geometry.spec.js` opens a cg2n item on both phones.
+- **Solving together at 320 × 568.** transf:1-3's plane shrinks on a short screen, so the first choice shows above the
+  bar (`geometry.spec.js`).
+- **A printed number as the answer.** "AB = 5x − 6 … x = 6": the printed numbers are compared without their sign too
+  (`content/util.test.js`, 1,500 draws of every geometry stair).
+- **Axes of symmetry.** transf:2 asks about "מלבן שאינו ריבוע", "משולש שווה־שוקיים שאינו שווה־צלעות" and the like, so
+  every shape has one count.
+
 | Stair | First discover step | Practice exercise looked at | Tests that hold it (beyond the ones every stair has) |
 |---|---|---|---|
 | transf:1 הזזה | a triangle slid 5 right and 2 down, dashed arrows from each vertex | B′ after a slide of 3 right, 2 up (a point answer) | `manip.spec.js` the transform object (a slide); `learn.spec.js` transf:1 at 320; `layout.spec.js` the transform controls |

@@ -4,7 +4,12 @@
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import type { ChallengePart, ChallengeTask } from './types';
-import { CHALLENGES, challengeById, challengesAfter, challengesOf } from './challenges/index';
+// the whole tasks (story and parts) from all.ts, as the challenge screen reads them; the registry (index.ts) holds only
+// their meta, which the first load carries (meta.gen.ts)
+import { CHALLENGE_TASKS as CHALLENGES, taskById as challengeById } from './challenges/all';
+import { CHALLENGES as META_LIST, challengeById as metaById, challengesAfter, challengesOf } from './challenges/index';
+// @ts-ignore: plain JS
+import { taskMeta } from '../../scripts/gen-content-meta.mjs';
 import { challengeXP, scoredParts, numCheck, exampleHolds, domainValues, firstOutOfPlace, shuffledOrder, moveStep } from './challenges/grade';
 import { ALL_SKILLS, TOPIC_ORDER, parseSkill } from './skills';
 import { evaluate, same } from './expr';
@@ -36,6 +41,12 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
+  it('the registry\'s meta is each whole task without its story and parts, in the same order', () => {
+    expect(META_LIST).toEqual(CHALLENGES.map(taskMeta));
+    expect(metaById('congr:c2')).toEqual(taskMeta(challengeById('congr:c2')));
+    expect(metaById('nope')).toBeNull();
+    for (const t of META_LIST) expect(Object.keys(t).filter((k) => ['story', 'fig', 'parts'].includes(k)), t.id).toEqual([]);
+  });
   it('stage 1, the transformations, congruence and similarity have 45 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
     expect(CHALLENGES).toHaveLength(45);

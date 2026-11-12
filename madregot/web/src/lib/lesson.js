@@ -11,6 +11,21 @@ import { parseSkill, skillId } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from '@/learn/mastery.ts';
 import { VERIFY_NEED } from '@/learn/misconceptions.ts';
 
+/**
+ * Three short maths choices (< = >, 12, 43, ∢A) sit side by side in large type; anything longer (2x - 10) goes in the
+ * list, since three expressions in one row overflow a phone. A command that draws a sign (\sphericalangle, \triangle,
+ * \cong) is one character on the screen, and a choice that states a relation (∢A = ∢P: more than the sign itself) is
+ * never three in a row.
+ */
+export function inlineChoices(item) {
+  if (item?.choices?.length !== 3) return false;
+  return item.choices.every((c) => {
+    if (!c.tex) return false;
+    const shown = c.tex.replace(/\\[a-zA-Z]+/g, '∗').replace(/\s/g, '');
+    return shown.length <= 3 && !(shown.length > 1 && shown.includes('='));
+  });
+}
+
 export const LESSON_LEN = 8;
 export const REVIEW_LEN = 10;
 /** Multiplication facts practice (/facts): eight facts, practice rules (hints, a second try, a miss comes back). */

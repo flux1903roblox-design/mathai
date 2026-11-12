@@ -66,12 +66,15 @@
   .mp-tf-controls, .mp-tf-row { gap: 6px; }
 }
 
-/* a short screen in a teaching step (GEOM-2): the step's text, the plane, its two rows of controls and the check button
-   all on one screen, as the practice stage has them. The plane takes what is left (at least 220 px at 320 × 568), the
-   panel's padding shrinks, and the vertex chips give way: the copy's letters are on the plane, and a refused move's
-   sentence still shows */
-@media (max-height: 640px) {
+/* a teaching step (GEOM-2.3): the plane is as large as the room between the step's question and the bar with בדיקה,
+   after its readout and its rows of buttons (Transform.jsx measures it into --tf-fit), so every button and בדיקה are
+   on the first screen, whatever the question's length. On a short screen the panel's padding shrinks. When the chips'
+   line would take the plane under 220 px (.is-tight), the chips leave the screen but not the page: a screen reader
+   still hears the copy's vertices as it moves, and a refused move's sentence still shows */
+.step-player .manip-transform .manip-canvas { max-width: var(--tf-fit, 440px); }
+.step-player .manip-transform.is-tight .mp-tf-read:not(:has(.mp-tf-refuse)) {
+  position: absolute; width: 1px; height: 1px; min-height: 0; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+@media (max-height: 700px) {
   .ls-explore .lm-canvas:has(.manip-transform) { padding-block: 4px; }
-  .ls-explore .manip-transform .mp-tf-read:not(:has(.mp-tf-refuse)) { display: none; }
-  .ls-explore .manip-transform:has(.mp-tf-row + .mp-tf-row) .manip-canvas { max-width: min(440px, calc(100dvh - 344px)); }
 }

@@ -754,6 +754,9 @@ describe('the transform object drawn (GEOM-2.3 to 2.6)', () => {
       'סיבוב של 90° נגד כיוון השעון סביב O', 'סיבוב של 90° עם כיוון השעון סביב O']);
     // two rows at most: the arrows with התחלה מחדש, then the flips and turns
     expect((out.match(/class="mp-tf-row/g) || []).length).toBe(2);
+    // a slide-only item has one row: no empty second row takes a gap from the plane
+    const slideOnly = html(Transform, { m: { ...busy, moves: { drag: true } }, value: null, answer: ans });
+    expect((slideOnly.match(/class="mp-tf-row/g) || []).length).toBe(1);
   });
   it('in a check (test): no coordinate text anywhere, the moves counted instead, and buttons only for the listed moves', () => {
     const out = html(Transform, { m: busy, value: null, answer: ans, test: true });

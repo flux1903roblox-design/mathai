@@ -46,7 +46,8 @@ function mk(m) {
     for (let i = 0; i < 200000; i += 1) {
       const p = m.raw(r);
       if (!p || !clean(m, p)) continue;
-      if (!notGuessable(m.answer(p), [...m.printed(p), ...(m.figNums ? m.figNums(p) : [])], false)) continue;
+      // every printed number with and without its sign: AC = 6x − 9 shows a 9 (stage 4's review)
+      if (!notGuessable(m.answer(p), [...m.printed(p), ...(m.figNums ? m.figNums(p) : [])].flatMap((n) => (n < 0 ? [n, -n] : [n])), false)) continue;
       return p;
     }
     throw new Error('no clean draw');
@@ -625,7 +626,7 @@ function gridSquares() {
   const k = pick(rnd, [3, 4]);
   const choices = shuffle([{ tex: String(k * k), ok: true }, { tex: String(k), ok: false, bug: 'linear-area' }, { tex: String(2 * k), ok: false }]);
   return {
-    key: `sm4g:${k}`, text: `ריבוע קטן הוגדל פי $${k}$: הצלע שלו פי $${k}$ ארוכה. פי כמה גדל השטח?`,
+    key: `sm4g:${k}`, text: `ריבוע קטן הוגדל פי $${k}$: כל צלע ארוכה פי $${k}$. פי כמה גדל השטח?`,
     form: 'mc', practiceOnly: true, choices, answer: choices.findIndex((x) => x.ok),
     fig: { type: 'fgrid', rows: k, cols: k, shadeRows: 1, shadeCols: 1, label: `1 על 1 בתוך ${k} על ${k}` },
     hint: 'כמה ריבועים קטנים נכנסים בריבוע הגדול?',

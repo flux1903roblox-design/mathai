@@ -867,6 +867,20 @@ script. They now load one topic at a time, and nothing the student sees changed.
   4.56 MB, so both gates moved by the same rule to **433 KB** and **4.79 MB** (CSS 57.3 KB, under its 59 KB gate). Open
   work: the challenge tasks behind a dynamic import per topic (the curriculum spec asks for it), with the plan reading
   only their ids and stairs at boot.
+  **Curriculum stage 4** (transformations, congruence, similarity: three topics, their nine challenge tasks) measured
+  boot JS 445.0 KB against the 433 KB gate and the precache 5.05 MB against 4.79 MB, so `npm run build` failed (the
+  stage's review). That open work is done here, in the shape the main branch's own split takes: the first load reads
+  `learn/challenges/meta.gen.ts` (each task's id, topic, stair, kind, title, minutes and misconception, written by
+  `scripts/gen-content-meta.mjs` with the stairs' meta), the plan, the map, the medals and the store read only that,
+  and the stories and parts (`learn/challenges/all.ts`) load with the challenge screen. `learn/content-split.test.ts`
+  checks that the file is what the generator writes and walks `main.jsx`'s static imports: no topic's task file and
+  not `all.ts`. Measured: boot JS **427.4 KB** (gate 433, unchanged; 5 KB under the merged base's 432.3 KB). The
+  precache is the raw bytes of every file kept offline, which no lazy load changes: the three units' teaching and
+  generators make it **5.06 MB**, so its gate moved by the integration rule the merger wrote on the main branch
+  (16fde75, the stage-5 merge: "the precache gate is not a ratchet", measured + 5%) to **5.31 MB**. The merger
+  re-measures both on the merged app. The tutor's ways for the three units (`TOPIC_WAYS_GEOM` in `shared/topicWays.js`)
+  still load with `shared/pedagogy.js` on this branch; on the main branch `topicWays` is already a lazy-only module
+  (FOLLOWUP-23), so they leave the first load with the merge.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

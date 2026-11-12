@@ -9,7 +9,7 @@ import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
-import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
+import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN, inlineChoices } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { buildTutorContext, lessonGrade } from '@/lib/tutorContext.js';
@@ -103,11 +103,6 @@ const CHAT_INTRO = {
 /** An exercise still being solved: no answer yet, or after a first miss (the tutor withholds the answer there). */
 const openExercise = (s) => s?.phase === 'answer' || s?.phase === 'retry';
 const chatIntro = (s) => (s?.phase === 'retry' ? CHAT_INTRO.retry : openExercise(s) ? CHAT_INTRO.open : CHAT_INTRO.shown);
-/**
- * Three short maths choices (< = >, 12, 43) sit side by side in large type; anything longer (2x - 10) goes in the list,
- * since three expressions in one row overflow a phone.
- */
-const inlineChoices = (item) => item.choices.length === 3 && item.choices.every((c) => c.tex && c.tex.replace(/\s|\\[a-z]+/g, '').length <= 3);
 
 /** Under an expression's two slots: what to write for x alone, for −x and for no constant. */
 const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין מספר חופשי? כתבו $0$.`;

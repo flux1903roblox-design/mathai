@@ -46,7 +46,8 @@ const near = (a, b) => Math.abs(a - b) < 1e-9;
 // ---------------------------------------------------------------- the models' draws (spec/models.mjs, unchanged)
 /**
  * The redraw rule of every model here (models.mjs mk): the form first, by weight, so the stated shares are the real
- * ones; then clean(), and the answer never a number the question shows (`printed`, and `figNums` for a drawing). A model
+ * ones; then clean(), and the answer never a number the question shows (`printed`, and `figNums` for a drawing, each
+ * with and without its sign: the student reads the 6 of "5x − 6"). A model
  * with `degs` keeps its printed angles apart: the answer is none of the numbers, and none of 180 − n, 90 − n, 360 − n of a
  * printed angle n; a model without `degs` applies the degree rule to all its numbers when `deg` is set.
  */
@@ -56,7 +57,8 @@ function mk(m) {
     for (let i = 0; i < 200000; i += 1) {
       const p = raw(r);
       if (!p || !clean(m, p)) continue;
-      const nums = [...m.printed(p), ...(m.figNums ? m.figNums(p) : [])];
+      // every printed number as the student reads it, without its sign too: (5x − 10)° shows a 10 (stage 4's review)
+      const nums = [...m.printed(p), ...(m.figNums ? m.figNums(p) : [])].flatMap((n) => (n < 0 ? [n, -n] : [n]));
       if (m.degs) {
         if (!notGuessable(m.answer(p), nums, false)) continue;
         if (!notGuessable(m.answer(p), m.degs(p), true)) continue;
@@ -650,7 +652,8 @@ function sideX() {
     const [u, v, w] = [s1, s2, s3].sort((m, n) => m - n); if (u + v <= w) continue;
     // drawn true to scale: no needle (the shortest side at least a third of the longest), so the letters stay apart
     if (u < w / 3) continue;
-    const pr = [a, b, s1, s2, s3]; if (pr.includes(x) || (s2 - b) / a === x) continue;
+    // the numbers printed, b also without its sign (AB = 5x − 6 shows a 6)
+    const pr = [a, b, Math.abs(b), s1, s2, s3]; if (pr.includes(x) || (s2 - b) / a === x) continue;
     const set = pick(rnd, SECOND);
     // A, B, C go with set[i0], set[i1], set[i2]: the alphabet's partner of AB (set[0]set[1]) is another side
     const perm = pick(rnd, [[1, 2, 0], [2, 0, 1], [2, 1, 0], [0, 2, 1]]).map((i) => set[i]);
@@ -1133,7 +1136,7 @@ function maxAngle() {
     const choices = shuffle(['A', 'B', 'C'].map((V) => ({ tex: ang(V), ok: V === right, bug: V === right ? undefined : 'angle-at-side' })));
     const ax = (ac * ac - ab * ab + bc * bc) / (2 * bc); const ay = Math.sqrt(ac * ac - ax * ax);
     return {
-      key: `cg5m:${ab}:${bc}:${ac}`, text: `ב־$${tri('ABC')}$: $AB = ${ab}$, $BC = ${bc}$, $AC = ${ac}$. איזו זווית הגדולה ביותר?`,
+      key: `cg5m:${ab}:${bc}:${ac}`, text: `ב־$${tri('ABC')}$: $AB = ${ab}$, $BC = ${bc}$, $AC = ${ac}$. איזו זווית היא הגדולה ביותר?`,
       form: 'mc', practiceOnly: true, choices, answer: choices.findIndex((x) => x.ok),
       fig: {
         type: 'geo', label: `משולש ABC עם הצלעות AB ${ab}, BC ${bc} ו־AC ${ac}`,

@@ -457,6 +457,77 @@ test('the transform object at its busiest: congr:1 step 5 on the small phone', a
   await expectNoSidewaysScroll(page);
 });
 
+// GEOM-2.3 on the short phones (curriculum stage 4's review): every teaching step and every repair that uses the transform
+// object, at 320×568, 360×640 and 375×667 (an iPhone SE), shows every one of its buttons and בדיקה on the first
+// screen, none under the bar: the plane takes the room the step's question leaves (Transform.jsx measures it), at least
+// 200 px; the vertex chips are on screen, or (when they would take the plane under 220 px) off it but still in the live
+// region, read by a screen reader;
+// nothing scrolls sideways. The stairs and repairs are those whose teaching has the object (learn/figures.test.ts walks
+// the same steps for their letters).
+const TF_TEACH = ['transf/1', 'transf/2', 'transf/3', 'transf/4', 'congr/1', 'congr/2'];
+const TF_REPAIRS = ['congr/1/alpha-order', 'congr/2/alpha-order', 'transf/1/shift-sign', 'transf/1/shift-swap', 'transf/1/one-axis', 'transf/2/axis-not-line', 'transf/2/wrong-axis', 'transf/3/wrong-centre', 'transf/4/double-perimeter'];
+async function tfStepsFit(page, where) {
+  let seen = 0;
+  for (let i = 0; i < 16; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.kind === 'explore' && st.manip.kind === 'transform') {
+      seen += 1;
+      const what = `${where} step ${i + 1}`;
+      const plane = page.locator('.ls-explore .manip-transform .manip-canvas');
+      await expect(plane, `${what}: the plane`).toBeVisible();
+      await page.waitForTimeout(150); // the plane's size is measured once the question's maths is laid out
+      const box = await plane.boundingBox();
+      expect(box.width, `${what}: the plane is at least 200 px`).toBeGreaterThanOrEqual(199.5);
+      for (const b of await page.locator('.ls-explore .manip-transform button').all()) await expectUsable(page, b, `${what}: ${await b.getAttribute('aria-label') || await b.textContent()}`);
+      await expectUsable(page, page.locator('.lm-check'), `${what}: בדיקה`);
+      await expectNoSidewaysScroll(page);
+      // the chips: on screen, or only when the plane would be under 220 px, off it but still in the live region
+      const read = page.locator('.ls-explore .manip-transform .mp-tf-read');
+      await expect(read).toHaveAttribute('aria-live', 'polite');
+      await expect(read).toContainText('′(');
+      if (!(await page.locator('.ls-explore .manip-transform.is-tight').count())) await expect(read).toBeInViewport();
+    }
+    if (st.kind === 'explore') {
+      await page.waitForFunction(() => window.__madregotSolveStep?.forStep === window.__madregotStep);
+      await page.evaluate(() => window.__madregotSolveStep());
+      await page.locator('.lm-check').click();
+      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+    }
+    if (st.kind === 'predict') {
+      await page.locator('.ls-choice').nth(st.answer).click();
+      await page.locator('.lm-check').click();
+      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+    }
+    const next = page.locator('.sp-next');
+    if (!(await next.count()) || (await next.textContent()).includes('לדוגמה')) break;
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    await next.click();
+    const moved = await page.waitForFunction((a) => document.querySelector('.sp-progress')?.getAttribute('aria-valuenow') !== a, at, { timeout: 4000 }).then(() => true).catch(() => false);
+    if (!moved || !(await page.locator('.step-player .sp-progress').count())) break; // the repair's last step: its check comes next
+  }
+  return seen;
+}
+for (const [w, h] of [[320, 568], [360, 640], [375, 667]]) {
+  test.describe(`the transform object's teaching at ${w}×${h}`, () => {
+    test.use({ viewport: { width: w, height: h } });
+    test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone-small', 'the short phones, once'); });
+    for (const route of TF_TEACH) {
+      test(`${route}: every transform step shows all its buttons and בדיקה`, async ({ page }) => {
+        await open(page, `#/learn/${route}/A`, student(route.startsWith('transf') ? '7' : '8'));
+        expect(await tfStepsFit(page, route), `${route} has a transform step`).toBeGreaterThan(0);
+      });
+    }
+    for (const route of TF_REPAIRS) {
+      test(`the repair ${route}: its transform step shows all its buttons and בדיקה`, async ({ page }) => {
+        await open(page, `#/repair/${route}`, student(route.startsWith('transf') ? '7' : '8'));
+        await page.getByRole('button', { name: 'בואו נראה את זה' }).click();
+        expect(await tfStepsFit(page, `repair ${route}`), `${route} has a transform step`).toBeGreaterThan(0);
+      });
+    }
+  });
+}
+
 // GEOM-3 on the phones (390×844 and 320×568): a congr:3 practice proof whose order and theorem are asked (proofOrder).
 // The rows move with their buttons alone; the theorem is chosen from the keyboard alone (Enter opens the list on the
 // chip, the arrows choose, Enter keeps it); while the last row's list is open the drawing is still on screen; a wrong

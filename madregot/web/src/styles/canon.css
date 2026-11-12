@@ -638,6 +638,9 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .fg-ray.hi { stroke: var(--brand); stroke-width: 3; }
 .fg-sq.hi { fill: color-mix(in srgb, var(--brand) 22%, transparent); stroke-width: 2.5; }
 @media (max-height: 700px) { .lm-fig .figure.geo { max-height: 34dvh; } }
+/* solving together on a short screen (curriculum stage 4's review): the plane under the problem leaves room for the step's
+   question and its first choice above the bar (transf:1-3 put all three choices under it at 320 × 568) */
+@media (max-height: 700px) { .together .lm-fig .figure.coord { max-height: 30dvh; } }
 
 /* ------------------------------------------------------------------ saving the progress (DURABLE-1)
    The storage banner: one calm line at the top of Learn when nothing could be saved, with the way to Settings.

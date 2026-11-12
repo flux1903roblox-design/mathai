@@ -12,11 +12,76 @@ import { useReducedMotion } from 'motion/react';
 import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, RotateCcw, TrianglesCenterlineDashedVertical, TrianglesCenterlineDashedHorizontal } from 'lucide-react';
 import { useDrag, arrowKeys, clamp, minus } from './core.jsx';
 import { gridGeometry, Plane } from './grid.jsx';
+import { tfLetters } from './tfLayout.js';
 import { Tex } from '../MathText.jsx';
 import {
   TF_RANGE, tfSlide, tfInside, tfMoves, tfStart, tfSame, tfSameSet, tfPt, tfShapeName, tfSlideWords, mirrorTo, turnWords,
 } from '@/content/transform.js';
 import '@/styles/lazy/transform.css'; // the object's own rules, loaded with it (STUDENT-15)
+
+/**
+ * In a teaching step (the step player, whose bar with בדיקה stays at the bottom of the screen) the plane takes the
+ * height left between the step's question and that bar, after its readout and its rows of buttons: so every button
+ * and בדיקה are on the first screen, whatever the question's length and the phone's height (GEOM-2.3). Measured, not
+ * guessed: the question may run to two lines or four. The plane wants FIT_WANT (220 px, a grid step of about 15 px,
+ * GEOM-2's floor on the small phone): when the line of vertex chips would take it below that, the chips leave the screen
+ * (the copy's letters are on the plane; a screen reader still hears them, as the copy moves) and the plane keeps that
+ * room. Never smaller than FIT_MIN nor larger than the plane's own 440 px. In practice the lesson's stage already shares
+ * its fixed height among the plane, the readout and the buttons (app.css).
+ */
+export const FIT_WANT = 220;
+export const FIT_MIN = 200;
+const FIT_MAX = 440;
+const FIT_GAP = 6; // between the last row of buttons and the bar
+const CHIPS = 30; // the line of chips with its gap, until it has been measured
+/**
+ * The plane's size and whether the chips stay on screen, from the boxes on screen: the room from the plane's top (at
+ * scroll 0) down to the bar, less what is under it (`below`: the buttons, and a refused move's sentence while it shows
+ * in the chips' place) and the chips' line (`chips`), which a sentence replaces.
+ */
+export function fitSize({ planeTop, below, chips, barTop, refusing = false }) {
+  const room = Math.floor(barTop - planeTop - below - FIT_GAP);
+  const tight = room - chips < FIT_WANT;
+  return { size: Math.max(FIT_MIN, Math.min(FIT_MAX, tight || refusing ? room : room - chips)), tight };
+}
+function useStepFit(rootRef, planeRef, readRef) {
+  const [fit, setFit] = useState(null);
+  useLayoutEffect(() => {
+    const root = rootRef.current; const plane = planeRef.current;
+    const player = root?.closest('.step-player');
+    if (!player || !plane) return undefined;
+    const bar = player.querySelector(':scope > .lm-actions');
+    const frame = root.closest('.lm-canvas') || root;
+    let chips = CHIPS;
+    const now = () => {
+      const p = plane.getBoundingClientRect();
+      // the bar without the sheet that slides in above it after a check: the plane does not jump when it opens
+      const barH = bar ? bar.offsetHeight - (bar.querySelector('.bl-result')?.offsetHeight || 0) : 0;
+      // on a tall screen the panel is pushed to the bottom of the step (margin-top: auto, v4.css): that free space is
+      // room too, so the plane's top is taken as if the panel sat right under the question (and a smaller plane, which
+      // would sit lower, never makes itself smaller again)
+      const free = frame === root ? 0 : parseFloat(getComputedStyle(frame).marginTop) || 0;
+      // the chips' line, when it is on screen: its height and the gap above it (what leaves when it leaves); a refused
+      // move's sentence in its place stays in what is under the plane
+      const read = readRef.current;
+      const refusing = !!read?.querySelector('.mp-tf-refuse');
+      const shown = read && !refusing && getComputedStyle(read).position !== 'absolute' ? read.offsetHeight + (parseFloat(getComputedStyle(root).rowGap) || 0) : 0;
+      if (shown) chips = shown;
+      const next = fitSize({ planeTop: p.top + window.scrollY - free, below: frame.getBoundingClientRect().bottom - p.bottom - shown, chips, barTop: window.innerHeight - barH, refusing });
+      setFit((f) => (f && f.size === next.size && f.tight === next.tight ? f : next));
+    };
+    let raf = 0;
+    const measure = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(now); };
+    now(); // before the first paint: the plane never shows at a size it then leaves
+    window.addEventListener('resize', measure);
+    // the question's lines (its maths is laid out a moment later), the readout and the rows of buttons
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    const card = root.closest('.lm-card');
+    if (ro) { if (card) ro.observe(card); ro.observe(root); }
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); ro?.disconnect(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return fit;
+}
 
 const GLIDE = 200; // ms: a slide glides, a flip folds, a turn sweeps; under reduced motion the copy jumps
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'; // --ease-smooth-out
@@ -31,7 +96,6 @@ function inside([px, py], pts) {
   }
   return on;
 }
-const centroid = (pts) => [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
 
 /** What a move did, in a sentence for the live region. */
 function moveSentence(mv) {
@@ -95,6 +159,8 @@ export default function Transform({ m, value, onChange, locked, reveal, good, an
   const [say, setSay] = useState(''); // the live sentence after a move
   const [refused, setRefused] = useState(null); // why the last move was not done, until the next one
   const [made, setMade] = useState(NONE); // the moves made since the start (a check's drawing counts them)
+  const rootRef = useRef(null);
+  const readRef = useRef(null);
 
   // a new exercise, or the copy back at its start (התחלה מחדש, or set from outside): nothing made yet
   useEffect(() => { setMade(NONE); setRefused(null); setSay(''); }, [m]);
@@ -177,24 +243,28 @@ export default function Transform({ m, value, onChange, locked, reveal, good, an
       if (dx || dy) { setSay(`העותק זז ${tfSlideWords(dx, dy)}`); setMade((d) => ({ ...d, dx: d.dx + dx, dy: d.dy + dy })); onSay?.({ move: 'slide' }); }
     }
   }, locked || !canDrag);
+  const fit = useStepFit(rootRef, ref, readRef);
 
   const name = `${tfShapeName(names.length)} ${names.join('')}`;
   const label = test ? `${name}. ${movesWords(made)}` : `${name}. העותק: ${names.map((n, i) => `${n}′ ב־${tfPt(cur[i])}`).join(', ')}`;
   const ok = answer && (answer.match === 'set' ? tfSameSet(cur, answer.pts) : tfSame(cur, answer.pts));
 
-  // letters sit outside the shape, away from its middle; a letter is left out where the copy has a vertex (two letters
-  // on one vertex cannot be read): the original's come back when the copy moves off it
+  // letters sit outside the shape, away from its middle, each where no other letter, corner, number or O is
+  // (tfLayout.js); a letter of the original or the target is left out where the copy has a vertex (two letters on one
+  // vertex cannot be read): they come back when the copy moves off it
   const taken = new Set(cur.map((p) => p.join(',')));
-  const letters = (pts, labels, cls, skip) => {
-    const mid = centroid(pts);
-    return pts.map((p, i) => {
-      if (!labels?.[i] || (skip && taken.has(p.join(',')))) return null;
-      const vx = p[0] - mid[0]; const vy = p[1] - mid[1]; const len = Math.hypot(vx, vy) || 1;
-      return <text key={`${cls}${i}`} x={X(p[0]) + (vx / len) * 15} y={Y(p[1]) - (vy / len) * 15 + 5} textAnchor="middle" className={clsx('mp-tf-letter', cls)}>{labels[i]}</text>;
-    });
-  };
-  const poly = (pts) => pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ');
   const primed = names.map((n) => `${n}′`);
+  const showGhost = !!(reveal && answer && !ok);
+  const layout = tfLetters(g, [
+    ...(m.target ? [{ key: 'target', pts: m.target.pts, labels: m.target.names, hide: taken }] : []),
+    { key: 'orig', pts: m.shape.pts, labels: names, hide: taken },
+    { key: 'copy', pts: cur, labels: primed },
+    // the shown answer's letters, but not where the copy's same letter already is
+    ...(showGhost ? [{ key: 'ghost', pts: answer.pts, labels: answer.match === 'set' ? null : primed, hideIdx: new Set(cur.map((p, i) => (tfSame([p], [answer.pts[i]]) ? i : -1))) }] : []),
+  ], m.moves?.turns?.centre || null);
+  const letters = (key, cls = key) => layout.filter((l) => l.group === key)
+    .map((l) => <text key={`${key}${l.i}`} x={l.x} y={l.y + 5} textAnchor="middle" className={clsx('mp-tf-letter', cls)}>{l.text}</text>);
+  const poly = (pts) => pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ');
   const turns = m.moves?.turns;
   const lineEnd = range + 0.5;
 
@@ -219,10 +289,11 @@ export default function Transform({ m, value, onChange, locked, reveal, good, an
     return <button key={mv.id} type="button" className="step-btn mp-tf-btn" onClick={() => act(mv)} disabled={locked} aria-label={b.aria}>{b.body}</button>;
   });
   // at most two rows: the arrows with התחלה מחדש at the row's end, then the flips and the turns
-  const rows = canDrag ? [[...arrowRow, resetBtn], otherRow] : otherRow.length <= 3 ? [[...otherRow, resetBtn]] : [otherRow, [resetBtn]];
+  // (a slide-only item has no second row: no empty row takes a gap from the plane)
+  const rows = (canDrag ? [[...arrowRow, resetBtn], otherRow] : otherRow.length <= 3 ? [[...otherRow, resetBtn]] : [otherRow, [resetBtn]]).filter((r) => r.length);
 
   return (
-    <div className={clsx('manip', 'manip-transform', good && 'good')}>
+    <div ref={rootRef} className={clsx('manip', 'manip-transform', good && 'good', fit?.tight && 'is-tight')} style={fit ? { '--tf-fit': `${fit.size}px` } : undefined}>
       <svg ref={ref} {...drag} viewBox={`0 0 ${g.size} ${g.size}`} className={clsx('manip-canvas', canDrag && !locked && 'can-drag')} dir="ltr"
         tabIndex={locked ? -1 : 0} role="application" aria-roledescription="מערכת צירים" aria-label={label}
         onKeyDown={canDrag ? arrowKeys({ left: () => act(byId.left), right: () => act(byId.right), up: () => act(byId.up), down: () => act(byId.down) }) : undefined}>
@@ -242,41 +313,36 @@ export default function Transform({ m, value, onChange, locked, reveal, good, an
           {m.target && (
             <g className="mp-tf-target">
               <polygon points={poly(m.target.pts)} />
-              {letters(m.target.pts, m.target.names, 'target', true)}
+              {letters('target')}
             </g>
           )}
           <g className="mp-tf-orig">
             <polygon points={poly(m.shape.pts)} />
-            {letters(m.shape.pts, names, 'orig', true)}
+            {letters('orig')}
           </g>
           {/* the hint: which vertex went where (the letters match, the answer is not shown) */}
           {hint && !tfSame(cur, m.shape.pts) && m.shape.pts.map((p, i) => <line key={`h${i}`} x1={X(p[0])} y1={Y(p[1])} x2={X(cur[i][0])} y2={Y(cur[i][1])} className="mp-tf-link" />)}
-          {reveal && answer && !ok && (
+          {showGhost && (
             <g className="mp-tf-ghost">
               <polygon points={poly(answer.pts)} />
-              {letters(answer.pts, answer.match === 'set' ? null : primed, 'ghost')}
+              {letters('ghost')}
             </g>
           )}
-          {turns && (() => {
-            // the letter O beside its dot, on the side away from both axes, so a centre such as (−1, 1) is never read as
-            // the origin; the origin's own O sits up and to the left, where no axis number is
-            const [ox, oy] = turns.centre; const right = ox > 0; const up = oy >= 0;
-            return (
-              <g className="mp-tf-centre">
-                <circle cx={X(ox)} cy={Y(oy)} r="4.5" />
-                <text x={X(ox) + (right ? 8 : -8)} y={Y(oy) + (up ? -8 : 19)} textAnchor={right ? 'start' : 'end'} className="mp-tf-letter">O</text>
-              </g>
-            );
-          })()}
+          {turns && (
+            <g className="mp-tf-centre">
+              <circle cx={X(turns.centre[0])} cy={Y(turns.centre[1])} r="4.5" />
+              {letters('centre', '')}
+            </g>
+          )}
           <g ref={copyRef} className="mp-tf-copy">
             <polygon points={poly(cur)} />
             {cur.map(([x, y], i) => <circle key={`v${i}`} cx={X(x)} cy={Y(y)} r="5" />)}
-            {letters(cur, primed, 'copy')}
+            {letters('copy')}
           </g>
         </Plane>
       </svg>
       {(!test || refused) && (
-        <div className="manip-readout mp-tf-read" aria-live="polite">
+        <div ref={readRef} className="manip-readout mp-tf-read" aria-live="polite">
           {refused ? <span className="mp-tf-refuse" aria-hidden="true">{refused}</span>
             : names.map((n, i) => <bdi key={n} dir="ltr" className="mp-tf-chip">{`${n}′(${minus(cur[i][0])}, ${minus(cur[i][1])})`}</bdi>)}
         </div>

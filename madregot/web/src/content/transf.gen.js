@@ -423,16 +423,20 @@ function mirrorCopy() {
     };
   }
 }
-/** The shapes whose axes of symmetry are counted: name, count, a drawing (and the count with the diagonals added). */
-const SYM_SHAPES = {
+/**
+ * The shapes whose axes of symmetry are counted: name, count, a drawing (and the count with the diagonals added). A
+ * class with a special case that has more axes is named without it (a square is a rectangle, an equilateral triangle
+ * is isosceles, sim:1 says so): one shape, one count (stage 4's review).
+ */
+export const SYM_SHAPES = {
   square: { name: 'ריבוע', n: 4, pts: [[0, 0], [3, 0], [3, 3], [0, 3]] },
-  rectangle: { name: 'מלבן', n: 2, pts: [[0, 0], [5, 0], [5, 3], [0, 3]], diag: 4 },
-  rhombus: { name: 'מעוין', n: 2, pts: [[0, 0], [3, 2], [0, 4], [-3, 2]] },
-  equilateral: { name: 'משולש שווה צלעות', n: 3, pts: [[0, 0], [4, 0], [2, 2 * Math.sqrt(3)]] },
-  isosceles: { name: 'משולש שווה־שוקיים', n: 1, pts: [[0, 0], [4, 0], [2, 4]] },
-  kite: { name: 'דלתון', n: 1, pts: [[0, 0], [2, 1.5], [0, 5], [-2, 1.5]] },
+  rectangle: { name: 'מלבן שאינו ריבוע', n: 2, pts: [[0, 0], [5, 0], [5, 3], [0, 3]], diag: 4 },
+  rhombus: { name: 'מעוין שאינו ריבוע', n: 2, pts: [[0, 0], [3, 2], [0, 4], [-3, 2]] },
+  equilateral: { name: 'משולש שווה־צלעות', n: 3, pts: [[0, 0], [4, 0], [2, 2 * Math.sqrt(3)]] },
+  isosceles: { name: 'משולש שווה־שוקיים שאינו שווה־צלעות', n: 1, pts: [[0, 0], [4, 0], [2, 4]] },
+  kite: { name: 'דלתון שאינו מעוין', n: 1, pts: [[0, 0], [2, 1.5], [0, 5], [-2, 1.5]] },
   hexagon: { name: 'משושה משוכלל', n: 6, pts: [0, 60, 120, 180, 240, 300].map((a) => [2 * Math.cos((a * Math.PI) / 180), 2 * Math.sin((a * Math.PI) / 180)]) },
-  parallelogram: { name: 'מקבילית', n: 0, pts: [[0, 0], [4, 0], [5.5, 2.5], [1.5, 2.5]], diag: 2 },
+  parallelogram: { name: 'מקבילית שאינה מלבן ואינה מעוין', n: 0, pts: [[0, 0], [4, 0], [5.5, 2.5], [1.5, 2.5]], diag: 2 },
 };
 const shapeGeo = (sh, label) => ({
   type: 'geo', label,
@@ -447,7 +451,7 @@ function symAxes() {
     key: `tf2s:${id}`, text: `כמה צירי סימטריה יש ל${sh.name}?`, form: 'num', practiceOnly: true, answer: sh.n,
     fig: shapeGeo(sh, sh.name),
     hint: 'ציר סימטריה הוא ישר שאם מקפלים לאורכו, שני החלקים נופלים זה על זה בדיוק.',
-    solution: [sh.n ? `ל${sh.name} ${sh.n === 1 ? 'ציר סימטריה אחד' : `$${sh.n}$ צירי סימטריה`}.` : `למקבילית אין ציר סימטריה: קיפול לאורך אלכסון או דרך אמצעי הצלעות לא מניח חצי על חצי.`,
+    solution: [sh.n ? `ל${sh.name} ${sh.n === 1 ? 'ציר סימטריה אחד' : `$${sh.n}$ צירי סימטריה`}.` : `ל${sh.name} אין ציר סימטריה: קיפול לאורך אלכסון או דרך אמצעי הצלעות לא מניח חצי על חצי.`,
       ...(sh.diag ? ['האלכסונים מחלקים אותה לשני חלקים שווים, אבל קיפול לאורכם לא מניח חלק על חלק.'] : [])],
     diag: (u) => (sh.diag != null && u === sh.diag ? 'diagonal-axis' : null),
   };
