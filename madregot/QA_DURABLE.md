@@ -1002,3 +1002,56 @@ choice behind a question asked twice; and the store still carried the retired pl
   and phone-small: the vault after the first questions, the line, the code, Settings stops it; "delete all" still
   deletes it; a class student is not on this path).
 
+
+## The key flows against the real Worker (COUNCIL2-22)
+
+The council's engineering skeptic: the e2e ran only against an 896-line fake server, so nothing proved the app and the
+Worker agree. Now the flows that move data or money run against the Worker itself as well.
+
+- **`worker/scripts/serve-local.mjs`**: the Worker's own fetch handler (`src/index.js`) over HTTP on 127.0.0.1, on a
+  node:sqlite database built from `worker/migrations/` in order (as `wrangler d1 migrations apply` builds a real one),
+  with `test/helpers.js`'s test vars and stubs: Claude answers with the fake's own canned words (chat and explanation),
+  the email service records the message, payment is the Worker's built-in test provider (its page is
+  `/api/billing/test-pay/:id`), and a fetch to any other address throws. No `.dev.vars`, no key, no secret: the escrow
+  key's `VAULT_SECRET` is the test value the Worker's own tests use. It also serves the built app the way the deployed
+  Worker does (one address, `VITE_API_URL="/"`). Each test gets a database of its own (`/t/<tenant>/…`); the test-only
+  routes (`/__contract/sql` SELECT only, `/emails`, `/escrows` unsealed) exist only in this script.
+  `worker/test/serve-local.test.js` checks it: the migrations' tables, tenants apart, the email recorded and its code
+  signing in, the test routes read only.
+- **The `contract` project** (`web/e2e/playwright.config.js`, phone 390×844, port 4423 or `CONTRACT_PORT`) builds
+  `dist-contract` and starts serve-local as its web server, and runs the tests tagged `@contract`. Each of them runs in
+  the `phone` project too, against the fake: one test body, two backends (`web/e2e/contract.js`; `fakeServer()` returns
+  the Worker's tenant in the contract project, and the helpers `vaultRow`, `vaultCount`, `tombstoned`, `escrowsOf`,
+  `answersOf`, `emailedCode`, `joinedStudent`, `classFor` and `familyDevice` read or set up either backend).
+  - `class-sync.spec.js`: offline for three lessons, the page closed, back online, a reply lost: every answer stored once.
+  - `restore.spec.js`: a code made in Settings, a lesson pushed (compare-and-swap), the code stopped (tombstone); the lost
+    phone restored from the code and a lesson on it reaching the first device; the backup on by default after the first
+    questions, its line, Settings stopping it; "delete all" deleting that vault; a class student's code kept by the class
+    (escrow) and a fresh phone back with the class code and the PIN, then the switch off.
+  - `durable.spec.js`: "delete all" with a server asks the Worker first (`/api/me/forget` 200), then clears the device.
+  - `subscription.spec.js`: the free taste's allowance as the Worker counts it; a parent signing in with the emailed
+    code, paying on the test provider's page, and linking the child's device, which then asks as the family.
+  - `tutor.spec.js`: the context the lesson sends with an explanation and a chat, on a family plan bought and linked on
+    the Worker.
+- **Where the fake answered differently, the Worker was the truth:**
+  1. *Payment's way back.* The fake confirms an order a few polls after the return ("מאשרים את התשלום…" first); the
+     Worker's test provider settles it inside the payment page's own request, so the page comes back with the plan
+     active. The transient line is now checked against the fake only (a real company's webhook can come either way).
+  2. *Sign-in codes.* The fake takes any code (`123456`); the Worker emails a real one. The test reads it from the
+     email stub (the wrong-code message and its "4 tries left" were the same).
+  3. *Link codes, class codes, tokens and ids.* The fake's are fixed (`K7M4QX`, `K7Q2MD`, `stu_s1_1`, `s1`); the
+     Worker's are random. The tests read the code the child's screen shows, make the class through the Worker's API, and
+     compare tokens and ids with the profile the device saved.
+  4. *Where the server keeps things.* The fake keys a vault by its lookup token and keeps a kept code in clear; the
+     Worker keys it by the token's SHA-256 and seals the code with `VAULT_SECRET`. The tests read either through
+     `contract.js`.
+  5. *A lost reply.* The fake has a switch (`st.loseProgressReplies`); against the Worker the reply is lost at the
+     network (the request is sent on with `route.fetch()`, then the browser hears a dropped connection), which is closer
+     to what a phone sees.
+  6. *A fresh app with a server* saves what the server said about the tutor (`ai.lastTier`) as soon as it opens, so after
+     "delete all" the key comes back with no profile and no progress; with no server it stays away. The test checks
+     "nothing of the progress" with a server and "nothing at all" without.
+  7. *Seeding a device.* A running app with a server writes its state the moment the server answers, so `helpers.open()`
+     seeds from a file of the app's address that is not the app (`theme-boot.js`) in the contract project.
+- **Run once here** (12 November 2026, this shared 4-CPU machine): the contract project, 12 tests, and the same 12
+  in the phone project with the rest of their files; the numbers are in the commit message.

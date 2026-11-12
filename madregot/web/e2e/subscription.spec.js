@@ -7,6 +7,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { NOW, student, answer, proceed, appReady } from './helpers.js';
 import { API, PAY, TOKEN, livePlan, fakeServer } from './fakeServer.js';
+import { emailedCode } from './contract.js';
 
 // a price, or a push to buy ('קנו' as a word, not inside 'תקנון')
 const FORBIDDEN = /₪|(?<![\u0590-\u05FF])קנו(?![\u0590-\u05FF])|שדרגו/;
@@ -58,22 +59,28 @@ async function shot(page, name) {
   await page.screenshot({ path: `${dir}/${test.info().project.name}-${name}.png`, fullPage: false });
 }
 
-/** Sign in on the parents page with the emailed code (a wrong code first, when asked). */
-async function signIn(page, { wrongFirst = false } = {}) {
+/**
+ * Sign in on the parents page with the emailed code (a wrong code first, when asked). `srv`: the backend (the fake takes
+ * any code; the real Worker's code is read from its email stub, contract.js).
+ */
+async function signIn(page, { wrongFirst = false, srv = null } = {}) {
   await page.getByLabel('כתובת המייל שלכם').fill('parent@example.test');
   await page.getByRole('button', { name: 'שליחת קוד' }).click();
   await expect(page.getByText('שלחנו קוד בן 6 ספרות אל')).toBeVisible();
+  const code = srv ? await emailedCode(srv, 'parent@example.test') : '123456';
   if (wrongFirst) {
-    await page.getByLabel('הקוד מהמייל').fill('111111');
+    await page.getByLabel('הקוד מהמייל').fill(code === '111111' ? '222222' : '111111');
     await expect(page.getByRole('alert')).toContainText('הקוד לא נכון. נשארו עוד 4 ניסיונות.');
   }
-  await page.getByLabel('הקוד מהמייל').fill('123456');
+  await page.getByLabel('הקוד מהמייל').fill(code);
 }
 
 test.describe('the smart tutor', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
 
-  test('the free taste: two questions, then the chat rests calmly and Madi takes over', async ({ page }) => {
+  // @contract (COUNCIL2-22): the tutor's allowance as the real Worker counts it (GET /api/ai/status, X-AI-Left, the
+  // refusal after the second question), with Claude stubbed
+  test('the free taste: two questions, then the chat rests calmly and Madi takes over', { tag: '@contract' }, async ({ page }) => {
     const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/assistant', withServer());
     await expect(page.getByText('היום אפשר לשאול את העוזר החכם עוד 2 שאלות.')).toBeVisible();
@@ -219,9 +226,12 @@ test.describe('the smart tutor', () => {
     expect(aiCalls(log).at(-1).headers.authorization).toBe('Bearer stu_token_1');
   });
 
-  test('a parent on their own phone signs in, pays and links the child\'s device, which then asks as the family', async ({ browser, page }) => {
+  // @contract (COUNCIL2-22): against the real Worker the code is the one it emailed, the payment page is the test
+  // provider's own (/api/billing/test-pay), and the link code is the one the child's device shows
+  test('a parent on their own phone signs in, pays and links the child\'s device, which then asks as the family', { tag: '@contract' }, async ({ browser, page }) => {
     const base = baseOf();
-    const { log, attach } = await fakeServer(page.context(), { parentOk: true }, base);
+    const srv = await fakeServer(page.context(), { parentOk: true }, base);
+    const { log, attach } = srv;
     // the child's device: settings → the family plan → a QR code and the code, no price
     await open(page, '#/settings', withServer());
     await page.locator('#ai-title').scrollIntoViewIfNeeded();
@@ -229,7 +239,9 @@ test.describe('the smart tutor', () => {
     await page.getByRole('link', { name: 'חיבור למנוי משפחתי' }).click();
     await expect(page.getByRole('heading', { name: 'המסך הזה בשביל ההורים' })).toBeVisible();
     await expect(page.getByRole('img', { name: 'קוד QR לטלפון של ההורים' })).toBeVisible();
-    await expect(page.locator('.handoff-code')).toHaveText('K7M4QX');
+    await expect(page.locator('.handoff-code')).toHaveText(/^[A-HJ-KMNP-Z2-9]{6}$/);
+    const linkCode = (await page.locator('.handoff-code').textContent()).trim();
+    if (!srv.contract) expect(linkCode).toBe('K7M4QX');
     await expect(page.getByText('מחכים להורים…')).toBeVisible();
     expect(await page.locator('body').innerText()).not.toMatch(FORBIDDEN);
     await shot(page, 'handoff');
@@ -237,11 +249,11 @@ test.describe('the smart tutor', () => {
     const phone = await browser.newContext({ baseURL: base, viewport: page.viewportSize(), isMobile: true, hasTouch: true, locale: 'he-IL', reducedMotion: 'reduce' });
     await attach(phone); // the same server answers both devices
     const pp = await phone.newPage();
-    await open(pp, '#/parents/link?c=K7M4QX', parentPhone());
+    await open(pp, `#/parents/link?c=${linkCode}`, parentPhone());
     await expect(pp.getByRole('heading', { name: 'העוזר החכם של מדרגות · להורים' })).toBeVisible();
     await expect(pp.locator('.parents-price')).toHaveText('₪29.90 לחודש, כולל מע״מאו ₪249 לשנה, כולל מע״מ');
     await shot(pp, 'parents-info');
-    await signIn(pp, { wrongFirst: true });
+    await signIn(pp, { wrongFirst: true, srv: srv.contract ? srv : null });
     await expect(pp.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible();
     await expect(pp.getByText('אחרי התשלום אפשר יהיה לחבר את המכשיר של הילד עם הקוד')).toBeVisible();
     const saved = await pp.evaluate(() => JSON.parse(localStorage.getItem('madregot-parent')));
@@ -253,24 +265,28 @@ test.describe('the smart tutor', () => {
     await pp.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
     await pp.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
     await pp.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
-    await pp.waitForURL(`${PAY}/**`);
+    // the payment company's page: the fake's, or the Worker's own test page (BILLING_PROVIDER = "test")
+    await pp.waitForURL(srv.contract ? /\/api\/billing\/test-pay\/[a-f0-9]{16}$/ : `${PAY}/**`);
     const checkout = log.find((r) => r.path === '/api/billing/checkout');
     expect(checkout.body).toMatchObject({ plan: 'family_month', adult: true, terms: '2026-11' });
     expect(checkout.body.amountAgorot).toBeUndefined();
     // back from the payment page at the plain return address: the order is polled until the plan is active
-    await pp.getByRole('link', { name: 'חזרה לאתר' }).click();
-    await expect(pp.getByText('מאשרים את התשלום…')).toBeVisible();
+    if (srv.contract) await pp.getByRole('button', { name: 'תשלום מוצלח' }).click();
+    else await pp.getByRole('link', { name: 'חזרה לאתר' }).click();
+    // the fake confirms the order a few polls later ("מאשרים את התשלום…" first); the Worker's test provider settles it
+    // in the payment page's own request, so the page comes back with the plan already active (QA_DURABLE.md)
+    if (!srv.contract) await expect(pp.getByText('מאשרים את התשלום…')).toBeVisible();
     await expect(pp.getByText('המנוי פעיל', { exact: true })).toBeVisible({ timeout: 15_000 });
     // the code from the QR waits, filled in, for the parent: a link alone never attaches a device to the plan
     const linkCard = pp.locator('section', { has: pp.getByRole('heading', { name: 'חיבור המכשיר של הילד' }) });
-    await expect(linkCard.getByLabel('הקוד מהמכשיר של הילד')).toHaveValue('K7M4QX');
+    await expect(linkCard.getByLabel('הקוד מהמכשיר של הילד')).toHaveValue(linkCode);
     await expect(linkCard.getByText('המכשיר שמציג את הקוד הזה יקבל את העוזר החכם דרך המנוי שלכם.')).toBeVisible();
     expect(log.find((r) => r.path === '/api/family/link/claim')).toBeUndefined();
     await linkCard.getByLabel('איך לקרוא למכשיר? (לא חובה. בלי שם הילד, למשל: הטאבלט)').fill('הטאבלט הגדול');
     await linkCard.getByRole('button', { name: 'חיבור המכשיר' }).click();
     await expect(pp.getByText('קיבלנו את הקוד. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.')).toBeVisible();
     await expect(pp.getByText('המנוי פעיל', { exact: true })).toHaveCount(0); // one line at a time: the newer replaced it
-    expect(log.find((r) => r.path === '/api/family/link/claim').body).toEqual({ code: 'K7M4QX', label: 'הטאבלט הגדול' });
+    expect(log.find((r) => r.path === '/api/family/link/claim').body).toEqual({ code: linkCode, label: 'הטאבלט הגדול' });
     await shot(pp, 'parents-active');
     // the child's device collects its token by itself, then asks as the family
     await expect(page.getByText('העוזר החכם פתוח! אפשר לשאול אותו על כל תרגיל.')).toBeVisible({ timeout: 15_000 });

@@ -73,11 +73,18 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: madregot/web/package-lock.json
+          cache-dependency-path: |
+            madregot/web/package-lock.json
+            madregot/worker/package-lock.json
       - run: npm ci
+      # the contract project runs the Worker itself (worker/scripts/serve-local.mjs): its packages too
+      - run: npm ci
+        working-directory: madregot/worker
       - run: npx playwright install --with-deps chromium
-      # The phone project runs every spec file; tests tagged @perf stay out of the merge gate.
-      - run: npx playwright test -c e2e/playwright.config.js --project=phone --grep-invert @perf
+      # The phone project runs every spec file against the fake server; the contract project (COUNCIL2-22) runs the tests
+      # tagged @contract against the real Worker on node:sqlite, with Claude, email and payment stubbed (no secret).
+      # Tests tagged @perf stay out of the merge gate.
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone --project=contract --grep-invert @perf
         env:
           CI: '1'
       - if: failure()

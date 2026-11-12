@@ -1,6 +1,7 @@
 // Shared helpers for the end-to-end tests.
 import { expect } from '@playwright/test';
 import { toFrac } from '../src/content/util.js';
+import { inContract } from './contract.js';
 
 /** A fixed Thursday, so streaks, the week strip and daily quests are the same on every run. */
 export const NOW = new Date('2026-11-05T10:00:00');
@@ -80,7 +81,9 @@ export const DURABLE_DB = 'madregot-durable';
  */
 export async function open(page, route, state = null, seed = '424242') {
   await page.clock.setFixedTime(NOW);
-  await page.goto('./');
+  // the seed is written from a file of the app's address that is not the app: against the real Worker (COUNCIL2-22) a
+  // running app answers the server at once and would write its own state over the seed before the reload
+  await page.goto(inContract() ? './theme-boot.js' : './');
   await page.evaluate(async ([s, sd, db]) => {
     localStorage.clear();
     localStorage.setItem('madregot-debug', '1');

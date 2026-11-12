@@ -191,7 +191,8 @@ npm run test:e2e --prefix madregot/web   # בדפדפן (Playwright): מסך ה�
 
 - **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`), `npx vitest run`, ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs` ואת `scripts/check-budget.mjs`: אם ההורדה הראשונה של האפליקציה גדולה מהתקציב שב־`web/budget.json`, הבנייה נכשלת). התקציב רק יורד: אם אחד מהסכומים `bootJsGzipKB`, `cssGzipKB`, `anyChunkGzipKB` או `precacheMB` גבוה ממה שהיה ב־`web/budget.json` בקומיט הקודם (`HEAD~1`), הבנייה נכשלת. לכן הבדיקה מורידה שני קומיטים (`fetch-depth: 2`); בלי קומיט קודם היא נכשלת ב־CI ורק מזהירה במחשב מקומי.
 - **worker**: `npm ci` ו־`npm test`, כל בדיקות השרת, כולל בדיקות הבקשות המקבילות (קוד אישי, סנכרון התקדמות, תשלום), ו־`test/config.test.js`: הקורא של wrangler עצמו קורא את `worker/wrangler.toml` (ברמה העליונה וב־`env.staging`), כך שקובץ ש־wrangler לא יסכים להעלות נכשל כבר כאן.
-- **e2e**: אחרי ש־web עובר. מתקין Chromium ומריץ את כל קובצי Playwright בפרויקט `phone` (390×844), בלי בדיקות שמסומנות `@perf`. אם משהו נכשל, תיקיית `test-results` נשמרת בריצה בשם `playwright-report`.
+- **e2e**: אחרי ש־web עובר. מתקין Chromium ומריץ את כל קובצי Playwright בפרויקט `phone` (390×844) מול השרת המדומה (`e2e/fakeServer.js`), ואת הבדיקות שמסומנות `@contract` גם בפרויקט `contract`: מול ה־Worker האמיתי (`worker/scripts/serve-local.mjs`, מסד נתונים בזיכרון שנבנה מה־migrations, ו־Claude, המייל והתשלום מדומים כמו בבדיקות השרת, בלי שום סוד). כך זרימות הכיתה, קוד הגיבוי, העותק שהכיתה שומרת, מכסת העוזר והתשלום נבדקות מול השרת עצמו (COUNCIL2-22). בדיקות שמסומנות `@perf` לא רצות כאן. אם משהו נכשל, תיקיית `test-results` נשמרת בריצה בשם `playwright-report`.
+  מקומית, בתיקייה `web`: `npx playwright test -c e2e/playwright.config.js --project=contract` (בונה את האפליקציה ל־`dist-contract` ומפעיל את השרת על פורט 4423, או `CONTRACT_PORT`).
 
 Node 22, ו־npm שומר את החבילות במטמון לפי `package-lock.json` של כל תיקייה. אף שלב לא צריך סודות.
 

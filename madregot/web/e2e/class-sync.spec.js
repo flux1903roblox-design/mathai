@@ -1,15 +1,18 @@
 // A class student's answers survive having no network (DURABLE-7): they wait on the device, the page can be closed,
 // and when it opens again online the class server gets every answer exactly once, even when a reply is lost on the way.
+// Tagged @contract (COUNCIL2-22): it runs against the fake server (phone) and against the real Worker (contract), where
+// the class is made and the student joined through the Worker's own API, and the lost reply is lost at the network.
 import { test, expect } from '@playwright/test';
 import { NOW, student, open, item, answer, proceedToNext, leaveEndScreens, saved } from './helpers.js';
 import { API, fakeServer } from './fakeServer.js';
+import { joinedStudent, answersOf } from './contract.js';
 
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
 // seeded as a v3 save, as subscription.spec.js does, so the saved server address is kept
-const classStudent = () => ({
+const classStudent = (j) => ({
   ...student('7', {
     ai: { mode: 'server', apiUrl: API, key: '', device: '' },
-    profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' },
+    profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: j.classCode, className: j.className, token: j.token, studentId: j.studentId },
     lastTopic: 'signed',
   }),
   version: 3,
@@ -26,6 +29,20 @@ async function network(context) {
   return async (on) => { offline = !on; await context.setOffline(!on); };
 }
 const outboxIds = async (page) => (await saved(page)).outbox.map((e) => e.id);
+/**
+ * The next reply of `path` is lost on its way back: the request reaches the server, which stores it, and the browser
+ * hears a dropped connection (the real Worker; the fake has its own switch, st.loseProgressReplies).
+ */
+async function loseNextReply(context, path) {
+  let lost = false;
+  await context.route(`${API}${path}`, async (route) => {
+    if (lost) return route.fallback();
+    lost = true;
+    await route.fetch();
+    return route.abort('connectionreset');
+  });
+  return () => lost;
+}
 
 /** Finish one practice lesson of the first stair with right answers, then go back to the map (all inside the app). */
 async function lesson(page) {
@@ -43,14 +60,16 @@ async function lesson(page) {
 test.describe('class progress sync', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
 
-  test('offline for three lessons, the page closed, opened again online: every answer reaches the class once', async ({ page }) => {
+  test('offline for three lessons, the page closed, opened again online: every answer reaches the class once', { tag: '@contract' }, async ({ page }) => {
     const context = page.context();
-    const { st, log } = await fakeServer(context, {}, baseOf());
+    const srv = await fakeServer(context, {}, baseOf());
+    const { log } = srv;
+    const joined = await joinedStudent(srv);
     const online = await network(context);
     const loaded = (re) => new Promise((done) => { page.on('response', (r) => { if (re.test(r.url()) && r.ok()) done(); }); });
     // the topic's teaching (learn/content/signed.ts) and its exercise generators (content/grade7.js, COUNCIL2-14)
     const signedLoaded = Promise.all([loaded(/\/signed-[\w-]+\.js$/), loaded(/\/grade7-[\w-]+\.js$/)]);
-    await open(page, '#/', classStudent());
+    await open(page, '#/', classStudent(joined));
     await expect(page.locator('.learn')).toBeVisible();
     // opening the app sends the levels (nothing is waiting yet)
     await expect.poll(() => progressPosts(log).length).toBeGreaterThan(0);
@@ -70,11 +89,12 @@ test.describe('class progress sync', () => {
     expect(ids.length).toBeGreaterThanOrEqual(15);
     expect(ids.every((id) => /^[a-f0-9]{12}$/.test(id))).toBe(true);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(st.answers).toHaveLength(0); // no network: nothing reached the server
+    expect(await answersOf(srv)).toHaveLength(0); // no network: nothing reached the server
     expect(progressPosts(log)).toHaveLength(sentOnline);
 
     await page.close(); // closed while offline: the hidden moment's send fails, and nothing is lost
-    st.loseProgressReplies = 1; // the first reply after this is lost on its way back
+    // the first reply after this is lost on its way back
+    const lost = srv.contract ? await loseNextReply(context, '/api/progress') : (srv.st.loseProgressReplies = 1, () => srv.st.loseProgressReplies === 0);
     await online(true);
     const again = await context.newPage();
     await again.clock.setFixedTime(NOW);
@@ -82,15 +102,16 @@ test.describe('class progress sync', () => {
     await expect(again.locator('.learn')).toBeVisible();
     // the first send is stored but its reply is lost; the next moment (3 s after opening) sends the same answers again
     await expect.poll(() => outboxIds(again), { timeout: 15_000 }).toEqual([]);
-    expect(st.loseProgressReplies).toBe(0);
-    expect(st.answers.map((e) => e.id).sort()).toEqual([...ids].sort());
+    expect(lost()).toBe(true);
+    const stored = await answersOf(srv);
+    expect(stored.map((e) => e.id).sort()).toEqual([...ids].sort());
     const sentIds = progressPosts(log).flatMap((r) => r.body.events.map((e) => e.id));
     expect(sentIds.length).toBeGreaterThan(ids.length); // some were sent twice ...
-    expect(new Set(st.answers.map((e) => e.id)).size).toBe(ids.length); // ... and kept once
+    expect(new Set(stored.map((e) => e.id)).size).toBe(ids.length); // ... and kept once
     // only what the server stores went over the network
-    const fields = new Set(st.answers.flatMap((e) => Object.keys(e)));
+    const fields = new Set(progressPosts(log).flatMap((r) => r.body.events.flatMap((e) => Object.keys(e))));
     expect([...fields].every((f) => ['id', 'topic', 'level', 'ok', 'first', 'hint', 'cat', 'secs', 'at'].includes(f))).toBe(true);
-    // every send carried the class token (the server is on another address, so none used keepalive: see sync.test.js)
-    expect(progressPosts(log).every((r) => r.headers.authorization === 'Bearer stu_token_1')).toBe(true);
+    // every send carried the class token
+    expect(progressPosts(log).every((r) => r.headers.authorization === `Bearer ${joined.token}`)).toBe(true);
   });
 });

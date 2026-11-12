@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { open, student, livedIn, saved, appReady, answer, proceedToNext, leaveEndScreens, NOW, DURABLE_DB } from './helpers.js';
+import { inContract } from './contract.js';
 
 /**
  * Fill localStorage until it takes no more (the council's probe: 100 KB pieces, then 1 KB), then down to single
@@ -121,19 +122,32 @@ test('a broken save comes back from the copy on the device, with one calm toast,
   expect(errors).toEqual([]);
 });
 
-test('"delete all" deletes the copy on the device too: a reload does not bring the progress back', async ({ page }) => {
+// @contract (COUNCIL2-22): in the contract project the app has a server (the real Worker), so "delete all" asks it first
+// (POST /api/me/forget) and deletes on the device only after the Worker said yes
+test('"delete all" deletes the copy on the device too: a reload does not bring the progress back', { tag: '@contract' }, async ({ page }) => {
   await open(page, '#/settings', livedIn('7'));
   await expect.poll(async () => (await readDb(page, 'mirror'))?.length || 0, { timeout: 5000 }).toBe(1);
   await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
   // the app reloads itself after deleting: the test's own reload waits for that one, or the two collide (ERR_ABORTED)
   const reloaded = page.waitForEvent('load');
+  const forgot = inContract() ? page.waitForResponse((r) => r.url().endsWith('/api/me/forget')) : null;
   await page.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+  if (forgot) expect((await forgot).status()).toBe(200);
   await reloaded;
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('madregot'))).toBeNull();
-  expect(await readDb(page, 'mirror')).toEqual([]); // the new page made a new, empty database
+  // nothing of the progress is saved again: with no server nothing at all; with one (the contract project) the fresh
+  // first screen saves what the server said about the tutor (ai.lastTier), and no profile, day or XP
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('madregot') || 'null')?.state ?? null);
+  if (!inContract()) {
+    expect(after).toBeNull();
+    expect(await readDb(page, 'mirror')).toEqual([]); // the new page made a new, empty database
+  }
+  expect(after?.profile ?? null).toBeNull();
+  expect(after?.xp ?? 0).toBe(0);
+  expect(Object.keys(after?.days ?? {})).toEqual([]);
+  expect((await readDb(page, 'mirror') || []).filter((r) => JSON.parse(r.raw || 'null')?.state?.profile)).toEqual([]); // no copy holds a profile
 });
 
 // ------------------------------------------------------------------ two tabs (DURABLE-2)

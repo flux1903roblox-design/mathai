@@ -57,9 +57,15 @@
 // 401 not_linked with X-AI-Linked: 0; a device that leaves by itself takes its escrow with it, an unlink keeps it only
 // while the child's switch is on; restoreFrom on a still-linked device's escrow is 409 escrow_in_use; GET
 // /api/family/summary gives each device `kept` (all its rows, also those older than the days asked for).
+// The contract project (COUNCIL2-22, contract.js): there, fakeServer(...) returns a database of the test's own on the real
+// Worker (worker/scripts/serve-local.mjs) instead of this fake, and API is that database's address, so a test that seeds
+// `ai.apiUrl: API` after calling fakeServer points the app at whichever backend its project runs.
 import { MOE_RULES, classAiPolicy, notSellable } from '../../shared/schoolRules.js';
+import { inContract, contractServer } from './contract.js';
 
-export const API = 'https://api.madregot.test';
+export const FAKE_API = 'https://api.madregot.test';
+// a live binding: fakeServer() sets it for the test that calls it (the fake's address, or the Worker's in the contract project)
+export let API = FAKE_API; // eslint-disable-line import/no-mutable-exports
 export const PAY = 'https://pay.example.test';
 export const CORS = {
   'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -101,6 +107,12 @@ export const livePlan = (over = {}) => ({
  * tests about the tutor itself pass parentOk: true.
  */
 export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:4173/') {
+  if (inContract()) {
+    const real = await contractServer(target);
+    API = real.base;
+    return real;
+  }
+  API = FAKE_API;
   const st = {
     paywall: true, online: true, legalApproved: true, shared: null, breakNext: null, economy: false, parentOk: false,
     freeUsed: {}, freeLimit: 2, famUsed: { tutor: 0, check: 0, generate: 0, exam: 0 }, classLicence: false,

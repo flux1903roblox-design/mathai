@@ -12,6 +12,12 @@ const IOS_PORT = Number(process.env.E2E_IOS_PORT) || PORT + 1;
 const argv = process.argv.join(' ');
 const WITH_IOS = !/--project[= ]/.test(argv) || /--project[= ]ios\b/.test(argv);
 const IOS_ONLY = /store-ios\.spec\.js/;
+// The contract project (COUNCIL2-22, e2e/contract.js): the tests tagged @contract in these files run against the real
+// Worker (worker/scripts/serve-local.mjs on CONTRACT_PORT, default 4423), which also serves an app built with
+// VITE_API_URL="/". Built and started only when the run includes the 'contract' project (or no --project at all).
+const CONTRACT_PORT = Number(process.env.CONTRACT_PORT) || 4423;
+const WITH_CONTRACT = !/--project[= ]/.test(argv) || /--project[= ]contract\b/.test(argv);
+const CONTRACT_SPECS = /(class-sync|durable|restore|tutor|subscription)\.spec\.js/;
 
 const phone = (width, height) => ({ viewport: { width, height }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
 
@@ -52,6 +58,15 @@ export default defineConfig({
     url: `http://127.0.0.1:${IOS_PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
+  }] : []), ...(WITH_CONTRACT ? [{
+    // the app as the Worker serves it in production (one address, VITE_API_URL="/"), from the local Worker with its
+    // test vars and stubs: no .dev.vars, no key, nothing leaves the machine
+    command: `npx vite build --base ./ --outDir dist-contract --emptyOutDir && node ../worker/scripts/serve-local.mjs --port ${CONTRACT_PORT} --app dist-contract`,
+    cwd: '..',
+    env: { VITE_API_URL: '/', VITE_TEACHER_URL: 'https://example.test/' },
+    url: `http://127.0.0.1:${CONTRACT_PORT}/api/health`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 240_000,
   }] : [])],
   projects: [
     { name: 'phone-small', use: phone(320, 568), testIgnore: IOS_ONLY },
@@ -64,5 +79,8 @@ export default defineConfig({
     // the iPhone store build (STUDENT-12): its own server, a phone, and service workers allowed so that "none
     // registered" means something
     { name: 'ios', use: { ...phone(390, 844), baseURL: `http://127.0.0.1:${IOS_PORT}/`, serviceWorkers: 'allow' }, testMatch: IOS_ONLY },
+    // the real Worker (COUNCIL2-22): the @contract tests of the class sync, the backup code and the class's kept code,
+    // the tutor's allowance and the parents' checkout, on the same phone
+    { name: 'contract', use: { ...phone(390, 844), baseURL: `http://127.0.0.1:${CONTRACT_PORT}/` }, testMatch: CONTRACT_SPECS, grep: /@contract/ },
   ],
 });
