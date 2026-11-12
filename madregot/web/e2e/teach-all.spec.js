@@ -160,6 +160,54 @@ test.describe('every teaching step shows its drawing on a small phone', () => {
   }
 });
 
+// SK-STUDENT-1: the worked examples (stage B) and solving together (stage C) show their drawings, geometry first. On the
+// smallest phone, every angles and Pythagoras problem shows its drawing, and the way on stays in view under it (a worked
+// example's first button, the first choice of solving together); in the plane, lines, statistics and fractions at least
+// the share learn/visuals.test.ts asks for shows one. Each problem is opened in its place (the place a stage keeps).
+const ALL_DRAWN = ['angles', 'pyth'];
+const SOME_DRAWN = { coord: 0.6, line: 0.5, stats: 0.5, frac: 0.4 };
+const SHOTS_BC = process.env.FIGURE_SHOTS;
+test.describe('worked examples and solving together show their drawings on a small phone (SK-STUDENT-1)', () => {
+  test.use({ viewport: { width: 320, height: 568 } });
+  for (const topic of [...ALL_DRAWN, ...Object.keys(SOME_DRAWN)]) {
+    test(`${topic}: the drawings of stages B and C`, async ({ page }) => {
+      test.setTimeout(300_000);
+      const seen = [];
+      for (let level = 1; level <= STAIRS[topic]; level += 1) {
+        const skill = `${topic}:${level}`;
+        for (const stage of ['B', 'C']) {
+          for (let i = 0, of = 1; i < of; i += 1) {
+            const learn = { skills: { [skill]: { attempts: [], pos: { [stage]: i } } }, miscon: {}, exam: null, missions: {}, events: [] };
+            await open(page, `#/learn/${topic}/${level}/${stage}`, student(GRADE[topic], { learn }));
+            const root = page.locator(stage === 'B' ? '.worked' : '.together');
+            await expect(root).toBeVisible();
+            of = Number(/מתוך (\d+)/.exec(await root.locator('.segs').first().getAttribute('aria-label'))[1]);
+            const id = `${skill} ${stage}${i + 1}`;
+            const fig = root.locator('.lm-fig [role="img"], .lm-fig table');
+            const drawn = (await fig.count()) > 0;
+            seen.push({ id, drawn });
+            if (drawn) {
+              await expect(fig.first(), id).toBeVisible();
+              // the drawing never pushes the way on off the screen: a worked example's first button, and in solving
+              // together the first choice, at least half of it above the bottom bar
+              if (stage === 'B') await expect(page.getByRole('button', { name: 'מתחילים', exact: true }), `${id}: the way on is in view`).toBeInViewport();
+              else {
+                const choice = await root.locator('.tg-step .ls-choice').first().boundingBox();
+                const bar = await root.locator('.lm-actions').first().boundingBox();
+                expect(choice.y + choice.height / 2, `${id}: the first choice is in view above the bottom bar`).toBeLessThan(bar.y);
+              }
+              if (SHOTS_BC) await page.screenshot({ path: `${SHOTS_BC}/${topic}-${level}-${stage}${i + 1}-320.png` });
+            }
+            await expectNoSidewaysScroll(page);
+          }
+        }
+      }
+      if (ALL_DRAWN.includes(topic)) expect(seen.filter((x) => !x.drawn).map((x) => x.id)).toEqual([]);
+      else expect(seen.filter((x) => x.drawn).length / seen.length, `${topic}: ${seen.filter((x) => x.drawn).length} of ${seen.length} drawn`).toBeGreaterThanOrEqual(SOME_DRAWN[topic]);
+    });
+  }
+});
+
 // STUDENT-9 §4: nothing that looks active is disabled. Step 1 has no "previous" button at all; step 2 has one.
 test('the first teaching step has no "previous" button; the second has a working one', async ({ page }) => {
   await open(page, '#/learn/signed/1/A', student('7'));

@@ -186,6 +186,7 @@ const stair5: StairContent = {
   ],
   examples: [
     { problem: 'ישר עם שיפוע $-3$ עובר דרך הנקודה $(2, -1)$. מצאו את $b$ וכתבו את משוואת הישר.', display: 'm = -3, \\quad (2, -1)', answer: 5, check: '-1 - (-3) * 2',
+      fig: { type: 'coord', range: 6, lines: [{ m: -3, b: 5 }], points: [{ x: 2, y: -1, label: '' }, { x: 0, y: 5, label: '(0, b)' }] },
       steps: [
         { action: 'כותבים את המשוואה עם השיפוע הידוע.', why: 'את $m$ כבר יודעים. חסר רק $b$.', result: 'y = -3x + b' },
         { action: 'מציבים את הנקודה: $x = 2$, $y = -1$, ומחשבים את הכפל.', why: 'הנקודה על הישר, ולכן השיעורים שלה מקיימים את המשוואה.', result: '-1 = -3 \\cdot 2 + b = -6 + b', calc: { expr: '-3 * 2', value: -6 } },
@@ -203,6 +204,7 @@ const stair5: StairContent = {
   ],
   together: [
     { problem: 'נמצא יחד את משוואת הישר שעובר דרך שתי הנקודות.', display: '(-2, 1), \\quad (1, 7)',
+      fig: { type: 'coord', range: 8, points: [{ x: -2, y: 1, label: '' }, { x: 1, y: 7, label: '' }] },
       steps: [
         { prompt: 'מה מוצאים קודם?', choices: [
           { text: 'את השיפוע $m$, משתי הנקודות', ok: true, feedback: 'נכון: בלי $m$ יש בהצבה שני נעלמים.' },
@@ -435,6 +437,7 @@ const stair6: StairContent = {
   ],
   examples: [
     { problem: 'מצאו איפה הגרף של הפונקציה חותך את שני הצירים. מה שיעור ה־$x$ של נקודת החיתוך עם ציר $x$?', display: 'f(x) = -3x + 9', answer: 3, check: '-9 / (-3)',
+      fig: { type: 'coord', range: 9, lines: [{ m: -3, b: 9, label: 'f(x) = −3x + 9' }] },
       steps: [
         { action: 'ציר $y$: מציבים $x = 0$.', why: 'על ציר $y$ לכל נקודה $x = 0$.', result: 'f(0) = -3 \\cdot 0 + 9 = 9 \\;\\Rightarrow\\; A(0, 9)', calc: { expr: '-3 * 0 + 9', value: 9 } },
         { action: 'ציר $x$: מציבים $f(x) = 0$.', why: 'על ציר $x$ לכל נקודה הגובה $0$.', result: '0 = -3x + 9' },
@@ -642,6 +645,7 @@ const stair7: StairContent = {
   ],
   examples: [
     { problem: 'מה שטח המשולש שהישר יוצר עם הצירים?', display: 'y = -3x - 6', answer: 6, check: 'abs(-6) * abs(-6 / 3) / 2',
+      fig: { type: 'coord', range: 7, lines: [{ m: -3, b: -6, label: 'y = −3x − 6' }], polygon: [[0, 0], [-2, 0], [0, -6]] },
       steps: [
         { action: 'חיתוך עם ציר $y$: מציבים $x = 0$.', why: 'על ציר $y$ לכל נקודה $x = 0$, ונשאר $b$.', result: 'y = -3 \\cdot 0 - 6 = -6 \\;\\Rightarrow\\; A(0, -6)', calc: { expr: '-3 * 0 - 6', value: -6 } },
         { action: 'חיתוך עם ציר $x$: מציבים $y = 0$.', why: 'מוסיפים $3x$ לשני האגפים: $3x = -6$, ומחלקים ב־$3$.', result: '0 = -3x - 6 \\;\\Rightarrow\\; x = \\frac{-6}{3} = -2 \\;\\Rightarrow\\; B(-2, 0)', calc: { expr: '-6 / 3', value: -2 } },
@@ -658,6 +662,7 @@ const stair7: StairContent = {
   ],
   together: [
     { problem: 'נחשב יחד את שטח המשולש שהישר יוצר עם הצירים.', display: 'y = x - 5',
+      fig: { type: 'coord', range: 6, lines: [{ m: 1, b: -5, label: 'y = x − 5' }], polygon: [[0, 0], [5, 0], [0, -5]] },
       steps: [
         { prompt: 'איפה הישר חותך את ציר $y$?', choices: [
           { text: '$(0, -5)$', ok: true, feedback: 'נכון: כש־$x = 0$, $y = -5$.' },
@@ -677,6 +682,7 @@ const stair7: StairContent = {
       ],
       final: { prompt: 'מה שטח המשולש?', answer: 12.5, check: '5 * 5 / 2', hints: ['מכפלת הניצבים, ואז חלקי $2$.', '$\\frac{5 \\cdot 5}{2} = \\frac{25}{2} = 12.5$.'] } },
     { problem: 'ועוד אחד, עם נקודת חיתוך שלילית.', display: 'y = 2x + 8',
+      fig: { type: 'coord', range: 9, lines: [{ m: 2, b: 8, label: 'y = 2x + 8' }], polygon: [[0, 0], [-4, 0], [0, 8]] },
       steps: [
         { prompt: 'איפה הישר חותך את ציר $x$?', choices: [
           { text: '$(-4, 0)$', ok: true, feedback: 'נכון: $2x = -8$, ולכן $x = -4$.' },
@@ -879,6 +885,7 @@ const stair8: StairContent = {
   ],
   examples: [
     { problem: 'מצאו את נקודת המפגש של הישרים. מה שיעור ה־$y$ שלה?', display: 'y = 4x - 7, \\qquad y = x + 2', answer: 5, check: '(2 + 7) / (4 - 1) + 2',
+      fig: { type: 'coord', range: 8, lines: [{ m: 4, b: -7, label: 'y = 4x − 7' }, { m: 1, b: 2, label: 'y = x + 2' }], meet: true },
       steps: [
         { action: 'משווים את שני הביטויים של $y$.', why: 'בנקודת המפגש ה־$y$ של שני הישרים שווה.', result: '4x - 7 = x + 2' },
         { action: 'מחסירים $x$ משני האגפים.', why: 'אוספים את ה־$x$ לאגף אחד.', result: '3x - 7 = 2' },
@@ -898,6 +905,7 @@ const stair8: StairContent = {
   ],
   together: [
     { problem: 'נמצא יחד את נקודת המפגש.', display: 'y = 2x + 1, \\qquad y = -x + 7',
+      fig: { type: 'coord', range: 8, lines: [{ m: 2, b: 1, label: 'y = 2x + 1' }, { m: -1, b: 7, label: 'y = −x + 7' }] },
       steps: [
         { prompt: 'מה הצעד הראשון?', choices: [
           { text: 'משווים: $2x + 1 = -x + 7$', ok: true, feedback: 'נכון: בנקודת המפגש ה־$y$ שווה.' },
@@ -917,6 +925,7 @@ const stair8: StairContent = {
       ],
       final: { prompt: 'מה שיעור ה־$y$ של נקודת המפגש?', answer: 5, check: '2 * 2 + 1', hints: ['מציבים $x = 2$ באחת המשוואות.', '$2 \\cdot 2 + 1 = 5$, ובשנייה $-2 + 7 = 5$. הנקודה $(2, 5)$.'] } },
     { problem: 'ועוד אחד, עם $x$ שלילי.', display: 'y = -2x + 1, \\qquad y = x + 7',
+      fig: { type: 'coord', range: 8, lines: [{ m: -2, b: 1, label: 'y = −2x + 1' }, { m: 1, b: 7, label: 'y = x + 7' }] },
       steps: [
         { prompt: '$-2x + 1 = x + 7$. מה מקבלים אחרי שמחסירים $x$ ו־$1$ משני האגפים?', choices: [
           { text: '$-3x = 6$', ok: true, feedback: 'נכון: $-2x - x = -3x$, ו־$7 - 1 = 6$.' },

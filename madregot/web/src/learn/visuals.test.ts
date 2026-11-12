@@ -69,3 +69,52 @@ describe('a picture or an object on every teaching step (STUDENT-8)', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------- SK-STUDENT-1: worked examples and solving together
+// Stages B (a worked example) and C (solving together) are 7 of every 12 teaching minutes (recommend.ts). The council
+// found a drawing on 4 of their 263 problems, and none in geometry, where the maths is the picture: the triangle's angle
+// sum and Pythagoras were taught as text cards. Every angles and Pythagoras problem now has its drawing, made from the
+// problem's own numbers (learn/figures.test.ts checks them against the text); in the other topics where a number line,
+// a plane, a chart or a bar carries the idea, at least the share below has one. The table prints on each run.
+// counted with the council's own counter (student-verify/count-figs.ts): a problem counts when it has a figure
+const ALL_B_C: Record<string, number> = { angles: 1, pyth: 1 };
+const SOME_B_C: Record<string, number> = { coord: 0.6, line: 0.5, stats: 0.5, frac: 0.4 };
+
+function problemsByTopic() {
+  const out: Record<string, { B: { id: string; fig: boolean }[]; C: { id: string; fig: boolean }[] }> = {};
+  for (const [skill, c] of Object.entries(CONTENT)) {
+    const t = (out[skill.split(':')[0]] ||= { B: [], C: [] });
+    c.examples.forEach((e, i) => t.B.push({ id: `${skill} B${i + 1}`, fig: !!e.fig }));
+    c.together.forEach((g, i) => t.C.push({ id: `${skill} C${i + 1}`, fig: !!g.fig }));
+  }
+  return out;
+}
+
+describe('a drawing where the maths is a picture: worked examples and solving together (SK-STUDENT-1)', () => {
+  const topics = problemsByTopic();
+
+  it('prints the table of every topic', () => {
+    let tb = 0; let tbf = 0; let tc = 0; let tcf = 0;
+    const rows = Object.entries(topics).map(([t, { B, C }]) => {
+      const bf = B.filter((x) => x.fig).length; const cf = C.filter((x) => x.fig).length;
+      tb += B.length; tbf += bf; tc += C.length; tcf += cf;
+      return `${t.padEnd(8)} ${`${bf}/${B.length}`.padStart(7)} ${`${cf}/${C.length}`.padStart(7)} ${pct(bf + cf, B.length + C.length).padStart(5)}`;
+    });
+    // eslint-disable-next-line no-console
+    console.info(['topic    B drawn C drawn  share', ...rows, `${'all'.padEnd(8)} ${`${tbf}/${tb}`.padStart(7)} ${`${tcf}/${tc}`.padStart(7)} ${pct(tbf + tcf, tb + tc).padStart(5)}`].join('\n'));
+    expect(rows.length).toBe(Object.keys(topics).length);
+  });
+
+  it('every worked example and every problem solved together in angles and Pythagoras has its drawing', () => {
+    const bare = Object.keys(ALL_B_C).flatMap((t) => [...topics[t].B, ...topics[t].C].filter((x) => !x.fig).map((x) => x.id));
+    expect(bare).toEqual([]);
+  });
+
+  it('in the plane, lines, statistics and fractions, at least a set share of them has one', () => {
+    for (const [t, share] of Object.entries(SOME_B_C)) {
+      const all = [...topics[t].B, ...topics[t].C];
+      const drawn = all.filter((x) => x.fig).length;
+      expect(drawn / all.length, `${t}: ${drawn} of ${all.length} drawn`).toBeGreaterThanOrEqual(share);
+    }
+  });
+});

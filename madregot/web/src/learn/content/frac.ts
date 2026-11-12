@@ -104,12 +104,14 @@ const stair1: StairContent = {
         { action: 'כותבים כמספר מעורב.', why: '$5$ חמישיות הן יחידה שלמה, ועוד $2$ חמישיות.', result: '\\frac{7}{5} = 1\\frac{2}{5}', value: '1 + 2/5' },
       ] },
     { problem: 'השלימו: $\\frac{3}{4} = \\frac{\\square}{20}$', answer: 15, check: '3*20/4',
+      fig: bars([{ den: 4, shaded: 3 }, { den: 20, shaded: 0 }]),
       steps: [
         { action: 'פי כמה גדל המכנה?', why: 'מ־$4$ ל־$20$.', result: '20 : 4 = 5', calc: { expr: '20/4', value: 5 } },
         { action: 'גם המונה גדל פי $5$.', why: 'בהרחבה כופלים את המונה ואת המכנה באותו מספר.', result: '3 \\cdot 5 = 15', value: '3*5' },
         { action: 'כותבים את השבר השווה.', why: 'אותה כמות, בחלקים קטנים פי $5$.', result: '\\frac{3}{4} = \\frac{15}{20}', calc: { expr: '15/20', value: 0.75 } },
       ] },
     { problem: 'צמצמו עד הסוף: $\\frac{18}{24}$', answer: 0.75, check: '18/24',
+      fig: bars([{ den: 24, shaded: 18 }, { den: 4, shaded: 0 }]),
       steps: [
         { action: 'מחפשים את המחלק המשותף הגדול ביותר.', why: 'גם $18$ וגם $24$ מתחלקים ב־$6$, ואין מספר גדול יותר שמחלק את שניהם.', result: '18 : 6 = 3', calc: { expr: '18/6', value: 3 } },
         { action: 'מחלקים גם את המכנה ב־$6$.', why: 'בצמצום מחלקים את המונה ואת המכנה באותו מספר.', result: '24 : 6 = 4', calc: { expr: '24/6', value: 4 } },
@@ -118,6 +120,7 @@ const stair1: StairContent = {
   ],
   together: [
     { problem: 'השלימו: $\\frac{2}{5} = \\frac{\\square}{15}$.',
+      fig: bars([{ den: 5, shaded: 2 }, { den: 15, shaded: 0 }]),
       steps: [
         { prompt: 'פי כמה גדל המכנה?', choices: [
           { text: 'פי $3$', ok: true, feedback: 'נכון: $5 \\cdot 3 = 15$.' },
@@ -254,12 +257,14 @@ const stair2: StairContent = {
   ],
   examples: [
     { problem: 'מה הגדול ביותר: $0.6$, $0.125$, $0.75$?', answer: 0.75, check: '0.75',
+      fig: { type: 'numline', from: 0, to: 1, step: 0.1, marks: [{ x: 0.125, label: '0.125' }, { x: 0.6, label: '0.6' }, { x: 0.75, label: '0.75' }] },
       steps: [
         { action: 'משלימים אפסים עד שלוש ספרות אחרי הנקודה.', why: 'אפס בסוף לא משנה את המספר, ועכשיו לכולם אותו מספר ספרות.', result: '0.600,\\ 0.125,\\ 0.750' },
         { action: 'משווים אלפיות.', why: '$750$ אלפיות הן הכי הרבה.', result: '750 > 600 > 125', calc: { expr: '0.75*1000', value: 750 } },
         { action: 'הגדול ביותר הוא:', why: 'בלי האפס שהוספנו.', result: '0.75', value: '0.75' },
       ] },
     { problem: 'מה גדול יותר: $\\frac{2}{3}$ או $\\frac{3}{5}$?', answer: 2 / 3, check: '2/3',
+      fig: bars([{ den: 3, shaded: 2 }, { den: 5, shaded: 3 }]),
       steps: [
         { action: 'מרחיבים את $\\frac{2}{3}$ למכנה משותף $15$.', why: 'גם $3$ וגם $5$ נכנסים ב־$15$. מ־$3$ ל־$15$ זה פי $5$.', result: '\\frac{2}{3} = \\frac{10}{15}', calc: { expr: '2*5', value: 10 } },
         { action: 'מרחיבים את $\\frac{3}{5}$ גם הוא ל־$15$.', why: 'מ־$5$ ל־$15$ זה פי $3$.', result: '\\frac{3}{5} = \\frac{9}{15}', calc: { expr: '3*3', value: 9 } },
@@ -277,6 +282,7 @@ const stair2: StairContent = {
       ],
       final: { prompt: 'מה המספר האמצעי?', answer: 0.45, check: '0.45', fmt: 'dec', hints: ['השוו $500$, $450$ ו־$405$ אלפיות.', 'הקטן $0.405$ והגדול $0.5$. מה באמצע?'] } },
     { problem: 'מה גדול יותר: $\\frac{5}{8}$ או $\\frac{3}{4}$?',
+      fig: bars([{ den: 8, shaded: 5 }, { den: 4, shaded: 3 }]),
       steps: [
         { prompt: '$\\frac{3}{4}$ בשמיניות:', choices: [
           { text: '$\\frac{6}{8}$', ok: true, feedback: 'נכון: $\\frac{3 \\cdot 2}{4 \\cdot 2} = \\frac{6}{8}$.' },
@@ -546,6 +552,7 @@ const stair4: StairContent = {
   ],
   examples: [
     { problem: 'כמה הם $\\frac{3}{4}$ מ־$20$?', answer: 15, check: '3/4*20',
+      fig: bars([{ den: 4, shaded: 3 }], { whole: 20 }),
       steps: [
         { action: 'רבע מ־$20$.', why: 'מחלקים את $20$ ל־$4$ חלקים שווים.', result: '20 : 4 = 5', calc: { expr: '20/4', value: 5 } },
         { action: 'שלושה רבעים.', why: 'שלושה חלקים כאלה.', result: '3 \\cdot 5 = 15', value: '3*5' },

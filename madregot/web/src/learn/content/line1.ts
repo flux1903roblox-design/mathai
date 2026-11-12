@@ -145,6 +145,7 @@ const stair1: StairContent = {
   ],
   examples: [
     { problem: 'בטבלה של $y = 3x - 2$ חסר הערך של $y$ כש־$x = -1$. מה הוא?', display: tableTex([-1, 0, 1, 2], ['?', -2, 1, 4]), answer: -5, check: '3 * (-1) - 2',
+      fig: { type: 'coord', range: 6, lines: [{ m: 3, b: -2, label: 'y = 3x − 2' }], points: [{ x: 0, y: -2, label: '' }, { x: 1, y: 1, label: '' }, { x: 2, y: 4, label: '' }] },
       steps: [
         { action: 'מציבים $-1$ במקום $x$, בתוך סוגריים.', why: 'הסוגריים שומרים על המינוס של $-1$. בלעדיהם קל לקרוא $3 - 1$.', result: 'y = 3 \\cdot (-1) - 2', value: '3 * (-1) - 2' },
         { action: 'כופלים לפני שמחסרים.', why: 'סדר פעולות: כפל קודם. חיובי כפול שלילי: $3 \\cdot (-1) = -3$.', result: 'y = -3 - 2', value: '-3 - 2' },
@@ -400,6 +401,7 @@ const stair2: StairContent = {
   ],
   examples: [
     { problem: 'מה השיפוע $m$ של הישר $y = 7 - 2x$? בדרך נמצא גם איפה הוא חותך את ציר $y$.', answer: -2, check: '(7 - 2 * 1) - (7 - 2 * 0)',
+      fig: { type: 'coord', range: 8, lines: [{ m: -2, b: 7, label: 'y = 7 − 2x' }], points: [{ x: 0, y: 7, label: '' }], words: [{ at: [-5, 6.6], text: 'm = ?' }] },
       steps: [
         { action: 'כותבים את המשוואה בסדר $y = mx + b$.', why: 'בחיבור הסדר לא משנה. המינוס שלפני $2x$ עובר איתו.', result: 'y = -2x + 7' },
         { action: '$m$ הוא המספר שכופל את $x$, עם הסימן.', why: 'זה הצעד: בכל צעד ימינה $y$ משתנה ב־$-2$, כלומר יורד 2.', result: 'm = -2', value: '-2' },
@@ -625,6 +627,7 @@ const stair3: StairContent = {
   ],
   examples: [
     { problem: 'ישר עובר בגרף דרך $A(-2, -3)$ ו־$B(2, 3)$, שתיהן בפינות של משבצות. ספרו מדרגה ומצאו את השיפוע.', answer: 1.5, check: '(3 - (-3)) / (2 - (-2))',
+      fig: { type: 'coord', range: 6, lines: [{ m: 1.5, b: 0 }], points: [{ x: -2, y: -3, label: 'A' }, { x: 2, y: 3, label: 'B' }], riseRun: { x: -2, run: 4 } },
       steps: [
         { action: 'מ־$A$ הולכים ימינה עד מתחת ל־$B$.', why: 'מ־$x = -2$ עד $x = 2$: שתי משבצות עד ציר $y$ ועוד שתיים אחריו.', result: '\\rightarrow 4', calc: { expr: '2 - (-2)', value: 4 } },
         { action: 'משם עולים עד $B$.', why: 'מ־$y = -3$ עד $y = 3$. עולים, ולכן השינוי חיובי.', result: '\\uparrow 6', calc: { expr: '3 - (-3)', value: 6 } },
@@ -632,6 +635,7 @@ const stair3: StairContent = {
         { action: 'בודקים במדרגה קטנה יותר.', why: 'מ־$A$, 2 ימינה ו־3 למעלה מגיעים ל־$(0, 0)$, וגם היא על הישר. אותו יחס.', result: '\\frac{3}{2}', value: '3 / 2' },
       ] },
     { problem: 'בשרטוט של מגלשה על דף משבצות, הקצה העליון שלה ב־$(0, 6)$ והתחתון ב־$(8, 0)$. מה השיפוע של המגלשה?', answer: -0.75, check: '(0 - 6) / (8 - 0)',
+      fig: { type: 'coord', range: 8, points: [{ x: 0, y: 6, label: '' }, { x: 8, y: 0, label: '' }], segments: [[[0, 6], [8, 0]]], words: [{ at: [5.2, 3.6], text: 'מגלשה' }] },
       steps: [
         { action: 'סופרים ימינה מהקצה העליון עד מעל הקצה התחתון.', why: 'מ־$x = 0$ עד $x = 8$.', result: '\\rightarrow 8', calc: { expr: '8 - 0', value: 8 } },
         { action: 'סופרים את הירידה.', why: 'מגובה $6$ לגובה $0$ יורדים 6, ולכן השינוי ב־$y$ הוא $-6$.', result: '\\downarrow 6 \\;\\Rightarrow\\; -6', calc: { expr: '0 - 6', value: -6 } },
@@ -641,6 +645,7 @@ const stair3: StairContent = {
   ],
   together: [
     { problem: 'ישר עובר בגרף דרך $(-3, 4)$ ו־$(3, 0)$. נמצא את השיפוע במדרגה.',
+      fig: { type: 'coord', range: 6, lines: [{ m: -2 / 3, b: 2 }], points: [{ x: -3, y: 4, label: '' }, { x: 3, y: 0, label: '' }] },
       steps: [
         { prompt: 'כמה צעדים ימינה מהנקודה השמאלית לימנית?', choices: [
           { text: '$6$', ok: true, feedback: 'נכון: 3 משבצות עד ציר $y$ ועוד 3 אחריו.' },
@@ -655,6 +660,7 @@ const stair3: StairContent = {
       ],
       final: { prompt: 'מה השיפוע? (אפשר לכתוב שבר, כמו $-1/2$)', answer: -2 / 3, check: '-4 / 6', hints: ['השינוי ב־$y$ חלקי הצעדים ימינה: $\\frac{-4}{6}$.', 'מצמצמים ב־2: $\\frac{-4}{6} = -\\frac{2}{3}$.'] } },
     { problem: 'ישר עובר דרך $(0, 1)$ ו־$(2, 6)$.',
+      fig: { type: 'coord', range: 6, lines: [{ m: 2.5, b: 1 }], points: [{ x: 0, y: 1, label: '' }, { x: 2, y: 6, label: '' }] },
       steps: [
         { prompt: 'מה המדרגה מ־$(0, 1)$ ל־$(2, 6)$?', choices: [
           { text: '2 ימינה, 5 למעלה', ok: true, feedback: 'נכון.' },
@@ -827,6 +833,7 @@ const stair4: StairContent = {
   ],
   examples: [
     { problem: 'מה השיפוע של הישר שעובר דרך $A(-3, 4)$ ו־$B(2, -6)$?', answer: -2, check: '(-6 - 4) / (2 - (-3))',
+      fig: { type: 'coord', range: 7, lines: [{ m: -2, b: -2 }], points: [{ x: -3, y: 4, label: 'A' }, { x: 2, y: -6, label: 'B' }] },
       steps: [
         { action: 'כותבים את ההפרשים: $B$ פחות $A$, למעלה ולמטה.', why: 'אותו סדר במונה ובמכנה. את $-3$ שמים בסוגריים.', result: 'm = \\frac{-6 - 4}{2 - (-3)}', value: '(-6 - 4) / (2 - (-3))' },
         { action: 'מחשבים את המונה.', why: 'מ־$4$ יורדים ל־$-6$: ירידה של 10.', result: '-6 - 4 = -10', calc: { expr: '-6 - 4', value: -10 } },
@@ -845,6 +852,7 @@ const stair4: StairContent = {
   ],
   together: [
     { problem: 'נחשב יחד את השיפוע בין $A(-1, 3)$ ל־$B(3, -5)$.',
+      fig: { type: 'coord', range: 6, lines: [{ m: -2, b: 1 }], points: [{ x: -1, y: 3, label: 'A' }, { x: 3, y: -5, label: 'B' }] },
       steps: [
         { prompt: 'איך כותבים את השיפוע?', choices: [
           { text: '$\\frac{-5 - 3}{3 - (-1)}$', ok: true, feedback: 'נכון: $B$ פחות $A$, גם למעלה וגם למטה.' },
@@ -859,6 +867,7 @@ const stair4: StairContent = {
       ],
       final: { prompt: 'מה השיפוע?', answer: -2, check: '(-5 - 3) / (3 - (-1))', hints: ['למעלה: $-5 - 3 = -8$.', '$\\frac{-8}{4} = -2$.'] } },
     { problem: 'האם הנקודות $(0, 1)$, $(2, 4)$ ו־$(6, 10)$ על ישר אחד?',
+      fig: { type: 'coord', range: 10, points: [{ x: 0, y: 1, label: '' }, { x: 2, y: 4, label: '' }, { x: 6, y: 10, label: '' }] },
       steps: [
         { prompt: 'מה השיפוע בין $(0, 1)$ ל־$(2, 4)$?', choices: [
           { text: '$\\frac{3}{2}$', ok: true, feedback: 'נכון: $\\frac{4 - 1}{2 - 0} = \\frac{3}{2}$.' },

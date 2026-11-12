@@ -656,6 +656,13 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .fg-ray.hi { stroke: var(--brand); stroke-width: 3; }
 .fg-sq.hi { fill: color-mix(in srgb, var(--brand) 22%, transparent); stroke-width: 2.5; }
 @media (max-height: 700px) { .lm-fig .figure.geo { max-height: 34dvh; } }
+/* a worked example's or a problem's drawing (SK-STUDENT-1) shrinks the same way on a short phone, so the way on (the first
+   button, the first choice) stays in view under it */
+@media (max-height: 700px) { :is(.worked, .together) .lm-fig .figure { max-height: 34dvh; } }
+@media (max-height: 600px) {
+  :is(.worked, .together) .lm-canvas.big { gap: var(--s2); padding: var(--s3); }
+  :is(.worked, .together) .lm-fig .figure { max-height: 26dvh; }
+}
 
 /* ------------------------------------------------------------------ saving the progress (DURABLE-1)
    The storage banner: one calm line at the top of Learn when nothing could be saved, with the way to Settings.

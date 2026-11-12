@@ -233,3 +233,14 @@ What changed in the shared figures, each after looking at every step at 320px:
 
 Checks: `figures.test` now holds every topic to its text, and `pyth:4#0` is no longer listed as a step without a
 drawing; `teach-all.spec`'s 320px check walks every step of every topic (the test of all 46 stairs).
+
+## Worked examples and solving together (SK-STUDENT-1, council round 2)
+
+The student skeptic found a drawing on 4 of 263 stage B and C problems, none in geometry. Every angles and Pythagoras
+problem now has its drawing, made from its own numbers; `e2e/teach-all.spec.js` opens every problem of angles,
+Pythagoras, the plane, lines, statistics and fractions at 320x568. Taken with a live clock and reduced motion:
+
+| File | What it shows |
+| --- | --- |
+| `bc-angles-3-B1-390x844.png`, `bc-angles-3-B1-320x568.png` | The triangle's angle sum, worked example 1: triangle ABC drawn from ∢A = 48° and ∢B = 67°, the asked ∢C marked "?" |
+| `bc-pyth-1-C1-390x844.png`, `bc-pyth-1-C1-320x568.png` | Pythagoras solved together: the right triangle with legs 8 and 15 and the hypotenuse "?", with the first step's choices under it; on the small phone the drawing shrinks so the first choice stays above the bottom bar |

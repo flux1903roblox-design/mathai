@@ -9,6 +9,7 @@
 // answer is the right angle, 180° − target.
 import type { DiagModel, StairContent } from '../types';
 import { rays, halfTurn, onLine, crossing, scissors, triangle, apex, similar, torn, triangleSum, twoRights, parallels, isosceles, exterior } from './geo';
+import { lineFan, triFromAngles, sail, aFrame } from './geoBC';
 import { rint } from '../expr';
 
 /** TeX for a number of degrees. */
@@ -135,6 +136,7 @@ const stair1: StairContent = {
   ],
   examples: [
     { problem: 'הזוויות $\\angle AOB$ ו־$\\angle BOC$ צמודות, ו־$\\angle AOB = 48^\\circ$. מה גודל $\\angle BOC$?', display: '\\angle AOB = 48^\\circ', answer: 132, check: '180 - 48',
+      fig: lineFan([48], [{ text: '48°' }, { text: '?', target: true }], { right: 'A', o: 'O', rays: ['B'], left: 'C' }),
       steps: [
         { action: 'מזהים את הזוג: לשתי הזוויות יש צלע משותפת, $OB$, והצלעות האחרות, $OA$ ו־$OC$, הן ישר אחד.', why: 'זה מה שהופך אותן לזוויות צמודות: יחד הן הזווית השטוחה $\\angle AOC$.', result: '\\angle AOB + \\angle BOC = 180^\\circ' },
         { action: 'מורידים את הזווית הידועה מ־$180^\\circ$.', why: 'הזווית החסרה היא מה שנשאר מהקו הישר אחרי $48^\\circ$.', result: '\\angle BOC = 180^\\circ - 48^\\circ', value: '180 - 48' },
@@ -142,6 +144,7 @@ const stair1: StairContent = {
         { action: 'בודקים: מחברים את שתי הזוויות.', why: 'אם יוצא $180^\\circ$, הן באמת ממלאות קו ישר. וגם: אחת חדה ואחת קהה, כמו שצריך.', result: '48^\\circ + 132^\\circ = 180^\\circ', calc: { expr: '48 + 132', value: 180 } },
       ] },
     { problem: 'חצי פיצה מונח על צלחת. מהמרכז שלה, שנמצא על הצלע הישרה, חתכו שני חתכים, ונוצרו שלוש פרוסות. הזווית של פרוסה אחת $70^\\circ$, ושל השנייה $45^\\circ$. מה הזווית של הפרוסה השלישית?', answer: 65, check: '180 - 70 - 45',
+      fig: lineFan([70, 115], [{ text: '70°' }, { text: '45°' }, { text: '?', target: true }], {}, 'חצי פיצה: הצלע הישרה ושלוש פרוסות מהמרכז'),
       steps: [
         { action: 'מוצאים את הקו הישר: הצלע הישרה של חצי הפיצה.', why: 'שלוש הפרוסות יוצאות מאותה נקודה על הקו הזה, ויחד הן ממלאות את כל החצי: זווית שטוחה.', result: '70^\\circ + 45^\\circ + x = 180^\\circ' },
         { action: 'מורידים מ־$180^\\circ$ את שתי הפרוסות הידועות.', why: 'מה שלא תפוס על ידי שתיהן הוא הפרוסה השלישית.', result: 'x = 180^\\circ - 70^\\circ - 45^\\circ', value: '180 - 70 - 45' },
@@ -151,6 +154,7 @@ const stair1: StairContent = {
   ],
   together: [
     { problem: 'הקרן $OB$ יוצאת מהנקודה $O$ שעל הישר $AC$, ו־$\\angle AOB = 38^\\circ$. נמצא יחד את $\\angle BOC$.', display: '\\angle AOB = 38^\\circ',
+      fig: lineFan([38], [{ text: '38°' }, { text: '?', target: true }], { right: 'A', o: 'O', rays: ['B'], left: 'C' }),
       steps: [
         { prompt: 'מה ידוע על $\\angle AOB$ ו־$\\angle BOC$ יחד?', choices: [
           { text: 'יחד הן $180^\\circ$', ok: true, feedback: 'נכון: הן צמודות, ויחד הן הקו הישר $AC$.' },
@@ -165,6 +169,7 @@ const stair1: StairContent = {
       ],
       final: { prompt: 'כמה מעלות $\\angle BOC$? כתבו מספר.', answer: 142, check: '180 - 38', hints: ['$180 - 40 = 140$, ו־$38$ קטן מ־$40$.', 'הורדנו $2$ פחות מ־$40$, ולכן התוצאה גדולה מ־$140$ ב־$2$.'] } },
     { problem: 'אתגר: שתי זוויות צמודות, ואחת מהן גדולה מהשנייה ב־$30^\\circ$. מה הגדלים שלהן?',
+      fig: lineFan([75], [{ text: '?' }, { text: '? + 30°', target: true }]),
       steps: [
         { prompt: 'כמה הן שתי הזוויות יחד?', choices: [
           { text: '$180^\\circ$', ok: true, feedback: 'נכון: הן צמודות.' },
@@ -347,6 +352,7 @@ const stair2: StairContent = {
   ],
   examples: [
     { problem: 'שני ישרים נחתכים, ו־$\\angle 1 = 62^\\circ$. מצאו את שלוש הזוויות האחרות. כמה היא $\\angle 4$?', display: '\\angle 1 = 62^\\circ', answer: 118, check: '180 - 62',
+      fig: crossing(62, [{ text: '62°' }, { text: '2', n: 2 }, { text: '3' }, { text: '4', n: 2, target: true }]),
       steps: [
         { action: 'הזווית שמול $\\angle 1$ היא $\\angle 3$: הן קודקודיות.', why: 'זוויות קודקודיות שוות, כי שתיהן משלימות את $\\angle 2$ ל־$180^\\circ$.', result: '\\angle 3 = \\angle 1 = 62^\\circ', calc: { expr: '62', value: 62 } },
         { action: '$\\angle 2$ שכנה של $\\angle 1$: הן צמודות.', why: 'הן חולקות צלע, והצלעות האחרות שלהן הן ישר אחד.', result: '\\angle 2 = 180^\\circ - 62^\\circ = 118^\\circ', calc: { expr: '180 - 62', value: 118 } },
@@ -354,6 +360,7 @@ const stair2: StairContent = {
         { action: 'בודקים: ארבע הזוויות יחד.', why: 'סביב נקודת החיתוך יש סיבוב שלם, $360^\\circ$.', result: '62^\\circ + 118^\\circ + 62^\\circ + 118^\\circ = 360^\\circ', calc: { expr: '62 + 118 + 62 + 118', value: 360 } },
       ] },
     { problem: 'שני כבישים ישרים מצטלבים. שתיים מהפינות בצומת עומדות זו מול זו, ויחד הן $100^\\circ$. מה הזווית בכל אחת משתי הפינות האחרות?', answer: 130, check: '180 - 100 / 2',
+      fig: crossing(50, [{}, { text: '?', n: 2, target: true }, {}, { n: 2 }]),
       steps: [
         { action: 'שתי הפינות שעומדות זו מול זו הן זוויות קודקודיות, ולכן שוות.', why: 'שתי זוויות שוות שיחד הן $100^\\circ$: כל אחת היא חצי.', result: '100^\\circ : 2 = 50^\\circ', calc: { expr: '100 / 2', value: 50 } },
         { action: 'כל אחת מהפינות האחרות נמצאת ליד פינה של $50^\\circ$: הן צמודות.', why: 'פינות סמוכות בצומת יוצרות יחד קו ישר של כביש אחד.', result: '180^\\circ - 50^\\circ', value: '180 - 50' },
@@ -363,6 +370,7 @@ const stair2: StairContent = {
   ],
   together: [
     { problem: 'שני ישרים נחתכים, ו־$\\angle 2 = 104^\\circ$. נמצא יחד את $\\angle 1$.', display: '\\angle 2 = 104^\\circ',
+      fig: crossing(76, [{ text: '1', target: true }, { text: '104°', n: 2 }, { text: '3' }, { text: '4', n: 2 }]),
       steps: [
         { prompt: 'קודם כול: איזו זווית עומדת מול $\\angle 2$, ומה הגודל שלה?', choices: [
           { text: '$\\angle 4$, גם היא $104^\\circ$', ok: true, feedback: 'נכון: זוויות קודקודיות שוות.' },
@@ -377,6 +385,7 @@ const stair2: StairContent = {
       ],
       final: { prompt: 'כמה מעלות $\\angle 1$?', answer: 76, check: '180 - 104', hints: ['$180 - 100 = 80$, ואז מורידים עוד $4$.', '$\\angle 1 = 180^\\circ - 104^\\circ$. בדקו: יחד עם $104^\\circ$ צריך לצאת $180^\\circ$.'] } },
     { problem: 'הפתעה: שני ישרים נחתכים, ושתי זוויות שכנות שוות זו לזו. מה גודל הזוויות?',
+      fig: crossing(90, [{}, {}, { text: '?', target: true }, null]),
       steps: [
         { prompt: 'שתי זוויות שכנות ושוות. כמה כל אחת?', choices: [
           { text: '$90^\\circ$', ok: true, feedback: 'נכון: הן צמודות, אז יחד $180^\\circ$, וכל אחת חצי.' },
@@ -530,6 +539,7 @@ const stair3: StairContent = {
   ],
   examples: [
     { problem: 'במשולש $ABC$: $\\angle A = 48^\\circ$ ו־$\\angle B = 67^\\circ$. מה גודל $\\angle C$?', display: '\\angle A = 48^\\circ,\\quad \\angle B = 67^\\circ', answer: 65, check: '180 - 48 - 67',
+      fig: triFromAngles(48, 67, { A: { text: '48°' }, B: { text: '67°' }, C: { text: '?', target: true } }),
       steps: [
         { action: 'כותבים מה ידוע על כל שלוש הזוויות.', why: 'סכום הזוויות במשולש הוא $180^\\circ$: שלוש הפינות ממלאות קו ישר.', result: '48^\\circ + 67^\\circ + \\angle C = 180^\\circ' },
         { action: 'מחברים את שתי הזוויות הידועות.', why: 'כך יודעים כמה מתוך $180^\\circ$ כבר תפוס.', result: '48^\\circ + 67^\\circ = 115^\\circ', calc: { expr: '48 + 67', value: 115 } },
@@ -537,6 +547,7 @@ const stair3: StairContent = {
         { action: 'בודקים: שלוש הזוויות יחד.', why: 'אם יוצא $180^\\circ$, החישוב נכון.', result: '48^\\circ + 67^\\circ + 65^\\circ = 180^\\circ', calc: { expr: '48 + 67 + 65', value: 180 } },
       ] },
     { problem: 'מפרש של סירה הוא משולש. התורן עומד ישר, מאונך למוט התחתון של המפרש. בראש התורן, הזווית בין התורן לשפת המפרש היא $28^\\circ$. מה הזווית בקצה המוט התחתון?', answer: 62, check: '180 - 90 - 28',
+      fig: sail(28),
       steps: [
         { action: 'מזהים את שלוש הזוויות: בין התורן למוט יש זווית ישרה.', why: 'התורן מאונך למוט, ולכן המפרש הוא משולש ישר־זווית.', result: '90^\\circ + 28^\\circ + x = 180^\\circ' },
         { action: 'מורידים מ־$180^\\circ$ את שתי הזוויות הידועות, גם את הישרה.', why: 'הזווית הישרה לוקחת $90^\\circ$ מתוך $180^\\circ$, גם אם לא כתוב לידה מספר.', result: 'x = 180^\\circ - 90^\\circ - 28^\\circ', value: '180 - 90 - 28' },
@@ -546,6 +557,7 @@ const stair3: StairContent = {
   ],
   together: [
     { problem: 'במשולש $\\angle A = 35^\\circ$ ו־$\\angle C = 100^\\circ$. נמצא יחד את $\\angle B$.', display: '\\angle A = 35^\\circ,\\quad \\angle C = 100^\\circ',
+      fig: triFromAngles(35, 45, { A: { text: '35°' }, B: { text: '?', target: true }, C: { text: '100°' } }),
       steps: [
         { prompt: 'מה ידוע על שלוש הזוויות?', choices: [
           { text: 'יחד הן $180^\\circ$', ok: true, feedback: 'נכון: שלוש הפינות ממלאות קו ישר.' },
@@ -560,6 +572,7 @@ const stair3: StairContent = {
       ],
       final: { prompt: 'כמה מעלות $\\angle B$?', answer: 45, check: '180 - 35 - 100', hints: ['קודם $35 + 100$.', '$180 - 135$.'] } },
     { problem: 'במשולש מסוים כל שלוש הזוויות שוות. מה גודל כל אחת?',
+      fig: triFromAngles(60, 60, { _A: {}, _B: {}, _C: { text: '?', target: true } }, ['_A', '_B', '_C']),
       steps: [
         { prompt: 'איך מוצאים זווית אחת?', choices: [
           { text: 'מחלקים את $180^\\circ$ לשלושה חלקים שווים', ok: true, feedback: 'נכון: שלוש זוויות שוות ממלאות יחד $180^\\circ$.' },
@@ -710,6 +723,7 @@ const stair4: StairContent = {
   ],
   examples: [
     { problem: 'שני ישרים מקבילים נחתכים על ידי ישר שלישי. אחת הזוויות בין הישרים היא $64^\\circ$. מה גודל הזווית החד־צדדית לה?', answer: 116, check: '180 - 64',
+      fig: parallels(64, [{ at: 'L', pos: 'ur', text: '64°' }, { at: 'U', pos: 'lr', text: '?', target: true }]),
       steps: [
         { action: 'מזהים את הזוג: חד־צדדיות, בין הישרים ובאותו צד של החותך.', why: 'הזוג קובע את הקשר: חד־צדדיות משלימות ל־$180^\\circ$, הן לא שוות.', result: '64^\\circ + x = 180^\\circ' },
         { action: 'למה דווקא $180^\\circ$? הזווית המבוקשת צמודה למתאימה של $64^\\circ$.', why: 'המתאימה בחיתוך השני היא גם $64^\\circ$, והזווית המבוקשת יוצרת איתה קו ישר.', result: 'x = 180^\\circ - 64^\\circ', value: '180 - 64' },
@@ -717,6 +731,7 @@ const stair4: StairContent = {
         { action: 'בודקים בעין: אחת חדה ואחת קהה.', why: 'בין מקבילים יש רק שני גדלים של זוויות. זוג שלא שווה הוא תמיד חדה וקהה.', result: '64^\\circ + 116^\\circ = 180^\\circ', calc: { expr: '64 + 116', value: 180 } },
       ] },
     { problem: 'שתי מסילות רכבת מקבילות עוברות ממזרח למערב, וכביש ישר חוצה אותן באלכסון. במסילה הצפונית, הזווית שמצפון למסילה וממזרח לכביש היא $47^\\circ$. מה הזווית במסילה הדרומית, מצפון למסילה וממערב לכביש?', answer: 133, check: '180 - 47',
+      fig: parallels(47, [{ at: 'U', pos: 'ur', text: '47°' }, { at: 'L', pos: 'ul', text: '?', target: true }]),
       steps: [
         { action: 'מעבירים את הזווית לחיתוך הדרומי: המתאימה לה, מצפון למסילה הדרומית וממזרח לכביש, היא גם $47^\\circ$.', why: 'המסילות מקבילות, וזוויות מתאימות שוות.', result: '47^\\circ' },
         { action: 'הזווית המבוקשת צמודה לזווית הזאת: שתיהן מצפון למסילה הדרומית, משני צדי הכביש.', why: 'יחד הן ממלאות את הקו הישר של המסילה.', result: 'x = 180^\\circ - 47^\\circ', value: '180 - 47' },
@@ -726,6 +741,7 @@ const stair4: StairContent = {
   ],
   together: [
     { problem: 'שני ישרים מקבילים וחותך. בחיתוך העליון, הזווית בין הישרים ומשמאל לחותך היא $72^\\circ$. מה הזווית בחיתוך התחתון, בין הישרים ומשמאל לחותך?',
+      fig: parallels(72, [{ at: 'U', pos: 'll', text: '72°' }, { at: 'L', pos: 'ul', text: '?', target: true }]),
       steps: [
         { prompt: 'איך נקרא הזוג הזה?', choices: [
           { text: 'זוויות חד־צדדיות', ok: true, feedback: 'נכון: שתיהן בין הישרים, ושתיהן משמאל לחותך.' },
@@ -740,6 +756,7 @@ const stair4: StairContent = {
       ],
       final: { prompt: 'כמה מעלות הזווית בחיתוך התחתון?', answer: 108, check: '180 - 72', hints: ['$180 - 70 = 110$.', 'עוד $2$ פחות: $180 - 72$.'] } },
     { problem: 'שני ישרים מקבילים וחותך. בחיתוך העליון, הזווית מעל הישר ומימין לחותך היא $58^\\circ$. מה הזווית בחיתוך התחתון, מעל הישר ומשמאל לחותך?',
+      fig: parallels(58, [{ at: 'U', pos: 'ur', text: '58°' }, { at: 'L', pos: 'ul', text: '?', target: true }]),
       steps: [
         { prompt: 'מה הצעד הראשון?', choices: [
           { text: 'להעביר את $58^\\circ$ לחיתוך התחתון: המתאימה לה, מעל הישר ומימין לחותך, גם היא $58^\\circ$', ok: true, feedback: 'נכון: עכשיו יש זווית ידועה באותו חיתוך כמו הזווית המבוקשת.' },
@@ -907,6 +924,7 @@ const stair5: StairContent = {
   ],
   examples: [
     { problem: 'במשולש שווה־שוקיים $ABC$ ($AB = AC$) זווית הראש היא $\\angle A = 36^\\circ$. מה גודל $\\angle B$?', display: '\\angle A = 36^\\circ', answer: 72, check: '(180 - 36) / 2',
+      fig: isosceles(36, { top: { text: '36°' }, left: { text: '?', target: true } }, { names: ['B', 'C', 'A'] }),
       steps: [
         { action: 'מזהים: $AB = AC$, ולכן $\\angle B$ ו־$\\angle C$ הן זוויות הבסיס.', why: 'זוויות הבסיס הן אלה שמול השוקיים, ליד הבסיס $BC$. הן שוות.', result: '\\angle B = \\angle C' },
         { action: 'מורידים את זווית הראש מ־$180^\\circ$.', why: 'מה שנשאר הוא שתי זוויות הבסיס יחד.', result: '\\angle B + \\angle C = 180^\\circ - 36^\\circ = 144^\\circ', calc: { expr: '180 - 36', value: 144 } },
@@ -914,6 +932,7 @@ const stair5: StairContent = {
         { action: 'בודקים: ראש ועוד שתי זוויות בסיס.', why: 'צריך לצאת $180^\\circ$.', result: '36^\\circ + 72^\\circ + 72^\\circ = 180^\\circ', calc: { expr: '36 + 72 + 72', value: 180 } },
       ] },
     { problem: 'סולם דו־צדדי פתוח עומד על הרצפה. שתי הרגליים שלו שוות באורכן, והזווית ביניהן למעלה היא $40^\\circ$. מה הזווית בין רגל של הסולם לבין הרצפה, מחוץ לסולם?', answer: 110, check: '180 - (180 - 40) / 2',
+      fig: aFrame(40),
       steps: [
         { action: 'רואים משולש שווה־שוקיים: נקרא לראש הסולם $A$ ולרגליים $B$ ו־$C$. הרגליים הן השוקיים, הרצפה היא הבסיס.', why: 'רגליים שוות באורכן הן שוקיים שוות, ולכן הזוויות ליד הרצפה שוות.', result: '\\angle A = 40^\\circ,\\quad \\angle B = \\angle C' },
         { action: 'מוצאים זווית בסיס: מורידים את הראש מ־$180^\\circ$ ומחלקים לשתיים.', why: 'מה שנשאר מתחלק שווה בין שתי זוויות הבסיס.', result: '\\angle B = (180^\\circ - 40^\\circ) : 2 = 70^\\circ', calc: { expr: '(180 - 40) / 2', value: 70 } },
@@ -923,6 +942,7 @@ const stair5: StairContent = {
   ],
   together: [
     { problem: 'במשולש שווה־שוקיים זווית בסיס היא $52^\\circ$. נמצא יחד את זווית הראש.', display: '\\angle B = 52^\\circ',
+      fig: isosceles(76, { left: { text: '52°' }, top: { text: '?', target: true } }, { names: ['B', '_C', '_A'] }),
       steps: [
         { prompt: 'כמה זוויות של $52^\\circ$ יש במשולש?', choices: [
           { text: 'שתיים: שתי זוויות הבסיס', ok: true, feedback: 'נכון: זוויות הבסיס שוות.' },
@@ -937,6 +957,7 @@ const stair5: StairContent = {
       ],
       final: { prompt: 'כמה מעלות זווית הראש?', answer: 76, check: '180 - 2 * 52', hints: ['$180 - 104$.', '$180 - 100 = 80$, ועוד $4$ פחות.'] } },
     { problem: 'במשולש $\\angle A = 38^\\circ$ ו־$\\angle B = 77^\\circ$. נמצא את הזווית החיצונית ליד $C$.', display: '\\angle A = 38^\\circ,\\quad \\angle B = 77^\\circ',
+      fig: exterior(38, 77, { A: { text: '38°' }, B: { text: '77°' }, ext: { text: '?', target: true } }),
       steps: [
         { prompt: 'מה הדרך הקצרה?', choices: [
           { text: 'לחבר $\\angle A + \\angle B$', ok: true, feedback: 'נכון: הזווית החיצונית שווה לסכום שתי הזוויות הפנימיות הרחוקות.' },

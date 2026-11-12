@@ -217,6 +217,20 @@ number there at once, shown once, never again, and after a teaching stage before
 class who never chose sound). Pictures taken mid-animation: `qa-evidence/student/celebrate/`. The class goal's moment
 (`class-goal/phone-moment.png`, `phone-small-moment.png`) was taken again from this build (signed has 6 stairs now).
 
+The student skeptic's "a drawing in 4 of 263 worked examples and solving-together problems" (SK-STUDENT-1): every
+angles and Pythagoras problem of stages B and C now has its drawing (a line split by rays, two crossing lines, a
+triangle from its angles, a sail, parallel lines, an isosceles triangle, an exterior angle, a folding ladder; a right
+triangle, a garden, a frame, a pole, a ladder, a kite, a screen, two points on a plane), and the plane, lines,
+statistics and fractions have one where a plane, a dot plot, a bar chart or a fraction bar carries the idea: 98 of 263,
+against 4. Each is built from its problem's own numbers: `learn/figures.test.ts` checks that a drawing names only its
+problem's letters, draws every angle written in degrees that size, keeps numbered sides in proportion, puts a point
+named by its coordinates there and never writes the answer it asks for; `learn/visuals.test.ts` prints the table and
+holds angles and Pythagoras to all of them and the four other topics to a share. `e2e/teach-all.spec.js` opens every
+problem of those six topics at 320x568: its drawing is visible and the way on stays in view (a worked example's first
+button; in solving together, the first choice above the bottom bar). Pictures:
+`qa-evidence/student/visuals/bc-*.png` (the triangle's angle sum, stage B, and Pythagoras together, stage C, on both
+phones).
+
 Earlier stages' own before and after pictures are in `qa-evidence/student/`: `unit-identity-before/after.png`, `dark/`,
 `madi/`, `streak/`, `class-goal/`, `visuals/`, `polish/`, `install/`, `push/`, `landing/` and `store/`.
 
