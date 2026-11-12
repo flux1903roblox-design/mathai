@@ -361,7 +361,8 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
   const at = '2026-11-04T10:00:00.000Z';
   const st = student('8', { path: { pyth: { parts: {}, reviews: 0, jumped: 0, done: { 3: 'mastered' } } }, learn: { skills: { 'pyth:3': { attempts: [], mastered: { at, box: 0, due: '2026-11-05T10:00:00.000Z' } } }, miscon: {}, exam: null, missions: {}, events: [] } });
   await open(page, '#/', { ...st, version: 4 });
-  const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: 'פיתגורס' }) });
+  // the unit's whole title: "פיתגורס במרחב" (space, the last unit of ח׳) has the word too
+  const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: /^משפט פיתגורס$/ }) });
   const nodes = unit.locator('.node');
   await expect(nodes.nth(0)).toHaveClass(/node-current/);
   await expect(nodes.nth(1)).toHaveClass(/node-open/);

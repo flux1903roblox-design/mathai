@@ -1765,17 +1765,19 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
 /* shapes on a grid (רשת משבצות, stage 2): the grid, the shape, a piece in the unit's colour and where it was, a cut,
    the dashed parallel of a triangle's vertex; green only when the state is right (practice), dashed green for the answer */
-.mp-grid-line { stroke: color-mix(in srgb, var(--c-d, var(--brand-d)) 18%, transparent); stroke-width: 1; }
-.mp-grid-line.edge { stroke: color-mix(in srgb, var(--c-d, var(--brand-d)) 32%, transparent); stroke-width: 1.5; }
+/* The three measurement objects draw their lines and words in the unit's ink colour, --c-ink: in light it is the same as
+   --c-d, and in dark --c-d is the buttons' deep lip blue, too dark to see on the drawing's canvas. */
+.mp-grid-line { stroke: color-mix(in srgb, var(--c-ink, var(--brand-d)) 18%, transparent); stroke-width: 1; }
+.mp-grid-line.edge { stroke: color-mix(in srgb, var(--c-ink, var(--brand-d)) 32%, transparent); stroke-width: 1.5; }
 .mp-grid-shape { fill: color-mix(in srgb, var(--c, var(--brand)) 18%, transparent); stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; transition: fill var(--duration-fast) var(--ease-out), stroke var(--duration-fast) var(--ease-out); }
 .mp-grid-shape.hit { fill: var(--good-tint); stroke: var(--good-d); }
-.mp-grid-piece { fill: color-mix(in srgb, var(--c, var(--brand)) 48%, var(--surface)); stroke: var(--c-d, var(--brand-d)); stroke-width: 2.5; stroke-linejoin: round; }
+.mp-grid-piece { fill: color-mix(in srgb, var(--c, var(--brand)) 48%, var(--surface)); stroke: var(--c-ink, var(--brand-d)); stroke-width: 2.5; stroke-linejoin: round; }
 .mp-grid-piece.hit { fill: color-mix(in srgb, var(--good) 40%, var(--surface)); stroke: var(--good-d); }
-.mp-grid-was { fill: none; stroke: var(--c-d, var(--brand-d)); stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; }
-.mp-grid-cut { stroke: var(--c-d, var(--brand-d)); stroke-width: 4; stroke-dasharray: 9 6; stroke-linecap: round; }
+.mp-grid-was { fill: none; stroke: var(--c-ink, var(--brand-d)); stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; }
+.mp-grid-cut { stroke: var(--c-ink, var(--brand-d)); stroke-width: 4; stroke-dasharray: 9 6; stroke-linecap: round; }
 .mp-grid-cut.hit { stroke: var(--good-d); }
 .mp-grid-par { stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 6 6; }
-.mp-grid-height { stroke: var(--c-d, var(--brand-d)); stroke-width: 2; stroke-dasharray: 4 4; }
+.mp-grid-height { stroke: var(--c-ink, var(--brand-d)); stroke-width: 2; stroke-dasharray: 4 4; }
 .mp-grid-right { fill: none; stroke: var(--good-d); stroke-width: 2; }
 .mp-grid-ghost { fill: color-mix(in srgb, var(--good) 14%, transparent); stroke: var(--good); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linejoin: round; }
 .mp-grid-ghost-line { stroke: var(--good); stroke-width: 3; stroke-dasharray: 8 6; stroke-linecap: round; }
@@ -1824,11 +1826,11 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 /* fix: dashed slots, the loose face (the part the student moves) and its place beside the net */
 .mp-net-slot { cursor: pointer; }
 .mp-net-slot:focus { outline: none; }
-.mp-net-slot polygon { fill: color-mix(in srgb, var(--c, var(--brand)) 6%, transparent); stroke: var(--c-d, var(--brand-d)); stroke-width: 2; stroke-dasharray: 6 5; stroke-linejoin: round; }
+.mp-net-slot polygon { fill: color-mix(in srgb, var(--c, var(--brand)) 6%, transparent); stroke: var(--c-ink, var(--brand-d)); stroke-width: 2; stroke-dasharray: 6 5; stroke-linejoin: round; }
 .mp-net-slot:focus-visible polygon { fill: color-mix(in srgb, var(--brand) 14%, transparent); stroke: var(--brand-d); stroke-width: 4; stroke-dasharray: none; }
 .mp-net-loose { cursor: grab; touch-action: none; }
 .mp-net-loose.dragging { cursor: grabbing; }
-.mp-net-loose .mp-net-face { --f: color-mix(in srgb, var(--c, var(--brand)) 48%, var(--surface)); stroke: var(--c-d, var(--brand-d)); stroke-width: 2.5; }
+.mp-net-loose .mp-net-face { --f: color-mix(in srgb, var(--c, var(--brand)) 48%, var(--surface)); stroke: var(--c-ink, var(--brand-d)); stroke-width: 2.5; }
 .mp-net-loose .mp-net-face.hit { --f: color-mix(in srgb, var(--good) 40%, var(--surface)); stroke: var(--good-d); }
 .mp-net-tray { fill: none; stroke: var(--rule-strong); stroke-width: 2; stroke-dasharray: 4 4; stroke-linejoin: round; }
 
@@ -1852,9 +1854,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mp-circ-tick { stroke: var(--ink); stroke-width: 2; }
 .mp-circ-unrolled { stroke: var(--c, var(--brand)); stroke-width: 6; stroke-linecap: round; }
 .mp-circ-unrolled.hit { stroke: var(--good-d); }
-.mp-circ-end { stroke: var(--c-d, var(--brand-d)); stroke-width: 3; stroke-linecap: round; }
-.mp-circ-note { fill: var(--c-d, var(--brand-d)); font-size: 15px; font-weight: 700; }
-.mp-circ-disc { fill: color-mix(in srgb, var(--c, var(--brand)) 14%, var(--surface)); stroke: var(--c-d, var(--brand-d)); stroke-width: 3; }
+.mp-circ-end { stroke: var(--c-ink, var(--brand-d)); stroke-width: 3; stroke-linecap: round; }
+.mp-circ-note { fill: var(--c-ink, var(--brand-d)); font-size: 15px; font-weight: 700; }
+.mp-circ-disc { fill: color-mix(in srgb, var(--c, var(--brand)) 14%, var(--surface)); stroke: var(--c-ink, var(--brand-d)); stroke-width: 3; }
 .mp-circ-disc.hit { stroke: var(--good-d); }
 .mp-circ-spoke { stroke: var(--c, var(--brand)); stroke-width: 2; }
 .mp-circ-mark { fill: var(--c, var(--brand)); stroke: var(--surface); stroke-width: 2; }
@@ -1862,7 +1864,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mp-circ-r { fill: var(--ink); font-size: 15px; font-weight: 700; }
 .mp-circ-ghost { stroke: var(--good); stroke-width: 4; stroke-dasharray: 7 6; }
 .mp-circ-ghost-text { fill: var(--good-ink); font-size: 14px; font-weight: 700; }
-.mp-circ-sector { stroke: var(--c-d, var(--brand-d)); stroke-width: 1; stroke-linejoin: round; }
+.mp-circ-sector { stroke: var(--c-ink, var(--brand-d)); stroke-width: 1; stroke-linejoin: round; }
 .mp-circ-sector.a { fill: color-mix(in srgb, var(--c, var(--brand)) 26%, var(--surface)); }
 .mp-circ-sector.b { fill: color-mix(in srgb, var(--c, var(--brand)) 56%, var(--surface)); }
 .mp-circ-sector.hit.a { fill: var(--good-tint); }

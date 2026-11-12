@@ -142,6 +142,8 @@ async function toFold(page) {
   await expect(page.locator('.ls-explore .manip')).toBeVisible();
   // the step before has finished leaving (its card slides out, and on a narrow phone it may stick out while it goes)
   await expect(page.locator('.sp-say')).toHaveCount(0);
+  // and this one has come in whole: on a busy machine its card can still stick out by a few pixels for a moment
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   return page.locator('.ls-explore .manip-canvas');
 }
 
@@ -197,6 +199,8 @@ async function toRoll(page) {
   await expect(page.locator('.ls-explore .manip')).toBeVisible();
   // the step before has finished leaving (its card slides out, and on a narrow phone it may stick out while it goes)
   await expect(page.locator('.sp-say')).toHaveCount(0);
+  // and this one has come in whole: on a busy machine its card can still stick out by a few pixels for a moment
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   return page.locator('.ls-explore .manip-canvas');
 }
 

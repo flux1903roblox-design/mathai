@@ -135,6 +135,7 @@ Each stair is a `StairContent` (types.ts). The tests in `content.test.ts` check 
 | 5. Content for every stair | done: authored per topic, each stair with its own strategy, then checked (below) |
 | 6. QA and staging | done for this checkpoint (see QA_AUDIT.md, round 8) |
 | 7. Curriculum stage 1 | done: the programme map and `/programme`, the fraction bar, double number line and fractions on number lines, the floor (frac:1–4, the floor check, multiplication facts), signed:6, ratio and percent for grade 8, the one ranked "what next", the challenge track |
+| 8. Curriculum stage 2, measurement | done: the grid, net and circle objects, the solid and net figures, answers with π and with π ≈ 3.14, areas and perimeters and boxes and prisms for grade 7 (7.12, 7.13), the circle, the cylinder and the cone and Pythagoras in space for grade 8 (8.4, 8.17), three challenges a topic. The proof pack, the merge notes and the owner's step (a teacher reads the four topics) are in QA_MEASURE.md |
 
 ### Screens and routes added
 
