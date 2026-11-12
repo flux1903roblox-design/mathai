@@ -1,0 +1,63 @@
+/* The graph you draw (FUNC-1) and the protractor (FUNC-1.2): their rules, moved out of the first-load app.css into a
+   sheet that loads with their drawing modules (components/manip/graphAxes.jsx and protractor.jsx import it; the
+   objects GraphDraw.jsx and AngleTurner.jsx and the still figures in Figure.jsx come only through them), in their
+   original order. No first-load rule sets the same properties on these elements with the same weight, so the later
+   load changes nothing on screen. styles/lazy.test.js checks every selector here. */
+
+/* ---------- the graph you draw (FUNC-1) ----------
+   Ink for the frame, the unit's colour for the student's line and points, orange for a line drawn to compare with (ref),
+   green only for the answer once it is shown. The chosen point's column is tinted: it is what the step buttons move.
+   Text sizes are set on the drawing itself (graphAxes.jsx GRAPH_FONT). */
+.manip-graph .manip-canvas { max-width: 460px; }
+.mp-graph-units { font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+.mp-graph-grid { stroke: color-mix(in srgb, var(--ink-2) 32%, transparent); stroke-width: 1; }
+.mp-graph-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.mp-graph-axis-head { fill: var(--ink); }
+.mp-graph-num { fill: var(--ink-2); font-weight: 500; }
+.mp-graph-name { fill: var(--ink); font-weight: 600; }
+.mp-graph-col { fill: color-mix(in srgb, var(--c) 10%, transparent); }
+.mp-graph-line { fill: none; stroke: var(--c); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.mp-graph-ref polyline { fill: none; stroke: var(--streak-d); stroke-width: 3; stroke-dasharray: 9 6; stroke-linecap: round; stroke-linejoin: round; }
+.mp-graph-key text { fill: var(--streak-ink); font-weight: 700; }
+.mp-graph-key line { stroke: var(--streak-d); stroke-width: 3; stroke-linecap: round; }
+.mp-graph-key line.dashed { stroke-dasharray: 7 4; }
+.mp-graph-ghost polyline { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 8 6; stroke-linecap: round; stroke-linejoin: round; }
+.mp-graph-ghost circle { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 5 4; }
+.mp-graph-fixed { fill: var(--ink); stroke: var(--paper); stroke-width: 2.5; }
+.mp-graph-pt { outline: none; cursor: grab; }
+.mp-graph-pt.fixed { cursor: default; }
+.mp-graph-pt .mp-halo { opacity: 0; transition: opacity var(--duration-fast) var(--ease-out); }
+.mp-graph-pt.on .mp-halo { opacity: 1; }
+.mp-graph-ring { fill: none; stroke: transparent; stroke-width: 3; }
+.mp-graph-pt:focus-visible .mp-graph-ring { stroke: var(--brand); }
+.mp-graph-hint { fill: color-mix(in srgb, var(--brand) 6%, transparent); stroke: var(--brand); stroke-width: 2.5; stroke-dasharray: 6 5; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; pointer-events: none; }
+.mp-graph-hint-seg { stroke: color-mix(in srgb, var(--brand) 30%, transparent); stroke-width: 12; stroke-linecap: round; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; pointer-events: none; }
+@media (max-height: 700px) and (max-width: 899px) {
+  .manip-graph .manip-readout { font-size: var(--t-base); }
+}
+
+/* ---------- the protractor in the angle object (FUNC-1.2) ----------
+   Clear plastic over the paper, ink ticks; the scale that starts on the right in the brand blue, the one that starts on
+   the left in orange, each with a dot of its colour at its 0 (never red or green: those are feedback). The numbers have
+   a halo of the plastic, so an arm under them never hides them; their sizes are set on the drawing (protractor.jsx). */
+.manip-prot .manip-canvas { max-width: 420px; }
+.mp-prot-plastic { fill: color-mix(in srgb, var(--surface) 60%, transparent); stroke: var(--ink-2); stroke-width: 1.5; }
+.mp-prot-letter { fill: var(--ink-2); font-style: italic; font-weight: 700; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.mp-prot-tick { stroke: var(--ink-2); stroke-width: 1.2; }
+.mp-prot-tick.long { stroke: var(--ink); stroke-width: 1.8; }
+.mp-prot-base { stroke: var(--ink); stroke-width: 2; }
+.mp-prot-base.zero { stroke: var(--brand); stroke-width: 4; stroke-dasharray: 9 5; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; }
+.mp-prot-centre { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.mp-prot-zero.right { fill: var(--brand); }
+.mp-prot-zero.left { fill: var(--streak-d); }
+.mp-prot-num { font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.mp-prot-num.right { fill: var(--brand-d); }
+.mp-prot-num.left { fill: var(--streak-ink); }
+.mp-prot.hint-right .mp-prot-num.left, .mp-prot.hint-left .mp-prot-num.right { opacity: 0.3; }
+.mp-prot-arm { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
+.mp-prot-arm.ray { stroke: var(--c); }
+@media (prefers-reduced-motion: reduce) { .mp-prot-base.zero { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .mp-graph-pt .mp-halo { transition: none; }
+  .mp-graph-hint, .mp-graph-hint-seg { animation: none; }
+}

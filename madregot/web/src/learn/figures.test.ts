@@ -14,6 +14,17 @@ import { contentOf, loadAllContent } from './content/index';
 import type { DiscoverStep, FigSpec } from './types';
 // @ts-ignore: plain JS
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
+// @ts-ignore: plain JS
+import { axisName, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, figNum } from '@/content/manip.js';
+// @ts-ignore: plain JS
+import { graphFrame, numWidth, numbered, GRAPH_FONT } from '@/components/manip/graphAxes.jsx';
+// @ts-ignore: plain JS
+import { protractorLabels } from '@/components/manip/protractor.jsx';
+import { protractorFig, clockFig } from './content/geo';
+// @ts-ignore: plain JS
+import { makeItem } from '@/content/index.js';
+import { seeded } from './expr';
+import { CHALLENGES } from './challenges/index';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -53,7 +64,7 @@ describe('teaching drawings: every step that names a shape shows it', () => {
       expect(html, `${skill} #${i}`).toMatch(/<svg/);
       expect(html, `${skill} #${i}`).not.toMatch(/NaN|undefined|Infinity/);
     }
-  });
+  }, 60_000); // every stair's drawings: well under a second alone, more on a busy machine
 });
 
 describe('teaching drawings agree with their text and with themselves', () => {
@@ -189,6 +200,17 @@ function labelsOf(f: AnyFig): Set<string> {
       case 'right': return [f.a, f.b, f.c];
       case 'ladder': return [f.wall, f.foot, f.len];
       case 'table': return [...f.head, ...f.rows.flat()];
+      // a situation graph writes its axes' names, its series' and points' names, the numbers of its rise and run, and the
+      // direction arrow's words (not the numbers along its axes); its two axes are x and y, as its words read them ("ציר x",
+      // "ציר y"), so a text that says "ציר $x$" names an axis the figure has
+      // a protractor's numbers are its scales (like an axis's): it writes its letters; a clock writes only its hours
+      case 'protractor': return f.letters ? [f.letters.vertex, f.letters.a, f.letters.b] : [];
+      case 'clock': return [];
+      case 'sgraph': {
+        const rr = sgraphRiseRun(f);
+        return ['x', 'y', axisName(f.x), axisName(f.y), ...(f.series || []).map((s: any) => s.label), ...(f.marks || []).map((k: any) => k.label),
+          ...(rr ? [fmt(rr.run), fmt(rr.rise)] : []), f.dirArrow && 'משמאל לימין'];
+      }
       default: return [];
     }
   })();
@@ -245,6 +267,63 @@ function selfProblems(skill: string, f: AnyFig): string[] {
       }
     }
   }
+  if (f.type === 'sgraph') bad.push(...sgraphProblems(f));
+  if (f.type === 'protractor') {
+    const [a, b] = f.arms || [];
+    const five = (v: number) => Number.isInteger(v) && v % 5 === 0;
+    if (![a, b].every((v) => five(v) && v >= 0 && v <= 180)) bad.push(`protractor arms ${a}, ${b}: each a multiple of 5 from 0 to 180`);
+    else if (Math.abs(a - b) < 15) bad.push(`protractor arms ${a}, ${b} are less than 15° apart`);
+    if (!Number.isInteger((f.base || 0) / 15)) bad.push(`protractor turned ${f.base}°: not a multiple of 15`);
+    if (f.letters && ![f.letters.vertex, f.letters.a, f.letters.b].every((l: string) => /^[A-Z]$/.test(l))) bad.push('protractor letters are not capital letters');
+    // on a 320px phone (288px drawn) its numbers never touch
+    const L = protractorLabels({ drawn: 288, base: f.base || 0, arms: [a, b] });
+    L.forEach((p: any, i: number) => L.slice(i + 1).forEach((q: any) => { if (!(p.box[2] <= q.box[0] || q.box[2] <= p.box[0] || p.box[3] <= q.box[1] || q.box[3] <= p.box[1])) bad.push(`protractor numbers ${p.text} and ${q.text} touch`); }));
+  }
+  if (f.type === 'clock' && !(Number.isInteger(f.h) && f.h >= 1 && f.h <= 12 && Number.isInteger(f.m) && f.m >= 0 && f.m < 60)) bad.push(`clock at ${f.h}:${f.m}`);
+  return bad;
+}
+
+/**
+ * A situation graph agrees with itself: axes of whole steps with names; every point of every series, and every lettered
+ * point, on a grid crossing inside the axes (so what the eye reads off it is exact), a series read left to right (x
+ * growing: one y for each x); bands, guides and the rise and run on the first series and inside the axes; two series that
+ * meet, meeting on the grid; and numbers that fit side by side where they are drawn.
+ */
+function sgraphProblems(f: AnyFig): string[] {
+  const bad: string[] = [];
+  const lo = (a: any) => a.min ?? 0;
+  const steps = (a: any, v: number) => (v - lo(a)) / a.step;
+  const onGrid = (a: any, v: number) => v >= lo(a) - 1e-9 && v <= a.max + 1e-9 && Math.abs(steps(a, v) - Math.round(steps(a, v))) < 1e-9;
+  for (const [name, a] of [['x', f.x], ['y', f.y]] as const) {
+    if (!a || !(a.step > 0 && a.max > lo(a)) || !onGrid(a, a.max)) bad.push(`sgraph ${name} axis ${a && `${lo(a)}..${a.max} every ${a.step}`} is not a whole number of steps`);
+    else if (!a.label) bad.push(`sgraph ${name} axis has no name`);
+  }
+  if (bad.length) return bad;
+  const at = ([x, y]: Pt, what: string) => { if (!onGrid(f.x, x) || !onGrid(f.y, y)) bad.push(`sgraph ${what} (${x}, ${y}) is not on the grid inside the axes`); };
+  const series = (f.series || []) as { pts: Pt[] }[];
+  if (!series.length) bad.push('sgraph with no series');
+  series.forEach((s, i) => {
+    s.pts.forEach((p) => at(p, `series ${i + 1} point`));
+    if (s.pts.some((p, k) => k > 0 && !(p[0] > s.pts[k - 1][0]))) bad.push(`sgraph series ${i + 1} does not go left to right`);
+  });
+  (f.marks || []).forEach((k: any) => at([k.x, k.y], `point ${k.label}`));
+  const first = series[0]?.pts || [];
+  (f.bands || []).forEach((b: any) => { if (!(b.from < b.to) || !onGrid(f.x, b.from) || !onGrid(f.x, b.to)) bad.push(`sgraph band ${b.from}..${b.to} is not an interval of the x axis`); });
+  if (f.guide?.x != null && (!onGrid(f.x, f.guide.x) || seriesAt(first, f.guide.x) == null)) bad.push(`sgraph guide from x = ${f.guide.x} does not reach the graph`);
+  if (f.guide?.y != null && (!onGrid(f.y, f.guide.y) || !seriesCrossings(first, f.guide.y).length)) bad.push(`sgraph guide from y = ${f.guide.y} does not reach the graph`);
+  if (f.riseRun) { const rr = sgraphRiseRun(f); if (!rr || !(rr.run > 0)) bad.push(`sgraph riseRun ${f.riseRun.from}..${f.riseRun.to} is not on the first series`); }
+  if (f.meet) {
+    const p = series.length > 1 ? seriesMeet(series[0].pts, series[1].pts) : null;
+    if (!p) bad.push('sgraph meet: the first two series do not meet');
+    else at(p as Pt, 'meeting point');
+  }
+  // numbers side by side: on the x axis each number needs its width and a gap; up the y axis, its height
+  const fr = graphFrame(f.x, f.y);
+  const xs = numbered(f.x) as number[]; const ys = numbered(f.y) as number[];
+  const xGap = xs.length > 1 ? fr.X(xs[1]) - fr.X(xs[0]) : Infinity; const xWide = Math.max(...xs.map((v) => numWidth(figNum(v))));
+  if (xGap < xWide + 4) bad.push(`sgraph x numbers ${xGap.toFixed(1)} apart, ${xWide.toFixed(1)} wide: set x.every`);
+  const yGap = ys.length > 1 ? fr.Y(ys[0]) - fr.Y(ys[1]) : Infinity;
+  if (yGap < GRAPH_FONT.num + 2) bad.push(`sgraph y numbers ${yGap.toFixed(1)} apart: set y.every`);
   return bad;
 }
 
@@ -302,6 +381,14 @@ function textProblems(st: DiscoverStep, f: AnyFig): string[] {
   return bad;
 }
 
+/** Situation graphs that agree with themselves (the fixtures of FUNC-1; the func stairs bring their own). */
+const SGRAPHS: AnyFig[] = [
+  { type: 'sgraph', x: { max: 45, step: 5, label: 'זמן', unit: 'דקות', every: 2 }, y: { max: 700, step: 100, label: 'מרחק מהבית', unit: 'מטרים' }, series: [{ pts: [[0, 0], [10, 600], [25, 600], [45, 0]] }], bands: [{ from: 10, to: 25 }], guide: { x: 5, y: 300 } },
+  { type: 'sgraph', x: { min: 6, max: 18, step: 2, label: 'שעה' }, y: { min: 10, max: 26, step: 1, every: 2, label: 'טמפרטורה', unit: 'מעלות' }, series: [{ pts: [[6, 12], [8, 15], [10, 18], [12, 22], [14, 24], [16, 21], [18, 18]], dots: true }], marks: [{ x: 14, y: 24, label: 'A' }] },
+  { type: 'sgraph', x: { max: 4, step: 1, label: 'זמן', unit: 'שעות' }, y: { max: 240, step: 60, label: 'מרחק מתל אביב', unit: 'ק״מ' }, series: [{ pts: [[0, 0], [4, 240]], label: 'רכב א' }, { pts: [[0, 240], [4, 0]], label: 'רכב ב', dashed: true }], meet: true, riseRun: { from: 1, to: 3 }, dirArrow: true },
+  { type: 'sgraph', x: { max: 10, step: 1, label: 'זמן', unit: 'שניות', every: 2 }, y: { max: 20, step: 2, label: 'גובה המים', unit: 'ס״מ' }, series: [{ pts: [[0, 0], [4, 4], [7, 10], [9, 16], [10, 20]], smooth: true }] },
+];
+
 const ALL_STEPS = () => Object.values(CONTENT).flatMap((c) => [
   ...c.discover.map((st, i) => ({ skill: c.skill, where: `${c.skill} #${i}`, st, main: true })),
   ...c.misconceptions.flatMap((mc) => mc.remedy.map((st, i) => ({ skill: c.skill, where: `${c.skill} ${mc.id} remedy #${i}`, st, main: false }))),
@@ -319,6 +406,8 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(bad).toEqual([]);
   });
 
+  // every teaching figure of every stair is drawn once: about 2 s alone and up to 9 s on a busy machine, past vitest's 5 s
+  // default, so it gets its own time as engines.test's slip check does
   it('every figure renders, with no broken numbers', () => {
     for (const { where, st } of ALL_STEPS()) {
       const fig = figOf(st); if (!fig) continue;
@@ -326,12 +415,65 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
       expect(html, where).toMatch(/<svg|<table/);
       expect(html, where).not.toMatch(/NaN|undefined|Infinity/);
     }
-  });
+  }, 60_000);
 
   // the checks themselves, on made-up steps: each catches what it is for, and lets a right figure through
   const say = (text: string, fig: AnyFig): DiscoverStep => ({ kind: 'say', text, fig: fig as FigSpec });
   const predict = (text: string, fig: AnyFig, choices: string[], answer: number): DiscoverStep => ({ kind: 'predict', text, fig: fig as FigSpec, choices, answer, why: '' });
   const both = (skill: string, st: DiscoverStep) => [...selfProblems(skill, figOf(st) as AnyFig), ...textProblems(st, figOf(st) as AnyFig)];
+
+  it('200 situation graphs of func:1\'s exercises and of each of its models agree with themselves and render', () => {
+    const rnd = seeded(11);
+    const c = contentOf('func:1')!;
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 2000; i += 1) { const it = makeItem('func', 1); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    for (const m of [c.diag, c.transfer!]) for (let i = 0; i < 200; i += 1) { const p = m.params(rnd); figs.push({ where: JSON.stringify(p), f: m.fig!(p) as AnyFig }); }
+    expect(figs.length).toBe(600);
+    const bad = figs.flatMap(({ where, f }) => selfProblems('func:1', f).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it('200 graphs of func:3\'s exercises and 200 of its model agree with themselves and render', () => {
+    const rnd = seeded(13);
+    const c = contentOf('func:3')!;
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 2000; i += 1) { const it = makeItem('func', 3); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    for (let i = 0; i < 200; i += 1) { const p = c.diag.params(rnd); figs.push({ where: JSON.stringify(p), f: c.diag.fig!(p) as AnyFig }); }
+    expect(figs.length).toBe(400);
+    const bad = figs.flatMap(({ where, f }) => selfProblems('func:3', f).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it('200 graphs of func:4\'s two runners agree with themselves and render', () => {
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 20000; i += 1) { const it = makeItem('func', 4); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    expect(figs.length).toBe(200);
+    const bad = figs.flatMap(({ where, f }) => selfProblems('func:4', f).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it('200 meeting graphs of eq:6\'s exercises agree with themselves and render, the meeting on a grid crossing', () => {
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 20000; i += 1) { const it = makeItem('eq', 6); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    expect(figs.length).toBe(200);
+    // the meeting is read off the graph: it is not marked, but it lies on a grid crossing (meet checks it there)
+    const bad = figs.flatMap(({ where, f }) => selfProblems('eq:6', { ...f, meet: true }).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    expect(figs.every(({ f }) => !(f as { meet?: boolean }).meet)).toBe(true);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it('the challenge tasks\' situation graphs agree with themselves and render (func:c2, func:c3)', () => {
+    const graphs = CHALLENGES.filter((t) => t.fig?.type === 'sgraph');
+    expect(graphs.map((t) => t.id)).toEqual(expect.arrayContaining(['func:c2', 'func:c3']));
+    graphs.forEach((t) => {
+      expect(selfProblems(t.after, t.fig as AnyFig), t.id).toEqual([]);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: t.fig })), t.id).not.toMatch(/NaN|undefined|Infinity/);
+    });
+  });
 
   it('lets right figures through', () => {
     expect(both('signed:1', say('מתחילים ב־$-2$ וזזים $5$ ימינה.', { type: 'numline', from: -6, to: 6, marks: [{ x: 0, label: '0' }], jumps: [{ from: -2, to: 3, label: '+5' }], anim: true }))).toEqual([]);
@@ -350,6 +492,42 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(both('coord:1', predict('ואיפה $E(0, -3)$?', asked, ['על ציר $y$', 'בראשית'], 0))).toEqual([]);
     const corner = { type: 'coord', range: 6, points: [{ x: 1, y: -3, label: 'A' }, { x: 1, y: 2, label: 'D', hidden: true }] };
     expect(both('coord:5', predict('נתון $A(1, -3)$. מה השיעורים של $D$?', corner, ['$(1, 2)$', '$(2, 1)$'], 0))).toEqual([]);
+    // situation graphs (FUNC-1): a walk with a marked interval and guides; a dot graph with a lettered point; two movers
+    // that meet, with a rise and run and the direction arrow; a smooth curve
+    for (const f of SGRAPHS) expect(both('signed:1', say('הגרף מספר סיפור.', f)), f.series[0].pts.join(' ')).toEqual([]);
+    expect(both('signed:1', say('הנקודה $A$ היא השעה החמה ביותר.', SGRAPHS[1]))).toEqual([]);
+    expect(both('signed:1', predict('בכמה ק״מ התקדם רכב א בשעתיים?', SGRAPHS[2], ['$120$', '$2$'], 0))).toEqual(['the answer 120 is written in the figure']);
+    // a protractor and a clock (FUNC-1.3b): their scale numbers and hours are not "written answers", their letters are names
+    expect(both('angles:1', predict('השוק $BA$ על $0$ של הסולם שמתחיל משמאל. מה גודל $\\sphericalangle ABC$?', protractorFig([180, 130], { letters: { vertex: 'B', a: 'A', b: 'C' } }) as AnyFig, ['$50^\\circ$', '$130^\\circ$'], 0))).toEqual([]);
+    expect(both('angles:1', say('מד זווית מוטה.', protractorFig([0, 65], { base: 45 }) as AnyFig))).toEqual([]);
+    expect(both('angles:1', predict('מה הזווית בין המחוגים בשעה $2{:}30$?', clockFig(2, 30) as AnyFig, ['$105^\\circ$', '$120^\\circ$'], 0))).toEqual([]);
+    expect(textProblems(say('הנקודה $D$ על השוק.', protractorFig([0, 40], { letters: { vertex: 'B', a: 'A', b: 'C' } }) as AnyFig), protractorFig([0, 40], { letters: { vertex: 'B', a: 'A', b: 'C' } }) as AnyFig)).toEqual(['the text names D, the figure does not']);
+  });
+
+  it('catches a protractor or a clock that disagrees with itself', () => {
+    expect(selfProblems('angles:1', protractorFig([0, 200] as [number, number]) as AnyFig)).toEqual(['protractor arms 0, 200: each a multiple of 5 from 0 to 180']);
+    expect(selfProblems('angles:1', protractorFig([0, 37] as [number, number]) as AnyFig)).toEqual(['protractor arms 0, 37: each a multiple of 5 from 0 to 180']);
+    expect(selfProblems('angles:1', protractorFig([40, 45]) as AnyFig)).toEqual(['protractor arms 40, 45 are less than 15° apart']);
+    expect(selfProblems('angles:1', protractorFig([0, 40], { base: 20 }) as AnyFig)).toEqual(['protractor turned 20°: not a multiple of 15']);
+    expect(selfProblems('angles:1', protractorFig([0, 40], { letters: { vertex: 'b', a: 'A', b: 'C' } }) as AnyFig)).toEqual(['protractor letters are not capital letters']);
+    expect(selfProblems('angles:1', clockFig(13, 0) as AnyFig)).toEqual(['clock at 13:0']);
+    expect(selfProblems('angles:1', clockFig(4, 60) as AnyFig)).toEqual(['clock at 4:60']);
+    expect(selfProblems('angles:1', clockFig(4, 30) as AnyFig)).toEqual([]);
+  });
+
+  it('catches a situation graph that disagrees with itself', () => {
+    const [walk, , meet] = SGRAPHS;
+    expect(selfProblems('signed:1', { ...walk, series: [{ pts: [[0, 0], [10, 650], [25, 600], [45, 0]] }] })).toEqual(['sgraph series 1 point (10, 650) is not on the grid inside the axes']);
+    expect(selfProblems('signed:1', { ...walk, series: [{ pts: [[0, 0], [10, 600], [50, 0]] }] })).toEqual(['sgraph series 1 point (50, 0) is not on the grid inside the axes']);
+    expect(selfProblems('signed:1', { ...walk, series: [{ pts: [[0, 0], [25, 600], [10, 600]] }] })).toContain('sgraph series 1 does not go left to right');
+    expect(selfProblems('signed:1', { ...walk, bands: [{ from: 25, to: 10 }] })).toEqual(['sgraph band 25..10 is not an interval of the x axis']);
+    expect(selfProblems('signed:1', { ...walk, guide: { y: 650 } })).toEqual(['sgraph guide from y = 650 does not reach the graph']);
+    expect(selfProblems('signed:1', { ...walk, x: { max: 90, step: 5, label: 'זמן' } })[0]).toMatch(/x numbers .* set x.every/);
+    expect(selfProblems('signed:1', { ...walk, y: { max: 700, step: 25, label: 'מרחק' }, series: [{ pts: [[0, 0], [10, 600]] }], guide: undefined })[0]).toMatch(/y numbers .* set y.every/);
+    expect(selfProblems('signed:1', { ...walk, x: { max: 44, step: 5, label: 'זמן' } })[0]).toMatch(/not a whole number of steps/);
+    expect(selfProblems('signed:1', { ...meet, series: [meet.series[0], { pts: [[0, 240], [4, 60]] }] })[0]).toMatch(/^sgraph meeting point \(2\.28\d+, 137\.1\d+\) is not on the grid/);
+    expect(selfProblems('signed:1', { ...meet, series: [meet.series[0]] })).toEqual(['sgraph meet: the first two series do not meet']);
+    expect(selfProblems('signed:1', { ...meet, riseRun: { from: 1, to: 7 } })).toEqual(['sgraph riseRun 1..7 is not on the first series']);
   });
 
   it('catches a figure that disagrees with itself', () => {

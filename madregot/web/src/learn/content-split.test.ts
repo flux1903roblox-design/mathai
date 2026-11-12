@@ -24,6 +24,7 @@ import { CATS_FRAC } from './content/frac';
 import { CATS_SIGNED6 } from './content/signed6';
 import { CATS_RATIO } from './content/ratio';
 import { CATS_PCT } from './content/pct';
+import { CATS_FUNC } from './content/func';
 // @ts-ignore: no Node types in this project
 import { spawnSync } from 'node:child_process';
 // @ts-ignore: no Node types in this project
@@ -52,6 +53,12 @@ describe('before a topic has loaded', () => {
     expect(contentOf('coord:1')).toBe(list.find((c) => c.skill === 'coord:1'));
     expect(topicsReady(['coord:2', 'coord'])).toBe(true);
     expect(await loadTopic('coord')).toBe(list);
+  });
+  it('loadTopic(\'func\') brings the functions unit (stage5.md FUNC-2), first stair first', async () => {
+    const list = await loadTopic('func');
+    expect(list.map((c) => c.skill)).toEqual(Object.keys(META).filter((s) => s.startsWith('func:')));
+    expect(list[0].skill).toBe('func:1');
+    expect(contentOf('func:1')?.title).toBe('קריאת גרף של מצב');
   });
   it('ensureTopics takes skills or topics, waits for all of them, and gives one promise per set while it waits', async () => {
     const a = ensureTopics(['pyth:2', 'stats:1']);
@@ -121,6 +128,8 @@ describe('meta.gen.ts', () => {
       // the curriculum lane's units, as its registry had them: the bridge unit (frac), signed:6 in its own file (its
       // names join signed's), and grade 8's ratio and percent
       frac: CATS_FRAC, ratio: CATS_RATIO, pct: CATS_PCT,
+      // the stage-5 lane's introduction to functions (its names are the topic's own)
+      func: CATS_FUNC,
     };
     expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
     for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));

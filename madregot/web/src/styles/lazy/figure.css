@@ -60,3 +60,66 @@
 .fig-cd-walk path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .fig-cd-meet circle { fill: var(--good-d); stroke: var(--ground); stroke-width: 2.5; }
 .fig-cd-meet-num { fill: var(--good-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+/* the situation graph (FUNC-1): the frame in ink, the first series brand blue and the second orange, the marked
+   interval a highlighter on the x axis; text sizes are set on the drawing itself (graphAxes.jsx GRAPH_FONT); its parts
+   draw in once under useDraw, which reduced motion turns off */
+.figure.fig-sgraph { max-width: 360px; }
+.fig-sgraph-grid { stroke: color-mix(in srgb, var(--ink-2) 32%, transparent); stroke-width: 1; }
+.fig-sgraph-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-sgraph-axis-head { fill: var(--ink); }
+.fig-sgraph-num { fill: var(--ink-2); font-weight: 500; }
+.fig-sgraph-name { fill: var(--ink); font-weight: 600; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-sgraph-line { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.fig-sgraph-line.dashed { stroke-dasharray: 9 6; }
+.fig-sgraph-series.tone-brand .fig-sgraph-line { stroke: var(--brand); }
+.fig-sgraph-series.tone-alt .fig-sgraph-line { stroke: var(--streak-d); }
+.fig-sgraph-dot { stroke: var(--ground); stroke-width: 2; }
+.fig-sgraph-series.tone-brand .fig-sgraph-dot { fill: var(--brand); }
+.fig-sgraph-series.tone-alt .fig-sgraph-dot { fill: var(--streak-d); }
+.fig-sgraph-key text { font-weight: 700; }
+.fig-sgraph-key line { stroke-width: 3.5; stroke-linecap: round; }
+.fig-sgraph-key line.dashed { stroke-dasharray: 7 4; }
+.fig-sgraph-key.tone-brand text { fill: var(--brand-d); }
+.fig-sgraph-key.tone-brand line { stroke: var(--brand); }
+.fig-sgraph-key.tone-alt text { fill: var(--streak-ink); }
+.fig-sgraph-key.tone-alt line { stroke: var(--streak-d); }
+.fig-sgraph-band rect { fill: color-mix(in srgb, var(--gold) 20%, transparent); }
+.fig-sgraph-band line { stroke: var(--gold-d); stroke-width: 7; opacity: 0.85; }
+.fig-sgraph-band.tone-brand rect { fill: color-mix(in srgb, var(--brand) 9%, transparent); }
+.fig-sgraph-band.tone-brand line { stroke: var(--brand); }
+.fig-sgraph-band.tone-alt rect { fill: color-mix(in srgb, var(--streak) 13%, transparent); }
+.fig-sgraph-band.tone-alt line { stroke: var(--streak-d); }
+.fig-sgraph-guide path { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 5 4; }
+.fig-sgraph-guide circle { fill: var(--ink); }
+.fig-sgraph-rr path { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-dasharray: 6 4; }
+.fig-sgraph-rr-num { fill: var(--ink); font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-sgraph-meet { fill: var(--ink); stroke: var(--ground); stroke-width: 2.5; }
+.fig-sgraph-mark circle { fill: var(--ink); stroke: var(--ground); stroke-width: 2; }
+.fig-sgraph-mark-label { fill: var(--ink); font-style: italic; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-sgraph-dir text { fill: var(--ink-2); font-weight: 600; }
+.fig-sgraph-dir path { fill: none; stroke: var(--ink-2); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+/* the protractor and the clock (FUNC-1.3b): the protractor as the angle object draws it (manip/protractor.jsx), the scale
+   that starts on the right in the brand blue and the one that starts on the left in orange; the clock in ink, its
+   minute hand in the brand blue; still pictures, nothing moves */
+.fig-prot-plastic { fill: color-mix(in srgb, var(--surface) 72%, transparent); stroke: var(--ink-2); stroke-width: 1.5; }
+.fig-prot-tick { stroke: var(--ink-2); stroke-width: 1.2; }
+.fig-prot-tick.long { stroke: var(--ink); stroke-width: 1.8; }
+.fig-prot-base { stroke: var(--ink); stroke-width: 2; }
+.fig-prot-centre { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.fig-prot-zero.right { fill: var(--brand); }
+.fig-prot-zero.left { fill: var(--streak-d); }
+.fig-prot-num { font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.fig-prot-num.right { fill: var(--brand-d); }
+.fig-prot-num.left { fill: var(--streak-ink); }
+.fig-prot-arm { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.fig-prot-arc { fill: none; stroke: var(--ink-2); stroke-width: 2; }
+.fig-prot-letter { fill: var(--ink); font-style: italic; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.figure.fig-clock { max-width: 220px; }
+.fig-clock-face { fill: var(--surface); stroke: var(--ink); stroke-width: 3; }
+.fig-clock-tick { stroke: var(--ink-2); stroke-width: 1.5; }
+.fig-clock-tick.big { stroke: var(--ink); stroke-width: 3; }
+.fig-clock-num { fill: var(--ink); font-weight: 600; }
+.fig-clock-hand { stroke-linecap: round; }
+.fig-clock-hand.hour { stroke: var(--ink); stroke-width: 7; }
+.fig-clock-hand.minute { stroke: var(--brand-d); stroke-width: 4; }
+.fig-clock-pin { fill: var(--ink); }

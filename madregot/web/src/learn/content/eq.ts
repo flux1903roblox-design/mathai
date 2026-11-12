@@ -1,5 +1,6 @@
 // Equations (משוואות), grade 7, in the order of the Ministry's programme (March to May): what an equation and its
-// solution are, two steps, the unknown on both sides, brackets, word problems.
+// solution are, two steps, the unknown on both sides, brackets, word problems; then motion problems (eq:6) and equations
+// with denominators and proportion (eq:7), ח׳ 8.9's, which a ז׳ class meets in June.
 // One idea carries the five stairs: an equation is a balance. Doing the same to both sides keeps it level and keeps
 // its solution, and the solution is checked by putting it back in (the curriculum: "פתרון מלא כולל בחובו הצבה במשוואה
 // המקורית לצורך בדיקה"). The balance carries positive whole numbers only; negatives follow the same rule without it
@@ -15,6 +16,8 @@ import { slipLike } from '../misconceptions';
 import { T } from '@/content/util.js';
 // @ts-ignore: plain JS, the same TeX the expression generators print
 import { linTex, sumTex } from '@/content/expr.js';
+// @ts-ignore: plain JS, eq:6's and eq:7's models (the critique's eq6 and eq7, the spec's eq6T and eq7T), texts and worked solutions
+import { EQ6, EQ6T, eq6Text, eq6Hint, eq6Solution, eq6TText, eq6THint, eq6TSolution, EQ7, EQ7T, eq7Show, eq7Hint, eq7Solution, eq7TText, eq7THint, eq7TSolution } from '@/content/eq.js';
 
 const abs = Math.abs;
 /** A still scale: boxes and weights on each pan; tilt 1 when the right pan is down, −1 the left. */
@@ -925,7 +928,407 @@ const stair5: StairContent = {
   ],
 };
 
-export const EQ: StairContent[] = [stair1, stair2, stair3, stair4, stair5];
+// ================================================================ stair 6: motion problems (שאלות תנועה)
+// Distance = speed × time in units that agree, and the three stories the textbooks teach: meeting, catching up, there
+// and back, each with a row per mover and an equation (stage5.md FUNC-3). The rule stays in words, as the class writes
+// it: no d, v or t, and no S (in this class S is an area). The models are content/eq.js EQ6 (the critique's eq6: movers
+// named by their speed, at most 450 km apart, a catching-up car at most 110 km/h, a walk at most 15 km) and EQ6T (the
+// minutes of a train), ported unchanged; each misconception's source is listed there.
+
+type P6 = { k: 'toward' | 'catch' | 'trip'; bike?: boolean; v1: number; v2: number; t?: number; D?: number; h?: number; d?: number; T?: number; q: number };
+const eq6: DiagModel<P6> = {
+  params: (rnd) => EQ6.params(rnd),
+  text: (p) => eq6Text(p),
+  answer: (p) => EQ6.answer(p),
+  bugs: EQ6.bugs,
+  solution: (p) => eq6Solution(p),
+  hint: (p) => eq6Hint(p),
+};
+type P6T = { v: number; t: number };
+const eq6T: DiagModel<P6T> = {
+  params: (rnd) => EQ6T.params(rnd),
+  text: (p) => eq6TText(p),
+  answer: (p) => EQ6T.answer(p),
+  bugs: EQ6T.bugs,
+  solution: (p) => eq6TSolution(p),
+  hint: (p) => eq6THint(p),
+  unit: 'ק״מ',
+};
+
+const MOTION_HEAD = ['', 'מהירות (קמ״ש)', 'זמן (שעות)', 'דרך (ק״מ)'];
+/** The class's table: speed, time, distance (a train at 80 km/h for 3 hours). */
+const TRAIN: FigSpec = { type: 'table', head: ['מהירות (קמ״ש)', 'זמן (שעות)', 'דרך (ק״מ)'], rows: [[80, 3, 240]] };
+/** 60 km/h by the minute: a kilometre a minute. */
+const KM_A_MINUTE: FigSpec = { type: 'sgraph', x: { max: 60, step: 10, label: 'זמן', unit: 'דקות' }, y: { max: 60, step: 10, label: 'דרך', unit: 'ק״מ' }, series: [{ pts: [[0, 0], [60, 60]] }] };
+/** Two cities 300 km apart, cars at 40 (from the first) and 60 (from the second): they meet after 3 hours, 120 km out. */
+const MEET: FigSpec = {
+  type: 'sgraph', x: { max: 5, step: 1, label: 'זמן', unit: 'שעות' }, y: { max: 300, step: 20, every: 3, label: 'מרחק מהעיר הראשונה', unit: 'ק״מ' },
+  series: [{ pts: [[0, 0], [5, 200]], label: 'הראשונה' }, { pts: [[0, 300], [5, 0]], label: 'השנייה', dashed: true }], meet: true,
+};
+/** The meeting in the class's table: a row per car, the same time x for both. */
+const MEET_TABLE: FigSpec = { type: 'table', head: MOTION_HEAD, rows: [['הראשונה', 40, 'x', '40x'], ['השנייה', 60, 'x', '60x']] };
+/** A cyclist at 15 km/h, a car 2 hours later at 45 km/h on the same road: the car catches up at hour 3, 45 km out. */
+const CATCH: FigSpec = {
+  type: 'sgraph', x: { max: 4, step: 1, label: 'זמן', unit: 'שעות' }, y: { max: 90, step: 15, label: 'מרחק מנקודת היציאה', unit: 'ק״מ' },
+  series: [{ pts: [[0, 0], [4, 60]], label: 'רוכב' }, { pts: [[2, 0], [4, 90]], label: 'מכונית', dashed: true }],
+};
+/** There at 4 and back at 6, 12 km each way. */
+const TRIP_TABLE: FigSpec = { type: 'table', head: MOTION_HEAD, rows: [['הלוך', 4, 3, 12], ['חזור', 6, 2, 12]] };
+
+/** 40 minutes at 60 km/h (discover step 2, and the remedies of the two minutes mistakes). */
+const minutesStep = {
+  kind: 'predict' as const, text: '$40$ דקות במהירות $60$ קמ״ש. כמה ק״מ?', fig: KM_A_MINUTE,
+  choices: ['$40$', '$2400$', '$24$'], answer: 0,
+  why: '$40$ דקות הן $\\frac{40}{60} = \\frac{2}{3}$ שעה, ו־$60 \\cdot \\frac{2}{3} = 40$. או: $60$ קמ״ש הם ק״מ בכל דקה.',
+  wrongWhy: { 1: 'המהירות בק״מ לשעה, אז גם הזמן צריך להיות בשעות, לא בדקות.', 2: '$40$ דקות אינן $0.4$ שעה: בשעה $60$ דקות, לא $100$.' },
+};
+/** Two cars toward each other (discover step 4, and the rel-speed remedy). */
+const meetStep = {
+  kind: 'predict' as const, text: 'שתי מכוניות יוצאות באותו רגע משתי ערים במרחק $300$ ק״מ, זו לקראת זו, ב־$40$ וב־$60$ קמ״ש. כעבור כמה שעות ייפגשו?', fig: MEET,
+  choices: ['$3$', '$15$', '$5$'], answer: 0,
+  why: 'בכל שעה הן מתקרבות $40 + 60 = 100$ ק״מ, ו־$300 : 100 = 3$.',
+  wrongWhy: { 1: '$300 : 20$ היה נכון אם הן נוסעות באותו כיוון. כאן הן מתקרבות זו לזו.', 2: '$300 : 60$ הוא כאילו רק אחת נוסעת.' },
+};
+/** The second car, hour by hour, on the graph you draw (discover step 5, and the rel-speed remedy). */
+const meetExplore = {
+  kind: 'explore' as const, text: 'הקו של המכונית הראשונה כבר בגרף. סמנו כמה רחוקה המכונית השנייה, שנוסעת ב־$60$ קמ״ש, מהעיר הראשונה בכל שעה.',
+  manip: {
+    kind: 'graph', x: { max: 4, step: 1, label: 'זמן', unit: 'שעות' }, y: { max: 300, step: 60, label: 'מרחק מהעיר הראשונה', unit: 'ק״מ' },
+    start: [300, 300, 300, 300, 300], fixed: [0], ref: { pts: [[0, 0], [4, 160]], label: 'הראשונה' },
+  } as ManipSpec,
+  answer: { mode: 'values', values: [300, 240, 180, 120, 60] },
+  hint: 'היא יוצאת $300$ ק״מ מהעיר ומתקרבת $60$ ק״מ בכל שעה.',
+  success: 'בשעה $3$ שני הקווים נפגשים, $120$ ק״מ מהעיר הראשונה.',
+};
+/** A car catches up with a cyclist (discover step 7, and the wrong-unknown remedy). */
+const catchStep = {
+  kind: 'predict' as const, text: 'רוכב אופניים יצא ב־$15$ קמ״ש. שעתיים אחריו יצאה מכונית באותה דרך ב־$45$ קמ״ש. כעבור כמה שעות מיציאתה תשיג אותו?', fig: CATCH,
+  choices: ['$1$', '$0.5$', '$3$'], answer: 0,
+  why: 'כשמשיגים, שניהם עברו אותה דרך: $45x = 15(x + 2)$, ולכן $x = 1$. הפער של $30$ ק״מ נסגר ב־$30$ קמ״ש.',
+  wrongWhy: { 1: '$30 : 60$ מחבר את המהירויות, אבל הם נוסעים באותו כיוון.', 2: '$3$ שעות עברו מיציאת הרוכב. השאלה מיציאת המכונית.' },
+};
+/** There and back: the average speed (discover step 8, and the mean-speed remedy). */
+const tripStep = {
+  kind: 'predict' as const, text: 'הלכו $12$ ק״מ ב־$4$ קמ״ש, וחזרו באותה דרך ב־$6$ קמ״ש. מה המהירות הממוצעת?', fig: TRIP_TABLE,
+  choices: ['$4.8$ קמ״ש', '$5$ קמ״ש'], answer: 0,
+  why: '$24$ ק״מ ב־$3 + 2 = 5$ שעות: $24 : 5 = 4.8$. בקצב האיטי הולכים יותר זמן, ולכן הוא שוקל יותר מהמהיר.',
+  wrongWhy: { 1: '$5$ הוא הממוצע של $4$ ו־$6$, אבל הזמנים שונים: $3$ שעות הלוך ורק $2$ חזור. מהירות ממוצעת היא כל הדרך חלקי כל הזמן.' },
+};
+
+const stair6: StairContent = {
+  skill: 'eq:6', topic: 'eq', level: 6, title: 'שאלות תנועה',
+  objectives: [
+    'להשתמש בדרך = מהירות × זמן, כשהזמן והמהירות באותן יחידות.',
+    'לפתור שאלת תנועה בטבלה ובמשוואה: מפגש, השגה, הלוך וחזור.',
+    'להבחין מתי מחברים מהירויות ומתי מחסירים.',
+  ],
+  idea: 'דרך = מהירות × זמן. בשאלת תנועה בונים טבלה, שורה לכל נוסע, ומחפשים מה שווה בסיפור: הדרך, או הזמן.',
+  why: [
+    '$60$ קמ״ש הם $60$ ק״מ בכל שעה, ולכן ב־$3$ שעות $180$ ק״מ.',
+    'כשנעים זה לקראת זה, כל אחד סוגר חלק מהמרחק: בכל שעה המרחק קטן בסכום המהירויות. כשאחד משיג את השני, הפער נסגר בהפרש המהירויות.',
+  ],
+  alt: ['דמיינו שעון עצר: בכל שעה מסמנים על הכביש איפה כל אחד. איפה שהסימנים נפגשים, הם נפגשים.'],
+  discover: [
+    { kind: 'say', text: 'רכבת נוסעת $80$ קמ״ש במשך $3$ שעות, ועוברת $240$ ק״מ: דרך = מהירות × זמן.', fig: { ...TRAIN, anim: true } as FigSpec },
+    minutesStep,
+    { kind: 'rule', text: 'דרך = מהירות × זמן, באותן יחידות. מכאן זמן = דרך : מהירות, ומהירות = דרך : זמן.', fig: TRAIN,
+      why: 'מהירות של $80$ קמ״ש אומרת $80$ ק״מ בכל שעה. ב־$3$ שעות: $3$ פעמים $80$. ואם הזמן בדקות, קודם הופכים אותו לשעות.' },
+    meetStep,
+    meetExplore,
+    { kind: 'rule', text: 'שאלת תנועה בטבלה: שורה לכל נוסע, עמודות מהירות, זמן ודרך. מה ששווה בסיפור הוא המשוואה.', fig: MEET_TABLE, display: '40x + 60x = 300',
+      why: 'כאן הזמן של שתיהן $x$, והסיפור אומר שיחד הן עוברות את כל $300$ הק״מ. לכן $100x = 300$, ו־$x = 3$.' },
+    catchStep,
+    tripStep,
+  ],
+  examples: [
+    { problem: 'שתי מכוניות יוצאות באותו רגע משתי ערים במרחק $360$ ק״מ, זו לקראת זו, ב־$70$ וב־$50$ קמ״ש. כעבור כמה שעות ייפגשו?', answer: 3, check: '360/(70+50)',
+      steps: [
+        { action: 'טבלה: הזמן של שתיהן $x$, הדרכים $70x$ ו־$50x$.', why: 'יחד הן עוברות את כל המרחק בין הערים.', result: '70x + 50x = 360', eq: '70*x + 50*x = 360' },
+        { action: 'מכנסים.', why: 'בכל שעה הן מתקרבות $70 + 50 = 120$ ק״מ.', result: '120x = 360', eq: '120*x = 360', calc: { expr: '70+50', value: 120 } },
+        { action: 'מחלקים ב־$120$.', why: 'כך נשאר $x$ לבד.', result: 'x = 3', value: '360/120' },
+        { action: 'בודקים.', why: 'בשלוש שעות הראשונה עוברת $70 \\cdot 3 = 210$ ק״מ, והשנייה $50 \\cdot 3 = 150$. יחד $360$, כל המרחק.', result: '210 + 150 = 360', calc: { expr: '70*3 + 50*3', value: 360 } },
+      ] },
+    { problem: 'רוכב אופניים יצא ב־$20$ קמ״ש. כעבור $3$ שעות יצאה אחריו מכונית ב־$80$ קמ״ש. כעבור כמה שעות מיציאתה תשיג אותו?', answer: 1, check: '20*3/(80-20)',
+      steps: [
+        { action: 'הזמן של המכונית $x$, של הרוכב $x + 3$; הדרכים שוות.', why: 'הרוכב יצא $3$ שעות קודם, וכשהמכונית משיגה אותו שניהם באותו מקום.', result: '80x = 20(x + 3)', eq: '80*x = 20*(x + 3)' },
+        { action: 'פותחים סוגריים.', why: '$20$ כופל גם את $x$ וגם את $3$.', result: '80x = 20x + 60', eq: '80*x = 20*x + 60' },
+        { action: 'מחסירים $20x$.', why: 'בכל שעה המכונית סוגרת $80 - 20 = 60$ ק״מ מהפער.', result: '60x = 60', eq: '60*x = 60', calc: { expr: '80-20', value: 60 } },
+        { action: 'מחלקים ב־$60$.', why: 'הפער של $60$ ק״מ נסגר ב־$60$ קמ״ש.', result: 'x = 1', value: '60/60' },
+        { action: 'עונים על השאלה: מיציאת המכונית.', why: '$x$ הוא הזמן של המכונית: שעה אחת. הרוכב נסע עד אז $1 + 3 = 4$ שעות, ושניהם עברו $80$ ק״מ.', result: '20 \\cdot 4 = 80 \\cdot 1', calc: { expr: '20*4', value: 80 } },
+      ] },
+    { problem: 'הלכו ב־$4$ קמ״ש וחזרו באותה דרך ב־$6$ קמ״ש, ובסך הכול $5$ שעות. מה אורך הדרך?', answer: 12, check: '5*4*6/(4+6)',
+      steps: [
+        { action: 'הדרך $x$; זמן הלוך $\\frac{x}{4}$, זמן חזור $\\frac{x}{6}$.', why: 'זמן = דרך : מהירות, ויחד $5$ שעות.', result: '\\frac{x}{4} + \\frac{x}{6} = 5', eq: 'x/4 + x/6 = 5' },
+        { action: 'כופלים ב־$12$.', why: '$12$ מתחלק גם ב־$4$ וגם ב־$6$, וכל איבר נכפל, גם ה־$5$.', result: '3x + 2x = 60', eq: '3*x + 2*x = 60' },
+        { action: 'מכנסים ומחלקים ב־$5$.', why: '$3x + 2x = 5x$.', result: 'x = 12', value: '60/5', calc: { expr: '3+2', value: 5 } },
+        { action: 'בודקים.', why: 'הלוך $12 : 4 = 3$ שעות, חזור $12 : 6 = 2$ שעות, ויחד $5$.', result: '3 + 2 = 5', calc: { expr: '12/4 + 12/6', value: 5 } },
+      ] },
+  ],
+  together: [
+    { problem: 'שני רוכבי אופניים יוצאים זה לקראת זה משני כפרים במרחק $54$ ק״מ, ב־$10$ וב־$8$ קמ״ש. כעבור כמה שעות ייפגשו?',
+      steps: [
+        { prompt: 'בכמה ק״מ הם מתקרבים בכל שעה?', choices: [
+          { text: '$18$', ok: true, feedback: 'נכון: כל אחד סוגר חלק מהמרחק, $10 + 8 = 18$ ק״מ בשעה.' },
+          { text: '$2$', ok: false, feedback: '$2$ הוא הפרש המהירויות. כשנעים זה לקראת זה, מחברים.' },
+          { text: '$10$', ok: false, feedback: 'גם השני נוסע: מתקרבים מהר יותר.' },
+        ], hints: ['בשעה אחת הראשון עובר $10$ ק״מ. וכמה עובר השני?', 'שניהם מקטינים את המרחק ביניהם: $10 + 8$.'], done: 'בכל שעה הם מתקרבים $18$ ק״מ.' },
+      ],
+      final: { prompt: 'כעבור כמה שעות ייפגשו?', answer: 3, check: '54/(10+8)', hints: ['כמה פעמים $18$ ק״מ נכנסים ב־$54$ ק״מ?', '$54 : 18$.'] } },
+    { problem: 'אוטובוס יצא ב־$60$ קמ״ש. כעבור שעה יצאה אחריו מכונית ב־$90$ קמ״ש. כעבור כמה שעות מיציאתה תשיג אותו?',
+      steps: [
+        { prompt: 'הזמן של המכונית $x$ שעות. כמה שעות נסע האוטובוס עד שהמכונית השיגה אותו?', choices: [
+          { text: '$x + 1$', ok: true, feedback: 'נכון: הוא יצא שעה לפני המכונית.' },
+          { text: '$x - 1$', ok: false, feedback: 'האוטובוס יצא קודם, ולכן נסע יותר זמן, לא פחות.' },
+          { text: '$1$', ok: false, feedback: 'שעה אחת נסע לבד, ואחר כך עוד $x$ שעות יחד עם המכונית.' },
+        ], hints: ['מי יצא קודם, האוטובוס או המכונית?', 'האוטובוס נסע את כל הזמן של המכונית, ועוד שעה.'], done: 'האוטובוס נסע $x + 1$ שעות.' },
+        { prompt: 'מה המשוואה?', choices: [
+          { text: '$90x = 60(x + 1)$', ok: true, feedback: 'נכון: כשהמכונית משיגה, שניהם עברו אותה דרך.' },
+          { text: '$90x + 60x = 60$', ok: false, feedback: 'הם נוסעים באותו כיוון: שוות הדרכים, לא סכומן.' },
+          { text: '$90x = 60x$', ok: false, feedback: 'האוטובוס נסע שעה יותר: $x + 1$.' },
+        ], hints: ['מה הדרך של המכונית, ומה הדרך של האוטובוס?', 'המכונית: $90x$. האוטובוס: $60(x + 1)$. ברגע ההשגה הן שוות.'], done: '$90x = 60(x + 1)$, כלומר $30x = 60$.' },
+      ],
+      final: { prompt: 'כעבור כמה שעות מיציאתה המכונית תשיג את האוטובוס?', answer: 2, check: '60*1/(90-60)', hints: ['פותחים סוגריים: $90x = 60x + 60$.', '$30x = 60$.'] } },
+  ],
+  diag: eq6,
+  transfer: eq6T,
+  words: ['מהירות', 'זמן', 'דרך', 'קמ״ש', 'מפגש', 'השגה', 'הלוך וחזור', 'מהירות ממוצעת'],
+  misconceptions: [
+    { id: 'rel-speed', title: 'חיברו מהירויות במקום לחסר, או חיסרו במקום לחבר',
+      cause: 'מהירות נראית כמו מספר שמחברים תמיד.',
+      explain: ['זה לקראת זה: כל אחד סוגר חלק מהמרחק, ולכן מחברים. אותו כיוון: המהיר סוגר את הפער רק בהפרש.', 'שתי מכוניות ב־$40$ וב־$60$ קמ״ש זו לקראת זו מתקרבות $100$ ק״מ בשעה. אם אחת רודפת אחרי השנייה, הפער נסגר רק $20$ ק״מ בשעה.'],
+      remedy: [meetStep, meetExplore] },
+    { id: 'wrong-unknown', title: 'נמצא הנעלם, אבל התשובה לא עונה על מה שנשאל',
+      cause: 'בשאלת השגה יש שני זמנים, ושל מי שיצא קודם ארוך יותר. קל לענות את הזמן הלא נכון.',
+      explain: ['נראה שעניתם כמה זמן נסע מי שיצא קודם. השאלה הייתה מיציאת המכונית.', 'אם $x$ הוא הזמן של המכונית, התשובה היא $x$ עצמו. $x + 2$ הוא הזמן של הרוכב.'],
+      remedy: [catchStep,
+        { kind: 'rule', text: 'לפני שעונים, קוראים שוב: מאיזה רגע סופרים? הזמן של המכונית הוא $x$, ושל מי שיצא קודם $x$ ועוד הזמן שהקדים.', fig: CATCH, display: 'x = 1,\\quad x + 2 = 3',
+          why: 'המכונית נסעה שעה אחת. הרוכב נסע עד אז $3$ שעות. השאלה שאלה על המכונית.' }] },
+    { id: 'mean-speed', title: 'השתמשו בממוצע של שתי המהירויות, אבל הזמנים שונים',
+      cause: '"ממוצע" נשמע כמו חיבור וחלוקה בשתיים.',
+      explain: ['מהירות ממוצעת היא כל הדרך חלקי כל הזמן, לא הממוצע של שתי המהירויות.', 'הלוך ב־$4$ וחזור ב־$6$: בקצב האיטי הולכים יותר זמן, ולכן הממוצע יוצא $4.8$ ולא $5$.'],
+      remedy: [tripStep,
+        { kind: 'rule', text: 'מהירות ממוצעת: כל הדרך חלקי כל הזמן.', fig: TRIP_TABLE, display: '\\frac{12 + 12}{3 + 2} = 4.8',
+          why: 'כשהזמנים שונים, כל מהירות שוקלת לפי הזמן שלה. רק כשהזמנים שווים הממוצע של המהירויות נכון.' }] },
+    { id: 'minutes-as-hours', title: 'השתמשו בדקות כאילו הן שעות',
+      cause: 'המהירות בק״מ לשעה, אבל הזמן נתון בדקות, וקל לכפול את המספרים כמו שהם.',
+      explain: ['קמ״ש הם ק״מ בשעה. כדי לכפול, גם הזמן צריך להיות בשעות.', '$40$ דקות הן $\\frac{40}{60}$ שעה, ולכן ב־$60$ קמ״ש עוברים $40$ ק״מ, לא $2400$.'],
+      remedy: [minutesStep,
+        { kind: 'rule', text: 'דקות הופכים לשעות: מחלקים ב־$60$.', fig: KM_A_MINUTE, display: '\\frac{40}{60} = \\frac{2}{3}',
+          why: 'בשעה $60$ דקות, ולכן $40$ דקות הן $\\frac{2}{3}$ שעה. עכשיו כופלים: $60 \\cdot \\frac{2}{3} = 40$.' }] },
+    { id: 'decimal-minutes', title: 'כתבו דקות כשבר עשרוני של שעה, כאילו בשעה $100$ דקות',
+      cause: 'בשעה $60$ דקות, לא $100$, ולכן $40$ דקות הן לא $0.4$ שעה.',
+      explain: ['נראה שכתבתם את הדקות כעשרוני, כאילו בשעה $100$ דקות.', 'חצי שעה היא $30$ דקות, ו־$0.5$ שעה, לא $0.3$. $40$ דקות הן $\\frac{2}{3}$ שעה.'],
+      remedy: [minutesStep,
+        { kind: 'rule', text: 'בשעה $60$ דקות, לא $100$: $30$ דקות הן חצי שעה, $0.5$.', fig: KM_A_MINUTE, display: '\\frac{30}{60} = 0.5',
+          why: 'השבר של שעה הוא הדקות חלקי $60$. רק אם בשעה היו $100$ דקות, $40$ דקות היו $0.4$.' }] },
+    { id: 'formula-flip', title: 'חילקו במקום לכפול: דרך היא מהירות כפול זמן',
+      cause: 'שלושת הגדלים מתערבבים, ולא ברור מה כופלים ומה מחלקים.',
+      explain: ['דרך = מהירות × זמן. מחלקים רק כשמחפשים זמן או מהירות.', 'בחצי שעה ב־$60$ קמ״ש עוברים חצי מ־$60$ ק״מ, $30$, ולא $60 : \\frac{1}{2} = 120$.'],
+      remedy: [
+        { kind: 'predict', text: 'רכבת נוסעת $60$ קמ״ש במשך חצי שעה. כמה ק״מ היא עוברת?', fig: TRAIN, choices: ['$30$', '$120$'], answer: 0,
+          why: 'דרך = מהירות × זמן: $60 \\cdot \\frac{1}{2} = 30$. בחצי שעה עוברים פחות מבשעה, לא יותר.',
+          wrongWhy: { 1: '$120$ יוצא מחלוקה: $60 : \\frac{1}{2}$. אבל בחצי שעה עוברים חצי מ־$60$, לא פי שניים.' } },
+        { kind: 'rule', text: 'דרך = מהירות × זמן, והזמן בשעות. בודקים: בפחות משעה עוברים פחות ממהירות של שעה.', fig: TRAIN, display: '60 \\cdot \\frac{1}{2} = 30',
+          why: 'מהירות היא ק״מ בכל שעה. בחלק משעה עוברים את אותו חלק מהק״מ.' }] },
+  ],
+};
+
+// ================================================================ stair 7: equations with denominators and proportion
+// An equation with denominators is cleared by multiplying every term of both sides by a common denominator; a numerator
+// of two terms is a bracket, and so is the minus before a fraction; a proportion is solved by multiplying by both
+// denominators, also with x in a denominator; every answer is checked in the original (stage5.md FUNC-4). Written in
+// words where the class's slash marks (CLASSROOM-7) would go, except the one display of the rule. The models are
+// content/eq.js EQ7 (the critique's eq7) and EQ7T (the spec's eq7T), ported unchanged; the sources are listed there.
+
+type P7 = { k: number; a?: number; b?: number; L?: number; c?: number; x: number; q?: number; p?: number; s?: number; r?: number };
+const eq7: DiagModel<P7> = {
+  params: (rnd) => EQ7.params(rnd),
+  text: () => 'פתרו את המשוואה.',
+  display: (p) => eq7Show(p),
+  answer: (p) => EQ7.answer(p),
+  bugs: EQ7.bugs,
+  solution: (p) => eq7Solution(p),
+  hint: (p) => eq7Hint(p),
+};
+type P7T = { k: number; a: number; b?: number; L?: number; c: number; x: number };
+const eq7T: DiagModel<P7T> = {
+  params: (rnd) => EQ7T.params(rnd),
+  text: (p) => eq7TText(p),
+  answer: (p) => EQ7T.answer(p),
+  bugs: EQ7T.bugs,
+  solution: (p) => eq7TSolution(p),
+  hint: (p) => eq7THint(p),
+  unit: 'ש״ח',
+};
+
+/** A half and a third of the same amount, one bar each. */
+const HALF_THIRD: FigSpec = { type: 'fbar', rows: [{ den: 2, shaded: 1, label: 'חצי' }, { den: 3, shaded: 1, label: 'שליש' }] };
+/** The same half and third in sixths: 3 of 6 parts and 2 of 6. */
+const SIXTHS: FigSpec = { type: 'fbar', rows: [{ den: 6, shaded: 3, label: 'חצי' }, { den: 6, shaded: 2, label: 'שליש' }] };
+
+/** Which number clears both denominators (discover step 2, and the add-across remedy). */
+const clearStep = {
+  kind: 'predict' as const, text: 'במה כדאי לכפול את שני האגפים כדי שלא יישארו מכנים?', fig: HALF_THIRD, display: '\\frac{x}{2} + \\frac{x}{3} = 150',
+  choices: ['$6$', '$5$', '$2$'], answer: 0,
+  why: '$6$ מתחלק גם ב־$2$ וגם ב־$3$.',
+  wrongWhy: { 1: '$5$ הוא סכום המכנים. כפל ב־$5$ לא מבטל את המכנה $2$: $\\frac{5x}{2}$ עדיין שבר.', 2: 'כפל ב־$2$ מבטל רק את המכנה $2$: $\\frac{2x}{3}$ נשאר שבר.' },
+};
+/** Every term times 6, the 10 too (discover step 4, and the lcd-partial remedy). */
+const everyTermStep = {
+  kind: 'predict' as const, text: 'כופלים את שני האגפים ב־$6$. מה מקבלים?', display: '\\frac{x}{2} + \\frac{x}{3} = 10', fig: { type: 'fbar', den: 6, shaded: 0 } as FigSpec,
+  choices: ['$3x + 2x = 60$', '$3x + 2x = 10$', '$x + x = 60$'], answer: 0,
+  why: 'כל איבר נכפל ב־$6$, גם ה־$10$. אז $5x = 60$ ו־$x = 12$.',
+  wrongWhy: { 1: 'ה־$10$ לא הוכפל, והאיזון נשבר: יוצא $x = 2$, ו־$\\frac{2}{2} + \\frac{2}{3}$ אינו $10$.', 2: 'גם המכנים נעלמו, אבל $\\frac{x}{2}$ כפול $6$ הוא $3x$, לא $x$.' },
+};
+/** The rule, with the class's slash mark (discover step 5, and the lcd-partial remedy). */
+const clearRule = {
+  kind: 'rule' as const, text: 'כופלים כל איבר בשני האגפים במכנה המשותף, ואז פותרים כרגיל.', fig: SIXTHS,
+  display: '\\frac{x}{2} + \\frac{x}{3} = 10 \\;/\\cdot 6 \\quad\\Rightarrow\\quad 3x + 2x = 60',
+  why: 'כפל של שני האגפים באותו מספר שומר על האיזון. חצי הוא $3$ שישיות, ושליש הוא $2$ שישיות.',
+};
+/** A numerator of two terms is a bracket (discover step 6, and the partial-dist remedy). */
+const bracketStep = {
+  kind: 'predict' as const, text: 'מה $x$?', display: '\\frac{x + 4}{3} = 5', fig: { type: 'machine', inX: 'x + 4', rule: ': 3', outY: 5 } as FigSpec,
+  choices: ['$11$', '$3$', '$19$'], answer: 0,
+  why: '$x + 4 = 15$, ולכן $x = 11$. כל המונה, $x + 4$, מתחלק ב־$3$.',
+  wrongWhy: { 1: '$3$ יוצא כשמחלקים רק את $x$: $\\frac{x}{3} + 4 = 5$.', 2: '$19$ יוצא כשמעבירים את $4$ בלי להפוך את הפעולה.' },
+};
+/** The minus before a fraction is a minus before brackets (discover step 7, and the minus-bracket remedy). */
+const minusStep = {
+  kind: 'predict' as const, text: 'מה השורה הבאה?', display: '\\frac{x + 1}{2} - \\frac{x - 3}{4} = 3 \\;/\\cdot 4', fig: { type: 'tiles', px: 0, nx: 1, p1: 3, n1: 0 } as FigSpec,
+  choices: ['$2(x + 1) - (x - 3) = 12$', '$2(x + 1) - x - 3 = 12$'], answer: 0,
+  why: 'המינוס לפני השבר הוא מינוס לפני סוגריים: $-(x - 3) = -x + 3$. ואז $x = 7$.',
+  wrongWhy: { 1: 'כך המינוס הפך רק את $x$, ויוצא $13$ במקום $7$.' },
+};
+/**
+ * x in the denominator: a proportion (discover step 8). The two fractions side by side in a table, numerator and
+ * denominator: the spec's bar of twelve twentieths would show the 20 asked for, and would not name x.
+ */
+const xDenStep = {
+  kind: 'predict' as const, text: 'מה $x$?', display: '\\frac{12}{x} = \\frac{3}{5}', fig: { type: 'table', head: ['', 'מונה', 'מכנה'], rows: [['השבר עם x', 12, 'x'], ['השבר השני', 3, 5]] } as FigSpec,
+  choices: ['$20$', '$7.2$'], answer: 0,
+  why: 'כופלים את שני האגפים ב־$5x$: $60 = 3x$, ולכן $x = 20$. בדיקה: $\\frac{12}{20} = \\frac{3}{5}$.',
+  wrongWhy: { 1: '$7.2$ הוא $\\frac{3}{5}$ מ־$12$, אבל $x$ במכנה: $\\frac{12}{7.2}$ אינו $\\frac{3}{5}$.' },
+};
+/** Cut the bar so that a half and a third both fall on lines (discover step 3, and the add-across remedy). */
+const commonExplore = {
+  kind: 'explore' as const, text: 'חלקו את הפס כך שגם חצי וגם שליש ייפלו על קווים.',
+  manip: { kind: 'fbar', start: { den: 1, shaded: 0 }, marks: [1 / 2, 1 / 3] } as ManipSpec, answer: { mode: 'common', of: [2, 3] },
+  hint: 'נסו מספר חלקים שמתחלק ב־$2$ וגם ב־$3$.',
+  success: '$6$ חלקים: חצי הם $3$ חלקים, ושליש $2$.',
+};
+
+const stair7: StairContent = {
+  skill: 'eq:7', topic: 'eq', level: 7, title: 'משוואות עם מכנים ופרופורציה',
+  objectives: [
+    'להיפטר מהמכנים: כופלים כל איבר בשני האגפים במכנה משותף.',
+    'לזכור שמונה עם שני איברים הוא כמו סוגריים, גם כשיש מינוס לפני השבר.',
+    'לפתור פרופורציה, גם כש־$x$ במכנה, ולבדוק בהצבה.',
+  ],
+  idea: 'במשוואה עם מכנים כופלים את שני האגפים, כל איבר, במכנה משותף. המונה כולו נכפל, כמו סוגריים.',
+  why: [
+    'כפל של שני האגפים באותו מספר שומר על האיזון, כמו בכל משוואה.',
+    '$\\frac{x + 4}{3}$ הוא $(x + 4) : 3$: כל המונה מתחלק.',
+  ],
+  alt: ['$\\frac{x}{2} + \\frac{x}{3}$ הוא חצי ועוד שליש של אותו דבר: $\\frac{5}{6}$ ממנו.'],
+  discover: [
+    { kind: 'say', text: 'חצי מהכסף ועוד שליש ממנו הם $150$ ש״ח: $\\frac{x}{2} + \\frac{x}{3} = 150$. בסוף השלב נדע שהיו $180$ ש״ח.', fig: HALF_THIRD },
+    clearStep,
+    commonExplore,
+    everyTermStep,
+    clearRule,
+    bracketStep,
+    minusStep,
+    xDenStep,
+  ],
+  examples: [
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x}{4} + \\frac{x}{6} = 5', answer: 12, check: '5*12/5',
+      steps: [
+        { action: 'המכנה המשותף של $4$ ו־$6$: $12$.', why: '$12$ מתחלק גם ב־$4$ וגם ב־$6$, והוא הקטן ביותר כזה.', result: '\\frac{x}{4} + \\frac{x}{6} = 5', eq: 'x/4 + x/6 = 5' },
+        { action: 'כופלים כל איבר ב־$12$.', why: '$\\frac{x}{4}$ כפול $12$ הוא $3x$, ו־$\\frac{x}{6}$ כפול $12$ הוא $2x$. גם $5$ נכפל: $60$.', result: '3x + 2x = 60', eq: '3*x + 2*x = 60' },
+        { action: 'מכנסים.', why: '$3x + 2x = 5x$.', result: '5x = 60', eq: '5*x = 60' },
+        { action: 'מחלקים ב־$5$.', why: 'כך נשאר $x$ לבד.', result: 'x = 12', value: '60/5' },
+        { action: 'בודקים במשוואה המקורית.', why: '$12 : 4 = 3$ ו־$12 : 6 = 2$, ויחד $5$.', result: '3 + 2 = 5', calc: { expr: '12/4 + 12/6', value: 5 } },
+      ] },
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x - 2}{3} = \\frac{x + 4}{5}', answer: 11, check: '(10+12)/2',
+      steps: [
+        { action: 'כופלים את שני האגפים ב־$15$; כל מונה בסוגריים.', why: '$15$ מתחלק ב־$3$ וב־$5$. השבר שמכנהו $3$ נכפל ב־$5$, וזה שמכנהו $5$ נכפל ב־$3$.', result: '5(x - 2) = 3(x + 4)', eq: '5*(x - 2) = 3*(x + 4)' },
+        { action: 'פותחים סוגריים.', why: 'המספר שלפני הסוגריים כופל כל איבר בתוכם.', result: '5x - 10 = 3x + 12', eq: '5*x - 10 = 3*x + 12' },
+        { action: 'מחסירים $3x$ ומוסיפים $10$ לשני האגפים.', why: 'כך $x$ נשאר רק באגף אחד.', result: '2x = 22', eq: '2*x = 22' },
+        { action: 'מחלקים ב־$2$.', why: '$22 : 2 = 11$.', result: 'x = 11', value: '22/2' },
+        { action: 'בודקים בשורה שאחרי הכפל.', why: '$5 \\cdot 11 - 10 = 45$, וגם $3 \\cdot 11 + 12 = 45$.', result: '45 = 45', calc: { expr: '5*11 - 10', value: 45 } },
+        { action: 'ובמשוואה המקורית.', why: '$\\frac{9}{3} = 3$ ו־$\\frac{15}{5} = 3$: שני האגפים שווים.', result: '3 = 3', calc: { expr: '(11+4)/5', value: 3 } },
+      ] },
+    { problem: 'פתרו את המשוואה.', display: '\\frac{18}{x} = \\frac{3}{4}', answer: 24, check: '18*4/3',
+      steps: [
+        { action: 'כופלים את שני האגפים ב־$4x$.', why: '$\\frac{18}{x}$ כפול $4x$ הוא $18 \\cdot 4 = 72$, ו־$\\frac{3}{4}$ כפול $4x$ הוא $3x$.', result: '72 = 3x', eq: '72 = 3*x', calc: { expr: '18*4', value: 72 } },
+        { action: 'מחלקים ב־$3$.', why: '$72 : 3 = 24$.', result: 'x = 24', value: '72/3' },
+        { action: 'בודקים.', why: '$\\frac{18}{24}$ מצטמצם ב־$6$ ל־$\\frac{3}{4}$.', result: '\\frac{18}{24} = \\frac{3}{4}', calc: { expr: '18/24', value: 0.75 } },
+      ] },
+  ],
+  together: [
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x}{3} - \\frac{x}{5} = 4',
+      steps: [
+        { prompt: 'במה כופלים?', choices: [
+          { text: '$15$', ok: true, feedback: 'נכון: $15$ מתחלק גם ב־$3$ וגם ב־$5$.' },
+          { text: '$8$', ok: false, feedback: '$8$ הוא סכום המכנים. צריך מספר שמתחלק בשניהם.' },
+          { text: '$2$', ok: false, feedback: '$2$ הוא ההפרש. כפל ב־$2$ לא מבטל את המכנים $3$ ו־$5$.' },
+        ], hints: ['איזה מספר מתחלק גם ב־$3$ וגם ב־$5$?', 'הכפולות של $5$: $5$, $10$, $15$. איזו מהן מתחלקת ב־$3$?'], done: 'כופלים ב־$15$: $5x - 3x = 60$.' },
+      ],
+      final: { prompt: 'מה $x$?', answer: 30, check: '4*15/2', hints: ['$5x - 3x = 2x$.', '$2x = 60$.'] } },
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x + 2}{4} = \\frac{x - 1}{3}',
+      steps: [
+        { prompt: 'מה מקבלים אחרי הכפל ב־$12$?', choices: [
+          { text: '$3(x + 2) = 4(x - 1)$', ok: true, feedback: 'נכון: כל שבר נכפל, וכל המונה שלו בסוגריים.' },
+          { text: '$3x + 2 = 4x - 1$', ok: false, feedback: 'כל המונה נכפל: $3(x + 2) = 3x + 6$.' },
+          { text: '$4(x + 2) = 3(x - 1)$', ok: false, feedback: '$12$ חלקי $4$ הוא $3$: השבר שמכנהו $4$ נכפל ב־$3$.' },
+        ], hints: ['$12 : 4 = 3$ ו־$12 : 3 = 4$. במה נכפל כל שבר?', 'כל מונה נכפל כולו, כמו סוגריים.'], done: '$3(x + 2) = 4(x - 1)$, כלומר $3x + 6 = 4x - 4$.' },
+      ],
+      final: { prompt: 'מה $x$?', answer: 10, check: '6+4', hints: ['מחסירים $3x$ ומוסיפים $4$ לשני האגפים.', '$6 + 4 = x$.'] } },
+    { problem: 'פתרו את המשוואה.', display: 'x + \\frac{x}{3} = 8',
+      steps: [
+        { prompt: 'כופלים את שני האגפים ב־$3$. מה מקבלים?', choices: [
+          { text: '$3x + x = 24$', ok: true, feedback: 'נכון: כל איבר נכפל ב־$3$.' },
+          { text: '$3x + x = 8$', ok: false, feedback: 'גם $8$ נכפל ב־$3$: כל איבר, בשני האגפים.' },
+          { text: '$x + x = 24$', ok: false, feedback: 'גם $x$ הוא איבר: $3 \\cdot x = 3x$.' },
+        ], hints: ['כל איבר בשני האגפים נכפל ב־$3$.', '$x$ כפול $3$ הוא $3x$, $\\frac{x}{3}$ כפול $3$ הוא $x$, ו־$8$ כפול $3$ הוא $24$.'], done: '$4x = 24$.' },
+      ],
+      final: { prompt: 'מה $x$?', answer: 6, check: '24/4', hints: ['$3x + x = 4x$.', '$4x = 24$.'] } },
+  ],
+  diag: eq7,
+  transfer: eq7T,
+  words: ['מכנה משותף', 'כפל שני האגפים', 'מונה', 'פרופורציה', 'משתנה במכנה', 'בדיקה בהצבה'],
+  misconceptions: [
+    { id: 'lcd-partial', title: 'כפלו במכנה המשותף רק חלק מהאיברים',
+      cause: 'מתמקדים בשברים ושוכחים את המספר שבאגף השני.',
+      explain: ['כופלים כל איבר בשני האגפים, גם את המספר שאין לו מכנה.', 'ב־$\\frac{x}{2} + \\frac{x}{3} = 10$ כפול $6$ יוצא $3x + 2x = 60$. אם ה־$10$ לא נכפל, יוצא $x = 2$, וזה לא פותר את המשוואה.'],
+      remedy: [everyTermStep, clearRule,
+        { kind: 'predict', text: 'כופלים את שני האגפים ב־$3$. מה מקבלים?', display: 'x + \\frac{x}{3} = 8', choices: ['$3x + x = 24$', '$3x + x = 8$'], answer: 0,
+          why: 'כל איבר נכפל ב־$3$: גם $x$ וגם $8$. אז $4x = 24$ ו־$x = 6$.',
+          wrongWhy: { 1: 'ה־$8$ לא הוכפל. בדיקה: $x = 2$ נותן $2 + \\frac{2}{3}$, לא $8$.' } }] },
+    { id: 'partial-dist', title: 'כפלו רק את $x$ שבמונה, ולא את כל המונה',
+      cause: 'קו השבר לא נראה כמו סוגריים.',
+      explain: ['מונה עם שני איברים הוא כמו סוגריים: כשכופלים את השבר, כל המונה נכפל.', 'ב־$\\frac{x + 2}{4} = \\frac{x - 1}{3}$ כפול $12$ יוצא $3(x + 2) = 4(x - 1)$, כלומר $3x + 6 = 4x - 4$, ולא $3x + 2 = 4x - 1$.'],
+      prereq: 'eq:4',
+      remedy: [bracketStep,
+        { kind: 'predict', text: 'מה מקבלים אחרי הכפל ב־$12$?', display: '\\frac{x + 2}{4} = \\frac{x - 1}{3}', choices: ['$3(x + 2) = 4(x - 1)$', '$3x + 2 = 4x - 1$'], answer: 0,
+          why: 'כל המונה נכפל: $3(x + 2) = 3x + 6$ ו־$4(x - 1) = 4x - 4$. אז $x = 10$, ובדיקה: $\\frac{12}{4} = 3$ וגם $\\frac{9}{3} = 3$.',
+          wrongWhy: { 1: 'כך נכפל רק $x$. יוצא $x = 3$, ובדיקה: $\\frac{5}{4}$ אינו $\\frac{2}{3}$.' } }] },
+    { id: 'minus-bracket', title: 'מינוס לפני סוגריים הפך רק את הסימן הראשון',
+      cause: 'המינוס כתוב לפני השבר, רחוק מהמספר שבסוף המונה.',
+      explain: ['מינוס לפני שבר הוא מינוס לפני סוגריים: הוא הופך את הסימן של כל איבר במונה.', 'ב־$\\frac{x + 1}{2} - \\frac{x - 3}{4} = 3$ כפול $4$ יוצא $2(x + 1) - (x - 3) = 12$, ו־$-(x - 3) = -x + 3$.'],
+      remedy: [minusStep,
+        { kind: 'rule', text: 'מינוס לפני שבר הוא מינוס לפני סוגריים: אחרי הכפל, המונה נשאר בסוגריים.', fig: { type: 'tiles', px: 0, nx: 1, p1: 3, n1: 0 } as FigSpec, display: '-(x - 3) = -x + 3',
+          why: 'מורידים את כל המונה, $x - 3$: גם את $x$ וגם את ה־$-3$ שבו, ולכן $+3$.' }] },
+    { id: 'add-across', title: 'חיברו מונה עם מונה ומכנה עם מכנה',
+      cause: 'חיבור של שברים נראה כמו חיבור של מספרים זה ליד זה.',
+      explain: ['$\\frac{x}{2} + \\frac{x}{3}$ הוא חצי ועוד שליש של אותו דבר, $\\frac{5}{6}$ ממנו, ולא $\\frac{2x}{5}$.', 'במשוואה לא מחברים את השברים בכלל: כופלים כל איבר במכנה משותף, והמכנים נעלמים.'],
+      prereq: 'frac:3',
+      remedy: [commonExplore, clearRule] },
+  ],
+};
+
+export const EQ: StairContent[] = [stair1, stair2, stair3, stair4, stair5, stair6, stair7];
 /** Names of misconceptions new to this topic: none beyond the topic's own (content/eq.js names them all). */
 export const CATS_EQ: Record<string, string> = {};
-export { oneStepModel, twoStepModel, bothModel, brkModel, storyModel };
+export { oneStepModel, twoStepModel, bothModel, brkModel, storyModel, eq6, eq6T, eq7, eq7T };

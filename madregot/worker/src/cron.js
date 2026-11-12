@@ -460,13 +460,13 @@ export async function reachSummary(env, day) {
  * the invariant checks: a running paid plan with no payment covering now, a paid order with no plan, spend over a budget.
  * Then the reach block (reachSummary).
  */
-/** Days after which the owner is reminded to check the support numbers in shared/safety.js again (trust spec §3.6). */
+/** Days after which the owner is reminded to check the support numbers in shared/helpLines.js again (trust spec §3.6). */
 export const SUPPORT_CHECK_DAYS = 330;
 /** The reminder line when SUPPORT.checked is more than SUPPORT_CHECK_DAYS old on `now`, else null. */
 export function supportCheckLine(now = new Date(), checked = SUPPORT.checked) {
   const at = Date.parse(`${checked}T00:00:00Z`);
   if (!Number.isFinite(at) || now.getTime() - at > SUPPORT_CHECK_DAYS * DAY) {
-    return `מספרי העזרה בעוזר החכם נבדקו לאחרונה ב־${checked}. כדאי לבדוק שהם עדיין נכונים (shared/safety.js).`;
+    return `מספרי העזרה בעוזר החכם נבדקו לאחרונה ב־${checked}. כדאי לבדוק שהם עדיין נכונים (shared/helpLines.js).`;
   }
   return null;
 }

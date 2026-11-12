@@ -16,6 +16,7 @@ import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { FUNC } from './func.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -164,6 +165,8 @@ function minusDropped(terms) {
   return out;
 }
 /** The quantities a story asks about (the unknown and the others built from it), from its key. */
+/** The numbers of an eq:6 or eq:7 key after its kind (eq6:toward:40:60:300:0 gives [40, 60, 300, 0], eq7:1:3:8 [3, 8]). */
+const motionNums = (key) => key.split(':').slice(2).map(Number);
 function storyValues(it) {
   const [p, ...r] = it.key.split(':'); const n = r.map(Number);
   switch (p) {
@@ -388,6 +391,92 @@ const PROPS = {
     // "the same added to both keeps the ratio": the "no" choice, for legs p ≠ q
     'add-same': (it, u) => { const [p, q] = nums(it.key); return it.key.startsWith('ra1a:') && p !== q && /^לא/.test(it.choices[u]?.text || ''); },
   },
+  // func:1, each property from the numbers the student saw (the key): sx, sy, t1, d1, t2, t3, q of fu1 (the walk: the
+  // axes' steps, out to (t1, d1), the rest until t2, home at t3; q asks the distance at t1/2, the rest or the way back);
+  // q, the two hours and their temperatures of fu1d (a dot every 2 hours, so a square across is 2 hours)
+  func: {
+    // the squares counted, not multiplied by the step of the axis the answer is read on
+    'count-squares': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu1') { const [sx, sy, t1, d1, t2, t3, q] = n; return fits(u, [d1 / 2 / sy, (t2 - t1) / sx, (t3 - t2) / sx][q]); }
+      if (p === 'fu1d') { const [q, hi, hj] = n; return q === 1 && fits(u, (hj - hi) / 2); }
+      return false;
+    },
+    // the moment it ended, not how long it lasted: the end of the rest, the arrival home, the later hour
+    'end-for-duration': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu1') { const [, , , , t2, t3, q] = n; return (q === 1 && fits(u, t2)) || (q === 2 && fits(u, t3)); }
+      if (p === 'fu1d') { const [q, , hj] = n; return q === 1 && fits(u, hj); }
+      return false;
+    },
+    // the value at the later time, not the change: the temperature at the second hour
+    'value-not-change': (it, u) => { const n = nums(it.key); return it.key.startsWith('fu1d:') && n[0] === 0 && fits(u, n[4]); },
+    // the flat line read as flat ground: the choice that says so
+    'graph-picture': (it, u) => it.key.startsWith('fu1f:') && /בדרך ישרה ושטוחה$/.test(it.choices[u]?.text || ''),
+    // func:2, from m, b, x and q of fu2 (y = m·x + b; q asks y at x, or the x of y), C and q of fu2c (F = 1.8C + 32), and
+    // m, b and n of fu2t (a table of y = m·x + b at x = 0..3, asked at n)
+    // the fixed part left out: m·x, or y/m; 1.8C, or F/1.8; m·n
+    'forgot-b': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu2') { const [m, b, x, q] = n; return fits(u, q === 0 ? m * x : (m * x + b) / m); }
+      if (p === 'fu2c') { const [C, q] = n; return fits(u, q === 0 ? 1.8 * C : (1.8 * C + 32) / 1.8); }
+      if (p === 'fu2t') { const [m, , k] = n; return fits(u, m * k); }
+      // func:4's pot after t minutes: the start left out, r·t
+      if (p === 'fu4') { const [, r, , t, q] = n; return q === 1 && fits(u, r * t); }
+      return false;
+    },
+    // the value of the function put in for x: m·y + b, or 1.8F + 32
+    forward: (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu2') { const [m, b, x, q] = n; return q === 1 && fits(u, m * (m * x + b) + b); }
+      if (p === 'fu2c') { const [C, q] = n; return q === 1 && fits(u, 1.8 * (1.8 * C + 32) + 32); }
+      return false;
+    },
+    // added before multiplying: 1.8(C + 32)
+    'order-ops': (it, u) => { const n = nums(it.key); return it.key.startsWith('fu2c:') && n[1] === 0 && fits(u, 1.8 * (n[0] + 32)); },
+    // func:3, from s, x0..x3, y0..y2 and q of fu3 (up from (x0, y0) to (x1, y1), down to (x2, y2), flat to x3; q asks how
+    // long it rises, falls or stays), the hours and temperatures at the start, the peak and the end and q of fu3t, and the
+    // right direction of fu3w (which way between two x's)
+    // the length of the other monotone interval, or (a choice) the direction swapped
+    'rtl-read': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu3') { const [, x0, x1, x2, , , , , q] = n; return (q === 0 && fits(u, x2 - x1)) || (q === 1 && fits(u, x1 - x0)); }
+      if (p === 'fu3t') { const [, h0, hk, he, , , , q] = n; return fits(u, q === 0 ? he - hk : hk - h0); }
+      if (p === 'fu3w') { const d = it.key.split(':')[1]; const t = it.choices[u]?.text; return (d === 'up' && t === 'יורדת') || (d === 'down' && t === 'עולה'); }
+      return false;
+    },
+    // the change in y over the interval, or the constant's height
+    'y-not-x': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu3') { const [, , , , , y0, y1, y2, q] = n; return fits(u, [y1 - y0, y1 - y2, y2][q]); }
+      if (p === 'fu3t') { const [, , , , T0, Tk, Te, q] = n; return fits(u, q === 0 ? Tk - T0 : Tk - Te); }
+      return false;
+    },
+    // a constant table chosen as the one that is not a function: every y of the chosen table the same
+    'const-not-function': (it, u) => {
+      const tex = it.choices[u]?.tex || ''; const ys = (tex.split('\\hline y &')[1] || '').split('&').map((v) => Number(v.replace(/\\end\{array\}/, '').trim()));
+      return it.key.startsWith('fu2i:') && ys.length === 4 && ys.every((v) => Number.isFinite(v) && v === ys[0]);
+    },
+    // func:4, from s, r, T, t and q of fu4 (s° at the start, r° a minute, so v = s + r·T after T minutes; q asks the rate,
+    // or the value after t minutes), h0, T and h1 of fu4c (a candle, h0 cm and h1 cm after T hours), and the slow runner
+    // of fu4f (who is faster: the one who starts ahead is the slower)
+    // the rate as if it started at 0: v / T, or t·v / T; the candle's h0·T / h1
+    'from-zero': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu4') { const [s, r, T, t, q] = n; const v = s + r * T; return fits(u, q === 0 ? v / T : (t * v) / T); }
+      if (p === 'fu4c') { const [h0, T, h1] = n; return fits(u, (h0 * T) / h1); }
+      return false;
+    },
+    // the whole change, not the change in one minute: v − s
+    'whole-change': (it, u) => { const [, r, T, , q] = nums(it.key); return it.key.startsWith('fu4:') && q === 0 && fits(u, r * T); },
+    // the candle's hours left from now, not from lighting: h1 / r, with r = (h0 − h1) / T
+    'wrong-unknown': (it, u) => { const [h0, T, h1] = nums(it.key); return it.key.startsWith('fu4c:') && fits(u, h1 / ((h0 - h1) / T)); },
+    // the higher line chosen for the faster runner: the choice names the slow runner, who starts ahead
+    'height-for-slope': (it, u) => {
+      const [p, , , , fast] = it.key.split(':'); const slow = fast === 'A' ? 'B' : 'A';
+      return p === 'fu4f' && (it.choices[u]?.text || '').startsWith(`הרץ ${slow}:`);
+    },
+  },
   expr: {
     // ax read as the digits a and x side by side: 3x at x = 4 is 34. Only a digit x from 1 to 9: −34 for 3x at x = −4
     // is no reading a student writes (the notebook's mistake there is 3 − 4, plus), so nothing may call it concat
@@ -475,6 +564,10 @@ const PROPS = {
       const xs = xSide(it.display); return !!xs && xs[0].k < 0 && near(u, -it.answer);
     },
     'partial-dist': (it, u) => {
+      // eq:7, (x + p)/q − (x − s)/(2q) = r times 2q with 2(x + p) written 2x + p: x = 2qr − p − s; a proportion
+      // (x + a)/b = (x − c)/d with only x multiplied, dx + a = bx − c: x = (a + c)/(b − d)
+      if (it.key.startsWith('eq7:2:')) { const [p, q, s, r] = motionNums(it.key); return fits(u, 2 * q * r - p - s); }
+      if (it.key.startsWith('eq7p:')) { const [a, b, c, d] = nums(it.key); return fits(u, (a + c) / (b - d)); }
       // ages: x + g − b = k(x − b) opened as kx − b, then what was asked (the older one is g more)
       if (it.key.startsWith('eq5a:')) { const [k, t, b, q] = nums(it.key); const g = (k - 1) * t; return fits(u, solveLin({ k: 1, c: g - b }, { k, c: -b }) + (q ? g : 0)); }
       // balls: n1·x = n2(x + p) opened as n2·x + p, then what was asked (the dearer ball is p more)
@@ -488,9 +581,50 @@ const PROPS = {
       }
       return solvesOpened(it.display, u, 'partial');
     },
-    'minus-bracket': (it, u) => solvesOpened(it.display, u, 'minus'),
-    // a quantity of the story, but not the one asked
-    'wrong-unknown': (it, u) => storyValues(it).some((v) => near(u, v)) && !near(u, it.answer),
+    // eq:7, (x + p)/q − (x − s)/(2q) = r times 2q with −(x − s) opened as −x − s: x = 2qr − 2p + s
+    'minus-bracket': (it, u) => {
+      if (it.key.startsWith('eq7:2:')) { const [p, q, s, r] = motionNums(it.key); return fits(u, 2 * q * r - 2 * p + s); }
+      return solvesOpened(it.display, u, 'minus');
+    },
+    // eq:7, from eq7:0:a:b:c (x/a + x/b = c) and eq7:1:a:c (x + x/a = c): times the common denominator L, but c not
+    // multiplied, c / (L/a + L/b) or c / (a + 1)
+    'lcd-partial': (it, u) => {
+      if (it.key.startsWith('eq7:0:')) { const [a, b, c] = motionNums(it.key); const L = (a * b) / gcdOf(a, b); return fits(u, c / (L / a + L / b)); }
+      if (it.key.startsWith('eq7:1:')) { const [a, c] = motionNums(it.key); return fits(u, c / (a + 1)); }
+      return false;
+    },
+    // added across: x/a + x/b read as 2x/(a + b), x + x/a as 2x/(1 + a)
+    'add-across': (it, u) => {
+      if (it.key.startsWith('eq7:0:')) { const [a, b, c] = motionNums(it.key); return fits(u, (c * (a + b)) / 2); }
+      if (it.key.startsWith('eq7:1:')) { const [a, c] = motionNums(it.key); return fits(u, (c * (a + 1)) / 2); }
+      return false;
+    },
+    // a quantity of the story, but not the one asked; eq:6's catching up: the hours since the first one left, t + h,
+    // when the car's hours were asked (t = v1·h / (v2 − v1), from eq6:catch:v1:h:v2:q)
+    'wrong-unknown': (it, u) => {
+      if (it.key.startsWith('eq6:catch:')) { const [v1, h, v2, q] = motionNums(it.key); return q === 0 && fits(u, (v1 * h) / (v2 - v1) + h); }
+      return storyValues(it).some((v) => near(u, v)) && !near(u, it.answer);
+    },
+    // eq:6, from the keys eq6:toward:v1:v2:D:q (a meeting, q0 when, q1 how far the first one went), eq6:catch:v1:h:v2:q
+    // (a car catches up h hours later; q0 when from its start, q1 how far), eq6:trip:v1:v2:T (there and back in T hours),
+    // eq6u:v:t (a train for t minutes) and eq6t:… (which equation fits the table)
+    // the speeds subtracted toward each other (D / |v1 − v2|), added catching up (v1·h / (v1 + v2)); in the table, the
+    // equation of the gap closed at the difference (meeting) or at the sum (catching up)
+    'rel-speed': (it, u) => {
+      if (it.key.startsWith('eq6:toward:')) { const [v1, v2, D, q] = motionNums(it.key); const t = D / Math.abs(v1 - v2); return fits(u, q === 0 ? t : v1 * t); }
+      if (it.key.startsWith('eq6:catch:')) { const [v1, h, v2, q] = motionNums(it.key); const t = (v1 * h) / (v1 + v2); return fits(u, q === 0 ? t : v2 * t); }
+      if (it.key.startsWith('eq6t:toward:')) { const [v1, v2, D] = motionNums(it.key); return chosen(it, u) === `${Math.max(v1, v2)}x - ${Math.min(v1, v2)}x = ${D}`; }
+      if (it.key.startsWith('eq6t:catch:')) { const [v1, h, v2] = motionNums(it.key); return chosen(it, u) === `${v1 + v2}x = ${v1 * h}`; }
+      return false;
+    },
+    // the round trip at the mean of the two speeds: T·(v1 + v2) / 2 for both ways, half of it each way
+    'mean-speed': (it, u) => { const [v1, v2, T] = motionNums(it.key); return it.key.startsWith('eq6:trip:') && fits(u, (T * (v1 + v2)) / 4); },
+    // the minutes used as hours: v·t
+    'minutes-as-hours': (it, u) => { const [v, t] = nums(it.key); return it.key.startsWith('eq6u:') && fits(u, v * t); },
+    // the minutes written as a decimal of an hour, as if it had 100 minutes: v·t / 100
+    'decimal-minutes': (it, u) => { const [v, t] = nums(it.key); return it.key.startsWith('eq6u:') && fits(u, (v * t) / 100); },
+    // divided by the time (in hours) instead of multiplying: v / (t/60)
+    'formula-flip': (it, u) => { const [v, t] = nums(it.key); return it.key.startsWith('eq6u:') && fits(u, v / (t / 60)); },
     // "k times" given to the smaller group: k·x written x/k, or k(…) moved to the other side
     reversal: (it, u) => {
       const right = it.key.slice('eq5p:'.length); const t = chosen(it, u);
@@ -743,9 +877,9 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
-  it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+describe('the algebra, fraction, ratio, percent and function topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems, fractions, ratio, percent and functions has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, FUNC]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

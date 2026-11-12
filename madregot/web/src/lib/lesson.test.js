@@ -3,7 +3,8 @@ import { startLesson, answer, next, resultOf, progressOf, planLevels, withHelp, 
 import { unitNodes, recordOnPath, nextNode, markMastered, doneCount, reachedUpTo, stairProgress, migratePath, isKept, chestOpen, reopenKept } from './path.js';
 import { questsFor, questProgress } from './quests.js';
 import { useApp, streakOf, today, dayBefore } from './store.js';
-import { TOPIC, topicsFor, makeItem } from '@/content/index.js';
+import { TOPIC, topicsFor, makeItem, rowLevel, guestTopicsFor, GUEST_STATE } from '@/content/index.js';
+import { syncLevels } from './api.js';
 import { freezeItem, thawItem } from './exam.js';
 import { loadAllContent } from '@/learn/content/index.ts';
 
@@ -274,6 +275,27 @@ describe('store: lessons, streak and freezes', () => {
     expect(st.learn.skills['sys:1'].mastered).toBeTruthy();
     expect(unitNodes('sys', st.path).slice(0, 2).map((n) => n.state)).toEqual(['done', 'current']);
     expect(st.progress.sys).toEqual({ level: 2, max: 2 });
+  });
+  it('a guest stair\'s check is sent as that stair\'s own state, and leaves its unit\'s level alone (stage5.md FUNC-6: the teacher\'s guest row)', () => {
+    const was = useApp.getState().profile;
+    try {
+      // a ח׳ student who never climbed eq:1-5 passes eq:6's check: the class sync says eq:6 is mastered, under its own id,
+      // so the teacher's "משוואות: מדרגות 6–7" row puts the student on eq:7; the eq unit's own level does not move
+      useApp.setState({ profile: { ...was, role: 'student', grade: '8' } });
+      useApp.getState().completeCheck({ purpose: 'mastery', skill: 'eq:6', topic: 'eq', level: 6, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+      expect(useApp.getState().progress.eq).toEqual({ level: 1, max: 1 });
+      expect(unitNodes('eq', useApp.getState().path)[5].state).toBe('done');
+      expect(syncLevels(useApp.getState())).toMatchObject({ eq: { level: 1, max: 1 }, 'eq:6': { level: GUEST_STATE.mastered, max: GUEST_STATE.mastered } });
+      expect(rowLevel(guestTopicsFor('8')[0], syncLevels(useApp.getState()))).toMatchObject({ level: 2, states: ['done', 'cur'] });
+      // eq:7 as well: the row is done
+      useApp.getState().completeCheck({ purpose: 'mastery', skill: 'eq:7', topic: 'eq', level: 7, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+      expect(rowLevel(guestTopicsFor('8')[0], syncLevels(useApp.getState()))).toMatchObject({ done: true });
+      // a ז׳ student passing the same check out of the path's order: the level follows the path, as before
+      useApp.getState().resetProgress();
+      useApp.setState({ profile: { ...was, role: 'student', grade: '7' } });
+      useApp.getState().completeCheck({ purpose: 'mastery', skill: 'eq:6', topic: 'eq', level: 6, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+      expect(useApp.getState().progress.eq).toEqual({ level: 1, max: 1 });
+    } finally { useApp.setState({ profile: was }); }
   });
   it('a failed mastery check on a kept stair takes it out of the done count; a passed one makes it mastered', () => {
     useApp.setState({ path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } } });

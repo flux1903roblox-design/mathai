@@ -280,6 +280,28 @@ test('frac:c1: "sometimes", then the counterexample 3, 2, 1 typed into its slots
   await expect(page.locator('.ch-done .stat-value')).toHaveText('+30');
 });
 
+test('func:c1: "sometimes", a start of 0° is not a counterexample, 8° is', async ({ page }) => {
+  await open(page, '#/challenge/func:c1', student('8'));
+  await expect(page.locator('.ch-title')).toHaveText('התחלה מאפס?');
+  await expect(page.locator('.ch-claim')).toContainText('משתנה בקצב אחיד');
+  await page.getByRole('radio', { name: 'לפעמים' }).click();
+  await go(page, 'בדיקה').click();
+  await expect(page.locator('.ch-foot .lm-banner')).toHaveText('נכון!');
+  await go(page, 'המשך').click();
+  await expect(page.getByRole('heading', { name: 'תנו דוגמה' })).toBeVisible();
+  await page.locator('#ch-slot-s').fill('0'); // from 0°: 20° after 2 minutes and 40° after 4, the claim holds
+  await go(page, 'בדיקה').click();
+  await expect(page.locator('.ch-foot .lm-banner')).toHaveText('עוד לא. נסו שוב, יש עוד ניסיון.');
+  await page.locator('#ch-slot-s').fill('8'); // from 8°: 6° a minute, 32° after 4 minutes
+  await go(page, 'בדיקה').click();
+  await expect(page.locator('.ch-foot .lm-banner')).toHaveText('נכון!');
+  await go(page, 'המשך').click();
+  await page.getByRole('radio').filter({ hasText: 'כשההתחלה' }).click();
+  await go(page, 'בדיקה').click();
+  await expect(page.locator('.ch-foot .lm-banner')).toHaveText('נכון!');
+  await expectNoSidewaysScroll(page);
+});
+
 test('a wrong counterexample gets a second try, then the part goes on with its hint', async ({ page }) => {
   await open(page, '#/challenge/frac:c1', student('7'));
   await page.getByRole('radio', { name: 'תמיד נכון' }).click();
@@ -370,7 +392,7 @@ test('a passed mastery check offers the stair\'s challenge in a quiet card, whic
 // "70 · 30"), where the page itself did not scroll sideways. Every task is walked to its end the way a struggling student
 // meets the most text: each part missed twice (so its solution shows), each explanation sent for the self-check. At every
 // step nothing inside the challenge screen scrolls sideways, and no piece of maths sits past the screen's edge.
-const TOPICS = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
+const TOPICS = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys'];
 
 async function nothingCutOff(page, where) {
   const over = await page.evaluate(async () => {
@@ -413,11 +435,13 @@ async function walk(page, id) {
   throw new Error(`${id} did not end in 80 steps`);
 }
 
+// three tasks a topic, and one more where a later stair brought its own (eq:c4, after the motion problems of eq:6)
+const COUNT = { eq: 4 };
 for (const topic of TOPICS) {
-  test(`at 320 px nothing is cut off in ${topic}'s three challenges, at any step`, async ({ page }, info) => {
+  test(`at 320 px nothing is cut off in ${topic}'s challenges, at any step`, async ({ page }, info) => {
     test.skip(info.project.name !== 'phone-small', 'the narrow phone is the one that cuts');
-    await open(page, '#/', student(['ratio', 'pct', 'line', 'pyth', 'stats', 'sys'].includes(topic) ? '8' : '7'));
-    for (const n of [1, 2, 3]) {
+    await open(page, '#/', student(['ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys'].includes(topic) ? '8' : '7'));
+    for (let n = 1; n <= (COUNT[topic] || 3); n += 1) {
       const steps = await walk(page, `${topic}:c${n}`);
       expect(steps, `${topic}:c${n} walked`).toBeGreaterThan(2);
       await nothingCutOff(page, `${topic}:c${n}, the end`);

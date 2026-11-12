@@ -1,5 +1,5 @@
 // The words of the support card and sheet (trust spec TRUST-3 §3.5, Appendix E.1), built from SUPPORT in
-// shared/safety.js so the numbers, their links and their hours have one source. Calm, short, plural: the child is never
+// shared/helpLines.js (re-exported by shared/safety.js) so the numbers, their links and their hours have one source. Calm, short, plural: the child is never
 // pushed, never counted down, and chooses whom to talk to.
 
 /** The quiet link that opens the support sheet: the chat, the resting chat, the "not connected" chat, the limit sheet, Settings. */

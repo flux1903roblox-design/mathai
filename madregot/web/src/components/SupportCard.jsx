@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import clsx from 'clsx';
 import { Phone, MessageCircle, Globe } from 'lucide-react';
-import { SUPPORT } from '@shared/safety.js';
+import { SUPPORT } from '@shared/helpLines.js';
 import { supportLines } from '@/content/support.js';
 import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';

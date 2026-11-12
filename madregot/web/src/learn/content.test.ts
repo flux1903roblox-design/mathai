@@ -15,7 +15,7 @@ import { checkPlan, itemFor, canProbe } from './items';
 import { ALL_SKILLS } from './skills';
 import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togetherDiag';
 // @ts-ignore: plain JS
-import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX } from '@/content/manip.js';
+import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX, GRAPH_MAX, graphXs, axisSteps, onAxisGrid, protAligned, armsAngle } from '@/content/manip.js';
 // @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
@@ -103,6 +103,8 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       if (s.manip.kind === 'tiles') checkTiles(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'area') checkArea(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'ray') checkRay(s.manip as any, s.answer as any, s.display, at);
+      if (s.manip.kind === 'graph') checkGraph(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'angle' && (s.manip as { protractor?: boolean }).protractor) checkProtractor(s.manip as any, s.answer as number, at);
       expect(s.hint, at).toBeTruthy();
       expect(s.success, at).toBeTruthy();
     }
@@ -147,6 +149,60 @@ function checkDline(m: { top: { max: number; step: number }; bottom: { max: numb
   expect(typeof from === 'number' && onParts((a - from), 1 / L.step), `${at}: not reached in steps of ${L.step} from ${from}`).toBe(true);
   expect(onParts(m.top.max, 1 / m.top.step) && onParts(m.bottom.max, 1 / m.bottom.step), `${at}: a line does not end on a tick`).toBe(true);
   if (m.move === 'max') expect(typeof m.fixT === 'number' && onParts(m.fixT, 1 / m.top.step) && m.fixT > 0 && m.fixT <= m.top.max, `${at}: the marker is not on a tick`).toBe(true);
+}
+
+type Axis = { min?: number; max: number; step: number };
+/**
+ * A graph to draw (FUNC-1): at most 7 points (a column at least 36px wide on a 320px phone) and at most 9 heights (a
+ * height at least 18px), on axes of whole steps; its start one value a point, the moving ones on grid lines; its goal
+ * reached in steps of y.step within the axis, with the fixed points where they are; a shape goal one direction a segment,
+ * built from the solution's own start without leaving the axis (manipCorrect of the solution, above, then holds); a
+ * uniform goal with no start or rate needs three points, or any start would already be one.
+ */
+function checkGraph(m: { x: Axis; y: Axis; start: number[]; fixed?: number[]; ref?: { pts: [number, number][] } }, a: any, at: string) {
+  const whole = (A: Axis) => A.step > 0 && A.max > (A.min ?? 0) && Math.abs((A.max - (A.min ?? 0)) / A.step - Math.round((A.max - (A.min ?? 0)) / A.step)) < 1e-9;
+  expect(whole(m.x) && whole(m.y), `${at}: an axis is not a whole number of steps`).toBe(true);
+  expect(!!(m.x as { label?: string }).label && !!(m.y as { label?: string }).label, `${at}: each axis has a name`).toBe(true);
+  const n = graphXs(m).length; const heights = axisSteps(m.y) + 1;
+  expect(n >= 2 && n <= GRAPH_MAX.points, `${at}: ${n} points (at most ${GRAPH_MAX.points})`).toBe(true);
+  expect(heights <= GRAPH_MAX.heights, `${at}: ${heights} heights (at most ${GRAPH_MAX.heights})`).toBe(true);
+  const fixed = new Set(m.fixed || []);
+  [...fixed].forEach((i) => expect(Number.isInteger(i) && i >= 0 && i < n, `${at}: fixed point ${i}`).toBe(true));
+  expect(m.start.length, `${at}: one start value a point`).toBe(n);
+  m.start.forEach((v, i) => expect(fixed.has(i) ? v >= (m.y.min ?? 0) && v <= m.y.max : onAxisGrid(m.y, v), `${at}: start ${v} at point ${i} is off the axis's grid`).toBe(true));
+  (m.ref?.pts || []).forEach(([x, y]) => expect(x >= (m.x.min ?? 0) && x <= m.x.max && y >= (m.y.min ?? 0) && y <= m.y.max, `${at}: ref (${x}, ${y}) is off the axes`).toBe(true));
+  if (a.mode === 'values') {
+    expect(a.values.length, `${at}: one goal value a point`).toBe(n);
+    a.values.forEach((v: number, i: number) => expect(fixed.has(i) ? Math.abs(v - m.start[i]) < 1e-9 : onAxisGrid(m.y, v), `${at}: goal ${v} at point ${i} is not reached in steps of ${m.y.step}`).toBe(true));
+  } else if (a.mode === 'shape') {
+    expect(a.shape.length, `${at}: one direction a segment`).toBe(n - 1);
+    expect(a.shape.every((d: string) => ['up', 'flat', 'down'].includes(d)), `${at}: a direction is up, flat or down`).toBe(true);
+    expect(manipCorrect({ manip: { kind: 'graph', ...m }, answer: a }, manipSolution({ manip: { kind: 'graph', ...m }, answer: a })), `${at}: the shape does not fit the axis from the solution's start`).toBe(true);
+  } else {
+    expect(a.mode, at).toBe('uniform');
+    if (a.start == null && a.rate == null) expect(n - fixed.size >= 2 && n >= 3, `${at}: with no start or rate, any start is already uniform`).toBe(true);
+  }
+}
+
+/**
+ * A protractor (FUNC-1.2): every angle and turn in 5° steps (the ray and the protractor move 5° at a time). build: the
+ * target and the start between 5 and 175, the fixed arm on the side its 0 is named by, the drawing turned in 15° steps;
+ * align: arms 15° to 165° apart, the answer itself a right turn (the baseline on an arm, the angle under the protractor).
+ */
+function checkProtractor(m: { mode: string; from?: string; base?: number; start: number; arms?: [number, number] }, a: number, at: string) {
+  const five = (v: number) => Number.isInteger(v / 5);
+  if (m.mode === 'build') {
+    expect(five(a) && a >= 5 && a <= 175, `${at}: a protractor target ${a} is not a multiple of 5 between 5 and 175`).toBe(true);
+    expect(five(m.start) && m.start >= 5 && m.start <= 175, `${at}: the ray starts at ${m.start}`).toBe(true);
+    expect(m.from == null || m.from === 'right' || m.from === 'left', `${at}: from ${m.from}`).toBe(true);
+    expect(Number.isInteger((m.base || 0) / 15), `${at}: base ${m.base} is not a multiple of 15`).toBe(true);
+  } else {
+    expect(m.mode, at).toBe('align');
+    const arms = m.arms || [NaN, NaN]; const span = armsAngle(arms);
+    expect(arms.every(five) && span >= 15 && span <= 165, `${at}: arms ${arms} are not 15° to 165° apart in 5° steps`).toBe(true);
+    expect(five(a) && five(m.start), `${at}: a turn not in 5° steps`).toBe(true);
+    expect(protAligned(arms, a), `${at}: the answer ${a} is not a right turn`).toBe(true);
+  }
 }
 
 type Pans = { lx: number; l1: number; rx: number; r1: number };
@@ -589,6 +645,33 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'dline', top, bottom: { max: 240, step: 24 }, move: 't', start: { t: 0 } }, 110)); // off the line
     bad(explore({ kind: 'dline', top: top5, bottom: { max: 6000, step: 100 }, move: 'max', fixT: 35, start: { t: 35, max: 1050 } }, 4000)); // not in steps
     bad(explore({ kind: 'dline', top: top5, bottom: { max: 6000, step: 100 }, move: 'max', fixT: 35, start: { t: 35, max: 4000 } }, 4000)); // starts on it
+  });
+  it('a graph: at most 7 points and 9 heights, a goal reached in steps, a shape that fits, a start that is not the goal', () => {
+    const x = { max: 15, step: 5, label: 'זמן', unit: 'דקות' }; const y = { max: 600, step: 100, label: 'מרחק', unit: 'מטרים' };
+    ok(explore({ kind: 'graph', x, y, start: [0, 200, 200, 200], fixed: [0] }, { mode: 'values', values: [0, 400, 400, 0] }));
+    ok(explore({ kind: 'graph', x: { max: 6, step: 1, label: 'x' }, y: { max: 8, step: 1, label: 'y' }, start: [4, 4, 4, 4, 4, 4, 4] }, { mode: 'shape', shape: ['up', 'up', 'flat', 'flat', 'down', 'down'] }));
+    ok(explore({ kind: 'graph', x: { min: 4, max: 9, step: 1, label: 'זמן' }, y: { min: 38, max: 98, step: 10, label: 'טמפרטורה' }, start: [48, 58, 58, 58, 58, 58], fixed: [0, 1] }, { mode: 'uniform', rate: 10 }));
+    bad(explore({ kind: 'graph', x, y, start: [0, 400, 400, 0], fixed: [0] }, { mode: 'values', values: [0, 400, 400, 0] })); // starts on the goal
+    bad(explore({ kind: 'graph', x, y, start: [0, 200, 200, 200], fixed: [0] }, { mode: 'values', values: [0, 450, 400, 0] })); // 450 is between lines
+    bad(explore({ kind: 'graph', x, y, start: [0, 200, 200, 200], fixed: [0] }, { mode: 'values', values: [100, 400, 400, 0] })); // moves a fixed point
+    bad(explore({ kind: 'graph', x: { max: 7, step: 1, label: 'x' }, y: { max: 8, step: 1, label: 'y' }, start: [0, 0, 0, 0, 0, 0, 0, 0] }, { mode: 'values', values: [1, 1, 1, 1, 1, 1, 1, 1] })); // 8 points
+    bad(explore({ kind: 'graph', x, y: { max: 300, step: 20 }, start: [0, 0, 0, 0] }, { mode: 'values', values: [0, 60, 120, 180] })); // 16 heights
+    bad(explore({ kind: 'graph', x: { max: 6, step: 1, label: 'x' }, y: { max: 4, step: 1, label: 'y' }, start: [2, 2, 2, 2, 2, 2, 2] }, { mode: 'shape', shape: ['up', 'up', 'up', 'up', 'flat', 'down'] })); // leaves the axis
+    bad(explore({ kind: 'graph', x, y, start: [0, 0, 0, 0] }, { mode: 'shape', shape: ['up', 'down'] })); // three segments, two directions
+    bad(explore({ kind: 'graph', x: { max: 1, step: 1, label: 'x' }, y: { max: 8, step: 1, label: 'y' }, start: [0, 3] }, { mode: 'uniform' })); // any two points are uniform
+    bad(explore({ kind: 'graph', x: { max: 15, step: 5 }, y, start: [0, 200, 200, 200], fixed: [0] }, { mode: 'values', values: [0, 400, 400, 0] })); // an axis with no name
+  });
+  it('a protractor: targets and turns in 5° steps, a right turn as the answer, a start that is not it', () => {
+    const b = (extra: object, target: number) => explore({ kind: 'angle', protractor: true, mode: 'build', from: 'right', start: 90, ...extra }, target);
+    const al = (arms: number[], start: number, answer: number) => explore({ kind: 'angle', protractor: true, mode: 'align', arms, start }, answer);
+    ok(b({}, 40)); ok(b({ from: 'left', base: 30 }, 130)); ok(al([30, 95], 0, 30)); ok(al([30, 95], 0, 275));
+    bad(b({}, 42)); // not a multiple of 5
+    bad(b({}, 180)); // a straight line is not built
+    bad(b({ start: 40 }, 40)); // starts on the goal
+    bad(b({ base: 20 }, 40)); // turned 20°: not a multiple of 15
+    bad(al([30, 95], 0, 95)); // the baseline on an arm, the angle outside the protractor
+    bad(al([30, 95], 30, 275)); // starts right
+    bad(al([30, 38], 0, 30)); // arms 8° apart
   });
   it('two lines: the goal is their meeting point', () => {
     ok(explore({ kind: 'plot', lines: [{ m: 2, b: -1 }, { m: -1.5, b: 6 }] }, [2, 3]));

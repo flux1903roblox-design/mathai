@@ -106,10 +106,14 @@ describe('counters that move from the first stage', () => {
     const mastered = unitProgress('signed', { signed: { parts: { 1: PARTS }, done: { 1: 'mastered' } } }, { [S]: { attempts: [], taught: { A: 'x', B: 'x', C: 'x' }, mastered: { at: 'x', box: 0, due: 'x' } } });
     expect(mastered).toMatchObject({ done: 1, stages: 5 });
     expect(unitCountText(mastered)).toBe('1 מתוך 6 מדרגות');
+    // a unit of one stair (functions, while its later stairs land) in the singular
+    expect(unitCountText({ done: 0, stairs: 1, stages: 0, of: 5 })).toBe('מדרגה אחת');
+    expect(unitCountText({ done: 1, stairs: 1, stages: 5, of: 5 })).toBe('מדרגה אחת, שולטים בה');
+    expect(unitCountText({ done: 0, stairs: 1, stages: 2, of: 5 })).toBe('2 מתוך 5 שלבים');
     for (const p of [fresh, started, mastered]) expect(unitCountText(p)).not.toMatch(/^0 /);
-    // an algebra unit the same way
-    expect(unitCountText(unitProgress('eq', {}, {}))).toBe('5 מדרגות');
-    expect(unitCountText(unitProgress('eq', {}, { 'eq:1': { attempts: [], taught: { A: 'x', B: 'x' } } }))).toBe('2 מתוך 25 שלבים');
+    // an algebra unit the same way (equations: seven stairs since eq:6 and eq:7, motion problems and denominators)
+    expect(unitCountText(unitProgress('eq', {}, {}))).toBe('7 מדרגות');
+    expect(unitCountText(unitProgress('eq', {}, { 'eq:1': { attempts: [], taught: { A: 'x', B: 'x' } } }))).toBe('2 מתוך 35 שלבים');
     expect(unitCountText(unitProgress('sys', { sys: { parts: { 1: PARTS }, done: { 1: 'mastered' } } }, { 'sys:1': { attempts: [], taught: { A: 'x', B: 'x', C: 'x' }, mastered: { at: 'x', box: 0, due: 'x' } } }))).toBe('1 מתוך 5 מדרגות');
   });
 
@@ -146,5 +150,23 @@ describe('a stair added to a unit after it was climbed (signed:6)', () => {
     expect(addedStairNote(unitNodes('signed', open)[5], open)).toBeNull();
     const all = { signed: { parts: {}, reviews: 1, jumped: 0, done: { ...five, 6: 'mastered' } } };
     expect(addedStairNote(unitNodes('signed', all)[5], all)).toBeNull();
+  });
+});
+
+describe('the stairs added to the equations unit (eq:6 and eq:7, stage5.md FUNC-6.5)', () => {
+  const five = { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'kept', 5: 'mastered' };
+  it('a student who climbed eq:1 to eq:5 sees eq:6 as the current stair, and its card says it was added', () => {
+    const path = { eq: { parts: {}, reviews: 1, jumped: 0, done: five } };
+    const nodes = unitNodes('eq', path);
+    expect(nodes[5]).toMatchObject({ level: 6, state: 'current', title: 'שאלות תנועה' });
+    expect(addedStairNote(nodes[5], path)).toBe('נוספה מדרגה חדשה ליחידה: שאלות תנועה.');
+    nodes.filter((n) => n !== nodes[5]).forEach((n) => expect(addedStairNote(n, path)).toBeNull());
+  });
+  it('then eq:7, once eq:6 is done', () => {
+    const path = { eq: { parts: {}, reviews: 1, jumped: 0, done: { ...five, 6: 'mastered' } } };
+    const nodes = unitNodes('eq', path);
+    expect(nodes[6]).toMatchObject({ level: 7, state: 'current', title: 'משוואות עם מכנים ופרופורציה' });
+    expect(addedStairNote(nodes[6], path)).toBe('נוספה מדרגה חדשה ליחידה: משוואות עם מכנים ופרופורציה.');
+    expect(addedStairNote(nodes[5], path)).toBeNull();
   });
 });

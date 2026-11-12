@@ -399,7 +399,7 @@ test('the owner\'s summary shows the care pool, and reminds to check the support
   assert.equal(SUPPORT_CHECK_DAYS, 330);
   assert.equal(supportCheckLine(new Date(checked + 330 * 864e5)), null);
   const line = supportCheckLine(new Date(checked + 331 * 864e5));
-  assert.equal(line, `מספרי העזרה בעוזר החכם נבדקו לאחרונה ב־${SUPPORT.checked}. כדאי לבדוק שהם עדיין נכונים (shared/safety.js).`);
+  assert.equal(line, `מספרי העזרה בעוזר החכם נבדקו לאחרונה ב־${SUPPORT.checked}. כדאי לבדוק שהם עדיין נכונים (shared/helpLines.js).`);
   const late = new Date(checked + 400 * 864e5);
   await dailySummary(h.env, late);
   const lateDay = dayOf(new Date(late.getTime() - 864e5));

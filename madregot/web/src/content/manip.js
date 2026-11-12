@@ -6,6 +6,10 @@
 //   plot        a point [x, y] on the grid                 answer: [x, y], or any point in manip.quadrant (with manip.fixX / fixY: on that line)
 //   line        a line {m, b} built from two handles       answer: {m, b}
 //   angle       the turning ray's angle ∠AOB in degrees    answer: degrees
+//               with protractor: true (FUNC-1.2), mode 'build' { from?: 'right' | 'left', base?, start }: the angle between
+//               the fixed arm (on the 0 of the scale that starts on that side) and the ray, 5..175, answer the target;
+//               mode 'align' { arms: [θ1, θ2], start }: the protractor's turn in degrees (0..355), right when its baseline
+//               lies on an arm and the angle is under the half disc (two of the four turns that put it on an arm)
 //   squares     the legs {a, b} of a right triangle        answer: {c} (any whole a, b with a² + b² = c²)
 //   bars        the height of the movable bar              answer: the value (manip.stat 'median': the median is the target)
 //   pins        several labelled markers on a number line  answer: the position of each, in order
@@ -20,6 +24,9 @@
 //   fbar        a bar cut into equal parts, some shaded {den, shaded}     answer: { mode: 'value', value } (shaded/den is the
 //               value, any den), { mode: 'common', of: [3, 4] } (den a multiple of each), { mode: 'exact', den, shaded }
 //   dline       a double number line (move 't': the marker; 'max': the bottom line's end)  answer: that number
+//   graph       a situation graph drawn point by point { x, y, start, fixed?, ref? }: one point above each x, the value
+//               is their heights (number[])  answer: { mode: 'values', values } | { mode: 'shape', shape: ('up' | 'flat'
+//               | 'down')[] } | { mode: 'uniform', start?, rate? } (see "the graph you draw" below)
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -193,6 +200,241 @@ export const dlineNum = (v) => {
 /** A number with its unit, the unit word outside the number: "30%", "7 ס״מ", "72". */
 export const withUnit = (v, unit) => (!unit ? dlineNum(v) : unit === '%' ? `${dlineNum(v)}%` : `${dlineNum(v)} ${unit}`);
 
+// ---------------------------------------------------------------- the graph you draw (גרף שמציירים, FUNC-1)
+// One point stands above each x of the x axis, from x.min to x.max in x.steps; the student drags each point to its
+// height. A height is y.min plus a whole number of y.steps, within the axis (a grid line). `fixed` points (the start of a
+// story) never move, and may sit between grid lines (a given value). At most 7 points, so each column is at least 36px
+// wide on a 320px phone, and at most 9 heights, so a finger lands on the height it means (checkSteps holds content to it).
+// Answer modes: 'values' (every point exactly: a table drawn, a rate continued), 'shape' (each segment up, flat or down:
+// a story drawn) and 'uniform' (every segment changes by the same amount; with `start` the first value, and with `rate`
+// the change for one unit of x, the stair's meaning of a rate: with x.step 1 that is each segment's change).
+
+export const GRAPH_MAX = { points: 7, heights: 9 };
+const round9 = (v) => Math.round(v * 1e9) / 1e9;
+/** An axis's lowest value (0 unless it says otherwise) and its number of steps from there to its end. */
+export const axisLo = (a) => a.min ?? 0;
+export const axisSteps = (a) => Math.round((a.max - axisLo(a)) / a.step);
+/** The values of an axis's grid lines, lowest first. */
+export const axisValues = (a) => Array.from({ length: axisSteps(a) + 1 }, (_, i) => round9(axisLo(a) + i * a.step));
+/** Is a value on one of the axis's grid lines? */
+export const onAxisGrid = (a, v) => typeof v === 'number' && v >= axisLo(a) - 1e-9 && v <= a.max + 1e-9 && near((v - axisLo(a)) / a.step, Math.round((v - axisLo(a)) / a.step), 1e-9);
+/** The x of each point. */
+export const graphXs = (m) => axisValues(m.x);
+/** A height snapped to the nearest grid line and kept on the axis. */
+export const graphSnap = (m, v) => round9(Math.min(m.y.max, Math.max(axisLo(m.y), axisLo(m.y) + Math.round((v - axisLo(m.y)) / m.y.step) * m.y.step)));
+const isFixed = (m, i) => (m.fixed || []).includes(i);
+/**
+ * The graph after point i is moved to height v (a drag, a step button, a key): snapped to a grid line and kept on the
+ * axis. A fixed point never moves, and a move that changes nothing returns the same array (GraphDraw.jsx sends no change).
+ */
+export function graphMove(m, vals, i, v) {
+  if (isFixed(m, i) || i < 0 || i >= vals.length) return vals;
+  const s = graphSnap(m, v);
+  return near(s, vals[i], 1e-9) ? vals : vals.map((w, k) => (k === i ? s : w));
+}
+/** What a key does to point i: ↑ and ↓ one step, Home and End the ends of the axis; any other key changes nothing. */
+export function graphKey(m, vals, i, key) {
+  const to = { ArrowUp: vals[i] + m.y.step, ArrowDown: vals[i] - m.y.step, Home: axisLo(m.y), End: m.y.max }[key];
+  return to == null ? vals : graphMove(m, vals, i, to);
+}
+const GRAPH_SIGN = { up: 1, flat: 0, down: -1 };
+export const GRAPH_SHAPE_WORD = { up: 'עולה', flat: 'קבוע', down: 'יורד' };
+/** Each segment's direction, left to right: 'up', 'flat' or 'down'. */
+export const graphShape = (vals) => vals.slice(1).map((v, i) => (near(v, vals[i], 1e-9) ? 'flat' : v > vals[i] ? 'up' : 'down'));
+/** A drawn graph's state: one number per point, the fixed points where they started, the others on the grid. */
+const graphOk = (m, u) => Array.isArray(u) && u.length === graphXs(m).length
+  && u.every((v, i) => (isFixed(m, i) ? typeof v === 'number' && near(v, m.start[i], 1e-9) : onAxisGrid(m.y, v)));
+/** The change of each segment, and whether they are all the same (a uniform rate). */
+const graphRises = (vals) => vals.slice(1).map((v, i) => v - vals[i]);
+export function graphCorrect(m, a, u) {
+  if (!graphOk(m, u) || !a) return false;
+  if (a.mode === 'values') return a.values.length === u.length && u.every((v, i) => near(v, a.values[i], 1e-9));
+  if (a.mode === 'shape') { const s = graphShape(u); return a.shape.length === s.length && s.every((d, i) => d === a.shape[i]); }
+  if (a.mode === 'uniform') {
+    const r = graphRises(u);
+    if (!r.every((d) => near(d, r[0], 1e-9))) return false;
+    if (a.start != null && !near(u[0], a.start, 1e-9)) return false;
+    return a.rate == null || near(r[0], a.rate * m.x.step, 1e-9);
+  }
+  return false;
+}
+/** A graph that answers: the values; a shape built one step a segment from the first point (fixed, or the grid line
+ * nearest the middle of the axis); a uniform rate from its start (or the first fixed point, or the end of the axis it
+ * moves away from). Fixed points keep their places. */
+export function graphSolution(m, a) {
+  const n = graphXs(m).length;
+  if (a.mode === 'values') return [...a.values];
+  if (a.mode === 'shape') {
+    const out = [isFixed(m, 0) ? m.start[0] : graphSnap(m, (axisLo(m.y) + m.y.max) / 2)];
+    for (let i = 1; i < n; i += 1) out.push(isFixed(m, i) ? m.start[i] : graphSnap(m, out[i - 1] + GRAPH_SIGN[a.shape[i - 1]] * m.y.step));
+    return out;
+  }
+  // uniform: the rate asked, or the one two fixed points give, or else one step up, one step down or flat, whichever fits
+  const fixedAt = (m.fixed || []).slice().sort((p, q) => p - q);
+  const rises = a.rate != null ? [a.rate * m.x.step]
+    : fixedAt.length >= 2 ? [(m.start[fixedAt[1]] - m.start[fixedAt[0]]) / (fixedAt[1] - fixedAt[0])] : [m.y.step, -m.y.step, 0];
+  const build = (rise) => {
+    const first = a.start != null ? a.start : fixedAt.length ? m.start[fixedAt[0]] - fixedAt[0] * rise : rise >= 0 ? axisLo(m.y) : m.y.max;
+    return Array.from({ length: n }, (_, i) => round9(first + i * rise));
+  };
+  const fits = (vs) => vs.every((v) => v >= axisLo(m.y) - 1e-9 && v <= m.y.max + 1e-9);
+  return rises.map(build).find(fits) || build(rises[0]);
+}
+/** A graph one step from the answer that is wrong: values, the first point that moves one step off; shape, its first
+ * moving segment that is not flat made flat; uniform, the last point one step off. */
+export function graphWrong(m, a) {
+  const sol = graphSolution(m, a); const n = sol.length;
+  const off = (i) => { const v = sol[i] + m.y.step <= m.y.max + 1e-9 ? sol[i] + m.y.step : sol[i] - m.y.step; return sol.map((w, k) => (k === i ? round9(v) : w)); };
+  const free = [...Array(n).keys()].filter((i) => !isFixed(m, i));
+  if (a.mode === 'shape') {
+    const seg = a.shape.findIndex((d, i) => d !== 'flat' && (!isFixed(m, i + 1) || !isFixed(m, i)));
+    const flat = seg >= 0 && sol.map((w, k) => (k === seg + 1 && !isFixed(m, seg + 1) ? sol[seg] : k === seg && isFixed(m, seg + 1) ? sol[seg + 1] : w));
+    // a fixed point between grid lines cannot be matched by its neighbour: then a point one step off instead
+    return flat && graphOk(m, flat) ? flat : off(free[0]);
+  }
+  return off(a.mode === 'uniform' ? free[free.length - 1] : free[0]);
+}
+/** The points as maths: (0, 0) → (5, 400) → (10, 400). */
+export const graphPointsText = (m, u) => graphXs(m).map((x, i) => `(${plainNum(x)}, ${plainNum(u[i])})`).join(' → ');
+/** Which axis is in which unit, after the points: "(x בדקות, y במטרים)". */
+const graphUnits = (m) => [m.x.unit && `x ב${m.x.unit}`, m.y.unit && `y ב${m.y.unit}`].filter(Boolean).join(', ');
+/** Which points are fixed, in words (the first one, the first two, or each by its x). */
+function fixedWords(m) {
+  const f = (m.fixed || []).slice().sort((p, q) => p - q);
+  if (!f.length) return '';
+  if (f.length === 1 && f[0] === 0) return 'הנקודה הראשונה קבועה';
+  if (f.length === 2 && f[0] === 0 && f[1] === 1) return 'שתי הנקודות הראשונות קבועות';
+  const xs = graphXs(m);
+  return f.length === 1 ? `הנקודה ב־${plainNum(xs[f[0]])} קבועה` : `הנקודות ב־${f.map((i) => plainNum(xs[i])).join(', ')} קבועות`;
+}
+// ---------------------------------------------------------------- the situation graph, still (sgraph, FUNC-1)
+// A graph on two named, scaled axes (components/Figure.jsx SGraph): its series are polylines through their points (or
+// the points alone, dots), read left to right; these helpers place what it marks on them.
+
+/** An axis's name as drawn: its label and, outside the maths, its unit: "זמן (דקות)". */
+export const axisName = (a) => (a.unit ? `${a.label} (${a.unit})` : a.label);
+/** The y of a polyline at x (its first piece that spans x), or null outside it. */
+export function seriesAt(pts, x) {
+  for (let i = 1; i < pts.length; i += 1) {
+    const [x0, y0] = pts[i - 1]; const [x1, y1] = pts[i];
+    if (x >= Math.min(x0, x1) - 1e-9 && x <= Math.max(x0, x1) + 1e-9) return x1 === x0 ? y1 : round9(y0 + ((x - x0) * (y1 - y0)) / (x1 - x0));
+  }
+  return pts.length === 1 && near(pts[0][0], x, 1e-9) ? pts[0][1] : null;
+}
+/** Every x where a polyline is at height y, left to right (a flat piece at that height gives its two ends). */
+export function seriesCrossings(pts, y) {
+  const out = [];
+  for (let i = 1; i < pts.length; i += 1) {
+    const [x0, y0] = pts[i - 1]; const [x1, y1] = pts[i];
+    if (near(y0, y1, 1e-9)) { if (near(y0, y, 1e-9)) out.push(x0); continue; }
+    if (y >= Math.min(y0, y1) - 1e-9 && y <= Math.max(y0, y1) + 1e-9) out.push(round9(x0 + ((y - y0) * (x1 - x0)) / (y1 - y0)));
+  }
+  return [...new Set(out.map((v) => round9(v)))].sort((p, q) => p - q);
+}
+/** Where two polylines first meet (left to right), or null. */
+export function seriesMeet(p, q) {
+  let best = null;
+  for (let i = 1; i < p.length; i += 1) {
+    for (let j = 1; j < q.length; j += 1) {
+      const [a, b] = [p[i - 1], p[i]]; const [c, d] = [q[j - 1], q[j]];
+      const den = (b[0] - a[0]) * (d[1] - c[1]) - (b[1] - a[1]) * (d[0] - c[0]);
+      if (Math.abs(den) < 1e-12) continue;
+      const t = ((c[0] - a[0]) * (d[1] - c[1]) - (c[1] - a[1]) * (d[0] - c[0])) / den;
+      const s = ((c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])) / den;
+      if (t < -1e-9 || t > 1 + 1e-9 || s < -1e-9 || s > 1 + 1e-9) continue;
+      const at = [round9(a[0] + t * (b[0] - a[0])), round9(a[1] + t * (b[1] - a[1]))];
+      if (!best || at[0] < best[0]) best = at;
+    }
+  }
+  return best;
+}
+/** riseRun on the first series: the run (the change in x) and the rise (the change in y) it draws, or null. */
+export function sgraphRiseRun(f) {
+  const s = f.series?.[0]; if (!f.riseRun || !s) return null;
+  const y0 = seriesAt(s.pts, f.riseRun.from); const y1 = seriesAt(s.pts, f.riseRun.to);
+  return y0 == null || y1 == null ? null : { from: f.riseRun.from, to: f.riseRun.to, y0, y1, run: round9(f.riseRun.to - f.riseRun.from), rise: round9(y1 - y0) };
+}
+/** The sgraph in words: every number it draws, in reading order (the axes, each series, then what it marks). */
+export function sgraphWords(f) {
+  const n = (v) => figNum(v);
+  const pt = ([x, y]) => `(${n(x)}, ${n(y)})`;
+  const axis = (name, a) => `ציר ${name} מ־${n(axisLo(a))} עד ${n(a.max)}, קו כל ${n(a.step)}${a.every > 1 ? `, מספר כל ${n(round9(a.step * a.every))}` : ''}`;
+  const series = (f.series || []).map((s) => `${s.label ? `${s.label}: ` : ''}${s.dots ? `נקודות ${s.pts.map(pt).join(', ')}` : `${s.pts.map(pt).join(' → ')}${s.smooth ? ' (קו מעוגל)' : ''}`}`);
+  const first = f.series?.[0]?.pts || [];
+  const g = f.guide || {};
+  const guideX = g.x != null ? `קו עזר מ־x = ${n(g.x)}${seriesAt(first, g.x) != null ? ` עד הגרף, בגובה ${n(seriesAt(first, g.x))}` : ''}` : '';
+  const guideY = g.y != null ? `קו עזר מ־y = ${n(g.y)}${seriesCrossings(first, g.y).length ? ` עד הגרף, ב־x = ${seriesCrossings(first, g.y).map(n).join(' וב־x = ')}` : ''}` : '';
+  const rr = sgraphRiseRun(f);
+  const meet = f.meet && f.series?.length > 1 ? seriesMeet(f.series[0].pts, f.series[1].pts) : null;
+  return [
+    `גרף: ${axisName(f.y)} לפי ${axisName(f.x)}`, axis('x', f.x), axis('y', f.y), ...series,
+    ...(f.marks || []).map((k) => `הנקודה ${k.label} ב־${pt([k.x, k.y])}`),
+    ...(f.bands || []).map((b) => `מסומן על ציר x מ־${n(b.from)} עד ${n(b.to)}`),
+    guideX, guideY,
+    rr && `שינוי ב־x: ${n(rr.run)}, שינוי ב־y: ${n(rr.rise)}`,
+    meet && `הקווים נפגשים ב־${pt(meet)}`,
+    f.dirArrow && 'חץ משמאל לימין',
+  ].filter(Boolean).join('; ');
+}
+
+// ---------------------------------------------------------------- the protractor and the clock (FUNC-1.2, FUNC-1.3b)
+// A direction is in degrees counterclockwise from the right. A protractor turned by ρ has its baseline along ρ and
+// ρ + 180 and covers the directions from ρ to ρ + 180 (its half disc). It has two scales, laid out as on the class's
+// plastic one: the scale that starts on the right (its 0 at the right end of the baseline, the inner ring) reads a
+// direction d as d − ρ, and the scale that starts on the left (the outer ring) as 180 − (d − ρ). The words name a scale
+// only by the side its 0 is on.
+
+export const mod360 = (d) => ((Math.round(d * 1e9) / 1e9) % 360 + 360) % 360;
+/** Does a protractor turned by ρ cover direction d (under its half disc, the baseline's ends included)? */
+export const protCovers = (rho, d) => mod360(d - rho) <= 180 + 1e-9;
+/** Is the baseline of a protractor turned by ρ on one of the arms (either end of it on an arm)? */
+export const baselineOnArm = (arms, rho) => arms.some((t) => { const d = mod360(t - rho); return d < 1e-9 || d > 360 - 1e-9 || Math.abs(d - 180) < 1e-9; });
+/** align is right: the baseline on an arm and the angle under the half disc, where it can be read. */
+export const protAligned = (arms, rho) => baselineOnArm(arms, rho) && arms.every((t) => protCovers(rho, t));
+/** The four turns that put the baseline on an arm, smallest first. */
+export const armTurns = (arms) => [...new Set(arms.flatMap((t) => [mod360(t), mod360(t + 180)]))].sort((p, q) => p - q);
+/** The smaller angle between two directions. */
+export const armsAngle = ([a, b]) => { const d = mod360(b - a); return d > 180 ? 360 - d : d; };
+/** Where the build mode's ray points on the protractor (its reading on the scale that starts on the right). */
+export const buildRay = (m, v) => (m.from === 'left' ? 180 - v : v);
+/** The words for the two numbers a direction meets on the protractor, one by scale. */
+export const protReadingWords = (r) => `${plainNum(r)} בסולם שמתחיל מימין, ${plainNum(180 - r)} בסולם שמתחיל משמאל`;
+/** What a screen reader hears for the build mode's ray: the two numbers a sighted student sees at it (choosing is the skill). */
+export const buildWords = (m, v) => { const r = buildRay(m, v); return `הקרן מול ${plainNum(r)} בסולם שמתחיל מימין ומול ${plainNum(180 - r)} בסולם שמתחיל משמאל`; };
+const armLetter = (m, i) => (m.letters ? (i === 0 ? m.letters.a : m.letters.b) : (i === 0 ? 'הראשונה' : 'השנייה'));
+/**
+ * What a screen reader hears for the align mode: on an arm, and whether the angle is under the protractor; otherwise how
+ * far the nearer end of the baseline is from the nearest arm (and that it is between the arms, when it is).
+ */
+export function alignWords(m, rho) {
+  const arms = m.arms; const dist = (a, b) => { const d = mod360(a - b); return Math.min(d, 360 - d); };
+  let best = { d: Infinity, i: 0 };
+  arms.forEach((t, i) => [rho, rho + 180].forEach((end) => { const d = dist(t, end); if (d < best.d - 1e-9) best = { d, i }; }));
+  const L = armLetter(m, best.i); const name = m.letters ? `השוק ${m.letters.vertex}${L}` : `השוק ${L}`;
+  if (best.d < 1e-9) return `קו האפס על ${name}, ${protAligned(arms, rho) ? 'והזווית מתחת למד הזווית' : 'אבל הזווית מחוץ למד הזווית'}`;
+  // the angle runs counterclockwise from its first arm for `span` degrees; is an end of the baseline inside it?
+  const span = armsAngle(arms); const start = mod360(arms[1] - arms[0]) <= 180 ? arms[0] : arms[1];
+  const between = [rho, rho + 180].some((e) => { const d = mod360(e - start); return d > 1e-9 && d < span - 1e-9; });
+  return `קו האפס ${between ? 'בין השוקיים, ' : ''}${plainNum(Math.round(best.d))} מעלות מ${name}`;
+}
+/** The clock's hands, in degrees clockwise from 12: the hour hand moves on with the minutes (30h + m/2), the minute hand 6m. */
+export const clockHands = (h, m) => ({ hour: mod360(30 * (h % 12) + m / 2), minute: mod360(6 * m) });
+/** The time as a clock shows it: 4:30, 10:05. */
+export const clockText = (h, m) => `${h}:${String(m).padStart(2, '0')}`;
+/** The protractor figure in words: arm by arm, the arm on a 0 first, each arm's two readings named by scale. */
+export function protractorWords(f) {
+  const L = f.letters;
+  const order = f.arms.map((r, i) => ({ r, i })).sort((p, q) => Number(q.r === 0 || q.r === 180) - Number(p.r === 0 || p.r === 180));
+  const arm = ({ r, i }) => `${L ? `השוק ${L.vertex}${i === 0 ? L.a : L.b}` : `השוק ${i === 0 ? 'הראשונה' : 'השנייה'}`}: ${protReadingWords(r)}`;
+  return [`מד זווית על ${L ? `∢${L.a}${L.vertex}${L.b}` : 'הזווית'}`, ...order.map(arm)].join('; ');
+}
+
+/** A point's height in squares above the x axis, for a screen reader in a check: "4 משבצות מעל הציר". */
+export function squaresWords(m, v) {
+  const k = Math.round((v - axisLo(m.y)) / m.y.step);
+  return k === 0 ? 'על הציר' : k === 1 ? 'משבצת אחת מעל הציר' : `${k} משבצות מעל הציר`;
+}
+
 // ---------------------------------------------------------------- the teaching figures in words (STUDENT-8)
 // The spoken name of each drawing (components/Figure.jsx puts it in aria-label): what a sighted student sees, never
 // more. A coordinate plane names its points but not where they are, because an exercise may ask exactly that.
@@ -289,6 +531,11 @@ export function figWords(f) {
         rr && `צעד של ${figNum(Math.abs(rr.run))} ${rr.run > 0 ? 'ימינה' : 'שמאלה'} ו־${figNum(Math.abs(rr.rise))} ${rr.rise >= 0 ? 'למעלה' : 'למטה'}`,
         f.words?.length && `כתוב: ${f.words.map((w) => w.text).join(', ')}`].filter(Boolean).join(', ');
     }
+    // a graph is read: its words give every number it draws, as the eye reads them off the grid
+    case 'sgraph': return sgraphWords(f);
+    // a protractor is read arm by arm, each arm's two numbers named by scale; a clock says its time
+    case 'protractor': return protractorWords(f);
+    case 'clock': return `שעון: השעה ${clockText(f.h, f.m)}`;
     default: return '';
   }
 }
@@ -300,7 +547,8 @@ export function manipCorrect(it, u) {
   const m = it.manip; const a = it.answer;
   switch (m.kind) {
     case 'numberline': return samePlace(m, u, a);
-    case 'angle': case 'bars': return u === a;
+    case 'angle': return m.protractor && m.mode === 'align' ? typeof u === 'number' && protAligned(m.arms, u) : u === a;
+    case 'bars': return u === a;
     case 'plot': return m.quadrant ? quadOf(u) === m.quadrant && (m.fixX == null || u[0] === m.fixX) && (m.fixY == null || u[1] === m.fixY) : u[0] === a[0] && u[1] === a[1];
     case 'line': return near(u.m, a.m, 1e-9) && near(u.b, a.b, 1e-9);
     case 'squares': return Number.isInteger(u.a) && Number.isInteger(u.b) && u.a * u.a + u.b * u.b === a.c * a.c;
@@ -318,6 +566,7 @@ export function manipCorrect(it, u) {
       return near(u.shaded / u.den, a.value, 1e-9);
     }
     case 'dline': { const v = dlineValue(m, u); return typeof v === 'number' && near(v, a, 1e-9); }
+    case 'graph': return graphCorrect(m, a, u);
     default: return false;
   }
 }
@@ -341,7 +590,7 @@ export function manipText(it, u = it.answer) {
   switch (m.kind) {
     case 'numberline': return lineNum(m, u);
     case 'bars': return num(u);
-    case 'angle': return `${num(u)}°`;
+    case 'angle': return m.protractor && m.mode === 'align' ? `מד הזווית מסובב ב־${num(u)}°` : `${num(u)}°`;
     case 'plot': return m.quadrant && u === it.answer ? `נקודה ב${QUAD_NAMES[m.quadrant]}, למשל ${ltr(`(${num(u[0])}, ${num(u[1])})`)}` : `(${num(u[0])}, ${num(u[1])})`;
     case 'line': return lineText(u);
     case 'squares': return u.c != null ? `ניצבים ${u.a} ו־${u.b}: ${ltr(`${u.a}² + ${u.b}² = ${u.c}²`)}` : `ניצבים ${u.a} ו־${u.b}`;
@@ -359,6 +608,15 @@ export function manipText(it, u = it.answer) {
       return `${u.shaded}/${u.den}`;
     }
     case 'dline': { const v = dlineValue(m, u); return v == null ? '' : withUnit(v, m.move === 'max' ? m.bottom.unit : m.top.unit); }
+    // a student's state, or values, is the points; a shape is its segments in words; a uniform rate says so and shows one
+    case 'graph': {
+      const units = graphUnits(m); const pts = (vals) => `${ltr(graphPointsText(m, vals))}${units ? ` (${units})` : ''}`;
+      if (Array.isArray(u)) return pts(u);
+      if (u.mode === 'values') return pts(u.values);
+      if (u.mode === 'shape') return `קטעים משמאל לימין: ${u.shape.map((d) => GRAPH_SHAPE_WORD[d]).join(', ')}`;
+      const given = [u.start != null && `מתחילים ב־${plainNum(u.start)}`, u.rate != null && `${plainNum(u.rate)} לכל יחידה של x`].filter(Boolean).join(', ');
+      return `קצב אחיד: כל קטע משתנה באותו מספר${given ? `, ${given}` : ''}; למשל ${pts(graphSolution(m, u))}`;
+    }
     default: return '';
   }
 }
@@ -375,7 +633,10 @@ export function manipPlain(it) {
         : m.lines ? `[מערכת צירים עם שני ישרים, ${m.lines.map(lineText).join(' ו־')}; שמים את נקודת המפגש שלהם]`
           : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
     case 'line': return '[מערכת צירים; בונים ישר בעזרת שתי נקודות: החיתוך עם ציר y וצעד אחד ימינה]';
-    case 'angle': return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
+    case 'angle':
+      if (m.protractor && m.mode === 'align') return `[זווית ששוקיה בכיוונים ${num(m.arms[0])}° ו־${num(m.arms[1])}°; מסובבים את מד הזווית עד שקו האפס שלו על אחת השוקיים]`;
+      if (m.protractor) return `[מד זווית על הקודקוד${m.letters?.vertex ? ` ${m.letters.vertex}` : ''}; השוק הקבועה על 0 של הסולם ש${m.from === 'left' ? 'מתחיל משמאל' : 'מתחיל מימין'}; מסובבים את הקרן]`;
+      return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
     case 'squares': return `[משולש ישר־זווית עם ריבועים על הצלעות; שטח הריבוע על היתר צריך להיות ${it.answer.c * it.answer.c}]`;
     case 'bars': return m.stat === 'median' ? `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; החציון צריך להיות ${m.target}]` : `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; הממוצע צריך להיות ${m.mean}]`;
     case 'pins': return `[ציר מספרים מ־${m.min} עד ${m.max}${m.den ? `, כל יחידה מחולקת ל־${m.den} חלקים שווים` : ''}; שמים עליו את המספרים ${m.labels.map(labelPlain).join(', ')}]`;
@@ -390,6 +651,12 @@ export function manipPlain(it) {
       return m.move === 'max'
         ? `[ציר כפול: למעלה ${line(m.top)}, למטה ${m.bottom.label}; הסמן קבוע על ${withUnit(m.fixT, m.top.unit)}; מותחים את הציר התחתון (השלם) בצעדים של ${dlineNum(m.bottom.step)}, עד ${withUnit(m.bottom.max, m.bottom.unit)}]`
         : `[ציר כפול: למעלה ${line(m.top)}, למטה ${line(m.bottom)}; מזיזים את הסמן בצעדים של ${withUnit(m.top.step, m.top.unit)}]`;
+    }
+    case 'graph': {
+      const ax = (name, A) => `ציר ${name} ${A.label} מ־${plainNum(axisLo(A))} עד ${plainNum(A.max)} כל ${plainNum(A.step)}`;
+      const fixed = fixedWords(m);
+      const ref = m.ref ? `; קו קבוע נוסף${m.ref.label ? ` ${m.ref.label}` : ''}: ${m.ref.pts.map(([x, y]) => `(${plainNum(x)}, ${plainNum(y)})`).join(' → ')}` : '';
+      return `[גרף: ${ax('x', m.x)}; ${ax('y', m.y)}; מזיזים נקודה מעל כל ערך של x${fixed ? `; ${fixed}` : ''}${ref}]`;
     }
     default: return '';
   }
@@ -410,6 +677,9 @@ export function manipSolution(it) {
       const den = m.lockDen ? m.start.den : fbarDenFor(a.value, m.maxDen || FBAR_MAX_DEN);
       return { den, shaded: Math.round(a.value * den) };
     }
+    case 'graph': return graphSolution(m, a);
+    // align: the answer when it is a right turn, else the first right one
+    case 'angle': return m.protractor && m.mode === 'align' && !protAligned(m.arms, a) ? armTurns(m.arms).find((r) => protAligned(m.arms, r)) : a;
     default: return a;
   }
 }
@@ -419,7 +689,12 @@ export function manipWrong(it) {
   const m = it.manip; const a = it.answer;
   switch (m.kind) {
     case 'numberline': { const d = lineStep(m); return a + d <= m.max + 1e-9 ? a + d : a - d; }
-    case 'angle': return a < 175 ? a + 5 : a - 5;
+    // the protractor: the other scale's reading (a right angle reads 90 on both: one step off), or the baseline on an
+    // arm with the angle outside the half disc
+    case 'angle':
+      if (m.protractor && m.mode === 'align') return armTurns(m.arms).find((r) => !protAligned(m.arms, r));
+      if (m.protractor) return a === 90 ? 95 : 180 - a;
+      return a < 175 ? a + 5 : a - 5;
     case 'bars': return a < m.max ? a + 1 : a - 1;
     case 'plot': return m.quadrant ? (m.fixX != null ? [a[0], -a[1]] : [-a[0], a[1]]) : [a[0] < (m.range || 6) ? a[0] + 1 : a[0] - 1, a[1]];
     case 'line': { const r = m.range || 6; return Math.abs(a.b + a.m + 1) <= r && a.m + 1 !== 0 ? { m: a.m + 1, b: a.b } : { m: a.m - 1, b: a.b }; }
@@ -444,6 +719,7 @@ export function manipWrong(it) {
       const L = m.move === 'max' ? m.bottom : m.top; const lo = m.move === 'max' ? L.step : 0;
       return a + L.step <= L.max + 1e-9 ? a + L.step : Math.max(lo, a - L.step);
     }
+    case 'graph': return graphWrong(m, a);
     default: return null;
   }
 }

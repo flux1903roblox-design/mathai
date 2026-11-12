@@ -7,7 +7,10 @@
 //  - best constant: one fixed answer per form (number, choice, point, line, object), the one right most often;
 //  - a number from the question: one of the numbers printed in it (its text, its expression, its table), picked at
 //    random, or always the first one, or always the last one; for an answer of two numbers (a point, a line, an
-//    expression's coefficient and constant), two of them: a pair at random, the first two, or the last two. Not yet the number inside a drawing: an angle check can
+//    expression's coefficient and constant), two of them: a pair at random, the first two, or the last two. A drawing's
+//    numbers count where a student reads them off it: a table, a situation graph, a protractor and a clock (stage 5 §0.4
+//    decision 5: every number their words, figPlain, write: a graph's axes, points and marks; each arm's two readings, by
+//    scale; the clock's time). Not yet the other angle drawings (CURRICULUM-10's): an angle check can
 //    still be passed by copying the angle drawn (angles:2 about 31%, angles:4 about 47%, from a run with drawings in),
 //    because its questions are one step, equal or adding to 180°. That needs the angle checks to mix in other kinds of
 //    questions, and is left for that change.
@@ -38,6 +41,10 @@ const CONTENT = await loadAllContent();
 
 const LIMIT = 0.02;
 const SLOW = 60_000; // each test generates thousands of questions
+// a verification's control question looks for a draw the misconception leaves unchanged, up to 400 draws a question
+// (learn/items.ts): signed:6's sign almost never is (only an answer of 0), so that one test makes about 400 times the
+// questions: 60 s run alone and 75-220 s within the whole suite on the shared 4-CPU machine, past SLOW
+const VERIFY_SLOW = 300_000;
 const N = 500; // questions sampled per kind of question, to learn the guess and again to measure it
 
 // a fixed random source (the exercise generators use Math.random), so the measure is the same on every run
@@ -88,9 +95,11 @@ export function shownNumbers(it: Item): number[] {
   if (it.form !== 'num') return [];
   return printed(it);
 }
+/** The drawings whose numbers a student reads off them, so a guesser may copy them: their words (figPlain) say every one. */
+const READ_FIGS = new Set(['table', 'sgraph', 'protractor', 'clock']);
 /** Every number printed in a question, whatever its form. */
 function printed(it: Item): number[] {
-  const shown = [it.text, it.display, it.fig?.type === 'table' ? figPlain(it.fig) : ''].filter(Boolean).join(' ')
+  const shown = [it.text, it.display, READ_FIGS.has(it.fig?.type) ? figPlain(it.fig) : ''].filter(Boolean).join(' ')
     // a TeX thousands group is one number: 50{,}000 is 50000, not 50 and 0 (a scale's 1 : 50{,}000)
     .replace(/(\d)\{,\}(?=\d{3})/g, '$1')
     .replace(/\\(qquad|quad|[,;:! ])/g, ' ').replace(/\\[a-zA-Z]+/g, ' ').replace(/−/g, '-')
@@ -154,7 +163,7 @@ describe('a check cannot be passed by guessing', () => {
     expect(plan).toHaveLength(VERIFY_N);
     const rate = passRate(plan.map((q) => drawOf(q.skill, q.source, q.candidates)), VERIFY_NEED);
     expect(rate, `${skill} verify ${misc}: ${(100 * rate).toFixed(2)}%`).toBeLessThan(LIMIT);
-  }, SLOW);
+  }, VERIFY_SLOW);
 });
 
 describe('the placement test cannot be passed by guessing', () => {
@@ -194,6 +203,16 @@ describe('the guessing measure itself', () => {
     const pair: Draw = () => { const a = -2 - Math.floor(Math.random() * 9); const b = a - 1 - Math.floor(Math.random() * 5); return { form: 'num', text: 'איזה מספר גדול יותר? כתבו אותו.', display: `${b} \\qquad ${a}`, answer: a, key: 'pair:x' }; };
     expect(passRate([pair, pair, pair], 3)).toBeGreaterThan(0.1);
     expect(shownNumbers({ form: 'num', text: 'מה $y$ כש־$x = -3$?', display: 'y = 2x - 4', fig: { type: 'table', rows: [['א', '1, 10, 10']] } })).toEqual([-3, 2, -4, 1, 10, 10]);
+  });
+  it('reads the numbers of a situation graph: its axes, every point in order and what it marks', () => {
+    const fig = { type: 'sgraph', x: { max: 45, step: 5, label: 'זמן', unit: 'דקות', every: 2 }, y: { max: 700, step: 100, label: 'מרחק מהבית', unit: 'מטרים' }, series: [{ pts: [[0, 0], [10, 600], [25, 600], [45, 0]] }], bands: [{ from: 10, to: 25 }] };
+    expect(shownNumbers({ form: 'num', text: 'כמה דקות עמדה נועה?', fig })).toEqual([0, 45, 5, 10, 0, 700, 100, 0, 0, 10, 600, 25, 600, 45, 0, 10, 25]);
+    // a protractor: each arm's two readings; a clock: its hour and minutes
+    expect(shownNumbers({ form: 'num', text: 'מה גודל הזווית?', fig: { type: 'protractor', arms: [180, 130], letters: { vertex: 'B', a: 'A', b: 'C' } } })).toEqual([180, 0, 130, 50]);
+    expect(shownNumbers({ form: 'num', fig: { type: 'clock', h: 2, m: 30 } })).toEqual([2, 30]);
+    // a table keeps being read; another drawing is not read yet (the other angle drawings are CURRICULUM-10's)
+    expect(shownNumbers({ form: 'num', fig: { type: 'table', head: ['x', 'y'], rows: [[1, 9]] } })).toEqual([1, 9]);
+    expect(shownNumbers({ form: 'num', fig: { type: 'linear', a: 40 } })).toEqual([]);
   });
   it('reads a TeX thousands group as one number, so copying a printed number on a scale question is measured honestly', () => {
     // a scale question prints 1 : 50{,}000: the number a guesser would type is 50000, not 50 and 0

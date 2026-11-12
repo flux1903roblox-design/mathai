@@ -715,6 +715,7 @@ async function joinClass(code, req, env, cors) {
 // ---------- student data ----------
 const PROGRESS_EVENTS = 500; // one request; the app sends batches of 300
 const EVENT_ID = /^[a-f0-9]{12}$/; // the app's id for one answer (12 hex), so a retried batch is stored once
+const LEVELS_PER_SYNC = 40; // the units of every stage and the guest stairs, with room to spare
 
 /**
  * A class student's answers and levels (DURABLE-7). Every event the app sent is acknowledged ({ saved } = how many it
@@ -749,7 +750,9 @@ async function saveProgress(req, env, cors) {
        SELECT ?, ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(col).join(', ')} FROM json_each(?) ORDER BY key`,
     ).bind(s.id, JSON.stringify(rows)));
   }
-  for (const [topic, v] of Object.entries(b.levels && typeof b.levels === 'object' ? b.levels : {}).slice(0, 20)) {
+  // each unit's { level, max }, then each guest stair the app touched under its own id ("eq:6": 1 practised, 2 mastered;
+  // web/src/lib/path.js guestStairLevels), which the teacher's guest row reads: up to LEVELS_PER_SYNC of them
+  for (const [topic, v] of Object.entries(b.levels && typeof b.levels === 'object' ? b.levels : {}).slice(0, LEVELS_PER_SYNC)) {
     if (!v || typeof v !== 'object') continue;
     stmts.push(env.DB.prepare(
       'INSERT INTO levels (student_id, topic, level, max_level, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (student_id, topic) DO UPDATE SET level = excluded.level, max_level = MAX(levels.max_level, excluded.max_level), updated_at = excluded.updated_at',

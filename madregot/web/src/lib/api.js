@@ -2,6 +2,7 @@ import { useApp, toWire } from './store.js';
 import { keepaliveBudget, bodyBytes } from './durable/moments.js';
 import { randomHex } from './random.js';
 import { flushWork, fetchClassWork } from './classWork.js';
+import { guestStairLevels } from './path.js';
 
 /**
  * The Worker's address: Settings override, else the one baked in at build time.
@@ -240,6 +241,12 @@ const SYNC_ROUNDS = 5;
 export const STEPS_PER_SYNC = 50;
 
 /**
+ * The levels a class sync sends: each unit's { level, max } (the student's progress), then each guest stair the student
+ * touched under its own id (lib/path.js guestStairLevels), which a teacher's guest row reads.
+ */
+export const syncLevels = (app) => ({ ...(app.progress || {}), ...guestStairLevels(app.path, app.learn) });
+
+/**
  * Send a class student's queued answers and current levels to the class server (DURABLE-7), in batches of 300, up to
  * 5 a time, with the class goal's steps (STUDENT-4), 50 a request. An answer leaves the outbox only once the server has
  * acknowledged it (`saved` counts from the start of the batch), and a step once the request that carried it was
@@ -270,7 +277,7 @@ export function syncNow({ hidden = false, levels = false } = {}) {
         const batch = app.outbox.slice(0, SYNC_BATCH);
         const steps = (app.stepsOut || []).slice(0, STEPS_PER_SYNC);
         if (!batch.length && !steps.length && !(levels && round === 0)) break;
-        const body = { events: batch.map(toWire), levels: app.progress, ...(steps.length ? { steps } : {}) };
+        const body = { events: batch.map(toWire), levels: syncLevels(app), ...(steps.length ? { steps } : {}) };
         const keepalive = hidden && sameOrigin() && keepaliveBudget.claim(bodyBytes(body));
         const r = await api('/api/progress', { method: 'POST', body, keepalive });
         const n = Math.max(0, Math.min(Number(r?.saved) || 0, batch.length));

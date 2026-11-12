@@ -926,6 +926,22 @@ script. They now load one topic at a time, and nothing the student sees changed.
   to the family lane alone; the merged app holds every lane's first screens, so its gate is this one, and the 260 KB
   target stays the aim (next in size: the exercise generators of `content/*.js` that the map and the placement test
   read, about 60 KB gzipped after minifying; they would need the map to read only titles and levels at boot).
+  **The stage-5 merge** (curriculum stage 5: the functions unit, `eq:6`-`7`, the guest rule) brought its exercise
+  generators (`content/func.js` 12.1 KB gzipped on its own, `content/eq.js` +6.6 KB, `content/manip.js`'s figure words
+  +3.7 KB), its challenge tasks and the guest rule into the first load: 427.4 KB against the 424 KB gate, render-blocking
+  CSS 46.0 KB against 46, precache 4.89 MB against 4.79. The boot gate does not go up, so two moves made room, each the
+  same kind as FOLLOWUP-23's: the help lines (`SUPPORT`) that the first screen shows (`SupportSheet.jsx`,
+  `SupportCard.jsx`) now live in `shared/helpLines.js`, which `shared/safety.js` re-exports for the Worker and every
+  other caller, so the distress detector, the masking and the output screen (`safety.js`, with `blocklist.js`) load with
+  the screens that read a child's words; `styles/lazy.test.js` walks main.jsx's static imports and fails if either comes
+  back, and `budget.json`'s `lazyOnly` names `safety` and `blocklist`. The lane's graph and protractor rules (the drawn
+  graph, FUNC-1; the protractor, FUNC-1.2) left `app.css` for `styles/lazy/graph.css`, which the two drawing modules
+  (`components/manip/graphAxes.jsx`, `protractor.jsx`) import; no first-load rule sets the same properties on those
+  elements with the same weight, so the later load changes nothing on screen. Measured: boot JS **420.9 KB** (gate 424,
+  unchanged), CSS **45.5 KB** (gate 46, unchanged). The precache is the raw bytes of every file kept offline, which no
+  lazy load changes: 4.89 MB, the new topic's own content, so its gate moved by the integration rule (measured + 5%) to
+  **5.13 MB**. About 3 KB is left under the boot gate: the next curriculum merge (stages 2-4, the classroom lane) needs
+  the generators split the paragraph above describes, not a raised gate.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

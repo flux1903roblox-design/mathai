@@ -16,6 +16,7 @@ export const TOPIC_NAMES = Object.freeze({
   eq: 'משוואות',
   ratio: 'יחס וקנה מידה', // the curriculum lane's first unit of grade 8 (school order: ratio, percent, then linear functions)
   pct: 'אחוזים',
+  func: 'מבוא לפונקציות', // the stage-5 lane's ח׳ unit 8.7 (November), before linear functions
   line: 'פונקציה קווית',
   pyth: 'משפט פיתגורס',
   stats: 'סטטיסטיקה',
@@ -55,6 +56,8 @@ export const STAIR_NAMES = Object.freeze({
   'eq:3': 'נעלם בשני האגפים',
   'eq:4': 'משוואות עם סוגריים',
   'eq:5': 'בעיות מילוליות',
+  'eq:6': 'שאלות תנועה',
+  'eq:7': 'משוואות עם מכנים ופרופורציה',
   'ratio:1': 'יחס',
   'ratio:2': 'חלוקה ביחס',
   'ratio:3': 'פרופורציה',
@@ -64,6 +67,10 @@ export const STAIR_NAMES = Object.freeze({
   'pct:3': 'איזה אחוז?',
   'pct:4': 'מציאת השלם',
   'pct:5': 'הגדלה והקטנה באחוזים',
+  'func:1': 'קריאת גרף של מצב',
+  'func:2': 'פונקציה וייצוגיה',
+  'func:3': 'עלייה, ירידה וקבוע',
+  'func:4': 'קצב אחיד ולא אחיד',
   'line:1': 'טבלת ערכים',
   'line:2': 'מה אומרים m ו־b',
   'line:3': 'שיפוע מהגרף: מדרגות',
@@ -105,7 +112,7 @@ export const stairName = (id) => {
  * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
  * it today. (ai spec AI-5)
  */
-export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' });
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8' });
 
 /**
  * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic

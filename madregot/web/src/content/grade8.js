@@ -1,9 +1,11 @@
-// Grade 8 (ח׳): the linear function (linear.js), Pythagoras, statistics, equations and systems (sys.js).
+// Grade 8 (ח׳): ratio (ratio.js), percent (pct.js), functions (func.js), the linear function (linear.js), Pythagoras,
+// statistics, equations and systems (sys.js).
 import { R, pick, shuffle, near, TRIPLES, listMath } from './util.js';
 import { LINEAR } from './linear.js';
 import { SYS } from './sys.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { FUNC } from './func.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -302,10 +304,11 @@ function missingValue() {
 }
 
 // in the order of the Ministry's תשפ״ז schedule: ratio and scale is the first unit of the year (September), percent
-// the second (October)
+// the second (October), the introduction to functions the third (November, before December's rate and slope)
 export const GRADE8 = [
   RATIO,
   PCT,
+  FUNC,
   LINEAR,
   {
     id: 'pyth', grade: '8', title: 'משפט פיתגורס', color: 'violet',

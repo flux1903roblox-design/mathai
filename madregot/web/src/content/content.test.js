@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import katex from 'katex';
-import { TOPICS, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem } from './index.js';
+import { TOPICS, TOPIC, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem, figPlain } from './index.js';
+import { manipCorrect, manipSolution } from './manip.js';
 import { SCENERY } from '@/components/map/Scenery.jsx';
 import { parseNum, plainNum, gcd } from './util.js';
 import { factsItem } from './frac.js';
@@ -426,6 +427,10 @@ describe('each unit has its own identity', () => {
       for (let i = 1; i < list.length; i += 1) expect(list[i].color, `grade ${grade}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(list[i - 1].color);
     }
   });
+  it('functions are fuchsia, unlike percent before them (petrol) and linear functions after them (cobalt)', () => {
+    expect([TOPIC.pct.color, TOPIC.func.color, TOPIC.line.color]).toEqual(['petrol', 'fuchsia', 'cobalt']);
+    expect(SCENERY.func.map((piece) => piece.name)).toEqual(['WalkGraph', 'Stopwatch', 'Candle']);
+  });
   it('every topic has three drawings: its emblem and two for beside the path', () => {
     for (const t of TOPICS) {
       expect(SCENERY[t.id], `${t.id} has drawings`).toBeTruthy();
@@ -774,5 +779,418 @@ describe('percent: every answer from the numbers shown', () => {
       solutionHolds(it);
     }
     expect(twice).toBeGreaterThan(80);
+  });
+});
+
+// Functions (stage5.md FUNC-2): every answer recomputed from what the student sees, the graph in words (figPlain: its
+// points, its marked point and its band, as a screen reader reads them) and the numbers of the text, never from the
+// generator's parameters.
+// Motion problems (eq:6, stage5.md FUNC-3): every answer recomputed from the numbers the student reads (the text, and
+// the graph as figPlain writes it), the mover's noun and words agreeing with its speed, and every numeric line of the
+// worked solution true.
+describe('motion problems (eq:6): every answer from the text\'s own numbers', () => {
+  /** The numbers of the text's maths, in order. */
+  const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).map((m) => Number(m.slice(1, -1).trim()));
+  /** The hours after "כעבור": "שעה" 1, "שעתיים" 2, "$h$ שעות" h. */
+  const headStart = (text) => { const m = text.match(/כעבור (שעה|שעתיים|\$(\d+)\$ שעות) יצאה/); return m[2] ? Number(m[2]) : m[1] === 'שעה' ? 1 : 2; };
+  /** Every chain "$a = b = c$" of plain arithmetic in the worked solution holds (':' is division). */
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1).replace(/\\cdot/g, '*').replace(/:/g, '/'))
+    .filter((m) => m.includes('=') && !/[a-zA-Z(]/.test(m.replace(/\\cdot/g, ''))).forEach((m) => { const v = m.split('=').map((x) => evaluate(x)); v.forEach((x) => expect(same(x, v[0]), `${it.key}: ${m}`).toBe(true)); }));
+
+  it('the meeting, the catching up, the round trip, the minutes, the graph and the table', () => {
+    const kinds = {};
+    for (let i = 0; i < 2000; i += 1) {
+      const it = makeItem('eq', 6);
+      const [p, kind] = it.key.split(':'); const k = p === 'eq6' ? `eq6:${kind}` : p; kinds[k] = (kinds[k] || 0) + 1;
+      const n = shown(it.text);
+      if (k === 'eq6:toward') {
+        // D first, then the first one's speed and the second's; both movers of one kind, the words agreeing with it
+        const [D, v1, v2] = n; const t = D / (v1 + v2);
+        expect(Number.isInteger(t) && D <= 450, it.key).toBe(true);
+        const bike = v1 <= 30;
+        expect(bike === (v2 <= 30), `${it.key}: two movers of one kind`).toBe(true);
+        expect(it.text, it.key).toMatch(bike ? /^שני רוכבי אופניים יוצאים .* זה לקראת זה\./ : /^שתי מכוניות יוצאות .* זו לקראת זו\./);
+        if (/כעבור כמה שעות ייפגשו\?$/.test(it.text)) { expect(it.answer, it.key).toBe(t); expect(it.unit).toBe('שעות'); }
+        else { expect(it.text, it.key).toMatch(bike ? /מהכפר של הראשון ייפגשו\?$/ : /מהעיר של הראשונה ייפגשו\?$/); expect(it.answer, it.key).toBe(v1 * t); expect(it.unit).toBe('ק״מ'); }
+      }
+      if (k === 'eq6:catch') {
+        // a cyclist (up to 30 km/h) or a lorry (40 to 80) first; the car after it, at most 110 km/h
+        const [v1, v2] = n.length === 3 ? [n[0], n[2]] : n; const h = headStart(it.text); const t = (v1 * h) / (v2 - v1);
+        expect(Number.isInteger(t) && t > 0 && v2 <= 110 && v2 >= 40, it.key).toBe(true);
+        expect(it.text, it.key).toMatch(v1 <= 30 ? /^רוכב אופניים יצא .* יצאה אחריו מכונית .* תשיג אותו\?$/ : /^משאית יצאה .* יצאה אחריה מכונית .* תשיג אותה\?$/);
+        if (v1 > 30) expect(v1 >= 40 && v1 <= 80, it.key).toBe(true);
+        expect(it.answer, it.key).toBe(/כעבור כמה שעות מיציאתה/.test(it.text) ? t : v2 * t);
+        expect(it.text, `${it.key}: "$1$ שעות"`).not.toMatch(/\$1\$ שעות/);
+      }
+      if (k === 'eq6:trip') {
+        // there at v1, back at v2, T hours in all: the way one way is T·v1·v2 / (v1 + v2); the verb follows the speed
+        const [v1, v2, T] = n; const d = (T * v1 * v2) / (v1 + v2);
+        expect(it.answer, it.key).toBe(d);
+        expect(Number.isInteger(d / v1) && Number.isInteger(d / v2), it.key).toBe(true);
+        expect(it.text.startsWith(v1 <= 6 ? 'הלכו ' : v1 <= 30 ? 'רכבו על אופניים ' : 'נסעו '), it.key).toBe(true);
+        expect((v1 <= 6) === (v2 <= 6) && (v1 <= 30) === (v2 <= 30), `${it.key}: one way of moving`).toBe(true);
+        if (v1 <= 6) expect(d, `${it.key}: a walk of at most 15 km`).toBeLessThanOrEqual(15);
+      }
+      if (k === 'eq6u') {
+        const [v, t] = n; expect(it.answer, it.key).toBe((v * t) / 60); expect(Number.isInteger(it.answer), it.key).toBe(true);
+      }
+      if (k === 'eq6g') {
+        // the two lines as figPlain writes them; where they cross is a whole hour, on a grid line of distance
+        const words = figPlain(it.fig);
+        const lines = [...words.matchAll(/מכונית [אב]: \((\d+), (\d+)\) → \((\d+), (\d+)\)/g)].map((m) => m.slice(1).map(Number));
+        expect(lines, it.key).toHaveLength(2);
+        const [[a0, ay0, a1, ay1], [b0, by0, b1, by1]] = lines;
+        const sa = (ay1 - ay0) / (a1 - a0); const sb = (by1 - by0) / (b1 - b0);
+        const x = (by0 - ay0) / (sa - sb);
+        expect([a0, b0, ay0], it.key).toEqual([0, 0, 0]);
+        expect(it.answer, it.key).toBe(x);
+        expect(Number.isInteger(x) && x < a1, `${it.key}: they meet at a whole hour inside the graph`).toBe(true);
+        expect(Number.isInteger((sa * x) / it.fig.y.step), `${it.key}: the meeting is on a grid line`).toBe(true);
+        expect(by1 >= 0 && ay1 <= by0, `${it.key}: both cars still on the road`).toBe(true);
+        expect(words, `${it.key}: the words do not say where they meet`).not.toMatch(/נפגשים/);
+      }
+      if (k === 'eq6t') {
+        // exactly one equation holds at the story's x, the right one; the reversed relation is tagged rel-speed
+        const ok = it.choices.filter((c) => holds(c.tex, { x: it.solve }));
+        expect(ok.length, it.key).toBe(1);
+        expect(it.choices[it.answer], it.key).toBe(ok[0]);
+        expect(it.choices.filter((c) => c.bug === 'rel-speed'), it.key).toHaveLength(1);
+        it.choices.forEach((c, j) => expect(it.diag(j), `${it.key}: ${c.tex}`).toBe(c.bug || null));
+      }
+      expect(fairForCheck(it), it.key).toBe(k !== 'eq6t');
+      if (it.solution) solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (50%, 25%, 10%, 15%)
+    expect(Object.keys(kinds).sort()).toEqual(['eq6:catch', 'eq6:toward', 'eq6:trip', 'eq6g', 'eq6t', 'eq6u']);
+    const motion = (kinds['eq6:toward'] + kinds['eq6:catch'] + kinds['eq6:trip']) / 2000;
+    expect(motion > 0.44 && motion < 0.56, `motion ${motion}`).toBe(true);
+    expect(kinds.eq6u / 2000).toBeGreaterThan(0.2);
+  });
+});
+
+// Equations with denominators and proportion (eq:7, stage5.md FUNC-4): every answer substituted back into the equation
+// displayed (learn/expr.ts holds), and no other number near it solves it; the mistakes' numbers do not; x in a
+// denominator is whole and never a number of the equation; the smallest common denominator is the right choice.
+describe('equations with denominators (eq:7): every answer solves the equation displayed', () => {
+  it('two fractions, x and a fraction of it, two numerators with a minus, a proportion, x in a denominator, the LCD', () => {
+    const kinds = {};
+    for (let i = 0; i < 1500; i += 1) {
+      const it = makeItem('eq', 7);
+      const k = it.key.startsWith('eq7:') ? it.key.split(':').slice(0, 2).join(':') : it.key.split(':')[0]; kinds[k] = (kinds[k] || 0) + 1;
+      if (it.form === 'num') {
+        expect(holds(it.display, { x: it.answer }), `${it.key}: x = ${it.answer} in ${it.display}`).toBe(true);
+        for (const d of [-1, 1, 0.5]) expect(holds(it.display, { x: it.answer + d }), `${it.key}: x = ${it.answer + d} also solves ${it.display}`).toBe(false);
+        expect(Number.isInteger(it.answer), it.key).toBe(true);
+        // the displayed equation's own numbers are never the answer
+        const shown = (it.display.match(/\d+/g) || []).map(Number);
+        expect(shown, `${it.key}: the answer is a number of the equation`).not.toContain(it.answer);
+        // a mistake's number does not solve the equation (it is a different number)
+        for (let u = it.answer - 60; u <= it.answer + 300; u += 1) if (u !== it.answer && it.diag(u)) expect(holds(it.display, { x: u }), `${it.key}: ${u}`).toBe(false);
+        expect(fairForCheck(it), it.key).toBe(true);
+      }
+      if (k === 'eq7:0') expect(it.display, it.key).toMatch(/^\\frac\{x\}\{\d\} \+ \\frac\{x\}\{\d\} = \d+$/);
+      if (k === 'eq7:1') expect(it.display, it.key).toMatch(/^x \+ \\frac\{x\}\{\d\} = \d+$/);
+      if (k === 'eq7:2') expect(it.display, it.key).toMatch(/^\\frac\{x \+ \d\}\{\d\} - \\frac\{x - \d\}\{\d\} = \d$/);
+      if (k === 'eq7p') {
+        const [a, b, c, d] = it.key.split(':').slice(1).map(Number);
+        expect(it.diag((a + c) / (b - d)), `${it.key}: only x multiplied`).toBe('partial-dist');
+      }
+      if (k === 'eq7x') {
+        // a/x = b/c with b/c in lowest terms, so a/x is not b/c reduced and x is no number printed
+        const [a, b, c] = it.key.split(':').slice(1).map(Number);
+        expect(gcd(b, c), it.key).toBe(1);
+        expect(it.answer, it.key).toBe((a * c) / b);
+        expect([a, b, c], it.key).not.toContain(it.answer);
+      }
+      if (k === 'eq7l') {
+        // four different numbers: the lcm (right), the product, the sum and the larger denominator
+        const [a, b] = it.key.split(':').slice(1).map(Number); const L = (a * b) / gcd(a, b);
+        const vals = it.choices.map((c) => Number(c.tex));
+        expect(new Set(vals).size, it.key).toBe(4);
+        expect(vals.sort((x, y) => x - y), it.key).toEqual([b, a + b, L, a * b].sort((x, y) => x - y));
+        expect(Number(it.choices[it.answer].tex), it.key).toBe(L);
+        expect(it.practiceOnly, it.key).toBe(true);
+      }
+    }
+    // every kind was drawn, in about the spec's mix (55%, 20%, 15%, 10%)
+    expect(Object.keys(kinds).sort()).toEqual(['eq7:0', 'eq7:1', 'eq7:2', 'eq7l', 'eq7p', 'eq7x']);
+    const e7 = (kinds['eq7:0'] + kinds['eq7:1'] + kinds['eq7:2']) / 1500;
+    expect(e7 > 0.48 && e7 < 0.62, `e7 ${e7}`).toBe(true);
+    expect(kinds.eq7p / 1500).toBeGreaterThan(0.15);
+  }, 60_000);
+});
+
+describe('functions: every answer from the graph and the text', () => {
+  /** The numbers of the text's maths, in order ("18^\circ" is 18). */
+  const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).map((m) => Number(m.slice(1, -1).replace(/\^\\circ/g, '').trim()));
+  /** The graph as figPlain writes it: its series' points, its lettered point and its band. */
+  function read(it) {
+    const words = figPlain(it.fig).split('; ');
+    const line = words.find((w) => w.includes('→') || w.startsWith('נקודות '));
+    const pts = [...line.matchAll(/\((-?[\d.]+), (-?[\d.]+)\)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    const mark = words.map((w) => w.match(/^הנקודה A ב־\((-?[\d.]+), (-?[\d.]+)\)$/)).find(Boolean);
+    const band = words.map((w) => w.match(/^מסומן על ציר x מ־([\d.]+) עד ([\d.]+)$/)).find(Boolean);
+    const every = words.filter((w) => /^ציר [xy] /.test(w)).map((w) => /מספר כל/.test(w));
+    return { pts, mark: mark && [Number(mark[1]), Number(mark[2])], band: band && [Number(band[1]), Number(band[2])], every, dots: line.startsWith('נקודות ') };
+  }
+  /** The y of the polyline at x. */
+  const at = (pts, x) => { for (let i = 1; i < pts.length; i += 1) { const [x0, y0] = pts[i - 1]; const [x1, y1] = pts[i]; if (x >= x0 && x <= x1) return y0 + ((x - x0) * (y1 - y0)) / (x1 - x0); } return null; };
+  /** Every "$a - b = c$" a solution writes holds. */
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1).replace(/\\cdot/g, '*').replace(/:/g, '/'))
+    .filter((m) => m.includes('=') && !/[a-zA-Z]/.test(m)).forEach((m) => { const [a, b] = m.split('='); expect(same(evaluate(a), evaluate(b)), `${it.key}: ${m}`).toBe(true); }));
+  const all = (n = 1500) => Array.from({ length: n }, () => makeItem('func', 1));
+  const kinds = {};
+
+  it('func:1: the walk, the day\'s temperatures, the flat part, the point A and the story drawn', () => {
+    for (const it of all()) {
+      const kind = it.key.split(':')[0]; kinds[kind] = (kinds[kind] || 0) + 1;
+      if (kind === 'fu1') {
+        const { pts, every } = read(it); const n = shown(it.text);
+        expect(pts, it.key).toHaveLength(4);
+        expect(every, `${it.key}: both axes write a number on every second line`).toEqual([true, true]);
+        const [[, y0], [x1, y1], [x2, y2], [x3, y3]] = pts;
+        expect([y0, y3, y1 === y2, y1 > 0], it.key).toEqual([0, 0, true, true]); // out, a rest, home
+        if (/^כמה מטרים/.test(it.text.split('. ').pop())) { expect(n).toHaveLength(1); expect(it.answer, it.key).toBe(at(pts, n[0])); expect(it.unit).toBe('מטרים'); }
+        else if (/במקום\?$/.test(it.text)) { expect(n).toHaveLength(0); expect(it.answer, it.key).toBe(x2 - x1); }
+        else { expect(it.text, it.key).toMatch(/הדרך חזרה\?$/); expect(it.answer, it.key).toBe(x3 - x2); }
+      }
+      if (kind === 'fu1d') {
+        const { pts, dots } = read(it); const n = shown(it.text); const T = (h) => pts.find(([x]) => x === h)?.[1];
+        expect(dots && pts.length === 8 && pts.every(([x], i) => x === 6 + 2 * i), it.key).toBe(true);
+        if (/עלתה מהשעה/.test(it.text)) { const [a, b] = n; expect(it.answer, it.key).toBe(T(b) - T(a)); expect(it.answer).toBeGreaterThan(0); }
+        else {
+          const [V] = n; const hours = pts.filter(([, y]) => y === V).map(([x]) => x);
+          expect(hours, `${it.key}: exactly two hours at ${V}`).toHaveLength(2);
+          expect(it.answer, it.key).toBe(hours[1] - hours[0]);
+        }
+      }
+      if (kind === 'fu1f') {
+        const { pts, band } = read(it); const n = shown(it.text);
+        expect(band, it.key).toEqual(n);
+        expect(at(pts, band[0]), `${it.key}: the band is the flat part`).toBe(at(pts, band[1]));
+        expect(at(pts, (band[0] + band[1]) / 2), it.key).toBe(at(pts, band[0]));
+        expect(it.choices[it.answer].text, it.key).toMatch(/^עמדה? במקום$/);
+      }
+      if (kind === 'fu1p') {
+        const { pts, mark } = read(it);
+        // which of the five parts A lies on: inside a segment, never at a corner
+        const seg = pts.findIndex((p, i) => i > 0 && mark[0] > pts[i - 1][0] && mark[0] < p[0]);
+        expect(seg, it.key).toBeGreaterThan(0);
+        expect(at(pts, mark[0]), `${it.key}: A is on the graph`).toBe(mark[1]);
+        const right = it.choices[it.answer].text;
+        expect(right, it.key).toMatch([/בדרך לחנות$/, /בחנות$/, /בדרך מהחנות אל /, /אצל /, /בדרך חזרה הביתה$/][seg - 1]);
+        expect([2, 4].includes(seg) === (pts[seg - 1][1] === pts[seg][1]), `${it.key}: the stops are the flat parts`).toBe(true);
+      }
+      if (kind === 'fu1s') {
+        // the story's parts in order, each with its minutes ("התרחקה מהבית במשך $10$ דקות"): two segments of 5 minutes
+        // that go the same way are one part of 10, never the same clause twice in a row
+        const parts = [...it.text.matchAll(/(התרחקה?|עמדה? במקום|התקרבה?)[^$]*\$(\d+)\$ דקות/g)]
+          .map((m) => ({ d: /במקום/.test(m[1]) ? 'flat' : /התקרב/.test(m[1]) ? 'down' : 'up', n: Number(m[2]) / 5 }));
+        expect(parts.length, it.key).toBeGreaterThanOrEqual(2);
+        parts.forEach((p, j) => { if (j) expect(p.d, `${it.key}: one part told twice in a row`).not.toBe(parts[j - 1].d); });
+        expect(parts.reduce((n, p) => n + p.n, 0), it.key).toBe(3);
+        expect(it.answer.shape, it.key).toEqual(parts.flatMap((p) => Array(p.n).fill(p.d)));
+        expect(it.text, it.key).toMatch(/^קודם /);
+        expect(manipCorrect(it, manipSolution(it)), it.key).toBe(true);
+        expect(manipCorrect(it, it.manip.start), `${it.key}: starts on the goal`).toBe(false);
+        expect(it.practiceOnly, it.key).toBe(true);
+      }
+      if (['fu1', 'fu1d'].includes(kind)) { expect(Number.isInteger(it.answer), it.key).toBe(true); expect(fairForCheck(it), it.key).toBe(true); }
+      else expect(fairForCheck(it), `${it.key}: a choice or a named shape is practice only`).toBe(false);
+      solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (55%, 20%, 10%, 10%, 5%)
+    expect(Object.keys(kinds).sort()).toEqual(['fu1', 'fu1d', 'fu1f', 'fu1p', 'fu1s']);
+    expect(kinds.fu1 / 1500).toBeGreaterThan(0.45);
+  });
+
+  /** A table as figPlain writes it: its rows, each [x, y]. */
+  const rowsOf = (fig) => figPlain(fig).replace(/^טבלה: /, '').split('; ').map((r) => r.split(' → ').map(Number));
+  /** A TeX table x | y as the choices write it: its xs and ys. */
+  const texRows = (tex) => { const [xr, yr] = tex.replace(/\\(begin|end)\{array\}(\{[^}]*\})?/g, '').split('\\\\ \\hline'); const cells = (r) => r.split('&').slice(1).map((v) => Number(v.trim())); return [cells(xr), cells(yr)]; };
+
+  it('func:2: the price rule, Fahrenheit, a table, which table is a function, and a table drawn', () => {
+    const kinds2 = {};
+    for (let i = 0; i < 1500; i += 1) {
+      const it = makeItem('func', 2);
+      const kind = it.key.split(':')[0]; kinds2[kind] = (kinds2[kind] || 0) + 1;
+      if (kind === 'fu2') {
+        // the rule as the text writes it, and the number asked about (the last number of the text)
+        const [, m, b] = it.text.match(/\$y = (\d+)x \+ (\d+)\$/).map(Number); const n = shown(it.text).filter(Number.isFinite).pop();
+        if (/כמה (עולה|עולים) /.test(it.text)) { expect(it.answer, it.key).toBe(m * n + b); expect(it.unit).toBe('ש״ח'); }
+        else { expect(it.text, it.key).toMatch(/(עלה|עלתה|שילמו) \$\d+\$ ש״ח/); expect(m * it.answer + b, it.key).toBe(n); expect(Number.isInteger(it.answer) && it.answer > 0).toBe(true); }
+      }
+      if (kind === 'fu2c') {
+        expect(it.text, it.key).toContain('$F = 1.8C + 32$');
+        const n = shown(it.text).filter(Number.isFinite).pop();
+        if (/כמה מעלות פרנהייט/.test(it.text)) expect(same(it.answer, 1.8 * n + 32), it.key).toBe(true);
+        else expect(same(1.8 * it.answer + 32, n), it.key).toBe(true);
+        expect(Number.isInteger(it.answer), it.key).toBe(true);
+      }
+      if (kind === 'fu2t') {
+        const rows = rowsOf(it.fig); const n = Number(it.text.match(/\$x = (\d+)\$/)[1]);
+        expect(rows.map(([x]) => x), it.key).toEqual([0, 1, 2, 3]);
+        const d = rows[1][1] - rows[0][1];
+        expect(rows.every(([x, y]) => y === rows[0][1] + d * x), `${it.key}: the table is of y = mx + b`).toBe(true);
+        expect(it.answer, it.key).toBe(rows[0][1] + d * n);
+        expect([...rows.flat(), n], `${it.key}: the answer is printed`).not.toContain(it.answer);
+      }
+      if (kind === 'fu2i') {
+        // exactly one table gives an x two values, and it is the answer; the constant one is tagged when chosen
+        const tables = it.choices.map((c) => texRows(c.tex));
+        const notFunction = tables.map(([xs]) => new Set(xs).size < xs.length);
+        expect(notFunction.filter(Boolean), it.key).toHaveLength(1);
+        expect(notFunction[it.answer], it.key).toBe(true);
+        const constant = tables.findIndex(([xs, ys]) => new Set(xs).size === xs.length && ys.every((y) => y === ys[0]));
+        expect(constant, it.key).toBeGreaterThanOrEqual(0);
+        expect(it.diag(constant), it.key).toBe('const-not-function');
+        expect(tables.every(([xs, ys]) => xs.length === 4 && ys.length === 4 && [...xs, ...ys].every(Number.isFinite)), it.key).toBe(true);
+      }
+      if (kind === 'fu2d') {
+        const [xs, ys] = texRows(it.display);
+        expect(xs, it.key).toEqual([0, 1, 2, 3]);
+        expect(it.answer.values, it.key).toEqual(ys);
+        expect(manipCorrect(it, manipSolution(it)), it.key).toBe(true);
+        expect(manipCorrect(it, it.manip.start), `${it.key}: starts on the goal`).toBe(false);
+      }
+      if (['fu2', 'fu2c', 'fu2t'].includes(kind)) expect(fairForCheck(it), it.key).toBe(true);
+      else expect(fairForCheck(it), `${it.key}: a choice or a table to copy is practice only`).toBe(false);
+      solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (45%, 15%, 15%, 15%, 10%)
+    expect(Object.keys(kinds2).sort()).toEqual(['fu2', 'fu2c', 'fu2d', 'fu2i', 'fu2t']);
+    expect(kinds2.fu2 / 1500).toBeGreaterThan(0.38);
+  });
+
+  /** The pieces of a polyline left to right: [from, to, 'up' | 'down' | 'flat']. */
+  const pieces = (pts) => pts.slice(1).map(([x, y], i) => [pts[i][0], x, y > pts[i][1] ? 'up' : y < pts[i][1] ? 'down' : 'flat']);
+  const DIRS = { עולה: 'up', יורדת: 'down', קבועה: 'flat', יורד: 'down', קבוע: 'flat' };
+
+  it('func:3: a graph\'s intervals, a table\'s hours, which way between two x\'s, and a shape drawn', () => {
+    const kinds3 = {};
+    for (let i = 0; i < 1500; i += 1) {
+      const it = makeItem('func', 3);
+      const kind = it.key.split(':')[0]; kinds3[kind] = (kinds3[kind] || 0) + 1;
+      if (kind === 'fu3') {
+        // the direction asked, and the length of the x axis where the graph goes that way, read left to right
+        const { pts } = read(it); const dir = DIRS[it.text.match(/הפונקציה (עולה|יורדת|קבועה)\?$/)[1]];
+        const parts = pieces(pts).filter(([, , d]) => d === dir);
+        expect(parts, `${it.key}: one interval goes ${dir}`).toHaveLength(1);
+        expect(it.answer, it.key).toBe(parts[0][1] - parts[0][0]);
+        // the axis is named when a square is more than one unit: the question asks in the x axis's own unit
+        const xAxis = figPlain(it.fig).split('; ')[0];
+        const unit = xAxis.match(/לפי זמן \((.+)\)$/)?.[1];
+        if (unit) expect(it.text, it.key).toContain(`כמה ${unit} `); else expect(it.text, it.key).toContain('כמה יחידות על ציר $x$');
+      }
+      if (kind === 'fu3t') {
+        const rows = rowsOf(it.fig); const hours = rows.map(([h]) => h); const temps = rows.map(([, t]) => t);
+        expect(hours.every((h, k) => k === 0 || h > hours[k - 1]), `${it.key}: the hours grow down the table`).toBe(true);
+        const k = temps.indexOf(Math.max(...temps));
+        expect(temps.every((t, j) => j === 0 || (j <= k ? t > temps[j - 1] : t < temps[j - 1])), `${it.key}: up to one peak, then down`).toBe(true);
+        expect(it.answer, it.key).toBe(/עלתה/.test(it.text) ? hours[k] - hours[0] : hours[hours.length - 1] - hours[k]);
+        expect(rows.flat(), `${it.key}: the answer is a number of the table`).not.toContain(it.answer);
+      }
+      if (kind === 'fu3w') {
+        const { pts, band } = read(it); const n = [...it.text.matchAll(/\$x = (\d+)\$/g)].map((m) => Number(m[1]));
+        expect(band, it.key).toEqual(n);
+        const part = pieces(pts).find(([a, b]) => a === band[0] && b === band[1]);
+        expect(part, `${it.key}: the band is one piece of the graph`).toBeTruthy();
+        expect(DIRS[it.choices[it.answer].text], it.key).toBe(part[2]);
+        const swapped = { up: 'down', down: 'up' }[part[2]];
+        it.choices.forEach((c, j) => expect(it.diag(j), `${it.key}: ${c.text}`).toBe(DIRS[c.text] === swapped ? 'rtl-read' : null));
+      }
+      if (kind === 'fu3s') {
+        // "עולה עד $x = 2$, קבוע עד $x = 4$, ויורד עד $x = 6$": each part's direction up to its x
+        const parts = [...it.text.matchAll(/(עולה|יורד|קבוע) עד \$x = (\d)\$/g)].map((m) => [DIRS[m[1]], Number(m[2])]);
+        const shape = parts.flatMap(([d, to], j) => Array(to - (j ? parts[j - 1][1] : 0)).fill(d));
+        expect(it.answer.shape, it.key).toEqual(shape);
+        expect(manipCorrect(it, manipSolution(it)), it.key).toBe(true);
+        expect(manipCorrect(it, it.manip.start), `${it.key}: starts on the goal`).toBe(false);
+      }
+      if (['fu3', 'fu3t'].includes(kind)) { expect(Number.isInteger(it.answer), it.key).toBe(true); expect(fairForCheck(it), it.key).toBe(true); }
+      else expect(fairForCheck(it), `${it.key}: a choice or a named shape is practice only`).toBe(false);
+      solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (50%, 20%, 15%, 15%)
+    expect(Object.keys(kinds3).sort()).toEqual(['fu3', 'fu3s', 'fu3t', 'fu3w']);
+    expect(kinds3.fu3 / 1500).toBeGreaterThan(0.42);
+  });
+
+  it('func:4: the pot, the candle, which table is uniform, who is faster, and a rate continued', () => {
+    const kinds4 = {};
+    /** The minutes or hours a text names after "אחרי": "דקה אחת" and "שעה" are one. */
+    const after = (text, unit) => [...text.matchAll(unit === 'min' ? /אחרי (?:\$(\d+)\$ דקות|דקה אחת)/g : /אחרי (?:\$(\d+)\$ שעות|שעה)/g)].map((m) => Number(m[1] || 1));
+    for (let i = 0; i < 1500; i += 1) {
+      const it = makeItem('func', 4);
+      const kind = it.key.split(':')[0]; kinds4[kind] = (kinds4[kind] || 0) + 1;
+      if (kind === 'fu4') {
+        // s° at the start, v° after T minutes, in the text's own words; every temperature at most 95° (a pot of water)
+        const [s, v] = [...it.text.matchAll(/\$(\d+)\^\\circ\$/g)].map((m) => Number(m[1])); const [T, t] = after(it.text, 'min');
+        const rate = (v - s) / T;
+        expect(Number.isInteger(rate) && rate > 0, it.key).toBe(true);
+        if (/בכל דקה\?$/.test(it.text)) expect(it.answer, it.key).toBe(rate);
+        else { expect(it.text, it.key).toMatch(/מה תהיה הטמפרטורה אחרי/); expect(it.answer, it.key).toBe(s + rate * t); }
+        expect(Math.max(s, v, it.answer), `${it.key}: water in a pot`).toBeLessThanOrEqual(95);
+        expect(it.unit).toBe('מעלות');
+        expect(it.text, `${it.key}: "$1$ דקות"`).not.toMatch(/\$1\$ דקות/);
+      }
+      if (kind === 'fu4c') {
+        const [h0, h1] = [...it.text.matchAll(/\$(\d+)\$ ס״מ/g)].map((m) => Number(m[1])); const [T] = after(it.text, 'hour');
+        const rate = (h0 - h1) / T;
+        expect(it.answer, it.key).toBe(h0 / rate);
+        expect(Number.isInteger(it.answer) && it.answer > T, it.key).toBe(true);
+        expect(it.text, `${it.key}: "$1$ שעות"`).not.toMatch(/\$1\$ שעות/);
+      }
+      if (kind === 'fu4u') {
+        // exactly one table has equal differences in y, and it is the answer
+        const tables = it.choices.map((c) => texRows(c.tex));
+        const uniform = tables.map(([xs, ys]) => { const d = ys.slice(1).map((y, k) => y - ys[k]); return xs.every((x, k) => x === k) && d.every((v) => v === d[0]); });
+        expect(uniform.filter(Boolean), it.key).toHaveLength(1);
+        expect(uniform[it.answer], it.key).toBe(true);
+        expect(new Set(tables.map(([, ys]) => ys.join())).size, `${it.key}: four different tables`).toBe(4);
+      }
+      if (kind === 'fu4f') {
+        // the right choice names the runner whose line is steeper, and that line is the lower one all the way; the
+        // graph in words names both runners
+        const rise = (s) => (s.pts[1][1] - s.pts[0][1]) / (s.pts[1][0] - s.pts[0][0]);
+        const [steep, flat] = [...it.fig.series].sort((a, b) => rise(b) - rise(a));
+        expect(rise(steep) > rise(flat), it.key).toBe(true);
+        expect(steep.pts.every(([, y], k) => y < flat.pts[k][1]), `${it.key}: the steeper line is the lower one`).toBe(true);
+        expect(figPlain(it.fig), it.key).toMatch(/A[^;]*\(0, \d+\)/);
+        expect(it.choices[it.answer].text, it.key).toBe(`הרץ ${steep.label}: הקו שלו תלול יותר`);
+        it.choices.forEach((c, j) => expect(it.diag(j), `${it.key}: ${c.text}`).toBe(c.text === `הרץ ${flat.label}: הקו שלו גבוה יותר` ? 'height-for-slope' : null));
+      }
+      if (kind === 'fu4n') {
+        // the two minutes the text names are the fixed points; the rest continue at the same rate, at most 95°
+        const [v0, v1] = [...it.text.matchAll(/\$(\d+)\^\\circ\$/g)].map((m) => Number(m[1]));
+        expect(it.manip.start.slice(0, 2), it.key).toEqual([v0, v1]);
+        expect(it.answer.values, it.key).toEqual([0, 1, 2, 3, 4, 5].map((k) => v0 + k * (v1 - v0)));
+        expect(Math.max(...it.answer.values), it.key).toBeLessThanOrEqual(95);
+        expect(manipCorrect(it, manipSolution(it)), it.key).toBe(true);
+        expect(manipCorrect(it, it.manip.start), `${it.key}: starts on the goal`).toBe(false);
+      }
+      if (['fu4', 'fu4c'].includes(kind)) expect(fairForCheck(it), it.key).toBe(true);
+      else expect(fairForCheck(it), `${it.key}: a choice or a rate the text gives is practice only`).toBe(false);
+      solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (45%, 25%, 15%, 10%, 5%)
+    expect(Object.keys(kinds4).sort()).toEqual(['fu4', 'fu4c', 'fu4f', 'fu4n', 'fu4u']);
+    expect(kinds4.fu4 / 1500).toBeGreaterThan(0.38);
+  });
+
+  it('catches an answer that is not the graph\'s', () => {
+    // a seeded source, so the run is the same every time: seed 36 draws the story to draw first (fu1s, a graph the
+    // student draws, with no figure to read), which an unseeded single draw met about one run in twenty. Only the items
+    // that show a graph are read, and every point they write lies on the line read back.
+    const real = Math.random;
+    try {
+      Math.random = seeded(36);
+      const drawn = Array.from({ length: 40 }, () => makeItem('func', 1));
+      expect(drawn[0].key, 'the seed starts with the story to draw').toMatch(/^fu1s:/);
+      const shown = drawn.filter((it) => it.fig?.type === 'sgraph');
+      expect(shown.length).toBeGreaterThan(20);
+      for (const it of shown) { const { pts } = read(it); expect(pts.length, it.key).toBeGreaterThan(1); pts.forEach(([x, y]) => expect(at(pts, x), it.key).toBe(y)); }
+    } finally { Math.random = real; }
+    expect(() => { expect(at([[0, 0], [10, 600], [25, 600], [45, 0]], 5)).toBe(200); }).toThrow();
   });
 });

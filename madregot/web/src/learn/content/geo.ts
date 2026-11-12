@@ -5,7 +5,7 @@
 // Points are in units with y up. A name that starts with "_" is drawn without a letter, so a drawing has letters only
 // where its step's text has them. learn/figures.test.ts checks the letters against each step's text, and every number
 // in a drawing against its geometry (angles in degrees, lengths in proportion, squares as the side squared).
-import type { GeoFig } from '../types';
+import type { GeoFig, ProtractorFig, ClockFig } from '../types';
 
 type Pt = [number, number];
 const R = (v: number) => Math.round(v * 1e4) / 1e4;
@@ -279,3 +279,17 @@ export function pole(h: number, d: number): GeoFig {
     angles: [{ at: '_B', from: '_G', to: '_T', right: true }], view: [300, 170], pad: [36, 26],
   });
 }
+
+// ---------------------------------------------------------------- measuring angles (FUNC-1.3b)
+
+/**
+ * A protractor laid on an angle with its arms at θ1 and θ2: an arm's direction counterclockwise from the right end of
+ * the baseline, its reading on the scale that starts on the right. `base` turns the whole drawing (a multiple of 15:
+ * angles "במנחים שונים"); `letters` name the vertex and the arms.
+ */
+export function protractorFig(arms: [number, number], { base = 0, letters }: { base?: number; letters?: { vertex: string; a: string; b: string } } = {}): ProtractorFig {
+  return { type: 'protractor', arms, ...(base ? { base } : {}), ...(letters ? { letters } : {}) };
+}
+
+/** A clock at h:m (the hour hand at 30h + m/2 from 12, the minute hand at 6m); `marks` adds the minute ticks. */
+export const clockFig = (h: number, m: number, marks = false): ClockFig => ({ type: 'clock', h, m, ...(marks ? { marks } : {}) });

@@ -12,18 +12,20 @@ import { EXPR_CHALLENGES } from './expr';
 import { EQ_CHALLENGES } from './eq';
 import { RATIO_CHALLENGES } from './ratio';
 import { PCT_CHALLENGES } from './pct';
+import { FUNC_CHALLENGES } from './func';
 import { LINE_CHALLENGES } from './line';
 import { PYTH_CHALLENGES } from './pyth';
 import { STATS_CHALLENGES } from './stats';
 import { SYS_CHALLENGES } from './sys';
 
 /**
- * Every task, in the order of the topics (TOPIC_ORDER), each topic's tasks in their own order. Stage 1 has 36: three
- * per topic, one claim, one error or proof and one real-world (literacy) task each.
+ * Every task, in the order of the topics (TOPIC_ORDER), each topic's tasks in their own order. Stage 1 had 36: three
+ * per topic, one claim, one error or proof and one real-world (literacy) task each; later stages add their own (the
+ * functions unit's three, stage5.md FUNC-7).
  */
 export const CHALLENGES: ChallengeTask[] = [
   ...FRAC_CHALLENGES, ...SIGNED_CHALLENGES, ...COORD_CHALLENGES, ...ANGLES_CHALLENGES, ...EXPR_CHALLENGES, ...EQ_CHALLENGES,
-  ...RATIO_CHALLENGES, ...PCT_CHALLENGES, ...LINE_CHALLENGES, ...PYTH_CHALLENGES, ...STATS_CHALLENGES, ...SYS_CHALLENGES,
+  ...RATIO_CHALLENGES, ...PCT_CHALLENGES, ...FUNC_CHALLENGES, ...LINE_CHALLENGES, ...PYTH_CHALLENGES, ...STATS_CHALLENGES, ...SYS_CHALLENGES,
 ].sort((a, b) => TOPIC_ORDER.indexOf(a.topic) - TOPIC_ORDER.indexOf(b.topic));
 const BY_ID: Record<string, ChallengeTask> = Object.fromEntries(CHALLENGES.map((t) => [t.id, t]));
 

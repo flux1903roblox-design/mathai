@@ -1302,6 +1302,8 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .lesson .key[data-k="frac"] { grid-area: frac; } .lesson .key[data-k="del"] { grid-area: del; } .lesson .key[data-k="next"] { grid-area: next; }
   .lesson .key { height: 42px; }
   .lesson .fg-table th, .lesson .fg-table td { padding: 3px 12px; line-height: 1.35; }
+  /* a table of seven rows or more (func:3's hours of a day) sits closer on a short phone, so it stays whole above the keypad */
+  .lesson .fg-table.long th, .lesson .fg-table.long td { padding: 1px 12px; line-height: 1.2; }
   .lesson .q-mascot { display: none; }
   .lesson .q-bubble { max-height: 22dvh; font-size: 15px; line-height: 1.4; padding: 7px 12px; margin-bottom: 2px; }
   .lesson .slot { height: 44px; }

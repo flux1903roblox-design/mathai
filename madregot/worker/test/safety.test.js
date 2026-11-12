@@ -361,7 +361,7 @@ test('maths and teaching words are never blocked, nor any text the app itself sh
   const files = [];
   const walk = (d) => { for (const e of readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(js|jsx|ts|md)$/.test(e.name) && !/\.test\./.test(e.name)) files.push(p); } };
   walk(path.join(root, 'content')); walk(path.join(root, 'screens'));
-  files.push(path.join(shared, 'ai.js'), path.join(shared, 'safety.js'));
+  files.push(path.join(shared, 'ai.js'), path.join(shared, 'safety.js'), path.join(shared, 'helpLines.js'));
   assert.ok(files.length > 20);
   for (const f of files) {
     readFileSync(f, 'utf8').split('\n').forEach((line, i) => {

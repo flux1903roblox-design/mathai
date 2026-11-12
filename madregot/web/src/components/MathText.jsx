@@ -45,6 +45,13 @@ export function texText(tex) {
   const t = String(tex ?? '').trim();
   if (RELATION[t]) return RELATION[t];
   return t
+    // a table (array) is read row by row; when its first column is a heading column ({c|ccc}), each row says its
+    // heading first: "x: 1, 2, 3; y: 4, 5, 6"
+    .replace(/\\begin\{array\}\{([^}]*)\}([\s\S]*?)\\end\{array\}/g, (_, spec, body) => {
+      const headed = /^[lcr]\|/.test(spec.trim());
+      const rows = body.replace(/\\hline/g, '').split('\\\\').map((row) => row.split('&').map((c) => c.trim())).filter((cells) => cells.some(Boolean));
+      return ` ${rows.map(([head, ...cells]) => (headed && head && cells.length ? `${head}: ${cells.join(', ')}` : [head, ...cells].filter(Boolean).join(', '))).join('; ')} `;
+    })
     // a system (cases, aligned) is read row by row
     .replace(/\\(begin|end)\{[a-z]+\}/g, ' ').replace(/\\\\/g, ', ').replace(/&/g, '')
     .replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2')

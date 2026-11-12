@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { Copy, ExternalLink } from 'lucide-react';
 import { useApp, today as localToday } from '@/lib/store.js';
 import { teacherApi } from '@/lib/teacher.js';
-import { topicsFor, TOPIC } from '@/content/index.js';
+import { classTopicsFor, rowStairs, rowTitle, TOPIC } from '@/content/index.js';
 import { assignTitle, sendWork, classMessage, classroomLink, publicUrl } from '@/lib/assign.js';
 import { plusDays, schoolDay, dayLong, dm } from '@/lib/workDates.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
@@ -71,11 +71,13 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
   // the automatic title follows the kind and the stair until the teacher writes their own
   useEffect(() => { if (!titleTouched) setTitle(titleOf(kind, skill, exam)); }, [kind, skill, exam?.id, exam?.title, titleTouched]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // the stairs of the class's grade, by topic (and the preset's topic when it is another grade's)
+  // the stairs of the class's grade, by topic, then its guest rows with their own stairs (eq:6 and eq:7 for ח׳, FUNC-6);
+  // a preset stair outside them (another grade's, from a repeated mistake) brings its whole unit
   const groups = useMemo(() => {
-    const list = topicsFor(cls.grade || '7');
-    const pt = String(preset.skill || '').split(':')[0];
-    return TOPIC[pt] && !list.some((t) => t.id === pt) ? [...list, TOPIC[pt]] : list;
+    const list = classTopicsFor(cls.grade || '7');
+    const sk = String(preset.skill || ''); const pt = sk.split(':')[0];
+    if (!TOPIC[pt] || list.some((t) => rowStairs(t).some((s) => s.id === sk))) return list;
+    return [...list.filter((t) => t.id !== pt), TOPIC[pt]];
   }, [cls.grade, preset.skill]);
 
   const max = plusDays(today, AHEAD);
@@ -130,8 +132,8 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
             <select id={`${uid}-stair`} className="input input-lg as-select" value={skill} onChange={(e) => setSkill(e.target.value)}>
               <option value="" disabled>בחרו מדרגה</option>
               {groups.map((t) => (
-                <optgroup key={t.id} label={t.title}>
-                  {t.levels.map((l, i) => <option key={l.title} value={`${t.id}:${i + 1}`}>{i + 1}. {l.title}</option>)}
+                <optgroup key={t.id} label={rowTitle(t)}>
+                  {rowStairs(t).map((s) => <option key={s.id} value={s.id}>{s.level}. {s.title}</option>)}
                 </optgroup>
               ))}
             </select>

@@ -11,6 +11,7 @@ import { nextActions, smallestMissing, isMissing } from './recommend';
 import { buildMission, completeMissionItems, missionDone, partialStairNote, todayRoute } from './mission';
 import { examPlan, newPlan, recordDiagnostic, validInput } from './examRescue';
 import { tutorReply } from './tutor';
+import { monthIndex } from './programme';
 import { metrics, logEvent } from './analytics';
 import { evaluate, seeded, identical, texToExpr, texRelation, holds } from './expr';
 import { contentOf, loadAllContent } from './content/index';
@@ -111,14 +112,18 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
   it('puts pct after ratio and before line, and keeps the first-day test at 18 questions', async () => {
     expect(TOPIC_ORDER.indexOf('pct')).toBe(TOPIC_ORDER.indexOf('ratio') + 1);
     expect(TOPIC_ORDER.indexOf('pct')).toBeLessThan(TOPIC_ORDER.indexOf('line'));
-    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys']);
+    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys']);
+    // the introduction to functions (November) comes after percent and before linear functions (stage5.md FUNC-2)
+    expect(TOPIC_ORDER.indexOf('func')).toBe(TOPIC_ORDER.indexOf('pct') + 1);
+    expect(TOPIC_ORDER.indexOf('func')).toBe(TOPIC_ORDER.indexOf('line') - 1);
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
     const { topicsFor, placementTopicsFor, rescueTopicsFor } = await import('@/content/index.js');
-    // ratio and pct are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3
-    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 3)).toEqual(['ratio', 'pct', 'line']);
+    // ratio, pct and func are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3
+    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 3)).toEqual(['ratio', 'pct', 'func']);
     expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('pct');
+    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('func');
     expect(placementMax('8')).toBe(18);
     // ז׳ meets percents in relative frequency: Exam Rescue offers the unit to ז׳ too
     expect(rescueTopicsFor('7').map((t: { id: string }) => t.id)).toContain('pct');
@@ -127,7 +132,10 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(62); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year)
+    // every unit of TOPIC_ORDER, each with its number of stairs (62 at stage 1's end; each content stage adds its own)
+    expect(Object.keys(STAIRS).sort()).toEqual([...TOPIC_ORDER].sort());
+    expect(ALL_SKILLS).toHaveLength(TOPIC_ORDER.reduce((n, t) => n + STAIRS[t], 0));
+    expect(new Set(ALL_SKILLS).size).toBe(ALL_SKILLS.length);
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
@@ -136,6 +144,38 @@ describe('the prerequisite graph', () => {
   });
   it('reaches down through several stairs', () => {
     expect(ancestorsOf('line:4')).toEqual(expect.arrayContaining(['line:3', 'signed:3', 'line:2', 'coord:1', 'line:1', 'signed:1']));
+  });
+});
+
+describe('slope after uniform rate: line:3 leans on func:4 (stage5.md FUNC-2, an own-grade edge)', () => {
+  it('is an edge of the graph, and the graph stays acyclic', () => {
+    expect(prereqsOf('line:3')).toContain('func:4');
+    expect(ancestorsOf('line:3')).toEqual(expect.arrayContaining(['func:4', 'func:3', 'func:1', 'ratio:3']));
+    expect(ancestorsOf('func:4')).not.toContain('line:3');
+    ALL_SKILLS.forEach((id) => expect(ancestorsOf(id), id).not.toContain(id));
+  });
+  // a ח׳ student who has passed every stair the school calendar teaches by November, except: func:3 is going badly (so
+  // func:4 is not ready as new either), func:4 is not started, and line:3 on are not started; line:1-2 are mastered
+  const learner = (rateDone: boolean) => {
+    const learn = empty();
+    const passed = () => recordMasteryCheck(undefined, 5, 5, addDays(NOW, -3));
+    gradeSkillsOf('8').filter((s) => (monthIndex(s, '8') ?? 99) <= 2 && !/^line:[3-8]$/.test(s)).forEach((s) => { learn.skills[s] = passed(); });
+    if (rateDone) return learn;
+    delete learn.skills['func:4'];
+    learn.skills['func:3'] = { taught: { A: NOW, B: NOW, C: NOW }, attempts: [att(false), att(false), att(false), att(false)] };
+    return learn;
+  };
+  it('a ח׳ learner with line:1-2 mastered and func:4 not started is not offered line:3 as new', () => {
+    const c = ctx(learner(false), '8');
+    expect(c.learn.skills['line:2']).toBeDefined();
+    expect(c.learn.skills['func:4']).toBeUndefined();
+    expect(isMissing(c, 'func:4')).toBe(true);
+    const acts = nextActions(c);
+    expect(acts.some((a) => a.kind === 'new' && a.skill === 'line:3')).toBe(false);
+    expect(acts.some((a) => a.kind === 'new' && a.skill === 'func:4')).toBe(false); // func:3 first
+  });
+  it('once func:4 is done, line:3 is the new stair', () => {
+    expect(nextActions(ctx(learner(true), '8')).find((a) => a.kind === 'new')).toMatchObject({ skill: 'line:3' });
   });
 });
 
@@ -296,8 +336,9 @@ describe('misconceptions', () => {
     expect(diagOf(14, { 'partial-dist': 16 - 40 / 39 })(14.97)).toBe('partial-dist');
     expect(slipLike(16 - 40 / 39, 14)).toBe(true);
     // the diagnostic models: a draw whose prediction rounds to a slip is never asked, and if it were, it names nothing
+    // (eq:6's and eq:7's models redraw until clean, so the loop gets more than the default 5 s on a busy machine)
     const rnd = seeded(41);
-    for (const skill of ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'expr:1', 'expr:2', 'expr:3', 'expr:4', 'expr:5', 'sys:1', 'sys:2', 'sys:3', 'sys:4', 'sys:5']) {
+    for (const skill of ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'eq:6', 'eq:7', 'expr:1', 'expr:2', 'expr:3', 'expr:4', 'expr:5', 'sys:1', 'sys:2', 'sys:3', 'sys:4', 'sys:5']) {
       const c = contentOf(skill)!;
       for (const m of [c.diag, c.transfer].filter(Boolean)) {
         for (let i = 0; i < 400; i += 1) {
@@ -313,7 +354,7 @@ describe('misconceptions', () => {
         }
       }
     }
-  });
+  }, 60_000);
   it('splits the evidence when two misconceptions explain one answer, and finds a question that tells them apart', () => {
     // −4 − (−7): "minus-minus", "abs-add" and "direction" all predict −11
     const d = diagnose(addSubModel, { a: -4, b: -7, s: -1 }, -11);

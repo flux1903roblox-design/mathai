@@ -2608,3 +2608,104 @@ test.describe('TEACHER-15: the demo class, with no server and no sign-in', () =>
     expect(calls).toEqual([]);
   });
 });
+
+// FUNC-6 (stage5.md, item 6): a ח׳ class's guest stairs (eq:6 and eq:7, motion problems and equations with
+// denominators, taught in ח׳ in December) on the teacher's screens, after the grade's units and with only those stairs:
+// the assign sheet, the class exam, the report, the students tab, a student's page and the lessons library.
+test.describe('FUNC-6: a ח׳ class\'s guest stairs on the teacher\'s screens', () => {
+  test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the guest rows on both phones'); });
+  const ROW = 'משוואות: מדרגות 6–7';
+  // דנה has passed motion problems (her equations level is the stair after it); יואב has not started the unit
+  // דנה passed eq:6's check and practises eq:7: the class sync sends each guest stair under its own id (lib/path.js
+  // guestStairLevels, 2 mastered, 1 practised) beside the eq unit's own level, which the guest row does not read
+  const dana = { eq: { level: 1, max: 1 }, 'eq:6': { level: 2, max: 2 }, 'eq:7': { level: 1, max: 1 } };
+  const eighth = () => ({
+    classGrade: '8', className: 'ח׳2',
+    students: [{ id: 'a1', name: 'דנה', levels: dana }, { id: 'b2', name: 'יואב', levels: { eq: { level: 3, max: 3 } } }],
+    reportRows: { a1: { levels: dana }, b2: { levels: { eq: { level: 3, max: 3 } } } },
+    studentPages: { a1: { levels: dana } },
+  });
+  const teacher8 = () => keyTeacher({ grade: '8', className: 'ח׳2' });
+  const guestShot = async (page, name) => {
+    const dir = process.env.GUEST_SHOTS; if (!dir) return;
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${dir}/guest-${name}-${test.info().project.name}.png`, animations: 'disabled' });
+  };
+
+  test('the assign sheet lists eq:6 and eq:7 and no other equations stair, and sends eq:6', async ({ page }) => {
+    const { log } = await fakeServer(page, eighth(), baseOf());
+    await open(page, '#/teacher?tab=work', teacher8());
+    await page.getByRole('button', { name: 'משימה חדשה' }).first().click();
+    const sheet = page.getByRole('dialog', { name: 'משימה לכיתה ח׳2' });
+    const select = sheet.getByLabel('איזו מדרגה?');
+    // the grade's units first, the guest row last, with its own stairs only
+    const groups = await select.locator('optgroup').evaluateAll((gs) => gs.map((g) => g.label));
+    expect(groups.at(-1)).toBe(ROW);
+    expect(groups.filter((g) => g === ROW)).toHaveLength(1);
+    expect(groups).not.toContain('משוואות');
+    expect(await select.locator('option[value^="eq:"]').evaluateAll((os) => os.map((o) => o.value))).toEqual(['eq:6', 'eq:7']);
+    await expect(select.locator(`optgroup[label="${ROW}"] option`)).toHaveText(['6. שאלות תנועה', '7. משוואות עם מכנים ופרופורציה']);
+    await select.selectOption('eq:6');
+    await expect(sheet.getByLabel('כותרת')).toHaveValue('משוואות: שאלות תנועה');
+    await select.scrollIntoViewIfNeeded();
+    await guestShot(page, 'assign-8');
+    // the proof picture of the list itself (a closed native list draws no options): opened in place, then closed
+    if (process.env.GUEST_SHOTS) {
+      await select.evaluate((el) => { el.size = 8; el.scrollTop = el.scrollHeight; });
+      await guestShot(page, 'assign-8-list');
+      await select.evaluate((el) => { el.size = 0; });
+    }
+    await sheet.getByRole('button', { name: 'שליחה לכיתה' }).click();
+    await expect(page.getByRole('dialog', { name: 'לספר לכיתה?' })).toBeVisible();
+    expect(log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST').body).toMatchObject({ kind: 'stair', skill: 'eq:6' });
+  });
+
+  test('the class exam offers them, and the exam draws its questions from eq:6 and eq:7 alone', async ({ page }) => {
+    await fakeServer(page, eighth(), baseOf());
+    await open(page, '#/teacher/exam/new', teacher8());
+    const group = page.getByRole('group', { name: ROW });
+    await expect(group.getByRole('checkbox')).toHaveText(['6. שאלות תנועה', '7. משוואות עם מכנים ופרופורציה']);
+    await page.getByRole('checkbox', { name: `כל המדרגות: ${ROW}` }).click();
+    await expect(page.getByText('נבחרו 2 מדרגות.')).toBeVisible();
+    for (let k = 0; k < 3; k += 1) await page.getByRole('button', { name: k === 2 ? 'הכנת המבחן' : 'המשך', exact: true }).click();
+    await expect(page).toHaveURL(/#\/teacher\/exam\/[0-9a-f]{12}$/);
+    const ex = (await saved(page)).teacherExams[0];
+    expect(ex.skills).toEqual(['eq:6', 'eq:7']);
+    ex.versions.forEach((v) => v.items.forEach((it) => { expect(it.topic).toBe('eq'); expect([6, 7]).toContain(it.level); }));
+  });
+
+  test('the report, the students tab and a student\'s page have the guest row\'s column, with the place among its stairs', async ({ page }) => {
+    await fakeServer(page, eighth(), baseOf());
+    await open(page, '#/teacher/report', teacher8());
+    const table = page.getByRole('region', { name: 'טבלת הדוח' });
+    const heads = table.locator('thead th');
+    await expect(heads.filter({ hasText: ROW })).toHaveCount(1);
+    // after the grade's units (the last of which is systems of equations), before the mistakes
+    const names = await heads.allInnerTexts();
+    expect(names.indexOf(ROW)).toBe(names.findIndex((h) => h.includes('טעויות שחוזרות')) - 1);
+    const col = names.indexOf(ROW);
+    await expect(table.locator('tbody tr').nth(0).locator('th, td').nth(col).getByRole('img')).toHaveAttribute('aria-label', 'מדרגה 2 מתוך 2');
+    await expect(table.locator('tbody tr').nth(1).locator('th, td').nth(col)).toHaveText('–');
+    // the printed copy has it too
+    await expect(page.locator('.print-root thead th').filter({ hasText: ROW })).toHaveCount(1);
+    // the students tab
+    await open(page, '#/teacher?tab=students', teacher8());
+    await expect(page.locator('.t-table thead th').filter({ hasText: ROW })).toHaveCount(1);
+    await expect(page.getByRole('row', { name: /דנה/ }).getByRole('img', { name: 'מדרגה 2 מתוך 2' })).toHaveCount(1);
+    // דנה's page: the row under "מדרגות", after the units
+    await page.getByRole('row', { name: /דנה/ }).getByRole('button', { name: 'פרטים על דנה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'דנה' });
+    await expect(sheet.locator('.ss-level-name').last()).toHaveText(ROW);
+    await expect(sheet.locator('.ss-level').last().getByRole('img')).toHaveAttribute('aria-label', 'מדרגה 2 מתוך 2');
+  });
+
+  test('the lessons library lists them after the grade\'s units, and "לתת לכיתה" opens the sheet on that stair', async ({ page }) => {
+    await fakeServer(page, eighth(), baseOf());
+    await open(page, '#/teacher/lessons?grade=8', teacher8());
+    const guest = page.getByRole('region', { name: 'גם בתוכנית של כיתה ח׳' });
+    await expect(guest.getByText('מתוך היחידה "משוואות"')).toBeVisible();
+    await expect(guest.locator('.t-lib-title')).toHaveText(['6. שאלות תנועה', '7. משוואות עם מכנים ופרופורציה']);
+    await guest.getByRole('button', { name: 'לתת לכיתה: משוואות עם מכנים ופרופורציה' }).click();
+    await expect(page.getByRole('dialog', { name: 'משימה לכיתה ח׳2' }).getByLabel('איזו מדרגה?')).toHaveValue('eq:7');
+  });
+});

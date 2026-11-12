@@ -14,6 +14,9 @@ describe('texText: maths as words for a screen reader', () => {
     expect(texText('-\\frac{1}{2} \\cdot 6')).toBe('-1/2 × 6');
     expect(texText('\\sqrt{25}')).toBe('√25');
     expect(texText('a^2 + b^{2}')).toBe('a² + b²');
+    // a table of values (a choice of func:2) is read row by row, not as its column spec and \hline
+    expect(texText('\\begin{array}{c|cccc} x & 1 & 2 & 2 & 3 \\\\ \\hline y & 4 & 5 & 7 & 8 \\end{array}')).toBe('x: 1, 2, 2, 3; y: 4, 5, 7, 8');
+    expect(texText('\\begin{array}{|c|c|} \\hline 1 & 2 \\\\ \\hline 3 & 4 \\\\ \\hline \\end{array}')).toBe('1, 2; 3, 4');
     expect(texText('90^\\circ')).toBe('90°');
     expect(texText('x \\le 3')).toBe('x ≤ 3');
   });

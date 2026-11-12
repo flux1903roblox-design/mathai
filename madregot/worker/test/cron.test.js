@@ -215,7 +215,7 @@ test('the daily summary lists yesterday and the invariant violations, only when 
   assert.deepEqual(p.spend.map((x) => x.pool), ['free'], 'pools only, not the totals by kind');
   const mail = h.net.log.email.find((m) => m.subject.startsWith(`[מדרגות] סיכום יומי ${yesterday}`));
   assert.deepEqual(mail.to, ['owner@example.test']);
-  // a 5th line once the support numbers are due for a check (shared/safety.js); covered on its own in care.test.js
+  // a 5th line once the support numbers are due for a check (shared/helpLines.js); covered on its own in care.test.js
   assert.match(mail.subject, new RegExp(`${4 + (supportCheckLine(night()) ? 1 : 0)} בעיות`));
   assert.match(mail.text, new RegExp(`מנוי פעיל בלי תשלום שמכסה את היום: ${unpaid.id}`));
   assert.doesNotMatch(mail.text, new RegExp(paid.id));

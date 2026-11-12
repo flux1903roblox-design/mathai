@@ -1,12 +1,14 @@
 // Grade 7 (ז׳): equations (משוואות), in the order of the Ministry's programme (March to May): what an equation and
-// its solution are, two-step equations, the unknown on both sides, brackets, and word problems. Every worked solution
+// its solution are, two-step equations, the unknown on both sides, brackets, and word problems; then motion problems
+// (eq:6) and equations with denominators and proportion (eq:7), ח׳ 8.9's (December), which a ז׳ class meets in June
+// (the schedule's motion task). Every worked solution
 // ends with a check by substitution ("פתרון מלא כולל בדיקה", curriculum note 7). The balance is practice too: a pan
 // loses one item at a time, so keeping it level is the student's own decision (content/manip.js).
 // Taught from March, so the first-day placement test skips it (placement: false); grade 8 tests revise equations, so
 // Exam Rescue offers it to grade 8 too (alsoFor).
 import { R, NZ, pick, shuffle, T, near } from './util.js';
 import { linTex, sumTex, bracketTex } from './expr.js';
-import { slipOf, matchesValue, roundings } from '@/learn/misconceptions.ts';
+import { slipOf, slipLike, matchesValue, roundings } from '@/learn/misconceptions.ts';
 import { holds } from '@/learn/expr.ts';
 
 const abs = Math.abs;
@@ -566,9 +568,449 @@ function pickEquation() {
   }
 }
 
+// ---------------------------------------------------------------- 6. motion problems (שאלות תנועה)
+// Distance = speed × time in units that agree, the three stories the textbooks teach (meeting, catching up, there and
+// back), each with a row per mover and an equation (stage5.md FUNC-3). The diagnostic models are the critique's
+// (EQ6: scratchpad/lanes/stage5/spec/critique/models.mjs eq6, movers named by their speed) and the spec's (EQ6T:
+// models.mjs eq6T), ported unchanged with their own draw rule: a draw is redrawn when a prediction looks like a slip of
+// the hand, lies within 0.06 of the answer or of another prediction, or when the answer is a number of the question's
+// text. Errors and their sources:
+//   rel-speed          the speeds added where they subtract, or subtracted where they add: toward each other the gap
+//                      closes by the sum, catching up by the difference (Mayer 1981: meeting and overtaking are two
+//                      templates; teachers' first motion error)
+//   wrong-unknown      catching up: the hours since the first one left, when the hours since the car left were asked
+//                      (eq's id: an answer to another unknown of the story)
+//   mean-speed         there and back: the mean of the two speeds taken for the average speed (Reed & Jazo 2002)
+//   minutes-as-hours   the minutes used as hours, v·t (Kamii & Russell 2012: hours and minutes are two units)
+//   decimal-minutes    40 minutes written 0.4 hours, v·t/100 (as if an hour had 100 minutes)
+//   formula-flip       divided by the time instead of multiplying, 60v/t (the Ministry: "הבנת הקשר בין דרך, מהירות, זמן")
+
+const rnd6 = () => Math.random();
+const rint6 = (r, a, b) => a + Math.floor(r() * (b - a + 1));
+const pick6 = (r, arr) => arr[Math.floor(r() * arr.length)];
+const lcm = (a, b) => (a * b) / gcdN(a, b);
+const gcdN = (a, b) => { a = abs(a); b = abs(b); while (b) [a, b] = [b, a % b]; return a || 1; };
+const same6 = (a, b) => abs(a - b) <= 1e-9 * Math.max(1, abs(a), abs(b));
+/** Every prediction of a model for one draw. */
+const bugsOf = (model, p) => Object.fromEntries(Object.entries(model.bugs).map(([id, f]) => [id, f(p)]));
+/**
+ * A draw is clean (the critique's rule, as content/func.js clean): no prediction looks like a slip, a rounded answer or
+ * another prediction, and the answer is not a number of the question's text.
+ */
+function cleanDraw(model, p) {
+  const ans = model.answer(p);
+  if (!Number.isFinite(ans)) return false;
+  const vals = [];
+  for (const f of Object.values(model.bugs)) {
+    const v = f(p);
+    if (v == null) continue;
+    if (!Number.isFinite(v)) return false;
+    if (same6(v, ans)) continue;
+    if (slipLike(v, ans) || abs(v - ans) <= 0.06) return false;
+    vals.push(v);
+  }
+  for (let i = 0; i < vals.length; i += 1) for (let j = i + 1; j < vals.length; j += 1) { const d = abs(vals[i] - vals[j]); if (d > 1e-9 && d <= 0.06) return false; }
+  return !(model.textNums && model.textNums(p).some((n) => same6(ans, n)));
+}
+const mkModel = (m) => { m.params = (r) => { for (let g = 0; g < 200000; g += 1) { const p = m.raw(r); if (p && cleanDraw(m, p)) return p; } throw new Error('no clean draw'); }; return m; };
+
+/** A mover's noun follows its speed: walking up to 6 km/h, cycling 10 to 30, a car (or a lorry) 35 and above. */
+export const moverOf = (v) => (v <= 6 ? 'walk' : v <= 30 ? 'bike' : 'car');
+/**
+ * The critique's eq6: the kind is drawn first (meeting 40%, catching up 40%, there and back 20%) and redrawn inside its
+ * kind. Meeting: two cyclists (10–30 km/h) or two cars (40–100), at most 450 km apart, q0 when, q1 how far from the first
+ * one's start. Catching up: a cyclist (10–30) or a lorry (40–80) leaves h hours before a car (40–110) on the same road,
+ * q0 when (from the car's start), q1 how far from the start. There and back: walking, cycling or by car (a walk at most
+ * 15 km each way), the way's length.
+ */
+export const EQ6 = mkModel({
+  raw: (r) => { const k = pick6(r, ['toward', 'toward', 'catch', 'catch', 'trip']); for (let g = 0; g < 1000; g += 1) { const p = EQ6.rawOf(k, r); if (p) return p; } return null; },
+  rawOf: (k, r) => {
+    if (k === 'toward') {
+      const bike = r() < 0.4;
+      const v1 = bike ? 5 * rint6(r, 2, 6) : 10 * rint6(r, 4, 10); const v2 = bike ? 5 * rint6(r, 2, 6) : 10 * rint6(r, 4, 10);
+      if (v1 === v2) return null;
+      const t = bike ? rint6(r, 2, 4) : rint6(r, 2, 4); const D = (v1 + v2) * t; if (D > 450) return null;
+      return { k, bike, v1, v2, t, D, q: r() < 0.6 ? 0 : 1 };
+    }
+    if (k === 'catch') {
+      const v1 = pick6(r, [10, 15, 20, 25, 30, 40, 50, 60, 70, 80]); const h = rint6(r, 1, 3); const t = rint6(r, 1, 5);
+      const v2 = v1 + (v1 * h) / t; if (!Number.isInteger(v2 / 5) || v2 < 40 || v2 > 110) return null;
+      return { k, v1, v2, h, t, q: r() < 0.6 ? 0 : 1 };
+    }
+    const pairs = [[3, 6], [4, 6], [10, 15], [12, 18], [10, 20], [15, 30], [20, 30], [40, 60], [60, 90], [45, 90], [50, 75]];
+    const [v1, v2] = pick6(r, pairs); const L = lcm(v1, v2); const d = L * rint6(r, 1, 4); const T = d / v1 + d / v2;
+    if (!Number.isInteger(T) || T > 10) return null;
+    if (v1 <= 6 && d > 15) return null;
+    return { k, v1, v2, d, T, q: 0 };
+  },
+  answer: (p) => (p.k === 'toward' ? (p.q === 0 ? p.t : p.v1 * p.t) : p.k === 'catch' ? (p.q === 0 ? p.t : p.v2 * p.t) : p.d),
+  bugs: {
+    // toward each other the speeds subtracted; catching up, added
+    'rel-speed': (p) => (p.k === 'toward' ? (p.q === 0 ? p.D / abs(p.v1 - p.v2) : (p.v1 * p.D) / abs(p.v1 - p.v2)) : p.k === 'catch' ? (p.q === 0 ? (p.v1 * p.h) / (p.v1 + p.v2) : (p.v2 * p.v1 * p.h) / (p.v1 + p.v2)) : null),
+    // the hours since the first one left, not since the car left
+    'wrong-unknown': (p) => (p.k === 'catch' && p.q === 0 ? p.t + p.h : null),
+    // the round trip at the mean of the two speeds
+    'mean-speed': (p) => (p.k === 'trip' ? (p.T * (p.v1 + p.v2)) / 4 : null),
+  },
+  textNums: (p) => (p.k === 'toward' ? [p.D, p.v1, p.v2] : p.k === 'catch' ? [p.v1, p.h, p.v2] : [p.v1, p.v2, p.T]),
+});
+/** The spec's eq6T: a train at v km/h for t minutes; how far? (the units of time) */
+export const EQ6T = mkModel({
+  raw: (r) => {
+    const v = pick6(r, [30, 36, 42, 45, 48, 54, 60, 72, 75, 80, 90]); const t = pick6(r, [10, 12, 15, 20, 30, 36, 40, 45, 50]);
+    if (!Number.isInteger((v * t) / 60)) return null; return { v, t };
+  },
+  answer: (p) => (p.v * p.t) / 60,
+  bugs: {
+    'minutes-as-hours': (p) => p.v * p.t, // the minutes used as hours
+    'decimal-minutes': (p) => (p.v * p.t) / 100, // 40 minutes written as 0.4 hours
+    'formula-flip': (p) => (60 * p.v) / p.t, // divided by the time instead of multiplying (the time in hours)
+  },
+  textNums: (p) => [p.v, p.t],
+});
+
+/** Hours in words after "כעבור": one is "שעה", two "שעתיים" (never "$1$ שעות"). */
+export const hoursAfter = (h) => (h === 1 ? 'שעה' : h === 2 ? 'שעתיים' : `$${h}$ שעות`);
+/** The catching-up story's first mover: a cyclist up to 30 km/h, else a lorry; its pronouns agree with it. */
+const firstOf = (v1) => (v1 <= 30 ? { who: 'רוכב אופניים יצא', the: 'הרוכב', him: 'אותו', after: 'אחריו', rode: 'נסע', both: 'שניהם' } : { who: 'משאית יצאה', the: 'המשאית', him: 'אותה', after: 'אחריה', rode: 'נסעה', both: 'שתיהן' });
+const TRIP = { walk: 'הלכו', bike: 'רכבו על אופניים', car: 'נסעו' };
+
+/** The question's text: the story in the mover's own words, then what is asked. */
+export function eq6Text(p) {
+  if (p.k === 'toward') {
+    const head = p.v1 <= 30
+      ? `שני רוכבי אופניים יוצאים באותו רגע משני כפרים במרחק $${p.D}$ ק״מ, זה לקראת זה. הראשון רוכב ב־$${p.v1}$ קמ״ש, והשני ב־$${p.v2}$ קמ״ש.`
+      : `שתי מכוניות יוצאות באותו רגע משתי ערים במרחק $${p.D}$ ק״מ, זו לקראת זו. הראשונה נוסעת ב־$${p.v1}$ קמ״ש, והשנייה ב־$${p.v2}$ קמ״ש.`;
+    const ask = p.q === 0 ? 'כעבור כמה שעות ייפגשו?' : p.v1 <= 30 ? 'במרחק כמה ק״מ מהכפר של הראשון ייפגשו?' : 'במרחק כמה ק״מ מהעיר של הראשונה ייפגשו?';
+    return `${head} ${ask}`;
+  }
+  if (p.k === 'catch') {
+    const F = firstOf(p.v1);
+    return `${F.who} ב־$${p.v1}$ קמ״ש. כעבור ${hoursAfter(p.h)} יצאה ${F.after} מכונית מאותו מקום, באותה דרך, ב־$${p.v2}$ קמ״ש. ${p.q === 0 ? `כעבור כמה שעות מיציאתה המכונית תשיג ${F.him}?` : `במרחק כמה ק״מ מנקודת היציאה המכונית תשיג ${F.him}?`}`;
+  }
+  return `${TRIP[moverOf(p.v1)]} ב־$${p.v1}$ קמ״ש וחזרו באותה דרך ב־$${p.v2}$ קמ״ש, ובסך הכול $${p.T}$ שעות. מה אורך הדרך לכיוון אחד?`;
+}
+export function eq6Hint(p) {
+  if (p.k === 'toward') {
+    const bike = p.v1 <= 30;
+    return `בכל שעה כל ${bike ? 'אחד' : 'אחת'} סוגר${bike ? '' : 'ת'} חלק מהמרחק. בכמה ק״מ ${bike ? 'הם מתקרבים' : 'הן מתקרבות'} בשעה אחת?${p.q === 1 ? ` ושימו לב: שאלו כמה ${bike ? 'עבר הראשון' : 'עברה הראשונה'}.` : ''}`;
+  }
+  if (p.k === 'catch') {
+    const F = firstOf(p.v1);
+    return `נסמן ב־$x$ את הזמן של המכונית. ${F.the} ${F.rode} יותר זמן: $x + ${p.h}$. כשהמכונית משיגה, ${F.both} עברו אותה דרך.`;
+  }
+  return `נסמן ב־$x$ את אורך הדרך. כמה זמן לקח הלוך, וכמה חזור? יחד $${p.T}$ שעות.`;
+}
+export function eq6Solution(p) {
+  if (p.k === 'toward') {
+    const bike = p.v1 <= 30; const S = p.v1 + p.v2;
+    return [
+      `הזמן של ${bike ? 'שניהם' : 'שתיהן'} $x$ שעות, והדרכים $${p.v1}x$ ו־$${p.v2}x$. יחד הן כל המרחק: $${p.v1}x + ${p.v2}x = ${p.D}$`,
+      `בכל שעה ${bike ? 'הם מתקרבים' : 'הן מתקרבות'} $${p.v1} + ${p.v2} = ${S}$ ק״מ: $${S}x = ${p.D}$, ולכן $x = ${p.t}$.`,
+      ...(p.q === 1 ? [`${bike ? 'הראשון עבר' : 'הראשונה עברה'} עד המפגש $${p.v1} \\cdot ${p.t} = ${p.v1 * p.t}$ ק״מ.`] : [`${bike ? 'הם ייפגשו' : 'הן ייפגשו'} כעבור $${p.t}$ שעות.`]),
+      `בדיקה: $${p.v1} \\cdot ${p.t} + ${p.v2} \\cdot ${p.t} = ${p.D}$`,
+    ];
+  }
+  if (p.k === 'catch') {
+    const F = firstOf(p.v1);
+    return [
+      `הזמן של המכונית $x$, ושל ${F.the} $x + ${p.h}$. כשהמכונית משיגה, הדרכים שוות: $${p.v2}x = ${p.v1}(x + ${p.h})$`,
+      `פותחים סוגריים: $${p.v2}x = ${p.v1}x + ${p.v1 * p.h}$, ולכן $${linTex(p.v2 - p.v1, 0)} = ${p.v1 * p.h}$ ו־$x = ${p.t}$.`,
+      p.q === 1 ? `המכונית עברה עד אז $${p.v2} \\cdot ${p.t} = ${p.v2 * p.t}$ ק״מ.` : `המכונית משיגה כעבור $${p.t}$ ${p.t === 1 ? 'שעה' : 'שעות'} מיציאתה.`,
+      `בדיקה: $${p.v2} \\cdot ${p.t} = ${p.v2 * p.t}$, וגם $${p.v1} \\cdot ${p.t + p.h} = ${p.v1 * (p.t + p.h)}$`,
+    ];
+  }
+  const L = lcm(p.v1, p.v2);
+  return [
+    `אורך הדרך $x$. זמן הלוך $\\frac{x}{${p.v1}}$ וזמן חזור $\\frac{x}{${p.v2}}$: $\\frac{x}{${p.v1}} + \\frac{x}{${p.v2}} = ${p.T}$`,
+    `כופלים את שני האגפים ב־$${L}$: $${linTex(L / p.v1, 0)} + ${linTex(L / p.v2, 0)} = ${L * p.T}$, כלומר $${linTex(L / p.v1 + L / p.v2, 0)} = ${L * p.T}$, ולכן $x = ${p.d}$.`,
+    `בדיקה: הלוך $${p.d} : ${p.v1} = ${p.d / p.v1}$ שעות, חזור $${p.d} : ${p.v2} = ${p.d / p.v2}$, ויחד $${p.T}$.`,
+  ];
+}
+/** The answer's unit: hours when the question asks when, km when it asks how far. */
+export const eq6Unit = (p) => (p.k !== 'trip' && p.q === 0 ? 'שעות' : 'ק״מ');
+export const eq6Key = (p) => (p.k === 'toward' ? `eq6:toward:${p.v1}:${p.v2}:${p.D}:${p.q}` : p.k === 'catch' ? `eq6:catch:${p.v1}:${p.h}:${p.v2}:${p.q}` : `eq6:trip:${p.v1}:${p.v2}:${p.T}`);
+
+export const eq6TText = (p) => `רכבת נוסעת במהירות $${p.v}$ קמ״ש. כמה ק״מ היא עוברת ב־$${p.t}$ דקות?`;
+export const eq6THint = (p) => `$${p.v}$ קמ״ש הם $${p.v}$ ק״מ בשעה. איזה חלק משעה הן $${p.t}$ דקות? בשעה $60$ דקות.`;
+export const eq6TSolution = (p) => [
+  `בשעה $60$ דקות, ולכן $${p.t}$ דקות הן $\\frac{${p.t}}{60}$ שעה.`,
+  `דרך = מהירות × זמן: $${p.v} \\cdot \\frac{${p.t}}{60} = ${(p.v * p.t) / 60}$ ק״מ.`,
+];
+
+/** e6 (the critique's eq6): a meeting, a catching up or a round trip, a time or a distance asked. */
+function motionItem() {
+  const p = EQ6.params(rnd6); const ans = EQ6.answer(p);
+  return { key: eq6Key(p), text: eq6Text(p), form: 'num', answer: ans, unit: eq6Unit(p), hint: eq6Hint(p), solution: eq6Solution(p), diag: diagOf(ans, bugsOf(EQ6, p)) };
+}
+/** e6u (eq6T): speed in km/h, time in minutes. */
+function minutesItem() {
+  const p = EQ6T.params(rnd6); const ans = EQ6T.answer(p);
+  return { key: `eq6u:${p.v}:${p.t}`, text: eq6TText(p), form: 'num', answer: ans, unit: 'ק״מ', hint: eq6THint(p), solution: eq6TSolution(p), diag: diagOf(ans, bugsOf(EQ6T, p)) };
+}
+
+/**
+ * Two cars toward each other on a graph of their distance from city א, by the hour, past the meeting (X is t + 1 or
+ * t + 2 hours): both lines stay on the road until X, every point the graph draws is a grid crossing (the meeting too),
+ * and the y axis has at most 18 lines (a number every second or third). The meeting time is read off the graph, so it
+ * is not marked (the words for a screen reader name the two lines, not where they cross). Cars as in the meeting story:
+ * 40–100 km/h, at most 450 km apart.
+ */
+export function meetDraw(r = rnd6) {
+  for (;;) {
+    const v1 = 10 * rint6(r, 4, 10); const v2 = 10 * rint6(r, 4, 10); if (v1 === v2) continue;
+    const t = rint6(r, 2, 4); const D = (v1 + v2) * t; if (D > 450) continue;
+    const X = t + rint6(r, 1, 2); const a = v1 * X; const b = D - v2 * X;
+    if (a > D || b < 0) continue;
+    const ys = [60, 50, 40, 30, 25, 20].find((s) => [D, v1 * t, a, b].every((v) => v % s === 0) && D / s <= 18);
+    if (!ys) continue;
+    return { v1, v2, t, D, X, ys };
+  }
+}
+export function meetFig({ v1, v2, D, X, ys }) {
+  const lines = D / ys;
+  return {
+    type: 'sgraph', x: { max: X, step: 1, label: 'זמן', unit: 'שעות' },
+    y: { max: D, step: ys, ...(lines > 12 ? { every: 3 } : lines > 6 ? { every: 2 } : {}), label: 'מרחק מעיר א', unit: 'ק״מ' },
+    series: [{ pts: [[0, 0], [X, v1 * X]], label: 'מכונית א' }, { pts: [[0, D], [X, D - v2 * X]], label: 'מכונית ב', dashed: true }],
+  };
+}
+function meetGraph() {
+  const g = meetDraw(); const { v1, v2, t, D, X } = g;
+  return {
+    key: `eq6g:${v1}:${v2}:${D}:${X}`,
+    text: 'שתי מכוניות יוצאות באותו רגע זו לקראת זו. הגרף מראה את המרחק של כל אחת מעיר א. כעבור כמה שעות ייפגשו?',
+    fig: meetFig(g), form: 'num', answer: t, unit: 'שעות',
+    hint: 'הן נפגשות כשהן באותו מקום, כלומר באותו מרחק מעיר א: איפה ששני הקווים נחתכים. את הזמן קוראים על ציר הזמן.',
+    solution: [
+      `שני הקווים נחתכים בנקודה $(${t}, ${v1 * t})$: אחרי $${t}$ שעות שתי המכוניות $${v1 * t}$ ק״מ מעיר א.`,
+      `בדיקה: מכונית א נוסעת $${v1}$ קמ״ש ומכונית ב $${v2}$, ו־$${v1} \\cdot ${t} + ${v2} \\cdot ${t} = ${D}$, כל המרחק בין הערים.`,
+    ],
+    diag: () => null,
+  };
+}
+
+/**
+ * Which equation fits the table? A meeting of two cars (the distances add up to the whole way) or a car catching up
+ * (the distances are equal, the first one's time x + h). Four choices: the equation, the relation reversed (the speeds
+ * subtracted for a meeting, added for a catching up: rel-speed), and two others. Practice only: the right equation can
+ * be matched to the table's cells without solving anything.
+ */
+function tableMc() {
+  const kind = Math.random() < 0.5 ? 'toward' : 'catch';
+  let p; do { p = EQ6.rawOf(kind, rnd6); } while (!p || (kind === 'toward' && p.v1 <= 30));
+  const opts = [];
+  let text; let fig; let x; let key;
+  const head = ['', 'מהירות (קמ״ש)', 'זמן (שעות)', 'דרך (ק״מ)'];
+  if (kind === 'toward') {
+    const { v1, v2, D, t } = p; const hi = Math.max(v1, v2); const lo = Math.min(v1, v2); x = t;
+    key = `eq6t:toward:${v1}:${v2}:${D}`;
+    text = `שתי מכוניות יוצאות באותו רגע משתי ערים במרחק $${D}$ ק״מ, זו לקראת זו. הטבלה מתארת אותן עד שהן נפגשות. איזו משוואה מתאימה?`;
+    fig = { type: 'table', head, rows: [['הראשונה', v1, 'x', `${v1}x`], ['השנייה', v2, 'x', `${v2}x`]] };
+    opts.push([`${v1}x + ${v2}x = ${D}`, true], [`${hi}x - ${lo}x = ${D}`, 'rel-speed'], [`${v1}x = ${v2}x`], [`${v1}x + ${v2}x = ${D}x`]);
+  } else {
+    const { v1, v2, h, t } = p; const F = firstOf(v1); x = t;
+    key = `eq6t:catch:${v1}:${h}:${v2}`;
+    text = `${F.who} ב־$${v1}$ קמ״ש. כעבור ${hoursAfter(h)} יצאה ${F.after} מכונית מאותו מקום, באותה דרך, ב־$${v2}$ קמ״ש. בטבלה, $x$ הוא הזמן של המכונית עד שהיא משיגה ${F.him}. איזו משוואה מתאימה?`;
+    fig = { type: 'table', head, rows: [[v1 <= 30 ? 'הרוכב' : 'המשאית', v1, `x + ${h}`, `${v1}(x + ${h})`], ['המכונית', v2, 'x', `${v2}x`]] };
+    opts.push([`${v2}x = ${v1}(x + ${h})`, true], [`${v1 + v2}x = ${v1 * h}`, 'rel-speed'], [`${v2}(x + ${h}) = ${v1}x`], [`${v2}x = ${v1}x + ${h}`]);
+  }
+  const choices = shuffle(opts.map(([t, tag]) => ({ ...tex(t), ok: tag === true, ...(typeof tag === 'string' ? { bug: tag } : {}) })));
+  return {
+    key, text, fig, form: 'mc', choices, answer: choices.findIndex((c) => c.ok), solve: x, practiceOnly: true,
+    hint: kind === 'toward' ? 'זו לקראת זו: יחד הן עוברות את כל המרחק בין הערים. מה שווה למה?' : 'כשהמכונית משיגה, שתי הדרכים שוות. מה הדרך של כל אחד, לפי השורה שלו בטבלה?',
+    solution: kind === 'toward'
+      ? [`הנכונה: $${opts[0][0]}$. הדרכים מתחברות לכל המרחק.`, `בדיקה: הפתרון שלה הוא $x = ${x}$, ואחרי $${x}$ שעות המכוניות עברו יחד $${p.D}$ ק״מ.`]
+      : [`הנכונה: $${opts[0][0]}$. כשהמכונית משיגה, הדרכים שוות.`, `בדיקה: הפתרון שלה הוא $x = ${x}$, ושתי הדרכים $${p.v2 * x}$ ק״מ.`],
+    diag: (u) => choices[u]?.bug || null,
+  };
+}
+
+// ---------------------------------------------------------------- 7. equations with denominators and proportion
+// An equation with denominators is cleared by multiplying every term of both sides by a common denominator; a numerator
+// of two terms behaves as a bracket, and so does the minus before a fraction; a proportion is solved by multiplying by
+// both denominators, also with x in a denominator; every answer is checked in the original (stage5.md FUNC-4). The
+// diagnostic models are the critique's (EQ7: scratchpad/lanes/stage5/spec/critique/models.mjs eq7, whose second kind is
+// the ז׳ programme's x + x/a = c) and the spec's (EQ7T: models.mjs eq7T), ported unchanged with the draw rule of eq:6.
+// Errors and their sources:
+//   lcd-partial    multiplied by the common denominator, but not the number on the other side (Booth et al. 2014,
+//                  fractions errors; "forgetting to multiply BOTH sides by the LCD")
+//   add-across     x/a + x/b read as 2x/(a + b) (frac's id and name; Siegler & Pyke 2013)
+//   minus-bracket  the minus before the second fraction changed only the first sign of its numerator (eq's id)
+//   partial-dist   the first numerator multiplied as if it were not a bracket, 2(x + p) as 2x + p; in a proportion,
+//                  only x multiplied: dx + a = bx − c (eq's id; Booth et al. 2014, the fraction bar not read as a grouping)
+// "Only x divided, not the whole numerator" is eq:2's divide-part, already diagnosed on (x + p)/q = r: no new id for it.
+
+export const EQ7 = mkModel({
+  raw: (r) => {
+    const k = rint6(r, 0, 2);
+    if (k === 0) { // x/a + x/b = c
+      const a = rint6(r, 2, 6); const b = rint6(r, 2, 6); if (a === b) return null;
+      const L = lcm(a, b); const x = L * rint6(r, 1, 5); return { k, a, b, L, x, c: x / a + x / b };
+    }
+    if (k === 1) { // x + x/a = c
+      const a = rint6(r, 2, 6); const x = a * rint6(r, 1, 8); return { k, a, x, c: x + x / a };
+    }
+    // (x + p)/q − (x − s)/(2q) = r
+    const q = pick6(r, [2, 3]); const p = rint6(r, 1, 6); const s = rint6(r, 1, 9); const rr = rint6(r, 2, 9); const x = 2 * q * rr - 2 * p - s;
+    if (x <= s) return null; return { k, q, p, s, r: rr, x };
+  },
+  answer: (p) => p.x,
+  bugs: {
+    // multiplied by the common denominator, but not the number on the other side
+    'lcd-partial': (p) => (p.k === 0 ? p.c / (p.L / p.a + p.L / p.b) : p.k === 1 ? p.c / (p.a + 1) : null),
+    // added across: x/a + x/b as 2x/(a + b); x + x/a as 2x/(1 + a)
+    'add-across': (p) => (p.k === 0 ? (p.c * (p.a + p.b)) / 2 : p.k === 1 ? (p.c * (p.a + 1)) / 2 : null),
+    // the minus before the second fraction changed only the first sign of its numerator
+    'minus-bracket': (p) => (p.k === 2 ? 2 * p.q * p.r - 2 * p.p + p.s : null),
+    // the first numerator, multiplied by 2, as if it were not a bracket: 2(x + p) written 2x + p
+    'partial-dist': (p) => (p.k === 2 ? 2 * p.q * p.r - p.p - p.s : null),
+  },
+  textNums: (p) => (p.k === 0 ? [p.a, p.b, p.c] : p.k === 1 ? [p.a, p.c] : [p.p, p.q, p.s, 2 * p.q, p.r]),
+});
+/** The spec's eq7T: a share of the money and another share of it come to c (or what is left after spending 1/a of it). */
+export const EQ7T = mkModel({
+  raw: (r) => {
+    if (r() < 0.6) { const a = rint6(r, 2, 5); const b = rint6(r, a + 1, 6); const L = lcm(a, b); const x = L * rint6(r, 2, 10); return { k: 0, a, b, L, x, c: x / a + x / b }; }
+    const a = rint6(r, 3, 6); const x = a * rint6(r, 3, 12); return { k: 1, a, x, c: x - x / a };
+  },
+  answer: (p) => p.x,
+  bugs: {
+    'lcd-partial': (p) => (p.k === 0 ? p.c / (p.L / p.a + p.L / p.b) : p.c / (p.a - 1)),
+    'add-across': (p) => (p.k === 0 ? (p.c * (p.a + p.b)) / 2 : null),
+  },
+  textNums: (p) => (p.k === 0 ? [1, p.a, 1, p.b, p.c] : [1, p.a, p.c]),
+});
+
+/** The equation as the student sees it (\frac, as the other eq displays write it). */
+export const eq7Show = (p) => (p.k === 0 ? `\\frac{x}{${p.a}} + \\frac{x}{${p.b}} = ${p.c}` : p.k === 1 ? `x + \\frac{x}{${p.a}} = ${p.c}` : `\\frac{x + ${p.p}}{${p.q}} - \\frac{x - ${p.s}}{${2 * p.q}} = ${p.r}`);
+export const eq7Key = (p) => (p.k === 0 ? `eq7:0:${p.a}:${p.b}:${p.c}` : p.k === 1 ? `eq7:1:${p.a}:${p.c}` : `eq7:2:${p.p}:${p.q}:${p.s}:${p.r}`);
+export function eq7Hint(p) {
+  if (p.k === 0) return `מחפשים מכנה משותף: מספר שמתחלק גם ב־$${p.a}$ וגם ב־$${p.b}$. כופלים בו כל איבר בשני האגפים, גם את $${p.c}$.`;
+  if (p.k === 1) return `כופלים את שני האגפים ב־$${p.a}$, כל איבר: גם את $x$ וגם את $${p.c}$.`;
+  return `כופלים כל איבר ב־$${2 * p.q}$. כל מונה הוא סוגריים, והמינוס שלפני השבר הופך את שני הסימנים שבמונה.`;
+}
+export function eq7Solution(p) {
+  if (p.k === 0) {
+    const { a, b, L, c, x } = p;
+    return [
+      `המכנה המשותף של $${a}$ ו־$${b}$: $${L}$. כופלים בו כל איבר בשני האגפים: $${linTex(L / a, 0)} + ${linTex(L / b, 0)} = ${L * c}$`,
+      `מכנסים: $${linTex(L / a + L / b, 0)} = ${L * c}$, ולכן $x = ${x}$.`,
+      `בדיקה: $${x} : ${a} + ${x} : ${b} = ${x / a} + ${x / b} = ${c}$`,
+    ];
+  }
+  if (p.k === 1) {
+    const { a, c, x } = p;
+    return [
+      `כופלים כל איבר בשני האגפים ב־$${a}$: $${linTex(a, 0)} + x = ${a * c}$`,
+      `מכנסים: $${linTex(a + 1, 0)} = ${a * c}$, ולכן $x = ${x}$.`,
+      `בדיקה: $${x} + ${x} : ${a} = ${x} + ${x / a} = ${c}$`,
+    ];
+  }
+  const { q, s, r, x } = p; const Q = 2 * q;
+  return [
+    `כופלים כל איבר ב־$${Q}$, וכל מונה בסוגריים: $2(x + ${p.p}) - (x - ${s}) = ${Q * r}$`,
+    `פותחים סוגריים, והמינוס הופך את שני הסימנים: $2x + ${2 * p.p} - x + ${s} = ${Q * r}$`,
+    `מכנסים: $x + ${2 * p.p + s} = ${Q * r}$, ולכן $x = ${x}$.`,
+    `בדיקה: $2(${x} + ${p.p}) - (${x} - ${s}) = ${2 * (x + p.p) - (x - s)} = ${Q} \\cdot ${r}$`,
+  ];
+}
+const SPENDERS = ['דני', 'עומר', 'איתי', 'יואב'];
+const spender = (p) => SPENDERS[(p.x + p.a) % SPENDERS.length];
+export const eq7TText = (p) => (p.k === 0
+  ? `${spender(p)} קיבל כסף. הוא הוציא $\\frac{1}{${p.a}}$ ממנו על ספרים ו־$\\frac{1}{${p.b}}$ ממנו על משחק, יחד $${p.c}$ ש״ח. כמה כסף קיבל?`
+  : `${spender(p)} קיבל כסף. הוא הוציא $\\frac{1}{${p.a}}$ מהכסף ונשארו לו $${p.c}$ ש״ח. כמה כסף קיבל?`);
+export const eq7THint = (p) => (p.k === 0
+  ? `נסמן ב־$x$ את הכסף: $\\frac{x}{${p.a}} + \\frac{x}{${p.b}} = ${p.c}$. כופלים כל איבר במכנה משותף.`
+  : `נסמן ב־$x$ את הכסף. נשאר $x - \\frac{x}{${p.a}}$, והוא $${p.c}$. כופלים כל איבר ב־$${p.a}$.`);
+export function eq7TSolution(p) {
+  if (p.k === 0) {
+    const { a, b, L, c, x } = p;
+    return [
+      `נסמן ב־$x$ את הכסף: $\\frac{x}{${a}} + \\frac{x}{${b}} = ${c}$`,
+      `כופלים כל איבר ב־$${L}$: $${linTex(L / a, 0)} + ${linTex(L / b, 0)} = ${L * c}$, כלומר $${linTex(L / a + L / b, 0)} = ${L * c}$, ולכן $x = ${x}$.`,
+      `בדיקה: $${x} : ${a} + ${x} : ${b} = ${x / a} + ${x / b} = ${c}$ ש״ח.`,
+    ];
+  }
+  const { a, c, x } = p;
+  return [
+    `נסמן ב־$x$ את הכסף: $x - \\frac{x}{${a}} = ${c}$`,
+    `כופלים כל איבר ב־$${a}$: $${linTex(a, 0)} - x = ${a * c}$, כלומר $${linTex(a - 1, 0)} = ${a * c}$, ולכן $x = ${x}$.`,
+    `בדיקה: הוציא $${x} : ${a} = ${x / a}$, ונשארו $${x} - ${x / a} = ${c}$ ש״ח.`,
+  ];
+}
+
+/** e7 (the critique's eq7): two fractions of x, x and a fraction of it, or two numerators with a minus between them. */
+function denomItem() {
+  const p = EQ7.params(rnd6); const ans = EQ7.answer(p);
+  return { key: eq7Key(p), text: 'פתרו את המשוואה.', display: eq7Show(p), form: 'num', answer: ans, hint: eq7Hint(p), solution: eq7Solution(p), diag: diagOf(ans, bugsOf(EQ7, p)) };
+}
+/** A proportion (x + a)/b = (x − c)/d, b ≠ d, with a whole answer that is no number of the equation. */
+export function propDraw(r = rnd6) {
+  for (;;) {
+    const b = rint6(r, 2, 7); const d = rint6(r, 2, 7); if (b === d) continue;
+    const a = rint6(r, 1, 9); const c = rint6(r, 1, 9); const x = (d * a + b * c) / (b - d);
+    if (!Number.isInteger(x) || abs(x) > 60 || [a, b, c, d].includes(x)) continue;
+    // only x multiplied, the numerators not as brackets: dx + a = bx − c
+    const pd = (a + c) / (b - d);
+    if (same6(pd, x) || slipLike(pd, x) || abs(pd - x) <= 0.06) continue;
+    return { a, b, c, d, x, pd };
+  }
+}
+function propItem() {
+  const { a, b, c, d, x, pd } = propDraw();
+  return {
+    key: `eq7p:${a}:${b}:${c}:${d}`, text: 'פתרו את המשוואה.', display: `\\frac{x + ${a}}{${b}} = \\frac{x - ${c}}{${d}}`, form: 'num', answer: x,
+    hint: 'כופלים את שני האגפים בשני המכנים. כל מונה הוא סוגריים: כל המונה נכפל.',
+    solution: [
+      `כופלים את שני האגפים ב־$${b} \\cdot ${d}$, וכל מונה בסוגריים: $${d}(x + ${a}) = ${b}(x - ${c})$`,
+      `פותחים סוגריים: $${linTex(d, d * a)} = ${linTex(b, -b * c)}$, ולכן $${linTex(b - d, 0)} = ${d * a + b * c}$ ו־$x = ${T(x)}$.`,
+      `בדיקה: $${d}(${T(x)} + ${a}) = ${d * (x + a)}$, וגם $${b}(${T(x)} - ${c}) = ${b * (x - c)}$`,
+    ],
+    diag: diagOf(x, { 'partial-dist': pd }),
+  };
+}
+/** a/x = b/c with x in the denominator: x = ac/b, whole, never a number of the equation (a/x is not b/c reduced). */
+export function xDenDraw(r = rnd6) {
+  for (;;) {
+    const b = rint6(r, 2, 7); const c = rint6(r, b + 1, 12); if (gcdN(b, c) !== 1) continue;
+    const m = rint6(r, 2, 6); const a = b * m; const x = c * m;
+    if ([a, b, c].includes(x)) continue;
+    return { a, b, c, m, x };
+  }
+}
+function xDenItem() {
+  const { a, b, c, m, x } = xDenDraw();
+  return {
+    key: `eq7x:${a}:${b}:${c}`, text: 'פתרו את המשוואה.', display: `\\frac{${a}}{x} = \\frac{${b}}{${c}}`, form: 'num', answer: x,
+    hint: `$x$ במכנה: כופלים את שני האגפים ב־$${c}x$, ואז נשארת משוואה של צעד אחד.`,
+    solution: [`כופלים את שני האגפים ב־$${c}x$: $${a * c} = ${b}x$`, `מחלקים ב־$${b}$: $x = ${x}$`, `בדיקה: $\\frac{${a}}{${x}}$ מצטמצם ב־$${m}$ ל־$\\frac{${b}}{${c}}$.`],
+    diag: () => null,
+  };
+}
+/** Pairs neither coprime nor one a multiple of the other, so the lcm, the product, the sum and the larger differ. */
+export const LCD_PAIRS = [[4, 6], [6, 8], [6, 9], [4, 10], [6, 10], [8, 12], [9, 12], [10, 15]];
+/**
+ * The smallest common denominator: the lcm, the product (it clears the fractions too, but is not the smallest), the sum
+ * and the larger denominator. Four numbers to pick from and the answer is read off them, so practice only.
+ */
+function lcdMc() {
+  const [a, b] = pick(LCD_PAIRS); const L = lcm(a, b);
+  const opts = [[L, true], [a * b], [a + b], [b]];
+  const choices = shuffle(opts.map(([v, ok]) => ({ ...tex(String(v)), ok: ok === true })));
+  const multiples = Array.from({ length: L / b }, (_, i) => b * (i + 1));
+  return {
+    key: `eq7l:${a}:${b}`, text: `מה המכנה המשותף הקטן ביותר של $${a}$ ו־$${b}$?`, form: 'mc', choices, answer: choices.findIndex((c) => c.ok), practiceOnly: true,
+    hint: `עוברים על הכפולות של $${b}$, ומחפשים את הראשונה שמתחלקת גם ב־$${a}$.`,
+    solution: [`הכפולות של $${b}$: $${multiples.join(', ')}$. הראשונה שמתחלקת גם ב־$${a}$ היא $${L}$.`, `גם $${a * b}$ מבטל את שני המכנים, אבל $${L}$ קטן ממנו, והחשבון קצר יותר.`],
+    diag: () => null,
+  };
+}
+
 export const EQ = {
   id: 'eq', grade: '7', title: 'משוואות', color: 'violet',
-  desc: 'משוואה ופתרונה, פעולות על שני האגפים, בדיקה בהצבה ובעיות מילוליות',
+  desc: 'משוואה ופתרונה, פעולות על שני האגפים, בדיקה בהצבה, בעיות מילוליות, שאלות תנועה ומשוואות עם מכנים',
   placement: false, alsoFor: ['8'],
   levels: [
     { title: 'משוואה ופתרון', gen: () => { const r = Math.random(); return r < 0.45 ? oneStepItem() : r < 0.62 ? whichSolves() : r < 0.82 ? missingItem() : balance1(); } },
@@ -576,6 +1018,11 @@ export const EQ = {
     { title: 'נעלם בשני האגפים', gen: () => { const r = Math.random(); return r < 0.6 ? bothItem() : r < 0.75 ? howManyItem(3) : balance3(); } },
     { title: 'משוואות עם סוגריים', gen: () => { const r = Math.random(); return r < 0.62 ? bracketItem() : r < 0.8 ? examItem() : howManyItem(4); } },
     { title: 'בעיות מילוליות', gen: () => { const r = Math.random(); return r < 0.7 ? pick([stampsStory, agesStory, parcelsStory, anglesStory, ballsStory, consecutiveStory])() : pickEquation(); } },
+    // the spec's mix: a motion story 50%, minutes and hours 25%, the meeting read off a graph 10%, which equation 15%
+    { title: 'שאלות תנועה', gen: () => { const r = Math.random(); return r < 0.5 ? motionItem() : r < 0.75 ? minutesItem() : r < 0.85 ? meetGraph() : tableMc(); } },
+    // the spec's mix: two fractions or x and a fraction of it 55%, a proportion 20%, x in a denominator 15%, the smallest
+    // common denominator 10%
+    { title: 'משוואות עם מכנים ופרופורציה', gen: () => { const r = Math.random(); return r < 0.55 ? denomItem() : r < 0.75 ? propItem() : r < 0.9 ? xDenItem() : lcdMc(); } },
   ],
   cats: {
     'move-no-flip': 'מספר עבר לאגף השני בלי פעולה הפוכה ($x + 5 = 12$ הפך ל־$x = 17$)',
@@ -588,6 +1035,15 @@ export const EQ = {
     'minus-bracket': 'מינוס לפני סוגריים הפך רק את הסימן הראשון',
     'wrong-unknown': 'נמצא הנעלם, אבל התשובה לא עונה על מה שנשאל',
     reversal: 'היחס נכתב הפוך: הקבוצה הקטנה קיבלה את ה"פי"',
+    // eq:6, motion problems (stage5.md FUNC-3)
+    'rel-speed': 'חיברו מהירויות במקום לחסר, או חיסרו במקום לחבר',
+    'mean-speed': 'השתמשו בממוצע של שתי המהירויות, אבל הזמנים שונים',
+    'minutes-as-hours': 'השתמשו בדקות כאילו הן שעות',
+    'decimal-minutes': 'כתבו דקות כשבר עשרוני של שעה, כאילו בשעה $100$ דקות',
+    'formula-flip': 'חילקו במקום לכפול: דרך היא מהירות כפול זמן',
+    // eq:7, equations with denominators and proportion (stage5.md FUNC-4); add-across is frac's id and name
+    'lcd-partial': 'כפלו במכנה המשותף רק חלק מהאיברים',
+    'add-across': 'חיברו מונה עם מונה ומכנה עם מכנה',
   },
   lesson: {
     points: [
@@ -597,6 +1053,8 @@ export const EQ = {
       'סוגריים: פותחים קודם. $4(x - 3) = 2x + 6$, ולכן $x = 9$.',
       'תמיד בודקים: מציבים את הפתרון במשוואה המקורית.',
       'בבעיה מילולית בודקים גם בסיפור, ועונים על מה שנשאל.',
+      'שאלות תנועה: דרך = מהירות × זמן, באותן יחידות. זה לקראת זה מחברים את המהירויות, ומי שמשיג סוגר את הפער בהפרש שלהן.',
+      'משוואה עם מכנים: כופלים כל איבר בשני האגפים במכנה משותף. המונה כולו נכפל, כמו סוגריים: $\\frac{x}{2} + \\frac{x}{3} = 10$, ולכן $3x + 2x = 60$.',
     ],
   },
 };

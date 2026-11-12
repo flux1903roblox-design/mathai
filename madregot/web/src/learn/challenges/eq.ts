@@ -2,6 +2,9 @@
 // many solutions ax + b = cx + d has; eq:c2, a number moved across without the inverse operation ('move-no-flip');
 // eq:c3, two gym plans and the number of visits where they cost the same. Every number is in the lane skeptic's
 // check.mjs and in verify/facts-challenges17.mjs; learn/challenges.test.ts checks them again.
+// eq:c4 (stage5.md FUNC-7.4), after the motion problems of eq:6: a race of three legs, each leg's minutes and the whole
+// race's, and why the mean of the three speeds is not the average speed (the stage-5 critique's check.mjs and the lane's
+// spec/facts.mjs hold its numbers).
 import type { ChallengeTask } from '../types';
 
 export const EQ_CHALLENGES: ChallengeTask[] = [
@@ -48,6 +51,22 @@ export const EQ_CHALLENGES: ChallengeTask[] = [
       { type: 'explain', prompt: 'כתבו משוואה שאומרת מתי המסלולים שווים, והסבירו כל חלק בה.',
         rubric: ['כתבתי משוואה כמו $120 + 15x = 25x$', 'אמרתי מה $x$ מייצג', 'הסברתי מה כל אגף'],
         sample: '$x$ הוא מספר הכניסות. אגף שמאל הוא המחיר במסלול א: $120$ ועוד $15$ לכל כניסה. אגף ימין הוא מסלול ב: $25$ לכל כניסה. הם שווים כש־$120 + 15x = 25x$, כלומר $x = 12$.' },
+    ],
+  },
+  {
+    id: 'eq:c4', topic: 'eq', after: 'eq:6', kind: 'literacy', title: 'שלושה מקצים', minutes: 8,
+    story: 'בתחרות שוחים $0.75$ ק״מ ב־$3$ קמ״ש, רוכבים $20$ ק״מ ב־$30$ קמ״ש, ורצים $5$ ק״מ ב־$10$ קמ״ש.',
+    parts: [
+      { type: 'num', prompt: 'כמה דקות שחו?', answer: 15, check: '0.75/3*60', unit: 'דקות',
+        solution: ['זמן = דרך : מהירות: $0.75 : 3 = 0.25$ שעה.', 'רבע שעה היא $15$ דקות.'] },
+      { type: 'num', prompt: 'כמה דקות רכבו?', answer: 40, check: '20/30*60', unit: 'דקות',
+        solution: ['$20 : 30 = \\frac{2}{3}$ שעה.', 'שני שלישים של $60$ דקות הם $40$ דקות.'] },
+      { type: 'num', prompt: 'כמה דקות נמשכה כל התחרות?', answer: 85, check: '15+40+30', unit: 'דקות',
+        solution: ['הריצה: $5 : 10 = \\frac{1}{2}$ שעה, כלומר $30$ דקות.', 'כל התחרות: $15 + 40 + 30 = 85$ דקות.'] },
+      { type: 'mc', prompt: 'האם הממוצע של $3$, $30$ ו־$10$ הוא המהירות הממוצעת?', choices: [
+        { text: 'לא: בכל קטע הזמן שונה, והמהירות הממוצעת היא כל הדרך חלקי כל הזמן', ok: true, feedback: '$25.75$ ק״מ ב־$85$ דקות הם בערך $18.18$ קמ״ש, לא $14.33$.' },
+        { text: 'כן', ok: false, feedback: 'הממוצע $14.33$ נותן לכל מהירות אותו משקל, אבל רכבו $40$ דקות ושחו רק $15$. כל הדרך, $25.75$ ק״מ, ב־$85$ דקות: בערך $18.18$ קמ״ש.' },
+      ] },
     ],
   },
 ];

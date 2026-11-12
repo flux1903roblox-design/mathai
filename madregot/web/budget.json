@@ -4,7 +4,7 @@
   "cssGzipKB": 46,
   "cssTargetKB": 32,
   "anyChunkGzipKB": 150,
-  "precacheMB": 4.79,
+  "precacheMB": 5.13,
   "timing": { "fcpMs": 2500, "lcpMs": 3000, "longestBootTaskMs": 200, "repeatLcpMs": 1500 },
   "lazyOnly": [
     "Wardrobe",
@@ -19,7 +19,9 @@
     "ai",
     "pedagogy",
     "guard",
-    "topicWays"
+    "topicWays",
+    "safety",
+    "blocklist"
   ],
-  "notes": "Checked by scripts/check-budget.mjs after every npm run build. The gates and targets are DURABLE-11's (QA_DURABLE.md): boot JS and render-blocking CSS gzipped at level 9 (KB = 1000 bytes), any chunk loaded on demand, and the service worker's precache. FOLLOWUP-23 set the two first-load gates on the merged app: the teacher's, the parents' area's, the legal pages' and the saving screens' rules load with their screens, the demo class's code with the demo, and the tutor's prompts, schemas and checks (shared/ai.js and what it imports) with the tutor, the first load reading only the AI kinds and limits (shared/aiKinds.js). The build measured 403.3 KB boot JS (403.5 KB built as the public site, VITE_API_URL=none), so the ratchet set the gate to that + 5%: 424 KB, about 20 KB of room; it never goes up. CSS measured 45.5 KB (gate 46). The 260 KB and 32 KB targets stay DURABLE-11's: a warning, not a gate. lazyOnly is STUDENT-15's, and FOLLOWUP-23 added the demo class (lib/demo.js, components/DemoAsk.jsx) and the tutor's code (lib/ai.js and shared/ai.js, shared/pedagogy.js, shared/guard.js, shared/topicWays.js): these modules must never be in a boot file (scripts/vite-plugin-budget.mjs writes the module map it is read from)."
+  "notes": "Checked by scripts/check-budget.mjs after every npm run build. The gates and targets are DURABLE-11's (QA_DURABLE.md): boot JS and render-blocking CSS gzipped at level 9 (KB = 1000 bytes), any chunk loaded on demand, and the service worker's precache. FOLLOWUP-23 set the two first-load gates on the merged app: the teacher's, the parents' area's, the legal pages' and the saving screens' rules load with their screens, the demo class's code with the demo, and the tutor's prompts, schemas and checks (shared/ai.js and what it imports) with the tutor, the first load reading only the AI kinds and limits (shared/aiKinds.js). The build measured 403.3 KB boot JS (403.5 KB built as the public site, VITE_API_URL=none), so the ratchet set the gate to that + 5%: 424 KB, about 20 KB of room; it never goes up. CSS measured 45.5 KB (gate 46). The 260 KB and 32 KB targets stay DURABLE-11's: a warning, not a gate. lazyOnly is STUDENT-15's, and FOLLOWUP-23 added the demo class (lib/demo.js, components/DemoAsk.jsx) and the tutor's code (lib/ai.js and shared/ai.js, shared/pedagogy.js, shared/guard.js, shared/topicWays.js): these modules must never be in a boot file (scripts/vite-plugin-budget.mjs writes the module map it is read from). The stage-5 merge (functions, eq:6-7) put about 24 KB of exercise generators and tasks in the first load: the help lines moved to shared/helpLines.js so shared/safety.js and shared/blocklist.js load with the screens that read a child's words (lazyOnly names them), and the graph and protractor rules moved to styles/lazy/graph.css. Measured 420.9 KB boot JS, 45.5 KB CSS: both gates unchanged. The precache gate is not a ratchet: the merge measured 4.89 MB (the new topic's raw bytes), so it moved by the integration rule, measured + 5%, to 5.13 MB."
 }

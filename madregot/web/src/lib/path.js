@@ -10,7 +10,8 @@
 // straight to its check) leaves the stairs before it open, not locked; the path still continues from the first one.
 //
 // path[topic] = { parts: { level: practice lessons }, reviews, jumped: highest level passed over, done: { level: 'mastered' | 'kept' } }
-import { TOPIC } from '@/content/index.js';
+import { TOPIC, GUEST_STATE } from '@/content/index.js';
+import { GUEST, parseSkill } from '@/learn/skills.ts';
 import { PARTS } from './lesson.js';
 
 export const partsOf = (path, topic, level) => path?.[topic]?.parts?.[level] || 0;
@@ -73,10 +74,33 @@ export function unitNodes(topic, path = {}) {
  * Stairs added to a unit after students had climbed it: saved progress is kept by topic and level, so the stairs before
  * keep their state and the new one becomes the current stair after them. Its card says why it is there.
  */
-const ADDED_STAIRS = { 'signed:6': 'נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.' };
+const ADDED_STAIRS = {
+  'signed:6': 'נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.',
+  'eq:6': 'נוספה מדרגה חדשה ליחידה: שאלות תנועה.',
+  'eq:7': 'נוספה מדרגה חדשה ליחידה: משוואות עם מכנים ופרופורציה.',
+};
 /** The line a stair's card adds while it is the current stair and the stair before it is done; computed, never stored. */
 export const addedStairNote = (n, path = {}) => (n?.kind === 'node' && n.state === 'current' && n.level > 1 && isDone(path, n.topic, n.level - 1)
   ? ADDED_STAIRS[`${n.topic}:${n.level}`] || null : null);
+
+/**
+ * What the class sync says about each guest stair (learn/skills.ts GUEST: eq:6 and eq:7 for ח׳, func:1 for ז׳): under the
+ * stair's own id, { level, max } of GUEST_STATE, mastered when its mastery check is passed (done on the path), practised
+ * when it has a practice lesson, a teaching stage or an answer; a stair not yet touched is not sent. Every guest stair is
+ * sent, whatever the student's grade, so a teacher's guest row (content/index.js rowLevel) reads the stair itself and
+ * never its unit's level.
+ */
+export function guestStairLevels(path = {}, learn = {}) {
+  const out = {};
+  for (const id of [...new Set(Object.values(GUEST).flat())]) {
+    const { topic, level } = parseSkill(id);
+    const rec = learn?.skills?.[id];
+    const touched = partsOf(path, topic, level) > 0 || Object.keys(rec?.taught || {}).length > 0 || (rec?.attempts?.length || 0) > 0;
+    const n = isDone(path, topic, level) ? GUEST_STATE.mastered : touched ? GUEST_STATE.practised : 0;
+    if (n) out[id] = { level: n, max: n };
+  }
+  return out;
+}
 
 /** The node to continue from: the first current node in grade order. */
 export function nextNode(topics, path) {
@@ -188,9 +212,10 @@ export function unitProgress(topic, path = {}, skills = {}) {
  * stages done, and before anything the size of the unit.
  */
 export function unitCountText({ done, stairs, stages, of }) {
-  if (done > 0) return `${done} מתוך ${stairs} מדרגות`;
+  // a unit of one stair (a unit whose later stairs have not landed yet) says it in the singular
+  if (done > 0) return stairs === 1 ? 'מדרגה אחת, שולטים בה' : `${done} מתוך ${stairs} מדרגות`;
   if (stages > 0) return `${stages} מתוך ${of} שלבים`;
-  return `${stairs} מדרגות`;
+  return stairs === 1 ? 'מדרגה אחת' : `${stairs} מדרגות`;
 }
 
 /** The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. */

@@ -112,7 +112,7 @@ function ChestCard({ topic, open, half, onTry }) {
       <p className="node-card-title">{open ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
       <div className="chest-card-item">
         <Suspense fallback={<span className="chest-card-art" />}>{item ? <ItemArt id={item.id} className="chest-card-art" /> : <span className="chest-card-art" />}</Suspense>
-        <p className="node-card-sub">{open ? `פתחתם: ${item?.name}.` : `בתיבה: ${item?.name} למדי. היא נפתחת כשתשלטו במדרגות 1 עד ${half}.`}</p>
+        <p className="node-card-sub">{open ? `פתחתם: ${item?.name}.` : `בתיבה: ${item?.name} למדי. היא נפתחת כשתשלטו ${half === 1 ? 'במדרגה הראשונה' : `במדרגות 1 עד ${half}`}.`}</p>
       </div>
       {open && item && <Button variant="secondary" className="btn-block" onClick={() => onTry(`/me/madi?try=${item.id}`)}>לנסות על מדי</Button>}
     </div>

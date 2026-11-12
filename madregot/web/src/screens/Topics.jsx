@@ -5,6 +5,9 @@
 // and the board adds no primary. Under the grade's units, the floor under them (יסודות לחיזוק): the fractions unit,
 // always reachable from here, the short floor check, multiplication facts after a missed fact, and the way to take the
 // unit off the map again.
+// Between the grade's units and the floor, its guest stairs (גם בתוכנית של כיתה …, stage5.md FUNC-6): another grade's
+// stairs this grade's programme lists, each with its unit and a link to its journey (their units stay on their own
+// grade's map; the home offers them from the banner in the month the school teaches them).
 // Under a unit's bar, once one of its challenge tasks is open (its stair mastered): "אתגרים: {done} מתוך {open}", a link to
 // the next one not solved yet (CURRICULUM-6.3). It never shows while nothing is open: no row of zeros.
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -12,7 +15,8 @@ import { useState } from 'react';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
-import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
+import { topicsFor, bridgeTopicsFor, TOPIC } from '@/content/index.js';
+import { guestSkillsOf, parseSkill } from '@/learn/skills.ts';
 import { Button } from '@/components/ui.jsx';
 import { doneCount, unitProgress, unitCountText, unitNodes } from '@/lib/path.js';
 import { GradeSwitch } from './Welcome.jsx';
@@ -34,7 +38,7 @@ function SectionCard({ t, n, current }) {
         <h2 className="section-card-title">{t.title}</h2>
         <p className="section-card-label">יחידה {n}</p>
         <p className="section-card-desc">{t.desc}</p>
-        <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.done} מתוך ${prog.stairs} מדרגות`} tone="light" />
+        <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.stairs === 1 ? `${prog.done} מתוך מדרגה אחת` : `${prog.done} מתוך ${prog.stairs} מדרגות`}`} tone="light" />
         {now && <p className="section-card-now">עכשיו: {now.title}</p>}
         <ChallengeLine topic={t.id} />
         <div className="section-card-actions">
@@ -71,7 +75,7 @@ function FloorCard({ t }) {
       <div className="section-card-text">
         <h3 className="section-card-title">{t.title}</h3>
         <p className="section-card-desc">{t.desc}</p>
-        {prog.stages > 0 && <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.done} מתוך ${prog.stairs} מדרגות`} tone="light" />}
+        {prog.stages > 0 && <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.stairs === 1 ? `${prog.done} מתוך מדרגה אחת` : `${prog.done} מתוך ${prog.stairs} מדרגות`}`} tone="light" />}
         {now && <p className="section-card-now">עכשיו: {now.title}</p>}
         <ChallengeLine topic={t.id} />
         <div className="section-card-actions">
@@ -81,6 +85,29 @@ function FloorCard({ t }) {
       </div>
       <span className="section-card-art" aria-hidden="true"><Emblem topic={t.id} /></span>
     </li>
+  );
+}
+
+/** The grade's name with its letter: "כיתה ח׳". */
+const gradeName = (g) => `כיתה ${String(g) === '8' ? 'ח׳' : 'ז׳'}`;
+
+/** גם בתוכנית של כיתה …: the grade's guest stairs, each a row to its journey. */
+function GuestSection({ grade }) {
+  const rows = guestSkillsOf(String(grade)).map((id) => {
+    const { topic, level } = parseSkill(id);
+    const t = TOPIC[topic];
+    return t?.levels[level - 1] ? { id, title: t.levels[level - 1].title, unit: t.title, to: `/learn/${topic}/${level}` } : null;
+  }).filter(Boolean);
+  if (!rows.length) return null;
+  return (
+    <section className="guest-section" aria-labelledby="guest-head">
+      <h2 id="guest-head" className="h-section">גם בתוכנית של {gradeName(grade)}</h2>
+      <ul className="floor-rows">
+        {rows.map((r) => (
+          <li key={r.id}><Link to={r.to} className="prog-entry floor-row"><span className="floor-row-text"><b>{r.title}</b><span>מתוך היחידה "{r.unit}"</span></span></Link></li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -127,6 +154,7 @@ export default function Topics() {
       <ul className="section-cards" data-region="content">
         {list.map((t, i) => <SectionCard key={t.id} t={t} n={i + 1} current={t === current} />)}
       </ul>
+      <GuestSection grade={grade} />
       <FloorSection grade={grade} />
       <Link to={`/programme?grade=${grade}`} className="prog-entry">כל תוכנית הלימודים</Link>
       <Board grade={grade} placed={!!state?.placed} onStart={(to) => navigate(to)} />

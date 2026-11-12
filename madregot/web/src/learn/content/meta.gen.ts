@@ -287,6 +287,58 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "eq:6": {
+    "title": "שאלות תנועה",
+    "misconceptions": [
+      {
+        "id": "rel-speed",
+        "title": "חיברו מהירויות במקום לחסר, או חיסרו במקום לחבר"
+      },
+      {
+        "id": "wrong-unknown",
+        "title": "נמצא הנעלם, אבל התשובה לא עונה על מה שנשאל"
+      },
+      {
+        "id": "mean-speed",
+        "title": "השתמשו בממוצע של שתי המהירויות, אבל הזמנים שונים"
+      },
+      {
+        "id": "minutes-as-hours",
+        "title": "השתמשו בדקות כאילו הן שעות"
+      },
+      {
+        "id": "decimal-minutes",
+        "title": "כתבו דקות כשבר עשרוני של שעה, כאילו בשעה $100$ דקות"
+      },
+      {
+        "id": "formula-flip",
+        "title": "חילקו במקום לכפול: דרך היא מהירות כפול זמן"
+      }
+    ],
+    "transfer": true
+  },
+  "eq:7": {
+    "title": "משוואות עם מכנים ופרופורציה",
+    "misconceptions": [
+      {
+        "id": "lcd-partial",
+        "title": "כפלו במכנה המשותף רק חלק מהאיברים"
+      },
+      {
+        "id": "partial-dist",
+        "title": "כפלו רק את $x$ שבמונה, ולא את כל המונה"
+      },
+      {
+        "id": "minus-bracket",
+        "title": "מינוס לפני סוגריים הפך רק את הסימן הראשון"
+      },
+      {
+        "id": "add-across",
+        "title": "חיברו מונה עם מונה ומכנה עם מכנה"
+      }
+    ],
+    "transfer": true
+  },
   "expr:1": {
     "title": "הצבה בביטוי",
     "misconceptions": [
@@ -453,6 +505,94 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "mult-bigger",
         "title": "חשבו שכפל תמיד מגדיל ושחילוק תמיד מקטין"
+      }
+    ],
+    "transfer": true
+  },
+  "func:1": {
+    "title": "קריאת גרף של מצב",
+    "misconceptions": [
+      {
+        "id": "graph-picture",
+        "title": "קראו את הגרף כמו ציור של הדרך, ולא כקשר בין שני גדלים"
+      },
+      {
+        "id": "count-squares",
+        "title": "ספרו משבצות ולא כפלו בגודל של כל משבצת"
+      },
+      {
+        "id": "end-for-duration",
+        "title": "ענו את הרגע שבו זה נגמר, ולא כמה זמן זה נמשך"
+      },
+      {
+        "id": "value-not-change",
+        "title": "ענו את הערך בסוף, ולא בכמה הוא השתנה"
+      }
+    ],
+    "transfer": true
+  },
+  "func:2": {
+    "title": "פונקציה וייצוגיה",
+    "misconceptions": [
+      {
+        "id": "forgot-b",
+        "title": "שכחו את החלק הקבוע (דמי פתיחה, עמלה, ערך ההתחלה)"
+      },
+      {
+        "id": "forward",
+        "title": "הציבו את ערך הפונקציה במקום $x$"
+      },
+      {
+        "id": "order-ops",
+        "title": "חיברו לפני שכפלו"
+      },
+      {
+        "id": "const-not-function",
+        "title": "חשבו שקבוע אינו פונקציה"
+      }
+    ],
+    "transfer": true
+  },
+  "func:3": {
+    "title": "עלייה, ירידה וקבוע",
+    "misconceptions": [
+      {
+        "id": "rtl-read",
+        "title": "ענו את אורך התחום השני (יורד במקום עולה, או להפך), כמו מי שקורא את הגרף מימין לשמאל"
+      },
+      {
+        "id": "y-not-x",
+        "title": "ענו בערך של $y$ (השינוי או הגובה), אבל התחום נמדד על ציר $x$"
+      },
+      {
+        "id": "graph-picture",
+        "title": "קראו את הגרף כמו ציור של הדרך, ולא כקשר בין שני גדלים"
+      }
+    ],
+    "transfer": true
+  },
+  "func:4": {
+    "title": "קצב אחיד ולא אחיד",
+    "misconceptions": [
+      {
+        "id": "from-zero",
+        "title": "חישבו את הקצב כאילו ההתחלה הייתה $0$"
+      },
+      {
+        "id": "whole-change",
+        "title": "ענו את כל השינוי, ולא את השינוי ליחידה אחת"
+      },
+      {
+        "id": "height-for-slope",
+        "title": "בחרו לפי הגובה של הקו ולא לפי התלילות שלו"
+      },
+      {
+        "id": "forgot-b",
+        "title": "שכחו את החלק הקבוע (דמי פתיחה, עמלה, ערך ההתחלה)"
+      },
+      {
+        "id": "wrong-unknown",
+        "title": "ענו כמה זמן נשאר מעכשיו, ולא מתי זה נגמר מההתחלה"
       }
     ],
     "transfer": true
@@ -1197,6 +1337,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
   "eq": {},
   "expr": {},
   "frac": {},
+  "func": {},
   "line": {
     "proportional": "חשבו כאילו $y$ פרופורציוני ל־$x$ (הכפילו גם את $b$)",
     "hidden-one": "חשבו שכש־$x$ לבד, השיפוע הוא $0$ ולא $1$",

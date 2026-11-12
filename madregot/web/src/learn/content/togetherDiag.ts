@@ -51,6 +51,30 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // 4 by 3 cm at 1 : 100, in m²: the area left in square centimetres (400 · 300 = 120,000)
     { bugs: { 'no-convert': 120000 } },
   ],
+  'func:1': [
+    // the minute Dani was 800 m from home on the way back: reading the other crossing (the way out, 10) names no
+    // misconception of the stair, and no prediction of the model fits this question
+    { bugs: {} },
+    // the litres added from hour 2 to hour 6: the value at the end, 500, instead of the change
+    { bugs: { 'value-not-change': 500 } },
+  ],
+  'func:2': [
+    { model: 'diag', p: { m: 4, b: 12, x: 8, y: 44, q: 0 } }, // 8 km at 4 ₪ and 12 ₪ once: the fixed part left out gives 32
+    { model: 'diag', p: { m: 4, b: 12, x: 12, y: 60, q: 1 } }, // paid 60 ₪: 60 : 4 = 15 without the 12; 60 put in for x, 252
+  ],
+  'func:3': [
+    // up from (1, 3) to (4, 9), down to (6, 5), flat to 9: how long it rises; the falling part read instead gives 2, the
+    // change in y 6
+    { model: 'diag', p: { s: 1, x0: 1, x1: 4, x2: 6, x3: 9, y0: 3, y1: 9, y2: 5, q: 0 } },
+    // the same graph, how long it falls: the rising part 3, the change in y 4
+    { model: 'diag', p: { s: 1, x0: 1, x1: 4, x2: 6, x3: 9, y0: 3, y1: 9, y2: 5, q: 1 } },
+  ],
+  'func:4': [
+    // the pool, 40 m³ at 8:00 and 130 at 11:00: per hour, 30; as if it started empty, 130 : 3; the whole change, 90
+    { model: 'diag', p: { s: 40, r: 30, T: 3, v: 130, t: 0, q: 0 } },
+    // the same pool at 13:00, five hours after 8:00: 190; from empty, 5 · 130 : 3; the start left out, 5 · 30 = 150
+    { model: 'diag', p: { s: 40, r: 30, T: 3, v: 130, t: 5, q: 1 } },
+  ],
   'pct:1': [
     { model: 'transfer', p: { a: 19, b: 25 } }, // 19 of 25 questions: the count of right answers, 19, written as the percent
     { model: 'diag', p: { k: 1, x: 0.6 } }, // 0.6 as a percent: the digit read as the percent gives 6
@@ -319,6 +343,22 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { bugs: { 'wrong-unknown': 9 } },
     // the small angle is 35°, the large one 55°: the large one answered
     { bugs: { 'wrong-unknown': 55 } },
+  ],
+  'eq:6': [
+    // two cyclists 54 km apart at 10 and 8 km/h: they meet after 54 : 18 = 3 hours; the speeds subtracted give 54 : 2 = 27
+    { model: 'diag', p: { k: 'toward', bike: true, v1: 10, v2: 8, t: 3, D: 54, q: 0 } },
+    // a car at 90 km/h an hour after a bus at 60: it catches up after 2 hours; the bus's 3 hours answered (wrong-unknown),
+    // or the gap of 60 km closed at the sum of the speeds, 60 : 150 = 0.4 (rel-speed)
+    { model: 'diag', p: { k: 'catch', v1: 60, h: 1, v2: 90, t: 2, q: 0 } },
+  ],
+  'eq:7': [
+    // x/3 − x/5 = 4, the step chose 15: 5x − 3x = 60, x = 30. The 4 not multiplied by 15: 2x = 4, x = 2
+    { bugs: { 'lcd-partial': 2 } },
+    // (x + 2)/4 = (x − 1)/3, the step wrote 3(x + 2) = 4(x − 1), so x = 10; only x multiplied (3x + 2 = 4x − 1, x = 3)
+    // is what that step ruled out
+    { bugs: {} },
+    // x + x/3 = 8 (the ז׳ programme's form): 6; the 8 not multiplied by 3 gives 8 : 4 = 2, added across 8 · 4 : 2 = 16
+    { model: 'diag', p: { k: 1, a: 3, x: 6, c: 8 } },
   ],
   'sys:1': [
     // the steps wrote 1.1x = 55, so the percent is of the old price: x = 50

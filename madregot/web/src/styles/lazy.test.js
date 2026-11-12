@@ -137,6 +137,10 @@ describe('a lazy stylesheet styles only what the screens that load it write', ()
     for (const f of ['screens/parents/ParentsFrame.jsx', 'screens/parents/Parents.jsx']) expect(imports(at(f), 'parents.css'), f).toBe(true);
     for (const f of ['screens/parents/Legal.jsx', 'screens/teacher/Guide.jsx']) expect(imports(at(f), 'legal.css'), f).toBe(true);
     for (const f of ['components/durable/SaveSection.jsx', 'components/durable/SupportInfo.jsx', 'components/learn/ReminderSettings.jsx', 'components/durable/BackupCodeSheet.jsx', 'screens/Restore.jsx']) expect(imports(at(f), 'durable.css'), f).toBe(true);
+    // the graph and protractor drawings (FUNC-1): their sheet loads with the two drawing modules, which the objects and the
+    // still figures reach only through them. Their class names are built from the caller's prefix (`${cls}-grid`, 'mp-graph'
+    // or 'fig-sgraph'), which the selector check above cannot read, so graph.css (like figure.css) is pinned here instead
+    for (const f of ['components/manip/graphAxes.jsx', 'components/manip/protractor.jsx']) expect(imports(at(f), 'graph.css'), f).toBe(true);
   });
 });
 
@@ -180,6 +184,11 @@ describe('the first load (FOLLOWUP-23)', () => {
     expect(rel).toContain('web/src/lib/account.js');
     expect(rel).toContain('shared/aiKinds.js');
     for (const f of ['shared/ai.js', 'shared/pedagogy.js', 'shared/topicWays.js', 'shared/guard.js', 'web/src/lib/ai.js']) expect(rel, f).not.toContain(f);
+    // the help lines the first screen shows (SupportSheet, SupportCard) are on their own as well (shared/helpLines.js,
+    // re-exported by shared/safety.js): the distress detector, the masking and the output screen load with the screens
+    // that read a child's words (the lesson, the tutor, the help thread), never with the first one
+    expect(rel).toContain('shared/helpLines.js');
+    for (const f of ['shared/safety.js', 'shared/blocklist.js']) expect(rel, f).not.toContain(f);
   });
 
   it('the demo class\'s code loads only when the address or this tab asks for it', () => {

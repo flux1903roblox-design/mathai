@@ -6,11 +6,11 @@ import type { SkillId, TopicId } from './types';
 // 'frac' (fractions and decimals) is a bridge unit: the floor under grade 7, first so ALL_SKILLS stays in prerequisite
 // order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
-// ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
-// before linear functions.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+// ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), the
+// introduction to functions the third (November), all before linear functions (rate and slope, December).
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 7, ratio: 4, pct: 5, func: 4, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -25,6 +25,17 @@ export const gradeSkillsOf = (g: '7' | '8'): SkillId[] => ALL_SKILLS.filter((id)
 export const isBridgeSkill = (id: SkillId) => BRIDGE.has(id.split(':')[0] as TopicId);
 /** The bridge stairs, in order: the floor under every grade. */
 export const BRIDGE_SKILLS: SkillId[] = ALL_SKILLS.filter(isBridgeSkill);
+
+/**
+ * Guest stairs (stage5.md FUNC-6): a guest stair belongs to another grade's topic and is listed in this grade's
+ * programme (ח׳ 8.9 lists motion problems and equations with denominators; ז׳ 7.9 a graph that describes a situation).
+ * It is offered as new, in the month the grade's school teaches it, from the banner above the path: its unit stays on
+ * its own grade's map. It is never counted in the grade's own "X מתוך N", and never part of strongToday's "every stair
+ * of the grade". A stair is never both a guest and one of the grade's own (gradeSkillsOf); a grade's guest stairs are
+ * listed in the order they are offered (eq:7 after eq:6).
+ */
+export const GUEST: Record<'7' | '8', SkillId[]> = { '7': ['func:1'], '8': ['eq:6', 'eq:7'] };
+export const guestSkillsOf = (g: '7' | '8' | string): SkillId[] => GUEST[g as '7' | '8'] || [];
 
 /** What each stair uses. Comments say why, so the graph can be reviewed by a teacher. */
 export const PREREQS: Record<SkillId, SkillId[]> = {
@@ -58,6 +69,8 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'eq:3': ['eq:2', 'expr:3'], // the x-terms of both sides are collected first, then it is a two-step equation
   'eq:4': ['eq:3', 'expr:5'], // open the brackets and collect (simplifying), then solve
   'eq:5': ['eq:4', 'expr:2'], // the story becomes expressions (writing an expression), then an equation
+  'eq:6': ['eq:5'], // a motion story becomes an equation like any story; distance = speed × time, a row per mover
+  'eq:7': ['eq:4', 'frac:3'], // clearing denominators gives brackets (eq:4); a common denominator (frac:3, bridge edge)
   'ratio:1': ['frac:1'], // simplifying a ratio is simplifying a fraction (bridge edge)
   'ratio:2': ['ratio:1'], // m : n is m + n equal parts
   'ratio:3': ['ratio:1', 'frac:4'], // the unit rate is a quotient; the missing value is a product (bridge edge)
@@ -67,9 +80,17 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'pct:3': ['pct:1'], // part ÷ whole, written in hundredths
   'pct:4': ['pct:2', 'eq:1'], // the whole: undo "p% of" through 1% or a benchmark; the same question as 0.35x = 1400 (a ז׳ stair: evidence only)
   'pct:5': ['pct:2', 'pct:3'], // the new amount is a percent of the old; the change is a percent of the old
+  'func:1': ['coord:1'], // a point of a graph is a pair, read on two axes (ז׳ September)
+  'func:2': ['func:1', 'expr:1'], // a rule gives each x one y; its value is a substitution (expr:1, ז׳: evidence only for ח׳)
+  'func:3': ['func:1'], // increasing and decreasing are read on the graph, left to right
+  'func:4': ['func:3', 'ratio:3'], // a rate is the change per one unit (a unit rate, ratio:3); uniform is straight
   'line:1': ['signed:4', 'coord:1', 'expr:1'], // a table of values: substitute x in mx + b (expr:1, signed:4), plot the points
   'line:2': ['line:1'], // what m and b mean in y = mx + b
-  'line:3': ['line:2', 'coord:1', 'ratio:1'], // slope from the graph: steps on the grid, "up 2 for every 3 to the right" is a ratio
+  // slope from the graph: steps on the grid, "up 2 for every 3 to the right" is a ratio; and a slope is a uniform rate
+  // of change (func:4, an own-grade edge: not new before func:4 is done, as in school order, rate before slope; a
+  // student already in line:3 keeps going, as the edge is read only when choosing a new stair or the stairs under a
+  // hard one)
+  'line:3': ['line:2', 'coord:1', 'ratio:1', 'func:4'],
   'line:4': ['line:3', 'signed:3', 'frac:1'], // slope between two points: a quotient of signed differences, simplified like a fraction (bridge edge)
   'line:5': ['line:4', 'eq:1'], // the equation of a line from two points or a point and a slope; b solves y₁ = m·x₁ + b, one step
   'line:6': ['line:2', 'signed:3', 'eq:2'], // intercepts: x = 0 gives b; y = 0 is the two-step equation 0 = mx + b

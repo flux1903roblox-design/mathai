@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { RotateCcw } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { previewBack } from '@/lib/teacher.js';
-import { topicsFor } from '@/content/index.js';
+import { topicsFor, guestTopicsFor, rowStairs } from '@/content/index.js';
 import { hasContent } from '@/learn/content/index.ts';
 import { skillId } from '@/learn/skills.ts';
 import { routeOf } from '@/learn/recommend.ts';
@@ -86,6 +86,20 @@ export default function Library() {
           </ol>
         </section>
       ))}
+      {/* the grade's guest stairs (FUNC-6): another grade's stairs this grade's programme lists, after its units */}
+      {guestTopicsFor(grade).length > 0 && (
+        <section className="section set-group t-lib-topic t-lib-guest" aria-labelledby="tl-guest">
+          <h2 className="set-head t-lib-head" id="tl-guest">גם בתוכנית של כיתה {GRADE[grade]}</h2>
+          {guestTopicsFor(grade).map((t) => (
+            <div key={t.id} className="t-lib-guest-unit">
+              <p className="t-lib-guest-from" id={`tl-guest-${t.id}`}>מתוך היחידה "{t.title}"</p>
+              <ol className="t-lib-list" aria-labelledby={`tl-guest-${t.id}`}>
+                {rowStairs(t).map((s) => <StairRow key={s.id} topic={t} level={s.level} title={s.title} back={back} onAssign={onAssign} />)}
+              </ol>
+            </div>
+          ))}
+        </section>
+      )}
       <section className="section set-group t-lib-foot" aria-label="תצוגת התלמיד במכשיר הזה">
         <p className="muted t-lib-foot-note">מה שעשיתם בשיעורים נשמר רק במכשיר הזה.</p>
         <div className="set-rows-wrap"><div className="set-rows">

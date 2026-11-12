@@ -197,6 +197,159 @@
       "tags": ["pct"]
     },
     {
+      "id": "D1-func1-count-squares", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "diag",
+      "params": { "sx": 5, "sy": 100, "a": 4, "b": 6, "c": 3, "e": 5, "t1": 20, "d1": 600, "t2": 35, "t3": 60, "pts": [[0, 0], [20, 600], [35, 600], [60, 0]], "q": 0 },
+      "wrong": [3, 250], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-squares", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the squares were counted and not multiplied by the size of each square. After 10 minutes Maya was halfway up the first climb, three squares above the x axis; each square up is 100 metres (the axis writes a number on every second line), so 3 · 100 = 300. Ends at 300. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func1-end-for-duration", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "diag",
+      "params": { "sx": 2, "sy": 50, "a": 2, "b": 6, "c": 5, "e": 3, "t1": 4, "d1": 300, "t2": 14, "t3": 20, "pts": [[0, 0], [4, 300], [14, 300], [20, 0]], "q": 1 },
+      "wrong": [14, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "end-for-duration", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the moment the stop ended was given instead of how long it lasted. Noa stood still while the line is flat, from minute 4 to minute 14 (each square across is 2 minutes); a duration is the difference of two moments, 14 - 4 = 10. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func1-value-not-change", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "transfer",
+      "params": { "k": 4, "temps": [12, 15, 18, 22, 24, 21, 18, 16], "hours": [6, 8, 10, 12, 14, 16, 18, 20], "q": 0, "i": 1, "j": 3 },
+      "wrong": [22, 9], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "value-not-change", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the temperature at the end was given instead of how much it rose. At 8:00 it was 15 degrees and at 12:00 it was 22; it rose by the difference, 22 - 15 = 7 degrees. Ends at 7. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func1-graph-picture", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "gen", "key": "fu1f:2:200:4:400:6:12", "wrong": [2, 1], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "graph-picture", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the graph was read as a picture of the way. The graph shows distance from home by time, not the ground; between minute 4 and minute 6 the distance stays 400 metres, so Maya stood still. Ends at the choice that she stood still. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-forgot-b", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "diag", "params": { "m": 7, "b": 5, "x": 4, "y": 33, "q": 0 }, "wrong": [28, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "forgot-b", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the fixed part was left out. The price of a night refuel is y = 7x + 5: 7 shekels for each litre and 5 shekels once a refuel, so 4 litres cost 7 · 4 + 5 = 33, not only 7 · 4 = 28. Ends at 33. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-forward", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "diag", "params": { "m": 7, "b": 5, "x": 10, "y": 75, "q": 1 }, "wrong": [530, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "forward", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the value of the function was put in for x. 75 shekels is the price, the y of y = 7x + 5, and the question asks for the litres, x: 7x + 5 = 75, so 7x = 70 and x = 10. Putting 75 in for x gives the price of 75 litres. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-order-ops", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "transfer", "params": { "C": 25, "F": 77, "q": 0 }, "wrong": [102.6, 80], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "order-ops", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 32 was added before multiplying. In F = 1.8C + 32 the multiplication comes first: 1.8 · 25 = 45, then 45 + 32 = 77, not 1.8 · (25 + 32). Ends at 77. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-const-not-function", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "gen", "key": "fu2i:1:3:8:6:rldc", "wrong": [3, 0], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "const-not-function", "maxWords": 130,
+        "describe": "Names the app's diagnosis: a constant was taken for not a function. The table where every y is 6 gives each x one value, so it is a function, a constant one; the table that is not a function gives x = 1 two values, 3 and 8. Ends at that table. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func3-rtl-read", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:3", "source": "diag", "params": { "s": 1, "x0": 0, "x1": 2, "x2": 6, "x3": 8, "y0": 2, "y1": 8, "y2": 3, "q": 0 }, "wrong": [4, 5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rtl-read", "maxWords": 130,
+        "describe": "Names the app's diagnosis, as a possibility: the length of the other interval was given, the falling part instead of the rising one, as a reader going right to left would find it. Read left to right, as x grows, y rises from 2 to 8 between x = 0 and x = 2, so the rising interval 0 < x < 2 is 2 long; 4 is the falling part, from x = 2 to x = 6. Ends at 2. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func3-y-not-x", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:3", "source": "transfer", "params": { "s": 2, "cols": 7, "k": 2, "temps": [12, 15, 19, 17, 16, 14, 13], "hours": [8, 10, 12, 14, 16, 18, 20], "q": 0 }, "wrong": [7, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "y-not-x", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the change in the temperature was given, but the question asks how many hours, a length on the hour column. The temperature rises from 12 degrees at 8 to 19 degrees at 12 and then falls, so it rose for 12 - 8 = 4 hours; 7 is how many degrees it rose. Ends at 4. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-from-zero", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "diag", "params": { "s": 8, "r": 10, "T": 5, "v": 58, "t": 0, "q": 0 }, "wrong": [11.6, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "from-zero", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the rate was worked out as if the water started at 0 degrees. It started at 8 and was 58 after 5 minutes, so it changed by 58 - 8 = 50 degrees in 5 minutes, 50 : 5 = 10 degrees a minute; 58 : 5 = 11.6 is the rate from 0. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-whole-change", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "diag", "params": { "s": 20, "r": 10, "T": 4, "v": 60, "t": 0, "q": 0 }, "wrong": [40, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "whole-change", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole change was given, not the change in one minute. From 20 degrees to 60 is 40 degrees in 4 minutes; the question asks for one minute, so 40 : 4 = 10. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-wrong-unknown", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "transfer", "params": { "r": 3, "n": 8, "h0": 24, "T": 3, "h1": 15 }, "wrong": [5, 6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-unknown", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the hours left from now were given, not the hours from lighting. The candle burnt 24 - 15 = 9 cm in 3 hours, 3 cm an hour; the 15 cm left last 5 more hours, but the question counts from lighting, so the whole 24 cm take 24 : 3 = 8 hours. Ends at 8. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-height-for-slope", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "gen", "key": "fu4f:2:5:40:B", "wrong": [2, 1], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "height-for-slope", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the higher line was taken for the faster runner. A starts 40 metres ahead, so his line is higher all the way, but he covers only 20 metres in 10 seconds, 2 metres a second; B covers 50 metres, 5 a second, and his line is steeper. Ends at the choice that B is faster. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-eq6-rel-speed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "diag", "params": { "k": "toward", "bike": false, "v1": 40, "v2": 60, "t": 3, "D": 300, "q": 0 }, "wrong": [15, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rel-speed", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the speeds were subtracted, but the two cars drive toward each other, so each closes part of the 300 km and the gap shrinks by 40 + 60 = 100 km every hour; 300 : 20 = 15 would fit two cars driving the same way. The equation 40x + 60x = 300 gives x = 3. Ends at 3. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-mean-speed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "diag", "params": { "k": "trip", "v1": 4, "v2": 6, "d": 12, "T": 5, "q": 0 }, "wrong": [12.5, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "mean-speed", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the mean of the two speeds, 5 km/h, was used for the whole walk, but the walk there at 4 km/h takes longer than the walk back at 6. With x the length one way, x/4 + x/6 = 5; times 12, 3x + 2x = 60, so x = 12 (3 hours there, 2 back). Ends at 12. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-minutes-as-hours", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "transfer", "params": { "v": 54, "t": 40 }, "wrong": [2160, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "minutes-as-hours", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 40 minutes were used as if they were hours. The speed is in km per hour, so the time must be in hours too: 40 minutes are 40/60 = 2/3 of an hour, and 54 times 2/3 is 36. Ends at 36. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-decimal-minutes", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "transfer", "params": { "v": 45, "t": 20 }, "wrong": [9, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "decimal-minutes", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 20 minutes were written as 0.2 hours, as if an hour had 100 minutes. An hour has 60 minutes, so 20 minutes are 20/60 = 1/3 of an hour, and 45 times 1/3 is 15. Ends at 15. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-formula-flip", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "transfer", "params": { "v": 48, "t": 45 }, "wrong": [64, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "formula-flip", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the speed was divided by the time, but distance is speed times time. 45 minutes are 45/60 = 3/4 of an hour, and 48 times 3/4 is 36; in less than an hour the train covers less than 48 km, not more. Ends at 36. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq7-lcd-partial", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:7", "source": "diag", "params": { "k": 0, "a": 4, "b": 6, "L": 12, "x": 24, "c": 10 }, "wrong": [2, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "lcd-partial", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the fractions were multiplied by the common denominator 12, but the 10 on the right was not. Every term of both sides is multiplied: 3x + 2x = 120, so 5x = 120 and x = 24; check by substitution, 24 : 4 + 24 : 6 = 6 + 4 = 10. Ends at 24. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq7-partial-dist", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:7", "source": "diag", "params": { "k": 2, "q": 2, "p": 3, "s": 1, "r": 5, "x": 13 }, "wrong": [16, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "partial-dist", "maxWords": 130,
+        "describe": "Names the app's diagnosis in this stair's words: only the x of the numerator x + 3 was multiplied, not the whole numerator. Times 4, each numerator is a bracket: 2(x + 3) - (x - 1) = 20, so 2x + 6 - x + 1 = 20 and x = 13; check, 16 : 2 - 12 : 4 = 8 - 3 = 5. Ends at 13. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

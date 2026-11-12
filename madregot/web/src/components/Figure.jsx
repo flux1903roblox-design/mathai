@@ -39,7 +39,24 @@
 //          on the top line; show which values are written at the marker; label writes one value under it ('1400', '?');
 //          blank writes no number on the bottom line but 0 (the whole is what the picture asks)
 //   groups { rows: [{ n, label }] }                     dots in fives, a Hebrew label at the start of each row
-import { useEffect, useId, useState } from 'react';
+// Functions and motion (stage 5, FUNC-1):
+//   sgraph { x: Axis, y: Axis, series: [{ pts: [x, y][], dots?, smooth?, dashed?, label?, tone? }], marks?: [{ x, y, label }],
+//          bands?: [{ from, to, tone? }], guide?: { x?, y? }, riseRun?: { from, to }, meet?, dirArrow?, anim? }
+//          Axis = { min?, max, step, label, unit, every? }: a situation graph on two named, scaled axes (graphAxes.jsx, the
+//          frame the graph object draws on too). A series is a polyline through its points, or its points alone (dots), or
+//          a Catmull-Rom curve through them (smooth, never overshooting a point); the second series is orange, and named
+//          series are named in a row above the graph, each after a piece of its line (graphAxes.jsx GraphLegend). marks are
+//          lettered points; bands shade intervals of the x axis (the Ministry's "סמנו במרקר"); guide draws dashed lines
+//          from x to the first series and across to the y axis, and from y across to it (each time it is there) and down;
+//          riseRun the change in x and in y between two x values of the first series, with their numbers; meet a dot where
+//          the first two series cross; dirArrow an arrow under the x axis, "משמאל לימין".
+//   protractor { arms: [θ1, θ2], base?, letters?: { vertex, a, b } }   a protractor laid on an angle (manip/protractor.jsx,
+//          the same drawing as the angle object's protractor): θ is an arm's direction counterclockwise from the right end
+//          of the baseline, which is its reading on the scale that starts on the right; base turns the whole drawing
+//          (multiples of 15), the numbers upright; letters name the vertex and the arms (θ1 is a, θ2 is b)
+//   clock  { h, m, marks? }   a clock at h:m, its hands at their true angles (the hour hand at 30h + m/2, the minute
+//          hand at 6m, from 12, clockwise); marks adds the 60 minute ticks
+import { useEffect, useId, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
 import { DUR, EASE } from '@/lib/motion.js';
@@ -50,7 +67,9 @@ import { TilesArt, TILES_VIEW } from './manip/Tiles.jsx';
 import { BarArt, MarksArt, WholeArt, HatchDef } from './manip/FracBar.jsx';
 import { DlineArt, DLINE_VIEW } from './manip/DoubleLine.jsx';
 import { SvgLabel, minus } from './manip/core.jsx';
-import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO } from '@/content/manip.js';
+import { GraphAxes, GraphLegend, graphFrame, graphFont, drawnScale, useDrawnBox, LEGEND_ROW } from './manip/graphAxes.jsx';
+import { PROT, protractorLabels, protExtent, polar, useDrawnWidth, ProtractorArt } from './manip/protractor.jsx';
+import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, clockHands } from '@/content/manip.js';
 import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
@@ -348,7 +367,7 @@ const vars = (t) => String(t).split(/([a-zA-Z])/).map((p, i) => (i % 2 ? <span k
 function Table({ fig }) {
   const draw = useDraw(fig.anim);
   return (
-    <table className={clsx('fg-table', fig.head.length >= 4 && 'cols4')} dir={fig.ltr ? 'ltr' : undefined}>
+    <table className={clsx('fg-table', fig.head.length >= 4 && 'cols4', fig.rows.length >= 7 && 'long')} dir={fig.ltr ? 'ltr' : undefined}>
       <thead><tr>{fig.head.map((h, j) => <th key={j} scope="col">{WORD.test(h) ? vars(h) : <bdi dir="ltr">{vars(h)}</bdi>}</th>)}</tr></thead>
       <tbody>{fig.rows.map((r, i) => <m.tr key={i} {...draw(i, 'fade')}>{r.map((v, j) => <td key={j}>{WORD.test(String(v)) ? <bdi dir="rtl">{v}</bdi> : <bdi dir="ltr">{vars(cell(v))}</bdi>}</td>)}</m.tr>)}</tbody>
     </table>
@@ -890,11 +909,170 @@ function Groups({ fig }) {
   );
 }
 
+// ---------------------------------------------------------------- functions and motion (FUNC-1)
+/**
+ * A Catmull-Rom curve through points (drawing units), as cubic Béziers. Each piece's two control points are kept
+ * between its ends' heights, so the curve never rises above or dips below a point it passes through: a graph of a rate
+ * that only grows is drawn only growing.
+ */
+export function smoothPath(P) {
+  if (P.length < 3) return `M ${P.map((p) => p.join(' ')).join(' L ')}`;
+  const cl = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
+  let d = `M ${P[0][0]} ${P[0][1]}`;
+  for (let i = 0; i < P.length - 1; i += 1) {
+    const p0 = P[i - 1] || P[i]; const p1 = P[i]; const p2 = P[i + 1]; const p3 = P[i + 2] || P[i + 1];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, cl(p1[1] + (p2[1] - p0[1]) / 6, p1[1], p2[1])];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, cl(p2[1] - (p3[1] - p1[1]) / 6, p1[1], p2[1])];
+    d += ` C ${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${p2[0]} ${p2[1]}`;
+  }
+  return d;
+}
+
+const BAND_TONES = ['gold', 'brand', 'alt'];
+/**
+ * A situation graph: axes with names and scales, its series, and what it marks on them (see the list at the top). Its
+ * text keeps 12px however small the lesson shows it (graphAxes.jsx graphFont): measured once on the page; `box` is the
+ * size it is shown at before that (tests).
+ */
+function SGraph({ fig, box: shown = null }) {
+  const { x, y } = fig;
+  const ref = useRef(null);
+  const box = useDrawnBox(ref, shown);
+  const draw = useDraw(fig.anim);
+  const series = fig.series || [];
+  const toneOfSeries = (s, i) => (s.tone === 'alt' || (!s.tone && i > 0) ? 'alt' : 'brand');
+  const named = series.map((s, i) => ({ label: s.label, tone: toneOfSeries(s, i), dashed: !!s.dashed })).filter((s) => s.label);
+  const opts = { foot: fig.dirArrow ? 30 : 0, head: named.length ? LEGEND_ROW : 0 };
+  const plain = graphFrame(x, y, opts);
+  const font = graphFont(drawnScale(box, plain.W, plain.H), x, y, opts);
+  const fr = font.k > 1 ? graphFrame(x, y, { ...opts, font }) : plain;
+  const { X, Y, W, H, TOP, BOT, PADL, plotW } = fr;
+  const gt = font.tag - 16; // the tag text grown past its 16 units
+  const first = series[0]?.pts || [];
+  const at = (pts) => pts.map(([a, b]) => [X(a), Y(b)]);
+  const g = fig.guide || {};
+  const gx = g.x != null ? seriesAt(first, g.x) : null;
+  const gys = g.y != null ? seriesCrossings(first, g.y) : [];
+  const rr = sgraphRiseRun(fig);
+  const meet = fig.meet && series.length > 1 ? seriesMeet(series[0].pts, series[1].pts) : null;
+  const k0 = series.length; // the parts drawn after the series, in turn
+  return (
+    <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="figure fig-obj fig-sgraph" role="img" aria-label={figWords(fig)}>
+      {(fig.bands || []).map((b, i) => (
+        <m.g key={`b${i}`} className={`fig-sgraph-band tone-${b.tone || BAND_TONES[i % BAND_TONES.length]}`} {...draw(k0 + i, 'fade')}>
+          <rect x={X(b.from)} y={TOP} width={X(b.to) - X(b.from)} height={BOT - TOP} />
+          <line x1={X(b.from)} x2={X(b.to)} y1={BOT} y2={BOT} />
+        </m.g>
+      ))}
+      <GraphAxes fr={fr} x={x} y={y} cls="fig-sgraph" />
+      {/* on a phone an exercise puts its zoom button (40px, Lesson.jsx .fig-zoom) in the figure's top right corner, where
+          the row of names starts: the names start left of it (two runners' A and B, func:4) */}
+      {named.length > 0 && <GraphLegend fr={fr} items={named} cls="fig-sgraph" inset={48} />}
+      {(gx != null || gys.length > 0) && (
+        <m.g className="fig-sgraph-guide" {...draw(k0, 'fade')}>
+          {gx != null && <path d={`M ${X(g.x)} ${BOT} V ${Y(gx)} H ${PADL}`} />}
+          {gys.length > 0 && <path d={`M ${PADL} ${Y(g.y)} H ${X(Math.max(...gys))} ${gys.map((c) => `M ${X(c)} ${Y(g.y)} V ${BOT}`).join(' ')}`} />}
+          {gx != null && <circle cx={X(g.x)} cy={Y(gx)} r="5" />}
+          {gys.map((c) => <circle key={c} cx={X(c)} cy={Y(g.y)} r="5" />)}
+        </m.g>
+      )}
+      {series.map((s, i) => {
+        const P = at(s.pts); const tone = toneOfSeries(s, i);
+        return (
+          <g key={`s${i}`} className={clsx('fig-sgraph-series', `tone-${tone}`)}>
+            {!s.dots && <m.path d={s.smooth ? smoothPath(P) : `M ${P.map((p) => p.join(' ')).join(' L ')}`} className={clsx('fig-sgraph-line', s.dashed && 'dashed')} {...draw(i, s.dashed ? 'fade' : 'path')} />}
+            {s.dots && P.map(([px, py], j) => <m.circle key={j} cx={px} cy={py} r="5.5" className="fig-sgraph-dot" {...draw(i, 'fade')} />)}
+          </g>
+        );
+      })}
+      {rr && (
+        <m.g className="fig-sgraph-rr" {...draw(k0 + 1, 'fade')}>
+          <path d={`M ${X(rr.from)} ${Y(rr.y0)} H ${X(rr.to)}`} />
+          <path d={`M ${X(rr.to)} ${Y(rr.y0)} V ${Y(rr.y1)}`} />
+          <text x={(X(rr.from) + X(rr.to)) / 2} y={Y(rr.y0) + (rr.y1 > rr.y0 ? 21 + gt : -9)} textAnchor="middle" fontSize={font.tag} className="fig-sgraph-rr-num">{figNum(rr.run)}</text>
+          <text x={X(rr.to) + 8} y={(Y(rr.y0) + Y(rr.y1)) / 2 + font.tag * 0.375} textAnchor="start" fontSize={font.tag} className="fig-sgraph-rr-num">{figNum(rr.rise)}</text>
+        </m.g>
+      )}
+      {meet && <m.circle cx={X(meet[0])} cy={Y(meet[1])} r="7" className="fig-sgraph-meet" {...draw(k0 + 1, 'end')} />}
+      {(fig.marks || []).map((k, i) => (
+        <m.g key={`k${i}`} className="fig-sgraph-mark" {...draw(k0 + 1 + i, 'fade')}>
+          <circle cx={X(k.x)} cy={Y(k.y)} r="6" />
+          <text x={X(k.x) + (X(k.x) > W - 40 ? -10 : 10)} y={Y(k.y) - 9} textAnchor={X(k.x) > W - 40 ? 'end' : 'start'} fontSize={font.tag} className="fig-sgraph-mark-label" style={{ fontFamily: MATH_FONT }}>{k.label}</text>
+        </m.g>
+      ))}
+      {fig.dirArrow && (
+        <g className="fig-sgraph-dir">
+          <text x={PADL + plotW / 2} y={fr.footY} textAnchor="middle" direction="rtl" fontSize={font.name}>משמאל לימין</text>
+          <path d={`M ${PADL} ${fr.footY + 10} H ${PADL + plotW}`} />
+          <path d={head(PADL + plotW + 2, fr.footY + 10, 0, 9)} />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/**
+ * A protractor laid on an angle: its centre on the vertex, the arms from the vertex to the rim, a small arc for the angle
+ * measured, the letters; the numbers sized for the width it is shown at (protractorLabels).
+ */
+function ProtractorFigure({ fig }) {
+  const ref = useRef(null);
+  const drawn = useDrawnWidth(ref);
+  const base = fig.base || 0; const L = fig.letters; const [a1, a2] = fig.arms;
+  const labels = protractorLabels({ drawn, base, arms: fig.arms });
+  const [top0, bottom0] = protExtent(base, labels);
+  // the vertex's letter stands under the centre (turned with the drawing)
+  const vy = 26 * Math.cos((base * Math.PI) / 180);
+  const top = Math.min(top0, L ? vy - 10 : top0); const bottom = Math.max(bottom0, L ? vy + 10 : bottom0);
+  const PAD = 8; const O = [PROT.W / 2, PAD - top]; const H = Math.ceil(bottom - top + 2 * PAD);
+  const arm = (d) => { const [x, y] = polar(O, d + base, PROT.R); return <line x1={O[0]} y1={O[1]} x2={x} y2={y} className="fig-prot-arm" />; };
+  const letter = (d, t, side) => { const [x, y] = polar(O, d + base + side * 9, PROT.R * 0.62); return <text x={x} y={y + 6} textAnchor="middle" fontSize="17" className="fig-prot-letter" style={{ fontFamily: MATH_FONT }}>{t}</text>; };
+  return (
+    <svg ref={ref} viewBox={`0 0 ${PROT.W} ${H}`} className="figure fig-obj fig-prot" role="img" aria-label={figWords(fig)}>
+      <ProtractorArt O={O} base={base} labels={labels} cls="fig-prot">
+        <path d={arcPath(O[0], O[1], 22, Math.min(a1, a2) + base, Math.max(a1, a2) + base)} className="fig-prot-arc" />
+        {arm(a1)}{arm(a2)}
+      </ProtractorArt>
+      <circle cx={O[0]} cy={O[1]} r="3.5" className="fg-vertex" />
+      {L && (
+        <>
+          {letter(a1, L.a, a1 <= a2 ? -1 : 1)}{letter(a2, L.b, a2 < a1 ? -1 : 1)}
+          {(() => { const [x, y] = polar(O, base - 90, 26); return <text x={x} y={y + 6} textAnchor="middle" fontSize="17" className="fig-prot-letter" style={{ fontFamily: MATH_FONT }}>{L.vertex}</text>; })()}
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** A clock: the twelve hours, the hands at their true angles (clockHands), and with `marks` the minute ticks. */
+function Clock({ fig }) {
+  const S = 240; const C = [S / 2, S / 2]; const R = 106;
+  const at = (deg, r) => [C[0] + r * Math.sin((deg * Math.PI) / 180), C[1] - r * Math.cos((deg * Math.PI) / 180)]; // clockwise from 12
+  const { hour, minute } = clockHands(fig.h, fig.m);
+  const hand = (deg, len, cls) => { const [x, y] = at(deg, len); return <line x1={C[0]} y1={C[1]} x2={x.toFixed(2)} y2={y.toFixed(2)} className={cls} data-deg={deg} />; };
+  return (
+    <svg viewBox={`0 0 ${S} ${S}`} className="figure fig-obj fig-clock" role="img" aria-label={figWords(fig)}>
+      <circle cx={C[0]} cy={C[1]} r={R} className="fig-clock-face" />
+      {Array.from({ length: fig.marks ? 60 : 12 }, (_, i) => {
+        const deg = i * (fig.marks ? 6 : 30); const big = deg % 30 === 0;
+        const [x1, y1] = at(deg, R - 3); const [x2, y2] = at(deg, R - (big ? 13 : 7));
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} className={big ? 'fig-clock-tick big' : 'fig-clock-tick'} />;
+      })}
+      {Array.from({ length: 12 }, (_, i) => { const [x, y] = at((i + 1) * 30, R - 30); return <text key={i} x={x} y={y + 6.5} textAnchor="middle" fontSize="18" className="fig-clock-num">{i + 1}</text>; })}
+      {/* both hands end inside the ring of numbers, so none is hidden */}
+      {hand(hour, 46, 'fig-clock-hand hour')}
+      {hand(minute, 64, 'fig-clock-hand minute')}
+      <circle cx={C[0]} cy={C[1]} r="6" className="fig-clock-pin" />
+    </svg>
+  );
+}
+
 /** One numline type: a line cut into parts (den) is the fraction lane's PartsLine, any other the teaching NumLine. */
 const NumberLine = ({ fig }) => (fig.den ? <PartsLine fig={fig} /> : <NumLine fig={fig} />);
 
-export default function Figure({ fig }) {
+/** A figure by its type. `box`: the size it is shown at before it is measured on the page (tests; the situation graph). */
+export default function Figure({ fig, box }) {
   if (!fig) return null;
-  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups }[fig.type];
-  return C ? <div className="figure-wrap"><C fig={fig} /></div> : null;
+  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph, protractor: ProtractorFigure, clock: Clock }[fig.type];
+  return C ? <div className="figure-wrap"><C fig={fig} box={box} /></div> : null;
 }

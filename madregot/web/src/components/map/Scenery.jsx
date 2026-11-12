@@ -2,7 +2,8 @@
 // line for signed numbers, a treasure grid for coordinates, a protractor for angles, slope stairs
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
 // statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems, a
-// fraction bar, a pie in eighths and a jug in tenths for the fractions floor. Colours
+// fraction bar, a pie in eighths and a jug in tenths for the fractions floor, a walk's graph, a stopwatch and a candle
+// for functions. Colours
 // come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
 // banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
 
@@ -329,6 +330,42 @@ const SaleTag = () => (
     <path d="M74 30 L46 70" className="sc-stroke-w" />
   </svg>
 );
+/**
+ * Functions: a graph of a walk on its two axes, a climb, a flat part and the way back down, a dot where it ends. No hill
+ * or road behind it: a graph that looks like a landscape would teach the misconception the unit repairs.
+ */
+const WalkGraph = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="6" y="6" width="88" height="88" rx="14" className="sc-w sc-line" />
+    <path d="M20 18 V80 H86 M16 24 L20 16 L24 24 M80 76 L88 80 L80 84" className="sc-stroke" />
+    <path d="M20 80 L38 36 H58 L76 80" className="sc-stroke-c" />
+    <circle cx="76" cy="80" r="5.5" className="sc-g" />
+  </svg>
+);
+/** Functions: a stopwatch, its hand a third of the way round (time is the usual x). */
+const Stopwatch = () => (
+  <svg viewBox="0 0 100 104">
+    <rect x="42" y="4" width="16" height="10" rx="3" className="sc-d" />
+    <path d="M50 14 V20 M74 26 L81 19" className="sc-stroke" />
+    <circle cx="50" cy="60" r="36" className="sc-w sc-line" />
+    <path d="M50 60 V32 A28 28 0 0 1 74.2 46 Z" className="sc-t" />
+    {[[50, 28, 50, 34], [82, 60, 76, 60], [50, 92, 50, 86], [18, 60, 24, 60]].map(([a, b, c, d]) => <path key={`${a}${b}`} d={`M${a} ${b} L${c} ${d}`} className="sc-stroke" />)}
+    <path d="M50 60 L68 42" className="sc-stroke-c" />
+    <circle cx="50" cy="60" r="5" className="sc-g" />
+  </svg>
+);
+/** Functions: a candle beside a short ruler: it burns down at a steady rate, the unit's uniform rate. */
+const Candle = () => (
+  <svg viewBox="0 0 100 110">
+    <ellipse cx="40" cy="103" rx="26" ry="5" className="sc-t" />
+    <rect x="28" y="42" width="24" height="58" rx="4" className="sc-c sc-line" />
+    <path d="M40 42 V34" className="sc-stroke" />
+    <path d="M40 32 C33 24 36 14 40 6 C44 14 47 24 40 32 Z" className="sc-g" />
+    <rect x="66" y="22" width="16" height="78" rx="3" className="sc-w sc-line" />
+    {[32, 42, 52, 62, 72, 82, 92].map((y) => <path key={y} d={`M66 ${y} H${y % 20 === 12 ? 76 : 72}`} className="sc-stroke" />)}
+  </svg>
+);
+
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -377,6 +414,7 @@ export const SCENERY = {
   frac: [FracBarArt, PieEighths, TenthsJug],
   ratio: [ScaleBarArt, MixGlasses, ScaleCopy],
   pct: [PctBarArt, HundredGrid, SaleTag],
+  func: [WalkGraph, Stopwatch, Candle],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

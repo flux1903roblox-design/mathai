@@ -2,7 +2,8 @@
 // misconception to repair, a due review, points lost in an exam, the floor check, or a challenge task (learn/next.ts
 // planNext().top). The teacher's work says whose it is and when it is due, in its own calm words ("משימה מהמורה, עד
 // מחר"). When the next step is a stair of the map, the map focuses that stair instead and there is no banner. At most one banner shows above the path;
-// this one stacks last under any other.
+// this one stacks last under any other. A guest stair (another grade's stair this grade's programme lists, skills.ts
+// GUEST) is a new stair off the map: its banner says why in its reason line, since its unit is not on this map.
 import clsx from 'clsx';
 import { Sparkles } from 'lucide-react';
 import { KIND_ICON, KIND_LABEL } from '@/components/learn/TodayCard.jsx';
@@ -21,6 +22,7 @@ export default function NextBanner({ item, onGo }) {
           <p className="next-banner-meta">{label} · {item.minutes} דק׳</p>
         </div>
       </div>
+      {item.guest && <p className="next-banner-why">{item.reason}</p>}
       <Button className="btn-block btn-sm next-banner-go" onClick={onGo}>לצעד הבא</Button>
     </section>
   );

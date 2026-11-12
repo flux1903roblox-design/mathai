@@ -119,9 +119,9 @@ export const TOPIC_WAYS = Object.freeze({
     ],
   },
   angles: {
-    models: String.raw`A ray splits a straight line, $180^\circ$, into two adjacent angles: what one gains the other loses. Vertical angles are equal: each is adjacent to the same angle. A triangle's torn-off corners fill a straight line. Slide one parallel line along the transversal onto the other: corresponding and alternate angles are equal, co-interior angles sum to $180^\circ$. An isosceles triangle folds onto itself, so its base angles are equal. An exterior angle completes its neighbour to $180^\circ$, so it equals the two far angles together.`,
+    models: String.raw`A ray splits a straight line, $180^\circ$, into two adjacent angles: what one gains the other loses. Vertical angles are equal: each is adjacent to the same angle. A triangle's torn-off corners fill a straight line. Slide one parallel line along the transversal onto the other: corresponding and alternate angles are equal, co-interior angles sum to $180^\circ$. An isosceles triangle folds onto itself, so its base angles are equal. An exterior angle completes its neighbour to $180^\circ$, so it equals the two far angles together. Measuring: protractor centre on the vertex, zero on one arm, read the scale that starts there; estimate first; arms' length does not matter; a clock's hour is $30^\circ$.`,
     words: ['זוויות צמודות', 'קודקודיות', 'מתאימות', 'מתחלפות', 'חד־צדדיות', 'זווית חיצונית'],
-    avoid: ['deciding from how the drawing looks ("נראה ישר", "נראה שווה")', 'a name for an angle pair without the reason'],
+    avoid: ['deciding from how the drawing looks ("נראה ישר", "נראה שווה")', 'a name for an angle pair without the reason', '"longer arms make a bigger angle"'],
     avoidRe: [re(String.raw`נראה\s+(?:ישר|שווה|שוות|שווים|מקבילים)(?=$|[^א-ת])`)],
   },
   expr: {
@@ -131,9 +131,9 @@ export const TOPIC_WAYS = Object.freeze({
     avoidRe: [re(String.raw`(?:יותר|פחות)\s+מ\S*\s+(?:זה\s+)?תמיד\s+(?:פלוס|מינוס|חיבור|חיסור)`)],
   },
   eq: {
-    models: String.raw`An equation is a balanced scale: doing the same to both sides keeps it level and keeps its solution (equivalent equations). Undo in reverse order: first what was added to $x$, then what multiplied it. With $x$ on both sides, take the same number of $x$'s from both. A word problem: one unknown, the other quantities written with it, and two expressions the story says are equal. A full solution ends with a check by substituting into the original equation, and a story's answer must fit the story. The scale carries positive whole numbers; negatives follow the same rule without it.`,
+    models: String.raw`An equation is a balanced scale: doing the same to both sides keeps it level and keeps its solution (equivalent equations). Undo in reverse order: first what was added to $x$, then what multiplied it. With $x$ on both sides, take the same number of $x$'s from both. A word problem: one unknown, the other quantities written with it, and two expressions the story says are equal. A full solution ends with a check by substituting into the original equation, and a story's answer must fit the story. The scale carries positive whole numbers; negatives follow the same rule without it. Motion: distance = speed × time in the same units, a table row per mover; speeds add when moving toward each other and subtract when one catches up. Denominators: multiply every term of both sides by a common denominator; a numerator is a bracket.`,
     words: ['נעלם', 'אגף ימין', 'אגף שמאל', 'משוואות שקולות', 'בדיקה בהצבה', '"עושים אותו דבר בשני האגפים"'],
-    avoid: ['"מעבירים אגף ומחליפים סימן" as a rule on its own: the app uses it only as a short name for adding or subtracting the same on both sides, and says so', 'subtracting the coefficient instead of dividing by it'],
+    avoid: ['"מעבירים אגף ומחליפים סימן" as a rule on its own: the app uses it only as a short name for adding or subtracting the same on both sides, and says so', 'subtracting the coefficient instead of dividing by it', 'the mean of two speeds as the average speed', 'multiplying only the fractions by the common denominator'],
     avoidRe: [re(String.raw`(?:מעבירים|להעביר|מעביר|תעבירו|העבירו)\s+(?:את\s+\S+\s+)?(?:ל)?אגף\s+(?:ו|ו־)?(?:מחליפים|להחליף|מחליף|החליפו|משנים|לשנות)\s+(?:את\s+ה)?סימן${unless('בשני האגפים|משני האגפים|לשני האגפים|אותו דבר')}`)],
   },
   // the curriculum lane's grade 8 units, in school order (ratio:1-4, pct:1-5; web/src/learn/content/ratio.ts, pct.ts): the
@@ -147,6 +147,17 @@ export const TOPIC_WAYS = Object.freeze({
     re(String.raw`(?:אחוז|אחוזים)\s+(?:לא\s+יכול(?:ים)?|אי\s+אפשר(?:\s+ש)?)\s+(?:להיות\s+)?(?:יותר|מעל|גדול(?:ים)?\s+(?:מ־?|מ))\s*(?:מ־?)?\s*\$?100`),
     re(String.raw`(?:מתייקר|התייקר|עולה|עלה)\s+(?:ב־?)?\s*\$?10\\?%\$?\s+(?:ואז|ואחר\s+כך|ואחר־כך)\s+(?:מוזל|הוזל|יורד|ירד)\s+(?:ב־?)?\s*\$?10\\?%\$?\s*,?\s+(?:חוזרים|חוזר|חוזרת|מקבלים\s+את)\s+(?:ל)?(?:ה)?(?:מחיר|מחיר\s+המקורי|מקור)${unless('לא חוזר|לא מקבלים')}`),
   ]),
+  // the stage-5 lane's introduction to functions (ח׳ 8.7, web/src/learn/content/func.ts), after percent as in TOPIC_NAMES.
+  // Its patterns need the graph named: "בעברית קוראים מימין לשמאל, אבל ציר x גדל ימינה" is true and must pass
+  func: {
+    models: 'A function gives every x exactly one y; it is the same in words, a table, a graph and a rule. A graph of a situation is read both ways, by the scale of each axis; a flat part means no change. Increasing and decreasing are read left to right as x grows, and an interval is on the x-axis. Rate = change in y per one unit of x, from two readings (the start need not be 0); a uniform rate gives a straight graph and equal differences; steeper is faster, higher is not.',
+    words: ['פונקציה', 'גרף של מצב', 'ייצוג', 'עולה', 'יורדת', 'קבועה', 'תחום', 'קצב שינוי', 'קצב אחיד'],
+    avoid: ['"a function must have a formula" or "a constant is not a function"', '"the higher line is the faster"', 'reading a graph from right to left', 'a rate as value ÷ time when the start is not 0'],
+    avoidRe: [
+      re(String.raw`(?:ה)?(?:קו|גרף)\s+(?:ה)?גבוה\s+(?:יותר\s+)?(?:הוא\s+)?(?:ה)?מהיר`),
+      re(String.raw`(?:קוראים\s+את\s+(?:ה)?גרף|(?:את\s+)?(?:ה)?גרף\s+קוראים)\s+מימין\s+לשמאל`),
+    ],
+  },
   line: {
     models: 'A table of values is repeated substitution. $b$ is the start, the $y$ at $x = 0$; $m$ is the step: how much the line rises (falls, when negative) per step right. Slope on a graph is a staircase, rise over steps right. Between two points: difference in $y$ over difference in $x$, both from the same point. A point on a line satisfies its equation: substitute it. Intercepts come from substituting $0$ and are the legs of the triangle with the axes. Two lines meet where the same $x$ gives the same $y$.',
     words: ['שיפוע', 'נקודת חיתוך', 'הצבה', 'מדרגה'],

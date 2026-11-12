@@ -3,7 +3,7 @@
 // openSupport() (the limit sheet closes first, so two sheets never stack).
 import { create } from 'zustand';
 import clsx from 'clsx';
-import { SUPPORT } from '@shared/safety.js';
+import { SUPPORT } from '@shared/helpLines.js';
 import { supportLines, SUPPORT_LINK } from '@/content/support.js';
 import { useApp } from '@/lib/store.js';
 import { Button, Sheet } from './ui.jsx';

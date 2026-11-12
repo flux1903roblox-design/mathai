@@ -272,10 +272,51 @@
      2,
      2
     ]
+   },
+   "eq:6": {
+    "discover": 8,
+    "examples": [
+     4,
+     5,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     2
+    ]
+   },
+   "eq:7": {
+    "discover": 8,
+    "examples": [
+     5,
+     6,
+     3
+    ],
+    "misconceptions": [
+     3,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1,
+     1
+    ]
    }
   },
-  "stairs": 5,
-  "steps": 144
+  "stairs": 7,
+  "steps": 214
  },
  "expr": {
   "skills": {
@@ -449,6 +490,86 @@
   },
   "stairs": 4,
   "steps": 94
+ },
+ "func": {
+  "skills": {
+   "func:1": {
+    "discover": 8,
+    "examples": [
+     2,
+     3,
+     2
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "func:2": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "func:3": {
+    "discover": 8,
+    "examples": [
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "func:4": {
+    "discover": 8,
+    "examples": [
+     2,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   }
+  },
+  "stairs": 4,
+  "steps": 87
  },
  "line": {
   "skills": {

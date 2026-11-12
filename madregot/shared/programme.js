@@ -9,7 +9,9 @@
 // A unit's hours are split into parts. A part counts as taught when every skill (stair id, 'topic:level') it lists
 // exists in the app; a part with `skills: []` is not taught yet and names the build stage that will teach it in `later`
 // ('S2' measurement, 'S3' data and probability, 'S4' grade-8 geometry, 'S5' functions and word problems). A `note` says,
-// in a few Hebrew words, what the part is; the untaught notes are the "not yet" list (coverage.js `notYet`).
+// in a few Hebrew words, what the part is; the untaught notes are the "not yet" list (coverage.js `notYet`). A part may
+// carry its own `months` (calendar months, in school order), read before its unit's: a cross-listing the class meets
+// later than the unit's own lessons (7.8's motion problems are June's, not March's; coverage.js monthIndex).
 // One stair may serve several units (pyth:1 is squares and roots in 7.6 and Pythagoras in 7.14 and 8.3).
 // Bridge stairs (frac:1-4, elementary fractions) are never listed: the programme no longer teaches them, so they add
 // no hours.
@@ -48,11 +50,15 @@ export const PROGRAMME = {
     { id: '7.7', grade: '7', domain: 'algebra', title: 'משתנים וביטויים אלגבריים (כולל זהות, כינוס, חוק הפילוג)', months: [12, 1, 2, 3],
       parts: [{ hours: 25, skills: range('expr', 1, 5) }] },
     { id: '7.8', grade: '7', domain: 'algebra', title: 'משוואות ופתרונן, משוואות מיוחדות, שאלות בהקשרים', months: [3, 4, 5],
-      parts: [{ hours: 21, skills: range('eq', 1, 5) }] },
+      parts: [
+        { hours: 21, skills: range('eq', 1, 5) },
+        // ח׳ content a ז׳ class meets too, in June (the motion task): no hours of its own
+        { hours: 0, skills: ['eq:6', 'eq:7'], months: [6], note: 'שאלות תנועה ומשוואות עם מכנים' },
+      ] },
     { id: '7.9', grade: '7', domain: 'algebra', title: 'נקודות על גרף ברביע I', months: [5],
       parts: [
         { hours: 1, skills: ['line:1'] }, // a table of values and its points on the grid
-        { hours: 2, skills: [], note: 'קריאת גרף שמתאר מצב', later: 'S5' },
+        { hours: 2, skills: ['func:1'], note: 'קריאת גרף שמתאר מצב' }, // a ח׳ stair a ז׳ class meets in May
       ] },
     { id: '7.10', grade: '7', domain: 'geometry', title: 'זוויות (מדידה, חוצה זווית, צמודות, קודקודיות, במשולשים ובמרובע)', months: [9, 10, 11],
       parts: [
@@ -97,14 +103,19 @@ export const PROGRAMME = {
         { hours: 7, skills: [], note: 'איסוף וקריאת מידע ושכיחות יחסית', later: 'S3' },
       ] },
     { id: '8.7', grade: '8', domain: 'algebra', title: 'מבוא לפונקציות: ייצוגים, עלייה וירידה', months: [11],
-      parts: [{ hours: 8, skills: [], note: 'פונקציה: גרף, טבלה וביטוי, עלייה וירידה', later: 'S5' }] },
+      // the November row of the schedule; taught once func:3 lands (a part counts when all its stairs exist)
+      parts: [{ hours: 8, skills: range('func', 1, 3), note: 'פונקציה: גרף של מצב, טבלה וביטוי, עלייה וירידה' }] },
     { id: '8.8', grade: '8', domain: 'algebra', title: 'גרפים לינאריים, קצב שינוי, שיפוע, ייצוג אלגברי', months: [11, 12],
-      parts: [{ hours: 8, skills: range('line', 1, 8) }] },
+      parts: [
+        { hours: 8, skills: range('line', 1, 8) },
+        // the December row "קצב שינוי אחיד/לא אחיד": its hours are line's
+        { hours: 0, skills: ['func:4'], note: 'קצב שינוי אחיד ולא אחיד' },
+      ] },
     { id: '8.9', grade: '8', domain: 'algebra', title: 'משוואות מיוחדות ושאלות מילוליות (אחוזים, תנועה)', months: [12, 1, 2],
       parts: [
         { hours: 1, skills: ['line:8'] },
         { hours: 5, skills: ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'sys:1'] },
-        { hours: 6, skills: [], note: 'שאלות תנועה, משתנה במכנה, משוואות בעזרת פרופורציה', later: 'S5' },
+        { hours: 6, skills: ['eq:6', 'eq:7'], note: 'שאלות תנועה, משתנה במכנה, משוואות בעזרת פרופורציה' },
       ] },
     { id: '8.10', grade: '8', domain: 'uncertainty', title: 'טווח נתונים ומדדי מרכז, שני מקורות מידע', months: [12, 1],
       parts: [
