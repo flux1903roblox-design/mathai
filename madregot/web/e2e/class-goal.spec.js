@@ -136,6 +136,8 @@ test.describe('the class goal of the week', () => {
     await expect(sheet).toBeVisible();
     await expect(sheet).toContainText('הכיתה שלכם עברה את המטרה של השבוע, ואתם הוספתם 9 צעדים. מדי קיבל צעיף כיתה.');
     await expect(sheet.getByRole('button', { name: 'לראות את מדי' })).toBeVisible();
+    // מדי in the moment already wears the class scarf (drawn once its piece has loaded)
+    await expect(sheet.locator('g[data-item="class-scarf"]')).toHaveCount(1);
     await shot(page, 'moment');
     let st = await saved(page);
     expect(st.nudges.goalSeen[WEEK]).toBe('2026-11-05');

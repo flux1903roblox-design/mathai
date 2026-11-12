@@ -147,8 +147,10 @@ describe('the budget as configured', () => {
   const pkg = JSON.parse(readFileSync(join(WEB, 'package.json'), 'utf8'));
 
   it('names the student lane\'s lazy-only modules, beside the load-time gates', () => {
-    // PRODUCT2-36 adds the reward code that only lazy screens use: the meter and chest logic, the chest's choice, the unlock moment
-    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'rewards', 'ChestChoice', 'UnlockStage', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk']);
+    // PRODUCT2-36 adds the reward code that only lazy screens use: the meter and chest logic, the chest's choice, the unlock moment;
+    // PRODUCT2-38 the celebrations: מדי's entrance and the shapes, the XP count-up, the streak's moment and its milestones,
+    // the end of a teaching stage and the daily goal
+    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'rewards', 'ChestChoice', 'UnlockStage', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'Celebrate', 'XpCount', 'StreakStage', 'StageDone', 'GoalStage']);
     for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');
   });
 

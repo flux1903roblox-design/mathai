@@ -2,10 +2,9 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import NumberFlow from '@number-flow/react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
-import { Zap, Target, Timer, Flame, Snowflake, Moon, Star, Trophy, ChevronsUp, Wrench, Medal } from 'lucide-react';
-import { useApp, today, dayBefore, isActiveDay } from '@/lib/store.js';
-import { isRestDay, isYomTov } from '@shared/restDays.js';
-import { weekStart, weekSteps, bestWeek } from '@/lib/streak.js';
+import { Zap, Target, Timer, Snowflake, Star, Trophy, ChevronsUp, Wrench, Medal } from 'lucide-react';
+import { useApp, today } from '@/lib/store.js';
+import { weekStart, weekSteps, bestWeek, streakMilestone } from '@/lib/streak.js';
 import Mascot from '@/components/Mascot.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { unitProgress, stagesDone, partsOf, isDone, practiceComplete, STAIR_STAGES } from '@/lib/path.js';
@@ -15,7 +14,7 @@ import { Segments } from '@/components/ds.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { TOPIC, placementTopicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
-import { DUR, SPRING, enter } from '@/lib/motion.js';
+import { DUR, enter } from '@/lib/motion.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
 import GoalStage from '@/components/learn/GoalStage.jsx';
 import { installDue } from '@/lib/install.js';
@@ -23,6 +22,9 @@ import { reminderDue } from '@/lib/reminder.js';
 import { UnlockMoment, useNewUnlocks, useMadiLook } from '@/lib/madiLook.js';
 import { wearing } from '@/lib/wardrobe.js';
 import ChestChoice, { useChestOffer } from '@/components/learn/ChestChoice.jsx';
+import StreakStage from '@/components/learn/StreakStage.jsx';
+import Celebrate from '@/components/learn/Celebrate.jsx';
+import XpCount from '@/components/learn/XpCount.jsx';
 
 // the install offer is shown to few, and late: its screen loads when it comes (STUDENT-10)
 const InstallCard = lazy(() => import('@/components/learn/InstallCard.jsx'));
@@ -32,7 +34,6 @@ const ReminderCard = lazy(() => import('@/components/learn/ReminderCard.jsx'));
 // The main button takes the focus (for a keyboard or a screen reader) without scrolling a tall celebration
 // down to it: on a small phone the climb at the top stays in view.
 const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };
-const DAY = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const fmtTime = (secs) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 // Celebration content rises in one after another, once.
 const rise = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: enter(DUR.slow) } };
@@ -45,35 +46,14 @@ function useCount(target) {
   return v;
 }
 
-function Stat({ tone, icon: Icon, label, value, prefix = '', suffix = '', text }) {
+/** A result tile. `xpAt`: the XP tile, whose number counts up (XpCount, PRODUCT2-38) once the tile is in view. */
+function Stat({ tone, icon: Icon, label, value, prefix = '', suffix = '', text, xpAt }) {
   const v = useCount(value ?? 0);
   return (
     <m.div variants={rise} className={clsx('stat', `stat-${tone}`)}>
       <span className="stat-label">{label}</span>
-      <span className="stat-value"><Icon size={20} aria-hidden="true" /><span>{text ?? <>{prefix}<NumberFlow value={v} />{suffix}</>}</span></span>
+      <span className="stat-value"><Icon size={20} aria-hidden="true" /><span>{xpAt != null ? <XpCount value={value ?? 0} delay={xpAt} unit={false} /> : text ?? <>{prefix}<NumberFlow value={v} />{suffix}</>}</span></span>
     </m.div>
-  );
-}
-
-export function Week({ days }) {
-  const keys = []; let k = today();
-  for (let i = 0; i < 7; i++) { keys.unshift(k); k = dayBefore(k); }
-  return (
-    <ol className="week" aria-label="השבוע האחרון">
-      {keys.map((key, i) => {
-        const d = days[key]; const on = isActiveDay(d);
-        const state = on ? 'on' : d?.frozen ? 'frozen' : isRestDay(key) ? 'rest' : 'off';
-        // a rest day says which (Shabbat or a holiday); a repaired day says the streak was kept
-        const label = { on: 'תרגלתם', frozen: d?.frozen === 'repair' ? 'הרצף נשמר' : 'הקפאת רצף', rest: isYomTov(key) ? 'חג' : 'שבת', off: 'לא תרגלתם' }[state];
-        return (
-          <m.li key={key} className={clsx('week-day', state, key === today() && 'today')} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...SPRING.pop, delay: 0.25 + i * 0.05 }}>
-            <span className="week-dot" aria-hidden="true">{state === 'on' ? <Flame size={16} /> : state === 'frozen' ? <Snowflake size={16} /> : state === 'rest' ? <Moon size={14} /> : null}</span>
-            <span className="week-name">{DAY[new Date(`${key}T12:00:00`).getDay()]}</span>
-            <span className="visually-hidden">{label}</span>
-          </m.li>
-        );
-      })}
-    </ol>
   );
 }
 
@@ -139,6 +119,9 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   // the first finished lesson is the moment to ask the browser to keep the data (once; never on Firefox from here)
   useEffect(() => { askAfterLesson(); }, []);
   const pb = useWeekBest(result.passed);
+  // a streak milestone (3, 7, 30 days) not shown before: the streak's moment is the milestone's (PRODUCT2-38),
+  // worked out once as the screen opens (the moment marks it as shown)
+  const [milestone] = useState(() => (result.passed ? streakMilestone(award, useApp.getState().nudges?.streakSeen) : null));
   const stage = stages[i];
   const nextStage = () => { remind.settle(); return i + 1 < stages.length ? setI(i + 1) : onExit(); };
   const levelTitle = topic.levels[result.level - 1]?.title;
@@ -159,7 +142,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
 
   if (stage === 'unlock') return <UnlockMoment ids={unlocks} onNext={nextStage} />;
   if (stage === 'goal') return <GoalStage onNext={nextStage} />;
-  if (stage === 'streak') return <StreakStage streak={award.streak} repaired={!!award.streakRepaired} days={days} freezes={freezes} onNext={nextStage} />;
+  if (stage === 'streak') return <StreakStage streak={award.streak} repaired={!!award.streakRepaired} days={days} freezes={freezes} onNext={nextStage} milestone={milestone} />;
   if (stage === 'install') return <Suspense fallback={<div className="done-screen" />}><InstallCard onDone={nextStage} /></Suspense>;
   if (stage === 'reminder') return <Suspense fallback={<div className="done-screen" />}><ReminderCard onDone={nextStage} /></Suspense>;
 
@@ -192,7 +175,8 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
       <Hero>
         {award.unitDone && <Lottie name="trophy" className="done-trophy" label="גביע" fallback={null} />}
         {result.perfect && !award.unitDone && <Lottie name="stars" className="done-stars" decorative />}
-        <Mascot mood={award.unitDone || result.perfect ? 'achievement' : 'excited'} size={120} className="done-madi" />
+        {/* מדי jumps in under the confetti, then dances (PRODUCT2-38) */}
+        <Celebrate rays={false} burst={false} delay={0.1}><Mascot mood={award.unitDone || result.perfect ? 'achievement' : 'excited'} size={120} className="done-madi" /></Celebrate>
       </Hero>
       {/* after the hop: the title, then the numbers, then the medals */}
       <m.div className="done-copy" variants={stagger(0.85)} initial="hidden" animate="show">
@@ -211,7 +195,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
           </m.div>
         )}
         <m.div className="stats" variants={stagger(0.05)} data-region="answers">
-          <Stat tone="gold" icon={Zap} label="XP" value={result.xp} prefix="+" />
+          <Stat tone="gold" icon={Zap} label="XP" value={result.xp} xpAt={1.15} />
           <Stat tone="good" icon={Target} label="דיוק" value={result.accuracy} suffix="%" />
           <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
         </m.div>
@@ -276,7 +260,7 @@ export function PlacementDone({ result, award, onExit }) {
         <m.h1 variants={rise} className="done-title">מצאנו את המדרגה שלכם!</m.h1>
         {/* Duolingo's result order: the title, the tiles, then the details (where each topic starts) */}
         <m.div className="stats" variants={stagger(0.05)} data-region="answers">
-          <Stat tone="gold" icon={Zap} label="XP" value={result.xp} prefix="+" />
+          <Stat tone="gold" icon={Zap} label="XP" value={result.xp} xpAt={0.5} />
           <Stat tone="good" icon={ChevronsUp} label="מדרגות" value={Object.values(result.results).reduce((a, r) => a + r.level, 0)} />
           <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
         </m.div>
@@ -296,30 +280,6 @@ export function PlacementDone({ result, award, onExit }) {
         </m.ol>
       </m.div>
       <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={nextStage} ref={focusQuietly}>{last ? 'ללוח שלי' : 'המשך'}</Button></div>
-    </div>
-  );
-}
-
-/** The streak number ticks up from yesterday's value to today's, over a living flame. */
-function StreakStage({ streak, repaired = false, days, freezes, onNext }) {
-  // after a repair the number climbs from today's fresh start back to the whole streak
-  const [v, setV] = useState(repaired ? 1 : Math.max(0, streak - 1));
-  useEffect(() => { const t = setTimeout(() => setV(streak), 450); return () => clearTimeout(t); }, [streak]);
-  return (
-    <div className="done-screen streak-screen">
-      <div className="streak-hero" aria-hidden="true">
-        <Lottie name="flame" loop className="streak-lottie" still="middle" fallback={<span className="streak-big"><Flame size={120} strokeWidth={1.6} /></span>} />
-      </div>
-      <m.p className="streak-num" initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.3 }}><NumberFlow value={v} /></m.p>
-      <h1 className="done-title">{streak === 1 ? 'התחלתם רצף!' : `${streak} ימים ברצף!`}</h1>
-      {/* Duolingo's streak screen: the week in a card, and what keeps the streak written inside it */}
-      <section className="streak-card" aria-label="השבוע">
-        <Week days={days} />
-        <p className="streak-card-text">{repaired
-          ? `הרצף נשמר. ${streak} ימים ברצף.`
-          : `שיעור אחד ביום, או שלב אחד בלימוד מדרגה, שומר על הרצף. בשבת ובחג הרצף נשמר.${freezes > 0 ? ` ${freezes === 1 ? 'יש לכם הקפאה אחת ליום שלא יוצא ללמוד בו.' : `יש לכם ${freezes} הקפאות לימים שלא יוצא ללמוד בהם.`}` : ''}`}</p>
-      </section>
-      <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={onNext} ref={focusQuietly}>המשך</Button></div>
     </div>
   );
 }

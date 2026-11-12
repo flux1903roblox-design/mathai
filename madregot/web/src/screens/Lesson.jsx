@@ -446,8 +446,10 @@ export default function Lesson() {
     } else if (workId) reportWork(workId, { state: 'done', right: result.right, asked: result.asked, passed: !!result.passed });
     reportStairs();
     syncNow();
-    // the end of a lesson, a check or the placement test: the sound and its vibration, as the end screen appears
-    play(result.passed ? 'complete' : 'wrong'); haptic(result.passed ? 'complete' : 'wrong');
+    // the end of a lesson, a check or the placement test: the sound and its vibration, as the end screen appears; a
+    // stair mastered or a unit done is a level up (PRODUCT2-38)
+    const endSound = !result.passed ? 'wrong' : award?.stairDone || award?.unitDone ? 'levelup' : 'complete';
+    play(endSound); haptic(endSound);
     setDone({ result, award });
   };
 
@@ -463,7 +465,7 @@ export default function Lesson() {
     setLast(null);
     if (ns.finished) { finish(ns); return; }
     setS(ns);
-    if (mark) { setCombo(mark); play('combo'); setTimeout(() => setCombo(null), 1400); }
+    if (mark) { setCombo(mark); play('combo', mark); haptic('combo'); setTimeout(() => setCombo(null), 1400); }
   };
 
   useEffect(() => {

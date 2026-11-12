@@ -1,7 +1,8 @@
 // A calm streak (STUDENT-5): rest days on Shabbat and Yom Tov, an earned repair at most once in 30 days, counters that
 // never reset, and a weekly personal best in steps. Pure functions, on fixed dates.
 import { describe, it, expect } from 'vitest';
-import { streakAt, streakRepair, streakNow, lastSchoolDay, learnDaysThisMonth, learnDaysTotal, weekStart, weekSteps, bestWeek, stepsOn, daysBetween } from './streak.js';
+import { streakAt, streakRepair, streakNow, lastSchoolDay, learnDaysThisMonth, learnDaysTotal, weekStart, weekSteps, bestWeek, stepsOn, daysBetween, STREAK_MILESTONES, streakMilestone } from './streak.js';
+import { useApp } from './store.js';
 
 const L = (n = 1, extra = {}) => ({ lessons: n, ...extra });
 // Wed 4, Thu 5, Fri 6, (Shabbat 7), Sun 8, Mon 9 November 2026: a streak of 5 ending on Monday the 9th
@@ -101,5 +102,42 @@ describe('the streak every screen shows today (PRODUCT2-40)', () => {
   it('a gap that cannot be repaired (a repair used this month, or a streak of 1) is a plain 0', () => {
     expect(streakNow(back(), '2026-11-11', '2026-11-01')).toEqual({ n: 0, atRisk: false, repair: null });
     expect(streakNow({ '2026-11-09': L() }, '2026-11-11', null)).toEqual({ n: 0, atRisk: false, repair: null });
+  });
+});
+
+// Streak milestones (PRODUCT2-38): 3, 7 and 30 days in a row each get their own moment, once. Never a countdown to the
+// next one: the function only answers whether the result in hand reached one.
+describe('streak milestones at 3, 7 and 30 days, each shown once', () => {
+  const kept = (streak, extra = {}) => ({ streakExtended: true, streak, ...extra });
+  it('are 3, 7 and 30', () => {
+    expect(STREAK_MILESTONES).toEqual([3, 7, 30]);
+  });
+  it('a result that brings the streak to 3, 7 or 30 reaches that milestone', () => {
+    expect(streakMilestone(kept(3), {})).toBe(3);
+    expect(streakMilestone(kept(7), {})).toBe(7);
+    expect(streakMilestone(kept(30), undefined)).toBe(30);
+    // a repaired streak counts too (the moment the repair keeps it)
+    expect(streakMilestone({ streakRepaired: true, streak: 7 }, {})).toBe(7);
+  });
+  it('other days are not milestones, and a result that did not move the streak brings none', () => {
+    for (const n of [1, 2, 4, 6, 8, 29, 31, 60]) expect(streakMilestone(kept(n), {})).toBe(null);
+    expect(streakMilestone({ streak: 3 }, {})).toBe(null); // the second lesson of the day: the streak was already 3
+    expect(streakMilestone(null, {})).toBe(null);
+  });
+  it('a milestone already shown is not shown again', () => {
+    expect(streakMilestone(kept(3), { 3: '2026-11-05' })).toBe(null);
+    expect(streakMilestone(kept(7), { 3: '2026-11-05' })).toBe(7);
+  });
+  it('the store remembers each milestone once it is shown (nudges.streakSeen), and a progress reset forgets them', () => {
+    useApp.setState({ nudges: { ...useApp.getInitialState().nudges } });
+    expect(useApp.getState().nudges.streakSeen).toEqual({});
+    for (const m of [3, 7, 30]) {
+      expect(streakMilestone(kept(m), useApp.getState().nudges.streakSeen)).toBe(m);
+      useApp.getState().markMilestone(m);
+      expect(streakMilestone(kept(m), useApp.getState().nudges.streakSeen)).toBe(null);
+    }
+    expect(Object.keys(useApp.getState().nudges.streakSeen)).toEqual(['3', '7', '30']);
+    useApp.getState().resetProgress();
+    expect(useApp.getState().nudges.streakSeen).toEqual({});
   });
 });

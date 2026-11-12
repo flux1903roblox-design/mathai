@@ -7,7 +7,7 @@ import { useApp, useStreak, today } from '@/lib/store.js';
 import { learnDaysThisMonth, learnDaysTotal, weekStart, weekSteps, bestWeek } from '@/lib/streak.js';
 import { repairText } from '@/components/learn/RepairCard.jsx';
 import { questProgress, GOALS } from '@/lib/quests.js';
-import { Week } from './LessonDone.jsx';
+import { Week } from '@/components/learn/StreakStage.jsx';
 import PageHero from '@/components/PageHero.jsx';
 import { Progress } from '@/components/ui.jsx';
 import Lottie from '@/components/Lottie.jsx';

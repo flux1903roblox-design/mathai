@@ -4,7 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { open, student, answer, proceedToNext, saved, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, student, answer, proceedToNext, saved, expectUsable, expectNoSidewaysScroll, playDiscover } from './helpers.js';
 
 // (the returning student's home below runs on both phone sizes instead)
 const RETURNING = "a returning student's home screen";
@@ -117,6 +117,66 @@ test('a first week has no best yet, and a student who never learned has no strea
   await expect(page.locator('.week-best-card .wk-best')).toHaveText('זה השבוע הראשון. מה שתעשו השבוע יהיה השיא.');
   await expect(page.locator('.streak-card h2')).toHaveText('עוד אין רצף');
   await expect(page.locator('.streak-month')).toHaveCount(0);
+});
+
+// Streak milestones (PRODUCT2-38): 3, 7 and 30 days in a row each get their own moment, once, in place of the streak's
+// usual one. No countdown and nothing to lose: one line about what was done. Under reduced motion (this file) it is
+// still; celebrate.spec.js runs it with motion.
+const PRESSURE = /פספסתם|תפספסו|איבדתם|נשבר|נגמר הרצף|תאבדו|יימחק|עוד מעט ייגמר|מהרו|נשארו|עוד \d+ ימים/;
+const twoDays = { '2026-11-03': { lessons: 1, xp: 12, q: 8, ok: 7 }, '2026-11-04': { lessons: 1, xp: 12, q: 8, ok: 7 } };
+
+test('3 days in a row: the milestone\'s moment once, focused, gone with Enter, and the next day is an ordinary streak', async ({ page }) => {
+  await open(page, '#/lesson/signed/1', student('7', { days: twoDays, goalXp: 500 }));
+  await playLesson(page);
+  await page.locator('.done-screen .done-actions .btn').click();
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+  const ms = page.locator('.streak-screen.streak-milestone');
+  await expect(ms).toHaveAttribute('data-milestone', '3');
+  await expect(ms.getByRole('heading', { level: 1 })).toHaveText('3 ימים ברצף!');
+  await expect(ms.locator('.milestone-line')).toHaveText('שלושה ימים של תרגול. מדי שמח איתכם.');
+  await expect(ms.locator('.milestone-medal b')).toHaveText('3');
+  // the week and what keeps the streak stay, as on the usual moment
+  await expect(ms.locator('.week-day.on')).toHaveCount(3);
+  await expect(ms.locator('.streak-card-text')).toContainText('בשבת ובחג הרצף נשמר.');
+  await expect(page.locator('body')).not.toContainText(PRESSURE);
+  const go = ms.getByRole('button', { name: 'המשך', exact: true });
+  await expect(go).toBeFocused();
+  await expect(go).toHaveAttribute('aria-describedby', 'streak-title milestone-line');
+  await page.keyboard.press('Enter');
+  await expect(ms).toHaveCount(0);
+  expect((await saved(page)).nudges.streakSeen).toEqual({ 3: '2026-11-05' });
+});
+
+test('a milestone already shown is not shown again: the streak\'s usual moment comes', async ({ page }) => {
+  await open(page, '#/lesson/signed/1', student('7', { days: twoDays, goalXp: 500, nudges: { streakSeen: { 3: '2026-10-20' } } }));
+  await playLesson(page);
+  await page.locator('.done-screen .done-actions .btn').click();
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+  await expect(page.locator('.streak-screen h1')).toHaveText('3 ימים ברצף!');
+  await expect(page.locator('.streak-milestone')).toHaveCount(0);
+  await expect(page.locator('.streak-num')).toBeVisible();
+});
+
+test('a teaching stage that makes 7 days in a row: the milestone comes after the stage, then the way the student picked', async ({ page }) => {
+  // Thursday 29 October to Wednesday 4 November, Shabbat passed over: six days; today's first stage makes seven
+  const d = { lessons: 1, xp: 12, q: 8, ok: 7 };
+  const six = { '2026-10-29': d, '2026-10-30': d, '2026-11-01': d, '2026-11-02': d, '2026-11-03': d, '2026-11-04': d };
+  await open(page, '#/learn/signed/1/A', student('7', { days: six, goalXp: 500 }));
+  await playDiscover(page);
+  const stage = page.locator('.stage-done');
+  await expect(stage.locator('.badges')).toContainText('7 ימים ברצף');
+  // reduced motion: the XP is there at once, no counting
+  await expect(stage.locator('.xp-pill .xp-count')).toHaveAttribute('data-done', 'true');
+  await expect(stage.locator('.xp-pill .xp-count-n')).toHaveText('+10');
+  await stage.getByRole('button', { name: 'לדוגמה הפתורה', exact: true }).click();
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+  const ms = page.locator('.streak-milestone');
+  await expect(ms.getByRole('heading', { level: 1 })).toHaveText('7 ימים ברצף!');
+  await expect(ms.locator('.milestone-line')).toHaveText('שבעה ימים של תרגול. זה כבר הרגל.');
+  await expect(page.locator('body')).not.toContainText(PRESSURE);
+  await ms.getByRole('button', { name: 'המשך', exact: true }).click();
+  await expect(page).toHaveURL(/learn\/signed\/1\/B/);
+  expect((await saved(page)).nudges.streakSeen).toEqual({ 7: '2026-11-05' });
 });
 
 // PRODUCT2-40, the council's painful moment #2 (student-verify/t11-repair.js): a returning student opens the app on an

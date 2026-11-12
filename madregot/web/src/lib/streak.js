@@ -65,6 +65,20 @@ export function streakNow(days, todayKey, lastRepair) {
   return { n: streakAt(days, todayKey), atRisk: false, repair: null };
 }
 
+/** The streak's milestones (PRODUCT2-38): each has its own moment, once. */
+export const STREAK_MILESTONES = [3, 7, 30];
+
+/**
+ * The milestone a result reached, or null: the result moved the streak (the first item of the day, or the repair kept
+ * it) to exactly 3, 7 or 30, and that milestone was not shown before (`seen`: nudges.streakSeen). Only ever about the
+ * result in hand: nothing counts down to the next one.
+ */
+export function streakMilestone(award, seen) {
+  if (!award || !(award.streakExtended || award.streakRepaired)) return null;
+  const m = award.streak;
+  return STREAK_MILESTONES.includes(m) && !seen?.[m] ? m : null;
+}
+
 /** Active days in the calendar month of `todayKey`, up to it. Starts again on the 1st. */
 export function learnDaysThisMonth(days, todayKey) {
   const month = todayKey.slice(0, 7);

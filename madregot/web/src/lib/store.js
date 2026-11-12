@@ -74,7 +74,8 @@ export const empty = {
   // which counts as set aside unless the app got installed (STUDENT-10, lib/install.js). They belong to the device: a
   // progress reset keeps them.
   // pushOffered: the daily reminder's card after a lesson was shown (STUDENT-11, once ever; a progress reset keeps it)
-  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false, storeOpenDay: null },
+  // streakSeen: { [3 | 7 | 30]: day } the streak milestone's moment was shown (PRODUCT2-38), each once; it goes with the progress
+  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false, storeOpenDay: null, streakSeen: {} },
   // the opt-in daily reminder (STUDENT-11, lib/push.js): on, the hour (16-20), the id and secret the server gave once,
   // 'paused' when the server stopped it because it did not help, and the days already told to the server (opened,
   // learned). It belongs to the device: a progress reset keeps it; deleting everything or signing out turns it off.
@@ -419,6 +420,8 @@ export const appState = (set, get) => ({
       },
       /** A one-time note was seen: e.g. { repairDismissed: today() } or { pbWeek: '2026-11-01' }. */
       setNudge: (patch) => set({ nudges: { ...get().nudges, ...patch } }),
+      /** A streak milestone's moment was shown (3, 7 or 30 days, PRODUCT2-38): it is not shown again. */
+      markMilestone: (m) => { const n = get().nudges || {}; set({ nudges: { ...n, streakSeen: { ...(n.streakSeen || {}), [m]: today() } } }); },
       /** The daily reminder's state (lib/push.js writes it). */
       setReminder: (patch) => set({ reminder: { ...empty.reminder, ...get().reminder, ...patch } }),
       /**
@@ -534,7 +537,7 @@ export const appState = (set, get) => ({
         progress: {}, days: {}, xp: 0, xpBy: {}, resetAt: new Date().toISOString(), mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {},
         exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null },
         nudges: {
-          ...empty.nudges, goalSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null,
+          ...empty.nudges, goalSeen: {}, streakSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null,
           pushOffered: !!get().nudges?.pushOffered, storeOpenDay: get().nudges?.storeOpenDay || null,
         },
         gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook(),

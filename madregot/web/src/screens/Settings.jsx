@@ -21,6 +21,7 @@ import { useAIStatus, leaveFamily, familyInApp } from '@/lib/account.js';
 import { canSell } from '@/lib/price.js';
 import { PARENT_OK_LINE } from '@/components/limitCopy.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
+import { soundOn } from '@/lib/sound.js';
 import SaveSection from '@/components/durable/SaveSection.jsx';
 import SupportInfo from '@/components/durable/SupportInfo.jsx';
 import { whereSavedText, WHERE_SAVED } from '@/lib/durable/copy.js';
@@ -326,7 +327,8 @@ function OnOff({ id, title, value, onChange, on, off, hint, children }) {
 
 /** Sound and vibration are two choices (STUDENT-7). Vibration is offered only where the browser can vibrate. */
 function SoundSettings() {
-  const sound = useApp((x) => x.sound);
+  // in a class, sound is off until the student turns it on themselves (lib/sound.js soundOn): the switch says so
+  const sound = useApp(soundOn);
   const setSound = useApp((x) => x.setSound);
   const haptics = useApp((x) => x.haptics ?? true);
   const setHaptics = useApp((x) => x.setHaptics);
@@ -334,7 +336,7 @@ function SoundSettings() {
   const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
   return (
     <>
-      <OnOff id="snd" title="צלילים" value={sound} onChange={setSound} on="פועלים" off="כבויים" hint="צליל קצר אחרי תשובה ובסוף שיעור. למי שהצטרף לכיתה הם כבויים בהתחלה." />
+      <OnOff id="snd" title="צלילים" value={sound} onChange={setSound} on="פועלים" off="כבויים" hint={`צליל קצר אחרי תשובה ובסוף שיעור. למי שהצטרף לכיתה הם כבויים בהתחלה.${reduce ? ' בטלפון מופעלת הפחתת תנועה, ולכן צלילי החגיגה שקטים.' : ''}`} />
       {canVibrate
         ? <OnOff id="vib" title="רטט" value={haptics} onChange={setHaptics} on="פועל" off="כבוי" hint={reduce ? 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה. בטלפון מופעלת הפחתת תנועה, ולכן עכשיו אין רטט.' : 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה.'} />
         : <OnOff id="vib" title="רטט"><p className="field-hint" id="vib-hint">בדפדפן הזה אין רטט.</p></OnOff>}
