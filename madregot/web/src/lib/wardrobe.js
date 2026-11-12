@@ -7,7 +7,7 @@
 // Unlocks are derived from progress, so they need no migration. The first time an id is derived it is remembered in
 // look.earned (earnIds), and from then on it stays earned, even if a stair later falls back to needs-review.
 // Pure functions only; the store keeps `look` (lib/store.js), Mascot draws it (components/mascot/Accessories.jsx).
-import { TOPICS, TOPIC } from '@/content/index.js';
+import { TOPICS, TOPIC } from '@/content/topics.js';
 import { doneCount, chestOpen, chestAfter } from './path.js';
 
 export const SLOTS = ['head', 'face', 'neck', 'body'];

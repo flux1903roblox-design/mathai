@@ -9,14 +9,14 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import clsx from 'clsx';
 import { Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle, School, Puzzle, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { useStairContent } from '@/learn/useStairContent.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState, nextStage, STATE_LABEL, MASTERY_RULES, MASTERY_N, daysBetween } from '@/learn/mastery.ts';
 import { openMisconceptions } from '@/learn/misconceptions.ts';
 import { routeOf } from '@/learn/recommend.ts';
 import { challengesAfter, isSolved } from '@/learn/challenges/index.ts';
-import { LESSON_LEN, PARTS } from '@/lib/lesson.js';
+import { LESSON_LEN, PARTS } from '@/lib/lessonRules.js';
 import { unitNodes } from '@/lib/path.js';
 import { MathText } from '@/components/MathText.jsx';
 import { inDays } from '@/content/util.js';

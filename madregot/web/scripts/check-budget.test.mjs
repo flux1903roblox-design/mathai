@@ -129,6 +129,10 @@ describe('check-budget: modules that must load on demand (STUDENT-15)', () => {
     expect(matches('node_modules/cmdk/dist/index.mjs', 'cmdk')).toBe(true);
     expect(matches('node_modules/some-lib/push.js', 'push')).toBe(false);
     expect(matches('src/screens/Wardrobe.jsx', 'Wardrobe')).toBe(true);
+    // a name with a slash is one file's path (the boot split: src/content/expr.js, not the first load's src/learn/expr.ts)
+    expect(matches('src/content/expr.js', 'src/content/expr.js')).toBe(true);
+    expect(matches('src/learn/expr.ts', 'src/content/expr.js')).toBe(false);
+    expect(matches('src/content/expr.jsx', 'src/content/expr.js')).toBe(false);
   });
 
   it('refuses a build without the module map, and the command removes .vite after the check', () => {
@@ -146,12 +150,16 @@ describe('the budget as configured', () => {
   const budget = JSON.parse(readFileSync(join(WEB, 'budget.json'), 'utf8'));
   const pkg = JSON.parse(readFileSync(join(WEB, 'package.json'), 'utf8'));
 
-  it('names the lazy-only modules (the student lane\'s, the demo class and the tutor\'s code of FOLLOWUP-23, and the safety code the stage-5 merge took out of the first load), beside the load-time gates', () => {
+  it('names the lazy-only modules (the student lane\'s, the demo class and the tutor\'s code of FOLLOWUP-23, the safety code the stage-5 merge took out of the first load, and the exercise code of the boot split), beside the load-time gates', () => {
     // shared/safety.js and its blocklist load with the screens that read a child's words; the first screen's help lines
     // are shared/helpLines.js (the stage-5 merge, QA_DURABLE.md)
-    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk', 'ai', 'pedagogy', 'guard', 'topicWays', 'safety', 'blocklist']);
-    // the ratchet (FOLLOWUP-23): the measured 403.3 KB + 5%, never back up to the 433 KB it was
-    expect(budget.bootJsGzipKB).toBeLessThanOrEqual(424);
+    // and the exercise code (the boot split): the checkers and the figures' words (content/index.js, manip), each topic
+    // file's generators, the challenge tasks' parts, and the engines that make and grade questions; a lane's new topic
+    // file joins the list (src/boot.test.js finds it by its gen: before a build)
+    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk', 'ai', 'pedagogy', 'guard', 'topicWays', 'safety', 'blocklist',
+      'src/content/index.js', 'manip', 'grade7', 'grade8', 'signed6', 'src/content/expr.js', 'eq', 'frac', 'linear', 'sys', 'ratio', 'pct', 'func', 'src/learn/challenges/all.ts', 'lesson', 'placement', 'exam', 'items', 'seeds']);
+    // the ratchet: FOLLOWUP-23's measured 403.3 KB + 5% (424), then the boot split's 317.2 KB + 5%; never back up
+    expect(budget.bootJsGzipKB).toBeLessThanOrEqual(333);
     for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');
   });
 

@@ -10,9 +10,9 @@
 // straight to its check) leaves the stairs before it open, not locked; the path still continues from the first one.
 //
 // path[topic] = { parts: { level: practice lessons }, reviews, jumped: highest level passed over, done: { level: 'mastered' | 'kept' } }
-import { TOPIC, GUEST_STATE } from '@/content/index.js';
+import { TOPIC, GUEST_STATE } from '@/content/topics.js';
 import { GUEST, parseSkill } from '@/learn/skills.ts';
-import { PARTS } from './lesson.js';
+import { PARTS } from './lessonRules.js';
 
 export const partsOf = (path, topic, level) => path?.[topic]?.parts?.[level] || 0;
 /** Is this stair done: its mastery check passed (or kept from before checks existed)? */
@@ -87,7 +87,7 @@ export const addedStairNote = (n, path = {}) => (n?.kind === 'node' && n.state =
  * What the class sync says about each guest stair (learn/skills.ts GUEST: eq:6 and eq:7 for ח׳, func:1 for ז׳): under the
  * stair's own id, { level, max } of GUEST_STATE, mastered when its mastery check is passed (done on the path), practised
  * when it has a practice lesson, a teaching stage or an answer; a stair not yet touched is not sent. Every guest stair is
- * sent, whatever the student's grade, so a teacher's guest row (content/index.js rowLevel) reads the stair itself and
+ * sent, whatever the student's grade, so a teacher's guest row (content/topics.js rowLevel) reads the stair itself and
  * never its unit's level.
  */
 export function guestStairLevels(path = {}, learn = {}) {

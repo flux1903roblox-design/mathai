@@ -2,7 +2,7 @@
 // result, and the "לספר לכיתה?" step (a message to copy and a Google Classroom share link). Results are worked out on
 // the student's device: practice, not a graded test.
 import { teacherApi } from './teacher.js';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { weekdayName, dm } from './workDates.js';
 
 /** The kinds a teacher gives: a stair to learn, a mastery check, and a class exam made with the exam builder. */

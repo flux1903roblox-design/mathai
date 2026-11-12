@@ -25,7 +25,8 @@ import SupportSheet from '@/components/SupportSheet.jsx';
 import AIIntro from '@/components/AIIntro.jsx';
 import { useDemoAsk } from '@/lib/demoWanted.js';
 import { useLearnClock } from '@/lib/learnClock.js';
-import { loadTopic } from '@/learn/content/index.ts';
+import { ensureTopics } from '@/learn/content/index.ts';
+import { topicsFor } from '@/content/topics.js';
 import { loadKatex } from '@/components/MathText.jsx';
 import BackupNudge from '@/components/durable/BackupNudge.jsx';
 import SharingNotice from '@/components/learn/SharingNotice.jsx';
@@ -203,15 +204,17 @@ function HelpNotice() {
 }
 
 /**
- * The teaching content loads one topic at a time, and the lesson screen is its own file (DURABLE-11). After the first
- * screen, when the browser is idle, the lesson and the topic the student worked on last load in the background, so
- * the next lesson opens without a wait.
+ * The teaching content loads one topic at a time, and the lesson screen is its own file (DURABLE-11); so do the
+ * exercise generators (the boot split, content/topics.js loadGens). After the first screen, when the browser is idle,
+ * the lesson and the topic the student worked on last (its teaching and its generators; a student with none yet, the
+ * grade's first unit) load in the background, so the next lesson opens without a wait.
  */
 function usePreloadLastTopic(role) {
   useEffect(() => {
     if (role !== 'student') return undefined;
-    const topic = useApp.getState().lastTopic;
-    const run = () => { Lesson.preload().catch(() => {}); if (topic) loadTopic(topic).catch(() => {}); };
+    const st = useApp.getState();
+    const topic = st.lastTopic || topicsFor(st.profile?.grade || '7')[0]?.id;
+    const run = () => { Lesson.preload().catch(() => {}); if (topic) ensureTopics([topic]).catch(() => {}); };
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(run, { timeout: 5000 });
       return () => window.cancelIdleCallback(id);

@@ -6,6 +6,9 @@ import { describe, it, expect } from 'vitest';
 import { demoState, demoApi, mulberry32, DEMO_NAMES } from './teacherDemo.js';
 import { attentionList, openHelpBy } from '@/learn/attention';
 import { classAiPolicy } from '@shared/schoolRules.js';
+import { loadAllGens } from '@/content/index.js';
+// the exercise generators load per topic (the boot split); this file makes questions while its tests are collected
+await loadAllGens();
 
 const DAY = '2026-11-05'; // a Thursday
 const keys = (o) => Object.keys(o).sort();

@@ -345,6 +345,8 @@ export interface ChallengeTask {
   /** The mistake (a misconception id of the content, e.g. 'partial-dist') the task is built on, when it is one. */
   misc?: string;
 }
+/** A task without its story and parts: what the first load knows of it (learn/challenges/meta.gen.ts). */
+export type ChallengeMeta = Pick<ChallengeTask, 'id' | 'topic' | 'after' | 'kind' | 'title' | 'minutes' | 'misc'>;
 /**
  * One part of a challenge.
  *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested)

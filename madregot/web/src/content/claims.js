@@ -14,7 +14,7 @@
 // A check gets `ctx`: { code, data }. code.has(path) and code.read(path) read a file of the repository by its path
 // from madregot/ (web/src/…, worker/src/…, shared/…); data holds what the build computed from the app (data.mistakes,
 // data.coverage when CURRICULUM-1's programme exists, data.vars: the Worker's [vars]).
-import { TOPICS, isCorrect } from './index.js';
+import { TOPICS, isCorrect, loadAllGens } from './index.js';
 import { META, loadAllContent } from '@/learn/content/index.ts';
 import { isRestDay, YOMTOV_IL } from '@shared/restDays.js';
 
@@ -54,6 +54,8 @@ export const allExplained = (content) => Object.values(content || {}).every((s) 
  * content loads one topic at a time (DURABLE-11), and the explanations are read from all of it.
  */
 export async function claimData() {
+  // the exercise generators load per topic (the boot split); 'graded-by-code' reads that every stair has one
+  await loadAllGens();
   return { mistakes: countNamedMistakes(), explained: allExplained(await loadAllContent()), coverage: programmeCoverage() };
 }
 

@@ -11,8 +11,8 @@
 // And the student lane's rule (STUDENT-15): the modules in budget.json's lazyOnly (the wardrobe, the Sunday recap, מדי's
 // accessories, the reminder code, and the libraries kept off student screens) must load on demand only. None may be in
 // a boot file: the entry script or anything it modulepreloads, which is every chunk it imports statically. A name
-// matches a source file by its base name (Wardrobe → src/screens/Wardrobe.jsx) or a package by its name
-// (node_modules/cmdk/…). Vite names only each chunk's entry module, so a module bundled into another chunk is found
+// matches a source file by its base name (Wardrobe → src/screens/Wardrobe.jsx), or by its path when it has a slash
+// (src/content/expr.js), or a package by its name (node_modules/cmdk/…). Vite names only each chunk's entry module, so a module bundled into another chunk is found
 // through <dist>/.vite/modules.json (scripts/vite-plugin-budget.mjs). The command removes <dist>/.vite afterwards
 // (unless --keep), so that list is never deployed.
 // Usage: node scripts/check-budget.mjs [dist] [--budget budget.json] [--keep]
@@ -60,8 +60,13 @@ export function measure(dir) {
   };
 }
 
-/** Does a module path (src/screens/Wardrobe.jsx, node_modules/cmdk/dist/index.mjs) match a lazyOnly name? */
+/**
+ * Does a module path (src/screens/Wardrobe.jsx, node_modules/cmdk/dist/index.mjs) match a lazyOnly name? A name with a
+ * slash is a path from the web folder (src/content/expr.js) and matches that one file only: for a module whose base
+ * name a first-load module shares (src/learn/expr.ts is the first load's, src/content/expr.js is not).
+ */
 export function matches(module, name) {
+  if (name.includes('/')) return module === name;
   if (module.includes(`node_modules/${name}/`)) return true;
   if (module.includes('node_modules/')) return false;
   const base = module.split('/').pop().replace(/\.[^.]+$/, '');

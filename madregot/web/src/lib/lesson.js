@@ -11,19 +11,10 @@ import { parseSkill, skillId } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from '@/learn/mastery.ts';
 import { VERIFY_NEED } from '@/learn/misconceptions.ts';
 
-export const LESSON_LEN = 8;
-export const REVIEW_LEN = 10;
-/** Multiplication facts practice (/facts): eight facts, practice rules (hints, a second try, a miss comes back). */
-export const FACTS_LEN = 8;
-export const JUMP_LEN = 5;
-export const JUMP_MISTAKES = 1; // a jump test allows one mistake
-export const PARTS = 2; // lessons that complete a node on the path
-export const REDO_MAX = 2;
-/** XP for finishing a teaching stage the first time (A understand, B worked examples, C solve together): about the
- * same per minute as a practice lesson, so a first session spent learning reaches the daily goal. */
-export const STAGE_XP = { A: 10, B: 5, C: 10 };
-export const XP = { lesson: 10, review: 15, jump: 10, perfect: 5, fix: 2, mastery: 15, recall: 5, verify: 5, diagnostic: 5, exam: 10 }; // fix: each mistake corrected at the end of a lesson
-export const COMBO_MARKS = [5, 10];
+// The lesson's numbers (lengths, parts, XP) live in lib/lessonRules.js, which the first screen reads without this file
+// (the boot split: the lesson's code, its items and the exercise generators load with the lesson).
+export { LESSON_LEN, REVIEW_LEN, FACTS_LEN, JUMP_LEN, JUMP_MISTAKES, PARTS, REDO_MAX, STAGE_XP, XP, COMBO_MARKS } from './lessonRules.js';
+import { LESSON_LEN, REVIEW_LEN, FACTS_LEN, JUMP_LEN, JUMP_MISTAKES, REDO_MAX, XP, COMBO_MARKS } from './lessonRules.js';
 
 const shuffle = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 

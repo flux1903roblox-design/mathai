@@ -20,7 +20,7 @@ import { DEMO_SCHOOL } from '@/lib/demo.js';
 import { useBoard } from '@/lib/teacherBoard.js';
 import { schoolContext, fillSchoolDoc, fieldsOf, toPlainText, topicsLine } from '@/lib/schoolDocs.js';
 import { SCHOOL_DOCS, schoolDoc } from '@/content/schools/index.js';
-import { topicsFor } from '@/content/index.js';
+import { topicsFor } from '@/content/topics.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { ScreenBar } from '@/components/Screen.jsx';
 import { printSheet } from './ExamSheet.jsx';

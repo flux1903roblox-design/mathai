@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useApp, isActiveDay } from '@/lib/store.js';
-import { TOPICS, topicsFor } from '@/content/index.js';
+import { TOPICS, topicsFor } from '@/content/topics.js';
 import { doneCount } from '@/lib/path.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState } from '@/learn/mastery.ts';

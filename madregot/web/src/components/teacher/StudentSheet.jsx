@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { KeyRound, UserMinus, Send, Hand, RefreshCw, Sparkles } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
-import { classTopicsFor, rowLevel, rowTitle, TOPIC } from '@/content/index.js';
+import { classTopicsFor, rowLevel, rowTitle, TOPIC } from '@/content/topics.js';
 import { AI_COPY, perStudentAi } from '@/content/classAi.js';
 import { workText } from '@/lib/teacherCsv.js';
 import { isStair } from '@/lib/assign.js';

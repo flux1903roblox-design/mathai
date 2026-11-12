@@ -4,7 +4,7 @@
 import { createContext, createElement, lazy, useContext, useEffect, useMemo, useState } from 'react';
 import { useApp } from './store.js';
 import { DEFAULT_LOOK, cleanLook, ownedLook, newUnlocks, orderUnlocks } from './wardrobe.js';
-import { topicsFor } from '@/content/index.js';
+import { topicsFor } from '@/content/topics.js';
 
 /** { color, head, face, neck, body, classColor }: classColor is the colour of the class scarf (the grade's first unit). */
 const MadiLook = createContext({ ...DEFAULT_LOOK, classColor: 'sky' });

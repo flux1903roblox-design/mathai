@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { RotateCcw } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { previewBack } from '@/lib/teacher.js';
-import { topicsFor, guestTopicsFor, rowStairs } from '@/content/index.js';
+import { topicsFor, guestTopicsFor, rowStairs } from '@/content/topics.js';
 import { hasContent } from '@/learn/content/index.ts';
 import { skillId } from '@/learn/skills.ts';
 import { routeOf } from '@/learn/recommend.ts';

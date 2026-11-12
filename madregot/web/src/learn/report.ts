@@ -19,7 +19,7 @@ import type { LearnEvent, LearnState, SkillId } from './types';
 import { openMisconceptions } from './misconceptions';
 import { masteryState } from './mastery';
 import { metaOf } from './content/index';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { streakOf } from '@/lib/days.js';
 import { weekStart, weekDays, weekFrom, isSaturday } from '@shared/week.js';
 import { stairName as sharedStairName } from '@shared/stairs.js';

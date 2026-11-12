@@ -6,7 +6,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Award, RotateCcw, Check, ArrowLeft, Gift, Flame, Puzzle } from 'lucide-react';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { useApp } from '@/lib/store.js';
 import { skillId, parseSkill } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS } from '@/learn/mastery.ts';

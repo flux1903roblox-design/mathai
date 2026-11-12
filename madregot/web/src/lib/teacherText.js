@@ -2,7 +2,7 @@
 // (catLabel: the stair's own misconception first, then the topic's name for it), never a raw id, and the stair they
 // happened on. One id can mean different things on different stairs ('sign' is a negative length on coord:3), so every
 // teacher surface names the stair: "מחר", the student's sheet, the class report, its printout and its CSV.
-import { catLabel, TOPIC } from '@/content/index.js';
+import { catLabel, TOPIC } from '@/content/topics.js';
 
 /** The words for a mistake on a stair, as the student saw them. */
 export const mistakeText = (topic, level, cat) => catLabel(topic, level, cat) || TOPIC[topic]?.cats?.[cat] || 'טעות שחוזרת';

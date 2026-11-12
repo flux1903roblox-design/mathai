@@ -8,7 +8,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Trash2, ChevronLeft } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
-import { classTopicsFor, rowLevel, rowTitle } from '@/content/index.js';
+import { classTopicsFor, rowLevel, rowTitle } from '@/content/topics.js';
 import { rankAll, openHelpBy } from '@/learn/attention';
 import { AI_COPY, perStudentAi } from '@/content/classAi.js';
 import { useDemo, DEMO_COPY } from '@/lib/demo.js';

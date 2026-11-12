@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { Copy, ExternalLink } from 'lucide-react';
 import { useApp, today as localToday } from '@/lib/store.js';
 import { teacherApi } from '@/lib/teacher.js';
-import { classTopicsFor, rowStairs, rowTitle, TOPIC } from '@/content/index.js';
+import { classTopicsFor, rowStairs, rowTitle, TOPIC } from '@/content/topics.js';
 import { assignTitle, sendWork, classMessage, classroomLink, publicUrl } from '@/lib/assign.js';
 import { plusDays, schoolDay, dayLong, dm } from '@/lib/workDates.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';

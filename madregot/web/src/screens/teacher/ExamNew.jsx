@@ -3,13 +3,13 @@
 // one version or two. "הכנת המבחן" draws the questions from the app's own generators (lib/exam.js makeClassExam),
 // keeps the exam on this device (teacherExams) and opens its sheet. Under the stairs, "מבחנים להדפסה" lists the exams
 // made here, to print again.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { Check, ChevronLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { makeClassExam, classExamTitle, CLASS_EXAM_LENGTHS } from '@/lib/exam.js';
-import { TOPIC, classTopicsFor, rowStairs, rowTitle } from '@/content/index.js';
+import { TOPIC, classTopicsFor, rowStairs, rowTitle, ensureGens } from '@/content/topics.js';
 import { ALL_SKILLS, parseSkill } from '@/learn/skills.ts';
 import { dm } from '@/lib/workDates.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
@@ -81,6 +81,10 @@ export default function ExamNew() {
     return [...list.filter((t) => !extra.some((x) => x.id === t.id)), ...extra];
   }, [grade, params]); // eslint-disable-line react-hooks/exhaustive-deps
   const [picked, setPicked] = useState(() => new Set(fromLink));
+  // the questions are drawn from the exercise generators, which load with their topics (the boot split): fetched while
+  // the teacher picks, and waited for before the exam is drawn ("הכנת המבחן" stays off for that moment)
+  useEffect(() => { ensureGens(topics.map((t) => t.id)).catch(() => {}); }, [topics]);
+  const [making, setMaking] = useState(false);
   const [count, setCount] = useState(10);
   const [two, setTwo] = useState(true);
   const [step, setStep] = useState(0);
@@ -94,8 +98,12 @@ export default function ExamNew() {
     return n;
   });
 
-  const create = () => {
+  const create = async () => {
+    if (making) return;
     const skills = order([...picked]);
+    setMaking(true);
+    try { await ensureGens(skills); } catch { setMaking(false); return; }
+    setMaking(false);
     const a = makeClassExam(skills, count);
     if (!a.items.length) { setNote(a.skipped); setStep(0); return; }
     const versions = [{ label: 'א', items: a.items }];
@@ -110,7 +118,7 @@ export default function ExamNew() {
   return (
     <Flow className="practice-flow xn" label="מבחן תרגול לכיתה" step={step} steps={3} onBack={() => (step ? setStep(step - 1) : navigate('/teacher'))}
       ask={ASK[step]} mood={step === 0 ? 'excited' : 'idle'} onSubmit={submit}
-      foot={<Button type="submit" className="btn-block btn-lg" disabled={!n} data-region="primary">{step === 2 ? 'הכנת המבחן' : 'המשך'}</Button>}>
+      foot={<Button type="submit" className="btn-block btn-lg" disabled={!n || making} data-region="primary">{step === 2 ? 'הכנת המבחן' : 'המשך'}</Button>}>
       {step === 0 && (
         <div className="xn-step" data-region="answers">
           {note.length > 0 && <div className="xn-notes" role="status">{note.map((s) => <p key={s} className="as-hint">{skippedNote(s)}</p>)}</div>}

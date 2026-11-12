@@ -3,7 +3,7 @@
 // it sits inside the board (Board.jsx), which says in words what the picture shows.
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { topicsFor } from '@/content/index.js';
+import { topicsFor } from '@/content/topics.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState, STATE_LABEL } from '@/learn/mastery.ts';
 import { isDone } from '@/lib/path.js';

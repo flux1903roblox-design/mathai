@@ -1,6 +1,6 @@
 // "מבחנים": exams students checked in the app, one row each, with the score and a strip of results by question. A name
 // opens the student's page (TEACHER-8).
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { fmtDay, Rate, StudentName } from './common.jsx';
 
 const Q_TONE = { correct: 'ok', partial: 'mid', wrong: 'bad', missing: 'bad' };

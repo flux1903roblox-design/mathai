@@ -6,7 +6,7 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { PROGRAMME, ROADMAP_NEXT, coverageOf, coverageSentence, monthsText, hoursText, inSchoolOrder, GRADE_NAME } from '@/learn/programme';
 import { GradeSwitch } from './Welcome.jsx';
 

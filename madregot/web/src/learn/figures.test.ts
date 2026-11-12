@@ -24,7 +24,7 @@ import { protractorFig, clockFig } from './content/geo';
 // @ts-ignore: plain JS
 import { makeItem } from '@/content/index.js';
 import { seeded } from './expr';
-import { CHALLENGES } from './challenges/index';
+import { CHALLENGE_TASKS as CHALLENGES } from './challenges/all';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)

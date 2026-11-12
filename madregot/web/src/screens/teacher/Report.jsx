@@ -16,7 +16,7 @@ import { RANGES, rangeDays, customRange, rangeText, dmyDots, fetchReport, saveRe
 import { workText, pctOf, stripTex } from '@/lib/teacherCsv.js';
 import { mistakeLine } from '@/lib/teacherText.js';
 import { plusDays, dm } from '@/lib/workDates.js';
-import { classTopicsFor, rowLevel, rowLevelText, rowTitle } from '@/content/index.js';
+import { classTopicsFor, rowLevel, rowLevelText, rowTitle } from '@/content/topics.js';
 import { Stat } from '@/components/ds.jsx';
 // the board's rules (tiles, groups, the table) live with the board (STUDENT-15); the report also opens on its own
 import '@/styles/lazy/teacher.css';

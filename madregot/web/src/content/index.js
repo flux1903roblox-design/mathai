@@ -1,129 +1,19 @@
-import { GRADE7 } from './grade7.js';
-import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
-import { LESSONS } from './lessons.js';
 import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords, protractorWords, clockText } from './manip.js';
+// The first-load side of the content (content/topics.js: every topic's names, stairs, colours and misconception names,
+// the rows the screens list, and the generators' loading) is re-exported here, so code that makes or checks a question
+// imports everything from this file. A screen of the first load imports content/topics.js instead: this file carries
+// the checkers and the figures' words (content/manip.js), which load with the exercise screens (the boot split).
+import { TOPIC } from './topics.js';
 
-// the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
-import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
-import { GUEST } from '@/learn/skills.ts';
-
-// Each topic's misconception names include those the 2.0 teaching content adds.
-export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
-export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
-/** A grade's own units, in order. A bridge unit (bridge: true, the fractions floor) is not one of them. */
-export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grade) && !t.bridge);
-/** The bridge units under a grade: of that grade, or with it in alsoFor (the floor; shown only when it is switched on). */
-export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.grade === String(grade) || (t.alsoFor || []).includes(String(grade))));
-/**
- * Two optional flags a topic may carry:
- *   placement: false   the first-day placement test skips it (it is taught later in the school year, so a new student
- *                      would only meet questions never taught); it starts at stair 1, and the unit jump test is there
- *                      for a student who already knows it
- *   alsoFor: ['8']     Exam Rescue (and the exam check's topic list) offers it to that grade too: a grade 8 test can
- *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8;
- *                      a later grade's unit with guest stairs is offered through them alone (rescueTopicsFor)
- */
-export const placementTopicsFor = (grade) => topicsFor(grade).filter((t) => t.placement !== false);
-
-/**
- * A grade's guest rows (stage5.md FUNC-6): each unit with a guest stair of that grade (learn/skills.ts GUEST), once, as a
- * copy carrying `only:` its guest stairs, in GUEST's order. ח׳: eq with eq:6 and eq:7; ז׳: func with func:1. A teacher's
- * screens list them after the grade's units, each showing only its `only` stairs.
- */
-export const guestTopicsFor = (grade) => {
-  const ids = GUEST[String(grade)] || [];
-  return [...new Set(ids.map((id) => id.split(':')[0]))].filter((id) => TOPIC[id]).map((id) => ({ ...TOPIC[id], only: ids.filter((s) => s.startsWith(`${id}:`)) }));
-};
-/** What a teacher's screens list for a class of a grade: its units, then its guest rows. */
-export const classTopicsFor = (grade) => [...topicsFor(grade), ...guestTopicsFor(grade)];
-/** The stairs a row shows, [{ id, level, title }]: every stair of a unit, or a guest row's `only` ones (levels as titles or { title }). */
-export const rowStairs = (t) => t.levels.map((l, i) => ({ id: `${t.id}:${i + 1}`, level: i + 1, title: typeof l === 'string' ? l : l.title }))
-  .filter((s) => !t.only || t.only.includes(s.id));
-/** A row's name: the unit's title, and on a guest row which of its stairs ("משוואות: מדרגות 6–7"). */
-export function rowTitle(t) {
-  if (!t.only) return t.title;
-  const ls = rowStairs(t).map((s) => s.level);
-  const run = ls.every((n, i) => !i || n === ls[i - 1] + 1);
-  const nums = ls.length === 1 ? `${ls[0]}` : run ? `${ls[0]}–${ls.at(-1)}` : ls.join(', ');
-  return `${t.title}: ${ls.length === 1 ? 'מדרגה' : 'מדרגות'} ${nums}`;
-}
-/**
- * A guest stair's state as the class sync sends it (lib/path.js guestStairLevels): under the stair's own id ("eq:6") in
- * the levels object, beside the units' { level, max }, with level 1 practised and 2 mastered now (the server keeps the
- * highest max). A guest row reads only these, never its unit's level: a ח׳ student's eq level says nothing about eq:6,
- * and a ז׳ student's func level cannot tell func:1 opened from func:1 mastered.
- */
-export const GUEST_STATE = Object.freeze({ practised: 1, mastered: 2 });
-/**
- * A student's place on a row, from the levels the class sync sends ({ [unit]: { level, max }, [guest stair]: state }):
- * on a unit, its { level, max } as is; on a guest row, from each of its own stairs' states. { total, level, max, title }:
- * the stair at that place; a guest row adds `states` (each stair 'done', 'cur' or 'todo', for LevelPips) and `done`
- * (every stair of the row mastered). null when the student has nothing on the row.
- */
-export function rowLevel(t, levels) {
-  const ls = rowStairs(t);
-  if (!t.only) {
-    const l = levels?.[t.id];
-    return l ? { total: ls.length, level: l.level, max: l.max, title: ls[l.level - 1]?.title || '' } : null;
-  }
-  const st = ls.map((s) => { const v = levels?.[s.id]; return !v ? null : Number(v.level) >= GUEST_STATE.mastered ? 'mastered' : 'practised'; });
-  if (st.every((x) => !x)) return null;
-  const done = st.every((x) => x === 'mastered');
-  // the stair being worked on: the first one practised and not mastered, else the first not mastered
-  const k = done ? ls.length - 1 : st.includes('practised') ? st.indexOf('practised') : st.findIndex((x) => x !== 'mastered');
-  const states = st.map((x, i) => (x === 'mastered' ? 'done' : i === k ? 'cur' : 'todo'));
-  return { total: ls.length, level: k + 1, max: Math.max(k + 1, st.lastIndexOf('mastered') + 1), title: ls[k].title, states, done };
-}
-/** A place on a row in a table cell: "1/2", or on a guest row whose stairs are all mastered "הושלם". */
-export const rowLevelText = (r) => (!r ? '–' : r.done ? 'הושלם' : `${r.level}/${r.total}`);
-/**
- * The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it (alsoFor; no
- * bridge unit). An earlier grade's unit is revised whole (a ח׳ test can revise all of the ז׳ equations unit); a later
- * grade's unit is offered through its guest stairs alone when it has any (a ז׳ student who picks "מבוא לפונקציות"
- * gets func:1, the part of it ז׳ learns).
- */
-export const rescueTopicsFor = (grade) => {
-  const g = String(grade);
-  const guest = Object.fromEntries(guestTopicsFor(g).map((t) => [t.id, t]));
-  const other = TOPICS.filter((t) => !t.bridge && t.grade !== g && (t.alsoFor || []).includes(g))
-    .map((t) => (guest[t.id] && Number(t.grade) > Number(g) ? guest[t.id] : t));
-  return [...topicsFor(g), ...other];
-};
-
-/**
- * The words for a mistake on one stair: the stair's own misconception when it has one (one id can mean different
- * things on different stairs, e.g. 'sign' is a negative length on coord:3), else the topic's name for it.
- */
-export function catLabel(topicId, level, cat) {
-  if (!cat) return null;
-  const own = META[`${topicId}:${level}`]?.misconceptions.find((m) => m.id === cat);
-  return own?.title || TOPIC[topicId]?.cats[cat] || null;
-}
-
-/** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
-export function ambiguousText(topic, level, candidates) {
-  const names = (candidates || []).map((c) => catLabel(topic, level, c.id)).filter(Boolean);
-  if (names.length < 2) return 'עוד שאלה אחת בסוף השיעור תעזור לדעת מה בדיוק בלבל.';
-  return `מה כנראה קרה: אולי ${names.join(', ואולי ')}. עוד שאלה אחת בסוף השיעור תעזור לדעת מה מהן.`;
-}
-
-/**
- * The line a lesson shows under a first miss, from the answer's result ({ cat, diagnosis }): the app's name for the
- * mistake ("מה כנראה קרה: …."), the two candidates of an ambiguous answer, or null. The screen and the tutor's context
- * read it from here, so the tutor is told exactly what the student saw (ai spec AI-1 Design 4).
- */
-export function diagnosisLine(topic, level, result) {
-  if (!result) return null;
-  if (result.diagnosis?.ambiguous) return ambiguousText(topic, level, result.diagnosis.candidates);
-  const label = catLabel(topic, level, result.cat);
-  return label ? `מה כנראה קרה: ${label}.` : null;
-}
+export * from './topics.js';
 
 /** Generate one item for a topic level, with bookkeeping fields attached. */
 export function makeItem(topicId, level, avoidKey) {
   const t = TOPIC[topicId];
   const L = t.levels[Math.min(Math.max(level, 1), t.levels.length) - 1];
+  // the code that makes a question waits for its topic first (ensureTopics, loadGens): a missing generator is a bug there
+  if (!L.gen) throw new Error(`makeItem('${topicId}', ${level}): its generators have not loaded. Wait for ensureTopics(['${topicId}']) or loadGens('${topicId}') first.`);
   let it; let guard = 0;
   do { it = L.gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
   // a typed answer that has no short decimal (7/12) says once how to write it
@@ -356,5 +246,3 @@ export function itemPlain(it) {
   const manip = it.form === 'manip' ? ` ${manipPlain(it)}` : '';
   return `${strip(it.text)}${it.display ? ` ${it.display}` : ''}${fig}${choices}${manip}`.trim();
 }
-
-export const COLORS = ['sky', 'fuchsia', 'petrol', 'cobalt', 'violet'];

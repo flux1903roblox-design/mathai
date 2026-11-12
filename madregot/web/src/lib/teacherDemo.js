@@ -19,7 +19,7 @@
 // rows are drawn again from the seed rather than kept), one call, and after a write the tab's copy and the toast that
 // says it stays here.
 import { toast } from 'sonner';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC, ensureGens } from '@/content/topics.js';
 import { metaOf } from '@/learn/content/index.ts';
 import { TOPIC_IDS } from '@shared/ai.js';
 import { MOE_RULES, classAiPolicy, notSellable } from '@shared/schoolRules.js';
@@ -79,6 +79,9 @@ function stairCats(topic, level) {
   return own.length ? own : Object.keys(TOPIC[topic]?.cats || {});
 }
 
+/** The stairs of the demo's class exam: their topic's generators load before the demo's data is made (demoCall). */
+export const DEMO_EXAM_SKILLS = Object.freeze(['signed:1', 'signed:2']);
+
 /** The demo class, the same for the same seed and day. */
 export function demoState(seed = 7, today = jerusalemDay()) {
   const rnd = mulberry32(seed);
@@ -126,7 +129,7 @@ export function demoState(seed = 7, today = jerusalemDay()) {
   });
 
   // ---- three assignments: a stair (its date has passed), a mastery check (due soon), a class exam
-  const exSkills = ['signed:1', 'signed:2'];
+  const exSkills = [...DEMO_EXAM_SKILLS];
   const examItems = withRandom(rnd, () => makeClassExam(exSkills, 6).items);
   const assignments = [
     { id: aid(1), kind: 'stair', skill: 'signed:3', title: assignTitle('stair', 'signed:3'), note: 'לסיים את חמשת השלבים לפני השיעור.', exam: null, version: null, forAll: true, targets: [], startsOn: plus(today, -8), dueOn: schoolDay(plus(today, -3)).day, createdAt: at(plus(today, -8), 16, 10) },
@@ -573,6 +576,8 @@ function keep(st) { const { attempts, ...rest } = st; writeDemo({ data: rest });
 
 /** A teacher call in the demo (lib/teacher.js teacherApi): the answer's body, or an ApiError as the server's would be. */
 export async function demoCall(method = 'GET', path = '', body = {}) {
+  // the demo's class exam is drawn from the exercise generators, which load with their topic (the boot split)
+  await ensureGens(DEMO_EXAM_SKILLS);
   const st = demoSession();
   const M = String(method).toUpperCase();
   const res = demoApi(st, M, path, body);

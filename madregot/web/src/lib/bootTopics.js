@@ -3,7 +3,7 @@
 // maths, are fetched before the first screen is drawn, in the same moment as the rest of the start, so the screen
 // appears whole instead of after a loading screen (DURABLE-11). Inside the app, a screen waits for its topic with
 // useStairContent / useTopics, and maths shows as words for the moment before KaTeX arrives.
-import { TOPIC, placementTopicsFor } from '@/content/index.js';
+import { TOPIC, placementTopicsFor } from '@/content/topics.js';
 import { ensureTopics } from '@/learn/content/index.ts';
 import { loadKatex } from '@/components/MathText.jsx';
 import { LessonScreen } from './lazyScreen.js';

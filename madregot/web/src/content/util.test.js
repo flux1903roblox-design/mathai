@@ -7,6 +7,9 @@ import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrec
 import { startLesson, answer } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
 import { modelItem } from '../learn/items.ts';
+import { loadAllGens } from './index.js';
+// the exercise generators load per topic (the boot split); this file makes questions while its tests are collected
+await loadAllGens();
 
 /** A typed item, as a generator makes one. */
 const num = (answer, extra = {}) => ({ form: 'num', answer, topic: 'test', level: 1, key: 'k', text: 'כמה?', ...extra });

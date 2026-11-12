@@ -10,7 +10,7 @@ import { ArrowRight, Check, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { useMadiLook } from '@/lib/madiLook.js';
 import { COLORS, ITEMS, SLOTS, SLOT_NAME, MADI_PALETTE, ownedLook, lockedReason, itemOf, colorOf, nameOf } from '@/lib/wardrobe.js';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import Mascot from '@/components/Mascot.jsx';
 import { ItemArt } from '@/components/mascot/Accessories.jsx';
 import { Sheet, Button, Choices, Choice, ChoiceMark } from '@/components/ui.jsx';

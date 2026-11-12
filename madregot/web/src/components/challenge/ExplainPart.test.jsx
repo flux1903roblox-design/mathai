@@ -3,7 +3,7 @@
 // and the student's text; the reply marks each point with the student's own words; a care reply never shows the rubric.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { challengeById } from '@/learn/challenges/index.ts';
+import { taskById } from '@/learn/challenges/all.ts';
 import { useAIStatus } from '@/lib/account.js';
 import { useApp } from '@/lib/store.js';
 import { ExplainFeedback, FeedbackResult, sendFeedback } from './ExplainPart.jsx';
@@ -19,7 +19,7 @@ vi.mock('@/lib/account.js', async (orig) => {
   return { ...real, useAIStatus };
 });
 
-const task = challengeById('pct:c1');
+const task = taskById('pct:c1');
 const part = task.parts.find((p) => p.type === 'explain');
 const TEXT = 'מי שקונה בפחות מ־400 משלם פחות במסלול א, ומעל זה מסלול ב.';
 const render = (el) => renderToStaticMarkup(el);

@@ -12,7 +12,7 @@ import { Settings as Gear, Flame, Footprints, Award, CalendarCheck, ChevronLeft,
 import { useApp, streakOf } from '@/lib/store.js';
 import { learnDaysTotal } from '@/lib/streak.js';
 import { hasServer } from '@/lib/api.js';
-import { TOPICS, topicsFor } from '@/content/index.js';
+import { TOPICS, topicsFor } from '@/content/topics.js';
 import { doneCount } from '@/lib/path.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState } from '@/learn/mastery.ts';

@@ -9,7 +9,7 @@ import clsx from 'clsx';
 import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx, useNext } from '@/lib/useLearn.js';
-import { TOPIC, rescueTopicsFor, rowStairs } from '@/content/index.js';
+import { TOPIC, rescueTopicsFor, rowStairs } from '@/content/topics.js';
 import { examPlan, validInput, isShabbatDay, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { ensureTopics } from '@/learn/content/index.ts';

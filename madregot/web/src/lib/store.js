@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { recordOnPath, markMastered, reopenKept, reachedUpTo, doneCount, chestOpen } from './path.js';
 import { questProgress } from './quests.js';
-import { STAGE_XP } from './lesson.js';
+import { STAGE_XP } from './lessonRules.js';
 import { noteGap, gapsFromExam } from './board.js';
 import { learnAfterAnswer, learnAfterCheck, emptyLearn } from '@/learn/storeGlue.ts';
 import { markTaught as markTaughtRec } from '@/learn/mastery.ts';
@@ -263,7 +263,7 @@ export const appState = (set, get) => ({
           chestOpened = !chestBefore && chestOpen(r.topic, path);
           // the topic's level is the next stair the path leads to; a guest stair (learn/skills.ts GUEST, eq:6 for ח׳) does
           // not move it: the class sync sends each guest stair's own state (lib/path.js guestStairLevels), which the
-          // teacher's guest row reads (content/index.js rowLevel)
+          // teacher's guest row reads (content/topics.js rowLevel)
           const top = TOPIC[r.topic].levels.length; const p = progress[r.topic] || { level: 1, max: 1 };
           const level = Math.min(top, Math.max(p.level, reachedUpTo(r.topic, path) + 1));
           progress = { ...progress, [r.topic]: { level, max: Math.max(p.max, level) } };

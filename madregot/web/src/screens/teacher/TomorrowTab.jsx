@@ -8,7 +8,7 @@
 import clsx from 'clsx';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Send } from 'lucide-react';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { MathText } from '@/components/MathText.jsx';
 import { useAIStatus } from '@/lib/account.js';
 import { useLicence } from '@/components/teacher/LicenceCard.jsx';

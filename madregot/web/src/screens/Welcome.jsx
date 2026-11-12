@@ -1,4 +1,4 @@
-import { hasContent } from '@/learn/content/index.ts';
+import { hasContent, ensureTopics } from '@/learn/content/index.ts';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Check, Footprints, Target, Layers } from 'lucide-react';
@@ -11,8 +11,9 @@ import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { LoadingState } from '@/components/Screen.jsx';
 import Stairs from '@/components/Stairs.jsx';
-import { topicsFor } from '@/content/index.js';
-import { KNOW, placementMax } from '@/lib/placement.js';
+import { topicsFor, placementTopicsFor } from '@/content/topics.js';
+import { LessonScreen } from '@/lib/lazyScreen.js';
+import { KNOW, placementMax } from '@/lib/placementRules.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
 import FileRestore from '@/components/durable/FileRestore.jsx';
@@ -141,6 +142,23 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
   };
   // each question of the first visit opens at its top
   useEffect(() => { window.scrollTo(0, 0); }, [i]);
+  // Once the grade is known, the start the questions lead to (the placement test, or the grade's first lesson) is fetched
+  // while the last questions are answered: the lesson screen and its topics' teaching and exercise generators, none of
+  // which is in the first download (the boot split). When the browser is idle; a topic already loaded costs nothing.
+  const gradeKnown = !!(joined?.grade || f.grade) && i > steps.indexOf('grade');
+  useEffect(() => {
+    if (!gradeKnown || next) return undefined;
+    const run = () => {
+      LessonScreen.preload().catch(() => {});
+      ensureTopics(placementTopicsFor(grade).map((t) => t.id)).catch(() => {});
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(run, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(run, 1500);
+    return () => clearTimeout(id);
+  }, [gradeKnown, grade, next]);
   // The parents' links (and the cancel link) are for a server that sells the tutor: they show once the server says
   // the switch is on, or when a parent already signed in on this device. With AI_PAYWALL off there is nothing to
   // join or cancel.

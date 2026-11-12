@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Award, Route, Target, ArrowLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { useNext } from '@/lib/useLearn.js';
-import { topicsFor } from '@/content/index.js';
+import { topicsFor } from '@/content/topics.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState, STATE_LABEL } from '@/learn/mastery.ts';
 import { MathText } from '@/components/MathText.jsx';

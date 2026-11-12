@@ -11,7 +11,7 @@ import { hasContent } from './content/index';
 import { planNext } from './next';
 import { schoolMonth } from './programme';
 // @ts-ignore: plain JS
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 // @ts-ignore: plain JS
 import { reachedUpTo } from '@/lib/path.js';
 

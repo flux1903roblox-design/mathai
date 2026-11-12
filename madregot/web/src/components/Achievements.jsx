@@ -1,7 +1,7 @@
 import { m } from 'motion/react';
 import { Zap, Flame, Footprints, Star, Trophy, Target, ClipboardCheck, Sparkles, Mountain, Gift, Puzzle } from 'lucide-react';
 import { useApp, streakOf, dayBefore, today, isActiveDay, keptDay } from '@/lib/store.js';
-import { TOPICS, TOPIC } from '@/content/index.js';
+import { TOPICS, TOPIC } from '@/content/topics.js';
 import { CHALLENGES, challengesOf, isOpen, isSolved, solvedCount } from '@/learn/challenges/index.ts';
 import { TOPIC_ORDER } from '@/learn/skills.ts';
 import { doneCount, chestOpen } from '@/lib/path.js';

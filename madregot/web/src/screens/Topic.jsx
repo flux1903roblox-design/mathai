@@ -4,7 +4,7 @@ import { lazy, Suspense } from 'react';
 import { ArrowRight, Sparkles, Check, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { aiAccess, useAIStatus } from '@/lib/account.js';
-import { TOPIC, topicsFor } from '@/content/index.js';
+import { TOPIC, topicsFor } from '@/content/topics.js';
 import { Box, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { Emblem } from '@/components/map/Scenery.jsx';

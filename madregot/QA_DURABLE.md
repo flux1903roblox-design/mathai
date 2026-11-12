@@ -942,6 +942,47 @@ script. They now load one topic at a time, and nothing the student sees changed.
   lazy load changes: 4.89 MB, the new topic's own content, so its gate moved by the integration rule (measured + 5%) to
   **5.13 MB**. About 3 KB is left under the boot gate: the next curriculum merge (stages 2-4, the classroom lane) needs
   the generators split the paragraph above describes, not a raised gate.
+  **The boot split** (on the main branch, before the stage 2-4 and classroom merges) is that split. Measured first (a
+  build that records each module's gzipped size and importers): of the 420.9 KB, the exercise generators of
+  `content/*.js` were the largest app code (eq 23.6, sys 20.5, func 19.6, manip 17.5, frac 12.9, expr 11.3, ratio 10.2,
+  pct 10.0 KB gzipped on their own), all reached through `content/index.js` (the topic list was the grade files
+  themselves), then the challenge tasks' parts (25.6 KB on their own, through the plan and the store), then the lesson,
+  placement and exam engines through their constants. Now the first load reads: `content/topics.js` (the topics as
+  every first screen knows them: `content/topics.gen.js`, every topic of the grade files without its functions, written
+  by `scripts/gen-content-meta.mjs` with its `--check`, beside `learn/content/meta.gen.ts`; the rows and names the
+  teacher's screens list; and the generators' loader), `learn/challenges/index.ts` over `learn/challenges/meta.gen.ts`
+  (each task's id, topic, stair, kind, title, minutes and misconception, the same script), and `lib/lessonRules.js`,
+  `lib/placementRules.js`, `lib/examFocus.js` (the numbers and exam reading the map, the store and onboarding use).
+  Each topic's generators load with its teaching: `content/topics.js` `loadGens` (one dynamic import per topic file;
+  the functions are put back on the same topic objects), which `ensureTopics` waits for, so the lesson, every check,
+  the placement test, Exam Rescue, a jump test and the assistant's exercises have them before their first question
+  (the lesson screen shows the app's loading state while it waits); the practice exam, the teacher's class exam and the
+  demo class wait for `ensureGens` (generators only) before they draw. The checkers and figure words
+  (`content/index.js`, which re-exports `topics.js`, and `content/manip.js`), the challenge tasks' parts
+  (`learn/challenges/all.ts`, in the challenge screen's chunk) and the engines (`lib/lesson.js`, `placement.js`,
+  `exam.js`, `seeds.js`, `learn/items.ts`) come with the exercise screens. Warming, so a student does not wait: when
+  the browser is idle after the first screen, the lesson screen and the topic worked on last (a new student: the
+  grade's first unit); on the map, the next step's unit, the focused unit and any unit whose card is opened (its start
+  buttons); in onboarding, once the grade is chosen, the placement test's topics; the practice exam and the class exam
+  fetch their grade's generators while the topics are chosen. Offline: the service worker keeps every JS chunk, these
+  included (all 131 of the build's scripts are on its list). Pinned: `budget.json`'s `lazyOnly` names the generator
+  files, the checkers, `manip`, the challenge parts and the engines (a name with a slash is one file's path, so
+  `src/content/expr.js` is refused while the first load's `src/learn/expr.ts` is not), and `src/boot.test.js` walks
+  main.jsx's static imports and fails, with the import chain, on any `src/content/*.js` that defines a stair's `gen`, any
+  challenge task file, any teaching file or engine (a new topic's files are found without editing it);
+  `src/content/topic-split.test.js` holds the meta to what the script writes and every function to its own file's.
+  Measured (gzip-9): boot JS 420.9 → **317.2 KB** (317.3 KB as the public site's build), render-blocking CSS 45.5 KB
+  (unchanged), largest lazy chunk 77.0 KB (KaTeX), precache 4.93 MB (gate 5.13). The ratchet set the boot gate to
+  317.2 + 5% = **333 KB**, about 16 KB of room, under DURABLE-11's 340 KB aim for this step; the 260 KB target stays.
+  No visual baseline changed. The timing test (`PERF=1`, the e2e build, `PERF_PORT=4253`), run twice back to back on
+  this shared machine (load average 3 to 5) against a build of the code before the split (`git archive` of 16fde75,
+  the same build options, `PERF_DIST`): first contentful paint 2.83 / 2.99 s against 3.57 / 3.57 s, the longest task
+  while the app starts 205 / 237 ms against 276 / 322 ms, the repeat visit's LCP 0.53 / 0.43 s against 0.50 / 0.50 s.
+  Both builds miss the 2.75 s FCP line on this loaded machine (the nightly `perf.yml` on a quiet runner gives the
+  number); the split is 0.6 to 0.7 s faster to the first paint under the same load. What is left in the first load is the app itself (React DOM, React Router, motion, Base
+  UI, lucide, sonner, the store and `durable/*`, `parent.js` and `teacher.js` through `account.js`, the topic meta);
+  next in size among our own modules: `lib/store.js` 10.9, `durable/merge.js` 8.9, `topics.gen.js` 7.8,
+  `durable/vault.js` 7.4, `meta.gen.ts` 6.7, `lib/qaFixtures.js` 4.2 KB (QA fixtures, a candidate to load on demand).
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

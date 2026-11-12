@@ -12,7 +12,7 @@ import { unitProgress, stagesDone, partsOf, isDone, practiceComplete, STAIR_STAG
 import { skillId } from '@/learn/skills.ts';
 import { Segments } from '@/components/ds.jsx';
 import Lottie from '@/components/Lottie.jsx';
-import { placementTopicsFor } from '@/content/index.js';
+import { placementTopicsFor } from '@/content/topics.js';
 import { Button } from '@/components/ui.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';

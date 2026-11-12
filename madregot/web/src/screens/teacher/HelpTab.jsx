@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { Hand, NotebookPen, Send } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
 import { QUICK_REPLIES, TEACHER_MAX, SIDE_MAX, REPLY_NOTE, sideCount, waitsForTeacher, sendTeacherReply, whenText } from '@/lib/help.js';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { helpRetentionNote } from '@/content/retention.js';

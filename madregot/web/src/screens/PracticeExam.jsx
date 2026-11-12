@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { Printer, Check } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { hasTool, useAIStatus } from '@/lib/account.js';
 import { makePracticeExam, weakTopics } from '@/lib/exam.js';
-import { TOPIC, topicsFor, displayTex } from '@/content/index.js';
+import { TOPIC, topicsFor, displayTex, ensureGens } from '@/content/index.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
@@ -24,7 +24,14 @@ export function NewPracticeExam() {
   const [count, setCount] = useState(6);
   const toggle = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
-  const create = () => {
+  // the topics' exercise generators load on demand (the boot split): fetched while the topics are chosen, and waited
+  // for before the exam is drawn ("הכנת המבחן" stays off for that moment)
+  useEffect(() => { ensureGens(list.map((t) => t.id)).catch(() => {}); }, [profile.grade]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [making, setMaking] = useState(false);
+  const create = async () => {
+    if (making) return;
+    setMaking(true);
+    try { await ensureGens(picked); } catch { setMaking(false); return; }
     const items = makePracticeExam(picked, count, progress);
     const pe = { id: Math.random().toString(36).slice(2) + Date.now().toString(36), at: new Date().toISOString(), title: `מבחן תרגול: ${picked.map((id) => TOPIC[id].title).join(', ')}`, items };
     addPracticeExam(pe);
@@ -37,7 +44,7 @@ export function NewPracticeExam() {
     <Flow className="practice-flow" label="מבחן תרגול" step={step} steps={2} onBack={() => (step ? setStep(0) : navigate('/exams'))}
       ask={step === 0 ? 'על אילו נושאים יהיה המבחן?' : 'כמה שאלות במבחן?'} mood={step === 0 ? 'excited' : 'idle'}
       onSubmit={() => (step === 0 ? picked.length && setStep(1) : create())}
-      foot={<Button type="submit" className="btn-block btn-lg" disabled={!picked.length} data-region="primary">{step === 0 ? 'המשך' : 'הכנת המבחן'}</Button>}>
+      foot={<Button type="submit" className="btn-block btn-lg" disabled={!picked.length || making} data-region="primary">{step === 0 ? 'המשך' : 'הכנת המבחן'}</Button>}>
       {step === 0 ? (
         <div className="ob-opts" role="group" aria-labelledby="flow-q" data-region="answers">
           {list.map((t, i) => {

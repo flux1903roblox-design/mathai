@@ -37,13 +37,13 @@ import { states, isMissing, smallestMissing, struggling, onPath, stairStage, tit
 import { firstOpenChallenge } from './challenges/index';
 import type { Context } from './recommend';
 // @ts-ignore: plain JS
-import { focusLevel } from '@/lib/exam.js';
+import { focusLevel } from '@/lib/examFocus.js';
 // @ts-ignore: plain JS
 import { isKept, isDone, unitNodes } from '@/lib/path.js';
 // @ts-ignore: plain JS
-import { PARTS } from '@/lib/lesson.js';
+import { PARTS } from '@/lib/lessonRules.js';
 // @ts-ignore: plain JS
-import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
+import { topicsFor, bridgeTopicsFor } from '@/content/topics.js';
 // @ts-ignore: plain JS
 import { classRows, workBanner } from '@/lib/classRows.js';
 import type { ClassAssignment } from './assignments';

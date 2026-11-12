@@ -8,7 +8,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { useApp } from '@/lib/store.js';
 import { reportStairs } from '@/lib/classWork.js';
-import { TOPIC } from '@/content/index.js';
+import { TOPIC } from '@/content/topics.js';
 import { useStairContent } from '@/learn/useStairContent.js';
 import { diagnoseFinal } from '@/learn/content/togetherDiag.ts';
 import { skillId } from '@/learn/skills.ts';
@@ -18,7 +18,7 @@ import Together from '@/components/learn/Together.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import StageDone from '@/components/learn/StageDone.jsx';
 import { partsOf, isDone, stagesDone } from '@/lib/path.js';
-import { PARTS } from '@/lib/lesson.js';
+import { PARTS } from '@/lib/lessonRules.js';
 
 const TITLE = { A: 'מבינים את הרעיון', B: 'דוגמה פתורה', C: 'פותרים יחד' };
 

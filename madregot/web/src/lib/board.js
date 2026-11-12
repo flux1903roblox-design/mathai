@@ -1,9 +1,9 @@
 // The level board: where the student stands in each topic of the grade, and what
 // is not clear yet. A gap is a misconception the app diagnosed (or a question an
 // exam marked wrong); it clears after GAP_CLEAR right first-try answers at its level.
-import { TOPIC, topicsFor } from '@/content/index.js';
+import { TOPIC, topicsFor } from '@/content/topics.js';
 import { unitNodes, doneCount, reachedUpTo } from './path.js';
-import { PARTS } from './lesson.js';
+import { PARTS } from './lessonRules.js';
 
 export const GAP_CLEAR = 3;
 

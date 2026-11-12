@@ -4,9 +4,9 @@ import clsx from 'clsx';
 import { Flame, Zap, Check, BookOpen, ChevronDown, ChevronLeft, ArrowUp, ArrowDown, School } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
-import { topicsFor } from '@/content/index.js';
+import { topicsFor } from '@/content/topics.js';
 import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote } from '@/lib/path.js';
-import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
+import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lessonRules.js';
 import { MASTERY_N } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
 import StorageBanner from '@/components/durable/StorageBanner.jsx';
@@ -22,6 +22,7 @@ import { todayRoute, missionFor } from '@/learn/mission.ts';
 import { skillId } from '@/learn/skills.ts';
 import { mapTopics, mapFocus, onMap, nodeRoute } from '@/learn/next.ts';
 import { useNext } from '@/lib/useLearn.js';
+import { ensureTopics } from '@/learn/content/index.ts';
 import NextBanner from '@/components/learn/NextBanner.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { urgentWork, urgentText } from '@/lib/classWork.js';
@@ -238,6 +239,24 @@ function GoToday() {
   return null;
 }
 
+/**
+ * Load these topics (or skills) when the browser is idle: their teaching and their exercise generators, which are not in
+ * the first download (the boot split). A topic already loaded costs nothing.
+ */
+function usePrefetchTopics(list) {
+  const key = [...new Set(list.filter(Boolean).map((x) => String(x).split(':')[0]))].sort().join(',');
+  useEffect(() => {
+    if (!key) return undefined;
+    const run = () => { ensureTopics(key.split(',')).catch(() => {}); };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(run, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(run, 1500);
+    return () => clearTimeout(id);
+  }, [key]);
+}
+
 export default function Learn() {
   const { search } = useLocation();
   if (new URLSearchParams(search).get('go') === 'today') return <GoToday />;
@@ -271,6 +290,9 @@ function LearnMap() {
   const focus = mapFocus({ from: state?.from, top, lastTopic, topicIds, firstId: own[0]?.id, path });
   const focusKey = focus.key;
   const banner = top && !onMap(top, topicIds) ? top : null;
+  // the next step's topic and the focused unit's (the stair a tap most likely opens) load while the map is open, when the
+  // browser is idle, so the step opens without a wait (the boot split); a card opened on another unit fetches that one
+  usePrefetchTopics([top?.skill, focus.topic, open?.split(':')[0]]);
 
   useEffect(() => { settleStreak(); }, [settleStreak]);
   // The screen opens at the top of the path; back from a lesson, or on another grade, it opens on the place to continue from.

@@ -7,7 +7,7 @@ import { runAI, aiReady } from '@/lib/ai.js';
 import { api } from '@/lib/api.js';
 import { scoreOf } from '@/lib/exam.js';
 import { gradeExam } from '@/lib/examGrade.js';
-import { TOPICS, rescueTopicsFor, rowStairs } from '@/content/index.js';
+import { TOPICS, rescueTopicsFor, rowStairs } from '@/content/topics.js';
 import { MAX_EXAM_PAGES } from '@shared/ai.js';
 import { Button, Field, Thinking } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';

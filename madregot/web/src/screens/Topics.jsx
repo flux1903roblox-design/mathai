@@ -15,7 +15,7 @@ import { useState } from 'react';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
-import { topicsFor, bridgeTopicsFor, TOPIC } from '@/content/index.js';
+import { topicsFor, bridgeTopicsFor, TOPIC } from '@/content/topics.js';
 import { guestSkillsOf, parseSkill } from '@/learn/skills.ts';
 import { Button } from '@/components/ui.jsx';
 import { doneCount, unitProgress, unitCountText, unitNodes } from '@/lib/path.js';

@@ -4,7 +4,7 @@
 // typed as their names: no ID number, no internal id (the report itself carries none, GET /api/teacher/report).
 // reportToCsv is pure: the words for topics, stairs and mistakes come in as arguments. reportCsv binds the app's
 // content; downloadCsv hands the file to the device.
-import { classTopicsFor, rowLevel, rowTitle } from '@/content/index.js';
+import { classTopicsFor, rowLevel, rowTitle } from '@/content/topics.js';
 import { mistakeLine } from './teacherText.js';
 
 export const BOM = '﻿';
