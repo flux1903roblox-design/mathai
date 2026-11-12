@@ -8,18 +8,19 @@ import { KIND_ICON, KIND_LABEL } from '@/components/learn/TodayCard.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 
+import { t } from '@/lib/i18n.js';
 export default function NextBanner({ item, onGo }) {
   const Icon = KIND_ICON[item.kind] || Sparkles;
   return (
-    <section className="next-banner" aria-label="הצעד הבא" data-region="banner">
+    <section className="next-banner" aria-label={t('shell.nextbanner.1')} data-region="banner">
       <div className="next-banner-row">
         <span className={clsx('quest-icon', `qk-${item.kind}`)} aria-hidden="true"><Icon size={22} /></span>
         <div className="next-banner-text">
           <h2 className="next-banner-title"><MathText text={item.title} /></h2>
-          <p className="next-banner-meta">{KIND_LABEL[item.kind]} · {item.minutes} דק׳</p>
+          <p className="next-banner-meta">{KIND_LABEL[item.kind]} · {item.minutes}{t('shell.nextbanner.2')}</p>
         </div>
       </div>
-      <Button className="btn-block btn-sm next-banner-go" onClick={onGo}>לצעד הבא</Button>
+      <Button className="btn-block btn-sm next-banner-go" onClick={onGo}>{t('shell.nextbanner.3')}</Button>
     </section>
   );
 }

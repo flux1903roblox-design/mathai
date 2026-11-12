@@ -10,18 +10,19 @@ import { ShieldCheck, X } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { clearBackupNote } from '@/lib/durable/vault.js';
 import { Button } from '@/components/ui.jsx';
+import { localized, t } from '@/lib/i18n.js';
 import '@/styles/lazy/backupLine.css'; // this card's own rules, out of the first load (COUNCIL2-20)
 
 // the code's sheet (and its QR code) loads only when the student asks to see the code
 const BackupCodeSheet = lazy(() => import('./BackupCodeSheet.jsx'));
 
-export const BACKUP_LINE = {
-  title: 'ההתקדמות שלכם מגובה',
-  text: 'עותק מוצפן נשמר בשרת, ורק קוד הגיבוי פותח אותו. הקוד נמצא רק במכשיר הזה, אז כדאי לשלוח אותו להורים. אפשר לכבות את הגיבוי בהגדרות.',
-  code: 'להציג את הקוד',
-  settings: 'להגדרות',
-  close: 'הבנתי',
-};
+export let BACKUP_LINE = localized(() => ({
+  title: t('shell.backupline.1'),
+  text: t('shell.backupline.2'),
+  code: t('shell.backupline.3'),
+  settings: t('shell.backupline.4'),
+  close: t('shell.backupline.5'),
+}), (v) => { BACKUP_LINE = v; });
 
 export default function BackupLine() {
   const navigate = useNavigate();

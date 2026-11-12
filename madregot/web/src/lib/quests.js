@@ -1,13 +1,14 @@
 // Daily quests: three small goals a day, picked by the date so everyone in a class
 // gets the same three. Progress comes from today's record in the store.
+import { localized, t } from '@/lib/i18n.js';
 export const QUESTS = {
-  lessons: { title: (n) => `השלימו ${n} שיעורים`, target: 2, of: (d) => d.lessons || 0 },
-  xp: { title: (n) => `צברו ${n} נקודות XP`, target: 30, of: (d) => d.xp || 0 },
-  combo: { title: (n) => `ענו נכון ${n} פעמים ברצף`, target: 5, of: (d) => d.combo || 0 },
-  perfect: { title: () => 'שיעור אחד בלי אף טעות', target: 1, of: (d) => d.perfect || 0 },
-  correct: { title: (n) => `${n} תשובות נכונות`, target: 15, of: (d) => d.ok || 0 },
+  lessons: { title: (n) => t('shell.quests.1', { n }), target: 2, of: (d) => d.lessons || 0 },
+  xp: { title: (n) => t('shell.quests.2', { n }), target: 30, of: (d) => d.xp || 0 },
+  combo: { title: (n) => t('shell.quests.3', { n }), target: 5, of: (d) => d.combo || 0 },
+  perfect: { title: () => t('shell.quests.4'), target: 1, of: (d) => d.perfect || 0 },
+  correct: { title: (n) => t('shell.quests.5', { n }), target: 15, of: (d) => d.ok || 0 },
   // the quests are a habit layer: they suggest no work of their own, and this one reinforces the day's one mission
-  mission: { title: () => 'השלימו את "המשימה שלי להיום"', target: 1, of: (d) => (d.missionDone ? 1 : 0) },
+  mission: { title: () => t('shell.quests.6'), target: 1, of: (d) => (d.missionDone ? 1 : 0) },
 };
 // six ids, in the order the old list had them ('mission' took the place of the retired plan's 'review')
 const ORDER = ['lessons', 'combo', 'correct', 'xp', 'perfect', 'mission'];
@@ -28,4 +29,4 @@ export function questProgress(dayKey, day = {}) {
 }
 
 /** The daily goal in XP, with roughly how many minutes a day it takes. */
-export const GOALS = [{ xp: 10, label: 'קליל', mins: 5 }, { xp: 20, label: 'רגיל', mins: 10 }, { xp: 30, label: 'רציני', mins: 15 }, { xp: 50, label: 'אינטנסיבי', mins: 20 }];
+export let GOALS = localized(() => ([{ xp: 10, label: t('shell.quests.7'), mins: 5 }, { xp: 20, label: t('shell.quests.8'), mins: 10 }, { xp: 30, label: t('shell.quests.9'), mins: 15 }, { xp: 50, label: t('shell.quests.10'), mins: 20 }]), (v) => { GOALS = v; });

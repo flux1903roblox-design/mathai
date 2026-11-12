@@ -12,6 +12,7 @@ import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import Mascot from './Mascot.jsx';
 
+import { t } from '@/lib/i18n.js';
 const ICON = { phone: Phone, whatsapp: MessageCircle, web: Globe };
 
 /** A class student (with a server) may ask the teacher for a talk. */
@@ -49,7 +50,7 @@ export default function SupportCard({ variant = 'after-message', bare = false, c
   const lines = supportLines(SUPPORT, variant);
   const canTalk = useCanAskTeacher();
   return (
-    <section className={clsx('support-card', bare && 'bare', className)} role="region" aria-label="עזרה ממישהו שאפשר לדבר איתו" data-variant={variant}>
+    <section className={clsx('support-card', bare && 'bare', className)} role="region" aria-label={t('shell.supportcard.1')} data-variant={variant}>
       <div className="support-head">
         <Mascot mood="idle" size={52} still className="support-madi" />
         <div className="support-head-text">

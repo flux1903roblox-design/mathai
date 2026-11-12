@@ -11,6 +11,7 @@
 import { useApp } from '../store.js';
 import { useDurable } from './useDurable.js';
 
+import { localized, t } from '@/lib/i18n.js';
 /**
  * @typedef {object} PersistOpts
  * @property {Navigator} [nav]
@@ -20,11 +21,11 @@ import { useDurable } from './useDurable.js';
  */
 
 /** The words Settings shows for the answer. */
-export const PERSISTED_TEXT = { yes: 'כן', no: 'לא מובטחת', unknown: 'לא ידוע' };
+export let PERSISTED_TEXT = localized(() => ({ yes: t('shell.persist.1'), no: t('shell.persist.2'), unknown: t('shell.persist.3') }), (v) => { PERSISTED_TEXT = v; });
 /** @param {boolean | null | undefined} p */
 export const persistedText = (p) => (p === true ? PERSISTED_TEXT.yes : p === false ? PERSISTED_TEXT.no : PERSISTED_TEXT.unknown);
 /** After the Settings button: what the browser said. */
-export const PERSIST_TOAST = { granted: 'הדפדפן הסכים לשמור את הנתונים.', refused: 'הדפדפן לא הבטיח לשמור. כדאי לשמור גיבוי.' };
+export let PERSIST_TOAST = localized(() => ({ granted: t('shell.persist.4'), refused: t('shell.persist.5') }), (v) => { PERSIST_TOAST = v; });
 
 /** Firefox asks the person with a prompt (the others decide alone). */
 export const isFirefox = (nav = globalThis.navigator) => String(nav?.userAgent || '').includes('Firefox/');

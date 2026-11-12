@@ -721,6 +721,12 @@ a { color: var(--brand-d); }
 .adult-teacher .field-hint { margin: 0; padding-inline-start: 30px; }
 
 /* the front page: the parents' and legal links, small, under the two ways in */
+.hello-top { display: flex; justify-content: center; padding: var(--s3) var(--gutter) 0; }
+.lang-pick { width: min(240px, 100%); }
+.lang-pick .seg { min-height: 44px; padding: 0 var(--s3); }
+/* the other language's name on a Hebrew screen in the phone's own Arabic font, so a Hebrew device never downloads
+   Rubik's Arabic part (fonts.css) for one word */
+html:not([lang="ar"]) .lang-pick [lang="ar"] { font-family: system-ui, sans-serif; }
 .hello-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
 .hello-legal a { color: var(--ink-2); font-weight: 600; padding: 6px 0; min-height: 32px; }
 /* how to cancel, beside the cancel link (Consumer Protection Law s.14ט(ה)(2)) */

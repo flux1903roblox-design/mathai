@@ -10,6 +10,7 @@ import { limitVariant } from './limitCopy.js';
 import { Button, Sheet } from './ui.jsx';
 import Mascot from './Mascot.jsx';
 import { HelpLine } from './SupportSheet.jsx';
+import { t as tr } from '@/lib/i18n.js';
 // the teacher's sign-in and bind (with the 18+ declaration, COUNCIL2-5): loaded only when a teacher's sheet needs it, so
 // the email form stays out of the first load
 const TeacherBind = lazy(() => import('./teacher/TeacherBind.jsx'));
@@ -43,15 +44,15 @@ export default function LimitSheet() {
         {buttons.map((a, i) => {
           const variant = i === 0 ? 'primary' : 'secondary';
           const cls = i === 0 ? 'btn-block btn-lg' : 'btn-block';
-          if (a === 'madi') return <Button key={a} variant={variant} className={cls} onClick={() => { const fn = onMadi; closeLimitSheet(); fn?.(); }}>לשאול את מדי</Button>;
-          if (a === 'licence') return <Button key={a} variant={variant} className={cls} onClick={() => go('/teacher/settings', { focus: 'licence' })}>על רישיון כיתה</Button>;
+          if (a === 'madi') return <Button key={a} variant={variant} className={cls} onClick={() => { const fn = onMadi; closeLimitSheet(); fn?.(); }}>{tr('shell.limitsheet.1')}</Button>;
+          if (a === 'licence') return <Button key={a} variant={variant} className={cls} onClick={() => go('/teacher/settings', { focus: 'licence' })}>{tr('shell.limitsheet.2')}</Button>;
           // the screen to hand to a parent (a QR code, no price): the one way to the parent's OK (TRUST-9)
-          if (a === 'parents') return <Button key={a} variant={variant} className={cls} onClick={() => go('/parents/info')}>להראות להורים</Button>;
+          if (a === 'parents') return <Button key={a} variant={variant} className={cls} onClick={() => go('/parents/info')}>{tr('shell.limitsheet.3')}</Button>;
           // a teacher whose class has no adult behind it signs in here, and the class is bound to that email (TRUST-9)
-          if (a === 'bind') return <Suspense key={a} fallback={<p className="muted" role="status">טוענים…</p>}><TeacherBind onDone={closeLimitSheet} /></Suspense>;
-          return <Button key={a} variant={variant} className={cls} onClick={practice}>להמשיך לתרגל</Button>;
+          if (a === 'bind') return <Suspense key={a} fallback={<p className="muted" role="status">{tr('shell.limitsheet.4')}</p>}><TeacherBind onDone={closeLimitSheet} /></Suspense>;
+          return <Button key={a} variant={variant} className={cls} onClick={practice}>{tr('shell.limitsheet.5')}</Button>;
         })}
-        {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>מידע להורים</button>}
+        {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>{tr('shell.limitsheet.6')}</button>}
         {/* a person to talk to is always one tap away, whatever the tutor says (trust spec TRUST-3 §3.5): the link and
             ער״ן's number to call (COUNCIL2-4) */}
         <HelpLine className="limit-support" onOpen={closeLimitSheet} />

@@ -8,3 +8,8 @@ try {
   var t = localStorage.getItem(k + '-theme');
   if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
 } catch (e) { /* storage blocked: follow the phone */ }
+// Arabic (stored or ?lang=ar) from the first paint (COUNCIL2-34, lib/i18n.js)
+try {
+  var l = (/[?&]lang=(he|ar)\b/.exec(location.search) || [])[1] || localStorage.getItem(k + '-locale');
+  if (l === 'ar') document.documentElement.lang = l;
+} catch (e) { /* Hebrew */ }

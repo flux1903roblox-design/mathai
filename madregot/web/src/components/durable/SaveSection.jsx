@@ -24,6 +24,7 @@
 //     asks first, then POST /api/vault/escrow/delete and durable.escrowClass off; on again keeps the code again), and the
 //     class note while it is on; a family device whose code the family keeps: the family note. Neither says "מוצפן":
 //     the server could open those copies.
+import '@/locales/settings.js'; // this screen's words, before anything here uses them (COUNCIL2-34)
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Info, ChevronLeft } from 'lucide-react';
@@ -44,33 +45,34 @@ import FileRestore from './FileRestore.jsx';
 import RestorePreview from './RestorePreview.jsx';
 import PersistInfoSheet from './PersistInfoSheet.jsx';
 import InstallSheet from './InstallSheet.jsx';
+import { localized, t } from '@/lib/i18n.js';
 import '@/styles/lazy/durable.css'; // the saving rules, loaded with this screen (FOLLOWUP-23)
 
 /** Under "ליצור קוד גיבוי": what the code keeps, and who can read it. */
-export const BACKUP_NOTE = 'קוד גיבוי שומר עותק מוצפן. בלי הקוד אף אחד לא יכול לקרוא אותו, גם לא אנחנו.';
+export let BACKUP_NOTE = localized(() => t('settings.savesection.1'), (v) => { BACKUP_NOTE = v; });
 /**
  * While the student's own backup is on (on by default for a solo student, COUNCIL2-24): what the server holds, where the
  * code is, and that it can be stopped here.
  */
-export const BACKUP_ON_NOTE = 'עותק מוצפן נשמר בשרת, והקוד שפותח אותו נמצא רק במכשיר הזה. אפשר להפסיק את הגיבוי כאן בכל רגע.';
-export const STOPPED = 'הגיבוי הופסק, והעותק בשרת נמחק.';
+export let BACKUP_ON_NOTE = localized(() => t('settings.savesection.2'), (v) => { BACKUP_ON_NOTE = v; });
+export let STOPPED = localized(() => t('settings.savesection.3'), (v) => { STOPPED = v; });
 /** Stopping the backup: the copy on the server goes (said without "מוצפן" when the class or the family kept its code). */
-export const STOP_TEXT = {
-  code: 'העותק המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד. ההתקדמות במכשיר הזה נשארת.',
-  kept: 'העותק בשרת יימחק, וקוד הגיבוי יפסיק לעבוד. ההתקדמות במכשיר הזה נשארת.',
-};
+export let STOP_TEXT = localized(() => ({
+  code: t('settings.savesection.4'),
+  kept: t('settings.savesection.5'),
+}), (v) => { STOP_TEXT = v; });
 /** The class and the family keep the code (DURABLE-6): what that copy is for, said plainly. */
-export const KEPT_NOTE = {
-  class: 'עותק של ההתקדמות נשמר בשרת של מדרגות. במכשיר חדש מתחברים לכיתה עם הקוד האישי, וההתקדמות חוזרת.',
-  family: 'עותק של ההתקדמות נשמר בשרת דרך המנוי המשפחתי. כשמחליפים מכשיר, ההורים מחברים את החדש וההתקדמות עוברת אליו.',
-};
+export let KEPT_NOTE = localized(() => ({
+  class: t('settings.savesection.6'),
+  family: t('settings.savesection.7'),
+}), (v) => { KEPT_NOTE = v; });
 /** The backup is working (or about to): the row shows the check. */
 const backupOk = (b) => !!b?.on && (b.state == null || b.state === 'idle' || b.state === 'gone');
 
-const NOTE = {
-  student: 'בקובץ יש את כל ההתקדמות, כולל השם. מי שמקבל אותו יכול לקרוא אותו.',
-  teacher: 'בקובץ יש גם את מפתח המורה של הכיתות. מי שמקבל אותו יכול להיכנס ללוח הכיתה, אז שמרו אותו רק אצלכם.',
-};
+let NOTE = localized(() => ({
+  student: t('settings.savesection.8'),
+  teacher: t('settings.savesection.9'),
+}), (v) => { NOTE = v; });
 
 export default function SaveSection({ role = 'student' }) {
   const health = useDurable((s) => s.health);
@@ -119,7 +121,7 @@ export default function SaveSection({ role = 'student' }) {
   const save = async () => {
     setStatus('');
     const r = await exportBackup(useApp.getState());
-    if (r === 'downloaded') setStatus('קובץ הגיבוי נשמר בהורדות.');
+    if (r === 'downloaded') setStatus(t('settings.savesection.10'));
   };
   const undo = async () => {
     const ok = await undoRestore();
@@ -127,19 +129,17 @@ export default function SaveSection({ role = 'student' }) {
   };
   return (
     <section id="save" className="section set-group save-section" aria-labelledby="save-title">
-      <h2 id="save-title" className="set-head" tabIndex={-1}>שמירת ההתקדמות</h2>
+      <h2 id="save-title" className="set-head" tabIndex={-1}>{t('settings.savesection.11')}</h2>
       <dl className="save-rows">
         <div className="save-row">
-          <dt>במכשיר הזה</dt>
+          <dt>{t('settings.savesection.12')}</dt>
           <dd className={saved ? 'save-ok' : 'save-not'}>
             {saved && <Check size={18} strokeWidth={3} aria-hidden="true" />}
             {healthText(health)}
           </dd>
         </div>
         <div className="save-row">
-          <dt>
-            שמירה קבועה בדפדפן
-            <button type="button" className="icon-btn save-info" onClick={() => setInfo(true)} aria-label="מתי דפדפן מוחק נתונים"><Info size={20} aria-hidden="true" /></button>
+          <dt>{t('settings.savesection.13')}<button type="button" className="icon-btn save-info" onClick={() => setInfo(true)} aria-label={t('settings.savesection.14')}><Info size={20} aria-hidden="true" /></button>
           </dt>
           <dd className={persisted === true ? 'save-ok' : 'save-not'} data-persisted={String(persisted)}>
             {persisted === true && <Check size={18} strokeWidth={3} aria-hidden="true" />}
@@ -147,17 +147,17 @@ export default function SaveSection({ role = 'student' }) {
           </dd>
         </div>
       </dl>
-      {canAsk(persisted, persistAsked) && <Button variant="ghost" className="btn-sm save-ask" onClick={ask}>לבקש מהדפדפן לשמור</Button>}
+      {canAsk(persisted, persistAsked) && <Button variant="ghost" className="btn-sm save-ask" onClick={ask}>{t('settings.savesection.15')}</Button>}
       {guideHere() && (
         <div className="set-rows-wrap"><div className="set-rows">
-          <button type="button" className="set-row save-install" onClick={() => setInstall(true)}><span>להוסיף למסך הבית</span><ChevronLeft size={18} aria-hidden="true" /></button>
+          <button type="button" className="set-row save-install" onClick={() => setInstall(true)}><span>{t('settings.savesection.16')}</span><ChevronLeft size={18} aria-hidden="true" /></button>
         </div></div>
       )}
       {server && (
         <div className="save-backup">
           <dl className="save-rows">
             <div className="save-row">
-              <dt>גיבוי</dt>
+              <dt>{t('settings.savesection.17')}</dt>
               <dd className={backupOk(backup) ? 'save-ok' : 'save-not'} data-backup={backup?.on ? backup.state || 'idle' : 'off'}>
                 {backupOk(backup) && <Check size={18} strokeWidth={3} aria-hidden="true" />}
                 {backupText(backup)}
@@ -167,13 +167,13 @@ export default function SaveSection({ role = 'student' }) {
           {backup?.on && backup.state === 'other_student' && (
             <div className="save-backup-note">
               <p>{BACKUP_TEXT.otherStudent}</p>
-              <Button variant="secondary" className="btn-block" onClick={fresh} disabled={!!busy}>ליצור קוד חדש</Button>
-              <Button variant="ghost" className="btn-block" onClick={() => detachBackup()}>להשאיר כך</Button>
+              <Button variant="secondary" className="btn-block" onClick={fresh} disabled={!!busy}>{t('settings.savesection.18')}</Button>
+              <Button variant="ghost" className="btn-block" onClick={() => detachBackup()}>{t('settings.savesection.19')}</Button>
             </div>
           )}
           {server && inClass && (
             <label className="check-row save-switch">
-              <span>שמירת עותק בשרת הכיתה</span>
+              <span>{t('settings.savesection.20')}</span>
               <input type="checkbox" role="switch" checked={classKept} disabled={busy === 'copy'} aria-busy={busy === 'copy'}
                 onChange={(e) => (e.target.checked ? classCopy(true) : setCopyAsk(true))} />
             </label>
@@ -183,48 +183,48 @@ export default function SaveSection({ role = 'student' }) {
           {((backup?.on && (backup.note === 'recreated' || backup.note === 'moved')) || (!backup?.on && backup?.note === 'deleted')) && (
             <div className="save-backup-note" role="status">
               <p>{BACKUP_TEXT[backup.note]}</p>
-              <Button variant="ghost" className="btn-block" onClick={() => clearBackupNote()}>הבנתי</Button>
+              <Button variant="ghost" className="btn-block" onClick={() => clearBackupNote()}>{t('settings.savesection.21')}</Button>
             </div>
           )}
           {!backup?.on && (
             <>
               <Button variant="secondary" className="btn-block" onClick={create} disabled={!!busy} aria-busy={busy === 'create'}>
-                {busy === 'create' ? 'יוצרים קוד…' : 'ליצור קוד גיבוי'}
+                {busy === 'create' ? t('settings.savesection.22') : t('settings.savesection.23')}
               </Button>
               <p className="save-note">{BACKUP_NOTE}</p>
             </>
           )}
           {backup?.on && backup.state !== 'other_student' && !backup.escrow && <p className="save-note">{BACKUP_ON_NOTE}</p>}
           {backup?.on && backup.state !== 'other_student' && (
-            <Button variant="secondary" className="btn-block" onClick={() => setCodeOpen(true)}>להציג את קוד הגיבוי</Button>
+            <Button variant="secondary" className="btn-block" onClick={() => setCodeOpen(true)}>{t('settings.savesection.24')}</Button>
           )}
-          <Button variant="secondary" className="btn-block save-restore" onClick={() => navigate('/restore')}>לשחזר מקוד או מקובץ</Button>
+          <Button variant="secondary" className="btn-block save-restore" onClick={() => navigate('/restore')}>{t('settings.savesection.25')}</Button>
           {backup?.on && backup.state !== 'other_student' && (
-            <Button variant="ghost" className="btn-block save-stop" onClick={() => setStopAsk(true)}>להפסיק את הגיבוי</Button>
+            <Button variant="ghost" className="btn-block save-stop" onClick={() => setStopAsk(true)}>{t('settings.savesection.26')}</Button>
           )}
           <p className="save-status" role="status">{backupMsg}</p>
         </div>
       )}
       <div className="save-file">
-        <Button variant="secondary" className="btn-block" onClick={save}>לשמור קובץ גיבוי</Button>
+        <Button variant="secondary" className="btn-block" onClick={save}>{t('settings.savesection.27')}</Button>
         <FileRestore onLoaded={setFound} />
         <p className="save-note">{NOTE[role] || NOTE.student}</p>
         <p className="save-status" role="status">{status}</p>
         {canUndo({ backup: { undoUntil } }) && (
-          <Button variant="ghost" className="btn-block save-undo" onClick={undo}>לבטל את השחזור האחרון</Button>
+          <Button variant="ghost" className="btn-block save-undo" onClick={undo}>{t('settings.savesection.28')}</Button>
         )}
       </div>
-      <Sheet open={!!found} onOpenChange={(o) => { if (!o) setFound(null); }} title="מצאנו גיבוי">
+      <Sheet open={!!found} onOpenChange={(o) => { if (!o) setFound(null); }} title={t('settings.savesection.29')}>
         {found && <RestorePreview backup={found} onDone={() => setFound(null)} onCancel={() => setFound(null)} />}
       </Sheet>
       <BackupCodeSheet code={backup?.code} open={codeOpen && !!backup?.code} onOpenChange={setCodeOpen} />
-      <ConfirmSheet open={stopAsk} onOpenChange={(o) => { if (!o && busy !== 'stop') setStopAsk(false); }} title="להפסיק את הגיבוי?" keep="להשאיר את הגיבוי"
-        confirm={busy === 'stop' ? 'מפסיקים…' : 'כן, להפסיק'} onConfirm={stop}>
+      <ConfirmSheet open={stopAsk} onOpenChange={(o) => { if (!o && busy !== 'stop') setStopAsk(false); }} title={t('settings.savesection.30')} keep={t('settings.savesection.31')}
+        confirm={busy === 'stop' ? t('settings.savesection.32') : t('settings.savesection.33')} onConfirm={stop}>
         <p>{backup?.escrow ? STOP_TEXT.kept : STOP_TEXT.code}</p>
       </ConfirmSheet>
-      <ConfirmSheet open={copyAsk} onOpenChange={(o) => { if (!o && busy !== 'copy') setCopyAsk(false); }} title="להפסיק לשמור עותק בכיתה?" keep="להשאיר"
-        confirm={busy === 'copy' ? 'מפסיקים…' : 'להפסיק'} onConfirm={() => classCopy(false)} mood="idle">
-        <p>ההתקדמות תישאר במכשיר הזה ובקוד הגיבוי שלכם. בכיתה כבר לא יהיה עותק שאפשר להחזיר עם הקוד האישי.</p>
+      <ConfirmSheet open={copyAsk} onOpenChange={(o) => { if (!o && busy !== 'copy') setCopyAsk(false); }} title={t('settings.savesection.34')} keep={t('settings.savesection.35')}
+        confirm={busy === 'copy' ? t('settings.savesection.32') : t('settings.savesection.36')} onConfirm={() => classCopy(false)} mood="idle">
+        <p>{t('settings.savesection.37')}</p>
       </ConfirmSheet>
       <PersistInfoSheet open={info} onOpenChange={setInfo} />
       <InstallSheet open={install} onOpenChange={setInstall} />

@@ -11,6 +11,7 @@
 //                 the data even when the device fills up), false (no promise), null (this browser cannot say)
 import { create } from 'zustand';
 
+import { t } from '@/lib/i18n.js';
 /**
  * @typedef {object} DurableStatus
  * @property {import('./types').Health} health
@@ -29,4 +30,4 @@ export const savedHealth = (health) => health === 'ok' || health === 'mirror';
 
 /** The words for `health` (Settings › שמירת ההתקדמות and מידע לתמיכה). */
 /** @param {string} health */
-export const healthText = (health) => (savedHealth(health) ? 'נשמר' : health === 'full' ? 'לא נשמר: הדפדפן מלא' : 'לא נשמר: הדפדפן חוסם שמירה');
+export const healthText = (health) => (savedHealth(health) ? t('shell.usedurable.1') : health === 'full' ? t('shell.usedurable.2') : t('shell.usedurable.3'));

@@ -13,6 +13,7 @@
 import { TOPIC } from '@/content/index.js';
 import { PARTS } from './lessonRules.js';
 
+import { localized, t as tr } from '@/lib/i18n.js';
 export const partsOf = (path, topic, level) => path?.[topic]?.parts?.[level] || 0;
 /** Is this stair done: its mastery check passed (or kept from before checks existed)? */
 export const isDone = (path, topic, level) => !!path?.[topic]?.done?.[level];
@@ -65,7 +66,7 @@ export function unitNodes(topic, path = {}) {
     return { kind: 'node', topic, level, title: L.title, state, parts: Math.min(partsOf(path, topic, level), PARTS), kept: isKept(path, topic, level) };
   });
   const allPassed = reached >= t.levels.length;
-  nodes.push({ kind: 'review', topic, level: t.levels.length, title: 'חזרה על כל היחידה', state: allPassed ? ((path?.[topic]?.reviews || 0) > 0 ? 'done' : 'current') : 'locked', parts: Math.min(path?.[topic]?.reviews || 0, 1) });
+  nodes.push({ kind: 'review', topic, level: t.levels.length, title: tr('shell.path.1'), state: allPassed ? ((path?.[topic]?.reviews || 0) > 0 ? 'done' : 'current') : 'locked', parts: Math.min(path?.[topic]?.reviews || 0, 1) });
   return nodes;
 }
 
@@ -73,7 +74,7 @@ export function unitNodes(topic, path = {}) {
  * Stairs added to a unit after students had climbed it: saved progress is kept by topic and level, so the stairs before
  * keep their state and the new one becomes the current stair after them. Its card says why it is there.
  */
-const ADDED_STAIRS = { 'signed:6': 'נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.' };
+let ADDED_STAIRS = localized(() => ({ 'signed:6': tr('shell.path.2') }), (v) => { ADDED_STAIRS = v; });
 /** The line a stair's card adds while it is the current stair and the stair before it is done; computed, never stored. */
 export const addedStairNote = (n, path = {}) => (n?.kind === 'node' && n.state === 'current' && n.level > 1 && isDone(path, n.topic, n.level - 1)
   ? ADDED_STAIRS[`${n.topic}:${n.level}`] || null : null);
@@ -188,9 +189,9 @@ export function unitProgress(topic, path = {}, skills = {}) {
  * stages done, and before anything the size of the unit.
  */
 export function unitCountText({ done, stairs, stages, of }) {
-  if (done > 0) return `${done} מתוך ${stairs} מדרגות`;
-  if (stages > 0) return `${stages} מתוך ${of} שלבים`;
-  return `${stairs} מדרגות`;
+  if (done > 0) return tr('shell.path.3', { done, stairs });
+  if (stages > 0) return tr('shell.path.4', { stages, of });
+  return tr('shell.path.5', { stairs });
 }
 
 /** The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. */

@@ -15,6 +15,7 @@ import { TOPIC } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { reachedUpTo } from '@/lib/path.js';
 
+import { localized, t as tr } from '@/lib/i18n.js';
 export interface Context {
   learn: LearnState;
   grade: '7' | '8';
@@ -32,7 +33,7 @@ export const topicTitleOf = (id: SkillId): string => TOPIC[parseSkill(id).topic]
 export const MINUTES: Record<Action['kind'], number> = { exam: 5, repair: 3, review: 2, 'exam-loss': 4, floor: 3, prereq: 4, continue: 4, new: 5, mastery: 3, challenge: 6 };
 
 /** The five stages of a stair, as the student sees them. */
-export const STAGE_NAME: Record<Stage, string> = { A: 'מבינים את הרעיון', B: 'דוגמה פתורה', C: 'פותרים יחד', D: 'תרגול', E: 'בדיקת שליטה' };
+export let STAGE_NAME: Record<Stage, string> = localized(() => ({ A: tr('shell.recommend.1'), B: tr('shell.recommend.2'), C: tr('shell.recommend.3'), D: tr('shell.recommend.4'), E: tr('shell.recommend.5') }), (v) => { STAGE_NAME = v; });
 export const STAGE_N: Record<Stage, number> = { A: 1, B: 2, C: 3, D: 4, E: 5 };
 export const STAGE_MIN: Record<Stage, number> = { A: 5, B: 3, C: 4, D: 5, E: 3 };
 

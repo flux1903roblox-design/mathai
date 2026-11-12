@@ -120,7 +120,8 @@ describe('the pilot kit', () => {
   });
 
   test('7. the guide\'s way in for students quotes the student\'s own screens (Welcome.jsx)', () => {
-    const welcome = read('../screens/Welcome.jsx');
+    // Welcome's Hebrew words are in its catalogue (COUNCIL2-34): shell.welcome.* in locales/shell.he.json
+    const welcome = Object.entries(JSON.parse(read('../locales/shell.he.json'))).filter(([k]) => k.startsWith('shell.welcome.')).map(([, v]) => v).join('\n');
     const guide = DOCS['teacher-guide'];
     for (const words of ['מתחילים', 'יש לכם קוד כיתה מהמורה?', 'אני']) {
       expect(guide, words).toContain(`"${words}"`);

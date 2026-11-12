@@ -18,23 +18,24 @@ import { createBackup, vaultErrorText } from '@/lib/durable/vault.js';
 import { copyWhenReady } from '@/lib/clipboard.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 
-export const INSTALL_TITLE = 'להוסיף את מדרגות למסך הבית';
-export const INSTALL_STEPS = [
-  'קודם שומרים את ההתקדמות.',
-  'לוחצים על שלוש הנקודות (⋯) ליד שורת הכתובת, ואז על "שיתוף". אם רואים כפתור של ריבוע עם חץ למעלה, לוחצים עליו.',
-  'בוחרים "הוספה למסך הבית", משאירים דלוקה את האפשרות לפתוח כאפליקציה, ולוחצים "הוספה".',
-  'פותחים את מדרגות מהסמל החדש, לוחצים "יש לי קובץ גיבוי" ובוחרים את הקובץ ששמרתם. ההתקדמות עוברת לשם.',
-];
+import { localized, t } from '@/lib/i18n.js';
+export let INSTALL_TITLE = localized(() => t('shell.installsheet.1'), (v) => { INSTALL_TITLE = v; });
+export let INSTALL_STEPS = localized(() => ([
+  t('shell.installsheet.2'),
+  t('shell.installsheet.3'),
+  t('shell.installsheet.4'),
+  t('shell.installsheet.5'),
+]), (v) => { INSTALL_STEPS = v; });
 /** Step 4 and the note when the app has a server: the backup code carries the progress. */
-export const INSTALL_STEP4_CODE = 'פותחים את מדרגות מהסמל החדש ומדביקים את קוד הגיבוי. ההתקדמות עוברת לשם.';
-export const INSTALL_NOTE = 'באייפון, אפליקציה במסך הבית שומרת נתונים בנפרד מספארי, ולכן צריך את קובץ הגיבוי פעם אחת.';
-export const INSTALL_NOTE_CODE = 'באייפון, אפליקציה במסך הבית שומרת נתונים בנפרד מספארי, ולכן צריך את הקוד פעם אחת.';
-export const INSTALL_SAVED = 'שמרנו קובץ גיבוי.';
-export const INSTALL_CODED = 'יצרנו קוד גיבוי והעתקנו אותו.';
-export const INSTALL_COPIED = 'העתקנו את קוד הגיבוי.';
+export let INSTALL_STEP4_CODE = localized(() => t('shell.installsheet.6'), (v) => { INSTALL_STEP4_CODE = v; });
+export let INSTALL_NOTE = localized(() => t('shell.installsheet.7'), (v) => { INSTALL_NOTE = v; });
+export let INSTALL_NOTE_CODE = localized(() => t('shell.installsheet.8'), (v) => { INSTALL_NOTE_CODE = v; });
+export let INSTALL_SAVED = localized(() => t('shell.installsheet.9'), (v) => { INSTALL_SAVED = v; });
+export let INSTALL_CODED = localized(() => t('shell.installsheet.10'), (v) => { INSTALL_CODED = v; });
+export let INSTALL_COPIED = localized(() => t('shell.installsheet.11'), (v) => { INSTALL_COPIED = v; });
 /** The code is there, but the clipboard said no: it is shown under the line. */
-export const INSTALL_NOT_COPIED = 'הנה קוד הגיבוי. כדאי לכתוב אותו או לצלם מסך.';
-export const CARD_TEXT = 'באייפון, מדרגות ממסך הבית שומרת את ההתקדמות בצורה בטוחה יותר מאשר בספארי.';
+export let INSTALL_NOT_COPIED = localized(() => t('shell.installsheet.12'), (v) => { INSTALL_NOT_COPIED = v; });
+export let CARD_TEXT = localized(() => t('shell.installsheet.13'), (v) => { CARD_TEXT = v; });
 
 /** Note that the guide was offered now (Learn waits 30 days before offering it again). */
 const noteHint = () => useApp.setState((s) => ({ durable: { ...s.durable, installHintAt: new Date().toISOString() } }));
@@ -74,18 +75,18 @@ export default function InstallSheet({ open, onOpenChange }) {
     ) : (
       <>
         <Button variant="secondary" className="btn-block" onClick={copyCode} disabled={busy} aria-busy={busy || undefined}>
-          {busy ? 'יוצרים קוד…' : code ? 'להעתיק את קוד הגיבוי' : 'ליצור קוד גיבוי'}
+          {busy ? t('shell.installsheet.14') : code ? t('shell.installsheet.15') : t('shell.installsheet.16')}
         </Button>
         {msg && <p className="form-error" role="alert">{msg}</p>}
         {/* the server could not make a code: the file still carries the progress */}
         {msg && (saved
           ? <p className="install-saved" role="status">{INSTALL_SAVED}</p>
-          : <Button variant="ghost" className="btn-block" onClick={save}>לשמור קובץ גיבוי</Button>)}
+          : <Button variant="ghost" className="btn-block" onClick={save}>{t('shell.installsheet.17')}</Button>)}
       </>
     )
   ) : saved
     ? <p className="install-saved" role="status">{INSTALL_SAVED}</p>
-    : <Button variant="secondary" className="btn-block" onClick={save}>לשמור קובץ גיבוי</Button>;
+    : <Button variant="secondary" className="btn-block" onClick={save}>{t('shell.installsheet.17')}</Button>;
   const steps = server ? [...INSTALL_STEPS.slice(1, 3), INSTALL_STEP4_CODE] : INSTALL_STEPS.slice(1);
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title={INSTALL_TITLE}>
@@ -99,8 +100,8 @@ export default function InstallSheet({ open, onOpenChange }) {
         </ol>
         <p className="install-note">{server ? INSTALL_NOTE_CODE : INSTALL_NOTE}</p>
         <div className="install-actions">
-          <Button className="btn-block" onClick={() => onOpenChange(false)}>הבנתי</Button>
-          <Button variant="ghost" className="btn-block" onClick={() => onOpenChange(false)}>לא עכשיו</Button>
+          <Button className="btn-block" onClick={() => onOpenChange(false)}>{t('shell.installsheet.18')}</Button>
+          <Button variant="ghost" className="btn-block" onClick={() => onOpenChange(false)}>{t('shell.installsheet.19')}</Button>
         </div>
       </div>
     </Sheet>
@@ -118,9 +119,9 @@ export function InstallCard({ onOpen }) {
       <div className="install-card-text">
         <h2 id="install-card-title" className="install-card-title">{INSTALL_TITLE}</h2>
         <p>{CARD_TEXT}</p>
-        <Button variant="secondary" className="btn-sm install-card-go" onClick={onOpen}>איך מוסיפים</Button>
+        <Button variant="secondary" className="btn-sm install-card-go" onClick={onOpen}>{t('shell.installsheet.20')}</Button>
       </div>
-      <button type="button" className="icon-btn install-card-close" onClick={noteHint} aria-label="לא עכשיו"><X size={20} aria-hidden="true" /></button>
+      <button type="button" className="icon-btn install-card-close" onClick={noteHint} aria-label={t('shell.installsheet.19')}><X size={20} aria-hidden="true" /></button>
     </section>
   );
 }

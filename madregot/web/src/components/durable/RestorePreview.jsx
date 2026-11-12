@@ -16,7 +16,8 @@ import { Button } from '@/components/ui.jsx';
 import { applyRestored, restoreCase, RESTORE_TOAST } from '@/lib/durable/apply.js';
 import { dataOf } from '@/lib/durable/merge.js';
 
-const GRADE = { 7: 'כיתה ז׳', 8: 'כיתה ח׳' };
+import { localized, t as tr, fmtDate } from '@/lib/i18n.js';
+let GRADE = localized(() => ({ 7: tr('shell.restorepreview.1'), 8: tr('shell.restorepreview.2') }), (v) => { GRADE = v; });
 
 /** What a backup holds, counted as the profile screen counts it (Me.jsx). */
 export function previewOf(state, now = new Date()) {
@@ -28,8 +29,8 @@ export function previewOf(state, now = new Date()) {
   const mastered = topicsFor(profile.grade || '7').reduce((a, t) => a + t.levels.filter((_, i) => masteryState(skills[skillId(t.id, i + 1)], iso) === 'mastered').length, 0);
   const last = Object.keys(state?.days || {}).filter((d) => isActiveDay(state.days[d])).sort().at(-1) || null;
   return {
-    name: profile.name || '', grade: profile.role === 'teacher' ? 'מורה' : GRADE[profile.grade] || '', xp: Number(state?.xp) || 0, stairs, mastered,
-    last: last ? new Date(`${last}T12:00:00`).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' }) : null,
+    name: profile.name || '', grade: profile.role === 'teacher' ? tr('shell.restorepreview.3') : GRADE[profile.grade] || '', xp: Number(state?.xp) || 0, stairs, mastered,
+    last: last ? fmtDate(last, { day: 'numeric', month: 'long', year: 'numeric' }) : null,
   };
 }
 
@@ -46,7 +47,7 @@ export default function RestorePreview({ backup, source = 'file', heading = null
   const [error, setError] = useState('');
   const kind = restoreCase(local, backup.state);
   const p = previewOf(backup.state);
-  const localName = local.profile?.name || 'תלמיד אחר';
+  const localName = local.profile?.name || tr('shell.restorepreview.4');
 
   const go = async (replace) => {
     setBusy(true); setError('');
@@ -58,26 +59,26 @@ export default function RestorePreview({ backup, source = 'file', heading = null
     onDone?.(r);
   };
 
-  const parts = [p.name && <bdi key="n">{p.name}</bdi>, p.grade, <span key="x"><bdi dir="ltr">{p.xp} XP</bdi></span>, p.stairs === 1 ? 'מדרגה אחת' : `${p.stairs} מדרגות`, p.last && `תרגול אחרון: ${p.last}`].filter(Boolean);
+  const parts = [p.name && <bdi key="n">{p.name}</bdi>, p.grade, <span key="x"><bdi dir="ltr">{p.xp} XP</bdi></span>, p.stairs === 1 ? tr('shell.restorepreview.5') : tr('shell.restorepreview.6', { stairs: p.stairs }), p.last && tr('shell.restorepreview.7', { last: p.last })].filter(Boolean);
   return (
     <div className="restore-preview">
-      {heading === 'h1' && <h1 className="restore-title" tabIndex={-1} ref={head}>מצאנו גיבוי</h1>}
-      {heading === 'h2' && <h2 className="restore-title" tabIndex={-1} ref={head}>מצאנו גיבוי</h2>}
+      {heading === 'h1' && <h1 className="restore-title" tabIndex={-1} ref={head}>{tr('shell.restorepreview.8')}</h1>}
+      {heading === 'h2' && <h2 className="restore-title" tabIndex={-1} ref={head}>{tr('shell.restorepreview.8')}</h2>}
       <p className="restore-summary">{parts.map((x, i) => <span key={i}>{i > 0 && <span aria-hidden="true"> · </span>}{x}</span>)}</p>
-      <p className="restore-mastered">שולטים לבד: {p.mastered}</p>
-      {kind === 'same' && <p className="restore-note">שום דבר לא יימחק: אנחנו משאירים את הגבוה מבין השניים בכל מדרגה ובכל יום.</p>}
-      {kind === 'other' && <p className="restore-warn">במכשיר הזה יש התקדמות של <bdi>{localName}</bdi>. שחזור יחליף אותה. אפשר לבטל את זה במשך 30 יום בהגדרות.</p>}
+      <p className="restore-mastered">{tr('shell.restorepreview.9')}{p.mastered}</p>
+      {kind === 'same' && <p className="restore-note">{tr('shell.restorepreview.10')}</p>}
+      {kind === 'other' && <p className="restore-warn">{tr('shell.restorepreview.11')}<bdi>{localName}</bdi>{tr('shell.restorepreview.12')}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="restore-actions">
         {kind === 'other' ? (
           <>
-            <Button className="btn-block btn-lg" onClick={onCancel}>לא עכשיו</Button>
-            <Button variant="secondary" className="btn-block" onClick={() => go(true)} disabled={busy}>להחליף</Button>
+            <Button className="btn-block btn-lg" onClick={onCancel}>{tr('shell.restorepreview.13')}</Button>
+            <Button variant="secondary" className="btn-block" onClick={() => go(true)} disabled={busy}>{tr('shell.restorepreview.14')}</Button>
           </>
         ) : (
           <>
-            <Button className="btn-block btn-lg" onClick={() => go(false)} disabled={busy}>{kind === 'same' ? 'לאחד עם מה שיש כאן' : 'להמשיך מכאן'}</Button>
-            <Button variant="ghost" className="btn-block" onClick={onCancel}>לא עכשיו</Button>
+            <Button className="btn-block btn-lg" onClick={() => go(false)} disabled={busy}>{kind === 'same' ? tr('shell.restorepreview.15') : tr('shell.restorepreview.16')}</Button>
+            <Button variant="ghost" className="btn-block" onClick={onCancel}>{tr('shell.restorepreview.13')}</Button>
           </>
         )}
       </div>

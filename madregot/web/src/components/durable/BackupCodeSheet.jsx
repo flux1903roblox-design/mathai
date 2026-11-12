@@ -6,20 +6,21 @@ import { formatCode } from '@/lib/durable/code.js';
 import { copyText } from '@/lib/clipboard.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import QrCode from '@/components/QrCode.jsx';
+import { localized, t } from '@/lib/i18n.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/durable.css'; // the saving rules, loaded with this screen (FOLLOWUP-23)
 
-export const CODE_SHEET = {
-  title: 'קוד הגיבוי שלכם',
-  where: 'עם הקוד הזה אפשר להחזיר את ההתקדמות בכל מכשיר: פותחים את מדרגות ובוחרים "יש לי קוד גיבוי".',
-  keep: 'שמרו אותו מחוץ למכשיר הזה: שלחו להורים, צלמו מסך או כתבו במחברת.',
-  who: 'מי שיש לו את הקוד יכול לראות את ההתקדמות שלכם, אז תנו אותו רק למי שאתם סומכים עליו.',
-  copied: 'הקוד הועתק.',
-  notCopied: 'לא הצלחנו להעתיק. אפשר לסמן את הקוד ולהעתיק אותו.',
-};
+export let CODE_SHEET = localized(() => ({
+  title: t('shell.backupcodesheet.1'),
+  where: t('shell.backupcodesheet.2'),
+  keep: t('shell.backupcodesheet.3'),
+  who: t('shell.backupcodesheet.4'),
+  copied: t('shell.backupcodesheet.5'),
+  notCopied: t('shell.backupcodesheet.6'),
+}), (v) => { CODE_SHEET = v; });
 
 /** The message a parent gets. */
-export const shareText = (code) => `קוד הגיבוי שלי במדרגות: ${formatCode(code)}\nאם הטלפון יתחלף: פותחים את מדרגות, בוחרים "יש לי קוד גיבוי" ומקלידים את הקוד.`;
+export const shareText = (code) => t('shell.backupcodesheet.7', { p0: formatCode(code) });
 
 /** The code letter by letter, so a screen reader spells it instead of reading it as a word. */
 const spelled = (code) => formatCode(code).split('-').map((g) => [...g].join(' ')).join(', ');
@@ -42,14 +43,14 @@ export default function BackupCodeSheet({ code, open, onOpenChange }) {
       {code && (
         <div className="backup-code-body">
           <p className="backup-code" dir="ltr" aria-label={spelled(code)}>{formatCode(code)}</p>
-          <div className="backup-qr"><QrCode text={code} size={168} label="קוד QR של קוד הגיבוי" /></div>
+          <div className="backup-qr"><QrCode text={code} size={168} label={t('shell.backupcodesheet.8')} /></div>
           <p>{CODE_SHEET.where}</p>
           <p>{CODE_SHEET.keep}</p>
           <p className="backup-who">{CODE_SHEET.who}</p>
           <div className="backup-actions">
-            <Button className="btn-block" onClick={send}>לשלוח להורים</Button>
-            <Button variant="secondary" className="btn-block" onClick={copy}>להעתיק</Button>
-            <Button variant="ghost" className="btn-block" onClick={() => onOpenChange(false)}>שמרתי</Button>
+            <Button className="btn-block" onClick={send}>{t('shell.backupcodesheet.9')}</Button>
+            <Button variant="secondary" className="btn-block" onClick={copy}>{t('shell.backupcodesheet.10')}</Button>
+            <Button variant="ghost" className="btn-block" onClick={() => onOpenChange(false)}>{t('shell.backupcodesheet.11')}</Button>
           </div>
         </div>
       )}

@@ -10,6 +10,7 @@ import { learnDaysTotal } from './streak.js';
 import { isNativeApp } from './native.js';
 import { TEXTS } from '@shared/reminder.js';
 
+import { localized, t } from '@/lib/i18n.js';
 /** The offer comes from this many learning days (days with a finished lesson, stage or check). */
 export const REMINDER = { fromDays: 3 };
 /** The hours a student can choose (Jerusalem time on the server). */
@@ -86,27 +87,27 @@ onWipe('push', () => wipeReminder());
 onClearDevice('push', () => clearReminderDevice());
 
 /** The words the card and Settings show (STUDENT-11). No plan, no price, no streak. */
-export const REMINDER_TEXT = {
-  cardTitle: 'רוצים תזכורת קטנה?',
-  cardBody: 'הודעה אחת ביום, בשעה שתבחרו. לא בשבת ובחגים, ולא ביום שכבר למדתם.',
-  on: 'להפעיל',
+export let REMINDER_TEXT = localized(() => ({
+  cardTitle: t('shell.reminder.1'),
+  cardBody: t('shell.reminder.2'),
+  on: t('shell.reminder.3'),
   /** The turn-on button once it worked (it says so itself: no toast after it). */
-  doneOn: 'התזכורת פועלת',
-  no: 'לא, תודה',
-  title: 'תזכורת יומית',
-  optOn: 'פועלת',
-  optOff: 'כבויה',
-  slotLabel: 'באיזו שעה?',
-  hint: 'הודעה אחת ביום לכל היותר. לא נשלחת בשבת ובחגים, בימי הזיכרון ובתשעה באב, לא אחרי 12:00 בערב שלהם, ולא ביום שכבר למדתם בו.',
-  paused: 'עצרנו את התזכורות כי הן לא עזרו בימים האחרונים. אפשר להפעיל אותן שוב מתי שתרצו.',
-  denied: 'הדפדפן חוסם התראות מהאתר הזה. אפשר לאפשר אותן בהגדרות הדפדפן, ואז לחזור לכאן.',
-  unsupported: 'הדפדפן הזה לא תומך בתזכורות.',
-  noServer: 'בגרסה הזו אין תזכורות.',
-  ios: 'באייפון התזכורות עובדות אחרי שמוסיפים את מדרגות למסך הבית.',
+  doneOn: t('shell.reminder.4'),
+  no: t('shell.reminder.5'),
+  title: t('shell.reminder.6'),
+  optOn: t('shell.reminder.7'),
+  optOff: t('shell.reminder.8'),
+  slotLabel: t('shell.reminder.9'),
+  hint: t('shell.reminder.10'),
+  paused: t('shell.reminder.11'),
+  denied: t('shell.reminder.12'),
+  unsupported: t('shell.reminder.13'),
+  noServer: t('shell.reminder.14'),
+  ios: t('shell.reminder.15'),
   /** The iPhone app (local notifications): the app's notifications are off in the phone's settings. */
-  deniedApp: 'ההתראות של מדרגות כבויות בהגדרות של האייפון. אפשר להפעיל אותן שם, ואז לחזור לכאן.',
-  toastOn: (slot) => `התזכורת תגיע בכל יום ב־${slot}:00`,
-  toastOff: 'התזכורות כבויות',
+  deniedApp: t('shell.reminder.16'),
+  toastOn: (slot) => t('shell.reminder.17', { slot }),
+  toastOff: t('shell.reminder.18'),
   /** A sample of what arrives (the first of the six texts, shared/reminder.js TEXTS). */
   sample: TEXTS[0],
-};
+}), (v) => { REMINDER_TEXT = v; });

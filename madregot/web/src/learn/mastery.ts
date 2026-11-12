@@ -7,6 +7,7 @@
 //  - Mastery is checked again later (spaced reviews: REVIEW_DAYS); a missed review marks it "needs review".
 import type { Attempt, MasteryState, Purpose, SkillRecord } from './types';
 
+import { localized, t } from '@/lib/i18n.js';
 export const MASTERY_N = 5;
 export const MASTERY_NEED = 4;
 export const REVIEW_N = 3;
@@ -18,21 +19,21 @@ export const SUPPORT_WINDOW = 6;
 export const SUPPORT_MIN = 4;
 export const KEEP_ATTEMPTS = 40;
 
-export const MASTERY_RULES = [
-  'הסבר ודוגמה פתורה הם לימוד. הם לא נחשבים שליטה.',
-  'תשובה עם רמז, בניסיון שני או בפתרון משותף נחשבת לימוד עם עזרה.',
-  `שליטה: בדיקה קצרה של ${MASTERY_N} שאלות בלי רמזים, ניסיון אחד לכל שאלה, ולפחות ${MASTERY_NEED} נכונות.`,
-  'אחרי כמה ימים בודקים שוב שזה נשאר. אם שכחתם, זה לא נמחק: עושים חזרה קצרה.',
-];
+export let MASTERY_RULES = localized(() => ([
+  t('shell.mastery.1'),
+  t('shell.mastery.2'),
+  t('shell.mastery.3', { MASTERY_N, MASTERY_NEED }),
+  t('shell.mastery.4'),
+]), (v) => { MASTERY_RULES = v; });
 
-export const STATE_LABEL: Record<MasteryState, string> = {
-  'not-started': 'עוד לא התחלנו',
-  learning: 'לומדים',
-  'needs-support': 'צריך עוד עזרה',
-  practicing: 'מתרגלים',
-  mastered: 'שולטים לבד',
-  'needs-review': 'כדאי לחזור',
-};
+export let STATE_LABEL: Record<MasteryState, string> = localized(() => ({
+  'not-started': t('shell.mastery.5'),
+  learning: t('shell.mastery.6'),
+  'needs-support': t('shell.mastery.7'),
+  practicing: t('shell.mastery.8'),
+  mastered: t('shell.mastery.9'),
+  'needs-review': t('shell.mastery.10'),
+}), (v) => { STATE_LABEL = v; });
 
 const DAY = 86_400_000;
 export const addDays = (iso: string, days: number) => new Date(new Date(iso).getTime() + days * DAY).toISOString();

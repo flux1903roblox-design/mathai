@@ -5,32 +5,34 @@
 // family (DURABLE-6, backup.escrow); the family summary comes with that summary (PARENTS-4).
 // The class sentence is the trust lane's (TRUST-1); it is written here once. "מוצפן" is said only of the backup code's
 // copy, which only the code opens: never of a copy the class or the family keeps, which the server could open.
+import '@/locales/settings.js'; // this screen's words, before anything here uses them (COUNCIL2-34)
 import { hasServer } from '../api.js';
 
-export const WHERE_SAVED = {
+import { localized, t } from '@/lib/i18n.js';
+export let WHERE_SAVED = localized(() => ({
   /** a build with no server (the public practice site): nothing leaves the device, and a backup file is the way to keep it */
-  noServer: 'ההתקדמות נשמרת במכשיר הזה. כדאי לשמור קובץ גיבוי מדי פעם.',
+  noServer: t('settings.copy.1'),
   /** with a server, a student in no class */
-  solo: 'ההתקדמות נשמרת רק במכשיר הזה.',
+  solo: t('settings.copy.2'),
   /** a class student, under their numbers (MyNumbers): every answer goes to the teacher's board too */
-  classNumbers: 'המספרים האלה מחושבים במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה.',
+  classNumbers: t('settings.copy.3'),
   /** a class student, anywhere else (Settings) */
-  classProgress: 'ההתקדמות נשמרת במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה.',
+  classProgress: t('settings.copy.4'),
   /** the backup code is on (DURABLE-5): an encrypted copy only the code opens */
-  backup: 'ההתקדמות נשמרת במכשיר, ועותק מוצפן שרק הקוד שלכם פותח נשמר בגיבוי.',
+  backup: t('settings.copy.5'),
   /** the backup code is on, after a class student's sentence */
-  backupClause: 'עותק מוצפן שרק הקוד שלכם פותח נשמר גם בגיבוי.',
+  backupClause: t('settings.copy.6'),
   /** the class keeps the code (DURABLE-6), after a class student's sentence */
-  classCopyClause: 'עותק של ההתקדמות נשמר גם בשרת, כדי שתוכלו להמשיך מכל מכשיר עם הקוד האישי.',
+  classCopyClause: t('settings.copy.7'),
   /** a family device whose code the family plan keeps (DURABLE-6) */
-  family: 'ההתקדמות נשמרת במכשיר, ועותק שלה נשמר בשרת דרך המנוי המשפחתי, כדי שאפשר יהיה להעביר אותה למכשיר חדש.',
+  family: t('settings.copy.8'),
   /** a copy the server could open, with neither a class nor a family plan any more (a student who left the class) */
-  serverCopy: 'ההתקדמות נשמרת במכשיר, ועותק שלה נשמר בשרת.',
+  serverCopy: t('settings.copy.9'),
   /** a linked device whose parents' summary is on (PARENTS-4), after the sentence about the progress */
-  summaryClause: 'סיכום קצר של התרגול נשלח להורים. בהגדרות אפשר לראות מה בדיוק.',
+  summaryClause: t('settings.copy.10'),
   /** the progress on the device, when the summary clause follows (so "רק" is not said of a device that sends one) */
-  device: 'ההתקדמות נשמרת במכשיר הזה.',
-};
+  device: t('settings.copy.11'),
+}), (v) => { WHERE_SAVED = v; });
 
 /** @typedef {import('./types').Saved | null | undefined} State */
 /**

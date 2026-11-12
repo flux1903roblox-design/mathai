@@ -21,8 +21,10 @@ const plain = (file) => String(file).replace(/\\/g, '/').replace(/^\.?\//, '');
  * Which built file the worker keeps (the path is relative to the build folder):
  * index.html, the manifest, the icons and theme-boot.js; every script and style sheet directly under assets/; the woff2
  * fonts of Rubik's Hebrew and Latin parts and of KaTeX. Not source maps, not the .ttf/.woff copies (browsers take the
- * woff2), not Rubik's Arabic, Cyrillic or Latin-extended parts (the app never shows them), not other public files
- * (store screenshots, _headers).
+ * woff2), not Rubik's Cyrillic or Latin-extended parts (the app never shows them), not other public files
+ * (store screenshots, _headers). Not the Arabic files either (COUNCIL2-34): Rubik's Arabic part and the Arabic words
+ * (locales/*.ar.json, content *.ar.*, built as <name>.ar-<hash>.js), so a Hebrew device keeps nothing it never shows.
+ * An Arabic device keeps them as it first uses them (sw.js saves every /assets/ file it fetches).
  */
 export function precacheFilter(file) {
   const f = plain(file);
@@ -31,6 +33,7 @@ export function precacheFilter(file) {
   if (/^icons\/[\w-]+\.(png|svg|ico|webp)$/i.test(f)) return true;
   const name = /^assets\/([^/]+)$/.exec(f)?.[1];
   if (!name) return false;
+  if (/\.ar-[\w-]+\.js$/.test(name)) return false;
   if (/\.(js|css)$/.test(name)) return true;
   const font = /^(.+)\.woff2$/.exec(name);
   if (!font) return false;

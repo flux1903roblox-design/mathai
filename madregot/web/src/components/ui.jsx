@@ -4,6 +4,7 @@ import { useReducedMotion } from 'motion/react';
 import { Delete, ArrowRightLeft, ArrowLeft, Check } from 'lucide-react';
 import { MathText } from './MathText.jsx';
 
+import { t as tr, fmtNum } from '@/lib/i18n.js';
 /** The chapter mark: a solid circle in the topic's colour with its number. */
 export function ChapterMark({ color, n, size = 'md' }) {
   return <span className={clsx('chapter-mark', `ch-${color}`, `cm-${size}`)} aria-hidden="true">{n}</span>;
@@ -12,7 +13,7 @@ export function ChapterMark({ color, n, size = 'md' }) {
 /** Fixed level ramp: one pip per level, the same everywhere in the app. */
 export function LevelPips({ total, level, max, color, label = true }) {
   return (
-    <span className={clsx('pips', `ch-${color}`)} role="img" aria-label={label ? `מדרגה ${level} מתוך ${total}` : undefined}>
+    <span className={clsx('pips', `ch-${color}`)} role="img" aria-label={label ? tr('shell.ui.1', { level, total }) : undefined}>
       {Array.from({ length: total }, (_, i) => {
         const n = i + 1;
         const state = n < level || n <= (max || 0) && n !== level ? 'done' : n === level ? 'cur' : 'todo';
@@ -25,7 +26,7 @@ export function LevelPips({ total, level, max, color, label = true }) {
 /** Correct answers counted toward a goal (moving up a level, a plan step): round dots, never the level squares. */
 export function NeedSlots({ need, have, label = true }) {
   return (
-    <span className="need" role={label ? 'img' : undefined} aria-hidden={label ? undefined : true} aria-label={label ? `${have} מתוך ${need} נכונות לעלייה` : undefined}>
+    <span className="need" role={label ? 'img' : undefined} aria-hidden={label ? undefined : true} aria-label={label ? tr('shell.ui.2', { have, need }) : undefined}>
       {Array.from({ length: need }, (_, i) => <i key={i} className={i < have ? 'on' : ''} />)}
     </span>
   );
@@ -60,8 +61,7 @@ export function Steps({ steps, stepwise = false }) {
         ))}
       </ol>
       {n < steps.length && (
-        <button type="button" className="stair-next" onClick={() => setN(n + 1)}>
-          השלב הבא<ArrowLeft size={18} aria-hidden="true" /><span className="stair-count"><bdi dir="ltr">{n}/{steps.length}</bdi></span>
+        <button type="button" className="stair-next" onClick={() => setN(n + 1)}>{tr('shell.ui.3')}<ArrowLeft size={18} aria-hidden="true" /><span className="stair-count"><bdi dir="ltr">{n}/{steps.length}</bdi></span>
         </button>
       )}
     </div>
@@ -75,7 +75,7 @@ export function Steps({ steps, stepwise = false }) {
  * While busy or done the button keeps its place and its focus (aria-disabled, not disabled) and ignores taps, so a
  * double tap sends one request. A screen that shows 'done' does not also say it in a toast.
  */
-export function Button({ variant = 'primary', className, children, state = 'idle', busyText = 'רגע…', doneText, onClick, ...rest }) {
+export function Button({ variant = 'primary', className, children, state = 'idle', busyText = tr('shell.ui.4'), doneText, onClick, ...rest }) {
   const reduce = useReducedMotion();
   const held = state === 'busy' || state === 'done';
   let content = children;
@@ -102,7 +102,7 @@ export function Progress({ value, max = 100, labelledBy, valueText, className, t
   const now = Math.min(Math.max(value, 0), max);
   const percent = Math.min(Math.max(max > 0 ? (value * 100) / max : 0, 0), 100);
   const state = now === max ? { 'data-complete': '' } : { 'data-progressing': '' };
-  const text = valueText || new Intl.NumberFormat(undefined, { style: 'percent' }).format(percent / 100);
+  const text = valueText || fmtNum(percent / 100, { style: 'percent' });
   return (
     <div {...state} aria-labelledby={labelledBy} aria-valuemax={max} aria-valuemin={0} aria-valuenow={now} aria-valuetext={text} role="progressbar" className={className}>
       <div {...state} className={clsx('bar', trackClassName)}>
@@ -121,13 +121,13 @@ export function Progress({ value, max = 100, labelledBy, valueText, className, t
 const KEY_AREA = { '-': 'minus', '.': 'dot', '/': 'frac', del: 'del' };
 '0123456789'.split('').forEach((d) => { KEY_AREA[d] = `d${d}`; });
 
-export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nextLabel = 'לשדה הבא' }) {
+export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nextLabel = tr('shell.ui.5') }) {
   const keys = ['7', '8', '9', 'del', '4', '5', '6', '-', '1', '2', '3', '/', '0', '.'];
   return (
     <div className="keypad" dir="ltr">
       {keys.map((k) => (
         <button key={k} type="button" data-k={KEY_AREA[k]} className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del', k === '0' && primary == null && (onNext ? 'key-wide' : 'key-wide3'))}
-          aria-label={k === 'del' ? 'מחיקה' : k === '-' ? 'מינוס' : k === '/' ? 'שבר' : k === '.' ? 'נקודה עשרונית' : k}
+          aria-label={k === 'del' ? tr('shell.ui.6') : k === '-' ? tr('shell.ui.7') : k === '/' ? tr('shell.ui.8') : k === '.' ? tr('shell.ui.9') : k}
           onPointerDown={(e) => e.preventDefault()} onClick={() => onKey(k)}>
           {k === 'del' ? <Delete size={22} aria-hidden="true" /> : k === '-' ? '−' : k}
         </button>

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Fragment, lazy, Suspense, useEffect } from 'react';
 import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, MotionConfig } from 'motion/react';
@@ -35,6 +35,7 @@ import { preloadSheet } from '@/components/ui.jsx';
 import Welcome from '@/screens/Welcome.jsx';
 import Learn from '@/screens/Learn.jsx';
 import { LessonScreen as Lesson } from '@/lib/lazyScreen.js';
+import { localized, t as tr, useLocale, dirOf } from '@/lib/i18n.js';
 // Screens that are not on the daily path load on demand (the topics, a topic's guide and the quests too: DURABLE-11).
 // The lesson is its own file too, fetched ahead of time (lib/lazyScreen.js).
 const Topics = lazy(() => import('@/screens/Topics.jsx'));
@@ -152,7 +153,7 @@ const TOAST_OPTIONS = {
   className: 'toast',
   classNames: { title: 'toast-title', description: 'toast-desc', icon: 'toast-icon', success: 'toast-good', error: 'toast-bad', info: 'toast-info', actionButton: 'toast-action', cancelButton: 'toast-cancel' },
 };
-const toaster = { dir: 'rtl', className: 'app-toaster', containerAriaLabel: 'הודעות', customAriaLabel: 'הודעות', icons: TOAST_ICONS, toastOptions: TOAST_OPTIONS };
+let toaster = localized(() => ({ dir: dirOf(), className: 'app-toaster', containerAriaLabel: tr('shell.app.1'), customAriaLabel: tr('shell.app.1'), icons: TOAST_ICONS, toastOptions: TOAST_OPTIONS }), (v) => { toaster = v; });
 
 /**
  * A toast belongs to the screen that raised it: cleared when the route changes. Above the tab bar on
@@ -177,7 +178,7 @@ function RestoreToast() {
   useEffect(() => {
     if (!restored || restoreToastShown) return;
     restoreToastShown = true;
-    toast('החזרנו את ההתקדמות מהעותק שנשמר במכשיר.', { duration: 6000 });
+    toast(tr('shell.app.2'), { duration: 6000 });
   }, [restored]);
   return null;
 }
@@ -198,7 +199,7 @@ function HelpNotice() {
     if (!fresh.length) return;
     markNoticed(fresh.map((x) => x.message.id));
     const id = fresh[0].help.id;
-    toast('יש תשובה מהמורה על בקשת העזרה', { id: HELP_NOTICE, duration: 10_000, action: { label: 'לקריאה', onClick: () => navigate('/quests', { state: { help: id } }) } });
+    toast(tr('shell.app.3'), { id: HELP_NOTICE, duration: 10_000, action: { label: tr('shell.app.4'), onClick: () => navigate('/quests', { state: { help: id } }) } });
   }, [token, help, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
@@ -286,8 +287,10 @@ function Root() {
   const sell = canSell();
   useAIStatusBoot();
   usePreloadLastTopic(role);
+  // a new language (Welcome, Settings; lib/i18n.js) draws every screen again in it: the hooks above keep running
+  const lang = useLocale();
   return (
-    <>
+    <Fragment key={lang}>
       <Toasts />
       <RestoreToast />
       {role === 'student' && <HelpNotice />}
@@ -402,7 +405,7 @@ function Root() {
       </Routes>
       </Suspense>
       </ErrorBoundary>
-    </>
+    </Fragment>
   );
 }
 

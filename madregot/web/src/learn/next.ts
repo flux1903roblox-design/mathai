@@ -40,6 +40,7 @@ import { PARTS } from '@/lib/lessonRules.js';
 // @ts-ignore: plain JS
 import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
 
+import { localized, t as tr, locale, fmtDate } from '@/lib/i18n.js';
 export type NextKind = ActionKind;
 /** Where a suggestion comes from: Exam Rescue's plan, the learning engine, a checked exam, or the challenge track. */
 export type NextSource = 'rescue' | 'engine' | 'exam-check' | 'challenge';
@@ -80,11 +81,13 @@ export { RECOVER_RIGHT };
 /** Mastery checks in a row passed on the first attempt that make a student strong today. */
 export const STRONG_CHECKS = 3;
 
-const STEP_REASON = 'זה הצעד של היום בתוכנית ההכנה.';
-const examReason = (left: number) => (left === 0 ? `המבחן היום. ${STEP_REASON}` : left === 1 ? `המבחן מחר. ${STEP_REASON}` : `המבחן בעוד ${left} ימים. ${STEP_REASON}`);
+let STEP_REASON = localized(() => tr('shell.next.1'), (v) => { STEP_REASON = v; });
+const examReason = (left: number) => (left === 0 ? tr('shell.next.2', { STEP_REASON }) : left === 1 ? tr('shell.next.3', { STEP_REASON }) : tr('shell.next.4', { left, STEP_REASON }));
 /** The stage a Rescue step is (practice is stage D, a mastery check stage E); a lesson or a review names none. */
 const TASK_STAGE: Partial<Record<RescueTask, Stage>> = { practice: 'D', mastery: 'E' };
 const dayMonth = (iso: string) => { const d = new Date(iso); return `${d.getDate()}.${d.getMonth() + 1}`; };
+/** A school month's name (0 = September) in the current language; Hebrew keeps the programme's own names. */
+const monthName = (index: number) => (locale() === 'he' ? monthNameOf(index) : fmtDate(new Date(2026, ((index + 8) % 12), 15), { month: 'long' }));
 
 /** Exam Rescue's steps for today, as plan items: what Rescue shows under "today", in its order. */
 function examTodayOf(ctx: NextContext, restDay: boolean): NextItem[] {
@@ -94,7 +97,7 @@ function examTodayOf(ctx: NextContext, restDay: boolean): NextItem[] {
   const left = Math.max(0, Math.round(daysBetween(`${ctx.day}T00:00:00`, `${exam.date}T00:00:00`)));
   const base = { kind: 'exam' as const, source: 'rescue' as const, due: exam.date, reason: examReason(left), minutes: MINUTES.exam };
   const plan = examPlan(exam, ctx.learn, ctx.now, ctx.day);
-  if (!plan.diagnosed) return [{ ...base, skill: '', task: 'diagnostic', title: 'בדיקה קצרה לפני התוכנית', to: '/rescue/check', rank: BAND.exam * 100 }];
+  if (!plan.diagnosed) return [{ ...base, skill: '', task: 'diagnostic', title: tr('shell.next.5'), to: '/rescue/check', rank: BAND.exam * 100 }];
   return plan.today.map((t, i) => {
     const stage = TASK_STAGE[t.kind];
     return { ...base, skill: t.skill || '', task: t.kind, ...(stage ? { stage } : {}), title: t.title, to: t.to, rank: BAND.exam * 100 + i };
@@ -150,13 +153,13 @@ export function strongToday(ctx: Pick<NextContext, 'learn' | 'grade'>): boolean 
 }
 
 /** Why a challenge: the stair is named as the app names stairs ("במדרגה "…""), so every title reads well after ב. */
-export const challengeReason = (after: SkillId) => `עברתם את בדיקת השליטה במדרגה "${titleOf(after)}". רוצים משהו קשה יותר?`;
+export const challengeReason = (after: SkillId) => tr('shell.next.6', { p0: titleOf(after) });
 
 /**
  * "The stair X leans on Y." A stair's title can be any noun phrase, feminine or plural (מציאת השלם, חלוקה ביחס,
  * שברים ועשרוניים מכוונים), so the sentence is built on the noun "המדרגה" and the title is quoted, as challengeReason does.
  */
-export const leansOn = (id: SkillId, what: string) => `המדרגה "${titleOf(id)}" נשענת על ${what}.`;
+export const leansOn = (id: SkillId, what: string) => tr('shell.next.7', { p0: titleOf(id), what });
 
 /** Is a stair taught by now in the student's grade (the Ministry's school calendar)? */
 const taughtByNow = (ctx: NextContext, id: SkillId) => { const m = monthIndex(id, ctx.grade); return m != null && m <= ctx.month; };
@@ -192,14 +195,14 @@ export function planNext(ctx: NextContext): NextPlan {
     if (m.state !== 'confirmed' || !canOffer(m, ctx.day)) return;
     const def = metaOf(m.skill)?.misconceptions.find((x) => x.id === m.id);
     if (!def) return;
-    add(BAND.repair, 'engine', { kind: 'repair', skill: m.skill, misc: m.id, title: `תיקון: ${def.title}`, reason: `ראינו את זה ב־${m.seen.length} שאלות ב${titleOf(m.skill)}. נראה את זה אחרת, ואז נבדוק.`, minutes: MINUTES.repair, to: routeOf.repair(m.skill, m.id) });
+    add(BAND.repair, 'engine', { kind: 'repair', skill: m.skill, misc: m.id, title: tr('shell.next.8', { title: def.title }), reason: tr('shell.next.9', { length: m.seen.length, p1: titleOf(m.skill) }), minutes: MINUTES.repair, to: routeOf.repair(m.skill, m.id) });
   });
 
   // 4. reviews that are due
   dueReviews(ctx.learn.skills, ctx.now).forEach((id) => {
     const r = ctx.learn.skills[id].mastered!;
     const ago = Math.max(1, Math.round(daysBetween(r.lastReview?.at || r.at, ctx.now)));
-    add(BAND.review, 'engine', { kind: 'review', skill: id, title: `בדיקת זיכרון: ${titleOf(id)}`, reason: r.lastReview && !r.lastReview.ok ? 'בבדיקה הקודמת זה עוד לא נשאר. שלוש שאלות קצרות.' : `שלטתם בזה לפני ${ago} ${ago === 1 ? 'יום' : 'ימים'}. שלוש שאלות כדי לוודא שזה נשאר.`, minutes: MINUTES.review, to: routeOf.check(id, 'review') });
+    add(BAND.review, 'engine', { kind: 'review', skill: id, title: tr('shell.next.10', { p0: titleOf(id) }), reason: r.lastReview && !r.lastReview.ok ? tr('shell.next.11') : tr('shell.next.14', { ago, p1: ago === 1 ? tr('shell.next.12') : tr('shell.next.13') }), minutes: MINUTES.review, to: routeOf.check(id, 'review') });
   });
 
   // 5. points lost in a checked exam: a short practice on the stair, then its check
@@ -208,13 +211,13 @@ export function planNext(ctx: NextContext): NextPlan {
     const sg = stairStage(id, ctx.learn.skills[id]);
     // practice done (the mastery check is next, or the stair is mastered or done on the map): its second practice part
     const practiced = sg === 'E' || st[id] === 'mastered' || st[id] === 'needs-review' || isDone(ctx.path || {}, topic, level);
-    add(BAND['exam-loss'], 'exam-check', { kind: 'exam-loss', skill: id, ...(practiced ? {} : { stage: sg }), title: `מהמבחן: ${titleOf(id)}`, reason: `במבחן מ־${dayMonth(ex.at)} ירדו כאן נקודות. תרגול קצר ואז בדיקה.`, minutes: MINUTES['exam-loss'], to: practiced ? `/lesson/${topic}/${level}?part=${PARTS}` : routeOf.stage(id, sg) });
+    add(BAND['exam-loss'], 'exam-check', { kind: 'exam-loss', skill: id, ...(practiced ? {} : { stage: sg }), title: tr('shell.next.15', { p0: titleOf(id) }), reason: tr('shell.next.16', { p0: dayMonth(ex.at) }), minutes: MINUTES['exam-loss'], to: practiced ? `/lesson/${topic}/${level}?part=${PARTS}` : routeOf.stage(id, sg) });
   });
 
   // 9. a challenge task of a mastered stair: at the bottom, or, for a student strong today, right after band 5
   const task = firstOpenChallenge(ctx.learn.skills, ctx.learn.challenges);
   const strong = !!task && strongToday(ctx);
-  const challenge = task && { kind: 'challenge' as const, skill: task.after, challengeId: task.id, title: `אתגר: ${task.title}`, reason: challengeReason(task.after), minutes: task.minutes, to: `/challenge/${task.id}` };
+  const challenge = task && { kind: 'challenge' as const, skill: task.after, challengeId: task.id, title: tr('shell.next.17', { title: task.title }), reason: challengeReason(task.after), minutes: task.minutes, to: `/challenge/${task.id}` };
   if (challenge && strong) add(BAND['exam-loss'], 'challenge', challenge);
 
   // 6. a stair that is hard right now: its smallest missing prerequisite, or, when nothing below it is known to be
@@ -225,10 +228,10 @@ export function planNext(ctx: NextContext): NextPlan {
     const p = smallestMissing(ctx, id, st);
     if (p) {
       const sg = stairStage(p, ctx.learn.skills[p]);
-      learnAdd(BAND.prereq, { kind: 'prereq', skill: p, stage: sg, title: `קודם, ${titleOf(p)}: ${STAGE_NAME[sg]}`, reason: leansOn(id, `"${titleOf(p)}"`) + ` שלב ${STAGE_N[sg]} מתוך 5 שם יעזור לחזור לזה.`, minutes: STAGE_MIN[sg], to: routeOf.stage(p, sg) });
+      learnAdd(BAND.prereq, { kind: 'prereq', skill: p, stage: sg, title: tr('shell.next.18', { p0: titleOf(p), p1: STAGE_NAME[sg] }), reason: leansOn(id, `"${titleOf(p)}"`) + tr('shell.next.19', { p0: STAGE_N[sg] }), minutes: STAGE_MIN[sg], to: routeOf.stage(p, sg) });
     } else if (!floorOffered && (ctx.learn.floor ?? null) === null && ancestorsOf(id).some(isBridgeSkill)) {
       floorOffered = true;
-      add(BAND.floor, 'engine', { kind: 'floor', skill: id, title: 'בדיקה קצרה של יסודות', reason: leansOn(id, 'יסודות השברים') + ' שש שאלות יראו אם כדאי לחזק אותם קודם.', minutes: MINUTES.floor, to: '/floor' });
+      add(BAND.floor, 'engine', { kind: 'floor', skill: id, title: tr('shell.next.20'), reason: leansOn(id, tr('shell.next.21')) + tr('shell.next.22'), minutes: MINUTES.floor, to: '/floor' });
     }
   });
 
@@ -236,12 +239,12 @@ export function planNext(ctx: NextContext): NextPlan {
   const inProgress = [...(floorOn ? [] : BRIDGE_SKILLS), ...gradeSkills].filter((id) => ['learning', 'practicing', 'needs-support'].includes(st[id]));
   inProgress.forEach((id) => {
     const stage = stairStage(id, ctx.learn.skills[id]);
-    if (stage === 'E') learnAdd(BAND.mastery, { kind: 'mastery', skill: id, stage, title: `בדיקת שליטה: ${titleOf(id)}`, reason: 'תרגלתם מספיק. חמש שאלות בלי רמזים יראו אם אתם שולטים בזה לבד.', minutes: MINUTES.mastery, to: routeOf.check(id, 'mastery') });
-    else learnAdd(BAND.continue, { kind: 'continue', skill: id, stage, title: `${STAGE_NAME[stage]}: ${titleOf(id)}`, reason: `שלב ${STAGE_N[stage]} מתוך 5 במדרגה. ${STATE_LABEL[st[id]]}.`, minutes: STAGE_MIN[stage], to: routeOf.stage(id, stage) });
+    if (stage === 'E') learnAdd(BAND.mastery, { kind: 'mastery', skill: id, stage, title: tr('shell.next.23', { p0: titleOf(id) }), reason: tr('shell.next.24'), minutes: MINUTES.mastery, to: routeOf.check(id, 'mastery') });
+    else learnAdd(BAND.continue, { kind: 'continue', skill: id, stage, title: `${STAGE_NAME[stage]}: ${titleOf(id)}`, reason: tr('shell.next.25', { p0: STAGE_N[stage], p1: STATE_LABEL[st[id]] }), minutes: STAGE_MIN[stage], to: routeOf.stage(id, stage) });
   });
   // and a stair done before mastery checks existed: it stays done, and its mastery check is offered
   const kept = own.find((id) => { const { topic, level } = parseSkill(id); return st[id] !== 'mastered' && st[id] !== 'needs-review' && isKept(ctx.path || {}, topic, level); });
-  if (kept) learnAdd(BAND.mastery, { kind: 'mastery', skill: kept, stage: 'E', title: `בדיקת שליטה: ${titleOf(kept)}`, reason: 'המדרגה הושלמה לפני שהיו בדיקות שליטה. חמש שאלות בלי רמזים יראו שזה נשאר.', minutes: MINUTES.mastery, to: routeOf.check(kept, 'mastery') });
+  if (kept) learnAdd(BAND.mastery, { kind: 'mastery', skill: kept, stage: 'E', title: tr('shell.next.23', { p0: titleOf(kept) }), reason: tr('shell.next.26'), minutes: MINUTES.mastery, to: routeOf.check(kept, 'mastery') });
 
   // 8. the next new stair. A candidate is the first stair of its unit not started and not passed on the map (so the
   // engine never skips ahead inside a unit the map climbs in order), with its prerequisites in place. The bridge
@@ -256,9 +259,9 @@ export function planNext(ctx: NextContext): NextPlan {
     const sg = stairStage(next, ctx.learn.skills[next]);
     // a bridge stair the student never touched is not named as something they have: it is only absent from the evidence
     const have = prereqsOf(next).filter((p) => !isBridgeSkill(p) || st[p] !== 'not-started');
-    const why = have.length ? `מה שצריך בשבילה כבר אצלכם (${have.map(titleOf).join(', ')}).` : `המדרגה הבאה ב${topicTitleOf(next)}.`;
-    const when = !isBridgeSkill(next) && taughtByNow(ctx, next) ? ` לפי תוכנית הלימודים, זה נלמד בכיתה ב${monthNameOf(monthIndex(next, ctx.grade)!)}.` : '';
-    learnAdd(BAND.new, { kind: 'new', skill: next, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(next)}`, reason: `מדרגה חדשה, שלב ${STAGE_N[sg]} מתוך 5. ${why}${when}`, minutes: STAGE_MIN[sg], to: routeOf.stage(next, sg) });
+    const why = have.length ? tr('shell.next.27', { p0: have.map(titleOf).join(', ') }) : tr('shell.next.28', { p0: topicTitleOf(next) });
+    const when = !isBridgeSkill(next) && taughtByNow(ctx, next) ? tr('shell.next.29', { p0: monthName(monthIndex(next, ctx.grade)!) }) : '';
+    learnAdd(BAND.new, { kind: 'new', skill: next, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(next)}`, reason: tr('shell.next.30', { p0: STAGE_N[sg], why, when }), minutes: STAGE_MIN[sg], to: routeOf.stage(next, sg) });
   }
 
   if (challenge && !strong) add(BAND.challenge, 'challenge', challenge);
@@ -267,7 +270,7 @@ export function planNext(ctx: NextContext): NextPlan {
   // stronger memory, after the challenge
   if (!items.some((x) => x.kind !== 'challenge')) {
     const any = own.find((id) => st[id] === 'mastered');
-    if (any) add(BAND.last, 'engine', { kind: 'review', skill: any, title: `חיזוק: ${titleOf(any)}`, reason: 'כל המדרגות פתוחות. חזרה קצרה שומרת את מה שלמדתם.', minutes: MINUTES.review, to: routeOf.check(any, 'review') });
+    if (any) add(BAND.last, 'engine', { kind: 'review', skill: any, title: tr('shell.next.31', { p0: titleOf(any) }), reason: tr('shell.next.32'), minutes: MINUTES.review, to: routeOf.check(any, 'review') });
   }
 
   items.sort((a, b) => a.rank - b.rank);

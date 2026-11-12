@@ -178,9 +178,15 @@ describe('the budget as configured', () => {
 
   it('keeps what COUNCIL2-14 took off the first load off it: the tutor\'s prompts, the generators, Base UI, motion\'s features', () => {
     for (const n of ['ai', 'pedagogy', 'guard', 'grade7', 'grade8', 'linear', 'SheetDialog', 'choices', 'motionFeatures', '@base-ui/react', 'katex', 'react-markdown']) expect(budget.lazyOnly, n).toContain(n);
-    expect(budget.neverInBoot).toEqual(['You are the maths tutor']);
+    expect(budget.neverInBoot[0]).toBe('You are the maths tutor');
     // the tutor's prompt still starts with those words, so the rule still means something
     expect(readFileSync(join(WEB, '../shared/pedagogy.js'), 'utf8')).toContain('You are the maths tutor');
+  });
+
+  it('keeps Arabic off a Hebrew device\'s first load (COUNCIL2-34): its catalogues are lazy, and no boot file holds its words', () => {
+    for (const n of ['shell.ar', 'settings.ar', 'settings.he']) expect(budget.lazyOnly, n).toContain(n);
+    expect(budget.neverInBoot).toContain('المساعد الذكي');
+    expect(readFileSync(join(WEB, 'src/locales/shell.ar.json'), 'utf8')).toContain('المساعد الذكي');
   });
 
   it('npm run build writes the module map and runs the check last', () => {

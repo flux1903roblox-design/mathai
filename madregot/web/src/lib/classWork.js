@@ -16,6 +16,7 @@ import { daysFrom, weekdayName, dm } from './workDates.js';
 import { mergeWork, workFromLearn, adds } from '@/learn/assignments.ts';
 import { routeOf, STAGE_MIN } from '@/learn/recommend.ts';
 
+import { t } from '@/lib/i18n.js';
 const EVERY = 5 * 60_000;
 /** The kinds a student sees: a stair, a mastery check and a class exam. */
 export const SHOWN = ['stair', 'check', 'exam'];
@@ -144,16 +145,16 @@ const localDay = (iso) => today(new Date(iso));
  */
 export function dueLine(dueOn, day = today()) {
   const left = daysFrom(day, dueOn);
-  if (left < 0) return 'המועד עבר, ועדיין אפשר להשלים';
-  if (left === 0) return 'להיום';
-  if (left === 1) return 'עד מחר';
-  return `עד יום ${weekdayName(dueOn)}, ${dm(dueOn)}`;
+  if (left < 0) return t('shell.classwork.1');
+  if (left === 0) return t('shell.classwork.2');
+  if (left === 1) return t('shell.classwork.3');
+  return t('shell.classwork.4', { p0: weekdayName(dueOn), p1: dm(dueOn) });
 }
 
 /** The stair page's line: "משימה מהמורה, עד יום חמישי, 12.11" (or ", להיום", or ". המועד עבר, ועדיין אפשר להשלים"). */
 export function workBanner(dueOn, day = today()) {
   const d = dueLine(dueOn, day);
-  return daysFrom(day, dueOn) < 0 ? `משימה מהמורה. ${d}` : `משימה מהמורה, ${d}`;
+  return daysFrom(day, dueOn) < 0 ? t('shell.classwork.5', { d }) : t('shell.classwork.6', { d });
 }
 
 /** Where a row leads: the stair's page (with its banner), the mastery check counted for it, or the class exam's start. */
@@ -197,6 +198,6 @@ export function urgentWork(cw, box = {}, day = today()) {
 
 /** "משימה מהמורה: {title} · עד יום חמישי" (the date is left out once it passed). */
 export function urgentText(r) {
-  const when = r.left < 0 ? '' : r.left === 0 ? ' · להיום' : r.left === 1 ? ' · עד מחר' : ` · עד יום ${weekdayName(r.a.dueOn)}`;
-  return `משימה מהמורה: ${r.a.title}${when}`;
+  const when = r.left < 0 ? '' : r.left === 0 ? t('shell.classwork.7') : r.left === 1 ? t('shell.classwork.8') : t('shell.classwork.9', { p0: weekdayName(r.a.dueOn) });
+  return t('shell.classwork.10', { title: r.a.title, when });
 }

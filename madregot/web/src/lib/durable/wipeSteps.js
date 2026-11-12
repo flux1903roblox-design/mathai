@@ -11,12 +11,13 @@ import { useApp } from '../store.js';
 import { durableWipe } from './storage.js';
 import { stopBackup, vaultErrorText } from './vault.js';
 
+import { localized, t } from '@/lib/i18n.js';
 /** The delete sheet's line about the backup code, while it is on (DURABLE-5). */
-export const WIPE_VAULT = 'גם הגיבוי המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.';
+export let WIPE_VAULT = localized(() => t('shell.wipesteps.1'), (v) => { WIPE_VAULT = v; });
 /** The same, when the class or the family keeps the code (DURABLE-6): that copy is not called "מוצפן". */
-export const WIPE_KEPT = 'גם הגיבוי בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.';
+export let WIPE_KEPT = localized(() => t('shell.wipesteps.2'), (v) => { WIPE_KEPT = v; });
 /** The backup on the server could not be deleted, so nothing on the device was (the reason follows). */
-export const WIPE_VAULT_FAILED = 'לא הצלחנו למחוק את הגיבוי בשרת, ולכן עוד לא מחקנו כלום מהמכשיר.';
+export let WIPE_VAULT_FAILED = localized(() => t('shell.wipesteps.3'), (v) => { WIPE_VAULT_FAILED = v; });
 
 /** The vault step: nothing without the backup code; a failure carries the sheet's words. */
 export async function wipeVault({ store = useApp } = {}) {

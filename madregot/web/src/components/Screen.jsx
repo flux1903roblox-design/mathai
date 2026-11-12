@@ -16,8 +16,9 @@ import { useDurable, savedHealth } from '@/lib/durable/useDurable.js';
 import { monitor } from '@/lib/monitor.js';
 import { Button, Sheet } from './ui.jsx';
 
+import { t } from '@/lib/i18n.js';
 /** A pushed screen's bar: the way back (to `back`, or one step back), the title, and an optional action at the end. */
-export function ScreenBar({ title, back, backLabel = 'חזרה', end, id, className }) {
+export function ScreenBar({ title, back, backLabel = t('shell.screen.1'), end, id, className }) {
   const navigate = useNavigate();
   return (
     <header className={clsx('screen-bar', className)} data-region="header">
@@ -56,7 +57,7 @@ export function Flow({ label, step, steps, onBack, ask, mood = 'idle', children,
   return (
     <Tag className={clsx('ob', 'ob-flow', className)} {...formProps}>
       <header className="ob-top" data-region="header">
-        <button type="button" className="icon-btn" onClick={onBack} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
+        <button type="button" className="icon-btn" onClick={onBack} aria-label={t('shell.screen.1')}><ArrowRight size={26} aria-hidden="true" /></button>
         <div className="ob-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={steps} aria-valuenow={step + 1}><i style={{ width: `${((step + 1) / steps) * 100}%` }} /></div>
       </header>
       <main className="ob-main" data-region="content">
@@ -75,7 +76,7 @@ export function Flow({ label, step, steps, onBack, ask, mood = 'idle', children,
  * question. מדי, what will happen, the big button keeps things as they are, and the destructive action is a quiet
  * red text button under it, so it is never the obvious tap.
  */
-export function ConfirmSheet({ open, onOpenChange, title, children, keep = 'ביטול', confirm, onConfirm, mood = 'oops' }) {
+export function ConfirmSheet({ open, onOpenChange, title, children, keep = t('shell.screen.2'), confirm, onConfirm, mood = 'oops' }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title={title}>
       <div className="exit-sheet confirm-sheet">
@@ -89,7 +90,7 @@ export function ConfirmSheet({ open, onOpenChange, title, children, keep = 'בי
 }
 
 /** While a screen's code loads: מדי in the middle, one line. */
-export function LoadingState({ text = 'טוענים…' }) {
+export function LoadingState({ text = t('shell.screen.3') }) {
   return (
     <div className="page loading-state" role="status" aria-live="polite">
       <Mascot mood="thinking" size={96} />
@@ -118,12 +119,12 @@ export class ErrorBoundary extends Component {
       <div className="page pushed error-screen" role="alert">
         <section className="empty-state" data-region="content">
           <Mascot mood="oops" size={120} className="empty-madi" />
-          <h1 className="empty-title">משהו במסך הזה לא עבד</h1>
-          <div className="empty-text"><p>{savedHealth(useDurable.getState().health) ? 'ההתקדמות שלכם שמורה במכשיר.' : 'ייתכן שהשינויים האחרונים לא נשמרו.'} אפשר לטעון את המסך מחדש, או לחזור להתחלה.</p></div>
+          <h1 className="empty-title">{t('shell.screen.4')}</h1>
+          <div className="empty-text"><p>{savedHealth(useDurable.getState().health) ? t('shell.screen.5') : t('shell.screen.6')}{t('shell.screen.7')}</p></div>
         </section>
         <footer className="screen-foot" data-region="footer">
-          <Button className="btn-block btn-lg" onClick={() => window.location.reload()}>לטעון מחדש</Button>
-          <a href="#/" className="foot-link" onClick={() => setTimeout(() => window.location.reload(), 0)}>חזרה להתחלה</a>
+          <Button className="btn-block btn-lg" onClick={() => window.location.reload()}>{t('shell.screen.8')}</Button>
+          <a href="#/" className="foot-link" onClick={() => setTimeout(() => window.location.reload(), 0)}>{t('shell.screen.9')}</a>
         </footer>
       </div>
     );
