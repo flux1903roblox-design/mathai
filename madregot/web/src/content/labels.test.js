@@ -306,7 +306,8 @@ const numsIn = (text) => [...text.matchAll(/\$(\d+)\$/g)].map((m) => Number(m[1]
 /** Every number the text prints alone in maths, decimals too, in order: `$1.6$` (the similarity questions). */
 const decsIn = (text) => [...text.matchAll(/\$(\d+(?:\.\d+)?)\$/g)].map((m) => Number(m[1]));
 /** The sides written as expressions, `$AB = 3x + 2$`, as { AB: [3, 2] }. */
-const sideExprs = (text) => Object.fromEntries([...text.matchAll(/\$([A-C]{2}) = (\d)x ([+-]) (\d+)\$/g)].map((m) => [m[1], [Number(m[2]), (m[3] === '+' ? 1 : -1) * Number(m[4])]]));
+// (a coefficient of 1 is not written: BC = x + 6)
+const sideExprs = (text) => Object.fromEntries([...text.matchAll(/\$([A-C]{2}) = (\d?)x ([+-]) (\d+)\$/g)].map((m) => [m[1], [Number(m[2] || 1), (m[3] === '+' ? 1 : -1) * Number(m[4])]]));
 /** Every angle the text prints in degrees, by its name: { A: 50, MBD: 70 }. */
 const anglesIn = (text) => Object.fromEntries([...text.matchAll(/\\sphericalangle ([A-Z]+) = (\d+)°/g)].map((m) => [m[1], Number(m[2])]));
 /** Every length the text prints: { BC: 14, AD: 6 } (a side with a number, `$XY = n$`). */

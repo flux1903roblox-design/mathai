@@ -271,6 +271,34 @@ the row to paste when one differs.
   interactive objects and words.
 - **The tutor without a server** answers six question types from content; it does not understand free text.
 
+### Owner: a teacher reads the ח׳ geometry (GEOM-8)
+
+The transformations, congruent triangles and isosceles triangles with similarity (`transf`, `congr` and `sim`, the
+units 7.11, 8.5, 8.12 and 8.13) are checked by code: the maths of every step (`content.test.ts`), every check against
+guessing (`guessing.test.ts`), every drawing against its numbers (`figures.test.ts`), every stair on both phones
+(`QA_MATRIX.md`, "ח׳ geometry").
+No teacher has read them yet. That is the owner's one action, after the build:
+
+1. `cd madregot/web && npm run review:sheet -- transf`, then the same with `congr` and with `sim`. Each writes
+   `madregot/review/<topic>.html`, a printable page of every stair: its discover steps with their drawings, the worked
+   examples, the problems solved together, the named mistakes and their repairs, sample practice items with answers.
+2. Send the three files to one ח׳ maths teacher (a paid review of about 2–3 hours per topic). Ask especially about:
+   - the reasons in the proof tables (the טענה | נימוק rows, `web/src/content/proofs.js`): is each one worded the way
+     their class writes it?
+   - the theorem names: the app writes צ.ז.צ, ז.צ.ז, צ.צ.צ and ז.ז with dots. Does their class write them with hyphens
+     (צ-ז-צ)?
+3. Paste the teacher's comments into issues with the content-review template; the next build round fixes them first.
+4. When the Ministry publishes the ח׳ מפמ"ר exam of 23.5.2027–4.6.2027 and the תשפ"ח programme with the new ח׳ books,
+   compare their geometry items with this stage's practice kinds. If the transition year is over (the transformations
+   taught in ז׳ only), remove unit 8.5 from `shared/programme.js` (and update `PROGRAMME.year`) and the `transf` entry of
+   `ALSO_ON_PATH` in `web/src/learn/skills.ts`. `learn/programme.test.ts` guides the change: it fails while one is gone
+   without the other. Then run `npm run programme:md`.
+
+**Depends on another lane.** `npm run review:sheet` (`web/scripts/review-sheet.mjs`) and the issue template
+(`.github/ISSUE_TEMPLATE/content-review.md`) are CURRICULUM-9's code side, built on the curriculum lane. They are not
+in this branch, which starts from `b347414`, so step 1 works once that lane is merged. The sheet covers any topic by
+itself: nothing here needs to change for it.
+
 ### Recommended before release: a small student pilot
 
 With consent from parents and the school, 8–12 students in grades 7–8, two stairs each (one taught, one a review),

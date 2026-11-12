@@ -62,6 +62,8 @@ export const SIM1 = mk({
     if (q === 0 || s === 0 || u === 0 || Math.abs(s) > 15 || t === p || t === rr) return null;
     const AB = p * x + q; const BC = t * x + u;
     if (AB <= 0 || BC <= 0 || BC >= 2 * AB || BC === AB) return null;
+    // drawn true to scale, so a triangle that reads: the base between half a leg and 1.6 legs (no needle, no sliver)
+    if (BC < 0.5 * AB || BC > 1.6 * AB) return null;
     return { x, p, q, r: rr, s, t, u };
   },
   answer: ({ x, p, q }) => p * x + q,
@@ -170,8 +172,9 @@ export const ISO_TRIPLES = [[5, 12, 13], [8, 15, 17], [6, 8, 10], [9, 12, 15], [
 const ang = (s) => `\\sphericalangle ${s}`;
 const tri = (s) => `\\triangle ${s}`;
 /** px + q in TeX, and the same for a drawing's label (a real minus sign). */
-const lin = (p, q) => `${p}x ${q < 0 ? '-' : '+'} ${Math.abs(q)}`;
-const linFig = (p, q) => `${p}x ${q < 0 ? '−' : '+'} ${Math.abs(q)}`;
+// a coefficient of 1 is not written: x + 2, as at school
+const lin = (p, q) => `${p === 1 ? '' : p}x ${q < 0 ? '-' : '+'} ${Math.abs(q)}`;
+const linFig = (p, q) => `${p === 1 ? '' : p}x ${q < 0 ? '−' : '+'} ${Math.abs(q)}`;
 
 // ---------------------------------------------------------------- drawings, every one from its numbers
 /** An angle mark at V inside the triangle V, a, b (content/congr.gen.js innerAngle): the inner angle's sweep. */

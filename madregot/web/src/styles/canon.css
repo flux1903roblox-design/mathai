@@ -633,6 +633,8 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .geo .fg-side.target { font-size: 20px; }
 .geo .fg-angle { font-size: 17px; }
 .geo .fg-angle.target { font-size: 19px; }
+/* a number keeps a halo, as a letter does, so a line that must run behind it (a thin wedge) does not cut it */
+.geo .fg-side, .geo .fg-angle { paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
 .fg-ray.hi { stroke: var(--brand); stroke-width: 3; }
 .fg-sq.hi { fill: color-mix(in srgb, var(--brand) 22%, transparent); stroke-width: 2.5; }
 @media (max-height: 700px) { .lm-fig .figure.geo { max-height: 34dvh; } }

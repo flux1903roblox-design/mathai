@@ -6,7 +6,7 @@
 //  - every angle written in degrees is drawn that size, every right-angle mark is 90°;
 //  - numbers on sides are in proportion to the drawn lengths, and a number in a square is its side squared;
 //  - the coordinate drawings put their points where the text says.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createElement } from 'react';
 // @ts-ignore: react-dom has no type declarations here
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -14,6 +14,10 @@ import { contentOf, loadAllContent } from './content/index';
 import type { DiscoverStep, FigSpec } from './types';
 // @ts-ignore: plain JS
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
+// @ts-ignore: plain JS
+import { geoClashes } from '@/components/geoLayout.js';
+import { CHALLENGES } from './challenges/index';
+import { seeded } from './expr';
 // @ts-ignore: plain JS
 import { mirrorWords } from '@/content/transform.js';
 // @ts-ignore: plain JS
@@ -581,6 +585,54 @@ describe('the transformations\' practice drawings (GEOM-4)', () => {
           for (const [x, y] of pts) expect(Math.abs(x) <= r && Math.abs(y) <= r, `${kind} ${it.key}: (${x}, ${y})`).toBe(true);
         }
       }
+    });
+  }
+});
+
+// curriculum stage 4's QA (shots of every stair at 390 and 320 px): in a busy little drawing two numbered angles of a
+// flat triangle sat on each other (45° on 100°), an angle written (3x − 15)° ran across the triangle's sides, and a
+// median's length sat on the neighbouring side. components/geoLayout.js now moves a label that would clash to the first
+// free place of a few. Over every geo drawing of the three topics (the practice kinds, 300 draws of each stair, and every
+// drawing of their teaching and challenge steps): no label sits on a letter or on another label, none is cut off by the
+// edge of the drawing, none has another line between it and what it names, and none is crossed by a drawn line. One
+// exception, for the crossing only: congr:4's median in a long, flat triangle (the foot of the height far past B, drawn
+// true to scale) runs in a wedge too thin for its number on either side; the number then sits on its own side with a
+// line behind its halo (canon.css), still on nothing and next to its median.
+const CROSSING_ALLOWED: Record<string, string[]> = { congr: ['medArea'] };
+describe('the geometry drawings are readable: no label on another, none crossed by a line, none cut off', () => {
+  const geoIn = (x: any, out: any[] = []): any[] => {
+    if (!x || typeof x !== 'object') return out;
+    if (x.type === 'geo' && x.pts) out.push(x);
+    for (const v of Array.isArray(x) ? x : Object.values(x)) geoIn(v, out);
+    return out;
+  };
+  for (const [topic, kinds] of Object.entries({ transf: TRANSF_KINDS, congr: CONGR_KINDS, sim: SIM_KINDS } as Record<string, Record<string, () => any>>)) {
+    it(`${topic}: every practice kind, 300 draws each`, () => {
+      const bad: string[] = [];
+      // the same draws on every run (a seeded stream in place of Math.random)
+      const spy = vi.spyOn(Math, 'random').mockImplementation(seeded(20261112));
+      try {
+      for (const [kind, gen] of Object.entries(kinds)) {
+        for (let i = 0; i < 300; i += 1) {
+          const it = gen();
+          const ok = (c: string) => (CROSSING_ALLOWED[topic] || []).includes(kind) && c.endsWith('crossed by a line');
+          for (const f of geoIn(it.fig)) { const c = geoClashes(f).filter((x: string) => !ok(x)); if (c.length) bad.push(`${kind} ${it.key}: ${c.join('; ')}`); }
+        }
+      }
+      } finally { spy.mockRestore(); }
+      expect(bad.slice(0, 10)).toEqual([]);
+    });
+    it(`${topic}: every drawing of its teaching and its challenges`, () => {
+      const bad: string[] = [];
+      const n = Object.keys(CONTENT).filter((s) => s.startsWith(`${topic}:`)).length;
+      expect(n).toBeGreaterThan(3);
+      for (let k = 1; k <= n; k += 1) {
+        for (const f of geoIn(contentOf(`${topic}:${k}`))) { const c = geoClashes(f); if (c.length) bad.push(`${topic}:${k} ${f.label}: ${c.join('; ')}`); }
+      }
+      for (const ch of CHALLENGES.filter((t: any) => t.topic === topic)) {
+        for (const f of geoIn(ch)) { const c = geoClashes(f); if (c.length) bad.push(`${ch.id} ${f.label}: ${c.join('; ')}`); }
+      }
+      expect(bad.slice(0, 10)).toEqual([]);
     });
   }
 });

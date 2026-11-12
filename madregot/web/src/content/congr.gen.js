@@ -232,13 +232,27 @@ export function innerAngle(P, V, a, b, more = {}) {
  *   ticks    side ticks by side of ABC ('AB', 'BC', 'CA'), drawn on the side and on its image
  *   sides    side labels by segment name of either triangle ('AB', 'KM' …)
  */
-export function twoTriangles({ angs, partner, top = 'A', left = 'C', marks = {}, ticks = {}, sides = {}, label, view = [320, 190] }) {
+export function twoTriangles({ angs, partner, top = 'A', left = 'C', marks = {}, ticks = {}, sides = {}, label, view }) {
   const right = ['A', 'B', 'C'].find((v) => v !== top && v !== left);
   const P = { C: [0, 0], B: [BASE, 0], A: triFromAngles(angs.C, angs.B, BASE) };
   const d = dist(P[left], P[right]);
   const apex = triFromAngles(angs[left], angs[right], d);
   const minX2 = Math.min(0, apex[0]);
-  const ox = Math.max(BASE, P.A[0]) + 1.4 - minX2;
+  // the gap between the two: wider when a side carries an expression (4x − 1), so its label fits between them
+  // (a steep side needs the label's whole width beside it)
+  const steep = Math.abs(P.A[0] - P.B[0]) < 0.6 * Math.abs(P.A[1] - P.B[1]);
+  const longest = Math.max(0, ...Object.values(sides).map((t) => String(t).length));
+  let gap = longest > 3 ? 2.8 : 1.4;
+  if (longest > 3 && steep) {
+    // as wide as the label (about 11px a character, and 18px of air) at the scale the drawing will have: the box is
+    // 320 by 220 with 34px of padding at the sides, and the pair is as wide as both triangles and the gap
+    const width = (g) => Math.max(BASE, P.A[0]) + g - minX2 + Math.max(d, apex[0]) - Math.min(0, P.A[0]);
+    const tall = Math.max(P.A[1], apex[1]);
+    const scale = (g) => Math.min((320 - 68) / width(g), (220 - 56) / tall);
+    gap = 4.4;
+    while (gap < 8 && gap * scale(gap) < longest * 11 + 18) gap += 0.4;
+  }
+  const ox = Math.max(BASE, P.A[0]) + gap - minX2;
   P[partner[left]] = [ox, 0];
   P[partner[right]] = [ox + d, 0];
   P[partner[top]] = [ox + apex[0], apex[1]];
@@ -265,7 +279,8 @@ export function twoTriangles({ angs, partner, top = 'A', left = 'C', marks = {},
     polys: [{ pts: ['A', 'B', 'C'] }, { pts: second }],
     ...(segs.length ? { segs } : {}),
     ...(angles.length ? { angles } : {}),
-    view, pad: [26, 28],
+    // a written expression ((3x − 15)° or 4x − 1) is wider than a number: room for it under or over a vertex
+    view: view || (Object.values(marks).some((k) => /x/.test(k.text || '')) || Object.values(sides).some((t) => /x/.test(t)) ? [320, 220] : [320, 190]), pad: [Object.keys(sides).length ? 34 : 26, 28],
     // the correspondence the drawing was made under (figures.test.ts checks the two triangles congruent under it)
     match: ['A', 'B', 'C'].map((k) => [k, partner[k]]),
   };
@@ -575,7 +590,7 @@ export function medianFig({ b, h, t }, { labels = {}, label } = {}) {
   // when the foot of the height falls next to B, their letters go to either side, so "B" and "H" never run together
   const close = Math.abs(H[0] - b) < 2.5;
   const side = H[0] > b ? 1 : -1;
-  return {
+  const fig = {
     type: 'geo', label: label || 'משולש ABC, התיכון AD לאמצע BC, והגובה AH',
     pts: P, polys: [{ pts: ['A', 'B', 'C'] }],
     ...(close ? { lab: { B: [-12 * side, 16], H: [12 * side, 16] } } : {}),
@@ -583,6 +598,7 @@ export function medianFig({ b, h, t }, { labels = {}, label } = {}) {
     angles: [{ at: 'H', from: 'A', to: H[0] > b + 1e-9 ? 'B' : 'C', right: true }],
     view: [320, 200], pad: [28, 26],
   };
+  return fig;
 }
 const givensOf = (p) => (p.f === 'area'
   ? inOrder([`$BC = ${p.b}$`, `$AH = ${p.h}$`, `$AD = ${p.m}$`], p.ord)
@@ -632,6 +648,8 @@ function sideX() {
     const s1 = a * x + b; const s2 = rint(rnd, 4, 20); const s3 = rint(rnd, 4, 20);
     if (s1 <= 0 || new Set([s1, s2, s3]).size < 3) continue;
     const [u, v, w] = [s1, s2, s3].sort((m, n) => m - n); if (u + v <= w) continue;
+    // drawn true to scale: no needle (the shortest side at least a third of the longest), so the letters stay apart
+    if (u < w / 3) continue;
     const pr = [a, b, s1, s2, s3]; if (pr.includes(x) || (s2 - b) / a === x) continue;
     const set = pick(rnd, SECOND);
     // A, B, C go with set[i0], set[i1], set[i2]: the alphabet's partner of AB (set[0]set[1]) is another side
