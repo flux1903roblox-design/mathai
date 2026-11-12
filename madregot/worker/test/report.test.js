@@ -809,12 +809,46 @@ test('W9. the email reads the shared fixture week exactly as the page does (shar
   assert.deepEqual(p.devices[0], {
     label: 'הטאבלט', sharing: 'on', activeDays: e.activeDays, minutes: e.minutes, questions: e.questions,
     mastered: [...e.mastered].reverse(), worked: [...e.worked].reverse(), open: e.open.length, fixed: e.fixed.length, streak: e.streak, empty: e.empty,
+    exam: e.exam,
   });
   assert.equal(p.start, fx.start); assert.equal(p.end, end); assert.equal(p.allEmpty, false);
   // and the email it renders names nothing the parent's page would not
   const msg = renderNotice({ PUBLIC_URL: 'https://madregot.example.test' }, { kind: `weekly:${fx.start}`, params: JSON.stringify({ ...p, unsub: 'https://madregot.example.test/api/report/unsubscribe?a=x&t=y' }) });
   assert.ok(msg.text.includes(`ימי תרגול: ${e.activeDays} · זמן תרגול: כ־${e.minutes} דקות · שאלות: ${e.questions}`));
   assert.equal(renderNotice({}, { kind: `weekly:${fx.start}`, params: JSON.stringify(p) }), null, 'never without its unsubscribe link');
+});
+
+// PRODUCT2-30: before a test, the Sunday email says what is ahead: the exam's date and how many of its stairs are in hand,
+// in the words the parent's page uses (components/report/ReportView.jsx Exam). An exam that passed, or a device that
+// is off, says nothing; still no price and no mistake names.
+test('W11. before a test the email has a line for it: the date and the exam\'s stairs in hand, in the page\'s words', () => {
+  const toRow = (d, ex) => ({ device_id: 'd1', day: d, minutes: 9, questions: 12, lessons: 1, stages: 0, reviews: 0, streak: 1,
+    worked: '["signed:1"]', mastered: '[]', fixes: '[]', exam: ex ? JSON.stringify(ex) : null });
+  const dev = (over = {}) => [{ id: 'd1', label: 'הטאבלט', created_at: OLD, share_child: 1, share_parent: 1, ...over }];
+  const email = (rows, d = dev()) => {
+    const p = weeklyParams({ reportEmailAt: OLD, live: true }, d, rows, { start: START, end: END });
+    return { p, msg: renderNotice({ PUBLIC_URL: 'https://madregot.example.test' }, { kind: `weekly:${START}`, params: JSON.stringify({ ...p, unsub: 'https://madregot.example.test/u' }) }) };
+  };
+  const exam = shiftDay(END, 4);
+  const some = email([toRow(shiftDay(START, 2), { d: exam, n: 2, of: 3 })]);
+  assert.deepEqual(some.p.devices[0].exam, { d: exam, n: 2, of: 3 });
+  assert.ok(some.msg.text.includes(`לקראת המבחן ב־${dm(exam)}: 2 מתוך 3 המדרגות של המבחן כבר בשליטה.`), some.msg.text);
+  assert.ok(some.msg.html.includes(`לקראת המבחן ב־${dm(exam)}`));
+  const none = email([toRow(shiftDay(START, 2), { d: exam, n: 0, of: 3 })]);
+  assert.ok(none.msg.text.includes(`לקראת המבחן ב־${dm(exam)}: בתוכנית ההכנה 3 מדרגות, ובדיקות השליטה עליהן עוד לא נעשו.`), none.msg.text);
+  // a week with no practice still says the exam is coming (the exam ahead is from the last summary sent)
+  const quiet = email([toRow(shiftDay(START, -2), { d: exam, n: 1, of: 2 })]);
+  assert.equal(quiet.p.allEmpty, true);
+  assert.ok(quiet.msg.text.includes(`לקראת המבחן ב־${dm(exam)}: 1 מתוך 2 המדרגות של המבחן כבר בשליטה.`), quiet.msg.text);
+  // the last day of the week the email opens (the next Saturday) still has its line; a day later, not yet
+  const last = email([toRow(shiftDay(START, 2), { d: shiftDay(END, 8), n: 2, of: 3 })]);
+  assert.ok(last.msg.text.includes(`לקראת המבחן ב־${dm(shiftDay(END, 8))}`), last.msg.text);
+  // an exam that passed during the week, one further than the coming week, a week with no exam, and a device that is
+  // off: no line
+  for (const r of [email([toRow(shiftDay(START, 2), { d: shiftDay(START, 3), n: 1, of: 3 })]), email([toRow(shiftDay(START, 2), { d: shiftDay(END, 9), n: 1, of: 3 })]), email([toRow(shiftDay(START, 2), null)]), email([toRow(shiftDay(START, 2), { d: exam, n: 2, of: 3 })], dev({ share_child: 0 }))]) {
+    assert.ok(!r.msg.text.includes('לקראת המבחן'), r.msg.text);
+  }
+  for (const part of [some.msg.text, some.msg.html, some.msg.subject]) assert.doesNotMatch(part, /₪|מחיר|מנוי|הנחה|לשדרג/);
 });
 
 test('W3b. a streak that ended during the week is not in the email: the child would see 0, so the parent does too', () => {

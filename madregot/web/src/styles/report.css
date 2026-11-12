@@ -113,6 +113,13 @@
 .report-week-empty { display: flex; flex-direction: column; gap: 2px; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); }
 .report-week-empty-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
 .report-ended, .report-noplan { line-height: 24px; }
+/* sharing paused on the child's device: a calm note with since when and what the parent can do (no colour of alarm) */
+.report-off-note { display: flex; flex-direction: column; gap: var(--s2); line-height: 24px; }
+.report-off-note p { margin: 0; }
+.report-off-title { font-size: 17px; font-weight: 700; }
+/* an exam within a week on a device (PRODUCT2-30), above the cards: the same words as the Sunday email's line */
+.report-exam-soon { border-color: var(--brand-line); background: var(--brand-tint); }
+.report-exam-soon p { line-height: 24px; color: var(--ink); }
 
 /* the first day: what will come, what never comes, and an example that says it is one */
 .report-device .state-card { padding: var(--s4); text-align: start; align-items: stretch; }

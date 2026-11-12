@@ -121,15 +121,16 @@ function Fixes({ week, today }) {
   );
 }
 
+/** How far the exam's stairs are, the sentence the report, the /parents banner and the Sunday email all say. */
+export const examProgress = (exam) => (exam.n > 0
+  ? `${exam.n} מתוך ${exam.of} המדרגות של המבחן כבר בשליטה.`
+  : `בתוכנית ההכנה ${exam.of} מדרגות, ובדיקות השליטה עליהן עוד לא נעשו.`);
+
 function Exam({ exam }) {
   const when = withPrefix('ב', dm(exam.d));
   return (
     <Section title="מבחן קרוב" className="report-exam">
-      <p className="report-line">
-        {exam.n > 0
-          ? `מבחן ${when}. ${exam.n} מתוך ${exam.of} המדרגות של המבחן כבר בשליטה.`
-          : `מבחן ${when}. בתוכנית ההכנה ${exam.of} מדרגות, ובדיקות השליטה עליהן עוד לא נעשו.`}
-      </p>
+      <p className="report-line">{`מבחן ${when}. ${examProgress(exam)}`}</p>
     </Section>
   );
 }

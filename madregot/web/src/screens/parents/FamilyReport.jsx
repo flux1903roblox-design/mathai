@@ -7,7 +7,8 @@
 // deletable), nothing kept any more, sharing off on the device, off by the parent, a device the plan does not cover,
 // and a plan that ended with summaries still kept. "Delete history" shows whenever the server keeps a summary of the
 // device (its `kept` count, which also counts the days older than the 8 weeks read here). Under the first card, once a week per browser: "הסיכום עוזר לכם?". Above the cards, the switch
-// for the Sunday email (PARENTS-7, off by default). No percentage right anywhere. Built on lib/parent.js (summary,
+// for the Sunday email (PARENTS-7, off by default), and over it, with a plan, a device's exam within a week (PRODUCT2-30).
+// Sharing paused on the device is a calm card: since when, the child's choice, and what the parent can do. No percentage right anywhere. Built on lib/parent.js (summary,
 // setDeviceSharing, deleteDeviceHistory, reportFeedback, setReportEmail); the QA states (?qa-parent=report |
 // report-empty | report-off) draw from components/report/qaFamily.js and send nothing.
 import { useCallback, useEffect, useId, useState } from 'react';
@@ -16,16 +17,17 @@ import clsx from 'clsx';
 import { STORE_KEY, today as dayOf, useApp } from '@/lib/store.js';
 import { withChallenge } from '@/lib/familyChallenge.js';
 import { summary as loadSummary, setDeviceSharing, deleteDeviceHistory, reportFeedback, setReportEmail } from '@/lib/parent.js';
-import { weekStart, weekFrom } from '@/learn/report.ts';
+import { weekStart, weekFrom, withPrefix } from '@/learn/report.ts';
 import { whenText } from '@/lib/when.js';
 import { dm } from '@/lib/share.js';
-import ReportView from '@/components/report/ReportView.jsx';
+import ReportView, { examProgress } from '@/components/report/ReportView.jsx';
 import WeeksChart from '@/components/report/WeeksChart.jsx';
 import { EXAMPLE_WEEK, EXAMPLE_TODAY } from '@/components/report/exampleWeek.js';
 import { qaFamilySummary } from '@/components/report/qaFamily.js';
 import { StateCard } from '@/components/ds.jsx';
 import { Button } from '@/components/ui.jsx';
 import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
+import { SHARING } from '@/components/SharingSheet.jsx';
 
 export const REPORT = {
   title: 'ההתקדמות',
@@ -48,7 +50,24 @@ export const REPORT = {
   noneKept: 'אין כרגע סיכומים שמורים מהמכשיר הזה. הסיכום הבא יגיע אחרי התרגול הבא במכשיר.',
   noneLastWeek: 'בשבוע שעבר לא היה תרגול במכשיר הזה.',
   lastPractice: (d) => `התרגול האחרון: ${dm(d)}.`,
-  childOff: (at) => `השיתוף כבוי במכשיר עצמו${at ? ` מאז ${dm(dayOf(new Date(at)))}` : ''}. אם תרצו, אפשר לדבר על זה יחד. רק במכשיר עצמו אפשר להפעיל אותו שוב.`,
+  /**
+   * The child paused sharing on the device (familySync's setChildSharing; the server's state child_off or both_off):
+   * said calmly, with since when and what the parent can do. Never a reason (none is sent: SharingSheet's promise), and
+   * only the device turns it on again, from the row SharingSheet names.
+   */
+  paused: {
+    title: 'השיתוף במכשיר הופסק',
+    since: (at) => `השיתוף הופסק במכשיר עצמו${at ? ` ב־${dm(dayOf(new Date(at)))}` : ''}, ומאז לא מגיעים ממנו סיכומים חדשים.`,
+    choice: 'זו בחירה של הילד, והיא נשמרת. לא נשלחת אלינו סיבה.',
+    what: 'מה אפשר לעשות:',
+    steps: [
+      'אפשר לדבר על זה יחד, בלי לחץ. כדאי להזכיר שבסיכום יש רק תרגול: בלי תשובות, בלי שיחות ובלי תמונות.',
+      `רק במכשיר עצמו אפשר להפעיל אותו שוב: בהגדרות, ב"${SHARING.title}".`,
+    ],
+  },
+  /** An exam within EXAM_SOON_DAYS on a device (PRODUCT2-30), above the cards; the Sunday email says the same. */
+  examTitle: 'לקראת המבחן',
+  examWhen: (label, ex) => `${label}: מבחן ${ex.days === 0 ? 'היום' : ex.days === 1 ? `מחר, ${dm(ex.d)}` : withPrefix('ב', dm(ex.d))}.`,
   noPlan: (label) => `${label}: הסיכום היומי כלול במנוי המשפחתי.`,
   ended: 'המנוי הסתיים. הסיכומים שכבר הגיעו נשמרים עד 90 יום ואז נמחקים. אפשר למחוק אותם עכשיו.',
   deleteRow: 'מחיקת ההיסטוריה של המכשיר',
@@ -74,7 +93,7 @@ export const EMAIL_SWITCH = {
 export const PARENT_SWITCH = {
   on: { text: 'הסיכום מהמכשיר הזה: פועל', button: 'לכבות', to: false },
   parent_off: { text: 'כיביתם את הסיכום מהמכשיר הזה.', button: 'להפעיל', to: true },
-  child_off: { text: 'השיתוף כבוי במכשיר עצמו.', button: 'לכבות', to: false },
+  child_off: { text: 'אצלכם הסיכום מהמכשיר הזה פועל.', button: 'לכבות', to: false },
   both_off: { text: 'כיביתם את הסיכום, והשיתוף כבוי גם במכשיר עצמו.', button: 'להפעיל', to: true, hint: 'הסיכום יחזור רק כשהשיתוף יופעל גם במכשיר.' },
 };
 const CHILD_OFF = ['child_off', 'both_off'];
@@ -83,6 +102,16 @@ const DAY_MS = 864e5;
 const lastWeekOf = (day) => new Date(Date.parse(`${weekStart(day)}T00:00:00Z`) - 7 * DAY_MS).toISOString().slice(0, 10);
 /** How many summaries the server keeps for a device in all (its `kept`; an older answer without it: the rows given). */
 const heldOf = (d) => (d.kept && Number.isFinite(d.kept.n) ? d.kept.n : (d.days?.length || 0));
+/** An exam this close shows in the banner above the cards. */
+export const EXAM_SOON_DAYS = 7;
+const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / DAY_MS);
+/** A device's exam ahead (its newest summary's, still to come) within EXAM_SOON_DAYS of `today`, with `days`; or null. */
+export function examSoon(device, today) {
+  const ex = weekFrom(device.days || [], today, today).exam;
+  if (!ex) return null;
+  const days = daysBetween(today, ex.d);
+  return days >= 0 && days <= EXAM_SOON_DAYS ? { ...ex, days } : null;
+}
 /** The newest day with any practice (time, an answer, a lesson or a stage), or null. */
 const lastPracticeOf = (rows) => [...rows].sort((a, b) => (a.d < b.d ? -1 : 1)).filter((r) => r.m > 0 || r.q > 0 || r.ls > 0 || r.st > 0).at(-1)?.d || null;
 
@@ -147,6 +176,33 @@ function EmailSwitch({ email, on, qa, onChange }) {
   );
 }
 
+// ---------------------------------------------------------------- an exam this week (PRODUCT2-30)
+/** Above the cards when a device's exam is within EXAM_SOON_DAYS: when, and how far its stairs are. Nothing otherwise. */
+export function ExamBanner({ devices, today }) {
+  const id = useId();
+  const soon = devices.map((d) => [d, examSoon(d, today)]).filter(([, ex]) => ex);
+  if (!soon.length) return null;
+  return (
+    <section className="card parents-card report-exam-soon" aria-labelledby={`${id}-exam`}>
+      <h3 id={`${id}-exam`} className="card-title">{REPORT.examTitle}</h3>
+      {soon.map(([d, ex]) => <p key={d.id}>{REPORT.examWhen(nameOf(d), ex)} {examProgress(ex)}</p>)}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- sharing paused on the child's device
+function Paused({ at }) {
+  const p = REPORT.paused;
+  return (
+    <div className="parents-note report-off-note">
+      <p className="report-off-title">{p.title}</p>
+      <p>{p.since(at)} {p.choice}</p>
+      <p className="report-state-head">{p.what}</p>
+      <ul className="report-state-list">{p.steps.map((x) => <li key={x}>{x}</li>)}</ul>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- the first day: linked, nothing sent yet
 function FirstDay({ device }) {
   return (
@@ -201,7 +257,7 @@ function DeviceCard({ device, plan, today, qa, onChange }) {
         <h3 id={`${id}-name`} className="card-title">{label}</h3>
         {device.lastSync && <p className="report-device-sync">{REPORT.updated(device.lastSync)}</p>}
       </header>
-      {CHILD_OFF.includes(device.sharing) && <p className="parents-note report-off-note">{REPORT.childOff(device.sharingAt)}</p>}
+      {CHILD_OFF.includes(device.sharing) && <Paused at={device.sharingAt} />}
       {rows.length === 0 && never && plan && device.sharing === 'on' && <FirstDay device={device} />}
       {rows.length === 0 && !never && (held > 0 && device.kept?.to
         ? <p className="parents-note report-older" role="status">{REPORT.olderOnly(device.kept.to)}</p>
@@ -279,6 +335,7 @@ export default function FamilyReport({ plan, devices = [], email = '', reportEma
     const firstWithRows = shown.find((d) => d.days?.length);
     body = (
       <>
+        {plan && <ExamBanner devices={shown} today={today} />}
         {(plan || reportEmail) && <EmailSwitch email={email} on={reportEmail} qa={!!qa} onChange={onReportEmail} />}
         {!plan && withRows.length > 0 && <p className="parents-note report-ended">{REPORT.ended}</p>}
         {!plan && list.filter((d) => heldOf(d) === 0).map((d) => <p key={d.id} className="parents-note report-noplan">{REPORT.noPlan(nameOf(d))}</p>)}

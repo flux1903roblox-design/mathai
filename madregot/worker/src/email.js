@@ -311,6 +311,8 @@ export const WEEKLY_TEXT = {
   pause: 'אם גם בשבוע הבא לא יהיה תרגול, לא נשלח מייל עד שהתרגול יחזור.',
   noCheck: 'השבוע לא הייתה בדיקת שליטה',
   talk: (stair) => `רעיון לשיחה: בקשו שיסבירו לכם דוגמה אחת מ"${stair}".`,
+  // before a test (PRODUCT2-30), in the words of the parent's page (web components/report/ReportView.jsx Exam)
+  exam: (ex) => `לקראת המבחן ב־${dm(ex.d)}: ${ex.n > 0 ? `${ex.n} מתוך ${ex.of} המדרגות של המבחן כבר בשליטה.` : `בתוכנית ההכנה ${ex.of} מדרגות, ובדיקות השליטה עליהן עוד לא נעשו.`}`,
   page: 'הפירוט המלא בעמוד ההורים:',
   why: 'קיבלתם את המייל כי ביקשתם סיכום שבועי. כדי להפסיק אותו:',
 };
@@ -319,7 +321,8 @@ export const WEEKLY_TEXT = {
 function weeklyDevice(d) {
   const label = d.label || 'מכשיר';
   if (d.sharing !== 'on') return [WEEKLY_TEXT.off(label)];
-  if (d.empty) return [WEEKLY_TEXT.none(label)];
+  const exam = d.exam && d.exam.of > 0 ? WEEKLY_TEXT.exam(d.exam) : '';
+  if (d.empty) return [WEEKLY_TEXT.none(label), exam].filter(Boolean);
   const worked = Array.isArray(d.worked) ? d.worked : [];
   const mastered = Array.isArray(d.mastered) ? d.mastered : [];
   const more = worked.length - WORKED_IN_EMAIL;
@@ -331,6 +334,7 @@ function weeklyDevice(d) {
     worked.length ? `תורגלו: ${worked.slice(0, WORKED_IN_EMAIL).map(stairText).join(', ')}${more > 0 ? ` ועוד ${heStairs(more)}` : ''}` : '',
     fixes.length ? `טעויות שחוזרות: ${fixes.join(', ')}` : '',
     d.streak > 0 ? `רצף: ${heDays(d.streak)} (שבת לא שוברת רצף)` : '',
+    exam,
   ].filter(Boolean);
 }
 
@@ -350,7 +354,7 @@ function weeklyNotice(env, p) {
   // blocks: a string is a line, { head } a device's name, { link } a line with its address, '' a gap
   const blocks = [
     WEEKLY_TEXT.hello, WEEKLY_TEXT.intro(range), '',
-    ...(quiet ? [WEEKLY_TEXT.allEmpty(devices.map((d) => d.label || '')), WEEKLY_TEXT.pause, '']
+    ...(quiet ? [WEEKLY_TEXT.allEmpty(devices.map((d) => d.label || '')), ...devices.filter((d) => d.exam?.of > 0).map((d) => WEEKLY_TEXT.exam(d.exam)), WEEKLY_TEXT.pause, '']
       : [...devices.flatMap((d) => [...weeklyDevice(d), '']), ...(p.allEmpty && devices.some((d) => d.sharing === 'on') ? [WEEKLY_TEXT.pause, ''] : [])]),
     ...(talkStair ? [WEEKLY_TEXT.talk(stairText(talkStair))] : []),
     { link: page, text: WEEKLY_TEXT.page, label: 'לעמוד ההורים' },

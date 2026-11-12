@@ -6,11 +6,11 @@ import ReportView, { EXAMPLE_RIBBON, SOURCE_NOTE } from './ReportView.jsx';
 import WeeksChart, { weeksOf, WEEKS } from './WeeksChart.jsx';
 import { EXAMPLE_WEEK, EXAMPLE_TODAY, EXAMPLE_ROWS } from './exampleWeek.js';
 import { qaFamilySummary } from './qaFamily.js';
-import FamilyReport, { REPORT, PARENT_SWITCH } from '@/screens/parents/FamilyReport.jsx';
+import FamilyReport, { REPORT, PARENT_SWITCH, ExamBanner, examSoon, EXAM_SOON_DAYS } from '@/screens/parents/FamilyReport.jsx';
 import { weekFrom } from '@/learn/report.ts';
 import { today as dayOf } from '@/lib/store.js';
 
-const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
 const PLAN = { id: 'qa00000000000001', status: 'active' };
 
 describe('the example week', () => {
@@ -85,11 +85,14 @@ describe('/parents: the first-day states', () => {
     expect(t).toContain('הסיכום מהמכשיר הזה: פועל');
     expect(t).not.toContain('מחיקת ההיסטוריה של המכשיר'); // nothing to delete yet
   });
-  it('sharing off on the device: said with its date, never explained; the history stays readable and deletable', () => {
+  it('sharing paused on the device: said calmly with its date and what the parent can do, never explained; the history stays readable and deletable', () => {
     const today = dayOf();
     const html = renderToStaticMarkup(<FamilyReport plan={PLAN} devices={[{ id: 'qa00000000000002', label: 'הטאבלט' }]} qa="report-off" />);
     const t = text(html);
-    expect(t).toMatch(/השיתוף כבוי במכשיר עצמו מאז \d{1,2}\.\d{1,2}\. אם תרצו, אפשר לדבר על זה יחד\. רק במכשיר עצמו אפשר להפעיל אותו שוב\./);
+    expect(t).toContain(REPORT.paused.title);
+    expect(t).toMatch(/השיתוף הופסק במכשיר עצמו ב־\d{1,2}\.\d{1,2}, ומאז לא מגיעים ממנו סיכומים חדשים\. זו בחירה של הילד, והיא נשמרת\. לא נשלחת אלינו סיבה\./);
+    expect(t).toContain(REPORT.paused.what);
+    for (const x of REPORT.paused.steps) expect(t).toContain(x);
     expect(t).toContain(PARENT_SWITCH.child_off.text);
     expect(t).toContain('מחיקת ההיסטוריה של המכשיר');
     expect(qaFamilySummary('report-off', today).devices[0].days.length).toBeGreaterThan(0);
@@ -122,8 +125,39 @@ describe('/parents: the first-day states', () => {
     expect(PARENT_SWITCH).toEqual({
       on: { text: 'הסיכום מהמכשיר הזה: פועל', button: 'לכבות', to: false },
       parent_off: { text: 'כיביתם את הסיכום מהמכשיר הזה.', button: 'להפעיל', to: true },
-      child_off: { text: 'השיתוף כבוי במכשיר עצמו.', button: 'לכבות', to: false },
+      child_off: { text: 'אצלכם הסיכום מהמכשיר הזה פועל.', button: 'לכבות', to: false },
       both_off: { text: 'כיביתם את הסיכום, והשיתוף כבוי גם במכשיר עצמו.', button: 'להפעיל', to: true, hint: 'הסיכום יחזור רק כשהשיתוף יופעל גם במכשיר.' },
     });
+  });
+});
+
+// PRODUCT2-30: an exam within a week on a linked device shows above the cards, in the words the report and the Sunday
+// email use; an exam further off, or one that has passed, does not.
+describe('/parents: the exam ahead', () => {
+  const T = '2026-11-12';
+  const shift = (n) => new Date(Date.parse(`${T}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
+  const dev = (ex, label = 'הטאבלט') => ({ id: 'qa00000000000002', label, days: [{ v: 1, d: T, m: 10, q: 5, ls: 1, st: 0, sk: [], ma: [], rv: 0, fx: [], sr: 1, ex }] });
+  it('within 7 days, today and tomorrow named; further off or passed, nothing', () => {
+    expect(EXAM_SOON_DAYS).toBe(7);
+    expect(examSoon(dev({ d: shift(7), n: 2, of: 4 }), T)).toEqual({ d: shift(7), n: 2, of: 4, days: 7 });
+    expect(examSoon(dev({ d: shift(8), n: 2, of: 4 }), T)).toBeNull();
+    expect(examSoon(dev({ d: shift(-1), n: 2, of: 4 }), T)).toBeNull();
+    expect(examSoon(dev(null), T)).toBeNull();
+    expect(REPORT.examWhen('הטאבלט', examSoon(dev({ d: shift(0), n: 0, of: 3 }), T))).toBe('הטאבלט: מבחן היום.');
+    expect(REPORT.examWhen('הטאבלט', examSoon(dev({ d: shift(1), n: 0, of: 3 }), T))).toBe('הטאבלט: מבחן מחר, 13.11.');
+    expect(REPORT.examWhen('הטאבלט', examSoon(dev({ d: shift(5), n: 0, of: 3 }), T))).toBe('הטאבלט: מבחן ב־17.11.');
+  });
+  it('the banner says when and how far the exam\'s stairs are, for each device with one', () => {
+    const t = text(renderToStaticMarkup(<ExamBanner devices={[dev({ d: shift(5), n: 2, of: 4 }), dev({ d: shift(3), n: 0, of: 3 }, 'הטלפון'), dev(null, 'המחשב')]} today={T} />));
+    expect(t).toContain('לקראת המבחן');
+    expect(t).toContain('הטאבלט: מבחן ב־17.11. 2 מתוך 4 המדרגות של המבחן כבר בשליטה.');
+    expect(t).toContain('הטלפון: מבחן ב־15.11. בתוכנית ההכנה 3 מדרגות, ובדיקות השליטה עליהן עוד לא נעשו.');
+    expect(t).not.toContain('המחשב');
+    expect(renderToStaticMarkup(<ExamBanner devices={[dev(null)]} today={T} />)).toBe('');
+  });
+  it('shows on /parents with a plan (the QA report has an exam a week ahead), never without one', () => {
+    const devices = [{ id: 'qa00000000000002', label: 'הטאבלט' }];
+    expect(text(renderToStaticMarkup(<FamilyReport plan={PLAN} devices={devices} qa="report" />))).toMatch(/לקראת המבחן הטאבלט: מבחן ב־\d{1,2}\.\d{1,2}\. 2 מתוך 4 המדרגות של המבחן כבר בשליטה\./);
+    expect(text(renderToStaticMarkup(<FamilyReport plan={null} devices={devices} qa="report" />))).not.toContain('לקראת המבחן');
   });
 });

@@ -92,6 +92,9 @@ const bad = (field) => new HttpError(400, 'bad_summary', undefined, { field });
 const isPlain = (o) => !!o && typeof o === 'object' && !Array.isArray(o) && Object.getPrototypeOf(o) === Object.prototype;
 const isInt = (n, lo, hi) => Number.isInteger(n) && n >= lo && n <= hi;
 /** 'YYYY-MM-DD' plus n days (calendar arithmetic on the date itself, no time zone). */
+/** The Sunday email names an exam this many days ahead of the Sunday it goes out, or fewer (the /parents banner's 7). */
+export const EXAM_AHEAD_DAYS = 7;
+
 export function shiftDay(day, n) {
   const [y, m, d] = day.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d) + n * DAY_MS).toISOString().slice(0, 10);
@@ -398,7 +401,8 @@ export function weeklyParams(account, devices, rows, { start, end }) {
       prevEmpty: weekFrom(days, prevStart, end).empty,
       label: d.label || '', sharing: switchesOf(d), activeDays: w.activeDays, minutes: w.minutes, questions: w.questions,
       mastered: [...w.mastered].reverse(), worked: [...w.worked].reverse(), open: w.open.length, fixed: w.fixed.length,
-      streak: w.streak, empty: w.empty,
+      // an exam in the week the email opens (Sunday, the day after `end`, to the next Saturday), as the /parents banner
+      streak: w.streak, empty: w.empty, exam: w.exam && w.exam.d <= shiftDay(end, EXAM_AHEAD_DAYS + 1) ? w.exam : null,
     };
   });
   const allEmpty = out.every((x) => x.empty);
