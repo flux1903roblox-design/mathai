@@ -344,6 +344,83 @@
       "tags": ["sim"]
     },
     {
+      "id": "D1-sim1-sideatangle", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "diag", "params": {"x": 5, "p": 3, "q": 1, "r": 2, "s": 6, "t": 4, "u": -6}, "wrong": [22, 18], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "side-at-angle", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the sides that leave the equal angles were set equal (AB = BC), not the sides opposite them. Opposite ∢B is AC and opposite ∢C is AB, so AB = AC: 3x + 1 = 2x + 6, x = 5, and AB = 3 · 5 + 1 = 16. Setting AB = BC gave x = 7 and 22. Ends at 16. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim1-stoppedatx", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "transfer", "params": {"x": 4, "p": 5, "q": -3, "r": 3, "s": 5, "t": 2, "u": 4}, "wrong": [4, 20], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "stopped-at-x", "maxWords": 130,
+        "describe": "Names the app's diagnosis: x was found and the answer stopped there. x = 4 is a step on the way; the question asks for the length of the side AB. The angles at the ground are equal, so the sides opposite them are equal: 5x - 3 = 3x + 5 gives x = 4, and AB = 5 · 4 - 3 = 17. Ends at 17. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim1-gen-wholebase", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "gen", "key": "sm1h:8:15:17", "wrong": [5.7, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "whole-base", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole base BC = 16 went into Pythagoras instead of half of it. In an isosceles triangle the median to the base is also the height and halves the base, BD = 8; in the right triangle ABD the hypotenuse is AB = 17: AD = √(17² - 8²) = √225 = 15. The whole base gives √(17² - 16²) = √33, about 5.7. Ends at 15. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim1-gen-converse", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "gen", "key": "sm1v:3", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "converse-equal", "maxWords": 130,
+        "describe": "Names the app's diagnosis: a theorem and its converse were taken to be true together. That vertical angles are equal says nothing yet about the converse, that equal angles are vertical: a converse is checked on its own. Does not say which choice is right (withhold): asks whether two equal angles could be in places that do not face each other at one vertex. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim2-gen-anglesenough", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:2", "source": "gen", "key": "sm2s:rects", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "angles-enough", "maxWords": 130,
+        "describe": "Names the app's diagnosis: equal angles were taken as enough for similar quadrilaterals. All rectangles have four right angles, but similar shapes also keep one ratio for all their sides. Does not say which choice is right (withhold): asks the student to compare the ratios of the sides of the 6 by 2 and the 4 by 4 rectangles in the drawing. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim3-partnotwhole", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "diag", "params": {"a": 4, "b": 6, "d": 6}, "wrong": [9, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "part-not-whole", "maxWords": 130,
+        "describe": "Names the app's diagnosis: DB was used where the whole side AB belongs. The triangle ADE is similar to ABC (ז.ז: the common angle A and the corresponding angles between the parallels), so AD matches all of AB = 4 + 6 = 10, not DB: BC = 6 · 10/4 = 15. With DB, 6 · 6/4 = 9. Ends at 15. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim3-gen-ratioflip", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "gen", "key": "sm3b:6:4:12", "wrong": [18, 16], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "ratio-flip", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the ratio was turned over. In the bowtie A matches D and B matches C (alternate angles between the parallels), so from the triangle AMB to the triangle DMC every length is multiplied by MD : AM = 4 : 6, and CD = 12 · 4/6 = 8. Multiplying by 6/4 gave 18, longer than AB, though the triangle DMC is the smaller one. Ends at 8. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim3-gen-ordermixed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "gen", "key": "sm3w:bow", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "order-mixed", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the similarity was written with its vertices in an order that does not match. The order pairs each vertex with the one whose angle is equal to it, and △CMD puts C opposite A. Does not say which choice is right (withhold): asks which vertex of the other triangle has the angle equal to ∢A (alternate angles between AB and CD). Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim3-gen-thirdangle", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "gen", "key": "sm3a:40:80:60", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "third-angle", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the angles were compared without first working out the third angle. The printed pairs differ (40° and 80° against 80° and 60°), but each triangle has a third angle too. Does not say which choice is right (withhold): asks the student to find the third angle of each triangle and then compare all three. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim4-lineararea", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:4", "source": "transfer", "params": {"d1": 2, "d2": 5, "k": 2.5, "A": 1.2}, "wrong": [3, 6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "linear-area", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the area was scaled like a length. Moving the projector from 2 metres to 5 metres makes every length of the picture 2.5 times as long, so its area grows 2.5² = 6.25 times: 1.2 · 6.25 = 7.5 square metres. Multiplying the area by 2.5 gave 3. Ends at 7.5. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim4-gen-areaforperimeter", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:4", "source": "gen", "key": "sm4p:8:12:30", "wrong": [67.5, 50], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "area-for-perimeter", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the ratio was squared for the perimeter too. The ratio of similarity is 12 : 8 = 1.5; a perimeter is a sum of lengths, so it grows 1.5 times, like each side: 30 · 1.5 = 45. Squaring is for areas: 30 · 2.25 = 67.5. Ends at 45. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
       "id": "D1-transf1-shiftsign", "cat": "D1", "kind": "explain", "shapes": ["full"],
       "skill": "transf:1", "source": "diag", "params": { "a1": 3, "a2": -3, "dx": -5, "dy": 2, "c1": -1, "c2": -2, "ask": "y" }, "wrong": [-4, 7], "phase": "reveal",
       "expect": { "first": "misconception", "diagnosis": "shift-sign", "maxWords": 130,

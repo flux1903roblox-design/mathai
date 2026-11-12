@@ -247,6 +247,44 @@ test('this year\'s ח׳ map climbs the transformations right after percent, as u
   await expectNoSidewaysScroll(page);
 });
 
+// GEOM-1 (curriculum stage 4): the ח׳ map climbs congruence and then isosceles triangles with similarity right after
+// statistics (January to April in school), and every new unit wears its own emblem on its banner; the ז׳ map has the
+// transformations between angles and expressions
+async function newUnitsOnMaps(page) {
+  const units = () => page.locator('.unit .unit-title').allTextContents();
+  await open(page, '#/', student('8'));
+  await expect(page.locator('.unit').first()).toBeVisible();
+  const g8 = await units();
+  const at = g8.indexOf('סטטיסטיקה');
+  expect(at, 'statistics is on the ח׳ map').toBeGreaterThanOrEqual(0);
+  expect(g8.slice(at, at + 3)).toEqual(['סטטיסטיקה', 'חפיפת משולשים', 'שווה־שוקיים ודמיון']);
+  for (const [title, id] of [['טרנספורמציות', 'transf'], ['חפיפת משולשים', 'congr'], ['שווה־שוקיים ודמיון', 'sim']]) {
+    const unit = page.locator(`.unit.world-${id}`);
+    await expect(unit.locator('.unit-title')).toHaveText(title);
+    await unit.locator('.unit-head').scrollIntoViewIfNeeded();
+    const emblem = unit.locator('.unit-head .emblem svg');
+    await expect(emblem, `${id} has its emblem`).toBeVisible();
+    const box = await emblem.boundingBox();
+    expect(box.width, `${id}: the emblem is drawn`).toBeGreaterThan(20);
+    expect(await emblem.locator('path, polygon, circle').count(), `${id}: the emblem has its shapes`).toBeGreaterThan(2);
+  }
+  await expectNoSidewaysScroll(page);
+
+  await open(page, '#/', student('7'));
+  await expect(page.locator('.unit').first()).toBeVisible();
+  const g7 = await units();
+  const t = g7.indexOf('טרנספורמציות');
+  expect(g7.slice(t - 1, t + 2)).toEqual(['זוויות', 'טרנספורמציות', 'ביטויים אלגבריים']);
+  const unit = page.locator('.unit.world-transf');
+  await unit.locator('.unit-head').scrollIntoViewIfNeeded();
+  await expect(unit.locator('.unit-head .emblem svg')).toBeVisible();
+  // congruence and similarity are ח׳ units: not on the ז׳ map
+  await expect(page.locator('.unit.world-congr, .unit.world-sim')).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+}
+test('the ח׳ map shows congruence and similarity after statistics, and ז׳ the transformations, each with its emblem', async ({ page }) => newUnitsOnMaps(page));
+test('the new geometry units and their emblems on a 320×568 phone', { tag: '@phone-small' }, async ({ page }) => newUnitsOnMaps(page));
+
 // GEOM-4 on the smallest phone: the point answer (two slots) of a transformations lesson fits, and the drawing of a
 // "which move" mastery check is large enough to read
 test('transf:1 on a 320×568 phone: the point answer row fits beside the drawing', { tag: '@phone-small' }, async ({ page }) => {

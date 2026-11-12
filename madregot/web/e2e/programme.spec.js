@@ -39,6 +39,29 @@ for (const grade of ['7', '8']) {
   });
 }
 
+// GEOM-1 (curriculum stage 4): the transformations (7.11 in ז׳, 8.5 in ח׳ this year), congruence (8.12) and isosceles
+// triangles with similarity (8.13) are taught. Named here, not computed, so the page cannot go quiet about them: the
+// computation must say "yes" for each, and so must the row on screen, on both phones.
+const STAGE4 = { 7: ['7.11'], 8: ['8.5', '8.12', '8.13'] };
+for (const grade of ['7', '8']) {
+  test(`grade ${grade}: the geometry units of stage 4 (${STAGE4[grade].join(', ')}) read יש`, async ({ page }) => {
+    const cov = coverage(grade, ALL_SKILLS);
+    await open(page, `#/programme?grade=${grade}`);
+    const rows = page.locator('ol.prog-units > li');
+    for (const id of STAGE4[grade]) {
+      const u = cov.units.find((x) => x.id === id);
+      expect(u, id).toBeTruthy();
+      expect(u.state, `${id}: every stair of the unit exists`).toBe('yes');
+      const row = rows.filter({ has: page.getByRole('heading', { name: u.title, exact: true }) });
+      await expect(row, id).toHaveCount(1);
+      await row.scrollIntoViewIfNeeded();
+      await expect(row.locator('.prog-chip'), id).toHaveText('במדרגות: יש');
+      await expect(row.locator('.prog-chip'), id).toBeVisible();
+    }
+    await expectNoSidewaysScroll(page);
+  });
+}
+
 test('opens on a device with no profile: no welcome, the stairs as plain words, back to the start', async ({ page }) => {
   await open(page, '#/programme');
   await expect(page.locator('.prog-cover')).toHaveText(sentence('7'));
