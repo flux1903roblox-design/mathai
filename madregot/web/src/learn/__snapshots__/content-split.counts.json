@@ -89,10 +89,44 @@
      2,
      1
     ]
+   },
+   "angles:6": {
+    "discover": 6,
+    "examples": [
+     4,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     1
+    ],
+    "objectives": 4,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "angles:7": {
+    "discover": 6,
+    "examples": [
+     4,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2
+    ]
    }
   },
-  "stairs": 5,
-  "steps": 154
+  "stairs": 7,
+  "steps": 196
  },
  "coord": {
   "skills": {

@@ -309,7 +309,9 @@ describe('practice-only questions are kept out of checks', () => {
     // the median bar whose answer is the number the question names (CURRICULUM-10's guessing test sets objects too)
     'st2b',
     // the class's split triangle S1 (CLASSROOM-11): its answer is 90° minus a printed number
-    'an3a'];
+    'an3a',
+    // "is OC the bisector?", a choice among three reasons (CLASSROOM-10)
+    'an6c'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

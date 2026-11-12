@@ -184,6 +184,80 @@
    ]
   }
  },
+ "angles:6": {
+  "items": [
+   "mastery0:an6t:49:30|158|gen",
+   "mastery1:an6l:88|46|gen",
+   "mastery2:angles:6:diag:{\"k\":\"l\",\"a\":118}|31|diag",
+   "mastery3:an6h:68|34|gen",
+   "mastery4:angles:6:diag:{\"k\":\"l\",\"a\":146}|17|diag",
+   "review0:angles:6:diag:{\"k\":\"h\",\"w\":72}|36|diag",
+   "review1:an6h:166|83|gen",
+   "review2:angles:6:diag:{\"k\":\"l\",\"a\":118}|31|diag",
+   "verify0:angles:6:probe:{\"k\":\"t\",\"a\":48,\"b\":20}|136|probe",
+   "verify1:angles:6:probe:{\"k\":\"w\",\"h\":69}|138|probe",
+   "verify2:angles:6:control:{\"k\":\"l\",\"a\":118}|31|control",
+   "gen:an6l:44|68|gen",
+   "diag:angles:6:diag:{\"k\":\"t\",\"a\":41,\"b\":44}|170|diag",
+   "transfer:angles:6:transfer:{\"k\":\"t\",\"a\":41,\"b\":44}|170|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "angles:6/gen/",
+    "angles:6/gen/",
+    "angles:6/diag/",
+    "angles:6/gen/",
+    "angles:6/diag/"
+   ],
+   "review": [
+    "angles:6/diag/",
+    "angles:6/gen/",
+    "angles:6/diag/"
+   ],
+   "verify": [
+    "angles:6/probe/part-for-whole",
+    "angles:6/probe/part-for-whole",
+    "angles:6/control/part-for-whole"
+   ]
+  }
+ },
+ "angles:7": {
+  "items": [
+   "mastery0:an7a:75:90:85:2|110|gen",
+   "mastery1:an7b:80:85:0:1|105|gen",
+   "mastery2:angles:7:diag:{\"k\":2,\"q\":2,\"j\":1,\"given\":[150,100],\"g\":[150,55,55,100]}|55|diag",
+   "mastery3:an7b:70:75:3:2|125|gen",
+   "mastery4:angles:7:diag:{\"k\":2,\"q\":0,\"j\":3,\"given\":[120,70],\"g\":[85,120,70,85]}|85|diag",
+   "review0:angles:7:diag:{\"k\":0,\"q\":2,\"given\":[60,105,80],\"g\":[60,105,115,80]}|115|diag",
+   "review1:an7b:75:130:1:2|65|gen",
+   "review2:angles:7:diag:{\"k\":2,\"q\":2,\"j\":1,\"given\":[150,100],\"g\":[150,55,55,100]}|55|diag",
+   "verify0:angles:7:probe:{\"k\":0,\"q\":2,\"given\":[60,105,80],\"g\":[60,105,115,80]}|115|probe",
+   "verify1:angles:7:probe:{\"k\":0,\"q\":3,\"given\":[105,70,65],\"g\":[105,70,65,120]}|120|probe",
+   "verify2:angles:7:control:{\"k\":2,\"q\":2,\"j\":1,\"given\":[150,100],\"g\":[150,55,55,100]}|55|control",
+   "gen:an7b:95:75:0:3|100|gen",
+   "diag:angles:7:diag:{\"k\":1,\"q\":2,\"s\":1,\"given\":[80,75],\"g\":[80,90,115,75]}|115|diag",
+   "transfer:angles:7:transfer:{\"k\":1,\"q\":2,\"s\":1,\"given\":[80,75],\"g\":[80,90,115,75]}|115|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "angles:7/gen/",
+    "angles:7/gen/",
+    "angles:7/diag/",
+    "angles:7/gen/",
+    "angles:7/diag/"
+   ],
+   "review": [
+    "angles:7/diag/",
+    "angles:7/gen/",
+    "angles:7/diag/"
+   ],
+   "verify": [
+    "angles:7/probe/quad-missed",
+    "angles:7/probe/quad-missed",
+    "angles:7/control/quad-missed"
+   ]
+  }
+ },
  "coord:1": {
   "items": [
    "mastery0:cp1p:-6:6|[-6,6]|gen",
@@ -404,6 +478,10 @@
   "angles:4/gen",
   "angles:5/diag",
   "angles:5/gen",
+  "angles:6/diag",
+  "angles:6/gen",
+  "angles:7/diag",
+  "angles:7/gen",
   "expr:1/diag",
   "expr:1/gen",
   "expr:2/diag",

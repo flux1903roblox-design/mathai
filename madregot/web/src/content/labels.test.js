@@ -19,6 +19,7 @@ import { PCT } from './pct.js';
 import { chainItem, regroupItem, absItem, oppItem, nestedItem, zeroOne } from './signedItems.js';
 import { powItem } from './signed7.js';
 import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from './angleItems.js';
+import { bisItem, quadItem } from './angles67.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -793,16 +794,48 @@ const PROPS = {
       const d = p === 'an3a' ? n[1] : p === 'an3b' ? n[0] : NaN;
       return (p === 'an3b' || it.key.endsWith(':b')) && near(u, 180 - d);
     },
-    'part-for-whole': (it, u) => { const [, p] = nums(it.key); return it.key.startsWith('an3b:') && near(u, 90 - p); },
+    // a part of an angle taken for the whole: ∢BAD for the angle at A (an3b: 90° − p); a half for the whole angle (an6w:h: h;
+    // an6t:a:b, the two given parts once each: a + b)
+    'part-for-whole': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'an3b') return near(u, 90 - n[1]);
+      if (p === 'an6w') return near(u, n[0]);
+      if (p === 'an6t') return near(u, n[0] + n[1]);
+      return false;
+    },
+    // CLASSROOM-10: halved instead of doubled (an6w:h, h even: h : 2), or doubled instead of halved (an6h:w: 2w)
+    'half-double-swap': (it, u) => {
+      const p = it.key.split(':')[0]; const [x] = nums(it.key);
+      return (p === 'an6w' && x % 2 === 0 && near(u, x / 2)) || (p === 'an6h' && near(u, 2 * x));
+    },
+    // CLASSROOM-12: one known angle left out of the 360° (the right angle too): the answer plus that angle
+    'quad-missed': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      const known = p === 'an7a' ? n.slice(0, 3) : p === 'an7b' ? [n[0], n[1], 90] : [];
+      return known.some((v) => near(u, it.answer + v));
+    },
     // a bisector (an2b:a:v|s, an4b:g:e|s): the whole angle it halves, the given one (v, e) or 180° minus it (s)
     'no-half': (it, u) => {
       const [p, g, kind] = it.key.split(':');
+      // CLASSROOM-10: the whole angle a bisector halves, given (an6h:w) or next to the given one on a line (an6l:a: 180° − a)
+      if (p === 'an6h') return near(u, Number(g));
+      if (p === 'an6l') return near(u, 180 - Number(g));
       return (p === 'an2b' || p === 'an4b') && near(u, kind === 'v' || kind === 'e' ? Number(g) : 180 - Number(g));
     },
-    'wrong-total': (it, u) => { const [a] = nums(it.key); return near(u, 90 - a) || near(u, 360 - a); },
-    'sum-360': (it, u) => { const [a, b] = nums(it.key); return near(u, 360 - a - b); },
+    // CLASSROOM-12: two equal angles of a quadrilateral found with a triangle's 180° (an7c:a:b: (180° − a − b) : 2)
+    'wrong-total': (it, u) => {
+      if (it.key.startsWith('an7c:')) { const [a, b] = nums(it.key); return near(u, (180 - a - b) / 2); }
+      const [a] = nums(it.key); return near(u, 90 - a) || near(u, 360 - a);
+    },
+    // a full turn instead of a straight line; CLASSROOM-10's bisector on a line (an6l:a): ∢BOC from 360°, halved
+    'sum-360': (it, u) => { const [a, b] = nums(it.key); return it.key.startsWith('an6l:') ? near(u, (360 - a) / 2) : near(u, 360 - a - b); },
     'one-angle': (it, u) => { const [a, b] = nums(it.key); return near(u, 180 - a) || near(u, 180 - b); },
-    'forgot-half': (it, u) => { const top = Number(it.key.split(':')[2]); return near(u, 180 - top); },
+    // the base angles' share not halved (an5:iso:top: 180° − top); CLASSROOM-12's two equal angles of a quadrilateral
+    // (an7c:a:b: 360° − a − b)
+    'forgot-half': (it, u) => {
+      if (it.key.startsWith('an7c:')) { const [a, b] = nums(it.key); return near(u, 360 - a - b); }
+      const top = Number(it.key.split(':')[2]); return near(u, 180 - top);
+    },
     'interior-not-exterior': (it, u) => { const [, , a, b] = it.key.split(':').map(Number); return near(u, 180 - a - b); },
   },
   line: {
@@ -1350,6 +1383,15 @@ describe('the two-step angle questions name only what the answer shows', () => {
     if (p === 'an1f') return a - b;
     if (p === 'an3a') return key.endsWith(':b') ? 90 - a : 90 - b;
     if (p === 'an3b') return a - b;
+    // CLASSROOM-10, the bisector; CLASSROOM-12, the quadrilateral
+    if (p === 'an6w') return 2 * a;
+    if (p === 'an6h') return a / 2;
+    if (p === 'an6t') return 2 * (a + b);
+    if (p === 'an6l') return (180 - a) / 2;
+    const n = key.split(':').slice(1).map(Number);
+    if (p === 'an7a') return 360 - n[0] - n[1] - n[2];
+    if (p === 'an7b') return 270 - n[0] - n[1];
+    if (p === 'an7c') return (360 - n[0] - n[1]) / 2;
     return NaN;
   };
   const kinds = [
@@ -1363,6 +1405,14 @@ describe('the two-step angle questions name only what the answer shows', () => {
     ['the fan: two angles side by side, not on a line', fanItem, 1, ['adjacent-not-line', 'sum-not-diff'], 1207],
     ['the split triangle, S1', splitTriangleS1, 3, ['one-angle', 'other-vertex'], 1208],
     ['the split triangle, S2', splitTriangleS2, 3, ['other-vertex', 'part-for-whole'], 1209],
+    // CLASSROOM-10: the bisector's four typed kinds; CLASSROOM-12: the quadrilateral's three
+    ['the whole angle from its half (bisWhole)', () => bisItem('w'), 6, ['part-for-whole', 'half-double-swap'], 1210],
+    ['a half from the whole angle (bisHalf)', () => bisItem('h'), 6, ['no-half', 'half-double-swap'], 1211],
+    ['two bisectors in a fan of five rays (bisTwo)', () => bisItem('t'), 6, ['part-for-whole'], 1212],
+    ['a bisector next to a straight line (bisLine)', () => bisItem('l'), 6, ['no-half', 'sum-360'], 1213],
+    ['a quadrilateral, three angles given (Q0)', () => quadItem(0), 7, ['quad-missed'], 1214],
+    ['a quadrilateral, a right angle and two given (Q1)', () => quadItem(1), 7, ['quad-missed'], 1215],
+    ['a quadrilateral, two equal angles and two given (Q2)', () => quadItem(2), 7, ['forgot-half', 'wrong-total'], 1216],
   ];
   it.each(kinds)('%s', (_name, make, level, ids, seed) => {
     const shows = {};
@@ -1404,5 +1454,24 @@ describe('the two-step angle questions name only what the answer shows', () => {
     expect(props['part-for-whole']({ key: 'an3b:64:19', answer: 45, form: 'num' }, 71)).toBe(true);
     expect(props['other-vertex']({ key: 'an3a:38:67:b', answer: 52, form: 'num' }, 113)).toBe(true);
     expect(props['one-angle']({ key: 'an3a:38:67:a', answer: 23, form: 'num' }, 113)).toBe(true);
+  });
+  it('the bisector and the quadrilateral, the spec\'s examples: the property reads the key', () => {
+    // ∢AOC = 37°: 74°; the half itself 37 (part-for-whole); ∢AOB = 126°: 63°, the whole 126 (no-half), doubled 252
+    expect(props['part-for-whole']({ key: 'an6w:37', answer: 74, form: 'num' }, 37)).toBe(true);
+    expect(props['half-double-swap']({ key: 'an6w:36', answer: 72, form: 'num' }, 18)).toBe(true);
+    expect(props['half-double-swap']({ key: 'an6w:37', answer: 74, form: 'num' }, 18.5)).toBe(false);
+    expect(props['no-half']({ key: 'an6h:126', answer: 63, form: 'num' }, 126)).toBe(true);
+    expect(props['half-double-swap']({ key: 'an6h:126', answer: 63, form: 'num' }, 252)).toBe(true);
+    // the worksheet's two bisectors, 41° and 27°: 136°, the parts once each 68°; on a line, 58°: 61°, 122° and 151°
+    expect(props['part-for-whole']({ key: 'an6t:41:27', answer: 136, form: 'num' }, 68)).toBe(true);
+    expect(props['no-half']({ key: 'an6l:58', answer: 61, form: 'num' }, 122)).toBe(true);
+    expect(props['sum-360']({ key: 'an6l:58', answer: 61, form: 'num' }, 151)).toBe(true);
+    // 75°, 110°, 95°: 80°, one left out 155°; a right angle, 115°, 70°: 85°, the right angle forgotten 175°
+    expect(props['quad-missed']({ key: 'an7a:75:110:95:3', answer: 80, form: 'num' }, 155)).toBe(true);
+    expect(props['quad-missed']({ key: 'an7b:115:70:3:1', answer: 85, form: 'num' }, 175)).toBe(true);
+    // two equal angles, 100° and 70° given: 95°; not halved 190°; with 180°: 5°
+    expect(props['forgot-half']({ key: 'an7c:100:70:2:3', answer: 95, form: 'num' }, 190)).toBe(true);
+    expect(props['wrong-total']({ key: 'an7c:100:70:2:3', answer: 95, form: 'num' }, 5)).toBe(true);
+    expect(props['wrong-total']({ key: 'an7a:75:110:95:3', answer: 80, form: 'num' }, 5)).toBe(false);
   });
 });

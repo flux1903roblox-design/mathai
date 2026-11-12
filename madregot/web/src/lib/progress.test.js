@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useApp, streakOf, today, dayBefore, isActiveDay } from './store.js';
 import { STAGE_XP, PARTS } from './lesson.js';
-import { stagesDone, unitProgress, unitCountText, stairProgress, STAIR_STAGES, unitNodes, addedStairNote } from './path.js';
+import { stagesDone, unitProgress, unitCountText, stairProgress, STAIR_STAGES, unitNodes, addedStairNote, chestAfter, chestOpen } from './path.js';
 import { questProgress, questsFor, QUESTS } from './quests.js';
 
 const dayAfter = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA'); };
@@ -165,3 +165,24 @@ describe('a second stair added the same way (signed:7, powers, CLASSROOM-5)', ()
     expect(unitNodes('signed', all).map((n) => addedStairNote(n, all))).toEqual(Array(8).fill(null));
   });
 });
+
+describe('two angle stairs added after the five (angles:6 and angles:7, CLASSROOM-10 and -12)', () => {
+  const five = { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'kept', 5: 'mastered' };
+  it('a student who finished the five keeps them; the bisector is current with its own line, the quadrilateral after it', () => {
+    const path = { angles: { parts: {}, reviews: 1, jumped: 0, done: five } };
+    const nodes = unitNodes('angles', path).filter((n) => n.kind === 'node');
+    expect(nodes.map((n) => [n.level, n.state])).toEqual([[1, 'done'], [2, 'done'], [3, 'done'], [4, 'done'], [5, 'done'], [6, 'current'], [7, 'locked']]);
+    expect(nodes[5]).toMatchObject({ title: 'חוצה זווית' });
+    expect(nodes[6]).toMatchObject({ title: 'סכום זוויות במרובע' });
+    expect(addedStairNote(nodes[5], path)).toBe('נוספה מדרגה חדשה ליחידה: חוצה זווית.');
+    expect(addedStairNote(nodes[6], path)).toBeNull();
+  });
+  it('the angles chest stays after the third stair: a chest opened before the unit grew is not locked again', () => {
+    expect(chestAfter('angles')).toBe(3);
+    expect(chestOpen('angles', { angles: { parts: {}, reviews: 0, jumped: 0, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered' } } })).toBe(true);
+    // the other units keep the halfway rule
+    expect(chestAfter('signed')).toBe(4);
+    expect(chestAfter('coord')).toBe(3);
+  });
+});
+

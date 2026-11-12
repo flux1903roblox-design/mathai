@@ -58,7 +58,9 @@ export const PROGRAMME = {
     { id: '7.10', grade: '7', domain: 'geometry', title: 'זוויות (מדידה, חוצה זווית, צמודות, קודקודיות, במשולשים ובמרובע)', months: [9, 10, 11],
       parts: [
         { hours: 16, skills: range('angles', 1, 5) },
-        { hours: 4, skills: [], note: 'מדידה ואומדן של זוויות, חוצה זווית וזוויות במרובע', later: 'S5' },
+        // the bisector and the quadrilateral (the classroom lane, CLASSROOM-10 and -12)
+        { hours: 2, skills: ['angles:6', 'angles:7'], note: 'חוצה זווית וזוויות במרובע' },
+        { hours: 2, skills: [], note: 'מדידה ואומדן של זוויות', later: 'S5' },
       ] },
     { id: '7.11', grade: '7', domain: 'geometry', title: 'צורות חופפות במישור וטרנספורמציות', months: [11, 12],
       parts: [{ hours: 5, skills: [], note: 'הזזה, שיקוף וסיבוב, וצורות חופפות', later: 'S4' }] },

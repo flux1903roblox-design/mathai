@@ -19,6 +19,8 @@ import { rectStory, angleEqStory, rectFig } from '@/content/eq.js';
 // @ts-ignore: plain JS
 import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from '@/content/angleItems.js';
 // @ts-ignore: plain JS
+import { bisItem, bisCheckItem, quadItem } from '@/content/angles67.js';
+// @ts-ignore: plain JS
 import { figPlain } from '@/content/index.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
@@ -28,7 +30,7 @@ const CONTENT = await loadAllContent();
 type Pt = [number, number];
 type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[] };
 
-const TOPICS = { angles: 5, pyth: 5 } as Record<string, number>;
+const TOPICS = { angles: 7, pyth: 5 } as Record<string, number>;
 
 const steps = () => Object.entries(TOPICS).flatMap(([topic, n]) => Array.from({ length: n }, (_, i) => `${topic}:${i + 1}`))
   .flatMap((skill) => contentOf(skill)!.discover.map((st, i) => ({ skill, i, st })));
@@ -626,6 +628,68 @@ describe('the fan and the split triangle are drawn to size', () => {
   });
 });
 
+// CLASSROOM-10 and -12, 200 of each kind: the bisector's rays end in dots at the letters the text names; every given angle
+// is drawn its size, the '?' the answer's size; each bisected pair (two arcs, or three for a second pair) is two equal
+// halves; and the quadrilateral's four corners are its angles: the drawn ones equal the text's, a right angle is a square
+// of 90°, the two marked equal angles are equal, and the four sum to 360°.
+const angleBetween = (P: Record<string, Pt>, v: string, a: string, b: string) => {
+  const u = [P[a][0] - P[v][0], P[a][1] - P[v][1]]; const w = [P[b][0] - P[v][0], P[b][1] - P[v][1]];
+  return (Math.acos((u[0] * w[0] + u[1] * w[1]) / (Math.hypot(u[0], u[1]) * Math.hypot(w[0], w[1]))) * 180) / Math.PI;
+};
+describe('the bisector and the quadrilateral are drawn to size', () => {
+  const kinds = [['bisWhole', () => bisItem('w')], ['bisHalf', () => bisItem('h')], ['bisTwo', () => bisItem('t')], ['bisLine', () => bisItem('l')], ['bisCheck', bisCheckItem]] as const;
+  it.each(kinds)('the bisector, %s', (_n, make) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make(); const f = it.fig as Geo;
+      // the letters are the text's: O and the rays it names, each ending in a dot
+      const said = capitals(String(it.text).match(/\$[^$]+\$/g)?.join(' ').replace(/\\[a-zA-Z]+/g, ' ') || '');
+      expect(Object.keys(f.pts).sort(), it.key).toEqual([...said].sort());
+      expect([...(f.dots || [])].sort(), it.key).toEqual(Object.keys(f.pts).sort());
+      const pairs: Record<number, number[]> = {};
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(f.pts, g);
+        expect(deg, `${it.key}: the arc at ${g.at} spans ${deg.toFixed(1)}°`).toBeLessThanOrEqual(180.0001);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: the '?' drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if ((g.n || 1) > 1) (pairs[g.n] ||= []).push(deg);
+      }
+      Object.values(pairs).forEach((ds) => { expect(ds, it.key).toHaveLength(2); expect(Math.abs(ds[0] - ds[1]), it.key).toBeLessThan(0.01); });
+      if (it.form === 'num') expect((f.angles || []).filter((g: any) => g.target), it.key).toHaveLength(1);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+  it.each([0, 1, 2])('the quadrilateral, Q%s', (k) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = quadItem(k); const f = it.fig as Geo; const P = f.pts;
+      expect(Object.keys(P).sort(), it.key).toEqual(['A', 'B', 'C', 'D']);
+      // the four interior angles, measured on the corners, sum to 360° (a convex quadrilateral)
+      const inner = ['A', 'B', 'C', 'D'].map((v, j, ns) => angleBetween(P, v, ns[(j + 1) % 4], ns[(j + 3) % 4]));
+      expect(inner.reduce((a, b) => a + b, 0), it.key).toBeCloseTo(360, 6);
+      const eq: number[] = [];
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(P, g);
+        // each mark is the interior angle at its corner
+        expect(Math.abs(deg - inner['ABCD'.indexOf(g.at)]), `${it.key}: the arc at ${g.at}`).toBeLessThan(1e-6);
+        if (g.right) expect(Math.abs(deg - 90), `${it.key}: the square at ${g.at}`).toBeLessThan(0.01);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} at ${g.at} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: the '?' drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.n === 2) eq.push(deg);
+      }
+      // the angles the text gives are the ones drawn, a right angle as its square
+      const given = [...String(it.text).matchAll(/\\sphericalangle ([A-D]) = (\d+)\^\\circ/g)];
+      given.forEach((m) => expect((f.angles || []).find((g: any) => g.at === m[1])?.text, `${it.key}: ∢${m[1]}`).toBe(`${m[2]}°`));
+      const right = /הזווית \$([A-D])\$ ישרה/.exec(String(it.text));
+      expect(!!right, it.key).toBe(k === 1);
+      if (right) expect((f.angles || []).find((g: any) => g.at === right[1])?.right, it.key).toBe(true);
+      expect(eq.length, it.key).toBe(k === 2 ? 2 : 0);
+      if (eq.length) expect(Math.abs(eq[0] - eq[1]), it.key).toBeLessThan(0.01);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+});
+
 // CLASSROOM-9 and -11: on the fan, the split triangle and the two names rule, every number on an arc can be read: its
 // text box, measured in the app's font (Rubik 17px, 19px for the asked angle: a digit 0.665em wide, ° 0.41em, a letter
 // 0.7em; 0.74em above the baseline, β 0.22em below it), is laid out as components/Figure.jsx lays it, and no line, no
@@ -694,6 +758,23 @@ describe('the fan, the split triangle and the two names rule: every number clear
     for (let i = 0; i < 3000; i += 1) { const it = make(); for (const c of clashes(it.fig as Geo)) bad.add(`${it.key}: ${c}`); }
     expect([...bad].slice(0, 12)).toEqual([]);
   }, 60000);
+  // CLASSROOM-10 and -12: the bisector's fans (the four typed kinds and the choice) and the quadrilaterals
+  it.each([['bisWhole', () => bisItem('w')], ['bisHalf', () => bisItem('h')], ['bisTwo', () => bisItem('t')], ['bisLine', () => bisItem('l')], ['bisCheck', bisCheckItem]] as const)('the bisector, %s, 3,000 items', (_n, make) => {
+    const bad = new Set<string>();
+    for (let i = 0; i < 3000; i += 1) { const it = make(); for (const c of clashes(it.fig as Geo)) bad.add(`${it.key}: ${c}`); }
+    expect([...bad].slice(0, 12)).toEqual([]);
+  }, 60000);
+  it.each([0, 1, 2])('the quadrilateral, Q%s, 1,500 items', (k) => {
+    const bad = new Set<string>();
+    for (let i = 0; i < 1500; i += 1) { const it = quadItem(k); for (const c of clashes(it.fig as Geo)) bad.add(`${it.key}: ${c}`); }
+    expect([...bad].slice(0, 12)).toEqual([]);
+  }, 90000);
+  it('the teaching drawings of angles:6 and angles:7, every one', () => {
+    const figs = ['angles:6', 'angles:7'].flatMap((k) => { const c = CONTENT[k]; return [...c.discover.map(figOf), ...c.misconceptions.flatMap((m) => m.remedy.map(figOf)), ...c.examples.flatMap((ex) => [ex.fig, ...ex.steps.map((sp) => sp.fig)]), ...c.together.map((g) => g.fig)]; })
+      .filter((f) => (f as any)?.type === 'geo') as Geo[];
+    expect(figs.length).toBeGreaterThanOrEqual(20);
+    expect(figs.flatMap((f) => clashes(f).map((c) => `${(f as { label?: string }).label}: ${c}`))).toEqual([]);
+  });
   it('the teaching drawings of angles:1 and angles:3 made with them', () => {
     const named = /שלוש קרניים|ישר וקרניים|ישר־זווית ABC|שרטוט עזר/;
     const figs = ['angles:1', 'angles:3'].flatMap((k) => { const c = CONTENT[k]; return [...c.discover.map(figOf), ...c.misconceptions.flatMap((m) => m.remedy.map(figOf)), ...c.examples.flatMap((ex) => [ex.fig, ...ex.steps.map((sp) => sp.fig)])]; })

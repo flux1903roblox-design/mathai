@@ -26,6 +26,10 @@ import { T } from '@/content/util.js';
 import { drawPow, powValue, powBugs, POW_MIX } from '@/content/signed7.js';
 // @ts-ignore: plain JS
 import { STORY_MIX, storyMix } from '@/content/eq.js';
+// @ts-ignore: plain JS
+import { bisCheckItem } from '@/content/angles67.js';
+// @ts-ignore: plain JS
+import { itemPlain } from '@/content/index.js';
 import { readFileSync } from 'node:fs';
 import { CHALLENGES } from './challenges/index';
 
@@ -1002,3 +1006,119 @@ describe('angles:3, the split triangle solved with helper sketches', () => {
     expect((m.remedy[0] as { fig?: { dots?: string[] } }).fig?.dots).toEqual(['B', 'D']);
   });
 });
+
+// CLASSROOM-10: the class's worksheet said "OB חוצה זווית ∢AOB", but OB is an arm of ∢AOB (the drawing showed OB halving
+// ∢AOD). A text that says a ray halves an angle is checked against itself and its drawing: the ray starts at the angle's
+// vertex, it is not one of the angle's arms, and on the drawing its two halves differ by less than 0.5°.
+// a statement, not the question "האם $OC$ חוצה את ∢BOD?" (practice's choice, whose answer may be no)
+const BISECTS = /(?<!האם )\$([A-Z])([A-Z])\$ חוצה את \$\\sphericalangle ([A-Z])([A-Z])([A-Z])/g;
+const between = (P: Record<string, [number, number]>, v: string, a: string, b: string) => {
+  const u = [P[a][0] - P[v][0], P[a][1] - P[v][1]]; const w = [P[b][0] - P[v][0], P[b][1] - P[v][1]];
+  return (Math.acos((u[0] * w[0] + u[1] * w[1]) / (Math.hypot(u[0], u[1]) * Math.hypot(w[0], w[1]))) * 180) / Math.PI;
+};
+function bisectorTypos(text: string, fig?: unknown): string[] {
+  const out: string[] = [];
+  const P = (fig as { pts?: Record<string, [number, number]> } | undefined)?.pts;
+  for (const [, v, ray, p, q, r] of String(text).matchAll(BISECTS)) {
+    const name = `${v}${ray} חוצה את ∢${p}${q}${r}`;
+    if (v !== q) out.push(`${name}: the ray does not start at the vertex ${q}`);
+    if (ray === p || ray === r) out.push(`${name}: ${v}${ray} is an arm of the angle, not its bisector`);
+    if (P && [p, q, r, ray].every((k) => P[k]) && ray !== p && ray !== r) {
+      const one = between(P, q, p, ray); const two = between(P, q, ray, r);
+      if (Math.abs(one - two) >= 0.5) out.push(`${name}: drawn ${one.toFixed(1)}° and ${two.toFixed(1)}°`);
+    }
+  }
+  return out;
+}
+describe('angles:6, a bisector is what its text says (the worksheet\'s typo cannot happen)', () => {
+  it('catches the worksheet\'s "OB חוצה זווית ∢AOB", a ray from another vertex, and a drawing that does not halve', () => {
+    const P = { O: [0, 0], A: [3, 0], B: [0, 3], C: [2.1213, 2.1213], D: [-3, 0] } as Record<string, [number, number]>;
+    expect(bisectorTypos('$OC$ חוצה את $\\sphericalangle AOB$', { pts: P })).toEqual([]);
+    expect(bisectorTypos('$OB$ חוצה את $\\sphericalangle AOB$', { pts: P })[0]).toContain('is an arm');
+    expect(bisectorTypos('$AC$ חוצה את $\\sphericalangle AOB$', { pts: P })[0]).toContain('does not start at the vertex');
+    expect(bisectorTypos('$OB$ חוצה את $\\sphericalangle AOD$', { pts: P })).toEqual([]);
+    expect(bisectorTypos('$OC$ חוצה את $\\sphericalangle AOD$', { pts: P })[0]).toContain('drawn 45.0° and 135.0°');
+    expect(bisectorTypos('האם $OC$ חוצה את $\\sphericalangle AOD$?', { pts: P })).toEqual([]);
+  });
+  it('every bisector named in the stairs\' teaching (each step, example, problem and repair) and in 2,000 exercises', () => {
+    const bad: string[] = [];
+    const seen = { teaching: 0, items: 0, model: 0 };
+    for (const c of stairs.filter((x) => x.topic === 'angles')) {
+      const steps = [...c.discover, ...c.misconceptions.flatMap((m) => m.remedy)];
+      steps.forEach((st, i) => { const t = `${st.text} ${(st as { display?: string }).display || ''}`; if (t.match(BISECTS)) seen.teaching += 1; bad.push(...bisectorTypos(t, (st as { fig?: unknown }).fig).map((x) => `${c.skill} step ${i + 1}: ${x}`)); });
+      c.examples.forEach((ex, k) => [ex.problem, ...ex.steps.map((sp) => `${sp.action} ${sp.why}`)].forEach((t, j) => { if (String(t).match(BISECTS)) seen.teaching += 1; bad.push(...bisectorTypos(t, ex.steps[j - 1]?.fig || ex.fig).map((x) => `${c.skill} example ${k + 1}: ${x}`)); }));
+      c.together.forEach((g, k) => { if (g.problem.match(BISECTS)) seen.teaching += 1; bad.push(...bisectorTypos(g.problem, g.fig).map((x) => `${c.skill} together ${k + 1}: ${x}`)); });
+    }
+    for (let i = 0; i < 2000; i += 1) {
+      const it = makeItem('angles', 6);
+      if (String(it.text).match(BISECTS)) seen.items += 1;
+      bad.push(...bisectorTypos(it.text, it.fig).map((x) => `${it.key}: ${x}`));
+    }
+    const m = CONTENT['angles:6'].diag; const rnd = seeded(66);
+    for (let i = 0; i < 400; i += 1) { const p = m.params(rnd); const t = String(m.text(p)); if (t.match(BISECTS)) seen.model += 1; bad.push(...bisectorTypos(t, m.fig!(p)).map((x) => `model ${JSON.stringify(p)}: ${x}`)); }
+    expect(bad.slice(0, 10)).toEqual([]);
+    // the check really ran: the teaching names a bisector in more than ten places, and most exercises do
+    expect(seen.teaching).toBeGreaterThan(10);
+    expect(seen.items).toBeGreaterThan(1000);
+    expect(seen.model).toBeGreaterThan(200);
+  });
+  it('"is OC the bisector?" is a choice with a reason, practice only, OC halving ∢BOD half the time, read plainly by the tutor', () => {
+    let yes = 0;
+    for (let i = 0; i < 400; i += 1) {
+      const it = bisCheckItem();
+      expect(it).toMatchObject({ form: 'mc', practiceOnly: true });
+      expect(it.choices).toHaveLength(3);
+      expect(new Set(it.choices.map((c: { text: string }) => c.text)).size).toBe(3);
+      const [, aod, aob, cod] = String(it.key).split(':').map(Number);
+      const right = it.choices[it.answer].text as string;
+      if (aod - aob === 2 * cod) { yes += 1; expect(right.startsWith('כן')).toBe(true); } else expect(right.startsWith('לא')).toBe(true);
+      expect(itemPlain({ ...it, topic: 'angles', level: 6 })).not.toMatch(/[\u2066\u2069]/);
+    }
+    expect(yes / 400).toBeGreaterThan(0.4);
+    expect(yes / 400).toBeLessThan(0.6);
+  });
+  it('teaches in the spec\'s order: the word, the turning ray, a prediction, the rule with ⇔, then a bisector on a line', () => {
+    const d = CONTENT['angles:6'].discover;
+    expect(d.map((s) => s.kind)).toEqual(['say', 'explore', 'predict', 'rule', 'predict', 'predict']);
+    expect(d[0].text).toContain('נקראת חוצה זווית');
+    expect(d[1]).toMatchObject({ kind: 'explore', manip: { kind: 'angle', whole: 110 }, answer: 55 });
+    expect(d[3].text).toContain('\\iff');
+    expect((d[3] as { display?: string }).display).toBe('\\sphericalangle AOC = \\sphericalangle COB = \\tfrac{1}{2}\\sphericalangle AOB');
+    // the worked examples: the worksheet's two bisectors (41° and 27°: 136°) and one on a line (58°: 61°), each checked
+    expect(CONTENT['angles:6'].examples.map((e) => e.answer)).toEqual([136, 61]);
+    CONTENT['angles:6'].examples.forEach((e) => expect(e.steps.at(-1)!.action).toContain('בודקים'));
+  });
+});
+
+// CLASSROOM-12: the quadrilateral taught from two triangles, and the worked examples write the found value on the figure
+describe('angles:7, the sum of the angles of a quadrilateral', () => {
+  it('a diagonal, 180° + 180°, the rule, two shapes in place of a dragged vertex, the right angle, then the angles with x', () => {
+    const d = CONTENT['angles:7'].discover;
+    expect(d.map((s) => s.kind)).toEqual(['say', 'predict', 'rule', 'predict', 'predict', 'say']);
+    expect(d[0].text).toContain('אלכסון מחלק מרובע לשני משולשים');
+    expect((d[1] as { choices: string[] }).choices[0]).toBe('$360^\\circ$');
+    expect(d[2].text).toContain('סכום זוויות במרובע שווה $360^\\circ$');
+    expect((d[2] as { display?: string }).display).toBe('\\sphericalangle A + \\sphericalangle B + \\sphericalangle C + \\sphericalangle D = 360^\\circ');
+    // the last step: 2x, 4x − 15°, 3x + 15° and x make 360°, so x = 36°, and the figure carries the angles found
+    const last = d[5] as unknown as { text: string; fig: { angles: { text: string }[] } };
+    expect(last.text).toContain('$10x = 360^\\circ$');
+    expect(last.text).toContain('$x = 36^\\circ$');
+    expect(last.text).toContain('בעיות מילוליות');
+    expect([2 * 36, 4 * 36 - 15, 3 * 36 + 15, 36].reduce((a, b) => a + b, 0)).toBe(360);
+    expect(last.fig.angles.map((g) => g.text)).toEqual(['72°', '129°', '123°', '36°']);
+  });
+  it('the worked examples, Q0 (75°, 110°, 95°: 80°) and Q2 (100°, 70°: 95°), end by writing the answer on the figure', () => {
+    const ex = CONTENT['angles:7'].examples;
+    expect(ex.map((e) => e.answer)).toEqual([80, 95]);
+    ex.forEach((e) => {
+      const before = (e.fig as unknown as { angles: { text?: string; target?: boolean }[] }).angles;
+      const after = (e.steps.at(-1)!.fig as unknown as { angles: { text?: string; target?: boolean }[] }).angles;
+      expect(before.some((g) => g.target)).toBe(true);
+      expect(after.some((g) => g.target)).toBe(false);
+      expect(after.filter((g) => g.text === `${e.answer}°`).length).toBeGreaterThanOrEqual(1);
+    });
+    // the two equal angles both carry it
+    expect((ex[1].steps.at(-1)!.fig as unknown as { angles: { text?: string }[] }).angles.filter((g) => g.text === '95°')).toHaveLength(2);
+  });
+});
+

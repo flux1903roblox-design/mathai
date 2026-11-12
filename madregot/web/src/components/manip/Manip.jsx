@@ -75,6 +75,9 @@ function coach(it, v, touched) {
       return <>הישר חותך את ציר y ב־<N v={v.b} />. בכל צעד ימינה הוא {rise}.</>;
     }
     case 'angle':
+      // a ray turning inside a fixed angle (CLASSROOM-10): the two parts always make the whole
+      if (m.whole) return !touched ? <>סובבו את הקרן <bdi dir="ltr">OC</bdi>. שתי הזוויות יחד הן תמיד <bdi dir="ltr">{m.whole}°</bdi>.</>
+        : <>עכשיו <bdi dir="ltr">∢AOC = {v}°</bdi> ו־<bdi dir="ltr">∢COB = {m.whole - v}°</bdi>.</>;
       if (!touched) return 'סובבו את הקרן. שתי הזוויות יחד יוצרות קו ישר.';
       return <>הזווית הימנית עכשיו <bdi dir="ltr">{v}°</bdi>. כמה נשאר לשמאלית עד קו ישר?</>;
     case 'squares': {

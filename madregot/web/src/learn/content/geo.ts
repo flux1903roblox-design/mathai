@@ -91,7 +91,62 @@ export function lineRays(rays: number[], marks: (Partial<Angle> | null)[] = []):
  * angle: a wide arc outside the two parts' arcs, its number past that arc and in the middle of the wider part, clear of
  * OB).
  */
-export function fan(T: number, a: number, marks: { AOB?: Partial<Angle>; BOC?: Partial<Angle>; AOC?: Partial<Angle> } = {}): GeoFig {
+export function fan(T: number, a: number, marks?: { AOB?: Partial<Angle>; BOC?: Partial<Angle>; AOC?: Partial<Angle> }): GeoFig;
+/**
+ * Rays from O, as the class's worksheet draws them (CLASSROOM-10): each a segment from O that ends in a dot at its letter.
+ * `rays` gives each ray's direction in degrees (counterclockwise from the right); `marks` is keyed by the angle's name,
+ * 'AOB' (its two rays, in either order). A bisected pair carries equal arcs (n 2, or n 3 for a second pair), drawn at one
+ * radius. The arcs are sized from the numbers' boxes in the app's font: a part's number clears both of its arms; a whole
+ * angle (one with other rays inside it) has its arc outside its parts' numbers, and its number in the widest part that
+ * has none of its own.
+ */
+export function fan(rays: Record<string, number>, marks?: Record<string, Partial<Angle>>, opts?: FanOpts): GeoFig;
+export function fan(x: number | Record<string, number>, y?: unknown, z?: unknown): GeoFig {
+  return typeof x === 'number' ? fanThree(x, y as number, (z || {}) as Record<string, Partial<Angle>>) : rayFan(x, (y || {}) as Record<string, Partial<Angle>>, (z || {}) as FanOpts);
+}
+type FanOpts = { view?: [number, number]; pad?: [number, number]; len?: number };
+
+function rayFan(dirs: Record<string, number>, marks: Record<string, Partial<Angle>>, { view = [300, 230], pad = [30, 26], len = 3 }: FanOpts): GeoFig {
+  const names = Object.keys(dirs);
+  const sorted = [...names].sort((p, q) => dirs[p] - dirs[q]);
+  const pts: Record<string, Pt> = { O: [0, 0], ...Object.fromEntries(sorted.map((k) => [k, dir(dirs[k], len)])) };
+  const tx = (m?: Partial<Angle>) => String(m?.text || '');
+  // each mark: its arms in counterclockwise order, its size, and the rays strictly inside it
+  const spans = Object.entries(marks).map(([key, m]) => {
+    const [p, q] = [key[0], key[2]].sort((u, v) => dirs[u] - dirs[v]);
+    const d0 = dirs[p]; const d1 = dirs[q];
+    const inner = sorted.filter((k) => dirs[k] > d0 + 1e-9 && dirs[k] < d1 - 1e-9);
+    return { key, m, from: p, to: q, d0, d1, deg: d1 - d0, inner };
+  });
+  type Span = (typeof spans)[number];
+  const parts = spans.filter((s) => !s.inner.length);
+  const wholes = spans.filter((s) => s.inner.length);
+  // a part's arc clears its own number. Parts side by side alternate between an inner and an outer radius, so two arcs
+  // that meet at a ray never run on as one arc: a bisected pair reads as two equal marks, not one wide angle
+  const own = new Map(parts.map((s) => [s.key, fitR(s.deg, s.deg, tx(s.m), 26 + 5 * Math.max(0, (s.m.n || 1) - 1))]));
+  const order = [...parts].sort((u, v) => u.d0 - v.d0);
+  const outer = new Set(order.filter((_, i) => i % 2 === 1).map((s) => s.key));
+  const inner = order.filter((s) => !outer.has(s.key));
+  const rIn = Math.max(0, ...inner.map((s) => own.get(s.key)!));
+  const rOut = Math.max(0, ...order.filter((s) => outer.has(s.key)).map((s) => Math.max(own.get(s.key)!, rIn + 8 + 5 * Math.max(0, (s.m.n || 1) - 1))));
+  const rOf = (s: Span) => (outer.has(s.key) ? rOut : rIn);
+  const angles: Angle[] = parts.map((s) => ({ at: 'O', from: s.from, to: s.to, r: rOf(s), ...s.m }));
+  for (const w of wholes) {
+    // its parts are the wedges between the rays inside it; its number goes in the widest one without a number
+    const edges = [w.from, ...w.inner, w.to];
+    const wedges = edges.slice(1).map((k, i) => ({ a: dirs[edges[i]], b: dirs[k], part: parts.find((s) => s.from === edges[i] && s.to === k) }));
+    const free = wedges.filter((g) => !tx(g.part?.m));
+    const room = (free.length ? free : wedges).reduce((best, g) => (g.b - g.a > best.b - best.a ? g : best));
+    const out = Math.max(...wedges.map((g) => (!g.part ? 0 : tx(g.part.m) ? rOf(g.part) + labelOut(g.part.deg, tx(g.part.m)) + reach(tx(g.part.m)) : rOf(g.part)))) + 5;
+    const r = Math.max(76, Math.ceil(out), fitR(room.b - room.a, w.deg, tx(w.m), 0));
+    angles.unshift({ at: 'O', from: w.from, to: w.to, r, lt: ((room.a + room.b) / 2 - w.d0) / w.deg, ...w.m });
+  }
+  return geo(`קרניים שיוצאות מנקודה O: ${sorted.map((k) => `O${k}`).join(', ')}`, {
+    pts, segs: sorted.map((k) => ({ a: 'O', b: k })), angles, dots: ['O', ...sorted], view, pad,
+  });
+}
+
+function fanThree(T: number, a: number, marks: { AOB?: Partial<Angle>; BOC?: Partial<Angle>; AOC?: Partial<Angle> } = {}): GeoFig {
   const t0 = 90 - T / 2; const b = T - a;
   const pts: Record<string, Pt> = { O: [0, 0], A: dir(t0, 3), B: dir(t0 + a, 3), C: dir(t0 + T, 3) };
   const tx = (m?: Partial<Angle>) => String(m?.text || '');
@@ -155,6 +210,79 @@ export function splitTri(beta: number, d: number, marks: Record<string, Partial<
     pts, polys: [{ pts: tri }], segs: show === 'all' ? [{ a: 'A', b: 'D' }] : [], angles, ...(dots.length ? { dots } : {}),
     view,
   });
+}
+
+/**
+ * The corners of a quadrilateral with the angles `deg` (A, B, C, D, counterclockwise; each under 180°, their sum 360°),
+ * fitted to a drawing `view` wide and high (30 in from each side): AB is 4 long, BC is tried from 0.5 to 12 and the shape
+ * turned by up to 60° either way (a turn costs a little: AB along the bottom reads most easily), and CD and DA close the walk. Of these the one whose shortest side is longest once the
+ * shape is fitted to the drawing, so every corner has room for its number. Null when no walk closes.
+ */
+const QUADS = new Map<string, [Pt, Pt, Pt, Pt] | null>();
+export function quadCorners(deg: [number, number, number, number], view: [number, number] = [300, 230]): [Pt, Pt, Pt, Pt] | null {
+  // the search is the same for the same angles: kept, since the exercises meet the same quadrilaterals again
+  const key = `${deg.join(',')}|${view.join(',')}`;
+  if (!QUADS.has(key)) QUADS.set(key, searchQuad(deg, view));
+  const P = QUADS.get(key)!;
+  return P && (P.map((p) => [...p]) as [Pt, Pt, Pt, Pt]);
+}
+function searchQuad(deg: [number, number, number, number], view: [number, number]): [Pt, Pt, Pt, Pt] | null {
+  const [al, be, ga] = deg;
+  const u = (d: number): Pt => [Math.cos((d * Math.PI) / 180), Math.sin((d * Math.PI) / 180)];
+  const u2 = u(180 - be); const u3 = u(360 - be - ga); const u4 = u(al);
+  const det = u4[0] * u3[1] - u3[0] * u4[1];
+  if (Math.abs(det) < 1e-9) return null;
+  let best: { score: number; P: Pt[] } | null = null;
+  for (let bc = 0.5; bc <= 12.001; bc += 0.2) {
+    const C: Pt = [4 + bc * u2[0], bc * u2[1]];
+    // C + cd·u3 = da·u4
+    const cd = (C[0] * u4[1] - u4[0] * C[1]) / det; const da = (C[0] * u3[1] - u3[0] * C[1]) / det;
+    if (cd <= 0 || da <= 0) continue;
+    const shape: Pt[] = [[0, 0], [4, 0], C, [da * u4[0], da * u4[1]]];
+    for (let t = -60; t <= 60; t += 10) {
+      const [c, sn] = u(t); const P = shape.map(([x, y]) => [x * c - y * sn, x * sn + y * c] as Pt);
+      const xs = P.map((p) => p[0]); const ys = P.map((p) => p[1]);
+      const k = Math.min((view[0] - 60) / (Math.max(...xs) - Math.min(...xs)), (view[1] - 60) / (Math.max(...ys) - Math.min(...ys)));
+      // a turned shape must be clearly better to be chosen: AB along the bottom reads most easily
+      const score = Math.min(4, bc, cd, da) * k * (1 - Math.abs(t) / 600);
+      if (!best || score > best.score + 1e-9) best = { score, P };
+    }
+  }
+  if (!best) return null;
+  const [x0, y0] = [Math.min(...best.P.map((p) => p[0])), Math.min(...best.P.map((p) => p[1]))];
+  return best.P.map(([x, y]) => [R(x - x0), R(y - y0)]) as [Pt, Pt, Pt, Pt];
+}
+
+/**
+ * A quadrilateral ABCD (CLASSROOM-12) with its angles `deg` (at A, B, C, D) drawn to size, counterclockwise from A at the
+ * bottom left. `marks` keyed by corner: a number or '?' inside its own corner (the arc sized so the number clears both
+ * sides), `right` for the square of a right angle, n 2 for two marked equal angles. `diag` draws a diagonal dashed;
+ * `names` renames the corners ('_' names draw no letter).
+ */
+export function quad(deg: [number, number, number, number], marks: Record<string, Partial<Angle>> = {}, { diag, names = ['A', 'B', 'C', 'D'], view = [300, 230] }: { diag?: 'AC' | 'BD'; names?: [string, string, string, string]; view?: [number, number] } = {}): GeoFig {
+  const P = quadCorners(deg, view);
+  if (!P) throw new Error(`no quadrilateral with the angles ${deg.join(', ')}`);
+  const pts: Record<string, Pt> = Object.fromEntries(names.map((k, i) => [k, P[i]]));
+  const angles: Angle[] = names.flatMap((k, i) => {
+    const m = marks[k]; if (!m) return [];
+    const from = names[(i + 1) % 4]; const to = names[(i + 3) % 4];
+    return [{ at: k, from, to, ...(m.right ? {} : { r: fitR(deg[i], deg[i], String(m.text || ''), 22 + 5 * Math.max(0, (m.n || 1) - 1)) }), ...m }];
+  });
+  const segs = diag ? [{ a: names[diag === 'AC' ? 0 : 1], b: names[diag === 'AC' ? 2 : 3], dash: true }] : [];
+  return geo(`מרובע ${names.map((k) => k.replace('_', '')).join('')}${diag ? ' והאלכסון שלו' : ''}`, { pts, polys: [{ pts: names }], segs, angles, view });
+}
+
+/**
+ * Two quadrilaterals side by side, no letters (CLASSROOM-12's prediction in place of a dragged vertex): a rectangle and a
+ * slanted one, each corner of each marked with its arc.
+ */
+export function twoQuads(left: [number, number, number, number], right: [number, number, number, number]): GeoFig {
+  const a = quadCorners(left)!; const b = quadCorners(right)!;
+  const shift = Math.max(...a.map((p) => p[0])) + 1.6 - Math.min(...b.map((p) => p[0]));
+  const L = ['_a', '_b', '_c', '_d']; const Rn = ['_e', '_f', '_g', '_h'];
+  const pts: Record<string, Pt> = { ...Object.fromEntries(L.map((k, i) => [k, a[i]])), ...Object.fromEntries(Rn.map((k, i) => [k, [R(b[i][0] + shift), b[i][1]] as Pt])) };
+  const arcs = (ns: string[]) => ns.map((k, i) => ({ at: k, from: ns[(i + 1) % 4], to: ns[(i + 3) % 4], r: 14 }));
+  return geo('שני מרובעים: מלבן, ומרובע עקום', { pts, polys: [{ pts: L }, { pts: Rn }], angles: [...arcs(L), ...arcs(Rn)], view: [300, 170] });
 }
 
 /**

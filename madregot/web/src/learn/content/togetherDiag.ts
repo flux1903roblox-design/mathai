@@ -156,6 +156,16 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the exterior angle at C is 38° + 77° = 115°; the interior one is 65°
     { bugs: { 'interior-not-exterior': 65 } },
   ],
+  'angles:6': [
+    // OC halves ∢AOB and ∢BOC = 37°: ∢AOB = 74°. The half itself: 37° (37 is odd, so no halving prediction)
+    { model: 'diag', p: { k: 'w', h: 37 } },
+    // OC halves ∢AOB = 128°: ∢BOC = 64°. The whole: 128°; doubled instead of halved: 256°
+    { model: 'diag', p: { k: 'h', w: 128 } },
+  ],
+  'angles:7': [
+    // a right angle at B, ∢A = 115°, ∢C = 70°: ∢D = 85°. The right angle forgotten: 175°
+    { model: 'diag', p: { k: 1, q: 3, s: 1, given: [115, 70], g: [115, 90, 70, 85] } },
+  ],
   'line:1': [
     // y = −2x + 3 at x = −4 is 11. Without b: 8. With x as if it were 4: −5. m and x added: −2 + (−4) + 3 = −3
     { bugs: { 'forgot-b': 8, 'neg-sub': -5, 'added-m': -3 } },

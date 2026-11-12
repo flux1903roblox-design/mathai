@@ -320,7 +320,7 @@ export function itemPlain(it) {
   const strip = (s) => String(s || '').replace(/[$\u2066\u2069]/g, '');
   const desc = figPlain(it.fig);
   const fig = desc ? ` [${desc}]` : '';
-  const choices = it.form === 'mc' ? ` אפשרויות: ${it.choices.map((c) => c.text || c.tex).join(' / ')}` : '';
+  const choices = it.form === 'mc' ? ` אפשרויות: ${it.choices.map((c) => (c.text ? strip(c.text) : c.tex)).join(' / ')}` : '';
   const manip = it.form === 'manip' ? ` ${manipPlain(it)}` : '';
   return `${strip(it.text)}${it.display ? ` ${it.display}` : ''}${fig}${choices}${manip}`.trim();
 }

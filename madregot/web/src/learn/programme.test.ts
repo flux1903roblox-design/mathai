@@ -29,20 +29,21 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   });
 });
 
-// Stage 1 is complete with percent, and the classroom lane adds signed:7 (CLASSROOM-5): the live coverage, from the stairs
-// this build has, is the classroom fixture's of worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4,
-// pct:1-5 and signed:7): ז׳ 108 of 150, ח׳ 66 of 147, 59%.
-describe('stage 1\'s coverage with the classroom lane\'s powers, live', () => {
+// Stage 1 is complete with percent, and the classroom lane adds signed:7 (CLASSROOM-5), angles:6 and angles:7 (CLASSROOM-10,
+// -12): the live coverage, from the stairs this build has, is the classroom fixture's of worker/test/coverage.test.js
+// (HEAD's 48 stairs, signed:6, ratio:1-4, pct:1-5, signed:7, angles:6 and angles:7): ז׳ 110 of 150, ח׳ 66 of 147, 59%.
+describe('stage 1\'s coverage with the classroom lane\'s stairs, live', () => {
   const STAGE1 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
     ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
     'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
-    'signed:7',
+    'signed:7', 'angles:6', 'angles:7',
   ];
-  it('has exactly the stage-1 stairs and signed:7 (the bridge unit aside), and their hours', () => {
+  it('has exactly the stage-1 stairs and the classroom lane\'s three (the bridge unit aside), and their hours', () => {
     expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE1].sort());
     const c7 = coverageOf('7'); const c8 = coverageOf('8');
-    expect([c7.taught, c7.hours]).toEqual([108, 150]);
+    expect([c7.taught, c7.hours]).toEqual([110, 150]);
+    expect(c7.pct).toBe(73);
     expect([c8.taught, c8.hours]).toEqual([66, 147]);
     expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(59);
     expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
@@ -53,6 +54,14 @@ describe('stage 1\'s coverage with the classroom lane\'s powers, live', () => {
     expect(u.stairs).toEqual(['pyth:1', 'signed:7']);
     expect(u.parts.find((p) => p.skills.includes('signed:7'))).toMatchObject({ hours: 4, taught: true, later: null });
     expect(notYetOf('7')).not.toContain('חזקות עם מעריך טבעי וסדר פעולות עם חזקות');
+  });
+  it('angles:6 and angles:7 are in 7.10: the bisector and the quadrilateral taught, measuring still a later stage\'s', () => {
+    const u = coverageOf('7').units.find((x) => x.id === '7.10')!;
+    expect(u).toMatchObject({ hours: 20, taught: 18, state: 'part' });
+    expect(u.stairs).toEqual(['angles:1', 'angles:2', 'angles:3', 'angles:4', 'angles:5', 'angles:6', 'angles:7']);
+    expect(u.parts.map((p) => [p.hours, p.taught, p.later])).toEqual([[16, true, null], [2, true, null], [2, false, 'S5']]);
+    expect(notYetOf('7')).toContain('מדידה ואומדן של זוויות');
+    expect(notYetOf('7').join(' ')).not.toMatch(/חוצה זווית|זוויות במרובע/);
   });
 });
 

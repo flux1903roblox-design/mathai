@@ -1775,6 +1775,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .mp-tile-pair, .mp-area-hint { animation: none; }
 }
 .manip-angle .manip-readout { font-size: 22px; }
+/* a ray inside a fixed angle (CLASSROOM-10): the names, then the sizes; on a narrow phone they wrap to two lines */
+.manip-angle.whole .manip-readout { font-size: 20px; gap: 0 8px; }
+.manip-angle.whole .ang-names { color: var(--ink-2); }
 
 /* ---------- the adventure map: a world per unit, stairs for stops, a chest halfway ---------- */
 /* each world opens with its landscape behind the first stairs; the land below keeps the world's ground */

@@ -8,6 +8,7 @@ import { SIGNED7_LEVEL } from './signed7.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
 import { signOutside, chainItem, regroupItem, absItem, oppItem, absMc, zeroOne, nestedItem } from './signedItems.js';
 import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from './angleItems.js';
+import { bisItem, bisCheckItem, quadItem } from './angles67.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 const rnd = () => Math.random();
@@ -492,7 +493,7 @@ export const GRADE7 = [
   },
   {
     id: 'angles', grade: '7', title: 'זוויות', color: 'petrol',
-    desc: 'צמודות, קודקודיות, משולש וישרים מקבילים',
+    desc: 'צמודות, קודקודיות, משולש, ישרים מקבילים, חוצה זווית ומרובע',
     // CURRICULUM-10: a check draws from testGen, practice from gen. A one-step question (equal to the drawn angle, or
     // 180° minus it) is passed by a student who copies the number or completes it to a line, so each check mixes in
     // two-step questions (content/angleItems.js), each practised first at 30% of its stair's exercises. The mixes keep
@@ -508,6 +509,12 @@ export const GRADE7 = [
       { title: 'ישרים מקבילים', gen: () => mix([[0.4, parallel], [0.3, parallelTriangle], [0.3, parallelBisect]]),
         testGen: () => mix([[0.2, () => parallel(pick(['corresponding', 'alternate']))], [0.2, () => parallel('cointerior')], [0.3, parallelTriangle], [0.3, parallelBisect]]) },
       { title: 'שווה־שוקיים וזווית חיצונית', gen: isosceles },
+      // CLASSROOM-10: the class's bisector worksheet (content/angles67.js): the whole from a half 20%, a half from the whole
+      // 20%, two bisectors in a fan of five rays 25%, a bisector on a straight line 25%, and "is OC the bisector?" with a
+      // reason 10% (a choice, practice only: a check redraws it)
+      { title: 'חוצה זווית', gen: () => (Math.random() < 0.1 ? bisCheckItem() : bisItem()) },
+      // CLASSROOM-12: the sum of the angles of a quadrilateral, three given, a right angle and two, or two marked equal angles
+      { title: 'סכום זוויות במרובע', gen: () => quadItem() },
     ],
     cats: {
       'equal-not-supp': 'ענו שהזוויות שוות, אבל הן משלימות ל־180°',
@@ -526,6 +533,9 @@ export const GRADE7 = [
       'sum-not-diff': 'חיברו את הזוויות במקום לחסר את החלק מהשלם',
       'other-vertex': 'חיברו ל־$180^\\circ$ שתי זוויות שאינן צמודות (בקודקודים שונים)',
       'part-for-whole': 'השתמשו בחלק של זווית כאילו הוא הזווית כולה',
+      // CLASSROOM-10 (the bisector) and CLASSROOM-12 (the quadrilateral)
+      'half-double-swap': 'כפלו ב־$2$ במקום לחלק ב־$2$, או להפך',
+      'quad-missed': 'הורידו מ־$360^\\circ$ רק חלק מהזוויות הידועות (גם הישרה נחשבת)',
     },
   },
   EXPR,

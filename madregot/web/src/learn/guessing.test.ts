@@ -46,6 +46,8 @@ import { collectItem, bracketCollect } from '@/content/expr.js';
 import { rectStory, transferTable, angleEqStory } from '@/content/eq.js';
 // @ts-ignore: plain JS
 import { fanItem, splitTriangleS1, splitTriangleS2 } from '@/content/angleItems.js';
+// @ts-ignore: plain JS
+import { bisItem, quadItem } from '@/content/angles67.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -109,7 +111,7 @@ export function shownNumbers(it: Item): number[] {
 function drawnByObject(m: any): string {
   if (!m) return '';
   const nums = m.kind === 'numberline' ? [m.from, m.start] : m.kind === 'bars' ? [...(m.values || []), m.target ?? m.mean]
-    : m.kind === 'angle' ? [m.target] : m.kind === 'pins' ? (m.labels || []).filter((l: unknown) => typeof l === 'number') : [];
+    : m.kind === 'angle' ? [m.target, m.whole] : m.kind === 'pins' ? (m.labels || []).filter((l: unknown) => typeof l === 'number') : [];
   return nums.filter((v: unknown) => typeof v === 'number').join(' ');
 }
 /** Every number printed in a question, whatever its form: its text, its expression, its drawing in words, its object. */
@@ -336,6 +338,25 @@ describe('the class\'s new angle kinds cannot be guessed', () => {
   it('S1 never reaches a check', () => {
     for (let i = 0; i < 200; i += 1) expect(splitTriangleS1().practiceOnly).toBe(true);
   });
+});
+
+// CLASSROOM-10 and -12: the bisector's four typed kinds as practice draws them (spec 1.7% for the most common answer;
+// 1.4% measured, bisTwo alone 4.2%) and the quadrilateral's three (spec 9.3%; 9.2% measured): no answer common enough to
+// pass a check, and never a copied number, nor 180°, 90° or 360° minus one (a right angle's 90° counts as printed)
+describe('the bisector and the quadrilateral cannot be guessed', () => {
+  it.each([['the bisector, its four typed kinds', () => bisItem(), 0.02], ['two bisectors in a fan (bisTwo) alone', () => bisItem('t'), 0.05],
+    ['the quadrilateral, its three kinds', () => quadItem(), 0.1]] as const)('%s', (_name, make, most) => {
+    const items = Array.from({ length: 6000 }, () => make());
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 10);
+    items.forEach((it) => {
+      const guesses = [...shownNumbers(it), ...(/ישרה/.test(it.text) ? [90] : [])].flatMap((n) => [n, 180 - n, 90 - n, 360 - n]);
+      expect(guesses.some((v) => isCorrect(it, v)), it.key).toBe(false);
+    });
+  }, SLOW);
 });
 
 describe('the guessing measure itself', () => {

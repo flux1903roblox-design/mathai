@@ -82,7 +82,7 @@ describe('placement', () => {
 describe('store: placement sets the path', () => {
   beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ goalXp: 20 }); });
   it('placed levels are passed over (open, not done), the next node is current, and the day counts for the streak', () => {
-    const r = { kind: 'placement', grade: '7', xp: PLACEMENT_XP, bestCombo: 3, results: { signed: { level: 3 }, coord: { level: 0 }, angles: { level: 5 } } };
+    const r = { kind: 'placement', grade: '7', xp: PLACEMENT_XP, bestCombo: 3, results: { signed: { level: 3 }, coord: { level: 0 }, angles: { level: 7 } } };
     const award = useApp.getState().completePlacement(r);
     const { path, days, placement } = useApp.getState();
     // a placement is a few questions, not a mastery check: the stairs it passes over stay open and offer their check
@@ -91,6 +91,7 @@ describe('store: placement sets the path', () => {
     expect(unitNodes('signed', path).slice(0, 3).map((n) => n.state)).toEqual(['open', 'open', 'open']);
     expect(unitNodes('signed', path).find((n) => n.state === 'current').level).toBe(4);
     expect(reachedUpTo('coord', path)).toBe(0);
+    // every angles stair passed over (seven since the bisector and the quadrilateral): the unit's review is next
     expect(unitNodes('angles', path).find((n) => n.state === 'current').kind).toBe('review');
     expect(days[today()]).toMatchObject({ lessons: 1, xp: PLACEMENT_XP });
     expect(streakOf(days)).toBe(1);

@@ -77,6 +77,8 @@ const ADDED_STAIRS = {
   'signed:6': 'נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.',
   // CLASSROOM-5: a student who had finished the unit's six stairs meets the seventh after them
   'signed:7': 'נוספה מדרגה חדשה ליחידה: חזקות של מספרים מכוונים.',
+  // CLASSROOM-10: a student who had finished the unit's five stairs meets the bisector after them (the quadrilateral follows it)
+  'angles:6': 'נוספה מדרגה חדשה ליחידה: חוצה זווית.',
 };
 /** The line a stair's card adds while it is the current stair and the stair before it is done; computed, never stored. */
 export const addedStairNote = (n, path = {}) => (n?.kind === 'node' && n.state === 'current' && n.level > 1 && isDone(path, n.topic, n.level - 1)
@@ -197,6 +199,11 @@ export function unitCountText({ done, stairs, stages, of }) {
   return `${stairs} מדרגות`;
 }
 
-/** The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. */
-export const chestAfter = (topic) => Math.ceil(TOPIC[topic].levels.length / 2);
+/**
+ * The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. The angles chest
+ * stays after the third stair: students opened it there before the unit grew from five stairs to seven (the bisector and
+ * the quadrilateral, CLASSROOM-10 and -12), and a chest once open is not locked again.
+ */
+const CHEST_KEPT = { angles: 3 };
+export const chestAfter = (topic) => CHEST_KEPT[topic] ?? Math.ceil(TOPIC[topic].levels.length / 2);
 export const chestOpen = (topic, path = {}) => doneUpTo(topic, path) >= chestAfter(topic);

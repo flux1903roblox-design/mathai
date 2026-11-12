@@ -375,7 +375,7 @@ export function manipPlain(it) {
         : m.lines ? `[מערכת צירים עם שני ישרים, ${m.lines.map(lineText).join(' ו־')}; שמים את נקודת המפגש שלהם]`
           : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
     case 'line': return '[מערכת צירים; בונים ישר בעזרת שתי נקודות: החיתוך עם ציר y וצעד אחד ימינה]';
-    case 'angle': return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
+    case 'angle': return m.whole ? `[זווית AOB של ${m.whole}° וקרן OC שמסתובבת בתוכה; OC צריכה לחצות את הזווית]` : `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
     case 'squares': return `[משולש ישר־זווית עם ריבועים על הצלעות; שטח הריבוע על היתר צריך להיות ${it.answer.c * it.answer.c}]`;
     case 'bars': return m.stat === 'median' ? `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; החציון צריך להיות ${m.target}]` : `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; הממוצע צריך להיות ${m.mean}]`;
     case 'pins': return `[ציר מספרים מ־${m.min} עד ${m.max}${m.den ? `, כל יחידה מחולקת ל־${m.den} חלקים שווים` : ''}; שמים עליו את המספרים ${m.labels.map(labelPlain).join(', ')}]`;
@@ -419,7 +419,7 @@ export function manipWrong(it) {
   const m = it.manip; const a = it.answer;
   switch (m.kind) {
     case 'numberline': { const d = lineStep(m); return a + d <= m.max + 1e-9 ? a + d : a - d; }
-    case 'angle': return a < 175 ? a + 5 : a - 5;
+    case 'angle': return a < (m.whole ? m.whole - 5 : 175) ? a + 5 : a - 5;
     case 'bars': return a < m.max ? a + 1 : a - 1;
     case 'plot': return m.quadrant ? (m.fixX != null ? [a[0], -a[1]] : [-a[0], a[1]]) : [a[0] < (m.range || 6) ? a[0] + 1 : a[0] - 1, a[1]];
     case 'line': { const r = m.range || 6; return Math.abs(a.b + a.m + 1) <= r && a.m + 1 !== 0 ? { m: a.m + 1, b: a.b } : { m: a.m - 1, b: a.b }; }

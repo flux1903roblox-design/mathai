@@ -99,6 +99,46 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "angles:6": {
+    "title": "חוצה זווית",
+    "misconceptions": [
+      {
+        "id": "part-for-whole",
+        "title": "לקחו את החצי במקום הזווית כולה"
+      },
+      {
+        "id": "no-half",
+        "title": "לקחו את כל הזווית במקום חצי ממנה"
+      },
+      {
+        "id": "half-double-swap",
+        "title": "כפלו ב־$2$ במקום לחלק ב־$2$, או להפך"
+      },
+      {
+        "id": "sum-360",
+        "title": "השלימו ל־$360^\\circ$ במקום ל־$180^\\circ$"
+      }
+    ],
+    "transfer": false
+  },
+  "angles:7": {
+    "title": "סכום זוויות במרובע",
+    "misconceptions": [
+      {
+        "id": "quad-missed",
+        "title": "הורידו מ־$360^\\circ$ רק חלק מהזוויות הידועות (גם הישרה נחשבת)"
+      },
+      {
+        "id": "forgot-half",
+        "title": "שכחו לחלק לשתי הזוויות השוות"
+      },
+      {
+        "id": "wrong-total",
+        "title": "השלימו ל־$180^\\circ$, כמו במשולש, במקום ל־$360^\\circ$"
+      }
+    ],
+    "transfer": false
+  },
   "coord:1": {
     "title": "קריאת נקודה",
     "misconceptions": [

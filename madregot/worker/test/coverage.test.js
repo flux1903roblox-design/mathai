@@ -1,7 +1,8 @@
 // The Ministry programme in code (shared/programme.js) and the coverage computed from it (shared/coverage.js).
 // The fixtures are skill lists typed here, so these numbers do not move when a stage lands: the council's 33 stairs,
 // HEAD's 48 (after the algebra build), stage 1's (HEAD plus signed:6, ratio:1-4 and pct:1-5), and the classroom lane's
-// (stage 1 plus signed:7, powers, CLASSROOM-5; its last build stage adds angles:6 and angles:7). The hours and the
+// (stage 1 plus signed:7, powers, CLASSROOM-5, and angles:6 and angles:7, the bisector and the quadrilateral,
+// CLASSROOM-10 and -12). The hours and the
 // per-unit taught hours are those of the Ministry's תשפ״ז schedules, as the curriculum spec checked them (§0.3).
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,8 +29,9 @@ const STAGE1 = [
   'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4',
   'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
 ];
-// the classroom lane (finish/specs/classroom.md): signed:7 makes 7.6 whole, 104 + 4 = 108 hours of ז׳
-const CLASSROOM = [...STAGE1, 'signed:7'];
+// the classroom lane (finish/specs/classroom.md): signed:7 makes 7.6 whole, 104 + 4 = 108 hours of ז׳; angles:6 and angles:7
+// teach 7.10's two hours of the bisector and the quadrilateral, 110 (measuring stays S5's)
+const CLASSROOM = [...STAGE1, 'signed:7', 'angles:6', 'angles:7'];
 const BRIDGE = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
 
 // The schedules' hours per unit (7.1-7.17, 8.1-8.17) and the hours each milestone teaches, unit by unit.
@@ -42,7 +44,7 @@ const TAUGHT = {
     council: [5, 4, 5, 5, 6, 2, 0, 0, 1, 16, 0, 1, 0, 6, 2, 0, 0],
     head: [5, 4, 5, 5, 6, 2, 25, 21, 1, 16, 0, 1, 0, 6, 2, 0, 0],
     stage1: [5, 5, 7, 5, 8, 2, 25, 21, 1, 16, 0, 1, 0, 6, 2, 0, 0],
-    classroom: [5, 5, 7, 5, 8, 6, 25, 21, 1, 16, 0, 1, 0, 6, 2, 0, 0],
+    classroom: [5, 5, 7, 5, 8, 6, 25, 21, 1, 18, 0, 1, 0, 6, 2, 0, 0],
   },
   '8': {
     council: [0, 0, 8, 0, 0, 1, 0, 8, 1, 8, 0, 0, 3, 1, 0, 0, 0],
@@ -51,10 +53,10 @@ const TAUGHT = {
     classroom: [8, 7, 8, 0, 0, 1, 0, 8, 6, 8, 0, 0, 3, 13, 4, 0, 0],
   },
 };
-// After stage 1 and the classroom lane's signed:7, the hours each later stage adds (§0.3: S2 = 7.12, 7.13, 8.4, 8.17,
-// and 7.6 until signed:7 taught it; S3 = 7.15-7.17, 8.6, 8.10, 8.11, 8.16; S4 = 7.11, 8.5, 8.12, 8.13; S5 = 7.9, 7.10,
-// 8.7, 8.9), and the totals after each (ז׳ 126, 139, 144, 150; ח׳ 78, 99, 133, 147).
-const AFTER = { '7': { S2: 126, S3: 139, S4: 144, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
+// After stage 1 and the classroom lane's three stairs, the hours each later stage adds (§0.3: S2 = 7.12, 7.13, 8.4, 8.17,
+// and 7.6 until signed:7 taught it; S3 = 7.15-7.17, 8.6, 8.10, 8.11, 8.16; S4 = 7.11, 8.5, 8.12, 8.13; S5 = 7.9, 7.10's
+// measuring, 8.7, 8.9), and the totals after each (ז׳ 128, 141, 146, 150; ח׳ 78, 99, 133, 147).
+const AFTER = { '7': { S2: 128, S3: 141, S4: 146, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
 const COMPLETES = {
   S2: ['7.12', '7.13', '8.4', '8.17'],
   S3: ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'],
@@ -135,8 +137,8 @@ test('coverage from the four fixtures: the council\'s 33 stairs, HEAD\'s 48, sta
   assert.equal(COUNCIL.length, 33);
   assert.equal(HEAD.length, 48);
   assert.equal(STAGE1.length, 58);
-  assert.equal(CLASSROOM.length, 59);
-  const want = { council: [COUNCIL, 53, 30], head: [HEAD, 99, 51], stage1: [STAGE1, 104, 66], classroom: [CLASSROOM, 108, 66] };
+  assert.equal(CLASSROOM.length, 61);
+  const want = { council: [COUNCIL, 53, 30], head: [HEAD, 99, 51], stage1: [STAGE1, 104, 66], classroom: [CLASSROOM, 110, 66] };
   for (const [name, [skills, t7, t8]] of Object.entries(want)) {
     const c7 = coverage('7', skills); const c8 = coverage('8', skills);
     assert.deepEqual([c7.taught, c7.hours, c8.taught, c8.hours], [t7, 150, t8, 147], name);
@@ -151,9 +153,13 @@ test('coverage from the four fixtures: the council\'s 33 stairs, HEAD\'s 48, sta
   assert.deepEqual([coverage('7', HEAD).pct, coverage('8', HEAD).pct], [66, 35]);
   assert.deepEqual([coverage('7', STAGE1).pct, coverage('8', STAGE1).pct], [69, 45]);
   assert.equal(Math.round((100 * (104 + 66)) / 297), 57);
-  // signed:7 teaches 7.6's four hours of powers: ז׳ 104 + 4 = 108 of 150 (72%), both grades 174 of 297 (59%)
-  assert.deepEqual([coverage('7', CLASSROOM).pct, coverage('8', CLASSROOM).pct], [72, 45]);
-  assert.equal(Math.round((100 * (108 + 66)) / 297), 59);
+  // signed:7 teaches 7.6's four hours of powers, angles:6 and angles:7 7.10's two of the bisector and the quadrilateral:
+  // ז׳ 104 + 4 + 2 = 110 of 150 (73%), both grades 176 of 297 (59%)
+  assert.deepEqual([coverage('7', CLASSROOM).pct, coverage('8', CLASSROOM).pct], [73, 45]);
+  assert.equal(Math.round((100 * (110 + 66)) / 297), 59);
+  const u710 = coverage('7', CLASSROOM).units.find((u) => u.id === '7.10');
+  assert.deepEqual([u710.taught, u710.state, u710.missing], [18, 'part', ['מדידה ואומדן של זוויות']]);
+  assert.deepEqual(u710.parts.map((p) => [p.hours, p.taught, p.later]), [[16, true, null], [2, true, null], [2, false, 'S5']]);
   assert.deepEqual(coverage('7', CLASSROOM).units.find((u) => u.id === '7.6').stairs, ['pyth:1', 'signed:7']);
   assert.equal(coverage('7', STAGE1).units.find((u) => u.id === '7.6').state, 'part');
   assert.equal(coverage('7', CLASSROOM).units.find((u) => u.id === '7.6').state, 'yes');
@@ -262,7 +268,7 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
 test('the words every surface quotes: the coverage sentence, the months, the hours, the school order', () => {
   // one sentence, filled from coverage(): the stage-1 fixture gives the spec's own example
   assert.equal(coverageSentence('7', coverage('7', STAGE1)), 'במדרגות יש כבר את החומר של 104 מתוך 150 שעות ההוראה של כיתה ז׳ (69%).');
-  assert.equal(coverageSentence('7', coverage('7', CLASSROOM)), 'במדרגות יש כבר את החומר של 108 מתוך 150 שעות ההוראה של כיתה ז׳ (72%).');
+  assert.equal(coverageSentence('7', coverage('7', CLASSROOM)), 'במדרגות יש כבר את החומר של 110 מתוך 150 שעות ההוראה של כיתה ז׳ (73%).');
   assert.equal(coverageSentence(8, coverage('8', HEAD)), 'במדרגות יש כבר את החומר של 51 מתוך 147 שעות ההוראה של כיתה ח׳ (35%).');
   assert.deepEqual(GRADE_NAME, { '7': 'ז׳', '8': 'ח׳' });
   // months: consecutive ones as a range, a gap as a comma, in school order (September first)

@@ -10,7 +10,7 @@ import type { SkillId, TopicId } from './types';
 // before linear functions.
 export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
 export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 7, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 7, coord: 5, angles: 7, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -51,6 +51,9 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'angles:3': ['angles:1'], // the triangle sum comes from a straight angle
   'angles:4': ['angles:1', 'angles:2'], // parallel lines: corresponding, alternate, co-interior
   'angles:5': ['angles:3'], // isosceles and exterior angles use the triangle sum
+  // the classroom lane's two stairs after the five (CLASSROOM-10, -12), so saved progress keeps its levels
+  'angles:6': ['angles:1'], // a bisector on a straight line takes the adjacent angle first; the rest is halving and doubling
+  'angles:7': ['angles:3'], // a diagonal cuts a quadrilateral into two triangles: 180° + 180° = 360°
   'expr:1': ['signed:4'], // substituting turns an expression into order of operations with signed numbers
   'expr:2': ['expr:1'], // an expression is checked by substituting a case we know
   'expr:3': ['expr:1', 'signed:1'], // equality is checked by substituting; coefficients are added as signed numbers

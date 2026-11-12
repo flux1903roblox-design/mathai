@@ -29,7 +29,8 @@ function importTopic(topic: string): Promise<StairContent[]> {
     // signed:7 (powers of directed numbers) the classroom lane's seventh (CLASSROOM-5), in its own file too
     case 'signed': return Promise.all([import('./signed'), import('./signed6'), import('./signed7')]).then(([a, b, c]) => [...a.SIGNED, ...b.SIGNED6, ...c.SIGNED7]);
     case 'coord': return import('./coord').then((m) => m.COORD);
-    case 'angles': return import('./angles').then((m) => m.ANGLES);
+    // angles:6 (the bisector) and angles:7 (the quadrilateral) are the classroom lane's (CLASSROOM-10, -12), in their own file
+    case 'angles': return Promise.all([import('./angles'), import('./angles67')]).then(([a, b]) => [...a.ANGLES, ...b.ANGLES67]);
     case 'expr': return import('./expr').then((m) => m.EXPR);
     case 'eq': return import('./eq').then((m) => m.EQ);
     // the curriculum lane's grade 8 units in school order: ratio and scale, then percent
