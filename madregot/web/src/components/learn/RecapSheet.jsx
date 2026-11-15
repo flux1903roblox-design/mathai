@@ -1,11 +1,13 @@
 // The Sunday recap's sheet (STUDENT-6, FOLLOWUP-38), loaded on demand from RecapCard: last week of this student, top to
-// bottom: the title with its dates, the week strip with its rest days, three numbers (learning days, steps, stairs
+// bottom: the title with its dates, the week strip with its rest days, three numbers (learning days, stages, stairs
 // mastered), up to three new stairs and three mistakes fixed by name, the personal best, the class goal (in a class),
 // what Madi earned that week (with Madi wearing it, still), and two buttons: "לשלוח להורים" opens the parents' share
 // sheet (components/report/ShareSheet.jsx, PARENTS-2) for that week's Sunday, and "סגירה".
 // Days, stairs mastered and mistakes fixed are the `week` RecapCard got from learn/report.ts weekLocal, never counted
-// again here; steps and the best week are STUDENT-5's (lib/streak.js), the class goal STUDENT-4's saved classGoals,
-// and Madi's pieces the ones whose look.earnedAt falls in the week. Nothing about prices, nothing sent from here.
+// again here; the week's stages and the personal best are the ghost race's (lib/streak.js weekTotals and personalBest,
+// PRODUCT2-39: one count of a week on every screen), the class goal STUDENT-4's saved classGoals (counted in the
+// teacher's steps), and Madi's pieces the ones whose look.earnedAt falls in the week. Nothing about prices, nothing
+// sent from here.
 import clsx from 'clsx';
 import { CalendarCheck, Footprints, Check, Moon, Send } from 'lucide-react';
 import { Sheet, Button } from '@/components/ui.jsx';
@@ -14,7 +16,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { ShareSheet } from '@/components/report/ShareSheet.jsx';
 import { useApp } from '@/lib/store.js';
 import { useMadiLook } from '@/lib/madiLook.js';
-import { weekSteps, bestWeek } from '@/lib/streak.js';
+import { weekTotals, personalBest } from '@/lib/streak.js';
 import { colorOf, nameOf, wearing } from '@/lib/wardrobe.js';
 import { dm, newestFirst } from '@/lib/share.js';
 import { stairName, misconName } from '@/learn/report.ts';
@@ -24,17 +26,21 @@ const LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const SHOWN = 3;
 const steps = (n) => (n === 1 ? 'צעד אחד' : `${n} צעדים`);
+const stages = (n) => (n === 1 ? 'שלב אחד' : `${n} שלבים`);
 /** Up to three names, then how many more. */
 const names = (list) => `${list.slice(0, SHOWN).join(', ')}${list.length > SHOWN ? ` ועוד ${list.length - SHOWN}` : ''}`;
 
-/** The personal-best line: a new best (or the first week with steps), else the week against the best. '' with no steps. */
+/**
+ * The personal-best line in stages (`best`: personalBest's { n, week } or null): a new best (or the first week with a
+ * stage), else the week against the best. '' with no stages.
+ */
 export function bestLine(n, best) {
   if (!n) return '';
-  if (!best || n > best.steps) return `שיא שבועי חדש: ${steps(n)}!`;
-  return `${steps(n)}. השיא שלכם: ${best.steps === 1 ? 'צעד אחד' : best.steps}.`;
+  if (!best || n > best.n) return `שיא שבועי חדש: ${stages(n)}!`;
+  return `${stages(n)}. השיא שלכם: ${best.n === 1 ? 'שלב אחד' : best.n}.`;
 }
 
-/** The class line (STUDENT-4), calm when the class got there without this student's steps. */
+/** The class line (STUDENT-4, in the class goal's own steps), calm when the class got there without this student's steps. */
 export function classLine(g) {
   if (!g || !(g.target > 0)) return '';
   const end = g.reached ? (g.mine > 0 ? '. הגעתם למטרה יחד.' : '. הכיתה הגיעה למטרה.') : '.';
@@ -86,8 +92,8 @@ export default function RecapSheet({ view, week, onClose, onShare, onShareClose 
   const inClass = useApp((s) => !!s.profile?.classCode);
   const goal = useApp((s) => s.classGoals?.[week.start]);
   const madi = useMadiLook();
-  const n = weekSteps(days, week.start);
-  const best = bestWeek(days, week.start);
+  const n = weekTotals(days, week.start).stages;
+  const best = personalBest(days, week.start).stages;
   const mastered = newestFirst(week.mastered).map(stairName);
   const fixed = week.fixed.map(([skill, id]) => misconName(skill, id));
   const earned = earnedIn(look, week.start, week.end);
@@ -107,7 +113,7 @@ export default function RecapSheet({ view, week, onClose, onShare, onShareClose 
         <Strip week={week} />
         <div className="recap-tiles">
           <Stat icon={CalendarCheck} value={week.activeDays} label="ימי לימוד" />
-          <Stat icon={Footprints} value={n} label="צעדים" />
+          <Stat icon={Footprints} value={n} label="שלבים" />
           <Stat icon={Check} value={week.mastered.length} label="מדרגות בשליטה" />
         </div>
         <ul className="recap-lines">

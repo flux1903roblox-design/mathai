@@ -73,15 +73,15 @@ K7Q2MD), and the class goal is 60 steps.
 
 | Day | What she does | What the test asserts | Picture (phone) |
 |---|---|---|---|
-| **Sun 8.11**, 16:00 | First questions (name, grade, "קצת מוכר", 10 minutes a day, no class code yet, "מתחילים מההתחלה"). She goes to stage A of חיבור וחיסור, then from the map to the stair's page and "מתרגלים לבד": a first lesson | Stage A's moment says "+10 XP" and "התחלתם רצף". The header streak is 1. After the lesson comes the daily goal's own moment ("הגעתם ליעד היומי!", 25 XP). The day is saved with 1 stage and 1 lesson | [1-sunday-goal](qa-evidence/student/week/phone/1-sunday-goal.png) |
+| **Sun 8.11**, 16:00 | First questions (name, grade, "קצת מוכר", 10 minutes a day, no class code yet, "מתחילים מההתחלה"). She goes to stage A of חיבור וחיסור, then from the map to the stair's page and "מתרגלים לבד": a first lesson | Stage A's moment says "+10 XP", "התחלתם רצף" and "מדי קיבל משהו חדש". On the way to the map comes מדי's first piece, in the first session (PRODUCT2-36): "סיימתם את השלב הראשון, ומדי קיבל כובע חגיגה.", and she keeps it on. The header streak is 1. After the lesson comes the daily goal's own moment ("הגעתם ליעד היומי!", 25 XP). The day is saved with 1 stage and 1 lesson | [1-sunday-first-piece](qa-evidence/student/week/phone/1-sunday-first-piece.png), [1-sunday-goal](qa-evidence/student/week/phone/1-sunday-goal.png) |
 | **Mon 9.11**, 16:00 | Joins her class from אני › הגדרות with the teacher's code and her own 4-digit code. Then the next step the stair page offers, the worked examples (stage B). Then the missions tab | Joining turns sounds off, because she never chose (STUDENT-7). The worked example sends its step to the server before the goal is asked. The card above today's missions says "15 מתוך 60 צעדים" and "החלק שלכם השבוע: צעד אחד". No classmate's name, no rank, no "ליגה" | [2-monday-class-goal](qa-evidence/student/week/phone/2-monday-class-goal.png) |
 | **Tue 10.11**, 20:30 | Does not learn. Opens the app in the evening and closes it | Streak 2. No repair card, because yesterday she learned. No word of pressure (`פספסתם, תפספסו, איבדתם, נשבר, נגמר הרצף, תאבדו, יימחק, מהרו` are all absent). Nothing is saved for Tuesday | [3-tuesday-home](qa-evidence/student/week/phone/3-tuesday-home.png) |
-| **Wed 11.11**, 16:00 | The repair card. Two practice lessons. After the first, the reminder offer (her third learning day): "להפעיל" at 17:00 | The card says "אתמול לא יצא ללמוד. עוד שני שיעורים היום, והרצף של 2 ימים נשמר." The offer has no ₪, plan or streak threat, and 17:00 is chosen. The Worker accepts the subscription (200), with the endpoint, keys and slot "17" exactly as the app sent them. After the second lesson: "3 ימים ברצף!", "הרצף נשמר. 3 ימים ברצף.", and Tuesday is shown as "הרצף נשמר" in the week strip. The offer does not come again. Two lessons without a mistake finish the day's three missions, which gives one streak freeze | [4-wednesday-streak-kept](qa-evidence/student/week/phone/4-wednesday-streak-kept.png) |
-| **Thu 12.11**, 16:00 | From the map: זוויות, stair 1, "כל חמשת השלבים", "בדיקת שליטה". Then stairs 2 and 3 | All three checks give "שולטים לבד!". The third says "פתחתם תיבת אוצר". Then comes the unlock moment ("מדי קיבל משהו חדש", "שלטתם בחצי הראשון של זוויות, ומדי קיבל כתר מד־זווית.") and she taps "לשמור על מדי". The chest on the path says "פתחתם: כתר מד־זווית.". In the wardrobe the crown is chosen and the class scarf is locked. The day has mp = 3 | [5-thursday-unlock](qa-evidence/student/week/phone/5-thursday-unlock.png), [5b chest](qa-evidence/student/week/phone/5b-thursday-chest.png), [5c wardrobe](qa-evidence/student/week/phone/5c-thursday-wardrobe.png) |
+| **Wed 11.11**, 16:00 | The repair card. Two practice lessons. After the first, the reminder offer (her third learning day): "להפעיל" at 17:00 | The card says "אתמול לא יצא ללמוד. עוד שני שיעורים היום, והרצף של 2 ימים נשמר." The offer has no ₪, plan or streak threat, and 17:00 is chosen. The Worker accepts the subscription (200), with the endpoint, keys and slot "17" exactly as the app sent them. After the second lesson: the 3-day milestone, once (PRODUCT2-38): "3 ימים ברצף!" with מדי, an orange medal and "שלושה ימים של תרגול. מדי שמח איתכם.", then "הרצף נשמר. 3 ימים ברצף.", and Tuesday is shown as "הרצף נשמר" in the week strip. The offer does not come again. Two lessons without a mistake finish the day's three missions, which gives one streak freeze and a choice of one of two pieces for מדי (PRODUCT2-36): she chooses "מדליה", and "כובע צמר" waits for the next chest | [4-wednesday-streak-kept](qa-evidence/student/week/phone/4-wednesday-streak-kept.png), [4b-wednesday-chest](qa-evidence/student/week/phone/4b-wednesday-chest.png) |
+| **Thu 12.11**, 16:00 | From the map: זוויות, stair 1, "כל חמשת השלבים", "בדיקת שליטה". Then stairs 2 and 3 | All three checks give "שולטים לבד!". The third says "פתחתם תיבת אוצר". Then comes the unlock moment ("מדי קיבל משהו חדש", "שלטתם בחצי הראשון של זוויות, ומדי קיבל כתר מד־זווית.") and she taps "לשמור על מדי". The chest on the path says "פתחתם: כתר מד־זווית.". In the wardrobe the crown is chosen, the meter says the next piece is 4 stages away, and the class scarf waits under "בדרך למדי". The day has mp = 3 | [5-thursday-unlock](qa-evidence/student/week/phone/5-thursday-unlock.png), [5b chest](qa-evidence/student/week/phone/5b-thursday-chest.png), [5c wardrobe](qa-evidence/student/week/phone/5c-thursday-wardrobe.png) |
 | **Fri 13.11** | Does not learn. In the morning she looks at the reminder in Settings | Settings shows the reminder on at 17:00, with the rule ("לא נשלחת בשבת ובחגים… לא אחרי 12:00 בערב שלהם"). The app had told the server that she learned on Thursday. Then the Worker's `pushDue` runs on her row: at 16:37 to 20:37 it returns `skipped: 'quiet'` (Shabbat eve), and at 11:37 `skipped: 'hour'`. **Nothing is sent** | [6-friday-reminder](qa-evidence/student/week/phone/6-friday-reminder.png) |
 | **Shabbat 14.11**, 11:00 | Opens the app, then the missions tab | On opening, Wednesday's freeze covers Friday (`frozen: true`, freezes 0). Shabbat is a rest day, and the streak is still **4**. "בשבת ובחג הרצף נשמר." The class has not reached its goal yet, so there is no moment. `pushDue` at 16:37 to 20:37 returns `quiet`, and nothing is sent. Control: the same row on Monday 16.11 at 17:37 is sent once, to her address, so the silence is the rule and not a dead row | [7-shabbat-streak](qa-evidence/student/week/phone/7-shabbat-streak.png) |
 | **Sun 15.11**, 10:00 | Opens the app | Last week's goal was reached (50 steps from the class plus her **12**). The moment "עשינו את זה יחד" says "הכיתה שלכם עברה את המטרה של השבוע שעבר, ואתם הוספתם 12 צעדים. מדי קיבל צעיף כיתה." The 12 is what the server counted from the steps her phone sent: 1 on Monday, 2 on Wednesday and 3×3 on Thursday. "לראות את מדי" opens the wardrobe with the class scarf on, next to the crown. After a reload the moment does not come again | [8-sunday-class-goal](qa-evidence/student/week/phone/8-sunday-class-goal.png), [8b wardrobe](qa-evidence/student/week/phone/8b-sunday-wardrobe.png) |
-| **Sun 15.11**, 11:00 | Opens the app again; the recap card above the path, "לראות", then "לשלוח להורים" | The card "איך היה השבוע שעבר?" (STUDENT-6). The sheet "השבוע שעבר, 8.11–14.11": the week strip (Shabbat marked), **4** ימי לימוד, **14** צעדים (her days' own count: Sunday's lesson and stage before she joined, then the 12 the class got) and **3** מדרגות בשליטה, the three זוויות stairs by name, "שיא שבועי חדש: 14 צעדים!", "הכיתה: 62 מתוך 60. הגעתם למטרה יחד. החלק שלכם: 12 צעדים.", and "בשבוע שעבר מדי קיבל: כתר מד־זווית." with a still Madi wearing it. No pressure words. "לשלוח להורים" opens the parents' share sheet with a wa.me link. `/report` for "השבוע שעבר" shows the same 4 days and 3 stairs. After a reload the card does not come again | [9-sunday-recap-card](qa-evidence/student/week/phone/9-sunday-recap-card.png), [9b sheet](qa-evidence/student/week/phone/9b-sunday-recap-sheet.png), [9c share](qa-evidence/student/week/phone/9c-sunday-recap-share.png) |
+| **Sun 15.11**, 11:00 | Opens the app again; the recap card above the path, "לראות", then "לשלוח להורים" | The card "איך היה השבוע שעבר?" (STUDENT-6). The sheet "השבוע שעבר, 8.11–14.11": the week strip (Shabbat marked), **4** ימי לימוד, **8** שלבים (her week's own count, the ghost race's since the product2 merge: each lesson, check or teaching stage once; the class goal counts the same week as 12 steps, a passed check as 3) and **3** מדרגות בשליטה, the three זוויות stairs by name, "שיא שבועי חדש: 8 שלבים!", "הכיתה: 62 מתוך 60. הגעתם למטרה יחד. החלק שלכם: 12 צעדים.", and "בשבוע שעבר מדי קיבל: כובע חגיגה, מדליה, כתר מד־זווית." with a still Madi wearing them. No pressure words. "לשלוח להורים" opens the parents' share sheet with a wa.me link. `/report` for "השבוע שעבר" shows the same 4 days and 3 stairs. After a reload the card does not come again | [9-sunday-recap-card](qa-evidence/student/week/phone/9-sunday-recap-card.png), [9b sheet](qa-evidence/student/week/phone/9b-sunday-recap-sheet.png), [9c share](qa-evidence/student/week/phone/9c-sunday-recap-share.png) |
 
 The same days at 320x568 are in `qa-evidence/student/week/phone-small/`, and in dark mode in `.../week/phone-dark/`.
 
@@ -111,7 +111,7 @@ spec (`STUDENT-n`). "integrity" means the merged integrity build that this lane 
 |---|---|---|---|
 | Critical #21: the first session has no payoff | integrity (StageDone: XP and streak for a teaching stage), STUDENT-7 (the daily goal's moment) | `flows.spec.js` "the first session gives something back"; "the daily goal has its own moment"; the week, Sunday | week/phone/1-sunday-goal |
 | Major #22: teaching screens are mostly text | STUDENT-8 (a drawing or object on every teaching step, all topics) | `teach-all.spec.js` (every step at 320x568); `figures.test`, `visuals.test` | after/i13f-02-teach-0, after/t6-01-predict-wrong |
-| Major #23: progress feels like zero | integrity (counters that move), STUDENT-5 (learning days, a weekly best), STUDENT-6 (the Sunday recap: the week's days, steps and stairs in one place, sent to a parent in one tap) | `flows.spec.js` (the unit and stair counters); `streak.spec.js` (the weekly best, learning days); `recap.spec.js`, `lib/recap.test.js`; the week, Shabbat and Sunday | after/L2-09-end-16, week/phone/7-shabbat-streak, week/phone/9b-sunday-recap-sheet, recap/ |
+| Major #23: progress feels like zero | integrity (counters that move), STUDENT-5 (learning days, a weekly best), STUDENT-6 (the Sunday recap: the week's days, stages and stairs in one place, sent to a parent in one tap) | `flows.spec.js` (the unit and stair counters); `streak.spec.js` (the weekly best, learning days); `recap.spec.js`, `lib/recap.test.js`; the week, Shabbat and Sunday | after/L2-09-end-16, week/phone/7-shabbat-streak, week/phone/9b-sunday-recap-sheet, recap/ |
 | Major #24: the path is identical across units | STUDENT-1 (colour, emblem and drawings per unit) | `identity.spec.js`; `tokens.test.js` | after/h1-02-home-full |
 | Major #25: no teen motivators (no avatar, no league, chests give only freezes, no dark mode) | STUDENT-2 (dark mode), STUDENT-3 (Madi's wardrobe, chests that say what they hold), STUDENT-4 (a cooperative class goal instead of a league), STUDENT-5 (a weekly personal best for solo students) | `dark.spec.js`, `wardrobe.spec.js`, `class-goal.spec.js`, `streak.spec.js`; the week, Monday, Thursday and Sunday | after/dark-home, after/T13-06-__me-full, week/phone/2, 5, 5c, 8, 8b |
 | Adult and developer copy on student screens | integrity (`/settings/advanced`), STUDENT-9 §6 (Me in the student's words) | `flows.spec.js` "settings: a student sees no server address or key"; `learn.spec.js` "the profile shows what the evidence says" | after/T13-06-__me-full |
@@ -181,13 +181,97 @@ is the same screen now (`qa-evidence/student/after/`, 390x844). The test takes t
 
 | Council screenshot | Before | After | What changed, and which item |
 |---|---|---|---|
-| `h1-02-home-full` | <img src="qa-evidence/student/before/h1-02-home-full.png" width="220" alt="the home path before: one blue for every unit"> | <img src="qa-evidence/student/after/h1-02-home-full.png" width="220" alt="the home path after a week: each unit its own colour, emblem and drawings"> | Each unit has its own colour, emblem and two drawings beside the path (STUDENT-1). After the week the angles chest is gold and open, and its three stairs are done (STUDENT-3). The counters read in stages ("3 מתוך 25 שלבים"), not zero |
+| `h1-02-home-full` | <img src="qa-evidence/student/before/h1-02-home-full.png" width="220" alt="the home path before: one blue for every unit"> | <img src="qa-evidence/student/after/h1-02-home-full.png" width="220" alt="the home path after a week: the units before folded into rows, angles open, the next unit previewed, the last folded"> | Each unit has its own colour, emblem and two drawings beside the path (STUDENT-1). After the week the angles chest is gold and open, and its three stairs are done (STUDENT-3). The counters read in stages ("3 מתוך 25 שלבים"), not zero. Since PRODUCT2-35/37 the page is a journey: the unit she is on is open (with מדי at her stop), the next shows its banner and first stop, and the others are folded rows, one tap away; the page is 2,190 CSS px long, not 5,700 |
 | `dark-home` | <img src="qa-evidence/student/before/dark-home.png" width="220" alt="the home with the phone in dark mode before: still white"> | <img src="qa-evidence/student/after/dark-home.png" width="220" alt="the home in dark mode now"> | The app follows the phone's dark setting, with AA text and 3:1 edges (STUDENT-2) |
 | `T13-06-__me-full` | <img src="qa-evidence/student/before/T13-06-__me-full.png" width="220" alt="the profile before: a letter in a circle and teacher-style metrics"> | <img src="qa-evidence/student/after/T13-06-__me-full.png" width="220" alt="the profile now: her Madi with the crown, learning days, and a button to the wardrobe"> | Her Madi, wearing what she earned, replaces the letter, with "עיצוב מדי" under the name (STUDENT-3). "ימי לימוד" replaces total XP (STUDENT-5). The numbers are in the student's words (STUDENT-9 §6). See section 8 for "שולטים לבד 0" |
 | `i13f-02-teach-0` | <img src="qa-evidence/student/before/i13f-02-teach-0.png" width="220" alt="the first teaching step before: one sentence on an empty screen"> | <img src="qa-evidence/student/after/i13f-02-teach-0.png" width="220" alt="the first teaching step now: the sentence with a number line drawing the +5 jump"> | The sentence now has its drawing: a number line where the +5 jump draws itself (STUDENT-8). The disabled "הקודם" is gone on the first step (STUDENT-9 §5) |
 | `t3-02-wrong1` | <img src="qa-evidence/student/before/t3-02-wrong1.png" width="220" alt="a wrong move on the number line before: the stepper hidden under the sheet"> | <img src="qa-evidence/student/after/t3-02-wrong1.png" width="220" alt="the same wrong move now: the stepper visible above the not-yet sheet"> | The −/+ stepper and the marker's value stay visible above "עוד לא. הזיזו ונסו שוב" (STUDENT-9 §2). The diagnosis is kept |
 | `t6-01-predict-wrong` | <img src="qa-evidence/student/before/t6-01-predict-wrong.png" width="220" alt="a wrong prediction before: text only"> | <img src="qa-evidence/student/after/t6-01-predict-wrong.png" width="220" alt="the same wrong prediction now: with a number line marking 2"> | The question has its number line, with 2 marked (STUDENT-8). The explanation of the guess is kept |
 | `L2-09-end-16` | <img src="qa-evidence/student/before/L2-09-end-16.png" width="220" alt="a perfect lesson's end before: 0 of 5 stairs"> | <img src="qa-evidence/student/after/L2-09-end-16.png" width="220" alt="a perfect lesson's end now: 1 of 5 stages, and what comes next"> | "מספרים מכוונים: 0 מתוך 5 מדרגות" is now "חיבור וחיסור: 1 מתוך 5 שלבים" with five segments, plus what comes next ("אחרי בדיקת שליטה קצרה, המדרגה נספרת"), from integrity's counters |
+
+Round 2's painful moment #2, the returning home (PRODUCT2-40): `qa-evidence/student/streak/repair-card.png` (an iPhone 13
+in Safari), `repair-card-320x568.png` and `repair-card-dark.png` are written by `e2e/streak.spec.js` › "a returning
+student's home screen" (she learned Thursday 5, Friday 6, Sunday 8 and Monday 9; today is Wednesday 11). The flame says
+"4 מחכה" while the card says "הרצף של 4 ימים נשמר", and the missions tab and the profile say 4 too. One card stands above
+the path, the most important (repair, then the teacher's work, then the next step, then the Home Screen guide, which
+otherwise waits under the path). The path's current stop is on the first screen, and the button back to it floats at
+the end side and steps aside while a unit's banner passes under it. The path no longer ends with the Ministry's
+programme (it is on the topics tab, the parents' area and the teacher's tools), and the AI tab of a child alone is never
+a locked input: with no server it is a page about what מדי explains in every lesson; before a parent's OK it says what
+the helper does and offers one "לבקש מהורה".
+
+Round 2's painful moment #3, screens a child reads (PRODUCT2-41), is checked by `e2e/voice.spec.js` on both phones: a
+mission's reason is at most two lines, with "עוד" (aria-expanded) for the rest and no "לפי תוכנית הלימודים" in it; a
+wrong guess on a teaching step is two lines and "עוד", not five or six; מדי stands beside every first question without
+covering it; Settings keeps "שמירה קבועה בדפדפן", the backup and "מידע לתמיכה" in "להורים ולמבוגרים", under the student's
+own settings and folded: the child sees its heading (a button with aria-expanded, 44px) and one line on who it is for,
+and nothing about the browser until an adult opens it; /settings#save (the storage banner's "מה עושים") opens it at the
+saving with the focus on its heading (backup and restore work as before: durable.spec, backup-file.spec, install.spec,
+monitor.spec and restore.spec open it with `openAdults`, and the backup file's note names the way, "הגדרות ← להורים
+ולמבוגרים ← לשחזר מקובץ"); and flat inline maths in a sentence is in Rubik, upright, while a fraction keeps KaTeX.
+One row did not go into the fold: on an iPhone in the browser, "להוסיף למסך הבית" (the Home Screen guide, which is how
+an iPhone keeps the progress) now stands among the student's own settings, under "האפליקציה", where the other browsers'
+"להתקין את האפליקציה" already was (install.spec: one such row, visible with the section folded; `Settings.test.jsx`).
+
+The lane's review of round 2, four more things a student meets:
+- **A stray space is not a number.** The keypad's space key (for 5 1/3) let "−1 3" through as −13. Now a space inside
+  a number, or one left after the whole number, is not an answer yet: nothing is graded, and the lesson says how a mixed
+  number is written ("מספר מעורב, כמו 5 1/3, כותבים כך: שלם, רווח ושבר."). `content/util.test.js`, `components/ui.test.jsx`,
+  and e2e learn.spec "a stray space between digits…" (the slot, the line, no attempt saved, then the number taken).
+- **Exam Rescue at 10 minutes a day** (its first choice) put the practice and the check on one day and always said the
+  plan was overloaded, because the 12-minute lesson is longer than the day. A step longer than the minutes chosen now
+  fills a day of its own, which is not a tight plan, and when a day must hold more, three separate days are tried first
+  again. With three weeks, one stair or two: lesson, practice and check on three days, and no "עמוס" line
+  (`learn/rescuePlan.test.ts`, which also keeps 15 minutes as it was).
+- **Every mistake that fits is named, at 2,000 questions a stair** (PRODUCT2-15). Each run samples 300 different
+  questions a stair; the deep run is `LABELS_DISTINCT=2000 npx vitest run src/content/labels.test.js` (2,000 different
+  questions a stair out of up to 8,000 draws, about three minutes), and CI runs it as a step of its own. Its first run
+  failed on three stairs, each an answer named as one mistake where another fits too: eq:2 (−8 = −4x − 6 answered 8:
+  only x divided, and the coefficient multiplied across), eq:3 (−5.6 is one mistake's own number and another's −50/9
+  typed to a tenth), sys:3 (the constants added instead of subtracted, when the student makes the other unknown go).
+  The generators now name both (`content/eq.js` diagOf and twoStepBugs, `content/sys.js` minusBracketValues), the three
+  cases are pinned at the end of `labels.test.js`, and the deep run passes: 135 tests.
+
+Round 2's "celebrations calm to the point of plain" (PRODUCT2-38) is checked by `e2e/celebrate.spec.js` on both phones,
+with motion on and a live clock (a fixed clock freezes motion mid-way): the first stage of a student who learned the two
+school days before reaches the daily goal, finishes a stage, brings מדי his first piece and makes 3 days in a row, so
+the goal, the stage, the unlock and the 3-day milestone come one after another. מדי jumps in on each and shapes fly out;
+the XP counts up and lands on +10 (a screen reader has "+10 XP" at once); Enter skips the milestone mid-animation; the 7
+and 30-day milestones say their own line. `e2e/streak.spec.js` checks the milestones under reduced motion (still, the
+number there at once, shown once, never again, and after a teaching stage before the way picked). The sounds are
+`lib/sound.test.js` (a chime, a climbing combo and a level up, each with its own vibration; nothing for a student in a
+class who never chose sound). Pictures taken mid-animation: `qa-evidence/student/celebrate/`. The class goal's moment
+(`class-goal/phone-moment.png`, `phone-small-moment.png`) was taken again from this build (signed has 6 stairs now).
+
+The student skeptic's "a drawing in 4 of 263 worked examples and solving-together problems" (SK-STUDENT-1): every
+angles and Pythagoras problem of stages B and C now has its drawing (a line split by rays, two crossing lines, a
+triangle from its angles, a sail, parallel lines, an isosceles triangle, an exterior angle, a folding ladder; a right
+triangle, a garden, a frame, a pole, a ladder, a kite, a screen, two points on a plane), and the plane, lines,
+statistics and fractions have one where a plane, a dot plot, a bar chart or a fraction bar carries the idea: 98 of 263,
+against 4. Each is built from its problem's own numbers: `learn/figures.test.ts` checks that a drawing names only its
+problem's letters, draws every angle written in degrees that size, keeps numbered sides in proportion, puts a point
+named by its coordinates there and never writes the answer it asks for; `learn/visuals.test.ts` prints the table and
+holds angles and Pythagoras to all of them and the four other topics to a share. `e2e/teach-all.spec.js` opens every
+problem of those six topics at 320x568: its drawing is visible and the way on stays in view (a worked example's first
+button; in solving together, the first choice above the bottom bar). Pictures:
+`qa-evidence/student/visuals/bc-*.png` (the triangle's angle sum, stage B, and Pythagoras together, stage C, on both
+phones).
+
+Round 2's "no safe social or competitive pull for a solo student" (PRODUCT2-39), with no stranger anywhere: the
+missions tab's "השבוע שלי" is now a race against the student's own last week, two calm bars on one scale
+("השבוע שעבר: 5 שלבים", "השבוע: 5 שלבים"), the practice days of both weeks and the personal best (`lib/streak.js`
+weekTotals, personalBest, ghostRace: a stage is a finished lesson, check or teaching stage, as on the stair). A week
+ahead says "עברתם את השבוע שעבר."; a week behind says nothing about it; there is no countdown. The lesson's "שיא שבועי
+חדש" reads the same best. A parent picks one small weekly goal on /parents (3, 4 or 5 practice days, or 5 or 10 stages;
+a goal of days only when the week still has that many school days; from Thursday it is for next week) and sends it as
+a link; the goal rides in the # fragment like the /r summary, so it works with no server, signed out and on the free
+tier, and holds no name and no text. The child takes it on their own phone (`#/f/…`), sees it on the missions tab as
+dots, can take it off at any time, and its progress is in the weekly summary and in the /r link the child sends
+(`fc`); on a linked device the parent's daily report counts that week against the goal sent from that phone. Checked
+by `lib/streak.test.js`, `lib/familyChallenge.test.js` (the link's round trip and every way it refuses to decode),
+`screens/Quests.test.jsx` and `e2e/family-challenge.spec.js` on both phones (no request to any server, no price, no
+pressure words). Pictures: `qa-evidence/student/family/`. Not built: delivering the goal through family sync itself
+(a parent's write to a linked device needs a new Worker route; see section 7).
 
 Earlier stages' own before and after pictures are in `qa-evidence/student/`: `unit-identity-before/after.png`, `dark/`,
 `madi/`, `streak/`, `class-goal/`, `visuals/`, `polish/`, `install/`, `push/`, `landing/` and `store/`.
@@ -318,6 +402,12 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
   `page.route` fakes, which are enough for them.
 - **The account export of the class-goal settings: done (FOLLOWUP-43).** Each bound class has `goal: { on, size }` in
   `GET /api/account/export`.
+
+**The family challenge through family sync (PRODUCT2-39).** The goal reaches the child by its link (WhatsApp, the
+share sheet or a copied link), on every build and tier. Sending it to a linked device directly would need a parent's
+write route on the Worker (for example `POST /api/family/devices/:id/challenge`, read back in `GET /api/ai/status`), and
+the server lane (COUNCIL2-18) is capping student writes in `worker/src/index.js` now, so it was not started. The parent's
+daily report already counts the week against the goal sent from that phone, from the device's own rows.
 
 **Owner-side steps for the iPhone app**
 - Building it needs a Mac with Xcode (`store/ios/README.md`). The privacy report (Organizer, Generate Privacy Report) and

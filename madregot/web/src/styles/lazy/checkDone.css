@@ -1,0 +1,6 @@
+/* The end of a check's own rules, loaded with the note that uses them: moved out of the first load at the product2
+   merge (the boot CSS gate, 46 KB). */
+/* a mistake that came back in a check (PRODUCT2-18): one calm line, and the way to its repair */
+.check-repeat { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); text-align: start; }
+.check-repeat-line { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); overflow-wrap: anywhere; }
+.check-repeat-btn { align-self: flex-start; min-height: 44px; }

@@ -632,7 +632,11 @@ function modelGen(key, model, p, words) {
   return {
     key, text: words.text(p), form: 'num', answer: model.answer(p), fig: words.fig(p),
     hint: words.hint(p), solution: words.solution(p),
-    diag: (u) => Object.keys(model.bugs).find((id) => { const v = model.bugs[id](p); return v != null && Number.isFinite(u) && near(u, v); }) || null,
+    // every mistake whose prediction the answer is: two that predict the same number are both named (PRODUCT2-15)
+    diag: (u) => {
+      const ids = Object.keys(model.bugs).filter((id) => { const v = model.bugs[id](p); return v != null && Number.isFinite(u) && near(u, v); });
+      return ids.length > 1 ? ids : ids[0] || null;
+    },
   };
 }
 const keyOf = (prefix, p) => `${prefix}:${Object.entries(p).filter(([k]) => k !== 'ord').map(([, v]) => v).join(':')}${p.ord ? `:${p.ord.join('')}` : ''}`;

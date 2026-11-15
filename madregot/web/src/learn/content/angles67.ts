@@ -265,6 +265,10 @@ const stair7: StairContent = {
       choices: ['$80^\\circ$', '$170^\\circ$'], answer: 0,
       why: 'גם הזווית הישרה היא אחת מארבע הזוויות: $360^\\circ - 90^\\circ - 120^\\circ - 70^\\circ = 80^\\circ$.',
       wrongWhy: { 1: '$170^\\circ$ יוצא כששוכחים את הזווית הישרה. היא $90^\\circ$, גם אם לא כתוב לידה מספר.' } },
+    // SK-LEARN-7: the student moves the object once on every stair (two right angles leave 180° for the other two)
+    { kind: 'explore', text: 'במרובע $ABCD$ הזוויות $A$ ו־$B$ ישרות, ולכן לשתי האחרות נשאר $360^\\circ - 180^\\circ = 180^\\circ$. $\\sphericalangle C = 115^\\circ$: סובבו את הקרן כך שהזווית השמאלית תהיה $115^\\circ$, וקראו את הימנית, $\\sphericalangle D$.',
+      display: '115^\\circ + \\,?\\, = 180^\\circ', manip: { kind: 'angle', target: 115, start: 90 }, answer: 65,
+      hint: 'שתי הזוויות יחד $180^\\circ$: $180^\\circ - 115^\\circ$.', success: '$\\sphericalangle D = 65^\\circ$. בדיקה: $90^\\circ + 90^\\circ + 115^\\circ + 65^\\circ = 360^\\circ$.' },
     // the notebook's ex. 189 with new numbers: the angles with x, solved, and the found angles written on the figure
     { kind: 'say', fig: quad([72, 129, 123, 36], { A: { text: '72°' }, B: { text: '129°' }, C: { text: '123°' }, D: { text: '36°' } }), mood: 'happy',
       text: 'גם כשהזוויות כתובות בביטויים: במרובע $ABCD$, $\\sphericalangle A = 2x$, $\\sphericalangle B = 4x - 15^\\circ$, $\\sphericalangle C = 3x + 15^\\circ$ ו־$\\sphericalangle D = x$. יחד $360^\\circ$, ואחרי כינוס משפחות $10x = 360^\\circ$, ולכן $x = 36^\\circ$. בשרטוט כתובות הזוויות שמצאנו: $72^\\circ$, $129^\\circ$, $123^\\circ$ ו־$36^\\circ$. שאלות כאלה תתרגלו במשוואות, במדרגה "בעיות מילוליות".' },

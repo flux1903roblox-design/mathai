@@ -7,6 +7,7 @@ import { useApp } from '@/lib/store.js';
 import { NeedOnline } from '@/components/durable/OfflineChip.jsx';
 import { canSell } from '@/lib/price.js';
 import '@/styles/lazy/parents.css'; // the parents' area's rules, loaded with its pages (FOLLOWUP-23)
+import { PLAN_INCLUDES, NO_SERVER } from '@/content/familyPlan.js';
 
 /** Back only where there is somewhere in the app to go back to: a profile on this device, or a page before this one. */
 function useBack() {
@@ -53,12 +54,17 @@ export default function ParentsFrame({ title = 'מדרגות · להורים', b
   );
 }
 
-/** The note for a copy of the app without a server: nothing to sign in to, nothing broken. No requests. */
+/**
+ * The card of a copy of the app without a server (PRODUCT2-33): what the family plan includes, in the words of
+ * content/familyPlan.js that the parents' page and the public pages say, then that nothing can be bought here and that
+ * every lesson is free. No price, no checkout, no requests. It also shows on /parents/info, which a child may open.
+ */
 export function NoServerNote() {
   return (
-    <section className="card parents-card" aria-labelledby="nosrv-title">
-      <h2 id="nosrv-title" className="card-title">אין כאן מנויים בגרסה הזו</h2>
-      <p>בגרסה הזו אין שרת, ולכן אין כאן מנויים. התרגול עובד כרגיל. בגרסה המלאה נכנסים כאן עם קוד במייל.</p>
+    <section className="card parents-card parents-nosrv" aria-labelledby="nosrv-title">
+      <h2 id="nosrv-title" className="card-title">{NO_SERVER.title}</h2>
+      <ul className="plain-list">{PLAN_INCLUDES.map((x) => <li key={x.id}>{x.text}</li>)}</ul>
+      <p className="parents-nosrv-body">{NO_SERVER.body}</p>
     </section>
   );
 }

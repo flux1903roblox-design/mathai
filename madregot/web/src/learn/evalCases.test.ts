@@ -160,7 +160,10 @@ function buildCase(s: Spec) {
     const wrong: number[] = s.wrong || [];
     const phase = s.phase || (wrong.length >= 2 ? 'reveal' : wrong.length ? 'retry' : 'answer');
     if ((phase === 'answer') !== (wrong.length === 0) || (phase === 'reveal' && wrong.length < 2)) fail(s.id, `phase ${phase} does not fit ${wrong.length} wrong answers`);
-    const state = { kind: 'node', item, wrong, phase, hint: wrong.length > 0, helped: s.helped === true, cats: s.cats || {} };
+    // an ambiguous first miss queues the question that tells its candidates apart, as a lesson does (lib/lesson.js)
+    const d0 = wrong.length && item.diagnosis ? item.diagnosis(wrong[0]) : null;
+    const probes = d0?.kind === 'misconception' && d0.ambiguous ? [{ skill: s.skill, candidates: d0.candidates.map((c: any) => c.id) }] : [];
+    const state = { kind: 'node', item, wrong, phase, hint: wrong.length > 0, helped: s.helped === true, cats: s.cats || {}, probes };
     const last = wrong.length ? resultOf(item, wrong.at(-1)) : null;
     ctx = buildTutorContext({ surface: 'lesson', item, s: state, last, learn: learnOf(s), grade: TOPIC[topic].grade, now: NOW });
     // what the app said about each answer is what the spec expects, or the case is not the situation it claims to be

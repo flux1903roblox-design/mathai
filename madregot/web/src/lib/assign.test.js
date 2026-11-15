@@ -38,6 +38,11 @@ describe("a student's state and result (§7)", () => {
     expect(workStatus('stair', { state: 'started', stage: 2 })).toEqual({ state: 'בדרך', result: 'שלב 2 מתוך 5' });
     expect(workStatus('stair', { state: 'none' })).toEqual({ state: 'עוד לא התחיל/ה', result: '–' });
   });
+  it('a stair passed before it was given and not done again since (SK-BUYERS-1): the teacher sees "עבר/ה בעבר", not "הושלם"', async () => {
+    const { workStatus } = await load();
+    expect(workStatus('stair', { state: 'started', stage: 5, passed: true })).toEqual({ state: 'עוד לא חזר/ה', result: 'עבר/ה בעבר' });
+    expect(workStatus('stair', { state: 'started', stage: 3, passed: false })).toEqual({ state: 'בדרך', result: 'שלב 3 מתוך 5' });
+  });
   it('a check: the first finished try, marked when there were more', async () => {
     const { workStatus } = await load();
     expect(workStatus('check', { state: 'done', right: 4, asked: 5, passed: true, tries: 1 })).toEqual({ state: 'הושלם', result: '4/5 · עבר/ה' });
@@ -64,6 +69,30 @@ describe('telling the class', () => {
     const msg = classMessage({ title: 'מספרים מכוונים: חיבור וחיסור', dueOn: '2026-11-12' }, 'https://madregot.example.test/');
     expect(msg).toBe('משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". https://madregot.example.test/');
     expect(classMessage({ title: 'x', dueOn: '2026-11-12' }, '')).not.toMatch(/https?:/);
+  });
+  it('work given to a group (SK-BUYERS-4): the message is for the students who got it, never "the class has new work"', async () => {
+    const { classMessage, classroomLink, shareFor } = await load();
+    const group = { title: 'מספרים מכוונים: חיבור וחיסור', dueOn: '2026-11-12', forAll: false, targets: ['a1', 'b2'] };
+    const msg = classMessage(group, 'https://madregot.example.test/');
+    expect(msg).toBe('יש לכם משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". https://madregot.example.test/');
+    expect(msg).not.toMatch(/^משימה חדשה במדרגות|לכל הכיתה|לכיתה/);
+    // the step for a group: tell those students, with their names for the teacher only, and no Classroom post (it goes to the whole class)
+    const names = { a1: 'דנה', b2: 'יואב', c3: 'נועה' };
+    expect(shareFor(group, names, 'https://madregot.example.test/')).toEqual({
+      title: 'לספר לתלמידים?', group: true, names: ['דנה', 'יואב'],
+      lead: 'המשימה נשלחה רק לדנה וליואב. הודעה בערוץ של כל הכיתה תגיע גם למי שלא קיבל אותה, ולכן כדאי לשלוח אותה ישירות למי שקיבל את המשימה. אין בה שמות.',
+      classroom: '',
+    });
+    const one = shareFor({ ...group, targets: ['c3'] }, names, 'https://madregot.example.test/');
+    expect(one.lead).toBe('המשימה נשלחה רק לנועה. הודעה בערוץ של כל הכיתה תגיע גם למי שלא קיבל אותה, ולכן כדאי לשלוח אותה ישירות למי שקיבל את המשימה. אין בה שמות.');
+    // more than three: the number in the line, the names in the list under it
+    const many = shareFor({ ...group, targets: ['a1', 'b2', 'c3', 'd4'] }, { ...names, d4: 'Lior' }, '');
+    expect(many.lead.startsWith('המשימה נשלחה רק ל־4 תלמידים.')).toBe(true);
+    expect(many.names).toEqual(['דנה', 'יואב', 'נועה', 'Lior']);
+    // for the whole class: as before, with the Classroom link
+    const all = shareFor({ title: 'x', dueOn: '2026-11-12', forAll: true, targets: [] }, names, 'https://madregot.example.test/');
+    expect(all).toMatchObject({ title: 'לספר לכיתה?', group: false, names: [], classroom: classroomLink('https://madregot.example.test/') });
+    expect(all.lead).toBe('אפשר לשלוח לתלמידים הודעה בערוץ של הכיתה. אין בה שמות של תלמידים.');
   });
 });
 

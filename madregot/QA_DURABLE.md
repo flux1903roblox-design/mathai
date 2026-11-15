@@ -1086,6 +1086,33 @@ script. They now load one topic at a time, and nothing the student sees changed.
   **45.9 KB** (gate 46 unchanged), largest lazy chunk the pdf chunk 122.2 KB (gate 150). The precache is 6.25 MB
   (the three topics' content, teaching and challenge chunks), so its gate moved by the integration rule, measured
   + 5%, to **6.56 MB**.
+  **The product2 lane** (PRODUCT2-21, a task after every stair) measured on its own branch, before the boot split:
+  with 48 tasks boot JS 422.9 KB (436.4 KB before, with 36 tasks in the boot file) and with all 65, 423.3 KB, the
+  precache 4.77 MB. Its later stages (drawings in the worked examples, the wrong-guess lines, the celebrations) took the
+  precache to 4.86 MB (4,860,630 bytes), over its 4.79 MB gate, and its review said so. The gate stayed and nothing the
+  student sees left the precache. What left it is nine font files the app never shows: KaTeX ships five families that
+  only `\mathcal`, `\mathfrak`, `\mathsf`, `\mathscr` and `\mathtt` use (Caligraphic, Fraktur, SansSerif, Script,
+  Typewriter; 94,284 bytes of woff2), and no maths in the app is written with them, so `scripts/vite-plugin-sw.mjs`
+  (KATEX_UNUSED) leaves them out, as it leaves out Rubik's Arabic and Cyrillic parts. `scripts/vite-plugin-sw.test.mjs`
+  holds both halves: the nine files are out and Main, Math, AMS and the sizes are in; and no file under `web/src` or
+  `shared` writes one of those commands (the test reads them all, so a first use fails it). If the tutor's answer ever
+  used one, the browser would fetch the font then and `sw.js` would keep it (its `/assets/` rule saves every file it
+  fetches).
+  **The product2 merge** (onto the stage-4 merge; the lane's own 433 KB gate and numbers are superseded by the main
+  branch's) measured **341.2 KB** boot JS and **46.9 KB** render-blocking CSS on the merged app, over both gates. The
+  gates did not move: the merge paid by moving code and rules off the first load. The drawings beside the path left it
+  (`components/map/Scenery.jsx`, loaded by `Learn.jsx`'s `SceneryArt` into a box that keeps its size; the units'
+  emblems stay as `components/map/emblems.jsx`); the store reads the family challenge's goals and weeks kept from
+  `lib/familyGoals.js`, so `lib/familyChallenge.js` and `shared/week.js` load with the screens that show a challenge;
+  and it reads the challenge XP rule from `learn/challenges/xp.ts`, so `learn/challenges/grade.ts` and the number
+  reading it uses (`content/util.js`) load with the challenge screen. `lazyOnly` names the five (75 lazy-only
+  modules). The rules moved to sheets that load with their screens: the ghost race and the family challenge
+  (`styles/lazy/quests.css`), Settings' section for adults (`settings.css`), a check's repeated mistake
+  (`checkDone.css`), the topics screen's light pills (`topics.css`) and the stair page's stages and challenge cards
+  (`journey.css`); `src/styles/lazy.test.js` checks the first four by their selectors and pins every importer.
+  Measured on the merged app: boot JS **331.7 KB** (gate 333 unchanged, 1.3 KB of room), render-blocking CSS
+  **45.7 KB** (gate 46 unchanged), largest lazy chunk the pdf chunk 122.2 KB (gate 150), precache **6.35 MB** (gate
+  6.56 MB, unchanged; KATEX_UNUSED and main's pdf.js rule are both in `scripts/vite-plugin-sw.mjs`).
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

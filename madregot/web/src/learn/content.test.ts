@@ -18,6 +18,9 @@ import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togeth
 import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX, GRAPH_MAX, graphXs, axisSteps, onAxisGrid, protAligned, armsAngle, simOutcomes, simWatch } from '@/content/manip.js';
 // @ts-ignore: plain JS
 import { GRID_MAX, cutRange, moveRange, cutMakesRectangles } from '@/content/grid.js';
+import { seqStep } from '@/content/explore.js';
+// @ts-ignore: plain JS
+import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { transformReachable, tfStart, tfSame, tfSameSet, tfInside, TF_RANGE } from '@/content/transform.js';
 // @ts-ignore: plain JS
@@ -55,6 +58,15 @@ const CONTENT = await loadAllContent();
 const stairs = Object.values(CONTENT) as StairContent[];
 const DRAWS = 400;
 
+/**
+ * The number a guided step's choice stands for, when the choice is one piece of maths (perhaps followed by a word or
+ * a unit, as in "$13.5$ ק״מ" or "$\\frac{2}{5}$: הצעדים ימינה חלקי העלייה"); null for words, letters and percents.
+ */
+function choiceValue(text: string): number | null {
+  const m = text.match(/^\$([^$]+)\$[^$\d]*$/);
+  if (!m || /\\%|[<>=]|\\(le|ge)\b/.test(m[1])) return null;
+  try { const v = evaluate(texToExpr(m[1].replace(/\^\\circ/g, '').replace(/\{,\}/g, ''))); return Number.isFinite(v) ? v : null; } catch { return null; }
+}
 /** A side of an equation as { k, c } (k·x + c). */
 const sideOf = (tex: string) => { const e = texToExpr(tex); const f = (x: number) => evaluate(e, { x }); return { k: f(1) - f(0), c: f(0) }; };
 /**
@@ -127,6 +139,17 @@ function checkSteps(steps: DiscoverStep[], where: string) {
           expect(lines.length, at).toBe(2);
           expect(lines[0].m !== lines[1].m, `${at}: parallel lines never meet`).toBe(true);
           lines.forEach((L) => expect(same(L.m * x + L.b, y), `${at}: (${x}, ${y}) is not on y = ${L.m}x + ${L.b}`).toBe(true));
+        }
+        // given points (expr:2): a sequence's first terms (place, term) from place 1, on the grid; the goal is a later term
+        // of it, and its likely miss (one step too far: n steps counted) is on the grid, so the miss can be named
+        const dots = (s.manip as { dots?: [number, number][] }).dots;
+        if (dots) {
+          const d = seqStep(dots) as number | null;
+          expect(d, `${at}: the given points are not a sequence from place 1`).not.toBeNull();
+          dots.forEach(([px, py]) => expect(Math.abs(px) <= r && Math.abs(py) <= r, `${at}: (${px}, ${py}) is off the grid`).toBe(true));
+          expect(x > dots.length && same(y, dots[0][1] + d! * (x - 1)), `${at}: (${x}, ${y}) is not a later term`).toBe(true);
+          expect(Math.abs(y + d!) <= r, `${at}: one step too far is off the grid`).toBe(true);
+          expect(dots[0][1] !== 0 && dots[0][1] !== d, `${at}: the start must differ from 0 and from the step, so the two mistakes differ`).toBe(true);
         }
       }
       if (s.manip.kind === 'balance') checkBalance(s.manip as any, s.answer as number, s.display, at);
@@ -569,6 +592,18 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
     c.misconceptions.forEach((m) => { expect(m.remedy.length, m.id).toBeGreaterThan(0); checkSteps(m.remedy, `remedy ${m.id}`); });
   });
 
+  it('explains every wrong guess of its discovery steps by itself (SK-LEARN-5)', () => {
+    // a wrong guess gets its own line on where that number or idea comes from, before the general why; a guess the
+    // step has no line for would get only the general why, which explains the right answer and not the student's
+    const missing: string[] = [];
+    c.discover.forEach((s, j) => {
+      if (s.kind !== 'predict') return;
+      s.choices.forEach((ch, i) => { if (i !== s.answer && !s.wrongWhy?.[i]?.trim()) missing.push(`step ${j + 1}, "${ch}"`); });
+      Object.keys(s.wrongWhy || {}).forEach((i) => expect(Number(i) !== s.answer && Number(i) < s.choices.length, `step ${j + 1}: wrongWhy ${i} is no wrong choice`).toBe(true));
+    });
+    expect(missing).toEqual([]);
+  });
+
   it('works its examples correctly, step by step', () => {
     c.examples.forEach((ex, k) => checkExample(ex, k));
   });
@@ -604,6 +639,22 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
       // typed rounded to tenths the way the checker rounds (half away from zero: −4.25 is −4.3, misconceptions.ts roundAway)
       finalPredictions(c, k).forEach(([id, v]) => expect(diagnoseFinal(c, k, roundAway(v, 1)), `together ${k + 1}: ${v}`).toContain(id));
       expect(diagnoseFinal(c, k, ans), `together ${k + 1}: the right answer is no mistake`).toEqual([]);
+      // the last step starts where the steps left the problem (SK-LEARN-4). A misconception whose move an earlier step
+      // offered as a wrong choice (its `misc`) has been turned down, so the last step does not name it again; and a
+      // number an earlier step turned down is no prediction either, unless the entry keeps it on purpose (`still`, with
+      // the reason in a comment: the same number reached by another slip, or asked about another quantity)
+      const turned = c.together[k].steps.flatMap((s) => s.choices.filter((x) => !x.ok));
+      const ruled = new Set(turned.flatMap((x) => (x.misc == null ? [] : [x.misc].flat())));
+      ruled.forEach((id) => expect(ids, `together ${k + 1}: a step's choice names ${id}, not a misconception of the stair`).toContain(id));
+      c.together[k].steps.forEach((s, i) => s.choices.forEach((x) => expect(!(x.ok && x.misc), `together ${k + 1} step ${i + 1}: the right choice names a mistake`).toBe(true)));
+      const numbers = turned.map((x) => choiceValue(x.text)).filter((v): v is number => v != null);
+      const preds = finalPredictions(c, k);
+      preds.forEach(([id, v]) => {
+        expect(ruled.has(id), `together ${k + 1}: ${id} (${v}) was turned down in an earlier step`).toBe(false);
+        if (!sp.still?.includes(id)) expect(numbers.some((w) => same(w, v)), `together ${k + 1}: ${id} predicts ${v}, a number an earlier step turned down`).toBe(false);
+      });
+      // and `still` is no blanket: each id it keeps is predicted with such a number
+      (sp.still || []).forEach((id) => expect(preds.some(([i, v]) => i === id && numbers.some((w) => same(w, v))), `together ${k + 1}: still ${id} keeps nothing`).toBe(true));
     });
   });
 
@@ -678,7 +729,12 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
         if (v == null || same(v, c.diag.answer(p))) return;
         const d = diagnose(c.diag, p, v);
         expect(d.kind).toBe('misconception');
-        if (d.kind === 'misconception') expect(d.candidates.map((x) => x.id)).toContain(id);
+        // or the stair's own mistake predicts the same number, and names it alone (DiagModel.flagship)
+        const own = c.diag.flagship;
+        if (d.kind === 'misconception') {
+          const named = d.candidates.map((x) => x.id);
+          expect(named.includes(id) || (!!own && named.length === 1 && named[0] === own && same(c.diag.bugs[own](p) ?? NaN, v)), `${c.skill} ${id}`).toBe(true);
+        }
       });
     }
   });
@@ -688,10 +744,24 @@ describe('solving together: the last step names the mistake', () => {
   it('the council\'s cases', () => {
     // stats:3, mean 10 of four numbers, 8 added to one: 18 is the 8 not shared among the four
     expect(diagnoseFinal(CONTENT['stats:3'], 1, 18)).toEqual(['no-divide']);
-    // signed:1, −3 − (−8): −11 is subtracting −8 as if it were 8 (or two other readings of the same number)
-    expect(diagnoseFinal(CONTENT['signed:1'], 0, -11)).toContain('minus-minus');
+    // signed:1, −3 − (−8): the steps rewrote it as −3 + 8 and moved 8 to the right, so −11 (subtracting −8 as if it
+    // were 8) is a move the student has just turned down twice; what the last step can still show is the sign lost
+    expect(diagnoseFinal(CONTENT['signed:1'], 0, -11)).toEqual([]);
+    expect(diagnoseFinal(CONTENT['signed:1'], 0, -5)).toEqual(['sign']);
     // a number no misconception predicts gets the general hint, not a made-up name
     expect(diagnoseFinal(CONTENT['signed:1'], 0, 4)).toEqual([]);
+  });
+  it('predicts from the state the steps have shown, not from the problem as first written (SK-LEARN-4)', () => {
+    // frac:3, 3/5 + 1/2: the steps wrote 6/10 + 5/10. Adding across now gives 11/20; 4/7 (across the first fractions)
+    // and 4/10 (the numerators not expanded, which step 2 turned down) are no longer this problem
+    expect(diagnoseFinal(CONTENT['frac:3'], 0, 11 / 20)).toEqual(['add-across']);
+    expect(diagnoseFinal(CONTENT['frac:3'], 0, 4 / 7)).toEqual([]);
+    expect(diagnoseFinal(CONTENT['frac:3'], 0, 0.4)).toEqual([]);
+    // pct:4, 30% is 45 km: the step found 10% = 15. Stopping there gives 15; 13.5 was turned down in the step, and 1.5
+    // (stopping at 1%) belongs to a route the steps did not take
+    expect(diagnoseFinal(CONTENT['pct:4'], 1, 15)).toEqual(['stop-at-one']);
+    expect(diagnoseFinal(CONTENT['pct:4'], 1, 13.5)).toEqual([]);
+    expect(diagnoseFinal(CONTENT['pct:4'], 1, 1.5)).toEqual([]);
   });
   it('the algebra stairs name the mistake their number shows, and none the steps ruled out', () => {
     // expr:1, 3(x + 5) at x = −1 after the step −1 + 5 = 4: 34 is 3 next to the bracket read as digits
@@ -1580,15 +1650,17 @@ describe('angles:6, a bisector is what its text says (the worksheet\'s typo cann
 
 // CLASSROOM-12: the quadrilateral taught from two triangles, and the worked examples write the found value on the figure
 describe('angles:7, the sum of the angles of a quadrilateral', () => {
-  it('a diagonal, 180° + 180°, the rule, two shapes in place of a dragged vertex, the right angle, then the angles with x', () => {
+  it('a diagonal, 180° + 180°, the rule, two shapes in place of a dragged vertex, the right angle, two right angles turned on the angle tool, then the angles with x', () => {
     const d = CONTENT['angles:7'].discover;
-    expect(d.map((s) => s.kind)).toEqual(['say', 'predict', 'rule', 'predict', 'predict', 'say']);
+    // the angle tool (SK-LEARN-7, the product2 merge): A and B right, so C and D make 180°
+    expect(d.map((s) => s.kind)).toEqual(['say', 'predict', 'rule', 'predict', 'predict', 'explore', 'say']);
+    expect(d[5]).toMatchObject({ kind: 'explore', manip: { kind: 'angle', target: 115 }, answer: 65 });
     expect(d[0].text).toContain('אלכסון מחלק מרובע לשני משולשים');
     expect((d[1] as { choices: string[] }).choices[0]).toBe('$360^\\circ$');
     expect(d[2].text).toContain('סכום זוויות במרובע שווה $360^\\circ$');
     expect((d[2] as { display?: string }).display).toBe('\\sphericalangle A + \\sphericalangle B + \\sphericalangle C + \\sphericalangle D = 360^\\circ');
     // the last step: 2x, 4x − 15°, 3x + 15° and x make 360°, so x = 36°, and the figure carries the angles found
-    const last = d[5] as unknown as { text: string; fig: { angles: { text: string }[] } };
+    const last = d[6] as unknown as { text: string; fig: { angles: { text: string }[] } };
     expect(last.text).toContain('$10x = 360^\\circ$');
     expect(last.text).toContain('$x = 36^\\circ$');
     expect(last.text).toContain('בעיות מילוליות');

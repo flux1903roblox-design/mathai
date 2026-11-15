@@ -2,14 +2,14 @@
 // Layout: Duolingo's lesson-complete screen (character, title, stat tiles, one button at the bottom).
 // After a passed mastery check of a stair that has a challenge task (CURRICULUM-6.3), a quiet card offers it: optional,
 // one tap to try, one tap to put it off. The main button stays the plan's next step.
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Award, RotateCcw, Check, ArrowLeft, Gift, Flame, Puzzle } from 'lucide-react';
 import { TOPIC } from '@/content/topics.js';
 import { useApp } from '@/lib/store.js';
 import { skillId, parseSkill } from '@/learn/skills.ts';
-import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS } from '@/learn/mastery.ts';
+import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS, PRACTICE_AGAIN } from '@/learn/mastery.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { metaOf } from '@/learn/content/index.ts';
 import { useNext } from '@/lib/useLearn.js';
@@ -19,7 +19,8 @@ import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { inDays } from '@/content/util.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
-import { UnlockStage, useNewUnlocks } from '@/lib/madiLook.js';
+import { UnlockMoment, useNewUnlocks } from '@/lib/madiLook.js';
+import RepeatNote, { repeatedMistake } from '@/components/learn/RepeatNote.jsx';
 
 function copy(r, rec, def, award) {
   const days = (box) => REVIEW_DAYS[box] ?? 1;
@@ -27,7 +28,7 @@ function copy(r, rec, def, award) {
     case 'mastery':
       return r.passed
         ? { mood: 'achievement', title: 'שולטים לבד!', body: `${r.right} מתוך ${r.asked} נכונות, בלי רמזים. ${inDays(days(0))} נבדוק בקצרה שזה נשאר.` }
-        : { mood: 'encouraging', title: 'עוד לא, וזה בסדר', body: `${r.right} מתוך ${r.asked}. כדי לשלוט צריך ${MASTERY_NEED} מתוך ${MASTERY_N} בלי רמזים. ${award?.reopened ? 'המדרגה חוזרת להיות פתוחה במפה, והתרגול שכבר עשיתם נשמר. ' : ''}עוד קצת תרגול, ואז מנסים שוב.` };
+        : { mood: 'encouraging', title: 'עוד לא, וזה בסדר', body: `${r.right} מתוך ${r.asked}. כדי לשלוט צריך ${MASTERY_NEED} מתוך ${MASTERY_N} בלי רמזים. ${award?.reopened ? 'המדרגה חוזרת להיות פתוחה במפה, והתרגול שכבר עשיתם נשמר. ' : ''}${PRACTICE_AGAIN}` };
     case 'review':
       return r.passed
         ? { mood: 'happy', title: 'זה נשאר!', body: `הבדיקה הבאה ${inDays(days(rec?.mastered?.box ?? 1))}. כל פעם המרווח גדל.` }
@@ -152,6 +153,9 @@ function StairCheckDone({ result: r, award, onExit, work }) {
   const def = r.misc ? metaOf(skill)?.misconceptions.find((m) => m.id === r.misc) : null;
   const { items: actions } = useNext();
   const c = copy(r, rec, def, award);
+  // a mistake that came back in this check, named once (PRODUCT2-18); a repair check already names its own
+  const miscon = useApp((s) => s.learn.miscon);
+  const [mistake] = useState(() => (r.purpose === 'verify' || r.purpose === 'class' ? null : repeatedMistake(r, miscon)));
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
   // a finished check counts as a finished lesson: the moment to ask the browser to keep the data (durable/persist.js)
@@ -168,7 +172,7 @@ function StairCheckDone({ result: r, award, onExit, work }) {
   const unlocks = useNewUnlocks(r.topic);
   const [then, setThen] = useState(null);
   const on = (fn) => () => (r.passed && unlocks.length > 0 ? setThen(() => fn) : fn());
-  if (then) return <Suspense fallback={<div className="done-screen" />}><UnlockStage ids={unlocks} onNext={then} /></Suspense>;
+  if (then) return <UnlockMoment ids={unlocks} onNext={then} />;
   return (
     <div className="page check-done" role="main">
       {/* laid out like Duolingo's lesson-complete screen: מדי, the title, what it showed, then the stat tiles */}
@@ -198,6 +202,7 @@ function StairCheckDone({ result: r, award, onExit, work }) {
           </div>
         )}
       </div>
+      <RepeatNote mistake={mistake} onRepair={(to) => navigate(to, { replace: true })} />
       {offer && !later && <ChallengeOffer task={offer} onGo={on(() => navigate(`/challenge/${offer.id}`, { replace: true }))} onLater={putOff} />}
       {rescue && weak.length > 0 && (
         <div className="box box-note"><h2 className="box-tab">מה עוד לא יצא</h2><div className="box-body"><ul className="plain-list">{weak.map((s) => <li key={s}>{titleOf(s)}</li>)}</ul></div></div>

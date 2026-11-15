@@ -20,6 +20,8 @@ const m6 = read('../migrations/0006_parent_report.sql');
 const m7 = read('../migrations/0007_student.sql');
 // The family lane's 0005_vault_guard, renumbered 0008 on the main branch (after 0007_student).
 const m8 = read('../migrations/0008_vault_guard.sql');
+// The product2 lane's 0011_repair_work, renumbered 0009 on the main branch (after 0008_vault_guard).
+const m9 = read('../migrations/0009_repair_work.sql');
 // Structure only: SQLite keeps the comments inside a CREATE statement, and a comment cannot be migrated without an
 // ALTER, so schema.sql may describe a column better than the migration that made it (link_codes.device_hint).
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
@@ -56,7 +58,7 @@ const withoutAlters = (sql) => sql.replace(/\n, [^\n]*\);/g, '\n);').split('\n')
   .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
 
 test('every migration, in name order, on an empty database gives the same tables and indexes as schema.sql', () => {
-  assert.deepEqual(MIGRATIONS.slice(0, 9).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql', '0008_vault_guard.sql']);
+  assert.deepEqual(MIGRATIONS.slice(0, 10).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql', '0008_vault_guard.sql', '0009_repair_work.sql']);
   assert.equal(new Set(MIGRATIONS.map((m) => m.name.slice(0, 4))).size, MIGRATIONS.length, 'each migration number is used once');
   const a = new DatabaseSync(':memory:'); a.exec(schema);
   const b = new DatabaseSync(':memory:'); for (const m of MIGRATIONS) b.exec(m.sql);
@@ -255,4 +257,16 @@ test('0008_vault_guard (the family lane\'s 0005_vault_guard): the tombstone tabl
   db.exec(m8); db.exec(m8);
   db.exec("INSERT INTO vault_tombstones (id_hash, deleted_at) VALUES ('h1', '2026-11-11T00:00:00Z')");
   assert.throws(() => db.exec("INSERT INTO vault_tombstones (id_hash, deleted_at) VALUES ('h1', '2026-11-12T00:00:00Z')"), /UNIQUE/);
+});
+
+test('0009_repair_work (the product2 lane\'s 0011_repair_work): an assignment given before it reads misc NULL, and a repair is a stair row with misc', () => {
+  const db = new DatabaseSync(':memory:');
+  for (const m of MIGRATIONS.filter((x) => x.name < '0009')) db.exec(m.sql);
+  const row = "INSERT INTO assignments (id, class_code, kind, skill, title, starts_on, due_on, created_at) VALUES ('%s', 'ABCDEF', 'stair', 'signed:3', 'מדרגה', '2026-11-15', '2026-11-20', '2026-11-15T08:00:00Z')";
+  db.exec(row.replace('%s', 'a000000000000001'));
+  db.exec(m9);
+  assert.equal(db.prepare("SELECT misc FROM assignments WHERE id = 'a000000000000001'").get().misc, null);
+  db.exec(row.replace('%s', 'a000000000000002'));
+  db.exec("UPDATE assignments SET misc = 'sub-neg' WHERE id = 'a000000000000002'");
+  assert.deepEqual({ ...db.prepare("SELECT kind, misc FROM assignments WHERE id = 'a000000000000002'").get() }, { kind: 'stair', misc: 'sub-neg' });
 });

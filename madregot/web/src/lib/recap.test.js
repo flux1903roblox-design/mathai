@@ -61,12 +61,13 @@ describe('when the Sunday recap shows', () => {
 });
 
 describe('the recap sheet\'s lines', () => {
-  it('the personal best: a new best, the week against the best, nothing without steps', () => {
-    expect(bestLine(9, { steps: 6, week: '2026-11-01' })).toBe('שיא שבועי חדש: 9 צעדים!');
-    expect(bestLine(1, null)).toBe('שיא שבועי חדש: צעד אחד!');
-    expect(bestLine(4, { steps: 9, week: '2026-11-01' })).toBe('4 צעדים. השיא שלכם: 9.');
-    expect(bestLine(1, { steps: 1, week: '2026-11-01' })).toBe('צעד אחד. השיא שלכם: צעד אחד.');
-    expect(bestLine(0, { steps: 9 })).toBe('');
+  // in stages, the ghost race's count (lib/streak.js personalBest's { n, week }): one count of a week on every screen
+  it('the personal best: a new best, the week against the best, nothing without stages', () => {
+    expect(bestLine(9, { n: 6, week: '2026-11-01' })).toBe('שיא שבועי חדש: 9 שלבים!');
+    expect(bestLine(1, null)).toBe('שיא שבועי חדש: שלב אחד!');
+    expect(bestLine(4, { n: 9, week: '2026-11-01' })).toBe('4 שלבים. השיא שלכם: 9.');
+    expect(bestLine(1, { n: 1, week: '2026-11-01' })).toBe('שלב אחד. השיא שלכם: שלב אחד.');
+    expect(bestLine(0, { n: 9 })).toBe('');
   });
 
   it('the class: reached together, reached without this student\'s steps (calm), and not reached', () => {

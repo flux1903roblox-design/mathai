@@ -624,6 +624,10 @@ const stair4: StairContent = {
       wrongWhy: { 1: 'האורכים פי $3$; השטח הוא אורך כפול אורך.', 2: 'ספרו את המשולשים הקטנים בגדול: $9$.' } },
     { kind: 'rule', text: 'בצורות דומות ההיקף גדל פי יחס הדמיון, והשטח פי יחס הדמיון בריבוע.', display: '\\frac{S_{2}}{S_{1}} = k^2',
       why: 'שטח נמדד בריבועים, וכל ריבוע קטן גדל לרוחב ולגובה.', fig: nineFig },
+    // SK-LEARN-7: the student moves the object once on every stair
+    { kind: 'explore', text: 'מגדילים ריבוע פי $4$: כל צלע ארוכה פי $4$. שימו את הסמן על פי כמה גדל השטח.',
+      manip: { kind: 'numberline', min: 0, max: 20, from: 0, start: 0, plain: true } as ManipSpec, answer: 16,
+      hint: 'השטח גדל פי יחס הדמיון בריבוע: $4^2$.', success: 'פי $16$: בכל ריבוע גדול יש $4 \\cdot 4 = 16$ ריבועים כמו הקטן.' },
     { kind: 'predict', text: 'יחס הדמיון $2$. היקף הקטן $15$. מה היקף הגדול?', fig: per15,
       choices: ['$30$', '$60$', '$17$'], answer: 0,
       why: 'היקף הוא סכום אורכים, וכל אורך גדל פי $2$.',

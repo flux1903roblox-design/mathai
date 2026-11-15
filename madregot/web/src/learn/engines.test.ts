@@ -137,13 +137,15 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
     const { topicsFor, placementTopicsFor, rescueTopicsFor } = await import('@/content/index.js');
-    // ratio, pct, (this year) data and transf, and func are on the map of ח׳ but not in the first-day test (placement:
-    // false): 3 topics × 2 probes × 3. This year's ח׳ also climbs the ז׳ data unit and the ז׳ transformations unit (8.5,
-    // November), right after percent (ALSO_ON_PATH)
+    // ratio, pct, (this year) data and transf, and func are on the map of ח׳. data, transf and func are not in the
+    // first-day test (placement: false), and ratio and pct are asked only once the school calendar has taught them
+    // (PRODUCT2-19): in September 3 topics × 2 probes × 3. This year's ח׳ also climbs the ז׳ data unit and the ז׳
+    // transformations unit (8.5, November), right after percent (ALSO_ON_PATH)
     expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 6)).toEqual(['ratio', 'pct', 'data', 'transf', 'func', 'line']);
-    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('pct');
-    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('func');
-    expect(placementMax('8')).toBe(18);
+    expect(placementTopicsFor('8', 0).map((t: { id: string }) => t.id)).not.toContain('pct');
+    expect(placementTopicsFor('8', 0).map((t: { id: string }) => t.id)).not.toContain('func');
+    expect(placementMax('8', 0)).toBe(18);
+    expect(placementTopicsFor('8', 2).map((t: { id: string }) => t.id)).toContain('pct');
     // ז׳ meets percents in relative frequency: Exam Rescue offers the unit to ז׳ too
     expect(rescueTopicsFor('7').map((t: { id: string }) => t.id)).toContain('pct');
   });
@@ -158,7 +160,9 @@ describe('grade 7 in school order (data and frequency in January–February, bef
     expect(topicsFor('7').map((t: { id: string }) => t.id)).toEqual(['signed', 'coord', 'angles', 'transf', 'expr', 'area', 'solid', 'data', 'eq']);
     expect(placementTopicsFor('7').map((t: { id: string }) => t.id)).not.toContain('data');
     expect(gradeSkillsOf('7')).toEqual(expect.arrayContaining(['data:1', 'data:2', 'data:3', 'data:4']));
-    expect(placementMax('8')).toBe(18);
+    // in September (school month 0): ratio and percent join ח׳'s first-day test once they are taught (PRODUCT2-19,
+    // placement: 'taught'), so the count of the units that never join it is read before then, here and below
+    expect(placementMax('8', 0)).toBe(18);
   });
 });
 
@@ -176,7 +180,7 @@ describe('the data unit on the ח׳ path this year (the real ALSO_ON_PATH)', () 
     }
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
-    expect(placementMax('8')).toBe(18); // data is not in the first-day test
+    expect(placementMax('8', 0)).toBe(18); // data is not in the first-day test
   });
   it('a grade\'s stairs follow its path, as the map draws it: ח׳ meets ratio and percent before data', () => {
     const topicsOf = (ids: string[]) => [...new Set(ids.map((id) => id.split(':')[0]))];
@@ -227,7 +231,7 @@ describe('probability, after the systems and before Pythagoras in space', () => 
     // @ts-ignore: plain JS
     const { placementTopicsFor } = await import('@/content/index.js');
     expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('prob');
-    expect(placementMax('8')).toBe(18); // taught in March: the first-day test does not ask it
+    expect(placementMax('8', 0)).toBe(18); // taught in March: the first-day test does not ask it
     expect(unitNumber(TOPIC.prob, '8')).toBe(13); // after this year's transformations (4), the circle (8, stage 2), congruence (10) and similarity (11)
   });
 });
@@ -284,7 +288,7 @@ describe('grade 8 in school order (the circle, the cylinder and the cone in Octo
     expect(topicsFor('8').map((t: { id: string }) => t.id)).toContain('circle');
     expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('circle');
     // the first-day test of ח׳ asks the same 18 questions as before the unit landed (placement: false: taught from October)
-    expect(placementMax('8')).toBe(18);
+    expect(placementMax('8', 0)).toBe(18);
     // the two edges into ז׳ stairs (area:1, solid:2) count on evidence only; the cone leans on finding a leg (pyth:2)
     expect(prereqsOf('circle:1')).toEqual(['area:1']);
     expect(prereqsOf('circle:3')).toEqual(['circle:2', 'solid:2']);
@@ -304,7 +308,7 @@ describe('grade 8 in school order (Pythagoras in space in May, last)', () => {
     const { topicsFor, placementTopicsFor } = await import('@/content/index.js');
     expect(topicsFor('8').map((t: { id: string }) => t.id).at(-1)).toBe('space');
     expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('space');
-    expect(placementMax('8')).toBe(18);
+    expect(placementMax('8', 0)).toBe(18);
     // a box's diagonal is two hypotenuses (pyth:1, pyth:2); its faces and edges are ז׳'s boxes (solid:1, evidence only);
     // the right triangles inside solids lean on the diagonal, the cone (circle:4) and finding a leg (pyth:2)
     expect(prereqsOf('space:1')).toEqual(['pyth:1', 'pyth:2', 'solid:1']);
@@ -352,7 +356,7 @@ describe('a unit on two grades\' paths (ALSO_ON_PATH): this year\'s ח׳ learns 
     expect((rescueTopicsFor('8') as { id: string }[]).map((t) => t.id)).toContain('transf');
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
-    expect(placementMax('8')).toBe(18);
+    expect(placementMax('8', 0)).toBe(18);
   });
 });
 
@@ -458,7 +462,7 @@ describe('a unit on two grades\' paths (ALSO_ON_PATH)', () => {
     expect(ALL_SKILLS).toHaveLength(TOPIC_ORDER.reduce((n, t) => n + STAIRS[t], 0));
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
-    expect(placementMax('8')).toBe(18);
+    expect(placementMax('8', 0)).toBe(18);
   });
 });
 
@@ -672,26 +676,43 @@ describe('misconceptions', () => {
     }
   }, 60_000);
   it('splits the evidence when two misconceptions explain one answer, and finds a question that tells them apart', () => {
-    // −4 − (−7): "minus-minus", "abs-add" and "direction" all predict −11
-    const d = diagnose(addSubModel, { a: -4, b: -7, s: -1 }, -11);
+    // −4 − (−6): dropping the first minus and "minus and minus make plus" both predict 10
+    const d = diagnose(addSubModel, { a: -4, b: -6, s: -1 }, 10);
     expect(d.kind).toBe('misconception');
-    const ids = ['abs-add', 'direction', 'minus-minus'];
-    if (d.kind === 'misconception') { expect(d.ambiguous).toBe(true); expect(d.candidates.map((c) => c.id).sort()).toEqual(ids); expect(d.candidates[0].conf).toBeCloseTo(1 / 3); }
-    // no one question separates all three ("minus-minus" and "direction" agree wherever the first applies),
-    // so the engine narrows: whatever the student answers, at most two questions leave one candidate
+    if (d.kind === 'misconception') { expect(d.ambiguous).toBe(true); expect(d.candidates.map((c) => c.id).sort()).toEqual(['drop-sign', 'neg-neg-plus']); expect(d.candidates[0].conf).toBeCloseTo(1 / 2); }
+    const p = discriminating(addSubModel, ['drop-sign', 'neg-neg-plus'], seeded(3), 4000)!;
+    const ans = addSubModel.answer(p);
+    expect(new Set(['drop-sign', 'neg-neg-plus'].map((id) => addSubModel.bugs[id](p) ?? ans)).size).toBe(2);
+  });
+  it('the stair\'s own mistake names an answer it predicts alone (DiagModel.flagship)', () => {
+    // −4 − (−7) answered −11: subtracting the negative as a positive; adding the distances predicts −11 too
+    const d = diagnose(addSubModel, { a: -4, b: -7, s: -1 }, -11);
+    expect(d).toEqual({ kind: 'misconception', candidates: [{ id: 'minus-minus', conf: 1 }], ambiguous: false });
+    // where the flagship does not predict the answer, the others are named as before: 3 + (−8) answered 11 adds distances
+    expect(diagnose(addSubModel, { a: 3, b: -8, s: 1 }, 11)).toMatchObject({ candidates: [{ id: 'abs-add' }], ambiguous: false });
+  });
+  it('narrows three candidates that no one question separates over two questions', () => {
+    // b and c agree wherever b applies (q > 0), as minus-minus and direction did on the number line: a first question
+    // splits a from them, and a second one tells b and c apart
+    const model = {
+      params: (r: () => number) => ({ q: Math.floor(r() * 9) - 4, t: Math.floor(r() * 5) + 1 }), text: () => '', answer: (p: any) => p.q * 10 + p.t,
+      bugs: { a: (p: any) => p.q * 10 - p.t, b: (p: any) => (p.q > 0 ? p.q * 10 + p.t + 1 : null), c: (p: any) => p.q * 10 + p.t + 1 + (p.q > 0 ? 0 : 2) },
+      solution: () => [''], hint: () => '',
+    };
+    const ids = ['a', 'b', 'c'];
     const rnd = seeded(3);
-    const p1 = discriminating(addSubModel, ids, rnd, 4000)!;
+    const p1 = discriminating(model as any, ids, rnd, 4000)!;
     expect(p1).not.toBeNull();
-    const ans1 = addSubModel.answer(p1);
-    const outcomes = [...new Set(ids.map((id) => addSubModel.bugs[id](p1) ?? ans1))];
+    const ans1 = model.answer(p1);
+    const outcomes = [...new Set(ids.map((id) => (model.bugs as any)[id](p1) ?? ans1))];
     expect(outcomes.length).toBeGreaterThanOrEqual(2);
     outcomes.forEach((u) => {
-      const left = narrow(addSubModel, ids, p1, u);
+      const left = narrow(model as any, ids, p1, u);
       expect(left.length).toBeLessThan(ids.length);
       if (left.length > 1) {
-        const p2 = discriminating(addSubModel, left, rnd, 4000)!;
-        const ans2 = addSubModel.answer(p2);
-        expect(new Set(left.map((id) => addSubModel.bugs[id](p2) ?? ans2)).size).toBe(left.length);
+        const p2 = discriminating(model as any, left, rnd, 4000)!;
+        const ans2 = model.answer(p2);
+        expect(new Set(left.map((id) => (model.bugs as any)[id](p2) ?? ans2)).size).toBe(left.length);
       }
     });
   });
@@ -892,7 +913,8 @@ describe('Exam Rescue', () => {
         const m = placeOf(q, sk, 'mastery'); const l = placeOf(q, sk, 'learn');
         if (m && l) expect(before(l, m), `${sk} ${day}: mastery check before the lesson`).toBe(true);
       });
-      expect(q.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam')).toHaveLength(skills.length * 3);
+      // every stair's three first steps (the free days may add short reviews)
+      expect(q.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam' && t.kind !== 'review')).toHaveLength(skills.length * 3);
     }
   });
   it('puts no task on Shabbat, as the streak never asks for one', () => {
@@ -901,7 +923,7 @@ describe('Exam Rescue', () => {
     expect(p.days.map((d) => d.day)).toEqual(['2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13']); // Saturday 14.11 is not a work day
     p.days.forEach((d) => expect(new Date(`${d.day}T12:00:00`).getDay(), d.day).not.toBe(6));
     // everything is still planned, and the practice exam closes the last day before the exam
-    expect(p.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam')).toHaveLength(15);
+    expect(p.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam' && t.kind !== 'review')).toHaveLength(15);
     expect(p.days.at(-1)!.tasks.at(-1)!.kind).toBe('exam');
     // planned on Shabbat itself: today has no tasks, and the plan says so calmly
     const sat = rescueOf(['signed:1'], '2026-11-17', 15, '2026-11-14');

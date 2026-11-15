@@ -573,6 +573,8 @@ test('the dashboard of a 3-student class: today, the week by Jerusalem days, fir
   assert.deepEqual(exam, {
     studentId: noa.studentId, name: 'נועה', title: 'מבחן בשברים', correct: 3, total: 5, weak: ['signed'],
     questions: [{ topic: 'signed', status: 'correct', skill: 'חיבור', level: 2 }, { topic: 'other', status: 'missing', skill: 'x'.repeat(60), level: 0 }],
+    // checked from a photo: the "מבחנים" tab says so (PRODUCT2-31)
+    source: 'photo',
   });
   assert.doesNotMatch(JSON.stringify(d), /זר|1 - 9/, 'nothing from the other class');
   assert.equal((await h.call('GET', '/api/teacher/dashboard')).status, 401);

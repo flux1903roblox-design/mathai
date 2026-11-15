@@ -1,9 +1,12 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
 import katex from 'katex';
-import { TOPICS, TOPIC, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem, figPlain, namesOf } from './index.js';
+import { TOPICS, TOPIC, topicsFor, pathTopicsFor, pathColours, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem, figPlain, namesOf } from './index.js';
 import { manipCorrect, manipSolution, manipWrong } from './manip.js';
 import { SCENERY } from '@/components/map/Scenery.jsx';
-import { parseNum, plainNum, gcd } from './util.js';
+import { parseNum, plainNum, gcd, needsFormat, FORMAT_LINE, choiceWidth } from './util.js';
+import { ALL_SKILLS } from '@/learn/skills.ts';
+import { itemFor } from '@/learn/items.ts';
+import { loadAllContent, contentOf } from '@/learn/content/index.ts';
 import { factsItem } from './frac.js';
 import { holds, identical, texToExpr, texRelation, seeded, evaluate, same } from '@/learn/expr.ts';
 import { slipOf } from '@/learn/misconceptions.ts';
@@ -421,6 +424,34 @@ describe('a choice is not given away by its look', () => {
       expect(ok / n, said).toBeLessThan(0.55);
     });
   });
+  // PRODUCT2-8: the council found these six guessable by look (sn2's '<' always first and right 62%, sy1e's shortest
+  // right 49%, lf2p's longest 45%, sy3m's shortest 40%, sy5g's middle value 41%, ex1m's longest 59%). Now the place,
+  // the length as written, the width on screen and the middle value are each right as often as a blind guess, within
+  // 6 points over 1,200 questions of each. ex1m's readings (−12, 12 and −1 for 3x at x = −4) are FOLLOWUP-36's to
+  // redesign, with its rank: its rules above stay as they are.
+  it('the place, the length, the width and the middle value of sn2, sy1e, lf2p, sy3m and sy5g', () => {
+    Math.random = seeded(2612);
+    const KINDS = { sn2: ['signed', 2], sy1e: ['sys', 1], lf2p: ['line', 2], sy3m: ['sys', 3], sy5g: ['sys', 5] };
+    const median = (it) => { const v = it.choices.map(numOf); if (v.some((x) => !Number.isFinite(x))) return []; const s = [...v].sort((a, b) => a - b); const k = s.length; const m = k % 2 ? [s[(k - 1) / 2]] : [s[k / 2 - 1], s[k / 2]]; return v.map((x, j) => (m.includes(x) ? j : -1)).filter((j) => j >= 0); };
+    const ends = (f) => (it, max) => { const L = it.choices.map(f); const e = max ? Math.max(...L) : Math.min(...L); return L.map((l, j) => (l === e ? j : -1)).filter((j) => j >= 0); };
+    const len = ends((c) => plain(c).length); const wide = ends(choiceWidth);
+    const looks = {
+      longest: (it) => len(it, true), shortest: (it) => len(it, false), widest: (it) => wide(it, true), narrowest: (it) => wide(it, false),
+      'middle value': median, ...Object.fromEntries([0, 1, 2, 3].map((p) => [`place ${p + 1}`, (it) => (p < it.choices.length ? [p] : [])])),
+    };
+    try {
+      Object.entries(KINDS).forEach(([kind, [topic, level]]) => {
+        const right = {}; let n = 0; let k = 0;
+        for (let i = 0; i < 60000 && n < 1200; i += 1) {
+          const it = makeItem(topic, level); if (!String(it.key).startsWith(`${kind}:`)) continue;
+          n += 1; k = it.choices.length;
+          Object.entries(looks).forEach(([look, f]) => { const ix = f(it); if (ix.length) right[look] = (right[look] || 0) + ix.filter((j) => j === it.answer).length / ix.length; });
+        }
+        expect(n, kind).toBe(1200);
+        Object.entries(right).forEach(([look, ok]) => expect(ok / n, `${kind} "${look}": ${(100 * ok / n).toFixed(1)}% (a blind guess ${(100 / k).toFixed(0)}%)`).toBeLessThan(1 / k + 0.06));
+      });
+    } finally { Math.random = real; }
+  }, 60_000); // thousands of questions: seconds alone, longer on a busy machine
   it('the same question every time is practice only, never a check', () => {
     expect(fairForCheck({ key: 'sy4l:0', fixed: true, topic: 'sys' })).toBe(false);
     expect(fairForCheck({ key: 'eq4f:10x = 3(x + 7)', fixed: true, topic: 'eq' })).toBe(false);
@@ -477,6 +508,16 @@ describe('each unit has its own identity', () => {
     const taken = new Set([...near('7'), ...near('8')].map((id) => TOPIC[id].color));
     expect(COLOURS.filter((c) => !taken.has(c))).toEqual(['sky', 'fuchsia', 'cobalt']);
     expect(TOPIC.data.color).toBe('cobalt');
+  });
+  it('on a grade\'s path in any month, a unit joined from the other grade never sits beside its own colour', () => {
+    for (const grade of ['7', '8']) for (let month = 0; month <= 9; month += 1) {
+      const list = pathTopicsFor(grade, month);
+      const c = pathColours(list);
+      list.forEach((t) => expect(COLOURS, `${t.id}`).toContain(c[t.id]));
+      for (let i = 1; i < list.length; i += 1) expect(c[list[i].id], `grade ${grade}, month ${month}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(c[list[i - 1].id]);
+      // a grade's own units keep their colours
+      topicsFor(grade).forEach((t) => expect(c[t.id]).toBe(t.color));
+    }
   });
   it('every topic has three drawings: its emblem and two for beside the path', () => {
     for (const t of TOPICS) {
@@ -1346,7 +1387,7 @@ describe('areas and perimeters: every practice kind, from the numbers in its tex
         expect([item.text, item.hint, ...item.solution].join(' ')).not.toMatch(/undefined|NaN/);
         // every mistake a diag can name has Hebrew words in the topic
         const wrong = item.form === 'num' ? item.answer + 1 : null;
-        if (wrong != null) { const c = item.diag(wrong); if (c) expect(AREA.cats[c]).toBeTruthy(); }
+        if (wrong != null) { const c = item.diag(wrong); if (c) [c].flat().forEach((id) => expect(AREA.cats[id]).toBeTruthy()); }
         solutionHolds(item);
       }
       expect([...kinds].sort()).toEqual([...KIND_KEYS[level]].sort());
@@ -2542,4 +2583,44 @@ describe('Pythagoras in space: the diagnostic and transfer models', () => {
       });
     });
   }
+});
+
+// CURRICULUM-12 / PRODUCT2-6: no student is marked wrong for a format nobody told them about. Every typed number whose
+// answer has no exact two-place decimal says, once, how to write it (a fraction, or a decimal rounded to two places),
+// from every source a lesson or a check draws: the stair's generator, its diagnostic model and its transfer model. A
+// rounded length (it carries `exact` and says to round to tenths) and a question that asks for a decimal are the
+// exceptions; nothing that does not need the line has it.
+describe('every typed number says how to write an answer with no two-place decimal', () => {
+  it('2,000 items per stair per source (gen, diag, transfer)', async () => {
+    await loadAllContent();
+    const rnd = seeded(12);
+    vi.spyOn(Math, 'random').mockImplementation(seeded(2026));
+    const missing = {}; const extra = {}; let needed = 0;
+    const once = (t) => (String(t).match(/אפשר לכתוב כשבר/g) || []).length <= 1;
+    try {
+      for (const skill of ALL_SKILLS) {
+        const c = contentOf(skill);
+        for (const source of ['gen', 'diag', 'transfer']) {
+          if (source === 'diag' && !c?.diag) continue;
+          if (source === 'transfer' && !c?.transfer) continue;
+          for (let i = 0; i < 2000; i += 1) {
+            const it = itemFor(skill, source, rnd);
+            if (it.form !== 'num') continue;
+            const where = `${skill} ${source}`;
+            expect(once(it.text), `${where} ${it.key}: the line twice`).toBe(true);
+            // a question that asks for a decimal always has one with two places or fewer
+            if (it.askDec) { expect(needsFormat(it.answer), `${where} ${it.key}`).toBe(false); continue; }
+            const need = needsFormat(it.answer) && it.exact == null;
+            const has = FORMAT_LINE.test(it.text);
+            if (need) needed += 1;
+            if (need && !has) missing[where] ||= `${it.key} :: ${it.text} => ${it.answer}`;
+            if (!need && has) extra[where] ||= `${it.key} :: ${it.text} => ${it.answer}`;
+          }
+        }
+      }
+    } finally { vi.restoreAllMocks(); }
+    expect(missing, 'answers with no two-place decimal and no format line').toEqual({});
+    expect(extra, 'a format line where none is needed').toEqual({});
+    expect(needed).toBeGreaterThan(5000);
+  }, 300_000);
 });

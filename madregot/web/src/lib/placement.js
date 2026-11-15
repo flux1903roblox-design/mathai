@@ -4,12 +4,15 @@
 // first miss ends the probe. A passed probe raises the floor, a missed one lowers the ceiling, and two probes settle
 // a topic at most. Three right answers in a row are needed to pass over a stair, so guessing does not place a
 // student above what they know (src/learn/guessing.test.ts). The result is the number of stairs already climbed
-// in each topic: the path passes over them, and each one still waits for its own mastery check. Topics taught later
-// in the school year (topic flag placement: false) are not tested on the first day.
+// in each topic: the path passes over them, and each one waits for its own mastery check, which is the next stage the
+// plan gives them (learn/mastery.ts nextStage, PRODUCT2-19). Topics taught later in the school year (topic flag
+// placement: false) are not tested on the first day; ח׳ ratio and percent (placement: 'taught') are, once the school
+// calendar has taught them (the school month, September 0 … June 9, comes from the clock unless given).
 import { TOPIC, placementTopicsFor, testItem, isCorrect } from '@/content/index.js';
 import { itemFor } from '@/learn/items.ts';
 import { metaOf } from '@/learn/content/index.ts';
 import { skillId } from '@/learn/skills.ts';
+import { schoolMonth } from '@shared/coverage.js';
 
 // The test's numbers and the onboarding's familiarity answers live in lib/placementRules.js, which the first screen
 // reads without this file (the boot split: the test's items and the exercise generators load with the test).
@@ -45,13 +48,14 @@ const probeFor = (topic, know) => {
   return { lo: 0, hi: top + 1, asked: 0, right: 0, first: startLevel(top, know), q: 0 };
 };
 
-export function startPlacement({ grade = '7', know = 1 } = {}) {
-  // topics taught later in the year are not tested on the first day (topic flag placement: false)
-  const topics = placementTopicsFor(grade).map((t) => t.id);
+export function startPlacement({ grade = '7', know = 1, month = schoolMonth() } = {}) {
+  // topics taught later in the year are not tested on the first day (topic flag placement: false), and ratio and
+  // percent only once the calendar has taught them (placement: 'taught')
+  const topics = placementTopicsFor(grade, month).map((t) => t.id);
   const probe = probeFor(topics[0], know);
   return {
     kind: 'placement', grade: String(grade), know, topics, ti: 0, probe, results: {},
-    topic: topics[0], level: probe.first, slot: 0, total: placementMax(grade), answered: 0,
+    topic: topics[0], level: probe.first, slot: 0, total: placementMax(grade, month), answered: 0,
     item: probeItem(topics[0], probe.first, 0), attempt: 1, hint: false, phase: 'answer', wrong: [],
     combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, cats: {}, lastCat: null, redo: [],
     finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),
@@ -108,7 +112,7 @@ export function placementNext(s) {
 export function placementResult(s) {
   const accuracy = s.answered ? Math.round((100 * s.firstTry) / s.answered) : 0;
   return {
-    kind: 'placement', grade: s.grade, results: s.results, xp: PLACEMENT_XP, accuracy, passed: true, perfect: false,
+    kind: 'placement', grade: s.grade, topics: s.topics, results: s.results, xp: PLACEMENT_XP, accuracy, passed: true, perfect: false,
     bestCombo: s.bestCombo, mistakes: s.mistakes, secs: Math.round((Date.now() - s.startedAt) / 1000), topic: s.topics[0], level: 1,
   };
 }

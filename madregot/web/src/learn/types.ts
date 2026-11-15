@@ -313,7 +313,11 @@ export interface WorkedExample {
 
 // ------------------------------------------------------------------ Stage C: solve together
 
-export interface GuidedChoice { text: Text; ok: boolean; feedback: Text }
+/**
+ * `misc` names the stair misconception(s) whose move a wrong choice is. The student who goes on has turned that move
+ * down, so the last step does not predict it again (learn/content/togetherDiag.ts; checked by content.test.ts).
+ */
+export interface GuidedChoice { text: Text; ok: boolean; feedback: Text; misc?: string | string[] }
 /** The student chooses the next step; a wrong choice gets its own feedback and the hints grow stronger. */
 export interface GuidedStep { prompt: Text; display?: string; choices: GuidedChoice[]; hints: [Text, Text]; done: Text }
 export interface GuidedProblem {
@@ -377,6 +381,13 @@ export interface DiagModel<P = Record<string, number>> {
   /** The exact value when the answer is rounded (a root that is not whole): an answer within half a tenth of it is right. */
   exact?: (p: P) => number;
   bugs: Record<string, (p: P) => number | null>;
+  /**
+   * The stair's own mistake, the one its teaching is built around (signed:1: subtracting a negative as a positive). Where
+   * it predicts the answer, it names it alone: another bug that predicts the same number there is not a second
+   * explanation the lesson can tell apart, and the stair's exercises name it the same way (content/grade7.js level
+   * `flagship`, learn/misconceptions.ts diagnose).
+   */
+  flagship?: string;
   solution: (p: P) => Text[];
   hint: (p: P) => Text;
   /** The answer's unit, written after the slot; a function chooses per question (an area in סמ״ר, a perimeter in ס״מ). */
@@ -448,6 +459,11 @@ export interface SkillRecord {
   mastered?: { at: string; box: number; due: string; lastReview?: { at: string; ok: boolean } };
   /** Failed mastery checks since the last pass (for honest feedback, not punishment). */
   failedChecks?: number;
+  /**
+   * When the last mastery check was failed (cleared by a pass): the check is offered again only after fresh practice
+   * since then (mastery.ts checkWaits), so a quick retake is not a second guess.
+   */
+  lastFailAt?: string;
   /** Where the student is inside each teaching stage, so leaving keeps the place. */
   pos?: { A?: number; B?: number; C?: number };
 }
@@ -508,7 +524,11 @@ export interface ChallengeTask {
   /** The mistake (a misconception id of the content, e.g. 'partial-dist') the task is built on, when it is one. */
   misc?: string;
 }
-/** A task without its story and parts: what the first load knows of it (learn/challenges/meta.gen.ts). */
+/**
+ * A task without its story and parts: what the first load knows of it (learn/challenges/meta.gen.ts, written by
+ * scripts/gen-content-meta.mjs): the plan, the stair page, the check's end and the medals read only these. The task's
+ * screen loads the whole task (learn/challenges/all.ts taskById, in the challenge screen's chunk).
+ */
 export type ChallengeMeta = Pick<ChallengeTask, 'id' | 'topic' | 'after' | 'kind' | 'title' | 'minutes' | 'misc'>;
 /**
  * One part of a challenge.
@@ -532,7 +552,11 @@ export type ChallengePart =
       example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
                   expr: string; rel: '<' | '<=' | '>' | '>=' | '!='; value: number; hint: Text } }
   | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number }; fixed?: Text }[]; free?: number[][] }
-  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string; after?: string } }
+  /**
+   * Someone's solution with one mistaken line (`wrong`, explained by `why`). `lineWhy` says, for every other line, why
+   * that line is not the mistake; the student who marks it reads it (components/challenge/ErrorPart.jsx, PRODUCT2-18).
+   */
+  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; lineWhy: Record<number, Text>; fix: { prompt: Text; answer: number; check: string; after?: string } }
   | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
 /** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */
 export interface ChallengeRecord { startedAt: string; doneAt?: string; firstTry: number; parts: number }

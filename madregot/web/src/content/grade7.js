@@ -40,12 +40,13 @@ function addSub() {
   steps.push(`התשובה: $${T(ans)}$`);
   return {
     key: `sn1:${display}`, text: 'חשבו:', display, form: 'num', answer: ans, hint, solution: steps,
-    diag: (u) => {
-      if (ans !== 0 && near(u, -ans)) return 'sign';
-      if (sgn(a) !== sgn(bb) && near(u, sgn(a) * (Math.abs(a) + Math.abs(bb)))) return 'abs-add';
-      if (op === '-' && b < 0 && near(u, a + b)) return 'minus-minus';
-      return null;
-    },
+    // every mistake whose number this is: with a negative first number, −4 − (−11) answered −15 is both subtracting
+    // the negative as a positive and adding the distances; the level's flagship, minus-minus, names it (makeItem)
+    diag: (u) => [
+      ans !== 0 && near(u, -ans) && 'sign',
+      op === '-' && b < 0 && near(u, a + b) && 'minus-minus',
+      sgn(a) !== sgn(bb) && near(u, sgn(a) * (Math.abs(a) + Math.abs(bb))) && 'abs-add',
+    ].filter(Boolean),
   };
 }
 
@@ -83,15 +84,15 @@ function addSubLine() {
     manip: { kind: 'numberline', min: -10, max: 10, from: a, start: a },
     answer: ans, hint,
     solution: [`מ־$${T(a)}$ זזים ${way(move)}.`, `התשובה: $${T(ans)}$`],
-    diag: (u) => {
+    // a − (−b) moved like a − b is also a move the wrong way (it always is): the flagship, minus-minus, names it
+    diag: (u) => [
       // a − (−b) moved like a − b: the subtraction of a negative number went left
-      if (op === '-' && b < 0 && u === a + b) return 'minus-minus';
+      op === '-' && b < 0 && u === a + b && 'minus-minus',
       // the right distance, the wrong way: a move, not the sign of the answer
-      if (u === a - move) return 'direction';
+      u === a - move && 'direction',
       // only an answer that really is the negative of the right one is a sign error
-      if (ans !== 0 && u === -ans) return 'sign';
-      return null;
-    },
+      ans !== 0 && u === -ans && 'sign',
+    ].filter(Boolean),
   };
 }
 
@@ -99,8 +100,9 @@ function compare() {
   let a = R(-15, 15); let b = R(-15, 15);
   if (Math.random() < 0.6 && a > -2) a = -R(2, 15); // most items compare negatives
   if (Math.random() < 0.1) b = a;
-  const ans = a < b ? 0 : a === b ? 1 : 2;
-  const choices = ['<', '=', '>'];
+  const sign = a < b ? '<' : a === b ? '=' : '>';
+  // the three signs in a new order each time, so where the right one stands tells nothing (PRODUCT2-8)
+  const choices = shuffle(['<', '=', '>']); const ans = choices.indexOf(sign);
   return {
     key: `sn2:${a}:${b}`, text: 'איזה סימן מתאים במקום הריבוע?', display: `${T(a)} \\;\\square\\; {${T(b)}}`,
     form: 'mc', choices: choices.map((c) => ({ tex: c })), answer: ans,
@@ -109,7 +111,7 @@ function compare() {
       a === b ? `שני המספרים שווים: $${T(a)}$ ו־$${T(b)}$ הם אותה נקודה על ציר המספרים.` : `על ציר המספרים $${T(Math.min(a, b))}$ נמצא משמאל ל־$${T(Math.max(a, b))}$.`,
       `לכן $${T(a)} ${choices[ans]} ${T(b)}$`,
     ],
-    diag: (u) => (a < 0 && b < 0 && a !== b && u !== ans && u !== 1 ? 'neg-compare' : null),
+    diag: (u) => (a < 0 && b < 0 && a !== b && u !== ans && choices[u] !== '=' ? 'neg-compare' : null),
   };
 }
 
@@ -147,11 +149,8 @@ function order() {
         `קודם הכפל: $${first ? `${T(b, true)} \\cdot ${T(c, true)}` : `${T(a)} \\cdot ${T(b, true)}`} = ${T(prod)}$`,
         `עכשיו: $${first ? `${T(a)} ${op} ${T(prod, true)}` : `${T(prod)} ${op} ${T(c, true)}`} = ${T(ans)}$`,
       ],
-      diag: (u) => {
-        if (first && near(u, leftToRight)) return 'order';
-        if (ans !== 0 && near(u, -ans)) return 'sign';
-        return null;
-      },
+      // both when both give this number (3 − 2 · 3 answered 3: left to right, or the sign): an ambiguous answer
+      diag: (u) => [first && near(u, leftToRight) && 'order', ans !== 0 && near(u, -ans) && 'sign'].filter(Boolean),
     };
   }
 }
@@ -172,13 +171,14 @@ function brackets() {
         `כפל: $${T(inner, true)} \\cdot ${T(d, true)} = ${T(inner * d)}$`,
         `חיסור: $${T(a)} - ${T(inner * d, true)} = ${T(ans)}$`,
       ],
-      diag: (u) => {
-        if (near(u, wrong)) return 'order';
+      // every mistake that gives this number: the order and the minus-minus mistakes, or the order and the sign
+      // mistakes, can give the same one (7 − (8 − 1) · (−1) answered 0), and then the answer is ambiguous
+      diag: (u) => [
+        near(u, wrong) && 'order',
         // subtracting a negative product as if it were positive: only when the product really is negative
-        if (inner * d < 0 && near(u, a + inner * d)) return 'minus-minus';
-        if (ans !== 0 && near(u, -ans)) return 'sign';
-        return null;
-      },
+        inner * d < 0 && near(u, a + inner * d) && 'minus-minus',
+        ans !== 0 && near(u, -ans) && 'sign',
+      ].filter(Boolean),
     };
   }
 }
@@ -329,7 +329,8 @@ function linearPair() {
     fig: { type: 'linear', a },
     hint: 'זוויות צמודות משלימות זו את זו ל־$180^\\circ$, כי יחד הן יוצרות קו ישר.',
     solution: [`$180^\\circ - ${deg(a)} = ${deg(ans)}$`],
-    diag: (u) => (near(u, a) ? 'equal-not-supp' : near(u, 90 - a) || near(u, 360 - a) ? 'wrong-total' : null),
+    // both when both give this number (45° beside 135°: 45 is the same angle and 90 − 45)
+    diag: (u) => [near(u, a) && 'equal-not-supp', (near(u, 90 - a) || near(u, 360 - a)) && 'wrong-total'].filter(Boolean),
   };
 }
 
@@ -436,9 +437,11 @@ export const GRADE7 = [
     id: 'signed', grade: '7', title: 'מספרים מכוונים', color: 'sky',
     desc: 'חיבור, חיסור, כפל וחילוק, וסדר פעולות',
     levels: [
+      // flagship: the stair's own mistake, subtracting a negative as a positive; where another mistake predicts the same
+      // number, it names the answer (content/index.js makeItem, learn/content/signed.ts addSubModel.flagship)
       // CLASSROOM-2: 35% on the number line, 35% two numbers, 30% the class's chains of five bracketed numbers (three
       // typed chains to one practice-only choice of the regrouped line)
-      { title: 'חיבור וחיסור', gen: () => { const x = Math.random(); return x < 0.35 ? addSubLine() : x < 0.7 ? addSub() : x < 0.925 ? chainItem(rnd) : regroupItem(rnd); } },
+      { title: 'חיבור וחיסור', gen: () => { const x = Math.random(); return x < 0.35 ? addSubLine() : x < 0.7 ? addSub() : x < 0.925 ? chainItem(rnd) : regroupItem(rnd); }, flagship: 'minus-minus' },
       // CLASSROOM-1: 40% comparing (as before), 25% absolute value, 20% opposites, 15% a practice-only choice
       { title: 'השוואה וערך מוחלט', gen: () => { const x = Math.random(); return x < 0.4 ? (Math.random() < 0.4 ? orderPins() : compare()) : x < 0.65 ? absItem(rnd) : x < 0.85 ? oppItem(rnd) : absMc(rnd); } },
       // CLASSROOM-3: one question in ten divides with 0 or 1 (a practice-only choice)
@@ -502,6 +505,9 @@ export const GRADE7 = [
   {
     id: 'angles', grade: '7', title: 'זוויות', color: 'petrol',
     desc: 'צמודות, קודקודיות, משולש, ישרים מקבילים, חוצה זווית ומרובע',
+    // ח׳ completes angles between parallel lines in September (unit 8.3) and the isosceles and exterior angles in March
+    // (8.13): the unit is on the ח׳ path too (PRODUCT2-20)
+    alsoFor: ['8'],
     // CURRICULUM-10: a check draws from testGen, practice from gen. A one-step question (equal to the drawn angle, or
     // 180° minus it) is passed by a student who copies the number or completes it to a line, so each check mixes in
     // two-step questions (content/angleItems.js), each practised first at 30% of its stair's exercises. The mixes keep

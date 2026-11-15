@@ -3,8 +3,7 @@
 // the card for the day. The words never put the missed day on the student: "אתמול לא יצא ללמוד", never "you missed".
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
-import { useApp, today } from '@/lib/store.js';
-import { streakRepair } from '@/lib/streak.js';
+import { useApp, useStreak, today } from '@/lib/store.js';
 import { useNext } from '@/lib/useLearn.js';
 import Mascot from '@/components/Mascot.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -19,17 +18,19 @@ export function repairText(r, todayKey) {
   return `${when} לא יצא ללמוד. עוד ${k === 1 ? 'שיעור אחד' : 'שני שיעורים'} היום, והרצף של ${r.streak} ימים נשמר.`;
 }
 
-/** The repair, when there is one for today and the card was not closed today. */
-export function useRepair() {
-  const days = useApp((s) => s.days);
-  const lastRepair = useApp((s) => s.streak?.lastRepair ?? null);
-  return streakRepair(days, today(), lastRepair);
+/** Today's repair, when there is one: the same answer the header's flame shows at risk (store.js useStreak). */
+export const useRepair = () => useStreak().repair;
+
+/** The repair card is up today: there is a repair, and the card was not closed today. */
+export function useRepairOn() {
+  const r = useRepair();
+  const dismissed = useApp((s) => s.nudges?.repairDismissed);
+  return !!r && dismissed !== today();
 }
 
 export default function RepairCard() {
   const r = useRepair();
-  const dismissed = useApp((s) => s.nudges?.repairDismissed);
-  if (!r || dismissed === today()) return null;
+  if (!useRepairOn()) return null;
   return <RepairCardView r={r} />;
 }
 

@@ -6,8 +6,8 @@
 // on the device, so a report waiting offline, the server's copy and a newer report combine the same way everywhere.
 import type { LearnState, SkillRecord } from './types';
 import { hasContent } from './content/index';
-import { nextStage } from './mastery';
-import { STAGE_N } from './recommend';
+import { nextStage, practiceDone } from './mastery';
+import { STAGE_N, routeOf } from './recommend';
 
 export type WorkState = 'started' | 'done';
 export interface WorkReport {
@@ -21,7 +21,8 @@ export interface WorkReport {
   doneAt?: string | null;
 }
 export interface ClassAssignment {
-  id: string; kind: 'stair' | 'check' | 'exam'; skill: string | null; title: string; note: string;
+  /** A repair (SK-BUYERS-2) is one mistake on one stair: `misc` names it (one of the stair's own misconceptions). */
+  id: string; kind: 'stair' | 'check' | 'exam' | 'repair'; skill: string | null; misc?: string | null; title: string; note: string;
   startsOn: string; dueOn: string; createdAt?: string; hasExam?: boolean; examCount?: number | null;
   mine: WorkReport | null;
 }
@@ -41,7 +42,8 @@ export function stairStage(skill: string, rec: SkillRecord | undefined): number 
     return STAGE_N[nextStage(rec)] - 1;
   }
   const practice = (rec?.attempts || []).filter((a) => a.purpose === 'practice');
-  if (practice.filter((a) => a.ok).length >= PRACTICE_DONE) return 4;
+  // (after a failed mastery check, the practice since it: mastery.ts practiceDone)
+  if (practiceDone(rec, PRACTICE_DONE)) return 4;
   return practice.length ? 1 : 0;
 }
 
@@ -49,20 +51,40 @@ export function stairStage(skill: string, rec: SkillRecord | undefined): number 
 const dayOf = (iso: string) => new Date(iso).toLocaleDateString('en-CA');
 
 /**
+ * What a repair the teacher gave reports (SK-BUYERS-2), from the learning record: { state }, or null while nothing was
+ * done. Done when that mistake's repair check on that stair passed since the work started (the 'repair-done' event
+ * with ok, which finishVerify gives only for 3 right of 3 with the mistake not showing again); started when its repair
+ * was opened since then, or its check finished without passing. Mastery of the stair is not the repair.
+ */
+function repairFromLearn(a: ClassAssignment, learn: LearnState): WorkReport | null {
+  if (!a.skill || !a.misc) return null;
+  const mine = learn.events.filter((e) => e.s === a.skill && e.m === a.misc && dayOf(e.t) >= a.startsOn);
+  if (mine.some((e) => e.e === 'repair-done' && e.ok)) return { state: 'done' };
+  return mine.some((e) => e.e === 'repair-start' || e.e === 'repair-done') ? { state: 'started' } : null;
+}
+
+/**
  * What a stair assignment reports, from the learning record: { state, stage, passed }, or null while nothing was done.
- * Done: the stair is mastered, or its mastery check was finished since the assignment started (a finished check, not a
- * single answer of one). Started: a stage is done, or anything was answered on the stair since it started.
- * Checks and class exams report their own events (Lesson.jsx), so this returns null for them.
+ * Done only by work since the assignment started (SK-BUYERS-1): its mastery check finished since then (a finished
+ * check, not a single answer of one), or, for a stair the student had mastered, a review check passed or a mistake on
+ * it resolved by its verification since then. Mastery from before stays a fact (`passed`: the teacher's "עבר/ה בעבר"),
+ * never this work done: a student who passed in October and slips in November gets the practice and shows as not done.
+ * Started: a stage is done, or anything was answered on the stair since it started.
+ * A repair the teacher gave reports from its own events (repairFromLearn). Checks and class exams report their own
+ * events (Lesson.jsx), so this returns null for them.
  */
 export function workFromLearn(a: ClassAssignment, learn: LearnState): WorkReport | null {
+  if (a.kind === 'repair') return repairFromLearn(a, learn);
   if (a.kind !== 'stair' || !a.skill) return null;
   const rec = learn.skills[a.skill];
   const stage = stairStage(a.skill, rec);
   const passed = !!rec?.mastered;
   const since = (t: string) => dayOf(t) >= a.startsOn;
-  const checked = learn.events.some((e) => e.e === 'check-done' && e.p === 'mastery' && e.s === a.skill && since(e.t));
+  const mine = learn.events.filter((e) => e.s === a.skill && since(e.t));
+  const checked = mine.some((e) => e.e === 'check-done' && e.p === 'mastery');
+  const kept = passed && mine.some((e) => (e.e === 'check-done' && e.p === 'review' && e.ok) || (e.e === 'repair-done' && e.ok));
   const tried = (rec?.attempts || []).some((x) => since(x.at));
-  const state: WorkState | null = passed || checked ? 'done' : stage > 0 || tried ? 'started' : null;
+  const state: WorkState | null = checked || kept ? 'done' : stage > 0 || tried ? 'started' : null;
   return state ? { state, stage, passed } : null;
 }
 
@@ -97,4 +119,23 @@ export function adds(have: WorkReport | null | undefined, report: WorkReport | n
   if (!report?.state) return false;
   const m = mergeWork(have, report)!;
   return m.state !== (have?.state ?? null) || (m.stage ?? null) !== (have?.stage ?? null) || (m.passed ?? null) !== (have?.passed ?? null);
+}
+
+/**
+ * A stair the student had passed before the teacher gave it, and not done since (SK-BUYERS-1): only its mastery check
+ * again (or a review check passed) finishes it, never practice, so that check is where it leads.
+ */
+export const recheckDue = (a: Pick<ClassAssignment, 'kind'>, w: WorkReport | null | undefined): boolean => a.kind === 'stair' && !!w?.passed && w.state !== 'done';
+
+/**
+ * Where the teacher's work opens: a class exam's start, the mastery check counted for it, the repair of that mistake
+ * (the same route planNext's repair band gives it, SK-BUYERS-2), the stair's page with its banner, or, for a stair
+ * passed before and not done since (recheckDue, from the work as this device knows it, `w`), its mastery check. Each
+ * names the assignment, so what the student does there reports to it.
+ */
+export function workRoute(a: Pick<ClassAssignment, 'id' | 'kind' | 'skill' | 'misc'>, w?: WorkReport | null): string {
+  if (a.kind === 'exam') return `/class/exam/${a.id}`;
+  if (a.kind === 'check' || recheckDue(a, w)) return `${routeOf.check(a.skill!, 'mastery')}&assignment=${a.id}`;
+  if (a.kind === 'repair') return `${routeOf.repair(a.skill!, encodeURIComponent(a.misc || ''))}?assignment=${a.id}`;
+  return `${routeOf.journey(a.skill!)}?assignment=${a.id}`;
 }

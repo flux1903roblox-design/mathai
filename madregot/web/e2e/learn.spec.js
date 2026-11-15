@@ -2,7 +2,7 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, openOn, type, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll, expectUsable } from './helpers.js';
+import { open, openOn, type, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, leaveStage, expectNoSidewaysScroll, expectUsable, openUnit } from './helpers.js';
 
 // journeys run on phone and desktop; a test tagged @phone-small measures the smallest phone and runs there only
 // (a test whose title says "on both phones" runs on the two phones instead)
@@ -27,7 +27,8 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await expect(a.locator('.badges')).toContainText('התחלתם רצף');
   await expect(a.locator('.climb-caption')).toHaveText('1 מתוך 5 שלבים במדרגה');
   await expect(a.locator('.stage-done-next')).toContainText('הבא: דוגמה פתורה');
-  await a.getByRole('button', { name: 'לדוגמה הפתורה', exact: true }).click();
+  // the first stage of all also brought מדי his first piece: its moment comes on the way (wardrobe.spec.js 4b)
+  expect(await leaveStage(page, 'לדוגמה הפתורה')).toBe(true);
   await expect(page).toHaveURL(/learn\/signed\/1\/B/);
   // a worked example comes one step at a time, each with its reason
   await page.getByRole('button', { name: 'מתחילים' }).click();
@@ -68,10 +69,12 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await page.locator('.tg-step .ls-choice').nth(0).click();
   await check.click();
   await page.getByRole('button', { name: 'המשך' }).click();
-  // a wrong last step is diagnosed: −10 is subtracting −5 as if it were 5 (or another reading of the same number)
+  // a wrong last step is diagnosed from where the steps left it (SK-LEARN-4): the step wrote −5 + 5 and turned down
+  // −5 − 5, so −10 is the distances added with the minus kept, not subtracting −5 as if it were 5
   await page.locator('.tg-input').fill('-10');
   await page.getByRole('button', { name: 'בדיקה' }).click();
-  await expect(page.locator('.lm-actions.has-warm')).toContainText('חיסור של מספר שלילי חושב כמו חיסור של חיובי');
+  await expect(page.locator('.lm-actions.has-warm')).toContainText('חיברו מרחקים כשהסימנים שונים, במקום לחסר');
+  await expect(page.locator('.lm-actions.has-warm')).not.toContainText('חיסור של מספר שלילי');
   await expect(page.locator('.lm-actions.has-warm')).not.toContainText('בדקו את החישוב');
   await page.locator('.tg-input').fill('0');
   await page.getByRole('button', { name: 'בדיקה' }).click();
@@ -101,8 +104,10 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   expect(Object.keys(st.learn.skills['signed:1'].taught).sort()).toEqual(['A', 'B', 'C']);
   expect(st.learn.skills['signed:1'].attempts.every((a) => !a.independent)).toBe(true);
   expect(st.learn.skills['signed:1'].mastered).toBeUndefined();
-  // the diagnosed last step is evidence about the misconception it fits (learning with help is still evidence of it)
-  expect(st.learn.miscon['signed:1|minus-minus']).toBeTruthy();
+  // the diagnosed last step is evidence about the misconception it fits (learning with help is still evidence of it):
+  // the distances added, not the subtraction the step had already turned down (SK-LEARN-4)
+  expect(st.learn.miscon['signed:1|abs-add']).toBeTruthy();
+  expect(st.learn.miscon['signed:1|minus-minus']).toBeUndefined();
   await page.reload();
   await expect(page.locator('.jstage.done')).toHaveCount(3);
 });
@@ -220,13 +225,14 @@ test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of the
   await open(page, '#/rescue', student('7'));
   await toTopics();
   const heads = page.locator('.rescue-topic-head .topic-row');
-  // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February; and the functions unit
-  // through its guest stair alone (func:1, a situation graph in May: stage5.md FUNC-6, guest.spec.js). Stage 2's areas
-  // and boxes sit between the expressions and the data unit, as on the map, and stage 4's transformations between the
-  // angles and the expressions
-  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'טרנספורמציות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'שטחים והיקפים (כל הנושא)', 'תיבה ומנסרה (כל הנושא)', 'נתונים ושכיחות (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'מבוא לפונקציות (מה שלומדים בכיתה ז׳)', 'משפט פיתגורס (כל הנושא)']);
+  // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February; the functions unit
+  // through its guest stair alone (func:1, a situation graph in May: stage5.md FUNC-6, guest.spec.js); and since
+  // PRODUCT2-20 linear functions (7.9) and statistics (7.15) carry alsoFor ז׳, so Exam Rescue offers them as well. Stage
+  // 2's areas and boxes sit between the expressions and the data unit, as on the map, and stage 4's transformations
+  // between the angles and the expressions
+  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'טרנספורמציות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'שטחים והיקפים (כל הנושא)', 'תיבה ומנסרה (כל הנושא)', 'נתונים ושכיחות (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'מבוא לפונקציות (מה שלומדים בכיתה ז׳)', 'פונקציה קווית (כל הנושא)', 'משפט פיתגורס (כל הנושא)', 'סטטיסטיקה (כל הנושא)']);
   await page.getByText('מציאת ניצב', { exact: true }).click();
-  await expect(page.locator('.rescue-topic').last().locator('.rescue-topic-count')).toHaveText('1/5');
+  await expect(page.locator('.rescue-topic').filter({ hasText: 'משפט פיתגורס' }).locator('.rescue-topic-count')).toHaveText('1/5');
   await expectNoSidewaysScroll(page);
 
   await open(page, '#/rescue', student('8'));
@@ -257,13 +263,14 @@ test('a ח׳ student\'s map draws the data unit third, after percent, and its pa
 
 test('this year\'s ח׳ map climbs the transformations after percent and the data unit, as unit 4', async ({ page }) => {
   await open(page, '#/', student('8'));
-  const titles = page.locator('.unit .unit-title');
+  // the open units and the folded rows (PRODUCT2-37), in the path's order
+  const titles = page.locator('.unit .unit-title, .unit-row .unit-title');
   await expect(titles.nth(0)).toHaveText('יחס וקנה מידה');
   await expect(titles.nth(1)).toHaveText('אחוזים');
   await expect(titles.nth(2)).toHaveText('נתונים ושכיחות');
   await expect(titles.nth(3)).toHaveText('טרנספורמציות');
   await expect(titles.nth(4)).toHaveText('מבוא לפונקציות');
-  const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: 'טרנספורמציות' }) });
+  const unit = page.locator('section.unit, section.unit-row').filter({ has: page.locator('.unit-title', { hasText: 'טרנספורמציות' }) });
   await expect(unit.locator('.unit-label')).toContainText('יחידה 4');
   // its guidebook numbers it from the student's path too
   await page.goto('./#/topic/transf');
@@ -275,7 +282,8 @@ test('this year\'s ח׳ map climbs the transformations after percent and the dat
 // statistics (January to April in school), and every new unit wears its own emblem on its banner; the ז׳ map has the
 // transformations between angles and expressions
 async function newUnitsOnMaps(page) {
-  const units = () => page.locator('.unit .unit-title').allTextContents();
+  // every unit on the path: the open ones and the folded rows (PRODUCT2-37), in the path's order
+  const units = () => page.locator('.unit .unit-title, .unit-row .unit-title').allTextContents();
   await open(page, '#/', student('8'));
   await expect(page.locator('.unit').first()).toBeVisible();
   const g8 = await units();
@@ -283,7 +291,9 @@ async function newUnitsOnMaps(page) {
   expect(at, 'statistics is on the ח׳ map').toBeGreaterThanOrEqual(0);
   expect(g8.slice(at, at + 3)).toEqual(['סטטיסטיקה', 'חפיפת משולשים', 'שווה־שוקיים ודמיון']);
   for (const [title, id] of [['טרנספורמציות', 'transf'], ['חפיפת משולשים', 'congr'], ['שווה־שוקיים ודמיון', 'sim']]) {
-    const unit = page.locator(`.unit.world-${id}`);
+    // a folded row opens with one tap; the opened unit wears its emblem on its banner
+    const unit = await openUnit(page, new RegExp(`^${title}$`));
+    await expect(unit).toHaveClass(new RegExp(`world-${id}`));
     await expect(unit.locator('.unit-title')).toHaveText(title);
     await unit.locator('.unit-head').scrollIntoViewIfNeeded();
     const emblem = unit.locator('.unit-head .emblem svg');
@@ -299,11 +309,14 @@ async function newUnitsOnMaps(page) {
   const g7 = await units();
   const t = g7.indexOf('טרנספורמציות');
   expect(g7.slice(t - 1, t + 2)).toEqual(['זוויות', 'טרנספורמציות', 'ביטויים אלגבריים']);
-  const unit = page.locator('.unit.world-transf');
+  const unit = await openUnit(page, /^טרנספורמציות$/);
+  await expect(unit).toHaveClass(/world-transf/);
   await unit.locator('.unit-head').scrollIntoViewIfNeeded();
   await expect(unit.locator('.unit-head .emblem svg')).toBeVisible();
   // congruence and similarity are ח׳ units: not on the ז׳ map
   await expect(page.locator('.unit.world-congr, .unit.world-sim')).toHaveCount(0);
+  expect(g7).not.toContain('חפיפת משולשים');
+  expect(g7).not.toContain('שווה־שוקיים ודמיון');
   await expectNoSidewaysScroll(page);
 }
 test('the ח׳ map shows congruence and similarity after statistics, and ז׳ the transformations, each with its emblem', async ({ page }) => newUnitsOnMaps(page));
@@ -454,6 +467,8 @@ test('done means mastered: practice fills the ring, and only a passed mastery ch
   // the check moves the count (the council's "0 of 5" after mastery)
   await expect(page.locator('.climb-caption')).toContainText('1 מתוך 7 מדרגות');
   await page.getByRole('button', { name: 'למפה' }).click();
+  // the stages worked here (teaching, practice and now the check) earned מדי his first piece: its moment comes first
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
   await expect(unit.locator('.unit-label')).toContainText('1 מתוך 7 מדרגות');
   await expect(unit.locator('.node').first()).toHaveClass(/node-done/);
   await expect(unit.locator('.node').nth(1)).toHaveClass(/node-current/);
@@ -486,8 +501,9 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
   const at = '2026-11-04T10:00:00.000Z';
   const st = student('8', { path: { pyth: { parts: {}, reviews: 0, jumped: 0, done: { 3: 'mastered' } } }, learn: { skills: { 'pyth:3': { attempts: [], mastered: { at, box: 0, due: '2026-11-05T10:00:00.000Z' } } }, miscon: {}, exam: null, missions: {}, events: [] } });
   await open(page, '#/', { ...st, version: 4 });
+  // the unit is opened from its row if the path is on another unit (only the unit the student is on opens by itself);
   // the unit's whole title: "פיתגורס במרחב" (space, the last unit of ח׳) has the word too
-  const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: /^משפט פיתגורס$/ }) });
+  const unit = await openUnit(page, /^משפט פיתגורס$/);
   const nodes = unit.locator('.node');
   await expect(nodes.nth(0)).toHaveClass(/node-current/);
   await expect(nodes.nth(1)).toHaveClass(/node-open/);
@@ -607,4 +623,143 @@ test('solve together: the whole value in a □π step is noted calmly, not as a 
   await page.locator('.tg-input').fill(String(final.answer));
   await page.getByRole('button', { name: 'בדיקה' }).click();
   await expect(page.getByText('פתרתם את הצעד האחרון לבד')).toBeVisible();
+});
+
+// PRODUCT2-35/37: the home path is a journey, not every unit at once. The unit the student is on is open, the next is
+// previewed (its banner and its first stop), and every other unit is a folded row, one tap away. The page that was
+// 5,524 CSS px on an iPhone 13 is now a few screens.
+test('the home path: the unit the student is on, the next previewed, the others folded and opened with one tap', async ({ page }) => {
+  await open(page, '#/', student('7'));
+  const units = page.locator('section.unit');
+  await expect(units).toHaveCount(2);
+  await expect(units.first().locator('.node-current')).toHaveCount(1);
+  const preview = page.locator('section.unit.is-preview');
+  await expect(preview.locator('.node')).toHaveCount(1);
+  await expect(preview.locator('.node')).toHaveClass(/node-preview/);
+  await expect(preview.locator('.node')).toHaveAccessibleName(/המדרגה הראשונה של היחידה הבאה/);
+  await expect(preview.locator('.path-chest, .path-art')).toHaveCount(0);
+  // the ז׳ path's nine units (signed, coord, angles, transf, expr, area, solid, data, eq): two open, seven rows
+  const rows = page.locator('section.unit-row');
+  await expect(rows).toHaveCount(7);
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  expect(height, 'the home page, in CSS px').toBeLessThan(2600);
+
+  // a row is a heading with one button that names the unit and its size; it opens the unit in place, with the keyboard
+  // too, and moves to the unit's name
+  const row = rows.first().getByRole('button');
+  const title = (await rows.first().locator('.unit-title').textContent()).trim();
+  await expect(row).toHaveAccessibleName(new RegExp(`^${title}\\s*יחידה 3\\s·\\s\\d+ מדרגות$`));
+  expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await row.focus();
+  await page.keyboard.press('Enter');
+  const opened = units.filter({ has: page.locator('h2.unit-title', { hasText: title }) });
+  await expect(opened.locator('.node').first()).toBeVisible();
+  await expect(opened.locator('h2.unit-title')).toBeFocused();
+  await expect(rows).toHaveCount(6);
+  // the previewed unit shows all its stops with "כל המדרגות של …"
+  await preview.getByRole('button', { name: /^כל המדרגות של / }).click();
+  await expect(units.nth(1).locator('.node').nth(1)).toBeVisible();
+  await expect(units.nth(1)).not.toHaveClass(/is-preview/);
+  await expectNoSidewaysScroll(page);
+  // the topics list's "המשך" opens that unit wherever it is (it is then the unit the student is on)
+  await page.goto('./#/topics');
+  await page.locator('.section-card').filter({ hasText: title }).getByRole('button', { name: 'מעבר ליחידה' }).click();
+  await expect(units.first().locator('h2.unit-title')).toHaveText(title);
+});
+
+// PRODUCT2-37: back on the map after a stair is done, מדי walks from the stop just finished to the next one and its
+// lock lifts, once. Under reduced motion (this project's default) he is simply there and nothing moves.
+for (const motion of ['reduce', 'no-preference']) {
+  test(`after a stair is done, מדי is at the next stop (${motion === 'reduce' ? 'reduced motion: the end state' : 'he walks there and the stop opens, once'})`, async ({ page }) => {
+    const at = '2026-11-04T10:00:00.000Z';
+    const practised = { taught: { A: at, B: at, C: at }, attempts: Array.from({ length: 6 }, () => ({ at, ok: true, independent: true, purpose: 'practice' })) };
+    const st = student('7', { path: { signed: { parts: { 1: 2 }, reviews: 0, jumped: 0, done: {} } }, learn: { skills: { 'signed:1': practised }, miscon: {}, exam: null, missions: {}, events: [] } });
+    await page.emulateMedia({ reducedMotion: motion });
+    await open(page, '#/', { ...st, version: 4 });
+    // before: מדי stands at the first stop, and nothing walks
+    await expect(page.locator('[data-stop="signed:node:1"] .path-walker')).toBeVisible();
+    await page.locator('.unit').first().locator('.node').first().click();
+    await page.locator('.node-start-btn').click();
+    for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, true); await proceed(page); }
+    await page.getByRole('button', { name: 'למפה' }).click();
+    await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+    const walker = page.locator('[data-stop="signed:node:2"] .path-walker');
+    await expect(walker).toBeVisible();
+    await expect(page.locator('.path-walker')).toHaveCount(1);
+    await expect(walker).toHaveAttribute('aria-hidden', 'true');
+    const moving = () => walker.evaluate((el) => el.getAnimations().length);
+    const lock = page.locator('[data-stop="signed:node:2"] .node-unlock');
+    if (motion === 'reduce') {
+      expect(await moving()).toBe(0);
+      await expect(lock).toHaveCount(0);
+    } else {
+      expect(await moving(), 'he walks from the stop just done').toBe(1);
+      await expect(lock).toHaveCount(1);
+      // once: away to the quests and Back to this same map, he is simply there
+      await page.locator('.tabbar').getByRole('link', { name: /משימות/ }).click();
+      await expect(page).toHaveURL(/#\/quests/);
+      await expect(page.locator('.path-walker')).toHaveCount(0); // the map has left the screen
+      await page.goBack();
+      await expect(walker).toBeVisible();
+      expect(await moving()).toBe(0);
+      await expect(lock).toHaveCount(0);
+    }
+    await expect(page.locator('[data-stop="signed:node:2"] .node')).toHaveClass(/node-current/);
+  });
+}
+
+// PRODUCT2-10: a mixed number is typed on the phone keypad: the whole number, the space key (רווח), the fraction. The
+// slot shows "5 1/3", beside it the mixed number as written, and the lesson takes it as the answer.
+test('a mixed number on the keypad: a fraction sum answered as a whole number and a fraction (5 1/3)', async ({ page }) => {
+  const mixed = (x) => x?.form === 'num' && x.answer > 1 && !Number.isInteger(Math.round(x.answer * 1e9) / 1e9) && [2, 3, 4, 5, 6, 8].some((d) => Math.abs(x.answer * d - Math.round(x.answer * d)) < 1e-9);
+  const it = await openOn(page, '#/lesson/frac/3', student('7'), mixed);
+  const d = [2, 3, 4, 5, 6, 8].find((q) => Math.abs(it.answer * q - Math.round(it.answer * q)) < 1e-9);
+  const whole = Math.floor(it.answer); const num = Math.round((it.answer - whole) * d);
+  const key = (name) => page.getByRole('button', { name, exact: true }).click();
+  await page.locator('#slot-v').click();
+  for (const ch of String(whole)) await key(ch);
+  await key('רווח, בין השלם לשבר');
+  for (const ch of String(num)) await key(ch);
+  await key('שבר');
+  for (const ch of String(d)) await key(ch);
+  await expect(page.locator('#slot-v')).toHaveValue(`${whole} ${num}/${d}`);
+  // the mixed number as it is written, beside the slot
+  await expect(page.locator('.answer-echo .katex')).toBeVisible();
+  // a second space is not typed
+  await key('רווח, בין השלם לשבר');
+  await expect(page.locator('#slot-v')).toHaveValue(`${whole} ${num}/${d}`);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('section.fb.fb-good')).toBeVisible();
+});
+
+// The lane's review: the space key let a stray space between digits through, and "−1 3" was graded as −13. A space inside
+// a number, or one left after the whole number, is not an answer yet: the lesson says how a mixed number is written,
+// takes no attempt, and the right answer typed again is taken.
+test('a stray space between digits is not read as one number: "−1 3" is not −13, and nothing is graded', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/signed/1', student('7'), (x) => x?.form === 'num' && Number.isInteger(x.answer) && Math.abs(x.answer) >= 10 && Math.abs(x.answer) <= 99);
+  const digits = String(Math.abs(it.answer));
+  const key = (name) => page.getByRole('button', { name, exact: true }).click();
+  const before = (await saved(page)).learn.skills['signed:1']?.attempts?.length || 0;
+  await page.locator('#slot-v').click();
+  if (it.answer < 0) await key('מינוס');
+  await key(digits[0]);
+  await key('רווח, בין השלם לשבר');
+  await key(digits[1]);
+  await expect(page.locator('#slot-v')).toHaveValue(`${it.answer < 0 ? '-' : ''}${digits[0]} ${digits[1]}`);
+  await key('בדיקה');
+  const say = page.getByRole('alert').filter({ hasText: 'מספר מעורב' });
+  await expect(say).toHaveText('מספר מעורב, כמו ⁦5 1/3⁩, כותבים כך: שלם, רווח ושבר.');
+  await expect(page.locator('section.fb')).toHaveCount(0);
+  expect((await saved(page)).learn.skills['signed:1']?.attempts?.length || 0).toBe(before);
+  // a whole number and a space, nothing after it: also not an answer yet
+  await key('מחיקה');
+  await expect(page.locator('#slot-v')).toHaveValue(`${it.answer < 0 ? '-' : ''}${digits[0]} `);
+  await key('בדיקה');
+  await expect(say).toBeVisible();
+  await expect(page.locator('section.fb')).toHaveCount(0);
+  // the number itself is taken
+  await key('מחיקה');
+  await key(digits[1]);
+  await key('בדיקה');
+  await expect(page.locator('section.fb.fb-good')).toBeVisible();
 });

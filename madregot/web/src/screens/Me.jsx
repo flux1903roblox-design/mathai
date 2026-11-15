@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Settings as Gear, Flame, Footprints, Award, CalendarCheck, ChevronLeft, Shirt, Users } from 'lucide-react';
-import { useApp, streakOf } from '@/lib/store.js';
+import { useApp, useStreak } from '@/lib/store.js';
 import { learnDaysTotal } from '@/lib/streak.js';
 import { hasServer } from '@/lib/api.js';
 import { TOPICS, topicsFor } from '@/content/topics.js';
@@ -64,7 +64,7 @@ export default function Me() {
   if (qaThrow() === 'render') throw new Error('QA: a test error while the profile renders');
   const { profile, days, path } = useApp();
   const skills = useApp((s) => s.learn.skills);
-  const streak = streakOf(days);
+  const streak = useStreak().n; // the streak the header shows (kept while a missed day can be repaired)
   const stairs = TOPICS.reduce((a, t) => a + doneCount(t.id, path), 0);
   const now = new Date().toISOString();
   const mastered = topicsFor(profile.grade || '7').reduce((a, t) => a + t.levels.filter((_, i) => masteryState(skills[skillId(t.id, i + 1)], now) === 'mastered').length, 0);

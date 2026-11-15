@@ -69,7 +69,7 @@
 .day-node-exam { background: var(--gold); color: var(--gold-ink); box-shadow: 0 6px 0 var(--gold-d); }
 .day-start { position: relative; padding: 4px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface); font-weight: 700; color: var(--streak-ink); }
 .day-path .rescue-day-name { margin: 4px 0 0; font-weight: 700; font-size: var(--fs-sm); }
-.day-count { margin: 0; font-size: var(--fs-xs); color: var(--ink-2); }
+.day-count, .day-min { margin: 0; font-size: var(--fs-xs); color: var(--ink-2); }
 .rescue-hero { background: var(--surface); color: var(--ink); border: 2px solid var(--rule); box-shadow: none; }
 .rescue-hero .rescue-msg { color: var(--ink-2); font-weight: 500; font-size: 16px; }
 .rescue-hero-title { font-family: var(--font-ui); font-weight: 800; color: var(--ink); }

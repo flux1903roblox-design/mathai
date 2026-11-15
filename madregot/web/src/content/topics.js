@@ -13,6 +13,7 @@ import { TOPIC_META } from './topics.gen.js';
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
 import { GUEST, ALSO_ON_PATH, onGradePath } from '@/learn/skills.ts';
+import { monthIndex, schoolMonth } from '@shared/coverage.js';
 
 /**
  * A copy of plain data, so a topic's functions can be put on its own objects once they load (TOPIC_META stays as written).
@@ -137,15 +138,65 @@ export const unitGrade = (t, grade, also = ALSO_ON_PATH) => (grade && t && onGra
 /** The bridge units under a grade: of that grade, or with it in alsoFor (the floor; shown only when it is switched on). */
 export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.grade === String(grade) || (t.alsoFor || []).includes(String(grade))));
 /**
+ * The first school month (September 0 … June 9) in which a grade's programme (shared/programme.js) teaches one of a
+ * topic's stairs; null when it teaches none. A unit the grade climbs through guest stairs (learn/skills.ts GUEST,
+ * stage5.md FUNC-6: ח׳'s eq:6 and eq:7) never joins that grade's path: the guest stairs are offered one by one from the
+ * banner, and the rest of the unit is the earlier grade's, revised whole in Exam Rescue (rescueTopicsFor), so a ח׳
+ * student is never sent back a year.
+ */
+export const joinMonth = (t, grade) => {
+  const g = String(grade);
+  if ((GUEST[g] || []).some((id) => id.startsWith(`${t.id}:`))) return null;
+  const ms = t.levels.map((_, i) => monthIndex(`${t.id}:${i + 1}`, g)).filter((m) => m != null);
+  return ms.length ? Math.min(...ms) : null;
+};
+/**
+ * A grade's path in a school month (the map, the plan and Topics): its units (topicsFor: its own, with a unit of the
+ * other grade climbed in it this year, ALSO_ON_PATH, in its place), then the units of the other grade it has in alsoFor,
+ * each from the month the grade's programme first teaches one of its stairs (a month-aware alsoFor, PRODUCT2-20). So
+ * every hour the coverage counts for a grade is on that grade's path when the school teaches it: ז׳ meets Pythagoras
+ * from December, the mode from January and a table of values in May; ח׳ the angles unit from September (angles between
+ * parallels, 8.3). A unit stays filed under its own grade (GRADE_OF, its placement test). A unit climbed through guest
+ * stairs (skills.ts GUEST: ח׳'s equations, 8.9) does not join (joinMonth): its guest stairs are the grade's, and the
+ * rest is revised in Exam Rescue.
+ */
+export const pathTopicsFor = (grade, month = schoolMonth(), also = ALSO_ON_PATH) => {
+  const g = String(grade); const own = topicsFor(g, also);
+  return [...own, ...TOPICS.filter((t) => !t.bridge && !own.includes(t) && t.grade !== g && (t.alsoFor || []).includes(g)
+    && (joinMonth(t, g) ?? Infinity) <= month)];
+};
+/** The five colour families of the units (canon.css .ch-*). */
+export const UNIT_COLOURS = ['sky', 'petrol', 'violet', 'fuchsia', 'cobalt'];
+/**
+ * The colour each unit of a path shows, by topic id: its own, unless it would sit beside the same colour. A grade's own
+ * units never do (content.test.js); a unit joined from the other grade then takes the first family colour that neither
+ * neighbour has, so two banners side by side always differ (STUDENT-1).
+ */
+export function pathColours(list) {
+  const out = list.map((t) => t.color);
+  for (let i = 1; i < list.length; i += 1) {
+    if (out[i] !== out[i - 1]) continue;
+    out[i] = UNIT_COLOURS.find((c) => c !== out[i - 1] && c !== list[i + 1]?.color) || out[i];
+  }
+  return Object.fromEntries(list.map((t, i) => [t.id, out[i]]));
+}
+/**
  * Two optional flags a topic may carry:
  *   placement: false   the first-day placement test skips it (it is taught later in the school year, so a new student
  *                      would only meet questions never taught); it starts at stair 1, and the unit jump test is there
  *                      for a student who already knows it
+ *   placement: 'taught'  the first-day test asks it once the school calendar has taught it: when the student starts
+ *                      after the month its first stair is taught in (shared/programme.js). ח׳ ratio (September) and
+ *                      percent (October) are taught at the very start of the year (PRODUCT2-19)
  *   alsoFor: ['8']     Exam Rescue (and the exam check's topic list) offers it to that grade too: a grade 8 test can
  *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8;
- *                      a later grade's unit with guest stairs is offered through them alone (rescueTopicsFor)
+ *                      a later grade's unit with guest stairs is offered through them alone (rescueTopicsFor); and once
+ *                      that grade's programme teaches one of its stairs, it joins that grade's path (pathTopicsFor)
  */
-export const placementTopicsFor = (grade) => topicsFor(grade).filter((t) => t.placement !== false);
+export const placementTopicsFor = (grade, month = schoolMonth()) => topicsFor(grade).filter((t) => t.placement !== false
+  && (t.placement !== 'taught' || taughtBefore(t.id, grade, month)));
+/** Was a topic's first stair taught in a school month before `month` (September 0 … June 9; the summer counts as 9)? */
+const taughtBefore = (topic, grade, month) => { const m = monthIndex(`${topic}:1`, String(grade)); return m != null && month > m; };
 
 /**
  * A grade's guest rows (stage5.md FUNC-6): each unit with a guest stair of that grade (learn/skills.ts GUEST), once, as a
@@ -223,21 +274,30 @@ export function catLabel(topicId, level, cat) {
   return own?.title || TOPIC[topicId]?.cats[cat] || null;
 }
 
-/** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
-export function ambiguousText(topic, level, candidates) {
+/**
+ * An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. Three or more are
+ * not listed (a long "maybe this, maybe that" helps no one): one short sentence says the answer fits several mistakes.
+ * `more`: the lesson will ask one more question that tells them apart (lib/lesson.js); without one, the line only
+ * names them. Only a question that shows a number line can name a move on it ('direction'), so a typed question's line
+ * never speaks of the line.
+ */
+export function ambiguousText(topic, level, candidates, more = true) {
   const names = (candidates || []).map((c) => catLabel(topic, level, c.id)).filter(Boolean);
-  if (names.length < 2) return 'עוד שאלה אחת בסוף השיעור תעזור לדעת מה בדיוק בלבל.';
-  return `מה כנראה קרה: אולי ${names.join(', ואולי ')}. עוד שאלה אחת בסוף השיעור תעזור לדעת מה מהן.`;
+  const then = more ? ' עוד שאלה בסוף השיעור תעזור לדעת מה בדיוק בלבל.' : '';
+  if (names.length === 2) return `מה כנראה קרה: אולי ${names[0]}, ואולי ${names[1]}.${then}`;
+  if (names.length > 2) return `התשובה הזאת מתאימה לכמה טעויות שונות.${then}`;
+  return more ? then.trim() : null;
 }
 
 /**
- * The line a lesson shows under a first miss, from the answer's result ({ cat, diagnosis }): the app's name for the
- * mistake ("מה כנראה קרה: …."), the two candidates of an ambiguous answer, or null. The screen and the tutor's context
- * read it from here, so the tutor is told exactly what the student saw (ai spec AI-1 Design 4).
+ * The line a lesson shows under a first miss, from the answer's result ({ cat, diagnosis, more }): the app's name for
+ * the mistake ("מה כנראה קרה: …."), the candidates of an ambiguous answer, or null. `more: false` when no question at the
+ * end of the lesson will tell the candidates apart (lib/lesson.js; the AI practice screen has none). The screen and the
+ * tutor's context read it from here, so the tutor is told exactly what the student saw (ai spec AI-1 Design 4).
  */
 export function diagnosisLine(topic, level, result) {
   if (!result) return null;
-  if (result.diagnosis?.ambiguous) return ambiguousText(topic, level, result.diagnosis.candidates);
+  if (result.diagnosis?.ambiguous) return ambiguousText(topic, level, result.diagnosis.candidates, result.more !== false);
   const label = catLabel(topic, level, result.cat);
   return label ? `מה כנראה קרה: ${label}.` : null;
 }

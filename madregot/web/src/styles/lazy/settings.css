@@ -1,0 +1,18 @@
+/* Settings' own rules (PRODUCT2-41's section for adults), loaded with the screen: moved out of the first load at the
+   product2 merge (the boot CSS gate, 46 KB). */
+/* Settings' section for adults (PRODUCT2-41): under the student's own settings, set apart by a rule and its heading */
+.set-adults { display: flex; flex-direction: column; gap: var(--s5); padding-top: var(--s5); border-top: 2px solid var(--line); }
+.set-adults > .set-adult-note { margin: 0; }
+.set-adults + .set-group { padding-top: var(--s4); border-top: 2px solid var(--line); }
+.set-adults-head { font-size: 20px; line-height: 26px; color: var(--ink); }
+.set-adults h3.set-head { font-family: var(--font-ui); font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink-2); margin: 0; }
+.set-adult-note { margin: var(--s4) 0 0; padding: var(--s3) var(--s4); border-radius: 16px; background: var(--ground); color: var(--ink); font-size: 16px; line-height: 24px; }
+/* folded until an adult opens it: the heading is the button (44px), its chevron turns when open */
+.set-adults-head { margin: 0; }
+.set-adults-toggle { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.set-adults-toggle:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
+.set-adults-chev { flex: none; color: var(--ink-2); transition: transform var(--duration-fast, 160ms) var(--ease-out, ease-out); }
+.set-adults.open .set-adults-chev { transform: rotate(180deg); }
+.set-adults-body { display: flex; flex-direction: column; gap: var(--s5); }
+.set-adults-body[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .set-adults-chev { transition: none; } }

@@ -24,7 +24,7 @@
 //                     difference in height")
 //   graph-picture     read the graph as a picture of the way (Leinhardt et al. 1990; Bell & Janvier 1981; Clement 1989):
 //                     a choice in practice only
-import { shuffle } from './util.js';
+import { shuffle, countOf } from './util.js';
 import { diagOf } from './eq.js';
 import { slipLike } from '@/learn/misconceptions.ts';
 
@@ -891,7 +891,7 @@ function fasterMc() {
     practiceOnly: true,
     hint: 'כמה מטרים עובר כל רץ ב־$10$ השניות? הקו התלול יותר הוא של מי שעובר יותר בכל שנייה.',
     solution: [
-      `$${fast}$ עובר $${10 * rb}$ מטרים ב־$10$ שניות, כלומר $${rb}$ מטרים בשנייה. $${slow}$ עובר מ־$${a0}$ עד $${a0 + 10 * ra}$, כלומר $${ra}$ מטרים בשנייה.`,
+      `$${fast}$ עובר $${10 * rb}$ מטרים ב־$10$ שניות, כלומר ${countOf(rb, 'מטר', 'מטרים')} בשנייה. $${slow}$ עובר מ־$${a0}$ עד $${a0 + 10 * ra}$, כלומר ${countOf(ra, 'מטר', 'מטרים')} בשנייה.`,
       `לכן $${fast}$ מהיר יותר: הקו שלו תלול יותר. הגובה אומר רק איפה כל אחד נמצא.`,
     ],
     diag: (u) => options[u]?.bug || null,

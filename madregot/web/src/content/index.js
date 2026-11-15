@@ -1,9 +1,11 @@
-import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote, piNear, piRow, afterPlain } from './util.js';
+import { parseNum, near, plainNum, linText, readNumCandidates, numRight, roundsTo, toFrac, gcd, withFormatNote, piNear, piRow, afterPlain } from './util.js';
 import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords, protractorWords, clockText, chartWords, outcomesWords, coordWords } from './manip.js';
+import { GENERATOR_WEIGHT } from '@/learn/misconceptions.ts';
 // The first-load side of the content (content/topics.js: every topic's names, stairs, colours and misconception names,
-// the rows the screens list, and the generators' loading) is re-exported here, so code that makes or checks a question
-// imports everything from this file. A screen of the first load imports content/topics.js instead: this file carries
-// the checkers and the figures' words (content/manip.js), which load with the exercise screens (the boot split).
+// the rows the screens list, the paths (pathTopicsFor) and the generators' loading) is re-exported here, so code that
+// makes or checks a question imports everything from this file. A screen of the first load imports content/topics.js
+// instead: this file carries the checkers and the figures' words (content/manip.js), which load with the exercise
+// screens (the boot split).
 import { TOPIC } from './topics.js';
 // the rules of the measurement objects and the words of their drawings (stage 2: the grid shapes, the nets and the
 // solids, the circle) register themselves with content/manip.js as they load; a question, a check, an exam's key and
@@ -20,6 +22,25 @@ export * from './topics.js';
  * Generate one item for a topic level, with bookkeeping fields attached. A check (`opts.test`) draws from the level's
  * testGen when it has one (CURRICULUM-10: the angle stairs mix two-step questions into their checks); practice keeps gen.
  */
+/**
+ * The mistakes a generator's diag() names for a wrong answer, as a list. A diag may return one category, or several
+ * when their predictions are the same number for this question (sn5: the order mistake and the sign mistake can both
+ * give one number). The level's `flagship`, the stair's own mistake, names an answer it predicts alone (signed:1:
+ * −4 − (−11) answered −15 is subtracting the negative as a positive, though adding the distances gives −15 too), as
+ * the stair's diagnostic model does (learn/misconceptions.ts diagnose). `full` is the finished item (wrong as it reads
+ * the answer), `raw` the generator's own with its diag.
+ */
+const NONE = Object.freeze([]);
+function namedBy(full, raw, L, u) {
+  if (isCorrect(full, u)) return NONE;
+  const c = raw.diag(u);
+  if (!c) return NONE;
+  if (!Array.isArray(c)) return [c];
+  const all = [...new Set(c.filter(Boolean))];
+  return L.flagship && all.includes(L.flagship) ? [L.flagship] : all;
+}
+
+/** Generate one item for a topic level, with bookkeeping fields attached. */
 export function makeItem(topicId, level, avoidKey, opts = {}) {
   const t = TOPIC[topicId];
   const L = t.levels[Math.min(Math.max(level, 1), t.levels.length) - 1];
@@ -28,12 +49,20 @@ export function makeItem(topicId, level, avoidKey, opts = {}) {
   const gen = opts.test && L.testGen ? L.testGen : L.gen;
   let it; let guard = 0;
   do { it = gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
-  // a typed answer that has no short decimal (7/12) says once how to write it
-  if (it.precise && it.form === 'num') it = withFormatNote(it);
+  // a typed answer that has no exact two-place decimal (7/12, a slope of -5/6, a mean of 13/3) says once how to write it
+  if (it.form === 'num') it = withFormatNote(it);
   // A misconception can only be diagnosed for an answer that is actually wrong: wrong as the finished item reads it, on
-  // its own stair (expr:3 takes an expression's two boxes in either order, swappedLin)
+  // its own stair (expr:3 takes an expression's two boxes in either order, swappedLin). diag() gives the first name (the
+  // one a lesson counts and shows when there is one); diagnosis() gives them all in the diagnostic models' contract, so
+  // an answer two mistakes explain is ambiguous wherever it is shown or recorded, never named as one of them by chance.
+  // Each name weighs GENERATOR_WEIGHT, shared between the names when there are several.
   const full = { ...it, topic: topicId, level, levelTitle: L.title };
-  full.diag = (u) => (isCorrect(full, u) ? null : it.diag(u));
+  full.diag = (u) => namedBy(full, it, L, u)[0] || null;
+  full.diagnosis = (u) => {
+    const ids = namedBy(full, it, L, u);
+    if (!ids.length) return null;
+    return { kind: 'misconception', candidates: ids.map((id) => ({ id, conf: GENERATOR_WEIGHT / ids.length })), ambiguous: ids.length > 1 };
+  };
   // the answers diag() names, when the generator lists them (content/data.js; namesOf reads them)
   if (it.diag?.wrongs) full.diag.wrongs = it.diag.wrongs;
   return full;
@@ -91,15 +120,20 @@ function* tryAnswers(it) {
  * (learn/items.ts). `want`: stop as soon as all of these are found. An item whose diag() names only the answers it
  * lists in `tries` (the class's collecting questions, content/expr.js) is asked those, not the whole grid of its form.
  */
-export function namesOf(it, want = []) {
+export function namesOf(it, want = [], alone = false) {
   const found = new Set();
   // a diag() that lists the answers it names (its predictions, content/data.js) is asked only those: every name the
   // search below finds, and a prediction off its grid too (0.36), without trying thousands of typed numbers; an item
   // that lists its `tries` (content/expr.js) is asked those
   for (const u of it.diag?.wrongs || (Array.isArray(it.tries) ? it.tries : tryAnswers(it))) {
-    if (isCorrect(it, u)) continue;
-    const cat = it.diag(u);
-    if (cat) { found.add(cat); if (want.length && want.every((w) => found.has(w))) break; }
+    // (diagnosis and diag name nothing for a right answer)
+    if (!it.diagnosis && isCorrect(it, u)) continue;
+    // every name of an answer, an ambiguous one's too (makeItem diagnosis); `alone`: only names an answer has by itself,
+    // so a question can tell them apart (a probe after an ambiguous answer, lib/lesson.js)
+    let cats;
+    if (it.diagnosis) { const d = it.diagnosis(u); cats = d?.kind !== 'misconception' || (alone && d.ambiguous) ? NONE : d.candidates.map((c) => c.id); } else { const c = it.diag(u); cats = c ? [c].flat() : NONE; } // a diag may name a list (one number, two mistakes)
+    cats.forEach((cat) => found.add(cat));
+    if (cats.length && want.length && want.every((w) => found.has(w))) break;
   }
   return [...found];
 }
@@ -139,6 +173,9 @@ export function readAnswer(it, slots) {
   // a question that asks for a decimal takes a decimal: the fraction typed back ("3/4" for "write 3/4 as a decimal")
   // is not an answer to it (screens/Lesson.jsx says so)
   if (it.askDec && /\//.test(String(slots.v ?? ''))) return null;
+  // a whole number and then the space key is a mixed number not yet typed ("5 " on the way to 5 1/3): not an answer yet
+  // (screens/Lesson.jsx says how a mixed number is written)
+  if (/\d\s+$/.test(String(slots.v ?? ''))) return null;
   // a number: "2,000" can be 2 (a decimal comma) or 2000 (thousands); keep the reading the question accepts, else
   // the one nearest its answer, which the diagnosis then sees
   const cands = readNumCandidates(slots.v);
@@ -194,10 +231,10 @@ export function isCorrect(it, u) {
   }
   // a value with π ≈ 3.14 (`pk`, the multiple of π): right within half a tenth of 3.14·k or of the calculator's π·k
   if (Number.isFinite(it.pk)) return piNear(u, it.pk);
-  // a length rounded to tenths (a root that is not whole): right within half a tenth of the exact value, so 7.1 and
-  // 7.07 are both right for √50, and 7 or 7.0 are not. The exact value decides, not the rounded answer: √288 = 16.97…
-  // rounds to 17.0, a whole number, and 16.97 is still right
-  if (roundedLength(it)) return Math.abs(u - it.exact) <= 0.05 + 1e-9;
+  // a length rounded to tenths (a root that is not whole): the exact value correctly rounded at the places typed, tenths
+  // or finer, so 7.1, 7.07 and 7.071 are right for √50 and 7, 7.0, 7.12 and 7.05 are not. The exact value decides, not
+  // the rounded answer: √288 = 16.97… rounds to 17.0, a whole number, and 16.97 is right too
+  if (roundedLength(it)) return roundsTo(u, it.exact, 1);
   // within ±0.01, or exactly when the item is marked precise (util.js numRight)
   return numRight(u, it.answer, !!it.precise);
 }
@@ -247,10 +284,8 @@ export function answerText(it, u = it.answer) {
   if (it.form === 'mc') { const c = it.choices[u]; return c ? (c.text || c.tex) : ''; }
   if (it.form === 'pt') return `(${plainNum(u[0])}, ${plainNum(u[1])})`;
   // Statistics answers are means and medians, Pythagoras answers lengths: they read as decimals, as in the solution.
-  if (it.form === 'line') {
-    const b = u.b === 0 ? '' : u.b > 0 ? ` + ${plainNum(u.b)}` : ` - ${plainNum(-u.b)}`;
-    return `y = ${plainNum(u.m)}x${b}`;
-  }
+  // a line as a student writes it: y = x + 1, y = -x, y = 3 (never "1x" or "0x")
+  if (it.form === 'line') return `y = ${linText({ k: u.m, c: u.b })}`;
   // an expression as a student writes it: 5x + 4, x - 3, -x, 7
   if (it.form === 'lin') return linText(u, it.var || 'x');
   // a fraction as written: the student's own n/d, or the answer in lowest terms
@@ -287,7 +322,7 @@ export function figPlain(f) {
     case 'pair': return (f.items || []).slice(0, 2).map((x, i) => `${f.titles?.[i] || `מקור ${i + 1}`}: ${figPlain(x)}`).join('; ');
     case 'coord': return [
       f.points?.length ? `נקודות: ${f.points.map(pt).join(', ')}` : '',
-      f.line ? `ישר y = ${f.line.m}x + ${f.line.b}` : '',
+      f.line ? `ישר y = ${linText({ k: f.line.m, c: f.line.b })}` : '',
       f.lines?.length ? `ישרים: ${f.lines.map(lineText).join(', ')}` : '',
       f.polygon ? `מצולע: ${f.polygon.map(([x, y]) => `(${x}, ${y})`).join(' ')}` : '',
       // more of the plane in words from the kinds that register them (content/transform.js: shapes, arrows, a mirror, a turn)

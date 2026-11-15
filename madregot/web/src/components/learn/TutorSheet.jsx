@@ -90,7 +90,7 @@ export default function TutorSheet({ open, onOpenChange, content, item = null, w
                 {reply.action.kind === 'example' && <WorkedExample example={content.examples[reply.action.index]} n={reply.action.index + 1} of={content.examples.length} onDone={() => {}} doneLabel="סיימתי לראות" />}
                 {reply.action.kind === 'steps' && <StepsReveal steps={reply.action.steps} />}
                 {reply.action.kind === 'remedy' && <RemedyFlow content={content} misc={reply.action.misc} compact />}
-                {reply.action.kind === 'discover' && <StepPlayer steps={content.discover} label="ההסבר" doneLabel="סיימתי" onDone={() => {}} />}
+                {reply.action.kind === 'discover' && <StepPlayer steps={content.discover} label="ההסבר" doneLabel="סיימתי" onDone={() => {}} skill={content.skill} />}
               </div>
             )}
             {reply.action?.kind === 'steps' && !content && <div className="tutor-action"><StepsReveal steps={reply.action.steps} /></div>}

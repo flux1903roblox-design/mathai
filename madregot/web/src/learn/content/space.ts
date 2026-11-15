@@ -218,6 +218,10 @@ const stair2: StairContent = {
       wrongWhy: { 1: '$\\sqrt{3^2 + 8^2} \\approx 8.5$: רוחב המלבן הוא הקוטר, $6$, לא הרדיוס.', 2: '$6 + 8$: הקו הישר קצר מהדרך לאורך הצלעות.' } },
     { kind: 'rule', text: 'המקל הארוך ביותר בגליל: $\\sqrt{d^2 + h^2}$.', display: '\\sqrt{(2r)^2 + h^2}',
       why: 'זה האלכסון של החתך הצירי.', fig: sectionRod },
+    // SK-LEARN-7: the student moves the object once on every stair
+    { kind: 'explore', text: 'לגליל רדיוס $4$ וגובה $6$, ולכן החתך הצירי שלו מלבן $8$ על $6$. שימו את הסמן על אורך המקל הארוך ביותר שנכנס בגליל.',
+      manip: { kind: 'numberline', min: 0, max: 20, from: 0, start: 0, plain: true } as ManipSpec, answer: 10,
+      hint: 'האלכסון של מלבן $8$ על $6$: $\\sqrt{8^2 + 6^2}$.', success: '$\\sqrt{64 + 36} = \\sqrt{100} = 10$: המקל הוא האלכסון של החתך הצירי.' },
     { kind: 'say', text: 'בתיבה $3$ על $4$ על $6$, אלכסון הבסיס, המקצוע האנכי שבקצה שלו ואלכסון התיבה יוצרים משולש ישר־זווית. הזווית הישרה היא בין אלכסון הבסיס למקצוע.',
       fig: box(3, 4, 6, { diag: 'tri' }) },
     { kind: 'predict', text: 'באותה תיבה, $3$ על $4$ על $6$: מה שטח המשולש?', fig: box(3, 4, 6, { diag: 'tri' }),

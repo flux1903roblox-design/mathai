@@ -1,11 +1,12 @@
 // The programme map against the stairs this build really has. The coverage numbers themselves are not asserted here:
 // they move with every content stage (the fixtures in worker/test/coverage.test.js carry the numbers).
 import { describe, expect, it } from 'vitest';
-import { ALL_SKILLS, ALSO_ON_PATH, GRADE_OF, parseSkill } from './skills';
+import { ALL_SKILLS, ALSO_ON_PATH, GRADE_OF, guestSkillsOf, parseSkill } from './skills';
 import type { AlsoOnPath } from './skills';
 import { PROGRAMME, ROADMAP_NEXT, coverageOf, notYetOf, monthIndex, schoolMonth } from './programme';
 import { coverage } from '@shared/coverage.js';
-import { TOPIC, TOPICS } from '@/content/index.js';
+import { TOPIC, TOPICS, rescueTopicsFor } from '@/content/index.js';
+import { pathSkillsOf } from './next';
 
 // a bridge topic (CURRICULUM-3's frac) carries bridge: true
 const isBridge = (skill: string) => (TOPIC as Record<string, { bridge?: boolean } | undefined>)[parseSkill(skill).topic]?.bridge === true;
@@ -87,6 +88,49 @@ describe('a unit on two grades\' paths is in that grade\'s schedule', () => {
 // Stage 1 is complete with percent: the stage-1 fixture of worker/test/coverage.test.js (HEAD's 48 stairs, signed:6,
 // ratio:1-4 and pct:1-5) gives ז׳ 104 of 150 and ח׳ 66 of 147, 57%. The app has those stairs and may have more: a later
 // stage adds its own (stage5.md FUNC-8 Design 3), so the live numbers are those of coverage() over the live stairs.
+
+// The coverage figure is a promise to a grade (PRODUCT2-20): every hour coverage() counts for a grade is an hour that
+// grade's student can learn on their own path. So every stair of a part it counts as taught is on that grade's path (the
+// map and the plan) in the month the programme teaches the unit: a unit of the other grade joins the path from the first
+// month the grade's programme teaches one of its stairs (a month-aware alsoFor; GRADE_OF does not move). The one
+// exception is a unit the grade climbs through guest stairs (learn/skills.ts GUEST, stage5.md FUNC-6: ח׳'s equations,
+// 8.9): its guest stairs are offered to the grade one by one, and the whole unit is revised in the grade's Exam Rescue
+// (content/topics.js rescueTopicsFor), so a ח׳ student is never sent back a year on the map.
+describe('every hour coverage counts for a grade is on that grade\'s path when the programme teaches it', () => {
+  const SCHOOL = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6];
+  const viaGuest = (s: string, grade: '7' | '8') => guestSkillsOf(grade).some((id) => parseSkill(id).topic === parseSkill(s).topic);
+  (['7', '8'] as const).forEach((grade) => it(`grade ${grade}`, () => {
+    const c = coverageOf(grade);
+    const rescue = rescueTopicsFor(grade) as { id: string; only?: string[] }[];
+    let hours = 0;
+    c.units.forEach((u) => u.parts.filter((p) => p.taught).forEach((p) => {
+      const month = SCHOOL.indexOf(u.months[0]);
+      const path = new Set(pathSkillsOf(grade, month));
+      p.skills.forEach((s) => {
+        if (!viaGuest(s, grade)) { expect(path.has(s), `${u.id} counts ${s} for grade ${grade}, but it is not on the path in month ${u.months[0]}`).toBe(true); return; }
+        expect(guestSkillsOf(grade).includes(s) || rescue.some((t) => t.id === parseSkill(s).topic && !t.only), `${u.id} counts ${s} for grade ${grade}: a guest stair, or revised whole in Exam Rescue`).toBe(true);
+      });
+      hours += p.hours;
+    }));
+    expect(hours).toBe(c.taught);
+  }));
+  it('the exception is narrow: the units with guest stairs, ח׳\'s equations and ז׳\'s functions (func:1 alone)', () => {
+    const off = (g: '7' | '8') => [...new Set(coverageOf(g).units.flatMap((u) => u.parts.filter((p) => p.taught).flatMap((p) => p.skills.filter((s) => viaGuest(s, g)))))].sort();
+    expect(off('7')).toEqual(['func:1']);
+    expect(off('8')).toEqual(['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'eq:6', 'eq:7']);
+  });
+  it('Pythagoras is on the ז׳ path from December (squares and roots, 7.6) and stays a ח׳ unit', () => {
+    const MAR = 6; const NOV = 2; const DEC = 3;
+    expect(pathSkillsOf('7', NOV)).not.toContain('pyth:1');
+    expect(pathSkillsOf('7', DEC)).toContain('pyth:1');
+    expect(pathSkillsOf('7', MAR)).toEqual(expect.arrayContaining(['pyth:1', 'pyth:2', 'pyth:3', 'pyth:4', 'pyth:5']));
+    expect(GRADE_OF.pyth).toBe('8');
+    expect(pathSkillsOf('8', 0)).toContain('pyth:1');
+  });
+});
+
+// Stage 1 is complete with percent: the live coverage, from the stairs this build has, is the stage-1 fixture's of
+// worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4 and pct:1-5): ז׳ 104 of 150, ח׳ 66 of 147, 57%.
 describe('stage 1\'s coverage, live', () => {
   const STAGE1 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),

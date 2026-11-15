@@ -548,11 +548,13 @@ CREATE INDEX IF NOT EXISTS class_owners_account ON class_owners (account_id);
 
 -- Work a teacher gives the class, or chosen students, with a due date (spec TEACHER-4). Dates are YYYY-MM-DD in
 -- Jerusalem. Deleted with the class, and by the night purge 400 days after the due date (shared/retention.js).
+-- misc (migration 0009_repair_work, SK-BUYERS-2): the repair of one mistake is a 'stair' row with the stair's misconception id here;
+-- the Worker reads it as kind 'repair' (assignments.js KIND_SQL). NULL on every other row.
 CREATE TABLE IF NOT EXISTS assignments (
   id TEXT PRIMARY KEY,                           -- 16 hex
   class_code TEXT NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('stair', 'check', 'exam')),
-  skill TEXT CHECK (skill IS NULL OR length(skill) <= 20),       -- '<topic>:<level>' for stair and check
+  skill TEXT CHECK (skill IS NULL OR length(skill) <= 20),       -- '<topic>:<level>' for stair, check and repair
   title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),
   note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 200),
   exam TEXT CHECK (exam IS NULL OR length(exam) <= 49152),        -- kind 'exam': the frozen questions, JSON
@@ -560,7 +562,7 @@ CREATE TABLE IF NOT EXISTS assignments (
   for_all INTEGER NOT NULL DEFAULT 1 CHECK (for_all IN (0, 1)),
   starts_on TEXT NOT NULL,                       -- YYYY-MM-DD, Jerusalem
   due_on TEXT NOT NULL,                          -- YYYY-MM-DD, Jerusalem
-  created_at TEXT NOT NULL,
+  created_at TEXT NOT NULL, misc TEXT,           -- misc: a repair's misconception id (migration 0009, where SQLite puts it)
   CHECK ((kind = 'exam') = (exam IS NOT NULL)),
   CHECK (kind = 'exam' OR skill IS NOT NULL),
   CHECK (due_on >= starts_on)

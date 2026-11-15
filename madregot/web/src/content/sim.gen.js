@@ -299,6 +299,8 @@ export function shadowFig({ h, s, S, H }, { hl = num(h), sl = num(s), Sl = num(S
 }
 export const sim3TText = ({ h, s, S }) => `אדם בגובה $${num(h)}$ מטר מטיל צל של $${num(s)}$ מטר. עץ מטיל באותה שעה צל של $${S}$ מטר. מה גובה העץ, במטרים?`;
 export function sim3TSolution({ h, s, S }) {
+  // a shadow of one metre: the ratio is the tree's shadow itself, written with no fraction over 1
+  if (s === 1) return [`הצל של העץ ארוך פי $${S}$ מהצל של האדם, ולכן גם העץ גבוה פי אותו מספר.`, `$${num(h)} \\cdot ${S} = ${num(h * S)}$`];
   return [`הצל של העץ ארוך פי $\\frac{${S}}{${num(s)}}$ מהצל של האדם, ולכן גם העץ גבוה פי אותו מספר.`, `$\\frac{${num(h)} \\cdot ${S}}{${num(s)}} = ${num((h * S) / s)}$`];
 }
 export const sim3THint = () => 'פי כמה ארוך הצל של העץ? העץ גבוה פי אותו מספר.';
@@ -343,7 +345,11 @@ function modelGen(key, model, p, words) {
   return {
     key, text: words.text(p), form: 'num', answer: model.answer(p), ...(words.fig ? { fig: words.fig(p) } : {}),
     hint: words.hint(p), solution: words.solution(p),
-    diag: (u) => Object.keys(model.bugs).find((id) => { const v = model.bugs[id](p); return v != null && Number.isFinite(u) && near(u, v); }) || null,
+    // every mistake whose prediction the answer is: two that predict the same number are both named (PRODUCT2-15)
+    diag: (u) => {
+      const ids = Object.keys(model.bugs).filter((id) => { const v = model.bugs[id](p); return v != null && Number.isFinite(u) && near(u, v); });
+      return ids.length > 1 ? ids : ids[0] || null;
+    },
   };
 }
 const keyOf = (prefix, p) => `${prefix}:${Object.values(p).join(':')}`;

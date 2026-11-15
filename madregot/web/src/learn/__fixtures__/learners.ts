@@ -2,6 +2,7 @@
 // way the app builds its state (a passed mastery check also marks the stair done on the map). No real student data.
 import type { LearnState, LearnEvent, SkillId, SkillRecord, MisconRecord } from '../types';
 import type { NextContext, CheckedExam } from '../next';
+import { pathSkillsOf } from '../next';
 import { gradeSkillsOf, guestSkillsOf, parseSkill } from '../skills';
 import { schoolMonth, monthIndex } from '../programme';
 import { newPlan, recordDiagnostic } from '../examRescue';
@@ -64,14 +65,17 @@ function rescue(date: string, diag: [SkillId, number][] | null, skills: SkillId[
 }
 
 /**
- * A student of `grade` on `day` who has mastered every stair of their own grade the school calendar has taught by then
- * (skills.ts gradeSkillsOf; no guest stair), except `but`. Mastered six days before, reviews far off, no mastery-check
+ * A student of `grade` on `day` who has mastered every stair of their own path the school calendar has taught by then
+ * (next.ts pathSkillsOf: the grade's own units and those of the other grade that have joined the path by that month,
+ * PRODUCT2-20; no guest stair), except `but`. Mastered six days before, reviews far off, no mastery-check
  * log (so not strong today unless every stair of the grade is mastered).
  */
 export function taughtByNowDone(grade: '7' | '8', day: string, but: SkillId[] = []): NextContext {
   const now = `${day}T09:00:00.000Z`;
   const L = emptyLearn();
-  gradeSkillsOf(grade).filter((id) => (monthIndex(id, grade) ?? 99) <= schoolMonth(day) && !but.includes(id)).forEach((id) => { L.skills[id] = masteredRec(ago(6, now), 40, 3); });
+  // the stairs of the student's path that day: the grade's own and those of a unit of the other grade that has joined
+  // it by then (PRODUCT2-20, content/topics.js pathTopicsFor)
+  pathSkillsOf(grade, schoolMonth(day)).filter((id) => (monthIndex(id, grade) ?? 99) <= schoolMonth(day) && !but.includes(id)).forEach((id) => { L.skills[id] = masteredRec(ago(6, now), 40, 3); });
   return ctxOf(L, { grade, day });
 }
 

@@ -12,17 +12,13 @@
 // congruence, nested triangles, a palm tree's shadow and a tent with its axis for isosceles triangles and similarity.
 // Colours come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on
 // its banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
+//
+// The first pieces (the emblems) are in ./emblems.jsx, which the first screen loads; this file loads after it, for the
+// drawings beside the path (Learn.jsx SceneryArt) and the screens that show them.
+import { EMBLEMS } from './emblems.jsx';
 
-const Thermometer = () => (
-  <svg viewBox="0 0 96 110">
-    <rect x="36" y="6" width="24" height="78" rx="12" className="sc-w sc-line" />
-    <rect x="43" y="40" width="10" height="46" rx="5" className="sc-c" />
-    <circle cx="48" cy="90" r="15" className="sc-c sc-line" />
-    <circle cx="44" cy="86" r="4" className="sc-w" opacity="0.5" />
-    {[16, 26, 36, 46, 56, 66].map((y) => <path key={y} d={`M62 ${y} H${y === 46 ? 76 : 70}`} className="sc-stroke" />)}
-    <path d="M62 46 H78" className="sc-stroke-gold" />
-  </svg>
-);
+export { Emblem, EMBLEMS } from './emblems.jsx';
+
 const SeaLevel = () => (
   <svg viewBox="0 0 110 96">
     <path d="M58 40 V14 L78 38 Z" className="sc-w sc-line" />
@@ -33,6 +29,7 @@ const SeaLevel = () => (
     <circle cx="37" cy="77" r="2" className="sc-w" />
   </svg>
 );
+
 const Cloud = () => (
   <svg viewBox="0 0 100 64">
     <path d="M22 50 H80 A14 14 0 0 0 76 23 A20 20 0 0 0 38 18 A16 16 0 0 0 22 50 Z" className="sc-t" />
@@ -41,16 +38,6 @@ const Cloud = () => (
   </svg>
 );
 
-const GridMap = () => (
-  <svg viewBox="0 0 100 100">
-    <rect x="6" y="6" width="88" height="88" rx="14" className="sc-w sc-line" />
-    {[24, 42, 58, 76].map((v) => <path key={v} d={`M${v} 12 V88 M12 ${v} H88`} className="sc-grid" />)}
-    <path d="M50 12 V88 M12 50 H88" className="sc-stroke" />
-    <path d="M24 76 Q34 60 42 66 T64 40 T76 24" className="sc-route" />
-    <circle cx="24" cy="76" r="5" className="sc-c" />
-    <path d="M70 18 L82 30 M82 18 L70 30" className="sc-stroke-gold" />
-  </svg>
-);
 const Compass = () => (
   <svg viewBox="0 0 96 96">
     <circle cx="48" cy="48" r="38" className="sc-w sc-line" />
@@ -60,6 +47,7 @@ const Compass = () => (
     <circle cx="48" cy="48" r="5" className="sc-g" />
   </svg>
 );
+
 const Pin = () => (
   <svg viewBox="0 0 80 100">
     <ellipse cx="40" cy="90" rx="18" ry="5" className="sc-t" />
@@ -68,15 +56,6 @@ const Pin = () => (
   </svg>
 );
 
-const Protractor = () => (
-  <svg viewBox="0 0 110 70">
-    <path d="M8 62 A47 47 0 0 1 102 62 Z" className="sc-w sc-line" />
-    <path d="M30 62 A25 25 0 0 1 80 62" className="sc-grid" />
-    {[0, 30, 60, 90, 120, 150, 180].map((a) => { const r = (a * Math.PI) / 180; return <path key={a} d={`M${55 + 40 * Math.cos(r)} ${62 - 40 * Math.sin(r)} L${55 + 46 * Math.cos(r)} ${62 - 46 * Math.sin(r)}`} className="sc-stroke" />; })}
-    <path d="M55 62 L88 30" className="sc-stroke-c" />
-    <path d="M73 62 A18 18 0 0 0 68 49" className="sc-stroke-gold" />
-  </svg>
-);
 const Peaks = () => (
   <svg viewBox="0 0 120 84">
     <path d="M4 80 L40 22 L76 80 Z" className="sc-c" />
@@ -86,6 +65,7 @@ const Peaks = () => (
     <path d="M18 80 A14 14 0 0 1 21 72" className="sc-stroke-gold" />
   </svg>
 );
+
 const Kite = () => (
   <svg viewBox="0 0 90 110">
     <path d="M45 6 L72 36 L45 76 L18 36 Z" className="sc-c" />
@@ -95,16 +75,6 @@ const Kite = () => (
   </svg>
 );
 
-const SlopeSteps = () => (
-  <svg viewBox="0 0 100 100">
-    <rect x="6" y="6" width="88" height="88" rx="14" className="sc-w sc-line" />
-    {[28, 50, 72].map((v) => <path key={v} d={`M${v} 12 V88 M12 ${v} H88`} className="sc-grid" />)}
-    <path d="M16 82 L84 18" className="sc-stroke-c" />
-    <path d="M28 71 H50 V50 H72 V29" className="sc-stroke-gold" />
-    <circle cx="28" cy="71" r="4.5" className="sc-d" />
-    <circle cx="72" cy="29" r="4.5" className="sc-d" />
-  </svg>
-);
 const FlagHill = () => (
   <svg viewBox="0 0 120 84">
     <path d="M2 82 Q30 40 60 46 T118 82 Z" className="sc-t" />
@@ -113,6 +83,7 @@ const FlagHill = () => (
     <path d="M88 8 L108 15 L88 22 Z" className="sc-g" />
   </svg>
 );
+
 const Plane = () => (
   <svg viewBox="0 0 110 80">
     <path d="M6 70 L60 34" className="sc-route" />
@@ -121,15 +92,6 @@ const Plane = () => (
   </svg>
 );
 
-const Squares = () => (
-  <svg viewBox="0 0 110 110">
-    <path d="M40 70 L40 46 L72 70 Z" className="sc-w sc-line" />
-    <rect x="16" y="46" width="24" height="24" className="sc-t sc-line" />
-    <rect x="40" y="70" width="32" height="32" className="sc-c" />
-    <path d="M40 46 L72 70 L96 38 L64 14 Z" className="sc-g" />
-    <path d="M40 64 H46 V70" className="sc-stroke" />
-  </svg>
-);
 const Ladder = () => (
   <svg viewBox="0 0 100 110">
     <rect x="62" y="6" width="30" height="98" rx="4" className="sc-t" />
@@ -139,6 +101,7 @@ const Ladder = () => (
     {[0, 1, 2, 3].map((k) => { const t = 0.2 + k * 0.2; return <path key={k} d={`M${20 + 40 * t} ${104 - 90 * t} L${34 + 38 * t} ${104 - 86 * t}`} className="sc-stroke-c" />; })}
   </svg>
 );
+
 const Pyramid = () => (
   <svg viewBox="0 0 120 84">
     <circle cx="96" cy="20" r="12" className="sc-g" />
@@ -148,16 +111,6 @@ const Pyramid = () => (
   </svg>
 );
 
-const BarSkyline = () => (
-  <svg viewBox="0 0 110 100">
-    <path d="M6 94 H104" className="sc-stroke" />
-    <rect x="12" y="52" width="18" height="42" rx="4" className="sc-t sc-line" />
-    <rect x="36" y="30" width="18" height="64" rx="4" className="sc-c" />
-    <rect x="60" y="62" width="18" height="32" rx="4" className="sc-d" />
-    <rect x="84" y="16" width="18" height="78" rx="4" className="sc-g" />
-    <path d="M21 46 L45 24 L69 56 L93 10" className="sc-route" />
-  </svg>
-);
 const PieSun = () => (
   <svg viewBox="0 0 96 96">
     <circle cx="48" cy="48" r="36" className="sc-t" />
@@ -166,6 +119,7 @@ const PieSun = () => (
     <circle cx="48" cy="48" r="36" className="sc-line sc-none" />
   </svg>
 );
+
 const Dice = () => (
   <svg viewBox="0 0 110 80">
     <g transform="rotate(-10 30 44)"><rect x="8" y="22" width="44" height="44" rx="10" className="sc-w sc-line" />{[[20, 34], [40, 54], [30, 44]].map(([x, y]) => <circle key={`${x}${y}`} cx={x} cy={y} r="4" className="sc-d" />)}</g>
@@ -173,17 +127,6 @@ const Dice = () => (
   </svg>
 );
 
-// Algebra.
-/** Algebraic expressions: tiles, two x bars and three units, in a bracket. */
-const ExprTiles = () => (
-  <svg viewBox="0 0 100 100">
-    <path d="M14 18 Q4 50 14 82" className="sc-stroke" />
-    <path d="M86 18 Q96 50 86 82" className="sc-stroke" />
-    <rect x="22" y="20" width="16" height="60" rx="5" className="sc-c" />
-    <rect x="42" y="20" width="16" height="60" rx="5" className="sc-c" />
-    {[22, 42, 62].map((y) => <rect key={y} x="64" y={y} width="16" height="16" rx="4" className="sc-w sc-line" />)}
-  </svg>
-);
 /** Expressions: a box with an x on its side, the unknown inside. */
 const XBox = () => (
   <svg viewBox="0 0 100 100">
@@ -193,6 +136,7 @@ const XBox = () => (
     <path d="M40 48 L60 74 M60 48 L40 74" className="sc-stroke-c" />
   </svg>
 );
+
 /** Expressions: a pair of round brackets around two terms. */
 const Brackets = () => (
   <svg viewBox="0 0 100 100">
@@ -203,19 +147,7 @@ const Brackets = () => (
     <circle cx="59" cy="50" r="8" className="sc-g" />
   </svg>
 );
-/** Equations: a balance, a box on one pan and weights on the other. */
-const EqScale = () => (
-  <svg viewBox="0 0 100 100">
-    <path d="M50 46 L38 84 H62 Z" className="sc-d" />
-    <rect x="30" y="82" width="40" height="8" rx="4" className="sc-d" />
-    <rect x="8" y="42" width="84" height="7" rx="3.5" className="sc-d" />
-    <rect x="6" y="34" width="34" height="6" rx="3" className="sc-d" />
-    <rect x="60" y="34" width="34" height="6" rx="3" className="sc-d" />
-    <rect x="14" y="12" width="20" height="20" rx="4" className="sc-c" />
-    <rect x="64" y="20" width="8" height="12" rx="2" className="sc-t sc-line" />
-    <rect x="76" y="14" width="8" height="18" rx="2" className="sc-t sc-line" />
-  </svg>
-);
+
 /** Equations: a level plank on a triangle, the same weight on each end. */
 const Seesaw = () => (
   <svg viewBox="0 0 110 84">
@@ -226,6 +158,7 @@ const Seesaw = () => (
     <circle cx="88" cy="28" r="10" className="sc-g" />
   </svg>
 );
+
 /** Equations: solving unlocks, a keyhole and its key. */
 const Keyhole = () => (
   <svg viewBox="0 0 100 100">
@@ -237,17 +170,7 @@ const Keyhole = () => (
     <circle cx="68" cy="68" r="7" className="sc-g" />
   </svg>
 );
-/** Fractions and decimals: a bar cut into four, three parts shaded, over a number line with its marks. */
-const FracBarArt = () => (
-  <svg viewBox="0 0 100 100">
-    <rect x="8" y="22" width="84" height="30" rx="6" className="sc-w sc-line" />
-    <rect x="8" y="22" width="63" height="30" rx="6" className="sc-c" />
-    {[29, 50, 71].map((x) => <path key={x} d={`M${x} 22 V52`} className="sc-stroke" />)}
-    <path d="M8 74 H92" className="sc-stroke" />
-    {[8, 29, 50, 71, 92].map((x) => <path key={x} d={`M${x} 68 V80`} className="sc-stroke" />)}
-    <circle cx="71" cy="74" r="6" className="sc-g" />
-  </svg>
-);
+
 /** Fractions: a round pie cut into eighths, three of them shaded. */
 const PieEighths = () => (
   <svg viewBox="0 0 100 100">
@@ -258,6 +181,7 @@ const PieEighths = () => (
     <circle cx="50" cy="50" r="4" className="sc-g" />
   </svg>
 );
+
 /** Decimals: a measuring jug marked in tenths, filled to seven of them. */
 const TenthsJug = () => (
   <svg viewBox="0 0 90 110">
@@ -269,17 +193,7 @@ const TenthsJug = () => (
     <path d="M14 33 H34" className="sc-stroke-gold" />
   </svg>
 );
-/** Ratio and scale: a route between two places on a map, over the map's scale bar (its parts in two colours). */
-const ScaleBarArt = () => (
-  <svg viewBox="0 0 100 100">
-    <path d="M18 34 Q40 14 58 32 T84 28" className="sc-stroke" strokeDasharray="6 6" />
-    <circle cx="18" cy="34" r="7" className="sc-g" />
-    <circle cx="84" cy="28" r="7" className="sc-c" />
-    <rect x="10" y="60" width="80" height="14" className="sc-w sc-line" />
-    {[10, 50].map((x) => <rect key={x} x={x} y="60" width="20" height="14" className="sc-c" />)}
-    {[10, 30, 50, 70, 90].map((x) => <path key={x} d={`M${x} 54 V80`} className="sc-stroke" />)}
-  </svg>
-);
+
 /** Ratio: a small glass and a big one of the same juice, syrup and water mixed in the same ratio in both. */
 const MixGlasses = () => (
   <svg viewBox="0 0 100 100">
@@ -294,6 +208,7 @@ const MixGlasses = () => (
     <circle cx="71" cy="12" r="5" className="sc-g" />
   </svg>
 );
+
 /** Scale: a big triangle and its copy at half the size, the same shape with every side halved. */
 const ScaleCopy = () => (
   <svg viewBox="0 0 100 100">
@@ -305,17 +220,7 @@ const ScaleCopy = () => (
     <circle cx="80" cy="46" r="4" className="sc-g" />
   </svg>
 );
-/** Percent: the percent bar, filled to 60% with a tick at every 20%, over a percent sign. */
-const PctBarArt = () => (
-  <svg viewBox="0 0 100 100">
-    <rect x="8" y="18" width="84" height="26" rx="6" className="sc-w sc-line" />
-    <rect x="8" y="18" width="50" height="26" rx="6" className="sc-c" />
-    {[25, 41, 58, 75].map((x) => <path key={x} d={`M${x} 12 V18`} className="sc-stroke" />)}
-    <circle cx="36" cy="66" r="8" className="sc-g" />
-    <circle cx="64" cy="86" r="8" className="sc-g" />
-    <path d="M70 58 L30 94" className="sc-stroke-c" />
-  </svg>
-);
+
 /** Percent: a hundred squares, ten by ten, with 35 of them shaded. */
 const HundredGrid = () => (
   <svg viewBox="0 0 100 100">
@@ -325,6 +230,7 @@ const HundredGrid = () => (
     {[18, 26, 34, 42, 50, 58, 66, 74, 82].map((v) => <path key={`v${v}`} d={`M${v} 10 V90 M10 ${v} H90`} className="sc-stroke" />)}
   </svg>
 );
+
 /** Percent off: a price tag on its string, with a percent sign on it. */
 const SaleTag = () => (
   <svg viewBox="0 0 100 100">
@@ -336,18 +242,7 @@ const SaleTag = () => (
     <path d="M74 30 L46 70" className="sc-stroke-w" />
   </svg>
 );
-/**
- * Functions: a graph of a walk on its two axes, a climb, a flat part and the way back down, a dot where it ends. No hill
- * or road behind it: a graph that looks like a landscape would teach the misconception the unit repairs.
- */
-const WalkGraph = () => (
-  <svg viewBox="0 0 100 100">
-    <rect x="6" y="6" width="88" height="88" rx="14" className="sc-w sc-line" />
-    <path d="M20 18 V80 H86 M16 24 L20 16 L24 24 M80 76 L88 80 L80 84" className="sc-stroke" />
-    <path d="M20 80 L38 36 H58 L76 80" className="sc-stroke-c" />
-    <circle cx="76" cy="80" r="5.5" className="sc-g" />
-  </svg>
-);
+
 /** Functions: a stopwatch, its hand a third of the way round (time is the usual x). */
 const Stopwatch = () => (
   <svg viewBox="0 0 100 104">
@@ -360,6 +255,7 @@ const Stopwatch = () => (
     <circle cx="50" cy="60" r="5" className="sc-g" />
   </svg>
 );
+
 /** Functions: a candle beside a short ruler: it burns down at a steady rate, the unit's uniform rate. */
 const Candle = () => (
   <svg viewBox="0 0 100 110">
@@ -372,17 +268,6 @@ const Candle = () => (
   </svg>
 );
 
-/** Areas and perimeters: an L shaded on a grid, one of its cells outlined (area counts the squares inside). */
-const GridL = () => (
-  <svg viewBox="0 0 100 100">
-    <rect x="6" y="6" width="88" height="88" rx="14" className="sc-w sc-line" />
-    <path d="M18 18 H50 V50 H82 V82 H18 Z" className="sc-t" />
-    {[34, 50, 66].map((v) => <path key={v} d={`M${v} 14 V86 M14 ${v} H86`} className="sc-grid" />)}
-    <path d="M18 18 H50 V50 H82 V82 H18 Z" className="sc-none sc-line" />
-    <rect x="18" y="66" width="16" height="16" className="sc-c" />
-    <circle cx="74" cy="26" r="6" className="sc-g" />
-  </svg>
-);
 /** Areas: a floor of square tiles, the first row laid and the rest still to come. */
 const TileFloor = () => (
   <svg viewBox="0 0 100 100">
@@ -393,6 +278,7 @@ const TileFloor = () => (
     <rect x="62" y="8" width="16" height="12" rx="2" className="sc-d" />
   </svg>
 );
+
 /** Perimeters: a garden plot with a fence round it, its posts at equal steps (the fence is the perimeter). */
 const FencePlot = () => (
   <svg viewBox="0 0 110 90">
@@ -405,17 +291,6 @@ const FencePlot = () => (
   </svg>
 );
 
-/** Boxes and prisms: a box with its front opened down flat, the net unfolding from it (the inside lighter). */
-const BoxNet = () => (
-  <svg viewBox="0 0 100 100">
-    <path d="M18 30 L34 18 H80 L64 30 Z" className="sc-t sc-line" />
-    <path d="M64 30 L80 18 V52 L64 64 Z" className="sc-d" />
-    <rect x="18" y="30" width="46" height="34" className="sc-w sc-line" />
-    <path d="M18 30 L34 18 V52 L18 64" className="sc-grid" />
-    <rect x="18" y="64" width="46" height="26" className="sc-c" />
-    <path d="M18 64 H64" className="sc-stroke-w" />
-  </svg>
-);
 /** Surface area: a gift box wrapped in paper, a ribbon round it and a bow on the lid. */
 const GiftBox = () => (
   <svg viewBox="0 0 100 100">
@@ -428,6 +303,7 @@ const GiftBox = () => (
     <circle cx="57" cy="30" r="7" className="sc-g" />
   </svg>
 );
+
 /** Volume: a stack of unit cubes, three by two in front, the top layer lighter (a layer is the base, the layers the height). */
 const CubeStack = () => (
   <svg viewBox="0 0 100 100">
@@ -440,17 +316,6 @@ const CubeStack = () => (
   </svg>
 );
 
-/** The circle: a wheel with its radius drawn, and one turn of it unrolled along the line under it (a little past 3 diameters). */
-const WheelRoll = () => (
-  <svg viewBox="0 0 100 100">
-    <circle cx="30" cy="44" r="20" className="sc-t sc-line" />
-    <path d="M30 44 H50" className="sc-stroke" />
-    <circle cx="30" cy="44" r="3.5" className="sc-c" />
-    <path d="M10 78 H92" className="sc-grid" />
-    <path d="M10 78 H86" className="sc-stroke-c" />
-    <path d="M10 72 V84 M50 72 V84 M90 72 V84" className="sc-stroke" />
-  </svg>
-);
 /** The cylinder: a can with its label half peeled off, the label a flat rectangle (the lateral area). */
 const Can = () => (
   <svg viewBox="0 0 100 100">
@@ -461,6 +326,7 @@ const Can = () => (
     <path d="M54 44 L82 40 M54 52 L82 48" className="sc-stroke-w" />
   </svg>
 );
+
 /** The cone: an ice-cream cone, its scoop on top and the cone's height dashed inside. */
 const IceCream = () => (
   <svg viewBox="0 0 100 100">
@@ -473,18 +339,6 @@ const IceCream = () => (
   </svg>
 );
 
-/** Pythagoras in space: a box with its diagonal in the accent tone, from a bottom corner to the far top corner. */
-const BoxDiagonal = () => (
-  <svg viewBox="0 0 100 100">
-    <path d="M14 40 L32 26 H86 L68 40 Z" className="sc-t sc-line" />
-    <path d="M68 40 L86 26 V68 L68 82 Z" className="sc-d" />
-    <rect x="14" y="40" width="54" height="42" className="sc-w sc-line" />
-    <path d="M14 82 L32 68 H86 M32 68 V26" className="sc-grid" />
-    <path d="M14 82 L86 26" className="sc-stroke-c" />
-    <circle cx="14" cy="82" r="4" className="sc-g" />
-    <circle cx="86" cy="26" r="4" className="sc-g" />
-  </svg>
-);
 /** The ant's walk: a box's front and lid unfolded flat, the straight path across both. */
 const AntBox = () => (
   <svg viewBox="0 0 100 100">
@@ -496,6 +350,7 @@ const AntBox = () => (
     <circle cx="76" cy="16" r="4" className="sc-g" />
   </svg>
 );
+
 /** The cone once more: a party hat, its height dashed from the tip to the middle of its rim. */
 const PartyHat = () => (
   <svg viewBox="0 0 100 100">
@@ -504,16 +359,6 @@ const PartyHat = () => (
     <ellipse cx="50" cy="78" rx="26" ry="7" className="sc-d" />
     <path d="M50 14 V78" className="sc-route" />
     <circle cx="50" cy="12" r="6" className="sc-g" />
-  </svg>
-);
-
-/** Systems and inequalities: two lines crossing at a point. */
-const SysCross = () => (
-  <svg viewBox="0 0 100 100">
-    <rect x="6" y="6" width="88" height="88" rx="14" className="sc-w sc-line" />
-    <path d="M14 80 L86 26" className="sc-stroke-c" />
-    <path d="M14 30 L86 76" className="sc-stroke" />
-    <circle cx="50" cy="53" r="7" className="sc-g" />
   </svg>
 );
 
@@ -529,6 +374,7 @@ const TwoRoads = () => (
     <circle cx="100" cy="80" r="5" className="sc-d" />
   </svg>
 );
+
 /** Systems: two points on two lines that meet under a small flag. */
 const MeetFlag = () => (
   <svg viewBox="0 0 100 100">
@@ -542,22 +388,6 @@ const MeetFlag = () => (
   </svg>
 );
 
-/** Data: a clipboard with a three-row frequency table, its tally marks in groups of five (the fifth stroke across). */
-const TallyBoard = () => (
-  <svg viewBox="0 0 100 100">
-    <rect x="16" y="12" width="68" height="82" rx="10" className="sc-w sc-line" />
-    <rect x="36" y="6" width="28" height="14" rx="5" className="sc-c sc-line" />
-    {[34, 56, 78].map((y) => <path key={y} d={`M24 ${y + 9} H76`} className="sc-grid" />)}
-    {[[34, 7], [56, 4], [78, 6]].map(([y, n]) => (
-      <g key={y}>
-        <circle cx="30" cy={y} r="4.5" className="sc-c" />
-        {Array.from({ length: Math.min(n, 4) }, (_, k) => <path key={k} d={`M${42 + 6 * k} ${y - 7} V${y + 7}`} className="sc-stroke" />)}
-        {n >= 5 && <path d={`M38 ${y + 6} L66 ${y - 6}`} className="sc-stroke-c" />}
-        {Array.from({ length: Math.max(0, n - 5) }, (_, k) => <path key={`r${k}`} d={`M${70 + 6 * k} ${y - 7} V${y + 7}`} className="sc-stroke" />)}
-      </g>
-    ))}
-  </svg>
-);
 /** Data: a pictogram row of three and a half people over its key, one person for four. */
 const PictoRow = () => (
   <svg viewBox="0 0 110 90">
@@ -575,6 +405,7 @@ const PictoRow = () => (
     <text x="78" y="86" className="sc-math">4</text>
   </svg>
 );
+
 /** Data: a ballot box with two folded slips going in (a survey). */
 const SurveyBox = () => (
   <svg viewBox="0 0 100 100">
@@ -587,23 +418,6 @@ const SurveyBox = () => (
   </svg>
 );
 
-// Probability.
-/**
- * The emblem: a wheel of four sectors, two of them one colour, a centre pin and a large pointer at the top. The pointer
- * tells it from stats' pie and the fractions' eighths at 24 px, and the wheel is not a loading spinner.
- */
-const WheelPointer = () => (
-  <svg viewBox="0 0 100 100">
-    <circle cx="50" cy="56" r="38" className="sc-w sc-line" />
-    <path d="M50 56 L50 18 A38 38 0 0 1 88 56 Z" className="sc-c" />
-    <path d="M50 56 L12 56 A38 38 0 0 1 50 18 Z" className="sc-t" />
-    <path d="M50 56 L50 94 A38 38 0 0 1 12 56 Z" className="sc-c" />
-    <path d="M50 18 V94 M12 56 H88" className="sc-stroke" />
-    <circle cx="50" cy="56" r="38" className="sc-line sc-none" />
-    <path d="M50 30 L40 4 H60 Z" className="sc-d sc-line" />
-    <circle cx="50" cy="56" r="6" className="sc-g sc-line" />
-  </svg>
-);
 /** A coin on its edge in the air over a dotted arc: one toss. */
 const CoinFlip = () => (
   <svg viewBox="0 0 100 90">
@@ -614,6 +428,7 @@ const CoinFlip = () => (
     <path d="M6 82 H94" className="sc-stroke" />
   </svg>
 );
+
 /** A table of outcomes: a 3 × 3 grid with its diagonal marked (the doubles of a two-stage experiment). */
 const OutcomeGrid = () => (
   <svg viewBox="0 0 100 100">
@@ -625,19 +440,56 @@ const OutcomeGrid = () => (
   </svg>
 );
 
-// transformations (GEOM-4): a flag and its mirror image across a dashed line (the emblem), a small L turned about a dot
-// three times with a curved arrow, and a piece of a tiling: three hexagons and the six triangles between them (HexTiling:
-// the areas unit's TileFloor is a floor of square tiles)
-const MirrorFlag = () => (
-  <svg viewBox="0 0 110 96">
-    <path d="M55 6 V90" className="sc-route" />
-    <path d="M38 84 V18" className="sc-stroke" />
-    <path d="M38 18 L14 27 L38 36 Z" className="sc-c" />
-    <path d="M72 84 V18" className="sc-stroke" />
-    <path d="M72 18 L96 27 L72 36 Z" className="sc-t sc-line" />
-    <path d="M28 86 H48 M62 86 H82" className="sc-stroke" />
+const Dividers = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="50" cy="12" r="6" className="sc-d" />
+    <path d="M50 14 L24 82" className="sc-stroke" />
+    <path d="M50 14 L74 82" className="sc-stroke" />
+    <path d="M24 82 L22 90" className="sc-stroke-gold" />
+    <path d="M74 82 L76 88" className="sc-stroke" />
+    {/* the segment it copies, and its copy under it */}
+    <path d="M12 94 H86" className="sc-route" />
+    <circle cx="22" cy="92" r="3.5" className="sc-c" />
+    <circle cx="76" cy="92" r="3.5" className="sc-c" />
   </svg>
 );
+
+const RoofTruss = () => (
+  <svg viewBox="0 0 120 80">
+    <path d="M8 70 L60 12 L112 70 Z" className="sc-w sc-line" />
+    {/* the king post and two struts cut the truss into four congruent right triangles in pairs */}
+    <path d="M60 12 V70" className="sc-stroke" />
+    <path d="M34 70 L60 41 L86 70" className="sc-stroke" />
+    <path d="M8 70 L34 70 L60 41 Z" className="sc-c" opacity="0.55" />
+    <path d="M112 70 L86 70 L60 41 Z" className="sc-c" opacity="0.55" />
+    <path d="M4 72 H116" className="sc-stroke-gold" />
+  </svg>
+);
+
+const PalmShadow = () => (
+  <svg viewBox="0 0 120 92">
+    <circle cx="14" cy="14" r="8" className="sc-g" />
+    {/* one sun ray past the tops of both, to the ends of their shadows */}
+    <path d="M20 18 L112 84" className="sc-route" />
+    <path d="M60 84 V40" className="sc-stroke" />
+    <path d="M60 40 C52 34 44 36 40 42 M60 40 C68 32 78 34 82 40 M60 40 C58 30 62 24 70 22" className="sc-stroke-c" />
+    <path d="M26 84 V64" className="sc-stroke" />
+    <circle cx="26" cy="60" r="4.5" className="sc-d" />
+    <path d="M26 86 H40 M60 86 H112" className="sc-stroke-gold" />
+  </svg>
+);
+
+const TentAxis = () => (
+  <svg viewBox="0 0 110 86">
+    <path d="M55 10 L100 78 L10 78 Z" className="sc-c sc-line" />
+    <path d="M55 40 L70 78 L40 78 Z" className="sc-d" />
+    {/* the axis of symmetry, dashed, from the top to the middle of the base */}
+    <path d="M55 4 V84" className="sc-route" />
+    <path d="M28 46 L34 49 M82 46 L76 49" className="sc-stroke-w" />
+  </svg>
+);
+
+// transformations (GEOM-4): an L turned about a dot, and a piece of a trihexagonal tiling (the emblem is in emblems.jsx)
 const TurnStar = () => {
   // an L of three cells, turned a quarter, a half and three quarters about the dot in the middle
   const L = 'M4 4 H22 V10 H10 V28 H4 Z';
@@ -671,107 +523,33 @@ const HexTiling = () => {
   );
 };
 
-// congruent triangles (GEOM-5): two triangles, the second the mirror image of the first, with matching tick marks and
-// arcs (the emblem); a pair of compasses (מחוגה) copying a segment; a roof truss of congruent triangles
-const TwinTriangles = () => (
-  <svg viewBox="0 0 112 92">
-    <path d="M8 80 L48 80 L20 18 Z" className="sc-c sc-line" />
-    <path d="M104 80 L64 80 L92 18 Z" className="sc-t sc-line" />
-    {/* one tick on the bases, two on the long sides, and the same arc at the base corner of each */}
-    <path d="M28 76 V84 M84 76 V84" className="sc-stroke" />
-    <path d="M30 47 L38 45 M31 51 L39 49 M82 47 L74 45 M81 51 L73 49" className="sc-stroke" />
-    <path d="M40 80 A8 8 0 0 0 44 72" className="sc-stroke-gold" />
-    <path d="M72 80 A8 8 0 0 1 68 72" className="sc-stroke-gold" />
-  </svg>
-);
-const Dividers = () => (
-  <svg viewBox="0 0 100 100">
-    <circle cx="50" cy="12" r="6" className="sc-d" />
-    <path d="M50 14 L24 82" className="sc-stroke" />
-    <path d="M50 14 L74 82" className="sc-stroke" />
-    <path d="M24 82 L22 90" className="sc-stroke-gold" />
-    <path d="M74 82 L76 88" className="sc-stroke" />
-    {/* the segment it copies, and its copy under it */}
-    <path d="M12 94 H86" className="sc-route" />
-    <circle cx="22" cy="92" r="3.5" className="sc-c" />
-    <circle cx="76" cy="92" r="3.5" className="sc-c" />
-  </svg>
-);
-const RoofTruss = () => (
-  <svg viewBox="0 0 120 80">
-    <path d="M8 70 L60 12 L112 70 Z" className="sc-w sc-line" />
-    {/* the king post and two struts cut the truss into four congruent right triangles in pairs */}
-    <path d="M60 12 V70" className="sc-stroke" />
-    <path d="M34 70 L60 41 L86 70" className="sc-stroke" />
-    <path d="M8 70 L34 70 L60 41 Z" className="sc-c" opacity="0.55" />
-    <path d="M112 70 L86 70 L60 41 Z" className="sc-c" opacity="0.55" />
-    <path d="M4 72 H116" className="sc-stroke-gold" />
-  </svg>
-);
-
-// isosceles triangles and similarity (GEOM-6): a small triangle inside a large one, sharing the top vertex, with
-// parallel bases (the emblem); a person and a palm tree with their shadows under one sun ray; an isosceles tent with
-// its dashed axis of symmetry
-const NestedTriangles = () => (
-  <svg viewBox="0 0 108 92">
-    <path d="M54 8 L100 84 L8 84 Z" className="sc-t sc-line" />
-    <path d="M54 8 L77 46 L31 46 Z" className="sc-c" />
-    {/* the two bases are parallel: one arrow mark on each */}
-    <path d="M31 46 H77" className="sc-stroke" />
-    <path d="M50 42 L55 46 L50 50" className="sc-stroke" />
-    <path d="M50 80 L55 84 L50 88" className="sc-stroke" />
-    <path d="M60 18 A12 12 0 0 1 48 18" className="sc-stroke-gold" />
-  </svg>
-);
-const PalmShadow = () => (
-  <svg viewBox="0 0 120 92">
-    <circle cx="14" cy="14" r="8" className="sc-g" />
-    {/* one sun ray past the tops of both, to the ends of their shadows */}
-    <path d="M20 18 L112 84" className="sc-route" />
-    <path d="M60 84 V40" className="sc-stroke" />
-    <path d="M60 40 C52 34 44 36 40 42 M60 40 C68 32 78 34 82 40 M60 40 C58 30 62 24 70 22" className="sc-stroke-c" />
-    <path d="M26 84 V64" className="sc-stroke" />
-    <circle cx="26" cy="60" r="4.5" className="sc-d" />
-    <path d="M26 86 H40 M60 86 H112" className="sc-stroke-gold" />
-  </svg>
-);
-const TentAxis = () => (
-  <svg viewBox="0 0 110 86">
-    <path d="M55 10 L100 78 L10 78 Z" className="sc-c sc-line" />
-    <path d="M55 40 L70 78 L40 78 Z" className="sc-d" />
-    {/* the axis of symmetry, dashed, from the top to the middle of the base */}
-    <path d="M55 4 V84" className="sc-route" />
-    <path d="M28 46 L34 49 M82 46 L76 49" className="sc-stroke-w" />
-  </svg>
-);
-
 export const SCENERY = {
-  signed: [Thermometer, SeaLevel, Cloud],
-  coord: [GridMap, Compass, Pin],
-  angles: [Protractor, Peaks, Kite],
-  transf: [MirrorFlag, TurnStar, HexTiling],
-  line: [SlopeSteps, FlagHill, Plane],
-  pyth: [Squares, Ladder, Pyramid],
-  stats: [BarSkyline, PieSun, Dice],
-  congr: [TwinTriangles, Dividers, RoofTruss],
-  sim: [NestedTriangles, PalmShadow, TentAxis],
-  expr: [ExprTiles, XBox, Brackets],
-  area: [GridL, TileFloor, FencePlot],
-  solid: [BoxNet, GiftBox, CubeStack],
-  circle: [WheelRoll, Can, IceCream],
-  eq: [EqScale, Seesaw, Keyhole],
-  sys: [SysCross, TwoRoads, MeetFlag],
-  space: [BoxDiagonal, AntBox, PartyHat],
-  frac: [FracBarArt, PieEighths, TenthsJug],
-  ratio: [ScaleBarArt, MixGlasses, ScaleCopy],
-  pct: [PctBarArt, HundredGrid, SaleTag],
-  func: [WalkGraph, Stopwatch, Candle],
-  data: [TallyBoard, PictoRow, SurveyBox],
-  prob: [WheelPointer, CoinFlip, OutcomeGrid],
+  signed: [EMBLEMS.signed, SeaLevel, Cloud],
+  coord: [EMBLEMS.coord, Compass, Pin],
+  angles: [EMBLEMS.angles, Peaks, Kite],
+  transf: [EMBLEMS.transf, TurnStar, HexTiling],
+  line: [EMBLEMS.line, FlagHill, Plane],
+  pyth: [EMBLEMS.pyth, Ladder, Pyramid],
+  stats: [EMBLEMS.stats, PieSun, Dice],
+  congr: [EMBLEMS.congr, Dividers, RoofTruss],
+  sim: [EMBLEMS.sim, PalmShadow, TentAxis],
+  expr: [EMBLEMS.expr, XBox, Brackets],
+  area: [EMBLEMS.area, TileFloor, FencePlot],
+  solid: [EMBLEMS.solid, GiftBox, CubeStack],
+  circle: [EMBLEMS.circle, Can, IceCream],
+  eq: [EMBLEMS.eq, Seesaw, Keyhole],
+  sys: [EMBLEMS.sys, TwoRoads, MeetFlag],
+  space: [EMBLEMS.space, AntBox, PartyHat],
+  frac: [EMBLEMS.frac, PieEighths, TenthsJug],
+  ratio: [EMBLEMS.ratio, MixGlasses, ScaleCopy],
+  pct: [EMBLEMS.pct, HundredGrid, SaleTag],
+  func: [EMBLEMS.func, Stopwatch, Candle],
+  data: [EMBLEMS.data, PictoRow, SurveyBox],
+  prob: [EMBLEMS.prob, CoinFlip, OutcomeGrid],
 };
 
-/** The unit's own sign for its header: the first piece of its world. */
-export function Emblem({ topic }) {
-  const E = SCENERY[topic]?.[0];
-  return E ? <span className="emblem" aria-hidden="true"><E /></span> : null;
+/** One drawing of a unit's world (its second or third piece), as the path shows it beside its stops. */
+export function SceneryArt({ topic, piece }) {
+  const Art = SCENERY[topic]?.[piece];
+  return Art ? <Art /> : null;
 }

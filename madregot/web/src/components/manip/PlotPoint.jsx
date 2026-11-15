@@ -1,6 +1,8 @@
 // Putting a point on the plane: tap a grid crossing or drag the point. Dashed guides to both axes show
 // how far right/left and up/down it is, without printing its coordinates (that is the student's job).
 // With m.lines (two lines {m, b}) both are drawn with their equations, and the point to put is where they meet.
+// With m.dots ([[x, y], ...]) those points are drawn as given (the first terms of a sequence as (place, term), expr:2),
+// and the point to put is one more of the same pattern.
 import { ArrowLeft, ArrowRight, ArrowDown, ArrowUp } from 'lucide-react';
 import { clamp, useDrag, arrowKeys, Stepper, minus } from './core.jsx';
 import { gridGeometry, Plane } from './grid.jsx';
@@ -17,6 +19,8 @@ export default function PlotPoint({ m, value, onChange, locked, reveal, good, an
   const cur = value || [0, 0];
   const move = (dx, dy) => set([cur[0] + dx, cur[1] + dy]);
   const quad = m.quadrant && QUAD_RECT[m.quadrant];
+  // the given points, spoken with the plane (a screen reader hears what a sighted student sees)
+  const dots = m.dots?.length ? `, עם הנקודות ${m.dots.map(([x, y]) => `(${minus(x)}, ${minus(y)})`).join(', ')}` : '';
   return (
     <div className={`manip manip-plot ${good ? 'good' : ''}`}>
       {/* two lines: their equations as a legend, each beside its own stroke (solid, dashed) */}
@@ -26,7 +30,7 @@ export default function PlotPoint({ m, value, onChange, locked, reveal, good, an
         </div>
       )}
       <svg ref={ref} {...drag} viewBox={`0 0 ${g.size} ${g.size}`} className="manip-canvas" dir="ltr" tabIndex={locked ? -1 : 0}
-        role="application" aria-roledescription="מערכת צירים" aria-label={value ? `הנקודה${m.label ? ` ${m.label}` : ''} בשיעורים ${minus(value[0])}, ${minus(value[1])}` : `מערכת צירים. הקישו כדי לשים את הנקודה${m.label ? ` ${m.label}` : ''}, או השתמשו בחצים`}
+        role="application" aria-roledescription="מערכת צירים" aria-label={value ? `הנקודה${m.label ? ` ${m.label}` : ''} בשיעורים ${minus(value[0])}, ${minus(value[1])}${dots}` : `מערכת צירים${dots}. הקישו כדי לשים את הנקודה${m.label ? ` ${m.label}` : ''}, או השתמשו בחצים`}
         onKeyDown={arrowKeys({ left: () => move(-1, 0), right: () => move(1, 0), up: () => move(0, 1), down: () => move(0, -1) })}>
         <Plane g={g}>
           {/* a line to find a point on, or the given corners of a shape to complete */}
@@ -55,6 +59,10 @@ export default function PlotPoint({ m, value, onChange, locked, reveal, good, an
                 </g>
               ))}
             </g>
+          )}
+          {/* given points: drawn under the student's point, never moved */}
+          {m.dots?.length > 0 && (
+            <g className="mp-dots">{m.dots.map(([x, y]) => <circle key={`${x},${y}`} cx={X(x)} cy={Y(y)} r="6" className="mp-shape-pt" />)}</g>
           )}
           {hint && quad && (
             <g className="mp-hint">{[[1, 1, 'I'], [2, -1, 'II'], [3, -1, 'III'], [4, 1, 'IV']].map(([q, sx]) => {

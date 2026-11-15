@@ -57,7 +57,7 @@ export default function Teach() {
     else navigate(`/lesson/${topic}/${level}?part=${isDone(useApp.getState().path, topic, level) ? PARTS : Math.min(PARTS, partsOf(useApp.getState().path, topic, level) + 1)}&from=journey`, { replace: true });
   };
   const toMap = () => navigate('/', { replace: true, state: { from: topic } });
-  if (done) return <StageDone stage={stage} stair={t.levels[level - 1].title} award={done.award} steps={done.steps} onNext={goNext} onMap={toMap} />;
+  if (done) return <StageDone stage={stage} stair={t.levels[level - 1].title} topic={topic} award={done.award} steps={done.steps} onNext={goNext} onMap={toMap} />;
   const nextOf = (list, ev) => () => {
     learnEvent({ e: ev, s: skill });
     if (idx + 1 < list.length) { setIdx(idx + 1); setStagePos(skill, stage, idx + 1); window.scrollTo({ top: 0 }); } else finish();
@@ -72,7 +72,7 @@ export default function Teach() {
         {/* the stage's name is the screen's heading: StepPlayer writes it for stage A (shown on its first step); the
             worked examples and solving together have no title on screen, so a screen reader gets it here (PKG-1) */}
         {stage !== 'A' && <h1 className="visually-hidden">{TITLE[stage]}</h1>}
-        {stage === 'A' && <StepPlayer key="A" steps={c.discover} start={pos} onIndex={(i) => setStagePos(skill, 'A', i)} onDone={finish} label="ההסבר" doneLabel="לדוגמה הפתורה" renderHead={head} title={TITLE[stage]} kicker={kicker} />}
+        {stage === 'A' && <StepPlayer key="A" steps={c.discover} start={pos} onIndex={(i) => setStagePos(skill, 'A', i)} onDone={finish} label="ההסבר" doneLabel="לדוגמה הפתורה" renderHead={head} title={TITLE[stage]} kicker={kicker} skill={skill} />}
         {stage === 'B' && <WorkedExample key={`B${idx}`} example={c.examples[Math.min(idx, c.examples.length - 1)]} n={Math.min(idx, c.examples.length - 1) + 1} of={c.examples.length} decimal={c.topic === 'stats'} onDone={nextOf(c.examples, 'example-done')} doneLabel={idx + 1 < c.examples.length ? 'לדוגמה הבאה' : 'לפתור יחד'} renderHead={head} />}
         {stage === 'C' && (
           <Together key={`C${idx}`} problem={c.together[Math.min(idx, c.together.length - 1)]} n={Math.min(idx, c.together.length - 1) + 1} of={c.together.length} decimal={c.topic === 'stats'}

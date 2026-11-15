@@ -329,6 +329,8 @@
 .as-radio { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .as-choice .ob-opt-text b { font-size: 17px; line-height: 24px; }
 .as-choice .ob-opt-text > span { overflow-wrap: anywhere; }
+/* a repair's mistakes (SK-BUYERS-2): a sentence with maths in it, so it flows as text, a little lighter than a kind */
+.as-miscs .ob-opt-text b { display: block; font-size: 16px; line-height: 23px; font-weight: 600; }
 .as-select { width: 100%; font-size: 17px; }
 .as-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .as-chip { position: relative; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; cursor: pointer; box-shadow: 0 2px 0 var(--rule-press); }
@@ -344,11 +346,15 @@
 .as-text { min-height: 72px; }
 .as-share { display: flex; flex-direction: column; gap: var(--s3); }
 .as-share-lead { margin: 0; color: var(--ink); }
+.as-share-who { margin: 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.as-share-who .field-label { display: inline; color: var(--ink); }
 .as-msg { margin: 0; padding: var(--s3) var(--s4); border-inline-start: 4px solid var(--brand-line); border-radius: 12px; background: var(--ground); color: var(--ink); line-height: 1.55; overflow-wrap: anywhere; user-select: text; }
 /* one assignment's detail: the line under the title, the bar, the table of students, the quiet actions */
 .aw-body { display: flex; flex-direction: column; gap: var(--s3); }
 .aw-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; color: var(--ink-2); font-weight: 600; font-size: 15px; }
 .aw-note { margin: 0; color: var(--ink); }
+.aw-mis { margin: 0; color: var(--ink); line-height: 1.45; }
+.aw-mis .field-label { display: inline; margin: 0; }
 .aw-loading { margin: 0; }
 .aw-table-wrap { max-height: none; }
 .aw-table th, .aw-table td { white-space: normal; vertical-align: top; font-size: 15px; line-height: 21px; }
@@ -421,6 +427,12 @@
 .rp-mis-one + .rp-mis-one { margin-top: 4px; }
 .t-report .t-group { margin: 0; }
 .t-report-note { margin: 0; }
+/* the grades for Mashov or Webtop (PRODUCT2-32): what the file holds, three numbered steps, how a grade is worked out */
+.rp-grades > .t-group-box.rp-grades-box { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); }
+.rp-grades-lead, .rp-grades-how { margin: 0; line-height: 1.5; }
+.rp-grades-how { color: var(--ink-2); font-size: 15px; }
+.rp-steps { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s1); line-height: 1.5; }
+.rp-grades .btn svg { flex: none; }
 .t-report .screen-foot .btn svg { flex: none; }
 @media (max-width: 359px) {
   .rp-dates { grid-template-columns: minmax(0, 1fr); }
@@ -616,6 +628,12 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
 .help-q { text-align: start; }
 .help-page { display: block; max-width: 100%; border: 1px solid var(--rule-strong); border-radius: 6px; }
 .qstrip { display: inline-flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
+/* the "מבחנים" tab (PRODUCT2-31): where each row came from, under its title; the empty tab says where exams will come from */
+.ex-src { display: block; margin-top: 2px; color: var(--ink-2); font-size: var(--t-xs, 13px); font-weight: 500; }
+.ex-empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); max-width: 60ch; }
+.ex-empty p { margin: 0; }
+.ex-empty-title { color: var(--ink); font-weight: 700; }
+.ex-empty-make { margin-top: var(--s2); }
 .qstrip i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 5px; font-style: normal; font-size: 11px; font-weight: 800; }
 .help-page-btn { display: block; padding: 0; border: 0; background: none; cursor: zoom-in; max-width: 320px; }
 .help-page-btn .help-page { width: 100%; height: auto; }

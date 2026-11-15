@@ -5,6 +5,10 @@
 // eq:c4 (stage5.md FUNC-7.4), after the motion problems of eq:6: a race of three legs, each leg's minutes and the whole
 // race's, and why the mean of the three speeds is not the average speed (the stage-5 critique's check.mjs and the lane's
 // spec/facts.mjs hold its numbers).
+// PRODUCT2-21 (a task after every stair): eq:c5, after eq:1, a "think of a number" game, one-step equations and the
+// one that has every number as a solution; eq:c6, after eq:4, a solution with brackets put in order with a reason for
+// each line, then a minus before brackets and an equation to solve. (The product2 lane wrote them as eq:c4 and eq:c5;
+// they took the next free ids after stage 5's eq:c4 when the lanes met.)
 import type { ChallengeTask } from '../types';
 
 export const EQ_CHALLENGES: ChallengeTask[] = [
@@ -27,6 +31,7 @@ export const EQ_CHALLENGES: ChallengeTask[] = [
       { type: 'error', prompt: 'כך פתר אלון.',
         lines: ['$3x + 5 = 20$', '$3x = 25$', '$x = \\frac{25}{3}$'], wrong: 1,
         why: 'מעבירים את $5$ בפעולה ההפוכה: מחסרים $5$ משני האגפים, ו־$3x = 15$.',
+        lineWhy: { 0: 'זו המשוואה עצמה. הטעות מתחילה אחריה.', 2: 'מ־$3x = 25$ באמת יוצא $x = \\frac{25}{3}$. הטעות בשורה שלפניה.' },
         fix: { prompt: 'מה $x$?', answer: 5, check: '(20-5)/3' } },
       { type: 'mc', prompt: 'איך בודקים פתרון של משוואה?', choices: [
         { text: 'מציבים אותו: $3 \\cdot 5 + 5 = 20$', ok: true, feedback: 'נכון: מציבים במשוואה המקורית, ואם שני האגפים שווים, הפתרון נכון. אצל אלון: $3 \\cdot \\frac{25}{3} + 5 = 30$, לא $20$.' },
@@ -67,6 +72,46 @@ export const EQ_CHALLENGES: ChallengeTask[] = [
         { text: 'לא: בכל קטע הזמן שונה, והמהירות הממוצעת היא כל הדרך חלקי כל הזמן', ok: true, feedback: '$25.75$ ק״מ ב־$85$ דקות הם בערך $18.18$ קמ״ש, לא $14.33$.' },
         { text: 'כן', ok: false, feedback: 'הממוצע $14.33$ נותן לכל מהירות אותו משקל, אבל רכבו $40$ דקות ושחו רק $15$. כל הדרך, $25.75$ ק״מ, ב־$85$ דקות: בערך $18.18$ קמ״ש.' },
       ] },
+    ],
+  },
+  {
+    id: 'eq:c5', topic: 'eq', after: 'eq:1', kind: 'literacy', title: 'חשבו על מספר', minutes: 6,
+    story: 'במשחק "חשבו על מספר" כל אחד חושב על מספר, עושה עליו פעולה אחת ואומר מה יצא. האחרים צריכים לגלות על איזה מספר הוא חשב.',
+    parts: [
+      { type: 'num', prompt: 'יעל כפלה את המספר שלה ב־$-3$, ויצא $27$. על איזה מספר היא חשבה?', answer: -9, check: '27/(-3)',
+        solution: ['המשוואה: $-3x = 27$.', 'מחלקים את שני האגפים ב־$-3$: $x = -9$. בדיקה: $-3 \\cdot (-9) = 27$.'] },
+      { type: 'num', prompt: 'עומרי חיסר מהמספר שלו $8$, ויצא $-5$. על איזה מספר הוא חשב?', answer: 3, check: '-5+8',
+        solution: ['המשוואה: $x - 8 = -5$.', 'מוסיפים $8$ לשני האגפים: $x = 3$. בדיקה: $3 - 8 = -5$.'] },
+      { type: 'num', prompt: 'נור חילקה את המספר שלה ב־$4$, ויצא $-2.5$. על איזה מספר היא חשבה?', answer: -10, check: '-2.5*4',
+        solution: ['המשוואה: $\\frac{x}{4} = -2.5$.', 'כופלים את שני האגפים ב־$4$: $x = -10$. בדיקה: $-10 : 4 = -2.5$.'] },
+      { type: 'mc', prompt: 'רון כפל את המספר שלו ב־$0$, ויצא $0$. על איזה מספר הוא חשב?', choices: [
+        { text: 'אי אפשר לדעת', ok: true, feedback: 'נכון: כל מספר כפול $0$ הוא $0$. למשוואה $0 \\cdot x = 0$ כל מספר הוא פתרון.' },
+        { text: '$0$', ok: false, feedback: '$0$ מתאים, אבל גם $5$ מתאים: $0 \\cdot 5 = 0$. כל מספר מתאים, ולכן אי אפשר לדעת.' },
+        { text: '$1$', ok: false, feedback: '$0 \\cdot 1 = 0$, אבל גם $0 \\cdot 7 = 0$. כל מספר כפול $0$ הוא $0$, ולכן אי אפשר לדעת.' },
+      ] },
+    ],
+  },
+  {
+    id: 'eq:c6', topic: 'eq', after: 'eq:4', kind: 'proof', title: 'פתרון עם נימוקים', minutes: 7,
+    parts: [
+      { type: 'order', prompt: 'אלה שורות הפתרון של $3(x - 2) = 2x + 5$, בסדר מעורבב. סדרו אותן מהראשונה לאחרונה.',
+        steps: [
+          { text: '$3(x - 2) = 2x + 5$' },
+          { text: '$3x - 6 = 2x + 5$',
+            reason: { choices: ['חוק הפילוג: $3$ כופל גם את $x$ וגם את $-2$', 'כינוס איברים דומים', 'מחלקים את שני האגפים ב־$3$'], answer: 0 } },
+          { text: '$x - 6 = 5$',
+            reason: { choices: ['מחסרים $2x$ משני האגפים', 'מחלקים את שני האגפים ב־$2$', 'מעבירים את $2x$ לאגף שמאל בלי לשנות סימן'], answer: 0 } },
+          { text: '$x = 11$',
+            reason: { choices: ['מוסיפים $6$ לשני האגפים', 'מחסרים $6$ משני האגפים', 'כופלים את שני האגפים ב־$6$'], answer: 0 } },
+          { text: 'בדיקה: $3(11 - 2) = 27$, וגם $2 \\cdot 11 + 5 = 27$.' },
+        ] },
+      { type: 'mc', prompt: 'איך נראה $5 - 2(x - 4)$ אחרי פתיחת הסוגריים?', choices: [
+        { text: '$13 - 2x$', ok: true, feedback: 'נכון: $-2$ כופל גם את $x$ וגם את $-4$. יוצא $5 - 2x + 8$, כלומר $13 - 2x$.' },
+        { text: '$-3 - 2x$', ok: false, feedback: 'כאן $-2 \\cdot (-4)$ נכתב $-8$. אבל מינוס כפול מינוס הוא פלוס: $+8$. יוצא $5 - 2x + 8$, כלומר $13 - 2x$.' },
+        { text: '$3x - 12$', ok: false, feedback: 'כאן חיסרו קודם $5 - 2 = 3$. אבל כפל בא לפני חיסור: פותחים את הסוגריים, ויוצא $5 - 2x + 8$, כלומר $13 - 2x$.' },
+      ] },
+      { type: 'num', prompt: 'פתרו: $4(x + 3) = 2x - 6$. מה $x$?', answer: -9, check: '(-6-12)/(4-2)',
+        solution: ['פותחים סוגריים: $4x + 12 = 2x - 6$. מחסרים $2x$ משני האגפים: $2x + 12 = -6$.', 'מחסרים $12$: $2x = -18$, ולכן $x = -9$. בדיקה: $4(-9 + 3) = -24$, וגם $2 \\cdot (-9) - 6 = -24$.'] },
     ],
   },
 ];

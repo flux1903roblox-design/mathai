@@ -28,7 +28,7 @@
 //   move-no-flip   a number moved to the other side without changing its sign (Hall 2002)
 // Every solution is written as the class writes it on the board (CLASSROOM-7): the operation done to both sides after
 // a slash at the end of the line it acts on (util.js opMark, eq.js line), as in the equations topic.
-import { NZ, pick, shuffle, T, gcd, listMath, opMark, minusOp, undoOp, divOp, mulOp, flipLine, unmarkLine } from './util.js';
+import { NZ, pick, shuffle, T, gcd, listMath, opMark, minusOp, undoOp, divOp, mulOp, flipLine, unmarkLine, byWidth, drawPlace } from './util.js';
 import { linTex, sumTex } from './expr.js';
 import { lineTex } from './signedItems.js';
 import { diagOf, line, takeAway } from './eq.js';
@@ -37,7 +37,8 @@ import { holds, rint, rnz, rpick } from '@/learn/expr.ts';
 const abs = Math.abs;
 const tex = (t) => ({ tex: t });
 const txt = (t) => ({ text: t });
-const rnd0 = Math.random;
+// read at each draw (not kept from load), so a test that seeds Math.random draws the same questions every run
+const rnd0 = () => Math.random();
 
 /** A decimal as written in school, never as a fraction: 1.2, 0.85, 2.5. */
 export const dec = (v) => String(Math.round(v * 1e6) / 1e6);
@@ -104,14 +105,26 @@ function pctItem() {
   return { key: `sy1:${P.up}:${P.p}:${P.x}:${P.n}`, text: pctText(P), form: 'num', answer: P.x, unit: '₪', hint: pctHint(P), solution: pctSolution(P), diag: diagOf(P.x, { 'pct-of-new': pctOfNew(P) }) };
 }
 
-/** Which equation fits? The percent of the new price, the change alone, and the percent as shekels are the others. */
+/**
+ * Which equation fits? The percent of the new price is always a choice; two of the change alone, the percent as
+ * shekels and the change the other way (x − 0.2x for a raise) are the others. The right equation is written 1.2x = 60
+ * or x + 0.2x = 60, the percent of the new price x = 60 − 0.2 · 60 or x = 0.8 · 60, the change the other way 0.8x = 60
+ * or x − 0.2x = 60, so the right one is the narrowest, the widest or between as often as a blind guess (PRODUCT2-8).
+ */
 function pctEquation() {
   for (;;) {
     const P = pctDraw(rnd0); const { up, p, x, N, n } = P; const m = dec(mult(up, p)); const r = dec(p / 100);
-    const opts = [[`${m}x = ${N}`, true], [`x = ${N} ${up ? '-' : '+'} ${r} \\cdot ${N}`, 'pct-of-new'], [`${r}x = ${N}`], [`x ${up ? '+' : '-'} ${p} = ${N}`]];
+    const plus = up ? '+' : '-'; const minus = up ? '-' : '+'; const other = dec(mult(!up, p));
+    const choices = byWidth([
+      { forms: [tex(`${m}x = ${N}`), tex(`x ${plus} ${r}x = ${N}`)], ok: true },
+      { forms: [tex(`x = ${N} ${minus} ${r} \\cdot ${N}`), tex(`x = ${other} \\cdot ${N}`)], bug: 'pct-of-new' },
+      { forms: [tex(`${r}x = ${N}`)] },
+      { forms: [tex(`x ${plus} ${p} = ${N}`)] },
+      { forms: [tex(`${other}x = ${N}`), tex(`x ${minus} ${r}x = ${N}`)] },
+    ], drawPlace(4, rnd0), { n: 4, keep: 1, rnd: rnd0 });
     // exactly one of them holds at the story's price (x − 20 = 80 at x = 100 also holds: redrawn)
-    if (opts.filter(([t]) => holds(t, { x })).length !== 1 || !holds(opts[0][0], { x })) continue;
-    const choices = shuffle(opts.map(([t, tag]) => ({ ...tex(t), ok: tag === true, bug: typeof tag === 'string' ? tag : undefined })));
+    if (!choices || choices.filter((c) => holds(c.tex, { x })).length !== 1 || !holds(choices.find((c) => c.ok).tex, { x })) continue;
+    const right = choices.find((c) => c.ok).tex;
     const d = (x * p) / 100;
     return {
       key: `sy1e:${up}:${p}:${x}`, form: 'mc', choices, answer: choices.findIndex((c) => c.ok),
@@ -119,9 +132,9 @@ function pctEquation() {
         : `על ${ITEMS[n]} הייתה הנחה של $${p}\\%$, ואחריה הוא עולה $${N}$ ₪. $x$ הוא המחיר לפני ההנחה. איזו משוואה מתאימה?`,
       hint: 'האחוזים הם מהמחיר הישן, $x$. כמה אחוזים ממנו הוא המחיר החדש?',
       solution: [
-        `המחיר הישן הוא $100\\%$, והחדש $${up ? 100 + p : 100 - p}\\%$ ממנו: $${opMark(`${m}x = ${N}`, `:${m}`)}$, ולכן $x = ${x}$.`,
+        `המחיר הישן הוא $100\\%$, והחדש $${up ? 100 + p : 100 - p}\\%$ ממנו: ${right.startsWith('x') ? `$${right}$, כלומר $${opMark(`${m}x = ${N}`, `:${m}`)}$` : `$${opMark(right, `:${m}`)}$`}, ולכן $x = ${x}$.`,
         `בדיקה: $${p}\\%$ מ־$${x}$ הם $${d}$, ו־$${x} ${up ? '+' : '-'} ${d} = ${N}$.`,
-        `ואילו $${N} ${up ? '-' : '+'} ${r} \\cdot ${N} = ${dec(pctOfNew(P))}$ לוקח את האחוזים מ־$${N}$, המחיר החדש, ולכן זה לא המחיר הישן.`,
+        `ואילו $${N} ${minus} ${r} \\cdot ${N} = ${dec(pctOfNew(P))}$ לוקח את האחוזים מ־$${N}$, המחיר החדש, ולכן זה לא המחיר הישן.`,
       ],
       diag: (u) => choices[u]?.bug || null,
     };
@@ -239,7 +252,8 @@ function substItem() {
     key: `sy2:${substShow(s)}`, text: 'פתרו את מערכת המשוואות.', display: substShow(s), form: 'pt', label: '', answer: [s.x, s.y],
     hint: substHint(s), solution: substSolution(s),
     // the coordinate found first: the one the error changes
-    diag: (u) => (isSwap(u, s.x, s.y) ? 'swap' : Array.isArray(u) ? diagOf([s.x, s.y][first], { 'partial-dist': bad[first] })(u[first]) : null),
+    // the pair the other way round can also be the bracket mistake's number: then both (an ambiguous answer)
+    diag: (u) => [isSwap(u, s.x, s.y) && 'swap', Array.isArray(u) && diagOf([s.x, s.y][first], { 'partial-dist': bad[first] })(u[first])].flat().filter(Boolean),
   };
 }
 
@@ -388,6 +402,23 @@ export function elimMinusBracket(e, other = false) {
   const gv = (e.c1 - e.a1 * kv) / e.g1;
   return e.gone === 'y' ? [kv, gv] : [gv, kv];
 }
+/**
+ * Every value that subtracting with the constants added leaves, by the unknown it is a value of (0: x, 1: y). A student
+ * may make either unknown go, whichever has coefficients of one sign with one a whole multiple of the other (the worked
+ * solution's way, elimMinusBracket, is one of these; elimDraw rules out the other only up to three times), and may
+ * subtract either way round, which gives the opposite value.
+ */
+export function minusBracketValues(r1, r2) {
+  const out = [[], []];
+  [0, 1].forEach((g) => {
+    if (!(r1[g] * r2[g] > 0) || (r2[g] % r1[g] !== 0 && r1[g] % r2[g] !== 0)) return;
+    const mu = r2[g] / r1[g]; const s = 1 - g; const coef = mu * r1[s] - r2[s];
+    if (abs(coef) < 1e-9) return;
+    const kv = (mu * r1[2] + r2[2]) / coef;
+    out[s].push(kv, -kv);
+  });
+  return out;
+}
 export function elimSolution(e) {
   const { k, x, y, gone, mul, sub, top, r1, r2, a1, g1, c1 } = e;
   const keep = gone === 'y' ? 'x' : 'y'; const [kv, gv] = gone === 'y' ? [x, y] : [y, x];
@@ -411,19 +442,25 @@ export function elimSolution(e) {
 export const elimHint = (e) => (e.k === 2 ? `המקדמים של $${e.gone}$ לא שווים ולא נגדיים. כופלים קודם משוואה אחת, כל אגף וכל איבר, כך שיהיו.`
   : e.sub ? `למקדמים של $${e.gone}$ אותו מספר: מחסרים את המשוואות, כל אגף וכל איבר.` : `המקדמים של $${e.gone}$ נגדיים: מחברים את המשוואות.`);
 function elimItem() {
-  const e = elimDraw(rnd0); const bad = elimMinusBracket(e); const bad2 = elimMinusBracket(e, true); const i = e.gone === 'y' ? 0 : 1; // the coordinate found first
-  const right = [e.x, e.y][i];
+  const e = elimDraw(rnd0); const ans = [e.x, e.y]; const bad = minusBracketValues(e.r1, e.r2);
+  // the unknown found first came out as the constants' sum, whichever unknown went and whichever equation was
+  // subtracted from which
+  const minusBracket = (u) => Array.isArray(u) && [0, 1].some((s) => bad[s].some((v) => diagOf(ans[s], { 'minus-bracket': v })(u[s])));
   return {
     key: `sy3:${elimShow(e)}`, text: 'פתרו את מערכת המשוואות.', display: elimShow(e), form: 'pt', label: '', answer: [e.x, e.y],
     hint: elimHint(e), solution: elimSolution(e),
-    // the constants added instead of subtracted, whichever equation was subtracted from which
-    diag: (u) => (isSwap(u, e.x, e.y) ? 'swap' : Array.isArray(u) && bad ? diagOf(right, { 'minus-bracket': bad[i] })(u[i]) || diagOf(right, { 'minus-bracket': bad2[i] })(u[i]) : null),
+    diag: (u) => [isSwap(u, e.x, e.y) && 'swap', minusBracket(u) && 'minus-bracket'].filter(Boolean),
   };
 }
 
-/** What makes the unknown go? Four moves, exactly one of which makes its coefficient 0 (the critique: never two choices). */
+/**
+ * What makes the unknown go? Four moves, exactly one of which makes its coefficient 0 (the critique: never two choices).
+ * The two moves that multiply first are worded longer than the two that do not, so a system that needs a multiplication
+ * is drawn half the time: the right move is then the longer or the shorter wording as often as a blind guess (PRODUCT2-8).
+ */
 function methodItem() {
-  const e = elimDraw(rnd0); const M = e.k === 2 ? e.mul : rint(rnd0, 2, 3);
+  const mul = rnd0() < 0.5; let e; do e = elimDraw(rnd0); while ((e.k === 2) !== mul);
+  const M = e.k === 2 ? e.mul : rint(rnd0, 2, 3);
   // a choice is plain text (no maths inside), so the number is written as a digit
   const moves = [['מחברים את המשוואות', e.g1 + e.g2], ['מחסרים את המשוואות', e.g1 - e.g2], [`כופלים את הראשונה ב־${M}, ואז מחברים`, M * e.g1 + e.g2], [`כופלים את הראשונה ב־${M}, ואז מחסרים`, M * e.g1 - e.g2]];
   const choices = shuffle(moves.map(([t, left]) => ({ ...txt(t), ok: left === 0 })));
@@ -721,16 +758,18 @@ function memberItem() {
 
 /**
  * The smallest whole number that solves it (or the largest, for a ray to the left): the boundary itself when it is
- * included, the next whole number when it is not. The choices are four whole numbers in a row around the boundary, so
- * the answer is one of the middle two and which one is the < or ≤ question itself; with "which number solves it"
- * (memberItem), whose answer is always the largest or the smallest choice, no rank of a choice is the answer.
+ * included, the next whole number when it is not. The choices are four whole numbers in a row, the < or ≤ mistake
+ * (edge) always among them, next to the answer. The answer is the smallest, the second, the third or the largest of
+ * the four equally often (PRODUCT2-8): with the edge just below it, it is the largest half the time and the second or
+ * the third otherwise; with the edge just above, the smallest half the time. So no rank of a choice is the answer.
  */
 function extremeItem() {
   const q = ineqDraw(rnd0); const up = q.sol[0] === '>'; const strict = q.sol.length === 1;
   const step = up ? 1 : -1;
   const ans = strict ? q.B + step : q.B;
   const edge = strict ? q.B : q.B + step; // < and ≤ confused
-  const vals = up ? [q.B - 1, q.B, q.B + 1, q.B + 2] : [q.B - 2, q.B - 1, q.B, q.B + 1];
+  const rank = edge < ans ? rpick(rnd0, [1, 2, 3, 3]) : rpick(rnd0, [0, 0, 1, 2]); // the answer's place, smallest first
+  const vals = [0, 1, 2, 3].map((j) => ans - rank + j);
   const choices = shuffle(vals.map((v) => ({ ...tex(T(v)), ok: v === ans, bug: v === edge ? 'boundary' : undefined })));
   const which = up ? 'הקטן' : 'הגדול';
   return {
@@ -792,8 +831,8 @@ export function atMostDraw(rnd) {
 }
 const AT_MOST = [
   ({ W, P, w }) => `מעלית מעמיסה לכל היותר $${W}$ ק״ג. אדם ששוקל $${P}$ ק״ג עולה איתה עם ארגזים של $${w}$ ק״ג כל אחד. כמה ארגזים לכל היותר הוא יכול להעלות?`,
-  ({ W, P, w }) => `לאריאל יש $${W}$ דקות. $${P}$ דקות הוא כבר השקיע בהכנות, וכל טיסן לוקח לו $${w}$ דקות לבנות. כמה טיסנים לכל היותר הוא יכול לבנות?`,
-  ({ W, P, w }) => `לנועה יש $${W}$ ₪. היא כבר קנתה מחברת ב־$${P}$ ₪, וכל עט עולה $${w}$ ₪. כמה עטים לכל היותר היא יכולה לקנות בכסף שנשאר?`,
+  ({ W, P, w }) => `לאריאל יש $${W}$ דקות בסך הכול. $${P}$ דקות מתוכן הוא השקיע בהכנות, ובכל טיסן הוא עובד $${w}$ דקות. כמה טיסנים לכל היותר הוא יכול לבנות בזמן שנשאר?`,
+  ({ W, P, w }) => `לנועה היו $${W}$ ₪. מהם היא קנתה מחברת ב־$${P}$ ₪, ובשאר הכסף היא רוצה לקנות עטים של $${w}$ ₪ כל אחד. כמה עטים לכל היותר היא יכולה לקנות?`,
 ];
 const UNITS = [['ק״ג', 'ארגזים'], ['דקות', 'טיסנים'], ['₪', 'עטים']];
 export const atMostText = (p) => AT_MOST[p.s](p);

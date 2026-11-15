@@ -22,8 +22,10 @@ import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import ParentsFrame, { NoServerNote } from './ParentsFrame.jsx';
+import { PLAN_TITLE, PLAN_INCLUDES, FREE_REPORT } from '@/content/familyPlan.js';
 import FamilyReport from './FamilyReport.jsx';
 import { RETENTION } from '@shared/retention.js';
+import ChallengeCard from './ChallengeCard.jsx';
 import '@/styles/lazy/parents.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const RUNNING = ['active', 'past_due', 'canceled'];
@@ -34,11 +36,16 @@ const planOf = (plans, id) => plans?.plans?.find((p) => p.id === id) || null;
 
 // ---------------------------------------------------------------- what the tutor is, for a parent who is not signed in
 /**
- * What the plan adds for parents (PARENTS-5, with the Sunday email of PARENTS-7), and the free weekly summary the child
- * can send without any account (PARENTS-2, PARENTS-6 state 1).
+ * What the plan gives parents (PRODUCT2-30): the lines of content/familyPlan.js, which the public pages' claims also say,
+ * in the order a parent gets them (the report that comes by itself, the Sunday email, the exam ahead, the helper). The
+ * report's three lines show only where the server has the report on (`plans.report`). Then the rest of what the helper
+ * does, that the child knows about the report, and the free summary for what it is: this week only, sent by the child
+ * when they choose (PARENTS-2, PARENTS-6 state 1).
  */
-export const ABOUT_REPORT = 'רואים מה הילד תרגל: סיכום יומי לכל מכשיר מחובר, וסיכום שבועי במייל אם תבחרו. הילד יודע על כך, רואה מה נשלח, ויכול להפסיק.';
-export const ABOUT_FREE_REPORT = 'גם בלי מנוי: מהאפליקציה של הילד אפשר לשלוח לכם סיכום שבועי בוואטסאפ, בלי חשבון.';
+const REPORT_LINES = ['synced-report', 'sunday-email', 'exam-ready'];
+export const ABOUT_HELPER_MORE = 'העוזר גם בודק מבחן שנפתר בבית, ומכין תרגילים חדשים ברמה המתאימה.';
+export const ABOUT_REPORT = 'הילד יודע על הסיכום, רואה בדיוק מה נשלח אליכם, ויכול להפסיק.';
+export const ABOUT_FREE_REPORT = FREE_REPORT;
 /** Above the plan's options, so a parent knows before paying what the plan holds and that the child can stop sharing. */
 export const CHECKOUT_REPORT = 'המנוי כולל: סיכום התקדמות לכל מכשיר, ועוזר חכם שמסביר, בודק דפים ומכין תרגילים. הילד רואה מה נשלח אליכם ויכול להפסיק את השיתוף.';
 /**
@@ -69,14 +76,12 @@ function About({ plans }) {
   const vat = vatLine(plans?.vatMode);
   return (
     <section className="card parents-card parents-about" aria-labelledby="about-title">
-      <h2 id="about-title" className="card-title">העוזר החכם של מדרגות · להורים</h2>
+      <h2 id="about-title" className="card-title">{PLAN_TITLE}</h2>
       <ul className="parents-list">
-        {plans?.report && <li>{ABOUT_REPORT}</li>}
-        <li>מסביר לילד את הטעות שלו, בתרגיל שעל המסך</li>
-        <li>בודק דף פתרון מצולם ומראה איפה הטעות</li>
-        <li>בודק מבחן שנפתר בבית</li>
-        <li>מכין תרגילים חדשים ברמה המתאימה</li>
+        {PLAN_INCLUDES.filter((x) => plans?.report || !REPORT_LINES.includes(x.id)).map((x) => <li key={x.id} data-plan={x.id}>{x.text}</li>)}
+        <li>{ABOUT_HELPER_MORE}</li>
       </ul>
+      {plans?.report && <p className="muted parents-about-told">{ABOUT_REPORT}</p>}
       <p>חינם תמיד: כל השיעורים והתרגול, ההסברים הכתובים של מדי, ו־{plans?.limits?.free?.tutor ?? 2} שאלות לעוזר החכם ביום. בחינם העוזר עונה בקצרה.</p>
       <p className="parents-free-report">{ABOUT_FREE_REPORT}</p>
       {f && <p>במנוי: עד {f.tutor} שאלות ביום, {f.check} בדיקות דף, {f.exam} בדיקות מבחן ביום (עד {f.examMonthly} בחודש), {f.generate} סדרות תרגילים, עד {f.devices} מכשירים. בחודש עם שימוש גבוה במיוחד השיחה ממשיכה, ובדיקות הצילום והמבחן נחות עד ה־1 בחודש (שימוש הוגן, מפורט בתקנון).</p>}
@@ -813,8 +818,11 @@ export default function Parents({ mode = 'home' }) {
     dropOrderParam(); loadAccount();
   };
 
+  // the family challenge (PRODUCT2-39): free, with no account and no server, so it is offered on the parents' home in
+  // every state but the adult step, a load and an error
+  const challenge = mode === 'home' ? <ChallengeCard /> : null;
   let body;
-  if (!server) body = <NoServerNote />;
+  if (!server) body = <><NoServerNote />{challenge}</>;
   else if (!plans && !error) body = <LoadingState text="טוענים…" />;
   else if (!plans) {
     body = (
@@ -849,6 +857,7 @@ export default function Parents({ mode = 'home' }) {
             <EmailCodeForm onSignedIn={signedIn} idPrefix="pa" purpose={mode === 'cancel' ? 'cancel' : 'join'} startStep={qa?.step === 'code' ? 'code' : 'email'} presetEmail={qa?.step === 'code' ? 'parent@example.test' : ''} />
           </section>
         )}
+        {challenge}
       </>
     );
   } else if (!acct && (loading || !error)) body = <LoadingState text="טוענים את החשבון…" />;
@@ -882,6 +891,7 @@ export default function Parents({ mode = 'home' }) {
           <FamilyReport plan={plan} devices={acct.devices || []} email={acct.email} reportEmail={!!acct.reportEmail}
             onReportEmail={(on) => setAcct((a) => (a ? { ...a, reportEmail: on } : a))} qa={qa ? qa.report || 'none' : null} />
         )}
+        {challenge}
         {plan && kept.length > 0 && <KeptCard kept={kept} qa={!!qa} onMove={(id) => { if (here) { setHereFrom(id); document.getElementById('here-title')?.scrollIntoView({ block: 'start' }); } else moveKept(id); }} onChanged={loadAccount} />}
         {plan && here && (
           <section className="card parents-card" aria-labelledby="here-title">

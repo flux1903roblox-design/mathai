@@ -559,6 +559,10 @@ const stair4: StairContent = {
       wrongWhy: { 1: 'החרוט מתחדד, ולכן הוא פחות מחצי הגליל.', 2: 'החרוט צר מהגליל: אחד לא מספיק.' } },
     { kind: 'rule', text: 'נפח חרוט: שליש מנפח הגליל.', display: 'V = \\frac{\\pi r^2 h}{3}',
       why: 'לגליל ולחרוט אותו בסיס ואותו גובה, והחרוט שליש.', fig: cyl(3, 6, { inner: 'cone', labels: { r: 'r', h: 'h' } }) },
+    // SK-LEARN-7: the student moves the object once on every stair
+    { kind: 'explore', text: 'לגליל רדיוס $3$ וגובה $2$, ונפחו $\\pi \\cdot 3^2 \\cdot 2 = 18\\pi$. לחרוט יש אותו בסיס ואותו גובה. שימו את הסמן על המספר שלפני $\\pi$ בנפח החרוט.',
+      manip: { kind: 'numberline', min: 0, max: 20, from: 0, start: 0, plain: true } as ManipSpec, answer: 6,
+      hint: 'החרוט הוא שליש מהגליל: $18 : 3$.', success: '$6\\pi$: שלושה חרוטים כאלה ממלאים את הגליל, $3 \\cdot 6\\pi = 18\\pi$.' },
     { kind: 'predict', text: 'לחרוט רדיוס $3$, גובה $4$ וקו יוצר $5$. הנפח, בעזרת $\\pi$:', fig: cone(3, 4, 5),
       choices: ['$12\\pi$', '$36\\pi$', '$15\\pi$'], answer: 0,
       why: '$\\frac{\\pi \\cdot 3^2 \\cdot 4}{3} = 12\\pi$: הגובה $4$, לא $5$.',

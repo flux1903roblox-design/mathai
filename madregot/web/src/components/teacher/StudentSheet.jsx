@@ -104,7 +104,8 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
       onOpenChange(false); onChanged?.();
     } catch (e) { toast.error(e.message); }
   };
-  const practise = (m) => onAssign?.({ kind: 'stair', skill: `${m.topic}:${m.level}`, targets: [id], targetsLabel: `רק ל${name}` });
+  // that stair, for this student (the mistake comes along: switched to "לתקן טעות", the sheet has it chosen)
+  const practise = (m) => onAssign?.({ kind: 'stair', skill: `${m.topic}:${m.level}`, misc: m.cat, targets: [id], targetsLabel: `רק ל${name}` });
 
   return (
     <>

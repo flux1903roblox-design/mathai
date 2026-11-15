@@ -44,20 +44,24 @@ function Burst() {
  * A stop on the path: a stair block with a solid riser that sinks when pressed (the app is named for stairs).
  * locked (grey stone), current (the unit's colour, with a ring of how far its five stages went), done (its mastery check
  * passed: a check), open (passed over by a test, its mastery check waiting: an outlined star), mastered (gold with a
- * crown once the unit's review is passed), and the trophy that closes a unit.
+ * crown once the unit's review is passed), preview (the first stop of the next unit: a calm star in its colour,
+ * PRODUCT2-37), and the trophy that closes a unit. `unlocking`: the stop just reached opens in front of the student, once
+ * (its padlock lifts off and the stop pops; under reduced motion it is simply open).
  */
-const PathNode = forwardRef(function PathNode({ state, kind, parts, of, pct, fillLast, label, expanded, onClick, mastered, celebrate }, ref) {
+const PathNode = forwardRef(function PathNode({ state, kind, parts, of, pct, fillLast, label, expanded, onClick, mastered, celebrate, unlocking }, ref) {
   const reduce = useReducedMotion();
   const glyph = kind === 'review' ? 'trophy' : state === 'done' ? (mastered ? 'crown' : 'check') : state === 'locked' ? 'lock' : 'star';
+  const opening = unlocking && !reduce;
   return (
     <m.div
       className={clsx('node-slot', state === 'current' && 'has-ring', kind === 'review' && 'is-review', `slot-${state}`, mastered && state === 'done' && 'is-mastered')}
-      initial={celebrate && !reduce ? { scale: 0.7 } : false} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.2 }}
+      initial={(celebrate || opening) && !reduce ? { scale: 0.7 } : false} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: opening ? 1 : 0.2 }}
       style={state === 'current' && kind === 'node' ? { '--pct': `${Math.round((pct ?? (parts || 0) / (of || 1)) * 100)}%` } : undefined}
     >
       {state === 'current' && <span className="node-halo" aria-hidden="true" />}
       {state === 'current' && kind === 'node' && <LessonMarks parts={parts} of={of} fillLast={fillLast} />}
       {celebrate && !reduce && <Burst />}
+      {opening && <span className="node-unlock" aria-hidden="true"><svg viewBox="0 0 32 32" fill="currentColor">{GLYPH.lock}</svg></span>}
       <button type="button" ref={ref} className={clsx('node', `node-${state}`, mastered && state === 'done' && 'node-mastered')} aria-expanded={expanded} aria-label={label} onClick={onClick}>
         <svg viewBox="0 0 32 32" className="node-glyph" aria-hidden="true" fill="currentColor">{GLYPH[glyph]}</svg>
       </button>

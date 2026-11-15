@@ -189,8 +189,9 @@ export function plainNumber(tex) {
 
 /**
  * Hebrew text with inline math between $...$ (generator output only). Maths in a sentence uses the sentence's digits:
- * a bare number is plain text in Rubik (bdi.num, left to right, tabular), and the digits of other inline maths are
- * set in Rubik too (.mt-inline, canon.css) while its letters and operators keep KaTeX's fonts.
+ * a bare number is plain text in Rubik (bdi.num, left to right, tabular); other flat inline maths ($x = -3$, $3^2 + 4^2$)
+ * is set in Rubik too, digits, operators and letters (.mt-ui, canon.css: PRODUCT2-41); maths laid out in rows (a fraction,
+ * a root) keeps KaTeX's layout and fonts, with its digits in Rubik (.mt-inline). Display maths is KaTeX's own.
  */
 export const MathText = memo(function MathText({ text, as: As = 'span', className }) {
   const parts = String(text ?? '').split(/(\$[^$]+\$)/g).filter(Boolean);
@@ -200,11 +201,14 @@ export const MathText = memo(function MathText({ text, as: As = 'span', classNam
         if (!(p.startsWith('$') && p.endsWith('$') && p.length > 2)) return <span key={i}>{p}</span>;
         const tex = p.slice(1, -1);
         const num = plainNumber(tex);
-        return num === null ? <Tex key={i} tex={tex} className="mt-inline" /> : <bdi key={i} className="num" dir="ltr">{num}</bdi>;
+        return num === null ? <Tex key={i} tex={tex} className={STACKED.test(tex) ? 'mt-inline' : 'mt-inline mt-ui'} /> : <bdi key={i} className="num" dir="ltr">{num}</bdi>;
       })}
     </As>
   );
 });
+
+/** TeX that is laid out in rows (a fraction, a root, a matrix or a system): it keeps KaTeX's own fonts in a sentence. */
+const STACKED = /\\(?:[dt]?frac|sqrt|over\b|binom|begin)/;
 
 /** Text with $...$ maths as plain words, for an accessible name (a button whose text is only maths). */
 export const mathPlain = (text) => String(text || '').replace(/\$([^$]+)\$/g, (_, t) => texText(t)).replace(/\s+/g, ' ').trim();

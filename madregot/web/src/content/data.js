@@ -32,7 +32,7 @@
 //   draws-as-count   the times a colour came out taken as the number of balls (critique)
 //   small-sample     a few trials taken as the probability (Tversky & Kahneman 1971)
 //   count-as-pct, div-by-pct, pct-of-part, stop-at-one, inverse-ratio   pct's ids and meanings (content/pct.js)
-import { shuffle, listMath } from './util.js';
+import { shuffle, listMath, countOf } from './util.js';
 import { diagOf } from './eq.js';
 import { r9 } from './frac.js';
 import { simDiag } from './manip.js';
@@ -663,7 +663,7 @@ function buildPie() {
       manip: { kind: 'chart', mode: 'pie', cats: HOBBIES.slice(0, n), start: ks.map(() => 0), pie: { parts } },
       answer: { values: ks },
       hint: `כל חלק בעוגה הוא $${per}$ תלמידים מתוך $${N}$.`,
-      solution: [`$${N} : ${parts} = ${per}$: כל חלק הוא $${per}$ תלמידים.`, `${HOBBIES.slice(0, n).map((h, i) => `${h} $${ks[i]}$`).join(', ')} חלקים.`],
+      solution: [`$${N} : ${parts} = ${per}$: כל חלק הוא $${per}$ תלמידים.`, `${HOBBIES.slice(0, n).map((h, i) => `${h}: ${countOf(ks[i], 'חלק', 'חלקים')}`).join(', ')}.`],
       diag: () => null,
     };
   }

@@ -5,7 +5,7 @@
 // session; cancelling takes two taps; a teacher manages the class licence, the join lock and student removal.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { NOW, student, answer, proceed, appReady } from './helpers.js';
+import { NOW, student, answer, proceed, appReady, expectNoSidewaysScroll } from './helpers.js';
 import { API, PAY, TOKEN, livePlan, fakeServer } from './fakeServer.js';
 
 // a price, or a push to buy ('קנו' as a word, not inside 'תקנון')
@@ -238,7 +238,7 @@ test.describe('the smart tutor', () => {
     await attach(phone); // the same server answers both devices
     const pp = await phone.newPage();
     await open(pp, '#/parents/link?c=K7M4QX', parentPhone());
-    await expect(pp.getByRole('heading', { name: 'העוזר החכם של מדרגות · להורים' })).toBeVisible();
+    await expect(pp.getByRole('heading', { name: 'המנוי המשפחתי: מה מקבלים ההורים' })).toBeVisible();
     await expect(pp.locator('.parents-price')).toHaveText('₪29.90 לחודש, כולל מע״מאו ₪249 לשנה, כולל מע״מ');
     await shot(pp, 'parents-info');
     await signIn(pp, { wrongFirst: true });
@@ -529,17 +529,31 @@ test.describe('the smart tutor', () => {
     const calls = [];
     page.on('request', (r) => { if (/\/api\//.test(r.url())) calls.push(r.url()); });
     await open(page, '#/parents', student());
-    await expect(page.getByText('בגרסה הזו אין שרת, ולכן אין כאן מנויים. התרגול עובד כרגיל.')).toBeVisible();
+    // what the family plan includes, in the parents' page's words, and that nothing can be bought here (PRODUCT2-33)
+    const card = page.locator('.parents-nosrv');
+    await expect(card.getByRole('heading', { level: 2, name: 'מה כולל המנוי המשפחתי' })).toBeVisible();
+    await expect(card.getByRole('listitem')).toHaveText([
+      'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.',
+      'סיכום שבועי במייל בכל יום ראשון, אם תבחרו.',
+      'לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.',
+      'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',
+    ]);
+    await expect(card.getByText('בגרסה הזו אין שרת, ולכן אי אפשר לקנות כאן מנוי. כל השיעורים והתרגול חינם, ועובדים כרגיל.')).toBeVisible();
+    expect(await page.locator('main').innerText()).not.toMatch(/₪|לחודש|לשנה/);
+    await expect(page.getByRole('button', { name: /הצטרפות|לתשלום|מנוי/ })).toHaveCount(0);
+    await expectNoSidewaysScroll(page);
     await shot(page, 'parents-nosrv');
     await page.goto('./#/parents/info');
-    await expect(page.getByText('בגרסה הזו אין שרת, ולכן אין כאן מנויים.')).toBeVisible();
+    await expect(page.getByText('בגרסה הזו אין שרת, ולכן אי אפשר לקנות כאן מנוי.', { exact: false })).toBeVisible();
+    expect(await page.locator('main').innerText()).not.toMatch(/₪|לחודש|לשנה/);
+    await shot(page, 'parents-info-nosrv');
     await page.goto('./#/cancel');
-    await expect(page.getByText('בגרסה הזו אין שרת, ולכן אין כאן מנויים.')).toBeVisible();
+    await expect(page.getByText('בגרסה הזו אין שרת, ולכן אי אפשר לקנות כאן מנוי.', { exact: false })).toBeVisible();
     await page.goto('./#/settings');
     await expect(page.getByText('בגרסה הזו העוזר החכם לא מחובר.')).toBeVisible();
     await expect(page.getByRole('link', { name: 'חיבור למנוי משפחתי' })).toHaveCount(0);
     await page.goto('./#/assistant');
-    await expect(page.getByRole('heading', { name: 'העוזר עוד לא מחובר' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'מדי מסביר בכל שיעור' })).toBeVisible();
     await open(page, '#/');
     await expect(page.getByRole('navigation', { name: 'להורים ומידע משפטי' })).toHaveCount(0);
     await page.goto('./#/terms');

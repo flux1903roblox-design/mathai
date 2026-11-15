@@ -17,10 +17,11 @@ import { addXp, newTag } from './durable/xp.js';
 import { durableStorage, bindDurableStore, STORE_KEY } from './durable/storage.js';
 import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP, TEACHER_EXAMS_KEEP } from './durable/merge.js';
 import { applyTheme } from './theme.js';
-import { streakRepair, itemsOn } from './streak.js';
+import { streakRepair, streakNow, itemsOn } from './streak.js';
 import { isRestDay } from '@shared/restDays.js';
-import { emptyLook, earnIds, unlockedLook, unlockedIds } from './wardrobe.js';
-import { challengeXP } from '@/learn/challenges/grade.ts';
+import { emptyLook, earnIds, unlockedLook, unlockedIds, chestPieces } from './wardrobe.js';
+import { isGoal, keepWeeks } from './familyGoals.js'; // not familyChallenge.js: its links and weeks stay off the first load
+import { challengeXP } from '@/learn/challenges/xp.ts'; // not grade.ts: its number reading (content/util.js) stays off the first load
 import { challengeById } from '@/learn/challenges/index.ts';
 
 import { today, dayBefore, learnedOn, isActiveDay, isShabbat, keptDay, streakOf } from './days.js';
@@ -75,7 +76,8 @@ export const empty = {
   // progress reset keeps them.
   // pushOffered: the daily reminder's card after a lesson was shown (STUDENT-11, once ever; a progress reset keeps it)
   // recapWeek: the Sunday of the week whose Sunday recap was closed (STUDENT-6, lib/recap.js): that recap never comes back
-  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false, storeOpenDay: null, recapWeek: null },
+  // streakSeen: { [3 | 7 | 30]: day } the streak milestone's moment was shown (PRODUCT2-38), each once; it goes with the progress
+  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false, storeOpenDay: null, recapWeek: null, streakSeen: {} },
   // the opt-in daily reminder (STUDENT-11, lib/push.js): on, the hour (16-20), the id and secret the server gave once,
   // 'paused' when the server stopped it because it did not help, and the days already told to the server (opened,
   // learned). It belongs to the device: a progress reset keeps it; deleting everything or signing out turns it off.
@@ -121,6 +123,11 @@ export const empty = {
   // shows offline too; when the student last opened the missions tab; and the reports not yet confirmed by the server
   classWork: emptyClassWork(),
   workOutbox: {}, // assignmentId -> the newest report waiting for the server (merged with learn/assignments.ts mergeWork)
+  // the family challenge (PRODUCT2-39, lib/familyChallenge.js): the goals this device's student accepted from a parent's
+  // link, by week ({ [Sunday]: { k, n, at } }, the newest 4 weeks), and the last one a parent sent from this device
+  // ({ w, k, n, at } or null), which the parent's report counts against. It belongs to the device: a backup or a restore
+  // never carries it (durable/merge.js DEVICE_ONLY), and a new profile here starts without it.
+  family: { challenges: {}, sent: null },
   // the teacher's printable class exams on this device (TEACHER-3), newest first, at most TEACHER_EXAMS:
   // { id (12 hex), classCode, at, title, skills: ['signed:2', ...], count, versions: [{ label: 'א', items }, { label: 'ב', items }?],
   //   skipped: stairs left out (dragging only), assignmentId: null }
@@ -252,7 +259,7 @@ export const appState = (set, get) => ({
         const st = get(); const d = today(); const cur = st.days[d] || {};
         const goalBefore = (cur.xp || 0) >= st.goalXp;
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + (r.xp || 0) };
-        // passed mastery checks per day: the weekly best counts them as 3 steps (lib/streak.js weekSteps)
+        // passed mastery checks per day (mp): the class goal counts each as 3 steps (withStep below)
         if (r.purpose === 'mastery' && r.passed) day.mp = (cur.mp || 0) + 1;
         const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         const learn = learnAfterCheck(st.learn, r, new Date().toISOString(), d);
@@ -274,7 +281,7 @@ export const appState = (set, get) => ({
           reopened = path !== before;
         }
         // what the path unlocks for Madi is earned for good, before this check (a kept stair it reopens) and after it
-        const look = earnIds(st.look, [...lookIds(st, st.path), ...lookIds(st, path)], d, { seen: false });
+        const look = earnIds(st.look, [...lookIds(st, st.path, st.learn.skills), ...lookIds(st, path, learn.skills)], d, { seen: false });
         const stepsOut = withStep(st, r.purpose === 'mastery' && r.passed ? 3 : 1);
         // the floor check is about the fractions floor, not practice in it: the map's "where I am" stays where it was
         set({ learn, days, streak, ...addXp(st, r.xp || 0), path, progress, lastTopic: r.purpose === 'floor' ? st.lastTopic : r.topic || st.lastTopic, look, stepsOut });
@@ -309,10 +316,13 @@ export const appState = (set, get) => ({
         if (questsDone) day.questsRewarded = true;
         const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         const topic = skill.split(':')[0];
+        const skills = { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) };
         set({
           days, streak, ...addXp(st, xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
-          learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
+          learn: { ...L, skills, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
           stepsOut: withStep(st, 1),
+          // a finished stage may bring מדי a piece for stages (PRODUCT2-36): earned for good now, shown by the stage's end
+          look: earnIds(st.look, lookIds(st, st.path, skills), d, { seen: false }),
         });
         remindLearned(get());
         return { xp, first, streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
@@ -407,8 +417,43 @@ export const appState = (set, get) => ({
       setLook: (patch) => set({ look: { ...emptyLook(), ...get().look, ...patch } }),
       /** Pieces earned for good and shown to the student (the unlock moment); { seen: false } only remembers them. */
       markEarned: (ids, opts) => set({ look: earnIds(get().look, ids, today(), opts) }),
+      /**
+       * The piece chosen from a day's quest chest (PRODUCT2-36, lib/rewards.js chestOffer): one per day whose three quests
+       * were done, and only one of the two pieces the chest offers. It is earned and shown at once. Returns whether it was taken.
+       */
+      pickChest: (day, id) => {
+        const st = get(); const l = { ...emptyLook(), ...st.look };
+        if (!chestPieces(new Set(l.earned || [])).includes(id) || l.picks?.[day] || !st.days[day]?.questsRewarded) return false;
+        set({ look: { ...earnIds(l, [id], today()), picks: { ...(l.picks || {}), [day]: id } } });
+        return true;
+      },
+      /**
+       * A family challenge accepted from a parent's link (PRODUCT2-39): { w, k, n } with [k, n] one of the goals. It is
+       * this week's (or the next week's) on the missions tab; a second one for the same week replaces the first. Returns
+       * whether it was kept.
+       */
+      acceptChallenge: ({ w, k, n } = {}) => {
+        if (!isGoal(k, n) || typeof w !== 'string') return false;
+        const f = get().family || empty.family;
+        set({ family: { ...f, challenges: keepWeeks({ ...(f.challenges || {}), [w]: { k, n, at: new Date().toISOString() } }) } });
+        return true;
+      },
+      /** The child let a week's challenge go: it leaves the missions tab and the weekly summary. */
+      dropChallenge: (w) => {
+        const f = get().family || empty.family;
+        if (!f.challenges?.[w]) return;
+        const { [w]: _gone, ...rest } = f.challenges; // eslint-disable-line no-unused-vars
+        set({ family: { ...f, challenges: rest } });
+      },
+      /** The goal a parent just sent from this device ({ w, k, n }): the parent's report counts that week against it. */
+      noteChallengeSent: ({ w, k, n } = {}) => {
+        if (!isGoal(k, n) || typeof w !== 'string') return;
+        set({ family: { ...(get().family || empty.family), sent: { w, k, n, at: new Date().toISOString() } } });
+      },
       /** A one-time note was seen: e.g. { repairDismissed: today() } or { pbWeek: '2026-11-01' }. */
       setNudge: (patch) => set({ nudges: { ...get().nudges, ...patch } }),
+      /** A streak milestone's moment was shown (3, 7 or 30 days, PRODUCT2-38): it is not shown again. */
+      markMilestone: (m) => { const n = get().nudges || {}; set({ nudges: { ...n, streakSeen: { ...(n.streakSeen || {}), [m]: today() } } }); },
       /** The daily reminder's state (lib/push.js writes it). */
       setReminder: (patch) => set({ reminder: { ...empty.reminder, ...get().reminder, ...patch } }),
       /**
@@ -443,6 +488,8 @@ export const appState = (set, get) => ({
         set({
           days, streak, path, ...addXp(st, r.xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
           progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic, stepsOut: withStep(st, 1),
+          // practice that completes a stair's practice stage may bring a piece for stages (PRODUCT2-36)
+          look: earnIds(st.look, lookIds(st, path, st.learn.skills), d, { seen: false }),
         });
         remindLearned(get());
         return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
@@ -522,7 +569,7 @@ export const appState = (set, get) => ({
         progress: {}, days: {}, xp: 0, xpBy: {}, resetAt: new Date().toISOString(), mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {},
         exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null },
         nudges: {
-          ...empty.nudges, goalSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null,
+          ...empty.nudges, goalSeen: {}, streakSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null,
           pushOffered: !!get().nudges?.pushOffered, storeOpenDay: get().nudges?.storeOpenDay || null,
         },
         gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook(),
@@ -560,6 +607,17 @@ export const useApp = create(persist(appState, persistOptions(heldStorage)));
 bindDurableStore(useApp);
 
 /**
+ * The streak as every screen shows it today (PRODUCT2-40, lib/streak.js streakNow): { n, atRisk, repair }. The header's
+ * flame, the repair card, the missions tab and the profile all read it, so a returning student never sees 0 beside
+ * "הרצף של 4 ימים נשמר".
+ */
+export function useStreak() {
+  const days = useApp((s) => s.days);
+  const lastRepair = useApp((s) => s.streak?.lastRepair ?? null);
+  return streakNow(days, today(), lastRepair);
+}
+
+/**
  * A finished lesson, check or teaching stage tells the daily reminder's server that today was learned, so no reminder
  * comes today (STUDENT-11): once a day, only while the reminder is on, and lib/push.js loads only then.
  */
@@ -569,7 +627,7 @@ function remindLearned(st) {
   import('./push.js').then((mod) => mod.markDone()).catch(() => { /* told on the next finished item */ });
 }
 /** The pieces a path unlocks for Madi (lib/wardrobe.js). */
-const lookIds = (st, path) => unlockedIds(unlockedLook({ path, classGoals: st.classGoals, grade: st.profile?.grade }));
+const lookIds = (st, path, skills) => unlockedIds(unlockedLook({ path, skills, classGoals: st.classGoals, grade: st.profile?.grade }));
 
 /**
  * The finished item that makes today the second (or later) one may earn the streak's repair (lib/streak.js

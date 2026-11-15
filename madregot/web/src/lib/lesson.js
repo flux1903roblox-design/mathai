@@ -76,7 +76,7 @@ function startCheck(opts) {
     levels: plan.map((q) => parseSkill(q.skill).level), slot: 0, total: plan.length, solved: 0, redo: [], redoing: false, probes: [],
     item: fixedItems ? fixedItems[0] : itemFor(first.skill, first.source, Math.random, undefined, first.candidates, { test: true }), attempt: 1, hint: false, phase: 'answer', wrong: [],
     combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, missedSlots: [], cats: {}, lastCat: null,
-    right: 0, perSkill: {}, showed: 0, ...(fixedItems ? { fixedItems, slotOk: [] } : {}),
+    right: 0, perSkill: {}, showed: 0, named: {}, ...(fixedItems ? { fixedItems, slotOk: [] } : {}),
     finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),
   };
 }
@@ -182,7 +182,11 @@ export function answer(s, u) {
     const cat = ok ? null : (it.diag ? it.diag(u) : null);
     // the misconception showed again: a model's diagnosis names it, or an exercise's own label does
     const showed = s.showed + (!ok && s.misc && (cands ? cands.some((c) => c.id === s.misc) : cat === s.misc) ? 1 : 0);
-    const common = { ...s, perSkill, showed, right: s.right + (ok ? 1 : 0), solved: s.solved + 1, wrong: ok ? s.wrong : [...s.wrong, u], firstTry: s.firstTry + (ok ? 1 : 0), mistakes: s.mistakes + (ok ? 0 : 1), ...(s.fixedItems ? { slotOk: [...s.slotOk, ok] } : {}) };
+    // the mistakes the check's answers name, one at a time (an answer two mistakes explain names neither), counted for
+    // its end screen: one that came back is named there (PRODUCT2-18, components/learn/RepeatNote.jsx)
+    const ids = ok ? [] : cands ? cands.map((c) => c.id) : cat ? [cat] : [];
+    const named = ids.length === 1 && !diagnosis?.ambiguous ? { ...s.named, [`${sk}|${ids[0]}`]: ((s.named || {})[`${sk}|${ids[0]}`] || 0) + 1 } : s.named;
+    const common = { ...s, perSkill, showed, named, right: s.right + (ok ? 1 : 0), solved: s.solved + 1, wrong: ok ? s.wrong : [...s.wrong, u], firstTry: s.firstTry + (ok ? 1 : 0), mistakes: s.mistakes + (ok ? 0 : 1), ...(s.fixedItems ? { slotOk: [...s.slotOk, ok] } : {}) };
     const event = { ...base, ok, first: true, cat };
     return ok
       ? { s: { ...common, phase: 'correct' }, result: { ok: true, first: true, combo: 0, comboMark: null, event } }
@@ -210,15 +214,34 @@ export function answer(s, u) {
     const failed = mistakes > JUMP_MISTAKES;
     return { s: { ...common, phase: 'reveal', failed, solved: s.solved + 1 }, result: { ok: false, reveal: true, cat, event: { ...base, ok: false, first: false, cat } } };
   }
-  // an answer two misconceptions both explain: one more question, at the end, tells them apart (once a lesson)
-  const probes = diagnosis?.kind === 'misconception' && diagnosis.ambiguous && !s.probes?.length && !it.probe
-    ? [{ skill: skillId(it.topic || s.topic, it.level), candidates: cands.map((c) => c.id) }] : (s.probes || []);
-  if (firstMiss) return { s: { ...common, probes, attempt: 2, hint: true, phase: 'retry' }, result: { ok: false, retry: true, cat, diagnosis, event: { ...base, ok: false, first: false, cat, retry: true } } };
+  const probes = probesAfter(s, it, diagnosis);
+  // more: a question at the end of the lesson will tell the candidates of an ambiguous answer apart (the line says so)
+  const more = probes.length > 0;
+  if (firstMiss) return { s: { ...common, probes, attempt: 2, hint: true, phase: 'retry' }, result: { ok: false, retry: true, cat, diagnosis, more, event: { ...base, ok: false, first: false, cat, retry: true } } };
   // Second miss: show the answer; a similar exercise returns at the end of the lesson.
   const tries = (it.tries || 0) + 1;
   const redo = tries <= REDO_MAX ? [...s.redo, { level: it.level, tries }] : s.redo;
   const solved = tries <= REDO_MAX ? s.solved : s.solved + 1; // after the last return, the slot counts as done
-  return { s: { ...common, probes, phase: 'reveal', redo, solved }, result: { ok: false, reveal: true, cat, diagnosis, event: { ...base, ok: false, first: false, cat } } };
+  return { s: { ...common, probes, phase: 'reveal', redo, solved }, result: { ok: false, reveal: true, cat, diagnosis, more, event: { ...base, ok: false, first: false, cat } } };
+}
+
+/** Questions at the end of a lesson that tell the candidates of an ambiguous answer apart: at most this many a lesson. */
+export const MAX_PROBES = 2;
+/**
+ * The probes queued after a wrong answer. An answer two or more misconceptions explain asks one question at the end
+ * that tells them apart (learn/misconceptions.ts discriminating), once a lesson. When the answer to that question
+ * still fits two or more of them, one more question asks about those only (SK-LEARN-2: three candidates cannot always
+ * be told apart by one question), and no more than MAX_PROBES in all.
+ */
+function probesAfter(s, it, diagnosis) {
+  if (s.probes?.length) return s.probes;
+  if (diagnosis?.kind !== 'misconception' || !diagnosis.ambiguous) return [];
+  const skill = skillId(it.topic || s.topic, it.level);
+  const ids = diagnosis.candidates.map((c) => c.id);
+  if (!it.probe) return s.probed ? [] : [{ skill, candidates: ids }];
+  // the answer to a probe: the candidates it asked about that still fit
+  const left = it.probe.filter((id) => ids.includes(id));
+  return left.length >= 2 && (s.probed || 0) < MAX_PROBES ? [{ skill, candidates: left }] : [];
 }
 
 /** Move on after feedback. */
@@ -243,7 +266,7 @@ function nextOf(s) {
     // the question that tells two possible misconceptions apart
     const [pr, ...rest] = s.probes;
     const item = itemFor(pr.skill, 'probe', Math.random, s.item.key, pr.candidates);
-    if (item.probe) return { ...s, ...fresh, slot, probes: rest, item: { ...item, extra: true } };
+    if (item.probe) return { ...s, ...fresh, slot, probes: rest, probed: (s.probed || 0) + 1, item: { ...item, extra: true } };
     s = { ...s, probes: rest };
   }
   if (s.redo.length) {
@@ -267,7 +290,7 @@ export function resultOf(s) {
     // a class exam's questions, one by one, as the teacher's report reads them (correct or wrong; the server also knows
     // partial and missing, from photo-checked exams)
     const questions = s.fixedItems ? s.fixedItems.map((it, i) => ({ topic: it.topic, level: it.level, status: s.slotOk[i] ? 'correct' : 'wrong' })) : undefined;
-    return { kind: 'check', purpose: s.purpose, skill: s.skill, skills: s.skills, misc: s.misc, topic: s.topic, level: s.level, right, asked, perSkill: s.perSkill, showed: s.showed, passed, xp, accuracy: asked ? Math.round((100 * right) / asked) : 0, perfect: right === asked, mistakes: asked - right, fixed: 0, bestCombo: 0, secs: Math.round((Date.now() - s.startedAt) / 1000), ...(questions ? { questions } : {}) };
+    return { kind: 'check', purpose: s.purpose, skill: s.skill, skills: s.skills, misc: s.misc, topic: s.topic, level: s.level, right, asked, perSkill: s.perSkill, showed: s.showed, named: s.named || {}, passed, xp, accuracy: asked ? Math.round((100 * right) / asked) : 0, perfect: right === asked, mistakes: asked - right, fixed: 0, bestCombo: 0, secs: Math.round((Date.now() - s.startedAt) / 1000), ...(questions ? { questions } : {}) };
   }
   const answered = s.total;
   const accuracy = answered ? Math.round((100 * s.firstTry) / answered) : 0;

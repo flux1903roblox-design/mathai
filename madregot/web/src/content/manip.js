@@ -16,7 +16,8 @@
 //   pins        several labelled markers on a number line  answer: the position of each, in order
 //   triangle    the free vertex C of triangle ABC           answer: an example C; right: any C with a right angle at C
 //   plot        also with manip.line (a point of the line), manip.shape (the vertex that completes it)
-//               or manip.lines (two lines [{m, b}, {m, b}]: their meeting point)
+//               or manip.lines (two lines [{m, b}, {m, b}]: their meeting point), or manip.dots ([[x, y], ...]: given
+//               points, the first terms of a sequence as (place, term); the answer is a later term)
 //   balance     a scale {lx, l1, rx, r1}: boxes x and unit weights on the left and right pans
 //               answer: the value of x (one box alone on a pan, that many weights on the other, the beam level)
 //   tiles       algebra tiles {px, nx, p1, n1}: x, −x, 1 and −1 tiles     answer: {k, c} for kx + c, no zero pair left
@@ -47,6 +48,8 @@
 import { near, plainNum, gcd, linText } from './util.js';
 
 const QUAD_NAMES = ['', 'הרביע הראשון', 'הרביע השני', 'הרביע השלישי', 'הרביע הרביעי'];
+/** In a quadrant: ברביע הראשון (the article goes into the ב, never בהרביע). */
+const inQuad = (q) => `ב${QUAD_NAMES[q].replace(/^ה/, '')}`;
 export const quadOf = ([x, y]) => (x > 0 && y > 0 ? 1 : x < 0 && y > 0 ? 2 : x < 0 && y < 0 ? 3 : x > 0 && y < 0 ? 4 : 0);
 
 // ---------------------------------------------------------------- the balance (מאזניים)
@@ -894,7 +897,7 @@ export function triangleAngles(m, c) {
 }
 // maths inside a Hebrew sentence is isolated left to right, so it reads 6² + 8² = 10² and not backwards
 const ltr = (t) => `⁦${t}⁩`;
-export const lineText = ({ m, b }) => `y = ${m === 1 ? '' : m === -1 ? '-' : num(m)}x${b === 0 ? '' : b > 0 ? ` + ${num(b)}` : ` - ${num(-b)}`}`;
+export const lineText = ({ m, b }) => (m === 0 ? `y = ${num(b)}` : `y = ${m === 1 ? '' : m === -1 ? '-' : num(m)}x${b === 0 ? '' : b > 0 ? ` + ${num(b)}` : ` - ${num(-b)}`}`);
 
 /** The answer (or a student's state) as plain text. */
 export function manipText(it, u = it.answer) {
@@ -904,7 +907,7 @@ export function manipText(it, u = it.answer) {
     case 'numberline': return lineNum(m, u);
     case 'bars': return num(u);
     case 'angle': return m.protractor && m.mode === 'align' ? `מד הזווית מסובב ב־${num(u)}°` : `${num(u)}°`;
-    case 'plot': return m.quadrant && u === it.answer ? `נקודה ב${QUAD_NAMES[m.quadrant]}, למשל ${ltr(`(${num(u[0])}, ${num(u[1])})`)}` : `(${num(u[0])}, ${num(u[1])})`;
+    case 'plot': return m.quadrant && u === it.answer ? `נקודה ${inQuad(m.quadrant)}, למשל ${ltr(`(${num(u[0])}, ${num(u[1])})`)}` : `(${num(u[0])}, ${num(u[1])})`;
     case 'line': return lineText(u);
     case 'squares': return u.c != null ? `ניצבים ${u.a} ו־${u.b}: ${ltr(`${u.a}² + ${u.b}² = ${u.c}²`)}` : `ניצבים ${u.a} ו־${u.b}`;
     case 'pins': return m.labels.map((l, i) => `${labelPlain(l)} ב־${ltr(lineNum(m, u[i]))}`).join(', ');
@@ -916,7 +919,12 @@ export function manipText(it, u = it.answer) {
     case 'ray': return rayText(u);
     // the answer is a rule ({ mode }); a student's state is the bar as built
     case 'fbar': {
-      if (u.mode === 'value') return plainNum(u.value, { maxDen: FBAR_MAX_DEN, places: 3 });
+      if (u.mode === 'value') {
+        // a bar whose parts are fixed (beads on a string, a bar in ten parts) asks how many to colour: the count
+        const den = m.lockDen ? m.start.den : 0; const k = u.value * den;
+        if (den && Math.abs(k - Math.round(k)) < 1e-9) return `${Math.round(k)} מתוך ${den}`;
+        return plainNum(u.value, { maxDen: FBAR_MAX_DEN, places: 3 });
+      }
       if (u.mode === 'common') return `מספר חלקים שמתחלק ב־${u.of.join(' וב־')}, למשל ${u.of.reduce(lcm, 1)}`;
       return `${u.shaded}/${u.den}`;
     }
@@ -943,10 +951,12 @@ export function manipPlain(it) {
     case 'numberline': return m.den
       ? `[ציר מספרים מ־${m.min} עד ${m.max}, כל יחידה מחולקת ל־${m.den} חלקים שווים; מזיזים סמן מהנקודה ${m.from}]`
       : `[ציר מספרים מ־${m.min} עד ${m.max}; מזיזים סמן מהנקודה ${m.from}]`;
-    case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ב${QUAD_NAMES[m.quadrant]}${m.fixX != null ? ` שה־x שלה ${m.fixX}` : m.fixY != null ? ` שה־y שלה ${m.fixY}` : ''}]`
+    case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ${inQuad(m.quadrant)}${m.fixX != null ? ` שה־x שלה ${m.fixX}` : m.fixY != null ? ` שה־y שלה ${m.fixY}` : ''}]`
       : m.line ? `[מערכת צירים עם הישר; שמים עליו את הנקודה שבה x = ${it.answer[0]}]`
         : m.lines ? `[מערכת צירים עם שני ישרים, ${m.lines.map(lineText).join(' ו־')}; שמים את נקודת המפגש שלהם]`
-          : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
+          : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]`
+            : m.dots ? `[מערכת צירים; עליה הנקודות ${m.dots.map((d) => `(${d.join(', ')})`).join(', ')}, כל איבר של סדרה כנקודה (המקום, האיבר); שמים את הנקודה שבה x = ${it.answer[0]}]`
+              : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
     case 'line': return '[מערכת צירים; בונים ישר בעזרת שתי נקודות: החיתוך עם ציר y וצעד אחד ימינה]';
     case 'angle':
       if (m.protractor && m.mode === 'align') return `[זווית ששוקיה בכיוונים ${num(m.arms[0])}° ו־${num(m.arms[1])}°; מסובבים את מד הזווית עד שקו האפס שלו על אחת השוקיים]`;

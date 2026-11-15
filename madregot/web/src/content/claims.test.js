@@ -7,13 +7,15 @@ import { CLAIMS, CLAIM, claimStatus, visibleClaims, countNamedMistakes, programm
 import { TOPICS } from './index.js';
 import { loadAllContent } from '@/learn/content/index.ts';
 import { codeWith, MERGED } from '@/lib/testing/claimCode.js';
+import countsJson from '../../../store/counts.json?raw';
 
 const data = { ...(await claimData()), vars: {} };
 // every stair's teaching content (DURABLE-11: topics load on demand)
 const CONTENT = await loadAllContent();
 const now = claimStatus({ code: codeWith(), data });
 const byId = Object.fromEntries(now.map((s) => [s.id, s]));
-const merged = claimStatus({ code: codeWith(MERGED), data: { ...data, coverage: 41 } });
+const COV = { '7': 'במדרגות יש כבר את החומר של 60 מתוך 100 שעות ההוראה של כיתה ז׳ (60%).', '8': 'במדרגות יש כבר את החומר של 20 מתוך 100 שעות ההוראה של כיתה ח׳ (20%).' };
+const merged = claimStatus({ code: codeWith(MERGED), data: { ...data, coverage: COV } });
 
 describe('the claims', () => {
   it('have unique ids, Hebrew (or, for the reviewers\' notes, English) words, and a check', () => {
@@ -21,6 +23,8 @@ describe('the claims', () => {
     for (const c of CLAIMS) {
       expect(typeof c.check, c.id).toBe('function');
       if (c.lang === 'en') expect(c.en, c.id).toMatch(/^[A-Z][\x20-\x7e’–]+\.$/);
+      // a claim made only of slots (coverage: each grade's sentence) has its Hebrew in what fills them
+      else if (/^(\s*\{\{\w+\}\}\s*)+$/.test(c.he)) expect(claimText(c, { data: { ...data, coverage: COV } }), c.id).toMatch(/^[^{}]*[֐-׿][^{}]*$/);
       else expect(c.he, c.id).toMatch(/[֐-׿]/);
       // a claim waiting for another lane says which; one of the app's own core may stop the build instead
       expect(!!c.required || !!c.needs || c.id === 'teachers', c.id).toBe(true);
@@ -48,11 +52,14 @@ describe('the claims', () => {
     const waiting = CLAIMS.filter((c) => c.needs).map((c) => c.id);
     expect(waiting.sort()).toEqual(['assign-due', 'chatbot', 'class-delete', 'class-report', 'coverage', 'demo-class', 'parent-ok', 'pilot-kit', 'pilot-report', 'principal-form', 'report-answer', 'school-ai-off', 'teachers-assign', 'tutor-knows', 'weekly-share']);
     for (const id of waiting) expect(byId[id].visible, id).toBe(true);
-    expect(byId.coverage.text).toBe(`מכסה ${programmeCoverage()}% משעות תכנית הלימודים במתמטיקה של כיתות ז׳ ו־ח׳.`);
+    // SK-BUYERS-3: each grade's share on its own, in the sentence store/counts.json holds (never one combined share)
+    const counts = JSON.parse(countsJson).coverage;
+    expect(byId.coverage.text).toBe(`${counts['7']} ${counts['8']}`);
+    expect(byId.coverage.text).not.toMatch(/כיתות ז׳ ו־ח׳/);
     // the names each claim looks for are the merged code's: with them added again nothing changes
     const after = Object.fromEntries(merged.map((s) => [s.id, s]));
     for (const id of waiting) expect(after[id].visible, `${id} with the lanes' names`).toBe(true);
-    expect(after.coverage.text).toBe('מכסה 41% משעות תכנית הלימודים במתמטיקה של כיתות ז׳ ו־ח׳.');
+    expect(after.coverage.text).toBe(`${COV['7']} ${COV['8']}`);
     // and a lane's code gone hides its claims again
     const gone = Object.fromEntries(claimStatus({ code: codeWith({}, { drop: ['worker/src/assignments.js', 'web/src/lib/teacherCsv.js', 'shared/guard.js', 'worker/scripts/pilot.mjs'] }), data }).map((s) => [s.id, s.visible]));
     expect([gone['assign-due'], gone['class-report'], gone['tutor-knows'], gone['pilot-report']]).toEqual([false, false, false, false]);
@@ -78,7 +85,8 @@ describe('the claims', () => {
   });
 
   it('a claim with a slot and no value stays hidden', () => {
-    expect(claimText(CLAIM.coverage, { data: {} })).toMatch(/\{\{COVERAGE\}\}/);
+    expect(claimText(CLAIM.coverage, { data: {} })).toMatch(/\{\{COVERAGE_7\}\}/);
+    expect(claimStatus({ code: codeWith(), data: { ...data, coverage: { '7': COV['7'] } } }).find((s) => s.id === 'coverage').visible).toBe(false);
     expect(claimStatus({ code: codeWith(), data: { ...data, coverage: null } }).find((s) => s.id === 'coverage').visible).toBe(false);
   });
 
@@ -86,6 +94,43 @@ describe('the claims', () => {
     expect(byId['student-remove'].visible).toBe(true);
     const gone = claimStatus({ code: codeWith({}, { drop: ['worker/src/forget.js'] }), data }).find((s) => s.id === 'student-remove');
     expect(gone.visible).toBe(false);
+  });
+});
+
+// PRODUCT2-30: what the family plan gives the parent, each a checked claim the app's parents page and the landing plan
+// card say in the same words (content/familyPlan.js): the daily synced report, the Sunday email and the exam ahead
+/** The synced report as promised: on the days the child practises, while the child's sharing is on (never "every day"). */
+const SYNCED = 'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.';
+describe('the family plan\'s claims (PRODUCT2-30)', () => {
+  it('promise no more than the product gives: a report on the days the child practises, while the child shares', async () => {
+    // the review's case: "כל יום" promised daily delivery, but nothing comes on a day the device is not used, and the
+    // child can stop sharing at any time (Parents.jsx CHECKOUT_REPORT)
+    const { PLAN_TEXT, FREE_REPORT } = await import('./familyPlan.js');
+    for (const t of [PLAN_TEXT['synced-report'], FREE_REPORT]) {
+      expect(t).not.toMatch(/(^|[ ,])כל יום/);
+      expect(t).toContain('בכל יום שבו מתרגלים');
+    }
+    expect(PLAN_TEXT['synced-report']).toContain('כל עוד השיתוף פועל אצל הילד');
+  });
+
+  it('hold on this code, in the words the parents\' page uses', () => {
+    for (const id of ['synced-report', 'sunday-email', 'exam-ready']) {
+      expect(byId[id].visible, id).toBe(true);
+      expect(byId[id].required, id).toBe(true);
+    }
+    expect(byId['synced-report'].text).toBe(SYNCED);
+    expect(byId['sunday-email'].text).toBe('סיכום שבועי במייל בכל יום ראשון, אם תבחרו.');
+    expect(byId['exam-ready'].text).toBe('לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.');
+    // no claim of alerts: nothing in the app sends one
+    expect(CLAIMS.some((c) => /התראה|התראות/.test(c.he || ''))).toBe(false);
+  });
+  it('hide when their code is gone: the stored daily rows, the Sunday email, the exam line', () => {
+    const gone = (drop) => Object.fromEntries(claimStatus({ code: codeWith({}, { drop }), data }).map((s) => [s.id, s.visible]));
+    expect(gone(['worker/src/report.js'])['synced-report']).toBe(false);
+    expect(gone(['web/src/screens/parents/FamilyReport.jsx'])['synced-report']).toBe(false);
+    expect(gone(['worker/src/report.js'])['sunday-email']).toBe(false);
+    expect(gone(['worker/src/email.js'])['exam-ready']).toBe(false);
+    expect(gone(['web/src/screens/parents/FamilyReport.jsx'])['exam-ready']).toBe(false);
   });
 });
 
@@ -107,11 +152,14 @@ describe('countNamedMistakes', () => {
   });
 });
 
-describe('programmeCoverage (CURRICULUM-1)', () => {
-  it('is null until that lane\'s programme is here, then the share of both grades\' hours', () => {
+describe('programmeCoverage (CURRICULUM-1, SK-BUYERS-3)', () => {
+  it('is null until that lane\'s programme is here, then each grade\'s sentence on its own (never one combined share)', () => {
     expect(programmeCoverage({})).toBeNull();
-    const coverageOf = (g) => (g === '7' ? { hours: 100, taught: 60 } : { hours: 100, taught: 20 });
-    expect(programmeCoverage({ '../learn/programme.ts': { coverageOf } })).toBe(40);
+    const coverageOf = (g) => (g === '7' ? { hours: 100, taught: 60, pct: 60 } : { hours: 100, taught: 20, pct: 20 });
+    const coverageSentence = (g, c) => `${g}:${c.taught}/${c.hours} (${c.pct}%)`;
+    expect(programmeCoverage({ '../learn/programme.ts': { coverageOf, coverageSentence } })).toEqual({ '7': '7:60/100 (60%)', '8': '8:20/100 (20%)' });
+    // the app's own: the sentences store/counts.json holds, which the listing and the /programme page quote
+    expect(programmeCoverage()).toEqual(JSON.parse(countsJson).coverage);
   });
 });
 

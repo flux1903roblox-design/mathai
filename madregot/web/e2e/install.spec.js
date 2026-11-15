@@ -5,7 +5,7 @@
 // own note does, DURABLE-5: that copy only the code opens).
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { open, student, livedIn, item, answer, proceedToNext, leaveEndScreens, saved } from './helpers.js';
+import { open, student, livedIn, item, answer, proceedToNext, leaveEndScreens, saved, openAdults } from './helpers.js';
 import { API, fakeServer } from './fakeServer.js';
 import { formatCode } from '../src/lib/durable/code.js';
 
@@ -101,6 +101,7 @@ test.describe('installable and kept', () => {
     expect(await asks()).toBe(1);
     // Settings shows the answer as it is, and the button asks again only when tapped
     await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await openAdults(page);
     const row = page.locator('#save .save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
     await expect(row.locator('dd')).toHaveText('לא מובטחת');
     await page.getByRole('button', { name: 'לבקש מהדפדפן לשמור' }).click();
@@ -119,6 +120,7 @@ test.describe('installable and kept', () => {
       Object.defineProperty(StorageManager.prototype, 'persisted', { configurable: true, value: async () => true });
     });
     await open(page, '#/settings', student('7'));
+    await openAdults(page);
     const row = page.locator('#save .save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
     await expect(row.locator('dd')).toHaveText('כן');
     await expect(page.getByRole('button', { name: 'לבקש מהדפדפן לשמור' })).toHaveCount(0);
@@ -159,7 +161,14 @@ test.describe('an iPhone in Safari', () => {
     await expect(page.locator('.learn')).toBeVisible();
     await expect(page.locator('.install-card')).toHaveCount(0);
     await page.evaluate(() => { window.location.hash = '#/settings'; });
-    await page.getByRole('button', { name: 'להוסיף למסך הבית' }).click();
+    // the guide stays within the student's reach: one row among the student's own settings ("האפליקציה"), with the
+    // adults' section still folded
+    await expect(page.getByRole('button', { name: 'להורים ולמבוגרים' })).toHaveAttribute('aria-expanded', 'false');
+    const app = page.locator('section').filter({ has: page.getByRole('heading', { level: 2, name: 'האפליקציה' }) });
+    await expect(app.getByRole('button', { name: 'להוסיף למסך הבית' })).toBeVisible();
+    await openAdults(page);
+    await expect(page.getByRole('button', { name: 'להוסיף למסך הבית' })).toHaveCount(1);
+    await app.getByRole('button', { name: 'להוסיף למסך הבית' }).click();
     await expect(page.getByRole('dialog', { name: 'להוסיף את מדרגות למסך הבית' })).toBeVisible();
   });
 
@@ -209,6 +218,7 @@ test.describe('where the progress lives, said truly', () => {
     await open(page, '#/me', livedIn('7'));
     await expect(page.locator('.nums-where')).toHaveText('ההתקדמות נשמרת במכשיר הזה. כדאי לשמור קובץ גיבוי מדי פעם. הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.');
     await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await openAdults(page);
     await expect(page.locator('.footnote')).toHaveText('מדרגות. ההתקדמות נשמרת במכשיר הזה. כדאי לשמור קובץ גיבוי מדי פעם.');
     await expect(page.locator('.save-section')).toBeVisible();
     await shot(page, 'save-section-none', { fullPage: true });
@@ -217,6 +227,7 @@ test.describe('where the progress lives, said truly', () => {
   test('with a server, alone: only on this device', async ({ page }) => {
     await fakeServer(page.context(), {}, baseOf());
     await open(page, '#/settings', withServer(SOLO));
+    await openAdults(page);
     await expect(page.locator('.footnote')).toHaveText('מדרגות. ההתקדמות נשמרת רק במכשיר הזה.');
     await shot(page, 'save-section-solo', { fullPage: true });
     await page.evaluate(() => { window.location.hash = '#/me'; });
@@ -235,11 +246,13 @@ test.describe('where the progress lives, said truly', () => {
     });
     for (const route of ['#/me', '#/settings', '#/']) {
       await page.evaluate((r) => { window.location.hash = r; }, route);
+      if (route === '#/settings') await openAdults(page);
       await expect(page.locator(route === '#/' ? '.learn' : route === '#/me' ? '.profile-name' : '.save-section')).toBeVisible();
       expect(await encrypted(), route).toBe(0);
     }
     expect(await encrypted()).toBe(0);
     await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await openAdults(page);
     await expect(page.locator('.footnote')).toHaveText('מדרגות. ההתקדמות נשמרת במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה.');
     await shot(page, 'save-section-class', { fullPage: true });
   });

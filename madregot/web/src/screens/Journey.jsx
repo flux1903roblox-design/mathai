@@ -12,20 +12,21 @@ import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/topics.js';
 import { useStairContent } from '@/learn/useStairContent.js';
 import { skillId } from '@/learn/skills.ts';
-import { masteryState, nextStage, STATE_LABEL, MASTERY_RULES, MASTERY_N, daysBetween } from '@/learn/mastery.ts';
+import { masteryState, nextStage, STATE_LABEL, MASTERY_RULES, MASTERY_N, daysBetween, practiceDone, checkWaits, practiceSinceFail, PRACTICE_AGAIN, RETRY_PRACTICE, PRACTICE_NEED } from '@/learn/mastery.ts';
 import { openMisconceptions } from '@/learn/misconceptions.ts';
 import { routeOf } from '@/learn/recommend.ts';
 import { challengesAfter, isSolved } from '@/learn/challenges/index.ts';
 import { LESSON_LEN, PARTS } from '@/lib/lessonRules.js';
-import { unitNodes } from '@/lib/path.js';
+import { unitNodes, isPlaced } from '@/lib/path.js';
 import { MathText } from '@/components/MathText.jsx';
 import { inDays } from '@/content/util.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
-import { workBanner } from '@/lib/classWork.js';
-import { Emblem } from '@/components/map/Scenery.jsx';
+import { workBanner, mineOf } from '@/lib/classWork.js';
+import { workFromLearn, mergeWork, recheckDue } from '@/learn/assignments.ts';
+import { Emblem } from '@/components/map/emblems.jsx';
 import '@/styles/lazy/journey.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 export const CHALLENGE_CARD = 'אתגר · לבחירה';
@@ -86,13 +87,22 @@ export default function Journey() {
   // opened from the teacher's work (?assignment=): one line says so, with the due day (TEACHER-5 §5)
   const [params] = useSearchParams();
   const work = useApp((s) => (s.profile?.token ? s.classWork.assignments.find((a) => a.id === params.get('assignment') && a.skill === skill) : null));
+  const learn = useApp((s) => s.learn);
+  const box = useApp((s) => s.workOutbox);
   // the stair's teaching (its topic's file): the loading screen shows until it is here
   const c = useStairContent(skill);
   if (!t || !t.levels[level - 1]) return <div className="page pushed"><ScreenBar title="מדרגה" back="/" backLabel="למפה" /><EmptyState mood="encouraging" title="המדרגה לא נמצאה"><p>אולי הקישור ישן. המסלול שלכם מחכה במפה.</p></EmptyState><ScreenFoot><Link to="/" className="btn btn-primary btn-block btn-lg">חזרה למסלול</Link></ScreenFoot></div>;
   const now = new Date().toISOString();
   const state = masteryState(rec, now);
-  const stage = c ? nextStage(rec) : (rec?.attempts?.some((a) => a.purpose === 'practice' && a.ok) ? 'E' : 'D');
+  // a stair passed in placement or a jump test goes to its mastery check (PRODUCT2-19), as the plan and the map send it
+  const placed = isPlaced(path, topic, level);
+  // the teacher gave a stair passed before it was given, and it is not done since (SK-BUYERS-1): its mastery check again
+  // is the next step, the only one that finishes the work (learn/assignments.ts recheckDue)
+  const recheck = !!work && recheckDue(work, mergeWork(mineOf(work, box), workFromLearn(work, learn)));
+  const stage = recheck ? 'E' : c ? nextStage(rec, placed) : (placed ? (checkWaits(rec) ? 'D' : 'E') : practiceDone(rec, 1) ? 'E' : 'D');
   const practiced = (rec?.attempts || []).filter((a) => a.purpose === 'practice' && a.ok).length;
+  // after a failed mastery check: practice again, and the check returns after fresh right answers (mastery.ts)
+  const waits = checkWaits(rec);
   const node = unitNodes(topic, path).find((n) => n.kind === 'node' && n.level === level);
   const part = node?.state === 'done' ? PARTS : Math.min(PARTS, (node?.parts || 0) + 1);
   const practiceTo = `/lesson/${topic}/${level}?part=${part}&from=journey`;
@@ -101,11 +111,11 @@ export default function Journey() {
 
   const toStage = (id) => {
     if (id === 'D') navigate(practiceTo);
-    else if (id === 'E') navigate(routeOf.check(skill, 'mastery'));
+    else if (id === 'E') navigate(`${routeOf.check(skill, 'mastery')}${work ? `&assignment=${work.id}` : ''}`);
     else navigate(`/learn/${topic}/${level}/${id}`);
   };
   const status = (id) => {
-    if (id === 'D') return practiced >= 6 ? 'done' : practiced ? 'going' : '';
+    if (id === 'D') return practiceDone(rec) ? 'done' : practiced ? 'going' : '';
     if (id === 'E') return rec?.mastered ? 'done' : '';
     return rec?.taught?.[id] ? 'done' : '';
   };
@@ -113,7 +123,8 @@ export default function Journey() {
     A: c ? `${c.discover.length} צעדים קצרים, עם דברים שאפשר להזיז` : 'השיעור המלא למדרגה הזאת עוד בהכנה',
     B: c ? `${c.examples.length} דוגמאות, צעד אחר צעד, עם הסיבה לכל צעד` : 'בהכנה',
     C: c ? 'אתם בוחרים את הצעד הבא, ומדי עוזר כשצריך' : 'בהכנה',
-    D: `${LESSON_LEN} תרגילים, עם רמז כשצריך${practiced ? ` · ${Math.min(practiced, 6)} מתוך 6 נכונות` : ''}`,
+    D: waits ? `${PRACTICE_AGAIN} ${Math.min(practiceSinceFail(rec), RETRY_PRACTICE)} מתוך ${RETRY_PRACTICE} נכונות מאז הבדיקה.`
+      : `${LESSON_LEN} תרגילים, עם רמז כשצריך${practiced ? ` · ${Math.min(practiced, PRACTICE_NEED)} מתוך ${PRACTICE_NEED} נכונות` : ''}`,
     E: `${MASTERY_N} שאלות בלי רמזים. כך יודעים שזה שלכם.`,
   };
   const cta = { A: 'מתחילים ללמוד', B: 'לדוגמה הפתורה', C: 'פותרים יחד', D: 'לתרגול', E: 'לבדיקת השליטה' }[stage];
@@ -137,7 +148,7 @@ export default function Journey() {
       <section className="jclimb" aria-labelledby="climb-title" data-region="card">
         <Segments steps={STAGES.map((x) => (status(x.id) === 'done' ? 'done' : stage === x.id ? 'current' : 'todo'))} size="thin" label="השלבים שהושלמו" valueText={`${STAGES.filter((x) => status(x.id) === 'done').length} מתוך 5 שלבים`} />
         <div className="jclimb-next">
-          <p className="jclimb-label" id="climb-title">{state === 'mastered' ? 'המדרגה בידיים שלכם. אפשר לחזור לכל שלב' : `הצעד הבא: שלב ${STAGES.findIndex((x) => x.id === stage) + 1} מתוך 5`}</p>
+          <p className="jclimb-label" id="climb-title">{recheck ? 'הצעד הבא: בדיקת שליטה חוזרת, למשימה מהמורה' : state === 'mastered' ? 'המדרגה בידיים שלכם. אפשר לחזור לכל שלב' : `הצעד הבא: שלב ${STAGES.findIndex((x) => x.id === stage) + 1} מתוך 5`}</p>
           <Button className="btn-block btn-lg" onClick={() => toStage(stage)}>{cta}</Button>
           <Button variant="ghost" className="btn-block btn-sm" onClick={() => setTutor(true)}><HelpCircle size={18} aria-hidden="true" />שאלה למדי</Button>
         </div>

@@ -2,7 +2,7 @@
 // quoting, the formula guard on every text cell (header cells too), numbers as numbers, no ID-shaped number and no
 // internal id, maths as plain text, and a round trip through a minimal RFC 4180 parser. Every name is synthetic.
 import { describe, it, expect } from 'vitest';
-import { reportToCsv, reportCsv, safeCell, csvField, toCsv, stripTex, csvName, workText, BOM } from './teacherCsv.js';
+import { reportToCsv, reportCsv, safeCell, csvField, toCsv, stripTex, csvName, workText, BOM, gradeOf, gradesToCsv, gradesCsvName } from './teacherCsv.js';
 
 const TOPICS = [
   { id: 'signed', title: 'מספרים מכוונים', levels: ['חיבור וחיסור', 'השוואת מספרים', 'כפל וחילוק'] },
@@ -151,10 +151,75 @@ describe('the words and the file name', () => {
     expect(workText('stair', { state: 'done', passed: false })).toBe('הושלם · עוד לא שולט/ת');
     expect(workText('check', { state: 'started' })).toBe('התחיל/ה');
     expect(workText('exam', { state: 'done', right: 5, asked: 6, late: false })).toBe('הושלם 5/6');
+    // a repair the teacher gave (SK-BUYERS-2): fixed once its check passed
+    expect(workText('repair', { state: 'started' })).toBe('התחיל/ה');
+    expect(workText('repair', { state: 'done', late: true })).toBe('הושלם · תוקן (באיחור)');
   });
   it('the file name keeps letters, digits and dashes of the class name', () => {
     expect(csvName('ז׳3', '2026-09-01', '2026-11-10')).toBe('madregot-ז3-2026-09-01-2026-11-10.csv');
     expect(csvName('ח׳ 2 / מתמטיקה', '2026-11-01', '2026-11-05')).toBe('madregot-ח-2-מתמטיקה-2026-11-01-2026-11-05.csv');
     expect(csvName('../..', '2026-11-01', '2026-11-05')).toBe('madregot-class-2026-11-01-2026-11-05.csv');
+  });
+});
+
+// PRODUCT2-32: grades for Mashov or Webtop. One row per student by name in Hebrew order (as a class list is), and one
+// number 0-100 per assignment or class exam in the range, so a column pastes straight into the school system's grade
+// sheet. The same BOM, CRLF and formula guard as the report's file; only names, never an ID number.
+describe('the grades file for Mashov and Webtop (PRODUCT2-32)', () => {
+  const report = () => fixture({
+    students: [
+      { name: 'Ben', levels: {}, topMistakes: [] },
+      { name: 'נוֹעם', levels: {}, topMistakes: [] },
+      { name: 'אלה', levels: {}, topMistakes: [] },
+      { name: '=דנה', levels: {}, topMistakes: [] },
+      { name: 'נועה', levels: {}, topMistakes: [] },
+    ],
+    assignments: [
+      { title: 'מבחן תרגול: שבוע 3', kind: 'exam', skill: null, dueOn: '2026-11-10', work: {
+        0: { state: 'done', right: 5, asked: 6 }, 1: { state: 'started' }, 2: { state: 'done', right: 6, asked: 6 }, 3: { state: 'none' }, 4: { state: 'done', right: 0, asked: 6 } } },
+      { title: 'בדיקת שליטה: $-3$ ועוד', kind: 'check', skill: 'signed:2', dueOn: '2026-11-05', work: {
+        2: { state: 'done', right: 4, asked: 5, passed: true }, 4: { state: 'done', right: 2, asked: 5, passed: false } } },
+      { title: 'מספרים מכוונים: חיבור וחיסור', kind: 'stair', skill: 'signed:1', dueOn: '2026-11-12', work: {
+        0: { state: 'started', stage: 3 }, 1: { state: 'done', stage: 5, passed: true }, 2: { state: 'done', stage: 4, passed: false },
+        3: { state: 'started', stage: 5, passed: true }, 4: { state: 'none' } } },
+      { title: 'תיקון טעות: חיבור וחיסור', kind: 'repair', skill: 'signed:1', misc: 'sign', dueOn: '2026-11-12', work: {
+        2: { state: 'done' }, 4: { state: 'started' } } },
+    ],
+  });
+  it('a number 0-100 for each result; an empty cell when there is none yet or the work was not given', () => {
+    expect(gradeOf('exam', { state: 'done', right: 5, asked: 6 })).toBe(83);
+    expect(gradeOf('exam', { state: 'started' })).toBeNull();
+    expect(gradeOf('check', { state: 'done', right: 4, asked: 5, passed: true })).toBe(80);
+    expect(gradeOf('check', undefined)).toBeNull();
+    // a stair: 20 for each of its first four stages, and 100 only once its mastery check passed in this work
+    expect(gradeOf('stair', { state: 'started', stage: 3 })).toBe(60);
+    expect(gradeOf('stair', { state: 'done', stage: 5, passed: true })).toBe(100);
+    expect(gradeOf('stair', { state: 'done', stage: 4, passed: false })).toBe(80);
+    expect(gradeOf('stair', { state: 'started', stage: 5, passed: true })).toBe(80); // mastered before, not again (SK-BUYERS-1)
+    expect(gradeOf('stair', { state: 'none' })).toBeNull();
+    // a repair: 100 once its check passed
+    expect(gradeOf('repair', { state: 'done' })).toBe(100);
+    expect(gradeOf('repair', { state: 'started' })).toBeNull();
+  });
+  it('one row per student in Hebrew order, one grade column per assignment, numbers unquoted, the formula guard', () => {
+    const csv = gradesToCsv(report());
+    expect(csv.charCodeAt(0)).toBe(0xfeff);
+    expect(csv.endsWith('\r\n')).toBe(true);
+    const rows = parseCsv(csv);
+    expect(rows[0]).toEqual(['שם', 'מבחן תרגול: שבוע 3 (עד 10/11)', 'בדיקת שליטה: −3 ועוד (עד 05/11)', 'מספרים מכוונים: חיבור וחיסור (עד 12/11)', 'תיקון טעות: חיבור וחיסור (עד 12/11)']);
+    // Hebrew order (the vowel marks do not move a name, and Hebrew comes before Latin), each with its own results
+    expect(rows.slice(1)).toEqual([
+      ["'=דנה", '', '', '80', ''], // a symbol sorts before the letters
+      ['אלה', '100', '80', '80', '100'],
+      ['נועה', '0', '40', '', ''],
+      ['נוֹעם', '', '', '100', ''],
+      ['Ben', '83', '', '60', ''],
+    ]);
+    expect(csv).toContain('\r\nאלה,100,80,80,100\r\n');
+    expect(csv).not.toMatch(/\d{9}/);
+  });
+  it('a range with no assignments is the names alone; the file name says it holds grades', () => {
+    expect(parseCsv(gradesToCsv({ ...report(), assignments: [] }))).toEqual([['שם'], ["'=דנה"], ['אלה'], ['נועה'], ['נוֹעם'], ['Ben']]);
+    expect(gradesCsvName('ז׳3', '2026-11-01', '2026-11-12')).toBe('madregot-grades-ז3-2026-11-01-2026-11-12.csv');
   });
 });

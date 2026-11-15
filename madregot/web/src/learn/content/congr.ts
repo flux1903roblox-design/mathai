@@ -367,7 +367,7 @@ const stair2: StairContent = {
       ] },
   ],
   together: [
-    { problem: '$\\sphericalangle A = \\sphericalangle D = 50°$, $AB = DE$, $\\sphericalangle B = \\sphericalangle E = 60°$. מה $\\sphericalangle F$?',
+    { problem: 'ב־$\\triangle ABC$ וב־$\\triangle DEF$: $\\sphericalangle A = \\sphericalangle D = 50°$, $AB = DE$, $\\sphericalangle B = \\sphericalangle E = 60°$. מה $\\sphericalangle F$?',
       fig: two({ angs: { A: 50, B: 60, C: 70 }, partner: DEF, top: 'B', left: 'C', ticks: { AB: 1 }, marks: { A: { text: '50°' }, D: { text: '50°' }, B: { text: '60°' }, E: { text: '60°' }, F: { text: '?', target: true } }, label: 'שני משולשים, ABC ו־DEF. ב־A וב־D זוויות של 50 מעלות, ב־B וב־E של 60, AB ו־DE מסומנות שוות' }),
       steps: [
         { prompt: 'לפי איזה משפט?', choices: [
@@ -711,6 +711,10 @@ const stair4: StairContent = {
       wrongWhy: { 1: '$30$ הוא שטח כל המשולש.', 2: '$AD$ אינו הגובה: הגובה מאונך לבסיס, והוא $AH$.' } },
     { kind: 'rule', text: 'תיכון מחלק משולש לשני משולשים שווי שטח.', display: 'S_{\\triangle ABD} = S_{\\triangle ADC} = \\frac{1}{2} S_{\\triangle ABC}',
       why: '$BD = DC$, והגובה מ־$A$ משותף.', fig: halves10 },
+    // SK-LEARN-7: the student moves the object once on every stair
+    { kind: 'explore', text: 'שטח $\\triangle ABC$ הוא $30$, ו־$AD$ התיכון לצלע $BC$. שימו את הסמן על שטח $\\triangle ABD$.',
+      manip: { kind: 'numberline', min: 0, max: 20, from: 0, start: 0, plain: true } as ManipSpec, answer: 15,
+      hint: 'התיכון מחלק את המשולש לשני משולשים שווי שטח.', success: '$15$: חצי מ־$30$. גם $\\triangle ADC$ הוא $15$.' },
     { kind: 'predict', text: '$AD$ תיכון ב־$\\triangle ABC$. הוא מחלק את המשולש לשני משולשים חופפים?', fig: scalene,
       choices: ['לא בהכרח: השטחים שווים, הצורות לא', 'כן'], answer: 0,
       why: 'אם $AB \\ne AC$, ההיקפים של שני המשולשים שונים, ולכן הם לא חופפים.',

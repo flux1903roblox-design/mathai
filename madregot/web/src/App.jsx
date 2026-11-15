@@ -66,6 +66,8 @@ const Legal = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ d
 const Programme = lazy(() => import('@/screens/Programme.jsx'));
 // the week a child sent a parent (#/r/<data>): on any phone, with no profile, and with no request (PARENTS-2)
 const SharedReport = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.SharedReport })));
+// a family challenge a parent sent (#/f/<data>, PRODUCT2-39): read from its link with no request; a student takes it here
+const FamilyOffer = lazy(() => import('@/screens/FamilyOffer.jsx'));
 // "יש לי קוד גיבוי": with or without a profile, so it is routed with the parents' area (DURABLE-5)
 const Restore = lazy(() => import('@/screens/Restore.jsx'));
 // a store app's parents' pages (STUDENT-12): how a parent lets the child ask the tutor, and nothing to buy
@@ -332,6 +334,8 @@ function Root() {
         <Route path="/restore" element={<Restore />} />
         <Route path="/r/:data" element={<SharedReport />} />
         <Route path="/r" element={<SharedReport />} />
+        <Route path="/f/:data" element={<FamilyOffer />} />
+        <Route path="/f" element={<FamilyOffer />} />
         {!role && <Route path="*" element={<Welcome />} />}
         {role === 'teacher' && (
           <>

@@ -20,6 +20,8 @@ const TYPES = {
   look: ['object'], streak: ['object'], nudges: ['object'], stepsOut: ['array'], classGoals: ['object'],
   // the daily reminder on this device (STUDENT-11)
   reminder: ['object'],
+  // the family challenge on this device (PRODUCT2-39)
+  family: ['object'],
 };
 const LEARN_TYPES = { skills: ['object'], miscon: ['object'], missions: ['object'], events: ['array'], exam: ['object', 'null'] };
 

@@ -1,5 +1,7 @@
 // Someone's solution with a mistake in it (CURRICULUM-6.1): its lines are a radio group ("איזו שורה שגויה?"); after the
-// wrong line is found (or shown), the student types the right value. Two tries for each.
+// wrong line is found (or shown), the student types the right value. Two tries for each. A line marked that is not the
+// mistake gets its own why (the part's lineWhy, PRODUCT2-18): the student learns why that line holds, not only that it
+// was not the one.
 import { useState } from 'react';
 import clsx from 'clsx';
 import { Check, X } from 'lucide-react';
@@ -10,12 +12,16 @@ import { useTries, resultOf, PartFooter, NumFields, CHECK, GO_ON, PI_VALUE_LINE,
 
 export const WHICH_LINE = 'איזו שורה שגויה?';
 
+/** What the student reads after marking line i that is not the mistake: "שורה 2 בסדר." and why it holds. */
+export const markedLineNote = (part, i) => (i == null || i === part.wrong || !part.lineWhy?.[i] ? null : `שורה ${i + 1} בסדר. ${part.lineWhy[i]}`);
+
 export default function ErrorPart({ part, onDone, last }) {
   const [phase, setPhase] = useState('line'); // then 'fix'
   const [sel, setSel] = useState(null);
   const [tried, setTried] = useState([]);
   const [values, setValues] = useState({ v: '' });
-  const [note, setNote] = useState(null);
+  // the line under the typed fix (a whole value typed into a □π row); the marked line's own note is `note` below
+  const [fixNote, setFixNote] = useState(null);
   const line = useTries();
   const fix = useTries();
   const onLine = phase === 'line';
@@ -30,11 +36,17 @@ export default function ErrorPart({ part, onDone, last }) {
     const r = numCheck(part.fix.answer, values.v || '');
     if (!r) return;
     // the whole value typed into a □π row: right, in another form; the try does not count
-    if (!r.ok && piValueTyped(part.fix.answer, part.fix.after, r.u)) { setNote(PI_VALUE_LINE); return; }
+    if (!r.ok && piValueTyped(part.fix.answer, part.fix.after, r.u)) { setFixNote(PI_VALUE_LINE); return; }
     if (r.ok) { fix.right(); play('correct'); } else { fix.miss(); play('wrong'); }
   };
+  const note = markedLineNote(part, tried[tried.length - 1]);
   const result = onLine
-    ? resultOf(line.state, { good: <p><MathText text={part.why} /></p>, retry: null, shown: <><p>{`השורה השגויה היא שורה ${part.wrong + 1}.`}</p><p><MathText text={part.why} /></p></> })
+    ? resultOf(line.state, {
+      good: <p><MathText text={part.why} /></p>,
+      retry: note && <p className="ch-line-why"><MathText text={note} /></p>,
+      // the mistake first (the solution is what the second miss needs), then why the line just marked holds
+      shown: <><p>{`השורה השגויה היא שורה ${part.wrong + 1}.`}</p><p><MathText text={part.why} /></p>{note && <p className="ch-line-why"><MathText text={note} /></p>}</>,
+    })
     : resultOf(fix.state, { good: null, retry: null, shown: <p><MathText text={`התשובה: $${answerTexOf(part.fix.answer, part.fix.after)}$.`} /></p> });
   const t = onLine ? line : fix;
   return (
@@ -59,8 +71,8 @@ export default function ErrorPart({ part, onDone, last }) {
         <section className="ch-fix" aria-labelledby="ch-fix-title">
           <p className="ch-ask" id="ch-fix-title"><MathText text={part.fix.prompt} /></p>
           <NumFields fields={[{ name: 'v', label: mathPlain(part.fix.prompt), after: part.fix.after }]} values={values} locked={fix.done}
-            state={fix.state === 'good' ? 'good' : fix.state === 'retry' ? 'bad' : null} note={fix.done ? null : note}
-            onChange={(v) => { setValues(v); setNote(null); fix.again(); }} onEnter={() => { if (!fix.done && readable) checkFix(); }} />
+            state={fix.state === 'good' ? 'good' : fix.state === 'retry' ? 'bad' : null} note={fix.done ? null : fixNote}
+            onChange={(v) => { setValues(v); setFixNote(null); fix.again(); }} onEnter={() => { if (!fix.done && readable) checkFix(); }} />
         </section>
       )}
       <PartFooter result={result} label={t.done ? (last && !onLine ? 'לסיום' : GO_ON) : CHECK}

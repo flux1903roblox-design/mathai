@@ -56,8 +56,9 @@ function substBugs(f, a, b, x) {
  */
 const substDiag = (f, a, b, x) => (u) => {
   const ans = substValue(f, a, b, x);
-  const hit = Object.entries(substBugs(f, a, b, x)).find(([, v]) => v != null && v !== ans && !slipOf(v, ans) && near(u, v));
-  return hit ? hit[0] : null;
+  // every mistake that gives this number (several: an ambiguous answer, content/index.js makeItem); a slip of the
+  // right answer's own digits names none (slipOf)
+  return Object.entries(substBugs(f, a, b, x)).filter(([, v]) => v != null && v !== ans && !slipOf(v, ans) && near(u, v)).map(([id]) => id);
 };
 /** The worked substitution: put the number in (brackets for a negative), multiply, then add or subtract. */
 function substSolution(f, a, b, x) {
@@ -179,7 +180,7 @@ const stepsWhy = (s, d) => `מהאיבר הראשון לאיבר ה־$n$ יש $n
 function patternLin() {
   const { s, d, P } = patternParams();
   return {
-    key: `ex2l:${s}:${d}:${P.head[0]}`, text: `${P.story(s, d)} כתבו ביטוי ל${P.what} ה־$n$.`, form: 'lin', var: 'n',
+    key: `ex2l:${s}:${d}:${P.head[0]}`, text: `${P.story(s, d)} כתבו ביטוי ל${P.what.replace(/^ה/, '')} ה־$n$.`, form: 'lin', var: 'n',
     answer: { k: d, c: s - d }, fig: { type: 'table', head: P.head, rows: patternRows(s, d, 4) },
     hint: `בכל צעד מוסיפים $${d}$, ולכן יש $${d}n$ בביטוי. בדקו את $n = 1$: הביטוי צריך לתת $${s}$.`,
     solution: [stepsWhy(s, d), `$${s} + ${d}(n - 1) = ${s} + ${d}n - ${d}$`, `$= ${linTex(d, s - d, 'n')}$`, `בדיקה: כש־$n = 1$ יוצא $${d} ${s - d < 0 ? '-' : '+'} ${abs(s - d)} = ${s}$, כמו בטבלה.`],
@@ -479,7 +480,7 @@ function identityMc() {
       choices, answer: choices.findIndex((c) => c.ok),
       hint: 'כנסו איברים דומים, ובדקו בהצבה של שני מספרים, למשל $x = 0$ ו־$x = 1$.',
       solution: [
-        `מכנסים: $${T(p)}x ${r < 0 ? '-' : '+'} ${abs(r)}x = ${linTex(K, 0)}$, והמספרים: $${T(C)}$. התשובה: $${linTex(K, C)}$`,
+        `מכנסים: $${T(p)}x ${r < 0 ? '-' : '+'} ${abs(r) === 1 ? '' : abs(r)}x = ${linTex(K, 0)}$, והמספרים: $${T(C)}$. התשובה: $${linTex(K, C)}$`,
         `$${linTex(conj.k, conj.c)}$ שווה לביטוי כש־$x = 1$ (שניהם $${orig(1)}$), אבל כש־$x = 0$ הביטוי $${orig(0)}$ ו־$${linTex(conj.k, conj.c)}$ נותן $${at(conj, 0)}$.`,
         `$${linTex(drop.k, drop.c)}$ שווה לביטוי כש־$x = 0$, אבל כש־$x = 1$ הוא $${at(drop, 1)}$ ולא $${orig(1)}$. הצבה אחת יכולה רק לגלות שביטויים שונים.`,
       ],
@@ -574,14 +575,17 @@ function simplifyItem() {
     hint: k === 0 ? 'קודם פותחים את הסוגריים, אחר כך מכנסים איברים דומים.' : 'קודם פותחים סוגריים. מינוס לפני סוגריים הופך את הסימן של כל איבר בתוכם.',
     solution: [`פותחים סוגריים: $${open1} ${second}$`, `מכנסים: $${linTex(K, C)}$`],
     diag: (u) => {
-      // only the first term in a bracket multiplied: a(x + b) gave ax + b, and c(x + e) gave cx + e
-      // (in a(x + b) − (x + e) the second bracket is the minus-bracket error, so there only the first counts)
-      const pd = k === 0 ? b + d : k === 1 ? b - e : b + e;
-      if (is(u, K, pd)) return 'partial-dist';
-      // a minus before the brackets changed only the first sign: −(x + e) gave −x + e
-      if ((k === 1 || (k === 2 && c < 0)) && is(u, K, a * b - c * e)) return 'minus-bracket';
-      if (is(u, K + C, 0)) return 'conjoin';
-      return null;
+      // only the first term in a bracket multiplied: a(x + b) gave ax + b, and c(x + e) gave cx + e, in one bracket or
+      // in both (in a(x + b) − (x + e) the second bracket is the minus-bracket error, so there only the first counts)
+      const pd = k === 0 ? [b + d] : k === 1 ? [b - e] : [b + e, b + c * e, a * b + e];
+      // every mistake that gives this expression: the two bracket mistakes can give the same one, and then the answer
+      // is ambiguous (content/index.js makeItem)
+      return [
+        pd.some((v) => is(u, K, v)) && 'partial-dist',
+        // a minus before the brackets changed only the first sign: −(x + e) gave −x + e
+        (k === 1 || (k === 2 && c < 0)) && is(u, K, a * b - c * e) && 'minus-bracket',
+        is(u, K + C, 0) && 'conjoin',
+      ].filter(Boolean);
     },
   };
 }

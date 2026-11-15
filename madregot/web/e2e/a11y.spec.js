@@ -11,7 +11,9 @@
 // Last, the units merged after the scan was written: the functions unit (its graphs, the protractor and the clock),
 // the data and probability units (the simulate and chart objects and their figures), the guest rule, and the classroom
 // lane (signed:7, the angle tool with a whole angle, angles:7, the class's word problems and their solutions), and the
-// measurement units of curriculum stage 2 (the grid, net and circle objects, the net and solid figures, answers with π).
+// measurement units of curriculum stage 2 (the grid, net and circle objects, the net and solid figures, answers with π),
+// the geometry units of stage 4, and the product2 lane's screens (rewards, the path as a journey, celebrations, the
+// ghost race, the teacher's board, the parents' page with no account, the printed exam).
 // The setups the other specs use too (the class, the teachers, the parent and the family devices, the class exam, the
 // landing pages) live in helpers.js and fakeServer.js.
 import { test, expect } from '@playwright/test';
@@ -19,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import {
   NOW, open, openOn, student, livedIn, item, answer, type, proceed, proceedToNext, appReady, screenReady, DURABLE_DB,
   withServer, inClass, dressed, doneStairs, linkedWeek, reportWeek, backupFile, examPng, keyTeacher, ownedTeacher, openLanding, landingMetrics,
+  playDiscover, stageDone, openUnit, openAdults,
 } from './helpers.js';
 import {
   fakeServer, API, CORS, livePlan, TABLET, examWork, given, PUSH_KEY, PARENT, TOKEN, parentServer, nine, helpNoa, yoavPage,
@@ -617,15 +620,17 @@ test.describe('the profile and Settings', () => {
     await open(page, '#/me/madi', dressed());
     await expect(page.getByRole('heading', { level: 1, name: 'המדי שלי' })).toBeVisible();
     await scan(page, 'the wardrobe');
-    const colours = page.getByRole('radiogroup', { name: 'צבע' });
-    await colours.getByRole('radio', { name: /^זהב/ }).focus();
+    // a piece still locked is a row under "בדרך למדי" (PRODUCT2-36: no wall of locked tiles); Enter opens how it opens
+    const soon = page.getByRole('region', { name: 'בדרך למדי' }).getByRole('button', { name: /^פפיון/ });
+    await soon.focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('dialog', { name: 'זהב' })).toContainText('נפתח כשתשלטו');
+    await expect(page.getByRole('dialog', { name: 'פפיון' })).toContainText('נפתח אחרי 10 שלבים של לימוד');
     await scan(page, 'the locked piece\'s sheet');
   });
 
   test('Settings with no server: the backup file, the reminder\'s line, the delete-all sheet', async ({ page }) => {
     await open(page, '#/settings', livedIn('7'));
+    await openAdults(page); // the adults' section is folded (PRODUCT2-41): scanned open
     await expect(page.locator('.save-section')).toBeVisible();
     await scan(page, 'Settings, no server');
     await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
@@ -644,6 +649,7 @@ test.describe('the profile and Settings', () => {
   test('Settings with a server: joining a class, the backup code made, shown and stopped', async ({ page }) => {
     await fakeServer(page.context(), { parentOk: true }, baseOf());
     await open(page, '#/settings', withServer());
+    await openAdults(page);
     await expect(page.getByRole('button', { name: 'ליצור קוד גיבוי' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'הצטרפות לכיתה' })).toBeVisible();
     await scan(page, 'Settings with a server, the backup off');
@@ -667,6 +673,7 @@ test.describe('the profile and Settings', () => {
     const st = inClass();
     st.state.backup = { on: true, code, lookup, rev: null, at: null, hash: null, escrow: 'class', state: 'idle' };
     await open(page, '#/settings', st);
+    await openAdults(page);
     await expect(page.getByRole('switch', { name: 'שמירת עותק בשרת הכיתה' })).toBeChecked();
     await expect(page.locator('.save-kept')).toBeVisible();
     await scan(page, 'Settings, the class keeps the code');
@@ -786,7 +793,8 @@ test.describe('the tutor', () => {
 
   test('the assistant with no server: not connected, and the support sheet from it', async ({ page }) => {
     await open(page, '#/assistant', student('7'));
-    await expect(page.getByRole('heading', { name: 'העוזר עוד לא מחובר' })).toBeVisible();
+    // with no server the tab says where the explaining already is (PRODUCT2-40), never a bare "not connected"
+    await expect(page.getByRole('heading', { name: 'מדי מסביר בכל שיעור' })).toBeVisible();
     await scan(page, 'the assistant, not connected');
     await page.getByRole('button', { name: 'צריכים לדבר עם מישהו?' }).click();
     await expect(page.getByRole('dialog', { name: 'חשוב לנו שתהיו בסדר' })).toBeVisible();
@@ -838,7 +846,9 @@ test.describe('the tutor', () => {
   test('waiting for a parent\'s OK: the assistant and the sheet', async ({ page }) => {
     await fakeServer(page, {}, baseOf()); // parentOk false, as on the real server
     await open(page, '#/assistant', withServer());
-    await expect(page.getByRole('heading', { name: 'קודם, אישור של הורה' })).toBeVisible();
+    // what the helper does and "לבקש מהורה" first (PRODUCT2-40); a send opens the parent-OK sheet
+    await expect(page.getByRole('heading', { name: 'מה העוזר החכם עושה' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'לבקש מהורה' })).toBeVisible();
     await scan(page, 'the assistant, waiting for a parent');
     const draft = page.getByLabel('ההודעה שלכם');
     await draft.fill('מה זה שבר?'); await draft.press('Enter');
@@ -1389,6 +1399,7 @@ test.describe('the remaining sheets: the student', () => {
 
     test('Settings › שמירת ההתקדמות: when browsers delete data (PersistInfoSheet) and the Home Screen guide (InstallSheet)', async ({ page }) => {
       await open(page, '#/settings', student('7'));
+      await openAdults(page);
       await page.getByRole('button', { name: 'מתי דפדפן מוחק נתונים' }).click();
       const info = page.getByRole('dialog', { name: 'מתי דפדפן מוחק נתונים' });
       await expect(info).toContainText('אפליקציה שהוספתם למסך הבית לא נמחקת כך.');
@@ -1487,13 +1498,14 @@ test.describe('the remaining sheets: parents and teachers', () => {
     await scan(page, 'binding from a device that typed the key (the question)');
   });
 
-  test('giving work, sent: "לספר לכיתה?" (AssignSheet)', async ({ page }) => {
+  test('giving work, sent: "לספר לתלמידים?" (AssignSheet)', async ({ page }) => {
     await fakeServer(page, richClass(), baseOf());
     await open(page, '#/teacher', keyTeacher());
     await page.getByRole('region', { name: 'כדאי לבדוק איתם' }).getByRole('button', { name: 'יואב', exact: true }).click();
     await page.getByRole('dialog', { name: 'יואב' }).getByRole('button', { name: 'לתת תרגול' }).click();
     await page.getByRole('dialog', { name: 'משימה לכיתה ז׳3' }).getByRole('button', { name: 'שליחה לכיתה' }).click();
-    await expect(page.getByRole('dialog', { name: 'לספר לכיתה?' })).toBeVisible();
+    // work for one student tells the students it is for (the product2 lane's AssignSheet)
+    await expect(page.getByRole('dialog', { name: 'לספר לתלמידים?' })).toBeVisible();
     await scan(page, 'telling the class (AssignSheet, sent)');
   });
 
@@ -2137,5 +2149,134 @@ test.describe('the geometry units (stage 4)', () => {
     await page.goto('about:blank');
     await open(page, '#/topic/transf', student('8'));
     await scan(page, 'the transformations\' topic page');
+  });
+});
+
+// ---------------------------------------------------------------- the product2 lane (merged after the scan was written)
+// Its new screens and states: the rewards (the unlock moment after a first stage, the wardrobe's meter, the quests
+// chest's choice of one of two pieces, the path's chests), the path as a journey (the unit the student is on, the next
+// previewed, the rest folded), the celebrations (the daily goal, the stage done, the 3-day milestone), the ghost race
+// and the family challenge on the missions tab and in the weekly summary, the teacher's board (a repeated mistake given
+// as a repair, an exam solved in the app on the exams tab), the parents' page with no account (what the plan gives,
+// the family challenge's card), and the printed practice exam with its key.
+test.describe('the product2 lane', () => {
+  test('the rewards: the first stage\'s piece and its moment, the wardrobe\'s meter, the quests chest\'s choice', async ({ page }) => {
+    await open(page, '#/learn/signed/1/A', student('7'));
+    await playDiscover(page);
+    const moment = await stageDone(page, 1);
+    await scan(page, 'a teaching stage done, with a new piece for מדי');
+    await moment.getByRole('button', { name: 'לדוגמה הפתורה', exact: true }).click();
+    await expect(page.locator('.unlock-stage')).toBeVisible();
+    await scan(page, 'the unlock moment');
+    await page.locator('.unlock-stage').getByRole('button', { name: 'לשמור על מדי' }).click();
+    await expect(page).toHaveURL(/learn\/signed\/1\/B/);
+    await page.goto('./#/me/madi');
+    await expect(page.locator('.wardrobe-meter')).toBeVisible();
+    await scan(page, 'the wardrobe with its meter to the next piece');
+    await page.goto('about:blank');
+    await open(page, '#/quests', student('7', { days: { '2026-11-05': { lessons: 2, questsRewarded: true } } }));
+    const choice = page.getByRole('group', { name: 'בחרו חלק אחד למדי' });
+    await expect(choice.getByRole('button')).toHaveCount(2);
+    await scan(page, 'the quests chest: one of two pieces');
+    await choice.getByRole('button', { name: /^מדליה/ }).click();
+    await expect(choice).toContainText('מדליה אצל מדי.');
+    await scan(page, 'the quests chest: a piece chosen, the other waits');
+  });
+
+  test('the path as a journey: the unit the student is on, the next previewed, the rest folded; a chest opened', async ({ page }) => {
+    await open(page, '#/', student('7'));
+    await expect(page.locator('section.unit.is-preview')).toHaveCount(1);
+    await scan(page, 'home: the unit, the next one previewed, the others folded');
+    await page.locator('section.unit-row').first().getByRole('button').click();
+    await scan(page, 'home: a folded unit opened');
+    await page.goto('about:blank');
+    await open(page, '#/', dressed());
+    const angles = await openUnit(page, 'זוויות');
+    await angles.getByRole('button', { name: /^תיבת אוצר\. פתוחה/ }).click();
+    await expect(angles.locator('.node-card')).toContainText('פתחתם: כתר מד־זווית.');
+    await scan(page, 'the path\'s chest, open, with its piece');
+  });
+
+  test('the celebrations: the daily goal, the stage done and the 3-day milestone', async ({ page }) => {
+    // two school days learned before Thursday 5 November (helpers.js NOW), a goal of 10 XP
+    const days = { '2026-11-03': { lessons: 1, xp: 12, q: 8, ok: 7 }, '2026-11-04': { lessons: 1, xp: 12, q: 8, ok: 7 } };
+    await open(page, '#/learn/signed/1/A', student('7', { days, goalXp: 10 }));
+    await playDiscover(page);
+    const goal = page.locator('.goal-stage');
+    await expect(goal).toBeVisible();
+    await scan(page, 'the daily goal reached');
+    await goal.getByRole('button', { name: 'המשך', exact: true }).click();
+    const stage = page.locator('.stage-done');
+    await expect(stage).toBeVisible();
+    await scan(page, 'the stage done, with its XP');
+    await stage.getByRole('button', { name: 'לדוגמה הפתורה', exact: true }).click();
+    await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+    const ms = page.locator('.streak-milestone');
+    await expect(ms).toBeVisible();
+    await scan(page, 'the 3-day milestone');
+  });
+
+  test('the ghost race and the family challenge on the missions tab, and the challenge in the weekly summary', async ({ page }) => {
+    const WEDNESDAY = new Date('2026-11-11T17:00:00');
+    const days = {
+      '2026-11-01': { lessons: 2, xp: 24 }, '2026-11-03': { lessons: 1, stages: 1, xp: 20 }, '2026-11-05': { lessons: 1, xp: 12 },
+      '2026-11-08': { lessons: 1, stages: 2, xp: 30, q: 8, ok: 7, secs: 400 }, '2026-11-10': { lessons: 2, xp: 24, q: 12, ok: 9, secs: 560 },
+    };
+    const family = { challenges: { '2026-11-08': { k: 'd', n: 4, at: '2026-11-08T08:00:00.000Z' } }, sent: null };
+    await open(page, '#/quests', student('7', { days, family }), '424242', WEDNESDAY);
+    await expect(page.locator('.ghost-card')).toBeVisible();
+    await expect(page.locator('.family-card')).toBeVisible();
+    await scan(page, 'the missions tab: the family challenge and the ghost race');
+    await page.goto('./#/report');
+    await expect(page.locator('.report-challenge')).toBeVisible();
+    await scan(page, 'the weekly summary with the family challenge');
+  });
+
+  test('the parents\' page with no account: what the plan gives, and the family challenge\'s card', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-11-08T10:00:00'));
+    await page.goto('./#/parents');
+    await appReady(page);
+    const card = page.locator('.challenge-card');
+    await expect(card.getByRole('heading', { level: 2, name: 'אתגר משפחתי לשבוע' })).toBeVisible();
+    await scan(page, 'the parents\' page with no account');
+    await card.getByRole('radio', { name: '5 ימי תרגול' }).check();
+    await scan(page, 'the family challenge: another goal chosen');
+  });
+
+  test('the printed practice exam and its key', async ({ page }) => {
+    await open(page, '#/exams/new', student('7'));
+    for (const t of ['מערכת צירים', 'זוויות']) await page.getByRole('checkbox', { name: t }).click();
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await page.getByRole('radio', { name: /10 שאלות/ }).click();
+    await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+    await expect(page.locator('.exam-q')).toHaveCount(10);
+    await scan(page, 'the printed practice exam');
+    await page.getByRole('button', { name: 'סיימתי, למפתח התשובות' }).click();
+    await expect(page.locator('.answer-key li')).toHaveCount(10);
+    await scan(page, 'the printed exam\'s answer key');
+  });
+
+  test('the teacher\'s board: a repeated mistake given as a repair, and an exam solved in the app', async ({ page }) => {
+    const mistake = { topic: 'signed', cat: 'sign', level: 1, n: 5, students: 2, ids: ['a1', 'b2'], names: ['דנה', 'יואב'] };
+    await fakeServer(page, { mistakes: [mistake] }, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    const row = page.locator('.t-row', { hasText: 'התשובה יצאה עם הסימן ההפוך' });
+    await expect(row).toBeVisible();
+    await scan(page, 'the board: a repeated mistake with its stair');
+    await row.getByRole('button', { name: 'לתת תרגול על זה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'משימה לכיתה ז׳3' });
+    await expect(sheet.getByRole('radio', { name: /לתקן טעות/ })).toBeChecked();
+    await scan(page, 'the repair of that mistake, for the students who made it');
+    await page.goto('about:blank');
+    const qs = [{ topic: 'signed', level: 1, status: 'correct' }, { topic: 'signed', level: 2, status: 'wrong' }, { topic: 'coord', level: 1, status: 'partial' }, { topic: 'signed', level: 3, status: 'wrong' }];
+    const examWork = { id: 'a000000000000004', kind: 'exam', skill: null, title: 'מבחן תרגול: מספרים מכוונים', note: '', startsOn: '2026-11-02', dueOn: '2026-11-06', forAll: true, targets: [], createdAt: '2026-11-02T07:00:00.000Z', exam: [{}, {}, {}, {}], version: 'a' };
+    await fakeServer(page, {
+      assignments: [examWork],
+      work: { a000000000000004: { a1: { state: 'done', right: 1, asked: 4, questions: qs, tries: 1, startedAt: '2026-11-04T09:00:00Z', doneAt: '2026-11-04T09:20:00Z', doneDay: '2026-11-04' } } },
+    }, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await page.getByRole('tab', { name: 'מבחנים (1)' }).click();
+    await expect(page.getByRole('region', { name: 'טבלת המבחנים' }).locator('tbody tr')).toHaveCount(1);
+    await scan(page, 'the exams tab: a class exam solved in the app');
   });
 });

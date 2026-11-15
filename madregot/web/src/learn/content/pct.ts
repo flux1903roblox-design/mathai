@@ -132,7 +132,7 @@ const stair1: StairContent = {
       steps: [
         { prompt: '$0.6$ הם כמה מאיות?', choices: [
           { text: '$60$', ok: true, feedback: 'נכון: $0.6 = 0.60$, שישים מאיות.' },
-          { text: '$6$', ok: false, feedback: '$0.6 = 0.60$: שש עשיריות הן שישים מאיות.' },
+          { text: '$6$', ok: false, misc: 'digit-pct', feedback: '$0.6 = 0.60$: שש עשיריות הן שישים מאיות.' },
         ], hints: ['הוסיפו אפס בסוף: $0.6 = 0.60$.', 'עשירית אחת היא $10$ מאיות.'], done: '$0.6 = \\frac{60}{100}$.' },
       ],
       final: { prompt: 'כמה אחוזים?', answer: 60, check: '0.6*100', hints: ['מאיות הן אחוזים.', '$60$ מאיות.'] } },
@@ -250,7 +250,7 @@ const stair2: StairContent = {
       steps: [
         { prompt: 'כמה הם $10\\%$ מ־$70$?', choices: [
           { text: '$7$', ok: true, feedback: 'נכון: $70 : 10 = 7$.' },
-          { text: '$10$', ok: false, feedback: '$10$ הוא האחוז, לא הכמות.' },
+          { text: '$10$', ok: false, misc: 'count-as-pct', feedback: '$10$ הוא האחוז, לא הכמות.' },
           { text: '$0.7$', ok: false, feedback: '$0.7$ הם $1\\%$.' },
         ], hints: ['$10\\%$ הם עשירית.', '$70 : 10$.'], done: '$10\\%$ מ־$70$ הם $7$.' },
       ],
@@ -259,7 +259,7 @@ const stair2: StairContent = {
       steps: [
         { prompt: '$25\\%$ הם:', choices: [
           { text: 'רבע', ok: true, feedback: 'נכון: $\\frac{25}{100} = \\frac{1}{4}$.' },
-          { text: '$\\frac{1}{25}$', ok: false, feedback: '$\\frac{1}{25}$ הוא $4\\%$.' },
+          { text: '$\\frac{1}{25}$', ok: false, misc: 'div-by-pct', feedback: '$\\frac{1}{25}$ הוא $4\\%$.' },
         ], hints: ['$25$ מתוך $100$.', '$\\frac{25}{100}$ אחרי צמצום.'], done: '$25\\%$ הם רבע.' },
       ],
       final: { prompt: 'כמה מנגנים?', answer: 7, check: '28/4', hints: ['רבע מ־$28$.', '$28 : 4$.'] } },
@@ -368,7 +368,7 @@ const stair3: StairContent = {
       steps: [
         { prompt: 'איזה שבר?', choices: [
           { text: '$\\frac{12}{80}$', ok: true, feedback: 'נכון: החלק למעלה, השלם למטה.' },
-          { text: '$\\frac{80}{12}$', ok: false, feedback: 'החלק למעלה, השלם למטה.' },
+          { text: '$\\frac{80}{12}$', ok: false, misc: 'inverse-ratio', feedback: 'החלק למעלה, השלם למטה.' },
         ], hints: ['מהו השלם? מה שאחרי "מתוך".', 'החלק $12$, השלם $80$.'], done: 'השבר $\\frac{12}{80}$.' },
       ],
       final: { prompt: 'כמה אחוזים?', answer: 15, check: '12/80*100', hints: ['כופלים את השבר ב־$100$.', '$\\frac{12}{80} \\cdot 100$.'] } },
@@ -376,7 +376,7 @@ const stair3: StairContent = {
       steps: [
         { prompt: 'מהו השלם?', choices: [
           { text: 'המחיר הקודם, $40$', ok: true, feedback: 'נכון: משווים למחיר הקודם.' },
-          { text: 'המחיר החדש, $50$', ok: false, feedback: 'השאלה משווה למחיר הקודם, ולכן הוא השלם.' },
+          { text: 'המחיר החדש, $50$', ok: false, misc: 'inverse-ratio', feedback: 'השאלה משווה למחיר הקודם, ולכן הוא השלם.' },
         ], hints: ['"כמה אחוזים מ..." : אחרי "מ־" בא השלם.', 'מהמחיר הקודם.'], done: 'השלם $40$, $100\\%$.' },
       ],
       final: { prompt: 'כמה אחוזים?', answer: 125, check: '50/40*100', hints: ['$\\frac{50}{40} \\cdot 100$.', '$\\frac{50}{40} = 1.25$.'] } },
@@ -493,8 +493,8 @@ const stair4: StairContent = {
       steps: [
         { prompt: 'כמה הם $10\\%$ מהדרך?', choices: [
           { text: '$15$ ק״מ', ok: true, feedback: 'נכון: $30\\%$ הם שלוש פעמים $10\\%$, ו־$45 : 3 = 15$.' },
-          { text: '$13.5$ ק״מ', ok: false, feedback: '$13.5$ הם $30\\%$ מ־$45$. אבל $45$ הוא החלק, לא השלם.' },
-          { text: '$4.5$ ק״מ', ok: false, feedback: '$4.5$ הם $10\\%$ מ־$45$. אבל $45$ הם כבר $30\\%$ מהדרך.' },
+          { text: '$13.5$ ק״מ', ok: false, misc: 'pct-of-part', feedback: '$13.5$ הם $30\\%$ מ־$45$. אבל $45$ הוא החלק, לא השלם.' },
+          { text: '$4.5$ ק״מ', ok: false, misc: 'pct-of-part', feedback: '$4.5$ הם $10\\%$ מ־$45$. אבל $45$ הם כבר $30\\%$ מהדרך.' },
         ], hints: ['$30\\%$ הם שלושה חלקים של $10\\%$.', '$45 : 3$.'], done: '$10\\%$ מהדרך הם $15$ ק״מ.' },
       ],
       final: { prompt: 'כמה ק״מ הדרך כולה?', answer: 150, check: '45/30*100', hints: ['$100\\%$ הם עשר פעמים $10\\%$.', '$15 \\cdot 10$.'] } },
@@ -617,7 +617,7 @@ const stair5: StairContent = {
       steps: [
         { prompt: 'בכמה כופלים את המחיר?', choices: [
           { text: '$0.85$', ok: true, feedback: 'נכון: אחרי הנחה של $15\\%$ נשארים $85\\%$.' },
-          { text: '$0.15$', ok: false, feedback: '$0.15$ נותן את ההנחה עצמה, לא את המחיר.' },
+          { text: '$0.15$', ok: false, misc: 'change-only', feedback: '$0.15$ נותן את ההנחה עצמה, לא את המחיר.' },
           { text: '$1.15$', ok: false, feedback: 'כפל ב־$1.15$ הוא התייקרות. בהנחה המחיר יורד.' },
         ], hints: ['כמה אחוזים מהמחיר נשארים?', '$100\\% - 15\\%$.'], done: 'כופלים ב־$0.85$.' },
       ],

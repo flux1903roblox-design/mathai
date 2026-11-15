@@ -17,6 +17,7 @@
 import { TOPICS, isCorrect, loadAllGens } from './index.js';
 import { META, loadAllContent } from '@/learn/content/index.ts';
 import { isRestDay, YOMTOV_IL } from '@shared/restDays.js';
+import { PLAN_TEXT } from './familyPlan.js';
 
 const he = (s) => typeof s === 'string' && /[֐-׿]/.test(s);
 
@@ -37,13 +38,21 @@ export function countNamedMistakes(content = META, topics = TOPICS) {
 // CURRICULUM-1's programme (the Ministry's hours and what the app covers), once that lane has merged: {} until then
 const PROGRAMME = import.meta.glob('../learn/programme.ts', { eager: true });
 
-/** The share of both grades' programme hours the app teaches, as a whole percentage; null without the programme. */
+/**
+ * Each grade's coverage of its programme hours, as its own sentence: { 7, 8 }, the sentences store/counts.json holds and
+ * the /programme page shows (shared/coverage.js coverageSentence), or null without the programme. Never one share of
+ * both grades together: a grade-8 parent reads grade 8's (SK-BUYERS-3).
+ */
 export function programmeCoverage(mods = PROGRAMME) {
-  const coverageOf = Object.values(mods)[0]?.coverageOf;
-  if (typeof coverageOf !== 'function') return null;
-  const g = ['7', '8'].map((x) => coverageOf(x));
-  const hours = g.reduce((a, c) => a + (c?.hours || 0), 0);
-  return hours ? Math.round((100 * g.reduce((a, c) => a + (c?.taught || 0), 0)) / hours) : null;
+  const m = Object.values(mods)[0];
+  if (typeof m?.coverageOf !== 'function' || typeof m?.coverageSentence !== 'function') return null;
+  const out = {};
+  for (const g of ['7', '8']) {
+    const c = m.coverageOf(g);
+    if (!c?.hours) return null;
+    out[g] = m.coverageSentence(g, c);
+  }
+  return out;
 }
 
 /** Every misconception of every stair has its own explanation (the "mistakes" claim's second half). */
@@ -83,6 +92,11 @@ const FACT = {
   reportAnswer: ({ code }) => grep(code, 'worker/src/index.js', /p === '\/api\/ai\/report'/),
   parentOk: ({ code }) => grep(code, 'worker/src/family.js', /LINK_PURPOSES = Object\.freeze\(\[[^\]]*'consent'/),
   localReminders: ({ code }) => grep(code, 'web/src/lib/localReminder.js', /export function planReminders/) && grep(code, 'web/src/lib/push.js', /if \(storeIos\(env\)\) return 'store-ios'/),
+  // the family plan for the parent (PRODUCT2-30): the day's summary stored from the child's device and shown on /parents
+  // with its weeks; the Sunday email; the exam ahead, in that email and as the banner on /parents
+  syncedReport: ({ code }) => grep(code, 'worker/src/report.js', /INSERT INTO family_daily/) && grep(code, 'web/src/screens/parents/FamilyReport.jsx', /<WeeksChart /),
+  sundayEmail: ({ code }) => grep(code, 'worker/src/report.js', /export async function weeklyQueue/) && grep(code, 'worker/src/email.js', /function weeklyNotice/),
+  examReady: ({ code }) => grep(code, 'worker/src/email.js', /exam: \(ex\) =>/) && grep(code, 'web/src/screens/parents/FamilyReport.jsx', /export function ExamBanner/),
 };
 
 /** Every claim. Read the top of this file before adding one. */
@@ -115,9 +129,13 @@ export const CLAIMS = [
     he: 'כל השיעורים, התרגול, תוכנית החזרה למבחן ומבחן תרגול להדפסה עם מפתח תשובות.',
     check: ({ code }) => code.has('web/src/screens/Rescue.jsx') && grep(code, 'web/src/screens/PracticeExam.jsx', /window\.print\(\)/) && grep(code, 'web/src/screens/PracticeExam.jsx', /id="answer-key"/),
   },
+  // the family plan, in the order a parent gets it (content/familyPlan.js holds the words; the app says them too)
+  { id: 'synced-report', required: true, he: PLAN_TEXT['synced-report'], check: FACT.syncedReport },
+  { id: 'sunday-email', required: true, he: PLAN_TEXT['sunday-email'], check: FACT.sundayEmail },
+  { id: 'exam-ready', required: true, he: PLAN_TEXT['exam-ready'], check: FACT.examReady },
   {
     id: 'ai-helper', required: true,
-    he: 'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',
+    he: PLAN_TEXT['ai-helper'],
     check: ({ code }) => code.has('web/src/screens/Assistant.jsx') && code.has('web/src/screens/ExamCheck.jsx') && grep(code, 'shared/aiKinds.js', /AI_KINDS = \[[^\]]*'explain'[^\]]*'check'/),
   },
   {
@@ -186,11 +204,12 @@ export const CLAIMS = [
     check: FACT.tutorKnows,
   },
   {
+    // each grade on its own (SK-BUYERS-3), in the sentences store/counts.json holds
     id: 'coverage', needs: 'CURRICULUM-1',
-    he: 'מכסה {{COVERAGE}}% משעות תכנית הלימודים במתמטיקה של כיתות ז׳ ו־ח׳.',
-    marks: ['משעות תכנית הלימודים'],
-    fill: ({ data }) => ({ COVERAGE: data.coverage }),
-    check: ({ data }) => Number.isFinite(data?.coverage) && data.coverage > 0,
+    he: '{{COVERAGE_7}} {{COVERAGE_8}}',
+    marks: ['שעות ההוראה של כיתה'],
+    fill: ({ data }) => ({ COVERAGE_7: data.coverage?.['7'], COVERAGE_8: data.coverage?.['8'] }),
+    check: ({ data }) => typeof data?.coverage?.['7'] === 'string' && typeof data.coverage['8'] === 'string',
   },
   {
     id: 'chatbot', needs: 'AI-1, AI-3',

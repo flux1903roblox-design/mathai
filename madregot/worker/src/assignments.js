@@ -1,5 +1,6 @@
 // Work a teacher gives the class (spec TEACHER-4) and the students' side of it (TEACHER-5 §1): a stair to learn (all
-// five stages), a mastery check, or a class practice exam frozen at the moment it is sent, for the whole class or for
+// five stages), a mastery check, a class practice exam frozen at the moment it is sent, or the repair of one mistake on
+// one stair (SK-BUYERS-2: its own explanation and activity, then its 3-question check), for the whole class or for
 // chosen students, with a due date. Results are worked out on the student's device and reported here: practice, not a
 // graded test. Late is a Jerusalem day (done_day > due_on), shown to the teacher only.
 //
@@ -16,6 +17,7 @@
 // Deleting a student or a class deletes their work and targets (forget.js STUDENT_ROWS, classDeleteSteps); the night
 // purge deletes an assignment 400 days after its due date (cron.js, shared/retention.js).
 import { TOPIC_IDS } from '../../shared/ai.js';
+import { isStairMisc } from '../../shared/stairMiscs.gen.js';
 import { HttpError, body, json, nowIso, dayOf, nextDay, isDay, randomToken, key, take, giveBack, limitOrThrow } from './util.js';
 import { requireTeacher, requireStudent } from './entitle.js';
 import { classSeenStmt, teacherDetail } from './licence.js';
@@ -48,6 +50,15 @@ const LIMIT = { create: 64 * KB, small: 4 * KB };
 const TOPICS = TOPIC_IDS.filter((t) => t !== 'other');
 const FORMS = ['num', 'mc', 'pt', 'line', 'lin', 'frac'];
 const STATUSES = ['correct', 'partial', 'wrong', 'missing'];
+
+/** The kinds a teacher gives. */
+export const KINDS = Object.freeze(['stair', 'check', 'exam', 'repair']);
+/**
+ * A repair is kept as a 'stair' row with its misconception in misc (migration 0009_repair_work: the kind's CHECK predates repairs,
+ * and a migration only adds columns). Every read names the kind with this expression, or kindOf for a whole row.
+ */
+export const KIND_SQL = (t = 'a') => `CASE WHEN ${t}.misc IS NOT NULL THEN 'repair' ELSE ${t}.kind END`;
+export const kindOf = (row) => (row.misc != null ? 'repair' : row.kind);
 
 const bad = (field, extra = {}) => new HttpError(400, 'bad_assignment', undefined, { field, ...extra });
 const badWork = (field) => new HttpError(400, 'bad_work', undefined, { field });
@@ -160,7 +171,7 @@ export function cleanExamItems(items) {
 // ---------------------------------------------------------------- reading assignments
 // One aggregate: each assignment with the students it is for (the class's current students, or the named ones still in
 // it) and what they did, by state. Late is by Jerusalem day: done after the due day, or not done when the day is over.
-const LIST_SQL = `SELECT a.id, a.kind, a.skill, a.title, a.note, a.version, a.for_all, a.starts_on, a.due_on, a.created_at,
+const LIST_SQL = `SELECT a.id, ${KIND_SQL()} AS kind, a.skill, a.misc, a.title, a.note, a.version, a.for_all, a.starts_on, a.due_on, a.created_at,
     a.exam IS NOT NULL AS has_exam, CASE WHEN a.exam IS NOT NULL THEN json_array_length(a.exam) END AS exam_count,
     (SELECT group_concat(t.student_id) FROM assignment_targets t JOIN students s ON s.id = t.student_id
       WHERE t.assignment_id = a.id AND s.class_code = a.class_code) AS target_ids,
@@ -177,7 +188,7 @@ function view(r, today) {
   const assigned = Number(r.assigned) || 0; const started = Number(r.started) || 0; const done = Number(r.done) || 0;
   const notStarted = Math.max(0, assigned - started - done);
   return {
-    id: r.id, kind: r.kind, skill: r.skill, title: r.title, note: r.note, startsOn: r.starts_on, dueOn: r.due_on,
+    id: r.id, kind: r.kind, skill: r.skill, misc: r.misc ?? null, title: r.title, note: r.note, startsOn: r.starts_on, dueOn: r.due_on,
     forAll: !!r.for_all, targets: r.target_ids ? String(r.target_ids).split(',').sort() : [], createdAt: r.created_at,
     hasExam: !!r.has_exam, examCount: r.exam_count == null ? null : Number(r.exam_count), version: r.version || null,
     counts: { assigned, notStarted, started, done, late: Number(r.done_late) + (r.due_on < today ? assigned - done : 0) },
@@ -210,18 +221,21 @@ export async function listAssignments(req, env, cors) {
 }
 
 /**
- * POST /api/teacher/assignments {kind, skill?, title, note?, startsOn?, dueOn, targets?, exam?: {items, version}}
- * → 201 {assignment, moved}. At most 20 open in a class (409 too_many_open) and 30 made a day (429
+ * POST /api/teacher/assignments {kind, skill?, misc?, title, note?, startsOn?, dueOn, targets?, exam?: {items, version}}
+ * → 201 {assignment, moved}. A repair names one of its stair's own misconceptions (misc, shared/stairMiscs.gen.js); no
+ * other kind names one (400 field 'misc'). At most 20 open in a class (409 too_many_open) and 30 made a day (429
  * too_many_assignments). A due date on a rest day moves to the next day (moved: true).
  */
 export async function createAssignment(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const b = await body(req, LIMIT.create);
   const today = dayOf();
-  const kind = ['stair', 'check', 'exam'].includes(b.kind) ? b.kind : null;
+  const kind = KINDS.includes(b.kind) ? b.kind : null;
   if (!kind) throw bad('kind');
   const skill = kind === 'exam' ? null : cleanSkill(b.skill);
   if (kind !== 'exam' && !skill) throw bad('skill');
+  const misc = kind === 'repair' ? b.misc : null;
+  if (kind === 'repair' ? !(typeof misc === 'string' && isStairMisc(skill, misc)) : b.misc != null) throw bad('misc');
   const startsOn = b.startsOn == null ? today : String(b.startsOn);
   if (!isDay(startsOn) || startsOn < today) throw bad('startsOn');
   const due = dueDate(b.dueOn, today, { from: startsOn });
@@ -253,13 +267,14 @@ export async function createAssignment(req, env, cors) {
   // the open cap is checked again in the insert itself, so two teachers' devices at once cannot pass it together
   const exists = 'EXISTS (SELECT 1 FROM assignments WHERE id = ?1)';
   const res = await env.DB.batch([
-    env.DB.prepare(`INSERT INTO assignments (id, class_code, kind, skill, title, note, exam, version, for_all, starts_on, due_on, created_at)
-      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12
+    // a repair is kept as a stair row with its misconception (KIND_SQL)
+    env.DB.prepare(`INSERT INTO assignments (id, class_code, kind, skill, title, note, exam, version, for_all, starts_on, due_on, created_at, misc)
+      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?15
       WHERE (SELECT COUNT(*) FROM assignments WHERE class_code = ?2 AND due_on >= ?13) < ?14`)
-      .bind(id, cls.code, kind, skill, title, note, exam, version, targets.length ? 0 : 1, startsOn, due.day, made, openFrom, ASSIGN.open),
+      .bind(id, cls.code, kind === 'repair' ? 'stair' : kind, skill, title, note, exam, version, targets.length ? 0 : 1, startsOn, due.day, made, openFrom, ASSIGN.open, misc),
     ...targets.map((sid) => env.DB.prepare(`INSERT INTO assignment_targets (assignment_id, student_id) SELECT ?1, ?2 WHERE ${exists}`).bind(id, sid)),
     env.DB.prepare(`INSERT INTO audit_log (at, actor, action, target, detail) SELECT ?2, ?3, 'assignment.create', 'assignment:' || ?1, ?4 WHERE ${exists}`)
-      .bind(id, made, `teacher:${cls.code}`, teacherDetail(cls, { kind, skill, targets: targets.length })),
+      .bind(id, made, `teacher:${cls.code}`, teacherDetail(cls, { kind, skill, ...(misc ? { misc } : {}), targets: targets.length })),
   ]);
   if (!res[0]?.meta?.changes) { await giveBack(env, [day]); throw new HttpError(409, 'too_many_open'); }
   return json({ assignment: await oneAssignment(env, cls.code, id), moved: due.moved }, 201, cors);
@@ -322,7 +337,7 @@ export async function deleteAssignment(id, req, env, cors) {
     env.DB.prepare('DELETE FROM assignment_work WHERE assignment_id = ?').bind(row.id),
     env.DB.prepare('DELETE FROM assignment_targets WHERE assignment_id = ?').bind(row.id),
     env.DB.prepare('DELETE FROM assignments WHERE id = ? AND class_code = ?').bind(row.id, cls.code),
-    auditStmt(env, cls, 'assignment.delete', row.id, { kind: row.kind }),
+    auditStmt(env, cls, 'assignment.delete', row.id, { kind: kindOf(row) }),
   ]);
   return json({ ok: true }, 200, cors);
 }
@@ -347,7 +362,7 @@ export async function classWork(req, env, cors) {
   const today = dayOf();
   const [cls, list, help] = await Promise.all([
     first(env, 'SELECT teacher_name FROM classes WHERE code = ?', s.class_code),
-    all(env, `SELECT a.id, a.kind, a.skill, a.title, a.note, a.starts_on, a.due_on, a.created_at, a.exam IS NOT NULL AS has_exam,
+    all(env, `SELECT a.id, ${KIND_SQL()} AS kind, a.skill, a.misc, a.title, a.note, a.starts_on, a.due_on, a.created_at, a.exam IS NOT NULL AS has_exam,
         CASE WHEN a.exam IS NOT NULL THEN json_array_length(a.exam) END AS exam_count,
         w.state, w.stage, w.right_n, w.asked, w.passed, w.done_at
       FROM assignments a LEFT JOIN assignment_work w ON w.assignment_id = a.id AND w.student_id = ?1
@@ -359,7 +374,7 @@ export async function classWork(req, env, cors) {
   return json({
     today, teacherName: cls?.teacher_name || '',
     assignments: list.map((a) => ({
-      id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.starts_on, dueOn: a.due_on, createdAt: a.created_at,
+      id: a.id, kind: a.kind, skill: a.skill, misc: a.misc ?? null, title: a.title, note: a.note, startsOn: a.starts_on, dueOn: a.due_on, createdAt: a.created_at,
       hasExam: !!a.has_exam, examCount: a.exam_count == null ? null : Number(a.exam_count), mine: mineView(a),
     })),
     help,
@@ -381,8 +396,8 @@ export async function workExam(id, req, env, cors) {
   return json({ items: JSON.parse(row.exam) }, 200, cors);
 }
 
-/** Which result fields each kind reports. */
-const FIELDS = { stair: ['stage', 'passed'], check: ['right', 'asked', 'passed'], exam: ['right', 'asked', 'questions'] };
+/** Which result fields each kind reports. A repair reports none: started, or done (its check passed on the device). */
+const FIELDS = { stair: ['stage', 'passed'], check: ['right', 'asked', 'passed'], exam: ['right', 'asked', 'questions'], repair: [] };
 /**
  * A report checked against its assignment: {state, stage, right, asked, passed, questions (JSON)}. Each kind reports
  * only its own fields, and a finished result must be one the assignment can give: a class exam of `examCount`
@@ -398,7 +413,7 @@ export function cleanWork(b, kind, { examCount = null } = {}) {
   if (has('stage')) { if (!Number.isInteger(b.stage) || b.stage < 0 || b.stage > 5) throw badWork('stage'); out.stage = b.stage; }
   if (has('passed')) { if (typeof b.passed !== 'boolean') throw badWork('passed'); out.passed = b.passed ? 1 : 0; }
   // a check or an exam reports its result once it is done, and only then
-  if (kind !== 'stair') {
+  if (kind === 'check' || kind === 'exam') {
     if (state === 'done' && (!has('right') || !has('asked'))) throw badWork('right');
     if (state === 'started' && (has('right') || has('asked') || has('questions'))) throw badWork('right');
   }
@@ -435,7 +450,7 @@ export async function postWork(id, req, env, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.small);
   const row = await mineRow(env, s, id);
-  const w = cleanWork(b, row.kind, { examCount: row.exam ? JSON.parse(row.exam).length : null });
+  const w = cleanWork(b, kindOf(row), { examCount: row.exam ? JSON.parse(row.exam).length : null });
   await limitOrThrow(env, `work:s:${s.id}`, ASSIGN.workPerDay, 429, 'slow_down');
   const now = nowIso(); const day = dayOf();
   const done = w.state === 'done';

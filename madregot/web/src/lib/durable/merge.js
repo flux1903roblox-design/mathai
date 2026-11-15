@@ -33,10 +33,11 @@ export const OUTBOX_KEEP = 1000;
  * student lane's class-goal steps waiting for the server (stepsOut) and the weeks it last reported (classGoals,
  * STUDENT-4), this device's one-time notes and install offers (nudges, STUDENT-5/10), and its daily reminder
  * (reminder, STUDENT-11: the id and secret of this browser's push subscription; another device's would remind the wrong
- * phone). Between two tabs of this device the work outbox is merged per assignment (FOLLOWUP-2: workJoin), never taken
- * whole from the tab that wrote last.
+ * phone), and the family challenge (family, PRODUCT2-39: a weekly goal accepted from a parent's link on this device, and
+ * the one a parent sent from it). Between two tabs of this device the work outbox is merged per assignment (FOLLOWUP-2:
+ * workJoin), never taken whole from the tab that wrote last.
  */
-export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox', 'stepsOut', 'classGoals', 'nudges', 'reminder'];
+export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox', 'stepsOut', 'classGoals', 'nudges', 'reminder', 'family'];
 /** This device's settings: a restore never changes them (haptics and prefs, the look and the sound choice: STUDENT-2/7). */
 export const SETTINGS = ['sound', 'goalXp', 'solveMode', 'helpSent', 'haptics', 'prefs'];
 /**
@@ -241,7 +242,9 @@ function lookJoin(chosen, x, y) {
     const a = x?.earnedAt?.[k]; const b = y?.earnedAt?.[k];
     earnedAt[k] = a && b ? (str(a) <= str(b) ? a : b) : a || b;
   }
-  return { ...chosen, earned: both('earned'), seen: both('seen'), earnedAt };
+  // the quest chest's choices (PRODUCT2-36): a day chosen on either side stays chosen (one piece per chest)
+  const picks = { ...(isObj(y?.picks) ? y.picks : {}), ...(isObj(x?.picks) ? x.picks : {}) };
+  return { ...chosen, earned: both('earned'), seen: both('seen'), earnedAt, ...(Object.keys(picks).length || isObj(chosen.picks) ? { picks } : {}) };
 }
 
 // ------------------------------------------------------------------ mergeTabs

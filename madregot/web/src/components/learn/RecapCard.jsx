@@ -40,7 +40,7 @@ export default function RecapCard({ afterLesson = false }) {
         <section className="recap-card" aria-labelledby="recap-card-title">
           <div className="recap-card-text">
             <h2 id="recap-card-title" className="recap-card-title">איך היה השבוע שעבר?</h2>
-            <p>ימים, צעדים ומה שלמדתם. לוקח חצי דקה.</p>
+            <p>ימים, שלבים ומה שלמדתם. לוקח חצי דקה.</p>
           </div>
           <button type="button" className="btn btn-primary btn-sm recap-card-go" onClick={show}>לראות</button>
           <button type="button" className="icon-btn recap-card-close" aria-label="סגירה" onClick={close}><X size={20} aria-hidden="true" /></button>

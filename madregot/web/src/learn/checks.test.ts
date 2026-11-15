@@ -106,6 +106,44 @@ describe('practice on a stair with teaching content', () => {
     expect(t.item.probe).toEqual(['minus-minus', 'abs-add']);
     expect(addSubModel.answer(p)).toBe(3);
   });
+  it('asks one more question when the answer to the first still fits two of them, and never more than two (SK-LEARN-2)', () => {
+    const three = ['drop-sign', 'neg-neg-plus', 'sign'];
+    const amb = (cands: string[]) => (u: number) => (u === 3 ? { kind: 'right' } : { kind: 'misconception', ambiguous: cands.length > 1, candidates: cands.map((id) => ({ id, conf: 1 / cands.length })) });
+    let s = startLesson({ kind: 'node', topic: 'signed', level: 1, part: 1 });
+    for (let i = 0; i < 3; i += 1) { s = next(answer(s, s.item.answer).s); }
+    s = { ...s, item: { ...s.item, key: 'x', answer: 3, diagnosis: amb(three), could: [] } };
+    let r = answer(s, -11);
+    expect(r.s.probes).toEqual([{ skill: 'signed:1', candidates: three }]);
+    expect(r.result.more).toBe(true);
+    // play to the first probe
+    let t = answer(r.s, 3).s;
+    for (let i = 0; i < 20 && !t.item?.probe && !t.finished; i += 1) t = next(i === 0 ? t : answer(t, t.item.answer).s);
+    expect(t.item.probe).toEqual(three);
+    expect(t.probed).toBe(1);
+    // a wrong answer to the probe on screen (the probe is drawn at random: -2 can be its answer)
+    const off = (it: any) => (isCorrect(it, -2) ? -5 : -2);
+    // its answer still fits two of the three (and one more the first did not ask about): a second probe on those two
+    r = answer({ ...t, item: { ...t.item, diagnosis: amb(['drop-sign', 'neg-neg-plus', 'minus-minus']) } }, off(t.item));
+    expect(r.s.probes).toEqual([{ skill: 'signed:1', candidates: ['drop-sign', 'neg-neg-plus'] }]);
+    expect(r.result.more).toBe(true);
+    t = next(answer(r.s, t.item.answer).s);
+    for (let i = 0; i < 20 && t.probed < 2 && !t.finished; i += 1) t = next(answer(t, t.item.answer).s);
+    expect(t.item.probe).toEqual(['drop-sign', 'neg-neg-plus']);
+    expect(t.probed).toBe(2);
+    // the second probe answered ambiguously again: no third question, and the line promises none
+    r = answer({ ...t, item: { ...t.item, diagnosis: amb(['drop-sign', 'neg-neg-plus']) } }, off(t.item));
+    expect(r.s.probes).toEqual([]);
+    expect(r.result.more).toBe(false);
+    // an answer to a probe that fits one candidate, or none, asks nothing more
+    expect(answer({ ...t, probed: 1, item: { ...t.item, diagnosis: amb(['drop-sign']) } }, off(t.item)).s.probes).toEqual([]);
+  });
+  it('asks the first probe only once a lesson', () => {
+    let s = startLesson({ kind: 'node', topic: 'signed', level: 1, part: 1 });
+    s = { ...s, probed: 1, item: { ...s.item, key: 'y', answer: 3, diagnosis: () => ({ kind: 'misconception', ambiguous: true, candidates: [{ id: 'drop-sign', conf: 0.5 }, { id: 'neg-neg-plus', conf: 0.5 }] }), could: [] } };
+    const r = answer(s, -11);
+    expect(r.s.probes).toEqual([]);
+    expect(r.result.more).toBe(false);
+  });
 });
 
 describe('the store glue', () => {

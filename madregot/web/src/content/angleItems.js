@@ -35,8 +35,14 @@ export function fairAngle(ans, bugs, printed) {
 }
 /** The mistakes of two given angles taken one at a time: 180° minus each (one id, two values; one when they are equal). */
 const oneAngle = (g0, g1) => (g0 === g1 ? { 'one-angle': 180 - g0 } : { 'one-angle#0': 180 - g0, 'one-angle#1': 180 - g1 });
-/** The item's diagnosis: the mistake whose prediction the answer is, without the value's number. */
-const diagFor = (ans, bugs) => { const d = diagOf(ans, bugs); return (u) => d(u)?.replace(/#\d+$/, '') || null; };
+/**
+ * The item's diagnosis: the mistake whose prediction the answer is, without the value's number (or several whose
+ * predictions are the same number: eq.js diagOf names them all, PRODUCT2-15).
+ */
+const diagFor = (ans, bugs) => {
+  const d = diagOf(ans, bugs);
+  return (u) => { const ids = [...new Set([d(u) || []].flat().map((id) => id.replace(/#\d+$/, '')))]; return ids.length > 1 ? ids : ids[0] || null; };
+};
 
 // ---------------------------------------------------------------- angles:1
 
@@ -239,6 +245,9 @@ export function splitTriangleS1() {
     const ans = askBeta ? beta : 90 - d;
     const bugs = askBeta ? { 'one-angle': 180 - w, 'other-vertex': 180 - d } : { 'one-angle': 180 - d };
     if (!fairAngle(ans, bugs, [])) continue;
+    // β answered 180° − d is also one angle taken from 180° with the right angle forgotten, as 180° − w is: both
+    // mistakes are named for it (PRODUCT2-15); fairAngle above saw them apart, each once
+    const named = askBeta ? { 'one-angle#0': 180 - w, 'one-angle#1': 180 - d, 'other-vertex': 180 - d } : bugs;
     const fig = splitTri(beta, d, { BAC: given(w), ADC: given(d), [askBeta ? 'B' : 'DAC']: { text: askBeta ? 'β' : 'α', target: true } });
     return {
       key: `an3a:${w}:${d}:${askBeta ? 'b' : 'a'}`, form: 'num', answer: ans, unit: DEG, fig, practiceOnly: true,
@@ -247,7 +256,7 @@ export function splitTriangleS1() {
       solution: askBeta
         ? ['במשולש הגדול $ABC$: סכום זוויות ב־$\\Delta$ שווה $180^\\circ$.', `$\\beta = 180^\\circ - 90^\\circ - ${w}^\\circ = ${beta}^\\circ$`]
         : ['במשולש הקטן $ADC$: סכום זוויות ב־$\\Delta$ שווה $180^\\circ$.', `$\\alpha = 180^\\circ - 90^\\circ - ${d}^\\circ = ${90 - d}^\\circ$`],
-      diag: diagFor(ans, bugs), tries: triesOf(bugs),
+      diag: diagFor(ans, named), tries: triesOf(named),
     };
   }
 }

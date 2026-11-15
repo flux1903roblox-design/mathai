@@ -95,6 +95,42 @@ export async function expectTextContrast(page, what = '') {
 }
 
 /**
+ * A progress pill with its count inside (components/ds.jsx Bar, PRODUCT2-43): the walk above measures the label against
+ * the track it sits in, never against the fill that runs under it. Here, for each pill on the page (scrolled into view),
+ * the label against the track, and, where the fill reaches the label, the text a student reads there against the fill:
+ * whatever is painted on top in the middle of that stretch (the label itself, or the fill with the label's copy,
+ * `.qbar > i::before`). A fill that covers the label with no copy on it reads 0. [{ label, track, fill, crosses }]
+ */
+export function barLabelPairs(page, sel = '.qbar') {
+  return page.evaluate(([LIBSRC, s]) => new Function('sel', `${LIBSRC}
+    const out = [];
+    for (const bar of document.querySelectorAll(sel)) {
+      const text = bar.querySelector('.qbar-text'); const fill = bar.querySelector(':scope > i');
+      if (!text || !fill) continue;
+      bar.scrollIntoView({ block: 'center' });
+      if (!visible(bar)) continue;
+      const range = document.createRange(); range.selectNodeContents(text);
+      const g = range.getBoundingClientRect(); const f = fill.getBoundingClientRect();
+      const under = backdrops(bar)[0];
+      const fg = parse(getComputedStyle(text).color);
+      const row = { label: text.textContent.trim(), track: Math.round(ratio(over(fg, under), under) * 100) / 100, fill: null, crosses: false };
+      const from = Math.max(g.left, f.left); const to = Math.min(g.right, f.right);
+      if (f.width > 0.5 && to - from > 2) {
+        const fillBg = over(parse(getComputedStyle(fill).backgroundColor), under);
+        const before = getComputedStyle(fill, '::before');
+        const copy = before.content && before.content !== 'none' && before.content !== 'normal' ? parse(before.color) : null;
+        const top = document.elementFromPoint((from + to) / 2, g.top + g.height / 2);
+        const seen = top && (top === fill || fill.contains(top)) ? copy : top && (top === text || text.contains(top)) ? fg : null;
+        row.fill = seen ? Math.round(ratio(over(seen, fillBg), fillBg) * 100) / 100 : 0;
+        row.crosses = g.left < f.left - 2 || g.right > f.right + 2;
+      }
+      out.push(row);
+    }
+    return out;
+  `)(s), [LIB, sel]);
+}
+
+/**
  * Edges and marks that must reach 3:1 (WCAG 1.4.11), measured on the screen as it is:
  * - a done or current stop: its ring (dark) or its face (light) against the page;
  * - .input and .seg borders against their own background and against what they sit on;

@@ -53,7 +53,7 @@ const shot = async (page, name) => {
   await page.emulateMedia({ colorScheme: 'light' });
 };
 
-const REASON = 'שאלות תנועה הן חלק מהתוכנית של כיתה ח׳. המדרגה נמצאת ביחידת המשוואות. לפי תוכנית הלימודים, זה נלמד בכיתה בדצמבר.';
+const REASON = 'שאלות תנועה הן חלק מהתוכנית של כיתה ח׳. המדרגה נמצאת ביחידת המשוואות. בבית הספר לומדים את זה בדצמבר.';
 
 test('a ח׳ student in December is offered motion problems in the banner, with why, and it opens the stair', async ({ page }) => {
   await openInDecember(page, '#/', eighthInDecember());

@@ -23,14 +23,17 @@ export const challengeById = (id: string): ChallengeMeta | null => BY_ID[id] || 
 /** The tasks that open once this stair is mastered. */
 export const challengesAfter = (skill: SkillId): ChallengeMeta[] => CHALLENGES.filter((t) => t.after === skill);
 export const challengesOf = (topic: TopicId): ChallengeMeta[] => CHALLENGES.filter((t) => t.topic === topic);
+/** The topics that have tasks, in TOPIC_ORDER. */
+export const CHALLENGE_TOPICS: TopicId[] = [...new Set(CHALLENGES.map((t) => t.topic))];
 
 type Skills = Record<SkillId, SkillRecord>;
 type Records = Record<string, ChallengeRecord> | undefined | null;
+type Task = Pick<ChallengeMeta, 'id' | 'after'>;
 
 /** Solved: the task was finished once (its record has doneAt). */
-export const isSolved = (t: ChallengeMeta, recs: Records) => !!recs?.[t.id]?.doneAt;
+export const isSolved = (t: Task, recs: Records) => !!recs?.[t.id]?.doneAt;
 /** Open: its stair is mastered, or it was already solved. */
-export const isOpen = (t: ChallengeMeta, skills: Skills, recs: Records) => !!skills[t.after]?.mastered || isSolved(t, recs);
+export const isOpen = (t: Task, skills: Skills, recs: Records) => !!skills[t.after]?.mastered || isSolved(t, recs);
 /** How many tasks are solved, in all. */
 export const solvedCount = (recs: Records) => CHALLENGES.filter((t) => isSolved(t, recs)).length;
 

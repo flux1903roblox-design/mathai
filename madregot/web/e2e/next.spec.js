@@ -33,7 +33,8 @@ test('the home banner, the mission\'s first row and Rescue\'s start button lead 
   await open(page, '#/', examSoon());
   const banner = page.getByRole('region', { name: 'הצעד הבא' });
   await expect(banner).toContainText(STEP);
-  await expect(banner).toContainText('הכנה למבחן · 5 דק׳');
+  // the lesson's real minutes (its three teaching stages, PRODUCT2-17), not a flat five
+  await expect(banner).toContainText('הכנה למבחן · 12 דק׳');
   await expect(page.locator('.next-banner')).toHaveCount(1);
   await expectUsable(page, banner.getByRole('button', { name: 'לצעד הבא' }), 'the banner button');
   await expectNoSidewaysScroll(page);
@@ -136,6 +137,59 @@ test('with the next step a stair of the map, there is no banner and the map open
   await shot(page, 'card-kept');
   await check.click();
   await expect(page).toHaveURL(/lesson\/signed\/1\?kind=check&purpose=mastery/);
+});
+
+// The plan uses the evidence the student already gave (PRODUCT2-19): after a first-day placement that passed over line
+// 1-4 and stats 1-2 (with the probes' right answers on line:4 and stats:2), today's first step is line:4's mastery check,
+// not its first teaching stage ("מבינים את הרעיון: שיפוע בין שתי נקודות, שלב 1 מתוך 5").
+function placedEighth() {
+  const ok = (n) => Array.from({ length: n }, () => ({ at: '2026-11-04T16:00:00.000Z', ok: true, independent: true, purpose: 'practice' }));
+  const st = student('8', {
+    path: { line: { parts: {}, reviews: 0, jumped: 4, done: {} }, pyth: { parts: {}, reviews: 0, jumped: 0, done: {} }, stats: { parts: {}, reviews: 0, jumped: 2, done: {} } },
+    placement: { at: '2026-11-04T16:00:00.000Z', grade: '8', results: { line: { level: 4, asked: 2, right: 3 }, pyth: { level: 0, asked: 2, right: 0 }, stats: { level: 2, asked: 2, right: 3 } } },
+  });
+  st.state.learn = {
+    skills: { 'line:4': { attempts: ok(3) }, 'stats:2': { attempts: ok(3) }, 'line:7': { attempts: [{ at: '2026-11-04T16:00:00.000Z', ok: false, independent: false, purpose: 'practice' }] } },
+    miscon: {}, missions: {}, events: [], exam: null, floor: null, challenges: {},
+  };
+  return { ...st, version: 6 };
+}
+test('after placing line at 4, today\'s first step is line:4\'s mastery check, and the map card offers it', async ({ page }) => {
+  await open(page, '#/quests', placedEighth());
+  const first = page.locator('.today-items li').first();
+  await expect(first).toContainText('בדיקת שליטה: שיפוע בין שתי נקודות');
+  await expect(first).not.toContainText('שלב 1 מתוך 5');
+  await expect(first).toContainText('עברתם את זה במבחן הקצר.');
+  // (a stair whose probe was missed, line:7, still starts from its teaching)
+  await expect(page.locator('.today-items li').nth(1)).toContainText('מבינים את הרעיון: משולש עם הצירים');
+  await shot(page, 'placed-mission');
+  await page.locator('.continue-go').click();
+  expect(route(page)).toBe('#/lesson/line/4?kind=check&purpose=mastery');
+  // the stair page says the same: its next stage is the mastery check
+  await open(page, '#/learn/line/4', placedEighth());
+  await expect(page.locator('.jclimb-label')).toHaveText('הצעד הבא: שלב 5 מתוך 5');
+  await expectNoSidewaysScroll(page);
+});
+
+// Pythagoras is on the ז׳ path from the month the programme teaches it (PRODUCT2-20): not in November, there in March,
+// after the grade's own units; it stays a ח׳ unit (its placement test, its number on the ח׳ path).
+test('the ז׳ path in March has the Pythagoras unit after the grade\'s own; November\'s has not', async ({ page }, info) => {
+  await open(page, '#/', student('7'));
+  await expect(page.locator('.unit-title')).not.toContainText(['משפט פיתגורס']);
+  await open(page, '#/', student('7'), '424242', new Date('2027-03-10T10:00:00'));
+  const titles = page.locator('.unit-title');
+  await expect(titles.last()).toHaveText('סטטיסטיקה');
+  await expect(titles.filter({ hasText: 'משפט פיתגורס' })).toHaveCount(1);
+  // the unit is a folded row (PRODUCT2-37), named and numbered after the grade's own
+  const unit = page.locator('section.unit, section.unit-row').filter({ has: page.locator('.unit-title', { hasText: 'משפט פיתגורס' }) });
+  await unit.scrollIntoViewIfNeeded();
+  // after the ז׳ path's nine own units (signed, coord, angles, transf, expr, area, solid, data, eq)
+  await expect(unit.locator('.unit-label')).toContainText('יחידה 10');
+  await expectNoSidewaysScroll(page);
+  if (process.env.NEXT_SHOTS) await page.screenshot({ path: `${process.env.NEXT_SHOTS}/next-seventh-march-${info.project.name}.png` });
+  // the Topics screen lists it too, after the grade's own units
+  await page.goto('./#/topics');
+  await expect(page.locator('.section-cards[data-region="content"]')).toContainText('משפט פיתגורס');
 });
 
 // The improvement plan is retired (CURRICULUM-7): its evidence is the plan's exam-loss band, and the daily quests point

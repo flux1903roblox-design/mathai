@@ -12,7 +12,8 @@ export const TOPIC_META = [
     "desc": "חיבור, חיסור, כפל וחילוק, וסדר פעולות",
     "levels": [
       {
-        "title": "חיבור וחיסור"
+        "title": "חיבור וחיסור",
+        "flagship": "minus-minus"
       },
       {
         "title": "השוואה וערך מוחלט"
@@ -95,6 +96,9 @@ export const TOPIC_META = [
     "title": "זוויות",
     "color": "petrol",
     "desc": "צמודות, קודקודיות, משולש, ישרים מקבילים, חוצה זווית ומרובע",
+    "alsoFor": [
+      "8"
+    ],
     "levels": [
       {
         "title": "זוויות צמודות"
@@ -468,7 +472,7 @@ export const TOPIC_META = [
     "title": "יחס וקנה מידה",
     "color": "sky",
     "desc": "יחס בין כמויות, חלוקה ביחס, פרופורציה וקנה מידה",
-    "placement": false,
+    "placement": "taught",
     "levels": [
       {
         "title": "יחס"
@@ -501,7 +505,7 @@ export const TOPIC_META = [
     "title": "אחוזים",
     "color": "petrol",
     "desc": "אחוז כחלק ממאה, אחוז מכמות, איזה אחוז, מציאת השלם, ושינוי באחוזים",
-    "placement": false,
+    "placement": "taught",
     "alsoFor": [
       "7"
     ],
@@ -582,6 +586,9 @@ export const TOPIC_META = [
     "title": "פונקציה קווית",
     "color": "cobalt",
     "desc": "טבלת ערכים, שיפוע, משוואת ישר, חיתוך עם הצירים ונקודת מפגש",
+    "alsoFor": [
+      "7"
+    ],
     "levels": [
       {
         "title": "טבלת ערכים"
@@ -709,6 +716,9 @@ export const TOPIC_META = [
     "title": "סטטיסטיקה",
     "color": "fuchsia",
     "desc": "שכיח, חציון, ממוצע וטבלת שכיחויות; טווח, שני מקורות מידע, אינטרפולציה ואקסטרפולציה",
+    "alsoFor": [
+      "7"
+    ],
     "placementTop": 5,
     "levels": [
       {

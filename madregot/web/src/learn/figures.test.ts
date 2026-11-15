@@ -1476,3 +1476,64 @@ describe('the transform object\'s letters are readable', () => {
     expect(bad.slice(0, 10)).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------- SK-STUDENT-1: the drawings of stages B and C
+// A worked example's or a problem's drawing is held to the teaching steps' rules, with the problem (and its display) as
+// its text: it names only the problem's letters (and all of them, when it names points), draws every angle written in
+// degrees that size, keeps numbered sides in proportion, puts a point named by its coordinates there, and agrees with
+// itself. It never writes the answer it asks for, unless the problem itself gives that number.
+const PROBLEMS = () => Object.values(CONTENT).flatMap((c) => [
+  ...c.examples.map((e, i) => ({ skill: c.skill, where: `${c.skill} B${i + 1}`, text: e.problem, display: e.display, fig: e.fig as AnyFig | undefined, answer: e.answer })),
+  ...c.together.map((g, i) => ({ skill: c.skill, where: `${c.skill} C${i + 1}`, text: g.problem, display: g.display, fig: g.fig as AnyFig | undefined, answer: g.final.answer })),
+]).filter((p) => p.fig);
+/** The problem as a step, for the checks the teaching steps already have. */
+const asStep = (p: { text: string; display?: string; fig?: AnyFig }) => ({ kind: 'say', text: p.text, display: p.display, fig: p.fig } as unknown as DiscoverStep);
+
+describe('the drawings of worked examples and solving together agree with their problem (SK-STUDENT-1)', () => {
+  it('there are drawings to check, and every one renders with no broken numbers', () => {
+    expect(PROBLEMS().length).toBeGreaterThan(60);
+    for (const { where, fig } of PROBLEMS()) {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, where).toMatch(/<svg|<table/);
+      expect(html, where).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+
+  it('a geometry drawing names the problem\'s letters only, draws its degrees to size and keeps its sides in proportion', () => {
+    let degrees = 0;
+    for (const p of PROBLEMS().filter((x) => x.fig!.type === 'geo')) {
+      const f = p.fig as unknown as Geo; const st = asStep(p);
+      const has = (k: unknown) => typeof k !== 'string' || k in f.pts;
+      const used = [...(f.segs || []).flatMap((s) => [s.a, s.b]), ...(f.angles || []).flatMap((g) => [g.at, g.from, g.to]), ...(f.polys || []).flatMap((q) => q.pts), ...(f.dots || [])];
+      expect(used.filter((k) => k != null && !has(k)), p.where).toEqual([]);
+      const drawn = new Set(Object.keys(f.pts).filter((k) => !k.startsWith('_')));
+      const said = capitals(mathOf(st));
+      expect([...drawn].filter((k) => !said.has(k)), `${p.where}: letters in the drawing but not in the problem`).toEqual([]);
+      if (drawn.size) expect([...said].filter((k) => !drawn.has(k)), `${p.where}: letters in the problem but not in the drawing`).toEqual([]);
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(f.pts, g);
+        if (g.right) expect(Math.min(deg, 360 - deg), `${p.where}: right angle at ${g.at}`).toBeCloseTo(90, 1);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) { expect(Math.abs(deg - Number(m[1])), `${p.where}: ${g.text} is drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6); degrees += 1; }
+        if (!g.right) expect(deg, `${p.where}: the arc at ${g.at}`).toBeLessThanOrEqual(180.0001);
+      }
+      const ratios = (f.segs || []).flatMap((s) => { const n = num(s.label); return n != null ? [n / dist(f.pts[s.a], f.pts[s.b])] : []; });
+      ratios.forEach((r) => expect(Math.abs(r / ratios[0] - 1), `${p.where}: sides out of proportion`).toBeLessThan(0.01));
+    }
+    expect(degrees).toBeGreaterThanOrEqual(18);
+  });
+
+  it('every drawing agrees with itself and writes what its problem names', () => {
+    const bad = PROBLEMS().flatMap((p) => [...selfProblems(p.skill, p.fig!), ...textProblems(asStep(p), p.fig!)].map((x) => `${p.where}: ${x}`));
+    expect(bad).toEqual([]);
+  });
+
+  it('a drawing never writes the answer it asks for, unless the problem gives that number', () => {
+    const bad = PROBLEMS().flatMap((p) => {
+      const given = new Set([...`${p.text} ${p.display || ''}`.matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => m[0]));
+      const a = fmt(p.answer); const labels = labelsOf(p.fig!);
+      return (labels.has(a) || labels.has(`${a}°`)) && !given.has(a) ? [`${p.where}: ${a} is written in the drawing`] : [];
+    });
+    expect(bad).toEqual([]);
+  });
+});

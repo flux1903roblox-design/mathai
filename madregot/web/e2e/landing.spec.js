@@ -4,10 +4,14 @@
 // They read well in light and dark, never scroll sideways at 320, and count a view and a press with a beacon (count.js).
 // LANDING_SHOTS=<folder> saves full-page screenshots for a look (nothing is compared).
 import { test, expect } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { student, onboard, expectNoSidewaysScroll, openLanding, landingMetrics } from './helpers.js';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { NOW, student, onboard, expectNoSidewaysScroll, openLanding, landingMetrics } from './helpers.js';
 import { expectTextContrast } from './contrast.js';
 
+const API = 'https://api.madregot.test'; // API_BASE in playwright.config.js
+/** Each grade's coverage sentence, as the listing and /programme say it (store/counts.json, programme-md.mjs). */
+const COVERAGE = JSON.parse(readFileSync(new URL('../../store/counts.json', import.meta.url), 'utf8')).coverage;
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 
 test.skip(({ viewport }) => viewport.width > 800, 'the phone sizes; the desktop layout is in qa-evidence/student/landing');
 
@@ -34,6 +38,22 @@ test('/mivchan/: the question, the plan in one screen, and its button leads to E
   // the price is the server's own, with its VAT words, and the topics are the app's
   await expect(page.getByText('₪29.90 לחודש או ₪249 לשנה, כולל מע״מ. בלי התחייבות, מבטלים באתר.')).toBeVisible();
   await expect(page.getByRole('listitem').filter({ hasText: 'כיתה ז׳:' })).toContainText('מספרים מכוונים');
+  // the family plan's card lists what the parents get (PRODUCT2-30): the report that comes by itself first, the helper
+  // last, then the price line as it was
+  const plan = page.locator('.plans .card').filter({ has: page.getByRole('heading', { level: 3, name: 'המנוי המשפחתי' }) });
+  await expect(plan.getByRole('listitem')).toHaveText([
+    'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.',
+    'סיכום שבועי במייל בכל יום ראשון, אם תבחרו.',
+    'לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.',
+    'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',
+  ]);
+  await expect(plan.locator('.price')).toHaveText('₪29.90 לחודש או ₪249 לשנה, כולל מע״מ. בלי התחייבות, מבטלים באתר.');
+  // each grade's coverage on its own, in the sentences the listing and /programme use (SK-BUYERS-3): no combined share
+  expect(COVERAGE['7']).toMatch(/כיתה ז׳ \(\d+%\)\.$/);
+  expect(COVERAGE['8']).toMatch(/כיתה ח׳ \(\d+%\)\.$/);
+  await expect(page.getByRole('listitem').filter({ hasText: 'שעות ההוראה של כיתה' })).toHaveText(`${COVERAGE['7']} ${COVERAGE['8']}`);
+  expect(await page.locator('main').innerText()).not.toMatch(/כיתות ז׳ ו־ח׳/);
+  await expectNoSidewaysScroll(page);
   await expect.poll(() => counted).toEqual(['landing_view_mivchan']);
   await shot(page, 'mivchan');
 

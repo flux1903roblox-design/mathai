@@ -73,9 +73,25 @@ describe('MathText: a bare number is plain text in Rubik, other maths stays KaTe
   it('a letter, an operator or a fraction stays KaTeX, inside .mt-inline', () => {
     for (const t of ['$x+1$', '$\\frac{3}{4}$', '$x = -3$', '$-3 + 5$', '$2x$']) {
       const out = html(t);
-      expect(out, t).toMatch(/^<span><span class="mt-inline"><span class="katex">/);
+      expect(out, t).toMatch(/^<span><span class="mt-inline[^"]*"><span class="katex">/);
       expect(out, t).not.toContain('class="num"');
     }
+  });
+  // PRODUCT2-41: maths inside a Hebrew sentence is set in the sentence's font (Rubik): its digits, operators and
+  // letters. A fraction or a root keeps KaTeX's own layout and fonts, and display maths is not touched.
+  it('inline maths in a sentence takes the UI font (.mt-ui); a fraction or a root keeps KaTeX', () => {
+    for (const t of ['$x+1$', '$x = -3$', '$-3 + 5$', '$2x$', '$3^2 + 4^2$', '$a \\cdot b$']) expect(html(`נסו את ${t} עכשיו.`), t).toContain('<span class="mt-inline mt-ui"><span class="katex">');
+    for (const t of ['$\\frac{3}{4}$', '$x = \\frac{1}{2}$', '$\\sqrt{25}$', '$\\dfrac{2}{3}x$']) {
+      const out = html(t);
+      expect(out, t).toContain('<span class="mt-inline"><span class="katex">');
+      expect(out, t).not.toContain('mt-ui');
+    }
+  });
+  it('the UI font class sets Rubik on the whole expression, letters upright (canon.css)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync(new URL('../styles/canon.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/\.mt-ui \.katex\s*\{[^}]*font-family:\s*var\(--font-ui\)/);
+    expect(css).toMatch(/\.mt-ui \.katex \.mathnormal[^{]*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-style:\s*normal/);
   });
   it('plainNumber says which TeX is only a number', () => {
     expect(plainNumber('-3')).toBe('−3');

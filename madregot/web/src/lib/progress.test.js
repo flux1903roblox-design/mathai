@@ -133,6 +133,19 @@ describe('counters that move from the first stage', () => {
   });
 });
 
+describe('the unit review opens on mastered stairs only (SK-LEARN-6)', () => {
+  const review = (path) => unitNodes('coord', path).find((n) => n.kind === 'review');
+  it('stays locked while stairs are only passed over by a placement or jump test', () => {
+    expect(review({ coord: { parts: {}, reviews: 0, jumped: 5, done: {} } }).state).toBe('locked');
+    expect(review({ coord: { parts: {}, reviews: 0, jumped: 5, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'mastered' } } }).state).toBe('locked');
+  });
+  it('opens once every stair is done (mastered, or kept from before mastery checks), and is done after it is passed', () => {
+    const all = { 1: 'mastered', 2: 'mastered', 3: 'kept', 4: 'mastered', 5: 'mastered' };
+    expect(review({ coord: { parts: {}, reviews: 0, jumped: 2, done: all } }).state).toBe('current');
+    expect(review({ coord: { parts: {}, reviews: 1, jumped: 0, done: all } }).state).toBe('done');
+  });
+});
+
 describe('a stair added to a unit after it was climbed (signed:6)', () => {
   const five = { 1: 'mastered', 2: 'mastered', 3: 'kept', 4: 'mastered', 5: 'mastered' };
   it('keeps the five stairs as they were, makes the new one current, and its card says so', () => {

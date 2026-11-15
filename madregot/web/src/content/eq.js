@@ -21,21 +21,31 @@ const txt = (t) => ({ text: t });
 /** Is u the value v rounded to tenths or to hundredths (v not whole), halves away from zero (−0.75 is −0.8)? */
 export const roundsTo = (u, v) => roundings(v).some((r) => near(u, r, 1e-9));
 /**
- * The first error whose prediction the answer u matches. A prediction that is the right answer, or that an ordinary
+ * The errors whose prediction the answer u matches: one name, or a list when several predict the same number (the
+ * answer is then ambiguous: content/index.js makeItem). A prediction that is the right answer, or that an ordinary
  * slip of the hand also gives (one off, ten off, two digits swapped), names nothing: a slip is not a misconception.
  */
 export function diagOf(ans, bugs) {
+  const one = (ids) => (ids.length > 1 ? ids : ids[0] || null);
+  // an error may predict two numbers (the x-term moved over from either side): a list of values
+  const all = Object.entries(bugs).flatMap(([id, v]) => (Array.isArray(v) ? v : [v]).map((x) => [id, x]));
   return (u) => {
     if (typeof u !== 'number') return null;
-    const real = Object.entries(bugs).filter(([, v]) => v != null && Number.isFinite(v) && !near(v, ans) && !slipOf(v, ans));
-    const exact = real.find(([, v]) => near(u, v, 1e-6));
-    if (exact) return exact[0];
-    // a fraction typed rounded to tenths or hundredths (−35/9 as −3.9 or −3.89) names an error only when no other one
-    // rounds there too; a number near the prediction that is not its rounding (4.45 for 4.5) names nothing, and nor
-    // does a rounding that is also a slip from the answer (418.95 typed 419 for 420): the rule of learn/misconceptions
-    const close = [...new Set(real.filter(([, v]) => !Number.isInteger(v) && matchesValue(v, u, ans)).map(([id]) => id))];
-    return close.length === 1 ? close[0] : null;
+    const real = all.filter(([, v]) => v != null && Number.isFinite(v) && !near(v, ans) && !slipOf(v, ans));
+    const exact = real.filter(([, v]) => near(u, v, 1e-6)).map(([id]) => id);
+    // a fraction typed rounded to tenths or hundredths (−35/9 as −3.9 or −3.89) names the errors that round there; a
+    // number near the prediction that is not its rounding (4.45 for 4.5) names nothing, and nor does a rounding that is
+    // also a slip from the answer (418.95 typed 419 for 420): the rule of learn/misconceptions
+    const rounded = real.filter(([, v]) => !Number.isInteger(v) && matchesValue(v, u, ans)).map(([id]) => id);
+    // an answer that is one error's own number and another's rounding (−5.6: −28/5, and −50/9 typed to a tenth) fits
+    // both, so both are named, the exact one first (as learn/misconceptions diagnose reads a model's question)
+    return one([...new Set([...exact, ...rounded])]);
   };
+}
+/** diagOf for bugs with numbered values of one mistake ('wrong-unknown#1'): the names without their numbers, each once. */
+export function diagNamed(ans, bugs) {
+  const d = diagOf(ans, bugs);
+  return (u) => { const ids = [...new Set([d(u) || []].flat().map((id) => id.replace(/#\d+$/, '')))]; return ids.length > 1 ? ids : ids[0] || null; };
 }
 /** "Remove b from both sides", in words: b is the number added to the x-term. */
 const undo = (b) => (b > 0 ? `מחסירים $${b}$ משני האגפים` : `מוסיפים $${-b}$ לשני האגפים`);
@@ -71,7 +81,8 @@ function oneStepParams() {
   const a = R(2, 6); const b = NZ(-9, 9); return { k, a, x: a * b, b };
 }
 const oneStepBugs = ({ k, a, b, x }) => ({
-  'move-no-flip': k === 0 ? b + a : k === 1 ? b - a : k === 3 ? b / a : null,
+  // ax = b: the coefficient multiplied over where it divides (3x = 12 made x = 36), the same mistake as x : a = b made b / a
+  'move-no-flip': k === 0 ? b + a : k === 1 ? b - a : k === 2 ? b * a : b / a,
   'divide-flip': k === 2 && abs(a) > abs(b) ? a / b : null,
   sign: k === 2 && a < 0 ? -x : null,
   'sub-coef': k === 2 ? b - a : null,
@@ -206,9 +217,13 @@ function twoStepParams() {
   if (Math.random() < 0.15 && a !== -1) { a = (a < 0 ? -1 : 1) * pick([2, 4]); x = pick([1, 3, -1, 5]) / 2; } else x = NZ(-10, 10);
   return { k, a, b, x, c: a * x + b };
 }
-/** The errors of ax + b = c (a is the coefficient as it acts, negative in b − |a|x). */
-const twoStepBugs = ({ k, a, b, c, x }) => ({
-  'move-no-flip': (c + b) / a,
+/**
+ * The errors of ax + b = c (a is the coefficient as it acts, negative in b − |a|x). move-no-flip is a number taken to
+ * the other side with the same operation: the number added (b kept its sign), or, after it is removed, the coefficient
+ * (ax = c − b multiplied by a where it should be divided, as stair 1 names it for ax = b).
+ */
+export const twoStepBugs = ({ k, a, b, c, x }) => ({
+  'move-no-flip': [(c + b) / a, (c - b) * a],
   'divide-part': k !== 2 && abs(a) !== 1 && Number.isInteger(c / a) ? c / a - b : null,
   sign: a < 0 ? -x : null,
   'sub-coef': abs(a) !== 1 ? c - b - a : null,
@@ -270,7 +285,7 @@ function collectFirst() {
       key: `eq2c:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
       hint: 'קודם מכנסים איברים דומים באגף שמאל: $x$־ים עם $x$־ים.',
       solution: [`מכנסים: $x + ${k}x + x = ${A}x$, ולכן $${opMark(`${A}x + ${m} = ${total}`, `-${m}`)}$`, line(`מחסירים $${m}$ משני האגפים`, `${A}x = ${total - m}`, divOp(A)), line(`מחלקים ב־$${A}$`, `x = ${x}`), `בדיקה: $${x} + ${k * x} + ${x + m} = ${total}$`],
-      diag: diagOf(x, { 'move-no-flip': (total + m) / A, 'divide-part': Number.isInteger(total / A) ? total / A - m : null }),
+      diag: diagOf(x, { 'move-no-flip': [(total + m) / A, (total - m) * A], 'divide-part': Number.isInteger(total / A) ? total / A - m : null }),
     };
   }
   const p = R(1, 6); const q = R(1, 6); const b = NZ(-12, 12); const x = NZ(-8, 9); const A = p + q; const c = A * x + b;
@@ -280,7 +295,7 @@ function collectFirst() {
     key: `eq2c:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
     hint: 'קודם מכנסים איברים דומים באגף שמאל, ואז זו משוואה בשני צעדים.',
     solution: [line('מכנסים', `${linTex(A, b)} = ${T(c)}`, undoOp(b)), line(undo(b), `${A}x = ${T(c - b)}`, divOp(A)), line(`מחלקים ב־$${A}$`, `x = ${T(x)}`), `בדיקה: $${sumTex(terms.map(([n, v]) => [v ? n * x : n, '']))} = ${T(c)}$`],
-    diag: diagOf(x, { 'move-no-flip': (c + b) / A, 'divide-part': Number.isInteger(c / A) ? c / A - b : null }),
+    diag: diagOf(x, { 'move-no-flip': [(c + b) / A, (c - b) * A], 'divide-part': Number.isInteger(c / A) ? c / A - b : null }),
   };
 }
 
@@ -326,7 +341,8 @@ function bothParams() {
     return { a, b, c, d, x };
   }
 }
-const bothBugs = ({ a, b, c, d }) => ({ 'move-no-flip': (d + b) / (a - c), 'move-x-no-flip': (d - b) / (a + c) });
+// the x-term moved over keeping its sign, from the right (ax − cx… = d − b) or from the left (b = cx + ax + d)
+const bothBugs = ({ a, b, c, d }) => ({ 'move-no-flip': (d + b) / (a - c), 'move-x-no-flip': [(d - b) / (a + c), (b - d) / (a + c)] });
 /**
  * The worked solution of ax + b = cx + d: the x-terms go where there are more of them, so the coefficient stays
  * positive. `op` is the first operation, for the caller to write after a slash on the line before; `lines` start with
@@ -714,12 +730,16 @@ export const rectStoryFig = (d) => rectFig(d ? `x + ${d}` : '2x', 'x', { long: d
 export function rectStory() {
   for (;;) {
     const x = R(3, 15); const d = Math.random() < 0.2 ? 0 : R(2, 9); const q = R(0, 2);
-    const { P } = rectSides(x, d);
-    const bugs = rectBugs(x, d, q); const ans = rectAt(d, q, x);
+    const { P, other } = rectSides(x, d); const ans = rectAt(d, q, x);
+    // the unknown answered for what was asked: any other length or the area of the story (x, the other side, the
+    // area), so a draw where another mistake gives one of them is drawn again, and no answer is named by chance
+    // (PRODUCT2-15)
+    const told = [x, other, x * other].filter((v) => !near(v, ans));
+    const bugs = { ...rectBugs(x, d, q), 'wrong-unknown': null, ...Object.fromEntries(told.map((v, i) => [`wrong-unknown#${i}`, v])) };
     if (!fairStory(ans, bugs, d ? [d, P] : [P, 2])) continue;
     return {
       key: `eq5r:${x}:${d}:${q}`, text: rectText(x, d, q), form: 'num', answer: ans, unit: q === 2 ? CM2 : CM, fig: rectStoryFig(d),
-      hint: rectHint(d, q), solution: rectLines(x, d, q), diag: diagOf(ans, bugs), tries: triesOf(bugs),
+      hint: rectHint(d, q), solution: rectLines(x, d, q), diag: diagNamed(ans, bugs), tries: triesOf(bugs),
     };
   }
 }
@@ -827,11 +847,14 @@ export function angleEqStory(n = Math.random() < 0.5 ? 3 : 4) {
     if (ang.some((v) => v < 15 || v > 179)) continue;
     const q = R(-1, n - 1); const at = (v) => (q < 0 ? v : c[q] * v + e[q]);
     const ok = (v) => (Number.isFinite(v) && Math.round(v * 2) === v * 2 && v > 0 ? v : null);
-    const bugs = { 'wrong-unknown': q < 0 ? null : x, 'wrong-total': ok(at((wrong - Es) / Cs)) };
+    const ans = at(x);
+    // the unknown answered for what was asked: x, or another angle of the figure (each its own value), so a draw where
+    // another mistake gives one of them is drawn again, and no answer is named by chance (PRODUCT2-15)
+    const told = [x, ...ang].filter((v) => !near(v, ans));
+    const bugs = { ...Object.fromEntries([...new Set(told)].map((v, i) => [`wrong-unknown#${i}`, v])), 'wrong-total': ok(at((wrong - Es) / Cs)) };
     e.forEach((ei, i) => { if (ei < 0) bugs[`drop-minus#${i}`] = ok(at((total - Es + 2 * ei) / Cs)); });
     // every number the question prints, with its sign and without (a guesser may take 90 − (−5))
     const printed = [...c, ...e.filter((v) => v), ...e.filter((v) => v).map(abs)];
-    const ans = at(x);
     if (!fairStory(ans, bugs, printed, true)) continue;
     const pts = polyWithAngles(ang); if (!pts) continue;
     const P = Object.fromEntries(pts.map((p, i) => [NAMES[i], p]));
@@ -862,7 +885,7 @@ export function angleEqStory(n = Math.random() < 0.5 ? 3 : 4) {
       key: `eq5g:${n}:${c.join(',')}:${e.join(',')}:${q}`, form: 'num', answer: ans, unit: q < 0 ? null : 'מעלות',
       text: `${n === 3 ? 'במשולש' : 'במרובע'} $${names.join('')}$ שבשרטוט: ${list.slice(0, -1).join(', ')} ו־${list[n - 1]}. ${ask}`,
       fig, hint: `סכום הזוויות ${shape} $${total}^\\circ$. מחברים את כל הביטויים, ומכנסים משפחות.`,
-      solution: lines, diag: (u) => diagOf(ans, bugs)(u)?.replace(/#\d+$/, '') || null, tries: triesOf(bugs),
+      solution: lines, diag: diagNamed(ans, bugs), tries: triesOf(bugs),
     };
   }
 }

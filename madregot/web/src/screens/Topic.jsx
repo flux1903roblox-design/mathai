@@ -9,7 +9,7 @@ import { TOPIC, unitNumber } from '@/content/topics.js';
 import { lessonOf } from '@/content/lessons.js';
 import { Box, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
-import { Emblem } from '@/components/map/Scenery.jsx';
+import { Emblem } from '@/components/map/emblems.jsx';
 
 const LineExplorer = lazy(() => import('@/components/LineExplorer.jsx'));
 

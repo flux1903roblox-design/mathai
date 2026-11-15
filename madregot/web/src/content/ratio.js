@@ -1,8 +1,8 @@
 // Ratio, proportion and scale (יחס, פרופורציה וקנה מידה): the first unit of grade 8 (ח׳) in the Ministry's תשפ״ז
 // schedule, September to October (curriculum stage 1, CURRICULUM-5). It is the base that percent, slope, similarity
-// and probability lean on. Taught from the first week of the school year, so the first-day placement test skips it
-// (placement: false): a ח׳ student who learned it in class uses the unit's jump test, and the plan offers ratio:1 as
-// the first new stair of a ח׳ student in November (learn/next.ts, taught by now in school order).
+// and probability lean on. Taught from the first week of the school year, so the first-day placement test asks about it
+// from October on (placement: 'taught', PRODUCT2-19); a September starter uses the unit's jump test, and the plan offers
+// ratio:1 as the first new stair of a ח׳ student who has not climbed it (learn/next.ts, taught by now in school order).
 //
 // One picture carries it: a ratio compares two amounts in the order the question names them, and is kept by
 // multiplying (never by adding). m : n is m + n equal parts; a proportion is found through one unit or "פי כמה", on a
@@ -23,7 +23,7 @@
 //   cm-km            the distance converted to kilometres and then written as if it were metres
 //   linear-area      an area scaled like a length (De Bock, Verschaffel & Janssens 1998, ESM 35)
 //   add-same         the same number added to both terms, as if that kept the ratio (a choice in practice only)
-import { shuffle, gcd } from './util.js';
+import { shuffle, gcd, countOf } from './util.js';
 import { diagOf } from './eq.js';
 import { mk, r9, fracTex } from './frac.js';
 
@@ -122,7 +122,7 @@ export const ratio2Text = ({ m, n, T }) => `חילקו $${T}$ גולות בין 
 export const shareSolution = ({ m, n, k, T }, who = 'אורי', what = 'גולות') => [
   `ביחס $${ratioTex(m, n)}$ יש $${m} + ${n} = ${m + n}$ חלקים שווים.`,
   `חלק אחד: $${T} : ${m + n} = ${k}$ ${what}.`,
-  `ל${who} $${m}$ חלקים: $${m} \\cdot ${k} = ${m * k}$`,
+  `ל${who} ${countOf(m, 'חלק', 'חלקים')}: $${m} \\cdot ${k} = ${m * k}$`,
 ];
 export const shareHint = ({ m, n }) => `כמה חלקים יש ביחס $${ratioTex(m, n)}$? מחלקים את הכמות למספר החלקים, וכופלים.`;
 /** ratio:2 transfer: the long side of a rectangle from its perimeter. */
@@ -130,14 +130,14 @@ export const rectText = ({ m, n, P }) => `היקף מלבן $${P}$ ס״מ, וה�
 export const rectSolution = ({ m, n, k, T, hi }) => [
   `צלע ארוכה וצלע קצרה יחד הן חצי היקף: $${2 * T} : 2 = ${T}$.`,
   `ביחס $${ratioTex(m, n)}$ יש $${m + n}$ חלקים, וכל חלק $${T} : ${m + n} = ${k}$ ס״מ.`,
-  `הצלע הארוכה $${hi}$ חלקים: $${hi} \\cdot ${k} = ${hi * k}$`,
+  `הצלע הארוכה ${countOf(hi, 'חלק', 'חלקים')}: $${hi} \\cdot ${k} = ${hi * k}$`,
 ];
 export const rectHint = () => 'בהיקף כל צלע מופיעה פעמיים. מחלקים ביחס את חצי ההיקף.';
 
 /** ratio:3: a recipe (b cakes need a cups of flour), or notebooks and their price (the transfer). */
 export const ratio3Text = ({ a, b, c }, price = false) => (price
   ? `$${b}$ מחברות עולות $${big(a)}$ ש״ח. כמה עולות $${c}$ מחברות?`
-  : `במתכון, ל־$${b}$ עוגות צריך $${big(a)}$ כוסות קמח. כמה כוסות קמח צריך ל־$${c}$ עוגות?`);
+  : `במתכון, ל־$${b}$ עוגות צריך ${countOf(a, 'כוס קמח', 'כוסות קמח', { shown: big(a), oneWord: 'אחת' })}. כמה כוסות קמח צריך ל־$${c}$ עוגות?`);
 export const ratio3Solution = ({ u, a, b, c }, price = false) => [
   `${price ? 'מחיר מחברת אחת' : 'קמח לעוגה אחת'}: $${big(a)} : ${b} = ${big(u)}$.`,
   `ל־$${c}$ ${price ? 'מחברות' : 'עוגות'}: $${big(u)} \\cdot ${c} = ${big(u * c)}$`,
@@ -292,7 +292,7 @@ function profit() {
     key: `ra2p:${p.X}:${p.Y}:${p.P}`, text: `שני שותפים פתחו עסק. הראשון השקיע $${big(p.X)}$ ש״ח והשני $${big(p.Y)}$ ש״ח. רווח של $${big(p.P)}$ ש״ח מתחלק לפי ההשקעות. כמה מקבל הראשון?`,
     form: 'num', answer: ans,
     hint: 'כתבו את יחס ההשקעות וצמצמו. אחר כך מחלקים את הרווח לפי החלקים.',
-    solution: [`יחס ההשקעות: $${ratioTex(p.X, p.Y)} = ${ratioTex(p.X / g, p.Y / g)}$, כלומר $${p.m + p.n}$ חלקים.`, `חלק אחד: $${big(p.P)} : ${p.m + p.n} = ${big(p.u)}$ ש״ח.`, `לראשון $${p.m}$ חלקים: $${p.m} \\cdot ${big(p.u)} = ${big(ans)}$`],
+    solution: [`יחס ההשקעות: $${ratioTex(p.X, p.Y)} = ${ratioTex(p.X / g, p.Y / g)}$, כלומר $${p.m + p.n}$ חלקים.`, `חלק אחד: $${big(p.P)} : ${p.m + p.n} = ${big(p.u)}$ ש״ח.`, `לראשון ${countOf(p.m, 'חלק', 'חלקים')}: $${p.m} \\cdot ${big(p.u)} = ${big(ans)}$`],
     diag: diagOf(ans, bugsAt(PROFIT, p)),
   };
 }
@@ -395,12 +395,12 @@ function dlineMix() {
     const t = rint(rnd, 1, top - 1); const sugar = r9((t * s) / w);
     if (Math.abs(Math.round(sugar * 100) - sugar * 100) > 1e-9) continue;
     return {
-      key: `ra3l:${w}:${s}:${t}`, text: `במשקה $${w}$ כוסות מים לכל $${s}$ ${s === 1 ? 'כוס' : 'כוסות'} סוכר. כמה כוסות מים צריך עם $${big(sugar)}$ כוסות סוכר? הזיזו את הסמן.`,
+      key: `ra3l:${w}:${s}:${t}`, text: `במשקה $${w}$ כוסות מים לכל ${s === 1 ? 'כוס סוכר' : `$${s}$ כוסות סוכר`}. כמה כוסות מים צריך עם ${countOf(sugar, 'כוס סוכר', 'כוסות סוכר', { shown: big(sugar), oneWord: 'אחת' })}? הזיזו את הסמן.`,
       form: 'manip', practiceOnly: true,
       manip: { kind: 'dline', top: { max: top, step: 1, label: 'מים (כוסות)' }, bottom: { max: bottom, step: s / w, label: 'סוכר (כוסות)', every }, move: 't', start: { t: 0 } },
       answer: t,
       hint: `כל כוס מים היא $${big(s / w)}$ כוס סוכר. מזיזים עד שמתחת לסמן יש $${big(sugar)}$.`,
-      solution: [`לכל כוס מים $${big(s / w)}$ כוס סוכר.`, `$${big(sugar)} : ${big(s / w)} = ${t}$ כוסות מים.`],
+      solution: [`לכל כוס מים $${big(s / w)}$ כוס סוכר.`, `$${big(sugar)} : ${big(s / w)} = ${t}$: ${countOf(t, 'כוס מים', 'כוסות מים', { oneWord: 'אחת' })}.`],
       diag: () => null,
     };
   }
@@ -465,8 +465,9 @@ function scaleBar() {
 export const RATIO = {
   id: 'ratio', grade: '8', title: 'יחס וקנה מידה', color: 'sky',
   desc: 'יחס בין כמויות, חלוקה ביחס, פרופורציה וקנה מידה',
-  // taught from the first week of ח׳: the first-day placement test does not ask about it (the jump test does)
-  placement: false,
+  // taught from the first week of ח׳ (September): the first-day placement test asks about it from October on, once the
+  // class has taught it; a September starter has the unit's jump test (PRODUCT2-19)
+  placement: 'taught',
   levels: [
     { title: 'יחס', gen: () => { const r = Math.random(); return r < 0.45 ? ratioOf() : r < 0.7 ? ratioMc() : r < 0.85 ? addSame() : beads(); } },
     { title: 'חלוקה ביחס', gen: () => { const r = Math.random(); return r < 0.5 ? share() : r < 0.75 ? rect() : r < 0.9 ? profit() : statements(); } },

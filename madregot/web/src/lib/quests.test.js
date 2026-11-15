@@ -71,3 +71,71 @@ describe('store: finishing the mission', () => {
     expect(useApp.getState().days[key]).toMatchObject({ missionDone: 1, questsRewarded: true });
   });
 });
+
+describe('the quests\' chest: a choice of one of two pieces for מדי, next to the streak freeze (PRODUCT2-36)', async () => {
+  const { chestOffer, chestDay } = await import('./rewards.js');
+  const { ownedLook, isQuestPiece } = await import('./wardrobe.js');
+  beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ freezes: 0, profile: { role: 'student', name: 'נועה', grade: '7' } }); });
+  afterEach(() => vi.useRealTimers());
+  const offerNow = () => {
+    const { days, look, path, learn } = useApp.getState();
+    const o = ownedLook({ path, earned: look.earned, skills: learn.skills });
+    return chestOffer({ days, look, today: today(), owned: new Set([...o.colors, ...o.items]) });
+  };
+
+  it('finishing the day\'s last quest opens the chest: the freeze, and a choice of the first two chest pieces', () => {
+    const key = dayWith('mission');
+    vi.useFakeTimers(); vi.setSystemTime(new Date(`${key}T12:00:00`));
+    expect(offerNow()).toBeNull();
+    useApp.setState({ days: { [key]: { lessons: 5, combo: 10, perfect: 1, ok: 30, xp: 60 } }, freezes: 0 });
+    useApp.getState().saveMission(key, [review]);
+    expect(useApp.getState().completeMission({ skill: 'coord:1', kind: 'review' })).toEqual({ questsDone: true, freezeEarned: true });
+    expect(useApp.getState().freezes).toBe(1);
+    expect(offerNow()).toEqual({ day: key, ids: ['beanie', 'medal'] });
+  });
+
+  it('the student chooses one: it is earned and shown, the chest says where it came from, and it gives no second piece', () => {
+    const key = today();
+    useApp.setState({ days: { [key]: { lessons: 2, questsRewarded: true } } });
+    const { pickChest } = useApp.getState();
+    expect(pickChest(key, 'bolt-pin')).toBe(false); // a chest piece, but not one of the two on offer
+    expect(pickChest(key, 'party-hat')).toBe(false); // not a chest piece at all
+    expect(pickChest(key, 'medal')).toBe(true);
+    const { look } = useApp.getState();
+    expect(look.earned).toEqual(['medal']);
+    expect(look.seen).toEqual(['medal']);
+    expect(look.picks).toEqual({ [key]: 'medal' });
+    expect(ownedLook({ earned: look.earned }).why.get('medal')).toBe('מתיבת המשימות');
+    expect(offerNow()).toBeNull();
+    expect(useApp.getState().pickChest(key, 'beanie')).toBe(false); // one piece a chest
+    expect(useApp.getState().look.earned).toEqual(['medal']);
+  });
+
+  it('the next chest offers the next two in the same fixed order: the piece not chosen stays first in line', () => {
+    const day1 = '2026-11-02'; const day2 = '2026-11-03';
+    vi.useFakeTimers(); vi.setSystemTime(new Date(`${day1}T12:00:00`));
+    useApp.setState({ days: { [day1]: { questsRewarded: true } } });
+    expect(useApp.getState().pickChest(day1, 'medal')).toBe(true);
+    vi.setSystemTime(new Date(`${day2}T12:00:00`));
+    useApp.setState({ days: { ...useApp.getState().days, [day2]: { questsRewarded: true } } });
+    expect(offerNow()).toEqual({ day: day2, ids: ['beanie', 'bolt-pin'] });
+  });
+
+  it('a choice waits for its day\'s chest for a week, one at a time, and never for a day whose quests were not done', () => {
+    const day = '2026-11-02';
+    expect(chestDay({ [day]: { lessons: 4 } }, {}, '2026-11-02')).toBeNull();
+    expect(chestDay({ [day]: { questsRewarded: true } }, {}, '2026-11-08')).toBe(day);
+    expect(chestDay({ [day]: { questsRewarded: true } }, {}, '2026-11-09')).toBeNull(); // more than a week ago
+    // a later chest: the earlier one waits no longer, and a chosen one waits not at all
+    expect(chestDay({ [day]: { questsRewarded: true }, '2026-11-04': { questsRewarded: true } }, {}, '2026-11-05')).toBe('2026-11-04');
+    expect(chestDay({ [day]: { questsRewarded: true }, '2026-11-04': { questsRewarded: true } }, { picks: { '2026-11-04': 'beanie' } }, '2026-11-05')).toBeNull();
+  });
+
+  it('once every chest piece is owned, the chest holds the freeze only', () => {
+    const key = today();
+    const all = ['beanie', 'medal', 'bolt-pin', 'star-glasses', 'grad-cap', 'infinity-pin'];
+    expect(all.every(isQuestPiece)).toBe(true);
+    useApp.setState({ days: { [key]: { questsRewarded: true } }, look: { ...useApp.getState().look, earned: all } });
+    expect(offerNow()).toBeNull();
+  });
+});

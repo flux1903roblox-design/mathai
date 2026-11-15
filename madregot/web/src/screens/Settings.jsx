@@ -1,12 +1,15 @@
 // Settings, laid out like Duolingo's settings screen: a bar with the way back and the title, then grouped sections,
 // each a bordered group with a small heading (my details, class, the assistant, the look, sound, vibration, the daily
-// reminder, the app, deleting data).
-// A student sees nothing about servers or keys: those are for the adult who sets the app up, behind "מתקדם".
+// reminder, privacy and safety, the app), then a section for adults, then deleting data.
+// The student's own settings speak to the student (PRODUCT2-41): how the browser keeps the data, the backup and the
+// support details are for the adult who looks after the device, in "להורים ולמבוגרים" under them, folded until an
+// adult opens it (/settings#save opens it at the saving). Servers and keys are for the adult who sets the app up,
+// behind "מתקדם" in that section.
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { ArrowRight, ChevronLeft, Download } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronDown, Download } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field, Sheet, Segmented } from '@/components/ui.jsx';
@@ -19,8 +22,11 @@ import { useAIStatus, leaveFamily, familyInApp } from '@/lib/account.js';
 import { canSell } from '@/lib/price.js';
 import { PARENT_OK_LINE } from '@/components/limitCopy.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
+import { soundOn } from '@/lib/sound.js';
 import SaveSection from '@/components/durable/SaveSection.jsx';
 import SupportInfo from '@/components/durable/SupportInfo.jsx';
+import InstallSheet from '@/components/durable/InstallSheet.jsx';
+import { guideHere } from '@/lib/durable/install.js';
 import { whereSavedText, WHERE_SAVED } from '@/lib/durable/copy.js';
 import { syncVault } from '@/lib/durable/vault.js';
 import { afterClassJoin } from '@/lib/durable/escrow.js';
@@ -32,6 +38,7 @@ import { count } from '@/lib/metrics.js';
 import SharingSheet, { stateWord } from '@/components/SharingSheet.jsx';
 import { disable as disableReminder } from '@/lib/push.js';
 import ReminderSettings from '@/components/learn/ReminderSettings.jsx';
+import '@/styles/lazy/settings.css'; // this screen's own rules, loaded with it (moved out of the first load at the product2 merge)
 
 export const SIGNOUT_VAULT = 'הגיבוי בשרת נשאר. כדי לחזור להתקדמות, פותחים את מדרגות ובוחרים "יש לי קוד גיבוי".';
 /**
@@ -132,12 +139,12 @@ function useConnectionTest(detail = false) {
   return [status, test];
 }
 
-/** One quiet row at the end of Settings that leads adults to the server address and the personal key. */
+/** One quiet row in the adults' section that leads to the server address and the personal key. */
 function AdvancedRow() {
   if (!PERSONAL_KEY) return null;
   return (
     <section className="section set-group" aria-labelledby="adv-title">
-      <h2 id="adv-title" className="set-head">מתקדם</h2>
+      <h3 id="adv-title" className="set-head">מתקדם</h3>
       <div className="set-rows-wrap"><div className="set-rows">
         <Link to="/settings/advanced" className="set-row"><span>חיבור העוזר לשרת או למפתח (להורים ולמורים)</span><ChevronLeft size={18} aria-hidden="true" /></Link>
       </div></div>
@@ -327,7 +334,8 @@ function OnOff({ id, title, value, onChange, on, off, hint, children }) {
  * is the app's quiet mode: the maths burst on a rare moment does not play either (lib/mathBurst.js), and the hint says so.
  */
 function SoundSettings() {
-  const sound = useApp((x) => x.sound);
+  // in a class, sound is off until the student turns it on themselves (lib/sound.js soundOn): the switch says so
+  const sound = useApp(soundOn);
   const setSound = useApp((x) => x.setSound);
   const haptics = useApp((x) => x.haptics ?? true);
   const setHaptics = useApp((x) => x.setHaptics);
@@ -335,7 +343,7 @@ function SoundSettings() {
   const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
   return (
     <>
-      <OnOff id="snd" title="צלילים" value={sound} onChange={setSound} on="פועלים" off="כבויים" hint="צליל קצר אחרי תשובה ובסוף שיעור, וסימנים שעפים על המסך ברגעים מיוחדים. למי שהצטרף לכיתה הם כבויים בהתחלה." />
+      <OnOff id="snd" title="צלילים" value={sound} onChange={setSound} on="פועלים" off="כבויים" hint={`צליל קצר אחרי תשובה ובסוף שיעור, וסימנים שעפים על המסך ברגעים מיוחדים. למי שהצטרף לכיתה הם כבויים בהתחלה.${reduce ? ' בטלפון מופעלת הפחתת תנועה, ולכן צלילי החגיגה שקטים.' : ''}`} />
       {canVibrate
         ? <OnOff id="vib" title="רטט" value={haptics} onChange={setHaptics} on="פועל" off="כבוי" hint={reduce ? 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה. בטלפון מופעלת הפחתת תנועה, ולכן עכשיו אין רטט.' : 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה.'} />
         : <OnOff id="vib" title="רטט"><p className="field-hint" id="vib-hint">בדפדפן הזה אין רטט.</p></OnOff>}
@@ -344,19 +352,27 @@ function SoundSettings() {
 }
 
 /**
- * Install the app (STUDENT-10): a row only where the browser offers an install (Chrome and Edge, not yet installed, not
- * a store app). It opens the browser's own prompt; once used, the browser gives no second one and the row goes.
+ * "האפליקציה": putting the app on the home screen, among the student's own settings.
+ * Where the browser offers an install (STUDENT-10: Chrome and Edge, not yet installed, not a store app),
+ * "להתקין את האפליקציה" opens the browser's own prompt; once used, the browser gives no second one and the row goes.
+ * On an iPhone or iPad in the browser, which has no such prompt, "להוסיף למסך הבית" opens the Home Screen guide
+ * (DURABLE-3, InstallSheet): it stands here, not in the adults' folded section, so the student who put the card on
+ * Learn away still finds it.
  */
 function InstallRow() {
   const { canOffer, offer } = useInstall();
-  if (!canOffer || isStoreApp() || isStandalone()) return null;
+  const [guide, setGuide] = useState(false);
+  const ios = guideHere();
+  if (isStoreApp() || isStandalone() || (!canOffer && !ios)) return null;
   const install = () => { count('install_offer'); offer(); };
   return (
     <section className="section set-group" aria-labelledby="app-title">
       <h2 id="app-title" className="set-head">האפליקציה</h2>
       <div className="set-rows-wrap"><div className="set-rows">
-        <button type="button" className="set-row go" onClick={install}><span>להתקין את האפליקציה</span><Download size={18} aria-hidden="true" /></button>
+        {canOffer && <button type="button" className="set-row go" onClick={install}><span>להתקין את האפליקציה</span><Download size={18} aria-hidden="true" /></button>}
+        {ios && <button type="button" className="set-row go" onClick={() => setGuide(true)}><span>להוסיף למסך הבית</span><ChevronLeft size={18} aria-hidden="true" /></button>}
       </div></div>
+      {ios && <InstallSheet open={guide} onOpenChange={setGuide} />}
     </section>
   );
 }
@@ -453,12 +469,15 @@ export default function Settings() {
   const { state: nav, hash } = useLocation();
   const navigate = useNavigate();
   useEffect(() => { if (nav?.focus === 'ai') document.getElementById('ai-title')?.scrollIntoView({ block: 'start' }); }, [nav]);
-  // "מה עושים" on the storage banner opens Settings at the saving section
+  // the section for adults is folded (PRODUCT2-41); "מה עושים" on the storage banner (/settings#save) opens it at the
+  // saving section, with the focus on its heading
+  const [adults, setAdults] = useState(hash === '#save');
+  useEffect(() => { if (hash === '#save') setAdults(true); }, [hash]);
   useEffect(() => {
-    if (hash !== '#save') return;
+    if (hash !== '#save' || !adults) return;
     const el = document.getElementById('save-title');
     el?.scrollIntoView({ block: 'start' }); el?.focus({ preventScroll: true });
-  }, [hash]);
+  }, [hash, adults]);
   const [name, setName] = useState(profile.name);
   // the name can change under this screen (a restore, another tab): the field follows it
   useEffect(() => { setName(profile.name); }, [profile.name]);
@@ -493,7 +512,6 @@ export default function Settings() {
           )}
         </div>
       </section>
-      <SaveSection />
       <ClassSection />
       <AISection />
       <ThemeSetting />
@@ -501,7 +519,22 @@ export default function Settings() {
       <ReminderSettings />
       <SafetySection />
       <InstallRow />
-      <AdvancedRow />
+      {/* for the adult who looks after the device: saving and the backup (DURABLE-1/4/5), the server and the key, and the
+          support details (DURABLE-9), folded under its heading. The saving keeps its anchor, /settings#save (the storage
+          banner's "מה עושים"), which opens it. Folded, its parts stay mounted (hidden), so the saving works as before */}
+      <section className={clsx('set-adults', adults && 'open')} aria-labelledby="adults-title">
+        <h2 id="adults-title" className="set-head set-adults-head">
+          <button type="button" className="set-adults-toggle" aria-expanded={adults} aria-controls="adults-body" onClick={() => setAdults((o) => !o)}>
+            להורים ולמבוגרים<ChevronDown size={22} aria-hidden="true" className="set-adults-chev" />
+          </button>
+        </h2>
+        <p className="set-adult-note">שמירה, גיבוי ופרטים לתמיכה. בדרך כלל אין צורך לשנות כאן כלום.</p>
+        <div id="adults-body" className="set-adults-body" hidden={!adults}>
+          <SaveSection level={3} installRow={false} />
+          <AdvancedRow />
+          <SupportInfo />
+        </div>
+      </section>
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>
         <div className="set-rows-wrap">
@@ -523,7 +556,6 @@ export default function Settings() {
         {vaultOn && <p>{SIGNOUT_VAULT}</p>}
         <p>ההגדרות של העוזר במכשיר נשארות. כדי למחוק הכול, בחרו 'מחיקת כל הנתונים'.</p>
       </ConfirmSheet>
-      <SupportInfo />
       {/* where the progress lives, in the words the whole app uses (lib/durable/copy.js) */}
       <p className="footnote">מדרגות. {whereSavedText({ profile, backup }, { summary: familyLinked && summaryOn })}</p>
     </div>

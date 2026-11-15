@@ -104,12 +104,14 @@ const stair1: StairContent = {
         { action: 'כותבים כמספר מעורב.', why: '$5$ חמישיות הן יחידה שלמה, ועוד $2$ חמישיות.', result: '\\frac{7}{5} = 1\\frac{2}{5}', value: '1 + 2/5' },
       ] },
     { problem: 'השלימו: $\\frac{3}{4} = \\frac{\\square}{20}$', answer: 15, check: '3*20/4',
+      fig: bars([{ den: 4, shaded: 3 }, { den: 20, shaded: 0 }]),
       steps: [
         { action: 'פי כמה גדל המכנה?', why: 'מ־$4$ ל־$20$.', result: '20 : 4 = 5', calc: { expr: '20/4', value: 5 } },
         { action: 'גם המונה גדל פי $5$.', why: 'בהרחבה כופלים את המונה ואת המכנה באותו מספר.', result: '3 \\cdot 5 = 15', value: '3*5' },
         { action: 'כותבים את השבר השווה.', why: 'אותה כמות, בחלקים קטנים פי $5$.', result: '\\frac{3}{4} = \\frac{15}{20}', calc: { expr: '15/20', value: 0.75 } },
       ] },
     { problem: 'צמצמו עד הסוף: $\\frac{18}{24}$', answer: 0.75, check: '18/24',
+      fig: bars([{ den: 24, shaded: 18 }, { den: 4, shaded: 0 }]),
       steps: [
         { action: 'מחפשים את המחלק המשותף הגדול ביותר.', why: 'גם $18$ וגם $24$ מתחלקים ב־$6$, ואין מספר גדול יותר שמחלק את שניהם.', result: '18 : 6 = 3', calc: { expr: '18/6', value: 3 } },
         { action: 'מחלקים גם את המכנה ב־$6$.', why: 'בצמצום מחלקים את המונה ואת המכנה באותו מספר.', result: '24 : 6 = 4', calc: { expr: '24/6', value: 4 } },
@@ -118,10 +120,11 @@ const stair1: StairContent = {
   ],
   together: [
     { problem: 'השלימו: $\\frac{2}{5} = \\frac{\\square}{15}$.',
+      fig: bars([{ den: 5, shaded: 2 }, { den: 15, shaded: 0 }]),
       steps: [
         { prompt: 'פי כמה גדל המכנה?', choices: [
           { text: 'פי $3$', ok: true, feedback: 'נכון: $5 \\cdot 3 = 15$.' },
-          { text: 'ב־$10$', ok: false, feedback: 'הוספה משנה את הכמות. בשבר שואלים "פי כמה".' },
+          { text: 'ב־$10$', ok: false, misc: 'add-same', feedback: 'הוספה משנה את הכמות. בשבר שואלים "פי כמה".' },
           { text: 'פי $15$', ok: false, feedback: '$5 \\cdot 15$ הוא $75$, לא $15$.' },
         ], hints: ['במכנה היה $5$, ועכשיו $15$.', '$15 : 5 = 3$.'], done: 'המכנה גדל פי $3$.' },
       ],
@@ -130,7 +133,7 @@ const stair1: StairContent = {
       steps: [
         { prompt: 'לכמה חלקים מחולקת היחידה?', choices: [
           { text: '$6$', ok: true, feedback: 'נכון: $5$ שנתות בפנים יוצרות $6$ רווחים.' },
-          { text: '$5$', ok: false, feedback: 'יש $5$ שנתות, והן יוצרות $6$ חלקים.' },
+          { text: '$5$', ok: false, misc: 'count-marks', feedback: 'יש $5$ שנתות, והן יוצרות $6$ חלקים.' },
           { text: '$1$', ok: false, feedback: 'היחידה היא הקטע מ־$0$ עד $1$, וכאן היא חתוכה לחלקים קטנים.' },
         ], hints: ['סופרים את הרווחים בין $0$ ל־$1$, לא את הקווים.', 'יש $5$ קווים בפנים, ורווח אחד יותר.'], done: 'כל חלק הוא $\\frac{1}{6}$.' },
       ],
@@ -254,12 +257,14 @@ const stair2: StairContent = {
   ],
   examples: [
     { problem: 'מה הגדול ביותר: $0.6$, $0.125$, $0.75$?', answer: 0.75, check: '0.75',
+      fig: { type: 'numline', from: 0, to: 1, step: 0.1, marks: [{ x: 0.125, label: '0.125' }, { x: 0.6, label: '0.6' }, { x: 0.75, label: '0.75' }] },
       steps: [
         { action: 'משלימים אפסים עד שלוש ספרות אחרי הנקודה.', why: 'אפס בסוף לא משנה את המספר, ועכשיו לכולם אותו מספר ספרות.', result: '0.600,\\ 0.125,\\ 0.750' },
         { action: 'משווים אלפיות.', why: '$750$ אלפיות הן הכי הרבה.', result: '750 > 600 > 125', calc: { expr: '0.75*1000', value: 750 } },
         { action: 'הגדול ביותר הוא:', why: 'בלי האפס שהוספנו.', result: '0.75', value: '0.75' },
       ] },
     { problem: 'מה גדול יותר: $\\frac{2}{3}$ או $\\frac{3}{5}$?', answer: 2 / 3, check: '2/3',
+      fig: bars([{ den: 3, shaded: 2 }, { den: 5, shaded: 3 }]),
       steps: [
         { action: 'מרחיבים את $\\frac{2}{3}$ למכנה משותף $15$.', why: 'גם $3$ וגם $5$ נכנסים ב־$15$. מ־$3$ ל־$15$ זה פי $5$.', result: '\\frac{2}{3} = \\frac{10}{15}', calc: { expr: '2*5', value: 10 } },
         { action: 'מרחיבים את $\\frac{3}{5}$ גם הוא ל־$15$.', why: 'מ־$5$ ל־$15$ זה פי $3$.', result: '\\frac{3}{5} = \\frac{9}{15}', calc: { expr: '3*3', value: 9 } },
@@ -277,6 +282,7 @@ const stair2: StairContent = {
       ],
       final: { prompt: 'מה המספר האמצעי?', answer: 0.45, check: '0.45', fmt: 'dec', hints: ['השוו $500$, $450$ ו־$405$ אלפיות.', 'הקטן $0.405$ והגדול $0.5$. מה באמצע?'] } },
     { problem: 'מה גדול יותר: $\\frac{5}{8}$ או $\\frac{3}{4}$?',
+      fig: bars([{ den: 8, shaded: 5 }, { den: 4, shaded: 3 }]),
       steps: [
         { prompt: '$\\frac{3}{4}$ בשמיניות:', choices: [
           { text: '$\\frac{6}{8}$', ok: true, feedback: 'נכון: $\\frac{3 \\cdot 2}{4 \\cdot 2} = \\frac{6}{8}$.' },
@@ -423,7 +429,7 @@ const stair3: StairContent = {
         ], hints: ['מחפשים מספר שמתחלק גם ב־$5$ וגם ב־$2$.', '$5 \\cdot 2 = 10$.'], done: 'המכנה המשותף הוא $10$.' },
         { prompt: 'במכנה $10$:', choices: [
           { text: '$\\frac{6}{10} + \\frac{5}{10}$', ok: true, feedback: 'נכון: $\\frac{3 \\cdot 2}{5 \\cdot 2}$ ו־$\\frac{1 \\cdot 5}{2 \\cdot 5}$.' },
-          { text: '$\\frac{3}{10} + \\frac{1}{10}$', ok: false, feedback: 'הרחבתם רק את המכנים. גם המונה גדל פי אותו מספר.' },
+          { text: '$\\frac{3}{10} + \\frac{1}{10}$', ok: false, misc: 'num-not-scaled', feedback: 'הרחבתם רק את המכנים. גם המונה גדל פי אותו מספר.' },
         ], hints: ['פי כמה גדל כל מכנה?', '$5$ גדל פי $2$, ו־$2$ גדל פי $5$. המונים גדלים פי אותו מספר.'], done: '$\\frac{6}{10} + \\frac{5}{10}$' },
       ],
       final: { prompt: 'כמה יוצא? (שבר או עשרוני)', answer: 1.1, check: '3/5+1/2', precise: true, hints: ['מחברים את המונים: $6 + 5$.', '$\\frac{11}{10}$, כלומר $1.1$.'] } },
@@ -546,6 +552,7 @@ const stair4: StairContent = {
   ],
   examples: [
     { problem: 'כמה הם $\\frac{3}{4}$ מ־$20$?', answer: 15, check: '3/4*20',
+      fig: bars([{ den: 4, shaded: 3 }], { whole: 20 }),
       steps: [
         { action: 'רבע מ־$20$.', why: 'מחלקים את $20$ ל־$4$ חלקים שווים.', result: '20 : 4 = 5', calc: { expr: '20/4', value: 5 } },
         { action: 'שלושה רבעים.', why: 'שלושה חלקים כאלה.', result: '3 \\cdot 5 = 15', value: '3*5' },
@@ -568,7 +575,7 @@ const stair4: StairContent = {
       steps: [
         { prompt: 'מה המכנה?', choices: [
           { text: '$25$', ok: true, feedback: 'נכון: $5 \\cdot 5 = 25$.' },
-          { text: '$5$', ok: false, feedback: 'בכפל גם המכנים מוכפלים: החלקים קטנים יותר.' },
+          { text: '$5$', ok: false, misc: 'keep-den', feedback: 'בכפל גם המכנים מוכפלים: החלקים קטנים יותר.' },
           { text: '$10$', ok: false, feedback: '$5 + 5 = 10$. בכפל שברים כופלים את המכנים, לא מחברים.' },
         ], hints: ['בכפל שברים: מונה כפול מונה, ומכנה כפול מכנה.', '$5 \\cdot 5$.'], done: 'המכנה הוא $25$.' },
       ],
@@ -577,8 +584,8 @@ const stair4: StairContent = {
       steps: [
         { prompt: 'איזה תרגיל?', choices: [
           { text: '$\\frac{3}{4} : \\frac{1}{8}$', ok: true, feedback: 'נכון: כמה פעמים כוס נכנסת בבקבוק.' },
-          { text: '$\\frac{1}{8} : \\frac{3}{4}$', ok: false, feedback: 'שואלים כמה כוסות נכנסות בבקבוק: הבקבוק מחולק בכוס.' },
-          { text: '$\\frac{3}{4} \\cdot \\frac{1}{8}$', ok: false, feedback: 'כפל ייתן פחות מכוס אחת. כמה פעמים $\\frac{1}{8}$ נכנס?' },
+          { text: '$\\frac{1}{8} : \\frac{3}{4}$', ok: false, misc: 'divide-flip', feedback: 'שואלים כמה כוסות נכנסות בבקבוק: הבקבוק מחולק בכוס.' },
+          { text: '$\\frac{3}{4} \\cdot \\frac{1}{8}$', ok: false, misc: 'mult-bigger', feedback: 'כפל ייתן פחות מכוס אחת. כמה פעמים $\\frac{1}{8}$ נכנס?' },
         ], hints: ['כמה פעמים $\\frac{1}{8}$ ליטר נכנס ב־$\\frac{3}{4}$ ליטר?', '"כמה פעמים נכנס" זה חילוק: הבקבוק חלקי הכוס.'], done: '$\\frac{3}{4} : \\frac{1}{8}$' },
       ],
       final: { prompt: 'כמה כוסות?', answer: 6, check: '3/4/(1/8)', hints: ['כופלים בהפכי: $\\frac{3}{4} \\cdot 8$.', '$\\frac{24}{4}$.'] } },

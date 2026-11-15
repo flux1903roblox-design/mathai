@@ -661,11 +661,12 @@ const stair4: StairContent = {
       ] },
   ],
   together: [
-    { problem: 'מקבילית: צלע $14$ ס״מ, הגובה אליה $5$ ס״מ, והצלע השנייה $6$ ס״מ. מה השטח?', fig: G.paraFig({ a: 14, h: 5, s: 6 }),
+    // AD = 13 with the height 5 (5, 12, 13): the drawing keeps its sides in proportion (learn/figures.test.ts)
+    { problem: 'במקבילית $ABCD$: $AB = 14$ ס״מ, הגובה ל־$AB$ הוא $5$ ס״מ, ו־$AD = 13$ ס״מ. מה השטח?', fig: G.paraFig({ a: 14, h: 5, s: 13 }),
       steps: [
         { prompt: 'מה כופלים?', choices: [
           { text: '$14 \\cdot 5$', ok: true, feedback: 'נכון: צלע כפול הגובה אליה.' },
-          { text: '$14 \\cdot 6$', ok: false, feedback: '$6$ היא צלע משופעת, לא גובה.' },
+          { text: '$14 \\cdot 13$', ok: false, feedback: '$13$ היא צלע משופעת, לא גובה.' },
           { text: '$\\frac{14 \\cdot 5}{2}$', ok: false, feedback: 'מקבילית אינה חצי מלבן.' },
         ], hints: ['איזה קטע ניצב לצלע $14$?', 'הגובה הוא $5$.'], done: '$14 \\cdot 5$.' },
       ],

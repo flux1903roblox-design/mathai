@@ -27,7 +27,9 @@ web/src/learn/                 the learning model: pure TypeScript, no React, al
   next.ts                      planNext: the one ranked "what next" every surface reads (home, mission, Rescue)
   programme.ts                 the Ministry's programme (shared/programme.js) and its coverage (shared/coverage.js),
                                bound to the stairs that exist: the /programme page and PROGRAMME.md read it
-  challenges/                  the challenge track: grade.ts (grading by code) and one file of tasks per topic
+  challenges/                  the challenge track: grade.ts (grading by code), one file of tasks per topic, all.ts
+                               (every task whole, loaded with the challenge screen), and meta.gen.ts, what the first
+                               download knows about each task (written by scripts/gen-content-meta.mjs)
   mission.ts                   the daily ~5-minute mission, made from planNext's items
   examRescue.ts                Exam Rescue: diagnostic, standing per stair, day-by-day plan, message
   tutor.ts                     the tutor without a model: six intents answered from content
@@ -48,20 +50,27 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
 
 - **Mastery is independent.** Watching, a hint, a second try or solving together count as learning with help. Mastery
   is a check of 5 questions, one try each, no hints, 4 right. It is checked again after 1, 3, 7, 16, 35, 60 days;
-  a missed review marks it "needs review" (nothing is taken away). States: not started, learning, needs support,
-  practicing, mastered (independently), needs review. The student sees the rules (`MASTERY_RULES`).
+  a missed review marks it "needs review" (nothing is taken away). After a failed check the stair is back in practice:
+  the check is offered again after 3 right practice answers given alone (first try, no hint) since it, not at once,
+  and the plan says so in the result screen's words (`lastFailAt`, `checkWaits`, `PRACTICE_AGAIN`); before any failed
+  check, 6 right practice answers bring it. A check the teacher assigned stays open. States: not started, learning,
+  needs support, practicing, mastered (independently), needs review. The student sees the rules (`MASTERY_RULES`).
 - **A misconception is never decided from one answer.** Each stair has a diagnostic model: parameters, the right
   answer, and the answer each misconception predicts. A wrong answer adds evidence to every misconception that
   predicts it (split when several do). Confirmed = 1.5 evidence from at least two different questions. A right answer
   where it could have shown removes evidence. Off by one, ten off and two swapped digits are slips. An answer no
   misconception explains is "unknown": the tutor says it does not know rather than guess. When an answer is
-  ambiguous, one more question tells the candidates apart (some pairs need two questions: the engine narrows).
+  ambiguous, one more question tells the candidates apart, and when its answer still fits two or more, a second one
+  (at most two a lesson). The stair's own mistake (`DiagModel.flagship`, the level's `flagship`) names an answer it
+  predicts alone. An exercise generator's diag() names every mistake whose number the answer is, so an answer two
+  mistakes explain is ambiguous there too (content/labels.test.js checks this for every stair). 'direction', a move on
+  the number line, is a candidate only on a question that draws one.
 - **Repair, then verify.** A confirmed misconception gets its own explanation and an interactive activity (not the
   stair's general explanation again), then 3 questions where it would show. Resolved when 2 are right and it does not
   show. At most 2 offers a day, and after 2 failed verifications it is not offered again: the student is pointed to
   the prerequisite, the other explanations or the tutor instead (no endless loop).
 - **What next** (next.ts planNext, one ranked plan): Exam Rescue's steps for today when the exam is within 14 days
-  (its diagnostic first; none on Shabbat) > confirmed misconception > due review > points lost in a checked exam of
+  (its diagnostic first; none on Shabbat or Yom Tov) > confirmed misconception > due review > points lost in a checked exam of
   the last 45 days, not recovered since > the floor check, or the smallest missing prerequisite of a stair that is
   hard > the stair in progress, then a kept stair's mastery check > the next new stair (taught by now in the school
   calendar first, in school order, never skipping ahead inside a unit) > a challenge task of a mastered stair (it moves
@@ -84,16 +93,25 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
   "יסודות" with no unit number. A missed fact offers `/facts`, a short practice that records nothing on any stair. The
   student can open the unit from Topics at any time and hide it from the map (`setFloor({ on: false })`) without losing
   the evidence.
-- **The challenge track** (`learn/challenges/`): three optional tasks per topic, the floor included: a claim (always,
-  sometimes or never, with a counterexample typed into named slots when one is asked), a proof to order with a reason
-  per step or an error to find and fix, and a real-world task. Code grades every part: a counterexample is evaluated
+- **The challenge track** (`learn/challenges/`): optional tasks for a strong student. In the twelve topics of the first
+  two stages every stair has at least one task after it (PRODUCT2-21; signed:5 and expr:3 have the classroom lane's),
+  and each of those topics has a claim (always, sometimes or never, with a counterexample typed into named slots when
+  one is asked), an error to find and fix, a proof to order with a reason per step, a real-world task and a task of
+  several steps; the units added since (and angles:6-7, eq:7, stats:6-8) have their own specs' tasks, three a unit, and
+  learn/challenges.test.ts lists them by name. A task's parts load with
+  the challenge screen (all.ts); the plan and the stair page read `meta.gen.ts` only. Code grades every part: a counterexample is evaluated
   with `learn/expr.ts` in its domain, a proof is checked step by step (steps that may swap are a `free` group), typed
   numbers are compared exactly. Two tries per part, then the solution. A task opens when its stair is mastered. It
   gives XP once and counts for the day like a lesson, and never touches `learn.skills` or a check. An explain part is
   kept in component state only (not saved, not sent) and self-checked against a sample and a rubric.
 - **Exam Rescue** starts with a 2-question diagnostic per stair, sorts stairs into strong / shaky / gap / untested,
-  orders gaps (and stairs others lean on) first, and spreads learn → practice → mastery tasks over the days, with a
-  practice exam on the last day. It is recomputed from the evidence every time, so it follows real performance. It
+  orders gaps (and stairs others lean on) first, and places learn → practice → mastery over the days in real minutes
+  (a lesson 12, practice 5, a check 3, a review 2, the practice exam 5, from recommend.ts STAGE_MIN). When the days
+  allow, a stair's lesson, practice and check are on three different days; otherwise the practice may share a day, but
+  a check never shares the day of its lesson unless the exam is a day or less away. Days not needed for first steps get
+  short reviews spaced as REVIEW_DAYS spaces them, and the practice exam closes the last day. A day goes over the
+  student's minutes only when the plan is tight, and the message says so. No work on Shabbat or Yom Tov
+  (shared/restDays.js isRestDay). It is recomputed from the evidence every time, so it follows real performance. It
   never promises a grade.
 - **Analytics** stay on the device: event type, stair, right or not. Metrics (independent mastery gain, misconception
   resolution rate, 7-day retained mastery, reviews, returns after 1/7/30 days, adoption) show "not enough data" below
@@ -197,13 +215,13 @@ the row to paste when one differs.
 | angles:4 | ישרים מקבילים | 10 (angle) | 3 | 2 | 2 (supp-not-equal, equal-not-supp) | yes | complete, tested |
 | angles:5 | שווה־שוקיים וזווית חיצונית | 10 (angle) | 2 | 2 | 4 (forgot-half, one-angle, apex-base-swap, interior-not-exterior) | yes | complete, tested |
 | angles:6 | חוצה זווית | 6 (angle) | 2 | 2 | 4 (part-for-whole, no-half, half-double-swap, sum-360) | no | complete, tested |
-| angles:7 | סכום זוויות במרובע | 6 | 2 | 1 | 3 (quad-missed, forgot-half, wrong-total) | no | complete, tested |
+| angles:7 | סכום זוויות במרובע | 7 (angle) | 2 | 1 | 3 (quad-missed, forgot-half, wrong-total) | no | complete, tested |
 | transf:1 | הזזה | 8 (transform) | 2 | 2 | 4 (shift-sign, shift-swap, one-axis, gap) | yes | complete, tested |
 | transf:2 | שיקוף | 8 (transform) | 2 | 2 | 4 (axis-not-line, wrong-axis, both-signs, diagonal-axis) | yes | complete, tested |
 | transf:3 | סיבוב | 8 (transform) | 2 | 2 | 4 (wrong-centre, reflect-not-turn, turn-direction, rot-swap) | yes | complete, tested |
 | transf:4 | צורות חופפות וריצוף | 8 (transform) | 2 | 2 | 3 (double-perimeter, equal-area, equal-perimeter) | yes | complete, tested |
 | expr:1 | הצבה בביטוי | 8 (numberline) | 3 | 2 | 5 (concat, order, neg-sub, plus, coef) | yes | complete, tested |
-| expr:2 | כותבים ביטוי | 8 | 2 | 2 | 5 (start-n, diff-only, whole-object, reversal, times-plus) | yes | complete, tested |
+| expr:2 | כותבים ביטוי | 9 (plot) | 2 | 2 | 5 (start-n, diff-only, whole-object, reversal, times-plus) | yes | complete, tested |
 | expr:3 | כינוס איברים דומים | 10 (tiles) | 2 | 2 | 5 (conjoin, detach, drop-minus, abs-add, sign) | yes | complete, tested |
 | expr:4 | חוק הפילוג | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
 | expr:5 | פישוט ביטויים | 8 (tiles) | 3 | 2 | 3 (partial-dist, minus-bracket, conjoin) | yes | complete, tested |
@@ -256,7 +274,7 @@ the row to paste when one differs.
 | circle:1 | היקף מעגל | 8 (circle) | 3 | 2 | 3 (r-for-d, d-for-r, area-for-circ) | yes | complete, tested |
 | circle:2 | שטח עיגול | 8 (circle) | 3 | 2 | 5 (circ-for-area, d-in-area, ring-sub-radii, no-subtract, whole-circle) | yes | complete, tested |
 | circle:3 | גליל | 8 (net) | 3 | 2 | 7 (d-in-area, lateral-for-vol, r-for-d, area-for-circ, no-bases, one-base, no-convert) | yes | complete, tested |
-| circle:4 | חרוט | 8 | 3 | 2 | 6 (no-third, slant-as-height, add-not-sub, subtract-sides, no-half, r-for-d) | yes | complete, tested |
+| circle:4 | חרוט | 9 (numberline) | 3 | 2 | 6 (no-third, slant-as-height, add-not-sub, subtract-sides, no-half, r-for-d) | yes | complete, tested |
 | stats:1 | שכיח | 10 (pins) | 2 | 2 | 3 (mode-max, mode-count, mode-median) | yes | complete, tested |
 | stats:2 | חציון | 10 (bars, pins) | 2 | 2 | 4 (unsorted, mean-not-median, one-middle, median-position) | yes | complete, tested |
 | stats:3 | ממוצע | 10 (bars) | 2 | 2 | 4 (mean-as-answer, no-divide, median-not-mean, midrange) | yes | complete, tested |
@@ -268,13 +286,13 @@ the row to paste when one differs.
 | congr:1 | צלעות וזוויות מתאימות | 8 (transform) | 2 | 2 | 4 (alpha-order, match-by-place, one-angle, wrong-pair) | yes | complete, tested |
 | congr:2 | משפטי החפיפה | 8 (transform) | 2 | 2 | 5 (ssa, aaa, alpha-order, one-angle, wrong-pair) | yes | complete, tested |
 | congr:3 | הוכחה בחפיפה | 8 (proof) | 2 | 2 | 6 (wrong-pair, one-angle, half-only, circular, ssa, no-half) | yes | complete, tested |
-| congr:4 | תיכון ושטחים | 8 | 2 | 2 | 5 (median-as-height, full-base, median-congruent, median-altitude, full-side) | yes | complete, tested |
+| congr:4 | תיכון ושטחים | 9 (numberline) | 2 | 2 | 5 (median-as-height, full-base, median-congruent, median-altitude, full-side) | yes | complete, tested |
 | congr:5 | צלעות במשולש | 8 (numberline) | 2 | 2 | 4 (sum-equal, no-lower-limit, ignore-inequality, angle-at-side) | yes | complete, tested |
 | sim:1 | שווה־שוקיים ומשפטים הפוכים | 8 (proof) | 2 | 2 | 4 (side-at-angle, stopped-at-x, whole-base, converse-equal) | yes | complete, tested |
 | sim:2 | צורות דומות | 8 (dline) | 2 | 2 | 3 (additive, ratio-flip, angles-enough) | yes | complete, tested |
 | sim:3 | דמיון משולשים (ז.ז) | 8 (proof) | 2 | 2 | 5 (part-not-whole, additive, ratio-flip, order-mixed, third-angle) | yes | complete, tested |
-| sim:4 | יחס צלעות ויחס שטחים | 8 | 2 | 2 | 3 (linear-area, ratio-flip, area-for-perimeter) | yes | complete, tested |
-| sys:1 | משוואות עם אחוזים | 7 | 3 | 2 | 2 (pct-of-new, wrong-unknown) | yes | complete, tested |
+| sim:4 | יחס צלעות ויחס שטחים | 9 (numberline) | 2 | 2 | 3 (linear-area, ratio-flip, area-for-perimeter) | yes | complete, tested |
+| sys:1 | משוואות עם אחוזים | 8 (dline) | 3 | 2 | 2 (pct-of-new, wrong-unknown) | yes | complete, tested |
 | sys:2 | שיטת ההצבה | 9 (plot) | 3 | 2 | 3 (partial-dist, forgot-y, swap) | yes | complete, tested |
 | sys:3 | השוואת מקדמים | 10 (plot) | 3 | 2 | 3 (minus-bracket, forgot-y, swap) | yes | complete, tested |
 | sys:4 | בעיות עם שני נעלמים | 9 (plot) | 2 | 2 | 2 (wrong-unknown, partial-dist) | yes | complete, tested |
@@ -283,7 +301,7 @@ the row to paste when one differs.
 | prob:2 | מאורע משלים | 8 (fbar) | 2 | 2 | 8 (same-prob, hundred-minus, others-given, one-part, count-not-prob, gambler, outcome-approach, complement-only) | yes | complete, tested |
 | prob:3 | ניסוי בשני שלבים | 8 (simulate) | 2 | 2 | 6 (equiprob-sums, unordered, space-21, add-probs, one-stage, representativeness) | yes | complete, tested |
 | space:1 | אלכסון בקובייה ובתיבה | 8 (net) | 3 | 2 | 5 (face-for-space, add-edges3, no-root, add-not-sub, add-legs) | yes | complete, tested |
-| space:2 | משולשים ישרי־זווית בגופים | 8 | 3 | 2 | 5 (r-for-d, add-legs, no-half, slant-as-height, no-third) | yes | complete, tested |
+| space:2 | משולשים ישרי־זווית בגופים | 9 (numberline) | 3 | 2 | 5 (r-for-d, add-legs, no-half, slant-as-height, no-third) | yes | complete, tested |
 
 ### What needs a server or an AI (not on staging, which runs without a server)
 

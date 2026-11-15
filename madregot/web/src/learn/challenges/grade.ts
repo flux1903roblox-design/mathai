@@ -7,19 +7,15 @@ import { evaluate, seeded } from '../expr';
 import { readNumCandidates, numRight } from '@/content/util.js';
 
 export const TRIES = 2;
-export const XP_BASE = 20;
-export const XP_PER_FIRST_TRY = 5;
-export const XP_MAX = 40;
-
-/** The XP of a finished task: 20, plus 5 per part right on the first try, at most 40. */
-export const challengeXP = (firstTry: number) => Math.min(XP_MAX, XP_BASE + XP_PER_FIRST_TRY * Math.max(0, firstTry));
+// the XP rule is in ./xp, which the store reads in the first load without this file and the number reading above
+export { XP_BASE, XP_PER_FIRST_TRY, XP_MAX, challengeXP } from './xp';
 /** The parts that count: every part but `explain`. */
 export const scoredParts = (task: ChallengeTask): ChallengePart[] => task.parts.filter((p) => p.type !== 'explain');
 
 /**
  * A typed number against an answer: "2,000" may be 2 or 2000, and either reading that is right counts; compared as
- * every precise answer is (content/util.js numRight: exactly, or within half a hundredth for an answer with no short
- * decimal). Null when nothing readable was typed.
+ * every precise answer is (content/util.js numRight: exactly, or a decimal of two or more places that is the exact
+ * value correctly rounded). Null when nothing readable was typed.
  */
 export function numCheck(answer: number, typed: string): { u: number; ok: boolean } | null {
   const cands: number[] = readNumCandidates(typed);

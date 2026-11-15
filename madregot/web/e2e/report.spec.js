@@ -503,6 +503,10 @@ test('flow 4: the parent sees each device\'s week and 8 weeks, holds their own s
   await expect(tablet.locator('.weeks-chart table thead th')).toHaveText(['שבוע', 'דקות', 'ימי תרגול']);
   // no percentage right anywhere on the page
   expect(await page.locator('.parents-report').innerText()).not.toMatch(/%/);
+  // the tablet's exam is a week away (PRODUCT2-30): above the cards, in the words of the report and the Sunday email
+  const exam = page.getByRole('region', { name: 'לקראת המבחן' });
+  await expect(exam).toHaveText('לקראת המבחןהטאבלט: מבחן ב־12.11. 1 מתוך 3 המדרגות של המבחן כבר בשליטה.');
+  expect(await exam.evaluate((el) => !!(el.compareDocumentPosition(document.querySelector('.report-email')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
   await shot(page, 'parents-report-live');
 
@@ -569,12 +573,19 @@ test('flow 4: the parent sees each device\'s week and 8 weeks, holds their own s
   expect(log.filter((r) => r.path === '/api/report/feedback')).toHaveLength(1);
 });
 
-test('flow 4: sharing off on the child\'s device: the parent is told when, never why, can still read, delete and switch their side', async ({ page, baseURL }) => {
+test('flow 4: sharing paused on the child\'s device: the parent is told calmly when and what they can do, never why, can still read, delete and switch their side', async ({ page, baseURL }) => {
   const { log } = await parentServer(page, baseURL, { devices: [{ ...TABLET, shareChild: false, sharingAt: '2026-11-02T18:00:00Z' }], summaries: { [TABLET.id]: byDay(TABLET_ROWS.slice(0, 6)) } });
   await openParent(page);
   const tablet = deviceCard(page, 'הטאבלט');
-  await expect(tablet.getByText('השיתוף כבוי במכשיר עצמו מאז 2.11. אם תרצו, אפשר לדבר על זה יחד. רק במכשיר עצמו אפשר להפעיל אותו שוב.')).toBeVisible();
-  await expect(tablet.getByText('השיתוף כבוי במכשיר עצמו.', { exact: true })).toBeVisible();
+  const paused = tablet.locator('.report-off-note');
+  await expect(paused.locator('.report-off-title')).toHaveText('השיתוף במכשיר הופסק');
+  await expect(paused.getByText('השיתוף הופסק במכשיר עצמו ב־2.11, ומאז לא מגיעים ממנו סיכומים חדשים. זו בחירה של הילד, והיא נשמרת. לא נשלחת אלינו סיבה.')).toBeVisible();
+  await expect(paused.getByRole('listitem')).toHaveText([
+    'אפשר לדבר על זה יחד, בלי לחץ. כדאי להזכיר שבסיכום יש רק תרגול: בלי תשובות, בלי שיחות ובלי תמונות.',
+    'רק במכשיר עצמו אפשר להפעיל אותו שוב: בהגדרות, ב"שיתוף עם ההורים".',
+  ]);
+  expect(await paused.innerText()).not.toMatch(/כי |בגלל/);
+  await expect(tablet.getByText('אצלכם הסיכום מהמכשיר הזה פועל.', { exact: true })).toBeVisible();
   await expect(tile(tablet, 'ימי תרגול')).toHaveText('1'); // what came before it was switched off is still there
   await expect(tablet.getByRole('button', { name: 'מחיקת ההיסטוריה של המכשיר' })).toBeVisible();
   await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
@@ -588,7 +599,7 @@ test('flow 4: sharing off on the child\'s device: the parent is told when, never
 test('flow 4: the QA state report-off shows the child\'s switch off and the parent\'s switch works with no server', async ({ page }) => {
   await open(page, '#/parents?qa-parent=report-off');
   const tablet = deviceCard(page, 'הטאבלט');
-  await expect(tablet.getByText(/^השיתוף כבוי במכשיר עצמו מאז \d{1,2}\.\d{1,2}\. /)).toBeVisible();
+  await expect(tablet.getByText(/^השיתוף הופסק במכשיר עצמו ב־\d{1,2}\.\d{1,2}, /)).toBeVisible();
   await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
   await shot(page, 'parents-off-child');
   await tablet.getByRole('button', { name: 'לכבות' }).click();
@@ -602,8 +613,20 @@ test('flow 4, the first day: signed out, a plan with no device, linked with noth
   const phone = withServer(); phone.state.profile = null;
   await open(page, '#/parents', phone);
   await expect(page.getByRole('heading', { name: 'כניסה עם המייל' })).toBeVisible();
-  await expect(page.locator('.parents-about li').first()).toHaveText('רואים מה הילד תרגל: סיכום יומי לכל מכשיר מחובר, וסיכום שבועי במייל אם תבחרו. הילד יודע על כך, רואה מה נשלח, ויכול להפסיק.');
-  await expect(page.getByText('גם בלי מנוי: מהאפליקציה של הילד אפשר לשלוח לכם סיכום שבועי בוואטסאפ, בלי חשבון.')).toBeVisible();
+  // what the plan gives (PRODUCT2-30): the report that comes by itself first, then the Sunday email, the exam, the helper
+  await expect(page.getByRole('heading', { level: 2, name: 'המנוי המשפחתי: מה מקבלים ההורים' })).toBeVisible();
+  await expect(page.locator('.parents-about li')).toHaveText([
+    'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.',
+    'סיכום שבועי במייל בכל יום ראשון, אם תבחרו.',
+    'לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.',
+    'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',
+    'העוזר גם בודק מבחן שנפתר בבית, ומכין תרגילים חדשים ברמה המתאימה.',
+  ]);
+  await expect(page.getByText('הילד יודע על הסיכום, רואה בדיוק מה נשלח אליכם, ויכול להפסיק.')).toBeVisible();
+  // the free summary for what it is: this week only, sent by the child when they choose
+  await expect(page.getByText('בלי מנוי: הילד יכול לשלוח לכם מהאפליקציה סיכום של השבוע הנוכחי בלבד, בוואטסאפ, כשהילד בוחר. במנוי הסיכום מגיע לבד בכל יום שבו מתרגלים, עם השבועות שעברו.')).toBeVisible();
+  await page.locator('.parents-about').scrollIntoViewIfNeeded();
+  await shot(page, 'parents-about-plan');
 
   // 2. a plan, no device yet: the first-link card says what comes after linking
   await openParent(page);

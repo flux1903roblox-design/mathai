@@ -71,3 +71,20 @@
 .parents-payments li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
 .parents-order-line { font-weight: 700; font-size: var(--t-md); }
 .cancel-opt { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+
+/* the family challenge (PRODUCT2-39, ChallengeCard.jsx): the goals as big chips (native radios), and the ways to send it */
+.challenge-card { display: flex; flex-direction: column; gap: var(--s3); }
+.challenge-card .card-title { margin: 0; }
+.challenge-card p { margin: 0; }
+.challenge-card .ch-set { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.challenge-card .ch-legend { padding: 0; margin-bottom: var(--s1); color: var(--ink); font-weight: 700; }
+.challenge-card .ch-week { color: var(--ink-2); }
+.challenge-card .ch-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.challenge-card .ch-chip { position: relative; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; cursor: pointer; box-shadow: 0 2px 0 var(--rule-press); }
+.challenge-card .ch-chip.on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 2px 0 var(--brand-line); }
+.challenge-card .ch-chip:has(.ch-radio:focus-visible) { outline: 3px solid var(--brand-d); outline-offset: 2px; }
+.challenge-card .ch-radio { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.challenge-card .ch-actions { display: flex; flex-direction: column; gap: var(--s2); }
+.challenge-card .ch-actions .btn { width: 100%; }
+.challenge-card .ch-sent { color: var(--ink); font-weight: 600; }
+.challenge-card .field-hint { margin: 0; }

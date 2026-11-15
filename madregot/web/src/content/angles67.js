@@ -42,7 +42,11 @@ const given = (v) => ({ text: `${v}°` });
 const asked = { text: '?', target: true };
 const sa = (name) => `\\sphericalangle ${name}`;
 /** The item's diagnosis: the mistake whose prediction the answer is, without the value's number (one-angle#1). */
-const diagFor = (ans, bugs) => { const d = diagOf(ans, bugs); return (u) => d(u)?.replace(/#\d+$/, '') || null; };
+// (one mistake, or several whose predictions are the same number: eq.js diagOf names them all, PRODUCT2-15)
+const diagFor = (ans, bugs) => {
+  const d = diagOf(ans, bugs);
+  return (u) => { const ids = [...new Set([d(u) || []].flat().map((id) => id.replace(/#\d+$/, '')))]; return ids.length > 1 ? ids : ids[0] || null; };
+};
 /** A list of maths in a sentence: "$x$, $y$ ו־$z$". */
 const andList = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} ו־${xs[xs.length - 1]}` : xs[0]);
 

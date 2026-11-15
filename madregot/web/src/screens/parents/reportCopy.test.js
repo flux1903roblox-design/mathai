@@ -11,6 +11,12 @@ import privacy from '@/content/legal/privacy.md?raw';
 import parentsSource from './Parents.jsx?raw';
 import { NOTICE } from '@/components/learn/SharingNotice.jsx';
 import { RETENTION } from '@shared/retention.js';
+import { PLAN_TITLE, PLAN_INCLUDES, FREE_REPORT, NO_SERVER } from '@/content/familyPlan.js';
+import { CLAIM } from '@/content/claims.js';
+import { ABOUT_FREE_REPORT } from './Parents.jsx';
+import frameSource from './ParentsFrame.jsx?raw';
+import { REPORT } from './FamilyReport.jsx';
+import { SHARING } from '@/components/SharingSheet.jsx';
 
 const section = (title) => privacy.split(/^## /m).find((p) => p.startsWith(title)) || '';
 const sub = (title) => (privacy.split(/^### /m).find((p) => p.startsWith(title)) || '').split(/^## /m)[0];
@@ -80,5 +86,56 @@ describe('Parents.jsx: what is kept, in one merged text', () => {
     const data = parentsSource.slice(parentsSource.indexOf('export const ABOUT_DATA'), parentsSource.indexOf('export const ABOUT_DATA_LINK'));
     expect(data).not.toMatch(/מוצפן|הצפנ/);
     expect(data).toContain('מה שהוא כותב לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה.');
+  });
+});
+
+// PRODUCT2-30 and PRODUCT2-33: the family plan is sold for what the parent gets. The About card leads with the automatic
+// report, then the Sunday email, then the exam ahead, and the helper last; the free WhatsApp summary is said to be this
+// week only, sent by the child when they choose; the copy with no server lists the same things, says nothing can be
+// bought there and that every lesson is free. One source: the words are the public pages' claims (content/claims.js).
+describe('what the family plan gives the parent (PRODUCT2-30, PRODUCT2-33)', () => {
+  it('the heading is the family plan, and the list leads with the synced report, then the email, the exam and the helper', () => {
+    expect(PLAN_TITLE).toBe('המנוי המשפחתי: מה מקבלים ההורים');
+    expect(PLAN_TITLE).not.toContain('העוזר החכם');
+    expect(PLAN_INCLUDES.map((x) => x.id)).toEqual(['synced-report', 'sunday-email', 'exam-ready', 'ai-helper']);
+    for (const x of PLAN_INCLUDES) expect(x.text, x.id).toBe(CLAIM[x.id].he);
+    expect(parentsSource).toContain('PLAN_INCLUDES');
+    expect(parentsSource).not.toContain('העוזר החכם של מדרגות · להורים');
+  });
+
+  it('the free summary is this week only, sent by the child when they choose; the plan\'s comes by itself, with its history', () => {
+    expect(ABOUT_FREE_REPORT).toBe(FREE_REPORT);
+    expect(FREE_REPORT).toContain('השבוע הנוכחי בלבד');
+    expect(FREE_REPORT).toContain('כשהילד בוחר');
+    expect(CLAIM['synced-report'].he).toMatch(/כל יום/);
+    expect(CLAIM['synced-report'].he).toMatch(/8 השבועות/);
+  });
+
+  it('the copy with no server: what the plan includes, that nothing can be bought here, and that every lesson is free; no price', () => {
+    expect(NO_SERVER.title).toBe('מה כולל המנוי המשפחתי');
+    expect(NO_SERVER.body).toContain('בגרסה הזו אין שרת, ולכן אי אפשר לקנות כאן מנוי.');
+    expect(NO_SERVER.body).toContain('כל השיעורים והתרגול חינם');
+    expect(`${NO_SERVER.title} ${NO_SERVER.body}`).not.toMatch(/₪|מחיר|לחודש|לשנה/);
+    expect(frameSource).toContain('PLAN_INCLUDES');
+    expect(frameSource).not.toContain('אין כאן מנויים בגרסה הזו');
+  });
+});
+
+// Buyers minor: a child who paused sharing is shown calmly, with what the parent can do. The child's promise stays: the
+// parents see that it is off, with no reason and no details (SharingSheet's confirm), and only the device turns it on.
+describe('the parent\'s words when the child paused sharing', () => {
+  it('says it stopped on the device, since when, and what the parent can do; never a reason, never a switch of their own', () => {
+    const p = REPORT.paused;
+    expect(p.title).toBe('השיתוף במכשיר הופסק');
+    expect(p.since('2026-11-02T10:00:00.000Z')).toBe('השיתוף הופסק במכשיר עצמו ב־2.11, ומאז לא מגיעים ממנו סיכומים חדשים.');
+    expect(p.since(null)).toBe('השיתוף הופסק במכשיר עצמו, ומאז לא מגיעים ממנו סיכומים חדשים.');
+    expect(p.choice).toBe('זו בחירה של הילד, והיא נשמרת. לא נשלחת אלינו סיבה.');
+    expect(p.steps).toEqual([
+      'אפשר לדבר על זה יחד, בלי לחץ. כדאי להזכיר שבסיכום יש רק תרגול: בלי תשובות, בלי שיחות ובלי תמונות.',
+      `רק במכשיר עצמו אפשר להפעיל אותו שוב: בהגדרות, ב"${SHARING.title}".`,
+    ]);
+    const all = [p.title, p.since(null), p.choice, ...p.steps].join(' ');
+    expect(all).not.toMatch(/כי |בגלל|כיביתם/);
+    expect(SHARING.confirmBody).toContain('בלי סיבה ובלי פרטים');
   });
 });

@@ -19,7 +19,8 @@ const ev = (t, e, extra = {}) => ({ t, e, ...extra });
 
 /**
  * A ז׳ student whose last week had three days of learning (8, 10 and 12 November), a mastery check passed on signed:1,
- * a repair done, and the thermometer scarf earned on Thursday; the week before had two steps, so 8 steps is a new best.
+ * a repair done, and the thermometer scarf earned on Thursday; the week before had two stages, so 6 stages is a new best
+ * (the ghost race's count, lib/streak.js weekTotals: a finished lesson, check or teaching stage is one).
  * Saved at the current version (6): no migration step runs.
  */
 function recapStudent({ empty = false } = {}) {
@@ -105,7 +106,7 @@ test('Sunday after a week with learning: the card, the sheet, the parents\' shar
   const card = page.locator('.recap-card');
   await expect(card).toBeVisible();
   await expect(card.getByRole('heading', { name: 'איך היה השבוע שעבר?' })).toBeVisible();
-  await expect(card).toContainText('ימים, צעדים ומה שלמדתם. לוקח חצי דקה.');
+  await expect(card).toContainText('ימים, שלבים ומה שלמדתם. לוקח חצי דקה.');
   const look = card.getByRole('button', { name: 'לראות' });
   await expectUsable(page, look, 'the card\'s button');
   for (const b of [look, card.locator('.recap-card-close')]) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
@@ -121,11 +122,11 @@ test('Sunday after a week with learning: the card, the sheet, the parents\' shar
   await expect(sheet.locator('.recap-week .week-day.on')).toHaveCount(3);
   await expect(sheet.locator('.recap-week .week-day.rest')).toHaveCount(1); // Shabbat
   await expect(recapTile(sheet, 'ימי לימוד')).toHaveText('3');
-  await expect(recapTile(sheet, 'צעדים')).toHaveText('8'); // 1 + (2 + 1 + 2 for the passed check) + 2
+  await expect(recapTile(sheet, 'שלבים')).toHaveText('6'); // 1 + (2 + 1) + 2
   await expect(recapTile(sheet, 'מדרגות בשליטה')).toHaveText('1');
   await expect(sheet.locator('.recap-mastered')).toHaveText('מדרגות חדשות בשליטה: מספרים מכוונים: חיבור וחיסור');
   await expect(sheet.locator('.recap-fixed')).toHaveText(/^טעויות שתיקנתם: \S/);
-  await expect(sheet.locator('.recap-best')).toHaveText('שיא שבועי חדש: 8 צעדים!');
+  await expect(sheet.locator('.recap-best')).toHaveText('שיא שבועי חדש: 6 שלבים!');
   await expect(sheet.locator('.recap-class')).toHaveCount(0); // no class
   // the sheet is about last week, and on a Sunday "השבוע" would be the week just begun (FOLLOWUP-38)
   await expect(sheet.locator('.recap-earned')).toHaveText('בשבוע שעבר מדי קיבל: צעיף מדחום.');

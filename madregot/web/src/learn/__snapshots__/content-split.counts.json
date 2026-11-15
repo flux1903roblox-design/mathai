@@ -109,7 +109,7 @@
     ]
    },
    "angles:7": {
-    "discover": 6,
+    "discover": 7,
     "examples": [
      4,
      3
@@ -126,7 +126,7 @@
    }
   },
   "stairs": 7,
-  "steps": 196
+  "steps": 197
  },
  "area": {
   "skills": {
@@ -295,7 +295,7 @@
     ]
    },
    "circle:4": {
-    "discover": 8,
+    "discover": 9,
     "examples": [
      2,
      3,
@@ -317,7 +317,7 @@
    }
   },
   "stairs": 4,
-  "steps": 92
+  "steps": 93
  },
  "congr": {
   "skills": {
@@ -379,7 +379,7 @@
     ]
    },
    "congr:4": {
-    "discover": 8,
+    "discover": 9,
     "examples": [
      3,
      2
@@ -417,7 +417,7 @@
    }
   },
   "stairs": 5,
-  "steps": 111
+  "steps": 112
  },
  "coord": {
   "skills": {
@@ -769,7 +769,7 @@
     ]
    },
    "expr:2": {
-    "discover": 8,
+    "discover": 9,
     "examples": [
      3,
      3
@@ -843,7 +843,7 @@
    }
   },
   "stairs": 5,
-  "steps": 149
+  "steps": 150
  },
  "frac": {
   "skills": {
@@ -1677,7 +1677,7 @@
     ]
    },
    "sim:4": {
-    "discover": 8,
+    "discover": 9,
     "examples": [
      3,
      3
@@ -1695,7 +1695,7 @@
    }
   },
   "stairs": 4,
-  "steps": 81
+  "steps": 82
  },
  "solid": {
   "skills": {
@@ -1804,7 +1804,7 @@
     ]
    },
    "space:2": {
-    "discover": 8,
+    "discover": 9,
     "examples": [
      3,
      3,
@@ -1825,7 +1825,7 @@
    }
   },
   "stairs": 2,
-  "steps": 48
+  "steps": 49
  },
  "stats": {
   "skills": {
@@ -1985,7 +1985,7 @@
  "sys": {
   "skills": {
    "sys:1": {
-    "discover": 7,
+    "discover": 8,
     "examples": [
      5,
      3,
@@ -2074,7 +2074,7 @@
    }
   },
   "stairs": 5,
-  "steps": 170
+  "steps": 171
  },
  "transf": {
   "skills": {

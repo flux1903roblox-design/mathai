@@ -19,3 +19,36 @@
 @media (max-width: 360px) {
   .journey-head { gap: var(--s2); }
 }
+/* the stair page's five stages and its challenge cards, from app.css, v4.css and canon.css in that order: moved out of
+   the first load at the product2 merge (the boot CSS gate, 46 KB). Only Journey.jsx writes these classes. */
+.journey-stages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.jstage { display: flex; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: 18px; background: var(--paper); border: 2px solid var(--rule); box-shadow: 0 3px 0 var(--rule-press); }
+.jstage.current { border-color: color-mix(in srgb, var(--c) 55%, var(--paper)); box-shadow: 0 3px 0 color-mix(in srgb, var(--c) 55%, var(--paper)); background: linear-gradient(160deg, var(--c-tint), var(--surface) 85%); }
+.jstage.disabled { opacity: 0.6; }
+.jstage-icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--ground); color: var(--ink-2); }
+.jstage.current .jstage-icon { background: var(--c); color: var(--on-brand); }
+.jstage.done .jstage-icon { background: var(--good); color: var(--on-good); }
+.jstage-text { flex: 1; min-width: 0; }
+.jstage-title { margin: 0; font-weight: 700; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.jstage-sub { margin: 2px 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.jstage .level-badge { color: var(--c-ink); }
+.journey-stages { position: relative; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+.journey-stages::before { content: ""; position: absolute; inset-block: 30px; inset-inline-start: 22px; width: 4px; border-radius: 4px; background: var(--line); }
+.jstage { position: relative; display: flex; align-items: center; gap: var(--s3); padding: var(--s3) 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
+.jstage-icon { position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 999px; background: var(--surface); border: 3px solid var(--line-2); color: var(--ink-2); }
+.jstage.done .jstage-icon { background: var(--good); border-color: var(--good); color: var(--on-good); }
+.jstage.going .jstage-icon { border-color: var(--good); color: var(--good-ink); }
+.jstage.current .jstage-icon { background: var(--c); border-color: var(--c); color: var(--on-brand); box-shadow: 0 0 0 6px color-mix(in srgb, var(--c) 22%, var(--paper)); }
+.jstage.current { background: none; border: 0; box-shadow: none; }
+.jstage.current .jstage-title { color: var(--c-ink); }
+.jstage-text { flex: 1; min-width: 0; }
+/* the stair page: a sixth card under the five stages, optional (a dashed edge) and locked until the mastery check */
+.jchallenge { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); padding: var(--s3); border: 2px dashed var(--rule-strong); border-radius: 16px; background: var(--surface); }
+.jchallenge + .jchallenge { margin-top: var(--s2); }
+.jchallenge.locked .jchallenge-icon { background: var(--ground); color: var(--ink-2); }
+.jchallenge.solved .jchallenge-icon { background: var(--good); color: var(--on-good); }
+.jchallenge-text { flex: 1; min-width: 0; }
+.jchallenge-title { margin: 0; font-weight: 700; color: var(--ink); }
+.jchallenge-sub { margin: 2px 0 0; font-size: 15px; line-height: 22px; color: var(--ink-2); overflow-wrap: anywhere; }
+.jchallenge .btn { flex: none; min-height: 44px; }
+.journey-challenges { list-style: none; margin: 0; padding: 0; }

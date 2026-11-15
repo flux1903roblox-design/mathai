@@ -135,46 +135,21 @@ export function Segmented({ value, onValueChange, options, labelledBy, described
 }
 
 /**
- * Base UI's composite skips items marked aria-disabled when the arrow keys move, so a locked choice could never be
- * reached from the keyboard. While an arrow key is handled, the locked choices of the group lose the attribute (and get
- * it back right after), so they are focusable and still announced as unavailable.
- */
-function reachLocked(e) {
-  if (!e.key.startsWith('Arrow')) return;
-  const locked = [...e.currentTarget.querySelectorAll('[data-locked][aria-disabled="true"]')];
-  locked.forEach((el) => el.removeAttribute('aria-disabled'));
-  setTimeout(() => locked.forEach((el) => el.setAttribute('aria-disabled', 'true')), 0);
-}
-
-/**
  * Choice cards (STUDENT-15 B4): Base UI's RadioGroup for a set of tap cards (מדי's wardrobe). One Tab stop, arrows in
- * reading order. A value in `locked` is never chosen: moving onto it with the arrows only focuses it, and the card's own
- * `onLocked` says how it opens.
+ * reading order. The wardrobe shows only what is owned (PRODUCT2-36), so every card can be chosen; how a piece still to
+ * come opens is a button of its own there.
  */
-export function Choices({ value, onValueChange, locked = [], labelledBy, className, children }) {
+export function Choices({ value, onValueChange, labelledBy, className, children }) {
   return (
-    <RadioGroup
-      value={value} aria-labelledby={labelledBy} className={className} onKeyDownCapture={reachLocked}
-      onValueChange={(v, details) => { if (locked.includes(v)) { details.cancel(); return; } onValueChange?.(v); }}
-    >
+    <RadioGroup value={value} aria-labelledby={labelledBy} className={className} onValueChange={(v) => onValueChange?.(v)}>
       {children}
     </RadioGroup>
   );
 }
 
-/** One card in Choices. A locked card stays focusable, is announced as unavailable, and opens `onLocked` (tap, Enter, Space). */
-export function Choice({ value, locked = false, onLocked, describedBy, className, children }) {
-  return (
-    <Radio.Root
-      value={value} data-value={value} className={className} data-locked={locked || undefined} aria-disabled={locked || undefined}
-      aria-describedby={describedBy}
-      // a locked card opens its reason (Base UI's own handler is skipped, so it is never chosen)
-      onClick={locked ? (e) => { e.preventBaseUIHandler?.(); onLocked?.(value); } : undefined}
-      onKeyDown={locked ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLocked?.(value); } } : undefined}
-    >
-      {children}
-    </Radio.Root>
-  );
+/** One card in Choices. */
+export function Choice({ value, className, children }) {
+  return <Radio.Root value={value} data-value={value} className={className}>{children}</Radio.Root>;
 }
 
 /** The check inside a chosen Choice (Base UI shows it only on the chosen one). */
@@ -192,24 +167,41 @@ export function Progress({ value, max = 100, labelledBy, valueText, className, t
   );
 }
 
-/** Number keypad with a minus key: phone keyboards have none in numeric mode. */
+/** Grid-area names, so a short screen can lay the same keys out in three rows (see .lesson .keypad in app.css). */
+const KEY_AREA = { '-': 'minus', '.': 'dot', '/': 'frac', ' ': 'space', del: 'del' };
+'0123456789'.split('').forEach((d) => { KEY_AREA[d] = `d${d}`; });
+/** What a screen reader says for each key that is not a digit (the space key's name starts with the word it shows). */
+const KEY_NAME = { del: 'מחיקה', '-': 'מינוס', '/': 'שבר', '.': 'נקודה עשרונית', ' ': 'רווח, בין השלם לשבר' };
+/** The longest answer a slot takes. */
+export const SLOT_MAX = 9;
+
+/**
+ * What a keypad key does to a typed value: a digit, a point or a fraction bar is added (SLOT_MAX characters at most),
+ * the minus goes on or off at the start, delete takes the last character, and the space, between a whole number and a
+ * fraction (5 1/3, which parseNum reads as a mixed number), only right after a whole number.
+ */
+export function typeInto(value, k) {
+  const v = String(value ?? '');
+  if (k === 'del') return v.slice(0, -1);
+  if (k === '-') return v.startsWith('-') ? v.slice(1) : `-${v}`;
+  if (k === ' ' && !/^-?\d+$/.test(v)) return v;
+  return v.length < SLOT_MAX ? v + k : v;
+}
+
 /**
  * The maths keypad: digits, minus, fraction bar, decimal point, delete. With onNext (an answer in two fields,
- * a point or a line) the last cell moves to the next field; otherwise the 0 key takes the row.
+ * a point or a line) the last cell moves to the next field; otherwise the 0 key takes the row. With `mixed` (an answer
+ * that is one number) a space key ("רווח") sits beside the point, so a mixed number can be typed: 5, רווח, 1/3.
  */
-/** Grid-area names, so a short screen can lay the same keys out in three rows (see .lesson .keypad in app.css). */
-const KEY_AREA = { '-': 'minus', '.': 'dot', '/': 'frac', del: 'del' };
-'0123456789'.split('').forEach((d) => { KEY_AREA[d] = `d${d}`; });
-
-export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nextLabel = 'לשדה הבא' }) {
-  const keys = ['7', '8', '9', 'del', '4', '5', '6', '-', '1', '2', '3', '/', '0', '.'];
+export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nextLabel = 'לשדה הבא', mixed = false }) {
+  const keys = ['7', '8', '9', 'del', '4', '5', '6', '-', '1', '2', '3', '/', '0', '.', ...(mixed ? [' '] : [])];
   return (
     <div className="keypad" dir="ltr">
       {keys.map((k) => (
-        <button key={k} type="button" data-k={KEY_AREA[k]} className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del', k === '0' && primary == null && (onNext ? 'key-wide' : 'key-wide3'))}
-          aria-label={k === 'del' ? 'מחיקה' : k === '-' ? 'מינוס' : k === '/' ? 'שבר' : k === '.' ? 'נקודה עשרונית' : k}
+        <button key={k} type="button" data-k={KEY_AREA[k]} className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del', k === ' ' && 'key-space', k === '0' && primary == null && (onNext || mixed ? 'key-wide' : 'key-wide3'))}
+          aria-label={KEY_NAME[k] || k}
           onPointerDown={(e) => e.preventDefault()} onClick={() => onKey(k)}>
-          {k === 'del' ? <Delete size={22} aria-hidden="true" /> : k === '-' ? '−' : k}
+          {k === 'del' ? <Delete size={22} aria-hidden="true" /> : k === '-' ? '−' : k === ' ' ? 'רווח' : k}
         </button>
       ))}
       {onNext && primary == null && (

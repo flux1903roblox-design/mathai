@@ -35,6 +35,7 @@ import {
 import { classReport, studentDetail } from './classReport.js';
 import { teacherReply, studentReply, readHelp, setDigest, helpThreads, markReadStmt } from './help.js';
 import { RETENTION } from '../../shared/retention.js';
+import { examWeak } from '../../shared/examWeak.js';
 import { run as runCron } from './cron.js';
 import { forgetMe } from './forget.js';
 import { newClassSetting, newClassStmts, classSettings, aiPolicyView, setClassAi, setStudentAi } from './classai.js';
@@ -933,12 +934,18 @@ async function dashboard(req, env, cors) {
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
       levels: lv[s.id] || {},
     })),
+    // the "מבחנים" tab (PRODUCT2-31): exams checked from a photo (source 'photo', their topics to strengthen from the
+    // check) and the class exams solved in the app (source 'app', the topics from their own questions: shared/examWeak.js),
+    // so a school class with the AI off still sees its exams
     exams: [
-      ...examRows.map((e) => ({ id: e.id, studentId: e.student_id, name: e.name, title: e.title, correct: e.correct, total: e.total, weak: JSON.parse(e.weak || '[]'), questions: JSON.parse(e.questions || '[]'), at: e.created_at })),
-      ...classExams.map((w) => ({
-        id: `a:${w.assignment_id}:${w.student_id}`, studentId: w.student_id, name: w.name, title: w.title, correct: w.right_n, total: w.asked,
-        weak: [], questions: JSON.parse(w.questions || '[]'), at: w.done_at, assignmentId: w.assignment_id,
-      })),
+      ...examRows.map((e) => ({ id: e.id, studentId: e.student_id, name: e.name, title: e.title, correct: e.correct, total: e.total, weak: JSON.parse(e.weak || '[]'), questions: JSON.parse(e.questions || '[]'), at: e.created_at, source: 'photo' })),
+      ...classExams.map((w) => {
+        const questions = JSON.parse(w.questions || '[]');
+        return {
+          id: `a:${w.assignment_id}:${w.student_id}`, studentId: w.student_id, name: w.name, title: w.title, correct: w.right_n, total: w.asked,
+          weak: examWeak(questions), questions, at: w.done_at, assignmentId: w.assignment_id, source: 'app',
+        };
+      }),
     ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, 200),
     mistakes: catRows.map((r) => {
       const who = catStudents.filter((c) => c.topic === r.topic && c.level === r.level && c.cat === r.cat);

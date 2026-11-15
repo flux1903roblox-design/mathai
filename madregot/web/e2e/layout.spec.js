@@ -1,7 +1,7 @@
 // The exercise screen on every device: for each kind of exercise, the question, the maths, the answer field
 // and the check button stay usable, the keypad never covers them, and the page never scrolls.
 import { test, expect } from '@playwright/test';
-import { open, openOn, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll, type } from './helpers.js';
+import { open, openOn, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll, type, openUnit } from './helpers.js';
 import { textContrastFailures, expectNonTextContrast } from './contrast.js';
 
 const CASES = [
@@ -15,6 +15,8 @@ const CASES = [
   ['parallel lines', 'angles/4', '7'],
   ['a table of values', 'line/1', '8'],
   ['a graph', 'line/3', '8'],
+  // a slope with no two-place decimal says how to write it (PRODUCT2-6): the longer question still fits every phone
+  ['a slope between two points, with the line on how to write it', 'line/4', '8', (x) => /מעוגל לשתי ספרות/.test(x.text || '')],
   ['a line equation (two fields)', 'line/5', '8'],
   ['a word problem with a drawing', 'pyth/4', '8'],
   ['a list of data', 'stats/2', '8'],
@@ -187,6 +189,35 @@ test('the transform object: at most two rows of controls, none wider than the sc
   await expectFits('transf:2, arrows and a flip');
 });
 
+// PRODUCT2-6, PRODUCT2-10, SK-STUDENT-3: a slope whose answer has no two-place decimal says how to write it, and on the
+// smallest phone the line stays inside the question while every key of the keypad (the space of a mixed number among
+// them) stays whole on screen and at least 44px tall. KEYPAD_SHOTS=<folder> saves a picture for a look.
+test('a question with its format line keeps the whole keypad on screen', async ({ page }, info) => {
+  await openOn(page, '#/lesson/line/4', student('8'), (x) => x.form === 'num' && /מעוגל לשתי ספרות/.test(x.text || ''));
+  await expect(page.locator('#qtext')).toContainText('אפשר לכתוב כשבר');
+  const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
+  expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
+  await expectUsable(page, page.locator('#qtext'), 'the question with its format line');
+  await expectUsable(page, page.locator('.answer-bar .answer'), 'the answer field');
+  await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
+  const keys = page.locator('.lesson .keypad .key');
+  expect(await keys.count()).toBe(15);
+  for (let k = 0; k < 15; k += 1) {
+    const b = await keys.nth(k).boundingBox();
+    expect(b.height, `key ${k + 1} is at least 44px tall`).toBeGreaterThanOrEqual(43.5);
+    expect(b.y + b.height, `key ${k + 1} is on screen`).toBeLessThanOrEqual(page.viewportSize().height + 1);
+  }
+  await expectUsable(page, page.getByRole('button', { name: 'רווח, בין השלם לשבר', exact: true }), 'the space key');
+  const dir = process.env.KEYPAD_SHOTS;
+  if (dir) {
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: `${dir}/line4-format-${info.project.name}.png` });
+    await page.locator('#slot-v').click();
+    for (const k of ['5', 'רווח, בין השלם לשבר', '1', 'שבר', '3']) await page.getByRole('button', { name: k, exact: true }).click();
+    await page.screenshot({ path: `${dir}/keypad-mixed-${info.project.name}.png` });
+  }
+});
+
 test('the keypad: minus, decimal point, fraction, next field and delete', async ({ page }) => {
   await openOn(page, '#/lesson/coord/1', student('7'), (x) => x.form === 'pt');
   const key = (name) => page.getByRole('button', { name, exact: true }).click();
@@ -261,7 +292,8 @@ test('a signed-number unit with seven stairs: the new sixth stair is current and
 test('a signed-number unit with a seventh stair: powers are current after the six and say so', async ({ page }) => {
   const done = { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'mastered', 5: 'mastered', 6: 'mastered' };
   await open(page, '#/', student('7', { path: { signed: { parts: {}, reviews: 1, jumped: 0, done } } }));
-  const unit = page.locator('.unit').first();
+  // the path opens the unit the student is on (PRODUCT2-37); the signed unit opens from its row
+  const unit = await openUnit(page, /^מספרים מכוונים$/);
   await expect(unit.locator('.unit-label')).toHaveText('יחידה 1 · 6 מתוך 7 מדרגות');
   const nodes = unit.locator('.path-step:not(.path-chest) .node');
   await expect(nodes).toHaveCount(8);

@@ -29,6 +29,23 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "minutes": 7
   },
   {
+    "id": "angles:c4",
+    "topic": "angles",
+    "after": "angles:1",
+    "kind": "error",
+    "title": "שלוש זוויות על ישר",
+    "minutes": 4,
+    "misc": "one-angle"
+  },
+  {
+    "id": "angles:c5",
+    "topic": "angles",
+    "after": "angles:2",
+    "kind": "proof",
+    "title": "למה זוויות קודקודיות שוות?",
+    "minutes": 7
+  },
+  {
     "id": "area:c1",
     "topic": "area",
     "after": "area:5",
@@ -129,6 +146,23 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "minutes": 6
   },
   {
+    "id": "coord:c4",
+    "topic": "coord",
+    "after": "coord:1",
+    "kind": "error",
+    "title": "הנקודה $P$ ברשת",
+    "minutes": 5,
+    "misc": "swap"
+  },
+  {
+    "id": "coord:c5",
+    "topic": "coord",
+    "after": "coord:5",
+    "kind": "proof",
+    "title": "הקודקוד הרביעי",
+    "minutes": 7
+  },
+  {
     "id": "data:c1",
     "topic": "data",
     "after": "data:3",
@@ -188,6 +222,22 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "minutes": 8
   },
   {
+    "id": "eq:c5",
+    "topic": "eq",
+    "after": "eq:1",
+    "kind": "literacy",
+    "title": "חשבו על מספר",
+    "minutes": 6
+  },
+  {
+    "id": "eq:c6",
+    "topic": "eq",
+    "after": "eq:4",
+    "kind": "proof",
+    "title": "פתרון עם נימוקים",
+    "minutes": 7
+  },
+  {
     "id": "expr:c1",
     "topic": "expr",
     "after": "expr:4",
@@ -224,6 +274,22 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "misc": "drop-minus"
   },
   {
+    "id": "expr:c5",
+    "topic": "expr",
+    "after": "expr:1",
+    "kind": "claim",
+    "title": "פי שניים זה יותר?",
+    "minutes": 5
+  },
+  {
+    "id": "expr:c6",
+    "topic": "expr",
+    "after": "expr:5",
+    "kind": "proof",
+    "title": "שלושה מספרים עוקבים",
+    "minutes": 7
+  },
+  {
     "id": "frac:c1",
     "topic": "frac",
     "after": "frac:1",
@@ -246,6 +312,14 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "kind": "literacy",
     "title": "עוגיות לשישה",
     "minutes": 8
+  },
+  {
+    "id": "frac:c4",
+    "topic": "frac",
+    "after": "frac:2",
+    "kind": "proof",
+    "title": "כפל בהצלבה: למה זה עובד?",
+    "minutes": 7
   },
   {
     "id": "func:c1",
@@ -298,6 +372,57 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "minutes": 4
   },
   {
+    "id": "line:c4",
+    "topic": "line",
+    "after": "line:1",
+    "kind": "claim",
+    "title": "פי שניים ב־$x$, פי שניים ב־$y$?",
+    "minutes": 5,
+    "misc": "proportional"
+  },
+  {
+    "id": "line:c5",
+    "topic": "line",
+    "after": "line:2",
+    "kind": "error",
+    "title": "המספר הראשון הוא השיפוע?",
+    "minutes": 5,
+    "misc": "m-b"
+  },
+  {
+    "id": "line:c6",
+    "topic": "line",
+    "after": "line:3",
+    "kind": "claim",
+    "title": "תלול יותר, שיפוע גדול יותר?",
+    "minutes": 5
+  },
+  {
+    "id": "line:c7",
+    "topic": "line",
+    "after": "line:5",
+    "kind": "proof",
+    "title": "אותו שיפוע בכל מקום",
+    "minutes": 7
+  },
+  {
+    "id": "line:c8",
+    "topic": "line",
+    "after": "line:6",
+    "kind": "literacy",
+    "title": "הסוללה של הטלפון",
+    "minutes": 7
+  },
+  {
+    "id": "line:c9",
+    "topic": "line",
+    "after": "line:7",
+    "kind": "error",
+    "title": "שטח שלילי?",
+    "minutes": 6,
+    "misc": "neg-length"
+  },
+  {
     "id": "pct:c1",
     "topic": "pct",
     "after": "pct:2",
@@ -320,6 +445,23 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "kind": "error",
     "title": "המחיר לפני ההנחה",
     "minutes": 4
+  },
+  {
+    "id": "pct:c4",
+    "topic": "pct",
+    "after": "pct:1",
+    "kind": "error",
+    "title": "שלוש עשיריות באחוזים",
+    "minutes": 5,
+    "misc": "digit-pct"
+  },
+  {
+    "id": "pct:c5",
+    "topic": "pct",
+    "after": "pct:3",
+    "kind": "proof",
+    "title": "אחוזים הפוכים",
+    "minutes": 7
   },
   {
     "id": "prob:c1",
@@ -373,6 +515,23 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "minutes": 5
   },
   {
+    "id": "pyth:c4",
+    "topic": "pyth",
+    "after": "pyth:4",
+    "kind": "error",
+    "title": "הסולם והקיר",
+    "minutes": 7,
+    "misc": "add-not-sub"
+  },
+  {
+    "id": "pyth:c5",
+    "topic": "pyth",
+    "after": "pyth:5",
+    "kind": "proof",
+    "title": "יש כאן זווית ישרה?",
+    "minutes": 8
+  },
+  {
     "id": "ratio:c1",
     "topic": "ratio",
     "after": "ratio:2",
@@ -396,6 +555,14 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "kind": "literacy",
     "title": "מסלול על המפה",
     "minutes": 8
+  },
+  {
+    "id": "ratio:c4",
+    "topic": "ratio",
+    "after": "ratio:3",
+    "kind": "proof",
+    "title": "למה כופלים בהצלבה?",
+    "minutes": 7
   },
   {
     "id": "signed:c1",
@@ -438,6 +605,31 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "title": "מינוס בחזקה",
     "minutes": 4,
     "misc": "pow-odd-pos"
+  },
+  {
+    "id": "signed:c6",
+    "topic": "signed",
+    "after": "signed:2",
+    "kind": "claim",
+    "title": "מי רחוק יותר מאפס?",
+    "minutes": 5
+  },
+  {
+    "id": "signed:c7",
+    "topic": "signed",
+    "after": "signed:4",
+    "kind": "error",
+    "title": "מה מחשבים קודם?",
+    "minutes": 6,
+    "misc": "order"
+  },
+  {
+    "id": "signed:c8",
+    "topic": "signed",
+    "after": "signed:6",
+    "kind": "proof",
+    "title": "למה חיסור של מספר שלילי הוא חיבור?",
+    "minutes": 7
   },
   {
     "id": "sim:c1",
@@ -540,6 +732,30 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "minutes": 4
   },
   {
+    "id": "stats:c4",
+    "topic": "stats",
+    "after": "stats:1",
+    "kind": "claim",
+    "title": "כמה שכיחים יש?",
+    "minutes": 5
+  },
+  {
+    "id": "stats:c5",
+    "topic": "stats",
+    "after": "stats:4",
+    "kind": "literacy",
+    "title": "כמה ספרים קראתם בחופש?",
+    "minutes": 8
+  },
+  {
+    "id": "stats:c6",
+    "topic": "stats",
+    "after": "stats:5",
+    "kind": "proof",
+    "title": "הנתון החסר",
+    "minutes": 7
+  },
+  {
     "id": "sys:c1",
     "topic": "sys",
     "after": "sys:2",
@@ -563,6 +779,31 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "kind": "literacy",
     "title": "כרטיסים לקולנוע",
     "minutes": 8
+  },
+  {
+    "id": "sys:c4",
+    "topic": "sys",
+    "after": "sys:1",
+    "kind": "literacy",
+    "title": "מעיל וחולצה",
+    "minutes": 7
+  },
+  {
+    "id": "sys:c5",
+    "topic": "sys",
+    "after": "sys:3",
+    "kind": "proof",
+    "title": "למה מותר לחסר משוואות?",
+    "minutes": 8
+  },
+  {
+    "id": "sys:c6",
+    "topic": "sys",
+    "after": "sys:5",
+    "kind": "error",
+    "title": "הכיוון שלא התהפך",
+    "minutes": 6,
+    "misc": "no-flip"
   },
   {
     "id": "transf:c1",

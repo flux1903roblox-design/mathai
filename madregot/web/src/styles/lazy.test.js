@@ -119,7 +119,7 @@ beforeAll(async () => {
 }, 60_000);
 
 describe('a lazy stylesheet styles only what the screens that load it write', () => {
-  it.each(['teacher.css', 'parents.css', 'legal.css', 'durable.css', 'data.css', 'measure.css'])('%s', { timeout: 30_000 }, (sheet) => {
+  it.each(['teacher.css', 'parents.css', 'legal.css', 'durable.css', 'data.css', 'measure.css', 'quests.css', 'settings.css', 'checkDone.css', 'journey.css'])('%s', { timeout: 30_000 }, (sheet) => {
     const covered = coveredBy(sheet);
     const bad = [];
     for (const selectors of rules(read(join(SRC, 'styles/lazy', sheet)))) {
@@ -145,6 +145,14 @@ describe('a lazy stylesheet styles only what the screens that load it write', ()
     for (const f of ['components/manip/Simulate.jsx', 'components/manip/Chart.jsx']) expect(imports(at(f), 'data.css'), f).toBe(true);
     // curriculum stage 2's three objects (MEASURE-1): moved out of the first load at the stage-2 merge
     for (const f of ['components/manip/GridShape.jsx', 'components/manip/NetFold.jsx', 'components/manip/CircleRoll.jsx']) expect(imports(at(f), 'measure.css'), f).toBe(true);
+    // the product2 merge (the boot CSS gate): the ghost race and the family challenge, Settings' section for adults, a
+    // check's repeated mistake, the stair page's stages; and the topics screen's light pills, whose class Bar builds
+    // from its tone (`qbar-${tone}`), which the selector check cannot tie to one screen, so it is pinned here
+    for (const f of ['screens/Quests.jsx', 'components/learn/FamilyChallengeCard.jsx', 'screens/FamilyOffer.jsx']) expect(imports(at(f), 'quests.css'), f).toBe(true);
+    expect(imports(at('screens/Settings.jsx'), 'settings.css')).toBe(true);
+    expect(imports(at('components/learn/RepeatNote.jsx'), 'checkDone.css')).toBe(true);
+    expect(imports(at('screens/Journey.jsx'), 'journey.css')).toBe(true);
+    expect(imports(at('screens/Topics.jsx'), 'topics.css')).toBe(true);
   });
 });
 
@@ -158,7 +166,7 @@ describe('the first load (FOLLOWUP-23)', () => {
 
   it('the boot stylesheets keep none of the moved screens\' own classes', () => {
     const boot = ['app.css', 'v4.css', 'canon.css'].map((f) => read(join(SRC, 'styles', f)).replace(/\/\*[\s\S]*?\*\//g, '')).join('\n');
-    const left = ['t-head', 't-tools', 'demo-banner', 'preview-bar', 'print-root', 'ps-q', 'licence-card', 'teacher-off', 'parents-bar', 'parents-card', 'handoff-code', 'adult-form', 'legal', 'save-row', 'save-backup', 'support-rows', 'backup-code-body', 'restore-form']
+    const left = ['t-head', 't-tools', 'demo-banner', 'preview-bar', 'print-root', 'ps-q', 'licence-card', 'teacher-off', 'parents-bar', 'parents-card', 'handoff-code', 'adult-form', 'legal', 'save-row', 'save-backup', 'support-rows', 'backup-code-body', 'restore-form', 'ghost-card', 'family-card', 'offer-card', 'set-adults', 'check-repeat', 'jstage', 'jchallenge', 'qbar-light']
       .filter((cls) => new RegExp(`\\.${cls}(?![\\w-])`).test(boot));
     expect(left).toEqual([]);
   });

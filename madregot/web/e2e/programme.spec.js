@@ -1,7 +1,7 @@
 // The programme page (/programme, CURRICULUM-1): unit by unit, what Madregot teaches of the Ministry's programme.
 // The sentence and the rows are checked against the module that computes them (imported here, never typed), on both
-// phones; it opens on a device with no profile; the ways in (the end of the path, the topics screen, the parents'
-// area) lead to it.
+// phones; it opens on a device with no profile; the ways in (the topics screen, the parents' area, the teacher's tools)
+// lead to it. The child's path does not (PRODUCT2-41).
 import { test, expect } from '@playwright/test';
 import { open, student, livedIn, expectNoSidewaysScroll } from './helpers.js';
 import { coverage, coverageSentence } from '../../shared/coverage.js';
@@ -80,13 +80,16 @@ test('opens on a device with no profile: no welcome, the stairs as plain words, 
   await expect(page.locator('.wordmark')).toBeVisible();
 });
 
-test('a student opens it from the end of the path, on the grade on screen, and the topic guides are links', async ({ page }) => {
+test('a student reaches it from the topics, not from the path; the topic guides are links', async ({ page }) => {
   await open(page, '#/', livedIn('7'));
-  const link = page.getByRole('link', { name: 'מה כבר יש במדרגות ומה עוד לא, לפי תוכנית משרד החינוך' });
-  await link.scrollIntoViewIfNeeded();
-  await expect(page.getByRole('link', { name: 'כל הנושאים והמצב בכל אחד' })).toBeVisible();
+  // the end of the path is the child's: every topic and how far each is; the Ministry's programme is not on it (PRODUCT2-41)
+  const topics = page.getByRole('link', { name: 'כל הנושאים והמצב בכל אחד' });
+  await topics.scrollIntoViewIfNeeded();
+  await expect(page.locator('.path-end a')).toHaveCount(1);
+  await expect(page.locator('.learn')).not.toContainText('תוכנית משרד החינוך');
   await expectNoSidewaysScroll(page);
-  await link.click();
+  await topics.click();
+  await page.getByRole('link', { name: 'כל תוכנית הלימודים' }).click();
   await expect(page).toHaveURL(/#\/programme\?grade=7$/);
   await expect(page.locator('.prog-cover')).toHaveText(sentence('7'));
   // a student's device: each topic's guide is one link, and it opens
@@ -94,9 +97,9 @@ test('a student opens it from the end of the path, on the grade on screen, and t
   await expect(guide).toHaveAttribute('href', '#/topic/coord');
   const box = await guide.boundingBox();
   expect(box.height).toBeGreaterThanOrEqual(44);
-  // back returns to the path
+  // back returns to the topics
   await page.getByRole('button', { name: 'חזרה' }).click();
-  await expect(page.locator('.learn-top')).toBeVisible();
+  await expect(page).toHaveURL(/#\/topics$/);
 });
 
 test('a grade 8 student lands on ח׳; the topics screen and the parents area lead here too', async ({ page }) => {

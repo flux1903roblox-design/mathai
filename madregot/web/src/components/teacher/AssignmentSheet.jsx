@@ -11,6 +11,8 @@ import { plusDays, schoolDay, dayLong, dueShort } from '@/lib/workDates.js';
 import { today as localToday } from '@/lib/store.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import { Bar } from '@/components/ds.jsx';
+import { MathText } from '@/components/MathText.jsx';
+import { mistakeText } from '@/lib/teacherText.js';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import { QuestionStrip } from '@/screens/teacher/ExamsTab.jsx';
 
@@ -80,6 +82,10 @@ export default function AssignmentSheet({ cls, id, today: serverToday, onOpenCha
       {a && (
         <div className="aw-body">
           <p className="aw-meta"><span>{KIND_LABEL[a.kind] || ''}</span><span aria-hidden="true">·</span><span>{dueShort(a.dueOn)}</span><span aria-hidden="true">·</span><span>{a.forAll ? 'לכל הכיתה' : c.assigned === 1 ? 'לתלמיד אחד' : `ל־${c.assigned} תלמידים`}</span></p>
+          {a.kind === 'repair' && a.misc && (() => {
+            const [topic, level] = String(a.skill).split(':');
+            return <p className="aw-mis"><span className="field-label">הטעות:</span> <MathText text={mistakeText(topic, Number(level), a.misc)} /></p>;
+          })()}
           {a.note && <p className="aw-note">“{a.note}”</p>}
           <Bar value={c.done} max={Math.max(1, c.assigned)} text={`${c.done}/${c.assigned} סיימו`} label={`${a.title}: ${c.done} מתוך ${c.assigned} סיימו`} tone="brand" />
           <div className="table-wrap aw-table-wrap" tabIndex={0} role="region" aria-label="מה כל תלמיד עשה">

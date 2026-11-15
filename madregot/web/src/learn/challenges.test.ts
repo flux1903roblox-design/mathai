@@ -2,17 +2,20 @@
 // one claim, one error or proof and one literacy task (stage 1's 36 were three each; later stages add their own, the data
 // and probability units three each, the classroom lane signed:c4 (CLASSROOM-4), signed:c5 (CLASSROOM-5) and expr:c4
 // (CLASSROOM-6), curriculum stage 4's geometry units three each (transf:c1-c3, congr:c1-c3, sim:c1-c3, GEOM-7), so the
-// count is computed), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned.
+// count is computed), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned. In the
+// topics the product2 lane covered (PRODUCT2-21), every stair has at least one task after it, and every topic has a
+// claim, an error, a proof, a real-world (literacy) task and a multi-step one; every line of an error task that is not
+// the mistake says why (PRODUCT2-18).
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
-import type { ChallengePart, ChallengeTask } from './types';
+import type { ChallengePart, ChallengeTask, TopicId } from './types';
 import { CHALLENGES as META_LIST, challengeById, challengesAfter, challengesOf } from './challenges/index';
 // the tasks with their parts (the registry keeps only their meta for the first load)
 import { CHALLENGE_TASKS as CHALLENGES, taskById } from './challenges/all';
 // @ts-ignore: plain JS
 import { taskMeta } from '../../scripts/gen-content-meta.mjs';
 import { challengeXP, scoredParts, numCheck, exampleHolds, domainValues, firstOutOfPlace, shuffledOrder, moveStep } from './challenges/grade';
-import { ALL_SKILLS, TOPIC_ORDER, parseSkill } from './skills';
+import { ALL_SKILLS, TOPIC_ORDER, STAIRS, parseSkill, skillId } from './skills';
 import { evaluate, same } from './expr';
 import { contentOf, loadAllContent } from './content/index';
 // @ts-ignore: plain JS
@@ -23,6 +26,7 @@ await loadAllContent();
 
 type Claim = Extract<ChallengePart, { type: 'claim' }>;
 type Order = Extract<ChallengePart, { type: 'order' }>;
+type ErrorP = Extract<ChallengePart, { type: 'error' }>;
 
 /** Every piece of text a task shows (titles, stories, prompts, choices, lines, steps, reasons, rubrics, samples). */
 function texts(t: ChallengeTask): string[] {
@@ -33,13 +37,26 @@ function texts(t: ChallengeTask): string[] {
     if (p.type === 'mc') p.choices.forEach((c) => out.push(c.text, c.feedback));
     if (p.type === 'claim') { out.push(p.claim, p.why); if (p.example) out.push(p.example.ask, p.example.hint, ...p.example.slots.map((s) => s.label)); }
     if (p.type === 'order') p.steps.forEach((s) => out.push(s.text, ...(s.reason?.choices || [])));
-    if (p.type === 'error') out.push(...p.lines, p.why, p.fix.prompt);
+    if (p.type === 'error') out.push(...p.lines, p.why, ...Object.values(p.lineWhy || {}), p.fix.prompt);
     if (p.type === 'explain') out.push(...p.rubric, p.sample);
   });
   return out.filter(Boolean);
 }
 const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1));
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
+/** Multi-step: three or more scored parts, at least two of them a typed number (a number part, or an error's fix). */
+const multiStep = (t: ChallengeTask) => scoredParts(t).length >= 3 && t.parts.filter((p) => p.type === 'num' || p.type === 'error').length >= 2;
+
+/**
+ * The topics whose stairs all have a task (PRODUCT2-21): the twelve topics of the product2 lane's tree, the bridge and
+ * both grades. The units and stairs the other lanes added meanwhile have three tasks a unit (their own specs'), not one
+ * a stair: they are listed here by name, so a new unit or stair without a task fails until it is given one or listed.
+ */
+const COVERED: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
+/** The stairs of COVERED topics that later lanes added and that have no task after them yet (FOLLOW-UP: one task each). */
+const NO_TASK_YET: string[] = ['angles:6', 'angles:7', 'eq:7', 'stats:6', 'stats:7', 'stats:8'];
+/** The units that keep their own specs' three tasks (FOLLOW-UP: a task after every stair, PRODUCT2-21's rule). */
+const THREE_A_UNIT: TopicId[] = ['transf', 'area', 'solid', 'data', 'func', 'circle', 'congr', 'sim', 'prob', 'space'];
 
 // A unit whose stairs are still landing in this build round (stage5.md FUNC-7): its tasks come after its last stair,
 // so until then it may have fewer than one of each kind. Empty when every unit is whole: the functions unit (func) has
@@ -76,7 +93,7 @@ describe('the challenge tasks', () => {
     // DATA-7: a claim with no "לכל" (two plain sentences), Danny's unordered pairs, the Ministry's rain table
     expect(challengesOf('prob').map((t) => [t.id, t.kind, t.after])).toEqual([['prob:c1', 'claim', 'prob:1'], ['prob:c2', 'error', 'prob:3'], ['prob:c3', 'literacy', 'prob:2']]);
     // the classroom lane (CLASSROOM-4, -5): signed:c4 and signed:c5, the second task of a kind its topic already has
-    expect(challengesOf('signed').map((t) => t.id)).toEqual(['signed:c1', 'signed:c2', 'signed:c3', 'signed:c4', 'signed:c5']);
+    expect(challengesOf('signed').map((t) => t.id)).toEqual(['signed:c1', 'signed:c2', 'signed:c3', 'signed:c4', 'signed:c5', 'signed:c6', 'signed:c7', 'signed:c8']);
     expect(challengesAfter('signed:7').map((t) => t.id)).toEqual(['signed:c5']);
     // stage 2 (MEASURE-7): its four units have three tasks each, a claim, an error and a real-world task
     for (const tp of ['area', 'solid', 'circle', 'space'] as const) expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]);
@@ -121,6 +138,29 @@ describe('the challenge tasks', () => {
     expect(Math.hypot(to[0] - from[0], to[1] - from[1])).toBe(10);
   });
 
+  it('every stair has at least one task after it; how many tasks there are follows from that (PRODUCT2-21)', () => {
+    // every topic is one of the two lists
+    expect([...COVERED, ...THREE_A_UNIT].sort()).toEqual([...TOPIC_ORDER].sort());
+    const stairs = COVERED.flatMap((tp) => Array.from({ length: STAIRS[tp] }, (_, i) => skillId(tp, i + 1)));
+    const bare = stairs.filter((s) => !challengesAfter(s).length);
+    expect(bare, 'stairs with no task after them').toEqual(NO_TASK_YET);
+    // every task follows a stair, so there are at least as many tasks as stairs that have one
+    expect(CHALLENGES.length).toBeGreaterThanOrEqual(stairs.length - bare.length);
+    // in topic order, each topic's tasks in their file's order; the stage 1 tasks keep their ids and stairs
+    TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).slice(0, 3).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
+    expect(challengeById('pct:c1')?.after).toBe('pct:2');
+    expect(challengesAfter('ratio:2').map((t) => t.id)).toEqual(['ratio:c1']);
+    expect(challengesAfter('expr:4').map((t) => t.id)).toEqual(['expr:c1', 'expr:c2']);
+  });
+
+  it('each covered topic has at least one claim, error, proof and real-world task, and one of many steps', () => {
+    COVERED.forEach((tp) => {
+      const kinds = challengesOf(tp).map((t) => t.kind);
+      (['claim', 'error', 'proof', 'literacy'] as const).forEach((k) => expect(kinds.filter((x) => x === k).length, `${tp}: ${k}`).toBeGreaterThanOrEqual(1));
+      expect(CHALLENGES.filter((t) => t.topic === tp && multiStep(t)).map((t) => t.id), `${tp}: a task of many steps`).not.toEqual([]);
+    });
+  });
+
   it('each topic has at least one claim, one error or proof, and one literacy task', () => {
     TOPIC_ORDER.filter((tp) => !PENDING_CHALLENGES.has(tp)).forEach((tp) => {
       const kinds = challengesOf(tp).map((t) => t.kind);
@@ -141,11 +181,14 @@ describe('the challenge tasks', () => {
   it('the algebra tasks are the spec\'s, and a task\'s mistake is one the content names', () => {
     const algebra = CHALLENGES.filter((t) => ['expr', 'eq', 'sys'].includes(t.topic));
     // eq:c4, the race of three legs, follows the motion problems (eq:6; stage5.md FUNC-7.4)
+    // and the product2 lane's (PRODUCT2-21): expr:c5-c6, eq:c5-c6 (its eq:c4-c5, renumbered after stage 5's eq:c4), sys:c4-c6
     expect(algebra.map((t) => [t.id, t.kind, t.after, t.minutes])).toEqual([
       ['expr:c1', 'claim', 'expr:4', 4], ['expr:c2', 'error', 'expr:4', 4], ['expr:c3', 'literacy', 'expr:2', 7],
-      ['expr:c4', 'error', 'expr:3', 4],
+      ['expr:c4', 'error', 'expr:3', 4], ['expr:c5', 'claim', 'expr:1', 5], ['expr:c6', 'proof', 'expr:5', 7],
       ['eq:c1', 'claim', 'eq:3', 4], ['eq:c2', 'error', 'eq:2', 4], ['eq:c3', 'literacy', 'eq:5', 8], ['eq:c4', 'literacy', 'eq:6', 8],
+      ['eq:c5', 'literacy', 'eq:1', 6], ['eq:c6', 'proof', 'eq:4', 7],
       ['sys:c1', 'claim', 'sys:2', 4], ['sys:c2', 'error', 'sys:2', 5], ['sys:c3', 'literacy', 'sys:4', 8],
+      ['sys:c4', 'literacy', 'sys:1', 7], ['sys:c5', 'proof', 'sys:3', 8], ['sys:c6', 'error', 'sys:5', 6],
     ]);
     // the spec names the mistake of each error task
     expect(['expr:c2', 'eq:c2', 'sys:c2', 'expr:c4'].map((id) => challengeById(id)!.misc)).toEqual(['partial-dist', 'move-no-flip', 'move-no-flip', 'drop-minus']);
@@ -159,6 +202,7 @@ describe('the challenge tasks', () => {
       ['signed:c1', 'claim', 'signed:1', 4, null], ['signed:c2', 'error', 'signed:1', 4, null], ['signed:c3', 'literacy', 'signed:3', 6, null],
       ['signed:c4', 'error', 'signed:5', 4, 'factor-sign'],
       ['signed:c5', 'claim', 'signed:7', 4, 'pow-odd-pos'],
+      ['signed:c6', 'claim', 'signed:2', 5, null], ['signed:c7', 'error', 'signed:4', 6, 'order'], ['signed:c8', 'proof', 'signed:6', 7, null],
     ]);
     // signed:c5: "a negative number to a power is positive" holds for an even exponent only, with the spec's examples
     // ((−2)³ = −8 is the notebook's own exercise, so it is not used), and an odd exponent is the counterexample
@@ -258,6 +302,22 @@ describe('the challenge tasks', () => {
         expect(Number.isInteger(p.wrong) && p.wrong >= 0 && p.wrong < p.lines.length, `${t.id}: wrong line ${p.wrong}`).toBe(true);
       }
     }));
+  });
+
+  it('every line of an error task that is not the mistake says why, for the student who marks it (PRODUCT2-18)', () => {
+    const errors = CHALLENGES.flatMap((t) => t.parts.filter((p): p is ErrorP => p.type === 'error').map((p) => [t.id, p] as const));
+    expect(errors.length).toBeGreaterThanOrEqual(10);
+    errors.forEach(([id, p]) => {
+      p.lines.forEach((_, i) => {
+        if (i === p.wrong) { expect(p.lineWhy?.[i], `${id}: the mistaken line is explained by why`).toBeUndefined(); return; }
+        const w = p.lineWhy?.[i]?.trim() || '';
+        expect(w.length, `${id}: line ${i + 1} has no why of its own`).toBeGreaterThan(0);
+        expect(w, `${id}: line ${i + 1}`).not.toBe(p.why.trim());
+        // short, as a result line: at most two short lines on a phone (maths counted as one short word)
+        expect(w.replace(/\$[^$]+\$/g, 'xxxx').length, `${id}: line ${i + 1} is long`).toBeLessThanOrEqual(90);
+      });
+      Object.keys(p.lineWhy || {}).forEach((k) => expect(Number(k) >= 0 && Number(k) < p.lines.length, `${id}: lineWhy ${k}`).toBe(true));
+    });
   });
 
   it('every choice question has exactly one right choice, with feedback on each', () => {

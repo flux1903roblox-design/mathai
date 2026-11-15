@@ -101,19 +101,26 @@ function useWiped() {
   return wiped;
 }
 
+/** The questions of the first visit, in order: the class code only with a server, the start only without a landing link. */
+export const onboardingSteps = ({ server, next }) => ['name', 'grade', 'know', 'goal', ...(server ? ['class'] : []), ...(next ? [] : ['start'])];
+
+/** How מדי looks beside each question (PRODUCT2-41): he asks the name excited, then listens, thinks and cheers. */
+const ASK_MOOD = { name: 'excited', grade: 'happy', know: 'thinking', goal: 'happy', class: 'idle', start: 'encouraging' };
+
 /**
  * First time on the app: a few short questions, one per screen, then a choice
  * between a placement test and starting from the first stair. With `next` (a landing page's link, e.g. /rescue) there
- * is no such choice: after the questions the student goes straight there.
+ * is no such choice: after the questions the student goes straight there. `at`: the screen it opens on (-1, the hello
+ * screen; a test opens a question).
  */
-function Onboarding({ onTeacher, onRestore, next = null }) {
+export function Onboarding({ onTeacher, onRestore, next = null, at = -1 }) {
   const navigate = useNavigate();
   const wiped = useWiped();
   const setProfile = useApp((s) => s.setProfile);
   const setGoalXp = useApp((s) => s.setGoalXp);
   const server = hasServer();
-  const steps = ['name', 'grade', 'know', 'goal', ...(server ? ['class'] : []), ...(next ? [] : ['start'])];
-  const [i, setI] = useState(-1); // -1: the hello screen
+  const steps = onboardingSteps({ server, next });
+  const [i, setI] = useState(at); // -1: the hello screen
   const [f, setF] = useState({ name: '', grade: null, know: null, goal: 20, code: '', pin: '', start: null });
   const [joined, setJoined] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -275,7 +282,10 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
         </div>
       </header>
       <main className="ob-main" data-region="content">
-        <div className="ob-ask" data-region="question">
+        {/* מדי asks: small, beside his question, so the screen is not a lone sentence over a blank page (PRODUCT2-41); the
+            question is the screen's heading (PKG-1) */}
+        <div className="ob-ask ob-ask-madi" data-region="question">
+          <Mascot mood={ASK_MOOD[step] || 'happy'} size={64} className="ob-madi" />
           <h1 className="ob-bubble" id="ob-q">{ask}</h1>
         </div>
 

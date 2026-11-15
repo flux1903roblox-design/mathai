@@ -110,10 +110,15 @@ const DASHES = /[−–—]/g;
 /** A mixed number as typed on a computer keyboard: "2 1/2", "-1 3/4" (a whole number, a space, a fraction). */
 const MIXED = /^([+-]?)(\d+)\s+(\d+)\/(\d+)$/;
 
+/** A space inside a number: between two digits, or beside its point or comma ("1 3", "5 13", "1 .5"). */
+const SPLIT = /[\d.,]\s+[\d.,]/;
+
 /**
- * Parse what a student typed: "−3", "-3", "2.5", "2,5", "3/4", "-3/4", and, on a computer keyboard, a mixed number:
- * "2 1/2" is 2.5 and "-1 3/4" is −1.75 (the sign is the whole number's). "13/4" stays 3.25. Any other space is
- * dropped ("- 3" is −3). A comma is the decimal comma ("2,5" is 2.5); "2,000" has a second reading, see readNumCandidates.
+ * Parse what a student typed: "−3", "-3", "2.5", "2,5", "3/4", "-3/4", and a mixed number (the keypad's space key, or a
+ * computer keyboard): "2 1/2" is 2.5 and "-1 3/4" is −1.75 (the sign is the whole number's). "13/4" stays 3.25. A space
+ * beside the sign or the fraction bar is dropped ("- 3" is −3, "3 / 4" is 0.75); a space inside a number is not a number
+ * yet (null): "1 3" is on its way to 1 3/4, never 13. A comma is the decimal comma ("2,5" is 2.5); "2,000" has a second
+ * reading, see readNumCandidates.
  */
 export function parseNum(s) {
   const raw = String(s ?? '').trim().replace(DASHES, '-');
@@ -124,6 +129,7 @@ export function parseNum(s) {
     const v = Number(mixed[2]) + Number(mixed[3]) / d;
     return mixed[1] === '-' ? -v : v;
   }
+  if (SPLIT.test(raw)) return null;
   const t = raw.replace(/\s+/g, '').replace(',', '.');
   if (!t) return null;
   let m = t.match(/^([+-]?\d+)\/([+-]?\d+)$/);
@@ -152,32 +158,77 @@ export const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 /** At most three decimal places: 0.125, 2.5, 7 (and not 7/12 = 0.5833…, not 1/36). */
 export const shortDec = (x) => Math.abs(Math.round(x * 1000) - x * 1000) < 1e-6;
 
+/** The decimal places a number is written with: 0.67 → 2, 0.6667 → 4, 7 → 0 (10 for more than nine). */
+export function placesOf(x) {
+  for (let p = 0; p <= 9; p += 1) { const v = x * 10 ** p; if (Math.abs(v - Math.round(v)) < 1e-6) return p; }
+  return 10;
+}
+
+/** x rounded to p decimal places as school rounds: a half goes away from zero (0.125 → 0.13, −1.335 → −1.34). */
+export function roundTo(x, p) {
+  const k = 10 ** p;
+  // the nudge keeps a half that floating point stored a hair below (1.005) a half
+  return (Math.sign(x) * Math.round(Math.abs(x) * k + 1e-9)) / k;
+}
+
+/** The same number, up to floating point (16/3 typed as a fraction is 16/3). */
+const same = (u, a) => Math.abs(u - a) <= 1e-9 * Math.max(1, Math.abs(a));
+
+/**
+ * Is a decimal a correct rounding of x at its own number of places, counted as at least `min`? 0.67, 0.667 and
+ * 0.6667 are for 2/3; 0.666 and 0.6666 (cut off, not rounded) are not. With min 1, 17 (17.0) is √288 = 16.97…
+ * rounded to tenths, and 7 (7.0) is not √50 = 7.07… rounded to tenths.
+ */
+export function roundsTo(u, x, min) {
+  const p = Math.max(min, placesOf(u));
+  return p <= 9 && same(u, roundTo(x, p));
+}
+
 /**
  * Is a typed number right for an answer? The one rule for every typed number: isCorrect, and the last step of
  * "solve together". By default within ±0.01, as always. An item marked `precise` (the fractions, percent and ratio
- * stairs) is compared exactly: the exact value is right, and when the answer has no short decimal (7/12, 1/36) a
- * decimal of at most three places within half a hundredth is right too (0.58 or 0.583 for 7/12, never 0.59). So 1/35
- * is wrong for 1/36, and 0.12 and 0.13 are wrong for 0.125.
+ * stairs) is compared exactly: the exact value is right (7/12, 14/24, 5 1/3), and so is a decimal of two or more places
+ * that is the exact value correctly rounded at its own number of places: 0.58, 0.583 and 0.5833 for 7/12, 0.67 and
+ * 0.6667 for 2/3, 0.13 for 0.125 (a question whose answer has no exact two-place decimal says so, withFormatNote). A
+ * decimal cut off instead of rounded (0.666, 0.6666 for 2/3), a wrong rounding (0.59 for 7/12) and one place (0.7)
+ * are wrong, and so is 1/35 for 1/36.
  */
 export function numRight(u, a, precise = false) {
   if (typeof u !== 'number' || !Number.isFinite(u) || typeof a !== 'number') return false;
   if (!precise) return near(u, a, 0.01);
-  return near(u, a, 1e-6) || (!shortDec(a) && shortDec(u) && Math.abs(u - a) < 0.005 + 1e-9);
+  return same(u, a) || (placesOf(u) >= 2 && roundsTo(u, a, 2));
 }
+
+/**
+ * Does a typed answer need to be told how to write it? Yes when it has no exact decimal with at most two places (7/12,
+ * −4/3, 1/36, 0.125): it is written as a fraction or rounded to two places, and the question says so (withFormatNote).
+ */
+export const needsFormat = (a) => typeof a === 'number' && Number.isFinite(a) && Math.abs(Math.round(a * 100) - a * 100) > 1e-6;
 
 /** Example fractions for the format note, in order of preference: never the question's own answer or its negative. */
 const NOTE_EXAMPLES = ['7/12', '5/9', '-4/3'];
-/** How to write an answer that has no short decimal, with an example fraction. */
+/** How to write an answer that has no two-place decimal, with an example fraction. */
 export const fractionHint = (example = NOTE_EXAMPLES[0]) => `אפשר לכתוב כשבר (למשל $${example}$) או כמספר עשרוני מעוגל לשתי ספרות אחרי הנקודה.`;
+/** The format line with its usual example (CURRICULUM-12: one wording everywhere). */
+export const FRACTION_HINT = fractionHint();
+/** A question that already says how to write its answer: the format line, or the fractions stairs' own "אפשר לכתוב כשבר או כמספר עשרוני". */
 const HINT_START = 'אפשר לכתוב כשבר';
+/** The format line, whatever its example, with its maths marks or as plain text (itemPlain): what a test looks for. */
+export const FORMAT_LINE = /אפשר לכתוב כשבר \(למשל \$?[^$()]+\$?\) או כמספר עשרוני מעוגל לשתי ספרות אחרי הנקודה\./;
+
+/** The format line of a question's text ('' when it has none), and the text without it. */
+export const formatLineOf = (text) => String(text ?? '').match(FORMAT_LINE)?.[0] || '';
+export const withoutFormatLine = (text) => String(text ?? '').replace(FORMAT_LINE, '').replace(/\s+$/, '');
 
 /**
- * A question whose answer has no short decimal (7/12, 1/36) says once how to write it (CURRICULUM-2 item 6): the item
- * comes back with the sentence after its text. An item that already says it, or whose answer is whole or a short
- * decimal, comes back as it is. The example is never the answer itself.
+ * A typed number whose answer has no exact two-place decimal (7/12, −4/3, a slope of −5/6, a mean of 13/3) says once
+ * how to write it (CURRICULUM-12): the item comes back with the line after its text. An item that already says it, a
+ * rounded length (it carries `exact` and says to round to tenths), a question that asks for a decimal (askDec: a
+ * fraction is not read there), and an answer that is whole or has two places or fewer come back as they are. The
+ * example is never the answer itself.
  */
 export function withFormatNote(it) {
-  if (typeof it?.answer !== 'number' || shortDec(it.answer) || String(it.text || '').includes(HINT_START)) return it;
+  if (!needsFormat(it?.answer) || it.exact != null || it.askDec || String(it.text || '').includes(HINT_START)) return it;
   const example = NOTE_EXAMPLES.find((e) => !near(Math.abs(parseNum(e)), Math.abs(it.answer), 1e-9));
   return { ...it, text: `${it.text ? `${it.text} ` : ''}${fractionHint(example)}` };
 }
@@ -243,5 +294,61 @@ export function linText({ k, c }, v = 'x') {
 /** Pythagorean triples with small sides, scaled. */
 export const TRIPLES = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15], [8, 15, 17], [12, 16, 20], [7, 24, 25], [20, 21, 29], [15, 20, 25], [10, 24, 26]];
 
+/**
+ * A count and its noun as Hebrew says it (PRODUCT2-9): one is written after the noun (חלק אחד, כוס סוכר אחת), a part
+ * of one takes the noun in the singular ($0.25$ כוס), and any other count the plural ($3$ חלקים, $1.5$ כוסות).
+ * `shown` is the number as TeX (a fraction, a decimal); `oneWord` is אחד or אחת, by the noun.
+ */
+export const countOf = (n, one, many, { shown = String(n), oneWord = 'אחד' } = {}) => (n === 1 ? `${one} ${oneWord}` : n > 0 && n < 1 ? `$${shown}$ ${one}` : `$${shown}$ ${many}`);
+
 /** When, in words: "מחר" for one day, "בעוד יומיים", "בעוד 3 ימים" (never "בעוד 1 יום"). */
 export const inDays = (n) => (n <= 0 ? 'היום' : n === 1 ? 'מחר' : n === 2 ? 'בעוד יומיים' : `בעוד ${n} ימים`);
+
+// ---------------------------------------------------------------- choices whose look tells nothing (PRODUCT2-8)
+/**
+ * How wide a choice looks on screen: its words, or its TeX with each command one sign (\cdot is one dot), the braces
+ * gone and a fraction as wide as its wider part. The source writes a space around + and =, where KaTeX puts one too.
+ */
+export function choiceWidth(c) {
+  if (c.tex == null) return [...String(c.text ?? '')].length;
+  return String(c.tex)
+    .replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, (_, a, b) => '#'.repeat(Math.max(a.length, b.length)))
+    .replace(/\\(?:left|right)\b/g, '').replace(/\\[a-zA-Z]+/g, '#').replace(/\\[,;:! ]/g, ' ').replace(/[{}]/g, '').length;
+}
+/** Where choice `right` stands by width: 'narrowest', 'widest' or 'between'; null when it ties another at an end. */
+export function widthPlace(choices, right) {
+  const w = choices.map(choiceWidth); const r = w[right]; const others = w.filter((_, j) => j !== right);
+  if (others.every((x) => x > r)) return 'narrowest';
+  if (others.every((x) => x < r)) return 'widest';
+  return others.some((x) => x < r) && others.some((x) => x > r) ? 'between' : null;
+}
+/**
+ * A place for the right one of n choices: the narrowest one time in n, the widest one time in n, between otherwise.
+ * `narrowest: false` when another choice is always the narrowest (y = 5 among lines): that time goes to between.
+ */
+export function drawPlace(n, rnd = Math.random, { narrowest = true } = {}) {
+  const u = rnd() * n;
+  return u < 1 ? (narrowest ? 'narrowest' : 'between') : u < 2 ? 'widest' : 'between';
+}
+const subsetsOf = (xs, k) => (k === 0 ? [[]] : xs.length < k ? [] : [...subsetsOf(xs.slice(1), k - 1).map((s) => [xs[0], ...s]), ...subsetsOf(xs.slice(1), k)]);
+const eachForm = (lists) => lists.reduce((acc, l) => acc.flatMap((a) => l.map((f) => [...a, f])), [[]]);
+/**
+ * Choices that give nothing away by their width (PRODUCT2-8). Each option is one answer and the ways it can be written
+ * (`forms`: the same equation or the same words each time) with its other fields (ok, bug); the right one comes first,
+ * then the wrong ones always used (`keep` of them), then the others, of which as many are taken as fill `n` choices.
+ * Of every way to take and write them that puts the right choice at `place` (drawPlace), no two choices reading the
+ * same, one is drawn, and the choices come back shuffled; null when none does (the caller draws new numbers).
+ */
+export function byWidth(options, place, { n = options.length, keep = 0, rnd = Math.random } = {}) {
+  const [right, ...wrong] = options;
+  const shown = (c) => String(c.tex ?? c.text).replace(/\s+/g, '');
+  const fits = subsetsOf(wrong.slice(keep), n - 1 - keep).flatMap((s) => {
+    const set = [right, ...wrong.slice(0, keep), ...s];
+    return eachForm(set.map((o) => o.forms)).filter((fs) => widthPlace(fs, 0) === place && new Set(fs.map(shown)).size === fs.length)
+      .map((fs) => set.map(({ forms, ...rest }, i) => ({ ...rest, ...fs[i] })));
+  });
+  if (!fits.length) return null;
+  const a = fits[Math.floor(rnd() * fits.length)];
+  for (let i = a.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}

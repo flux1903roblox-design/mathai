@@ -144,12 +144,26 @@ export async function openLanding(page, path, state = null) {
 export const DURABLE_DB = 'madregot-durable';
 
 /**
- * Open a route with a saved state (null: a first visit), a fixed clock and repeatable exercises.
+ * Settings' section for adults (PRODUCT2-41) is folded: open it (its button, "להורים ולמבוגרים"), if it is not open yet,
+ * and wait until its saving, backup and support details show.
+ */
+export async function openAdults(page) {
+  const toggle = page.getByRole('button', { name: 'להורים ולמבוגרים' });
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
+/**
+ * Open a route with a saved state (null: a first visit), a fixed clock (NOW unless `at` is given) and repeatable exercises.
  * madregot-debug exposes the current exercise as window.__madregotItem; madregot-seed fixes Math.random.
  * The seed is written once: a later reload starts from what the app saved since (and its copy on the device).
- * `local`: more localStorage keys (a parent's session on their own phone); `at`: the clock (NOW by default).
+ * `local`: more localStorage keys (a parent's session on their own phone); `at`: the clock (NOW by default). The fifth
+ * argument is { local, at } (extra localStorage keys, the clock), or the clock alone (a Date, as the product2 lane's
+ * specs pass it).
  */
-export async function open(page, route, state = null, seed = '424242', { local = {}, at = NOW } = {}) {
+export async function open(page, route, state = null, seed = '424242', opts = {}) {
+  const { local = {}, at = NOW } = opts instanceof Date || typeof opts === 'number' || typeof opts === 'string' ? { at: opts } : opts;
   await page.clock.setFixedTime(at);
   await page.goto('./');
   await page.evaluate(async ([s, sd, db, extra]) => {
@@ -201,6 +215,9 @@ const values = (it) => {
   if (it.form === 'line') return [it.answer.m, it.answer.b];
   if (it.form === 'lin') return [it.answer.k, it.answer.c];
   if (it.form === 'frac') { const f = toFrac(it.answer); return [f.n, f.d]; }
+  // a number with more digits than a slot takes (2/3 = 0.6666666666666666) is typed as its fraction, as a student
+  // would: nine digits cut off are a truncation, which a question compared exactly rejects
+  if (typeof it.answer === 'number' && String(it.answer).length > 9) { const f = toFrac(it.answer); if (f) return [`${f.n}/${f.d}`]; }
   return [it.answer];
 };
 
@@ -276,12 +293,13 @@ export async function expectUsable(page, locator, what) {
 }
 
 /**
- * Press through the end-of-lesson screens (summary, streak, quests) back to the map.
+ * Press through the end-of-lesson screens (summary, a new piece for מדי, goal, streak, quests) back to the map.
  * Each press waits for the screen to settle and for the next one to replace it.
  */
 export async function leaveEndScreens(page) {
   const title = () => page.locator('.done-screen h1').first().textContent({ timeout: 1000 }).catch(() => null);
-  for (let k = 0; k < 5; k += 1) {
+  // the summary, a new piece for מדי, the daily goal, the streak, the quests' chest, and an offer: up to six, and room
+  for (let k = 0; k < 8; k += 1) {
     const btn = page.locator('.done-screen .done-actions .btn').first();
     if (!(await btn.isVisible())) return;
     const before = await title();
@@ -296,8 +314,21 @@ export async function stageDone(page, n, go) {
   const moment = page.locator('.stage-done');
   await expect(moment).toBeVisible();
   await expect(moment.getByRole('heading', { level: 1 })).toHaveText(`שלב ${n} הושלם!`);
-  if (go) await moment.getByRole('button', { name: go, exact: true }).click();
+  if (go) await leaveStage(page, go);
   return moment;
+}
+
+/**
+ * Press a way on from a teaching stage's end (`name`: its button). When the stage brought מדי a piece (its pill says
+ * "מדי קיבל משהו חדש": the first stage of all does, PRODUCT2-36), the unlock moment comes first: it is passed with
+ * "אחר כך" (wardrobe.spec.js tests the moment itself). Returns whether it came.
+ */
+export async function leaveStage(page, name) {
+  const moment = page.locator('.stage-done');
+  const gift = (await moment.locator('.badges .done-earned').filter({ hasText: 'מדי קיבל משהו חדש' }).count()) > 0;
+  await moment.getByRole('button', { name, exact: true }).click();
+  if (gift) await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+  return gift;
 }
 
 /** Play the current teaching stage (A) to its end, through its own controls (the completion moment stays on screen). */
@@ -347,4 +378,20 @@ export async function onboard(page, { name = 'נועה', grade = '7', start = 's
   await page.getByRole('button', { name: 'המשך', exact: true }).click(); // the daily goal: the default
   await page.getByRole('radio', { name: start === 'test' ? /^בדיקת רמה קצרה/ : /^מתחילים מההתחלה/ }).click();
   await last.click();
+}
+
+/**
+ * A unit on the home path, open (PRODUCT2-37): only the unit the student is on is open and the next one previewed; any
+ * other is a folded row, opened here with its one tap (the preview with its "כל המדרגות של …"). Returns the unit's section.
+ */
+export async function openUnit(page, title) {
+  const unit = page.locator('section.unit').filter({ has: page.locator('h2.unit-title', { hasText: title }) });
+  // the row's title, not its whole text (its label follows the title: an anchored /^…$/ title still matches)
+  const row = page.locator('section.unit-row').filter({ has: page.locator('.unit-title', { hasText: title }) }).getByRole('button');
+  await expect(unit.or(row).first()).toBeVisible();
+  if (await row.count()) await row.click();
+  else if (await unit.locator('.unit-more').count()) await unit.locator('.unit-more').click();
+  await expect(unit.locator('.unit-more')).toHaveCount(0);
+  await expect(unit).toBeVisible();
+  return unit;
 }

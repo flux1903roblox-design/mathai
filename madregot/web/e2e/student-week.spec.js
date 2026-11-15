@@ -21,7 +21,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { student, open, item, answer, proceed, proceedToNext, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
+import { student, open, item, answer, proceed, proceedToNext, playDiscover, stageDone, expectNoSidewaysScroll, openUnit } from './helpers.js';
 import { setup, stubFetch } from '../../worker/test/helpers.js';
 import { makeSubscription } from '../../worker/test/fixtures/push.js';
 import { makeVapidKeys } from '../../worker/scripts/push-keys.mjs';
@@ -138,12 +138,9 @@ async function walkEnd(page, at = {}) {
   throw new Error(`too many screens after the lesson: ${seen.join(', ')}`);
 }
 
-/** A unit on the home path, by its title. */
-const unit = (page, title) => page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: title }) });
-
 /** From the home path: a stair's card, then its page ("כל חמשת השלבים"). */
 async function openStair(page, unitTitle, level) {
-  const u = unit(page, unitTitle);
+  const u = await openUnit(page, unitTitle);
   await u.getByRole('button', { name: new RegExp(`^מדרגה ${level}:`) }).click();
   await u.locator('.node-card').getByRole('button', { name: 'כל חמשת השלבים' }).click();
   await expect(page.locator('.journey')).toBeVisible();
@@ -335,7 +332,13 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     const moment = await stageDone(page, 1);
     await expect(moment.locator('.badges')).toContainText('+10 XP');
     await expect(moment.locator('.badges')).toContainText('התחלתם רצף');
+    // and מדי's first piece, in the first session (PRODUCT2-36): its own moment, on the way to the map
+    await expect(moment.locator('.badges')).toContainText('מדי קיבל משהו חדש');
     await moment.getByRole('button', { name: 'למפה', exact: true }).click();
+    const first = page.locator('.unlock-stage');
+    await expect(first.locator('.unlock-reason')).toHaveText('סיימתם את השלב הראשון, ומדי קיבל כובע חגיגה.');
+    await snap(page, shots, '1-sunday-first-piece');
+    await first.getByRole('button', { name: 'לשמור על מדי' }).click();
     await expect(page.locator('.top-stat.streak')).toContainText('1');
     // the first lesson, from the stair's page: practice
     await openStair(page, 'מספרים מכוונים', 1);
@@ -439,7 +442,18 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     await page.getByRole('button', { name: 'מתרגלים לבד: שוב' }).click();
     await playLesson(page);
     let kept = false;
+    let chose = false;
     const second = await walkEnd(page, {
+      // the day's chest: the freeze, and one of two pieces for מדי, chosen by her (PRODUCT2-36)
+      'quests-done-screen': async () => {
+        const chest = page.locator('.quests-done-screen');
+        await chest.getByRole('button', { name: /^מדליה/ }).click();
+        await expect(chest.getByRole('button', { name: /^מדליה/ })).toHaveAttribute('aria-pressed', 'true');
+        await snap(page, shots, '4b-wednesday-chest');
+        chose = true;
+        await chest.getByRole('button', { name: 'המשך', exact: true }).click();
+        return true;
+      },
       'streak-screen': async () => {
         await expect(page.locator('.streak-screen h1')).toHaveText('3 ימים ברצף!');
         await expect(page.locator('.streak-card-text')).toHaveText('הרצף נשמר. 3 ימים ברצף.');
@@ -460,6 +474,8 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     // two lessons without a mistake: the day's three missions, and a streak freeze for a day without learning
     expect(second).toContain('quests-done-screen');
     expect(st.freezes).toBe(1);
+    expect(chose).toBe(true);
+    expect(st.look.picks).toEqual({ '2026-11-11': 'medal' });
   });
 
   test('Thursday 12.11: three mastery checks in זוויות; the third opens the chest, Madi\'s new piece, and the wardrobe', async () => {
@@ -481,7 +497,7 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     await stage.getByRole('button', { name: 'לשמור על מדי' }).click();
     await expect(page.locator('.learn-top')).toBeVisible();
     // the chest on the path says what it gave
-    const angles = unit(page, 'זוויות');
+    const angles = await openUnit(page, 'זוויות');
     await angles.getByRole('button', { name: /^תיבת אוצר\. פתוחה/ }).click();
     await expect(angles.locator('.node-card')).toContainText('פתחתם: כתר מד־זווית.');
     await expect(angles.locator('.node-card [data-item="protractor-crown"]')).toHaveCount(1); // its picture loads on demand
@@ -497,7 +513,7 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     await settled(page);
     await expect(page.getByRole('radiogroup', { name: 'על הראש' }).getByRole('radio', { name: /^כתר מד־זווית/ })).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('.wardrobe-madi g[data-item="protractor-crown"]')).toHaveCount(1);
-    await expect(page.getByRole('radio', { name: /^צעיף הכיתה/ })).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('.wardrobe-soon').getByRole('button', { name: /^צעיף הכיתה/ })).toContainText('כשהכיתה מגיעה למטרה של השבוע');
     await snap(page, shots, '5c-thursday-wardrobe');
     const st = await saved(page);
     expect(st.look).toMatchObject({ head: 'protractor-crown' });
@@ -608,12 +624,14 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     const num = (label) => sheet.locator('.recap-tiles .kpi').filter({ hasText: label }).locator('.kpi-num');
     const days = Number(await num('ימי לימוד').textContent());
     expect(days).toBeGreaterThanOrEqual(3); // Sunday, Wednesday, Thursday at least (Tuesday and Friday had none)
-    // her steps are the week's own count (STUDENT-5): the 12 the class got, and Sunday's before she joined
+    // her stages are the week's own count, the ghost race's (PRODUCT2-39, lib/streak.js weekTotals): every finished
+    // lesson, check or teaching stage once. The class goal counts a passed mastery check as 3 steps (STUDENT-4), so her
+    // stages and two more for each passed check cover the 12 the class got (and Sunday's before she joined)
     const st = await saved(page);
-    let steps = 0;
-    for (let i = 0; i < 7; i += 1) { const d = new Date(Date.UTC(2026, 10, 8 + i)).toISOString().slice(0, 10); const r = st.days[d] || {}; steps += (r.lessons || 0) + (r.stages || 0) + 2 * (r.mp || 0); }
-    await expect(num('צעדים')).toHaveText(String(steps));
-    expect(steps).toBeGreaterThanOrEqual(server.steps['2026-11-08']);
+    let stages = 0; let mp = 0;
+    for (let i = 0; i < 7; i += 1) { const d = new Date(Date.UTC(2026, 10, 8 + i)).toISOString().slice(0, 10); const r = st.days[d] || {}; stages += (r.lessons || 0) + (r.stages || 0); mp += r.mp || 0; }
+    await expect(num('שלבים')).toHaveText(String(stages));
+    expect(stages + 2 * mp).toBeGreaterThanOrEqual(server.steps['2026-11-08']);
     await expect(num('מדרגות בשליטה')).toHaveText('3'); // Thursday's three mastery checks in זוויות
     await expect(sheet.locator('.recap-mastered')).toContainText('מדרגות חדשות בשליטה: ');
     await expect(sheet.locator('.recap-class')).toHaveText(`הכיתה: ${CLASSMATES_FINAL + server.steps['2026-11-08']} מתוך ${TARGET}. הגעתם למטרה יחד. החלק שלכם: ${server.steps['2026-11-08']} צעדים.`);
@@ -679,7 +697,7 @@ test.describe('also captured: what the council could not finish end to end', { t
     const all = (n) => ({ parts: {}, reviews: 0, jumped: 0, done: Object.fromEntries(Array.from({ length: n }, (_, i) => [i + 1, 'mastered'])) });
     const st = student('7', { path: { coord: all(5) }, lastTopic: 'coord' });
     await open(page, '#/', st);
-    const coord = unit(page, 'מערכת צירים');
+    const coord = await openUnit(page, 'מערכת צירים');
     await coord.getByRole('button', { name: /^חזרה על היחידה/ }).click();
     await coord.locator('.node-card').getByRole('button', { name: 'התחלה' }).click();
     await playLesson(page);

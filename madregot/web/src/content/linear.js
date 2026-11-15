@@ -3,7 +3,7 @@
 // m and b, slope as "steps" on the graph, slope between two points, the line
 // through two points, meeting the axes, the triangle with the axes, and the
 // point where two lines meet.
-import { R, NZ, pick, shuffle, T, ratioTex, reduce, near, plainNum } from './util.js';
+import { R, NZ, pick, shuffle, T, ratioTex, reduce, near, plainNum, byWidth, drawPlace } from './util.js';
 
 export const lineTex = (m, b, name = 'y') => {
   const mt = m === 1 ? '' : m === -1 ? '-' : ratioTex(Math.round(m * 1e6), 1e6);
@@ -29,25 +29,33 @@ function table() {
     fig: { type: 'table', head: ['x', 'y'], rows },
     hint: `מציבים את $x$ במשוואה, במקום $x$: $y = ${T(m)} \\cdot ${T(ask, true)}${plusB(b)}$. כפל לפני חיבור.`,
     solution: [`$y = ${T(m)} \\cdot ${T(ask, true)}${plusB(b)}$`, b === 0 ? `$y = ${T(y)}$` : `$y = ${T(m * ask)}${plusB(b)} = ${T(y)}$`],
-    diag: (u) => (near(u, m * ask) && b !== 0 ? 'forgot-b' : near(u, m * Math.abs(ask) + b) && ask < 0 ? 'neg-sub' : near(u, m + ask + b) ? 'added-m' : null),
+    // every mistake that gives this number (several: an ambiguous answer, content/index.js makeItem)
+    diag: (u) => [near(u, m * ask) && b !== 0 && 'forgot-b', near(u, m * Math.abs(ask) + b) && ask < 0 && 'neg-sub', near(u, m + ask + b) && 'added-m'].filter(Boolean),
   };
 }
 
+/** y = b + mx, the constant first, as a textbook also writes it: y = 5 - 3x, y = -4 + x. */
+const lineTexB = (m, b) => (m === 0 || b === 0 ? lineTex(m, b) : `y = ${T(b)} ${m < 0 ? '-' : '+'} ${Math.abs(m) === 1 ? '' : Math.abs(m)}x`);
+
 // Which of four functions is increasing (or decreasing)? Two of the others have b with the asked sign and m with the
 // other one: chosen by b, not by m (sign-from-b). Four choices, so a verification of that misconception, which asks
-// these, is not a coin flip between "עולה" and "יורדת".
+// these, is not a coin flip between "עולה" and "יורדת". Each line is written y = mx + b or y = b + mx, so the minus in
+// front of a decreasing line does not make the right one the widest: it is the widest one time in four (PRODUCT2-8;
+// the constant, y = 5, is always the narrowest).
 function dirPick() {
+  const place = drawPlace(4, Math.random, { narrowest: false });
   for (;;) {
     const up = Math.random() < 0.5; const s = up ? 1 : -1;
     const fs = [{ m: s * R(1, 5), b: NZ(-8, 8) }, { m: -s * R(1, 5), b: s * R(1, 8) }, { m: -s * R(1, 5), b: s * R(1, 8) }, { m: 0, b: NZ(-8, 8) }];
     if (new Set(fs.map((f) => `${f.m},${f.b}`)).size < 4) continue;
-    const choices = shuffle(fs.map((f, i) => ({ tex: lineTex(f.m, f.b), ok: i === 0, bug: i === 1 || i === 2 ? 'sign-from-b' : undefined })));
-    const r = fs[0];
+    const choices = byWidth(fs.map((f, i) => ({ forms: [...new Set([lineTex(f.m, f.b), lineTexB(f.m, f.b)])].map((t) => ({ tex: t })), ok: i === 0, bug: i === 1 || i === 2 ? 'sign-from-b' : undefined })), place);
+    if (!choices) continue;
+    const r = fs[0]; const shown = choices.find((c) => c.ok).tex;
     return {
       key: `lf2p:${up ? 'up' : 'down'}:${fs.map((f) => `${f.m},${f.b}`).join(';')}`, text: `איזו מהפונקציות ${up ? 'עולה' : 'יורדת'}?`, form: 'mc',
       choices, answer: choices.findIndex((c) => c.ok),
       hint: 'מסתכלים רק על $m$, המספר שלפני $x$: חיובי זה עולה, שלילי זה יורד, ואפס זה קו אופקי. $b$ לא משנה את הכיוון.',
-      solution: [`ב־$${lineTex(r.m, r.b)}$ השיפוע $m = ${T(r.m)}$, ${up ? 'חיובי, לכן היא עולה' : 'שלילי, לכן היא יורדת'}.`, `בשתיים אחרות $b$ ${up ? 'חיובי' : 'שלילי'}, אבל $m$ ${up ? 'שלילי' : 'חיובי'}: הן ${up ? 'יורדות' : 'עולות'}. ו־$m = 0$ הוא קו אופקי.`],
+      solution: [`ב־$${shown}$ השיפוע $m = ${T(r.m)}$, ${up ? 'חיובי, לכן היא עולה' : 'שלילי, לכן היא יורדת'}.`, `בשתיים אחרות $b$ ${up ? 'חיובי' : 'שלילי'}, אבל $m$ ${up ? 'שלילי' : 'חיובי'}: הן ${up ? 'יורדות' : 'עולות'}. ו־$m = 0$ הוא קו אופקי.`],
       diag: (u) => choices[u]?.bug || null,
     };
   }
@@ -75,7 +83,7 @@ function meaning() {
     form: 'num', answer: ans, label: kind === 'm' ? 'm =' : 'b =',
     hint: '$m$ הוא המקדם, המספר שלפני $x$ (כולל הסימן שלו). $b$ הוא המספר החופשי, גם הוא עם הסימן.',
     solution: [`$m = ${T(m)}$, $b = ${T(b)}$`, kind === 'b' ? `החיתוך עם ציר $y$: $(0, ${b})$` : `השיפוע: $${T(m)}$`],
-    diag: (u) => (near(u, kind === 'm' ? b : m) && m !== b ? 'm-b' : near(u, -ans) ? 'sign' : null),
+    diag: (u) => [near(u, kind === 'm' ? b : m) && m !== b && 'm-b', near(u, -ans) && 'sign'].filter(Boolean),
   };
 }
 
@@ -96,7 +104,7 @@ function stepsFromGraph() {
         ? 'כאן "המדרגה" לא נגמרת אחרי צעד אחד: בדקו כמה עולים אחרי שני צעדים ימינה, וחלקו ב־2.'
         : 'מתחילים בנקודה $A$, זזים צעד אחד ימינה, וסופרים כמה משבצות צריך לעלות (או לרדת) כדי לחזור לישר.',
       solution: [`מ־$A$ ל־$B$: ימינה $${2 * run}$, ${rise > 0 ? 'למעלה' : 'למטה'} $${2 * Math.abs(rise)}$`, `$m = \\frac{${2 * rise}}{${2 * run}} = ${ratioTex(rise, run)}$`],
-      diag: (u) => (near(u, run / rise) && !near(m, run / rise) ? 'inverse' : near(u, -m) ? 'sign' : null),
+      diag: (u) => [near(u, run / rise) && !near(m, run / rise) && 'inverse', near(u, -m) && 'sign'].filter(Boolean),
     };
   }
 }
@@ -113,12 +121,8 @@ function slopeTwoPoints() {
       key: `lf4:${x1}:${y1}:${x2}:${y2}`, text: `מה השיפוע של הישר שעובר דרך הנקודות $(${x1}, ${y1})$ ו־$(${x2}, ${y2})$?`,
       form: 'num', answer: m, label: 'm =',
       hint: '$m = \\frac{y_2 - y_1}{x_2 - x_1}$. אסור לערבב את הסדר: הנקודה שמתחילים ממנה למעלה היא גם זו שמתחילים ממנה למטה. מספר שלילי כותבים בסוגריים.',
-      solution: [`$m = \\frac{${T(y2)} - ${T(y1, true)}}{${T(x2)} - ${T(x1, true)}} = \\frac{${dy}}{${dx}}$`, `$m = ${ratioTex(p, q)}$`],
-      diag: (u) => {
-        if (near(u, dx / dy) && !near(m, dx / dy)) return 'inverse';
-        if (near(u, -m)) return 'mixed-order';
-        return null;
-      },
+      solution: [`$m = \\frac{${T(y2)} - ${T(y1, true)}}{${T(x2)} - ${T(x1, true)}} = ${dx === 1 ? T(dy) : `\\frac{${dy}}{${dx}}`}$`, ...(dx === 1 ? [] : [`$m = ${ratioTex(p, q)}$`])],
+      diag: (u) => [near(u, dx / dy) && !near(m, dx / dy) && 'inverse', near(u, -m) && 'mixed-order'].filter(Boolean),
     };
   }
 }
@@ -138,7 +142,8 @@ function lineEquation() {
       solution: [
         ...(withSlope ? [] : [`$m = \\frac{${y2} - ${T(y1, true)}}{${x2} - ${T(x1, true)}} = ${T(m)}$`]),
         `$${y1} = ${T(m)} \\cdot ${T(x1, true)} + b$`, `$${y1} = ${T(m * x1)} + b \\Rightarrow b = ${T(b)}$`, `$${lineTex(m, b)}$`],
-      diag: (v) => (v && near(v.m, m) && near(v.b, -b) && b !== 0 ? 'b-sign' : v && near(v.m, m) && near(v.b, y1) && y1 !== b ? 'b-is-y' : v && near(v.m, -m) ? 'sign' : null),
+      // b with the wrong sign and b read off the point can be the same number: then both
+      diag: (v) => (v ? [near(v.m, m) && near(v.b, -b) && b !== 0 && 'b-sign', near(v.m, m) && near(v.b, y1) && y1 !== b && 'b-is-y', near(v.m, -m) && 'sign'].filter(Boolean) : null),
     };
   }
 }
@@ -164,7 +169,7 @@ function buildLine() {
     manip: { kind: 'line', range: 6, start: { m: 1, b: 0 } }, answer: { m, b },
     hint: '$b$ הוא המקום שבו הישר חותך את ציר $y$. השיפוע $m$: צעד אחד ימינה, ו־$m$ צעדים למעלה (או למטה כשהוא שלילי).',
     solution: [`חיתוך עם ציר $y$: $b = ${b}$, הנקודה $(0, ${b})$.`, `שיפוע $m = ${m}$: מ־$(0, ${b})$ צעד אחד ימינה ו־$${Math.abs(m)}$ ${m > 0 ? 'למעלה' : 'למטה'}, אל $(1, ${m + b})$.`],
-    diag: (u) => (u && u.m === b && u.b === m && m !== b ? 'm-b' : u && u.m === -m && u.b === b ? 'sign' : null),
+    diag: (u) => (u ? [u.m === b && u.b === m && m !== b && 'm-b', u.m === -m && u.b === b && 'sign'].filter(Boolean) : null),
   };
 }
 
@@ -183,13 +188,12 @@ function axes() {
       solution: onX
         ? [`$0 = ${kx(m)}${plusB(b)}$`, `$${kx(m)} = ${T(-b)}$`, Math.abs(m) === 1 ? `$x = ${plainNum(x0)}$` : `$x = \\frac{${T(-b)}}{${T(m)}} = ${plainNum(x0)}$`, `הנקודה: $(${plainNum(x0)}, 0)$`]
         : [`$${name}(0) = ${T(m)} \\cdot 0 ${b < 0 ? '-' : '+'} ${Math.abs(b)} = ${T(b)}$`, `הנקודה: $(0, ${b})$`],
-      diag: ([u, v]) => {
-        if (near(u, ans[1]) && near(v, ans[0]) && ans[0] !== ans[1]) return 'swap';
-        if (onX && near(u, -x0) && near(v, 0)) return 'sign';
-        if (onX && near(u, 0) && near(v, b)) return 'axes-mixed';
-        if (!onX && near(u, x0) && near(v, 0)) return 'axes-mixed';
-        return null;
-      },
+      // the pair the other way round can also be the other axis's point (y = −x + 3: (3, 0) and (0, 3)): then both
+      diag: ([u, v]) => [
+        near(u, ans[1]) && near(v, ans[0]) && ans[0] !== ans[1] && 'swap',
+        onX && near(u, -x0) && near(v, 0) && 'sign',
+        ((onX && near(u, 0) && near(v, b)) || (!onX && near(u, x0) && near(v, 0))) && 'axes-mixed',
+      ].filter(Boolean),
     };
   }
 }
@@ -206,7 +210,7 @@ function triangle() {
       fig: { type: 'coord', range: 6, line: { m, b }, polygon: [[0, 0], [x0, 0], [0, b]], points: [{ x: 0, y: b, label: 'A' }, { x: x0, y: 0, label: 'B' }] },
       hint: 'מוצאים את שתי נקודות החיתוך עם הצירים. הצלעות של המשולש הן המרחקים שלהן מהראשית, והשטח הוא מכפלתן חלקי 2.',
       solution: [`חיתוך עם ציר $y$: $A(0, ${b})$`, `חיתוך עם ציר $x$: $0 = ${lineTex(m, b, '').replace(/^ = /, '')} \\Rightarrow B(${x0}, 0)$`, `שטח: $\\frac{${Math.abs(b)} \\cdot ${Math.abs(x0)}}{2} = ${plainNum(area)}$`],
-      diag: (u) => (near(u, 2 * area) ? 'no-half' : near(u, Math.abs(b) + Math.abs(x0)) ? 'added-sides' : null),
+      diag: (u) => [near(u, 2 * area) && 'no-half', near(u, Math.abs(b) + Math.abs(x0)) && 'added-sides'].filter(Boolean),
     };
   }
 }
@@ -227,7 +231,7 @@ function meet() {
         `$${kx(m1 - m2)} = ${T(b2 - b1)} \\Rightarrow x = ${T(x)}$`,
         `$y = ${T(m1)} \\cdot ${T(x, true)}${plusB(b1)} = ${T(y)}$`, `הנקודה: $E(${x}, ${y})$`],
       // 'forgot-y' only when y clearly was not worked out: the x written again, or left at 0
-      diag: ([u, v]) => (near(u, y) && near(v, x) && x !== y ? 'swap' : near(u, x) && !near(v, y) && (near(v, x) || near(v, 0)) ? 'forgot-y' : null),
+      diag: ([u, v]) => [near(u, y) && near(v, x) && x !== y && 'swap', near(u, x) && !near(v, y) && (near(v, x) || near(v, 0)) && 'forgot-y'].filter(Boolean),
     };
   }
 }
@@ -235,6 +239,8 @@ function meet() {
 export const LINEAR = {
   id: 'line', grade: '8', title: 'פונקציה קווית', color: 'cobalt',
   desc: 'טבלת ערכים, שיפוע, משוואת ישר, חיתוך עם הצירים ונקודת מפגש',
+  // ז׳ meets a table of values and its points in May (unit 7.9): the unit joins the ז׳ path from then (PRODUCT2-20)
+  alsoFor: ['7'],
   levels: [
     { title: 'טבלת ערכים', gen: () => (Math.random() < 0.4 ? predictPoint() : (table)()) },
     { title: 'מה אומרים m ו־b', gen: () => (Math.random() < 0.5 ? buildLine() : meaning()) },

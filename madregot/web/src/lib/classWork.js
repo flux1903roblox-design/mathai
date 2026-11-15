@@ -5,7 +5,8 @@
 //   reportWork(id, r)  a report joins workOutbox (merged with the same monotonic rules as the server) and is sent
 //   flushWork()        sends each waiting report: confirmed (200) it leaves the outbox; a lost connection keeps it;
 //                      404 (the teacher deleted it) or 400 drops it
-//   reportStairs()     a stair the teacher gave reports its stage and done state, from the learning record
+//   reportStairs()     a stair the teacher gave reports its stage and done state, and a repair (SK-BUYERS-2) whether
+//                      its check passed, from the learning record
 //   fetchExamItems(id) a class exam's frozen questions, kept on the device (classWork.exams)
 //
 // The reports are idempotent and never go backwards (worker/src/assignments.js postWork), so sending one again, late
@@ -17,6 +18,8 @@ import { mergeWork, workFromLearn, adds } from '@/learn/assignments.ts';
 const EVERY = 5 * 60_000;
 // what the screens show (and the plan reads): pure, in lib/classRows.js
 export { SHOWN, classAssignments, dueLine, workBanner, workRoute, EXAM_MIN_PER_Q, classRows, hasNewWork, urgentWork, urgentText } from './classRows.js';
+/** The kinds whose report comes from the learning record (the others report their own result: Lesson.jsx). */
+const FROM_LEARN = ['stair', 'repair'];
 
 const ready = () => { const p = useApp.getState().profile; return p?.role === 'student' && !!p.token && hasServer(); };
 
@@ -101,11 +104,14 @@ export function reportWork(id, report) {
   return flushWork();
 }
 
-/** The stairs the teacher gave: each reports its stage and done state when that adds to what the server has. */
+/**
+ * The stairs and the repairs the teacher gave: each reports what the learning record says (a stair its stage and done
+ * state, a repair started or done) when that adds to what the server has.
+ */
 export function reportStairs() {
   if (!ready()) return Promise.resolve();
   const st = useApp.getState();
-  const sent = (st.classWork?.assignments || []).filter((a) => a.kind === 'stair').map((a) => {
+  const sent = (st.classWork?.assignments || []).filter((a) => FROM_LEARN.includes(a.kind)).map((a) => {
     const w = workFromLearn(a, st.learn);
     return adds(mineOf(a, st.workOutbox), w) ? reportWork(a.id, w) : null;
   }).filter(Boolean);
@@ -114,13 +120,16 @@ export function reportStairs() {
 
 /**
  * The assignment a mastery check counts for: the one its address names, else an open check the teacher gave on the
- * same stair (a student may well start it from the map).
+ * same stair (a student may well start it from the map). A stair the teacher gave, opened at its mastery check (a stair
+ * passed before, learn/assignments.ts recheckDue) is not what it counts for: the stair reports from the learning record
+ * (reportStairs), and a check's result is not a stair's report.
  */
 export function checkAssignment(skill, id) {
   if (!ready()) return null;
-  if (id) return id;
   const st = useApp.getState();
-  const a = (st.classWork?.assignments || []).find((x) => x.kind === 'check' && x.skill === skill && mineOf(x, st.workOutbox)?.state !== 'done');
+  const list = st.classWork?.assignments || [];
+  if (id && !list.some((x) => x.id === id && x.kind !== 'check')) return id;
+  const a = list.find((x) => x.kind === 'check' && x.skill === skill && mineOf(x, st.workOutbox)?.state !== 'done');
   return a?.id || null;
 }
 
@@ -134,3 +143,15 @@ export function markSeen() {
 // ---------------------------------------------------------------- what the screens show (the rest is lib/classRows.js)
 /** The work as this device knows it: the server's copy with any report still waiting. */
 export const mineOf = (a, box = useApp.getState().workOutbox || {}) => mergeWork(a.mine, box[a.id]);
+/**
+ * The repair the teacher gave for this mistake on this stair, when it is still open: its id, for the repair's address
+ * (a student may open the same repair from the mission's own band).
+ */
+export function repairAssignment(skill, misc, id) {
+  if (!ready()) return null;
+  const st = useApp.getState();
+  const open = (x) => x.kind === 'repair' && x.skill === skill && x.misc === misc && mineOf(x, st.workOutbox)?.state !== 'done';
+  const list = st.classWork?.assignments || [];
+  return (id && list.some((x) => x.id === id && open(x)) ? id : list.find(open)?.id) || null;
+}
+

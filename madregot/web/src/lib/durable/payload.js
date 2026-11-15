@@ -5,7 +5,8 @@
 //              tag and save prompts), backup (this device's backup settings), classWork and workOutbox (the teacher's
 //              work as last fetched, and its reports waiting for the server), stepsOut and classGoals (the class
 //              goal's steps waiting for the server and the weeks it last reported), nudges (this device's one-time
-//              notes and install offers), reminder (this browser's daily reminder: its push id and secret), and the
+//              notes and install offers), reminder (this browser's daily reminder: its push id and secret), family (the
+//              family challenge accepted or sent on this device, PRODUCT2-39), and the
 //              profile's class token and student id: with them, someone else could act as this student in the class
 //   kept       everything else, and a teacher's class keys (profile.classes[].key): for a class that is not tied to
 //              an email account the key is the only way back in, so the teacher's file note says who can use it

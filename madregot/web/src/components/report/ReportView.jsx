@@ -11,6 +11,7 @@ import { stairName, misconName, withPrefix, he } from '@/learn/report.ts';
 import { MASTERY_N, MASTERY_NEED } from '@/learn/mastery.ts';
 import { dm, newestFirst } from '@/lib/share.js';
 import { RETENTION } from '@shared/retention.js';
+import { challengeProgress, reportTotals, goalText } from '@/lib/familyChallenge.js';
 import '@/styles/report.css';
 
 const LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -121,15 +122,39 @@ function Fixes({ week, today }) {
   );
 }
 
+/** How far the exam's stairs are, the sentence the report, the /parents banner and the Sunday email all say. */
+export const examProgress = (exam) => (exam.n > 0
+  ? `${exam.n} מתוך ${exam.of} המדרגות של המבחן כבר בשליטה.`
+  : `בתוכנית ההכנה ${exam.of} מדרגות, ובדיקות השליטה עליהן עוד לא נעשו.`);
+
 function Exam({ exam }) {
   const when = withPrefix('ב', dm(exam.d));
   return (
     <Section title="מבחן קרוב" className="report-exam">
-      <p className="report-line">
-        {exam.n > 0
-          ? `מבחן ${when}. ${exam.n} מתוך ${exam.of} המדרגות של המבחן כבר בשליטה.`
-          : `מבחן ${when}. בתוכנית ההכנה ${exam.of} מדרגות, ובדיקות השליטה עליהן עוד לא נעשו.`}
-      </p>
+      <p className="report-line">{`מבחן ${when}. ${examProgress(exam)}`}</p>
+    </Section>
+  );
+}
+
+/** Where the week's family challenge came from (PRODUCT2-39), said under it. */
+export const CHALLENGE_NOTE = {
+  local: 'האתגר הגיע בקישור מההורים, והתקבל במכשיר.',
+  link: 'האתגר הגיע בקישור מההורים, והתקבל במכשיר.',
+  synced: 'זה האתגר ששלחתם. ההתקדמות נספרת מהסיכומים שמגיעים מהמכשיר.',
+};
+
+/**
+ * The family challenge of the week (PRODUCT2-39, lib/familyChallenge.js), counted from the week itself: practice days, or
+ * stages (lessons, checks and teaching stages). The same words for the child and the parent; no countdown, no loss.
+ */
+function Challenge({ week, source, today }) {
+  const ch = week.challenge;
+  const p = challengeProgress(ch, reportTotals(week));
+  const so = today > week.end ? 'בשבוע הזה' : 'עד עכשיו';
+  return (
+    <Section title="אתגר משפחתי" className="report-challenge">
+      <p className="report-line">{p.done ? `היעד: ${goalText(ch)}. הושלם, ${p.n} מתוך ${p.n}.` : `היעד: ${goalText(ch)}. ${so}: ${p.have} מתוך ${p.n}.`}</p>
+      <p className="report-sub">{CHALLENGE_NOTE[source] || CHALLENGE_NOTE.local}</p>
     </Section>
   );
 }
@@ -194,7 +219,8 @@ export function DayView({ day, today }) {
 }
 
 /**
- * One week (learn/report.ts WeekReport) in order: the dates, the 7-day strip, four tiles, mastered, practised,
+ * One week (learn/report.ts WeekReport) in order: the dates, the 7-day strip, four tiles, the family challenge (only if
+ * the week has one: `week.challenge`, PRODUCT2-39), mastered, practised,
  * repairs (only if any), an exam ahead (only if any), how to help, and where the report came from.
  * `today`: the day on the device that shows it (marks today on the strip; repairs from another day say their day).
  * `variant="day"` with `day` (a DaySummary) draws one day instead (DayView). `level`: the heading level of the report's
@@ -227,6 +253,7 @@ function WeekView({ week, audience, source, today }) {
         <Stat icon={ListChecks} value={week.questions} label="שאלות" />
         <Stat icon={Flame} value={week.streak} label="ימים ברצף" />
       </div>
+      {week.challenge && <Challenge week={week} source={source} today={today} />}
       <Mastered week={week} />
       <Worked week={week} />
       <Fixes week={week} today={today} />

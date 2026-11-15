@@ -19,6 +19,11 @@ export const partsOf = (path, topic, level) => path?.[topic]?.parts?.[level] || 
 export const isDone = (path, topic, level) => !!path?.[topic]?.done?.[level];
 /** Done only because it was kept from before mastery checks: its mastery check is still to be offered. */
 export const isKept = (path, topic, level) => path?.[topic]?.done?.[level] === 'kept';
+/**
+ * Passed over by a placement or jump test (or a kept stair whose check failed, reopenKept) and not done yet: the student
+ * has shown it, so its next stage is its mastery check, not its teaching (learn/mastery.ts nextStage, PRODUCT2-19).
+ */
+export const isPlaced = (path, topic, level) => level <= (path?.[topic]?.jumped || 0) && !isDone(path, topic, level);
 
 /** How many stairs of a unit are done (mastered): the "X מתוך 5 מדרגות" counter. */
 export function doneCount(topic, path = {}) {
@@ -54,7 +59,7 @@ function highestDone(topic, path = {}) {
 /**
  * Every stair of a unit with its state, plus the review: done (mastered) | open (passed over, its check waiting) |
  * current (the next stair to work on) | locked. A stair below one done out of order is open, never locked: a locked
- * stair always lies ahead of everything done.
+ * stair always lies ahead of everything done. The review is current once every stair is done, never before.
  */
 export function unitNodes(topic, path = {}) {
   const t = TOPIC[topic];
@@ -65,9 +70,27 @@ export function unitNodes(topic, path = {}) {
     const state = isDone(path, topic, level) ? 'done' : level <= reached ? 'open' : level === reached + 1 ? 'current' : level < top ? 'open' : 'locked';
     return { kind: 'node', topic, level, title: L.title, state, parts: Math.min(partsOf(path, topic, level), PARTS), kept: isKept(path, topic, level) };
   });
-  const allPassed = reached >= t.levels.length;
-  nodes.push({ kind: 'review', topic, level: t.levels.length, title: 'חזרה על כל היחידה', state: allPassed ? ((path?.[topic]?.reviews || 0) > 0 ? 'done' : 'current') : 'locked', parts: Math.min(path?.[topic]?.reviews || 0, 1) });
+  // the unit review opens once every stair is done (mastered, or kept from before mastery checks): a stair only passed
+  // over by a placement or jump test still waits for its own check, so it does not open the review (SK-LEARN-6)
+  const allDone = doneCount(topic, path) >= t.levels.length;
+  nodes.push({ kind: 'review', topic, level: t.levels.length, title: 'חזרה על כל היחידה', state: allDone ? ((path?.[topic]?.reviews || 0) > 0 ? 'done' : 'current') : 'locked', parts: Math.min(path?.[topic]?.reviews || 0, 1) });
   return nodes;
+}
+
+/**
+ * The map as a journey (PRODUCT2-37): how each unit of a path shows. The unit the student is on (`current`: the plan's
+ * next stair, the unit practised last, or the first) shows all its stops ('open'); the unit after it shows its banner
+ * and its first stop ('preview', marked `preview`, so it never reads as a second place to go on from); every other unit
+ * is a folded row one tap away ('folded', no stops). A unit the student unfolded, or one a link asked for (`opened`),
+ * shows whole too. Returns [{ id, mode, nodes }] in the path's order.
+ */
+export function journey(topicIds, path = {}, current, opened = []) {
+  const at = Math.max(0, topicIds.indexOf(current));
+  return topicIds.map((id, i) => {
+    const mode = i === at || opened.includes(id) ? 'open' : i === at + 1 ? 'preview' : 'folded';
+    const nodes = mode === 'folded' ? [] : unitNodes(id, path);
+    return { id, mode, nodes: mode === 'preview' ? [{ ...nodes[0], preview: true }] : nodes };
+  });
 }
 
 /**
@@ -200,6 +223,25 @@ export function stagesDone(rec, parts, done = false) {
   if (done) return STAIR_STAGES;
   const taught = ['A', 'B', 'C'].filter((k) => rec?.taught?.[k]).length;
   return Math.min(STAIR_STAGES, taught + (practiceShare(rec, parts) >= 1 ? 1 : 0) + (rec?.mastered ? 1 : 0));
+}
+
+/**
+ * Every stage the student has worked through, across all stairs (PRODUCT2-36): the teaching stages finished, practice
+ * once complete, and each mastery check passed. A stair done only on the path (kept from before mastery checks, or
+ * passed over) counts what was really done in it, not five: the count follows work, so Madi's pieces for stages
+ * (lib/wardrobe.js) come from learning, never from a placement.
+ */
+export function stagesWorked(path = {}, skills = {}) {
+  let n = 0;
+  for (const id of Object.keys(TOPIC)) {
+    const top = TOPIC[id].levels.length;
+    for (let L = 1; L <= top; L += 1) {
+      const rec = skills?.[`${id}:${L}`];
+      const parts = partsOf(path, id, L);
+      if (rec || parts) n += stagesDone(rec, parts, false);
+    }
+  }
+  return n;
 }
 
 /**

@@ -4,11 +4,11 @@
 // ClassWork rows without pulling the app's store into the engine. lib/classWork.js re-exports all of it.
 import { today } from './days.js';
 import { daysFrom, weekdayName, dm } from './workDates.js';
-import { mergeWork } from '@/learn/assignments.ts';
-import { routeOf, STAGE_MIN } from '@/learn/recommend.ts';
+import { mergeWork, workRoute } from '@/learn/assignments.ts';
+import { STAGE_MIN, MINUTES } from '@/learn/recommend.ts';
 
-/** The kinds a student sees: a stair, a mastery check and a class exam. */
-export const SHOWN = ['stair', 'check', 'exam'];
+/** The kinds a student sees: a stair, a mastery check, a class exam and the repair of one mistake (SK-BUYERS-2). */
+export const SHOWN = ['stair', 'check', 'exam', 'repair'];
 
 /**
  * The class assignments with this device's reports: the server's copy of each (`mine`) merged with the report still
@@ -36,13 +36,21 @@ export function workBanner(dueOn, day = today()) {
   return daysFrom(day, dueOn) < 0 ? `משימה מהמורה. ${d}` : `משימה מהמורה, ${d}`;
 }
 
-/** Where a row leads: the stair's page (with its banner), the mastery check counted for it, or the class exam's start. */
-export const workRoute = (a) => (a.kind === 'exam' ? `/class/exam/${a.id}` : a.kind === 'check' ? `${routeOf.check(a.skill, 'mastery')}&assignment=${a.id}` : `${routeOf.journey(a.skill)}?assignment=${a.id}`);
+/**
+ * Where a row leads: the stair's page (with its banner), the mastery check counted for it (also a stair passed before
+ * and not done since), the class exam's start, or the repair of that mistake (learn/assignments.ts workRoute).
+ */
+export { workRoute };
 
 const STAGES = ['A', 'B', 'C', 'D', 'E'];
-/** Minutes left: the stages a stair still has, a check's 3, or 3 for each question of a class exam. */
+/**
+ * Minutes left: the stages a stair still has, a check's 3, a repair's (MINUTES.repair, as the mission counts it), or 3
+ * for each question of a class exam. A stair passed before it was given (SK-BUYERS-1: earlier mastery never makes it
+ * done) has its mastery check again left.
+ */
 export const EXAM_MIN_PER_Q = 3;
-const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN_PER_Q : a.kind === 'check' ? 3 : STAGES.slice(Math.min(5, w?.stage || 0)).reduce((s, x) => s + STAGE_MIN[x], 0));
+const stairLeft = (w) => (w?.passed && w.state !== 'done' ? STAGE_MIN.E : STAGES.slice(Math.min(5, w?.stage || 0)).reduce((s, x) => s + STAGE_MIN[x], 0));
+const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN_PER_Q : a.kind === 'check' ? 3 : a.kind === 'repair' ? MINUTES.repair : stairLeft(w));
 
 /**
  * The rows of the "מהמורה" block on a day: due within 3 days, or past by at most 14 days and not done (`show`), later
@@ -51,11 +59,11 @@ const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN
  * (learn/next.ts planNext), whose top is TodayCard's big button.
  */
 export function classRows(cw, box = {}, day = today()) {
-  const rows = (cw?.assignments || []).filter((a) => SHOWN.includes(a.kind) && (a.kind === 'exam' ? a.hasExam !== false : !!a.skill)).map((a) => {
+  const rows = (cw?.assignments || []).filter((a) => SHOWN.includes(a.kind) && (a.kind === 'exam' ? a.hasExam !== false : !!a.skill && (a.kind !== 'repair' || !!a.misc))).map((a) => {
     const w = mergeWork(a.mine, box[a.id]);
     const done = w?.state === 'done';
     const left = daysFrom(day, a.dueOn);
-    return { a, w, done, doneToday: done && !!w.doneAt && localDay(w.doneAt) === day, started: !done && (w?.state === 'started' || (w?.stage || 0) > 0), left, to: workRoute(a), minutes: minutesLeft(a, w) };
+    return { a, w, done, doneToday: done && !!w.doneAt && localDay(w.doneAt) === day, started: !done && (w?.state === 'started' || (w?.stage || 0) > 0), left, to: workRoute(a, w), minutes: minutesLeft(a, w) };
   });
   const order = (x, y) => (x.a.dueOn < y.a.dueOn ? -1 : x.a.dueOn > y.a.dueOn ? 1 : String(x.a.createdAt || '') < String(y.a.createdAt || '') ? -1 : 1);
   const open = rows.filter((r) => !r.done && r.left >= -14).sort(order);

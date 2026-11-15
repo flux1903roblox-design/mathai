@@ -5,6 +5,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { open, student, saved, item, answer, expectNoSidewaysScroll, expectUsable } from './helpers.js';
 import { API, CORS } from './fakeServer.js';
+import { CHALLENGE_META } from '../src/learn/challenges/meta.gen.ts';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the challenge screen is checked on the two phones'); });
 
@@ -360,6 +361,25 @@ test('a wrong counterexample gets a second try, then the part goes on with its h
   await expect(page.locator('.ch-foot')).toContainText('נסו שבר שהמונה שלו גדול מהמכנה.');
 });
 
+test('an error task: a line marked that is not the mistake says why it holds (PRODUCT2-18)', async ({ page }, info) => {
+  await open(page, '#/challenge/sys:c2', student('8'));
+  await page.getByRole('radio', { name: /^שורה 1:/ }).click();
+  await go(page, 'בדיקה').click();
+  const foot = page.locator('.ch-foot');
+  await expect(foot.locator('.lm-banner')).toHaveText('עוד לא. נסו שוב, יש עוד ניסיון.');
+  await expect(foot.locator('.ch-line-why')).toHaveText('שורה 1 בסדר. זו רק המערכת מהשאלה. הטעות מתחילה אחריה.');
+  await expect(foot.locator('.ch-line-why')).toBeInViewport();
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: info.outputPath('error-line-why.png') });
+  // the second miss shows the mistake, after the why of the line just marked
+  await page.getByRole('radio', { name: /^שורה 4:/ }).click();
+  await go(page, 'בדיקה').click();
+  await expect(foot.locator('.lm-banner')).toHaveText('הנה הפתרון. ממשיכים.');
+  await expect(foot.locator('.ch-line-why')).toContainText('שורה 4 בסדר. מ־');
+  await expect(foot).toContainText('השורה השגויה היא שורה 3.');
+  await expectNoSidewaysScroll(page);
+});
+
 // ------------------------------------------------------------------ where challenges appear (CURRICULUM-6.3)
 
 /** A ח׳ student who has mastered pct:1 and learned pct:2 (taught, practised) but not checked it: pct:c1 follows pct:2. */
@@ -388,10 +408,12 @@ test('the stair page: the challenge card is locked until the mastery check, then
   await expect(card).toContainText('אתגר · לבחירה');
   await expect(card).toContainText('נפתח אחרי בדיקת השליטה');
   await expect(card.getByRole('button')).toHaveCount(0); // locked: nothing to press
-  // a stair without a task has no card
+  // every stair has a task now (PRODUCT2-21): pct:1, mastered, offers its own, open
   await page.goto('./#/learn/pct/1');
   await expect(page.locator('.journey-title')).toBeVisible();
-  await expect(page.locator('.jchallenge')).toHaveCount(0);
+  await expect(page.locator('.jchallenge')).toHaveCount(1);
+  await expect(page.locator('.jchallenge')).not.toHaveClass(/locked/);
+  await expect(page.locator('.jchallenge')).toContainText('שלוש עשיריות באחוזים');
   // pass the check; put the offer off for now
   await page.goto('./#/lesson/pct/2?kind=check&purpose=mastery');
   await page.reload();
@@ -424,6 +446,8 @@ test('a passed mastery check offers the stair\'s challenge in a quiet card, whic
   for (const name of ['לאתגר', 'לא עכשיו']) expect((await card.getByRole('button', { name }).boundingBox()).height).toBeGreaterThanOrEqual(44);
   await expectNoSidewaysScroll(page);
   await card.getByRole('button', { name: 'לאתגר' }).click();
+  // the passed check also earned מדי a piece (PRODUCT2-36): its moment comes before the way the student picked
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
   await expect(page).toHaveURL(/#\/challenge\/pct:c1$/);
   await expect(page.locator('.ch-count')).toHaveText('חלק 1 מתוך 4');
 });
@@ -481,13 +505,17 @@ async function walk(page, id) {
 // three tasks a topic, and one more where a later stair brought its own (eq:c4, after the motion problems of eq:6)
 const COUNT = { eq: 4 };
 for (const topic of TOPICS) {
+  // every task of the topic, PRODUCT2-21's included (the meta lists them in order)
+  const ids = CHALLENGE_META.filter((t) => t.topic === topic).map((t) => t.id);
   test(`at 320 px nothing is cut off in ${topic}'s challenges, at any step`, async ({ page }, info) => {
     test.skip(info.project.name !== 'phone-small', 'the narrow phone is the one that cuts');
+    test.setTimeout(60_000 * Math.ceil(ids.length / 3));
     await open(page, '#/', student(['ratio', 'pct', 'func', 'line', 'pyth', 'circle', 'stats', 'congr', 'sim', 'sys', 'prob', 'space'].includes(topic) ? '8' : '7'));
-    for (let n = 1; n <= (COUNT[topic] || 3); n += 1) {
-      const steps = await walk(page, `${topic}:c${n}`);
-      expect(steps, `${topic}:c${n} walked`).toBeGreaterThan(2);
-      await nothingCutOff(page, `${topic}:c${n}, the end`);
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    for (const id of ids) {
+      const steps = await walk(page, id);
+      expect(steps, `${id} walked`).toBeGreaterThan(2);
+      await nothingCutOff(page, `${id}, the end`);
     }
   });
 }

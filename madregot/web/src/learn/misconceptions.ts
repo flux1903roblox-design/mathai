@@ -4,7 +4,9 @@
 //  - a misconception is "confirmed" only with CONFIRM_SCORE evidence from at least two different questions;
 //  - a right answer to a question where the misconception would have shown removes some evidence;
 //  - a small slip (off by one, two digits swapped, ten off) is a slip, not a misconception;
-//  - an ambiguous answer asks for a discriminating question: one where every candidate predicts something else.
+//  - an ambiguous answer asks for a discriminating question: one where every candidate predicts something else (and,
+//    when that answer still fits two or more of them, one more: lib/lesson.js MAX_PROBES);
+//  - the stair's own mistake (DiagModel.flagship) names an answer it predicts alone.
 import type { DiagModel, MisconRecord, Rng, SkillId } from './types';
 import { same } from './expr';
 
@@ -80,8 +82,10 @@ export function diagnose<P>(model: DiagModel<P>, p: P, u: number | null): Diagno
     .filter((b) => b.v != null && Number.isFinite(b.v) && !same(b.v, ans) && matches(b.v!))
     .map((b) => b.id);
   if (hits.length) {
-    const conf = 1 / hits.length;
-    return { kind: 'misconception', candidates: hits.map((id) => ({ id, conf })), ambiguous: hits.length > 1 };
+    // the stair's own mistake names an answer it predicts alone (DiagModel.flagship), as the stair's exercises do
+    const ids = model.flagship && hits.includes(model.flagship) ? [model.flagship] : hits;
+    const conf = 1 / ids.length;
+    return { kind: 'misconception', candidates: ids.map((id) => ({ id, conf })), ambiguous: ids.length > 1 };
   }
   const slip = slipOf(u, ans);
   return slip ? { kind: 'slip', why: slip } : { kind: 'unknown' };

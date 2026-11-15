@@ -8,10 +8,11 @@ import { TOPICS, makeItem, isCorrect, catLabel, swappedLin } from './index.js';
 import { quadOf as quadOfPt } from './manip.js';
 import { startLesson, answer } from '@/lib/lesson.js';
 import { learnAfterAnswer, emptyLearn } from '@/learn/storeGlue.ts';
+import { slipOf } from '@/learn/misconceptions.ts';
 import { evaluate, texToExpr, texRelation, holds, seeded } from '@/learn/expr.ts';
-import { roundsTo, EQ, rectStory, transferTable, angleEqStory } from './eq.js';
+import { roundsTo, EQ, diagOf, twoStepBugs, rectStory, transferTable, angleEqStory } from './eq.js';
 import { EXPR, collectItem, bracketCollect } from './expr.js';
-import { SYS } from './sys.js';
+import { SYS, minusBracketValues } from './sys.js';
 import { FRAC } from './frac.js';
 import { candidates, nearCandidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
@@ -990,7 +991,11 @@ const PROPS = {
       const fs = fracSum(it.display);
       if (fs) return fits(u, fs.c / fs.a - fs.b);
       const [L, R] = sidesOf(it.display);
-      const vals = [(R.c + L.c) / (L.k - R.k), -(L.c + R.c) / (L.k - R.k)];
+      // the constant beside x moved over keeping its sign: x on the left (on both sides, the left one, as the lesson
+      // moves it), or x only on the right (12 = x + 5); an equation with no constant beside x has none to move
+      const vals = [];
+      if (!near(L.k, 0) && !near(L.c, 0)) vals.push((R.c + L.c) / (L.k - R.k));
+      else if (near(L.k, 0) && !near(R.c, 0)) vals.push(-(L.c + R.c) / (L.k - R.k));
       const xs = xSide(it.display); if (xs) vals.push((xs[1] - xs[0].c) * xs[0].k);
       return vals.some((v) => fits(u, v));
     },
@@ -999,14 +1004,20 @@ const PROPS = {
     // the larger divided by the smaller: 12x = 3 gives 4
     'divide-flip': (it, u) => { const xs = xSide(it.display); return !!xs && Math.abs(xs[0].k) > Math.abs(xs[1] - xs[0].c) && fits(u, xs[0].k / (xs[1] - xs[0].c)); },
     // the coefficient subtracted instead of divided by
-    'sub-coef': (it, u) => { const xs = xSide(it.display); return !!xs && fits(u, xs[1] - xs[0].c - xs[0].k); },
+    'sub-coef': (it, u) => { const xs = xSide(it.display); return !!xs && Number.isInteger(xs[0].k) && fits(u, xs[1] - xs[0].c - xs[0].k); },
     // only some terms divided by the coefficient: 2x + 4 = 10 → x + 4 = 5; (x + 1)/3 = 7 read as x/3 + 1 = 7
+    // (as the lesson diagnoses it: a coefficient other than ±1, whose division of the other side comes out whole, with
+    // the x-term written first: in 14 − 7x = −42 the number before it is not "a part" the student keeps)
     'divide-part': (it, u) => {
       // the transfer, 2x + d = T divided as x + d = T : 2: box B at the start comes out T : 2
       if (it.key.startsWith('eq5x:')) { const [, T] = nums(it.key); return near(u, T / 2); }
       const fs = fracSum(it.display);
       if (fs) return fits(u, fs.a * (fs.c - fs.b));
-      const xs = xSide(it.display); return !!xs && fits(u, xs[1] / xs[0].k - xs[0].c);
+      const xs = xSide(it.display);
+      if (!xs || Math.abs(xs[0].k) === 1 || !Number.isInteger(xs[1] / xs[0].k)) return false;
+      const xTex = (near(sidesOf(it.display)[1].k, 0) ? it.display.split('=')[0] : it.display.split('=')[1]).trim();
+      if (/^-?\d+\s*[-+]/.test(xTex) && !it.key.startsWith('eq2c:')) return false;
+      return fits(u, xs[1] / xs[0].k - xs[0].c);
     },
     // the opposite of the solution, where a minus could be lost: a negative coefficient, or the missing number
     sign: (it, u) => {
@@ -1120,7 +1131,8 @@ const PROPS = {
       const [kv, kw] = v === 'y' ? [q, p] : [p, q]; // the coefficient the expression goes into, and the other one
       const first = (r - e.c) / (kw + kv * e.k); // kv(e.k·w + e.c) opened as kv·e.k·w + e.c
       const i = w === 'x' ? 0 : 1;
-      return Array.isArray(u) && Math.abs(kv) >= 2 && fits(u[i], first);
+      // a prediction a slip of the hand also gives (one off) names nothing, as everywhere (eq.js diagOf)
+      return Array.isArray(u) && Math.abs(kv) >= 2 && !slipOf(first, it.answer[i]) && fits(u[i], first);
     },
     // one unknown found, the other left at 0 or copied from the first
     'forgot-y': (it, u) => Array.isArray(u) && [0, 1].some((i) => near(u[i], it.answer[i]) && !near(u[1 - i], it.answer[1 - i]) && (near(u[1 - i], 0) || near(u[1 - i], u[i]))),
@@ -1133,6 +1145,8 @@ const PROPS = {
       const [r1, r2] = rowsOf(it.display).map(rowOf);
       return [0, 1].some((g) => {
         const mu = r2[g] / r1[g]; if (!(mu > 0)) return false; // equal signs: the equations are subtracted
+        // after making those coefficients equal by multiplying one equation by a whole number, as the lesson does
+        if (!Number.isInteger(mu) && !Number.isInteger(1 / mu)) return false;
         const s = 1 - g; const coef = mu * r1[s] - r2[s]; const kv = (mu * r1[2] + r2[2]) / coef;
         return Array.isArray(u) && [kv, -kv].some((v) => fits(u[s], v));
       });
@@ -1253,7 +1267,8 @@ const PROPS = {
       return v < 0 && lo === Math.ceil(v) && hi === Math.ceil(v) + 1;
     },
     'ignore-sign': (it, u) => Array.isArray(u) && it.answer.some((v, i) => v < 0 && u[i] === -v),
-    'neg-compare': (it, u) => { const [a, b] = nums(it.key); return a < 0 && b < 0 && a !== b && u === 2 - it.answer; },
+    // the sign chosen is the reverse of the right one (the three signs stand in a new order each time)
+    'neg-compare': (it, u) => { const [a, b] = nums(it.key); return a < 0 && b < 0 && a !== b && chosen(it, u) === (a < b ? '>' : '<'); },
     order: (it, u) => {
       const t = signedFacts(it);
       if (it.key.startsWith('sn4:') && t[3] === '*') return near(u, (t[1] === '+' ? t[0] + t[2] : t[0] - t[2]) * t[4]);
@@ -1448,7 +1463,8 @@ const PROPS = {
       return false;
     },
     'freq-only': (it, u) => { const [f, j] = dataKey(it.key); return it.key.startsWith('da2:') && fits(u, f[j]); },
-    'per-category': (it, u) => { const [f] = dataKey(it.key); return it.key.startsWith('da2:') && fits(u, 1 / f.length); },
+    // each row an equal part: a mistake only where 1/rows is not the answer itself (10 of 40 is 1/4 with four rows)
+    'per-category': (it, u) => { const [f] = dataKey(it.key); return it.key.startsWith('da2:') && !near(1 / f.length, it.answer) && fits(u, 1 / f.length); },
     'pct-for-dec': (it, u) => { const [f, j] = dataKey(it.key); return it.key.startsWith('da2:') && fits(u, (100 * f[j]) / sum(f)); },
     'bigger-count': (it, u) => {
       const [n1, k1, n2, k2] = dataKey(it.key); const more = k1 > k2 ? 0 : 1;
@@ -1469,7 +1485,8 @@ const PROPS = {
     'stop-at-one': (it, u) => { const [p, c] = dataKey(it.key); return it.key.startsWith('da3w:') && fits(u, c / p); },
     // "yes" for three classes' percents that do not add up to one whole
     'pie-not-whole': (it, u) => { const [kind, ps] = dataKey(it.key); return it.key.startsWith('da3o:') && kind === 0 && sum(ps) !== 100 && it.choices[u]?.text === 'כן'; },
-    equiprob: (it, u) => { const [c] = dataKey(it.key); return it.key.startsWith('da4:') && fits(u, 1 / c.length); },
+    // every kind equally likely: a mistake only where 1/kinds is not the answer itself
+    equiprob: (it, u) => { const [c] = dataKey(it.key); return it.key.startsWith('da4:') && !near(1 / c.length, it.answer) && fits(u, 1 / c.length); },
     'old-total': (it, u) => { const [N, p, m] = dataKey(it.key); return it.key.startsWith('da4j:') && fits(u, ((p * N) / 100 + m) / N); },
     'new-not-counted': (it, u) => { const [N, p, m] = dataKey(it.key); return it.key.startsWith('da4j:') && fits(u, ((p * N) / 100) / (N + m)); },
     'old-rel': (it, u) => { const [, p] = dataKey(it.key); return it.key.startsWith('da4j:') && fits(u, p / 100); },
@@ -1558,7 +1575,8 @@ const PROPS = {
     // b to N counted as N − b numbers
     fencepost: (it, u) => {
       if (it.key.startsWith('pr1r:')) { const [N, a, b] = nums(it.key); return fits(u, (a + N - b) / N); }
-      if (it.key.startsWith('pr2a:')) { const [n, t] = nums(it.key); return fits(u, (n - t) / n); }
+      // (at t = n/2 the model leaves it out: (n − t)/n is one half, no count of anything)
+      if (it.key.startsWith('pr2a:')) { const [n, t] = nums(it.key); return 2 * (n - t) !== n && fits(u, (n - t) / n); }
       return false;
     },
     // the "yes, it still has n sides" choice for a die, a coin or a wheel that is not symmetric
@@ -1935,28 +1953,123 @@ function ineqProp(it, u, when, wrong, edge = false) {
   return u === tallyOf(it, countList(it).filter((n) => relHolds(rel, n, q.B)));
 }
 
-const ITEMS_PER_LEVEL = 60;
+/**
+ * Each stair's questions are drawn once and shared by the two properties below: DRAWS draws, at most SCAN_DISTINCT
+ * different questions (a stair with few questions is covered whole), every wrong answer of the sample tried, and the
+ * names its diagnosis gives kept with it (makeItem: one name, or several when their predictions are the same number).
+ * The suite runs 300 different questions a stair. The deep run PRODUCT2-15 asks for, 2,000 different questions a stair
+ * (out of up to 8,000 draws; a stair with fewer is covered whole), is
+ *   LABELS_DISTINCT=2000 npx vitest run src/content/labels.test.js
+ * It takes about three minutes, so it is a step of its own in CI (.github/workflows/ci.yml, job web), not part of every
+ * local run. QA_STUDENT.md records what it found the first time (the three cases pinned at the end of this file).
+ */
+const DEEP = Number(process.env.LABELS_DISTINCT) || 0;
+const SCAN_DISTINCT = DEEP || 300;
+const DRAWS = DEEP ? Math.max(2000, 4 * DEEP) : 2000;
+const SCAN_MS = DEEP ? 1_800_000 : 120_000;
+const scans = new Map();
+const sampleCache = new Map();
+/** The wrong answers to try (labels.sample.js), kept once per form where they do not depend on the question. */
+function triesOf(item) {
+  const k = item.form === 'num' ? (item.topic === 'ratio' ? null : 'num') : ['pt', 'line', 'lin', 'frac'].includes(item.form) ? item.form : null;
+  if (!k) return candidates(item);
+  if (!sampleCache.has(k)) sampleCache.set(k, candidates(item));
+  return sampleCache.get(k);
+}
+function scanOf(topic, level) {
+  const key = `${topic}:${level}`;
+  if (scans.has(key)) return scans.get(key);
+  const seen = new Set(); const named = []; const kinds = {};
+  // the same sample on every run (the generators draw with Math.random)
+  const realRandom = Math.random; Math.random = seeded(20261111 + level);
+  try { for (let k = 0; k < DRAWS && seen.size < SCAN_DISTINCT; k += 1) {
+    const item = makeItem(topic, level);
+    if (seen.has(item.key)) continue;
+    seen.add(item.key);
+    // a kind of question: its generator (the key's prefix) and its form (lf2 asks a choice or a number)
+    const kind = `${item.key.split(':')[0]}|${item.form}`;
+    kinds[kind] ||= new Set();
+    for (const u of triesOf(item)) {
+      const d = item.diagnosis(u);
+      if (!d) continue;
+      const ids = d.candidates.map((c) => c.id);
+      ids.forEach((id) => kinds[kind].add(id));
+      named.push({ item, u, ids, ambiguous: d.ambiguous, kind });
+    }
+  } } finally { Math.random = realRandom; }
+  const out = { named, kinds };
+  scans.set(key, out);
+  return out;
+}
+const show = (x) => `${x.item.topic}:${x.item.level} ${x.item.key}: answer ${JSON.stringify(x.u)}`;
+/** Does a property hold? One written for another shape of the same kind of question (a story the reader cannot parse) does not. */
+const holdsFor = (prop, item, u) => { try { return prop?.(item, u) === true; } catch { return false; } };
 
 describe('every mistake label describes the answer', () => {
   TOPICS.forEach((t) => {
     t.levels.forEach((L, i) => {
       const level = i + 1;
       it(`${t.id} level ${level}: ${L.title}`, () => {
-        for (let k = 0; k < ITEMS_PER_LEVEL; k += 1) {
-          const item = makeItem(t.id, level);
-          for (const u of candidates(item)) {
-            if (isCorrect(item, u)) continue;
-            const cat = item.diag(u);
-            if (!cat) continue;
+        for (const x of scanOf(t.id, level).named) {
+          // the first name is the one diag() gives (the lesson counts it), and every other name holds too
+          expect(x.item.diag(x.u), show(x)).toBe(x.ids[0]);
+          for (const cat of x.ids) {
             const prop = PROPS[t.id]?.[cat];
             expect(prop, `${t.id}:${level} returns '${cat}', which has no property here`).toBeTruthy();
-            expect(prop(item, u), `${t.id}:${level} ${item.key}: answer ${JSON.stringify(u)} labelled '${cat}' (${catLabel(t.id, level, cat)})`).toBe(true);
+            expect(prop(x.item, x.u), `${show(x)} labelled '${cat}' (${catLabel(t.id, level, cat)})`).toBe(true);
             // the words shown to the student exist for this stair
             expect(catLabel(t.id, level, cat), `${t.id}:${level} '${cat}' has no words`).toBeTruthy();
           }
         }
-      });
+      }, SCAN_MS);
     });
+  });
+});
+
+/**
+ * PRODUCT2-15: two mistakes that predict the same answer are never named as one of them by chance. For every wrong
+ * answer a question's diagnosis names, every other mistake the same kind of question can name (its key's prefix) and
+ * whose property holds for that answer must be named too: the answer is then ambiguous, as a diagnostic model reports
+ * it. The one exception is the stair's own mistake (its level's flagship), which names an answer it predicts alone.
+ * signed:1 before this: −4 − (−11) answered −15 was named "adding the distances" only, though it is exactly
+ * subtracting the negative as a positive.
+ */
+describe('an answer two mistakes explain is never named as one of them by chance', () => {
+  TOPICS.forEach((t) => {
+    t.levels.forEach((L, i) => {
+      const level = i + 1;
+      it(`${t.id} level ${level}: ${L.title}`, () => {
+        const { named, kinds } = scanOf(t.id, level);
+        const silent = [];
+        for (const x of named) {
+          if (L.flagship && x.ids.length === 1 && x.ids[0] === L.flagship) continue;
+          const also = [...kinds[x.kind]].filter((c) => !x.ids.includes(c) && holdsFor(PROPS[t.id]?.[c], x.item, x.u));
+          if (also.length) silent.push(`${show(x)} named ${x.ids.join(' + ')}, also ${also.join(' + ')}`);
+        }
+        expect(silent.slice(0, 5), `${silent.length} answers`).toEqual([]);
+      }, SCAN_MS);
+    });
+  });
+});
+
+describe('the flagship mistake of signed:1 (PRODUCT2-12)', () => {
+  it('−4 − (−11) answered −15 is recorded as minus-minus only, and the line names it', () => {
+    // subtracting −11 as if it were 11; adding the distances (abs-add) gives −15 too, and the stair's own mistake names it
+    const it = find('signed', 1, (x) => x.key === 'sn1:-4 - (-11)', 200000);
+    expect(it.answer).toBe(7);
+    expect(recorded(it, -15)).toEqual({ cat: 'minus-minus', miscon: ['signed:1|minus-minus'] });
+    // where only adding the distances gives the number (3 + (−8) answered 11), it is still named
+    const add = find('signed', 1, (x) => x.key === 'sn1:3 + (-8)', 200000);
+    expect(recorded(add, 11)).toEqual({ cat: 'abs-add', miscon: ['signed:1|abs-add'] });
+  });
+  it('an answer two mistakes give in brackets is recorded as both, half each', () => {
+    // 7 − (8 − 1) · (−1) = 14: 0 is the subtraction done first, (7 − 7) · (−1), and the product −7 subtracted as 7
+    const it = find('signed', 5, (x) => x.key === 'sn5:7 - (8 - 1) \\cdot (-1)', 400000);
+    expect(it.answer).toBe(14);
+    const d = it.diagnosis(0);
+    expect(d).toMatchObject({ kind: 'misconception', ambiguous: true });
+    expect(d.candidates.map((c) => c.id).sort()).toEqual(['minus-minus', 'order']);
+    expect(recorded(it, 0).miscon.sort()).toEqual(['signed:5|minus-minus', 'signed:5|order']);
   });
 });
 
@@ -1988,6 +2101,7 @@ describe('curriculum stage 3: every label of 2,000 exercises a stair describes t
 // Stage 2's topics are on the path (the loop above samples them through makeItem); here their generators are sampled
 // once more straight from the topic objects, as makeItem would give them (an answer that is right is never a mistake),
 // with the words from their own cats, and each level must name some mistake.
+const ITEMS_PER_LEVEL = 60;
 describe('every mistake label describes the answer: sampled from the topic objects of stage 2', () => {
   for (const T of [AREA, SOLID, CIRCLE, SPACE]) {
     T.levels.forEach((L, i) => {
@@ -1998,13 +2112,16 @@ describe('every mistake label describes the answer: sampled from the topic objec
           const raw = L.gen(); const item = { ...raw, topic: T.id, level, diag: (u) => (isCorrect(raw, u) ? null : raw.diag(u)) };
           for (const u of candidates(item)) {
             if (isCorrect(item, u)) continue;
-            const cat = item.diag(u);
-            if (!cat) continue;
-            named.add(cat);
-            const prop = PROPS[T.id][cat];
-            expect(prop, `${T.id}:${level} returns '${cat}', which has no property here`).toBeTruthy();
-            expect(prop(item, u), `${T.id}:${level} ${item.key}: answer ${JSON.stringify(u)} labelled '${cat}' (${T.cats[cat]})`).toBe(true);
-            expect(T.cats[cat], `${T.id}:${level} '${cat}' has no words`).toBeTruthy();
+            const cats = item.diag(u);
+            if (!cats) continue;
+            // one mistake, or each of several whose predictions are the same number (PRODUCT2-15)
+            for (const cat of [cats].flat()) {
+              named.add(cat);
+              const prop = PROPS[T.id][cat];
+              expect(prop, `${T.id}:${level} returns '${cat}', which has no property here`).toBeTruthy();
+              expect(prop(item, u), `${T.id}:${level} ${item.key}: answer ${JSON.stringify(u)} labelled '${cat}' (${T.cats[cat]})`).toBe(true);
+              expect(T.cats[cat], `${T.id}:${level} '${cat}' has no words`).toBeTruthy();
+            }
           }
         }
         expect(named.size, `${T.id}:${level} names some mistake`).toBeGreaterThan(0);
@@ -2052,6 +2169,40 @@ function drawnFrom(values, topic, level) {
 const drawOf = (v, lo, hi) => (v - lo + 0.5) / (hi - lo + 1);
 /** signed:5's brackets question a − (b − c) · d, as makeItem gives it: the stair picks brackets() (a draw under 0.6). */
 const signedBrackets = (a, b, c, d) => drawnFrom([0, drawOf(a, -10, 10), drawOf(b, -8, 8), drawOf(c, -8, 8), drawOf(d, -4, 4)], 'signed', 5);
+
+// PRODUCT2-15 at its full depth: the first run over 2,000 questions a stair found three answers named as one mistake
+// where another fits too. The 300-question sample of every run does not draw them, so each is pinned by its own numbers.
+describe('coincidences found only at 2,000 questions a stair', () => {
+  it('eq:2: the coefficient multiplied across is named (move-no-flip), also where "only x divided" gives the same number', () => {
+    // −8 = −4x − 6 (x = 0.5): −4x = −2 "moved" as a multiplication gives 8; dividing only x gives 2 − (−6) = 8 as well
+    const d = diagOf(0.5, twoStepBugs({ k: 1, a: -4, b: -6, c: -8, x: 0.5 }));
+    expect(d(8)).toEqual(['move-no-flip', 'divide-part']);
+    expect(d(3.5)).toBe('move-no-flip'); // the number moved keeping its sign: (−8 − 6) : (−4)
+    // 3x + 4 = 10 (x = 2): 3x = 6 answered 18, as stair 1 names it for ax = b; 8 = 4x + 10: both again
+    expect(diagOf(2, twoStepBugs({ k: 0, a: 3, b: 4, c: 10, x: 2 }))(18)).toBe('move-no-flip');
+    expect(diagOf(-0.5, twoStepBugs({ k: 1, a: 4, b: 10, c: 8, x: -0.5 }))(-8)).toEqual(['move-no-flip', 'divide-part']);
+    // x − 5 = 3: a coefficient of 1 has nothing to multiply by
+    expect(diagOf(8, twoStepBugs({ k: 0, a: 1, b: -5, c: 3, x: 8 }))(8)).toBe(null);
+  });
+  it('eq:3: an answer that is one mistake\'s own number and another\'s rounding names both, the exact one first', () => {
+    // −2x + 11 = −7x − 39 (x = −10): the number moved keeping its sign gives −28/5 = −5.6; the x-term moved keeping
+    // its sign gives −50/9 = −5.55…, which a student types as −5.6
+    const d = diagOf(-10, { 'move-no-flip': -28 / 5, 'move-x-no-flip': [50 / 9, -50 / 9] });
+    expect(d(-5.6)).toEqual(['move-no-flip', 'move-x-no-flip']);
+    expect(d(-5.56)).toBe('move-x-no-flip');
+    expect(d(5.6)).toBe('move-x-no-flip');
+    expect(d(-5.5)).toBe(null); // near, and not its rounding
+  });
+  it('sys:3: the constants added instead of subtracted is named whichever unknown the student made go', () => {
+    // −4x + 2y = −20, −x − 2y = −10, solution (6, 2): the worked solution adds, and y goes. A student who makes x go
+    // (the second equation times 4) and adds the constants gets 10y = ∓60. The swapped pair (2, 6) is that too
+    expect(minusBracketValues([-4, 2, -20], [-1, -2, -10])).toEqual([[], [-6, 6]]);
+    // equal coefficients of y, the worked solution's way: 5x + 2y = 19, 3x + 2y = 13 with the constants added, 2x = ±32
+    expect(minusBracketValues([5, 2, 19], [3, 2, 13])).toEqual([[16, -16], []]);
+    // opposite coefficients are added, and coefficients with no whole multiple are not made equal in one step
+    expect(minusBracketValues([3, 2, 19], [2, -2, 13])).toEqual([[], []]);
+  });
+});
 
 /** An item of a generator with a given display (searched by sampling). */
 function find(topic, level, pred, tries = 20000) {
@@ -2536,12 +2687,15 @@ describe('the two-step angle questions name only what the answer shows', () => {
         const seen = new Set();
         for (let u = 1; u <= 360; u += 0.5) {
           if (isCorrect(it, u)) continue;
-          const cat = it.diag(u);
-          if (!cat) continue;
-          expect(props[cat], cat).toBeTypeOf('function');
-          expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
-          expect(catLabel('angles', level, cat), cat).toBeTruthy();
-          seen.add(cat);
+          const named = it.diag(u);
+          if (!named) continue;
+          // one mistake, or each of several whose predictions are the same number (PRODUCT2-15)
+          for (const cat of [named].flat()) {
+            expect(props[cat], cat).toBeTypeOf('function');
+            expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
+            expect(catLabel('angles', level, cat), cat).toBeTruthy();
+            seen.add(cat);
+          }
         }
         seen.forEach((id) => { shows[id] = (shows[id] || 0) + 1; });
       }

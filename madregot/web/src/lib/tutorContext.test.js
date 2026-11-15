@@ -93,15 +93,34 @@ describe('the diagnosis the screen showed is the one the tutor gets', () => {
   });
 
   it('3. an answer several mistakes predict: ambiguous, every label, no single misconception', () => {
-    const item = diagItem({ a: -4, b: -6, s: -1 }); // −4 − (−6) = 2; −10 fits minus-minus, abs-add and direction
-    const ctx = build(item, [-10]);
+    const item = diagItem({ a: -4, b: -6, s: -1 }); // −4 − (−6) = 2; 10 fits drop-sign and neg-neg-plus
+    const probes = [{ skill: 'signed:1', candidates: ['drop-sign', 'neg-neg-plus'] }];
+    const ctx = build(item, [10], { s: { probes } });
     const a = ctx.tries.answers[0];
     expect(a.ambiguous).toBe(true);
-    expect([...a.ids].sort()).toEqual(['abs-add', 'direction', 'minus-minus']);
-    expect(a.labels).toHaveLength(3);
+    expect([...a.ids].sort()).toEqual(['drop-sign', 'neg-neg-plus']);
+    expect(a.labels).toHaveLength(2);
     a.ids.forEach((id, i) => expect(a.labels[i]).toBe(catLabel('signed', 1, id)));
     expect(ctx.miscon).toBeNull();
-    expect(ctx.shown[0]).toBe(ambiguousText('signed', 1, item.diagnosis(-10).candidates));
+    // the lesson queued the question that tells them apart, and the line said so
+    expect(ctx.shown[0]).toBe(ambiguousText('signed', 1, item.diagnosis(10).candidates));
+    // with none queued (a probe already asked this lesson), the line names them only, as the screen did
+    expect(build(item, [10]).shown[0]).toBe(ambiguousText('signed', 1, item.diagnosis(10).candidates, false));
+  });
+
+  it('3b. −4 − (−11) answered −15: the tutor is told minus-minus, the stair\'s own mistake, never "adding the distances"', () => {
+    // PRODUCT2-12: the generator and the diagnostic question both name it, so the tutor explains the right mistake
+    const model = diagItem({ a: -4, b: -11, s: -1 });
+    const m = build(model, [-15]);
+    expect(m.tries.answers[0]).toMatchObject({ kind: 'misconception', ids: ['minus-minus'], ambiguous: false });
+    expect(m.miscon.id).toBe('minus-minus');
+    expect(m.shown[0]).toBe(`מה כנראה קרה: ${catLabel('signed', 1, 'minus-minus')}.`);
+    let gen = null;
+    for (let i = 0; i < 100000 && !gen; i += 1) { const it = makeItem('signed', 1); if (it.key === 'sn1:-4 - (-11)') gen = it; }
+    const g = build(gen, [-15]);
+    expect(g.tries.answers[0]).toMatchObject({ kind: 'misconception', ids: ['minus-minus'], ambiguous: false });
+    expect(g.miscon.id).toBe('minus-minus');
+    expect(g.shown[0]).not.toContain(catLabel('signed', 1, 'abs-add'));
   });
 
   it('4. a slip and an unknown answer', () => {

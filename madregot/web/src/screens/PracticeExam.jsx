@@ -77,11 +77,12 @@ export function NewPracticeExam() {
 
 /**
  * One line of the answer key: the choice letter and its maths, or the value left to right (and its unit). A practice
- * exam keeps the answer as text; a class exam keeps the raw answer (a choice's index) and its text (`answerText`).
+ * exam keeps the answer as text and the lesson's answer as `value` (a choice's index); a class exam keeps the raw
+ * answer and its text (`answerText`); a practice exam stored before `value` has only the text.
  */
 export function KeyAnswer({ it }) {
   if (it.form === 'mc' && it.choices) {
-    const k = Number.isInteger(it.answer) ? it.answer : it.choices.findIndex((c) => (c.text || c.tex) === it.answer);
+    const k = Number.isInteger(it.answer) ? it.answer : Number.isInteger(it.value) ? it.value : it.choices.findIndex((c) => (c.text || c.tex) === it.answer);
     const c = it.choices[k];
     return <span>{k >= 0 && `${String.fromCharCode(1488 + k)}. `}{c?.tex ? <Tex tex={c.tex} /> : (c?.text ?? it.answerText ?? it.answer)}</span>;
   }

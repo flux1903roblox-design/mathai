@@ -8,11 +8,14 @@
 //     m, q, ls, st, rv, sr  the week's minutes, questions, lessons and checks, teaching stages, reviews, streak
 //     sk, ma                stairs worked on and stairs that passed a mastery check, newest first, at most 12 each
 //     fx?                   [[skill, mistake, 'o' | 'd']], at most 8: left out when the child unticks the repairs
-//     ex? }                 an exam ahead: { d, n mastered of its stairs, of }
+//     ex?                   an exam ahead: { d, n mastered of its stairs, of }
+//     fc? }                 the family challenge the child accepted for this week (PRODUCT2-39): [kind, n], one of
+//                           lib/familyChallenge.js GOALS; its progress is counted from the week itself
 // Ranges are per week (a day's rows are capped by the engine, learn/report.ts): m ≤ 4200, q ≤ 14000, ls/st/rv ≤ 1400.
 // decodeShare returns null on any deviation, so /r never renders a guess. The link is not tamper-proof (a child could
 // edit it as they could edit a note), and the /r page says the child made and sent it.
 import { weekDays, weekStart, isSaturday, stairName, he, withPrefix } from '@/learn/report.ts';
+import { isGoal, goalText, challengeProgress, reportTotals } from './familyChallenge.js';
 
 export const SHARE_V = 1;
 export const SHARE_PREFIX = '1.';
@@ -20,7 +23,7 @@ export const SHARE_PREFIX = '1.';
 export const WA_MAX = 4096;
 const MAX_STAIRS = 12;
 const MAX_FIXES = 8;
-const KEYS = ['v', 'w', 'e', 'dd', 'm', 'q', 'ls', 'st', 'rv', 'sr', 'sk', 'ma', 'fx', 'ex'];
+const KEYS = ['v', 'w', 'e', 'dd', 'm', 'q', 'ls', 'st', 'rv', 'sr', 'sk', 'ma', 'fx', 'ex', 'fc'];
 const REQUIRED = ['v', 'w', 'e', 'dd', 'm', 'q', 'ls', 'st', 'rv', 'sr', 'sk', 'ma'];
 const LIMITS = { m: 4200, q: 14000, ls: 1400, st: 1400, rv: 1400, sr: 3650 };
 export const SKILL_RE = /^[a-z]{2,8}:\d{1,2}$/;
@@ -67,6 +70,7 @@ export function shareOf(week, { includeFixes = true } = {}) {
   const fx = fixesOf(week);
   if (includeFixes && fx.length) share.fx = fx;
   if (week.exam) share.ex = { d: week.exam.d, n: week.exam.n, of: week.exam.of };
+  if (week.challenge && isGoal(week.challenge.k, week.challenge.n)) share.fc = [week.challenge.k, week.challenge.n];
   return share;
 }
 
@@ -105,6 +109,7 @@ export function validShare(o) {
   if (!skills(o.sk) || !skills(o.ma)) return false;
   if (Object.hasOwn(o, 'fx') && !(Array.isArray(o.fx) && o.fx.length <= MAX_FIXES && o.fx.every(fix))) return false;
   if (Object.hasOwn(o, 'ex') && !exam(o.ex)) return false;
+  if (Object.hasOwn(o, 'fc') && !(Array.isArray(o.fc) && o.fc.length === 2 && isGoal(o.fc[0], o.fc[1]))) return false;
   return true;
 }
 
@@ -141,6 +146,7 @@ export function weekFromShare(o, isRest = isSaturday) {
     fixed: fx.filter((f) => f[2] === 'd').map((f) => [f[0], f[1]]),
     streak: o.sr,
     exam: o.ex ? { ...o.ex } : null,
+    challenge: o.fc ? { k: o.fc[0], n: o.fc[1] } : null,
     empty: !(o.q > 0 || o.ls > 0 || o.st > 0 || o.m > 0),
   };
 }
@@ -161,6 +167,12 @@ function names(list, max) {
   return `${shown.join(', ')}${more > 0 ? ` ועוד ${he.stairs(more)}` : ''}`;
 }
 
+/** The family challenge in one line of the message: '• האתגר המשפחתי: 3 מתוך 4 ימי תרגול' (', הושלם' once it is met). */
+function challengeLine(week) {
+  const p = challengeProgress(week.challenge, reportTotals(week));
+  return `• האתגר המשפחתי: ${Math.min(p.have, p.n)} מתוך ${goalText(week.challenge)}${p.done ? ', הושלם' : ''}`;
+}
+
 function compose(week, { name, link, includeFixes }, worked, mastered) {
   const n = week.activeDays; const m = week.minutes; const k = week.mastered.length;
   const title = name ? `הסיכום השבועי של ${name} במדרגות` : 'הסיכום השבועי שלי במדרגות';
@@ -172,6 +184,7 @@ function compose(week, { name, link, includeFixes }, worked, mastered) {
   const o = week.open.length;
   if (includeFixes && o > 0) lines.push(`• בתיקון עכשיו: ${o === 1 ? 'טעות אחת שחוזרת' : `${he.mistakes(o)} שחוזרות`}`);
   if (week.streak > 0) lines.push(`• רצף: ${he.days(week.streak)}`);
+  if (week.challenge) lines.push(challengeLine(week));
   lines.push(`לסיכום המלא: ${link}`);
   return lines.join('\n');
 }

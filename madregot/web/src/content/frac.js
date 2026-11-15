@@ -18,7 +18,7 @@
 //   bigger-den      a bigger denominator read as a bigger fraction (Ni & Zhou 2005, Educational Psychologist 40(1))
 // and for frac:3-4 (stage 6) add-across, num-not-scaled, keep-den (Siegler & Pyke 2013), divide-flip, mult-bigger
 // (Fischbein et al. 1985; Tirosh 2000).
-import { shuffle, gcd, listMath, shortDec } from './util.js';
+import { shuffle, gcd, listMath, shortDec, needsFormat, countOf } from './util.js';
 import { diagOf } from './eq.js';
 import { slipOf } from '@/learn/misconceptions.ts';
 
@@ -164,7 +164,7 @@ export const FRAC4T = mk({
 
 /** The number line of a frac:1 question: 0..L, each unit in d parts, A at the k-th mark. */
 export const pointFig = ({ d, L, k }) => ({ type: 'numline', from: 0, to: L, den: d, marks: [{ x: k / d, label: 'A' }] });
-export const pointText = (p) => `איזה מספר מסומן בנקודה $A$?${Number.isInteger(r9(p.k / p.d * 1000)) ? ' כתבו כשבר או כמספר עשרוני.' : ''}`;
+export const pointText = (p) => `איזה מספר מסומן בנקודה $A$?${needsFormat(p.k / p.d) ? '' : ' כתבו כשבר או כמספר עשרוני.'}`;
 /** k/d as written, then reduced, then as a mixed number: \frac{6}{4} = \frac{3}{2} = 1\frac{1}{2}. */
 export function fracChain(k, d) {
   const out = [fracTex(k, d)];
@@ -174,7 +174,7 @@ export function fracChain(k, d) {
 }
 export const pointSolution = ({ d, k }) => [
   `בין $0$ ל־$1$ יש $${d - 1}$ שנתות, והן מחלקות את היחידה ל־$${d}$ חלקים שווים.`,
-  `כל חלק הוא $${fracTex(1, d)}$, ו־$A$ נמצאת $${k}$ חלקים מ־$0$.`,
+  `כל חלק הוא $${fracTex(1, d)}$, ו־$A$ נמצאת ${countOf(k, 'חלק', 'חלקים')} מ־$0$.`,
   `$A = ${fracChain(k, d)}$`,
 ];
 export const pointHint = () => 'ספרו את הרווחים בין $0$ ל־$1$, לא את הקווים.';
@@ -217,8 +217,11 @@ export function fracResult(n, d) {
   if (Number.isInteger(r9(v))) return chain;
   return `${chain} ${shortDec(v) ? `= ${dec(v)}` : `\\approx ${r2(v)}`}`;
 }
-/** "Compute": a fraction or a decimal is fine; an answer with no short decimal gets the format note (makeItem). */
-export const calcText = (ans) => (Number.isInteger(r9(ans)) ? 'חשבו:' : shortDec(ans) ? 'חשבו. אפשר לכתוב כשבר או כמספר עשרוני.' : 'חשבו.');
+/**
+ * "Compute": a fraction or a decimal is fine; an answer with no exact two-place decimal (1.375, 7/12) gets the format
+ * note instead (makeItem, util.js withFormatNote), which says to round to two places.
+ */
+export const calcText = (ans) => (Number.isInteger(r9(ans)) ? 'חשבו:' : needsFormat(ans) ? 'חשבו.' : 'חשבו. אפשר לכתוב כשבר או כמספר עשרוני.');
 
 /** frac:3: a/b ± c/d as shown. */
 export const addSubTex = (p) => `${fracTex(p.a, p.b)} ${p.op > 0 ? '+' : '-'} ${fracTex(p.c, p.d)}`;
@@ -279,8 +282,8 @@ function placePoint() {
   return {
     key: `fr1p:${d}:${max}:${k}`, text: `שימו את הסמן על $${fracTex(k, d)}$.`, form: 'manip', practiceOnly: true,
     manip: { kind: 'numberline', min: 0, max, from: 0, start: 0, den: d }, answer: k / d,
-    hint: `כל יחידה מחולקת ל־$${d}$ חלקים. ספרו $${k}$ חלקים מ־$0$.`,
-    solution: [`המכנה $${d}$: כל יחידה מחולקת ל־$${d}$ חלקים שווים.`, `המונה $${k}$: סופרים $${k}$ חלקים מ־$0$${k > d ? `, כלומר יחידה שלמה ועוד $${k - d}$ חלקים` : ''}.`],
+    hint: `כל יחידה מחולקת ל־$${d}$ חלקים. ספרו ${countOf(k, 'חלק', 'חלקים')} מ־$0$.`,
+    solution: [`המכנה $${d}$: כל יחידה מחולקת ל־$${d}$ חלקים שווים.`, `המונה $${k}$: סופרים ${countOf(k, 'חלק', 'חלקים')} מ־$0$${k > d ? `, כלומר יחידה שלמה ועוד ${countOf(k - d, 'חלק', 'חלקים')}` : ''}.`],
     diag: () => null,
   };
 }

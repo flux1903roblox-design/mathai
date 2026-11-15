@@ -7,6 +7,7 @@
 // seeds leave it: { i, text, answer, round, fig }.
 import { itemFor } from '@/learn/items.ts';
 import { answerText, itemPlain } from '@/content/index.js';
+import { withoutFormatLine } from '@/content/util.js';
 import { verifyRewrite } from '@shared/verify.js';
 
 /** How many draws a seed may take: to find a key not used yet, and an exercise without a drawing when there is one. */
@@ -49,9 +50,13 @@ export function seedsFor(skill, n, rnd) {
 /** Does the exercise ask for a rounded answer ("עגלו לעשירית")? Then a check allows 0.05 instead of 0.01. */
 export const seedRounds = (it) => String(it?.text || '').includes('עגלו');
 
-/** The seeds as the generate request carries them: the exercise as text, its answer as text, and the two flags. */
+/**
+ * The seeds as the generate request carries them: the exercise as text, its answer as text, and the two flags. The
+ * line that says how to write an answer with no two-place decimal is left out: it is the app's, not the story's (its
+ * example fraction is no number of the story), and the screen puts it back under every story (Assistant.jsx).
+ */
 export function seedPayload(items) {
-  return items.map((it, i) => ({ i, text: itemPlain(it), answer: answerText(it), round: seedRounds(it), fig: !!it.fig }));
+  return items.map((it, i) => ({ i, text: withoutFormatLine(itemPlain(it)), answer: answerText(it), round: seedRounds(it), fig: !!it.fig }));
 }
 
 /**

@@ -1,7 +1,7 @@
 // Core journeys: first visit, placement test, a whole lesson with XP and saved progress,
 // the AI tutor and the teacher view when there is no server, and a printable practice exam.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, type, proceed, proceedToNext, saved, expectUsable, leaveEndScreens, playDiscover, stageDone } from './helpers.js';
+import { open, student, item, answer, type, proceed, proceedToNext, saved, expectUsable, expectNoSidewaysScroll, leaveEndScreens, playDiscover, stageDone, leaveStage } from './helpers.js';
 
 // Journeys run on one phone and on desktop; the layout spec covers every size.
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
@@ -56,7 +56,9 @@ test('the first session gives something back: the first stage earns XP and the s
   await expect(moment.locator('.stage-done-segs')).toHaveAttribute('aria-valuenow', '1');
   await expect(moment.locator('.stage-done-next')).toContainText('הבא: דוגמה פתורה');
   await expectUsable(page, moment.getByRole('button', { name: 'לדוגמה הפתורה', exact: true }), 'the way on to the next stage');
-  await moment.getByRole('button', { name: 'למפה', exact: true }).click();
+  // the first stage also brought מדי his first piece (PRODUCT2-36): its moment comes on the way to the map
+  await expect(moment.locator('.badges')).toContainText('מדי קיבל משהו חדש');
+  expect(await leaveStage(page, 'למפה')).toBe(true);
   // the map: today's XP and the streak moved; the unit counts its first stage; the stair says to continue
   await expect(page.locator('.top-stat.xp')).toContainText('10/20');
   await expect(page.locator('.top-stat.streak')).toContainText('1');
@@ -136,6 +138,8 @@ test('the daily goal has its own moment after the lesson, before the streak, and
   await expect(page.locator('.done-screen .stats')).toBeVisible();
   await expect(page.getByText('הגעתם ליעד היומי')).toHaveCount(0);
   await page.locator('.done-screen .done-actions .btn').click();
+  // the lesson completed the stair's practice, a first stage: מדי's first piece has its moment first (PRODUCT2-36)
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
   // the goal's moment: the title, today's XP, one button; the streak comes after it
   const goal = page.locator('.goal-stage');
   await expect(goal.getByRole('heading', { level: 1 })).toHaveText('הגעתם ליעד היומי!');
@@ -183,13 +187,19 @@ test('after a wrong try, a pasted or replaced answer is taken whole (not only it
   await expect(box).not.toHaveClass(/struck/);
 });
 
-test('the AI tutor without a connection says so and offers a way on, without actions that would fail', async ({ page }) => {
+test('the AI tab with no helper is a calm page about what Madi explains in every lesson, with ways on and no locked input', async ({ page }) => {
   await open(page, '#/assistant', student('7'));
-  await expect(page.getByRole('heading', { name: 'העוזר עוד לא מחובר' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'מדי מסביר בכל שיעור' })).toBeVisible();
+  await expect(page.locator('.madi-explains .ai-features li')).toHaveCount(4);
+  await expect(page.getByText('העוזר עוד לא מחובר')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'כתיבת תרגילים' })).toHaveCount(0);
-  await expect(page.locator('#chat-draft')).toHaveCount(0);
-  await expectUsable(page, page.getByRole('link', { name: 'להמשיך לתרגל' }), 'the way back to practice');
-  await page.getByRole('link', { name: 'להמשיך לתרגל' }).click();
+  await expect(page.locator('#chat-draft, #ai-off-input, input:disabled')).toHaveCount(0);
+  await expectUsable(page, page.getByRole('link', { name: 'להמשיך ללמוד' }), 'the way back to learning');
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'דפי התזכורת' }).click();
+  await expect(page).toHaveURL(/#\/topics$/);
+  await page.goBack();
+  await page.getByRole('link', { name: 'להמשיך ללמוד' }).click();
   await expect(page.locator('.learn')).toBeVisible();
 });
 
@@ -259,6 +269,36 @@ test('a practice exam on the circle prints π after the blank of every answer "w
   }
   await page.locator('.exam-q').nth(withPi[0]).scrollIntoViewIfNeeded();
   await page.screenshot({ path: test.info().outputPath('exam-pi-row.png') });
+});
+
+/** Screenshots for a look (EXAM_SHOTS=<folder>): the printed sheet and the answer key; nothing is compared. */
+async function examShot(page, name) {
+  const dir = process.env.EXAM_SHOTS; if (!dir) return;
+  await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true });
+}
+
+test('a printed practice exam over every grade 7 topic asks nothing only the screen can do, and its key is a value to compare', async ({ page }) => {
+  await open(page, '#/exams/new', student('7'));
+  // every topic of the grade (מספרים מכוונים is picked already)
+  for (const t of ['מערכת צירים', 'זוויות', 'ביטויים אלגבריים', 'משוואות']) await page.getByRole('checkbox', { name: t }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: /10 שאלות/ }).click();
+  await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+  const qs = page.locator('.exam-q');
+  await expect(qs).toHaveCount(10);
+  // no question asks to tap, drag, turn, place or move anything, or to take weights off the pans
+  for (const text of await qs.locator('.qtext').allInnerTexts()) expect(text).not.toMatch(/הקישו|גררו|סובבו|שימו|הזיזו|הורידו מהכפות/);
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('#answer-key')).toBeHidden(); // the key is not on the printed page
+  await examShot(page, 'pexam-sheet');
+  await page.emulateMedia({ media: 'screen' });
+  await page.getByRole('button', { name: 'סיימתי, למפתח התשובות' }).click();
+  const keys = page.locator('.answer-key li');
+  await expect(keys).toHaveCount(10);
+  // each key line is a value, a choice or an expression: never a point "somewhere in a quadrant" or an angle to turn to
+  for (const k of await keys.allInnerTexts()) { expect(k.trim()).not.toBe(''); expect(k).not.toMatch(/נקודה ב|למשל/); }
+  await page.locator('#answer-key').scrollIntoViewIfNeeded();
+  await examShot(page, 'pexam-key');
 });
 
 test('Back from a lesson started on the map, with a partial answer: it asks, staying keeps the answer, fast repeated Backs keep asking', async ({ page }) => {

@@ -77,14 +77,15 @@ export function mk(m) {
 /**
  * The diagnosis of a typed answer from [id, predicted value] pairs (one id may predict several values): the rule of
  * eq.js diagOf. A prediction that is the answer or a slip of the hand from it names nothing; an exact match names its
- * id; a prediction that is not whole also matches its rounding to tenths or hundredths, when only one id rounds there.
+ * id (every id whose prediction it is); a prediction that is not whole also matches its rounding to tenths or hundredths, when only one id rounds there.
  */
 export function diagList(ans, pairs) {
   const real = pairs.filter(([, v]) => v != null && Number.isFinite(v) && !same(v, ans) && !slipOf(v, ans));
   return (u) => {
     if (typeof u !== 'number') return null;
-    const exact = real.find(([, v]) => Math.abs(u - v) <= 1e-6);
-    if (exact) return exact[0];
+    // an answer two mistakes predict exactly names both (PRODUCT2-15), as eq.js diagOf does
+    const exact = [...new Set(real.filter(([, v]) => Math.abs(u - v) <= 1e-6).map(([id]) => id))];
+    if (exact.length) return exact.length > 1 ? exact : exact[0];
     const near = [...new Set(real.filter(([, v]) => !Number.isInteger(v) && matchesValue(v, u, ans)).map(([id]) => id))];
     return near.length === 1 ? near[0] : null;
   };

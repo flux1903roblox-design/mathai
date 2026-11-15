@@ -158,7 +158,8 @@ function lessonContext({ surface, item, s = {}, last, spec, guide = false, learn
   const offered = !!one && (phase === 'retry' || phase === 'reveal') && latest?.cat === one.ids[0] && (phase !== 'retry' || !latest.diagnosis?.ambiguous);
   // what the screen showed: the first miss's line, the hint, the first step of the solution
   const shown = [];
-  if (wrong.length) { const line = diagnosisLine(topicId, level, resultOf(item, wrong[0])); if (line) shown.push(line); }
+  // (an ambiguous line says a question at the end will tell the mistakes apart only when the lesson queued one)
+  if (wrong.length) { const line = diagnosisLine(topicId, level, { ...resultOf(item, wrong[0]), more: (s.probes?.length || 0) > 0 }); if (line) shown.push(line); }
   if (s.hint && item.hint) shown.push(`רמז: ${item.hint}`);
   if (guide && item.solution?.[0]) shown.push(`איך מתחילים: ${item.solution[0]}`);
   return tidy({

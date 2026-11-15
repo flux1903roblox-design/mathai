@@ -5,11 +5,24 @@
 // decimal with fmt: 'dec'). In a check (`test`) such a line shows no value at all: the step label and the arc's number
 // are left out, and a screen reader hears the ticks counted ("5 שנתות ימינה מ־0"), so "put the marker on 5/3" is
 // answered by counting thirds, never by reading a label.
+import { useEffect, useState } from 'react';
 import { clamp, useDrag, arrowKeys, Stepper, minus, SvgLabel, partsTex, partsOf, decText } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 import { lineNum, ticksWords } from '@/content/manip.js';
 
 const W = 360; const H = 224; const PAD = 20; const LINE = 166;
+
+/**
+ * The hint's arrow on the line: from `at` (where the marker stood when the hint came) toward the answer, `dir` 1 to
+ * the right and −1 to the left; from the start when the marker stood on the answer or at the start. Null with no hint,
+ * or when the answer is the start itself.
+ */
+export function hintArrow(hint, at, from, answer) {
+  if (!hint) return null;
+  const off = (v) => v != null && Math.abs(answer - v) > 1e-9;
+  if (off(at) && Math.abs(at - from) > 1e-9) return { at, dir: answer > at ? 1 : -1 };
+  return off(from) ? { at: from, dir: answer > from ? 1 : -1 } : null;
+}
 
 export default function NumberLine({ m, value, onChange, locked, reveal, good, answer, hint, test = false }) {
   const { min, max, from, den } = m;
@@ -43,6 +56,13 @@ export default function NumberLine({ m, value, onChange, locked, reveal, good, a
     ? (hidden ? ticksWords(m, value, from) : `${lineNum(m, value)}, ${ticksWords(m, value, from)}`)
     : `${minus(value)}, קפיצה של ${jump > 0 ? '+' : ''}${minus(jump)} מ־${minus(from)}`;
   const missed = reveal && Math.abs(answer - value) > 1e-9;
+  // The hint's arrow starts where the marker stood when the hint came (after a miss, the place that was checked) and
+  // points toward the answer: the way to fix it, not the jump's way from the start (SK-STUDENT-4: on −4 − (−5) with
+  // the marker past the answer at 2, it said "ימינה"). It stays there while the marker moves, so it is a hint, not a
+  // compass to follow; a hint asked for with the marker on the answer, or not moved, points the jump's way from the start.
+  const [anchor, setAnchor] = useState(() => (hint ? value : null));
+  useEffect(() => { setAnchor(hint ? value : null); }, [hint]); // eslint-disable-line react-hooks/exhaustive-deps
+  const arrow = hintArrow(hint, anchor, from, answer);
   return (
     <div className={`manip manip-numberline ${den ? 'cut' : ''} ${good ? 'good' : ''}`}>
       <svg ref={ref} {...drag} viewBox={`0 0 ${W} ${H}`} className="manip-canvas" dir="ltr" tabIndex={locked ? -1 : 0}
@@ -82,8 +102,8 @@ export default function NumberLine({ m, value, onChange, locked, reveal, good, a
             </g>
           );
         })}
-        {/* the hint, drawn on the line: which way the marker goes from the start (not how far) */}
-        {hint && Math.abs(answer - from) > 1e-9 && (() => { const dir = answer > from ? 1 : -1; const x0 = X(from); const x1 = x0 + dir * Math.min(2.2 * tick, 64); return (
+        {/* the hint, drawn on the line: which way to move the marker (not how far) */}
+        {arrow && (() => { const { at, dir } = arrow; const x0 = X(at); const x1 = x0 + dir * Math.min(2.2 * tick, 64); return (
           <g className="mp-hint">
             <path d={`M ${x0} ${LINE + 34} H ${x1}`} /><path d={`M ${x1} ${LINE + 34} l ${-dir * 8} -6 v 12 z`} className="fill" />
             <text x={(x0 + x1) / 2} y={LINE + 54} textAnchor="middle">{dir > 0 ? 'ימינה' : 'שמאלה'}</text>

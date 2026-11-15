@@ -6,8 +6,11 @@ import { loadTopic, contentOf, ensureTopics, topicsReady, hasContent, metaOf, ME
 import type { StairContent } from './types';
 import metaText from './content/meta.gen.ts?raw';
 import challengeMetaText from './challenges/meta.gen.ts?raw';
+import miscsText from '../../../shared/stairMiscs.gen.js?raw';
 // @ts-ignore: plain JS
-import { collectMeta, renderMeta, collectChallenges, renderChallenges } from '../../scripts/gen-content-meta.mjs';
+import { collectMeta, renderMeta, collectChallenges, renderChallenges, renderMiscs } from '../../scripts/gen-content-meta.mjs';
+// @ts-ignore: plain JS, shared with the Worker
+import { STAIR_MISCS, isStairMisc } from '@shared/stairMiscs.gen.js';
 // @ts-ignore: plain JS
 import { TOPICS } from '@/content/index.js';
 // the misconception names as the registry gathered them before the split: straight from each topic's file
@@ -136,6 +139,16 @@ describe('meta.gen.ts', () => {
       expect(m.transfer, skill).toBe(!!c.transfer);
     }
   });
+  // SK-BUYERS-2: the Worker checks a teacher's repair against each stair's own misconception ids, from this file
+  it('shared/stairMiscs.gen.js is what the generator writes: each stair\'s own misconception ids, as the content has them', () => {
+    const files = import.meta.glob('./content/*.ts', { eager: true }) as Record<string, Record<string, unknown>>;
+    const content = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen)\.ts$/.test(f)));
+    expect(renderMiscs(collectMeta(content))).toBe(miscsText);
+    expect(Object.keys(STAIR_MISCS)).toEqual(Object.keys(META));
+    for (const [skill, m] of Object.entries(META)) expect((STAIR_MISCS as Record<string, readonly string[]>)[skill], skill).toEqual(m.misconceptions.map((x) => x.id));
+    expect([isStairMisc('signed:1', 'sign'), isStairMisc('signed:1', 'neg-compare'), isStairMisc('signed:2', 'neg-compare'), isStairMisc('nope:1', 'sign'), isStairMisc('signed:1', 'toString')])
+      .toEqual([true, false, true, false, false]);
+  });
   it('keeps NEW_CATS as the registry had it before the split, keys in the same order', () => {
     const before: Record<string, Record<string, string>> = {
       signed: { ...CATS_SIGNED, ...CATS_SIGNED6 }, coord: CATS_COORD, angles: CATS_ANGLES, expr: CATS_EXPR, eq: CATS_EQ, line: { ...CATS_LINE1, ...CATS_LINE2 }, pyth: CATS_PYTH, stats: CATS_STATS, sys: CATS_SYS,
@@ -217,7 +230,8 @@ describe('the first load (boot) carries the challenge meta, never the tasks\' st
     expect(boot.has('src/learn/challenges/meta.gen.ts')).toBe(true);
   });
   it('no topic\'s task file and not all.ts: they load with the challenge screen', () => {
-    const tasks = readdirSync(join(WEB, 'src/learn/challenges')).filter((f: string) => /\.ts$/.test(f) && !/^(index|meta\.gen|grade)\.ts$/.test(f) && !f.endsWith('.test.ts'));
+    // not task files: the registry, its meta, the grading (on demand since the product2 merge) and the XP rule the store reads
+    const tasks = readdirSync(join(WEB, 'src/learn/challenges')).filter((f: string) => /\.ts$/.test(f) && !/^(index|meta\.gen|grade|xp)\.ts$/.test(f) && !f.endsWith('.test.ts'));
     expect(tasks).toContain('all.ts');
     expect(tasks).toContain('congr.ts');
     expect(tasks.map((f: string) => `src/learn/challenges/${f}`).filter((f: string) => boot.has(f))).toEqual([]);

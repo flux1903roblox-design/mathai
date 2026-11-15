@@ -8,7 +8,7 @@ Phone 390×844 and 320×568, light and dark.
 |---|---|
 | `profile-before-T13-06.png` | The council's profile (T13-06): the first letter of the name in a blue circle. |
 | `profile-after.png`, `-dark`, `-320x568` | The same place now shows the student's own מדי: gold, with the triangle glasses and the thermometer scarf. Under the name is the "עיצוב מדי" button. |
-| `wardrobe.png`, `-dark`, `-320x568`, `wardrobe-full.png` | `/me/madi`: Madi stays on top in the look being worn. Below are the colours, then one group per slot, with "בלי" first. Each owned piece says where it came from ("מיחידת זוויות"). Locked pieces are greyed, with a lock and "נעול". |
+| `wardrobe.png`, `-dark`, `-320x568`, `wardrobe-full.png` | `/me/madi` as STUDENT-3 built it: Madi stays on top in the look being worn. Below are the colours, then one group per slot, with "בלי" first. Each owned piece says where it came from ("מיחידת זוויות"). Locked pieces are greyed, with a lock and "נעול". Since PRODUCT2-36 the groups hold only what is owned, and a meter of the next piece and the next two pieces replace the locked tiles (`e2e/wardrobe.spec.js` 2-4c); these pictures show the earlier screen. |
 | `wardrobe-locked.png`, `-dark` | Tapping a locked piece opens a sheet that says how it opens ("נפתח כשתשלטו במדרגות 1 עד 3 ביחידת ביטויים אלגבריים."). The sheet has a button to that unit. |
 | `chest-before.png`, `-dark` | A closed chest on the path says what it holds: "בתיבה: כובע מצפן למדי. היא נפתחת כשתשלטו במדרגות 1 עד 3." It shows a picture of the cap. |
 | `chest-after.png`, `-dark` | An open chest: "פתחתם: כתר מד־זווית." and "לנסות על מדי". |

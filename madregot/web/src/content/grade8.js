@@ -37,7 +37,7 @@ function hypotenuse() {
     fig: { type: 'right', a, b, c: '?' },
     hint: 'במשולש ישר־זווית: $a^2 + b^2 = c^2$, כש־$c$ הוא היתר (מול הזווית הישרה).',
     solution: [`$c^2 = ${a}^2 + ${b}^2 = ${a * a} + ${b * b} = ${n}$`, `$c = \\sqrt{${n}} ${eqRoot(n)}$`],
-    diag: (u) => (near(u, a + b) ? 'add-legs' : near(u, n) ? 'no-root' : null),
+    diag: (u) => [near(u, a + b) && 'add-legs', near(u, n) && 'no-root'].filter(Boolean),
   };
 }
 
@@ -78,7 +78,7 @@ function leg() {
     fig: { type: 'right', a, b: '?', c },
     hint: 'מחפשים ניצב, אז מחסרים: $b^2 = c^2 - a^2$.',
     solution: [`$b^2 = ${c}^2 - ${a}^2$`, `$b^2 = ${c * c} - ${a * a} = ${n}$`, `$b = \\sqrt{${n}} ${eqRoot(n)}$`],
-    diag: (u) => (near(u, Math.sqrt(a * a + c * c), 0.06) ? 'add-not-sub' : near(u, c - a) ? 'subtract-sides' : near(u, n) ? 'no-root' : null),
+    diag: (u) => [near(u, Math.sqrt(a * a + c * c), 0.06) && 'add-not-sub', near(u, c - a) && 'subtract-sides', near(u, n) && 'no-root'].filter(Boolean),
   };
 }
 
@@ -94,8 +94,13 @@ function nearMiss() {
 const isRightSet = (s) => { const [u, v, w] = [...s].sort((x, y) => x - y); return u * u + v * v === w * w; };
 const setTex = (s) => s.join(',\\ ');
 const checkLine = (s) => { const [u, v, w] = [...s].sort((x, y) => x - y); return `$${setTex(s)}$: $${u}^2 + ${v}^2 = ${u * u + v * v}$, $${w}^2 = ${w * w}$, ${u * u + v * v === w * w ? 'שווים: ישר־זווית' : 'לא שווים'}.`; };
-/** Four triangles: each one right-angled (a triple, its sides in any order) or a near miss. */
-function fourSets(right) { return Array.from({ length: 4 }, (_, i) => (right(i) ? shuffle(scaled()) : nearMiss())); }
+/** Four different triangles (never the same three sides twice, in any order): each right-angled (a triple) or a near miss. */
+function fourSets(right) {
+  for (;;) {
+    const sets = Array.from({ length: 4 }, (_, i) => (right(i) ? shuffle(scaled()) : nearMiss()));
+    if (new Set(sets.map((s) => [...s].sort((x, y) => x - y).join(','))).size === 4) return sets;
+  }
+}
 
 // Which of four triangles is right-angled (or none): five answers, each as likely, so testing is the only way.
 function whichRight() {
@@ -123,36 +128,42 @@ function howManyRight() {
     fig: { type: 'table', head: ['משולש', 'אורכי הצלעות (ס״מ)'], rows: sets.map((s, i) => [['א', 'ב', 'ג', 'ד'][i], s.join(', ')]) },
     hint: 'בודקים כל משולש לבד: האם הריבוע של הצלע הארוכה שווה לסכום הריבועים של שתי האחרות?',
     solution: [...sets.map(checkLine), `ישרי־זווית: $${n}$`],
-    diag: (u) => (u === 4 && n < 4 ? 'assume-right' : u === lastHyp && lastHyp !== n ? 'wrong-hyp' : null),
+    diag: (u) => [u === 4 && n < 4 && 'assume-right', u === lastHyp && lastHyp !== n && 'wrong-hyp'].filter(Boolean),
   };
 }
 
+/**
+ * A ladder in metres, never decimetres (PRODUCT2-9): its sides are drawn whole in tenths of a metre (1.2 to 3 m) and
+ * shown in metres, so a triple still gives an exact answer (2.4 מטר for 2.5 and 0.7).
+ */
 function ladder() {
   const askHeight = Math.random() < 0.6;
   const whole = Math.random() < 0.5;
-  let wall; let foot; let len;
-  if (whole) { const [a, b, c] = pick(TRIPLES.filter((t) => t[2] <= 26)); wall = Math.max(a, b); foot = Math.min(a, b); len = c; } else if (askHeight) {
-    for (;;) { len = R(8, 26); foot = R(2, Math.floor(len / 2)); if (!isSquare(len * len - foot * foot)) break; }
+  let wall; let foot; let len; // in tenths of a metre
+  if (whole) { const [a, b, c] = pick(TRIPLES.filter((t) => t[2] >= 10 && t[2] <= 30)); wall = Math.max(a, b); foot = Math.min(a, b); len = c; } else if (askHeight) {
+    for (;;) { len = R(12, 30); foot = R(3, Math.floor(len / 2)); if (!isSquare(len * len - foot * foot)) break; }
     wall = Math.sqrt(len * len - foot * foot);
   } else {
-    for (;;) { wall = R(6, 24); foot = R(2, Math.min(12, wall - 1)); if (!isSquare(wall * wall + foot * foot)) break; }
+    for (;;) { wall = R(10, 28); foot = R(3, Math.min(12, wall - 1)); if (!isSquare(wall * wall + foot * foot)) break; }
     len = Math.sqrt(wall * wall + foot * foot);
   }
-  const exact = askHeight ? wall : len;
-  const n = askHeight ? len * len - foot * foot : wall * wall + foot * foot;
+  const m = (d) => Math.round(d * 1e5) / 1e6; // tenths to metres, as shown
+  const exact = (askHeight ? wall : len) / 10;
+  const n = askHeight ? len * len - foot * foot : wall * wall + foot * foot; // in hundredths of a square metre, whole
+  const root = isSquare(n) ? `= ${m(Math.sqrt(n))}` : `\\approx ${r1(exact)}`;
   return {
-    key: `py4:${askHeight ? 'h' : 'L'}:${foot}:${askHeight ? len : wall}`,
+    key: `py4:${askHeight ? 'h' : 'L'}:${m(foot)}:${m(askHeight ? len : wall)}`,
     // short enough to stay three lines on a 320px phone, so the drawing below keeps its room (e2e/layout.spec.js)
     text: askHeight
-      ? `סולם באורך ${len} דצ״מ נשען על קיר, ורגלו ${foot} דצ״מ מהקיר. לאיזה גובה הוא מגיע? ${ROUND}`
-      : `סולם נשען על קיר ומגיע לגובה ${wall} דצ״מ, ורגלו ${foot} דצ״מ מהקיר. מה אורך הסולם? ${ROUND}`,
-    form: 'num', answer: isSquare(n) ? exact : r1(exact), exact, unit: 'דצ״מ',
-    fig: { type: 'ladder', wall: askHeight ? '?' : wall, foot, len: askHeight ? len : '?' },
+      ? `סולם באורך ${m(len)} מטר נשען על קיר, ורגלו ${m(foot)} מטר מהקיר. לאיזה גובה הוא מגיע? ${ROUND}`
+      : `סולם נשען על קיר ומגיע לגובה ${m(wall)} מטר, ורגלו ${m(foot)} מטר מהקיר. מה אורך הסולם? ${ROUND}`,
+    form: 'num', answer: isSquare(n) ? exact : r1(exact), exact, unit: 'מטר',
+    fig: { type: 'ladder', wall: askHeight ? '?' : m(wall), foot: m(foot), len: askHeight ? m(len) : '?' },
     hint: 'הקיר, הרצפה והסולם יוצרים משולש ישר־זווית. הסולם הוא היתר.',
     solution: askHeight
-      ? [`$h^2 = ${len}^2 - ${foot}^2 = ${n}$`, `$h = \\sqrt{${n}} ${eqRoot(n)}$`]
-      : [`$L^2 = ${wall}^2 + ${foot}^2 = ${n}$`, `$L = \\sqrt{${n}} ${eqRoot(n)}$`],
-    diag: (u) => (askHeight && near(u, Math.sqrt(len * len + foot * foot), 0.06) ? 'add-not-sub' : !askHeight && near(u, wall + foot) ? 'add-legs' : null),
+      ? [`$h^2 = ${m(len)}^2 - ${m(foot)}^2 = ${n / 100}$`, `$h = \\sqrt{${n / 100}} ${root}$`]
+      : [`$L^2 = ${m(wall)}^2 + ${m(foot)}^2 = ${n / 100}$`, `$L = \\sqrt{${n / 100}} ${root}$`],
+    diag: (u) => [askHeight && near(u, Math.sqrt(len * len + foot * foot) / 10, 0.06) && 'add-not-sub', !askHeight && near(u, (wall + foot) / 10) && 'add-legs'].filter(Boolean),
   };
 }
 
@@ -171,7 +182,7 @@ function distance() {
       fig: { type: 'coord', range: 6, points: [{ x: x1, y: y1, label: 'A' }, { x: x2, y: y2, label: 'B' }], segments: [[[x1, y1], [x2, y2]]], helper: [[x1, y1], [x2, y1], [x2, y2]] },
       hint: 'משלימים משולש ישר־זווית: הניצבים הם השינוי ב־$x$ והשינוי ב־$y$.',
       solution: [`$\\Delta x = ${a}$, $\\Delta y = ${b}$`, `$d = \\sqrt{${a}^2 + ${b}^2} = \\sqrt{${n}} ${eqRoot(n)}$`],
-      diag: (u) => (near(u, a + b) ? 'add-legs' : near(u, n) ? 'no-root' : null),
+      diag: (u) => [near(u, a + b) && 'add-legs', near(u, n) && 'no-root'].filter(Boolean),
     };
   }
 }
@@ -197,7 +208,7 @@ function mode() {
       key: `st1:${list.join(',')}`, text: `מה השכיח של הנתונים ${listMath(list)}?`, form: 'num', answer: m,
       hint: 'השכיח הוא הערך שמופיע הכי הרבה פעמים.',
       solution: [`$${m}$ מופיע ${counts[m]} פעמים, יותר מכל ערך אחר.`],
-      diag: (u) => (near(u, max) ? 'mode-max' : near(u, sortNum(list)[Math.floor(n / 2)]) ? 'mode-median' : near(u, counts[m]) ? 'mode-count' : null),
+      diag: (u) => [near(u, max) && 'mode-max', near(u, sortNum(list)[Math.floor(n / 2)]) && 'mode-median', near(u, counts[m]) && 'mode-count'].filter(Boolean),
     };
   }
 }
@@ -215,7 +226,7 @@ function median() {
       key: `st2:${list.join(',')}`, text: `מה החציון של הנתונים ${listMath(list)}?`, form: 'num', answer: med,
       hint: n % 2 ? 'מסדרים את הנתונים מהקטן לגדול. החציון הוא הערך שבאמצע.' : 'מסדרים מהקטן לגדול. במספר זוגי של נתונים, החציון הוא הממוצע של שני האמצעיים.',
       solution: [`מסודר: $${listTex(s)}$`, n % 2 ? `האמצעי: $${med}$` : `$\\frac{${s[n / 2 - 1]} + ${s[n / 2]}}{2} = ${med}$`],
-      diag: (u) => (near(u, unsortedMid) ? 'unsorted' : near(u, arr.reduce((x, y) => x + y, 0) / n) ? 'mean-not-median' : null),
+      diag: (u) => [near(u, unsortedMid) && 'unsorted', near(u, arr.reduce((x, y) => x + y, 0) / n) && 'mean-not-median'].filter(Boolean),
     };
   }
 }
@@ -232,7 +243,7 @@ function mean() {
       key: `st3:${arr.join(',')}`, text: `מה הממוצע של הנתונים ${listMath(arr)}?`, form: 'num', answer: avg,
       hint: 'מחברים את כל הנתונים ומחלקים במספר הנתונים.',
       solution: [`סכום: $${arr.join(' + ')} = ${sum}$`, `$${sum} : ${n} = ${avg}$`],
-      diag: (u) => (near(u, med) ? 'median-not-mean' : near(u, sum) ? 'no-divide' : null),
+      diag: (u) => [near(u, med) && 'median-not-mean', near(u, sum) && 'no-divide'].filter(Boolean),
     };
   }
 }
@@ -292,7 +303,7 @@ function freqMean() {
       fig: { type: 'table', head: ['ציון', 'מספר תלמידים'], rows: vals.map((v, i) => [v, freqs[i]]) },
       hint: 'כופלים כל ציון במספר התלמידים שקיבלו אותו, מחברים, ומחלקים במספר התלמידים הכולל.',
       solution: [`$${vals.map((v, i) => `${v} \\cdot ${freqs[i]}`).join(' + ')} = ${sum}$`, `מספר התלמידים: $${n}$`, `$${sum} : ${n} = ${avg}$`],
-      diag: (u) => (near(u, naive) ? 'ignore-freq' : near(u, sum / vals.length) ? 'wrong-count' : null),
+      diag: (u) => [near(u, naive) && 'ignore-freq', near(u, sum / vals.length) && 'wrong-count'].filter(Boolean),
     };
   }
 }
@@ -322,8 +333,9 @@ export const GRADE8 = [
   {
     id: 'pyth', grade: '8', title: 'משפט פיתגורס', color: 'violet',
     desc: 'יתר, ניצב, בדיקת משולש ושאלות מילוליות',
-    // The updated ז׳ programme teaches Pythagoras in March (unit 7.14), so Exam Rescue offers it to ז׳ too. It stays
-    // filed under ח׳ (unit 8.3, September), where the map and the placement test have it.
+    // The updated ז׳ programme teaches squares and roots in December (unit 7.6) and Pythagoras in March (7.14), so the
+    // unit joins the ז׳ path and plan from December, and Exam Rescue offers it to ז׳ (PRODUCT2-20). It stays filed under
+    // ח׳ (unit 8.3, September), whose placement test has it.
     alsoFor: ['7'],
     levels: [
       { title: 'מציאת היתר', gen: () => { const r = Math.random(); return r < 0.3 ? squaresHyp() : r < 0.5 ? estimateRoot() : hypotenuse(); } },
@@ -347,6 +359,8 @@ export const GRADE8 = [
   {
     id: 'stats', grade: '8', title: 'סטטיסטיקה', color: 'fuchsia',
     desc: 'שכיח, חציון, ממוצע וטבלת שכיחויות; טווח, שני מקורות מידע, אינטרפולציה ואקסטרפולציה',
+    // ז׳ learns the mode in January (unit 7.15): the unit joins the ז׳ path from then (PRODUCT2-20)
+    alsoFor: ['7'],
     // The first-day placement test reaches stats:1-5 only (taught from September): stats:6-8 are December and January
     // stairs, and eight levels instead of five would move every probe (lib/placement.js reads placementTop).
     placementTop: 5,

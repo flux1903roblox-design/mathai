@@ -455,7 +455,6 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .unit-progress { display: flex; align-items: center; gap: var(--s2); margin-top: 4px; }
 .unit-bar { flex: 1; height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--on-brand) 26%, transparent); overflow: hidden; }
 .unit-bar i { display: block; height: 100%; border-radius: 999px; background: var(--on-brand); transition: width var(--duration-slow) var(--ease-smooth-out); }
-.unit-count { font-family: var(--font-display); font-weight: 700; font-size: var(--t-sm); line-height: 1; }
 .unit-guide {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex: none; min-width: 60px; min-height: 52px;
   border: 2px solid color-mix(in srgb, var(--on-brand) 45%, transparent); border-radius: 14px; color: var(--on-brand); text-decoration: none; font-size: var(--t-xs); font-weight: 600;
@@ -471,12 +470,6 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
     radial-gradient(130% 55% at 50% 0%, var(--c-tint) 0%, transparent 72%),
     linear-gradient(180deg, color-mix(in srgb, var(--c-tint) 75%, var(--surface)) 0%, color-mix(in srgb, var(--c-tint) 25%, var(--surface)) 70%, var(--surface) 100%);
 }
-.trail { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-.trail path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.trail-edge { stroke: color-mix(in srgb, var(--c-d) 13%, transparent); stroke-width: 28; }
-.trail-road { stroke: var(--paper); stroke-width: 21; }
-.trail-walked { stroke: var(--c); stroke-width: 11; opacity: 0.5; }
-.trail-dots { stroke: color-mix(in srgb, var(--c-d) 32%, transparent); stroke-width: 5; stroke-dasharray: 0.1 15; }
 
 .scenery { position: absolute; width: clamp(76px, 21vw, 112px); transform: translateY(-50%); pointer-events: none; }
 .scenery.left { left: 6px; }
@@ -756,7 +749,6 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .lesson-dock .tool { min-height: 36px; flex: none; }
 .lesson .figure { max-width: min(100%, 300px); margin-inline: auto; }
 @media (min-width: 960px) { .learn-top { padding-inline: max(var(--s6), calc((100% - 560px) / 2)); } }
-.unit-count { flex: none; align-self: flex-start; padding: 2px var(--s2); border-radius: 999px; background: color-mix(in srgb, var(--on-brand) 22%, transparent); font-family: var(--font-display); font-weight: 600; font-size: var(--t-sm); }
 
 /* ---------- review fixes ---------- */
 /* the answer is never hidden under the keypad */
@@ -1135,7 +1127,14 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 .lesson-foot .lesson-dock { position: static; border: 0; background: none; display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s2); padding-bottom: var(--s2); }
 .lesson-foot .lesson-dock .btn { margin-bottom: var(--lip); }
 .lesson .keypad { gap: 6px; }
-.lesson .key { height: clamp(40px, 6.3dvh, 52px); font-size: clamp(20px, 3dvh, 24px); border-radius: 12px; }
+/* the keypad is the control tapped most: never under 44px tall (SK-STUDENT-3) */
+.lesson .key { height: clamp(44px, 6.3dvh, 52px); font-size: clamp(20px, 3dvh, 24px); border-radius: 12px; }
+/* the space of a mixed number (5 1/3): a word, not a symbol, as on a phone keyboard */
+.lesson .key-space { font-size: 16px; font-weight: 700; color: var(--ink-2); }
+/* a one-number answer widens with what is typed (5 1/3, -1.333) instead of scrolling inside its slot */
+.lesson #slot-v { min-width: min(calc(var(--len, 0) * 1ch + 28px), 52vw); }
+/* a mixed number typed as "5 1/3" shown as written, beside the slot */
+.answer-echo { font-size: clamp(18px, 2.8dvh, 22px); color: var(--ink-2); white-space: nowrap; }
 .lesson .key-minus { font-size: clamp(24px, 3.6dvh, 30px); }
 .dock-row { display: flex; gap: var(--s2); align-items: flex-start; }
 .dock-row .tools { flex: none; display: flex; flex-wrap: nowrap; gap: 6px; }
@@ -1308,7 +1307,10 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .lesson .key[data-k="d6"] { grid-area: d6; } .lesson .key[data-k="d7"] { grid-area: d7; } .lesson .key[data-k="d8"] { grid-area: d8; }
   .lesson .key[data-k="d9"] { grid-area: d9; } .lesson .key[data-k="minus"] { grid-area: minus; } .lesson .key[data-k="dot"] { grid-area: dot; }
   .lesson .key[data-k="frac"] { grid-area: frac; } .lesson .key[data-k="del"] { grid-area: del; } .lesson .key[data-k="next"] { grid-area: next; }
-  .lesson .key { height: 42px; }
+  /* with the space of a mixed number, it takes the second cell of delete */
+  .lesson .keypad:has(.key-space) { grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac space del"; }
+  .lesson .key[data-k="space"] { grid-area: space; }
+  .lesson .key { height: 44px; }
   .lesson .fg-table th, .lesson .fg-table td { padding: 3px 12px; line-height: 1.35; }
   /* a table of seven rows or more (func:3's hours of a day) sits closer on a short phone, so it stays whole above the keypad */
   .lesson .fg-table.long th, .lesson .fg-table.long td { padding: 1px 12px; line-height: 1.2; }
@@ -1325,7 +1327,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 /* a drawing can be enlarged on phones: a small button on its corner opens it full width in a sheet */
 .fig-zoomable { position: relative; }
 .fig-zoom {
-  display: none; position: absolute; inset-block-start: 0; inset-inline-start: 0; width: 40px; height: 40px;
+  display: none; position: absolute; inset-block-start: 0; inset-inline-start: 0; width: 44px; height: 44px;
   align-items: center; justify-content: center; border-radius: 12px; color: var(--brand-d);
   background: color-mix(in srgb, var(--paper) 88%, transparent); border: 2px solid var(--rule); box-shadow: 0 2px 0 var(--rule-press);
 }
@@ -1403,8 +1405,10 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .fb-folded .fb-scroll { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); }
 .fb-folded .fb-head { flex: 0 1 auto; }
 .fb-folded .fb-body { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); }
-.fb-folded .fb-body .link-btn { align-self: center; min-height: 40px; }
+.fb-folded .fb-body .link-btn { align-self: center; min-height: 44px; }
 .fb-folded .fb-answer { margin: 0; }
+/* what probably happened (PRODUCT2-18): its own line, across the row, above "רמז" */
+.fb-folded .fb-diag { flex: 1 1 100%; margin: 0; font-size: 15px; line-height: 22px; }
 @media (max-height: 700px) and (max-width: 899px) {
   .lesson.is-manip.is-reveal .manip-controls { display: none; }
 }
@@ -1686,48 +1690,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .manip-angle.whole .manip-readout { font-size: 20px; gap: 0 8px; }
 .manip-angle.whole .ang-names { color: var(--ink-2); }
 
-/* ---------- the adventure map: a world per unit, stairs for stops, a chest halfway ---------- */
-/* each world opens with its landscape behind the first stairs; the land below keeps the world's ground */
-.unit-world { overflow: hidden; }
-.world-horizon { position: absolute; top: 0; left: 0; width: 100%; height: 168px; pointer-events: none; }
-.unit .path { padding-top: 150px; }
-.wb-white { fill: var(--surface); }
-.wb-ground { fill: color-mix(in srgb, var(--c-tint) 70%, var(--surface)); }
-.wb-far { fill: color-mix(in srgb, var(--c) 22%, var(--surface)); }
-.wb-mid { fill: color-mix(in srgb, var(--c) 34%, var(--surface)); }
-.wb-sun { fill: color-mix(in srgb, var(--gold) 55%, var(--surface)); }
-.wb-frost { fill: color-mix(in srgb, var(--ch-sky) 28%, var(--surface)); }
-.wb-fire { fill: color-mix(in srgb, var(--streak) 30%, var(--surface)); }
-.wb-lava { fill: color-mix(in srgb, var(--streak) 80%, var(--gold)); }
-.wb-ember { fill: var(--gold); }
-.wb-flake path { fill: none; stroke: var(--ch-sky); stroke-width: 2; stroke-linecap: round; opacity: 0.7; }
-.wb-sea { fill: color-mix(in srgb, var(--ch-sky) 18%, var(--surface)); }
-.wb-gridline { stroke: color-mix(in srgb, var(--ch-sky) 30%, transparent); stroke-width: 1; }
-.wb-wave { fill: none; stroke: color-mix(in srgb, var(--ch-sky) 55%, var(--paper)); stroke-width: 2.5; stroke-linecap: round; }
-.wb-sand { fill: color-mix(in srgb, var(--gold) 26%, var(--surface)); }
-.wb-trunk { fill: none; stroke: #b77b3d; stroke-width: 4; stroke-linecap: round; } /* colour-ok: illustration */
-.wb-leaf { fill: color-mix(in srgb, var(--good) 70%, var(--surface)); }
-.wb-x { fill: none; stroke: var(--bad); stroke-width: 4; stroke-linecap: round; }
-.wb-boat { fill: color-mix(in srgb, var(--c) 60%, var(--surface)); }
-.wb-gear { fill: none; stroke: color-mix(in srgb, var(--gold) 70%, var(--paper)); stroke-width: 4; stroke-linecap: round; }
-.wb-arc { fill: none; stroke: var(--streak); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 4 5; }
-.wb-window { fill: color-mix(in srgb, var(--on-brand) 75%, transparent); }
-.wb-road { fill: none; stroke: color-mix(in srgb, var(--c-d) 55%, var(--paper)); stroke-width: 9; stroke-linecap: round; }
-.wb-road-dash { fill: none; stroke: var(--on-brand); stroke-width: 2; stroke-dasharray: 10 9; }
-.wb-blocks { fill: none; stroke: var(--on-brand); stroke-width: 2; opacity: 0.8; }
-.wb-awning { fill: color-mix(in srgb, var(--c) 70%, var(--surface)); }
-.wb-awning.alt { fill: color-mix(in srgb, var(--gold) 70%, var(--surface)); }
-.wb-flag { fill: color-mix(in srgb, var(--c-d) 60%, var(--surface)); stroke: color-mix(in srgb, var(--c-d) 60%, var(--paper)); stroke-width: 1.5; stroke-linejoin: round; }
-.wb-mean { fill: none; stroke: var(--c-d); stroke-width: 2.5; stroke-dasharray: 8 6; opacity: 0.7; }
-/* the ground of each world, under the road */
-.world-signed .unit-world { background: linear-gradient(90deg, color-mix(in srgb, var(--ch-sky-tint) 85%, var(--surface)) 0%, var(--surface) 50%, color-mix(in srgb, var(--streak-tint) 75%, var(--surface)) 100%); }
-.world-coord .unit-world, .world-line .unit-world {
-  background:
-    linear-gradient(color-mix(in srgb, var(--c) 7%, transparent) 1px, transparent 1px) 0 0 / 28px 28px,
-    linear-gradient(90deg, color-mix(in srgb, var(--c) 7%, transparent) 1px, transparent 1px) 0 0 / 28px 28px,
-    linear-gradient(180deg, color-mix(in srgb, var(--c-tint) 70%, var(--surface)), var(--surface));
-}
-.world-pyth .unit-world { background: radial-gradient(circle, color-mix(in srgb, var(--gold) 16%, transparent) 1.5px, transparent 2px) 0 0 / 22px 22px, linear-gradient(180deg, color-mix(in srgb, var(--gold-tint) 70%, var(--surface)), var(--surface)); }
+/* (the adventure map's painted worlds, PathTrail and WorldBackdrop are retired: canon.css draws the path) */
 
 /* a stop is a stair block: a squared top face lit from above, and a deep riser that sinks when pressed */
 .node { --lip: 9px; border-radius: 30%; background: linear-gradient(180deg, color-mix(in srgb, var(--on-brand) 34%, transparent) 0 22%, transparent 23%), var(--face-c); }
@@ -1997,16 +1960,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mastery-chip.ms-needs-review { background: var(--gold-tint); color: var(--gold-ink); }
 .mastery-chip.ms-needs-support { background: var(--bad-tint); color: var(--bad-ink); }
 .journey-goals .plain-list { line-height: 1.55; }
-.journey-stages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
-.jstage { display: flex; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: 18px; background: var(--paper); border: 2px solid var(--rule); box-shadow: 0 3px 0 var(--rule-press); }
-.jstage.current { border-color: color-mix(in srgb, var(--c) 55%, var(--paper)); box-shadow: 0 3px 0 color-mix(in srgb, var(--c) 55%, var(--paper)); background: linear-gradient(160deg, var(--c-tint), var(--surface) 85%); }
-.jstage.disabled { opacity: 0.6; }
-.jstage-icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--ground); color: var(--ink-2); }
-.jstage.current .jstage-icon { background: var(--c); color: var(--on-brand); }
-.jstage.done .jstage-icon { background: var(--good); color: var(--on-good); }
-.jstage-text { flex: 1; min-width: 0; }
-.jstage-title { margin: 0; font-weight: 700; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.jstage-sub { margin: 2px 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
 .journey-rules .plain-list { line-height: 1.55; margin-top: var(--s2); }
 
 /* --- the end of a check */
@@ -2070,7 +2023,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .num-row dd { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--t-md); white-space: nowrap; }
 .num-n { font-family: var(--font-ui); font-weight: 600; font-size: var(--t-xs); color: var(--ink-2); }
 .nums-more summary { min-height: 44px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
-.jstage .level-badge { color: var(--c-ink); }
 
 @media (max-width: 400px) { .standing-row { grid-template-columns: 1fr; } .standing-badge { grid-row: auto; justify-self: start; } }
 

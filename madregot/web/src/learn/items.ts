@@ -50,9 +50,10 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
     topic: c.topic, level: c.level, levelTitle: c.title, source,
     ...(model.precise ? { precise: true } : {}), ...(fmt ? { fmt } : {}), ...(after ? { after } : {}),
   };
-  // an exact answer with no short decimal (7/12) says once how to write it, as a generated exercise does (a fraction
-  // answer is typed as a fraction: it needs no note)
-  return model.precise && form === 'num' ? withFormatNote(it) : it;
+  // an answer with no exact two-place decimal (7/12, a slope of 4/3) says once how to write it, as a generated exercise
+  // does (a rounded length, which carries `exact`, says to round to tenths instead; a fraction answer is typed as a
+  // fraction: it needs no note)
+  return form === 'num' ? withFormatNote(it) : it;
 }
 
 /**
@@ -72,6 +73,9 @@ const PROBE_PICK = 4;
  * written the other way round, a relation reversed in words, a bar set to the mean). Null when none can.
  */
 function genProbe(topic: string, level: number, ids: string[], avoidKey?: string) {
+  // two or more misconceptions (an ambiguous answer): a question where each can show by itself, so the answer tells them
+  // apart; one (a verification): anywhere it can show
+  const alone = ids.length > 1;
   const k = `${topic}:${level}|${ids.join(',')}`;
   let forms = PROBE_FORMS.get(k);
   let kinds = PROBE_KINDS.get(k)!;
@@ -82,7 +86,7 @@ function genProbe(topic: string, level: number, ids: string[], avoidKey?: string
     // guesser gets right half the time, content/index.js fairForCheck)
     for (let i = 0; i < PROBE_SAMPLE; i += 1) {
       const it = makeItem(topic, level); if (!fairForCheck(it)) continue;
-      const n = namesOf(it, ids); if (ids.every((id) => n.includes(id))) { forms.add(it.form); kinds.add(kindOf(it)); }
+      const n = namesOf(it, ids, alone); if (ids.every((id) => n.includes(id))) { forms.add(it.form); kinds.add(kindOf(it)); }
     }
     PROBE_FORMS.set(k, forms); PROBE_KINDS.set(k, kinds);
   }
@@ -93,7 +97,7 @@ function genProbe(topic: string, level: number, ids: string[], avoidKey?: string
   for (let i = 0, found = 0; i < PROBE_TRIES && found < PROBE_PICK; i += 1) {
     const it = makeItem(topic, level, avoidKey);
     if (!forms.has(it.form) || !kinds.has(kindOf(it)) || it.key === avoidKey || !fairForCheck(it)) continue;
-    const could = namesOf(it, ids);
+    const could = namesOf(it, ids, alone);
     if (!ids.every((id) => could.includes(id))) continue;
     found += 1;
     if (!best || odds(it) < odds(best)) best = { ...it, source: 'probe' as const, probe: ids, could };

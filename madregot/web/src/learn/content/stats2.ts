@@ -266,7 +266,8 @@ const stair7: StairContent = {
     { kind: 'predict', text: 'בטבלה של הכיתה $30$ תלמידים, ובדיאגרמת העוגה שלה $40\\%$, $35\\%$ ו־$30\\%$. מה לא מסתדר?',
       fig: pie(['ברגל', 'באוטובוס', 'באופניים'], [40, 35, 30], { pct: true }),
       choices: ['סכום האחוזים $105\\%$', 'הכול מסתדר'], answer: 0,
-      why: 'גזרות של עוגה יחד הן $100\\%$: $40 + 35 + 30 = 105$.' },
+      why: 'גזרות של עוגה יחד הן $100\\%$: $40 + 35 + 30 = 105$.',
+      wrongWhy: { 1: 'חברו את האחוזים: $40 + 35 + 30 = 105$. בעוגה אחת הם יחד $100\\%$ בדיוק.' } },
     BILL_PREDICT,
   ],
   examples: [
@@ -287,7 +288,9 @@ const stair7: StairContent = {
   ],
   together: [
     { problem: 'השנה צרכה משפחה $460$, $440$, $380$, $350$ ו־$320$ קוט״ש בינואר עד מאי. בשנה שעברה הממוצע החודשי באביב היה $330$. בכמה גבוה הממוצע החודשי באביב השנה?',
-      fig: G.billFig({ m: [460, 440, 380, 350, 320], seasons: [600, 330, 500, 400] }) as FigSpec,
+      // the first source only, this year's months: the text gives the second source's one number (330), and the two
+      // charts stacked pushed the first choice under the bar on a 320×568 phone (SK-STUDENT-1, e2e/teach-all.spec.js)
+      fig: G.billFig({ m: [460, 440, 380, 350, 320], seasons: [600, 330, 500, 400] }).items[0] as FigSpec,
       steps: [
         { prompt: 'אילו חודשים הם האביב?', choices: [
           { text: 'מרץ, אפריל, מאי', ok: true, feedback: 'נכון: שלושת חודשי האביב.' },
@@ -374,7 +377,8 @@ const FESTIVAL = { kind: 'predict' as const, text: 'אם המגמה תימשך, 
 const GROWTH = { kind: 'predict' as const, text: 'ילד גדל $6$ ס״מ בשנה מגיל $4$ עד $10$. אם נמשיך את המגמה, מה יהיה גובהו בגיל $30$?',
   fig: line([4, 6, 8, 10], [102, 114, 126, 138], { unit: 'גובה (ס״מ) לפי גיל' }),
   choices: ['לא הגיוני להמשיך כך: $258$ ס״מ, ואנשים מפסיקים לגדול', '$258$ ס״מ'], answer: 0,
-  why: '$138 + 20 \\cdot 6 = 258$ ס״מ, יותר משני מטרים וחצי. מגמה לא נמשכת לעד.' };
+  why: '$138 + 20 \\cdot 6 = 258$ ס״מ, יותר משני מטרים וחצי. מגמה לא נמשכת לעד.',
+  wrongWhy: { 1: 'החשבון נכון: $138 + 20 \\cdot 6 = 258$. אבל אף אחד לא ממשיך לגדול באותו קצב עד גיל $30$.' } };
 const STEPS_PREDICT = { kind: 'predict' as const, text: 'ב־$8{:}00$ נמכרו $120$ כרטיסים, ב־$10{:}00$ $180$ וב־$12{:}00$ $240$. כמה צעדים של שעתיים יש מ־$12{:}00$ עד $18{:}00$?',
   fig: G.ticketsFig([120, 180, 240]) as FigSpec,
   choices: ['$3$', '$6$', '$1$'], answer: 0,
