@@ -7,15 +7,18 @@ import type { SkillId, TopicId } from './types';
 // order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
 // ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), the
-// introduction to functions the third (November), all before linear functions (rate and slope, December). ז׳'s areas
+// introduction to functions the third (November), all before linear functions (rate and slope, December). ז׳'s
+// transformations (stage 4, November and December) come between angles and expressions. ז׳'s areas
 // and perimeters (stage 2) start in December, beside expressions; boxes and prisms (stage 2) start in January, after the
 // areas; data and frequency (January–February) follows them, and all three come before equations (March). ח׳'s circle,
 // cylinder and cone (stage 2) are October and November's, after Pythagoras (the cone's height is a leg) and before
-// statistics. ח׳'s probability ("הסתברות ב", March, unit 8.16) comes after the systems, and Pythagoras in space (stage 2,
-// May, unit 8.17) is the last unit of the year.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'data', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'circle', 'stats', 'sys', 'prob', 'space'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', circle: '8', stats: '8', sys: '8', prob: '8', space: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 7, coord: 5, angles: 7, expr: 5, area: 5, solid: 4, data: 4, eq: 7, ratio: 4, pct: 5, func: 4, line: 8, pyth: 5, circle: 4, stats: 8, sys: 5, prob: 3, space: 2 };
+// statistics. ח׳'s congruent triangles (stage 4, 8.12, January and February) come after statistics, and its isosceles
+// triangles and similarity (8.13, March and April) after them, before the systems (February to May). ח׳'s probability
+// ("הסתברות ב", March, unit 8.16) comes after the systems, and Pythagoras in space (stage 2, May, unit 8.17) is the last
+// unit of the year.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'transf', 'expr', 'area', 'solid', 'data', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'circle', 'stats', 'congr', 'sim', 'sys', 'prob', 'space'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', transf: '7', expr: '7', area: '7', solid: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', circle: '8', stats: '8', congr: '8', sim: '8', sys: '8', prob: '8', space: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 7, coord: 5, angles: 7, transf: 4, expr: 5, area: 5, solid: 4, data: 4, eq: 7, ratio: 4, pct: 5, func: 4, line: 8, pyth: 5, circle: 4, stats: 8, congr: 5, sim: 4, sys: 5, prob: 3, space: 2 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -28,19 +31,23 @@ export const ALL_SKILLS: SkillId[] = TOPIC_ORDER.flatMap((t) => Array.from({ len
 /** A unit filed under one grade that a school year also teaches in another: drawn on that grade's path after `after`. */
 export type AlsoOnPath = Partial<Record<TopicId, { grade: '7' | '8'; after: TopicId }>>;
 /**
- * Units on two grades' paths. The Ministry's תשפ״ז transition year has ח׳ learn the ז׳ data unit too (8.6 in October and
- * November; its last stair, probability from relative frequency, is ח׳'s "הסתברות א – בסיס" in March): `data` is filed
- * under ז׳ and drawn on the ח׳ path after percent. programme.test.ts fails when no unit of that grade lists one of the
- * topic's stairs, so the entry is removed when the programme moves on (shared/stairs.js TOPIC_ALSO with it).
- * A table, not a special case in each screen: topicsFor (content/index.js), gradeSkillsOf, isMissing (recommend.ts)
+ * Units on two grades' paths. The Ministry's תשפ״ז transition year has ח׳ learn two ז׳ units too: the data unit (8.6 in
+ * October and November; its last stair, probability from relative frequency, is ח׳'s "הסתברות א – בסיס" in March) and
+ * the transformations unit (8.5, taught in November; 7.11 is the updated programme's home). Each is filed under ז׳ and
+ * drawn on the ח׳ path after percent: both name `pct`, and the one later in TOPIC_ORDER lands right after it, so the
+ * ח׳ path reads ratio, pct, data, transf, func (October, November, November). programme.test.ts fails when no unit of
+ * that grade lists one of the topic's stairs, so an entry is removed when the programme moves on to תשפ״ח (shared/
+ * stairs.js TOPIC_ALSO with it).
+ * A table, not a special case in each screen: topicsFor (content/topics.js), gradeSkillsOf, isMissing (recommend.ts)
  * and the screens that name a unit's grade read it through onGradePath. The helpers take another table for tests.
  */
-export const ALSO_ON_PATH: AlsoOnPath = { data: { grade: '8', after: 'pct' } };
+export const ALSO_ON_PATH: AlsoOnPath = { data: { grade: '8', after: 'pct' }, transf: { grade: '8', after: 'pct' } };
 /** Is a topic on a grade's path: filed in it, or also climbed in it (never a bridge unit)? */
-export const onGradePath = (t: TopicId, g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): boolean => !BRIDGE.has(t) && (GRADE_OF[t] === g || also[t]?.grade === g);
+export const onGradePath = (t: TopicId, g: '7' | '8' | string, also: AlsoOnPath = ALSO_ON_PATH): boolean => !BRIDGE.has(t) && (GRADE_OF[t] === g || also[t]?.grade === g);
 /**
- * A grade's topics in the order of its path (the map's, content/index.js topicsFor): its own in TOPIC_ORDER, and a unit
- * also climbed in it right after the unit named in `after`, never a bridge unit. For ח׳ this year: ratio, pct, data, line…
+ * A grade's topics in the order of its path (the map's, content/topics.js topicsFor): its own in TOPIC_ORDER, and a unit
+ * also climbed in it right after the unit named in `after`, never a bridge unit. For ח׳ this year: ratio, pct, data,
+ * transf, func, line…
  */
 export const gradePathOf = (g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): TopicId[] => {
   const out = TOPIC_ORDER.filter((t) => !BRIDGE.has(t) && GRADE_OF[t] === g);
@@ -52,7 +59,7 @@ export const gradePathOf = (g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): Topi
 /**
  * A grade's own stairs, in the order of its path, without the bridge units. The order matters: the next new stair is the
  * first one here (learn/next.ts), so a ח׳ student meets ratio (September) and percent (October) before this year's data
- * unit, as the map draws them, though data is filed earlier, under ז׳, in ALL_SKILLS.
+ * and transformations units, as the map draws them, though both are filed earlier, under ז׳, in ALL_SKILLS.
  */
 export const gradeSkillsOf = (g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): SkillId[] => gradePathOf(g, also).flatMap((t) => ALL_SKILLS.filter((id) => id.split(':')[0] === t));
 /** Is this stair in a bridge unit (the floor under both grades)? */
@@ -99,6 +106,10 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   // the classroom lane's two stairs after the five (CLASSROOM-10, -12), so saved progress keeps its levels
   'angles:6': ['angles:1'], // a bisector on a straight line takes the adjacent angle first; the rest is halving and doubling
   'angles:7': ['angles:3'], // a diagonal cuts a quadrilateral into two triangles: 180° + 180° = 360°
+  'transf:1': ['coord:2'], // a translation adds to both coordinates, into every quadrant
+  'transf:2': ['coord:2'], // a reflection in an axis changes one coordinate's sign
+  'transf:3': ['coord:2', 'angles:1'], // a turn of 90° or 180° about a point; 180° is a straight angle
+  'transf:4': ['transf:1', 'transf:2', 'transf:3'], // congruent shapes: one is moved, flipped or turned onto the other
   'expr:1': ['signed:4'], // substituting turns an expression into order of operations with signed numbers
   'expr:2': ['expr:1'], // an expression is checked by substituting a case we know
   'expr:3': ['expr:1', 'signed:1'], // equality is checked by substituting; coefficients are added as signed numbers
@@ -170,6 +181,19 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'stats:6': ['stats:2', 'stats:3'], // the range sits beside the median and the mean; adding to every value moves them
   'stats:7': ['data:1', 'stats:3'], // two sources are a table and a chart read together; the question is often a mean
   'stats:8': ['line:3', 'ratio:3'], // a uniform change is a constant rate (slope); between two values it splits in proportion
+  // congruent triangles (ח׳). The ז׳ stairs below them (angles, eq, area) are cross-grade edges: evidence only, as
+  // pct:4 → eq:1 is. transf:4 → congr:1 is on this year's ח׳ path (ALSO_ON_PATH: November before January).
+  'congr:1': ['transf:4', 'angles:3', 'eq:2'], // congruent shapes; the third angle from 180°; 2x + 10 = 70 (the x form, eq:2)
+  'congr:2': ['congr:1'], // the theorems say which three equal parts make triangles congruent
+  'congr:3': ['congr:2', 'angles:2', 'angles:4', 'angles:6'], // the third part: a common side, vertical angles, alternate angles (T4); the kite's diagonal is a bisector (angles:6)
+  'congr:4': ['congr:1', 'area:2'], // a median halves the base; the area of a triangle (area:2, stage 2's stair)
+  'congr:5': ['angles:3'], // the sides of a triangle: the third side between the difference and the sum
+  // isosceles triangles and similarity (ח׳). The ז׳ stairs (angles, eq) are cross-grade edges: evidence only, as above.
+  // sim:1's theorems are about the bisector of the apex angle (angles:6, the classroom lane's stair; T5 and T6 use it).
+  'sim:1': ['angles:5', 'angles:6', 'congr:3', 'pyth:2', 'eq:3'], // base angles and the bisector (ז׳), proofs by congruence, the height by a leg; px + q = rx + s
+  'sim:2': ['ratio:3'], // similar shapes keep one ratio: a proportion
+  'sim:3': ['sim:2', 'angles:4'], // two equal angles, often from parallels (corresponding angles)
+  'sim:4': ['sim:3', 'ratio:4', 'pyth:1'], // areas grow by the square, as scale drawings did; k from k² is a square root
   // a percent change in a story becomes an equation (eq:5); x + 0.2x = 1.2x is collecting like terms (expr:3); the
   // change is a multiplier of the old price (pct:5, an own-grade edge: not new before pct:5 is done, as in school order)
   'sys:1': ['eq:5', 'expr:3', 'pct:5'],

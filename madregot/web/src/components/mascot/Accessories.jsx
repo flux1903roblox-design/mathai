@@ -178,6 +178,35 @@ const DRAW = {
       <path d="M97.5 101 L110.5 88.5" style={S(ch('sky', '-d'))} strokeWidth="1.6" {...round} />
     </>
   ),
+  // transformations: a flag and its mirror image across a dashed line (the unit's emblem, small)
+  'mirror-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('violet', '-d')) }} strokeWidth="2" />
+      <path d="M104 87 V103" style={S(ch('violet', '-d'))} strokeWidth="1.2" strokeDasharray="1.6 1.8" {...round} />
+      <path d="M100.5 101 V89.5 M107.5 101 V89.5" style={S(ch('violet', '-d'))} strokeWidth="1.4" {...round} />
+      <path d="M100.5 89.5 L96 92 L100.5 94.5Z" style={F(ch('violet'))} />
+      <path d="M107.5 89.5 L112 92 L107.5 94.5Z" style={{ ...F(WHITE), ...S(ch('violet')) }} strokeWidth="1.2" strokeLinejoin="round" />
+    </>
+  ),
+  // congruent triangles: two triangles, one the mirror image of the other, with the same tick on their bases (the
+  // unit's emblem, small)
+  'twin-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('cobalt', '-d')) }} strokeWidth="2" />
+      <path d="M96 100.5 L103 100.5 L98 89.5Z" style={F(ch('cobalt'))} />
+      <path d="M112 100.5 L105 100.5 L110 89.5Z" style={{ ...F(WHITE), ...S(ch('cobalt')) }} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M99.5 99 V102 M108.5 99 V102" style={S(ch('cobalt', '-d'))} strokeWidth="1.2" {...round} />
+    </>
+  ),
+  // isosceles triangles and similarity: a small triangle inside a large one, sharing the top vertex (the unit's
+  // emblem, small)
+  'nested-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('sky', '-d')) }} strokeWidth="2" />
+      <path d="M104 87.5 L111.5 101 L96.5 101Z" style={{ ...F(WHITE), ...S(ch('sky')) }} strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M104 87.5 L107.6 94 L100.4 94Z" style={F(ch('sky'))} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

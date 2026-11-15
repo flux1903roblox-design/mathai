@@ -1,5 +1,5 @@
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote, piNear, piRow, afterPlain } from './util.js';
-import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords, protractorWords, clockText, chartWords, outcomesWords } from './manip.js';
+import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords, protractorWords, clockText, chartWords, outcomesWords, coordWords } from './manip.js';
 // The first-load side of the content (content/topics.js: every topic's names, stairs, colours and misconception names,
 // the rows the screens list, and the generators' loading) is re-exported here, so code that makes or checks a question
 // imports everything from this file. A screen of the first load imports content/topics.js instead: this file carries
@@ -7,9 +7,12 @@ import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWord
 import { TOPIC } from './topics.js';
 // the rules of the measurement objects and the words of their drawings (stage 2: the grid shapes, the nets and the
 // solids, the circle) register themselves with content/manip.js as they load; a question, a check, an exam's key and
-// the tutor's text all come through this file, so they always have them (net.js brings roll.js)
+// the tutor's text all come through this file, so they always have them (net.js brings roll.js). Stage 4's transform
+// object (with the words of its still twin on the coord figure) and its proof table register the same way.
 import './grid.js';
 import './net.js';
+import './transform.js';
+import './proof.js';
 
 export * from './topics.js';
 
@@ -44,7 +47,8 @@ export function makeItem(topicId, level, avoidKey, opts = {}) {
  * "5 + 3") says nothing about signs: they skip it too. Practice keeps them all.
  */
 export function fairForCheck(it) {
-  if (it.practiceOnly) return false;
+  // a proof's skeleton is the same every time (givens, the theorem, the conclusion): practice only, flagged or not (GEOM-3.10)
+  if (it.practiceOnly || it.manip?.kind === 'proof') return false;
   if (it.fixed) return false;
   if (it.topic !== 'signed') return true;
   const shown = [it.display, it.text, ...(it.manip?.labels || []), ...(it.choices || []).map((c) => c.tex || c.text)].join(' ');
@@ -286,6 +290,8 @@ export function figPlain(f) {
       f.line ? `ישר y = ${f.line.m}x + ${f.line.b}` : '',
       f.lines?.length ? `ישרים: ${f.lines.map(lineText).join(', ')}` : '',
       f.polygon ? `מצולע: ${f.polygon.map(([x, y]) => `(${x}, ${y})`).join(' ')}` : '',
+      // more of the plane in words from the kinds that register them (content/transform.js: shapes, arrows, a mirror, a turn)
+      ...coordWords(f, 'plain'),
     ].filter(Boolean).join('; ');
     case 'linear': return `זוויות צמודות: זווית נתונה ${f.a}°`;
     case 'cross': return `ישרים נחתכים: זווית נתונה ${f.a}°, הזווית המבוקשת ${f.target === 'vertical' ? 'קודקודית לה' : 'צמודה לה'}`;
@@ -321,6 +327,13 @@ export function figPlain(f) {
         ...(f.segs || []).filter((sg) => sg.ticks).map((sg) => `${nm(sg.a)}${nm(sg.b)}: ${sg.ticks} סימונים`),
       ];
       return marks.length ? `שרטוט: ${marks.join(', ')}` : 'שרטוט';
+    }
+    // a proof as a still table (GEOM-3.9): the givens, what to prove, and each row's claim and reason ("?" where asked)
+    case 'proof': {
+      const strip = (t) => String(t ?? '').replace(/\$/g, '');
+      const head = [f.given && `נתון: ${strip(f.given)}`, f.goal && `צ״ל: ${strip(f.goal)}`].filter(Boolean);
+      const rows = f.rows.map((r, i) => `${i + 1}. ${strip(r.claim)} — ${i === f.ask ? '?' : strip(r.reason)}`);
+      return `הוכחה. ${[...head, ...rows].join('; ')}`;
     }
     // the fraction figures (numline with parts, fbar, fgrid, dline, groups) and the teaching figures (STUDENT-8: numline,
     // thermo, machine, dots, bars) say in words what they draw

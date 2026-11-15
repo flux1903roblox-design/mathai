@@ -2036,3 +2036,106 @@ test.describe('the measurement units (stage 2)', () => {
     await scan(page, 'the generate sheet, an exercise with π and its note');
   });
 });
+
+// ------------------------------------------------------------------ the stage-4 merge: the geometry units
+// Curriculum stage 4: transformations (ז׳, and on the ח׳ path this year), congruent triangles, and isosceles triangles
+// with similarity (ח׳). Scanned where a student meets them: each stair's teaching step by step (the shape moved on
+// the plane, the proof's table of claims and reasons, the drawings of two triangles with their marks), the two new
+// objects in practice as they open and after a try, the new drawings in a question and in its solution, and a proof
+// put in order in a challenge (a given step shows its reason, it is not asked).
+test.describe('the geometry units (stage 4)', () => {
+  const UNITS = [['transf', 4, '7'], ['congr', 5, '8'], ['sim', 4, '8']];
+  // the object each stair's teaching has the student use (congr:4 and sim:4 teach with drawings alone; congr:5 uses
+  // the number line and sim:2 the double line, objects of earlier units)
+  const OBJECT = {
+    'transf:1': '|transform|', 'transf:2': '|transform|', 'transf:3': '|transform|', 'transf:4': '|transform|',
+    'congr:1': '|transform|', 'congr:2': '|transform|', 'congr:3': '|proof|', 'sim:1': '|proof|', 'sim:3': '|proof|',
+  };
+  for (const [topic, stairs, grade] of UNITS) {
+    for (let level = 1; level <= stairs; level += 1) {
+      test(`${topic}:${level} teaching, step by step`, async ({ page }) => {
+        const seen = await walkTeaching(page, `#/learn/${topic}/${level}/A`, student(grade), `${topic}:${level}`);
+        const object = OBJECT[`${topic}:${level}`];
+        if (object) expect([...seen].some((x) => x.startsWith('explore') && x.includes(object)), `${topic}:${level} teaches with ${object}`).toBe(true);
+        expect([...seen].some((x) => /\|(geo|coord|proof|fgrid)$/.test(x)), `${topic}:${level} teaches with a drawing`).toBe(true);
+      });
+    }
+  }
+
+  for (const [route, grade, what] of [
+    ['transf/1', '7', 'the transform object: a shape slid on the plane'],
+    ['transf/2', '7', 'the transform object: a shape mirrored in a line'],
+    ['transf/3', '7', 'the transform object: a shape turned about a point'],
+  ]) {
+    test(`${what}, in practice`, async ({ page }) => {
+      await scanObject(page, `#/lesson/${route}?part=1`, student(grade), (it) => it.form === 'manip' && it.manip.kind === 'transform', what);
+    });
+  }
+
+  for (const [route, what] of [
+    ['congr/3', 'the proof object: a congruence proof, its reasons chosen'],
+    ['sim/1', 'the proof object: an isosceles triangle\'s proof'],
+    ['sim/3', 'the proof object: a similarity proof'],
+  ]) {
+    test(`${what}, in practice`, async ({ page }) => {
+      await openOn(page, `#/lesson/${route}?part=1`, student('8'), (it) => it.form === 'manip' && it.manip.kind === 'proof');
+      await expect(page.locator('.manip-proof .mp-proof-table')).toBeVisible();
+      await scan(page, `${what}, as it opens`);
+      // a reason's choices open under its row (a radio group), when the proof asks for reasons
+      const chip = page.locator('.mp-proof-chip').first();
+      if (await chip.count()) {
+        await chip.click();
+        await expect(page.locator('.mp-proof-opts').first()).toBeVisible();
+        await scan(page, `${what}, a reason's choices open`);
+      }
+      await answer(page, false);
+      await expect(page.locator('section.fb')).toBeVisible();
+      await scan(page, `${what}, a near miss checked`);
+    });
+  }
+
+  for (const [route, grade, key, what] of [
+    ['transf/1', '7', 'tf1s', 'a triangle and its image after a slide, on the plane'],
+    ['transf/1', '7', 'tf1w', 'two triangles on the plane: which slide'],
+    ['transf/4', '7', 'tf4m', 'two shapes on the plane: which motion'],
+    ['transf/4', '7', 'tf4r', 'two rectangles drawn with their sides'],
+    ['congr/2', '8', 'cg2w', 'two triangles with their marks: congruent, and by which theorem'],
+    ['congr/3', '8', 'cg3e', 'a proof\'s table as a drawing: the line with the mistake'],
+    ['congr/4', '8', 'cg4a', 'a triangle with its median'],
+    ['congr/5', '8', 'cg5m', 'a triangle with its three sides: the largest angle'],
+    ['sim/2', '8', 'sm2s', 'two shapes: similar or not'],
+    ['sim/3', '8', 'sm3b', 'two triangles that meet at a point (the bowtie)'],
+    ['sim/4', '8', 'sm4g', 'a square enlarged on a grid'],
+  ]) {
+    test(`${what}: the question, and its solution shown`, async ({ page }) => {
+      await openOn(page, `#/lesson/${route}`, student(grade), (it) => String(it.key).startsWith(`${key}:`));
+      await scan(page, what);
+      await missTwice(page);
+      await scan(page, `${what}: the solution shown`);
+    });
+  }
+
+  test('a challenge with a proof to put in order (congr:c2: a given step shows its reason) and one of each other unit', async ({ page }) => {
+    await open(page, '#/challenge/congr:c2', student('8'));
+    await expect(page.locator('.ch-title')).toBeVisible();
+    await scan(page, 'a challenge of the congruence unit: a proof');
+    await page.goto('about:blank');
+    await open(page, '#/challenge/transf:c1', student('7'));
+    await expect(page.locator('.ch-title')).toBeVisible();
+    await scan(page, 'a challenge of the transformations unit');
+    await page.goto('about:blank');
+    await open(page, '#/challenge/sim:c2', student('8'));
+    await expect(page.locator('.ch-title')).toBeVisible();
+    await scan(page, 'a challenge of the similarity unit');
+  });
+
+  test('home in grade 8 with the two units of ז׳ on its path (data, then transformations), and the transformations\' topic page', async ({ page }) => {
+    await open(page, '#/', student('8'));
+    await expect(page.locator('.learn-top')).toBeVisible();
+    await expect(page.locator('.unit-title').nth(3)).toHaveText('טרנספורמציות');
+    await scan(page, 'home in grade 8: the transformations as unit 4');
+    await page.goto('about:blank');
+    await open(page, '#/topic/transf', student('8'));
+    await scan(page, 'the transformations\' topic page');
+  });
+});

@@ -25,6 +25,10 @@
 //          left to right, for a table whose columns are the terms of an equation (x, y, the right side), as it is written
 //   coord   also { quadrants?, path?, lines?: [{ m, b, label?, tone? }], meet?, riseRun?: { x, run }, words?, anim? }
 //          (see Coord). Never draw a function's graph with 'linear': that one is a linear pair of angles.
+//          The transform object's still twin (GEOM-2.8): shapes?: [{ pts, names?, tone?: 'brand' | 'alt' | 'ghost', label? }]
+//          (polygons with letters at their vertices; ghost is dashed), arrows?: [{ from, to, label? }] (dashed, from a
+//          point to its image), mirror?: 'x' | 'y' | { x } | { y } (a dashed line with its equation), centre?: [x, y] and
+//          turn?: 90 | -90 | 180 (the centre O and a curved arrow: 90 counterclockwise, −90 clockwise)
 // With anim, a figure draws itself once as its step comes in (useDraw); under reduced motion it is there at once.
 // Fractions, percent and ratio (curriculum stage 1):
 //   numline { from, to, den, marks?: [{ x, label?, tone? }], jumps?: [{ from, to, label? }], step?, anim? }
@@ -75,6 +79,10 @@
 // components/SolidFigs.jsx:
 //   netfig { solid, dims, layout?, letters?, shade?, labels? }   a net, flat, with the net object's geometry
 //   solid  { shape, a?, b?, c?, p?, q?, r?, L?, h?, l?, labels?, diag?, cubes?, cut?, open?, label? }   a solid, still
+// Geometry (curriculum stage 4):
+//   proof  { given?, goal?, rows: [{ claim, reason }], ask?, hl? }   a proof as a still table, the class's two columns
+//          טענה | נימוק under the נתון and צ״ל lines (HTML, maths by MathText); `ask` writes "?" in that row's reason
+//          (a step that asks why). A teaching figure only, never in a check (GEOM-3.9)
 import { useEffect, useId, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
@@ -94,6 +102,10 @@ import { NetFig, SolidFig } from './SolidFigs.jsx';
 // the words of a geo drawing's measurement parts (a grid, circles, arcs, a part taken away or added) register with
 // content/manip.js as this file loads, so every screen that draws one can also say it (stage 2)
 import '@/content/grid.js';
+import { MathText } from './MathText.jsx';
+// the transform object's still twin on the plane: its words register with figWords when this loads (GEOM-2.8)
+import { mirrorWords } from '@/content/transform.js';
+import { geoLayout, geoSquare, geoSweep, segEnds, unitDir } from './geoLayout.js';
 import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
@@ -156,6 +168,16 @@ function Coord({ fig }) {
   const rr = fig.riseRun && first ? (() => { const { x, run } = fig.riseRun; const y0 = first.m * x + first.b; return { x, x1: x + run, y0, y1: first.m * (x + run) + first.b, run }; })() : null;
   const walk = fig.path?.length ? (fig.path[0][0] === 0 && fig.path[0][1] === 0 ? fig.path : [[0, 0], ...fig.path]) : [];
   const visible = (fig.points || []).filter((p) => !p.hidden);
+  // a shape's letter that falls on an axis number hides the number, not the other way round: −4A would read as one
+  // word (the grid line still shows where −4 is)
+  const shapeLetters = (fig.shapes || []).flatMap((sh) => {
+    const mid = [sh.pts.reduce((a, p) => a + p[0], 0) / sh.pts.length, sh.pts.reduce((a, p) => a + p[1], 0) / sh.pts.length];
+    return (sh.names || []).map((n, j) => { const [px, py] = sh.pts[j]; const vx = px - mid[0]; const vy = py - mid[1]; const len = Math.hypot(vx, vy) || 1; return [X(px) + (vx / len) * 15, Y(py) - (vy / len) * 15]; });
+  });
+  const underLetter = (x, y, anchor) => {
+    const cx = anchor === 'end' ? x - 8 : x; // a number is about 16px wide and 12px tall; a letter about 14 by 16
+    return shapeLetters.some(([lx, ly]) => Math.abs(lx - cx) < 15 && Math.abs(ly - y) < 14);
+  };
   return (
     <svg viewBox={`0 0 ${size} ${size}`} className="figure coord" role="img" aria-label={figWords(fig)}>
       <defs>
@@ -171,8 +193,8 @@ function Coord({ fig }) {
       <text x={o + 8} y={Y(r + 0.7)} className="fg-axis-name" style={{ fontFamily: MATH_FONT }}>y</text>
       {ticks.filter((i) => i && i % 2 === 0).map((i) => (
         <g key={`t${i}`}>
-          <text x={X(i)} y={o + 17} textAnchor="middle" className="fg-tick">{label(i)}</text>
-          <text x={o - 6} y={Y(i) + 5} textAnchor="end" className="fg-tick">{label(i)}</text>
+          {!underLetter(X(i), o + 12, 'middle') && <text x={X(i)} y={o + 17} textAnchor="middle" className="fg-tick">{label(i)}</text>}
+          {!underLetter(o - 6, Y(i), 'end') && <text x={o - 6} y={Y(i) + 5} textAnchor="end" className="fg-tick">{label(i)}</text>}
         </g>
       ))}
       {/* each quadrant's name in its outer corner, clear of the axes' numbers and of most points */}
@@ -210,6 +232,57 @@ function Coord({ fig }) {
         <text key={`wd${i}`} x={X(w.at[0])} y={Y(w.at[1]) + 6} textAnchor="middle" direction={WORD.test(w.text) ? 'rtl' : undefined}
           className={w.tone ? clsx('fig-cd-tag', toneOf(w.tone)) : clsx('fig-cd-word', /^[a-z]$/.test(w.text) && 'fig-var')} style={w.tone ? { fontFamily: MATH_FONT } : undefined}>{w.text}</text>
       ))}
+      {fig.mirror && (() => {
+        // the mirror line, dashed, with its equation at its end (an axis is named on the plane already)
+        const mr = fig.mirror; const vertical = mr === 'y' || mr.x != null; const k = mr.x ?? mr.y ?? 0; const e = r + 0.5;
+        return (
+          <g className="fig-cd-mirror">
+            {vertical ? <line x1={X(k)} y1={Y(e)} x2={X(k)} y2={Y(-e)} /> : <line x1={X(-e)} y1={Y(k)} x2={X(e)} y2={Y(k)} />}
+            {typeof mr !== 'string' && <text x={vertical ? X(k) + 6 : X(r)} y={vertical ? Y(r) + 4 : Y(k) - 7} textAnchor={vertical ? 'start' : 'end'} className="fig-cd-eq" style={{ fontFamily: MATH_FONT }}>{mirrorWords(mr)}</text>}
+          </g>
+        );
+      })()}
+      {(fig.shapes || []).map((sh, i) => {
+        // a shape with its letters outside it, away from its middle; its label (a name) in the middle
+        const mid = [sh.pts.reduce((a, p) => a + p[0], 0) / sh.pts.length, sh.pts.reduce((a, p) => a + p[1], 0) / sh.pts.length];
+        return (
+          <g key={`sh${i}`} className={clsx('fig-cd-shape', `tone-${sh.tone || 'brand'}`)}>
+            <polygon points={sh.pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ')} />
+            {(sh.names || []).map((n, j) => {
+              const [px, py] = sh.pts[j]; const vx = px - mid[0]; const vy = py - mid[1]; const len = Math.hypot(vx, vy) || 1;
+              return <text key={n} x={X(px) + (vx / len) * 15} y={Y(py) - (vy / len) * 15 + 6} textAnchor="middle" className="fig-cd-vx" style={{ fontFamily: MATH_FONT }}>{n}</text>;
+            })}
+            {sh.label && <text x={X(mid[0])} y={Y(mid[1]) + 6} textAnchor="middle" className="fig-cd-shape-label" direction={WORD.test(sh.label) ? 'rtl' : undefined}>{sh.label}</text>}
+          </g>
+        );
+      })}
+      {(fig.arrows || []).map((a, i) => {
+        const p = [X(a.from[0]), Y(a.from[1])]; const q = [X(a.to[0]), Y(a.to[1])];
+        return (
+          <g key={`ar${i}`} className="fig-cd-arrow">
+            <path d={`M ${p[0]} ${p[1]} L ${q[0]} ${q[1]}`} />
+            <path d={head(q[0], q[1], Math.atan2(q[1] - p[1], q[0] - p[0]), 9)} className="head" />
+            {a.label && <text x={(p[0] + q[0]) / 2} y={(p[1] + q[1]) / 2 - 8} textAnchor="middle" className="fig-cd-arrow-label" direction={WORD.test(a.label) ? 'rtl' : undefined}>{a.label}</text>}
+          </g>
+        );
+      })}
+      {fig.centre && (() => {
+        // the centre O, and the turn as a curved arrow around it: counterclockwise for 90, clockwise for −90, half for 180
+        const [cx, cy] = [X(fig.centre[0]), Y(fig.centre[1])]; const rr = 26;
+        const turn = fig.turn; const a0 = 20; const sweep = turn === 180 ? 180 : 90; const ccw = turn !== -90;
+        const at = (deg) => [cx + rr * Math.cos(rad(deg)), cy - rr * Math.sin(rad(deg))];
+        const s0 = at(ccw ? a0 : a0 + sweep); const s1 = at(ccw ? a0 + sweep : a0);
+        // the head's direction: along the arc's tangent at its end
+        const endDeg = ccw ? a0 + sweep : a0; const th = Math.atan2(-Math.cos(rad(endDeg)) * (ccw ? 1 : -1), -Math.sin(rad(endDeg)) * (ccw ? 1 : -1));
+        return (
+          <g className="fig-cd-centre">
+            {turn && <path d={`M ${s0[0]} ${s0[1]} A ${rr} ${rr} 0 0 ${ccw ? 0 : 1} ${s1[0]} ${s1[1]}`} className="arc" />}
+            {turn && <path d={head(s1[0], s1[1], th, 8)} className="arc" />}
+            <circle cx={cx} cy={cy} r="4.5" />
+            <text x={cx - 8} y={cy + 20} textAnchor="end" className="fig-cd-vx" style={{ fontFamily: MATH_FONT }}>O</text>
+          </g>
+        );
+      })()}
       {visible.map((p) => {
         // the letter sits on the side away from both axes, so it never lands on their numbers; a long name, like
         // (7, 0), near the edge goes to the other side so it stays on the drawing
@@ -453,50 +526,21 @@ const geoLabel = (t) => {
   if (!/[a-z]/.test(s) || WORD.test(s)) return s;
   return s.replace(/-/g, '\u2212').split(/([a-z])/).map((p, i) => (i % 2 ? <tspan key={i} fontStyle="italic" style={{ fontFamily: MATH_FONT }}>{p}</tspan> : p));
 };
-/** About half the width and half the height of a label, in drawing units (Hebrew words at 16px, numbers at 18px). */
-const labelSize = (t) => [String(t).length * (WORD.test(t) ? 4.6 : 5.4) + 2, 9];
-const unitDir = (p, q) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; return [(q[0] - p[0]) / d, (q[1] - p[1]) / d]; };
-export function geoSquare(a, b, away) {
-  const n = [-(b[1] - a[1]), b[0] - a[0]]; // a normal of ab, as long as ab
-  const side = away ? Math.sign(n[0] * (away[0] - a[0]) + n[1] * (away[1] - a[1])) : -1;
-  const k = side > 0 ? -1 : 1;
-  return [a, b, [b[0] + k * n[0], b[1] + k * n[1]], [a[0] + k * n[0], a[1] + k * n[1]]];
-}
-const segEnds = (P, sg) => {
-  const a = P[sg.a]; const b = P[sg.b]; const [ux, uy] = unitDir(a, b); const [e0, e1] = sg.ext || [0, 0];
-  return [[a[0] - ux * e0, a[1] - uy * e0], [b[0] + ux * e1, b[1] + uy * e1]];
-};
-/** Degrees, counterclockwise, of the angle at `at` from ray at→from to ray at→to (units, y up): what a mark spans. */
-export function geoSweep(P, g) {
-  const v = P[g.at]; const f = P[g.from]; const t = P[g.to];
-  const a0 = (Math.atan2(f[1] - v[1], f[0] - v[0]) * 180) / Math.PI; let a1 = (Math.atan2(t[1] - v[1], t[0] - v[0]) * 180) / Math.PI;
-  while (a1 <= a0) a1 += 360;
-  return { a0, a1, deg: a1 - a0 };
-}
+// the layout of a geo drawing's words (where each side's, angle's and point's label goes) is components/geoLayout.js,
+// which the tests read too
+export { geoSquare, geoSweep };
 
 function Geo({ fig }) {
-  const [W, H] = fig.view || [300, 200];
-  const [padX, padY] = Array.isArray(fig.pad) ? fig.pad : [fig.pad ?? 30, fig.pad ?? 30];
   const P = fig.pts;
+  const L = geoLayout(fig);
+  const { W, H, X } = L;
   const at = (k) => (Array.isArray(k) ? k : P[k]);
   const sqs = (fig.squares || []).map((q) => ({ ...q, c: geoSquare(P[q.a], P[q.b], q.away ? P[q.away] : null) }));
   const segs = (fig.segs || []).map((sg) => ({ ...sg, e: segEnds(P, sg) }));
-  // stage 2: the grid's corners, each circle's box and points along each arc are fitted in too
+  const s = L.scale;
+  // stage 2: circles and arcs (their centre a point's name or [x, y]); geoLayout fits them and the grid into the box
   const circles = (fig.circles || []).map((c) => ({ ...c, o: at(c.c) }));
   const arcs = (fig.arcs || []).map((a) => ({ ...a, o: at(a.c) }));
-  const arcPts = (a) => Array.from({ length: 13 }, (_, i) => { const d = rad(a.from + ((a.to - a.from) * i) / 12); return [a.o[0] + a.r * Math.cos(d), a.o[1] + a.r * Math.sin(d)]; });
-  const all = [...Object.values(P), ...sqs.flatMap((q) => q.c), ...segs.flatMap((sg) => sg.e), ...(fig.words || []).filter((w) => Array.isArray(w.at)).map((w) => w.at), ...(fig.moves || []).flatMap((mv) => [mv.from, mv.to]),
-    ...(fig.grid ? [[fig.grid[0], fig.grid[1]], [fig.grid[2], fig.grid[3]]] : []),
-    ...circles.flatMap((c) => [[c.o[0] - c.r, c.o[1] - c.r], [c.o[0] + c.r, c.o[1] + c.r]]), ...arcs.flatMap(arcPts)];
-  const xs = all.map((p) => p[0]); const ys = all.map((p) => p[1]);
-  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-  const s = Math.min((W - 2 * padX) / Math.max(x1 - x0, 1e-9), (H - 2 * padY) / Math.max(y1 - y0, 1e-9));
-  const ox = (W - (x1 - x0) * s) / 2 - x0 * s; const oy = (H + (y1 - y0) * s) / 2 + y0 * s;
-  const X = (p) => [ox + p[0] * s, oy - p[1] * s];
-  const named = Object.keys(P).filter((k) => !k.startsWith('_') && !(fig.hide || []).includes(k));
-  // labels go out, away from the middle of the shape (the filled shape when there is one, else all the points)
-  const core = fig.polys?.length ? fig.polys.flatMap((pg) => pg.pts.map((k) => P[k])) : Object.values(P);
-  const centre = X([core.reduce((a, p) => a + p[0], 0) / core.length, core.reduce((a, p) => a + p[1], 0) / core.length]);
   const textCls = (t, target) => (WORD.test(t) ? 'fg-word' : /^[a-z]$/.test(t) ? 'fg-side fg-math' : t === '?' || target ? 'fg-side target' : 'fg-side');
   const uid = useId().replace(/[^\w-]/g, '');
   const markerId = `geo-arrow-${uid}`;
@@ -541,20 +585,15 @@ function Geo({ fig }) {
         const [p, q] = sg.e.map(X);
         const cls = clsx('fg-ray', sg.dash && 'dashed', sg.thin && 'thin', sg.hi && 'hi');
         const A = X(P[sg.a]); const B = X(P[sg.b]); const t = sg.t ?? 0.5; const mid = [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
-        const [ux, uy] = unitDir(A, B); let nx = -uy; let ny = ux;
-        // a label goes on the side away from the middle of the figure, or inside with side: 'in'
-        if ((mid[0] - centre[0]) * nx + (mid[1] - centre[1]) * ny < 0) { nx = -nx; ny = -ny; }
-        if (sg.side === 'in') { nx = -nx; ny = -ny; }
-        // far enough out that the whole label clears the line: half its width across, half its height up
-        const half = sg.label ? labelSize(sg.label) : [0, 0];
-        const off = (sg.off ?? 7) + Math.abs(nx) * half[0] + Math.abs(ny) * half[1];
+        const [ux, uy] = unitDir(A, B); const nx = -uy; const ny = ux;
+        const lab = L.sides[i];
         const ticks = Array.from({ length: sg.ticks || 0 }, (_, k) => { const t = (k - ((sg.ticks || 0) - 1) / 2) * 5; const c = [mid[0] + ux * t, mid[1] + uy * t]; return <line key={`t${k}`} x1={c[0] - nx * 6} y1={c[1] - ny * 6} x2={c[0] + nx * 6} y2={c[1] + ny * 6} className="fg-ray" />; });
         const arrows = Array.from({ length: sg.arrows || 0 }, (_, k) => { const c = [p[0] + (q[0] - p[0]) * 0.82 + ux * k * 7, p[1] + (q[1] - p[1]) * 0.82 + uy * k * 7]; return <path key={`a${k}`} d={`M ${c[0] - ux * 7 + nx * 5} ${c[1] - uy * 7 + ny * 5} L ${c[0]} ${c[1]} L ${c[0] - ux * 7 - nx * 5} ${c[1] - uy * 7 - ny * 5}`} className="fg-par" />; });
         return (
           <g key={`s${i}`}>
             <line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} className={cls} />
             {ticks}{arrows}
-            {sg.label && <text x={mid[0] + nx * off} y={mid[1] + ny * off + 6} textAnchor="middle" className={textCls(sg.label)} direction={WORD.test(sg.label) ? 'rtl' : undefined}>{geoLabel(sg.label)}</text>}
+            {lab && <text x={lab.c[0]} y={lab.c[1] + 6} textAnchor="middle" className={textCls(sg.label)} direction={WORD.test(sg.label) ? 'rtl' : undefined}>{geoLabel(sg.label)}</text>}
           </g>
         );
       })}
@@ -564,25 +603,22 @@ function Geo({ fig }) {
           const u1 = unitDir(v, X(P[g.from])); const u2 = unitDir(v, X(P[g.to])); const k = 13;
           return <polyline key={`g${i}`} points={`${v[0] + u1[0] * k},${v[1] + u1[1] * k} ${v[0] + (u1[0] + u2[0]) * k},${v[1] + (u1[1] + u2[1]) * k} ${v[0] + u2[0] * k},${v[1] + u2[1] * k}`} className="fg-ray thin" />;
         }
-        const { a0, a1, deg } = geoSweep(P, g);
-        const rr = g.r ?? 24;
-        // a narrow angle has its label further out, clear of its two arms, and so does a long one (an expression, 3x − 10°)
-        const lr = rr + (deg < 40 ? 30 : deg < 60 ? 22 : 16) + Math.max(0, String(g.text || '').length - 4) * 3;
+        const { a0, a1 } = geoSweep(P, g);
+        const rr = g.r ?? 24; const lab = L.angles[i];
         return (
           <g key={`g${i}`}>
             {/* two or three arcs mark angles that are equal to each other */}
             {Array.from({ length: Math.max(0, (g.n || 1) - 1) }, (_, k) => <path key={k} d={arcPath(v[0], v[1], rr - 5 * (k + 1), a0, a1)} className={g.target ? 'fg-arc target' : 'fg-arc'} />)}
-            {/* lt: where along the arc the number sits (a whole angle split by a ray puts it inside one of its parts) */}
-            <AngleMark cx={v[0]} cy={v[1]} a0={a0} a1={a1} text={geoLabel(g.text || '')} target={g.target} rr={rr} lr={lr} lt={g.lt} />
+            <path d={arcPath(v[0], v[1], rr, a0, a1)} className={g.target ? 'fg-arc target' : 'fg-arc'} />
+            {/* the number on the angle's bisector past its arc, or where g.lt says along the arc (a whole angle split by a ray
+                puts it inside one of its parts); moved when it would sit on a letter, a label or a line (geoLayout.js) */}
+            {lab && <text x={lab.c[0]} y={lab.c[1] + 5} textAnchor="middle" className={g.target ? 'fg-angle target' : 'fg-angle'}>{geoLabel(g.text)}</text>}
           </g>
         );
       })}
       {(fig.moves || []).map((mv, i) => { const [p, q] = [X(mv.from), X(mv.to)]; return <line key={`m${i}`} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} className="fg-move" markerEnd={`url(#${markerId})`} />; })}
       {(fig.dots || []).map((k) => { const p = X(P[k]); return <circle key={`d${k}`} cx={p[0]} cy={p[1]} r="3.5" className="fg-vertex" />; })}
-      {named.map((k) => {
-        const p = X(P[k]); const [dx, dy] = fig.lab?.[k] || (() => { const u = unitDir(centre, p); return Math.hypot(p[0] - centre[0], p[1] - centre[1]) < 1 ? [0, -16] : [u[0] * 16, u[1] * 16]; })();
-        return <text key={`l${k}`} x={p[0] + dx} y={p[1] + dy + 6} textAnchor="middle" className="fg-pt-label" style={{ fontFamily: MATH_FONT }}>{k}</text>;
-      })}
+      {Object.entries(L.letters).map(([k, b]) => <text key={`l${k}`} x={b.c[0]} y={b.c[1] + 6} textAnchor="middle" className="fg-pt-label" style={{ fontFamily: MATH_FONT }}>{k}</text>)}
       {(fig.words || []).map((w, i) => { const p = X(at(w.at)); return <text key={`w${i}`} x={p[0] + (w.dx || 0)} y={p[1] + (w.dy || 0)} textAnchor={w.anchor || 'middle'} className={textCls(w.text)} direction={WORD.test(w.text) ? 'rtl' : undefined}>{w.text}</text>; })}
     </svg>
   );
@@ -1073,6 +1109,32 @@ function Groups({ fig }) {
   );
 }
 
+/** A proof as a still table (GEOM-3.9): נתון and צ״ל, then טענה | נימוק; the asked row's reason is "?", the row `hl` is shaded. */
+function ProofFig({ fig }) {
+  return (
+    <div className="fg-proof">
+      {(fig.given || fig.goal) && (
+        <div className="mp-proof-head">
+          {fig.given && <p><b>נתון:</b> <MathText text={fig.given} /></p>}
+          {fig.goal && <p><b>צ״ל:</b> <MathText text={fig.goal} /></p>}
+        </div>
+      )}
+      <table className="fg-proof-table">
+        <thead><tr><th scope="col" className="n"><span className="visually-hidden">שורה</span></th><th scope="col">טענה</th><th scope="col">נימוק</th></tr></thead>
+        <tbody>
+          {fig.rows.map((r, i) => (
+            <tr key={i} className={i === fig.ask ? 'ask' : i === fig.hl ? 'hl' : undefined}>
+              <td className="n">{i + 1}</td>
+              <td><MathText text={r.claim} /></td>
+              <td>{i === fig.ask ? <span className="fg-proof-ask" aria-label="סימן שאלה: מה הנימוק?">?</span> : <MathText text={r.reason} />}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- functions and motion (FUNC-1)
 /**
  * A Catmull-Rom curve through points (drawing units), as cubic Béziers. Each piece's two control points are kept
@@ -1308,7 +1370,7 @@ function Pair({ fig }) {
 /** One numline type: a line cut into parts (den) is the fraction lane's PartsLine, any other the teaching NumLine. */
 const NumberLine = ({ fig }) => (fig.den ? <PartsLine fig={fig} /> : <NumLine fig={fig} />);
 
-const DRAW = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph, protractor: ProtractorFigure, clock: Clock, chart: Chart, outcomes: Outcomes, pair: Pair, netfig: NetFig, solid: SolidFig };
+const DRAW = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph, protractor: ProtractorFigure, clock: Clock, chart: Chart, outcomes: Outcomes, pair: Pair, netfig: NetFig, solid: SolidFig, proof: ProofFig };
 /** Every figure type this component draws (learn/visuals.test.ts counts a step's figure only when it is one of them). */
 export const FIG_TYPES = Object.keys(DRAW);
 /**

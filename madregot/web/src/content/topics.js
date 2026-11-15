@@ -30,9 +30,9 @@ export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
 // ---------------------------------------------------------------- the exercise generators, loaded per topic
 // The first load carries the topics' names, colours, stairs and misconception names (topics.gen.js), not their
 // generators: each stair's gen (and any other function a topic has) loads with the topic, one dynamic import per topic
-// file, so the build makes one file per topic file. grade7.js holds signed, coord and angles (and imports the expr, area,
-// solid, eq, data and frac files and signed's sixth stair), grade8.js pyth and stats (and imports linear, sys, ratio,
-// pct, func, circle, space, prob and stats' stairs 6-8 in stats2.js). A topic with no case here loads its grade's file, which holds every topic
+// file, so the build makes one file per topic file. grade7.js holds signed, coord and angles (and imports the transf,
+// expr, area, solid, eq, data and frac files and signed's sixth stair), grade8.js pyth and stats (and imports linear,
+// sys, ratio, pct, func, circle, congr, sim, space, prob and stats' stairs 6-8 in stats2.js). A topic with no case here loads its grade's file, which holds every topic
 // of the grade: correct, only larger. A topic in a file of its own adds its case (scripts/gen-content-meta.mjs
 // regenerates topics.gen.js from the grade lists).
 // learn/content/index.ts ensureTopics waits for a topic's generators together with its teaching, so a lesson, a check,
@@ -55,6 +55,11 @@ function importGens(topic) {
     case 'solid': return import('./solid.js').then((m) => [m.SOLID]);
     case 'circle': return import('./circle.js').then((m) => [m.CIRCLE]);
     case 'space': return import('./space.js').then((m) => [m.SPACE]);
+    // stage 4's geometry units: each topic file puts its generators (transf.gen.js, congr.gen.js, sim.gen.js; the last
+    // two with the proof templates, proofs.js) on its stairs
+    case 'transf': return import('./transf.js').then((m) => [m.TRANSF]);
+    case 'congr': return import('./congr.js').then((m) => [m.CONGR]);
+    case 'sim': return import('./sim.js').then((m) => [m.SIM]);
     default: return TOPIC[topic]?.grade === '8' ? import('./grade8.js').then((m) => m.GRADE8) : import('./grade7.js').then((m) => m.GRADE7);
   }
 }

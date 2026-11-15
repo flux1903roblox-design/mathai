@@ -36,7 +36,8 @@ export default function NumberLine({ m, value, onChange, locked, reveal, good, a
   const valueTex = !den ? minus(value) : asFrac ? partsTex(partsOf(value, parts), parts) : decText(value);
   const jumpLabel = !den ? `${jump > 0 ? '+' : ''}${minus(jump)}` : asFrac ? partsTex(partsOf(jump, parts), parts) : `${jump > 0 ? '+' : ''}${decText(jump)}`;
   const answerLabel = !den ? minus(answer) : asFrac ? partsTex(partsOf(answer, parts), parts) : decText(answer);
-  const cold = !den || min < 0; // the frost and fire are for signed numbers; a cut line from 0 has a plain ground
+  // the frost and fire are for signed numbers; a cut line from 0, or a line of lengths (`plain`), has a plain ground
+  const cold = !m.plain && (!den || min < 0);
   const hidden = test && !!den; // a cut line in a check shows no value
   const valuetext = den
     ? (hidden ? ticksWords(m, value, from) : `${lineNum(m, value)}, ${ticksWords(m, value, from)}`)

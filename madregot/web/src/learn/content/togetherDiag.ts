@@ -114,6 +114,91 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { c: [5, 2, 3], N: 10, j: 1, k: 3 } }, // red of 5, 2, 3: each colour a third 1/3; red against the rest 2/8
     { bugs: { equiprob: 1 / 6, 'part-part': 150 / 450 } }, // the fair die's 1/6; 150 against the other 450
   ],
+  // curriculum stage 4's transformations (learn/content/transf.ts)
+  'transf:1': [
+    // P(−3, 2) moved 4 right and 5 down, the y of P′: the other way 7, the shifts swapped 6, along x only 2
+    { model: 'transfer', p: { p1: -3, p2: 2, dx: 4, dy: -5, ask: 'y' } },
+    // A(1, 1) → A′(4, −1), so B(−2, 3) → the x of B′: the other way −5, the shifts swapped −4, along y only −2
+    { model: 'diag', p: { a1: 1, a2: 1, dx: 3, dy: -2, c1: -2, c2: 3, ask: 'x' } },
+  ],
+  'transf:2': [
+    // C(−2, −5) in the x-axis, the y of C′: in the other axis y stays −5 (the model's line y = k needs k ≠ 0: in the
+    // axis itself "the axis, not the line" is the answer, and both signs changed gives the same y, 5)
+    { bugs: { 'wrong-axis': -5 } },
+    // D(5, 2) in the line x = 3, the x of D′: in the y-axis instead −5, in the other direction x stays 5
+    { model: 'diag', p: { t: 0, k: 3, a: 5, b: 2 } },
+  ],
+  'transf:3': [
+    // P(−3, 1) a half turn about O(1, 2), the x of P′: about the origin 3, reflected through O (x kept) −3
+    { model: 'diag', p: { c1: 1, c2: 2, a1: -3, a2: 1, ask: 'x' } },
+    // Q(2, 3) a quarter turn clockwise about the origin is (3, −2), the y of Q′: swapped with no sign (3, 2) and turned
+    // the other way (−3, 2) both give 2; reflected in an axis instead (2, −3) or (−2, 3) gives −3 or 3
+    { bugs: { 'rot-swap': 2, 'turn-direction': 2, 'reflect-not-turn': [-3, 3] } },
+  ],
+  'transf:4': [
+    // two right triangles 3, 4, 5 glued along the hypotenuse make a 3 by 4 rectangle, 14: both perimeters added, 24
+    { bugs: { 'double-perimeter': 24 } },
+    // the fourth tile at a point with two squares and an equilateral triangle, 120°: no misconception of the stair
+    // shows on an angle
+    { bugs: {} },
+  ],
+  // curriculum stage 4's congruent triangles (learn/content/congr.ts)
+  'congr:1': [
+    // DEF ≅ RPQ, ∢E = 80°, ∢F = 40°, ∢R: R, last of P, Q, R, paired with F gives 40; only 80 taken from 180 gives 100
+    { bugs: { 'alpha-order': 40, 'one-angle': 100 } },
+    // ABC ≅ NML, BC = 3x − 4: BC taken equal to NM (the alphabet's pair), 3x − 4 = 8 gives 4
+    { bugs: { 'alpha-order': 4 } },
+  ],
+  'congr:2': [
+    // ∢F after ז.צ.ז: F matches C, so the alphabet's order cannot show on this one; only 50 taken from 180 gives 130
+    { bugs: { 'one-angle': 130 } },
+    // AB = QR, BC = RP, CA = PQ: R, last of P, Q, R, paired with C gives 95; only 35 taken from 180 gives 145
+    { bugs: { 'alpha-order': 95, 'one-angle': 145 } },
+  ],
+  'congr:3': [
+    // the perpendicular to the middle, ∢CAD = 62°: one triangle's angle only 28, only 62 taken from 180 gives 118
+    { model: 'diag', p: { T: 'K5', a: 62, c: 0 } },
+    // the crossing segments, (2x + 10)° = 50°: ∢ACM taken equal to ∢MBD, 70°, gives 30
+    { model: 'diag', p: { T: 'K2', f: 'x', th: 50, ph: 70, p: 2, q: 10, x: 20 } },
+  ],
+  'congr:4': [
+    // the rectangle 8 by 6, the area of ABE (12): the whole BC as the base gives 24
+    { bugs: { 'full-base': 24 } },
+    // the height from the area 15 of ADC on BC = 12 (5): BC as the base gives 2.5, the median 13 taken for the height
+    { model: 'diag', p: { f: 'h', b: 12, h: 5, t: 12, m: 13, S: 15 } },
+  ],
+  'congr:5': [
+    // sides 7 and 3 (5 lengths): both ends counted gives 7, only "shorter than the sum" (1 to 9) gives 9
+    { model: 'diag', p: { a: 7, b: 3 } },
+    // the isosceles triangle with sides 6 and 14 (34): legs of 6, which do not meet over 14, give 6 + 6 + 14 = 26
+    { bugs: { 'ignore-inequality': 26 } },
+  ],
+  // curriculum stage 4's isosceles triangles and similarity (learn/content/sim.ts)
+  'sim:1': [
+    // ∢B = ∢C, AB = 2x + 5, AC = 4x − 3, BC = 3x − 1 (13): AB set equal to BC gives x = 6 and 17; x = 4 left as it is
+    { model: 'diag', p: { x: 4, p: 2, q: 5, r: 4, s: -3, t: 3, u: -1 } },
+    // the height from AB = AC = 10 over BC = 12 (8): the whole base gives √(100 − 144), no number; no other mistake of the
+    // stair gives a number here
+    { bugs: {} },
+  ],
+  'sim:2': [
+    // 10 × 4 → 25 × ? (10): the same added gives 19, the factor turned over 1.6
+    { model: 'diag', p: { k: 2.5, p: 10, q: 4 } },
+    // 6 → 9, what 12 becomes (18): the same added gives 15, the factor turned over 8
+    { model: 'diag', p: { k: 1.5, p: 6, q: 12 } },
+  ],
+  'sim:3': [
+    // DE ∥ BC, AD = 5, DB = 10, DE = 4 (12): DB compared instead of AB gives 8, the same added 14
+    { model: 'diag', p: { a: 5, b: 10, d: 4 } },
+    // a stick 1 m with a shadow 1.5 m, a pole's shadow 6 m (4): the ratio turned over gives 0.25, the same added 5.5
+    { model: 'transfer', p: { h: 1, s: 1.5, S: 6 } },
+  ],
+  'sim:4': [
+    // k = 3 and the small area 7 (63): the area scaled like a length gives 21, the factor turned over 7/9
+    { model: 'diag', p: { k: 3, p: 1, q: 3, S: 7 } },
+    // the perimeter 24 with 6 → 9 (36): the perimeter scaled by k² gives 24 · 2.25 = 54
+    { bugs: { 'area-for-perimeter': 54 } },
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)

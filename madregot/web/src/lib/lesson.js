@@ -12,6 +12,21 @@ import { parseSkill, skillId } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from '@/learn/mastery.ts';
 import { VERIFY_NEED } from '@/learn/misconceptions.ts';
 
+/**
+ * Three short maths choices (< = >, 12, 43, ∢A) sit side by side in large type; anything longer (2x - 10) goes in the
+ * list, since three expressions in one row overflow a phone. A command that draws a sign (\sphericalangle, \triangle,
+ * \cong) is one character on the screen, and a choice that states a relation (∢A = ∢P: more than the sign itself) is
+ * never three in a row.
+ */
+export function inlineChoices(item) {
+  if (item?.choices?.length !== 3) return false;
+  return item.choices.every((c) => {
+    if (!c.tex) return false;
+    const shown = c.tex.replace(/\\[a-zA-Z]+/g, '∗').replace(/\s/g, '');
+    return shown.length <= 3 && !(shown.length > 1 && shown.includes('='));
+  });
+}
+
 // The lesson's numbers (lengths, parts, XP) live in lib/lessonRules.js, which the first screen reads without this file
 // (the boot split: the lesson's code, its items and the exercise generators load with the lesson).
 export { LESSON_LEN, REVIEW_LEN, FACTS_LEN, JUMP_LEN, JUMP_MISTAKES, PARTS, REDO_MAX, STAGE_XP, XP, COMBO_MARKS } from './lessonRules.js';

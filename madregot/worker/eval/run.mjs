@@ -5,13 +5,16 @@
 //
 //   npm run eval:estimate                    the cost estimate, nothing sent
 //   npm run eval:tutor -- --yes              the real run (needs ANTHROPIC_API_KEY; --yes is required for any real call)
-//   npm run eval:tutor -- --stub fixtures    no model, $0: hand-written references and a code judge (npm test runs it)
+//   npm run eval:tutor -- --yes --sweep      the same, plus the arms that measure the two open effort choices
+//   npm run eval:tutor -- --stub fixtures   no model, $0: hand-written references and a code judge (npm test runs it)
 //   npm run eval:tutor -- --publish <out>    copies a passing run's summary.md and results.jsonl into qa-evidence/
 //
 // What production runs, the runner runs: buildRequest (shared/ai.js) builds every request, the SDK sends it with the
 // same params, and the reply goes through the Worker's final-answer guard before the judge reads it (graders.js
 // guardReply: a chat in pieces through streamGuard, an explain through guardResult, MASK_NOTE once). The only thing
-// changed on a request is effort, and only on the sweep arms that measure the two open effort choices. A generate row
+// changed on a request is effort, and only on the sweep arms that measure the two open effort choices. The sweep is
+// asked for (--sweep): the gate never read its arms, and with one row per misconception of every unit (curriculum
+// stage 4 took the cases to 222) a run with them is above the hard stop, so a default run is the gate alone. A generate row
 // (category G) runs generateVerified (shared/ai.js), the Worker's own path: the rewrite on the paid model, the blind solve
 // on the low-cost model, and the code checks; it is graded in code only (no judge). A feedback row (category F, ai spec
 // AI-10) is read by readResult with the request's input, the server's own checks, and the judge reads the result as the
@@ -39,7 +42,7 @@ export const EFFORTS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max']);
 export const DEFAULTS = Object.freeze({
   reps: 3, shapes: SHAPES, only: null, judge: JUDGE_MODEL,
   modelFull: DEFAULT_MODEL, modelLite: LITE_MODEL, effortChat: CHAT_EFFORT, effortLite: LITE_EFFORT,
-  sweep: true, budgetUsd: 25, concurrency: 4, stub: null, out: null, yes: false,
+  sweep: false, budgetUsd: 25, concurrency: 4, stub: null, out: null, yes: false,
 });
 /** The other level of each open effort choice (AI-6): the sweep arms run it on the same rows. */
 export const SWEEP_EFFORT = 'medium';
@@ -73,7 +76,7 @@ export const USAGE = `Usage: node eval/run.mjs [options]
   --model-lite <model>     the low-cost model under test (default ${DEFAULTS.modelLite})
   --effort-chat <level>    paid chat's effort (default ${DEFAULTS.effortChat})
   --effort-lite <level>    the free taste's and economy's effort (default ${DEFAULTS.effortLite})
-  --sweep | --no-sweep     also run the open effort choices at '${SWEEP_EFFORT}' (default on)
+  --sweep | --no-sweep     also run the open effort choices at '${SWEEP_EFFORT}' (default off: not part of the gate)
   --budget-usd <n>         stop starting rows once this much is spent (default ${DEFAULTS.budgetUsd})
   --concurrency <n>        calls at a time (default ${DEFAULTS.concurrency})
   --stub fixtures|leaky    no model: the hand-written references, or a reply that leaks the answer ($0)
@@ -255,12 +258,19 @@ export function estimateRun(cases, opts = {}) {
   ].filter(Boolean);
   const sweep = e.perRep.sweepLowCost || e.perRep.sweepChat
     ? `; sweep: +${e.perRep.sweepLowCost} low-cost and +${e.perRep.sweepChat} paid-chat rows, × ${o.reps}` : '';
+  // the sweep is not in a default run: its price is said, so the choice is made with it in view
+  const swept = o.sweep ? null : estimateOnly(cases, { ...o, sweep: true });
+  const withSweep = swept && swept.rows > e.rows
+    ? [`With --sweep (the open effort choices at '${SWEEP_EFFORT}' on the same rows, not part of the gate) ≈ ${money(swept.usd)}.`] : [];
+  // an estimate above the hard stop is said before anything is sent, never found out when the run stops short
+  const over = e.usd > o.budgetUsd ? ' The estimate is above it: raise --budget-usd or narrow the run, or it stops before every row has run.' : '';
   const width = Math.max(...e.calls.map((c) => `${c.model} (${c.role}):`.length), 10);
   const text = [
     `Rows: ${e.perRep.full} paid + ${e.perRep.lowCost} low-cost${e.perRep.generate ? ` + ${e.perRep.generate} generate pipelines` : ''}, × ${o.reps} repetition${o.reps > 1 ? 's' : ''}${sweep}.`,
     ...e.calls.map((c) => `${`${c.model} (${c.role}):`.padEnd(width)} ${String(c.n).padStart(4)} calls × ~${perCall(c.each)} ≈ ${money(c.n * c.each)}`),
-    `Expected ≈ ${money(e.usd)} (range ${money(e.usd * 0.7)}-${money(e.usd * 1.4)}). Hard stop at --budget-usd ${o.budgetUsd}.`,
+    `Expected ≈ ${money(e.usd)} (range ${money(e.usd * 0.7)}-${money(e.usd * 1.4)}). Hard stop at --budget-usd ${o.budgetUsd}.${over}`,
     ...(quick.length ? [`Quick options: ${quick.join(' · ')}`] : []),
+    ...withSweep,
   ].join('\n');
   return { usd: e.usd, low: e.usd * 0.7, high: e.usd * 1.4, rows: e.rows, calls: e.calls, text };
 }

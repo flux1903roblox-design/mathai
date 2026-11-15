@@ -1406,6 +1406,20 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await expect(s.getByLabel('כותרת')).toHaveValue('נתונים ושכיחות: דיאגרמות וטבלת שכיחויות');
   });
 
+  // this school year (תשפ״ז) ח׳ also learns the ז׳ transformations unit (8.5, November): a ח׳ teacher can assign it, and
+  // the list is in the class's school order, after percent and this year's data unit (learn/skills.ts ALSO_ON_PATH)
+  test('a ח׳ class: the stairs to assign include the transformations, after percent', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher?tab=work', keyTeacher({ grade: '8', className: 'ח׳2' }));
+    await page.getByRole('button', { name: 'משימה חדשה' }).first().click();
+    const s = sheet(page, 'משימה לכיתה ח׳2');
+    const select = s.getByLabel('איזו מדרגה?');
+    const groups = await select.locator('optgroup').evaluateAll((els) => els.map((g) => g.label));
+    expect(groups.slice(0, 6)).toEqual(['יחס וקנה מידה', 'אחוזים', 'נתונים ושכיחות', 'טרנספורמציות', 'מבוא לפונקציות', 'פונקציה קווית']);
+    await select.selectOption('transf:3');
+    await expect(s.getByLabel('כותרת')).toHaveValue('טרנספורמציות: סיבוב');
+  });
+
   test('a week from a Saturday is a Saturday: the sheet says the date moves to Sunday, as the server does', async ({ page }) => {
     const { log } = await fakeServer(page, { today: '2026-11-07' }, baseOf());
     await open(page, '#/teacher?tab=work', keyTeacher(), { at: new Date('2026-11-07T10:00:00') });

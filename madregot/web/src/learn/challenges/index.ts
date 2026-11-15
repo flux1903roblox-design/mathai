@@ -1,5 +1,6 @@
 // The challenge track (אתגר, curriculum stage 1, CURRICULUM-6): every task, by id and by the stair it follows, and what
-// a student has open and done. A topic's tasks live in their own file (learn/challenges/<topic>.ts).
+// a student has open and done. A topic's tasks live in their own file (learn/challenges/<topic>.ts); the first load
+// carries only their meta (meta.gen.ts, written by scripts/gen-content-meta.mjs), and the challenge screen loads all.ts.
 // A task is open once its `after` stair is mastered (a passed mastery check; a review due later does not close it), and
 // a task already solved stays open. The screen at /challenge/:id never blocks: the places that link to it do the gating.
 import type { ChallengeMeta, ChallengeRecord, SkillId, SkillRecord, TopicId } from '../types';
@@ -10,9 +11,10 @@ import { CHALLENGE_META } from './meta.gen';
  * Every task, in the order of the topics (TOPIC_ORDER), each topic's tasks in their own order. Stage 1 had 36: three
  * per topic, one claim, one error or proof and one real-world (literacy) task each; later stages add their own (the
  * functions unit's three, stage5.md FUNC-7; curriculum stage 3's data and probability, three each; stage 2's areas and
- * perimeters, boxes and prisms, the circle with the cylinder and the cone, and Pythagoras in space, three each). Only
- * what every screen reads is here (id, topic, stair, kind, title, minutes, misconception): the stories and parts load with the
- * challenge screen (all.ts), so the first load does not carry them.
+ * perimeters, boxes and prisms, the circle with the cylinder and the cone, and Pythagoras in space, three each; the
+ * geometry units' nine, stage4.md GEOM-7). Only what every screen reads is here (id, topic, stair, kind, title,
+ * minutes, misconception): the stories and parts load with the challenge screen (all.ts), so the first load does not
+ * carry them.
  */
 export const CHALLENGES: ChallengeMeta[] = [...CHALLENGE_META].sort((a, b) => TOPIC_ORDER.indexOf(a.topic) - TOPIC_ORDER.indexOf(b.topic));
 const BY_ID: Record<string, ChallengeMeta> = Object.fromEntries(CHALLENGES.map((t) => [t.id, t]));

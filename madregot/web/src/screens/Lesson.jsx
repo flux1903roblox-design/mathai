@@ -15,7 +15,7 @@ import { FACTS } from '@/content/frac.js';
 import { piRow } from '@/content/util.js';
 // a right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake
 import { PARTIAL } from '@/content/partial.js';
-import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
+import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN, inlineChoices } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { buildTutorContext } from '@/lib/tutorContext.js';
@@ -107,11 +107,6 @@ const CHAT_INTRO = {
 /** An exercise still being solved: no answer yet, or after a first miss (the tutor withholds the answer there). */
 const openExercise = (s) => s?.phase === 'answer' || s?.phase === 'retry';
 const chatIntro = (s) => (s?.phase === 'retry' ? CHAT_INTRO.retry : openExercise(s) ? CHAT_INTRO.open : CHAT_INTRO.shown);
-/**
- * Three short maths choices (< = >, 12, 43) sit side by side in large type; anything longer (2x - 10) goes in the list,
- * since three expressions in one row overflow a phone.
- */
-const inlineChoices = (item) => item.choices.length === 3 && item.choices.every((c) => c.tex && c.tex.replace(/\s|\\[a-z]+/g, '').length <= 3);
 /** Choices that are drawings (four nets of a cube): two by two, each drawing as wide as a phone allows. */
 const figChoices = (item) => item.choices.length > 1 && item.choices.every((c) => c.fig);
 
@@ -171,6 +166,9 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
 }
 
 /** The class exam a route runs (/class/exam/:id/run), or null. */
+/** An answer written for plain text (A′(2, 0)) as TeX: the prime sign as TeX's own prime, a raised stroke after the letter. */
+const primeTex = (t) => String(t).replace(/′/g, "'");
+
 const classExamOf = (pathname) => pathname.match(/^\/class\/exam\/([a-f0-9]{16})\/run$/)?.[1] || null;
 
 /** Which lesson a route asks for: /lesson/:topic/:level?kind=&part= or the older /practice/:topic?level= */
@@ -308,6 +306,9 @@ export default function Lesson() {
   // exercise starts from its own starting state even before the reset effect runs (the shapes differ by kind).
   const mkey = item ? `${item.key}:${s.slot}` : null;
   const [mvs, setMvs] = useState({ key: null, v: null, touched: false });
+  // QA hooks only: the exercise on screen drawn as a check draws it (__madregotAsCheck), for an object whose items are
+  // all practice only (the transform object) and so never reach a check; keyed to the exercise, so the next is normal
+  const [qaCheck, setQaCheck] = useState(null);
   const isManip = item?.form === 'manip';
   const mv = isManip ? (mvs.key === mkey ? mvs.v : item.manip.start ?? null) : null;
   const touched = isManip && mvs.key === mkey && mvs.touched;
@@ -338,6 +339,7 @@ export default function Lesson() {
       setMvs({ key: mkey, v: ok ? manipSolution(item) : manipWrong(item), touched: true }); setStruck(false);
       return true;
     };
+    window.__madregotAsCheck = (on = true) => { setQaCheck(on ? mkey : null); return item?.form === 'manip'; };
     const root = document.documentElement;
     try { root.setAttribute('data-qa-item', JSON.stringify(item ?? null)); } catch { /* not serialisable */ }
     return () => root.removeAttribute('data-qa-item');
@@ -673,7 +675,7 @@ export default function Lesson() {
             )}
           </div>
         )}
-        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind)} firstTry={readoutHidden} />}
+        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind) || (!!qaCheck && qaCheck === mkey)} checked={feedback === 'retry'} firstTry={readoutHidden} />}
         {item.form === 'mc' && (
           <div className={clsx('choices', inlineChoices(item) && 'inline', figChoices(item) && 'figs')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
             {item.choices.map((c, i) => {
@@ -742,7 +744,7 @@ export default function Lesson() {
               {folded && (
                 <div className="fb-body">
                   {feedback === 'retry' && last?.readout && <p className="readout-line">{readoutLine(item)}</p>}
-                  {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>}
+                  {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={primeTex(answerText(item))} />}</p>}
                   <button type="button" className="link-btn" onClick={() => setFbOpen(fbToken)} aria-expanded="false">{feedback === 'retry' ? 'רמז' : 'הפתרון'}</button>
                 </div>
               )}
@@ -764,7 +766,7 @@ export default function Lesson() {
               )}
               {feedback === 'reveal' && !folded && (
                 <div className="fb-body">
-                  <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>
+                  <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={primeTex(answerText(item))} />}</p>
                   {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}
                   {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
                   {explain.state === 'done' && <Box tone="ai" title="העוזר"><RichText>{explain.text}</RichText></Box>}

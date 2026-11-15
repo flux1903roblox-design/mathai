@@ -189,13 +189,15 @@ describe('the budget as configured', () => {
     // angleItems and angles67; stage 2's measurement topics area, solid, circle and space, their objects' rules grid, net
     // and roll, and the note on a right value in another form, partial; and, since that merge, the lesson summaries
     // only the guide page reads, content/lessons.js and lessons.gen.js); pdf.js and lib/pdfPages.js (PKG-2) load
-    // only when a PDF is chosen
+    // only when a PDF is chosen; curriculum stage 4's geometry: the topic files transf, congr and sim, their generators
+    // (transf.gen, congr.gen, sim.gen), the proof templates (proofs) and the rules of the transform and proof objects
     expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk', 'ai', 'pedagogy', 'guard', 'topicWays', 'safety', 'blocklist',
       'src/content/index.js', 'manip', 'grade7', 'grade8', 'signed6', 'src/content/expr.js', 'eq', 'frac', 'linear', 'sys', 'ratio', 'pct', 'func', 'src/content/data.js', 'src/content/prob.js', 'src/content/stats2.js', 'signed7', 'signedItems', 'angleItems', 'angles67',
       'src/content/area.js', 'src/content/solid.js', 'src/content/circle.js', 'src/content/space.js', 'src/content/grid.js', 'src/content/net.js', 'src/content/roll.js', 'src/content/partial.js',
       'src/content/lessons.js', 'src/content/lessons.gen.js',
       'src/learn/challenges/all.ts', 'lesson', 'placement', 'exam', 'items', 'seeds',
-      'pdfjs-dist', 'pdfPages']);
+      'pdfjs-dist', 'pdfPages',
+      'src/content/transf.js', 'src/content/congr.js', 'src/content/sim.js', 'transf.gen', 'congr.gen', 'sim.gen', 'proofs', 'transform', 'proof']);
     // the ratchet: FOLLOWUP-23's measured 403.3 KB + 5% (424), then the boot split's 317.2 KB + 5%; never back up
     expect(budget.bootJsGzipKB).toBeLessThanOrEqual(333);
     for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');

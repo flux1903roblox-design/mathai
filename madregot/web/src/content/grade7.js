@@ -7,6 +7,7 @@ import { SOLID } from './solid.js';
 import { EQ } from './eq.js';
 import { DATA } from './data.js';
 import { FRAC } from './frac.js';
+import { TRANSF } from './transf.js';
 import { SIGNED6_LEVEL } from './signed6.js';
 import { SIGNED7_LEVEL } from './signed7.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
@@ -545,6 +546,9 @@ export const GRADE7 = [
       'quad-missed': 'הורידו מ־$360^\\circ$ רק חלק מהזוויות הידועות (גם הישרה נחשבת)',
     },
   },
+  // transformations (stage 4, GEOM-4), November and December: content/transf.js, its generators in transf.gen.js; violet
+  // between the angles' petrol and the expressions' cobalt
+  TRANSF,
   EXPR,
   // areas and perimeters (stage 2, MEASURE-2): school order by first month, December beside expressions, before March's
   // equations; fuchsia between expr's cobalt and solid's petrol

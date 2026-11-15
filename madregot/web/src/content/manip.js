@@ -38,6 +38,11 @@
 //               rules in content/net.js
 //   circle      a circle (stage 4): show circumference { r, t } or area { r, n }; answer { mode: 'r' | 'unrolled' |
 //               'sectors', … }; rules in content/roll.js
+//   transform   a copy of a shape moved, flipped and turned on the grid: the copy's vertices [[x, y], …] in the order of
+//               the shape's names   answer: { pts, match? }; match 'labels' (default) every vertex in place, 'set' the
+//               copy covers the goal whatever its letters (GEOM-2: content/transform.js, which registers its rules here)
+//   proof       a proof in the class's table טענה | נימוק (GEOM-3): { order, reasons }, the step at each place and the
+//               chosen reason of each asked step; rules in content/proof.js
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -447,22 +452,30 @@ export function squaresWords(m, v) {
 }
 
 // ---------------------------------------------------------------- kinds whose rules load with their object
-// The objects of stage 2 on (the grid shapes, content/grid.js; the nets, content/net.js; the circle, content/roll.js)
-// keep their rules in their own files: each file registers them here when it loads. Every way in brings them: the
-// exercise side (content/index.js imports grid.js and net.js, which brings roll.js, so a question, a check, an exam or
-// the tutor's text always has them), the drawings (components/Figure.jsx imports grid.js, and net.js through
+// The objects of stage 2 on (the grid shapes, content/grid.js; the nets, content/net.js; the circle, content/roll.js;
+// stage 4's transform object, content/transform.js, and its proof table, content/proof.js) keep their rules in their
+// own files: each file registers them here when it loads. Every way in brings them: the exercise side
+// (content/index.js imports grid.js, net.js, which brings roll.js, transform.js and proof.js, so a question, a check,
+// an exam or the tutor's text always has them), the drawings (components/Figure.jsx imports grid.js, and net.js through
 // SolidFigs.jsx) and each object's own file. Asked for before they are here, a rule throws: a missing rule is a bug,
 // never a wrong answer. The words of the still figures those files draw (a geo drawing's stage-2 parts, 'netfig',
 // 'solid') register the same way, by figure type. (Before the exercise code moved off the first load, this file was on
 // it and asked for the late files itself, through content/late.js; a file that imports this one alone, a test, imports
 // the kind's file too.)
-const LATE_KINDS = ['polygon', 'net', 'circle'];
+const LATE_KINDS = ['polygon', 'net', 'circle', 'transform', 'proof'];
 const LATE = {};
 /** Called by a late kind's file: its correct, text, plain, solution and wrong. */
 export const registerKind = (kind, rules) => { LATE[kind] = rules; };
 /** Called by a late file: the words of a still figure of that type (before it loads, the figure says nothing). */
 export const registerFigWords = (type, fn) => { LATE[`fig:${type}`] = fn; };
 const late = (kind) => { if (!LATE[kind]) throw new Error(`${kind} rules not loaded`); return LATE[kind]; };
+// The coord figure says more in words once a late file has registered the phrases (content/transform.js: the shapes,
+// arrows, mirror and turn of the transform object's still twin, GEOM-2.8).
+const COORD_WORDS = [];
+/** More of a coord figure in words: { words(f): for its name, plain(f): for figPlain }, each a list of phrases. */
+export function registerCoordWords(w) { if (!COORD_WORDS.includes(w)) COORD_WORDS.push(w); }
+/** The registered phrases of a coord figure: 'words' (its spoken name) or 'plain' (every number, figPlain). */
+export const coordWords = (f, which) => COORD_WORDS.flatMap((w) => w[which]?.(f) || []);
 
 // ---------------------------------------------------------------- the teaching figures in words (STUDENT-8)
 // The spoken name of each drawing (components/Figure.jsx puts it in aria-label): what a sighted student sees, never
@@ -649,6 +662,8 @@ export function figWords(f) {
         meet && `הישרים נפגשים ב־(${figNum(meet[0])}, ${figNum(meet[1])})`,
         f.path?.length && 'מסלול מראשית הצירים',
         rr && `צעד של ${figNum(Math.abs(rr.run))} ${rr.run > 0 ? 'ימינה' : 'שמאלה'} ו־${figNum(Math.abs(rr.rise))} ${rr.rise >= 0 ? 'למעלה' : 'למטה'}`,
+        // more of the plane from the kinds that register it (content/transform.js: shapes, a mirror, a centre and its turn)
+        ...coordWords(f, 'words'),
         f.words?.length && `כתוב: ${f.words.map((w) => w.text).join(', ')}`].filter(Boolean).join(', ');
     }
     // a graph is read: its words give every number it draws, as the eye reads them off the grid

@@ -7,9 +7,11 @@
 // diagonal, an ant's path across a box and a party hat for Pythagoras in space, a balance for equations, two crossing
 // lines for systems, a fraction bar, a pie in eighths and a jug in tenths for the fractions floor, a walk's graph, a
 // stopwatch and a candle for functions, a tally board, a pictogram row and a ballot box for data, a wheel with its
-// pointer, a coin in the air and a table of outcomes for probability. Colours come from the unit (--c, --c-d, --c-tint)
-// through the sc-* classes. The first piece is the unit's emblem on its banner; the second and third sit beside its
-// path (Learn.jsx), so every topic has three.
+// pointer, a coin in the air and a table of outcomes for probability, a flag and its mirror image, a turned L and a
+// tiling of hexagons and triangles for transformations, twin triangles, a pair of compasses and a roof truss for
+// congruence, nested triangles, a palm tree's shadow and a tent with its axis for isosceles triangles and similarity.
+// Colours come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on
+// its banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
 
 const Thermometer = () => (
   <svg viewBox="0 0 96 110">
@@ -623,13 +625,136 @@ const OutcomeGrid = () => (
   </svg>
 );
 
+// transformations (GEOM-4): a flag and its mirror image across a dashed line (the emblem), a small L turned about a dot
+// three times with a curved arrow, and a piece of a tiling: three hexagons and the six triangles between them (HexTiling:
+// the areas unit's TileFloor is a floor of square tiles)
+const MirrorFlag = () => (
+  <svg viewBox="0 0 110 96">
+    <path d="M55 6 V90" className="sc-route" />
+    <path d="M38 84 V18" className="sc-stroke" />
+    <path d="M38 18 L14 27 L38 36 Z" className="sc-c" />
+    <path d="M72 84 V18" className="sc-stroke" />
+    <path d="M72 18 L96 27 L72 36 Z" className="sc-t sc-line" />
+    <path d="M28 86 H48 M62 86 H82" className="sc-stroke" />
+  </svg>
+);
+const TurnStar = () => {
+  // an L of three cells, turned a quarter, a half and three quarters about the dot in the middle
+  const L = 'M4 4 H22 V10 H10 V28 H4 Z';
+  return (
+    <svg viewBox="0 0 100 100">
+      {[0, 90, 180, 270].map((a, i) => <path key={a} d={L} transform={`translate(50 50) rotate(${a}) translate(2 2)`} className={i ? 'sc-t sc-line' : 'sc-c'} />)}
+      <circle cx="50" cy="50" r="4.5" className="sc-d" />
+      <path d="M78 34 A32 32 0 0 0 34 20" className="sc-stroke-gold" />
+      <path d="M42 14 L34 20 L43 25" className="sc-stroke-gold" />
+    </svg>
+  );
+};
+const HexTiling = () => {
+  // the trihexagonal tiling: hexagons with side s whose centres are 2s apart share their corners, and a triangle fills
+  // each gap between three of them
+  const s = 16; const h = (s * Math.sqrt(3)) / 2; const x0 = s + 6; const y0 = h + 6;
+  const v = ([cx, cy], k) => [cx + s * Math.cos((Math.PI / 3) * k), cy + s * Math.sin((Math.PI / 3) * k)];
+  const c1 = [x0, y0]; const c2 = [x0 + 2 * s, y0]; const c3 = [x0 + s, y0 + 2 * h];
+  const poly = (pts) => pts.map((p) => p.map((n) => Math.round(n * 10) / 10).join(',')).join(' ');
+  const hexes = [c1, c2, c3].map((c) => [0, 1, 2, 3, 4, 5].map((k) => v(c, k)));
+  const tris = [
+    [v(c1, 0), v(c1, 1), v(c2, 2)], [v(c1, 0), v(c1, 5), v(c2, 4)],
+    [v(c3, 3), v(c1, 1), v(c1, 2)], [v(c3, 0), v(c2, 2), v(c2, 1)],
+    [v(c3, 3), v(c3, 2), [v(c3, 3)[0] - s / 2, v(c3, 2)[1]]], [v(c3, 0), v(c3, 1), [v(c3, 0)[0] + s / 2, v(c3, 1)[1]]],
+  ];
+  return (
+    <svg viewBox="0 0 76 68">
+      {hexes.map((p, i) => <polygon key={i} points={poly(p)} className="sc-c sc-line" />)}
+      {tris.map((p, i) => <polygon key={`t${i}`} points={poly(p)} className="sc-t sc-line" />)}
+    </svg>
+  );
+};
+
+// congruent triangles (GEOM-5): two triangles, the second the mirror image of the first, with matching tick marks and
+// arcs (the emblem); a pair of compasses (מחוגה) copying a segment; a roof truss of congruent triangles
+const TwinTriangles = () => (
+  <svg viewBox="0 0 112 92">
+    <path d="M8 80 L48 80 L20 18 Z" className="sc-c sc-line" />
+    <path d="M104 80 L64 80 L92 18 Z" className="sc-t sc-line" />
+    {/* one tick on the bases, two on the long sides, and the same arc at the base corner of each */}
+    <path d="M28 76 V84 M84 76 V84" className="sc-stroke" />
+    <path d="M30 47 L38 45 M31 51 L39 49 M82 47 L74 45 M81 51 L73 49" className="sc-stroke" />
+    <path d="M40 80 A8 8 0 0 0 44 72" className="sc-stroke-gold" />
+    <path d="M72 80 A8 8 0 0 1 68 72" className="sc-stroke-gold" />
+  </svg>
+);
+const Dividers = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="50" cy="12" r="6" className="sc-d" />
+    <path d="M50 14 L24 82" className="sc-stroke" />
+    <path d="M50 14 L74 82" className="sc-stroke" />
+    <path d="M24 82 L22 90" className="sc-stroke-gold" />
+    <path d="M74 82 L76 88" className="sc-stroke" />
+    {/* the segment it copies, and its copy under it */}
+    <path d="M12 94 H86" className="sc-route" />
+    <circle cx="22" cy="92" r="3.5" className="sc-c" />
+    <circle cx="76" cy="92" r="3.5" className="sc-c" />
+  </svg>
+);
+const RoofTruss = () => (
+  <svg viewBox="0 0 120 80">
+    <path d="M8 70 L60 12 L112 70 Z" className="sc-w sc-line" />
+    {/* the king post and two struts cut the truss into four congruent right triangles in pairs */}
+    <path d="M60 12 V70" className="sc-stroke" />
+    <path d="M34 70 L60 41 L86 70" className="sc-stroke" />
+    <path d="M8 70 L34 70 L60 41 Z" className="sc-c" opacity="0.55" />
+    <path d="M112 70 L86 70 L60 41 Z" className="sc-c" opacity="0.55" />
+    <path d="M4 72 H116" className="sc-stroke-gold" />
+  </svg>
+);
+
+// isosceles triangles and similarity (GEOM-6): a small triangle inside a large one, sharing the top vertex, with
+// parallel bases (the emblem); a person and a palm tree with their shadows under one sun ray; an isosceles tent with
+// its dashed axis of symmetry
+const NestedTriangles = () => (
+  <svg viewBox="0 0 108 92">
+    <path d="M54 8 L100 84 L8 84 Z" className="sc-t sc-line" />
+    <path d="M54 8 L77 46 L31 46 Z" className="sc-c" />
+    {/* the two bases are parallel: one arrow mark on each */}
+    <path d="M31 46 H77" className="sc-stroke" />
+    <path d="M50 42 L55 46 L50 50" className="sc-stroke" />
+    <path d="M50 80 L55 84 L50 88" className="sc-stroke" />
+    <path d="M60 18 A12 12 0 0 1 48 18" className="sc-stroke-gold" />
+  </svg>
+);
+const PalmShadow = () => (
+  <svg viewBox="0 0 120 92">
+    <circle cx="14" cy="14" r="8" className="sc-g" />
+    {/* one sun ray past the tops of both, to the ends of their shadows */}
+    <path d="M20 18 L112 84" className="sc-route" />
+    <path d="M60 84 V40" className="sc-stroke" />
+    <path d="M60 40 C52 34 44 36 40 42 M60 40 C68 32 78 34 82 40 M60 40 C58 30 62 24 70 22" className="sc-stroke-c" />
+    <path d="M26 84 V64" className="sc-stroke" />
+    <circle cx="26" cy="60" r="4.5" className="sc-d" />
+    <path d="M26 86 H40 M60 86 H112" className="sc-stroke-gold" />
+  </svg>
+);
+const TentAxis = () => (
+  <svg viewBox="0 0 110 86">
+    <path d="M55 10 L100 78 L10 78 Z" className="sc-c sc-line" />
+    <path d="M55 40 L70 78 L40 78 Z" className="sc-d" />
+    {/* the axis of symmetry, dashed, from the top to the middle of the base */}
+    <path d="M55 4 V84" className="sc-route" />
+    <path d="M28 46 L34 49 M82 46 L76 49" className="sc-stroke-w" />
+  </svg>
+);
+
 export const SCENERY = {
   signed: [Thermometer, SeaLevel, Cloud],
   coord: [GridMap, Compass, Pin],
   angles: [Protractor, Peaks, Kite],
+  transf: [MirrorFlag, TurnStar, HexTiling],
   line: [SlopeSteps, FlagHill, Plane],
   pyth: [Squares, Ladder, Pyramid],
   stats: [BarSkyline, PieSun, Dice],
+  congr: [TwinTriangles, Dividers, RoofTruss],
+  sim: [NestedTriangles, PalmShadow, TentAxis],
   expr: [ExprTiles, XBox, Brackets],
   area: [GridL, TileFloor, FencePlot],
   solid: [BoxNet, GiftBox, CubeStack],

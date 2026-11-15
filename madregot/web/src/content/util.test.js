@@ -1,6 +1,7 @@
 // Reading answers exactly as students write them, and the shared answer rules of stage 1 (CURRICULUM-2 items 4-7):
 // mixed numbers and thousands on a computer keyboard, the `precise` rule, the fraction answer form and its
-// "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks.
+// "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks; and
+// stage 4's rule that an answer is never a number the question shows (notGuessable).
 import { describe, it, expect, afterEach } from 'vitest';
 import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, S, opMark, minusOp, undoOp, divOp, mulOp, unmark, unmarkLine, flipLine, withPiNote, piNear, piValue, afterPlain, PI_AFTER, PI_NOTE } from './util.js';
 import { holds } from '../learn/expr.ts';
@@ -9,6 +10,9 @@ import { startLesson, answer, next } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
 import { modelItem } from '../learn/items.ts';
 import * as CW from './circle.js';
+import { notGuessable } from './frac.js';
+import { ensureTopics } from '../learn/content/index.ts';
+import { SYM_SHAPES } from './transf.gen.js';
 import { loadAllGens } from './index.js';
 // the exercise generators load per topic (the boot split); this file makes questions while its tests are collected
 await loadAllGens();
@@ -320,6 +324,14 @@ describe('practice-only questions are kept out of checks', () => {
   // four nets to choose from (so1m), and how many times the volume grows (so4k, one of four numbers)
   // circle (stage 2, MEASURE-4): the circle object set to a circumference or an area (ci1m, ci2m), one sheet rolled two
   // ways (ci3m) and how many cones fill the cylinder (ci4m)
+  // transf (curriculum stage 4): the copy slid, flipped and turned (tf1c, tf2c, tf3c), which slide (tf1w), the axes of
+  // symmetry (tf2s), the least turn (tf3r), which move (tf4m), two rectangles congruent? (tf4r), tiles at a point (tf4t)
+  // congr (curriculum stage 4): the angle by the ticks (cg1t: its answer is always 180° minus both printed), which side
+  // (cg1p), which theorem (cg2w), what is missing (cg2n), the same perimeter (cg2p), the proof object (cg3f, cg3o), which
+  // row is wrong (cg3e), which segment (cg4s), a claim about the median (cg4c), can these lengths make a triangle (cg5c),
+  // which angle is the largest (cg5m); sim: how many isosceles triangles (sm1c), a theorem's converse (sm1v), the
+  // isosceles proofs (sm1p), similar shapes (sm2s), which triangle in which order (sm3w), the similarity proof (sm3o),
+  // two angles in each triangle (sm3a), the area on the grid (sm4g)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
     'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'fu1f', 'fu1p', 'fu1s', 'fu2i', 'fu2d', 'fu3w', 'fu3s', 'fu4u', 'fu4f', 'fu4n', 'eq6t', 'eq7l',
     'da1r', 'da1c', 'da1g', 'da1b', 'da1a', 'da2c', 'da3b', 'da3o', 'da4s', 'da4w',
@@ -337,7 +349,11 @@ describe('practice-only questions are kept out of checks', () => {
     'an6c',
     // stage 2's measurement units (the kinds named above)
     'ar1u', 'ar1b', 'ar2w', 'ar3m', 'ar4c', 'ar5c', 'ar5b',
-    'so1n', 'so1m', 'so2b', 'so3n', 'so4k', 'so4b', 'ci1m', 'ci2m', 'ci3m', 'ci4m', 'sp1w', 'sp2m'];
+    'so1n', 'so1m', 'so2b', 'so3n', 'so4k', 'so4b', 'ci1m', 'ci2m', 'ci3m', 'ci4m', 'sp1w', 'sp2m',
+    // curriculum stage 4's geometry units (the kinds named above)
+    'tf1c', 'tf1w', 'tf2c', 'tf2s', 'tf3c', 'tf3r', 'tf4m', 'tf4r', 'tf4t',
+    'cg1t', 'cg1p', 'cg2w', 'cg2n', 'cg2p', 'cg3f', 'cg3o', 'cg3e', 'cg4s', 'cg4c', 'cg5c', 'cg5m',
+    'sm1c', 'sm1v', 'sm1p', 'sm2s', 'sm3w', 'sm3o', 'sm3a', 'sm4g'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {
@@ -521,5 +537,87 @@ describe('circle1 asks with π per question', () => {
     expect(inv.diag(26)).toBe('d-for-r');
     expect(fwd.diag(13)).toBe('r-for-d');
     expect(fwd.diag(169)).toBe('area-for-circ');
+  });
+});
+
+describe('the answer is never shown (stage 4 §0.5, notGuessable)', () => {
+  it('an answer equal to a printed number is redrawn', () => {
+    expect(notGuessable(12, [8, 6])).toBe(true);
+    expect(notGuessable(6, [8, 6])).toBe(false);
+    expect(notGuessable(2.5, [2.5, 4])).toBe(false);
+    expect(notGuessable(-3, [3])).toBe(true); // the sign is part of the number
+    expect(notGuessable(5, [])).toBe(true);
+  });
+  it('an angle that is 180 − n, 90 − n or 360 − n of a printed n is redrawn; other answers keep that rule off', () => {
+    // ∢A = 50°, ∢B = 60°: the third angle 70° is none of 130, 120, 40, 30, 310, 300, 50, 60
+    expect(notGuessable(70, [50, 60], true)).toBe(true);
+    expect(notGuessable(130, [50, 60], true)).toBe(false); // 180 − 50
+    expect(notGuessable(30, [50, 60], true)).toBe(false); // 90 − 60
+    expect(notGuessable(310, [50, 60], true)).toBe(false); // 360 − 50
+    expect(notGuessable(60, [50, 60], true)).toBe(false); // printed
+    // a length is not an angle: 180 − 50 is a fair length
+    expect(notGuessable(130, [50, 60])).toBe(true);
+    // the critique's slip: (3x + 10)° with ∢M = 70° gave x = 20 = 90 − 70, which a 90 − n guesser types
+    expect(notGuessable(20, [3, 10, 70], true)).toBe(false);
+    expect(notGuessable(20, [2, 10, 70, 45], true)).toBe(false);
+    expect(notGuessable(30, [2, 10, 70, 45], true)).toBe(true); // (2x + 10)° = 70°: x = 30
+  });
+  it('compares to a billionth, as clean() does', () => {
+    expect(notGuessable(0.1 + 0.2, [0.3])).toBe(false);
+    expect(notGuessable(0.3001, [0.3])).toBe(true);
+  });
+});
+
+// Curriculum stage 4's review: "AB = 5x − 6 ס״מ … מה x?" had x = 6, and "(3x − 20)° … מה x?" x = 20. The models compared
+// the answer with the signed constant (−6), while the student reads the 6 after the minus sign. Over the geometry stairs'
+// questions that a check may ask (fairForCheck), the answer is none of the numbers the question or its drawing prints,
+// whatever their sign.
+describe('a geometry answer is never a number printed in its question or drawing, read without its sign', () => {
+  const seeded = (seed) => { let t = seed >>> 0; return () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; };
+  const strings = (o, out = []) => { if (o == null) return out; if (typeof o === 'string') out.push(o); else if (Array.isArray(o)) o.forEach((x) => strings(x, out)); else if (typeof o === 'object') Object.values(o).forEach((x) => strings(x, out)); return out; };
+  const shown = (it) => [it.text || '', ...strings(it.fig)].join(' ').match(/\d+(\.\d+)?/g)?.map(Number) || [];
+  for (const topic of ['transf', 'congr', 'sim']) {
+    it(`${topic}: 1,500 draws of every stair`, async () => {
+      await ensureTopics([topic]);
+      const real = Math.random; Math.random = seeded(20261112);
+      const bad = [];
+      try {
+        TOPIC[topic].levels.forEach((_, i) => {
+          for (let k = 0; k < 1500; k += 1) {
+            const it = makeItem(topic, i + 1);
+            if (!fairForCheck(it) || typeof it.answer !== 'number') continue;
+            if (shown(it).includes(Math.abs(it.answer))) bad.push(`${topic}:${i + 1} ${it.key}: ${it.text} (${it.answer})`);
+          }
+        });
+      } finally { Math.random = real; }
+      expect(bad.slice(0, 6)).toEqual([]);
+    }, 60_000);
+  }
+});
+
+// Curriculum stage 4's review: "כמה צירי סימטריה יש למשולש שווה־שוקיים?" accepted only 1, while sim:1 teaches that an
+// equilateral triangle is isosceles (it has 3); a rectangle may be a square (4). Every shape counted is named so that it
+// has one count: a class whose special case has another count is named without that case.
+describe('the axes of symmetry are counted for one shape, never for a class with a special case (transf:2)', () => {
+  // a class, the special case inside it, and the special case's count
+  const SPECIAL = [['מלבן', 'ריבוע', 4], ['מעוין', 'ריבוע', 4], ['משולש שווה־שוקיים', 'שווה־צלעות', 3], ['דלתון', 'מעוין', 2], ['מקבילית', 'מלבן', 2], ['מקבילית', 'מעוין', 2]];
+  it('a name with a special case of another count leaves that case out', () => {
+    for (const [id, sh] of Object.entries(SYM_SHAPES)) {
+      for (const [cls, special, m] of SPECIAL) {
+        if (!sh.name.startsWith(cls) || m === sh.n) continue;
+        expect(sh.name, `${id}: ${sh.name}`).toMatch(new RegExp(`שאינ(ו|ה) ${special}|ואינה ${special}`));
+      }
+    }
+  });
+});
+
+// Curriculum stage 4's review read two lines as unnatural Hebrew: "הצלע שלו פי k ארוכה" (the word order) and "איזו זווית
+// הגדולה ביותר?" (no copula). They are written "כל צלע ארוכה פי k" and "איזו זווית היא הגדולה ביותר?"; neither old
+// wording comes back in the geometry units' generators or teaching.
+describe('the geometry units\' Hebrew reads naturally', () => {
+  const sources = import.meta.glob(['./transf.gen.js', './congr.gen.js', './sim.gen.js', '../learn/content/transf.ts', '../learn/content/congr.ts', '../learn/content/sim.ts'], { query: '?raw', import: 'default', eager: true });
+  it.each([/הצלע שלו פי \S+ ארוכה/, /איזו זווית הגדולה/])('never %s', (re) => {
+    expect(Object.keys(sources)).toHaveLength(6);
+    for (const [file, text] of Object.entries(sources)) expect(re.test(text), file).toBe(false);
   });
 });

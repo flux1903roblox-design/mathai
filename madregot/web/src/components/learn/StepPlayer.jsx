@@ -4,7 +4,7 @@
 //   answer cards across the width, and one button at the bottom: "בדיקה" while there is something to check, then a
 //   result sheet that opens above it ("נכון!" in green, "כמעט" in yellow) with the explanation and מדי, and "המשך".
 // Step kinds: say, predict (a guess, then why: any choice moves on), explore (move it until it is right), rule.
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
 import { ArrowLeft, ArrowRight, Check, Lightbulb, X, Sparkles, HelpCircle } from 'lucide-react';
@@ -142,7 +142,11 @@ function Explore({ step, done, onDone, onCtl }) {
     <div className="ls-explore">
       <Prompt tag="נסו בעצמכם"><p><MathText text={step.text} /></p></Prompt>
       <Canvas display={step.display ? `${step.display}${step.manip.kind === 'numberline' ? ' = \\,?' : ''}` : null}>
-        {C ? <C m={step.manip} value={v} onChange={(x) => { setV(x); setTouched(true); if (miss > 0) setMiss(0); }} locked={ok} reveal={false} good={ok} answer={step.answer} hint={miss > 0} /> : <p className="form-error">האובייקט הזה לא זמין.</p>}
+        {C ? (
+          <Suspense fallback={<div className="manip manip-loading" aria-busy="true" />}>
+            <C m={step.manip} value={v} onChange={(x) => { setV(x); setTouched(true); if (miss > 0) setMiss(0); }} locked={ok} reveal={false} good={ok} answer={step.answer} hint={miss > 0} checked={miss > 0} />
+          </Suspense>
+        ) : <p className="form-error">האובייקט הזה לא זמין.</p>}
       </Canvas>
     </div>
   );

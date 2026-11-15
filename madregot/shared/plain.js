@@ -4,12 +4,13 @@
 //
 // Rules (PARENTS-8): `$` goes; ^\circ → °, \cdot → ·, \times → ×, \le → ≤, \ge → ≥, \ne and \neq → ≠; ^2 → ², ^3 → ³,
 // _1 → ₁, _2 → ₂; \frac{a}{b} → a/b; \sqrt{x} → √x; \lvert and \rvert → | (CLASSROOM-1, |−7|); the measurement signs
-// (MEASURE-6.3) \pi → π, \approx → ≈, \ell → ℓ; the class's angle sign \sphericalangle → ∢ (CLASSROOM-9, ∢AOB); inside
-// maths a minus right before a digit or "(" becomes the minus sign U+2212; braces go; TeX's small spaces become a space.
-// Each maths run is wrapped in U+2066 (left-to-right isolate) … U+2069 (pop) when `isolate` is true, so Hebrew around it
-// never reorders it. Anything else that still looks like a TeX command is left as it is, visible:
-// web/src/learn/report.test.ts runs every misconception title through this and fails on a "\", a "$" or a brace, so a
-// new title with TeX this cannot read is caught there.
+// (MEASURE-6.3) \pi → π, \approx → ≈, \ell → ℓ; the class's geometry signs (CLASSROOM-9, GEOM-1.4) \sphericalangle → ∢
+// (∢AOB), \triangle → △, \cong → ≅, \sim → ∼ (the bare command only: \simeq stays as it is), \parallel → ∥, \perp → ⊥,
+// and a prime (A' or A^\prime) → A′; inside maths a minus right before a digit or "(" becomes the minus sign U+2212;
+// braces go; TeX's small spaces become a space. Each maths run is wrapped in U+2066 (left-to-right isolate) … U+2069
+// (pop) when `isolate` is true, so Hebrew around it never reorders it. Anything else that still looks like a TeX command
+// is left as it is, visible: web/src/learn/report.test.ts runs every misconception title through this and fails on a
+// "\", a "$" or a brace, so a new title with TeX this cannot read is caught there.
 
 const LRI = '⁦';
 const PDI = '⁩';
@@ -40,8 +41,17 @@ function mathRun(tex) {
     .replace(/\\(?:le|leq)(?![a-zA-Z])/g, '≤')
     .replace(/\\(?:ge|geq)(?![a-zA-Z])/g, '≥')
     .replace(/\\(?:ne|neq)(?![a-zA-Z])/g, '≠')
-    // the class's angle sign hugs its letters: \sphericalangle AOB is ∢AOB (CLASSROOM-9)
+    // the class's geometry signs: an angle (it hugs its letters: \sphericalangle AOB is ∢AOB, CLASSROOM-9), a triangle,
+    // congruent, similar, parallel, perpendicular; A' is A′ (GEOM-1.4)
     .replace(/\\sphericalangle(?![a-zA-Z])\s*/g, '∢')
+    .replace(/\\triangle(?![a-zA-Z])\s*/g, '△')
+    .replace(/\\cong(?![a-zA-Z])/g, '≅')
+    .replace(/\\sim(?![a-zA-Z])/g, '∼')
+    .replace(/\\parallel(?![a-zA-Z])/g, '∥')
+    .replace(/\\perp(?![a-zA-Z])/g, '⊥')
+    .replace(/\^\s*(?:\{\s*\\prime\s*\}|\\prime(?![a-zA-Z]))/g, '′')
+    .replace(/\\prime(?![a-zA-Z])/g, '′')
+    .replace(/'/g, '′')
     .replace(/\^\s*(?:\{\s*2\s*\}|2(?!\d))/g, '²')
     .replace(/\^\s*(?:\{\s*3\s*\}|3(?!\d))/g, '³')
     .replace(/_\s*(?:\{\s*1\s*\}|1(?!\d))/g, '₁')

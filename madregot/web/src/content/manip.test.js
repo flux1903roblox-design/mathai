@@ -30,6 +30,14 @@ import { maxRectArea, polyArea, cutAreas, cutMakesRectangles, cutAt, gridControl
 import { NET_LAYOUTS, netModel, netView, netWithSlot, foldFaces, oblique, netStep, netControls, oppositeFace, closedNeighbours, netfigLabels, prismSides, CYL_N, solidLabels } from './net.js';
 import { circleStep, circleControls, SECTORS } from './roll.js';
 import * as SW from './solid.js';
+import { tfSlide, tfReflect, tfRotate, tfInside, tfOrient, tfMoves, tfImages, transformReachable } from './transform.js';
+import Transform from '@/components/manip/Transform.jsx';
+import ProofTable from '@/components/manip/ProofTable.jsx';
+import OrderPart from '@/components/challenge/OrderPart.jsx';
+import { KINDS, transformCoach, proofCoach } from '@/components/manip/Manip.jsx';
+import { PROOFS, PROOF, LETTER_SETS, R, proofManip } from './proofs.js';
+import { proofStart, proofFirstWrong, askedSteps } from './proof.js';
+import { texText } from '@/components/MathText.jsx';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
 import { loadAllGens } from './index.js';
@@ -1332,6 +1340,135 @@ describe('shapes on a grid (רשת משבצות)', () => {
   });
 });
 
+describe('a geo drawing in words (GEOM-1.5): what it marks, for the tutor and an answer key', () => {
+  // an isosceles triangle ABC (AB = AC, two ticks each), its height AH (a right angle at H), BC labelled 12, the apex
+  // angle 40° and the base angle at B asked; "_M" is a helper point drawn with no letter
+  const fig = {
+    type: 'geo', label: 'משולש שווה־שוקיים ABC והגובה AH',
+    pts: { A: [0, 5], B: [-3, 0], C: [3, 0], H: [0, 0], _M: [1.5, 2.5] },
+    segs: [{ a: 'A', b: 'B', ticks: 2 }, { a: 'A', b: 'C', ticks: 2 }, { a: 'B', b: 'C', label: '12' }, { a: 'A', b: 'H', dash: true }, { a: 'H', b: '_M', label: '' }],
+    angles: [{ at: 'A', from: 'B', to: 'C', text: '40°' }, { at: 'B', from: 'C', to: 'A', text: '?', target: true }, { at: 'H', from: 'C', to: 'A', right: true }, { at: '_M', from: 'A', to: 'H', text: 'x' }],
+  };
+  it('reads the angles with their text, the right angles, the labelled sides and the ticks, in that order', () => {
+    expect(figPlain(fig)).toBe('שרטוט: ∢A 40°, ∢B ?, ∢M x, ∢H ישרה, BC = 12, AB: 2 סימונים, AC: 2 סימונים');
+    expect(itemPlain({ form: 'num', text: 'מה גודל הזווית?', fig, answer: 70 })).toContain('[שרטוט: ∢A 40°');
+  });
+  it('a drawing that marks nothing still says it is a drawing', () => {
+    expect(figPlain({ type: 'geo', pts: { A: [0, 0], B: [1, 0] }, segs: [{ a: 'A', b: 'B' }] })).toBe('שרטוט');
+  });
+});
+
+// ---------------------------------------------------------------- the transform object (GEOM-2)
+describe('the transform object: moves on the grid (GEOM-2)', () => {
+  const tri = { pts: [[1, 1], [4, 1], [1, 3]], names: ['A', 'B', 'C'] };
+  it('slides, reflects in x, y, x = k and y = k, and turns about a centre, in exact whole numbers', () => {
+    expect(tfSlide(tri.pts, 2, -3)).toEqual([[3, -2], [6, -2], [3, 0]]);
+    expect(tfReflect([[4, 1]], { x: 2 })).toEqual([[0, 1]]); // the spec's flip in x = 2
+    expect(tfReflect([[4, 1]], 'x')).toEqual([[4, -1]]);
+    expect(tfReflect([[4, 1]], 'y')).toEqual([[-4, 1]]);
+    expect(tfReflect([[4, 1]], { y: -1 })).toEqual([[4, -3]]);
+    expect(tfRotate([[4, 0]], [0, 0], 90)).toEqual([[0, 4]]); // a quarter turn ↶ about the origin
+    expect(tfRotate([[4, 0]], [0, 0], -90)).toEqual([[0, -4]]);
+    expect(tfRotate([[4, 0]], [1, 1], 180)).toEqual([[-2, 2]]);
+    expect(tfRotate([[3, 1]], [1, 1], 90)).toEqual([[1, 3]]);
+    // never −0, so a vertex reads (0, 1) and compares equal
+    expect(Object.is(tfReflect([[0, 1]], 'y')[0][0], 0)).toBe(true);
+    // four quarter turns, or two flips in one line, bring the copy back
+    let p = tri.pts; for (let k = 0; k < 4; k += 1) p = tfRotate(p, [2, -1], 90);
+    expect(p).toEqual(tri.pts);
+    expect(tfReflect(tfReflect(tri.pts, { x: 3 }), { x: 3 })).toEqual(tri.pts);
+  });
+  it('a flip reverses the cyclic order of the letters; a slide and a turn keep it', () => {
+    const o = Math.sign(tfOrient(tri.pts));
+    expect(o).toBe(1); // A, B, C run counterclockwise
+    expect(Math.sign(tfOrient(tfReflect(tri.pts, 'y')))).toBe(-o);
+    expect(Math.sign(tfOrient(tfReflect(tri.pts, { y: 2 })))).toBe(-o);
+    expect(Math.sign(tfOrient(tfSlide(tri.pts, -5, 2)))).toBe(o);
+    expect(Math.sign(tfOrient(tfRotate(tri.pts, [0, 0], 90)))).toBe(o);
+    expect(Math.sign(tfOrient(tfRotate(tri.pts, [1, -2], 180)))).toBe(o);
+  });
+  it('a vertex off the plane is off: the test every refused move uses', () => {
+    expect(tfInside([[6, -6], [0, 0]])).toBe(true);
+    expect(tfInside([[7, 0]])).toBe(false);
+    expect(tfInside([[0, -7]], 6)).toBe(false);
+    expect(tfInside([[7, 0]], 8)).toBe(true);
+    // a flip in x = 4 of a copy slid to the left edge would leave the plane
+    expect(tfInside(tfReflect([[-5, 1], [-2, 1], [-5, 3]], { x: 4 }))).toBe(false);
+  });
+  it('transformReachable: only with the item\'s own moves, never through a vertex off the plane', () => {
+    const slide = { shape: tri, moves: { drag: true } };
+    expect(transformReachable(slide, tfSlide(tri.pts, -5, -4))).toBe(true);
+    expect(transformReachable(slide, tfReflect(tri.pts, 'y'))).toBe(false); // a slide never gives a mirror image
+    expect(transformReachable(slide, tfSlide(tri.pts, 3, 0))).toBe(false); // B would be at x = 7
+    const flip = { shape: tri, moves: { flips: ['y'] } };
+    expect(transformReachable(flip, tfReflect(tri.pts, 'y'))).toBe(true);
+    expect(transformReachable(flip, tfSlide(tfReflect(tri.pts, 'y'), 0, 1))).toBe(false); // no drag: no slide
+    const turn = { shape: tri, moves: { drag: true, turns: { centre: [0, 0], by: 90 } } };
+    expect(transformReachable(turn, tfSlide(tfRotate(tri.pts, [0, 0], -90), -1, 2))).toBe(true);
+    expect(transformReachable(turn, tfReflect(tri.pts, 'x'))).toBe(false);
+    const half = { shape: tri, moves: { turns: { centre: [3, 3], by: 180 } } };
+    expect(transformReachable(half, tfRotate(tri.pts, [3, 3], 180))).toBe(true);
+    expect(transformReachable(half, tfRotate(tri.pts, [3, 3], 90))).toBe(false);
+    // a flip in x = 4 from a copy at the left edge would cross the other edge: the copy is slid nearer the line first
+    const far = { shape: tri, start: [[-6, 0], [-3, 0], [-6, 2]], moves: { drag: true, flips: [{ x: 4 }] } };
+    const goal = tfReflect(tfSlide(far.start, 8, 0), { x: 4 });
+    expect(tfInside(tfReflect(far.start, { x: 4 }))).toBe(false);
+    expect(goal).toEqual([[6, 0], [3, 0], [6, 2]]);
+    expect(transformReachable(far, goal)).toBe(true);
+    // without drag, the same goal is out of reach: the only flip leaves the plane
+    expect(transformReachable({ ...far, moves: { flips: [{ x: 4 }] } }, goal)).toBe(false);
+    // a cover whatever the letters: a half turn of a rectangle about its middle covers it
+    const rect = { shape: { pts: [[0, 0], [4, 0], [4, 2], [0, 2]], names: ['A', 'B', 'C', 'D'] }, start: [[-5, -4], [-1, -4], [-1, -2], [-5, -2]], moves: { drag: true } };
+    expect(transformReachable(rect, [[4, 2], [0, 2], [0, 0], [4, 0]], 'set')).toBe(true);
+    expect(transformReachable(rect, [[4, 2], [0, 2], [0, 0], [4, 0]])).toBe(false);
+  });
+  it('tfMoves lists only the item\'s moves; tfImages its flips\' and turns\' images on the plane', () => {
+    expect(tfMoves({ shape: tri, moves: { drag: true, flips: ['y', { x: 2 }], turns: { centre: [0, 0], by: 90 } } }).map((mv) => mv.id))
+      .toEqual(['left', 'right', 'up', 'down', 'flip:y', 'flip:x=2', 'ccw', 'cw']);
+    expect(tfMoves({ shape: tri, moves: { turns: { centre: [1, 1], by: 180 } } }).map((mv) => mv.id)).toEqual(['half']);
+    expect(tfImages({ shape: tri, moves: { drag: true, flips: ['x'] } }, tri.pts)).toEqual([tfReflect(tri.pts, 'x')]);
+  });
+});
+
+describe('the transform object: checking and words (GEOM-2.7)', () => {
+  const tri = { pts: [[1, 1], [4, 1], [1, 3]], names: ['A', 'B', 'C'] };
+  const labels = fixture({ kind: 'transform', shape: tri, start: [[-3, -2], [0, -2], [-3, 0]], moves: { drag: true, flips: ['y'], turns: { centre: [0, 0], by: 90 } } },
+    { pts: [[1, -1], [4, -1], [1, 2]] });
+  const cover = fixture({ kind: 'transform', shape: { pts: [[-4, -4], [0, -4], [0, -2], [-4, -2]], names: ['A', 'B', 'C', 'D'] }, moves: { drag: true },
+    target: { pts: [[1, 2], [5, 2], [5, 4], [1, 4]] } }, { pts: [[5, 4], [1, 4], [1, 2], [5, 2]], match: 'set' });
+  const edge = fixture({ kind: 'transform', shape: tri, moves: { drag: true } }, { pts: [[3, 0], [6, 0], [3, 2]] });
+  it('labels: every vertex in place; set: the same vertices whatever the letters', () => {
+    solves(labels);
+    solves(cover);
+    expect(manipCorrect(labels, [[4, -1], [1, -1], [1, 2]])).toBe(false); // the right place, the letters swapped
+    expect(manipCorrect(cover, [[1, 2], [5, 2], [5, 4], [1, 4]])).toBe(true); // the cover with other letters
+    expect(manipCorrect(cover, [[1, 2], [5, 2], [5, 4], [1, 5]])).toBe(false);
+    expect(manipCorrect(labels, null)).toBe(false);
+    expect(manipCorrect(labels, [[1, -1], [4, -1]])).toBe(false);
+  });
+  it('the near miss is one step right, or one step left when right leaves the plane', () => {
+    expect(manipWrong(labels)).toEqual([[2, -1], [5, -1], [2, 2]]);
+    expect(manipWrong(edge)).toEqual([[2, 0], [5, 0], [2, 2]]);
+    expect(manipCorrect(edge, manipWrong(edge))).toBe(false);
+    expect(manipSolution(labels)).toEqual(labels.answer.pts);
+    expect(manipSolution(labels)).not.toBe(labels.answer.pts); // a copy: the lesson may hold it
+  });
+  it('in words: the copy with its letters, the setup for the tutor, no undefined', () => {
+    expect(manipText(labels, [[1, -1], [4, -1], [1, 2]])).toBe('⁦A′(1, −1), B′(4, −1), C′(1, 2)⁩');
+    expect(manipText(labels)).toBe('⁦A′(1, −1), B′(4, −1), C′(1, 2)⁩');
+    expect(manipText(cover)).toBe('העותק מכסה את ⁦(5, 4), (1, 4), (1, 2), (5, 2)⁩');
+    expect(answerText(labels)).toBe(manipText(labels));
+    expect(manipPlain(labels)).toBe('[משולש A(1, 1), B(4, 1), C(1, 3); אפשר להזיז, לשקף ביחס לציר y, לסובב רבע סיבוב סביב O(0, 0); העותק מתחיל ב־(−3, −2), (0, −2), (−3, 0)]');
+    expect(manipPlain(cover)).toBe('[מרובע A(−4, −4), B(0, −4), C(0, −2), D(−4, −2); אפשר להזיז; יעד מקווקו: (1, 2), (5, 2), (5, 4), (1, 4)]');
+    expect(manipPlain(fixture({ kind: 'transform', shape: tri, moves: { flips: [{ x: 2 }], turns: { centre: [1, -1], by: 180 } } }, { pts: tri.pts })))
+      .toBe('[משולש A(1, 1), B(4, 1), C(1, 3); אפשר לשקף ביחס לישר x = 2, לסובב חצי סיבוב סביב O(1, −1)]');
+    for (const it of [labels, cover, edge]) {
+      for (const u of [it.answer, manipSolution(it), manipWrong(it)]) expect(manipText(it, u)).not.toMatch(/undefined|NaN/);
+      expect(itemPlain({ ...it, text: 'הזיזו את העותק.' })).not.toMatch(/undefined|NaN/);
+    }
+  });
+});
+
 describe('the geo figure of stage 2: a grid, circles and arcs, parts taken away or added', () => {
   const iso = (t) => `\u2066${t}\u2069`;
   const gridFig = { type: 'geo', label: 'משולש על רשת', pts: { A: [0, 0], B: [5, 0], C: [2, 3] }, polys: [{ pts: ['A', 'B', 'C'] }], grid: [0, 0, 6, 4] };
@@ -1897,5 +2034,284 @@ describe('the solid figure: box, cube, prism, cylinder and cone, with their diag
     expect((r(figs[4]).match(/fg-solid-unit/g) || []).length).toBe((4 - 1) * 2 + (2 - 1) * 2 + (3 - 1) * 2);
     expect(r(figs[5])).toMatch(/fg-solid-cut/); expect(r(figs[7])).toMatch(/fg-solid-inside/);
     expect(r(figs[17])).toMatch(/fg-solid-axial/);
+  });
+});
+
+describe('the transform object drawn (GEOM-2.3 to 2.6)', () => {
+  beforeAll(() => loadKatex());
+  const tri = { pts: [[1, 1], [4, 1], [1, 3]], names: ['A', 'B', 'C'] };
+  const busy = { kind: 'transform', shape: tri, start: [[-4, -2], [-1, -2], [-4, 0]], moves: { drag: true, flips: ['y'], turns: { centre: [0, 0], by: 90 } }, target: { pts: [[2, -3], [5, -3], [2, -1]], names: ['K', 'L', 'M'] } };
+  const ans = { pts: [[2, -3], [5, -3], [2, -1]] };
+  const coords = /\(\s*[−-]?\d+\s*,\s*[−-]?\d+\s*\)/;
+  const buttons = (out) => [...out.matchAll(/<button[^>]*aria-label="([^"]*)"/g)].map((x) => x[1]);
+  it('in practice: the plane, the readout chips, A′ B′ C′, every mirror and O, and one button per move', () => {
+    const out = html(Transform, { m: busy, value: null, answer: ans });
+    expect(out).toMatch(/role="application"/);
+    expect(out).toMatch(/aria-roledescription="מערכת צירים"/);
+    expect(out).toMatch(/viewBox="0 0 316 316"/);
+    expect(out).toContain('A′(−4, −2)');
+    expect(out).toMatch(/aria-label="משולש ABC\. העותק: A′ ב־\(−4, −2\)/);
+    expect(out).toMatch(/class="mp-tf-mirror"/);
+    expect(out).toContain('>O<');
+    expect(out).not.toMatch(/undefined|NaN/);
+    expect(buttons(out)).toEqual(['הזיזו שמאלה', 'הזיזו למעלה', 'הזיזו למטה', 'הזיזו ימינה', 'התחלה מחדש', 'שיקוף ביחס לציר y',
+      'סיבוב של 90° נגד כיוון השעון סביב O', 'סיבוב של 90° עם כיוון השעון סביב O']);
+    // two rows at most: the arrows with התחלה מחדש, then the flips and turns
+    expect((out.match(/class="mp-tf-row/g) || []).length).toBe(2);
+    // a slide-only item has one row: no empty second row takes a gap from the plane
+    const slideOnly = html(Transform, { m: { ...busy, moves: { drag: true } }, value: null, answer: ans });
+    expect((slideOnly.match(/class="mp-tf-row/g) || []).length).toBe(1);
+  });
+  it('in a check (test): no coordinate text anywhere, the moves counted instead, and buttons only for the listed moves', () => {
+    const out = html(Transform, { m: busy, value: null, answer: ans, test: true });
+    expect(out).not.toMatch(coords);
+    expect(out).not.toMatch(/mp-tf-chip|manip-readout/);
+    expect(out).toMatch(/aria-label="משולש ABC\. העותק במקום שבו התחיל"/);
+    const onlyFlip = html(Transform, { m: { kind: 'transform', shape: tri, moves: { flips: [{ x: 2 }] } }, value: null, answer: ans, test: true });
+    expect(onlyFlip).not.toMatch(coords);
+    expect(buttons(onlyFlip)).toEqual(['שיקוף ביחס לישר x = 2', 'התחלה מחדש']);
+    expect(onlyFlip).not.toMatch(/הזיזו/);
+    expect(onlyFlip).toContain('x</tspan> = 2'); // the mirror line's equation is drawn
+  });
+  it('letters: the original\'s are hidden where the copy covers them; a shown answer is green and dashed', () => {
+    const on = html(Transform, { m: { kind: 'transform', shape: tri, moves: { drag: true } }, value: null, answer: ans });
+    expect((on.match(/mp-tf-letter orig/g) || []).length).toBe(0);
+    expect((on.match(/mp-tf-letter copy/g) || []).length).toBe(3);
+    const off = html(Transform, { m: { kind: 'transform', shape: tri, moves: { drag: true } }, value: tfSlide(tri.pts, -4, 0), answer: ans });
+    expect((off.match(/mp-tf-letter orig/g) || []).length).toBe(3);
+    const shown = html(Transform, { m: busy, value: null, answer: ans, reveal: true });
+    expect(shown).toMatch(/class="mp-tf-ghost"/);
+    const locked = html(Transform, { m: busy, value: null, answer: ans, locked: true });
+    expect((locked.match(/<button[^>]*disabled=""/g) || []).length).toBe(buttons(locked).length);
+  });
+  it('Manip draws it as KINDS.transform (loaded when needed), and מדי names the moves the item has', () => {
+    // loaded on demand (React.lazy): the first screen's bundle does not carry it
+    expect(KINDS.transform.$$typeof).toBe(Symbol.for('react.lazy'));
+    expect(transformCoach(busy, null, false, null)).toBe('גררו את העותק, או השתמשו בכפתורים: חצים מזיזים, שיקוף הופך, סיבוב מסובב.');
+    expect(transformCoach({ ...busy, moves: { flips: ['x'] } }, null, false, null)).toBe('השתמשו בכפתורים: שיקוף הופך.');
+    expect(transformCoach(busy, null, true, { move: 'flip' })).toBe('העותק הפוך עכשיו, כמו במראה: האותיות רצות בכיוון השני.');
+    expect(transformCoach(busy, null, true, { move: 'refuse', text: 'העותק ייצא מהרשת. הזיזו אותו קודם קרוב יותר לישר השיקוף.' })).toMatch(/^העותק ייצא מהרשת/);
+    expect(transformCoach(busy, tfSlide(busy.start, 4, 1), true, { move: 'slide' })).toBe('מהמקום שבו התחלתם: 4 ימינה ו־1 למעלה.');
+    expect(transformCoach(busy, tfSlide(busy.start, -2, 0), true, { move: 'slide' })).toBe('מהמקום שבו התחלתם: 2 שמאלה.');
+    expect(transformCoach(busy, tfReflect(busy.start, 'y'), true, { move: 'slide' })).toMatch(/^העותק זז\./);
+    const turned = renderToStaticMarkup(createElement('p', null, transformCoach(busy, tfRotate(busy.start, [0, 0], 90), true, { move: 'turn' })));
+    expect(turned).toContain('לא השתנה');
+  });
+});
+
+describe('the coord figure twin of the transform object (GEOM-2.8)', () => {
+  const fig = {
+    type: 'coord',
+    shapes: [{ pts: [[-4, 1], [-1, 1], [-4, 3]], names: ['A', 'B', 'C'] }, { pts: [[1, -1], [4, -1], [1, 1]], names: ['A′', 'B′', 'C′'], tone: 'alt' }, { pts: [[2, 2], [5, 2], [2, 4]], tone: 'ghost', label: 'יעד' }],
+    arrows: [{ from: [-4, 1], to: [1, -1] }],
+    mirror: { x: 2 }, centre: [1, 1], turn: 90,
+  };
+  it('draws the shapes with their letters, the arrow, the mirror and its equation, O and the turn', () => {
+    const out = renderToStaticMarkup(createElement(Figure, { fig }));
+    expect(out).toMatch(/<svg/);
+    expect(out).not.toMatch(/NaN|undefined|Infinity/);
+    expect((out.match(/class="fig-cd-shape tone-/g) || []).length).toBe(3);
+    for (const n of ['A', 'B′', 'C′']) expect(out).toContain(`>${n}<`);
+    expect(out).toContain('x = 2');
+    expect(out).toMatch(/class="fig-cd-arrow"/);
+    expect(out).toMatch(/class="fig-cd-centre"/);
+    expect(out).toContain('>O<');
+    expect((out.match(/class="arc"/g) || []).length).toBe(2); // the curved arrow and its head
+    for (const t of [-90, 180]) expect(renderToStaticMarkup(createElement(Figure, { fig: { ...fig, turn: t } }))).not.toMatch(/NaN/);
+    // the drawing's name reads its shapes by name, never where they are
+    expect(out).toMatch(/aria-label="[^"]*משולש ABC[^"]*ישר השיקוף x = 2[^"]*מרכז סיבוב O, חץ של 90° נגד כיוון השעון/);
+  });
+  it('figPlain reads every vertex, the arrow, the mirror, the centre and the turn', () => {
+    expect(figPlain(fig)).toBe('צורות: ABC (A(−4, 1), B(−1, 1), C(−4, 3)), A′B′C′ (A′(1, −1), B′(4, −1), C′(1, 1)), ((2, 2), (5, 2), (2, 4)) יעד; חץ מ־(−4, 1) ל־(1, −1); ישר שיקוף x = 2; מרכז סיבוב O(1, 1), 90° נגד כיוון השעון');
+    expect(figPlain({ type: 'coord', mirror: 'y', centre: [0, 0], turn: 180 })).toBe('ישר השיקוף: ציר y; מרכז סיבוב O(0, 0), חצי סיבוב');
+    expect(figPlain({ type: 'coord', centre: [2, -1], turn: -90 })).toBe('מרכז סיבוב O(2, −1), 90° עם כיוון השעון');
+  });
+});
+
+// ---------------------------------------------------------------- the proof object (GEOM-3)
+/** Every order of a list. */
+const perms = (a) => (a.length <= 1 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map((p) => [x, ...p])));
+const proofItem = (m) => ({ form: 'manip', manip: m, answer: manipSolution({ form: 'manip', manip: m }) });
+const proofItems = () => PROOFS.flatMap((T) => LETTER_SETS.flatMap((_, set) => [
+  proofItem(proofManip(T, { set, seed: 'a' })), proofItem(proofManip(T, { set, lockOrder: true })), proofItem(proofManip(T, { set, ask: 'theorem', seed: 'b' })),
+]));
+
+describe('the proof object: checking and words (GEOM-3.6)', () => {
+  it('for every template, its solution is right and its near miss is not; every order the free groups allow is right', () => {
+    for (const it of proofItems()) {
+      const m = it.manip; const at = `${m.tpl} set ${m.set}${m.lockOrder ? ' locked' : ''}`;
+      expect(manipCorrect(it, manipSolution(it)), at).toBe(true);
+      expect(manipCorrect(it, manipWrong(it)), at).toBe(false);
+      expect(manipCorrect(it, null), at).toBe(false);
+      expect(manipCorrect(it, proofStart(m)), `${at}: the start is not already right`).toBe(false);
+      const sol = manipSolution(it);
+      // every order the free groups allow: each group's rows in any order, in the group's own places
+      const groups = m.part.free || [];
+      let orders = [sol.order];
+      for (const g of groups) orders = orders.flatMap((o) => perms(g).map((p) => { const n = [...o]; g.forEach((place, k) => { n[place] = p[k]; }); return n; }));
+      expect(orders.length, at).toBe(groups.reduce((n, g) => n * perms(g).length, 1));
+      orders.forEach((order) => expect(manipCorrect(it, { order, reasons: sol.reasons }), `${at}: ${order}`).toBe(true));
+      // a wrong reason on any asked row is wrong, and so is a reason left out
+      askedSteps(m.part).forEach((i) => {
+        const n = m.part.steps[i].reason.choices.length;
+        for (let k = 0; k < n; k += 1) {
+          if (k === sol.reasons[i]) continue;
+          const reasons = [...sol.reasons]; reasons[i] = k;
+          expect(manipCorrect(it, { order: sol.order, reasons }), `${at} row ${i + 1} choice ${k}`).toBe(false);
+        }
+        const reasons = [...sol.reasons]; reasons[i] = null;
+        expect(manipCorrect(it, { order: sol.order, reasons }), at).toBe(false);
+      });
+      // a row moved out of its group is wrong
+      const swapped = [...sol.order]; [swapped[0], swapped[swapped.length - 1]] = [swapped[swapped.length - 1], swapped[0]];
+      expect(manipCorrect(it, { order: swapped, reasons: sol.reasons }), at).toBe(false);
+    }
+  });
+
+  it('manipText reads every row with its reason, in the order shown; manipPlain the givens, the goal and the choices', () => {
+    for (const it of proofItems()) {
+      const text = manipText(it, manipSolution(it));
+      const m = it.manip;
+      expect(text.split('; '), m.tpl).toHaveLength(m.part.steps.length);
+      expect(text).toMatch(/^1\. /);
+      expect(text).not.toMatch(/undefined|null|\$|\\[a-z]/);
+      const plain = manipPlain(it);
+      expect(plain).toMatch(/^\[הוכחה בטבלה, טענה ונימוק\. נתון: /);
+      expect(plain).toContain('צ״ל:');
+      expect(plain).not.toMatch(/undefined|null|\$|\\[a-z]/);
+      expect(plain).toContain(m.lockOrder ? 'הסדר נכון, משלימים את הנימוקים החסרים' : 'מסדרים את השורות ובוחרים נימוקים');
+    }
+    const t1 = proofItem(proofManip(PROOF.T1));
+    expect(manipText(t1, manipSolution(t1))).toBe('1. ⁦AM = MB⁩ — נתון; 2. ⁦CM = MD⁩ — נתון; 3. ⁦∢AMC = ∢BMD⁩ — זוויות קודקודיות; 4. ⁦△AMC ≅ △BMD⁩ — לפי צ.ז.צ; 5. ⁦AC = BD⁩ — צלעות מתאימות במשולשים חופפים');
+    // a reason not chosen yet reads "?"
+    expect(manipText(t1, { order: [0, 1, 2, 3, 4], reasons: [null, null, null, null, null] })).toContain('3. ⁦∢AMC = ∢BMD⁩ — ?');
+    expect(answerText(t1)).toBe(manipText(t1, t1.answer));
+  });
+
+  it('a check outlines the first row out of place, or, when the order is right, the first wrong reason', () => {
+    const m = proofManip(PROOF.T5);
+    const sol = proofItem(m).answer;
+    expect(proofFirstWrong(m, sol)).toBeNull();
+    // the conclusion above the congruence: row 4 (place 3) is out of place
+    expect(proofFirstWrong(m, { order: [0, 1, 2, 4, 3, 5, 6], reasons: sol.reasons })).toEqual({ place: 3, why: 'order' });
+    // the order right, the bisector's reason wrong
+    const r = [...sol.reasons]; r[1] = (r[1] + 1) % 3;
+    expect(proofFirstWrong(m, { order: sol.order, reasons: r })).toEqual({ place: 1, why: 'reason' });
+    // a free group in another order is still right; the first reason not chosen is found
+    const gaps = [...sol.reasons]; gaps[5] = null;
+    expect(proofFirstWrong(m, { order: [2, 0, 1, 3, 5, 4, 6], reasons: gaps })).toEqual({ place: 4, why: 'missing' });
+  });
+
+  it('מדי says what to do, then counts the reasons and says when the order is right (GEOM-3.6)', () => {
+    const all = proofManip(PROOF.T1);
+    expect(proofCoach(all, null, false)).toBe('סדרו את השורות מהנתונים אל המסקנה, ובחרו נימוק לכל שורה.');
+    expect(proofCoach(proofManip(PROOF.T1, { lockOrder: true }), null, false)).toBe('השלימו את הנימוקים החסרים. הסדר כבר נכון.');
+    expect(proofCoach(proofManip(PROOF.T1, { ask: 'theorem' }), null, false)).toBe('סדרו את השורות, ובחרו לפי איזה משפט המשולשים חופפים.');
+    expect(proofCoach(proofManip(PROOF.T7, { ask: 'theorem' }), null, false)).toBe('סדרו את השורות, ובחרו לפי איזה משפט המשולשים דומים.');
+    const start = proofStart(all);
+    expect(proofCoach(all, start, true)).toBe('בחרתם 0 מתוך 3 נימוקים.');
+    const one = { ...start, reasons: [null, null, 0, null, null] };
+    expect(proofCoach(all, one, true)).toBe('בחרתם 1 מתוך 3 נימוקים.');
+    expect(proofCoach(all, { order: [0, 1, 2, 3, 4], reasons: [null, null, 0, null, null] }, true)).toBe('בחרתם 1 מתוך 3 נימוקים. הסדר נכון. נשארו הנימוקים.');
+    expect(proofCoach(all, { order: [0, 1, 2, 3, 4], reasons: [null, null, 0, 1, 2] }, true)).toBe('בחרתם 3 מתוך 3 נימוקים.');
+    const only = proofManip(PROOF.T1, { ask: 'theorem' });
+    expect(proofCoach(only, proofStart(only), true)).toBe('עוד לא בחרתם נימוק.');
+    expect(proofCoach(only, { ...proofStart(only), reasons: [null, null, null, 2, null] }, true)).toBe('בחרתם נימוק.');
+  });
+
+  // one rule for the class's signs in a screen reader's words (components/MathText.jsx texText): they are said, as the
+  // classroom lane's ∢ is ("זווית"), since a screen reader has no Hebrew name for ∢, △, ≅, ∼, ∥ or ⊥
+  it('screen-reader words say the class\'s signs', () => {
+    expect(texText('\\sphericalangle AMC = \\sphericalangle BMD')).toBe('זווית AMC = זווית BMD');
+    expect(texText('\\triangle ABC \\cong \\triangle KML')).toBe('משולש ABC חופף ל־משולש KML');
+    expect(texText('\\triangle ADE \\sim \\triangle ABC')).toBe('משולש ADE דומה ל־משולש ABC');
+    expect(texText('AB \\parallel CD, CD \\perp AB')).toBe('AB מקביל ל־CD, CD מאונך ל־AB');
+    expect(texText('\\angle A')).toBe('זווית A');
+  });
+});
+
+describe('the proof table drawn (GEOM-3.4, 3.5)', () => {
+  beforeAll(() => loadKatex());
+  const m = proofManip(PROOF.T1, { seed: 'x' });
+  const ans = proofItem(m).answer;
+  const buttons = (out) => [...out.matchAll(/<button[^>]*aria-label="([^"]*)"/g)].map((x) => x[1]);
+  it('the drawing on top, נתון and צ״ל, a table with טענה and נימוק, rows with 44px moves described by their claim', () => {
+    const out = html(ProofTable, { m, value: null, answer: ans });
+    expect(out).toMatch(/class="mp-proof-fig"[\s\S]*<svg/);
+    expect(out.indexOf('mp-proof-fig')).toBeLessThan(out.indexOf('<table'));
+    expect(out).toContain('נתון:');
+    expect(out).toContain('צ״ל:');
+    expect(out).toMatch(/<th role="columnheader" scope="col" class="claim">טענה<\/th>/);
+    expect(out).toMatch(/<th role="columnheader" scope="col" class="why">נימוק<\/th>/);
+    expect((out.match(/class="mp-proof-row/g) || []).length).toBe(5);
+    // the start is the seeded shuffle, never already right
+    const start = proofStart(m).order;
+    expect(start).not.toEqual([0, 1, 2, 3, 4]);
+    // two move buttons a row, each described by its claim; the fixed reasons are text, the asked ones chips
+    expect(buttons(out).filter((b) => b === 'הזיזו למעלה')).toHaveLength(5);
+    expect(buttons(out).filter((b) => b === 'הזיזו למטה')).toHaveLength(5);
+    const desc = [...out.matchAll(/aria-label="הזיזו למעלה" aria-describedby="([^"]+)"/g)].map((x) => x[1]);
+    desc.forEach((id) => expect(out).toContain(`id="${id}"`));
+    expect((out.match(/aria-label="בחרו נימוק לשורה \d"/g) || []).length).toBe(3);
+    expect((out.match(/class="mp-proof-fixed"/g) || []).length).toBe(2);
+    expect(out).toMatch(/aria-expanded="false"/);
+    expect(out).not.toMatch(/role="radiogroup"/); // closed until a chip is pressed
+    expect(out).not.toMatch(/undefined|NaN/);
+  });
+  it('with lockOrder the rows stay in order and nothing moves', () => {
+    const out = html(ProofTable, { m: proofManip(PROOF.T1, { lockOrder: true }), value: null });
+    expect(buttons(out).filter((b) => /הזיזו/.test(b))).toHaveLength(0);
+    expect(out).not.toContain('class="mv"');
+    const claims = [...out.matchAll(/class="claim" id="[^"]+">([\s\S]*?)<\/td>/g)].length;
+    expect(claims).toBe(5);
+  });
+  it('after a wrong check: the first row out of place is outlined; with the order right, the first wrong reason; never in a check', () => {
+    const wrongOrder = { order: [0, 1, 2, 4, 3], reasons: ans.reasons };
+    const out = html(ProofTable, { m, value: wrongOrder, checked: true });
+    expect((out.match(/mp-proof-row off/g) || []).length).toBe(1);
+    expect(out).toContain('השורה הזאת עוד לא במקום');
+    const r = [...ans.reasons]; r[2] = (r[2] + 1) % 3;
+    const why = html(ProofTable, { m, value: { order: ans.order, reasons: r }, checked: true });
+    expect(why).toContain('הנימוק הזה לא מתאים לשורה');
+    expect(html(ProofTable, { m, value: wrongOrder, checked: true, test: true })).not.toMatch(/mp-proof-row off|עוד לא במקום/);
+    expect(html(ProofTable, { m, value: wrongOrder, checked: false })).not.toMatch(/mp-proof-row off/);
+  });
+  it('reveal shows the whole right table; locked shows the choices as text', () => {
+    const out = html(ProofTable, { m, value: { order: [4, 3, 2, 1, 0], reasons: [null, null, null, null, null] }, reveal: true });
+    const claims = [...out.matchAll(/class="claim" id="[^"]+">([\s\S]*?)<\/td>/g)].map((x) => x[1]);
+    expect(claims[0]).toContain('AM');
+    expect(out).toContain('זוויות קודקודיות');
+    expect(out).toContain('לפי צ.ז.צ');
+    expect(buttons(out)).toHaveLength(0);
+  });
+  it('Manip draws it as KINDS.proof, loaded when needed', () => {
+    expect(KINDS.proof.$$typeof).toBe(Symbol.for('react.lazy'));
+  });
+});
+
+describe('a proof as a still figure (GEOM-3.9)', () => {
+  const fig = { type: 'proof', given: '$AM = MB$', goal: '$AC = BD$', rows: [{ claim: '$AM = MB$', reason: 'נתון' }, { claim: '$\\sphericalangle AMC = \\sphericalangle BMD$', reason: 'זוויות קודקודיות' }], ask: 1 };
+  it('is an HTML table, טענה | נימוק, with "?" in the asked row', () => {
+    const out = renderToStaticMarkup(createElement(Figure, { fig }));
+    expect(out).toMatch(/<table class="fg-proof-table">/);
+    expect(out).toMatch(/<th scope="col">טענה<\/th><th scope="col">נימוק<\/th>/);
+    expect(out).toContain('נתון:');
+    expect(out).toMatch(/class="fg-proof-ask"[^>]*>\?</);
+    expect(out).not.toContain('זוויות קודקודיות');
+  });
+  it('figPlain reads it: הוכחה. נתון: …; צ״ל: …; 1. … — …', () => {
+    expect(figPlain(fig)).toBe('הוכחה. נתון: AM = MB; צ״ל: AC = BD; 1. AM = MB — נתון; 2. \\sphericalangle AMC = \\sphericalangle BMD — ?');
+    expect(figPlain({ type: 'proof', rows: [{ claim: '$x$', reason: 'נתון' }] })).toBe('הוכחה. 1. x — נתון');
+  });
+});
+
+describe('the challenge\'s order part shows a fixed reason, and grades only the asked ones (GEOM-3.1)', () => {
+  beforeAll(() => loadKatex());
+  it('a step with `fixed` shows its reason under its text', () => {
+    const part = { type: 'order', prompt: 'סדרו.', steps: PROOF.T1.steps, free: PROOF.T1.free };
+    const out = renderToStaticMarkup(createElement(OrderPart, { part, seed: 't1', onDone: () => {}, last: true }));
+    expect((out.match(/class="ch-step-fixed"/g) || []).length).toBe(2);
+    expect(out).toContain('נימוק: </span>');
+    expect(out).toContain(R.given);
   });
 });

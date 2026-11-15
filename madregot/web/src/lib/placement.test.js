@@ -199,4 +199,17 @@ describe('topic flags', () => {
       expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pct', 'func', 'pyth']);
     } finally { delete TOPIC.signed.alsoFor; }
   });
+  it('a unit also on a grade\'s path (ALSO_ON_PATH: ח׳\'s transformations) is that grade\'s own, never listed twice', () => {
+    const ids8 = topicsFor('8').map((t) => t.id);
+    // (after percent and the data unit, which is on the ח׳ path the same way: one table, learn/skills.ts)
+    expect(ids8.slice(0, 5)).toEqual(['ratio', 'pct', 'data', 'transf', 'func']);
+    TOPIC.transf.alsoFor = ['8'];
+    try {
+      const rescue = rescueTopicsFor('8').map((t) => t.id);
+      expect(rescue.filter((id) => id === 'transf')).toHaveLength(1);
+      expect(rescue).toEqual([...ids8, 'expr', 'eq']);
+    } finally { delete TOPIC.transf.alsoFor; }
+    // not in the first-day test: November–December, a September student has not met it
+    expect(startPlacement({ grade: '8' }).topics).not.toContain('transf');
+  });
 });

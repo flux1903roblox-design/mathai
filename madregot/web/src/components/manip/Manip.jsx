@@ -27,14 +27,23 @@ import Chart, { chartCoach } from './Chart.jsx';
 import GridShape, { gridCoach } from './GridShape.jsx';
 import NetFold, { netCoach } from './NetFold.jsx';
 import CircleRoll, { circleCoach } from './CircleRoll.jsx';
+import { lazy, Suspense, useState } from 'react';
 import { triangleAngles, manipPlain } from '@/content/manip.js';
+import { tfStart, tfSlide, tfSame, tfSlideWords } from '@/content/transform.js';
+import { proofStart, proofValueOk, proofOrderRight, proofChosen, askedSteps, rightReason } from '@/content/proof.js';
+import { THEOREMS } from '@/content/proofs.js';
 import { minus, partsTex } from './core.jsx';
 import { Tex } from '../MathText.jsx';
+
+// the transform object (GEOM-2) and the proof table (GEOM-3) are loaded when an exercise needs them: the first
+// screen's try-out never does
+const Transform = lazy(() => import('./Transform.jsx'));
+const ProofTable = lazy(() => import('./ProofTable.jsx'));
 
 export const KINDS = {
   numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag,
   balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, graph: GraphDraw, simulate: Simulate, chart: Chart,
-  polygon: GridShape, net: NetFold, circle: CircleRoll,
+  polygon: GridShape, net: NetFold, circle: CircleRoll, transform: Transform, proof: ProofTable,
 };
 
 /**
@@ -63,8 +72,43 @@ export function readoutLine(item) {
 const N = ({ v }) => <bdi dir="ltr">{minus(v)}</bdi>;
 const steps = (n, one, many) => (Math.abs(n) === 1 ? one : <><N v={Math.abs(n)} /> {many}</>);
 
-/** What מדי says about the object as it is now. */
-function coach(it, v, touched) {
+/** What מדי says about the transform object: the moves the item has, then what the last move did (GEOM-2.7). */
+export function transformCoach(m, v, touched, last) {
+  const can = [m.moves?.drag && 'חצים מזיזים', m.moves?.flips?.length && 'שיקוף הופך', m.moves?.turns && 'סיבוב מסובב'].filter(Boolean);
+  if (!touched || !last) return `${m.moves?.drag ? 'גררו את העותק, או השתמשו בכפתורים' : 'השתמשו בכפתורים'}: ${can.join(', ')}.`;
+  if (last.move === 'refuse') return last.text;
+  if (last.move === 'reset') return 'העותק חזר להתחלה.';
+  if (last.move === 'flip') return 'העותק הפוך עכשיו, כמו במראה: האותיות רצות בכיוון השני.';
+  if (last.move === 'turn') return <>העותק הסתובב סביב <Tex tex="O" />. המרחק של כל קודקוד מ־<Tex tex="O" /> לא השתנה.</>;
+  // slides: how far from the start, while the copy is only slid
+  const s = tfStart(m); const cur = v || s;
+  const dx = cur[0][0] - s[0][0]; const dy = cur[0][1] - s[0][1];
+  if (!tfSame(tfSlide(s, dx, dy), cur)) return 'העותק זז. כל הקודקודים זזים יחד, באותו כיוון ובאותו מרחק.';
+  if (!dx && !dy) return 'העותק במקום שבו התחלתם.';
+  return `מהמקום שבו התחלתם: ${tfSlideWords(dx, dy)}.`;
+}
+
+/**
+ * What מדי says about the proof table (GEOM-3.6): before a move, what to do (put the rows in order and choose the
+ * reasons; with lockOrder only the missing reasons; with only the theorem asked, which theorem); then how many reasons
+ * are chosen, and that the order is right when it is (practice only: in a check מדי says nothing).
+ */
+export function proofCoach(m, v, touched) {
+  const asked = askedSteps(m.part);
+  if (!touched) {
+    if (m.lockOrder) return 'השלימו את הנימוקים החסרים. הסדר כבר נכון.';
+    const only = asked.length === 1 && THEOREMS.includes(rightReason(m.part.steps[asked[0]])) ? rightReason(m.part.steps[asked[0]]) : null;
+    if (only) return `סדרו את השורות, ובחרו לפי איזה משפט המשולשים ${only === THEOREMS[3] ? 'דומים' : 'חופפים'}.`;
+    return 'סדרו את השורות מהנתונים אל המסקנה, ובחרו נימוק לכל שורה.';
+  }
+  const cur = proofValueOk(m.part, v) ? v : proofStart(m);
+  const { k, n } = proofChosen(m, cur);
+  const count = n === 1 ? (k ? 'בחרתם נימוק.' : 'עוד לא בחרתם נימוק.') : `בחרתם ${k} מתוך ${n} נימוקים.`;
+  return !m.lockOrder && k < n && proofOrderRight(m, cur) ? `${count} הסדר נכון. נשארו הנימוקים.` : count;
+}
+
+/** What מדי says about the object as it is now (`last`: what the object said its last move did, for transform). */
+function coach(it, v, touched, last) {
   const m = it.manip;
   switch (m.kind) {
     case 'numberline': {
@@ -139,23 +183,35 @@ function coach(it, v, touched) {
     case 'polygon': return gridCoach(m, v, touched);
     case 'net': return netCoach(m, v, touched);
     case 'circle': return circleCoach(m, v, touched);
+    case 'transform': return transformCoach(m, v, touched, last);
+    case 'proof': return proofCoach(m, v, touched);
     default: return null;
   }
 }
 
-export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint, test = false, firstTry = false }) {
+/**
+ * `checked`: the last check was wrong and nothing has moved since (the lesson's "עוד לא"): an object that can say where
+ * (the proof table outlines the first row out of place, or the first wrong reason) shows it, never in a check.
+ */
+export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint, test = false, firstTry = false, checked = false }) {
+  // an object that says what its last move did (transform: a flip, a turn, a move it refused), for this exercise only
+  const [said, setSaid] = useState({ key: null, last: null });
   const C = KINDS[item.manip.kind];
   if (!C) return null;
   // a random experiment is never a check (its items are practice-only): in a check it would be read, not run
   if (test && item.manip.kind === 'simulate') return <p className="manip-plain">{manipPlain(item)}</p>;
   // a check hides the readout of the result; a practice first try hides it too where it shows the quantity asked
   const hide = test || (firstTry && !!readoutLine(item));
+  const last = said.key === item.key ? said.last : null;
   return (
     <>
-      <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} test={hide && !reveal && !good} />
+      <Suspense fallback={<div className="manip manip-loading" aria-busy="true" />}>
+        <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} test={hide && !reveal && !good}
+          checked={checked && !test} onSay={(x) => setSaid({ key: item.key, last: x })} />
+      </Suspense>
       {!test && (
         <div className="manip-coach">
-          <p className="coach-say">{coach(item, value, touched)}</p>
+          <p className="coach-say">{coach(item, value, touched, last)}</p>
         </div>
       )}
     </>

@@ -369,6 +369,132 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "congr:1": {
+    "title": "צלעות וזוויות מתאימות",
+    "misconceptions": [
+      {
+        "id": "alpha-order",
+        "title": "התאימו קודקודים לפי סדר האלף־בית, ולא לפי הסדר שבחפיפה"
+      },
+      {
+        "id": "match-by-place",
+        "title": "התאימו קודקודים לפי המקום בשרטוט, ולא לפי החפיפה"
+      },
+      {
+        "id": "one-angle",
+        "title": "חיסרו מ־$180°$ רק זווית אחת"
+      },
+      {
+        "id": "wrong-pair",
+        "title": "השוו חלקים שאינם מתאימים בחפיפה"
+      }
+    ],
+    "transfer": true
+  },
+  "congr:2": {
+    "title": "משפטי החפיפה",
+    "misconceptions": [
+      {
+        "id": "ssa",
+        "title": "השתמשו בשתי צלעות ובזווית שאינה ביניהן כאילו זה משפט חפיפה"
+      },
+      {
+        "id": "aaa",
+        "title": "חשבו ששלוש זוויות שוות מספיקות לחפיפה"
+      },
+      {
+        "id": "alpha-order",
+        "title": "התאימו קודקודים לפי סדר האלף־בית, ולא לפי הסדר שבחפיפה"
+      },
+      {
+        "id": "one-angle",
+        "title": "חיסרו מ־$180°$ רק זווית אחת"
+      },
+      {
+        "id": "wrong-pair",
+        "title": "השוו חלקים שאינם מתאימים בחפיפה"
+      }
+    ],
+    "transfer": true
+  },
+  "congr:3": {
+    "title": "הוכחה בחפיפה",
+    "misconceptions": [
+      {
+        "id": "wrong-pair",
+        "title": "השוו חלקים שאינם מתאימים בחפיפה"
+      },
+      {
+        "id": "one-angle",
+        "title": "חיסרו מ־$180°$ רק זווית אחת"
+      },
+      {
+        "id": "half-only",
+        "title": "מצאו את הזווית של משולש אחד, ולא של שני המשולשים יחד"
+      },
+      {
+        "id": "circular",
+        "title": "השתמשו במה שצריך להוכיח כאילו הוא כבר ידוע"
+      },
+      {
+        "id": "ssa",
+        "title": "השתמשו בשתי צלעות ובזווית שאינה ביניהן כאילו זה משפט חפיפה"
+      },
+      {
+        "id": "no-half",
+        "title": "לקחו את כל הזווית במקום חצי ממנה"
+      }
+    ],
+    "transfer": true
+  },
+  "congr:4": {
+    "title": "תיכון ושטחים",
+    "misconceptions": [
+      {
+        "id": "median-as-height",
+        "title": "השתמשו בתיכון כאילו הוא הגובה"
+      },
+      {
+        "id": "full-base",
+        "title": "לקחו את כל הצלע כבסיס של חצי המשולש"
+      },
+      {
+        "id": "median-congruent",
+        "title": "חשבו שתיכון מחלק משולש לשני משולשים חופפים"
+      },
+      {
+        "id": "median-altitude",
+        "title": "בלבלו בין תיכון, גובה וחוצה זווית"
+      },
+      {
+        "id": "full-side",
+        "title": "חיברו את כל הצלע במקום את החצי שלה"
+      }
+    ],
+    "transfer": true
+  },
+  "congr:5": {
+    "title": "צלעות במשולש",
+    "misconceptions": [
+      {
+        "id": "sum-equal",
+        "title": "חשבו שאפשר משולש גם כשסכום שתי צלעות שווה לשלישית"
+      },
+      {
+        "id": "no-lower-limit",
+        "title": "בדקו רק שהצלע השלישית קצרה מהסכום, ולא שהיא ארוכה מההפרש"
+      },
+      {
+        "id": "ignore-inequality",
+        "title": "בחרו שוקיים קצרות מדי, שאינן נפגשות"
+      },
+      {
+        "id": "angle-at-side",
+        "title": "חיפשו את הזווית הגדולה ליד הצלע הגדולה, ולא מולה"
+      }
+    ],
+    "transfer": true
+  },
   "coord:1": {
     "title": "קריאת נקודה",
     "misconceptions": [
@@ -1723,6 +1849,90 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "sim:1": {
+    "title": "שווה־שוקיים ומשפטים הפוכים",
+    "misconceptions": [
+      {
+        "id": "side-at-angle",
+        "title": "השוו צלעות שיוצאות מהזוויות השוות, ולא את הצלעות שמולן"
+      },
+      {
+        "id": "stopped-at-x",
+        "title": "מצאו את $x$ ועצרו, בלי לחשב את אורך הצלע"
+      },
+      {
+        "id": "whole-base",
+        "title": "השתמשו בכל הבסיס במקום בחצי שלו"
+      },
+      {
+        "id": "converse-equal",
+        "title": "חשבו שמשפט והמשפט ההפוך לו נכונים או לא נכונים יחד"
+      }
+    ],
+    "transfer": true
+  },
+  "sim:2": {
+    "title": "צורות דומות",
+    "misconceptions": [
+      {
+        "id": "additive",
+        "title": "הוסיפו לכל צלע אותו מספר במקום לכפול באותו מספר"
+      },
+      {
+        "id": "ratio-flip",
+        "title": "הכפילו ביחס הדמיון ההפוך"
+      },
+      {
+        "id": "angles-enough",
+        "title": "חשבו שבמרובעים זוויות שוות מספיקות לדמיון"
+      }
+    ],
+    "transfer": true
+  },
+  "sim:3": {
+    "title": "דמיון משולשים (ז.ז)",
+    "misconceptions": [
+      {
+        "id": "part-not-whole",
+        "title": "השוו לחלק של הצלע במקום לכל הצלע"
+      },
+      {
+        "id": "additive",
+        "title": "הוסיפו לכל צלע אותו מספר במקום לכפול באותו מספר"
+      },
+      {
+        "id": "ratio-flip",
+        "title": "הכפילו ביחס הדמיון ההפוך"
+      },
+      {
+        "id": "order-mixed",
+        "title": "כתבו את הדמיון בסדר קודקודים שאינו מתאים"
+      },
+      {
+        "id": "third-angle",
+        "title": "השוו זוויות בלי לחשב קודם את הזווית השלישית"
+      }
+    ],
+    "transfer": true
+  },
+  "sim:4": {
+    "title": "יחס צלעות ויחס שטחים",
+    "misconceptions": [
+      {
+        "id": "linear-area",
+        "title": "חשבו שהשטח גדל פי אותו מספר כמו האורכים"
+      },
+      {
+        "id": "ratio-flip",
+        "title": "הכפילו ביחס הדמיון ההפוך"
+      },
+      {
+        "id": "area-for-perimeter",
+        "title": "העלו בריבוע גם את יחס ההיקפים"
+      }
+    ],
+    "transfer": true
+  },
   "solid:1": {
     "title": "תיבה: פריסה ושטח פנים",
     "misconceptions": [
@@ -2152,6 +2362,90 @@ export const META: Record<SkillId, StairMeta> = {
       }
     ],
     "transfer": true
+  },
+  "transf:1": {
+    "title": "הזזה",
+    "misconceptions": [
+      {
+        "id": "shift-sign",
+        "title": "הזיזו לכיוון ההפוך באחד הצירים"
+      },
+      {
+        "id": "shift-swap",
+        "title": "הוסיפו את ההזזה שמאלה־ימינה ל־$y$ ואת ההזזה למעלה־למטה ל־$x$"
+      },
+      {
+        "id": "one-axis",
+        "title": "הזיזו רק לאורך ציר אחד"
+      },
+      {
+        "id": "gap",
+        "title": "מדדו את הרווח בין הצורות במקום את הדרך מנקודה לתמונה שלה"
+      }
+    ],
+    "transfer": true
+  },
+  "transf:2": {
+    "title": "שיקוף",
+    "misconceptions": [
+      {
+        "id": "axis-not-line",
+        "title": "שיקפו ביחס לציר במקום ביחס לישר שבשאלה"
+      },
+      {
+        "id": "wrong-axis",
+        "title": "שיקפו ביחס לציר השני"
+      },
+      {
+        "id": "both-signs",
+        "title": "החליפו את הסימן של שני השיעורים: זה חצי סיבוב, לא שיקוף"
+      },
+      {
+        "id": "diagonal-axis",
+        "title": "חשבו שאלכסון של מלבן הוא ציר סימטריה שלו"
+      }
+    ],
+    "transfer": true
+  },
+  "transf:3": {
+    "title": "סיבוב",
+    "misconceptions": [
+      {
+        "id": "wrong-centre",
+        "title": "סובבו סביב ראשית הצירים במקום סביב מרכז הסיבוב"
+      },
+      {
+        "id": "reflect-not-turn",
+        "title": "שיקפו במקום לסובב: רק שיעור אחד השתנה"
+      },
+      {
+        "id": "turn-direction",
+        "title": "סובבו לכיוון ההפוך"
+      },
+      {
+        "id": "rot-swap",
+        "title": "החליפו בין השיעורים בלי לשנות סימן"
+      }
+    ],
+    "transfer": true
+  },
+  "transf:4": {
+    "title": "צורות חופפות וריצוף",
+    "misconceptions": [
+      {
+        "id": "double-perimeter",
+        "title": "חיברו את שני ההיקפים, וספרו פעמיים את הצלע המשותפת"
+      },
+      {
+        "id": "equal-area",
+        "title": "חשבו שצורות עם אותו שטח הן חופפות"
+      },
+      {
+        "id": "equal-perimeter",
+        "title": "חשבו שצורות עם אותו היקף הן חופפות"
+      }
+    ],
+    "transfer": true
   }
 };
 
@@ -2161,6 +2455,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
   },
   "area": {},
   "circle": {},
+  "congr": {},
   "coord": {
     "axis-zero": "חשבו שנקודה על ציר $x$ היא נקודה שבה $x = 0$",
     "quad-order": "מספרו את הרביעים עם כיוון השעון",
@@ -2199,6 +2494,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "minus-bracket": "מינוס לפני סוגריים הפך רק את המספר הראשון",
     "ignore-brackets": "חישבו כאילו אין סוגריים"
   },
+  "sim": {},
   "solid": {},
   "space": {},
   "stats": {
@@ -2209,5 +2505,6 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "skip-zero": "לא ספרו את הנתונים שערכם אפס",
     "known-count": "כפלו את הממוצע רק במספר הנתונים הידועים"
   },
-  "sys": {}
+  "sys": {},
+  "transf": {}
 };

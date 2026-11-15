@@ -1,7 +1,7 @@
 // Exams: scoring a checked exam, building a printable practice exam from the built-in generators (with an exact answer
 // key), the teacher's class exam, and reading where a checked exam lost points. What to strengthen after an exam is the
 // ranked plan's exam-loss band (learn/next.ts), not a plan of its own.
-import { TOPIC, makeItem, answerText, itemPlain } from '@/content/index.js';
+import { TOPIC, makeItem, answerText, itemPlain, fairForCheck, gensReady } from '@/content/index.js';
 import { itemFor } from '@/learn/items.ts';
 import { parseSkill } from '@/learn/skills.ts';
 
@@ -23,16 +23,22 @@ export function scoreOf(result) {
 /**
  * A practice exam drawn from the generators: questions spread over the chosen
  * topics, around each student's current level, stored with the exact answers.
+ * It is printed and solved on paper, so it takes only what a check would ask (fairForCheck: no practice-only question,
+ * whose choices or named target give it away) and nothing dragged on the screen (form 'manip': a paper has no object).
+ * Some stairs give a printable question only one draw in three, so a question has up to twelve draws on average.
  */
 export function makePracticeExam(topicIds, count, progress = {}) {
-  const ids = topicIds.filter((id) => TOPIC[id]);
+  // a unit whose generators have not loaded (content/topics.js loadGens) is left out: the screen waits for ensureGens
+  // first, so this happens only offline before the unit was ever kept
+  const ids = topicIds.filter((id) => TOPIC[id] && gensReady(id));
   if (!ids.length) return [];
   const items = []; const seen = new Set();
-  for (let i = 0; items.length < count && i < count * 6; i++) {
+  for (let i = 0; items.length < count && i < count * 12; i++) {
     const id = ids[items.length % ids.length]; const t = TOPIC[id];
     const cur = progress[id]?.level || 1;
     const level = Math.min(t.levels.length, Math.max(1, cur + [0, 0, 1, -1][items.length % 4]));
     const it = makeItem(id, level);
+    if (it.form === 'manip' || !fairForCheck(it)) continue;
     if (seen.has(it.key)) continue;
     seen.add(it.key);
     items.push({
@@ -121,15 +127,16 @@ function classQuestion(skill, seen) {
 /**
  * A class practice exam (spec TEACHER-3 §1): `count` questions spread round-robin over the chosen stairs, each at the
  * stair's own level (not a student's). A stair whose exercises are all dragged on the screen cannot be printed: it is
- * left out and named in `skipped`. `avoid`: keys not to repeat (version ב is built with version א's keys).
+ * left out and named in `skipped`, as is one whose unit's generators could not load. `avoid`: keys not to repeat (version ב is built with version א's keys).
  * Returns { items: frozen questions, skipped: stairs left out }.
  */
 export function makeClassExam(skills, count, { avoid = [] } = {}) {
   const stairs = [...new Set(skills)].filter((s) => { const { topic, level } = parseSkill(s); return !!TOPIC[topic]?.levels[level - 1]; });
   const seen = new Set(avoid);
-  const skipped = [];
+  // a stair whose unit's generators have not loaded (content/topics.js loadGens; ExamNew waits for ensureGens) is named too
+  const skipped = stairs.filter((s) => !gensReady(parseSkill(s).topic));
   const gave = new Set();
-  let live = [...stairs];
+  let live = stairs.filter((s) => !skipped.includes(s));
   const items = [];
   while (items.length < count && live.length) {
     const skill = live[items.length % live.length];

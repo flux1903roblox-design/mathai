@@ -41,7 +41,9 @@ writes from the app's stairs, so the store never states a count by hand. What th
 programme, unit by unit, is in `../PROGRAMME.md` (generated the same way); store text must not claim more than it shows.
 The listing states each grade's share of the programme by quoting its coverage sentence from `counts.json`
 (`coverage['7']`, `coverage['8']`, the same words as the app's "מה לומדים במדרגות" page), never a share typed by hand
-(FOLLOWUP-15; `web/scripts/listing.test.mjs` checks the two lines against `counts.json` and the programme's code). The parents' landing page states the share through the checked claim `coverage` (`web/src/content/claims.js`),
+(FOLLOWUP-15; `web/scripts/listing.test.mjs` checks the two lines against `counts.json` and the programme's code). A grade
+taught whole (ח׳ since curriculum stage 4) is quoted with its hours and without "(100%)" (`storeCoverage` in
+`make-listing.mjs`): the listing's own lint allows no "100%". The parents' landing page states the share through the checked claim `coverage` (`web/src/content/claims.js`),
 computed from the same programme.
 
 To make them again after a screen changes:

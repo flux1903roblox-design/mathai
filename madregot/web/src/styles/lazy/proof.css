@@ -1,0 +1,79 @@
+/* The proof table (GEOM-3, components/manip/ProofTable.jsx): a proof in the class's two columns, טענה | נימוק. Loaded
+   with the object, not with the first screen (STUDENT-15). Colours are tokens only: rows as cards on the surface, the
+   asked reason a brand chip, the outline after a check gold (never red), the shown answer green. The table keeps
+   its semantics through explicit roles, so its rows can be laid out as grids (one line, or two on a narrow phone). */
+.manip-proof { flex: 1 1 auto; min-height: 0; width: 100%; max-width: 560px; margin-inline: auto; align-items: stretch; gap: var(--s2); }
+/* in a lesson the stage has a fixed height: the drawing keeps at most 30% of it, the table scrolls under it */
+.lesson.is-manip .manip-proof { height: 100%; }
+.mp-proof-fig { flex: none; display: flex; justify-content: center; height: min(30cqh, 190px); min-height: 96px; padding: 4px; border-radius: 16px; background: var(--surface-2, var(--ground)); }
+.mp-proof-fig .figure-wrap { height: 100%; width: 100%; }
+.mp-proof-fig .figure, .lesson .mp-proof-fig .figure { width: auto; height: 100%; max-width: 100%; max-height: 100%; }
+.mp-proof-scroll { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: var(--s2); padding: 2px 2px var(--s2); container-type: inline-size;
+  position: relative; /* KaTeX's hidden MathML is absolutely placed: kept inside the scroll, it never makes the page taller */ }
+
+/* the table: a header row, then each step a card */
+.mp-proof-table { display: block; width: 100%; }
+.mp-proof-table thead, .mp-proof-table tbody { display: block; }
+.mp-proof-table tr { display: grid; grid-template-columns: 26px minmax(0, 1.1fr) minmax(0, 1fr) auto; grid-template-areas: "n claim why mv"; align-items: center; column-gap: var(--s2); }
+.mp-proof-table th { padding: 0 4px 2px; font-size: var(--t-sm); font-weight: 700; color: var(--ink-2); text-align: start; }
+.mp-proof-table td { display: block; min-width: 0; }
+.mp-proof-table .n { grid-area: n; }
+.mp-proof-table .claim { grid-area: claim; }
+.mp-proof-table .why { grid-area: why; }
+.mp-proof-table .mv { grid-area: mv; }
+.mp-proof-row { margin-top: 6px; padding: 6px 6px 6px 8px; border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); min-height: 56px; }
+.mp-proof-row .n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--ground); font-weight: 700; font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.mp-proof-row .claim { position: relative; font-size: 16px; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; overflow-x: auto; scrollbar-width: none; }
+.mp-proof-row .claim .katex { font-size: 1.12em; }
+.mp-proof-row .why { font-size: var(--t-sm); line-height: 1.35; color: var(--ink-2); }
+.mp-proof-why-lab { display: none; font-weight: 700; color: var(--ink-2); }
+.mp-proof-fixed { display: inline; color: var(--ink-2); }
+.mp-proof-fixed.asked { color: var(--ink); font-weight: 600; }
+.mp-proof-fixed.right { color: var(--good-ink); }
+.mp-proof-row .mv { display: flex; gap: 4px; }
+.mp-proof-move { width: 44px; height: 44px; border: 2px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--brand-d); }
+.mp-proof-move:disabled { color: var(--disabled-ink); background: var(--ground); border-color: var(--ground); }
+.mp-proof-move:focus-visible, .mp-proof-chip:focus-visible, .mp-proof-opt:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+/* an asked reason: a chip that opens its choices under the row */
+.mp-proof-chip { display: inline-flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%; min-height: 44px; padding: 4px 6px 4px 10px;
+  border: 2px solid var(--brand-line, var(--brand)); border-radius: 12px; background: var(--brand-tint); color: var(--brand-d);
+  font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 700; line-height: 1.3; text-align: start; }
+.mp-proof-chip.empty { border-style: dashed; background: var(--surface); }
+.mp-proof-chip.open { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-tint); }
+.mp-proof-chip-text { min-width: 0; overflow-wrap: anywhere; }
+.mp-proof-chev { flex: none; transition: transform var(--duration-fast) var(--ease-out); }
+.mp-proof-chip.open .mp-proof-chev { transform: rotate(180deg); }
+.mp-proof-pick td, .mp-proof-note td { grid-column: 1 / -1; }
+.mp-proof-opts { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding: 6px; border: 2px solid var(--brand); border-radius: 14px; background: var(--surface); }
+.mp-proof-opt { display: flex; align-items: center; gap: var(--s2); width: 100%; min-height: 44px; padding: 6px 10px; border: 2px solid var(--rule); border-radius: 12px;
+  background: var(--surface); color: var(--ink); font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 600; line-height: 1.35; text-align: start; }
+.mp-proof-opt.on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); }
+.mp-proof-dot { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--control-line, var(--rule-strong)); background: var(--surface); }
+.mp-proof-opt.on .mp-proof-dot { border-color: var(--brand); box-shadow: inset 0 0 0 4px var(--surface); background: var(--brand); }
+
+/* after a wrong check: the first row out of place, or the first wrong reason, in gold, with a short line under it */
+.mp-proof-row.off { border-color: var(--gold); background: var(--gold-tint); }
+.mp-proof-row.off-reason .mp-proof-chip, .mp-proof-row.off-missing .mp-proof-chip { border-color: var(--gold-d, var(--gold)); }
+.mp-proof-note td { margin-top: 4px; padding-inline: 10px; font-size: var(--t-sm); font-weight: 700; color: var(--gold-ink); }
+/* right, and the shown answer */
+.mp-proof-row.set { border-color: var(--good-line); }
+.mp-proof-row.right { border-color: var(--good-line); background: var(--good-tint); }
+
+/* a phone: each row takes two lines, the number and the claim, then נימוק: and its chip, with the two move buttons
+   stacked at the row's end beside both lines (so the claim keeps the width it needs). The width that decides is the
+   table's own (a 320px phone gives it about 285px, a 390px one about 355px): one line from 480px up */
+@container (max-width: 479px) {
+  .mp-proof-table thead { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .mp-proof-table tr.mp-proof-row { grid-template-columns: 24px minmax(0, 1fr) auto; grid-template-areas: "n claim mv" "why why mv"; column-gap: 6px; row-gap: 4px; padding: 6px; }
+  .mp-proof-row .n { width: 24px; height: 24px; }
+  .mp-proof-row .claim .katex { font-size: 1em; }
+  .mp-proof-row .why { display: flex; align-items: center; gap: 6px; }
+  .mp-proof-row .mv { flex-direction: column; align-self: center; }
+  .mp-proof-why-lab { display: inline; flex: none; }
+  .mp-proof-chip { width: auto; flex: 1 1 auto; }
+}
+/* in a teaching step the page scrolls, not a stage: the object takes a height of its own, so the drawing stays on top
+   and the table scrolls under it there too */
+.lm-canvas .manip-proof { height: clamp(380px, calc(100dvh - 230px), 640px); }
+@media (prefers-reduced-motion: reduce) { .mp-proof-chev { transition: none; } }

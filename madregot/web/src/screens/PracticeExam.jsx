@@ -33,7 +33,9 @@ export function NewPracticeExam() {
     setMaking(true);
     try { await ensureGens(picked); } catch { setMaking(false); return; }
     const items = makePracticeExam(picked, count, progress);
-    const pe = { id: Math.random().toString(36).slice(2) + Date.now().toString(36), at: new Date().toISOString(), title: `מבחן תרגול: ${picked.map((id) => TOPIC[id].title).join(', ')}`, items };
+    if (!items.length) { setMaking(false); return; }
+    const titled = picked.filter((id) => items.some((it) => it.topic === id));
+    const pe = { id: Math.random().toString(36).slice(2) + Date.now().toString(36), at: new Date().toISOString(), title: `מבחן תרגול: ${titled.map((id) => TOPIC[id].title).join(', ')}`, items };
     addPracticeExam(pe);
     navigate(`/exams/practice/${pe.id}`, { replace: true });
   };

@@ -21,10 +21,11 @@
 
 /**
  * The stage the next build round delivers: a missing part with this `later` may say it is coming next. It is the lowest
- * stage that still has a `later` part: stage 2 (measurement) and the classroom lane's signed:7 are both in, stage 3 too,
- * so no part waits for 'S2' or 'S3' any more (worker/test/coverage.test.js "the next stage" keeps it honest).
+ * stage that still has a `later` part: stage 2 (measurement), the classroom lane's signed:7, stage 3 and stage 4 (ח׳
+ * geometry) are all in, so no part waits for 'S2', 'S3' or 'S4' any more; the one part left is 7.10's measuring of
+ * angles (angles:8, the stage-5 follow-up). worker/test/coverage.test.js "the next stage" keeps it honest.
  */
-export const ROADMAP_NEXT = 'S4';
+export const ROADMAP_NEXT = 'S5';
 
 const range = (topic, from, to) => Array.from({ length: to - from + 1 }, (_, i) => `${topic}:${from + i}`);
 
@@ -78,7 +79,7 @@ export const PROGRAMME = {
         { hours: 2, skills: [], note: 'מדידה ואומדן של זוויות', later: 'S5' },
       ] },
     { id: '7.11', grade: '7', domain: 'geometry', title: 'צורות חופפות במישור וטרנספורמציות', months: [11, 12],
-      parts: [{ hours: 5, skills: [], note: 'הזזה, שיקוף וסיבוב, וצורות חופפות', later: 'S4' }] },
+      parts: [{ hours: 5, skills: range('transf', 1, 4) }] },
     { id: '7.12', grade: '7', domain: 'geometry', title: 'שטחים א, שטחים ב, חישוב היקפים', months: [12, 1, 4, 5],
       parts: [
         { hours: 1, skills: ['coord:4'] }, // the area of a rectangle on the grid
@@ -126,7 +127,7 @@ export const PROGRAMME = {
         { hours: 2, skills: ['circle:4'], months: [11], note: 'חרוט' },
       ] },
     { id: '8.5', grade: '8', domain: 'geometry', title: 'טרנספורמציות וצורות חופפות', months: [11],
-      parts: [{ hours: 5, skills: [], note: 'הזזה, שיקוף וסיבוב, וצורות חופפות', later: 'S4' }] },
+      parts: [{ hours: 5, skills: range('transf', 1, 4) }] },
     { id: '8.6', grade: '8', domain: 'uncertainty', title: 'איסוף וקריאת מידע, שכיחות, שכיחות יחסית', months: [10, 11],
       parts: [
         { hours: 1, skills: ['stats:1'] }, // the mode
@@ -157,11 +158,12 @@ export const PROGRAMME = {
     { id: '8.11', grade: '8', domain: 'uncertainty', title: 'אינטרפולציה, אקסטרפולציה', months: [1],
       parts: [{ hours: 4, skills: ['stats:8'] }] },
     { id: '8.12', grade: '8', domain: 'geometry', title: 'חפיפת משולשים, צלעות במשולש, תיכון', months: [1, 2],
-      parts: [{ hours: 16, skills: [], note: 'חפיפת משולשים, צלעות במשולש ותיכון', later: 'S4' }] },
+      // congr:1-5: corresponding parts, the theorems, proof, the median and the sides of a triangle (GEOM-5)
+      parts: [{ hours: 16, skills: range('congr', 1, 5), note: 'חפיפת משולשים, צלעות במשולש ותיכון' }] },
     { id: '8.13', grade: '8', domain: 'geometry', title: 'זווית חיצונית, שווה־שוקיים ומשפטים הפוכים, דמיון משולשים', months: [3, 4],
       parts: [
         { hours: 3, skills: ['angles:5'] }, // isosceles and exterior angles
-        { hours: 13, skills: [], note: 'משפטים הפוכים בשווה־שוקיים ודמיון משולשים', later: 'S4' },
+        { hours: 13, skills: range('sim', 1, 4), note: 'משפטים הפוכים בשווה־שוקיים ודמיון משולשים' }, // GEOM-6
       ] },
     { id: '8.14', grade: '8', domain: 'algebra', title: 'מערכות משוואות (בסיסית, המשך, שאלות מילוליות)', months: [2, 4, 5],
       parts: [{ hours: 1, skills: ['line:8'] }, { hours: 12, skills: range('sys', 2, 4) }] },

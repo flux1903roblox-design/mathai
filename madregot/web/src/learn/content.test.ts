@@ -19,6 +19,15 @@ import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TIL
 // @ts-ignore: plain JS
 import { GRID_MAX, cutRange, moveRange, cutMakesRectangles } from '@/content/grid.js';
 // @ts-ignore: plain JS
+import { transformReachable, tfStart, tfSame, tfSameSet, tfInside, TF_RANGE } from '@/content/transform.js';
+// @ts-ignore: plain JS
+import { PROOF, proofIn, proofManip } from '@/content/proofs.js';
+// @ts-ignore: plain JS
+import { proofStart, rightReason, askedSteps } from '@/content/proof.js';
+// @ts-ignore: plain JS
+import { templateFaults } from '@/content/proof.check.js';
+import { firstOutOfPlace } from './challenges/grade';
+// @ts-ignore: plain JS
 import { netModel, netControls, netStep, BUILD_MAX } from '@/content/net.js';
 // @ts-ignore: plain JS
 import { circleRange, SECTORS } from '@/content/roll.js';
@@ -129,6 +138,8 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       if (s.manip.kind === 'polygon') checkPolygon(s.manip as any, s.answer as any, at);
       if (s.manip.kind === 'net') checkNet(s.manip as any, s.answer as any, at);
       if (s.manip.kind === 'circle') checkCircle(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'transform') checkTransform(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'proof') checkProof(s.manip as any, at);
       expect(s.hint, at).toBeTruthy();
       expect(s.success, at).toBeTruthy();
     }
@@ -170,6 +181,47 @@ function checkChart(m: { mode: string; cats: string[]; start: number[]; lock?: n
     }
   }
   (m.lock || []).forEach((i) => expect(a.values[i], `${at}: the locked ${m.cats[i]} cannot reach its goal`).toBe(m.start[i]));
+}
+
+/**
+ * The transform object (GEOM-2): the copy does not start on the goal, the goal is an isometric image of the shape (the
+ * same side lengths, in order), every vertex is on the plane, and the goal is reachable with the item's own moves,
+ * never through a vertex off the plane (a flip in x = k or a turn about another centre can leave it).
+ */
+function checkTransform(m: { shape: { pts: [number, number][]; names: string[] }; range?: number; target?: { pts: [number, number][] } }, a: { pts: [number, number][]; match?: 'labels' | 'set' }, at: string) {
+  const range = m.range || TF_RANGE;
+  const { pts, names } = m.shape;
+  expect(names.length, `${at}: a letter for every vertex`).toBe(pts.length);
+  expect(a.pts.length, `${at}: the goal has the shape's vertices`).toBe(pts.length);
+  const start = tfStart(m);
+  expect(a.match === 'set' ? tfSameSet(start, a.pts) : tfSame(start, a.pts), `${at}: the copy starts on the goal`).toBe(false);
+  for (const p of [...pts, ...start, ...a.pts, ...(m.target?.pts || [])]) expect(tfInside([p], range), `${at}: (${p}) is off the ${range}-grid`).toBe(true);
+  // isometric: each side (and, for a cover, the goal taken in any order that makes it the same shape) keeps its length
+  const sides = (q: [number, number][]) => q.map((p, i) => { const r = q[(i + 1) % q.length]; return (p[0] - r[0]) ** 2 + (p[1] - r[1]) ** 2; });
+  const want = sides(pts).join(',');
+  const turnsOf = (q: [number, number][]) => q.map((_, k) => [...q.slice(k), ...q.slice(0, k)] as [number, number][]);
+  const iso = a.match === 'set' ? [...turnsOf(a.pts), ...turnsOf([...a.pts].reverse())].some((q) => sides(q).join(',') === want) : sides(a.pts).join(',') === want;
+  expect(iso, `${at}: the goal is not the shape moved`).toBe(true);
+  expect(transformReachable(m, a.pts, a.match || 'labels'), `${at}: the goal cannot be reached with the item's moves`).toBe(true);
+  // a named target is the goal the question shows
+  if (m.target) expect(tfSameSet(m.target.pts, a.pts), `${at}: the dashed target is not the goal`).toBe(true);
+}
+
+/**
+ * The proof object (GEOM-3): made from a template (content/proofs.js) in one of its letter sets, the template passes the
+ * template test, the rows are the template's (the same claims, the same right reasons, the same free groups; which
+ * reasons are asked may differ), something is asked, and without lockOrder the first order shown is not already right.
+ */
+function checkProof(m: { tpl: string; set?: number; lockOrder?: boolean; seed: string; part: { steps: any[]; free?: number[][] } }, at: string) {
+  const T = PROOF[m.tpl];
+  expect(T, `${at}: a proof is made from a template`).toBeTruthy();
+  const U = proofIn(T, m.set || 0);
+  expect(templateFaults(U), at).toEqual([]);
+  expect(m.part.steps.map((s) => s.text), `${at}: not the template's rows`).toEqual(U.steps.map((s: any) => s.text));
+  expect(m.part.steps.map(rightReason), `${at}: not the template's reasons`).toEqual(U.steps.map(rightReason));
+  expect(m.part.free || [], at).toEqual(U.free || []);
+  expect(askedSteps(m.part).length, `${at}: nothing to choose`).toBeGreaterThan(0);
+  if (!m.lockOrder) expect(firstOutOfPlace(m.part as any, proofStart(m).order), `${at}: the rows start in a right order`).not.toBe(-1);
 }
 
 /** A value is a whole number of parts of size 1/den. */
@@ -997,6 +1049,36 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'chart', mode: 'pie', cats, start: [0, 0, 0], pie: { parts: 12 } }, { values: [6, 4, 3] })); // 13 of 12
     bad(explore({ kind: 'chart', mode: 'pie', cats, start: [0, 0, 0], pie: { parts: 8 } }, { values: [4, 2, 2] })); // 8 parts
     bad(explore({ kind: 'chart', mode: 'pie', cats: ['א'], start: [0], pie: { parts: 10 } }, { values: [4] })); // one category
+  });
+  it('a transform: not the start, the shape moved, on the plane, and reachable with the item\'s own moves', () => {
+    const shape = { pts: [[1, 1], [4, 1], [1, 3]], names: ['A', 'B', 'C'] };
+    // flip in y, then 3 down: the transf:4-style goal
+    ok(explore({ kind: 'transform', shape, moves: { drag: true, flips: ['y'] } }, { pts: [[-1, -2], [-4, -2], [-1, 0]] }));
+    // a quarter turn about the origin, no slide
+    ok(explore({ kind: 'transform', shape, moves: { turns: { centre: [0, 0], by: 90 } } }, { pts: [[-1, 1], [-1, 4], [-3, 1]] }));
+    // a cover whatever the letters, with the dashed target drawn
+    ok(explore({ kind: 'transform', shape, start: [[-5, -5], [-2, -5], [-5, -3]], moves: { drag: true, flips: ['x'] }, target: { pts: [[2, 3], [5, 3], [2, 1]] } }, { pts: [[2, 3], [5, 3], [2, 1]], match: 'set' }));
+    bad(explore({ kind: 'transform', shape, moves: { drag: true } }, { pts: [[1, 1], [4, 1], [1, 3]] })); // starts on the goal
+    bad(explore({ kind: 'transform', shape, moves: { drag: true } }, { pts: [[-1, 1], [-4, 1], [-1, 3]] })); // a mirror image, and no flip
+    bad(explore({ kind: 'transform', shape, moves: { drag: true, flips: ['y'] } }, { pts: [[0, 0], [4, 0], [0, 3]] })); // not the same shape
+    bad(explore({ kind: 'transform', shape, moves: { drag: true } }, { pts: [[4, 1], [7, 1], [4, 3]] })); // off the 6-grid
+    // without a slide the copy reaches nothing but its flips: a flip in x = 4 from the far left leaves the plane
+    bad(explore({ kind: 'transform', shape, start: [[-6, 0], [-3, 0], [-6, 2]], moves: { flips: [{ x: 4 }] } }, { pts: [[6, 0], [3, 0], [6, 2]] }));
+    ok(explore({ kind: 'transform', shape, start: [[-6, 0], [-3, 0], [-6, 2]], moves: { drag: true, flips: [{ x: 4 }] } }, { pts: [[6, 0], [3, 0], [6, 2]] }));
+    bad(explore({ kind: 'transform', shape, moves: { drag: true }, target: { pts: [[2, 3], [5, 3], [2, 5]] } }, { pts: [[-3, -3], [0, -3], [-3, -1]] })); // the target is not the goal
+  });
+  it('a proof: made from a template that passes the template test, not starting right', () => {
+    ok(explore(proofManip(PROOF.T1), null));
+    ok(explore(proofManip(PROOF.T5, { set: 1, lockOrder: true }), null));
+    ok(explore(proofManip(PROOF.T7, { set: 2, ask: 'theorem', seed: 'q' }), null));
+    const m = proofManip(PROOF.T2);
+    bad(explore({ ...m, tpl: 'T9' }, null)); // no such template
+    bad(explore({ ...m, part: { ...m.part, steps: m.part.steps.slice(0, -1) } }, null)); // a row lost
+    bad(explore({ ...m, part: { ...m.part, steps: [m.part.steps[3], ...m.part.steps.filter((_: unknown, i: number) => i !== 3)] } }, null)); // the congruence first
+    const told = { ...m, lockOrder: true, part: { ...m.part, steps: m.part.steps.map((st: any) => (st.reason ? { text: st.text, fixed: rightReason(st) } : st)) } };
+    bad(explore(told, null)); // nothing left to choose
+    // every row in one free group: no shuffle can start wrong
+    bad(explore({ ...m, part: { ...m.part, free: [[0, 1, 2, 3, 4]] } }, null));
   });
   it('two lines: the goal is their meeting point', () => {
     ok(explore({ kind: 'plot', lines: [{ m: 2, b: -1 }, { m: -1.5, b: 6 }] }, [2, 3]));

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { TOPICS, topicsFor } from '@/content/index.js';
 import { APP_NAME } from '../../shared/brand.js';
-import { listing, description, privacyUrlFor, countsCoverage, LISTING_FILE, COUNTS_FILE, NOTES } from '../../store/make-listing.mjs';
+import { listing, description, privacyUrlFor, countsCoverage, storeCoverage, LISTING_FILE, COUNTS_FILE, NOTES } from '../../store/make-listing.mjs';
 import { coverageOf, coverageSentence } from '@/learn/programme';
 import { CLAIMS, claimStatus, claimData } from '@/content/claims.js';
 import { repoCode, wranglerVars, checkClaims } from './landing-build.mjs';
@@ -126,12 +126,22 @@ describe('the store listing', () => {
     // counts.json holds the /programme page's sentences, from the code (claims.test.ts keeps the file fresh)
     for (const g of ['7', '8']) expect(counts.coverage[g]).toBe(coverageSentence(g, coverageOf(g)));
     expect(countsCoverage()).toEqual(counts.coverage);
-    // each one is a whole line of the description, for both stores
+    // each one is a whole line of the description, for both stores, as a store says it (storeCoverage): a grade
+    // taught whole keeps its hours and loses "(100%)", which the listing never says; any other share is quoted as is
+    const said = { 7: storeCoverage(counts.coverage['7']), 8: storeCoverage(counts.coverage['8']) };
+    for (const g of ['7', '8']) {
+      const c = coverageOf(g);
+      expect(said[g]).toBe(c.taught === c.hours ? counts.coverage[g].replace(` (${c.pct}%).`, '.') : counts.coverage[g]);
+      expect(said[g]).toContain(`${c.taught} מתוך ${c.hours} שעות ההוראה`);
+    }
+    expect(storeCoverage(coverageSentence('8', { taught: 147, hours: 147, pct: 100 }))).toBe('במדרגות יש כבר את החומר של 147 מתוך 147 שעות ההוראה של כיתה ח׳.');
+    expect(storeCoverage(coverageSentence('7', { taught: 148, hours: 150, pct: 99 }))).toBe(coverageSentence('7', { taught: 148, hours: 150, pct: 99 }));
+    expect(storeCoverage(undefined)).toBe('');
     for (const text of [json.apple.description, json.play.fullDescription]) {
       const lines = text.split('\n');
-      expect(lines).toContain(counts.coverage['7']);
-      expect(lines).toContain(counts.coverage['8']);
-      expect(lines.indexOf(counts.coverage['8'])).toBe(lines.indexOf(counts.coverage['7']) + 1);
+      expect(lines).toContain(said['7']);
+      expect(lines).toContain(said['8']);
+      expect(lines.indexOf(said['8'])).toBe(lines.indexOf(said['7']) + 1);
     }
     // the template names the slots on lines of their own, and holds no number or share of its own
     expect(template).toMatch(/^\{\{COVERAGE_7\}\}$/m);

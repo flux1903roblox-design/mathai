@@ -6,7 +6,7 @@
 // before 16.4 fails to load a chunk that has one): a word start is a prefix group, (?:^|[^א-ת]), and an end a lookahead.
 import { safetyPrompt } from './safety.js';
 import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, TOPIC_ALSO, NOT_YET } from './stairs.js';
-import { TOPIC_WAYS_STAGE1, SIGNED_FRACTIONS } from './topicWays.js';
+import { TOPIC_WAYS_STAGE1, TOPIC_WAYS_GEOM, SIGNED_FRACTIONS } from './topicWays.js';
 
 /** The one sentence that names the singular forms to avoid (the plural-only check skips it). */
 export const SINGULAR_EXAMPLES = 'Never use singular imperatives such as "תנסה" or "תנסי".';
@@ -63,12 +63,14 @@ export function curriculumBlock() {
     const names = Object.keys(TOPIC_ALSO).filter((t) => TOPIC_ALSO[t] === g).map((t) => TOPIC_NAMES[t]);
     return names.length ? [`This school year (תשפ״ז) grade ${g} also learns: ${names.join(', ')}.`] : [];
   });
+  // a grade whose whole programme has stairs has nothing here: it says "none" (ח׳, since the geometry units of stage 4)
+  const missing = (g) => NOT_YET[g].join(', ') || 'none';
   return [
     "Madregot's stairs, in teaching order (topic: numbered stairs). Help with any of them; name a stair the way the app does.",
     `Grade 7 (ז׳): ${grade('7')}`,
     `Grade 8 (ח׳): ${grade('8')}`,
     ...also,
-    `Topics of grades 7-8 the app does not teach yet: ז׳: ${NOT_YET['7'].join(', ')}; ח׳: ${NOT_YET['8'].join(', ')}. Help with them in the usual way. Do not invent a stair, a lesson or a link for them.`,
+    `Topics of grades 7-8 the app does not teach yet: ז׳: ${missing('7')}; ח׳: ${missing('8')}. Help with them in the usual way. Do not invent a stair, a lesson or a link for them.`,
   ].join('\n');
 }
 
@@ -130,6 +132,8 @@ export const TOPIC_WAYS = Object.freeze({
     avoid: ['deciding from how the drawing looks ("נראה ישר", "נראה שווה")', 'a name for an angle pair without the reason', '"longer arms make a bigger angle"'],
     avoidRe: [re(String.raw`נראה\s+(?:ישר|שווה|שוות|שווים|מקבילים)(?=$|[^א-ת])`)],
   },
+  // curriculum stage 4's transformations (transf:1-4, web/src/learn/content/transf.ts), the lane's own entry
+  transf: TOPIC_WAYS_GEOM.transf,
   expr: {
     models: String.raw`A letter keeps the place of a number. Substituting turns it into arithmetic: write the multiplication sign ($3 \cdot 4$, never "34") and bracket a negative value. An expression is built from small cases of a pattern and checked on a known case. Only like terms join (the tiles). The distributive law is a rectangle's area in two parts: the outside factor multiplies every term inside. To simplify: open brackets, collect, check by substituting. One substitution can mislead; equal expressions agree for every number.`,
     words: ['הצבה', 'ביטוי אלגברי', 'איברים דומים', 'כינוס איברים דומים', 'חוק הפילוג', 'מקדם', 'מספר חופשי'],
@@ -235,6 +239,10 @@ export const TOPIC_WAYS = Object.freeze({
       re(String.raw`(?:ה)?טווח\s+(?:הוא|זה)\s+מ־?\s*\$?-?\d`),
     ],
   },
+  // curriculum stage 4's congruent triangles (congr:1-4, web/src/learn/content/congr.ts), the lane's own entry
+  congr: TOPIC_WAYS_GEOM.congr,
+  // and its isosceles triangles and similarity (sim:1-4, web/src/learn/content/sim.ts), after congruence
+  sim: TOPIC_WAYS_GEOM.sim,
   sys: {
     models: String.raw`A solution is checked by putting it back in. A percent is of the original quantity: call it $x$ and write the change as multiplication (20% more is $1.2x$, 30% off $0.7x$; $1.2x = 60$). A system's solution is a pair true in both equations, where the two lines meet. Substitute, in brackets, when one equation gives $y$ (or $x$); else subtract the equations when a variable's coefficients are equal, add them when opposite. 0, 1 or infinitely many solutions. A story with two unknowns has two "equals" sentences, one equation each. An inequality is solved like an equation; its direction reverses only when multiplying or dividing both sides by a negative number ($2 < 3$ but $-2 > -3$). Check the direction with one number from the range; the answer is a ray with a full or an empty end.`,
     words: ['אחוז מהכמות המקורית', 'מערכת משוואות', 'שיטת ההצבה', 'השוואת מקדמים', 'אי־שוויון', 'תחום', 'עיגול מלא', 'עיגול ריק'],

@@ -41,8 +41,9 @@ const RELATION = { '<': 'קטן מ־', '>': 'גדול מ־', '=': 'שווה ל־
  * A TeX expression as plain text, for a screen-reader label where the rendered maths alone gives a
  * control no name (a multiple-choice answer). A lone comparison sign is said in words, and so are the absolute value
  * (|−9| is "הערך המוחלט של -9", CLASSROOM-1) and the class's angle sign (∢BOC is "זווית BOC", CLASSROOM-9): a
- * screen reader says the bars and ∢ as "vertical line" and "spherical angle". Any other command is turned into its
- * sign; one this does not know is left as its name, and components/choiceNames.test.js finds it in any choice.
+ * screen reader says the bars and ∢ as "vertical line" and "spherical angle". The geometry relations are said in words
+ * for the same reason (≅ "חופף ל־", ∼ "דומה ל־", ∥ "מקביל ל־", ⊥ "מאונך ל־", GEOM-1.4). Any other command is turned into
+ * its sign; one this does not know is left as its name, and components/choiceNames.test.js finds it in any choice.
  */
 export function texText(tex) {
   const t = String(tex ?? '').trim();
@@ -69,6 +70,10 @@ export function texText(tex) {
     .replace(/\^\{?\\circ\}?/g, '°').replace(/\\(cdot|times)/g, '×').replace(/\\div/g, ':').replace(/\\circ/g, '°')
     .replace(/\\leq?(?![a-z])/g, '≤').replace(/\\geq?(?![a-z])/g, '≥').replace(/\\neq?(?![a-z])/g, '≠')
     .replace(/\^\{?2\}?/g, '²').replace(/\\pi(?![a-zA-Z])/g, 'π')
+    // the class's geometry relations (GEOM-1.4), said in words as the angle and the triangle are above: a screen reader
+    // has no Hebrew name for ≅, ∼, ∥ or ⊥ ("משולש ABC חופף ל־משולש KML")
+    .replace(/\s*\\cong(?![a-zA-Z])\s*/g, ' חופף ל־').replace(/\s*\\sim(?![a-zA-Z])\s*/g, ' דומה ל־')
+    .replace(/\s*\\parallel(?![a-zA-Z])\s*/g, ' מקביל ל־').replace(/\s*\\perp(?![a-zA-Z])\s*/g, ' מאונך ל־')
     .replace(/\\(left|right)|\\[,;! ]/g, ' ')
     .replace(/[{}]/g, '').replace(/\\([a-zA-Z]+)/g, '$1')
     .replace(/\s+/g, ' ').trim();

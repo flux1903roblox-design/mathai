@@ -253,6 +253,47 @@ test('angles:c1: the proof put in order with the move buttons from the keyboard 
   await expectNoSidewaysScroll(page);
 });
 
+// curriculum stage 4 (GEOM-7): congr:c2, the proof of the crossing segments, ordered from the keyboard alone on the
+// small phone; its two givens show their reason (נתון), and the three others are chosen after the order is right
+test('congr:c2: the proof of the crossing segments put in order from the keyboard alone, then its reasons', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone-small', 'the small phone, where a proof is longest');
+  await open(page, '#/challenge/congr:c2', student('8'));
+  await expect(page.locator('.ch-count')).toHaveText('חלק 1 מתוך 3');
+  const ids = () => page.locator('.ch-order .ch-step-text').evaluateAll((els) => els.map((e) => Number(e.id.replace('ch-step-', ''))));
+  const start = await ids();
+  expect(start).toHaveLength(5);
+  for (let k = 0; k < 5; k += 1) {
+    let order = await ids();
+    let from = order.indexOf(k);
+    if (from === k) continue;
+    await page.locator(`.ch-move[aria-describedby="ch-step-${k}"][aria-label="הזיזו למעלה"]`).focus();
+    while (from > k) {
+      await page.keyboard.press('Enter');
+      order = await ids();
+      expect(order.indexOf(k)).toBe(from - 1);
+      from -= 1;
+    }
+  }
+  expect(await ids()).toEqual([0, 1, 2, 3, 4]);
+  await expectNoSidewaysScroll(page);
+  await go(page, 'בדיקה').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.ch-foot .lm-banner')).toHaveText('נכון!');
+  await go(page, 'המשך').click();
+  // the reasons: the vertical angles, the theorem, the corresponding sides
+  for (const why of ['זוויות קודקודיות', 'לפי צ.ז.צ', 'צלעות מתאימות במשולשים חופפים']) {
+    await page.getByRole('radio', { name: why }).click();
+    await go(page, 'בדיקה').click();
+    await expect(page.locator('.ch-foot .lm-banner')).toHaveText('נכון!');
+    await go(page, 'המשך').click();
+  }
+  await expect(page.locator('.ch-count')).toHaveText('חלק 2 מתוך 3');
+  await type(page, '16');
+  await go(page, 'בדיקה').click();
+  await expect(page.locator('.ch-foot .lm-banner')).toHaveText('נכון!');
+  await expectNoSidewaysScroll(page);
+});
+
 test('frac:c1: "sometimes", then the counterexample 3, 2, 1 typed into its slots is accepted', async ({ page }) => {
   await open(page, '#/challenge/frac:c1', student('7'));
   await expect(page.locator('.ch-claim')).toContainText('השבר גדל');
@@ -392,8 +433,9 @@ test('a passed mastery check offers the stair\'s challenge in a quiet card, whic
 // "70 · 30"), where the page itself did not scroll sideways. Every task is walked to its end the way a struggling student
 // meets the most text: each part missed twice (so its solution shows), each explanation sent for the self-check. At every
 // step nothing inside the challenge screen scrolls sideways, and no piece of maths sits past the screen's edge.
-// (curriculum stage 3's data and probability units and stage 2's four measurement units included)
-const TOPICS = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'data', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'circle', 'stats', 'sys', 'prob', 'space'];
+// (curriculum stage 3's data and probability units, stage 2's four measurement units and stage 4's three geometry units
+// included)
+const TOPICS = ['frac', 'signed', 'coord', 'angles', 'transf', 'expr', 'area', 'solid', 'data', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'circle', 'stats', 'congr', 'sim', 'sys', 'prob', 'space'];
 
 async function nothingCutOff(page, where) {
   const over = await page.evaluate(async () => {
@@ -441,7 +483,7 @@ const COUNT = { eq: 4 };
 for (const topic of TOPICS) {
   test(`at 320 px nothing is cut off in ${topic}'s challenges, at any step`, async ({ page }, info) => {
     test.skip(info.project.name !== 'phone-small', 'the narrow phone is the one that cuts');
-    await open(page, '#/', student(['ratio', 'pct', 'func', 'line', 'pyth', 'circle', 'stats', 'sys', 'prob', 'space'].includes(topic) ? '8' : '7'));
+    await open(page, '#/', student(['ratio', 'pct', 'func', 'line', 'pyth', 'circle', 'stats', 'congr', 'sim', 'sys', 'prob', 'space'].includes(topic) ? '8' : '7'));
     for (let n = 1; n <= (COUNT[topic] || 3); n += 1) {
       const steps = await walk(page, `${topic}:c${n}`);
       expect(steps, `${topic}:c${n} walked`).toBeGreaterThan(2);

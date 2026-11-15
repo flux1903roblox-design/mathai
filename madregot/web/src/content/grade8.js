@@ -10,6 +10,8 @@ import { FUNC } from './func.js';
 import { STATS2_LEVELS, STATS2_CATS } from './stats2.js';
 import { CIRCLE } from './circle.js';
 import { SPACE } from './space.js';
+import { CONGR } from './congr.js';
+import { SIM } from './sim.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -371,6 +373,10 @@ export const GRADE8 = [
       ...STATS2_CATS,
     },
   },
+  // congruent triangles, January and February (8.12), and isosceles triangles and similarity, March and April (8.13),
+  // before the systems of February–May, which end the year
+  CONGR,
+  SIM,
   SYS,
   // curriculum stage 3 (DATA-6): "הסתברות ב" (March), after the systems
   PROB,

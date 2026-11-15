@@ -1,7 +1,7 @@
 // The tutor's context as the device builds it (ai spec AI-1 Tests, web side): the diagnosis the screen showed, recomputed
 // from the item; the policy by phase; the stair's own texts; and a learner summary with nothing personal in it.
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { buildTutorContext, describeWrong, learnerSummary, examAnswerFrom, policyFor, CTX_VERSION } from './tutorContext.js';
+import { buildTutorContext, describeWrong, learnerSummary, examAnswerFrom, policyFor, lessonGrade, CTX_VERSION } from './tutorContext.js';
 import { normalizeContext, renderContext, CLIP } from '@shared/tutorContext.js';
 import { TOPIC, makeItem, catLabel, diagnosisLine, ambiguousText, answerText, isCorrect } from '@/content/index.js';
 import { manipWrong } from '@/content/manip.js';
@@ -22,6 +22,20 @@ const lessonState = (item, wrong, extra = {}) => ({ kind: 'node', item, wrong, p
 const build = (item, wrong, extra = {}, learn = { skills: {}, miscon: {} }) => buildTutorContext({ surface: 'lesson', item, s: lessonState(item, wrong, extra.s), learn, now: NOW, ...extra.o });
 
 afterEach(() => vi.restoreAllMocks());
+
+describe('the grade the tutor is told in a lesson (skills.ts ALSO_ON_PATH)', () => {
+  it('a ח׳ student in the transformations unit (8.5 this year) is in ח׳; elsewhere the unit\'s own grade', () => {
+    expect(lessonGrade('transf', '8')).toBe('8');
+    expect(lessonGrade('transf', '7')).toBe('7');
+    expect(lessonGrade('transf', undefined)).toBe('7');
+    // a unit of the other grade, not on the student's path, keeps its filing grade (ז׳ Pythagoras is ח׳'s unit)
+    expect(lessonGrade('pyth', '7')).toBe('8');
+    expect(lessonGrade('signed', '8')).toBe('7');
+    const item = makeItem('transf', 1);
+    const ctx = buildTutorContext({ surface: 'lesson', item, s: lessonState(item, []), learn: { skills: {}, miscon: {} }, grade: lessonGrade('transf', '8'), now: NOW });
+    expect(ctx).toMatchObject({ skill: 'transf:1', topicId: 'transf', grade: '8' });
+  });
+});
 
 describe('the diagnosis the screen showed is the one the tutor gets', () => {
   it('1. one misconception: drop-sign on −4 + 3 → 7, with the stair\'s own texts and withhold', () => {

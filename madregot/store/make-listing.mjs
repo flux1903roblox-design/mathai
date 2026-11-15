@@ -31,6 +31,13 @@ export function countsCoverage(file = COUNTS_FILE) {
   } catch { return {}; }
 }
 
+/**
+ * A coverage sentence as a store description says it. A grade taught whole (ח׳ since curriculum stage 4: 147 of 147
+ * hours) keeps its hours and loses the share in brackets: the listing never says "100%" (its lint, listing.test.mjs: no
+ * boast a store may refuse), and "147 מתוך 147" already says it. Any other share is quoted as counts.json has it.
+ */
+export const storeCoverage = (sentence) => String(sentence || '').replace(/ \(100%\)\.$/, '.');
+
 /** The fields with no generated part. {{APP_NAME}} is the product's name. */
 export const FIELDS = {
   apple: {
@@ -75,7 +82,7 @@ const list = (names) => names.join(', ');
 export function description(template, { appName, topics, privacyUrl, coverage = {}, claims = { shown: {}, known: [] } }) {
   const slots = {
     APP_NAME: appName, TOPICS_7: list(topics['7']), TOPICS_8: list(topics['8']), PRIVACY_URL: privacyUrl || '',
-    COVERAGE_7: coverage['7'] || '', COVERAGE_8: coverage['8'] || '',
+    COVERAGE_7: storeCoverage(coverage['7']), COVERAGE_8: storeCoverage(coverage['8']),
   };
   const withClaims = template.replace(/\r\n/g, '\n').replace(/\{\{CLAIM ([\w-]+)\}\}/g, (_, id) => claimOf(claims, id));
   const unknown = [...withClaims.matchAll(/\{\{(\w+)\}\}/g)].find((m) => !(m[1] in slots));

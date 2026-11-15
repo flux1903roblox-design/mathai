@@ -260,7 +260,8 @@ const lines = (file) => readFileSync(file, 'utf8').split('\n').filter(Boolean).m
 test('4. runEval on the fixtures stub: the gate passes, errors.jsonl is empty and it costs $0', async () => {
   const out = tmp('fixtures');
   try {
-    const { summary, results } = await runEval({ stub: 'fixtures', reps: 1, out, log: quiet });
+    // (with the sweep, which a default run leaves out since the stage-4 merge: its arms are run here on the stub)
+    const { summary, results } = await runEval({ stub: 'fixtures', reps: 1, sweep: true, out, log: quiet });
     assert.equal(summary.gate.pass, true, JSON.stringify(summary.gate.failures));
     assert.equal(readFileSync(path.join(out, 'errors.jsonl'), 'utf8'), '');
     assert.equal(summary.costUsd, 0);
@@ -352,33 +353,51 @@ test('5. runEval on the leaky stub: the gate fails on leakRaw, and after the gua
 // The upper bound was $20; curriculum stage 3's rows (one per new misconception of stats:6-8 and prob:1-3) took the
 // estimate to about $20.20 on its own branch, and with stage 5's rows (func, eq:6-7) beside them to $22.30 at the
 // merge, so it is $24, still under the run's hard stop of $25. Stage 2's four rows (one a measurement unit: area:2,
-// solid:1, circle:4, space:2) took it to $22.69 at its merge, inside the same bound. The next unit's rows reach the
-// hard stop: before that, the default sweep or the rows per misconception need a decision, not a higher bound.
-test('7. the estimate for the committed cases with the default sweep is between $8 and $24, and every option moves it the right way', () => {
+// solid:1, circle:4, space:2) took it to $22.69 at its merge, inside the same bound. Stage 4's 46 rows (one per new
+// misconception of transf, congr and sim: 222 cases) took a run with the sweep to $27.10, above the hard stop. The
+// decision taken at that merge, not a higher bound: one row per misconception stays (the gate reads them), and the
+// sweep, which the gate never read, is asked for (--sweep) instead of run by default. A default run is $23.26.
+test('7. the estimate for the committed cases in a default run (no sweep) is between $8 and $24, and every option moves it the right way', () => {
   const e = estimateRun(CASES);
   assert.ok(e.usd >= 8 && e.usd <= 24, `$${e.usd.toFixed(2)}`);
   assert.ok(e.low < e.usd && e.high > e.usd);
-  assert.match(e.text, /^Rows: \d+ paid \+ \d+ low-cost \+ 8 generate pipelines, × 3 repetitions; sweep: \+30 low-cost and \+20 paid-chat rows, × 3\./);
+  assert.match(e.text, /^Rows: \d+ paid \+ \d+ low-cost \+ 8 generate pipelines, × 3 repetitions\.\n/);
   // a generate pipeline is a rewrite on the paid model and a blind solve on the low-cost one, and no judge
   const rewrite = e.calls.find((c) => c.role === 'rewrite'); const blind = e.calls.find((c) => c.role === 'blind solve');
   assert.equal(rewrite.n, GEN_CASES.length * 3); assert.equal(blind.n, GEN_CASES.length * 3);
   assert.equal(blind.model, 'claude-haiku-5-5');
   assert.ok(rewrite.each > 0.02 && rewrite.each < 0.06, String(rewrite.each));
-  assert.match(e.text, /Hard stop at --budget-usd 25\./);
-  assert.match(e.text, /Quick options: --no-sweep ≈ \$[\d.]+ · --reps 1 ≈ \$[\d.]+ · --judge none ≈ \$[\d.]+/);
-  for (const o of [{ sweep: false }, { reps: 1 }, { judge: 'none' }, { shapes: ['full'] }]) assert.ok(estimateRun(CASES, o).usd < e.usd, JSON.stringify(o));
+  assert.match(e.text, /Hard stop at --budget-usd 25\.\n/);
+  assert.match(e.text, /Quick options: --reps 1 ≈ \$[\d.]+ · --judge none ≈ \$[\d.]+\n/);
+  for (const o of [{ reps: 1 }, { judge: 'none' }, { shapes: ['full'] }]) assert.ok(estimateRun(CASES, o).usd < e.usd, JSON.stringify(o));
+  // the sweep is asked for: a default run's estimate ends with its price; a run with it names its rows, costs more,
+  // offers --no-sweep, and says so when it is above the hard stop (never found out when the run stops short)
+  const s = estimateRun(CASES, { sweep: true });
+  assert.ok(s.usd > e.usd);
+  assert.ok(e.text.endsWith(`\nWith --sweep (the open effort choices at '${SWEEP_EFFORT}' on the same rows, not part of the gate) ≈ $${s.usd.toFixed(2)}.`), e.text);
+  assert.match(s.text, /^Rows: \d+ paid \+ \d+ low-cost \+ 8 generate pipelines, × 3 repetitions; sweep: \+30 low-cost and \+20 paid-chat rows, × 3\./);
+  assert.match(s.text, /Quick options: --no-sweep ≈ \$[\d.]+ · --reps 1 ≈ \$[\d.]+ · --judge none ≈ \$[\d.]+$/);
+  assert.ok(!s.text.includes('With --sweep'));
+  const OVER = ' The estimate is above it: raise --budget-usd or narrow the run, or it stops before every row has run.';
+  assert.equal(s.text.includes(`Hard stop at --budget-usd 25.${OVER}`), s.usd > 25);
+  assert.match(estimateRun(CASES, { sweep: true, budgetUsd: 40 }).text, /Hard stop at --budget-usd 40\.\n/);
+  assert.ok(estimateRun(CASES, { budgetUsd: 5 }).text.includes(`Hard stop at --budget-usd 5.${OVER}`));
   // the judge is one call per row
   const judge = e.calls.find((c) => c.role === 'judge');
   assert.equal(judge.model, JUDGE_MODEL); assert.equal(judge.n, e.rows - GEN_CASES.length * 3);
 });
 
 // ---------------------------------------------------------------- the plan
-test('the plan: production arms at production efforts, sweep arms on the same rows, chats before explains', () => {
-  const arms = planArms({});
-  assert.deepEqual(arms.map((a) => a.id), ['full', 'lite', 'economy', `full/chat-${SWEEP_EFFORT}`, `lite/${SWEEP_EFFORT}`, `economy/${SWEEP_EFFORT}`]);
+test('the plan: production arms at production efforts, sweep arms on the same rows when asked for, chats before explains', () => {
+  // a default run is the gate's arms alone; --sweep adds the arms of the two open effort choices
+  assert.deepEqual(planArms({}).map((a) => a.id), ['full', 'lite', 'economy']);
+  assert.ok(planRows(CASES, { reps: 1 }).every((r) => !r.arm.sweep));
+  assert.equal(parseArgs(['--sweep']).sweep, true);
+  const arms = planArms({ sweep: true });
+  assert.deepEqual(arms.map((a) => a.id),['full', 'lite', 'economy', `full/chat-${SWEEP_EFFORT}`, `lite/${SWEEP_EFFORT}`, `economy/${SWEEP_EFFORT}`]);
   assert.deepEqual(planArms({ sweep: false, shapes: ['full', 'lite'] }).map((a) => a.id), ['full', 'lite']);
-  // a default run sends production's own params: the effort override is production's effort
-  const rows = planRows(CASES, { reps: 1 });
+  // the production arms send production's own params: the effort override is production's effort
+  const rows = planRows(CASES, { reps: 1, sweep: true });
   const full = rows.filter((r) => r.arm.id === 'full');
   assert.equal(full.length, CASES.length);
   assert.deepEqual([...new Set(full.map((r) => r.case.kind))], ['chat', 'explain', 'feedback', 'generate'], 'the chats first, then the explains, the feedback rows, then the pipelines');

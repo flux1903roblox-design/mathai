@@ -35,6 +35,8 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'coord': return import('./coord').then((m) => m.COORD);
     // angles:6 (the bisector) and angles:7 (the quadrilateral) are the classroom lane's (CLASSROOM-10, -12), in their own file
     case 'angles': return Promise.all([import('./angles'), import('./angles67')]).then(([a, b]) => [...a.ANGLES, ...b.ANGLES67]);
+    // transformations (curriculum stage 4): the teaching; the stairs' generators load beside it (content/topics.js importGens)
+    case 'transf': return import('./transf').then((m) => m.TRANSF);
     case 'expr': return import('./expr').then((m) => m.EXPR);
     // stage 2 (measurement): areas and perimeters, ז׳ 7.12
     case 'area': return import('./area').then((m) => m.AREA);
@@ -53,6 +55,9 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'circle': return import('./circle').then((m) => m.CIRCLE);
     // stats:6-8 (curriculum stage 3: range, two sources, interpolation) are in their own file
     case 'stats': return Promise.all([import('./stats'), import('./stats2')]).then(([a, b]) => [...a.STATS, ...b.STATS2]);
+    // congruent triangles, then isosceles triangles and similarity (curriculum stage 4): the teaching
+    case 'congr': return import('./congr').then((m) => m.CONGR);
+    case 'sim': return import('./sim').then((m) => m.SIM);
     case 'sys': return import('./sys').then((m) => m.SYS);
     // curriculum stage 3's probability ("הסתברות ב" of ח׳)
     case 'prob': return import('./prob').then((m) => m.PROB);

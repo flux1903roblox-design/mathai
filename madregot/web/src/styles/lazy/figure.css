@@ -248,3 +248,34 @@
 .choice-fig { display: grid; justify-items: center; gap: 2px; width: 100%; min-width: 0; }
 .choice-fig .figure { width: 100%; height: auto; max-height: 150px; }
 .choice-cap { font-size: var(--t-sm); color: var(--ink-2); }
+/* the transform object's still twin on the plane (GEOM-2.8): shapes with their letters, arrows from a point to its
+   image, a mirror line with its equation, the centre O and the turn's curved arrow */
+.fig-cd-shape polygon { stroke-width: 2.5; stroke-linejoin: round; }
+.fig-cd-shape.tone-brand polygon { fill: color-mix(in srgb, var(--brand) 18%, transparent); stroke: var(--brand); }
+.fig-cd-shape.tone-alt polygon { fill: color-mix(in srgb, var(--streak) 16%, transparent); stroke: var(--streak-d); }
+.fig-cd-shape.tone-ghost polygon { fill: none; stroke: var(--ink-2); stroke-dasharray: 6 5; }
+.fig-cd-vx { fill: var(--ink); font-size: 17px; font-style: italic; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-shape.tone-brand .fig-cd-vx { fill: var(--brand-d); }
+.fig-cd-shape.tone-alt .fig-cd-vx { fill: var(--streak-ink); }
+.fig-cd-shape.tone-ghost .fig-cd-vx { fill: var(--ink-2); }
+.fig-cd-shape-label { fill: var(--ink); font-size: 15px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-arrow path { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 5 4; stroke-linecap: round; }
+.fig-cd-arrow path.head { stroke-dasharray: none; stroke-linejoin: round; }
+.fig-cd-arrow-label { fill: var(--ink-2); font-size: 14px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-mirror line { stroke: var(--ink); stroke-width: 2.5; stroke-dasharray: 7 5; stroke-linecap: round; }
+.fig-cd-eq { fill: var(--ink); font-size: 16px; font-weight: 700; font-style: italic; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-centre circle { fill: var(--ink); stroke: var(--ground); stroke-width: 2; }
+.fig-cd-centre .arc { fill: none; stroke: var(--streak-d); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+/* a proof as a still table (GEOM-3.9) and the נתון / צ״ל lines it shares with the proof object (ProofTable.jsx):
+   the class's two columns, טענה | נימוק, the asked row's reason a gold "?" */
+.mp-proof-head { display: flex; flex-direction: column; gap: 2px; }
+.mp-proof-head p { margin: 0; font-size: var(--t-base); line-height: 1.45; color: var(--ink); }
+.mp-proof-head b { color: var(--ink-2); font-weight: 700; }
+.fg-proof { display: flex; flex-direction: column; gap: var(--s2); width: 100%; max-width: 440px; text-align: start; }
+.fg-proof-table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); line-height: 1.4; }
+.fg-proof-table th { padding: 4px 8px; background: var(--brand-tint); color: var(--brand-d); font-weight: 700; text-align: start; border: 1px solid var(--rule-strong); }
+.fg-proof-table td { padding: 5px 8px; border: 1px solid var(--rule-strong); color: var(--ink); vertical-align: middle; }
+.fg-proof-table .n { width: 26px; text-align: center; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.fg-proof-table tr.ask td { background: var(--gold-tint); }
+.fg-proof-table tr.hl td { background: var(--brand-tint); font-weight: 600; }
+.fg-proof-ask { font-weight: 800; font-size: 18px; color: var(--gold-ink); }

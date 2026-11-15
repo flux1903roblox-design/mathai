@@ -5,8 +5,9 @@ import { describe, it, expect } from 'vitest';
 import { loadTopic, contentOf, ensureTopics, topicsReady, hasContent, metaOf, META, NEW_CATS, CONTENT_TOPICS } from './content/index';
 import type { StairContent } from './types';
 import metaText from './content/meta.gen.ts?raw';
+import challengeMetaText from './challenges/meta.gen.ts?raw';
 // @ts-ignore: plain JS
-import { collectMeta, renderMeta } from '../../scripts/gen-content-meta.mjs';
+import { collectMeta, renderMeta, collectChallenges, renderChallenges } from '../../scripts/gen-content-meta.mjs';
 // @ts-ignore: plain JS
 import { TOPICS } from '@/content/index.js';
 // the misconception names as the registry gathered them before the split: straight from each topic's file
@@ -31,10 +32,17 @@ import { CATS_AREA } from './content/area';
 import { CATS_SOLID } from './content/solid';
 import { CATS_CIRCLE } from './content/circle';
 import { CATS_SPACE } from './content/space';
+import { CATS_TRANSF } from './content/transf';
+import { CATS_CONGR } from './content/congr';
+import { CATS_SIM } from './content/sim';
 // @ts-ignore: no Node types in this project
 import { spawnSync } from 'node:child_process';
 // @ts-ignore: no Node types in this project
 import { execPath } from 'node:process';
+// @ts-ignore: no Node types in this project
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+// @ts-ignore: no Node types in this project
+import { dirname, join, resolve } from 'node:path';
 
 const sortKeys = (v: any): any => (Array.isArray(v) ? v.map(sortKeys) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v);
 const topicIds: string[] = TOPICS.map((t: any) => t.id);
@@ -146,10 +154,72 @@ describe('meta.gen.ts', () => {
       circle: CATS_CIRCLE,
       // and Pythagoras in space: content/space.js names every mistake too
       space: CATS_SPACE,
+      // curriculum stage 4's transformations: every name is already the topic's own (content/transf.js)
+      transf: CATS_TRANSF,
+      // and its congruent triangles: every name is the topic's own too (content/congr.js)
+      congr: CATS_CONGR,
+      // and its isosceles triangles and similarity: the same (content/sim.js)
+      sim: CATS_SIM,
     };
     expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
     for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));
     // and the topics' names for mistakes include them (content/index.js)
     for (const t of TOPICS) for (const [k, v] of Object.entries(before[t.id] || {})) expect(t.cats[k], `${t.id} ${k}`).toBe(v);
+  });
+});
+
+describe('learn/challenges/meta.gen.ts', () => {
+  it('is what the generator writes from the challenge files', () => {
+    const files = import.meta.glob('./challenges/*.ts', { eager: true }) as Record<string, Record<string, unknown>>;
+    const tasks = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen|all)\.ts$/.test(f) && !f.endsWith('.test.ts')));
+    expect(renderChallenges(collectChallenges(tasks))).toBe(challengeMetaText);
+  });
+});
+
+// The modules the first load runs: everything src/main.jsx reaches through static imports (`import … from`, `export …
+// from`, `import '…'`), never through import(). The bundler puts exactly these in the boot chunk, so a module that
+// must load on demand must not be among them.
+const WEB = resolve(dirname(new URL(import.meta.url).pathname), '../..');
+function resolveFrom(from: string, spec: string): string | null {
+  const clean = spec.split('?')[0];
+  let base: string;
+  if (clean.startsWith('@/')) base = join(WEB, 'src', clean.slice(2));
+  else if (clean.startsWith('@shared/')) base = join(WEB, '../shared', clean.slice(8));
+  else if (clean.startsWith('.')) base = resolve(dirname(from), clean);
+  else return null; // a package
+  for (const c of [base, ...['.js', '.jsx', '.ts', '.tsx'].map((e) => base + e), ...['js', 'jsx', 'ts', 'tsx'].map((e) => join(base, `index.${e}`))]) {
+    if (existsSync(c) && !readdirSafe(c)) return c;
+  }
+  return null;
+}
+const readdirSafe = (p: string) => { try { readdirSync(p); return true; } catch { return false; } };
+function bootModules(entry = join(WEB, 'src/main.jsx')): Set<string> {
+  const seen = new Set<string>(); const todo = [entry];
+  while (todo.length) {
+    const f = todo.pop()!;
+    if (seen.has(f)) continue;
+    seen.add(f);
+    if (!/\.(jsx?|tsx?)$/.test(f)) continue;
+    const text = readFileSync(f, 'utf8').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of text.matchAll(/(?:^|[\n;])\s*(?:import|export)\s+(?!type\s)(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g)) {
+      const r = resolveFrom(f, m[1]);
+      if (r) todo.push(r);
+    }
+  }
+  return new Set([...seen].map((f) => f.slice(WEB.length + 1)));
+}
+
+describe('the first load (boot) carries the challenge meta, never the tasks\' stories and parts', () => {
+  const boot = bootModules();
+  it('the walker finds the registry and its meta in the first load', () => {
+    expect(boot.has('src/App.jsx')).toBe(true);
+    expect(boot.has('src/learn/challenges/index.ts')).toBe(true);
+    expect(boot.has('src/learn/challenges/meta.gen.ts')).toBe(true);
+  });
+  it('no topic\'s task file and not all.ts: they load with the challenge screen', () => {
+    const tasks = readdirSync(join(WEB, 'src/learn/challenges')).filter((f: string) => /\.ts$/.test(f) && !/^(index|meta\.gen|grade)\.ts$/.test(f) && !f.endsWith('.test.ts'));
+    expect(tasks).toContain('all.ts');
+    expect(tasks).toContain('congr.ts');
+    expect(tasks.map((f: string) => `src/learn/challenges/${f}`).filter((f: string) => boot.has(f))).toEqual([]);
   });
 });

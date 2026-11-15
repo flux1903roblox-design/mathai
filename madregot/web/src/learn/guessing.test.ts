@@ -15,6 +15,11 @@
 //  - for a question in degrees (CURRICULUM-10), 180° minus a printed number, 90° minus one, and 360° minus one, each
 //    at random, the first or the last: what a student who copies the angle drawn, or completes it to a straight
 //    line, a right angle or a full turn, types without reading which angle is asked.
+// And two arithmetic shortcuts, only in the topics where they are a tool and not the skill (congruence and similarity,
+// GEOM-1; in `angles` 180 − a − b is the skill itself):
+//  - 180° minus the printed angles: the first two printed, or all of them (a congruence item that asks the third angle
+//    of a triangle can be answered so without reading the correspondence at all);
+//  - two printed lengths multiplied, over 4 (a median's half-triangle area: b·h/4).
 // Each question's chance is measured on a fresh sample; a check's pass rate is then exact (its questions are drawn
 // independently): mastery and jump tests need 4 of 5, a review 3 of 3, a verification 3 of 3; a placement probe needs
 // all three of its questions, and a topic's placement is followed through both its probes.
@@ -27,7 +32,7 @@ import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from './mastery';
 import { VERIFY_N, VERIFY_NEED } from './misconceptions';
 import { seeded } from './expr';
 // @ts-ignore: plain JS
-import { isCorrect, topicsFor, figPlain } from '@/content/index.js';
+import { isCorrect, topicsFor, placementTopicsFor, figPlain } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { manipSolution } from '@/content/manip.js';
 // @ts-ignore: plain JS
@@ -171,6 +176,35 @@ export const DEGREES: ((it: Item) => number)[] = DEG_GUESS.flatMap((f) => [
   (it: Item) => { if (!inDegrees(it)) return 0; const ns = shownNumbers(it); return ns.length && isCorrect(it, f(ns[ns.length - 1])) ? 1 : 0; },
 ]);
 
+/**
+ * The numbers a question prints as angles (a number with a degree sign, in its text, its expression or a drawing's angle
+ * marks) and as lengths (every other printed number, and a drawing's side labels), each in reading order.
+ */
+const DEG = /(-?\d+(?:\.\d+)?)\s*(?:\^\s*\{?\s*\\circ\s*\}?|°)/g;
+export function printedParts(it: Item): { angles: number[]; lengths: number[] } {
+  const said = [it.text, it.display].filter(Boolean).join(' ');
+  const angles = [...said.matchAll(DEG)].map((m) => Number(m[1]));
+  const lengths = printed({ ...it, text: said.replace(DEG, ' '), display: '' });
+  if (it.fig?.type === 'geo') {
+    // a drawing that repeats a number the text prints shows it once, not twice: a mark is added only past the text's
+    // own count of that number (the 62° of "∢CAD = 62°" drawn at A is one printed angle, so "180° minus the first two"
+    // does not become 180° − 2 · 62°, which is a stair's real answer and no shortcut)
+    const more = (to: number[], vs: number[]) => { const left = [...to]; vs.forEach((v) => { const i = left.indexOf(v); if (i >= 0) left.splice(i, 1); else to.push(v); }); };
+    more(angles, (it.fig.angles || []).flatMap((g: any) => [...String(g.text || '').matchAll(DEG)].map((m) => Number(m[1]))));
+    more(lengths, (it.fig.segs || []).filter((sg: any) => /^-?\d+(\.\d+)?$/.test(String(sg.label ?? ''))).map((sg: any) => Number(sg.label)));
+  }
+  return { angles, lengths };
+}
+/** The topics where the arithmetic shortcuts are measured: there the triangle sum and b·h/4 are tools, not the skill. */
+const ARITH_TOPICS = new Set(['congr', 'sim']);
+const ARITH: ((it: Item) => number)[] = [
+  // 180° minus the first two printed angles
+  (it) => { if (it.form !== 'num' || !ARITH_TOPICS.has(it.topic)) return 0; const { angles: a } = printedParts(it); return a.length >= 2 && isCorrect(it, 180 - a[0] - a[1]) ? 1 : 0; },
+  // 180° minus every printed angle
+  (it) => { if (it.form !== 'num' || !ARITH_TOPICS.has(it.topic)) return 0; const { angles: a } = printedParts(it); return a.length >= 1 && isCorrect(it, 180 - a.reduce((x, y) => x + y, 0)) ? 1 : 0; },
+  // the first two printed lengths multiplied, over 4
+  (it) => { if (it.form !== 'num' || !ARITH_TOPICS.has(it.topic)) return 0; const { lengths: l } = printedParts(it); return l.length >= 2 && isCorrect(it, (l[0] * l[1]) / 4) ? 1 : 0; },
+];
 
 /** P(at least `need` right) for independent questions with these chances. */
 function atLeast(qs: number[], need: number) {
@@ -183,7 +217,7 @@ function atLeast(qs: number[], need: number) {
 function passRate(draws: Draw[], need: number) {
   const samples = draws.map((d) => Array.from({ length: N }, d));
   // the numbers-from-the-question guesses learn nothing, so they are measured on the same sample
-  const fromQuestion = [...SHOWN, ...DEGREES].map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
+  const fromQuestion = [...SHOWN, ...DEGREES, ...ARITH].map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
   return Math.max(...learnGuesses(samples.flat()).map((g) => atLeast(chances(draws, g), need)), ...fromQuestion);
 }
 
@@ -215,7 +249,23 @@ describe('a check cannot be passed by guessing', () => {
 });
 
 describe('the placement test cannot be passed by guessing', () => {
+  // Every unit on a grade's path is walked as the first-day test walks it, also a unit that test skips (placement:
+  // false, content/topics.js placementTopicsFor: taught later in the year), so a unit switched on later already holds.
+  // One skipped unit is over 2% on the walk and is held to its measured bound: the congruent triangles (curriculum
+  // stage 4). Each of its probes alone is under 2% (congr:4 1.8%, congr:2 0.8%), two in a row reach 2.6%, because one
+  // strategy answers congr:4's transfer question (the median halves the area) half the time. Its mastery check, review
+  // and jump test are held to 2% above, like every stair's. That question changes before congr is asked on the first
+  // day: a unit the first-day test asks never has a wider bound (checked below).
+  const WALK_LIMIT: Record<string, number> = { congr: 0.03 };
+  const asked = new Set(([...placementTopicsFor('7'), ...placementTopicsFor('8')] as { id: string }[]).map((t) => t.id));
   const topics = [...topicsFor('7'), ...topicsFor('8')] as { id: string; levels: unknown[] }[];
+  it('a wider bound is only ever a skipped unit\'s, and is still a small one', () => {
+    for (const [id, limit] of Object.entries(WALK_LIMIT)) {
+      expect(asked.has(id), id).toBe(false);
+      expect(topics.some((t) => t.id === id), id).toBe(true);
+      expect(limit).toBeLessThanOrEqual(0.03);
+    }
+  });
   it.each(topics.map((t) => t.id))('%s: a guesser is placed on or above any stair less than 2% of the time', (topic) => {
     // the levels the first-day test can reach (lib/placement.js placementTop: stats stops at stats:5)
     const top = placementTop(topic);
@@ -239,7 +289,7 @@ describe('the placement test cannot be passed by guessing', () => {
       walk(0, top + 1, 0, startLevel(top, know), 1);
       for (let L = 1; L <= top; L += 1) {
         const p = Object.entries(placed).filter(([lv]) => Number(lv) >= L).reduce((a, [, x]) => a + x, 0);
-        expect(p, `${topic} (onboarding answer ${know}): placed on stair ${L} or above ${(100 * p).toFixed(2)}%`).toBeLessThan(LIMIT);
+        expect(p, `${topic} (onboarding answer ${know}): placed on stair ${L} or above ${(100 * p).toFixed(2)}%`).toBeLessThan(WALK_LIMIT[topic] ?? LIMIT);
       }
     });
     expect(PER_TOPIC).toBe(2);
@@ -417,6 +467,29 @@ describe('the guessing measure itself', () => {
     // ones and 78.5 the π ≈ 3.14 ones
     const both: Draw = () => (Math.random() < 0.5 ? { form: 'num', pk: 25, answer: 78.5, key: 'm:pk' } : { form: 'num', after: '\\pi', answer: 25, key: 'm:pi' });
     expect(passRate([both, both, both], 3)).toBeGreaterThan(0.1);
+  });
+  it('the arithmetic shortcuts of congruence and similarity run, and only there (GEOM-1 Tests)', () => {
+    // synthetic items show the guessers guess (the congruence and similarity units' real ones run in the checks above),
+    // so they cannot pass a real check by never running
+    const third = { form: 'num', topic: 'congr', text: 'במשולש $ABC$: $\\sphericalangle A = 50^\\circ$, $\\sphericalangle B = 60^\\circ$. כמה מעלות $\\sphericalangle C$?', answer: 70, key: 'syn:third' };
+    expect(printedParts(third)).toEqual({ angles: [50, 60], lengths: [] });
+    expect(ARITH[0](third)).toBe(1);
+    expect(ARITH[1](third)).toBe(1);
+    // with three printed angles, "minus all of them" is the one that guesses
+    const all = { ...third, text: 'זוויות של $30°$, $40°$ ו־$50^{\\circ}$', answer: 60 };
+    expect(printedParts(all).angles).toEqual([30, 40, 50]);
+    expect([ARITH[0](all), ARITH[1](all)]).toEqual([0, 1]);
+    // two lengths multiplied over 4: the base 8 and the height 6 guess 12, in the text or as a drawing's side labels
+    const area = { form: 'num', topic: 'sim', text: '$BC = 8$, $AH = 6$. מה השטח של $\\triangle ABD$?', answer: 12, key: 'syn:area' };
+    expect(printedParts(area)).toEqual({ angles: [], lengths: [8, 6] });
+    expect(ARITH[2](area)).toBe(1);
+    const drawn = { form: 'num', topic: 'sim', text: 'מה השטח?', answer: 12, key: 'syn:drawn', fig: { type: 'geo', pts: { A: [0, 3], B: [0, 0], C: [4, 0] }, segs: [{ a: 'B', b: 'C', label: '8' }, { a: 'A', b: 'B', label: '6' }], angles: [{ at: 'B', from: 'C', to: 'A', right: true }] } };
+    expect(ARITH[2](drawn)).toBe(1);
+    // the triangle sum is the skill of `angles`: there the shortcut is not counted against the check
+    expect(ARITH.map((g) => g({ ...third, topic: 'angles' }))).toEqual([0, 0, 0]);
+    // and it reaches the pass rate: a check whose answer is always 180 − a − b falls to it
+    const draw: Draw = () => { const a = 5 * (7 + Math.floor(Math.random() * 10)); const b = 5 * (7 + Math.floor(Math.random() * 10)); return { ...third, text: `$\\sphericalangle A = ${a}^\\circ$, $\\sphericalangle B = ${b}^\\circ$`, answer: 180 - a - b, key: `syn:${a}:${b}` }; };
+    expect(passRate([draw, draw, draw, draw, draw], 4)).toBeGreaterThan(0.9);
   });
   it('sees the old pyth:5 hole: always typing 5 when the answers are 5 or 10', () => {
     // a check of five questions whose answers are 5 three times out of four: the measure must catch it

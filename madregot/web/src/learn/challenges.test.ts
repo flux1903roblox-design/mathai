@@ -1,18 +1,22 @@
 // The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, every topic has at least
 // one claim, one error or proof and one literacy task (stage 1's 36 were three each; later stages add their own, the data
 // and probability units three each, the classroom lane signed:c4 (CLASSROOM-4), signed:c5 (CLASSROOM-5) and expr:c4
-// (CLASSROOM-6), so the count is computed), and the grading rules (two tries, XP, the order check, the counterexample
-// check) are pinned.
+// (CLASSROOM-6), curriculum stage 4's geometry units three each (transf:c1-c3, congr:c1-c3, sim:c1-c3, GEOM-7), so the
+// count is computed), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import type { ChallengePart, ChallengeTask } from './types';
 import { CHALLENGES as META_LIST, challengeById, challengesAfter, challengesOf } from './challenges/index';
 // the tasks with their parts (the registry keeps only their meta for the first load)
 import { CHALLENGE_TASKS as CHALLENGES, taskById } from './challenges/all';
+// @ts-ignore: plain JS
+import { taskMeta } from '../../scripts/gen-content-meta.mjs';
 import { challengeXP, scoredParts, numCheck, exampleHolds, domainValues, firstOutOfPlace, shuffledOrder, moveStep } from './challenges/grade';
 import { ALL_SKILLS, TOPIC_ORDER, parseSkill } from './skills';
 import { evaluate, same } from './expr';
 import { contentOf, loadAllContent } from './content/index';
+// @ts-ignore: plain JS
+import { PROOFS, PROOF, LETTER_SETS, proofIn } from '@/content/proofs.js';
 
 // every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
 await loadAllContent();
@@ -47,6 +51,11 @@ describe('the challenge tasks', () => {
     expect(META_LIST.map((t) => t.id)).toEqual(CHALLENGES.map((t) => t.id));
     for (const t of CHALLENGES) expect(challengeById(t.id)).toEqual({ id: t.id, topic: t.topic, after: t.after, kind: t.kind, title: t.title, minutes: t.minutes, ...(t.misc ? { misc: t.misc } : {}) });
     expect(META_LIST.some((t) => 'parts' in t || 'story' in t)).toBe(false);
+    // the meta is what the generator writes of each whole task, in the same order (scripts/gen-content-meta.mjs taskMeta)
+    expect(META_LIST).toEqual(CHALLENGES.map(taskMeta));
+    expect(challengeById('congr:c2')).toEqual(taskMeta(taskById('congr:c2')));
+    expect(challengeById('nope')).toBeNull();
+    for (const t of META_LIST) expect(Object.keys(t).filter((k) => ['story', 'fig', 'parts'].includes(k)), t.id).toEqual([]);
     expect(taskById('func:c2')?.parts.length).toBeGreaterThan(0);
     expect(taskById('prob:c2')?.parts).toHaveLength(2);
     expect(taskById('nope')).toBeNull();
@@ -71,6 +80,10 @@ describe('the challenge tasks', () => {
     expect(challengesAfter('signed:7').map((t) => t.id)).toEqual(['signed:c5']);
     // stage 2 (MEASURE-7): its four units have three tasks each, a claim, an error and a real-world task
     for (const tp of ['area', 'solid', 'circle', 'space'] as const) expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]);
+    // curriculum stage 4 (GEOM-7): the transformations, congruence and similarity have three each
+    expect(challengesOf('transf').map((t) => [t.id, t.kind, t.after])).toEqual([['transf:c1', 'claim', 'transf:3'], ['transf:c2', 'error', 'transf:3'], ['transf:c3', 'literacy', 'transf:4']]);
+    expect(challengesOf('congr').map((t) => t.id)).toEqual(['congr:c1', 'congr:c2', 'congr:c3']);
+    expect(challengesOf('sim').map((t) => [t.id, t.kind, t.after])).toEqual([['sim:c1', 'claim', 'sim:2'], ['sim:c2', 'proof', 'sim:1'], ['sim:c3', 'literacy', 'sim:4']]);
     expect(TOPIC_ORDER).toContain('frac');
     expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => challengesOf(tp).map(() => tp)));
     expect(challengeById('pct:c1')?.after).toBe('pct:2');
@@ -264,6 +277,55 @@ describe('the challenge tasks', () => {
       expect(p.steps.length, id).toBeGreaterThanOrEqual(3);
       p.steps.forEach((s) => { if (s.reason) expect(Number.isInteger(s.reason.answer) && s.reason.answer >= 0 && s.reason.answer < s.reason.choices.length, id).toBe(true); });
       (p.free || []).forEach((g) => g.forEach((k) => expect(k >= 0 && k < p.steps.length, id).toBe(true)));
+    });
+  });
+
+  it('congr:c2 orders template T1\'s rows, written into the challenge (the track loads first): the same claims, the same right reasons', () => {
+    const order = taskById('congr:c2')!.parts.find((p) => p.type === 'order') as Order;
+    const right = (st: any) => st.fixed ?? st.reason.choices[st.reason.answer];
+    expect(order.steps.map((st) => st.text)).toEqual(PROOF.T1.steps.map((st: any) => st.text));
+    expect(order.steps.map(right)).toEqual(PROOF.T1.steps.map(right));
+    expect(order.free).toEqual(PROOF.T1.free);
+    // the two givens show their reason, נתון; the vertical angles, the congruence and the conclusion are asked
+    expect(order.steps.map((st) => (st.fixed ? 'fixed' : 'asked'))).toEqual(['fixed', 'fixed', 'asked', 'asked', 'asked']);
+  });
+
+  it('sim:c2 orders template T6\'s rows, written into the challenge (the track loads first): the same claims, the same right reasons', () => {
+    const order = taskById('sim:c2')!.parts.find((p) => p.type === 'order') as Order;
+    const right = (st: any) => st.fixed ?? st.reason.choices[st.reason.answer];
+    expect(order.steps.map((st) => st.text)).toEqual(PROOF.T6.steps.map((st: any) => st.text));
+    expect(order.steps.map(right)).toEqual(PROOF.T6.steps.map(right));
+    expect(order.free).toEqual(PROOF.T6.free);
+    // the given, the bisector and the common side show their reason; the third angle and the theorem are asked
+    expect(order.steps.map((st) => (st.fixed ? 'fixed' : 'asked'))).toEqual(['fixed', 'fixed', 'fixed', 'asked', 'asked', 'fixed']);
+  });
+
+  it('the seven proof templates follow the same rules, so a template that serves a challenge passes both engines (GEOM-3)', () => {
+    const parts = (PROOFS as any[]).flatMap((T) => LETTER_SETS.map((_: string, set: number) => {
+      const U = proofIn(T, set);
+      return [`${T.id}/${set}`, { type: 'order', prompt: 'סדרו את שלבי ההוכחה.', steps: U.steps, free: U.free } as Order] as const;
+    }));
+    expect(parts).toHaveLength(21);
+    parts.forEach(([id, p]) => {
+      expect(p.steps.length, id).toBeGreaterThanOrEqual(3);
+      p.steps.forEach((s) => {
+        if (s.reason) expect(Number.isInteger(s.reason.answer) && s.reason.answer >= 0 && s.reason.answer < s.reason.choices.length, id).toBe(true);
+        // a reason is asked or shown, never both
+        expect(!!s.reason !== (s.fixed != null), id).toBe(true);
+      });
+      // every free group is in range and contiguous: rows that may swap stand next to each other
+      (p.free || []).forEach((g) => {
+        g.forEach((k) => expect(k >= 0 && k < p.steps.length, id).toBe(true));
+        const sorted = [...g].sort((a, b) => a - b);
+        expect(sorted.every((k, i) => !i || k === sorted[i - 1] + 1), `${id}: ${g}`).toBe(true);
+      });
+      // the shuffle never starts right
+      for (let k = 0; k < 20; k += 1) expect(firstOutOfPlace(p, shuffledOrder(p, `${id}:${k}`)), id).not.toBe(-1);
+      // every piece of maths renders, and no Latin word stands outside it
+      p.steps.flatMap((s) => [s.text, ...(s.reason?.choices || []), s.fixed || '']).filter(Boolean).forEach((t) => {
+        tex(t).forEach((m) => expect(() => katex.renderToString(m, { throwOnError: true }), `${id}: ${m}`).not.toThrow());
+        expect(outsideTex(t), `${id}: "${t}"`).not.toMatch(/[A-Za-z]/);
+      });
     });
   });
 

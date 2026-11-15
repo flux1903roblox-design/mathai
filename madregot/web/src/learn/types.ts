@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'area' | 'solid' | 'data' | 'eq' | 'ratio' | 'pct' | 'func' | 'line' | 'pyth' | 'circle' | 'stats' | 'sys' | 'prob' | 'space';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'transf' | 'expr' | 'area' | 'solid' | 'data' | 'eq' | 'ratio' | 'pct' | 'func' | 'line' | 'pyth' | 'circle' | 'stats' | 'congr' | 'sim' | 'sys' | 'prob' | 'space';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -22,7 +22,8 @@ export type Rng = () => number;
  * Fractions and ratio: 'fbar' (the fraction bar { start: { den, shaded }, lockDen?, maxDen?, marks?, whole? }; the answer
  * is { mode: 'value', value } | { mode: 'common', of } | { mode: 'exact', den, shaded }) and 'dline' (the double number
  * line { top, bottom, move: 't' | 'max', start: { t, max? }, fixT? }; the answer is the marker's top value or the bottom
- * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`.
+ * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`; 'numberline' takes
+ * `plain` (a line of lengths, from 0: no frost and fire on its ground).
  * Angles: 'angle' is a ray turned on a straight line ({ start, labels?: { left, vertex, right, ray } }; the answer is the
  * right angle in degrees), or with `protractor: true` a protractor (FUNC-1.2) in one of two modes: 'build' ({ mode:
  * 'build', from?: 'right' | 'left', base?: number, start: number, letters?: { vertex, a, b } }: the fixed arm on the 0 of
@@ -49,12 +50,42 @@ export type Rng = () => number;
  * d2?, fixed? }.
  * 'circle' (stage 4; content/roll.js): { show: 'circumference' | 'area', start: { r, t } | { r, n }, rMax?, rStep?, radius? };
  * answered { mode: 'r', r } (the radius set), { mode: 'unrolled' } (rolled one turn) or { mode: 'sectors', min }.
+ * Geometry (curriculum stage 4): 'transform' (a copy of a shape moved, flipped and turned on the grid, GEOM-2: the
+ * spec is TransformSpec, the value the copy's vertices, the answer { pts, match? }) and 'proof' (a proof in the class's
+ * table טענה | נימוק, GEOM-3: the challenge track's `order` part as a practice object).
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'graph' | 'simulate' | 'chart' | 'polygon' | 'net' | 'circle';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'graph' | 'simulate' | 'chart' | 'polygon' | 'net' | 'circle' | 'transform' | 'proof';
 /** An axis of a graph: from min (0 when not given) to max, a grid line every step, a number on every `every`-th line. */
 export type GraphAxis = { min?: number; max: number; step: number; label: string; unit?: string; every?: number };
 /** The answer of a 'graph' object. */
 export type GraphAnswer = { mode: 'values'; values: number[] } | { mode: 'shape'; shape: ('up' | 'flat' | 'down')[] } | { mode: 'uniform'; start?: number; rate?: number };
+/** A mirror line on the grid: an axis, or the line x = k or y = k. */
+export type Mirror = 'x' | 'y' | { x: number } | { y: number };
+/**
+ * The transform object (GEOM-2): the original shape stays, the student moves a copy that starts at `start` (default: on
+ * the original) with the moves the item lists: slides (drag, arrow keys and buttons), a flip in each mirror, quarter
+ * or half turns about `turns.centre`. `range` is the plane's half-width (default 6); `target` a dashed outline to cover.
+ */
+export type TransformSpec = {
+  kind: 'transform';
+  shape: { pts: [number, number][]; names: string[] };
+  start?: [number, number][];
+  moves: { drag?: boolean; flips?: Mirror[]; turns?: { centre: [number, number]; by: 90 | 180 } };
+  range?: number;
+  target?: { pts: [number, number][]; names?: string[] };
+};
+/**
+ * The proof object (GEOM-3): the challenge track's `order` part in the class's table טענה | נימוק, under the givens and
+ * what to prove, with the drawing it is read against. Without lockOrder the rows start in the seeded shuffle (never
+ * already right); with it they stay in order and only the missing reasons are asked. The value is { order, reasons }:
+ * the step at each place, and per step the chosen choice (null until chosen). tpl and set name the template and its
+ * letter set (content/proofs.js), which a teaching step is checked against.
+ */
+export type ProofSpec = {
+  kind: 'proof'; given: Text; goal: Text;
+  part: Extract<ChallengePart, { type: 'order' }>;
+  lockOrder?: boolean; seed: string; fig?: FigSpec; tpl?: string; set?: number;
+};
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand
@@ -189,8 +220,14 @@ export type FigSpec =
     lines?: { m: number; b: number; label?: string; tone?: FigTone }[];
     meet?: boolean; riseRun?: { x: number; run: number }; quadrants?: boolean; path?: [number, number][]; anim?: boolean;
     words?: { at: [number, number]; text: string; tone?: FigTone | 'alt' }[];
+    // the transform object's still twin (GEOM-2.8): shapes with letters at their vertices (ghost: dashed), dashed arrows
+    // from a point to its image, a mirror line with its equation, a centre O with a curved arrow of the turn
+    shapes?: { pts: [number, number][]; names?: string[]; tone?: 'brand' | 'alt' | 'ghost'; label?: string }[];
+    arrows?: { from: [number, number]; to: [number, number]; label?: string }[];
+    mirror?: Mirror; centre?: [number, number]; turn?: 90 | -90 | 180;
   }
   | GeoFig
+  | ProofFig
   | FbarFig | FgridFig | DlineFig | GroupsFig
   | SgraphFig | ProtractorFig | ClockFig
   | ChartFig | OutcomesFig | PairFig
@@ -198,6 +235,12 @@ export type FigSpec =
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
 /** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };
+/**
+ * A proof as a still table (GEOM-3.9): `נתון` and `צ״ל` lines, then the rows טענה | נימוק; `ask` writes "?" in that row's
+ * reason (a predict step that asks why), and `hl` shades a row (the one a step talks about). A teaching figure only,
+ * never in a check.
+ */
+export type ProofFig = { type: 'proof'; given?: Text; goal?: Text; rows: { claim: Text; reason: Text }[]; ask?: number; hl?: number };
 
 export interface SayStep { kind: 'say'; text: Text; display?: string; mood?: Mood; fig?: FigSpec }
 /** A prediction before the explanation: the student commits, then sees why. Any choice moves on. */
@@ -474,7 +517,8 @@ export type ChallengeMeta = Pick<ChallengeTask, 'id' | 'topic' | 'after' | 'kind
  *   mc       one right choice among several, each with its own feedback
  *   claim    always / sometimes / never true; with `example`, a counterexample typed into the slots: `expr` evaluated
  *            at the slots' values (learn/expr.ts) must satisfy `rel value`, the values in `domain`
- *   order    a proof's steps, shown shuffled, put in order; a step with `reason` then asks why, as a choice. `free`
+ *   order    a proof's steps, shown shuffled, put in order; a step with `reason` then asks why, as a choice, and a
+ *            step with `fixed` shows its reason and does not ask it (`נתון` on a given, GEOM-3.1). `free`
  *            lists groups of steps that may come in any order among themselves (two equal angles found one after the
  *            other): the proof is right either way, so the check accepts both
  *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`, which may
@@ -487,7 +531,7 @@ export type ChallengePart =
   | { type: 'claim'; prompt: Text; claim: Text; verdict: 'always' | 'sometimes' | 'never'; why: Text;
       example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
                   expr: string; rel: '<' | '<=' | '>' | '>=' | '!='; value: number; hint: Text } }
-  | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number } }[]; free?: number[][] }
+  | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number }; fixed?: Text }[]; free?: number[][] }
   | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string; after?: string } }
   | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
 /** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */

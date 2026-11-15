@@ -3,7 +3,7 @@
 // a real drag moves it, the keyboard and the step buttons move it too, checking is off until it has been moved,
 // and the "not yet" and "right" paths work with the object still in view.
 import { test, expect } from '@playwright/test';
-import { open, student, item, openOn, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, student, item, openOn, answer, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
 import { textContrastFailures } from './contrast.js';
 import { expectNoAxeViolations } from './axe.js';
 
@@ -794,4 +794,327 @@ test('a practice first try hides the grid\'s area and perimeter; after a miss th
   await openOn(page, '#/lesson/circle/1?part=1', student('8'), (x) => x.form === 'manip' && x.manip.kind === 'circle');
   await expect(page.locator('.manip-readout').first()).toContainText('רדיוס');
   await expect(page.locator('.manip-readout').first()).not.toContainText('היקף');
+});
+
+// ---------------------------------------------------------------- curriculum stage 4: the transform object and the proof table
+
+// GEOM-2 on the phones (390×844 and 320×568): the transform object in the transformations unit's practice. transf:1
+// slides the copy (a drag in whole steps, the arrow buttons, the arrow keys), transf:2 flips it (in an axis, and in a
+// line x = k, where a flip far from the line would leave the plane and is refused), transf:3 turns it about O. The
+// copy's vertices are read from the drawing's name (practice names them; a check never does).
+const isTf = (it) => it.form === 'manip' && it.manip.kind === 'transform';
+const TF = [
+  ['transf:1, a slide', 'transf/1', (it) => isTf(it) && !it.manip.moves.flips && !it.manip.moves.turns],
+  ['transf:2, a flip in an axis', 'transf/2', (it) => isTf(it) && typeof it.manip.moves.flips?.[0] === 'string'],
+  ['transf:2, a flip in a line x = k', 'transf/2', (it) => isTf(it) && it.manip.moves.flips?.[0]?.x != null],
+  ['transf:3, a turn', 'transf/3', (it) => isTf(it) && !!it.manip.moves.turns],
+];
+/** The copy's vertices, read from the drawing's name ("… A′ ב־(1, −1), B′ ב־(4, −1) …"). */
+const copyOf = (page) => page.locator('.manip-transform .manip-canvas').getAttribute('aria-label')
+  .then((l) => [...l.replace(/−/g, '-').matchAll(/\((-?\d+), (-?\d+)\)/g)].map((m) => [Number(m[1]), Number(m[2])]));
+const moved = (a, b) => b.map((p, i) => [p[0] - a[i][0], p[1] - a[i][1]]);
+/** Open a practice item of this kind: the first exercise of a practice lesson, seed after seed. */
+async function openTf(page, route, want) {
+  for (let sd = 1; sd <= 60; sd += 1) {
+    await open(page, `#/lesson/${route}?part=1`, student('7'), String(sd));
+    await expect.poll(() => item(page)).toBeTruthy();
+    const it = await item(page);
+    if (want(it)) { await expect(page.locator('.manip-transform .mp-tf-controls')).toBeVisible(); return it; }
+  }
+  throw new Error(`no practice item of this kind in ${route}`);
+}
+
+for (const [name, route, want] of TF) {
+  test(`the transform object: ${name}`, async ({ page }) => {
+    test.skip(!['phone', 'phone-small'].includes(test.info().project.name), 'the phones');
+    test.setTimeout(120_000); // the line x = k is one practice exercise in sixteen: several seeds are opened
+    const it = await openTf(page, route, want);
+    const canvas = page.locator('.manip-transform .manip-canvas');
+    await expectNoSidewaysScroll(page);
+    await expectUsable(page, canvas, 'the grid');
+    await expectUsable(page, checkBtn(page), 'the check button');
+    const box = await canvas.boundingBox();
+    // the square plane is drawn in the middle of its box (the box can be wider than tall where the controls take room)
+    const side = Math.min(box.width, box.height);
+    expect(side, 'the plane is large enough to count on').toBeGreaterThanOrEqual(200);
+    await expect(checkBtn(page)).toBeDisabled();
+    const s = side / 316; // the viewBox is 316 square; a grid step is 22 of it
+    const x0 = box.x + (box.width - side) / 2; const y0 = box.y + (box.height - side) / 2;
+    const px = ([x, y]) => [x0 + (158 + 22 * x) * s, y0 + (158 - 22 * y) * s];
+
+    // a real drag from a vertex: the copy moves in whole steps, every vertex by the same step
+    const p0 = await copyOf(page);
+    const dirX = p0[0][0] > 0 ? -1 : 1; const dirY = p0[0][1] > 0 ? -1 : 1;
+    const [ax, ay] = px(p0[0]); const [bx, by] = px([p0[0][0] + 2.3 * dirX, p0[0][1] + 1.2 * dirY]);
+    await page.mouse.move(ax, ay); await page.mouse.down();
+    for (let i = 1; i <= 8; i += 1) await page.mouse.move(ax + ((bx - ax) * i) / 8, ay + ((by - ay) * i) / 8);
+    await page.mouse.up();
+    await expect.poll(() => copyOf(page), 'the drag moved the copy').not.toEqual(p0);
+    const p1 = await copyOf(page);
+    const d = moved(p0, p1);
+    d.forEach((v) => expect(v, 'every vertex moves by the same whole step').toEqual([2 * dirX, dirY]));
+    await expect(checkBtn(page)).toBeEnabled();
+
+    // the arrow buttons and the arrow keys: one step each
+    const right = page.getByRole('button', { name: 'הזיזו ימינה' }); const left = page.getByRole('button', { name: 'הזיזו שמאלה' });
+    const btn = (await right.isEnabled()) ? right : left; const bx1 = (await right.isEnabled()) ? 1 : -1;
+    await btn.click();
+    await expect.poll(() => copyOf(page)).toEqual(p1.map(([x, y]) => [x + bx1, y]));
+    const p2 = await copyOf(page);
+    await canvas.focus();
+    const up = p2.every(([, y]) => y < 6);
+    await page.keyboard.press(up ? 'ArrowUp' : 'ArrowDown');
+    await expect.poll(() => copyOf(page), 'an arrow key moves the copy one step').toEqual(p2.map(([x, y]) => [x, y + (up ? 1 : -1)]));
+    await expect(page.locator('.manip-transform .visually-hidden[aria-live]')).toHaveText(up ? 'העותק זז למעלה' : 'העותק זז למטה');
+
+    const mr = it.manip.moves.flips?.[0];
+    if (mr) {
+      // a flip button reflects the copy where it is now
+      const flip = page.getByRole('button', { name: typeof mr === 'string' ? `שיקוף ביחס לציר ${mr}` : `שיקוף ביחס לישר x = ${String(mr.x).replace('-', '−')}` });
+      await expectUsable(page, flip, 'the flip button');
+      // back to the start, so the copy is near the line
+      await page.getByRole('button', { name: 'התחלה מחדש' }).click();
+      const f0 = await copyOf(page);
+      await flip.click();
+      const k = typeof mr === 'string' ? 0 : mr.x;
+      const want = f0.map(([x, y]) => (mr === 'x' ? [x, -y] : [2 * k - x, y]));
+      await expect.poll(() => copyOf(page), 'the flip reflected the copy').toEqual(want);
+      await expect(page.locator('.manip-transform .visually-hidden[aria-live]')).toContainText('העותק שוקף');
+      if (typeof mr !== 'string') {
+        // far from the line, a flip would carry the copy off the plane: nothing moves, and the object and מדי say why
+        const away = page.getByRole('button', { name: mr.x > 0 ? 'הזיזו שמאלה' : 'הזיזו ימינה' });
+        while (await away.isEnabled()) await away.click();
+        const far = await copyOf(page);
+        await flip.click();
+        await expect(page.locator('.mp-tf-refuse')).toHaveText('העותק ייצא מהרשת. הזיזו אותו קודם קרוב יותר לישר השיקוף.');
+        await expect(page.locator('.manip-transform .visually-hidden[aria-live]')).toHaveText('העותק ייצא מהרשת. הזיזו אותו קודם קרוב יותר לישר השיקוף.');
+        expect(await copyOf(page), 'the refused flip did nothing').toEqual(far);
+      }
+    }
+    const turns = it.manip.moves.turns;
+    if (turns) {
+      await page.getByRole('button', { name: 'התחלה מחדש' }).click();
+      const t0 = await copyOf(page);
+      const [cx, cy] = turns.centre;
+      const half = turns.by === 180;
+      // a quarter turn either way, whichever keeps the copy on the plane (the item's own turn always does)
+      const ccw = t0.map(([x, y]) => [cx - (y - cy), cy + (x - cx)]); const cw = t0.map(([x, y]) => [cx + (y - cy), cy - (x - cx)]);
+      const onPlane = (pts) => pts.every((p) => p.every((v) => Math.abs(v) <= 6));
+      const want = half ? t0.map(([x, y]) => [2 * cx - x, 2 * cy - y]) : onPlane(ccw) ? ccw : cw;
+      await page.getByRole('button', { name: half ? 'חצי סיבוב סביב O' : `סיבוב של 90° ${want === ccw ? 'נגד' : 'עם'} כיוון השעון סביב O` }).click();
+      await expect.poll(() => copyOf(page), 'the turn moved every vertex about O').toEqual(want);
+      await expect(page.locator('.manip-transform .visually-hidden[aria-live]')).toContainText('העותק הסתובב');
+    }
+
+    // the right state is accepted, the copy locked
+    await page.evaluate(() => window.__madregotSolve(true));
+    await checkBtn(page).click();
+    await expect(page.locator('section.fb-good')).toBeVisible();
+    for (const b of await page.locator('.manip-transform .step-btn').all()) await expect(b).toBeDisabled();
+  });
+}
+
+// In a check the object says nothing about where the copy is: no chips, and the drawing's name counts the moves. The
+// transform items are practice only, so the QA hook draws the exercise on screen as a check draws it.
+test('the transform object in a check render: no coordinate text anywhere in the object', async ({ page }) => {
+  test.skip(!['phone', 'phone-small'].includes(test.info().project.name), 'the phones');
+  await openTf(page, 'transf/1', TF[0][2]);
+  await expect(page.locator('.mp-tf-chip').first()).toBeVisible(); // practice: the chips are there
+  expect(await page.evaluate(() => window.__madregotAsCheck(true))).toBe(true);
+  await expect(page.locator('.mp-tf-chip')).toHaveCount(0);
+  await expect(page.locator('.manip-transform .manip-readout')).toHaveCount(0);
+  await expect(page.locator('.manip-coach')).toHaveCount(0);
+  const coords = /\(\s*[−-]?\d+\s*,\s*[−-]?\d+\s*\)/;
+  const look = () => page.evaluate(() => {
+    const m = document.querySelector('.manip-transform');
+    return [m.textContent, ...[...m.querySelectorAll('[aria-label]')].map((el) => el.getAttribute('aria-label'))].join(' | ');
+  });
+  expect(await look()).not.toMatch(coords);
+  expect(await look()).not.toContain('′(');
+  await page.getByRole('button', { name: 'הזיזו ימינה' }).or(page.getByRole('button', { name: 'הזיזו שמאלה' })).first().click();
+  await expect(page.locator('.manip-transform .manip-canvas')).toHaveAttribute('aria-label', /העותק זז 1 (ימינה|שמאלה) מההתחלה/);
+  expect(await look()).not.toMatch(coords);
+});
+
+// GEOM-2 on the small phone (320×568): the busiest transform item is congruence's teaching step 5 (congr:1: the arrows,
+// a flip, two turns and a target). The plane is at least 220 px wide and tall, the check button is on screen, nothing
+// scrolls sideways, and the step is solved with the buttons alone: two quarter turns about O, then three steps up.
+test('the transform object at its busiest: congr:1 step 5 on the small phone', async ({ page }) => {
+  test.skip(test.info().project.name !== 'phone-small', 'the small phone');
+  await open(page, '#/learn/congr/1/A', student('8'));
+  for (let i = 0; i < 8; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.kind === 'explore' && st.manip.kind === 'transform') break;
+    if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    await page.locator('.sp-next').click();
+    await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+  }
+  const st = await page.evaluate(() => window.__madregotStep);
+  expect(st.manip.moves.drag && st.manip.moves.flips.length === 1 && st.manip.moves.turns.by === 90 && !!st.manip.target, 'the arrows, one flip, the turns and a target').toBe(true);
+  const canvas = page.locator('.ls-explore .manip-transform .manip-canvas');
+  await expect(page.locator('.ls-explore .mp-tf-controls')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  const box = await canvas.boundingBox();
+  expect(box.width, 'the plane is at least 220 px wide').toBeGreaterThanOrEqual(220);
+  expect(box.height, 'the plane is at least 220 px tall').toBeGreaterThanOrEqual(220);
+  await expectUsable(page, canvas, 'the grid');
+  await expectUsable(page, page.locator('.lm-check'), 'the check button');
+  if (process.env.PROOF_SHOTS) await page.screenshot({ path: `${process.env.PROOF_SHOTS}/transform-busiest-phone-small.png` }); // the proof picture
+  for (const b of await page.locator('.ls-explore .mp-tf-controls .step-btn').all()) await expectUsable(page, b, `the button ${await b.getAttribute('aria-label')}`);
+  // K(1, −1), M(4, −1), L(1, 2): a half turn, as two quarter turns, and three steps up put them on A, B and C
+  const ccw = page.getByRole('button', { name: 'סיבוב של 90° נגד כיוון השעון סביב O' });
+  await ccw.click();
+  await ccw.click();
+  for (let k = 0; k < 3; k += 1) await page.getByRole('button', { name: 'הזיזו למעלה' }).click();
+  await expect(page.locator('.lm-check')).toBeEnabled();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
+// GEOM-2.3 on the short phones (curriculum stage 4's review): every teaching step and every repair that uses the transform
+// object, at 320×568, 360×640 and 375×667 (an iPhone SE), shows every one of its buttons and בדיקה on the first
+// screen, none under the bar: the plane takes the room the step's question leaves (Transform.jsx measures it), at least
+// 200 px; the vertex chips are on screen, or (when they would take the plane under 220 px) off it but still in the live
+// region, read by a screen reader;
+// nothing scrolls sideways. The stairs and repairs are those whose teaching has the object (learn/figures.test.ts walks
+// the same steps for their letters).
+const TF_TEACH = ['transf/1', 'transf/2', 'transf/3', 'transf/4', 'congr/1', 'congr/2'];
+const TF_REPAIRS = ['congr/1/alpha-order', 'congr/2/alpha-order', 'transf/1/shift-sign', 'transf/1/shift-swap', 'transf/1/one-axis', 'transf/2/axis-not-line', 'transf/2/wrong-axis', 'transf/3/wrong-centre', 'transf/4/double-perimeter'];
+async function tfStepsFit(page, where) {
+  let seen = 0;
+  for (let i = 0; i < 16; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.kind === 'explore' && st.manip.kind === 'transform') {
+      seen += 1;
+      const what = `${where} step ${i + 1}`;
+      const plane = page.locator('.ls-explore .manip-transform .manip-canvas');
+      await expect(plane, `${what}: the plane`).toBeVisible();
+      await page.waitForTimeout(150); // the plane's size is measured once the question's maths is laid out
+      const box = await plane.boundingBox();
+      expect(box.width, `${what}: the plane is at least 200 px`).toBeGreaterThanOrEqual(199.5);
+      for (const b of await page.locator('.ls-explore .manip-transform button').all()) await expectUsable(page, b, `${what}: ${await b.getAttribute('aria-label') || await b.textContent()}`);
+      await expectUsable(page, page.locator('.lm-check'), `${what}: בדיקה`);
+      await expectNoSidewaysScroll(page);
+      // the chips: on screen, or only when the plane would be under 220 px, off it but still in the live region
+      const read = page.locator('.ls-explore .manip-transform .mp-tf-read');
+      await expect(read).toHaveAttribute('aria-live', 'polite');
+      await expect(read).toContainText('′(');
+      if (!(await page.locator('.ls-explore .manip-transform.is-tight').count())) await expect(read).toBeInViewport();
+    }
+    if (st.kind === 'explore') {
+      await page.waitForFunction(() => window.__madregotSolveStep?.forStep === window.__madregotStep);
+      await page.evaluate(() => window.__madregotSolveStep());
+      await page.locator('.lm-check').click();
+      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+    }
+    if (st.kind === 'predict') {
+      await page.locator('.ls-choice').nth(st.answer).click();
+      await page.locator('.lm-check').click();
+      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+    }
+    const next = page.locator('.sp-next');
+    if (!(await next.count()) || (await next.textContent()).includes('לדוגמה')) break;
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    await next.click();
+    const moved = await page.waitForFunction((a) => document.querySelector('.sp-progress')?.getAttribute('aria-valuenow') !== a, at, { timeout: 4000 }).then(() => true).catch(() => false);
+    if (!moved || !(await page.locator('.step-player .sp-progress').count())) break; // the repair's last step: its check comes next
+  }
+  return seen;
+}
+for (const [w, h] of [[320, 568], [360, 640], [375, 667]]) {
+  test.describe(`the transform object's teaching at ${w}×${h}`, () => {
+    test.use({ viewport: { width: w, height: h } });
+    test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone-small', 'the short phones, once'); });
+    for (const route of TF_TEACH) {
+      test(`${route}: every transform step shows all its buttons and בדיקה`, async ({ page }) => {
+        await open(page, `#/learn/${route}/A`, student(route.startsWith('transf') ? '7' : '8'));
+        expect(await tfStepsFit(page, route), `${route} has a transform step`).toBeGreaterThan(0);
+      });
+    }
+    for (const route of TF_REPAIRS) {
+      test(`the repair ${route}: its transform step shows all its buttons and בדיקה`, async ({ page }) => {
+        await open(page, `#/repair/${route}`, student(route.startsWith('transf') ? '7' : '8'));
+        await page.getByRole('button', { name: 'בואו נראה את זה' }).click();
+        expect(await tfStepsFit(page, `repair ${route}`), `${route} has a transform step`).toBeGreaterThan(0);
+      });
+    }
+  });
+}
+
+// GEOM-3 on the phones (390×844 and 320×568): a congr:3 practice proof whose order and theorem are asked (proofOrder).
+// The rows move with their buttons alone; the theorem is chosen from the keyboard alone (Enter opens the list on the
+// chip, the arrows choose, Enter keeps it); while the last row's list is open the drawing is still on screen; a wrong
+// order is outlined at its first row out of place; nothing scrolls sideways. PROOF_SHOTS=<folder> saves the table with
+// the last row's list open and mid-way through the order (the proof pictures of GEOM-3; the feedback panel's entrance
+// waits for the clock, which these tests fix, so the picture after a wrong check is taken on a running clock).
+test('the proof object: a congr:3 practice proof ordered by its buttons, its reason chosen from the keyboard', async ({ page }) => {
+  const project = test.info().project.name;
+  test.skip(!['phone', 'phone-small'].includes(project), 'the phones');
+  test.setTimeout(120_000);
+  const it = await openOn(page, '#/lesson/congr/3?part=1', student('8'), (x) => x.form === 'manip' && x.manip.kind === 'proof' && !x.manip.lockOrder);
+  const part = it.manip.part; const n = part.steps.length;
+  // the right order is the steps' own (0 … n − 1), any order inside a free group (learn/challenges/grade.ts firstOutOfPlace)
+  const groupOf = (s) => (part.free || []).find((g) => g.includes(s))?.reduce((a, b) => Math.min(a, b)) ?? s;
+  const firstOff = (order) => order.findIndex((s, place) => groupOf(s) !== groupOf(place));
+  const table = page.locator('.manip-proof');
+  const ids = () => table.locator('td.claim').evaluateAll((els) => els.map((e) => Number(e.id.replace(/^.*-c/, ''))));
+  const shot = async (name) => { if (process.env.PROOF_SHOTS) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.PROOF_SHOTS}/proof-${name}-${project}.png` }); } };
+  const move = (s, dir) => table.locator(`.mp-proof-move[aria-describedby$="-c${s}"][aria-label="הזיזו ${dir}"]`);
+  await expect(table).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  for (const b of await table.locator('.mp-proof-move').all()) { const r = await b.boundingBox(); expect(Math.min(r.width, r.height), 'the move buttons are 44 px').toBeGreaterThanOrEqual(43.5); }
+
+  // the asked row (the congruence, its theorem) to the bottom with its own button: its reason list then opens on the last row
+  const asked = part.steps.findIndex((s) => s.reason);
+  while ((await ids()).indexOf(asked) < n - 1) await move(asked, 'למטה').click();
+  const chip = table.locator('.mp-proof-chip');
+  await chip.focus();
+  await page.keyboard.press('Enter');
+  await expect(table.locator('.mp-proof-pick')).toBeVisible();
+  const opts = table.getByRole('radio');
+  await expect(opts.first()).toBeFocused();
+  const want = part.steps[asked].reason.answer;
+  for (let k = 0; k < want; k += 1) await page.keyboard.press('ArrowDown');
+  await expect(opts.nth(want)).toHaveAttribute('aria-checked', 'true');
+  await expect(opts.nth(want)).toBeFocused();
+  // the drawing is still on screen, whole, while the last row's list is open; the chosen reason is on screen too
+  const vp = page.viewportSize();
+  const fig = await table.locator('.mp-proof-fig').boundingBox();
+  expect(fig.y, 'the drawing starts on screen').toBeGreaterThanOrEqual(-1);
+  expect(fig.y + fig.height, 'the drawing ends on screen').toBeLessThanOrEqual(vp.height + 1);
+  const opt = await opts.nth(want).boundingBox();
+  expect(opt.y + opt.height, 'the chosen reason is on screen').toBeLessThanOrEqual(vp.height + 1);
+  expect(opt.y, 'the chosen reason is not under the drawing').toBeGreaterThanOrEqual(fig.y + fig.height - 1);
+  await shot('open');
+  await page.keyboard.press('Enter');
+  await expect(table.locator('.mp-proof-pick')).toHaveCount(0);
+  await expect(chip).toBeFocused();
+  await expectNoSidewaysScroll(page);
+
+  // a wrong order (the congruence below the conclusion that follows from it): the check outlines the first row out of place
+  const wrong = await ids();
+  expect(firstOff(wrong)).toBeGreaterThanOrEqual(0);
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  const off = table.locator('.mp-proof-row.off');
+  await expect(off).toHaveCount(1);
+  await expect(off.locator('td.n')).toHaveText(String(firstOff(wrong) + 1));
+  await expect(table.locator('.mp-proof-note')).toHaveText('השורה הזאת עוד לא במקום');
+  await expectNoSidewaysScroll(page);
+  await proceed(page);
+
+  // the order, with the move buttons alone: step k to place k by its "up" button (the chosen reason stays)
+  for (let k = 0; k < n; k += 1) {
+    while ((await ids()).indexOf(k) > k) await move(k, 'למעלה').click();
+    if (k === 1) await shot('mid');
+  }
+  expect(firstOff(await ids())).toBe(-1);
+  await expect(chip).toContainText(part.steps[asked].reason.choices[want].replace(/\$/g, '').slice(0, 4));
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
 });

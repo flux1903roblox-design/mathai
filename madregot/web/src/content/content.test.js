@@ -440,6 +440,17 @@ describe('each unit has its own identity', () => {
       expect(list.length, `grade ${grade} has units`).toBeGreaterThan(1);
       for (let i = 1; i < list.length; i += 1) expect(list[i].color, `grade ${grade}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(list[i - 1].color);
     }
+    // this year's ח׳ path climbs the transformations after percent and the data unit (ALSO_ON_PATH), before the
+    // functions: cobalt, violet, fuchsia; and on the ז׳ path they sit between the angles and the expressions
+    const g8 = topicsFor('8');
+    const at = g8.findIndex((t) => t.id === 'transf');
+    expect(g8.slice(at - 2, at + 2).map((t) => `${t.id} ${t.color}`)).toEqual(['pct petrol', 'data cobalt', 'transf violet', 'func fuchsia']);
+    const g7 = topicsFor('7');
+    const at7 = g7.findIndex((t) => t.id === 'transf');
+    expect(g7.slice(at7 - 1, at7 + 2).map((t) => `${t.id} ${t.color}`)).toEqual(['angles petrol', 'transf violet', 'expr cobalt']);
+    // ח׳'s congruence and similarity, between statistics and the systems: fuchsia, cobalt, sky, petrol
+    const c = g8.findIndex((t) => t.id === 'congr');
+    expect(g8.slice(c - 1, c + 3).map((t) => `${t.id} ${t.color}`)).toEqual(['stats fuchsia', 'congr cobalt', 'sim sky', 'sys petrol']);
   });
   it('functions are fuchsia, unlike percent before them (petrol) and linear functions after them (cobalt)', () => {
     expect([TOPIC.pct.color, TOPIC.func.color, TOPIC.line.color]).toEqual(['petrol', 'fuchsia', 'cobalt']);
@@ -455,15 +466,16 @@ describe('each unit has its own identity', () => {
     expect(TOPIC.space.color).not.toBe('fuchsia');
   });
   // DATA-4: data's colour is one its neighbours leave. On the ז׳ path it sits between boxes and prisms (stage 2, petrol)
-  // and equations (violet), and this year on the ח׳ path between percent (petrol) and functions (fuchsia): sky and
-  // cobalt are left. It is cobalt, the colour the stage-3 spec set for the merged paths (it was sky while expressions,
-  // cobalt, came right before it; the tally pin of Madi's wardrobe is drawn in the same colour).
+  // and equations (violet), and this year on the ח׳ path between percent (petrol) and the transformations (stage 4,
+  // violet; the functions, fuchsia, come after them): sky, fuchsia and cobalt are left. It is cobalt, the colour the
+  // stage-3 spec set for the merged paths (it was sky while expressions, cobalt, came right before it; the tally pin of
+  // Madi's wardrobe is drawn in the same colour).
   it('data is cobalt, a colour its four neighbours leave, on both paths', () => {
     const near = (g) => { const ids = topicsFor(g).map((x) => x.id); const i = ids.indexOf('data'); return [ids[i - 1], ids[i + 1]]; };
     expect(near('7')).toEqual(['solid', 'eq']);
-    expect(near('8')).toEqual(['pct', 'func']);
+    expect(near('8')).toEqual(['pct', 'transf']);
     const taken = new Set([...near('7'), ...near('8')].map((id) => TOPIC[id].color));
-    expect(COLOURS.filter((c) => !taken.has(c))).toEqual(['sky', 'cobalt']);
+    expect(COLOURS.filter((c) => !taken.has(c))).toEqual(['sky', 'fuchsia', 'cobalt']);
     expect(TOPIC.data.color).toBe('cobalt');
   });
   it('every topic has three drawings: its emblem and two for beside the path', () => {
@@ -1591,8 +1603,8 @@ describe('areas and perimeters: the diagnostic and transfer models', () => {
     // on the ז׳ path since its teaching landed: after expressions, before the boxes, the data unit (curriculum stage 3)
     // and equations, between cobalt and petrol
     expect(TOPICS.find((t) => t.id === 'area').levels.map((L) => [L.title, L.gen])).toEqual(AREA.levels.map((L) => [L.title, L.gen])); // the path's copy, with this file's generators
-    expect(topicsFor('7').map((t) => t.id)).toEqual(['signed', 'coord', 'angles', 'expr', 'area', 'solid', 'data', 'eq']);
-    expect(topicsFor('7').map((t) => t.color).slice(3, 8)).toEqual(['cobalt', 'fuchsia', 'petrol', 'cobalt', 'violet']);
+    expect(topicsFor('7').map((t) => t.id)).toEqual(['signed', 'coord', 'angles', 'transf', 'expr', 'area', 'solid', 'data', 'eq']);
+    expect(topicsFor('7').map((t) => t.color).slice(3, 9)).toEqual(['violet', 'cobalt', 'fuchsia', 'petrol', 'cobalt', 'violet']);
   });
 });
 
@@ -1816,13 +1828,14 @@ describe('boxes and prisms: every practice kind, from the numbers in its text', 
     // on the path since its teaching landed: after the areas, before the data unit and equations, petrol between
     // fuchsia and data's cobalt
     expect(TOPICS.find((t) => t.id === 'solid').levels.map((L) => [L.title, L.gen])).toEqual(SOLID.levels.map((L) => [L.title, L.gen])); // the path's copy, with this file's generators
-    expect(topicsFor('7').map((t) => t.id).slice(4, 8)).toEqual(['area', 'solid', 'data', 'eq']);
-    expect(topicsFor('7').map((t) => t.color).slice(4, 8)).toEqual(['fuchsia', 'petrol', 'cobalt', 'violet']);
+    expect(topicsFor('7').map((t) => t.id).slice(5, 9)).toEqual(['area', 'solid', 'data', 'eq']);
+    expect(topicsFor('7').map((t) => t.color).slice(5, 9)).toEqual(['fuchsia', 'petrol', 'cobalt', 'violet']);
     // the ids other topics use keep their names but for one-base and no-convert, said here in this unit's words
     for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
       // (the circle's slant-as-height is the cone's slant height, said in its own words, and space says it as the circle
-      // does; the angles unit's no-half is half an angle, the bisector of CLASSROOM-10, not half a triangle's area)
-      if (t.id === 'angles' && id === 'no-half') continue;
+      // does; the angles unit's no-half is half an angle, the bisector of CLASSROOM-10, not half a triangle's area, and
+      // the congruence unit says the same of the bisector to the base of an isosceles triangle)
+      if (['angles', 'congr'].includes(t.id) && id === 'no-half') continue;
       if (SOLID.cats[id] && !['one-base', 'no-convert'].includes(id) && !(['circle', 'space'].includes(t.id) && id === 'slant-as-height')) expect(SOLID.cats[id], `${t.id} ${id}`).toBe(name);
     }
   });
@@ -2149,8 +2162,8 @@ describe('the circle, the cylinder and the cone: every practice kind, from the n
     for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
       // (space says r-for-d as the side of the axial section: its own test)
       if (t.id === 'space' && id === 'r-for-d') continue;
-      // (the angles unit's no-half is half an angle, the bisector of CLASSROOM-10)
-      if (t.id === 'angles' && id === 'no-half') continue;
+      // (the angles unit's no-half is half an angle, the bisector of CLASSROOM-10; the congruence unit's too)
+      if (['angles', 'congr'].includes(t.id) && id === 'no-half') continue;
       if (CIRCLE.cats[id] && !['one-base', 'no-convert', 'slant-as-height'].includes(id)) expect(CIRCLE.cats[id], `${t.id} ${id}`).toBe(name);
     }
     expect(CIRCLE.cats['no-convert']).toBe(SW.SOLID.cats['no-convert'].replace('סמ״ק לליטרים', 'ליטרים לסמ״ק'));
@@ -2449,8 +2462,8 @@ describe('Pythagoras in space: every practice kind, from the numbers in its text
     // the ids other topics use keep their names, but for r-for-d, said here as the side of the axial section; the cone's
     // slant height is said as the circle says it (areas and boxes say a slanted side)
     for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
-      // (the angles unit's no-half is half an angle, the bisector of CLASSROOM-10)
-      if (t.id === 'space' || !SPACE.cats[id] || id === 'r-for-d' || (id === 'slant-as-height' && t.id !== 'circle') || (t.id === 'angles' && id === 'no-half')) continue;
+      // (the angles unit's no-half is half an angle, the bisector of CLASSROOM-10; the congruence unit's too)
+      if (t.id === 'space' || !SPACE.cats[id] || id === 'r-for-d' || (id === 'slant-as-height' && t.id !== 'circle') || (['angles', 'congr'].includes(t.id) && id === 'no-half')) continue;
       expect(SPACE.cats[id], `${t.id} ${id}`).toBe(name);
     }
     expect(SPACE.cats['r-for-d'].startsWith(CW.CIRCLE.cats['r-for-d'])).toBe(true);

@@ -11,7 +11,7 @@
 //   - the final-answer policy for this surface and phase (AI-3 enforces it).
 //
 // Every string is clipped here with the server's own limits, so what leaves the device is already what the server keeps.
-import { TOPIC, catLabel, answerText, itemPlain, diagnosisLine } from '@/content/index.js';
+import { TOPIC, catLabel, answerText, itemPlain, diagnosisLine, unitGrade } from '@/content/index.js';
 import { contentOf, topicsReady } from '@/learn/content/index.ts';
 
 /**
@@ -133,6 +133,14 @@ function misconOf(content, id, remedy) {
 }
 
 // ---------------------------------------------------------------- the surfaces
+/**
+ * The grade a lesson's tutor is told: the student's when the unit is on their path (learn/skills.ts ALSO_ON_PATH: this
+ * year's ח׳ climbs the ז׳ data and transformations units, so a ח׳ student there is in ח׳), else the grade the unit is
+ * filed under. The rule is content/topics.js unitGrade (the lesson screen calls it with the topic); this is the same
+ * by topic id.
+ */
+export const lessonGrade = (topicId, profileGrade) => unitGrade(TOPIC[topicId], profileGrade);
+
 function lessonContext({ surface, item, s = {}, last, spec, guide = false, learn, grade, now }) {
   const topicId = item.topic || spec?.topic || s.topic;
   const level = item.level || spec?.level || s.level;

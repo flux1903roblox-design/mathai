@@ -51,8 +51,9 @@ describe('the pilot kit', () => {
     const sheet = fillSchoolDoc(DOCS['product-sheet'], full());
     expect(sheet).toContain('**הנושאים:** כיתה ז׳: מספרים מכוונים, מערכת צירים');
     // grade 8 in school order: the curriculum lane's ratio and percent units, then (the תשפ״ז transition year) the ז׳
-    // data unit and the introduction to functions (stage 5), come before linear functions
-    expect(sheet).toContain('; כיתה ח׳: יחס וקנה מידה, אחוזים, נתונים ושכיחות, מבוא לפונקציות, פונקציה קווית');
+    // data and transformations units (learn/skills.ts ALSO_ON_PATH) and the introduction to functions (stage 5), come
+    // before linear functions
+    expect(sheet).toContain('; כיתה ח׳: יחס וקנה מידה, אחוזים, נתונים ושכיחות, טרנספורמציות, מבוא לפונקציות, פונקציה קווית');
     expect(sheet).toContain(`${escapeMd(BASE)}\\#/?start=demo`);
   });
 

@@ -2,9 +2,27 @@
 // (content/labels.test.js: every label describes the answer; lib/teacherText.test.js: the teacher reads the student's
 // words for each; content/stage3.test.js: the whole-content check). Only tests import this file.
 import { manipSolution } from './manip.js';
+import { tfSlide, tfImages, tfInside, TF_RANGE } from './transform.js';
+import { proofRows } from './proofs.js';
+import { proofSolution, askedSteps } from './proof.js';
 
 /** A covered wheel or two dice in the estimate mode: every choice picked after 10, 50, 100 and 1000 trials. */
 const estimatePicks = (it) => (it.answer?.mode !== 'estimate' ? [] : it.answer.choices.flatMap((_, pick) => [10, 50, 100, 1000].map((n) => ({ ...manipSolution(it), pick, n }))));
+
+/**
+ * Wrong tables to try on a proof object (GEOM-3): the right order with each asked reason varied over its choices, and
+ * the right order with each conclusion ("corresponding parts") moved above the congruence row.
+ */
+function proofCandidates(m) {
+  const sol = proofSolution(m);
+  const out = [sol];
+  askedSteps(m.part).forEach((i) => m.part.steps[i].reason.choices.forEach((_, k) => {
+    if (k !== sol.reasons[i]) { const reasons = [...sol.reasons]; reasons[i] = k; out.push({ order: sol.order, reasons }); }
+  }));
+  const { thm, parts } = proofRows(m.part);
+  if (!m.lockOrder && thm >= 0) parts.forEach((p) => { const order = sol.order.filter((s) => s !== p); order.splice(thm, 0, p); out.push({ order, reasons: sol.reasons }); });
+  return out;
+}
 
 /** Wrong answers to try, in the shape of the item: wide enough to reach every prediction a diag() makes. */
 export function candidates(it) {
@@ -30,6 +48,13 @@ export function candidates(it) {
       case 'simulate': return estimatePicks(it);
       // a face tapped on a net (stage 2's solids): every face of a cube's net
       case 'net': return m.task === 'face' ? ['A', 'B', 'C', 'D', 'E', 'F'].map((face) => ({ face })) : [];
+      // the copy (GEOM-2): the answer, the answer moved one step each way, and its images under the item's flips and
+      // turns (a wrong mirror, the other way round), each on the plane
+      case 'transform': {
+        const a = it.answer.pts;
+        return [a, ...[[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => tfSlide(a, dx, dy)), ...tfImages(m, a)].filter((p) => tfInside(p, m.range || TF_RANGE));
+      }
+      case 'proof': return proofCandidates(m);
       default: return [];
     }
   }

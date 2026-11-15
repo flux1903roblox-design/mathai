@@ -812,6 +812,328 @@
       "tags": ["prob", "generator"]
     },
     {
+      "id": "D1-transf3-wrongcentre", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "diag", "params": { "c1": 2, "c2": 1, "a1": 5, "a2": 3, "ask": "x" }, "wrong": [-5, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-centre", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the half turn was made about the origin instead of about O. Measured from O(2, 1), A is 3 to the right along the x-axis, so after a half turn A' is 3 to the left of O: x = 2 - 3 = -1 (that is 2 · 2 - 5). Turning about the origin gives -5. Ends at -1. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-congr1-alphaorder", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:1", "source": "diag", "params": {"form": "third", "al": 70, "be": 45, "ga": 65, "alpha": "A"}, "wrong": [70, 62], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "alpha-order", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the vertices were matched by the alphabet, so X was taken to match A and the 70° at A was copied. In △ABC ≅ △YZX the letters match by their places in the statement: X is third, so it matches C, the third of ABC. ∢X = ∢C = 180° − 70° − 45° = 65°. Ends at 65. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr1-matchbyplace", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:1", "source": "diag", "params": {"form": "third", "al": 70, "be": 45, "ga": 65, "alpha": "B"}, "wrong": [70, 62], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "match-by-place", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the vertices were matched by where they are drawn. Y is drawn on top, where A is in ABC, so the 70° at A was copied. In △ABC ≅ △XZY the letters match by their places in the statement: Y is third, so it matches C, the third of ABC. ∢Y = ∢C = 180° − 70° − 45° = 65°. Ends at 65. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr1-wrongpair", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:1", "source": "diag", "params": {"form": "x", "th": 60, "ph": 40, "tt": 80, "p": 5, "q": -15, "x": 15}, "wrong": [19, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-pair", "maxWords": 130,
+        "describe": "Names the app's diagnosis: ∢C was set equal to an angle that does not match it, the third angle of XZY, 180° − 60° − 40° = 80° at X (5x − 15 = 80 gives 19). In △ABC ≅ △XZY the letters match by their places: C is third, so it matches Y, the third, and ∢Y = 60°. 5x − 15 = 60, so 5x = 75 and x = 15. Ends at 15. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr2-oneangle", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:2", "source": "diag", "params": {"form": "third", "al": 50, "be": 60, "ga": 70, "alpha": "A"}, "wrong": [130, 75], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-angle", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only one angle, 50°, was taken from 180°. The equal sides give the correspondence: the sides equal to CA and BC (DE and FD) meet at D, so D matches C. ∢D = ∢C, and the third angle of ABC takes both given angles: 180° − 50° − 60° = 70°. Ends at 70. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr2-gen-ssa", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:2", "source": "gen", "key": "cg2w:ssa:KLM:60:50", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "ssa", "maxWords": 130,
+        "describe": "Names the app's diagnosis: two sides and an angle that is not between them were used as if they were a congruence theorem. The equal angle ∢A = ∢K is not where AB and BC meet (they meet at B), so this is not צ.ז.צ, and two different triangles can share these data. Does not say which choice is right (withhold): asks where the equal angle is, compared with the two equal sides. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr2-gen-aaa", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:2", "source": "gen", "key": "cg2w:aaa:KLM:65:70", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "aaa", "maxWords": 130,
+        "describe": "Names the app's diagnosis: three equal angles were taken as enough for congruence. Equal angles fix the shape, not the size: a triangle and its enlargement have the same three angles and are not congruent. Does not say which choice is right (withhold): asks whether any pair of sides is known to be equal. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr3-gen-circular", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "gen", "key": "cg3e:T2:1:0", "wrong": [2], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "circular", "maxWords": 130,
+        "describe": "Names the app's diagnosis: what had to be proved was used as if it were already known. A row whose reason is \"corresponding sides (or angles) in congruent triangles\" may come only after the row that proves the triangles congruent; one such row stands above it. Does not say which row is wrong (withhold): asks the student to find the rows that rely on the congruence and check where they stand. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr3-gen-wrongtheorem", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "gen", "key": "cg3o:T3:0:9651", "wrong": [{"order": [0, 1, 2, 3, 4], "reasons": [null, null, null, 0, null]}, {"order": [3, 0, 1, 2, 4], "reasons": [null, null, null, 2, null]}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-theorem", "maxWords": 130,
+        "describe": "Names the app's diagnosis of the first try: the congruence row named a theorem that does not fit the data. The rows above it give AD = DB, the right angles at D and the common side CD: two sides and the angle between them, so the theorem is צ.ז.צ. A proof is a table, not a number the guard can hide, so the case is at reveal: the answer may be named, and the rows go givens first, then the congruence, then AC = BC. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr3-halfonly", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "diag", "params": {"T": "K5", "a": 55, "c": 0}, "wrong": [35, 66], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "half-only", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the angle of one of the two triangles was found, 90° − 55° = 35°, half of ∢ACB. CD is perpendicular to AB at its middle D, so △ADC ≅ △BDC (צ.ז.צ) and ∢ACD = ∢BCD = 35°: ∢ACB is both halves, 70° (that is 180° − 2 · 55°). Ends at 70. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr3-nohalf", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "transfer", "params": {"a": 35, "c": 25}, "wrong": [60, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-half", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole angles at A and C, 70° and 50°, were used instead of their halves. AC is common, so △ABC ≅ △ADC (צ.צ.צ) and the diagonal halves both angles: ∢BAC = 35° and ∢BCA = 25°. In △ABC, ∢ABC = 180° − 35° − 25° = 120°. Ends at 120. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr4-fullbase", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "diag", "params": {"f": "area", "b": 14, "h": 8, "t": 6, "m": 10, "ord": [0, 1, 2]}, "wrong": [56, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "full-base", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole side BC was taken as the base of △ABD. D is the middle of BC, so BD = 7, and the height from A is AH = 8: the area of △ABD is 7 · 8 / 2 = 28. Ends at 28. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr4-medianheight", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "transfer", "params": {"b": 16, "h": 8, "t": 6, "m": 10, "story": 0}, "wrong": [40, 36], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "median-as-height", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the path, the median AD, was used as the height. The height is the distance from A to the fence, 8 m, at a right angle to it; the path goes to the middle of the fence and is longer. Each family's part has the base 8, half of 16, and the height 8: 8 · 8 / 2 = 32. Ends at 32. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr4-gen-fullside", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "gen", "key": "cg4p:13:11:18:8:3201", "wrong": [39, 33], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "full-side", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole side BC was added instead of its half. △ABD has the sides AB = 13, AD = 8 and BD, half of BC = 18, so BD = 9: 13 + 9 + 8 = 30. Ends at 30. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr4-gen-mediancongruent", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "gen", "key": "cg4c:0", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "median-congruent", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the median was taken to cut the triangle into two congruent triangles. It cuts it into two triangles of equal area (equal bases, the same height), but when AB and AC differ, the two parts have different sides. Does not say which choice is right (withhold): asks the student to compare AB and AC, one side of each part. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr4-gen-medianaltitude", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "gen", "key": "cg4s:median:60:40:EGF", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "median-altitude", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the median was confused with the altitude. AE is perpendicular to BC (the right-angle mark): that is the altitude. The median goes from A to the middle of BC, the point the two equal marks on BC show. Does not say which choice is right (withhold): asks the student to find the middle of BC. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr5-sumequal", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "diag", "params": {"a": 9, "b": 4}, "wrong": [9, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "sum-equal", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the two lengths where the triangle lies flat were counted too. The third side must be longer than 9 − 4 = 5 and shorter than 9 + 4 = 13; at 5 or at 13 the three sides lie on one line. So it is 6 to 12: 7 lengths. Ends at 7. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr5-nolowerlimit", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "transfer", "params": {"a": 12, "b": 5}, "wrong": [16, 14], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-lower-limit", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only \"shorter than the sum\" was checked. The third stick must also be longer than 12 − 5 = 7, or the two shorter sticks do not reach the ends of the long one. So it is 8 to 16: 9 lengths. Ends at 9. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr5-gen-ignoreinequality", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "gen", "key": "cg5i:4:15", "wrong": [23, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "ignore-inequality", "maxWords": 130,
+        "describe": "Names the app's diagnosis: legs of 4 were chosen, and they do not meet: 4 + 4 = 8 is shorter than 15. So the legs are 15 and the base is 4: 4 + 15 + 15 = 34. Ends at 34. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr5-gen-angleatside", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "gen", "key": "cg5m:9:5:10", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "angle-at-side", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the largest angle was looked for at an end of the longest side. The largest angle lies opposite the longest side, AC = 10, at the vertex that does not touch it. Does not say which choice is right (withhold): asks which vertex is not on AC. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-sim2-additive", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:2", "source": "diag", "params": {"k": 2.5, "p": 10, "q": 4}, "wrong": [19, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "additive", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the same 15 added to the width as to the length (10 to 25). Similar rectangles keep one ratio: the length was multiplied by 25 : 10 = 2.5, so the width is multiplied by 2.5 too: 4 · 2.5 = 10. Adding the same changes the shape (a 25 × 19 rectangle is almost square). Ends at 10. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim1-sideatangle", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "diag", "params": {"x": 5, "p": 3, "q": 1, "r": 2, "s": 6, "t": 4, "u": -6}, "wrong": [22, 18], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "side-at-angle", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the sides that leave the equal angles were set equal (AB = BC), not the sides opposite them. Opposite ∢B is AC and opposite ∢C is AB, so AB = AC: 3x + 1 = 2x + 6, x = 5, and AB = 3 · 5 + 1 = 16. Setting AB = BC gave x = 7 and 22. Ends at 16. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim1-stoppedatx", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "transfer", "params": {"x": 4, "p": 5, "q": -3, "r": 3, "s": 5, "t": 2, "u": 4}, "wrong": [4, 20], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "stopped-at-x", "maxWords": 130,
+        "describe": "Names the app's diagnosis: x was found and the answer stopped there. x = 4 is a step on the way; the question asks for the length of the side AB. The angles at the ground are equal, so the sides opposite them are equal: 5x - 3 = 3x + 5 gives x = 4, and AB = 5 · 4 - 3 = 17. Ends at 17. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim1-gen-wholebase", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "gen", "key": "sm1h:8:15:17", "wrong": [5.7, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "whole-base", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole base BC = 16 went into Pythagoras instead of half of it. In an isosceles triangle the median to the base is also the height and halves the base, BD = 8; in the right triangle ABD the hypotenuse is AB = 17: AD = √(17² - 8²) = √225 = 15. The whole base gives √(17² - 16²) = √33, about 5.7. Ends at 15. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim1-gen-converse", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "gen", "key": "sm1v:3", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "converse-equal", "maxWords": 130,
+        "describe": "Names the app's diagnosis: a theorem and its converse were taken to be true together. That vertical angles are equal says nothing yet about the converse, that equal angles are vertical: a converse is checked on its own. Does not say which choice is right (withhold): asks whether two equal angles could be in places that do not face each other at one vertex. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim2-gen-anglesenough", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:2", "source": "gen", "key": "sm2s:rects", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "angles-enough", "maxWords": 130,
+        "describe": "Names the app's diagnosis: equal angles were taken as enough for similar quadrilaterals. All rectangles have four right angles, but similar shapes also keep one ratio for all their sides. Does not say which choice is right (withhold): asks the student to compare the ratios of the sides of the 6 by 2 and the 4 by 4 rectangles in the drawing. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim3-partnotwhole", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "diag", "params": {"a": 4, "b": 6, "d": 6}, "wrong": [9, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "part-not-whole", "maxWords": 130,
+        "describe": "Names the app's diagnosis: DB was used where the whole side AB belongs. The triangle ADE is similar to ABC (ז.ז: the common angle A and the corresponding angles between the parallels), so AD matches all of AB = 4 + 6 = 10, not DB: BC = 6 · 10/4 = 15. With DB, 6 · 6/4 = 9. Ends at 15. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim3-gen-ratioflip", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "gen", "key": "sm3b:6:4:12", "wrong": [18, 16], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "ratio-flip", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the ratio was turned over. In the bowtie A matches D and B matches C (alternate angles between the parallels), so from the triangle AMB to the triangle DMC every length is multiplied by MD : AM = 4 : 6, and CD = 12 · 4/6 = 8. Multiplying by 6/4 gave 18, longer than AB, though the triangle DMC is the smaller one. Ends at 8. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim3-gen-ordermixed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "gen", "key": "sm3w:bow", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "order-mixed", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the similarity was written with its vertices in an order that does not match. The order pairs each vertex with the one whose angle is equal to it, and △CMD puts C opposite A. Does not say which choice is right (withhold): asks which vertex of the other triangle has the angle equal to ∢A (alternate angles between AB and CD). Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim3-gen-thirdangle", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "gen", "key": "sm3a:40:80:60", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "third-angle", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the angles were compared without first working out the third angle. The printed pairs differ (40° and 80° against 80° and 60°), but each triangle has a third angle too. Does not say which choice is right (withhold): asks the student to find the third angle of each triangle and then compare all three. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim4-lineararea", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:4", "source": "transfer", "params": {"d1": 2, "d2": 5, "k": 2.5, "A": 1.2}, "wrong": [3, 6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "linear-area", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the area was scaled like a length. Moving the projector from 2 metres to 5 metres makes every length of the picture 2.5 times as long, so its area grows 2.5² = 6.25 times: 1.2 · 6.25 = 7.5 square metres. Multiplying the area by 2.5 gave 3. Ends at 7.5. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim4-gen-areaforperimeter", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:4", "source": "gen", "key": "sm4p:8:12:30", "wrong": [67.5, 50], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "area-for-perimeter", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the ratio was squared for the perimeter too. The ratio of similarity is 12 : 8 = 1.5; a perimeter is a sum of lengths, so it grows 1.5 times, like each side: 30 · 1.5 = 45. Squaring is for areas: 30 · 2.25 = 67.5. Ends at 45. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-transf1-shiftsign", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "diag", "params": { "a1": 3, "a2": -3, "dx": -5, "dy": 2, "c1": -1, "c2": -2, "ask": "y" }, "wrong": [-4, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "shift-sign", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the slide went the other way along the y-axis. From A(3, -3) to A'(-2, -1) the y-coordinate goes up 2 (from -3 to -1), so the y of C goes up 2 too: -2 + 2 = 0, not -2 - 2 = -4. Ends at 0. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf1-shiftswap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "diag", "params": { "a1": -2, "a2": -2, "dx": -2, "dy": 3, "c1": -3, "c2": 1, "ask": "x" }, "wrong": [0, 4], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "shift-swap", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the shift along y was added to x. From A(-2, -2) to A'(-4, 1) the slide is 2 to the left (x: -2 to -4) and 3 up (y: -2 to 1); the x of C changes by the left-right part only: -3 + (-2) = -5, not -3 + 3 = 0. Ends at -5. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf1-oneaxis", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "transfer", "params": { "p1": -3, "p2": 1, "dx": 3, "dy": -5, "ask": "y" }, "wrong": [1, 2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-axis", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the spaceship was moved along one axis only, so its y stayed 1. The command moves it 3 to the right (that changes x) and 5 down (that changes y): y = 1 - 5 = -4. Ends at -4. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf1-gen-gap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "gen", "key": "tf1w:5:3:2:1", "wrong": [2], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "gap", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the gap between the two triangles was measured instead of the way from a point to its image. 3 to the right and 2 up is the space between them, and it depends on the triangle's own width and height. Does not say which choice is right and does not give the slide (withhold): asks the student to count the squares from A to A'. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf2-axisnotline", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "diag", "params": { "t": 0, "k": -3, "a": -2, "b": 5 }, "wrong": [2, 0], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "axis-not-line", "maxWords": 130,
+        "describe": "Names the app's diagnosis: A was reflected in the y-axis instead of in the line x = -3. A(-2, 5) is 1 to the right of x = -3, so A' is 1 to its left: x = -3 - 1 = -4 (that is 2 · (-3) - (-2)). Reflecting in the axis gives 2. Ends at -4. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf2-wrongaxis", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "transfer", "params": { "t": 0, "k": 7, "a": 4, "b": 3 }, "wrong": [4, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-axis", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the lamp was reflected in the other direction, so its x stayed 4. The mirror is the wall x = 7, an up-down line, so the image moves across it, left to right, and y stays 3. The lamp is 3 to the left of the wall, so its image is 3 to the right of it: x = 7 + 3 = 10. Ends at 10. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf2-gen-bothsigns", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "gen", "key": "tf2a:2:5:x", "wrong": [[-2, -5], [0, 0]], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "both-signs", "maxWords": 130,
+        "describe": "Names the app's diagnosis: both signs were changed, which is a half turn about the origin, not a reflection. In the x-axis a point moves straight down (or up) to the same distance on the other side of the axis: x stays 2 and y changes sign, 5 to -5. Ends at (2, -5). Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf2-gen-diagonal", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "gen", "key": "tf2s:rectangle", "wrong": [4, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "diagonal-axis", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the diagonals of the rectangle were taken for axes of symmetry. Folding a 5 by 3 rectangle along a diagonal does not lay one half on the other (the corners miss); only the two lines through the middles of opposite sides do. Ends at 2. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf3-reflectnotturn", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "transfer", "params": { "c1": -1, "c2": -1, "a1": -4, "a2": -4, "ask": "y" }, "wrong": [-4, 5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "reflect-not-turn", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the point was reflected instead of turned, so its y stayed -4. In a half turn about O(-1, -1) the point goes to the other side of O: A is 3 below O, so A' is 3 above it: y = -1 + 3 = 2 (that is 2 · (-1) - (-4)). Ends at 2. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf3-gen-turndirection", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "gen", "key": "tf3q:4:5:cw", "wrong": [[-5, 4], [1, 1]], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "turn-direction", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the quarter turn went the other way, counterclockwise. Clockwise, a step to the right becomes a step down and a step up becomes a step to the right: from O, A(4, 5) is 4 to the right and 5 up, so A' is 5 to the right and 4 down. Ends at (5, -4). Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf3-gen-rotswap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "gen", "key": "tf3q:-5:2:ccw", "wrong": [[2, -5], [3, 3]], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rot-swap", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the two coordinates were swapped without changing a sign. Counterclockwise, a step to the left becomes a step down and a step up becomes a step to the left: from O, A(-5, 2) is 5 to the left and 2 up, so A' is 2 to the left and 5 down. Ends at (-2, -5). Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf4-gen-doubleperim", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:4", "source": "gen", "key": "tf4g:3:9:8:10:t", "wrong": [60, 52], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "double-perimeter", "maxWords": 130,
+        "describe": "Names the app's diagnosis: both perimeters were added, so the glued slanted side was counted twice. Turned half a turn and glued along the side 10, the two trapezoids make a rectangle 12 by 8 (3 + 9 = 12): its perimeter is 2 · (12 + 8) = 40. Adding both perimeters gives 60, with the two sides of 10 inside. Ends at 40. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf4-gen-equalarea", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:4", "source": "gen", "key": "tf4m:none:1:-4,-5,-1,-5,-1,-4,-3,-4,-3,-3,-4,-3:2,0,4,0,4,2,2,2", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "equal-area", "maxWords": 130,
+        "describe": "Names the app's diagnosis: equal areas were taken for congruence. Both shapes have area 4, four squares each, but the same area does not make the same shape. Does not say which choice is right (withhold): asks whether a slide, a flip or a turn could lay shape א exactly on shape ב, side on side and corner on corner. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf4-gen-equalperim", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:4", "source": "gen", "key": "tf4r:6:2:5:3", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "equal-perimeter", "maxWords": 130,
+        "describe": "Names the app's diagnosis: rectangles with the same perimeter were taken for congruent. 6 by 2 and 5 by 3 both have perimeter 16, but perimeter alone does not fix the shape (their areas, 12 and 15, differ too). Does not say which choice is right (withhold): leads the student to compare the sides, 6 and 2 against 5 and 3. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

@@ -80,6 +80,31 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "minutes": 8
   },
   {
+    "id": "congr:c1",
+    "topic": "congr",
+    "after": "congr:2",
+    "kind": "claim",
+    "title": "שתי צלעות וזווית",
+    "minutes": 5,
+    "misc": "ssa"
+  },
+  {
+    "id": "congr:c2",
+    "topic": "congr",
+    "after": "congr:3",
+    "kind": "proof",
+    "title": "קטעים שחוצים זה את זה",
+    "minutes": 6
+  },
+  {
+    "id": "congr:c3",
+    "topic": "congr",
+    "after": "congr:4",
+    "kind": "literacy",
+    "title": "החלקה של השכונה",
+    "minutes": 8
+  },
+  {
     "id": "coord:c1",
     "topic": "coord",
     "after": "coord:2",
@@ -415,6 +440,32 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "misc": "pow-odd-pos"
   },
   {
+    "id": "sim:c1",
+    "topic": "sim",
+    "after": "sim:2",
+    "kind": "claim",
+    "title": "מוסיפים $2$ ס״מ",
+    "minutes": 4,
+    "misc": "additive"
+  },
+  {
+    "id": "sim:c2",
+    "topic": "sim",
+    "after": "sim:1",
+    "kind": "proof",
+    "title": "המשפט ההפוך",
+    "minutes": 6
+  },
+  {
+    "id": "sim:c3",
+    "topic": "sim",
+    "after": "sim:4",
+    "kind": "literacy",
+    "title": "המקרן",
+    "minutes": 8,
+    "misc": "linear-area"
+  },
+  {
     "id": "solid:c1",
     "topic": "solid",
     "after": "solid:2",
@@ -512,5 +563,30 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "kind": "literacy",
     "title": "כרטיסים לקולנוע",
     "minutes": 8
+  },
+  {
+    "id": "transf:c1",
+    "topic": "transf",
+    "after": "transf:3",
+    "kind": "claim",
+    "title": "שני שיקופים או סיבוב?",
+    "minutes": 5
+  },
+  {
+    "id": "transf:c2",
+    "topic": "transf",
+    "after": "transf:3",
+    "kind": "error",
+    "title": "הסיבוב של נועם",
+    "minutes": 4,
+    "misc": "rot-swap"
+  },
+  {
+    "id": "transf:c3",
+    "topic": "transf",
+    "after": "transf:4",
+    "kind": "literacy",
+    "title": "קיר הפסיפס",
+    "minutes": 7
   }
 ];

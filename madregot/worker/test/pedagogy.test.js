@@ -67,9 +67,13 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // range, two sources, interpolation and extrapolation, in the stats way) and its data and probability units (a way of
   // their own each, and seven stairs) took it to 23,789 at its merge, so it was 24,500. Stage 2's measurement units
   // (areas, boxes and prisms, the circle with the cylinder and the cone, Pythagoras in space: a way each, fifteen
-  // stairs, and a shorter "not yet" list) took it to 26,916 at its merge, so it is 27,500. A further topic moves
-  // it only on purpose too.
-  assert.ok(s.length < 27500, `stable block is ${s.length} characters`);
+  // stairs, and a shorter "not yet" list) took it to 26,916 at its merge, so it was 27,500. Curriculum stage 4's
+  // geometry units (the transformations' way, with the gap, the line x = k, the turn's direction and the glued side;
+  // the congruent triangles': the order of the letters, the three theorems and what is not one, the proof's table and
+  // the median; the isosceles triangles and similarity's: the converses, the ratio that multiplies, the order of the
+  // vertices, the bowtie and k²; thirteen stair names, and a shorter "not yet" list) took it to 31,860 at its
+  // merge, so it is 32,500. A further topic moves it only on purpose too.
+  assert.ok(s.length < 32500, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');
@@ -264,11 +268,17 @@ test('the stair map names every stair and topic under its grade, and what the ap
     Object.keys(STAIR_NAMES).filter((s) => s.startsWith(`${id}:`)).forEach((s) => assert.ok(line(g).includes(`${s.split(':')[1]} ${STAIR_NAMES[s]}`), s));
   }
   assert.match(block, /does not teach yet: ז׳: .*; ח׳: .*\. Help with them in the usual way\. Do not invent a stair, a lesson or a link for them\./);
-  // the תשפ״ז transition year: the ז׳ data unit stays on the Grade 7 line only, and one more line says ח׳ learns it too
-  assert.deepEqual({ ...TOPIC_ALSO }, { data: '8' });
-  assert.ok(block.split('\n').includes('This school year (תשפ״ז) grade 8 also learns: נתונים ושכיחות.'));
+  // a grade with nothing left says so, and never leaves an empty list ("ח׳: ."): ח׳ since curriculum stage 4
+  assert.ok(block.includes(`ז׳: ${NOT_YET['7'].join(', ') || 'none'}; ח׳: ${NOT_YET['8'].join(', ') || 'none'}. Help with them`));
+  assert.ok(!/: [.;]/.test(block.split('\n').at(-1)), 'no empty list');
+  // the תשפ״ז transition year: the ז׳ data and transformations units stay on the Grade 7 line only, and one more line
+  // says ח׳ learns them too
+  assert.deepEqual({ ...TOPIC_ALSO }, { data: '8', transf: '8' });
+  assert.ok(block.split('\n').includes('This school year (תשפ״ז) grade 8 also learns: נתונים ושכיחות, טרנספורמציות.'));
   assert.ok(line('7').includes('נתונים ושכיחות: '));
   assert.ok(!line('8').includes('נתונים ושכיחות'));
+  assert.ok(line('7').includes('טרנספורמציות: '));
+  assert.ok(!line('8').includes('טרנספורמציות'));
   assert.ok(!block.includes('grade 7 also learns'));
   NOT_YET['7'].concat(NOT_YET['8']).forEach((t) => assert.ok(block.includes(t), t));
 });
@@ -276,8 +286,12 @@ test('the stair map names every stair and topic under its grade, and what the ap
 test('NOT_YET: two grades of Hebrew titles, none of them a topic or a stair the app teaches', () => {
   assert.deepEqual(Object.keys(NOT_YET), ['7', '8']);
   const names = new Set([...Object.values(TOPIC_NAMES), ...Object.values(STAIR_NAMES)]);
+  // ז׳ still waits for the measuring of angles (7.10's last two hours, angles:8); ח׳'s programme is taught whole since
+  // curriculum stage 4 (congruence and similarity were its last parts), so its list is empty
+  assert.deepEqual([...NOT_YET['7']], ['מדידה ואומדן של זוויות']);
+  assert.deepEqual([...NOT_YET['8']], []);
   for (const g of ['7', '8']) {
-    assert.ok(Array.isArray(NOT_YET[g]) && NOT_YET[g].length > 0);
+    assert.ok(Array.isArray(NOT_YET[g]));
     NOT_YET[g].forEach((t) => {
       assert.ok(typeof t === 'string' && t.trim() && /[א-ת]/.test(t), t);
       assert.ok(!names.has(t), `${t} is taught`);

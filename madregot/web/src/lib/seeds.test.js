@@ -19,11 +19,12 @@ const FRACTION = ['prob:3'];
 const BY_SKILL = Object.fromEntries(ALL_SKILLS.map((skill) => [skill, seedsFor(skill, N, seeded(1))]));
 
 describe('seedsFor, over every stair', () => {
-  it('covers every stair, the algebra, fraction, ratio, percent, data, statistics, probability, power, bisector, quadrilateral, area, solid, circle and space ones included', () => {
-    expect(ALL_SKILLS.length).toBeGreaterThanOrEqual(96);
+  it('covers every stair, the algebra, fraction, ratio, percent, data, statistics, probability, power, bisector, quadrilateral, area, solid, circle, space, transformation, congruence and similarity ones included', () => {
+    expect(ALL_SKILLS.length).toBeGreaterThanOrEqual(109);
+    expect(ALL_SKILLS.filter((s) => s.startsWith('transf:'))).toEqual(['transf:1', 'transf:2', 'transf:3', 'transf:4']);
     expect(Object.keys(BY_SKILL)).toEqual(ALL_SKILLS);
     for (const t of ['expr', 'sys']) expect(ALL_SKILLS.filter((s) => s.startsWith(`${t}:`)).length).toBe(5);
-    for (const s of ['frac:4', 'eq:5', 'ratio:4', 'pct:5', 'signed:6', 'data:4', 'stats:8', 'prob:3', 'signed:7', 'angles:6', 'angles:7', 'area:5', 'solid:4', 'circle:4', 'space:2']) expect(ALL_SKILLS).toContain(s);
+    for (const s of ['frac:4', 'eq:5', 'ratio:4', 'pct:5', 'signed:6', 'data:4', 'stats:8', 'prob:3', 'signed:7', 'angles:6', 'angles:7', 'area:5', 'solid:4', 'circle:4', 'space:2', 'transf:4', 'congr:5', 'sim:4']) expect(ALL_SKILLS).toContain(s);
   });
 
   // one test over all the stairs (not one test each): the messages name the stair

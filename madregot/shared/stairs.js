@@ -12,6 +12,7 @@ export const TOPIC_NAMES = Object.freeze({
   signed: 'מספרים מכוונים',
   coord: 'מערכת צירים',
   angles: 'זוויות',
+  transf: 'טרנספורמציות', // curriculum stage 4 (GEOM-4): November and December, between angles and expressions
   expr: 'ביטויים אלגבריים',
   area: 'שטחים והיקפים', // stage 2 (measurement): ז׳ 7.12, December to May
   solid: 'תיבה ומנסרה', // stage 2 (measurement): ז׳ 7.13, January and May
@@ -24,6 +25,8 @@ export const TOPIC_NAMES = Object.freeze({
   pyth: 'משפט פיתגורס',
   circle: 'מעגל, גליל וחרוט', // stage 2 (measurement): ח׳ 8.4, October and November
   stats: 'סטטיסטיקה',
+  congr: 'חפיפת משולשים', // curriculum stage 4 (GEOM-5): January and February, before the systems
+  sim: 'שווה־שוקיים ודמיון', // curriculum stage 4 (GEOM-6): March and April, after congruence
   sys: 'משוואות ומערכות',
   prob: 'הסתברות', // curriculum stage 3: ח׳'s "הסתברות ב" (March), last of the grade in school order
   space: 'פיתגורס במרחב', // stage 2 (measurement): ח׳ 8.17, May
@@ -55,6 +58,10 @@ export const STAIR_NAMES = Object.freeze({
   'angles:5': 'שווה־שוקיים וזווית חיצונית',
   'angles:6': 'חוצה זווית',
   'angles:7': 'סכום זוויות במרובע',
+  'transf:1': 'הזזה',
+  'transf:2': 'שיקוף',
+  'transf:3': 'סיבוב',
+  'transf:4': 'צורות חופפות וריצוף',
   'expr:1': 'הצבה בביטוי',
   'expr:2': 'כותבים ביטוי',
   'expr:3': 'כינוס איברים דומים',
@@ -119,6 +126,15 @@ export const STAIR_NAMES = Object.freeze({
   'stats:6': 'טווח ושינוי של כל הנתונים',
   'stats:7': 'שני מקורות מידע',
   'stats:8': 'אינטרפולציה ואקסטרפולציה',
+  'congr:1': 'צלעות וזוויות מתאימות',
+  'congr:2': 'משפטי החפיפה',
+  'congr:3': 'הוכחה בחפיפה',
+  'congr:4': 'תיכון ושטחים',
+  'congr:5': 'צלעות במשולש',
+  'sim:1': 'שווה־שוקיים ומשפטים הפוכים',
+  'sim:2': 'צורות דומות',
+  'sim:3': 'דמיון משולשים (ז.ז)',
+  'sim:4': 'יחס צלעות ויחס שטחים',
   'sys:1': 'משוואות עם אחוזים',
   'sys:2': 'שיטת ההצבה',
   'sys:3': 'השוואת מקדמים',
@@ -148,14 +164,14 @@ export const stairName = (id) => {
  * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
  * it today. (ai spec AI-5)
  */
-export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', circle: '8', stats: '8', sys: '8', prob: '8', space: '8' });
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', transf: '7', expr: '7', area: '7', solid: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', circle: '8', stats: '8', congr: '8', sim: '8', sys: '8', prob: '8', space: '8' });
 
 /**
  * Units a grade also learns this school year though filed under the other (learn/skills.ts ALSO_ON_PATH: the תשפ״ז
- * transition year has ח׳ learn the ז׳ data unit): topic → that grade. The tutor's stair map names them on a line of
- * their own (pedagogy.js curriculumBlock); stairs.test.ts keeps the two tables equal.
+ * transition year has ח׳ learn the ז׳ data unit and the ז׳ transformations unit): topic → that grade. The tutor's stair
+ * map names them on a line of their own (pedagogy.js curriculumBlock); stairs.test.ts keeps the two tables equal.
  */
-export const TOPIC_ALSO = Object.freeze({ data: '8' });
+export const TOPIC_ALSO = Object.freeze({ data: '8', transf: '8' });
 
 /**
  * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic

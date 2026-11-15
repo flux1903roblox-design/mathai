@@ -4,7 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { TOPIC_WAYS_STAGE1 as WAYS, SIGNED_FRACTIONS } from '../../shared/topicWays.js';
+import { TOPIC_WAYS_STAGE1 as WAYS, TOPIC_WAYS_GEOM as GEOM, SIGNED_FRACTIONS } from '../../shared/topicWays.js';
+import { TOPIC_WAYS } from '../../shared/pedagogy.js';
 
 const read = (url) => readFileSync(url, 'utf8');
 const any = (res, text) => res.some((r) => r.test(text));
@@ -103,4 +104,112 @@ test('no line of the app\'s teaching content, generators or challenges trips a p
 test('no lookbehind: the file ships to the browser (Safari before 16.4 cannot load one)', () => {
   assert.equal(read(new URL('../../shared/topicWays.js', import.meta.url)).includes('(?<'), false);
   ALL.forEach((r) => assert.equal(r.source.includes('(?<'), false, r.source));
+});
+
+// ---------------------------------------------------------------- curriculum stage 4: transformations (GEOM-1 item 8)
+const GEOM_ALL = Object.values(GEOM).flatMap((w) => w.avoidRe);
+
+test('transf has models, the app\'s words and a pattern for every shortcut, and the tutor\'s ways take it after the angles', () => {
+  assert.deepEqual(Object.keys(GEOM), ['transf', 'congr', 'sim']);
+  const w = GEOM.transf;
+  assert.ok(w.models.length > 200);
+  assert.match(w.models, /same distance in the same direction.*from a point to its image.*perpendicular.*\(x, -y\).*line \$x = k\$.*centre, an angle and a direction.*\(-x, -y\).*congruent.*equal areas or equal perimeters.*shared side.*360/s);
+  assert.deepEqual(w.words, ['הזזה', 'שיקוף', 'ישר שיקוף', 'ציר סימטריה', 'סיבוב', 'מרכז הסיבוב', 'עם כיוון השעון', 'נגד כיוון השעון', 'תמונה', 'חופפות', 'ריצוף']);
+  assert.ok(w.avoid.length === 3 && w.avoidRe.length >= w.avoid.length);
+  assert.equal(TOPIC_WAYS.transf, w);
+  const order = Object.keys(TOPIC_WAYS);
+  assert.equal(order.indexOf('transf'), order.indexOf('angles') + 1);
+});
+
+test('transf: a shortcut stated as a rule is caught; the app\'s own words and the right rule pass', () => {
+  [
+    'ברבע סיבוב מחליפים בין $x$ ל־$y$.',
+    'כדי לסובב ברבע סיבוב, מחליפים x ו y.',
+    'מחליפים בין $x$ ל־$y$, וזה רבע סיבוב.',
+    'בסיבוב של $90°$ פשוט מחליפים בין השיעורים.',
+    'בשיקוף מחליפים את הסימנים של שני השיעורים.',
+    'שיקוף ביחס לציר משנה את הסימנים של שני השיעורים.',
+    'צורות עם אותו שטח הן חופפות.',
+    'מלבנים עם שטח שווה הם חופפים.',
+  ].forEach((l) => assert.ok(GEOM_ALL.some((r) => r.test(l)), l));
+  [
+    'החליפו בין השיעורים בלי לשנות סימן',
+    'ברבע סיבוב עם כיוון השעון מחליפים בין $x$ ל־$y$ ומשנים את הסימן של השיעור החדש.',
+    'בחצי סיבוב סביב $O(0, 0)$ שני השיעורים מחליפים סימן.',
+    'חשבו שצורות עם אותו שטח הן חופפות',
+    'לשני המלבנים אותו שטח, $12$. הם חופפים?',
+    'הזיזו את המשולש $3$ ימינה.',
+    '"אם מחליפים בין $x$ ל־$y$, הנקודה נשארת באותו רביע."',
+  ].forEach((l) => assert.ok(!GEOM_ALL.some((r) => r.test(l)), l));
+});
+
+// ---------------------------------------------------------------- curriculum stage 4: congruent triangles (GEOM-1 item 8)
+test('congr has models, the app\'s words and a pattern for every shortcut, and the tutor\'s ways take it after statistics', () => {
+  const w = GEOM.congr;
+  assert.ok(w.models.length > 200);
+  assert.match(w.models, /read in the order of its letters.*turned or mirrored.*sides equal to its two sides meet.*צ\.ז\.צ.*ז\.צ\.ז.*third angle can be found first.*צ\.צ\.צ.*not between them.*three angles.*perimeter or area.*טענה.*נימוק.*common side.*vertical angles.*only then the conclusions.*median.*halves the side and the area.*not the shape.*height is the perpendicular.*between the difference and the sum.*lies flat.*largest angle faces the longest side/s);
+  assert.deepEqual(w.words, ['צלעות מתאימות', 'זוויות מתאימות', 'משפט חפיפה', 'צ.ז.צ', 'ז.צ.ז', 'צ.צ.צ', 'טענה', 'נימוק', 'נתון', 'צ״ל', 'צלע משותפת', 'זוויות קודקודיות', 'תיכון', 'דלתון', 'אי־שוויון המשולש']);
+  assert.ok(w.avoid.length === 3 && w.avoidRe.length >= 2);
+  assert.equal(TOPIC_WAYS.congr, w);
+  const order = Object.keys(TOPIC_WAYS);
+  assert.equal(order.indexOf('congr'), order.indexOf('stats') + 1);
+});
+
+test('congr: a shortcut stated as a rule is caught; the app\'s own words and the right rule pass', () => {
+  [
+    'שתי צלעות וזווית מספיקות כדי שהמשולשים יהיו חופפים.',
+    'שתי צלעות וזווית זה מספיק.',
+    'המשולשים שווי שטח, ולכן הם חופפים.',
+    'לשני המשולשים אותו היקף, אז הם חופפים.',
+  ].forEach((l) => assert.ok(GEOM.congr.avoidRe.some((r) => r.test(l)), l));
+  [
+    'שתי צלעות והזווית שביניהן מספיקות: צ.ז.צ.',
+    'שתי צלעות וזווית מספיקות רק כשהזווית כלואה ביניהן.',
+    'השתמשו בשתי צלעות ובזווית שאינה ביניהן כאילו זה משפט חפיפה',
+    'חשבו שתיכון מחלק משולש לשני משולשים חופפים',
+    'התיכון מחלק את המשולש לשני משולשים שווי שטח, אבל הם לא חופפים.',
+    'לשני המשולשים אותו היקף, $18$. הם חופפים?',
+  ].forEach((l) => assert.ok(!GEOM.congr.avoidRe.some((r) => r.test(l)), l));
+});
+
+// ---------------------------------------------------------------- curriculum stage 4: isosceles triangles and similarity (GEOM-1 item 8)
+test('sim has models, the app\'s words and a pattern for every shortcut, and the tutor\'s ways take it after congruence', () => {
+  const w = GEOM.sim;
+  assert.ok(w.models.length > 200);
+  assert.match(w.models, /legs are equal.*base angles.*bisector.*median and the altitude.*converses are theorems of their own.*opposite the equal angles.*checked separately.*one ratio.*multiplies every length.*never adds.*equal angles are not enough.*ז\.ז.*order of corresponding vertices.*whole side.*bowtie.*crosses over.*areas by \$k\^2\$.*square root/s);
+  assert.deepEqual(w.words, ['שוקיים', 'בסיס', 'זווית הראש', 'משפט הפוך', 'דומים', 'יחס הדמיון', 'ז.ז']);
+  assert.ok(w.avoid.length === 2 && w.avoidRe.length >= 2);
+  assert.equal(TOPIC_WAYS.sim, w);
+  const order = Object.keys(TOPIC_WAYS);
+  assert.equal(order.indexOf('sim'), order.indexOf('congr') + 1);
+});
+
+test('sim: a shortcut stated as a rule is caught; the app\'s own words and the right rule pass', () => {
+  [
+    'כדי להגדיל מוסיפים אותו מספר לכל צלע.',
+    'מוסיפים את אותו מספר לכל הצלעות ומקבלים צורה דומה.',
+    'השטח גדל פי אותו מספר.',
+    'השטח גדל באותו יחס כמו הצלעות.',
+    'גם השטח משתנה פי יחס הדמיון.',
+  ].forEach((l) => assert.ok(GEOM.sim.avoidRe.some((r) => r.test(l)), l));
+  [
+    // sim:2's own misconception: the same number added, named as what does not work
+    'מוסיפים אותו מספר לכל צלע במקום לכפול באותו מספר.',
+    'מוסיפים אותו מספר לכל צלע? זה לא שומר על הצורה.',
+    'הוספה של אותו מספר לכל צלע משנה את הצורה.',
+    'השטח גדל פי יחס הדמיון בריבוע.',
+    'השטח גדל פי $k^2$, וההיקף פי $k$.',
+    'כל צלע גדלה פי $1.5$.',
+  ].forEach((l) => assert.ok(!GEOM.sim.avoidRe.some((r) => r.test(l)), l));
+});
+
+test('transf: no line of the app\'s content, generators or challenges trips a pattern, and none uses lookbehind', () => {
+  const dirs = ['../../web/src/learn/content/', '../../web/src/content/', '../../web/src/learn/challenges/'].map((d) => new URL(d, import.meta.url));
+  const files = dirs.flatMap((dir) => readdirSync(dir).filter((f) => /\.(ts|js)$/.test(f) && !f.includes('.test.')).map((f) => new URL(f, dir)));
+  for (const url of files) {
+    read(url).split('\n').forEach((line, i) => assert.ok(!GEOM_ALL.some((r) => r.test(line)), `${url.pathname.split('/').slice(-2).join('/')}:${i + 1} ${line.trim().slice(0, 90)}`));
+  }
+  for (const w of Object.values(GEOM)) [w.models, ...w.avoid, ...w.words].forEach((t) => assert.ok(!GEOM_ALL.some((r) => r.test(t)), t));
+  GEOM_ALL.forEach((r) => assert.equal(r.source.includes('(?<'), false, r.source));
+  // and stage 1's patterns do not trip on the new unit's lines either (the loop above covers every file)
 });

@@ -54,7 +54,8 @@ for (const grade of ['7', '8']) {
 
 test('the unit\'s colour and emblem follow it to its guide, its stair page and the topics list', async ({ page }) => {
   await open(page, '#/', livedIn('7'));
-  const pathColour = await page.locator('section.unit.ch-violet .unit-head').evaluate((el) => getComputedStyle(el).backgroundColor);
+  // equations (violet; the transformations share the colour two units before it)
+  const pathColour = await page.locator('section.unit.world-eq.ch-violet .unit-head').evaluate((el) => getComputedStyle(el).backgroundColor);
 
   await open(page, '#/topic/eq', livedIn('7'));
   const guide = page.locator('.guide-banner');
