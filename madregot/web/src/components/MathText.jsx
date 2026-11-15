@@ -68,7 +68,7 @@ export function texText(tex) {
     .replace(/\\text\{([^{}]*)\}/g, '$1')
     .replace(/\^\{?\\circ\}?/g, '°').replace(/\\(cdot|times)/g, '×').replace(/\\div/g, ':').replace(/\\circ/g, '°')
     .replace(/\\leq?(?![a-z])/g, '≤').replace(/\\geq?(?![a-z])/g, '≥').replace(/\\neq?(?![a-z])/g, '≠')
-    .replace(/\^\{?2\}?/g, '²')
+    .replace(/\^\{?2\}?/g, '²').replace(/\\pi(?![a-zA-Z])/g, 'π')
     .replace(/\\(left|right)|\\[,;! ]/g, ' ')
     .replace(/[{}]/g, '').replace(/\\([a-zA-Z]+)/g, '$1')
     .replace(/\s+/g, ' ').trim();
@@ -126,7 +126,8 @@ export function useFitLine(ref, text) {
  * Display maths, as large as it fits: a long expression (3(x - 2) - (x + 4) = ?) is set smaller until it fits
  * the width, down to 60% of the size, instead of scrolling sideways. A display that fits is left alone. A large display
  * (an exercise's question) may go further, down to the size of the text around it (15px), so the class's chain of five
- * bracketed numbers, (+3) + (-4) + (+7) - (-10) - (+7), fits a 320 phone in one line (CLASSROOM-2).
+ * bracketed numbers, (+3) + (-4) + (+7) - (-10) - (+7), fits a 320 phone in one line (CLASSROOM-2). One still too wide
+ * at its smallest size breaks onto a second line after an = sign or an operator (stage 2).
  * The question of an exercise (className 'qdisplay') and the maths of a teaching step ('lm-expr') use it.
  */
 export function FitDisplay({ tex, className = 'qdisplay' }) {
@@ -146,9 +147,14 @@ export function FitDisplay({ tex, className = 'qdisplay' }) {
       if (!box) return;
       box.style.transition = 'none';
       box.style.fontSize = '';
+      box.classList.remove('fit-wrap');
       const base = parseFloat(getComputedStyle(box).fontSize); const parent = parseFloat(getComputedStyle(box.parentElement).fontSize);
       const floor = Math.min(0.6, 15 / base);
       if (box.scrollWidth - box.clientWidth > 1 && base > 0 && parent > 0) box.style.fontSize = `${(base * Math.max(floor, (box.clientWidth / box.scrollWidth) * 0.97)) / parent}em`;
+      // still too wide at its smallest size: the display breaks after its = signs and operators (styles/tokens.css), so
+      // its end is never hidden in a scroll box (a long rule should be written on stacked lines instead; this is the
+      // safety net)
+      if (box.scrollWidth - box.clientWidth > 1) box.classList.add('fit-wrap');
     };
     fit();
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;

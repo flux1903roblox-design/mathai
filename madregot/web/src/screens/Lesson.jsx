@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Navigate, useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -9,9 +9,12 @@ import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Che
 import { afterStrike } from '@/lib/strike.js';
 import { qaOn } from '@/lib/qa.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, makeItem, ensureGens, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine, unitGrade, swappedLin, swapNote } from '@/content/index.js';
+import { TOPIC, makeItem, ensureGens, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine, unitGrade, swappedLin, swapNote, figPlain } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
+import { piRow } from '@/content/util.js';
+// a right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake
+import { PARTIAL } from '@/content/partial.js';
 import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
@@ -26,7 +29,7 @@ import { play, haptic } from '@/lib/sound.js';
 import { Tex, MathText, texText, FitDisplay, useFitLine } from '@/components/MathText.jsx';
 import { RichText } from '@/components/RichText.jsx';
 import Figure from '@/components/Figure.jsx';
-import Manip from '@/components/manip/Manip.jsx';
+import Manip, { readoutLine } from '@/components/manip/Manip.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import Notebook from '@/components/Notebook.jsx';
 import CheckResult from '@/components/CheckResult.jsx';
@@ -82,15 +85,13 @@ function HintBox({ text, clamp }) {
 
 const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b', k: 'המקדם של x', c: 'המספר החופשי', n: 'המונה', d: 'המכנה' };
 /** A slot's name for a screen reader; an expression's letter may be another one than x (3n + 1). */
-const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : SLOT_LABEL[k]);
+const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : k === 'v' && piRow(item) ? 'התשובה: המספר שלפני פאי' : SLOT_LABEL[k]);
 /** "to" a slot: ל־ takes the place of the article (למונה, לשיפוע m), as people say it. */
 const toSlot = (label) => (!label ? 'לשדה הבא' : /^[a-z]/i.test(label) ? `ל־${label}` : `ל${label.startsWith('ה') ? label.slice(1) : label}`);
 /** A fraction's two fields, as a screen reader names them. */
 const FRAC_FIELD = { n: 'מונה', d: 'מכנה' };
 /** What to type when a slot is empty or unreadable. */
 const INVALID = { pt: 'מלאו את שני השיעורים.', line: 'מלאו את m ואת b.', lin: 'מלאו את המקדם ואת המספר החופשי.', frac: 'מלאו מונה ומכנה, מספרים שלמים.' };
-/** A right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake. */
-const PARTIAL = { 'not-reduced': 'נכון, ואפשר לצמצם עוד. צמצמו עד הסוף.' };
 
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
 // Help named honestly (ai spec AI-3 Hebrew copy): a first try that was right with the hint or the tutor open is not
@@ -111,6 +112,8 @@ const chatIntro = (s) => (s?.phase === 'retry' ? CHAT_INTRO.retry : openExercise
  * since three expressions in one row overflow a phone.
  */
 const inlineChoices = (item) => item.choices.length === 3 && item.choices.every((c) => c.tex && c.tex.replace(/\s|\\[a-z]+/g, '').length <= 3);
+/** Choices that are drawings (four nets of a cube): two by two, each drawing as wide as a phone allows. */
+const figChoices = (item) => item.choices.length > 1 && item.choices.every((c) => c.fig);
 
 /** Under an expression's two slots: what to write for x alone, for −x and for no constant. */
 const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין $${v}$ או אין מספר חופשי? כתבו $0$ בתיבה שלו.`;
@@ -118,6 +121,18 @@ const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־
 function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike, good }) {
   const shakeRef = useShake(shakeKey);
   const names = slotsFor(item);
+  // every typed digit stays in sight: the slot is sized for the stairs' answers (styles/app.css), and a longer number
+  // (153.86 in the narrow slot of a 320 phone) is set smaller until it shows whole, down to 60% of the size
+  const rowRef = useRef(null);
+  useLayoutEffect(() => {
+    for (const el of rowRef.current?.querySelectorAll('input.slot') || []) {
+      el.style.fontSize = '';
+      if (el.scrollWidth - el.clientWidth > 1) {
+        const base = parseFloat(getComputedStyle(el).fontSize);
+        if (base > 0) el.style.fontSize = `${Math.max(0.6, (el.clientWidth / el.scrollWidth) * 0.95) * base}px`;
+      }
+    }
+  }, [slots]);
   const input = (k, extra = {}) => (
     <input
       key={k} id={`slot-${k}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false}
@@ -136,12 +151,13 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
   );
   return (
     <div className="answer" ref={shakeRef}>
-      <div className="answer-row" dir="ltr">
+      <div className="answer-row" dir="ltr" ref={rowRef}>
         {item.form === 'pt' && (<><span className="answer-lab"><Tex tex={`${item.label ?? 'P'}\\,(`} /></span>{input('x', { ph: 'x' })}<span className="answer-lab">,</span>{input('y', { ph: 'y' })}<span className="answer-lab">)</span></>)}
         {item.form === 'line' && (<><span className="answer-lab"><Tex tex="y =" /></span>{input('m', { ph: 'm' })}<span className="answer-lab"><Tex tex="x\,+" /></span>{input('b', { ph: 'b' })}</>)}
         {/* an expression: the coefficient, the letter, the constant (□x + □) */}
         {item.form === 'lin' && (<>{input('k')}<span className="answer-lab"><Tex tex={`${item.var || 'x'}\\,+`} /></span>{input('c')}</>)}
-        {item.form === 'num' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}{input('v')}</>)}
+        {/* a number, with maths before its slot (x =) and after it (□π: the student types the number before π) */}
+        {item.form === 'num' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}{input('v')}{item.after && <span className="answer-lab answer-after" aria-hidden="true"><Tex tex={item.after} /></span>}</>)}
         {/* a fraction: the numerator over a bar over the denominator */}
         {item.form === 'frac' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}
           <span className="answer-frac" role="group" aria-label="שבר">{input('n', { aria: FRAC_FIELD.n })}<span className="answer-frac-bar" aria-hidden="true" />{input('d', { aria: FRAC_FIELD.d })}</span></>)}
@@ -295,6 +311,9 @@ export default function Lesson() {
   const isManip = item?.form === 'manip';
   const mv = isManip ? (mvs.key === mkey ? mvs.v : item.manip.start ?? null) : null;
   const touched = isManip && mvs.key === mkey && mvs.touched;
+  // a practice first try hides an object's readout of the quantity asked (Manip.jsx readoutLine): it shows after a miss
+  // (the retry is an answer with help, as after the hint) or once the hint is open
+  const readoutHidden = isManip && !isTest(s.kind) && s.attempt === 1 && !s.hint && !!readoutLine(item);
 
   useEffect(() => {
     if (!item) return;
@@ -423,8 +442,9 @@ export default function Lesson() {
         return out;
       });
     }
-    // an expression written constant-first on expr:3 is right; a quiet note says which box holds the coefficient
-    setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)], ...(result.ok && swappedLin(item, u) ? { swap: swapNote(item) } : {}) });
+    // an expression written constant-first on expr:3 is right; a quiet note says which box holds the coefficient. A
+    // first try whose readout was hidden: the retry's feedback says what can be seen now
+    setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)], ...(result.ok && swappedLin(item, u) ? { swap: swapNote(item) } : {}), readout: !!result.retry && readoutHidden });
     if (result.ok) { play('correct'); haptic('correct'); commit(result.event); }
     else {
       play('wrong'); haptic('wrong'); setShakeKey((v) => v + 1);
@@ -653,17 +673,19 @@ export default function Lesson() {
             )}
           </div>
         )}
-        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind)} />}
+        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind)} firstTry={readoutHidden} />}
         {item.form === 'mc' && (
-          <div className={clsx('choices', inlineChoices(item) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
+          <div className={clsx('choices', inlineChoices(item) && 'inline', figChoices(item) && 'figs')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
             {item.choices.map((c, i) => {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (
-                <m.button key={i} type="button" role="radio" aria-checked={choice === i} tabIndex={(choice ?? item.choices.findIndex((_, k) => !s.wrong.includes(k))) === i ? 0 : -1} aria-label={c.tex ? texText(c.tex) : undefined} className={clsx('choice', choice === i && 'on', state)}
+                <m.button key={i} type="button" role="radio" aria-checked={choice === i} tabIndex={(choice ?? item.choices.findIndex((_, k) => !s.wrong.includes(k))) === i ? 0 : -1} aria-label={c.tex ? texText(c.tex) : c.fig ? `${c.text}: ${figPlain(c.fig)}` : undefined} className={clsx('choice', choice === i && 'on', state)}
                   whileTap={locked ? undefined : { scale: 0.96 }} animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
                   disabled={locked || s.wrong.includes(i)} onClick={() => { setChoice(i); play('tap'); if (feedback === 'retry') setLast(null); }}>
                   <span className="choice-key" aria-hidden="true">{state === 'good' ? <Check size={18} strokeWidth={3.4} /> : state === 'bad' ? <X size={18} strokeWidth={3.4} /> : i + 1}</span>
-                  <ChoiceText c={c} />
+                  {c.fig
+                    ? <span className="choice-fig"><Figure fig={c.fig} /><span className="choice-cap">{c.text}</span></span>
+                    : <ChoiceText c={c} />}
                 </m.button>
               );
             })}
@@ -705,7 +727,7 @@ export default function Lesson() {
           </div>
         )}
         {last?.invalid && (last.partial
-          ? <p className="answer-error answer-partial" role="status">{last.text}</p>
+          ? <p className="answer-error answer-partial" role="status"><MathText text={last.text} /></p>
           : <p className="form-error answer-error" role="alert">{last.text}</p>)}
         {last?.swap && <p className="answer-error answer-partial answer-swap" role="status"><MathText text={last.swap} /></p>}
         {feedback ? (
@@ -719,12 +741,14 @@ export default function Lesson() {
               </div>
               {folded && (
                 <div className="fb-body">
+                  {feedback === 'retry' && last?.readout && <p className="readout-line">{readoutLine(item)}</p>}
                   {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>}
                   <button type="button" className="link-btn" onClick={() => setFbOpen(fbToken)} aria-expanded="false">{feedback === 'retry' ? 'רמז' : 'הפתרון'}</button>
                 </div>
               )}
               {feedback === 'retry' && !folded && (
                 <div className="fb-body">
+                  {last?.readout && <p className="readout-line">{readoutLine(item)}</p>}
                   {diagnosisLine(item.topic || spec.topic, item.level, last) && <p><MathText text={diagnosisLine(item.topic || spec.topic, item.level, last)} /></p>}
                   {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && metaOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>

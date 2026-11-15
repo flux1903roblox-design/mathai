@@ -4,6 +4,7 @@
 //   checkEquations(text)            every all-numeric equation in the $…$ runs of a text: is it true?
 //   numbersIn(text)                 the numbers a Hebrew + TeX text states
 //   parseAnswer(s)                  an answer as written ("x = -3", "$\frac{3}{4}$", "2,5", "(2, -1)") → a number, [x, y] or null
+//   piCoefficient(s)                an answer written with π ("25π", "$25\pi$") → the number before π, or null
 //   verifyRewrite(seed, item, b)    one AI-written exercise against the app's seed: the checks of AI-4, in order
 //   finishRewrite(seeds, data, b)   every exercise of a reply: the ones that pass, in seed order, and why the others did not
 //
@@ -318,6 +319,23 @@ export function parseAnswer(s) {
   return parseNumLike(t);
 }
 
+/** π in an answer as written: the letter, or TeX's \pi. */
+const PI_MARK = /\\pi(?![a-zA-Z])|π/;
+/**
+ * An answer written with π (stage 2, the circle and its solids: the number before π is the answer) → that number: "25π",
+ * "$25\pi$" and "25 \cdot \pi" are 25, "π" is 1; null when there is no π or the rest cannot be read. A seed whose answer
+ * has π is checked on this number, and so are the last step of its solution and the blind solve's answer.
+ */
+export function piCoefficient(s) {
+  const t = String(s ?? '').replace(/[⁦-⁩‎‏$]/g, '').replace(/\s+/g, '');
+  if (!PI_MARK.test(t)) return null;
+  const rest = t.replace(new RegExp(PI_MARK.source, 'g'), '').replace(/\\cdot|\*|·|×/g, '');
+  if (rest === '' || rest === '+') return 1;
+  if (rest === '-') return -1;
+  const u = parseAnswer(rest);
+  return typeof u === 'number' ? u : null;
+}
+
 // ---------------------------------------------------------------- one AI-written exercise against its seed
 /** Why an exercise is not shown, in the order the checks run (finishRewrite counts each). */
 export const DROP_REASONS = Object.freeze(['kept', 'latex', 'numbers', 'leak', 'solution', 'equations', 'blind']);
@@ -337,7 +355,7 @@ const absHas = (list, v) => list.some((x) => Math.abs(Math.abs(x) - Math.abs(v))
  * The value at the end of a solution: the right-hand side of the last "=" (or "≈") of the $…$ run that ends its last
  * step. After the run only a short word or two without digits may follow (a unit: "ס״מ", "מעלות"), never more maths.
  */
-function finalValue(step) {
+function finalValue(step, withPi = false) {
   const t = String(step ?? '').trim();
   const runs = mathRuns(t);
   const last = runs.at(-1);
@@ -346,6 +364,8 @@ function finalValue(step) {
   const parts = last.body.split(/=|≈|\\approx(?![A-Za-z])/);
   if (parts.length < 2) return null;
   const rhs = parts.at(-1).trim();
+  // a seed with π: the last step ends "= 25\pi", read as its number before π (a value with no π is not that answer)
+  if (withPi) return piCoefficient(rhs);
   const read = parseAnswer(rhs);
   if (typeof read === 'number') return read;
   return valueOf(rhs);
@@ -363,7 +383,9 @@ function finalValue(step) {
  */
 export function verifyRewrite(seed, item, blindAnswer) {
   const fail = (reason) => ({ ok: false, reason, fixed: null, blind: null, item: null });
-  const answer = parseAnswer(seed?.answer);
+  // an answer with π (25π): every check reads the number before π, and the solution and the blind solve must say π too
+  const withPi = piCoefficient(seed?.answer) != null;
+  const answer = withPi ? piCoefficient(seed?.answer) : parseAnswer(seed?.answer);
   const tol = seed?.round ? 0.05 : 0.01;
   const prompt = String(item?.prompt ?? '');
   const solution = Array.isArray(item?.solution) ? item.solution.map((x) => String(x ?? '')) : [];
@@ -376,12 +398,12 @@ export function verifyRewrite(seed, item, blindAnswer) {
   if (!seedNums.every((v) => absHas(storyNums, v))) return fail('numbers');
   if (typeof answer !== 'number') return fail('solution');
   if (!kept && absHas(storyNums, answer) && !absHas(seedNums, answer)) return fail('leak');
-  const end = finalValue(solution.at(-1));
+  const end = finalValue(solution.at(-1), withPi);
   if (end == null || Math.abs(end - answer) > tol + 1e-9) return fail('solution');
   if (!checkEquations(solution.join('\n')).ok) return fail('equations');
   let blind = 'skipped';
   if (!kept && blindAnswer !== undefined) {
-    const b = parseAnswer(blindAnswer);
+    const b = withPi ? piCoefficient(blindAnswer) : parseAnswer(blindAnswer);
     if (typeof b !== 'number' || Math.abs(b - answer) > tol + 1e-9) return fail('blind');
     blind = 'ok';
   }

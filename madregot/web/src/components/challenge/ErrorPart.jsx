@@ -6,7 +6,7 @@ import { Check, X } from 'lucide-react';
 import { MathText, mathPlain } from '@/components/MathText.jsx';
 import { play } from '@/lib/sound.js';
 import { numCheck } from '@/learn/challenges/grade.ts';
-import { useTries, resultOf, PartFooter, NumFields, CHECK, GO_ON } from './common.jsx';
+import { useTries, resultOf, PartFooter, NumFields, CHECK, GO_ON, PI_VALUE_LINE, piValueTyped, answerTexOf } from './common.jsx';
 
 export const WHICH_LINE = 'איזו שורה שגויה?';
 
@@ -15,6 +15,7 @@ export default function ErrorPart({ part, onDone, last }) {
   const [sel, setSel] = useState(null);
   const [tried, setTried] = useState([]);
   const [values, setValues] = useState({ v: '' });
+  const [note, setNote] = useState(null);
   const line = useTries();
   const fix = useTries();
   const onLine = phase === 'line';
@@ -28,11 +29,13 @@ export default function ErrorPart({ part, onDone, last }) {
   const checkFix = () => {
     const r = numCheck(part.fix.answer, values.v || '');
     if (!r) return;
+    // the whole value typed into a □π row: right, in another form; the try does not count
+    if (!r.ok && piValueTyped(part.fix.answer, part.fix.after, r.u)) { setNote(PI_VALUE_LINE); return; }
     if (r.ok) { fix.right(); play('correct'); } else { fix.miss(); play('wrong'); }
   };
   const result = onLine
     ? resultOf(line.state, { good: <p><MathText text={part.why} /></p>, retry: null, shown: <><p>{`השורה השגויה היא שורה ${part.wrong + 1}.`}</p><p><MathText text={part.why} /></p></> })
-    : resultOf(fix.state, { good: null, retry: null, shown: <p><MathText text={`התשובה: $${part.fix.answer}$.`} /></p> });
+    : resultOf(fix.state, { good: null, retry: null, shown: <p><MathText text={`התשובה: $${answerTexOf(part.fix.answer, part.fix.after)}$.`} /></p> });
   const t = onLine ? line : fix;
   return (
     <>
@@ -55,9 +58,9 @@ export default function ErrorPart({ part, onDone, last }) {
       {!onLine && (
         <section className="ch-fix" aria-labelledby="ch-fix-title">
           <p className="ch-ask" id="ch-fix-title"><MathText text={part.fix.prompt} /></p>
-          <NumFields fields={[{ name: 'v', label: mathPlain(part.fix.prompt) }]} values={values} locked={fix.done}
-            state={fix.state === 'good' ? 'good' : fix.state === 'retry' ? 'bad' : null}
-            onChange={(v) => { setValues(v); fix.again(); }} onEnter={() => { if (!fix.done && readable) checkFix(); }} />
+          <NumFields fields={[{ name: 'v', label: mathPlain(part.fix.prompt), after: part.fix.after }]} values={values} locked={fix.done}
+            state={fix.state === 'good' ? 'good' : fix.state === 'retry' ? 'bad' : null} note={fix.done ? null : note}
+            onChange={(v) => { setValues(v); setNote(null); fix.again(); }} onEnter={() => { if (!fix.done && readable) checkFix(); }} />
         </section>
       )}
       <PartFooter result={result} label={t.done ? (last && !onLine ? 'לסיום' : GO_ON) : CHECK}

@@ -143,6 +143,7 @@ Each stair is a `StairContent` (types.ts). The tests in `content.test.ts` check 
 | 5. Content for every stair | done: authored per topic, each stair with its own strategy, then checked (below) |
 | 6. QA and staging | done for this checkpoint (see QA_AUDIT.md, round 8) |
 | 7. Curriculum stage 1 | done: the programme map and `/programme`, the fraction bar, double number line and fractions on number lines, the floor (frac:1–4, the floor check, multiplication facts), signed:6, ratio and percent for grade 8, the one ranked "what next", the challenge track |
+| 8. Curriculum stage 2, measurement | done: the grid, net and circle objects, the solid and net figures, answers with π and with π ≈ 3.14, areas and perimeters and boxes and prisms for grade 7 (7.12, 7.13), the circle, the cylinder and the cone and Pythagoras in space for grade 8 (8.4, 8.17), three challenges a topic. The proof pack, the merge notes and the owner's step (a teacher reads the four topics) are in QA_MEASURE.md |
 
 ### Screens and routes added
 
@@ -202,6 +203,15 @@ the row to paste when one differs.
 | expr:3 | כינוס איברים דומים | 10 (tiles) | 2 | 2 | 5 (conjoin, detach, drop-minus, abs-add, sign) | yes | complete, tested |
 | expr:4 | חוק הפילוג | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
 | expr:5 | פישוט ביטויים | 8 (tiles) | 3 | 2 | 3 (partial-dist, minus-bracket, conjoin) | yes | complete, tested |
+| area:1 | היקף ושטח של מלבן | 8 (polygon) | 3 | 2 | 6 (perimeter, add-sides, area-for-perim, two-sides, one-side-perim, perim-as-area) | yes | complete, tested |
+| area:2 | שטח משולש | 8 (polygon) | 3 | 2 | 4 (no-half, slant-as-height, half-twice, hyp-as-height) | yes | complete, tested |
+| area:3 | צורות מורכבות | 8 (polygon) | 3 | 2 | 3 (no-subtract, double-count, no-half) | yes | complete, tested |
+| area:4 | מקבילית וטרפז | 8 (polygon) | 3 | 2 | 4 (slant-as-height, one-base, no-half, half-para) | yes | complete, tested |
+| area:5 | היקפים: אותו היקף, שטח אחר | 8 (polygon) | 3 | 2 | 6 (missing-sides, same-perim-same-area, no-convert, two-sides, area-for-perim, add-legs) | yes | complete, tested |
+| solid:1 | תיבה: פריסה ושטח פנים | 8 (net) | 3 | 2 | 4 (three-faces, vol-for-surf, lid-counted, three-edges) | yes | complete, tested |
+| solid:2 | נפח תיבה וקובייה | 8 (net) | 3 | 2 | 6 (surf-for-vol, add-edges, cube-times3, no-convert, one-divide, div-by-edge) | yes | complete, tested |
+| solid:3 | מנסרה משולשת: פריסה ושטח פנים | 8 (net) | 3 | 2 | 4 (one-base, missing-face, slant-as-height, add-legs) | yes | complete, tested |
+| solid:4 | נפח מנסרה | 8 (net) | 3 | 2 | 4 (no-half, hyp-as-height, slant-as-height, linear-volume) | yes | complete, tested |
 | data:1 | דיאגרמות וטבלת שכיחויות | 8 (chart) | 3 | 2 | 5 (scale-units, one-value, icon-count, half-icon, truncated-axis) | yes | complete, tested |
 | data:2 | שכיחות יחסית | 8 (fbar) | 2 | 2 | 7 (part-part, bigger-count, freq-only, inverse-ratio, per-category, pct-for-dec, div-by-rel) | yes | complete, tested |
 | data:3 | אחוזים ודיאגרמת עוגה | 8 (chart) | 3 | 2 | 6 (count-as-pct, div-by-pct, pct-of-part, stop-at-one, inverse-ratio, pie-not-whole) | yes | complete, tested |
@@ -239,6 +249,10 @@ the row to paste when one differs.
 | pyth:3 | האם המשולש ישר־זווית? | 10 (triangle, squares) | 2 | 2 | 3 (wrong-hyp, assume-right, add-legs) | yes | complete, tested |
 | pyth:4 | שאלה מילולית | 10 (squares) | 2 | 2 | 5 (add-legs, no-root, wrong-hyp, add-not-sub, subtract-sides) | yes | complete, tested |
 | pyth:5 | מרחק בין נקודות | 10 (plot, squares) | 2 | 1 | 3 (add-legs, no-root, coord-diff) | yes | complete, tested |
+| circle:1 | היקף מעגל | 8 (circle) | 3 | 2 | 3 (r-for-d, d-for-r, area-for-circ) | yes | complete, tested |
+| circle:2 | שטח עיגול | 8 (circle) | 3 | 2 | 5 (circ-for-area, d-in-area, ring-sub-radii, no-subtract, whole-circle) | yes | complete, tested |
+| circle:3 | גליל | 8 (net) | 3 | 2 | 7 (d-in-area, lateral-for-vol, r-for-d, area-for-circ, no-bases, one-base, no-convert) | yes | complete, tested |
+| circle:4 | חרוט | 8 | 3 | 2 | 6 (no-third, slant-as-height, add-not-sub, subtract-sides, no-half, r-for-d) | yes | complete, tested |
 | stats:1 | שכיח | 10 (pins) | 2 | 2 | 3 (mode-max, mode-count, mode-median) | yes | complete, tested |
 | stats:2 | חציון | 10 (bars, pins) | 2 | 2 | 4 (unsorted, mean-not-median, one-middle, median-position) | yes | complete, tested |
 | stats:3 | ממוצע | 10 (bars) | 2 | 2 | 4 (mean-as-answer, no-divide, median-not-mean, midrange) | yes | complete, tested |
@@ -255,6 +269,8 @@ the row to paste when one differs.
 | prob:1 | תוצאות שוות סיכוי | 8 (simulate) | 3 | 2 | 5 (count-not-prob, one-over-n, equiprob-event, fencepost, no-symmetry) | yes | complete, tested |
 | prob:2 | מאורע משלים | 8 (fbar) | 2 | 2 | 8 (same-prob, hundred-minus, others-given, one-part, count-not-prob, gambler, outcome-approach, complement-only) | yes | complete, tested |
 | prob:3 | ניסוי בשני שלבים | 8 (simulate) | 2 | 2 | 6 (equiprob-sums, unordered, space-21, add-probs, one-stage, representativeness) | yes | complete, tested |
+| space:1 | אלכסון בקובייה ובתיבה | 8 (net) | 3 | 2 | 5 (face-for-space, add-edges3, no-root, add-not-sub, add-legs) | yes | complete, tested |
+| space:2 | משולשים ישרי־זווית בגופים | 8 | 3 | 2 | 5 (r-for-d, add-legs, no-half, slant-as-height, no-third) | yes | complete, tested |
 
 ### What needs a server or an AI (not on staging, which runs without a server)
 
@@ -273,8 +289,8 @@ the row to paste when one differs.
 - **Curriculum alignment** is checked unit by unit against the Ministry's teaching schedules (`shared/programme.js`:
   every unit, its hours and months, and the stairs that teach each part). `PROGRAMME.md`, generated by
   `npm run programme:md`, shows what is taught, partly taught and not yet, and the app's `/programme` page shows the same
-  numbers; neither is typed by hand. Today they read "במדרגות יש כבר את החומר של 125 מתוך 150 שעות ההוראה של כיתה ז׳
-  (83%)." and "במדרגות יש כבר את החומר של 101 מתוך 147 שעות ההוראה של כיתה ח׳ (69%)." (`learn/claims.test.ts` checks
+  numbers; neither is typed by hand. Today they read "במדרגות יש כבר את החומר של 143 מתוך 150 שעות ההוראה של כיתה ז׳
+  (95%)." and "במדרגות יש כבר את החומר של 113 מתוך 147 שעות ההוראה של כיתה ח׳ (77%)." (`learn/claims.test.ts` checks
   every quoted sentence against the code). A few authored items go slightly beyond the old generators (three-factor products in
   signed:3, side-length questions in coord:5, a "30° larger" problem in angles:1).
 - **Not yet read by a teacher** (CURRICULUM-9, DATA-9; owner-only). `npm run review:sheet -- <topic> [stairs]` (in

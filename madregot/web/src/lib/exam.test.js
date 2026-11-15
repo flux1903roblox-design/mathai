@@ -10,6 +10,13 @@ import { ALL_SKILLS, parseSkill } from '@/learn/skills.ts';
 import { itemFor } from '@/learn/items.ts';
 // the server's own validator: a class exam the app makes is one the Worker keeps as it is
 import { cleanExamItems } from '../../../worker/src/assignments.js';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { KeyAnswer } from '@/screens/PracticeExam.jsx';
+// the rules of the objects the app loads after the first screen (content/late.js): a practice exam prints their answers
+// too (the grid shapes of the areas, the nets of the boxes and prisms)
+import '@/content/grid.js';
+import '@/content/net.js';
 
 describe('exam', () => {
   it('scores partial answers as half', () => {
@@ -120,7 +127,8 @@ describe('class exam', () => {
         expect(JSON.parse(JSON.stringify(it))).toEqual(it);
         expect(Object.values(it).some((v) => typeof v === 'function')).toBe(false);
         // the base fields, and the curriculum's checking flags only when the question has them
-        const flags = ['askDec', 'fmt', 'precise', 'reduced'];
+        // (and an answer with π: the TeX after its slot, or the multiple of π a 3.14 answer is)
+        const flags = ['askDec', 'fmt', 'precise', 'reduced', 'after', 'pk'];
         expect(Object.keys(it).filter((k) => !flags.includes(k)).sort()).toEqual(['answer', 'answerText', 'choices', 'display', 'exact', 'fig', 'form', 'hint', 'key', 'label', 'level', 'levelTitle', 'solution', 'text', 'topic', 'unit', 'var'].sort());
       }
     }
@@ -213,5 +221,48 @@ describe('class exam', () => {
 
   it('the title names the stairs\' topics', () => {
     expect(classExamTitle(['signed:2', 'signed:3', 'coord:1'])).toBe('מבחן תרגול: מספרים מכוונים, מערכת צירים');
+  });
+});
+
+// ---------------------------------------------------------------- answers with π on exams (stage 2, MEASURE-1 item 4)
+// No topic has π questions yet: the questions here are fixtures, with after/pk set by hand.
+describe('a π answer keeps its form on every exam', () => {
+  const withPi = { key: 'ci:a', topic: 'pyth', level: 1, levelTitle: '', text: 'מה שטח עיגול שרדיוסו $5$? כתבו בעזרת $\\pi$.', form: 'num', answer: 25, after: '\\pi', unit: 'סמ״ר', solution: [], hint: '' };
+  const with314 = { key: 'ci:b', topic: 'pyth', level: 1, levelTitle: '', text: 'חשבו עם $\\pi \\approx 3.14$ ועגלו לעשירית.', form: 'num', answer: 62.8, pk: 20, unit: 'ס״מ', solution: [], hint: '' };
+
+  it('the class exam copies after and pk beside label and unit, and grades them after the server\'s round trip', () => {
+    const a = freezeItem(withPi); const b = freezeItem(with314);
+    expect(a).toMatchObject({ after: '\\pi', unit: 'סמ״ר', answer: 25, answerText: '25π' });
+    expect(a.pk).toBeUndefined();
+    expect(b).toMatchObject({ pk: 20, unit: 'ס״מ', answer: 62.8, answerText: '62.8' });
+    expect(b.after).toBeUndefined();
+    // the server keeps both fields as they are
+    const kept = JSON.parse(cleanExamItems([a, b]));
+    expect(kept).toEqual([a, b]);
+    const [ta, tb] = kept.map(thawItem);
+    expect([isCorrect(ta, 25), isCorrect(ta, 78.5)]).toEqual([true, false]);
+    expect([isCorrect(tb, 62.8), isCorrect(tb, 62.83), isCorrect(tb, 63)]).toEqual([true, true, false]);
+    // a number with no π form has neither field
+    const plain = freezeItem({ ...withPi, after: undefined });
+    expect('after' in plain || 'pk' in plain).toBe(false);
+    // an after or pk on anything but a number is refused by the server
+    expect(() => cleanExamItems([{ ...a, form: 'mc', choices: [{ text: 'א' }, { text: 'ב' }], answer: 0 }])).toThrow();
+    expect(() => cleanExamItems([{ ...b, pk: 'twenty' }])).toThrow();
+  });
+
+  it('the practice exam keeps them too, and its key writes 25π and 62.8', () => {
+    // a fixture topic in place of the circle topic, which a later stage adds
+    TOPIC.circle = { id: 'circle', title: 'מעגל', levels: [{ title: 'שטח עיגול', gen: () => ({ key: `c:${Math.random()}`, text: withPi.text, form: 'num', answer: 25, after: '\\pi', unit: 'סמ״ר', diag: () => null, solution: [], hint: '' }) }] };
+    try {
+      const [it] = makePracticeExam(['circle'], 1);
+      expect(it).toMatchObject({ after: '\\pi', unit: 'סמ״ר', answer: '25π' });
+      expect(it.plain).toContain('[התשובה בצורה □π]');
+      expect(renderToStaticMarkup(createElement(KeyAnswer, { it }))).toContain('25π');
+      TOPIC.circle.levels[0].gen = () => ({ key: `c:${Math.random()}`, text: with314.text, form: 'num', answer: 62.8, pk: 20, diag: () => null, solution: [], hint: '' });
+      const [k] = makePracticeExam(['circle'], 1);
+      expect(k).toMatchObject({ pk: 20, answer: '62.8' });
+    } finally {
+      delete TOPIC.circle;
+    }
   });
 });

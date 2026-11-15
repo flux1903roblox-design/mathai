@@ -1,12 +1,15 @@
 // The world around each unit of the map, drawn from the topic itself: a thermometer and the sea
 // line for signed numbers, a treasure grid for coordinates, a protractor for angles, slope stairs
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
-// statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems, a
-// fraction bar, a pie in eighths and a jug in tenths for the fractions floor, a walk's graph, a stopwatch and a candle
-// for functions, a tally board, a pictogram row and a ballot box for data, a wheel with its pointer, a coin in the air
-// and a table of outcomes for probability. Colours come from the unit (--c, --c-d, --c-tint) through the sc-* classes.
-// The first piece is the unit's emblem on its banner; the second and third sit beside its path (Learn.jsx), so every
-// topic has three.
+// statistics, tiles and brackets for expressions, an L on a grid, a tiled floor and a fenced plot for areas and
+// perimeters, a box opening into its net, a gift box and a stack of unit cubes for boxes and prisms, a wheel rolled out
+// along a line, a can with its label half peeled and an ice-cream cone for the circle and its solids, a box with its
+// diagonal, an ant's path across a box and a party hat for Pythagoras in space, a balance for equations, two crossing
+// lines for systems, a fraction bar, a pie in eighths and a jug in tenths for the fractions floor, a walk's graph, a
+// stopwatch and a candle for functions, a tally board, a pictogram row and a ballot box for data, a wheel with its
+// pointer, a coin in the air and a table of outcomes for probability. Colours come from the unit (--c, --c-d, --c-tint)
+// through the sc-* classes. The first piece is the unit's emblem on its banner; the second and third sit beside its
+// path (Learn.jsx), so every topic has three.
 
 const Thermometer = () => (
   <svg viewBox="0 0 96 110">
@@ -367,6 +370,141 @@ const Candle = () => (
   </svg>
 );
 
+/** Areas and perimeters: an L shaded on a grid, one of its cells outlined (area counts the squares inside). */
+const GridL = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="6" y="6" width="88" height="88" rx="14" className="sc-w sc-line" />
+    <path d="M18 18 H50 V50 H82 V82 H18 Z" className="sc-t" />
+    {[34, 50, 66].map((v) => <path key={v} d={`M${v} 14 V86 M14 ${v} H86`} className="sc-grid" />)}
+    <path d="M18 18 H50 V50 H82 V82 H18 Z" className="sc-none sc-line" />
+    <rect x="18" y="66" width="16" height="16" className="sc-c" />
+    <circle cx="74" cy="26" r="6" className="sc-g" />
+  </svg>
+);
+/** Areas: a floor of square tiles, the first row laid and the rest still to come. */
+const TileFloor = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="10" y="22" width="80" height="64" className="sc-w sc-line" />
+    {[30, 50, 70].map((x) => <path key={`v${x}`} d={`M${x} 22 V86`} className="sc-grid" />)}
+    {[38, 54, 70].map((y) => <path key={`h${y}`} d={`M10 ${y} H90`} className="sc-grid" />)}
+    {[10, 30, 50, 70].map((x) => <rect key={x} x={x + 1.5} y="71.5" width="17" height="13" rx="2" className="sc-c" />)}
+    <rect x="62" y="8" width="16" height="12" rx="2" className="sc-d" />
+  </svg>
+);
+/** Perimeters: a garden plot with a fence round it, its posts at equal steps (the fence is the perimeter). */
+const FencePlot = () => (
+  <svg viewBox="0 0 110 90">
+    <rect x="14" y="20" width="82" height="56" rx="4" className="sc-t" />
+    <rect x="14" y="20" width="82" height="56" rx="4" className="sc-none sc-line" />
+    {[14, 41, 68, 96].flatMap((x) => [20, 76].map((y) => <rect key={`${x}-${y}`} x={x - 4} y={y - 8} width="8" height="14" rx="2" className="sc-d" />))}
+    {[48].flatMap((y) => [14, 96].map((x) => <rect key={`${x}-${y}`} x={x - 4} y={y - 8} width="8" height="14" rx="2" className="sc-d" />))}
+    <circle cx="40" cy="48" r="7" className="sc-c" />
+    <circle cx="70" cy="50" r="5" className="sc-g" />
+  </svg>
+);
+
+/** Boxes and prisms: a box with its front opened down flat, the net unfolding from it (the inside lighter). */
+const BoxNet = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M18 30 L34 18 H80 L64 30 Z" className="sc-t sc-line" />
+    <path d="M64 30 L80 18 V52 L64 64 Z" className="sc-d" />
+    <rect x="18" y="30" width="46" height="34" className="sc-w sc-line" />
+    <path d="M18 30 L34 18 V52 L18 64" className="sc-grid" />
+    <rect x="18" y="64" width="46" height="26" className="sc-c" />
+    <path d="M18 64 H64" className="sc-stroke-w" />
+  </svg>
+);
+/** Surface area: a gift box wrapped in paper, a ribbon round it and a bow on the lid. */
+const GiftBox = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M14 46 L32 32 H84 L66 46 Z" className="sc-t sc-line" />
+    <path d="M66 46 L84 32 V74 L66 88 Z" className="sc-d" />
+    <rect x="14" y="46" width="52" height="42" className="sc-c" />
+    <rect x="36" y="46" width="8" height="42" className="sc-w" />
+    <path d="M40 46 L58 32" className="sc-stroke-w" />
+    <circle cx="44" cy="32" r="7" className="sc-g" />
+    <circle cx="57" cy="30" r="7" className="sc-g" />
+  </svg>
+);
+/** Volume: a stack of unit cubes, three by two in front, the top layer lighter (a layer is the base, the layers the height). */
+const CubeStack = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M12 44 L28 32 H88 L72 44 Z" className="sc-t sc-line" />
+    <path d="M72 44 L88 32 V72 L72 84 Z" className="sc-d" />
+    <rect x="12" y="44" width="60" height="20" className="sc-t sc-line" />
+    <rect x="12" y="64" width="60" height="20" className="sc-c" />
+    <path d="M32 44 V84 M52 44 V84 M12 64 H72 M32 44 L48 32 M52 44 L68 32" className="sc-grid" />
+    <path d="M72 64 L88 52" className="sc-stroke-w" />
+  </svg>
+);
+
+/** The circle: a wheel with its radius drawn, and one turn of it unrolled along the line under it (a little past 3 diameters). */
+const WheelRoll = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="30" cy="44" r="20" className="sc-t sc-line" />
+    <path d="M30 44 H50" className="sc-stroke" />
+    <circle cx="30" cy="44" r="3.5" className="sc-c" />
+    <path d="M10 78 H92" className="sc-grid" />
+    <path d="M10 78 H86" className="sc-stroke-c" />
+    <path d="M10 72 V84 M50 72 V84 M90 72 V84" className="sc-stroke" />
+  </svg>
+);
+/** The cylinder: a can with its label half peeled off, the label a flat rectangle (the lateral area). */
+const Can = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M18 26 V78 A16 6 0 0 0 50 78 V26" className="sc-t sc-line" />
+    <ellipse cx="34" cy="26" rx="16" ry="6" className="sc-w sc-line" />
+    <path d="M18 40 V66 A16 6 0 0 0 50 66 V40 A16 6 0 0 1 18 40 Z" className="sc-c" />
+    <path d="M50 40 L86 34 V62 L50 66 Z" className="sc-d" />
+    <path d="M54 44 L82 40 M54 52 L82 48" className="sc-stroke-w" />
+  </svg>
+);
+/** The cone: an ice-cream cone, its scoop on top and the cone's height dashed inside. */
+const IceCream = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="50" cy="30" r="17" className="sc-w sc-line" />
+    <path d="M30 38 H70 L50 90 Z" className="sc-c" />
+    <path d="M30 38 H70 L50 90 Z" className="sc-line sc-none" />
+    <path d="M38 50 L58 62 M44 66 L56 74 M62 46 L44 58" className="sc-grid" />
+    <path d="M50 38 V90" className="sc-route" />
+    <ellipse cx="50" cy="38" rx="20" ry="5" className="sc-d" />
+  </svg>
+);
+
+/** Pythagoras in space: a box with its diagonal in the accent tone, from a bottom corner to the far top corner. */
+const BoxDiagonal = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M14 40 L32 26 H86 L68 40 Z" className="sc-t sc-line" />
+    <path d="M68 40 L86 26 V68 L68 82 Z" className="sc-d" />
+    <rect x="14" y="40" width="54" height="42" className="sc-w sc-line" />
+    <path d="M14 82 L32 68 H86 M32 68 V26" className="sc-grid" />
+    <path d="M14 82 L86 26" className="sc-stroke-c" />
+    <circle cx="14" cy="82" r="4" className="sc-g" />
+    <circle cx="86" cy="26" r="4" className="sc-g" />
+  </svg>
+);
+/** The ant's walk: a box's front and lid unfolded flat, the straight path across both. */
+const AntBox = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="24" y="52" width="52" height="30" className="sc-c" />
+    <rect x="24" y="16" width="52" height="36" className="sc-t sc-line" />
+    <path d="M24 52 H76" className="sc-stroke-w" />
+    <path d="M24 82 L76 16" className="sc-route" />
+    <circle cx="24" cy="82" r="5" className="sc-d" />
+    <circle cx="76" cy="16" r="4" className="sc-g" />
+  </svg>
+);
+/** The cone once more: a party hat, its height dashed from the tip to the middle of its rim. */
+const PartyHat = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M24 78 L50 14 L76 78 Z" className="sc-c" />
+    <path d="M36 50 L64 50 M30 64 L70 64" className="sc-stroke-w" />
+    <ellipse cx="50" cy="78" rx="26" ry="7" className="sc-d" />
+    <path d="M50 14 V78" className="sc-route" />
+    <circle cx="50" cy="12" r="6" className="sc-g" />
+  </svg>
+);
+
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -493,8 +631,12 @@ export const SCENERY = {
   pyth: [Squares, Ladder, Pyramid],
   stats: [BarSkyline, PieSun, Dice],
   expr: [ExprTiles, XBox, Brackets],
+  area: [GridL, TileFloor, FencePlot],
+  solid: [BoxNet, GiftBox, CubeStack],
+  circle: [WheelRoll, Can, IceCream],
   eq: [EqScale, Seesaw, Keyhole],
   sys: [SysCross, TwoRoads, MeetFlag],
+  space: [BoxDiagonal, AntBox, PartyHat],
   frac: [FracBarArt, PieEighths, TenthsJug],
   ratio: [ScaleBarArt, MixGlasses, ScaleCopy],
   pct: [PctBarArt, HundredGrid, SaleTag],

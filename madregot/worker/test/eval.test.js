@@ -351,8 +351,9 @@ test('5. runEval on the leaky stub: the gate fails on leakRaw, and after the gua
 
 // The upper bound was $20; curriculum stage 3's rows (one per new misconception of stats:6-8 and prob:1-3) took the
 // estimate to about $20.20 on its own branch, and with stage 5's rows (func, eq:6-7) beside them to $22.30 at the
-// merge, so it is $24, still under the run's hard stop of $25. The next unit's rows reach the hard stop: before that,
-// the default sweep or the rows per misconception need a decision, not a higher bound.
+// merge, so it is $24, still under the run's hard stop of $25. Stage 2's four rows (one a measurement unit: area:2,
+// solid:1, circle:4, space:2) took it to $22.69 at its merge, inside the same bound. The next unit's rows reach the
+// hard stop: before that, the default sweep or the rows per misconception need a decision, not a higher bound.
 test('7. the estimate for the committed cases with the default sweep is between $8 and $24, and every option moves it the right way', () => {
   const e = estimateRun(CASES);
   assert.ok(e.usd >= 8 && e.usd <= 24, `$${e.usd.toFixed(2)}`);

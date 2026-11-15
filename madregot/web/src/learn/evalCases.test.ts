@@ -21,6 +21,13 @@ import { normalizeContext, renderContext } from '@shared/tutorContext.js';
 import { checkEquations } from '@shared/verify.js';
 // @ts-ignore: plain JS
 import { seedsFor, seedPayload } from '@/lib/seeds.js';
+// The late objects' rules, loaded here rather than raced: content/manip.js asks for them after the first screen, and a
+// box's drawing says its lengths in a case's text only once content/net.js has registered the words of the 'solid'
+// figure. On a busy machine the race was lost once and the solid case's text came out without them.
+// @ts-ignore: plain JS
+import '@/content/grid.js';
+// @ts-ignore: plain JS
+import '@/content/net.js';
 import { modelItem } from './items';
 import { contentOf, loadAllContent } from './content/index';
 import { parseSkill, ALL_SKILLS } from './skills';
@@ -301,5 +308,7 @@ describe('checkEquations agrees with the app\'s own maths', () => {
     }
     expect(wrong.slice(0, 10)).toEqual([]);
     expect(checked).toBeGreaterThan(4000);
-  });
+    // under a second alone; every stair added adds its draws, and with the whole suite running beside it the default
+    // 5 s was reached once the areas joined the path
+  }, 30_000);
 });

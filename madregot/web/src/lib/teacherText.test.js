@@ -7,6 +7,10 @@ import { TOPICS, TOPIC, makeItem, isCorrect, catLabel } from '@/content/index.js
 // a stair's misconceptions, as META knows them before its topic's teaching file has loaded (DURABLE-11)
 import { META as CONTENT } from '@/learn/content/index.ts';
 import { candidates } from '@/content/labels.sample.js';
+// the rules of the objects the app loads after the first screen (content/late.js): the grid shapes', and the nets' (the
+// boxes and prisms practise on a cube's net)
+import '@/content/grid.js';
+import '@/content/net.js';
 import { mistakeText, stairName, stairShort, mistakeLine } from './teacherText.js';
 
 const ITEMS_PER_STAIR = 40;

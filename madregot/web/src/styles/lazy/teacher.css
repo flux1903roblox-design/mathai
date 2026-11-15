@@ -42,9 +42,14 @@
   .pr-table thead th { font-weight: 700; border-bottom: 1pt solid #000; vertical-align: bottom; } /* colour-ok: printed on paper, black ink whatever the theme */
   .pr-table thead .pr-head { padding: 0 0 2.5mm; font-size: 12pt; font-weight: 800; border-bottom: 1.5pt solid #000; } /* colour-ok: printed on paper, black ink whatever the theme */
   .pr-table tbody th { font-weight: 700; white-space: nowrap; }
+  /* 25 students a page with room to spare: a page holds the header and 25 one-line rows, and what is left is for the
+     rows whose mistakes take more lines. Every unit of the grade is a column, so a grade with more units (stage 2's
+     areas and boxes in ז׳) left the mistakes column too narrow and the page 4mm short: a student's row is a little
+     tighter than the header's, and the mistakes column keeps a width of its own */
+  .pr-table tbody th, .pr-table tbody td { padding-block: 0.8mm; }
   .pr-table tbody tr { break-inside: avoid; }
   .pr-table tbody tr.pr-break { break-after: page; }
-  .pr-table .pr-mis { max-width: 70mm; }
+  .pr-table .pr-mis { min-width: 45mm; max-width: 70mm; }
   @page exam {
     size: A4; margin: 14mm 14mm 16mm;
     @bottom-center { content: "מדרגות · עמוד " counter(page); direction: rtl; font-family: "Rubik Variable", Rubik, sans-serif; font-size: 9pt; color: #000; } /* colour-ok: printed on paper, black ink whatever the theme */

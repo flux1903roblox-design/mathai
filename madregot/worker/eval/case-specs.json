@@ -197,6 +197,34 @@
       "tags": ["pct"]
     },
     {
+      "id": "D1-area2-slant-as-height", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "area:2", "source": "diag", "params": { "b": 6, "h": 4, "d": 3, "s": 5, "out": 1 }, "wrong": [15, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "slant-as-height", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the slanted side AB = 5 was used as the height. The height to BC is the dashed 4, outside the triangle on the extension of BC and perpendicular to it, so the area is 6 · 4 / 2 = 12. Ends at 12. Names no other mistake." },
+      "tags": ["area"]
+    },
+    {
+      "id": "D1-solid1-three-faces", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "solid:1", "source": "diag", "params": { "a": 7, "b": 4, "c": 3 }, "wrong": [61, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "three-faces", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only three faces were counted, one of each pair. A box 7 by 4 by 3 has six faces in three equal pairs: 28 + 21 + 12 = 61 is one face of each pair, so the surface area is 2 · 61 = 122 cm². Ends at 122. Names no other mistake." },
+      "tags": ["solid"]
+    },
+    {
+      "id": "D1-circle4-slant-as-height", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "circle:4", "source": "diag", "params": { "r": 6, "h": 8, "l": 10 }, "wrong": [120, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "slant-as-height", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the slant height 10 was used as the height. The cone's height is the 8, from the vertex down to the centre of the base, at a right angle to it; the slant height is the hypotenuse of half the axial section. So the volume is π · 6² · 8 / 3 = 96π cm³, typed as 96 before π. Ends at 96π. Names no other mistake." },
+      "tags": ["circle"]
+    },
+    {
+      "id": "D1-space2-r-for-d", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "space:2", "source": "diag", "params": { "r": 3, "d": 6, "h": 8, "rod": 10 }, "wrong": [8.5, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "r-for-d", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the radius 3 was used as the width of the axial section. The axial section of a cylinder passes through the centre of the base, from rim to rim, so it is a rectangle of the diameter 6 by the height 8, and the longest rod is its diagonal: √(6² + 8²) = √100 = 10 cm. Ends at 10. Names no other mistake." },
+      "tags": ["space"]
+    },
+    {
       "id": "D1-func1-count-squares", "cat": "D1", "kind": "explain", "shapes": ["full"],
       "skill": "func:1", "source": "diag",
       "params": { "sx": 5, "sy": 100, "a": 4, "b": 6, "c": 3, "e": 5, "t1": 20, "d1": 600, "t2": 35, "t3": 60, "pts": [[0, 0], [20, 600], [35, 600], [60, 0]], "q": 0 },

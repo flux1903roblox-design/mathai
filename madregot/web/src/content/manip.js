@@ -31,6 +31,13 @@
 //   simulate    a random experiment repeated {n, counts, batches, hist, pick?}  answer: { mode: 'trials', atLeast } (with
 //               manip.guided, a batch of 10 first and a 100 before any 1000) or { mode: 'estimate', choices, answer } (pick)
 //   chart       a bar chart or a pie the student builds, number[]       answer: { values } (every value equal)
+//   polygon     shapes on a grid of unit squares (stage 2): task rect { w, h }, move { dx, dy }, cut { axis, at },
+//               apex { x }; answer { mode: 'rect' | 'maxArea' | 'move' | 'cut' | 'apex', … }; its rules are in
+//               content/grid.js, which registers them here (see "kinds whose rules load with their object")
+//   net         a solid's net (stage 3): task fold { t }, face { face }, fix { slot }, build { a, b, c } | { p, q, L };
+//               rules in content/net.js
+//   circle      a circle (stage 4): show circumference { r, t } or area { r, n }; answer { mode: 'r' | 'unrolled' |
+//               'sectors', … }; rules in content/roll.js
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -161,7 +168,7 @@ export function ticksWords(m, v, from) {
   return `${n === 1 ? 'שנתה אחת' : `${n} שנתות`} ${k > 0 ? 'ימינה' : 'שמאלה'} מ־${f}`;
 }
 /** A label of a marker as plain text: \frac{1}{4} is 1/4. */
-const labelPlain = (l) => String(l).replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2');
+export const labelPlain = (l) => String(l).replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2');
 
 // ---------------------------------------------------------------- the fraction bar (פס שברים)
 // One bar, the whole: the student chooses how many equal parts (den) and how many are shaded, from the left.
@@ -439,6 +446,24 @@ export function squaresWords(m, v) {
   return k === 0 ? 'על הציר' : k === 1 ? 'משבצת אחת מעל הציר' : `${k} משבצות מעל הציר`;
 }
 
+// ---------------------------------------------------------------- kinds whose rules load with their object
+// The objects of stage 2 on (the grid shapes, content/grid.js; the nets, content/net.js; the circle, content/roll.js)
+// keep their rules in their own files: each file registers them here when it loads. Every way in brings them: the
+// exercise side (content/index.js imports grid.js and net.js, which brings roll.js, so a question, a check, an exam or
+// the tutor's text always has them), the drawings (components/Figure.jsx imports grid.js, and net.js through
+// SolidFigs.jsx) and each object's own file. Asked for before they are here, a rule throws: a missing rule is a bug,
+// never a wrong answer. The words of the still figures those files draw (a geo drawing's stage-2 parts, 'netfig',
+// 'solid') register the same way, by figure type. (Before the exercise code moved off the first load, this file was on
+// it and asked for the late files itself, through content/late.js; a file that imports this one alone, a test, imports
+// the kind's file too.)
+const LATE_KINDS = ['polygon', 'net', 'circle'];
+const LATE = {};
+/** Called by a late kind's file: its correct, text, plain, solution and wrong. */
+export const registerKind = (kind, rules) => { LATE[kind] = rules; };
+/** Called by a late file: the words of a still figure of that type (before it loads, the figure says nothing). */
+export const registerFigWords = (type, fn) => { LATE[`fig:${type}`] = fn; };
+const late = (kind) => { if (!LATE[kind]) throw new Error(`${kind} rules not loaded`); return LATE[kind]; };
+
 // ---------------------------------------------------------------- the teaching figures in words (STUDENT-8)
 // The spoken name of each drawing (components/Figure.jsx puts it in aria-label): what a sighted student sees, never
 // more. A coordinate plane names its points but not where they are, because an exercise may ask exactly that.
@@ -631,7 +656,10 @@ export function figWords(f) {
     // a protractor is read arm by arm, each arm's two numbers named by scale; a clock says its time
     case 'protractor': return protractorWords(f);
     case 'clock': return `שעון: השעה ${clockText(f.h, f.m)}`;
-    default: return '';
+    // the measurement additions of a geo drawing (content/grid.js) and the nets and solids (content/net.js) are read by
+    // their late files; before those load (a moment after the first screen) the drawing says nothing, as a geo
+    // drawing did before
+    default: return LATE[`fig:${f.type}`]?.(f) || '';
   }
 }
 
@@ -837,7 +865,7 @@ export function manipCorrect(it, u) {
     case 'graph': return graphCorrect(m, a, u);
     case 'simulate': return simManip.correct(m, a, u);
     case 'chart': return chartManip.correct(m, a, u);
-    default: return false;
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).correct(it, u) : false;
   }
 }
 
@@ -889,7 +917,7 @@ export function manipText(it, u = it.answer) {
     }
     case 'simulate': return simManip.text(m, it.answer, u);
     case 'chart': return chartManip.text(m, u);
-    default: return '';
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).text(it, u) : '';
   }
 }
 
@@ -933,7 +961,7 @@ export function manipPlain(it) {
     }
     case 'simulate': return simManip.plain(m, it.answer);
     case 'chart': return chartManip.plain(m);
-    default: return '';
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).plain(it) : '';
   }
 }
 
@@ -957,7 +985,7 @@ export function manipSolution(it) {
     case 'angle': return m.protractor && m.mode === 'align' && !protAligned(m.arms, a) ? armTurns(m.arms).find((r) => protAligned(m.arms, r)) : a;
     case 'simulate': return simManip.solution(m, a);
     case 'chart': return [...a.values];
-    default: return a;
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).solution(it) : a;
   }
 }
 
@@ -1001,6 +1029,6 @@ export function manipWrong(it) {
     case 'simulate': return simManip.wrong(m, a);
     // the first category that may move, one step (or one slice) off
     case 'chart': return chartManip.wrong(m, a);
-    default: return null;
+    default: return LATE_KINDS.includes(m.kind) ? late(m.kind).wrong(it) : null;
   }
 }

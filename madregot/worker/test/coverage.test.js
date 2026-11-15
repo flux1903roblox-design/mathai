@@ -1,10 +1,12 @@
 // The Ministry programme in code (shared/programme.js) and the coverage computed from it (shared/coverage.js).
 // The fixtures are skill lists typed here, so these numbers do not move when a stage lands: the council's 33 stairs,
-// HEAD's 48 (after the algebra build), stage 1's (HEAD plus signed:6, ratio:1-4 and pct:1-5), curriculum stage 3's
-// (stage 1 plus data:1-4, stats:6-8 and prob:1-3), stage 5's before the classroom split (stage 1 plus func:1-4, eq:6
-// and eq:7), and the classroom lane's (stage 1 plus signed:7, powers, CLASSROOM-5, and angles:6 and angles:7, the
-// bisector and the quadrilateral, CLASSROOM-10 and -12). The hours and the per-unit taught hours are those of the
-// Ministry's תשפ״ז schedules, as the curriculum spec (§0.3) and the stage-5 spec (§0.3) checked them.
+// HEAD's 48 (after the algebra build), stage 1's (HEAD plus signed:6, ratio:1-4 and pct:1-5), stage 2's (stage 1's plus
+// the measurement stairs area:1-5, solid:1-4, circle:1-4 and space:1-2), curriculum stage 3's (stage 1 plus data:1-4,
+// stats:6-8 and prob:1-3), stage 5's before the classroom split (stage 1 plus func:1-4, eq:6 and eq:7), the classroom
+// lane's (stage 1 plus signed:7, powers, CLASSROOM-5, and angles:6 and angles:7, the bisector and the quadrilateral,
+// CLASSROOM-10 and -12), and stage 2 with the classroom lane's three stairs, which is all of S2. The hours and the
+// per-unit taught hours are those of the Ministry's תשפ״ז schedules, as the curriculum spec (§0.3) and the stage-5
+// spec (§0.3) checked them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PROGRAMME, ROADMAP_NEXT } from '../../shared/programme.js';
@@ -46,6 +48,17 @@ const STAGE3 = [
   'stats:6', 'stats:7', 'stats:8',
   'prob:1', 'prob:2', 'prob:3',
 ];
+// Stage 2 (measurement, stage2.md): the 15 stairs it adds, all listed by the programme now (7.12, 7.13, 8.4, 8.17).
+const STAGE2_STAIRS = [
+  'area:1', 'area:2', 'area:3', 'area:4', 'area:5',
+  'solid:1', 'solid:2', 'solid:3', 'solid:4',
+  'circle:1', 'circle:2', 'circle:3', 'circle:4',
+  'space:1', 'space:2',
+];
+const STAGE2 = [...STAGE1, ...STAGE2_STAIRS];
+// stage 2 with the classroom lane's three stairs (QA_MEASURE.md section 8): signed:7 teaches 7.6's four hours of powers,
+// the last of S2, and angles:6-7 two of 7.10's four hours: ז׳ 128 of 150, ח׳ 78 of 147
+const STAGE2_CLASSROOM = [...STAGE2, 'signed:7', 'angles:6', 'angles:7'];
 
 // The schedules' hours per unit (7.1-7.17, 8.1-8.17) and the hours each milestone teaches, unit by unit.
 const HOURS = {
@@ -77,6 +90,9 @@ const TAUGHT = {
 // has landed all of S3: ז׳'s 7.15-7.17 are taught by data:1-4 (13 hours, 104 + 13 = 117), and ח׳ learns the data unit
 // too this year (8.6, 7 hours, and "הסתברות א" in 8.16, 2 hours), stats:6-8 the rest of 8.10 and 8.11 (8 hours) and
 // prob:1-3 "הסתברות ב", the other 4 hours of 8.16: 66 + 21 = 87. Its fixture keeps 139 and 99 after S3 (BASE).
+// Stage 2 has landed all of S2 with the classroom lane's signed:7: 7.12 is taught whole by area:1-5 (with coord:4), 7.13
+// by solid:1-4, 8.4 by circle:1-4 and 8.17 by space:1-2; the hours those parts teach on the STAGE2 fixture are the hours
+// their `later: 'S2'` parts promised, so the totals hold.
 const AFTER = { '7': { S2: 126, S3: 139, S4: 144, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
 // The classroom fixture (stage 1 and the classroom lane's three stairs), the hours left for each later stage added up: S2 no
 // longer brings 7.6's four hours of powers, S5 keeps only 7.10's two hours of measuring (and 7.9's situation graph), so
@@ -89,6 +105,7 @@ const AFTER_CLASSROOM = { '7': { S2: 128, S3: 141, S4: 146, S5: 150 }, '8': AFTE
 // the roadmap had given to S2 (7.6's powers: signed:7) and S5 (7.10's bisector and quadrilateral: angles:6-7), so they
 // count as those stages' here and stage 1's fixtures keep their numbers (the CLASSROOM fixture has its own).
 const STAGE_OF_STAIR = Object.freeze({
+  ...Object.fromEntries(STAGE2_STAIRS.map((s) => [s, 'S2'])),
   ...Object.fromEntries(STAGE3.map((s) => [s, 'S3'])),
   'signed:7': 'S2',
   'func:1': 'S5', 'func:2': 'S5', 'func:3': 'S5', 'func:4': 'S5', 'eq:6': 'S5', 'eq:7': 'S5', 'angles:6': 'S5', 'angles:7': 'S5', 'angles:8': 'S5',
@@ -97,6 +114,9 @@ const STAGES = ['S2', 'S3', 'S4', 'S5'];
 /** The stage that teaches a part: its `later`, or, for a part with stairs, the latest stage among its stairs (none for stage 1's). */
 const stageOf = (part) => part.later || part.skills.map((s) => STAGE_OF_STAIR[s]).filter(Boolean).sort().pop() || null;
 const BASE = { '7': 117, '8': 87 };
+// The units each stage teaches, by its parts' stage (stageOf: a part's `later`, or its stairs' stage). S2's five are all
+// taught now: 7.6's powers by signed:7, 7.12 whole by area:1-5 (with coord:4), 7.13 by solid:1-4, 8.4 by circle:1-4 and
+// 8.17 by space:1-2; their parts list their stairs and wait for no stage ("the next stage" test).
 const COMPLETES = {
   S2: ['7.6', '7.12', '7.13', '8.4', '8.17'],
   S3: ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'],
@@ -112,7 +132,6 @@ test('the programme: 17 units a grade, in the schedules\' order, with their hour
   assert.equal(PROGRAMME.year, 'תשפ״ז');
   assert.match(PROGRAMME.sources['7'], /^https:\/\/meyda\.education\.gov\.il\/.+prisa_7\.pdf$/);
   assert.match(PROGRAMME.sources['8'], /^https:\/\/meyda\.education\.gov\.il\/.+prisa_8\.pdf$/);
-  assert.equal(ROADMAP_NEXT, 'S2');
   for (const g of ['7', '8']) {
     const units = unitsOf(g);
     assert.deepEqual(units.map((u) => u.id), Array.from({ length: 17 }, (_, i) => `${g}.${i + 1}`));
@@ -128,11 +147,15 @@ test('the programme: 17 units a grade, in the schedules\' order, with their hour
       // a part has hours, or none with its stairs listed: a cross-listing of a stair a class meets without hours of its
       // own (8.8's func:4, uniform and non-uniform rate, whose December row's hours are line's: stage5.md FUNC-8 (f))
       assert.ok(u.parts.every((p) => Number.isInteger(p.hours) && (p.hours > 0 || (p.hours === 0 && p.skills.length > 0))), u.id);
-      // a part's own months, when it has them, are school months in school order too (7.8's motion problems: June)
-      for (const p of u.parts.filter((x) => x.months)) {
-        const own = p.months.map((m) => (m >= 9 ? m - 9 : m + 3));
-        assert.ok(p.months.length > 0 && p.months.every((m) => Number.isInteger(m) && ((m >= 9 && m <= 12) || (m >= 1 && m <= 6))), `${u.id}: a part's months`);
-        assert.deepEqual(own, [...own].sort((a, b) => a - b), `${u.id}: a part's months in school order`);
+      // a part's own months, when it has them (MEASURE-6.1): not empty, school months in school order, once each; a
+      // part that teaches hours is in its unit's own months (7.12's parallelogram is April), and only a cross-listing
+      // of no hours may be later than its unit (7.8's motion problems: June)
+      for (const p of u.parts.filter((x) => x.months !== undefined)) {
+        assert.ok(Array.isArray(p.months) && p.months.length > 0, `${u.id}: a part's months are not empty`);
+        assert.ok(p.months.every((m) => Number.isInteger(m) && ((m >= 9 && m <= 12) || (m >= 1 && m <= 6))), `${u.id}: a part's months`);
+        if (p.hours > 0) p.months.forEach((m) => assert.ok(u.months.includes(m), `${u.id}: month ${m} of a part is one of the unit's`));
+        const po = p.months.map((m) => (m >= 9 ? m - 9 : m + 3));
+        assert.deepEqual(po, [...new Set(po)].sort((a, b) => a - b), `${u.id}: a part's months in school order, once each`);
       }
     }
   }
@@ -140,6 +163,20 @@ test('the programme: 17 units a grade, in the schedules\' order, with their hour
   assert.equal(sum(HOURS['8']), 147);
   assert.equal(coverage('7', []).hours, 150);
   assert.equal(coverage('8', []).hours, 147);
+});
+
+test('the next stage: no part waits for a stage older than ROADMAP_NEXT', () => {
+  // stage 2 and CLASSROOM-5 (signed:7, which teaches 7.6) are both merged, and stage 3 too: ROADMAP_NEXT is the lowest
+  // stage that still has a `later` part. Whoever merges the last stair of that stage moves it on.
+  assert.ok(STAGES.includes(ROADMAP_NEXT), ROADMAP_NEXT);
+  for (const { unit, part } of allParts.filter(({ part: p }) => p.later !== undefined)) {
+    assert.ok(STAGES.includes(part.later), `${unit.id}: ${part.later}`);
+    assert.ok(STAGES.indexOf(part.later) >= STAGES.indexOf(ROADMAP_NEXT), `${unit.id} waits for ${part.later}, before ${ROADMAP_NEXT}`);
+  }
+  // and some part does wait for it: the next stage is not already done
+  assert.ok(allParts.some(({ part }) => part.later === ROADMAP_NEXT), `no part waits for ${ROADMAP_NEXT}`);
+  // stage 2 is whole (measurement, and 7.6's powers by the classroom lane's signed:7), and stage 3: no part waits for them
+  assert.deepEqual(allParts.filter(({ part }) => part.later === 'S2' || part.later === 'S3').map(({ unit }) => unit.id), []);
 });
 
 test('every stair a part lists is a stair of the app; a part with none is a later stage\'s, with a note', () => {
@@ -162,6 +199,24 @@ test('every stair a part lists is a stair of the app; a part with none is a late
     [[16, ['angles:1', 'angles:2', 'angles:3', 'angles:4', 'angles:5'], undefined], [2, ['angles:6', 'angles:7'], undefined], [2, [], 'S5']]);
   assert.deepEqual(listing('8.1'), ['ratio:1', 'ratio:2', 'ratio:3', 'ratio:4']);
   assert.deepEqual(listing('8.2'), ['pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5']);
+  // stage 2's areas and perimeters (MEASURE-6.1): 7.12 whole, coord:4 and area:1-5, each area stair in its months
+  assert.deepEqual(listing('7.12'), ['coord:4', 'area:1', 'area:2', 'area:3', 'area:4', 'area:5']);
+  assert.deepEqual(['area:1', 'area:2', 'area:3', 'area:4', 'area:5'].map((s) => monthIndex(s, '7')), [3, 3, 4, 7, 8]);
+  assert.equal(coverage('7', STAGE2).units.find((u) => u.id === '7.12').state, 'yes');
+  // and 7.13 whole by solid:1-4: the box in January, the prism in May
+  assert.deepEqual(listing('7.13'), ['solid:1', 'solid:2', 'solid:3', 'solid:4']);
+  assert.deepEqual(['solid:1', 'solid:2', 'solid:3', 'solid:4'].map((s) => monthIndex(s, '7')), [4, 4, 8, 8]);
+  assert.equal(coverage('7', STAGE2).units.find((u) => u.id === '7.13').state, 'yes');
+  // and 8.4 whole by circle:1-4: the circle, the disc and the cylinder in October, the cone in November
+  assert.deepEqual(listing('8.4'), ['circle:1', 'circle:2', 'circle:3', 'circle:4']);
+  assert.deepEqual(['circle:1', 'circle:2', 'circle:3', 'circle:4'].map((s) => monthIndex(s, '8')), [1, 1, 1, 2]);
+  assert.equal(coverage('8', STAGE2).units.find((u) => u.id === '8.4').state, 'yes');
+  // and 8.17 whole by space:1-2, in May, the unit's month
+  assert.deepEqual(listing('8.17'), ['space:1', 'space:2']);
+  assert.deepEqual(['space:1', 'space:2'].map((s) => monthIndex(s, '8')), [8, 8]);
+  assert.equal(coverage('8', STAGE2).units.find((u) => u.id === '8.17').state, 'yes');
+  // with every stage-2 topic listed, the fixture is all of S2 but 7.6's signed:7 (CLASSROOM-5): ז׳ 122, ח׳ 78
+  assert.deepEqual([coverage('7', STAGE2).taught, coverage('8', STAGE2).taught], [122, 78]);
   // one stair can serve several units
   assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => p.skills.includes('pyth:1'))).map((u) => u.id), ['7.6', '7.14', '8.3']);
   assert.ok(listing('7.9').includes('line:1'));
@@ -320,16 +375,38 @@ test('stage 3 complete: ז׳ 117 of 150 (78%), ח׳ 87 of 147 (59%); 7.15-7.17, 
   assert.deepEqual(c7.units.filter((u, i) => u.taught !== without.units[i].taught).map((u) => u.id), ['7.15', '7.16', '7.17']);
 });
 
-test('with the stage-1 stairs, every untaught part names the later stage that brings it, and the stages add up', () => {
-  for (const g of ['7', '8']) {
-    const c = coverage(g, STAGE1);
-    let taught = c.taught;
-    for (const u of c.units) {
-      for (const p of u.parts.filter((x) => !x.taught)) assert.ok(STAGES.includes(stageOf(p)), `${u.id}: ${p.note || p.skills.join(', ')}`);
+test('with the stage-1 and the stage-2 stairs, every untaught part names the later stage that brings it, and the stages add up', () => {
+  assert.equal(STAGE2.length, STAGE1.length + 15);
+  assert.equal(new Set(STAGE2).size, STAGE2.length);
+  // the same totals from both fixtures: the hours stage 2's parts teach are the hours S2 promised (7.6's four wait for
+  // signed:7, which neither fixture has)
+  for (const [name, fixture] of [['stage 1', STAGE1], ['stage 2', STAGE2]]) {
+    for (const g of ['7', '8']) {
+      const c = coverage(g, fixture);
+      let taught = c.taught;
+      for (const u of c.units) {
+        for (const p of u.parts.filter((x) => !x.taught)) assert.ok(STAGES.includes(stageOf(p)), `${u.id}: ${p.note || p.skills.join(', ')}`);
+      }
+      for (const stage of STAGES) {
+        taught += sum(c.units.flatMap((u) => u.parts.filter((p) => !p.taught && stageOf(p) === stage).map((p) => p.hours)));
+        assert.equal(taught, AFTER[g][stage], `${name}'s fixture, grade ${g} after ${stage}`);
+      }
     }
-    for (const stage of STAGES) {
-      taught += sum(c.units.flatMap((u) => u.parts.filter((p) => !p.taught && stageOf(p) === stage).map((p) => p.hours)));
-      assert.equal(taught, AFTER[g][stage], `grade ${g} after ${stage}`);
+  }
+  // stage 2 with the classroom lane's three stairs: all of S2 is taught (ז׳ 128 of 150, 85%; ח׳ 78 of 147, 53%; both
+  // grades 206 of 297, 69%), nothing of S2 is left, and the later stages add up to the classroom fixture's totals
+  {
+    const c7 = coverage('7', STAGE2_CLASSROOM); const c8 = coverage('8', STAGE2_CLASSROOM);
+    assert.deepEqual([c7.taught, c7.pct, c8.taught, c8.pct], [128, 85, 78, 53]);
+    assert.equal(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours)), 69);
+    for (const [g, c] of [['7', c7], ['8', c8]]) {
+      const left = c.units.flatMap((u) => u.parts.filter((p) => !p.taught).map((p) => ({ id: u.id, stage: stageOf(p), hours: p.hours })));
+      assert.deepEqual(left.filter((p) => p.stage === 'S2'), [], `grade ${g}: nothing of stage 2 is left`);
+      let taught = c.taught;
+      for (const stage of STAGES) {
+        taught += sum(left.filter((p) => p.stage === stage).map((p) => p.hours));
+        assert.equal(taught, AFTER_CLASSROOM[g][stage], `stage 2 with the classroom stairs, grade ${g} after ${stage}`);
+      }
     }
   }
   // stage 5 before the classroom split: what is left is stages 2-4's hours, as with stage 1's stairs, and 7.10's last
@@ -428,8 +505,8 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
   assert.equal(monthIndex('ratio:1', '7'), null);
   assert.equal(monthIndex('frac:1', '7'), null);
   assert.equal(monthIndex('nope:1', '8'), null);
-  // every stage-1 stair has a month in its own grade
-  const gradeOf = (s) => (/^(signed|coord|angles|expr|eq):/.test(s) ? '7' : '8');
+  // every stage-1 stair has a month in its own grade (the measurement stairs' months are asserted as each lands)
+  const gradeOf = (s) => (/^(signed|coord|angles|expr|eq|area|solid):/.test(s) ? '7' : '8');
   STAGE1.forEach((s) => assert.equal(typeof monthIndex(s, gradeOf(s)), 'number', s));
   // stage 3's data unit: ז׳ January (7.15) and February (7.16, 7.17); probability is in no ז׳ unit
   assert.equal(monthIndex('data:1', '7'), 4);
@@ -445,6 +522,7 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
   assert.equal(monthIndex('stats:7', '8'), 3);
   assert.equal(monthIndex('stats:8', '8'), 4);
   assert.equal(monthIndex('stats:6', '7'), null);
+  assert.deepEqual(['area:1', 'solid:4', 'circle:1', 'space:2', 'ratio:1', 'pyth:5'].map(gradeOf), ['7', '7', '8', '8', '8', '8']);
 
   assert.equal(schoolMonth('2026-09-01'), 0);
   assert.equal(schoolMonth('2026-11-10'), 2);
@@ -456,6 +534,49 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
   assert.equal(schoolMonth(new Date(2026, 10, 10, 12)), 2); // a Date, in local time
   assert.equal(schoolMonth(new Date(2027, 2, 1).getTime()), 6);
   assert.equal(typeof schoolMonth(), 'number');
+});
+
+test('part months: a part with its own months is read by them, every other part by its unit\'s', () => {
+  // the rule before part months: a stair's month is its units' earliest. No part that lists a stage-1 stair carries
+  // months, so every stage-1 stair keeps its index, in both grades.
+  const unitRule = (skill, g) => {
+    const ms = unitsOf(g).filter((u) => u.parts.some((p) => p.skills.includes(skill))).flatMap((u) => u.months.map((m) => (m >= 9 ? m - 9 : Math.min(m + 3, 9))));
+    return ms.length ? Math.min(...ms) : null;
+  };
+  for (const { unit, part } of allParts) {
+    if (part.skills.some((s) => STAGE1.includes(s))) assert.equal(part.months, undefined, `${unit.id}: a stage-1 part has no months of its own`);
+  }
+  for (const g of ['7', '8']) {
+    for (const s of [...STAGE1, ...BRIDGE, 'nope:1']) assert.equal(monthIndex(s, g), unitRule(s, g), `${s} in grade ${g}`);
+    // a stair every part of which has no months of its own reads its units' months
+    const plain = [...new Set(unitsOf(g).flatMap((u) => u.parts.flatMap((p) => p.skills)))]
+      .filter((s) => unitsOf(g).every((u) => u.parts.every((p) => !p.skills.includes(s) || p.months === undefined)));
+    plain.forEach((s) => assert.equal(monthIndex(s, g), unitRule(s, g), s));
+  }
+
+  // the rule itself, on a unit added for this test and taken out again: 7.12's months, December–January and April–May
+  const probe = {
+    id: '7.99', grade: '7', domain: 'geometry', title: 'בדיקה', months: [12, 1, 4, 5],
+    parts: [
+      { hours: 1, skills: ['zz:1'], months: [4] },
+      { hours: 1, skills: ['zz:2'] },
+      { hours: 1, skills: ['zz:3'], months: [12, 1] },
+      { hours: 1, skills: ['zz:4'], months: [5] },
+      { hours: 1, skills: ['zz:4', 'zz:5'], months: [1] },
+    ],
+  };
+  PROGRAMME.units.push(probe);
+  try {
+    assert.equal(monthIndex('zz:1', '7'), 7); // April, not the unit's December
+    assert.equal(monthIndex('zz:2', '7'), 3); // no months of its own: the unit's earliest, December
+    assert.equal(monthIndex('zz:3', '7'), 3);
+    assert.equal(monthIndex('zz:4', '7'), 4); // the earliest of its parts: January
+    assert.equal(monthIndex('zz:5', '7'), 4);
+    assert.equal(monthIndex('zz:1', '8'), null);
+  } finally {
+    PROGRAMME.units.splice(PROGRAMME.units.indexOf(probe), 1);
+  }
+  assert.equal(monthIndex('zz:1', '7'), null);
 });
 
 test('the words every surface quotes: the coverage sentence, the months, the hours, the school order', () => {

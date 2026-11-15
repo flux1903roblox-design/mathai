@@ -385,6 +385,11 @@ a { color: var(--brand-d); }
 .has-warm .lm-banner-icon { background: var(--bad); color: var(--on-brand); }
 .ls-why.warm { background: var(--surface); color: var(--ink); border: 2px solid var(--bad-line); }
 .lm .ls-why.warm, .lm .ls-why.bad { border-color: var(--bad-line); }
+/* right in another form (the whole value in a □π step, Together.jsx): a calm note in the brand blue, never the miss colours */
+.lm-actions.has-note { background: var(--brand-tint); }
+.has-note .lm-banner { color: var(--brand-ink); }
+.has-note .lm-banner-icon { background: var(--brand); color: var(--on-brand); }
+.ls-why.note, .lm .ls-why.note { background: var(--surface); color: var(--ink); border: 2px solid var(--brand-line); }
 .ls-choice.bad, .lm .ls-choice.bad { border-color: var(--bad); background: var(--bad-tint); box-shadow: 0 4px 0 var(--bad-line); }
 .check-title.warm { color: var(--bad-ink); }
 .lm .ls-choice.bad .choice-key { background: var(--bad); border-color: var(--bad); color: var(--on-brand); }
@@ -923,6 +928,8 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .answer-frac-bar { display: block; height: 3px; border-radius: 2px; background: var(--ink); }
 .lesson .answer-frac .slot { width: clamp(84px, 26vw, 140px); height: 44px; font-size: 22px; }
 .answer-partial { color: var(--brand-d); font-weight: 600; }
+/* after a practice first try that hid an object's readout (Manip.jsx readoutLine): what can be seen now */
+.fb .readout-line { font-weight: 700; }
 
 /* ------------------------------------------------------------------ the class exam (TEACHER-3): its builder and its sheet */
 .xs .screen-foot .btn svg { flex: none; }
@@ -1202,6 +1209,10 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .ch-field { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ch-field-label { font-size: 15px; line-height: 20px; color: var(--ink-2); font-weight: 600; }
 .ch-field-row { display: inline-flex; align-items: center; gap: var(--s2); }
+/* the slot and the maths after it (□π), left to right */
+.ch-field-math { display: inline-flex; align-items: center; gap: 4px; }
+.ch-after { font-size: 24px; }
+.ch-note { margin: 0; text-align: center; }
 .ch-slot { width: clamp(96px, 34vw, 160px); height: 52px; font-size: 24px; }
 .ch-fields.many .ch-slot { width: clamp(72px, 24vw, 110px); }
 .ch-slot.good { border-color: var(--good-d); background: var(--good-tint); }

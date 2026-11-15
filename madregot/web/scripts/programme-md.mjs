@@ -95,6 +95,9 @@ if (write || check) {
     stale.push(rel);
     if (write) fs.writeFileSync(file, text);
   });
+  // content/manip.js asks for the objects' late files as it loads (content/late.js: the grid's rules and the drawings).
+  // Wait for them, as the tests import them: a run that ends first has vite-node close under the request, and exits 1.
+  await Promise.all([import('@/content/grid.js'), import('@/components/Figure.jsx')]);
   if (check && stale.length) { console.error(`out of date: ${stale.join(', ')} (run npm run programme:md)`); process.exit(1); }
   console.log(write ? (stale.length ? `wrote ${stale.join(', ')}` : 'up to date') : 'up to date');
 }

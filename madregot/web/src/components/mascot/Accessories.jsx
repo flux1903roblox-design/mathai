@@ -129,9 +129,9 @@ const DRAW = {
   // data and frequency: tally marks, four strokes and the fifth across
   'tally-pin': () => (
     <>
-      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('sky', '-d')) }} strokeWidth="2" />
-      <path d="M99 89.5 V100.5 M102.3 89.5 V100.5 M105.6 89.5 V100.5 M108.9 89.5 V100.5" style={S(ch('sky', '-d'))} strokeWidth="1.6" {...round} />
-      <path d="M96.5 99 L111.5 91" style={S(ch('sky'))} strokeWidth="2.2" {...round} />
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('cobalt', '-d')) }} strokeWidth="2" />
+      <path d="M99 89.5 V100.5 M102.3 89.5 V100.5 M105.6 89.5 V100.5 M108.9 89.5 V100.5" style={S(ch('cobalt', '-d'))} strokeWidth="1.6" {...round} />
+      <path d="M96.5 99 L111.5 91" style={S(ch('cobalt'))} strokeWidth="2.2" {...round} />
     </>
   ),
   // probability: a die face showing five, tilted a little
@@ -139,6 +139,43 @@ const DRAW = {
     <>
       <rect x="94" y="85" width="20" height="20" rx="5" transform="rotate(-12 104 95)" style={{ ...F(WHITE), ...S(ch('fuchsia', '-d')) }} strokeWidth="2" />
       {[[99, 90], [109, 90], [104, 95], [99, 100], [109, 100]].map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.9" transform="rotate(-12 104 95)" style={F(ch('fuchsia'))} />)}
+    </>
+  ),
+  // areas and perimeters: an L shaded on a grid of squares, its edge outlined
+  'grid-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('fuchsia', '-d')) }} strokeWidth="2" />
+      <path d="M98 89 H104 V95 H110 V101 H98Z" style={F(ch('fuchsia'))} />
+      <path d="M101 89 V101 M98 92 H104 M98 95 H110 M98 98 H110 M104 95 V101 M107 95 V101" style={S(WHITE)} strokeWidth="0.9" />
+      <path d="M98 89 H104 V95 H110 V101 H98Z" style={S(ch('fuchsia', '-d'))} strokeWidth="1.4" fill="none" {...round} />
+    </>
+  ),
+  // boxes and prisms: a small box in the oblique view, its top and its side in two shades
+  'box-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('petrol', '-d')) }} strokeWidth="2" />
+      <path d="M97.5 92 L101 88.5 H110.5 L107 92 Z" style={F(ch('petrol'))} />
+      <path d="M107 92 L110.5 88.5 V97.5 L107 101 Z" style={F(ch('petrol', '-d'))} />
+      <path d="M97.5 92 H107 V101 H97.5 Z" style={{ ...F(WHITE), ...S(ch('petrol', '-d')) }} strokeWidth="1.4" {...round} />
+    </>
+  ),
+  // the circle, cylinder and cone: a small wheel, its radius drawn from the centre
+  'wheel-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('cobalt', '-d')) }} strokeWidth="2" />
+      <circle cx="104" cy="95" r="6.5" style={{ ...F(ch('cobalt')), ...S(ch('cobalt', '-d')) }} strokeWidth="1.4" />
+      <path d="M104 95 H110.5" style={S(WHITE)} strokeWidth="1.6" {...round} />
+      <circle cx="104" cy="95" r="1.4" style={F(WHITE)} />
+    </>
+  ),
+  // Pythagoras in space: a small box, its diagonal from a bottom corner to the far top corner
+  'diagonal-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('sky', '-d')) }} strokeWidth="2" />
+      <path d="M97.5 92 L101 88.5 H110.5 L107 92 Z" style={F(ch('sky'))} />
+      <path d="M107 92 L110.5 88.5 V97.5 L107 101 Z" style={F(ch('sky', '-d'))} />
+      <path d="M97.5 92 H107 V101 H97.5 Z" style={{ ...F(WHITE), ...S(ch('sky', '-d')) }} strokeWidth="1.4" {...round} />
+      <path d="M97.5 101 L110.5 88.5" style={S(ch('sky', '-d'))} strokeWidth="1.6" {...round} />
     </>
   ),
   'class-scarf': ({ classColor = 'sky' }) => (

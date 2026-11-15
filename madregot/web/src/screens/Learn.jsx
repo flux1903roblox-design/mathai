@@ -37,8 +37,10 @@ const ItemArt = lazy(() => import('@/components/mascot/Accessories.jsx').then((m
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
-// After these stops, a small drawing from the unit's own topic (its second and third pieces) sits beside the path.
+// After these stops, a small drawing from the unit's own topic (its second and third pieces) sits beside the path: after
+// the second stop and after the fourth, or after the last one in a unit with fewer stops (two stairs and its review).
 const ART_AFTER = { 1: 1, 3: 2 };
+const artAfter = (i, stops) => (i === 1 ? ART_AFTER[1] : i > 1 && i === Math.min(3, stops - 1) ? ART_AFTER[3] : 0);
 // how far from the middle the drawing sits: as far out as the widest swing, so it never meets a stop or its bubble
 const ART_X = SWING[2];
 
@@ -184,7 +186,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, focus
                   {open === `${t.id}:chest` && <ChestCard topic={t.id} open={chest} half={half} onTry={onStart} />}
                 </li>
               ),
-              ART_AFTER[i] && <PathArt key={`${t.id}:art${i}`} topic={t.id} piece={ART_AFTER[i]} x={x} />,
+              artAfter(i, nodes.length) > 0 && <PathArt key={`${t.id}:art${i}`} topic={t.id} piece={artAfter(i, nodes.length)} x={x} />,
             ];
           })}
         </ol>

@@ -7,6 +7,11 @@
 .gen-q { border-bottom: 1px solid var(--rule); padding-bottom: var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
 .gen-q-head { display: flex; gap: var(--s3); align-items: flex-start; font-weight: 600; }
 .gen-q-answer { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+/* the slot and π after it (□π), left to right as in a lesson */
+.gen-slot { display: inline-flex; align-items: center; gap: 6px; }
+.gen-after { font-size: 1.4rem; font-weight: 700; }
+/* right in another form (37.7 for 12π): a calm note in the brand blue, as the lesson's */
+.gen-partial { color: var(--brand-ink); font-weight: 600; }
 .gen-ok { display: inline-flex; gap: var(--s1); align-items: center; color: var(--ok); font-weight: 700; }
 .gen-bad { color: var(--magenta); font-weight: 700; }
 .tabs { border: 0; background: var(--ai-tint); border-radius: 16px; }

@@ -43,7 +43,9 @@ function useMedia(query) {
 
 function Story({ task, id }) {
   return (
-    <div className="ch-story" id={id}>
+    // the story scrolls inside its card when it is long or has a drawing (a net, a solid): a region the keyboard can
+    // reach and scroll, even though it holds only text and a drawing (axe: scrollable-region-focusable)
+    <div className="ch-story" id={id} tabIndex={0} role="region" aria-label="סיפור האתגר">
       {task.story && <p className="ch-story-text"><MathText text={task.story} /></p>}
       {task.fig && <div className="ch-story-fig"><Figure fig={task.fig} /></div>}
     </div>

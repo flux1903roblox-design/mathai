@@ -3,13 +3,13 @@
 // imports, the same on the web and in the Worker.
 //
 // Rules (PARENTS-8): `$` goes; ^\circ → °, \cdot → ·, \times → ×, \le → ≤, \ge → ≥, \ne and \neq → ≠; ^2 → ², ^3 → ³,
-// _1 → ₁, _2 → ₂; \frac{a}{b} → a/b; \sqrt{x} → √x; \lvert and \rvert → | (CLASSROOM-1, |−7|); \sphericalangle → ∢
-// (CLASSROOM-9, the class's angle sign, ∢AOB); inside maths a minus
-// right before a digit or "(" becomes the minus sign U+2212; braces go; TeX's small spaces become a space. Each maths
-// run is wrapped in U+2066 (left-to-right isolate) … U+2069 (pop) when `isolate` is true, so Hebrew around it never
-// reorders it. Anything else that still looks like a TeX command is left as it is, visible: web/src/learn/report.test.ts
-// runs every misconception title through this and fails on a "\", a "$" or a brace, so a new title with TeX this cannot
-// read is caught there.
+// _1 → ₁, _2 → ₂; \frac{a}{b} → a/b; \sqrt{x} → √x; \lvert and \rvert → | (CLASSROOM-1, |−7|); the measurement signs
+// (MEASURE-6.3) \pi → π, \approx → ≈, \ell → ℓ; the class's angle sign \sphericalangle → ∢ (CLASSROOM-9, ∢AOB); inside
+// maths a minus right before a digit or "(" becomes the minus sign U+2212; braces go; TeX's small spaces become a space.
+// Each maths run is wrapped in U+2066 (left-to-right isolate) … U+2069 (pop) when `isolate` is true, so Hebrew around it
+// never reorders it. Anything else that still looks like a TeX command is left as it is, visible:
+// web/src/learn/report.test.ts runs every misconception title through this and fails on a "\", a "$" or a brace, so a
+// new title with TeX this cannot read is caught there.
 
 const LRI = '⁦';
 const PDI = '⁩';
@@ -32,6 +32,10 @@ function mathRun(tex) {
     .replace(/\\lvert(?![a-zA-Z])\s*/g, '|')
     .replace(/\s*\\rvert(?![a-zA-Z])/g, '|')
     .replace(/\\cdot(?![a-zA-Z])/g, '·')
+    // measurement: 25\pi is 25π, \pi r^2 is πr², \pi \approx 3.14 is π ≈ 3.14, a cone's slant \ell is ℓ
+    .replace(/\\pi(?![a-zA-Z])(?: (?=[a-zA-Z]))?/g, 'π')
+    .replace(/\\approx(?![a-zA-Z])/g, '≈')
+    .replace(/\\ell(?![a-zA-Z])/g, 'ℓ')
     .replace(/\\times(?![a-zA-Z])/g, '×')
     .replace(/\\(?:le|leq)(?![a-zA-Z])/g, '≤')
     .replace(/\\(?:ge|geq)(?![a-zA-Z])/g, '≥')

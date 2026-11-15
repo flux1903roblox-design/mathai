@@ -69,6 +69,8 @@ describe('the challenge tasks', () => {
     // the classroom lane (CLASSROOM-4, -5): signed:c4 and signed:c5, the second task of a kind its topic already has
     expect(challengesOf('signed').map((t) => t.id)).toEqual(['signed:c1', 'signed:c2', 'signed:c3', 'signed:c4', 'signed:c5']);
     expect(challengesAfter('signed:7').map((t) => t.id)).toEqual(['signed:c5']);
+    // stage 2 (MEASURE-7): its four units have three tasks each, a claim, an error and a real-world task
+    for (const tp of ['area', 'solid', 'circle', 'space'] as const) expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]);
     expect(TOPIC_ORDER).toContain('frac');
     expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => challengesOf(tp).map(() => tp)));
     expect(challengeById('pct:c1')?.after).toBe('pct:2');
@@ -76,6 +78,34 @@ describe('the challenge tasks', () => {
     expect(challengesAfter('ratio:2').map((t) => t.id)).toEqual(['ratio:c1']);
     expect(challengesAfter('expr:4').map((t) => t.id)).toEqual(['expr:c1', 'expr:c2']);
     expect(challengesAfter('expr:3').map((t) => t.id)).toEqual(['expr:c4']);
+    // stage 2 (MEASURE-7): the claim after area:5, CLASSROOM-13's error after area:2, the deck after area:4
+    expect(['area:c1', 'area:c2', 'area:c3'].map((id) => [challengeById(id)?.kind, challengeById(id)?.after])).toEqual([['claim', 'area:5'], ['error', 'area:2'], ['literacy', 'area:4']]);
+    // and boxes and prisms: the half box after solid:2, the three faces after solid:1, the litre carton after solid:2
+    expect(['solid:c1', 'solid:c2', 'solid:c3'].map((id) => [challengeById(id)?.kind, challengeById(id)?.after])).toEqual([['claim', 'solid:2'], ['error', 'solid:1'], ['literacy', 'solid:2']]);
+    expect(challengeById('solid:c2')!.misc).toBe('three-faces');
+    expect((taskById('solid:c3')!.parts[0] as { answer: number }).answer).toBe(40);
+    // and the circle: the doubled radius after circle:2, the slant as the height after circle:4, the honey jars after
+    // circle:3; every part "with π" (and circle:c2's fix) asks the number before π
+    expect(['circle:c1', 'circle:c2', 'circle:c3'].map((id) => [challengeById(id)?.kind, challengeById(id)?.after])).toEqual([['claim', 'circle:2'], ['error', 'circle:4'], ['literacy', 'circle:3']]);
+    expect(challengeById('circle:c2')!.misc).toBe('slant-as-height');
+    const err = taskById('circle:c2')!.parts[0] as { fix: { answer: number; after?: string } };
+    expect([err.fix.answer, err.fix.after]).toEqual([100, '\\pi']);
+    for (const id of ['circle:c1', 'circle:c3']) {
+      const nums = taskById(id)!.parts.filter((p) => p.type === 'num') as { prompt: string; answer: number; after?: string }[];
+      expect(nums.length, id).toBe(2);
+      nums.forEach((p) => { expect(p.after, `${id}: ${p.prompt}`).toBe('\\pi'); expect(p.prompt).toContain('\\pi'); expect(Number.isInteger(p.answer)).toBe(true); });
+    }
+    // and Pythagoras in space: the box's diagonal against its faces' after space:1, the radius as the section's width
+    // after space:2, the ant on the box after space:1 (its unfolded walk 10 against 8.4 through the air)
+    expect(['space:c1', 'space:c2', 'space:c3'].map((id) => [challengeById(id)?.kind, challengeById(id)?.after])).toEqual([['claim', 'space:1'], ['error', 'space:2'], ['literacy', 'space:1']]);
+    expect(challengeById('space:c2')!.misc).toBe('r-for-d');
+    expect((taskById('space:c2')!.parts[0] as { fix: { answer: number } }).fix.answer).toBe(20);
+    const ant = taskById('space:c3')!;
+    expect(ant.parts.filter((p) => p.type === 'num').map((p) => (p as { answer: number }).answer)).toEqual([8.4, 10]);
+    // MEASURE-7: the box's net (a netfig), its front face and lid shaded, and the straight way across them, 0,0 to 6,8
+    expect(ant.fig).toMatchObject({ type: 'netfig', solid: 'box', dims: { a: 6, b: 5, c: 3 }, shade: ['B', 'E'], path: { from: [0, 0], to: [6, 8] } });
+    const { from, to } = (ant.fig as { path: { from: number[]; to: number[] } }).path;
+    expect(Math.hypot(to[0] - from[0], to[1] - from[1])).toBe(10);
   });
 
   it('each topic has at least one claim, one error or proof, and one literacy task', () => {
@@ -304,6 +334,13 @@ describe('grading a challenge', () => {
     expect(exampleHolds(mean, { x: 1, y: 2 })).toBe(true);
     expect(exampleHolds(mean, { x: -1.5, y: 4 })).toBe(true);
     expect(exampleHolds(mean, { x: 3, y: 3 })).toBe(false);
+    // area:c1: the long thin rectangle 8 by 1 (perimeter 18 > 16, area 8 < 16) is a counterexample; the square 4 by 4
+    // and the 5 by 4 (both grow) are not
+    const rect = (taskById('area:c1')!.parts[1] as Claim).example!;
+    expect(exampleHolds(rect, { a: 8, b: 1 })).toBe(true);
+    expect(exampleHolds(rect, { a: 4, b: 4 })).toBe(false);
+    expect(exampleHolds(rect, { a: 5, b: 4 })).toBe(false);
+    expect(exampleHolds(rect, { a: 7, b: 2 })).toBe(true); // perimeter 18, area 14
     // an expression that cannot be evaluated there (a zero denominator) is not a counterexample
     expect(exampleHolds({ ...frac, domain: 'int' }, { a: 1, b: 0, k: 0 })).toBe(false);
   });

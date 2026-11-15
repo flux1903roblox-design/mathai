@@ -36,12 +36,17 @@ export const ITEMS = 20;
 const DRAWS = 2000;
 const SEED = 20261111;
 
-// What the owner asks the reviewing teacher in particular, per topic (DATA-9's three questions); other topics: none.
+// What the owner asks the reviewing teacher in particular, per topic (DATA-9's three questions, MEASURE-8's three); other
+// topics: none.
 const CHARTS_RTL = 'האם הדיאגרמות נקראות מימין לשמאל, כמו בספר שלכם?';
 const QUESTIONS = {
   data: ['האם "נתונים ושכיחות" הוא השם שהכיתה שלך משתמשת בו ליחידה?', CHARTS_RTL],
   stats: [CHARTS_RTL],
   prob: ['האם הטבלה של שתי קוביות מצוירת כמו בכיתה שלך (השורות הן הקובייה הראשונה)?'],
+  // curriculum stage 2, measurement (MEASURE-8's questions)
+  area: ['האם הסדר מתאים לכיתה שלך: קודם צורות מורכבות (מדרגה 3), ואחר כך מקבילית וטרפז (מדרגה 4)?'],
+  circle: ['תשובות עם π: האם בכיתה שלך כותבים קודם בעזרת π (למשל $25\\pi$), או מחשבים עם $\\pi \\approx 3.14$?'],
+  space: ['האם "פיתגורס במרחב" כיחידה נפרדת בסוף כיתה ח׳ מתאים לכיתה שלך, או שעדיף לשלב אותו ביחידת פיתגורס?'],
 };
 
 // ---------------------------------------------------------------- text, maths and drawings as HTML

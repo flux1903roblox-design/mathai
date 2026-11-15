@@ -7,12 +7,15 @@ import type { SkillId, TopicId } from './types';
 // order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
 // ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), the
-// introduction to functions the third (November), all before linear functions (rate and slope, December). ז׳'s data and
-// frequency (January–February) comes before equations (March). ח׳'s probability ("הסתברות ב", March, unit 8.16) is the
-// last unit of the year.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'data', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys', 'prob'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8', prob: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 7, coord: 5, angles: 7, expr: 5, data: 4, eq: 7, ratio: 4, pct: 5, func: 4, line: 8, pyth: 5, stats: 8, sys: 5, prob: 3 };
+// introduction to functions the third (November), all before linear functions (rate and slope, December). ז׳'s areas
+// and perimeters (stage 2) start in December, beside expressions; boxes and prisms (stage 2) start in January, after the
+// areas; data and frequency (January–February) follows them, and all three come before equations (March). ח׳'s circle,
+// cylinder and cone (stage 2) are October and November's, after Pythagoras (the cone's height is a leg) and before
+// statistics. ח׳'s probability ("הסתברות ב", March, unit 8.16) comes after the systems, and Pythagoras in space (stage 2,
+// May, unit 8.17) is the last unit of the year.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'data', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'circle', 'stats', 'sys', 'prob', 'space'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', circle: '8', stats: '8', sys: '8', prob: '8', space: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 7, coord: 5, angles: 7, expr: 5, area: 5, solid: 4, data: 4, eq: 7, ratio: 4, pct: 5, func: 4, line: 8, pyth: 5, circle: 4, stats: 8, sys: 5, prob: 3, space: 2 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -101,6 +104,18 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'expr:3': ['expr:1', 'signed:1'], // equality is checked by substituting; coefficients are added as signed numbers
   'expr:4': ['expr:1', 'signed:3'], // what ax means; each term is multiplied with the sign rules
   'expr:5': ['expr:3', 'expr:4'], // open the brackets, then collect like terms
+  'area:1': ['coord:4'], // area = length × width, first met on the grid
+  'area:2': ['area:1'], // a triangle is half a rectangle (or of a parallelogram) with the same base and height
+  'area:3': ['area:2'], // a composite shape is cut into rectangles and triangles, or completed and subtracted
+  'area:4': ['area:2', 'area:3'], // a parallelogram is cut and moved into a rectangle; a trapezoid is two triangles or half of a parallelogram
+  // perimeters: every side counted once, a missing side found from the others. No edge to pyth:1, though ar5p uses a
+  // hypotenuse: pyth comes after area in ALL_SKILLS, and the stair repairs the slip itself (its add-legs remedy); its
+  // questions come in May, after March's unit 7.14
+  'area:5': ['area:1'],
+  'solid:1': ['area:1'], // a face is a rectangle; the surface area adds six of them
+  'solid:2': ['solid:1'], // a box's volume: layers of unit cubes on its base
+  'solid:3': ['solid:1', 'area:2'], // a prism's faces: two triangles and three rectangles (no edge to pyth: the stair repairs add-legs itself)
+  'solid:4': ['solid:2', 'area:2'], // a prism's volume: the triangle's area times the length, half a box
   'data:1': [], // reading a chart and a frequency table starts from counting
   'data:2': ['data:1', 'frac:2'], // a relative frequency is a frequency over the total, a fraction or a decimal (bridge edge)
   'data:3': ['data:2'], // a percent is a relative frequency in hundredths; a pie shows the parts of one whole
@@ -142,6 +157,10 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'pyth:3': ['pyth:1'], // is it right-angled: the theorem used as a test
   'pyth:4': ['pyth:1', 'pyth:2'], // a word problem: find the right triangle first
   'pyth:5': ['pyth:1', 'coord:3'], // distance between points: legs are the coordinate differences
+  'circle:1': ['area:1'], // a circumference is a perimeter (area is ז׳'s topic: evidence only)
+  'circle:2': ['circle:1'], // the disc's area: half the circumference times the radius
+  'circle:3': ['circle:2', 'solid:2'], // a cylinder's volume: the base's area times the height, as a box (solid is ז׳'s: evidence only)
+  'circle:4': ['circle:3', 'pyth:2'], // a cone is a third of the cylinder; its height is a leg in the axial section
   'stats:1': [], // mode: counting
   'stats:2': ['signed:2'], // median: ordering numbers first
   'stats:3': ['frac:2'], // mean: sum and share; a mean is often a decimal, read and compared by place value (bridge edge)
@@ -162,6 +181,10 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'prob:1': ['data:4'], // equally likely outcomes build on probability as a relative frequency ("הסתברות א – בסיס")
   'prob:2': ['prob:1'], // the complement is 1 minus a probability found by counting outcomes
   'prob:3': ['prob:1', 'prob:2'], // a table of pairs is equally likely outcomes counted; "at least" is often its complement
+  // a box's diagonal is two hypotenuses; an edge from the diagonal subtracts squares (pyth:2); the box's faces and edges
+  // (solid is ז׳'s: evidence only)
+  'space:1': ['pyth:1', 'pyth:2', 'solid:1'],
+  'space:2': ['space:1', 'circle:4', 'pyth:2'], // the right triangle inside a box, a cylinder's axial section, a cone's (circle:4)
 };
 
 export const prereqsOf = (id: SkillId): SkillId[] => PREREQS[id] || [];

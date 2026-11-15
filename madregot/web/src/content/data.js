@@ -786,7 +786,7 @@ function simRun() {
 // ---------------------------------------------------------------- the topic
 
 export const DATA = {
-  id: 'data', grade: '7', title: 'נתונים ושכיחות', color: 'sky',
+  id: 'data', grade: '7', title: 'נתונים ושכיחות', color: 'cobalt',
   desc: 'דיאגרמות וטבלת שכיחויות, שכיחות יחסית, אחוזים ודיאגרמת עוגה, והסתברות מתוך שכיחות',
   // taught from January in ז׳ (and October in ח׳ this year): the first-day placement test does not ask about it
   placement: false,

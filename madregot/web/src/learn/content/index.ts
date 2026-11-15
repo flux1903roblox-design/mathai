@@ -36,6 +36,10 @@ function importTopic(topic: string): Promise<StairContent[]> {
     // angles:6 (the bisector) and angles:7 (the quadrilateral) are the classroom lane's (CLASSROOM-10, -12), in their own file
     case 'angles': return Promise.all([import('./angles'), import('./angles67')]).then(([a, b]) => [...a.ANGLES, ...b.ANGLES67]);
     case 'expr': return import('./expr').then((m) => m.EXPR);
+    // stage 2 (measurement): areas and perimeters, ז׳ 7.12
+    case 'area': return import('./area').then((m) => m.AREA);
+    // stage 2 (measurement): boxes and prisms, ז׳ 7.13
+    case 'solid': return import('./solid').then((m) => m.SOLID);
     case 'data': return import('./data').then((m) => m.DATA);
     case 'eq': return import('./eq').then((m) => m.EQ);
     // the curriculum lane's grade 8 units in school order: ratio and scale, then percent
@@ -45,11 +49,15 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'func': return import('./func').then((m) => m.FUNC);
     case 'line': return import('./line').then((m) => [...m.LINE1, ...m.LINE2]);
     case 'pyth': return import('./pyth').then((m) => m.PYTH);
+    // stage 2 (measurement): the circle, the cylinder and the cone, ח׳ 8.4
+    case 'circle': return import('./circle').then((m) => m.CIRCLE);
     // stats:6-8 (curriculum stage 3: range, two sources, interpolation) are in their own file
     case 'stats': return Promise.all([import('./stats'), import('./stats2')]).then(([a, b]) => [...a.STATS, ...b.STATS2]);
+    case 'sys': return import('./sys').then((m) => m.SYS);
     // curriculum stage 3's probability ("הסתברות ב" of ח׳)
     case 'prob': return import('./prob').then((m) => m.PROB);
-    case 'sys': return import('./sys').then((m) => m.SYS);
+    // stage 2 (measurement): Pythagoras in space, ח׳ 8.17
+    case 'space': return import('./space').then((m) => m.SPACE);
     // a topic with no teaching content has nothing to load
     default: return Promise.resolve([]);
   }

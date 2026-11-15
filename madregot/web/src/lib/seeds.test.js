@@ -7,7 +7,7 @@ import { itemPlain, answerText, isCorrect } from '@/content/index.js';
 import { itemFor } from '@/learn/items.ts';
 import { ALL_SKILLS } from '@/learn/skills.ts';
 import { seeded } from '@/learn/expr.ts';
-import { numbersIn, parseAnswer, verifyRewrite, finishRewrite, checkEquations } from '@shared/verify.js';
+import { numbersIn, parseAnswer, piCoefficient, verifyRewrite, finishRewrite, checkEquations } from '@shared/verify.js';
 import { loadAllContent } from '@/learn/content/index.ts';
 
 // every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
@@ -19,11 +19,11 @@ const FRACTION = ['prob:3'];
 const BY_SKILL = Object.fromEntries(ALL_SKILLS.map((skill) => [skill, seedsFor(skill, N, seeded(1))]));
 
 describe('seedsFor, over every stair', () => {
-  it('covers every stair, the algebra, fraction, ratio, percent, data, statistics, probability, power, bisector and quadrilateral ones included', () => {
-    expect(ALL_SKILLS.length).toBeGreaterThanOrEqual(81);
+  it('covers every stair, the algebra, fraction, ratio, percent, data, statistics, probability, power, bisector, quadrilateral, area, solid, circle and space ones included', () => {
+    expect(ALL_SKILLS.length).toBeGreaterThanOrEqual(96);
     expect(Object.keys(BY_SKILL)).toEqual(ALL_SKILLS);
     for (const t of ['expr', 'sys']) expect(ALL_SKILLS.filter((s) => s.startsWith(`${t}:`)).length).toBe(5);
-    for (const s of ['frac:4', 'eq:5', 'ratio:4', 'pct:5', 'signed:6', 'data:4', 'stats:8', 'prob:3', 'signed:7', 'angles:6', 'angles:7']) expect(ALL_SKILLS).toContain(s);
+    for (const s of ['frac:4', 'eq:5', 'ratio:4', 'pct:5', 'signed:6', 'data:4', 'stats:8', 'prob:3', 'signed:7', 'angles:6', 'angles:7', 'area:5', 'solid:4', 'circle:4', 'space:2']) expect(ALL_SKILLS).toContain(s);
   });
 
   // one test over all the stairs (not one test each): the messages name the stair
@@ -90,6 +90,21 @@ describe('seedPayload: what the generate request carries, and what the server ca
     expect(seedRounds({ text: 'חשבו: 3 - (-5)' })).toBe(false);
   });
 
+  it('a seed with π (25π) is checked on its number before π: the solution and the blind solve must say π too', () => {
+    const seed = { i: 0, text: 'מה שטח עיגול שרדיוסו 5 ס״מ? כתבו בעזרת π.', answer: '25π', round: false, fig: false };
+    const item = (end) => ({ seed: 0, prompt: 'שולחן עגול ברדיוס 5 ס״מ. מה שטחו? כתבו בעזרת $\\pi$.', hint: '', solution: ['$S = \\pi r^2$.', `$\\pi \\cdot 5^2 = ${end}$`] });
+    expect(piCoefficient('25π')).toBe(25);
+    expect(piCoefficient('$25\\pi$')).toBe(25);
+    expect(piCoefficient('π')).toBe(1);
+    expect(piCoefficient('78.5')).toBeNull();
+    expect(verifyRewrite(seed, item('25\\pi'), '25π').ok).toBe(true);
+    expect(verifyRewrite(seed, item('25\\pi'), '$25\\pi$').ok).toBe(true);
+    // the value without π is another answer here, and a changed number is caught
+    expect(verifyRewrite(seed, item('78.5'), '25π').reason).toBe('solution');
+    expect(verifyRewrite(seed, item('24\\pi'), '25π').reason).toBe('solution');
+    expect(verifyRewrite(seed, item('25\\pi'), '78.5').reason).toBe('blind');
+  });
+
   it('every stair: the server reads every seed\'s answer, and a faithful rewrite passes while a changed number does not', () => {
     for (const skill of ALL_SKILLS.filter((s) => !FRACTION.includes(s))) serverReads(skill);
   });
@@ -105,7 +120,8 @@ describe('seedPayload: what the generate request carries, and what the server ca
       kept: p.fig,
     }));
     for (const [k, p] of payload.entries()) {
-      const read = parseAnswer(p.answer);
+      // an answer with π (the circle and its solids) is read as its number before π
+      const read = piCoefficient(p.answer) ?? parseAnswer(p.answer);
       expect(typeof read, `${skill} ${p.answer}`).toBe('number');
       expect(Math.abs(read - seeds[k].answer), `${skill} ${p.answer}`).toBeLessThanOrEqual(p.round ? 0.05 : 0.01);
       // the app's own worked solution of the seed is true, equation by equation

@@ -1,5 +1,9 @@
-// Short lesson summaries, shown on each topic page before practice.
-// (The linear function's summary lives with its generators in linear.js.)
+// Short lesson summaries, shown on each topic's guide page before practice: the first topics' are written here, and a
+// topic in a file of its own keeps its summary there, beside its generators (lessons.gen.js gathers those, written by
+// scripts/gen-content-meta.mjs). Only the guide page reads a summary (screens/Topic.jsx), so this file and
+// lessons.gen.js load with that page and are not in the first load (budget.json lazyOnly).
+import { TOPIC_LESSONS } from './lessons.gen.js';
+
 export const LESSONS = {
   signed: {
     points: [
@@ -54,3 +58,9 @@ export const LESSONS = {
     ],
   },
 };
+
+/**
+ * A topic's lesson summary ({ points, words?, examples?, explore? }), or null: its own file's, else the one written here.
+ * @param {string} id
+ */
+export const lessonOf = (id) => TOPIC_LESSONS[id] || LESSONS[id] || null;

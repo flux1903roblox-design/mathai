@@ -74,6 +74,11 @@ const kindOf = (it: Item) => `${it.form}|${it.source ? `${it.topic}:${it.level}:
 // a fraction answer is typed as its numerator and denominator (in lowest terms, which every fraction item accepts)
 const answerOf = (it: Item) => (it.form === 'manip' ? manipSolution(it) : it.form === 'frac' ? toFrac(it.answer) : it.answer);
 const formOf = (it: Item) => (it.form === 'manip' ? `manip:${it.manip.kind}` : it.form);
+/**
+ * The same answer written another way (stage 2, MEASURE-1 item 4): a π ≈ 3.14 answer (`pk`) typed with the calculator's
+ * π, or as its multiple of π (the "with π" habit, 25 for 78.5). A □π question's answer is already its number before π.
+ */
+const altAnswers = (it: Item): unknown[] => (it.form === 'num' && Number.isFinite(it.pk) ? [Math.round(Math.PI * it.pk * 100) / 100, it.pk] : []);
 
 /** The two guessing strategies, learned from a sample of a check's questions (all its sources together). */
 function learnGuesses(samples: Item[]) {
@@ -82,7 +87,8 @@ function learnGuesses(samples: Item[]) {
   samples.forEach((it) => {
     const v = answerOf(it); const key = JSON.stringify(v);
     ((byKind[kindOf(it)] ||= {})[key] ||= { n: 0, v }).n += 1;
-    ((byForm[formOf(it)] ||= {})[key] ||= { n: 0, v }).n += 1;
+    // the constants tried include the π-form answers (each is right exactly when the answer is)
+    [v, ...altAnswers(it)].forEach((w) => { ((byForm[formOf(it)] ||= {})[JSON.stringify(w)] ||= { n: 0, v: w }).n += 1; });
   });
   const mode = (m: Record<string, { n: number; v: unknown }>) => Object.values(m).sort((a, b) => b.n - a.n)[0].v;
   const common = Object.fromEntries(Object.entries(byKind).map(([k, m]) => [k, mode(m)]));
@@ -395,6 +401,22 @@ describe('the guessing measure itself', () => {
     // (coefficient and constant as printed) would be passed by copying them
     const copy: Draw = () => { const k = 2 + Math.floor(Math.random() * 7); const c = 1 + Math.floor(Math.random() * 9); return { form: 'lin', text: 'כתבו בלי סוגריים:', display: `${k}x + ${c}`, answer: { k, c }, key: 'copy:x' }; };
     expect(passRate([copy, copy, copy, copy, copy], 4)).toBeGreaterThan(0.9);
+  });
+  it('reads 3.14 as a printed number, and grades π answers as the lesson does (stage 2)', () => {
+    // "with π ≈ 3.14": the 3.14 is printed, so copying it is one of the guesses measured
+    expect(shownNumbers({ form: 'num', text: 'מה היקף מעגל שקוטרו $20$ ס״מ? חשבו עם $\\pi \\approx 3.14$ ועגלו לעשירית.' })).toEqual([20, 3.14]);
+    // a π ≈ 3.14 check whose multiples repeat is passed by a constant, read with pk rightness (62.8 or 62.83 for 20π)
+    const pk: Draw = () => ({ form: 'num', text: 'חשבו עם $\\pi \\approx 3.14$', pk: 20, answer: 62.8, key: 'pk:x' });
+    expect(passRate([pk, pk, pk], 3)).toBeGreaterThan(0.9);
+    expect(isCorrect(pk(), 62.83)).toBe(true);
+    expect(isCorrect(pk(), 20)).toBe(false);
+    // a □π check whose number before π is always 25: the constant 25 is found
+    const pi: Draw = () => ({ form: 'num', text: 'כתבו בעזרת $\\pi$', after: '\\pi', answer: 25, key: 'pi:x' });
+    expect(passRate([pi, pi, pi], 3)).toBeGreaterThan(0.9);
+    // the π-form constants are tried too: on questions of both forms with one multiple of π, typing 25 passes the □π
+    // ones and 78.5 the π ≈ 3.14 ones
+    const both: Draw = () => (Math.random() < 0.5 ? { form: 'num', pk: 25, answer: 78.5, key: 'm:pk' } : { form: 'num', after: '\\pi', answer: 25, key: 'm:pi' });
+    expect(passRate([both, both, both], 3)).toBeGreaterThan(0.1);
   });
   it('sees the old pyth:5 hole: always typing 5 when the answers are 5 or 10', () => {
     // a check of five questions whose answers are 5 three times out of four: the measure must catch it

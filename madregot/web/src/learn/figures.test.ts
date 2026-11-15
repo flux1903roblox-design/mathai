@@ -31,6 +31,8 @@ import { rectStory, angleEqStory, rectFig } from '@/content/eq.js';
 import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from '@/content/angleItems.js';
 // @ts-ignore: plain JS
 import { bisItem, bisCheckItem, quadItem } from '@/content/angles67.js';
+// @ts-ignore: plain JS
+import { netfigLabels, netModel, solidLabels } from '@/content/net.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -198,7 +200,13 @@ function labelsOf(f: AnyFig): Set<string> {
           ...(meet ? [`(${fmt(meet[0])}, ${fmt(meet[1])})`] : []), ...rr, ...(f.words || []).map((w: any) => w.text)];
       }
       case 'geo': return [...Object.keys(f.pts).filter((k) => !k.startsWith('_') && !(f.hide || []).includes(k)), ...(f.segs || []).map((s: any) => s.label),
-        ...(f.angles || []).map((g: any) => g.text), ...(f.squares || []).map((q: any) => q.text), ...(f.words || []).map((w: any) => w.text)];
+        ...(f.angles || []).map((g: any) => g.text), ...(f.squares || []).map((q: any) => q.text), ...(f.words || []).map((w: any) => w.text),
+        ...(f.circles || []).map((c: any) => c.label)];
+      // a net (stage 3) writes its face letters, its lengths or its faces' areas
+      case 'netfig': return [...(f.letters && f.solid !== 'cylinder' ? netModel({ ...f, task: 'face' }).ids : []),
+        ...netfigLabels(f).faces.map((x: any) => x.text), ...netfigLabels(f).edges.map((x: any) => x.text), ...Object.values(f.names || {})];
+      // a solid (stage 4) writes its lengths and its word
+      case 'solid': return [...Object.values(solidLabels(f)), f.label, ...(f.segs || []).map((s: any) => s.label)];
       // the algebra objects write x on a box or a long tile, and the rectangle its sides (and parts' areas)
       case 'tiles': return [f.px && 'x', f.nx && '-x', f.p1 && '1', f.n1 && '-1'];
       case 'scale': return [(f.left.x || f.right.x) && 'x'];
@@ -469,6 +477,23 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
       expect(html, where).not.toMatch(/NaN|undefined|Infinity/);
     }
   }, 60_000);
+
+  // Pythagoras in space (stage 2): a solid writes only numbers its step gives, and marks the box's diagonal (or a
+  // cube's) only where its step speaks of a diagonal or of the longest rod
+  it('in Pythagoras in space, a solid writes the numbers of its step and marks the box\'s diagonal only where the step speaks of it', () => {
+    const steps = ALL_STEPS().filter(({ skill }) => skill.startsWith('space:'));
+    expect(steps.length).toBeGreaterThan(20);
+    const bad = steps.flatMap(({ where, st }) => {
+      const f = figOf(st) as AnyFig | undefined; if (!f || f.type !== 'solid') return [];
+      const out: string[] = [];
+      const said = `${st.text} ${'display' in st ? st.display || '' : ''}`;
+      const given = new Set([...said.matchAll(/\d+(?:\.\d+)?/g)].map((m) => m[0]));
+      for (const l of Object.values(solidLabels(f))) if (/^\d+(\.\d+)?$/.test(String(l)) && !given.has(String(l))) out.push(`${where}: the solid writes ${l}, its step does not`);
+      if ([f.diag || []].flat().includes('space') && !/אלכסון|d\^2|מקל|מוט/.test(said)) out.push(`${where}: the box's diagonal is marked on a step that does not speak of it`);
+      return out;
+    });
+    expect(bad).toEqual([]);
+  });
 
   // the checks themselves, on made-up steps: each catches what it is for, and lets a right figure through
   const say = (text: string, fig: AnyFig): DiscoverStep => ({ kind: 'say', text, fig: fig as FigSpec });

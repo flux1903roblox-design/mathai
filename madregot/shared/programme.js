@@ -19,8 +19,12 @@
 // When a new stair lands, add its id to the part it teaches (and drop that part's `later`); the coverage numbers move
 // by themselves.
 
-/** The stage the next build round delivers: a missing part with this `later` may say it is coming next. */
-export const ROADMAP_NEXT = 'S2';
+/**
+ * The stage the next build round delivers: a missing part with this `later` may say it is coming next. It is the lowest
+ * stage that still has a `later` part: stage 2 (measurement) and the classroom lane's signed:7 are both in, stage 3 too,
+ * so no part waits for 'S2' or 'S3' any more (worker/test/coverage.test.js "the next stage" keeps it honest).
+ */
+export const ROADMAP_NEXT = 'S4';
 
 const range = (topic, from, to) => Array.from({ length: to - from + 1 }, (_, i) => `${topic}:${from + i}`);
 
@@ -78,10 +82,22 @@ export const PROGRAMME = {
     { id: '7.12', grade: '7', domain: 'geometry', title: 'שטחים א, שטחים ב, חישוב היקפים', months: [12, 1, 4, 5],
       parts: [
         { hours: 1, skills: ['coord:4'] }, // the area of a rectangle on the grid
-        { hours: 9, skills: [], note: 'שטח משולש, מקבילית וטרפז, וחישוב היקפים', later: 'S2' },
+        // stage 2 (MEASURE-6.1): each area stair in the months the schedule teaches it (areas A in December and January,
+        // areas B in April, perimeters in May), so a stair is not "taught by now" before its class meets it
+        { hours: 1, skills: ['area:1'], months: [12], note: 'היקף ושטח של מלבן' },
+        { hours: 2, skills: ['area:2'], months: [12, 1], note: 'שטח משולש, גם משולש ישר־זווית' },
+        { hours: 1, skills: ['area:3'], months: [1], note: 'שטחים של צורות מורכבות' },
+        { hours: 2, skills: ['area:4'], months: [4], note: 'שטח מקבילית וטרפז' },
+        { hours: 3, skills: ['area:5'], months: [5], note: 'חישוב היקפים' },
       ] },
     { id: '7.13', grade: '7', domain: 'geometry', title: 'גופים במרחב: קובייה, תיבה, מנסרה משולשת', months: [1, 5],
-      parts: [{ hours: 9, skills: [], note: 'קובייה, תיבה ומנסרה: פריסה, שטח פנים ונפח', later: 'S2' }] },
+      parts: [
+        // stage 2 (MEASURE-6.1): the cube and the box in January, the triangular prism in May, each stair in its months
+        { hours: 2, skills: ['solid:1'], months: [1], note: 'קובייה ותיבה: פריסה ושטח פנים' },
+        { hours: 2, skills: ['solid:2'], months: [1], note: 'נפח תיבה וקובייה' },
+        { hours: 3, skills: ['solid:3'], months: [5], note: 'מנסרה משולשת: פריסה ושטח פנים' },
+        { hours: 2, skills: ['solid:4'], months: [5], note: 'נפח מנסרה משולשת' },
+      ] },
     { id: '7.14', grade: '7', domain: 'geometry', title: 'משפט פיתגורס ושימושיו', months: [3],
       parts: [{ hours: 6, skills: range('pyth', 1, 5) }] },
     { id: '7.15', grade: '7', domain: 'uncertainty', title: 'איסוף, ייצוג וקריאת מידע, שכיחות', months: [1, 2],
@@ -102,7 +118,13 @@ export const PROGRAMME = {
     { id: '8.3', grade: '8', domain: 'geometry', title: 'השלמת זוויות בין מקבילים; משפט פיתגורס', months: [9, 10],
       parts: [{ hours: 8, skills: ['angles:4', ...range('pyth', 1, 5)] }] },
     { id: '8.4', grade: '8', domain: 'geometry', title: 'גליל, חרוט (ולפניהם היקף מעגל ושטח עיגול)', months: [10, 11],
-      parts: [{ hours: 6, skills: [], note: 'היקף מעגל, שטח עיגול, גליל וחרוט', later: 'S2' }] },
+      parts: [
+        // stage 2 (MEASURE-6.1): the circle, the disc and the cylinder in October, the cone in November
+        { hours: 1, skills: ['circle:1'], months: [10], note: 'היקף מעגל' },
+        { hours: 1, skills: ['circle:2'], months: [10], note: 'שטח עיגול' },
+        { hours: 2, skills: ['circle:3'], months: [10], note: 'גליל' },
+        { hours: 2, skills: ['circle:4'], months: [11], note: 'חרוט' },
+      ] },
     { id: '8.5', grade: '8', domain: 'geometry', title: 'טרנספורמציות וצורות חופפות', months: [11],
       parts: [{ hours: 5, skills: [], note: 'הזזה, שיקוף וסיבוב, וצורות חופפות', later: 'S4' }] },
     { id: '8.6', grade: '8', domain: 'uncertainty', title: 'איסוף וקריאת מידע, שכיחות, שכיחות יחסית', months: [10, 11],
@@ -153,6 +175,10 @@ export const PROGRAMME = {
         { hours: 4, skills: ['prob:1', 'prob:2', 'prob:3'] },
       ] },
     { id: '8.17', grade: '8', domain: 'geometry', title: 'משפט פיתגורס במרחב', months: [5],
-      parts: [{ hours: 6, skills: [], note: 'משפט פיתגורס בגופים במרחב', later: 'S2' }] },
+      parts: [
+        // stage 2 (MEASURE-6.1): both stairs in May, the unit's month
+        { hours: 3, skills: ['space:1'], note: 'אלכסון בקובייה ובתיבה' },
+        { hours: 3, skills: ['space:2'], note: 'משולשים ישרי־זווית בגופים' },
+      ] },
   ],
 };

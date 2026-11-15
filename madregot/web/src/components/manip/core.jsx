@@ -1,5 +1,5 @@
 // Shared parts of the interactive maths objects: pointer dragging on an SVG, keyboard steps, step buttons.
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -58,6 +58,27 @@ export function Stepper({ label, sub, value, onDec, onInc, decLabel, incLabel, d
       <button type="button" className="step-btn" onClick={onInc} disabled={disabled || incDisabled} aria-label={incLabel}><Inc size={20} strokeWidth={3} aria-hidden="true" /></button>
     </div>
   );
+}
+
+/**
+ * A number that moves to its target over `ms` (eased out), or at once when `still` (reduced motion) or where there is
+ * no animation frame (a test's static render): the fold of a net and the roll of a circle follow their stepper so.
+ */
+export function useTween(target, still, ms = 300) {
+  const [shown, setShown] = useState(target);
+  const at = useRef(target);
+  useEffect(() => {
+    if (still || typeof requestAnimationFrame !== 'function') { at.current = target; setShown(target); return undefined; }
+    const from = at.current; const t0 = performance.now(); let raf = 0;
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / ms); const v = from + (target - from) * (1 - (1 - k) ** 3);
+      at.current = v; setShown(v);
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, still, ms]);
+  return shown;
 }
 
 /** Numbers drawn in SVG text keep a real minus sign. */

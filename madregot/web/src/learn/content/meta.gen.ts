@@ -139,6 +139,236 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": false
   },
+  "area:1": {
+    "title": "היקף ושטח של מלבן",
+    "misconceptions": [
+      {
+        "id": "perimeter",
+        "title": "חישבו היקף במקום שטח"
+      },
+      {
+        "id": "add-sides",
+        "title": "חיברו את הצלעות במקום לכפול"
+      },
+      {
+        "id": "area-for-perim",
+        "title": "חישבו שטח במקום היקף"
+      },
+      {
+        "id": "two-sides",
+        "title": "בהיקף נספרו רק שתי צלעות (חצי היקף)"
+      },
+      {
+        "id": "one-side-perim",
+        "title": "הורידו מההיקף רק אורך אחד, ולא שניים"
+      },
+      {
+        "id": "perim-as-area",
+        "title": "חילקו את ההיקף באורך, כאילו הוא שטח"
+      }
+    ],
+    "transfer": true
+  },
+  "area:2": {
+    "title": "שטח משולש",
+    "misconceptions": [
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח המשולש"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "כפלו בצלע משופעת במקום בגובה"
+      },
+      {
+        "id": "half-twice",
+        "title": "חילקו ב־$2$ גם באגף השני, במקום לכפול ב־$2$"
+      },
+      {
+        "id": "hyp-as-height",
+        "title": "כפלו ביתר במקום בניצב"
+      }
+    ],
+    "transfer": true
+  },
+  "area:3": {
+    "title": "צורות מורכבות",
+    "misconceptions": [
+      {
+        "id": "no-subtract",
+        "title": "חישבו את הצורה השלמה ולא הורידו את החלק החסר"
+      },
+      {
+        "id": "double-count",
+        "title": "ספרו פעמיים חלק ששייך לשני החלקים"
+      },
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח המשולש שהורידו"
+      }
+    ],
+    "transfer": true
+  },
+  "area:4": {
+    "title": "מקבילית וטרפז",
+    "misconceptions": [
+      {
+        "id": "slant-as-height",
+        "title": "כפלו בצלע משופעת במקום בגובה"
+      },
+      {
+        "id": "one-base",
+        "title": "כפלו בגובה רק בסיס אחד"
+      },
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח הטרפז"
+      },
+      {
+        "id": "half-para",
+        "title": "חילקו ב־$2$ כמו במשולש"
+      }
+    ],
+    "transfer": true
+  },
+  "area:5": {
+    "title": "היקפים: אותו היקף, שטח אחר",
+    "misconceptions": [
+      {
+        "id": "missing-sides",
+        "title": "חיברו רק את הצלעות שכתוב עליהן מספר"
+      },
+      {
+        "id": "same-perim-same-area",
+        "title": "חשבו שבאותו היקף יש אותו שטח"
+      },
+      {
+        "id": "no-convert",
+        "title": "שכחו להמיר בין סנטימטרים למטרים"
+      },
+      {
+        "id": "two-sides",
+        "title": "בהיקף נספרו רק שתי צלעות (חצי היקף)"
+      },
+      {
+        "id": "area-for-perim",
+        "title": "חישבו שטח במקום היקף"
+      },
+      {
+        "id": "add-legs",
+        "title": "חיברו את הצלעות בלי לרבע"
+      }
+    ],
+    "transfer": true
+  },
+  "circle:1": {
+    "title": "היקף מעגל",
+    "misconceptions": [
+      {
+        "id": "r-for-d",
+        "title": "השתמשו ברדיוס במקום בקוטר"
+      },
+      {
+        "id": "d-for-r",
+        "title": "השתמשו בקוטר במקום ברדיוס"
+      },
+      {
+        "id": "area-for-circ",
+        "title": "חישבו שטח במקום היקף"
+      }
+    ],
+    "transfer": true
+  },
+  "circle:2": {
+    "title": "שטח עיגול",
+    "misconceptions": [
+      {
+        "id": "circ-for-area",
+        "title": "חישבו היקף במקום שטח"
+      },
+      {
+        "id": "d-in-area",
+        "title": "העלו בריבוע את הקוטר במקום את הרדיוס"
+      },
+      {
+        "id": "ring-sub-radii",
+        "title": "חיסרו רדיוסים לפני ההעלאה בריבוע"
+      },
+      {
+        "id": "no-subtract",
+        "title": "חישבו את הצורה השלמה ולא הורידו את החלק החסר"
+      },
+      {
+        "id": "whole-circle",
+        "title": "חישבו את כל העיגול במקום חלק ממנו"
+      }
+    ],
+    "transfer": true
+  },
+  "circle:3": {
+    "title": "גליל",
+    "misconceptions": [
+      {
+        "id": "d-in-area",
+        "title": "העלו בריבוע את הקוטר במקום את הרדיוס"
+      },
+      {
+        "id": "lateral-for-vol",
+        "title": "חישבו מעטפת במקום נפח"
+      },
+      {
+        "id": "r-for-d",
+        "title": "השתמשו ברדיוס במקום בקוטר"
+      },
+      {
+        "id": "area-for-circ",
+        "title": "חישבו שטח במקום היקף"
+      },
+      {
+        "id": "no-bases",
+        "title": "חישבו רק את המעטפת, בלי הבסיסים"
+      },
+      {
+        "id": "one-base",
+        "title": "ספרו רק בסיס אחד"
+      },
+      {
+        "id": "no-convert",
+        "title": "שכחו להמיר בין ליטרים לסמ״ק"
+      }
+    ],
+    "transfer": true
+  },
+  "circle:4": {
+    "title": "חרוט",
+    "misconceptions": [
+      {
+        "id": "no-third",
+        "title": "שכחו לחלק ב־$3$"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "השתמשו בקו היוצר במקום בגובה"
+      },
+      {
+        "id": "add-not-sub",
+        "title": "חיברו ריבועים במקום לחסר (כשמחפשים ניצב)"
+      },
+      {
+        "id": "subtract-sides",
+        "title": "חיסרו צלעות בלי לרבע"
+      },
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח המשולש"
+      },
+      {
+        "id": "r-for-d",
+        "title": "השתמשו ברדיוס במקום בקוטר"
+      }
+    ],
+    "transfer": true
+  },
   "coord:1": {
     "title": "קריאת נקודה",
     "misconceptions": [
@@ -1493,6 +1723,154 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "solid:1": {
+    "title": "תיבה: פריסה ושטח פנים",
+    "misconceptions": [
+      {
+        "id": "three-faces",
+        "title": "ספרו רק שלוש פאות, אחת מכל זוג"
+      },
+      {
+        "id": "vol-for-surf",
+        "title": "חישבו נפח במקום שטח פנים"
+      },
+      {
+        "id": "lid-counted",
+        "title": "ספרו גם פאה שאין לקופסה"
+      },
+      {
+        "id": "three-edges",
+        "title": "חיברו רק שלושה מקצועות, אחד מכל כיוון"
+      }
+    ],
+    "transfer": true
+  },
+  "solid:2": {
+    "title": "נפח תיבה וקובייה",
+    "misconceptions": [
+      {
+        "id": "surf-for-vol",
+        "title": "חישבו שטח פנים במקום נפח"
+      },
+      {
+        "id": "add-edges",
+        "title": "חיברו את המקצועות במקום לכפול"
+      },
+      {
+        "id": "cube-times3",
+        "title": "כפלו ב־$3$ במקום להעלות בחזקה שלישית"
+      },
+      {
+        "id": "no-convert",
+        "title": "שכחו להמיר בין סמ״ק לליטרים"
+      },
+      {
+        "id": "one-divide",
+        "title": "חילקו רק באחד המקצועות"
+      },
+      {
+        "id": "div-by-edge",
+        "title": "חילקו את הנפח במקצוע של הקובייה הקטנה ולא בנפח שלה"
+      }
+    ],
+    "transfer": true
+  },
+  "solid:3": {
+    "title": "מנסרה משולשת: פריסה ושטח פנים",
+    "misconceptions": [
+      {
+        "id": "one-base",
+        "title": "ספרו רק בסיס אחד"
+      },
+      {
+        "id": "missing-face",
+        "title": "שכחו את הפאה הצדדית שעל היתר"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "כפלו בצלע משופעת במקום בגובה"
+      },
+      {
+        "id": "add-legs",
+        "title": "חיברו את הצלעות בלי לרבע"
+      }
+    ],
+    "transfer": true
+  },
+  "solid:4": {
+    "title": "נפח מנסרה",
+    "misconceptions": [
+      {
+        "id": "no-half",
+        "title": "חישבו נפח של תיבה, בלי לחלק ב־2 את הבסיס"
+      },
+      {
+        "id": "hyp-as-height",
+        "title": "כפלו ביתר במקום בניצב"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "כפלו בצלע משופעת במקום בגובה"
+      },
+      {
+        "id": "linear-volume",
+        "title": "חשבו שהנפח גדל פי אותו מספר כמו המקצועות"
+      }
+    ],
+    "transfer": true
+  },
+  "space:1": {
+    "title": "אלכסון בקובייה ובתיבה",
+    "misconceptions": [
+      {
+        "id": "face-for-space",
+        "title": "חישבו את אלכסון הפאה במקום את אלכסון התיבה"
+      },
+      {
+        "id": "add-edges3",
+        "title": "חיברו את שלושת המקצועות במקום פיתגורס"
+      },
+      {
+        "id": "no-root",
+        "title": "שכחו להוציא שורש"
+      },
+      {
+        "id": "add-not-sub",
+        "title": "חיברו ריבועים במקום לחסר (כשמחפשים ניצב)"
+      },
+      {
+        "id": "add-legs",
+        "title": "חיברו את הצלעות בלי לרבע"
+      }
+    ],
+    "transfer": true
+  },
+  "space:2": {
+    "title": "משולשים ישרי־זווית בגופים",
+    "misconceptions": [
+      {
+        "id": "r-for-d",
+        "title": "השתמשו ברדיוס במקום בקוטר כצלע של החתך"
+      },
+      {
+        "id": "add-legs",
+        "title": "חיברו את הצלעות בלי לרבע"
+      },
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח המשולש"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "השתמשו בקו היוצר במקום בגובה"
+      },
+      {
+        "id": "no-third",
+        "title": "שכחו לחלק ב־$3$"
+      }
+    ],
+    "transfer": true
+  },
   "stats:1": {
     "title": "שכיח",
     "misconceptions": [
@@ -1781,6 +2159,8 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
   "angles": {
     "apex-base-swap": "התבלבלו בין זווית הראש לזווית הבסיס"
   },
+  "area": {},
+  "circle": {},
   "coord": {
     "axis-zero": "חשבו שנקודה על ציר $x$ היא נקודה שבה $x = 0$",
     "quad-order": "מספרו את הרביעים עם כיוון השעון",
@@ -1819,6 +2199,8 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "minus-bracket": "מינוס לפני סוגריים הפך רק את המספר הראשון",
     "ignore-brackets": "חישבו כאילו אין סוגריים"
   },
+  "solid": {},
+  "space": {},
   "stats": {
     "one-middle": "במספר זוגי של נתונים לקחו רק אחד משני האמצעיים",
     "median-position": "כתבו את המקום של החציון ברשימה במקום את הערך שלו",

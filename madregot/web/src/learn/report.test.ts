@@ -308,6 +308,18 @@ describe('names: shared/stairs.js equals the content, and misconception titles r
     expect(texToPlain('')).toBe('');
   });
 
+  it('measurement and the class\'s angle sign (MEASURE-6.3, CLASSROOM-9): π, ≈, ℓ and ∢', () => {
+    expect(texToPlain('$25\\pi$', { isolate: false })).toBe('25π');
+    expect(texToPlain('$\\pi \\approx 3.14$', { isolate: false })).toBe('π ≈ 3.14');
+    expect(texToPlain('חשבו עם $\\pi \\approx 3.14$ ועגלו לעשירית.')).toBe('חשבו עם ⁦π ≈ 3.14⁩ ועגלו לעשירית.');
+    expect(texToPlain('$2\\pi r$, $\\pi r^2$, $10\\pi \\cdot 2$', { isolate: false })).toBe('2πr, πr², 10π · 2');
+    expect(texToPlain('$\\ell = 10$', { isolate: false })).toBe('ℓ = 10');
+    expect(texToPlain('$\\sphericalangle B = 90^\\circ$', { isolate: false })).toBe('∢B = 90°');
+    expect(texToPlain('במשולש $ABC$: $\\sphericalangle C = 90^\\circ$')).toBe('במשולש ⁦ABC⁩: ⁦∢C = 90°⁩');
+    // a longer command that only starts with one of these stays as it is, visible
+    expect(texToPlain('$\\pir \\ellx$', { isolate: false })).toBe('\\pir \\ellx');
+  });
+
   it('misconName: the content\'s title, else the topic\'s older name, else a calm fallback', () => {
     const own = META['angles:1'].misconceptions.find((m) => m.id === 'sum-360')!;
     expect(misconName('angles:1', 'sum-360')).toBe(texToPlain(own.title));

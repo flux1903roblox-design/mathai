@@ -1027,6 +1027,40 @@ script. They now load one topic at a time, and nothing the student sees changed.
   pins the two imports), and the CSS is **45.5 KB** again (gate unchanged). The precache is the raw bytes of every
   offline file: 5.23 MB (the three topics' content and chunks), so its gate moved by the integration rule, measured +
   5%, to **5.49 MB**. 37 lazy-only modules load on demand.
+  The stage-2 lane (measurement, `finish/specs/stage2.md`) put its first unit on the ז׳ path: areas and perimeters
+  (`area:1-5`). Its exercise generators and their models (`content/area.js`, read by the map, the placement test and the
+  class exam) and its three challenge tasks join the first download: boot JS 433.0 → **447.3 KB** (+14.3 KB; HEAD
+  measured exactly at its 433 KB gate), CSS 53.9 KB unchanged. Its teaching content is a chunk of its own (`area-*.js`),
+  loaded with the unit, and the grid object's rules (`grid-*.js`) still load after the first screen. The precache grew
+  from 4.76 to 4.88 MB, over its 4.79 MB gate. Both gates moved by the same rule (measured + 5%, rounded down) to
+  **469 KB** and **5.12 MB**. Open work, unchanged: the challenge tasks behind a per-topic import, and the exercise
+  generators of units that are not this month's behind one too.
+  Its next three units joined the same way (generators, models and challenge tasks at boot, each unit's teaching a
+  chunk of its own): boxes and prisms (`solid:1-4`) and the circle, the cylinder and the cone (`circle:1-4`) took boot
+  JS to 465.1 KB, under the gate, and Pythagoras in space (`space:1-2`, the lane's last unit) to **470.9 KB**, 1.9 KB
+  over it (CSS 53.9 KB unchanged; precache 5.09 MB, under its 5.12 MB gate). The boot JS gate moved by the same rule
+  (measured + 5%, rounded down) to **494 KB**; the precache gate stays. Open work, unchanged.
+  **The stage-2 merge** (onto the boot split, after the stage-3 and classroom merges) keeps main's gates, not the
+  lane's (469 KB, then 494 KB, and 5.12 MB were its own branch's, over a first load that still carried every
+  generator). Its generator files (`content/area.js`, `solid.js`, `circle.js`, `space.js`) load with their topics like
+  every other (`content/topics.js` `importGens` has the four); its three objects' rules (`content/grid.js`, `net.js`,
+  `roll.js`, which register themselves when `content/index.js` and `components/Figure.jsx` import them: the lane's
+  `late.js` loader is gone, nothing waits for a second import) and the note on a right value in another form
+  (`content/partial.js`) load with the exercise screens; `budget.json`'s `lazyOnly` names the eight by path. The three
+  objects' own rules (133 lines the lane had put in `app.css`) are `styles/lazy/measure.css`, imported by
+  `components/manip/GridShape.jsx`, `NetFold.jsx` and `CircleRoll.jsx` (`styles/lazy.test.js` checks every selector and
+  pins the three imports), and the rules of a choice that is a drawing moved to `styles/lazy/figure.css` (a drawn
+  choice is a `Figure`). What the merge adds to the first load is its four topics' meta (`topics.gen.js`,
+  `meta.gen.ts`, the challenge meta), their scenery drawings and wardrobe pins: boot JS 326.3 -> 332.9 KB, 0.1 KB
+  under the gate. The gate did not move: the lesson summaries left the first load instead. A topic's key ideas, words
+  and examples (`lesson` in its file, and `content/lessons.js` for the first topics) were in `topics.gen.js` for one
+  reader, the guide page; now `scripts/gen-content-meta.mjs` writes them to `content/lessons.gen.js`,
+  `content/lessons.js` `lessonOf` reads them, only `screens/Topic.jsx` imports that, and `lazyOnly` names both files
+  (`src/boot.test.js` and `src/content/topic-split.test.js` pin it before a build). Measured: boot JS **326.9 KB** (the
+  same built as the public site; gate 333 unchanged, 6.1 KB of room), render-blocking CSS **45.8 KB** (gate 46
+  unchanged). The precache is the raw bytes of every offline file: 5.87 MB (the four topics' content, teaching and
+  challenge chunks), so its gate moved by the integration rule, measured + 5%, to **6.16 MB**. 53 lazy-only modules
+  load on demand.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

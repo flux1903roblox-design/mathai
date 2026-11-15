@@ -45,6 +45,14 @@ export const ITEMS = [
   { id: 'tally-pin', slot: 'body', topic: 'data', name: 'סיכת ספירה', unlock: { chest: 'data' } },
   // curriculum stage 3's probability unit: a die pin, so every unit in TOPICS has its piece
   { id: 'die-pin', slot: 'body', topic: 'prob', name: 'סיכת קובייה', unlock: { chest: 'prob' } },
+  // stage 2's areas and perimeters: an L on a grid of squares
+  { id: 'grid-pin', slot: 'body', topic: 'area', name: 'סיכת משבצות', unlock: { chest: 'area' } },
+  // and its boxes and prisms: a small box
+  { id: 'box-pin', slot: 'body', topic: 'solid', name: 'סיכת תיבה', unlock: { chest: 'solid' } },
+  // and ח׳'s circle, cylinder and cone: a small wheel with its radius
+  { id: 'wheel-pin', slot: 'body', topic: 'circle', name: 'סיכת גלגל', unlock: { chest: 'circle' } },
+  // and Pythagoras in space: a small box with its diagonal
+  { id: 'diagonal-pin', slot: 'body', topic: 'space', name: 'סיכת אלכסון', unlock: { chest: 'space' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 

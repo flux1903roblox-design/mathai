@@ -13,6 +13,8 @@ export const TOPIC_NAMES = Object.freeze({
   coord: 'מערכת צירים',
   angles: 'זוויות',
   expr: 'ביטויים אלגבריים',
+  area: 'שטחים והיקפים', // stage 2 (measurement): ז׳ 7.12, December to May
+  solid: 'תיבה ומנסרה', // stage 2 (measurement): ז׳ 7.13, January and May
   data: 'נתונים ושכיחות', // curriculum stage 3: ז׳ (January–February), and ח׳ this school year too
   eq: 'משוואות',
   ratio: 'יחס וקנה מידה', // the curriculum lane's first unit of grade 8 (school order: ratio, percent, then linear functions)
@@ -20,9 +22,11 @@ export const TOPIC_NAMES = Object.freeze({
   func: 'מבוא לפונקציות', // the stage-5 lane's ח׳ unit 8.7 (November), before linear functions
   line: 'פונקציה קווית',
   pyth: 'משפט פיתגורס',
+  circle: 'מעגל, גליל וחרוט', // stage 2 (measurement): ח׳ 8.4, October and November
   stats: 'סטטיסטיקה',
   sys: 'משוואות ומערכות',
   prob: 'הסתברות', // curriculum stage 3: ח׳'s "הסתברות ב" (March), last of the grade in school order
+  space: 'פיתגורס במרחב', // stage 2 (measurement): ח׳ 8.17, May
 });
 
 /** Each stair's name, as its lesson and its teaching content call it. */
@@ -56,6 +60,15 @@ export const STAIR_NAMES = Object.freeze({
   'expr:3': 'כינוס איברים דומים',
   'expr:4': 'חוק הפילוג',
   'expr:5': 'פישוט ביטויים',
+  'area:1': 'היקף ושטח של מלבן',
+  'area:2': 'שטח משולש',
+  'area:3': 'צורות מורכבות',
+  'area:4': 'מקבילית וטרפז',
+  'area:5': 'היקפים: אותו היקף, שטח אחר',
+  'solid:1': 'תיבה: פריסה ושטח פנים',
+  'solid:2': 'נפח תיבה וקובייה',
+  'solid:3': 'מנסרה משולשת: פריסה ושטח פנים',
+  'solid:4': 'נפח מנסרה',
   'data:1': 'דיאגרמות וטבלת שכיחויות',
   'data:2': 'שכיחות יחסית',
   'data:3': 'אחוזים ודיאגרמת עוגה',
@@ -93,6 +106,10 @@ export const STAIR_NAMES = Object.freeze({
   'pyth:3': 'האם המשולש ישר־זווית?',
   'pyth:4': 'שאלה מילולית',
   'pyth:5': 'מרחק בין נקודות',
+  'circle:1': 'היקף מעגל',
+  'circle:2': 'שטח עיגול',
+  'circle:3': 'גליל',
+  'circle:4': 'חרוט',
   'stats:1': 'שכיח',
   'stats:2': 'חציון',
   'stats:3': 'ממוצע',
@@ -111,6 +128,8 @@ export const STAIR_NAMES = Object.freeze({
   'prob:1': 'תוצאות שוות סיכוי',
   'prob:2': 'מאורע משלים',
   'prob:3': 'ניסוי בשני שלבים',
+  'space:1': 'אלכסון בקובייה ובתיבה',
+  'space:2': 'משולשים ישרי־זווית בגופים',
 });
 
 /**
@@ -129,7 +148,7 @@ export const stairName = (id) => {
  * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
  * it today. (ai spec AI-5)
  */
-export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8', prob: '8' });
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', circle: '8', stats: '8', sys: '8', prob: '8', space: '8' });
 
 /**
  * Units a grade also learns this school year though filed under the other (learn/skills.ts ALSO_ON_PATH: the תשפ״ז

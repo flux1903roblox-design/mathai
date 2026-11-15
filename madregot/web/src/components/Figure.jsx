@@ -71,6 +71,10 @@
 // label?, tone? }] } (parts in several tones, each group named under it), dots { span: { from, to, label? } } (a range
 // arrow over the dots), and a numline mark whose label is a Hebrew word (בלתי אפשרי, ודאי) is written under the line,
 // held inside the drawing at its ends and wrapped when long.
+// Measurement (stage 2): geo also takes grid, circles, arcs and polys[].tone (see Geo, below), and the solids are drawn by
+// components/SolidFigs.jsx:
+//   netfig { solid, dims, layout?, letters?, shade?, labels? }   a net, flat, with the net object's geometry
+//   solid  { shape, a?, b?, c?, p?, q?, r?, L?, h?, l?, labels?, diag?, cubes?, cut?, open?, label? }   a solid, still
 import { useEffect, useId, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
@@ -86,6 +90,10 @@ import { GraphAxes, GraphLegend, graphFrame, graphFont, drawnScale, useDrawnBox,
 import { PROT, protractorLabels, protExtent, polar, useDrawnWidth, ProtractorArt } from './manip/protractor.jsx';
 import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, clockHands, chartWords, outcomesWords } from '@/content/manip.js';
 import { barGeom, lineGeom, pieGeom, pictoGeom, BarChartArt, LineChartArt, PieArt, PictoArt, PatternDefs, textW, wrapText } from './manip/ChartArt.jsx';
+import { NetFig, SolidFig } from './SolidFigs.jsx';
+// the words of a geo drawing's measurement parts (a grid, circles, arcs, a part taken away or added) register with
+// content/manip.js as this file loads, so every screen that draws one can also say it (stage 2)
+import '@/content/grid.js';
 import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
@@ -427,6 +435,13 @@ function Table({ fig, compact }) {
 //   words    [{ at: [x, y] | name, text, dx, dy, anchor }]        a short Hebrew label
 //   moves    [{ from: [x, y], to: [x, y] }]                      a dashed arrow: something slides or turns
 //   dots     ['O']                                               a vertex dot;   lab: { A: [dx, dy] } moves a letter
+// Stage 2 (measurement, MEASURE-1.5):
+//   grid     [x0, y0, x1, y1]                                    unit squares under the shape (lengths counted on the grid)
+//   circles  [{ c, r, dash, fill, label }]                       a circle about point c (a name or [x, y]) of radius r units;
+//            label: written on a radius drawn to the right (5, r); dash: dashed; fill: shaded
+//   arcs     [{ c, r, from, to }]                                an arc about c, counterclockwise from `from` to `to` degrees
+//   polys[]  also { tone: 'cut' | 'add' }                       'cut' hatched and dashed (a part taken away), 'add' in the
+//                                                                 accent tone (a part added or moved)
 const WORD = /[\u0590-\u05ff]/;
 /**
  * A label that may be an expression ('x + 5', '3x − 10°', CLASSROOM-8): its letters in the maths font and italic, a
@@ -466,7 +481,13 @@ function Geo({ fig }) {
   const at = (k) => (Array.isArray(k) ? k : P[k]);
   const sqs = (fig.squares || []).map((q) => ({ ...q, c: geoSquare(P[q.a], P[q.b], q.away ? P[q.away] : null) }));
   const segs = (fig.segs || []).map((sg) => ({ ...sg, e: segEnds(P, sg) }));
-  const all = [...Object.values(P), ...sqs.flatMap((q) => q.c), ...segs.flatMap((sg) => sg.e), ...(fig.words || []).filter((w) => Array.isArray(w.at)).map((w) => w.at), ...(fig.moves || []).flatMap((mv) => [mv.from, mv.to])];
+  // stage 2: the grid's corners, each circle's box and points along each arc are fitted in too
+  const circles = (fig.circles || []).map((c) => ({ ...c, o: at(c.c) }));
+  const arcs = (fig.arcs || []).map((a) => ({ ...a, o: at(a.c) }));
+  const arcPts = (a) => Array.from({ length: 13 }, (_, i) => { const d = rad(a.from + ((a.to - a.from) * i) / 12); return [a.o[0] + a.r * Math.cos(d), a.o[1] + a.r * Math.sin(d)]; });
+  const all = [...Object.values(P), ...sqs.flatMap((q) => q.c), ...segs.flatMap((sg) => sg.e), ...(fig.words || []).filter((w) => Array.isArray(w.at)).map((w) => w.at), ...(fig.moves || []).flatMap((mv) => [mv.from, mv.to]),
+    ...(fig.grid ? [[fig.grid[0], fig.grid[1]], [fig.grid[2], fig.grid[3]]] : []),
+    ...circles.flatMap((c) => [[c.o[0] - c.r, c.o[1] - c.r], [c.o[0] + c.r, c.o[1] + c.r]]), ...arcs.flatMap(arcPts)];
   const xs = all.map((p) => p[0]); const ys = all.map((p) => p[1]);
   const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
   const s = Math.min((W - 2 * padX) / Math.max(x1 - x0, 1e-9), (H - 2 * padY) / Math.max(y1 - y0, 1e-9));
@@ -477,10 +498,24 @@ function Geo({ fig }) {
   const core = fig.polys?.length ? fig.polys.flatMap((pg) => pg.pts.map((k) => P[k])) : Object.values(P);
   const centre = X([core.reduce((a, p) => a + p[0], 0) / core.length, core.reduce((a, p) => a + p[1], 0) / core.length]);
   const textCls = (t, target) => (WORD.test(t) ? 'fg-word' : /^[a-z]$/.test(t) ? 'fg-side fg-math' : t === '?' || target ? 'fg-side target' : 'fg-side');
-  const markerId = `geo-arrow-${useId().replace(/[^\w-]/g, '')}`;
+  const uid = useId().replace(/[^\w-]/g, '');
+  const markerId = `geo-arrow-${uid}`;
+  const hatchId = `geo-hatch-${uid}`;
+  const gridLines = (() => {
+    if (!fig.grid) return null;
+    const [gx0, gy0, gx1, gy1] = fig.grid; const out = [];
+    for (let x = Math.ceil(gx0); x <= gx1; x += 1) { const [p, q] = [X([x, gy0]), X([x, gy1])]; out.push(<line key={`gx${x}`} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} className="fg-geo-grid" />); }
+    for (let y = Math.ceil(gy0); y <= gy1; y += 1) { const [p, q] = [X([gx0, y]), X([gx1, y])]; out.push(<line key={`gy${y}`} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} className="fg-geo-grid" />); }
+    return <g aria-hidden="true">{out}</g>;
+  })();
+  const toneCls = (t) => (t === 'cut' ? 'fg-tri fg-tone-cut' : t === 'add' ? 'fg-tri fg-tone-add' : 'fg-tri');
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="figure geo" role="img" aria-label={fig.label || 'שרטוט'}>
-      <defs><marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" className="fg-move-head" /></marker></defs>
+      <defs>
+        <marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" className="fg-move-head" /></marker>
+        {(fig.polys || []).some((pg) => pg.tone === 'cut') && <pattern id={hatchId} patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" className="fg-hatch-line" /></pattern>}
+      </defs>
+      {gridLines}
       {sqs.map((q, i) => {
         const c = q.c.map(X); const m = [c.reduce((a, p) => a + p[0], 0) / 4, c.reduce((a, p) => a + p[1], 0) / 4];
         return (
@@ -490,7 +525,18 @@ function Geo({ fig }) {
           </g>
         );
       })}
-      {(fig.polys || []).map((pg, i) => <polygon key={`p${i}`} points={pg.pts.map((k) => X(P[k]).join(',')).join(' ')} className="fg-tri" />)}
+      {(fig.polys || []).map((pg, i) => <polygon key={`p${i}`} points={pg.pts.map((k) => X(P[k]).join(',')).join(' ')} className={toneCls(pg.tone)} style={pg.tone === 'cut' ? { fill: `url(#${hatchId})` } : undefined} />)}
+      {circles.map((c, i) => {
+        const o = X(c.o); const rr = c.r * s; const end = X([c.o[0] + c.r, c.o[1]]);
+        return (
+          <g key={`c${i}`}>
+            <circle cx={o[0]} cy={o[1]} r={rr} className={clsx('fg-circle', c.dash && 'dashed', c.fill && 'filled')} />
+            {c.label != null && <><line x1={o[0]} y1={o[1]} x2={end[0]} y2={end[1]} className="fg-radius" /><text x={(o[0] + end[0]) / 2} y={o[1] - 8} textAnchor="middle" className={textCls(String(c.label))}>{c.label}</text></>}
+            <circle cx={o[0]} cy={o[1]} r="3" className="fg-vertex" />
+          </g>
+        );
+      })}
+      {arcs.map((a, i) => { const o = X(a.o); return <path key={`r${i}`} d={arcPath(o[0], o[1], a.r * s, a.from, a.to)} className="fg-geo-arc" />; })}
       {segs.map((sg, i) => {
         const [p, q] = sg.e.map(X);
         const cls = clsx('fg-ray', sg.dash && 'dashed', sg.thin && 'thin', sg.hi && 'hi');
@@ -1262,7 +1308,7 @@ function Pair({ fig }) {
 /** One numline type: a line cut into parts (den) is the fraction lane's PartsLine, any other the teaching NumLine. */
 const NumberLine = ({ fig }) => (fig.den ? <PartsLine fig={fig} /> : <NumLine fig={fig} />);
 
-const DRAW = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph, protractor: ProtractorFigure, clock: Clock, chart: Chart, outcomes: Outcomes, pair: Pair };
+const DRAW = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, sgraph: SGraph, protractor: ProtractorFigure, clock: Clock, chart: Chart, outcomes: Outcomes, pair: Pair, netfig: NetFig, solid: SolidFig };
 /** Every figure type this component draws (learn/visuals.test.ts counts a step's figure only when it is one of them). */
 export const FIG_TYPES = Object.keys(DRAW);
 /**

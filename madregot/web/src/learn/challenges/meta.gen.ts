@@ -29,6 +29,57 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "minutes": 7
   },
   {
+    "id": "area:c1",
+    "topic": "area",
+    "after": "area:5",
+    "kind": "claim",
+    "title": "היקף גדול יותר, שטח גדול יותר?",
+    "minutes": 6,
+    "misc": "same-perim-same-area"
+  },
+  {
+    "id": "area:c2",
+    "topic": "area",
+    "after": "area:2",
+    "kind": "error",
+    "title": "הניצב החסר",
+    "minutes": 5,
+    "misc": "no-half"
+  },
+  {
+    "id": "area:c3",
+    "topic": "area",
+    "after": "area:4",
+    "kind": "literacy",
+    "title": "המרפסת של משפחת אור",
+    "minutes": 9
+  },
+  {
+    "id": "circle:c1",
+    "topic": "circle",
+    "after": "circle:2",
+    "kind": "claim",
+    "title": "רדיוס כפול",
+    "minutes": 5
+  },
+  {
+    "id": "circle:c2",
+    "topic": "circle",
+    "after": "circle:4",
+    "kind": "error",
+    "title": "הקו היוצר",
+    "minutes": 5,
+    "misc": "slant-as-height"
+  },
+  {
+    "id": "circle:c3",
+    "topic": "circle",
+    "after": "circle:3",
+    "kind": "literacy",
+    "title": "צנצנות דבש",
+    "minutes": 8
+  },
+  {
     "id": "coord:c1",
     "topic": "coord",
     "after": "coord:2",
@@ -362,6 +413,56 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "title": "מינוס בחזקה",
     "minutes": 4,
     "misc": "pow-odd-pos"
+  },
+  {
+    "id": "solid:c1",
+    "topic": "solid",
+    "after": "solid:2",
+    "kind": "claim",
+    "title": "חצי תיבה",
+    "minutes": 6
+  },
+  {
+    "id": "solid:c2",
+    "topic": "solid",
+    "after": "solid:1",
+    "kind": "error",
+    "title": "שלוש פאות",
+    "minutes": 5,
+    "misc": "three-faces"
+  },
+  {
+    "id": "solid:c3",
+    "topic": "solid",
+    "after": "solid:2",
+    "kind": "literacy",
+    "title": "קרטון של ליטר",
+    "minutes": 10
+  },
+  {
+    "id": "space:c1",
+    "topic": "space",
+    "after": "space:1",
+    "kind": "claim",
+    "title": "האלכסון הארוך",
+    "minutes": 5
+  },
+  {
+    "id": "space:c2",
+    "topic": "space",
+    "after": "space:2",
+    "kind": "error",
+    "title": "המקל בגליל",
+    "minutes": 5,
+    "misc": "r-for-d"
+  },
+  {
+    "id": "space:c3",
+    "topic": "space",
+    "after": "space:1",
+    "kind": "literacy",
+    "title": "הנמלה והקופסה",
+    "minutes": 9
   },
   {
     "id": "stats:c1",

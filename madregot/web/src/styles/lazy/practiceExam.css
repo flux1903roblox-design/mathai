@@ -7,6 +7,10 @@
 .exam-q { display: flex; flex-direction: column; gap: var(--s2); break-inside: avoid; }
 .exam-work { height: 120px; border: 1px dashed var(--rule-strong); border-radius: 6px; background-image: linear-gradient(to bottom, var(--rule) 1px, transparent 1px); background-size: 100% 24px; }
 .exam-answer-line { font-weight: 700; display: flex; gap: var(--s2); align-items: flex-end; }
+/* an answer "with π": the blank and π after it, left to right (□π), as wide as a plain blank */
+.exam-answer-slot { flex: 0 1 240px; display: inline-flex; align-items: flex-end; gap: 4px; }
+.exam-answer-line .exam-answer-slot .blank { flex: 1 1 auto; }
+.exam-answer-unit { font-weight: 600; }
 @media print {
   .exam-sheet { border: 0; padding: 0; }
 }

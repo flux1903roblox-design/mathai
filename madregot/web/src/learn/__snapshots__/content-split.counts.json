@@ -128,6 +128,197 @@
   "stairs": 7,
   "steps": 196
  },
+ "area": {
+  "skills": {
+   "area:1": {
+    "discover": 8,
+    "examples": [
+     2,
+     3,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     2
+    ]
+   },
+   "area:2": {
+    "discover": 8,
+    "examples": [
+     2,
+     5,
+     2
+    ],
+    "misconceptions": [
+     2,
+     2,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     2
+    ]
+   },
+   "area:3": {
+    "discover": 8,
+    "examples": [
+     3,
+     3,
+     3
+    ],
+    "misconceptions": [
+     1,
+     2,
+     1
+    ],
+    "objectives": 4,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "area:4": {
+    "discover": 8,
+    "examples": [
+     2,
+     3,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "area:5": {
+    "discover": 8,
+    "examples": [
+     3,
+     2,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   }
+  },
+  "stairs": 5,
+  "steps": 126
+ },
+ "circle": {
+  "skills": {
+   "circle:1": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "circle:2": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "circle:3": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     3
+    ],
+    "misconceptions": [
+     1,
+     1,
+     2,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "circle:4": {
+    "discover": 8,
+    "examples": [
+     2,
+     3,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   }
+  },
+  "stairs": 4,
+  "steps": 92
+ },
  "coord": {
   "skills": {
    "coord:1": {
@@ -1328,6 +1519,136 @@
   },
   "stairs": 7,
   "steps": 237
+ },
+ "solid": {
+  "skills": {
+   "solid:1": {
+    "discover": 8,
+    "examples": [
+     5,
+     4,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "solid:2": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "solid:3": {
+    "discover": 8,
+    "examples": [
+     4,
+     3,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "solid:4": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   }
+  },
+  "stairs": 4,
+  "steps": 97
+ },
+ "space": {
+  "skills": {
+   "space:1": {
+    "discover": 8,
+    "examples": [
+     3,
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "space:2": {
+    "discover": 8,
+    "examples": [
+     3,
+     3,
+     3
+    ],
+    "misconceptions": [
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     2
+    ]
+   }
+  },
+  "stairs": 2,
+  "steps": 48
  },
  "stats": {
   "skills": {

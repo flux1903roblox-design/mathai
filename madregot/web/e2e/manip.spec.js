@@ -40,6 +40,10 @@ const KINDS = [
   ['graph', 'func/3', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'shape', 'a graph drawn to rise, stay and fall'],
   // a uniform rate continued from two given minutes: a drag in a free column moves that point (func:4 continueRate)
   ['graph', 'func/4', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'values', 'a uniform rate continued on a graph'],
+  // the grid object (stage 2), first used by area: a drag anywhere puts the rectangle's corner there (area:1 "build a
+  // rectangle"), and a drag on the parallelogram's triangle slides it a whole number of cells (area:4)
+  ['polygon', 'area/1', '7', [0.15, 0.85, 0.55, 0.45], (it) => it.manip.task === 'rect', 'a rectangle on the grid, its corner dragged'],
+  ['polygon', 'area/4', '7', [0.2, 0.6, 0.75, 0.6], (it) => it.manip.task === 'move', "the parallelogram's triangle moved across"],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');
@@ -115,6 +119,139 @@ for (const [kind, route, grade, [fx, fy, tx, ty], extra = () => true, name = kin
     await expect.poll(async () => (await item(page))?.form !== 'manip' || (await page.locator('section.fb').count()) === 0).toBe(true);
   });
 }
+
+// the grid object on the smallest phone: the drawing keeps room to work in, its corner follows a finger, and nothing
+// scrolls sideways (MEASURE-1 e2e)
+test('the grid object on a 320×568 phone: tall enough, its corner dragged, no sideways scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openOn(page, '#/lesson/area/1?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'polygon' && it.manip.task === 'rect');
+  await expectNoSidewaysScroll(page);
+  const canvas = page.locator('.manip-canvas');
+  const box = await canvas.boundingBox();
+  expect(box.height, 'the grid is at least 160px high on the smallest phone').toBeGreaterThanOrEqual(160);
+  const read = () => canvas.getAttribute('aria-valuetext');
+  const before = await read();
+  await page.mouse.move(box.x + box.width * 0.15, box.y + box.height * 0.85);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i += 1) await page.mouse.move(box.x + box.width * (0.15 + 0.45 * i / 8), box.y + box.height * (0.85 - 0.45 * i / 8));
+  await page.mouse.up();
+  await expect.poll(read, 'the corner followed the finger').not.toBe(before);
+  expect(await read()).toMatch(/^מלבן ברוחב \d+ ובגובה \d+ משבצות/);
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('grid-phone-small.png') });
+});
+
+// the net object (stage 3), first used by solid:1. In the teaching (discover 2) its Stepper folds the box's net closed a
+// quarter at a time (the drawing itself takes no drag, so the page still scrolls under a finger); in practice (so1n) a
+// tap on the face opposite the shaded one is right.
+async function toFold(page) {
+  await open(page, '#/learn/solid/1/A', student('7', { goalXp: 50 }));
+  await expect.poll(() => page.evaluate(() => window.__madregotStep?.kind)).toBe('say');
+  await page.locator('.sp-next').click();
+  await expect.poll(() => page.evaluate(() => window.__madregotStep?.kind)).toBe('explore');
+  await expect(page.locator('.ls-explore .manip')).toBeVisible();
+  // the step before has finished leaving (its card slides out, and on a narrow phone it may stick out while it goes)
+  await expect(page.locator('.sp-say')).toHaveCount(0);
+  // and this one has come in whole: on a busy machine its card can still stick out by a few pixels for a moment
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  return page.locator('.ls-explore .manip-canvas');
+}
+
+test('the net object (solid:1 discover 2): the fold Stepper to 100% closes the box', async ({ page }) => {
+  const canvas = await toFold(page);
+  await expect(canvas).toHaveAttribute('aria-valuenow', '0');
+  const more = page.getByRole('button', { name: 'לקפל עוד רבע', exact: true });
+  for (const want of ['25', '50', '75', '100']) {
+    await more.click();
+    await expect(canvas).toHaveAttribute('aria-valuenow', want);
+  }
+  await expect(canvas).toHaveAttribute('aria-valuetext', /התיבה סגורה/);
+  await expect(more).toBeDisabled();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('net-fold-closed.png') });
+});
+
+test('the net object on a 320×568 phone: tall enough, its Stepper thumb-sized, no sideways scroll while it folds', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const canvas = await toFold(page);
+  await expectNoSidewaysScroll(page);
+  const box = await canvas.boundingBox();
+  expect(box.height, 'the net is at least 160px high on the smallest phone').toBeGreaterThanOrEqual(160);
+  for (const b of await page.locator('.ls-explore .step-btn').all()) {
+    const s = await b.boundingBox();
+    expect(Math.min(s.width, s.height), 'the fold buttons are thumb-sized').toBeGreaterThanOrEqual(44);
+  }
+  await page.getByRole('button', { name: 'לקפל עוד רבע', exact: true }).click();
+  await page.getByRole('button', { name: 'לקפל עוד רבע', exact: true }).click();
+  await expect(canvas).toHaveAttribute('aria-valuenow', '50');
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('net-fold-phone-small.png') });
+});
+
+test('the net object in practice (solid:1): a tap on the face opposite the shaded one is right', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/solid/1?part=1', student('7'), (x) => x.form === 'manip' && x.manip.kind === 'net' && x.manip.task === 'face');
+  await expectNoSidewaysScroll(page);
+  await expect(checkBtn(page)).toBeDisabled();
+  await page.getByRole('button', { name: `פאה ${it.answer.face}`, exact: true }).click();
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
+});
+
+// the circle object (stage 4), first used by circle:1 (discover 2): its Stepper rolls the wheel one turn along the line, a
+// quarter at a time (the drawing takes no drag for the roll, so the page still scrolls under a finger)
+async function toRoll(page) {
+  await open(page, '#/learn/circle/1/A', student('8', { goalXp: 50 }));
+  await expect.poll(() => page.evaluate(() => window.__madregotStep?.kind)).toBe('say');
+  await page.locator('.sp-next').click();
+  await expect.poll(() => page.evaluate(() => window.__madregotStep?.kind)).toBe('explore');
+  await expect(page.locator('.ls-explore .manip')).toBeVisible();
+  // the step before has finished leaving (its card slides out, and on a narrow phone it may stick out while it goes)
+  await expect(page.locator('.sp-say')).toHaveCount(0);
+  // and this one has come in whole: on a busy machine its card can still stick out by a few pixels for a moment
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  return page.locator('.ls-explore .manip-canvas');
+}
+
+test('the circle object (circle:1 discover 2): the roll Stepper to 100% unrolls one turn, a little past three diameters', async ({ page }) => {
+  const canvas = await toRoll(page);
+  await expect(canvas).toHaveAttribute('aria-valuenow', '0');
+  await expect(canvas).toHaveAttribute('aria-valuetext', /לא מגולגל/);
+  const more = page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true });
+  for (const want of ['25', '50', '75', '100']) {
+    await more.click();
+    await expect(canvas).toHaveAttribute('aria-valuenow', want);
+  }
+  await expect(canvas).toHaveAttribute('aria-valuetext', /מגולגל עד הסוף/);
+  await expect(more).toBeDisabled();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('circle-roll-done.png') });
+});
+
+test('the circle object on a 320×568 phone: tall enough, its Steppers thumb-sized, no sideways scroll while it rolls', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const canvas = await toRoll(page);
+  // once the step has come in (its card slides in from the side), nothing scrolls sideways
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), { message: 'page scrolls sideways' }).toBeLessThanOrEqual(0);
+  const box = await canvas.boundingBox();
+  expect(box.height, 'the circle and its line are at least 160px high on the smallest phone').toBeGreaterThanOrEqual(160);
+  for (const b of await page.locator('.ls-explore .step-btn').all()) {
+    const s = await b.boundingBox();
+    expect(Math.min(s.width, s.height), 'the radius and roll buttons are thumb-sized').toBeGreaterThanOrEqual(44);
+  }
+  await page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true }).click();
+  await page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true }).click();
+  await expect(canvas).toHaveAttribute('aria-valuenow', '50');
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true }).click();
+  await page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true }).click();
+  await expect(canvas).toHaveAttribute('aria-valuenow', '100');
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('circle-roll-phone-small.png') });
+});
 
 test('interactive exercise: the second miss shows the answer on the object', async ({ page }) => {
   await openOn(page, '#/lesson/coord/1?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'plot');
@@ -631,4 +768,30 @@ test('the angle tool with a whole angle: a ray turning inside ∢AOB, by keys, d
   while (Number(await canvas.getAttribute('aria-valuenow')) < 55) await inc.click();
   await page.locator('.lm-check').click();
   await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+});
+
+// Stage 2 (MEASURE-1.4; CURRICULUM-11 item 1 for the three new objects): in practice, the first try of "build a
+// rectangle with area S and perimeter P" (ar1b) shows the sides only, so it cannot be solved by stepping until the
+// readout matches; after a miss the readout shows the area and the perimeter, and the feedback says so. The retry is an
+// answer with help (lib/lesson.js: the hint is on after a first miss). The circle's radius exercise does the same.
+test('a practice first try hides the grid\'s area and perimeter; after a miss they show, and the feedback says so', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/area/1?part=1', student('7'), (x) => x.form === 'manip' && x.manip.kind === 'polygon' && x.manip.task === 'rect');
+  const readout = page.locator('.mp-grid-readout');
+  await expect(readout).toContainText('רוחב');
+  await expect(readout).not.toContainText('שטח');
+  await expect(readout).not.toContainText('היקף');
+  await expect(page.locator('.manip-canvas')).not.toHaveAttribute('aria-valuetext', /שטח|היקף/);
+  await page.screenshot({ path: test.info().outputPath('readout-first-try.png') });
+  await page.evaluate(() => window.__madregotSolve(false));
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  await expect(page.locator('section.fb-retry .readout-line')).toHaveText('עכשיו רואים גם את השטח ואת ההיקף. נסו שוב.');
+  await page.screenshot({ path: test.info().outputPath('readout-after-miss.png') });
+  await proceed(page);
+  await expect(readout).toContainText('שטח');
+  await expect(readout).toContainText('היקף');
+  expect(it.key).toMatch(/^ar1/);
+  await openOn(page, '#/lesson/circle/1?part=1', student('8'), (x) => x.form === 'manip' && x.manip.kind === 'circle');
+  await expect(page.locator('.manip-readout').first()).toContainText('רדיוס');
+  await expect(page.locator('.manip-readout').first()).not.toContainText('היקף');
 });

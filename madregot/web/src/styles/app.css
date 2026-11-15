@@ -1392,6 +1392,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   /* one typed number has the row to itself beside the check button: wide enough for −27/64 or −0.027 on a 320 phone
      (at 72px the last digits were cut off while typing and on the struck answer) */
   .answer-bar.with-check .answer-row > input.slot:only-of-type { width: clamp(96px, 40vw, 160px); }
+  /* one number with π or a unit after it (stage 2): room for both and for the 4–6 characters a measurement answer has
+     (251.2, 153.86); a longer number is set smaller until it shows whole (screens/Lesson.jsx AnswerSlots) */
+  .answer-bar.with-check .answer:has(.answer-after, .answer-unit) .answer-row > input.slot:only-of-type { width: clamp(96px, 32vw, 132px); }
   .answer-bar.with-check .answer-lab { font-size: 18px; }
   .lesson-foot .fb { max-height: 40dvh; }
 }

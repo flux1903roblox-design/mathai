@@ -246,6 +246,50 @@ describe('the classroom lane\'s three stairs', () => {
   });
 });
 
+// Stage 2 (measurement, MEASURE-6): on stage 1's stairs and its own fifteen (area:1-5: ז׳ 7.12 whole with coord:4;
+// solid:1-4: ז׳ 7.13 whole; circle:1-4: ח׳ 8.4 whole; space:1-2: ח׳ 8.17 whole), worker/test/coverage.test.js's "stage 2"
+// fixture: ז׳ 122 of 150, ח׳ 78 of 147, 67% together. The units it completes are whole in the live coverage.
+describe('stage 2: areas and perimeters, boxes and prisms, the circle, Pythagoras in space', () => {
+  const STAGE1 = [
+    ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+    ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+    'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+  ];
+  const MEASURE = ['area:1', 'area:2', 'area:3', 'area:4', 'area:5', 'solid:1', 'solid:2', 'solid:3', 'solid:4', 'circle:1', 'circle:2', 'circle:3', 'circle:4', 'space:1', 'space:2'];
+  const STAGE2 = [...STAGE1, ...MEASURE];
+  it('has its fifteen stairs, each in the programme; on stage 1\'s stairs and its own: ז׳ 122/150, ח׳ 78/147, 67%', () => {
+    const have = new Set(ALL_SKILLS);
+    MEASURE.forEach((s) => expect(have.has(s), `${s} is gone`).toBe(true));
+    MEASURE.forEach((s) => expect(programmeStairs.has(s), `${s} is in no unit of shared/programme.js`).toBe(true));
+    const f7 = coverage('7', STAGE2); const f8 = coverage('8', STAGE2);
+    expect([f7.taught, f7.hours]).toEqual([122, 150]);
+    expect([f8.taught, f8.hours]).toEqual([78, 147]);
+    expect(Math.round((100 * (f7.taught + f8.taught)) / (f7.hours + f8.hours))).toBe(67);
+  });
+  it('the units it completes are taught whole in the live coverage, and no part waits for stage 2 any more', () => {
+    const c7 = coverageOf('7'); const c8 = coverageOf('8');
+    expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+    expect(c7.units.find((u) => u.id === '7.12')).toMatchObject({ taught: 10, state: 'yes' });
+    expect(c7.units.find((u) => u.id === '7.13')).toMatchObject({ taught: 9, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.4')).toMatchObject({ taught: 6, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.17')).toMatchObject({ taught: 6, state: 'yes' });
+    expect(PROGRAMME.units.flatMap((u) => u.parts.filter((p) => (p as { later?: string }).later === 'S2').map(() => u.id))).toEqual([]);
+  });
+  it('reads each area and solid stair in its own months (MEASURE-6.1): December, January, April, May', () => {
+    expect(['area:1', 'area:2', 'area:3', 'area:4', 'area:5'].map((s) => monthIndex(s, '7'))).toEqual([3, 3, 4, 7, 8]);
+    // the box in January, the prism in May
+    expect(['solid:1', 'solid:2', 'solid:3', 'solid:4'].map((s) => monthIndex(s, '7'))).toEqual([4, 4, 8, 8]);
+    // the circle, the disc and the cylinder in October, the cone in November
+    expect(['circle:1', 'circle:2', 'circle:3', 'circle:4'].map((s) => monthIndex(s, '8'))).toEqual([1, 1, 1, 2]);
+    // and Pythagoras in space in May, with no months of its own: its unit's (8.17)
+    expect(['space:1', 'space:2'].map((s) => monthIndex(s, '8'))).toEqual([8, 8]);
+    // a stair with no months of its own keeps its unit's: Pythagoras is March in ז׳ (7.14) and September in ח׳ (8.3)
+    expect(monthIndex('pyth:1', '7')).toBe(3);
+    expect(monthIndex('pyth:1', '8')).toBe(0);
+    expect(monthIndex('coord:4', '7')).toBe(1);
+  });
+});
+
 describe('coverage, bound to the stairs this build has', () => {
   it('counts every hour of both schedules, and only taught hours as taught', () => {
     const c7 = coverageOf('7'); const c8 = coverageOf('8');

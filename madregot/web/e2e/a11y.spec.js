@@ -10,7 +10,8 @@
 // PhotoPrep) and the exams; the parents' area; the legal and landing pages; and every teacher screen, the demo included.
 // Last, the units merged after the scan was written: the functions unit (its graphs, the protractor and the clock),
 // the data and probability units (the simulate and chart objects and their figures), the guest rule, and the classroom
-// lane (signed:7, the angle tool with a whole angle, angles:7, the class's word problems and their solutions).
+// lane (signed:7, the angle tool with a whole angle, angles:7, the class's word problems and their solutions), and the
+// measurement units of curriculum stage 2 (the grid, net and circle objects, the net and solid figures, answers with π).
 // The setups the other specs use too (the class, the teachers, the parent and the family devices, the class exam, the
 // landing pages) live in helpers.js and fakeServer.js.
 import { test, expect } from '@playwright/test';
@@ -1522,7 +1523,7 @@ test.describe('the remaining sheets: parents and teachers', () => {
 // its figures in a question.
 
 /** The step's kind with what it shows (its object's kind, its figure's type): one scan for each new combination. */
-const stepShape = (st) => `${st.kind}|${st.manip?.kind || ''}|${st.manip?.device || st.manip?.mode || ''}|${st.fig?.type || ''}`;
+const stepShape = (st) => `${st.kind}|${st.manip?.kind || ''}|${st.manip?.device || st.manip?.mode || st.manip?.task || st.manip?.show || ''}|${st.fig?.type || ''}`;
 
 /**
  * Walk a teaching stage to its end as a student does (a prediction chosen right, an object solved and checked),
@@ -1916,5 +1917,122 @@ test.describe('the classroom lane', () => {
     await expect(page.locator('section.fb-good')).toBeVisible();
     await expect(page.locator('.answer-swap')).toBeVisible();
     await scan(page, 'expr:3, a constant-first answer and its note');
+  });
+});
+
+// ---------------------------------------------------------------- curriculum stage 2, measurement (the stage-2 merge)
+// Areas and perimeters, boxes and prisms (ז׳), the circle with the cylinder and the cone, Pythagoras in space (ח׳):
+// every stair's teaching step by step (each new step shape: the grid object's four tasks, the net object folded,
+// fixed and built, the circle rolled and cut, a geo drawing on a grid or with circles, a net and a solid, still), the
+// three objects in practice as they open and with a near miss checked (the readout a first try hid, then shown), their
+// questions with the solution shown, drawings as choices, the answer row with π and its note on a whole value, the
+// worked examples and solving together, a challenge with π and one with a net, the printed exam's π line and the
+// tutor's new exercises with π.
+test.describe('the measurement units (stage 2)', () => {
+  const UNITS = [['area', 5, '7'], ['solid', 4, '7'], ['circle', 4, '8'], ['space', 2, '8']];
+  // the object each stair's teaching has the student use (the others teach with drawings alone)
+  const OBJECT = {
+    'area:1': '|polygon|rect|', 'area:2': '|polygon|apex|', 'area:3': '|polygon|cut|', 'area:4': '|polygon|move|', 'area:5': '|polygon|rect|',
+    'solid:1': '|net|fold|', 'solid:2': '|net|build|', 'solid:3': '|net|fix|', 'solid:4': '|net|build|',
+    'circle:1': '|circle|circumference|', 'circle:2': '|circle|area|', 'circle:3': '|net|fold|', 'space:1': '|net|build|',
+  };
+  for (const [topic, stairs, grade] of UNITS) {
+    for (let level = 1; level <= stairs; level += 1) {
+      test(`${topic}:${level} teaching, step by step`, async ({ page }) => {
+        const seen = await walkTeaching(page, `#/learn/${topic}/${level}/A`, student(grade), `${topic}:${level}`);
+        const object = OBJECT[`${topic}:${level}`];
+        if (object) expect([...seen].some((x) => x.includes(object)), `${topic}:${level} teaches with ${object}`).toBe(true);
+        expect([...seen].some((x) => /\|(geo|solid|netfig)$/.test(x)), `${topic}:${level} teaches with a drawing`).toBe(true);
+      });
+    }
+  }
+
+  for (const [route, grade, kind, task, what] of [
+    ['area/1', '7', 'polygon', 'rect', 'the grid object: a rectangle built'],
+    ['area/4', '7', 'polygon', 'move', 'the grid object: a triangle moved across a parallelogram'],
+    ['solid/1', '7', 'net', 'face', 'the net object: the face opposite tapped'],
+    ['solid/2', '7', 'net', 'build', 'the net object: a box built of unit cubes'],
+    ['solid/3', '7', 'net', 'fix', 'the net object: a missing face put in its place'],
+    ['circle/1', '8', 'circle', 'circumference', 'the circle object: a circumference set'],
+    ['circle/2', '8', 'circle', 'area', 'the circle object: an area set'],
+  ]) {
+    test(`${what}, in practice`, async ({ page }) => {
+      await scanObject(page, `#/lesson/${route}?part=1`, student(grade), (it) => it.form === 'manip' && it.manip.kind === kind && (it.manip.task || it.manip.show) === task, what);
+    });
+  }
+
+  for (const [route, grade, key, what] of [
+    ['area/2', '7', 'ar2g', 'a triangle on a grid'],
+    ['area/3', '7', 'ar3l', 'a composite shape with its lengths'],
+    ['solid/2', '7', 'so2v', 'a box drawn with its edges'],
+    ['solid/1', '7', 'so1m', 'four nets as the choices'],
+    ['circle/2', '8', 'ci2n', 'a disc with π ≈ 3.14'],
+    ['circle/3', '8', 'ci3v', 'a cylinder answered with π'],
+    ['space/1', '8', 'sp1w', 'three lettered segments in a box'],
+    ['space/2', '8', 'sp2v', 'a cone\'s axial section answered with π'],
+  ]) {
+    test(`${what}: the question, and its solution shown`, async ({ page }) => {
+      await openOn(page, `#/lesson/${route}`, student(grade), (it) => String(it.key).startsWith(`${key}:`));
+      await scan(page, what);
+      await missTwice(page);
+      await scan(page, `${what}: the solution shown`);
+    });
+  }
+
+  test('an answer row with π: the whole value typed is noted, not marked wrong', async ({ page }) => {
+    const it = await openOn(page, '#/lesson/circle/3', student('8'), (x) => x.form === 'num' && x.after === '\\pi' && x.answer > 1);
+    await expect(page.locator('.answer-after')).toBeVisible();
+    await page.locator('#slot-v').click();
+    await type(page, Math.round(3.14 * it.answer * 10) / 10);
+    await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+    await expect(page.locator('.answer-partial')).toContainText('נכון בקירוב');
+    await expect(page.locator('section.fb')).toHaveCount(0);
+    await scan(page, 'the answer row with π, a whole value noted');
+  });
+
+  for (const [topic, level, grade] of [['area', 2, '7'], ['solid', 1, '7'], ['circle', 3, '8'], ['space', 1, '8']]) {
+    test(`${topic}:${level}: the worked examples, every step shown`, async ({ page }) => {
+      await walkExamples(page, `#/learn/${topic}/${level}/B`, student(grade), `${topic}:${level}`);
+    });
+    test(`${topic}:${level}: solving together, a wrong move and the last step`, async ({ page }) => {
+      await walkTogether(page, `#/learn/${topic}/${level}/C`, student(grade), `${topic}:${level}`);
+    });
+  }
+
+  test('a challenge with a net (space:c3) and one answered with π (circle:c1)', async ({ page }) => {
+    await open(page, '#/challenge/space:c3', student('8'));
+    await expect(page.locator('.ch-title')).toBeVisible();
+    await expect(page.locator('svg.figure.fg-net')).toBeVisible();
+    await scan(page, 'a challenge with a net and a way across it');
+    await page.goto('about:blank');
+    await open(page, '#/challenge/circle:c1', student('8'));
+    await expect(page.locator('.ch-title')).toBeVisible();
+    await scan(page, 'a challenge of the circle unit');
+  });
+
+  test('a practice exam on the circle: the sheet\'s answer lines with π', async ({ page }) => {
+    await open(page, '#/exams/new?topics=circle', student('8'));
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await page.getByRole('radio', { name: /10 שאלות/ }).click();
+    await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+    await expect(page.locator('.exam-q')).toHaveCount(10);
+    await expect(page.locator('.exam-answer-after').first()).toContainText('π');
+    await scan(page, 'PracticeSheet with π lines');
+  });
+
+  test('new exercises of the cylinder: π after the slot, and the note on a whole value', async ({ page }) => {
+    await familyServer(page);
+    await open(page, '#/assistant?generate=circle&level=3', family());
+    const sheet = page.getByRole('dialog', { name: 'תרגילים חדשים' });
+    await sheet.getByRole('button', { name: 'כתיבת תרגילים' }).click();
+    await expect(sheet.locator('.gen-q').first()).toBeVisible();
+    const seeds = await page.evaluate(() => window.__madregotGen.map((x) => ({ answer: x.answer, after: x.after })));
+    const k = seeds.findIndex((x) => x.after === '\\pi');
+    expect(k, 'a circle:3 exercise is answered with π').toBeGreaterThanOrEqual(0);
+    const q = sheet.locator('.gen-q').nth(k);
+    await q.getByLabel(`התשובה לתרגיל ${k + 1}`).fill(String(Math.round(3.14 * seeds[k].answer * 10) / 10));
+    await q.getByRole('button', { name: 'בדיקה' }).click();
+    await expect(q.locator('.gen-partial')).toContainText('נכון בקירוב');
+    await scan(page, 'the generate sheet, an exercise with π and its note');
   });
 });

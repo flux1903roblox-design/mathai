@@ -6,6 +6,10 @@ import { gradeByKey, gradeExam, gradedBy, choiceLetter } from './examGrade.js';
 import { makePracticeExam } from './exam.js';
 import { TOPICS } from '@/content/index.js';
 import { loadAllContent } from '@/learn/content/index.ts';
+// the rules of the objects the app loads after the first screen (content/late.js): a practice exam prints their answers
+// too (the grid shapes of the areas, the nets of the boxes and prisms)
+import '@/content/grid.js';
+import '@/content/net.js';
 
 // every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
 await loadAllContent();
@@ -77,6 +81,33 @@ describe('gradeByKey: the spec\'s table', () => {
     expect(gradeByKey(q('7', 'correct'), it).status).toBe('wrong');
     expect(gradeByKey(q('7.07', 'wrong'), num('7.1')).status).toBe('wrong');
   });
+
+  it('π ≈ 3.14 (pk): 3.14 or the calculator\'s π, within half a tenth, as a lesson grades it (stage 2)', () => {
+    const it = num('314', { pk: 100, text: 'חשבו עם $\\pi \\approx 3.14$ ועגלו לעשירית.' });
+    expect(gradeByKey(q('314', 'wrong'), it)).toMatchObject({ status: 'correct', graded: 'key' });
+    expect(gradeByKey(q('314.2', 'wrong'), it).status).toBe('correct'); // π · 100 = 314.16
+    expect(gradeByKey(q('314.3', 'correct'), it).status).toBe('wrong');
+    expect(gradeByKey(q('100', 'correct'), it).status).toBe('wrong');
+  });
+
+  it('with π (after \\pi): the number before π, written with π or without; the whole value is right in another form', () => {
+    const it = num('25π', { after: '\\pi', text: 'מה שטח עיגול שרדיוסו $5$? כתבו בעזרת $\\pi$.' });
+    for (const said of ['25π', '$25\\pi$', '25', '25 π', '25·π']) expect(gradeByKey(q(said, 'wrong'), it), said).toMatchObject({ status: 'correct', graded: 'key' });
+    expect(gradeByKey(q('26π', 'correct'), it)).toMatchObject({ status: 'wrong', graded: 'key', overridden: true });
+    // 78.5 (25 · 3.14) is the right value, not in the form asked: partial, never wrong
+    expect(gradeByKey(q('78.5', 'wrong'), it)).toMatchObject({ status: 'partial', graded: 'key', overridden: true });
+    expect(gradeByKey(q('78.5π', 'correct'), it).status).toBe('wrong'); // that is 78.5 times π
+    expect(gradeByKey(q('π', 'wrong'), num('π', { after: '\\pi' })).status).toBe('correct');
+    expect(gradeByKey(q('-π', 'wrong'), num('-π', { after: '\\pi' })).status).toBe('correct');
+    expect(gradeByKey(q('בערך', 'correct'), it).graded).toBe('ai');
+    // the printed sheet draws π after the blank of such a question (PracticeExam.jsx ExamQuestion: "תשובה: ____π"), so
+    // the bare 180 a student writes on that line is 180π: right; the whole value 565.2 is partial; 181 is wrong (the
+    // stage-2 review's cylinder, ci3v: r 3, h 20)
+    const cyl = num('180π', { after: '\\pi', text: 'מה נפח גליל שרדיוסו $3$ ס״מ וגובהו $20$ ס״מ? כתבו בעזרת $\\pi$.', unit: 'סמ״ק' });
+    expect(gradeByKey(q('180', 'wrong'), cyl).status).toBe('correct');
+    expect(gradeByKey(q('565.2', 'wrong'), cyl).status).toBe('partial');
+    expect(gradeByKey(q('181', 'correct'), cyl).status).toBe('wrong');
+  });
 });
 
 describe('gradeExam: a key only when the questions match it one for one', () => {
@@ -108,9 +139,12 @@ describe('every exercise a practice exam prints: its own key, transcribed, is gr
           if (it.form === 'manip') { expect(out.graded).toBe('ai'); continue; }
           forms.add(it.form);
           expect(out, `${t.id}:${level} ${it.form} ${it.answer}`).toMatchObject({ graded: 'key', status: 'correct' });
-          // and another value is wrong (a number one more, or another choice)
+          // and another value is wrong (a number one more, or another choice). A π ≈ 3.14 answer also takes the
+          // calculator's π value, which is above the 3.14 one and one more at a multiple of about 630 (3.14 · 630 =
+          // 1978.2, π · 630 ≈ 1979.2): there the number one less is the wrong one
           if (it.form === 'num' && typeof Number(it.answer) === 'number' && Number.isFinite(Number(it.answer))) {
-            expect(gradeByKey(q(String(Number(it.answer) + 1), 'correct'), it).status, `${t.id}:${level} ${it.answer}`).toBe('wrong');
+            const other = Number(it.answer) + (Number.isFinite(it.pk) ? -1 : 1);
+            expect(gradeByKey(q(String(other), 'correct'), it).status, `${t.id}:${level} ${it.answer}`).toBe('wrong');
           }
         }
       }

@@ -119,7 +119,7 @@ beforeAll(async () => {
 }, 60_000);
 
 describe('a lazy stylesheet styles only what the screens that load it write', () => {
-  it.each(['teacher.css', 'parents.css', 'legal.css', 'durable.css', 'data.css'])('%s', { timeout: 30_000 }, (sheet) => {
+  it.each(['teacher.css', 'parents.css', 'legal.css', 'durable.css', 'data.css', 'measure.css'])('%s', { timeout: 30_000 }, (sheet) => {
     const covered = coveredBy(sheet);
     const bad = [];
     for (const selectors of rules(read(join(SRC, 'styles/lazy', sheet)))) {
@@ -143,6 +143,8 @@ describe('a lazy stylesheet styles only what the screens that load it write', ()
     for (const f of ['components/manip/graphAxes.jsx', 'components/manip/protractor.jsx']) expect(imports(at(f), 'graph.css'), f).toBe(true);
     // curriculum stage 3's two objects (DATA-2): moved out of the first load at the stage-3 merge
     for (const f of ['components/manip/Simulate.jsx', 'components/manip/Chart.jsx']) expect(imports(at(f), 'data.css'), f).toBe(true);
+    // curriculum stage 2's three objects (MEASURE-1): moved out of the first load at the stage-2 merge
+    for (const f of ['components/manip/GridShape.jsx', 'components/manip/NetFold.jsx', 'components/manip/CircleRoll.jsx']) expect(imports(at(f), 'measure.css'), f).toBe(true);
   });
 });
 

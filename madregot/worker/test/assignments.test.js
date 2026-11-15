@@ -185,6 +185,17 @@ test('a class exam keeps how each answer is checked: a fraction in lowest terms,
   }
 });
 
+test('a class exam keeps a number\'s π form: the slot followed by π, and the multiple of π of a 3.14 answer', () => {
+  // fixtures: no topic asks with π yet; after '\\pi' types the number before π, pk is the multiple of π (3.14·pk)
+  const withPi = { ...ITEMS[0], key: 'ci1p:5', topic: 'pyth', text: 'כתבו בעזרת $\\pi$.', display: null, answer: 25, after: '\\pi', unit: 'סמ״ר', answerText: '25π' };
+  const with314 = { ...ITEMS[0], key: 'ci1n:20', topic: 'pyth', text: 'חשבו עם $\\pi \\approx 3.14$.', display: null, answer: 62.8, pk: 20, answerText: '62.8' };
+  assert.deepEqual(JSON.parse(cleanExamItems([withPi, with314])), [withPi, with314]);
+  const mc = ITEMS[1];
+  for (const bad of [{ ...mc, after: '\\pi' }, { ...mc, pk: 3 }, { ...withPi, after: '' }, { ...withPi, after: 'x'.repeat(31) }, { ...withPi, after: 7 }, { ...with314, pk: '20' }, { ...with314, pk: Number.NaN }]) {
+    assert.throws(() => cleanExamItems([bad]), (e) => e.status === 400, JSON.stringify(bad));
+  }
+});
+
 test('2. caps: 20 open assignments in a class, 30 made in a day', async () => {
   h = await setup(); pin();
   const cls = await makeClass(h, { students: ['דנה'] });

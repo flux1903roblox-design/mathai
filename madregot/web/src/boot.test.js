@@ -2,7 +2,8 @@
 // are the boot chunk, so none of them may be exercise code: a topic's generators (any src/content/*.js that defines a
 // stair's `gen`), the checkers and the figures' words (content/index.js, content/manip.js), a challenge task's parts
 // (learn/challenges/<topic>.ts and all.ts), a topic's teaching (learn/content/<topic>.ts), or the engines that make and
-// grade questions (lib/lesson.js, lib/placement.js, lib/exam.js, lib/seeds.js, learn/items.ts). The lists are read from
+// grade questions (lib/lesson.js, lib/placement.js, lib/exam.js, lib/seeds.js, learn/items.ts), or the lesson summaries
+// of the guide page (content/lessons.js and lessons.gen.js, off the first load since stage 2's merge). The lists are read from
 // the folders, so a new topic's files are covered without editing this test. npm run build checks the built files the
 // same way (budget.json lazyOnly, scripts/check-budget.mjs); this finds a new static import before a build.
 import { describe, it, expect } from 'vitest';
@@ -56,12 +57,14 @@ const TASKS = [...list('learn/challenges', /\.ts$/).filter((f) => /\bparts\s*:/.
 const TEACHING = list('learn/content', /\.ts$/).filter((f) => !/\/(index|meta\.gen)\.ts$/.test(f));
 // the checkers and the engines that make and grade questions
 const ENGINES = ['src/content/index.js', 'src/content/manip.js', 'src/lib/lesson.js', 'src/lib/placement.js', 'src/lib/exam.js', 'src/lib/seeds.js', 'src/learn/items.ts'];
+// the lesson summaries (key ideas, words, examples): only the guide page reads them (screens/Topic.jsx)
+const GUIDE = ['src/content/lessons.js', 'src/content/lessons.gen.js'];
 
 describe('the first load (the files main.jsx imports statically)', () => {
   const boot = bootGraph();
 
-  it('holds no exercise generator, checker, challenge part, teaching file or exercise engine', () => {
-    const found = [...GENERATORS, ...TASKS, ...TEACHING, ...ENGINES].filter((f) => boot.files.includes(f));
+  it('holds no exercise generator, checker, challenge part, teaching file, exercise engine or lesson summary', () => {
+    const found = [...GENERATORS, ...TASKS, ...TEACHING, ...ENGINES, ...GUIDE].filter((f) => boot.files.includes(f));
     expect(found.map(boot.why)).toEqual([]);
   });
 
@@ -69,7 +72,7 @@ describe('the first load (the files main.jsx imports statically)', () => {
     for (const f of ['src/content/grade7.js', 'src/content/grade8.js', 'src/content/eq.js', 'src/content/expr.js', 'src/content/frac.js', 'src/content/func.js', 'src/content/sys.js']) expect(GENERATORS, f).toContain(f);
     expect(TASKS.length).toBeGreaterThanOrEqual(14);
     expect(TEACHING.length).toBeGreaterThanOrEqual(13);
-    for (const f of [...TASKS, ...ENGINES]) expect(existsSync(resolve(WEB, f)), f).toBe(true);
+    for (const f of [...TASKS, ...ENGINES, ...GUIDE]) expect(existsSync(resolve(WEB, f)), f).toBe(true);
     // the first-load side is not on the lists (it would make the first test fail for the wrong reason)
     for (const f of ['src/content/topics.js', 'src/content/topics.gen.js', 'src/learn/challenges/index.ts', 'src/learn/challenges/meta.gen.ts']) expect([...GENERATORS, ...TASKS, ...TEACHING, ...ENGINES], f).not.toContain(f);
   });

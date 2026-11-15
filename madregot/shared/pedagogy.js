@@ -136,6 +136,31 @@ export const TOPIC_WAYS = Object.freeze({
     avoid: ['key-word rules ("יותר מ… זה תמיד פלוס")', 'joining unlike terms', 'dropping the minus in front of a term'],
     avoidRe: [re(String.raw`(?:יותר|פחות)\s+מ\S*\s+(?:זה\s+)?תמיד\s+(?:פלוס|מינוס|חיבור|חיסור)`)],
   },
+  // stage 2 (measurement, MEASURE-2): areas and perimeters, ז׳ 7.12 (web/src/learn/content/area.ts)
+  area: {
+    models: 'Area counts the unit squares inside; perimeter is the length of the boundary, every side once. A triangle is half of a rectangle or parallelogram with the same base and height; the height is drawn from the opposite vertex perpendicular to the base\'s line, inside or outside the triangle (in a right triangle the legs are a side and its height). A parallelogram is cut and moved into a rectangle; two copies of a trapezoid make a parallelogram with base $a + b$. Composite shapes are cut into parts, or completed and the extra subtracted. Equal perimeters do not mean equal areas.',
+    words: ['היקף', 'שטח', 'גובה', 'בסיס', 'פירוק', 'השלמה'],
+    avoid: ['"the slanted side is the height"', '"area and perimeter are the same thing"', '"a height is always inside the triangle"', '"multiply all the sides"'],
+    avoidRe: [
+      // the slanted side (or the leg of a trapezoid, the hypotenuse) taken as the height, said as a rule
+      re(String.raw`(?:ה)?(?:צלע|שוק)\s+(?:ה)?משופעת\s+(?:היא|זו|זה|היא\s+גם)\s+(?:ה)?גובה`),
+      re(String.raw`(?:ה)?(?:שטח\s+ו(?:ה)?היקף|היקף\s+ו(?:ה)?שטח)\s+(?:הם|זה)\s+(?:בעצם\s+|בדיוק\s+)?(?:אותו\s+(?:ה)?דבר|דבר\s+אחד)`),
+      re(String.raw`(?:ה)?גובה\s+(?:הוא\s+|נמצא\s+|נופל\s+)?תמיד\s+(?:נמצא\s+|נופל\s+)?(?:בתוך|בפנים|בתוך\s+(?:ה)?משולש)`),
+      re(String.raw`(?:כופלים|לכפול|כפלו)\s+(?:את\s+)?כל\s+(?:ה)?צלעות`),
+    ],
+  },
+  // stage 2 (measurement, MEASURE-3): boxes and prisms, ז׳ 7.13 (web/src/learn/content/solid.ts)
+  solid: {
+    models: 'A box has three pairs of equal opposite faces; its surface area adds all six; its volume counts unit cubes as layers of (base area) cubes, as many layers as the height; a litre is 1,000 cm³. A right triangular prism is half a box, so its volume is the triangle\'s area times the length, and its lateral faces unroll into one rectangle as wide as the triangle\'s perimeter.',
+    words: ['פאה', 'מקצוע', 'פריסה', 'שטח פנים', 'נפח', 'סמ״ק'],
+    avoid: ['"surface area and volume are the same"', '"multiply all the numbers you see"', '"doubling the edges doubles the volume"'],
+    avoidRe: [
+      re(String.raw`(?:ה)?(?:שטח\s+(?:ה)?פנים\s+ו(?:ה)?נפח|(?:ה)?נפח\s+ו(?:ה)?שטח\s+(?:ה)?פנים)\s+(?:הם|זה)\s+(?:בעצם\s+|בדיוק\s+)?(?:אותו\s+(?:ה)?דבר|דבר\s+אחד)`),
+      re(String.raw`(?:כופלים|לכפול|כפלו)\s+(?:את\s+)?כל\s+(?:ה)?מספרים`),
+      // the volume said to grow by the edges' own factor (2), as a rule; the app's name of the mistake says "פי אותו מספר"
+      re(String.raw`(?:ה)?נפח\s+(?:גם\s+)?(?:גדל|יגדל|מוכפל|מכפיל\s+את\s+עצמו)\s+(?:גם\s+)?פי\s+(?:\$2\$|2|שתיים|שניים)(?=$|[\s.,;:!?])`),
+    ],
+  },
   // curriculum stage 3's data unit (data:1-4, web/src/learn/content/data.ts): ז׳, and ח׳ this school year too
   data: {
     models: 'A frequency is how many times a value appears; the frequency table and the bar chart show the same counts (read the axis: its steps can be 2, 5 or 10). The relative frequency is the frequency over the total of all data: a fraction, a decimal or a percent; the relative frequencies add up to 1 (100%). A pie shows the parts of one whole. Picking at random from a group, the probability of a kind is its relative frequency; many repetitions of an experiment estimate a probability, a few do not.',
@@ -185,6 +210,20 @@ export const TOPIC_WAYS = Object.freeze({
     // the formula handed over as the thing to apply, with nothing in the sentence about the hypotenuse or the right angle
     avoidRe: [re(String.raw`(?:לפי\s+(?:ה)?נוסחה|הנוסחה(?:\s+היא)?|נוסחת\s+פיתגורס(?:\s+היא)?|(?:משתמשים|מציבים)\s+בנוסחה)\s*:?\s*\$?a\^2\s*\+\s*b\^2\s*=\s*c\^2${unless('יתר|ניצב|ישרה|ישר־זווית')}`)],
   },
+  // stage 2 (measurement, MEASURE-4): the circle, the cylinder and the cone, ח׳ 8.4 (web/src/learn/content/circle.ts)
+  circle: {
+    models: 'π is the circumference divided by the diameter, a little more than 3 (3.14); C = πd = 2πr. A disc sliced into thin sectors makes a near-rectangle πr by r, so A = πr². A cylinder\'s label unrolls into a rectangle 2πr by h; volume = base area × height for a cylinder, a third of that for a cone with the same base and height. The cone\'s height, radius and slant height form a right triangle in the axial section. Answers may be left with π (the number before π) or computed with 3.14.',
+    words: ['רדיוס', 'קוטר', 'π', 'מעטפת', 'קו יוצר', 'חתך צירי'],
+    avoid: ['"π is exactly 3.14" (it is an approximation)', '"the slant is the height"', '"use the diameter in πr²"'],
+    avoidRe: [
+      // π said to equal 3.14, not to be about it (≈, בערך, בקירוב)
+      re(String.raw`(?:π|\\pi|פאי)\$?\s*(?:הוא|זה|שווה(?:\s+ל־?)?|=)\s*(?:בדיוק\s+)?\$?3\.14(?!\d)`),
+      // the slant height said to be the height
+      re(String.raw`(?:ה)?קו\s+(?:ה)?יוצר\s+(?:הוא|זה)\s+(?:בעצם\s+)?(?:ה)?גובה(?!\s+של\s+(?:ה)?משולש)`),
+      // the diameter put into πr² as a rule
+      re(String.raw`(?:מציבים|להציב|הציבו|שמים|לשים)\s+(?:את\s+)?(?:ה)?קוטר\s+(?:ב|במקום\s+(?:ה)?)?(?:נוסחה|נוסחת\s+(?:ה)?שטח|רדיוס|\$?\\?pi\s*r\^2)`),
+    ],
+  },
   stats: {
     models: 'The mode is the tallest pile of equal values. The median comes after sorting: the middle value, or the mean of the two middle ones. The mean is the height all bars reach when the total is shared equally: the sum over the number of values. In a frequency table each value counts as often as it appears. A missing value: the total is the mean times the count. The range is the largest value minus the smallest, one number. Adding the same number to every value moves the mode, median and mean by it and keeps the range; multiplying every value multiplies all of them, the range too. Two sources are joined by what they share (the same jump, the same month) and checked for contradictions. Interpolation estimates between known values (a uniform change: the change per step times the steps); extrapolation continues the trend beyond them, less surely the further it goes.',
     words: ['שכיח', 'חציון', 'ממוצע', 'טבלת שכיחויות', 'טווח', 'מקור מידע', 'אינטרפולציה', 'אקסטרפולציה'],
@@ -218,6 +257,18 @@ export const TOPIC_WAYS = Object.freeze({
     // two outcomes said to be a half each, as a rule: not when the sentence says they are equally likely (a fair coin)
     // or that they are not
     avoidRe: [re(String.raw`(?:שתי|2)\s+(?:אפשרויות|תוצאות)${unless('לא |אינן|אבל|שוות סיכוי|שווי סיכוי|הוגן')}[\s\S]{0,40}?(?:חצי|1\/2|\\frac\{1\}\{2\}|50\s*\\?%)`)],
+  },
+  // stage 2 (measurement, MEASURE-5): Pythagoras in space, ח׳ 8.17 (web/src/learn/content/space.ts)
+  space: {
+    models: 'In a box, first the base\'s diagonal (a right triangle on the floor), then a right triangle standing on it with the height, so d² = a² + b² + c²; that standing triangle (the base\'s diagonal, the upright edge at its end and the box\'s diagonal) is right-angled at the edge\'s foot, so its legs give its area. In a cylinder the axial section is a rectangle 2r by h, whose diagonal is the longest rod; in a cone half the axial section is a right triangle with legs r and h and the slant height as its hypotenuse.',
+    words: ['אלכסון פאה', 'אלכסון התיבה', 'חתך צירי', 'קו יוצר'],
+    avoid: ['"the diagonal is the sum of the edges"', '"the face diagonal is the longest"', '"use the radius as the section\'s width"', '"the triangle inside a box is a whole rectangle"'],
+    avoidRe: [
+      re(String.raw`(?:ה)?אלכסון(?:\s+(?:של\s+)?(?:ה)?(?:תיבה|קובייה))?\s+(?:הוא|זה|שווה\s+ל־?)\s+(?:ה)?סכום\s+(?:של\s+)?(?:כל\s+)?(?:ה)?מקצועות`),
+      re(String.raw`(?:ה)?אלכסון\s+(?:של\s+)?(?:ה)?פאה\s+(?:הוא|זה)\s+(?:ה)?(?:קטע\s+(?:ה)?)?ארוך\s+ביותר`),
+      re(String.raw`(?:ה)?רוחב\s+(?:של\s+)?(?:ה)?חתך(?:\s+(?:ה)?צירי)?\s+(?:הוא|זה)\s+(?:ה)?רדיוס`),
+      re(String.raw`(?:ה)?משולש\s+(?:ש)?בתוך\s+(?:ה)?תיבה\s+(?:הוא|זה)\s+(?:בעצם\s+)?(?:כל\s+)?(?:ה)?מלבן`),
+    ],
   },
 });
 

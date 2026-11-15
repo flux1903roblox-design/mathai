@@ -4,9 +4,12 @@
 // learn/content-split.test.ts checks the same script's other two files (meta.gen.ts and learn/challenges/meta.gen.ts)
 // and runs its --check.
 import { describe, it, expect, vi } from 'vitest';
-import { renderTopicMeta, stripTopic } from '../../scripts/gen-content-meta.mjs';
+import { renderTopicMeta, renderLessons, stripTopic, topicMeta } from '../../scripts/gen-content-meta.mjs';
 import topicMetaText from './topics.gen.js?raw';
 import { TOPIC_META } from './topics.gen.js';
+import lessonsText from './lessons.gen.js?raw';
+import { TOPIC_LESSONS } from './lessons.gen.js';
+import { LESSONS, lessonOf } from './lessons.js';
 import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { TOPICS, makeItem, gensReady, loadGens, ensureGens } from './index.js';
@@ -23,7 +26,23 @@ function fnPaths(v, at, out = []) {
 describe('what is known before the generators load', () => {
   it('topics.gen.js is what the script writes from grade7.js and grade8.js (run node scripts/gen-content-meta.mjs)', () => {
     expect(topicMetaText).toBe(renderTopicMeta(FULL));
-    expect(TOPIC_META).toEqual(FULL.map((t) => stripTopic(t)));
+    expect(TOPIC_META).toEqual(FULL.map((t) => topicMeta(t)));
+  });
+
+  it('the lesson summaries are not in the meta: lessons.gen.js holds each topic file\'s, and the guide page reads them (lessonOf)', () => {
+    expect(lessonsText).toBe(renderLessons(FULL));
+    // the first load names topics and stairs; the key ideas, words and examples load with the guide page
+    for (const t of [...TOPIC_META, ...TOPICS]) expect(Object.keys(t), t.id).not.toContain('lesson');
+    for (const t of FULL) {
+      // a topic's own file first, else the summary written in lessons.js; every topic has one
+      expect(lessonOf(t.id), t.id).toEqual(t.lesson || LESSONS[t.id]);
+      expect(lessonOf(t.id).points.length, t.id).toBeGreaterThan(0);
+      if (t.lesson) expect(TOPIC_LESSONS[t.id], t.id).toEqual(t.lesson);
+      else expect(TOPIC_LESSONS, t.id).not.toHaveProperty(t.id);
+    }
+    // a summary is written once: in the topic's file or in lessons.js, never both
+    expect(Object.keys(LESSONS).filter((id) => TOPIC_LESSONS[id])).toEqual([]);
+    expect(lessonOf('nope')).toBeNull();
   });
 
   it('the meta holds no function: every stair keeps its title and every other plain field, and loses only its functions', () => {

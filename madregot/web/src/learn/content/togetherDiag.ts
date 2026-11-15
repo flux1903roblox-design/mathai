@@ -385,6 +385,85 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the step gave 7 − x; what is left is putting in x = 2
     { bugs: {} },
   ],
+  // stage 2 (measurement): areas and perimeters
+  'area:1': [
+    { model: 'diag', p: { k: 0, a: 11, b: 3 } }, // the area of 11 by 3: the perimeter 28; the sides added 14
+    { model: 'transfer', p: { a: 14, b: 6, P: 40 } }, // a fence of 40 round a garden 14 long: one length off 26; 40 : 14
+  ],
+  'area:2': [
+    // legs 9 and 12, hypotenuse 15: not halved 108; the hypotenuse taken as the height to either leg 90 or 67.5
+    { bugs: { 'no-half': 108, 'hyp-as-height': [90, 67.5] } },
+    // AC = 2x with BC = 6 and the area 48 (AC is 16): not halved, halved twice and x itself (8) all give 8, so the
+    // number names no one mistake
+    { bugs: {} },
+  ],
+  'area:3': [
+    { model: 'diag', p: { W: 12, H: 8, w: 5, h: 3 } }, // the L 12 by 8 less 5 by 3: the whole 96; the shared part twice 116
+    { model: 'transfer', p: { W: 8, H: 5, p: 4, q: 2 } }, // 8 by 5 less the triangle 4, 2: the whole 40; the rectangle taken off 32
+  ],
+  'area:4': [
+    { model: 'transfer', p: { a: 14, h: 5, s: 6 } }, // the parallelogram 14, height 5, side 6: the slanted side 84; halved 35
+    // the trapezoid 6 and 10, height 5: not halved 80; only the long base 50
+    { bugs: { 'no-half': 80, 'one-base': 50 } },
+  ],
+  'area:5': [
+    { model: 'diag', p: { W: 12, H: 9, w: 5, h: 4 } }, // the L's fence: the written sides only 30; its area 88
+    // the square 5 against the 8 by 2 rectangle, both of perimeter 20: the same perimeter read as the same area, 0
+    { bugs: { 'same-perim-same-area': 0 } },
+  ],
+  // stage 2 (measurement): boxes and prisms
+  'solid:1': [
+    { model: 'diag', p: { a: 10, b: 6, c: 4 } }, // the gift box 10 by 6 by 4: three faces 124; its volume 240
+    // the cube of edge 5: its volume 125 for the cardboard
+    { bugs: { 'vol-for-surf': 125 } },
+  ],
+  'solid:2': [
+    { model: 'diag', p: { a: 30, b: 20, c: 5 } }, // the baking tin 30 by 20 by 5: its surface 1700; the edges added 55
+    // cubes of edge 2 in the box 8 by 6 by 4: its volume 192 divided by the edge 2 gives 96
+    { bugs: { 'div-by-edge': 96 } },
+  ],
+  'solid:3': [
+    { model: 'diag', p: { p: 9, q: 12, c: 15, L: 20 } }, // legs 9 and 12, hypotenuse 15, length 20: one base 774; no face on the hypotenuse 528
+    // legs 6 and 8, length 10 (the hypotenuse 10 found): the legs added for it (14) 328; no face on it 188; one base 264
+    { bugs: { 'add-legs': 328, 'missing-face': 188, 'one-base': 264 } },
+  ],
+  'solid:4': [
+    // the trough (base 60 and its height 30, length 200) in litres: the base not halved 360
+    { bugs: { 'no-half': 360 } },
+    { model: 'diag', p: { p: 5, q: 12, c: 13, L: 10 } }, // legs 5 and 12, length 10: not halved 600; the hypotenuse for a leg 325
+  ],
+  // stage 2 (measurement): the circle, the cylinder and the cone. A π ≈ 3.14 final lists each mistake's number both ways,
+  // with 3.14 and with the calculator's π, to tenths
+  'circle:1': [
+    // the wheel of diameter 70: 2π times the diameter 439.6 (439.8); the area of a disc of radius 35, 3846.5 (3848.5)
+    { bugs: { 'd-for-r': [439.6, 439.8], 'area-for-circ': [3846.5, 3848.5] } },
+    { model: 'transfer', p: { k: 0, r: 50, c: 100 } }, // a lap of the track of radius 50: π times the radius 50; its area 2500
+  ],
+  'circle:2': [
+    { model: 'diag', p: { k: 1, r: 15, d: 30 } }, // the pizza of diameter 30: the circumference's 30; the diameter squared 900
+    // the table of radius 60: its circumference 2 · 3.14 · 60 = 376.8 (377 with π)
+    { bugs: { 'circ-for-area': [376.8, 377] } },
+  ],
+  'circle:3': [
+    { model: 'diag', p: { r: 4, h: 12 } }, // the can's volume, radius 4 and height 12: the diameter squared 768; the label 96
+    { model: 'transfer', p: { r: 4, h: 12 } }, // its label: πr for the width 48; the base's area times the height 192
+  ],
+  'circle:4': [
+    { model: 'transfer', p: { r: 9, h: 12, l: 15 } }, // the funnel, radius 9 and slant 15 (height 12): the cylinder 972; the slant for the height 405
+    // the cone carved out of the cylinder of radius 4 and height 9: the cone taken as the whole cylinder leaves 0
+    { bugs: { 'no-third': 0 } },
+  ],
+  // and Pythagoras in space
+  'space:1': [
+    { model: 'transfer', p: { a: 60, b: 20, c: 90, d: 110 } }, // the crate 60 by 20 by 90: its base's diagonal 63.2; the edges added 170
+    // the cube of edge 4: a face's diagonal 5.7; the edges added 12; the square of the diagonal, not rooted, 48
+    { bugs: { 'face-for-space': 4 * Math.SQRT2, 'add-edges3': 12, 'no-root': 48 } },
+  ],
+  'space:2': [
+    // the pencil case of diameter 5 and height 12: the radius 2.5 for the section's width gives 12.3; the sides added 17
+    { bugs: { 'r-for-d': Math.sqrt(2.5 * 2.5 + 12 * 12), 'add-legs': 17 } },
+    { model: 'transfer', p: { a: 5, b: 12, e: 13, c: 4 } }, // the box 5 by 12, 4 high: the base's diagonal as 5 + 12 gives 34; not halved 52
+  ],
   'eq:1': [
     // −5x = 30, the step chose to divide by −5: 30 : (−5) = −6. The minus of −5 lost: 6
     { bugs: { sign: 6 } },

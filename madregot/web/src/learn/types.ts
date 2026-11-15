@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'data' | 'eq' | 'ratio' | 'pct' | 'func' | 'line' | 'pyth' | 'stats' | 'sys' | 'prob';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'area' | 'solid' | 'data' | 'eq' | 'ratio' | 'pct' | 'func' | 'line' | 'pyth' | 'circle' | 'stats' | 'sys' | 'prob' | 'space';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -39,8 +39,18 @@ export type Rng = () => number;
  * (a bar chart or a pie the student builds { mode: 'bar' | 'pie', cats, start, lock?, tones?, bar: { max, step, every?,
  * unit? (the axis title), unitWord? (the short noun a screen reader says after a value: "ילדים") }, pie: { parts: 10 |
  * 12 | 20 } }; the value is number[]; the answer is { values }).
+ * Measurement (stage 2): 'polygon' (shapes on a grid of unit squares { grid: [cols, rows] ≤ [11, 8], task, start, shape?,
+ * piece?, base? }; task 'rect' { w, h } answered { mode: 'rect', area?, perim? } | { mode: 'maxArea', perim }, 'move'
+ * { dx, dy } answered { mode: 'move', dx, dy }, 'cut' { axis, at } answered { mode: 'cut', lines }, 'apex' { x } answered
+ * { mode: 'apex', xs }).
+ * 'net' (stage 3; content/net.js): a solid's net { solid: 'cube' | 'box' | 'prism' | 'cylinder', dims, task, layout?, shade?,
+ * loose?, start }; task 'fold' { t } answered { mode: 'fold', t: 1 | 0 }, 'face' { face } answered { mode: 'face', face },
+ * 'fix' { slot } answered { mode: 'slot', ok }, 'build' { a, b, c } or a prism's { p, q, L } answered { mode: 'build', V?, S?,
+ * d2?, fixed? }.
+ * 'circle' (stage 4; content/roll.js): { show: 'circumference' | 'area', start: { r, t } | { r, n }, rMax?, rStep?, radius? };
+ * answered { mode: 'r', r } (the radius set), { mode: 'unrolled' } (rolled one turn) or { mode: 'sectors', min }.
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'graph' | 'simulate' | 'chart';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'graph' | 'simulate' | 'chart' | 'polygon' | 'net' | 'circle';
 /** An axis of a graph: from min (0 when not given) to max, a grid line every step, a number on every `every`-th line. */
 export type GraphAxis = { min?: number; max: number; step: number; label: string; unit?: string; every?: number };
 /** The answer of a 'graph' object. */
@@ -72,6 +82,37 @@ export type FgridFig = { type: 'fgrid'; rows: number; cols: number; shadeRows: n
 export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: number; show?: 'both' | 'top' | 'bottom'; label?: string; blank?: boolean };
 /** Things counted in rows of dots, with a Hebrew label at the start of each row. */
 export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] };
+/**
+ * A solid's net, flat (components/SolidFigs.jsx): face letters, a shaded face, each length once or each face's area; a
+ * word in a face (names) and a straight way across the net (path, in the net's own lengths), said in its words too.
+ */
+export type NetFig = {
+  type: 'netfig'; solid: 'cube' | 'box' | 'prism' | 'cylinder';
+  dims: { a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number };
+  layout?: string | [number, number][]; letters?: boolean; shade?: string | string[]; labels?: boolean | 'area';
+  names?: Record<string, string>; path?: { from: [number, number]; to: [number, number]; words: string };
+};
+/**
+ * A solid, still (components/SolidFigs.jsx): a box, a cube or a prism in the oblique view, a cylinder or a cone on
+ * ellipses; labels true (the default) writes every length given, false none, an object its own texts; diag marks a
+ * diagonal, the right triangle inside a box, an axial section or a rod (content/net.js solidWords has the details).
+ */
+export type SolidDiag = 'face' | 'space' | 'tri' | 'axial' | 'rod';
+export type SolidFig = {
+  type: 'solid'; shape: 'box' | 'cube' | 'prism' | 'cylinder' | 'cone';
+  a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number; l?: number;
+  labels?: boolean | Partial<Record<'a' | 'b' | 'c' | 'd' | 'p' | 'q' | 'r' | 'L' | 'h' | 'l', string | number>>;
+  diag?: SolidDiag | SolidDiag[]; cubes?: boolean; cut?: 'diagonal' | 'half'; open?: boolean; label?: string;
+  /**
+   * Segments between a box's corners, all drawn alike and named by a letter (a choice of which one is the box's diagonal):
+   * corners 0-3 the front face (bottom left, bottom right, top right, top left), 4-7 the same at the back.
+   */
+  segs?: { from: number; to: number; label: string }[];
+  /** A cylinder drawn as a stack of this many discs (its volume as layers of its base). */
+  layers?: number;
+  /** A cylinder with a cone of the same base and height inside it (the cone is a third of it). */
+  inner?: 'cone';
+};
 /** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
 export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig;
 
@@ -153,6 +194,7 @@ export type FigSpec =
   | FbarFig | FgridFig | DlineFig | GroupsFig
   | SgraphFig | ProtractorFig | ClockFig
   | ChartFig | OutcomesFig | PairFig
+  | NetFig | SolidFig
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
 /** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };
@@ -220,6 +262,8 @@ export interface WorkedExample {
   answerTex?: string;
   /** With two unknowns, the solution ({ x: 3, y: 6 }): every step's `eq` must hold there. */
   vars?: Record<string, number>;
+  /** TeX written after the answer, as an item's `after`: '\pi' shows the answer 12 as 12π (stage 2, MEASURE-4). */
+  after?: string;
   /** An inequality's solutions as a ray ({ at: 4, dir: 1, closed: false } is x > 4): every step's `ineq` has exactly these. */
   ray?: { at: number; dir: 1 | -1; closed: boolean };
 }
@@ -238,7 +282,15 @@ export interface GuidedProblem {
    * The last move is the student's alone: a typed number, checked against `check`. `precise` compares it exactly (as an
    * item's `precise`, content/util.js numRight); `fmt: 'dec'` shows the answer as a decimal.
    */
-  final: { prompt: Text; answer: number; check: string; hints: [Text, Text]; precise?: boolean; fmt?: 'dec' };
+  final: {
+    prompt: Text; answer: number; check: string; hints: [Text, Text]; precise?: boolean; fmt?: 'dec';
+    /**
+     * Answers with π (stage 2, MEASURE-1.4), as an item's: `after: '\pi'` draws π after the slot and the number before it
+     * is typed (225 for 225π; the whole value 706.5 gets the note and the step stays open); `pk: k` is a π ≈ 3.14 answer
+     * (3.14k to tenths, and the calculator's πk too).
+     */
+    after?: string; pk?: number;
+  };
 }
 
 // ------------------------------------------------------------------ misconceptions
@@ -284,7 +336,8 @@ export interface DiagModel<P = Record<string, number>> {
   bugs: Record<string, (p: P) => number | null>;
   solution: (p: P) => Text[];
   hint: (p: P) => Text;
-  unit?: string;
+  /** The answer's unit, written after the slot; a function chooses per question (an area in סמ״ר, a perimeter in ס״מ). */
+  unit?: string | ((p: P) => string);
   /** Compare the typed answer exactly (content/util.js numRight), as an exercise marked `precise`. */
   precise?: boolean;
   /** Show the answer as a decimal (-1.3, not -13/10); a function chooses per question (decimals, or quarters as fractions). */
@@ -295,6 +348,11 @@ export interface DiagModel<P = Record<string, number>> {
    * decimal would leave their documented errors ambiguous; a fraction tells them apart.
    */
   form?: 'num' | 'frac';
+  /**
+   * TeX drawn after the answer slot, as `label` is before it: '\pi' asks the number before π (25 for 25π). A function
+   * chooses per question (a circumference with π, its radius without: `(p) => (p.k ? undefined : '\pi')`).
+   */
+  after?: string | ((p: P) => string | undefined);
 }
 
 // ------------------------------------------------------------------ the stair
@@ -411,24 +469,26 @@ export interface ChallengeTask {
 export type ChallengeMeta = Pick<ChallengeTask, 'id' | 'topic' | 'after' | 'kind' | 'title' | 'minutes' | 'misc'>;
 /**
  * One part of a challenge.
- *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested)
+ *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested);
+ *            `after: '\\pi'` draws π after the slot and `answer` is the number before it (25 for 25π)
  *   mc       one right choice among several, each with its own feedback
  *   claim    always / sometimes / never true; with `example`, a counterexample typed into the slots: `expr` evaluated
  *            at the slots' values (learn/expr.ts) must satisfy `rel value`, the values in `domain`
  *   order    a proof's steps, shown shuffled, put in order; a step with `reason` then asks why, as a choice. `free`
  *            lists groups of steps that may come in any order among themselves (two equal angles found one after the
  *            other): the proof is right either way, so the check accepts both
- *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`)
+ *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`, which may
+ *            carry `after` as a num part does)
  *   explain  the student's own words (kept on the screen only), then the sample answer and the rubric to tick
  */
 export type ChallengePart =
-  | { type: 'num'; prompt: Text; answer: number; check: string; unit?: string; solution: Text[] }
+  | { type: 'num'; prompt: Text; answer: number; check: string; unit?: string; after?: string; solution: Text[] }
   | { type: 'mc'; prompt: Text; choices: { text: Text; ok: boolean; feedback: Text }[] }
   | { type: 'claim'; prompt: Text; claim: Text; verdict: 'always' | 'sometimes' | 'never'; why: Text;
       example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
                   expr: string; rel: '<' | '<=' | '>' | '>=' | '!='; value: number; hint: Text } }
   | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number } }[]; free?: number[][] }
-  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string } }
+  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string; after?: string } }
   | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
 /** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */
 export interface ChallengeRecord { startedAt: string; doneAt?: string; firstTry: number; parts: number }

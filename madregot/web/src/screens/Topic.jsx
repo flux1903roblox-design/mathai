@@ -5,6 +5,8 @@ import { ArrowRight, Sparkles, Check, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { aiAccess, useAIStatus } from '@/lib/account.js';
 import { TOPIC, unitNumber } from '@/content/topics.js';
+// the unit's key ideas, words and examples load with this page, not with the first screen
+import { lessonOf } from '@/content/lessons.js';
 import { Box, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { Emblem } from '@/components/map/Scenery.jsx';
@@ -15,6 +17,7 @@ export default function Topic() {
   const { id } = useParams();
   const navigate = useNavigate();
   const t = TOPIC[id];
+  const lesson = lessonOf(id);
   const p = useApp((s) => s.progress[id]) || { level: 1, max: 1 };
   const mistakes = useApp((s) => s.mistakes);
   const grade = useApp((s) => s.profile?.grade);
@@ -43,23 +46,23 @@ export default function Topic() {
         </div>
       </div>
 
-      {t.lesson && (
+      {lesson && (
         <section className="guide" aria-labelledby="guide-key" data-region="content">
           <h2 id="guide-key" className="h-section">רעיונות מרכזיים</h2>
-          <ul className="guide-cards">{t.lesson.points.map((pt) => <li key={pt} className="guide-card"><MathText text={pt} /></li>)}</ul>
-          {t.lesson.words?.length > 0 && (
+          <ul className="guide-cards">{lesson.points.map((pt) => <li key={pt} className="guide-card"><MathText text={pt} /></li>)}</ul>
+          {lesson.words?.length > 0 && (
             <>
               <h2 className="h-section">מילים של היחידה</h2>
-              <ul className="guide-words">{t.lesson.words.map((w) => <li key={w}>{w}</li>)}</ul>
+              <ul className="guide-words">{lesson.words.map((w) => <li key={w}>{w}</li>)}</ul>
             </>
           )}
-          {t.lesson.examples && (
+          {lesson.examples && (
             <>
               <h2 className="h-section">דוגמאות מהשיעור</h2>
-              <ul className="guide-cards">{t.lesson.examples.map((ex) => <li key={ex} className="guide-card"><MathText text={ex} /></li>)}</ul>
+              <ul className="guide-cards">{lesson.examples.map((ex) => <li key={ex} className="guide-card"><MathText text={ex} /></li>)}</ul>
             </>
           )}
-          {t.lesson.explore === 'line' && (
+          {lesson.explore === 'line' && (
             <details className="sol explorer-details">
               <summary>גרף שמשנים: מזיזים את m ואת b</summary>
               <Suspense fallback={<p className="muted">טוענים…</p>}><LineExplorer /></Suspense>

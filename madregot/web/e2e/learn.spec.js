@@ -219,8 +219,9 @@ test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of the
   await toTopics();
   const heads = page.locator('.rescue-topic-head .topic-row');
   // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February; and the functions unit
-  // through its guest stair alone (func:1, a situation graph in May: stage5.md FUNC-6, guest.spec.js)
-  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'נתונים ושכיחות (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'מבוא לפונקציות (מה שלומדים בכיתה ז׳)', 'משפט פיתגורס (כל הנושא)']);
+  // through its guest stair alone (func:1, a situation graph in May: stage5.md FUNC-6, guest.spec.js). Stage 2's areas
+  // and boxes sit between the expressions and the data unit, as on the map
+  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'שטחים והיקפים (כל הנושא)', 'תיבה ומנסרה (כל הנושא)', 'נתונים ושכיחות (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'מבוא לפונקציות (מה שלומדים בכיתה ז׳)', 'משפט פיתגורס (כל הנושא)']);
   await page.getByText('מציאת ניצב', { exact: true }).click();
   await expect(page.locator('.rescue-topic').last().locator('.rescue-topic-count')).toHaveText('1/5');
   await expectNoSidewaysScroll(page);
@@ -383,7 +384,8 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
   const at = '2026-11-04T10:00:00.000Z';
   const st = student('8', { path: { pyth: { parts: {}, reviews: 0, jumped: 0, done: { 3: 'mastered' } } }, learn: { skills: { 'pyth:3': { attempts: [], mastered: { at, box: 0, due: '2026-11-05T10:00:00.000Z' } } }, miscon: {}, exam: null, missions: {}, events: [] } });
   await open(page, '#/', { ...st, version: 4 });
-  const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: 'פיתגורס' }) });
+  // the unit's whole title: "פיתגורס במרחב" (space, the last unit of ח׳) has the word too
+  const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: /^משפט פיתגורס$/ }) });
   const nodes = unit.locator('.node');
   await expect(nodes.nth(0)).toHaveClass(/node-current/);
   await expect(nodes.nth(1)).toHaveClass(/node-open/);
@@ -458,4 +460,49 @@ test('an angles:4 mastery check shows its drawing, the question and the keypad o
   await expect(page.getByRole('button', { name: 'רמז' })).toHaveCount(0);
   await answer(page, true);
   await expect(page.locator('section.fb-good')).toBeVisible();
+});
+
+// Solve together (stage 2, MEASURE-1.4): the last step of a cylinder problem is typed "with π". The whole value typed as a
+// decimal (3.14 times the answer) is right in another form: a calm note in the brand blue with its own title, never the
+// miss colours or "כמעט", and nothing counted; then the number before π solves the step.
+test('solve together: the whole value in a □π step is noted calmly, not as a near miss', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await open(page, '#/learn/circle/3/C', student('8', { goalXp: 50 }));
+  let final = null;
+  for (let g = 0; g < 6 && !final; g += 1) {
+    for (let k = 0; k < 8; k += 1) {
+      await expect.poll(() => page.evaluate(() => window.__madregotGuided)).toBeTruthy();
+      const gd = await page.evaluate(() => window.__madregotGuided);
+      if (gd.final) {
+        if (gd.final.after === '\\pi') { final = gd.final; break; }
+        await page.locator('.tg-input').fill(String(gd.final.answer));
+        await page.getByRole('button', { name: 'בדיקה' }).click();
+        await page.evaluate(() => { window.__madregotGuided = null; });
+        await page.getByRole('button', { name: 'המשך' }).click();
+        break;
+      }
+      const ok = gd.step.choices.findIndex((c) => c.ok);
+      const before = gd.step.prompt;
+      await page.locator('.tg-step .ls-choice').nth(ok).click();
+      await page.locator('.lm-check').click();
+      await page.locator('.lm-actions.has-good .sp-next').click();
+      await expect.poll(() => page.evaluate(() => window.__madregotGuided?.final ? 'final' : window.__madregotGuided?.step?.prompt)).not.toBe(before);
+    }
+  }
+  expect(final, 'circle:3 has a guided problem whose last step is typed with π').not.toBeNull();
+  await page.locator('.tg-input').fill(String(Math.round(3.14 * final.answer * 10) / 10));
+  await page.getByRole('button', { name: 'בדיקה' }).click();
+  const foot = page.locator('.lm-actions');
+  await expect(foot).toHaveClass(/has-note/);
+  await expect(foot).not.toHaveClass(/has-warm/);
+  await expect(foot.locator('.lm-banner')).toHaveText('נכון, בצורה אחרת');
+  await expect(foot).toContainText('נכון בקירוב');
+  await expect(foot).not.toContainText('כמעט');
+  await expect(foot.locator('.bl-result')).toBeVisible();
+  await expect.poll(() => foot.locator('.bl-result').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+  await page.screenshot({ path: test.info().outputPath('together-pi-note-phone-small.png') });
+  // the number before π: solved alone (the note was no miss, so no hint was shown)
+  await page.locator('.tg-input').fill(String(final.answer));
+  await page.getByRole('button', { name: 'בדיקה' }).click();
+  await expect(page.getByText('פתרתם את הצעד האחרון לבד')).toBeVisible();
 });

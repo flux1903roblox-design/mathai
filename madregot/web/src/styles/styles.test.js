@@ -148,6 +148,19 @@ describe('the dark theme (STUDENT-2 §4, §8)', () => {
     expect(canon).toMatch(/\.node-current, \.node-done \{ box-shadow: 0 0 0 var\(--stop-ring\) var\(--c-ink/);
   });
 
+  it('the measurement objects (grid, net, circle) draw their lines and words in the unit\'s ink, not the buttons\' lip', () => {
+    // in a lesson --c-d is the buttons' deep lip blue, which a dark canvas hides (the grid lines and the note "≈ 3.14
+    // קטרים" were almost invisible in dark); --c-ink is the same colour in light and a light blue in dark
+    // (their rules load with the three objects: styles/lazy/measure.css, moved out of app.css at the stage-2 merge)
+    const rules = read('lazy/measure.css').split('\n').filter((l) => /^\.mp-(grid|net|circ)-/.test(l));
+    expect(rules.length).toBeGreaterThan(40);
+    expect(rules.filter((l) => /var\(--c-d\b/.test(l) && !l.startsWith('.mp-net-face.in '))).toEqual([]);
+    expect(rules.filter((l) => /var\(--c-ink\b/.test(l)).length).toBeGreaterThanOrEqual(10);
+    expect(read('canon.css')).toMatch(/\.lesson, \.teach \{[^}]*--c-d: var\(--brand-lip\);[^}]*--c-ink: var\(--brand-d\);/);
+    expect(light['--brand-lip']).toBe(light['--brand-d']);
+    expect(darkTokens['--brand-d']).toBe('#8fb0ff');
+  });
+
   it('is imported last, after canon.css', () => {
     const main = readFileSync(path.join(here, '../main.jsx'), 'utf8');
     const imports = [...main.matchAll(/import '\.\/styles\/([\w.]+)'/g)].map((m) => m[1]);

@@ -2,12 +2,13 @@
 // mixed numbers and thousands on a computer keyboard, the `precise` rule, the fraction answer form and its
 // "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks.
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, S, opMark, minusOp, undoOp, divOp, mulOp, unmark, unmarkLine, flipLine } from './util.js';
+import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, S, opMark, minusOp, undoOp, divOp, mulOp, unmark, unmarkLine, flipLine, withPiNote, piNear, piValue, afterPlain, PI_AFTER, PI_NOTE } from './util.js';
 import { holds } from '../learn/expr.ts';
-import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrect, partialOf, answerText } from './index.js';
-import { startLesson, answer } from '../lib/lesson.js';
+import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrect, partialOf, answerText, itemPlain } from './index.js';
+import { startLesson, answer, next } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
 import { modelItem } from '../learn/items.ts';
+import * as CW from './circle.js';
 import { loadAllGens } from './index.js';
 // the exercise generators load per topic (the boot split); this file makes questions while its tests are collected
 await loadAllGens();
@@ -313,6 +314,12 @@ describe('practice-only questions are kept out of checks', () => {
   // signed (CLASSROOM-1, -2, -3): the regrouped line of a chain (signed:1), which numbers have absolute value n (signed:2)
   // and dividing with 0 and 1 (signed:3); expr (CLASSROOM-6): the regrouping by families, and a collecting question whose
   // two families both cancel (0x + 0 = 0: typing 0 and 0 would always earn it)
+  // area (stage 2, MEASURE-2): the units (ar1u), the height (ar2w) and the L's computation (ar3m) are choices; the
+  // grid shapes whose target the question names: the rectangle (ar1b), the parallelogram's move (ar4c), the largest area (ar5b)
+  // solid (stage 2, MEASURE-3): the nets, a face, a missing base, a box or a prism built (so1n, so3n, so2b, so4b), the
+  // four nets to choose from (so1m), and how many times the volume grows (so4k, one of four numbers)
+  // circle (stage 2, MEASURE-4): the circle object set to a circumference or an area (ci1m, ci2m), one sheet rolled two
+  // ways (ci3m) and how many cones fill the cylinder (ci4m)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
     'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'fu1f', 'fu1p', 'fu1s', 'fu2i', 'fu2d', 'fu3w', 'fu3s', 'fu4u', 'fu4f', 'fu4n', 'eq6t', 'eq7l',
     'da1r', 'da1c', 'da1g', 'da1b', 'da1a', 'da2c', 'da3b', 'da3o', 'da4s', 'da4w',
@@ -327,7 +334,10 @@ describe('practice-only questions are kept out of checks', () => {
     // the class's split triangle S1 (CLASSROOM-11): its answer is 90° minus a printed number
     'an3a',
     // "is OC the bisector?", a choice among three reasons (CLASSROOM-10)
-    'an6c'];
+    'an6c',
+    // stage 2's measurement units (the kinds named above)
+    'ar1u', 'ar1b', 'ar2w', 'ar3m', 'ar4c', 'ar5c', 'ar5b',
+    'so1n', 'so1m', 'so2b', 'so3n', 'so4k', 'so4b', 'ci1m', 'ci2m', 'ci3m', 'ci4m', 'sp1w', 'sp2m'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {
@@ -364,5 +374,152 @@ describe('"solve together": the last typed step follows the same rule', () => {
     expect(finalCheck({ answer: 2.5 }, '2 1/2')).toEqual({ u: 2.5, ok: true });
     expect(finalCheck({ answer: 3 }, '2,000')).toEqual({ u: 2, ok: false });
     expect(finalCheck({ answer: 3 }, '')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------- answers with π (stage 2, MEASURE-1 item 4, §0.5)
+// No topic has π questions yet: every item here is a fixture (topic 'circle' or 'area', after/pk set by hand).
+describe('answers with π', () => {
+  /** A "with π" question (□π): the number before π is typed; 25 is 25π. */
+  const piQ = (answer, extra = {}) => num(answer, { topic: 'circle', after: PI_AFTER, text: 'מה שטח עיגול שרדיוסו $5$ ס״מ? כתבו בעזרת $\\pi$.', ...extra });
+  /** A "π ≈ 3.14" question: pk is the multiple of π, the answer 3.14·pk to tenths. */
+  const pkQ = (k, extra = {}) => num(piValue(k), { topic: 'circle', pk: k, text: 'חשבו עם $\\pi \\approx 3.14$ ועגלו לעשירית.', ...extra });
+
+  it('π ≈ 3.14: pk 25 is right with 3.14 or with the calculator\'s π, within half a tenth', () => {
+    const it = pkQ(25);
+    expect(it.answer).toBe(78.5);
+    for (const v of ['78.5', '78.54', '78.5398', '78,5']) expect(typedRight(it, v), v).toBe(true);
+    for (const v of ['78.4', '79', '25', '78.6']) expect(typedRight(it, v), v).toBe(false);
+    // 3.14·100 = 314 and π·100 = 314.16: both ends are right, though they are more than a tenth apart
+    expect(isCorrect(pkQ(100), 314)).toBe(true);
+    expect(isCorrect(pkQ(100), 314.2)).toBe(true);
+    expect(isCorrect(pkQ(100), 314.3)).toBe(false);
+    expect(piNear(78.5, 25) && piNear(78.54, 25) && !piNear(78.4, 25)).toBe(true);
+    expect(piNear('78.5', 25)).toBe(false);
+  });
+
+  it('with π: the number before π is the answer; the whole value typed as a decimal is a note on the form, not a mistake', () => {
+    const it = piQ(25);
+    expect(typedRight(it, '25')).toBe(true);
+    expect(typedRight(it, '78.5')).toBe(false);
+    expect(partialOf(it, 78.5)).toBe('pi-value');
+    expect(partialOf(it, 78.54)).toBe('pi-value');
+    expect(partialOf(it, 78.5398)).toBe('pi-value');
+    expect(partialOf(it, 26)).toBeNull();
+    expect(partialOf(it, 78)).toBeNull();
+    expect(partialOf(it, 25)).toBeNull(); // right is right
+    // a question without π after its slot has no such note
+    expect(partialOf(num(25, { topic: 'circle' }), 78.5)).toBeNull();
+    // a value a misconception predicts is that misconception, not a form: the generator's diag, or the model's bugs
+    expect(partialOf(piQ(25, { diag: (u) => (Math.abs(u - 78.5) < 0.01 ? 'some-bug' : null) }), 78.5)).toBeNull();
+    expect(partialOf(piQ(25, { diag: () => null, diagnosis: () => ({ kind: 'misconception', candidates: [{ id: 'b', conf: 1 }] }) }), 78.5)).toBeNull();
+    expect(partialOf(piQ(25, { diag: () => null, diagnosis: () => ({ kind: 'slip', why: 'digits' }) }), 78.5)).toBe('pi-value');
+  });
+
+  it('answers are written as decimals in the measurement topics, and with π after a □π slot', () => {
+    expect(answerText(pkQ(20))).toBe('62.8'); // not 314/5
+    expect(answerText(num(6.5, { topic: 'area' }))).toBe('6.5'); // a grid triangle's area, not 13/2
+    expect(answerText(num(2.5, { topic: 'solid' }))).toBe('2.5');
+    expect(answerText(num(7.1, { topic: 'space', exact: Math.sqrt(50) }))).toBe('7.1');
+    expect(answerText(num(62.8, { topic: 'test', pk: 20 }))).toBe('62.8'); // a pk answer is a decimal in any topic
+    expect(answerText(num(6.5))).toBe('13/2'); // other topics as before
+    expect(answerText(piQ(25))).toBe('25π');
+    expect(answerText(piQ(25), 26)).toBe('26π'); // a wrong answer as the tutor is told it
+    expect(answerText(piQ(1))).toBe('π');
+    expect(answerText(piQ(-1))).toBe('-π');
+    expect(answerText(piQ(12.5))).toBe('12.5π');
+    expect(afterPlain('\\pi')).toBe('π');
+  });
+
+  it('the question in words reads π as π and names the answer row', () => {
+    const plain = itemPlain(piQ(25));
+    expect(plain).toBe('מה שטח עיגול שרדיוסו 5 ס״מ? כתבו בעזרת π. [התשובה בצורה □π]');
+    expect(plain).not.toContain('\\');
+    expect(itemPlain(pkQ(25))).toBe('חשבו עם π \\approx 3.14 ועגלו לעשירית.');
+  });
+
+  it('withPiNote: a □π question says once what to type, and no other question does', () => {
+    const noted = withPiNote(piQ(25));
+    expect(noted.text).toBe(`מה שטח עיגול שרדיוסו $5$ ס״מ? כתבו בעזרת $\\pi$. ${PI_NOTE}`);
+    expect(PI_NOTE).toBe('(כותבים רק את המספר שלפני\u00a0$\\pi$.)');
+    expect(withPiNote(noted)).toBe(noted);
+    const plain = num(5);
+    expect(withPiNote(plain)).toBe(plain);
+    expect(withPiNote(pkQ(5)).text).not.toContain(PI_NOTE);
+  });
+
+  it('a lesson notes its first □π question only, and keeps a decimal π value open without recording it', () => {
+    const items = [piQ(25, { level: 1, topic: 'pyth', key: 'a' }), piQ(16, { level: 1, topic: 'pyth', key: 'b' }), num(3, { level: 1, topic: 'pyth', key: 'c' })];
+    let s = startLesson({ kind: 'check', purpose: 'class', fixedItems: items, topic: 'pyth', level: 1 });
+    expect(s.item.text.endsWith(PI_NOTE)).toBe(true);
+    // the whole value typed: a note on the form; the state is unchanged (no attempt, no event, no mistake)
+    const r = answer(s, 78.5);
+    expect(r.result).toEqual({ partial: 'pi-value' });
+    expect(r.s).toBe(s);
+    const ok = answer(s, 25);
+    expect(ok.result.ok).toBe(true);
+    s = next(ok.s);
+    expect(s.item.key).toBe('b');
+    expect(s.item.text).not.toContain(PI_NOTE);
+  });
+
+  it('a pk question\'s diag compares each misconception\'s multiple of π the same two ways', () => {
+    // a circumference from r = 5 with 3.14: the radius used for the diameter predicts 5π, so 15.7 or 15.71 both name it
+    const it = { ...pkQ(10), diag: (u) => (piNear(u, 5) ? 'r-for-d' : piNear(u, 25) ? 'area-for-circ' : null) };
+    expect(it.diag(15.7)).toBe('r-for-d');
+    expect(it.diag(15.71)).toBe('r-for-d');
+    expect(it.diag(78.5)).toBe('area-for-circ');
+    expect(it.diag(31.4)).toBeNull();
+  });
+});
+
+describe('a model asks with π per question', () => {
+  const stair = { skill: 'circle:1', topic: 'circle', level: 1, title: 'היקף מעגל' };
+  // circumference with π (k 0) or the radius from a circumference (k 1, no π after the slot)
+  const model = {
+    params: () => ({ r: 13, k: 0 }),
+    text: (p) => (p.k ? `היקף מעגל $${2 * p.r}\\pi$. מה הרדיוס?` : `מה היקף מעגל שרדיוסו $${p.r}$? כתבו בעזרת $\\pi$.`),
+    answer: (p) => (p.k ? p.r : 2 * p.r), bugs: { 'r-for-d': (p) => (p.k ? 2 * p.r : p.r) }, solution: () => [], hint: () => '',
+    after: (p) => (p.k ? undefined : '\\pi'), pk: 3,
+  };
+  it('modelItem calls a function-valued after, and never copies pk', () => {
+    const fwd = modelItem(stair, model, { r: 13, k: 0 }, 'diag');
+    expect(fwd.after).toBe('\\pi');
+    expect(answerText(fwd)).toBe('26π');
+    expect(fwd.pk).toBeUndefined();
+    const inv = modelItem(stair, model, { r: 13, k: 1 }, 'diag');
+    expect(inv.after).toBeUndefined(); // the radius is 13, not 13π
+    expect(answerText(inv)).toBe('13');
+    expect(partialOf(inv, 40.8)).toBeNull();
+    // a static after is copied as it is
+    expect(modelItem(stair, { ...model, after: '\\pi' }, { r: 13, k: 1 }, 'diag').after).toBe('\\pi');
+    // the model's own bug is a misconception, not a form: 13 typed for 26π
+    expect(partialOf(fwd, 13)).toBeNull();
+    expect(partialOf(fwd, 81.64)).toBe('pi-value');
+  });
+});
+
+// The circle's model (stage 2, MEASURE-4), as the teaching will wrap it: the circumference asked with π (□π), the radius
+// from a circumference without it (13, not 13π); a pk question never comes from a model.
+describe('circle1 asks with π per question', () => {
+  const stair = { skill: 'circle:1', topic: 'circle', level: 1, title: 'היקף מעגל' };
+  const model = {
+    params: CW.CIRCLE1.params, answer: CW.CIRCLE1.answer, bugs: CW.CIRCLE1.bugs, after: CW.CIRCLE1.after,
+    text: CW.circle1Text, fig: CW.circle1Fig, solution: CW.circle1Solution, hint: CW.circle1Hint, unit: CW.UNIT.cm,
+  };
+  it('the inverse (k = 1) has no after, the forward (k = 0) has π after its slot, and neither carries pk', () => {
+    const inv = modelItem(stair, model, { k: 1, r: 13, c: 26 }, 'diag');
+    expect(inv.after).toBeUndefined();
+    expect(inv.answer).toBe(13);
+    expect(inv.text).toBe('היקף מעגל $26\\pi$ ס״מ. מה הרדיוס?');
+    const fwd = modelItem(stair, model, { k: 0, r: 13, c: 26 }, 'diag');
+    expect(fwd.after).toBe(PI_AFTER);
+    expect(fwd.answer).toBe(26);
+    expect(answerText(fwd)).toBe('26π');
+    for (const it of [inv, fwd]) expect(it.pk).toBeUndefined();
+    // and the inverse's diagnosis: the diameter typed for the radius
+    expect(inv.diag(26)).toBe('d-for-r');
+    expect(fwd.diag(13)).toBe('r-for-d');
+    expect(fwd.diag(169)).toBe('area-for-circ');
   });
 });

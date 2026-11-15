@@ -124,6 +124,20 @@ describe('a class exam on guest stairs', () => {
   });
 });
 
+/** A CSV line's cells: a quoted cell may hold a comma, and a doubled quote inside it is one quote. */
+function cells(line) {
+  const out = []; let cur = ''; let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (quoted) { if (ch === '"' && line[i + 1] === '"') { cur += '"'; i += 1; } else if (ch === '"') quoted = false; else cur += ch; }
+    else if (ch === '"') quoted = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
 describe('the report\'s CSV', () => {
   it('has the guest row\'s column after the grade\'s, with the place among its own stairs', () => {
     const topics = csvTopics('8');
@@ -142,9 +156,11 @@ describe('the report\'s CSV', () => {
     };
     const [head, dana, yoav, noa, tamar] = reportToCsv(report, { topics, mistakeText: () => '' }).replace(/^\uFEFF/, '').split('\r\n');
     expect(head).toContain(',משוואות: מדרגות 6–7,');
-    const col = head.split(',').indexOf('משוואות: מדרגות 6–7');
-    expect([dana, yoav, noa, tamar].map((l) => l.split(',')[col])).toEqual(['2/2 – משוואות עם מכנים ופרופורציה', '', '', '2/2 – הושלם']);
-    expect(yoav.split(',')).toHaveLength(head.split(',').length);
+    // a cell with a comma is quoted (ח׳'s unit "מעגל, גליל וחרוט", stage 2): the line is read cell by cell, not split on commas
+    expect(head).toMatch(/,"מעגל, גליל וחרוט[^"]*",/);
+    const col = cells(head).indexOf('משוואות: מדרגות 6–7');
+    expect([dana, yoav, noa, tamar].map((l) => cells(l)[col])).toEqual(['2/2 – משוואות עם מכנים ופרופורציה', '', '', '2/2 – הושלם']);
+    expect(cells(yoav)).toHaveLength(cells(head).length);
   });
 
   it('ז׳: a student who opened func:1 and one who mastered it are two different cells', () => {

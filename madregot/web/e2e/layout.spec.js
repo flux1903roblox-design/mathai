@@ -1,7 +1,7 @@
 // The exercise screen on every device: for each kind of exercise, the question, the maths, the answer field
 // and the check button stay usable, the keypad never covers them, and the page never scrolls.
 import { test, expect } from '@playwright/test';
-import { open, openOn, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll, type } from './helpers.js';
 import { textContrastFailures, expectNonTextContrast } from './contrast.js';
 
 const CASES = [
@@ -55,6 +55,14 @@ const CASES = [
   // uniform and non-uniform rate: a pot's rate from two readings, and who runs faster on a graph of two named lines
   ['a rate from two readings', 'func/4', '8', (x) => x.form === 'num' && x.key.startsWith('fu4:')],
   ['who is faster: two named lines on a graph', 'func/4', '8', (x) => x.form === 'mc' && x.fig?.type === 'sgraph'],
+  // areas (stage 2): a triangle whose height falls outside it, drawn with the height dashed on BC's extension
+  ['a triangle with its height outside (areas)', 'area/2', '7', (x) => /^ar2g:.*:1$/.test(x.key || '')],
+  // the circle (stage 2): a cylinder's volume with π (the answer row □ π סמ״ר) under a solid figure, and a disc with π ≈ 3.14
+  ['a cylinder\'s volume with π (circle)', 'circle/3', '8', (x) => /^ci3v:/.test(x.key || '')],
+  ['a disc\'s area with π ≈ 3.14 (circle)', 'circle/2', '8', (x) => /^ci2n:/.test(x.key || '')],
+  // Pythagoras in space (stage 2): a box with its diagonal marked, and the three segments of which only one is the box's
+  ['a box\'s diagonal (space)', 'space/1', '8', (x) => /^sp1s:/.test(x.key || '')],
+  ['which segment is the box\'s diagonal (space)', 'space/1', '8', (x) => /^sp1w:/.test(x.key || '')],
 ];
 
 for (const [what, route, grade, want = () => true] of CASES) {
@@ -315,4 +323,117 @@ test('four tables as choices (func:2): read row by row, thumb-sized, inside the 
     expect(b.height, 'a choice is thumb-sized').toBeGreaterThanOrEqual(44);
     expect(b.x >= 0 && b.x + b.width <= width + 1, 'a choice is inside the screen').toBe(true);
   }
+});
+
+// CLASSROOM-13 (area:2): the class's right triangle, a wrong leg typed twice (6.5, the leg with the half forgotten when
+// the area is 39 and the other leg 6), then the class's solution lines: the givens, the formula with the legs at the
+// square and the equation with its slash marks, every line whole on the smallest phone
+test('the class\'s right triangle: after 6.5 twice, the solution in the class\'s form fits the phone', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/area/2', student('7'), (x) => /^ar2x:/.test(x.key || ''));
+  for (let k = 0; k < 2; k += 1) {
+    await type(page, '6.5');
+    await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+    if (k === 0) { await expect(page.locator('section.fb-retry')).toBeVisible(); await proceed(page); }
+  }
+  await expect(page.locator('section.fb-reveal')).toBeVisible();
+  await expect(page.locator('.fb-answer')).toContainText(String(it.answer));
+  const panel = page.locator('section.fb');
+  await expect(panel).toContainText('נתון');
+  await expectNoSidewaysScroll(page);
+  // every line of maths in the panel is inside the panel's box (nothing cut at 320px)
+  const outside = await page.evaluate(() => {
+    const p = document.querySelector('section.fb').getBoundingClientRect();
+    return [...document.querySelectorAll('section.fb .katex')].map((k) => k.getBoundingClientRect()).filter((r) => r.left < p.left - 1 || r.right > p.right + 1).length;
+  });
+  expect(outside, 'maths that sticks out of the solution').toBe(0);
+  await page.screenshot({ path: test.info().outputPath('ar2x-solution.png') });
+});
+
+// boxes and prisms (stage 2): the net of a cube in practice (solid:1 "the face opposite the shaded one") on the smallest
+// phone: the net keeps room to be read, every face is a target a thumb can tap, and nothing scrolls sideways
+test('the cube net on a 320×568 phone (solid:1): readable, every face a thumb target, no sideways scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openOn(page, '#/lesson/solid/1?part=1', student('7'), (x) => x.form === 'manip' && x.manip.kind === 'net' && x.manip.task === 'face');
+  await expectNoSidewaysScroll(page);
+  const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
+  expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
+  const canvas = page.locator('.manip-canvas');
+  await expectUsable(page, canvas, 'the net');
+  expect((await canvas.boundingBox()).height, 'the net is at least 160px high').toBeGreaterThanOrEqual(160);
+  const faces = page.locator('.mp-net-pick');
+  await expect(faces).toHaveCount(6);
+  for (const f of await faces.all()) {
+    const b = await f.boundingBox();
+    expect(Math.min(b.width, b.height), 'a face is a thumb target').toBeGreaterThanOrEqual(30);
+  }
+  await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
+  await page.screenshot({ path: test.info().outputPath('net-face-phone-small.png') });
+});
+
+// the circle (stage 2): an answer "with π" (circle:3, a cylinder's volume) on the smallest phone. The row reads □ π סמ״ק
+// on one line: the slot, π after it and the unit, nothing wrapped and nothing out of the screen; the cylinder above it is
+// readable. The whole value typed into the slot (3.14 times the answer) is right in another form: it gets the note and
+// the question stays open (no mistake counted), and the number before π is then right.
+test('a π answer row (circle:3) on a 320×568 phone: □ π סמ״ק on one line, the cylinder readable, the whole value noted', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const it = await openOn(page, '#/lesson/circle/3', student('8'), (x) => /^ci3v:/.test(x.key || ''));
+  expect(it.after).toBe('\\pi');
+  await expectNoSidewaysScroll(page);
+  const parts = ['.answer-bar #slot-v', '.answer-bar .answer-after', '.answer-bar .answer-unit'];
+  const boxes = [];
+  for (const sel of parts) {
+    const loc = page.locator(sel).first();
+    await expectUsable(page, loc, sel);
+    boxes.push(await loc.boundingBox());
+  }
+  // one line: every piece's middle is inside every other piece's height
+  const mids = boxes.map((b) => b.y + b.height / 2);
+  for (const b of boxes) for (const m of mids) expect(m >= b.y - 1 && m <= b.y + b.height + 1, 'the slot, π and the unit sit on one line').toBe(true);
+  await expect(page.locator('.answer-bar .answer-after')).toContainText('π');
+  // a volume: the row reads □ π סמ״ק
+  await expect(page.locator('.answer-bar .answer-unit')).toHaveText('סמ״ק');
+  const fig = page.locator('.lesson-main svg.figure').first();
+  await expect(fig).toHaveAttribute('aria-label', /גליל/);
+  expect((await fig.boundingBox()).height, 'the cylinder is readable on a 320×568 phone').toBeGreaterThanOrEqual(160);
+  await page.screenshot({ path: test.info().outputPath('pi-row-phone-small.png') });
+  // the whole value: 3.14 times the answer, to tenths
+  await page.locator('#slot-v').click();
+  await type(page, String(Math.round(3.14 * it.answer * 10) / 10));
+  // the whole value shows in the slot, every digit (not only the slot's place on the row)
+  expect(await page.locator('#slot-v').evaluate((el) => el.scrollWidth - el.clientWidth), 'the typed value shows whole').toBeLessThanOrEqual(1);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('.answer-partial')).toContainText('נכון בקירוב');
+  await expect(page.locator('section.fb')).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('pi-row-note-phone-small.png') });
+  // then the number before π
+  await page.locator('#slot-v').click();
+  for (let k = 0; k < 9 && await page.locator('#slot-v').inputValue(); k += 1) await page.getByRole('button', { name: 'מחיקה', exact: true }).click();
+  await expect(page.locator('#slot-v')).toHaveValue('');
+  await type(page, it.answer);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
+});
+
+// a measurement answer (stage 2) has 4 to 6 characters: 75.4, 251.2, 1080, 153.86. On the smallest phone the number slot
+// beside the check button shows every digit typed: none is cut off or scrolled out of the slot (MEASURE-1, "nothing right
+// is marked wrong … on a 320 px phone"; the slot was 52px wide and showed 251.2 as 251).
+test('a 320×568 phone shows every digit of a measurement answer in the slot', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openOn(page, '#/lesson/circle/3', student('8'), (x) => x.form === 'num' && x.after === '\\pi');
+  const slot = page.locator('#slot-v');
+  await slot.click();
+  const seen = async () => slot.evaluate((el) => ({ over: el.scrollWidth - el.clientWidth, font: parseFloat(getComputedStyle(el).fontSize) }));
+  for (const value of ['75.4', '251.2', '1080', '153.86', '1004.8']) {
+    for (let k = 0; k < 9 && await slot.inputValue(); k += 1) await page.getByRole('button', { name: 'מחיקה', exact: true }).click();
+    await type(page, value);
+    await expect(slot).toHaveValue(value);
+    const s = await seen();
+    expect(s.over, `${value}: the whole number shows in the slot`).toBeLessThanOrEqual(1);
+    expect(s.font, `${value}: still readable`).toBeGreaterThanOrEqual(14);
+  }
+  await expectNoSidewaysScroll(page);
+  // the row still reads □ π סמ״ק beside the check button
+  await expectUsable(page, page.locator('.answer-bar .answer-after'), 'π after the slot');
+  await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
+  await page.screenshot({ path: test.info().outputPath('slot-long-phone-small.png') });
 });

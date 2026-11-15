@@ -101,7 +101,12 @@ export function ExamQuestion({ it, n, className, as: Tag = 'li' }) {
       <Figure fig={it.fig} />
       {it.form === 'mc' && <p className="exam-choices">{it.choices.map((c, k) => <span key={k}>{String.fromCharCode(1488 + k)}. {c.tex ? <Tex tex={c.tex} /> : c.text}</span>)}</p>}
       <div className="exam-work" aria-hidden="true" />
-      <p className="exam-answer-line">תשובה: <span className="blank" /></p>
+      {/* the answer line says what is asked, as a lesson's answer row does: π after the blank on an answer "with π" (the
+          number before π is written on the line, so 180 there is 180π, as the key reads it; stage 2, MEASURE-1.4) and
+          the unit after it */}
+      <p className="exam-answer-line">תשובה: {it.after
+        ? <span className="exam-answer-slot" dir="ltr"><span className="blank" /><span className="exam-answer-after"><Tex tex={it.after} /></span></span>
+        : <span className="blank" />}{it.unit && it.form !== 'mc' && <span className="exam-answer-unit">{it.unit}</span>}</p>
     </Tag>
   );
 }

@@ -37,12 +37,22 @@ export function makePracticeExam(topicIds, count, progress = {}) {
     seen.add(it.key);
     items.push({
       key: it.key, topic: id, level, levelTitle: it.levelTitle, text: it.text, display: it.display || null, form: it.form,
-      choices: it.choices || null, fig: it.fig || null, label: it.label || null, unit: it.unit || null,
+      choices: it.choices || null, fig: it.fig || null, label: it.label || null, unit: it.unit || null, ...answerForm(it),
       answer: answerText(it), plain: itemPlain(it), solution: it.solution, hint: it.hint,
     });
   }
   return items;
 }
+
+/**
+ * How a typed number is answered beside its label and unit (stage 2, MEASURE-1 item 4): `after`, maths drawn after the
+ * slot ('\\pi': the number before π is typed, 25 for 25π), and `pk`, the multiple of π of an answer computed with
+ * π ≈ 3.14 (right within half a tenth of 3.14·pk or of π·pk). Only what the item has.
+ */
+const answerForm = (it) => ({
+  ...(it.form === 'num' && typeof it.after === 'string' && it.after ? { after: it.after } : {}),
+  ...(it.form === 'num' && Number.isFinite(it.pk) ? { pk: it.pk } : {}),
+});
 
 // ---------------------------------------------------------------- the class exam (spec TEACHER-3)
 /** Lengths a teacher picks. */
@@ -76,7 +86,7 @@ export function freezeItem(it) {
     key: examKey(it.key), topic: it.topic, level: Number(it.level), levelTitle: it.levelTitle ?? null,
     text: it.text ?? '', display: it.display || null, form: it.form,
     choices: Array.isArray(it.choices) ? it.choices.map((c) => ({ ...(c.text != null ? { text: String(c.text) } : {}), ...(c.tex != null ? { tex: String(c.tex) } : {}) })) : null,
-    fig: plainCopy(it.fig || null), label: it.label ?? null, unit: it.unit ?? null,
+    fig: plainCopy(it.fig || null), label: it.label ?? null, unit: it.unit ?? null, ...answerForm(it),
     var: it.form === 'lin' ? it.var || 'x' : null,
     exact: it.form === 'num' && Number.isFinite(it.exact) ? it.exact : null,
     // how the answer is checked and written (the curriculum lane's flags: content/index.js isCorrect, readAnswer): a

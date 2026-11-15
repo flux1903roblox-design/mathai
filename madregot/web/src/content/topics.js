@@ -1,10 +1,10 @@
 // The topics as every screen of the first load knows them (the boot split, QA_DURABLE.md): names, grades, colours,
-// stairs and their titles, misconception names and lesson summaries (content/topics.gen.js, generated from the grade
-// files), the rows the teacher's screens list, and the loading of each topic's exercise generators. Nothing here makes
-// or checks a question: that is content/index.js (which re-exports this file), with the checkers and content/manip.js,
-// and it loads with the exercise screens. The map, the path, the store, Topics, the programme page, onboarding, Me and
-// the parents' and teacher's shells import this file, never content/index.js.
-import { LESSONS } from './lessons.js';
+// stairs and their titles and misconception names (content/topics.gen.js, generated from the grade files), the rows
+// the teacher's screens list, and the loading of each topic's exercise generators. Nothing here makes or checks a
+// question: that is content/index.js (which re-exports this file), with the checkers and content/manip.js, and it
+// loads with the exercise screens. The map, the path, the store, Topics, the programme page, onboarding, Me and the
+// parents' and teacher's shells import this file, never content/index.js. A topic's lesson summary is not here either:
+// only its guide page shows it, and reads it from content/lessons.js (lessonOf).
 // the topics without their exercise generators (generated from grade7.js and grade8.js by scripts/gen-content-meta.mjs):
 // the map, the path and every screen that only names topics and stairs read these; the generators load per topic
 // (loadGens, below)
@@ -24,15 +24,15 @@ const copy = (v) => (Array.isArray(v) ? v.map(copy) : v && typeof v === 'object'
 
 // Each topic's misconception names include those the 2.0 teaching content adds. Every topic is a fresh copy, so a
 // topic's generators can be put on its stairs once they have loaded (loadGens).
-export const TOPICS = TOPIC_META.map((t) => ({ ...copy(t), cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
+export const TOPICS = TOPIC_META.map((t) => ({ ...copy(t), cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) } }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
 
 // ---------------------------------------------------------------- the exercise generators, loaded per topic
 // The first load carries the topics' names, colours, stairs and misconception names (topics.gen.js), not their
 // generators: each stair's gen (and any other function a topic has) loads with the topic, one dynamic import per topic
-// file, so the build makes one file per topic file. grade7.js holds signed, coord and angles (and imports the expr, eq,
-// data and frac files and signed's sixth stair), grade8.js pyth and stats (and imports linear, sys, ratio, pct, func,
-// prob and stats' stairs 6-8 in stats2.js). A topic with no case here loads its grade's file, which holds every topic
+// file, so the build makes one file per topic file. grade7.js holds signed, coord and angles (and imports the expr, area,
+// solid, eq, data and frac files and signed's sixth stair), grade8.js pyth and stats (and imports linear, sys, ratio,
+// pct, func, circle, space, prob and stats' stairs 6-8 in stats2.js). A topic with no case here loads its grade's file, which holds every topic
 // of the grade: correct, only larger. A topic in a file of its own adds its case (scripts/gen-content-meta.mjs
 // regenerates topics.gen.js from the grade lists).
 // learn/content/index.ts ensureTopics waits for a topic's generators together with its teaching, so a lesson, a check,
@@ -50,6 +50,11 @@ function importGens(topic) {
     case 'func': return import('./func.js').then((m) => [m.FUNC]);
     case 'data': return import('./data.js').then((m) => [m.DATA]);
     case 'prob': return import('./prob.js').then((m) => [m.PROB]);
+    // stage 2's measurement units (space.js builds on circle.js, and all of them on area.js's helpers)
+    case 'area': return import('./area.js').then((m) => [m.AREA]);
+    case 'solid': return import('./solid.js').then((m) => [m.SOLID]);
+    case 'circle': return import('./circle.js').then((m) => [m.CIRCLE]);
+    case 'space': return import('./space.js').then((m) => [m.SPACE]);
     default: return TOPIC[topic]?.grade === '8' ? import('./grade8.js').then((m) => m.GRADE8) : import('./grade7.js').then((m) => m.GRADE7);
   }
 }
@@ -71,7 +76,7 @@ const gensAsked = new Map();
 function attachGens(full) {
   const t = TOPIC[full?.id];
   if (!t || gensLoaded.has(t.id)) return;
-  const { cats, lesson, ...rest } = full; // cats and lesson are plain data, and TOPICS merged its own into them
+  const { cats, lesson, ...rest } = full; // plain data: TOPICS merged its own names into cats, and the lesson summary is the guide page's (content/lessons.js)
   attachFns(t, rest, t.id);
   gensLoaded.add(t.id);
 }

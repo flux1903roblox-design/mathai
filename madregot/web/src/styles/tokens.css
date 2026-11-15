@@ -152,6 +152,12 @@ img, svg { max-width: 100%; }
 /* A short inline expression never splits across lines in RTL text (y = | 4x − 4 reads backwards). */
 :not(.katex-display) > .katex { white-space: nowrap; }
 :root .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; }
+/* Nothing inside maths moves: under reduced motion every element gets a 0.01ms transition (below), and a display that
+   FitDisplay (components/MathText.jsx) scales down would then be measured at its old size, set too large and cut off. */
+:root .katex, :root .katex * { transition: none !important; }
+/* A display still too wide at 60% (FitDisplay adds fit-wrap) breaks after its = signs and operators, as TeX does,
+   instead of hiding its end in a scroll box with no bar. */
+:root .katex-display > .katex.fit-wrap { white-space: normal; }
 .mathline { direction: ltr; unicode-bidi: isolate; }
 
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
