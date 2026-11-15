@@ -7,6 +7,8 @@
 // Algebra: a name that is not a function call is a variable, read from `vars` (evaluate('3*x + 1', { x: 2 })).
 // There is no implicit multiplication here: write 3*x. A TeX display (3x + 5, \frac{x + 1}{3}) is turned into
 // such an expression by texToExpr, and identical() tells whether two expressions are equal for every value.
+// Square brackets are brackets, as the class writes the outer ones (CLASSROOM-4): [ is (, ] is ), and a number or a
+// closing bracket right before [ multiplies it, -3[12 - (2 - 7)] = -3*(12 - (2 - 7)) = -51.
 
 type Tok = { t: 'n'; v: number } | { t: 'op'; v: string } | { t: 'id'; v: string };
 
@@ -28,6 +30,12 @@ function tokens(src: string): Tok[] {
       out.push({ t: 'id', v: s.slice(i, j) }); i = j; continue;
     }
     if ('+-*/^(),'.includes(c)) { out.push({ t: 'op', v: c }); i += 1; continue; }
+    if (c === '[') {
+      const last = out[out.length - 1];
+      if (last && (last.t === 'n' || (last.t === 'op' && last.v === ')'))) out.push({ t: 'op', v: '*' });
+      out.push({ t: 'op', v: '(' }); i += 1; continue;
+    }
+    if (c === ']') { out.push({ t: 'op', v: ')' }); i += 1; continue; }
     throw new Error(`unexpected "${c}" in ${src}`);
   }
   return out;
@@ -212,10 +220,11 @@ export type Rel = '=' | '<' | '>' | '<=' | '>=';
 
 /**
  * An equation or inequality in TeX, split into its two sides as expressions: '3x + 5 = x + 11' gives
- * { left: '3*x+5', rel: '=', right: 'x+11' }. Exactly one relation is allowed.
+ * { left: '3*x+5', rel: '=', right: 'x+11' }. Exactly one relation is allowed. The class's mark of the operation
+ * done next, '3x + 9 = 4x \qquad /{-3x}' (content/util.js opMark), is not part of the equation and is left out.
  */
 export function texRelation(tex: string): { left: string; rel: Rel; right: string } {
-  const s = tex.replace(/\\(?:le|leq|ge|geq)\b/g, (m) => (m.startsWith('\\l') ? '≤' : '≥'));
+  const s = tex.replace(/\s*\\qquad\s*\/.*$/, '').replace(/\\(?:le|leq|ge|geq)\b/g, (m) => (m.startsWith('\\l') ? '≤' : '≥'));
   const found = [...s].map((ch, i) => ({ ch, i })).filter(({ ch }) => '=<>≤≥'.includes(ch));
   if (found.length !== 1) throw new Error(`texRelation: one relation expected in ${tex}`);
   const { ch, i } = found[0];

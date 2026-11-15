@@ -1295,6 +1295,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .lesson .q-stage:has(.choices) .figure { max-height: max(130px, calc(100cqh - 190px)); }
 .lesson .q-stage:has(.redo-note) .figure { max-height: max(120px, calc(100cqh - 36px)); }
 .lesson .q-stage { min-height: 100%; justify-content: center; }
+/* The expression keeps its height when the feedback panel takes the lower half of the screen: the middle region
+   scrolls, never the expression's own box (it scrolled inside itself, cut in half, with nothing a keyboard can reach) */
+.lesson .q-stage > .qdisplay { flex-shrink: 0; }
 
 /* short phones (up to 700px tall): the keypad in three rows, the question compact and without מדי */
 @media (max-height: 700px) and (max-width: 899px) {
@@ -1386,6 +1389,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .lesson-top .tool .tool-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-height: 700px) and (max-width: 899px) {
   .answer-bar.with-check .slot { width: clamp(52px, 16vw, 72px); }
+  /* one typed number has the row to itself beside the check button: wide enough for −27/64 or −0.027 on a 320 phone
+     (at 72px the last digits were cut off while typing and on the struck answer) */
+  .answer-bar.with-check .answer-row > input.slot:only-of-type { width: clamp(96px, 40vw, 160px); }
   .answer-bar.with-check .answer-lab { font-size: 18px; }
   .lesson-foot .fb { max-height: 40dvh; }
 }
@@ -1673,6 +1679,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .mp-tile-pair, .mp-area-hint { animation: none; }
 }
 .manip-angle .manip-readout { font-size: 22px; }
+/* a ray inside a fixed angle (CLASSROOM-10): the names, then the sizes; on a narrow phone they wrap to two lines */
+.manip-angle.whole .manip-readout { font-size: 20px; gap: 0 8px; }
+.manip-angle.whole .ang-names { color: var(--ink-2); }
 
 /* ---------- the adventure map: a world per unit, stairs for stops, a chest halfway ---------- */
 /* each world opens with its landscape behind the first stairs; the land below keeps the world's ground */

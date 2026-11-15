@@ -17,7 +17,8 @@ const lo = (page) => page.locator('.wardrobe-madi').getAttribute('style');
 // the last stair of זוויות still to master; the unit's chest (the crown) was opened and shown before. The sounds are
 // on (student() keeps them off): the burst also stays away with the app's sounds off (5f), so each burst test holds one
 // reason at a time
-const lastStair = (extra = {}) => student('7', { path: { angles: done([1, 2, 3, 4]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } }, sound: true, ...extra });
+// the angles unit's last stair: seven stairs since the classroom lane's angles:6 and angles:7
+const lastStair = (extra = {}) => student('7', { path: { angles: done([1, 2, 3, 4, 5, 6]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } }, sound: true, ...extra });
 /** Pass a mastery check of five and go on to the unlock moment. */
 async function passCheck(page, route, state) {
   await open(page, route, state);
@@ -178,7 +179,7 @@ test.describe('on a phone', () => {
 
   test('5c. a completed unit gives its colour; under reduced motion (the default here) no burst plays and none is loaded', async ({ page }) => {
     const asked = confettiRequests(page);
-    const stage = await passCheck(page, '#/lesson/angles/5?kind=check&purpose=mastery', lastStair());
+    const stage = await passCheck(page, '#/lesson/angles/7?kind=check&purpose=mastery', lastStair());
     await expect(stage.locator('.unlock-reason')).toHaveText(COLOUR_REASON);
     await page.waitForTimeout(600);
     await expect(page.locator('canvas.math-burst')).toHaveCount(0);
@@ -189,7 +190,7 @@ test.describe('on a phone', () => {
     test.use({ reducedMotion: 'no-preference' });
 
     test('5d. a new colour: the maths burst plays from the moment, takes no tap, and goes when the student goes on', async ({ page }) => {
-      const stage = await passCheck(page, '#/lesson/angles/5?kind=check&purpose=mastery', lastStair());
+      const stage = await passCheck(page, '#/lesson/angles/7?kind=check&purpose=mastery', lastStair());
       await expect(stage.locator('.unlock-reason')).toHaveText(COLOUR_REASON);
       const burst = page.locator('canvas.math-burst');
       await expect(burst).toHaveCount(1);
@@ -218,7 +219,7 @@ test.describe('on a phone', () => {
 
     test('5f. with the app\'s sounds off (its quiet mode), a new colour plays no burst and loads nothing', async ({ page }) => {
       const asked = confettiRequests(page);
-      const stage = await passCheck(page, '#/lesson/angles/5?kind=check&purpose=mastery', lastStair({ sound: false }));
+      const stage = await passCheck(page, '#/lesson/angles/7?kind=check&purpose=mastery', lastStair({ sound: false }));
       await expect(stage.locator('.unlock-reason')).toHaveText(COLOUR_REASON);
       await page.waitForTimeout(600);
       await expect(page.locator('canvas.math-burst')).toHaveCount(0);

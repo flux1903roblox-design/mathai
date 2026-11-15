@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { Sparkles } from 'lucide-react';
-import { Sheet, Button } from '@/components/ui.jsx';
+import { Sheet, Button, StairStep } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { INTENTS, tutorReply } from '@/learn/tutor.ts';
 import { useApp } from '@/lib/store.js';
@@ -24,7 +24,7 @@ function StepsReveal({ steps }) {
   return (
     <div className="tutor-steps">
       <ol className="stair-list">
-        {steps.slice(0, n).map((s, i) => <li key={i} className="stair-step" style={{ '--i': i }}><span className="stair-n" aria-hidden="true">{i + 1}</span><span className="stair-text"><MathText text={s} /></span></li>)}
+        {steps.slice(0, n).map((s, i) => <StairStep key={i} i={i} text={s} />)}
       </ol>
       {n < steps.length ? <Button variant="secondary" className="btn-sm" onClick={() => setN(n + 1)}>הצעד הבא</Button> : <p className="ls-why warm">את הצעד האחרון עושים לבד. נסו עכשיו.</p>}
     </div>

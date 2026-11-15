@@ -49,8 +49,14 @@ const NOA = [1, 1, 2, 3, 3, 3, 4, 4, 5, 5].map((k, i) => Math.round((100 * k) / 
 // ================================================================ stair 1: charts and the frequency table
 
 type P1 = { s: number; vals: number[]; i: number; j: number; max: number };
+/** The numbers a bar chart prints: every bar, and its axis's 0, step and end (figPlain says them all). */
+const chartNumbers = (p: P1) => [...p.vals, 0, p.s, p.max];
 const data1: DiagModel<P1> = {
   params: (rnd) => G.DATA1.params(rnd),
+  // a check never asks a "how many more" the chart prints (another bar, the step, the axis's end): the guessing test reads
+  // a drawing's numbers since the classroom merge (CURRICULUM-10), and a copied bar passed a verification 2.5% of the
+  // time; practice keeps every draw
+  testParams: (rnd) => { for (;;) { const p = G.DATA1.params(rnd); if (!chartNumbers(p).includes(G.DATA1.answer(p))) return p; } },
   text: (p) => G.data1Text(p),
   fig: (p) => G.data1Fig(p) as FigSpec,
   answer: (p) => G.DATA1.answer(p),

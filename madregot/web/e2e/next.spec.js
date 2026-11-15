@@ -9,7 +9,7 @@ test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(inf
 
 const at = '2026-11-01T10:00:00.000Z';
 const mastered = { taught: { A: at, B: at, C: at }, attempts: Array.from({ length: 6 }, () => ({ at, ok: true, independent: true, purpose: 'practice' })), mastered: { at, box: 0, due: '2026-11-02T10:00:00.000Z' } };
-/** NOW is Thursday 5.11: the exam is on Sunday 8.11, diagnosed (חיבור וחיסור a gap, השוואת מספרים right twice); קריאת נקודה's review is due. */
+/** NOW is Thursday 5.11: the exam is on Sunday 8.11, diagnosed (חיבור וחיסור a gap, השוואה וערך מוחלט right twice); קריאת נקודה's review is due. */
 function examSoon() {
   const st = student('7', { path: { coord: { parts: { 1: 2 }, reviews: 0, jumped: 0, done: { 1: 'mastered' } } } });
   st.state.learn = {

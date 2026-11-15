@@ -1,8 +1,9 @@
 // The Ministry programme in code (shared/programme.js) and the coverage computed from it (shared/coverage.js).
 // The fixtures are skill lists typed here, so these numbers do not move when a stage lands: the council's 33 stairs,
 // HEAD's 48 (after the algebra build), stage 1's (HEAD plus signed:6, ratio:1-4 and pct:1-5), curriculum stage 3's
-// (stage 1 plus data:1-4, stats:6-8 and prob:1-3), and stage 5's before the classroom split (stage 1 plus func:1-4, eq:6
-// and eq:7). The hours and the per-unit taught hours are those of the
+// (stage 1 plus data:1-4, stats:6-8 and prob:1-3), stage 5's before the classroom split (stage 1 plus func:1-4, eq:6
+// and eq:7), and the classroom lane's (stage 1 plus signed:7, powers, CLASSROOM-5, and angles:6 and angles:7, the
+// bisector and the quadrilateral, CLASSROOM-10 and -12). The hours and the per-unit taught hours are those of the
 // Ministry's תשפ״ז schedules, as the curriculum spec (§0.3) and the stage-5 spec (§0.3) checked them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,6 +35,9 @@ const STAGE1 = [
 // denominator stairs, without angles:8, which cannot exist before the classroom lane's angles:6-7 (STAIRS.angles is a
 // count). The classroom-inclusive fixture (ז׳ 114, 7.10 at 20 hours) lands with angles:8.
 const S5_BEFORE_CLASSROOM = [...STAGE1, 'func:1', 'func:2', 'func:3', 'func:4', 'eq:6', 'eq:7'];
+// the classroom lane (finish/specs/classroom.md): signed:7 makes 7.6 whole, 104 + 4 = 108 hours of ז׳; angles:6 and angles:7
+// teach 7.10's two hours of the bisector and the quadrilateral, 110 (measuring stays S5's, for angles:8)
+const CLASSROOM = [...STAGE1, 'signed:7', 'angles:6', 'angles:7'];
 const BRIDGE = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
 // Curriculum stage 3 (data and probability): its ten stairs, all listed by the programme now (7.15-7.17, 8.6 and the
 // first half of 8.16 list data:1-4; 8.10 and 8.11 list stats:6-8; the rest of 8.16 lists prob:1-3).
@@ -55,6 +59,8 @@ const TAUGHT = {
     stage1: [5, 5, 7, 5, 8, 2, 25, 21, 1, 16, 0, 1, 0, 6, 2, 0, 0],
     // 7.9 1 → 3 (func:1, the situation graph); 7.8 stays 21 (eq:6-7 are a 0-hour cross-listing)
     s5BeforeClassroom: [5, 5, 7, 5, 8, 2, 25, 21, 3, 16, 0, 1, 0, 6, 2, 0, 0],
+    // 7.6 2 → 6 (signed:7, powers), 7.10 16 → 18 (angles:6-7, the bisector and the quadrilateral)
+    classroom: [5, 5, 7, 5, 8, 6, 25, 21, 1, 18, 0, 1, 0, 6, 2, 0, 0],
   },
   '8': {
     council: [0, 0, 8, 0, 0, 1, 0, 8, 1, 8, 0, 0, 3, 1, 0, 0, 0],
@@ -62,6 +68,7 @@ const TAUGHT = {
     stage1: [8, 7, 8, 0, 0, 1, 0, 8, 6, 8, 0, 0, 3, 13, 4, 0, 0],
     // 8.7 0 → 8 (func:1-3), 8.8 stays 8 (func:4 is a 0-hour cross-listing), 8.9 6 → 12 (eq:6-7)
     s5BeforeClassroom: [8, 7, 8, 0, 0, 1, 8, 8, 12, 8, 0, 0, 3, 13, 4, 0, 0],
+    classroom: [8, 7, 8, 0, 0, 1, 0, 8, 6, 8, 0, 0, 3, 13, 4, 0, 0],
   },
 };
 // After stage 1, the hours each later stage adds (§0.3: S2 = 7.6, 7.12, 7.13, 8.4, 8.17; S3 = 7.15-7.17, 8.6, 8.10,
@@ -71,13 +78,20 @@ const TAUGHT = {
 // too this year (8.6, 7 hours, and "הסתברות א" in 8.16, 2 hours), stats:6-8 the rest of 8.10 and 8.11 (8 hours) and
 // prob:1-3 "הסתברות ב", the other 4 hours of 8.16: 66 + 21 = 87. Its fixture keeps 139 and 99 after S3 (BASE).
 const AFTER = { '7': { S2: 126, S3: 139, S4: 144, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
+// The classroom fixture (stage 1 and the classroom lane's three stairs), the hours left for each later stage added up: S2 no
+// longer brings 7.6's four hours of powers, S5 keeps only 7.10's two hours of measuring (and 7.9's situation graph), so
+// ז׳ is 128, 141, 146, 150 after S2-S5 (the lane's own numbers); ח׳ is unchanged.
+const AFTER_CLASSROOM = { '7': { S2: 128, S3: 141, S4: 146, S5: 150 }, '8': AFTER['8'] };
 // The stairs a later stage brings, by stage (stage5.md FUNC-8 Design 2 (d)): with stage 1's fixtures, a part that lists
 // one of them is untaught, and its stage is its stairs'. So stage 1's fixtures keep their numbers while later stages
 // land. Every stair a part lists exists (Design 2 (a)); a stage's part that waits for a stair not built yet lists none
-// and names its stage in `later` (7.10's measuring part waits for the classroom split and angles:8).
+// and names its stage in `later` (7.10's measuring part waits for angles:8). The classroom lane's three stairs teach hours
+// the roadmap had given to S2 (7.6's powers: signed:7) and S5 (7.10's bisector and quadrilateral: angles:6-7), so they
+// count as those stages' here and stage 1's fixtures keep their numbers (the CLASSROOM fixture has its own).
 const STAGE_OF_STAIR = Object.freeze({
   ...Object.fromEntries(STAGE3.map((s) => [s, 'S3'])),
-  'func:1': 'S5', 'func:2': 'S5', 'func:3': 'S5', 'func:4': 'S5', 'eq:6': 'S5', 'eq:7': 'S5', 'angles:8': 'S5',
+  'signed:7': 'S2',
+  'func:1': 'S5', 'func:2': 'S5', 'func:3': 'S5', 'func:4': 'S5', 'eq:6': 'S5', 'eq:7': 'S5', 'angles:6': 'S5', 'angles:7': 'S5', 'angles:8': 'S5',
 });
 const STAGES = ['S2', 'S3', 'S4', 'S5'];
 /** The stage that teaches a part: its `later`, or, for a part with stairs, the latest stage among its stairs (none for stage 1's). */
@@ -141,6 +155,11 @@ test('every stair a part lists is a stair of the app; a part with none is a late
   // stage 1's own parts already name their stairs
   const listing = (id) => PROGRAMME.units.find((u) => u.id === id).parts.flatMap((p) => p.skills);
   for (const id of ['7.2', '7.3', '7.5']) assert.ok(listing(id).includes('signed:6'), id);
+  // 7.6's powers are signed:7 (CLASSROOM-5): the roadmap's stage-2 "pow" topic is not built, the signed unit teaches them
+  assert.deepEqual(listing('7.6'), ['pyth:1', 'signed:7']);
+  // 7.10: angles:1-5, then the bisector and the quadrilateral (CLASSROOM-10, -12), then measuring (S5, angles:8)
+  assert.deepEqual(PROGRAMME.units.find((u) => u.id === '7.10').parts.map((p) => [p.hours, p.skills, p.later]),
+    [[16, ['angles:1', 'angles:2', 'angles:3', 'angles:4', 'angles:5'], undefined], [2, ['angles:6', 'angles:7'], undefined], [2, [], 'S5']]);
   assert.deepEqual(listing('8.1'), ['ratio:1', 'ratio:2', 'ratio:3', 'ratio:4']);
   assert.deepEqual(listing('8.2'), ['pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5']);
   // one stair can serve several units
@@ -168,12 +187,13 @@ test('no part lists a bridge stair: elementary fractions add no hours', () => {
   for (const g of ['7', '8']) assert.equal(coverage(g, [...STAGE1, ...BRIDGE]).taught, coverage(g, STAGE1).taught);
 });
 
-test('coverage from the four fixtures: the council\'s 33 stairs, HEAD\'s 48, stage 1, stage 5 before the classroom split', () => {
+test('coverage from the five fixtures: the council\'s 33 stairs, HEAD\'s 48, stage 1, stage 5 before the classroom split, the classroom lane', () => {
   assert.equal(COUNCIL.length, 33);
   assert.equal(HEAD.length, 48);
   assert.equal(STAGE1.length, 58);
   assert.equal(S5_BEFORE_CLASSROOM.length, 64);
-  const want = { council: [COUNCIL, 53, 30], head: [HEAD, 99, 51], stage1: [STAGE1, 104, 66], s5BeforeClassroom: [S5_BEFORE_CLASSROOM, 106, 80] };
+  assert.equal(CLASSROOM.length, 61);
+  const want = { council: [COUNCIL, 53, 30], head: [HEAD, 99, 51], stage1: [STAGE1, 104, 66], s5BeforeClassroom: [S5_BEFORE_CLASSROOM, 106, 80], classroom: [CLASSROOM, 110, 66] };
   for (const [name, [skills, t7, t8]] of Object.entries(want)) {
     const c7 = coverage('7', skills); const c8 = coverage('8', skills);
     assert.deepEqual([c7.taught, c7.hours, c8.taught, c8.hours], [t7, 150, t8, 147], name);
@@ -198,6 +218,16 @@ test('coverage from the four fixtures: the council\'s 33 stairs, HEAD\'s 48, sta
   assert.deepEqual([hours(c7, '7.10'), c7.units.find((u) => u.id === '7.10').state], [16, 'part']);
   assert.deepEqual(['7.8', '7.9'].map((id) => c7.units.find((u) => u.id === id).state), ['yes', 'yes']);
   assert.deepEqual(['8.7', '8.8', '8.9'].map((id) => c8.units.find((u) => u.id === id)).map((u) => [u.state, u.missing]), [['yes', []], ['yes', []], ['yes', []]]);
+  // the classroom lane: signed:7 teaches 7.6's four hours of powers, angles:6 and angles:7 7.10's two of the bisector and
+  // the quadrilateral: ז׳ 104 + 4 + 2 = 110 of 150 (73%), both grades 176 of 297 (59%)
+  assert.deepEqual([coverage('7', CLASSROOM).pct, coverage('8', CLASSROOM).pct], [73, 45]);
+  assert.equal(Math.round((100 * (110 + 66)) / 297), 59);
+  const u710 = coverage('7', CLASSROOM).units.find((u) => u.id === '7.10');
+  assert.deepEqual([u710.taught, u710.state, u710.missing], [18, 'part', ['מדידה ואומדן של זוויות']]);
+  assert.deepEqual(u710.parts.map((p) => [p.hours, p.taught, p.later]), [[16, true, null], [2, true, null], [2, false, 'S5']]);
+  assert.deepEqual(coverage('7', CLASSROOM).units.find((u) => u.id === '7.6').stairs, ['pyth:1', 'signed:7']);
+  assert.equal(coverage('7', STAGE1).units.find((u) => u.id === '7.6').state, 'part');
+  assert.equal(coverage('7', CLASSROOM).units.find((u) => u.id === '7.6').state, 'yes');
 });
 
 test('a unit\'s state, stairs and missing parts', () => {
@@ -302,9 +332,9 @@ test('with the stage-1 stairs, every untaught part names the later stage that br
       assert.equal(taught, AFTER[g][stage], `grade ${g} after ${stage}`);
     }
   }
-  // stage 5 before the classroom split: what is left is stages 2-4's hours, as with stage 1's stairs, and 7.10's
-  // measuring part (S5, 4 hours: the classroom split takes 2 to angles:6-7, and angles:8 brings the other 2); with them
-  // the programme is whole, ז׳ 150 and ח׳ 147
+  // stage 5 before the classroom split: what is left is stages 2-4's hours, as with stage 1's stairs, and 7.10's last
+  // four hours (S5: the classroom split's angles:6-7 part, 2 hours, and the measuring part angles:8 brings, 2 hours); with
+  // them the programme is whole, ז׳ 150 and ח׳ 147
   for (const g of ['7', '8']) {
     const c = coverage(g, S5_BEFORE_CLASSROOM);
     const left = c.units.flatMap((u) => u.parts.filter((p) => !p.taught).map((p) => ({ id: u.id, stage: stageOf(p), hours: p.hours })));
@@ -312,7 +342,7 @@ test('with the stage-1 stairs, every untaught part names the later stage that br
     const stage1 = coverage(g, STAGE1).taught;
     const leftOf = (stage) => sum(left.filter((p) => p.stage === stage).map((p) => p.hours));
     assert.deepEqual(['S2', 'S3', 'S4'].map(leftOf), [AFTER[g].S2 - stage1, AFTER[g].S3 - AFTER[g].S2, AFTER[g].S4 - AFTER[g].S3], `grade ${g}: stages 2-4 keep their hours`);
-    assert.deepEqual(left.filter((p) => p.stage === 'S5').map((p) => [p.id, p.hours]), g === '7' ? [['7.10', 4]] : [], `grade ${g}: S5's part left`);
+    assert.deepEqual(left.filter((p) => p.stage === 'S5').map((p) => [p.id, p.hours]), g === '7' ? [['7.10', 2], ['7.10', 2]] : [], `grade ${g}: S5's parts left`);
     assert.equal(c.taught + sum(left.map((p) => p.hours)), AFTER[g].S5, `grade ${g}: every hour, after S5`);
   }
   // curriculum stage 3's fixture (stage 1 and its ten stairs): ז׳ 117 and ח׳ 87; nothing of S3 is left, and stages 2, 4
@@ -326,6 +356,19 @@ test('with the stage-1 stairs, every untaught part names the later stage that br
     const stage1 = coverage(g, STAGE1).taught;
     assert.deepEqual(STAGES.map(leftOf), [AFTER[g].S2 - stage1, 0, AFTER[g].S4 - AFTER[g].S3, AFTER[g].S5 - AFTER[g].S4], `grade ${g}: what is left after stage 3`);
     assert.equal(c.taught + sum(left.map((p) => p.hours)), AFTER[g].S5, `grade ${g}: every hour, after S5`);
+  }
+  // the classroom fixture (stage 1 and the lane's three stairs): every untaught part names its stage, and the stages add
+  // up to the lane's totals (ז׳ 128, 141, 146, 150)
+  for (const g of ['7', '8']) {
+    const c = coverage(g, CLASSROOM);
+    let taught = c.taught;
+    for (const u of c.units) {
+      for (const p of u.parts.filter((x) => !x.taught)) assert.ok(STAGES.includes(stageOf(p)), `${u.id}: ${p.note || p.skills.join(', ')}`);
+    }
+    for (const stage of STAGES) {
+      taught += sum(c.units.flatMap((u) => u.parts.filter((p) => !p.taught && stageOf(p) === stage).map((p) => p.hours)));
+      assert.equal(taught, AFTER_CLASSROOM[g][stage], `classroom fixture, grade ${g} after ${stage}`);
+    }
   }
   for (const [stage, ids] of Object.entries(COMPLETES)) {
     assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => stageOf(p) === stage)).map((u) => u.id), ids, stage);
@@ -418,6 +461,7 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
 test('the words every surface quotes: the coverage sentence, the months, the hours, the school order', () => {
   // one sentence, filled from coverage(): the stage-1 fixture gives the spec's own example
   assert.equal(coverageSentence('7', coverage('7', STAGE1)), 'במדרגות יש כבר את החומר של 104 מתוך 150 שעות ההוראה של כיתה ז׳ (69%).');
+  assert.equal(coverageSentence('7', coverage('7', CLASSROOM)), 'במדרגות יש כבר את החומר של 110 מתוך 150 שעות ההוראה של כיתה ז׳ (73%).');
   assert.equal(coverageSentence(8, coverage('8', HEAD)), 'במדרגות יש כבר את החומר של 51 מתוך 147 שעות ההוראה של כיתה ח׳ (35%).');
   assert.deepEqual(GRADE_NAME, { '7': 'ז׳', '8': 'ח׳' });
   // months: consecutive ones as a range, a gap as a comma, in school order (September first)

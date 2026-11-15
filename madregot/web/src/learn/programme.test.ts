@@ -211,6 +211,41 @@ describe('curriculum stage 3: the data unit, stats:6-8 and probability', () => {
   });
 });
 
+// The classroom lane (finish/specs/classroom.md): signed:7 (CLASSROOM-5) teaches 7.6's four hours of powers, angles:6 and
+// angles:7 (CLASSROOM-10, -12) 7.10's two of the bisector and the quadrilateral. worker/test/coverage.test.js's classroom
+// fixture (stage 1's stairs and these three): ז׳ 110 of 150 (73%), ח׳ 66 of 147, 59% together.
+describe('the classroom lane\'s three stairs', () => {
+  const CLASSROOM = ['signed:7', 'angles:6', 'angles:7'];
+  const STAGE1 = [
+    ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+    ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+    'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+  ];
+  it('has its three stairs; on stage 1\'s stairs and its own: ז׳ 110/150 (73%), ח׳ 66/147, 59%', () => {
+    CLASSROOM.forEach((s) => expect(ALL_SKILLS, s).toContain(s));
+    CLASSROOM.forEach((s) => expect(programmeStairs.has(s), s).toBe(true));
+    const c7 = coverage('7', [...STAGE1, ...CLASSROOM]); const c8 = coverage('8', [...STAGE1, ...CLASSROOM]);
+    expect([c7.taught, c7.hours, c7.pct]).toEqual([110, 150, 73]);
+    expect([c8.taught, c8.hours]).toEqual([66, 147]);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(59);
+  });
+  it('signed:7 is in 7.6: powers with a natural exponent and order of operations with powers, the unit now whole', () => {
+    const u = coverageOf('7').units.find((x) => x.id === '7.6')!;
+    expect(u).toMatchObject({ hours: 6, taught: 6, state: 'yes', missing: [] });
+    expect(u.stairs).toEqual(['pyth:1', 'signed:7']);
+    expect(u.parts.find((p) => p.skills.includes('signed:7'))).toMatchObject({ hours: 4, taught: true, later: null });
+    expect(notYetOf('7')).not.toContain('חזקות עם מעריך טבעי וסדר פעולות עם חזקות');
+  });
+  it('angles:6 and angles:7 are in 7.10: the bisector and the quadrilateral taught, measuring still a later stage\'s', () => {
+    const u = coverageOf('7').units.find((x) => x.id === '7.10')!;
+    expect(u).toMatchObject({ hours: 20, taught: 18, state: 'part' });
+    expect(u.stairs).toEqual(['angles:1', 'angles:2', 'angles:3', 'angles:4', 'angles:5', 'angles:6', 'angles:7']);
+    expect(u.parts.map((p) => [p.hours, p.taught, p.later])).toEqual([[16, true, null], [2, true, null], [2, false, 'S5']]);
+    expect(notYetOf('7')).toContain('מדידה ואומדן של זוויות');
+    expect(notYetOf('7').join(' ')).not.toMatch(/חוצה זווית|זוויות במרובע/);
+  });
+});
+
 describe('coverage, bound to the stairs this build has', () => {
   it('counts every hour of both schedules, and only taught hours as taught', () => {
     const c7 = coverageOf('7'); const c8 = coverageOf('8');

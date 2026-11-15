@@ -587,3 +587,48 @@ test('the data unit\'s objects pass axe (WCAG 2.1 A/AA) and the contrast probe: 
   await page.locator('.manip-chart-pie').getByRole('button', { name: /^לצבוע עוד חלק ל/ }).click();
   await scan('.manip-chart-pie', 'the pie');
 });
+
+// CLASSROOM-10: the angle tool with a whole angle, angles:6's second teaching step. A fixed ∢AOB = 110° and a ray OC
+// turning inside it in 5° steps: a named slider read in words, ∢AOC + ∢COB written above it, moved by the arrow keys, a
+// real drag and the 44px step buttons; the handle does not glide when motion is reduced (the config asks for it); the
+// middle, 55° and 55°, is the right state.
+test('the angle tool with a whole angle: a ray turning inside ∢AOB, by keys, drag and buttons', async ({ page }) => {
+  await open(page, '#/learn/angles/6/A', student('7'));
+  await expect(page.locator('.step-player')).toBeVisible();
+  await page.locator('.sp-next').click(); // the first step says what a bisector is
+  const tool = page.locator('.ls-explore .manip-angle.whole');
+  await expect(tool).toBeVisible();
+  const canvas = tool.locator('.manip-canvas');
+  await expect(canvas).toHaveAttribute('role', 'slider');
+  await expect(canvas).toHaveAttribute('aria-label', 'הקרן OC בתוך הזווית AOB');
+  await expect(canvas).toHaveAttribute('aria-valuemax', '105');
+  await expect(canvas).toHaveAttribute('aria-valuenow', '30');
+  await expect(tool.locator('.manip-readout')).toContainText('∢AOC + ∢COB');
+  await expect(tool.locator('.manip-readout')).toContainText('= 30° + 80° = 110°');
+  await expectNoSidewaysScroll(page);
+  await expectUsable(page, canvas, 'the angle tool');
+  for (const b of await tool.locator('.step-btn').all()) { const s = await b.boundingBox(); expect(Math.min(s.width, s.height), 'step buttons are thumb-sized').toBeGreaterThanOrEqual(44); }
+  // reduced motion: the handle moves at once (the app's rule leaves 0.01 ms, read back as 1e-05s)
+  const glide = await tool.locator('.mp-point').evaluate((el) => getComputedStyle(el).transitionDuration);
+  expect(Math.max(...glide.split(',').map((t) => parseFloat(t))), `the handle's transition (${glide})`).toBeLessThan(0.001);
+  // the keyboard: left turns the ray towards OB, right back towards OA
+  await canvas.focus();
+  for (let i = 0; i < 6; i += 1) await page.keyboard.press('ArrowLeft');
+  await expect(canvas).toHaveAttribute('aria-valuenow', '60');
+  await page.keyboard.press('ArrowRight');
+  await expect(canvas).toHaveAttribute('aria-valuenow', '55');
+  await expect(canvas).toHaveAttribute('aria-valuetext', 'הזווית AOC 55 מעלות, הזווית COB 55 מעלות');
+  await expect(tool.locator('.manip-readout')).toContainText('= 55° + 55° = 110°');
+  // a real drag: from the vertex's right towards OA lowers ∢AOC
+  const box = await canvas.boundingBox();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.2);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i += 1) await page.mouse.move(box.x + box.width * (0.5 + 0.04 * i), box.y + box.height * (0.2 + 0.03 * i));
+  await page.mouse.up();
+  await expect.poll(async () => Number(await canvas.getAttribute('aria-valuenow'))).toBeLessThan(55);
+  // the step buttons bring it back to the middle, and the middle is right
+  const inc = tool.getByRole('button', { name: 'להגדיל את הזווית AOC ב־5 מעלות' });
+  while (Number(await canvas.getAttribute('aria-valuenow')) < 55) await inc.click();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+});

@@ -104,8 +104,9 @@ describe('planNext: the bands, highest first, for each learner', () => {
     expect(planNext(LEARNERS.newSeventhSeptember()).top).toMatchObject({ kind: 'new', skill: 'angles:1' });
     expect(planNext(LEARNERS.newSeventhSeptember()).top!.reason).toContain('בספטמבר');
     // a stair the calendar has not reached says nothing about the calendar
-    // (every ז׳ unit before equations, data and frequency (January) included, passed on the map)
-    const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr', 'data'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }]));
+    // (every ז׳ unit before equations, data and frequency (January) included, passed on the map: every stair of each
+    // unit jumped, signed and angles have seven since signed:7 and angles:6-7)
+    const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr', 'data'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 7 }]));
     const eq = planNext(ctxOf(emptyLearn(), { path })).top!;
     expect(eq).toMatchObject({ kind: 'new', skill: 'eq:1' });
     expect(eq.reason).not.toContain('לפי תוכנית הלימודים');
@@ -280,7 +281,7 @@ describe('planNext: the challenge band', () => {
     const solve = (ids: string[]) => { c.learn.challenges = Object.fromEntries(ids.map((id) => [id, { startedAt: NOW, doneAt: NOW, firstTry: 1, parts: 2 }])); };
     solve(['signed:c1']);
     expect(planNext(c).top?.challengeId).toBe('signed:c2');
-    solve(['signed:c1', 'signed:c2', 'signed:c3', 'coord:c1', 'coord:c2', 'coord:c3', 'angles:c2']);
+    solve(['signed:c1', 'signed:c2', 'signed:c3', 'signed:c4', 'signed:c5', 'coord:c1', 'coord:c2', 'coord:c3', 'angles:c2']);
     expect(planNext(c).top?.challengeId).toBe('angles:c1');
     // the most recently mastered stair's task comes first: a check passed again on angles:4 yesterday
     c.learn.skills['angles:4'] = masteredRec(ago(1), 20, 0);

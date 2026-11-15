@@ -29,10 +29,12 @@ function importTopic(topic: string): Promise<StairContent[]> {
   switch (topic) {
     // the curriculum lane's bridge unit (fractions)
     case 'frac': return import('./frac').then((m) => m.FRAC);
-    // signed:6 (signed fractions and decimals) is the curriculum lane's sixth stair of signed numbers, in its own file
-    case 'signed': return Promise.all([import('./signed'), import('./signed6')]).then(([a, b]) => [...a.SIGNED, ...b.SIGNED6]);
+    // signed:6 (signed fractions and decimals) is the curriculum lane's sixth stair of signed numbers, in its own file;
+    // signed:7 (powers of directed numbers) the classroom lane's seventh (CLASSROOM-5), in its own file too
+    case 'signed': return Promise.all([import('./signed'), import('./signed6'), import('./signed7')]).then(([a, b, c]) => [...a.SIGNED, ...b.SIGNED6, ...c.SIGNED7]);
     case 'coord': return import('./coord').then((m) => m.COORD);
-    case 'angles': return import('./angles').then((m) => m.ANGLES);
+    // angles:6 (the bisector) and angles:7 (the quadrilateral) are the classroom lane's (CLASSROOM-10, -12), in their own file
+    case 'angles': return Promise.all([import('./angles'), import('./angles67')]).then(([a, b]) => [...a.ANGLES, ...b.ANGLES67]);
     case 'expr': return import('./expr').then((m) => m.EXPR);
     case 'data': return import('./data').then((m) => m.DATA);
     case 'eq': return import('./eq').then((m) => m.EQ);

@@ -20,6 +20,19 @@ import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TIL
 import { TOPIC, fairForCheck, makeItem, namesOf } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T, exactTex } from '@/content/util.js';
+// @ts-ignore: plain JS
+import { drawNested, nestedBugs, nestedValue } from '@/content/signedItems.js';
+// @ts-ignore: plain JS
+import { drawPow, powValue, powBugs, POW_MIX } from '@/content/signed7.js';
+// @ts-ignore: plain JS
+import { STORY_MIX, storyMix } from '@/content/eq.js';
+// @ts-ignore: plain JS
+import { bisCheckItem } from '@/content/angles67.js';
+// @ts-ignore: plain JS
+import { itemPlain } from '@/content/index.js';
+// @ts-ignore: node's own module (this test runs in node; the app's types do not include node)
+import { readFileSync } from 'node:fs';
+import { CHALLENGE_TASKS as CHALLENGES } from './challenges/all';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -872,3 +885,499 @@ describe('the algebra checks catch what they are for', () => {
     exBad(ex([st('y = 2x', { eq: 'y = 2*x' }), st('x + 2x = 8', { eq: 'x + 2*x = 8' })], base));
   });
 });
+
+// CLASSROOM-1 and -2: the book's order in signed:1, the class's chains in its two steps, absolute value and opposites
+describe('the real classroom: signed:1 and signed:2', () => {
+  const s1 = CONTENT['signed:1'];
+  const s2 = CONTENT['signed:2'];
+  const words = (st: DiscoverStep) => JSON.stringify(st);
+  it('signed:1 teaches in the book\'s order: the line, absolute value as arrows, adding, opposites, subtracting', () => {
+    const at = (pred: (st: DiscoverStep) => boolean) => s1.discover.findIndex(pred);
+    const arrows = at((st) => words(st).includes('הערך המוחלט') && words(st).includes('\\\\lvert'));
+    const adding = at((st) => st.kind === 'explore' && /\+/.test(st.display || ''));
+    const opposites = at((st) => st.kind === 'rule' && st.text.includes('נגדיים'));
+    const subtracting = at((st) => st.text.startsWith('ומה עם חיסור?'));
+    expect(arrows).toBe(1);
+    expect(arrows < adding && adding < opposites && opposites < subtracting, `${arrows} ${adding} ${opposites} ${subtracting}`).toBe(true);
+    // the word "the opposite" is never used before the step that teaches it
+    s1.discover.slice(0, opposites).forEach((st, i) => expect(words(st), `step ${i + 1} says הנגדי before the opposites rule`).not.toContain('הנגדי'));
+    expect(words(s1.discover[opposites + 1])).toContain('מה הנגדי של $-17$?');
+  });
+  it('signed:2 asks which is bigger and which is farther from zero, after its comparison rule', () => {
+    const rule = s2.discover.findIndex((st) => st.kind === 'rule');
+    const both = s2.discover.findIndex((st) => st.kind === 'predict' && st.text.includes('\\lvert -9 \\rvert'));
+    expect(rule).toBeGreaterThanOrEqual(0);
+    expect(both).toBeGreaterThan(rule);
+  });
+  it('the chains\' worked examples are the class\'s two steps, and every step evaluates', () => {
+    const chains = s1.examples.filter((e) => /\(\+/.test(e.display || ''));
+    expect(chains.map((e) => e.answer)).toEqual([-12, -17]);
+    chains.forEach((e, k) => checkExample(e, k));
+    const said = JSON.stringify(chains);
+    for (const w of ['מורידים סוגריים', 'השליליים יחד', 'החיוביים יחד', 'מחסרים $0$: לא משתנה כלום']) expect(said).toContain(w);
+    expect(evaluate(chains[0].check)).toBe(-12);
+    expect(evaluate(chains[1].check)).toBe(-17);
+  });
+  it('the chain in signed:1\'s model: a quarter of the draws, and each of its mistakes shows (spec 100%, 97%, 52%)', () => {
+    const rnd = seeded(2026);
+    const fired: Record<string, number> = {}; let chains = 0;
+    for (let i = 0; i < 4000; i += 1) {
+      const p = s1.diag.params(rnd);
+      if (p.f !== 2) continue;
+      chains += 1;
+      const ans = s1.diag.answer(p);
+      Object.entries(s1.diag.bugs).forEach(([id, f]) => { const v = f(p); if (v != null && !same(v, ans)) fired[id] = (fired[id] || 0) + 1; });
+    }
+    expect(chains / 4000).toBeGreaterThan(0.2);
+    expect(chains / 4000).toBeLessThan(0.3);
+    expect(fired['minus-minus']).toBe(chains);
+    expect(fired.sign / chains).toBeGreaterThan(0.9);
+    expect(fired['drop-sign'] / chains).toBeGreaterThan(0.4);
+    for (const id of ['abs-add', 'neg-neg-plus', 'direction']) expect(fired[id] || 0, id).toBe(0);
+  });
+  it('absolute value and opposites each show on more than 4% of signed:2\'s model draws', () => {
+    const rnd = seeded(2027);
+    const fired: Record<string, number> = {};
+    for (let i = 0; i < DRAWS * 5; i += 1) {
+      const p = s2.diag.params(rnd); const ans = s2.diag.answer(p);
+      Object.entries(s2.diag.bugs).forEach(([id, f]) => { const v = f(p); if (v != null && !same(v, ans)) fired[id] = (fired[id] || 0) + 1; });
+    }
+    expect(fired['abs-keep-sign'] / (DRAWS * 5)).toBeGreaterThan(0.04);
+    expect(fired['opp-same'] / (DRAWS * 5)).toBeGreaterThan(0.04);
+    expect(s2.misconceptions.map((m) => m.id)).toEqual(expect.arrayContaining(['abs-keep-sign', 'opp-same']));
+    // each remedy draws: an arrow from 0 for the absolute value, two marks at one distance for the opposite
+    for (const id of ['abs-keep-sign', 'opp-same']) expect(s2.misconceptions.find((m) => m.id === id)!.remedy.some((st) => (st as { fig?: FigSpec }).fig?.type === 'numline'), id).toBe(true);
+  });
+});
+
+// CLASSROOM-3 and -4: dividing with 0 and 1 on signed:3, brackets inside brackets on signed:5
+describe('the real classroom: signed:3 and signed:5', () => {
+  const s3 = CONTENT['signed:3'];
+  const s5 = CONTENT['signed:5'];
+  it('signed:3 teaches 0 : a, a : 0, a : 1 and a : (−1) after its division rule, with no value for a : 0', () => {
+    const division = s3.discover.findIndex((st) => st.kind === 'rule' && st.text.includes('בחילוק אותו כלל סימנים'));
+    const zero = s3.discover.findIndex((st) => st.kind === 'rule' && st.text.includes('לא מוגדר'));
+    expect(division).toBeGreaterThanOrEqual(0);
+    expect(zero).toBe(division + 1);
+    const st = s3.discover[zero] as Extract<DiscoverStep, { kind: 'rule' }>;
+    expect(st.display).not.toMatch(/: 0(?!\d)/); // the undefined part is said in words, never computed
+    expect(evaluate('0 : (-6)') + 0).toBe(0); // written 0, not −0
+    expect([evaluate('(-6) : 1'), evaluate('(-6) : (-1)')]).toEqual([-6, 6]);
+    for (const id of ['div-zero', 'zero-div']) {
+      const m = s3.misconceptions.find((x) => x.id === id)!;
+      expect(m, id).toBeTruthy();
+      expect(JSON.stringify(m.remedy), id).toContain('בודקים בכפל');
+    }
+  });
+  it('every mistake a signed:5 exercise can name has a repair on the stair, so a repair always finds its remedy', () => {
+    const named = new Set<string>();
+    for (let i = 0; i < 400; i += 1) namesOf(makeItem('signed', 5)).forEach((id: string) => named.add(id));
+    const own = new Set(s5.misconceptions.map((m) => m.id));
+    expect([...named].filter((id) => !own.has(id))).toEqual([]);
+    for (const id of ['factor-sign', 'sign', 'minus-minus', 'order', 'ignore-brackets', 'minus-bracket']) expect(named.has(id), id).toBe(true);
+  });
+  it('the nested-brackets rule and its two worked examples are in the class\'s words, and every step evaluates', () => {
+    const rule = s5.discover.findIndex((st) => st.kind === 'rule' && st.text.includes('סוגריים בתוך סוגריים'));
+    expect(rule).toBe(s5.discover.length - 1);
+    for (const w of ['סוגריים הפנימיים', 'סוגריים החיצוניים', 'עם הסימן שלו']) expect(s5.discover[rule].text).toContain(w);
+    const nested = s5.examples.filter((e) => /\d\[/.test(e.display || ''));
+    expect(nested.map((e) => e.answer)).toEqual([-51, 18]);
+    nested.forEach((e, k) => checkExample(e, k));
+    expect(evaluate('-3[12 - (2 - 7)]')).toBe(-51);
+    expect(evaluate('30 - 4[-3 - (8 - 2)*(-1)]')).toBe(18);
+  });
+  it('factor-sign shows on a fair share of the shapes a[b − (c − d)] and e − a[b − (c − d)·g] (spec 41%), and in the model', () => {
+    const rnd = seeded(2028);
+    let n = 0; let fs = 0;
+    for (let i = 0; i < 4000; i += 1) {
+      const q = drawNested(rnd, rnd() < 0.6 ? 1 : 2); n += 1;
+      const v = nestedBugs(q)['factor-sign']; if (v != null && !same(v, nestedValue(q))) fs += 1;
+    }
+    expect(fs / n).toBeGreaterThan(0.3);
+    const r2 = seeded(2029); let f2 = 0;
+    for (let i = 0; i < DRAWS * 5; i += 1) { const p = s5.diag.params(r2); const v = s5.diag.bugs['factor-sign'](p); if (v != null && !same(v, s5.diag.answer(p))) f2 += 1; }
+    expect(f2 / (DRAWS * 5)).toBeGreaterThan(0.04);
+  });
+});
+
+// CLASSROOM-5: the new stair signed:7, powers of directed numbers, taught in the class's written form
+describe('the real classroom: signed:7, powers of directed numbers', () => {
+  const s7 = CONTENT['signed:7'];
+  const step = (pred: (st: DiscoverStep) => boolean) => s7.discover.findIndex(pred);
+  it('teaches in the spec\'s order: the meaning, (−5)², the predict, the rule, odd and even, then the decimal', () => {
+    const meaning = step((st) => st.kind === 'say' && st.text.includes('הבסיס') && st.text.includes('המעריך'));
+    const sq = step((st) => st.kind === 'say' && (st.display || '') === '(-5)^2 = (-5)(-5) = +25 = 25');
+    const predict = step((st) => st.kind === 'predict' && st.choices[st.answer] === '$25$ ו־$-25$');
+    const rule = step((st) => st.kind === 'rule' && st.text.includes('המעריך שייך למה שצמוד אליו'));
+    const parity = step((st) => st.kind === 'rule' && st.text.includes('מעריך זוגי'));
+    const decimal = step((st) => st.kind === 'predict' && (st.display || '') === '(-0.3)^3');
+    expect([meaning, sq, predict, rule, parity, decimal]).toEqual([0, 1, 2, 3, 4, 6]);
+    expect((s7.discover[0] as Extract<DiscoverStep, { kind: 'say' }>).display).toBe('2^5 = 2 \\cdot 2 \\cdot 2 \\cdot 2 \\cdot 2 = 32');
+    expect((s7.discover[rule] as Extract<DiscoverStep, { kind: 'rule' }>).display).toBe('-5^2 = (-5 \\cdot 5) = -25');
+    // the odd and even rule links to signed:3's many negative factors, and says only an even exponent shows the difference
+    expect((s7.discover[parity] as Extract<DiscoverStep, { kind: 'rule' }>).why).toContain('כל זוג מינוסים נותן פלוס');
+    expect((s7.discover[parity] as Extract<DiscoverStep, { kind: 'rule' }>).why).toContain('רק מעריך זוגי');
+    expect((s7.discover[decimal] as Extract<DiscoverStep, { kind: 'predict' }>).choices[0]).toBe('$-0.027$');
+    // every step shows a picture: the factors as tiles side by side, or the number line
+    s7.discover.forEach((st, i) => expect(!!((st as { fig?: unknown }).fig || (st as { manip?: unknown }).manip), `step ${i}`).toBe(true));
+    // pow-odd-pos repairs through signed:3, where many negative factors are taught (neg-many); order through signed:4
+    expect(s7.misconceptions.find((m) => m.id === 'pow-odd-pos')!.prereq).toBe('signed:3');
+    expect(s7.misconceptions.find((m) => m.id === 'order')!.prereq).toBe('signed:4');
+  });
+  it('the app\'s evaluator gives every value the teaching writes', () => {
+    const facts: [string, number][] = [['2^5', 32], ['(-5)^2', 25], ['(-5)*(-5)', 25], ['-5^2', -25], ['-(5*5)', -25], ['(-3)^4', 81], ['-3^4', -81],
+      ['(-4)^3', -64], ['-4^3', -64], ['-(-5)^2', -25], ['-(-5^2)', 25], ['9 - 2*(-3)^3', 63], ['(-0.3)^3', -0.027], ['(-3/4)^2', 9 / 16],
+      ['(-2)^2 - 9', -5], ['(-3/4)^3', -27 / 64], ['(-1.2)^2', 1.44], ['-2^4', -16], ['5 - 4*(-2)^2', -11]];
+    facts.forEach(([e, v]) => expect(same(evaluate(e), v), e).toBe(true));
+    // the F4 example's mistakes: left to right −189, the odd power taken as positive −45, the base times the exponent 27
+    expect(powBugs({ f: 4, a: 3, n: 3, b: 9, c: 2 })).toEqual({ order: -189, 'pow-odd-pos': -45, 'pow-times': 27 });
+    s7.examples.forEach((ex, k) => checkExample(ex, k));
+    expect(s7.examples.map((e) => e.answer)).toEqual([-25, 25, 63]);
+  });
+  it('every mistake shows on more than 4% of the draws of its form and of the model\'s, and pow-keep-sign on about 15% of the checks (spec 15.2%)', () => {
+    const rnd = seeded(2030);
+    const FORMS: Record<number, string[]> = { 0: ['pow-odd-pos', 'pow-keep-sign', 'pow-times'], 1: ['pow-neg-base', 'pow-times'], 2: ['outer-minus', 'pow-times'],
+      3: ['outer-minus', 'pow-times'], 4: ['order', 'pow-odd-pos', 'pow-times'], 5: ['pow-odd-pos', 'pow-times', 'dec-places', 'num-only'], 6: ['pow-times'] };
+    for (const [f, ids] of Object.entries(FORMS)) {
+      const shown: Record<string, number> = {};
+      for (let i = 0; i < 1000; i += 1) {
+        const q = drawPow(rnd, Number(f)); const ans = powValue(q);
+        Object.entries(powBugs(q) as Record<string, number | null>).forEach(([id, v]) => { if (v != null && !same(v, ans)) shown[id] = (shown[id] || 0) + 1; });
+      }
+      expect(Object.keys(shown).sort(), `F${f}`).toEqual([...ids].sort());
+      ids.forEach((id) => expect(shown[id] / 1000, `F${f} ${id}`).toBeGreaterThan(0.04));
+    }
+    // the model's own draws
+    const shownM: Record<string, number> = {};
+    const r2 = seeded(2031);
+    for (let i = 0; i < 4000; i += 1) {
+      const p = s7.diag.params(r2); const ans = s7.diag.answer(p);
+      Object.entries(s7.diag.bugs).forEach(([id, b]) => { const v = b(p); if (v != null && !same(v, ans)) shownM[id] = (shownM[id] || 0) + 1; });
+    }
+    Object.keys(s7.diag.bugs).forEach((id) => expect(shownM[id] / 4000, `model ${id}`).toBeGreaterThan(0.04));
+    // the checks' mix (F0-F5 in the exercises' shares; F6, a positive base, never reaches a check)
+    const r3 = seeded(2032); let keep = 0; const N = 8000;
+    for (let i = 0; i < N; i += 1) {
+      let f: number; do { const y = r3(); let acc = 0; f = (POW_MIX as [number, number][]).find(([, w]) => (acc += w) > y)![0]; } while (f === 6);
+      const q = drawPow(r3, f); if (powBugs(q)['pow-keep-sign'] != null) keep += 1;
+    }
+    expect(keep / N).toBeGreaterThan(0.12);
+    expect(keep / N).toBeLessThan(0.19);
+  });
+  it('a question never has a mistake that predicts the answer, two mistakes on one value, or a slip, and F6 never reaches a check', () => {
+    const rnd = seeded(2033);
+    for (let i = 0; i < 3000; i += 1) {
+      const q = drawPow(rnd); const ans = powValue(q);
+      const vals = Object.values(powBugs(q) as Record<string, number | null>).filter((v): v is number => v != null);
+      vals.forEach((v) => expect(same(v, ans), JSON.stringify(q)).toBe(false));
+      expect(new Set(vals.map((v) => v.toFixed(6))).size, JSON.stringify(q)).toBe(vals.length);
+    }
+    for (let i = 0; i < 300; i += 1) { const it = makeItem('signed', 7); expect(fairForCheck(it), it.key).toBe(!it.key.startsWith('sn7:6:')); }
+  });
+});
+
+// CLASSROOM-6: collecting the class's way on expr:3. The diagnostic model keeps every mistake above 4% of its draws (the
+// checks' typed questions); the teaching names the families, adds the table of bracketed x-terms after the rule, and
+// explains abs-add and sign; a generated solution marks the families and keeps "0x" when the x-terms cancel.
+describe('expr:3, collecting the class\'s way (CLASSROOM-6)', () => {
+  const s3 = CONTENT['expr:3'];
+  it('collectModel keeps every bug above 4% of its draws', () => {
+    const rnd = seeded(2061); const shown: Record<string, number> = {}; const N = 4000;
+    for (let i = 0; i < N; i += 1) {
+      const p = s3.diag.params(rnd); const ans = s3.diag.answer(p);
+      Object.entries(s3.diag.bugs).forEach(([id, b]) => { const v = b(p); if (v != null && !same(v, ans)) shown[id] = (shown[id] || 0) + 1; });
+    }
+    expect(Object.keys(shown).sort()).toEqual(['conjoin', 'detach', 'drop-minus']);
+    Object.keys(s3.diag.bugs).forEach((id) => expect(shown[id] / N, id).toBeGreaterThan(0.04));
+  });
+  it('the rule names the families, and the table of bracketed x-terms follows it', () => {
+    const i = s3.discover.findIndex((st) => st.kind === 'rule' && st.text.includes('"משפחות"'));
+    expect(i).toBeGreaterThan(0);
+    const table = s3.discover[i + 1] as Extract<DiscoverStep, { kind: 'rule' }> & { fig: { type: string; head: string[]; rows: string[][] } };
+    expect(table.fig.type).toBe('table');
+    expect(table.fig.head).toEqual(['מספרים', 'עם x']);
+    expect(table.text).toBe('אותו כלל כמו בחיבור מספרים מכוונים: הסימן של הרחוק מאפס בחוץ, ובסוגריים הגדול פחות הקטן.');
+    // each sum and the row under it, read back (x as 1): (+4) + (−11) = −7 and −7x, (−6) + (+5) = −1 and −x
+    const read = (t: string) => evaluate(t.replace(/−/g, '-').replace(/=/g, '').replace(/(\d)x/g, '$1').replace(/x/g, '1'));
+    const rows = table.fig.rows;
+    expect([0, 1, 2, 3].map((r) => [read(rows[r][0]), read(rows[r][1])])).toEqual([[-7, -7], [-7, -7], [-1, -1], [-1, -1]]);
+    expect(identical(texToExpr('(+4x) + (-11x)'), '-7*x')).toBe(true);
+    expect(['abs-add', 'sign'].every((id) => s3.misconceptions.some((m) => m.id === id && m.prereq === 'signed:1'))).toBe(true);
+  });
+  it('a generated solution marks the families, regroups them under braces, and keeps 0x when the x-terms cancel', () => {
+    let zero = 0;
+    for (let i = 0; i < 600; i += 1) {
+      const it = makeItem('expr', 3);
+      if (!String(it.key).startsWith('ex3:')) continue;
+      const [first, second] = it.solution as string[];
+      expect(first, it.key).toContain('\\underline{\\underline{');
+      expect(second, it.key).toContain('\\underbrace{');
+      if (it.answer.k === 0) { zero += 1; expect(it.solution.join(' '), it.key).toContain(`$0${it.var || 'x'} `); }
+    }
+    expect(zero).toBeGreaterThan(0);
+  });
+});
+
+// CLASSROOM-8: the class's word problems on eq:5. The story model (the checks' questions) keeps every mistake above 4% of its
+// draws, the rectangle among them; the mix keeps every kind above 4% of the stair's questions; the two new worked examples
+// are the spec's (x 11, d 5, P 54 → 11, 16, 176, the last step drawing the lengths; d 5, T 31 → 13 and box B 18).
+describe('eq:5, the class\'s word problems (CLASSROOM-8)', () => {
+  const s5 = CONTENT['eq:5'];
+  it('the story model keeps every mistake above 4% of its draws, the rectangle\'s two-sides and add-sides among them', () => {
+    const rnd = seeded(2081); const shown: Record<string, number> = {}; const N = 4000;
+    for (let i = 0; i < N; i += 1) {
+      const p = s5.diag.params(rnd); const ans = s5.diag.answer(p);
+      Object.entries(s5.diag.bugs).forEach(([id, b]) => { const v = b(p); if (v != null && !same(v, ans)) shown[id] = (shown[id] || 0) + 1; });
+    }
+    expect(Object.keys(shown).sort()).toEqual(['add-sides', 'partial-dist', 'two-sides', 'wrong-unknown']);
+    Object.keys(s5.diag.bugs).forEach((id) => expect(shown[id] / N, id).toBeGreaterThan(0.04));
+  });
+  it('every kind of the stair\'s mix is above 4% of its questions, and the mix adds up', () => {
+    expect(STORY_MIX.reduce((a: number, [w]: [number, unknown]) => a + w, 0)).toBeCloseTo(1, 9);
+    STORY_MIX.forEach(([w]: [number, unknown]) => expect(w).toBeGreaterThan(0.04));
+    const kinds: Record<string, number> = {}; const N = 6000; const rnd = seeded(2082);
+    for (let i = 0; i < N; i += 1) { const it = storyMix(rnd()); const k = String(it.key).split(':')[0]; kinds[k] = (kinds[k] || 0) + 1; }
+    ['eq5s', 'eq5a', 'eq5w', 'eq5t', 'eq5b', 'eq5c', 'eq5r', 'eq5x', 'eq5y', 'eq5g', 'eq5p'].forEach((k) => expect((kinds[k] || 0) / N, k).toBeGreaterThan(0.04));
+  });
+  it('the rectangle and the transfer are worked in the class\'s layout', () => {
+    const rect = s5.examples.find((e) => e.problem.includes('$54$'))!;
+    expect([rect.answer, rect.vars]).toEqual([176, { x: 11 }]);
+    expect(rect.steps.map((st) => st.result)).toContain('\\boxed{x + 5} = 11 + 5 = 16');
+    const last = rect.steps[rect.steps.length - 1] as { fig?: { segs: { label?: string }[] } };
+    expect(last.fig!.segs.map((sg) => sg.label).filter(Boolean)).toEqual(['16 ס״מ', '11 ס״מ']);
+    expect(rect.steps[0].action).toContain('צ״ל');
+    const tr = s5.examples.find((e) => e.problem.includes('$31$'))!;
+    expect([tr.answer, tr.vars]).toEqual([18, { x: 13 }]);
+    expect((tr.fig as { head: string[]; rows: string[][] }).head).toEqual(['', 'לפני ההעברה', 'אחרי ההעברה']);
+    expect((tr.fig as { rows: string[][] }).rows[1][2]).toBe('x + 5 + x = 2x + 5');
+    [rect, tr].forEach((ex, k) => checkExample(ex, k));
+    // the students and teachers are t and m: in this class S is an area and P a perimeter
+    expect(JSON.stringify(s5.discover)).not.toMatch(/S = 6P|6S = P/);
+  });
+});
+
+// CURRICULUM-10: a check's angle questions take two steps. The stairs' new worked examples solve such a question in two
+// written steps, and the models' check params (testParams) never ask what a copied number, or 180°, 90° or 360° minus
+// one, answers; their mistakes still show, and practice keeps the one-step kinds too.
+describe('the angle stairs: two-step checks and their worked examples', () => {
+  const geoSweep = (P: Record<string, [number, number]>, g: { at: string; from: string; to: string }) => {
+    const v = P[g.at]; const f = P[g.from]; const t = P[g.to];
+    let d = ((Math.atan2(t[1] - v[1], t[0] - v[0]) - Math.atan2(f[1] - v[1], f[0] - v[0])) * 180) / Math.PI;
+    while (d <= 0) d += 360;
+    return d;
+  };
+  it.each([['angles:2', 110, 55], ['angles:4', null, 60]] as const)('%s: a two-step example in two written steps, then a check', (skill, first, answer) => {
+    const c = CONTENT[skill];
+    const ex = c.examples.find((e) => /^שלב 1/.test(e.steps[0].action))!;
+    expect(ex, `${skill} has no two-step example`).toBeTruthy();
+    expect(ex.answer).toBe(answer);
+    // two solving steps, named שלב 1 and שלב 2, the second reaching the answer; the third checks it another way
+    expect(ex.steps.map((s) => s.action.slice(0, 5))).toEqual(['שלב 1', 'שלב 2', 'בודקי']);
+    if (first != null) expect(ex.steps[0].calc?.value).toBe(first);
+    expect(same(evaluate(ex.steps[1].value!), answer)).toBe(true);
+    expect(ex.steps[2].calc?.value).toBe(180);
+    // its drawing: the '?' drawn the size of the answer, every given angle its size
+    const f = ex.fig as unknown as { pts: Record<string, [number, number]>; angles: { at: string; from: string; to: string; text?: string; target?: boolean }[] };
+    const target = f.angles.find((g) => g.target)!;
+    expect(Math.abs(geoSweep(f.pts, target) - answer)).toBeLessThan(0.6);
+    f.angles.filter((g) => /°$/.test(g.text || '')).forEach((g) => expect(Math.abs(geoSweep(f.pts, g) - parseFloat(g.text!))).toBeLessThan(0.6));
+    expect(renderToStaticMarkup(createElement(Figure, { fig: ex.fig }))).not.toMatch(/NaN|undefined|Infinity/);
+  });
+  const withCheck = stairs.flatMap((c) => [['diag', c.diag], ['transfer', c.transfer]].filter(([, m]) => (m as DiagModel<any> | undefined)?.testParams).map(([n, m]) => [`${c.skill} ${n}`, c, m] as const));
+  it('the angle stairs 1 to 4 (and data:1\'s chart) have check params on each model that needed them', () => {
+    // data:1's diag: a "how many more" that is not a number the chart prints (the classroom merge, the guessing test
+    // reading every drawing)
+    expect(withCheck.map(([n]) => n)).toEqual(['angles:1 diag', 'angles:1 transfer', 'angles:2 diag', 'angles:2 transfer', 'angles:3 diag', 'angles:4 diag', 'angles:4 transfer', 'data:1 diag']);
+  });
+  it.each(withCheck)('%s: a check question is never a copied number, nor 180°, 90° or 360° minus one, and its mistakes still show', (_n, c, model) => {
+    const m = model as DiagModel<any>; const rnd = seeded(31);
+    const fired: Record<string, number> = {};
+    for (let i = 0; i < 2000; i += 1) {
+      const p = m.testParams!(rnd); const ans = m.answer(p);
+      const printed = (String(m.text(p)).replace(/\\[a-zA-Z]+/g, ' ').match(/\d+(\.\d+)?/g) || []).map(Number);
+      // a right triangle's 90° is no copy: the drawing never prints it, and 90 − a is the skill there (one in ten checks)
+      if (!(c.skill === 'angles:3' && p.k === 1)) expect(printed.flatMap((n) => [n, 180 - n, 90 - n, 360 - n]).some((g) => same(g, ans)), `${c.skill} ${JSON.stringify(p)}`).toBe(false);
+      Object.entries(m.bugs).forEach(([id, f]) => { const v = f(p); if (v != null && Number.isFinite(v) && !same(v, ans)) fired[id] = (fired[id] || 0) + 1; });
+      expect(m.solution(p).join(' ')).toContain(String(ans));
+    }
+    expect(Object.values(fired).some((n) => n > 2000 * 0.04), c.skill).toBe(true);
+  });
+});
+
+// CLASSROOM-9: the class writes an angle ∢AOB (\sphericalangle), never ∠. No stair's teaching, models (their questions,
+// hints and solutions, sampled), challenge or the triangle tool's readout uses the other sign.
+describe('the class\'s angle sign, ∢', () => {
+  const OLD = /\\angle(?![a-zA-Z])|∠/;
+  it('no stair, model, challenge or the drag readout writes ∠', () => {
+    const bad: string[] = [];
+    for (const c of stairs) {
+      if (OLD.test(JSON.stringify(c))) bad.push(`${c.skill} teaching`);
+      const rnd = seeded(9);
+      for (const [name, m] of [['diag', c.diag], ['transfer', c.transfer]] as const) {
+        if (!m) continue;
+        for (let i = 0; i < 200; i += 1) {
+          const p = m.params(rnd);
+          if (OLD.test([m.text(p), m.hint(p), ...m.solution(p)].join(' '))) { bad.push(`${c.skill} ${name} ${JSON.stringify(p)}`); break; }
+        }
+      }
+    }
+    if (OLD.test(JSON.stringify(CHALLENGES))) bad.push('challenges');
+    const drag = readFileSync(new URL('../components/manip/TriangleDrag.jsx', import.meta.url), 'utf8');
+    if (OLD.test(drag)) bad.push('TriangleDrag.jsx');
+    expect(bad).toEqual([]);
+    // and the angles stairs do write ∢
+    expect(JSON.stringify(CONTENT['angles:1'])).toContain('\\\\sphericalangle');
+    expect(drag).toContain('∢A');
+  });
+});
+
+// CLASSROOM-11: the class's way on the split triangle, two helper sketches (שרטוטי עזר), each its own small triangle with
+// its own right angle, each line with its reason, then a check in the third triangle
+describe('angles:3, the split triangle solved with helper sketches', () => {
+  const ex = CONTENT['angles:3'].examples.find((e) => /שרטוט עזר 1/.test(e.steps[0].action))!;
+  it('two helper sketches, then a check in the third triangle', () => {
+    expect(ex).toBeTruthy();
+    expect(ex.answer).toBe(45);
+    expect(ex.steps.map((st) => st.action.slice(0, 12))).toEqual(['שרטוט עזר 1:', 'שרטוט עזר 2:', 'בודקים במשול']);
+    ex.steps.forEach((st) => expect(st.why).toContain('סכום זוויות ב־$\\Delta$ שווה $180^\\circ$'));
+    expect(ex.steps[0].calc).toEqual({ expr: '180 - 90 - 64', value: 26 });
+    expect(same(evaluate(ex.steps[1].value!), 45)).toBe(true);
+    expect(ex.steps[2].calc).toEqual({ expr: '19 + 116 + 45', value: 180 });
+  });
+  it('each sketch is its own triangle with its own right angle at C, and the angle it finds marked', () => {
+    const sketch = (i: number) => ex.steps[i].fig as unknown as { pts: Record<string, [number, number]>; polys: { pts: string[] }[]; angles: { at: string; right?: boolean; text?: string; target?: boolean }[] };
+    const small = sketch(0); const big = sketch(1);
+    expect(Object.keys(small.pts).sort()).toEqual(['A', 'C', 'D']);
+    expect(Object.keys(big.pts).sort()).toEqual(['A', 'B', 'C']);
+    for (const f of [small, big]) {
+      expect(f.polys).toHaveLength(1);
+      expect(f.angles.some((g) => g.right && g.at === 'C')).toBe(true);
+    }
+    expect(small.angles.find((g) => g.target)?.text).toBe('α');
+    expect(small.angles.some((g) => g.text === '64°')).toBe(true);
+    expect(big.angles.find((g) => g.target)?.text).toBe('β');
+    expect(big.angles.some((g) => g.text === '45°')).toBe(true);
+  });
+  it('the notebook\'s β + 64° = 180° has a repair that asks whether the two angles share a vertex', () => {
+    const m = CONTENT['angles:3'].misconceptions.find((x) => x.id === 'other-vertex')!;
+    expect(m).toBeTruthy();
+    expect(m.remedy[0].text).toContain('קודקוד משותף');
+    expect((m.remedy[0] as { fig?: { dots?: string[] } }).fig?.dots).toEqual(['B', 'D']);
+  });
+});
+
+// CLASSROOM-10: the class's worksheet said "OB חוצה זווית ∢AOB", but OB is an arm of ∢AOB (the drawing showed OB halving
+// ∢AOD). A text that says a ray halves an angle is checked against itself and its drawing: the ray starts at the angle's
+// vertex, it is not one of the angle's arms, and on the drawing its two halves differ by less than 0.5°.
+// a statement, not the question "האם $OC$ חוצה את ∢BOD?" (practice's choice, whose answer may be no)
+const BISECTS = /(?<!האם )\$([A-Z])([A-Z])\$ חוצה את \$\\sphericalangle ([A-Z])([A-Z])([A-Z])/g;
+const between = (P: Record<string, [number, number]>, v: string, a: string, b: string) => {
+  const u = [P[a][0] - P[v][0], P[a][1] - P[v][1]]; const w = [P[b][0] - P[v][0], P[b][1] - P[v][1]];
+  return (Math.acos((u[0] * w[0] + u[1] * w[1]) / (Math.hypot(u[0], u[1]) * Math.hypot(w[0], w[1]))) * 180) / Math.PI;
+};
+function bisectorTypos(text: string, fig?: unknown): string[] {
+  const out: string[] = [];
+  const P = (fig as { pts?: Record<string, [number, number]> } | undefined)?.pts;
+  for (const [, v, ray, p, q, r] of String(text).matchAll(BISECTS)) {
+    const name = `${v}${ray} חוצה את ∢${p}${q}${r}`;
+    if (v !== q) out.push(`${name}: the ray does not start at the vertex ${q}`);
+    if (ray === p || ray === r) out.push(`${name}: ${v}${ray} is an arm of the angle, not its bisector`);
+    if (P && [p, q, r, ray].every((k) => P[k]) && ray !== p && ray !== r) {
+      const one = between(P, q, p, ray); const two = between(P, q, ray, r);
+      if (Math.abs(one - two) >= 0.5) out.push(`${name}: drawn ${one.toFixed(1)}° and ${two.toFixed(1)}°`);
+    }
+  }
+  return out;
+}
+describe('angles:6, a bisector is what its text says (the worksheet\'s typo cannot happen)', () => {
+  it('catches the worksheet\'s "OB חוצה זווית ∢AOB", a ray from another vertex, and a drawing that does not halve', () => {
+    const P = { O: [0, 0], A: [3, 0], B: [0, 3], C: [2.1213, 2.1213], D: [-3, 0] } as Record<string, [number, number]>;
+    expect(bisectorTypos('$OC$ חוצה את $\\sphericalangle AOB$', { pts: P })).toEqual([]);
+    expect(bisectorTypos('$OB$ חוצה את $\\sphericalangle AOB$', { pts: P })[0]).toContain('is an arm');
+    expect(bisectorTypos('$AC$ חוצה את $\\sphericalangle AOB$', { pts: P })[0]).toContain('does not start at the vertex');
+    expect(bisectorTypos('$OB$ חוצה את $\\sphericalangle AOD$', { pts: P })).toEqual([]);
+    expect(bisectorTypos('$OC$ חוצה את $\\sphericalangle AOD$', { pts: P })[0]).toContain('drawn 45.0° and 135.0°');
+    expect(bisectorTypos('האם $OC$ חוצה את $\\sphericalangle AOD$?', { pts: P })).toEqual([]);
+  });
+  it('every bisector named in the stairs\' teaching (each step, example, problem and repair) and in 2,000 exercises', () => {
+    const bad: string[] = [];
+    const seen = { teaching: 0, items: 0, model: 0 };
+    for (const c of stairs.filter((x) => x.topic === 'angles')) {
+      const steps = [...c.discover, ...c.misconceptions.flatMap((m) => m.remedy)];
+      steps.forEach((st, i) => { const t = `${st.text} ${(st as { display?: string }).display || ''}`; if (t.match(BISECTS)) seen.teaching += 1; bad.push(...bisectorTypos(t, (st as { fig?: unknown }).fig).map((x) => `${c.skill} step ${i + 1}: ${x}`)); });
+      c.examples.forEach((ex, k) => [ex.problem, ...ex.steps.map((sp) => `${sp.action} ${sp.why}`)].forEach((t, j) => { if (String(t).match(BISECTS)) seen.teaching += 1; bad.push(...bisectorTypos(t, ex.steps[j - 1]?.fig || ex.fig).map((x) => `${c.skill} example ${k + 1}: ${x}`)); }));
+      c.together.forEach((g, k) => { if (g.problem.match(BISECTS)) seen.teaching += 1; bad.push(...bisectorTypos(g.problem, g.fig).map((x) => `${c.skill} together ${k + 1}: ${x}`)); });
+    }
+    for (let i = 0; i < 2000; i += 1) {
+      const it = makeItem('angles', 6);
+      if (String(it.text).match(BISECTS)) seen.items += 1;
+      bad.push(...bisectorTypos(it.text, it.fig).map((x) => `${it.key}: ${x}`));
+    }
+    const m = CONTENT['angles:6'].diag; const rnd = seeded(66);
+    for (let i = 0; i < 400; i += 1) { const p = m.params(rnd); const t = String(m.text(p)); if (t.match(BISECTS)) seen.model += 1; bad.push(...bisectorTypos(t, m.fig!(p)).map((x) => `model ${JSON.stringify(p)}: ${x}`)); }
+    expect(bad.slice(0, 10)).toEqual([]);
+    // the check really ran: the teaching names a bisector in more than ten places, and most exercises do
+    expect(seen.teaching).toBeGreaterThan(10);
+    expect(seen.items).toBeGreaterThan(1000);
+    expect(seen.model).toBeGreaterThan(200);
+  });
+  it('"is OC the bisector?" is a choice with a reason, practice only, OC halving ∢BOD half the time, read plainly by the tutor', () => {
+    let yes = 0;
+    for (let i = 0; i < 400; i += 1) {
+      const it = bisCheckItem();
+      expect(it).toMatchObject({ form: 'mc', practiceOnly: true });
+      expect(it.choices).toHaveLength(3);
+      expect(new Set(it.choices.map((c: { text: string }) => c.text)).size).toBe(3);
+      const [, aod, aob, cod] = String(it.key).split(':').map(Number);
+      const right = it.choices[it.answer].text as string;
+      if (aod - aob === 2 * cod) { yes += 1; expect(right.startsWith('כן')).toBe(true); } else expect(right.startsWith('לא')).toBe(true);
+      expect(itemPlain({ ...it, topic: 'angles', level: 6 })).not.toMatch(/[\u2066\u2069]/);
+    }
+    expect(yes / 400).toBeGreaterThan(0.4);
+    expect(yes / 400).toBeLessThan(0.6);
+  });
+  it('teaches in the spec\'s order: the word, the turning ray, a prediction, the rule with ⇔, then a bisector on a line', () => {
+    const d = CONTENT['angles:6'].discover;
+    expect(d.map((s) => s.kind)).toEqual(['say', 'explore', 'predict', 'rule', 'predict', 'predict']);
+    expect(d[0].text).toContain('נקראת חוצה זווית');
+    expect(d[1]).toMatchObject({ kind: 'explore', manip: { kind: 'angle', whole: 110 }, answer: 55 });
+    expect(d[3].text).toContain('\\iff');
+    expect((d[3] as { display?: string }).display).toBe('\\sphericalangle AOC = \\sphericalangle COB = \\tfrac{1}{2}\\sphericalangle AOB');
+    // the worked examples: the worksheet's two bisectors (41° and 27°: 136°) and one on a line (58°: 61°), each checked
+    expect(CONTENT['angles:6'].examples.map((e) => e.answer)).toEqual([136, 61]);
+    CONTENT['angles:6'].examples.forEach((e) => expect(e.steps.at(-1)!.action).toContain('בודקים'));
+  });
+});
+
+// CLASSROOM-12: the quadrilateral taught from two triangles, and the worked examples write the found value on the figure
+describe('angles:7, the sum of the angles of a quadrilateral', () => {
+  it('a diagonal, 180° + 180°, the rule, two shapes in place of a dragged vertex, the right angle, then the angles with x', () => {
+    const d = CONTENT['angles:7'].discover;
+    expect(d.map((s) => s.kind)).toEqual(['say', 'predict', 'rule', 'predict', 'predict', 'say']);
+    expect(d[0].text).toContain('אלכסון מחלק מרובע לשני משולשים');
+    expect((d[1] as { choices: string[] }).choices[0]).toBe('$360^\\circ$');
+    expect(d[2].text).toContain('סכום זוויות במרובע שווה $360^\\circ$');
+    expect((d[2] as { display?: string }).display).toBe('\\sphericalangle A + \\sphericalangle B + \\sphericalangle C + \\sphericalangle D = 360^\\circ');
+    // the last step: 2x, 4x − 15°, 3x + 15° and x make 360°, so x = 36°, and the figure carries the angles found
+    const last = d[5] as unknown as { text: string; fig: { angles: { text: string }[] } };
+    expect(last.text).toContain('$10x = 360^\\circ$');
+    expect(last.text).toContain('$x = 36^\\circ$');
+    expect(last.text).toContain('בעיות מילוליות');
+    expect([2 * 36, 4 * 36 - 15, 3 * 36 + 15, 36].reduce((a, b) => a + b, 0)).toBe(360);
+    expect(last.fig.angles.map((g) => g.text)).toEqual(['72°', '129°', '123°', '36°']);
+  });
+  it('the worked examples, Q0 (75°, 110°, 95°: 80°) and Q2 (100°, 70°: 95°), end by writing the answer on the figure', () => {
+    const ex = CONTENT['angles:7'].examples;
+    expect(ex.map((e) => e.answer)).toEqual([80, 95]);
+    ex.forEach((e) => {
+      const before = (e.fig as unknown as { angles: { text?: string; target?: boolean }[] }).angles;
+      const after = (e.steps.at(-1)!.fig as unknown as { angles: { text?: string; target?: boolean }[] }).angles;
+      expect(before.some((g) => g.target)).toBe(true);
+      expect(after.some((g) => g.target)).toBe(false);
+      expect(after.filter((g) => g.text === `${e.answer}°`).length).toBeGreaterThanOrEqual(1);
+    });
+    // the two equal angles both carry it
+    expect((ex[1].steps.at(-1)!.fig as unknown as { angles: { text?: string }[] }).angles.filter((g) => g.text === '95°')).toHaveLength(2);
+  });
+});
+

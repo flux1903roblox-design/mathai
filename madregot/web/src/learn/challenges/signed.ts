@@ -1,6 +1,8 @@
 // Challenge tasks of signed numbers (curriculum stage 1, CURRICULUM-6.5): signed:c1, a claim about adding two negative
-// numbers; signed:c2, someone's "two minuses make a plus" where it does not hold; signed:c3, a cold week on the Hermon.
-// Their numbers are checked by the lane's verify/facts-challenges17.mjs and by learn/challenges.test.ts.
+// numbers; signed:c2, someone's "two minuses make a plus" where it does not hold; signed:c3, a cold week on the Hermon;
+// signed:c4 (the classroom lane, CLASSROOM-4), the minus of the number before brackets lost at the end; signed:c5
+// (CLASSROOM-5), the claim that a negative number to a power is positive.
+// Their numbers are checked by the lanes' verify scripts and by learn/challenges.test.ts.
 import type { ChallengeTask } from '../types';
 
 export const SIGNED_CHALLENGES: ChallengeTask[] = [
@@ -46,6 +48,39 @@ export const SIGNED_CHALLENGES: ChallengeTask[] = [
         { text: '$-5$', ok: true, feedback: 'נכון: מ־$-2$ יורדים $3$, כלומר $-2 - 3 = -5$.' },
         { text: '$1$', ok: false, feedback: '$1$ הוא $3$ מעלות יותר מ־$-2$. ירידה היא למטה בציר: $-2 - 3 = -5$.' },
         { text: '$-1$', ok: false, feedback: 'מ־$-2$ יורדים $3$ מעלות, לא עולים $1$: $-2 - 3 = -5$.' },
+      ] },
+    ],
+  },
+  {
+    // CLASSROOM-4: the factor's minus lost at the end, the mistake of the class's exercise 129 (with numbers of its own)
+    id: 'signed:c4', topic: 'signed', after: 'signed:5', kind: 'error', title: 'המינוס שנעלם בסוף', minutes: 4, misc: 'factor-sign',
+    parts: [
+      { type: 'error', prompt: 'כך חישב יואב.',
+        lines: ['צריך לחשב $-4[9 - (1 - 6)]$.', '$= -4[9 - (-5)]$', '$= 4 \\cdot 14 = 56$'], wrong: 2,
+        why: 'הסוגריים חושבו נכון: $9 - (-5) = 14$. אבל המינוס של $-4$ נעלם בשורה האחרונה. $-4 \\cdot 14$ הוא שלילי.',
+        fix: { prompt: 'כמה זה $-4[9 - (1 - 6)]$?', answer: -56, check: '-4*(9-(1-6))' } },
+      { type: 'mc', prompt: 'איך נכון לכתוב את השורה האחרונה?', choices: [
+        { text: '$= -4 \\cdot 14 = -56$', ok: true, feedback: 'נכון: המינוס של $-4$ נשאר עד הסוף, וסימנים שונים נותנים שלילי.' },
+        { text: '$= 4 \\cdot 14 = 56$', ok: false, feedback: 'כאן המינוס של $-4$ נעלם. הוא היה בשורה הקודמת, והוא נשאר גם בזו.' },
+        { text: '$= -4 + 14 = 10$', ok: false, feedback: 'בין $-4$ לבין הסוגריים יש כפל, לא חיבור: $-4[14] = -4 \\cdot 14$.' },
+      ] },
+    ],
+  },
+  {
+    // CLASSROOM-5: "a negative number to a power is positive", true for an even exponent only ((−2)³ = −8 is the
+    // notebook's own exercise, so the examples are (−6)² and (−3)³)
+    id: 'signed:c5', topic: 'signed', after: 'signed:7', kind: 'claim', title: 'מינוס בחזקה', minutes: 4, misc: 'pow-odd-pos',
+    parts: [
+      { type: 'claim', prompt: 'מתי הטענה נכונה?', claim: '"מספר שלילי בחזקה הוא מספר חיובי."', verdict: 'sometimes',
+        why: 'במעריך זוגי המינוסים מתקזזים בזוגות: $(-6)^2 = (-6)(-6) = 36$. אבל במעריך אי־זוגי נשאר מינוס אחד: $(-3)^3 = (-3)(-3)(-3) = -27$.',
+        example: {
+          ask: 'תנו מעריך שבשבילו $(-3)$ בחזקה יוצא שלילי.', slots: [{ name: 'n', label: 'המעריך' }],
+          domain: 'positive-int', expr: '(-3)^n', rel: '<', value: 0, hint: 'נסו מעריך אי־זוגי, למשל $3$.',
+        } },
+      { type: 'mc', prompt: 'מתי מספר שלילי בחזקה יוצא שלילי?', choices: [
+        { text: 'כשהמעריך אי־זוגי', ok: true, feedback: 'נכון: כל זוג מינוסים נותן פלוס, ובמעריך אי־זוגי נשאר מינוס אחד. $(-3)^3 = -27$.' },
+        { text: 'כשהמעריך זוגי', ok: false, feedback: 'במעריך זוגי כל המינוסים מתקזזים בזוגות: $(-6)^2 = 36$, חיובי.' },
+        { text: 'כשהבסיס גדול מ־$5$', ok: false, feedback: 'הגודל של הבסיס לא קובע את הסימן: $(-6)^2 = 36$ חיובי, ו־$(-3)^3 = -27$ שלילי. קובע רק המעריך.' },
       ] },
     ],
   },

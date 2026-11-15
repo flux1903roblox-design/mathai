@@ -123,6 +123,14 @@ Each stair is a `StairContent` (types.ts). The tests in `content.test.ts` check 
    generators' `diag()` already returns, so older exercises count as evidence.
 7. **Hebrew:** short sentences, plural address (as the rest of the app), maths between `$…$`; a minus inside Hebrew
    text is TeX (`$-3$`), never a bare hyphen.
+8. **Equation lines as the class writes them (CLASSROOM-7):** an operation done to both sides is written after a slash
+   at the end of the line it acts on, `content/util.js` `opMark` (`3x + 9 = 4x \qquad /{-3x}`, `/{:}2`, `/{\cdot}2`).
+   A generated solution line is `words: $equation$` with the next operation's mark (`content/eq.js` `line`); a
+   worked-example step that does something to both sides carries `mark` (`-4x`, `:2`), shown on the line above once
+   the step is shown. No step adds or takes away 0; a line that ends "9 = x" is followed by `$x = 9$ (הפכנו צדדים)`;
+   equations with brackets name the class's two steps (`STEP1`, `STEP2`). `learn/eqLines.test.ts` reads every eq and
+   sys solution, example and aligned display as a chain of board lines; a solution keeps to 8 lines of at most 300
+   characters, what a class exam stores.
 
 ## Status (checkpoint 3)
 
@@ -170,25 +178,28 @@ the row to paste when one differs.
 | frac:2 | השוואת שברים ועשרוניים | 8 (pins) | 2 | 2 | 3 (longer-larger, shorter-larger, bigger-den) | yes | יסודות; complete, tested |
 | frac:3 | חיבור וחיסור שברים | 8 (fbar) | 3 | 2 | 2 (add-across, num-not-scaled) | yes | יסודות; complete, tested |
 | frac:4 | כפל וחילוק שברים | 8 (numberline) | 3 | 2 | 3 (keep-den, divide-flip, mult-bigger) | yes | יסודות; complete, tested |
-| signed:1 | חיבור וחיסור | 10 (numberline) | 2 | 2 | 6 (minus-minus, sign, abs-add, drop-sign, neg-neg-plus, direction) | yes | complete, tested |
-| signed:2 | השוואת מספרים | 10 (pins, numberline) | 2 | 2 | 2 (neg-compare, ignore-sign) | yes | complete, tested |
-| signed:3 | כפל וחילוק | 10 (numberline) | 2 | 2 | 3 (sign, add-sign, neg-many) | yes | complete, tested |
+| signed:1 | חיבור וחיסור | 13 (numberline) | 4 | 2 | 7 (minus-minus, sign, abs-add, drop-sign, neg-neg-plus, drop-minus, direction) | yes | complete, tested |
+| signed:2 | השוואה וערך מוחלט | 11 (pins, numberline) | 2 | 2 | 4 (neg-compare, abs-keep-sign, opp-same, ignore-sign) | yes | complete, tested |
+| signed:3 | כפל וחילוק | 11 (numberline) | 2 | 2 | 5 (sign, add-sign, div-zero, zero-div, neg-many) | yes | complete, tested |
 | signed:4 | סדר פעולות | 10 (numberline) | 2 | 2 | 3 (order, minus-minus, mul-sign) | yes | complete, tested |
-| signed:5 | סוגריים | 10 (numberline) | 2 | 2 | 4 (minus-bracket, ignore-brackets, order, minus-minus) | yes | complete, tested |
+| signed:5 | סוגריים | 11 (numberline) | 4 | 2 | 6 (factor-sign, sign, minus-bracket, ignore-brackets, order, minus-minus) | yes | complete, tested |
 | signed:6 | שברים ועשרוניים מכוונים | 8 (numberline) | 3 | 2 | 4 (abs-add, minus-minus, sign, toward-zero) | yes | complete, tested |
+| signed:7 | חזקות של מספרים מכוונים | 8 (numberline) | 3 | 2 | 8 (pow-neg-base, pow-odd-pos, pow-keep-sign, outer-minus, pow-times, order, dec-places, num-only) | yes | complete, tested |
 | coord:1 | קריאת נקודה | 10 (plot) | 2 | 2 | 3 (swap, sign, axis-zero) | yes | complete, tested |
 | coord:2 | רביעים | 10 (plot) | 2 | 2 | 4 (swap, quad-order, sign, axis-quadrant) | yes | complete, tested |
 | coord:3 | אורך קטע | 9 (plot) | 2 | 2 | 3 (add-coords, sign, coord-length) | yes | complete, tested |
 | coord:4 | שטח מלבן | 9 (plot) | 2 | 2 | 4 (perimeter, add-sides, add-coords, coord-length) | yes | complete, tested |
 | coord:5 | קודקוד חסר | 10 (plot) | 2 | 2 | 4 (swap, wrong-neighbour, coord-length, sign) | yes | complete, tested |
-| angles:1 | זוויות צמודות | 10 (angle) | 2 | 2 | 4 (equal-not-supp, wrong-total, sum-360, one-angle) | yes | complete, tested |
-| angles:2 | זוויות קודקודיות | 10 (angle) | 2 | 2 | 3 (supp-not-equal, equal-not-supp, wrong-total) | yes | complete, tested |
-| angles:3 | סכום זוויות במשולש | 10 (triangle, angle) | 2 | 2 | 2 (sum-360, one-angle) | yes | complete, tested |
-| angles:4 | ישרים מקבילים | 10 (angle) | 2 | 2 | 2 (supp-not-equal, equal-not-supp) | yes | complete, tested |
+| angles:1 | זוויות צמודות | 12 (angle) | 2 | 2 | 4 (equal-not-supp, wrong-total, sum-360, one-angle) | yes | complete, tested |
+| angles:2 | זוויות קודקודיות | 10 (angle) | 3 | 2 | 3 (supp-not-equal, equal-not-supp, wrong-total) | yes | complete, tested |
+| angles:3 | סכום זוויות במשולש | 12 (triangle, angle) | 3 | 2 | 3 (sum-360, other-vertex, one-angle) | yes | complete, tested |
+| angles:4 | ישרים מקבילים | 10 (angle) | 3 | 2 | 2 (supp-not-equal, equal-not-supp) | yes | complete, tested |
 | angles:5 | שווה־שוקיים וזווית חיצונית | 10 (angle) | 2 | 2 | 4 (forgot-half, one-angle, apex-base-swap, interior-not-exterior) | yes | complete, tested |
+| angles:6 | חוצה זווית | 6 (angle) | 2 | 2 | 4 (part-for-whole, no-half, half-double-swap, sum-360) | no | complete, tested |
+| angles:7 | סכום זוויות במרובע | 6 | 2 | 1 | 3 (quad-missed, forgot-half, wrong-total) | no | complete, tested |
 | expr:1 | הצבה בביטוי | 8 (numberline) | 3 | 2 | 5 (concat, order, neg-sub, plus, coef) | yes | complete, tested |
 | expr:2 | כותבים ביטוי | 8 | 2 | 2 | 5 (start-n, diff-only, whole-object, reversal, times-plus) | yes | complete, tested |
-| expr:3 | כינוס איברים דומים | 9 (tiles) | 2 | 2 | 3 (conjoin, detach, drop-minus) | yes | complete, tested |
+| expr:3 | כינוס איברים דומים | 10 (tiles) | 2 | 2 | 5 (conjoin, detach, drop-minus, abs-add, sign) | yes | complete, tested |
 | expr:4 | חוק הפילוג | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
 | expr:5 | פישוט ביטויים | 8 (tiles) | 3 | 2 | 3 (partial-dist, minus-bracket, conjoin) | yes | complete, tested |
 | data:1 | דיאגרמות וטבלת שכיחויות | 8 (chart) | 3 | 2 | 5 (scale-units, one-value, icon-count, half-icon, truncated-axis) | yes | complete, tested |
@@ -198,8 +209,8 @@ the row to paste when one differs.
 | eq:1 | משוואה ופתרון | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-flip, sign, sub-coef) | yes | complete, tested |
 | eq:2 | משוואה בשני צעדים | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-part, sign, sub-coef) | yes | complete, tested |
 | eq:3 | נעלם בשני האגפים | 9 (balance) | 2 | 2 | 2 (move-no-flip, move-x-no-flip) | yes | complete, tested |
-| eq:4 | משוואות עם סוגריים | 9 (area) | 2 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
-| eq:5 | בעיות מילוליות | 9 (balance) | 2 | 2 | 3 (wrong-unknown, partial-dist, reversal) | yes | complete, tested |
+| eq:4 | משוואות עם סוגריים | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
+| eq:5 | בעיות מילוליות | 9 (balance) | 4 | 2 | 8 (wrong-unknown, partial-dist, two-sides, add-sides, wrong-total, drop-minus, divide-part, reversal) | yes | complete, tested |
 | eq:6 | שאלות תנועה | 8 (graph) | 3 | 2 | 6 (rel-speed, wrong-unknown, mean-speed, minutes-as-hours, decimal-minutes, formula-flip) | yes | complete, tested |
 | eq:7 | משוואות עם מכנים ופרופורציה | 8 (fbar) | 3 | 3 | 4 (lcd-partial, partial-dist, minus-bracket, add-across) | yes | complete, tested |
 | ratio:1 | יחס | 8 (fbar) | 2 | 2 | 3 (reversed-ratio, part-whole, add-same) | yes | complete, tested |
@@ -262,8 +273,8 @@ the row to paste when one differs.
 - **Curriculum alignment** is checked unit by unit against the Ministry's teaching schedules (`shared/programme.js`:
   every unit, its hours and months, and the stairs that teach each part). `PROGRAMME.md`, generated by
   `npm run programme:md`, shows what is taught, partly taught and not yet, and the app's `/programme` page shows the same
-  numbers; neither is typed by hand. Today they read "במדרגות יש כבר את החומר של 119 מתוך 150 שעות ההוראה של כיתה ז׳
-  (79%)." and "במדרגות יש כבר את החומר של 101 מתוך 147 שעות ההוראה של כיתה ח׳ (69%)." (`learn/claims.test.ts` checks
+  numbers; neither is typed by hand. Today they read "במדרגות יש כבר את החומר של 125 מתוך 150 שעות ההוראה של כיתה ז׳
+  (83%)." and "במדרגות יש כבר את החומר של 101 מתוך 147 שעות ההוראה של כיתה ח׳ (69%)." (`learn/claims.test.ts` checks
   every quoted sentence against the code). A few authored items go slightly beyond the old generators (three-factor products in
   signed:3, side-length questions in coord:5, a "30° larger" problem in angles:1).
 - **Not yet read by a teacher** (CURRICULUM-9, DATA-9; owner-only). `npm run review:sheet -- <topic> [stairs]` (in

@@ -69,6 +69,9 @@ export default function Teach() {
   return (
     <div className={clsx('teach', `ch-${t.color}`)}>
       <main className="teach-main">
+        {/* the stage's name is the screen's heading: StepPlayer writes it for stage A (shown on its first step); the
+            worked examples and solving together have no title on screen, so a screen reader gets it here (PKG-1) */}
+        {stage !== 'A' && <h1 className="visually-hidden">{TITLE[stage]}</h1>}
         {stage === 'A' && <StepPlayer key="A" steps={c.discover} start={pos} onIndex={(i) => setStagePos(skill, 'A', i)} onDone={finish} label="ההסבר" doneLabel="לדוגמה הפתורה" renderHead={head} title={TITLE[stage]} kicker={kicker} />}
         {stage === 'B' && <WorkedExample key={`B${idx}`} example={c.examples[Math.min(idx, c.examples.length - 1)]} n={Math.min(idx, c.examples.length - 1) + 1} of={c.examples.length} decimal={c.topic === 'stats'} onDone={nextOf(c.examples, 'example-done')} doneLabel={idx + 1 < c.examples.length ? 'לדוגמה הבאה' : 'לפתור יחד'} renderHead={head} />}
         {stage === 'C' && (

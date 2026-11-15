@@ -41,6 +41,16 @@ describe('expressions', () => {
     expect(() => evaluate('alert(1)')).toThrow();
     expect(() => evaluate('2 +')).toThrow();
   });
+  it('reads the class\'s square brackets: outer [ ], inner ( ), the number before [ multiplies it (CLASSROOM-4)', () => {
+    expect(evaluate('-3[12 - (2 - 7)]')).toBe(-51);
+    expect(evaluate('-3*(12 - (2 - 7))')).toBe(-51);
+    expect(evaluate('30 - 4[-3 - (8 - 2)*(-1)]')).toBe(18);
+    expect(evaluate('48 : [-2 + 3*(1 - 3)]')).toBe(-6);
+    expect(evaluate('[2 + 3]*4')).toBe(20);
+    expect(evaluate('(1 + 1)[2 + 3]')).toBe(10);
+    expect(() => evaluate('-3[12 - 5')).toThrow();
+    expect(() => evaluate('x[2]')).toThrow(); // a letter before [ is not a number: no implicit multiplication there
+  });
   it('reads variables, and refuses a name it was not given', () => {
     expect(evaluate('3*x+1', { x: 2 })).toBe(7);
     expect(evaluate('2*x - 3*y', { x: 4, y: -1 })).toBe(11);
@@ -216,11 +226,22 @@ describe('probability, the last unit of ח׳', () => {
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
     // every unit of TOPIC_ORDER, each with its number of stairs (62 at stage 1's end; each content stage adds its own:
-    // data:1-4, stats:6-8 and prob:1-3 in curriculum stage 3)
+    // data:1-4, stats:6-8 and prob:1-3 in curriculum stage 3; signed:7, angles:6 and angles:7 in the classroom lane)
     expect(Object.keys(STAIRS).sort()).toEqual([...TOPIC_ORDER].sort());
     expect(ALL_SKILLS).toHaveLength(TOPIC_ORDER.reduce((n, t) => n + STAIRS[t], 0));
-    expect(ALL_SKILLS.length).toBeGreaterThanOrEqual(72);
+    expect(ALL_SKILLS.length).toBeGreaterThanOrEqual(81);
     expect(new Set(ALL_SKILLS).size).toBe(ALL_SKILLS.length);
+    // powers of directed numbers (CLASSROOM-5): the seventh signed stair, after order of operations and signed fractions
+    expect(STAIRS.signed).toBe(7);
+    expect(ALL_SKILLS.filter((s) => s.startsWith('signed:'))).toEqual(['signed:1', 'signed:2', 'signed:3', 'signed:4', 'signed:5', 'signed:6', 'signed:7']);
+    expect(prereqsOf('signed:7')).toEqual(['signed:4', 'signed:6']);
+    expect(ancestorsOf('signed:7')).toEqual(expect.arrayContaining(['signed:1', 'signed:3', 'signed:4', 'signed:6', 'frac:3']));
+    // the bisector and the quadrilateral (CLASSROOM-10, -12): angles:6 and angles:7, after the five, so saved levels keep their meaning
+    expect(STAIRS.angles).toBe(7);
+    expect(ALL_SKILLS.filter((s) => s.startsWith('angles:'))).toEqual(['angles:1', 'angles:2', 'angles:3', 'angles:4', 'angles:5', 'angles:6', 'angles:7']);
+    expect(prereqsOf('angles:6')).toEqual(['angles:1']);
+    expect(prereqsOf('angles:7')).toEqual(['angles:3']);
+    expect(ancestorsOf('angles:7')).toEqual(['angles:3', 'angles:1']);
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
@@ -295,8 +316,9 @@ describe('a unit on two grades\' paths (ALSO_ON_PATH)', () => {
     expect(unitGrade(expr, undefined, ALSO)).toBe('7');
   });
   it('the real catalogue is unchanged by the table: every unit\'s stairs once and an 18-question first-day test for ח׳', async () => {
-    // stage 1's 62, curriculum stage 3's ten and stage 5's six (func:1-4, eq:6-7)
-    expect(ALL_SKILLS).toHaveLength(78);
+    // stage 1's 62, curriculum stage 3's ten, stage 5's six (func:1-4, eq:6-7) and the classroom lane's three (signed:7,
+    // angles:6-7)
+    expect(ALL_SKILLS).toHaveLength(81);
     expect(ALL_SKILLS).toHaveLength(TOPIC_ORDER.reduce((n, t) => n + STAIRS[t], 0));
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');

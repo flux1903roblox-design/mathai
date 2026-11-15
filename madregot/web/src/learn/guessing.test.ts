@@ -5,15 +5,16 @@
 //  - most common answer: for each kind of question (its form and where it comes from), the answer that question
 //    has most often, learned from a sample of the same check's questions;
 //  - best constant: one fixed answer per form (number, choice, point, line, object), the one right most often;
-//  - a number from the question: one of the numbers printed in it (its text, its expression, its table), picked at
-//    random, or always the first one, or always the last one; for an answer of two numbers (a point, a line, an
-//    expression's coefficient and constant), two of them: a pair at random, the first two, or the last two. A drawing's
-//    numbers count where a student reads them off it: a table, a situation graph, a protractor and a clock (stage 5 §0.4
-//    decision 5: every number their words, figPlain, write: a graph's axes, points and marks; each arm's two readings, by
-//    scale; the clock's time). Not yet the other angle drawings (CURRICULUM-10's): an angle check can
-//    still be passed by copying the angle drawn (angles:2 about 31%, angles:4 about 47%, from a run with drawings in),
-//    because its questions are one step, equal or adding to 180°. That needs the angle checks to mix in other kinds of
-//    questions, and is left for that change.
+//  - a number from the question: one of the numbers printed in it (its text, its expression, its drawing in words,
+//    content/index.js figPlain, and the numbers an object draws: a number line's start, the bars and their target, the
+//    angle tool's goal), picked at random, or always the first one, or always the last one; for an answer of two
+//    numbers (a point, a line, an expression's coefficient and constant), two of them: a pair at random, the first two,
+//    or the last two. An object whose answer is one number (a number line, the angle tool, a bar) is set to it. Every
+//    drawing is read (CURRICULUM-10): a table, a situation graph, a protractor and a clock (stage 5 §0.4 decision 5:
+//    every number their words write) as before, and now the angle drawings, the charts and the rest;
+//  - for a question in degrees (CURRICULUM-10), 180° minus a printed number, 90° minus one, and 360° minus one, each
+//    at random, the first or the last: what a student who copies the angle drawn, or completes it to a straight
+//    line, a right angle or a full turn, types without reading which angle is asked.
 // Each question's chance is measured on a fresh sample; a check's pass rate is then exact (its questions are drawn
 // independently): mastery and jump tests need 4 of 5, a review 3 of 3, a verification 3 of 3; a placement probe needs
 // all three of its questions, and a topic's placement is followed through both its probes.
@@ -35,6 +36,20 @@ import { toFrac } from '@/content/util.js';
 import { probeItem, startLevel, nextProbe, placementTop, PER_TOPIC, PROBE_LEN, KNOW } from '@/lib/placement.js';
 // @ts-ignore: plain JS
 import { JUMP_SOURCES, JUMP_MISTAKES } from '@/lib/lesson.js';
+// @ts-ignore: plain JS
+import { chainItem, absItem, oppItem, nestedItem, drawNested, nestedTex, nestedValue } from '@/content/signedItems.js';
+// @ts-ignore: plain JS
+import { powItem } from '@/content/signed7.js';
+// @ts-ignore: plain JS
+import { bracketZero, bracketFrom } from '@/content/eq.js';
+// @ts-ignore: plain JS
+import { collectItem, bracketCollect } from '@/content/expr.js';
+// @ts-ignore: plain JS
+import { rectStory, transferTable, angleEqStory } from '@/content/eq.js';
+// @ts-ignore: plain JS
+import { fanItem, splitTriangleS1, splitTriangleS2 } from '@/content/angleItems.js';
+// @ts-ignore: plain JS
+import { bisItem, quadItem } from '@/content/angles67.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -90,16 +105,32 @@ function chances(draws: Draw[], guess: (it: Item) => unknown) {
   return draws.map((d) => { let ok = 0; for (let i = 0; i < N; i += 1) { const it = d(); const g = guess(it); if (g !== undefined && isCorrect(it, g)) ok += 1; } return ok / N; });
 }
 
-/** The numbers a typed question prints: in its text, its expression and its table, in reading order. */
+/** The objects whose answer is one number a guesser can set them to: a point on a number line, a ray's angle, a bar. */
+const ONE_NUMBER = new Set(['numberline', 'angle', 'bars', 'dline']);
+const oneNumber = (it: Item) => it.form === 'num' || (it.form === 'manip' && ONE_NUMBER.has(it.manip?.kind) && typeof it.answer === 'number');
+/** The numbers a typed question (or an object set to one number) prints: in its text, its expression, its drawing. */
 export function shownNumbers(it: Item): number[] {
-  if (it.form !== 'num') return [];
+  if (!oneNumber(it)) return [];
   return printed(it);
 }
-/** The drawings whose numbers a student reads off them, so a guesser may copy them: their words (figPlain) say every one. */
-const READ_FIGS = new Set(['table', 'sgraph', 'protractor', 'clock']);
-/** Every number printed in a question, whatever its form. */
+/** The numbers an object draws as numbers: a number line's start, the bars and their target, the angle tool's goal. */
+function drawnByObject(m: any): string {
+  if (!m) return '';
+  const nums = m.kind === 'numberline' ? [m.from, m.start] : m.kind === 'bars' ? [...(m.values || []), m.target ?? m.mean]
+    : m.kind === 'angle' ? [m.target, m.whole] : m.kind === 'pins' ? (m.labels || []).filter((l: unknown) => typeof l === 'number') : [];
+  return nums.filter((v: unknown) => typeof v === 'number').join(' ');
+}
+/** Every number printed in a question, whatever its form: its text, its expression, its drawing in words, its object. */
+const PRINTED = new WeakMap<object, number[]>();
 function printed(it: Item): number[] {
-  const shown = [it.text, it.display, READ_FIGS.has(it.fig?.type) ? figPlain(it.fig) : ''].filter(Boolean).join(' ')
+  // read once per question: every guessing strategy asks for them
+  if (it && typeof it === 'object' && PRINTED.has(it)) return PRINTED.get(it)!;
+  const ns = readPrinted(it);
+  if (it && typeof it === 'object') PRINTED.set(it, ns);
+  return ns;
+}
+function readPrinted(it: Item): number[] {
+  const shown = [it.text, it.display, it.fig ? figPlain(it.fig) : '', it.form === 'manip' ? drawnByObject(it.manip) : ''].filter(Boolean).join(' ')
     // a TeX thousands group is one number: 50{,}000 is 50000, not 50 and 0 (a scale's 1 : 50{,}000)
     .replace(/(\d)\{,\}(?=\d{3})/g, '$1')
     .replace(/\\(qquad|quad|[,;:! ])/g, ' ').replace(/\\[a-zA-Z]+/g, ' ').replace(/−/g, '-')
@@ -122,6 +153,17 @@ const SHOWN: ((it: Item) => number)[] = [
   (it) => { if (!TWO.has(it.form)) return 0; const ns = printed(it); return ns.length >= 2 && isCorrect(it, twoOf(it, ns[0], ns[1])) ? 1 : 0; },
   (it) => { if (!TWO.has(it.form)) return 0; const ns = printed(it); return ns.length >= 2 && isCorrect(it, twoOf(it, ns[ns.length - 2], ns[ns.length - 1])) ? 1 : 0; },
 ];
+/**
+ * For a question in degrees: 180° − n, 90° − n and 360° − n for a printed number n (at random, the first, the last).
+ * Copying the angle drawn is the number strategy above.
+ */
+const DEG_GUESS: ((n: number) => number)[] = [(n) => 180 - n, (n) => 90 - n, (n) => 360 - n];
+const inDegrees = (it: Item) => it.unit === 'מעלות';
+export const DEGREES: ((it: Item) => number)[] = DEG_GUESS.flatMap((f) => [
+  (it: Item) => { if (!inDegrees(it)) return 0; const ns = shownNumbers(it); return ns.length ? ns.filter((v) => isCorrect(it, f(v))).length / ns.length : 0; },
+  (it: Item) => { if (!inDegrees(it)) return 0; const ns = shownNumbers(it); return ns.length && isCorrect(it, f(ns[0])) ? 1 : 0; },
+  (it: Item) => { if (!inDegrees(it)) return 0; const ns = shownNumbers(it); return ns.length && isCorrect(it, f(ns[ns.length - 1])) ? 1 : 0; },
+]);
 
 
 /** P(at least `need` right) for independent questions with these chances. */
@@ -135,7 +177,7 @@ function atLeast(qs: number[], need: number) {
 function passRate(draws: Draw[], need: number) {
   const samples = draws.map((d) => Array.from({ length: N }, d));
   // the numbers-from-the-question guesses learn nothing, so they are measured on the same sample
-  const fromQuestion = SHOWN.map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
+  const fromQuestion = [...SHOWN, ...DEGREES].map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
   return Math.max(...learnGuesses(samples.flat()).map((g) => atLeast(chances(draws, g), need)), ...fromQuestion);
 }
 
@@ -198,6 +240,132 @@ describe('the placement test cannot be passed by guessing', () => {
   }, SLOW);
 });
 
+// CLASSROOM-1 and -2: the class's new kinds alone, as the spec simulated them (the chain 3.8%, absItem 4.6%, oppItem 4.0%
+// for the most common answer): never answered by a number printed in them, and no answer common enough to pass a check
+describe('the class\'s signed kinds cannot be guessed', () => {
+  // brackets inside brackets (CLASSROOM-4): a[b − (c − d)] and e − a[b − (c − d)·g] alone (spec 3.0%), e : [p + g(h − i)]
+  // alone (spec 11.9%), and the mix the exercises draw
+  const shape = (n: number) => (r: () => number) => { const q = drawNested(r, n); return { form: 'num', text: 'חשבו:', display: nestedTex(q), answer: nestedValue(q), key: `n${n}` }; };
+  const twoShapes = (r: () => number) => shape(r() < 0.6 ? 1 : 2)(r);
+  // powers (CLASSROOM-5): the checks' mix, F0-F5 in the exercises' shares (F6, a positive base, never reaches a check:
+  // the spec gives 8.3%, measured 9.3% here, because the form is drawn first and keeps its share), and F5 alone (4.1%)
+  const powCheck = (r: () => number) => { for (;;) { const it = powItem(r); if (!it.key.startsWith('sn7:6:')) return it; } };
+  const powF5 = (r: () => number) => powItem(r, 5);
+  it.each([['the chain of five', chainItem, 0.05], ['absolute value', absItem, 0.06], ['the opposite', oppItem, 0.055],
+    ['brackets inside brackets, the first two shapes', twoShapes, 0.05], ['dividing by a bracket, alone', shape(3), 0.15], ['brackets inside brackets, as drawn', nestedItem, 0.05],
+    ['powers, as the checks draw them', powCheck, 0.105], ['a fraction or a decimal to a power, alone', powF5, 0.05]] as const)('%s', (_name, make, most) => {
+    const items = Array.from({ length: 4000 }, () => make(Math.random));
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 10);
+    // a number copied from the question is never the answer
+    items.forEach((it) => expect(shownNumbers(it).some((v) => isCorrect(it, v)), it.key).toBe(false));
+  });
+});
+
+// CLASSROOM-7: the class's a(x + b) = cx (d = 0), drawn in a fifth of eq:4's a(x + b) = cx + d items. Its most common
+// answer alone (spec 5.9%, P(4 of 5) = 5.8e-5; 6.2% and 6.9e-5 over all the draws the app allows: m from −6 to 6, so
+// 5(x − 2) = 3x is a shape, and a printed answer, a first-term opening that gives the answer, or a slip are redrawn)
+// never passes a check, and no printed number is it
+describe('the class\'s equation shape cannot be guessed', () => {
+  it('a(x + b) = cx alone', () => {
+    const items = Array.from({ length: 6000 }, () => bracketFrom(bracketZero()));
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(0.07);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(1e-4);
+    items.forEach((it) => expect(shownNumbers(it).some((v) => isCorrect(it, v)), it.key).toBe(false));
+    // the shape is the class's: nothing added on the right, and the answer whole
+    items.forEach((it) => { expect(it.display, it.key).toMatch(/^\d\(x [+-] \d\) = \d*x$/); expect(Number.isInteger(it.answer)).toBe(true); });
+  });
+});
+
+// CLASSROOM-6: collecting the class's way, 3 to 6 terms (spec: best constant pair 0.3%), and the bracketed x-terms (spec
+// 0.8%; a third of them answer x or −x). The answer is a pair, and on expr:3 the swapped boxes count as right too, so
+// the best constant is measured with isCorrect on the stair; copying two printed numbers into the boxes is measured too
+describe('the class\'s collecting cannot be guessed', () => {
+  const plain = (r: () => number) => { for (;;) { const it = collectItem(); if (!String(it.key).startsWith('ex3b:') && !(it as { practiceOnly?: boolean }).practiceOnly) return it; } };
+  it.each([['collecting, 3 to 6 terms', plain, 0.01], ['bracketed x-terms', () => bracketCollect(), 0.02]] as const)('%s', (_name, make, most) => {
+    const items = Array.from({ length: 4000 }, () => ({ ...make(Math.random), topic: 'expr', level: 3 }));
+    const pairs = new Map<string, { k: number; c: number }>();
+    items.forEach((it) => pairs.set(`${it.answer.k},${it.answer.c}`, it.answer));
+    let best = 0;
+    [...pairs.values()].forEach((g) => { const n = items.filter((it) => isCorrect(it, g)).length; if (n > best) best = n; });
+    const common = best / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 100);
+    // two numbers copied from the question, in either box, are almost never the answer
+    const copied = items.filter((it) => { const ns = (String(it.display).match(/-?\d+/g) || []).map(Number); return ns.some((a) => ns.some((b) => isCorrect(it, { k: a, c: b }))); }).length;
+    expect(copied / items.length).toBeLessThan(0.05);
+  }, SLOW);
+});
+
+// CLASSROOM-8: the class's word problems alone, as the spec simulated them (most common answer: the rectangle 5.6%, the
+// transfer 6.3% and 5.3%, a triangle with x 11.3%, a quadrilateral with x 8.1%): no answer common enough to pass a check,
+// no number copied from the question the answer, and for angles not 180 − n, 90 − n or 360 − n of one either
+describe('the class\'s word problems cannot be guessed', () => {
+  it.each([['the rectangle', () => rectStory(), 0.07, false], ['the transfer, form 1', () => transferTable(1), 0.08, false],
+    ['the transfer, form 2', () => transferTable(2), 0.07, false], ['a triangle with x', () => angleEqStory(3), 0.13, true],
+    ['a quadrilateral with x', () => angleEqStory(4), 0.1, true]] as const)('%s', (_name, make, most, deg) => {
+    const items = Array.from({ length: 4000 }, () => make());
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 10);
+    items.forEach((it) => {
+      const shown = shownNumbers(it);
+      const guesses = deg ? shown.flatMap((n) => [n, 180 - n, 90 - n, 360 - n]) : shown;
+      expect(guesses.some((v) => isCorrect(it, v)), it.key).toBe(false);
+    });
+  }, SLOW);
+});
+
+// CLASSROOM-9 and -11: the fan and the split triangle's S2 alone: no answer common enough to pass a check, and never a
+// copied number, nor 180°, 90° or 360° minus one (∢C = 90° is printed too). Their ranges stop where each number still
+// fits inside its own angle in the drawing, so the most common answer is about 6.2% (the fan) and 5.3% (S2), not the
+// spec's 5.2% and 3.5%: 4 of 5 by typing it is still below 1 in 10,000.
+// S1 is 90° minus a printed number by its nature: it is practice only and never reaches a check.
+describe('the class\'s new angle kinds cannot be guessed', () => {
+  it.each([['the fan', () => fanItem(), 0.075], ['the split triangle, S2', () => splitTriangleS2(), 0.065]] as const)('%s', (_name, make, most) => {
+    const items = Array.from({ length: 6000 }, () => make());
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 100);
+    items.forEach((it) => {
+      const guesses = shownNumbers(it).flatMap((n) => [n, 180 - n, 90 - n, 360 - n]);
+      expect(guesses.some((v) => isCorrect(it, v)), it.key).toBe(false);
+    });
+  }, SLOW);
+  it('S1 never reaches a check', () => {
+    for (let i = 0; i < 200; i += 1) expect(splitTriangleS1().practiceOnly).toBe(true);
+  });
+});
+
+// CLASSROOM-10 and -12: the bisector's four typed kinds as practice draws them (spec 1.7% for the most common answer;
+// 1.4% measured, bisTwo alone 4.2%) and the quadrilateral's three (spec 9.3%; 9.2% measured): no answer common enough to
+// pass a check, and never a copied number, nor 180°, 90° or 360° minus one (a right angle's 90° counts as printed)
+describe('the bisector and the quadrilateral cannot be guessed', () => {
+  it.each([['the bisector, its four typed kinds', () => bisItem(), 0.02], ['two bisectors in a fan (bisTwo) alone', () => bisItem('t'), 0.05],
+    ['the quadrilateral, its three kinds', () => quadItem(), 0.1]] as const)('%s', (_name, make, most) => {
+    const items = Array.from({ length: 6000 }, () => make());
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 10);
+    items.forEach((it) => {
+      const guesses = [...shownNumbers(it), ...(/ישרה/.test(it.text) ? [90] : [])].flatMap((n) => [n, 180 - n, 90 - n, 360 - n]);
+      expect(guesses.some((v) => isCorrect(it, v)), it.key).toBe(false);
+    });
+  }, SLOW);
+});
+
 describe('the guessing measure itself', () => {
   it('sees a guesser who types a number from the question: the old two-number comparison', () => {
     // "which is bigger? -8 or -10": typing either number shown is a coin flip, and three of them pass 1 in 8
@@ -211,9 +379,9 @@ describe('the guessing measure itself', () => {
     // a protractor: each arm's two readings; a clock: its hour and minutes
     expect(shownNumbers({ form: 'num', text: 'מה גודל הזווית?', fig: { type: 'protractor', arms: [180, 130], letters: { vertex: 'B', a: 'A', b: 'C' } } })).toEqual([180, 0, 130, 50]);
     expect(shownNumbers({ form: 'num', fig: { type: 'clock', h: 2, m: 30 } })).toEqual([2, 30]);
-    // a table keeps being read; another drawing is not read yet (the other angle drawings are CURRICULUM-10's)
+    // a table keeps being read, and every other drawing too (CURRICULUM-10): an angle drawing's 40°
     expect(shownNumbers({ form: 'num', fig: { type: 'table', head: ['x', 'y'], rows: [[1, 9]] } })).toEqual([1, 9]);
-    expect(shownNumbers({ form: 'num', fig: { type: 'linear', a: 40 } })).toEqual([]);
+    expect(shownNumbers({ form: 'num', fig: { type: 'linear', a: 40 } })).toEqual([40]);
   });
   it('reads a TeX thousands group as one number, so copying a printed number on a scale question is measured honestly', () => {
     // a scale question prints 1 : 50{,}000: the number a guesser would type is 50000, not 50 and 0

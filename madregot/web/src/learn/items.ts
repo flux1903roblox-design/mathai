@@ -100,8 +100,12 @@ export function canProbe(skill: SkillId, ids: string[]): boolean {
   return !!genProbe(topic, level, ids);
 }
 
-/** One question of a skill from a source; falls back to the stair's exercise generator. */
-function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, candidates?: string[]) {
+/**
+ * One question of a skill from a source; falls back to the stair's exercise generator. In a check (`opts.test`) the
+ * generator is the stair's check generator (content/index.js makeItem, testGen) and a model draws its check params
+ * (testParams) where it has them (CURRICULUM-10).
+ */
+function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, candidates?: string[], opts: { test?: boolean } = {}) {
   if (source === 'facts') return factsItem(avoidKey);
   const { topic, level } = parseSkill(skill);
   // 'gen' is the stair's own generator and never reads the teaching content, so it needs no topic loaded (the teacher's
@@ -109,28 +113,32 @@ function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, c
   const c = source === 'gen' ? null : contentOf(skill);
   if (c) {
     const model = source === 'transfer' && c.transfer ? c.transfer : c.diag;
+    // a check draws a model's check params where it has them (CURRICULUM-10: no one-step angle question in a check)
+    const draw = (m: DiagModel<any>) => (opts.test && m.testParams ? m.testParams : m.params);
     if (source === 'probe' && candidates?.length) {
       const inModel = [c.diag, c.transfer].find((x) => x && candidates.every((id) => id in x.bugs));
       // a misconception no model predicts (the generators name it): one of the stair's exercises where it can show
       const g = inModel ? null : genProbe(topic, level, candidates, avoidKey);
       if (g) return g;
       const m = inModel || c.diag;
-      const p = discriminating(m!, candidates.filter((id) => id in m!.bugs), rnd);
+      const ids = candidates.filter((id) => id in m!.bugs);
+      // a check's own kinds first; a misconception only a one-step question shows is probed by one
+      const p = (opts.test && m!.testParams ? discriminating({ ...m!, params: m!.testParams }, ids, rnd) : null) ?? discriminating(m!, ids, rnd);
       if (p) return { ...modelItem(c, m!, p, 'probe'), probe: candidates };
     } else if (source === 'control' && candidates?.length) {
       // a question of the same kind where the misconception would not change the answer
       const m = [c.diag, c.transfer].find((x) => x && candidates.every((id) => id in x.bugs)) || c.diag;
       for (let i = 0; i < 400; i += 1) {
-        const p = m!.params(rnd); const ans = m!.answer(p);
+        const p = draw(m!)(rnd); const ans = m!.answer(p);
         const quiet = candidates.every((id) => { const v = m!.bugs[id]?.(p); return v == null || !Number.isFinite(v) || Math.abs(v - ans) < 1e-9; });
         if (quiet) { const it = modelItem(c, m!, p, 'control'); if (it.key !== avoidKey) return it; }
       }
-      return itemOnce(skill, 'diag', rnd, avoidKey);
+      return itemOnce(skill, 'diag', rnd, avoidKey, undefined, opts);
     } else {
-      for (let i = 0; i < 20; i += 1) { const p = model.params(rnd); const it = modelItem(c, model, p, source); if (it.key !== avoidKey) return it; }
+      for (let i = 0; i < 20; i += 1) { const p = draw(model)(rnd); const it = modelItem(c, model, p, source); if (it.key !== avoidKey) return it; }
     }
   }
-  return makeItem(topic, level, avoidKey);
+  return makeItem(topic, level, avoidKey, opts);
 }
 
 /**
@@ -138,8 +146,8 @@ function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, c
  * skill is skipped (content/index.js fairForCheck: a signed-number question with no negative number in it).
  */
 export function itemFor(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, candidates?: string[], opts: { test?: boolean } = {}) {
-  let it = itemOnce(skill, source, rnd, avoidKey, candidates);
-  for (let i = 0; opts.test && i < 40 && !fairForCheck(it); i += 1) it = itemOnce(skill, source, rnd, avoidKey, candidates);
+  let it = itemOnce(skill, source, rnd, avoidKey, candidates, opts);
+  for (let i = 0; opts.test && i < 40 && !fairForCheck(it); i += 1) it = itemOnce(skill, source, rnd, avoidKey, candidates, opts);
   return it;
 }
 

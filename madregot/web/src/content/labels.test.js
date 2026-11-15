@@ -4,13 +4,13 @@
 // whenever diag() names a category, the answer must have that property. And a label is only recorded as evidence
 // about the student when it is honest: the learning model gets exactly the category the answer shows.
 import { describe, it, expect } from 'vitest';
-import { TOPICS, makeItem, isCorrect, catLabel } from './index.js';
+import { TOPICS, makeItem, isCorrect, catLabel, swappedLin } from './index.js';
 import { quadOf as quadOfPt } from './manip.js';
 import { startLesson, answer } from '@/lib/lesson.js';
 import { learnAfterAnswer, emptyLearn } from '@/learn/storeGlue.ts';
-import { evaluate, texToExpr, texRelation, holds } from '@/learn/expr.ts';
-import { roundsTo, EQ } from './eq.js';
-import { EXPR } from './expr.js';
+import { evaluate, texToExpr, texRelation, holds, seeded } from '@/learn/expr.ts';
+import { roundsTo, EQ, rectStory, transferTable, angleEqStory } from './eq.js';
+import { EXPR, collectItem, bracketCollect } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
 import { candidates, nearCandidates } from './labels.sample.js';
@@ -20,6 +20,10 @@ import { FUNC } from './func.js';
 import { DATA } from './data.js';
 import { STATS2_CATS } from './stats2.js';
 import { PROB } from './prob.js';
+import { chainItem, regroupItem, absItem, oppItem, nestedItem, zeroOne } from './signedItems.js';
+import { powItem } from './signed7.js';
+import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from './angleItems.js';
+import { bisItem, quadItem } from './angles67.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -34,17 +38,57 @@ const ptEq = (u, p) => Array.isArray(u) && near(u[0], p[0]) && near(u[1], p[1]);
 
 /**
  * The numbers of a signed-number exercise, read from what is on screen: whole numbers, decimals (-2.5) and fractions,
- * mixed numbers included (\frac{3}{4}, -\frac{3}{4}, -1\frac{1}{4}, in \left( \right) brackets or not).
+ * mixed numbers included (\frac{3}{4}, -\frac{3}{4}, -1\frac{1}{4}, in \left( \right) brackets or not); the class's
+ * bracketed numbers with their sign, (+3) and (-8), in chains of five (CLASSROOM-2); absolute value bars as "|"
+ * (\lvert -7 \rvert, CLASSROOM-1).
  */
 function signedFacts(it) {
-  const d = it.display.replace(/\\left|\\right/g, '').replace(/\\cdot/g, '*').replace(/[()]/g, '').trim();
+  const d = String(it.display || '').replace(/\\left|\\right/g, '').replace(/\\[lr]vert/g, ' | ').replace(/\\cdot/g, '*').replace(/[()[\]]/g, ' ').trim();
   const num = (x) => {
     const f = x.match(/^(-?)(\d*)\\frac\{(\d+)\}\{(\d+)\}$/);
     if (f) { const v = Number(f[2] || 0) + Number(f[3]) / Number(f[4]); return f[1] ? -v : v; }
-    return /^-?\d+(\.\d+)?$/.test(x) ? Number(x) : x;
+    return /^[+-]?\d+(\.\d+)?$/.test(x) ? Number(x) : x;
   };
   return d.split(/\s+/).map(num);
 }
+/** A chain's terms from its key, sn1c:+,+,-,-,+:-8,3,-6,9,-4: the ops and the numbers in brackets the student saw. */
+function chainOf(key) {
+  const [ops, vals] = key.split(':').slice(1);
+  return { o: ops.split(',').map((x) => (x === '-' ? -1 : 1)), v: vals.split(',').map(Number) };
+}
+/** Each term once the brackets are removed, the right way, and with every −(−n) read as −n. */
+const chainRight = (c) => c.o.map((o, i) => o * c.v[i]);
+const chainMm = (c) => c.o.map((o, i) => (o < 0 && c.v[i] < 0 ? c.v[i] : o * c.v[i]));
+/** A nested-brackets question from its key: sn5n:1:a:b:c:d, sn5n:2:e:a:b:c:d:g, sn5d:e:p:g:h:i (CLASSROOM-4). */
+function nestOf(key) {
+  const [kind, ...v] = key.split(':'); const n = v.map(Number);
+  if (kind === 'sn5d') { const [e, p, g, h, i] = n; return { form: 3, e, p, g, h, i }; }
+  if (n[0] === 1) { const [, a, b, c, d] = n; return { form: 1, a, b, c, d }; }
+  const [, e, a, b, c, d, g] = n; return { form: 2, e, a, b, c, d, g };
+}
+/**
+ * A power question from its key (CLASSROOM-5): sn7:f:a:n, sn7:4:a:n:b:c, sn7:5:p/q:n (the base −p/q) or sn7:5:w.d:n
+ * (the base −w.d). Its value and the base, read back here and not from the generator.
+ */
+function powOf(key) {
+  const [, f, a, n, b, c] = key.split(':');
+  const q = { f: Number(f), n: Number(n) };
+  if (f === '5') {
+    if (a.includes('/')) { const [p, d] = a.split('/').map(Number); return { ...q, frac: true, p, d, base: -p / d }; }
+    return { ...q, frac: false, base: -Number(a), places: a.split('.')[1].length };
+  }
+  return { ...q, a: Number(a), ...(f === '4' ? { b: Number(b), c: Number(c) } : {}) };
+}
+/** The power's value, from the key: (−a)ⁿ, −aⁿ, −(−a)ⁿ, −(−aⁿ), b − c·(−a)ⁿ, baseⁿ, aⁿ. */
+function powVal(q) {
+  if (q.f === 5) return q.base ** q.n;
+  return [(-q.a) ** q.n, -(q.a ** q.n), -((-q.a) ** q.n), q.a ** q.n, q.b - q.c * (-q.a) ** q.n, 0, q.a ** q.n][q.f];
+}
+const isPow = (it) => String(it.key).startsWith('sn7:');
+/** A line of signed numbers, "-8 - 9 + 3", as its terms [-8, -9, 3]. */
+const lineTerms = (tex) => (String(tex).replace(/\s+/g, '').match(/[+-]?\d+/g) || []).map(Number);
+/** The regrouped line: the negatives in order, then the positives (no zero in a regroup question). */
+const regrouped = (ws) => [...ws.filter((w) => w < 0), ...ws.filter((w) => w > 0)];
 /** The value subtracted in a signed exercise, when it is negative: the "minus-minus" spot. */
 function subtractedNegative(it) {
   const p = it.key.split(':')[0];
@@ -160,6 +204,8 @@ const asLin = (f) => (it, u) => f(it, it.form === 'mc' ? chosenLin(it, u) : u);
 function exprTerms(it) {
   if (it.key.startsWith('ex3t:')) { const [px, nx, p1, n1] = nums(it.key); return [{ k: px, v: 'x' }, { k: -nx, v: 'x' }, { k: p1, v: '' }, { k: -n1, v: '' }]; }
   if (it.key.startsWith('ex4a:')) { const [a, b] = nums(it.key); return [{ m: a, inner: [{ k: 1, v: 'x' }, { k: b, v: '' }] }]; }
+  // the class's bracketed terms (CLASSROOM-6), (-7x) + (+4) + …: each bracket holds one term with its sign
+  if (it.key.startsWith('ex3b:')) return parseSum(it.display).map((t) => (t.inner?.length === 1 && Math.abs(t.m) === 1 ? { k: t.m * t.inner[0].k, v: t.inner[0].v } : t));
   return parseSum(it.display);
 }
 /** Some of the negative terms of a sum written as positive. */
@@ -168,6 +214,17 @@ function minusDropped(terms) {
   const out = [];
   for (let mask = 1; mask < 1 << neg.length; mask += 1) out.push(openSum(terms.map((t, i) => (neg.some((n, j) => n === i && (mask >> j) & 1) ? { ...t, k: -t.k } : t))));
   return out;
+}
+/** A rectangle story (CLASSROOM-8) from its key, eq5r:x:d:q: the sides x and x + d (x and 2x when d is 0), P, and what was asked. */
+function rectOf(it) {
+  const [x, d, q] = nums(it.key); const other = d ? x + d : 2 * x;
+  return { x, d, q, other, P: 2 * (x + other), at: (v) => [v, d ? v + d : 2 * v, v * (d ? v + d : 2 * v)][q] };
+}
+/** An angles-with-x story from its key, eq5g:n:c1,c2,…:e1,e2,…:q (q −1 asks x): the angles c·x + e, their sum and the other shape's. */
+function angOf(it) {
+  const [, n, cs, es, q] = it.key.split(':'); const c = cs.split(',').map(Number); const e = es.split(',').map(Number);
+  const total = Number(n) === 3 ? 180 : 360; const Cs = sum(c); const Es = sum(e);
+  return { c, e, q: Number(q), total, other: total === 180 ? 360 : 180, Cs, Es, x: (total - Es) / Cs, at: (v) => (Number(q) < 0 ? v : c[Number(q)] * v + e[Number(q)]) };
 }
 /** The quantities a story asks about (the unknown and the others built from it), from its key. */
 /** The numbers of an eq:6 or eq:7 key after its kind (eq6:toward:40:60:300:0 gives [40, 60, 300, 0], eq7:1:3:8 [3, 8]). */
@@ -181,6 +238,10 @@ function storyValues(it) {
     case 'eq5t': { const [d] = n; const x = (90 - d) / 2; return [x, x + d]; }
     case 'eq5b': { const [n1, n2, pp] = n; const x = (n2 * pp) / (n1 - n2); return [x, x + pp]; }
     case 'eq5c': { const [S] = n; const x = (S - 3) / 3; return [x, x + 1, x + 2]; }
+    case 'eq5r': { const r = rectOf(it); return [r.x, r.other, r.x * r.other]; }
+    case 'eq5x': { const [d, T] = n; const x = (T - d) / 2; return [x, x + d]; }
+    case 'eq5y': { const [d, g, k] = n; const x = (d + g + k * g) / (k - 1); return [x, x + d]; }
+    case 'eq5g': { const a = angOf(it); return [a.x, ...a.c.map((c, i) => c * a.x + a.e[i])]; }
     case 'sy1t': { const [, pp, x] = n; const cheap = r[0] === 'true'; return [x, (x * (100 + (cheap ? -pp : pp))) / 100]; }
     case 'sy1h': { const [pp, A] = n; return [A, A - (2 * A * pp) / 100]; }
     case 'sy4': { const [pp, q, cnt, M] = n.slice(1); const x = (M - q * cnt) / (pp - q); return [x, cnt - x]; }
@@ -483,6 +544,8 @@ const PROPS = {
     },
   },
   expr: {
+    // (a + b)² with a negative sum, squared to a negative number (CLASSROOM-5): ex5s:square:s:m, u = −s²
+    'pow-keep-sign': (it, u) => { const [kind, s] = it.key.split(':').slice(1); return kind === 'square' && Number(s) < 0 && near(u, -(Number(s) ** 2)); },
     // ax read as the digits a and x side by side: 3x at x = 4 is 34. Only a digit x from 1 to 9: −34 for 3x at x = −4
     // is no reading a student writes (the notebook's mistake there is 3 − 4, plus), so nothing may call it concat
     // (FOLLOWUP-36)
@@ -528,11 +591,22 @@ const PROPS = {
     // unlike terms joined into one x-term
     conjoin: asLin((it, w) => { const { k, c } = openSum(exprTerms(it)); return !!w && c !== 0 && linEq(w, k + c, 0); }),
     'drop-minus': asLin((it, w) => minusDropped(exprTerms(it)).some(({ k, c }) => linEq(w, k, c))),
-    // a negative x-term's minus carried on to the next x-term (9 − 3x + 2x → 9 − 5x)
+    // a negative x-term's minus carried on to the next x-term (9 − 3x + 2x → 9 − 5x), or, in the class's regrouping
+    // choice, to every x-term after it (−11x + 4x + 9x moved as −11x − 4x − 9x, CLASSROOM-6)
     detach: asLin((it, w) => {
       const terms = exprTerms(it); const { k, c } = openSum(terms); const xs = terms.filter((t) => !t.inner && t.v).map((t) => t.k);
-      return xs.some((a, i) => a < 0 && xs[i + 1] > 0 && linEq(w, k - 2 * xs[i + 1], c));
+      return xs.some((a, i) => a < 0 && xs[i + 1] > 0 && (linEq(w, k - 2 * xs[i + 1], c) || linEq(w, k - 2 * sum(xs.slice(i + 1).filter((p) => p > 0)), c)));
     }),
+    // the class's bracketed x-terms (CLASSROOM-6.6): the two coefficients' distances added, with the sign of the larger
+    // term when it is negative (when it is positive that is drop-minus); the numbers' sum is right
+    'abs-add': asLin((it, w) => {
+      if (!it.key.startsWith('ex3b:')) return false;
+      const terms = exprTerms(it); const { c } = openSum(terms); const xs = terms.filter((t) => t.v).map((t) => t.k);
+      const big = Math.abs(xs[0]) > Math.abs(xs[1]) ? xs[0] : xs[1];
+      return xs.length === 2 && sgn(xs[0]) !== sgn(xs[1]) && big < 0 && linEq(w, -(Math.abs(xs[0]) + Math.abs(xs[1])), c);
+    }),
+    // the x-family's sum with its sign turned, the numbers' sum right
+    sign: asLin((it, w) => { if (!it.key.startsWith('ex3b:')) return false; const { k, c } = openSum(exprTerms(it)); return k !== 0 && linEq(w, -k, c); }),
     'partial-dist': (it, u) => {
       if (it.key.startsWith('ex4m:')) { const [a, n] = nums(it.key); return near(u, 100 * a + (n - 100)); }
       return asLin((x, w) => openings(exprTerms(x), 'partial').some(({ k, c }) => linEq(w, k, c)))(it, u);
@@ -559,6 +633,8 @@ const PROPS = {
     'sub-coef': (it, u) => { const xs = xSide(it.display); return !!xs && fits(u, xs[1] - xs[0].c - xs[0].k); },
     // only some terms divided by the coefficient: 2x + 4 = 10 → x + 4 = 5; (x + 1)/3 = 7 read as x/3 + 1 = 7
     'divide-part': (it, u) => {
+      // the transfer, 2x + d = T divided as x + d = T : 2: box B at the start comes out T : 2
+      if (it.key.startsWith('eq5x:')) { const [, T] = nums(it.key); return near(u, T / 2); }
       const fs = fracSum(it.display);
       if (fs) return fits(u, fs.a * (fs.c - fs.b));
       const xs = xSide(it.display); return !!xs && fits(u, xs[1] / xs[0].k - xs[0].c);
@@ -575,6 +651,8 @@ const PROPS = {
       if (it.key.startsWith('eq7p:')) { const [a, b, c, d] = nums(it.key); return fits(u, (a + c) / (b - d)); }
       // ages: x + g − b = k(x − b) opened as kx − b, then what was asked (the older one is g more)
       if (it.key.startsWith('eq5a:')) { const [k, t, b, q] = nums(it.key); const g = (k - 1) * t; return fits(u, solveLin({ k: 1, c: g - b }, { k, c: -b }) + (q ? g : 0)); }
+      // the rectangle: 2(x + d) opened as 2x + d, then what was asked
+      if (it.key.startsWith('eq5r:')) { const r = rectOf(it); return r.d > 0 && fits(u, r.at((r.P - r.d) / 4)); }
       // balls: n1·x = n2(x + p) opened as n2·x + p, then what was asked (the dearer ball is p more)
       if (it.key.startsWith('eq5b:')) { const [n1, n2, p, q] = nums(it.key); return fits(u, p / (n1 - n2) + (q ? p : 0)); }
       if (it.form === 'mc') {
@@ -630,6 +708,21 @@ const PROPS = {
     'decimal-minutes': (it, u) => { const [v, t] = nums(it.key); return it.key.startsWith('eq6u:') && fits(u, (v * t) / 100); },
     // divided by the time (in hours) instead of multiplying: v / (t/60)
     'formula-flip': (it, u) => { const [v, t] = nums(it.key); return it.key.startsWith('eq6u:') && fits(u, v / (t / 60)); },
+    // CLASSROOM-8. The rectangle's perimeter with two sides only, x + (x + d) = P, then what was asked; in the choice of
+    // an equation, the right one halved (x + kx = P for 2(x + kx) = P)
+    'two-sides': (it, u) => {
+      if (it.key.startsWith('eq5r:')) { const r = rectOf(it); return fits(u, r.at(r.d ? (r.P - r.d) / 2 : r.P / 3)); }
+      if (it.form !== 'mc') return false;
+      const [rl, rr] = it.key.slice('eq5p:'.length).split('=').map((x) => openSum(parseSum(x)));
+      const [cl, cr] = chosen(it, u).split('=').map((x) => openSum(parseSum(x)));
+      return linEq(cl, rl.k / 2, rl.c / 2) && linEq(cr, rr.k, rr.c);
+    },
+    // the area with the two sides added
+    'add-sides': (it, u) => { if (!it.key.startsWith('eq5r:')) return false; const r = rectOf(it); return r.q === 2 && near(u, r.x + r.other); },
+    // the angles with x summed to the other shape's total (360° for a triangle, 180° for a quadrilateral)
+    'wrong-total': (it, u) => { if (!it.key.startsWith('eq5g:')) return false; const a = angOf(it); return fits(u, a.at((a.other - a.Es) / a.Cs)); },
+    // a negative constant's minus dropped in the sum of the angles
+    'drop-minus': (it, u) => { if (!it.key.startsWith('eq5g:')) return false; const a = angOf(it); return a.e.some((ei) => ei < 0 && fits(u, a.at((a.total - a.Es + 2 * ei) / a.Cs))); },
     // "k times" given to the smaller group: k·x written x/k, or k(…) moved to the other side
     reversal: (it, u) => {
       const right = it.key.slice('eq5p:'.length); const t = chosen(it, u);
@@ -710,7 +803,72 @@ const PROPS = {
     // a fraction's prediction may be typed rounded, as diagOf reads it (-2.25 as -2.2): fits is near for whole numbers
     sign: (it, u) => it.answer !== 0 && fits(u, -it.answer),
     direction: (it, u) => it.manip?.kind === 'numberline' && u - it.manip.from === -(it.answer - it.manip.from),
-    'minus-minus': (it, u) => { const q = subtractedNegative(it); return q != null && fits(u, it.answer - 2 * Math.abs(q)); },
+    'minus-minus': (it, u) => {
+      // a chain of five (CLASSROOM-2): every −(−n) of the key read as −n, and only when the chain has one
+      if (it.key.startsWith('sn1c:')) { const c = chainOf(it.key); return chainMm(c).some((w, i) => w !== chainRight(c)[i]) && fits(u, chainMm(c).reduce((a, w) => a + w, 0)); }
+      // the regrouping choice: the line chosen holds exactly the terms of the brackets removed that wrong way
+      if (it.key.startsWith('sn1r:')) { const c = chainOf(it.key); const got = sortN(lineTerms(it.choices[u]?.tex)); return JSON.stringify(got) === JSON.stringify(sortN(chainMm(c))) && JSON.stringify(got) !== JSON.stringify(sortN(chainRight(c))); }
+      // brackets inside brackets: the negative inside the outer bracket (c − d, or (c − d)·g) subtracted as if positive
+      if (it.key.startsWith('sn5n:')) {
+        const q = nestOf(it.key);
+        if (q.form === 1) return q.c - q.d < 0 && fits(u, q.a * (q.b + (q.c - q.d)));
+        const inner = (q.c - q.d) * q.g; return inner < 0 && fits(u, q.e - q.a * (q.b + inner));
+      }
+      const q = subtractedNegative(it); return q != null && fits(u, it.answer - 2 * Math.abs(q));
+    },
+    // a[b − (c − d)] with a < 0: the factor's minus lost, the answer's opposite (CLASSROOM-4)
+    'factor-sign': (it, u) => { if (!it.key.startsWith('sn5n:1:')) return false; const q = nestOf(it.key); return q.a < 0 && fits(u, -it.answer); },
+    // the minus before the inner brackets turned only their first number: a(b − c − d)
+    'minus-bracket': (it, u) => { if (!it.key.startsWith('sn5n:1:')) return false; const q = nestOf(it.key); return fits(u, q.a * (q.b - q.c - q.d)); },
+    // the outer brackets ignored: a·b − (c − d); e − a·b − (c − d)·g; e : p + g·(h − i)
+    'ignore-brackets': (it, u) => {
+      if (it.key.startsWith('sn5d:')) { const q = nestOf(it.key); return fits(u, q.e / q.p + q.g * (q.h - q.i)); }
+      if (!it.key.startsWith('sn5n:')) return false;
+      const q = nestOf(it.key);
+      return q.form === 1 ? fits(u, q.a * q.b - (q.c - q.d)) : fits(u, q.e - q.a * q.b - (q.c - q.d) * q.g);
+    },
+    // CLASSROOM-5, powers (from the key): −aⁿ with an even exponent read as (−a)ⁿ, so aⁿ
+    'pow-neg-base': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return q.f === 1 && q.n % 2 === 0 && fits(u, q.a ** q.n); },
+    // a negative base with an odd exponent taken as positive: (−a)ⁿ as aⁿ; b − c·|(−a)ⁿ|; (−p/q)ⁿ or (−0.d)ⁿ as positive
+    'pow-odd-pos': (it, u) => {
+      if (!isPow(it)) return false; const q = powOf(it.key);
+      if (q.n % 2 === 0) return false;
+      if (q.f === 0) return fits(u, q.a ** q.n);
+      if (q.f === 4) return fits(u, q.b - q.c * q.a ** q.n);
+      return q.f === 5 && fits(u, Math.abs(q.base) ** q.n);
+    },
+    // (−a)ⁿ with an even exponent keeping the base's minus: −aⁿ
+    'pow-keep-sign': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return q.f === 0 && q.n % 2 === 0 && fits(u, -(q.a ** q.n)); },
+    // the minus in front of the bracket ignored: −(−a)ⁿ as (−a)ⁿ, −(−aⁿ) as −aⁿ
+    'outer-minus': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return (q.f === 2 && fits(u, (-q.a) ** q.n)) || (q.f === 3 && fits(u, -(q.a ** q.n))); },
+    // the base times the exponent, with the form's sign: (−a)·n, −(a·n), a·n, b − c·(−a·n), (−0.d)·n, a·n
+    'pow-times': (it, u) => {
+      if (!isPow(it)) return false; const q = powOf(it.key);
+      if (q.f === 5) return !q.frac && fits(u, q.base * q.n);
+      if (q.f === 4) return fits(u, q.b - q.c * (-q.a * q.n));
+      return fits(u, (q.f <= 1 ? -1 : 1) * q.a * q.n);
+    },
+    // one decimal place too few: (−0.3)³ = −0.027 typed −0.27 (a base under 1 only)
+    'dec-places': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return q.f === 5 && !q.frac && Math.abs(q.base) < 1 && fits(u, 10 * powVal(q)); },
+    // only the numerator raised: (−p/q)ⁿ as (−p)ⁿ/q
+    'num-only': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return q.f === 5 && q.frac && fits(u, (-q.p) ** q.n / q.d); },
+    // a : 0 answered 0 or a; 0 : a answered "not defined" (CLASSROOM-3)
+    'div-zero': (it, u) => { if (!it.key.startsWith('sn3z:1:')) return false; const a = Number(it.key.split(':')[2]); const c = it.choices[u]; return !!c?.tex && (c.tex === '0' || Number(c.tex) === a); },
+    'zero-div': (it, u) => it.key.startsWith('sn3z:0:') && it.choices[u]?.text === 'לא מוגדר',
+    // the first number's minus dropped (a chain: the first number in brackets is negative)
+    'drop-sign': (it, u) => { if (!it.key.startsWith('sn1c:')) return false; const c = chainOf(it.key); return c.v[0] < 0 && fits(u, it.answer - 2 * c.v[0]); },
+    // the regrouped line with one negative number's minus gone, everything else as it should be
+    'drop-minus': (it, u) => {
+      if (!it.key.startsWith('sn1r:')) return false;
+      const right = regrouped(chainRight(chainOf(it.key))); const got = lineTerms(it.choices[u]?.tex);
+      if (got.length !== right.length) return false;
+      const diff = right.map((w, i) => i).filter((i) => got[i] !== right[i]);
+      return diff.length === 1 && right[diff[0]] < 0 && got[diff[0]] === -right[diff[0]];
+    },
+    // |a| ± |b| with the bars read as brackets: a ± b (CLASSROOM-1)
+    'abs-keep-sign': (it, u) => { if (!it.key.startsWith('sn2a:')) return false; const [k, a, b] = nums(it.key); return a < 0 && fits(u, k ? a - b : a + b); },
+    // the opposite of a written as a
+    'opp-same': (it, u) => { if (!it.key.startsWith('sn2o:')) return false; const [, a] = nums(it.key); return fits(u, a); },
     // whole numbers: the distances added, with the first number's sign; signed:6 (sn6a, decimals): with the sign of
     // the one farther from zero, as the plan's model predicts (-2.5 + 1.2 as -3.7)
     'abs-add': (it, u) => {
@@ -731,6 +889,11 @@ const PROPS = {
       const t = signedFacts(it);
       if (it.key.startsWith('sn4:') && t[3] === '*') return near(u, (t[1] === '+' ? t[0] + t[2] : t[0] - t[2]) * t[4]);
       if (it.key.startsWith('sn5:')) { const [a, , b, , c, , d] = t; return near(u, (a - (b - c)) * d); }
+      // e − a[b − (c − d)·g] left to right: (e − a)·[…]; e : [p + g(h − i)] inside left to right: e : ((p + g)(h − i))
+      if (it.key.startsWith('sn5n:2:')) { const q = nestOf(it.key); return fits(u, (q.e - q.a) * (q.b - (q.c - q.d) * q.g)); }
+      if (it.key.startsWith('sn5d:')) { const q = nestOf(it.key); const o = (q.p + q.g) * (q.h - q.i); return o !== 0 && fits(u, q.e / o); }
+      // b − c·(−a)ⁿ left to right: (b − c)·(−a)ⁿ (CLASSROOM-5)
+      if (it.key.startsWith('sn7:4:')) { const q = powOf(it.key); return fits(u, (q.b - q.c) * (-q.a) ** q.n); }
       return false;
     },
   },
@@ -753,13 +916,74 @@ const PROPS = {
       if (p === 'an1t') return u === a; // the measured angle turned to the given size, as if the two were equal
       if (p === 'an2') return it.key.endsWith('false') && near(u, a);
       if (p === 'an4') return it.key.endsWith('cointerior') && near(u, a);
+      // CURRICULUM-10: the angle beside the given one (an2b s) or its co-interior angle (an4b s) taken as equal, then halved
+      if (p === 'an2b' || p === 'an4b') return it.key.split(':')[2] === 's' && near(u, a / 2);
       return near(u, a) && near(it.answer, 180 - a);
     },
-    'supp-not-equal': (it, u) => { const [a] = nums(it.key); return near(it.answer, a) && near(u, 180 - a); },
-    'wrong-total': (it, u) => { const [a] = nums(it.key); return near(u, 90 - a) || near(u, 360 - a); },
-    'sum-360': (it, u) => { const [a, b] = nums(it.key); return near(u, 360 - a - b); },
+    'supp-not-equal': (it, u) => {
+      const p = it.key.split(':')[0]; const [a, b] = nums(it.key);
+      // CURRICULUM-10: the opposite angle (an2b v), or the corresponding or alternate one (an4b e), completed to 180°
+      // and halved; the alternate angle at the triangle's base completed to 180°, so the top angle comes out a − b (an4t)
+      if (p === 'an2b') return it.key.split(':')[2] === 'v' && near(u, (180 - a) / 2);
+      if (p === 'an4b') return it.key.split(':')[2] === 'e' && near(u, (180 - a) / 2);
+      if (p === 'an4t') return a > b && near(u, a - b);
+      return near(it.answer, a) && near(u, 180 - a);
+    },
+    // CURRICULUM-10: two adjacent angles d apart (an1d:d): the larger found, or the difference taken off and not halved
+    'took-larger': (it, u) => { const [d] = nums(it.key); return it.key.startsWith('an1d:') && near(u, (180 + d) / 2); },
+    'diff-not-halved': (it, u) => { const [d] = nums(it.key); return it.key.startsWith('an1d:') && near(u, 180 - d); },
+    // CLASSROOM-9, the fan (an1f:T:a): two angles side by side taken to make 180° (180° − a), or added (T + a)
+    'adjacent-not-line': (it, u) => { const [, a] = nums(it.key); return it.key.startsWith('an1f:') && near(u, 180 - a); },
+    'sum-not-diff': (it, u) => { const [T, a] = nums(it.key); return it.key.startsWith('an1f:') && near(u, T + a); },
+    // CLASSROOM-11, the split triangle (an3a:w:d:b|a, an3b:d:p): β paired with ∢ADC = d at another vertex (180° − d), or
+    // ∢BAD = p taken for the whole angle at A in ABC (90° − p)
+    'other-vertex': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      const d = p === 'an3a' ? n[1] : p === 'an3b' ? n[0] : NaN;
+      return (p === 'an3b' || it.key.endsWith(':b')) && near(u, 180 - d);
+    },
+    // a part of an angle taken for the whole: ∢BAD for the angle at A (an3b: 90° − p); a half for the whole angle (an6w:h: h;
+    // an6t:a:b, the two given parts once each: a + b)
+    'part-for-whole': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'an3b') return near(u, 90 - n[1]);
+      if (p === 'an6w') return near(u, n[0]);
+      if (p === 'an6t') return near(u, n[0] + n[1]);
+      return false;
+    },
+    // CLASSROOM-10: halved instead of doubled (an6w:h, h even: h : 2), or doubled instead of halved (an6h:w: 2w)
+    'half-double-swap': (it, u) => {
+      const p = it.key.split(':')[0]; const [x] = nums(it.key);
+      return (p === 'an6w' && x % 2 === 0 && near(u, x / 2)) || (p === 'an6h' && near(u, 2 * x));
+    },
+    // CLASSROOM-12: one known angle left out of the 360° (the right angle too): the answer plus that angle
+    'quad-missed': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      const known = p === 'an7a' ? n.slice(0, 3) : p === 'an7b' ? [n[0], n[1], 90] : [];
+      return known.some((v) => near(u, it.answer + v));
+    },
+    // a bisector (an2b:a:v|s, an4b:g:e|s): the whole angle it halves, the given one (v, e) or 180° minus it (s)
+    'no-half': (it, u) => {
+      const [p, g, kind] = it.key.split(':');
+      // CLASSROOM-10: the whole angle a bisector halves, given (an6h:w) or next to the given one on a line (an6l:a: 180° − a)
+      if (p === 'an6h') return near(u, Number(g));
+      if (p === 'an6l') return near(u, 180 - Number(g));
+      return (p === 'an2b' || p === 'an4b') && near(u, kind === 'v' || kind === 'e' ? Number(g) : 180 - Number(g));
+    },
+    // CLASSROOM-12: two equal angles of a quadrilateral found with a triangle's 180° (an7c:a:b: (180° − a − b) : 2)
+    'wrong-total': (it, u) => {
+      if (it.key.startsWith('an7c:')) { const [a, b] = nums(it.key); return near(u, (180 - a - b) / 2); }
+      const [a] = nums(it.key); return near(u, 90 - a) || near(u, 360 - a);
+    },
+    // a full turn instead of a straight line; CLASSROOM-10's bisector on a line (an6l:a): ∢BOC from 360°, halved
+    'sum-360': (it, u) => { const [a, b] = nums(it.key); return it.key.startsWith('an6l:') ? near(u, (360 - a) / 2) : near(u, 360 - a - b); },
     'one-angle': (it, u) => { const [a, b] = nums(it.key); return near(u, 180 - a) || near(u, 180 - b); },
-    'forgot-half': (it, u) => { const top = Number(it.key.split(':')[2]); return near(u, 180 - top); },
+    // the base angles' share not halved (an5:iso:top: 180° − top); CLASSROOM-12's two equal angles of a quadrilateral
+    // (an7c:a:b: 360° − a − b)
+    'forgot-half': (it, u) => {
+      if (it.key.startsWith('an7c:')) { const [a, b] = nums(it.key); return near(u, 360 - a - b); }
+      const top = Number(it.key.split(':')[2]); return near(u, 180 - top);
+    },
     'interior-not-exterior': (it, u) => { const [, , a, b] = it.key.split(':').map(Number); return near(u, 180 - a - b); },
   },
   line: {
@@ -1130,6 +1354,20 @@ describe('the algebra, fraction, ratio, percent, function, data and probability 
   });
 });
 
+/**
+ * A stair's item drawn from a fixed list of Math.random values, in the order the generator asks for them (it throws when
+ * the generator asks for more): the same item every run, however rare it is among random draws.
+ */
+function drawnFrom(values, topic, level) {
+  const real = Math.random; const queue = [...values];
+  Math.random = () => { if (!queue.length) throw new Error('the generator asked for more random numbers'); return queue.shift(); };
+  try { return makeItem(topic, level); } finally { Math.random = real; }
+}
+/** The Math.random value that makes R(lo, hi) (content/util.js) give v. */
+const drawOf = (v, lo, hi) => (v - lo + 0.5) / (hi - lo + 1);
+/** signed:5's brackets question a − (b − c) · d, as makeItem gives it: the stair picks brackets() (a draw under 0.6). */
+const signedBrackets = (a, b, c, d) => drawnFrom([0, drawOf(a, -10, 10), drawOf(b, -8, 8), drawOf(c, -8, 8), drawOf(d, -4, 4)], 'signed', 5);
+
 /** An item of a generator with a given display (searched by sampling). */
 function find(topic, level, pred, tries = 20000) {
   for (let i = 0; i < tries; i += 1) { const it = makeItem(topic, level); if (pred(it)) return it; }
@@ -1142,6 +1380,206 @@ function recorded(item, u) {
   const learn = learnAfterAnswer(emptyLearn(), result.event);
   return { cat: result.cat, miscon: Object.keys(learn.miscon) };
 }
+
+// CLASSROOM-1 and -2: the class's chains, absolute value and opposites, 2,000 of each, every label against the key
+describe('the class\'s signed questions name only what the answer shows', () => {
+  const N = 2000;
+  const real = Math.random;
+  const props = PROPS.signed;
+  /** Every whole answer near the question's numbers, and each prediction: any label must hold, each prediction labelled. */
+  const sweep = (it, predicted) => {
+    for (let u = -90; u <= 90; u += 1) {
+      if (isCorrect(it, u)) continue;
+      const cat = it.diag(u);
+      if (cat) expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
+    }
+    Object.entries(predicted).forEach(([id, v]) => { if (v != null) expect(it.diag(v), `${it.key}: ${v} should be ${id}`).toBe(id); });
+  };
+  it('reads what the student sees: brackets with a sign, five terms, absolute value bars', () => {
+    expect(signedFacts({ display: '(-8) + (+3) - (-6) - (+9) + (-4)' })).toEqual([-8, '+', 3, '-', -6, '-', 9, '+', -4]);
+    expect(signedFacts({ display: '(+5) - 0 + (-2) - (+1) - (-7)' })).toEqual([5, '-', 0, '+', -2, '-', 1, '-', -7]);
+    expect(signedFacts({ display: '\\lvert -7 \\rvert + \\lvert 4 \\rvert' })).toEqual(['|', -7, '|', '+', '|', 4, '|']);
+  });
+  it('a chain of five: minus-minus, drop-sign and sign, recomputed from the key', () => {
+    let seen = { 'minus-minus': 0, 'drop-sign': 0, sign: 0 };
+    try {
+      Math.random = seeded(1111);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...chainItem(Math.random), topic: 'signed', level: 1 };
+        const c = chainOf(it.key);
+        // the key is what is on screen
+        const t = signedFacts(it);
+        expect(t.filter((x, j) => j % 2 === 0), it.key).toEqual(c.v);
+        expect(t.filter((x, j) => j % 2 === 1).map((x) => (x === '-' ? -1 : 1)), it.key).toEqual(c.o.slice(1));
+        const right = chainRight(c).reduce((a, w) => a + w, 0);
+        expect(it.answer).toBe(right);
+        const mm = chainMm(c).reduce((a, w) => a + w, 0);
+        const pred = { 'minus-minus': mm, 'drop-sign': c.v[0] < 0 ? right - 2 * c.v[0] : null, sign: right ? -right : null };
+        Object.entries(pred).forEach(([k, v]) => { if (v != null) seen[k] += 1; });
+        sweep(it, pred);
+      }
+    } finally { Math.random = real; }
+    // each one shows on a fair share of chains (spec: 100%, 52%, 97%)
+    expect(seen['minus-minus']).toBe(N);
+    expect(seen['drop-sign'] / N).toBeGreaterThan(0.4);
+    expect(seen.sign / N).toBeGreaterThan(0.9);
+  });
+  it('the regrouping choice: drop-minus and minus-minus are the lines they claim to be', () => {
+    try {
+      Math.random = seeded(1112);
+      for (let i = 0; i < N; i += 1) {
+        const it = regroupItem(Math.random);
+        expect(it.practiceOnly).toBe(true);
+        expect(it.choices.length).toBe(3);
+        expect(lineTerms(it.choices[it.answer].tex)).toEqual(regrouped(chainRight(chainOf(it.key))));
+        it.choices.forEach((ch, u) => { if (u === it.answer) return; const cat = it.diag(u); expect(cat).toBeTruthy(); expect(props[cat](it, u), `${it.key}: ${ch.tex} as ${cat}`).toBe(true); });
+      }
+    } finally { Math.random = real; }
+  });
+  it('absolute value: abs-keep-sign is u = a + b or a − b, from the key', () => {
+    try {
+      Math.random = seeded(1113);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...absItem(Math.random), topic: 'signed', level: 2 };
+        const [k, a, b] = nums(it.key);
+        expect(it.answer).toBe(k ? Math.abs(a) - Math.abs(b) : Math.abs(a) + Math.abs(b));
+        expect(signedFacts(it).filter((x) => typeof x === 'number')).toEqual([a, b]);
+        sweep(it, { 'abs-keep-sign': k ? a - b : a + b });
+      }
+    } finally { Math.random = real; }
+  });
+  it('opposites: opp-same is u = a, from the key', () => {
+    try {
+      Math.random = seeded(1114);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...oppItem(Math.random), topic: 'signed', level: 2 };
+        const [, a] = nums(it.key);
+        expect(it.answer).toBe(-a);
+        sweep(it, { 'opp-same': a });
+      }
+    } finally { Math.random = real; }
+  });
+});
+
+// CLASSROOM-3 and -4: dividing with 0 and 1, and brackets inside brackets, every label against the key
+describe('dividing with 0 and 1, and brackets inside brackets, name only what the answer shows', () => {
+  const real = Math.random;
+  const props = PROPS.signed;
+  it('reads square brackets, plain or \\left[ … \\right], as the numbers in them', () => {
+    expect(signedFacts({ display: '-3[12 - (2 - 7)]' })).toEqual([-3, 12, '-', 2, '-', 7]);
+    expect(signedFacts({ display: '-3\\left[12 - (2 - 7)\\right]' })).toEqual([-3, 12, '-', 2, '-', 7]);
+  });
+  it('brackets inside brackets: factor-sign, minus-minus, minus-bracket, ignore-brackets and order from the key', () => {
+    const seen = {};
+    try {
+      Math.random = seeded(1115);
+      for (let i = 0; i < 2000; i += 1) {
+        const it = { ...nestedItem(Math.random), topic: 'signed', level: 5 };
+        // the key is the question: its value is the answer
+        const q = nestOf(it.key);
+        const v = q.form === 1 ? q.a * (q.b - (q.c - q.d)) : q.form === 2 ? q.e - q.a * (q.b - (q.c - q.d) * q.g) : q.e / (q.p + q.g * (q.h - q.i));
+        expect(near(v, it.answer), it.key).toBe(true);
+        for (let u = -300; u <= 300; u += 1) {
+          if (isCorrect(it, u)) continue;
+          const cat = it.diag(u);
+          if (cat) { expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true); seen[cat] = (seen[cat] || 0) + 1; }
+        }
+        // factor-sign: a < 0 and the answer's opposite
+        if (q.form === 1 && q.a < 0) expect(it.diag(-it.answer), it.key).toBe('factor-sign');
+      }
+    } finally { Math.random = real; }
+    for (const id of ['factor-sign', 'minus-minus', 'minus-bracket', 'ignore-brackets', 'order']) expect(seen[id], id).toBeGreaterThan(50);
+  });
+  it('dividing with 0: div-zero is 0 or a chosen for a : 0, zero-div is "not defined" chosen for 0 : a', () => {
+    try {
+      Math.random = seeded(1116);
+      for (let i = 0; i < 2000; i += 1) {
+        const it = zeroOne(Math.random);
+        expect(it.practiceOnly).toBe(true);
+        expect(it.choices).toHaveLength(4);
+        it.choices.forEach((c, u) => { const cat = it.diag(u); if (u === it.answer) expect(cat).toBeNull(); else if (cat) expect(props[cat](it, u), `${it.key}: ${c.tex || c.text} as ${cat}`).toBe(true); });
+        const [, k, a] = it.key.split(':').map(Number);
+        const shown = it.choices[it.answer];
+        expect(k === 0 ? shown.tex === '0' : k === 1 ? shown.text === 'לא מוגדר' : Number(shown.tex) === (k === 2 ? a : -a), it.key).toBe(true);
+      }
+    } finally { Math.random = real; }
+  });
+});
+
+// CLASSROOM-5: powers of directed numbers, every label against the key, 2,000 questions of each form that can show it
+describe('powers of directed numbers name only what the answer shows', () => {
+  const real = Math.random;
+  const props = PROPS.signed;
+  /** The mistakes each form can show (the spec's list), and 2,000 questions of it. */
+  const FORMS = {
+    0: ['pow-odd-pos', 'pow-keep-sign', 'pow-times'], 1: ['pow-neg-base', 'pow-times'], 2: ['outer-minus', 'pow-times'],
+    3: ['outer-minus', 'pow-times'], 4: ['order', 'pow-odd-pos', 'pow-times'], 5: ['pow-odd-pos', 'pow-times', 'dec-places', 'num-only'], 6: ['pow-times'],
+  };
+  it('every form: the key is the question, each label is true of the answer, and each mistake of the form shows', () => {
+    try {
+      Math.random = seeded(1117);
+      for (const [f, ids] of Object.entries(FORMS)) {
+        const seen = {};
+        for (let i = 0; i < 2000; i += 1) {
+          const it = { ...powItem(Math.random, Number(f)), topic: 'signed', level: 7 };
+          const q = powOf(it.key);
+          expect(q.f, it.key).toBe(Number(f));
+          expect(near(powVal(q), it.answer, 1e-9), `${it.key}: ${it.answer}`).toBe(true);
+          // every prediction the form names is diagnosed back to its own mistake, and the property holds for it
+          for (const id of ids) {
+            const v = { 'pow-neg-base': q.f === 1 && q.n % 2 === 0 ? q.a ** q.n : null, 'pow-keep-sign': q.f === 0 && q.n % 2 === 0 ? -(q.a ** q.n) : null }[id];
+            if (v != null) expect(it.diag(v), `${it.key}: ${v}`).toBe(id);
+          }
+          // whole numbers, and the tenths and thousandths a fraction or a decimal mistake gives
+          const tries = q.f === 5 ? [...Array.from({ length: 801 }, (_, k) => (k - 400) / 100), ...Array.from({ length: 2001 }, (_, k) => (k - 1000) / 1000)] : Array.from({ length: 1001 }, (_, k) => k - 500);
+          for (const u of [...tries, ...(q.f === 5 ? [-it.answer, 10 * it.answer, q.base * q.n, ...(q.frac ? [(-q.p) ** q.n / q.d] : [])] : [])]) {
+            if (isCorrect(it, u)) continue;
+            const cat = it.diag(u);
+            if (!cat) continue;
+            expect(ids, `${it.key}: ${u} labelled ${cat}`).toContain(cat);
+            expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
+            seen[cat] = (seen[cat] || 0) + 1;
+          }
+        }
+        // each of the form's mistakes is named on more than 4% of its questions (spec: 15-100%)
+        for (const id of ids) expect(seen[id] || 0, `F${f} ${id}`).toBeGreaterThan(80);
+      }
+    } finally { Math.random = real; }
+  }, 120_000);
+  it('the spec\'s examples: (−5)² kept negative, −5² read as (−5)², the outer minus, (−0.3)³ and (−3/4)²', () => {
+    const it = (key, display, answer, extra = {}) => ({ key, display, answer, form: 'num', topic: 'signed', level: 7, ...extra });
+    expect(props['pow-keep-sign'](it('sn7:0:5:2', '(-5)^{2}', 25), -25)).toBe(true);
+    expect(props['pow-neg-base'](it('sn7:1:5:2', '-5^{2}', -25), 25)).toBe(true);
+    expect(props['outer-minus'](it('sn7:2:5:2', '-(-5)^{2}', -25), 25)).toBe(true);
+    expect(props['outer-minus'](it('sn7:3:5:2', '-(-5^{2})', 25), -25)).toBe(true);
+    expect(props['pow-times'](it('sn7:0:5:2', '(-5)^{2}', 25), -10)).toBe(true);
+    expect(props.order(it('sn7:4:3:3:9:2', '9 - 2 \\cdot (-3)^{3}', 63), -189)).toBe(true);
+    expect(props['pow-odd-pos'](it('sn7:4:3:3:9:2', '9 - 2 \\cdot (-3)^{3}', 63), -45)).toBe(true);
+    expect(props['pow-times'](it('sn7:4:3:3:9:2', '9 - 2 \\cdot (-3)^{3}', 63), 27)).toBe(true);
+    expect(props['dec-places'](it('sn7:5:0.3:3', '(-0.3)^{3}', -0.027, { precise: true, fmt: 'dec' }), -0.27)).toBe(true);
+    expect(props['num-only'](it('sn7:5:3/4:2', '\\left(-\\frac{3}{4}\\right)^{2}', 9 / 16, { precise: true }), 9 / 4)).toBe(true);
+    // and not the other way round: a positive answer to (−5)² is no mistake, 25 for −(−5²) is right
+    expect(props['pow-keep-sign'](it('sn7:0:5:3', '(-5)^{3}', -125), -125)).toBe(false);
+  });
+  it('expressions: (a + b)² with a negative sum squared to a negative number is pow-keep-sign, and only that', () => {
+    try {
+      Math.random = seeded(1118);
+      let seen = 0;
+      for (let i = 0; i < 2000 && seen < 50; i += 1) {
+        const it = makeItem('expr', 5);
+        if (!it.key.startsWith('ex5s:square:')) continue;
+        const s = Number(it.key.split(':')[2]);
+        for (let u = -100; u <= 100; u += 1) {
+          if (isCorrect(it, u)) continue;
+          const cat = it.diag(u);
+          if (cat) { expect(cat).toBe('pow-keep-sign'); expect(PROPS.expr[cat](it, u), `${it.key}: ${u}`).toBe(true); }
+        }
+        if (s < 0) { expect(it.diag(-s * s), it.key).toBe('pow-keep-sign'); seen += 1; } else expect(it.diag(-s * s), it.key).toBeNull();
+      }
+      expect(seen).toBeGreaterThan(10);
+    } finally { Math.random = real; }
+  });
+});
 
 describe('the council\'s reproductions', () => {
   it('a wrong-direction move on the number line is a direction mistake, never a sign mistake', () => {
@@ -1160,7 +1598,8 @@ describe('the council\'s reproductions', () => {
 
   it('subtracting a positive product is never called "minus-minus"', () => {
     // 6 − (2 − 3)·(−3) = 6 − 3 = 3; typing 9 adds the product, but the product is positive
-    const it = find('signed', 5, (x) => x.key === 'sn5:6 - (2 - 3) \\cdot (-3)', 200000);
+    const it = signedBrackets(6, 2, 3, -3);
+    expect(it.key).toBe('sn5:6 - (2 - 3) \\cdot (-3)');
     expect(it.answer).toBe(3);
     const r = recorded(it, 9);
     expect(r.cat).not.toBe('minus-minus');
@@ -1169,7 +1608,8 @@ describe('the council\'s reproductions', () => {
 
   it('a negative product subtracted as if positive is "minus-minus"', () => {
     // 6 − (2 − 3)·3 = 6 − (−3) = 9; typing 3 subtracts 3
-    const it = find('signed', 5, (x) => x.key === 'sn5:6 - (2 - 3) \\cdot 3', 200000);
+    const it = signedBrackets(6, 2, 3, 3);
+    expect(it.key).toBe('sn5:6 - (2 - 3) \\cdot 3');
     expect(it.answer).toBe(9);
     expect(recorded(it, 3)).toEqual({ cat: 'minus-minus', miscon: ['signed:5|minus-minus'] });
   });
@@ -1177,5 +1617,288 @@ describe('the council\'s reproductions', () => {
   it('a negative length is named as a negative length on its own stair', () => {
     expect(catLabel('coord', 3, 'sign')).toBe('יצא אורך שלילי');
     expect(catLabel('coord', 1, 'sign')).toBe('טעות בסימן של אחד השיעורים');
+  });
+});
+
+// CLASSROOM-6: collecting the class's way, 2,000 of each kind. Every label is checked against the display the student
+// saw (exprTerms), on the answers each mistake predicts and on a sweep of the pairs around them; a constant-first
+// answer is right on expr:3 and records nothing.
+describe('the class\'s collecting questions name only what the answer shows', () => {
+  const N = 2000;
+  const real = Math.random;
+  const props = PROPS.expr;
+  /** The pairs a mistake predicts here, read from the display (not from the generator), and their neighbours. */
+  const tryPairs = (it) => {
+    const terms = exprTerms(it); const { k, c } = openSum(terms);
+    const out = [...minusDropped(terms), { k: k + c, c: 0 }, { k: -k, c }, { k: c, c: k }];
+    const xs = terms.filter((t) => t.v).map((t) => t.k);
+    xs.forEach((a, i) => { if (a < 0 && xs[i + 1] > 0) out.push({ k: k - 2 * xs[i + 1], c }); });
+    if (xs.length === 2) out.push({ k: -(Math.abs(xs[0]) + Math.abs(xs[1])), c }, { k: Math.abs(xs[0]) + Math.abs(xs[1]), c });
+    return out.flatMap((u) => [u, { k: u.k + 1, c: u.c }, { k: u.k, c: u.c - 1 }, { k: u.k, c: u.c + 10 }]);
+  };
+  const check = (it, seen) => {
+    const { k, c } = openSum(exprTerms(it));
+    // the display is the answer the item checks
+    expect([it.answer.k, it.answer.c], it.key).toEqual([k, c]);
+    for (const u of tryPairs(it)) {
+      if (isCorrect(it, u)) continue;
+      const cat = it.diag(u);
+      if (!cat) continue;
+      seen[cat] = (seen[cat] || 0) + 1;
+      expect(props[cat]?.(it, u), `${it.key}: ${JSON.stringify(u)} labelled ${cat}`).toBe(true);
+      expect(catLabel('expr', 3, cat), cat).toBeTruthy();
+    }
+  };
+  it('3 to 6 terms, a letter, x-terms that cancel: drop-minus on any negative term, conjoin and detach', () => {
+    const seen = {}; const sizes = new Set(); let zero = 0; let letters = 0; let perTerm = 0; let practice = 0; let n = 0;
+    try {
+      Math.random = seeded(1121);
+      while (n < N) {
+        const it = { ...collectItem(), topic: 'expr', level: 3 };
+        if (it.key.startsWith('ex3b:')) continue;
+        n += 1;
+        const terms = exprTerms(it);
+        sizes.add(terms.length);
+        if (it.answer.k === 0) zero += 1;
+        if (it.var) { letters += 1; expect(it.display).toContain(it.var); }
+        if (it.practiceOnly) { practice += 1; expect([it.answer.k, it.answer.c]).toEqual([0, 0]); }
+        // one prediction per negative term: each term's minus dropped alone is named, unless it is a slip or shared
+        terms.forEach((t, i) => {
+          if (t.k >= 0) return;
+          const { k, c } = openSum(terms.map((x, j) => (j === i ? { ...x, k: -x.k } : x)));
+          if (it.diag({ k, c }) === 'drop-minus') perTerm += 1;
+        });
+        check(it, seen);
+      }
+    } finally { Math.random = real; }
+    expect([...sizes].sort()).toEqual([3, 4, 5, 6]);
+    expect(zero / N).toBeGreaterThan(0.07);
+    expect(zero / N).toBeLessThan(0.13);
+    expect(letters / N).toBeGreaterThan(0.3);
+    expect(perTerm).toBeGreaterThan(N);
+    expect(practice).toBeLessThan(N * 0.01);
+    ['drop-minus', 'conjoin', 'detach'].forEach((id) => expect(seen[id] || 0, id).toBeGreaterThan(N * 0.04));
+  }, 60_000);
+  it('the notebook\'s slip on the spec\'s 6 terms: each negative term\'s minus dropped is its own drop-minus', () => {
+    const it = { key: 'ex3:-11x - 2 + 4x - 5 + 3 + 9x', display: '-11x - 2 + 4x - 5 + 3 + 9x', form: 'lin', answer: { k: 2, c: -4 }, topic: 'expr', level: 3 };
+    expect(minusDropped(exprTerms(it)).filter((u, i, a) => a.findIndex((w) => w.k === u.k && w.c === u.c) === i).length).toBe(7);
+    [{ k: 24, c: -4 }, { k: 2, c: 0 }, { k: 2, c: 6 }].forEach((u) => expect(props['drop-minus'](it, u), JSON.stringify(u)).toBe(true));
+    expect(props.detach(it, { k: -24, c: -4 })).toBe(true);
+  });
+  it('bracketed x-terms: drop-minus, abs-add with the larger term\'s sign, and sign', () => {
+    const seen = {}; let one = 0;
+    try {
+      Math.random = seeded(1122);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...bracketCollect(), topic: 'expr', level: 3 };
+        expect(it.display).toMatch(/^\([+-]\d*x?\)( \+ \([+-]\d*x?\)){3}$/);
+        if (Math.abs(it.answer.k) === 1) one += 1;
+        check(it, seen);
+        // abs-add only when the larger x-term is negative
+        const xs = exprTerms(it).filter((t) => t.v).map((t) => t.k);
+        const big = Math.abs(xs[0]) > Math.abs(xs[1]) ? xs[0] : xs[1];
+        if (big > 0) expect(it.diag({ k: -(Math.abs(xs[0]) + Math.abs(xs[1])), c: it.answer.c })).not.toBe('abs-add');
+      }
+    } finally { Math.random = real; }
+    expect(one / N).toBeGreaterThan(0.28);
+    expect(one / N).toBeLessThan(0.39);
+    ['drop-minus', 'abs-add', 'sign'].forEach((id) => expect(seen[id] || 0, id).toBeGreaterThan(N * 0.04));
+  }, 60_000);
+  it('a constant-first answer is right on expr:3 and records no mistake', () => {
+    const it = find('expr', 3, (x) => x.key.startsWith('ex3:') && x.answer.k !== x.answer.c && x.answer.k !== 0 && x.answer.c !== 0);
+    const swapped = { k: it.answer.c, c: it.answer.k };
+    expect(isCorrect(it, swapped)).toBe(true);
+    expect(it.diag(swapped)).toBe(null);
+    const r = recorded(it, swapped);
+    expect(r.cat ?? null).toBe(null);
+    expect(r.miscon).toEqual([]);
+  });
+  it('with a 0 box the boxes keep their order: a missing or extra x is wrong, and x-terms that cancel typed as Cx are conjoin', () => {
+    // 0x − 25 typed as −25 in the x box is −25x, an x the expression no longer has; 3x + 0 typed as 0 and 3 has lost
+    // its x; the tiles' x typed as 0x + 1 too. None is the same expression in another order (swappedLin).
+    let zeroX = 0; let zeroC = 0; let tiles = 0;
+    try {
+      Math.random = seeded(1123);
+      for (let n = 0; n < 6000; n += 1) {
+        const it = makeItem('expr', 3);
+        if (it.form !== 'lin') continue;
+        const { k, c } = it.answer;
+        if ((k === 0) === (c === 0)) continue;
+        const swapped = { k: c, c: k };
+        expect(isCorrect(it, swapped), `${it.key}: ${JSON.stringify(swapped)}`).toBe(false);
+        expect(swappedLin(it, swapped)).toBe(false);
+        if (it.key.startsWith('ex3t:')) tiles += 1;
+        if (k === 0 && it.key.startsWith('ex3:')) {
+          zeroX += 1;
+          expect(it.diag(swapped), it.key).toBe('conjoin');
+          expect(props.conjoin(it, swapped), it.key).toBe(true);
+          expect(recorded(it, swapped)).toEqual({ cat: 'conjoin', miscon: ['expr:3|conjoin'] });
+        }
+        if (c === 0) zeroC += 1;
+      }
+    } finally { Math.random = real; }
+    expect(zeroX).toBeGreaterThan(50);
+    expect(zeroC).toBeGreaterThan(20);
+    expect(tiles).toBeGreaterThan(20);
+  }, 60_000);
+});
+
+// CLASSROOM-8: the class's word problems, 2,000 of each kind. Every label, on every whole and half answer up to 400 and on
+// each prediction, is checked against the key (the numbers the student saw), and each mistake shows on its kind.
+describe('the class\'s word problems name only what the answer shows', () => {
+  const N = 2000;
+  const real = Math.random;
+  const props = PROPS.eq;
+  const sweep = (it, seen) => {
+    const us = new Set([...Array.from({ length: 801 }, (_, i) => i / 2), ...Object.values(it.bugsSeen || {})]);
+    for (const u of us) {
+      if (isCorrect(it, u)) continue;
+      const cat = it.diag(u);
+      if (!cat) continue;
+      seen[cat] = (seen[cat] || 0) + 1;
+      expect(props[cat]?.(it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
+      expect(catLabel('eq', 5, cat), cat).toBeTruthy();
+    }
+  };
+  const kinds = [
+    ['the rectangle', () => rectStory(), ['partial-dist', 'two-sides', 'wrong-unknown', 'add-sides'], 1131],
+    ['the transfer, form 1', () => transferTable(1), ['wrong-unknown', 'divide-part'], 1132],
+    ['the transfer, form 2', () => transferTable(2), ['wrong-unknown'], 1133],
+    ['a triangle with x', () => angleEqStory(3), ['wrong-unknown', 'wrong-total', 'drop-minus'], 1134],
+    ['a quadrilateral with x', () => angleEqStory(4), ['wrong-unknown', 'wrong-total', 'drop-minus'], 1135],
+  ];
+  it.each(kinds)('%s: every label holds, and each of its mistakes shows on more than 4%% of them', (_name, make, ids, seed) => {
+    const shows = {};
+    try {
+      Math.random = seeded(seed);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...make(), topic: 'eq', level: 5 };
+        const seen = {};
+        sweep(it, seen);
+        Object.keys(seen).forEach((id) => { shows[id] = (shows[id] || 0) + 1; });
+      }
+    } finally { Math.random = real; }
+    expect(Object.keys(shows).sort()).toEqual([...ids].sort());
+    ids.forEach((id) => expect(shows[id] / N, id).toBeGreaterThan(0.04));
+  }, 120_000);
+  it('the spec\'s examples: the rectangle x 11, d 5, P 54, and the angles with x', () => {
+    const r = { key: 'eq5r:11:5:2', answer: 176, form: 'num' };
+    expect(props['two-sides'](r, 24.5 * 29.5)).toBe(true); // x + (x + 5) = 54 gives 24.5, and its area 24.5 · 29.5
+    expect(props['add-sides'](r, 27)).toBe(true);
+    expect(props['partial-dist']({ key: 'eq5r:11:5:0', answer: 11, form: 'num' }, 12.25)).toBe(true);
+    // 2x, 3x, 7x in a triangle: x = 15; with 360°, 30
+    expect(props['wrong-total']({ key: 'eq5g:3:2,3,7:0,0,0:-1', answer: 15, form: 'num' }, 30)).toBe(true);
+    // 2x, 4x − 15, 3x + 15, x in a quadrilateral: x = 36; with 180°, 18; the minus of −15 dropped, (360 − 30) : 10 = 33
+    expect(props['wrong-total']({ key: 'eq5g:4:2,4,3,1:0,-15,15,0:-1', answer: 36, form: 'num' }, 18)).toBe(true);
+    expect(props['drop-minus']({ key: 'eq5g:4:2,4,3,1:0,-15,15,0:-1', answer: 36, form: 'num' }, 33)).toBe(true);
+  });
+});
+
+// CURRICULUM-10: the two-step angle questions, 2,000 of each. The key is the question (its numbers give the answer), every
+// label is true of the answer it names, and each mistake of the kind shows on more than 4% of the questions.
+describe('the two-step angle questions name only what the answer shows', () => {
+  const real = Math.random;
+  const props = PROPS.angles;
+  const N = 2000;
+  /** The answer from the key alone: the given angles, a difference, a halved angle. */
+  const fromKey = (key) => {
+    const [p, x, y] = key.split(':'); const a = Number(x); const b = Number(y);
+    if (p === 'an1s' || p === 'an2t' || p === 'an4t') return 180 - a - b;
+    if (p === 'an1d') return (180 - a) / 2;
+    if (p === 'an2b') return y === 'v' ? a / 2 : (180 - a) / 2;
+    if (p === 'an4b') return y === 'e' ? a / 2 : (180 - a) / 2;
+    if (p === 'an1f') return a - b;
+    if (p === 'an3a') return key.endsWith(':b') ? 90 - a : 90 - b;
+    if (p === 'an3b') return a - b;
+    // CLASSROOM-10, the bisector; CLASSROOM-12, the quadrilateral
+    if (p === 'an6w') return 2 * a;
+    if (p === 'an6h') return a / 2;
+    if (p === 'an6t') return 2 * (a + b);
+    if (p === 'an6l') return (180 - a) / 2;
+    const n = key.split(':').slice(1).map(Number);
+    if (p === 'an7a') return 360 - n[0] - n[1] - n[2];
+    if (p === 'an7b') return 270 - n[0] - n[1];
+    if (p === 'an7c') return (360 - n[0] - n[1]) / 2;
+    return NaN;
+  };
+  const kinds = [
+    ['three angles on a straight line', straightThree, 1, ['one-angle', 'sum-360'], 1201],
+    ['two adjacent angles and their difference', linearPairDiff, 1, ['took-larger', 'diff-not-halved'], 1202],
+    ['three lines through one point', threeLines, 2, ['one-angle', 'sum-360'], 1203],
+    ['a ray that halves an angle of a crossing', crossBisect, 2, ['no-half', 'supp-not-equal', 'equal-not-supp'], 1204],
+    ['a triangle between parallel lines', parallelTriangle, 4, ['one-angle', 'supp-not-equal'], 1205],
+    ['a ray that halves an angle after parallel lines', parallelBisect, 4, ['no-half', 'supp-not-equal', 'equal-not-supp'], 1206],
+    // CLASSROOM-9 and -11: the fan, and the split triangle's S1 (practice only) and S2
+    ['the fan: two angles side by side, not on a line', fanItem, 1, ['adjacent-not-line', 'sum-not-diff'], 1207],
+    ['the split triangle, S1', splitTriangleS1, 3, ['one-angle', 'other-vertex'], 1208],
+    ['the split triangle, S2', splitTriangleS2, 3, ['other-vertex', 'part-for-whole'], 1209],
+    // CLASSROOM-10: the bisector's four typed kinds; CLASSROOM-12: the quadrilateral's three
+    ['the whole angle from its half (bisWhole)', () => bisItem('w'), 6, ['part-for-whole', 'half-double-swap'], 1210],
+    ['a half from the whole angle (bisHalf)', () => bisItem('h'), 6, ['no-half', 'half-double-swap'], 1211],
+    ['two bisectors in a fan of five rays (bisTwo)', () => bisItem('t'), 6, ['part-for-whole'], 1212],
+    ['a bisector next to a straight line (bisLine)', () => bisItem('l'), 6, ['no-half', 'sum-360'], 1213],
+    ['a quadrilateral, three angles given (Q0)', () => quadItem(0), 7, ['quad-missed'], 1214],
+    ['a quadrilateral, a right angle and two given (Q1)', () => quadItem(1), 7, ['quad-missed'], 1215],
+    ['a quadrilateral, two equal angles and two given (Q2)', () => quadItem(2), 7, ['forgot-half', 'wrong-total'], 1216],
+  ];
+  it.each(kinds)('%s', (_name, make, level, ids, seed) => {
+    const shows = {};
+    try {
+      Math.random = seeded(seed);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...make(), topic: 'angles', level };
+        expect(it.answer, it.key).toBe(fromKey(it.key));
+        const seen = new Set();
+        for (let u = 1; u <= 360; u += 0.5) {
+          if (isCorrect(it, u)) continue;
+          const cat = it.diag(u);
+          if (!cat) continue;
+          expect(props[cat], cat).toBeTypeOf('function');
+          expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
+          expect(catLabel('angles', level, cat), cat).toBeTruthy();
+          seen.add(cat);
+        }
+        seen.forEach((id) => { shows[id] = (shows[id] || 0) + 1; });
+      }
+    } finally { Math.random = real; }
+    expect(Object.keys(shows).sort()).toEqual([...ids].sort());
+    ids.forEach((id) => expect(shows[id] / N, id).toBeGreaterThan(0.04));
+  }, 120_000);
+  it('the properties read the key: 180° minus one given angle, the difference not halved, the whole angle', () => {
+    expect(props['one-angle']({ key: 'an1s:40:75:2:40:75', answer: 65, form: 'num' }, 140)).toBe(true);
+    expect(props['one-angle']({ key: 'an1s:40:75:2:40:75', answer: 65, form: 'num' }, 105)).toBe(true);
+    expect(props['took-larger']({ key: 'an1d:40:r', answer: 70, form: 'num' }, 110)).toBe(true);
+    expect(props['diff-not-halved']({ key: 'an1d:40:r', answer: 70, form: 'num' }, 140)).toBe(true);
+    expect(props['no-half']({ key: 'an2b:70:s:ul', answer: 55, form: 'num' }, 110)).toBe(true);
+    expect(props['no-half']({ key: 'an4b:80:e:ur:ur:80', answer: 40, form: 'num' }, 80)).toBe(true);
+    expect(props['equal-not-supp']({ key: 'an2b:70:s:ul', answer: 55, form: 'num' }, 35)).toBe(true);
+    expect(props['supp-not-equal']({ key: 'an4t:65:55:0', answer: 60, form: 'num' }, 10)).toBe(true);
+    // the spec's examples: the fan 130° and 55° (75°; 125° is adjacent-not-line), and S2 with d 64°, p 19° (45°; the
+    // notebook's β + 64° = 180° gives 116°, and 90° − 19° = 71°)
+    expect(props['adjacent-not-line']({ key: 'an1f:130:55', answer: 75, form: 'num' }, 125)).toBe(true);
+    expect(props['sum-not-diff']({ key: 'an1f:130:55', answer: 75, form: 'num' }, 185)).toBe(true);
+    expect(props['other-vertex']({ key: 'an3b:64:19', answer: 45, form: 'num' }, 116)).toBe(true);
+    expect(props['part-for-whole']({ key: 'an3b:64:19', answer: 45, form: 'num' }, 71)).toBe(true);
+    expect(props['other-vertex']({ key: 'an3a:38:67:b', answer: 52, form: 'num' }, 113)).toBe(true);
+    expect(props['one-angle']({ key: 'an3a:38:67:a', answer: 23, form: 'num' }, 113)).toBe(true);
+  });
+  it('the bisector and the quadrilateral, the spec\'s examples: the property reads the key', () => {
+    // ∢AOC = 37°: 74°; the half itself 37 (part-for-whole); ∢AOB = 126°: 63°, the whole 126 (no-half), doubled 252
+    expect(props['part-for-whole']({ key: 'an6w:37', answer: 74, form: 'num' }, 37)).toBe(true);
+    expect(props['half-double-swap']({ key: 'an6w:36', answer: 72, form: 'num' }, 18)).toBe(true);
+    expect(props['half-double-swap']({ key: 'an6w:37', answer: 74, form: 'num' }, 18.5)).toBe(false);
+    expect(props['no-half']({ key: 'an6h:126', answer: 63, form: 'num' }, 126)).toBe(true);
+    expect(props['half-double-swap']({ key: 'an6h:126', answer: 63, form: 'num' }, 252)).toBe(true);
+    // the worksheet's two bisectors, 41° and 27°: 136°, the parts once each 68°; on a line, 58°: 61°, 122° and 151°
+    expect(props['part-for-whole']({ key: 'an6t:41:27', answer: 136, form: 'num' }, 68)).toBe(true);
+    expect(props['no-half']({ key: 'an6l:58', answer: 61, form: 'num' }, 122)).toBe(true);
+    expect(props['sum-360']({ key: 'an6l:58', answer: 61, form: 'num' }, 151)).toBe(true);
+    // 75°, 110°, 95°: 80°, one left out 155°; a right angle, 115°, 70°: 85°, the right angle forgotten 175°
+    expect(props['quad-missed']({ key: 'an7a:75:110:95:3', answer: 80, form: 'num' }, 155)).toBe(true);
+    expect(props['quad-missed']({ key: 'an7b:115:70:3:1', answer: 85, form: 'num' }, 175)).toBe(true);
+    // two equal angles, 100° and 70° given: 95°; not halved 190°; with 180°: 5°
+    expect(props['forgot-half']({ key: 'an7c:100:70:2:3', answer: 95, form: 'num' }, 190)).toBe(true);
+    expect(props['wrong-total']({ key: 'an7c:100:70:2:3', answer: 95, form: 'num' }, 5)).toBe(true);
+    expect(props['wrong-total']({ key: 'an7a:75:110:95:3', answer: 80, form: 'num' }, 5)).toBe(false);
   });
 });

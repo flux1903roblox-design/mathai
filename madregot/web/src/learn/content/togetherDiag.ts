@@ -140,6 +140,10 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { k: 0, a: -4.2, b: 2.5, ai: -42, bi: 25 } }, // −4.2 + 2.5: the distances added give −6.7
     { model: 'diag', p: { k: 1, x: -1.5, y: 2.75, xi: -6, yi: 11 } }, // −1½ − (−2¾): subtracted as if positive, −4¼
   ],
+  'signed:7': [
+    { model: 'diag', p: { f: 1, a: 2, n: 4 } }, // −2⁴ = −16: read as (−2)⁴ gives 16; the base times the exponent −8
+    { model: 'diag', p: { f: 4, a: 2, n: 2, b: 5, c: 4 } }, // 5 − 4·(−2)² = −11: left to right (5 − 4)·4 = 4; (−2)·2 for the power gives 21
+  ],
   'coord:1': [
     // L is under K(−4, 1) on the x-axis, so L(−4, 0) and its x is −4: "x is 0 on the x-axis" gives 0; the sign lost gives 4
     { bugs: { 'axis-zero': 0, sign: 4 } },
@@ -194,6 +198,16 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { bugs: { 'one-angle': 128, 'apex-base-swap': 64 } },
     // the exterior angle at C is 38° + 77° = 115°; the interior one is 65°
     { bugs: { 'interior-not-exterior': 65 } },
+  ],
+  'angles:6': [
+    // OC halves ∢AOB and ∢BOC = 37°: ∢AOB = 74°. The half itself: 37° (37 is odd, so no halving prediction)
+    { model: 'diag', p: { k: 'w', h: 37 } },
+    // OC halves ∢AOB = 128°: ∢BOC = 64°. The whole: 128°; doubled instead of halved: 256°
+    { model: 'diag', p: { k: 'h', w: 128 } },
+  ],
+  'angles:7': [
+    // a right angle at B, ∢A = 115°, ∢C = 70°: ∢D = 85°. The right angle forgotten: 175°
+    { model: 'diag', p: { k: 1, q: 3, s: 1, given: [115, 70], g: [115, 90, 70, 85] } },
   ],
   'line:1': [
     // y = −2x + 3 at x = −4 is 11. Without b: 8. With x as if it were 4: −5. m and x added: −2 + (−4) + 3 = −3

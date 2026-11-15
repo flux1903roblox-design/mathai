@@ -7,7 +7,7 @@ import { triangleAngles, rightAtC } from '@/content/manip.js';
 const deg = (d) => `${Math.round(d)}°`;
 
 /**
- * test: in a check, the angle at C is not shown and nothing marks it right: ∠A and ∠B stay, so the student finds C from
+ * test: in a check, the angle at C is not shown and nothing marks it right: ∢A and ∢B stay, so the student finds C from
  * the angle sum (A and B together 90°).
  */
 export default function TriangleDrag({ m, value, onChange, locked, reveal, good, answer, hint, test = false }) {
@@ -28,7 +28,7 @@ export default function TriangleDrag({ m, value, onChange, locked, reveal, good,
   return (
     <div className={`manip manip-triangle ${good ? 'good' : ''}`}>
       <div className="manip-readout" dir="ltr" aria-live="polite">
-        <span className="tri-a">∠A {deg(a)}</span> + <span className="tri-b">∠B {deg(b)}</span> + <span className={right ? 'tri-c hit' : 'tri-c'}>∠C {test ? '?' : deg(c)}</span> = <b>180°</b>
+        <span className="tri-a">∢A {deg(a)}</span> + <span className="tri-b">∢B {deg(b)}</span> + <span className={right ? 'tri-c hit' : 'tri-c'}>∢C {test ? '?' : deg(c)}</span> = <b>180°</b>
       </div>
       <svg ref={ref} {...drag} viewBox={`0 0 ${g.size} ${g.size}`} className="manip-canvas" dir="ltr" tabIndex={locked ? -1 : 0}
         role="application" aria-roledescription="משולש" aria-label={test ? `הקודקוד C בשיעורים ${minus(value[0])}, ${minus(value[1])}. הזווית A ${deg(a)}, הזווית B ${deg(b)}` : `הקודקוד C בשיעורים ${minus(value[0])}, ${minus(value[1])}. הזווית C ${deg(c)}`}

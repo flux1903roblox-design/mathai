@@ -81,6 +81,9 @@ function coach(it, v, touched) {
     case 'angle':
       // a protractor: build an angle from the 0 on the fixed arm, or turn the protractor onto an arm
       if (m.protractor) return m.mode === 'align' ? 'מרכז מד הזווית כבר על הקודקוד. סובבו עד שקו האפס יונח על שוק.' : 'השוק הקבועה על 0. סופרים מעלות על הסולם שמתחיל ב־0 הזה.';
+      // a ray turning inside a fixed angle (CLASSROOM-10): the two parts always make the whole
+      if (m.whole) return !touched ? <>סובבו את הקרן <bdi dir="ltr">OC</bdi>. שתי הזוויות יחד הן תמיד <bdi dir="ltr">{m.whole}°</bdi>.</>
+        : <>עכשיו <bdi dir="ltr">∢AOC = {v}°</bdi> ו־<bdi dir="ltr">∢COB = {m.whole - v}°</bdi>.</>;
       if (!touched) return 'סובבו את הקרן. שתי הזוויות יחד יוצרות קו ישר.';
       return <>הזווית הימנית עכשיו <bdi dir="ltr">{v}°</bdi>. כמה נשאר לשמאלית עד קו ישר?</>;
     case 'squares': {

@@ -8,21 +8,27 @@ import { TOPIC } from './topics.js';
 
 export * from './topics.js';
 
-/** Generate one item for a topic level, with bookkeeping fields attached. */
-export function makeItem(topicId, level, avoidKey) {
+/**
+ * Generate one item for a topic level, with bookkeeping fields attached. A check (`opts.test`) draws from the level's
+ * testGen when it has one (CURRICULUM-10: the angle stairs mix two-step questions into their checks); practice keeps gen.
+ */
+export function makeItem(topicId, level, avoidKey, opts = {}) {
   const t = TOPIC[topicId];
   const L = t.levels[Math.min(Math.max(level, 1), t.levels.length) - 1];
   // the code that makes a question waits for its topic first (ensureTopics, loadGens): a missing generator is a bug there
   if (!L.gen) throw new Error(`makeItem('${topicId}', ${level}): its generators have not loaded. Wait for ensureTopics(['${topicId}']) or loadGens('${topicId}') first.`);
+  const gen = opts.test && L.testGen ? L.testGen : L.gen;
   let it; let guard = 0;
-  do { it = L.gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
+  do { it = gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
   // a typed answer that has no short decimal (7/12) says once how to write it
   if (it.precise && it.form === 'num') it = withFormatNote(it);
-  // A misconception can only be diagnosed for an answer that is actually wrong.
-  const diag = (u) => (isCorrect(it, u) ? null : it.diag(u));
+  // A misconception can only be diagnosed for an answer that is actually wrong: wrong as the finished item reads it, on
+  // its own stair (expr:3 takes an expression's two boxes in either order, swappedLin)
+  const full = { ...it, topic: topicId, level, levelTitle: L.title };
+  full.diag = (u) => (isCorrect(full, u) ? null : it.diag(u));
   // the answers diag() names, when the generator lists them (content/data.js; namesOf reads them)
-  if (it.diag?.wrongs) diag.wrongs = it.diag.wrongs;
-  return { ...it, diag, topic: topicId, level, levelTitle: L.title };
+  if (it.diag?.wrongs) full.diag.wrongs = it.diag.wrongs;
+  return full;
 }
 
 /**
@@ -37,9 +43,10 @@ export function fairForCheck(it) {
   if (it.fixed) return false;
   if (it.topic !== 'signed') return true;
   const shown = [it.display, it.text, ...(it.manip?.labels || []), ...(it.choices || []).map((c) => c.tex || c.text)].join(' ');
-  // a minus at the start of a number: after a space, a bracket, a $ or a TeX brace ("12 \;\square\; {-12}"), before a
-  // digit or a fraction ("-\frac{1}{4} - \left(-\frac{3}{4}\right)" has a positive answer and two negative numbers)
-  return /(^|[\s($\{])[-−](\d|\\frac)/.test(shown) || (typeof it.answer === 'number' && it.answer < 0 && it.form !== 'mc');
+  // a minus at the start of a number: after a space, a bracket (round or square: "30 - 4\left[-3 - …\right]"), a $ or a
+  // TeX brace ("12 \;\square\; {-12}"), before a digit or a fraction ("-\frac{1}{4} - \left(-\frac{3}{4}\right)" has a
+  // positive answer and two negative numbers)
+  return /(^|[\s($\{[])[-−](\d|\\frac)/.test(shown) || (typeof it.answer === 'number' && it.answer < 0 && it.form !== 'mc');
 }
 
 /**
@@ -72,13 +79,15 @@ function* tryAnswers(it) {
 /**
  * The misconceptions an exercise's own diag() can name, for some wrong answer: where a misconception can show. A
  * verification after a repair asks such exercises when no diagnostic model of the stair predicts that misconception
- * (learn/items.ts). `want`: stop as soon as all of these are found.
+ * (learn/items.ts). `want`: stop as soon as all of these are found. An item whose diag() names only the answers it
+ * lists in `tries` (the class's collecting questions, content/expr.js) is asked those, not the whole grid of its form.
  */
 export function namesOf(it, want = []) {
   const found = new Set();
   // a diag() that lists the answers it names (its predictions, content/data.js) is asked only those: every name the
-  // search below finds, and a prediction off its grid too (0.36), without trying thousands of typed numbers
-  for (const u of it.diag?.wrongs || tryAnswers(it)) {
+  // search below finds, and a prediction off its grid too (0.36), without trying thousands of typed numbers; an item
+  // that lists its `tries` (content/expr.js) is asked those
+  for (const u of it.diag?.wrongs || (Array.isArray(it.tries) ? it.tries : tryAnswers(it))) {
     if (isCorrect(it, u)) continue;
     const cat = it.diag(u);
     if (cat) { found.add(cat); if (want.length && want.every((w) => found.has(w))) break; }
@@ -89,7 +98,7 @@ export function namesOf(it, want = []) {
 /** An exercise of a stair for a check or the placement test (see fairForCheck). */
 export function testItem(topicId, level, avoidKey) {
   let it;
-  for (let i = 0; i < 40; i += 1) { it = makeItem(topicId, level, avoidKey); if (fairForCheck(it)) return it; }
+  for (let i = 0; i < 40; i += 1) { it = makeItem(topicId, level, avoidKey, { test: true }); if (fairForCheck(it)) return it; }
   return it;
 }
 
@@ -140,13 +149,35 @@ export const answerInput = (it) => (it.form === 'frac' ? toFrac(it.answer) : it.
 /** Is the answer a length that is not whole, asked rounded to tenths (its exact value is on the item)? */
 export const roundedLength = (it) => it.exact != null && Math.abs(it.exact - Math.round(it.exact)) > 1e-9;
 
+/**
+ * The class writes an expression constant-first ("−31 − 2x", CLASSROOM-6): on expr:3 only, an expression typed with
+ * the constant in the coefficient's box and the coefficient in the constant's box is right, when both numbers are the
+ * right ones, they differ, and neither is 0. With a 0 the two boxes are not the same expression in another order: when
+ * the x-terms cancel (0x − 25), −25 in the x box is −25x, an x the expression no longer has (conjoin), and when the
+ * numbers cancel (3x + 0), 3 in the number box has lost the x. It earns a guesser nothing (the swapped pair is right only
+ * when both numbers are), and the lesson shows a note on the boxes (swapNote), not a cross; nothing reaches the
+ * misconception record. In eq and sys the boxes are a solution, not an expression, and keep their order.
+ */
+export function swappedLin(it, u) {
+  if (it?.form !== 'lin' || it.topic !== 'expr' || Number(it.level) !== 3 || !u || typeof u !== 'object') return false;
+  const { k, c } = it.answer;
+  return !near(k, 0, 0.01) && !near(c, 0, 0.01) && !near(k, c, 0.01) && near(u.k, c, 0.01) && near(u.c, k, 0.01);
+}
+/** The note under a constant-first answer: which box holds the coefficient, and the two orders as one expression. */
+export function swapNote(it) {
+  const v = it.var || 'x'; const { k, c } = it.answer;
+  const term = k === 1 ? v : k === -1 ? `-${v}` : `${k}${v}`;
+  const join = (a, b) => `${a} ${String(b).startsWith('-') ? `- ${String(b).slice(1)}` : `+ ${b}`}`;
+  return `המקדם של $${v}$ נכתב בתיבה הראשונה: $${join(c, term)} = ${join(term, c)}$`;
+}
+
 export function isCorrect(it, u) {
   if (u == null) return false;
   if (it.form === 'manip') return manipCorrect(it, u);
   if (it.form === 'mc') return u === it.answer;
   if (it.form === 'pt') return near(u[0], it.answer[0]) && near(u[1], it.answer[1]);
   if (it.form === 'line') return near(u.m, it.answer.m, 0.01) && near(u.b, it.answer.b, 0.01);
-  if (it.form === 'lin') return typeof u === 'object' && near(u.k, it.answer.k, 0.01) && near(u.c, it.answer.c, 0.01);
+  if (it.form === 'lin') return typeof u === 'object' && ((near(u.k, it.answer.k, 0.01) && near(u.c, it.answer.c, 0.01)) || swappedLin(it, u));
   // a fraction is compared exactly; with `reduced` it must be in lowest terms, with a positive denominator
   if (it.form === 'frac') {
     return typeof u === 'object' && Number.isInteger(u.n) && Number.isInteger(u.d) && u.d !== 0 && near(u.n / u.d, it.answer, 1e-9)
@@ -239,6 +270,18 @@ export function figPlain(f) {
     // student sees them; a clock: its time (its hands drawn at their true angles)
     case 'protractor': return protractorWords(f);
     case 'clock': return `שעון: השעה ${clockText(f.h, f.m)}`;
+    // a teaching drawing from named points (GEOM-1.5): what it marks, so the tutor and an answer key read it too: an
+    // angle's text, a right angle, a labelled side, equal-side ticks ("_" starts a helper point's name: read without it)
+    case 'geo': {
+      const nm = (k) => String(k).replace(/^_/, '');
+      const marks = [
+        ...(f.angles || []).filter((g) => g.text).map((g) => `∢${nm(g.at)} ${g.text}`),
+        ...(f.angles || []).filter((g) => g.right).map((g) => `∢${nm(g.at)} ישרה`),
+        ...(f.segs || []).filter((sg) => sg.label != null && sg.label !== '').map((sg) => `${nm(sg.a)}${nm(sg.b)} = ${sg.label}`),
+        ...(f.segs || []).filter((sg) => sg.ticks).map((sg) => `${nm(sg.a)}${nm(sg.b)}: ${sg.ticks} סימונים`),
+      ];
+      return marks.length ? `שרטוט: ${marks.join(', ')}` : 'שרטוט';
+    }
     // the fraction figures (numline with parts, fbar, fgrid, dline, groups) and the teaching figures (STUDENT-8: numline,
     // thermo, machine, dots, bars) say in words what they draw
     default: return figWords(f);
@@ -255,7 +298,7 @@ export function itemPlain(it) {
   const strip = (s) => String(s || '').replace(/[$\u2066\u2069]/g, '');
   const desc = figPlain(it.fig);
   const fig = desc ? ` [${desc}]` : '';
-  const choices = it.form === 'mc' ? ` אפשרויות: ${it.choices.map((c) => c.text || c.tex).join(' / ')}` : '';
+  const choices = it.form === 'mc' ? ` אפשרויות: ${it.choices.map((c) => (c.text ? strip(c.text) : c.tex)).join(' / ')}` : '';
   const manip = it.form === 'manip' ? ` ${manipPlain(it)}` : '';
   return `${strip(it.text)}${it.display ? ` ${it.display}` : ''}${fig}${choices}${manip}`.trim();
 }

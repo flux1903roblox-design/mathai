@@ -740,6 +740,7 @@ test.describe('the council\'s screens, after', { tag: '@student' }, () => {
       await page.locator('.lm-check').click();
       await expect(page.locator('.lm-actions.has-good')).toBeVisible();
     };
+    await next(); // numbers as arrows: the absolute value (CLASSROOM-1)
     await next();
     await right(await step(page)); // −2 + 5
     await next();
@@ -755,10 +756,12 @@ test.describe('the council\'s screens, after', { tag: '@student' }, () => {
     await page.reload();
     await settled(page);
     await expect.poll(() => step(page)).toBeTruthy();
-    for (let i = 0; i < 6; i += 1) {
+    // on to the first prediction about subtracting (the opposites come before it, as in the book: CLASSROOM-1)
+    for (let i = 0; i < 10; i += 1) {
       const s = await step(page);
-      if (s.kind === 'predict') break;
+      if (s.kind === 'predict' && s.display === '2 - (-3)') break;
       if (s.kind === 'explore') await right(s);
+      if (s.kind === 'predict') { await page.locator('.ls-choice').nth(s.answer).click(); await page.locator('.lm-check').click(); await expect(page.locator('.lm-actions.has-good')).toBeVisible(); }
       await next();
     }
     const p = await step(page);

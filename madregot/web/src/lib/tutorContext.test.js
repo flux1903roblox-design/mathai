@@ -59,9 +59,9 @@ describe('the diagnosis the screen showed is the one the tutor gets', () => {
   });
 
   it('2b. the generator\'s 3 − (−5) answered −2: minus-minus, the label the screen shows', () => {
-    // makeItem('signed', 1): the level picks addSub (≥ 0.5), a = 3, b = −5, op '−'
+    // makeItem('signed', 1): the level picks addSub (0.35 to 0.7, CLASSROOM-2's mix), a = 3, b = −5, op '−'
     const r = vi.spyOn(Math, 'random');
-    [0.9, 15.5 / 25, 7.5 / 25, 0.75].forEach((v) => r.mockReturnValueOnce(v));
+    [0.5, 15.5 / 25, 7.5 / 25, 0.75].forEach((v) => r.mockReturnValueOnce(v));
     const item = makeItem('signed', 1);
     r.mockRestore();
     expect(item.key).toBe('sn1:3 - (-5)');
@@ -99,7 +99,7 @@ describe('the diagnosis the screen showed is the one the tutor gets', () => {
     expect(ctx.shown).toEqual([`רמז: ${item.hint}`]);
     // a generator's number is a slip by the same rule
     const r = vi.spyOn(Math, 'random');
-    [0.9, 15.5 / 25, 7.5 / 25, 0.75].forEach((v) => r.mockReturnValueOnce(v));
+    [0.5, 15.5 / 25, 7.5 / 25, 0.75].forEach((v) => r.mockReturnValueOnce(v));
     const gen = makeItem('signed', 1);
     r.mockRestore();
     expect(describeWrong(gen, 9)).toEqual({ value: '9', kind: 'slip', slip: 'off-by-one' });

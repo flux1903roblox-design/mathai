@@ -570,8 +570,9 @@ test.describe('the class and the family keep the code', () => {
     const kept = st.escrows[0];
     expect(kept).toMatchObject({ kind: 'account', label: 'הטאבלט' });
     expect(log.find((r) => r.path === '/api/vault/escrow').headers['x-family-device']).toMatch(/^fd1\./);
+    // the device writes "family" once the server's answer is back, a moment after the server keeps the code
+    await expect.poll(async () => (await saved(page)).backup, { timeout: 10_000 }).toMatchObject({ on: true, code: kept.code, escrow: 'family' });
     const a = await saved(page);
-    expect(a.backup).toMatchObject({ on: true, code: kept.code, escrow: 'family' });
     await expect.poll(async () => (await vaultOf(st, kept.code))?.xp).toBe(a.xp);
     // A's Settings: the family note and sentence, never "מוצפן"
     await page.evaluate(() => { window.location.hash = '#/settings'; });

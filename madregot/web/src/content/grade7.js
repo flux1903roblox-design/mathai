@@ -5,9 +5,14 @@ import { EQ } from './eq.js';
 import { DATA } from './data.js';
 import { FRAC } from './frac.js';
 import { SIGNED6_LEVEL } from './signed6.js';
+import { SIGNED7_LEVEL } from './signed7.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
+import { signOutside, chainItem, regroupItem, absItem, oppItem, absMc, zeroOne, nestedItem } from './signedItems.js';
+import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from './angleItems.js';
+import { bisItem, bisCheckItem, quadItem } from './angles67.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
+const rnd = () => Math.random();
 
 // ---------------------------------------------------------------- signed numbers
 function addSub() {
@@ -17,13 +22,17 @@ function addSub() {
   const bb = op === '-' ? -b : b; // what is really being added
   let hint;
   if (op === '-') hint = `חיסור הוא חיבור של הנגדי: $${T(a)} - ${T(b, true)} = ${T(a)} + ${T(-b, true)}$.`;
-  else if (sgn(a) === sgn(b)) hint = 'שני המספרים באותו סימן: מחברים את המרחקים מאפס ושומרים על הסימן.';
-  else hint = 'סימנים שונים: מחסרים את המרחקים מאפס, והסימן הוא של המספר הרחוק יותר מאפס.';
+  else if (sgn(a) === sgn(b)) hint = 'שני המספרים באותו סימן: מחברים את המרחקים מאפס (הערכים המוחלטים) ושומרים על הסימן.';
+  else hint = 'סימנים שונים: מחסרים את הערכים המוחלטים (המרחקים מאפס), והסימן הוא של המספר הרחוק יותר מאפס.';
   const steps = [];
   if (op === '-') steps.push(`$${display} = ${T(a)} + ${T(bb, true)}$`);
-  if (sgn(a) === sgn(bb)) steps.push(`אותו סימן: $${Math.abs(a)} + ${Math.abs(bb)} = ${Math.abs(ans)}$, והסימן ${a < 0 ? 'שלילי' : 'חיובי'}.`);
-  else if (ans === 0) steps.push(`סימנים שונים ושני המספרים באותו מרחק מאפס: $${Math.abs(a)} - ${Math.abs(bb)} = 0$. מספר ועוד הנגדי שלו הם אפס.`);
-  else steps.push(`סימנים שונים: $${Math.max(Math.abs(a), Math.abs(bb))} - ${Math.min(Math.abs(a), Math.abs(bb))} = ${Math.abs(ans)}$, והסימן של המספר הרחוק יותר מאפס.`);
+  // the class's line: the sign outside the brackets, the absolute values inside, (+4) + (-11) = -(11 - 4) = -7
+  // (two lines: the sum with the sign outside, then "=" the result, so each fits a phone)
+  if (ans === 0) steps.push(`סימנים שונים ושני המספרים באותו מרחק מאפס: $${Math.abs(a)} - ${Math.abs(bb)} = 0$. מספר ועוד הנגדי שלו הם אפס.`);
+  else {
+    const [line, end] = signOutside(a, bb);
+    steps.push(sgn(a) === sgn(bb) ? `אותו סימן: מחברים את הערכים המוחלטים ושומרים על הסימן, $${line}$` : `סימנים שונים: מחסרים את הערכים המוחלטים, והסימן של המספר הרחוק יותר מאפס, $${line}$`, `$${end}$`);
+  }
   steps.push(`התשובה: $${T(ans)}$`);
   return {
     key: `sn1:${display}`, text: 'חשבו:', display, form: 'num', answer: ans, hint, solution: steps,
@@ -305,6 +314,8 @@ function missingVertex() {
 
 // ---------------------------------------------------------------- angles
 const deg = (n) => `${n}^\\circ`;
+/** One of several makers, by weight: [[0.3, make], …] (weights summing to 1). */
+const mix = (parts) => { let r = Math.random(); for (const [w, make] of parts) { if (r < w) return make(); r -= w; } return parts[parts.length - 1][1](); };
 
 function linearPair() {
   let a; do { a = R(4, 32) * 5; } while (a === 90);
@@ -331,9 +342,8 @@ function linearPairTurn() {
   };
 }
 
-function vertical() {
+function vertical(askVertical = Math.random() < 0.6) {
   let a; do { a = R(4, 32) * 5; } while (a === 90);
-  const askVertical = Math.random() < 0.6;
   const ans = askVertical ? a : 180 - a;
   return {
     key: `an2:${a}:${askVertical}`, text: 'שני ישרים נחתכים. מה גודל הזווית המסומנת ב־$?$', form: 'num', answer: ans, unit: 'מעלות',
@@ -382,9 +392,8 @@ function triangleSum() {
   };
 }
 
-function parallel() {
+function parallel(kind = pick(['corresponding', 'alternate', 'cointerior'])) {
   let a; do { a = R(7, 29) * 5; } while (a === 90); // angle of the transversal
-  const kind = pick(['corresponding', 'alternate', 'cointerior']);
   const ans = kind === 'cointerior' ? 180 - a : a;
   const names = { corresponding: 'מתאימות', alternate: 'מתחלפות', cointerior: 'חד־צדדיות' };
   return {
@@ -423,13 +432,21 @@ export const GRADE7 = [
     id: 'signed', grade: '7', title: 'מספרים מכוונים', color: 'sky',
     desc: 'חיבור, חיסור, כפל וחילוק, וסדר פעולות',
     levels: [
-      { title: 'חיבור וחיסור', gen: () => (Math.random() < 0.5 ? addSubLine() : addSub()) },
-      { title: 'השוואת מספרים', gen: () => (Math.random() < 0.4 ? orderPins() : compare()) },
-      { title: 'כפל וחילוק', gen: mulDiv },
+      // CLASSROOM-2: 35% on the number line, 35% two numbers, 30% the class's chains of five bracketed numbers (three
+      // typed chains to one practice-only choice of the regrouped line)
+      { title: 'חיבור וחיסור', gen: () => { const x = Math.random(); return x < 0.35 ? addSubLine() : x < 0.7 ? addSub() : x < 0.925 ? chainItem(rnd) : regroupItem(rnd); } },
+      // CLASSROOM-1: 40% comparing (as before), 25% absolute value, 20% opposites, 15% a practice-only choice
+      { title: 'השוואה וערך מוחלט', gen: () => { const x = Math.random(); return x < 0.4 ? (Math.random() < 0.4 ? orderPins() : compare()) : x < 0.65 ? absItem(rnd) : x < 0.85 ? oppItem(rnd) : absMc(rnd); } },
+      // CLASSROOM-3: one question in ten divides with 0 or 1 (a practice-only choice)
+      { title: 'כפל וחילוק', gen: () => (Math.random() < 0.1 ? zeroOne(rnd) : mulDiv()) },
       { title: 'סדר פעולות', gen: order },
-      { title: 'סוגריים', gen: brackets },
+      // CLASSROOM-4: 40% brackets inside brackets, the shapes of the class's exercise 129
+      { title: 'סוגריים', gen: () => (Math.random() < 0.6 ? brackets() : nestedItem(rnd)) },
       // signed fractions and decimals (content/signed6.js): the programme's "שלמים, שברים פשוטים ועשרוניים"
       SIGNED6_LEVEL,
+      // CLASSROOM-5: powers of directed numbers (content/signed7.js), the programme's 7.6 part 2, after the stairs above
+      // so saved progress keeps its levels
+      SIGNED7_LEVEL,
     ],
     cats: {
       sign: 'התשובה יצאה עם הסימן ההפוך',
@@ -441,6 +458,23 @@ export const GRADE7 = [
       'neg-neg-plus': 'הפכו גם את המספר הראשון לחיובי ("מינוס ומינוס זה פלוס")',
       direction: 'זזו לכיוון ההפוך על ציר המספרים',
       'toward-zero': 'מיקמו שבר שלילי בצד הלא נכון של השלם',
+      // the class's slip when a chain is regrouped (CLASSROOM-2), with the name the expr topic gives it
+      'drop-minus': 'המינוס שלפני איבר נעלם',
+      // CLASSROOM-1
+      'abs-keep-sign': 'חישבו ערך מוחלט של מספר שלילי כאילו הוא נשאר שלילי ($\\lvert -7 \\rvert = -7$)',
+      'opp-same': 'כתבו את אותו מספר במקום הנגדי שלו',
+      // CLASSROOM-3 and -4
+      'div-zero': 'חשבו שחילוק באפס נותן $0$ או את המספר עצמו (חילוק באפס לא מוגדר)',
+      'zero-div': 'חשבו ש־$0$ חלקי מספר לא מוגדר (התוצאה $0$)',
+      'factor-sign': 'המינוס של המספר שלפני הסוגריים נעלם בסוף',
+      // CLASSROOM-5 (signed:7, powers)
+      'pow-neg-base': 'קראו $-a^2$ כאילו כתוב $(-a)^2$: החזקה שייכת רק למספר, והמינוס נשאר בחוץ',
+      'pow-odd-pos': 'חשבו שמספר שלילי בחזקה יוצא תמיד חיובי (במעריך אי־זוגי התוצאה שלילית)',
+      'pow-keep-sign': 'השאירו את המינוס של הבסיס גם במעריך זוגי ($(-5)^2 = -25$)',
+      'outer-minus': 'התעלמו מהמינוס שלפני הסוגריים',
+      'pow-times': 'כפלו את הבסיס במעריך במקום כפל חוזר ($(-5)^2 = -10$)',
+      'dec-places': 'טעו במספר המקומות אחרי הנקודה ($(-0.3)^3 = -0.27$)',
+      'num-only': 'העלו בחזקה רק את המונה ($(-\\tfrac{3}{4})^2 = \\tfrac{9}{4}$)',
     },
   },
   {
@@ -463,13 +497,28 @@ export const GRADE7 = [
   },
   {
     id: 'angles', grade: '7', title: 'זוויות', color: 'petrol',
-    desc: 'צמודות, קודקודיות, משולש וישרים מקבילים',
+    desc: 'צמודות, קודקודיות, משולש, ישרים מקבילים, חוצה זווית ומרובע',
+    // CURRICULUM-10: a check draws from testGen, practice from gen. A one-step question (equal to the drawn angle, or
+    // 180° minus it) is passed by a student who copies the number or completes it to a line, so each check mixes in
+    // two-step questions (content/angleItems.js), each practised first at 30% of its stair's exercises. The mixes keep
+    // every kind at 15% or more of a check and every check under the 2% guessing limit (learn/guessing.test.ts).
     levels: [
-      { title: 'זוויות צמודות', gen: () => (Math.random() < 0.5 ? linearPairTurn() : linearPair()) },
-      { title: 'זוויות קודקודיות', gen: vertical },
-      { title: 'סכום זוויות במשולש', gen: () => (Math.random() < 0.4 ? rightTriangleDrag() : triangleSum()) },
-      { title: 'ישרים מקבילים', gen: parallel },
+      // CLASSROOM-9: the fan (two angles side by side, not on a line) is a fifth of practice and of the checks
+      { title: 'זוויות צמודות', gen: () => mix([[0.15, linearPairTurn], [0.15, linearPair], [0.25, straightThree], [0.25, linearPairDiff], [0.2, fanItem]]),
+        testGen: () => mix([[0.2, linearPair], [0.4, straightThree], [0.2, linearPairDiff], [0.2, fanItem]]) },
+      { title: 'זוויות קודקודיות', gen: () => mix([[0.4, vertical], [0.3, threeLines], [0.3, crossBisect]]),
+        testGen: () => mix([[0.2, () => vertical(true)], [0.2, () => vertical(false)], [0.3, threeLines], [0.3, crossBisect]]) },
+      // CLASSROOM-11: the class's split triangle, S1 (practice only) and S2 (checks too), a quarter each
+      { title: 'סכום זוויות במשולש', gen: () => mix([[0.25, splitTriangleS1], [0.25, splitTriangleS2], [0.2, rightTriangleDrag], [0.3, triangleSum]]) },
+      { title: 'ישרים מקבילים', gen: () => mix([[0.4, parallel], [0.3, parallelTriangle], [0.3, parallelBisect]]),
+        testGen: () => mix([[0.2, () => parallel(pick(['corresponding', 'alternate']))], [0.2, () => parallel('cointerior')], [0.3, parallelTriangle], [0.3, parallelBisect]]) },
       { title: 'שווה־שוקיים וזווית חיצונית', gen: isosceles },
+      // CLASSROOM-10: the class's bisector worksheet (content/angles67.js): the whole from a half 20%, a half from the whole
+      // 20%, two bisectors in a fan of five rays 25%, a bisector on a straight line 25%, and "is OC the bisector?" with a
+      // reason 10% (a choice, practice only: a check redraws it)
+      { title: 'חוצה זווית', gen: () => (Math.random() < 0.1 ? bisCheckItem() : bisItem()) },
+      // CLASSROOM-12: the sum of the angles of a quadrilateral, three given, a right angle and two, or two marked equal angles
+      { title: 'סכום זוויות במרובע', gen: () => quadItem() },
     ],
     cats: {
       'equal-not-supp': 'ענו שהזוויות שוות, אבל הן משלימות ל־180°',
@@ -479,6 +528,18 @@ export const GRADE7 = [
       'one-angle': 'החסירו רק זווית אחת',
       'forgot-half': 'שכחו לחלק לשתי זוויות הבסיס',
       'interior-not-exterior': 'חישבו את הזווית הפנימית במקום החיצונית',
+      // CURRICULUM-10's two-step questions (content/angleItems.js); one given angle taken off alone is one-angle
+      'took-larger': 'חישבו את הזווית הגדולה במקום הקטנה',
+      'diff-not-halved': 'חיסרו את ההפרש מ־$180^\\circ$ ולא חילקו לשתיים',
+      'no-half': 'לקחו את כל הזווית במקום חצי ממנה',
+      // CLASSROOM-9 (the fan) and CLASSROOM-11 (the split triangle)
+      'adjacent-not-line': 'חשבו ששתי זוויות זו ליד זו משלימות ל־$180^\\circ$, גם כשהצלעות האחרות לא על ישר אחד',
+      'sum-not-diff': 'חיברו את הזוויות במקום לחסר את החלק מהשלם',
+      'other-vertex': 'חיברו ל־$180^\\circ$ שתי זוויות שאינן צמודות (בקודקודים שונים)',
+      'part-for-whole': 'השתמשו בחלק של זווית כאילו הוא הזווית כולה',
+      // CLASSROOM-10 (the bisector) and CLASSROOM-12 (the quadrilateral)
+      'half-double-swap': 'כפלו ב־$2$ במקום לחלק ב־$2$, או להפך',
+      'quad-missed': 'הורידו מ־$360^\\circ$ רק חלק מהזוויות הידועות (גם הישרה נחשבת)',
     },
   },
   EXPR,

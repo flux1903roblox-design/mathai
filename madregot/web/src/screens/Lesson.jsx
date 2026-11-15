@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { Navigate, useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
 import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
+import { qaOn } from '@/lib/qa.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine, unitGrade } from '@/content/index.js';
+import { TOPIC, makeItem, ensureGens, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine, unitGrade, swappedLin, swapNote } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
 import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
@@ -20,7 +23,7 @@ import { api, syncNow } from '@/lib/api.js';
 import { checkAssignment, reportWork, reportStairs } from '@/lib/classWork.js';
 import { thawItem } from '@/lib/exam.js';
 import { play, haptic } from '@/lib/sound.js';
-import { Tex, MathText, texText, FitDisplay } from '@/components/MathText.jsx';
+import { Tex, MathText, texText, FitDisplay, useFitLine } from '@/components/MathText.jsx';
 import { RichText } from '@/components/RichText.jsx';
 import Figure from '@/components/Figure.jsx';
 import Manip from '@/components/manip/Manip.jsx';
@@ -30,7 +33,7 @@ import CheckResult from '@/components/CheckResult.jsx';
 import ReportAnswer, { checkText } from '@/components/ReportAnswer.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
-import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
+import { Box, Button, Keypad, Sheet, Steps, StairStep, Thinking, useShake } from '@/components/ui.jsx';
 import { detectDistress } from '@shared/safety.js';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
@@ -110,7 +113,7 @@ const chatIntro = (s) => (s?.phase === 'retry' ? CHAT_INTRO.retry : openExercise
 const inlineChoices = (item) => item.choices.length === 3 && item.choices.every((c) => c.tex && c.tex.replace(/\s|\\[a-z]+/g, '').length <= 3);
 
 /** Under an expression's two slots: what to write for x alone, for −x and for no constant. */
-const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין מספר חופשי? כתבו $0$.`;
+const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין $${v}$ או אין מספר חופשי? כתבו $0$ בתיבה שלו.`;
 
 function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike, good }) {
   const shakeRef = useShake(shakeKey);
@@ -197,6 +200,17 @@ function useLessonSpec() {
   const part = Number(params.get('part')) || (node?.state === 'done' ? PARTS : Math.min(PARTS, (node?.parts || 0) + 1));
   const max = progress[topic]?.max || level;
   return { kind, topic, level, part, max, fromJourney: params.get('from') === 'journey' };
+}
+
+/**
+ * A choice's text. Maths wider than its button (the class's line of five terms on a 320 phone) is set smaller until it
+ * fits, never below 15px (useFitLine, as a step of a solution): it scrolled sideways inside the button, and the first
+ * term's sign, which is what tells two such choices apart, was cut off.
+ */
+function ChoiceText({ c }) {
+  const ref = useRef(null);
+  useFitLine(ref, c.tex || c.text);
+  return <span ref={ref} className="choice-text">{c.tex ? <Tex tex={c.tex} /> : c.text}</span>;
 }
 
 export default function Lesson() {
@@ -310,6 +324,29 @@ export default function Lesson() {
     return () => root.removeAttribute('data-qa-item');
   }, [item, mkey]);
 
+  // Test hooks for e2e/solutions-fit.spec.js (QA only, as above): every step of the generated solutions of a stair, each
+  // line once at the furthest-in place it takes (its step number), and those steps drawn into a list as the feedback
+  // draws them (StairStep), so the test can measure each one inside the real feedback panel of a 320 phone
+  useEffect(() => {
+    if (!qaOn()) return undefined;
+    // async: a topic's generators load on demand (the boot split), so they are loaded first
+    window.__madregotSolutionLines = async (topic, level, n = 200) => {
+      await ensureGens([topic]);
+      const at = new Map();
+      for (let k = 0; k < n; k += 1) {
+        const it = makeItem(topic, level);
+        (it.solution || []).forEach((line, i) => { if (!(at.get(line)?.i >= i)) at.set(line, { i, key: it.key }); });
+      }
+      return [...at].map(([text, { i, key }]) => ({ text, i, key }));
+    };
+    window.__madregotDrawSteps = (list, lines) => {
+      const root = createRoot(list);
+      flushSync(() => root.render(lines.map(({ text, i }, k) => <StairStep key={k} i={i} text={text} />)));
+      return () => root.unmount();
+    };
+    return () => { delete window.__madregotSolutionLines; delete window.__madregotDrawSteps; };
+  }, []);
+
   const focusSlot = useCallback((k) => { document.getElementById(`slot-${k}`)?.focus({ preventScroll: true }); }, []);
 
   // the learning record: a lesson or a check started (for the outcome metrics, on this device only)
@@ -386,7 +423,8 @@ export default function Lesson() {
         return out;
       });
     }
-    setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)] });
+    // an expression written constant-first on expr:3 is right; a quiet note says which box holds the coefficient
+    setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)], ...(result.ok && swappedLin(item, u) ? { swap: swapNote(item) } : {}) });
     if (result.ok) { play('correct'); haptic('correct'); commit(result.event); }
     else {
       play('wrong'); haptic('wrong'); setShakeKey((v) => v + 1);
@@ -625,7 +663,7 @@ export default function Lesson() {
                   whileTap={locked ? undefined : { scale: 0.96 }} animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
                   disabled={locked || s.wrong.includes(i)} onClick={() => { setChoice(i); play('tap'); if (feedback === 'retry') setLast(null); }}>
                   <span className="choice-key" aria-hidden="true">{state === 'good' ? <Check size={18} strokeWidth={3.4} /> : state === 'bad' ? <X size={18} strokeWidth={3.4} /> : i + 1}</span>
-                  <span className="choice-text">{c.tex ? <Tex tex={c.tex} /> : c.text}</span>
+                  <ChoiceText c={c} />
                 </m.button>
               );
             })}
@@ -669,6 +707,7 @@ export default function Lesson() {
         {last?.invalid && (last.partial
           ? <p className="answer-error answer-partial" role="status">{last.text}</p>
           : <p className="form-error answer-error" role="alert">{last.text}</p>)}
+        {last?.swap && <p className="answer-error answer-partial answer-swap" role="status"><MathText text={last.swap} /></p>}
         {feedback ? (
           <m.section className={clsx('fb', `fb-${feedback}`, folded && 'fb-folded')} aria-live="assertive" aria-labelledby="fb-title" data-region="feedback"
             initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={SPRING.settle}>
@@ -693,7 +732,7 @@ export default function Lesson() {
                   <p className="hint-line"><Lightbulb size={16} aria-hidden="true" /><MathText text={item.hint} /></p>
                   {/* guide, don't just say "again": the first step of the way, never the whole solution */}
                   {item.solution?.length > 1 && !isTest(s.kind) && (guide ? (
-                    <ol className="stair-list guide-step" aria-live="polite"><li className="stair-step" style={{ '--i': 0 }}><span className="stair-n" aria-hidden="true">1</span><span className="stair-text"><MathText text={item.solution[0]} /></span></li></ol>
+                    <ol className="stair-list guide-step" aria-live="polite"><StairStep i={0} text={item.solution[0]} /></ol>
                   ) : (
                     <button type="button" className="link-btn" onClick={() => setGuide(true)}>איך מתחילים?</button>
                   ))}

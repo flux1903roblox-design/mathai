@@ -3,11 +3,13 @@
 // imports, the same on the web and in the Worker.
 //
 // Rules (PARENTS-8): `$` goes; ^\circ → °, \cdot → ·, \times → ×, \le → ≤, \ge → ≥, \ne and \neq → ≠; ^2 → ², ^3 → ³,
-// _1 → ₁, _2 → ₂; \frac{a}{b} → a/b; \sqrt{x} → √x; inside maths a minus right before a digit or "(" becomes the
-// minus sign U+2212; braces go; TeX's small spaces become a space. Each maths run is wrapped in U+2066 (left-to-right
-// isolate) … U+2069 (pop) when `isolate` is true, so Hebrew around it never reorders it. Anything else that still
-// looks like a TeX command is left as it is, visible: web/src/learn/report.test.ts runs every misconception title
-// through this and fails on a "\", a "$" or a brace, so a new title with TeX this cannot read is caught there.
+// _1 → ₁, _2 → ₂; \frac{a}{b} → a/b; \sqrt{x} → √x; \lvert and \rvert → | (CLASSROOM-1, |−7|); \sphericalangle → ∢
+// (CLASSROOM-9, the class's angle sign, ∢AOB); inside maths a minus
+// right before a digit or "(" becomes the minus sign U+2212; braces go; TeX's small spaces become a space. Each maths
+// run is wrapped in U+2066 (left-to-right isolate) … U+2069 (pop) when `isolate` is true, so Hebrew around it never
+// reorders it. Anything else that still looks like a TeX command is left as it is, visible: web/src/learn/report.test.ts
+// runs every misconception title through this and fails on a "\", a "$" or a brace, so a new title with TeX this cannot
+// read is caught there.
 
 const LRI = '⁦';
 const PDI = '⁩';
@@ -26,11 +28,16 @@ function mathRun(tex) {
   s = s
     .replace(/\^\s*(?:\{\s*\\circ\s*\}|\\circ)/g, '°')
     .replace(/\\circ(?![a-zA-Z])/g, '°')
+    // absolute value bars hug their number: \lvert -7 \rvert is |−7|
+    .replace(/\\lvert(?![a-zA-Z])\s*/g, '|')
+    .replace(/\s*\\rvert(?![a-zA-Z])/g, '|')
     .replace(/\\cdot(?![a-zA-Z])/g, '·')
     .replace(/\\times(?![a-zA-Z])/g, '×')
     .replace(/\\(?:le|leq)(?![a-zA-Z])/g, '≤')
     .replace(/\\(?:ge|geq)(?![a-zA-Z])/g, '≥')
     .replace(/\\(?:ne|neq)(?![a-zA-Z])/g, '≠')
+    // the class's angle sign hugs its letters: \sphericalangle AOB is ∢AOB (CLASSROOM-9)
+    .replace(/\\sphericalangle(?![a-zA-Z])\s*/g, '∢')
     .replace(/\^\s*(?:\{\s*2\s*\}|2(?!\d))/g, '²')
     .replace(/\^\s*(?:\{\s*3\s*\}|3(?!\d))/g, '³')
     .replace(/_\s*(?:\{\s*1\s*\}|1(?!\d))/g, '₁')

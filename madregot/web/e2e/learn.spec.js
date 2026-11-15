@@ -2,9 +2,13 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, type, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
 
-test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
+// (a test whose title says "on both phones" runs on the two phones instead)
+test.beforeEach(({}, info) => {
+  const phones = /on both phones/.test(info.title);
+  test.skip(!(phones ? ['phone', 'phone-small'] : ['phone', 'desktop']).includes(info.project.name), phones ? 'this one is checked on the two phones' : 'journeys run on phone and desktop');
+});
 
 const step = (page) => page.evaluate(() => window.__madregotStep);
 
@@ -27,7 +31,8 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await page.getByRole('button', { name: 'מתחילים' }).click();
   await expect(page.locator('.worked-step')).toHaveCount(1);
   await expect(page.locator('.worked-why').first()).toBeVisible();
-  for (let e = 0; e < 2; e += 1) {
+  // four examples: two of one subtraction each, then the class's two chains of five bracketed numbers (CLASSROOM-2)
+  for (let e = 0; e < 4; e += 1) {
     while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
     await page.getByRole('button', { name: /לדוגמה הבאה|לפתור יחד/ }).click();
   }
@@ -187,8 +192,8 @@ test('Exam Rescue: the exam\'s date and stairs, a short diagnostic, then a plan 
   await expect(page.locator('.rescue-msg')).toContainText('בדיקה קצרה');
   await page.getByRole('button', { name: /לבדיקה הקצרה/ }).click();
   await expect.poll(() => item(page)).toBeTruthy();
-  // two questions for each of the six signed-number stairs (signed:6 included)
-  for (let i = 0; i < 12; i += 1) { await answer(page, i % 2 === 0); await page.locator('section.fb .fb-actions .btn').click(); }
+  // two questions for each of the seven signed-number stairs (signed:6 and signed:7 included)
+  for (let i = 0; i < 14; i += 1) { await answer(page, i % 2 === 0); await page.locator('section.fb .fb-actions .btn').click(); }
   await expect(page.getByRole('heading', { name: 'הבדיקה הסתיימה' })).toBeVisible();
   await page.getByRole('button', { name: /לתוכנית ההכנה/ }).click();
   await expect(page.locator('.rescue-msg')).toContainText('ימים למבחן');
@@ -199,7 +204,7 @@ test('Exam Rescue: the exam\'s date and stairs, a short diagnostic, then a plan 
   await expect(page.locator('.rescue-day-name').filter({ hasText: 'שבת' })).toHaveCount(0);
   await expect(page.getByText('התוכנית לא מבטיחה ציון')).toBeVisible();
   const st = await saved(page);
-  expect(Object.keys(st.learn.exam.diagnostic)).toHaveLength(6);
+  expect(Object.keys(st.learn.exam.diagnostic)).toHaveLength(7); // the seven signed-number stairs
   await page.goto('./#/quests');
   await expect(page.locator('.today-exam')).toContainText('ההכנה למבחן');
 });
@@ -285,7 +290,7 @@ test('reviewer P1: two right diagnostic answers per stair are "passed the first 
   await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByText('חיבור וחיסור', { exact: true }).click();
-  await page.getByText('השוואת מספרים', { exact: true }).click();
+  await page.getByText('השוואה וערך מוחלט', { exact: true }).click();
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByRole('button', { name: /לבניית התוכנית/ }).click();
@@ -334,7 +339,7 @@ test('done means mastered: practice fills the ring, and only a passed mastery ch
   await open(page, '#/', { ...st, version: 4 });
   const unit = page.locator('.unit').first();
   // two practice lessons done: four of the stair's five stages, but no stair counted yet; the next stage is the mastery check
-  await expect(unit.locator('.unit-label')).toContainText('4 מתוך 30 שלבים');
+  await expect(unit.locator('.unit-label')).toContainText('4 מתוך 35 שלבים');
   await expect(unit.locator('.unit-label')).not.toContainText('מדרגות');
   await expect(unit.locator('.node').first()).toHaveClass(/node-current/);
   await unit.locator('.node').first().click();
@@ -344,9 +349,9 @@ test('done means mastered: practice fills the ring, and only a passed mastery ch
   for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, true); await proceed(page); }
   await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
   // the check moves the count (the council's "0 of 5" after mastery)
-  await expect(page.locator('.climb-caption')).toContainText('1 מתוך 6 מדרגות');
+  await expect(page.locator('.climb-caption')).toContainText('1 מתוך 7 מדרגות');
   await page.getByRole('button', { name: 'למפה' }).click();
-  await expect(unit.locator('.unit-label')).toContainText('1 מתוך 6 מדרגות');
+  await expect(unit.locator('.unit-label')).toContainText('1 מתוך 7 מדרגות');
   await expect(unit.locator('.node').first()).toHaveClass(/node-done/);
   await expect(unit.locator('.node').nth(1)).toHaveClass(/node-current/);
 });
@@ -355,7 +360,7 @@ test('a stair that was done before mastery checks stays done, and is offered its
   // saved by an older version: two practice lessons made a stair done then
   await open(page, '#/', student('7', { path: { signed: { parts: { 1: 2, 2: 1 }, reviews: 0, jumped: 0 } } }));
   const unit = page.locator('.unit').first();
-  await expect(unit.locator('.unit-label')).toContainText('1 מתוך 6 מדרגות');
+  await expect(unit.locator('.unit-label')).toContainText('1 מתוך 7 מדרגות');
   await expect(unit.locator('.node').first()).toHaveClass(/node-done/);
   await unit.locator('.node').first().click();
   await expect(page.locator('.node-card')).toContainText('לפני שהיו בדיקות שליטה');
@@ -386,4 +391,71 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
   await expect(nodes.nth(3)).toHaveClass(/node-locked/);
   // the halfway chest opens with every stair up to it done, as the store awards it
   await expect(unit.getByRole('button', { name: /^תיבת אוצר\. נפתחת/ })).toBeVisible();
+});
+
+// CLASSROOM-6: the class writes an expression constant-first ("−31 − 2x"). On expr:3 the two boxes typed the other way
+// round count as right: the feedback is the right-answer one with no red cross, a quiet note (read politely by a screen
+// reader) says which box holds the coefficient, and the record has a right answer and no misconception.
+test('a constant-first expression on expr:3 counts as right, with a note on the boxes', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/expr/3', student('7'), (x) => x.form === 'lin' && /^ex3[bt]?:/.test(x.key) && x.answer.k !== x.answer.c && x.answer.k !== 0 && x.answer.c !== 0);
+  await page.locator('#slot-k').click();
+  await type(page, it.answer.c);
+  await page.locator('#slot-c').click();
+  await type(page, it.answer.k);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
+  await expect(page.locator('section.fb-retry, section.fb-reveal')).toHaveCount(0);
+  const note = page.locator('.answer-swap');
+  await expect(note).toBeVisible();
+  await expect(note).toHaveAttribute('role', 'status');
+  await expect(note).toContainText('המקדם של');
+  await expect(note).toContainText('נכתב בתיבה הראשונה');
+  await expectNoSidewaysScroll(page);
+  await expect.poll(async () => (await saved(page)).learn.skills['expr:3']?.attempts?.length || 0).toBeGreaterThan(0);
+  const st = await saved(page);
+  expect(st.learn.skills['expr:3'].attempts.at(-1).ok).toBe(true);
+  expect(Object.keys(st.learn.miscon).filter((k) => k.startsWith('expr:3|'))).toEqual([]);
+  // the next exercise clears the note
+  await proceed(page);
+  await expect(note).toHaveCount(0);
+});
+
+// With a 0 box the two boxes are not the same expression in another order: x-terms that cancel (0x + 26) typed as 26 in
+// the x box is 26x, an x the expression no longer has, and 3x + 0 typed as 0 and 3 has lost its x. That is a wrong
+// answer, in red, with no note about the order of the boxes.
+test('on expr:3 a number typed in the x box when the x-terms cancel is wrong, with no swap note', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/expr/3', student('7'), (x) => x.form === 'lin' && /^ex3[bt]?:/.test(x.key) && (x.answer.k === 0) !== (x.answer.c === 0));
+  await page.locator('#slot-k').click();
+  await type(page, it.answer.c);
+  await page.locator('#slot-c').click();
+  await type(page, it.answer.k);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  await expect(page.locator('section.fb-good')).toHaveCount(0);
+  await expect(page.locator('.answer-swap')).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+  await expect.poll(async () => (await saved(page)).learn.skills['expr:3']?.attempts?.length || 0).toBeGreaterThan(0);
+  expect((await saved(page)).learn.skills['expr:3'].attempts.at(-1).ok).toBe(false);
+});
+
+// CURRICULUM-10: an angle check draws its numbers in the figure only (a triangle between parallels, a bisector, a split
+// angle), so on the smallest phone the drawing must open readable with the question and the keypad, and nothing scrolls
+// sideways
+test('an angles:4 mastery check shows its drawing, the question and the keypad on both phones', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/angles/4?kind=check&purpose=mastery', student('7'), (x) => x.fig?.type === 'geo' && /^an4[tb]:/.test(x.key));
+  const fig = page.locator('.lesson-main svg.figure.geo');
+  await expect(fig).toBeVisible();
+  expect((await fig.boundingBox()).height, 'the drawing is at least 150px tall').toBeGreaterThanOrEqual(150);
+  await expect(page.locator('#qtext')).toBeVisible();
+  await expect(page.locator('#qtext')).toContainText('המסומנת');
+  await expect(page.locator('.keypad')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'בדיקה', exact: true })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  // the figure carries the numbers: the question names none, and the drawing says them to a screen reader
+  expect(it.text.replace(/\$[^$]*\$/g, '')).not.toMatch(/\d/);
+  await expect(fig).toHaveAttribute('aria-label', /\d+°/);
+  // a check: no hint, and a right answer is taken
+  await expect(page.getByRole('button', { name: 'רמז' })).toHaveCount(0);
+  await answer(page, true);
+  await expect(page.locator('section.fb-good')).toBeVisible();
 });

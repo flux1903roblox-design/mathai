@@ -198,6 +198,14 @@ export interface ExampleStep {
   eq?: string;
   /** An inequality this step states ('2*x - 3 > 5'): it must have exactly the example's solutions (`ray`), and so must `result`. */
   ineq?: string;
+  /**
+   * The operation this step does to both sides, as the class writes it after a slash ('-4x', '+3', ':2', '\\cdot 3';
+   * content/util.js opMark). It is shown at the end of the line it acts on (the problem's line, or the step before)
+   * once this step is shown (CLASSROOM-7); learn/eqLines.test.ts checks that doing it gives this step's result.
+   */
+  mark?: string;
+  /** The drawing again once this step is shown, with what was found written on it (CLASSROOM-8: the rectangle's lengths). */
+  fig?: FigSpec;
 }
 export interface WorkedExample {
   problem: Text; display?: string;
@@ -260,10 +268,16 @@ export interface Misconception {
  */
 export interface DiagModel<P = Record<string, number>> {
   params: (rnd: Rng) => P;
+  /**
+   * The params a check draws (CURRICULUM-10), when its practice params include one-step questions a guesser passes by
+   * copying the number or completing it to 180°: the two-step kinds only. Practice and the misconception searches keep
+   * `params`; a verification's probe tries these first (learn/items.ts).
+   */
+  testParams?: (rnd: Rng) => P;
   text: (p: P) => Text;
   display?: (p: P) => string;
   /** A drawing for the question, when the question needs one. */
-  fig?: (p: P) => FigSpec;
+  fig?: (p: P) => FigSpec | undefined;
   answer: (p: P) => number;
   /** The exact value when the answer is rounded (a root that is not whole): an answer within half a tenth of it is right. */
   exact?: (p: P) => number;

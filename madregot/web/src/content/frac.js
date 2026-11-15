@@ -229,7 +229,9 @@ export function mulDivSolution(p) {
   }
   return [
     `חילוק בשבר הוא כפל בהפכי שלו. ההפכי של $${fracTex(c, d)}$ הוא $${fracTex(d, c)}$.`,
-    `$${mulDivTex(p)} = ${fracTex(a, b)} \\cdot ${fracTex(d, c)} = \\frac{${a} \\cdot ${d}}{${b} \\cdot ${c}} = ${fracResult(a * d, b * c)}$`,
+    // two lines: the whole chain is wider than a phone (inline maths does not wrap)
+    `$${mulDivTex(p)} = ${fracTex(a, b)} \\cdot ${fracTex(d, c)} = \\frac{${a} \\cdot ${d}}{${b} \\cdot ${c}}$`,
+    `$= ${fracResult(a * d, b * c)}$`,
   ];
 }
 export const mulDivHint = (p) => (p.mul ? 'בכפל שברים לא צריך מכנה משותף: מונה כפול מונה, ומכנה כפול מכנה.' : `כמה פעמים $${fracTex(p.c, p.d)}$ נכנס ב־$${fracTex(p.a, p.b)}$? כופלים בהפכי של המחלק.`);

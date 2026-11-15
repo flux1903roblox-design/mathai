@@ -2,7 +2,8 @@
 // mixed numbers and thousands on a computer keyboard, the `precise` rule, the fraction answer form and its
 // "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks.
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote } from './util.js';
+import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, S, opMark, minusOp, undoOp, divOp, mulOp, unmark, unmarkLine, flipLine } from './util.js';
+import { holds } from '../learn/expr.ts';
 import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrect, partialOf, answerText } from './index.js';
 import { startLesson, answer } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
@@ -70,6 +71,52 @@ describe('reading numbers as students type them', () => {
     expect(typedRight(num(3.25), '3 1/4')).toBe(true);
     expect(typedRight(num(3.25), '13/4')).toBe(true);
     expect(readAnswer(num(1), { v: '' })).toBeNull();
+  });
+});
+
+describe('a signed number in the class\'s brackets (CLASSROOM-2)', () => {
+  it('S writes every number with its sign in brackets, and zero alone', () => {
+    expect(S(14)).toBe('(+14)');
+    expect(S(-9)).toBe('(-9)');
+    expect(S(1)).toBe('(+1)');
+    expect(S(-12)).toBe('(-12)');
+    expect(S(0)).toBe('0');
+  });
+  it('the bracketed form reads back as the same number', () => {
+    for (const n of [-12, -1, 0, 1, 12]) expect(parseNum(S(n).replace(/[()]/g, ''))).toBe(n);
+  });
+});
+
+describe('an equation line as the class writes it (CLASSROOM-7)', () => {
+  it('opMark puts the operation after a slash at the end of the line it acts on', () => {
+    expect(opMark('3x + 9 = 4x', '-3x')).toBe('3x + 9 = 4x \\qquad /{-3x}');
+    expect(opMark('x - 8 = 2', '+8')).toBe('x - 8 = 2 \\qquad /{+8}');
+    expect(opMark('2x = 18', ':2')).toBe('2x = 18 \\qquad /{:}2');
+    expect(opMark('-3x = 12', ':(-3)')).toBe('-3x = 12 \\qquad /{:}(-3)');
+    expect(opMark('\\frac{x}{2} = 5', '\\cdot 2')).toBe('\\frac{x}{2} = 5 \\qquad /{\\cdot}2');
+    expect(opMark('2x > 6', '·2')).toBe('2x > 6 \\qquad /{\\cdot}2');
+    // anything that is not an operation on both sides is refused
+    expect(() => opMark('x = 1', 'x')).toThrow();
+    expect(() => opMark('x = 1', '-')).toThrow();
+  });
+  it('the operations are written with their signs, a negative divisor in brackets', () => {
+    expect(minusOp('3x')).toBe('-3x');
+    expect(minusOp('-2x')).toBe('+2x');
+    expect(undoOp(5)).toBe('-5');
+    expect(undoOp(-7)).toBe('+7');
+    expect(divOp(4)).toBe(':4');
+    expect(divOp(-3)).toBe(':(-3)');
+    expect(mulOp(3)).toBe('\\cdot 3');
+    expect(mulOp(-2)).toBe('\\cdot (-2)');
+  });
+  it('the mark is not part of the equation: it is read without it, and left out when no line follows', () => {
+    expect(unmark('3x + 9 = 4x \\qquad /{-3x}')).toBe('3x + 9 = 4x');
+    expect(unmark('2x = 8')).toBe('2x = 8');
+    expect(holds('3x + 9 = 4x \\qquad /{-3x}', { x: 9 })).toBe(true);
+    expect(holds('-2x > 6 \\qquad /{:}(-2)', { x: -4 })).toBe(true);
+    expect(unmarkLine('מחברים: $y$ נעלם. $4x = 12 \\qquad /{:}4$')).toBe('מחברים: $y$ נעלם. $4x = 12$');
+    expect(flipLine('9')).toBe('$x = 9$ (הפכנו צדדים)');
+    expect(flipLine('-2', 'y')).toBe('$y = -2$ (הפכנו צדדים)');
   });
 });
 
@@ -263,6 +310,9 @@ describe('practice-only questions are kept out of checks', () => {
   // (eq:7; FUNC-4)
   // data: barRead (an axis label), listCount (a number of the list), groupsMc, buildBar and axisMc (data:1), compareMc
   // (data:2), buildPie and pieOk (data:3), scaleMc and the covered wheel (data:4)
+  // signed (CLASSROOM-1, -2, -3): the regrouped line of a chain (signed:1), which numbers have absolute value n (signed:2)
+  // and dividing with 0 and 1 (signed:3); expr (CLASSROOM-6): the regrouping by families, and a collecting question whose
+  // two families both cancel (0x + 0 = 0: typing 0 and 0 would always earn it)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
     'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'fu1f', 'fu1p', 'fu1s', 'fu2i', 'fu2d', 'fu3w', 'fu3s', 'fu4u', 'fu4f', 'fu4n', 'eq6t', 'eq7l',
     'da1r', 'da1c', 'da1g', 'da1b', 'da1a', 'da2c', 'da3b', 'da3o', 'da4s', 'da4w',
@@ -270,7 +320,14 @@ describe('practice-only questions are kept out of checks', () => {
     'st6o', 'st7c', 'st8w', 'st8l',
     // prob:1-3: the rain table's scale, a die that is not fair, the gambler, what a forecast says, (a, b) and (b, a), a
     // double against a mixed pair, two dice thrown many times
-    'pr1s', 'pr1f', 'pr2g', 'pr2f', 'pr3o', 'pr3s', 'pr3d'];
+    'pr1s', 'pr1f', 'pr2g', 'pr2f', 'pr3o', 'pr3s', 'pr3d',
+    'sn1r', 'sn2m', 'sn3z', 'ex3r', 'ex3z',
+    // the median bar whose answer is the number the question names (CURRICULUM-10's guessing test sets objects too)
+    'st2b',
+    // the class's split triangle S1 (CLASSROOM-11): its answer is 90° minus a printed number
+    'an3a',
+    // "is OC the bisector?", a choice among three reasons (CLASSROOM-10)
+    'an6c'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

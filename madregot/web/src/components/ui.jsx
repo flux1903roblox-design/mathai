@@ -6,7 +6,7 @@ import { RadioGroup } from '@base-ui/react/radio-group';
 import { Radio } from '@base-ui/react/radio';
 import { Progress as BaseProgress } from '@base-ui/react/progress';
 import { Delete, X, ArrowRightLeft, ArrowLeft, Check } from 'lucide-react';
-import { MathText } from './MathText.jsx';
+import { MathText, useFitLine } from './MathText.jsx';
 
 /** The chapter mark: a solid circle in the topic's colour with its number. */
 export function ChapterMark({ color, n, size = 'md' }) {
@@ -50,6 +50,22 @@ export function Box({ tone = 'note', title, children, live = false, className })
 }
 
 /**
+ * One step of a solution on its stair: numbered, a little further in than the one before (`i` counts from 0). The
+ * feedback's Steps, its first-step guide and Madi's solution use it, and so does the QA hook that measures every
+ * generated solution at 320 (screens/Lesson.jsx, e2e/solutions-fit.spec.js). Its maths fits the step (useFitLine).
+ */
+export function StairStep({ i, text }) {
+  const ref = useRef(null);
+  useFitLine(ref, text); // an expression wider than the step is set smaller, down to 15px, instead of scrolling
+  return (
+    <li className="stair-step" style={{ '--i': i }}>
+      <span className="stair-n" aria-hidden="true">{i + 1}</span>
+      <span className="stair-text" ref={ref}><MathText text={text} /></span>
+    </li>
+  );
+}
+
+/**
  * A worked solution. With `stepwise` it goes down like a staircase, one step at a time: each step on its own
  * stair (numbered, a little further in than the one before), and a button for the next.
  */
@@ -60,12 +76,7 @@ export function Steps({ steps, stepwise = false }) {
   return (
     <div className="stair-steps">
       <ol className="stair-list" aria-live="polite">
-        {steps.slice(0, n).map((s, i) => (
-          <li key={i} className="stair-step" style={{ '--i': i }}>
-            <span className="stair-n" aria-hidden="true">{i + 1}</span>
-            <span className="stair-text"><MathText text={s} /></span>
-          </li>
-        ))}
+        {steps.slice(0, n).map((s, i) => <StairStep key={i} i={i} text={s} />)}
       </ol>
       {n < steps.length && (
         <button type="button" className="stair-next" onClick={() => setN(n + 1)}>

@@ -5,11 +5,12 @@
 //   numberline  a whole number on a number line            answer: the number
 //   plot        a point [x, y] on the grid                 answer: [x, y], or any point in manip.quadrant (with manip.fixX / fixY: on that line)
 //   line        a line {m, b} built from two handles       answer: {m, b}
-//   angle       the turning ray's angle ∠AOB in degrees    answer: degrees
+//   angle       the turning ray's angle ∢AOB in degrees    answer: degrees
 //               with protractor: true (FUNC-1.2), mode 'build' { from?: 'right' | 'left', base?, start }: the angle between
 //               the fixed arm (on the 0 of the scale that starts on that side) and the ray, 5..175, answer the target;
 //               mode 'align' { arms: [θ1, θ2], start }: the protractor's turn in degrees (0..355), right when its baseline
 //               lies on an arm and the angle is under the half disc (two of the four turns that put it on an arm)
+//               with whole (CLASSROOM-10): the ray OC turns inside an angle AOB of `whole` degrees; answer: ∢AOC, half of it
 //   squares     the legs {a, b} of a right triangle        answer: {c} (any whole a, b with a² + b² = c²)
 //   bars        the height of the movable bar              answer: the value (manip.stat 'median': the median is the target)
 //   pins        several labelled markers on a number line  answer: the position of each, in order
@@ -907,6 +908,7 @@ export function manipPlain(it) {
     case 'angle':
       if (m.protractor && m.mode === 'align') return `[זווית ששוקיה בכיוונים ${num(m.arms[0])}° ו־${num(m.arms[1])}°; מסובבים את מד הזווית עד שקו האפס שלו על אחת השוקיים]`;
       if (m.protractor) return `[מד זווית על הקודקוד${m.letters?.vertex ? ` ${m.letters.vertex}` : ''}; השוק הקבועה על 0 של הסולם ש${m.from === 'left' ? 'מתחיל משמאל' : 'מתחיל מימין'}; מסובבים את הקרן]`;
+      if (m.whole) return `[זווית AOB של ${m.whole}° וקרן OC שמסתובבת בתוכה; OC צריכה לחצות את הזווית]`;
       return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
     case 'squares': return `[משולש ישר־זווית עם ריבועים על הצלעות; שטח הריבוע על היתר צריך להיות ${it.answer.c * it.answer.c}]`;
     case 'bars': return m.stat === 'median' ? `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; החציון צריך להיות ${m.target}]` : `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; הממוצע צריך להיות ${m.mean}]`;
@@ -969,7 +971,7 @@ export function manipWrong(it) {
     case 'angle':
       if (m.protractor && m.mode === 'align') return armTurns(m.arms).find((r) => !protAligned(m.arms, r));
       if (m.protractor) return a === 90 ? 95 : 180 - a;
-      return a < 175 ? a + 5 : a - 5;
+      return a < (m.whole ? m.whole - 5 : 175) ? a + 5 : a - 5;
     case 'bars': return a < m.max ? a + 1 : a - 1;
     case 'plot': return m.quadrant ? (m.fixX != null ? [a[0], -a[1]] : [-a[0], a[1]]) : [a[0] < (m.range || 6) ? a[0] + 1 : a[0] - 1, a[1]];
     case 'line': { const r = m.range || 6; return Math.abs(a.b + a.m + 1) <= r && a.m + 1 !== 0 ? { m: a.m + 1, b: a.b } : { m: a.m - 1, b: a.b }; }

@@ -2,7 +2,7 @@
  "angles": {
   "skills": {
    "angles:1": {
-    "discover": 10,
+    "discover": 12,
     "examples": [
      4,
      4
@@ -23,7 +23,8 @@
     "discover": 10,
     "examples": [
      4,
-     4
+     4,
+     3
     ],
     "misconceptions": [
      2,
@@ -37,12 +38,14 @@
     ]
    },
    "angles:3": {
-    "discover": 10,
+    "discover": 12,
     "examples": [
      4,
-     4
+     4,
+     3
     ],
     "misconceptions": [
+     2,
      2,
      2
     ],
@@ -56,7 +59,8 @@
     "discover": 10,
     "examples": [
      4,
-     4
+     4,
+     3
     ],
     "misconceptions": [
      2,
@@ -85,10 +89,44 @@
      2,
      1
     ]
+   },
+   "angles:6": {
+    "discover": 6,
+    "examples": [
+     4,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     1
+    ],
+    "objectives": 4,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "angles:7": {
+    "discover": 6,
+    "examples": [
+     4,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2
+    ]
    }
   },
-  "stairs": 5,
-  "steps": 139
+  "stairs": 7,
+  "steps": 196
  },
  "coord": {
   "skills": {
@@ -319,7 +357,7 @@
     "discover": 9,
     "examples": [
      4,
-     5
+     6
     ],
     "misconceptions": [
      2,
@@ -334,8 +372,9 @@
    "eq:4": {
     "discover": 9,
     "examples": [
+     6,
      5,
-     5
+     6
     ],
     "misconceptions": [
      3,
@@ -350,12 +389,19 @@
    "eq:5": {
     "discover": 9,
     "examples": [
-     5,
+     6,
+     8,
+     8,
      6
     ],
     "misconceptions": [
      2,
      2,
+     2,
+     1,
+     1,
+     1,
+     1,
      2
     ],
     "objectives": 3,
@@ -407,7 +453,7 @@
    }
   },
   "stairs": 7,
-  "steps": 214
+  "steps": 245
  },
  "expr": {
   "skills": {
@@ -451,13 +497,15 @@
     ]
    },
    "expr:3": {
-    "discover": 9,
+    "discover": 10,
     "examples": [
      3,
      4
     ],
     "misconceptions": [
      2,
+     2,
+     3,
      2,
      2
     ],
@@ -504,7 +552,7 @@
    }
   },
   "stairs": 5,
-  "steps": 143
+  "steps": 149
  },
  "frac": {
   "skills": {
@@ -1137,8 +1185,10 @@
  "signed": {
   "skills": {
    "signed:1": {
-    "discover": 10,
+    "discover": 13,
     "examples": [
+     3,
+     4,
      3,
      4
     ],
@@ -1148,32 +1198,35 @@
      2,
      2,
      1,
+     2,
      2
     ],
-    "objectives": 3,
+    "objectives": 4,
     "together": [
      2,
      1
     ]
    },
    "signed:2": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
      3,
      3
     ],
     "misconceptions": [
      3,
+     3,
+     3,
      3
     ],
-    "objectives": 3,
+    "objectives": 4,
     "together": [
      2,
      2
     ]
    },
    "signed:3": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
      4,
      4
@@ -1181,6 +1234,8 @@
     "misconceptions": [
      3,
      3,
+     2,
+     1,
      2
     ],
     "objectives": 3,
@@ -1207,8 +1262,10 @@
     ]
    },
    "signed:5": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
+     3,
+     4,
      3,
      4
     ],
@@ -1216,9 +1273,11 @@
      2,
      2,
      2,
+     2,
+     2,
      2
     ],
-    "objectives": 3,
+    "objectives": 4,
     "together": [
      2,
      2
@@ -1242,10 +1301,33 @@
      2,
      1
     ]
+   },
+   "signed:7": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     1
+    ],
+    "objectives": 4,
+    "together": [
+     2,
+     2
+    ]
    }
   },
-  "stairs": 6,
-  "steps": 168
+  "stairs": 7,
+  "steps": 237
  },
  "stats": {
   "skills": {
@@ -1409,7 +1491,7 @@
     "examples": [
      5,
      3,
-     5
+     6
     ],
     "misconceptions": [
      3,
@@ -1425,8 +1507,8 @@
     "discover": 9,
     "examples": [
      4,
-     5,
-     6
+     6,
+     7
     ],
     "misconceptions": [
      3,
@@ -1443,7 +1525,7 @@
     "discover": 10,
     "examples": [
      5,
-     5,
+     6,
      5
     ],
     "misconceptions": [
@@ -1460,8 +1542,8 @@
    "sys:4": {
     "discover": 9,
     "examples": [
-     6,
-     7
+     7,
+     9
     ],
     "misconceptions": [
      2,
@@ -1494,6 +1576,6 @@
    }
   },
   "stairs": 5,
-  "steps": 163
+  "steps": 170
  }
 }

@@ -80,6 +80,10 @@ const ADDED_STAIRS = {
   'eq:7': 'נוספה מדרגה חדשה ליחידה: משוואות עם מכנים ופרופורציה.',
   // curriculum stage 3 (DATA-5): three stairs after stats:5; the first of them says it for all three
   'stats:6': 'נוספו ליחידה שלוש מדרגות חדשות: טווח, שני מקורות מידע, ואינטרפולציה ואקסטרפולציה.',
+  // CLASSROOM-5: a student who had finished the unit's six stairs meets the seventh after them
+  'signed:7': 'נוספה מדרגה חדשה ליחידה: חזקות של מספרים מכוונים.',
+  // CLASSROOM-10: a student who had finished the unit's five stairs meets the bisector after them (the quadrilateral follows it)
+  'angles:6': 'נוספה מדרגה חדשה ליחידה: חוצה זווית.',
 };
 /** The line a stair's card adds while it is the current stair and the stair before it is done; computed, never stored. */
 export const addedStairNote = (n, path = {}) => (n?.kind === 'node' && n.state === 'current' && n.level > 1 && isDone(path, n.topic, n.level - 1)
@@ -220,6 +224,14 @@ export function unitCountText({ done, stairs, stages, of }) {
   return stairs === 1 ? 'מדרגה אחת' : `${stairs} מדרגות`;
 }
 
-/** The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. */
-export const chestAfter = (topic) => Math.ceil(TOPIC[topic].levels.length / 2);
+/**
+ * The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. A unit that grew
+ * keeps its chest where students opened it, since a chest once open (and the accessory it gave) is not locked again: the
+ * angles chest stays after the third stair (five stairs became seven, the bisector and the quadrilateral, CLASSROOM-10
+ * and -12), and so does the signed chest (six became seven with the powers, CLASSROOM-5). The same rule holds for the
+ * units the curriculum stages grew: equations (five became seven, eq:6-7, stage 5) and statistics (five became eight,
+ * stats:6-8, stage 3) keep their chest after the third stair.
+ */
+const CHEST_KEPT = { angles: 3, signed: 3, eq: 3, stats: 3 };
+export const chestAfter = (topic) => CHEST_KEPT[topic] ?? Math.ceil(TOPIC[topic].levels.length / 2);
 export const chestOpen = (topic, path = {}) => doneUpTo(topic, path) >= chestAfter(topic);

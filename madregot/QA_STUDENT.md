@@ -301,7 +301,11 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
   situation graph, the graph object in practice, the protractor and clock figures and the protractor object in its two
   modes (no stair asks with them before angles:8, so the scan reaches them through a class exam), data:1, data:4,
   prob:1, prob:3 and stats:7 teaching with the simulate and chart objects and the chart, outcomes and pair figures, both
-  objects in practice, and the guest rule (the banner's reason line, Topics' guest stairs, Rescue's functions row). No
+  objects in practice, and the guest rule (the banner's reason line, Topics' guest stairs, Rescue's functions row);
+  and since the classroom lane's merge its stairs: the teaching of signed:1, 2, 3, 5, 7 and angles:1, 3, 6, 7 with the
+  angle tool's whole angle, the lane's questions on their drawings with their solutions shown, the worked examples and
+  solving together of eq:1, eq:5, signed:7, angles:6 and angles:7, and the constant-first note on expr:3 (QA_MATRIX.md,
+  "The standing axe suite", has the list and what the scans found). No
   violation, light or dark. Nothing is left out of a scan (`NOT_JUDGED` is empty: KaTeX's MathML twin is read by screen readers and axe
   judges it correctly) and no rule is turned off (`color-contrast` cannot be at all). What axe found was fixed in the
   app: the count on the Topics bar (3.35:1, now on `--bar-fill`), screens with no heading, the question squeezed

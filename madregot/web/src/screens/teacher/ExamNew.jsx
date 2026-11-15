@@ -18,7 +18,7 @@ import { Flow } from '@/components/Screen.jsx';
 const LENGTH_TIME = { 6: 'כ־20 דקות', 10: 'כ־35 דקות', 14: 'כ־45 דקות, שיעור שלם' };
 const ASK = ['על אילו מדרגות יהיה המבחן?', 'כמה שאלות?', 'גרסה אחת או שתיים?'];
 
-/** The stair's own title: "השוואת מספרים". */
+/** The stair's own title: "השוואה וערך מוחלט". */
 export const stairTitle = (skill) => { const { topic, level } = parseSkill(skill); return TOPIC[topic]?.levels[level - 1]?.title || skill; };
 /** The note for a stair that could not be printed. */
 export const skippedNote = (skill) => `המדרגה "${stairTitle(skill)}" לא נכנסה למבחן: התרגילים בה הם גרירה על המסך, ואי אפשר להדפיס אותם.`;

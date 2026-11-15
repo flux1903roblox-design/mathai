@@ -24,6 +24,11 @@ export const ROADMAP_NEXT = 'S2';
 
 const range = (topic, from, to) => Array.from({ length: to - from + 1 }, (_, i) => `${topic}:${from + i}`);
 
+/**
+ * @typedef {{ hours: number, skills: string[], note?: string, later?: string, months?: number[] }} ProgrammePart
+ * @typedef {{ id: string, grade: '7' | '8', domain: string, title: string, months: number[], parts: ProgrammePart[] }} ProgrammeUnit
+ */
+/** @type {{ year: string, sources: Record<'7' | '8', string>, units: ProgrammeUnit[] }} */
 export const PROGRAMME = {
   year: 'תשפ״ז',
   sources: {
@@ -45,7 +50,8 @@ export const PROGRAMME = {
     { id: '7.6', grade: '7', domain: 'numbers', title: 'חזקות עם מעריך טבעי ושורש ריבועי חיובי', months: [12],
       parts: [
         { hours: 2, skills: ['pyth:1'] }, // squares and square roots, with estimating a root
-        { hours: 4, skills: [], note: 'חזקות עם מעריך טבעי וסדר פעולות עם חזקות', later: 'S2' },
+        // powers of directed numbers and order of operations with powers (the classroom lane, CLASSROOM-5)
+        { hours: 4, skills: ['signed:7'], note: 'חזקות עם מעריך טבעי וסדר פעולות עם חזקות' },
       ] },
     { id: '7.7', grade: '7', domain: 'algebra', title: 'משתנים וביטויים אלגבריים (כולל זהות, כינוס, חוק הפילוג)', months: [12, 1, 2, 3],
       parts: [{ hours: 25, skills: range('expr', 1, 5) }] },
@@ -63,7 +69,9 @@ export const PROGRAMME = {
     { id: '7.10', grade: '7', domain: 'geometry', title: 'זוויות (מדידה, חוצה זווית, צמודות, קודקודיות, במשולשים ובמרובע)', months: [9, 10, 11],
       parts: [
         { hours: 16, skills: range('angles', 1, 5) },
-        { hours: 4, skills: [], note: 'מדידה ואומדן של זוויות, חוצה זווית וזוויות במרובע', later: 'S5' },
+        // the bisector and the quadrilateral (the classroom lane, CLASSROOM-10 and -12)
+        { hours: 2, skills: ['angles:6', 'angles:7'], note: 'חוצה זווית וזוויות במרובע' },
+        { hours: 2, skills: [], note: 'מדידה ואומדן של זוויות', later: 'S5' },
       ] },
     { id: '7.11', grade: '7', domain: 'geometry', title: 'צורות חופפות במישור וטרנספורמציות', months: [11, 12],
       parts: [{ hours: 5, skills: [], note: 'הזזה, שיקוף וסיבוב, וצורות חופפות', later: 'S4' }] },

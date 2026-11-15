@@ -139,6 +139,15 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "misc": "whole-object"
   },
   {
+    "id": "expr:c4",
+    "topic": "expr",
+    "after": "expr:3",
+    "kind": "error",
+    "title": "המינוס שנשאר מאחור",
+    "minutes": 4,
+    "misc": "drop-minus"
+  },
+  {
     "id": "frac:c1",
     "topic": "frac",
     "after": "frac:1",
@@ -335,6 +344,24 @@ export const CHALLENGE_META: ChallengeMeta[] = [
     "kind": "literacy",
     "title": "שבוע קר בחרמון",
     "minutes": 6
+  },
+  {
+    "id": "signed:c4",
+    "topic": "signed",
+    "after": "signed:5",
+    "kind": "error",
+    "title": "המינוס שנעלם בסוף",
+    "minutes": 4,
+    "misc": "factor-sign"
+  },
+  {
+    "id": "signed:c5",
+    "topic": "signed",
+    "after": "signed:7",
+    "kind": "claim",
+    "title": "מינוס בחזקה",
+    "minutes": 4,
+    "misc": "pow-odd-pos"
   },
   {
     "id": "stats:c1",

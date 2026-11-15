@@ -26,9 +26,12 @@
 //   boundary       < and ≤ confused: the boundary itself taken or left (Tsamir & Almog 2001, "excluded values")
 //   (rounding "at most" up, 20.8 boxes → 21, is taught but not diagnosed: it is always one off, as a slip can be)
 //   move-no-flip   a number moved to the other side without changing its sign (Hall 2002)
-import { NZ, pick, shuffle, T, gcd, listMath } from './util.js';
+// Every solution is written as the class writes it on the board (CLASSROOM-7): the operation done to both sides after
+// a slash at the end of the line it acts on (util.js opMark, eq.js line), as in the equations topic.
+import { NZ, pick, shuffle, T, gcd, listMath, opMark, minusOp, undoOp, divOp, mulOp, flipLine, unmarkLine } from './util.js';
 import { linTex, sumTex } from './expr.js';
-import { diagOf } from './eq.js';
+import { lineTex } from './signedItems.js';
+import { diagOf, line, takeAway } from './eq.js';
 import { holds, rint, rnz, rpick } from '@/learn/expr.ts';
 
 const abs = Math.abs;
@@ -91,7 +94,7 @@ export const pctHint = ({ up, p }) => (up
 export function pctSolution({ up, p, x, N }) {
   const m = dec(mult(up, p)); const d = (x * p) / 100;
   return [
-    `נסמן ב־$x$ את המחיר לפני ה${up ? 'התייקרות' : 'הנחה'}. ${up ? `אחרי התייקרות של $${p}\\%$ המחיר הוא $${100 + p}\\%$ ממנו` : `אחרי הנחה של $${p}\\%$ נשארים $${100 - p}\\%$ ממנו`}: $${m}x = ${N}$`,
+    `נסמן ב־$x$ את המחיר לפני ה${up ? 'התייקרות' : 'הנחה'}. ${up ? `אחרי התייקרות של $${p}\\%$ המחיר הוא $${100 + p}\\%$ ממנו` : `אחרי הנחה של $${p}\\%$ נשארים $${100 - p}\\%$ ממנו`}: $${opMark(`${m}x = ${N}`, `:${m}`)}$`,
     `מחלקים את שני האגפים ב־$${m}$: $x = ${x}$`,
     `בדיקה: $${p}\\%$ מ־$${x}$ הם $${d}$, ו־$${x} ${up ? '+' : '-'} ${d} = ${N}$.`,
   ];
@@ -116,7 +119,7 @@ function pctEquation() {
         : `על ${ITEMS[n]} הייתה הנחה של $${p}\\%$, ואחריה הוא עולה $${N}$ ₪. $x$ הוא המחיר לפני ההנחה. איזו משוואה מתאימה?`,
       hint: 'האחוזים הם מהמחיר הישן, $x$. כמה אחוזים ממנו הוא המחיר החדש?',
       solution: [
-        `המחיר הישן הוא $100\\%$, והחדש $${up ? 100 + p : 100 - p}\\%$ ממנו: $${m}x = ${N}$, ולכן $x = ${x}$.`,
+        `המחיר הישן הוא $100\\%$, והחדש $${up ? 100 + p : 100 - p}\\%$ ממנו: $${opMark(`${m}x = ${N}`, `:${m}`)}$, ולכן $x = ${x}$.`,
         `בדיקה: $${p}\\%$ מ־$${x}$ הם $${d}$, ו־$${x} ${up ? '+' : '-'} ${d} = ${N}$.`,
         `ואילו $${N} ${up ? '-' : '+'} ${r} \\cdot ${N} = ${dec(pctOfNew(P))}$ לוקח את האחוזים מ־$${N}$, המחיר החדש, ולכן זה לא המחיר הישן.`,
       ],
@@ -144,7 +147,7 @@ export function togetherSolution({ cheap, p, x, o, T: total, q, n }) {
   const P = PAIRS[n]; const m = dec(mult(!cheap, p)); const s = dec(1 + mult(!cheap, p)); const d = (x * p) / 100;
   return [
     `נסמן ב־$x$ את המחיר של ${P.base}. ${P.other}: $${m}x$`,
-    `יחד: $x + ${m}x = ${total}$, כלומר $${s}x = ${total}$`,
+    `יחד: $x + ${m}x = ${total}$, כלומר $${opMark(`${s}x = ${total}`, `:${s}`)}$`,
     `מחלקים ב־$${s}$: $x = ${x}$`,
     ...(q ? [`${P.other}: $${m} \\cdot ${x} = ${o}$ ₪`] : []),
     `בדיקה: $${p}\\%$ מ־$${x}$ הם $${d}$, ו־$${x} ${cheap ? '-' : '+'} ${d} = ${o}$. יחד: $${x} + ${o} = ${total}$.`,
@@ -169,7 +172,10 @@ function hallsItem() {
       solution: [
         `נסמן ב־$x$ את הצופים באולם א׳. באולם ב׳: $${total} - x$.`,
         `עוברים $${r}x$ צופים: $${k}x = ${total} - x + ${r}x$`,
-        `מכנסים: $${dec(2 * (1 - p / 100))}x = ${total}$, ולכן $x = ${A}$.`,
+        // a long decimal line: its mark one quad away instead of two, so it fits a phone
+        line('מכנסים', `${k}x = ${total} - ${k}x`, `+${k}x`, '\\quad'),
+        line(`מוסיפים $${k}x$ לשני האגפים`, `${dec(2 * (1 - p / 100))}x = ${total}`, `:${dec(2 * (1 - p / 100))}`),
+        line(`מחלקים ב־$${dec(2 * (1 - p / 100))}$`, `x = ${A}`),
         ...(q ? [`באולם ב׳: $${total} - ${A} = ${B}$.`] : []),
         `בדיקה: עוברים $${m}$ צופים, ובכל אולם $${A - m}$.`,
       ],
@@ -217,8 +223,9 @@ export function substSolution(s) {
   const A = own + k * m; const B = k * b;
   return [
     `מציבים את $${explicitTex(s)}$ במשוואה השנייה, בסוגריים: $${into} = ${T(r)}$`,
-    `פותחים סוגריים ומכנסים: $${linTex(A, B, u)} = ${T(r)}$`,
-    abs(A) === 1 && A === 1 ? `${undo(B)}: $${u} = ${T(uv)}$` : `${undo(B)}: $${linTex(A, 0, u)} = ${T(r - B)}$, ולכן $${u} = ${T(uv)}$`,
+    line('פותחים סוגריים ומכנסים', `${linTex(A, B, u)} = ${T(r)}`, undoOp(B)),
+    line(undo(B), `${linTex(A, 0, u)} = ${T(r - B)}`, A === 1 ? null : divOp(A)),
+    ...(A === 1 ? [] : [line(`מחלקים ב־$${T(A)}$`, `${u} = ${T(uv)}`)]),
     `מציבים בחזרה: $${v} = ${at(m, b, uv)} = ${T(vv)}$`,
     `בדיקה במשוואה השנייה: $${combo(p, x, q, y)} = ${T(r)}$. הפתרון: $${pairTex(x, y)}$`,
   ];
@@ -245,7 +252,8 @@ function levelItem() {
     return {
       key: `sy2h:${display}`, text: 'פתרו את מערכת המשוואות.', display, form: 'pt', label: '', answer: [x, y],
       hint: `ישר אחד אופקי: עליו תמיד $y = ${T(y)}$. מציבים את זה במשוואה השנייה.`,
-      solution: [`מציבים $y = ${T(y)}$ במשוואה השנייה: $${T(y)} = ${linTex(m, b)}$`, m === 1 ? `${undo(b)}: $${T(y - b)} = x$` : `${undo(b)}: $${T(y - b)} = ${linTex(m, 0)}$, ולכן $x = ${T(x)}$`, `הפתרון: $${pairTex(x, y)}$. בדיקה: $${at(m, b, x)} = ${T(y)}$.`],
+      solution: [`מציבים $y = ${T(y)}$ במשוואה השנייה: $${opMark(`${T(y)} = ${linTex(m, b)}`, undoOp(b))}$`, line(undo(b), `${T(y - b)} = ${linTex(m, 0)}`, m === 1 ? null : divOp(m)),
+        ...(m === 1 ? [] : [line(`מחלקים ב־$${T(m)}$`, `${T(x)} = x`)]), flipLine(T(x)), `הפתרון: $${pairTex(x, y)}$. בדיקה: $${at(m, b, x)} = ${T(y)}$.`],
       diag: (u) => (isSwap(u, x, y) ? 'swap' : null),
     };
   }
@@ -321,7 +329,7 @@ function howMany2() {
   }
   if (kind === 'none') {
     let b2; do { b2 = b + NZ(-5, 5); } while (b2 === b || b2 === 0);
-    if (Math.random() < 0.5) return howMany(cases(first, `y = ${linTex(m, b2)}`), kind, [`משווים: $${linTex(m, b)} = ${linTex(m, b2)}$. מחסירים $${linTex(m, 0)}$ משני האגפים: $${T(b)} = ${T(b2)}$, וזה לא נכון.`, 'לשני הישרים אותו שיפוע וחיתוך שונה עם ציר $y$: הם מקבילים ולא נפגשים. אין פתרון.']);
+    if (Math.random() < 0.5) return howMany(cases(first, `y = ${linTex(m, b2)}`), kind, [line('משווים', `${linTex(m, b)} = ${linTex(m, b2)}`, minusOp(linTex(m, 0))), `${takeAway(linTex(m, 0))}: $${T(b)} = ${T(b2)}$, וזה לא נכון.`, 'לשני הישרים אותו שיפוע וחיתוך שונה עם ציר $y$: הם מקבילים ולא נפגשים. אין פתרון.']);
     return howMany(cases(first, `${pq(k * m, -k)} = ${T(-k * b2)}`), kind, [`מציבים $y = ${linTex(m, b)}$ במשוואה השנייה: $${linTex(k * m, 0)} ${-k < 0 ? '-' : '+'} ${abs(k)}(${linTex(m, b)}) = ${T(-k * b2)}$`, `פותחים סוגריים: $${T(-k * b)} = ${T(-k * b2)}$, וזה לא נכון. אין אף זוג שמקיים את שתיהן: הישרים מקבילים.`]);
   }
   return howMany(cases(first, `${pq(k * m, -k)} = ${T(-k * b)}`), kind, [`מציבים $y = ${linTex(m, b)}$ במשוואה השנייה: $${linTex(k * m, 0)} ${-k < 0 ? '-' : '+'} ${abs(k)}(${linTex(m, b)}) = ${T(-k * b)}$`, `פותחים סוגריים: $${T(-k * b)} = ${T(-k * b)}$, נכון לכל $x$.`, 'המשוואה השנייה היא הראשונה בכתיבה אחרת: זה אותו ישר, וכל נקודה עליו היא פתרון. אינסוף פתרונות.']);
@@ -386,12 +394,17 @@ export function elimSolution(e) {
   const { coef, c } = elimLeft(e);
   const m1 = r1.map((v) => v * mul);
   const lines = [];
-  if (k === 2) lines.push(`כופלים את המשוואה הראשונה ב־$${mul}$, כל איבר: $${rowTex(m1)}$. עכשיו המקדמים של $${gone}$ ${sub ? 'שווים' : 'נגדיים'}.`);
+  if (k === 2) lines.push(`כופלים כל איבר במשוואה הראשונה ב־$${mul}$: $${opMark(rowTex(r1), mulOp(mul))}$, ומקבלים $${rowTex(m1)}$. עכשיו המקדמים של $${gone}$ ${sub ? 'שווים' : 'נגדיים'}.`);
   const one = k === 2 ? 'המשוואה החדשה' : 'הראשונה';
-  if (!sub) lines.push(`מחברים את ${one} ואת השנייה: $${gone}$ נעלם. $${linTex(coef, 0, keep)} = ${T(c)}$`);
-  else lines.push(`מחסרים ${top === 1 ? `מ${one} את השנייה` : `מהשנייה את ${one}`}, כל אגף וכל איבר: $${gone}$ נעלם. $${linTex(coef, 0, keep)} = ${T(c)}$`);
-  if (coef !== 1) lines.push(`$${keep} = ${T(kv)}$`);
-  lines.push(`מציבים $${keep} = ${T(kv)}$ במשוואה הראשונה: $${sumTex([[a1 * kv, ''], [g1, gone]])} = ${T(c1)}$, ולכן $${gone} = ${T(gv)}$`);
+  const left = coef === 1 ? `${keep} = ${T(c)}` : opMark(`${linTex(coef, 0, keep)} = ${T(c)}`, divOp(coef));
+  if (!sub) lines.push(`מחברים את ${one} ואת השנייה: $${gone}$ נעלם. $${left}$`);
+  else lines.push(`מחסרים ${top === 1 ? `מ${one} את השנייה` : `מהשנייה את ${one}`}, כל אגף וכל איבר: $${gone}$ נעלם. $${left}$`);
+  if (coef !== 1) lines.push(line(`מחלקים ב־$${T(coef)}$`, `${keep} = ${T(kv)}`));
+  // the value put back in the first equation, and the other unknown found the same way
+  const known = a1 * kv;
+  lines.push(`מציבים $${keep} = ${T(kv)}$ במשוואה הראשונה: $${opMark(`${sumTex([[known, ''], [g1, gone]])} = ${T(c1)}`, undoOp(known))}$`);
+  lines.push(line(undo(known), `${linTex(g1, 0, gone)} = ${T(c1 - known)}`, g1 === 1 ? null : divOp(g1)));
+  if (g1 !== 1) lines.push(line(`מחלקים ב־$${T(g1)}$`, `${gone} = ${T(gv)}`));
   lines.push(`בדיקה בשנייה: $${combo(r2[0], x, r2[1], y)} = ${T(r2[2])}$. הפתרון: $${pairTex(x, y)}$`);
   return lines;
 }
@@ -419,7 +432,8 @@ function methodItem() {
   return {
     key: `sy3m:${elimShow(e)}`, text: `מה עושים כדי ש־$${e.gone}$ ייעלם?`, display: elimShow(e), form: 'mc', choices, answer: choices.findIndex((c) => c.ok),
     hint: `מסתכלים על המקדמים של $${e.gone}$: $${T(e.g1)}$ ו־$${T(e.g2)}$. מקדמים שווים מחסרים, נגדיים מחברים, ואם אין כאלה, כופלים קודם.`,
-    solution: [`${right}: המקדם של $${e.gone}$ נעשה $${zero}$.`, ...elimSolution(e).slice(0, e.k === 2 ? 2 : 1)],
+    // the solution as far as the unknown going; the line that ends there keeps no mark of a next step
+    solution: [`${right}: המקדם של $${e.gone}$ נעשה $${zero}$.`, ...elimSolution(e).slice(0, e.k === 2 ? 2 : 1).map((l, i, a) => (i === a.length - 1 ? unmarkLine(l) : l))],
     diag: () => null,
   };
 }
@@ -431,7 +445,7 @@ function howMany3() {
   const a = NZ(-5, 5); const b = NZ(-5, 5); const c = NZ(-9, 9); const k = pick([2, 3, -2]);
   let d = k * c; if (kind === 'none') d += NZ(-6, 6);
   const first = rowTex([a, b, c]); const second = rowTex([k * a, k * b, d]);
-  const times = `כופלים את $${first}$ ב־$${k}$, כל איבר: $${rowTex([k * a, k * b, k * c])}$.`;
+  const times = `כופלים כל איבר ב־$${k}$: $${opMark(first, mulOp(k))}$, ומקבלים $${rowTex([k * a, k * b, k * c])}$.`;
   return howMany(Math.random() < 0.5 ? cases(first, second) : cases(second, first), kind, kind === 'all'
     ? [times, 'זו בדיוק המשוואה השנייה. כל זוג שמקיים את האחת מקיים גם את השנייה: זה אותו ישר, ויש אינסוף פתרונות.']
     : [times, `אגף שמאל כמו במשוואה השנייה, ובאגף ימין $${T(k * c)}$ במקום $${T(d)}$. מחסרים ומקבלים $0 = ${T(d - k * c)}$, וזה לא נכון. אין פתרון: הישרים מקבילים.`]);
@@ -483,7 +497,9 @@ export function storySolution(st) {
   return [
     `נסמן ב־$x$ את ${storyName(st, 0)} וב־$y$ את ${storyName(st, 1)}: $x + y = ${n}$, וגם $${p}x + ${q}y = ${M}$.`,
     `מהראשונה $y = ${n} - x$. מציבים בשנייה, בסוגריים: $${p}x + ${q}(${n} - x) = ${M}$`,
-    `פותחים סוגריים: $${p}x + ${q * n} - ${q}x = ${M}$, כלומר $${linTex(p - q, 0)} = ${M - q * n}$, ולכן $x = ${x}$.`,
+    `פותחים סוגריים: $${p}x + ${q * n} - ${q}x = ${M}$, ומכנסים: $${opMark(`${linTex(p - q, q * n)} = ${M}`, `-${q * n}`)}$`,
+    line(`מחסירים $${q * n}$ משני האגפים`, `${linTex(p - q, 0)} = ${M - q * n}`, p - q === 1 ? null : divOp(p - q)),
+    ...(p - q === 1 ? [] : [line(`מחלקים ב־$${p - q}$`, `x = ${x}`)]),
     `$y = ${n} - ${x} = ${y}$.`,
     `בדיקה בסיפור: $${x} + ${y} = ${n}$, ו־$${p} \\cdot ${x} + ${q} \\cdot ${y} = ${M}$${s === 'legs' ? ' רגליים' : ' ₪'}.`,
     `${ask ? `שאלו על ${storyName(st, 1)}` : `שאלו על ${storyName(st, 0)}`}: $${ask ? y : x}$.`,
@@ -506,7 +522,7 @@ function sumDiffItem() {
     return {
       key: `sy4s:${s}:${d}:${q}`, text: `סכום של שני מספרים הוא $${s}$, וההפרש ביניהם $${d}$. מה המספר ה${q ? 'קטן' : 'גדול'}?`, form: 'num', answer: q ? b : a,
       hint: 'נסמנו את הגדול ב־$x$ ואת הקטן ב־$y$: $x + y$ הוא הסכום ו־$x - y$ ההפרש. מחברים את שתי המשוואות.',
-      solution: [`$x + y = ${s}$, וגם $x - y = ${d}$.`, `מחברים: $2x = ${s + d}$, ולכן $x = ${a}$.`, `$y = ${s} - ${a} = ${b}$.`, `בדיקה: $${a} + ${b} = ${s}$, ו־$${a} - ${b} = ${d}$.`],
+      solution: [`$x + y = ${s}$, וגם $x - y = ${d}$.`, `מחברים את המשוואות: $${opMark(`2x = ${s + d}`, ':2')}$`, line('מחלקים ב־$2$', `x = ${a}`), `$y = ${s} - ${a} = ${b}$.`, `בדיקה: $${a} + ${b} = ${s}$, ו־$${a} - ${b} = ${d}$.`],
       diag: diagOf(q ? b : a, { 'wrong-unknown': q ? a : b }),
     };
   }
@@ -519,7 +535,9 @@ function laundryItem() {
     key: `sy4l:${q}`, form: 'num', answer: q ? 3 : 2, unit: '₪', fixed: true,
     text: `רות שילמה $29$ ₪ על כביסה של $4$ מגבות ו־$7$ סדינים. במבצע של $20\\%$ הנחה היא שילמה $20$ ₪ על $5$ מגבות ו־$5$ סדינים. מה המחיר הרגיל לכביסה של ${q ? 'סדין' : 'מגבת'}?`,
     hint: 'נסמנו ב־$x$ את המחיר הרגיל למגבת וב־$y$ לסדין. במבצע משלמים $80\\%$ מהמחיר הרגיל.',
-    solution: ['$4x + 7y = 29$, ובמבצע $0.8(5x + 5y) = 20$.', 'מחלקים את השנייה ב־$0.8$: $5x + 5y = 25$, ואחר כך ב־$5$: $x + y = 5$.', 'מציבים $y = 5 - x$: $4x + 7(5 - x) = 29$, כלומר $35 - 3x = 29$, ולכן $x = 2$ ו־$y = 3$.', 'בדיקה: $4 \\cdot 2 + 7 \\cdot 3 = 29$, ו־$0.8(5 \\cdot 2 + 5 \\cdot 3) = 20$.', `${q ? 'סדין' : 'מגבת'}: $${q ? 3 : 2}$ ₪.`],
+    solution: ['$4x + 7y = 29$, ובמבצע $0.8(5x + 5y) = 20 \\qquad /{:}0.8$', 'מחלקים את השנייה ב־$0.8$: $5x + 5y = 25 \\qquad /{:}5$, ואחר כך ב־$5$: $x + y = 5 \\qquad /{-x}$',
+      'מחסירים $x$ משני האגפים: $y = 5 - x$, ומציבים בראשונה: $4x + 7(5 - x) = 29$', 'פותחים סוגריים ומכנסים: $35 - 3x = 29 \\qquad /{-35}$', 'מחסירים $35$ משני האגפים: $-3x = -6 \\qquad /{:}(-3)$', 'מחלקים ב־$-3$: $x = 2$, ולכן $y = 5 - 2 = 3$.',
+      'בדיקה: $4 \\cdot 2 + 7 \\cdot 3 = 29$, ו־$0.8(5 \\cdot 2 + 5 \\cdot 3) = 20$.', `${q ? 'סדין' : 'מגבת'}: $${q ? 3 : 2}$ ₪.`],
     diag: diagOf(q ? 3 : 2, { 'wrong-unknown': q ? 2 : 3 }),
   };
 }
@@ -582,10 +600,12 @@ export function ineqDraw(rnd, { half = false, strict = null, forms = [0, 0, 1, 2
   }
 }
 /** The worked solution down to x rel' B. */
-export function ineqSteps({ form, a, b, d, e, A, B, rel, sol }) {
-  const lines = [];
-  if (form === 2) lines.push(`${d > 0 ? `מחסירים $${linTex(d, 0)}$ משני האגפים` : `מוסיפים $${linTex(-d, 0)}$ לשני האגפים`}: $${linTex(A, b)} ${REL[rel]} ${T(e)}$`);
-  lines.push(`${undo(b)}: $${linTex(A, 0)} ${REL[rel]} ${T(e - b)}$`);
+export function ineqSteps({ form, b, d, e, A, B, rel, sol, show }) {
+  // the inequality's own line first, with the first operation after a slash, as on the board
+  const dx = linTex(d, 0);
+  const lines = [line('', show, form === 2 ? minusOp(dx) : undoOp(b))];
+  if (form === 2) lines.push(line(takeAway(dx), `${linTex(A, b)} ${REL[rel]} ${T(e)}`, undoOp(b)));
+  lines.push(line(undo(b), `${linTex(A, 0)} ${REL[rel]} ${T(e - b)}`, divOp(A)));
   lines.push(A > 0 ? `מחלקים את שני האגפים ב־$${A}$, מספר חיובי, והכיוון נשאר: $x ${REL[sol]} ${num(B)}$`
     : `מחלקים את שני האגפים ב־$${A}$, מספר שלילי, ולכן הופכים את הכיוון: $x ${REL[sol]} ${num(B)}$`);
   return lines;
@@ -664,7 +684,8 @@ export function countSolution(p) {
   const yes = solving(p.list, p.sol, p.B);
   const edge = Number.isInteger(p.B) ? (relHas(p.sol, p.B, p.B) ? ` גם $${T(p.B)}$ עצמו פותר, כי ב־$${REL[p.sol]}$ השוויון כלול.` : ` $${T(p.B)}$ עצמו לא פותר, כי ב־$${REL[p.sol]}$ השוויון לא כלול.`) : '';
   const last = p.ask === 'sum'
-    ? `הסכום: $${yes.map((v, i) => (i && v < 0 ? T(v, true) : T(v))).join(' + ')} = ${T(countAnswer(p))}$.`
+    // as the class writes signed numbers once the brackets are gone, -9 - 8 - 7, short enough for a phone
+    ? `הסכום: $${lineTex(yes)}$, ביחד $${T(countAnswer(p))}$.`
     : `סך הכול: $${yes.length}$.`;
   return [...ineqSteps(p), `מהמספרים ברשימה פותרים ${listMath(yes)}.${edge}`, last];
 }
@@ -784,8 +805,8 @@ export const atMostBugs = {
 export function atMostSolution({ s, w, P, W, n }) {
   const q = (W - P) / w; const [u, things] = UNITS[s];
   return [
-    `נסמן ב־$n$ את מספר ה${things}: $${P} + ${w}n \\le ${W}$`,
-    `מחסירים $${P}$ משני האגפים: $${w}n \\le ${W - P}$`,
+    `נסמן ב־$n$ את מספר ה${things}: $${opMark(`${P} + ${w}n \\le ${W}`, `-${P}`)}$`,
+    `מחסירים $${P}$ משני האגפים: $${opMark(`${w}n \\le ${W - P}`, `:${w}`)}$`,
     `מחלקים ב־$${w}$: $n \\le ${quotTex(W - P, w)}$`,
     Number.isInteger(q) ? `לכל היותר $${n}$ ${things}.` : `מספר ה${things} שלם: לכל היותר $${n}$. עם $${n + 1}$ כבר יוצא $${P} + ${w} \\cdot ${n + 1} = ${P + w * (n + 1)}$, יותר מ־$${W}$ ${u}.`,
   ];

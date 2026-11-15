@@ -22,7 +22,7 @@ export const META: Record<SkillId, StairMeta> = {
       },
       {
         "id": "one-angle",
-        "title": "השלימו ל־$180^\\circ$ רק את הזווית השכנה, ושכחו זווית נוספת על הישר"
+        "title": "הורידו מ־$180^\\circ$ רק זווית אחת, ושכחו זווית נוספת על הישר"
       }
     ],
     "transfer": true
@@ -51,6 +51,10 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "sum-360",
         "title": "השתמשו ב־$360^\\circ$ במקום ב־$180^\\circ$"
+      },
+      {
+        "id": "other-vertex",
+        "title": "חיברו ל־$180^\\circ$ שתי זוויות בקודקודים שונים"
       },
       {
         "id": "one-angle",
@@ -94,6 +98,46 @@ export const META: Record<SkillId, StairMeta> = {
       }
     ],
     "transfer": true
+  },
+  "angles:6": {
+    "title": "חוצה זווית",
+    "misconceptions": [
+      {
+        "id": "part-for-whole",
+        "title": "לקחו את החצי במקום הזווית כולה"
+      },
+      {
+        "id": "no-half",
+        "title": "לקחו את כל הזווית במקום חצי ממנה"
+      },
+      {
+        "id": "half-double-swap",
+        "title": "כפלו ב־$2$ במקום לחלק ב־$2$, או להפך"
+      },
+      {
+        "id": "sum-360",
+        "title": "השלימו ל־$360^\\circ$ במקום ל־$180^\\circ$"
+      }
+    ],
+    "transfer": false
+  },
+  "angles:7": {
+    "title": "סכום זוויות במרובע",
+    "misconceptions": [
+      {
+        "id": "quad-missed",
+        "title": "הורידו מ־$360^\\circ$ רק חלק מהזוויות הידועות (גם הישרה נחשבת)"
+      },
+      {
+        "id": "forgot-half",
+        "title": "שכחו לחלק לשתי הזוויות השוות"
+      },
+      {
+        "id": "wrong-total",
+        "title": "השלימו ל־$180^\\circ$, כמו במשולש, במקום ל־$360^\\circ$"
+      }
+    ],
+    "transfer": false
   },
   "coord:1": {
     "title": "קריאת נקודה",
@@ -409,6 +453,26 @@ export const META: Record<SkillId, StairMeta> = {
         "title": "רק האיבר הראשון שבסוגריים נכפל"
       },
       {
+        "id": "two-sides",
+        "title": "בהיקף נספרו רק שתי צלעות (חצי היקף)"
+      },
+      {
+        "id": "add-sides",
+        "title": "חיברו את הצלעות במקום לכפול"
+      },
+      {
+        "id": "wrong-total",
+        "title": "השתמשו בסכום הזוויות הלא נכון (במשולש $180^\\circ$, במרובע $360^\\circ$)"
+      },
+      {
+        "id": "drop-minus",
+        "title": "המינוס שלפני מספר נעלם"
+      },
+      {
+        "id": "divide-part",
+        "title": "רק חלק מהאיברים חולק ב־$2$"
+      },
+      {
         "id": "reversal",
         "title": "היחס נכתב הפוך"
       }
@@ -533,6 +597,14 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "drop-minus",
         "title": "המינוס שלפני איבר נעלם"
+      },
+      {
+        "id": "abs-add",
+        "title": "חיברו את המקדמים של $x$ כשהסימנים שונים, במקום לחסר"
+      },
+      {
+        "id": "sign",
+        "title": "הסכום של משפחת ה־$x$ יצא עם הסימן ההפוך"
       }
     ],
     "transfer": true
@@ -1255,6 +1327,10 @@ export const META: Record<SkillId, StairMeta> = {
         "title": "הפכו גם את המספר הראשון לחיובי (\"מינוס ומינוס זה פלוס\")"
       },
       {
+        "id": "drop-minus",
+        "title": "המינוס שלפני איבר נעלם"
+      },
+      {
         "id": "direction",
         "title": "זזו לכיוון ההפוך על הציר"
       }
@@ -1262,11 +1338,19 @@ export const META: Record<SkillId, StairMeta> = {
     "transfer": true
   },
   "signed:2": {
-    "title": "השוואת מספרים",
+    "title": "השוואה וערך מוחלט",
     "misconceptions": [
       {
         "id": "neg-compare",
         "title": "חשבו שבין שני מספרים שליליים, הרחוק יותר מאפס גדול יותר"
+      },
+      {
+        "id": "abs-keep-sign",
+        "title": "חישבו ערך מוחלט של מספר שלילי כאילו הוא נשאר שלילי ($\\lvert -7 \\rvert = -7$)"
+      },
+      {
+        "id": "opp-same",
+        "title": "כתבו את אותו מספר במקום הנגדי שלו"
       },
       {
         "id": "ignore-sign",
@@ -1285,6 +1369,14 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "add-sign",
         "title": "השתמשו בכלל הסימנים של חיבור, למשל $(-3) \\cdot (-4) = -12$"
+      },
+      {
+        "id": "div-zero",
+        "title": "חשבו שחילוק באפס נותן $0$ או את המספר עצמו (חילוק באפס לא מוגדר)"
+      },
+      {
+        "id": "zero-div",
+        "title": "חשבו ש־$0$ חלקי מספר לא מוגדר (התוצאה $0$)"
       },
       {
         "id": "neg-many",
@@ -1314,6 +1406,14 @@ export const META: Record<SkillId, StairMeta> = {
   "signed:5": {
     "title": "סוגריים",
     "misconceptions": [
+      {
+        "id": "factor-sign",
+        "title": "המינוס של המספר שלפני הסוגריים נעלם בסוף"
+      },
+      {
+        "id": "sign",
+        "title": "התשובה יצאה עם הסימן ההפוך"
+      },
       {
         "id": "minus-bracket",
         "title": "מינוס לפני סוגריים הפך רק את המספר הראשון"
@@ -1351,6 +1451,44 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "toward-zero",
         "title": "מיקמו שבר שלילי בצד הלא נכון של השלם"
+      }
+    ],
+    "transfer": true
+  },
+  "signed:7": {
+    "title": "חזקות של מספרים מכוונים",
+    "misconceptions": [
+      {
+        "id": "pow-neg-base",
+        "title": "קראו $-a^2$ כאילו כתוב $(-a)^2$: החזקה שייכת רק למספר, והמינוס נשאר בחוץ"
+      },
+      {
+        "id": "pow-odd-pos",
+        "title": "חשבו שמספר שלילי בחזקה יוצא תמיד חיובי (במעריך אי־זוגי התוצאה שלילית)"
+      },
+      {
+        "id": "pow-keep-sign",
+        "title": "השאירו את המינוס של הבסיס גם במעריך זוגי ($(-5)^2 = -25$)"
+      },
+      {
+        "id": "outer-minus",
+        "title": "התעלמו מהמינוס שלפני הסוגריים"
+      },
+      {
+        "id": "pow-times",
+        "title": "כפלו את הבסיס במעריך במקום כפל חוזר ($(-5)^2 = -10$)"
+      },
+      {
+        "id": "order",
+        "title": "חיסרו לפני הכפל (הסדר: חזקה, כפל, ואז חיסור)"
+      },
+      {
+        "id": "dec-places",
+        "title": "טעו במספר המקומות אחרי הנקודה ($(-0.3)^3 = -0.27$)"
+      },
+      {
+        "id": "num-only",
+        "title": "העלו בחזקה רק את המונה ($(-\\tfrac{3}{4})^2 = \\tfrac{9}{4}$)"
       }
     ],
     "transfer": true

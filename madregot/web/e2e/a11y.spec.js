@@ -9,13 +9,14 @@
 // the restore screen and the weekly summary; the tutor with its sheets, the photo check (a photo and a PDF page through
 // PhotoPrep) and the exams; the parents' area; the legal and landing pages; and every teacher screen, the demo included.
 // Last, the units merged after the scan was written: the functions unit (its graphs, the protractor and the clock),
-// the data and probability units (the simulate and chart objects and their figures) and the guest rule.
+// the data and probability units (the simulate and chart objects and their figures), the guest rule, and the classroom
+// lane (signed:7, the angle tool with a whole angle, angles:7, the class's word problems and their solutions).
 // The setups the other specs use too (the class, the teachers, the parent and the family devices, the class exam, the
 // landing pages) live in helpers.js and fakeServer.js.
 import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import {
-  NOW, open, openOn, student, livedIn, item, answer, proceed, proceedToNext, appReady, screenReady, DURABLE_DB,
+  NOW, open, openOn, student, livedIn, item, answer, type, proceed, proceedToNext, appReady, screenReady, DURABLE_DB,
   withServer, inClass, dressed, doneStairs, linkedWeek, reportWeek, backupFile, examPng, keyTeacher, ownedTeacher, openLanding, landingMetrics,
 } from './helpers.js';
 import {
@@ -407,8 +408,9 @@ test.describe('results', () => {
   });
 
   test('a mastery check passed: CheckDone, then a new colour', async ({ page }) => {
-    const last = student('7', { path: { angles: done([1, 2, 3, 4]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } } });
-    await open(page, '#/lesson/angles/5?kind=check&purpose=mastery', last);
+    // the angles unit's last stair (seven since the classroom lane's angles:6-7) completes it: a new colour
+    const last = student('7', { path: { angles: done([1, 2, 3, 4, 5, 6]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } } });
+    await open(page, '#/lesson/angles/7?kind=check&purpose=mastery', last);
     for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, true); await proceed(page); }
     await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
     await scan(page, 'CheckDone, passed');
@@ -430,8 +432,8 @@ test.describe('results', () => {
   test.describe('with motion', () => {
     test.use({ reducedMotion: 'no-preference' });
     test('a new colour while the maths burst plays (its canvas is hidden from screen readers)', async ({ page }) => {
-      const last = student('7', { path: { angles: done([1, 2, 3, 4]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } }, sound: true });
-      await open(page, '#/lesson/angles/5?kind=check&purpose=mastery', last);
+      const last = student('7', { path: { angles: done([1, 2, 3, 4, 5, 6]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['protractor-crown'], seen: ['protractor-crown'], earnedAt: { 'protractor-crown': '2026-10-20' } }, sound: true });
+      await open(page, '#/lesson/angles/7?kind=check&purpose=mastery', last);
       for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, true); await proceed(page); }
       await page.getByRole('button', { name: 'למפה' }).click();
       await expect(page.locator('canvas.math-burst')).toHaveCount(1);
@@ -1525,6 +1527,10 @@ const stepShape = (st) => `${st.kind}|${st.manip?.kind || ''}|${st.manip?.device
 /**
  * Walk a teaching stage to its end as a student does (a prediction chosen right, an object solved and checked),
  * scanning each step whose shape is new and each object once answered; then the stage's moment (StageDone).
+ * One walk a test: helpers.js open() sets the page's clock, and from a second open() in the same page the faked
+ * performance.now() runs ahead of the page's animation timeline by all the time since the first (Playwright replays
+ * the clock's calls into each new document), so every step would leave the screen that much later and a scan would
+ * read the step before. The walk also waits until the step on screen is the step it reads.
  */
 async function walkTeaching(page, route, state, what) {
   await open(page, route, state);
@@ -1533,6 +1539,8 @@ async function walkTeaching(page, route, state, what) {
   for (let i = 0; i < 24; i += 1) {
     await expect.poll(() => step(page)).toBeTruthy();
     await expect(page.locator('.sp-step')).toHaveCount(1);
+    // the step before leaves the screen first (AnimatePresence, mode "wait"): its place in the stage is its label
+    await expect.poll(async () => (await page.locator('.sp-step').getAttribute('aria-label')) === (await page.locator('.sp-progress').getAttribute('aria-valuetext'))).toBe(true);
     const st = await step(page);
     const shape = stepShape(st);
     if (!seen.has(shape)) { seen.add(shape); await scan(page, `${what}: a teaching step (${shape})`); }
@@ -1571,17 +1579,17 @@ async function scanObject(page, route, state, want, what) {
 }
 
 test.describe('the functions unit (stage 5)', () => {
-  test('func:1 and func:2 teaching, step by step: the situation graph and the graph drawn', async ({ page }) => {
+  test('func:1 teaching, step by step: the situation graph and the graph drawn', async ({ page }) => {
     const one = await walkTeaching(page, '#/learn/func/1/A', student('8'), 'func:1');
     expect([...one].some((s) => s.includes('|graph|')), 'func:1 teaches with the graph object').toBe(true);
     expect([...one].some((s) => s.endsWith('|sgraph')), 'and with the situation graph').toBe(true);
-    await walkTeaching(page, '#/learn/func/2/A', student('8'), 'func:2');
   });
 
-  test('func:3 and func:4 teaching, step by step', async ({ page }) => {
-    await walkTeaching(page, '#/learn/func/3/A', student('8'), 'func:3');
-    await walkTeaching(page, '#/learn/func/4/A', student('8'), 'func:4');
-  });
+  for (const level of [2, 3, 4]) {
+    test(`func:${level} teaching, step by step`, async ({ page }) => {
+      await walkTeaching(page, `#/learn/func/${level}/A`, student('8'), `func:${level}`);
+    });
+  }
 
   test('the graph object in practice: a story drawn, and a table drawn', async ({ page }) => {
     await scanObject(page, '#/lesson/func/1?part=1', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'graph' && it.answer?.mode === 'shape', 'the graph object (a story)');
@@ -1638,15 +1646,21 @@ test.describe('the functions unit (stage 5)', () => {
 });
 
 test.describe('the data and probability units (stage 3)', () => {
-  test('data:4 and prob:3 teaching, step by step: the simulate object run (a spinner, two dice)', async ({ page }) => {
+  test('data:4 teaching, step by step: the simulate object run (a spinner)', async ({ page }) => {
     const four = await walkTeaching(page, '#/learn/data/4/A', student('7'), 'data:4');
     expect([...four].some((s) => s.includes('|simulate|')), 'data:4 teaches with the simulate object').toBe(true);
+  });
+
+  test('prob:3 teaching, step by step: the simulate object run (two dice)', async ({ page }) => {
     const three = await walkTeaching(page, '#/learn/prob/3/A', student('8'), 'prob:3');
     expect([...three].some((s) => s.includes('|simulate|dice2')), 'prob:3 teaches with two dice').toBe(true);
   });
 
-  test('data:1 and prob:1 teaching, step by step: charts and the outcomes table', async ({ page }) => {
+  test('data:1 teaching, step by step: charts', async ({ page }) => {
     await walkTeaching(page, '#/learn/data/1/A', student('7'), 'data:1');
+  });
+
+  test('prob:1 teaching, step by step: the outcomes table', async ({ page }) => {
     await walkTeaching(page, '#/learn/prob/1/A', student('8'), 'prob:1');
   });
 
@@ -1747,5 +1761,160 @@ test.describe('the guest rule (stage 5)', () => {
     await row.getByRole('checkbox', { name: 'מבוא לפונקציות (מה שלומדים בכיתה ז׳)' }).check();
     await expect(row.locator('.rescue-topic-count')).toHaveText('1/1');
     await scan(page, 'Rescue, the functions row chosen');
+  });
+});
+
+// ---------------------------------------------------------------- the classroom lane (merged after the scan above)
+// The signed unit taught in the book's order (chains, absolute value and opposites, dividing with 0 and 1, brackets
+// inside brackets) with its seventh stair, powers (signed:7); the angle tool with a whole angle (the bisector, angles:6)
+// and the quadrilateral (angles:7); the two-step angle questions on their drawings (three angles on a line, the fan,
+// three lines, a bisector at a crossing, the split triangle, a triangle between parallels); the class's word problems on
+// eq:5 (the rectangle, the transfer table, angles with x), each solution written as the class writes it (the slash
+// marks, StairStep); the worked examples with the operation after a slash and solving together; and the constant-first
+// note on expr:3.
+
+/** A wrong answer, "try again", then a second miss (the solution shown), or the right answer where no wrong choice is left. */
+async function missTwice(page) {
+  await answer(page, false);
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  await proceed(page);
+  const it = await item(page);
+  const left = it.form !== 'mc' || await page.evaluate((a) => [...document.querySelectorAll('.choice')].some((el, i) => i !== a && !el.disabled), it.answer);
+  await answer(page, !left);
+  await expect(page.locator(left ? 'section.fb-reveal' : 'section.fb-good')).toBeVisible();
+  if (await page.locator('section.fb-folded').count()) await page.locator('section.fb-reveal').getByRole('button', { name: 'הפתרון', exact: true }).click();
+}
+
+/** Every worked example of a stair (stage B), each scanned as it opens and with all its steps shown. */
+async function walkExamples(page, route, state, what) {
+  await open(page, route, state);
+  for (let e = 0; e < 6; e += 1) {
+    await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+    if (e === 0) await scan(page, `${what}: a worked example, before its first step`);
+    while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
+    await expect(page.locator('.worked .lm-actions.has-good')).toBeVisible();
+    await scan(page, `${what}: worked example ${e + 1}, every step shown`);
+    const go = page.getByRole('button', { name: /לדוגמה הבאה|לפתור יחד/ });
+    if ((await go.textContent()).includes('לפתור')) break;
+    await go.click();
+  }
+}
+
+/** The first problem solved together (stage C): its first step, a wrong move with its hint, then the last step typed. */
+async function walkTogether(page, route, state, what) {
+  const plain = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 1e6) / 1e6));
+  await open(page, route, state);
+  await expect(page.locator('.together')).toBeVisible();
+  await scan(page, `${what}: solving together, the first step`);
+  let missed = false;
+  for (let k = 0; k < 8; k += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotGuided)).toBeTruthy();
+    const gd = await page.evaluate(() => window.__madregotGuided);
+    if (gd.final) {
+      await scan(page, `${what}: solving together, the last step to type`);
+      await page.locator('.tg-input').fill(plain(gd.final.answer));
+      await page.getByRole('button', { name: 'בדיקה' }).click();
+      await expect(page.getByText('פתרתם את הצעד האחרון לבד')).toBeVisible();
+      await scan(page, `${what}: solving together, solved`);
+      return;
+    }
+    const ok = gd.step.choices.findIndex((c) => c.ok);
+    if (!missed) {
+      missed = true;
+      await page.locator('.tg-step .ls-choice').nth(ok === 0 ? 1 : 0).click();
+      await page.locator('.lm-check').click();
+      await expect(page.locator('.together .lm-actions.has-warm')).toBeVisible();
+      await scan(page, `${what}: solving together, a wrong move and what it says`);
+    }
+    const before = gd.step.prompt;
+    await page.locator('.tg-step .ls-choice').nth(ok).click();
+    await page.locator('.lm-check').click();
+    await page.locator('.lm-actions.has-good .sp-next').click();
+    await expect.poll(() => page.evaluate(() => (window.__madregotGuided?.final ? 'final' : window.__madregotGuided?.step?.prompt))).not.toBe(before);
+  }
+  throw new Error(`${what}: solving together did not reach its last step`);
+}
+
+test.describe('the classroom lane', () => {
+  test('angles:6 teaching, step by step: the angle tool with a whole angle', async ({ page }) => {
+    const six = await walkTeaching(page, '#/learn/angles/6/A', student('7'), 'angles:6');
+    expect([...six].some((s) => s.includes('|angle|')), 'angles:6 teaches with the angle tool').toBe(true);
+  });
+
+  // angles:7 (the quadrilateral), signed:7 (powers), and the stairs whose teaching the lane rewrote: signed:1 (chains, the
+  // arrows and the absolute value, opposites), signed:2 (absolute value), signed:3 (dividing with 0 and 1), signed:5
+  // (brackets inside brackets), angles:1 (what צמודות means) and angles:3 (the split triangle)
+  for (const [topic, level] of [['angles', 7], ['signed', 7], ['signed', 1], ['signed', 2], ['signed', 3], ['signed', 5], ['angles', 1], ['angles', 3]]) {
+    test(`${topic}:${level} teaching, step by step`, async ({ page }) => {
+      await walkTeaching(page, `#/learn/${topic}/${level}/A`, student('7'), `${topic}:${level}`);
+    });
+  }
+
+  test('the angle tool with a whole angle, checked while the ray is not yet the bisector', async ({ page }) => {
+    await open(page, '#/learn/angles/6/A', student('7'));
+    await expect(page.locator('.step-player')).toBeVisible();
+    await page.locator('.sp-next').click(); // the first step says what a bisector is
+    const canvas = page.locator('.ls-explore .manip-angle.whole .manip-canvas');
+    await expect(canvas).toBeVisible();
+    await canvas.focus();
+    await page.keyboard.press('ArrowLeft');
+    await page.locator('.lm-check').click();
+    await expect(page.locator('.lm-actions.has-warm')).toBeVisible();
+    await scan(page, 'the angle tool with a whole angle, not yet');
+  });
+
+  for (const [route, want, what] of [
+    ['#/lesson/angles/6', (it) => /^an6/.test(it.key) && it.fig?.type === 'geo' && it.form === 'num', 'a bisector question on its drawing'],
+    ['#/lesson/angles/6', (it) => /^an6c:/.test(it.key), 'is the ray a bisector? (the worksheet\'s question)'],
+    ['#/lesson/angles/7', (it) => /^an7/.test(it.key) && it.fig?.type === 'geo', 'a quadrilateral question on its drawing'],
+    ['#/lesson/angles/1', (it) => /^an1s:/.test(it.key), 'three angles on a line'],
+    ['#/lesson/angles/1', (it) => /^an1f:/.test(it.key), 'the fan of rays'],
+    ['#/lesson/angles/2', (it) => /^an2t:/.test(it.key), 'three lines through a point'],
+    ['#/lesson/angles/2', (it) => /^an2b:/.test(it.key), 'a bisector at a crossing'],
+    ['#/lesson/angles/3', (it) => /^an3[ab]:/.test(it.key), 'the split triangle'],
+    ['#/lesson/angles/4', (it) => /^an4t:/.test(it.key), 'a triangle between parallel lines'],
+    ['#/lesson/signed/7', (it) => /^sn7:/.test(it.key) && it.form === 'num', 'a power of a directed number'],
+    ['#/lesson/signed/1', (it) => /^sn1c:/.test(it.key), 'a chain of five bracketed numbers'],
+    ['#/lesson/signed/1', (it) => /^sn1r:/.test(it.key), 'the regrouped line (a choice)'],
+    ['#/lesson/signed/2', (it) => /^sn2a:/.test(it.key), 'absolute values'],
+    ['#/lesson/signed/3', (it) => /^sn3z:/.test(it.key), 'dividing with 0 and 1 (a choice with "לא מוגדר")'],
+    ['#/lesson/signed/5', (it) => /^sn5[nd]:/.test(it.key), 'brackets inside brackets'],
+    ['#/lesson/expr/3', (it) => /^ex3/.test(it.key) && it.form === 'lin', 'collecting the class\'s way'],
+    ['#/lesson/expr/3', (it) => /^ex3r:/.test(it.key), 'the families in order (a choice)'],
+    ['#/lesson/eq/1', (it) => /^eq1:/.test(it.key), 'an equation, its lines with the slash marks'],
+    ['#/lesson/eq/5', (it) => /^eq5r:/.test(it.key), 'the class\'s rectangle'],
+    ['#/lesson/eq/5', (it) => /^eq5[xy]:/.test(it.key), 'the transfer table'],
+    ['#/lesson/eq/5', (it) => /^eq5g:/.test(it.key), 'angles with x'],
+  ]) {
+    test(`${what}, and its solution written as the class writes it`, async ({ page }) => {
+      // answer(page, false) types 90: a question whose answer is 90 would be answered right
+      await openOn(page, route, student('7'), (it) => want(it) && it.answer !== 90);
+      await scan(page, what);
+      await missTwice(page);
+      await scan(page, `${what}: the solution shown`);
+    });
+  }
+
+  // stage B and stage C of the stairs the lane wrote or rewrote: the worked examples (an equation's operation after a
+  // slash on the line it acts on, a figure drawn again with what a step found) and solving together
+  for (const [topic, level] of [['eq', 1], ['eq', 5], ['signed', 7], ['angles', 6], ['angles', 7]]) {
+    test(`${topic}:${level}: the worked examples, every step shown`, async ({ page }) => {
+      await walkExamples(page, `#/learn/${topic}/${level}/B`, student('7'), `${topic}:${level}`);
+    });
+    test(`${topic}:${level}: solving together, a wrong move, then the last step typed`, async ({ page }) => {
+      await walkTogether(page, `#/learn/${topic}/${level}/C`, student('7'), `${topic}:${level}`);
+    });
+  }
+
+  test('a constant-first expression on expr:3: right, with the note on the boxes', async ({ page }) => {
+    const it = await openOn(page, '#/lesson/expr/3', student('7'), (x) => x.form === 'lin' && /^ex3[bt]?:/.test(x.key) && x.answer.k !== x.answer.c && x.answer.k !== 0 && x.answer.c !== 0);
+    await page.locator('#slot-k').click();
+    await type(page, it.answer.c);
+    await page.locator('#slot-c').click();
+    await type(page, it.answer.k);
+    await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+    await expect(page.locator('section.fb-good')).toBeVisible();
+    await expect(page.locator('.answer-swap')).toBeVisible();
+    await scan(page, 'expr:3, a constant-first answer and its note');
   });
 });

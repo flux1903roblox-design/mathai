@@ -25,15 +25,21 @@ import { protractorFig, clockFig } from './content/geo';
 import { makeItem, figPlain } from '@/content/index.js';
 import { seeded } from './expr';
 import { CHALLENGE_TASKS as CHALLENGES } from './challenges/all';
+// @ts-ignore: plain JS
+import { rectStory, angleEqStory, rectFig } from '@/content/eq.js';
+// @ts-ignore: plain JS
+import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from '@/content/angleItems.js';
+// @ts-ignore: plain JS
+import { bisItem, bisCheckItem, quadItem } from '@/content/angles67.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
 const CONTENT = await loadAllContent();
 
 type Pt = [number, number];
-type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[] };
+type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[]; view?: [number, number]; pad?: number | [number, number]; label?: string };
 
-const TOPICS = { angles: 5, pyth: 5 } as Record<string, number>;
+const TOPICS = { angles: 7, pyth: 5 } as Record<string, number>;
 
 const steps = () => Object.entries(TOPICS).flatMap(([topic, n]) => Array.from({ length: n }, (_, i) => `${topic}:${i + 1}`))
   .flatMap((skill) => contentOf(skill)!.discover.map((st, i) => ({ skill, i, st })));
@@ -819,5 +825,356 @@ describe('the data figures (DATA-3)', () => {
     expect(placed[0].x).toBeGreaterThan(22); // running inward from 0 (at x = 22)
     expect(placed[1].x).toBe(160); // a word between the ends is centred on its point
     expect(placed[2].x).toBeLessThan(298); // and from 1 (at x = 298)
+  });
+});
+
+// CLASSROOM-8: the class's rectangle and angles with x. A side may carry an expression ('x + 5') or a found length
+// ('16 ס״מ'); equal sides carry the same number of ticks, and they are opposite sides: as long as each other and sharing
+// no corner. The angles with x are drawn to their size, each with its expression on its arc.
+describe('the class\'s word-problem drawings', () => {
+  const ticked = (f: Geo) => {
+    const groups: Record<number, any[]> = {};
+    (f.segs || []).forEach((sg: any) => { if (sg.ticks) (groups[sg.ticks] ||= []).push(sg); });
+    return groups;
+  };
+  it('a rectangle\'s ticks sit on opposite, equal sides, and its expression labels are drawn', () => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = rectStory(); const f = it.fig as Geo;
+      const groups = ticked(f);
+      expect(Object.keys(groups).sort(), it.key).toEqual(['1', '2']);
+      Object.values(groups).forEach(([a, b]) => {
+        expect([a.a, a.b].some((k) => k === b.a || k === b.b), `${it.key}: ticked sides share a corner`).toBe(false);
+        expect(dist(f.pts[a.a], f.pts[a.b])).toBeCloseTo(dist(f.pts[b.a], f.pts[b.b]), 9);
+      });
+      const html = renderToStaticMarkup(createElement(Figure, { fig: f }));
+      expect(html).not.toMatch(/NaN|undefined|Infinity/);
+      const labels = (f.segs || []).map((sg: any) => sg.label).filter(Boolean);
+      expect(labels).toContain('x');
+      expect(labels.some((l: string) => /^x \+ \d$|^2x$/.test(l)), it.key).toBe(true);
+    }
+    // the found lengths written back, in proportion and right to left
+    const done = rectFig('16 ס״מ', '11 ס״מ', { long: 16 / 11 }) as Geo;
+    expect(dist(done.pts._A, done.pts._B) / dist(done.pts._B, done.pts._C)).toBeCloseTo(16 / 11, 9);
+    expect(renderToStaticMarkup(createElement(Figure, { fig: done }))).toContain('direction="rtl"');
+  });
+  it('angles with x are drawn to their size, each with its expression on its arc', () => {
+    for (let i = 0; i < 300; i += 1) {
+      const it = angleEqStory(i % 2 ? 3 : 4); const f = it.fig as Geo;
+      const [, n, cs, es] = String(it.key).split(':'); const c = cs.split(',').map(Number); const e = es.split(',').map(Number);
+      const total = Number(n) === 3 ? 180 : 360; const x = (total - e.reduce((a, b) => a + b, 0)) / c.reduce((a, b) => a + b, 0);
+      (f.angles || []).forEach((g: any, k: number) => {
+        expect(geoSweep(f.pts, g).deg, `${it.key} at ${g.at}`).toBeCloseTo(c[k] * x + e[k], 6);
+        expect(g.text, it.key).toMatch(/^\d*x( [+−] \d+°)?$/);
+      });
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f }))).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+});
+
+// CURRICULUM-10: the two-step angle questions draw their numbers in the figure only. 200 of each kind: the drawing has no
+// letter (no text names a point), every given angle is drawn its size and is a number of the key, the '?' is drawn the
+// size of the answer, a bisector's two halves are equal, and no arc marks a reflex angle.
+describe('the two-step angle questions are drawn to size', () => {
+  const kinds = [
+    ['three angles on a line', straightThree, (k: string[]) => [Number(k[1]), Number(k[2])]],
+    ['two adjacent angles and their difference', linearPairDiff, () => []],
+    ['three lines through one point', threeLines, (k: string[]) => [Number(k[1]), Number(k[2])]],
+    ['a bisector after a crossing', crossBisect, (k: string[]) => [Number(k[1])]],
+    ['a triangle between parallel lines', parallelTriangle, (k: string[]) => [Number(k[1]), Number(k[2])]],
+    ['a bisector after parallel lines', parallelBisect, (k: string[]) => [Number(k[1])]],
+  ] as const;
+  it.each(kinds)('%s', (_name, make, givens) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make(); const f = it.fig as Geo;
+      expect(f.type, it.key).toBe('geo');
+      expect(Object.keys(f.pts).filter((k) => !k.startsWith('_')), `${it.key}: a letter no text names`).toEqual([]);
+      const shown: number[] = []; const asked: number[] = []; const halves: number[] = [];
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(f.pts, g);
+        expect(deg, `${it.key}: the arc at ${g.at} spans ${deg.toFixed(1)}°`).toBeLessThanOrEqual(180.0001);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) { expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6); shown.push(Number(m[1])); }
+        if (g.target) { expect(g.text, it.key).toBe('?'); asked.push(deg); }
+        if (g.n === 2) halves.push(deg);
+      }
+      expect(asked, it.key).toHaveLength(1);
+      expect(Math.abs(asked[0] - it.answer), `${it.key}: the '?' is drawn ${asked[0].toFixed(1)}°, the answer is ${it.answer}°`).toBeLessThan(0.6);
+      expect(shown.sort((a, b) => a - b), it.key).toEqual([...givens(String(it.key).split(':'))].sort((a, b) => a - b));
+      if (halves.length) { expect(halves, it.key).toHaveLength(2); expect(Math.abs(halves[0] - halves[1]), it.key).toBeLessThan(0.01); }
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+  it('reads a drawing in words, so the tutor, an answer key and the guessing test see its numbers', () => {
+    // figPlain's geo case (GEOM-1.5, which landed first in this branch): each angle with its vertex, CURRICULUM-10's
+    // "שרטוט: 40°, ?" with the vertex named
+    expect(figPlain({ type: 'geo', angles: [{ at: 'O', from: 'A', to: 'B', text: '40°' }, { at: 'O', from: 'B', to: 'C', text: '?', target: true }] })).toBe('שרטוט: ∢O 40°, ∢O ?');
+    const it = parallelTriangle();
+    const [, a, b] = String(it.key).split(':');
+    expect(figPlain(it.fig)).toContain(`${a}°`);
+    expect(figPlain(it.fig)).toContain(`${b}°`);
+  });
+});
+
+// CLASSROOM-11's rule, over every angle drawing of the angles stairs (teaching steps, repairs, worked examples and their
+// steps): an angle the text treats as known (∢X = 50°, ∢ABC = 90°, "the angle at C is right") is drawn, a right angle
+// as a square, at the point the text names; and every number on an arc sits inside its own angle: at the distance the
+// drawing puts it, it is still between the angle's two arms (it never floats past their ends, where it would read as
+// another angle's).
+/** The drawing's scale in pixels per unit, as components/Figure.jsx fits it (Geo). */
+function geoScale(f: Geo): number { return geoFit(f).s; }
+/** The drawing's scale and its map from units to pixels (y down), as components/Figure.jsx fits it (Geo). */
+function geoFit(f: Geo): { s: number; X: (p: Pt) => Pt } {
+  const [W, H] = (f.view as [number, number]) || [300, 200];
+  const [padX, padY] = Array.isArray(f.pad) ? (f.pad as [number, number]) : [(f.pad as number) ?? 30, (f.pad as number) ?? 30];
+  const P = f.pts;
+  const ends = (f.segs || []).flatMap((sg: any) => {
+    const a = P[sg.a]; const b = P[sg.b]; const len = dist(a, b) || 1; const u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len]; const [e0, e1] = sg.ext || [0, 0];
+    return [[a[0] - u[0] * e0, a[1] - u[1] * e0], [b[0] + u[0] * e1, b[1] + u[1] * e1]] as Pt[];
+  });
+  const sq = (f.squares || []).flatMap((q: any) => geoSquare(P[q.a], P[q.b], q.away ? P[q.away] : null) as Pt[]);
+  const all = [...Object.values(P), ...ends, ...sq, ...((f.words || []).filter((w: any) => Array.isArray(w.at)).map((w: any) => w.at) as Pt[]), ...(((f as any).moves || []).flatMap((m: any) => [m.from, m.to]) as Pt[])];
+  const xs = all.map((p) => p[0]); const ys = all.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const s = Math.min((W - 2 * padX) / Math.max(x1 - x0, 1e-9), (H - 2 * padY) / Math.max(y1 - y0, 1e-9));
+  const ox = (W - (x1 - x0) * s) / 2 - x0 * s; const oy = (H + (y1 - y0) * s) / 2 + y0 * s;
+  return { s, X: (p: Pt) => [ox + p[0] * s, oy - p[1] * s] };
+}
+/** Where Figure.jsx puts an angle's number: its distance from the vertex in pixels. */
+const labelDistance = (g: any, deg: number) => (g.r ?? 24) + (deg < 40 ? 30 : deg < 60 ? 22 : 16) + Math.max(0, String(g.text || '').length - 4) * 3;
+/** The angles a step's text gives as known: ∢X = n° or ∢XYZ = n° (vertex Y), and a right angle named in words. */
+function knownAngles(text: string): { at: string; deg: number }[] {
+  const out: { at: string; deg: number }[] = [];
+  for (const m of text.matchAll(/(?<!\+\s{0,3})\\sphericalangle\s*([A-Z]{1,3})\s*=\s*(\d+)\^\\circ/g)) out.push({ at: m[1].length === 3 ? m[1][1] : m[1][0], deg: Number(m[2]) });
+  for (const m of text.matchAll(/הזווית(?: ב־)?\s*\$([A-Z])\$\s*ישרה/g)) out.push({ at: m[1], deg: 90 });
+  return out;
+}
+describe('every angle drawing shows what its text gives, and every number sits inside its own angle', () => {
+  const angleFigs = () => Object.values(CONTENT).filter((c) => c.topic === 'angles').flatMap((c) => [
+    ...c.discover.map((st, i) => ({ where: `${c.skill} #${i}`, text: `${st.text} ${'display' in st ? st.display || '' : ''}`, f: figOf(st) })),
+    ...c.misconceptions.flatMap((m) => m.remedy.map((st, i) => ({ where: `${c.skill} ${m.id} remedy #${i}`, text: st.text, f: figOf(st) }))),
+    ...c.examples.flatMap((ex, k) => [{ where: `${c.skill} example ${k + 1}`, text: ex.problem, f: ex.fig }, ...ex.steps.map((sp, i) => ({ where: `${c.skill} example ${k + 1} step ${i + 1}`, text: sp.action, f: sp.fig }))]),
+  ]).filter((x) => (x.f as any)?.type === 'geo') as { where: string; text: string; f: Geo }[];
+  it('there are angle drawings to check', () => { expect(angleFigs().length).toBeGreaterThan(40); });
+  it('an angle the text gives is drawn at its vertex, a right angle as a square', () => {
+    const bad: string[] = [];
+    for (const { where, text, f } of angleFigs()) {
+      for (const k of knownAngles(text)) {
+        if (!(k.at in f.pts)) continue; // the text's point is not one this drawing names (a sketch of part of the shape)
+        const at = (f.angles || []).filter((g: any) => g.at === k.at);
+        const ok = k.deg === 90 ? at.some((g: any) => g.right || g.text === '90°') : at.some((g: any) => g.text === `${k.deg}°` || g.target);
+        if (!ok) bad.push(`${where}: ${k.deg}° at ${k.at} is not drawn`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+  it('every number on an arc sits inside its own angle, between its two arms', () => {
+    const bad: string[] = [];
+    for (const { where, f } of angleFigs()) {
+      const s = geoScale(f);
+      for (const g of f.angles || []) {
+        if (g.right || !/\d/.test(String(g.text || ''))) continue;
+        const { deg } = geoSweep(f.pts, g);
+        const reach = labelDistance(g, deg);
+        // the arms are drawn at least to the points they are named by
+        const arm = Math.min(dist(f.pts[g.at], f.pts[g.from]), dist(f.pts[g.at], f.pts[g.to])) * s;
+        if (reach > arm + 4) bad.push(`${where}: ${g.text} at ${g.at} sits ${reach.toFixed(0)}px out, past arms ${arm.toFixed(0)}px long`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
+// CLASSROOM-9 and -11: the fan's drawn angles are T and a; the split triangle has its square at C, D on BC, and every
+// given (∢ADC, ∢BAD or ∢BAC) drawn its size in its own arc, β drawn the size of the answer.
+describe('the fan and the split triangle are drawn to size', () => {
+  it('the fan: ∢AOC is T, ∢AOB is a, and the asked ∢BOC is T − a, with the letters the text names', () => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = fanItem(); const f = it.fig as Geo; const [, T, a] = String(it.key).split(':').map(Number);
+      const by = (from: string, to: string) => (f.angles || []).find((g: any) => g.from === from && g.to === to);
+      expect(geoSweep(f.pts, by('A', 'C')).deg, it.key).toBeCloseTo(T, 1);
+      expect(geoSweep(f.pts, by('A', 'B')).deg, it.key).toBeCloseTo(a, 1);
+      expect(geoSweep(f.pts, by('B', 'C')).deg, it.key).toBeCloseTo(it.answer, 1);
+      expect([by('A', 'C').text, by('A', 'B').text, by('B', 'C').text]).toEqual([`${T}°`, `${a}°`, '?']);
+      expect(Object.keys(f.pts).sort()).toEqual(['A', 'B', 'C', 'O']);
+    }
+  });
+  it.each([['S1', splitTriangleS1], ['S2', splitTriangleS2]] as const)('the split triangle, %s', (_n, make) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make(); const f = it.fig as Geo;
+      expect(Object.keys(f.pts).sort(), it.key).toEqual(['A', 'B', 'C', 'D']);
+      // the right angle at C is drawn as a square, and is right
+      const right = (f.angles || []).find((g: any) => g.right);
+      expect(right?.at, it.key).toBe('C');
+      expect(geoSweep(f.pts, right).deg % 180, it.key).toBeCloseTo(90, 6);
+      // D is on BC, between B and C
+      expect(f.pts.D[1]).toBe(0); expect(f.pts.B[0] < f.pts.D[0] && f.pts.D[0] < f.pts.C[0], it.key).toBe(true);
+      for (const g of f.angles || []) {
+        if (g.right) continue;
+        const { deg } = geoSweep(f.pts, g);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} at ${g.at}`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+      }
+      // the givens of the text are the ones drawn
+      const said = [...String(it.text).matchAll(/\\sphericalangle (\w+) = (\d+)\^\\circ/g)].filter((m) => m[1] !== 'C').map((m) => `${m[2]}°`).sort();
+      expect((f.angles || []).filter((g: any) => /°$/.test(g.text || '')).map((g: any) => g.text).sort(), it.key).toEqual(said);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f }))).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+});
+
+// CLASSROOM-10 and -12, 200 of each kind: the bisector's rays end in dots at the letters the text names; every given angle
+// is drawn its size, the '?' the answer's size; each bisected pair (two arcs, or three for a second pair) is two equal
+// halves; and the quadrilateral's four corners are its angles: the drawn ones equal the text's, a right angle is a square
+// of 90°, the two marked equal angles are equal, and the four sum to 360°.
+const angleBetween = (P: Record<string, Pt>, v: string, a: string, b: string) => {
+  const u = [P[a][0] - P[v][0], P[a][1] - P[v][1]]; const w = [P[b][0] - P[v][0], P[b][1] - P[v][1]];
+  return (Math.acos((u[0] * w[0] + u[1] * w[1]) / (Math.hypot(u[0], u[1]) * Math.hypot(w[0], w[1]))) * 180) / Math.PI;
+};
+describe('the bisector and the quadrilateral are drawn to size', () => {
+  const kinds = [['bisWhole', () => bisItem('w')], ['bisHalf', () => bisItem('h')], ['bisTwo', () => bisItem('t')], ['bisLine', () => bisItem('l')], ['bisCheck', bisCheckItem]] as const;
+  it.each(kinds)('the bisector, %s', (_n, make) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make(); const f = it.fig as Geo;
+      // the letters are the text's: O and the rays it names, each ending in a dot
+      const said = capitals(String(it.text).match(/\$[^$]+\$/g)?.join(' ').replace(/\\[a-zA-Z]+/g, ' ') || '');
+      expect(Object.keys(f.pts).sort(), it.key).toEqual([...said].sort());
+      expect([...(f.dots || [])].sort(), it.key).toEqual(Object.keys(f.pts).sort());
+      const pairs: Record<number, number[]> = {};
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(f.pts, g);
+        expect(deg, `${it.key}: the arc at ${g.at} spans ${deg.toFixed(1)}°`).toBeLessThanOrEqual(180.0001);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: the '?' drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if ((g.n || 1) > 1) (pairs[g.n] ||= []).push(deg);
+      }
+      Object.values(pairs).forEach((ds) => { expect(ds, it.key).toHaveLength(2); expect(Math.abs(ds[0] - ds[1]), it.key).toBeLessThan(0.01); });
+      if (it.form === 'num') expect((f.angles || []).filter((g: any) => g.target), it.key).toHaveLength(1);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+  it.each([0, 1, 2])('the quadrilateral, Q%s', (k) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = quadItem(k); const f = it.fig as Geo; const P = f.pts;
+      expect(Object.keys(P).sort(), it.key).toEqual(['A', 'B', 'C', 'D']);
+      // the four interior angles, measured on the corners, sum to 360° (a convex quadrilateral)
+      const inner = ['A', 'B', 'C', 'D'].map((v, j, ns) => angleBetween(P, v, ns[(j + 1) % 4], ns[(j + 3) % 4]));
+      expect(inner.reduce((a, b) => a + b, 0), it.key).toBeCloseTo(360, 6);
+      const eq: number[] = [];
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(P, g);
+        // each mark is the interior angle at its corner
+        expect(Math.abs(deg - inner['ABCD'.indexOf(g.at)]), `${it.key}: the arc at ${g.at}`).toBeLessThan(1e-6);
+        if (g.right) expect(Math.abs(deg - 90), `${it.key}: the square at ${g.at}`).toBeLessThan(0.01);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} at ${g.at} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: the '?' drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.n === 2) eq.push(deg);
+      }
+      // the angles the text gives are the ones drawn, a right angle as its square
+      const given = [...String(it.text).matchAll(/\\sphericalangle ([A-D]) = (\d+)\^\\circ/g)];
+      given.forEach((m) => expect((f.angles || []).find((g: any) => g.at === m[1])?.text, `${it.key}: ∢${m[1]}`).toBe(`${m[2]}°`));
+      const right = /הזווית \$([A-D])\$ ישרה/.exec(String(it.text));
+      expect(!!right, it.key).toBe(k === 1);
+      if (right) expect((f.angles || []).find((g: any) => g.at === right[1])?.right, it.key).toBe(true);
+      expect(eq.length, it.key).toBe(k === 2 ? 2 : 0);
+      if (eq.length) expect(Math.abs(eq[0] - eq[1]), it.key).toBeLessThan(0.01);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+});
+
+// CLASSROOM-9 and -11: on the fan, the split triangle and the two names rule, every number on an arc can be read: its
+// text box, measured in the app's font (Rubik 17px, 19px for the asked angle: a digit 0.665em wide, ° 0.41em, a letter
+// 0.7em; 0.74em above the baseline, β 0.22em below it), is laid out as components/Figure.jsx lays it, and no line, no
+// other angle's arc and no other number passes through it. A whole angle split by a ray (∢AOC, ∢BAC) has its number in
+// the wider part, past its own wide arc, never on the ray. The points' letters stay inside the drawing, off the numbers.
+type Box = [number, number, number, number];
+function angleBoxes(f: Geo) {
+  const { X } = geoFit(f); const P = f.pts;
+  const lines: [Pt, Pt][] = [
+    ...(f.segs || []).map((sg: any) => { const a = P[sg.a]; const b = P[sg.b]; const len = dist(a, b) || 1; const u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len]; const [e0, e1] = sg.ext || [0, 0]; return [X([a[0] - u[0] * e0, a[1] - u[1] * e0]), X([b[0] + u[0] * e1, b[1] + u[1] * e1])] as [Pt, Pt]; }),
+    ...(f.polys || []).flatMap((q: any) => q.pts.map((k: string, i: number) => [X(P[k]), X(P[q.pts[(i + 1) % q.pts.length]])] as [Pt, Pt])),
+  ];
+  const arcs: { i: number; pts: Pt[] }[] = []; const boxes: { i: number; text: string; box: Box }[] = [];
+  (f.angles || []).forEach((g: any, i: number) => {
+    const v = X(P[g.at]);
+    if (g.right) {
+      // the small square of a right angle, 13px along each arm (Figure.jsx)
+      const u = (q: Pt): Pt => { const w = X(q); const n = dist(v, w) || 1; return [(w[0] - v[0]) / n, (w[1] - v[1]) / n]; };
+      const [u1, u2] = [u(P[g.from]), u(P[g.to])]; const c: Pt = [v[0] + (u1[0] + u2[0]) * 13, v[1] + (u1[1] + u2[1]) * 13];
+      lines.push([[v[0] + u1[0] * 13, v[1] + u1[1] * 13], c], [c, [v[0] + u2[0] * 13, v[1] + u2[1] * 13]]);
+      return;
+    }
+    const { a0, a1, deg } = geoSweep(P, g); const rr = g.r ?? 24;
+    const rad = (x: number) => (x * Math.PI) / 180;
+    for (let k = 0; k < Math.max(1, g.n || 1); k += 1) {
+      const r = rr - 5 * k;
+      arcs.push({ i, pts: Array.from({ length: 61 }, (_, j) => { const t = rad(a0 + ((a1 - a0) * j) / 60); return [v[0] + r * Math.cos(t), v[1] - r * Math.sin(t)] as Pt; }) });
+    }
+    const text = String(g.text || ''); if (!text) return;
+    const em = g.target ? 19 : 17;
+    const w = [...text].reduce((t, ch) => t + (/\d/.test(ch) ? 0.665 : ch === '°' ? 0.41 : 0.7) * em, 0);
+    const lr = labelDistance(g, deg); const mid = rad(a0 + (a1 - a0) * (g.lt ?? 0.5));
+    const cx = v[0] + lr * Math.cos(mid); const base = v[1] - lr * Math.sin(mid) + 5;
+    boxes.push({ i, text, box: [cx - w / 2, base - 0.74 * em, cx + w / 2, base + (/β/.test(text) ? 0.22 * em : 1)] });
+  });
+  // the points' letters, 16px out from each point, away from the middle of the shape (Figure.jsx), about 14 by 14
+  const core = f.polys?.length ? f.polys.flatMap((q: any) => q.pts.map((k: string) => P[k])) : Object.values(P);
+  const centre = X([core.reduce((a: number, p: Pt) => a + p[0], 0) / core.length, core.reduce((a: number, p: Pt) => a + p[1], 0) / core.length]);
+  const letters = Object.keys(P).filter((k) => !k.startsWith('_') && !(f.hide || []).includes(k)).map((k) => {
+    const p = X(P[k]); const n = dist(p, centre); const [dx, dy] = (f as any).lab?.[k] || (n < 1 ? [0, -16] : [((p[0] - centre[0]) / n) * 16, ((p[1] - centre[1]) / n) * 16]);
+    const base = p[1] + dy + 6;
+    return { text: k, box: [p[0] + dx - 7, base - 13, p[0] + dx + 7, base + 1] as Box };
+  });
+  return { lines, arcs, boxes, letters };
+}
+const inBox = (p: Pt, [x0, y0, x1, y1]: Box, m = 1.5) => p[0] > x0 - m && p[0] < x1 + m && p[1] > y0 - m && p[1] < y1 + m;
+const along = ([a, b]: [Pt, Pt]) => { const n = Math.max(2, Math.ceil(dist(a, b))); return Array.from({ length: n + 1 }, (_, j) => [a[0] + ((b[0] - a[0]) * j) / n, a[1] + ((b[1] - a[1]) * j) / n] as Pt); };
+function clashes(f: Geo): string[] {
+  const { lines, arcs, boxes, letters } = angleBoxes(f); const out: string[] = [];
+  const [W, H] = (f.view as [number, number]) || [300, 200];
+  const overlap = (a: Box, b: Box) => !(a[0] > b[2] + 1 || a[2] < b[0] - 1 || a[1] > b[3] + 1 || a[3] < b[1] - 1);
+  for (const l of letters) if (l.box[0] < 0 || l.box[1] < 0 || l.box[2] > W || l.box[3] > H) out.push(`the letter ${l.text} cut by the drawing's edge`);
+  for (const b of boxes) {
+    if (b.box[0] < 0 || b.box[1] < 0 || b.box[2] > W || b.box[3] > H) out.push(`${b.text} cut by the drawing's edge`);
+    for (const ln of lines) if (along(ln).some((p) => inBox(p, b.box))) out.push(`${b.text} on a line (${ln.map((p) => p.map(Math.round).join(',')).join(' ')})`);
+    // its own arc is the label distance's business (the rule above); another angle's arc must not cross it
+    for (const a of arcs) if (a.i !== b.i && a.pts.some((p) => inBox(p, b.box))) out.push(`${b.text} on the arc of ${(f.angles as any[])[a.i].text || (f.angles as any[])[a.i].at}`);
+    for (const c of boxes) if (c.i > b.i && overlap(b.box, c.box)) out.push(`${b.text} on ${c.text}`);
+    for (const l of letters) if (overlap(b.box, l.box)) out.push(`${b.text} on the letter ${l.text}`);
+  }
+  return out;
+}
+describe('the fan, the split triangle and the two names rule: every number clear of every line, arc and number', () => {
+  it.each([['the fan', fanItem], ['the split triangle, S1', splitTriangleS1], ['the split triangle, S2', splitTriangleS2]] as const)('%s, 3,000 items', (_n, make) => {
+    const bad = new Set<string>();
+    for (let i = 0; i < 3000; i += 1) { const it = make(); for (const c of clashes(it.fig as Geo)) bad.add(`${it.key}: ${c}`); }
+    expect([...bad].slice(0, 12)).toEqual([]);
+  }, 60000);
+  // CLASSROOM-10 and -12: the bisector's fans (the four typed kinds and the choice) and the quadrilaterals
+  it.each([['bisWhole', () => bisItem('w')], ['bisHalf', () => bisItem('h')], ['bisTwo', () => bisItem('t')], ['bisLine', () => bisItem('l')], ['bisCheck', bisCheckItem]] as const)('the bisector, %s, 3,000 items', (_n, make) => {
+    const bad = new Set<string>();
+    for (let i = 0; i < 3000; i += 1) { const it = make(); for (const c of clashes(it.fig as Geo)) bad.add(`${it.key}: ${c}`); }
+    expect([...bad].slice(0, 12)).toEqual([]);
+  }, 60000);
+  it.each([0, 1, 2])('the quadrilateral, Q%s, 1,500 items', (k) => {
+    const bad = new Set<string>();
+    for (let i = 0; i < 1500; i += 1) { const it = quadItem(k); for (const c of clashes(it.fig as Geo)) bad.add(`${it.key}: ${c}`); }
+    expect([...bad].slice(0, 12)).toEqual([]);
+  }, 90000);
+  it('the teaching drawings of angles:6 and angles:7, every one', () => {
+    const figs = ['angles:6', 'angles:7'].flatMap((k) => { const c = CONTENT[k]; return [...c.discover.map(figOf), ...c.misconceptions.flatMap((m) => m.remedy.map(figOf)), ...c.examples.flatMap((ex) => [ex.fig, ...ex.steps.map((sp) => sp.fig)]), ...c.together.map((g) => g.fig)]; })
+      .filter((f) => (f as any)?.type === 'geo') as Geo[];
+    expect(figs.length).toBeGreaterThanOrEqual(20);
+    expect(figs.flatMap((f) => clashes(f).map((c) => `${(f as { label?: string }).label}: ${c}`))).toEqual([]);
+  });
+  it('the teaching drawings of angles:1 and angles:3 made with them', () => {
+    const named = /שלוש קרניים|ישר וקרניים|ישר־זווית ABC|שרטוט עזר/;
+    const figs = ['angles:1', 'angles:3'].flatMap((k) => { const c = CONTENT[k]; return [...c.discover.map(figOf), ...c.misconceptions.flatMap((m) => m.remedy.map(figOf)), ...c.examples.flatMap((ex) => [ex.fig, ...ex.steps.map((sp) => sp.fig)])]; })
+      .filter((f) => (f as any)?.type === 'geo' && named.test(String((f as any).label))) as Geo[];
+    expect(figs.length).toBeGreaterThanOrEqual(8);
+    expect(figs.flatMap((f) => clashes(f).map((c) => `${f.label}: ${c}`))).toEqual([]);
   });
 });

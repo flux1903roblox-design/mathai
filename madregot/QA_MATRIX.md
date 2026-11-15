@@ -165,6 +165,26 @@ and Rescue's functions row). 134 tests on `phone` and the same 134 on `phone-dar
 run. The protractor has no stair yet (angles:8 comes after the classroom lane), so its scan reaches it through a class
 exam's fixed questions; when angles:8 lands it is scanned on its own stair.
 
+**Result after the classroom lane's merge, 15 November 2026:** the lane's stairs and states got scans of their own (the
+section "the classroom lane" of `a11y.spec.js`): the teaching of signed:1, 2, 3, 5 and 7 and of angles:1, 3, 6 and 7
+step by step, with the angle tool's whole angle (as it opens, answered, and checked while the ray is not yet the
+bisector); the lane's questions, each as it opens and with its solution shown as the class writes it (the bisector and
+the worksheet's yes-or-no question, the quadrilateral, three angles on a line, the fan, three lines, a bisector at a
+crossing, the split triangle, a triangle between parallel lines, a power, a chain of five bracketed numbers, the
+regrouped line, absolute values, dividing with 0 and 1, brackets inside brackets, collecting and the families in
+order, an equation's lines with the slash marks, the rectangle, the transfer table, angles with x); the worked examples
+(every step shown) and solving together (a wrong move, then the last step typed) of eq:1, eq:5, signed:7, angles:6 and
+angles:7; and the constant-first note on expr:3. Every teaching walk is its own test now and waits until the step on
+screen is the step it reads: after a second `open()` in one page the faked clock runs ahead of the page's animation
+timeline, so the steps of a second walk left the screen seconds late and a scan could read the step before. 180 tests
+on `phone` and the same 180 on `phone-dark`, every one passed, and the 5 of `axe-self.spec.js`. The new scans found
+two real defects, both `scrollable-region-focusable`, fixed before this run: signed:5's rule wrote its two identities
+side by side, wider than a phone at the smallest size a display is set to (now one a line), and a question's
+expression was squeezed into a strip that scrolled inside itself when the feedback panel opened under long choices
+(`.lesson .q-stage > .qdisplay` keeps its height in `app.css`; the middle region scrolls). The worked examples and
+solving together had no heading: `Teach.jsx` gives both the stage's name as the screen's heading, read by a screen
+reader.
+
 ## The parents' progress report (PARENTS-1 to PARENTS-10)
 
 Added 11 November 2026 on the family lane. Each PASS below is a check that ran on this build: `e2e/report.spec.js` on
