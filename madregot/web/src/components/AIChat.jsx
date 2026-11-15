@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Send } from 'lucide-react';
 import { maskPersonal } from '@shared/safety.js';
-import { detectDistress } from '@shared/distress.js';
+import { detectDistress, readsPersonal } from '@shared/distress.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { aiAccess, useAIStatus, needIntro, openLimitSheet } from '@/lib/account.js';
 import { Button } from './ui.jsx';
@@ -23,8 +23,11 @@ const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה �
 const MISTAKE_STARTER = 'מה הטעות שלי?';
 const THINK = ['קורא את התרגיל', 'חושב על הדרך', 'מנסח הסבר'];
 
-/** Only the conversation goes to the tutor: never the support cards, never a flag. */
-const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'assistant').map(({ role, content }) => ({ role, content }));
+/**
+ * Only the conversation goes to the tutor: never the support cards, never a flag, and never a message that was held
+ * back on the device (`held`: it was not sent, and it stays that way when the tutor is back).
+ */
+const toTutor = (list) => list.filter((m) => (m.role === 'user' || m.role === 'assistant') && !m.held).map(({ role, content }) => ({ role, content }));
 
 /**
  * Chat with the AI tutor, optionally about the exercise on screen. `context` is what the tutor is told: the version-2
@@ -39,6 +42,10 @@ const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'as
  * Distress first (trust spec TRUST-3 §3.5): a message that reads as distress shows the support card at once, on the
  * device, whatever the tutor's state (resting, busy, offline). It still goes to the tutor when there is one (the server
  * answers it on its care path, never counted, never refused); a failure there is silent and the card stays.
+ * A word list is never complete, so there is a second net: when the tutor cannot answer (it rests, the class has it off,
+ * no parent's OK yet, or the request failed) and the message that was held back is not about maths at all (readsPersonal:
+ * no digit, no maths or study word), the support card shows under it too, in its "held" words. Such a message is shown
+ * as the child wrote it and is sent nowhere, now or later.
  * Help counts as help (ai spec AI-3 Design 5): `onAsk` is called when help arrives (the first words of the reply, or a
  * whole reply that is not care), never for a message that reads as distress or a request that failed, so the lesson can
  * mark the open exercise as answered with help. `footnote`: one
@@ -100,6 +107,14 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
     if (!content) return;
     const care = detectDistress(content).flag;
     if (!care && (pending || resting)) {
+      // the tutor cannot answer, and this is not a maths question: the support card, under the child's own words. No
+      // sheet opens over it, and the message goes nowhere.
+      if (resting && readsPersonal(content)) {
+        const id = ++sendRef.current;
+        setMessages((ms) => [...ms, { role: 'user', content, held: true }, { role: 'support', id, held: true }]);
+        setDraft(''); setError(''); setRestBack(false);
+        return;
+      }
       // the tutor rests today: the draft stays where it is, and the calm card in the dock says why
       if (resting) {
         setRestBack(true);
@@ -148,6 +163,12 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
       if (care) return;
       // a limit is said calmly by the sheet and the card below, never as a red error
       if (!e.limit) setError(e.message);
+      // the tutor could not answer (a limit the device did not know of, no network, a failure) and this was not a maths
+      // question: the message stays as the child wrote it, held, with the support card under it
+      if (readsPersonal(content)) {
+        setMessages((ms) => { const at = ms.lastIndexOf(user); return at >= 0 ? [...ms.slice(0, at), { ...user, held: true }, { role: 'support', id: mine, held: true }, ...ms.slice(at + 1)] : ms; });
+        return;
+      }
       setMessages((ms) => { const at = ms.lastIndexOf(user); return at >= 0 ? [...ms.slice(0, at), ...ms.slice(at + 1)] : ms; });
       setDraft(content);
     } finally {
@@ -191,7 +212,7 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
             return (
               <Fragment key={`support-${m.id ?? i}`}>
                 {pending && i === messages.length - 1 && thinking}
-                <div className="chat-support"><SupportCard variant="after-message" /></div>
+                <div className="chat-support"><SupportCard variant={m.held ? 'held' : 'after-message'} /></div>
               </Fragment>
             );
           }

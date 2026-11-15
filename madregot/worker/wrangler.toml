@@ -43,6 +43,16 @@ SOLO_DAILY_LIMIT = "20"
 OPEN_DAILY_BUDGET_USD = "25"
 OPEN_ACCOUNT_DAILY_LIMIT = "200"
 OPEN_CLASS_DAILY_UNITS = "600"
+# Inside that day, one email (all its classes) and one class each have their own part in dollars: past it only that
+# email's or that class's tutor rests until midnight, everyone else is answered, and you get one email that names it.
+# So one teacher's email cannot spend the whole day for every class.
+OPEN_ACCOUNT_DAILY_USD = "3"
+OPEN_CLASS_DAILY_USD = "3"
+# How far the worst-case holds of requests in flight may pass what is left of a budget. A real answer costs a small
+# part of its worst case, so this is what lets a whole class ask at the same moment. The day can end at the budget plus
+# this much only if every request in flight costs its worst case; "0" is the strict rule (one worst case over, about 40
+# questions at once in all).
+OPEN_INFLIGHT_USD = "20"
 # "false" turns off AI for people who are not in a class (and, with the switch on, without a family plan).
 ALLOW_SOLO_AI = "true"
 # A parent's OK before a child alone uses the tutor (trust spec TRUST-9): "required" (the default) answers a device with
@@ -61,15 +71,22 @@ TRIAL_DAILY_BUDGET_USD = "10"
 FAMILY_MONTHLY_BUDGET_USD = "4"
 CLASS_SEAT_MONTHLY_BUDGET_USD = "0.8"
 OWNER_ALERT_USD = "20"
+# A class student's day of writes is counted for the student, the class and the network (src/writes.js): 30,000 answers
+# a class and 150,000 a network a day. A whole number from 1 to 20 here multiplies the class and network budgets, for a
+# school that has outgrown them (you get an email the day one is reached). The student's own budget does not change.
+WRITE_BUDGET_SCALE = "1"
 # "true": every night the owner gets a summary of yesterday (spend, plans, what needs a hand, invariant checks).
 OWNER_DAILY_SUMMARY = "true"
 # Prices in agorot, VAT included (VAT_MODE "included", or "exempt" for an exempt dealer).
 PRICE_FAMILY_MONTH_AGOROT = "2990"
 PRICE_FAMILY_YEAR_AGOROT = "24900"
-# The exam pass (COUNCIL2-33): the family plan for 30 days, one charge, never renewed. PLACEHOLDER: ₪39 is not a decided
-# price. The owner sets it before LEGAL_APPROVED (SUBSCRIPTION.md "Exam pass" has the cost numbers to decide with); the
-# terms quote it, and empty ("") sells no pass at all: no page offers it and checkout refuses it.
-PRICE_EXAM_PASS_AGOROT = "3900"
+# The exam pass (COUNCIL2-33): the family plan for 30 days, one charge, never renewed. EMPTY ON PURPOSE: no price is
+# decided yet, and an empty price sells no pass at all: no page offers it, no landing page prints it and checkout
+# refuses it. THE OWNER'S ONE ACTION when the price is decided: write it here in agorot (₪39 is "3900"), in
+# [env.staging.vars] too, then LEGAL_APPROVED as for any change of the terms (SUBSCRIPTION.md "Exam pass" has the cost
+# numbers to decide with; the terms quote the price). `npm run owner -- doctor --local` reminds you while a provider
+# that sells is set and this is empty.
+PRICE_EXAM_PASS_AGOROT = ""
 PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
 VAT_MODE = "included"
 # The version of the legal texts (src/content/legal). A new one closes checkout until LEGAL_APPROVED names it:
@@ -297,6 +314,10 @@ SOLO_DAILY_LIMIT = "20"
 OPEN_DAILY_BUDGET_USD = "25"
 OPEN_ACCOUNT_DAILY_LIMIT = "200"
 OPEN_CLASS_DAILY_UNITS = "600"
+OPEN_ACCOUNT_DAILY_USD = "3"
+OPEN_CLASS_DAILY_USD = "3"
+OPEN_INFLIGHT_USD = "20"
+WRITE_BUDGET_SCALE = "1"
 ALLOW_SOLO_AI = "false"
 # a child alone needs a parent's OK first, as in production (the safety lane's TRUST-9 var)
 AI_PARENT_OK = "required"
@@ -307,8 +328,8 @@ FREE_GLOBAL_DAILY = "3000"
 OWNER_DAILY_SUMMARY = "false"
 PRICE_FAMILY_MONTH_AGOROT = "2990"
 PRICE_FAMILY_YEAR_AGOROT = "24900"
-# the exam pass's placeholder price, as in [vars] (the owner's decision, SUBSCRIPTION.md "Exam pass")
-PRICE_EXAM_PASS_AGOROT = "3900"
+# the exam pass has no price until the owner decides one, as in [vars] (SUBSCRIPTION.md "Exam pass")
+PRICE_EXAM_PASS_AGOROT = ""
 PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
 VAT_MODE = "included"
 TERMS_VERSION = "2026-11-11"

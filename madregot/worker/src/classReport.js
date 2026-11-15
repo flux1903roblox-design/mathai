@@ -15,6 +15,7 @@ import { HttpError, json, dayOf, isDay, nowIso, limitOrThrow } from './util.js';
 import { requireTeacher } from './entitle.js';
 import { plusDays } from './assignments.js';
 import { myHelp } from './help.js';
+import { manyWrongPins } from './licence.js';
 
 export const REPORT = Object.freeze({
   /** The longest range, in days (from and to both counted). A longer one is cut to its last 400 days. */
@@ -161,7 +162,7 @@ export const DETAIL = Object.freeze({
 /**
  * GET /api/teacher/students/:id (requireTeacher): one student of the class, for the student's sheet on the board.
  * A student of another class, or none, is 404 not_found.
- *   { student: { id, name, joinedOn, lastPractice, pinReset, aiOff },   aiOff: the teacher turned the AI off for them (TRUST-11)
+ *   { student: { id, name, joinedOn, lastPractice, pinReset, aiOff, manyWrongPins },   aiOff: the teacher turned the AI off for them (TRUST-11)
  *     days14: [{ day, n, first, minutes }]          the last 14 Jerusalem days, oldest first, a day with no practice as zeros
  *     levels: { [topic]: { level, max } },
  *     mistakes: [{ topic, cat, level, n, lastAt }]   the last 30 days, one row per stair and mistake (TEACHER-16), most
@@ -181,7 +182,7 @@ export async function studentDetail(id, req, env, cors) {
   const from14 = plusDays(today, -(DETAIL.days - 1));
   const from30 = plusDays(today, -(DETAIL.mistakeDays - 1));
   const workFrom = plusDays(today, -DETAIL.workDays);
-  const [dayRows, lastRow, levelRows, catRows, work, help, examRows, classExams] = await Promise.all([
+  const [dayRows, lastRow, levelRows, catRows, work, help, examRows, classExams, wrongPins] = await Promise.all([
     all(env, `SELECT day, COUNT(*) AS n, SUM(first_try) AS first, SUM(secs) AS secs FROM attempts
       WHERE student_id = ? AND day >= ? GROUP BY day`, s.id, from14),
     env.DB.prepare('SELECT MAX(at) AS last FROM attempts WHERE student_id = ?').bind(s.id).first(),
@@ -199,6 +200,8 @@ export async function studentDetail(id, req, env, cors) {
     all(env, `SELECT w.assignment_id, a.title, w.right_n, w.asked, w.questions, w.done_at FROM assignment_work w
       JOIN assignments a ON a.id = w.assignment_id WHERE w.student_id = ? AND a.class_code = ? AND a.kind = 'exam' AND w.state = 'done'
       ORDER BY w.done_at DESC LIMIT ${DETAIL.exams}`, s.id, cls.code),
+    // many wrong personal codes today under this name (licence.js PIN_FLAG): the sheet offers the reset
+    manyWrongPins(env, s.id, today),
   ]);
 
   const byDay = Object.fromEntries(dayRows.map((r) => [r.day, r]));
@@ -220,7 +223,7 @@ export async function studentDetail(id, req, env, cors) {
   return json({
     student: {
       id: s.id, name: s.name, joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null,
-      lastPractice: lastRow?.last || null, pinReset: !!s.pin_reset, aiOff: !!s.ai_off,
+      lastPractice: lastRow?.last || null, pinReset: !!s.pin_reset, aiOff: !!s.ai_off, manyWrongPins: wrongPins,
     },
     days14,
     levels,

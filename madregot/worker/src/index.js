@@ -6,17 +6,22 @@ import { AI_KINDS, AI_BODY_MAX, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, spl
 import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
 import { tutorLocale } from '../../shared/arabic.js';
 import { CARE_MARK, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
-import { detectDistress } from '../../shared/distress.js';
+import { detectDistress, distressDetail } from '../../shared/distress.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
   limitOrThrow, hmacHex, cleanName, resetsAt, release, safeEqual,
 } from './util.js';
 import { meterDbSize } from './dbsize.js';
+import { takeWrites, WRITE_BUDGET } from './writes.js';
+export { WRITE_BUDGET };
 import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
-import { resolve, precheck, counted, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify, teacherIsAdult, parentOkRequired } from './entitle.js';
+import {
+  resolve, precheck, counted, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify, teacherIsAdult, parentOkRequired, studentAiOn,
+  familyDeviceFrom,
+} from './entitle.js';
 import { recordSafety, eventNet } from './safety.js';
 import { moderate, moderationOn, MODERATED_KINDS, moderatedInput, replyText } from './moderation.js';
-import { safetyAlert, ALERT_TOPIC } from './alerts.js';
+import { safetyAlert, alertWorthy, ALERT_TOPIC } from './alerts.js';
 import { recordSpend } from './spend.js';
 import { bumpQuality } from './quality.js';
 import { DROP_REASONS } from '../../shared/verify.js';
@@ -32,6 +37,7 @@ import {
 } from './report.js';
 import {
   licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, pinKeysWhere, renameClass, deleteClass, classSeenStmt,
+  PIN_NET_DAY, PIN_ALL_DAY, PIN_FLAG,
 } from './licence.js';
 import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap, bindingView } from './teacherAccount.js';
 import {
@@ -91,28 +97,55 @@ async function verifyPin(pin, stored) {
 }
 const classCode = () => randomFrom(CODE_ALPHABET, 6);
 
-// Personal-code tries (trust spec TRUST-12 §1, COUNCIL2-25): counted per student AND per network only, 5 an hour and
-// PIN_NET_DAY a day from one network. There is no count across networks any more: a stranger's wrong codes from their
-// own network must never lock the real student out at home or at school. Each try is taken before the code is compared
-// and given back when it is right, so parallel guesses cannot pass the cap and a student who types the right code never
-// uses one up. On a school network a classmate can still cause a lock there (an hour, or the rest of the day after
-// PIN_NET_DAY wrong codes); the teacher's reset (which clears these counters) is the remedy. The network-wide join cap
-// (join:n:<net>, 300 a day) stays. One network needs about a year on average to guess one of 10,000 codes; the
-// same counters guard the teacher's one-time claim code after a reset (31^6 codes, 7 days).
+// Personal-code tries (trust spec TRUST-12 §1, COUNCIL2-25). Each try is taken before the code is compared and given back
+// when it is right, so parallel guesses cannot pass a cap and a student who types the right code never uses one up.
+//   per network   pin:<id>:<net> 5 an hour and pin:<id>:<net>:day 15 a day. The network is the wide key (netKey wide: an
+//                 IPv6 address counts by its /48), so one IPv6 allocation is one network, not 65,536 of them.
+//   per student   pin:<id>, every wrong PIN of the day from anywhere. Once it reaches PIN_ALL_DAY, a join from a network
+//                 the student has not signed in from gets 403 claim_code_needed (reason: many_wrong) with no comparison:
+//                 the teacher's one-time code is the way in that day. A device that still holds one of the student's
+//                 tokens (Authorization: Bearer), and a network the student signed in from in the last 35 days
+//                 (joined:s:<id>:<net>, written by every join that succeeded), are never refused by it: they are
+//                 compared under the per-network keys alone. So a stranger's wrong codes cannot lock the student out
+//                 at home or at school, and 10,000 PINs cannot be tried from many networks either: 30 a day is over
+//                 300 days on average for one student.
+// On a school network a classmate can still cause a lock there (an hour, or the rest of the day after PIN_NET_DAY wrong
+// codes); the teacher's reset (which clears these counters) is the remedy, and the teacher's board marks a student with
+// PIN_FLAG wrong codes today. The network-wide join cap (join:n:<net>, 300 a day) stays. The teacher's one-time claim
+// code after a reset (31^6 codes, 7 days) is guarded by the per-network keys only: it cannot be guessed at 15 a day
+// from a /48, and a count across networks there would let a stranger delay the claim.
 const PIN_NET_HOUR = 5;
-const PIN_NET_DAY = 15;
+export { PIN_NET_DAY, PIN_ALL_DAY, PIN_FLAG };
 /** The one-time claim code a teacher's PIN reset gives the student (COUNCIL2-25): 6 characters of CODE_ALPHABET. */
 const claimCode = () => randomFrom(CODE_ALPHABET, 6);
 /** A claim code as typed: upper case, spaces and dashes dropped; anything else (or more than 12 characters) is ''. */
 const cleanClaim = (v) => { const c = String(v ?? '').toUpperCase().replace(/[\s-]/g, ''); return c.length <= 12 && /^[A-Z0-9]*$/.test(c) ? c : ''; };
-/** The tries one join may take on a student's secret (the PIN, or the claim code after a reset): per network only. */
-const pinTries = (id, net) => {
+/**
+ * The tries one join takes on a student's secret. `net` is the wide network key. `across`: 'count' adds a wrong PIN to
+ * the student's day without a limit (a known device or network), 'limit' refuses at PIN_ALL_DAY with claim_code_needed
+ * (anyone else), and null leaves the day's count alone (a claim code).
+ */
+const pinTries = (id, net, across = null) => {
   const err = new HttpError(429, 'too_many_pin');
   return [
     key(`pin:${id}:${net}`, PIN_NET_HOUR, { period: 'hour', refundable: true, err }),
     key(`pin:${id}:${net}:day`, PIN_NET_DAY, { refundable: true, err }),
+    across && key(`pin:${id}`, across === 'limit' ? PIN_ALL_DAY : 1e9, { refundable: true, err: new HttpError(403, 'claim_code_needed', undefined, { reason: 'many_wrong' }) }),
   ];
 };
+/** The mark a join that succeeded leaves for its network (35 days, purged with the counters): joined:s:<id>:<net>. */
+const joinedKey = (id, net) => `joined:s:${id}:${net}`;
+/**
+ * Does this join come from a device or a network the student already signed in from? A Bearer that is one of the
+ * student's device tokens, or a network with a joined mark. Such a join is never refused for the wrong PINs of others.
+ */
+async function knownJoiner(req, env, studentId, net) {
+  const auth = req.headers.get('Authorization') || '';
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (bearer && bearer.length <= 128
+    && await env.DB.prepare('SELECT 1 AS x FROM student_tokens WHERE token_hash = ? AND student_id = ?').bind(await sha256(bearer), studentId).first()) return true;
+  return !!(await env.DB.prepare('SELECT 1 AS x FROM ai_usage WHERE who = ? LIMIT 1').bind(joinedKey(studentId, net)).first());
+}
 /** A class student stays signed in on this many devices at once (DURABLE-6); a further join signs out the oldest. */
 const STUDENT_DEVICES = 3;
 
@@ -274,7 +307,8 @@ function wordStart(text, i) {
 
 /**
  * POST /api/ai/:kind. A request of the open tier or the free taste holds its worst-case cost in usd:<pool> while it
- * runs (entitle.js holdKey, COUNCIL2-19); the hold is given back here, after every reply of the request has been priced
+ * runs (entitle.js holdKey, COUNCIL2-19; an open request also in its class's and its email's part of the pool); the
+ * holds are given back here, after every reply of the request has been priced
  * (recordSpend), however it ended: so the breaker always sees either the hold or the real cost, never neither.
  */
 async function handleAI(kind, req, env, ctx, cors) {
@@ -290,7 +324,7 @@ async function handleAI(kind, req, env, ctx, cors) {
 async function releaseHold(env, track) {
   try { await track.streaming; } catch { /* the stream's own errors are handled where it runs */ }
   await Promise.allSettled(track.pending);
-  try { await release(env, [track.hold]); } catch (e) { console.error('hold', e?.message); }
+  try { await release(env, track.hold); } catch (e) { console.error('hold', e?.message); }
 }
 
 async function answerAI(kind, req, env, ctx, cors, track) {
@@ -329,7 +363,7 @@ async function answerAI(kind, req, env, ctx, cors, track) {
       const m = await moderate(env, { role: 'input', text: moderatedInput(kind, input), pool: r.pool, ctx, track });
       if (m.flag) {
         await giveBack(env, r.refund);
-        if (r.hold) { try { await release(env, [r.hold]); } catch (e) { console.error('hold', e?.message); } }
+        if (r.hold) { try { await release(env, r.hold); } catch (e) { console.error('hold', e?.message); } }
         hit = { flag: true, category: m.category, source: 'model' };
         r = await resolveCare(req, env, kind, input);
       }
@@ -340,9 +374,13 @@ async function answerAI(kind, req, env, ctx, cors, track) {
   // every safety row of this request is capped per network and kind (src/safety.js EVENTS_PER_NET)
   const logged = { net: eventNet(req, env) };
   if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: kind, source: hit.source || 'regex', tier: r.static ? 'static' : 'care' }, ctx, logged);
-  // the adult's alert (COUNCIL2-9, SAFETY_ALERTS = "on", src/alerts.js): on self-harm, a linked parent or the class
-  // teacher hears that something came up today, never what was written; once a day for each child
-  if (hit.flag && hit.category === 'self_harm') ctx.waitUntil(safetyAlert(env, req));
+  // the adult's alert (COUNCIL2-9, SAFETY_ALERTS = "on", src/alerts.js): on a plain statement of self-harm, a linked
+  // parent or the class teacher hears that something came up today, never what was written; once a day for each
+  // child. A word that is also maths never alerts, and a message that is also about home never goes to a parent.
+  if (hit.flag) {
+    const detail = distressDetail(freeText(kind, input));
+    if (alertWorthy(hit, detail)) ctx.waitUntil(safetyAlert(env, req, { home: detail.home }));
+  }
   // a care answer says nothing about the person's questions (no X-AI-Tier or X-AI-Left), so the screen's count stays
   const headers = careTier ? (r.linkedBad ? { 'X-AI-Linked': '0' } : {}) : aiHeaders(r);
   if (r.static) return careStaticReply(kind, input, cors, headers);
@@ -368,7 +406,7 @@ async function answerAI(kind, req, env, ctx, cors, track) {
     recordSafety(env, { kind: 'distress', surface: kind, source: 'model', tier: r.tier }, ctx, logged);
   };
   const record = (message) => {
-    const priced = recordSpend(env, { pool: r.pool, kind, message }).catch((e) => console.error('spend', e?.message));
+    const priced = recordSpend(env, { pool: r.pool, kind, message, subs: r.subs || [] }).catch((e) => console.error('spend', e?.message));
     track.pending.push(priced);
     return priced;
   };
@@ -755,7 +793,8 @@ async function createClass(req, env, cors) {
   if (account) await checkOwnedCap(env, account.id);
   if (b.adultTeacher !== undefined && b.adultTeacher !== true && b.adultTeacher !== false) throw new HttpError(400, 'bad_request');
   const declared = !!account && b.adultTeacher === true;
-  await limitOrThrow(env, `create:n:${await netKey(req, env)}`, 10, 429, 'too_many_classes');
+  // per wide network (an IPv6 /48): classes are free to open, and each brings its own day of writes (writes.js)
+  await limitOrThrow(env, `create:n:${await netKey(req, env, { wide: true })}`, 10, 429, 'too_many_classes');
   const teacherKey = randomToken(12);
   const keyHash = await sha256(teacherKey);
   for (let i = 0; i < 5; i++) {
@@ -792,13 +831,20 @@ async function classInfo(code, req, env, cors) {
   return json({ className: cls.name, grade: cls.grade, teacherName: cls.teacher_name }, 200, cors);
 }
 
-async function joinClass(code, req, env, cors) {
+/** A class holds at most this many names (the licence seats and an assignment's targets use the same number). */
+export const CLASS_MAX_STUDENTS = 45;
+/** New names a day from one network (IPv6 by its /48), in all its classes: a school's first day, not a script's. */
+export const NEW_NAMES_PER_NET = 200;
+
+async function joinClass(code, req, env, ctx, cors) {
   const b = await body(req, LIMIT.small);
   const name = cleanName(b.name); const pin = String(b.pin || '');
   if (!name) throw new HttpError(400, 'missing_name');
   if (!/^\d{4}$/.test(pin)) throw new HttpError(400, 'bad_pin');
   // A whole school can share one network, so this cap is generous; PIN guessing is capped per student below.
   const net = await netKey(req, env);
+  // the wide key (an IPv6 /48): the secret's tries, new names and the joined mark are counted per allocation
+  const wide = await netKey(req, env, { wide: true });
   await limitOrThrow(env, `join:n:${net}`, 300, 429, 'too_many_joins');
   const cls = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(code.toUpperCase()).first();
   if (!cls) throw new HttpError(404, 'no_class');
@@ -810,12 +856,15 @@ async function joinClass(code, req, env, cors) {
   // A reset student (empty pin_hash) is claimed only with the teacher's one-time code (COUNCIL2-25); this join sets the
   // new PIN. Without the code anyone who knew the name could take the account and the restore code the class kept.
   const claiming = !!existing && !existing.pin_hash;
+  let newName = null;
   if (existing) {
     const claim = claiming ? cleanClaim(b.claim) : '';
     if (claiming && !claim) throw new HttpError(403, 'claim_code_needed');
     // Each try is taken before the secret is compared (DURABLE-8), so parallel guesses cannot all be compared against
-    // one stale count. A wrong one keeps its tries; the right one gives them back.
-    const tries = pinTries(existing.id, net);
+    // one stale count. A wrong one keeps its tries; the right one gives them back. The PIN and the claim code are
+    // counted per wide network; a PIN also against the student's day, which refuses only a device and a network the
+    // student never signed in from (pinTries above).
+    const tries = pinTries(existing.id, wide, claiming ? null : (await knownJoiner(req, env, existing.id, wide)) ? 'count' : 'limit');
     const r = await take(env, tries);
     if (!r.ok) throw r.error;
     if (claiming) {
@@ -825,15 +874,24 @@ async function joinClass(code, req, env, cors) {
     } else if (!(await verifyPin(pin, existing.pin_hash))) throw new HttpError(403, 'wrong_pin');
     await giveBack(env, tries); // the right code costs no try
     id = existing.id;
-  } else id = randomToken(8);
+  } else {
+    // A new name (COUNCIL2-18): names are free, so a class holds CLASS_MAX_STUDENTS of them and one network makes
+    // NEW_NAMES_PER_NET a day. The count is taken first and given back when the class turns out to be full.
+    newName = key(`newname:n:${wide}`, NEW_NAMES_PER_NET, { refundable: true, err: new HttpError(429, 'too_many_joins') });
+    const r = await take(env, [newName]);
+    if (!r.ok) throw r.error;
+    id = randomToken(8);
+  }
   // DURABLE-6: each device keeps its own token (up to 3 per student: a 4th join signs out the oldest). students.token_hash
   // is still written, only so that an older Worker in a rollback lets the newest device in.
   const tokenHash = await sha256(token);
   const now = nowIso();
   const res = await env.DB.batch([
     !existing
-      ? env.DB.prepare('INSERT INTO students (id, class_code, name, pin_hash, token_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, cls.code, name, await hashPin(pin), tokenHash, now, now)
+      // the class's size is checked in the insert itself, so names sent all at once cannot pass it
+      ? env.DB.prepare(`INSERT INTO students (id, class_code, name, pin_hash, token_hash, created_at, last_seen)
+          SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?6 WHERE (SELECT COUNT(*) FROM students WHERE class_code = ?2) < ?7`)
+        .bind(id, cls.code, name, await hashPin(pin), tokenHash, now, CLASS_MAX_STUDENTS)
       // the claim is used once: only the join that still finds this code stored sets the PIN (and clears the code); a
       // second join with the same code at the same moment changes nothing and is refused below
       : claiming
@@ -846,7 +904,15 @@ async function joinClass(code, req, env, cors) {
       SELECT ?1, ?2, ?3, ?3 WHERE EXISTS (SELECT 1 FROM students WHERE id = ?2 AND token_hash = ?1)`).bind(tokenHash, id, now),
     env.DB.prepare(`DELETE FROM student_tokens WHERE student_id = ?1 AND token_hash NOT IN (
       SELECT token_hash FROM student_tokens WHERE student_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT ?2)`).bind(id, STUDENT_DEVICES),
+    // this network is one the student signed in from: a later join from it is never refused for others' wrong PINs
+    env.DB.prepare(`INSERT INTO ai_usage (who, day, count) SELECT ?1, ?2, 1 WHERE EXISTS (SELECT 1 FROM students WHERE id = ?3 AND token_hash = ?4)
+      ON CONFLICT (who, day) DO NOTHING`).bind(joinedKey(id, wide), dayOf(), id, tokenHash),
   ]);
+  ctx?.waitUntil?.(meterDbSize(env, res));
+  if (!existing && Number(res[0].meta?.changes) !== 1) {
+    await giveBack(env, [newName]);
+    throw new HttpError(403, 'class_full');
+  }
   if (existing && Number(res[0].meta?.changes) !== 1) throw new HttpError(403, claiming ? 'claim_code_bad' : 'claim_code_needed');
   // a returning student whose PIN was right, or who claimed the account with the teacher's code, gets the kept restore
   // code back, when the class kept one and its vault is still there (DURABLE-6); without VAULT_SECRET there is none
@@ -867,27 +933,6 @@ const levelOf = (v) => {
   return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_LEVEL) : 1;
 };
 /**
- * What one class student may write in a Jerusalem day (COUNCIL2-12, COUNCIL2-18), counted with take() under
- * write:s:<id>:<what> (forget.js STUDENT_COUNTERS): answers stored, exams stored, and level rows written. Joining a class
- * needs no account and the same database holds billing, so a token must not be able to fill it. Each is far above a real
- * day (a student who practises all afternoon sends a few hundred answers, the app's levels go with each batch of 5, and
- * an exam check is a few a week), so only a script reaches them. Past one: 429 too_many_writes with Retry-After until
- * midnight; the app keeps its outbox and sends it again later (web/src/lib/api.js syncNow).
- */
-export const WRITE_BUDGET = Object.freeze({ answers: 3000, exams: 30, levels: 6000 });
-
-/** Take today's write budget for these counts ({ answers, exams, levels }), all or nothing; throws 429 when one is full. */
-async function takeWrites(env, studentId, counts) {
-  const until = resetsAt('day');
-  const wait = Math.max(60, Math.ceil((Date.parse(until) - Date.now()) / 1000));
-  const err = new HttpError(429, 'too_many_writes', undefined, { resetsAt: until }, { 'Retry-After': String(wait) });
-  const keys = Object.entries(counts).filter(([, n]) => n > 0)
-    .map(([what, n]) => key(`write:s:${studentId}:${what}`, WRITE_BUDGET[what], { n, err }));
-  const r = await take(env, keys);
-  if (!r.ok) throw r.error;
-}
-
-/**
  * A class student's answers and levels (DURABLE-7). Every event the app sent is acknowledged ({ saved } = how many it
  * sent, at most 500): an answer already stored (same id, from a retry) is ignored, an answer older than 400 days is
  * dropped (RETENTION.attemptsDays, shared/retention.js: an old outbox cannot bring back what the night purge removed),
@@ -896,8 +941,8 @@ async function takeWrites(env, studentId, counts) {
  * marks the class as used today (class_settings.last_seen, TRUST-7 §2).
  * COUNCIL2-12: an answer whose topic is not one the app teaches (TOPIC_IDS) is dropped and still acknowledged, so an old
  * outbox drains; a level row is written only for such a topic; every level is a whole number from 1 to 12. What is
- * stored is counted against the day's WRITE_BUDGET first, and the batch's size reading goes to the size meter
- * (dbsize.js).
+ * stored is counted against the day's write budgets first (writes.js: the student's, the class's and the network's), and
+ * the batch's size reading goes to the size meter (dbsize.js).
  */
 async function saveProgress(req, env, ctx, cors) {
   const s = await requireStudent(req, env);
@@ -917,7 +962,7 @@ async function saveProgress(req, env, ctx, cors) {
   }
   const levels = Object.entries(b.levels && typeof b.levels === 'object' ? b.levels : {})
     .filter(([topic, v]) => TOPIC_IDS.includes(topic) && v && typeof v === 'object').slice(0, 20);
-  await takeWrites(env, s.id, { answers: rows.length, levels: levels.length });
+  await takeWrites(env, req, s, { answers: rows.length, levels: levels.length }, { ctx });
   const stmts = [];
   if (rows.length) {
     const col = (i) => `json_extract(value, '$[${i}]')`;
@@ -948,7 +993,7 @@ async function saveProgress(req, env, ctx, cors) {
 /** The title a class exam is kept under: no name-like ID, phone or long number (trust spec TRUST-5 §6). */
 const examTitle = (t) => scrubTitle(String(t || '').trim() || 'מבחן').slice(0, 80);
 
-/** A class student's exam check result (topics from TOPIC_IDS, levels 0-12), counted against the day's WRITE_BUDGET. */
+/** A class student's exam check result (topics from TOPIC_IDS, levels 0-12), counted against the day's write budgets. */
 async function saveExam(req, env, ctx, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.exams);
@@ -957,7 +1002,7 @@ async function saveExam(req, env, ctx, cors) {
     level: Number.isInteger(q.level) && q.level > 0 && q.level <= 12 ? q.level : 0,
   }));
   const weak = (Array.isArray(b.weakTopics) ? b.weakTopics : []).filter((t) => TOPIC_IDS.includes(t)).slice(0, 6);
-  await takeWrites(env, s.id, { exams: 1 });
+  await takeWrites(env, req, s, { exams: 1 }, { ctx });
   const res = await env.DB.batch([
     env.DB.prepare('INSERT INTO exams (student_id, title, correct, total, questions, weak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(s.id, examTitle(b.title), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()),
@@ -978,6 +1023,22 @@ async function saveExam(req, env, ctx, cors) {
  */
 /** Open help requests one student may have; a note that reads as distress past it joins the newest one (askHelp). */
 const HELP_OPEN_MAX = 10;
+/**
+ * The notebook page kept with a help request: a JPEG data URL of at most this many characters, about 200 KB (COUNCIL2-18;
+ * the app fits its page to it, web/src/lib/fitImage.js). A longer one is left out and the request is kept without it.
+ */
+export const HELP_IMAGE_MAX = 270_000;
+/**
+ * May the optional second reader (MODERATION, moderation.js) read this student's note to the teacher? Only when the
+ * tutor is on for the student (the class's rule and the parents' consent, entitle.js studentAiOn) or the device is one
+ * a parent linked to the family. Otherwise nothing the child writes goes to the AI company (TRUST-11): the word list
+ * alone decides.
+ */
+async function noteMayBeRead(req, env, s) {
+  if (studentAiOn(env, s)) return true;
+  const fd = req.headers.get('X-Family-Device');
+  return !!fd && !!(await familyDeviceFrom(env, fd));
+}
 async function askHelp(req, env, ctx, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.help);
@@ -995,29 +1056,47 @@ async function askHelp(req, env, ctx, cors) {
   const note = String(b.note || '').slice(0, 300);
   let hit = detectDistress(note);
   // the optional second reader (COUNCIL2-9): a note the word list let through, read once; a flag marks it for the
-  // teacher as a note that reads as distress does
-  if (!hit.flag && note.trim() && moderationOn(env)) {
+  // teacher as a note that reads as distress does. Never for a student whose tutor is off (noteMayBeRead).
+  if (!hit.flag && note.trim() && moderationOn(env) && await noteMayBeRead(req, env, s)) {
     const m = await moderate(env, { role: 'input', text: note, pool: 'care', ctx });
     if (m.flag) hit = { flag: true, category: m.category, source: 'model' };
   }
   if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: hit.source || 'regex' }, ctx, { net: eventNet(req, env) });
+  // Optional notebook page: a JPEG data URL of the student's working, kept small.
+  let image = typeof b.image === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(b.image) && b.image.length <= HELP_IMAGE_MAX ? b.image : null;
   // the teacher's alert (src/alerts.js) is not one of the child's requests
   const open = await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL AND topic <> ?').bind(s.id, ALERT_TOPIC).first();
-  if (open && open.n >= HELP_OPEN_MAX) {
-    if (!hit.flag) throw new HttpError(429, 'too_many_open');
-    // A note that reads as distress always reaches the teacher, but past the cap it makes no new request and keeps no
-    // page (the trust review: a loop of such notes filled the database): it becomes the note of the student's newest
-    // open request, which is marked for the teacher.
+  const full = !!open && open.n >= HELP_OPEN_MAX;
+  if (full && !hit.flag) throw new HttpError(429, 'too_many_open');
+  // The day's budgets (writes.js): the request and the kilobytes of its picture, for the student, the class and the
+  // network. With the pictures used up the request is kept without its page ({ noImage: true }); with the requests used
+  // up it is refused (429 too_many_help), except a note that reads as distress, which always reaches the teacher: with
+  // no picture, as past the open-requests cap below.
+  let overBudget = false;
+  if (!full && !(await takeWrites(env, req, s, { help: 1, helpKb: image ? Math.ceil(image.length / 1024) : 0 }, { soft: true, ctx }))) {
+    const hadImage = !!image; image = null;
+    if (!hadImage || !(await takeWrites(env, req, s, { help: 1 }, { soft: true, ctx }))) {
+      if (!hit.flag) {
+        const until = resetsAt('day');
+        throw new HttpError(429, 'too_many_help', undefined, { resetsAt: until }, { 'Retry-After': String(Math.max(60, Math.ceil((Date.parse(until) - Date.now()) / 1000))) });
+      }
+      overBudget = true;
+    }
+  }
+  const noImage = typeof b.image === 'string' && b.image !== '' && !image;
+  const done = (extra, res) => { if (res) ctx.waitUntil(meterDbSize(env, res)); return json({ ok: true, ...extra, ...(noImage && !extra.again ? { noImage: true } : {}) }, 200, cors); };
+  if (full || (overBudget && open && open.n > 0)) {
+    // A note that reads as distress always reaches the teacher, but past the cap (or the day's budget) it makes no new
+    // request and keeps no page (the trust review: a loop of such notes filled the database): it becomes the note of
+    // the student's newest open request, which is marked for the teacher.
     const newest = await env.DB.prepare('SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND topic <> ? ORDER BY id DESC LIMIT 1').bind(s.id, ALERT_TOPIC).first();
-    await env.DB.batch([
+    const res = await env.DB.batch([
       env.DB.prepare('UPDATE help_requests SET note = ? WHERE id = ?').bind(note, newest.id),
       env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) VALUES (?, \'help\', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1').bind(newest.id),
       classSeenStmt(env, s.class_code),
     ]);
-    return json({ ok: true, again: true }, 200, cors);
+    return done({ again: true }, res);
   }
-  // Optional notebook page: a JPEG data URL of the student's working, kept small.
-  const image = typeof b.image === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(b.image) && b.image.length <= 600_000 ? b.image : null;
   // The same exercise asked again while its request is still open: one request, with the newest note and page (a
   // talk request, with its empty question, is never one of them).
   const question = String(b.question || '').slice(0, 600);
@@ -1026,22 +1105,22 @@ async function askHelp(req, env, ctx, cors) {
   const same = await env.DB.prepare(`SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND question = ? AND topic <> ?
     AND id NOT IN (SELECT help_id FROM help_meta WHERE kind = 'talk') LIMIT 1`).bind(s.id, question, ALERT_TOPIC).first();
   if (same) {
-    await env.DB.batch([
+    const res = await env.DB.batch([
       env.DB.prepare('UPDATE help_requests SET note = CASE WHEN ? <> \'\' THEN ? ELSE note END, image = COALESCE(?, image), answer = ? WHERE id = ?')
         .bind(note, note, image, String(b.answer || '').slice(0, 100), same.id),
       // once a note read as distress, the request stays marked for the teacher
       ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) VALUES (?, \'help\', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1').bind(same.id)] : []),
       classSeenStmt(env, s.class_code),
     ]);
-    return json({ ok: true, again: true }, 200, cors);
+    return done({ again: true }, res);
   }
-  await env.DB.batch([
+  const res = await env.DB.batch([
     env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(s.id, topic, Number(b.level) || null, question, String(b.answer || '').slice(0, 100), note, image, nowIso()),
     ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'help\', 1 FROM help_requests WHERE student_id = ?').bind(s.id)] : []),
     classSeenStmt(env, s.class_code),
   ]);
-  return json({ ok: true }, 200, cors);
+  return done({}, res);
 }
 
 // ---------- teacher ----------
@@ -1049,7 +1128,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings, , assignments, classExams, threads, owner, lateRows, binding, goal, adult] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings, , assignments, classExams, threads, owner, lateRows, binding, goal, adult, pinRows] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -1101,7 +1180,10 @@ async function dashboard(req, env, cors) {
     teacherGoal(env, cls.code),
     // is an adult behind this class (COUNCIL2-2): the AI card says what turning student AI on needs
     parentOkRequired(env) ? teacherIsAdult(env, cls) : true,
+    // today's wrong PINs of each student, from every network (pin:<id>, joinClass): from PIN_FLAG the row says so
+    q('SELECT s.id AS student_id, u.count FROM students s JOIN ai_usage u ON u.who = \'pin:\' || s.id AND u.day = ?2 WHERE s.class_code = ?1 AND u.count >= ?3', cls.code, today, PIN_FLAG),
   ]);
+  const wrongPins = new Set(pinRows.map((r) => r.student_id));
   const aiOff = new Set(aiOffRows.map((r) => r.student_id));
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows); const late = by(lateRows);
@@ -1116,6 +1198,8 @@ async function dashboard(req, env, cors) {
     goal,
     students: students.map((s) => ({
       id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset,
+      // many wrong personal codes today under this name (PIN_FLAG): the student may be waiting for the teacher's reset
+      manyWrongPins: wrongPins.has(s.id),
       joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null, late: Number(late[s.id]?.late || 0), aiOff: aiOff.has(s.id),
       today: t[s.id] ? { n: t[s.id].n, ok: t[s.id].ok, first: t[s.id].first, minutes: Math.round((t[s.id].secs || 0) / 60) } : { n: 0, ok: 0, first: 0, minutes: 0 },
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
@@ -1179,7 +1263,8 @@ async function resetPin(id, req, env, cors) {
     env.DB.prepare('DELETE FROM student_tokens WHERE student_id = ? AND EXISTS (SELECT 1 FROM students WHERE id = ? AND class_code = ?)').bind(id, id, cls.code),
   ]);
   if (!r.meta?.changes) return json({ ok: true }, 200, cors);
-  // A reset also clears every wrong-code count (each network's, hourly and daily), so the student can claim at once.
+  // A reset also clears every wrong-code count (each network's, hourly and daily, and the student's day), so the
+  // student can claim at once.
   await env.DB.prepare(`DELETE FROM ai_usage WHERE ${pinKeysWhere}`).bind(id).run();
   return json({ ok: true, claimCode: code, claimExpires: expires }, 200, cors);
 }
@@ -1291,17 +1376,17 @@ async function route(req, env, ctx, cors) {
   // classes and students
   if (M === 'POST' && p === '/api/classes') return createClass(req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})$/))) return classInfo(m[1], req, env, cors);
-  if (M === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return joinClass(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return joinClass(m[1], req, env, ctx, cors);
   if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/help') return askHelp(req, env, ctx, cors);
   // the student's side of a help request's thread (help.js)
-  if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/reply$/))) return studentReply(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/reply$/))) return studentReply(m[1], req, env, cors, ctx);
   if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/read$/))) return readHelp(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/exams') return saveExam(req, env, ctx, cors);
   // the teacher's assignments, as the student sees them (assignments.js)
   if (M === 'GET' && p === '/api/class/work') return classWork(req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})\/exam$/))) return workExam(m[1], req, env, cors);
-  if (M === 'POST' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})$/))) return postWork(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})$/))) return postWork(m[1], req, env, cors, ctx);
   // a shared assignment link (COUNCIL2-35): public, with nothing about any student (assignments.js publicAssignment)
   if (M === 'GET' && (m = p.match(/^\/api\/work\/([a-f0-9]{16})$/))) return publicAssignment(m[1], req, env, cors);
   if (M === 'GET' && p === '/api/class/goal') return classGoal(req, env, cors);

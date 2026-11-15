@@ -49,10 +49,13 @@ export default defineConfig({
   },
   // Unit tests only; the browser tests in e2e/ run with Playwright (npm run test:e2e).
   // shared/*.test.js (code the Worker and the app share) runs here too, with the same aliases.
+  // VITE_ARABIC "on": the unit tests cover the Arabic the repository holds (catalogues, twins, the language switch),
+  // which a default build leaves out; lib/i18n.flag.test.js checks the default, with the flag off.
   test: {
+    env: { VITE_ARABIC: 'on' },
     environment: 'node',
     include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)', '../shared/**/*.test.js'],
-    exclude: ['**/node_modules/**', 'e2e/**', 'dist-test/**', 'dist-ios-test/**'],
+    exclude: ['**/node_modules/**', 'e2e/**', 'dist-test/**', 'dist-ios-test/**', 'dist-arabic-test/**', 'dist-contract/**'],
     setupFiles: ['./src/testYield.js'],
   },
 });

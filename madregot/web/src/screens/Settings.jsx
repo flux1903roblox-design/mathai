@@ -12,7 +12,7 @@ import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { Segmented } from '@/components/choices.jsx';
-import { GradeSwitch, joinClass, joinedProfile, ClaimField, CLAIM_COPY } from './Welcome.jsx';
+import { GradeSwitch, joinClass, joinedProfile, ClaimField, CLAIM_COPY, claimReason } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { openSupport } from '@/components/SupportSheet.jsx';
@@ -35,7 +35,7 @@ import SharingSheet, { stateWord } from '@/components/SharingSheet.jsx';
 import { disable as disableReminder } from '@/lib/push.js';
 import ReminderSettings from '@/components/learn/ReminderSettings.jsx';
 import LangPick from '@/components/LangPick.jsx';
-import { localized, t, useLocale } from '@/lib/i18n.js';
+import { localized, t, useLocale, LOCALES } from '@/lib/i18n.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/settings.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
@@ -101,7 +101,7 @@ function ClassSection() {
       else if (c.vault) hello();
       if (r.toast && !r.restored) toast(r.toast);
     } catch (err) {
-      if (err.code === 'claim_code_needed') setNeedClaim(true);
+      if (err.code === 'claim_code_needed') setNeedClaim(claimReason(err));
       else setError(err.message);
     } finally { setBusy(false); }
   };
@@ -112,7 +112,7 @@ function ClassSection() {
         {!profile.classCode && (
           <Field label={t('settings.settings.14')} id="me-code"><input id="me-code" className="input mono" dir="ltr" value={code} onChange={(e) => { setNeedClaim(false); setCode(e.target.value.toUpperCase()); }} maxLength={6} /></Field>
         )}
-        {needClaim && <ClaimField id="me-claim" value={claim} onChange={(v) => { setError(''); setClaim(v); }} />}
+        {needClaim && <ClaimField id="me-claim" why={needClaim} value={claim} onChange={(v) => { setError(''); setClaim(v); }} />}
         <Field label={needClaim ? CLAIM_COPY.pinLabel : t('settings.settings.15')} id="me-pin" hint={needClaim ? null : t('settings.settings.16')}>
           <input id="me-pin" className="input mono" dir="ltr" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
         </Field>
@@ -327,6 +327,8 @@ function ThemeSetting() {
  */
 function LanguageSetting() {
   const lang = useLocale();
+  // one language (a build without Arabic, the default): no choice to offer, so no section
+  if (Object.keys(LOCALES).length < 2) return null;
   return (
     <section className="section set-group" aria-labelledby="lang-title">
       <h2 id="lang-title" className="set-head">{t('settings.locale.title')}</h2>

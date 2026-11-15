@@ -94,12 +94,43 @@ const NINE = /(^|\D)(\d{9})(?!\d)/g;
 const LOOSE_PHONE = /(^|[^\d])((?:\+\s?9\s?7\s?2|0)(?:[\s-]{0,2}\d){8,9})(?![\s-]{0,2}\d)/g;
 const LOOSE_DIGITS = /^0(?:5\d{8}|7\d{8}|[2-489]\d{7})$/;
 // A street address (COUNCIL2-9): a street word, one to three words of its name and the house number (with a letter, 5א),
-// and the city after it when it is marked off: ", תל אביב" or "בחיפה". The name's first word is not one of the words a
-// maths story puts after "רחוב" ("ברחוב יש 12 בתים"). Before the street word only a prefix letter (ב, ו, ל, מ, ש):
-// "הרחוב" (the street) is no address.
-const STREET = /((?:^|[^\u05d0-\u05ea])[בולמש]{0,2})((?:רחוב|רח['׳"]|שדרות|שד['׳"])\s+([\u05d0-\u05ea"'׳״-]+)(?:\s+[\u05d0-\u05ea"'׳״-]+){0,2}\s+\d{1,4}[\u05d0-\u05ea]?(?![\d\u05d0-\u05ea])(?:\s*,\s*[\u05d0-\u05ea"'׳״-]+(?:[\s-][\u05d0-\u05ea"'׳״-]+){0,2}|\s+ב[\u05d0-\u05ea"'׳״-]+(?:-[\u05d0-\u05ea"'׳״-]+)?)?)/g;
+// and the city after it when it is marked off: ", תל אביב" (one or two words, then the sentence ends or another comma
+// follows, and never a question: ", מה ההפרש?" is the exercise) or "בחיפה". The name's first word is not one of the
+// words a maths story puts after "רחוב" ("ברחוב יש 12 בתים"). Before the street word only a prefix letter (ב, ו, ל, מ,
+// ש): "הרחוב" (the street) is no address.
+const HE = String.raw`[א-ת"'׳״-]`;
+const NOT_A_CITY = String.raw`(?!(?:מה|כמה|איזה|איזו|האם|מי|איך|למה|מתי|איפה|אז|ואז|אבל|כי|ו?אני|ו?הוא|ו?היא)(?![א-ת]))`;
+const SENTENCE_END = String.raw`(?=\s*(?:[.!?,;:]|$))`;
+const STREET_WORD = String.raw`(?:רחוב|רח['׳"]|שדרות|שד['׳"])`;
+const NUMBER = String.raw`\d{1,4}[א-ת]?(?![\dא-ת])`;
+const STREET = new RegExp(
+  String.raw`((?:^|[^א-ת])[בולמש]{0,2})(${STREET_WORD}\s+(${HE}+)(?:\s+${HE}+){0,2}\s+${NUMBER}`
+  + String.raw`(?:\s*,\s*${NOT_A_CITY}${HE}+(?:[\s-]${HE}+)?${SENTENCE_END}|\s+ב(?!${STREET_WORD})${HE}+(?:-${HE}+)?)?)`, 'g');
 const NOT_A_STREET_NAME = new Set(['יש', 'אין', 'שלנו', 'שלי', 'שלו', 'שלה', 'שלהם', 'שלכם', 'הזה', 'הזאת', 'זה', 'זאת', 'אחד', 'אחת', 'ארוך', 'ארוכה', 'קצר', 'קצרה',
   'היו', 'היה', 'הייתה', 'גרים', 'גר', 'גרה', 'עם', 'של', 'עד', 'כל', 'בו', 'בה', 'רק', 'עוד', 'כמה', 'יותר', 'פחות', 'ישר', 'ראשי', 'צדדי', 'שני', 'הבא', 'אורך', 'באורך']);
+// The same address said without a street word: "אני גרה בהרצל 15 דירה 4 רמת גן", "הכתובת שלי: ויצמן 12 כפר סבא". After
+// "גר/גרה ב" or "הכתובת שלי:", a name of one to three words, the number, a flat when there is one, and what follows to
+// the end of the sentence (one or two words: the city). Never a floor, a building or a distance ("גר בקומה 3", "גרה
+// במרחק 2 ק״מ"), and never a number of years ("גרה בחיפה 5 שנים").
+const NOT_A_UNIT = String.raw`(?!\s*(?:שנים|שנה|חודשים|ימים|שעות|דקות|ק"מ|ק״מ|קילומטר|קילומטרים|מטר|מטרים)(?![א-ת]))`;
+const ADDRESS_REST = String.raw`(${HE}+)(?:\s+${HE}+){0,2}\s+${NUMBER}${NOT_A_UNIT}(?:\s+דירה\s+\d{1,3})?(?:\s*,?\s*${NOT_A_CITY}${HE}+(?:[\s-]${HE}+)?${SENTENCE_END})?`;
+const LIVES_AT = new RegExp(String.raw`((?:^|[^א-ת])(?:גר|גרה|גרים|גרות|מתגורר|מתגוררת)\s+ב)(${ADDRESS_REST})`, 'g');
+const MY_ADDRESS = new RegExp(String.raw`((?:^|[^א-ת])ה?כתובת(?:\s+(?:שלי|שלנו|שלו|שלה))?(?:\s+(?:היא|זה|זו))?\s*:?\s*)(${ADDRESS_REST})`, 'g');
+const NOT_A_PLACE_NAME = new Set([...NOT_A_STREET_NAME, 'קומה', 'בניין', 'בנין', 'בית', 'דירה', 'מרחק', 'עיר', 'שכונה', 'כיתה', 'גיל', 'רחוב', 'שדרות', 'מספר']);
+/**
+ * A sentence that is an exercise about streets, not an address: it asks how much or what the difference is, or it
+ * names two streets with their numbers ("דני גר ברחוב הרצל 15 ויוסי ברחוב הרצל 27, מה ההפרש?"). Its numbers stay.
+ */
+const STREET_MATHS = /(?:^|[^א-ת])(?:כמה|ה?הפרש|ה?סכום|ה?ממוצע|ה?מרחק|רחוק|רחוקה)(?![א-ת])/;
+/** Beside a run of single digits: it is a list of numbers for statistics, not a phone. */
+const STATS_WORD = /(?:^|[^א-ת])ה?(?:חציון|ממוצע|שכיח|טווח|סדרו|סדר|נתונים|ספרות|מספרים|רשימה|סדרה)(?![א-ת])/;
+/** The sentence around a match (from the mark before it to the one after it). */
+function sentenceOf(text, from, to) {
+  let a = from; let b = to;
+  while (a > 0 && !'.!?\n'.includes(text[a - 1])) a -= 1;
+  while (b < text.length && !'.!?\n'.includes(text[b])) b += 1;
+  return { text: text.slice(a, b), start: a, end: b };
+}
 // "ID number" up to 20 characters before nine digits: only then are they an ID (a maths answer of 9 digits is not).
 const ID_WORD = /(?:ת["״']?\.?ז|תעודת (?:ה)?זהות|מספר (?:ה)?זהות|ת\.ז\.?|\bid\b|\bid number\b)/i;
 const ID_GAP = 20;
@@ -134,6 +165,11 @@ export function maskPersonal(text) {
     const before = whole.slice(0, offset + pre.length);
     if (!LOOSE_DIGITS.test(digits) || /\d[\s-]{0,2}$/.test(before)) return all;
     if (/^\d(?:-\d)+$/.test(run.replace(/^\+972/, ''))) return all;
+    // single digits one by one, with a statistics word beside them ("0 5 4 1 2 3 4 5 6 7 מה החציון?"): a list of numbers
+    if (/^\d(?:\s\d)+$/.test(run)) {
+      const s = sentenceOf(whole, offset, offset + all.length);
+      if (STATS_WORD.test(s.text)) return all;
+    }
     found.add('phone');
     return `${pre}[טלפון]`;
   });
@@ -144,11 +180,27 @@ export function maskPersonal(text) {
     found.add('id');
     return `${pre}[ת״ז]`;
   });
-  t = t.replace(STREET, (all, pre, addr, name) => {
-    if (NOT_A_STREET_NAME.has(name.replace(/["'׳״-]/g, ''))) return all;
+  // a sentence about streets that is an exercise keeps its numbers (STREET_MATHS, or two streets in one sentence)
+  const bare = (name) => name.replace(/["'׳״-]/g, '');
+  const streets = [...t.matchAll(STREET)].filter((m) => !NOT_A_STREET_NAME.has(bare(m[3])));
+  const exercise = (offset, len) => {
+    const s = sentenceOf(t, offset, offset + len);
+    return STREET_MATHS.test(s.text) || streets.filter((m) => m.index >= s.start && m.index < s.end).length >= 2;
+  };
+  const before = t;
+  const keep = new Set(streets.filter((m) => exercise(m.index, m[0].length)).map((m) => m.index));
+  t = before.replace(STREET, (all, pre, addr, name, offset) => {
+    if (NOT_A_STREET_NAME.has(bare(name)) || keep.has(offset)) return all;
     found.add('address');
     return `${pre}[כתובת]`;
   });
+  for (const re of [LIVES_AT, MY_ADDRESS]) {
+    t = t.replace(re, (all, pre, addr, name, offset, whole) => {
+      if (NOT_A_PLACE_NAME.has(bare(name)) || STREET_MATHS.test(sentenceOf(whole, offset, offset + all.length).text)) return all;
+      found.add('address');
+      return `${pre}[כתובת]`;
+    });
+  }
   return { text: t, found: PERSONAL_KINDS.filter((k) => found.has(k)) };
 }
 

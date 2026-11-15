@@ -172,12 +172,13 @@ test.describe('COUNCIL2-35: an assignment\'s own link', () => {
 
   test('another class\'s student, a teacher, an unknown link, a closed class and no server: each says so, nothing changes', async ({ page }) => {
     const { st, log } = await fakeServer(page, { assignments: [given()] }, baseOf());
-    // another class: its name, and this phone's student stays as they were
+    // another class: its name, and this phone's student stays as they were (their own work holds nothing of this class)
+    st.studentTokens['stok-b8'] = 'z9'; st.elsewhere = ['z9'];
     const other = inClass();
-    other.state.profile = { ...other.state.profile, classCode: 'B8R3TN', className: 'ח׳2' };
+    other.state.profile = { ...other.state.profile, classCode: 'B8R3TN', className: 'ח׳2', token: 'stok-b8', studentId: 'z9' };
     await open(page, `#/a/${ID}`, other);
     await expect(page.getByText('המשימה הזו של כיתה ז׳3, והיא נפתחת בטלפונים של התלמידים שם. אתם בכיתה אחרת, ושום דבר כאן לא השתנה.')).toBeVisible();
-    expect((await saved(page)).profile).toMatchObject({ classCode: 'B8R3TN', className: 'ח׳2', token: 'stok-a1' });
+    expect((await saved(page)).profile).toMatchObject({ classCode: 'B8R3TN', className: 'ח׳2', token: 'stok-b8' });
     await expect(page.getByRole('link', { name: 'למשימות שלי' })).toBeVisible();
     await look(page, 'assignment-open-other');
     // a teacher: the link is the students'
@@ -196,6 +197,38 @@ test.describe('COUNCIL2-35: an assignment\'s own link', () => {
     await open(page, `#/a/${ID}`, student('7'));
     await expect(page.getByText('המשימות של הכיתה נפתחות באפליקציה של הכיתה, בכתובת שהמורה נתן.')).toBeVisible();
     expect(log.slice(n).filter((r) => r.path.startsWith('/api/work/'))).toHaveLength(0);
+  });
+
+  // A school behind one address: the public route counts the links a network opens in a day (300), and a class
+  // student's phone must never be held back by it. The phone opens the work from the student's own list and asks the
+  // public route nothing; when the route does refuse someone, they are shown a way forward, not only "tomorrow".
+  test('a network that used up its links of the day: a class student\'s work still opens, and nobody is only told to wait', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { assignments: [given()] }, baseOf());
+    st.linksFull = true;
+    // a class student: the stair opens, and the public route was never asked
+    await open(page, `#/a/${ID}`, inClass());
+    await expect(page).toHaveURL(new RegExp(`#/learn/signed/1\\?assignment=${ID}$`));
+    expect(log.filter((r) => r.path.startsWith('/api/work/'))).toHaveLength(0);
+    expect(log.filter((r) => r.path === '/api/class/work').length).toBeGreaterThan(0);
+
+    // a phone whose class token the server no longer knows (signed out by a fourth device) is counted as anyone: it is
+    // sent to the student's missions
+    const stale = inClass();
+    stale.state.profile = { ...stale.state.profile, token: 'stok-gone' };
+    await open(page, `#/a/${ID}`, stale);
+    await expect(page.getByText('היום נפתחו הרבה קישורים מהרשת הזו, ולכן הקישור לא נפתח כרגע. המשימות שלכם מחכות במסך המשימות.')).toBeVisible();
+    await expect(page.getByText('מחר')).toHaveCount(0);
+    const mine = page.getByRole('link', { name: 'למשימות שלי' });
+    expect((await mine.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await look(page, 'assignment-open-slow-student');
+    await mine.click();
+    await expect(page).toHaveURL(/#\/quests$/);
+
+    // a phone with no one on it: the class code is the other way in
+    await open(page, `#/a/${ID}`, fresh());
+    await expect(page.getByText('היום נפתחו הרבה קישורים מהרשת הזו, ולכן הקישור לא נפתח כרגע. אפשר להצטרף לכיתה מדף הבית עם קוד הכיתה שהמורה נתן, או לנסות את הקישור שוב מחר.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'לדף הבית' })).toBeVisible();
+    await look(page, 'assignment-open-slow-new');
   });
 });
 

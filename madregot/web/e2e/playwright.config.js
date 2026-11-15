@@ -18,6 +18,15 @@ const IOS_ONLY = /store-ios\.spec\.js/;
 const CONTRACT_PORT = Number(process.env.CONTRACT_PORT) || 4423;
 const WITH_CONTRACT = !/--project[= ]/.test(argv) || /--project[= ]contract\b/.test(argv);
 const CONTRACT_SPECS = /(class-sync|durable|restore|tutor|subscription|school-links)\.spec\.js/;
+// Arabic is behind a build flag that is off by default (VITE_ARABIC, lib/i18n.js): every other project runs the default
+// build, where arabic-off.spec.js checks that nothing Arabic is offered or fetched. arabic.spec.js runs in the 'arabic'
+// project against a build made with VITE_ARABIC=on, on E2E_AR_PORT (default the third port after E2E_PORT), built only
+// when the run includes that project (or no --project at all).
+const AR_PORT = Number(process.env.E2E_AR_PORT) || PORT + 3;
+const WITH_ARABIC = !/--project[= ]/.test(argv) || /--project[= ]arabic\b/.test(argv);
+const ARABIC_ONLY = /arabic\.spec\.js/;
+/** The specs of a build other than the default one: the store build's and the Arabic build's. */
+const OTHER_BUILD = [IOS_ONLY, ARABIC_ONLY];
 
 const phone = (width, height) => ({ viewport: { width, height }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
 
@@ -40,12 +49,13 @@ export default defineConfig({
     cwd: '..',
     // no server, as the public site; VITE_TEACHER_URL: the public teacher page points to the full app (TEACHER-1);
     // the landing pages' stand-in owner values (scripts/landing-build.mjs), selling as Grow does at launch, before it
-    // lets us stop a standing order: the plans paid once, the one-year plan (COUNCIL2-30) and the exam pass at
-    // wrangler.toml's price (COUNCIL2-33)
+    // lets us stop a standing order: the plans paid once, the one-year plan (COUNCIL2-30) and the exam pass
+    // (COUNCIL2-33). wrangler.toml ships the pass with no price (the owner decides it), so the tests give the landing
+    // build one of their own: ₪39, in the test environment only.
     env: {
       VITE_API_URL: 'none', VITE_TEACHER_URL: 'https://example.test/',
       PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', BUSINESS_NAME: 'מדרגות (דוגמה)', API_BASE: 'https://api.madregot.test',
-      BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off',
+      BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off', LANDING_PRICE_PASS_AGOROT: '3900',
     },
     url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
@@ -67,20 +77,31 @@ export default defineConfig({
     url: `http://127.0.0.1:${CONTRACT_PORT}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
+  }] : []), ...(WITH_ARABIC ? [{
+    // the app with Arabic in it (VITE_ARABIC=on), with no server, as the default build
+    command: `npx vite build --base ./ --outDir dist-arabic-test --emptyOutDir && npx vite preview --outDir dist-arabic-test --port ${AR_PORT} --strictPort --host 127.0.0.1`,
+    cwd: '..',
+    env: { VITE_ARABIC: 'on', VITE_API_URL: 'none', VITE_TEACHER_URL: 'https://example.test/' },
+    url: `http://127.0.0.1:${AR_PORT}/`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
   }] : [])],
   projects: [
-    { name: 'phone-small', use: phone(320, 568), testIgnore: IOS_ONLY },
-    { name: 'phone', use: phone(390, 844), testIgnore: IOS_ONLY },
+    { name: 'phone-small', use: phone(320, 568), testIgnore: OTHER_BUILD },
+    { name: 'phone', use: phone(390, 844), testIgnore: OTHER_BUILD },
     // the same phone in dark mode (STUDENT-2): the screenshots of visual.spec, kept in __screens__/phone-dark/, and the
     // student's week (STUDENT-16), whose pictures go to qa-evidence/student/week/phone-dark/
     { name: 'phone-dark', use: { ...phone(390, 844), colorScheme: 'dark' }, testMatch: /(visual|student-week)\.spec\.js/ },
-    { name: 'tablet', use: { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 1 }, testIgnore: IOS_ONLY },
-    { name: 'desktop', use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 }, testIgnore: IOS_ONLY },
+    { name: 'tablet', use: { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 1 }, testIgnore: OTHER_BUILD },
+    { name: 'desktop', use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 }, testIgnore: OTHER_BUILD },
     // the iPhone store build (STUDENT-12): its own server, a phone, and service workers allowed so that "none
     // registered" means something
     { name: 'ios', use: { ...phone(390, 844), baseURL: `http://127.0.0.1:${IOS_PORT}/`, serviceWorkers: 'allow' }, testMatch: IOS_ONLY },
     // the real Worker (COUNCIL2-22): the @contract tests of the class sync, the backup code and the class's kept code,
     // the tutor's allowance and the parents' checkout, on the same phone
     { name: 'contract', use: { ...phone(390, 844), baseURL: `http://127.0.0.1:${CONTRACT_PORT}/` }, testMatch: CONTRACT_SPECS, grep: /@contract/ },
+    // the build with Arabic in it (VITE_ARABIC=on): the Arabic shell and the Arabic topic, on the two phones
+    { name: 'arabic', use: { ...phone(390, 844), baseURL: `http://127.0.0.1:${AR_PORT}/` }, testMatch: ARABIC_ONLY },
+    { name: 'arabic-small', use: { ...phone(320, 568), baseURL: `http://127.0.0.1:${AR_PORT}/` }, testMatch: ARABIC_ONLY },
   ],
 });

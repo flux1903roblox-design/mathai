@@ -4,7 +4,10 @@
 // a backup that was stopped, one that could not start, and students from before the default. It keeps reminding, 14
 // days apart, until a backup or an install exists (it used to stop after two asks). It asks only when all of these hold:
 //   - the app has a server (the backup code needs one; without it the backup file is in Settings);
-//   - no backup code and no copy kept for the student by the class or the family (backup.escrow);
+//   - no backup on the server and no copy kept for the student by the class or the family (backup.escrow). A backup
+//     that is on counts only once its first copy has landed (backup.rev): one that is still waiting for the server (it
+//     was offline, full, closed, or refused new backups from this network) counts for its first day, and after that
+//     the reminder comes back, since nothing is backed up yet (the review of COUNCIL2-24);
 //   - the app is not installed: not opened from the Home Screen (its own window) and not the store app, where the
 //     browser does not clear the data on its own;
 //   - the student learned on 2 different days (a lesson, a check or a teaching stage finished);
@@ -17,6 +20,20 @@ import { isNativeApp } from '../native.js';
 
 export const NUDGE_FROM_DAYS = 2;
 export const NUDGE_GAP_DAYS = 14;
+/** How long a backup that is on may wait for its first copy before the reminder counts it as no backup. */
+export const NUDGE_PENDING_DAYS = 1;
+
+/**
+ * Is the student's progress kept somewhere but this device's browser? A backup with a copy on the server, or one
+ * turned on less than a day ago that is still sending its first copy.
+ * @param {import('./types').Saved['backup'] | null | undefined} b
+ */
+export function backupCounts(b, now = new Date()) {
+  if (!b?.on) return false;
+  if (b.rev != null) return true;
+  const since = Date.parse(b.since ?? '');
+  return Number.isFinite(since) && now.getTime() - since < NUDGE_PENDING_DAYS * 864e5;
+}
 /** The screens the question may open on: the tabs where nothing is in progress. */
 const CALM = /^\/(quests|topics|me)?$/;
 
@@ -35,7 +52,7 @@ export const installedHere = () => isStandalone() || isNativeApp();
  */
 export function shouldNudge(st, { pathname, server, installed = false, now = new Date() }) {
   if (!server || !st || st.profile?.role !== 'student') return false;
-  if (st.backup?.on || st.backup?.escrow || installed) return false;
+  if (backupCounts(st.backup, now) || st.backup?.escrow || installed) return false;
   if (activeDays(st.days) < NUDGE_FROM_DAYS) return false;
   if (!calmRoute(pathname)) return false;
   const at = Date.parse(st.durable?.nudgeAt);

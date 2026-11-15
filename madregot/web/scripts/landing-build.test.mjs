@@ -128,31 +128,35 @@ describe('landing-build', () => {
     expect(priceLine(soldOnline({ BILLING_PROVIDER: 'manual' }), fmt)).toBe('');
   });
 
-  it('prints the exam pass from the same rule (COUNCIL2-33): sold through Grow as one charge, at the Worker\'s price, never with the manual provider or with no price', async () => {
+  it('prints the exam pass from the same rule (COUNCIL2-33): only once the owner set its price, sold through Grow as one charge, never with the manual provider', async () => {
     const built = async (env) => {
       const other = fakeDist();
       try { return read((await buildLanding(other, { env: { ...ENV, ...env }, app: smallApp() }), other), 'mivchan/index.html'); } finally { rmSync(other, { recursive: true, force: true }); }
     };
     const toml = wranglerVars(read(WEB, '../worker/wrangler.toml'));
-    const price = formatAgorot(Number(toml.PRICE_EXAM_PASS_AGOROT));
-    const line = `<p class="price">לפני מבחן: חבילה ל־30 יום ב־${price}, כולל מע״מ. תשלום אחד, לא מתחדשת מעצמה.</p>`;
-    // the real build (Grow with the permission): both family plans and the pass, each on its own line
-    expect(page.mivchan).toContain(line);
+    // The price is the owner's decision: the repository ships none (the review: a placeholder of ₪39 was on the public
+    // page as a real price). With none, the real build says nothing about the pass, and nothing sells it.
+    expect(toml.PRICE_EXAM_PASS_AGOROT).toBe('');
+    expect(page.mivchan).not.toContain('חבילה ל־30 יום');
+    expect(page.mivchan).not.toContain('₪39');
+    expect(passLine(soldOnline({ BILLING_PROVIDER: 'grow' }), { pass: '₪39', vat: 'כולל מע״מ' })).toBe('');
+    // the same in both tables (the owner sets both at once: the readiness check names the step)
+    const staging = /^\[env\.staging\.vars\]$([\s\S]*?)(?=^\[)/m.exec(read(WEB, '../worker/wrangler.toml'))[1];
+    expect(staging).toContain('PRICE_EXAM_PASS_AGOROT = ""');
+
+    // once a price is set (here the build's own, as the owner's [vars] would give it): the line, at that price
+    const line = (price) => `<p class="price">לפני מבחן: חבילה ל־30 יום ב־${price}, כולל מע״מ. תשלום אחד, לא מתחדשת מעצמה.</p>`;
+    expect(await built({ LANDING_PRICE_PASS_AGOROT: '3900' })).toContain(line('₪39'));
+    expect(await built({ LANDING_PRICE_PASS_AGOROT: '4490' })).toContain(line('₪44.90'));
     // Grow at launch (no direct debit): the year and the pass, both one charge; and no "מבטלים באתר"
-    const launch = await built({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off' });
-    expect(launch).toContain(line);
+    const launch = await built({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off', LANDING_PRICE_PASS_AGOROT: '3900' });
+    expect(launch).toContain(line('₪39'));
     expect(launch).toContain(`${formatAgorot(LIST_PRICES.year)} לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.`);
     expect(launch).not.toContain('מבטלים באתר');
-    // the page's own price for it, from the build env
-    expect(await built({ LANDING_PRICE_PASS_AGOROT: '4490' })).toContain('חבילה ל־30 יום ב־₪44.90, כולל מע״מ.');
-    // nothing sells it: the manual provider, or no price
-    expect(await built({ BILLING_PROVIDER: 'manual' })).not.toContain('חבילה ל־30 יום');
-    expect(passLine(soldOnline({ BILLING_PROVIDER: 'grow' }), { pass: price, vat: 'כולל מע״מ' })).toBe('');
+    // the manual provider sells nothing, with a price or without
+    expect(await built({ BILLING_PROVIDER: 'manual', LANDING_PRICE_PASS_AGOROT: '3900' })).not.toContain('חבילה ל־30 יום');
     expect(passLine(soldOnline({ BILLING_PROVIDER: 'grow', PRICE_EXAM_PASS_AGOROT: '3900' }), { pass: '₪39', vat: 'המחיר סופי' }))
       .toBe('לפני מבחן: חבילה ל־30 יום ב־₪39, המחיר סופי. תשלום אחד, לא מתחדשת מעצמה.');
-    // the placeholder in wrangler.toml is the same in both tables (the owner changes both at once)
-    const staging = /^\[env\.staging\.vars\]$([\s\S]*?)(?=^\[)/m.exec(read(WEB, '../worker/wrangler.toml'))[1];
-    expect(staging).toContain(`PRICE_EXAM_PASS_AGOROT = "${toml.PRICE_EXAM_PASS_AGOROT}"`);
   });
 
   it('lists the topics the app has, from topicsFor, and the daily goals from GOALS', () => {

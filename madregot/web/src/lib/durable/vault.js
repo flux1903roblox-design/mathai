@@ -240,9 +240,11 @@ async function pushLoop(ctx) {
  */
 function failed(store, e) {
   if (e?.code === 'network') { setBackup(store, { state: 'offline' }); return 'offline'; }
+  // the server took no new backup: it is off or full, or this device or network made too many today (the review:
+  // with too_many_vaults the state stayed 'idle', and the screens said the progress was backed up)
+  if (e?.code === 'vault_off' || e?.code === 'vault_full' || e?.code === 'too_many_vaults') { setBackup(store, { state: 'unavailable' }); return 'unavailable'; }
   // the server asks to slow down (or this network is out of tries today): quietly, until the next moment
   if (e?.status === 429) { setBackup(store, { state: 'idle' }); return 'idle'; }
-  if (e?.code === 'vault_off' || e?.code === 'vault_full') { setBackup(store, { state: 'unavailable' }); return 'unavailable'; }
   setBackup(store, { state: 'error' });
   if (e instanceof VaultOpenError) report('vault', { name: 'open', message: 'the vault could not be opened with this code' });
   else report('vault', { name: e?.code || e?.name || 'Error', message: e instanceof ApiError ? `vault sync failed (${e.status || 'no status'})` : String(e?.message || e) });
@@ -429,7 +431,8 @@ export async function defaultBackup({ store = useApp, now = () => new Date(), sy
   // a code the student restored or made while the key was derived, or a class joined meanwhile, wins
   if (!solo(store.getState()) || !free()) return 'off';
   const b = backupOf(store);
-  store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil, on: true, code, lookup, state: 'idle', note: 'auto' } });
+  // since: when it was turned on, so the reminder knows how long a first copy has been waiting (nudge.js)
+  store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil, on: true, code, lookup, state: 'idle', note: 'auto', since: now().toISOString() } });
   return sync ? syncVault({ moment: 'manual', store, now }) : 'on';
 }
 
@@ -490,9 +493,20 @@ export function detachBackup({ store = useApp } = {}) {
   store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil } });
 }
 
-/** Learn's one-time line is due: a backup turned on by default (note 'auto'), on, the student's own (no class or family). */
+/**
+ * Is there a copy on the server? The backup is on and its first copy has landed (the server gave it a rev). A backup
+ * that is on but whose first copy was refused or has not been sent yet (offline, a full or closed server, too many new
+ * backups from this network) is not one: nothing says "backed up" until this is true.
+ */
 /** @param {Partial<Backup> | null | undefined} b */
-export const showBackupLine = (b) => !!b?.on && b.note === 'auto' && !b.escrow && b.state !== 'other_student';
+export const backedUp = (b) => !!b?.on && b.rev != null;
+
+/**
+ * Learn's one-time line is due: a backup turned on by default (note 'auto'), the student's own (no class or family),
+ * and its first copy is on the server (the line says "ההתקדמות שלכם מגובה").
+ */
+/** @param {Partial<Backup> | null | undefined} b */
+export const showBackupLine = (b) => backedUp(b) && b?.note === 'auto' && !b.escrow && b.state !== 'other_student';
 
 /** The one-time note in Settings (or Learn's line) is seen. */
 /** @param {{ store?: Store }} [opts] */
@@ -502,6 +516,9 @@ export const clearBackupNote = ({ store = useApp } = {}) => setBackup(store, { n
 export const BACKUP_TEXT = {
   off: 'כבוי',
   offline: 'פועל · מחכה לאינטרנט',
+  /** on, but no copy has reached the server yet (backedUp is false) */
+  notYet: 'עוד לא נשמר בשרת · ננסה שוב',
+  notYetOffline: 'עוד לא נשמר בשרת · מחכה לאינטרנט',
   tooBig: 'הגיבוי גדול מדי. שמרו קובץ במקום.',
   retry: 'פועל · ננסה לעדכן שוב בקרוב',
   paused: 'מושהה',
@@ -550,10 +567,13 @@ export function agoText(iso, now = Date.now()) {
 export function backupText(backup, now = Date.now()) {
   if (!backup?.on) return BACKUP_TEXT.off;
   switch (backup.state) {
-    case 'offline': return BACKUP_TEXT.offline;
+    case 'offline': return backedUp(backup) ? BACKUP_TEXT.offline : BACKUP_TEXT.notYetOffline;
     case 'too_big': return BACKUP_TEXT.tooBig;
     case 'other_student': return BACKUP_TEXT.paused;
-    case 'error': case 'unavailable': return BACKUP_TEXT.retry;
-    default: return backup.at ? `פועל · עודכן ${agoText(backup.at, now)}` : 'פועל';
+    default: break;
   }
+  // never "פועל" before the first copy is on the server
+  if (!backedUp(backup)) return BACKUP_TEXT.notYet;
+  if (backup.state === 'error' || backup.state === 'unavailable') return BACKUP_TEXT.retry;
+  return backup.at ? `פועל · עודכן ${agoText(backup.at, now)}` : 'פועל';
 }

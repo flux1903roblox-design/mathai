@@ -65,6 +65,17 @@ describe('supportLines: the support card, built from SUPPORT', () => {
     expect(supportLines(SUPPORT, 'unknown')).toEqual(supportLines(SUPPORT, 'opened'));
   });
 
+  it('under a message the tutor could not take ("held"): it says the tutor is not answering and that the words went to no one, with the first number at hand', () => {
+    const held = supportLines(SUPPORT, 'held');
+    expect(SUPPORT_VARIANTS).toContain('held');
+    expect(held.opening).toBe('העוזר החכם לא עונה עכשיו. אם מה שכתבתם הוא משהו שמציק לכם או מדאיג אתכם, לא צריך להתמודד עם זה לבד.');
+    expect(held.footer).toBe('העוזר החכם הוא תוכנה, לא אדם. מה שכתבתם לא נשלח לאף אחד.');
+    expect(held.quick.href).toBe('tel:1201');
+    // it does not presume the child is in distress: "if", and no "מה שכתבתם חשוב"
+    expect(held.opening).not.toContain('מה שכתבתם חשוב');
+    expect(held.services.map((x) => x.id)).toEqual(supportLines(SUPPORT, 'after-message').services.map((x) => x.id));
+  });
+
   it('speaks calmly: the link, the title, no price, no countdown, no pressure', () => {
     const lines = supportLines(SUPPORT, 'after-message');
     expect(lines.link).toBe(SUPPORT_LINK);

@@ -650,6 +650,78 @@ test.describe('a person to talk to in every refusal (COUNCIL2-1, COUNCIL2-4)', (
     });
   }
 
+  // The second net (the council's safety review): a word list is never complete, and with no parent's OK a disclosure
+  // it does not read opened the parent's-OK sheet and nothing else. Now a message that is not about maths at all,
+  // written while the tutor cannot answer, stays on the screen as the child wrote it with the support card under it,
+  // in words that presume nothing; it is sent nowhere. A maths question is treated as before, with no card.
+  const UNREAD = 'אף אחד בבית לא שם לב אליי ואני לא יודעת מה לעשות';
+  for (const [name, opts, line] of [
+    ['with no parent\'s OK', {}, 'מחכים לאישור של הורה'],
+    ['with the questions used up', { parentOk: true, freeLimit: 0 }, 'העוזר החכם חוזר מחר'],
+  ]) {
+    const slug = opts.parentOk ? 'usedup' : 'noparentok';
+    test(`${name}: a message that is not about maths and that the word list does not read gets the support card under it, and goes nowhere`, async ({ page }) => {
+      const { log } = await fakeServer(page, opts, baseOf());
+      await open(page, '#/assistant', withServer());
+      const draft = page.getByLabel('ההודעה שלכם');
+      await expect(draft).toHaveAttribute('placeholder', line);
+      await draft.fill(UNREAD); await draft.press('Enter');
+      // the child's words stay, the card is under them, and no sheet covers them
+      await expect(page.locator('.msg-row.user').last()).toContainText(UNREAD);
+      const card = page.locator('.chat .support-card');
+      await expect(card).toBeVisible();
+      await expect(card.getByText('העוזר החכם לא עונה עכשיו. אם מה שכתבתם הוא משהו שמציק לכם או מדאיג אתכם, לא צריך להתמודד עם זה לבד.')).toBeVisible();
+      await expect(card.getByText('העוזר החכם הוא תוכנה, לא אדם. מה שכתבתם לא נשלח לאף אחד.')).toBeVisible();
+      await expect(card.getByText('מה שכתבתם חשוב')).toHaveCount(0);
+      await expectCard(card);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(draft).toHaveValue('');
+      expect(chatCalls(log)).toHaveLength(0); // nothing was sent
+      for (const w of ['₪', 'מנוי']) await expect(page.locator('body')).not.toContainText(w);
+      await shot(page, `held-card-${slug}`);
+      // the first number is on the screen with no scrolling, on a small phone too
+      await page.setViewportSize({ width: 320, height: 568 });
+      const quick = card.locator('.support-quick');
+      await quick.scrollIntoViewIfNeeded();
+      await expect(quick).toBeInViewport();
+      await shot(page, `held-card-${slug}-320`);
+      await page.setViewportSize({ width: 390, height: 844 });
+
+      // a maths question right after it: no second card, and the calm path of before (the sheet, or the waiting draft)
+      await draft.fill('מה זה שבר?'); await draft.press('Enter');
+      await expect(page.locator('.chat .support-card')).toHaveCount(1);
+      await expect(draft).toHaveValue('מה זה שבר?');
+      expect(chatCalls(log)).toHaveLength(0);
+    });
+  }
+
+  test('a request that fails for a message that is not about maths: the words stay with the support card, never handed back to be sent again', async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await page.route(`${API}/api/ai/chat`, async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      log.push({ path: '/api/ai/chat', body: route.request().postDataJSON() });
+      return route.abort('internetdisconnected');
+    });
+    await open(page, '#/assistant', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true } }));
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill(UNREAD); await draft.press('Enter');
+    const card = page.locator('.chat .support-card');
+    await expect(card).toBeVisible();
+    await expect(card.getByText('העוזר החכם לא עונה עכשיו.', { exact: false })).toBeVisible();
+    await expect(page.locator('.msg-row.user').last()).toContainText(UNREAD);
+    await expect(draft).toHaveValue('');
+    // a maths question that fails is handed back as before, with no card
+    await draft.fill('מה זה שבר?'); await draft.press('Enter');
+    await expect(draft).toHaveValue('מה זה שבר?');
+    await expect(page.locator('.chat .support-card')).toHaveCount(1);
+    // and when the tutor answers again, the held message is not part of what it is sent
+    await page.unroute(`${API}/api/ai/chat`);
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect.poll(() => chatCalls(log).length).toBeGreaterThanOrEqual(3);
+    const sent = chatCalls(log).at(-1).body;
+    expect(JSON.stringify(sent)).not.toContain('שם לב אליי');
+  });
+
   test('the limit sheet with no parent\'s OK has the call button; its link closes the sheet and opens the people to talk to', async ({ page }) => {
     await fakeServer(page, {}, baseOf());
     await open(page, '#/assistant', withServer());

@@ -5,7 +5,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { setup, makeClass, bearer, advanceClock } from './helpers.js';
+import { setup, makeClass, bearer, advanceClock, countOf, netOf } from './helpers.js';
 import { REPORT_PREVIEW, PAGE_HEADERS, previewTags, publicBase } from '../src/preview.js';
 
 let h;
@@ -137,4 +137,23 @@ test('the card\'s words are calm, name no child, and its picture ships with the 
   // the page keeps the app's own security headers (web/public/_headers, /*)
   const headers = readFileSync(new URL('public/_headers', web), 'utf8');
   for (const [k, v] of Object.entries(PAGE_HEADERS)) assert.ok(headers.includes(`${k}: ${v}`), k);
+});
+
+test('a school behind one address: class students who tap the link are never counted, so the 301st tap that day still opens (the review saw it refused)', async () => {
+  advanceClock(NOW - Date.now());
+  h = await setup();
+  const cls = await makeClass(h, { students: ['דנה'] });
+  const id = (await (await h.call('POST', '/api/teacher/assignments', { headers: cls.teacher, body: stair })).json()).assignment.id;
+  const net = await netOf(h.env);
+  const status = {};
+  for (let i = 0; i < 310; i++) { const r = await h.call('GET', `/api/work/${id}`, { headers: bearer(cls.students[0]) }); status[r.status] = (status[r.status] || 0) + 1; }
+  assert.deepEqual(status, { 200: 310 });
+  assert.equal(countOf(h.env, `alink:n:${net}`), 0, 'a known class student counts for nothing');
+  // a caller with no token, or with a token that is not one, is counted as before
+  assert.equal((await linkOf(id)).status, 200);
+  assert.equal((await h.call('GET', `/api/work/${id}`, { headers: { Authorization: 'Bearer not-a-token' } })).status, 200);
+  assert.equal(countOf(h.env, `alink:n:${net}`), 2);
+  h.env.DB.raw.prepare("UPDATE ai_usage SET count = 300 WHERE who LIKE 'alink:n:%'").run();
+  assert.equal((await linkOf(id)).status, 429);
+  assert.equal((await h.call('GET', `/api/work/${id}`, { headers: bearer(cls.students[0]) })).status, 200, 'the class student still opens it');
 });

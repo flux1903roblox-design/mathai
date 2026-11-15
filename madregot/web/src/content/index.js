@@ -43,8 +43,9 @@ if (locale() !== 'he') applyTopicWords();
 // teaching, so a lesson, a check, the placement test, Exam Rescue and the practice exam have them before their first
 // question; the map fetches the next topic's ahead (lib/bootTopics.js).
 function importGens(topic, lang) {
-  // an Arabic topic's generators: the Arabic twin of its file (scripts/gen-arabic.mjs); arabic.test.ts holds the list
-  if (lang === 'ar') {
+  // an Arabic topic's generators: the Arabic twin of its file (scripts/gen-arabic.mjs); arabic.test.ts holds the list.
+  // Only in a build that has Arabic (VITE_ARABIC=on, lib/i18n.js): any other build carries none of these files.
+  if (import.meta.env.VITE_ARABIC === 'on' && lang === 'ar') {
     switch (topic) {
       case 'signed': return import('./grade7.ar.js').then((m) => m.GRADE7);
       default: return Promise.reject(new Error(`content: no Arabic generators for ${topic}`));

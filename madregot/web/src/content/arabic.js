@@ -28,15 +28,19 @@ const HE = { meta: { ...META }, cats: { ...NEW_CATS }, challengeTitles: CHALLENG
 /** The Arabic twins, once fetched: { meta, cats, topics, lessons, challengeMeta, tasks }. */
 let AR = null;
 
-addLocaleLoader('ar', () => Promise.all([
-  import('@/learn/content/meta.gen.ar.ts'), import('@/content/topics.gen.ar.js'), import('@/learn/challenges/meta.gen.ar.ts'),
-  import('@/content/lessons.ar.js'), Promise.all(ARABIC_TOPICS.map((t) => ARABIC_CHALLENGES[t]())),
-]).then(([m, tp, ch, ls, tasks]) => {
-  AR = {
-    meta: m.META, cats: m.NEW_CATS, topics: Object.fromEntries(tp.TOPIC_META.map((t) => [t.id, t])), lessons: ls.LESSONS,
-    challengeMeta: Object.fromEntries(ch.CHALLENGE_META.map((c) => [c.id, c])), tasks: Object.fromEntries(tasks.flat().map((c) => [c.id, c])),
-  };
-}));
+// only in a build that has Arabic (VITE_ARABIC=on, lib/i18n.js): written on the flag itself, so any other build
+// carries none of these files
+if (import.meta.env.VITE_ARABIC === 'on') {
+  addLocaleLoader('ar', () => Promise.all([
+    import('@/learn/content/meta.gen.ar.ts'), import('@/content/topics.gen.ar.js'), import('@/learn/challenges/meta.gen.ar.ts'),
+    import('@/content/lessons.ar.js'), Promise.all(ARABIC_TOPICS.map((t) => ARABIC_CHALLENGES[t]())),
+  ]).then(([m, tp, ch, ls, tasks]) => {
+    AR = {
+      meta: m.META, cats: m.NEW_CATS, topics: Object.fromEntries(tp.TOPIC_META.map((t) => [t.id, t])), lessons: ls.LESSONS,
+      challengeMeta: Object.fromEntries(ch.CHALLENGE_META.map((c) => [c.id, c])), tasks: Object.fromEntries(tasks.flat().map((c) => [c.id, c])),
+    };
+  }));
+}
 
 /** The Arabic of a topic's entry in topics.gen.js and of its lesson summary, when it shows in Arabic now (else null). */
 export const arabicTopic = (id) => (AR && contentLang(id) === 'ar' ? AR.topics[id] || null : null);

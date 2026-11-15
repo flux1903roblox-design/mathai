@@ -281,7 +281,9 @@ export function renderNotice(env, row) {
       if (what === 'vault:70' || what === 'vault:90') return vaultShareNotice(p, Number(what.slice(-2)));
       if (what.startsWith('vault_drift:')) return vaultDriftNotice(p);
       if (what.startsWith('db_size:')) return dbSizeNotice(p);
+      if (what.startsWith('write_cap:')) return writeCapNotice(p);
       if (what.startsWith('open_paused:')) return openPausedNotice(p);
+      if (what.startsWith('open_part_paused:')) return openPartPausedNotice(p);
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
     default:
@@ -536,9 +538,29 @@ function openPausedNotice(p) {
     subject: `[מדרגות] העוזר החכם נח עד חצות: העלות היום הגיעה ל־${p.budgetUsd ?? '?'}$`,
     lines: [
       `ב־${p.day || 'היום'} העלות של העוזר החכם הגיעה ל־${p.budgetUsd ?? '?'}$ (OPEN_DAILY_BUDGET_USD). עד חצות הוא נח לכולם, והילדים רואים "העוזר החכם נח היום", בלי מחיר ובלי לחץ. בחצות הוא חוזר לבד.`,
-      'מה לבדוק: בסיכום היומי, איזה סוג בקשות עלה הכי הרבה. כל מייל של מורה מוגבל ל־OPEN_ACCOUNT_DAILY_LIMIT פעולות ביום לכל הכיתות שלו, וכל כיתה ל־OPEN_CLASS_DAILY_UNITS יחידות.',
+      'מה לבדוק: בסיכום היומי, איזה סוג בקשות עלה הכי הרבה. כל מייל של מורה מוגבל ל־OPEN_ACCOUNT_DAILY_USD דולר ול־OPEN_ACCOUNT_DAILY_LIMIT פעולות ביום לכל הכיתות שלו, וכל כיתה ל־OPEN_CLASS_DAILY_USD דולר ול־OPEN_CLASS_DAILY_UNITS יחידות, כך שכדי להגיע לתקרה של כולם צריך הרבה כיתות או הרבה מיילים.',
       'אם זה שימוש אמיתי: אפשר להעלות את OPEN_DAILY_BUDGET_USD בקובץ worker/wrangler.toml ולפרסם מחדש.',
       'הגבול הקשיח הוא מגבלת ההוצאה של ה־workspace בלוח של Anthropic. ודאו שהיא מוגדרת.',
+    ],
+  };
+}
+
+/**
+ * One class's or one email's part of the open pool is spent for today (entitle.js openParts): only its own callers
+ * rest until midnight; everyone else is answered as before. It names the class by its code, or the account by its id
+ * (npm run owner shows whose it is); never an address.
+ */
+function openPartPausedNotice(p) {
+  const who = p.scope === 'class' ? `הכיתה ${p.class || ''}`.trim() : `החשבון ${p.account || ''}`.trim();
+  const name = p.scope === 'class' ? 'OPEN_CLASS_DAILY_USD' : 'OPEN_ACCOUNT_DAILY_USD';
+  return {
+    subject: `[מדרגות] העוזר החכם נח עד חצות אצל ${who}`,
+    lines: [
+      `ב־${p.day || 'היום'} העלות של העוזר החכם אצל ${who} הגיעה ל־${p.budgetUsd ?? '?'}$ (${name}). עד חצות הוא נח רק שם, והמסך אומר "העוזר החכם נח היום", בלי מחיר ובלי לחץ. כל שאר הכיתות ממשיכות כרגיל.`,
+      p.scope === 'class'
+        ? 'מה לבדוק: אם זו כיתה אמיתית שמשתמשת הרבה, או מפתח מורה שמישהו מריץ איתו בקשות. כיתה של סקריפט אפשר למחוק עם npm run owner.'
+        : 'מה לבדוק: אילו כיתות קשורות לחשבון הזה (npm run owner), ואם זה מורה אמיתי שבודק הרבה מבחנים ביום אחד.',
+      `אם זה שימוש אמיתי: אפשר להעלות את ${name} בקובץ worker/wrangler.toml ולפרסם מחדש. התקרה של כולם יחד היא OPEN_DAILY_BUDGET_USD.`,
     ],
   };
 }
@@ -550,8 +572,29 @@ function dbSizeNotice(p) {
     lines: [
       `ב־${p.day || 'היום'} בסיס הנתונים הגיע ל־${p.mb ?? '?'} MB, מעל ${p.noticeMb ?? '?'} MB (DB_SIZE_NOTICE_MB).`,
       'בתוכנית החינמית של Cloudflare כל בסיס הנתונים נעצר ב־500 MB, והוא שומר גם את התשלומים. כשהוא מלא, שום דבר חדש לא נשמר.',
-      'מה לבדוק: בסיכום היומי, אם מספר התשובות או הגיבויים קפץ. כל תלמיד מוגבל ל־3000 תשובות ו־30 מבחנים ביום, אז קפיצה גדולה היא הרבה תלמידים, לא תלמיד אחד.',
+      'מה לבדוק: בסיכום היומי, אם מספר התשובות או הגיבויים קפץ. כל תלמיד מוגבל ל־3000 תשובות, 30 מבחנים ו־3 MB של תמונות ביום, כל כיתה ל־30,000 תשובות וכל רשת ל־150,000, אז קפיצה גדולה היא הרבה רשתות, לא תלמיד אחד.',
       'בתוכנית Workers Paid בסיס נתונים מחזיק עד 10 GB: אפשר לעבור אליה, ואז להעלות את DB_SIZE_NOTICE_MB בקובץ worker/wrangler.toml ולפרסם מחדש.',
+    ],
+  };
+}
+
+/**
+ * A class's or a network's day of writes is used up (writes.js, COUNCIL2-18): one notice a day for each width. It names
+ * the class by its code (a code names no one) and never a network or a student.
+ */
+function writeCapNotice(p) {
+  const WHAT = { answers: 'תשובות', exams: 'מבחנים', help: 'בקשות עזרה', helpKb: 'תמונות של בקשות עזרה (KB)' };
+  const where = p.scope === 'class' ? `הכיתה ${p.class || ''}`.trim()
+    : p.scope === 'new' ? 'תלמידים שהצטרפו היום מרשת אחת' : 'כל התלמידים שמאחורי רשת אחת';
+  return {
+    subject: `[מדרגות] הרבה כתיבות ביום אחד: ${where}`,
+    lines: [
+      `ב־${p.day || 'היום'} ${where} הגיעו לתקרה היומית של ${WHAT[p.what] || p.what || 'כתיבות'} (${p.limit ?? '?'}). עד חצות השרת לא שומר מהם עוד מהסוג הזה. האפליקציה שומרת את התשובות במכשיר ושולחת אותן שוב מחר, כך ששום דבר לא הולך לאיבוד.`,
+      'למה יש תקרה: להצטרף לכיתה אפשר בלי חשבון, ואותו בסיס נתונים שומר גם את התשלומים. בלי תקרה, סקריפט אחד יכול למלא אותו ביום.',
+      p.scope === 'class'
+        ? 'מה לבדוק: אם זו כיתה אמיתית (לוח המורה שלה, או npm run owner). כיתה של סקריפט אפשר למחוק עם npm run owner.'
+        : 'מה לבדוק: בסיכום היומי, אם מספר התלמידים החדשים או התשובות קפץ. בית ספר גדול שמתחיל ביום אחד יכול להגיע לתקרה של תלמידים חדשים; למחרת הם כבר לא חדשים.',
+      'אם זה שימוש אמיתי של בית ספר גדול: WRITE_BUDGET_SCALE בקובץ worker/wrangler.toml מכפיל את התקרות של כיתה ושל רשת (למשל "2"), ואז מפרסמים מחדש.',
     ],
   };
 }

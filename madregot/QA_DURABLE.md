@@ -974,6 +974,17 @@ choice behind a question asked twice; and the store still carried the retired pl
   'auto' cleared). While it is due the map opens at its top, so a 320 px phone shows it; the arrow button leads to the
   stair. Screenshots looked at: `lanes/council2/shots/s15/backup-default-line.png` (390) and
   `backup-default-line-phone-small.png` (320).
+- **Never said before it is true** (the second council's review of this lane: with 429 `too_many_vaults`, 503
+  `vault_full`, 503 `vault_off` or no connection on the first run, the backup was "on" with nothing on the server, and
+  the home still said "ההתקדמות שלכם מגובה"). `vault.js backedUp(b)` is the one rule: the backup is on and the server
+  gave its first copy a rev. Learn's line, the tick in Settings and the word "פועל" all wait for it. Until then
+  Settings says "עוד לא נשמר בשרת · ננסה שוב" (offline: "· מחכה לאינטרנט"), with a note that the app tries again every
+  time it opens and a button that saves a backup file now; `too_many_vaults` is treated as the other two refusals
+  (state `unavailable`), and the reminder counts a backup that has waited a day for its first copy as no backup
+  (`nudge.js NUDGE_PENDING_DAYS`). Tests: `vault.test.js`, `nudge.test.js`, `SupportInfo.test.jsx`; e2e
+  `restore.spec.js` "the first copy is refused" for each of the four cases (no card on the home, the row and the note
+  in Settings at 390 and 320, the file saved, and the line appearing once the copy lands). Screenshots looked at:
+  `lanes/council2/shots/fix/backup-not-yet-*.png`.
 - **The opt-out** is Settings › שמירת ההתקדמות › "להפסיק את הגיבוי" (the copy is deleted, a tombstone is left, and nothing
   turns it on again by itself). While the student's own code is on, a note there says what the server holds and where the
   code is. "מחיקת כל הנתונים" still deletes the vault first, by its lookup token.

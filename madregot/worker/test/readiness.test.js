@@ -165,3 +165,44 @@ test('/api/health says whether things are set, as booleans, never a value', asyn
     for (const v of ['re_test_secret_value', 'f'.repeat(64), 'grow-user-1']) assert.ok(!text.includes(v), v);
   } finally { h.done(); }
 });
+
+// ---------------------------------------------------------------- the review's fixes
+test('the exam pass ships with no price: nothing sells it and no page prints it, and the doctor reminds the owner once a provider that sells is set', async () => {
+  const { sellsOnline } = await import('../../shared/sold.js');
+  const { plansView } = await import('../src/billing.js');
+  assert.equal(shipped.vars.PRICE_EXAM_PASS_AGOROT, '', 'wrangler.toml [vars]: empty, never a placeholder');
+  const staging = /^\[env\.staging\.vars\]$([\s\S]*?)(?=^\[)/m.exec(toml)[1];
+  assert.match(staging, /^PRICE_EXAM_PASS_AGOROT = ""$/m, '[env.staging.vars] too');
+  assert.doesNotMatch(toml.replace(/^#.*$/gm, ''), /3900/, 'no ₪39 anywhere a deploy reads');
+  // the review's step (BILLING_PROVIDER grow, GROW_DIRECT_DEBIT_API off) with the shipped vars: the year is sold, the pass is not
+  const grow = { ...shipped.vars, AI_PAYWALL: 'on', BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off' };
+  assert.equal(sellsOnline(grow, 'family_year'), true);
+  assert.equal(sellsOnline(grow, 'exam_pass'), false);
+  const pass = plansView(grow).plans.find((p) => p.id === 'exam_pass');
+  assert.deepEqual([pass.amountAgorot, pass.online], [null, false]);
+  // the doctor: a reminder (never a failure), only while a provider that sells is set and the price is empty
+  const c = complete();
+  const item = readiness(c).items.find((i) => i.id === 'pay:exam-pass-price');
+  assert.deepEqual([item.ok, item.required], [false, false]);
+  assert.equal(readiness(c).ok, true, 'a reminder never fails the check');
+  assert.match(formatReadiness(readiness(c)), /^! תשלום: חבילת המבחן לא נמכרת: PRICE_EXAM_PASS_AGOROT ריק/m);
+  const priced = complete(); priced.vars.PRICE_EXAM_PASS_AGOROT = '3900';
+  assert.ok(!readiness(priced).items.some((i) => i.id === 'pay:exam-pass-price'));
+  const manual = complete(); manual.vars.BILLING_PROVIDER = 'manual';
+  assert.ok(!readiness(manual).items.some((i) => i.id === 'pay:exam-pass-price'));
+});
+
+test('the open tier\'s parts and the write budgets\' multiplier: shipped values pass; a part of 0 or a multiplier of 0.5 fails', () => {
+  const open = () => { const c = complete(); c.vars.AI_PAYWALL = 'off'; return c; };
+  assert.deepEqual([shipped.vars.OPEN_ACCOUNT_DAILY_USD, shipped.vars.OPEN_CLASS_DAILY_USD, shipped.vars.OPEN_INFLIGHT_USD, shipped.vars.WRITE_BUDGET_SCALE], ['3', '3', '20', '1']);
+  assert.equal(readiness(open()).ok, true);
+  for (const [name, bad] of [['OPEN_ACCOUNT_DAILY_USD', '0'], ['OPEN_CLASS_DAILY_USD', 'abc'], ['OPEN_INFLIGHT_USD', '-1']]) {
+    const c = open(); c.vars[name] = bad;
+    assert.deepEqual(failing(readiness(c)), [`ai:${name.toLowerCase()}`], `${name} = ${bad}`);
+  }
+  const strict = open(); strict.vars.OPEN_INFLIGHT_USD = '0';
+  assert.equal(readiness(strict).ok, true, '0 is the strict rule');
+  for (const bad of ['0', '0.5', '21', 'x']) { const c = complete(); c.vars.WRITE_BUDGET_SCALE = bad; assert.deepEqual(failing(readiness(c)), ['db:write-scale'], bad); }
+  const empty = complete(); empty.vars.WRITE_BUDGET_SCALE = '';
+  assert.equal(readiness(empty).ok, true);
+});

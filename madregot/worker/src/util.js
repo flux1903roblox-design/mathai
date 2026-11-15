@@ -5,7 +5,7 @@
 /** @typedef {import('./types.js').Env} Env */
 /**
  * One usage counter of a request (key() below).
- * @typedef {{ who: string, day: string, limit: number, n: number, refundable: boolean, err?: HttpError, period: string, spend?: string, units?: boolean }} Key
+ * @typedef {{ who: string, day: string, limit: number, n: number, refundable: boolean, err?: HttpError, period: string, spend?: string, slack?: number, units?: boolean }} Key
  */
 /** What take() answers: every counter taken, or the one that was full. */
 /** @typedef {{ ok: true, counts: number[] } | { ok: false, error: HttpError | undefined, key: Key }} Taken */
@@ -282,16 +282,19 @@ export async function devKey(env, id) {
  * (monthly) or YYYY-MM-DDTHH (hourly). refundable: given back when Claude did no work (person and group keys only).
  * err: the HttpError to throw when this key is the one that is full.
  * spend: a dollar hold (COUNCIL2-19) on that ai_spend pool, a daily key: n is the request's worst case and limit the
- * pool's budget, both in nano-USD, and it is taken while today's spend of the pool plus what is already held stays
- * under the limit (so the holds of parallel requests pass the budget by at most one request's worst case).
+ * pool's budget, both in nano-USD, and it is taken while today's spend of the pool is under the limit and that spend
+ * plus what is already held stays under the limit plus `slack` (nano-USD; 0 by default). With no slack the holds of
+ * parallel requests pass the budget by at most one request's worst case; with slack, by at most the slack and one worst
+ * case, and only if every request in flight costs its worst case (a real request costs a small part of it, so far more
+ * of them can be in flight at once).
  * @param {string} who
  * @param {unknown} limit
- * @param {{ n?: number, refundable?: boolean, err?: HttpError, period?: 'day' | 'month' | 'hour', now?: Date, spend?: string }} [opts]
+ * @param {{ n?: number, refundable?: boolean, err?: HttpError, period?: 'day' | 'month' | 'hour', now?: Date, spend?: string, slack?: number }} [opts]
  * @returns {Key}
  */
-export function key(who, limit, { n = 1, refundable = false, err, period = 'day', now = new Date(), spend } = {}) {
+export function key(who, limit, { n = 1, refundable = false, err, period = 'day', now = new Date(), spend, slack = 0 } = {}) {
   const day = period === 'month' ? monthOf(now) : period === 'hour' ? hourOf(now) : dayOf(now);
-  return { who, day, limit: Math.max(0, Math.floor(Number(limit) || 0)), n, refundable, err, period, ...(spend ? { spend } : {}) };
+  return { who, day, limit: Math.max(0, Math.floor(Number(limit) || 0)), n, refundable, err, period, ...(spend ? { spend, slack: Math.max(0, Math.floor(Number(slack) || 0)) } : {}) };
 }
 /** @type {(env: Env, k: Key) => import('./types.js').D1Statement} */
 const dec = (env, k) => env.DB.prepare('UPDATE ai_usage SET count = MAX(count - ?, 0) WHERE who = ? AND day = ?').bind(k.n, k.who, k.day);
@@ -299,10 +302,11 @@ const dec = (env, k) => env.DB.prepare('UPDATE ai_usage SET count = MAX(count - 
 const COUNT_SQL = `INSERT INTO ai_usage (who, day, count) VALUES (?1, ?2, ?3)
   ON CONFLICT (who, day) DO UPDATE SET count = count + excluded.count WHERE ai_usage.count + excluded.count <= ?4
   RETURNING count`;
-// a dollar hold: let in while the pool's spend today (ai_spend, the same Jerusalem day) plus the holds is under the limit
+// a dollar hold: let in while the pool's spend today (ai_spend, the same Jerusalem day) is under the limit, and that
+// spend plus the holds is under the limit plus the key's slack (?6)
 const SPENT = 'COALESCE((SELECT nano_usd FROM ai_spend WHERE pool = ?5 AND period = ?2), 0)';
 const HOLD_SQL = `INSERT INTO ai_usage (who, day, count) SELECT ?1, ?2, ?3 WHERE ${SPENT} < ?4
-  ON CONFLICT (who, day) DO UPDATE SET count = count + excluded.count WHERE ai_usage.count + ${SPENT} < ?4
+  ON CONFLICT (who, day) DO UPDATE SET count = count + excluded.count WHERE ${SPENT} < ?4 AND ai_usage.count + ${SPENT} < ?4 + ?6
   RETURNING count`;
 
 /**
@@ -317,7 +321,7 @@ export async function take(env, keys) {
   if (over) return { ok: false, error: over.err, key: over };
   if (!list.length) return { ok: true, counts: [] };
   const res = await env.DB.batch(list.map((k) => (k.spend
-    ? env.DB.prepare(HOLD_SQL).bind(k.who, k.day, k.n, k.limit, k.spend)
+    ? env.DB.prepare(HOLD_SQL).bind(k.who, k.day, k.n, k.limit, k.spend, k.slack || 0)
     : env.DB.prepare(COUNT_SQL).bind(k.who, k.day, k.n, k.limit))));
   const bad = list.findIndex((k, i) => !res[i]?.results?.length);
   if (bad < 0) return { ok: true, counts: res.map((r) => r.results[0].count) };

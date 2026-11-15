@@ -9,6 +9,7 @@ import { safetyPrompt, CARE_STATIC, SUPPORT } from '../../shared/safety.js';
 import { LANGUAGE_AR, TOPIC_WORDS_AR, ARABIC_TERMS, tutorLocale } from '../../shared/arabic.js';
 import { TOPIC_WAYS, TUTOR_BODY, TUTOR_BODY_AR } from '../../shared/pedagogy.js';
 import { detectDistress } from '../../shared/distress.js';
+import { AR_FLAG, AR_CLEAR } from './fixtures/distress-corpus.js';
 
 const HEBREW = /[֐-׿]/;
 const chat = (extra = {}) => ({ messages: [{ role: 'user', content: 'ما هو العدد المعاكس؟' }], ...extra });
@@ -69,24 +70,21 @@ test('the fixed care reply in Arabic: no AI, the same numbers, calm', () => {
   assert.doesNotMatch(ar, /!/);
 });
 
-test('the distress detector reads Arabic: suicidal thoughts, self-harm, abuse, threats, bullying, distress', () => {
-  const flag = {
-    self_harm: ['بدي انتحر', 'أفكّر بالانتحار', 'بدي اموت', 'أريد أن أموت', 'بدي أقتل حالي', 'بجرح حالي كل يوم', 'ما بدي أعيش', 'لا أريد أن أعيش', 'بدي أنام وما أصحى', 'بدي انط من السطح', 'بدي اوخذ كل الحبوب'],
-    abuse: ['أبوي بيضربني', 'بخاف من أبوي', 'في واحد بتحرش فيي', 'ما بدي أرجع عالبيت'],
-    danger: ['واحد على الانستغرام بدو صور', 'هو بيهددني', 'بيبتزني', 'راح ينشر صوري'],
-    bullying: ['كلهم بيكرهوني', 'بيتنمروا علي بالصف'],
-    distress: ['أنا حزين كتير', 'ما إلي حدا', 'بدي أهرب من البيت', 'بطلت آكل', 'ببكي كل يوم'],
-  };
-  for (const [cat, list] of Object.entries(flag)) {
+test('the distress detector reads Arabic: suicidal thoughts, self-harm, abuse, threats, bullying, distress, in masculine, feminine and plural forms', () => {
+  // the phrases are in test/fixtures/distress-corpus.js (the counsellor's sheet is made from them); the review's probe
+  // missed 8 of 18: only the masculine "بيضربني" was matched, and none of the feminine or plural forms
+  assert.deepEqual(Object.keys(AR_FLAG), ['self_harm', 'abuse', 'danger', 'bullying', 'distress']);
+  assert.ok(Object.values(AR_FLAG).flat().length >= 45);
+  for (const [cat, list] of Object.entries(AR_FLAG)) {
     for (const text of list) assert.deepEqual(detectDistress(text), { flag: true, category: cat }, text);
   }
+  for (const probe of ['امي بتضربني كل يوم', 'هم بيضربوني', 'عمي بلمسني', 'تعبت من الحياة', 'زهقت من حياتي', 'بخاف ارجع عالبيت']) assert.ok(Object.values(AR_FLAG).flat().includes(probe), probe);
 });
 
-test('Arabic maths does not flag: multiplying, jumping on the line, a line that cuts an axis, laughter', () => {
-  for (const text of ['اضربوا العدد في 3', 'كم يساوي 3 ضرب 4؟', 'اقفزوا 3 خطوات على محور الأعداد', 'المستقيم يقطع محور x', 'بدي اموت من الضحك',
-    'هذا التمرين صعب', 'حلّوا المعادلة', 'الزاوية الخارجية للمثلث', 'ما فهمت الكسور', 'بدي أتعلم الكسور', 'العدد المعاكس للعدد −3 هو 3']) {
-    assert.deepEqual(detectDistress(text), { flag: false, category: null }, text);
-  }
+test('Arabic maths does not flag: multiplying, jumping on the line, a line that cuts an axis, laughter, a unique solution and a bag of tablets', () => {
+  assert.ok(AR_CLEAR.length >= 20);
+  for (const text of AR_CLEAR) assert.deepEqual(detectDistress(text), { flag: false, category: null }, text);
+  for (const probe of ['للمعادلة حل وحيد', 'بدي اوخذ كل الحبوب من الكيس، ما الاحتمال؟', 'احمد ما باكل تفاح، كم تفاحة بقيت؟']) assert.ok(AR_CLEAR.includes(probe), probe);
 });
 
 test('the committed stable-system.ar.txt is the Arabic stable block, for the Arabic reviewer (make-full-params.mjs writes it)', () => {

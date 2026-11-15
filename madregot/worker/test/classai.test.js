@@ -186,7 +186,8 @@ test('a family device in a class whose tutor is off: the family\'s request (tier
   const st = await (await status(headers)).json();
   assert.equal(st.tier, 'family');
   const classKeys = rows(h.env, "SELECT who FROM ai_usage WHERE who LIKE 'cls:%' OR who LIKE 's:%' OR who LIKE 'free:c:%' OR who LIKE 'free:s:%' OR who LIKE '%' || ? || '%'", cls.code)
-    .concat(rows(h.env, "SELECT who FROM ai_usage WHERE who LIKE '%' || ? || '%'", id));
+    // (the mark of the network she joined the class from is not a count of anything asked: index.js joined:s:<id>:<net>)
+    .concat(rows(h.env, "SELECT who FROM ai_usage WHERE who LIKE '%' || ? || '%' AND who NOT LIKE 'joined:s:%'", id));
   assert.deepEqual(classKeys, [], 'nothing counted for the class or the class student');
   // the same student without the family link is refused
   assert.equal((await ai(h, 'explain', bearer(cls.students[0]))).status, 403);

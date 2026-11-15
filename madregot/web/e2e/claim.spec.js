@@ -102,3 +102,70 @@ test('the teacher resets דנה\'s PIN and gives her the one-time code; she come
   expect(st.students.find((s) => s.id === 'a1').pinReset).toBe(false);
   await ctx.close();
 });
+
+// Many wrong personal codes under one name in a day (COUNCIL2-25): the Worker stops comparing PINs for a phone that
+// never signed in as that student and asks for the teacher's one-time code, with the reason. The teacher's board marks
+// the student, the student's page says what happened and what to do, and the child is told in plain words, with no
+// alarm, that the teacher's code is the way in today.
+test('many wrong codes under יואב\'s name: the board marks him, his page says what to do, and he is asked for the teacher\'s code', async ({ page, browser }) => {
+  const { st, attach } = await fakeServer(page, {
+    students: [{ id: 'a1', name: 'דנה' }, { id: 'b2', name: 'יואב', manyWrongPins: true }],
+    members: [{ id: 'b2', name: 'יואב', pin: '4321', tokens: [], manyWrong: true }],
+  }, baseOf());
+  await open(page, '#/teacher', keyTeacher());
+  await page.getByRole('tab', { name: 'תלמידים' }).click();
+
+  // the board: a chip on his row only
+  const row = page.getByRole('row', { name: /יואב/ });
+  await expect(row.locator('.t-wrong-pins')).toHaveText('הרבה קודים שגויים');
+  await expect(page.getByRole('row', { name: /דנה/ }).locator('.t-wrong-pins')).toHaveCount(0);
+  await look(page, 'teacher-wrong-pins-board', row.locator('.t-wrong-pins'));
+
+  // his page: what happened, that his own phone still works, and the reset as the remedy
+  await row.getByRole('button', { name: 'פרטים על יואב' }).click();
+  const sheet = page.getByRole('dialog', { name: 'יואב' });
+  const note = sheet.locator('.ss-wrong-pins');
+  await expect(note).toHaveText('היום היו הרבה ניסיונות להיכנס בשם של יואב עם קוד אישי שגוי. ממכשיר שכבר מחובר ומהרשת הרגילה הכניסה ממשיכה לעבוד. אם הכניסה ממכשיר אחר לא מצליחה, אפסו את הקוד האישי ותנו את קוד הכניסה החד־פעמי.');
+  await expect(note).toHaveAttribute('role', 'status');
+  await expect(sheet.getByRole('button', { name: 'איפוס קוד אישי' })).toBeVisible();
+  await look(page, 'teacher-wrong-pins-sheet', note);
+
+  // יואב, on a phone that never signed in as him, with his right PIN: nothing is compared, and he is told why
+  const u = test.info().project.use;
+  const ctx = await browser.newContext({ baseURL: baseOf(), viewport: u.viewport, isMobile: u.isMobile, hasTouch: u.hasTouch, deviceScaleFactor: u.deviceScaleFactor, locale: 'he-IL', reducedMotion: 'reduce' });
+  await attach(ctx);
+  const kid = await ctx.newPage();
+  await open(kid, '#/', withServer({ profile: null }));
+  await kid.getByRole('button', { name: 'מתחילים', exact: true }).click();
+  await kid.fill('#w-name', 'יואב');
+  await kid.getByRole('button', { name: 'המשך', exact: true }).click();
+  await kid.getByRole('radio', { name: /^כיתה ז׳/ }).click();
+  await kid.getByRole('button', { name: 'המשך', exact: true }).click();
+  await kid.getByRole('radio', { name: /^קצת מוכר/ }).click();
+  await kid.getByRole('button', { name: 'המשך', exact: true }).click();
+  await kid.getByRole('button', { name: 'המשך', exact: true }).click(); // the daily goal: the default
+  await kid.getByLabel('קוד כיתה').fill('K7Q2MD');
+  await kid.getByLabel('קוד אישי של 4 ספרות').fill('4321');
+  await kid.getByRole('button', { name: 'הצטרפות לכיתה' }).click();
+  await expect(kid.getByRole('status').filter({ hasText: 'היום היו הרבה ניסיונות להיכנס בשם הזה עם קוד אישי שגוי. כדי להיכנס מכאן צריך קוד חד־פעמי מהמורה: בקשו אותו, כתבו אותו כאן ובחרו קוד אישי חדש.' })).toBeVisible();
+  await expect(kid.getByRole('status').filter({ hasText: 'המורה איפס את הקוד האישי שלכם' })).toHaveCount(0);
+  await expect(kid.getByRole('alert')).toHaveCount(0);
+  const field = kid.getByLabel('הקוד מהמורה');
+  await expect(field).toBeFocused();
+  expect((await field.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await look(kid, 'student-claim-many-wrong', kid.getByRole('button', { name: 'הצטרפות לכיתה' }));
+
+  // the teacher resets his code; the note leaves his page and the chip leaves the board
+  await sheet.getByRole('button', { name: 'איפוס קוד אישי' }).click();
+  await expect(sheet.getByRole('group', { name: 'קוד הכניסה של יואב' })).toBeVisible();
+  await expect(sheet.locator('.ss-wrong-pins')).toHaveCount(0);
+  expect(st.students.find((s) => s.id === 'b2')).toMatchObject({ pinReset: true, manyWrongPins: false });
+
+  // with the teacher's code and a new PIN he is back in
+  await field.fill(CODE);
+  await kid.getByLabel('קוד אישי חדש של 4 ספרות').fill('8642');
+  await kid.getByRole('button', { name: 'הצטרפות לכיתה' }).click();
+  await expect(kid.locator('[data-sonner-toast]').filter({ hasText: 'ברוכים השבים לכיתה ז׳3' })).toBeVisible();
+  expect(st.members[0]).toMatchObject({ pin: '8642', claim: null, manyWrong: false });
+  await ctx.close();
+});

@@ -15,7 +15,7 @@ import { makeCode, isCode } from './code.js';
 import { report } from '../monitor.js';
 import {
   syncVault, createBackup, stopBackup, detachBackup, backupText, agoText, vaultErrorText, openCopy, CONFLICT_LOOPS, BACKUP_TEXT,
-  findVault, adoptCode, familyGone, defaultBackup, showBackupLine, clearBackupNote,
+  findVault, adoptCode, familyGone, defaultBackup, showBackupLine, backedUp, clearBackupNote,
 } from './vault.js';
 import { applyRestored } from './apply.js';
 import { VaultOpenError } from './crypto.js';
@@ -503,6 +503,42 @@ describe('on by default for a solo student', () => {
     expect(Object.keys(useApp.getState().days).sort()).toEqual(['2026-11-04', '2026-11-05']);
   });
 
+  // The review: with POST /api/vault refused (429 too_many_vaults past 60 new backups a day from one network, 503
+  // vault_full, 503 vault_off) the home card said "ההתקדמות שלכם מגובה" and Settings "פועל", with nothing on the server.
+  for (const [status, error] of [[429, 'too_many_vaults'], [503, 'vault_full'], [503, 'vault_off']]) {
+    it(`the first copy refused (${status} ${error}): on, but not backed up; nothing says it is, until a later moment lands the copy`, async () => {
+      useApp.setState({ ...HERE });
+      server.hooks.post = async () => new Response(JSON.stringify({ error }), { status });
+      expect(await defaultBackup()).toBe('unavailable');
+      const b = useApp.getState().backup;
+      expect(b).toMatchObject({ on: true, rev: null, at: null, state: 'unavailable', note: 'auto' });
+      expect(Number.isFinite(Date.parse(b.since))).toBe(true);
+      expect(server.vaults.size).toBe(0);
+      expect(backedUp(b)).toBe(false);
+      expect(showBackupLine(b), 'Learn does not say "מגובה"').toBe(false);
+      expect(backupText(b)).toBe('עוד לא נשמר בשרת · ננסה שוב');
+      // the next moment tries again, and from then on the line and the row tell the truth
+      server.hooks.post = null;
+      expect(await syncVault({ moment: 'tick' })).toBe('pushed');
+      const after = useApp.getState().backup;
+      expect(server.vaults.size).toBe(1);
+      expect(backedUp(after)).toBe(true);
+      expect(showBackupLine(after)).toBe(true);
+      expect(backupText(after)).toMatch(/^פועל/);
+    });
+  }
+
+  it('a first run offline: on and waiting, not backed up, and no line on the map until the copy is there', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.down = true;
+    expect(await defaultBackup()).toBe('offline');
+    const b = useApp.getState().backup;
+    expect([backedUp(b), showBackupLine(b), backupText(b)]).toEqual([false, false, 'עוד לא נשמר בשרת · מחכה לאינטרנט']);
+    server.hooks.down = false;
+    await syncVault({ moment: 'boot' });
+    expect(showBackupLine(useApp.getState().backup)).toBe(true);
+  });
+
   it('a server that cannot take it yet: still on, and every later moment tries again until the copy is there', async () => {
     useApp.setState({ ...HERE });
     server.hooks.post = async () => new Response(JSON.stringify({ error: 'vault_off' }), { status: 503 });
@@ -623,9 +659,13 @@ describe('what Settings says', () => {
   const now = Date.parse(AT);
   it('the status line', () => {
     expect(backupText({ on: false })).toBe('כבוי');
-    expect(backupText({ on: true, state: 'idle', at: new Date(now - 3 * 60_000).toISOString() }, now)).toBe('פועל · עודכן לפני 3 דקות');
-    expect(backupText({ on: true, state: 'idle', at: new Date(now - 20_000).toISOString() }, now)).toBe('פועל · עודכן עכשיו');
-    expect(backupText({ on: true, state: 'offline' }, now)).toBe('פועל · מחכה לאינטרנט');
+    expect(backupText({ on: true, rev: 2, state: 'idle', at: new Date(now - 3 * 60_000).toISOString() }, now)).toBe('פועל · עודכן לפני 3 דקות');
+    expect(backupText({ on: true, rev: 1, state: 'idle', at: new Date(now - 20_000).toISOString() }, now)).toBe('פועל · עודכן עכשיו');
+    expect(backupText({ on: true, rev: 1, state: 'offline' }, now)).toBe('פועל · מחכה לאינטרנט');
+    expect(backupText({ on: true, rev: 1, state: 'unavailable' }, now)).toBe('פועל · ננסה לעדכן שוב בקרוב');
+    // on, but no copy has reached the server: never "פועל" (the review)
+    for (const state of ['idle', 'unavailable', 'error', 'gone', null]) expect(backupText({ on: true, rev: null, state }, now), String(state)).toBe('עוד לא נשמר בשרת · ננסה שוב');
+    expect(backupText({ on: true, rev: null, state: 'offline' }, now)).toBe('עוד לא נשמר בשרת · מחכה לאינטרנט');
     expect(backupText({ on: true, state: 'too_big' }, now)).toBe('הגיבוי גדול מדי. שמרו קובץ במקום.');
     const ago = (ms) => agoText(new Date(now - ms).toISOString(), now);
     expect([ago(60_000), ago(5 * 60_000), ago(3600_000), ago(2 * 3600_000), ago(5 * 3600_000)]).toEqual(['לפני דקה', 'לפני 5 דקות', 'לפני שעה', 'לפני שעתיים', 'לפני 5 שעות']);

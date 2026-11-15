@@ -2,7 +2,7 @@
 // keeps reminding, 14 days apart, until a backup or an install exists.
 import { describe, it, expect, vi } from 'vitest';
 import { createStore } from 'zustand/vanilla';
-import { shouldNudge, noteNudge, calmRoute, installedHere, NUDGE_GAP_DAYS } from './nudge.js';
+import { shouldNudge, noteNudge, calmRoute, installedHere, backupCounts, NUDGE_GAP_DAYS } from './nudge.js';
 import { BACKUP_DEFAULTS, DURABLE_DEFAULTS } from './migrations.js';
 
 const NOW = new Date('2026-11-05T10:00:00Z');
@@ -20,7 +20,7 @@ describe('the backup question', () => {
 
   it('never without a server, with a backup code, or with a copy kept by the class or the family', () => {
     expect(ask(base(), { server: false })).toBe(false);
-    expect(ask(base({ backup: { ...BACKUP_DEFAULTS, on: true } }))).toBe(false);
+    expect(ask(base({ backup: { ...BACKUP_DEFAULTS, on: true, rev: 1 } }))).toBe(false);
     expect(ask(base({ backup: { ...BACKUP_DEFAULTS, escrow: 'class' } }))).toBe(false);
     expect(ask(base({ backup: { ...BACKUP_DEFAULTS, escrow: 'family' } }))).toBe(false);
   });
@@ -66,8 +66,30 @@ describe('the backup question', () => {
   it('stops once a backup exists (made here, restored, or kept by the class or the family)', () => {
     const st = base({ durable: { ...DURABLE_DEFAULTS, nudgeCount: 6, nudgeAt: '2026-09-01T10:00:00.000Z' } });
     expect(ask(st)).toBe(true);
-    expect(ask({ ...st, backup: { ...BACKUP_DEFAULTS, on: true, code: 'ABCDEFGHJKMNPQRS', note: 'auto' } })).toBe(false);
+    expect(ask({ ...st, backup: { ...BACKUP_DEFAULTS, on: true, code: 'ABCDEFGHJKMNPQRS', rev: 1, note: 'auto' } })).toBe(false);
     expect(ask({ ...st, backup: { ...BACKUP_DEFAULTS, on: true, escrow: 'class' } })).toBe(false);
+  });
+
+  it('a backup that is on but whose first copy never reached the server is no backup: after its first day the reminder comes back, every 14 days, until a copy lands (the review)', () => {
+    const now = new Date('2026-11-20T10:00:00.000Z');
+    const waiting = (since) => ({ ...BACKUP_DEFAULTS, on: true, code: 'ABCDEFGHJKMNPQRS', rev: null, state: 'unavailable', note: 'auto', since });
+    const st = base();
+    // turned on an hour ago: it is still trying, so no reminder yet
+    expect(backupCounts(waiting('2026-11-20T09:00:00.000Z'), now)).toBe(true);
+    expect(ask({ ...st, backup: waiting('2026-11-20T09:00:00.000Z') }, { now })).toBe(false);
+    // a day and more with no copy on the server: the reminder asks, as for a student with no backup
+    expect(backupCounts(waiting('2026-11-18T09:00:00.000Z'), now)).toBe(false);
+    expect(ask({ ...st, backup: waiting('2026-11-18T09:00:00.000Z') }, { now })).toBe(true);
+    // a saved state from before `since` existed, still with no copy: asked too
+    expect(ask({ ...st, backup: { ...waiting(null), since: undefined } }, { now })).toBe(true);
+    // 14 days apart, as always
+    const asked = { ...st, backup: waiting('2026-11-01T09:00:00.000Z'), durable: { ...DURABLE_DEFAULTS, nudgeCount: 1, nudgeAt: '2026-11-15T10:00:00.000Z' } };
+    expect(ask(asked, { now })).toBe(false);
+    expect(ask(asked, { now: new Date('2026-11-29T10:00:01.000Z') })).toBe(true);
+    // the copy landed: no more reminders
+    expect(ask({ ...asked, backup: { ...waiting('2026-11-01T09:00:00.000Z'), rev: 1, state: 'idle' } }, { now: new Date('2026-12-30T10:00:00.000Z') })).toBe(false);
+    // installed, or kept by the class: never, whatever the backup's state
+    expect(ask({ ...st, backup: waiting('2026-11-01T09:00:00.000Z') }, { now, installed: true })).toBe(false);
   });
 
   it('stops once the app is installed here (the Home Screen app, or the store app)', () => {

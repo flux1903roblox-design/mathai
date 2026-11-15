@@ -5,8 +5,14 @@
 //   not in the class yet        the class's name and the work, and the join (a name, a 4-digit PIN), then the work
 //   another class's student     says so; nothing changes on this phone
 //   a teacher                   says the link is the students'
-// What the link resolves to comes from GET /api/work/<id>, which knows nothing about any student (worker/src/
-// assignments.js publicAssignment): the kind, the stair, the title, the dates, and the class's code, name and grade.
+// A class student's phone resolves the link from the student's own work (GET /api/class/work, with their class token):
+// the work opens with no public call at all, so a school where hundreds of phones tap links behind one address is never
+// held back by the public route's daily count per network. Only when the work is not on the student's list does the
+// phone ask the public route (with the token, which that count leaves out) whose class the link belongs to.
+// For a phone with no one on it the link resolves from GET /api/work/<id>, which knows nothing about any student
+// (worker/src/assignments.js publicAssignment): the kind, the stair, the title, the dates, and the class's code, name
+// and grade. When that route answers 429 (many links from one network today), nobody is told to wait for tomorrow
+// without a way forward: a class student is sent to their missions, and anyone else to the join with the class code.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -15,7 +21,7 @@ import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import { fetchClassWork, workRoute, dueLine } from '@/lib/classWork.js';
 import { afterClassJoin } from '@/lib/durable/escrow.js';
-import { joinClass, joinedProfile, ClaimField, CLAIM_COPY } from '@/screens/Welcome.jsx';
+import { joinClass, joinedProfile, ClaimField, CLAIM_COPY, claimReason } from '@/screens/Welcome.jsx';
 import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import '@/styles/lazy/links.css';
@@ -36,7 +42,8 @@ export const OPEN_TEXT = {
   notMine: 'המשימה הזו לא נשלחה אליכם, או שהיא עוד לא התחילה. המשימות שלכם מחכות במסך המשימות.',
   notFound: 'לא מצאנו את המשימה. ייתכן שהמורה מחק אותה.',
   noServer: 'המשימות של הכיתה נפתחות באפליקציה של הכיתה, בכתובת שהמורה נתן.',
-  slow: 'היום נפתחו הרבה קישורים מהרשת הזו. אפשר לנסות שוב מחר.',
+  slow: 'היום נפתחו הרבה קישורים מהרשת הזו, ולכן הקישור לא נפתח כרגע. אפשר להצטרף לכיתה מדף הבית עם קוד הכיתה שהמורה נתן, או לנסות את הקישור שוב מחר.',
+  slowMine: 'היום נפתחו הרבה קישורים מהרשת הזו, ולכן הקישור לא נפתח כרגע. המשימות שלכם מחכות במסך המשימות.',
   offline: 'אין חיבור לשרת. בדקו את האינטרנט ונסו שוב.',
 };
 const isId = (id) => /^[a-f0-9]{16}$/.test(String(id ?? ''));
@@ -87,22 +94,30 @@ export default function AssignmentOpen() {
     // the demo class's board asks no server (TEACHER-15): the link is the students' all the same
     if (useApp.getState().profile?.demo === true) { setState('teacher'); return; }
     setState('loading');
+    const p = useApp.getState().profile;
+    const classStudent = p?.role === 'student' && !!p?.token;
+    // A class student: the work comes from the student's own list (asked again now; offline, what the phone keeps), and
+    // the public route is not called when the work is there.
+    let asked = null;
+    if (classStudent) {
+      asked = await fetchClassWork({ force: true });
+      const mine = (useApp.getState().classWork?.assignments || []).find((x) => x.id === id);
+      if (mine) { navigate(workRoute(mine), { replace: true }); return; }
+    }
     try {
-      const r = await api(`/api/work/${id}`, { auth: false });
+      // not on the student's list, or no student here: whose class the link is (a class token is sent along, so the
+      // Worker does not count this phone against its network's links of the day)
+      const r = await api(`/api/work/${id}`, { auth: classStudent });
       setInfo(r);
-      const p = useApp.getState().profile;
-      const who = p?.demo === true ? 'teacher' : p?.role || null;
-      if (who === 'teacher') setState('teacher');
-      else if (who === 'student' && p?.token && p.classCode === r.class.code) await openAsMember();
-      else if (who === 'student' && p?.token) setState('otherClass');
+      if (p?.role === 'teacher') setState('teacher');
+      // their own class, and the work is not theirs (or the list did not answer and the phone keeps none)
+      else if (classStudent && p.classCode === r.class.code) setState(asked ? 'notMine' : 'offline');
+      else if (classStudent) setState('otherClass');
       else setState('join');
     } catch (e) {
-      // offline, a class student whose phone has the work already: it opens from what the phone keeps
-      const kept = (useApp.getState().classWork?.assignments || []).find((x) => x.id === id);
-      if (e?.code === 'network' && kept && useApp.getState().profile?.token) { navigate(workRoute(kept), { replace: true }); return; }
-      setState(e?.status === 404 ? 'notFound' : e?.status === 429 ? 'slow' : 'offline');
+      setState(e?.status === 404 ? 'notFound' : e?.status === 429 ? (classStudent ? 'slowMine' : 'slow') : 'offline');
     }
-  }, [server, id, openAsMember, navigate]);
+  }, [server, id, navigate]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (state !== 'loading' && state !== 'opening') head.current?.focus({ preventScroll: true }); }, [state]);
 
@@ -126,7 +141,7 @@ export default function AssignmentOpen() {
       afterClassJoin(c).then((r) => { if (r.toast) toast(r.toast); }).catch(() => {});
       await openAsMember();
     } catch (err) {
-      if (err?.code === 'claim_code_needed') { setNeedClaim(true); setError(''); }
+      if (err?.code === 'claim_code_needed') { setNeedClaim(claimReason(err)); setError(''); }
       else setError(err?.message || OPEN_TEXT.offline);
     } finally { setBusy(false); }
   };
@@ -134,7 +149,7 @@ export default function AssignmentOpen() {
   const home = role === 'teacher' ? '/teacher' : role === 'student' ? '/quests' : '/';
   const homeText = role === 'teacher' ? 'ללוח המורה' : role === 'student' ? 'למשימות שלי' : 'לדף הבית';
   const a = info?.assignment; const cls = info?.class;
-  const say = { notFound: OPEN_TEXT.notFound, noServer: OPEN_TEXT.noServer, slow: OPEN_TEXT.slow, notMine: OPEN_TEXT.notMine, teacher: OPEN_TEXT.teacher, otherClass: cls ? OPEN_TEXT.otherClass(cls.name) : '' }[state];
+  const say = { notFound: OPEN_TEXT.notFound, noServer: OPEN_TEXT.noServer, slow: OPEN_TEXT.slow, slowMine: OPEN_TEXT.slowMine, notMine: OPEN_TEXT.notMine, teacher: OPEN_TEXT.teacher, otherClass: cls ? OPEN_TEXT.otherClass(cls.name) : '' }[state];
 
   return (
     <div className="ob ob-flow al-screen">
@@ -161,7 +176,7 @@ export default function AssignmentOpen() {
                     onChange={(e) => { setError(''); setName(e.target.value); }} />
                 </Field>
               )}
-            {needClaim && <ClaimField id="al-claim" value={claim} onChange={(v) => { setError(''); setClaim(v); }} />}
+            {needClaim && <ClaimField id="al-claim" why={needClaim} value={claim} onChange={(v) => { setError(''); setClaim(v); }} />}
             <Field label={needClaim ? CLAIM_COPY.pinLabel : 'קוד אישי של 4 ספרות'} id="al-pin" hint={needClaim ? null : 'אם זו הפעם הראשונה, בחרו קוד ותזכרו אותו.'}>
               <input id="al-pin" className="input input-lg mono" dir="ltr" inputMode="numeric" maxLength={4} value={pin} autoComplete="off"
                 aria-describedby={needClaim ? undefined : 'al-pin-hint'} onChange={(e) => { setError(''); setPin(e.target.value.replace(/\D/g, '')); }} />

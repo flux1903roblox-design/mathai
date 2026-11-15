@@ -38,9 +38,14 @@ describe('SupportInfo', () => {
 
   it('the backup line says how the backup code is doing, never the code', () => {
     const code = 'ABCDEFGHJKMNPQRS';
-    const text = supportText({ release: 'dev', health: 'ok', persisted: true, estimate: null, errors: [], backup: { on: true, code, lookup: 'f'.repeat(64), state: 'offline' } });
+    const text = supportText({ release: 'dev', health: 'ok', persisted: true, estimate: null, errors: [], backup: { on: true, code, lookup: 'f'.repeat(64), state: 'offline', rev: 3 } });
     expect(text).toContain('גיבוי: פועל · מחכה לאינטרנט');
     expect(text).not.toContain(code);
     expect(text).not.toContain('f'.repeat(64));
+    // on, but no copy has reached the server yet: it never says "פועל"
+    const waiting = supportText({ release: 'dev', health: 'ok', persisted: true, estimate: null, errors: [], backup: { on: true, code, lookup: 'f'.repeat(64), state: 'offline' } });
+    expect(waiting).toContain('גיבוי: עוד לא נשמר בשרת · מחכה לאינטרנט');
+    expect(waiting).not.toContain('פועל');
+    expect(waiting).not.toContain(code);
   });
 });

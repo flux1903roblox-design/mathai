@@ -18,6 +18,7 @@ import { teacherDetail, classSeenStmt } from './licence.js';
 import { cleanNote } from './assignments.js';
 import { hasContact } from '../../shared/contact.js';
 import { ALERT_TOPIC } from './alerts.js';
+import { meterDbSize } from './dbsize.js';
 
 export const HELP = Object.freeze({
   /** Messages per side on one request. */
@@ -138,7 +139,7 @@ async function ownRequest(env, s, id) {
  * after the teacher has written (409 no_reply_yet), at most 3 (409 reply_limit), 300 characters, no contact details,
  * 30 a day. The teacher's messages count as read. → 201 {message, status}.
  */
-export async function studentReply(id, req, env, cors) {
+export async function studentReply(id, req, env, cors, ctx = null) {
   const s = await requireStudent(req, env);
   const b = await body(req, SMALL);
   const h = await ownRequest(env, s, id);
@@ -156,7 +157,7 @@ export async function studentReply(id, req, env, cors) {
   const now = nowIso();
   const under = `EXISTS (SELECT 1 FROM help_messages WHERE help_id = ?1 AND from_role = 'teacher')
     AND (SELECT COUNT(*) FROM help_messages WHERE help_id = ?1 AND from_role = 'student') < ${HELP.perSide}`;
-  const [ins] = await env.DB.batch([
+  const res = await env.DB.batch([
     env.DB.prepare(`INSERT INTO help_messages (help_id, from_role, body, created_at) SELECT ?1, 'student', ?2, ?3 WHERE ${under} RETURNING id`).bind(h.id, text, now),
     markReadStmt(env, h.id, 'teacher'),
     // "עדיין לא ברור לי" opens the request again for the teacher
@@ -164,7 +165,9 @@ export async function studentReply(id, req, env, cors) {
     env.DB.prepare('UPDATE students SET last_seen = ? WHERE id = ?').bind(now, s.id),
     classSeenStmt(env, s.class_code),
   ]);
-  const made = ins?.results?.[0];
+  // every student write route feeds the size meter (dbsize.js, COUNCIL2-18)
+  ctx?.waitUntil?.(meterDbSize(env, res));
+  const made = res[0]?.results?.[0];
   if (!made) throw new HttpError(409, 'reply_limit');
   const after = await ownRequest(env, s, h.id);
   return json({ message: { id: made.id, from: 'student', body: text, at: now, read: false }, status: after.done_at ? 'done' : 'answered' }, 201, cors);

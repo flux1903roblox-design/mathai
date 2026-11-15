@@ -487,6 +487,9 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 }
 .ss-actions .set-row { width: 100%; gap: var(--s2); }
 .ss-done { margin: 0; color: var(--ink-2); font-weight: 600; }
+/* many wrong personal codes today: a calm note above the reset, in the board's own amber */
+.ss-wrong-pins { margin: 0 0 var(--s3); padding: var(--s3); border-radius: var(--r-md, 12px); background: var(--streak-tint); color: var(--streak-ink); line-height: 1.5; }
+.t-actions .t-wrong-pins { white-space: nowrap; }
 /* the one-time code after a PIN reset (COUNCIL2-25): shown once, large, left to right, with a 44px copy button */
 .ss-claim { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4); border: 2px solid var(--brand-line); border-radius: var(--r-md); background: var(--brand-tint); color: var(--ink); }
 .ss-claim:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }

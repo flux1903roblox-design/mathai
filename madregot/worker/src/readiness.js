@@ -89,7 +89,18 @@ export function readiness(cfg = {}) {
     add('ai:open-budget', 'ai', !open || Number(open) > 0, 'OPEN_DAILY_BUDGET_USD',
       'OPEN_DAILY_BUDGET_USD צריך להיות סכום חיובי בדולרים: בלי מנוי, זו התקרה היחידה של העלות ביום. וגם: להגדיר מגבלת הוצאה ב־workspace של Anthropic',
       'worker/wrangler.toml: OPEN_DAILY_BUDGET_USD = "25"  (ומגבלת הוצאה ל־workspace בלוח של Anthropic)');
+    // its parts (one email, one class) and the room for requests in flight: each empty (the default) or a number, the
+    // parts positive, so one email can never be given the whole day by a typo
+    for (const [name, def, min] of [['OPEN_ACCOUNT_DAILY_USD', '3', 0.01], ['OPEN_CLASS_DAILY_USD', '3', 0.01], ['OPEN_INFLIGHT_USD', '20', 0]]) {
+      const v = String(vars[name] ?? '').trim();
+      add(`ai:${name.toLowerCase()}`, 'ai', !v || (Number.isFinite(Number(v)) && Number(v) >= min), name,
+        `${name} צריך להיות סכום בדולרים${min ? ' גדול מאפס' : ' (אפס ומעלה)'}`, `worker/wrangler.toml: ${name} = "${def}"`);
+    }
   }
+  // the class and network write budgets' multiplier (src/writes.js): a whole number from 1 to 20, or empty
+  const scale = String(vars.WRITE_BUDGET_SCALE ?? '').trim();
+  add('db:write-scale', 'db', !scale || (Number.isInteger(Number(scale)) && Number(scale) >= 1 && Number(scale) <= 20), 'WRITE_BUDGET_SCALE',
+    'WRITE_BUDGET_SCALE צריך להיות מספר שלם בין 1 ל־20 (מכפיל את תקרות הכתיבה של כיתה ושל רשת)', 'worker/wrangler.toml: WRITE_BUDGET_SCALE = "1"');
   const url = String(vars.PUBLIC_URL || '').trim();
   add('site:url', 'site', /^https:\/\/[^\s/]+/.test(url), 'PUBLIC_URL', 'PUBLIC_URL צריך להיות כתובת https של האתר', 'worker/wrangler.toml: PUBLIC_URL = "https://…"');
   add('site:contact', 'site', !!String(vars.CONTACT_EMAIL || '').trim(), 'CONTACT_EMAIL', 'חסר CONTACT_EMAIL (מופיע בדפי המשפט ובמיילים)', 'worker/wrangler.toml: CONTACT_EMAIL = "…"');
@@ -127,6 +138,12 @@ export function readiness(cfg = {}) {
         'worker/wrangler.toml: BILLING_CHECKOUT_HOSTS = "<הכתובת שהבדיקה מדפיסה>"');
       add('pay:direct-debit', 'pay', on(vars.GROW_DIRECT_DEBIT_API) === 'on', 'GROW_DIRECT_DEBIT_API', 'המנוי החודשי כבוי עד ש־Grow מאשרים updateDirectDebit (GROW_DIRECT_DEBIT_API = "on")',
         'worker/wrangler.toml: GROW_DIRECT_DEBIT_API = "on"', false);
+    }
+    // the exam pass has no price until the owner decides one (wrangler.toml ships it empty, so a placeholder is never
+    // published by the Grow switch or by the landing build): a reminder while a provider that sells is set
+    if (provider !== 'manual' && !(Number(String(vars.PRICE_EXAM_PASS_AGOROT ?? '').trim()) > 0)) {
+      add('pay:exam-pass-price', 'pay', false, 'PRICE_EXAM_PASS_AGOROT', 'חבילת המבחן לא נמכרת: PRICE_EXAM_PASS_AGOROT ריק. כשמחליטים על מחיר כותבים אותו באגורות, בשתי הטבלאות, ואז LEGAL_APPROVED',
+        'worker/wrangler.toml: PRICE_EXAM_PASS_AGOROT = "…" ב־[vars] וב־[env.staging.vars]  (SUBSCRIPTION.md, "חבילת מבחן")', false);
     }
     if (provider === 'test') {
       add('pay:test', 'pay', on(vars.BILLING_MODE) === 'test' && on(vars.ALLOW_TEST_BILLING) === 'true', 'BILLING_MODE test', 'ספק הבדיקה עובד רק עם BILLING_MODE = "test" ו־ALLOW_TEST_BILLING = "true", ואף פעם לא באתר החי',

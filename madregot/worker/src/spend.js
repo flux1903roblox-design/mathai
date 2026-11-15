@@ -54,8 +54,19 @@ function attemptNano(params, price) {
   return input * Math.max(price.input, price.cacheWrite) + Math.max(0, Number(params.max_tokens) || 0) * price.output;
 }
 
-/** One request: its own attempt, and when it carries the server-side fallback, a rerun at a price above every model's. */
-const requestNano = (params) => attemptNano(params, priceFor(params.model)) + (params.fallbacks ? attemptNano(params, UNKNOWN_PRICE) : 0);
+/** The models a declined request may be rerun on by the server-side fallback (PRICES lists them). */
+export const FALLBACK_MODELS = Object.freeze(['claude-opus-5', 'claude-opus-4-8']);
+/** The dearest of them, rate by rate: what a rerun is held at. */
+export const FALLBACK_PRICE = Object.freeze(Object.fromEntries(['input', 'output', 'cacheRead', 'cacheWrite']
+  .map((rate) => [rate, Math.max(...FALLBACK_MODELS.map((m) => PRICES[m][rate]))])));
+
+/**
+ * One request: its own attempt, and only when it carries the server-side fallback, a rerun on the dearest model the
+ * fallback may use (FALLBACK_PRICE). The ledger still prices what really ran (priceOf: a model that is not on the list
+ * at UNKNOWN_PRICE), so the breaker never counts less than was spent; only the reservation before the call is nearer
+ * to what a request can cost (the review: a rerun held at UNKNOWN_PRICE left room for about 40 questions at once).
+ */
+const requestNano = (params) => attemptNano(params, priceFor(params.model)) + (params.fallbacks ? attemptNano(params, FALLBACK_PRICE) : 0);
 
 /**
  * The most an AI request of this kind can cost, in nano-USD, before it is sent (its hold). New exercises send a blind
@@ -105,11 +116,14 @@ const usd = (env, name, d) => {
 };
 export const ownerAlertUsd = (env) => usd(env, 'OWNER_ALERT_USD', 20);
 
-/** Add one answer's cost to its pool (day and month), to 'all' (day and month) and to its kind (month). */
-export async function recordSpend(env, { pool, kind, message }) {
+/**
+ * Add one answer's cost to its pool (day and month), to 'all' (day and month) and to its kind (month). `subs`: the
+ * parts of the pool this caller belongs to (the open tier's email and class, entitle.js), each for the day only.
+ */
+export async function recordSpend(env, { pool, kind, message, subs = [] }) {
   const c = priceOf(message);
   const day = dayOf(); const month = monthOf();
-  const rows = [[pool, day], [pool, month], ['all', day], ['all', month], [`kind:${kind}`, month]];
+  const rows = [[pool, day], [pool, month], ['all', day], ['all', month], [`kind:${kind}`, month], ...subs.map((sub) => [sub, day])];
   const res = await env.DB.batch(rows.map(([p, period]) => env.DB.prepare(UPSERT).bind(p, period, c.input, c.output, c.cache, c.nano)));
   const allToday = Number(res[2]?.results?.[0]?.nano_usd || 0);
   if (allToday > ownerAlertUsd(env) * 1e9) {

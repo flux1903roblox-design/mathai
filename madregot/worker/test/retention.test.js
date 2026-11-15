@@ -95,9 +95,13 @@ async function assignWork(cls) {
 }
 /** The counters a student and a class have (every prefix forget.js lists, and longer keys), written for today. */
 const STUDENT_KEYS = (id) => [`pin:${id}`, `pin:${id}:n0123456789abcdef`, `s:${id}`, `s:${id}:tutor`, `free:s:${id}`, `care:s:${id}`, `report:s:${id}`,
-  `work:s:${id}`, `helpreply:s:${id}`, `vault:miss:s:${id}`, `escrow:s:${id}`, `write:s:${id}:answers`, `write:s:${id}:levels`, `write:s:${id}:exams`];
+  `work:s:${id}`, `helpreply:s:${id}`, `vault:miss:s:${id}`, `escrow:s:${id}`, `write:s:${id}:answers`, `write:s:${id}:levels`, `write:s:${id}:exams`,
+  `write:s:${id}:help`, `write:s:${id}:helpKb`, `alert:s:${id}`, `joined:s:${id}:0123456789abcdef`];
 const CLASS_KEYS = (code) => [`t:${code}`, `t:${code}:tutor`, `free:t:${code}`, `free:c:${code}`, `cls:${code}`, `care:t:${code}`, `report:t:${code}`,
-  `licreq:c:${code}`, `licclaim:c:${code}`, `assign:c:${code}`, `report:c:${code}`, `aioff:c:${code}`, `open:c:${code}`];
+  `licreq:c:${code}`, `licclaim:c:${code}`, `assign:c:${code}`, `report:c:${code}`, `aioff:c:${code}`, `open:c:${code}`, `usd:open:c:${code}`,
+  `write:c:${code}:answers`, `write:c:${code}:help`];
+/** The counters a student has that the tests' own requests wrote, beside STUDENT_KEYS: the mark of the network they joined from. */
+const JOINED = 1;
 async function counters(studentIds, code) {
   for (const id of studentIds) for (const who of STUDENT_KEYS(id)) await setCount(h.env, who, 1);
   for (const who of CLASS_KEYS(code)) await setCount(h.env, who, 1);
@@ -195,7 +199,7 @@ test('a student nobody has seen for 400 days is deleted with all their rows and 
   assert.deepEqual(orphanMeta(), [], 'her help_meta rows went with her help requests');
   assert.equal(noaMessages, 2);
   assert.deepEqual(orphanMessages(), [], 'the replies on her requests went with them');
-  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who LIKE ?', `%${itai.studentId}%`).length, STUDENT_KEYS(itai.studentId).length, 'his counters stay');
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who LIKE ?', `%${itai.studentId}%`).length, STUDENT_KEYS(itai.studentId).length + JOINED, 'his counters stay');
   assert.equal(rows(h.env, 'SELECT * FROM assignments WHERE class_code = ?', cls.code).length, 3, "the class's assignments stay");
   assert.ok(one(h.env, 'SELECT * FROM classes WHERE code = ?', cls.code), 'the class stays');
 });
@@ -213,7 +217,7 @@ test('the teacher removing a student leaves no row with the student in any table
   assert.deepEqual(mentions(noa.studentId, (table, row) => table === 'audit_log' && row.includes('"student.remove"')), []);
   assert.deepEqual(orphanMeta(), []);
   assert.deepEqual(orphanMessages(), []);
-  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who LIKE ?', `%${itai.studentId}%`).length, STUDENT_KEYS(itai.studentId).length);
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who LIKE ?', `%${itai.studentId}%`).length, STUDENT_KEYS(itai.studentId).length + JOINED);
   assert.equal((await h.call('POST', '/api/progress', { headers: bearer(noa), body: { events: [] } })).status, 401, 'her token stops working');
 });
 

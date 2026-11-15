@@ -272,7 +272,7 @@ function dashboard(st) {
       const w = mine.filter((r) => r.day >= weekStart); const ws = sum(w);
       return {
         id: s.id, name: s.name, lastSeen: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null,
-        lastPractice: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null, pinReset: !!s.pinReset,
+        lastPractice: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null, pinReset: !!s.pinReset, manyWrongPins: false,
         joinedOn: dayOfIso(s.createdAt), late: late(s.id), aiOff: !!s.aiOff,
         today: { n: t.n, ok: t.ok, first: t.first, minutes: Math.round(t.secs / 60) },
         week: { n: ws.n, first: ws.first, days: new Set(w.map((r) => r.day)).size, minutes: Math.round(ws.secs / 60) },
@@ -373,7 +373,7 @@ function studentPage(st, id) {
     .map((a) => { const w = workOf(st, a, id); return { id: `a:${a.id}`, title: a.title, correct: num(w.right), total: num(w.asked), at: w.doneAt, questions: w.questions || [] }; })
     .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, 20);
   return ok({
-    student: { id: s.id, name: s.name, joinedOn: dayOfIso(s.createdAt), lastPractice: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null, pinReset: !!s.pinReset, aiOff: !!s.aiOff },
+    student: { id: s.id, name: s.name, joinedOn: dayOfIso(s.createdAt), lastPractice: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null, pinReset: !!s.pinReset, manyWrongPins: false, aiOff: !!s.aiOff },
     days14, levels: st.levels[id] || {}, mistakes, work, help, exams,
   });
 }

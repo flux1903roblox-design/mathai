@@ -12,10 +12,11 @@
 //            minted by POST /api/devices (its signature checks with DEVICE_SECRET), hashed. Anything else counts against
 //            the network: no credential, or one that does not check, so a made-up X-Device on every request buys no
 //            fresh limit. Two class students behind one school address are still counted apart.
-//   RL_WRITE 60 a minute per class student, per location (COUNCIL2-18): POST /api/progress and POST /api/exams. The key
-//            is the student's Bearer once it is found in student_tokens, hashed; a token that does not check (the
-//            handler then answers 401) counts against its network. The app sends a batch every 5 answers, so a student
-//            stays far below it; the exact daily budget is the handler's (index.js WRITE_BUDGET).
+//   RL_WRITE 60 a minute per class student, per location (COUNCIL2-18): POST /api/progress, /api/exams, /api/help,
+//            /api/help/:id/reply and /api/class/work/:id. The key is the student's Bearer once it is found in
+//            student_tokens, hashed; a token that does not check (the handler then answers 401) counts against its
+//            network. The app sends a batch every 5 answers, so a student stays far below it; the exact daily budgets
+//            are the handlers' (writes.js: the student's, the class's and the network's).
 // Over the limit: 429 slow_down with Retry-After: 60. With no binding (tests, `wrangler dev` without it) nothing is checked.
 import { HttpError, netKey, sha256, hmacHex, safeEqual } from './util.js';
 import { requireTeacher } from './entitle.js';
@@ -36,8 +37,11 @@ export const AUTH_ROUTES = [
   ['POST', /^\/api\/devices$/],
 ];
 const AI_ROUTE = /^\/api\/ai\/\w+$/;
-/** The routes RL_WRITE guards: a class student's answers, levels and exams (POST). */
-export const WRITE_ROUTES = ['/api/progress', '/api/exams'];
+/**
+ * The routes RL_WRITE guards (POST): a class student's answers, levels and exams, their help requests and replies to the
+ * teacher, and their reports on an assignment.
+ */
+export const WRITE_ROUTES = [/^\/api\/progress$/, /^\/api\/exams$/, /^\/api\/help$/, /^\/api\/help\/\d+\/reply$/, /^\/api\/class\/work\/[a-f0-9]{16}$/];
 
 const found = async (env, sql, ...args) => !!(await env.DB.prepare(sql).bind(...args).first());
 
@@ -87,7 +91,7 @@ export async function edgeGuard(method, path, req, env) {
     if (typeof env.RL_AI?.limit !== 'function') return;
     return edgeLimit(env.RL_AI, await callerKey(req, env));
   }
-  if (method === 'POST' && WRITE_ROUTES.includes(path)) {
+  if (method === 'POST' && WRITE_ROUTES.some((re) => re.test(path))) {
     if (typeof env.RL_WRITE?.limit !== 'function') return;
     return edgeLimit(env.RL_WRITE, await writerKey(req, env));
   }

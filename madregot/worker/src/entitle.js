@@ -71,7 +71,8 @@ import { isObj } from '../../shared/obj.js';
 /**
  * What precheck decided and counted() takes: the open tier's keys, the usable paid buckets (and the refusals of the
  * others), or the free taste's keys.
- * @typedef {{ mode: 'open', keys: Key[] } | { mode: 'paid', buckets: Bucket[], fails: HttpError[] }
+ * @typedef {{ mode: 'open', keys: Key[], parts: Array<{ pool: string, usd: number, scope: 'class' | 'account', name: string }> }
+ *   | { mode: 'paid', buckets: Bucket[], fails: HttpError[] }
  *   | { mode: 'free', keys: FreeKeys }} Plan
  */
 /** @typedef {{ person: Key, tries: Key, net: Key | null, cls: Key | null, all: Key }} FreeKeys */
@@ -89,7 +90,13 @@ export const DEFAULT_LIMITS = {
   class: { student: { tutor: 20, check: 3, generate: 3, exam: 1 }, teacher: { tutor: 100, check: 20, generate: 30, exam: 20 }, seatUnits: 25 },
   trial: { student: { tutor: 10, check: 2, generate: 0, exam: 0 }, teacher: { tutor: 50, check: 10, generate: 0, exam: 0 }, seatUnits: 10, maxSeats: 40, days: 14 },
   legacy: { student: 40, teacher: 200, classUnits: 600 },
-  budgets: { freeDailyUsd: 5, openDailyUsd: 25, trialDailyUsd: 10, familyMonthlyUsd: 4, classSeatMonthlyUsd: 0.8, ownerAlertUsd: 20 },
+  // openAccountDailyUsd, openClassDailyUsd: what one email (all its classes) and one class may cost of the open pool
+  // in a day, so one of them pauses only itself; openInflightUsd: how far the holds of requests in flight may pass
+  // what is left of a budget (util.js key slack)
+  budgets: {
+    freeDailyUsd: 5, openDailyUsd: 25, openAccountDailyUsd: 3, openClassDailyUsd: 3, openInflightUsd: 20, trialDailyUsd: 10, familyMonthlyUsd: 4,
+    classSeatMonthlyUsd: 0.8, ownerAlertUsd: 20,
+  },
   // care replies (trust spec TRUST-3 §3.4): a day, per person, per network and for everyone; past them the fixed reply
   care: { person: 5, net: 30, global: 1000 },
   graceDays: 3,
@@ -103,6 +110,9 @@ const VARS = [
   ['OPEN_ACCOUNT_DAILY_LIMIT', ['open', 'account']],
   ['OPEN_CLASS_DAILY_UNITS', ['open', 'classUnits']],
   ['OPEN_DAILY_BUDGET_USD', ['budgets', 'openDailyUsd']],
+  ['OPEN_ACCOUNT_DAILY_USD', ['budgets', 'openAccountDailyUsd']],
+  ['OPEN_CLASS_DAILY_USD', ['budgets', 'openClassDailyUsd']],
+  ['OPEN_INFLIGHT_USD', ['budgets', 'openInflightUsd']],
   ['FREE_DAILY_LIMIT', ['free', 'student']],
   ['FREE_TEACHER_DAILY', ['free', 'teacher']],
   ['FREE_NET_DAILY', ['free', 'net']],
@@ -226,7 +236,7 @@ export async function studentFrom(req, env) {
   // off, and a student_ai_off row is the teacher's switch for this one student
   const hash = await sha256(token);
   const row = await env.DB.prepare(
-    `SELECT s.id, s.name, s.class_code, c.grade, c.created_at AS class_created_at,
+    `SELECT s.id, s.name, s.class_code, s.created_at, c.grade, c.created_at AS class_created_at,
        COALESCE(cs.setting, 'school') AS setting, COALESCE(cs.student_ai, 'off') AS student_ai, cs.ai_consent_at, so.student_id IS NOT NULL AS ai_off,
        t.last_seen AS token_seen
      FROM student_tokens t JOIN students s ON s.id = t.student_id JOIN classes c ON c.code = s.class_code
@@ -606,6 +616,8 @@ async function poolSpent(env, pool, budgetUsd) {
 /**
  * A request's dollar hold on a pool (COUNCIL2-19): its worst case (spend.js worstCaseNano) in usd:<pool>, taken with
  * its counters while the pool's spend today plus the holds is under the budget, given back when it has been priced.
+ * The open pool's holds may pass what is left of the budget by OPEN_INFLIGHT_USD (a whole class asks at once, and a
+ * real request costs a small part of its worst case); the free taste's may not.
  * @param {Env} env
  * @param {'open' | 'free'} pool
  * @param {string} kind
@@ -615,21 +627,65 @@ async function poolSpent(env, pool, budgetUsd) {
 function holdKey(env, pool, kind, params) {
   const budgets = limits(env).budgets;
   const usd = pool === 'open' ? budgets.openDailyUsd : budgets.freeDailyUsd;
-  return key(`usd:${pool}`, Math.floor(usd * 1e9), { n: worstCaseNano(params, kind, env), spend: pool, err: pausedErr() });
+  const slack = pool === 'open' ? Math.floor(budgets.openInflightUsd * 1e9) : 0;
+  return key(`usd:${pool}`, Math.floor(usd * 1e9), { n: worstCaseNano(params, kind, env), spend: pool, slack, err: pausedErr() });
 }
 
 /**
- * Why a take() with a hold failed: a counter's own error, or, when the hold is what was refused, the pool's day spent
- * (503 free_paused and the owner's notice) or, while it is not, other requests holding the rest of it right now (429
- * busy, Retry-After 30: they give it back within a minute).
+ * The parts of the open pool a caller belongs to (the review of COUNCIL2-19: one email spent the whole day's pool and
+ * paused the tutor for every class): the class (open:c:<code>, OPEN_CLASS_DAILY_USD a day) and the email it is bound
+ * to (open:a:<account>, OPEN_ACCOUNT_DAILY_USD for all its classes), for a class student and for a teacher alike. Each
+ * is a pool of its own in ai_spend (the day only), held like the open pool itself, so a class or an email that spends
+ * its part pauses only itself, and the owner's notice names it. A device with no class has no part: its own count is
+ * small (SOLO_DAILY_LIMIT).
+ * @param {Env} env
+ * @param {Identity} id
+ * @returns {Promise<Array<{ pool: string, usd: number, scope: 'class' | 'account', name: string }>>}
+ */
+async function openParts(env, id) {
+  const B = limits(env).budgets;
+  const code = id.student?.class_code || id.teacher?.code;
+  if (!code) return [];
+  const account = id.teacher ? await classOwner(env, id.teacher)
+    : (await env.DB.prepare('SELECT account_id FROM class_owners WHERE class_code = ?').bind(code).first())?.account_id || null;
+  return [
+    { pool: `open:c:${code}`, usd: B.openClassDailyUsd, scope: /** @type {const} */ ('class'), name: String(code) },
+    ...(account ? [{ pool: `open:a:${account}`, usd: B.openAccountDailyUsd, scope: /** @type {const} */ ('account'), name: String(account) }] : []),
+  ];
+}
+/** The hold of one part (openParts): usd:<part pool>, with the same room for requests in flight as the pool's. */
+/** @type {(env: Env, part: { pool: string, usd: number }, n: number) => Key} */
+const partHold = (env, part, n) => key(`usd:${part.pool}`, Math.floor(part.usd * 1e9), {
+  n, spend: part.pool, slack: Math.floor(limits(env).budgets.openInflightUsd * 1e9), err: pausedErr(),
+});
+/**
+ * Is one part's day spent? Then the owner gets its notice, once that day: which class (its code) or which email (the
+ * account's id, never the address).
+ * @param {Env} env
+ * @param {{ pool: string, usd: number, scope: string, name: string }} part
+ */
+async function partSpent(env, part) {
+  if ((await daySpendUsd(env, part.pool)) < part.usd) return false;
+  const day = dayOf();
+  await queueNotices(env, [ownerNotice(part.pool, `owner:open_part_paused:${day}`, { day, budgetUsd: part.usd, scope: part.scope, [part.scope]: part.name })]);
+  return true;
+}
+
+/**
+ * Why a take() with a hold failed: a counter's own error, or, when a hold is what was refused, its pool's (or its
+ * part's) day spent (503 free_paused and the owner's notice) or, while it is not, other requests holding the rest of
+ * it right now (429 busy, Retry-After 30: they give it back within a minute).
  * @param {Env} env
  * @param {{ error?: HttpError, key: Key }} r
  * @param {Key} hold
+ * @param {Array<{ pool: string, usd: number, scope: string, name: string }>} [parts]
  */
-async function heldBack(env, r, hold) {
-  if (r.key !== hold) return r.error;
+async function heldBack(env, r, hold, parts = []) {
+  const part = parts.find((x) => r.key.who === `usd:${x.pool}`);
+  if (r.key !== hold && !part) return r.error;
   const budgets = limits(env).budgets;
-  if (await poolSpent(env, String(hold.spend), hold.spend === 'open' ? budgets.openDailyUsd : budgets.freeDailyUsd)) return pausedErr();
+  if (part ? await partSpent(env, part)
+    : await poolSpent(env, String(hold.spend), hold.spend === 'open' ? budgets.openDailyUsd : budgets.freeDailyUsd)) return pausedErr();
   return new HttpError(429, 'busy', undefined, undefined, { 'Retry-After': '30' });
 }
 
@@ -722,9 +778,15 @@ async function planFor(req, env, kind, id) {
   }
   if (!paywallOn(env)) {
     const keys = await openKeys(req, env, id, kind, { strict: true });
-    // the open tier's day in dollars (COUNCIL2-19): the same calm answer and owner notice as the free taste's
+    // the open tier's day in dollars (COUNCIL2-19): the same calm answer and owner notice as the free taste's; then
+    // the caller's own parts of it (the class, the email): one that is spent pauses only its own callers
     if (await poolSpent(env, 'open', limits(env).budgets.openDailyUsd)) throw pausedErr();
-    return { mode: 'open', keys: keys || [] };
+    const parts = await openParts(env, id);
+    // every part that is spent is told to the owner (a class and its email often reach their day together)
+    let spent = false;
+    for (const part of parts) if (await partSpent(env, part)) spent = true;
+    if (spent) throw pausedErr();
+    return { mode: 'open', keys: keys || [], parts };
   }
 
   const buckets = await paidBuckets(env, id);
@@ -763,14 +825,16 @@ async function takePlan(env, kind, input, plan) {
   if (plan.mode === 'open') {
     const p = params(env, kind, input, 'full');
     const hold = holdKey(env, 'open', kind, p);
-    const r = await take(env, [...plan.keys, hold]);
-    if (!r.ok) throw await heldBack(env, r, hold);
+    const holds = [hold, ...plan.parts.map((part) => partHold(env, part, hold.n))];
+    const r = await take(env, [...plan.keys, ...holds]);
+    if (!r.ok) throw await heldBack(env, r, hold, plan.parts);
     // what the screen counts down: the fewest actions left of the person's own key and the email's (class units are
     // the class's, told by status as shared: 'class')
     const own = plan.keys.map((k, i) => (k.units ? Infinity : k.limit - r.counts[i]));
     const k = plan.keys[0];
     return {
-      tier: 'open', pool: 'open', group: 'all', shape: 'full', params: p, refund: plan.keys.filter((x) => x.refundable), hold,
+      tier: 'open', pool: 'open', subs: plan.parts.map((part) => part.pool), group: 'all', shape: 'full', params: p,
+      refund: plan.keys.filter((x) => x.refundable), hold: holds,
       left: Math.min(...own), limit: k.limit, economy: false,
     };
   }
@@ -798,7 +862,7 @@ async function takePlan(env, kind, input, plan) {
   const r = await take(env, [keys.person, keys.tries, keys.net, keys.cls, keys.all, hold]);
   if (!r.ok) throw await heldBack(env, r, hold);
   return {
-    tier: 'free', pool: 'free', group: 'tutor', shape: 'lite', params: p, refund: [keys.person], hold, left: keys.person.limit - r.counts[0],
+    tier: 'free', pool: 'free', group: 'tutor', shape: 'lite', params: p, refund: [keys.person], hold: [hold], left: keys.person.limit - r.counts[0],
     limit: keys.person.limit, economy: false,
   };
 }
@@ -902,7 +966,9 @@ async function statusFor(req, env, id) {
     // left: the fewest of the person's own and the email's (COUNCIL2-19); shared: the open pool's day is spent
     // ('paused'), or this student's class has no units left today ('class')
     const own = keys ? Math.min(...keys.map((k, i) => (k.units ? Infinity : left(k, counts[i])))) : 0;
-    const paused = keys && (await daySpendUsd(env, 'open')) >= limits(env).budgets.openDailyUsd;
+    // paused: the pool's day, or this caller's own part of it (the class's, the email's)
+    let paused = !!keys && (await daySpendUsd(env, 'open')) >= limits(env).budgets.openDailyUsd;
+    if (keys && !paused) for (const part of await openParts(env, id)) if ((await daySpendUsd(env, part.pool)) >= part.usd) paused = true;
     const classFull = keys && keys.some((k, i) => k.units && counts[i] >= k.limit);
     const shared = paused ? 'paused' : classFull ? 'class' : null;
     return {

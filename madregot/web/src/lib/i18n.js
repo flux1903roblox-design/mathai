@@ -1,6 +1,15 @@
 // The app's languages (COUNCIL2-27/34): Hebrew, the default, and Arabic. Every word the converted screens show is looked
 // up by key in a catalogue of the current language (src/locales/*.json): t('shell.nav.learn').
 //
+// ARABIC IS BEHIND ONE BUILD FLAG, OFF BY DEFAULT: VITE_ARABIC=on (docs/ARABIC.md says what must be true first). Today
+// only the shell and one topic are in Arabic, and a lesson shows Arabic content inside a Hebrew frame, so no user may
+// reach it. With the flag off (any build that does not set it): LOCALES holds Hebrew alone, so nothing can choose
+// Arabic (the choice on Welcome and in Settings is not drawn, ?lang=ar and a stored choice are ignored here and in
+// public/theme-boot.js, the tutor is never asked for Arabic), and the Arabic catalogues and content are not in the
+// build at all (every import of them is behind the flag, so the bundler drops it; scripts/check-dist.mjs fails a
+// flag-off build that has one). The unit tests run with the flag on (vite.config.js test.env), e2e/arabic.spec.js
+// against a build made with it (the 'arabic' project), and e2e/arabic-off.spec.js against the default build.
+//
 // - Hebrew is the default and reads exactly as before. Its first-load words (locales/shell.he.json) come with the first
 //   download, since they replace the words that were written into those screens; the words of screens that load on
 //   demand come with them (locales/settings.js registers settings.he.json when Settings loads).
@@ -16,10 +25,13 @@
 import { useSyncExternalStore } from 'react';
 import SHELL_HE from '@/locales/shell.he.json';
 
-export const LOCALES = Object.freeze({
-  he: Object.freeze({ id: 'he', dir: 'rtl', name: 'עברית', intl: 'he-IL' }),
-  ar: Object.freeze({ id: 'ar', dir: 'rtl', name: 'العربية', intl: 'ar-IL-u-nu-latn' }),
-});
+/** Is Arabic in this build? Only a build made with VITE_ARABIC=on (see the top of this file). */
+export const ARABIC_ON = import.meta.env.VITE_ARABIC === 'on';
+const HEBREW = Object.freeze({ id: 'he', dir: 'rtl', name: 'עברית', intl: 'he-IL' });
+/** The languages a device can choose: Hebrew, and Arabic only in a build that has it. */
+export const LOCALES = Object.freeze(ARABIC_ON
+  ? { he: HEBREW, ar: Object.freeze({ id: 'ar', dir: 'rtl', name: 'العربية', intl: 'ar-IL-u-nu-latn' }) }
+  : { he: HEBREW });
 export const DEFAULT_LOCALE = 'he';
 export const LOCALE_KEY = `${import.meta.env.VITE_STORE_KEY || 'madregot'}-locale`;
 export const LOCALE_EVENT = 'madregot-locale';
@@ -55,10 +67,15 @@ export function addMessages(locale, part) {
   messages[locale] = { ...(messages[locale] || {}), ...part };
 }
 
-/** Every Arabic part, in one go (they are small): what loadLocale('ar') waits for. */
+/**
+ * Every Arabic part, in one go (they are small): what loadLocale('ar') waits for. Written as one expression on the
+ * flag itself, so a build without Arabic has no trace of these files.
+ */
 export function importArabic() {
-  return Promise.all([import('@/locales/shell.ar.json'), import('@/locales/settings.ar.json')])
-    .then((parts) => parts.reduce((all, m) => ({ ...all, ...(m.default || m) }), {}));
+  return import.meta.env.VITE_ARABIC === 'on'
+    ? Promise.all([import('@/locales/shell.ar.json'), import('@/locales/settings.ar.json')])
+      .then((parts) => parts.reduce((all, m) => ({ ...all, ...(m.default || m) }), {}))
+    : Promise.resolve({});
 }
 
 const loaders = { ar: [] };
@@ -79,7 +96,7 @@ export function onLocaleChange(f) { relocalizers.push(f); }
 let arabic = null;
 /** Make sure a language's catalogue is here. Hebrew always is; Arabic is fetched once (and again after a failure). */
 export function loadLocale(locale) {
-  if (locale !== 'ar') return Promise.resolve();
+  if (locale !== 'ar' || !ARABIC_ON) return Promise.resolve();
   if (!arabic) {
     arabic = Promise.all([importArabic(), ...loaders.ar.map((f) => f())])
       .then(([all]) => { addMessages('ar', all); }, (e) => { arabic = null; throw e; });

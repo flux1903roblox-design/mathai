@@ -6,7 +6,7 @@
 // and the everyday school sentences that must not, are in worker/test/safety.test.js.
 import { describe, it, expect } from 'vitest';
 // @ts-ignore: plain JS
-import { detectDistress } from '@shared/distress.js';
+import { detectDistress, readsPersonal } from '@shared/distress.js';
 import { loadAllContent } from './content/index';
 import { CHALLENGES } from './challenges/index';
 // @ts-ignore: plain JS
@@ -68,4 +68,59 @@ describe('the distress detector and the app\'s own maths', () => {
     expect(items).toBeGreaterThan(1500);
     expect(flagged(all)).toEqual([]);
   }, SLOW);
+
+  // The app's word problems are about lifts, temperatures, divers, debts, balls in a bag, things that fall and lines
+  // that cut an axis. A child who asks about one, in a child's words and in the first person, is asking about maths:
+  // it never flags, and it never reads as personal either (the "held" support card of a resting tutor is for a
+  // message that is not about maths at all).
+  const ASKED = [
+    'המעלית ירדה 3 קומות ואז עלתה 5, איך אני יודע באיזו קומה היא?',
+    'אני לא מבין למה המעלית בקומה מינוס 2',
+    'הטמפרטורה ירדה ב-5 מעלות, למה יצא מינוס 2?',
+    'אני מוציא כדור מהשק בלי להסתכל, מה הסיכוי שהוא אדום?',
+    'יש בשקית 3 כדורים אדומים ו-5 כחולים, איך מחשבים?',
+    'לקחתי 2 כדורים מהשק ולא החזרתי, מה ההסתברות עכשיו?',
+    'נשארו לי 3 כדורים מתוך 10, איזה שבר זה?',
+    'אם אני זורק כדור מגובה 20 מטר, אחרי כמה שניות הוא נופל לרצפה?',
+    'האבן נופלת מהגג, איך אני מחשב את המהירות?',
+    'הכדור נפל לבור בעומק 2 מטר, איפה הוא ביחס לקרקע?',
+    'העץ נפל ונשבר בגובה 3 מטר, איך מחשבים את אורכו?',
+    'איפה הישר חותך את ציר ה-y?',
+    'אני לא מבינה איפה הגרף חותך את הצירים',
+    'אני חותך את הפיצה ל-8 חלקים שווים, כמה זה שלושה חלקים?',
+    'חתכתי את העוגה לשלושה חלקים, כל חלק הוא שליש?',
+    'אני רוצה לקפוץ 3 צעדים שמאלה על ציר המספרים, לאן אני מגיע?',
+    'קפצתי מ-2 ל-מינוס 3, כמה צעדים זה?',
+    'בתרגיל כתוב שדני קפץ מהמקפצה לעומק 3 מטר, איך כותבים את זה?',
+    'הצוללת ירדה לעומק של 40 מטר מתחת לפני הים',
+    'הצוללן צלל 12 מטר ואז עלה 4, איפה הוא?',
+    'הציפור צללה מגובה 15 מטר אל מתחת לפני המים',
+    'המטוס ירד 300 מטר ואז עוד 150, כמה הוא ירד בסך הכול?',
+    'אני בחוב של 50 שקלים, איך כותבים את זה כמספר?',
+    'למה הצלע הזו לא שווה לצלע השנייה?',
+    'אני לא שווה את שני האגפים נכון, מה עשיתי לא טוב?',
+    'אני שובר את הסוגריים ומה עושים עם המינוס?',
+    'זרקתי קובייה 3 פעמים ויצא 6, מה הסיכוי?',
+    'אם אני מטיל מטבע פעמיים, מה ההסתברות לעץ פעמיים?',
+    'הרכבת יצאה ב-8 ונוסעת 90 קמ"ש, מתי היא תפגוש את הרכבת השנייה?',
+    'שני רוכבי אופניים יוצאים זה מול זה, מתי הם נפגשים?',
+    'המחיר ירד ב-20 אחוז, כמה אני משלם עכשיו?',
+    'הסולם נשען על הקיר בגובה 4 מטר, כמה הוא ארוך?',
+    'הממוצע שלי ירד כי קיבלתי 60 במבחן, איך מחשבים ממוצע חדש?',
+    'התרגיל הזה הורג אותי, מה עושים עם המינוס?',
+    'אני רוצה להרוג את התרגיל הזה כבר, איך פותרים?',
+    'אני מת על שברים, תן לי עוד תרגיל',
+    'נמאס לי מהתרגיל הזה, אפשר רמז?',
+    'אין לי כוח לתרגיל הזה, תן רמז',
+    'הגובה של הר הוא 800 מטר וים המלח במינוס 430, מה ההפרש?',
+  ];
+  it('a child\'s own question about a word problem (a lift, a diver, balls in a bag, a falling stone, a line that cuts an axis) never flags', () => {
+    expect(ASKED.length).toBeGreaterThanOrEqual(35);
+    expect(flagged(ASKED)).toEqual([]);
+  });
+  it('and never reads as a message that is not about maths', () => {
+    expect(ASKED.filter((q) => readsPersonal(q))).toEqual([]);
+    // while a message with nothing of the lesson in it does (the resting tutor's support card shows under it)
+    for (const q of ['אף אחד לא מדבר איתי בכיתה כבר שבוע', 'אמא ואבא רבים כל הזמן ואני לא ישן', 'אני מפחד לחזור הביתה היום']) expect(readsPersonal(q), q).toBe(true);
+  });
 });

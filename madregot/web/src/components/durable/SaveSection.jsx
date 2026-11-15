@@ -36,7 +36,7 @@ import { canUndo, undoRestore, UNDO_TOAST, NO_UNDO } from '@/lib/durable/apply.j
 import { persistedText, canAsk, askFromSettings, PERSIST_TOAST } from '@/lib/durable/persist.js';
 import { guideHere } from '@/lib/durable/install.js';
 import { hasServer } from '@/lib/api.js';
-import { createBackup, stopBackup, detachBackup, clearBackupNote, backupText, vaultErrorText, BACKUP_TEXT } from '@/lib/durable/vault.js';
+import { createBackup, stopBackup, detachBackup, clearBackupNote, backupText, backedUp, vaultErrorText, BACKUP_TEXT } from '@/lib/durable/vault.js';
 import { escrowHas, setClassCopy, ESCROW_TEXT } from '@/lib/durable/escrow.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
@@ -55,6 +55,8 @@ export let BACKUP_NOTE = localized(() => t('settings.savesection.1'), (v) => { B
  * code is, and that it can be stopped here.
  */
 export let BACKUP_ON_NOTE = localized(() => t('settings.savesection.2'), (v) => { BACKUP_ON_NOTE = v; });
+/** The backup is on but no copy has reached the server yet: said plainly, with the file as the way to keep one now. */
+export let BACKUP_WAITING_NOTE = localized(() => t('settings.savesection.38'), (v) => { BACKUP_WAITING_NOTE = v; });
 export let STOPPED = localized(() => t('settings.savesection.3'), (v) => { STOPPED = v; });
 /** Stopping the backup: the copy on the server goes (said without "מוצפן" when the class or the family kept its code). */
 export let STOP_TEXT = localized(() => ({
@@ -67,7 +69,8 @@ export let KEPT_NOTE = localized(() => ({
   family: t('settings.savesection.7'),
 }), (v) => { KEPT_NOTE = v; });
 /** The backup is working (or about to): the row shows the check. */
-const backupOk = (b) => !!b?.on && (b.state == null || b.state === 'idle' || b.state === 'gone');
+// the tick only when a copy is on the server (vault.js backedUp): a backup that is on and still waiting has none
+const backupOk = (b) => backedUp(b) && (b.state == null || b.state === 'idle' || b.state === 'gone');
 
 let NOTE = localized(() => ({
   student: t('settings.savesection.8'),
@@ -194,7 +197,16 @@ export default function SaveSection({ role = 'student' }) {
               <p className="save-note">{BACKUP_NOTE}</p>
             </>
           )}
-          {backup?.on && backup.state !== 'other_student' && !backup.escrow && <p className="save-note">{BACKUP_ON_NOTE}</p>}
+          {backup?.on && backup.state !== 'other_student' && !backup.escrow && (
+            backedUp(backup)
+              ? <p className="save-note">{BACKUP_ON_NOTE}</p>
+              : (
+                <div className="save-backup-note save-waiting" role="status">
+                  <p>{BACKUP_WAITING_NOTE}</p>
+                  <Button variant="secondary" className="btn-block" onClick={save}>{t('settings.savesection.27')}</Button>
+                </div>
+              )
+          )}
           {backup?.on && backup.state !== 'other_student' && (
             <Button variant="secondary" className="btn-block" onClick={() => setCodeOpen(true)}>{t('settings.savesection.24')}</Button>
           )}

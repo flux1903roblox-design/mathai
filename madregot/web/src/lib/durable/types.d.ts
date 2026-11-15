@@ -100,6 +100,8 @@ export interface Backup {
   moveCode: boolean;
   state: string | null;
   note: string | null;
+  /** when a backup that is on by default was turned on (an older saved state has none) */
+  since?: string | null;
 }
 
 /** One finished item's step for the class goal (store.js withStep). */

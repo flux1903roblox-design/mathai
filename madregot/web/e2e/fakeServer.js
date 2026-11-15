@@ -252,7 +252,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
   const pageOf = (s) => {
     const row = dashboard().students.find((x) => x.id === s.id);
     return {
-      student: { id: s.id, name: s.name, joinedOn: row.joinedOn, lastPractice: row.lastPractice, pinReset: !!row.pinReset, aiOff: !!row.aiOff },
+      student: { id: s.id, name: s.name, joinedOn: row.joinedOn, lastPractice: row.lastPractice, pinReset: !!row.pinReset, aiOff: !!row.aiOff, manyWrongPins: !!row.manyWrongPins },
       days14: Array.from({ length: 14 }, (_, i) => ({ day: plus(st.today, i - 13), n: 0, first: 0, minutes: 0 })),
       levels: row.levels || {}, mistakes: [],
       work: st.assignments.filter((a) => forWhom(a).includes(s.id)).map((a) => {
@@ -421,6 +421,9 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         const row = st.students.find((x) => x.name === m.name);
         if (row) row.pinReset = false;
       }
+      // many wrong PINs for this name today, and this phone never signed in as them (a member with manyWrong: true): the
+      // Worker compares nothing and asks for the teacher's one-time code, with the reason (COUNCIL2-25)
+      if (m && m.manyWrong) return reply(route, 403, { error: 'claim_code_needed', reason: 'many_wrong' });
       if (m && m.pin !== body.pin) return reply(route, 403, { error: 'wrong_pin' });
       const returning = !!m;
       if (!m) { m = { id: `s${st.members.length + 1}`, name: body.name, pin: body.pin, tokens: [] }; st.members.push(m); }
@@ -488,6 +491,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     // ---- a shared assignment link (COUNCIL2-35), public: what the Worker's publicAssignment answers, nothing of a student
     const linkM = path.match(/^\/api\/work\/([a-f0-9]{16})$/);
     if (linkM && req.method() === 'GET') {
+      // st.linksFull: this network opened its links of the day. As the Worker, only a caller with no class token is counted
+      if (st.linksFull && !st.studentTokens[String(h.authorization || '').replace(/^Bearer /, '')]) return reply(route, 429, { error: 'slow_down' });
       const a = st.assignments.find((x) => x.id === linkM[1]);
       if (!a) return reply(route, 404, { error: 'not_found' });
       return reply(route, 200, {
@@ -499,7 +504,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     if (path.startsWith('/api/class/work')) {
       const sid = st.studentTokens[String(h.authorization || '').replace(/^Bearer /, '')];
       if (!sid) return reply(route, 401, { error: 'not_signed_in' });
-      const mine = (a) => a.startsOn <= st.today && (a.forAll || a.targets.includes(sid));
+      // st.elsewhere: ids of students of another class; their work holds nothing of K7Q2MD
+      const mine = (a) => a.startsOn <= st.today && !(st.elsewhere || []).includes(sid) && (a.forAll || a.targets.includes(sid));
       if (path === '/api/class/work') {
         const list = st.assignments.filter((a) => mine(a) && (a.dueOn >= plus(st.today, -14) || (workOf(a, sid)?.state !== 'done' && a.dueOn >= plus(st.today, -30))))
           .sort((a, b) => ((workOf(a, sid)?.state === 'done') - (workOf(b, sid)?.state === 'done')) || (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0));
@@ -934,7 +940,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
           const claimCode = st.claimCode || 'H4WQ7N';
           s.pinReset = true;
           const m = st.members.find((x) => x.name === s.name);
-          if (m) { Object.assign(m, { pin: null, claim: claimCode }); for (const t of m.tokens) delete st.studentTokens[t]; m.tokens = []; }
+          s.manyWrongPins = false; // the reset clears the day's wrong codes
+          if (m) { Object.assign(m, { pin: null, claim: claimCode, manyWrong: false }); for (const t of m.tokens) delete st.studentTokens[t]; m.tokens = []; }
           return reply(route, 200, { ok: true, claimCode, claimExpires: new Date(Date.parse(`${st.today}T10:00:00Z`) + 7 * 864e5).toISOString() });
         }
         return reply(route, 200, pageOf(s));

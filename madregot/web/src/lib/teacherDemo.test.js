@@ -18,7 +18,7 @@ const get = (st, path) => { const r = call(st, 'GET', path); expect(r.status, JS
 const SHAPES = {
   dashboard: ['aiPolicy', 'assignments', 'boundAt', 'boundElsewhere', 'class', 'exams', 'help', 'helpDigest', 'joinLocked', 'mistakes', 'rekeyFrom', 'students', 'today'],
   cls: ['code', 'grade', 'name', 'teacherName'],
-  student: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'lastSeen', 'late', 'levels', 'name', 'pinReset', 'today', 'week'],
+  student: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'lastSeen', 'late', 'levels', 'manyWrongPins', 'name', 'pinReset', 'today', 'week'],
   today: ['first', 'minutes', 'n', 'ok'],
   week: ['days', 'first', 'minutes', 'n'],
   exam: ['assignmentId', 'at', 'correct', 'id', 'name', 'questions', 'studentId', 'title', 'total', 'weak'],
@@ -36,7 +36,7 @@ const SHAPES = {
   reportWork: ['asked', 'late', 'passed', 'right', 'stage', 'state', 'tries'],
   reportMistake: ['cat', 'level', 'n', 'names', 'students', 'topic'],
   page: ['days14', 'exams', 'help', 'levels', 'mistakes', 'student', 'work'],
-  pageStudent: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'name', 'pinReset'],
+  pageStudent: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'manyWrongPins', 'name', 'pinReset'],
   pageDay: ['day', 'first', 'minutes', 'n'],
   pageMistake: ['cat', 'lastAt', 'level', 'n', 'topic'],
   pageWork: ['asked', 'assignmentId', 'dueOn', 'kind', 'late', 'passed', 'right', 'stage', 'state', 'title'],

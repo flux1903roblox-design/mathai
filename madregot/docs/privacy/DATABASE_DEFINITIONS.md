@@ -147,7 +147,7 @@
 
 - **סוג:** בכינוי (פסאודונימי). **על מי:** הורים, מורים, אף אחד.
 - **עמודות:** `pool`, `period`, `calls`, `input_tokens`, `output_tokens`, `cache_tokens`, `nano_usd`.
-- **מטרה:** What the tutor cost, per pool (a family account id, a class code, or a shared pool) and day or month, to keep the budget caps.
+- **מטרה:** What the tutor cost, per pool (a family account id, a class code, a shared pool, or in the open tier a class's or a teacher account's own part of the day) and day or month, to keep the budget caps.
 - **שמירה:** 400 days after its day or month.
 - **עובר אל:** Cloudflare.
 - **נמחק על ידי:** `cron.purgeRecordsSql`.
@@ -156,7 +156,7 @@
 
 - **סוג:** בכינוי (פסאודונימי). **על מי:** תלמידים, הורים, מורים, מכשירים, רשתות (כתובת IP מגובבת).
 - **עמודות:** `who`, `day`, `count`.
-- **מטרה:** Counters that keep the limits: questions to the tutor, sign-in codes, joins, shared assignment links opened, PIN tries, care messages, reported answers and a class student's daily writes, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey); and the dollars the free and open pools hold for requests in flight (usd:<pool>, about no one). Never a raw device id or address.
+- **מטרה:** Counters that keep the limits: questions to the tutor, sign-in codes, joins and new names, shared assignment links opened, PIN tries (per network and per student a day), care messages, one safety alert a day, reported answers and the day's writes of a class student, of their class and of their network, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey); the mark that a student signed in from a network (joined:s:<student>:<keyed hash of the network>), so that other people's wrong PINs cannot lock the student out there; and the dollars the free and open pools, and a class's or an email's part of the open pool, hold for requests in flight (usd:<pool>). Never a raw device id or address.
 - **שמירה:** Daily and hourly counters 35 days, monthly ones 13 months; a student's, family device's or install's counters at once when it deletes all, and a student's or class's when the teacher removes or deletes them.
 - **עובר אל:** Cloudflare.
 - **נמחק על ידי:** `cron.purgeCountersSql`, `forget.studentCountersStmt`, `forget.familyDeviceCountersStmt`, `forget.deviceCountersStmt`, `forget.classDeleteSteps`.

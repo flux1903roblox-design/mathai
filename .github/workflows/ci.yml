@@ -90,8 +90,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
       # The phone project runs every spec file against the fake server; the contract project (COUNCIL2-22) runs the tests
       # tagged @contract against the real Worker on node:sqlite, with Claude, email and payment stubbed (no secret).
-      # Tests tagged @perf stay out of the merge gate.
-      - run: npx playwright test -c e2e/playwright.config.js --project=phone --project=contract --grep-invert @perf
+      # Tests tagged @perf stay out of the merge gate. The arabic projects run arabic.spec.js against a build made with
+      # VITE_ARABIC=on (Arabic is off in the build that ships, docs/ARABIC.md), so the Arabic app stays tested until
+      # it is turned on.
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone --project=contract --project=arabic --project=arabic-small --grep-invert @perf
         env:
           CI: '1'
       - if: failure()

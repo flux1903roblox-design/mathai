@@ -808,11 +808,14 @@ function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
     try {
       // the page goes only as large as the server keeps it (shrunk if needed); a page that cannot fit stays behind
       const image = getImage();
-      await api('/api/help', { method: 'POST', body: { ...payload, note, image } });
+      const sent = await api('/api/help', { method: 'POST', body: { ...payload, note, image } });
       setNote('');
       if (flagged) { setCare('sent'); return; }
-      // the reply comes back on the missions screen (TEACHER-6 §4)
-      toast.success(hasPage && !image ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: הוא גדול מדי לשליחה. התשובה תופיע במסך המשימות.' : 'הבקשה נשלחה למורה. התשובה תופיע במסך המשימות.');
+      // the reply comes back on the missions screen (TEACHER-6 §4). The page may stay behind: too big to send, or the
+      // day's pictures are used up on the server (noImage: the request itself arrived)
+      toast.success(hasPage && !image ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: הוא גדול מדי לשליחה. התשובה תופיע במסך המשימות.'
+        : image && sent?.noImage ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: היום כבר נשלחו הרבה דפים. התשובה תופיע במסך המשימות.'
+          : 'הבקשה נשלחה למורה. התשובה תופיע במסך המשימות.');
       onOpenChange(false);
     } catch (e) {
       if (flagged) setCare('failed'); else toast.error(e.message);

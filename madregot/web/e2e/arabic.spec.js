@@ -5,7 +5,9 @@
 import { test, expect } from '@playwright/test';
 import { open, student, appReady, screenReady, item } from './helpers.js';
 
-test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the Arabic shell runs on the two phones'); });
+// Arabic is behind a build flag (VITE_ARABIC, lib/i18n.js): these tests run in the 'arabic' projects only, against a build
+// made with it on (e2e/playwright.config.js). arabic-off.spec.js checks the default build, where there is no Arabic.
+test.beforeEach(({}, info) => { test.skip(!['arabic', 'arabic-small'].includes(info.project.name), 'the Arabic shell runs on the two phones of the Arabic build'); });
 
 const HEBREW = /[֐-׿]/;
 

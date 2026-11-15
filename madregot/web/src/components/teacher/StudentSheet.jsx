@@ -41,6 +41,15 @@ export const CLAIM_TEXT = {
   copied: 'הקוד הועתק',
   copyFailed: 'לא הצלחנו להעתיק. אפשר להקריא את הקוד או לכתוב אותו.',
 };
+/**
+ * Many wrong personal codes were typed under a student's name today (the server counts them from every network). On a
+ * device or a network the student has not signed in from, the personal code is then no longer taken that day: the
+ * teacher's one-time code is the way in. The board's row says so in two words; the student's page says what to do.
+ */
+export const WRONG_PINS = {
+  chip: 'הרבה קודים שגויים',
+  line: (name) => `היום היו הרבה ניסיונות להיכנס בשם של ${name} עם קוד אישי שגוי. ממכשיר שכבר מחובר ומהרשת הרגילה הכניסה ממשיכה לעבוד. אם הכניסה ממכשיר אחר לא מצליחה, אפסו את הקוד האישי ותנו את קוד הכניסה החד־פעמי.`,
+};
 /** The code letter by letter for a screen reader ("K 7 Q 2 M D"), so it is never read as one word. */
 export const spelled = (code) => String(code || '').split('').join(' ');
 
@@ -242,6 +251,7 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
             </Part>
 
             <section className="ss-part ss-actions" aria-label={`פעולות על ${name}`}>
+              {d.student.manyWrongPins && !d.student.pinReset && !claim && <p className="ss-wrong-pins" role="status">{WRONG_PINS.line(name)}</p>}
               <div className="set-rows-wrap"><div className="set-rows">
                 {claim
                   ? <ClaimCodeBox name={name} code={claim.code} days={claim.days} />

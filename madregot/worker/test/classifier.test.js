@@ -5,10 +5,10 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { BLOCKED_TEXT } from '../../shared/safety.js';
-import { detectDistress } from '../../shared/distress.js';
+import { detectDistress, distressDetail } from '../../shared/distress.js';
 import { flushNotices } from '../src/email.js';
 import { buildModeration, readModeration, moderatedInput, replyText, MODERATED_KINDS } from '../src/moderation.js';
-import { ALERT_TOPIC, alertKind } from '../src/alerts.js';
+import { ALERT_TOPIC, alertKind, alertWorthy } from '../src/alerts.js';
 import { dayOf, monthOf } from '../src/util.js';
 import {
   setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, countOf, rows, one, claudeReply, claudeDown, claudeMessage,
@@ -134,7 +134,8 @@ test('it fails open: a classifier that errs or answers nonsense leaves the reque
 
 test('MODERATION on: a help note to the teacher that the classifier flags is marked for the teacher, with the category only', async () => {
   h = await setup({ MODERATION: 'on' }, stub({ input: { flag: true, category: 'bullying' } }));
-  const cls = await makeClass(h, { students: ['נועה'] });
+  // a class whose students may use the tutor: only their notes are read (a school class's never are, below)
+  const cls = await makeClass(h, { students: ['נועה'], studentAi: true });
   const s = cls.students[0];
   const r = await h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'signed', level: 1, question: '3 - 5', answer: '2', note: 'אף אחד לא רוצה לשבת לידי בהפסקה' } });
   assert.equal(r.status, 200);
@@ -198,4 +199,135 @@ test('SAFETY_ALERTS off (the default): nobody is told; a flag from the classifie
   await h.ctx.flush();
   assert.equal(rows(h.env, 'SELECT * FROM help_requests WHERE topic = ?', ALERT_TOPIC).length, 1);
   assert.equal(one(h.env, "SELECT calls FROM ai_spend WHERE pool = 'kind:moderation' AND period = ?", monthOf())?.calls, 1);
+});
+
+// ---------------------------------------------------------------- who is told, and about what (the review of COUNCIL2-9)
+const alerts = () => ({
+  parent: rows(h.env, "SELECT to_account FROM notices WHERE kind LIKE 'safety_alert:%'").length,
+  teacher: rows(h.env, 'SELECT id FROM help_requests WHERE topic = ?', ALERT_TOPIC).length,
+});
+/** A device a parent linked, with a family plan. */
+async function familyDevice(email = 'parent@example.test') {
+  await signIn(h, email);
+  const a = accountId(h.env, email);
+  insertSub(h.env, { kind: 'family', account_id: a });
+  return linkDevice(h.env, a);
+}
+const HOME_AND_HARM = ['אבא שלי מרביץ לי כל יום ואני רוצה למות', 'אני פוחדת מאבא שלי ויש לי מחשבות אובדניות', 'קשה לי בבית ואני רוצה להתאבד', 'ابوي بيضربني وبدي اموت'];
+const MATHS = ['כמה קומות צריך לקפוץ מקומה -2 לקומה 5?', 'באיזו נקודה אני חותכת?', 'כמה שניות לוקח לכדור ליפול מהגג?'];
+const NOT_SURE = ['בא לי למות מהמבחן הזה', 'אני חותכת', 'אני לא שווה כלום', 'בא לי להיעלם', 'מתחשק לי לחתוך'];
+
+test('SAFETY_ALERTS on: a child who writes that a parent hits them and that they want to die: that parent is never emailed', async () => {
+  h = await setup({ SAFETY_ALERTS: 'on', EMAIL_FROM: 'מדרגות <noreply@example.test>' }, stub());
+  const d = await familyDevice();
+  for (const text of HOME_AND_HARM) {
+    const detail = distressDetail(text);
+    assert.equal(detail.home, true, text); assert.equal(detail.sure, true, text);
+    const r = await ai(h, 'chat', d.headers, { body: chat(text) });
+    assert.equal((await r.json()).care, true, text);
+  }
+  await h.ctx.flush();
+  assert.deepEqual(alerts(), { parent: 0, teacher: 0 }, 'a child with no class: nobody the app can tell');
+  await flushNotices(h.env);
+  assert.equal(h.net.log.email.filter((m) => String(m.subject).includes('מה שלום')).length, 0);
+  // the same child, with no word about home: the parent is told, as before
+  await ai(h, 'chat', d.headers, { body: chat(SAD) });
+  await h.ctx.flush();
+  assert.deepEqual(alerts(), { parent: 1, teacher: 0 });
+});
+
+test('SAFETY_ALERTS on: a class student on a family device who writes about home: the teacher is told, not the parent', async () => {
+  h = await setup({ SAFETY_ALERTS: 'on' }, stub());
+  const d = await familyDevice();
+  const cls = await makeClass(h, { students: ['נועה'], studentAi: true });
+  const both = { ...bearer(cls.students[0]), ...d.headers };
+  const r = await ai(h, 'chat', both, { body: chat(HOME_AND_HARM[0]) });
+  assert.equal((await r.json()).care, true);
+  await h.ctx.flush();
+  assert.deepEqual(alerts(), { parent: 0, teacher: 1 });
+  const row = one(h.env, 'SELECT note, question FROM help_requests WHERE topic = ?', ALERT_TOPIC);
+  assert.deepEqual({ ...row }, { note: '', question: '' }, 'no text');
+});
+
+test('SAFETY_ALERTS on: maths questions alert nobody, and neither does a word that is also maths or slang', async () => {
+  h = await setup({ SAFETY_ALERTS: 'on' }, stub());
+  const d = await familyDevice();
+  const cls = await makeClass(h, { students: ['נועה'], studentAi: true });
+  for (const text of MATHS) {
+    assert.equal(detectDistress(text).flag, false, text);
+    const r = await ai(h, 'chat', d.headers, { body: chat(text) });
+    assert.equal((await r.json()).care, undefined, `${text}: a maths answer`);
+  }
+  for (const text of NOT_SURE) {
+    const detail = distressDetail(text);
+    assert.equal(detail.flag, true, text); assert.equal(detail.sure, false, text);
+    assert.equal(alertWorthy({ flag: true, category: detail.category, source: 'regex' }, detail), false, text);
+    const fam = await ai(h, 'chat', d.headers, { body: chat(text) });
+    assert.equal((await fam.json()).care, true, `${text}: the child still gets the care answer`);
+    await ai(h, 'chat', bearer(cls.students[0]), { body: chat(text) });
+  }
+  await h.ctx.flush();
+  assert.deepEqual(alerts(), { parent: 0, teacher: 0 });
+  assert.deepEqual(events().map((e) => e.kind), Array(2 * NOT_SURE.length).fill('distress'), 'counted in the safety log all the same');
+  // other categories never alert, whatever they say
+  assert.equal(alertWorthy({ flag: true, category: 'abuse' }, distressDetail('אבא שלי מרביץ לי')), false);
+  assert.equal(alertWorthy({ flag: true, category: 'self_harm', source: 'model' }, distressDetail(QUIET)), true, 'the classifier\'s own reading');
+  assert.equal(alertWorthy({ flag: false, category: null }, distressDetail(SAD)), false);
+});
+
+test('SAFETY_ALERTS and MODERATION on: a message only the classifier flags that names home goes to the teacher, never to the parent', async () => {
+  const text = 'אמא שלי אומרת שאני סתם נטל על כולם, כבר לא אכפת לי מכלום';
+  h = await setup({ MODERATION: 'on', SAFETY_ALERTS: 'on' }, stub({ input: { flag: true, category: 'self_harm' } }));
+  assert.equal(detectDistress(text).flag, false, 'the word list does not read this one');
+  assert.equal(distressDetail(text).home, true, 'but it names home');
+  const d = await familyDevice();
+  await ai(h, 'chat', d.headers, { body: chat(text) });
+  await h.ctx.flush();
+  assert.deepEqual(alerts(), { parent: 0, teacher: 0 });
+});
+
+// ---------------------------------------------------------------- the second reader and a school class's notes
+const NOTE = 'המורה, קשה לי בבית בזמן האחרון ואני לא מצליחה להתרכז. גם אחותי רותי חולה';
+const askNote = (s, extra = {}) => h.call('POST', '/api/help', { headers: { ...bearer(s), ...extra }, body: { topic: 'signed', level: 1, question: '3 - 8', answer: '5', note: NOTE } });
+
+test('MODERATION on: the note of a school-class student (tutor off, no consent) is never sent to Claude; the word list alone decides', async () => {
+  h = await setup({ MODERATION: 'on', AI_PARENT_OK: 'required', AI_PAYWALL: 'off' }, stub({ input: { flag: true, category: 'distress' } }));
+  const cls = await makeClass(h, { students: ['נועה'] }); // a school class: no class_settings row, student AI off
+  const [s] = cls.students;
+  assert.equal((await ai(h, 'chat', bearer(s))).status, 403, 'the tutor itself refuses this student');
+  assert.equal(detectDistress(NOTE).flag, false);
+  assert.equal((await askNote(s)).status, 200);
+  await h.ctx.flush();
+  assert.equal(h.net.log.claude.length, 0, 'nothing the child wrote went to the AI company');
+  assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM help_meta WHERE care = 1').n, 0);
+  // a note the word list reads is still marked for the teacher, with no call
+  assert.equal((await h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'signed', question: '4 - 9', answer: '', note: 'עושים עליי חרם' } })).status, 200);
+  await h.ctx.flush();
+  assert.equal(h.net.log.claude.length, 0);
+  assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM help_meta WHERE care = 1').n, 1);
+  // the same student after the teacher turned the AI off for her in a class that has it on: still not read
+  const on = await makeClass(h, { students: ['דנה'], studentAi: true });
+  h.env.DB.raw.prepare('INSERT INTO student_ai_off (student_id, at) VALUES (?, ?)').run(on.students[0].studentId, new Date().toISOString());
+  assert.equal((await askNote(on.students[0])).status, 200);
+  await h.ctx.flush();
+  assert.equal(h.net.log.claude.length, 0);
+});
+
+test('MODERATION on: a note is read when the tutor is on for the student, or on a device a parent linked', async () => {
+  h = await setup({ MODERATION: 'on' }, stub({ input: { flag: true, category: 'distress' } }));
+  const on = await makeClass(h, { students: ['דנה'], studentAi: true });
+  assert.equal((await askNote(on.students[0])).status, 200);
+  await h.ctx.flush();
+  assert.equal(modCalls().length, 1);
+  assert.equal(one(h.env, 'SELECT m.care FROM help_meta m JOIN help_requests r ON r.id = m.help_id WHERE r.student_id = ?', on.students[0].studentId).care, 1);
+  // a school-class student on a family device: the parent chose the tutor for this device
+  const d = await familyDevice('home@example.test');
+  const school = await makeClass(h, { students: ['נועה'] });
+  assert.equal((await askNote(school.students[0], d.headers)).status, 200);
+  await h.ctx.flush();
+  assert.equal(modCalls().length, 2);
+  // a made-up family header is no pass
+  assert.equal((await h.call('POST', '/api/help', { headers: { ...bearer(school.students[0]), 'X-Family-Device': `fd1.${'0'.repeat(64)}` }, body: { topic: 'eq', question: 'x', answer: '', note: NOTE } })).status, 200);
+  await h.ctx.flush();
+  assert.equal(modCalls().length, 2);
 });

@@ -27,7 +27,7 @@ import { canSell } from '@/lib/price.js';
 import { needsTeacherAdultStep } from '@/lib/parentGate.js';
 import LangPick from '@/components/LangPick.jsx';
 
-import { localized, t as tr } from '@/lib/i18n.js';
+import { localized, t as tr, LOCALES } from '@/lib/i18n.js';
 /**
  * The first open of the Home Screen app (DURABLE-3): on an iPhone it keeps its data apart from Safari, so the front page
  * says how the progress comes over, first: the backup code with a server, the backup file without one.
@@ -64,19 +64,24 @@ export const cleanClaim = (v) => String(v || '').toUpperCase().replace(/[^A-Z0-9
 /** The words around the teacher's one-time code, after a PIN reset (COUNCIL2-25): plain, calm, no hurry. */
 export let CLAIM_COPY = localized(() => ({
   note: tr('shell.welcome.4'),
+  // the server asked for the teacher's code because of many wrong PINs under this name today, not after a reset
+  noteMany: tr('shell.welcome.claim.many'),
   label: tr('shell.welcome.5'),
   hint: tr('shell.welcome.6'),
   pinLabel: tr('shell.welcome.7'),
   missing: tr('shell.welcome.8'),
 }), (v) => { CLAIM_COPY = v; });
+/** Why the server asked for the teacher's code (the answer to a join): 'many' wrong PINs today, else a 'reset'. */
+export const claimReason = (err) => (err?.data?.reason === 'many_wrong' ? 'many' : 'reset');
 /**
- * The teacher's one-time code, shown once the server answered claim_code_needed (the student's PIN was reset). The note
- * is a status, so a screen reader says why a field appeared; the field takes focus.
+ * The teacher's one-time code, shown once the server answered claim_code_needed: the student's PIN was reset, or
+ * (`why` 'many') there were many wrong PINs under this name today and this device is not one the student signed in
+ * from. The note is a status, so a screen reader says why a field appeared; the field takes focus.
  */
-export function ClaimField({ id, value, onChange }) {
+export function ClaimField({ id, value, onChange, why }) {
   return (
     <>
-      <p className="ob-note" role="status">{CLAIM_COPY.note}</p>
+      <p className="ob-note" role="status">{why === 'many' ? CLAIM_COPY.noteMany : CLAIM_COPY.note}</p>
       <Field label={CLAIM_COPY.label} id={id} hint={CLAIM_COPY.hint}>
         <input id={id} className="input mono" dir="ltr" value={value} onChange={(e) => onChange(cleanClaim(e.target.value))} maxLength={12}
           autoCapitalize="characters" autoComplete="off" spellCheck={false} aria-describedby={`${id}-hint`} autoFocus />
@@ -202,7 +207,7 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
         toast.success(c.returning ? tr('shell.welcome.20', { className: c.className }) : tr('shell.welcome.21', { className: c.className }));
       } catch (err) {
         // not an error to fix: the field for the teacher's code appears, with its note
-        if (err.code === 'claim_code_needed') { setNeedClaim(true); setError(''); return; }
+        if (err.code === 'claim_code_needed') { setNeedClaim(claimReason(err)); setError(''); return; }
         setError(err.message); return;
       } finally { setBusy(false); }
     }
@@ -236,8 +241,9 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
     // him, and the two ways in as full-width buttons pinned to the bottom
     return (
       <div className={clsx('ob ob-hello hello-duo', standalone && 'hello-standalone')}>
-        {/* the language, before anything else (COUNCIL2-34): עברית or العربية */}
-        <div className="hello-top"><LangPick /></div>
+        {/* the language, before anything else (COUNCIL2-34): עברית or العربية. Only in a build that has two languages
+            (VITE_ARABIC=on): the default build has no row at all, so the screen is laid out as it was before it */}
+        {Object.keys(LOCALES).length > 1 && <div className="hello-top"><LangPick /></div>}
         <main className="hello-center" data-region="content">
           {wiped && <p className="hello-wiped" role="status"><Check size={20} aria-hidden="true" /><span>{WIPED_TEXT[wiped]}</span></p>}
           <Mascot mood="excited" size={168} className="hello-madi" />
@@ -355,7 +361,7 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
                 </Field>
                 {f.code.trim() && (
                   <>
-                    {needClaim && <ClaimField id="w-claim" value={f.claim} onChange={(claim) => set({ claim })} />}
+                    {needClaim && <ClaimField id="w-claim" why={needClaim} value={f.claim} onChange={(claim) => set({ claim })} />}
                     <Field label={needClaim ? CLAIM_COPY.pinLabel : tr('shell.welcome.72')} id="w-pin" hint={needClaim ? null : tr('shell.welcome.73')}>
                       <input id="w-pin" className="input mono" dir="ltr" inputMode="numeric" pattern="\d{4}" maxLength={4} value={f.pin} onChange={(e) => set({ pin: e.target.value.replace(/\D/g, '') })} autoComplete="off" />
                     </Field>

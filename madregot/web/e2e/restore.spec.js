@@ -13,7 +13,7 @@
 // The tests tagged @contract (COUNCIL2-22) run in the contract project too, against the real Worker
 // (worker/scripts/serve-local.mjs): they read what the server holds through contract.js, which reads either backend.
 import { test, expect } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { student, open, item, answer, proceedToNext, leaveEndScreens, saved, appReady, NOW } from './helpers.js';
 import { API, fakeServer, livePlan as livePlanOf } from './fakeServer.js';
 import { vaultRow, vaultCount, tombstoned, escrowsOf, classFor } from './contract.js';
@@ -472,6 +472,80 @@ test.describe('the backup is on by default for a student on their own', () => {
     expect(vaultPosts(log)).toHaveLength(posted);
     expect(errors).toEqual([]);
   });
+
+  // The durable-data review: when the server refused the first copy (too many new backups from this network today, a
+  // full or closed vault) or the first run had no connection, the backup was "on" with nothing on the server, and the
+  // home still said "ההתקדמות שלכם מגובה". Nothing says "backed up" before the first copy has landed: the home is
+  // quiet, Settings says the copy is not on the server yet and offers the file, and the line comes when it lands.
+  const CORS_JSON = { 'Access-Control-Allow-Origin': '*' };
+  const refusal = (status, error) => (route) => route.fulfill({ status, contentType: 'application/json', headers: CORS_JSON, body: JSON.stringify({ error }) });
+  for (const [name, slug, refuse, row] of [
+    ['too many new backups from this network today (429)', 'too-many', refusal(429, 'too_many_vaults'), 'עוד לא נשמר בשרת · ננסה שוב'],
+    ['a full vault (503)', 'full', refusal(503, 'vault_full'), 'עוד לא נשמר בשרת · ננסה שוב'],
+    ['a vault that is switched off (503)', 'off', refusal(503, 'vault_off'), 'עוד לא נשמר בשרת · ננסה שוב'],
+    ['no connection on the first run', 'offline', (route) => route.abort('internetdisconnected'), 'עוד לא נשמר בשרת · מחכה לאינטרנט'],
+  ]) {
+    test(`the first copy is refused: ${name}. Nothing says "מגובה", Settings says it is not saved yet and offers the file; the line comes when the copy lands`, async ({ page }) => {
+      test.setTimeout(120_000);
+      const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+      const srv = await fakeServer(page.context(), {}, baseOf());
+      const refused = (route) => (route.request().method() === 'POST' ? refuse(route) : route.fallback());
+      await page.context().route(`${API}/api/vault`, refused);
+      await open(page, '#/', fresh());
+      await welcomeSolo(page);
+      // the backup is on (the code is made on the device), and no copy is on the server
+      await expect.poll(async () => (await saved(page)).backup?.on).toBe(true);
+      await expect.poll(async () => (await saved(page)).backup?.state, { timeout: 15_000 }).toMatch(/^(unavailable|offline)$/);
+      expect((await saved(page)).backup.rev ?? null).toBeNull();
+      expect(await vaultCount(srv)).toBe(0);
+
+      // the home: the map, and no "your progress is backed up" card
+      await page.evaluate(() => { window.location.hash = '#/'; });
+      await expect(page.locator('.learn')).toBeVisible();
+      await page.waitForTimeout(1200);
+      await expect(page.getByRole('region', { name: LINE })).toHaveCount(0);
+      await expect(page.getByText(LINE)).toHaveCount(0);
+
+      // Settings: not saved on the server yet (no tick, never "פועל"), and the file as the way to keep a copy now
+      await page.evaluate(() => { window.location.hash = '#/settings'; });
+      const dd = page.locator('.save-backup .save-row dd');
+      await expect(dd).toHaveText(row);
+      await expect(dd).toHaveClass(/save-not/);
+      await expect(dd.locator('svg')).toHaveCount(0);
+      const waiting = page.locator('.save-backup .save-waiting');
+      await expect(waiting).toHaveAttribute('role', 'status');
+      await expect(waiting).toContainText('הגיבוי עוד לא נשמר בשרת. ננסה שוב בכל פעם שהאפליקציה נפתחת. בינתיים אפשר לשמור קובץ גיבוי.');
+      await expect(page.getByText('עותק מוצפן נשמר בשרת, והקוד שפותח אותו נמצא רק במכשיר הזה.', { exact: false })).toHaveCount(0);
+      const file = waiting.getByRole('button', { name: 'לשמור קובץ גיבוי' });
+      expect((await file.boundingBox()).height).toBeGreaterThanOrEqual(44);
+      await waiting.scrollIntoViewIfNeeded();
+      await shot(page, `backup-not-yet-${slug}`);
+      if (test.info().project.name === 'phone') {
+        await page.setViewportSize({ width: 320, height: 568 });
+        await waiting.scrollIntoViewIfNeeded();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        await shot(page, `backup-not-yet-${slug}-320`);
+        await page.setViewportSize({ width: 390, height: 844 });
+      }
+      // the file is saved from here (a download), with no server
+      const [download] = await Promise.all([page.waitForEvent('download'), file.click()]);
+      // the file holds this student's progress (a Madregot backup file), written on the device
+      const kept = JSON.parse(readFileSync(await download.path(), 'utf8'));
+      expect(JSON.stringify(kept)).toContain('נועה');
+
+      // the server takes it the next time the app opens: the copy lands, and only now the home says so
+      await page.context().unroute(`${API}/api/vault`, refused);
+      await page.reload();
+      await appReady(page);
+      await expect.poll(async () => (await saved(page)).backup?.rev, { timeout: 20_000 }).toBe(1);
+      expect(await vaultCount(srv)).toBe(1);
+      await expect(page.locator('.save-backup .save-row dd')).toHaveText(/^פועל/);
+      await expect(page.locator('.save-backup .save-waiting')).toHaveCount(0);
+      await page.evaluate(() => { window.location.hash = '#/'; });
+      await expect(page.getByRole('region', { name: LINE })).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+  }
 
   test('"delete all" still deletes the vault made by default, by its lookup, before anything here', { tag: '@contract' }, async ({ page }) => {
     test.setTimeout(120_000);

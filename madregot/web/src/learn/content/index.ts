@@ -28,6 +28,8 @@ export const CONTENT_TOPICS: TopicId[] = [...new Set(Object.keys(META).map((s) =
 type Lang = 'he' | 'ar';
 /** An Arabic topic's teaching: the Arabic twins of its files (scripts/gen-arabic.mjs; learn/arabic.test.ts holds the list). */
 function importArabic(topic: string): Promise<StairContent[]> {
+  // only in a build that has Arabic (VITE_ARABIC=on, lib/i18n.js): any other build carries none of these files
+  if (import.meta.env.VITE_ARABIC !== 'on') return Promise.reject(new Error('content: this build has no Arabic'));
   switch (topic) {
     case 'signed': return Promise.all([import('./signed.ar'), import('./signed6.ar')]).then(([a, b]) => [...a.SIGNED, ...b.SIGNED6]);
     default: return Promise.reject(new Error(`content: no Arabic teaching for ${topic}`));
@@ -36,7 +38,7 @@ function importArabic(topic: string): Promise<StairContent[]> {
 
 /** A new topic adds its case here (learn/content-split.test.ts fails for a topic in TOPICS whose stairs do not load). */
 function importTopic(topic: string, lang: Lang): Promise<StairContent[]> {
-  if (lang === 'ar') return importArabic(topic);
+  if (import.meta.env.VITE_ARABIC === 'on' && lang === 'ar') return importArabic(topic);
   switch (topic) {
     // the curriculum lane's bridge unit (fractions)
     case 'frac': return import('./frac').then((m) => m.FRAC);

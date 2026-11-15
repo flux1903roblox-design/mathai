@@ -53,8 +53,9 @@ export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, i
  * code, its lookup token, the vault's rev and when it was last pushed, the hash of what was pushed, the sync's state
  * ('idle' | 'offline' | 'error' | 'unavailable' | 'too_big' | 'other_student' | 'gone') and a one-time note: for
  * Settings ('recreated', 'moved', 'deleted'), or for Learn ('auto': the backup was turned on by default, BackupLine.jsx).
+ * `since`: when a default backup was turned on, until its first copy lands (rev is null till then: vault.js backedUp).
  */
-export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false, moveCode: false, state: null, note: null });
+export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false, moveCode: false, state: null, note: null, since: null });
 
 /**
  * Nothing from a teacher yet (and after leaving the class): the last GET /api/class/work of a class student (lib/classWork.js).

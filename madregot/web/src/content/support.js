@@ -7,18 +7,24 @@ import { localized, t } from '@/lib/i18n.js';
 /** The quiet link that opens the support sheet: the chat, the resting chat, the "not connected" chat, the limit sheet, Settings. */
 export let SUPPORT_LINK = localized(() => t('shell.support.1'), (v) => { SUPPORT_LINK = v; });
 
-/** The card's variants: under a message that flagged, opened from a link (nothing was written), in the help sheet. */
-export const SUPPORT_VARIANTS = Object.freeze(['after-message', 'opened', 'help-note']);
+/**
+ * The card's variants: under a message that flagged, opened from a link (nothing was written), in the help sheet, and
+ * under a message the tutor could not take that is not about maths ('held': it says the tutor is not answering now,
+ * and that what was written was sent to no one).
+ */
+export const SUPPORT_VARIANTS = Object.freeze(['after-message', 'opened', 'help-note', 'held']);
 
 let OPENING = localized(() => ({
   'after-message': t('shell.support.2'),
   opened: t('shell.support.3'),
   'help-note': t('shell.support.2'),
+  held: t('shell.support.held.opening'),
 }), (v) => { OPENING = v; });
 let FOOTER = localized(() => ({
   'after-message': t('shell.support.4'),
   opened: t('shell.support.5'),
   'help-note': t('shell.support.6'),
+  held: t('shell.support.held.footer'),
 }), (v) => { FOOTER = v; });
 // After "ask the teacher to talk with me": only under a message does "what you wrote was not sent" add anything (from a
 // link nothing was written; in the help sheet the note did go to the teacher).
@@ -26,6 +32,7 @@ let TALK_SENT = localized(() => ({
   'after-message': t('shell.support.7'),
   opened: t('shell.support.8'),
   'help-note': t('shell.support.8'),
+  held: t('shell.support.7'),
 }), (v) => { TALK_SENT = v; });
 
 const digits = (phone) => String(phone).replace(/\D/g, '');

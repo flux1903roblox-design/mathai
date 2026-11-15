@@ -1,9 +1,53 @@
 # Arabic (COUNCIL2-27, COUNCIL2-34)
 
-The app speaks Hebrew (the default, unchanged) and Arabic. Arab schools in Israel teach the same grade 7-8 programme in
-Arabic, and the Ministry's own maths pilot (Project 720) runs in both languages; this is the code side of that offer.
+The app speaks Hebrew. Arabic is built and tested, and it is **switched off**: it sits behind one build flag,
+`VITE_ARABIC`, which is off by default. Arab schools in Israel teach the same grade 7-8 programme in Arabic, and the
+Ministry's own maths pilot (Project 720) runs in both languages; this is the code side of that offer, kept ready until
+it is whole.
 
-## What a student sees
+## The switch (off by default)
+
+**Why it is off.** The second council review opened the app in Arabic and found one topic of grade 7 taught in Arabic
+inside a Hebrew lesson frame, with every other topic in Hebrew, and no review yet by a native speaker or a counsellor.
+A child who chooses "العربية" and meets that is worse served than a child who is offered Hebrew only. So nothing
+offers Arabic until the list below is true.
+
+**With the flag off (every build unless you set it):**
+
+- no language choice on the first screen or in Settings, and `?lang=ar` or a stored choice does nothing: the page is
+  Hebrew (`lib/i18n.js` `LOCALES`, `public/theme-boot.js`);
+- no Arabic text is in the build: no Arabic catalogue, no Arabic content file, no Arabic names. `npm run build`
+  checks it (`scripts/check-dist.mjs`: a file named `*.ar-*.js` in `dist`, or the Arabic catalogue's words in any
+  script, fails the build), and `e2e/arabic-off.spec.js` checks the running app (no choice, no Arabic request, Hebrew
+  `lang`). The one Arabic file every build has is the font's Arabic part (the font package brings it): a browser
+  fetches it only when a page shows Arabic letters, for example a child's own message, and it is not kept for
+  offline use;
+- no page, listing or claim says the app has Arabic (`docs/POSITIONING.md` lists it as something we do not have);
+- the Worker is unchanged: it still accepts `locale: 'ar'`, and its Arabic distress rules read every message in any
+  build (a child may write in Arabic in the Hebrew app, and must get the support card).
+
+**To turn it on** (one action): build with the flag, `VITE_ARABIC=on npm run build` (in CI: the same variable on the
+build step). Nothing else changes; the Worker needs no deploy. The Arabic tests always run with it on: the unit tests
+set it in `vite.config.js` (`test.env`), and the end-to-end tests have their own build and projects
+(`npx playwright test -c e2e/playwright.config.js --project=arabic --project=arabic-small`; CI runs them with the
+phone project).
+
+**What must be true first** (each is in "Owner steps" or "Not in Arabic yet" below):
+
+1. A whole grade is in Arabic: every topic of grade 7 with its teaching, exercises, mistake words and challenge tasks,
+   not one topic.
+2. The lesson frame is Arabic: the lesson's and the stair page's buttons and headings, the journey, quests, exams,
+   profile, the tutor's screen and the topics list. No Arabic teaching inside a Hebrew frame.
+3. A native Arabic speaker reviewed the text, and an Arabic-speaking maths teacher reviewed the teaching content
+   (Owner step 1), with the glossary confirmed against the Ministry's terms (step 2).
+4. A school counsellor who works in Arabic reviewed the Arabic distress phrases and the Arabic care reply (step 4).
+5. The legal pages a child or a parent can open from an Arabic screen exist in Arabic, from the lawyer's approved
+   Hebrew.
+
+Until then the public pages and the store listing must not say "Arabic", and after turning it on they are updated in
+the same change.
+
+## What a student sees (in a build with the flag on)
 
 - The first screen offers **עברית | العربية** at the top; Settings has the same choice under **שפה / اللغة**. The
   choice belongs to the device (`localStorage <store key>-locale`). `?lang=ar` in an address opens the app in Arabic,
@@ -34,6 +78,10 @@ Arabic, and the Ministry's own maths pilot (Project 720) runs in both languages;
 - `src/locales/shell.he.json` is in the first download (it replaced the words that were written into those screens);
   `settings.he.json` comes with Settings. All of Arabic (`*.ar.json`) is fetched only on an Arabic device, and the
   service worker keeps it as it is used (it is not in the precache, so Hebrew devices store nothing extra).
+- The flag is read as `import.meta.env.VITE_ARABIC === 'on'` exactly where an Arabic file would be imported
+  (`importArabic` in `lib/i18n.js`, `content/arabic.js`, `content/index.js`, `learn/content/index.ts`), so with it off
+  the bundler drops those imports and no Arabic file is written. `index.html` carries the flag in
+  `<meta name="madregot-arabic">` for `theme-boot.js`, which runs before the app.
 - App.jsx draws every screen again when the language changes.
 - The teaching content stays Hebrew-first. `src/content/ar/grade7.json` holds each Hebrew text's Arabic (keyed by a
   hash of the Hebrew; a template's values as ⟦0⟧, ⟦1⟧), and `node scripts/gen-arabic.mjs build` writes each content
@@ -59,7 +107,11 @@ Arabic, and the Ministry's own maths pilot (Project 720) runs in both languages;
 
 - `src/locales/locales.test.js`: every key in both languages, the same `{values}`, complete plural sets, no Hebrew in
   the Arabic, the glossary, no Hebrew string left in the converted screens, and the runtime (plurals, dates, numbers).
-- `e2e/arabic.spec.js` (phone 390 and 320): the choice on the first screen and in Settings, `lang`/`dir`, the font
+- `src/lib/i18n.flag.test.js` and `scripts/check-dist.test.mjs`: with the flag off there is one language, the Arabic
+  loader is never called, and a build that holds an Arabic file fails; `e2e/arabic-off.spec.js` (the default build):
+  no choice, `?lang=ar` and a stored choice stay Hebrew, and no Arabic file is requested.
+- `e2e/arabic.spec.js` (the projects `arabic` and `arabic-small`, a build with the flag on, phone 390 and 320): the
+  choice on the first screen and in Settings, `lang`/`dir`, the font
   fetched only for Arabic, `?lang=ar`, and Welcome, home and Settings in Arabic (Settings with no Hebrew word at all);
   an Arabic topic's guide, teaching step and question on the device, and a Hebrew topic staying Hebrew.
 - `src/learn/arabic.test.ts`: the twins are what the generator builds, keep no Hebrew text, and every translation
@@ -85,8 +137,10 @@ Arabic, and the Ministry's own maths pilot (Project 720) runs in both languages;
    Ministry's Arabic maths terms. A changed term is one line; the tests then list every text that has to follow it.
 3. Confirm the product's Arabic name (`مدريجوت`, a transliteration of the working name, in the catalogues'
    `shell.shell.7`, `shell.welcome.22`).
-4. A school counsellor who works in Arabic reviews the Arabic distress set (`AR_RULES` in `shared/distress.js`, its
-   cases in `worker/test/arabic.test.js`) and the Arabic care reply (`careStaticArabic` in `shared/arabic.js`).
+4. A school counsellor who works in Arabic reviews the Arabic distress set (`AR_RULES` in `shared/distress.js`) and
+   the Arabic care reply (`careStaticArabic` in `shared/arabic.js`). One action writes the phrases as a sheet, Hebrew
+   and Arabic, with empty columns for the counsellor: `node madregot/worker/scripts/distress-sheet.mjs
+   distress-review.csv` (the phrases are in `worker/test/fixtures/distress-corpus.js`).
 
 ## Not in Arabic yet
 
