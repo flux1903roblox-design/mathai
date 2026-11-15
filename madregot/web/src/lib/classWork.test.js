@@ -204,6 +204,9 @@ describe('what the student sees', () => {
     const before = cw.classRows({ assignments: list }, { a1: { state: 'started', stage: 5, passed: true } }, day);
     expect(before.next.done).toBe(false);
     expect(before.minutes).toBe(3);
+    // and the row, the big button and the chip lead to that check, naming the work (practice never finishes it)
+    expect(before.next.to).toBe('/lesson/signed/1?kind=check&purpose=mastery&assignment=a1');
+    expect(started.next.to).toBe('/learn/signed/1?assignment=a1');
   });
   it('the dot: work not done that came after the last look at the missions tab', async () => {
     const { cw } = await load();
@@ -227,6 +230,11 @@ describe('what the student sees', () => {
     expect(cw.checkAssignment('signed:2', 'a9')).toBe('a9');
     expect(cw.checkAssignment('signed:2', null)).toBe('a2');
     expect(cw.checkAssignment('signed:1', null)).toBeNull();
+    // a stair the teacher gave, opened at its mastery check: the stair reports from the learning record (reportStairs),
+    // never a check's result, which the server refuses for a stair
+    useApp.setState({ classWork: { ...useApp.getState().classWork, assignments: [row({ id: 'a1', kind: 'stair', skill: 'signed:1' }), row({ id: 'a2', kind: 'check', skill: 'signed:2' })] } });
+    expect(cw.checkAssignment('signed:1', 'a1')).toBeNull();
+    expect(cw.checkAssignment('signed:2', 'a2')).toBe('a2');
   });
 });
 

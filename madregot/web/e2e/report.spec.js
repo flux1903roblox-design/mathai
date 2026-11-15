@@ -640,7 +640,7 @@ test('flow 4, the first day: signed out, a plan with no device, linked with noth
   // what the plan gives (PRODUCT2-30): the report that comes by itself first, then the Sunday email, the exam, the helper
   await expect(page.getByRole('heading', { level: 2, name: 'המנוי המשפחתי: מה מקבלים ההורים' })).toBeVisible();
   await expect(page.locator('.parents-about li')).toHaveText([
-    'סיכום התרגול מגיע לבד מהמכשיר של הילד, כל יום, ואפשר לראות את 8 השבועות האחרונים.',
+    'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.',
     'סיכום שבועי במייל בכל יום ראשון, אם תבחרו.',
     'לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.',
     'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',
@@ -648,7 +648,7 @@ test('flow 4, the first day: signed out, a plan with no device, linked with noth
   ]);
   await expect(page.getByText('הילד יודע על הסיכום, רואה בדיוק מה נשלח אליכם, ויכול להפסיק.')).toBeVisible();
   // the free summary for what it is: this week only, sent by the child when they choose
-  await expect(page.getByText('בלי מנוי: הילד יכול לשלוח לכם מהאפליקציה סיכום של השבוע הנוכחי בלבד, בוואטסאפ, כשהילד בוחר. במנוי הסיכום מגיע לבד כל יום, עם השבועות שעברו.')).toBeVisible();
+  await expect(page.getByText('בלי מנוי: הילד יכול לשלוח לכם מהאפליקציה סיכום של השבוע הנוכחי בלבד, בוואטסאפ, כשהילד בוחר. במנוי הסיכום מגיע לבד בכל יום שבו מתרגלים, עם השבועות שעברו.')).toBeVisible();
   await page.locator('.parents-about').scrollIntoViewIfNeeded();
   await shot(page, 'parents-about-plan');
 

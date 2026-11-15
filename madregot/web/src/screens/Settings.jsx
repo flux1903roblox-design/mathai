@@ -2,13 +2,14 @@
 // each a bordered group with a small heading (my details, class, the assistant, the look, sound, vibration, the daily
 // reminder, privacy and safety, the app), then a section for adults, then deleting data.
 // The student's own settings speak to the student (PRODUCT2-41): how the browser keeps the data, the backup and the
-// support details are for the adult who looks after the device, in "להורים ולמבוגרים" under them. Servers and keys
-// are for the adult who sets the app up, behind "מתקדם" in that section.
+// support details are for the adult who looks after the device, in "להורים ולמבוגרים" under them, folded until an
+// adult opens it (/settings#save opens it at the saving). Servers and keys are for the adult who sets the app up,
+// behind "מתקדם" in that section.
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { ArrowRight, ChevronLeft, Download } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronDown, Download } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field, Sheet, Segmented } from '@/components/ui.jsx';
@@ -24,6 +25,8 @@ import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 import { soundOn } from '@/lib/sound.js';
 import SaveSection from '@/components/durable/SaveSection.jsx';
 import SupportInfo from '@/components/durable/SupportInfo.jsx';
+import InstallSheet from '@/components/durable/InstallSheet.jsx';
+import { guideHere } from '@/lib/durable/install.js';
 import { whereSavedText, WHERE_SAVED } from '@/lib/durable/copy.js';
 import { syncVault } from '@/lib/durable/vault.js';
 import { afterClassJoin } from '@/lib/durable/escrow.js';
@@ -345,19 +348,27 @@ function SoundSettings() {
 }
 
 /**
- * Install the app (STUDENT-10): a row only where the browser offers an install (Chrome and Edge, not yet installed, not
- * a store app). It opens the browser's own prompt; once used, the browser gives no second one and the row goes.
+ * "האפליקציה": putting the app on the home screen, among the student's own settings.
+ * Where the browser offers an install (STUDENT-10: Chrome and Edge, not yet installed, not a store app),
+ * "להתקין את האפליקציה" opens the browser's own prompt; once used, the browser gives no second one and the row goes.
+ * On an iPhone or iPad in the browser, which has no such prompt, "להוסיף למסך הבית" opens the Home Screen guide
+ * (DURABLE-3, InstallSheet): it stands here, not in the adults' folded section, so the student who put the card on
+ * Learn away still finds it.
  */
 function InstallRow() {
   const { canOffer, offer } = useInstall();
-  if (!canOffer || isStoreApp() || isStandalone()) return null;
+  const [guide, setGuide] = useState(false);
+  const ios = guideHere();
+  if (isStoreApp() || isStandalone() || (!canOffer && !ios)) return null;
   const install = () => { count('install_offer'); offer(); };
   return (
     <section className="section set-group" aria-labelledby="app-title">
       <h2 id="app-title" className="set-head">האפליקציה</h2>
       <div className="set-rows-wrap"><div className="set-rows">
-        <button type="button" className="set-row go" onClick={install}><span>להתקין את האפליקציה</span><Download size={18} aria-hidden="true" /></button>
+        {canOffer && <button type="button" className="set-row go" onClick={install}><span>להתקין את האפליקציה</span><Download size={18} aria-hidden="true" /></button>}
+        {ios && <button type="button" className="set-row go" onClick={() => setGuide(true)}><span>להוסיף למסך הבית</span><ChevronLeft size={18} aria-hidden="true" /></button>}
       </div></div>
+      {ios && <InstallSheet open={guide} onOpenChange={setGuide} />}
     </section>
   );
 }
@@ -454,12 +465,15 @@ export default function Settings() {
   const { state: nav, hash } = useLocation();
   const navigate = useNavigate();
   useEffect(() => { if (nav?.focus === 'ai') document.getElementById('ai-title')?.scrollIntoView({ block: 'start' }); }, [nav]);
-  // "מה עושים" on the storage banner opens Settings at the saving section
+  // the section for adults is folded (PRODUCT2-41); "מה עושים" on the storage banner (/settings#save) opens it at the
+  // saving section, with the focus on its heading
+  const [adults, setAdults] = useState(hash === '#save');
+  useEffect(() => { if (hash === '#save') setAdults(true); }, [hash]);
   useEffect(() => {
-    if (hash !== '#save') return;
+    if (hash !== '#save' || !adults) return;
     const el = document.getElementById('save-title');
     el?.scrollIntoView({ block: 'start' }); el?.focus({ preventScroll: true });
-  }, [hash]);
+  }, [hash, adults]);
   const [name, setName] = useState(profile.name);
   // the name can change under this screen (a restore, another tab): the field follows it
   useEffect(() => { setName(profile.name); }, [profile.name]);
@@ -502,13 +516,20 @@ export default function Settings() {
       <SafetySection />
       <InstallRow />
       {/* for the adult who looks after the device: saving and the backup (DURABLE-1/4/5), the server and the key, and the
-          support details (DURABLE-9). The saving keeps its anchor, /settings#save (the storage banner's "מה עושים") */}
-      <section className="set-adults" aria-labelledby="adults-title">
-        <h2 id="adults-title" className="set-head set-adults-head">להורים ולמבוגרים</h2>
+          support details (DURABLE-9), folded under its heading. The saving keeps its anchor, /settings#save (the storage
+          banner's "מה עושים"), which opens it. Folded, its parts stay mounted (hidden), so the saving works as before */}
+      <section className={clsx('set-adults', adults && 'open')} aria-labelledby="adults-title">
+        <h2 id="adults-title" className="set-head set-adults-head">
+          <button type="button" className="set-adults-toggle" aria-expanded={adults} aria-controls="adults-body" onClick={() => setAdults((o) => !o)}>
+            להורים ולמבוגרים<ChevronDown size={22} aria-hidden="true" className="set-adults-chev" />
+          </button>
+        </h2>
         <p className="set-adult-note">שמירה, גיבוי ופרטים לתמיכה. בדרך כלל אין צורך לשנות כאן כלום.</p>
-        <SaveSection level={3} />
-        <AdvancedRow />
-        <SupportInfo />
+        <div id="adults-body" className="set-adults-body" hidden={!adults}>
+          <SaveSection level={3} installRow={false} />
+          <AdvancedRow />
+          <SupportInfo />
+        </div>
       </section>
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>

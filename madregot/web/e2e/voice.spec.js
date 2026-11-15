@@ -1,6 +1,6 @@
 // A child's voice (PRODUCT2-41, the council's painful moment #3), on both phones: a mission's reason and a wrong guess
 // show two short lines and "עוד" (a button with aria-expanded) for the rest; מדי stands beside every first question;
-// Settings keeps the browser's storage and the support details in a section for adults; and flat inline maths in a
+// Settings keeps the browser's storage and the support details in a folded section for adults; and flat inline maths in a
 // sentence is set in the sentence's font. Pictures for the proof go to VOICE_SHOTS when it names a folder.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
@@ -110,17 +110,32 @@ test('Settings: the student\'s own settings first; saving, backup and support de
   await expect(adults.getByRole('heading', { level: 2, name: 'להורים ולמבוגרים' })).toBeVisible();
   const top = (loc) => loc.evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
   const at = await top(adults);
-  for (const t of ['שמירה קבועה בדפדפן', 'מידע לתמיכה']) expect(await top(page.getByText(t).first()), t).toBeGreaterThan(at);
   for (const t of ['הפרטים שלי', 'מראה', 'צלילים']) expect(await top(page.getByRole('heading', { name: t })), t).toBeLessThan(at);
-  await expect(adults.getByRole('heading', { level: 3, name: 'שמירת ההתקדמות' })).toBeVisible();
-  await expect(adults.getByRole('button', { name: 'לשמור קובץ גיבוי' })).toBeVisible();
+  // folded: the child sees who the section is for, and nothing about the browser's storage, the backup or support
+  const toggle = adults.getByRole('button', { name: 'להורים ולמבוגרים' });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect((await toggle.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await expect(adults.getByText('שמירה, גיבוי ופרטים לתמיכה.', { exact: false })).toBeVisible();
+  await expect(page.locator('#adults-body')).toBeHidden();
+  for (const t of ['שמירה קבועה בדפדפן', 'לא מובטחת', 'מידע לתמיכה']) await expect(page.getByText(t).filter({ visible: true }), t).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'לשמור קובץ גיבוי' })).toBeHidden();
   await expectNoSidewaysScroll(page);
   await shot(page, 'settings-top');
   await adults.scrollIntoViewIfNeeded();
   await shot(page, 'settings-adults');
-  // the storage banner's "מה עושים" still lands on the saving
+  // an adult opens it (the keyboard works too): the saving, the backup and the support details, after the child's own
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  for (const t of ['שמירה קבועה בדפדפן', 'מידע לתמיכה']) expect(await top(page.getByText(t).first()), t).toBeGreaterThan(at);
+  await expect(adults.getByRole('heading', { level: 3, name: 'שמירת ההתקדמות' })).toBeVisible();
+  await expect(adults.getByRole('button', { name: 'לשמור קובץ גיבוי' })).toBeVisible();
+  await shot(page, 'settings-adults-open');
+  // the storage banner's "מה עושים" still lands on the saving, opened
+  await page.goto('./#/me');
   await page.goto('./#/settings#save');
   await expect(page.locator('#save-title')).toBeFocused();
+  await expect(page.getByRole('button', { name: 'להורים ולמבוגרים' })).toHaveAttribute('aria-expanded', 'true');
 });
 
 test('flat inline maths in a sentence is in the sentence\'s font; a fraction keeps KaTeX', async ({ page }) => {

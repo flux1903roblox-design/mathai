@@ -3,7 +3,7 @@
 // the three cases of a restore: an empty device, the same student (merged), another student (replace, then undo).
 import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
-import { open, student, livedIn, saved, appReady } from './helpers.js';
+import { open, student, livedIn, saved, appReady, openAdults } from './helpers.js';
 
 // Chromium names a download from its `download` attribute only when the file system's encoding can hold the name; a
 // machine on the POSIX locale cannot hold Hebrew, and the file would be called "download". Phones and computers use
@@ -30,6 +30,7 @@ test('save a backup file (a download), and restore it on a fresh browser through
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await noShare(page);
   await open(page, '#/settings', livedIn('7'));
+  await openAdults(page);
   const source = await saved(page);
   await expect(page.getByText('בקובץ יש את כל ההתקדמות, כולל השם. מי שמקבל אותו יכול לקרוא אותו.')).toBeVisible();
   const save = page.getByRole('button', { name: 'לשמור קובץ גיבוי' });
@@ -87,6 +88,7 @@ test('where the browser can share files, the backup goes to the share sheet: one
     };
   });
   await open(page, '#/settings', livedIn('7'));
+  await openAdults(page);
   let downloads = 0; page.on('download', () => { downloads += 1; });
   await page.getByRole('button', { name: 'לשמור קובץ גיבוי' }).click();
   await expect.poll(() => page.evaluate(() => window.__shared?.n)).toBe(1);
@@ -94,13 +96,14 @@ test('where the browser can share files, the backup goes to the share sheet: one
   expect(shared.name).toMatch(/^madregot-.+\.json$/);
   expect(shared.type).toBe('application/json');
   expect(shared.title).toBe('גיבוי מדרגות');
-  expect(shared.text).toBe('קובץ הגיבוי של מדרגות. שמרו אותו. כדי לשחזר: מדרגות ← הגדרות ← שמירת ההתקדמות ← לשחזר מקובץ.');
+  expect(shared.text).toBe('קובץ הגיבוי של מדרגות. שמרו אותו. כדי לשחזר: מדרגות ← הגדרות ← להורים ולמבוגרים ← לשחזר מקובץ.');
   expect(JSON.parse(shared.body).state.xp).toBe(260);
   expect(downloads).toBe(0);
 });
 
 test('the same student: the two are merged, nothing lowered, and no undo is offered', async ({ page }) => {
   await open(page, '#/settings', livedIn('7'));
+  await openAdults(page);
   const here = await saved(page);
   const other = { ...student('7').state, xp: 40, xpBy: { b2c3d4e5: 40 }, days: { '2026-10-01': { lessons: 1, xp: 40, q: 8, ok: 8 } } };
   await restoreInput(page).setInputFiles(backupFile(other));
@@ -120,6 +123,7 @@ test('the same student: the two are merged, nothing lowered, and no undo is offe
 test('a sibling\'s file: a warning, "להחליף" is needed, and undo brings the first child back', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await open(page, '#/settings', livedIn('7'));
+  await openAdults(page);
   const here = await saved(page);
   const sibling = { ...student('8').state, profile: { role: 'student', name: 'יואב', grade: '8', know: 1 }, xp: 75, xpBy: { b2c3d4e5: 75 }, days: { '2026-11-03': { lessons: 2, xp: 75, q: 16, ok: 15 } } };
   await restoreInput(page).setInputFiles(backupFile(sibling, 'madregot-יואב-2026-11-04.json'));
@@ -159,6 +163,7 @@ test('a sibling\'s file: a warning, "להחליף" is needed, and undo brings th
 
 test('a file that is not a Madregot backup is refused with a plain message, and nothing changes', async ({ page }) => {
   await open(page, '#/settings', livedIn('7'));
+  await openAdults(page);
   await restoreInput(page).setInputFiles({ name: 'photo.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":1}') });
   await expect(page.getByRole('alert').filter({ hasText: 'הקובץ הזה לא נראה כמו גיבוי של מדרגות.' })).toBeVisible();
   await restoreInput(page).setInputFiles({ name: 'cut.json', mimeType: 'application/json', buffer: Buffer.from('{"app":"madregot","kind":"backup","state":{') });
@@ -169,6 +174,7 @@ test('a file that is not a Madregot backup is refused with a plain message, and 
 
 test('keyboard: the file chooser is reached with Tab and shows where the focus is', async ({ page }) => {
   await open(page, '#/settings', livedIn('7'));
+  await openAdults(page);
   await page.getByRole('button', { name: 'לשמור קובץ גיבוי' }).focus();
   await page.keyboard.press('Tab');
   await expect(restoreInput(page)).toBeFocused();

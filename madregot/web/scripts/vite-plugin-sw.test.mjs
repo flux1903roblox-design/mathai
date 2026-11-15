@@ -1,8 +1,10 @@
 // The service worker's precache list (DURABLE-10, vite-plugin-sw.mjs): what a release keeps for the app to work offline,
 // and the sw.js the build emits (the list and the release in front of the hand-written worker).
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import swPlugin, { precacheFilter, precacheList, workerSource, SW_SOURCE } from './vite-plugin-sw.mjs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import swPlugin, { precacheFilter, precacheList, workerSource, SW_SOURCE, KATEX_UNUSED, KATEX_UNUSED_COMMANDS } from './vite-plugin-sw.mjs';
 
 describe('the precache filter', () => {
   it('keeps the page, the manifest, the icons, every script and stylesheet, and the fonts the app shows', () => {
@@ -23,6 +25,41 @@ describe('the precache filter', () => {
   it('the list: each file once, sorted, with Windows separators made plain', () => {
     expect(precacheList(['assets\\b.js', 'index.html', 'assets/b.js', './manifest.webmanifest', 'assets/a.css', 'x.map']))
       .toEqual(['assets/a.css', 'assets/b.js', 'index.html', 'manifest.webmanifest']);
+  });
+});
+
+// The lane's review: the precache was 4.86 MB against its 4.79 MB gate. KaTeX ships five families for \mathcal, \mathfrak,
+// \mathsf, \mathscr and \mathtt, nine woff2 files (about 94 KB) that the app's maths never uses; they are no longer kept
+// up front, and the families the maths is set in still are.
+describe('KaTeX\'s families the app never shows are not kept up front', () => {
+  const UNUSED = ['KaTeX_Caligraphic-Bold-Dq_IR9rO', 'KaTeX_Caligraphic-Regular-Di6jR-x-', 'KaTeX_Fraktur-Bold-CL6g_b3V', 'KaTeX_Fraktur-Regular-CTYiF6lA',
+    'KaTeX_SansSerif-Bold-D1sUS0GD', 'KaTeX_SansSerif-Italic-C3H0VqGB', 'KaTeX_SansSerif-Regular-DDBCnlJ7', 'KaTeX_Script-Regular-D3wIWfF6', 'KaTeX_Typewriter-Regular-CO6r4hn1'];
+  const USED = ['KaTeX_AMS-Regular-BQhdFMY1', 'KaTeX_Main-Regular-B22Nviop', 'KaTeX_Main-Bold-Cx986IdX', 'KaTeX_Main-Italic-NWA7e6Wa', 'KaTeX_Main-BoldItalic-DxDJ3AOS',
+    'KaTeX_Math-Italic-t53AETM-', 'KaTeX_Math-BoldItalic-CZnvNsCZ', 'KaTeX_Size1-Regular-mCD8mA8B', 'KaTeX_Size2-Regular-Dy4dx90m', 'KaTeX_Size3-Regular-6QyBe7l8', 'KaTeX_Size4-Regular-Dl5lxZxV'];
+  it('the nine files of the five families are left out; Main, Math, AMS and the four sizes are kept', () => {
+    for (const f of UNUSED) expect(precacheFilter(`assets/${f}.woff2`), f).toBe(false);
+    for (const f of USED) expect(precacheFilter(`assets/${f}.woff2`), f).toBe(true);
+    expect(precacheList([...UNUSED, ...USED].map((f) => `assets/${f}.woff2`))).toEqual(USED.map((f) => `assets/${f}.woff2`).sort());
+    // a script is never taken for a font, whatever its name
+    expect(precacheFilter('assets/KaTeX_Script-Regular-x.js')).toBe(true);
+    expect(KATEX_UNUSED.test('KaTeX_Size1-Regular-x')).toBe(false);
+  });
+  it('nothing the app writes asks for one of them: no \\mathcal, \\mathfrak, \\mathsf, \\mathscr, \\mathtt or their text forms', () => {
+    const roots = [fileURLToPath(new URL('../src', import.meta.url)), fileURLToPath(new URL('../../shared', import.meta.url))];
+    const files = [];
+    const walk = (dir) => {
+      for (const name of readdirSync(dir)) {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) { if (name !== 'node_modules') walk(p); } else if (/\.(js|jsx|ts|md|json)$/.test(name)) files.push(p);
+      }
+    };
+    roots.forEach(walk);
+    expect(files.length).toBeGreaterThan(300);
+    const asking = files.filter((p) => KATEX_UNUSED_COMMANDS.test(readFileSync(p, 'utf8')));
+    expect(asking).toEqual([]);
+    // the search finds one where there is one, in a source file's own spelling too
+    for (const s of ['\\mathcal{A}', "'\\\\mathtt{x}'", '\\textsf{a}', '\\frak g']) expect(KATEX_UNUSED_COMMANDS.test(s), s).toBe(true);
+    for (const s of ['\\frac{1}{2}', '\\mathbb{R}', '\\text{a}', '\\calc', '\\cdot']) expect(KATEX_UNUSED_COMMANDS.test(s), s).toBe(false);
   });
 });
 

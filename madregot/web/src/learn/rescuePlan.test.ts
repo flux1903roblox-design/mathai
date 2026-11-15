@@ -71,8 +71,9 @@ describe('Exam Rescue spaces the work in real minutes', () => {
       });
       p.days.forEach((d) => {
         expect(isRestDay(d.day), d.day).toBe(false);
-        // over the minutes only when the plan says it is tight
-        if (!tight) expect(d.minutes, `${day} ${minutes} ${d.day}`).toBeLessThanOrEqual(minutes);
+        // over the minutes only when the plan says it is tight, or for one step longer than the minutes, alone on its day
+        const alone = d.tasks.length === 1 && d.tasks[0].minutes > minutes;
+        if (!tight && !alone) expect(d.minutes, `${day} ${minutes} ${d.day}`).toBeLessThanOrEqual(minutes);
       });
     }
   });
@@ -86,6 +87,36 @@ describe('Exam Rescue spaces the work in real minutes', () => {
     const q = planFor(['pct:4', 'pct:5'], '2026-11-12', 15, '2026-11-11');
     expect(q.days.map((d) => d.day)).toEqual(['2026-11-11']);
     expect(q.today.map((t) => t.kind)).toEqual(['learn', 'practice', 'mastery', 'learn', 'practice', 'mastery', 'exam']);
+  });
+
+  it('10 minutes a day, the first choice, with three weeks: lesson, practice and check on three days, and no tight line', () => {
+    // the review's run: one stair (signed:1) from 12.11 to an exam on 3.12. Before, the 12-minute lesson did not fit a
+    // 10-minute day, so the plan raised the cap with the practice and the check on one day and said it was overloaded.
+    for (const skills of [['signed:1'], ['signed:1', 'signed:2']]) {
+      const p = planFor(skills, '2026-12-03', 10, '2026-11-12');
+      expect(p.message, skills.join()).not.toContain('עמוס');
+      skills.forEach((s) => {
+        const [l, pr, c] = ['learn', 'practice', 'mastery'].map((k) => dayOf(p, s, k));
+        expect(l >= 0 && l < pr && pr < c, `${s}: ${l} ${pr} ${c}`).toBe(true);
+      });
+      // a day over the 10 minutes holds one step only: a lesson longer than the minutes, which fills its day
+      p.days.filter((d) => d.minutes > 10).forEach((d) => expect(d.tasks.map((t) => t.kind), d.day).toEqual(['learn']));
+    }
+    // and at 15 minutes it stays as it was: three days in a row, nothing over
+    const q = planFor(['signed:1'], '2026-12-03', 15, '2026-11-12');
+    expect(q.message).not.toContain('עמוס');
+    expect(['learn', 'practice', 'mastery'].map((k) => dayOf(q, 'signed:1', k))).toEqual([0, 1, 2]);
+    expect(Math.max(...q.days.map((d) => d.minutes))).toBeLessThanOrEqual(15);
+  });
+
+  it('when the cap must rise, three separate days are tried first at each cap', () => {
+    // 5 minutes a day over three days, the last keeping 5 for the practice exam: the lesson fills day 1, the practice
+    // day 2, and at 8 minutes a day the check fits the last day beside the exam. Before, the cap rose to 12 (the lesson's
+    // length) and the practice and the check shared day 2.
+    const t = (kind: PlanTask['kind']): PlanTask => ({ skill: 'x:1', kind, title: kind, to: '/', minutes: taskMinutes(kind) });
+    const { at, cap } = schedule([[t('learn'), t('practice'), t('mastery')]], 3, 5, 5);
+    expect(at[0]).toEqual([0, 1, 2]);
+    expect(cap).toBe(8);
   });
 
   it('schedule places the steps of each stair in order, and never starts a stair before the one before it', () => {

@@ -4,7 +4,8 @@
 //   - "שמירה קבועה בדפדפן": whether the browser promised to keep the data (durable/persist.js), as it answered; the info
 //     button says when browsers delete data (PersistInfoSheet), and while there is no promise "לבקש מהדפדפן לשמור" asks
 //     (on Firefox only once: its prompt remembers the answer);
-//   - on an iPhone or iPad in the browser, "להוסיף למסך הבית" opens the Home Screen guide (InstallSheet);
+//   - on an iPhone or iPad in the browser, "להוסיף למסך הבית" opens the Home Screen guide (InstallSheet). A student's
+//     Settings has that row among the student's own settings ("האפליקציה"), so it is left out here (installRow={false});
 //   - "לשמור קובץ גיבוי" shares or downloads the backup file, "לשחזר מקובץ" reads one back (RestorePreview says what
 //     it holds and what restoring it does), and a note says who can read the file. A teacher's file also holds the
 //     class keys, so the teacher's note says so (role="teacher": the teacher's class settings place this section);
@@ -64,8 +65,11 @@ const NOTE = {
   teacher: 'בקובץ יש גם את מפתח המורה של הכיתות. מי שמקבל אותו יכול להיכנס ללוח הכיתה, אז שמרו אותו רק אצלכם.',
 };
 
-/** `level`: its heading's level (3 inside Settings' section for adults, PRODUCT2-41; 2 where it stands alone). */
-export default function SaveSection({ role = 'student', level = 2 }) {
+/**
+ * `level`: its heading's level (3 inside Settings' section for adults, PRODUCT2-41; 2 where it stands alone).
+ * `installRow`: false where the screen has the iPhone's "להוסיף למסך הבית" row elsewhere (the student's Settings).
+ */
+export default function SaveSection({ role = 'student', level = 2, installRow = true }) {
   const Heading = level === 3 ? 'h3' : 'h2';
   const health = useDurable((s) => s.health);
   const persisted = useDurable((s) => s.persisted);
@@ -142,7 +146,7 @@ export default function SaveSection({ role = 'student', level = 2 }) {
         </div>
       </dl>
       {canAsk(persisted, persistAsked) && <Button variant="ghost" className="btn-sm save-ask" onClick={ask}>לבקש מהדפדפן לשמור</Button>}
-      {guideHere() && (
+      {installRow && guideHere() && (
         <div className="set-rows-wrap"><div className="set-rows">
           <button type="button" className="set-row save-install" onClick={() => setInstall(true)}><span>להוסיף למסך הבית</span><ChevronLeft size={18} aria-hidden="true" /></button>
         </div></div>
@@ -220,7 +224,7 @@ export default function SaveSection({ role = 'student', level = 2 }) {
         <p>ההתקדמות תישאר במכשיר הזה ובקוד הגיבוי שלכם. בכיתה כבר לא יהיה עותק שאפשר להחזיר עם הקוד האישי.</p>
       </ConfirmSheet>
       <PersistInfoSheet open={info} onOpenChange={setInfo} />
-      <InstallSheet open={install} onOpenChange={setInstall} />
+      {installRow && <InstallSheet open={install} onOpenChange={setInstall} />}
     </section>
   );
 }

@@ -122,13 +122,20 @@ export function adds(have: WorkReport | null | undefined, report: WorkReport | n
 }
 
 /**
- * Where the teacher's work opens: a class exam's start, the mastery check counted for it, the repair of that mistake
- * (the same route planNext's repair band gives it, SK-BUYERS-2), or the stair's page with its banner. Each names the
- * assignment, so what the student does there reports to it.
+ * A stair the student had passed before the teacher gave it, and not done since (SK-BUYERS-1): only its mastery check
+ * again (or a review check passed) finishes it, never practice, so that check is where it leads.
  */
-export function workRoute(a: Pick<ClassAssignment, 'id' | 'kind' | 'skill' | 'misc'>): string {
+export const recheckDue = (a: Pick<ClassAssignment, 'kind'>, w: WorkReport | null | undefined): boolean => a.kind === 'stair' && !!w?.passed && w.state !== 'done';
+
+/**
+ * Where the teacher's work opens: a class exam's start, the mastery check counted for it, the repair of that mistake
+ * (the same route planNext's repair band gives it, SK-BUYERS-2), the stair's page with its banner, or, for a stair
+ * passed before and not done since (recheckDue, from the work as this device knows it, `w`), its mastery check. Each
+ * names the assignment, so what the student does there reports to it.
+ */
+export function workRoute(a: Pick<ClassAssignment, 'id' | 'kind' | 'skill' | 'misc'>, w?: WorkReport | null): string {
   if (a.kind === 'exam') return `/class/exam/${a.id}`;
-  if (a.kind === 'check') return `${routeOf.check(a.skill!, 'mastery')}&assignment=${a.id}`;
+  if (a.kind === 'check' || recheckDue(a, w)) return `${routeOf.check(a.skill!, 'mastery')}&assignment=${a.id}`;
   if (a.kind === 'repair') return `${routeOf.repair(a.skill!, encodeURIComponent(a.misc || ''))}?assignment=${a.id}`;
   return `${routeOf.journey(a.skill!)}?assignment=${a.id}`;
 }

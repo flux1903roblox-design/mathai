@@ -122,13 +122,16 @@ export function reportStairs() {
 
 /**
  * The assignment a mastery check counts for: the one its address names, else an open check the teacher gave on the
- * same stair (a student may well start it from the map).
+ * same stair (a student may well start it from the map). A stair the teacher gave, opened at its mastery check (a stair
+ * passed before, learn/assignments.ts recheckDue) is not what it counts for: the stair reports from the learning record
+ * (reportStairs), and a check's result is not a stair's report.
  */
 export function checkAssignment(skill, id) {
   if (!ready()) return null;
-  if (id) return id;
   const st = useApp.getState();
-  const a = (st.classWork?.assignments || []).find((x) => x.kind === 'check' && x.skill === skill && mineOf(x, st.workOutbox)?.state !== 'done');
+  const list = st.classWork?.assignments || [];
+  if (id && !list.some((x) => x.id === id && x.kind !== 'check')) return id;
+  const a = list.find((x) => x.kind === 'check' && x.skill === skill && mineOf(x, st.workOutbox)?.state !== 'done');
   return a?.id || null;
 }
 
@@ -163,8 +166,8 @@ export function workBanner(dueOn, day = today()) {
 }
 
 /**
- * Where a row leads: the stair's page (with its banner), the mastery check counted for it, the class exam's start, or the
- * repair of that mistake (learn/assignments.ts workRoute).
+ * Where a row leads: the stair's page (with its banner), the mastery check counted for it (also a stair passed before
+ * and not done since), the class exam's start, or the repair of that mistake (learn/assignments.ts workRoute).
  */
 export { workRoute };
 
@@ -200,7 +203,7 @@ export function classRows(cw, box = {}, day = today()) {
     const w = mergeWork(a.mine, box[a.id]);
     const done = w?.state === 'done';
     const left = daysFrom(day, a.dueOn);
-    return { a, w, done, doneToday: done && !!w.doneAt && localDay(w.doneAt) === day, started: !done && (w?.state === 'started' || (w?.stage || 0) > 0), left, to: workRoute(a), minutes: minutesLeft(a, w) };
+    return { a, w, done, doneToday: done && !!w.doneAt && localDay(w.doneAt) === day, started: !done && (w?.state === 'started' || (w?.stage || 0) > 0), left, to: workRoute(a, w), minutes: minutesLeft(a, w) };
   });
   const order = (x, y) => (x.a.dueOn < y.a.dueOn ? -1 : x.a.dueOn > y.a.dueOn ? 1 : String(x.a.createdAt || '') < String(y.a.createdAt || '') ? -1 : 1);
   const open = rows.filter((r) => !r.done && r.left >= -14).sort(order);

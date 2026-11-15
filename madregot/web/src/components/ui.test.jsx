@@ -110,6 +110,10 @@ describe('Keypad: a whole number and a fraction (PRODUCT2-10)', () => {
     expect(typed(['5', ' ', ' ', '1'])).toBe('5 1'); // not twice
     expect(typed(['0', '.', '5', ' '])).toBe('0.5'); // not after a decimal
     expect(typed(['5', ' ', '1', '/', '3', 'del', 'del', 'del', 'del'])).toBe('5');
+    // the review's case: −1, space, 3 on a −13 item is shown as typed and is not read as −13, nor is half a mixed number
+    expect(typed(['-', '1', ' ', '3'])).toBe('-1 3');
+    expect(parseNum(typed(['-', '1', ' ', '3']))).toBeNull();
+    expect(parseNum(typed(['5', ' ', '1', '3']))).toBeNull();
     expect(typed(['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'])).toBe('123456789'); // nine characters at most
   });
 });

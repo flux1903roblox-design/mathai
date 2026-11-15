@@ -1,7 +1,7 @@
 // Class work on the student's device (learn/assignments.ts): the stage of an assigned stair, the report the learning
 // record gives, and how two reports combine (the server's monotonic rules).
 import { describe, it, expect } from 'vitest';
-import { stairStage, workFromLearn, mergeWork, adds, type ClassAssignment } from './assignments';
+import { stairStage, workFromLearn, mergeWork, adds, workRoute, type ClassAssignment } from './assignments';
 import { emptyLearn } from './storeGlue';
 import type { Attempt, SkillRecord } from './types';
 
@@ -138,5 +138,20 @@ describe('mergeWork (the server\'s rules)', () => {
     expect(adds({ state: 'started', stage: 1, passed: false }, { state: 'started', stage: 2, passed: false })).toBe(true);
     expect(adds({ state: 'done', stage: 5, passed: true }, { state: 'started', stage: 3, passed: false })).toBe(false);
     expect(adds({ state: 'started' }, null)).toBe(false);
+  });
+});
+
+describe('workRoute: where the teacher\'s work opens', () => {
+  it('a stair opens its page; a stair passed before it was given, and not done since, opens its mastery check', () => {
+    const a = stair();
+    expect(workRoute(a)).toBe('/learn/signed/1?assignment=a000000000000001');
+    expect(workRoute(a, { state: 'started', stage: 2, passed: false })).toBe('/learn/signed/1?assignment=a000000000000001');
+    // the review's case: mastered on 20.10, given on 9.11. Practice never finishes it, so the check is where it goes
+    expect(workRoute(a, { state: 'started', stage: 5, passed: true })).toBe('/lesson/signed/1?kind=check&purpose=mastery&assignment=a000000000000001');
+    // done: back to its page
+    expect(workRoute(a, { state: 'done', stage: 5, passed: true })).toBe('/learn/signed/1?assignment=a000000000000001');
+    // the other kinds are as they were
+    expect(workRoute({ ...a, kind: 'check' }, { state: 'started', passed: true })).toBe('/lesson/signed/1?kind=check&purpose=mastery&assignment=a000000000000001');
+    expect(workRoute({ ...a, kind: 'exam' })).toBe('/class/exam/a000000000000001');
   });
 });

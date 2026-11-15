@@ -10,9 +10,9 @@ import { startLesson, answer } from '@/lib/lesson.js';
 import { learnAfterAnswer, emptyLearn } from '@/learn/storeGlue.ts';
 import { slipOf } from '@/learn/misconceptions.ts';
 import { evaluate, texToExpr, texRelation, holds, seeded } from '@/learn/expr.ts';
-import { roundsTo, EQ } from './eq.js';
+import { roundsTo, EQ, diagOf, twoStepBugs } from './eq.js';
 import { EXPR } from './expr.js';
-import { SYS } from './sys.js';
+import { SYS, minusBracketValues } from './sys.js';
 import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
@@ -728,9 +728,16 @@ function ineqProp(it, u, when, wrong, edge = false) {
  * Each stair's questions are drawn once and shared by the two properties below: DRAWS draws, at most SCAN_DISTINCT
  * different questions (a stair with few questions is covered whole), every wrong answer of the sample tried, and the
  * names its diagnosis gives kept with it (makeItem: one name, or several when their predictions are the same number).
+ * The suite runs 300 different questions a stair. The deep run PRODUCT2-15 asks for, 2,000 different questions a stair
+ * (out of up to 8,000 draws; a stair with fewer is covered whole), is
+ *   LABELS_DISTINCT=2000 npx vitest run src/content/labels.test.js
+ * It takes about three minutes, so it is a step of its own in CI (.github/workflows/ci.yml, job web), not part of every
+ * local run. QA_STUDENT.md records what it found the first time (the three cases pinned at the end of this file).
  */
-const DRAWS = 2000;
-const SCAN_DISTINCT = 300;
+const DEEP = Number(process.env.LABELS_DISTINCT) || 0;
+const SCAN_DISTINCT = DEEP || 300;
+const DRAWS = DEEP ? Math.max(2000, 4 * DEEP) : 2000;
+const SCAN_MS = DEEP ? 1_800_000 : 120_000;
 const scans = new Map();
 const sampleCache = new Map();
 /** The wrong answers to try (labels.sample.js), kept once per form where they do not depend on the question. */
@@ -785,7 +792,7 @@ describe('every mistake label describes the answer', () => {
             expect(catLabel(t.id, level, cat), `${t.id}:${level} '${cat}' has no words`).toBeTruthy();
           }
         }
-      }, 120_000);
+      }, SCAN_MS);
     });
   });
 });
@@ -811,7 +818,7 @@ describe('an answer two mistakes explain is never named as one of them by chance
           if (also.length) silent.push(`${show(x)} named ${x.ids.join(' + ')}, also ${also.join(' + ')}`);
         }
         expect(silent.slice(0, 5), `${silent.length} answers`).toEqual([]);
-      }, 120_000);
+      }, SCAN_MS);
     });
   });
 });
@@ -847,6 +854,40 @@ describe('the algebra, fraction, ratio and percent topics name only what a prope
     expect(it.diag(4.5)).toBe('move-no-flip');
     expect(it.diag(4.45)).toBe(null);
     expect(it.diag(4.55)).toBe(null);
+  });
+});
+
+// PRODUCT2-15 at its full depth: the first run over 2,000 questions a stair found three answers named as one mistake
+// where another fits too. The 300-question sample of every run does not draw them, so each is pinned by its own numbers.
+describe('coincidences found only at 2,000 questions a stair', () => {
+  it('eq:2: the coefficient multiplied across is named (move-no-flip), also where "only x divided" gives the same number', () => {
+    // −8 = −4x − 6 (x = 0.5): −4x = −2 "moved" as a multiplication gives 8; dividing only x gives 2 − (−6) = 8 as well
+    const d = diagOf(0.5, twoStepBugs({ k: 1, a: -4, b: -6, c: -8, x: 0.5 }));
+    expect(d(8)).toEqual(['move-no-flip', 'divide-part']);
+    expect(d(3.5)).toBe('move-no-flip'); // the number moved keeping its sign: (−8 − 6) : (−4)
+    // 3x + 4 = 10 (x = 2): 3x = 6 answered 18, as stair 1 names it for ax = b; 8 = 4x + 10: both again
+    expect(diagOf(2, twoStepBugs({ k: 0, a: 3, b: 4, c: 10, x: 2 }))(18)).toBe('move-no-flip');
+    expect(diagOf(-0.5, twoStepBugs({ k: 1, a: 4, b: 10, c: 8, x: -0.5 }))(-8)).toEqual(['move-no-flip', 'divide-part']);
+    // x − 5 = 3: a coefficient of 1 has nothing to multiply by
+    expect(diagOf(8, twoStepBugs({ k: 0, a: 1, b: -5, c: 3, x: 8 }))(8)).toBe(null);
+  });
+  it('eq:3: an answer that is one mistake\'s own number and another\'s rounding names both, the exact one first', () => {
+    // −2x + 11 = −7x − 39 (x = −10): the number moved keeping its sign gives −28/5 = −5.6; the x-term moved keeping
+    // its sign gives −50/9 = −5.55…, which a student types as −5.6
+    const d = diagOf(-10, { 'move-no-flip': -28 / 5, 'move-x-no-flip': [50 / 9, -50 / 9] });
+    expect(d(-5.6)).toEqual(['move-no-flip', 'move-x-no-flip']);
+    expect(d(-5.56)).toBe('move-x-no-flip');
+    expect(d(5.6)).toBe('move-x-no-flip');
+    expect(d(-5.5)).toBe(null); // near, and not its rounding
+  });
+  it('sys:3: the constants added instead of subtracted is named whichever unknown the student made go', () => {
+    // −4x + 2y = −20, −x − 2y = −10, solution (6, 2): the worked solution adds, and y goes. A student who makes x go
+    // (the second equation times 4) and adds the constants gets 10y = ∓60. The swapped pair (2, 6) is that too
+    expect(minusBracketValues([-4, 2, -20], [-1, -2, -10])).toEqual([[], [-6, 6]]);
+    // equal coefficients of y, the worked solution's way: 5x + 2y = 19, 3x + 2y = 13 with the constants added, 2x = ±32
+    expect(minusBracketValues([5, 2, 19], [3, 2, 13])).toEqual([[16, -16], []]);
+    // opposite coefficients are added, and coefficients with no whole multiple are not made equal in one step
+    expect(minusBracketValues([3, 2, 19], [2, -2, 13])).toEqual([[], []]);
   });
 });
 

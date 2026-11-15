@@ -203,8 +203,33 @@ Round 2's painful moment #3, screens a child reads (PRODUCT2-41), is checked by 
 mission's reason is at most two lines, with "עוד" (aria-expanded) for the rest and no "לפי תוכנית הלימודים" in it; a
 wrong guess on a teaching step is two lines and "עוד", not five or six; מדי stands beside every first question without
 covering it; Settings keeps "שמירה קבועה בדפדפן", the backup and "מידע לתמיכה" in "להורים ולמבוגרים", under the student's
-own settings (backup and restore are unchanged: durable.spec, backup-file.spec and restore.spec pass); and flat inline
-maths in a sentence is in Rubik, upright, while a fraction keeps KaTeX.
+own settings and folded: the child sees its heading (a button with aria-expanded, 44px) and one line on who it is for,
+and nothing about the browser until an adult opens it; /settings#save (the storage banner's "מה עושים") opens it at the
+saving with the focus on its heading (backup and restore work as before: durable.spec, backup-file.spec, install.spec,
+monitor.spec and restore.spec open it with `openAdults`, and the backup file's note names the way, "הגדרות ← להורים
+ולמבוגרים ← לשחזר מקובץ"); and flat inline maths in a sentence is in Rubik, upright, while a fraction keeps KaTeX.
+One row did not go into the fold: on an iPhone in the browser, "להוסיף למסך הבית" (the Home Screen guide, which is how
+an iPhone keeps the progress) now stands among the student's own settings, under "האפליקציה", where the other browsers'
+"להתקין את האפליקציה" already was (install.spec: one such row, visible with the section folded; `Settings.test.jsx`).
+
+The lane's review of round 2, four more things a student meets:
+- **A stray space is not a number.** The keypad's space key (for 5 1/3) let "−1 3" through as −13. Now a space inside
+  a number, or one left after the whole number, is not an answer yet: nothing is graded, and the lesson says how a mixed
+  number is written ("מספר מעורב, כמו 5 1/3, כותבים כך: שלם, רווח ושבר."). `content/util.test.js`, `components/ui.test.jsx`,
+  and e2e learn.spec "a stray space between digits…" (the slot, the line, no attempt saved, then the number taken).
+- **Exam Rescue at 10 minutes a day** (its first choice) put the practice and the check on one day and always said the
+  plan was overloaded, because the 12-minute lesson is longer than the day. A step longer than the minutes chosen now
+  fills a day of its own, which is not a tight plan, and when a day must hold more, three separate days are tried first
+  again. With three weeks, one stair or two: lesson, practice and check on three days, and no "עמוס" line
+  (`learn/rescuePlan.test.ts`, which also keeps 15 minutes as it was).
+- **Every mistake that fits is named, at 2,000 questions a stair** (PRODUCT2-15). Each run samples 300 different
+  questions a stair; the deep run is `LABELS_DISTINCT=2000 npx vitest run src/content/labels.test.js` (2,000 different
+  questions a stair out of up to 8,000 draws, about three minutes), and CI runs it as a step of its own. Its first run
+  failed on three stairs, each an answer named as one mistake where another fits too: eq:2 (−8 = −4x − 6 answered 8:
+  only x divided, and the coefficient multiplied across), eq:3 (−5.6 is one mistake's own number and another's −50/9
+  typed to a tenth), sys:3 (the constants added instead of subtracted, when the student makes the other unknown go).
+  The generators now name both (`content/eq.js` diagOf and twoStepBugs, `content/sys.js` minusBracketValues), the three
+  cases are pinned at the end of `labels.test.js`, and the deep run passes: 135 tests.
 
 Round 2's "celebrations calm to the point of plain" (PRODUCT2-38) is checked by `e2e/celebrate.spec.js` on both phones,
 with motion on and a live clock (a fixed clock freezes motion mid-way): the first stage of a student who learned the two

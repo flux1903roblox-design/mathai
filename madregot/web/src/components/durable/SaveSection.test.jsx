@@ -1,7 +1,7 @@
 // Settings › שמירת ההתקדמות, drawn on the server (no browser needed): the file buttons and the note on who can read
 // the file (a teacher's says the class keys are in it). The undo is in e2e/backup-file.spec.js (a server render reads
 // the store's first state).
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import SaveSection, { BACKUP_NOTE } from './SaveSection.jsx';
@@ -46,6 +46,14 @@ describe('SaveSection', () => {
 
   it('no Home Screen row away from an iPhone', () => {
     expect(html(<SaveSection />)).not.toContain('להוסיף למסך הבית');
+  });
+
+  it('on an iPhone the Home Screen row is here, unless the screen has it elsewhere (the student\'s Settings)', () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', maxTouchPoints: 5 });
+    try {
+      expect(html(<SaveSection />)).toContain('להוסיף למסך הבית');
+      expect(html(<SaveSection installRow={false} />)).not.toContain('להוסיף למסך הבית');
+    } finally { vi.unstubAllGlobals(); }
   });
 
   it('"גיבוי" with a server: off, the button that makes a code, and what the code keeps', () => {

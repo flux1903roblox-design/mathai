@@ -24,7 +24,8 @@ import { Button, ChapterMark } from '@/components/ui.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
-import { workBanner } from '@/lib/classWork.js';
+import { workBanner, mineOf } from '@/lib/classWork.js';
+import { workFromLearn, mergeWork, recheckDue } from '@/learn/assignments.ts';
 import { Emblem } from '@/components/map/Scenery.jsx';
 import '@/styles/lazy/journey.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
@@ -86,6 +87,8 @@ export default function Journey() {
   // opened from the teacher's work (?assignment=): one line says so, with the due day (TEACHER-5 §5)
   const [params] = useSearchParams();
   const work = useApp((s) => (s.profile?.token ? s.classWork.assignments.find((a) => a.id === params.get('assignment') && a.skill === skill) : null));
+  const learn = useApp((s) => s.learn);
+  const box = useApp((s) => s.workOutbox);
   // the stair's teaching (its topic's file): the loading screen shows until it is here
   const c = useStairContent(skill);
   if (!t || !t.levels[level - 1]) return <div className="page pushed"><ScreenBar title="מדרגה" back="/" backLabel="למפה" /><EmptyState mood="encouraging" title="המדרגה לא נמצאה"><p>אולי הקישור ישן. המסלול שלכם מחכה במפה.</p></EmptyState><ScreenFoot><Link to="/" className="btn btn-primary btn-block btn-lg">חזרה למסלול</Link></ScreenFoot></div>;
@@ -93,7 +96,10 @@ export default function Journey() {
   const state = masteryState(rec, now);
   // a stair passed in placement or a jump test goes to its mastery check (PRODUCT2-19), as the plan and the map send it
   const placed = isPlaced(path, topic, level);
-  const stage = c ? nextStage(rec, placed) : (placed ? (checkWaits(rec) ? 'D' : 'E') : practiceDone(rec, 1) ? 'E' : 'D');
+  // the teacher gave a stair passed before it was given, and it is not done since (SK-BUYERS-1): its mastery check again
+  // is the next step, the only one that finishes the work (learn/assignments.ts recheckDue)
+  const recheck = !!work && recheckDue(work, mergeWork(mineOf(work, box), workFromLearn(work, learn)));
+  const stage = recheck ? 'E' : c ? nextStage(rec, placed) : (placed ? (checkWaits(rec) ? 'D' : 'E') : practiceDone(rec, 1) ? 'E' : 'D');
   const practiced = (rec?.attempts || []).filter((a) => a.purpose === 'practice' && a.ok).length;
   // after a failed mastery check: practice again, and the check returns after fresh right answers (mastery.ts)
   const waits = checkWaits(rec);
@@ -105,7 +111,7 @@ export default function Journey() {
 
   const toStage = (id) => {
     if (id === 'D') navigate(practiceTo);
-    else if (id === 'E') navigate(routeOf.check(skill, 'mastery'));
+    else if (id === 'E') navigate(`${routeOf.check(skill, 'mastery')}${work ? `&assignment=${work.id}` : ''}`);
     else navigate(`/learn/${topic}/${level}/${id}`);
   };
   const status = (id) => {
@@ -142,7 +148,7 @@ export default function Journey() {
       <section className="jclimb" aria-labelledby="climb-title" data-region="card">
         <Segments steps={STAGES.map((x) => (status(x.id) === 'done' ? 'done' : stage === x.id ? 'current' : 'todo'))} size="thin" label="השלבים שהושלמו" valueText={`${STAGES.filter((x) => status(x.id) === 'done').length} מתוך 5 שלבים`} />
         <div className="jclimb-next">
-          <p className="jclimb-label" id="climb-title">{state === 'mastered' ? 'המדרגה בידיים שלכם. אפשר לחזור לכל שלב' : `הצעד הבא: שלב ${STAGES.findIndex((x) => x.id === stage) + 1} מתוך 5`}</p>
+          <p className="jclimb-label" id="climb-title">{recheck ? 'הצעד הבא: בדיקת שליטה חוזרת, למשימה מהמורה' : state === 'mastered' ? 'המדרגה בידיים שלכם. אפשר לחזור לכל שלב' : `הצעד הבא: שלב ${STAGES.findIndex((x) => x.id === stage) + 1} מתוך 5`}</p>
           <Button className="btn-block btn-lg" onClick={() => toStage(stage)}>{cta}</Button>
           <Button variant="ghost" className="btn-block btn-sm" onClick={() => setTutor(true)}><HelpCircle size={18} aria-hidden="true" />שאלה למדי</Button>
         </div>

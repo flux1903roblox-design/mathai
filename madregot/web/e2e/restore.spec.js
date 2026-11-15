@@ -12,7 +12,7 @@
 //   - the backup question, once in a while, never in a lesson.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { student, open, item, answer, proceedToNext, leaveEndScreens, saved, appReady, NOW } from './helpers.js';
+import { student, open, item, answer, proceedToNext, leaveEndScreens, saved, appReady, NOW, openAdults } from './helpers.js';
 import { API, fakeServer, livePlan as livePlanOf } from './fakeServer.js';
 import { derive, open as openSealed } from '../src/lib/durable/crypto.js';
 import { makeCode as newCode, formatCode, CODE_ALPHABET } from '../src/lib/durable/code.js';
@@ -60,6 +60,7 @@ test.describe('the backup code', () => {
     const errors = []; page.on('pageerror', (e) => errors.push(e.message));
     const { st, log } = await fakeServer(page.context(), {}, baseOf());
     await open(page, '#/settings', withServer());
+    await openAdults(page);
     const row = page.locator('.save-backup .save-row');
     await expect(row.locator('dt')).toHaveText('גיבוי');
     await expect(row.locator('dd')).toHaveText('כבוי');
@@ -121,6 +122,7 @@ test.describe('the backup code', () => {
 
     // the code again, then stop: confirmed, the copy on the server is deleted, the row says off
     await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await openAdults(page);
     await page.getByRole('button', { name: 'להציג את קוד הגיבוי' }).click();
     await expect(page.getByRole('dialog', { name: 'קוד הגיבוי שלכם' }).locator('.backup-code')).toHaveText(shown);
     await page.getByRole('button', { name: 'שמרתי', exact: true }).click();
@@ -142,6 +144,7 @@ test.describe('the backup code', () => {
 
   test('no server: no backup code is offered (the file is the way)', async ({ page }) => {
     await open(page, '#/settings', student('7'));
+    await openAdults(page);
     await expect(page.locator('.save-section')).toBeVisible();
     await expect(page.getByRole('button', { name: 'ליצור קוד גיבוי' })).toHaveCount(0);
     await expect(page.locator('.save-backup')).toHaveCount(0);
@@ -154,6 +157,7 @@ test.describe('the backup code', () => {
       ? route.fulfill({ status: 429, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'too_many_vaults' }) })
       : route.fallback()));
     await open(page, '#/settings', withServer());
+    await openAdults(page);
     await page.getByRole('button', { name: 'ליצור קוד גיבוי' }).click();
     await expect(page.locator('.save-backup [role="status"]')).toHaveText('נוצרו היום הרבה גיבויים מהמכשיר או מהרשת הזו. נסו שוב מחר, או שמרו קובץ.');
     await expect(page.getByRole('dialog', { name: 'קוד הגיבוי שלכם' })).toHaveCount(0);
@@ -171,6 +175,7 @@ const progressOf = (st) => ({ profile: st.profile, xp: st.xp, xpBy: st.xpBy, day
 /** Settings › "ליצור קוד גיבוי" on `page`: the code as shown (with dashes), its sheet closed. */
 async function makeCode(page) {
   await page.evaluate(() => { window.location.hash = '#/settings'; });
+  await openAdults(page);
   await page.getByRole('button', { name: 'ליצור קוד גיבוי' }).click();
   const sheet = page.getByRole('dialog', { name: 'קוד הגיבוי שלכם' });
   const shown = (await sheet.locator('.backup-code').textContent()).trim();
@@ -206,6 +211,7 @@ test.describe('restoring from the backup code', () => {
     const { st, log, attach } = await fakeServer(page.context(), {}, baseOf());
     // device A: a code from Settings, then a lesson; going out of view sends it at once
     await open(page, '#/settings', withServer());
+    await openAdults(page);
     const shown = await makeCode(page);
     await lesson(page);
     await hide(page);
@@ -315,6 +321,7 @@ test.describe('restoring from the backup code', () => {
     test.setTimeout(90_000);
     const { st, log } = await fakeServer(page.context(), {}, baseOf());
     await open(page, '#/settings', withServer());
+    await openAdults(page);
     const shown = await makeCode(page);
     const { lookup } = await derive(shown.replace(/-/g, ''));
     // signing out keeps the backup, and says how to come back
@@ -353,6 +360,7 @@ test.describe('restoring from the backup code', () => {
     test.setTimeout(90_000);
     const { st, log } = await fakeServer(page.context(), {}, baseOf());
     await open(page, '#/settings', withServer());
+    await openAdults(page);
     const shown = await makeCode(page);
     const code = shown.replace(/-/g, '');
     const { lookup } = await derive(code);
@@ -368,6 +376,7 @@ test.describe('restoring from the backup code', () => {
     };
     const n = log.length;
     await open(page, '#/settings', sibling);
+    await openAdults(page);
     await expect(page.getByText('בגיבוי של הקוד הזה יש התקדמות של מישהו אחר, אז לא איחדנו אותה עם מה שיש כאן. אפשר להפסיק את הגיבוי וליצור קוד חדש.')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.save-backup .save-row dd')).toHaveText('מושהה');
     await expect(page.getByRole('button', { name: 'ליצור קוד חדש' })).toBeVisible();
@@ -503,6 +512,7 @@ test.describe('the class and the family keep the code', () => {
     // Settings: the switch is on, the class note, and the class sentence with its clause; never "מוצפן"
     await show(page, new Date(NOW.getTime() + 5_000));
     await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await openAdults(page);
     const sw = page.getByRole('switch', { name: 'שמירת עותק בשרת הכיתה' });
     await expect(sw).toBeChecked();
     expect((await page.locator('.save-switch').boundingBox()).height).toBeGreaterThanOrEqual(44);
@@ -575,6 +585,7 @@ test.describe('the class and the family keep the code', () => {
     await expect.poll(async () => (await vaultOf(st, kept.code))?.xp).toBe(a.xp);
     // A's Settings: the family note and sentence, never "מוצפן"
     await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await openAdults(page);
     await expect(page.getByText('עותק של ההתקדמות נשמר בשרת דרך המנוי המשפחתי. כשמחליפים מכשיר, ההורים מחברים את החדש וההתקדמות עוברת אליו.')).toBeVisible();
     await expect(page.locator('.footnote')).toHaveText('מדרגות. ההתקדמות נשמרת במכשיר, ועותק שלה נשמר בשרת דרך המנוי המשפחתי, כדי שאפשר יהיה להעביר אותה למכשיר חדש.');
     expect(await page.locator('body').innerText()).not.toContain('מוצפן');
@@ -638,6 +649,7 @@ test.describe('the class and the family keep the code', () => {
     const seed = { ...withServer(), state: { ...withServer().state, ai: { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: `fd1.${'f'.repeat(64)}`, label: 'הטאבלט' } }, backup: { on: true, code, lookup, rev: null, at: null, hash: null, escrow: 'family', state: 'idle' } } };
     for (const route of ['#/settings', '#/me']) {
       await open(page, route, seed);
+      if (route === '#/settings') await openAdults(page);
       await expect(page.getByText(/עותק שלה נשמר בשרת דרך המנוי המשפחתי/).first()).toBeVisible();
       expect(await page.locator('body').innerText(), route).not.toContain('מוצפן');
     }

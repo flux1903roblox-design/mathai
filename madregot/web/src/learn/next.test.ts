@@ -12,6 +12,7 @@ import { ALL_SKILLS, GRADE_OF, STAIRS, TOPIC_ORDER, isBridgeSkill, parseSkill, s
 import { contentOf, loadAllContent } from './content/index';
 import { seeded } from './expr';
 import { addDays } from './mastery';
+// @ts-ignore: plain JS
 import { splitFirstSentence } from '@/components/MathText.jsx';
 import { LEARNERS, ctxOf, emptyLearn, checkedExam, ago, masteredRec, taughtRec, strugglingRec, pathOf, checkEvents, NOW } from './__fixtures__/learners';
 import { challengeById, CHALLENGES } from './challenges/index';

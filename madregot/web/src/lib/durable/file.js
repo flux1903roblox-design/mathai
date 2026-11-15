@@ -13,7 +13,7 @@ import { PERSONAL_KEY } from '../store.js';
 /** The largest file read (a heavy year is about half a megabyte). */
 export const BACKUP_MAX_BYTES = 5 * 1024 * 1024;
 export const SHARE_TITLE = 'גיבוי מדרגות';
-export const SHARE_TEXT = 'קובץ הגיבוי של מדרגות. שמרו אותו. כדי לשחזר: מדרגות ← הגדרות ← שמירת ההתקדמות ← לשחזר מקובץ.';
+export const SHARE_TEXT = 'קובץ הגיבוי של מדרגות. שמרו אותו. כדי לשחזר: מדרגות ← הגדרות ← להורים ולמבוגרים ← לשחזר מקובץ.';
 /** Why a file was refused, in the words the student sees. */
 export const FILE_ERRORS = {
   size: 'הקובץ גדול מדי.',

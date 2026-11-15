@@ -27,12 +27,14 @@ export function diagOf(ans, bugs) {
   return (u) => {
     if (typeof u !== 'number') return null;
     const real = all.filter(([, v]) => v != null && Number.isFinite(v) && !near(v, ans) && !slipOf(v, ans));
-    const exact = [...new Set(real.filter(([, v]) => near(u, v, 1e-6)).map(([id]) => id))];
-    if (exact.length) return one(exact);
+    const exact = real.filter(([, v]) => near(u, v, 1e-6)).map(([id]) => id);
     // a fraction typed rounded to tenths or hundredths (−35/9 as −3.9 or −3.89) names the errors that round there; a
     // number near the prediction that is not its rounding (4.45 for 4.5) names nothing, and nor does a rounding that is
     // also a slip from the answer (418.95 typed 419 for 420): the rule of learn/misconceptions
-    return one([...new Set(real.filter(([, v]) => !Number.isInteger(v) && matchesValue(v, u, ans)).map(([id]) => id))]);
+    const rounded = real.filter(([, v]) => !Number.isInteger(v) && matchesValue(v, u, ans)).map(([id]) => id);
+    // an answer that is one error's own number and another's rounding (−5.6: −28/5, and −50/9 typed to a tenth) fits
+    // both, so both are named, the exact one first (as learn/misconceptions diagnose reads a model's question)
+    return one([...new Set([...exact, ...rounded])]);
   };
 }
 /** "Remove b from both sides", in words: b is the number added to the x-term. */
@@ -191,9 +193,13 @@ function twoStepParams() {
   if (Math.random() < 0.15 && a !== -1) { a = (a < 0 ? -1 : 1) * pick([2, 4]); x = pick([1, 3, -1, 5]) / 2; } else x = NZ(-10, 10);
   return { k, a, b, x, c: a * x + b };
 }
-/** The errors of ax + b = c (a is the coefficient as it acts, negative in b − |a|x). */
-const twoStepBugs = ({ k, a, b, c, x }) => ({
-  'move-no-flip': (c + b) / a,
+/**
+ * The errors of ax + b = c (a is the coefficient as it acts, negative in b − |a|x). move-no-flip is a number taken to
+ * the other side with the same operation: the number added (b kept its sign), or, after it is removed, the coefficient
+ * (ax = c − b multiplied by a where it should be divided, as stair 1 names it for ax = b).
+ */
+export const twoStepBugs = ({ k, a, b, c, x }) => ({
+  'move-no-flip': [(c + b) / a, (c - b) * a],
   'divide-part': k !== 2 && abs(a) !== 1 && Number.isInteger(c / a) ? c / a - b : null,
   sign: a < 0 ? -x : null,
   'sub-coef': abs(a) !== 1 ? c - b - a : null,
@@ -250,7 +256,7 @@ function collectFirst() {
       key: `eq2c:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
       hint: 'קודם מכנסים איברים דומים באגף שמאל: $x$־ים עם $x$־ים.',
       solution: [`מכנסים: $x + ${k}x + x = ${A}x$, ולכן $${A}x + ${m} = ${total}$`, `מחסירים $${m}$: $${A}x = ${total - m}$`, `מחלקים ב־$${A}$: $x = ${x}$`, `בדיקה: $${x} + ${k * x} + ${x + m} = ${total}$`],
-      diag: diagOf(x, { 'move-no-flip': (total + m) / A, 'divide-part': Number.isInteger(total / A) ? total / A - m : null }),
+      diag: diagOf(x, { 'move-no-flip': [(total + m) / A, (total - m) * A], 'divide-part': Number.isInteger(total / A) ? total / A - m : null }),
     };
   }
   const p = R(1, 6); const q = R(1, 6); const b = NZ(-12, 12); const x = NZ(-8, 9); const A = p + q; const c = A * x + b;
@@ -260,7 +266,7 @@ function collectFirst() {
     key: `eq2c:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
     hint: 'קודם מכנסים איברים דומים באגף שמאל, ואז זו משוואה בשני צעדים.',
     solution: [`מכנסים: $${linTex(A, b)} = ${T(c)}$`, `${undo(b)}: $${A}x = ${T(c - b)}$`, `מחלקים ב־$${A}$: $x = ${T(x)}$`, `בדיקה: $${sumTex(terms.map(([n, v]) => [v ? n * x : n, '']))} = ${T(c)}$`],
-    diag: diagOf(x, { 'move-no-flip': (c + b) / A, 'divide-part': Number.isInteger(c / A) ? c / A - b : null }),
+    diag: diagOf(x, { 'move-no-flip': [(c + b) / A, (c - b) * A], 'divide-part': Number.isInteger(c / A) ? c / A - b : null }),
   };
 }
 

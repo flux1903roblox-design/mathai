@@ -18,6 +18,16 @@ export const SW_SOURCE = fileURLToPath(new URL('../src/sw/sw.js', import.meta.ur
 const plain = (file) => String(file).replace(/\\/g, '/').replace(/^\.?\//, '');
 
 /**
+ * KaTeX's five families that only \mathcal, \mathfrak, \mathsf, \mathscr and \mathtt (and their text forms) use. The
+ * app's own maths never writes them (vite-plugin-sw.test.mjs reads the sources for it), so the nine files, about 94 KB,
+ * are not kept up front: like Rubik's Arabic and Cyrillic parts, they are fonts the app never shows. Should the tutor's
+ * answer ever use one, the browser fetches it then, and the worker keeps it (sw.js, its /assets/ rule).
+ */
+export const KATEX_UNUSED = /^KaTeX_(Caligraphic|Fraktur|SansSerif|Script|Typewriter)-/;
+/** The commands that would need one of those families (the test's search). */
+export const KATEX_UNUSED_COMMANDS = /\\(mathcal|mathfrak|mathsf|mathscr|mathtt|textsf|texttt|cal|frak|verb)(?![A-Za-z])/;
+
+/**
  * Which built file the worker keeps (the path is relative to the build folder):
  * index.html, the manifest, the icons and theme-boot.js; every script and style sheet directly under assets/; the woff2
  * fonts of Rubik's Hebrew and Latin parts and of KaTeX. Not source maps, not the .ttf/.woff copies (browsers take the
@@ -34,7 +44,8 @@ export function precacheFilter(file) {
   if (/\.(js|css)$/.test(name)) return true;
   const font = /^(.+)\.woff2$/.exec(name);
   if (!font) return false;
-  return /^KaTeX_/.test(font[1]) || /^rubik-(hebrew|latin)-wght-/.test(font[1]);
+  // KaTeX: the families the app's maths is set in. Its five ornamental families (KATEX_UNUSED) are left out
+  return (/^KaTeX_/.test(font[1]) && !KATEX_UNUSED.test(font[1])) || /^rubik-(hebrew|latin)-wght-/.test(font[1]);
 }
 
 /** The precache list: kept files, once each, in one order (so two builds of the same files make the same worker). */

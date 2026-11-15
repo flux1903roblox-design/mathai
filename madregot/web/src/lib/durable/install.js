@@ -1,7 +1,8 @@
 // The iPhone Home Screen guide (DURABLE-3): when to offer it. Safari may delete a site's data after seven days of Safari
 // use without it; an app added to the Home Screen is not deleted that way, but it keeps its data apart from Safari, so
 // the guide first makes sure the progress can travel (InstallSheet).
-//   - Settings › שמירת ההתקדמות always has the row "להוסיף למסך הבית" on an iPhone or iPad in the browser;
+//   - Settings always has the row "להוסיף למסך הבית" on an iPhone or iPad in the browser: among the student's own
+//     settings ("האפליקציה"), and for a teacher under שמירת ההתקדמות;
 //   - Learn shows one quiet card from the 3rd day the student learned, when there is progress and the guide was not
 //     offered in the last 30 days (durable.installHintAt). Never in a lesson.
 import { isActiveDay } from '../store.js';

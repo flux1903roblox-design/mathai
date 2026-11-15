@@ -78,6 +78,17 @@ export const DURABLE_DB = 'madregot-durable';
  * madregot-debug exposes the current exercise as window.__madregotItem; madregot-seed fixes Math.random.
  * The seed is written once: a later reload starts from what the app saved since (and its copy on the device).
  */
+/**
+ * Settings' section for adults (PRODUCT2-41) is folded: open it (its button, "להורים ולמבוגרים"), if it is not open yet,
+ * and wait until its saving, backup and support details show.
+ */
+export async function openAdults(page) {
+  const toggle = page.getByRole('button', { name: 'להורים ולמבוגרים' });
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
 export async function open(page, route, state = null, seed = '424242', at = NOW) {
   await page.clock.setFixedTime(at);
   await page.goto('./');

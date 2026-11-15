@@ -184,7 +184,7 @@ npm run test:e2e --prefix madregot/web   # בדפדפן (Playwright): מסך ה�
 
 הקובץ `.github/workflows/ci.yml` (בשורש המאגר) מריץ שלוש בדיקות על כל push ל־`main` ועל כל pull request:
 
-- **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`), `npx vitest run`, ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs` ואת `scripts/check-budget.mjs`: אם ההורדה הראשונה של האפליקציה גדולה מהתקציב שב־`web/budget.json`, הבנייה נכשלת).
+- **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`), `npx vitest run`, בדיקת שמות הטעויות לעומק (`LABELS_DISTINCT=2000 npx vitest run src/content/labels.test.js`: 2,000 שאלות שונות לכל מדרגה, כשלוש דקות), ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs` ואת `scripts/check-budget.mjs`: אם ההורדה הראשונה של האפליקציה גדולה מהתקציב שב־`web/budget.json`, הבנייה נכשלת).
 - **worker**: `npm ci` ו־`npm test`, כל בדיקות השרת, כולל בדיקות הבקשות המקבילות (קוד אישי, סנכרון התקדמות, תשלום).
 - **e2e**: אחרי ש־web עובר. מתקין Chromium ומריץ את כל קובצי Playwright בפרויקט `phone` (390×844), בלי בדיקות שמסומנות `@perf`. אם משהו נכשל, תיקיית `test-results` נשמרת בריצה בשם `playwright-report`.
 

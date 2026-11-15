@@ -72,10 +72,15 @@ const DASHES = /[−–—]/g;
 /** A mixed number as typed on a computer keyboard: "2 1/2", "-1 3/4" (a whole number, a space, a fraction). */
 const MIXED = /^([+-]?)(\d+)\s+(\d+)\/(\d+)$/;
 
+/** A space inside a number: between two digits, or beside its point or comma ("1 3", "5 13", "1 .5"). */
+const SPLIT = /[\d.,]\s+[\d.,]/;
+
 /**
- * Parse what a student typed: "−3", "-3", "2.5", "2,5", "3/4", "-3/4", and, on a computer keyboard, a mixed number:
- * "2 1/2" is 2.5 and "-1 3/4" is −1.75 (the sign is the whole number's). "13/4" stays 3.25. Any other space is
- * dropped ("- 3" is −3). A comma is the decimal comma ("2,5" is 2.5); "2,000" has a second reading, see readNumCandidates.
+ * Parse what a student typed: "−3", "-3", "2.5", "2,5", "3/4", "-3/4", and a mixed number (the keypad's space key, or a
+ * computer keyboard): "2 1/2" is 2.5 and "-1 3/4" is −1.75 (the sign is the whole number's). "13/4" stays 3.25. A space
+ * beside the sign or the fraction bar is dropped ("- 3" is −3, "3 / 4" is 0.75); a space inside a number is not a number
+ * yet (null): "1 3" is on its way to 1 3/4, never 13. A comma is the decimal comma ("2,5" is 2.5); "2,000" has a second
+ * reading, see readNumCandidates.
  */
 export function parseNum(s) {
   const raw = String(s ?? '').trim().replace(DASHES, '-');
@@ -86,6 +91,7 @@ export function parseNum(s) {
     const v = Number(mixed[2]) + Number(mixed[3]) / d;
     return mixed[1] === '-' ? -v : v;
   }
+  if (SPLIT.test(raw)) return null;
   const t = raw.replace(/\s+/g, '').replace(',', '.');
   if (!t) return null;
   let m = t.match(/^([+-]?\d+)\/([+-]?\d+)$/);

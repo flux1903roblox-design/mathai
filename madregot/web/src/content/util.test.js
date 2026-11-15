@@ -21,6 +21,9 @@ describe('reading numbers as students type them', () => {
     expect(parseNum('−1 3/4')).toBe(-1.75); // the keypad's minus
     expect(parseNum('13/4')).toBe(3.25);
     expect(parseNum('2 1/0')).toBeNull();
+    // a space anywhere else between digits is not a number yet: "1 3" is never 13, "5 13" never 513 (the keypad's space
+    // key can type them on the way to 1 3/4)
+    for (const s of ['1 3', '5 13', '-1 3', '−1 3', '1 3/', '2 000', '1 .5', '1. 5']) expect(parseNum(s), s).toBeNull();
     // everything read before still reads the same
     expect(parseNum('-3')).toBe(-3);
     expect(parseNum('- 3')).toBe(-3);
@@ -51,6 +54,14 @@ describe('reading numbers as students type them', () => {
     // the decimal-comma reading is the other candidate, kept for an answer of 2.4 (the same distance in kilometres)
     expect(readAnswer(num(2.4), { v: '2,400' })).toBe(2.4);
     expect(typedRight(scale, '24,000')).toBe(false);
+  });
+
+  it('a mixed number left half typed is not an answer yet: "5 " after the space key, "1 3" before the fraction', () => {
+    expect(readAnswer(num(5), { v: '5 ' })).toBeNull();
+    expect(readAnswer(num(-13), { v: '-1 3' })).toBeNull();
+    expect(readAnswer(num(16 / 3), { v: '5 1/3' })).toBeCloseTo(16 / 3, 12);
+    expect(readAnswer(num(5), { v: '5' })).toBe(5);
+    expect(readAnswer(num(-3), { v: '- 3' })).toBe(-3);
   });
 
   it('the lesson keeps the reading the question accepts, else the one nearest its answer', () => {

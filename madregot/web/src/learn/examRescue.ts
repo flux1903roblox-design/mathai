@@ -103,8 +103,10 @@ type Spacing = 'apart' | 'check-apart' | 'together';
 /**
  * The day of each step of each stair (chains, in the plan's order), placed day by day from the first, each day up to its
  * room in minutes, no stair starting before the one before it; null when a step does not fit before the exam.
+ * A step longer than the student's `minutes` (a 12-minute lesson on a 10-minute day) cannot be cut, so it fills a day of
+ * its own: an empty day before the last one takes it alone. That is not a tight plan.
  */
-function place(chains: PlanTask[][], room: number[], spacing: Spacing): number[][] | null {
+function place(chains: PlanTask[][], room: number[], spacing: Spacing, minutes = Infinity): number[][] | null {
   const used = room.map(() => 0);
   const at: number[][] = chains.map(() => []);
   const next = chains.map(() => 0);
@@ -117,12 +119,13 @@ function place(chains: PlanTask[][], room: number[], spacing: Spacing): number[]
     if (spacing === 'check-apart' && chains[c][i].kind === 'mastery' && lesson >= 0 && lesson < i) return Math.max(prev, at[c][lesson] + 1);
     return prev;
   };
+  const fits = (d: number, m: number) => used[d] + m <= room[d] || (used[d] === 0 && m > minutes && d < room.length - 1);
   for (let d = 0; d < room.length; d += 1) {
     for (let moved = true; moved;) {
       moved = false;
       chains.forEach((ch, c) => {
         const i = next[c];
-        if (i >= ch.length || earliest(c, i) > d || used[d] + ch[i].minutes > room[d]) return;
+        if (i >= ch.length || earliest(c, i) > d || !fits(d, ch[i].minutes)) return;
         at[c][i] = d; used[d] += ch[i].minutes; next[c] = i + 1; moved = true;
       });
     }
@@ -132,17 +135,19 @@ function place(chains: PlanTask[][], room: number[], spacing: Spacing): number[]
 
 /**
  * The days of the plan's steps over n days of `minutes` each, the last keeping room for the practice exam. Within the
- * student's minutes: each step on its own day if that fits, else the practice beside its lesson or its check. Only when
- * neither fits (the plan is tight) does a day hold more than the minutes chosen, as little more as fits; and only with
- * one day before the exam may a check share the day of its lesson. `cap` is the most minutes a day then holds.
+ * student's minutes: each step on its own day if that fits, else the practice beside its lesson or its check (a step
+ * longer than the minutes fills a day of its own, see place). Only when neither fits (the plan is tight) does a day hold
+ * more than the minutes chosen, as little more as fits, and at each such cap three separate days are tried first again;
+ * only with one day before the exam may a check share the day of its lesson. `cap` is the most minutes a day then holds:
+ * above `minutes` only when the plan is tight.
  */
 export function schedule(chains: PlanTask[][], n: number, minutes: number, examMinutes: number): { at: number[][]; cap: number } {
   const room = (cap: number) => Array.from({ length: n }, (_, i) => (i === n - 1 ? Math.max(0, cap - examMinutes) : cap));
-  for (const spacing of ['apart', 'check-apart'] as Spacing[]) { const at = place(chains, room(minutes), spacing); if (at) return { at, cap: minutes }; }
+  const spaced: Spacing[] = ['apart', 'check-apart'];
+  for (const spacing of spaced) { const at = place(chains, room(minutes), spacing, minutes); if (at) return { at, cap: minutes }; }
   const total = chains.flat().reduce((a, t) => a + t.minutes, 0) + examMinutes;
   for (let cap = n === 1 ? minutes : minutes + 1; cap <= total + examMinutes + 60; cap += 1) {
-    const at = place(chains, room(cap), n === 1 ? 'together' : 'check-apart');
-    if (at) return { at, cap };
+    for (const spacing of n === 1 ? ['together' as Spacing] : spaced) { const at = place(chains, room(cap), spacing, minutes); if (at) return { at, cap }; }
   }
   // (cannot happen: with the whole plan's minutes a day, everything fits in two days)
   return { at: chains.map((ch) => ch.map(() => 0)), cap: total };

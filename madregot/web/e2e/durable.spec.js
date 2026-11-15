@@ -4,7 +4,7 @@
 // reloads on its own, so the copy survives the reload.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { open, student, livedIn, saved, appReady, answer, proceedToNext, leaveEndScreens, NOW, DURABLE_DB } from './helpers.js';
+import { open, student, livedIn, saved, appReady, answer, proceedToNext, leaveEndScreens, NOW, DURABLE_DB, openAdults } from './helpers.js';
 
 /**
  * Fill localStorage until it takes no more (the council's probe: 100 KB pieces, then 1 KB), then down to single
@@ -67,6 +67,8 @@ test.describe('storage full', () => {
     await page.reload();
     await expect(radio(page, 'כבויים')).toHaveAttribute('aria-checked', 'true'); // from the copy
     await expect(page.locator('#save .save-row').filter({ hasText: 'במכשיר הזה' })).toHaveText(/במכשיר הזה\s*נשמר/);
+    // (the saving is in the adults' folded section: read above as it stands, opened here for the picture)
+    await openAdults(page);
     await page.locator('#save').scrollIntoViewIfNeeded();
     await shot(page, 'durable-settings-saved');
     await page.evaluate(() => { location.hash = '#/'; });

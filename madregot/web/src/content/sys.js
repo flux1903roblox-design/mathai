@@ -394,6 +394,23 @@ export function elimMinusBracket(e, other = false) {
   const gv = (e.c1 - e.a1 * kv) / e.g1;
   return e.gone === 'y' ? [kv, gv] : [gv, kv];
 }
+/**
+ * Every value that subtracting with the constants added leaves, by the unknown it is a value of (0: x, 1: y). A student
+ * may make either unknown go, whichever has coefficients of one sign with one a whole multiple of the other (the worked
+ * solution's way, elimMinusBracket, is one of these; elimDraw rules out the other only up to three times), and may
+ * subtract either way round, which gives the opposite value.
+ */
+export function minusBracketValues(r1, r2) {
+  const out = [[], []];
+  [0, 1].forEach((g) => {
+    if (!(r1[g] * r2[g] > 0) || (r2[g] % r1[g] !== 0 && r1[g] % r2[g] !== 0)) return;
+    const mu = r2[g] / r1[g]; const s = 1 - g; const coef = mu * r1[s] - r2[s];
+    if (abs(coef) < 1e-9) return;
+    const kv = (mu * r1[2] + r2[2]) / coef;
+    out[s].push(kv, -kv);
+  });
+  return out;
+}
 export function elimSolution(e) {
   const { k, x, y, gone, mul, sub, top, r1, r2, a1, g1, c1 } = e;
   const keep = gone === 'y' ? 'x' : 'y'; const [kv, gv] = gone === 'y' ? [x, y] : [y, x];
@@ -412,13 +429,14 @@ export function elimSolution(e) {
 export const elimHint = (e) => (e.k === 2 ? `המקדמים של $${e.gone}$ לא שווים ולא נגדיים. כופלים קודם משוואה אחת, כל אגף וכל איבר, כך שיהיו.`
   : e.sub ? `למקדמים של $${e.gone}$ אותו מספר: מחסרים את המשוואות, כל אגף וכל איבר.` : `המקדמים של $${e.gone}$ נגדיים: מחברים את המשוואות.`);
 function elimItem() {
-  const e = elimDraw(rnd0); const bad = elimMinusBracket(e); const bad2 = elimMinusBracket(e, true); const i = e.gone === 'y' ? 0 : 1; // the coordinate found first
-  const right = [e.x, e.y][i];
+  const e = elimDraw(rnd0); const ans = [e.x, e.y]; const bad = minusBracketValues(e.r1, e.r2);
+  // the unknown found first came out as the constants' sum, whichever unknown went and whichever equation was
+  // subtracted from which
+  const minusBracket = (u) => Array.isArray(u) && [0, 1].some((s) => bad[s].some((v) => diagOf(ans[s], { 'minus-bracket': v })(u[s])));
   return {
     key: `sy3:${elimShow(e)}`, text: 'פתרו את מערכת המשוואות.', display: elimShow(e), form: 'pt', label: '', answer: [e.x, e.y],
     hint: elimHint(e), solution: elimSolution(e),
-    // the constants added instead of subtracted, whichever equation was subtracted from which
-    diag: (u) => [isSwap(u, e.x, e.y) && 'swap', Array.isArray(u) && bad && (diagOf(right, { 'minus-bracket': bad[i] })(u[i]) || diagOf(right, { 'minus-bracket': bad2[i] })(u[i]))].flat().filter(Boolean),
+    diag: (u) => [isSwap(u, e.x, e.y) && 'swap', minusBracket(u) && 'minus-bracket'].filter(Boolean),
   };
 }
 

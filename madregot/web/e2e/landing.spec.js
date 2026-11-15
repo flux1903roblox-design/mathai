@@ -59,7 +59,7 @@ test('/mivchan/: the question, the plan in one screen, and its button leads to E
   // last, then the price line as it was
   const plan = page.locator('.plans .card').filter({ has: page.getByRole('heading', { level: 3, name: 'המנוי המשפחתי' }) });
   await expect(plan.getByRole('listitem')).toHaveText([
-    'סיכום התרגול מגיע לבד מהמכשיר של הילד, כל יום, ואפשר לראות את 8 השבועות האחרונים.',
+    'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.',
     'סיכום שבועי במייל בכל יום ראשון, אם תבחרו.',
     'לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.',
     'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',

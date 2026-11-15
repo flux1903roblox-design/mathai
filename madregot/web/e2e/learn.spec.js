@@ -485,3 +485,35 @@ test('a mixed number on the keypad: a fraction sum answered as a whole number an
   await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
   await expect(page.locator('section.fb.fb-good')).toBeVisible();
 });
+
+// The lane's review: the space key let a stray space between digits through, and "−1 3" was graded as −13. A space inside
+// a number, or one left after the whole number, is not an answer yet: the lesson says how a mixed number is written,
+// takes no attempt, and the right answer typed again is taken.
+test('a stray space between digits is not read as one number: "−1 3" is not −13, and nothing is graded', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/signed/1', student('7'), (x) => x?.form === 'num' && Number.isInteger(x.answer) && Math.abs(x.answer) >= 10 && Math.abs(x.answer) <= 99);
+  const digits = String(Math.abs(it.answer));
+  const key = (name) => page.getByRole('button', { name, exact: true }).click();
+  const before = (await saved(page)).learn.skills['signed:1']?.attempts?.length || 0;
+  await page.locator('#slot-v').click();
+  if (it.answer < 0) await key('מינוס');
+  await key(digits[0]);
+  await key('רווח, בין השלם לשבר');
+  await key(digits[1]);
+  await expect(page.locator('#slot-v')).toHaveValue(`${it.answer < 0 ? '-' : ''}${digits[0]} ${digits[1]}`);
+  await key('בדיקה');
+  const say = page.getByRole('alert').filter({ hasText: 'מספר מעורב' });
+  await expect(say).toHaveText('מספר מעורב, כמו ⁦5 1/3⁩, כותבים כך: שלם, רווח ושבר.');
+  await expect(page.locator('section.fb')).toHaveCount(0);
+  expect((await saved(page)).learn.skills['signed:1']?.attempts?.length || 0).toBe(before);
+  // a whole number and a space, nothing after it: also not an answer yet
+  await key('מחיקה');
+  await expect(page.locator('#slot-v')).toHaveValue(`${it.answer < 0 ? '-' : ''}${digits[0]} `);
+  await key('בדיקה');
+  await expect(say).toBeVisible();
+  await expect(page.locator('section.fb')).toHaveCount(0);
+  // the number itself is taken
+  await key('מחיקה');
+  await key(digits[1]);
+  await key('בדיקה');
+  await expect(page.locator('section.fb.fb-good')).toBeVisible();
+});

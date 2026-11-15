@@ -85,6 +85,13 @@ const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item
 const toSlot = (label) => (!label ? 'לשדה הבא' : /^[a-z]/i.test(label) ? `ל־${label}` : `ל${label.startsWith('ה') ? label.slice(1) : label}`);
 /** A fraction's two fields, as a screen reader names them. */
 const FRAC_FIELD = { n: 'מונה', d: 'מכנה' };
+/**
+ * A mixed number typed half: a whole number, the space key, and nothing or not yet a fraction after it ("5 ", "1 3",
+ * "1 3/"). The lesson says how one is written: the example stands inside the sentence, kept left to right, so the
+ * sentence's full stop never lands beside it (at the end of a line it read as ".5 1/3").
+ */
+const HALF_MIXED = /^\s*[-+−–—]?\s*\d+\s+[\d\s/]*$/;
+const MIXED_HOW = 'מספר מעורב, כמו \u20665\u00a01/3\u2069, כותבים כך: שלם, רווח ושבר.';
 /** What to type when a slot is empty or unreadable. */
 const INVALID = { pt: 'מלאו את שני השיעורים.', line: 'מלאו את m ואת b.', lin: 'מלאו את המקדם ואת המספר החופשי.', frac: 'מלאו מונה ומכנה, מספרים שלמים.' };
 /** A right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake. */
@@ -377,7 +384,10 @@ export default function Lesson() {
       const missing = names.find((k) => !String(slots[k] || '').trim()) || names[0];
       // a question that asks for a decimal, answered with the fraction: say what it wants
       const asFraction = item.askDec && /\//.test(String(slots.v || ''));
-      setLast({ invalid: true, text: asFraction ? 'כתבו את התשובה כמספר עשרוני, עם נקודה.' : INVALID[item.form] || 'כתבו מספר. מינוס יש במקלדת.' });
+      // a whole number, a space and no fraction yet is a mixed number not typed whole ("5 ", "1 3"): say how one is
+      // written. Anything else unreadable (letters from a computer keyboard) gets the usual line
+      const halfMixed = !asFraction && HALF_MIXED.test(String(slots.v || ''));
+      setLast({ invalid: true, text: asFraction ? 'כתבו את התשובה כמספר עשרוני, עם נקודה.' : halfMixed ? MIXED_HOW : INVALID[item.form] || 'כתבו מספר. מינוס יש במקלדת.' });
       setShakeKey((v) => v + 1); setActive(missing); focusSlot(missing);
       return;
     }

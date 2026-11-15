@@ -13,7 +13,7 @@ vi.mock('react', async (load) => {
   return { ...react, default: react, useSyncExternalStore: (sub, get, server) => react.useSyncExternalStore(sub, get, server || get) };
 });
 
-const html = () => { Object.assign(useApp.getInitialState(), useApp.getState()); return renderToStaticMarkup(<MemoryRouter initialEntries={['/settings']}><Settings /></MemoryRouter>); };
+const html = (at = '/settings') => { Object.assign(useApp.getInitialState(), useApp.getState()); return renderToStaticMarkup(<MemoryRouter initialEntries={[at]}><Settings /></MemoryRouter>); };
 const text = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
 describe('Settings for a student', () => {
@@ -33,7 +33,7 @@ describe('Settings for a student', () => {
 
   it('the adults\' section says who it is for, and holds the saving, the backup and the support details', () => {
     const out = html();
-    expect(out).toMatch(/<h2 id="adults-title" class="set-head set-adults-head">להורים ולמבוגרים<\/h2>/);
+    expect(text(/<h2 id="adults-title" class="set-head set-adults-head">(.*?)<\/h2>/.exec(out)?.[1] || '').trim()).toBe('להורים ולמבוגרים');
     const adults = text(out.slice(out.indexOf('id="adults-title"'), out.indexOf('id="dz-title"')));
     expect(adults).toContain('שמירה, גיבוי ופרטים לתמיכה.');
     for (const w of ['שמירת ההתקדמות', 'שמירה קבועה בדפדפן', 'לשמור קובץ גיבוי', 'מידע לתמיכה']) expect(adults).toContain(w);
@@ -41,5 +41,39 @@ describe('Settings for a student', () => {
     expect(out).toContain('id="save"');
     // deleting stays last
     expect(out.indexOf('id="dz-title"')).toBeGreaterThan(out.indexOf('מידע לתמיכה'));
+  });
+
+  it('the adults\' section is folded: a button with aria-expanded opens it; the storage rows are hidden until then', () => {
+    // the review's case: "שמירה קבועה בדפדפן · לא מובטחת" was in plain view on the child's screen
+    const out = html();
+    expect(out).toMatch(/<h2 id="adults-title"[^>]*><button type="button" class="set-adults-toggle" aria-expanded="false" aria-controls="adults-body">להורים ולמבוגרים/);
+    const body = out.slice(out.indexOf('id="adults-body"') - 40, out.indexOf('id="dz-title"'));
+    expect(body).toMatch(/^.*<div id="adults-body" class="set-adults-body" hidden="">/);
+    expect(text(body)).toContain('שמירה קבועה בדפדפן');
+    // what shows folded: the heading and who it is for, nothing about the browser
+    const shown = text(out.slice(out.indexOf('id="adults-title"'), out.indexOf('id="adults-body"')));
+    expect(shown).toContain('שמירה, גיבוי ופרטים לתמיכה.');
+    for (const w of ['שמירה קבועה בדפדפן', 'לא מובטחת', 'לשמור קובץ גיבוי', 'מידע לתמיכה']) expect(shown).not.toContain(w);
+  });
+
+  it('on an iPhone in the browser, "להוסיף למסך הבית" is among the student\'s own settings, once, not in the folded section', () => {
+    expect(html()).not.toContain('להוסיף למסך הבית'); // not an iPhone: no such row
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', maxTouchPoints: 5 });
+    try {
+      const out = html();
+      expect(out.split('להוסיף למסך הבית')).toHaveLength(2);
+      expect(out.indexOf('להוסיף למסך הבית')).toBeLessThan(out.indexOf('id="adults-title"'));
+      expect(out.indexOf('להוסיף למסך הבית')).toBeGreaterThan(out.indexOf('id="app-title"'));
+      // opened from the Home Screen: nothing to add
+      vi.stubGlobal('navigator', { ...navigator, standalone: true });
+      expect(html()).not.toContain('להוסיף למסך הבית');
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it('/settings#save (the storage banner\'s "מה עושים") opens it at the saving', () => {
+    const out = html('/settings#save');
+    expect(out).toContain('aria-expanded="true" aria-controls="adults-body"');
+    expect(out).toMatch(/<div id="adults-body" class="set-adults-body">/);
+    expect(out).toContain('id="save-title"');
   });
 });

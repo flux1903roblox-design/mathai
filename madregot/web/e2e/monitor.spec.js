@@ -3,7 +3,7 @@
 // pattern '/me' (no values, nothing personal), and Settings › מידע לתמיכה lists it from the copy kept on the device.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { open, student } from './helpers.js';
+import { open, student, openAdults } from './helpers.js';
 import { API, fakeServer } from './fakeServer.js';
 
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
@@ -54,6 +54,7 @@ test.describe('error reports', () => {
     // the details for support, from the copy kept on the device (after a reload, with no server needed for it)
     await page.goto('./#/settings');
     await page.reload();
+    await openAdults(page);
     const support = page.locator('details.support-info');
     await support.locator('summary', { hasText: 'מידע לתמיכה' }).click();
     await expect(support.locator('.support-errors li')).toHaveCount(1);
@@ -84,6 +85,7 @@ test.describe('error reports', () => {
     expect(requests).toHaveLength(0);
     await page.goto('./#/settings');
     await page.reload();
+    await openAdults(page);
     await page.locator('details.support-info summary').click();
     await expect(page.locator('.support-errors li')).toContainText(QA_MESSAGE);
   });

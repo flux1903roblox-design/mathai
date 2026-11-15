@@ -242,6 +242,9 @@ export function readAnswer(it, slots) {
   // a question that asks for a decimal takes a decimal: the fraction typed back ("3/4" for "write 3/4 as a decimal")
   // is not an answer to it (screens/Lesson.jsx says so)
   if (it.askDec && /\//.test(String(slots.v ?? ''))) return null;
+  // a whole number and then the space key is a mixed number not yet typed ("5 " on the way to 5 1/3): not an answer yet
+  // (screens/Lesson.jsx says how a mixed number is written)
+  if (/\d\s+$/.test(String(slots.v ?? ''))) return null;
   // a number: "2,000" can be 2 (a decimal comma) or 2000 (thousands); keep the reading the question accepts, else
   // the one nearest its answer, which the diagnosis then sees
   const cands = readNumCandidates(slots.v);

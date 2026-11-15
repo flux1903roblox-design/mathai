@@ -99,13 +99,26 @@ describe('the claims', () => {
 
 // PRODUCT2-30: what the family plan gives the parent, each a checked claim the app's parents page and the landing plan
 // card say in the same words (content/familyPlan.js): the daily synced report, the Sunday email and the exam ahead
+/** The synced report as promised: on the days the child practises, while the child's sharing is on (never "every day"). */
+const SYNCED = 'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.';
 describe('the family plan\'s claims (PRODUCT2-30)', () => {
+  it('promise no more than the product gives: a report on the days the child practises, while the child shares', async () => {
+    // the review's case: "כל יום" promised daily delivery, but nothing comes on a day the device is not used, and the
+    // child can stop sharing at any time (Parents.jsx CHECKOUT_REPORT)
+    const { PLAN_TEXT, FREE_REPORT } = await import('./familyPlan.js');
+    for (const t of [PLAN_TEXT['synced-report'], FREE_REPORT]) {
+      expect(t).not.toMatch(/(^|[ ,])כל יום/);
+      expect(t).toContain('בכל יום שבו מתרגלים');
+    }
+    expect(PLAN_TEXT['synced-report']).toContain('כל עוד השיתוף פועל אצל הילד');
+  });
+
   it('hold on this code, in the words the parents\' page uses', () => {
     for (const id of ['synced-report', 'sunday-email', 'exam-ready']) {
       expect(byId[id].visible, id).toBe(true);
       expect(byId[id].required, id).toBe(true);
     }
-    expect(byId['synced-report'].text).toBe('סיכום התרגול מגיע לבד מהמכשיר של הילד, כל יום, ואפשר לראות את 8 השבועות האחרונים.');
+    expect(byId['synced-report'].text).toBe(SYNCED);
     expect(byId['sunday-email'].text).toBe('סיכום שבועי במייל בכל יום ראשון, אם תבחרו.');
     expect(byId['exam-ready'].text).toBe('לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.');
     // no claim of alerts: nothing in the app sends one

@@ -12,7 +12,7 @@
 // that address only (a save with no profile and no progress, as `fresh()` in restore.spec.js), which stands for it.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { student, open, item, answer, proceedToNext, leaveEndScreens, saved, appReady, NOW, DURABLE_DB } from './helpers.js';
+import { student, open, item, answer, proceedToNext, leaveEndScreens, saved, appReady, NOW, DURABLE_DB, openAdults } from './helpers.js';
 import { API, fakeServer } from './fakeServer.js';
 import { derive, open as openSealed } from '../src/lib/durable/crypto.js';
 
@@ -95,6 +95,7 @@ async function classStudentWithCode(page, st) {
 
   // the code as the student sees it
   await page.evaluate(() => { window.location.hash = '#/settings'; });
+  await openAdults(page);
   await page.getByRole('button', { name: 'להציג את קוד הגיבוי' }).click();
   const sheet = page.getByRole('dialog', { name: 'קוד הגיבוי שלכם' });
   const shown = (await sheet.locator('.backup-code').textContent()).trim();

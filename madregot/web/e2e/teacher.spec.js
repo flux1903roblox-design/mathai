@@ -1580,7 +1580,7 @@ test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
     await expect(page.getByText('משימה מהמורה, עד יום חמישי, 12.11')).toBeVisible();
   });
 
-  test('1b. a stair she mastered in October and slipped on since: given today, it is reported as started, never done (SK-BUYERS-1)', async ({ page }) => {
+  test('1b. a stair she mastered in October and slipped on since: given today, it is reported as started, and done only by its check passed again (SK-BUYERS-1)', async ({ page }) => {
     const { log } = await fakeServer(page, { today: '2026-11-09', assignments: [given()] }, baseOf());
     const learn = {
       skills: { 'signed:1': { attempts: [{ at: '2026-11-06T10:00:00.000Z', ok: false, independent: true, purpose: 'practice' }], taught: { A: '2026-10-19T10:00:00.000Z', B: '2026-10-19T10:10:00.000Z', C: '2026-10-19T10:20:00.000Z' }, mastered: { at: '2026-10-20T10:00:00.000Z', box: 1, due: '2026-11-20T00:00:00.000Z' } } },
@@ -1597,6 +1597,27 @@ test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
     await expect.poll(() => workPosts(log).length).toBeGreaterThan(0);
     for (const p of workPosts(log)) expect(p.body.state).not.toBe('done');
     expect(workPosts(log)[0]).toMatchObject({ path: '/api/class/work/a000000000000001', body: { state: 'started', stage: 5, passed: true } });
+    // and she can finish it: the big button, the row and the stair page all lead to the mastery check again, naming the
+    // work (practice never finishes it)
+    const CHECK = /#\/lesson\/signed\/1\?kind=check&purpose=mastery&assignment=a000000000000001$/;
+    await expect(page.locator('.continue-go')).toHaveText('ממשיכים במשימה מהמורה');
+    await expect(row.getByRole('link', { name: 'מספרים מכוונים: חיבור וחיסור' })).toHaveAttribute('href', CHECK);
+    await page.goto('./#/learn/signed/1?assignment=a000000000000001');
+    await expect(page.locator('#climb-title')).toHaveText('הצעד הבא: בדיקת שליטה חוזרת, למשימה מהמורה');
+    await expect(page.locator('.jstage.current')).toContainText('בדיקת שליטה');
+    await expect(page.locator('.jstage.current .level-badge')).toHaveText('הצעד הבא');
+    await page.getByRole('button', { name: 'לבדיקת השליטה' }).click();
+    await expect(page).toHaveURL(CHECK);
+    for (let i = 0; i < 5; i += 1) { await answer(page, true); await page.locator('section.fb .fb-actions .btn').click(); }
+    await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
+    // the teacher is told it is done, as a stair's report (a check's result is not one), and the row says so
+    await expect.poll(() => workPosts(log).some((p) => p.body.state === 'done')).toBe(true);
+    const done = workPosts(log).filter((p) => p.body.state === 'done');
+    expect(done).toHaveLength(1);
+    expect(done[0]).toMatchObject({ path: '/api/class/work/a000000000000001', body: { state: 'done', stage: 5, passed: true } });
+    expect(done[0].body.right).toBeUndefined();
+    await page.goto('./#/quests');
+    await expect(row).toContainText('הושלם');
   });
 
   // SK-BUYERS-2: the repair of one mistake, as the student meets it: a row in "מהמורה" that opens that mistake's own

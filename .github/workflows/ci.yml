@@ -32,6 +32,11 @@ jobs:
       - run: npm ci
       - run: npx tsc -p tsconfig.json --noEmit
       - run: npx vitest run
+      # PRODUCT2-15 at its full depth: the mistake labels over 2,000 different questions a stair (the run above samples
+      # 300). An answer named as one mistake where another fits too fails the merge.
+      - run: npx vitest run src/content/labels.test.js
+        env:
+          LABELS_DISTINCT: '2000'
       # the content meta, vite build, scripts/check-dist.mjs (no personal-key code and no secrets in the bundle), then
       # scripts/check-budget.mjs (the load-time budget in web/budget.json: over a gate, the build fails)
       - run: npm run build

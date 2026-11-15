@@ -870,7 +870,17 @@ script. They now load one topic at a time, and nothing the student sees changed.
   tasks are a chunk of their own, and the first download carries `learn/challenges/meta.gen.ts` only (id, stair, kind,
   title, minutes). With 48 tasks the lane's build measured boot JS 422.9 KB (436.4 KB before, with 36 tasks in the
   boot file) and the precache 4.73 MB; with all 65 (a task after every stair), boot JS 423.3 KB and the precache 4.77 MB,
-  0.02 MB under its 4.79 MB gate.
+  0.02 MB under its 4.79 MB gate. The lane's later stages (drawings in the worked examples, the wrong-guess lines, the
+  celebrations) took it to 4.86 MB (4,860,630 bytes), over the gate, and its review said so. The gate stays at 4.79 MB
+  and nothing the student sees left the precache. What left it is nine font files the app never shows: KaTeX ships five
+  families that only `\mathcal`, `\mathfrak`, `\mathsf`, `\mathscr` and `\mathtt` use (Caligraphic, Fraktur, SansSerif,
+  Script, Typewriter; 94,284 bytes of woff2), and no maths in the app is written with them, so
+  `scripts/vite-plugin-sw.mjs` (KATEX_UNUSED) leaves them out, as it leaves out Rubik's Arabic and Cyrillic parts. The
+  precache is 4.77 MB (166 files, 4,766,346 bytes), about 0.02 MB under the gate, and every gate passes.
+  `scripts/vite-plugin-sw.test.mjs` holds both halves: the nine files are out and Main, Math, AMS and the sizes are in;
+  and no file under `web/src` or `shared` writes one of those commands (the test reads them all, so a first use fails
+  it). If the tutor's answer ever used one, the browser would fetch the font then and `sw.js` would keep it (its
+  `/assets/` rule saves every file it fetches).
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from
