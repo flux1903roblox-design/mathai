@@ -1,10 +1,10 @@
-// Saved data from every earlier version reaches the current version (v6) sound (DURABLE-1): frozen synthetic saves of
-// v1, v2, v3 and v4, plus
+// Saved data from every earlier version reaches the current version (v7) sound (DURABLE-1): frozen synthetic saves of
+// v1, v2, v3, v4 and v5 (the v5 one on its own below: it already has its device tag), plus
 // a heavy year made from a seed (durable/testing.js). Each one validates after migrating, migrating twice changes
 // nothing, the XP counter adds up, an unknown field survives, and the v1→v4 steps give exactly what the code before
 // this module gave (its migrateState is kept below as the reference).
 import { describe, it, expect, vi } from 'vitest';
-import { migrate, MIGRATIONS, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS, emptyClassWork } from './migrations.js';
+import { migrate, MIGRATIONS, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS, RETIRED, emptyClassWork } from './migrations.js';
 import { validateState } from './validate.js';
 import { sumXp, TAG } from './xp.js';
 import { deepFreeze, heavyYear } from './testing.js';
@@ -14,6 +14,7 @@ import v1 from './fixtures/v1.json';
 import v2 from './fixtures/v2.json';
 import v3 from './fixtures/v3.json';
 import v4 from './fixtures/v4.json';
+import v5 from './fixtures/v5.json';
 
 /** store.js migrateState as it was before this module (5618298), word for word: the reference for the v1→v4 steps. */
 function legacyMigrateState(saved, version, { personal = false } = {}) {
@@ -37,17 +38,20 @@ function legacyMigrateState(saved, version, { personal = false } = {}) {
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const TAG1 = 'a1b2c3d4';
 const fixed = { newTag: () => TAG1 };
-// what the v5 step (family) and the v6 step (the teacher's class work) add
+// what the v5 step (family) and the v6 step (the teacher's class work) add, and what the v7 step drops (RETIRED)
 const V5_ONLY = ['xpBy', 'resetAt', 'durable', 'backup', 'classWork', 'workOutbox'];
-const withoutV5 = (st) => Object.fromEntries(Object.entries(st).filter(([k]) => !V5_ONLY.includes(k) && k !== 'xp'));
+const withoutV5 = (st) => Object.fromEntries(Object.entries(st).filter(([k]) => !V5_ONLY.includes(k) && !RETIRED.includes(k) && k !== 'xp'));
+/** A save without the fields the v7 step drops. */
+const withoutRetired = (st) => Object.fromEntries(Object.entries(st).filter(([k]) => !RETIRED.includes(k)));
 
 const FIXTURES = { v1, v2, v3, v4, heavy: heavyYear() };
 Object.values(FIXTURES).forEach(deepFreeze);
+deepFreeze(v5);
 
-describe('every saved version reaches v6 sound', () => {
+describe('every saved version reaches v7 sound', () => {
   it('the steps are in order and end at the current version', () => {
-    expect(MIGRATIONS.map((m) => m.to)).toEqual([2, 3, 4, 5, 6]);
-    expect(CURRENT_VERSION).toBe(6);
+    expect(MIGRATIONS.map((m) => m.to)).toEqual([2, 3, 4, 5, 6, 7]);
+    expect(CURRENT_VERSION).toBe(7);
   });
 
   for (const [name, f] of Object.entries(FIXTURES)) {
@@ -81,6 +85,9 @@ describe('every saved version reaches v6 sound', () => {
       });
       it('never changes the save it was given', () => {
         expect(Object.isFrozen(f.state)).toBe(true); // migrate would have thrown on a write
+      });
+      it('has no field the v7 step retired (planBase, wins)', () => {
+        for (const k of RETIRED) expect(once, k).not.toHaveProperty(k);
       });
     });
   }
@@ -227,5 +234,36 @@ describe('validateState', () => {
   });
   it('a device tag is 8 hex characters', () => {
     expect(validateState({ ...sound(), durable: { ...sound().durable, tag: 'phone' } })).toContain('durable.tag: "phone", expected 8 hex characters or null');
+  });
+});
+
+// The v7 step (COUNCIL2-23): the retired improvement plan's fields go, and the store has one shape.
+describe('a v5 save (frozen fixture) reaches v7', () => {
+  const out = migrate(v5.state, 5, fixed);
+  it('validates, and the v6 and v7 steps are the only change: class work added, planBase and wins dropped', () => {
+    expect(validateState(out)).toEqual([]);
+    expect(out).toEqual({ ...withoutRetired(v5.state), classWork: emptyClassWork(), workOutbox: {} });
+    expect(v5.state.planBase).toBeTruthy(); expect(v5.state.wins).toBeTruthy(); // the fixture had both
+    for (const k of RETIRED) expect(out, k).not.toHaveProperty(k);
+  });
+  it('keeps its device tag, its XP counter, its nudge count and its learning model', () => {
+    expect(out.durable).toEqual(v5.state.durable);
+    expect(out.xpBy).toEqual({ b2c3d4e5: 50 });
+    expect(out.xp).toBe(50);
+    expect(out.learn).toEqual(v5.state.learn);
+    expect(out.path).toEqual(v5.state.path);
+  });
+  it('migrating again, from any version since, changes nothing', () => {
+    for (const from of [5, 6, 7]) expect(migrate(out, from, fixed), `from v${from}`).toEqual(out);
+  });
+  it('a v6 save (an older build wrote it back) loses planBase and wins and keeps its class work', () => {
+    const cw = { ...emptyClassWork(), at: '2026-11-09T08:00:00.000Z', teacherName: 'רונית' };
+    const back = { ...out, classWork: cw, planBase: { signed: { level: 2 } }, wins: { 'signed:2': 1 } };
+    const again = migrate(back, 6, fixed);
+    expect(again).toEqual({ ...out, classWork: cw });
+  });
+  it('a save of this version is left as it is (no step runs), so the merges drop what an older tab sends', () => {
+    const now = migrate({ ...out, wins: { 'signed:1': 1 } }, 7, fixed);
+    expect(now.wins).toEqual({ 'signed:1': 1 }); // merge.js drops it: see merge.test.js "retired fields"
   });
 });

@@ -2005,8 +2005,10 @@ const show = (x) => `${x.item.topic}:${x.item.level} ${x.item.key}: answer ${JSO
 /** Does a property hold? One written for another shape of the same kind of question (a story the reader cannot parse) does not. */
 const holdsFor = (prop, item, u) => { try { return prop?.(item, u) === true; } catch { return false; } };
 
+// labels.arabic.test.js runs these again with the app in Arabic, on the topics taught in Arabic (COUNCIL2-34)
+const ONLY = globalThis.__ONLY_TOPICS;
 describe('every mistake label describes the answer', () => {
-  TOPICS.forEach((t) => {
+  TOPICS.filter((t) => !ONLY || ONLY.includes(t.id)).forEach((t) => {
     t.levels.forEach((L, i) => {
       const level = i + 1;
       it(`${t.id} level ${level}: ${L.title}`, () => {

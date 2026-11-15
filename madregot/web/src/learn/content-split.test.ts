@@ -121,7 +121,8 @@ describe('every topic, loaded on its own', () => {
 describe('meta.gen.ts', () => {
   it('is what the generator writes from the content files', () => {
     const files = import.meta.glob('./content/*.ts', { eager: true }) as Record<string, Record<string, unknown>>;
-    const content = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen)\.ts$/.test(f)));
+    // the Arabic twins (signed.ar.ts, COUNCIL2-34) are the same stairs in other words: the generator skips them
+    const content = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen)\.ts$/.test(f) && !/\.ar\.ts$/.test(f)));
     expect(renderMeta(collectMeta(content))).toBe(metaText);
   });
   it('and the build\'s own run of the generator agrees (node scripts/gen-content-meta.mjs --check)', () => {
@@ -142,7 +143,8 @@ describe('meta.gen.ts', () => {
   // SK-BUYERS-2: the Worker checks a teacher's repair against each stair's own misconception ids, from this file
   it('shared/stairMiscs.gen.js is what the generator writes: each stair\'s own misconception ids, as the content has them', () => {
     const files = import.meta.glob('./content/*.ts', { eager: true }) as Record<string, Record<string, unknown>>;
-    const content = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen)\.ts$/.test(f)));
+    // without the Arabic twins (signed6.ar.ts): the same stairs in other words, which the generator skips too
+    const content = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen)\.ts$/.test(f) && !/\.ar\.ts$/.test(f)));
     expect(renderMiscs(collectMeta(content))).toBe(miscsText);
     expect(Object.keys(STAIR_MISCS)).toEqual(Object.keys(META));
     for (const [skill, m] of Object.entries(META)) expect((STAIR_MISCS as Record<string, readonly string[]>)[skill], skill).toEqual(m.misconceptions.map((x) => x.id));

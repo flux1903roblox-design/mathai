@@ -10,12 +10,12 @@ import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/app.css';
 import './styles/motion.css';
-import './styles/v4.css';
 import './styles/canon.css';
 import './styles/dark.css'; // last: the dark values of the tokens (STUDENT-2)
 import { toast } from 'sonner';
 import App from './App.jsx';
 import { durableBoot, errorLog } from './lib/durable/storage.js';
+import { initLocale } from './lib/i18n.js';
 import { apiBase } from './lib/api.js';
 import { onMoment, keepaliveBudget, MOMENT_ORDER } from './lib/durable/moments.js';
 import { registerSW } from './lib/swClient.js';
@@ -54,7 +54,8 @@ initInstall(window, { onInstalled: () => toast.success(INSTALLED_TEXT) });
 // Opened straight on a lesson or a stair, the first screen also waits for that screen's teaching content
 // (lib/bootTopics.js), so it appears whole.
 (async () => {
-  await durableBoot();
+  // the device's language (COUNCIL2-34, lib/i18n.js): Arabic's words are fetched while the copy on the device is read
+  await Promise.all([durableBoot(), initLocale()]);
   // a store app's open, once a day a device (STUDENT-14): after initInstall, which notes a Play Store launch (?src=play),
   // and after the boot, so the day it remembers is the saved one
   countStoreOpen(window, { day: today(), last: useApp.getState().nudges?.storeOpenDay, mark: (day) => useApp.getState().setNudge({ storeOpenDay: day }) });

@@ -20,7 +20,7 @@ const names = (text) => [...String(text).matchAll(/\{\{([A-Z_]+)\}\}/g)].map((m)
 const FULL = {
   paywall: true, online: true, vatMode: 'included', termsVersion: '2026-11',
   plans: [
-    { id: 'family_month', amountAgorot: 2990 }, { id: 'family_year', amountAgorot: 24900 }, { id: 'class_year', seatAgorot: 4900 },
+    { id: 'family_month', amountAgorot: 2990 }, { id: 'family_year', amountAgorot: 24900 }, { id: 'exam_pass', amountAgorot: 3900 }, { id: 'class_year', seatAgorot: 4900 },
   ],
   limits: { family: { tutor: 30, check: 6, generate: 5, exam: 2, examMonthly: 10, devices: 3 }, free: { tutor: 2 } },
   business: { name: 'מדרגות בדיקה', id: '000000000', kind: 'עוסק מורשה', address: 'רחוב הבדיקה 1, תל אביב', email: 'hello@example.test', phone: '03-0000000', provider: 'ספק בדיקה' },
@@ -39,7 +39,7 @@ describe('legal texts and their placeholders', () => {
   it('fillLegal knows every {{NAME}} in every .md file, and every name the full texts will use (TRUST-2 §4)', () => {
     for (const f of files) for (const n of names(read(f))) expect(LEGAL_PLACEHOLDERS, `${f}: {{${n}}}`).toContain(n);
     const spec = ['BUSINESS_NAME', 'BUSINESS_ID', 'BUSINESS_KIND', 'BUSINESS_ADDRESS', 'CONTACT_EMAIL', 'CONTACT_PHONE', 'TERMS_VERSION', 'LEGAL_DATE',
-      'PRICE_MONTH', 'PRICE_YEAR', 'PRICE_SEAT', 'VAT_LINE', 'FAMILY_TUTOR', 'FAMILY_CHECK', 'FAMILY_EXAM', 'FAMILY_EXAM_MONTH', 'FAMILY_GENERATE',
+      'PRICE_MONTH', 'PRICE_YEAR', 'PRICE_PASS', 'PRICE_SEAT', 'VAT_LINE', 'FAMILY_TUTOR', 'FAMILY_CHECK', 'FAMILY_EXAM', 'FAMILY_EXAM_MONTH', 'FAMILY_GENERATE',
       'FAMILY_DEVICES', 'FREE_TUTOR', 'PAYMENT_PROVIDER', 'DB_PLACE', 'ACCESS_NAME', 'ACCESS_PHONE', 'ACCESS_EMAIL', 'ACCESS_DATE', 'ACCESS_TESTED'];
     expect([...LEGAL_PLACEHOLDERS].sort()).toEqual([...spec].sort());
   });
@@ -48,7 +48,7 @@ describe('legal texts and their placeholders', () => {
     for (const f of files) expect(fillLegal(read(f), FULL), f).not.toContain('______');
     const v = legalValues(FULL);
     expect(v).toMatchObject({
-      PRICE_MONTH: '₪29.90', PRICE_YEAR: '₪249', PRICE_SEAT: '₪49', VAT_LINE: 'כולל מע״מ', DB_PLACE: 'באיחוד האירופי',
+      PRICE_MONTH: '₪29.90', PRICE_YEAR: '₪249', PRICE_PASS: '₪39', PRICE_SEAT: '₪49', VAT_LINE: 'כולל מע״מ', DB_PLACE: 'באיחוד האירופי',
       LEGAL_DATE: '01.11.2026', ACCESS_DATE: '02.11.2026', FAMILY_TUTOR: 30, FAMILY_EXAM_MONTH: 10, FREE_TUTOR: 2,
       BUSINESS_KIND: 'עוסק מורשה', PAYMENT_PROVIDER: 'ספק בדיקה', TERMS_VERSION: '2026-11',
     });
@@ -63,6 +63,19 @@ describe('legal texts and their placeholders', () => {
     const all = LEGAL_PLACEHOLDERS.map((n) => `{{${n}}}`).join(' ');
     expect(fillLegal(all, null)).toBe(LEGAL_PLACEHOLDERS.map(() => '______').join(' '));
     expect(fillLegal('{{UNKNOWN_NAME}}', FULL)).toBe('______');
+  });
+
+  it('the terms state the exam pass (COUNCIL2-33): its price, 30 days, one payment, never renewed, and how it is cancelled', () => {
+    const terms = fillLegal(legalBody(read('terms.md')), FULL);
+    expect(terms).toContain('- **חבילת מבחן:** ₪39, כולל מע״מ, בתשלום אחד, ל־30 יום מיום התשלום.');
+    expect(terms).toContain('היא לא מתחדשת מעצמה, נגמרת אחרי 30 יום, ולא נחייב אתכם שוב.');
+    expect(terms).toContain('**במנוי לשנה ובחבילת מבחן, אחרי 14 הימים:** אפשר לבטל ולקבל החזר יחסי על הימים שנשארו.');
+    // the lawyer's note about it stays in the file, never on the page
+    expect(read('terms.md')).toMatch(/<!-- לעורך הדין: חבילת מבחן/);
+    expect(terms).not.toContain('לעורך הדין');
+    // a server whose pass has no price yet (the owner's decision) leaves a visible blank, never a made-up price
+    const noPrice = { ...FULL, plans: FULL.plans.map((p) => (p.id === 'exam_pass' ? { ...p, amountAgorot: null } : p)) };
+    expect(fillLegal('{{PRICE_PASS}}', noPrice)).toBe('______');
   });
 
   it('no text carries its own draft note: the page shows one banner instead (TRUST-2 §2)', () => {
@@ -113,9 +126,17 @@ describe('legal texts and their placeholders', () => {
     expect(s).not.toContain('את הדפים מצלמים');
     expect(s).toContain('בתרגילים של האפליקציה, העוזר מתבקש לא לתת את התשובה הסופית לפני שפתרתם, ובשרת יש בדיקה שמסתירה את התשובה כשהיא נכתבת בצורות הנפוצות.');
     expect(s).toContain('כיתה שנפתחה בלי מייל לא פותחת את העוזר');
+    // an adult behind the class (COUNCIL2-2, COUNCIL2-5): the email's holder declared 18+, and a key alone opens nothing
+    expect(s).toContain('רק בכיתה שמקושרת למייל של מורה שאישר שהוא מעל גיל 18, או שיש לה רישיון.');
+    expect(s).toContain('רק מורה שנכנס עם מייל ואישר שהוא מעל גיל 18 יכול לרשום הסכמת הורים ולפתוח את העוזר לתלמידים. מפתח מורה לבד לא מספיק.');
+    // teacherAi 'prep', enforced by the Worker (prep_only)
+    expect(s).toContain('והמורה משתמש בו רק כדי להכין חומרים, לא כדי לבדוק עבודות של תלמידים.');
     expect(s).toContain('במבחן שהעליתם בלי מפתח תשובות העוזר בודק את התשובות, וזה מסומן ליד כל שאלה.');
     expect(s).not.toContain('את התשובות של התרגילים בודקת האפליקציה, לא העוזר');
     for (const n of ['1201', '105', '100', '101']) expect(s).toContain(n);
+    // the call button in every refusal (COUNCIL2-4): components/SupportSheet.jsx HelpLine, in the limit sheet, the
+    // resting chat and a locked tool
+    expect(s).toContain('ובכל מקום שבו העוזר לא יכול לענות יש לידו גם כפתור חיוג לער״ן 1201.');
   });
 });
 

@@ -23,6 +23,7 @@ export const RETENTION = Object.freeze({
   answerReportsDays: 60, // a reported AI answer (the tutor's text only)
   licenceRequestAfterHandledDays: 730, // a class licence request, after the owner handled it
   licenceCodeAfterExpiryDays: 365, // a licence code, after it expired
+  claimCodeDays: 7, // the one-time code a teacher's PIN reset gives the student (COUNCIL2-25): it stops working then, and is cleared
   taxYears: 7, // money records: kept to the end of the 7th calendar year after their tax year
   // the rest of the night purge (cron.js purgeRecordsSql, purgeCountersSql, spec §6.9, STUDENT-4, STUDENT-14)
   noticesDays: 90, // an email notice, after it was sent (or gave up after its tries)

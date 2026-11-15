@@ -14,6 +14,10 @@ import { TOPIC_META } from './topics.gen.js';
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
 import { GUEST, ALSO_ON_PATH, onGradePath } from '@/learn/skills.ts';
 import { monthIndex, schoolMonth } from '@shared/coverage.js';
+import { onLocaleChange, locale, t as tr } from '@/lib/i18n.js';
+// the Arabic topics (COUNCIL2-34): their names and exercises when the app is in Arabic (only in a build made with
+// VITE_ARABIC=on; content/arabic.js ARABIC_TOPICS lists them)
+import { contentLang, hasArabic, arabicTopic } from './arabic.js';
 
 /**
  * A copy of plain data, so a topic's functions can be put on its own objects once they load (TOPIC_META stays as written).
@@ -28,6 +32,24 @@ const copy = (v) => (Array.isArray(v) ? v.map(copy) : v && typeof v === 'object'
 export const TOPICS = TOPIC_META.map((t) => ({ ...copy(t), cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) } }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
 
+/**
+ * The topics' words in the language on screen (COUNCIL2-34): an Arabic topic's title, description, stair titles and
+ * misconception names in Arabic, every other topic's in Hebrew. The same objects, so every screen that holds TOPIC
+ * reads the new words when it draws again (content/arabic.js puts NEW_CATS in place first). A topic's functions stay.
+ */
+function applyTopicWords() {
+  TOPIC_META.forEach((he, i) => {
+    const t = TOPICS[i];
+    const src = arabicTopic(he.id) || he;
+    for (const [k, v] of Object.entries(src)) if (k !== 'levels' && k !== 'cats') t[k] = copy(v);
+    src.levels.forEach((L, j) => { for (const [k, v] of Object.entries(L)) if (typeof v !== 'function') t.levels[j][k] = copy(v); });
+    t.cats = { ...src.cats, ...(NEW_CATS[t.id] || {}) };
+  });
+}
+onLocaleChange(applyTopicWords);
+// a module loaded after the language was set (a test, a later chunk) starts in it too
+if (locale() !== 'he') applyTopicWords();
+
 // ---------------------------------------------------------------- the exercise generators, loaded per topic
 // The first load carries the topics' names, colours, stairs and misconception names (topics.gen.js), not their
 // generators: each stair's gen (and any other function a topic has) loads with the topic, one dynamic import per topic
@@ -39,7 +61,16 @@ export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
 // learn/content/index.ts ensureTopics waits for a topic's generators together with its teaching, so a lesson, a check,
 // the placement test, Exam Rescue, the assistant's exercises, the practice exam and the teacher's class exam have them
 // before their first question; App.jsx and the map fetch the likely next topic's when the browser is idle.
-function importGens(topic) {
+function importGens(topic, lang = 'he') {
+  // an Arabic topic's generators (COUNCIL2-34): the Arabic twin of its file (scripts/gen-arabic.mjs), one case per topic
+  // of content/arabic.js ARABIC_TOPICS (learn/arabic.test.ts holds the list). Only in a build that has Arabic
+  // (VITE_ARABIC=on, lib/i18n.js): any other build carries none of these files. No topic has its Arabic now (see
+  // content/arabic.js), so every topic loads its Hebrew file.
+  if (import.meta.env.VITE_ARABIC === 'on' && lang === 'ar') {
+    switch (topic) {
+      default: return Promise.reject(new Error(`content: no Arabic generators for ${topic}`));
+    }
+  }
   switch (topic) {
     case 'expr': return import('./expr.js').then((m) => [m.EXPR]);
     case 'eq': return import('./eq.js').then((m) => [m.EQ]);
@@ -76,32 +107,41 @@ function attachFns(into, from, at) {
     else if (v && typeof v === 'object' && into[k] && typeof into[k] === 'object') attachFns(into[k], v, `${at}.${k}`);
   }
 }
-const gensLoaded = new Set();
+// each language's loaded topics, by id (an Arabic topic has both: the device can change language)
+const gensBy = { he: new Map(), ar: new Map() };
 const gensAsked = new Map();
-/** Put a loaded topic's functions on its topic (every topic of a file that loaded: they came with it). */
-function attachGens(full) {
-  const t = TOPIC[full?.id];
-  if (!t || gensLoaded.has(t.id)) return;
-  const { cats, lesson, ...rest } = full; // plain data: TOPICS merged its own names into cats, and the lesson summary is the guide page's (content/lessons.js)
-  attachFns(t, rest, t.id);
-  gensLoaded.add(t.id);
+/** Put the functions of the language on screen on a topic (an Arabic topic keeps its Hebrew ones until its Arabic come). */
+function applyGens(id) {
+  const fns = gensBy[contentLang(id)].get(id) || gensBy.he.get(id);
+  if (fns) attachFns(TOPIC[id], fns, id);
 }
-/** Have this topic's generators loaded? (An id the app does not know has none to wait for.) */
-export const gensReady = (topic) => gensLoaded.has(topic) || !TOPIC[topic];
+/** Keep a loaded topic's functions (every topic of a file that loaded: they came with it; an Arabic file's Arabic topics). */
+function attachGens(full, lang) {
+  const t = TOPIC[full?.id];
+  if (!t || gensBy[lang].has(t.id) || (lang === 'ar' && !hasArabic(t.id))) return;
+  const { cats, lesson, ...rest } = full; // plain data: TOPICS merged its own names into cats, and the lesson summary is the guide page's (content/lessons.js)
+  gensBy[lang].set(t.id, rest);
+  applyGens(t.id);
+}
+onLocaleChange(() => { for (const t of TOPICS) applyGens(t.id); });
+/** Have this topic's generators, in the language on screen, loaded? (An id the app does not know has none to wait for.) */
+export const gensReady = (topic) => !TOPIC[topic] || gensBy[contentLang(topic)].has(topic);
 /**
- * Load a topic's exercise generators, once (a file that failed to load, offline before it was ever kept, can be asked
- * for again). An unknown id resolves at once: it has none.
+ * Load a topic's exercise generators in the language on screen, once (a file that failed to load, offline before it
+ * was ever kept, can be asked for again). An unknown id resolves at once: it has none.
  */
 export function loadGens(topic) {
   if (gensReady(topic)) return Promise.resolve();
-  let p = gensAsked.get(topic);
+  const lang = contentLang(topic);
+  const key = `${lang}:${topic}`;
+  let p = gensAsked.get(key);
   if (!p) {
-    const q = importGens(topic).then((list) => {
-      for (const full of list) attachGens(full);
-      if (!gensLoaded.has(topic)) throw new Error(`content: no generators for ${topic}`);
+    const q = importGens(topic, lang).then((list) => {
+      for (const full of list) attachGens(full, lang);
+      if (!gensBy[lang].has(topic)) throw new Error(`content: no generators for ${topic}`);
     });
-    q.catch(() => { if (gensAsked.get(topic) === q) gensAsked.delete(topic); });
-    gensAsked.set(topic, q);
+    q.catch(() => { if (gensAsked.get(key) === q) gensAsked.delete(key); });
+    gensAsked.set(key, q);
     p = q;
   }
   return p;
@@ -283,9 +323,10 @@ export function catLabel(topicId, level, cat) {
  */
 export function ambiguousText(topic, level, candidates, more = true) {
   const names = (candidates || []).map((c) => catLabel(topic, level, c.id)).filter(Boolean);
-  const then = more ? ' עוד שאלה בסוף השיעור תעזור לדעת מה בדיוק בלבל.' : '';
-  if (names.length === 2) return `מה כנראה קרה: אולי ${names[0]}, ואולי ${names[1]}.${then}`;
-  if (names.length > 2) return `התשובה הזאת מתאימה לכמה טעויות שונות.${then}`;
+  // the words are the language's (COUNCIL2-34, locales/shell.*.json)
+  const then = more ? ` ${tr('shell.content.ambiguousOne')}` : '';
+  if (names.length === 2) return `${tr('shell.content.ambiguous', { a: names[0], b: names[1] })}${then}`;
+  if (names.length > 2) return `${tr('shell.content.ambiguousMany')}${then}`;
   return more ? then.trim() : null;
 }
 
@@ -299,7 +340,7 @@ export function diagnosisLine(topic, level, result) {
   if (!result) return null;
   if (result.diagnosis?.ambiguous) return ambiguousText(topic, level, result.diagnosis.candidates, result.more !== false);
   const label = catLabel(topic, level, result.cat);
-  return label ? `מה כנראה קרה: ${label}.` : null;
+  return label ? tr('shell.content.whatHappened', { label }) : null;
 }
 
 export const COLORS = ['sky', 'fuchsia', 'petrol', 'cobalt', 'violet'];

@@ -1,3 +1,6 @@
+/* Quests.jsx's own rules, out of the first-load stylesheets (COUNCIL2-20). Quests.jsx imports this file, so they load
+   with it. A rule is here only when the classes it needs are written by it, or by parts only it
+   loads (src/styles/lazy.test.js), and it keeps the order it had. */
 /* The missions tab's own cards (PRODUCT2-39: the ghost race and the family challenge) and the challenge's arrival page
    (#/f/<data>), loaded with them: moved out of the first load at the product2 merge (the boot CSS gate, 46 KB). */
 /* השבוע שלי (PRODUCT2-39): the ghost race, this week against the student's own last week as two calm bars on one scale;
@@ -6,33 +9,64 @@
 .ghost-card .card-title { margin: 0; }
 .ghost-rows { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
 .ghost-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label num" "bar bar"; align-items: baseline; gap: 6px var(--s3); }
-.ghost-label { grid-area: label; color: var(--ink); font-size: 16px; line-height: 24px; font-weight: 600; }
+.ghost-label { grid-area: label; color: var(--ink); font-size: 1rem; line-height: 1.5; font-weight: 600; }
 .ghost-row.is-last .ghost-label { color: var(--ink-2); font-weight: 500; }
-.ghost-num { grid-area: num; color: var(--ink); font-size: 16px; line-height: 24px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ghost-num { grid-area: num; color: var(--ink); font-size: 1rem; line-height: 1.5; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ghost-bar { grid-area: bar; display: block; height: 14px; border-radius: 999px; background: var(--track); overflow: hidden; }
 .ghost-bar i { display: block; height: 100%; border-radius: 999px; background: var(--brand); transition: inline-size var(--duration-slow) var(--ease-smooth-out); }
 .ghost-row.is-last .ghost-bar i { background: var(--brand-line); }
-.ghost-say { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; font-weight: 600; }
-.ghost-days, .ghost-best { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; }
+.ghost-say { margin: 0; color: var(--ink); font-size: 1rem; line-height: 1.5; font-weight: 600; }
+.ghost-days, .ghost-best { margin: 0; color: var(--ink-2); font-size: 0.9375rem; line-height: 1.4667; }
 .ghost-card .field-hint { margin: 0; }
 @media (prefers-reduced-motion: reduce) { .ghost-bar i { transition: none; } }
 /* אתגר משפחתי (PRODUCT2-39): the goal a parent sent, the week's days or stages as dots, and a quiet way to take it off */
 .family-card { display: flex; flex-direction: column; gap: var(--s3); }
 .family-card .card-title { margin: 0; }
-.fc-goal { margin: 0; color: var(--ink); font-size: 18px; line-height: 26px; font-weight: 700; text-wrap: pretty; }
+.fc-goal { margin: 0; color: var(--ink); font-size: 1.125rem; line-height: 1.4445; font-weight: 700; text-wrap: pretty; }
 .fc-dots { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .fc-dot { inline-size: 24px; block-size: 24px; border: 2px solid var(--rule-strong); border-radius: 50%; background: var(--surface); }
 .fc-dot.is-on { border-color: var(--brand); background: var(--brand); }
-.fc-line { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; font-weight: 600; }
-.fc-tell { margin: 0; color: var(--ink); font-size: 15px; line-height: 22px; }
+.fc-line { margin: 0; color: var(--ink); font-size: 1rem; line-height: 1.5; font-weight: 600; }
+.fc-tell { margin: 0; color: var(--ink); font-size: 0.9375rem; line-height: 1.4667; }
 .family-card .fc-report { align-self: flex-start; }
 .family-card .field-hint { margin: 0; }
-.family-card .fc-drop { align-self: flex-start; padding: 0; font-size: 15px; }
+.family-card .fc-drop { align-self: flex-start; padding: 0; font-size: 0.9375rem; }
 /* #/f/<data>: the challenge as it arrives, before the child takes it */
 .family-offer .offer-card { display: flex; flex-direction: column; align-items: center; gap: var(--s3); margin: var(--s4) var(--gutter) 0; text-align: center; }
-.offer-lead { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; }
-.offer-goal { display: inline-flex; align-items: center; gap: var(--s2); margin: 0; color: var(--ink); font-size: 24px; line-height: 32px; font-weight: 800; }
-.offer-week { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; font-weight: 600; }
-.offer-line { margin: 0; max-width: 36ch; color: var(--ink); font-size: 16px; line-height: 24px; text-wrap: pretty; }
+.offer-lead { margin: 0; color: var(--ink-2); font-size: 1rem; line-height: 1.5; }
+.offer-goal { display: inline-flex; align-items: center; gap: var(--s2); margin: 0; color: var(--ink); font-size: 1.5rem; line-height: 1.3334; font-weight: 800; }
+.offer-week { margin: 0; color: var(--ink); font-size: 1rem; line-height: 1.5; font-weight: 600; }
+.offer-line { margin: 0; max-width: 36ch; color: var(--ink); font-size: 1rem; line-height: 1.5; text-wrap: pretty; }
 .offer-kept { margin: 0; max-width: 36ch; }
 .family-offer .screen-foot .offer-later { min-height: 44px; }
+.gold-icon { color: var(--gold); fill: var(--gold); }
+.streak-card-top { display: flex; align-items: center; gap: var(--s3); }
+.streak-flame { color: var(--rule-strong); }
+.streak-flame.on { color: var(--streak); }
+.freeze-line { display: flex; align-items: flex-start; gap: var(--s2); color: var(--ink-2); font-size: var(--t-sm); }
+.seg-main { font-family: var(--font-display); font-weight: 700; font-size: var(--t-md); line-height: 1.1579; }
+.seg-sub { font-size: var(--t-xs); line-height: 1.1429; }
+.quest.done .quest-check { background: var(--good); border-color: var(--good); }
+.quest.done .quest-title { color: var(--good-ink); }
+.quest-count { direction: ltr; }
+.goal-star { width: 34px; height: 34px; margin: -6px -4px; flex: none; }
+.quest.done { border-color: var(--good-line); background: var(--good-tint); }
+.quest-xp .quest-icon, .quest-perfect .quest-icon { background: var(--gold-tint); color: var(--gold-ink); }
+.quest-combo .quest-icon { background: var(--streak-tint); color: var(--streak-ink); }
+.quest-mission .quest-icon, .quest-correct .quest-icon { background: var(--ch-petrol-tint); color: var(--ch-petrol-ink); }
+.quest.done .quest-bar i { background: linear-gradient(180deg, #5fd476, var(--good)); } /* colour-ok: the lit top of a coloured bar, the same in both themes */
+.quest-chest.open { background: var(--gold-tint); border: 2px solid var(--gold-line); }
+.quest-chest:not(.open) .quest-chest-art { filter: grayscale(0.6) opacity(0.75); }
+@media (min-width: 1024px) {
+  .quests > .goal-card { grid-column: 2; height: 100%; }
+  .quests > .quest-card .quest-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .quests > .quest-card .quest { grid-template-columns: auto minmax(0, 1fr); }
+  .quests > .quest-card .quest-count { grid-column: 2; }
+}
+@media (max-width: 560px) {
+  .quest-chest .mascot { grid-column: 2; grid-row: 1; }
+  .quest-say { grid-column: 1 / -1; grid-row: 2; text-align: center; }
+}
+/* the streak card on Quests: the month's learning days (a number that does not reset) and the repair, in words */
+.streak-month { margin: 4px 0 0; color: var(--ink); font-size: 0.9375rem; line-height: 1.4667; font-weight: 600; }
+.streak-repair-line { margin: 0; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--ground); color: var(--ink); font-size: 0.9375rem; line-height: 1.4667; }

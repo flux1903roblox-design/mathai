@@ -6,10 +6,20 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { NOW, student, item, type, proceed, answer, saved } from './helpers.js';
 import { fakeServer, API, livePlan } from './fakeServer.js';
+import { familyDevice } from './contract.js';
 
 const FAMILY = `fd1.${'c'.repeat(64)}`;
 // a device linked to a family plan, so the tutor is open and the lesson asks it by itself after a second miss
-const family = (extra = {}) => ({ ...student('7', { ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: FAMILY, label: 'הטאבלט' } }, ...extra }), version: 3 });
+const family = (extra = {}, fd = { token: FAMILY, device: '' }) => ({ ...student('7', { ai: { mode: 'server', apiUrl: API, key: '', device: fd.device, introSeen: true, familyDevice: { token: fd.token, label: 'הטאבלט' } }, ...extra }), version: 3 });
+/**
+ * A family plan with this device linked: in the fake, a device and a live plan in its state; against the real Worker
+ * (@contract, COUNCIL2-22) a parent signs in, pays on the test provider's page and links a device (contract.js).
+ */
+async function familyPlan(srv) {
+  if (srv.contract) return familyDevice(srv);
+  srv.st.devices.push({ id: 'd1', label: 'הטאבלט', token: FAMILY }); srv.st.plan = livePlan();
+  return { token: FAMILY, device: '' };
+}
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
 // TUTOR_LOG=<folder> keeps each request body checked here, as the evidence of what leaves the device (nothing is compared)
 const bodyOf = async (log, path) => {
@@ -60,11 +70,14 @@ const check = (page) => page.getByRole('button', { name: 'בדיקה', exact: tr
 test.describe('what the tutor is told', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
 
-  test('the explain request carries the app\'s diagnosis, and after the second miss may reveal', async ({ page }) => {
-    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
-    st.devices.push({ id: 'd1', label: 'הטאבלט', token: FAMILY }); st.plan = livePlan();
+  // @contract (COUNCIL2-22): on the real Worker the family plan is bought and the device linked first; the request the
+  // app sends is the same, and the Worker answers it as a family device
+  test('the explain request carries the app\'s diagnosis, and after the second miss may reveal', { tag: '@contract' }, async ({ page }) => {
+    const srv = await fakeServer(page, { parentOk: true }, baseOf());
+    const { log } = srv;
+    const fd = await familyPlan(srv);
     // a positive number minus a negative one, typed: a − (−b), whose minus-minus answer is a − b
-    const it = await openOn(page, '#/lesson/signed/1', family(), (x) => /^sn1:(\d+) - \(-(\d+)\)$/.test(x.key));
+    const it = await openOn(page, '#/lesson/signed/1', family({}, fd), (x) => /^sn1:(\d+) - \(-(\d+)\)$/.test(x.key));
     const [, a, b] = it.key.match(/^sn1:(\d+) - \(-(\d+)\)$/).map(Number);
     await page.locator('#slot-v').click();
     await type(page, a - b);
@@ -92,10 +105,11 @@ test.describe('what the tutor is told', () => {
     expect(body.question).toBeUndefined(); expect(body.studentAnswer).toBeUndefined();
   });
 
-  test('a chat on an open exercise sends withhold, with no answers yet', async ({ page }) => {
-    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
-    st.devices.push({ id: 'd1', label: 'הטאבלט', token: FAMILY }); st.plan = livePlan();
-    await open(page, '#/lesson/signed/1', family());
+  test('a chat on an open exercise sends withhold, with no answers yet', { tag: '@contract' }, async ({ page }) => {
+    const srv = await fakeServer(page, { parentOk: true }, baseOf());
+    const { log } = srv;
+    const fd = await familyPlan(srv);
+    await open(page, '#/lesson/signed/1', family({}, fd));
     await expect.poll(() => item(page)).toBeTruthy();
     await page.getByRole('button', { name: 'שאלו את העוזר' }).click();
     const sheet = page.getByRole('dialog', { name: 'שאלו את העוזר' });

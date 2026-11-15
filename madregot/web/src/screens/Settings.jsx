@@ -4,7 +4,8 @@
 // The student's own settings speak to the student (PRODUCT2-41): how the browser keeps the data, the backup and the
 // support details are for the adult who looks after the device, in "להורים ולמבוגרים" under them, folded until an
 // adult opens it (/settings#save opens it at the saving). Servers and keys are for the adult who sets the app up,
-// behind "מתקדם" in that section.
+// behind "מתקדם" in that section. The words are in the app's language (COUNCIL2-34, locales/settings.*.json).
+import '@/locales/settings.js'; // this screen's words, before anything here uses them (COUNCIL2-34)
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
@@ -12,8 +13,9 @@ import { toast } from 'sonner';
 import { ArrowRight, ChevronLeft, ChevronDown, Download } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
-import { Button, Field, Sheet, Segmented } from '@/components/ui.jsx';
-import { GradeSwitch, joinClass, joinedProfile } from './Welcome.jsx';
+import { Button, Field, Sheet } from '@/components/ui.jsx';
+import { Segmented } from '@/components/choices.jsx';
+import { GradeSwitch, joinClass, joinedProfile, ClaimField, CLAIM_COPY, claimReason } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { openSupport } from '@/components/SupportSheet.jsx';
@@ -38,23 +40,26 @@ import { count } from '@/lib/metrics.js';
 import SharingSheet, { stateWord } from '@/components/SharingSheet.jsx';
 import { disable as disableReminder } from '@/lib/push.js';
 import ReminderSettings from '@/components/learn/ReminderSettings.jsx';
-import '@/styles/lazy/settings.css'; // this screen's own rules, loaded with it (moved out of the first load at the product2 merge)
+import LangPick from '@/components/LangPick.jsx';
+import { localized, t, useLocale, LOCALES } from '@/lib/i18n.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/settings.css'; // this screen's own rules, out of the first load (COUNCIL2-20; the adults' section's since the product2 merge)
 
-export const SIGNOUT_VAULT = 'הגיבוי בשרת נשאר. כדי לחזור להתקדמות, פותחים את מדרגות ובוחרים "יש לי קוד גיבוי".';
+export let SIGNOUT_VAULT = localized(() => t('settings.settings.1'), (v) => { SIGNOUT_VAULT = v; });
 /**
  * The device-unlink sheet and the wipe sheet on a linked device: the parents' summaries go with it (PARENTS-4). "Delete all"
  * deletes them in the server's one delete (POST /api/me/forget, worker forget.js familyDeviceDeleteStmts).
  */
-export const UNLINK_SUMMARIES = 'העוזר החכם יחזור כאן ל־2 שאלות ביום, והסיכומים שנשלחו להורים מהמכשיר הזה יימחקו. ההורים יכולים לחבר אותו שוב.';
-export const WIPE_SUMMARIES = 'גם הסיכומים שנשלחו להורים מהמכשיר הזה יימחקו.';
+export let UNLINK_SUMMARIES = localized(() => t('settings.settings.2'), (v) => { UNLINK_SUMMARIES = v; });
+export let WIPE_SUMMARIES = localized(() => t('settings.settings.3'), (v) => { WIPE_SUMMARIES = v; });
 /** The unlink could not reach the server: the link stays and the summaries are not deleted. */
-export const UNLINK_FAILED = 'לא הצלחנו לנתק את המכשיר, אז הוא עדיין מחובר והסיכומים לא נמחקו. נסו שוב כשיש חיבור.';
+export let UNLINK_FAILED = localized(() => t('settings.settings.4'), (v) => { UNLINK_FAILED = v; });
 /**
  * Under the join form of Settings: the class keeps a copy (Welcome's CLASS_COPY_NOTE), and when this device already has a
  * backup code that nobody keeps, joining gives that code to the class's server too: said before the join, with the way out.
  */
 export const JOIN_COPY_NOTE = WHERE_SAVED.classCopyClause;
-export const JOIN_CODE_NOTE = 'קוד הגיבוי שכבר יש לכם יישמר גם בשרת הכיתה, כך שהשרת יוכל לפתוח את העותק הזה. אפשר לכבות את זה במתג "שמירת עותק בשרת הכיתה".';
+export let JOIN_CODE_NOTE = localized(() => t('settings.settings.5'), (v) => { JOIN_CODE_NOTE = v; });
 /** How long a sign-out waits for the last push of the backup before it goes on anyway. */
 const LAST_PUSH_MS = 4000;
 
@@ -63,15 +68,17 @@ function ClassSection() {
   const backup = useApp((s) => s.backup);
   const escrowClass = useApp((s) => s.durable?.escrowClass !== false);
   const [code, setCode] = useState(''); const [pin, setPin] = useState('');
+  // the teacher's one-time code, asked for once the server says this name's PIN was reset (COUNCIL2-25)
+  const [claim, setClaim] = useState(''); const [needClaim, setNeedClaim] = useState(false);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [confirmLeave, setConfirmLeave] = useState(false);
 
   if (profile.classCode && profile.token) {
     return (
       <section className="section set-group" aria-labelledby="cls-title">
-        <h2 id="cls-title" className="set-head">הכיתה שלי</h2>
-        <p>כיתה <b>{profile.className}</b> <span className="muted mono" dir="ltr">({profile.classCode})</span></p>
-        <p className="muted">ההתקדמות ובקשות העזרה שלכם נשלחות למורה.</p>
+        <h2 id="cls-title" className="set-head">{t('settings.settings.6')}</h2>
+        <p>{t('settings.settings.7')}<b>{profile.className}</b> <span className="muted mono" dir="ltr">({profile.classCode})</span></p>
+        <p className="muted">{t('settings.settings.8')}</p>
       </section>
     );
   }
@@ -79,34 +86,40 @@ function ClassSection() {
   if (!hasServer()) {
     return (
       <section className="section set-group" aria-labelledby="cls-title">
-        <h2 id="cls-title" className="set-head">הצטרפות לכיתה</h2>
-        <p className="muted">בגרסה הזו אין שרת כיתה, אז ההתקדמות נשמרת רק במכשיר הזה. כדי שהמורה יראה את ההתקדמות, נכנסים מהכתובת של הכיתה שהמורה נותן, ושם מצטרפים עם קוד הכיתה.</p>
+        <h2 id="cls-title" className="set-head">{t('settings.settings.9')}</h2>
+        <p className="muted">{t('settings.settings.10')}</p>
       </section>
     );
   }
   const join = async (e) => {
-    e.preventDefault(); setError(''); setBusy(true);
+    e.preventDefault(); setError('');
+    if (needClaim && !claim) { setError(CLAIM_COPY.missing); return; }
+    setBusy(true);
     try {
-      const c = await joinClass({ code: code || profile.classCode, name: profile.name, pin });
+      const c = await joinClass({ code: code || profile.classCode, name: profile.name, pin, claim: needClaim ? claim : '' });
       setProfile({ ...profile, ...joinedProfile(c), role: 'student' });
       useApp.getState().quietForClass(); // sounds start off in a class, unless the student already chose them
       // the class's copy comes back (merged with what is here), or this device's code is kept by the class (DURABLE-6)
-      const hello = () => toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
+      const hello = () => toast.success(c.returning ? t('settings.settings.11', { className: c.className }) : t('settings.settings.12', { className: c.className }));
       if (!c.vault) hello();
       const r = await afterClassJoin(c);
       if (r.restored) toast.success(r.toast);
       else if (c.vault) hello();
       if (r.toast && !r.restored) toast(r.toast);
-    } catch (err) { setError(err.message); } finally { setBusy(false); }
+    } catch (err) {
+      if (err.code === 'claim_code_needed') setNeedClaim(claimReason(err));
+      else setError(err.message);
+    } finally { setBusy(false); }
   };
   return (
     <section className="section set-group" aria-labelledby="cls-title">
-      <h2 id="cls-title" className="set-head">{profile.classCode ? 'התחברות מחדש לכיתה' : 'הצטרפות לכיתה'}</h2>
+      <h2 id="cls-title" className="set-head">{profile.classCode ? t('settings.settings.13') : t('settings.settings.9')}</h2>
       <form className="stack" onSubmit={join} noValidate>
         {!profile.classCode && (
-          <Field label="קוד כיתה" id="me-code"><input id="me-code" className="input mono" dir="ltr" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} /></Field>
+          <Field label={t('settings.settings.14')} id="me-code"><input id="me-code" className="input mono" dir="ltr" value={code} onChange={(e) => { setNeedClaim(false); setCode(e.target.value.toUpperCase()); }} maxLength={6} /></Field>
         )}
-        <Field label="קוד אישי של 4 ספרות" id="me-pin" hint="אם זו הפעם הראשונה, בחרו קוד ותזכרו אותו.">
+        {needClaim && <ClaimField id="me-claim" why={needClaim} value={claim} onChange={(v) => { setError(''); setClaim(v); }} />}
+        <Field label={needClaim ? CLAIM_COPY.pinLabel : t('settings.settings.15')} id="me-pin" hint={needClaim ? null : t('settings.settings.16')}>
           <input id="me-pin" className="input mono" dir="ltr" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
         </Field>
         {escrowClass && (
@@ -115,12 +128,12 @@ function ClassSection() {
           </p>
         )}
         {error && <p className="form-error" role="alert">{error}</p>}
-        <Button type="submit" disabled={busy}>{busy ? 'מצטרפים…' : 'הצטרפות'}</Button>
-        {profile.classCode && <Button variant="ghost" className="btn-sm" onClick={() => setConfirmLeave(true)}>לא רוצים כיתה</Button>}
+        <Button type="submit" disabled={busy}>{busy ? t('settings.settings.17') : t('settings.settings.18')}</Button>
+        {profile.classCode && <Button variant="ghost" className="btn-sm" onClick={() => setConfirmLeave(true)}>{t('settings.settings.19')}</Button>}
       </form>
-      <ConfirmSheet open={confirmLeave} onOpenChange={setConfirmLeave} title="להמשיך בלי כיתה?" keep="להישאר בכיתה" mood="idle"
-        confirm="כן, להמשיך לבד" onConfirm={() => { leaveClass(); setConfirmLeave(false); }}>
-        <p>ההתקדמות נשארת במכשיר, אבל המורה לא יראה אותה. אפשר להצטרף שוב עם הקוד.</p>
+      <ConfirmSheet open={confirmLeave} onOpenChange={setConfirmLeave} title={t('settings.settings.20')} keep={t('settings.settings.21')} mood="idle"
+        confirm={t('settings.settings.22')} onConfirm={() => { leaveClass(); setConfirmLeave(false); }}>
+        <p>{t('settings.settings.23')}</p>
       </ConfirmSheet>
     </section>
   );
@@ -130,10 +143,10 @@ function ClassSection() {
 function useConnectionTest(detail = false) {
   const [status, setStatus] = useState('');
   const test = async () => {
-    setStatus('בודקים…');
+    setStatus(t('settings.settings.24'));
     try {
       const h = await api('/api/health');
-      setStatus(h.ai ? `העוזר מחובר ומוכן.${detail && h.model ? ` מודל: ${h.model}` : ''}` : 'השרת עונה, אבל העוזר עוד לא חובר אליו.');
+      setStatus(h.ai ? t('settings.settings.26', { p0: detail && h.model ? t('settings.settings.25', { model: h.model }) : '' }) : t('settings.settings.27'));
     } catch (e) { setStatus(e.message); }
   };
   return [status, test];
@@ -144,9 +157,9 @@ function AdvancedRow() {
   if (!PERSONAL_KEY) return null;
   return (
     <section className="section set-group" aria-labelledby="adv-title">
-      <h3 id="adv-title" className="set-head">מתקדם</h3>
+      <h3 id="adv-title" className="set-head">{t('settings.settings.28')}</h3>
       <div className="set-rows-wrap"><div className="set-rows">
-        <Link to="/settings/advanced" className="set-row"><span>חיבור העוזר לשרת או למפתח (להורים ולמורים)</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+        <Link to="/settings/advanced" className="set-row"><span>{t('settings.settings.29')}</span><ChevronLeft size={18} aria-hidden="true" /></Link>
       </div></div>
     </section>
   );
@@ -170,40 +183,40 @@ export function AdvancedSettings() {
   return (
     <div className="page pushed settings settings-advanced">
       <header className="screen-bar" data-region="header">
-        <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="חזרה"><ArrowRight size={24} aria-hidden="true" /></button>
-        <h1 className="screen-bar-title">מתקדם</h1>
+        <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('settings.settings.30')}><ArrowRight size={24} aria-hidden="true" /></button>
+        <h1 className="screen-bar-title">{t('settings.settings.28')}</h1>
         <span className="icon-btn-spacer" aria-hidden="true" />
       </header>
-      <p className="set-adult-note">ההגדרות כאן הן להורה או למורה שמכינים את האפליקציה. תלמידים לא צריכים לשנות כאן כלום.</p>
+      <p className="set-adult-note">{t('settings.settings.31')}</p>
       {!inClass && (
         <section className="section set-group" aria-labelledby="adv-mode">
-          <h2 id="adv-mode" className="set-head">איך העוזר מתחבר</h2>
+          <h2 id="adv-mode" className="set-head">{t('settings.settings.32')}</h2>
           <div className="segmented" role="radiogroup" aria-labelledby="adv-mode">
-            <button type="button" role="radio" aria-checked={ai.mode !== 'personal'} className={clsx('seg', ai.mode !== 'personal' && 'on')} onClick={() => setAI({ mode: 'server' })}>שרת הכיתה</button>
-            <button type="button" role="radio" aria-checked={ai.mode === 'personal'} className={clsx('seg', ai.mode === 'personal' && 'on')} onClick={() => setAI({ mode: 'personal' })}>מפתח אישי</button>
+            <button type="button" role="radio" aria-checked={ai.mode !== 'personal'} className={clsx('seg', ai.mode !== 'personal' && 'on')} onClick={() => setAI({ mode: 'server' })}>{t('settings.settings.33')}</button>
+            <button type="button" role="radio" aria-checked={ai.mode === 'personal'} className={clsx('seg', ai.mode === 'personal' && 'on')} onClick={() => setAI({ mode: 'personal' })}>{t('settings.settings.34')}</button>
           </div>
         </section>
       )}
       {(inClass || ai.mode !== 'personal') ? (
         <section className="section set-group" aria-labelledby="adv-server">
-          <h2 id="adv-server" className="set-head">כתובת השרת</h2>
+          <h2 id="adv-server" className="set-head">{t('settings.settings.35')}</h2>
           <div className="stack">
-            <Field label="כתובת השרת" id="ai-url" hint={served ? 'משאירים ריק כדי להשתמש בשרת שהאפליקציה הגיעה ממנו.' : 'הכתובת של שרת הכיתה, כמו שהמורה נתן.'}>
+            <Field label={t('settings.settings.35')} id="ai-url" hint={served ? t('settings.settings.36') : t('settings.settings.37')}>
               <input id="ai-url" name="server-url" className="input mono" dir="ltr" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…workers.dev" autoComplete="off" spellCheck={false} />
             </Field>
-            <Button variant="secondary" className="btn-sm" onClick={save}>שמירה ובדיקה</Button>
+            <Button variant="secondary" className="btn-sm" onClick={save}>{t('settings.settings.38')}</Button>
             {status && <p className="muted" role="status">{status}</p>}
           </div>
         </section>
       ) : (
         <section className="section set-group" aria-labelledby="adv-key">
-          <h2 id="adv-key" className="set-head">מפתח Claude אישי</h2>
+          <h2 id="adv-key" className="set-head">{t('settings.settings.39')}</h2>
           <div className="stack">
-            <Field label="מפתח Claude (Anthropic API)" id="ai-key" hint="חשבון Anthropic הוא של מבוגר. המפתח נשמר רק במכשיר הזה ונשלח ישירות ל־Anthropic, בלי המגבלות של שרת הכיתה. אל תשמרו מפתח במכשיר של תלמיד אחר.">
+            <Field label={t('settings.settings.40')} id="ai-key" hint={t('settings.settings.41')}>
               <input id="ai-key" type="password" className="input mono" dir="ltr" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-…" autoComplete="off" />
             </Field>
-            <Button variant="secondary" onClick={() => { setAI({ key: key.trim(), mode: 'personal' }); toast.success('המפתח נשמר במכשיר'); }}>שמירת המפתח</Button>
-            {ai.key && <Button variant="ghost" className="btn-sm" onClick={() => { setAI({ key: '', mode: 'server' }); setKey(''); }}>מחיקת המפתח מהמכשיר</Button>}
+            <Button variant="secondary" onClick={() => { setAI({ key: key.trim(), mode: 'personal' }); toast.success(t('settings.settings.42')); }}>{t('settings.settings.43')}</Button>
+            {ai.key && <Button variant="ghost" className="btn-sm" onClick={() => { setAI({ key: '', mode: 'server' }); setKey(''); }}>{t('settings.settings.44')}</Button>}
           </div>
         </section>
       )}
@@ -230,10 +243,10 @@ function AISection() {
   const [unlink, setUnlink] = useState(false);
   const [sharing, setSharing] = useState(false);
   const test = async () => {
-    setChecking('בודקים…');
+    setChecking(t('settings.settings.24'));
     try {
       const h = await api('/api/health');
-      setChecking(h.ai ? 'העוזר מחובר ומוכן.' : 'השרת עונה, אבל העוזר עוד לא מחובר בו.');
+      setChecking(h.ai ? t('settings.settings.45') : t('settings.settings.46'));
     } catch (e) { setChecking(e.message); }
   };
   const tier = status?.tier;
@@ -243,24 +256,24 @@ function AISection() {
   const rows = [];
   let text;
   if (paid && linked && tier === 'family') {
-    text = 'העוזר החכם פתוח במכשיר הזה דרך המנוי המשפחתי.';
-    rows.push(<button key="unlink" type="button" className="set-row" onClick={() => setUnlink(true)}>ניתוק המכשיר מהמנוי</button>);
+    text = t('settings.settings.47');
+    rows.push(<button key="unlink" type="button" className="set-row" onClick={() => setUnlink(true)}>{t('settings.settings.48')}</button>);
   } else if (paid && ['class', 'teacher', 'trial'].includes(tier)) {
-    text = 'העוזר החכם פתוח לכל הכיתה.';
+    text = t('settings.settings.49');
   } else if (paid && tier === 'legacy') {
-    text = 'העוזר פתוח דרך הכיתה.';
+    text = t('settings.settings.50');
   } else if (paid) {
-    text = `בכל יום אפשר לשאול את העוזר החכם ${status.groups?.tutor?.limit ?? 2} שאלות. מדי, השיעורים והתרגול פתוחים תמיד.`;
-    if (linked) rows.push(<button key="unlink" type="button" className="set-row" onClick={() => setUnlink(true)}>ניתוק המכשיר מהמנוי</button>);
-    else if (sell) rows.push(<Link key="link" to="/parents/info" className="set-row"><span>חיבור למנוי משפחתי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
-    rows.push(<Link key="info" to="/parents/info" className="set-row"><span>מידע להורים</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+    text = t('settings.settings.51', { p0: status.groups?.tutor?.limit ?? 2 });
+    if (linked) rows.push(<button key="unlink" type="button" className="set-row" onClick={() => setUnlink(true)}>{t('settings.settings.48')}</button>);
+    else if (sell) rows.push(<Link key="link" to="/parents/info" className="set-row"><span>{t('settings.settings.52')}</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+    rows.push(<Link key="info" to="/parents/info" className="set-row"><span>{t('settings.settings.53')}</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   }
-  if (paid && sell) rows.push(<Link key="cancel" to="/cancel" className="set-row"><span>ביטול מנוי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+  if (paid && sell) rows.push(<Link key="cancel" to="/cancel" className="set-row"><span>{t('settings.settings.54')}</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   const shared = linked && !!status?.linked;
   if (shared) {
     rows.unshift(
       <button key="share" type="button" className="set-row set-row-value" onClick={() => setSharing(true)}>
-        <span>שיתוף עם ההורים</span>
+        <span>{t('settings.settings.55')}</span>
         <span className="set-row-state">{stateWord(status.linked.summary)}<ChevronLeft size={18} aria-hidden="true" /></span>
       </button>,
     );
@@ -268,38 +281,38 @@ function AISection() {
   // a child alone, on a device no parent has approved (trust spec TRUST-9): the one way on is the screen for the parents
   const waiting = served && status?.state === 'parent_ok_needed';
   if (waiting) {
-    text = `${PARENT_OK_LINE} מדי, השיעורים והתרגול פתוחים תמיד.`;
-    rows.push(<Link key="ok" to="/parents/info" className="set-row"><span>אישור של הורה</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+    text = t('settings.settings.56', { PARENT_OK_LINE });
+    rows.push(<Link key="ok" to="/parents/info" className="set-row"><span>{t('settings.settings.57')}</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   } else if (!paid) {
-    text = inClass ? `העוזר מחובר דרך הכיתה${profile.teacherName ? ` של ${profile.teacherName}` : ''}. אין צורך להגדיר כלום.`
-      : served ? 'העוזר עובד דרך השרת של האפליקציה.'
-        : PERSONAL_KEY && ai.mode === 'personal' && ai.key ? 'העוזר מחובר במכשיר הזה, דרך ההגדרות המתקדמות.'
-          : PERSONAL_KEY ? 'בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו. כשמצטרפים לכיתה מהכתובת שהמורה נותן, העוזר מגיע איתה.'
-          : 'בגרסה הזו העוזר החכם לא מחובר. השיעורים, התרגול ומדי עובדים כרגיל.';
+    text = inClass ? t('settings.settings.59', { p0: profile.teacherName ? t('settings.settings.58', { teacherName: profile.teacherName }) : '' })
+      : served ? t('settings.settings.60')
+        : PERSONAL_KEY && ai.mode === 'personal' && ai.key ? t('settings.settings.61')
+          : PERSONAL_KEY ? t('settings.settings.62')
+          : t('settings.settings.63');
   }
   return (
     <section className="section set-group" aria-labelledby="ai-title">
-      <h2 id="ai-title" className="set-head">העוזר החכם</h2>
+      <h2 id="ai-title" className="set-head">{t('settings.settings.64')}</h2>
       <div className="set-box stack">
         <p>{text}</p>
-        {!paid && served && <Button variant="ghost" className="btn-sm" onClick={test}>בדיקת חיבור</Button>}
+        {!paid && served && <Button variant="ghost" className="btn-sm" onClick={test}>{t('settings.settings.65')}</Button>}
         {checking && <p className="muted" role="status">{checking}</p>}
       </div>
       {rows.length > 0 && <div className="set-rows-wrap"><div className="set-rows">{rows}</div></div>}
-      <ConfirmSheet open={unlink} onOpenChange={setUnlink} title="לנתק את המכשיר מהמנוי?" keep="להשאיר מחובר" mood="idle"
-        confirm="כן, לנתק" onConfirm={async () => {
+      <ConfirmSheet open={unlink} onOpenChange={setUnlink} title={t('settings.settings.66')} keep={t('settings.settings.67')} mood="idle"
+        confirm={t('settings.settings.68')} onConfirm={async () => {
           setUnlink(false);
           // a leave the server did not hear keeps the link (and the summaries are not left behind): say so
-          try { await leaveFamily(); toast('המכשיר נותק מהמנוי'); } catch { toast.error(UNLINK_FAILED); }
+          try { await leaveFamily(); toast(t('settings.settings.69')); } catch { toast.error(UNLINK_FAILED); }
         }}>
-        <p>{shared ? UNLINK_SUMMARIES : 'העוזר החכם יחזור כאן ל־2 שאלות ביום. ההורים יכולים לחבר אותו שוב.'}</p>
+        <p>{shared ? UNLINK_SUMMARIES : t('settings.settings.70')}</p>
       </ConfirmSheet>
       {shared && <SharingSheet open={sharing} onOpenChange={setSharing} />}
     </section>
   );
 }
 
-const LOOKS = [['system', 'כמו במכשיר'], ['light', 'בהיר'], ['dark', 'כהה']];
+let LOOKS = localized(() => ([['system', t('settings.settings.71')], ['light', t('settings.settings.72')], ['dark', t('settings.settings.73')]]), (v) => { LOOKS = v; });
 
 /** מראה: follow the phone (the default), or always light, or always dark (lib/theme.js). */
 function ThemeSetting() {
@@ -307,9 +320,26 @@ function ThemeSetting() {
   const setTheme = useApp((x) => x.setTheme);
   return (
     <section className="section set-group" aria-labelledby="look-title">
-      <h2 id="look-title" className="set-head">מראה</h2>
+      <h2 id="look-title" className="set-head">{t('settings.settings.74')}</h2>
       <Segmented value={theme} onValueChange={setTheme} options={LOOKS} labelledBy="look-title" describedBy="look-hint" />
-      <p className="field-hint" id="look-hint">"כמו במכשיר" עובר לכהה כשהטלפון במצב כהה.</p>
+      <p className="field-hint" id="look-hint">{t('settings.settings.75')}</p>
+    </section>
+  );
+}
+
+/**
+ * שפה / اللغة (COUNCIL2-34): the language of this device's screens. In Arabic it also says, calmly, that the translation
+ * has started and some screens are still in Hebrew.
+ */
+function LanguageSetting() {
+  const lang = useLocale();
+  // one language (a build without Arabic, the default): no choice to offer, so no section
+  if (Object.keys(LOCALES).length < 2) return null;
+  return (
+    <section className="section set-group" aria-labelledby="lang-title">
+      <h2 id="lang-title" className="set-head">{t('settings.locale.title')}</h2>
+      <LangPick labelledBy="lang-title" />
+      <p className="field-hint" id="lang-hint">{t('settings.locale.hint')}{lang !== 'he' && <> {t('settings.locale.partial')}</>}</p>
     </section>
   );
 }
@@ -343,10 +373,10 @@ function SoundSettings() {
   const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
   return (
     <>
-      <OnOff id="snd" title="צלילים" value={sound} onChange={setSound} on="פועלים" off="כבויים" hint={`צליל קצר אחרי תשובה ובסוף שיעור, וסימנים שעפים על המסך ברגעים מיוחדים. למי שהצטרף לכיתה הם כבויים בהתחלה.${reduce ? ' בטלפון מופעלת הפחתת תנועה, ולכן צלילי החגיגה שקטים.' : ''}`} />
+      <OnOff id="snd" title={t('settings.settings.76')} value={sound} onChange={setSound} on={t('settings.settings.77')} off={t('settings.settings.78')} hint={`${t('settings.settings.79')}${reduce ? ` ${t('settings.settings.soundReduce')}` : ''}`} />
       {canVibrate
-        ? <OnOff id="vib" title="רטט" value={haptics} onChange={setHaptics} on="פועל" off="כבוי" hint={reduce ? 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה. בטלפון מופעלת הפחתת תנועה, ולכן עכשיו אין רטט.' : 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה.'} />
-        : <OnOff id="vib" title="רטט"><p className="field-hint" id="vib-hint">בדפדפן הזה אין רטט.</p></OnOff>}
+        ? <OnOff id="vib" title={t('settings.settings.80')} value={haptics} onChange={setHaptics} on={t('settings.settings.81')} off={t('settings.settings.82')} hint={reduce ? t('settings.settings.83') : t('settings.settings.84')} />
+        : <OnOff id="vib" title={t('settings.settings.80')}><p className="field-hint" id="vib-hint">{t('settings.settings.85')}</p></OnOff>}
     </>
   );
 }
@@ -367,10 +397,10 @@ function InstallRow() {
   const install = () => { count('install_offer'); offer(); };
   return (
     <section className="section set-group" aria-labelledby="app-title">
-      <h2 id="app-title" className="set-head">האפליקציה</h2>
+      <h2 id="app-title" className="set-head">{t('settings.settings.86')}</h2>
       <div className="set-rows-wrap"><div className="set-rows">
-        {canOffer && <button type="button" className="set-row go" onClick={install}><span>להתקין את האפליקציה</span><Download size={18} aria-hidden="true" /></button>}
-        {ios && <button type="button" className="set-row go" onClick={() => setGuide(true)}><span>להוסיף למסך הבית</span><ChevronLeft size={18} aria-hidden="true" /></button>}
+        {canOffer && <button type="button" className="set-row go" onClick={install}><span>{t('settings.settings.87')}</span><Download size={18} aria-hidden="true" /></button>}
+        {ios && <button type="button" className="set-row go" onClick={() => setGuide(true)}><span>{t('settings.settings.homeScreen')}</span><ChevronLeft size={18} aria-hidden="true" /></button>}
       </div></div>
       {ios && <InstallSheet open={guide} onOpenChange={setGuide} />}
     </section>
@@ -397,12 +427,12 @@ async function forgetParent() {
 function SafetySection() {
   return (
     <section className="section set-group" aria-labelledby="safe-title">
-      <h2 id="safe-title" className="set-head">פרטיות ובטיחות</h2>
+      <h2 id="safe-title" className="set-head">{t('settings.settings.88')}</h2>
       <div className="set-rows-wrap"><div className="set-rows">
         <button type="button" className="set-row" onClick={openSupport} aria-haspopup="dialog"><span>{SUPPORT_LINK}</span><ChevronLeft size={18} aria-hidden="true" /></button>
-        <Link to="/privacy" className="set-row"><span>מדיניות הפרטיות</span><ChevronLeft size={18} aria-hidden="true" /></Link>
-        <Link to="/safety" className="set-row"><span>בטיחות בעוזר החכם</span><ChevronLeft size={18} aria-hidden="true" /></Link>
-        <Link to="/accessibility" className="set-row"><span>הצהרת נגישות</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+        <Link to="/privacy" className="set-row"><span>{t('settings.settings.89')}</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+        <Link to="/safety" className="set-row"><span>{t('settings.settings.90')}</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+        <Link to="/accessibility" className="set-row"><span>{t('settings.settings.91')}</span><ChevronLeft size={18} aria-hidden="true" /></Link>
       </div></div>
     </section>
   );
@@ -434,29 +464,29 @@ function WipeSheet({ open, onClose }) {
   const vaultLine = server && backup?.on ? (backup.escrow ? WIPE_KEPT : WIPE_VAULT) : null;
   // a device linked to the parents' account: the summaries it sent them go too, in the same delete on the server (PARENTS-4)
   const summaryLine = server && ai?.familyDevice?.token ? WIPE_SUMMARIES : null;
-  const label = (text) => (busy ? 'מוחקים…' : text);
+  const label = (text) => (busy ? t('settings.settings.92') : text);
   let body; let primary; let quiet;
   if (view === 'failed') {
     body = <p role="alert">{failText || WIPE_FAILED}</p>;
-    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => run(wipeEverything)}>{label('לנסות שוב')}</Button>;
-    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => setView('local')}>למחוק רק מהמכשיר</Button>;
+    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => run(wipeEverything)}>{label(t('settings.settings.93'))}</Button>;
+    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => setView('local')}>{t('settings.settings.94')}</Button>;
   } else if (view === 'local') {
     body = <p>{deviceOnlyText({ profile, ai })}</p>;
-    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => onOpenChange(false)}>לא למחוק</Button>;
-    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => run(wipeDeviceOnly)}>{label('כן, למחוק רק מהמכשיר')}</Button>;
+    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => onOpenChange(false)}>{t('settings.settings.95')}</Button>;
+    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => run(wipeDeviceOnly)}>{label(t('settings.settings.96'))}</Button>;
   } else {
     body = <><p>{wipeText({ profile, ai, server, tier })}</p>{vaultLine && <p>{vaultLine}</p>}{summaryLine && <p>{summaryLine}</p>}</>;
-    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => onOpenChange(false)}>לא למחוק</Button>;
-    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => run(wipeEverything)}>{label('כן, למחוק הכול')}</Button>;
+    primary = <Button className="btn-block btn-lg" disabled={busy} onClick={() => onOpenChange(false)}>{t('settings.settings.95')}</Button>;
+    quiet = <Button variant="ghost" className="btn-block exit-quit" disabled={busy} onClick={() => run(wipeEverything)}>{label(t('settings.settings.97'))}</Button>;
   }
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title={view === 'local' ? 'למחוק רק מהמכשיר?' : 'למחוק הכול?'}>
+    <Sheet open={open} onOpenChange={onOpenChange} title={view === 'local' ? t('settings.settings.98') : t('settings.settings.99')}>
       <div className="exit-sheet confirm-sheet wipe-sheet" aria-busy={busy || undefined}>
         <Mascot mood="oops" size={88} />
         <div className="lead confirm-text">{body}</div>
         {primary}
         {quiet}
-        <p className="visually-hidden" role="status">{busy ? 'מוחקים…' : ''}</p>
+        <p className="visually-hidden" role="status">{busy ? t('settings.settings.92') : ''}</p>
       </div>
     </Sheet>
   );
@@ -497,21 +527,22 @@ export default function Settings() {
   return (
     <div className="page pushed settings">
       <header className="screen-bar" data-region="header">
-        <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="חזרה"><ArrowRight size={24} aria-hidden="true" /></button>
-        <h1 className="screen-bar-title">הגדרות</h1>
+        <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('settings.settings.30')}><ArrowRight size={24} aria-hidden="true" /></button>
+        <h1 className="screen-bar-title">{t('settings.settings.100')}</h1>
         <span className="icon-btn-spacer" aria-hidden="true" />
       </header>
       <section className="section set-group" aria-labelledby="prof-title">
-        <h2 id="prof-title" className="set-head">הפרטים שלי</h2>
+        <h2 id="prof-title" className="set-head">{t('settings.settings.101')}</h2>
         <div className="set-box">
-          <Field label="שם" id="me-name">
+          <Field label={t('settings.settings.102')} id="me-name">
             <input id="me-name" className="input" value={name} maxLength={30} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && patchProfile({ name: name.trim() })} disabled={!!profile.token} />
           </Field>
           {!profile.token && (
-            <div className="field"><span className="field-label" id="me-grade">כיתה</span><GradeSwitch value={profile.grade || '7'} onChange={(g) => patchProfile({ grade: g })} id="me-grade" /></div>
+            <div className="field"><span className="field-label" id="me-grade">{t('settings.settings.103')}</span><GradeSwitch value={profile.grade || '7'} onChange={(g) => patchProfile({ grade: g })} id="me-grade" /></div>
           )}
         </div>
       </section>
+      <LanguageSetting />
       <ClassSection />
       <AISection />
       <ThemeSetting />
@@ -525,10 +556,10 @@ export default function Settings() {
       <section className={clsx('set-adults', adults && 'open')} aria-labelledby="adults-title">
         <h2 id="adults-title" className="set-head set-adults-head">
           <button type="button" className="set-adults-toggle" aria-expanded={adults} aria-controls="adults-body" onClick={() => setAdults((o) => !o)}>
-            להורים ולמבוגרים<ChevronDown size={22} aria-hidden="true" className="set-adults-chev" />
+            {t('settings.settings.adults')}<ChevronDown size={22} aria-hidden="true" className="set-adults-chev" />
           </button>
         </h2>
-        <p className="set-adult-note">שמירה, גיבוי ופרטים לתמיכה. בדרך כלל אין צורך לשנות כאן כלום.</p>
+        <p className="set-adult-note">{t('settings.settings.adultsNote')}</p>
         <div id="adults-body" className="set-adults-body" hidden={!adults}>
           <SaveSection level={3} installRow={false} />
           <AdvancedRow />
@@ -536,28 +567,28 @@ export default function Settings() {
         </div>
       </section>
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
-        <h2 id="dz-title" className="set-head">אזור מחיקה</h2>
+        <h2 id="dz-title" className="set-head">{t('settings.settings.104')}</h2>
         <div className="set-rows-wrap">
           <div className="set-rows">
-            <button type="button" className="set-row danger" onClick={() => setDanger('reset')}>איפוס ההתקדמות</button>
-            <button type="button" className="set-row danger" onClick={() => setDanger('wipe')}>מחיקת כל הנתונים</button>
-            <button type="button" className="set-row danger" onClick={() => setDanger('out')}>התנתקות מהמכשיר</button>
+            <button type="button" className="set-row danger" onClick={() => setDanger('reset')}>{t('settings.settings.105')}</button>
+            <button type="button" className="set-row danger" onClick={() => setDanger('wipe')}>{t('settings.settings.106')}</button>
+            <button type="button" className="set-row danger" onClick={() => setDanger('out')}>{t('settings.settings.107')}</button>
           </div>
         </div>
       </section>
-      <ConfirmSheet open={danger === 'reset'} onOpenChange={(o) => !o && setDanger(null)} title="לאפס את ההתקדמות?" keep="להשאיר את ההתקדמות"
-        confirm="כן, לאפס" onConfirm={() => { resetProgress(); setDanger(null); toast('ההתקדמות אופסה'); }}>
-        <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
+      <ConfirmSheet open={danger === 'reset'} onOpenChange={(o) => !o && setDanger(null)} title={t('settings.settings.108')} keep={t('settings.settings.109')}
+        confirm={t('settings.settings.110')} onConfirm={() => { resetProgress(); setDanger(null); toast(t('settings.settings.111')); }}>
+        <p>{t('settings.settings.112')}</p>
       </ConfirmSheet>
       <WipeSheet open={danger === 'wipe'} onClose={() => setDanger(null)} />
-      <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"
-        confirm={leaving ? 'מתנתקים…' : 'כן, להתנתק'} onConfirm={signOutHere}>
-        <p>המכשיר יחזור למסך הפתיחה, וההתקדמות שנשמרה בו תימחק.</p>
+      <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title={t('settings.settings.113')} keep={t('settings.settings.114')}
+        confirm={leaving ? t('settings.settings.115') : t('settings.settings.116')} onConfirm={signOutHere}>
+        <p>{t('settings.settings.117')}</p>
         {vaultOn && <p>{SIGNOUT_VAULT}</p>}
-        <p>ההגדרות של העוזר במכשיר נשארות. כדי למחוק הכול, בחרו 'מחיקת כל הנתונים'.</p>
+        <p>{t('settings.settings.118')}</p>
       </ConfirmSheet>
       {/* where the progress lives, in the words the whole app uses (lib/durable/copy.js) */}
-      <p className="footnote">מדרגות. {whereSavedText({ profile, backup }, { summary: familyLinked && summaryOn })}</p>
+      <p className="footnote">{t('settings.settings.119')}{whereSavedText({ profile, backup }, { summary: familyLinked && summaryOn })}</p>
     </div>
   );
 }

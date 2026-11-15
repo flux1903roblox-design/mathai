@@ -6,7 +6,12 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { APP_NAME } from '../../shared/brand.js';
 
-export const fillBrand = (text) => String(text).replaceAll('%APP_NAME%', APP_NAME);
+/**
+ * %APP_NAME%, and %ARABIC%: "on" in a build made with VITE_ARABIC=on, else "off" (index.html's madregot-arabic meta
+ * tag, which public/theme-boot.js reads before the first paint; lib/i18n.js has the flag's whole rule).
+ */
+export const fillBrand = (text, env = process.env) => String(text).replaceAll('%APP_NAME%', APP_NAME)
+  .replaceAll('%ARABIC%', env.VITE_ARABIC === 'on' ? 'on' : 'off');
 const MANIFEST = 'manifest.webmanifest';
 
 export default function brand() {
@@ -15,7 +20,7 @@ export default function brand() {
     name: 'madregot-brand',
     configResolved(c) { config = c; },
     // before Vite's own %ENV% pass, which would warn about a name it does not know
-    transformIndexHtml: { order: 'pre', handler: fillBrand },
+    transformIndexHtml: { order: 'pre', handler: (html) => fillBrand(html) },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (!config.publicDir || !String(req.url || '').split('?')[0].endsWith(`/${MANIFEST}`)) return next();

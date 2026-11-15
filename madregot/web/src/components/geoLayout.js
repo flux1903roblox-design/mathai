@@ -9,7 +9,7 @@
 // along its bisector, or just outside the vertex for an angle; further along its side, or on the side's other face,
 // for a side. A drawing with no such clash is laid out exactly as before.
 
-const WORD = /[֐-׿]/;
+const WORD = /[֐-׿\u0600-\u06ff]/; // a word, Hebrew or Arabic (COUNCIL2-34)
 /** About half the width and half the height of a label, in drawing units (Hebrew words at 16px, numbers at 18px). */
 export const labelSize = (t) => [String(t).length * (WORD.test(t) ? 4.6 : 5.4) + 2, 9];
 export const unitDir = (p, q) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; return [(q[0] - p[0]) / d, (q[1] - p[1]) / d]; };

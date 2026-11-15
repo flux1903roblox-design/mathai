@@ -10,10 +10,13 @@
 //   - (4) "delete all" deletes the vault first, and when the server cannot, nothing at all;
 //   - (5) a sibling's code on a device with another student's progress: nothing is merged, Settings says so;
 //   - the backup question, once in a while, never in a lesson.
+// The tests tagged @contract (COUNCIL2-22) run in the contract project too, against the real Worker
+// (worker/scripts/serve-local.mjs): they read what the server holds through contract.js, which reads either backend.
 import { test, expect } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { student, open, item, answer, proceedToNext, leaveEndScreens, saved, appReady, NOW, openAdults } from './helpers.js';
 import { API, fakeServer, livePlan as livePlanOf } from './fakeServer.js';
+import { vaultRow, vaultCount, tombstoned, escrowsOf, classFor } from './contract.js';
 import { derive, open as openSealed } from '../src/lib/durable/crypto.js';
 import { makeCode as newCode, formatCode, CODE_ALPHABET } from '../src/lib/durable/code.js';
 
@@ -55,10 +58,11 @@ async function lesson(page) {
 test.describe('the backup code', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
 
-  test('make a code in Settings, keep it, finish a lesson: the lesson\'s push reaches the vault; then stop the backup', async ({ page }) => {
+  test('make a code in Settings, keep it, finish a lesson: the lesson\'s push reaches the vault; then stop the backup', { tag: '@contract' }, async ({ page }) => {
     test.setTimeout(150_000);
     const errors = []; page.on('pageerror', (e) => errors.push(e.message));
-    const { st, log } = await fakeServer(page.context(), {}, baseOf());
+    const srv = await fakeServer(page.context(), {}, baseOf());
+    const { log } = srv;
     await open(page, '#/settings', withServer());
     await openAdults(page);
     const row = page.locator('.save-backup .save-row');
@@ -92,10 +96,10 @@ test.describe('the backup code', () => {
     expect(vaultPosts(log)).toHaveLength(1);
     expect(vaultPosts(log)[0].body.ifRev).toBeNull();
     expect(vaultPosts(log)[0].headers['x-vault']).toBe(lookup);
-    expect(Object.keys(st.vaults)).toEqual([lookup]);
-    const first = await openSealed(st.vaults[lookup].blob, key);
-    // schema: the store's version (6 on the main branch since the teacher's class work, durable/migrations.js CURRENT_VERSION)
-    expect(first).toMatchObject({ v: 1, schema: 6 });
+    expect(await vaultCount(srv)).toBe(1);
+    const first = await openSealed((await vaultRow(srv, lookup)).blob, key);
+    // schema: the store's version (7 since COUNCIL2-23 dropped planBase and wins, durable/migrations.js CURRENT_VERSION)
+    expect(first).toMatchObject({ v: 1, schema: 7 });
     expect(first.state.days[TODAY].lessons).toBe(1);
 
     await sheet.getByRole('button', { name: 'להעתיק', exact: true }).click();
@@ -111,13 +115,14 @@ test.describe('the backup code', () => {
 
     // a lesson: 30 s after it ends, the lesson moment pushes the new copy over the rev the device has (compare-and-swap)
     await lesson(page);
-    const lessonsHeld = async () => (await openSealed(st.vaults[lookup].blob, key)).state.days[TODAY].lessons;
+    const lessonsHeld = async () => (await openSealed((await vaultRow(srv, lookup)).blob, key)).state.days[TODAY].lessons;
     await expect.poll(lessonsHeld, { timeout: 45_000 }).toBe(2);
     const last = vaultPosts(log).at(-1);
-    expect(last.body.ifRev).toBe(st.vaults[lookup].rev - 1);
-    const pushed = await openSealed(st.vaults[lookup].blob, key);
+    const held = await vaultRow(srv, lookup);
+    expect(last.body.ifRev).toBe(held.rev - 1);
+    const pushed = await openSealed(held.blob, key);
     expect(pushed.state.xp).toBe((await saved(page)).xp);
-    expect((await saved(page)).backup.rev).toBe(st.vaults[lookup].rev);
+    await expect.poll(async () => (await saved(page)).backup.rev).toBe(held.rev);
     for (const k of ['ai', 'outbox', 'durable', 'backup']) expect(pushed.state[k]).toBeUndefined();
 
     // the code again, then stop: confirmed, the copy on the server is deleted, the row says off
@@ -132,7 +137,8 @@ test.describe('the backup code', () => {
     await ask.getByRole('button', { name: 'כן, להפסיק' }).click();
     await expect(page.getByText('הגיבוי הופסק, והעותק בשרת נמחק.')).toBeVisible();
     await expect(row.locator('dd')).toHaveText('כבוי');
-    expect(st.vaults).toEqual({});
+    expect(await vaultCount(srv)).toBe(0);
+    expect(await tombstoned(srv, lookup)).toBe(true);
     expect(log.filter((r) => r.path === '/api/vault/delete')).toHaveLength(1);
     expect((await saved(page)).backup.on).toBe(false);
     expect((await saved(page)).days[TODAY].lessons).toBe(2); // the progress here stays
@@ -195,27 +201,29 @@ async function show(page, at) {
     document.dispatchEvent(new Event('visibilitychange'));
   });
 }
-/** What the vault holds for a code, opened. */
-async function vaultOf(st, shown) {
+/** What the vault holds for a code, opened (from either backend: contract.js). */
+async function vaultOf(srv, shown) {
   const { key, lookup } = await derive(shown.replace(/-/g, ''));
-  return st.vaults[lookup] ? (await openSealed(st.vaults[lookup].blob, key)).state : null;
+  const v = await vaultRow(srv, lookup);
+  return v ? (await openSealed(v.blob, key)).state : null;
 }
 const vaultCalls = (log) => log.filter((r) => r.path.startsWith('/api/vault'));
 
 test.describe('restoring from the backup code', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
 
-  test('(1) the lost phone: a fresh browser types the code and gets everything back; (2) then a lesson on it reaches the first device', async ({ page, browser }) => {
+  test('(1) the lost phone: a fresh browser types the code and gets everything back; (2) then a lesson on it reaches the first device', { tag: '@contract' }, async ({ page, browser }) => {
     test.setTimeout(180_000);
     const errors = []; page.on('pageerror', (e) => errors.push(e.message));
-    const { st, log, attach } = await fakeServer(page.context(), {}, baseOf());
+    const srv = await fakeServer(page.context(), {}, baseOf());
+    const { log, attach } = srv;
     // device A: a code from Settings, then a lesson; going out of view sends it at once
     await open(page, '#/settings', withServer());
     await openAdults(page);
     const shown = await makeCode(page);
     await lesson(page);
     await hide(page);
-    await expect.poll(async () => (await vaultOf(st, shown))?.days[TODAY].lessons, { timeout: 20_000 }).toBe(2);
+    await expect.poll(async () => (await vaultOf(srv, shown))?.days[TODAY].lessons, { timeout: 20_000 }).toBe(2);
     await show(page, new Date(NOW.getTime() + 5_000));
     const a = await saved(page);
 
@@ -250,7 +258,8 @@ test.describe('restoring from the backup code', () => {
     expect(progressOf(back)).toEqual(progressOf(a));
     // B keeps the code and is in step with the vault (the restore's own line was sent at once)
     const code = shown.replace(/-/g, '');
-    await expect.poll(async () => (await saved(b)).backup.rev).toBe(st.vaults[(await derive(code)).lookup].rev);
+    const { lookup: lookupB } = await derive(code);
+    await expect.poll(async () => (await saved(b)).backup.rev).toBe((await vaultRow(srv, lookupB)).rev);
     expect((await saved(b)).backup).toMatchObject({ on: true, code, state: 'idle' });
     await b.getByRole('button', { name: 'להמשיך', exact: true }).click();
     await expect(b.locator('.learn')).toBeVisible();
@@ -258,7 +267,7 @@ test.describe('restoring from the backup code', () => {
     // (2) B finishes a lesson and goes out of view; A comes back after more than a minute: it has B's lesson
     await lesson(b);
     await hide(b);
-    await expect.poll(async () => (await vaultOf(st, shown))?.days[TODAY].lessons, { timeout: 20_000 }).toBe(3);
+    await expect.poll(async () => (await vaultOf(srv, shown))?.days[TODAY].lessons, { timeout: 20_000 }).toBe(3);
     const bLessons = (await saved(b)).days[TODAY].lessons;
     expect(bLessons).toBe(3);
     await hide(page);
@@ -389,7 +398,207 @@ test.describe('restoring from the backup code', () => {
     // the sister's vault is untouched: read, never written
     expect(log.slice(n).filter((r) => r.method === 'POST' && r.path.startsWith('/api/vault'))).toEqual([]);
     expect(st.vaults[lookup].blob).toBe(before);
-    expect((await vaultOf(st, shown)).profile.name).toBe('נועה');
+    expect((await vaultOf({ st }, shown)).profile.name).toBe('נועה');
+  });
+});
+
+// ---------------------------------------------------------------- on by default for a solo student (COUNCIL2-24)
+/** Welcome's questions as a student on their own: no class code, from the first stair. Ends on the first teaching stage. */
+async function welcomeSolo(page, name = 'נועה') {
+  await toClassStep(page, name);
+  await page.getByRole('button', { name: 'המשך בלי קוד', exact: true }).click();
+  await page.getByRole('radio', { name: /מתחילים מההתחלה/ }).click();
+  await page.getByRole('button', { name: 'לשיעור הראשון', exact: true }).click();
+  await expect(page).toHaveURL(/#\/(learn|lesson)\//);
+}
+const LINE = 'ההתקדמות שלכם מגובה';
+
+test.describe('the backup is on by default for a student on their own', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  test('after the first questions: the vault is made at once, the home says once what it is, and Settings stops it', { tag: '@contract' }, async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    const srv = await fakeServer(page.context(), {}, baseOf());
+    const { log } = srv;
+    await open(page, '#/', fresh());
+    await welcomeSolo(page);
+    // the backup is on as soon as the profile is there, and its first copy reaches the server (created with ifRev null)
+    await expect.poll(() => vaultCount(srv), { timeout: 15_000 }).toBe(1);
+    await expect.poll(async () => (await saved(page)).backup.rev).toBe(1);
+    const b = (await saved(page)).backup;
+    expect(b).toMatchObject({ on: true, rev: 1, note: 'auto', escrow: null });
+    const { key, lookup } = await derive(b.code);
+    expect(await vaultRow(srv, lookup)).toBeTruthy();
+    expect(vaultPosts(log)[0].body.ifRev).toBeNull();
+    expect((await openSealed((await vaultRow(srv, lookup)).blob, key)).state.profile.name).toBe('נועה');
+    // the code itself never left the device
+    for (const r of log) expect(JSON.stringify([r.headers, r.body]), r.path).not.toContain(b.code);
+
+    // the home says once what it is, in a quiet card under the header
+    await page.evaluate(() => { window.location.hash = '#/'; });
+    const line = page.getByRole('region', { name: LINE });
+    await expect(line).toBeVisible();
+    await expect(line).toContainText('עותק מוצפן נשמר בשרת, ורק קוד הגיבוי פותח אותו. הקוד נמצא רק במכשיר הזה, אז כדאי לשלוח אותו להורים. אפשר לכבות את הגיבוי בהגדרות.');
+    for (const name of ['להציג את הקוד', 'להגדרות', 'הבנתי']) {
+      const box = await line.getByRole('button', { name, exact: true }).boundingBox();
+      expect(box.height, name).toBeGreaterThanOrEqual(44);
+      expect(box.width, name).toBeGreaterThanOrEqual(44);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // the map opens at its top while the line is due, so a small phone shows it too
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    await expect(line).toBeInViewport();
+    await shot(page, 'backup-default-line');
+    // its code: the sheet with the same code, and closing it ends the line for good
+    await line.getByRole('button', { name: 'להציג את הקוד', exact: true }).click();
+    const sheet = page.getByRole('dialog', { name: 'קוד הגיבוי שלכם' });
+    await expect(sheet.locator('.backup-code')).toHaveText(formatCode(b.code));
+    await sheet.getByRole('button', { name: 'שמרתי', exact: true }).click();
+    await expect(line).toHaveCount(0);
+    expect((await saved(page)).backup.note).toBeNull();
+    await page.reload();
+    await appReady(page);
+    await expect(page.locator('.learn')).toBeVisible();
+    await expect(page.getByRole('region', { name: LINE })).toHaveCount(0);
+
+    // Settings: on, what the server holds and where the code is, and the way to stop it
+    await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await openAdults(page); // the saving is in the adults' section, folded (PRODUCT2-41)
+    const row = page.locator('.save-backup .save-row');
+    await expect(row.locator('dd')).toHaveText(/^פועל/);
+    await expect(page.getByText('עותק מוצפן נשמר בשרת, והקוד שפותח אותו נמצא רק במכשיר הזה. אפשר להפסיק את הגיבוי כאן בכל רגע.')).toBeVisible();
+    await page.getByRole('button', { name: 'להפסיק את הגיבוי' }).click();
+    await page.getByRole('dialog', { name: 'להפסיק את הגיבוי?' }).getByRole('button', { name: 'כן, להפסיק' }).click();
+    await expect(row.locator('dd')).toHaveText('כבוי');
+    expect(await vaultCount(srv)).toBe(0);
+    expect(await tombstoned(srv, lookup)).toBe(true);
+    const posted = vaultPosts(log).length; // the first copy, and any later push of new progress before the stop
+    // stopped means stopped: nothing turns it on again by itself
+    await page.reload();
+    await appReady(page);
+    await page.waitForTimeout(1500);
+    expect((await saved(page)).backup.on).toBe(false);
+    expect(vaultPosts(log)).toHaveLength(posted);
+    expect(errors).toEqual([]);
+  });
+
+  // The durable-data review: when the server refused the first copy (too many new backups from this network today, a
+  // full or closed vault) or the first run had no connection, the backup was "on" with nothing on the server, and the
+  // home still said "ההתקדמות שלכם מגובה". Nothing says "backed up" before the first copy has landed: the home is
+  // quiet, Settings says the copy is not on the server yet and offers the file, and the line comes when it lands.
+  const CORS_JSON = { 'Access-Control-Allow-Origin': '*' };
+  const refusal = (status, error) => (route) => route.fulfill({ status, contentType: 'application/json', headers: CORS_JSON, body: JSON.stringify({ error }) });
+  for (const [name, slug, refuse, row] of [
+    ['too many new backups from this network today (429)', 'too-many', refusal(429, 'too_many_vaults'), 'עוד לא נשמר בשרת · ננסה שוב'],
+    ['a full vault (503)', 'full', refusal(503, 'vault_full'), 'עוד לא נשמר בשרת · ננסה שוב'],
+    ['a vault that is switched off (503)', 'off', refusal(503, 'vault_off'), 'עוד לא נשמר בשרת · ננסה שוב'],
+    ['no connection on the first run', 'offline', (route) => route.abort('internetdisconnected'), 'עוד לא נשמר בשרת · מחכה לאינטרנט'],
+  ]) {
+    test(`the first copy is refused: ${name}. Nothing says "מגובה", Settings says it is not saved yet and offers the file; the line comes when the copy lands`, async ({ page }) => {
+      test.setTimeout(120_000);
+      const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+      const srv = await fakeServer(page.context(), {}, baseOf());
+      const refused = (route) => (route.request().method() === 'POST' ? refuse(route) : route.fallback());
+      await page.context().route(`${API}/api/vault`, refused);
+      await open(page, '#/', fresh());
+      await welcomeSolo(page);
+      // the backup is on (the code is made on the device), and no copy is on the server
+      await expect.poll(async () => (await saved(page)).backup?.on).toBe(true);
+      await expect.poll(async () => (await saved(page)).backup?.state, { timeout: 15_000 }).toMatch(/^(unavailable|offline)$/);
+      expect((await saved(page)).backup.rev ?? null).toBeNull();
+      expect(await vaultCount(srv)).toBe(0);
+
+      // the home: the map, and no "your progress is backed up" card
+      await page.evaluate(() => { window.location.hash = '#/'; });
+      await expect(page.locator('.learn')).toBeVisible();
+      await page.waitForTimeout(1200);
+      await expect(page.getByRole('region', { name: LINE })).toHaveCount(0);
+      await expect(page.getByText(LINE)).toHaveCount(0);
+
+      // Settings: not saved on the server yet (no tick, never "פועל"), and the file as the way to keep a copy now
+      await page.evaluate(() => { window.location.hash = '#/settings'; });
+      await openAdults(page);
+      const dd = page.locator('.save-backup .save-row dd');
+      await expect(dd).toHaveText(row);
+      await expect(dd).toHaveClass(/save-not/);
+      await expect(dd.locator('svg')).toHaveCount(0);
+      const waiting = page.locator('.save-backup .save-waiting');
+      await expect(waiting).toHaveAttribute('role', 'status');
+      await expect(waiting).toContainText('הגיבוי עוד לא נשמר בשרת. ננסה שוב בכל פעם שהאפליקציה נפתחת. בינתיים אפשר לשמור קובץ גיבוי.');
+      await expect(page.getByText('עותק מוצפן נשמר בשרת, והקוד שפותח אותו נמצא רק במכשיר הזה.', { exact: false })).toHaveCount(0);
+      const file = waiting.getByRole('button', { name: 'לשמור קובץ גיבוי' });
+      expect((await file.boundingBox()).height).toBeGreaterThanOrEqual(44);
+      await waiting.scrollIntoViewIfNeeded();
+      await shot(page, `backup-not-yet-${slug}`);
+      if (test.info().project.name === 'phone') {
+        await page.setViewportSize({ width: 320, height: 568 });
+        await waiting.scrollIntoViewIfNeeded();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        await shot(page, `backup-not-yet-${slug}-320`);
+        await page.setViewportSize({ width: 390, height: 844 });
+      }
+      // the file is saved from here (a download), with no server
+      const [download] = await Promise.all([page.waitForEvent('download'), file.click()]);
+      // the file holds this student's progress (a Madregot backup file), written on the device
+      const kept = JSON.parse(readFileSync(await download.path(), 'utf8'));
+      expect(JSON.stringify(kept)).toContain('נועה');
+
+      // the server takes it the next time the app opens: the copy lands, and only now the home says so
+      await page.context().unroute(`${API}/api/vault`, refused);
+      await page.reload();
+      await appReady(page);
+      await expect.poll(async () => (await saved(page)).backup?.rev, { timeout: 20_000 }).toBe(1);
+      expect(await vaultCount(srv)).toBe(1);
+      await expect(page.locator('.save-backup .save-row dd')).toHaveText(/^פועל/);
+      await expect(page.locator('.save-backup .save-waiting')).toHaveCount(0);
+      await page.evaluate(() => { window.location.hash = '#/'; });
+      await expect(page.getByRole('region', { name: LINE })).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+  }
+
+  test('"delete all" still deletes the vault made by default, by its lookup, before anything here', { tag: '@contract' }, async ({ page }) => {
+    test.setTimeout(120_000);
+    const srv = await fakeServer(page.context(), {}, baseOf());
+    const { log } = srv;
+    await open(page, '#/', fresh());
+    await welcomeSolo(page, 'יואב');
+    await expect.poll(() => vaultCount(srv), { timeout: 15_000 }).toBe(1);
+    const { lookup } = await derive((await saved(page)).backup.code);
+    // the home's line closes with its X ("הבנתי")
+    await page.evaluate(() => { window.location.hash = '#/'; });
+    await page.getByRole('region', { name: LINE }).getByRole('button', { name: 'הבנתי' }).click();
+    await expect(page.getByRole('region', { name: LINE })).toHaveCount(0);
+    await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    const sheet = page.getByRole('dialog', { name: 'למחוק הכול?' });
+    await expect(sheet).toContainText('גם הגיבוי המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.');
+    await sheet.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+    await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+    // the Worker deletes the vault inside "delete all" itself (POST /api/me/forget with X-Vault); the fake has its own route
+    const del = log.filter((r) => ['/api/vault/delete', '/api/me/forget'].includes(r.path) && r.headers['x-vault']).at(-1);
+    expect(del.headers['x-vault']).toBe(lookup);
+    expect(await vaultCount(srv)).toBe(0);
+    expect(await tombstoned(srv, lookup)).toBe(true);
+  });
+
+  test('a class student is not on this path: the class keeps the code, and the home says nothing about it', { tag: '@contract' }, async ({ page }) => {
+    test.setTimeout(90_000);
+    const srv = await fakeServer(page.context(), {}, baseOf());
+    const cls = await classFor(srv);
+    await open(page, '#/', fresh());
+    await toClassStep(page, 'דנה');
+    await joinWith(page, '4821', cls.code);
+    // joining goes on to the last question by itself
+    await page.getByRole('radio', { name: /מתחילים מההתחלה/ }).click();
+    await page.getByRole('button', { name: 'לשיעור הראשון', exact: true }).click();
+    await expect.poll(async () => (await escrowsOf(srv)).length, { timeout: 15_000 }).toBe(1);
+    await expect.poll(async () => (await saved(page)).backup?.escrow).toBe('class');
+    expect((await saved(page)).backup).toMatchObject({ on: true, escrow: 'class', note: null });
+    await page.evaluate(() => { window.location.hash = '#/'; });
+    await expect(page.locator('.learn')).toBeVisible();
+    await expect(page.getByRole('region', { name: LINE })).toHaveCount(0);
   });
 });
 
@@ -454,8 +663,8 @@ async function toClassStep(page, name) {
   await expect(page.getByText('יש לכם קוד כיתה מהמורה?')).toBeVisible();
 }
 /** The class code and the personal PIN, then "הצטרפות לכיתה". */
-async function joinWith(page, pin) {
-  await page.getByLabel('קוד כיתה').fill('K7Q2MD');
+async function joinWith(page, pin, code = 'K7Q2MD') {
+  await page.getByLabel('קוד כיתה').fill(code);
   await page.getByLabel('קוד אישי של 4 ספרות').fill(pin);
   await page.getByRole('button', { name: 'הצטרפות לכיתה' }).click();
 }
@@ -478,25 +687,28 @@ const toasts = (page) => page.locator('[data-sonner-toast]');
 test.describe('the class and the family keep the code', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
 
-  test('class: A joins, learns and syncs; a fresh phone types the class code, the name and the PIN and is back', async ({ page, browser }) => {
+  test('class: A joins, learns and syncs; a fresh phone types the class code, the name and the PIN and is back', { tag: '@contract' }, async ({ page, browser }) => {
     test.setTimeout(240_000);
     const errors = []; page.on('pageerror', (e) => errors.push(e.message));
-    const { st, log, attach } = await fakeServer(page.context(), {}, baseOf());
+    const srv = await fakeServer(page.context(), {}, baseOf());
+    const { log, attach } = srv;
+    const cls = await classFor(srv);
     // A: a new student joins the class in the first questions; the class keeps the backup code once the profile is made
     await open(page, '#/', fresh());
     await toClassStep(page, 'נועה');
     await expect(page.getByText('עותק של ההתקדמות נשמר גם בשרת, כדי שתוכלו להמשיך מכל מכשיר עם הקוד האישי.')).toBeVisible();
     await expect(page.getByText(/מוצפן/)).toHaveCount(0);
-    await joinWith(page, '4821');
+    await joinWith(page, '4821', cls.code);
     await expect(toasts(page).filter({ hasText: 'הצטרפתם לכיתה ז׳3' })).toBeVisible();
     // joining went on to the last question by itself
     await page.getByRole('radio', { name: /מתחילים מההתחלה/ }).click();
     await page.getByRole('button', { name: 'לשיעור הראשון' }).click();
-    await expect.poll(() => st.escrows.length, { timeout: 20_000 }).toBe(1);
-    const kept = st.escrows[0];
-    expect(kept).toMatchObject({ kind: 'student', owner: 's1' });
+    await expect.poll(async () => (await escrowsOf(srv)).length, { timeout: 20_000 }).toBe(1);
+    const [kept] = await escrowsOf(srv);
+    const me = (await saved(page)).profile;
+    expect(kept).toMatchObject({ kind: 'student', owner: me.studentId });
     const escrowCall = log.find((r) => r.path === '/api/vault/escrow');
-    expect(escrowCall.headers.authorization).toBe('Bearer stu_s1_1');
+    expect(escrowCall.headers.authorization).toBe(`Bearer ${me.token}`);
     expect(escrowCall.headers['x-family-device']).toBeUndefined();
     // the fake has the escrow as soon as the request arrives; the app marks it once the answer is back and saved
     await expect.poll(async () => (await saved(page)).backup?.escrow).toBe('class');
@@ -507,7 +719,7 @@ test.describe('the class and the family keep the code', () => {
     await lesson(page);
     await hide(page);
     const a = await saved(page);
-    await expect.poll(async () => (await vaultOf(st, kept.code))?.xp, { timeout: 20_000 }).toBe(a.xp);
+    await expect.poll(async () => (await vaultOf(srv, kept.code))?.xp, { timeout: 20_000 }).toBe(a.xp);
     expect(a.xp).toBeGreaterThan(0);
     // Settings: the switch is on, the class note, and the class sentence with its clause; never "מוצפן"
     await show(page, new Date(NOW.getTime() + 5_000));
@@ -526,7 +738,7 @@ test.describe('the class and the family keep the code', () => {
     const { ctx, p: b } = await secondDevice(browser, attach, errors);
     await open(b, '#/', fresh());
     await toClassStep(b, 'נועה');
-    await joinWith(b, '1111');
+    await joinWith(b, '1111', cls.code);
     // (the main branch's message also tells a first-time student that the name may be taken)
     await expect(b.getByRole('alert')).toHaveText('הקוד האישי לא נכון. אם שכחתם אותו, המורה יכול לאפס אותו. אם זו הפעם הראשונה שלכם בכיתה, אולי מישהו כבר בחר את השם הזה: הוסיפו אות משם המשפחה.');
     await b.getByLabel('קוד אישי של 4 ספרות').fill('4821');
@@ -537,12 +749,13 @@ test.describe('the class and the family keep the code', () => {
     const back = await saved(b);
     expect(back.xp).toBe(a.xp);
     expect(progressOf(back).days).toEqual(progressOf(a).days);
-    expect(back.profile).toMatchObject({ role: 'student', name: 'נועה', classCode: 'K7Q2MD', token: 'stu_s1_2', studentId: 's1' });
+    expect(back.profile).toMatchObject({ role: 'student', name: 'נועה', classCode: cls.code, studentId: me.studentId });
+    expect(back.profile.token).not.toBe(me.token); // the second device has a token of its own
     expect(back.backup).toMatchObject({ on: true, code: kept.code, escrow: 'class' });
     // the vault GET carried B's new class token, and the class still keeps one code
     const get = log.filter((r) => r.path === '/api/vault' && r.method === 'GET').at(-1);
-    expect(get.headers.authorization).toBe('Bearer stu_s1_2');
-    expect(st.escrows).toHaveLength(1);
+    expect(get.headers.authorization).toBe(`Bearer ${back.profile.token}`);
+    expect(await escrowsOf(srv)).toHaveLength(1);
 
     // A turns the switch off: asked first, then the class's copy is deleted; the backup code itself stays
     await sw.click();
@@ -550,8 +763,8 @@ test.describe('the class and the family keep the code', () => {
     await expect(ask).toContainText('ההתקדמות תישאר במכשיר הזה ובקוד הגיבוי שלכם. בכיתה כבר לא יהיה עותק שאפשר להחזיר עם הקוד האישי.');
     await ask.getByRole('button', { name: 'להפסיק', exact: true }).click();
     await expect(sw).not.toBeChecked();
-    expect(st.escrows).toEqual([]);
-    expect(log.filter((r) => r.path === '/api/vault/escrow/delete').at(-1).headers.authorization).toBe('Bearer stu_s1_1');
+    expect(await escrowsOf(srv)).toEqual([]);
+    expect(log.filter((r) => r.path === '/api/vault/escrow/delete').at(-1).headers.authorization).toBe(`Bearer ${me.token}`);
     expect((await saved(page)).durable.escrowClass).toBe(false);
     expect((await saved(page)).backup).toMatchObject({ on: true, escrow: null });
     expect(errors).toEqual([]);
@@ -583,7 +796,7 @@ test.describe('the class and the family keep the code', () => {
     // the device writes "family" once the server's answer is back, a moment after the server keeps the code
     await expect.poll(async () => (await saved(page)).backup, { timeout: 10_000 }).toMatchObject({ on: true, code: kept.code, escrow: 'family' });
     const a = await saved(page);
-    await expect.poll(async () => (await vaultOf(st, kept.code))?.xp).toBe(a.xp);
+    await expect.poll(async () => (await vaultOf({ st }, kept.code))?.xp).toBe(a.xp);
     // A's Settings: the family note and sentence, never "מוצפן"
     await page.evaluate(() => { window.location.hash = '#/settings'; });
     await openAdults(page);

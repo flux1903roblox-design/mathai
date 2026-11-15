@@ -1,3 +1,4 @@
+// @ts-check
 // Is a saved state sound? validateState lists what is wrong with it, in plain words a developer can act on; an empty
 // list means it is sound. Used by the migration tests, by a development-only check after every migration, and (later)
 // by a restore, which refuses a backup with problems. Fields that are missing are fine (the store fills them with its
@@ -7,13 +8,14 @@ import { sumXp, TAG } from './xp.js';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_PROBLEMS = 25;
 
+/** @param {unknown} v */
 const kindOf = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
 // the type each top-level field must have when it is there
 const TYPES = {
   profile: ['object', 'null'], progress: ['object'], days: ['object'], xp: ['number'], xpBy: ['object'], path: ['object'],
   freezes: ['number'], goalXp: ['number'], sound: ['boolean'], mistakes: ['object'], lastTopic: ['string', 'null'],
   outbox: ['array'], ai: ['object'], helpSent: ['number'], solveMode: ['string'], exams: ['array'], practiceExams: ['array'],
-  planBase: ['object'], wins: ['object'], gaps: ['object'], placement: ['object', 'null'], learn: ['object'],
+  gaps: ['object'], placement: ['object', 'null'], learn: ['object'],
   resetAt: ['string', 'null'], durable: ['object'], backup: ['object'], haptics: ['boolean'], prefs: ['object'],
   teacherExams: ['array'],
   // the student lane (STUDENT-3/4/5/10): Madi's look, the streak's repair, the one-time notes, the class goal
@@ -25,7 +27,12 @@ const TYPES = {
 };
 const LEARN_TYPES = { skills: ['object'], miscon: ['object'], missions: ['object'], events: ['array'], exam: ['object', 'null'] };
 
-/** Every number that is NaN or infinite, by its path (functions, as in a live store, are skipped). */
+/**
+ * Every number that is NaN or infinite, by its path (functions, as in a live store, are skipped).
+ * @param {unknown} v
+ * @param {string} at
+ * @param {string[]} out
+ */
 function nonFinite(v, at, out) {
   if (out.length >= MAX_PROBLEMS) return;
   if (typeof v === 'number') { if (!Number.isFinite(v)) out.push(`${at}: not a finite number`); return; }
@@ -34,9 +41,14 @@ function nonFinite(v, at, out) {
   for (const [k, x] of Object.entries(v)) if (typeof x !== 'function') nonFinite(x, at ? `${at}.${k}` : k, out);
 }
 
-/** What is wrong with a saved state (the store's `state`, at the current version): a list of problems, empty when sound. */
+/**
+ * What is wrong with a saved state (the store's `state`, at the current version): a list of problems, empty when sound.
+ * @param {any} st
+ * @returns {string[]}
+ */
 export function validateState(st) {
   if (!st || typeof st !== 'object' || Array.isArray(st)) return ['state: not an object'];
+  /** @type {string[]} */
   const out = [];
   for (const [k, kinds] of Object.entries(TYPES)) {
     if (st[k] === undefined) continue;
@@ -53,7 +65,7 @@ export function validateState(st) {
   if (st.xpBy === undefined) out.push('xpBy: missing');
   else if (kindOf(st.xpBy) === 'object') {
     for (const [tag, v] of Object.entries(st.xpBy)) {
-      if (!(Number.isFinite(v) && v >= 0)) out.push(`xpBy.${tag}: ${String(v)}, expected a number 0 or more`);
+      if (!(typeof v === 'number' && Number.isFinite(v) && v >= 0)) out.push(`xpBy.${tag}: ${String(v)}, expected a number 0 or more`);
     }
     if (Number.isFinite(st.xp) && sumXp(st.xpBy) !== st.xp) out.push(`xpBy: adds up to ${sumXp(st.xpBy)}, but xp is ${st.xp}`);
   }

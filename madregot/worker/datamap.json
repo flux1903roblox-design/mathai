@@ -46,9 +46,9 @@
     "students": {
       "personal": "yes",
       "about": ["student"],
-      "fields": ["id", "class_code", "name", "pin_hash", "token_hash", "created_at", "last_seen"],
-      "purpose": "A student who joined a class with its code: the name the teacher sees, a salted hash of the 4-digit personal code, the hash of the device's class token, and when the student was last seen.",
-      "retention": "400 days after the student was last seen (RETENTION.studentIdleDays); at once when the student deletes all from the device, the teacher removes the student, or the class is deleted.",
+      "fields": ["id", "class_code", "name", "pin_hash", "token_hash", "created_at", "last_seen", "claim_hash", "claim_expires"],
+      "purpose": "A student who joined a class with its code: the name the teacher sees, a salted hash of the 4-digit personal code, the hash of the device's class token, and when the student was last seen. After the teacher resets the personal code: a salted hash of the one-time code the teacher gives the student to come back (never the code itself), and when it stops working (COUNCIL2-25).",
+      "retention": "400 days after the student was last seen (RETENTION.studentIdleDays); at once when the student deletes all from the device, the teacher removes the student, or the class is deleted. The one-time code's hash and end: cleared when the student uses it or the teacher resets again, and by the night purge once its 7 days are over (RETENTION.claimCodeDays).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.studentsDeleteSteps", "forget.classDeleteSteps", "forget.forgetMe"]
     },
@@ -110,7 +110,7 @@
       "personal": "pseudonymous",
       "about": ["student", "parent", "teacher", "device", "network"],
       "fields": ["who", "day", "count"],
-      "purpose": "Counters that keep the limits: questions to the tutor, sign-in codes, joins, PIN tries, care messages and reported answers, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey). Never a raw device id or address.",
+      "purpose": "Counters that keep the limits: questions to the tutor, sign-in codes, joins and new names, shared assignment links opened, PIN tries (per network and per student a day), care messages, one safety alert a day, reported answers and the day's writes of a class student, of their class and of their network, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey); the mark that a student signed in from a network (joined:s:<student>:<keyed hash of the network>), so that other people's wrong PINs cannot lock the student out there; and the dollars the free and open pools, and a class's or an email's part of the open pool, hold for requests in flight (usd:<pool>). Never a raw device id or address.",
       "retention": "Daily and hourly counters 35 days, monthly ones 13 months (RETENTION.aiUsageDays, RETENTION.aiUsageMonths); a student's, family device's or install's counters at once when it deletes all, and a student's or class's when the teacher removes or deletes them.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeCountersSql", "forget.studentCountersStmt", "forget.familyDeviceCountersStmt", "forget.deviceCountersStmt", "forget.classDeleteSteps"]
@@ -128,7 +128,7 @@
       "personal": "yes",
       "about": ["parent", "teacher"],
       "fields": ["id", "email", "created_at", "last_seen", "adult_confirmed_at", "terms_version", "billing_hold_at", "report_email_at"],
-      "purpose": "A parent or a teacher who signs in by email: the address (to sign in, and for receipts and notices), the day last seen, the 18+ tick and the terms accepted at checkout, and a hold after a chargeback. report_email_at: when the parents' weekly report email last went to this address (PARENTS-7).",
+      "purpose": "A parent or a teacher who signs in by email: the address (to sign in, and for receipts and notices), the day last seen, the 18+ declaration (adult_confirmed_at: the 18+ tick at checkout, or a teacher's \"I am over 18, a teacher or a tutor\" at sign-in or when binding a class, COUNCIL2-5; without it a class bound to the email has no adult behind it, so its student AI cannot be turned on), the terms accepted at checkout, and a hold after a chargeback. report_email_at: when the parents' weekly report email last went to this address (PARENTS-7).",
       "retention": "Until the account is deleted (the parents' page, or the owner on request), or 730 days with no sign-in and nothing running (RETENTION.accountIdleDays).",
       "recipients": ["cloudflare", "resend", "payment"],
       "purgedBy": ["cron.purgeLongTerm", "forget.forgetAccount"]
@@ -173,7 +173,7 @@
       "personal": "pseudonymous",
       "about": ["parent", "teacher"],
       "fields": ["id", "account_id", "plan", "class_code", "seats", "amount_agorot", "vat_agorot", "currency", "provider", "mode", "provider_checkout_id", "idempotency_key", "status", "subscription_id", "created_at", "expires_at", "paid_at"],
-      "purpose": "A checkout priced on the server: the plan, the amount and the payment company's reference. It loses its account id when the account is deleted.",
+      "purpose": "A checkout priced on the server: the plan (the monthly or one-year family plan, the 30-day exam pass, or a class licence), the amount and the payment company's reference. It loses its account id when the account is deleted.",
       "retention": "An order never paid: 30 days after it was made (RETENTION.unpaidOrderDays; it expires 2 hours after). A paid order is a money record: to the end of the 7th calendar year after its tax year (RETENTION.taxYears).",
       "recipients": ["cloudflare", "payment"],
       "purgedBy": ["cron.purgeRecordsSql", "cron.purgeLongTermSql"]
@@ -191,7 +191,7 @@
       "personal": "pseudonymous",
       "about": ["parent", "teacher"],
       "fields": ["id", "kind", "account_id", "class_code", "plan", "status", "provider", "provider_subscription_id", "price_agorot", "seats", "invoice_ref", "current_period_start", "current_period_end", "cancel_at_period_end", "cancel_requested_at", "cancel_synced_at", "first_paid_at", "refund_until", "ended_reason", "last_event_at", "note", "created_at", "updated_at"],
-      "purpose": "A family plan or a class licence: its dates, price, cancellation and refund window. It loses its account id when the account is deleted.",
+      "purpose": "A family plan (monthly, one-year, or the 30-day exam pass, which is paid once and never renews) or a class licence: its dates, price, cancellation and refund window. It loses its account id when the account is deleted.",
       "retention": "While it runs; an ended plan is a money record: to the end of the 7th calendar year after its tax year (RETENTION.taxYears), and longer while a kept payment, refund or renewal still points at it.",
       "recipients": ["cloudflare", "payment"],
       "purgedBy": ["cron.purgeLongTermSql"]
@@ -254,7 +254,7 @@
       "personal": "pseudonymous",
       "about": ["parent", "teacher", "none"],
       "fields": ["pool", "period", "calls", "input_tokens", "output_tokens", "cache_tokens", "nano_usd"],
-      "purpose": "What the tutor cost, per pool (a family account id, a class code, or a shared pool) and day or month, to keep the budget caps.",
+      "purpose": "What the tutor cost, per pool (a family account id, a class code, a shared pool, or in the open tier a class's or a teacher account's own part of the day) and day or month, to keep the budget caps.",
       "retention": "400 days after its day or month (RETENTION.aiSpendDays).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeRecordsSql"]
@@ -299,7 +299,7 @@
       "personal": "pseudonymous",
       "about": ["student", "device"],
       "fields": ["id_hash", "rev", "blob", "prev_rev", "prev_blob", "bytes", "created_at", "updated_at", "read_at"],
-      "purpose": "The encrypted backup of a device's practice (DURABLE-5): ciphertext only, found by the SHA-256 of a lookup token the device derives from its restore code. The key and the code never reach the server, so nobody here can open it; the previous version is kept for one step back.",
+      "purpose": "The encrypted backup of a device's practice (DURABLE-5): ciphertext only, found by the SHA-256 of a lookup token the device derives from its restore code. For a solo student it is on by default once the app has a server (COUNCIL2-24): made right after the first questions, and stopped in Settings (stop the backup). The restore code stays on the device: the key and the code never reach the server, so nobody here can open it (unless a class or a family keeps the code: vault_escrow); the previous version is kept for one step back.",
       "retention": "400 days with no write and no read (RETENTION.vaultIdleDays); at once when the device stops the backup or deletes all (the app deletes it before anything local).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.vaultNight"]
@@ -317,10 +317,10 @@
       "personal": "no",
       "about": ["none"],
       "fields": ["name", "value"],
-      "purpose": "One running total per name: vault_bytes, the bytes of every encrypted backup together, so new backups stop at VAULT_MAX_MB. Recomputed every night from the vaults themselves (cron.vaultNight).",
-      "retention": "Kept: a single number that cannot point at anyone, recomputed every night.",
+      "purpose": "One running total per name: vault_bytes, the bytes of every encrypted backup together, so new backups stop at VAULT_MAX_MB, recomputed every night from the vaults themselves (cron.vaultNight); and db_size:<day>, the largest size the whole database reached that day (D1's size_after on a class student's writes), so the owner gets one notice a day above DB_SIZE_NOTICE_MB (COUNCIL2-18, src/dbsize.js).",
+      "retention": "vault_bytes is kept: a single number that cannot point at anyone, recomputed every night. A day's db_size row is deleted after 35 days (RETENTION.aiUsageDays), with the counters.",
       "recipients": ["cloudflare"],
-      "purgedBy": ["never"]
+      "purgedBy": ["cron.purgeCountersSql"]
     },
     "vault_escrow": {
       "personal": "pseudonymous",
@@ -444,7 +444,7 @@
     "<STORE_KEY>": {
       "store": "localStorage",
       "personal": "yes",
-      "holds": "The student's saved state: the name, grade and (in a class) the class code and name, the teacher's name, the class token and student id; progress, days, XP, mistakes, the learning model, checked exam summaries and practice exams; a family challenge accepted from a parent's link, or sent from this device (a goal and its week, no name); the tutor's settings (server address, the install id sent as X-Device, the family-device token and its label, a pending link code, the plan the server reported last, whether the introduction was read; a personal key only in the owner's own dev build); answers waiting to be sent to the class.",
+      "holds": "The student's saved state: the name, grade and (in a class) the class code and name, the teacher's name, the class token and student id; progress, days, XP, mistakes, the learning model, checked exam summaries and practice exams; a family challenge accepted from a parent's link, or sent from this device (a goal and its week, no name); the tutor's settings (server address, the install id sent as X-Device, the family-device token and its label, a pending link code, the plan the server reported last, whether the introduction was read; a personal key only in the owner's own dev build); answers waiting to be sent to the class; the backup's settings, with the restore code and its lookup token while the backup is on (on by default for a solo student once there is a server, COUNCIL2-24): the code stays here, and the server gets only the lookup token (stored as its hash) and the encrypted copy.",
       "purpose": "The app works on the device, with or without a network. STORE_KEY is 'madregot' in production; a staging copy sets VITE_STORE_KEY.",
       "removedBy": "Delete all (lib/wipe.js clearDevice), or clearing the browser's data."
     },

@@ -1,3 +1,4 @@
+// @ts-check
 // The encrypted backup vault (DURABLE-5). The server keeps ciphertext and the SHA-256 of a lookup token, nothing else:
 // no address, no device id, no name. The app derives the AES key and the 64-hex lookup token from the restore code on
 // the device (PBKDF2); the key and the code never reach the server, so nobody here can open a vault.
@@ -56,6 +57,13 @@ import { studentFrom, familyDeviceFrom } from './entitle.js';
 import { ownerNotice, queueNotices } from './spend.js';
 import { RETENTION } from '../../shared/retention.js';
 
+/** @typedef {import('./types.js').Env} Env */
+/** @typedef {import('./types.js').D1Statement} D1Statement */
+/**
+ * Whom the caps count (whoOf): a valid class student or family device, else the network.
+ * @typedef {{ key: string, net: string, anonymous: boolean, staleFamily?: boolean }} Who
+ */
+
 export const BLOB_MIN = 40;
 export const BLOB_MAX = 349_526; // base64url of 256 KiB
 export const BODY_MAX = 350 * 1024; // the largest blob and its JSON around it
@@ -75,19 +83,29 @@ const TOKEN = /^[0-9a-f]{64}$/;
 const B64URL = /^[A-Za-z0-9_-]+$/;
 
 /** The kill switch: anything but "off" is on. */
+/** @param {Env} env */
 export const vaultOn = (env) => String(env.VAULT ?? 'on').trim().toLowerCase() !== 'off';
-/** VAULT_MAX_MB in bytes (MiB). Raise it only on Workers Paid: the same database holds billing. */
+/**
+ * VAULT_MAX_MB in bytes (MiB). Raise it only on Workers Paid: the same database holds billing.
+ * @param {Env} env
+ */
 export function maxBytes(env) {
   const mb = Number(env.VAULT_MAX_MB);
   return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : DEFAULT_MAX_MB) * MiB);
 }
 
-/** The lookup token from X-Vault (64 hex), or null. */
+/**
+ * The lookup token from X-Vault (64 hex), or null.
+ * @param {Request} req
+ */
 function lookupOf(req) {
   const t = String(req.headers.get('X-Vault') || '').trim().toLowerCase();
   return TOKEN.test(t) ? t : null;
 }
-/** The credential a request presents (not yet checked): a class student's Bearer token or a family device's token. */
+/**
+ * The credential a request presents (not yet checked): a class student's Bearer token or a family device's token.
+ * @param {Request} req
+ */
 function credentialOf(req) {
   const auth = req.headers.get('Authorization') || '';
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
@@ -98,16 +116,22 @@ function credentialOf(req) {
  * Workers Rate Limiting (VAULT_RL): a burst filter that writes nothing to the database, counted by Cloudflare per
  * location and approximate. Keyed by the presented credential (hashed) or else the network, before any database call.
  * The exact limits are the daily counters below.
+ * @param {Request} req
+ * @param {Env} env
  */
 async function flood(req, env) {
-  if (typeof env.VAULT_RL?.limit !== 'function') return;
+  if (!env.VAULT_RL || typeof env.VAULT_RL.limit !== 'function') return;
   const cred = credentialOf(req);
   const k = cred ? `c:${(await sha256(`vault-rl:${cred}`)).slice(0, 32)}` : `n:${await netKey(req, env)}`;
   const { success } = await env.VAULT_RL.limit({ key: k });
   if (!success) throw new HttpError(429, 'slow_down');
 }
 
-/** What every vault route checks first: the switch, the header, the burst filter. Returns the vault's id (its hash). */
+/**
+ * What every vault route checks first: the switch, the header, the burst filter. Returns the vault's id (its hash).
+ * @param {Request} req
+ * @param {Env} env
+ */
 async function opening(req, env, { evenOff = false } = {}) {
   if (!evenOff && !vaultOn(env)) throw new HttpError(503, 'vault_off');
   const lookup = lookupOf(req);
@@ -116,7 +140,12 @@ async function opening(req, env, { evenOff = false } = {}) {
   return sha256(lookup);
 }
 
-/** Whom the caps count: a valid class student or family device, else the network. */
+/**
+ * Whom the caps count: a valid class student or family device, else the network.
+ * @param {Request} req
+ * @param {Env} env
+ * @returns {Promise<Who>}
+ */
 async function whoOf(req, env) {
   const net = await netKey(req, env);
   const s = await studentFrom(req, env);
@@ -129,16 +158,23 @@ async function whoOf(req, env) {
   }
   return { key: `n:${net}`, net, anonymous: true };
 }
+/** @param {Who} who */
 const missKey = (who) => key(`vault:miss:${who.key}`, MISS_DAILY, { refundable: true, err: new HttpError(429, 'too_many_tries') });
+/** @param {string} id */
 const writeKey = (id) => key(`vault:w:${id.slice(0, 16)}`, WRITES_DAILY, { err: new HttpError(429, 'slow_down') });
+/** @type {(env: Env, id: string) => Promise<{ rev: number } | null>} */
 const revOf = (env, id) => env.DB.prepare('SELECT rev FROM vaults WHERE id_hash = ?').bind(id).first();
+/** @param {number} rev */
 const conflict = (rev) => new HttpError(409, 'vault_conflict', undefined, { rev });
 const deletedErr = () => new HttpError(410, 'vault_deleted');
+/** @type {(env: Env, id: string) => Promise<boolean>} */
 const tombstoned = async (env, id) => !!(await env.DB.prepare('SELECT 1 AS x FROM vault_tombstones WHERE id_hash = ?').bind(id).first());
 
 /**
  * The owner's notice when the vaults pass `share` of VAULT_MAX_MB (0.7, then 0.9), each queued once a month (in the
  * create batch and every night): kinds owner:vault:70 and owner:vault:90.
+ * @param {Env} env
+ * @returns {D1Statement}
  */
 export function noticeStmt(env, now = new Date(), share = NOTICE_SHARE) {
   const max = maxBytes(env);
@@ -147,10 +183,16 @@ export function noticeStmt(env, now = new Date(), share = NOTICE_SHARE) {
     SELECT ?1, ?5, NULL, json_object('mb', round(value / 1048576.0, 1), 'maxMb', ?2, 'pct', ?6), ?3
     FROM meters WHERE name = 'vault_bytes' AND value >= ?4`).bind(monthOf(now), Math.round((max / MiB) * 10) / 10, now.toISOString(), Math.floor(max * share), `owner:vault:${pct}`, pct);
 }
+/** @type {(env: Env, now: Date) => D1Statement[]} */
 const noticeStmts = (env, now) => NOTICE_SHARES.map((x) => noticeStmt(env, now, x));
 
 // ---------------------------------------------------------------- reading
-/** GET /api/vault and GET /api/vault/rev. read_at is written at most once a day (retention counts the last read). */
+/**
+ * GET /api/vault and GET /api/vault/rev. read_at is written at most once a day (retention counts the last read).
+ * @param {Request} req
+ * @param {Env} env
+ * @param {Record<string, string>} cors
+ */
 export async function getVault(req, env, cors, { blob = false } = {}) {
   const id = await opening(req, env);
   const miss = missKey(await whoOf(req, env));
@@ -168,7 +210,12 @@ export async function getVault(req, env, cors, { blob = false } = {}) {
 }
 
 // ---------------------------------------------------------------- writing
-/** POST /api/vault: create (ifRev null) or compare-and-swap update (ifRev n). The blob is always a bound parameter. */
+/**
+ * POST /api/vault: create (ifRev null) or compare-and-swap update (ifRev n). The blob is always a bound parameter.
+ * @param {Request} req
+ * @param {Env} env
+ * @param {Record<string, string>} cors
+ */
 export async function putVault(req, env, cors) {
   const id = await opening(req, env);
   const b = await body(req, BODY_MAX);
@@ -183,6 +230,13 @@ export async function putVault(req, env, cors) {
   return ifRev === null ? create(env, cors, id, blob, who) : update(env, cors, id, blob, ifRev, who);
 }
 
+/**
+ * @param {Env} env
+ * @param {Record<string, string>} cors
+ * @param {string} id
+ * @param {string} blob
+ * @param {Who} who
+ */
 async function create(env, cors, id, blob, who) {
   const tooMany = new HttpError(429, 'too_many_vaults');
   const keys = [
@@ -222,6 +276,14 @@ async function create(env, cors, id, blob, who) {
   throw new HttpError(503, 'vault_full');
 }
 
+/**
+ * @param {Env} env
+ * @param {Record<string, string>} cors
+ * @param {string} id
+ * @param {string} blob
+ * @param {number} ifRev
+ * @param {Who} who
+ */
 async function update(env, cors, id, blob, ifRev, who) {
   const miss = missKey(who);
   const t = await take(env, [miss, writeKey(id)]);
@@ -251,6 +313,7 @@ async function update(env, cors, id, blob, ifRev, who) {
  * The statements that delete one vault at its owner's request, take its bytes off the meter, drop its escrows and leave
  * its tombstone (so another device with the code turns its backup off instead of making it again), for one batch.
  */
+/** @type {(env: Env, id: string) => D1Statement[]} */
 export const deleteStmts = (env, id) => [
   env.DB.prepare("UPDATE meters SET value = value - COALESCE((SELECT bytes FROM vaults WHERE id_hash = ?), 0) WHERE name = 'vault_bytes'").bind(id),
   env.DB.prepare('DELETE FROM vaults WHERE id_hash = ?').bind(id),
@@ -258,7 +321,12 @@ export const deleteStmts = (env, id) => [
   env.DB.prepare('INSERT INTO vault_tombstones (id_hash, deleted_at) VALUES (?1, ?2) ON CONFLICT (id_hash) DO UPDATE SET deleted_at = excluded.deleted_at').bind(id, nowIso()),
 ];
 
-/** POST /api/vault/delete ("להפסיק את הגיבוי"). Works with VAULT = "off" too. */
+/**
+ * POST /api/vault/delete ("להפסיק את הגיבוי"). Works with VAULT = "off" too.
+ * @param {Request} req
+ * @param {Env} env
+ * @param {Record<string, string>} cors
+ */
 export async function deleteVault(req, env, cors) {
   const id = await opening(req, env, { evenOff: true });
   await body(req);
@@ -275,6 +343,8 @@ export async function deleteVault(req, env, cors) {
  * For TRUST-6's "delete everything" (POST /api/me/forget, not on this branch yet): the statements that delete the
  * vault named by the request's X-Vault header and its meter bytes, ready to go into that route's one batch. No header
  * (or a malformed one) gives no statements.
+ * @param {Env} env
+ * @param {Request} req
  */
 export async function forgetVault(env, req) {
   const lookup = lookupOf(req);
@@ -286,6 +356,7 @@ export async function forgetVault(env, req) {
  * Retention: a vault goes when MAX(updated_at, COALESCE(read_at, updated_at)) is more than RETENTION.vaultIdleDays ago,
  * written here as updated_at < cutoff AND (read_at IS NULL OR read_at < cutoff), the same condition in a form the index
  * can use. Its bytes leave the meter in the same batch.
+ * @param {Env} env
  */
 export function purgeVaultsSql(env, now = new Date()) {
   const cutoff = new Date(now.getTime() - RETENTION.vaultIdleDays * DAY).toISOString();
@@ -303,6 +374,7 @@ export function purgeVaultsSql(env, now = new Date()) {
 /**
  * The night's vault work (cron.js, 03:00 Jerusalem): purge, then recompute the meter from SUM(bytes) in one batch
  * (a drift becomes the owner notice owner:vault_drift:<day>), then the 70% and 90% notices.
+ * @param {Env} env
  */
 export async function vaultNight(env, now = new Date()) {
   const purged = Number((await env.DB.batch(purgeVaultsSql(env, now)))[1]?.meta?.changes || 0);
@@ -320,7 +392,10 @@ export async function vaultNight(env, now = new Date()) {
   return { purged, drift: sum - was };
 }
 
-/** For /api/health: true when the largest backup would no longer fit under VAULT_MAX_MB (never the meter's value). */
+/**
+ * For /api/health: true when the largest backup would no longer fit under VAULT_MAX_MB (never the meter's value).
+ * @param {Env} env
+ */
 export async function vaultFull(env) {
   try {
     const r = await env.DB.prepare("SELECT value FROM meters WHERE name = 'vault_bytes'").first();
@@ -328,7 +403,12 @@ export async function vaultFull(env) {
   } catch { return null; }
 }
 
-/** The owner's daily summary: how many vaults, their size in MB, and how many were created on the day. */
+/**
+ * The owner's daily summary: how many vaults, their size in MB, and how many were created on the day.
+ * @param {Env} env
+ * @param {string} startIso
+ * @param {string} endIso
+ */
 export async function vaultStats(env, startIso, endIso) {
   try {
     const r = await env.DB.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS b,
@@ -342,13 +422,19 @@ export const ESCROW_DAILY = 30; // escrow writes a day per student or family dev
 export const SEALED_MAX = 200;
 const enc = new TextEncoder();
 const CODE16 = new RegExp(`^[${CODE_ALPHABET}]{16}$`);
+/** @param {Uint8Array} bytes */
 const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+/** @param {unknown} text */
 function unb64url(text) {
   const s = atob(String(text).replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (String(text).length % 4)) % 4));
   return Uint8Array.from(s, (c) => c.charCodeAt(0));
 }
 
-/** A restore code as the app makes it: 16 symbols of the class-code alphabet, the last one Σ (i+1)·v_i mod 31 of the others. */
+/**
+ * A restore code as the app makes it: 16 symbols of the class-code alphabet, the last one Σ (i+1)·v_i mod 31 of the others.
+ * @param {unknown} code
+ * @returns {code is string}
+ */
 export function codeOk(code) {
   if (typeof code !== 'string' || !CODE16.test(code)) return false;
   let sum = 0;
@@ -356,24 +442,38 @@ export function codeOk(code) {
   return CODE_ALPHABET[sum % CODE_ALPHABET.length] === code[15];
 }
 
+/** @type {Map<string, Promise<CryptoKey>>} */
 const keys = new Map();
-/** The escrow key: HKDF-SHA-256 of VAULT_SECRET with the info 'escrow-v1' (no salt), as an AES-256-GCM key. */
+/**
+ * The escrow key: HKDF-SHA-256 of VAULT_SECRET with the info 'escrow-v1' (no salt), as an AES-256-GCM key.
+ * @param {Env} env
+ * @returns {Promise<CryptoKey>}
+ */
 function escrowKey(env) {
   const secret = env.VAULT_SECRET;
   if (!secret) throw new HttpError(503, 'server_config');
-  if (!keys.has(secret)) {
-    keys.set(secret, (async () => {
+  let made = keys.get(secret);
+  if (!made) {
+    made = (async () => {
       const base = await crypto.subtle.importKey('raw', enc.encode(secret), 'HKDF', false, ['deriveKey']);
       return crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: enc.encode('escrow-v1') }, base,
         { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-    })());
+    })();
+    keys.set(secret, made);
   }
-  return keys.get(secret);
+  return made;
 }
 /** The additional data: a sealed code opens only in its own owner's row. */
+/** @type {(kind: string, owner: string) => Uint8Array} */
 const aadOf = (kind, owner) => enc.encode(`escrow-v1|${kind}|${owner}`);
 
-/** Seal a restore code for one owner: base64url(0x01 | iv | AES-GCM(code)), 60 characters. */
+/**
+ * Seal a restore code for one owner: base64url(0x01 | iv | AES-GCM(code)), 60 characters.
+ * @param {Env} env
+ * @param {string} code
+ * @param {string} kind
+ * @param {string} owner
+ */
 export async function sealCode(env, code, kind, owner) {
   const k = await escrowKey(env);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -382,7 +482,14 @@ export async function sealCode(env, code, kind, owner) {
   out[0] = 1; out.set(iv, 1); out.set(ct, 13);
   return b64url(out);
 }
-/** The code a sealed escrow holds, or null (no secret, another secret, another owner, or damaged). */
+/**
+ * The code a sealed escrow holds, or null (no secret, another secret, another owner, or damaged).
+ * @param {Env} env
+ * @param {unknown} sealed
+ * @param {string} kind
+ * @param {string} owner
+ * @returns {Promise<string | null>}
+ */
 export async function unsealCode(env, sealed, kind, owner) {
   if (!env.VAULT_SECRET || typeof sealed !== 'string') return null;
   try {
@@ -394,14 +501,22 @@ export async function unsealCode(env, sealed, kind, owner) {
   } catch { return null; }
 }
 
-/** The restore code kept for a class student whose vault still exists, or null (joinClass gives it back after the PIN). */
+/**
+ * The restore code kept for a class student whose vault still exists, or null (joinClass gives it back after the PIN).
+ * @param {Env} env
+ * @param {string} studentId
+ */
 export async function studentEscrowCode(env, studentId) {
   if (!env.VAULT_SECRET) return null;
   const row = await env.DB.prepare(`SELECT e.sealed FROM vault_escrow e JOIN vaults v ON v.id_hash = e.vault_id
     WHERE e.owner_kind = 'student' AND e.owner_id = ?`).bind(studentId).first();
   return row ? unsealCode(env, row.sealed, 'student', studentId) : null;
 }
-/** The restore code of the escrow a family device syncs now (after a link that continued from it), or null. */
+/**
+ * The restore code of the escrow a family device syncs now (after a link that continued from it), or null.
+ * @param {Env} env
+ * @param {string} deviceId
+ */
 export async function deviceEscrowCode(env, deviceId) {
   if (!env.VAULT_SECRET) return null;
   const row = await env.DB.prepare(`SELECT e.sealed, e.owner_id FROM vault_escrow e JOIN vaults v ON v.id_hash = e.vault_id
@@ -409,7 +524,12 @@ export async function deviceEscrowCode(env, deviceId) {
   return row ? unsealCode(env, row.sealed, 'account', row.owner_id) : null;
 }
 
-/** Whose escrow a request asks about: a class student (Bearer) or a linked family device (X-Family-Device); else 401. */
+/**
+ * Whose escrow a request asks about: a class student (Bearer) or a linked family device (X-Family-Device); else 401.
+ * @param {Request} req
+ * @param {Env} env
+ * @returns {Promise<{ kind: 'student' | 'account', owner: string, device: string | null, label: string, who: string }>}
+ */
 async function escrowOwner(req, env) {
   const s = await studentFrom(req, env);
   if (s) return { kind: 'student', owner: s.id, device: null, label: '', who: `s:${s.id}` };
@@ -419,7 +539,12 @@ async function escrowOwner(req, env) {
   throw new HttpError(401, 'not_signed_in');
 }
 
-/** POST /api/vault/escrow { code, lookup }: keep this vault's code for the student or the family device (upsert). */
+/**
+ * POST /api/vault/escrow { code, lookup }: keep this vault's code for the student or the family device (upsert).
+ * @param {Request} req
+ * @param {Env} env
+ * @param {Record<string, string>} cors
+ */
 export async function putEscrow(req, env, cors) {
   if (!vaultOn(env)) throw new HttpError(503, 'vault_off');
   if (!env.VAULT_SECRET) throw new HttpError(503, 'server_config');
@@ -449,7 +574,12 @@ export async function putEscrow(req, env, cors) {
   return json({ escrow: o.kind === 'student' ? 'class' : 'family' }, 200, cors);
 }
 
-/** POST /api/vault/escrow/delete {}: the student's switch "שמירת עותק בשרת הכיתה" off, or a family device's own escrow. */
+/**
+ * POST /api/vault/escrow/delete {}: the student's switch "שמירת עותק בשרת הכיתה" off, or a family device's own escrow.
+ * @param {Request} req
+ * @param {Env} env
+ * @param {Record<string, string>} cors
+ */
 export async function deleteEscrow(req, env, cors) {
   await body(req);
   const o = await escrowOwner(req, env);
@@ -462,6 +592,7 @@ export async function deleteEscrow(req, env, cors) {
 /**
  * The night's sweep of identities (cron.js purge): student tokens unused for RETENTION.studentTokenIdleDays, and
  * tokens and escrows whose student or account is gone (a backstop for any deletion path that forgot them).
+ * @param {Env} env
  */
 export function purgeIdentitySql(env, now = new Date()) {
   const cutoff = new Date(now.getTime() - RETENTION.studentTokenIdleDays * DAY).toISOString();

@@ -93,14 +93,21 @@ export async function myClasses(req, env, cors) {
 }
 
 /**
- * POST /api/teacher/class/owner {}: the teacher (key) binds the class to the signed-in account. Again for the same
- * account: 200 as before. 409 owned_by_other when another account has it; 409 too_many_classes_owned at MAX_OWNED.
+ * POST /api/teacher/class/owner {adultTeacher?}: the teacher (key) binds the class to the signed-in account. Again for
+ * the same account: 200 as before. 409 owned_by_other when another account has it; 409 too_many_classes_owned at
+ * MAX_OWNED. adultTeacher: true is the teacher's "I am over 18, a teacher or a tutor" (COUNCIL2-5), stored on the account
+ * as at sign-in (account.js verifyLogin), so a teacher signed in before the declaration existed can give it here.
+ * → { owner: 'you', email, adult } (adult: the account's holder has declared it).
  */
 export async function bindClass(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const a = await requireAccount(req, env);
-  await body(req, SMALL);
-  const mine = json({ owner: 'you', email: a.email }, 200, cors);
+  const b = await body(req, SMALL);
+  if (b.adultTeacher !== undefined && b.adultTeacher !== true && b.adultTeacher !== false) throw new HttpError(400, 'bad_request');
+  const declared = b.adultTeacher === true;
+  // the declaration counts for the account, whatever the bind's answer below
+  if (declared) await env.DB.prepare('UPDATE accounts SET adult_confirmed_at = ? WHERE id = ?').bind(nowIso(), a.id).run();
+  const mine = json({ owner: 'you', email: a.email, adult: declared || !!a.adultConfirmedAt }, 200, cors);
   const owner = await ownerOf(env, cls.code);
   if (owner) {
     if (owner.account_id === a.id) return mine;

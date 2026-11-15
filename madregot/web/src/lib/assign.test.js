@@ -59,22 +59,24 @@ describe('telling the class', () => {
     expect(publicUrl(loc('http://localhost:5173/'), false)).toBe('');
     expect(publicUrl(loc('https://madregot.example.test/'), true)).toBe('');
   });
-  it("the Classroom link is Google's documented share address, for the student's missions", async () => {
-    const { classroomLink } = await load();
-    expect(classroomLink('https://madregot.example.test/')).toBe(`https://classroom.google.com/share?url=${encodeURIComponent('https://madregot.example.test/#/quests')}`);
+  it("the Classroom link is Google's documented share address for the assignment's own link", async () => {
+    const { classroomLink, workLink } = await load();
+    expect(classroomLink(workLink('0123456789abcdef', 'https://madregot.example.test/'))).toBe(`https://classroom.google.com/share?url=${encodeURIComponent('https://madregot.example.test/#/a/0123456789abcdef')}`);
     expect(classroomLink('')).toBe('');
   });
-  it('the message says the title and the day, and no student name', async () => {
+  it('the message says the title, the day and the link, and no student name', async () => {
     const { classMessage } = await load();
-    const msg = classMessage({ title: 'מספרים מכוונים: חיבור וחיסור', dueOn: '2026-11-12' }, 'https://madregot.example.test/');
-    expect(msg).toBe('משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". https://madregot.example.test/');
+    const msg = classMessage({ title: 'מספרים מכוונים: חיבור וחיסור', dueOn: '2026-11-12' }, 'https://madregot.example.test/#/a/0123456789abcdef');
+    expect(msg).toBe('משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את הקישור, והמשימה נפתחת. https://madregot.example.test/#/a/0123456789abcdef');
     expect(classMessage({ title: 'x', dueOn: '2026-11-12' }, '')).not.toMatch(/https?:/);
   });
   it('work given to a group (SK-BUYERS-4): the message is for the students who got it, never "the class has new work"', async () => {
-    const { classMessage, classroomLink, shareFor } = await load();
+    const { classMessage, classroomLink, shareFor, workLink } = await load();
     const group = { title: 'מספרים מכוונים: חיבור וחיסור', dueOn: '2026-11-12', forAll: false, targets: ['a1', 'b2'] };
-    const msg = classMessage(group, 'https://madregot.example.test/');
-    expect(msg).toBe('יש לכם משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". https://madregot.example.test/');
+    // the same assignment link as the whole class's message (COUNCIL2-35), in words for the students who got it
+    const msg = classMessage(group, workLink('0123456789abcdef', 'https://madregot.example.test/'));
+    expect(msg).toBe('יש לכם משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את הקישור, והמשימה נפתחת. https://madregot.example.test/#/a/0123456789abcdef');
+    expect(classMessage(group, '')).toBe('יש לכם משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום".');
     expect(msg).not.toMatch(/^משימה חדשה במדרגות|לכל הכיתה|לכיתה/);
     // the step for a group: tell those students, with their names for the teacher only, and no Classroom post (it goes to the whole class)
     const names = { a1: 'דנה', b2: 'יואב', c3: 'נועה' };

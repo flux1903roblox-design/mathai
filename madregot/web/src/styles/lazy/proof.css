@@ -22,8 +22,8 @@
 .mp-proof-table .why { grid-area: why; }
 .mp-proof-table .mv { grid-area: mv; }
 .mp-proof-row { margin-top: 6px; padding: 6px 6px 6px 8px; border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); min-height: 56px; }
-.mp-proof-row .n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--ground); font-weight: 700; font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.mp-proof-row .claim { position: relative; font-size: 16px; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; overflow-x: auto; scrollbar-width: none; }
+.mp-proof-row .n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--ground); font-weight: 700; font-size: 0.875rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.mp-proof-row .claim { position: relative; font-size: 1rem; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; overflow-x: auto; scrollbar-width: none; }
 .mp-proof-row .claim .katex { font-size: 1.12em; }
 .mp-proof-row .why { font-size: var(--t-sm); line-height: 1.35; color: var(--ink-2); }
 .mp-proof-why-lab { display: none; font-weight: 700; color: var(--ink-2); }

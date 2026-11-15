@@ -11,6 +11,7 @@ import { enter } from '@/lib/motion.js';
 import { TRIES } from '@/learn/challenges/grade.ts';
 import { PARTIAL } from '@/content/partial.js';
 import { numRight, piNear, PI_AFTER } from '@/content/util.js';
+import '@/styles/lazy/lesson.css'; // the answer's label and its partial note are the lesson's own rules (round-3 merge)
 
 export const RETRY = 'עוד לא. נסו שוב, יש עוד ניסיון.';
 export const SHOWN = 'הנה הפתרון. ממשיכים.';

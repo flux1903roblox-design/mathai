@@ -1,5 +1,6 @@
 // "שומרים את ההתקדמות?" (DURABLE-5): once in a while, a calm question whether to keep a backup. lib/durable/nudge.js
-// says when (a server, no backup or kept copy, two days of learning, a calm screen, at most twice, 14 days apart). It
+// says when (a server, no backup or kept copy, not installed, two days of learning, a calm screen, 14 days apart, until a
+// backup or an install exists: COUNCIL2-24; a solo student's backup is on by default, so this is for the rest). It
 // opens a moment after the screen settles, never over another sheet and never in a lesson, and asking counts when it
 // opens. Its three answers: "לקבל קוד גיבוי" (makes the code and shows it, BackupCodeSheet), "לשמור קובץ במקום" (the
 // backup file, straight from the tap), "לא עכשיו". App.jsx mounts it for students.
@@ -8,7 +9,7 @@ import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { hasServer } from '@/lib/api.js';
-import { shouldNudge, noteNudge, calmRoute } from '@/lib/durable/nudge.js';
+import { shouldNudge, noteNudge, calmRoute, installedHere } from '@/lib/durable/nudge.js';
 import { createBackup, vaultErrorText } from '@/lib/durable/vault.js';
 import { exportBackup } from '@/lib/durable/file.js';
 import { Button, Sheet } from '@/components/ui.jsx';
@@ -31,7 +32,8 @@ export const NUDGE_DELAY = 1500;
 export default function BackupNudge() {
   const { pathname } = useLocation();
   const server = hasServer();
-  const due = useApp((s) => shouldNudge(s, { pathname, server }));
+  const installed = installedHere();
+  const due = useApp((s) => shouldNudge(s, { pathname, server, installed }));
   const code = useApp((s) => s.backup?.code);
   const [open, setOpen] = useState(false);
   const [codeOpen, setCodeOpen] = useState(false);

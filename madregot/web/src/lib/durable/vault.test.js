@@ -15,7 +15,7 @@ import { makeCode, isCode } from './code.js';
 import { report } from '../monitor.js';
 import {
   syncVault, createBackup, stopBackup, detachBackup, backupText, agoText, vaultErrorText, openCopy, CONFLICT_LOOPS, BACKUP_TEXT,
-  findVault, adoptCode, familyGone,
+  findVault, adoptCode, familyGone, defaultBackup, showBackupLine, backedUp, clearBackupNote,
 } from './vault.js';
 import { applyRestored } from './apply.js';
 import { VaultOpenError } from './crypto.js';
@@ -454,6 +454,169 @@ describe('turning it on and off', () => {
   });
 });
 
+// COUNCIL2-24: a solo student's backup is on by default once the app has a server (Welcome calls defaultBackup).
+describe('on by default for a solo student', () => {
+  it('a code made here, the backup on at once, its first copy pushed (ifRev null), and Learn\'s one-time note', async () => {
+    useApp.setState({ ...HERE, backup: { ...BACKUP_DEFAULTS, undoUntil: '2026-12-01T00:00:00.000Z' } });
+    expect(await defaultBackup()).toBe('pushed');
+    const b = useApp.getState().backup;
+    expect(isCode(b.code)).toBe(true);
+    expect(b).toMatchObject({ on: true, rev: 1, state: 'idle', note: 'auto', escrow: null, undoUntil: '2026-12-01T00:00:00.000Z' });
+    expect(b.lookup).toBe((await derive(b.code)).lookup);
+    expect(server.posts()).toHaveLength(1);
+    expect(server.posts()[0].body.ifRev).toBeNull();
+    // a code made here has no copy to pull yet: no GET /api/vault/rev, whose 404 a browser logs as an error on every
+    // solo student's first open
+    expect(server.calls.filter((c) => c.path === '/api/vault/rev')).toEqual([]);
+    expect((await held(b.code)).state.profile.name).toBe('נועה');
+    // the code never leaves the device: only the lookup token and the sealed copy are sent
+    for (const c of server.calls) expect(JSON.stringify([c.headers, c.body])).not.toContain(b.code);
+    expect(backupText(b)).toMatch(/^פועל/);
+  });
+
+  it('offline at first: the backup is on and waits; the next moment pushes the first copy, with no "made again" note', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.down = true;
+    expect(await defaultBackup()).toBe('offline');
+    expect(useApp.getState().backup).toMatchObject({ on: true, rev: null, at: null, state: 'offline', note: 'auto' });
+    expect(server.vaults.size).toBe(0);
+    server.hooks.down = false;
+    expect(await syncVault({ moment: 'boot' })).toBe('pushed');
+    expect(useApp.getState().backup).toMatchObject({ on: true, rev: 1, state: 'idle', note: 'auto' });
+    expect(server.vaults.size).toBe(1);
+    expect(server.calls.filter((c) => c.path === '/api/vault/rev')).toEqual([]);
+    // once the copy is there, every later moment pulls as before
+    await syncVault({ moment: 'boot' });
+    expect(server.calls.filter((c) => c.path === '/api/vault/rev')).toHaveLength(1);
+  });
+
+  it('a code typed in (not made here) still asks the server first, even with no rev yet: another student\'s copy is never written', async () => {
+    const code = makeCode();
+    await remote(code, progress('יואב', 'c3d4e5f6', { '2026-11-03': { lessons: 3, xp: 40, q: 24, ok: 20 } }), 2);
+    await device(HERE, code, { rev: null, at: null });
+    expect(await syncVault({ moment: 'boot' })).toBe('other_student');
+    expect(server.calls.filter((c) => c.path === '/api/vault/rev')).toHaveLength(1);
+    expect(server.posts()).toEqual([]);
+  });
+
+  it('a copy that never landed meets one that is there: the push is a conflict, the pull merges it, nothing is lost', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.down = true;
+    expect(await defaultBackup()).toBe('offline');
+    // the same code's copy, pushed from elsewhere meanwhile (a code made here cannot be elsewhere: this is the guard)
+    await remote(useApp.getState().backup.code, THERE, 3);
+    server.hooks.down = false;
+    const tried = server.posts().length; // the offline try, logged before the connection failed
+    expect(await syncVault({ moment: 'boot' })).toBe('pushed');
+    expect(server.posts().slice(tried).map((c) => c.body.ifRev)).toEqual([null, 3]);
+    expect(useApp.getState().backup.rev).toBe(4);
+    expect(Object.keys(useApp.getState().days).sort()).toEqual(['2026-11-04', '2026-11-05']);
+  });
+
+  // The review: with POST /api/vault refused (429 too_many_vaults past 60 new backups a day from one network, 503
+  // vault_full, 503 vault_off) the home card said "ההתקדמות שלכם מגובה" and Settings "פועל", with nothing on the server.
+  for (const [status, error] of [[429, 'too_many_vaults'], [503, 'vault_full'], [503, 'vault_off']]) {
+    it(`the first copy refused (${status} ${error}): on, but not backed up; nothing says it is, until a later moment lands the copy`, async () => {
+      useApp.setState({ ...HERE });
+      server.hooks.post = async () => new Response(JSON.stringify({ error }), { status });
+      expect(await defaultBackup()).toBe('unavailable');
+      const b = useApp.getState().backup;
+      expect(b).toMatchObject({ on: true, rev: null, at: null, state: 'unavailable', note: 'auto' });
+      expect(Number.isFinite(Date.parse(b.since))).toBe(true);
+      expect(server.vaults.size).toBe(0);
+      expect(backedUp(b)).toBe(false);
+      expect(showBackupLine(b), 'Learn does not say "מגובה"').toBe(false);
+      expect(backupText(b)).toBe('עוד לא נשמר בשרת · ננסה שוב');
+      // the next moment tries again, and from then on the line and the row tell the truth
+      server.hooks.post = null;
+      expect(await syncVault({ moment: 'tick' })).toBe('pushed');
+      const after = useApp.getState().backup;
+      expect(server.vaults.size).toBe(1);
+      expect(backedUp(after)).toBe(true);
+      expect(showBackupLine(after)).toBe(true);
+      expect(backupText(after)).toMatch(/^פועל/);
+    });
+  }
+
+  it('a first run offline: on and waiting, not backed up, and no line on the map until the copy is there', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.down = true;
+    expect(await defaultBackup()).toBe('offline');
+    const b = useApp.getState().backup;
+    expect([backedUp(b), showBackupLine(b), backupText(b)]).toEqual([false, false, 'עוד לא נשמר בשרת · מחכה לאינטרנט']);
+    server.hooks.down = false;
+    await syncVault({ moment: 'boot' });
+    expect(showBackupLine(useApp.getState().backup)).toBe(true);
+  });
+
+  it('a server that cannot take it yet: still on, and every later moment tries again until the copy is there', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.post = async () => new Response(JSON.stringify({ error: 'vault_off' }), { status: 503 });
+    expect(await defaultBackup()).toBe('unavailable');
+    expect(useApp.getState().backup.on).toBe(true);
+    server.hooks.post = null;
+    expect(await syncVault({ moment: 'tick' })).toBe('pushed');
+    expect(server.vaults.size).toBe(1);
+  });
+
+  it('only for a solo student with a server and no backup: never a class student, a teacher, the demo, or over a code', async () => {
+    useApp.setState({ ...HERE, profile: { ...HERE.profile, token: 'tok', classCode: 'K7Q2MD' } });
+    expect(await defaultBackup()).toBe('off');
+    useApp.setState({ profile: { role: 'teacher', name: 'רונית', classes: [] } });
+    expect(await defaultBackup()).toBe('off');
+    useApp.setState({ profile: { ...HERE.profile, demo: true } });
+    expect(await defaultBackup()).toBe('off');
+    const code = makeCode();
+    await device(HERE, code, { rev: null });
+    expect(await defaultBackup()).toBe('off');
+    expect(useApp.getState().backup.code).toBe(code);
+    useApp.setState({ backup: { ...BACKUP_DEFAULTS, escrow: 'family' } });
+    expect(await defaultBackup()).toBe('off');
+    useApp.setState({ ...HERE, backup: { ...BACKUP_DEFAULTS }, ai: { ...useApp.getState().ai, apiUrl: 'none' } });
+    vi.stubEnv('VITE_API_URL', 'none');
+    expect(await defaultBackup()).toBe('off');
+    vi.unstubAllEnvs();
+    expect(server.calls).toHaveLength(0);
+  });
+
+  it('Learn\'s line is due once: after the default turned it on, until it is seen; never for a code the class or family keeps', async () => {
+    useApp.setState({ ...HERE });
+    expect(showBackupLine(useApp.getState().backup)).toBe(false);
+    await defaultBackup();
+    expect(showBackupLine(useApp.getState().backup)).toBe(true);
+    expect(showBackupLine({ ...useApp.getState().backup, escrow: 'family' })).toBe(false);
+    expect(showBackupLine({ ...useApp.getState().backup, state: 'other_student' })).toBe(false);
+    clearBackupNote();
+    expect(showBackupLine(useApp.getState().backup)).toBe(false);
+    expect(useApp.getState().backup.on).toBe(true);
+    // a code made in Settings, or a restored one, is not "on by default": no line
+    const code = await createBackup();
+    expect(isCode(code)).toBe(true);
+    expect(showBackupLine(useApp.getState().backup)).toBe(false);
+  });
+
+  it('the opt-out: "להפסיק את הגיבוי" deletes the copy, and nothing turns it on again by itself', async () => {
+    useApp.setState({ ...HERE });
+    await defaultBackup();
+    await stopBackup();
+    expect(server.vaults.size).toBe(0);
+    expect(useApp.getState().backup).toEqual({ ...BACKUP_DEFAULTS });
+    expect(await syncVault({ moment: 'boot' })).toBe('off');
+    expect(server.posts()).toHaveLength(1);
+  });
+
+  it('stopped before its first copy landed: the delete still leaves the tombstone, so the code is never used', async () => {
+    useApp.setState({ ...HERE });
+    server.hooks.down = true;
+    await defaultBackup();
+    const { lookup } = await derive(useApp.getState().backup.code);
+    server.hooks.down = false;
+    await stopBackup();
+    expect(server.deleted.has(lookup)).toBe(true);
+    expect(useApp.getState().backup.on).toBe(false);
+  });
+});
+
 describe('restoring from a code (the Restore screen)', () => {
   it('findVault reads and opens the copy with one GET, and changes nothing here', async () => {
     const code = makeCode();
@@ -506,9 +669,13 @@ describe('what Settings says', () => {
   const now = Date.parse(AT);
   it('the status line', () => {
     expect(backupText({ on: false })).toBe('כבוי');
-    expect(backupText({ on: true, state: 'idle', at: new Date(now - 3 * 60_000).toISOString() }, now)).toBe('פועל · עודכן לפני 3 דקות');
-    expect(backupText({ on: true, state: 'idle', at: new Date(now - 20_000).toISOString() }, now)).toBe('פועל · עודכן עכשיו');
-    expect(backupText({ on: true, state: 'offline' }, now)).toBe('פועל · מחכה לאינטרנט');
+    expect(backupText({ on: true, rev: 2, state: 'idle', at: new Date(now - 3 * 60_000).toISOString() }, now)).toBe('פועל · עודכן לפני 3 דקות');
+    expect(backupText({ on: true, rev: 1, state: 'idle', at: new Date(now - 20_000).toISOString() }, now)).toBe('פועל · עודכן עכשיו');
+    expect(backupText({ on: true, rev: 1, state: 'offline' }, now)).toBe('פועל · מחכה לאינטרנט');
+    expect(backupText({ on: true, rev: 1, state: 'unavailable' }, now)).toBe('פועל · ננסה לעדכן שוב בקרוב');
+    // on, but no copy has reached the server: never "פועל" (the review)
+    for (const state of ['idle', 'unavailable', 'error', 'gone', null]) expect(backupText({ on: true, rev: null, state }, now), String(state)).toBe('עוד לא נשמר בשרת · ננסה שוב');
+    expect(backupText({ on: true, rev: null, state: 'offline' }, now)).toBe('עוד לא נשמר בשרת · מחכה לאינטרנט');
     expect(backupText({ on: true, state: 'too_big' }, now)).toBe('הגיבוי גדול מדי. שמרו קובץ במקום.');
     const ago = (ms) => agoText(new Date(now - ms).toISOString(), now);
     expect([ago(60_000), ago(5 * 60_000), ago(3600_000), ago(2 * 3600_000), ago(5 * 3600_000)]).toEqual(['לפני דקה', 'לפני 5 דקות', 'לפני שעה', 'לפני שעתיים', 'לפני 5 שעות']);

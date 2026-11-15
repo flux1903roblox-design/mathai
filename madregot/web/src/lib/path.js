@@ -14,6 +14,7 @@ import { TOPIC, GUEST_STATE } from '@/content/topics.js';
 import { GUEST, parseSkill } from '@/learn/skills.ts';
 import { PARTS } from './lessonRules.js';
 
+import { localized, t as tr } from '@/lib/i18n.js';
 export const partsOf = (path, topic, level) => path?.[topic]?.parts?.[level] || 0;
 /** Is this stair done: its mastery check passed (or kept from before checks existed)? */
 export const isDone = (path, topic, level) => !!path?.[topic]?.done?.[level];
@@ -73,7 +74,7 @@ export function unitNodes(topic, path = {}) {
   // the unit review opens once every stair is done (mastered, or kept from before mastery checks): a stair only passed
   // over by a placement or jump test still waits for its own check, so it does not open the review (SK-LEARN-6)
   const allDone = doneCount(topic, path) >= t.levels.length;
-  nodes.push({ kind: 'review', topic, level: t.levels.length, title: 'חזרה על כל היחידה', state: allDone ? ((path?.[topic]?.reviews || 0) > 0 ? 'done' : 'current') : 'locked', parts: Math.min(path?.[topic]?.reviews || 0, 1) });
+  nodes.push({ kind: 'review', topic, level: t.levels.length, title: tr('shell.path.1'), state: allDone ? ((path?.[topic]?.reviews || 0) > 0 ? 'done' : 'current') : 'locked', parts: Math.min(path?.[topic]?.reviews || 0, 1) });
   return nodes;
 }
 
@@ -97,17 +98,17 @@ export function journey(topicIds, path = {}, current, opened = []) {
  * Stairs added to a unit after students had climbed it: saved progress is kept by topic and level, so the stairs before
  * keep their state and the new one becomes the current stair after them. Its card says why it is there.
  */
-const ADDED_STAIRS = {
-  'signed:6': 'נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.',
-  'eq:6': 'נוספה מדרגה חדשה ליחידה: שאלות תנועה.',
-  'eq:7': 'נוספה מדרגה חדשה ליחידה: משוואות עם מכנים ופרופורציה.',
+let ADDED_STAIRS = localized(() => ({
+  'signed:6': tr('shell.path.2'),
+  'eq:6': tr('shell.path.added.eq6'),
+  'eq:7': tr('shell.path.added.eq7'),
   // curriculum stage 3 (DATA-5): three stairs after stats:5; the first of them says it for all three
-  'stats:6': 'נוספו ליחידה שלוש מדרגות חדשות: טווח, שני מקורות מידע, ואינטרפולציה ואקסטרפולציה.',
+  'stats:6': tr('shell.path.added.stats6'),
   // CLASSROOM-5: a student who had finished the unit's six stairs meets the seventh after them
-  'signed:7': 'נוספה מדרגה חדשה ליחידה: חזקות של מספרים מכוונים.',
+  'signed:7': tr('shell.path.added.signed7'),
   // CLASSROOM-10: a student who had finished the unit's five stairs meets the bisector after them (the quadrilateral follows it)
-  'angles:6': 'נוספה מדרגה חדשה ליחידה: חוצה זווית.',
-};
+  'angles:6': tr('shell.path.added.angles6'),
+}), (v) => { ADDED_STAIRS = v; });
 /** The line a stair's card adds while it is the current stair and the stair before it is done; computed, never stored. */
 export const addedStairNote = (n, path = {}) => (n?.kind === 'node' && n.state === 'current' && n.level > 1 && isDone(path, n.topic, n.level - 1)
   ? ADDED_STAIRS[`${n.topic}:${n.level}`] || null : null);
@@ -261,9 +262,9 @@ export function unitProgress(topic, path = {}, skills = {}) {
  */
 export function unitCountText({ done, stairs, stages, of }) {
   // a unit of one stair (a unit whose later stairs have not landed yet) says it in the singular
-  if (done > 0) return stairs === 1 ? 'מדרגה אחת, שולטים בה' : `${done} מתוך ${stairs} מדרגות`;
-  if (stages > 0) return `${stages} מתוך ${of} שלבים`;
-  return stairs === 1 ? 'מדרגה אחת' : `${stairs} מדרגות`;
+  if (done > 0) return stairs === 1 ? tr('shell.path.oneDone') : tr('shell.path.3', { done, stairs });
+  if (stages > 0) return tr('shell.path.4', { stages, of });
+  return stairs === 1 ? tr('shell.path.one') : tr('shell.path.5', { stairs });
 }
 
 /**

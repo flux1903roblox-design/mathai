@@ -1,6 +1,17 @@
 /* Assistant.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
    original order. Only Assistant.jsx uses these classes. */
-.tabs { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; gap: 4px; background: var(--ground); border: 1px solid var(--rule); border-radius: 12px; }
+
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+.ai-offline-support { align-self: center; }
+.gen-note-text { display: flex; flex-direction: column; gap: var(--s1); }
+.gen-q-text { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); min-width: 0; }
+.gen-q-fig { width: 100%; max-width: 360px; }
+.gen-unit { color: var(--ink-2); }
+.gen-q-result:empty { margin-top: calc(-1 * var(--s2)); }
+.gen-why { display: block; margin-top: 2px; color: var(--ink); font-weight: 400; }
+.gen-shown { display: flex; flex-direction: column; gap: var(--s1); }
+.upload-picked { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s3); }
+
 .upload-empty { display: flex; flex-direction: column; align-items: center; gap: var(--s2); padding: var(--s8) var(--s4); font-weight: 700; color: var(--ink-2); }
 .upload-preview { display: block; width: 100%; max-height: 320px; object-fit: contain; background: var(--surface); }
 .gen-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
@@ -14,7 +25,6 @@
 .gen-partial { color: var(--brand-ink); font-weight: 600; }
 .gen-ok { display: inline-flex; gap: var(--s1); align-items: center; color: var(--ok); font-weight: 700; }
 .gen-bad { color: var(--magenta); font-weight: 700; }
-.tabs { border: 0; background: var(--ai-tint); border-radius: 16px; }
 .reveal-anchor { height: 0; scroll-margin-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
 .ai-offline { display: flex; flex-direction: column; gap: var(--s4); padding: var(--s4); border: 2px solid var(--brand-line); border-radius: 24px; background: var(--paper); }
 .ai-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
@@ -48,9 +58,6 @@
 /* the photo check's two ways in (PKG-2): the camera, and a picture or a PDF; then one calm line about a PDF */
 .photo-pick { display: flex; flex-direction: column; gap: var(--s3); }
 .upload-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.pdf-status { display: flex; align-items: center; gap: var(--s2); margin: 0; font-weight: 600; color: var(--ink-2); }
-.pdf-status:empty { position: absolute; }
-.pdf-status .btn-spin { width: 16px; height: 16px; border-width: 2px; color: var(--brand); }
 .photo-pick [aria-disabled="true"] { opacity: 0.55; cursor: default; }
 /* PRODUCT2-40: a child practising alone. With no helper, a calm page about what מדי explains in every lesson (no locked
    input); before a parent's OK, מדי's first bubble says what the helper does and holds the one way on */
@@ -59,7 +66,7 @@
 .ask-parent { display: flex; flex-direction: column; gap: var(--s3); color: var(--ink); }
 .ask-parent p { margin: 0; }
 .ask-parent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
-.ask-parent-list li { display: flex; align-items: center; gap: var(--s2); font-weight: 600; line-height: 22px; }
+.ask-parent-list li { display: flex; align-items: center; gap: var(--s2); font-weight: 600; line-height: 1.2942; }
 .ask-parent-icon { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: var(--ai-tint); color: var(--ai-ink); }
 /* the opening bubble that holds the way on takes the row's full width */
 .msg-row .msg.assistant:has(> .ask-parent) { max-width: 100%; flex: 1; }

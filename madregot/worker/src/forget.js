@@ -48,18 +48,25 @@ export const STUDENT_ROWS = [
  */
 export const studentWhere = ([, col, via, and], match) => (and ? `${and} AND ` : '') + (via ? `${col} IN (${via} ${match})` : `${col} ${match}`);
 /**
- * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, also per network (TRUST-12),
- * every AI tier and its tries, care (TRUST-3), the student's reported AI answers (TRUST-4), the student's assignment
- * reports, and their replies to the teacher (TEACHER-6), and the student's backup lookups and escrow writes
- * (DURABLE-5, DURABLE-6: vault.js vault:miss:s:<id>, escrow:s:<id>)).
+ * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN and claim-code tries, per network, an
+ * hour and a day, and the student's day of wrong PINs (TRUST-12, COUNCIL2-25: pin:<id>:<net>, pin:<id>:<net>:day and
+ * pin:<id>; the student row takes its claim code with it), the networks the student signed in from (index.js
+ * joined:s:<id>:<net>), every AI tier and its tries, care (TRUST-3), the adult's alert of the day (COUNCIL2-9: alerts.js
+ * alert:s:<id>), the student's reported AI answers (TRUST-4), the student's assignment reports, and their replies to
+ * the teacher (TEACHER-6), the student's backup lookups and escrow writes (DURABLE-5, DURABLE-6: vault.js
+ * vault:miss:s:<id>, escrow:s:<id>), and the day's write budget (COUNCIL2-18: writes.js write:s:<id>:answers, :exams,
+ * :levels, :help, :helpKb)).
+ * test/forget.test.js reads worker/src for every counter built with a student's id and fails when one is not here.
  */
-export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:', 'report:s:', 'work:s:', 'helpreply:s:', 'vault:miss:s:', 'escrow:s:'];
+export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:', 'report:s:', 'work:s:', 'helpreply:s:', 'vault:miss:s:', 'escrow:s:', 'write:s:', 'alert:s:', 'joined:s:'];
 /**
  * ai_usage keys that carry a class code: the teacher's AI, the class's free and paid pools, the teacher's care and
  * reported-answer counters (TRUST-3, TRUST-4), licence requests and claims, the assignments made a day (TEACHER-4), the
- * class report's exports (TEACHER-7) and the student AI requests refused in a class whose AI is off (TRUST-11).
+ * class report's exports (TEACHER-7), the student AI requests refused in a class whose AI is off (TRUST-11), the
+ * class's day of units in the open tier (COUNCIL2-19: entitle.js open:c:<code>), its day of dollars there
+ * (usd:open:c:<code>) and its day of writes (COUNCIL2-18: writes.js write:c:<code>:<what>).
  */
-export const CLASS_COUNTERS = ['t:', 'free:t:', 'free:c:', 'cls:', 'care:t:', 'report:t:', 'licreq:c:', 'licclaim:c:', 'assign:c:', 'report:c:', 'aioff:c:'];
+export const CLASS_COUNTERS = ['t:', 'free:t:', 'free:c:', 'cls:', 'care:t:', 'report:t:', 'licreq:c:', 'licclaim:c:', 'assign:c:', 'report:c:', 'aioff:c:', 'open:c:', 'usd:open:c:', 'write:c:'];
 
 /**
  * SQL that is true for an ai_usage row whose key is <prefix><id> or <prefix><id>:<more>, with <id> in `sel` (a SELECT
@@ -136,10 +143,11 @@ export function countSteps(steps, results) {
 /**
  * ai_usage keys that carry a family device id (X-Family-Device): its free taste and tries, care and reported answers,
  * its daily summaries for the parents (PARENTS-3: report.js sum:d:<id>), its backup lookups and escrow writes
- * (DURABLE-5, DURABLE-6: vault.js vault:miss:fd:<id>, escrow:fd:<id>). The family's own counters (fam:<account>…) are
- * the parent's and stay.
+ * (DURABLE-5, DURABLE-6: vault.js vault:miss:fd:<id>, escrow:fd:<id>), and its own day in the open tier when a parent
+ * approved it with no plan (COUNCIL2-19: entitle.js open:fd:<id>). The family's own counters (fam:<account>…) are the
+ * parent's and stay.
  */
-export const FAMILY_DEVICE_COUNTERS = ['fd:', 'free:fd:', 'care:fd:', 'report:fd:', 'sum:d:', 'vault:miss:fd:', 'escrow:fd:'];
+export const FAMILY_DEVICE_COUNTERS = ['fd:', 'free:fd:', 'care:fd:', 'report:fd:', 'sum:d:', 'vault:miss:fd:', 'escrow:fd:', 'open:fd:'];
 /**
  * ai_usage keys that carry an install's devKey (X-Device, hashed: util.js devKey): its free taste and tries, link codes
  * asked for, care and reported answers. Pending link codes hold no device id (TRUST-1 §2) and expire within the hour.

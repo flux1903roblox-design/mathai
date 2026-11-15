@@ -6,7 +6,8 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { NOW, student, livedIn, answer, proceed, appReady, examPng, keyTeacher } from './helpers.js';
-import { fakeServer, API, CORS, livePlan, parentServer, nine, PARENT } from './fakeServer.js';
+import { fakeServer, API, CORS, livePlan, parentServer, nine, PARENT, TOKEN } from './fakeServer.js';
+import { findUnitProblems } from '../scripts/check-units.mjs';
 
 /** Open a route with a saved state, seeded before the app starts (as subscription.spec.js does). */
 let seeds = 0;
@@ -36,6 +37,36 @@ const withServer = (extra = {}) => ({ ...student('7', { ai: { mode: 'server', ap
 const firstTime = (extra = {}) => withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '' }, ...extra });
 const classStudent = () => withServer({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' } });
 const chatCalls = (log) => log.filter((r) => r.path === '/api/ai/chat');
+/** A parent's own phone, signed in to /parents (as report.spec.js's openParent): no profile, the app on the fake server. */
+const PARENT_TOKEN = TOKEN(9);
+const parentPhone = () => { const p = withServer(); p.state.profile = null; return p; };
+/** The demo class's board, not the way in to it. */
+const demoBoard = async (page) => {
+  await expect(page.getByRole('heading', { level: 1, name: 'ז׳3 (דוגמה)' })).toBeVisible();
+  await expect(page.locator('.demo-banner')).toBeVisible();
+};
+/**
+ * The parents' page signed in (not its sign-in form): the plans and the seller's details, whose phone number stays on
+ * one line, read left to right (COUNCIL2-8), also at 320.
+ */
+const signedInPage = async (page) => {
+  await expect(page.getByLabel('כתובת המייל')).toHaveCount(0);
+  const seller = page.getByRole('region', { name: 'פרטי העסק' });
+  await expect(seller).toBeVisible();
+  const phone = seller.locator('a[href^="tel:"]');
+  await expect(phone).toHaveText('03-0000000');
+  await expect(phone).toHaveAttribute('dir', 'ltr');
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 700 });
+    expect(await phone.evaluate((a) => [getComputedStyle(a).whiteSpace, a.getClientRects().length]), `${width}px`).toEqual(['nowrap', 1]);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+};
+/** The fake server for that parent: signed in, no plan yet, one linked device. */
+const signedInParent = async (page) => {
+  const server = await fakeServer(page, { devices: [{ id: 'd000000000000001', label: 'הטאבלט', token: `fd1.${'1'.repeat(64)}`, linkedAt: '2026-09-20T16:00:00Z', lastSync: '2026-11-05T08:10:00Z' }] }, baseOf());
+  server.st.sessions.add(PARENT_TOKEN);
+};
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
 const CARE_TEXT = 'תודה שכתבתם. מה שאתם מרגישים חשוב. אפשר להתקשר לער״ן, 1201, בכל שעה.';
 
@@ -49,6 +80,8 @@ async function shot(page, name) {
 
 /** Every way in on the card is a real link a phone can follow, at least 44px tall. */
 async function expectCard(card) {
+  // a sheet's dialog is its own file (COUNCIL2-14), so a sheet opened at once after the page loaded can take a moment
+  await expect(card).toBeVisible();
   // under a message the number is in the card's head too: every link to it dials it
   const eran = await card.getByRole('link', { name: /חיוג 1201/ }).all();
   expect(eran.length).toBeGreaterThanOrEqual(1);
@@ -578,6 +611,200 @@ test.describe('class join', () => {
     await expect(page.locator('.ob-name-claim')).toHaveText('המורה יראה את השם נועה. אם יש בכיתה עוד מישהו עם אותו שם, חזרו אחורה והוסיפו אות משם המשפחה, למשל: נועה כ.');
     await page.locator('.ob-name-claim').scrollIntoViewIfNeeded();
     await shot(page, 'class-name-claim');
+  });
+});
+
+test.describe('a person to talk to in every refusal (COUNCIL2-1, COUNCIL2-4)', () => {
+  // The council's review: with no parent's OK, or with the questions used up, "יש לי מחשבות אובדניות" opened the
+  // parent's-OK sheet or the "done for today" card, because the offline detector did not read it; the only way to help
+  // was the quiet link. Now the detector reads it (shared/safety.js), and every place where the tutor says "not now"
+  // has ער״ן's number as a call button beside the link: a tel: link, 44px, no price.
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const SUICIDAL = 'יש לי מחשבות אובדניות';
+  /** The Worker's care path: a message that reads as distress is answered even with no parent's OK or no questions left. */
+  async function careServer(page, log) {
+    await page.route(`${API}/api/ai/chat`, async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      log.push({ path: '/api/ai/chat', body: route.request().postDataJSON() });
+      return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: CORS, body: `${CARE_TEXT}\n[[care]]` });
+    });
+  }
+  /** The call button: ער״ן's number as a tel: link, at least 44px tall, and no price anywhere on the screen. */
+  async function expectCall(scope, page, { oneRow = false } = {}) {
+    const call = scope.getByRole('link', { name: 'ער״ן, חיוג 1201, בכל שעה' });
+    await expect(call).toBeVisible();
+    await expect(call).toHaveAttribute('href', 'tel:1201');
+    const box = await call.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    const link = scope.getByRole('button', { name: 'צריכים לדבר עם מישהו?' });
+    await expect(link).toBeVisible();
+    // in a sheet the line and its button share one row, even on a 320 phone (both read in one frame: the sheet slides in)
+    if (oneRow) {
+      await page.evaluate(() => document.fonts.ready);
+      const gap = await scope.locator('.help-line').evaluate((el) => {
+        const [a, b] = [el.querySelector('.support-open'), el.querySelector('.help-line-call')].map((x) => x.getBoundingClientRect());
+        return Math.abs((a.top + a.height / 2) - (b.top + b.height / 2));
+      });
+      expect(gap).toBeLessThan(4);
+    }
+    for (const w of ['₪', 'מנוי']) await expect(page.locator('body')).not.toContainText(w);
+  }
+
+  // With no parent's OK the assistant tab says why in its opening bubble and draws no resting card (PRODUCT2-40): the
+  // input reads as an ordinary one, and the link with ער״ן's number sits under it
+  for (const [name, opts, line, where] of [
+    ['with no parent\'s OK', {}, 'כתבו שאלה…', '.chat-dock-live > .chat-rest-support'],
+    ['with the questions used up', { parentOk: true, freeLimit: 0 }, 'העוזר החכם חוזר מחר', '.chat-rest'],
+  ]) {
+    const slug = opts.parentOk ? 'usedup' : 'noparentok';
+    test(`${name}: the resting screen has the call button, and "${SUICIDAL}" opens the support card, never a sheet`, async ({ page }) => {
+      const { log } = await fakeServer(page, opts, baseOf());
+      await careServer(page, log);
+      await open(page, '#/assistant', withServer());
+      const draft = page.getByLabel('ההודעה שלכם');
+      await expect(draft).toHaveAttribute('placeholder', line);
+      if (!opts.parentOk) await expect(page.locator('.chat-rest')).toHaveCount(0);
+      const rest = page.locator(where);
+      await expectCall(rest, page);
+      await shot(page, `refusal-rest-${slug}`);
+      await draft.fill(SUICIDAL); await draft.press('Enter');
+      const card = page.locator('.chat .support-card');
+      await expect(card).toBeVisible();
+      await expect(card.getByText('מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.')).toBeVisible();
+      await expectCard(card);
+      await expect(page.getByRole('dialog')).toHaveCount(0); // not "קודם, אישור של הורה", not a limit sheet
+      await expect(draft).toHaveValue('');
+      await expect.poll(() => chatCalls(log).length).toBe(1); // it still goes: the server answers it on its care path
+      await expect(page.locator('.msg-row.assistant').last()).toContainText('תודה שכתבתם');
+      await shot(page, `refusal-care-${slug}`);
+    });
+  }
+
+  // The second net (the council's safety review): a word list is never complete, and with no parent's OK a disclosure
+  // it does not read opened the parent's-OK sheet and nothing else. Now a message that is not about maths at all,
+  // written while the tutor cannot answer, stays on the screen as the child wrote it with the support card under it,
+  // in words that presume nothing; it is sent nowhere. A maths question is treated as before, with no card.
+  const UNREAD = 'אף אחד בבית לא שם לב אליי ואני לא יודעת מה לעשות';
+  for (const [name, opts, line] of [
+    ['with no parent\'s OK', {}, 'כתבו שאלה…'],
+    ['with the questions used up', { parentOk: true, freeLimit: 0 }, 'העוזר החכם חוזר מחר'],
+  ]) {
+    const slug = opts.parentOk ? 'usedup' : 'noparentok';
+    test(`${name}: a message that is not about maths and that the word list does not read gets the support card under it, and goes nowhere`, async ({ page }) => {
+      const { log } = await fakeServer(page, opts, baseOf());
+      await open(page, '#/assistant', withServer());
+      const draft = page.getByLabel('ההודעה שלכם');
+      await expect(draft).toHaveAttribute('placeholder', line);
+      await draft.fill(UNREAD); await draft.press('Enter');
+      // the child's words stay, the card is under them, and no sheet covers them
+      await expect(page.locator('.msg-row.user').last()).toContainText(UNREAD);
+      const card = page.locator('.chat .support-card');
+      await expect(card).toBeVisible();
+      await expect(card.getByText('העוזר החכם לא עונה עכשיו. אם מה שכתבתם הוא משהו שמציק לכם או מדאיג אתכם, לא צריך להתמודד עם זה לבד.')).toBeVisible();
+      await expect(card.getByText('העוזר החכם הוא תוכנה, לא אדם. מה שכתבתם לא נשלח לאף אחד.')).toBeVisible();
+      await expect(card.getByText('מה שכתבתם חשוב')).toHaveCount(0);
+      await expectCard(card);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(draft).toHaveValue('');
+      expect(chatCalls(log)).toHaveLength(0); // nothing was sent
+      for (const w of ['₪', 'מנוי']) await expect(page.locator('body')).not.toContainText(w);
+      await shot(page, `held-card-${slug}`);
+      // the first number is on the screen with no scrolling, on a small phone too
+      await page.setViewportSize({ width: 320, height: 568 });
+      const quick = card.locator('.support-quick');
+      await quick.scrollIntoViewIfNeeded();
+      await expect(quick).toBeInViewport();
+      await shot(page, `held-card-${slug}-320`);
+      await page.setViewportSize({ width: 390, height: 844 });
+
+      // a maths question right after it: no second card, and the calm path of before (the sheet, or the waiting draft)
+      await draft.fill('מה זה שבר?'); await draft.press('Enter');
+      await expect(page.locator('.chat .support-card')).toHaveCount(1);
+      await expect(draft).toHaveValue('מה זה שבר?');
+      expect(chatCalls(log)).toHaveLength(0);
+    });
+  }
+
+  test('a request that fails for a message that is not about maths: the words stay with the support card, never handed back to be sent again', async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await page.route(`${API}/api/ai/chat`, async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      log.push({ path: '/api/ai/chat', body: route.request().postDataJSON() });
+      return route.abort('internetdisconnected');
+    });
+    await open(page, '#/assistant', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true } }));
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill(UNREAD); await draft.press('Enter');
+    const card = page.locator('.chat .support-card');
+    await expect(card).toBeVisible();
+    await expect(card.getByText('העוזר החכם לא עונה עכשיו.', { exact: false })).toBeVisible();
+    await expect(page.locator('.msg-row.user').last()).toContainText(UNREAD);
+    await expect(draft).toHaveValue('');
+    // a maths question that fails is handed back as before, with no card
+    await draft.fill('מה זה שבר?'); await draft.press('Enter');
+    await expect(draft).toHaveValue('מה זה שבר?');
+    await expect(page.locator('.chat .support-card')).toHaveCount(1);
+    // and when the tutor answers again, the held message is not part of what it is sent
+    await page.unroute(`${API}/api/ai/chat`);
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect.poll(() => chatCalls(log).length).toBeGreaterThanOrEqual(3);
+    const sent = chatCalls(log).at(-1).body;
+    expect(JSON.stringify(sent)).not.toContain('שם לב אליי');
+  });
+
+  test('the limit sheet with no parent\'s OK has the call button; its link closes the sheet and opens the people to talk to', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/assistant', withServer());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('מה זה שבר?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'קודם, אישור של הורה' });
+    await expect(sheet).toBeVisible();
+    await expectCall(sheet, page, { oneRow: true });
+    await shot(page, 'refusal-sheet-noparentok');
+    await sheet.getByRole('button', { name: 'צריכים לדבר עם מישהו?' }).click();
+    await expect(sheet).toHaveCount(0);
+    await expectCard(page.getByRole('dialog', { name: 'חשוב לנו שתהיו בסדר' }));
+  });
+
+  test('the limit sheet when the day\'s questions are used up has the call button', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    await expect(page.getByText('שאלו כל שאלה במתמטיקה')).toBeVisible(); // the status has come: questions left
+    // the status said there were questions left; the answer says they are used up
+    st.breakNext = { status: 429, body: { error: 'daily_limit', tier: 'free', group: 'tutor', limit: 2, left: 0 } };
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('מה זה שבר?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'העוזר החכם חוזר מחר' });
+    await expect(sheet).toBeVisible();
+    await expectCall(sheet, page, { oneRow: true });
+    await shot(page, 'refusal-sheet-usedup');
+  });
+
+  test('the limit sheet of a class whose tutor is off has the call button', async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await page.route(`${API}/api/ai/chat`, (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      log.push({ path: '/api/ai/chat' });
+      return route.fulfill({ status: 403, contentType: 'application/json', headers: CORS, body: JSON.stringify({ error: 'class_ai_off', message: 'class_ai_off' }) });
+    });
+    await open(page, '#/assistant', classStudent());
+    await expect(page.getByText('שאלו כל שאלה במתמטיקה')).toBeVisible(); // the status said the tutor is on
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך פותרים 3x = 12?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'בכיתה הזו העוזר החכם כבוי' });
+    await expect(sheet).toBeVisible();
+    await expectCall(sheet, page, { oneRow: true });
+    await shot(page, 'refusal-sheet-classoff');
+  });
+
+  test('a tool this device does not have today has the call button', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    const tool = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
+    await expect(tool.getByText('את הבדיקה הזו עושה העוזר החכם המלא.')).toBeVisible();
+    await expectCall(tool, page);
+    await shot(page, 'refusal-tool-locked');
   });
 });
 
@@ -1493,6 +1720,13 @@ test.describe('accessibility statement', () => {
     }],
     ['ביטול המנוי', '#/cancel', null],
     ['התקנון', '#/terms', null], ['הפרטיות', '#/privacy', null], ['הנגישות', '#/accessibility', null], ['הבטיחות', '#/safety', null],
+    // COUNCIL2-8: the teacher's board in the demo class (24 invented students, every tab, no server) and the parents' page
+    // once signed in with no plan yet (the plans, the disclosure, the two boxes, a linked device and the account)
+    ['לוח המורה בכיתה לדוגמה', '#/?start=demo', null, async (page) => ({ ready: () => demoBoard(page) })],
+    ['עמוד ההורים לפני המנוי', '#/parents', parentPhone(), async (page) => {
+      await signedInParent(page);
+      return { local: { 'madregot-parent': JSON.stringify({ token: PARENT_TOKEN, email: 'parent@example.test' }) }, ready: () => signedInPage(page) };
+    }],
   ];
   // each line of "מה הותאם", word for word, and the check that backs it: a check run on every screen, or a test below
   const CLAIMS = {
@@ -1505,6 +1739,7 @@ test.describe('accessibility statement', () => {
     'לכל תרגיל עם גרירה (ציר מספרים, נקודות, קווים, זוויות ועוד) יש גם כפתורים שמזיזים בלי לגרור.': 'drag',
     'הניגודיות בין הטקסט לרקע עומדת בתקן: לפחות 4.5 ל־1, ובטקסט גדול לפחות 3 ל־1.': 'contrast',
     'המסכים מתאימים לטלפון ברוחב 320 פיקסלים, בלי גלילה הצידה.': 'narrow',
+    'הטקסט גדל כשמגדילים את גודל הטקסט בדפדפן או בטלפון. גם בגודל כפול המסכים נשארים ברוחב הטלפון, בלי גלילה הצידה.': 'textsize',
     'כשמבקשים ממערכת ההפעלה להפחית תנועה, שום דבר לא קופץ, מחליק או חוזר על עצמו. נשארות רק הופעות רכות.': 'motion',
   };
   const PER_SCREEN = ['lang', 'names', 'keyboard', 'contrast', 'narrow'];
@@ -1647,7 +1882,8 @@ test.describe('accessibility statement', () => {
       "'telling the class (AssignSheet, sent)'", "'the email\\'s other classes'"]) expect(spec, sheet).toContain(`scan(page, ${sheet}`);
     expect(read('./playwright.config.js')).toMatch(/name: 'phone-dark'.*testMatch: \/\([^)]*\ba11y\b[^)]*\)\\.spec\\.js\//);
     const ci = readFileSync(new URL('../../../.github/workflows/ci.yml', import.meta.url), 'utf8');
-    expect(ci, 'CI scans in light (the phone run takes every spec file)').toContain('--project=phone --grep-invert @perf');
+    // the phone project's run also names the contract and Arabic projects (they take only their own specs)
+    expect(ci, 'CI scans in light (the phone run takes every spec file)').toMatch(/--project=phone (--project=[\w-]+ )*--grep-invert @perf/);
     expect(ci, 'CI scans in dark').toContain('--project=phone-dark a11y.spec.js');
     // the version the statement names
     const installed = JSON.parse(readFileSync(new URL('../node_modules/axe-core/package.json', import.meta.url), 'utf8')).version;
@@ -1663,6 +1899,15 @@ test.describe('accessibility statement', () => {
     await expect(fb, claimOf('feedback')).toBeVisible();
     await expect(fb).toHaveAttribute('aria-live', 'assertive');
     await expect(fb).toHaveAccessibleName(/.+/);
+  });
+
+  test('text grows with the reader\'s text size (layout.spec.js checks screens at 200% on 390 and 320)', () => {
+    // no font size in px and no line height with a unit in the stylesheets, except the listed SVG labels (units.test.js)
+    const { bad, stale } = findUnitProblems();
+    expect([...bad.map((b) => `${b.file} ${b.selector} ${b.property}`), ...stale], claimOf('textsize')).toEqual([]);
+    const spec = readFileSync(new URL('./layout.spec.js', import.meta.url), 'utf8');
+    expect(spec, claimOf('textsize')).toContain("test(`text at 200%: ${what} grows its text and fits phones of 390 and 320`");
+    expect(spec).toContain("standard: 32");
   });
 
   test('every exercise you drag also moves with buttons (manip.spec.js checks each kind)', () => {
@@ -1698,5 +1943,130 @@ test.describe('accessibility statement', () => {
     for (const s of await visit()) expect(s, claimOf('motion')).toEqual({ slow: 0, moving: 0 });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     expect((await visit()).some((s) => s.slow > 0), 'without reduced motion the screens do animate').toBe(true);
+  });
+});
+
+// An adult behind the class (COUNCIL2-2, COUNCIL2-5): an email alone proves no age. The fake server answers as the Worker
+// with declaredOnly: an email counts only once its holder ticked "אני מעל גיל 18, ואני מורה או נותן/ת שיעורים פרטיים".
+test.describe('an adult behind the class', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const DECLARE = 'אני מעל גיל 18, ואני מורה או נותן/ת שיעורים פרטיים';
+  const fresh = () => withServer({ profile: null });
+  /** TRUST_SHOTS: the screen at the project's width and at 320 x 568, scrolled to `what`. */
+  async function both(page, name, what) {
+    if (!process.env.TRUST_SHOTS) return;
+    const size = page.viewportSize();
+    await what.scrollIntoViewIfNeeded(); await shot(page, name);
+    await page.setViewportSize({ width: 320, height: 568 });
+    await what.scrollIntoViewIfNeeded(); await shot(page, `${name}-320`);
+    await page.setViewportSize(size);
+  }
+  /** From the first screen to the teacher's email step, a new class. */
+  async function toEmail(page) {
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await expect(page.getByLabel('כתובת המייל שלכם')).toBeVisible();
+  }
+  async function signInAndOpen(page, { tick, privateGroup = false }) {
+    await page.getByLabel('כתובת המייל שלכם').fill('teacher@example.test');
+    if (tick) await page.getByRole('checkbox', { name: DECLARE }).check();
+    await page.getByRole('button', { name: 'שליחת קוד' }).click();
+    await page.getByLabel('הקוד מהמייל').fill('123456');
+    await page.getByLabel('השם שלכם (כך התלמידים יראו אותו)').fill('המורה כהן');
+    await page.getByLabel('שם הכיתה').fill('ז׳3');
+    if (privateGroup) {
+      await page.getByRole('radio', { name: /בשיעורים פרטיים, חוג או תגבור/ }).check();
+      await page.getByRole('checkbox', { name: 'הקבוצה הזו לא פועלת במסגרת בית ספר.' }).check();
+      await expect(page.getByText('את העוזר החכם לתלמידים פותח רק מורה שנכנס עם מייל ואישר שהוא מעל גיל 18.')).toBeVisible();
+    }
+    await page.getByRole('button', { name: 'פתיחת הכיתה' }).click();
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+  }
+
+  test('the declaration on TeacherStart starts unticked; ticked, it goes with the code and the teacher\'s tutor answers', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { declaredOnly: true }, baseOf());
+    await open(page, '#/', fresh());
+    await toEmail(page);
+    const box = page.getByRole('checkbox', { name: DECLARE });
+    await expect(box).not.toBeChecked();
+    await expect(page.getByText('בלי הסימון הזה אפשר לנהל את הכיתה, אבל העוזר החכם לא ייפתח.')).toBeVisible();
+    await expect(box).toHaveAttribute('aria-describedby', 'ts-adult-hint');
+    expect((await page.locator('label').filter({ has: box }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await both(page, 'teacher-declare-email', page.getByRole('button', { name: 'שליחת קוד' }));
+    await signInAndOpen(page, { tick: true });
+    expect(log.find((r) => r.path === '/api/account/verify').body).toMatchObject({ adultTeacher: true });
+    expect([...st.adults]).toEqual(['teacher@example.test']);
+    await page.evaluate(() => { window.location.hash = '#/teacher/assistant'; });
+    await page.getByLabel('ההודעה שלכם').fill('איך להסביר חיבור של מספר חיובי ומספר שלילי?');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.getByText('כדי לחבר מספרים עם סימנים שונים')).toBeVisible();
+  });
+
+  test('without it the teacher\'s tutor waits (parent_ok_needed) and the AI card says why; the bind asks for the tick and then the tutor opens', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { declaredOnly: true }, baseOf());
+    await open(page, '#/', fresh());
+    await toEmail(page);
+    await signInAndOpen(page, { tick: false, privateGroup: true });
+    expect(log.find((r) => r.path === '/api/account/verify').body).toMatchObject({ adultTeacher: false });
+    expect(st.adults.size).toBe(0);
+    // the class's AI card: no consent box and no switch, a calm line and the way on
+    await page.evaluate(() => { window.location.hash = '#/teacher/settings'; });
+    const card = page.getByRole('region', { name: 'העוזר החכם לתלמידים' });
+    await expect(card.getByText('כדי לפתוח את העוזר לתלמידים, צריך קודם להיכנס עם מייל ולאשר שאתם מעל גיל 18. כך יודעים שמבוגר אחראי על הכיתה.')).toBeVisible();
+    await expect(card.getByRole('checkbox')).toHaveCount(0);
+    await expect(card.getByRole('switch')).toHaveCount(0);
+    const way = card.getByRole('button', { name: 'כניסה עם מייל' });
+    expect((await way.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await both(page, 'teacher-ai-card-adult', way);
+    // the teacher's own tutor waits too: parent_ok_needed, with the teacher's words
+    await page.evaluate(() => { window.location.hash = '#/teacher/assistant'; });
+    await expect(page.getByText('קודם, כניסה עם מייל')).toBeVisible();
+    await page.getByRole('button', { name: 'כניסה עם מייל' }).click();
+    const sheet = page.getByRole('dialog', { name: 'קודם, כניסה עם מייל' });
+    const bind = sheet.getByRole('button', { name: 'לקשר את הכיתה למייל' });
+    await expect(bind).toBeDisabled();
+    await both(page, 'teacher-bind-declare', bind);
+    await sheet.getByRole('checkbox', { name: DECLARE }).check();
+    await bind.click();
+    await expect(sheet).toHaveCount(0);
+    expect(log.filter((r) => r.path === '/api/teacher/class/owner').at(-1).body).toEqual({ adultTeacher: true });
+    expect([...st.adults]).toEqual(['teacher@example.test']);
+    await page.getByLabel('ההודעה שלכם').fill('איך להסביר חיבור של מספר חיובי ומספר שלילי?');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.getByText('כדי לחבר מספרים עם סימנים שונים')).toBeVisible();
+  });
+
+  test('on a device a student used, "אני מורה" asks the birth year first; a child\'s year closes it, an adult\'s opens the teacher\'s way in', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    const used = withServer({ profile: null, durable: { tag: null, persistAsked: null, installHintAt: null, nudgeAt: null, nudgeCount: 0, escrowClass: true, wasStudent: true } });
+    await open(page, '#/', used);
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'לוח המורה בשביל מבוגרים' })).toBeVisible();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toHaveCount(0);
+    await both(page, 'teacher-adult-step', page.getByRole('button', { name: 'חזרה לתרגול' }));
+    const year = page.getByLabel('שנת הלידה שלכם');
+    await year.fill('2013');
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await expect(page.getByText('לוח המורה מיועד למורים מעל גיל 18. אפשר לחזור לתרגול.')).toBeVisible();
+    await expect(year).toBeDisabled();
+    expect(await page.evaluate(() => JSON.stringify(localStorage) + JSON.stringify(sessionStorage))).not.toContain('2013');
+    await page.getByRole('button', { name: 'חזרה לתרגול' }).click();
+    await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+    // a sign-out keeps the mark, so a reload asks again; an adult (another tab, after the wait) passes
+    await page.evaluate(() => localStorage.removeItem('madregot-adult-wait'));
+    await page.reload(); await appReady(page);
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await page.getByLabel('שנת הלידה שלכם').fill('1980');
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+  });
+
+  test('a device nobody studied on goes straight to the teacher\'s way in', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/', fresh());
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'לוח המורה בשביל מבוגרים' })).toHaveCount(0);
   });
 });

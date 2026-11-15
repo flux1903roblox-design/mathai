@@ -54,12 +54,11 @@ function randomState(rnd, { resetAt = null } = {}) {
     const level = 1 + int(5); progress[t] = { level, max: level + int(2) };
   }
   const mistakes = Object.fromEntries(some(['signed:sign', 'coord:swap', 'eq:move']).map((k) => [k, 1 + int(10)]));
-  const wins = Object.fromEntries(some(['signed:1', 'signed:2', 'coord:3']).map((k) => [k, 1 + int(20)]));
   return {
     profile: { role: 'student', name: 'נועה', grade: '7' }, progress, days, xp: sumXp(xpBy), xpBy, resetAt, path,
     freezes: int(3), goalXp: 20, sound: rnd() < 0.5, mistakes, lastTopic: TOPICS[int(3)], outbox: [],
     ai: { mode: 'server', apiUrl: '', key: '', device: 'x'.repeat(8) }, durable: { tag: TAGS[int(4)] }, backup: { on: false },
-    helpSent: 0, solveMode: 'answer', exams: [], practiceExams: [], planBase: {}, wins, gaps: {}, placement: null,
+    helpSent: 0, solveMode: 'answer', exams: [], practiceExams: [], gaps: {}, placement: null,
     learn: { ...emptyLearn(), skills, events: some(EVENTS, 0.4) },
   };
 }
@@ -94,7 +93,6 @@ function expectAtLeast(merged, a, b) {
     expect(merged.progress[t].max).toBeGreaterThanOrEqual(p.max);
   }
   for (const [k, n] of Object.entries(a.mistakes)) expect(merged.mistakes[k]).toBeGreaterThanOrEqual(n);
-  for (const [k, n] of Object.entries(a.wins)) expect(merged.wins[k]).toBeGreaterThanOrEqual(n);
   for (const [s, rec] of Object.entries(a.learn.skills)) {
     if (rec.mastered) expect(merged.learn.skills[s].mastered, `${s} stays mastered`).toBeTruthy();
     const have = new Set(merged.learn.skills[s].attempts.map(attemptKey));
@@ -104,12 +102,14 @@ function expectAtLeast(merged, a, b) {
   for (const e of a.learn.events) expect(events.has(eventKey(e))).toBe(true);
 }
 
-const progressOf = (st) => ({ xp: st.xp, xpBy: st.xpBy, days: st.days, path: st.path, progress: st.progress, mistakes: st.mistakes, wins: st.wins, skills: st.learn.skills, events: st.learn.events });
+const progressOf = (st) => ({ xp: st.xp, xpBy: st.xpBy, days: st.days, path: st.path, progress: st.progress, mistakes: st.mistakes, skills: st.learn.skills, events: st.learn.events });
 
 describe('mergeDevices: 300 seeded random pairs', () => {
   const rnd = seeded(2026);
   const pairs = Array.from({ length: 300 }, () => [deepFreeze(randomState(rnd)), deepFreeze(randomState(rnd))]);
   const A = '2026-11-04T10:00:00.000Z'; const B = '2026-11-05T10:00:00.000Z';
+  // 2 s alone; the machines that run the suites are shared, so each gets room (the merges are pure and synchronous)
+  const ROOM = 30_000;
 
   it('never lowers a counter, a stair, a level, a mastery, an attempt or an event of either side', () => {
     for (const [a, b] of pairs) {
@@ -119,24 +119,24 @@ describe('mergeDevices: 300 seeded random pairs', () => {
       expect(m.xp).toBe(sumXp(m.xpBy));
       expect(validateState(m)).toEqual([]);
     }
-  });
+  }, ROOM);
 
   it('is idempotent: a copy merged with itself is itself', () => {
     for (const [a] of pairs) expect(mergeDevices(a, a, { localAt: A, remoteAt: A })).toEqual(a);
-  });
+  }, ROOM);
 
   it('is symmetric in the progress: the same result whichever side is local', () => {
     for (const [a, b] of pairs) {
       expect(progressOf(mergeDevices(a, b, { localAt: A, remoteAt: B }))).toEqual(progressOf(mergeDevices(b, a, { localAt: B, remoteAt: A })));
     }
-  });
+  }, ROOM);
 
   it('a merge of merges changes nothing more (merging the result with either side again)', () => {
     for (const [a, b] of pairs.slice(0, 50)) {
       const m = mergeDevices(a, b, { localAt: A, remoteAt: B });
       expect(progressOf(mergeDevices(m, b, { localAt: B, remoteAt: B }))).toEqual(progressOf(m));
     }
-  });
+  }, ROOM);
 });
 
 describe('mergeDevices: the named cases', () => {
@@ -350,7 +350,7 @@ describe('mergeTabs', () => {
       for (const side of [a, b]) for (const [s, rec] of Object.entries(side.learn.skills)) for (const x of rec.attempts) expect(m.learn.skills[s].attempts).toContainEqual(x);
       expect(validateState(m)).toEqual([]);
     }
-  });
+  }, 30_000); // 60 runs with the store's own actions: room on a shared machine
 
   it('a slice unchanged on one side is the other side\'s; the sound turned off in A survives a lesson in stale B', () => {
     const base = deepFreeze({ sound: true, xp: 10, xpBy: { a1b2c3d4: 10 }, days: {}, solveMode: 'answer' });
@@ -498,5 +498,33 @@ describe('the learning clock\'s time (days[d].tsecs, PARENTS-1)', () => {
     const only = mergeDevices(start, withClock({ days: {} }, 300, '2026-11-04'), { localAt: A0, remoteAt: B0 });
     expect(only.days['2026-11-04']).toEqual({ tsecs: 300 });
     expect(isActiveDay(only.days['2026-11-04'])).toBe(false);
+  });
+});
+
+// The v7 migration (COUNCIL2-23) dropped the retired improvement plan's fields. An older tab or device that still has
+// them must not bring them back through a merge: both merges leave them out, and keep everything else.
+describe('retired fields (planBase, wins)', () => {
+  const old = { planBase: { signed: { level: 3, wins: 2, at: '2026-10-01T08:00:00.000Z' } }, wins: { 'signed:3': 4 } };
+  it('mergeDevices drops them from either side', () => {
+    const rnd = seeded(77);
+    for (let i = 0; i < 50; i += 1) {
+      const a = deepFreeze({ ...randomState(rnd), ...old }); const b = deepFreeze(randomState(rnd));
+      for (const m of [mergeDevices(a, b), mergeDevices(b, a)]) {
+        expect(m).not.toHaveProperty('planBase');
+        expect(m).not.toHaveProperty('wins');
+        expect(validateState(m)).toEqual([]);
+      }
+      expect(mergeDevices(b, a).xpBy).toEqual(mergeDevices(b, { ...a, planBase: undefined, wins: undefined }).xpBy);
+    }
+  });
+  it('mergeTabs drops them, whichever tab has them (an older build in the other tab)', () => {
+    const base = deepFreeze(randomState(seeded(78)));
+    const mine = deepFreeze({ ...base, xp: base.xp + 5, xpBy: { ...base.xpBy, a1b2c3d4: (base.xpBy.a1b2c3d4 || 0) + 5 } });
+    const theirs = deepFreeze({ ...base, ...old });
+    for (const m of [mergeTabs(base, mine, theirs), mergeTabs(base, theirs, mine), mergeTabs({ ...base, ...old }, theirs, { ...theirs, sound: !theirs.sound })]) {
+      expect(m).not.toHaveProperty('planBase');
+      expect(m).not.toHaveProperty('wins');
+    }
+    expect(mergeTabs(base, mine, theirs).xp).toBe(mine.xp);
   });
 });

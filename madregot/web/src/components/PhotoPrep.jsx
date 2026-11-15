@@ -4,15 +4,26 @@
 // with the arrow keys. "השחרה" draws solid black boxes (never blur, which can be undone for text); "הוספת מלבן" places
 // one that the arrow keys move and Shift with the arrows resizes, for keyboard and switch users; "ביטול האחרון" takes
 // the last one away. The output is the cropped, blacked-out page re-encoded as a JPEG, so nothing of the original file
-// leaves the device. prepImage() is the pure part, tested on its own.
+// leaves the device, and at most PREP_DATA_MAX characters long: a page that is bigger at the usual quality is encoded
+// again smaller (PREP_TRIES), so 8 pages always fit the exam's request cap on the server (COUNCIL2-17). prepImage() and
+// fitPage() are the pure parts, tested on their own.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { Brush, Camera, SquarePlus, Undo2 } from 'lucide-react';
 import { Button, Sheet } from './ui.jsx';
+import { fitImage } from '@/lib/fitImage.js';
+import { EXAM_PAGE_MAX } from '@shared/ai.js';
 
 /** The working size: the long side of the canvas, as the exam check always sent it. */
 export const PREP_MAX = 1800;
 export const PREP_QUALITY = 0.85;
+/** The most one prepared page may be, as a data URL: the server's per-page limit (shared/ai.js EXAM_PAGE_MAX). */
+export const PREP_DATA_MAX = EXAM_PAGE_MAX;
+/**
+ * [scale, JPEG quality], in order: the page as it was always sent first, then smaller until it fits PREP_DATA_MAX. The
+ * last one, 540 px on the long side, fits whatever the page shows: even unpacked, 540 × 540 × 3 bytes is under it.
+ */
+export const PREP_TRIES = [[1, PREP_QUALITY], [1, 0.7], [0.8, 0.7], [0.65, 0.65], [0.5, 0.6], [0.4, 0.55], [0.3, 0.5]];
 /** The band cut off the first page of an exam by default (its name, ID, class and school line). */
 export const EXAM_HEADER = 0.15;
 /** At most this much of the top can be cut: the rest of the page must still be there to check. */
@@ -91,7 +102,13 @@ async function loadWork(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 
-/** The page as it is sent: cut, blacked out, and re-encoded. */
+/**
+ * The page as a data URL of at most PREP_DATA_MAX characters: `toUrl(scale, quality)` encodes the prepared canvas, tried
+ * in PREP_TRIES' order. null only if nothing fits (PREP_TRIES' last step rules that out).
+ */
+export const fitPage = (toUrl) => fitImage(toUrl, PREP_DATA_MAX, PREP_TRIES);
+
+/** The page as it is sent: cut, blacked out, and re-encoded, small enough for the server (fitPage). */
 function encode(work, cut, boxes) {
   const src = work.getContext('2d').getImageData(0, 0, work.width, work.height);
   const out = prepImage(src, { cropTop: cut, boxes });
@@ -99,7 +116,13 @@ function encode(work, cut, boxes) {
   c.getContext('2d').putImageData(new ImageData(out.data, out.width, out.height), 0, 0);
   // The canvas re-encodes the pixels, so nothing of the original file comes along: its EXIF data (where and when the
   // photo was taken, the phone) is gone, and so is everything under the cut and under the black boxes.
-  return c.toDataURL('image/jpeg', PREP_QUALITY);
+  return fitPage((scale, quality) => {
+    if (scale === 1) return c.toDataURL('image/jpeg', quality);
+    const small = document.createElement('canvas');
+    small.width = Math.max(1, Math.round(c.width * scale)); small.height = Math.max(1, Math.round(c.height * scale));
+    small.getContext('2d').drawImage(c, 0, 0, small.width, small.height);
+    return small.toDataURL('image/jpeg', quality);
+  });
 }
 
 /**
@@ -222,7 +245,10 @@ export default function PhotoPrep({ file, crop = 0, onDone, onRetake, onCancel, 
   const undo = () => setBoxes((list) => list.slice(0, -1));
   const done = () => {
     if (!work) return;
-    onDone({ data: encode(work, cut, boxes), prep: { crop: cut > 0, boxes: boxes.length } });
+    const data = encode(work, cut, boxes);
+    // nothing small enough (PREP_TRIES' last step rules it out): the same as a picture that cannot be opened
+    if (!data) { onError?.(); return; }
+    onDone({ data, prep: { crop: cut > 0, boxes: boxes.length } });
   };
 
   const pct = Math.round(cut * 100);

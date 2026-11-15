@@ -29,10 +29,30 @@ FREE_MODEL = "claude-haiku-5-5"
 # model solves each new story blind (it never sees the app's numbers or answers) before code decides what is shown.
 # BLIND_MODEL is that second model; empty = FREE_MODEL (effort high, 6000 tokens).
 BLIND_MODEL = ""
-# With the switch off: AI actions a day per class student, per teacher, and per network for students without a class.
+# With the switch off: AI actions a day per class student, per teacher, and per network for students without a class
+# (a device a parent approved, with no class, has its own SOLO_DAILY_LIMIT).
 AI_DAILY_LIMIT = "40"
 TEACHER_DAILY_LIMIT = "200"
 SOLO_DAILY_LIMIT = "20"
+# The breaker of the switch-off tier (COUNCIL2-19, src/entitle.js): what all its AI may cost in a day (USD, from what
+# Claude really cost, table ai_spend; each request also holds its worst case before it is sent, so parallel requests
+# pass it by one request at most). Past it the tutor rests until midnight (503 free_paused, the same calm sheet as the
+# free taste) and you get one email. The classes bound to one email share OPEN_ACCOUNT_DAILY_LIMIT actions a day (one
+# email may own 20 classes), and a class's students share OPEN_CLASS_DAILY_UNITS (chat 1, check 4, new exercises 3,
+# exam 20). The Anthropic workspace's own spend limit is still the hard backstop: set it in Anthropic's console.
+OPEN_DAILY_BUDGET_USD = "25"
+OPEN_ACCOUNT_DAILY_LIMIT = "200"
+OPEN_CLASS_DAILY_UNITS = "600"
+# Inside that day, one email (all its classes) and one class each have their own part in dollars: past it only that
+# email's or that class's tutor rests until midnight, everyone else is answered, and you get one email that names it.
+# So one teacher's email cannot spend the whole day for every class.
+OPEN_ACCOUNT_DAILY_USD = "3"
+OPEN_CLASS_DAILY_USD = "3"
+# How far the worst-case holds of requests in flight may pass what is left of a budget. A real answer costs a small
+# part of its worst case, so this is what lets a whole class ask at the same moment. The day can end at the budget plus
+# this much only if every request in flight costs its worst case; "0" is the strict rule (one worst case over, about 40
+# questions at once in all).
+OPEN_INFLIGHT_USD = "20"
 # "false" turns off AI for people who are not in a class (and, with the switch on, without a family plan).
 ALLOW_SOLO_AI = "true"
 # A parent's OK before a child alone uses the tutor (trust spec TRUST-9): "required" (the default) answers a device with
@@ -51,14 +71,27 @@ TRIAL_DAILY_BUDGET_USD = "10"
 FAMILY_MONTHLY_BUDGET_USD = "4"
 CLASS_SEAT_MONTHLY_BUDGET_USD = "0.8"
 OWNER_ALERT_USD = "20"
+# A class student's day of writes is counted for the student, the class and the network (src/writes.js): 30,000 answers
+# a class and 150,000 a network a day. A whole number from 1 to 20 here multiplies the class and network budgets, for a
+# school that has outgrown them (you get an email the day one is reached). The student's own budget does not change.
+WRITE_BUDGET_SCALE = "1"
 # "true": every night the owner gets a summary of yesterday (spend, plans, what needs a hand, invariant checks).
 OWNER_DAILY_SUMMARY = "true"
 # Prices in agorot, VAT included (VAT_MODE "included", or "exempt" for an exempt dealer).
 PRICE_FAMILY_MONTH_AGOROT = "2990"
 PRICE_FAMILY_YEAR_AGOROT = "24900"
+# The exam pass (COUNCIL2-33): the family plan for 30 days, one charge, never renewed. EMPTY ON PURPOSE: no price is
+# decided yet, and an empty price sells no pass at all: no page offers it, no landing page prints it and checkout
+# refuses it. THE OWNER'S ONE ACTION when the price is decided: write it here in agorot (₪39 is "3900"), in
+# [env.staging.vars] too, then LEGAL_APPROVED as for any change of the terms (SUBSCRIPTION.md "Exam pass" has the cost
+# numbers to decide with; the terms quote the price). `npm run owner -- doctor --local` reminds you while a provider
+# that sells is set and this is empty.
+PRICE_EXAM_PASS_AGOROT = ""
 PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
 VAT_MODE = "included"
-TERMS_VERSION = "2026-11"
+# The version of the legal texts (src/content/legal). A new one closes checkout until LEGAL_APPROVED names it:
+# "2026-11-11" added the exam pass to the terms.
+TERMS_VERSION = "2026-11-11"
 # Payments: "manual" (the owner grants plans with npm run owner; schools pay by invoice), "grow" (Grow / משולם, the
 # Israeli provider: src/providers/grow.js, SUBSCRIPTION.md "Grow"), or "test", which rehearses the whole flow on a preview
 # Worker (also needs BILLING_MODE "test" and ALLOW_TEST_BILLING "true").
@@ -76,7 +109,8 @@ GROW_DIRECT_DEBIT_API = "off"
 # Grow's callback addresses, comma-separated, copied from its "IP live" list. Empty: not checked (every state is pulled
 # from Grow with our own credentials, so a forged callback changes nothing).
 WEBHOOK_ALLOWED_IPS = ""
-# The payment company's name as the privacy notice and the emails say it, e.g. "Grow (משולם)".
+# The payment company's name as the terms, the privacy notice and the emails say it, e.g. "Grow (משולם)". Once only in
+# this table: a name defined twice is invalid TOML, and wrangler then refuses the whole file (test/config.test.js).
 PAYMENT_PROVIDER_NAME = ""
 # ---- the Ministry of Education's AI rules for schools (trust spec TRUST-11, shared/schoolRules.js) ----
 # "none" until Madregot is in the Ministry's educational catalogue: student AI stays off in every school class, whatever
@@ -101,8 +135,6 @@ BUSINESS_ADDRESS = ""
 CONTACT_EMAIL = ""
 CONTACT_PHONE = ""
 OWNER_EMAIL = ""
-# The payment company's name as the terms show it, e.g. "Grow (משולם)"
-PAYMENT_PROVIDER_NAME = ""
 # ---- the legal pages and the go-live gate (trust spec TRUST-2, TRUST-13) ----
 # The date the legal texts were last changed (YYYY-MM-DD), shown on them.
 LEGAL_DATE = ""
@@ -134,6 +166,10 @@ VAULT = "on"
 # All encrypted backups together, in MB. Raise only on Workers Paid; the database also holds billing
 # (on the Free plan the whole database stops at 500 MB). Up to 3000 on Workers Paid.
 VAULT_MAX_MB = "200"
+# The whole database's size, in MB, over which the owner gets one notice a day (COUNCIL2-18, src/dbsize.js: the largest
+# size a class student's write saw that day, from D1's own reading). 400 is four fifths of Workers Free's 500 MB; on
+# Workers Paid (10 GB a database) raise it to about 8000.
+DB_SIZE_NOTICE_MB = "400"
 
 # ---- the opt-in daily reminder by web push (STUDENT-11, src/push.js) ----
 # "off" (the default): no reminder is offered or sent, and /api/push/* answers 404. To turn it on (after a deploy):
@@ -150,6 +186,19 @@ VAPID_PUBLIC_KEY = ""
 VAPID_SUBJECT = ""
 # Reminders sent per run (one run an hour, at :37). 10 fits Workers Free's 10 ms of CPU a cron; raise to 400 on Workers Paid.
 PUSH_BATCH = "10"
+
+# ---- a second reader for free text, and an adult's alert (COUNCIL2-9, src/moderation.js, src/alerts.js) ----
+# MODERATION "on": besides the word lists, a short classification call on the low-cost model reads a child's message
+# (chat, explain, feedback, a help note) and the tutor's reply (chat, explain, feedback). A flagged message takes the
+# care path; a flagged reply becomes the calm sentence. It costs a little per message (kind:moderation in ai_spend),
+# streamed chat replies then arrive whole instead of word by word, and it fails open to the word lists.
+# MODERATION_MODEL: empty uses FREE_MODEL (else the low-cost model).
+MODERATION = "off"
+MODERATION_MODEL = ""
+# SAFETY_ALERTS "on": when a child's message reads as self-harm, the parent who linked the device gets one email that
+# day, or, in a class, the teacher sees one marked request on the help board; never what was written. Turn it on only
+# if the lawyer says reporting is required (legal/safety.md, docs/legal/LAWYER_PACKET.md). Needs EMAIL_FROM for the email.
+SAFETY_ALERTS = "off"
 
 # ---- the Play Store app (STUDENT-12, store/android/README.md) ----
 # /.well-known/assetlinks.json lets the app open this site with no browser bar. Empty (the default): it answers [].
@@ -193,12 +242,14 @@ crons = ["7 * * * *", "37 * * * *"]
 
 # The same Worker serves the built web app (web/dist), so the app and its API share one address
 # (production builds call the API on their own address unless VITE_API_URL says otherwise).
-# Requests under /api/ (and /.well-known/, for the Play Store app's asset links) run the Worker code; everything else is
-# a static file.
+# Requests under /api/ (and /.well-known/, for the Play Store app's asset links) run the Worker code; so does /r, the
+# parents' summary link, whose page the Worker answers with its link preview (src/preview.js) from the assets binding;
+# everything else is a static file.
 [assets]
 directory = "../web/dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/.well-known/*"]
+run_worker_first = ["/api/*", "/.well-known/*", "/r"]
 
 [[d1_databases]]
 binding = "DB"
@@ -227,17 +278,27 @@ name = "RL_AI"
 namespace_id = "7002"
 simple = { limit = 30, period = 60 }
 
+# A class student's answers, levels and exams (POST /api/progress, /api/exams): 60 a minute per student token the server
+# found, per location; a token it did not find counts against its network (src/edge.js). The app sends a batch every 5
+# answers. The exact daily budget is the handler's own (src/index.js WRITE_BUDGET).
+[[ratelimits]]
+name = "RL_WRITE"
+namespace_id = "7003"
+simple = { limit = 60, period = 60 }
+
 # ---- staging: a second Worker with its own database, for the load test of the Ministry catalogue's technical check
 # (scripts/loadtest.mjs refuses any Worker whose GET /api/health does not say staging: true) and for the checker's test
 # account. Wrangler does not carry [vars] or the database into an environment, so both are written out here. Once:
-#   npx wrangler d1 create madregot-staging             (paste the id it prints into database_id below)
+#   npx wrangler d1 create madregot-staging --jurisdiction=eu   (paste the id it prints into database_id below; add
+#                                     DB_JURISDICTION = "eu" to [env.staging.vars] by hand: setup.ps1 and setup.sh set the
+#                                     one line in [vars] above, and only that one, with the production database's id)
 #   npm run staging:migrate
 #   npx wrangler secret put AUTH_SECRET --env staging     and   npx wrangler secret put IP_HASH_SECRET --env staging
 # Then each time: npm run staging:deploy   (npx wrangler deploy --env staging)
 # No AI key, no email and no payments on staging: the AI, sign-in codes and checkout stay off there. The encrypted
-# backup is on there (VAULT and PARENT_REPORT default to "on"; no VAULT_SECRET, so no escrow) without the VAULT_RL,
-# RL_AUTH and RL_AI burst filters, which wrangler does not carry into an environment either (the routes work without
-# them: src/edge.js checks nothing with no binding).
+# backup is on there (VAULT and PARENT_REPORT "on"; no VAULT_SECRET, so no escrow) without the VAULT_RL,
+# RL_AUTH, RL_AI and RL_WRITE burst filters, which wrangler does not carry into an environment either (the routes work
+# without them: src/edge.js checks nothing with no binding).
 [env.staging]
 name = "madregot-api-staging"
 
@@ -251,6 +312,13 @@ LEGACY_CLASS_AI_UNTIL = ""
 AI_DAILY_LIMIT = "40"
 TEACHER_DAILY_LIMIT = "200"
 SOLO_DAILY_LIMIT = "20"
+OPEN_DAILY_BUDGET_USD = "25"
+OPEN_ACCOUNT_DAILY_LIMIT = "200"
+OPEN_CLASS_DAILY_UNITS = "600"
+OPEN_ACCOUNT_DAILY_USD = "3"
+OPEN_CLASS_DAILY_USD = "3"
+OPEN_INFLIGHT_USD = "20"
+WRITE_BUDGET_SCALE = "1"
 ALLOW_SOLO_AI = "false"
 # a child alone needs a parent's OK first, as in production (the safety lane's TRUST-9 var)
 AI_PARENT_OK = "required"
@@ -261,9 +329,11 @@ FREE_GLOBAL_DAILY = "3000"
 OWNER_DAILY_SUMMARY = "false"
 PRICE_FAMILY_MONTH_AGOROT = "2990"
 PRICE_FAMILY_YEAR_AGOROT = "24900"
+# the exam pass has no price until the owner decides one, as in [vars] (SUBSCRIPTION.md "Exam pass")
+PRICE_EXAM_PASS_AGOROT = ""
 PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
 VAT_MODE = "included"
-TERMS_VERSION = "2026-11"
+TERMS_VERSION = "2026-11-11"
 BILLING_PROVIDER = "manual"
 BILLING_MODE = "live"
 BILLING_CHECKOUT_HOSTS = ""
@@ -277,6 +347,42 @@ FREE_DEVICE_MINT = "off"
 MAIL_DAILY_CAP = "3000"
 VERIFY_FAIL_NET_DAILY = "30"
 EMAIL_FROM = ""
+# The rest of [vars], written out too: test/config.test.js fails on a var the Worker reads that is missing here, unless
+# its TOP_LEVEL_ONLY list names it with the reason (the Play Store app's asset links and the daily reminder's keys).
+# The models and budgets count only once an AI key is set for staging.
+CLAUDE_MODEL = "claude-sonnet-5-5"
+FREE_MODEL = "claude-haiku-5-5"
+BLIND_MODEL = ""
+FREE_DAILY_BUDGET_USD = "5"
+TRIAL_DAILY_BUDGET_USD = "10"
+FAMILY_MONTHLY_BUDGET_USD = "4"
+CLASS_SEAT_MONTHLY_BUDGET_USD = "0.8"
+OWNER_ALERT_USD = "20"
+PARENT_REPORT = "on"
+VAULT = "on"
+VAULT_MAX_MB = "200"
+DB_SIZE_NOTICE_MB = "400"
+# no reminders on staging (no VAPID_PRIVATE_JWK there)
+PUSH = "off"
+# no AI key on staging: the second reader has nothing to call; no email: no alert
+MODERATION = "off"
+MODERATION_MODEL = ""
+SAFETY_ALERTS = "off"
+# the legal pages' details: empty, so staging shows the draft texts and its checkout stays closed (legal_not_ready)
+BUSINESS_NAME = ""
+BUSINESS_ID = ""
+BUSINESS_KIND = ""
+BUSINESS_ADDRESS = ""
+CONTACT_EMAIL = ""
+CONTACT_PHONE = ""
+OWNER_EMAIL = ""
+LEGAL_DATE = ""
+LEGAL_APPROVED = ""
+ACCESS_COORD_NAME = ""
+ACCESS_COORD_PHONE = ""
+ACCESS_COORD_EMAIL = ""
+ACCESS_STATEMENT_DATE = ""
+ACCESS_TESTED = ""
 
 [[env.staging.d1_databases]]
 binding = "DB"

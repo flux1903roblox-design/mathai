@@ -10,6 +10,8 @@ import { fetchExamItems, fetchClassWork, mineOf, dueLine, EXAM_MIN_PER_Q } from 
 import { Button } from '@/components/ui.jsx';
 import { ScreenBar, ScreenFoot, EmptyState, LoadingState } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/classExam.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 export default function ClassExam() {
   const { id } = useParams();

@@ -6,10 +6,14 @@
 // methods). The checks that count are the code in the parent's mailbox, the 18+ box at checkout, the cardholder at the
 // payment company, and the payer's welcome email. The year is checked here and forgotten: never sent, never stored. Its
 // known error is up to one year (a child born in December 2008 passes in November 2026).
+// The same step comes before the teacher's way in ("אני מורה") on a device a student used (COUNCIL2-5): Welcome passes
+// TEACHER_ADULT_COPY and onBack (back to the first screen) instead of the parents' words and link.
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { adultYearOk, setAdultPassed, startWait, waitUntil } from '@/lib/parentGate.js';
 import { Button, Field } from '@/components/ui.jsx';
+// the parents' area's rules: the teacher's step on the welcome screen (COUNCIL2-5) loads this file on its own
+import '@/styles/lazy/parents.css';
 
 export const ADULT_COPY = Object.freeze({
   title: 'המסך הזה בשביל ההורים',
@@ -19,8 +23,18 @@ export const ADULT_COPY = Object.freeze({
   back: 'חזרה',
   blocked: 'המסך הזה מיועד להורים. אפשר להראות להורים את הקוד מהמסך הקודם.',
 });
+/** Before "אני מורה" on a device a student used: calm, and the way back to practice is right there. */
+export const TEACHER_ADULT_COPY = Object.freeze({
+  title: 'לוח המורה בשביל מבוגרים',
+  text: 'במכשיר הזה למד תלמיד, אז לפני לוח המורה יש שאלה אחת קצרה. אם אתם תלמידים, אפשר לחזור לתרגול.',
+  field: 'שנת הלידה שלכם',
+  go: 'המשך',
+  back: 'חזרה לתרגול',
+  blocked: 'לוח המורה מיועד למורים מעל גיל 18. אפשר לחזור לתרגול.',
+});
 
-export default function AdultGate({ onPass }) {
+/** Props: `onPass()`; `copy` (ADULT_COPY or TEACHER_ADULT_COPY); `onBack` (a button back instead of the parents' link). */
+export default function AdultGate({ onPass, copy = ADULT_COPY, onBack = null }) {
   const [year, setYear] = useState('');
   const [closedUntil, setClosedUntil] = useState(() => waitUntil());
   const closed = closedUntil > 0;
@@ -43,19 +57,21 @@ export default function AdultGate({ onPass }) {
 
   return (
     <section className="card parents-card adult-gate" aria-labelledby="adult-title">
-      <h2 id="adult-title" className="card-title">{ADULT_COPY.title}</h2>
-      <p>{ADULT_COPY.text}</p>
+      <h2 id="adult-title" className="card-title">{copy.title}</h2>
+      <p>{copy.text}</p>
       <form className="adult-form" onSubmit={submit} noValidate>
         {/* no example year in the field: it would tell a child what to type */}
-        <Field label={ADULT_COPY.field} id="adult-year">
+        <Field label={copy.field} id="adult-year">
           <input id="adult-year" className="input input-lg mono" dir="ltr" inputMode="numeric" pattern="\d{4}" maxLength={4} autoComplete="off"
             value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} disabled={closed}
             aria-describedby={closed ? 'adult-closed' : undefined} />
         </Field>
-        {closed && <p id="adult-closed" className="adult-closed" role="status">{ADULT_COPY.blocked}</p>}
-        <Button type="submit" className="btn-block btn-lg" disabled={closed || year.length !== 4}>{ADULT_COPY.go}</Button>
+        {closed && <p id="adult-closed" className="adult-closed" role="status">{copy.blocked}</p>}
+        <Button type="submit" className="btn-block btn-lg" disabled={closed || year.length !== 4}>{copy.go}</Button>
       </form>
-      <Link to="/parents/info" className="foot-link adult-back">{ADULT_COPY.back}</Link>
+      {onBack
+        ? <Button variant="ghost" className="btn-block adult-back" onClick={onBack}>{copy.back}</Button>
+        : <Link to="/parents/info" className="foot-link adult-back">{copy.back}</Link>}
     </section>
   );
 }

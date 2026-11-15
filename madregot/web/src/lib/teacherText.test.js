@@ -11,7 +11,7 @@ import { candidates } from '@/content/labels.sample.js';
 // boxes and prisms practise on a cube's net)
 import '@/content/grid.js';
 import '@/content/net.js';
-import { mistakeText, stairName, stairShort, mistakeLine } from './teacherText.js';
+import { mistakeText, stairLabel, stairShort, mistakeLine } from './teacherText.js';
 
 const ITEMS_PER_STAIR = 40;
 const HEBREW = /[א-ת]/;
@@ -35,7 +35,7 @@ describe('every stair: the teacher reads the student\'s words, with the stair na
     t.levels.forEach((L, i) => {
       const level = i + 1;
       it(`${t.id}:${level} ${L.title}`, () => {
-        expect(stairName(t.id, level)).toBe(`${t.title}, מדרגה ${level}: ${L.title}`);
+        expect(stairLabel(t.id, level)).toBe(`${t.title}, מדרגה ${level}: ${L.title}`);
         const own = (CONTENT[`${t.id}:${level}`]?.misconceptions || []).map((m) => m.id);
         const fromGenerators = sampled(t.id, level);
         const ids = new Set([...own, ...Object.keys(t.cats || {}), ...fromGenerators]);
@@ -65,11 +65,11 @@ describe('the review\'s cases and the fallbacks', () => {
 
   it('the stair\'s short name and a report cell; an unknown topic, stair or id never shows a raw id', () => {
     expect(stairShort('signed', 1)).toBe(`${TOPIC.signed.title}, מדרגה 1`);
-    expect(stairName('signed', 1)).toBe(`${TOPIC.signed.title}, מדרגה 1: ${TOPIC.signed.levels[0].title}`);
+    expect(stairLabel('signed', 1)).toBe(`${TOPIC.signed.title}, מדרגה 1: ${TOPIC.signed.levels[0].title}`);
     expect(mistakeLine('signed', 1, 'sign')).toBe(`${mistakeText('signed', 1, 'sign')} (${TOPIC.signed.title}, מדרגה 1)`);
-    expect(stairName('signed', 99)).toBe(`${TOPIC.signed.title}, מדרגה 99`);
+    expect(stairLabel('signed', 99)).toBe(`${TOPIC.signed.title}, מדרגה 99`);
     expect(stairShort('signed', null)).toBe(TOPIC.signed.title);
-    expect(stairName('bogus', 1)).toBe('נושא אחר');
+    expect(stairLabel('bogus', 1)).toBe('נושא אחר');
     expect(mistakeText('signed', 1, 'no-such-id')).toBe('טעות שחוזרת');
     expect(mistakeText('bogus', 1, 'sign')).toBe('טעות שחוזרת');
   });

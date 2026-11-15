@@ -6,6 +6,7 @@
 import type { Action, LearnState, MissionItem, Stage } from './types';
 import { STAGE_NAME, STAGE_N, routeOf, titleOf } from './recommend';
 
+import { t as tr } from '@/lib/i18n.js';
 export const MISSION_MINUTES = 5;
 export const MISSION_MAX = 3;
 
@@ -98,8 +99,8 @@ const LEARNING: Action['kind'][] = ['new', 'continue', 'prereq', 'exam-loss'];
 export function partialStairNote(items: MissionItem[]): string | null {
   const parts = items.filter((i) => i.done && i.stage && i.stage !== 'E' && LEARNING.includes(i.kind));
   if (!parts.length) return null;
-  const done = parts.map((i) => `במדרגה "${titleOf(i.skill)}" סיימתם את שלב ${STAGE_N[i.stage!]} מתוך 5 (${STAGE_NAME[i.stage!]}).`).join(' ');
-  return `${done} המדרגה עצמה עוד לא הושלמה: השלבים הבאים מחכים בדף שלה.`;
+  const done = parts.map((i) => tr('shell.mission.1', { p0: titleOf(i.skill), p1: STAGE_N[i.stage!], p2: STAGE_NAME[i.stage!] })).join(' ');
+  return tr('shell.mission.2', { done });
 }
 
 export const missionDone = (items: MissionItem[]) => items.length > 0 && items.every((i) => i.done);

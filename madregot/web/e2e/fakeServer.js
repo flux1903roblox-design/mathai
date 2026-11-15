@@ -15,9 +15,12 @@
 // numbers (st.reportRows by id changes them), the assignments of the range and the mistakes, with no id anywhere.
 // Help both ways (TEACHER-6): st.help holds the requests with their threads; the dashboard's rows, the teacher's reply
 // (three at most, no contact details), ראיתי/טופל/לפתוח שוב, the owner's daily email switch (st.digest), and the
-// student's side (GET /api/class/work's help, the student's answer only after the teacher's, /read).
+// student's side (GET /api/class/work's help, the student's answer only after the teacher's, /read). A shared assignment
+// link (COUNCIL2-35): GET /api/work/:id, public, the assignment and the class's code, name, grade and whether it is open.
+// st.goal puts the class goal of the week on the dashboard (STUDENT-4; the board's goal card, COUNCIL2-36).
 // Each student's page (TEACHER-8): GET /api/teacher/students/:id (st.studentPages by id adds or replaces its parts:
-// days14, levels, mistakes, work, help, exams), a PIN reset, and the board's rows with whose help it is, joinedOn and
+// days14, levels, mistakes, work, help, exams), a PIN reset with its one-time code (COUNCIL2-25: a member of K7Q2MD with
+// the same name then joins only with it), and the board's rows with whose help it is, joinedOn and
 // the late work count (a student in st.students may set lastPractice, week, late, joinedOn… for the attention list).
 // Student AI by the Ministry's rules (TRUST-11): st.classAiOff makes a class student's AI calls and status 403
 // class_ai_off, as the Worker answers both (st.staleStatus keeps the status as it was, as on a device that asked before
@@ -27,6 +30,11 @@
 // Worker starts); the dashboard's aiPolicy from shared/schoolRules.js, the students' aiOff, POST /api/teacher/class/ai
 // and /api/teacher/students/:id/ai, a new class's setting, and 409 school_ai_not_approved for a trial, a licence code
 // or a class purchase while the rules do not allow selling to the class.
+// An adult behind the class (COUNCIL2-2, COUNCIL2-5): `declaredOnly: true` answers as the Worker does, where an email
+// counts as an adult only once its holder declared "over 18, a teacher or a tutor" (adultTeacher: true on the sign-in,
+// a new class or the bind; st.adults holds those emails): without it the teacher gets parent_ok_needed, the dashboard's
+// aiPolicy says adultNeeded, and turning student AI on is 403 adult_needed. By default every sign-in counts as declared
+// (verify answers adult: true), as the flows written before the declaration expect.
 // `st.down = true` makes every call fail as a lost connection. `st.push = { key }` answers the daily reminder's key, seen
 // day and off (STUDENT-11); without it they are 404, as on a Worker with no push keys.
 // The family lane's routes:
@@ -55,12 +63,18 @@
 // Shared fixtures (synthetic), for the specs that need the same server state: the family's devices and the paying
 // parent (TABLET, PHONE, PARENT, srow, byDay, TABLET_ROWS, parentServer), the class exam and the teacher's work
 // (EXAM_ITEMS, given, examWork), the TEACHER-8 class of nine (nine, helpNoa, yoavPage), and the reminder's key (PUSH_KEY).
+// The contract project (COUNCIL2-22, contract.js): there, fakeServer(...) returns a database of the test's own on the real
+// Worker (worker/scripts/serve-local.mjs) instead of this fake, and API is that database's address, so a test that seeds
+// `ai.apiUrl: API` after calling fakeServer points the app at whichever backend its project runs.
 import { MOE_RULES, classAiPolicy, notSellable } from '../../shared/schoolRules.js';
-import { detectDistress } from '../../shared/safety.js';
+import { detectDistress } from '../../shared/distress.js';
 import { examWeak } from '../../shared/examWeak.js';
 import { isStairMisc } from '../../shared/stairMiscs.gen.js';
+import { inContract, contractServer } from './contract.js';
 
-export const API = 'https://api.madregot.test';
+export const FAKE_API = 'https://api.madregot.test';
+// a live binding: fakeServer() sets it for the test that calls it (the fake's address, or the Worker's in the contract project)
+export let API = FAKE_API; // eslint-disable-line import/no-mutable-exports
 export const PAY = 'https://pay.example.test';
 /** A synthetic VAPID public key for the daily reminder (st.push). */
 export const PUSH_KEY = 'BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8';
@@ -76,6 +90,7 @@ export const PLANS = {
   plans: [
     { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: 2990, vatAgorot: 456, renews: true },
     { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: 24900, vatAgorot: 3798, renews: false, termMonths: 12 },
+    { id: 'exam_pass', kind: 'family', interval: 'once', amountAgorot: 3900, vatAgorot: 595, renews: false, termDays: 30 },
     { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: 4900, minSeats: 10, maxSeats: 45, renews: false },
   ],
   limits: { family: { ...FAMILY, examMonthly: 10, devices: 3 }, class: CLASS, free: { tutor: 2 } },
@@ -174,6 +189,12 @@ export const yoavPage = () => ({
  * tests about the tutor itself pass parentOk: true.
  */
 export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:4173/') {
+  if (inContract()) {
+    const real = await contractServer(target);
+    API = real.base;
+    return real;
+  }
+  API = FAKE_API;
   const st = {
     paywall: true, online: true, legalApproved: true, shared: null, breakNext: null, economy: false, parentOk: false,
     freeUsed: {}, freeLimit: 2, famUsed: { tutor: 0, check: 0, generate: 0, exam: 0 }, classLicence: false,
@@ -193,6 +214,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     today: '2026-11-05', // the server's day (Jerusalem): the e2e clock's Thursday
     mistakes: [], // the dashboard's repeated mistakes: [{ topic, cat, level, n, students, ids, names }]
     assignments: [], // [{ id, kind, skill, title, note, startsOn, dueOn, forAll, targets, createdAt, exam?: items, version? }]
+    goal: null, // the dashboard's class goal of the week (STUDENT-4): { on, week, target, have, reached, custom }; none by default
     work: {}, // assignmentId -> studentId -> { state, stage, right, asked, passed, questions, tries, startedAt, doneAt, doneDay }
     studentTokens: { 'stok-a1': 'a1' }, // a student's class token -> their id
     down: false, // every call fails as a lost connection
@@ -210,13 +232,14 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     // the daily reminder's server (STUDENT-11): off (404, as a Worker with no push keys) unless a spec sets
     // { key } here; then the key, a seen day and turning off are answered (push.spec.js drives the rest itself)
     push: null,
+    declaredOnly: false, adults: new Set(), // the 18+ declaration (COUNCIL2-5): see the head of this file
     ...over,
   };
   // the class's student AI (TRUST-11): a school class, off, no consent, Madregot not in the catalogue, unless the test says
   st.ai = { setting: 'school', studentAi: 'off', consentAt: null, approval: 'none', fromGrade: 7, ...(over.ai || {}) };
   const policyOf = (a = st.ai) => classAiPolicy({ setting: a.setting, grade: st.classGrade, studentAi: a.studentAi, consentAt: a.consentAt }, { approval: a.approval, approvedFromGrade: a.fromGrade });
   const aiPolicy = () => ({
-    ...policyOf(), setting: st.ai.setting, studentAi: st.ai.studentAi, consentAt: st.ai.consentAt, fromGrade: Math.max(st.ai.fromGrade, MOE_RULES.independentFromGrade),
+    ...policyOf(), setting: st.ai.setting, studentAi: st.ai.studentAi, consentAt: st.ai.consentAt, adultNeeded: !!st.declaredOnly && !classAdult(), fromGrade: Math.max(st.ai.fromGrade, MOE_RULES.independentFromGrade),
     rulesVersion: MOE_RULES.version, rulesUrl: MOE_RULES.url, consentFormUrl: MOE_RULES.consentFormUrl, consentPdfUrl: MOE_RULES.consentPdfUrl,
   });
   const cannotSell = () => notSellable(policyOf());
@@ -236,8 +259,12 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
   // A class's teacher is an adult only when the class is bound to a signed-in email (the session sent, K7Q2MD owned, or
   // another class of the account) or has a licence or trial in force (TRUST-9, the trust review): a key alone proves no
   // adult, as on the Worker (entitle.js classHasAdult).
-  const adultClass = (h) => !!h['x-account-token'] || ['trial', 'active', 'ending'].includes(st.licence.status)
-    || (h['x-class-code'] === 'K7Q2MD' ? st.owned : st.accountClasses.some((c) => c.code === h['x-class-code']));
+  // with declaredOnly, an email counts only once its holder declared 18+ (COUNCIL2-5): the session's own, or K7Q2MD's owner's
+  const declared = (email) => !st.declaredOnly || st.adults.has(email);
+  const licensed = () => ['trial', 'active', 'ending'].includes(st.licence.status);
+  const classAdult = () => licensed() || (st.owned && declared(st.ownerEmail));
+  const adultClass = (h) => (!!h['x-account-token'] && declared(emails.get(h['x-account-token']))) || licensed()
+    || (h['x-class-code'] === 'K7Q2MD' ? st.owned && declared(st.ownerEmail) : st.accountClasses.some((c) => c.code === h['x-class-code']));
   // a child alone, on a device no parent has approved, or a teacher of a class with no adult behind it (TRUST-9)
   const waits = (h) => !st.parentOk && !h.authorization && !famOf(h) && (!h['x-class-code'] || !adultClass(h));
   /** The summary's state for a device, derived as the Worker's summaryState is. */
@@ -310,7 +337,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       : (({ name, grade }) => ({ name, grade, teacherName: 'רונית' }))(st.accountClasses.find((c) => c.code === code)), joinLocked: st.joinLocked,
     help: code === 'K7Q2MD' ? st.help.map((x) => ({ ...x, messages: x.messages.slice(0, 6), unreadFromStudent: x.messages.filter((m) => m.from === 'student' && !m.read).length })) : [],
     helpDigest: st.digest, mistakes: st.mistakes, exams: code === 'K7Q2MD' ? examsOf() : [],
-    today: st.today,
+    today: st.today, ...(st.goal ? { goal: st.goal } : {}),
     assignments: st.assignments.filter((a) => a.dueOn >= plus(st.today, -7)).sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0)).slice(0, 10).map(viewOf),
     students: st.students.map((s) => ({ lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false, joinedOn: '2026-09-02', late: 0, aiOff: false, ...s })),
     aiPolicy: aiPolicy(),
@@ -319,7 +346,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
   const pageOf = (s) => {
     const row = dashboard().students.find((x) => x.id === s.id);
     return {
-      student: { id: s.id, name: s.name, joinedOn: row.joinedOn, lastPractice: row.lastPractice, pinReset: !!row.pinReset, aiOff: !!row.aiOff },
+      student: { id: s.id, name: s.name, joinedOn: row.joinedOn, lastPractice: row.lastPractice, pinReset: !!row.pinReset, aiOff: !!row.aiOff, manyWrongPins: !!row.manyWrongPins },
       days14: Array.from({ length: 14 }, (_, i) => ({ day: plus(st.today, i - 13), n: 0, first: 0, minutes: 0 })),
       levels: row.levels || {}, mistakes: [],
       work: st.assignments.filter((a) => forWhom(a).includes(s.id)).map((a) => {
@@ -484,6 +511,18 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (join[1] !== 'K7Q2MD') return reply(route, 404, { error: 'no_class' });
       if (!/^\d{4}$/.test(body.pin || '')) return reply(route, 400, { error: 'bad_pin' });
       let m = st.members.find((x) => x.name === body.name);
+      // after the teacher's reset (COUNCIL2-25), as the Worker: the one-time code first (claim_code_needed without it,
+      // claim_code_bad when it does not match), and the join that brings it sets the new PIN and uses the code up
+      if (m && m.pin === null) {
+        if (!body.claim) return reply(route, 403, { error: 'claim_code_needed' });
+        if (String(body.claim).toUpperCase() !== m.claim) return reply(route, 403, { error: 'claim_code_bad' });
+        Object.assign(m, { pin: body.pin, claim: null });
+        const row = st.students.find((x) => x.name === m.name);
+        if (row) row.pinReset = false;
+      }
+      // many wrong PINs for this name today, and this phone never signed in as them (a member with manyWrong: true): the
+      // Worker compares nothing and asks for the teacher's one-time code, with the reason (COUNCIL2-25)
+      if (m && m.manyWrong) return reply(route, 403, { error: 'claim_code_needed', reason: 'many_wrong' });
       if (m && m.pin !== body.pin) return reply(route, 403, { error: 'wrong_pin' });
       const returning = !!m;
       if (!m) { m = { id: `s${st.members.length + 1}`, name: body.name, pin: body.pin, tokens: [] }; st.members.push(m); }
@@ -554,11 +593,24 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       x.messages.push(message);
       return reply(route, 201, { message, status: statusOf(x) });
     }
+    // ---- a shared assignment link (COUNCIL2-35), public: what the Worker's publicAssignment answers, nothing of a student
+    const linkM = path.match(/^\/api\/work\/([a-f0-9]{16})$/);
+    if (linkM && req.method() === 'GET') {
+      // st.linksFull: this network opened its links of the day. As the Worker, only a caller with no class token is counted
+      if (st.linksFull && !st.studentTokens[String(h.authorization || '').replace(/^Bearer /, '')]) return reply(route, 429, { error: 'slow_down' });
+      const a = st.assignments.find((x) => x.id === linkM[1]);
+      if (!a) return reply(route, 404, { error: 'not_found' });
+      return reply(route, 200, {
+        assignment: { id: a.id, kind: a.kind, skill: a.skill, title: a.title, startsOn: a.startsOn, dueOn: a.dueOn },
+        class: { code: 'K7Q2MD', name: st.className, grade: st.classGrade, open: !st.joinLocked },
+      });
+    }
     // ---- the student's class work (TEACHER-5)
     if (path.startsWith('/api/class/work')) {
       const sid = st.studentTokens[String(h.authorization || '').replace(/^Bearer /, '')];
       if (!sid) return reply(route, 401, { error: 'not_signed_in' });
-      const mine = (a) => a.startsOn <= st.today && (a.forAll || a.targets.includes(sid));
+      // st.elsewhere: ids of students of another class; their work holds nothing of K7Q2MD
+      const mine = (a) => a.startsOn <= st.today && !(st.elsewhere || []).includes(sid) && (a.forAll || a.targets.includes(sid));
       if (path === '/api/class/work') {
         const list = st.assignments.filter((a) => mine(a) && (a.dueOn >= plus(st.today, -14) || (workOf(a, sid)?.state !== 'done' && a.dueOn >= plus(st.today, -30))))
           .sort((a, b) => ((workOf(a, sid)?.state === 'done') - (workOf(b, sid)?.state === 'done')) || (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0));
@@ -649,7 +701,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (body.code !== '123456') return reply(route, 403, { error: 'wrong_code', left: 4 });
       if (token) st.sessions.delete(token);
       st.n += 1; const t = TOKEN(st.n); st.sessions.add(t); st.recent.add(t); emails.set(t, body.email);
-      return reply(route, 200, { token: t, email: body.email });
+      if (body.adultTeacher === true) st.adults.add(body.email);
+      return reply(route, 200, { token: t, email: body.email, adult: declared(body.email) });
     }
     // `planOnline` ({ family_month: false, … }): plans the provider cannot sell online here (each plan's own `online`)
     if (path === '/api/billing/plans') {
@@ -682,7 +735,9 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       o.polls += 1;
       if (o.paidOnPage && o.polls >= 2 && o.status === 'open') {
         o.status = 'paid';
-        if (o.plan !== 'class_year') st.plan = livePlan({ plan: o.plan });
+        // an exam pass: its own price, 30 days, no next charge (COUNCIL2-33)
+        if (o.plan === 'exam_pass') st.plan = livePlan({ plan: o.plan, priceAgorot: 3900, periodEnd: '2026-12-05T10:00:00Z', canResume: false, renews: false });
+        else if (o.plan !== 'class_year') st.plan = livePlan({ plan: o.plan });
       }
       return reply(route, 200, { status: o.status, plan: o.plan, subscription: o.status === 'paid' ? { status: 'active', periodEnd: '2026-12-05T10:00:00Z' } : null });
     }
@@ -691,7 +746,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (lic) { lic.status = 'ended'; delete lic.plan; return reply(route, 200, { ok: true, status: 'ended', endsAt: '2026-11-05T10:00:00Z', refundAgorot: 58800, refundManual: false, synced: true, reference: 'C-1B00' }); }
       const p = st.plan;
       if (!p || p.id !== body.subscriptionId) return reply(route, 404, { error: 'no_subscription' });
-      if (body.mode === 'refund_now') { st.plan = { ...p, status: 'ended' }; return reply(route, 200, { ok: true, status: 'ended', endsAt: '2026-11-05T10:00:00Z', refundAgorot: 2990, refundManual: false, synced: true, reference: 'C-7F3A' }); }
+      if (body.mode === 'refund_now') { st.plan = { ...p, status: 'ended' }; return reply(route, 200, { ok: true, status: 'ended', endsAt: '2026-11-05T10:00:00Z', refundAgorot: p.priceAgorot || 2990, refundManual: false, synced: true, reference: 'C-7F3A' }); }
       st.plan = { ...p, status: 'canceled', cancelAtPeriodEnd: true, cancelRequestedAt: '2026-11-05T10:00:00Z', canRefundNow: false };
       return reply(route, 200, { ok: true, status: 'canceled', endsAt: p.periodEnd, refundAgorot: 0, refundManual: false, synced: true, reference: 'C-7F3A' });
     }
@@ -796,8 +851,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (setting === 'private' && body.privateAttest !== true) return reply(route, 400, { error: 'private_attest_required' });
       st.ai = { ...st.ai, setting, studentAi: 'off', consentAt: null };
       st.className = body.className; st.classGrade = body.grade === '8' ? '8' : '7';
-      if (signed) { st.owned = true; st.ownerEmail = emails.get(token) || null; }
-      return reply(route, 200, { code: 'K7Q2MD', teacherKey: st.key, className: st.className, grade: st.classGrade, teacherName: body.teacherName, setting, ...(signed ? { owned: true } : {}) });
+      if (signed) { st.owned = true; st.ownerEmail = emails.get(token) || null; if (body.adultTeacher === true) st.adults.add(st.ownerEmail); }
+      return reply(route, 200, { code: 'K7Q2MD', teacherKey: st.key, className: st.className, grade: st.classGrade, teacherName: body.teacherName, setting, ...(signed ? { owned: true, adult: declared(st.ownerEmail) } : {}) });
     }
     if (path === '/api/teacher/classes') {
       if (!signed) return reply(route, 401, { error: 'not_account' });
@@ -815,7 +870,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         if (!byKey) return reply(route, 401, { error: 'not_teacher' });
         if (st.owned && !mine()) return reply(route, 409, { error: 'owned_by_other' });
         st.owned = true; st.ownerEmail = emails.get(token) || null;
-        return reply(route, 200, { owner: 'you', email: emails.get(token) || 'teacher@example.test' });
+        if (body.adultTeacher === true) st.adults.add(st.ownerEmail);
+        return reply(route, 200, { owner: 'you', email: emails.get(token) || 'teacher@example.test', adult: declared(st.ownerEmail) });
       }
       if (path === '/api/teacher/class/rekey') {
         if (!signed) return reply(route, 401, { error: 'not_account' });
@@ -896,6 +952,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
           if (!next.consentAt) return reply(route, 409, { error: 'consent_needed' });
           next.studentAi = 'on';
         } else if (body.studentAi === 'off') next.studentAi = 'off';
+        // the consent and the switch on need an adult behind the class (COUNCIL2-2)
+        if ((body.consent === true || body.studentAi === 'on') && st.declaredOnly && !classAdult() && !(byAccount && declared(emails.get(token)))) return reply(route, 403, { error: 'adult_needed' });
         st.ai = next;
         return reply(route, 200, { policy: aiPolicy() });
       }
@@ -985,7 +1043,16 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (pm) {
         const s = code === 'K7Q2MD' && st.students.find((x) => x.id === pm[1]);
         if (!s) return reply(route, 404, { error: 'not_found' });
-        if (pm[2]) { s.pinReset = true; return reply(route, 200, { ok: true }); }
+        if (pm[2]) {
+          // a one-time code for the student (COUNCIL2-25, st.claimCode or a fixed one); a member who joined under the same
+          // name must bring it next time, and their devices are signed out
+          const claimCode = st.claimCode || 'H4WQ7N';
+          s.pinReset = true;
+          const m = st.members.find((x) => x.name === s.name);
+          s.manyWrongPins = false; // the reset clears the day's wrong codes
+          if (m) { Object.assign(m, { pin: null, claim: claimCode, manyWrong: false }); for (const t of m.tokens) delete st.studentTokens[t]; m.tokens = []; }
+          return reply(route, 200, { ok: true, claimCode, claimExpires: new Date(Date.parse(`${st.today}T10:00:00Z`) + 7 * 864e5).toISOString() });
+        }
         return reply(route, 200, pageOf(s));
       }
     }

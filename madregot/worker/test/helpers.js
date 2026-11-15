@@ -12,19 +12,23 @@ export const schemaSql = () => readFileSync(path.join(here, '..', 'schema.sql'),
 
 const returnsRows = (sql) => /^\s*(SELECT|WITH|PRAGMA)\b/i.test(sql) || /\bRETURNING\b/i.test(sql);
 
-/** A D1 look-alike. batch() runs inside BEGIN/COMMIT (ROLLBACK on error) like D1, and returns {results, meta} per statement. */
+/**
+ * A D1 look-alike. batch() runs inside BEGIN/COMMIT (ROLLBACK on error) like D1, and returns {results, meta} per statement.
+ * meta.size_after is the database's size in bytes after the statement, as D1 gives it (pages times page size).
+ */
 export function memoryD1(sql = schemaSql()) {
   const db = new DatabaseSync(':memory:');
   db.exec(sql);
   const norm = (row) => (row === undefined ? null : row);
+  const size = () => Number(db.prepare('PRAGMA page_count').get().page_count) * Number(db.prepare('PRAGMA page_size').get().page_size);
   const exec = (st) => {
     const prepared = db.prepare(st.sql);
     if (returnsRows(st.sql)) {
       const rows = prepared.all(...st.args);
-      return { results: rows, meta: { changes: rows.length } };
+      return { results: rows, meta: { changes: rows.length, size_after: size() } };
     }
     const r = prepared.run(...st.args);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
+    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid), size_after: size() } };
   };
   const statement = (sql) => {
     const s = {
@@ -87,6 +91,8 @@ export function makeEnv(over = {}) {
     ALLOW_TEST_BILLING: 'true',
     PRICE_FAMILY_MONTH_AGOROT: '2990',
     PRICE_FAMILY_YEAR_AGOROT: '24900',
+    // the exam pass's placeholder price, as wrangler.toml has it (COUNCIL2-33): set, so the pass is sold as it would be
+    PRICE_EXAM_PASS_AGOROT: '3900',
     PRICE_CLASS_SEAT_YEAR_AGOROT: '4900',
     VAT_MODE: 'included',
     TERMS_VERSION: '2026-11',
@@ -282,13 +288,16 @@ export const INPUT = {
 export const DEVICE = 'a'.repeat(32);
 export const ai = (h, kind, headers = {}, { ip, body } = {}) => h.call('POST', `/api/ai/${kind}`, { headers, ip, body: body ?? INPUT[kind] });
 
-/** Sign in by email code; returns the session token. */
-export async function signIn(h, email, headers = {}) {
+/**
+ * Sign in by email code; returns the session token. `adultTeacher: true`: the teacher's "I am over 18, a teacher or a
+ * tutor" ticked on the sign-in (COUNCIL2-5), without which a class bound to the email has no adult behind it.
+ */
+export async function signIn(h, email, headers = {}, { adultTeacher } = {}) {
   h.env.DB.raw.prepare('DELETE FROM login_codes').run();
   const sent = await h.call('POST', '/api/account/code', { body: { email } });
   if (sent.status !== 200) throw new Error(`code: ${sent.status} ${await sent.text()}`);
   const code = codeFromEmail(h.net.log.email.at(-1));
-  const res = await h.call('POST', '/api/account/verify', { body: { email, code }, headers });
+  const res = await h.call('POST', '/api/account/verify', { body: { email, code, ...(adultTeacher === undefined ? {} : { adultTeacher }) }, headers });
   if (res.status !== 200) throw new Error(`verify: ${res.status} ${await res.text()}`);
   return (await res.json()).token;
 }

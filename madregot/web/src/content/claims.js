@@ -8,15 +8,19 @@
 //   board). Its check failing means the app lost the feature, so the landing build stops instead of hiding it.
 // - The others wait for another lane's code: their checks look for that code by the exact names it has where it was
 //   built (`needs` says which item), so they turn on by themselves once it is merged, and stay hidden until then.
+// - `deploy`: the claim depends on how the deployment sells (shared/sold.js, from data.vars: BILLING_PROVIDER and
+//   GROW_DIRECT_DEBIT_API, the build env first): "מבטלים באתר" only while a plan that renews is sold online, the
+//   store reviewers' "subscribe on our website" only while a family plan is (COUNCIL2-30).
 // - `marks`: words only that claim may put on a page. landing-build.test.mjs fails if a page or a template says them
 //   outside the claim (a feature written into the page by hand).
 //
 // A check gets `ctx`: { code, data }. code.has(path) and code.read(path) read a file of the repository by its path
 // from madregot/ (web/src/…, worker/src/…, shared/…); data holds what the build computed from the app (data.mistakes,
-// data.coverage when CURRICULUM-1's programme exists, data.vars: the Worker's [vars]).
+// data.coverage when CURRICULUM-1's programme exists, data.vars: the Worker's [vars], with the build env's sale settings).
 import { TOPICS, isCorrect, loadAllGens } from './index.js';
 import { META, loadAllContent } from '@/learn/content/index.ts';
 import { isRestDay, YOMTOV_IL } from '@shared/restDays.js';
+import { soldOnline } from '@shared/sold.js';
 import { PLAN_TEXT } from './familyPlan.js';
 
 const he = (s) => typeof s === 'string' && /[֐-׿]/.test(s);
@@ -97,6 +101,9 @@ const FACT = {
   syncedReport: ({ code }) => grep(code, 'worker/src/report.js', /INSERT INTO family_daily/) && grep(code, 'web/src/screens/parents/FamilyReport.jsx', /<WeeksChart /),
   sundayEmail: ({ code }) => grep(code, 'worker/src/report.js', /export async function weeklyQueue/) && grep(code, 'worker/src/email.js', /function weeklyNotice/),
   examReady: ({ code }) => grep(code, 'worker/src/email.js', /exam: \(ex\) =>/) && grep(code, 'web/src/screens/parents/FamilyReport.jsx', /export function ExamBanner/),
+  // what this deployment sells online (shared/sold.js, the Worker's own rule): a plan that renews, or any family plan
+  renewsOnline: ({ data }) => soldOnline(data?.vars || {}).recurring,
+  familyOnline: ({ data }) => soldOnline(data?.vars || {}).family,
 };
 
 /** Every claim. Read the top of this file before adding one. */
@@ -139,9 +146,11 @@ export const CLAIMS = [
     check: ({ code }) => code.has('web/src/screens/Assistant.jsx') && code.has('web/src/screens/ExamCheck.jsx') && grep(code, 'shared/aiKinds.js', /AI_KINDS = \[[^\]]*'explain'[^\]]*'check'/),
   },
   {
-    id: 'cancel-web', required: true,
+    // only a plan that renews can be "cancelled on the site" before it charges again: with the one-year plan alone (Grow
+    // before it may stop a standing order) the page says that plan does not renew instead (landing-build PRICE_LINE)
+    id: 'cancel-web', deploy: 'a plan that renews, sold online',
     he: 'בלי התחייבות, מבטלים באתר.',
-    check: ({ code }) => grep(code, 'web/src/App.jsx', /path="\/cancel"/),
+    check: (ctx) => FACT.renewsOnline(ctx) && grep(ctx.code, 'web/src/App.jsx', /path="\/cancel"/),
   },
   {
     id: 'tomorrow-board', required: true,
@@ -217,6 +226,7 @@ export const CLAIMS = [
     marks: ['צ׳אטבוט כללי'],
     check: FACT.tutorKnows,
   },
+  { id: 'subscribe-web', deploy: 'a family plan sold online', lang: 'en', en: 'Families who subscribe on our website can use the AI helper here.', check: FACT.familyOnline },
   { id: 'report-answer', needs: 'TRUST-4', lang: 'en', en: 'AI answers can be reported in the app.', check: FACT.reportAnswer },
   { id: 'parent-ok', needs: 'TRUST-9', lang: 'en', en: 'A parent\'s one-time approval is also required.', check: FACT.parentOk },
 ];
@@ -240,7 +250,7 @@ export function claimStatus(ctx) {
     try { ok = !!c.check(ctx); } catch (e) { why = String(e?.message || e); }
     const text = ok ? claimText(c, ctx) : '';
     if (ok && /\{\{/.test(text)) { ok = false; why = 'a slot has no value'; }
-    if (!ok && !why) why = c.needs ? `waits for ${c.needs}` : 'its check is false';
+    if (!ok && !why) why = c.needs ? `waits for ${c.needs}` : c.deploy ? `not in this deployment: ${c.deploy}` : 'its check is false';
     return { id: c.id, text, visible: ok, required: !!c.required, needs: c.needs || null, lang: c.lang || 'he', why: ok ? '' : why };
   });
 }

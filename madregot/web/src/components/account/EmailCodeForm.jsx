@@ -10,10 +10,16 @@
 //   teacherAccount  a teacher signing in to the board (the classes follow the email; never shown to students)
 //   rekey    a fresh code before replacing a class's teacher key: no notice, and the button says what it does
 // `askShared` (a teacher's sign-in) offers "shared computer": the session is then kept for this tab only (lib/parent.js).
+// A teacher's sign-in (TEACHER_PURPOSES) also shows "I am over 18, a teacher or a tutor", unticked (COUNCIL2-5): sent
+// with the code as adultTeacher, and only with it does a class bound to this email have an adult behind it.
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { requestCode, verifyCode } from '@/lib/parent.js';
 import { Button, Field } from '@/components/ui.jsx';
+import AdultTeacherBox from '@/components/account/AdultTeacherBox.jsx';
+
+/** The purposes where the address is a teacher's: the declaration is asked there. */
+export const TEACHER_PURPOSES = Object.freeze(['teacherAccount', 'bind', 'teacher']);
 
 // Each note says what the address is for, who receives it and in which country (trust spec TRUST-1 §5), and ends with
 // the link to the privacy notice.
@@ -37,6 +43,8 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
   const [email, setEmail] = useState(lockedEmail || presetEmail);
   const [code, setCode] = useState('');
   const [shared, setShared] = useState(false);
+  const asksAdult = TEACHER_PURPOSES.includes(purpose) && !lockedEmail;
+  const [adult, setAdult] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [resendAt, setResendAt] = useState(0);
@@ -64,7 +72,7 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
     if (busy || value.length !== 6) return;
     setError(''); setBusy(true);
     try {
-      const r = await verifyCode(email.trim(), value, { shared: askShared && shared });
+      const r = await verifyCode(email.trim(), value, { shared: askShared && shared, ...(asksAdult ? { adultTeacher: adult } : {}) });
       onSignedIn?.(r);
     } catch (err) {
       setError(err.code === 'wrong_code' && Number.isFinite(err.data?.left) ? `הקוד לא נכון. נשארו עוד ${err.data.left} ניסיונות.` : err.message);
@@ -79,6 +87,7 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
           <input id={`${idPrefix}-email`} type="email" inputMode="email" autoComplete="email" dir="ltr" className="input" value={email}
             onChange={(e) => setEmail(e.target.value)} maxLength={254} readOnly={!!lockedEmail} />
         </Field>
+        {asksAdult && <AdultTeacherBox id={`${idPrefix}-adult`} checked={adult} onChange={setAdult} />}
         {askShared && !lockedEmail && (
           <label className="check-row parents-check">
             <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />

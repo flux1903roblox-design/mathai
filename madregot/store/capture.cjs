@@ -8,6 +8,8 @@
 //                                                 at most 70 KB (WebP encoded in the page by Chromium's canvas: no
 //                                                 image package)
 //         og-mivchan.png, og-pilot.png            the link previews (WhatsApp, Facebook), 1200 × 630
+//   node madregot/store/capture.cjs og-report --dist <a build with its landing pages, e.g. web/dist-test>
+//     → madregot/web/landing/img/og-report.png  the parents' summary link's preview (COUNCIL2-36, worker/src/preview.js)
 //   node madregot/store/capture.cjs store [--dist <built app>] [--raw <folder>] [--no-frames] [--only <scene>]
 //     → the five scenes (SCENES below) at 390 × 844 at 3x, and the home path in dark, as raw-<n>-<scene>.png in --raw
 //       (else a temporary folder); then frames.cjs makes the store images in store/apple/ and store/play/
@@ -233,6 +235,51 @@ async function ogShot(browser, shot, title, line, dist) {
   return png;
 }
 
+/** Madi's own colours, as the app's tokens set them (web/src/styles/tokens.css, --madi-*), for a drawing outside the app. */
+function madiColours() {
+  const tokens = fs.readFileSync(path.join(WEB, 'src/styles/tokens.css'), 'utf8');
+  const root = tokens.slice(tokens.indexOf(':root'), tokens.indexOf('}', tokens.indexOf(':root')));
+  return `:root { ${[...root.matchAll(/(--madi-[a-z]+):\s*([^;]+);/g)].map((m) => `${m[1]}: ${m[2]};`).join(' ')} }`;
+}
+
+/**
+ * The parents' summary link's preview (COUNCIL2-36, worker/src/preview.js): the same card for every link, so no
+ * child's numbers on it, only what the link is. Madi as the landing pages draw him (their built page has his SVG).
+ */
+const reportOgHtml = (madi, title, line, fonts, name) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><style>
+${fonts}
+${madiColours()}
+html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+body { background: #eaf1ff; font-family: 'Rubik Variable', sans-serif; color: #14161a; position: relative; }
+.copy { position: absolute; top: 0; bottom: 0; right: 80px; width: 640px; display: flex; flex-direction: column; justify-content: center; gap: 24px; }
+.brand { font-size: 34px; font-weight: 700; color: #1a5cf5; }
+h1 { margin: 0; font-size: 68px; line-height: 1.1; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; }
+p { margin: 0; font-size: 30px; line-height: 1.4; color: #565b66; text-wrap: pretty; }
+.week { position: absolute; left: 96px; top: 95px; width: 360px; height: 440px; border-radius: 40px; background: #fff; box-shadow: 0 12px 32px rgba(20, 22, 26, 0.12); display: flex; align-items: center; justify-content: center; }
+.week svg { width: 260px; height: auto; }
+</style></head><body><div class="copy"><span class="brand">${name}</span><h1>${title}</h1><p>${line}</p></div>
+<div class="week">${madi}</div></body></html>`;
+
+async function reportOg(browser, dist) {
+  const { APP_NAME } = await import(pathToFileURL(path.resolve(__dirname, '../shared/brand.js')).href);
+  const page0 = fs.readFileSync(path.join(dist, 'mivchan/index.html'), 'utf8');
+  // the larger of the two drawings on the landing page (the hero's), as it was rendered there
+  const svgs = [...page0.matchAll(/<svg[\s\S]*?<\/svg>/g)].map((m) => m[0]).sort((a, b) => b.length - a.length);
+  if (!svgs.length) throw new Error('no Madi on the built landing page: run node scripts/landing-build.mjs on the build first');
+  const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  const file = path.join(os.tmpdir(), `madregot-og-report-${process.pid}.html`);
+  fs.writeFileSync(file, reportOgHtml(svgs[0], 'סיכום השבוע מהתרגול', 'מה תרגלו, אילו מדרגות הושלמו ומה כדאי לחזור עליו. הסיכום נפתח בטלפון שקיבל את הקישור.', rubikFaces(dist), APP_NAME));
+  await page.goto(`file://${file}`);
+  await page.evaluate(() => document.fonts.ready);
+  const png = await page.screenshot();
+  fs.rmSync(file, { force: true });
+  await ctx.close();
+  fs.mkdirSync(OUT, { recursive: true });
+  fs.writeFileSync(path.join(OUT, 'og-report.png'), png);
+  console.log(`${path.join(OUT, 'og-report.png')}  ${(png.length / 1024).toFixed(1)} KB`);
+}
+
 async function landing(browser, dist) {
   fs.mkdirSync(OUT, { recursive: true });
   // 1. Exam Rescue: the plan for next Thursday's test, after the short check
@@ -374,9 +421,16 @@ async function storeScreens(browser, raw) {
 
 (async () => {
   const mode = process.argv[2];
-  if (!['landing', 'store'].includes(mode)) {
-    console.error('usage: node madregot/store/capture.cjs landing|store [--dist <a build made with VITE_API_URL=none>] [--raw <folder>] [--no-frames]');
+  if (!['landing', 'store', 'og-report'].includes(mode)) {
+    console.error('usage: node madregot/store/capture.cjs landing|store|og-report [--dist <a build made with VITE_API_URL=none>] [--raw <folder>] [--no-frames]');
     process.exit(2);
+  }
+  // the summary link's preview needs only a built landing page (its Madi and the fonts): no server, no app
+  if (mode === 'og-report') {
+    const { dir, cleanup } = build();
+    const browser = await chromium.launch();
+    try { await reportOg(browser, dir); } finally { await browser.close(); cleanup(); }
+    return;
   }
   const { dir, cleanup } = build();
   let stop = () => {};

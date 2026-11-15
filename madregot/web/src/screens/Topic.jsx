@@ -7,9 +7,12 @@ import { aiAccess, useAIStatus } from '@/lib/account.js';
 import { TOPIC, unitNumber } from '@/content/topics.js';
 // the unit's key ideas, words and examples load with this page, not with the first screen
 import { lessonOf } from '@/content/lessons.js';
+import { arabicLesson } from '@/content/arabic.js';
 import { Box, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { Emblem } from '@/components/map/emblems.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/topic.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 const LineExplorer = lazy(() => import('@/components/LineExplorer.jsx'));
 
@@ -17,7 +20,8 @@ export default function Topic() {
   const { id } = useParams();
   const navigate = useNavigate();
   const t = TOPIC[id];
-  const lesson = lessonOf(id);
+  // the guide's key ideas in the language on screen: a topic with its Arabic shows the Arabic summary (COUNCIL2-34)
+  const lesson = arabicLesson(id) || lessonOf(id);
   const p = useApp((s) => s.progress[id]) || { level: 1, max: 1 };
   const mistakes = useApp((s) => s.mistakes);
   const grade = useApp((s) => s.profile?.grade);

@@ -26,9 +26,10 @@
 //   doctor [--local] [--toml F] [--dev-vars F] [--grow-sandbox]
 //                                                what is still missing to go live (DURABLE-16, src/readiness.js): one line
 //                                                per item with the command that fixes it; exits 1 while anything required
-//                                                is missing. Reads wrangler.toml, the secrets' NAMES (wrangler secret list,
-//                                                or .dev.vars with --local), the migrations not yet applied, and
-//                                                PUBLIC_URL/api/health. It never prints a secret's value.
+//                                                is missing. Reads wrangler.toml with wrangler's own reader (a file
+//                                                wrangler cannot read is the one failing line), the secrets' NAMES
+//                                                (wrangler secret list, or .dev.vars with --local), the migrations not
+//                                                yet applied, and PUBLIC_URL/api/health. It never prints a secret's value.
 //
 // Read-only commands run with --command, so the rows come back (a remote --file runs D1's import, which returns none).
 //
@@ -61,10 +62,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { endOfDayIso, startOfDayIso, CODE_ALPHABET, dayOf } from '../src/util.js';
 import { cleanEmail } from '../src/account.js';
 import { classAiPolicy, rulesEnv, notSellable } from '../../shared/schoolRules.js';
+import { PRORATA_PLANS } from '../../shared/sold.js';
 import { pilotQueries, pilotReport, pilotText, examListSql, examListText } from './pilot.mjs';
 import { shiftDay, weekOf } from '../src/goal.js';
 import { readiness, formatReadiness } from '../src/readiness.js';
 import { call as growCall, GROW_SANDBOX } from '../src/providers/grow.js';
+import { readWranglerConfig, deployParts, configErrorLine } from './wranglerConfig.mjs';
 
 const DAY = 864e5;
 export class InputError extends Error {}
@@ -303,9 +306,9 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
         const total = `MAX(1, CAST(ROUND(julianday(current_period_end) - julianday(current_period_start)) AS INTEGER))`;
         lines.push(`INSERT INTO refund_queue (subscription_id, payment_id, amount_agorot, reason, requested_at)
   SELECT ${q(sub)}, ${charge}, CAST(price_agorot * ${unused} / ${total} AS INTEGER), 'prorata', ${q(now)} FROM subscriptions
-  WHERE id = ${q(sub)} AND status != 'ended' AND plan IN ('family_year', 'class_year') AND refund_until <= ${q(now)} AND CAST(price_agorot * ${unused} / ${total} AS INTEGER) > 0;`);
+  WHERE id = ${q(sub)} AND status != 'ended' AND plan IN (${PRORATA_PLANS.map((p) => `'${p}'`).join(', ')}) AND refund_until <= ${q(now)} AND CAST(price_agorot * ${unused} / ${total} AS INTEGER) > 0;`);
         lines.push(`UPDATE subscriptions SET cancel_requested_at = COALESCE(cancel_requested_at, ${q(now)}), cancel_at_period_end = 1, status = 'ended', ended_reason = 'canceled',
-  current_period_end = ${endNow}, updated_at = ${q(now)} WHERE id = ${q(sub)} AND status != 'ended' AND plan IN ('family_year', 'class_year') AND refund_until <= ${q(now)};`);
+  current_period_end = ${endNow}, updated_at = ${q(now)} WHERE id = ${q(sub)} AND status != 'ended' AND plan IN (${PRORATA_PLANS.map((p) => `'${p}'`).join(', ')}) AND refund_until <= ${q(now)};`);
       }
       lines.push(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
   SELECT id, 'canceled:' || ${q(mode)} || ':' || cancel_requested_at, account_id, json_object('requestedAt', cancel_requested_at, 'endsAt', current_period_end,
@@ -552,23 +555,12 @@ export function parseArgs(argv) {
 
 // ---------------------------------------------------------------- doctor (DURABLE-16)
 /**
- * The parts of wrangler.toml the doctor reads: the [vars] table (key = "value" lines), database_id and the names of the
- * [[ratelimits]] bindings. A small reader for this file's shape, not a TOML parser.
+ * The parts of a wrangler.toml the doctor reads ({ vars, databaseId, ratelimits }), read by the installed wrangler's own
+ * reader (scripts/wranglerConfig.mjs), so a file wrangler would refuse at deploy is refused here: → { error } with the
+ * first line of wrangler's message instead.
  */
-export function readToml(text) {
-  const vars = {}; const ratelimits = []; let databaseId = ''; let section = '';
-  for (const raw of String(text).split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
-    const head = /^\[\[?([A-Za-z0-9_.]+)\]\]?$/.exec(line);
-    if (head) { section = head[1]; continue; }
-    const kv = /^([A-Za-z0-9_]+)\s*=\s*"((?:[^"\\]|\\.)*)"/.exec(line);
-    if (!kv) continue;
-    if (section === 'vars') vars[kv[1]] = kv[2];
-    else if (section === 'd1_databases' && kv[1] === 'database_id') databaseId = kv[2];
-    else if (section === 'ratelimits' && kv[1] === 'name') ratelimits.push(kv[2]);
-  }
-  return { vars, databaseId, ratelimits };
+export function readDeployConfig(file, read = readWranglerConfig) {
+  try { return deployParts(read(file)); } catch (e) { return { error: configErrorLine(e) }; }
 }
 /** The NAMES in a .dev.vars file (KEY=value lines). The values are never kept. */
 export const devVarNames = (text) => String(text).split(/\r?\n/).map((l) => /^\s*([A-Z][A-Z0-9_]*)\s*=/.exec(l)?.[1]).filter(Boolean);
@@ -577,7 +569,8 @@ export const unappliedFrom = (out, inRepo) => (/No migrations to apply/i.test(ou
 
 /**
  * The doctor: { code, out } (exit code and the printout). `deps` are for tests: `exec(args)` runs wrangler and returns its
- * stdout, `fetch` reaches the health route, `read(path)` and `list(dir)` read files.
+ * stdout, `fetch` reaches the health route, `read(path)` and `list(dir)` read files, `readConfig(path)` reads a
+ * wrangler.toml (default: wrangler's own reader).
  */
 export async function doctor(o = {}, deps = {}) {
   const here = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -586,7 +579,12 @@ export async function doctor(o = {}, deps = {}) {
   const exec = deps.exec || ((args) => execFileSync('npx', ['wrangler', ...args], { cwd: here, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
   const fetchFn = deps.fetch || globalThis.fetch;
   const notes = [];
-  const toml = readToml(read(o.toml ? path.resolve(String(o.toml)) : path.join(here, 'wrangler.toml')));
+  // the file as wrangler reads it: when wrangler cannot, that is the one failing line, since the deploy, the secrets list
+  // and the migrations all read it too
+  const toml = readDeployConfig(o.toml ? path.resolve(String(o.toml)) : path.join(here, 'wrangler.toml'), deps.readConfig);
+  if (toml.error) {
+    return { code: 1, out: [formatReadiness(readiness({ configError: toml.error })), 'יש עוד מה להשלים (השורות עם ✗).'].join('\n') };
+  }
   // the secrets' names: from Cloudflare, or from .dev.vars for the local Worker
   let secrets = [];
   if (o.local) {

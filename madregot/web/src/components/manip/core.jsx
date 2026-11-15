@@ -87,7 +87,8 @@ export const minus = (v) => (v < 0 ? `−${-v}` : `${v}`);
 // ---------------------------------------------------------------- numbers and fractions drawn in SVG
 // a sign before the fraction is kept: −\frac{3}{4} on a point, +\frac{1}{2} on a jump
 const FRAC_TEX = /^([-−+])?\\[dt]?frac\{(\d+)\}\{(\d+)\}$/;
-const HEB = /[֐-׿]/;
+// a word (Hebrew or Arabic) reads right to left inside the drawing
+const HEB = /[֐-׿؀-ۿ]/;
 /** A label as plain text: \frac{3}{4} is 3/4, −2 keeps its real minus. */
 export const labelText = (s) => String(s ?? '').replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2').replace(/\\%/g, '%').replace(/\{,\}/g, ',').replace(/^-/, '−');
 

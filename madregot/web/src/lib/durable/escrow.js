@@ -1,3 +1,4 @@
+// @ts-check
 // The class and the family keep this device's backup code (DURABLE-6), so the progress comes back with an identity the
 // student already has: a class code, a name and the personal PIN, or a parent's family plan. The vault itself is the
 // backup code's (vault.js); here the code is also given to the server, sealed there with its own secret, so the server
@@ -19,11 +20,18 @@ import { applyRestored } from './apply.js';
 import { derive } from './crypto.js';
 import { isCode } from './code.js';
 import { createBackup, findVault, adoptCode } from './vault.js';
+import { isObj } from '@shared/obj.js';
+
+/** @typedef {import('./types').StoreApi} Store */
+/** @typedef {import('./types').Backup} Backup */
+/** @typedef {'class' | 'family'} Keeper */
 
 export const ESCROW_TEXT = {
   /** a class rejoin on a device with no progress */
+  /** @param {string} cls */
   back: (cls) => `ברוכים השבים לכיתה ${cls}. ההתקדמות שלכם חזרה.`,
   /** a class rejoin on a device that had progress of its own */
+  /** @param {string} cls */
   merged: (cls) => `ברוכים השבים לכיתה ${cls}. איחדנו את ההתקדמות מהכיתה עם מה שיש במכשיר הזה.`,
   /** a family link that continued from kept progress */
   moved: 'ההתקדמות עברה למכשיר הזה.',
@@ -31,21 +39,37 @@ export const ESCROW_TEXT = {
   off: errorText('escrow_off'),
 };
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/** @type {(store: Store) => Backup} */
 const backupOf = (store) => ({ ...BACKUP_DEFAULTS, ...(isObj(store.getState().backup) ? store.getState().backup : {}) });
+/** @type {(store: Store) => import('./types').Saved} */
 const durableOf = (store) => ({ ...DURABLE_DEFAULTS, ...(isObj(store.getState().durable) ? store.getState().durable : {}) });
 
 /** Does `kind` ('class' | 'family') keep this device's code? */
+/** @type {(backup: Partial<Backup> | null | undefined, kind: Keeper) => boolean} */
 export const escrowHas = (backup, kind) => !!backup?.on && (backup.escrow === kind || backup.escrow === 'both');
-/** backup.escrow with `kind` added or taken away. */
+/**
+ * backup.escrow with `kind` added or taken away.
+ * @param {Backup['escrow']} cur
+ * @param {Keeper} kind
+ * @param {boolean} on
+ * @returns {Backup['escrow']}
+ */
 export function escrowWith(cur, kind, on) {
+  /** @type {Set<Keeper>} */
   const set = new Set(cur === 'both' ? ['class', 'family'] : cur ? [cur] : []);
   if (on) set.add(kind); else set.delete(kind);
   return set.size === 2 ? 'both' : set.size ? [...set][0] : null;
 }
+/** @type {(store: Store, kind: Keeper, on: boolean) => void} */
 const markEscrow = (store, kind, on) => { const b = backupOf(store); store.setState({ backup: { ...b, escrow: escrowWith(b.escrow, kind, on) } }); };
 
-/** The identity an escrow call carries: the class Bearer (a token the store may not hold yet), or the family device. */
+/**
+ * The identity an escrow call carries: the class Bearer (a token the store may not hold yet), or the family device.
+ * @param {Store} store
+ * @param {Keeper} kind
+ * @param {string} [token]
+ * @returns {Record<string, string>}
+ */
 function headersFor(store, kind, token) {
   const t = kind === 'class' ? token || store.getState().profile?.token : store.getState().ai?.familyDevice?.token;
   if (!t) return {};
@@ -56,6 +80,9 @@ function headersFor(store, kind, token) {
  * The copy a kept code opens, brought here: merged ('empty' or 'same'); another student's copy is merged only when
  * `replaceOther` (a parent chose to move that progress to this device: it then replaces, with the undo of 30 days).
  * The code is adopted when it was. Resolves { kind, applied }; rejects when the copy could not be read.
+ * @param {string} code
+ * @param {Keeper} kind
+ * @param {{ store: Store, token?: string, replaceOther?: boolean, before?: () => void }} opts
  */
 async function bringBack(code, kind, { store, token, replaceOther = false, before }) {
   const found = await findVault(code, { store, headers: headersFor(store, kind, token) });
@@ -70,6 +97,9 @@ async function bringBack(code, kind, { store, token, replaceOther = false, befor
  * Keep this device's code with the class or the family: a backup is made first when there is none (it pushes the first
  * copy), then POST /api/vault/escrow. Resolves 'kept' | 'off' (nothing to do here) | 'escrow_off' (no VAULT_SECRET) |
  * 'error'. Never throws: joining and linking go on whatever happens.
+ * @param {Keeper} kind
+ * @param {{ store?: Store, token?: string }} [opts]
+ * @returns {Promise<'kept' | 'off' | 'escrow_off' | 'error'>}
  */
 export async function keepCode(kind, { store = useApp, token } = {}) {
   if (!hasServer()) return 'off';
@@ -80,11 +110,14 @@ export async function keepCode(kind, { store = useApp, token } = {}) {
   if (b.on && b.state === 'other_student') return 'off';
   try {
     if (!b.on || !isCode(b.code)) { await createBackup({ store }); b = backupOf(store); }
-    const lookup = b.lookup || (await derive(b.code)).lookup;
-    await api('/api/vault/escrow', { method: 'POST', body: { code: b.code, lookup }, auth: false, headers: headersFor(store, kind, token) });
+    const code = b.code;
+    if (!isCode(code)) return 'error';
+    const lookup = b.lookup || (await derive(code)).lookup;
+    await api('/api/vault/escrow', { method: 'POST', body: { code, lookup }, auth: false, headers: headersFor(store, kind, token) });
     markEscrow(store, kind, true);
     return 'kept';
-  } catch (e) {
+  } catch (err) {
+    const e = /** @type {any} */ (err);
     if (e?.code === 'server_config') return 'escrow_off';
     // a vault that is off or full, a network that is down: the backup code (or the file) is still there
     if (!['network', 'vault_off', 'vault_full', 'too_many_vaults', 'slow_down', 'vault_too_big'].includes(e?.code)) {
@@ -100,15 +133,19 @@ export async function keepCode(kind, { store = useApp, token } = {}) {
  * device's code is kept by the class, unless `keep` is false (Welcome keeps it once the profile is made). `before`
  * runs once the copy has been read, in the same moment as the merge (Welcome makes the profile there). Resolves
  * { toast, restored }: the words to say (null: the caller's own).
+ * @param {{ token?: string, className?: string, vault?: { code?: string } | null } | null | undefined} c
+ * @param {{ store?: Store, keep?: boolean, before?: () => void }} [opts]
+ * @returns {Promise<{ restored: boolean, toast: string | null }>}
  */
 export async function afterClassJoin(c, { store = useApp, keep = true, before } = {}) {
   if (c?.vault?.code) {
     try {
       const r = await bringBack(c.vault.code, 'class', { store, token: c.token, before });
-      if (r.applied) return { restored: true, toast: r.kind === 'same' ? ESCROW_TEXT.merged(c.className) : ESCROW_TEXT.back(c.className) };
+      if (r.applied) return { restored: true, toast: r.kind === 'same' ? ESCROW_TEXT.merged(c.className ?? '') : ESCROW_TEXT.back(c.className ?? '') };
       // another student's progress here: nothing merged, and the class keeps the code it has
       return { restored: false, toast: null };
-    } catch (e) {
+    } catch (err) {
+      const e = /** @type {any} */ (err);
       // the copy could not be read (gone, or a code that does not open it): a new one is kept below
       report('vault', { name: 'escrow_open', message: `the class's copy could not be opened (${e?.code || e?.name || 'error'})` });
     }
@@ -122,6 +159,9 @@ export async function afterClassJoin(c, { store = useApp, keep = true, before } 
  * After this device is linked to a family plan (pollLink 'linked', linkThisDevice). `r`: the link's answer
  * ({ deviceToken, vault? }). With r.vault the kept progress the parent chose comes here; else this device's code is
  * kept by the family. Resolves { toast, restored }.
+ * @param {{ deviceToken?: string, vault?: { code?: string } | null } | null | undefined} r
+ * @param {{ store?: Store }} [opts]
+ * @returns {Promise<{ restored: boolean, toast: string | null }>}
  */
 export async function afterFamilyLink(r, { store = useApp } = {}) {
   if (r?.vault?.code) {
@@ -129,7 +169,8 @@ export async function afterFamilyLink(r, { store = useApp } = {}) {
       const out = await bringBack(r.vault.code, 'family', { store, replaceOther: true });
       if (out.applied) return { restored: true, toast: ESCROW_TEXT.moved };
       return { restored: false, toast: null };
-    } catch (e) {
+    } catch (err) {
+      const e = /** @type {any} */ (err);
       report('vault', { name: 'escrow_open', message: `the family's kept copy could not be opened (${e?.code || e?.name || 'error'})` });
       return { restored: false, toast: null };
     }
@@ -142,6 +183,8 @@ export async function afterFamilyLink(r, { store = useApp } = {}) {
  * The switch "שמירת עותק בשרת הכיתה". Off: the class's copy of the code is deleted (POST /api/vault/escrow/delete) and
  * this device stops giving it; rejects when the server could not be reached (nothing changes then). On: the code is
  * kept again; resolves what keepCode resolved.
+ * @param {boolean} on
+ * @param {{ store?: Store }} [opts]
  */
 export async function setClassCopy(on, { store = useApp } = {}) {
   const d = durableOf(store);

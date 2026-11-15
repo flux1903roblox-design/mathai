@@ -15,6 +15,9 @@ import { META, NEW_CATS } from './meta.gen';
 // the topics' exercise generators load per topic too (content/topics.js): ensureTopics waits for both
 // @ts-ignore: plain JS
 import { loadGens, gensReady } from '@/content/topics.js';
+// an Arabic topic's teaching in Arabic, when the app is in Arabic (COUNCIL2-34, content/arabic.js)
+// @ts-ignore: plain JS
+import { contentLang } from '@/content/arabic.js';
 
 export { META, NEW_CATS };
 
@@ -24,8 +27,21 @@ export const hasContent = (skill: SkillId) => !!META[skill];
 /** The topics that have teaching content, in the order of META. */
 export const CONTENT_TOPICS: TopicId[] = [...new Set(Object.keys(META).map((s) => s.split(':')[0] as TopicId))];
 
+type Lang = 'he' | 'ar';
+/** An Arabic topic's teaching: the Arabic twins of its files (scripts/gen-arabic.mjs; learn/arabic.test.ts holds the list). */
+function importArabic(topic: string): Promise<StairContent[]> {
+  // only in a build that has Arabic (VITE_ARABIC=on, lib/i18n.js): any other build carries none of these files
+  if (import.meta.env.VITE_ARABIC !== 'on') return Promise.reject(new Error('content: this build has no Arabic'));
+  // one case per topic of content/arabic.js ARABIC_TOPICS, its stairs' twins in the order of importTopic's Hebrew case
+  // (none now: see content/arabic.js)
+  switch (topic) {
+    default: return Promise.reject(new Error(`content: no Arabic teaching for ${topic}`));
+  }
+}
+
 /** A new topic adds its case here (learn/content-split.test.ts fails for a topic in TOPICS whose stairs do not load). */
-function importTopic(topic: string): Promise<StairContent[]> {
+function importTopic(topic: string, lang: Lang): Promise<StairContent[]> {
+  if (import.meta.env.VITE_ARABIC === 'on' && lang === 'ar') return importArabic(topic);
   switch (topic) {
     // the curriculum lane's bridge unit (fractions)
     case 'frac': return import('./frac').then((m) => m.FRAC);
@@ -68,21 +84,29 @@ function importTopic(topic: string): Promise<StairContent[]> {
   }
 }
 
-const cache: Record<SkillId, StairContent> = {};
+// each language's teaching, by stair; requested and loaded are keyed 'he:signed', 'ar:signed'
+const cache: Record<Lang, Record<SkillId, StairContent>> = { he: {}, ar: {} };
 const requested = new Map<string, Promise<StairContent[]>>();
 const loaded = new Set<string>();
+/** A topic's key in the language its teaching shows in now. */
+const keyOf = (topic: string) => `${contentLang(topic)}:${topic}`;
 
-/** A topic's stairs, loaded once. A file that failed to load (offline before it was ever kept) can be asked for again. */
+/**
+ * A topic's stairs in the language on screen, loaded once. A file that failed to load (offline before it was ever
+ * kept) can be asked for again.
+ */
 export function loadTopic(topic: TopicId | string): Promise<StairContent[]> {
-  let p = requested.get(topic);
+  const lang: Lang = contentLang(topic);
+  const key = `${lang}:${topic}`;
+  let p = requested.get(key);
   if (!p) {
-    const q: Promise<StairContent[]> = importTopic(topic).then((list) => {
-      for (const c of list) cache[c.skill] = c;
-      loaded.add(topic);
+    const q: Promise<StairContent[]> = importTopic(topic, lang).then((list) => {
+      for (const c of list) cache[lang][c.skill] = c;
+      loaded.add(key);
       return list;
     });
-    q.catch(() => { if (requested.get(topic) === q) requested.delete(topic); });
-    requested.set(topic, q);
+    q.catch(() => { if (requested.get(key) === q) requested.delete(key); });
+    requested.set(key, q);
     p = q;
   }
   return p;
@@ -91,7 +115,7 @@ export function loadTopic(topic: TopicId | string): Promise<StairContent[]> {
 /** The topics of skill ids ('signed:1') or topic ids ('signed'). */
 export const topicsOf = (ids: (SkillId | TopicId)[]): string[] => [...new Set(ids.filter(Boolean).map((id) => id.split(':')[0]))].sort();
 /** Have the topics of these skills (or these topics) loaded? */
-export const topicsReady = (ids: (SkillId | TopicId)[]) => topicsOf(ids).every((t) => loaded.has(t));
+export const topicsReady = (ids: (SkillId | TopicId)[]) => topicsOf(ids).every((t) => loaded.has(keyOf(t)));
 
 // React's use() reads a promise's `status`: a promise marked 'fulfilled' gives its value at once, without suspending.
 type Marked = Promise<void> & { status?: 'pending' | 'fulfilled' | 'rejected'; value?: undefined; reason?: unknown };
@@ -104,8 +128,8 @@ const waiting = new Map<string, Marked>();
  */
 export function ensureTopics(ids: (SkillId | TopicId)[]): Promise<void> {
   const topics = topicsOf(ids);
-  if (topics.every((t) => loaded.has(t) && gensReady(t))) return READY;
-  const key = topics.join(',');
+  if (topics.every((t) => loaded.has(keyOf(t)) && gensReady(t))) return READY;
+  const key = topics.map(keyOf).join(',');
   let p = waiting.get(key);
   if (!p) {
     // a topic's teaching and its exercise generators (a lesson's first question needs both)
@@ -127,9 +151,10 @@ export function ensureTopics(ids: (SkillId | TopicId)[]): Promise<void> {
  * it (ensureTopics, useStairContent), or it would quietly fall back to plain exercises.
  */
 export function contentOf(skill: SkillId): StairContent | null {
-  const c = cache[skill];
+  const lang: Lang = contentLang(skill);
+  const c = cache[lang][skill];
   if (c) return c;
-  if (import.meta.env.DEV && META[skill] && !requested.has(skill.split(':')[0])) {
+  if (import.meta.env.DEV && META[skill] && !requested.has(`${lang}:${skill.split(':')[0]}`)) {
     throw new Error(`contentOf('${skill}'): its topic was never loaded. Wait for ensureTopics(['${skill}']) or useStairContent first.`);
   }
   return null;
@@ -138,5 +163,5 @@ export function contentOf(skill: SkillId): StairContent | null {
 /** Every stair's content, every topic loaded (tests, and tools that need it all). */
 export async function loadAllContent(): Promise<Record<SkillId, StairContent>> {
   await ensureTopics(CONTENT_TOPICS);
-  return Object.fromEntries(Object.keys(META).map((s) => [s, cache[s]]));
+  return Object.fromEntries(Object.keys(META).map((s) => [s, cache[contentLang(s)][s]]));
 }

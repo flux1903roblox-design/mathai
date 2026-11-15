@@ -1,0 +1,4 @@
+/* BackupLine.jsx's own rules (COUNCIL2-24), out of the first-load stylesheets: the card itself is Learn's quiet card
+   (.install-card in canon.css); only its two buttons, side by side when they fit, are new. */
+.backup-line-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.backup-line-actions .btn { margin: 0; padding-inline: var(--s4); }

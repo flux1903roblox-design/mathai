@@ -1,5 +1,70 @@
 /* Figure.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
    original order. Only Figure.jsx uses these classes. */
+
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+.fg-ray.thin { stroke-width: 1.25; }
+.fg-arc.target { stroke: var(--magenta); }
+.fg-nl-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fg-nl-head { fill: var(--ink); }
+.fg-nl-tick { stroke: var(--ink); stroke-width: 2; }
+.fg-nl-tick.part { stroke: var(--ink-2); stroke-width: 1.4; }
+.fg-nl-tick.zero { stroke-width: 3; }
+.fg-nl-num { fill: var(--ink-2); font-size: 16px; font-weight: 500; }
+.fg-nl-num.zero { fill: var(--ink); font-weight: 700; }
+.fg-nl-jump, .fg-nl-jump-head { fill: none; stroke: var(--brand); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.fg-nl-jump-label { fill: var(--brand-d); font-size: 15px; font-weight: 700; }
+.fg-nl-mark circle { fill: var(--brand); stroke: var(--paper); stroke-width: 2.5; }
+.fg-nl-mark.tone-good circle { fill: var(--good); }
+.fg-nl-mark.tone-bad circle { fill: var(--bad); }
+.fg-nl-mark-label { fill: var(--ink); font-size: 18px; font-weight: 700; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.fg-fbar-label { fill: var(--ink); font-size: 16px; font-weight: 700; }
+.fg-grid-cell { fill: var(--paper); stroke: var(--ink-2); stroke-width: 1.2; }
+.fg-grid-cell.col { fill: color-mix(in srgb, var(--brand) 22%, var(--paper)); }
+.fg-grid-cell.row { fill: color-mix(in srgb, var(--ink) 9%, var(--paper)); }
+.fg-grid-cell.both { fill: color-mix(in srgb, var(--brand) 62%, var(--paper)); }
+.fg-grid-edge { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; }
+.fg-grid-label { fill: var(--ink); font-size: 17px; font-weight: 700; }
+.fg-dot { stroke: var(--paper); stroke-width: 1.5; }
+.fg-dot.tone-0 { fill: var(--brand); }
+.fg-dot.tone-1 { fill: var(--streak); }
+.fg-dot.tone-2 { fill: var(--gold-d); }
+.fg-dot.tone-3 { fill: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) {
+  .fg-anim .fg-nl-jump { stroke-dasharray: none; }
+}
+.geo .fg-side { font-size: 18px; }
+.geo .fg-side.target { font-size: 20px; }
+.geo .fg-angle { font-size: 17px; }
+.geo .fg-angle.target { font-size: 19px; }
+.fg-ray.hi { stroke: var(--brand); stroke-width: 3; }
+.fg-sq.hi { fill: color-mix(in srgb, var(--brand) 22%, transparent); stroke-width: 2.5; }
+.figure.fig-thermo.two { max-width: 300px; }
+.fig-nl-tick.zero { stroke-width: 3; }
+.fig-nl-tick.part { stroke: var(--ink-2); stroke-width: 1.4; }
+.fig-nl-num.zero { fill: var(--ink); font-weight: 700; }
+.fig-nl-num.on { fill: var(--brand-d); font-size: 17px; font-weight: 800; }
+.fig-nl-num.on.tone-good { fill: var(--good-ink); }
+.fig-nl-num.on.tone-bad { fill: var(--bad-ink); }
+.fig-nl-mark.tone-good circle { fill: var(--good-d); }
+.fig-nl-mark.tone-bad circle { fill: var(--bad); }
+.fig-th-tick.sub { stroke-width: 1.25; }
+.fig-th-tick.zero { stroke: var(--ink); stroke-width: 2.5; }
+.fig-th-num.zero { fill: var(--ink); font-weight: 700; }
+.fig-thermo.two .fig-th-num { font-size: 19px; }
+.fig-thermo.two .fig-th-read { font-size: 26px; }
+.fig-thermo.two .fg-word { font-size: 20px; }
+.fig-dt-dot.hi { fill: var(--streak); stroke: var(--streak-d); stroke-width: 2; }
+.fig-bar.gone .fig-bar-num { fill: var(--brand-d); font-size: 22px; font-weight: 800; }
+.fig-cd-line.tone-brand { stroke: var(--brand); }
+.fig-cd-line.tone-alt { stroke: var(--streak-d); }
+.fig-cd-line.tone-good { stroke: var(--good-d); }
+.fig-cd-line.tone-bad { stroke: var(--bad); }
+.fig-cd-tag.tone-brand { fill: var(--brand-d); }
+.fig-cd-tag.tone-alt { fill: var(--streak-ink); }
+.fig-cd-tag.tone-good { fill: var(--good-ink); }
+.fig-cd-tag.tone-bad { fill: var(--bad-ink); }
+.lm-fig .fg-table.cols4 th, .lm-fig .fg-table.cols4 td { padding: 4px 6px; }
+
 .figure-wrap { display: flex; justify-content: center; }
 .fg-axis-head { fill: var(--ink-2); }
 .fg-axis-name { fill: var(--ink-2); font-size: 15px; font-style: italic; }
@@ -238,7 +303,6 @@
 .fg-solid-seglab { paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
 .fg-solid-layer { fill: none; stroke: color-mix(in srgb, var(--ink) 35%, transparent); stroke-width: 1; }
 .fg-solid-inner { fill: color-mix(in srgb, var(--brand) 18%, transparent); stroke: var(--brand-d); stroke-width: 2; stroke-linejoin: round; }
-
 /* choices that are drawings (four nets of a cube): two by two, the drawing as wide as the card, its number in the
    bottom corner beside the caption, clear of the drawing. A drawn choice is a Figure, so its rules load with this
    sheet (moved out of the first load at the stage-2 merge; the lesson imports Figure.jsx statically) */
@@ -278,4 +342,4 @@
 .fg-proof-table .n { width: 26px; text-align: center; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .fg-proof-table tr.ask td { background: var(--gold-tint); }
 .fg-proof-table tr.hl td { background: var(--brand-tint); font-weight: 600; }
-.fg-proof-ask { font-weight: 800; font-size: 18px; color: var(--gold-ink); }
+.fg-proof-ask { font-weight: 800; font-size: 1.125rem; color: var(--gold-ink); }

@@ -8,14 +8,15 @@ import { useNext } from '@/lib/useLearn.js';
 import Mascot from '@/components/Mascot.jsx';
 import { Button } from '@/components/ui.jsx';
 
-const DAY_NAME = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
+import { localized, t } from '@/lib/i18n.js';
+let DAY_NAME = localized(() => ([t('shell.repaircard.1'), t('shell.repaircard.2'), t('shell.repaircard.3'), t('shell.repaircard.4'), t('shell.repaircard.5'), t('shell.repaircard.6')]), (v) => { DAY_NAME = v; });
 
 /** "אתמול לא יצא ללמוד. עוד שני שיעורים היום, והרצף של 5 ימים נשמר." (the gap is named by its day when it was not yesterday) */
 export function repairText(r, todayKey) {
   const yesterday = new Date(`${todayKey}T12:00:00Z`); yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  const when = r.gap === yesterday.toISOString().slice(0, 10) ? 'אתמול' : `ביום ${DAY_NAME[new Date(`${r.gap}T12:00:00Z`).getUTCDay()]}`;
+  const when = r.gap === yesterday.toISOString().slice(0, 10) ? t('shell.repaircard.7') : t('shell.repaircard.8', { p0: DAY_NAME[new Date(`${r.gap}T12:00:00Z`).getUTCDay()] });
   const k = Math.max(1, r.left);
-  return `${when} לא יצא ללמוד. עוד ${k === 1 ? 'שיעור אחד' : 'שני שיעורים'} היום, והרצף של ${r.streak} ימים נשמר.`;
+  return t('shell.repaircard.11', { when, p1: k === 1 ? t('shell.repaircard.9') : t('shell.repaircard.10'), streak: r.streak });
 }
 
 /** Today's repair, when there is one: the same answer the header's flame shows at risk (store.js useStreak). */
@@ -44,9 +45,9 @@ function RepairCardView({ r }) {
       <Mascot mood="idle" size={52} className="repair-madi" />
       <div className="repair-main">
         <p id="repair-text" className="repair-text">{repairText(r, d)}</p>
-        <Button className="btn-sm repair-go" onClick={() => navigate(plan.top?.to || '/quests')}>לשיעור</Button>
+        <Button className="btn-sm repair-go" onClick={() => navigate(plan.top?.to || '/quests')}>{t('shell.repaircard.12')}</Button>
       </div>
-      <button type="button" className="icon-btn repair-close" aria-label="סגירה" onClick={() => useApp.getState().setNudge({ repairDismissed: d })}>
+      <button type="button" className="icon-btn repair-close" aria-label={t('shell.repaircard.13')} onClick={() => useApp.getState().setNudge({ repairDismissed: d })}>
         <X size={20} aria-hidden="true" />
       </button>
     </section>

@@ -5,16 +5,16 @@
 // It opens from the "משימות" tab, from a repeated mistake on "מחר" (the repair of that mistake, for the students who
 // made it: SK-BUYERS-2), from the lessons library, and from a class exam's sheet. "מבחן תרגול" sends one of this class's exams (TEACHER-3), in the
 // version the teacher picks (א׳ unless the sheet showed ב׳): its frozen questions go to the server as they are.
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { Copy, ExternalLink } from 'lucide-react';
 import { useApp, today as localToday } from '@/lib/store.js';
 import { teacherApi } from '@/lib/teacher.js';
 import { classTopicsFor, rowStairs, rowTitle, TOPIC } from '@/content/topics.js';
-import { assignTitle, sendWork, classMessage, publicUrl, shareFor, repairsOf, isRepair } from '@/lib/assign.js';
+import { assignTitle, sendWork, shareFor, repairsOf, isRepair } from '@/lib/assign.js';
 import { MathText } from '@/components/MathText.jsx';
+import ShareWork from './ShareWork.jsx';
 import { plusDays, schoolDay, dayLong, dm } from '@/lib/workDates.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { Choice } from './ClassSettingQuestion.jsx';
@@ -249,31 +249,11 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
 }
 
 /**
- * "לספר לכיתה?": the message for the class's own channel, to copy, and the Classroom link. For work given to a group,
- * "לספר לתלמידים?": who got it (names for the teacher only), a message worded to them, and no Classroom post (lib/assign.js
- * shareFor). Nothing is sent from here.
+ * "לספר לכיתה?": the assignment's own link, the message for the class's own channel, Classroom's share address and the
+ * Moodle activity's fields (ShareWork, COUNCIL2-35). For work given to a group (SK-BUYERS-4), "לספר לתלמידים?": who got
+ * it (names for the teacher only), the message worded to them with the same link, and no Classroom post or Moodle
+ * activity (both reach the whole class; lib/assign.js shareFor). Nothing is sent from here.
  */
 function ShareStep({ sent, share }) {
-  const first = useRef(null);
-  // the step replaces the form under the keyboard's focus: it starts on its first action
-  useEffect(() => { first.current?.focus({ preventScroll: true }); }, []);
-  const url = publicUrl();
-  const msg = classMessage(sent, url);
-  const words = classMessage(sent, '');
-  const link = share.classroom;
-  const copyMsg = () => {
-    const done = () => toast.success('ההודעה הועתקה');
-    const failed = () => toast('לא הצלחנו להעתיק. אפשר לסמן את ההודעה ולהעתיק אותה.');
-    try { navigator.clipboard.writeText(msg).then(done, failed); } catch { failed(); }
-  };
-  return (
-    <div className="as-share">
-      <p className="as-share-lead">{share.lead}</p>
-      {share.group && share.names.length > 3 && <p className="as-share-who"><span className="field-label">קיבלו את המשימה:</span> {share.names.join(', ')}</p>}
-      {/* the address is set left to right inside the Hebrew line, so its slashes stay where they belong */}
-      <blockquote className="as-msg">{words}{url && <> <bdi dir="ltr">{url}</bdi></>}</blockquote>
-      <button ref={first} type="button" className="btn btn-secondary btn-block" onClick={copyMsg}><Copy size={18} aria-hidden="true" />העתקת הודעה לתלמידים</button>
-      {link && <a className="btn btn-secondary btn-block" href={link} target="_blank" rel="noopener noreferrer"><ExternalLink size={18} aria-hidden="true" />שיתוף ב־Google Classroom</a>}
-    </div>
-  );
+  return <ShareWork a={sent} autoFocus group={share.group} lead={share.group ? share.lead : null} who={share.group && share.names.length > 3 ? share.names : null} />;
 }

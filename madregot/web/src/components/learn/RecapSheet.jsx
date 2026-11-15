@@ -21,6 +21,7 @@ import { colorOf, nameOf, wearing } from '@/lib/wardrobe.js';
 import { dm, newestFirst } from '@/lib/share.js';
 import { stairName, misconName } from '@/learn/report.ts';
 import { isRestDay, isYomTov } from '@shared/restDays.js';
+import '@/styles/lazy/shared.css'; // the week's days (.week-day), shared with the streak stage (round-3 merge)
 
 const LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];

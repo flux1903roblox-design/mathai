@@ -27,7 +27,7 @@
   --brand-line: #a9c3ff; /* borders of selected and brand-tinted things */
   --bar-fill: #a9c3ff;   /* the brand part of a progress bar with its count written over it in --ink (PKG-1: 4.5:1) */
   --brand-ink: #1a5cf5;  /* the brand blue as text or an icon on the page or a card (lighter in dark) */
-  --p-50: #f5f8ff;      --p-400: #5b8cff;     --p-600: #1651db; /* three steps of the v4 brand scale still in use (v4.css) */
+  --p-50: #f5f8ff;      --p-400: #5b8cff;     --p-600: #1651db; /* three steps of the v4 brand scale still in use (canon.css) */
   --glow: #1a5cf5;      --glow-ink: #1246c4;  --on-glow: #ffffff;
   --good: #2fbf4a;      --good-d: #1a8a34;    --good-tint: #e3f8e7;   --good-ink: #157a41;  --on-good: #000000; --good-line: #bfe9c9;
   --good-mid: #8fdcab;  --bad-mid: #f28aa2; /* the softer green and red of quest bars and "ready" / "gap" segments */
@@ -60,13 +60,13 @@
   /* type: Rubik only; body 17px, nothing below 14px */
   --font-ui: 'Rubik Variable', 'Rubik', 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
   --font-display: var(--font-ui);
-  --t-xs: 14px; --lh-xs: 20px;
-  --t-sm: 15px; --lh-sm: 22px;
-  --t-base: 17px; --lh-base: 26px;
-  --t-md: 19px; --lh-md: 28px;
-  --t-lg: 22px; --lh-lg: 30px;
-  --t-xl: 28px; --lh-xl: 36px;
-  --t-2xl: 34px; --lh-2xl: 42px;
+  --t-xs: 0.875rem; --lh-xs: 1.4286;
+  --t-sm: 0.9375rem; --lh-sm: 1.4667;
+  --t-base: 1.0625rem; --lh-base: 1.5295;
+  --t-md: 1.1875rem; --lh-md: 1.4737;
+  --t-lg: 1.375rem; --lh-lg: 1.3637;
+  --t-xl: 1.75rem; --lh-xl: 1.2858;
+  --t-2xl: 2.125rem; --lh-2xl: 1.2353;
 
   /* 4px cell grid, rounded geometry */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px;
@@ -126,7 +126,10 @@ body {
   color: var(--ink);
   font-family: var(--font-ui);
   font-size: var(--t-base);
-  line-height: var(--lh-base);
+  /* the one line height in rem (COUNCIL2-8): what every element without its own line height inherits, 26px at the
+     default text size for any font size, as before; it grows with the reader's text size like the rem font sizes.
+     Every other line height is unitless (units.test.js) */
+  line-height: 1.625rem;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   caret-color: var(--cyan);
@@ -164,8 +167,28 @@ img, svg { max-width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
-  /* A duration on every element gives every property a transition (the default property is all), so maths took one frame
+/* A duration on every element gives every property a transition (the default property is all), so maths took one frame
      to reach a new font size: FitDisplay measured the old size and left a long line (five bracketed numbers) running out
      of its panel. Maths never animates. */
-  :root .katex, :root .katex * { transition: none !important; }
+:root .katex, :root .katex * { transition: none !important; }
 }
+
+/* the layout layer's names (from v4.css, COUNCIL2-20): the old scale's names for the brand family, surfaces, radii,
+   the type scale and the page gutter; each still points at a token above */
+:root {
+  /* the brand-blue family under the old scale's names: each points at a token (tokens.css); --p-50, -400 and -600 live there */
+  --p-100: var(--brand-tint); --p-200: var(--brand-line); --p-300: var(--brand-line);
+  --p-500: var(--brand); --p-700: var(--brand-d);
+  /* surfaces: the page, cards with a border, a light panel for the maths */
+  --surface-0: var(--paper); --surface-1: var(--surface); --surface-2: var(--ground);
+  --line: var(--rule); --line-2: var(--rule-strong);
+  --r-s: 12px; --r-m: 16px; --r-l: 16px; --r-xl: 20px;
+  --fs-display: 2rem; --lh-display: 1.1875;
+  --fs-h1: 1.625rem; --lh-h1: 1.2308;
+  --fs-h2: 1.3125rem; --lh-h2: 1.3334;
+  --fs-body: 1.0625rem; --lh-body: 1.5295;
+  --fs-sm: 0.9375rem; --lh-sm2: 1.4667;
+  --fs-xs: 0.875rem; --lh-xs2: 1.4286;
+  --gutter: 20px;
+}
+@media (min-width: 600px) { :root { --gutter: 24px; } }

@@ -16,10 +16,12 @@
 .parents-card.is-good { border-color: var(--good-line); background: var(--good-tint); }
 .parents-card.is-good .mascot, .parents-card.is-good svg.mascot { align-self: center; }
 /* how a plan goes on, next to the pay button (trust spec TRUST-10 §4) */
+/* the seller's phone number in the disclosure stays on one line, read left to right (COUNCIL2-8) */
+.parents-phone { white-space: nowrap; }
 .parents-terms-line { margin: 0; color: var(--ink); font-size: var(--t-sm); line-height: var(--lh-sm); }
 .parents-renew { border-color: var(--brand-line); }
 /* the renewal button carries its price (Appendix E): on a narrow phone it takes two lines, never cut */
-.parents-renew .btn { white-space: normal; text-align: center; padding-block: var(--s2); line-height: var(--lh-sm); }
+.parents-renew .btn { white-space: normal; text-align: center; padding-block: var(--s2); line-height: 1.2223; }
 .parents-plan.is-on { border-color: var(--brand-line); }
 .parents-rows > .set-row { min-height: 56px; padding: 0 var(--s5); border-bottom: 2px solid var(--rule); width: 100%; }
 .parents-rows > .set-row:last-child { border-bottom: 0; }
@@ -46,7 +48,7 @@
 .handoff-lead { font-size: var(--t-md); line-height: var(--lh-md); color: var(--ink); }
 .handoff-qr { padding: var(--s3); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
 .handoff-qr .qr { display: block; width: min(208px, 60vw); height: auto; }
-.handoff-code { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: 0.18em; color: var(--ink); }
+.handoff-code { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 2.5rem; line-height: 1.2; font-weight: 800; letter-spacing: 0.18em; color: var(--ink); }
 .handoff-wait { color: var(--ink-2); font-weight: 600; }
 .handoff-done { align-items: center; text-align: center; }
 .handoff-here { margin-top: 0; }
@@ -54,12 +56,12 @@
 .legal-draft { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
 /* ------------------------------------------------------------------ the adult step before the parents' area (TRUST-8) */
 .adult-form { display: flex; flex-direction: column; gap: var(--s3); }
-.adult-form .input { align-self: flex-start; width: 12ch; max-width: 100%; font-size: 22px; letter-spacing: 0.08em; text-align: center; }
+.adult-form .input { align-self: flex-start; width: 12ch; max-width: 100%; font-size: 1.375rem; letter-spacing: 0.08em; text-align: center; }
 .adult-closed { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
 .adult-back { align-self: center; min-height: 44px; display: inline-flex; align-items: center; }
 /* ---- STUDENT-15: Parents.jsx's own rules, in their original order */
 .parents-list { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s1); }
-.parents-price { font-weight: 700; color: var(--ink); }
+.parents-price, .parents-pass-price { font-weight: 700; color: var(--ink); }
 .parents-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); color: var(--ink); }
 .parents-warn { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
 .parents-usage { color: var(--ink-2); font-size: var(--t-sm); }
@@ -71,7 +73,6 @@
 .parents-payments li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
 .parents-order-line { font-weight: 700; font-size: var(--t-md); }
 .cancel-opt { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
-
 /* the family challenge (PRODUCT2-39, ChallengeCard.jsx): the goals as big chips (native radios), and the ways to send it */
 .challenge-card { display: flex; flex-direction: column; gap: var(--s3); }
 .challenge-card .card-title { margin: 0; }
@@ -83,7 +84,8 @@
 .challenge-card .ch-chip { position: relative; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; cursor: pointer; box-shadow: 0 2px 0 var(--rule-press); }
 .challenge-card .ch-chip.on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 2px 0 var(--brand-line); }
 .challenge-card .ch-chip:has(.ch-radio:focus-visible) { outline: 3px solid var(--brand-d); outline-offset: 2px; }
-.challenge-card .ch-radio { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+/* the native radio covers the whole chip, its border too: the radio itself is the chip's 44px (subscription.spec.js) */
+.challenge-card .ch-radio { position: absolute; inset: -2px; width: calc(100% + 4px); height: calc(100% + 4px); margin: 0; opacity: 0; cursor: pointer; }
 .challenge-card .ch-actions { display: flex; flex-direction: column; gap: var(--s2); }
 .challenge-card .ch-actions .btn { width: 100%; }
 .challenge-card .ch-sent { color: var(--ink); font-weight: 600; }

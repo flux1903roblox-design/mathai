@@ -515,7 +515,7 @@ function Table({ fig, compact }) {
 //   arcs     [{ c, r, from, to }]                                an arc about c, counterclockwise from `from` to `to` degrees
 //   polys[]  also { tone: 'cut' | 'add' }                       'cut' hatched and dashed (a part taken away), 'add' in the
 //                                                                 accent tone (a part added or moved)
-const WORD = /[\u0590-\u05ff]/;
+const WORD = /[\u0590-\u05ff\u0600-\u06ff]/; // a word, Hebrew or Arabic
 /**
  * A label that may be an expression ('x + 5', '3x − 10°', CLASSROOM-8): its letters in the maths font and italic, a
  * real minus sign; a lone letter ('x' beside '3x') is italic too. A number is drawn as it was; a Hebrew unit ('16 ס״מ')

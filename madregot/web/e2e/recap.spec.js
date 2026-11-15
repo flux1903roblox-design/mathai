@@ -46,8 +46,9 @@ function recapStudent({ empty = false } = {}) {
       look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: empty ? [] : ['thermo-scarf'], seen: empty ? [] : ['thermo-scarf'], earnedAt: empty ? {} : { 'thermo-scarf': '2026-11-12' } },
       // the app knows its server, so the recap's reach count (a beacon) can be seen
       ai: { mode: 'server', apiUrl: API, key: '', introSeen: true },
-      // the backup question was already asked twice (DURABLE-5): it does not open over the card
-      durable: { nudgeCount: 2 },
+      // the backup question was already asked twice (DURABLE-5), the last time on the 14th: it does not open over the card
+      // (since COUNCIL2-24 it keeps reminding, 14 days apart)
+      durable: { nudgeCount: 2, nudgeAt: '2026-11-14T09:00:00.000Z' },
     }),
     version: 6,
   };

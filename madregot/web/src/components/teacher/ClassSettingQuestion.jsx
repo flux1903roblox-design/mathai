@@ -3,10 +3,10 @@
 // decide and the teacher attests that it is not run by a school. Asked when a class is opened (TeacherStart's details
 // step and the board's "כיתה נוספת") and when its setting is changed in the class settings. The default is school.
 import clsx from 'clsx';
-import { SETTING_Q, SETTINGS, ATTEST } from '@/content/classAi.js';
+import { SETTING_Q, SETTINGS, ATTEST, ADULT_LINE } from '@/content/classAi.js';
 import '@/styles/lazy/teacher.css'; // the teacher's screens' rules, loaded with them (FOLLOWUP-23)
 
-export { SETTING_Q, SETTINGS, ATTEST };
+export { SETTING_Q, SETTINGS, ATTEST, ADULT_LINE };
 
 /** What POST /api/classes (and a change of setting) carries: { setting } and, for a private group, privateAttest. */
 export const settingBody = (setting, attest) => (setting === 'private' ? { setting: 'private', privateAttest: attest === true } : { setting: 'school' });
@@ -48,6 +48,8 @@ export default function ClassSettingQuestion({ setting = 'school', attest = fals
         ))}
       </div>
       {setting === 'private' && <AttestBox id={`${idPrefix}-attest`} checked={attest} onChange={(a) => onChange({ setting, attest: a })} />}
+      {/* a private group starts with the tutor off for students: an adult turns it on (COUNCIL2-2) */}
+      {setting === 'private' && <p className="field-hint cs-adult">{ADULT_LINE}</p>}
     </fieldset>
   );
 }

@@ -14,8 +14,11 @@ export function stairShort(topic, level) {
   return Number.isInteger(level) && level >= 1 ? `${t.title}, מדרגה ${level}` : t.title;
 }
 
-/** "מספרים מכוונים, מדרגה 1: חיבור וחיסור": the stair, named as the map names it. */
-export function stairName(topic, level) {
+/**
+ * "מספרים מכוונים, מדרגה 1: חיבור וחיסור": the stair with its number, as the teacher's screens show it. (The stair's
+ * name alone, "מספרים מכוונים: חיבור וחיסור", is shared/stairs.js stairName, the one copy the app and the Worker use.)
+ */
+export function stairLabel(topic, level) {
   const title = TOPIC[topic]?.levels?.[level - 1]?.title;
   return title ? `${stairShort(topic, level)}: ${title}` : stairShort(topic, level);
 }

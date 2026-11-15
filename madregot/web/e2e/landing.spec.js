@@ -35,11 +35,17 @@ test('/mivchan/: the question, the plan in one screen, and its button leads to E
   await expect(cta).toBeInViewport();
   await expect(page.getByText('בונה לילד תוכנית חזרה לימים שנשארו')).toBeInViewport();
   await expect(page.getByRole('img', { name: /מסך תוכנית החזרה/ })).toBeVisible();
-  // the price is the server's own, with its VAT words, and the topics are the app's
-  await expect(page.getByText('₪29.90 לחודש או ₪249 לשנה, כולל מע״מ. בלי התחייבות, מבטלים באתר.')).toBeVisible();
+  // the price is the server's own, with its VAT words, for the plans sold online only (the build sells as Grow does
+  // before it may stop a standing order: the one-year plan, which never renews, and no "cancel on the site"), and the
+  // topics are the app's
+  await expect(page.getByText('₪249 לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.', { exact: true })).toBeVisible();
+  // the exam pass (COUNCIL2-33): one charge too, so Grow sells it at launch, at wrangler.toml's price
+  await expect(page.getByText('לפני מבחן: חבילה ל־30 יום ב־₪39, כולל מע״מ. תשלום אחד, לא מתחדשת מעצמה.', { exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('לחודש');
+  await expect(page.locator('body')).not.toContainText('מבטלים באתר');
   await expect(page.getByRole('listitem').filter({ hasText: 'כיתה ז׳:' })).toContainText('מספרים מכוונים');
   // the family plan's card lists what the parents get (PRODUCT2-30): the report that comes by itself first, the helper
-  // last, then the price line as it was
+  // last, then the price lines of the plans sold online (the year, then the exam pass)
   const plan = page.locator('.plans .card').filter({ has: page.getByRole('heading', { level: 3, name: 'המנוי המשפחתי' }) });
   await expect(plan.getByRole('listitem')).toHaveText([
     'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.',
@@ -47,7 +53,7 @@ test('/mivchan/: the question, the plan in one screen, and its button leads to E
     'לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.',
     'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',
   ]);
-  await expect(plan.locator('.price')).toHaveText('₪29.90 לחודש או ₪249 לשנה, כולל מע״מ. בלי התחייבות, מבטלים באתר.');
+  await expect(plan.locator('.price')).toHaveText(['₪249 לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.', 'לפני מבחן: חבילה ל־30 יום ב־₪39, כולל מע״מ. תשלום אחד, לא מתחדשת מעצמה.']);
   // each grade's coverage on its own, in the sentences the listing and /programme use (SK-BUYERS-3): no combined share
   expect(COVERAGE['7']).toMatch(/כיתה ז׳ \(\d+%\)\.$/);
   expect(COVERAGE['8']).toMatch(/כיתה ח׳ \(\d+%\)\.$/);

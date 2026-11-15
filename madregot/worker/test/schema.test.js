@@ -24,8 +24,10 @@ const m8 = read('../migrations/0008_vault_guard.sql');
 const m9 = read('../migrations/0009_repair_work.sql');
 // Structure only: SQLite keeps the comments inside a CREATE statement, and a comment cannot be migrated without an
 // ALTER, so schema.sql may describe a column better than the migration that made it (link_codes.device_hint).
+// A table that a migration rebuilt (0011_exam_pass) is stored as SQLite's rename writes it, CREATE TABLE "orders" (…):
+// the quotes around its name are the only difference, and are not one of structure.
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
-  .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/--[^\n]*/g, '').replace(/\s+/g, ' ')}`);
+  .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/--[^\n]*/g, '').replace(/^CREATE TABLE "(\w+)"/, 'CREATE TABLE $1').replace(/\s+/g, ' ')}`);
 
 // The block committed in 5117e5b (never deployed), as it would sit in a database that had it applied.
 const OLD_BLOCK = `
@@ -54,11 +56,14 @@ test('each migration has its own number (two lanes that took the same one must r
 // What a later migration adds to a table of 0000_base: SQLite writes an ALTER's column as ", <coldef>" before the table's
 // closing parenthesis (schema.sql says the same), and its new indexes are the same lines in both files.
 const ALTERS_BASE = MIGRATIONS.filter((m) => m.name >= '0003' && /^ALTER TABLE /m.test(m.sql)).map((m) => m.sql);
-const withoutAlters = (sql) => sql.replace(/\n, [^\n]*\);/g, '\n);').split('\n')
+// A table with a table constraint (students' UNIQUE) gets its added columns inline, after its last column: "last_seen
+// TEXT, claim_hash TEXT, claim_expires TEXT," (0010_claim_code), so those plain "name TYPE" columns are taken out too.
+const INLINE = ALTERS_BASE.flatMap((m) => [...m.matchAll(/^ALTER TABLE \w+ ADD COLUMN (\w+ \w+);$/gm)].map((x) => x[1]));
+const withoutAlters = (sql) => sql.replace(new RegExp(`(?:, (?:${INLINE.join('|')}))+,\n`, 'g'), ',\n').replace(/\n, [^\n]*\);/g, '\n);').split('\n')
   .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
 
 test('every migration, in name order, on an empty database gives the same tables and indexes as schema.sql', () => {
-  assert.deepEqual(MIGRATIONS.slice(0, 10).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql', '0008_vault_guard.sql', '0009_repair_work.sql']);
+  assert.deepEqual(MIGRATIONS.slice(0, 12).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql', '0008_vault_guard.sql', '0009_repair_work.sql', '0010_claim_code.sql', '0011_exam_pass.sql']);
   assert.equal(new Set(MIGRATIONS.map((m) => m.name.slice(0, 4))).size, MIGRATIONS.length, 'each migration number is used once');
   const a = new DatabaseSync(':memory:'); a.exec(schema);
   const b = new DatabaseSync(':memory:'); for (const m of MIGRATIONS) b.exec(m.sql);
@@ -84,8 +89,23 @@ test('0003 on a database that has answers: old rows keep a NULL id, a repeated i
 // schema.sql mirrors it the way SQLite writes it, and withoutAlters above keeps 0000_base word for word. Rows may only
 // go INTO a table the same migration creates (0003_durable's meter row and the student_tokens copy of students'
 // tokens): no existing row is changed or deleted.
-test('migrations after 0002 only add tables, indexes and columns, and fill only their own new tables: no DROP, no other ALTER, no change to existing rows', () => {
+// The one exception: a migration that must change a CHECK (SQLite cannot alter one) rebuilds the table, named here with
+// the tables it rebuilds. Its statements may be only the steps of a rebuild (defer the foreign keys, keep aside the rows
+// a cascade would delete, create <t>_new, copy every column, drop <t>, rename <t>_new to <t>, the same indexes, put the
+// kept rows back), and the test below runs it on a filled database.
+const REBUILDS = { '0011_exam_pass.sql': ['orders', 'subscriptions'] };
+const REBUILD_STEP = (tables) => new RegExp(`^(PRAGMA defer_foreign_keys = (on|off)|CREATE TABLE (${tables.join('|')})_new \\(.*\\)|INSERT INTO (${tables.join('|')})_new \\([\\w, ]+\\) SELECT [\\w, ]+ FROM (${tables.join('|')})|DROP TABLE (${tables.join('|')})|ALTER TABLE (${tables.join('|')})_new RENAME TO (${tables.join('|')})|CREATE TABLE (\\w+)_keep AS SELECT [\\w, ]+ FROM \\w+|INSERT INTO (\\w+) \\([\\w, ]+\\) SELECT [\\w, ]+ FROM \\w+_keep|DROP TABLE \\w+_keep)$`);
+
+test('migrations after 0002 only add tables, indexes and columns, and fill only their own new tables: no DROP, no other ALTER, no change to existing rows (a rebuild in REBUILDS aside)', () => {
   for (const m of MIGRATIONS.filter((x) => x.name >= '0003')) {
+    if (REBUILDS[m.name]) {
+      const code = m.sql.replace(/--[^\n]*/g, '');
+      for (const stmt of code.split(';').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean)) {
+        if (/^CREATE (UNIQUE )?INDEX IF NOT EXISTS /.test(stmt)) continue;
+        assert.match(stmt, REBUILD_STEP(REBUILDS[m.name]), `${m.name}: ${stmt.slice(0, 80)}`);
+      }
+      continue;
+    }
     const code = m.sql.replace(/--[^\n]*/g, '');
     const made = [...code.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/g)].map((x) => x[1]);
     for (const stmt of code.split(';').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean)) {
@@ -269,4 +289,63 @@ test('0009_repair_work (the product2 lane\'s 0011_repair_work): an assignment gi
   db.exec(row.replace('%s', 'a000000000000002'));
   db.exec("UPDATE assignments SET misc = 'sub-neg' WHERE id = 'a000000000000002'");
   assert.deepEqual({ ...db.prepare("SELECT kind, misc FROM assignments WHERE id = 'a000000000000002'").get() }, { kind: 'stair', misc: 'sub-neg' });
+});
+
+test('0011_exam_pass (the council2 lane\'s 0010_exam_pass) on a filled database (in one transaction, as wrangler runs it): every row is kept, every link holds, and exam_pass is a plan', () => {
+  const db = new DatabaseSync(':memory:');
+  for (const m of MIGRATIONS.filter((x) => x.name < '0011')) db.exec(m.sql);
+  const at = '2026-11-01T10:00:00.000Z'; const end = '2027-11-01T10:00:00.000Z';
+  // a family with a one-year plan it renewed (an order_renewals row, ON DELETE CASCADE from orders), a monthly plan that
+  // ended with a refund, and a class licence: orders, subscriptions, payments, refunds and renewals that point at them
+  db.exec(`
+    INSERT INTO accounts (id, email, created_at) VALUES ('acc0000000000001', 'parent@example.test', '${at}');
+    INSERT INTO orders (id, account_id, plan, amount_agorot, vat_agorot, provider, mode, idempotency_key, status, subscription_id, created_at, expires_at, paid_at)
+      VALUES ('ord0000000000001', 'acc0000000000001', 'family_year', 24900, 3798, 'test', 'test', 'key-0000000000000001', 'paid', 'sub0000000000001', '${at}', '${at}', '${at}'),
+             ('ord0000000000002', 'acc0000000000001', 'family_year', 24900, 3798, 'test', 'test', 'key-0000000000000002', 'paid', 'sub0000000000001', '${at}', '${at}', '${at}'),
+             ('ord0000000000003', 'acc0000000000001', 'family_month', 2990, 456, 'test', 'test', 'key-0000000000000003', 'expired', NULL, '${at}', '${at}', NULL);
+    INSERT INTO orders (id, account_id, plan, class_code, seats, amount_agorot, vat_agorot, provider, mode, idempotency_key, status, created_at, expires_at)
+      VALUES ('ord0000000000004', 'acc0000000000001', 'class_year', 'ABC123', 10, 49000, 7475, 'test', 'test', 'key-0000000000000004', 'open', '${at}', '${at}');
+    INSERT INTO subscriptions (id, kind, account_id, plan, status, provider, price_agorot, current_period_start, current_period_end, refund_until, first_paid_at, created_at, updated_at)
+      VALUES ('sub0000000000001', 'family', 'acc0000000000001', 'family_year', 'active', 'test', 24900, '${at}', '${end}', '${at}', '${at}', '${at}', '${at}'),
+             ('sub0000000000002', 'family', 'acc0000000000001', 'family_month', 'ended', 'test', 2990, '${at}', '2026-11-02T10:00:00.000Z', NULL, '${at}', '${at}', '${at}');
+    INSERT INTO subscriptions (id, kind, class_code, plan, status, provider, seats, current_period_start, current_period_end, created_at, updated_at, note)
+      VALUES ('sub0000000000003', 'class', 'ABC123', 'term', 'active', 'manual', 30, '${at}', '${end}', '${at}', '${at}', 'invoice 12');
+    INSERT INTO payments (id, provider, provider_payment_id, kind, subscription_id, order_id, amount_agorot, status, occurred_at, recorded_at)
+      VALUES ('pay0000000000001', 'test', 'tpay_1', 'charge', 'sub0000000000001', 'ord0000000000001', 24900, 'ok', '${at}', '${at}'),
+             ('pay0000000000002', 'test', 'tpay_2', 'charge', 'sub0000000000001', 'ord0000000000002', 24900, 'ok', '${at}', '${at}'),
+             ('pay0000000000003', 'test', 'tpay_2', 'refund', 'sub0000000000002', NULL, -2990, 'ok', '${at}', '${at}');
+    INSERT INTO refund_queue (subscription_id, payment_id, amount_agorot, reason, requested_at) VALUES ('sub0000000000002', 'pay0000000000001', 2990, 'cooling_off', '${at}');
+    INSERT INTO order_renewals (order_id, subscription_id, prev_start, prev_end) VALUES ('ord0000000000002', 'sub0000000000001', '${at}', '${end}');`);
+  const TABLES = ['orders', 'subscriptions', 'payments', 'refund_queue', 'order_renewals'];
+  const rows = () => Object.fromEntries(TABLES.map((t) => [t, JSON.stringify(db.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all())]));
+  const before = rows();
+  assert.equal(JSON.parse(before.order_renewals).length, 1);
+  db.exec('BEGIN');
+  db.exec(MIGRATIONS.find((m) => m.name === '0011_exam_pass.sql').sql);
+  db.exec('COMMIT');
+  assert.deepEqual(rows(), before, 'every row of the rebuilt tables and of the tables that point at them, as it was');
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), [], 'every link to orders and subscriptions holds');
+  assert.equal(db.prepare('PRAGMA foreign_keys').get().foreign_keys, 1, 'foreign keys are on again');
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name LIKE '%\\_new' ESCAPE '\\' OR name LIKE '%\\_keep' ESCAPE '\\'").get().n, 0, 'no table left behind');
+  // the new plan is accepted in both tables; any other id still is not; the other constraints still hold
+  db.exec(`INSERT INTO orders (id, account_id, plan, amount_agorot, vat_agorot, provider, mode, idempotency_key, status, created_at, expires_at)
+    VALUES ('ord0000000000005', 'acc0000000000001', 'exam_pass', 3900, 595, 'test', 'test', 'key-0000000000000005', 'open', '${at}', '${at}')`);
+  db.exec(`INSERT INTO subscriptions (id, kind, account_id, plan, status, provider, price_agorot, current_period_start, current_period_end, created_at, updated_at)
+    VALUES ('sub0000000000004', 'family', 'acc0000000000001', 'exam_pass', 'ended', 'test', 3900, '${at}', '2026-12-01T10:00:00.000Z', '${at}', '${at}')`);
+  assert.throws(() => db.exec(`INSERT INTO orders (id, account_id, plan, amount_agorot, vat_agorot, provider, mode, idempotency_key, status, created_at, expires_at)
+    VALUES ('ord0000000000006', 'acc0000000000001', 'week_pass', 900, 137, 'test', 'test', 'key-0000000000000006', 'open', '${at}', '${at}')`), /CHECK/);
+  assert.throws(() => db.exec(`INSERT INTO subscriptions (id, kind, account_id, plan, status, provider, current_period_start, current_period_end, created_at, updated_at)
+    VALUES ('sub0000000000005', 'family', 'acc0000000000001', 'exam_pass', 'active', 'test', '${at}', '${at}', '${at}', '${at}')`), /CHECK/, 'an end after the start');
+  assert.throws(() => db.exec(`INSERT INTO subscriptions (id, kind, account_id, plan, status, provider, current_period_start, current_period_end, created_at, updated_at)
+    VALUES ('sub0000000000006', 'family', 'acc0000000000001', 'exam_pass', 'active', 'test', '${at}', '${end}', '${at}', '${at}')`), /UNIQUE/, 'one live family plan per account (the index is back)');
+  assert.throws(() => db.exec("DELETE FROM subscriptions WHERE id = 'sub0000000000001'"), /FOREIGN KEY/, 'the payments still point at the plan');
+  db.exec("DELETE FROM payments WHERE order_id = 'ord0000000000002'; DELETE FROM orders WHERE id = 'ord0000000000002'");
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM order_renewals').get().n, 0, 'the cascade from orders to its renewal row holds as before');
+});
+
+test('the exam pass in the reference schema: both tables take it, and nothing else new', () => {
+  const db = new DatabaseSync(':memory:'); db.exec(schema);
+  const check = (table) => /plan IN \(([^)]*)\)/.exec(db.prepare(`SELECT sql FROM sqlite_master WHERE name = '${table}'`).get().sql)[1].replace(/'/g, '').split(', ');
+  assert.deepEqual(check('orders'), ['family_month', 'family_year', 'exam_pass', 'class_year']);
+  assert.deepEqual(check('subscriptions'), ['family_month', 'family_year', 'exam_pass', 'class_year', 'term', 'trial']);
 });

@@ -85,12 +85,23 @@ export const requestCode = (email) => api('/api/account/code', { method: 'POST',
  * The code from the email. A step-up (a new code while signed in) replaces this page's session and keeps its "shared
  * computer" choice. shared: this sign-in is on a shared computer (kept for this tab only).
  */
-export async function verifyCode(email, code, { shared = false } = {}) {
+/**
+ * `adultTeacher`: a teacher's "I am over 18, a teacher or a tutor", ticked by hand (COUNCIL2-5); sent only when the
+ * form asks for it. The session keeps `adult` (the server says whether this email's holder has declared it), so the
+ * teacher's screens know whether the declaration is still to be given.
+ */
+export async function verifyCode(email, code, { shared = false, adultTeacher } = {}) {
   const prev = useParent.getState().session;
   const t = prev?.token;
-  const r = await api('/api/account/verify', { method: 'POST', body: { email, code }, auth: false, headers: t ? { 'X-Account-Token': t } : {} });
-  setSession({ token: r.token, email: r.email, shared: !!shared || !!(t && prev.shared) });
+  const body = { email, code, ...(typeof adultTeacher === 'boolean' ? { adultTeacher } : {}) };
+  const r = await api('/api/account/verify', { method: 'POST', body, auth: false, headers: t ? { 'X-Account-Token': t } : {} });
+  setSession({ token: r.token, email: r.email, shared: !!shared || !!(t && prev.shared), adult: r.adult === true });
   return r;
+}
+/** The signed-in email's holder has now declared 18+ (a bind or a new class that carried the declaration). */
+export function markAdult() {
+  const s = useParent.getState().session;
+  if (s && !s.adult) setSession({ ...s, adult: true });
 }
 export async function signOut({ all = false } = {}) {
   try { await accountCall('/api/account/signout', { method: 'POST', body: all ? { all: true } : {} }); } catch { /* signed out here either way */ }

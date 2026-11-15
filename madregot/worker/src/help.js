@@ -22,7 +22,9 @@ import { teacherDetail, classSeenStmt } from './licence.js';
 import { cleanNote } from './assignments.js';
 import { recordSafety, eventNet } from './safety.js';
 import { hasContact } from '../../shared/contact.js';
-import { detectDistress } from '../../shared/safety.js';
+import { detectDistress } from '../../shared/distress.js';
+import { ALERT_TOPIC } from './alerts.js';
+import { meterDbSize } from './dbsize.js';
 
 export const HELP = Object.freeze({
   /** Messages per side on one request. */
@@ -83,15 +85,16 @@ export async function helpThreads(env, sel, args) {
 
 /**
  * The student's own requests of the last 30 days for GET /api/class/work, newest first, at most 20: { id, topic, level,
- * question, createdAt, status, messages }. Never the notebook page.
+ * question, createdAt, status, messages }. Never the notebook page, and never the teacher's alert (src/alerts.js): the
+ * child did not send it.
  */
 export async function myHelp(env, studentId) {
   const since = new Date(Date.now() - HELP.studentDays * 864e5).toISOString();
   const rows = await all(env, `SELECT id, topic, level, question, created_at, seen_at, done_at FROM help_requests
-    WHERE student_id = ? AND created_at >= ? ORDER BY created_at DESC, id DESC LIMIT ${HELP.studentList}`, studentId, since);
+    WHERE student_id = ? AND created_at >= ? AND topic <> ? ORDER BY created_at DESC, id DESC LIMIT ${HELP.studentList}`, studentId, since, ALERT_TOPIC);
   if (!rows.length) return [];
   const msgs = await all(env, `SELECT id, help_id, from_role, body, created_at, read_at FROM help_messages
-    WHERE help_id IN (SELECT id FROM help_requests WHERE student_id = ? AND created_at >= ?) ORDER BY help_id, id`, studentId, since);
+    WHERE help_id IN (SELECT id FROM help_requests WHERE student_id = ? AND created_at >= ? AND topic <> ?) ORDER BY help_id, id`, studentId, since, ALERT_TOPIC);
   return rows.map((h) => {
     const mine = msgs.filter((m) => m.help_id === h.id);
     return { id: h.id, topic: h.topic, level: h.level, question: h.question, createdAt: h.created_at, status: statusOf(h, mine), messages: mine.map(view) };
@@ -150,21 +153,21 @@ async function ownRequest(env, s, id) {
  * A refusal after the mark says so with care: true beside its error (400 reply_has_contact {error, care: true}), so the
  * child's screen can say what is true: the words did not go, and the teacher sees only the mark.
  */
-export async function studentReply(id, req, env, cors, ctx) {
+export async function studentReply(id, req, env, cors, ctx = null) {
   const s = await requireStudent(req, env);
   const b = await body(req, SMALL);
   const h = await ownRequest(env, s, id);
   const quick = b.quick == null ? null : String(b.quick);
   const own = quick === 'thanks' || b.body == null ? '' : String(b.body);
   const hit = detectDistress(own);
-  if (!hit.flag) return replyAfterCheck(s, b, h, quick, env, cors);
+  if (!hit.flag) return replyAfterCheck(s, b, h, quick, env, cors, ctx);
   recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: 'regex' }, ctx, { net: eventNet(req, env) });
   await env.DB.batch([
     env.DB.prepare("INSERT INTO help_meta (help_id, kind, care) VALUES (?, 'help', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1").bind(h.id),
     env.DB.prepare('UPDATE help_requests SET done_at = NULL WHERE id = ? AND student_id = ?').bind(h.id, s.id),
   ]);
   try {
-    return await replyAfterCheck(s, b, h, quick, env, cors);
+    return await replyAfterCheck(s, b, h, quick, env, cors, ctx);
   } catch (e) {
     if (e instanceof HttpError) e.extra = { ...(e.extra || {}), care: true };
     throw e;
@@ -172,7 +175,7 @@ export async function studentReply(id, req, env, cors, ctx) {
 }
 
 /** The rules of studentReply after the distress check: the answer is kept, or refused with its error. */
-async function replyAfterCheck(s, b, h, quick, env, cors) {
+async function replyAfterCheck(s, b, h, quick, env, cors, ctx) {
   if (quick && !QUICK[quick]) throw new HttpError(400, 'bad_reply');
   let text;
   if (quick === 'thanks') text = QUICK.thanks;
@@ -186,7 +189,7 @@ async function replyAfterCheck(s, b, h, quick, env, cors) {
   const now = nowIso();
   const under = `EXISTS (SELECT 1 FROM help_messages WHERE help_id = ?1 AND from_role = 'teacher')
     AND (SELECT COUNT(*) FROM help_messages WHERE help_id = ?1 AND from_role = 'student') < ${HELP.perSide}`;
-  const [ins] = await env.DB.batch([
+  const res = await env.DB.batch([
     env.DB.prepare(`INSERT INTO help_messages (help_id, from_role, body, created_at) SELECT ?1, 'student', ?2, ?3 WHERE ${under} RETURNING id`).bind(h.id, text, now),
     markReadStmt(env, h.id, 'teacher'),
     // "עדיין לא ברור לי" opens the request again for the teacher
@@ -194,7 +197,9 @@ async function replyAfterCheck(s, b, h, quick, env, cors) {
     env.DB.prepare('UPDATE students SET last_seen = ? WHERE id = ?').bind(now, s.id),
     classSeenStmt(env, s.class_code),
   ]);
-  const made = ins?.results?.[0];
+  // every student write route feeds the size meter (dbsize.js, COUNCIL2-18)
+  ctx?.waitUntil?.(meterDbSize(env, res));
+  const made = res[0]?.results?.[0];
   if (!made) throw new HttpError(409, 'reply_limit');
   const after = await ownRequest(env, s, h.id);
   return json({ message: { id: made.id, from: 'student', body: text, at: now, read: false }, status: after.done_at ? 'done' : 'answered' }, 201, cors);

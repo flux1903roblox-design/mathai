@@ -16,9 +16,9 @@ cd worker
 npx wrangler login
 
 echo "=== 3/7: Creating the database (in the European Union) ==="
-# The data stays in the EU (trust spec TRUST-15 step 1), as in setup.ps1. Cloudflare sets a database's jurisdiction only
-# when it is created, so this runs once, before any real data exists. DB_JURISDICTION = "eu" in wrangler.toml records
-# it: the privacy notice says "באיחוד האירופי" only then, and online checkout stays closed without it.
+# The data stays in the EU (trust spec TRUST-15 step 1, COUNCIL2-6). Cloudflare sets a database's jurisdiction only when
+# it is created, so this runs once, before any real data exists. DB_JURISDICTION = "eu" in wrangler.toml records it: the
+# privacy notice says "באיחוד האירופי" only then, and online checkout stays closed without it. The same as setup.ps1.
 if grep -q 'REPLACE_WITH_DATABASE_ID' wrangler.toml; then
   out=$(npx wrangler d1 create madregot --binding DB --update-config=false --jurisdiction=eu 2>&1) || { printf '%s\n' "$out"; exit 1; }
   printf '%s\n' "$out"
@@ -27,6 +27,7 @@ if grep -q 'REPLACE_WITH_DATABASE_ID' wrangler.toml; then
     echo "Could not read the database id above. Put it in worker/wrangler.toml (database_id) and run this script again."
     exit 1
   fi
+  # the id and the jurisdiction in one write (wrangler.toml has one DB_JURISDICTION = "" line, in [vars])
   sed -e "s/REPLACE_WITH_DATABASE_ID/$id/" -e 's/^DB_JURISDICTION = ""$/DB_JURISDICTION = "eu"/' wrangler.toml > wrangler.toml.new && mv wrangler.toml.new wrangler.toml
   echo "Saved database id $id and DB_JURISDICTION = \"eu\" in worker/wrangler.toml"
 else

@@ -22,6 +22,8 @@ import { mathBurst } from '@/lib/mathBurst.js';
 import { play, haptic } from '@/lib/sound.js';
 import Celebrate from './Celebrate.jsx';
 import '@/styles/lazy/unlock.css';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/unlockStage.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };
 const rise = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: enter(DUR.slow) } };

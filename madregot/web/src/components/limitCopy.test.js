@@ -178,3 +178,14 @@ describe('in a store app (STUDENT-12): when the questions come back, and no way 
     expect(lockedText('check', {}).parents).toBe(true);
   });
 });
+
+describe('prep_only: a school class\'s teacher before the approval', () => {
+  it('says what the tutor does there, with no price, no parents\' link and no way round', () => {
+    for (const kind of ['check', 'exam']) {
+      const t = lockedText(kind, { state: 'prep_only', role: 'teacher' });
+      expect(t.lines).toEqual(['בכיתה של בית ספר, עד שמדרגות תאושר בקטלוג של משרד החינוך, העוזר החכם עוזר למורים בהכנת חומרים. בדיקת עבודות של תלמידים לא פתוחה בו.']);
+      expect(t.parents).toBe(false); expect(t.teacher).toBe(false);
+      for (const w of FORBIDDEN) expect(words(t)).not.toContain(w);
+    }
+  });
+});

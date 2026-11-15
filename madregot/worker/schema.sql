@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS students (
   pin_hash TEXT NOT NULL,
   token_hash TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  last_seen TEXT,
+  last_seen TEXT, claim_hash TEXT, claim_expires TEXT,
   UNIQUE (class_code, name)
 );
 
@@ -83,6 +83,9 @@ CREATE INDEX IF NOT EXISTS exams_student ON exams (student_id);
 
 -- studentFrom() looks students up by token on every request.
 CREATE INDEX IF NOT EXISTS students_token ON students (token_hash);
+-- students.claim_hash and claim_expires (0010_claim_code, COUNCIL2-25): after the teacher resets a student's PIN, the
+-- salted hash of the one-time claim code the teacher gives the student, and when it stops working. SQLite writes the
+-- added columns after last_seen, before the UNIQUE constraint, so they sit there in the CREATE above.
 -- the daily clean-up deletes old counters by day
 CREATE INDEX IF NOT EXISTS ai_usage_day ON ai_usage (day);
 
@@ -98,7 +101,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   email TEXT NOT NULL UNIQUE,                  -- trimmed, NFKC, lower-case
   created_at TEXT NOT NULL,
   last_seen TEXT,                              -- a day (YYYY-MM-DD) is enough
-  adult_confirmed_at TEXT,                     -- ticked "18+ and the parent or guardian" at checkout
+  adult_confirmed_at TEXT,                     -- declared 18+: "18+ and the parent or guardian" at checkout, or a teacher's "18+, a teacher or a tutor" (COUNCIL2-5)
   terms_version TEXT,                          -- the terms accepted at checkout, e.g. '2026-11'
   billing_hold_at TEXT                         -- set by a chargeback: no new checkout until the owner clears it
 , report_email_at TEXT);
@@ -153,7 +156,7 @@ CREATE INDEX IF NOT EXISTS link_codes_expires ON link_codes (expires_at);
 CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY,                         -- 16 hex; our reference at the provider
   account_id TEXT REFERENCES accounts (id) ON DELETE SET NULL,
-  plan TEXT NOT NULL CHECK (plan IN ('family_month', 'family_year', 'class_year')),
+  plan TEXT NOT NULL CHECK (plan IN ('family_month', 'family_year', 'exam_pass', 'class_year')),  -- exam_pass added by migration 0010
   class_code TEXT,                             -- class_year only, checked with the teacher key when the order is made
   seats INTEGER CHECK (seats IS NULL OR seats BETWEEN 10 AND 45),  -- class_year only: the price is seats x the seat price
   amount_agorot INTEGER NOT NULL CHECK (amount_agorot > 0),   -- VAT included, copied from the price var
@@ -173,13 +176,14 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS orders_open ON orders (status, expires_at);
 
--- A family subscription (one parent account, up to 3 linked devices) or a class licence (one class code).
+-- A family subscription (one parent account, up to 3 linked devices: the monthly plan, the one-year plan or the 30-day
+-- exam pass) or a class licence (one class code).
 CREATE TABLE IF NOT EXISTS subscriptions (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('family', 'class')),
   account_id TEXT REFERENCES accounts (id) ON DELETE SET NULL,  -- family: the payer; class: the buyer, or NULL for an invoice grant
   class_code TEXT,
-  plan TEXT NOT NULL CHECK (plan IN ('family_month', 'family_year', 'class_year', 'term', 'trial')),
+  plan TEXT NOT NULL CHECK (plan IN ('family_month', 'family_year', 'exam_pass', 'class_year', 'term', 'trial')),  -- exam_pass: 0010
   status TEXT NOT NULL CHECK (status IN ('active', 'past_due', 'canceled', 'ended')),
   provider TEXT NOT NULL,                      -- 'manual' | 'test' | the chosen provider
   provider_subscription_id TEXT,               -- recurring plans at the provider

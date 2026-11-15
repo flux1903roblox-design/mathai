@@ -11,9 +11,15 @@
 // no personal data in the detail; a change the teacher made signed in with the class's email (not the key) also says
 // via: 'account' (the teacher lane's detail). The teacher lane's screens (ClassAICard, the setting question, the student
 // sheet's switch, LicenceCard) and its demo class read these shapes.
+//
+// An adult behind the class (COUNCIL2-2, the trust skeptic's repro): with AI_PARENT_OK required (the default), recording
+// the parents' consent and turning student AI on need a teacher who is an adult (entitle.js teacherIsAdult: signed in
+// with an email that declared 18+, or a class with such an owner or a licence or trial in force). A teacher key alone is
+// 403 adult_needed: anyone can open a class, so a child could otherwise open a "private group", attest consent, turn the
+// tutor on and join it. Opening a class still may mark it private; its student AI stays off until an adult turns it on.
 import { MOE_RULES, classAiPolicy, rulesEnv, notSellable } from '../../shared/schoolRules.js';
 import { HttpError, body, json, nowIso } from './util.js';
-import { requireTeacher } from './entitle.js';
+import { requireTeacher, teacherIsAdult, parentOkRequired } from './entitle.js';
 
 const SMALL = 4096;
 /** The audit detail, with via: 'account' when the teacher came in with the class's email session (requireTeacher's via). */
@@ -37,12 +43,14 @@ export const policyOf = (env, cls, s) => classAiPolicy({ setting: s.setting, gra
 
 /**
  * What the teacher's screens show about student AI (the dashboard's aiPolicy): the rule's answer, the class's choices,
- * the first grade the catalogue approval covers, and the Ministry's guidelines and parent consent form.
+ * the first grade the catalogue approval covers, the Ministry's guidelines and parent consent form, and adultNeeded:
+ * this teacher may not turn student AI on or record consent until an adult is behind the class (COUNCIL2-2). `adult`:
+ * entitle.js teacherIsAdult for this request's teacher.
  */
-export function aiPolicyView(env, cls, s) {
+export function aiPolicyView(env, cls, s, adult = true) {
   return {
     ...policyOf(env, cls, s),
-    setting: s.setting, studentAi: s.studentAi, consentAt: s.consentAt,
+    setting: s.setting, studentAi: s.studentAi, consentAt: s.consentAt, adultNeeded: parentOkRequired(env) && !adult,
     fromGrade: Math.max(MOE_RULES.independentFromGrade, rulesEnv(env).approvedFromGrade),
     rulesVersion: MOE_RULES.version, rulesUrl: MOE_RULES.url,
     consentFormUrl: MOE_RULES.consentFormUrl, consentPdfUrl: MOE_RULES.consentPdfUrl,
@@ -81,7 +89,8 @@ export function newClassStmts(env, code, setting, opts = {}) {
 /**
  * POST /api/teacher/class/ai { studentAi?: 'on'|'off', consent?: true, setting?: 'school'|'private', privateAttest? }.
  * consent: true records that the parents agreed (now). studentAi 'on' where the rule cannot allow it → 409
- * class_ai_locked { reason }; with no consent recorded → 409 consent_needed. A change of setting needs the same
+ * class_ai_locked { reason }; with no consent recorded → 409 consent_needed; consent or 'on' from a teacher with no
+ * adult behind the class (AI_PARENT_OK required) → 403 adult_needed (COUNCIL2-2). A change of setting needs the same
  * attestation as a new class, and starts the class again from student AI off with no consent: the teacher confirms the
  * parents' consent under the new setting's terms. Nothing is written when the request is refused. → { policy }.
  */
@@ -108,6 +117,9 @@ export async function setClassAi(req, env, cors) {
     if (!next.consentAt) throw new HttpError(409, 'consent_needed');
     next.studentAi = 'on';
   } else if (studentAi === 'off') next.studentAi = 'off';
+  // the consent and the switch on need an adult behind the class (COUNCIL2-2); turning off and moving never do
+  const adult = !parentOkRequired(env) || (await teacherIsAdult(env, cls));
+  if ((consent === true || studentAi === 'on') && !adult) throw new HttpError(403, 'adult_needed');
   const target = `class:${cls.code}`;
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO class_settings (code, setting, student_ai, ai_consent_at, private_attested_at) VALUES (?1, ?2, ?3, ?4, ?5)
@@ -116,7 +128,7 @@ export async function setClassAi(req, env, cors) {
     ...(moved ? [audit(env, cls.code, 'class.setting', target, { setting, attested: setting === 'private' }, now, cls.via)] : []),
     ...(studentAi !== undefined || consent !== undefined ? [audit(env, cls.code, 'class.ai', target, { studentAi: studentAi ?? null, consent: consent === true }, now, cls.via)] : []),
   ]);
-  return json({ policy: aiPolicyView(env, cls, next) }, 200, cors);
+  return json({ policy: aiPolicyView(env, cls, next, adult) }, 200, cors);
 }
 
 /**

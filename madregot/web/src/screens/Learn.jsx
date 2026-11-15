@@ -14,6 +14,7 @@ import StorageBanner from '@/components/durable/StorageBanner.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import InstallSheet, { InstallCard } from '@/components/durable/InstallSheet.jsx';
 import { showLearnCard } from '@/lib/durable/install.js';
+import { showBackupLine } from '@/lib/durable/vault.js';
 import Chest from '@/components/map/Chest.jsx';
 import { Emblem, EMBLEMS } from '@/components/map/emblems.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -31,6 +32,7 @@ import { urgentWork, urgentText } from '@/lib/classWork.js';
 import { chestItem } from '@/lib/wardrobe.js';
 import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard.jsx';
 
+import { t as tr } from '@/lib/i18n.js';
 // the Sunday recap's card (STUDENT-6) loads only from Sunday to Tuesday, and not back from a lesson; the card itself
 // applies the whole rule (lib/recap.js), so the home screen's first download carries none of it
 const RecapCard = lazy(() => import('@/components/learn/RecapCard.jsx'));
@@ -40,6 +42,8 @@ const ItemArt = lazy(() => import('@/components/mascot/Accessories.jsx').then((m
 const Walker = lazy(() => import('@/components/map/Walker.jsx'));
 // The locations whose arrival was already played: the walk and the unlock come once, not again on a re-render or Back.
 const arrived = new Set();
+// the one-time line about the backup that is on by default (COUNCIL2-24): loaded only while it is due
+const BackupLine = lazy(() => import('@/components/durable/BackupLine.jsx'));
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
@@ -66,9 +70,9 @@ function NodeCard({ n, t, onStart, next }) {
   if (n.kind === 'review') {
     return (
       <div className="node-card" role="group" aria-label={n.title}>
-        <p className="node-card-title">חזרה על כל היחידה</p>
-        <p className="node-card-sub">{n.state === 'locked' ? 'נפתחת אחרי בדיקת השליטה של כל המדרגות ביחידה.' : `${REVIEW_LEN} תרגילים מכל המדרגות, מעורבבים.`}</p>
-        {n.state !== 'locked' && <Button className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${top}?kind=review`)}>{n.state === 'done' ? 'עוד חזרה' : 'התחלה'}</Button>}
+        <p className="node-card-title">{tr('shell.learn.1')}</p>
+        <p className="node-card-sub">{n.state === 'locked' ? tr('shell.learn.2') : tr('shell.learn.3', { REVIEW_LEN })}</p>
+        {n.state !== 'locked' && <Button className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${top}?kind=review`)}>{n.state === 'done' ? tr('shell.learn.4') : tr('shell.learn.5')}</Button>}
       </div>
     );
   }
@@ -99,20 +103,20 @@ function StairCard({ n, t, onStart, next }) {
     <div className="node-card" role="group" aria-label={n.title}>
       <p className="node-card-title">{n.title}</p>
       {added && <p className="node-card-sub node-card-added">{added}</p>}
-      {lead && <p className="node-card-sub node-card-next">הצעד הבא: <MathText text={lead.title} /></p>}
-      {lead && <Button className="btn-block node-next-btn" onClick={() => onStart(lead.to)}>לצעד הבא</Button>}
-      {n.state === 'current' && <p className="node-card-sub">שלב {STAGE_N[st]} מתוך 5: {STAGE_NAME[st]}{waits ? `. ${PRACTICE_AGAIN}` : ''}</p>}
-      {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={() => onStart(own)}>{rec?.taught?.A || n.parts ? 'המשך' : 'התחלה'}</Button>}
-      {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>כל חמשת השלבים</Button>}
-      {mastered && <p className="node-card-sub">שולטים בזה: עברתם את בדיקת השליטה.</p>}
-      {n.state === 'done' && !mastered && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `המדרגה הושלמה לפני שהיו בדיקות שליטה. בדיקה קצרה, ${MASTERY_N} שאלות, תראה שזה נשאר.`}</p>}
-      {n.state === 'open' && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `המדרגה הזאת פתוחה. בדיקת שליטה קצרה, ${MASTERY_N} שאלות, תסמן אותה כמדרגה שעברתם.`}</p>}
-      {n.state === 'locked' && <p className="node-card-sub">יודעים כבר? מבחן קצר של {JUMP_LEN} תרגילים, טעות אחת מותרת, פותח את כל הדרך עד לכאן.</p>}
-      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button variant={main} className="btn-block" onClick={() => onStart(waits ? own : check)}>{waits ? 'לתרגול' : 'לבדיקת שליטה'}</Button>}
-      {n.state === 'open' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
-      {mastered && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
-      {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>תרגול חוזר</Button>}
-      {n.state === 'locked' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${n.level}?kind=jump`)}>מבחן קפיצה</Button>}
+      {lead && <p className="node-card-sub node-card-next">{tr('shell.learn.6')}<MathText text={lead.title} /></p>}
+      {lead && <Button className="btn-block node-next-btn" onClick={() => onStart(lead.to)}>{tr('shell.learn.7')}</Button>}
+      {n.state === 'current' && <p className="node-card-sub">{tr('shell.learn.8')}{STAGE_N[st]}{tr('shell.learn.9')}{STAGE_NAME[st]}{waits ? `. ${PRACTICE_AGAIN}` : ''}</p>}
+      {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={() => onStart(own)}>{rec?.taught?.A || n.parts ? tr('shell.learn.10') : tr('shell.learn.5')}</Button>}
+      {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.11')}</Button>}
+      {mastered && <p className="node-card-sub">{tr('shell.learn.12')}</p>}
+      {n.state === 'done' && !mastered && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `${tr('shell.learn.13')}${MASTERY_N}${tr('shell.learn.14')}`}</p>}
+      {n.state === 'open' && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `${tr('shell.learn.15')}${MASTERY_N}${tr('shell.learn.16')}`}</p>}
+      {n.state === 'locked' && <p className="node-card-sub">{tr('shell.learn.17')}{JUMP_LEN}{tr('shell.learn.18')}</p>}
+      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button variant={main} className="btn-block" onClick={() => onStart(waits ? own : check)}>{waits ? tr('shell.learn.toPractice') : tr('shell.learn.19')}</Button>}
+      {n.state === 'open' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.20')}</Button>}
+      {mastered && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.20')}</Button>}
+      {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>{tr('shell.learn.21')}</Button>}
+      {n.state === 'locked' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${n.level}?kind=jump`)}>{tr('shell.learn.22')}</Button>}
     </div>
   );
 }
@@ -123,13 +127,13 @@ function StairCard({ n, t, onStart, next }) {
 function ChestCard({ topic, open, half, onTry }) {
   const item = chestItem(topic);
   return (
-    <div className="node-card" role="group" aria-label="תיבת אוצר">
-      <p className="node-card-title">{open ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
+    <div className="node-card" role="group" aria-label={tr('shell.learn.23')}>
+      <p className="node-card-title">{open ? tr('shell.learn.24') : tr('shell.learn.23')}</p>
       <div className="chest-card-item">
         <Suspense fallback={<span className="chest-card-art" />}>{item ? <ItemArt id={item.id} className="chest-card-art" /> : <span className="chest-card-art" />}</Suspense>
-        <p className="node-card-sub">{open ? `פתחתם: ${item?.name}.` : `בתיבה: ${item?.name} למדי. היא נפתחת כשתשלטו ${half === 1 ? 'במדרגה הראשונה' : `במדרגות 1 עד ${half}`}.`}</p>
+        <p className="node-card-sub">{open ? tr('shell.learn.25', { name: item?.name }) : half === 1 ? tr('shell.learn.chestFirst', { name: item?.name }) : tr('shell.learn.26', { name: item?.name, half })}</p>
       </div>
-      {open && item && <Button variant="secondary" className="btn-block" onClick={() => onTry(`/me/madi?try=${item.id}`)}>לנסות על מדי</Button>}
+      {open && item && <Button variant="secondary" className="btn-block" onClick={() => onTry(`/me/madi?try=${item.id}`)}>{tr('shell.learn.27')}</Button>}
     </div>
   );
 }
@@ -157,7 +161,7 @@ function UnitRow({ t, colour, n, mastered, onOpen }) {
           <Emblem topic={t.id} />
           <span className="unit-row-text">
             <span className="unit-title">{t.title}</span>
-            <span className="unit-label">{t.bridge ? 'יסודות' : `יחידה ${n}`}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></span>
+            <span className="unit-label">{t.bridge ? tr('shell.learn.28') : tr('shell.learn.29', { n })}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></span>
           </span>
           <ChevronDown size={22} aria-hidden="true" className="unit-row-go" />
         </button>
@@ -183,10 +187,10 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
         <Emblem topic={t.id} />
         <div className="unit-head-text">
           <h2 id={`unit-${t.id}`} className="unit-title" tabIndex={-1}>{t.title}</h2>
-          <p className="unit-label">{t.bridge ? 'יסודות' : `יחידה ${n}`}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></p>
-          <div className="unit-bar" role="progressbar" aria-label={`${t.title}: שלבים שהושלמו`} aria-valuemin={0} aria-valuemax={prog.of} aria-valuenow={prog.stages} aria-valuetext={`${prog.stages} מתוך ${prog.of} שלבים`}><i style={{ width: `${(prog.stages / prog.of) * 100}%` }} /></div>
+          <p className="unit-label">{t.bridge ? tr('shell.learn.28') : tr('shell.learn.29', { n })}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></p>
+          <div className="unit-bar" role="progressbar" aria-label={tr('shell.learn.30', { title: t.title })} aria-valuemin={0} aria-valuemax={prog.of} aria-valuenow={prog.stages} aria-valuetext={tr('shell.learn.31', { stages: prog.stages, of: prog.of })}><i style={{ width: `${(prog.stages / prog.of) * 100}%` }} /></div>
         </div>
-        <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={22} aria-hidden="true" /><span>תזכורת</span></Link>
+        <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={tr('shell.learn.32', { title: t.title })}><BookOpen size={22} aria-hidden="true" /><span>{tr('shell.learn.33')}</span></Link>
       </header>
       <div className="unit-world">
         <ol className="path" data-region="path">
@@ -198,20 +202,20 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
             const x = SWING[i % SWING.length];
             const rec = node.kind === 'node' ? skills[skillId(t.id, node.level)] : null;
             const pct = node.kind === 'node' ? stairProgress(rec, node.parts) : 0;
-            const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.preview && node.state === 'current' ? 'המדרגה הראשונה של היחידה הבאה' : node.state === 'done' ? (mastered ? 'נשלט' : 'הושלם') : node.state === 'open' ? 'פתוחה, בדיקת השליטה מחכה' : node.state === 'current' ? (node.kind === 'node' ? `השלב הבא, ${Math.round(pct * 5)} מתוך 5 שלבים` : 'השלב הבא') : 'נעול'}`;
+            const label = `${node.kind === 'review' ? tr('shell.learn.34') : tr('shell.learn.35', { level: node.level, title: node.title })}. ${node.preview && node.state === 'current' ? tr('shell.learn.previewStop') : node.state === 'done' ? (mastered ? tr('shell.learn.36') : tr('shell.learn.37')) : node.state === 'open' ? tr('shell.learn.38') : node.state === 'current' ? (node.kind === 'node' ? tr('shell.learn.39', { p0: Math.round(pct * 5) }) : tr('shell.learn.40')) : tr('shell.learn.41')}`;
             // the stop the student is on: מדי stands beside it (on the side toward the middle), and walks in once
             const here = node.state === 'current' && !node.preview && key === focusKey;
             return [
               <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
-                {node.state === 'current' && !node.preview && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 ? 'המשך' : 'התחלה'}</span>}
-                {isNext && !isOpen && <span className="node-start node-next" aria-hidden="true">הצעד הבא</span>}
+                {node.state === 'current' && !node.preview && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 ? tr('shell.learn.10') : tr('shell.learn.5')}</span>}
+                {isNext && !isOpen && <span className="node-start node-next" aria-hidden="true">{tr('shell.learn.42')}</span>}
                 <div className={clsx('node-anchor', node.state === 'current' && !node.preview && 'is-current')} data-stop={key}>
                   <PathNode
                     ref={key === focusKey ? currentRef : undefined}
                     state={node.preview && node.state === 'current' ? 'preview' : node.state} kind={node.kind} parts={node.parts} of={PARTS} pct={pct} mastered={mastered}
                     fillLast={key === focusKey && fresh === t.id && node.parts > 0}
                     celebrate={celebrate === key} unlocking={here && !!arrive?.from}
-                    label={isNext ? `${label}. הצעד הבא` : label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
+                    label={isNext ? tr('shell.learn.43', { label }) : label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
                   />
                   {here && <Suspense fallback={null}><Walker side={x > 0 ? 'left' : 'right'} from={arrive?.from} hop={!!arrive && !arrive.from} /></Suspense>}
                 </div>
@@ -221,7 +225,7 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
               !preview && node.kind === 'node' && node.level === half && (
                 <li key={`${t.id}:chest`} className="path-step path-chest" style={{ '--x': `${(x + SWING[(i + 1) % SWING.length]) / 2}px` }}>
                   <Chest open={chest} celebrate={chest && celebrate === key} expanded={open === `${t.id}:chest`}
-                    label={`תיבת אוצר. ${chest ? 'פתוחה' : `נפתחת אחרי מדרגה ${half}`}`} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
+                    label={tr('shell.learn.46', { p0: chest ? tr('shell.learn.44') : tr('shell.learn.45', { half }) })} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
                   {open === `${t.id}:chest` && <ChestCard topic={t.id} open={chest} half={half} onTry={onStart} />}
                 </li>
               ),
@@ -231,7 +235,7 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
         </ol>
         {preview && (
           <button type="button" className="btn btn-ghost btn-sm unit-more" onClick={() => onUnfold(t.id)}>
-            כל המדרגות של {t.title}<ChevronDown size={18} aria-hidden="true" />
+            {tr('shell.learn.allStairsOf', { title: t.title })}<ChevronDown size={18} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -240,7 +244,7 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
 }
 
 /** "עוד שני שיעורים היום שומרים עליו": what keeps a streak at risk (the repair card's own count, RepairCard repairText). */
-const keepsIt = (repair) => (Math.max(1, repair?.left || 0) === 1 ? 'עוד שיעור אחד היום שומר עליו.' : 'עוד שני שיעורים היום שומרים עליו.');
+const keepsIt = (repair) => (Math.max(1, repair?.left || 0) === 1 ? tr('shell.learn.keepsOne') : tr('shell.learn.keepsTwo'));
 
 /**
  * The header's flame (PRODUCT2-40): the streak, and while a missed school day can still be repaired, the kept streak
@@ -248,10 +252,10 @@ const keepsIt = (repair) => (Math.max(1, repair?.left || 0) === 1 ? 'עוד שי
  */
 function StreakStat({ streak }) {
   const { n, atRisk, repair } = streak;
-  const label = atRisk ? `רצף של ${n} ימים, מחכה לשיעור היום. ${keepsIt(repair)}` : `רצף של ${n} ימים`;
+  const label = atRisk ? tr('shell.learn.streakWaits', { streak: n, keeps: keepsIt(repair) }) : tr('shell.learn.61', { streak: n });
   return (
     <Link to="/quests" className={clsx('top-stat streak', n > 0 && !atRisk && 'on', atRisk && 'at-risk')} aria-label={label}>
-      <Flame size={24} aria-hidden="true" />{n}{atRisk && <span className="top-stat-risk" aria-hidden="true">מחכה</span>}
+      <Flame size={24} aria-hidden="true" />{n}{atRisk && <span className="top-stat-risk" aria-hidden="true">{tr('shell.learn.waits')}</span>}
     </Link>
   );
 }
@@ -261,17 +265,17 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
   const quests = questProgress(today(), days[today()] || {});
   const { n, atRisk, repair } = streak;
   return (
-    <aside className="learn-side" aria-label="היום שלי">
+    <aside className="learn-side" aria-label={tr('shell.learn.47')}>
       <Link to="/quests" className="side-card side-streak">
         <Flame size={34} aria-hidden="true" className={clsx(n > 0 && !atRisk && 'on', atRisk && 'at-risk')} />
-        <span><b>{n === 1 ? 'יום אחד ברצף' : `${n} ימים ברצף`}</b><span className="muted">{atRisk ? keepsIt(repair) : freezes > 0 ? `${freezes === 1 ? 'הקפאה אחת מוכנה' : `${freezes} הקפאות מוכנות`}` : 'שיעור או שלב ביום שומרים על הרצף'}</span></span>
+        <span><b>{n === 1 ? tr('shell.learn.48') : tr('shell.learn.49', { streak: n })}</b><span className="muted">{atRisk ? keepsIt(repair) : freezes > 0 ? `${freezes === 1 ? tr('shell.learn.50') : tr('shell.learn.51', { freezes })}` : tr('shell.learn.52')}</span></span>
       </Link>
       <div className="side-card">
-        <div className="card-row"><b>היעד היומי</b><span className="card-num">{Math.min(todayXp, goalXp)}/{goalXp} XP</span></div>
-        <div className="bar" role="progressbar" aria-label="ההתקדמות ליעד היומי" aria-valuemin={0} aria-valuemax={goalXp} aria-valuenow={Math.min(todayXp, goalXp)}><i style={{ width: `${Math.min(1, todayXp / goalXp) * 100}%` }} /></div>
+        <div className="card-row"><b>{tr('shell.learn.53')}</b><span className="card-num">{Math.min(todayXp, goalXp)}/{goalXp} XP</span></div>
+        <div className="bar" role="progressbar" aria-label={tr('shell.learn.54')} aria-valuemin={0} aria-valuemax={goalXp} aria-valuenow={Math.min(todayXp, goalXp)}><i style={{ width: `${Math.min(1, todayXp / goalXp) * 100}%` }} /></div>
       </div>
       <Link to="/quests" className="side-card">
-        <div className="card-row"><b>המשימות של היום</b><span className="card-num">{quests.filter((q) => q.done).length}/3</span></div>
+        <div className="card-row"><b>{tr('shell.learn.55')}</b><span className="card-num">{quests.filter((q) => q.done).length}/3</span></div>
         <ul className="side-quests">{quests.map((q) => <li key={q.id} className={clsx(q.done && 'done')}><span>{q.done && <Check size={16} strokeWidth={3} aria-hidden="true" />}{q.title}</span><span className="card-num">{q.have}/{q.target}</span></li>)}</ul>
       </Link>
       {/* the class goal of the week, small (STUDENT-4); nothing for a student with no class */}
@@ -395,11 +399,12 @@ function LearnMap() {
   // The screen opens at the top of the path; back from a lesson, or on another grade, it opens on the place to continue from.
   // On a fresh open the screen opens at the top, unless the plan's next stair is out of view: then it opens on it. With a
   // card above the path it stays at the top: the card is the most important thing today (and the repair card's button goes
-  // to that same next step), so it is never scrolled half away; the button back to the current stop points down.
+  // to that same next step), so it is never scrolled half away; the button back to the current stop points down. While
+  // the backup's one-time line is due (COUNCIL2-24) it opens at the top too, so a small phone shows the line.
   useLayoutEffect(() => {
     const first = firstView.current; firstView.current = false;
     if (first && !state?.from) {
-      const r = focus.next && !card ? currentRef.current?.getBoundingClientRect() : null;
+      const r = focus.next && !card && !showBackupLine(useApp.getState().backup) ? currentRef.current?.getBoundingClientRect() : null;
       if (r && (r.top < 0 || r.bottom > window.innerHeight * 0.8)) currentRef.current.scrollIntoView({ block: 'center' });
       else window.scrollTo(0, 0);
       return;
@@ -438,15 +443,17 @@ function LearnMap() {
 
   const onStart = (to) => navigate(to);
   const otherGrade = view === '7' ? '8' : '7';
+  const backupLine = useApp((s) => showBackupLine(s.backup));
 
   return (
     <div className="learn">
       <header className="learn-top" data-region="header">
-        <button type="button" className="grade-switch" onClick={() => { setView(otherGrade); setOpen(null); setUnfolded([]); }} aria-label={`מציגים את כיתה ${view === '7' ? 'ז׳' : 'ח׳'}. מעבר לכיתה ${otherGrade === '7' ? 'ז׳' : 'ח׳'}`}>
-          כיתה {view === '7' ? 'ז׳' : 'ח׳'}<ChevronDown size={18} aria-hidden="true" />
+        {/* the page's heading for a screen reader's list of headings (COUNCIL2-8); the look stays the bar's */}
+        <h1 className="visually-hidden">{tr('shell.learn.56')}{view === '7' ? tr('shell.learn.57') : tr('shell.learn.58')}</h1>
+        <button type="button" className="grade-switch" onClick={() => { setView(otherGrade); setOpen(null); setUnfolded([]); }} aria-label={tr('shell.learn.59', { p0: view === '7' ? tr('shell.learn.57') : tr('shell.learn.58'), p1: otherGrade === '7' ? tr('shell.learn.57') : tr('shell.learn.58') })}>{tr('shell.learn.60')}{view === '7' ? tr('shell.learn.57') : tr('shell.learn.58')}<ChevronDown size={18} aria-hidden="true" />
         </button>
         <StreakStat streak={streak} />
-        <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
+        <Link to="/quests" className="top-stat xp" aria-label={tr('shell.learn.62', { todayXp, goalXp, xp })}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
       </header>
       <OfflineChip />
       {card === 'work' && (
@@ -455,6 +462,8 @@ function LearnMap() {
         </Link>
       )}
       <StorageBanner />
+      {/* a solo student's backup was turned on by default after the first questions: said once, here (COUNCIL2-24) */}
+      {backupLine && <Suspense fallback={null}><BackupLine /></Suspense>}
       {/* on an iPhone in the browser, from the 3rd day: the Home Screen guide, offered once (lib/durable/install.js) */}
       {card === 'install' && <InstallCard onOpen={() => setInstall(true)} />}
       <InstallSheet open={install} onOpenChange={setInstall} />
@@ -485,14 +494,14 @@ function LearnMap() {
         {/* the end of the path: every topic and how far each one is. What the app has of the Ministry's programme is for
             the adults (the topics tab, the parents' and the teacher's screens), not the child's path (PRODUCT2-41) */}
         <div className="path-end">
-          <Link to="/topics" className="btn btn-ghost btn-sm">כל הנושאים והמצב בכל אחד</Link>
+          <Link to="/topics" className="btn btn-ghost btn-sm">{tr('shell.learn.64')}</Link>
         </div>
       </div>
       <SidePanel streak={streak} todayXp={todayXp} goalXp={goalXp} freezes={freezes} days={days} />
       </div>
 
       {away && (
-        <button type="button" ref={jumpRef} className="jump-current" onClick={() => currentRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })} aria-label="חזרה לשלב הבא">
+        <button type="button" ref={jumpRef} className="jump-current" onClick={() => currentRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })} aria-label={tr('shell.learn.65')}>
           {away === 'up' ? <ArrowUp size={26} aria-hidden="true" /> : <ArrowDown size={26} aria-hidden="true" />}
         </button>
       )}

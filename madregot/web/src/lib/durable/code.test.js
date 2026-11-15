@@ -2,7 +2,6 @@
 // wrong symbol and every swap of two neighbours fails it, and what a person types (any case, dashes, spaces, direction
 // marks, the Hebrew keyboard) comes out right before any network call.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { CODE_ALPHABET, CODE_LENGTH, HEBREW_KEYS, makeCode, checkSymbol, normalise, formatCode, isCode, findCode } from './code.js';
 import { seeded } from './testing.js';
 
@@ -10,9 +9,11 @@ import { seeded } from './testing.js';
 const bytesFrom = (rnd) => (n) => Uint8Array.from({ length: n }, () => Math.floor(rnd() * 256));
 
 describe('the alphabet', () => {
-  it('is the same 31 symbols as the Worker\'s class codes (worker/src/util.js)', () => {
-    const util = readFileSync(new URL('../../../../worker/src/util.js', import.meta.url), 'utf8');
-    expect(util.match(/export const CODE_ALPHABET = '([^']+)'/)?.[1]).toBe(CODE_ALPHABET);
+  it('is the Worker\'s own: the one copy in shared/alphabet.js, which both import (COUNCIL2-23)', async () => {
+    const { CODE_ALPHABET: worker } = await import('../../../../worker/src/util.js');
+    const { CODE_ALPHABET: shared } = await import('../../../../shared/alphabet.js');
+    expect(CODE_ALPHABET).toBe(shared);
+    expect(worker).toBe(shared);
     expect(CODE_ALPHABET).toHaveLength(31);
     expect(CODE_ALPHABET).not.toMatch(/[01ILO]/);
   });

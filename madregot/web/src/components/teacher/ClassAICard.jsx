@@ -6,13 +6,16 @@
 // - a school class before catalogue approval, or below the approved grade: off, the reason, the teacher's own use;
 // - consent needed: the Ministry's parent form (school) or the parents' agreement (private), the pilot kit's parent
 //   letter, a checkbox and "שמירה";
-// - after consent: the switch, and the day the consent was recorded.
+// - after consent: the switch, and the day the consent was recorded;
+// - no adult behind the class yet (aiPolicy.adultNeeded, COUNCIL2-2): instead of the consent box and the switch, a calm
+//   line and "כניסה עם מייל", which opens the email sign-in and the bind with the 18+ declaration (TeacherBind).
 // Every change is POST /api/teacher/class/ai; its answer is the new policy.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ExternalLink, Printer } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
+import { openLimitSheet } from '@/lib/account.js';
 import { dateNum } from '@/lib/price.js';
 import { AI_CARD_TITLE, AI_COPY, classAiView } from '@/content/classAi.js';
 import { Button, Sheet } from '@/components/ui.jsx';
@@ -115,6 +118,9 @@ export default function ClassAICard({ cls, policy, onPolicy }) {
             </label>
             {policy.consentAt && <p className="field-hint" id="cai-consent-at">{AI_COPY.consentAt(dateNum(policy.consentAt))}</p>}
           </div>
+        )}
+        {view.adult && (
+          <Button variant="secondary" className="btn-sm cai-adult" onClick={() => openLimitSheet({ reason: 'parent_ok_needed' })}>{AI_COPY.adultButton}</Button>
         )}
         {view.rules && <p className="cai-rules"><Ext href={policy.rulesUrl}>{AI_COPY.rulesLink}</Ext></p>}
 

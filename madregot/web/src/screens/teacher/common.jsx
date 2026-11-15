@@ -2,7 +2,7 @@
 import { toast } from 'sonner';
 import { TriangleAlert, CircleCheck, CircleAlert } from 'lucide-react';
 import { MathText } from '@/components/MathText.jsx';
-import { mistakeText, stairName } from '@/lib/teacherText.js';
+import { mistakeText, stairLabel } from '@/lib/teacherText.js';
 
 export const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
@@ -14,6 +14,11 @@ export const pct = (a, b) => (b ? Math.round((100 * a) / b) : null);
 
 // A student asked the teacher to talk (trust spec TRUST-3 §3.5): a help request with kind 'talk' and no exercise.
 export const TALK = 'ביקש/ה לדבר איתך';
+// The safety alert (COUNCIL2-9, worker/src/alerts.js, on only when the owner turned SAFETY_ALERTS on): a request the
+// server made, with this topic and no text, when a student's message to the tutor read as self-harm. The student did
+// not send it and does not see it, so it gets no reply box.
+export const ALERT_TOPIC = 'safety';
+export const ALERT_LINE = 'היום, בשיחה עם העוזר החכם, נכתב משהו שנשמע כמו מצוקה. מה שנכתב לא נשמר אצלנו. העוזר הציע לפנות למבוגר קרוב ולער״ן, 1201.';
 
 export function copy(text, label) {
   navigator.clipboard?.writeText(text).then(() => toast.success(`${label} הועתק`), () => toast(`${label}: ${text}`));
@@ -42,7 +47,7 @@ export function StudentName({ id, name, onOpen, className }) {
 export function MistakeWords({ topic, level, cat }) {
   return (
     <>
-      <b className="t-mis-stair"><MathText text={stairName(topic, level)} /></b>
+      <b className="t-mis-stair"><MathText text={stairLabel(topic, level)} /></b>
       <span className="visually-hidden">. </span>
       <MathText text={mistakeText(topic, level, cat)} />
     </>

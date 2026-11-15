@@ -196,6 +196,17 @@ export async function lockClass(req, env, cors) {
   return json({ joinLocked: b.locked }, 200, cors);
 }
 
+/** Wrong personal codes a day from one network (index.js joinClass has the whole rule). */
+export const PIN_NET_DAY = 15;
+/** Wrong PINs a day for one student, from every network together, before an unknown network needs the teacher's code. */
+export const PIN_ALL_DAY = 30;
+/** From this many wrong PINs today the teacher's board says so on the student's row (dashboard, studentDetail). */
+export const PIN_FLAG = PIN_NET_DAY;
+/** Is this student's day at PIN_FLAG wrong PINs? (pin:<id>, every network together) */
+export async function manyWrongPins(env, studentId, day) {
+  const row = await env.DB.prepare('SELECT count FROM ai_usage WHERE who = ? AND day = ?').bind(`pin:${studentId}`, day).first();
+  return Number(row?.count || 0) >= PIN_FLAG;
+}
 /** The PIN counters of a student (trust spec TRUST-12 §1): pin:<id> and every pin:<id>:<net>. Bind the student id as ?1. */
 export const pinKeysWhere = "(who = 'pin:' || ?1 OR who LIKE 'pin:' || ?1 || ':%')";
 

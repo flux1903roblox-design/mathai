@@ -7,6 +7,16 @@
    v4.css, then canon.css); STUDENT-15's block (Teacher.jsx's own rules) already loaded after all of them, so it stays
    last. The teacher suite's screenshots and a computed-style comparison of its screens in dark showed no change. */
 
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+.t-goal-seg { max-width: 360px; }
+.t-goal-size { display: flex; flex-direction: column; gap: var(--s2); }
+.t-goal-size .field-label { margin: 0; }
+.t-goal-row .input { flex: 1; min-width: 0; min-height: 48px; }
+.t-goal-size .form-error, .t-goal .field-hint { margin: 0; }
+.t-goal-row { display: flex; gap: var(--s2); align-items: stretch; max-width: 360px; }
+/* "משימות": the tab's header with its action, then the rows (a button each, the today-row grammar) */
+.tw { display: flex; flex-direction: column; gap: var(--s3); }
+
 /* ---- out of app.css (FOLLOWUP-23), in its order */
 /* ---------- teacher ---------- */
 .t-class { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
@@ -42,11 +52,11 @@
   .pr-table thead th { font-weight: 700; border-bottom: 1pt solid #000; vertical-align: bottom; } /* colour-ok: printed on paper, black ink whatever the theme */
   .pr-table thead .pr-head { padding: 0 0 2.5mm; font-size: 12pt; font-weight: 800; border-bottom: 1.5pt solid #000; } /* colour-ok: printed on paper, black ink whatever the theme */
   .pr-table tbody th { font-weight: 700; white-space: nowrap; }
-  /* 25 students a page with room to spare: a page holds the header and 25 one-line rows, and what is left is for the
+/* 25 students a page with room to spare: a page holds the header and 25 one-line rows, and what is left is for the
      rows whose mistakes take more lines. Every unit of the grade is a column, so a grade with more units (stage 2's
      areas and boxes in ז׳) left the mistakes column too narrow and the page 4mm short: a student's row is a little
      tighter than the header's, and the mistakes column keeps a width of its own */
-  .pr-table tbody th, .pr-table tbody td { padding-block: 0.8mm; }
+.pr-table tbody th, .pr-table tbody td { padding-block: 0.8mm; }
   .pr-table tbody tr { break-inside: avoid; }
   .pr-table tbody tr.pr-break { break-after: page; }
   .pr-table .pr-mis { min-width: 45mm; max-width: 70mm; }
@@ -104,7 +114,13 @@
   .sd-print-doc hr + h2 { margin-top: 0; }
 }
 .qstrip { display: inline-flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
-.qstrip i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 5px; font-style: normal; font-size: 11px; font-weight: 800; }
+/* the "מבחנים" tab (PRODUCT2-31): where each row came from, under its title; the empty tab says where exams will come from */
+.ex-src { display: block; margin-top: 2px; color: var(--ink-2); font-size: var(--t-xs, 0.8125rem); font-weight: 500; }
+.ex-empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); max-width: 60ch; }
+.ex-empty p { margin: 0; }
+.ex-empty-title { color: var(--ink); font-weight: 700; }
+.ex-empty-make { margin-top: var(--s2); }
+.qstrip i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 5px; font-style: normal; font-size: 0.6875rem; font-weight: 800; }
 .qstrip i.ok { background: var(--ok-tint); color: var(--ok); }
 .qstrip i.mid { background: var(--gold-tint); color: var(--gold-ink); }
 .qstrip i.bad { background: var(--magenta); color: var(--on-brand); }
@@ -128,11 +144,10 @@
 .teacher-off.ob { max-width: none; width: 100%; }
 .teacher-off .teacher-off-lead { margin: 0; color: var(--ink-2); }
 .teacher-off .set-group > ul, .teacher-off .set-group > ol { border: 0; padding: 0; background: none; }
-.teacher-off .teacher-off-steps { padding: var(--s3) var(--s4) var(--s3) var(--s6) !important; border: 2px solid var(--line) !important; border-radius: var(--r-m); background: var(--surface) !important; }
 /* ---- the teacher's board: the solid header, 2×2 tiles, a segmented switch, groups of rows */
 .t-head .wordmark { color: var(--on-brand); }
 .t-head .t-class { padding-inline-end: 84px; }
-.t-head .t-class-name { margin: 0; font-family: var(--font-display); font-size: 30px; line-height: 36px; color: var(--on-brand); }
+.t-head .t-class-name { margin: 0; font-family: var(--font-display); font-size: 1.875rem; line-height: 1.2; color: var(--on-brand); }
 .t-code { background: var(--surface); color: var(--ink); border-color: var(--surface); }
 .t-code span:first-child { font-weight: 600; letter-spacing: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .t-main { max-width: 1100px; }
@@ -169,7 +184,7 @@
 .t-bind p, .t-signin p { margin: 0; }
 .t-bind-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .t-bind-actions .btn { flex: 1 1 auto; }
-.t-signin-title { margin: 0; font-size: 20px; line-height: 28px; font-weight: 700; color: var(--ink); }
+.t-signin-title { margin: 0; font-size: 1.25rem; line-height: 1.4; font-weight: 700; color: var(--ink); }
 .t-head .t-more { align-self: flex-start; min-height: 44px; padding: 0; font-size: var(--t-sm); }
 .t-more-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
 .t-more-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 56px; padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
@@ -180,7 +195,7 @@
 .t-tools ul { list-style: none; margin: 0; padding: 0 0 2px; display: flex; gap: var(--s2); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
 .t-tools ul::-webkit-scrollbar { display: none; }
 .t-tools li { flex: none; }
-.t-tool { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; font-size: 16px; white-space: nowrap; text-decoration: none; }
+.t-tool { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; font-size: 1rem; white-space: nowrap; text-decoration: none; }
 .t-tool svg { color: var(--brand); flex: none; }
 .t-tool:hover { border-color: var(--brand-line); }
 .t-tool:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
@@ -217,7 +232,7 @@
   background: var(--brand-tint); border-bottom: 1px solid var(--brand-line); color: var(--ink); overflow: visible;
 }
 .preview-eye { flex: none; color: var(--brand-d); }
-.preview-text { flex: 1; min-width: 0; margin: 0; display: flex; align-items: baseline; gap: var(--s2); font-size: 14px; line-height: 18px; white-space: nowrap; }
+.preview-text { flex: 1; min-width: 0; margin: 0; display: flex; align-items: baseline; gap: var(--s2); font-size: 0.875rem; line-height: 1.2858; white-space: nowrap; }
 .preview-text b { font-weight: 800; color: var(--ink); }
 .preview-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
 .preview-back {
@@ -226,7 +241,7 @@
 }
 .preview-back span {
   display: inline-flex; align-items: center; min-height: 30px; padding: 0 var(--s3); border: 2px solid var(--brand-line);
-  border-radius: 999px; background: var(--surface); font-size: 14px; font-weight: 700; white-space: nowrap;
+  border-radius: 999px; background: var(--surface); font-size: 0.875rem; font-weight: 700; white-space: nowrap;
 }
 .preview-back:hover span { border-color: var(--brand); }
 .preview-back:focus-visible { outline: none; }
@@ -236,7 +251,7 @@
 @media (max-width: 599px) {
   .preview-hint-a { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .preview-text { flex-direction: column; align-items: flex-start; gap: 0; }
-  .preview-text b, .preview-hint { font-size: 14px; line-height: 17px; }
+  .preview-text b, .preview-hint { font-size: 0.875rem; line-height: 1.2143; }
   .preview-hint { max-width: 100%; }
 }
 @media (max-width: 359px) {
@@ -253,24 +268,24 @@
 .t-lib-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
 .t-lib-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
 .t-lib-text { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.t-lib-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.t-lib-title { margin: 0; font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; color: var(--ink); }
 .t-lib-n { color: var(--ink-2); font-weight: 600; }
-.t-lib-sub { margin: 0; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+.t-lib-sub { margin: 0; font-size: 0.875rem; line-height: 1.4286; color: var(--ink-2); }
 /* the grade's guest stairs (FUNC-6): each under the unit it comes from */
-.t-lib-guest-from { margin: 0 0 var(--s2); font-size: 14px; line-height: 20px; color: var(--ink-2); }
+.t-lib-guest-from { margin: 0 0 var(--s2); font-size: 0.875rem; line-height: 1.4286; color: var(--ink-2); }
 .t-lib-dots { display: inline-flex; gap: 6px; }
 .t-lib-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--rule-strong); }
 .t-lib-dots i.on { background: var(--brand); border-color: var(--brand); }
 .t-lib-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .t-lib-actions .btn { min-width: 0; padding-inline: var(--s3); }
 .t-lib-foot { gap: var(--s2); }
-.t-lib-foot-note { margin: 0; font-size: 14px; }
+.t-lib-foot-note { margin: 0; font-size: 0.875rem; }
 /* ------------------------------------------------------------------ the teacher's assistant (TEACHER-2 §6) */
 .t-ai-note { display: flex; flex-direction: column; gap: 6px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
-.t-ai-note p { margin: 0; font-size: 15px; line-height: 21px; }
+.t-ai-note p { margin: 0; font-size: 0.9375rem; line-height: 1.4; }
 @media (max-width: 359px) {
   .t-ai-note { padding: var(--s2) var(--s3); }
-  .t-ai-note p { font-size: 14px; line-height: 20px; }
+  .t-ai-note p { font-size: 0.875rem; line-height: 1.4286; }
 }
 .t-ai-note-lead { color: var(--ink); font-weight: 600; }
 .t-ai-note-rule { display: flex; align-items: flex-start; gap: var(--s2); color: var(--ink-2); }
@@ -286,7 +301,7 @@
    with the far edge faded so the rest is clearly there. */
 .segmented.t-tabs { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 3px; }
 .segmented.t-tabs::-webkit-scrollbar { display: none; }
-.segmented.t-tabs > .t-tab { flex: 1 0 auto; scroll-snap-align: start; padding: 0 12px; font-size: 15px; white-space: nowrap; }
+.segmented.t-tabs > .t-tab { flex: 1 0 auto; scroll-snap-align: start; padding: 0 12px; font-size: 0.9375rem; white-space: nowrap; }
 @media (max-width: 480px) {
   .segmented.t-tabs { flex-wrap: nowrap; overflow-x: auto; }
   .segmented.t-tabs > * { flex: 1 0 auto; }
@@ -307,10 +322,10 @@
 .tw-row:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
 .tw-row .chev { color: var(--ink-2); }
 .tw-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.tw-title { font-size: 17px; line-height: 24px; font-weight: 700; overflow-wrap: anywhere; }
-.tw-meta { font-size: 14px; line-height: 20px; color: var(--ink-2); font-weight: 600; }
+.tw-title { font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; overflow-wrap: anywhere; }
+.tw-meta { font-size: 0.875rem; line-height: 1.4286; color: var(--ink-2); font-weight: 600; }
 .tw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.tw-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--ground); color: var(--ink-2); }
+.tw-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 0.8125rem; font-weight: 700; background: var(--ground); color: var(--ink-2); }
 .tw-chip-on { background: var(--brand-tint); color: var(--brand-d); }
 .tw-chip-late { background: var(--streak-tint); color: var(--streak-ink); }
 .tw-none { margin: 0; }
@@ -327,18 +342,18 @@
 .as-choice { position: relative; min-height: 52px; padding: var(--s2) var(--s4); cursor: pointer; }
 .as-choice:has(.as-radio:focus-visible), .as-chip:has(.as-radio:focus-visible) { outline: 3px solid var(--brand-line); outline-offset: 2px; }
 .as-radio { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.as-choice .ob-opt-text b { font-size: 17px; line-height: 24px; }
+.as-choice .ob-opt-text b { font-size: 1.0625rem; line-height: 1.4118; }
 .as-choice .ob-opt-text > span { overflow-wrap: anywhere; }
 /* a repair's mistakes (SK-BUYERS-2): a sentence with maths in it, so it flows as text, a little lighter than a kind */
-.as-miscs .ob-opt-text b { display: block; font-size: 16px; line-height: 23px; font-weight: 600; }
-.as-select { width: 100%; font-size: 17px; }
+.as-miscs .ob-opt-text b { display: block; font-size: 1rem; line-height: 1.4375; font-weight: 600; }
+.as-select { width: 100%; font-size: 1.0625rem; }
 .as-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .as-chip { position: relative; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; cursor: pointer; box-shadow: 0 2px 0 var(--rule-press); }
 .as-chip.on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 2px 0 var(--brand-line); }
 .as-date { gap: 6px; }
 .as-sub-label { font-weight: 600; color: var(--ink-2); }
 .as-date .input { width: 100%; }
-.as-note-line { margin: 0; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+.as-note-line { margin: 0; font-size: 0.875rem; line-height: 1.4286; color: var(--ink-2); }
 .as-hint { padding: var(--s2) var(--s3); border-radius: 12px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
 .as-students { display: flex; flex-direction: column; padding: var(--s1) var(--s3); border: 2px solid var(--rule); border-radius: 16px; max-height: 320px; overflow-y: auto; }
 .as-student + .as-student { border-top: 1px solid var(--rule); }
@@ -351,16 +366,16 @@
 .as-msg { margin: 0; padding: var(--s3) var(--s4); border-inline-start: 4px solid var(--brand-line); border-radius: 12px; background: var(--ground); color: var(--ink); line-height: 1.55; overflow-wrap: anywhere; user-select: text; }
 /* one assignment's detail: the line under the title, the bar, the table of students, the quiet actions */
 .aw-body { display: flex; flex-direction: column; gap: var(--s3); }
-.aw-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; color: var(--ink-2); font-weight: 600; font-size: 15px; }
+.aw-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; color: var(--ink-2); font-weight: 600; font-size: 0.9375rem; }
 .aw-note { margin: 0; color: var(--ink); }
 .aw-mis { margin: 0; color: var(--ink); line-height: 1.45; }
 .aw-mis .field-label { display: inline; margin: 0; }
 .aw-loading { margin: 0; }
 .aw-table-wrap { max-height: none; }
-.aw-table th, .aw-table td { white-space: normal; vertical-align: top; font-size: 15px; line-height: 21px; }
+.aw-table th, .aw-table td { white-space: normal; vertical-align: top; font-size: 0.9375rem; line-height: 1.4; }
 .aw-table tbody th { font-weight: 700; }
 .aw-state { margin-inline-end: 6px; }
-.aw-late { display: inline-block; padding: 0 8px; border-radius: 999px; background: var(--ground); color: var(--ink-2); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.aw-late { display: inline-block; padding: 0 8px; border-radius: 999px; background: var(--ground); color: var(--ink-2); font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
 .aw-foot { margin: 0; }
 .aw-extend { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
 .aw-extend .input { width: 100%; }
@@ -369,12 +384,12 @@
 .xn-step { display: flex; flex-direction: column; gap: var(--s5); }
 .xn-topic { display: flex; flex-direction: column; gap: var(--s2); }
 .xn-topic-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
-.xn-topic-title { margin: 0; display: flex; align-items: center; gap: var(--s2); font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); }
-.xn-all { flex: none; font-size: 15px; }
+.xn-topic-title { margin: 0; display: flex; align-items: center; gap: var(--s2); font-size: 1.125rem; line-height: 1.3334; font-weight: 700; color: var(--ink); }
+.xn-all { flex: none; font-size: 0.9375rem; }
 .xn-all[aria-checked="mixed"] { border-color: var(--brand-line); }
 .xn-stairs { gap: var(--s2); }
 .ob-opt.xn-stair { min-height: 52px; padding: var(--s2) var(--s4); }
-.xn-stair .ob-opt-text b { font-size: 17px; line-height: 24px; }
+.xn-stair .ob-opt-text b { font-size: 1.0625rem; line-height: 1.4118; }
 .xn-n { color: var(--ink-2); font-weight: 700; }
 .ob-opt.on .xn-n { color: var(--brand-d); }
 .xn-count { margin: 0; }
@@ -391,8 +406,8 @@
 .xs-lead { margin: 0; }
 .xs .as-hint { margin: 0; }
 .xs-screen { margin-bottom: var(--s4); }
-.xs-screen .h-page { margin: 0; font-size: 22px; line-height: 28px; overflow-wrap: anywhere; }
-.xs-screen .exam-sheet-meta { gap: var(--s2) var(--s5); font-size: 15px; }
+.xs-screen .h-page { margin: 0; font-size: 1.375rem; line-height: 1.2728; overflow-wrap: anywhere; }
+.xs-screen .exam-sheet-meta { gap: var(--s2) var(--s5); font-size: 0.9375rem; }
 .xs-screen .figure { max-width: min(100%, 300px); margin-inline: auto; }
 .xs-send { gap: var(--s2); border: 0; background: none; font: inherit; font-weight: 700; color: var(--brand-d); cursor: pointer; }
 .xs-send:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 10px; }
@@ -421,16 +436,16 @@
 .rp-table thead th { vertical-align: bottom; }
 .rp-assign-h { white-space: normal !important; min-width: 8em; max-width: 12em; }
 .rp-assign-t { display: block; overflow-wrap: anywhere; }
-.rp-due { display: block; font-weight: 600; color: var(--ink-2); font-size: 13px; }
+.rp-due { display: block; font-weight: 600; color: var(--ink-2); font-size: 0.8125rem; }
 .rp-mis { white-space: normal !important; min-width: 14em; max-width: 22em; }
-.rp-mis-one { display: block; line-height: 20px; }
+.rp-mis-one { display: block; line-height: 1.3334; }
 .rp-mis-one + .rp-mis-one { margin-top: 4px; }
 .t-report .t-group { margin: 0; }
 .t-report-note { margin: 0; }
 /* the grades for Mashov or Webtop (PRODUCT2-32): what the file holds, three numbered steps, how a grade is worked out */
 .rp-grades > .t-group-box.rp-grades-box { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); }
 .rp-grades-lead, .rp-grades-how { margin: 0; line-height: 1.5; }
-.rp-grades-how { color: var(--ink-2); font-size: 15px; }
+.rp-grades-how { color: var(--ink-2); font-size: 0.9375rem; }
 .rp-steps { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s1); line-height: 1.5; }
 .rp-grades .btn svg { flex: none; }
 .t-report .screen-foot .btn svg { flex: none; }
@@ -450,7 +465,7 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .hr-form { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--rule); }
 .hr-form .field-label { margin: 0; }
 .hr-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.hr-chip { min-height: 44px; padding: 6px var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; line-height: 20px; font-weight: 600; text-align: start; cursor: pointer; }
+.hr-chip { min-height: 44px; padding: 6px var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); font: inherit; font-size: 0.9375rem; line-height: 1.3334; font-weight: 600; text-align: start; cursor: pointer; }
 .hr-chip:hover { border-color: var(--brand-line); }
 .hr-text { width: 100%; min-height: 64px; resize: vertical; }
 .hr-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
@@ -464,7 +479,7 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .t-attn .t-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .t-attn .t-row + .t-row { border-top: 1px solid var(--rule); }
 .t-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.t-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 14px; line-height: 20px; font-weight: 700; background: var(--ground); color: var(--ink-2); }
+.t-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 0.875rem; line-height: 1.4286; font-weight: 700; background: var(--ground); color: var(--ink-2); }
 .t-chip-help { background: var(--brand-tint); color: var(--brand-d); }
 .t-chip-late { background: var(--streak-tint); color: var(--streak-ink); }
 .t-sort { flex-direction: row; align-items: center; gap: var(--s3); margin: 0 0 var(--s3); }
@@ -474,7 +489,7 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .ss-body { display: flex; flex-direction: column; gap: var(--s5); }
 .ss-sub { margin: 0; color: var(--ink-2); font-weight: 600; }
 .ss-part { display: flex; flex-direction: column; gap: var(--s2); }
-.ss-h { margin: 0; font-size: 18px; line-height: 24px; font-weight: 800; color: var(--ink); }
+.ss-h { margin: 0; font-size: 1.125rem; line-height: 1.3334; font-weight: 800; color: var(--ink); }
 .ss-empty, .ss-line { margin: 0; }
 .ss-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .ss-list > li + li { border-top: 1px solid var(--rule); }
@@ -491,13 +506,23 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .ss-strip i { width: 18px; height: 18px; border-radius: 5px; background: var(--ground); border: 1px solid var(--rule); }
 .ss-strip i.some { background: var(--brand-line); border-color: var(--brand-line); }
 .ss-strip i.lots { background: var(--brand); border-color: var(--brand); }
-.ss-strip-ends { display: flex; justify-content: space-between; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+.ss-strip-ends { display: flex; justify-content: space-between; font-size: 0.8125rem; line-height: 1.3847; color: var(--ink-2); }
 @media (max-width: 359px) {
   .ss-strip { gap: 3px; }
   .ss-strip i { width: 15px; height: 15px; }
 }
 .ss-actions .set-row { width: 100%; gap: var(--s2); }
 .ss-done { margin: 0; color: var(--ink-2); font-weight: 600; }
+/* many wrong personal codes today: a calm note above the reset, in the board's own amber */
+.ss-wrong-pins { margin: 0 0 var(--s3); padding: var(--s3); border-radius: var(--r-md, 12px); background: var(--streak-tint); color: var(--streak-ink); line-height: 1.5; }
+.t-actions .t-wrong-pins { white-space: nowrap; }
+/* the one-time code after a PIN reset (COUNCIL2-25): shown once, large, left to right, with a 44px copy button */
+.ss-claim { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4); border: 2px solid var(--brand-line); border-radius: var(--r-md); background: var(--brand-tint); color: var(--ink); }
+.ss-claim:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.ss-claim-title { margin: 0; font-weight: 800; }
+.ss-claim-code { margin: 0; font-size: 2rem; font-variant-numeric: tabular-nums; line-height: 1.2; font-weight: 800; letter-spacing: 0.18em; text-align: center; user-select: all; overflow-wrap: anywhere; }
+.ss-claim-line { margin: 0; line-height: 1.5; }
+.ss-claim-copy { align-self: stretch; min-height: 44px; }
 .ss-error { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); }
 /* student AI by the Ministry's rules (TRUST-11): the class settings' card, the setting question, the per-student badge */
 .cs-set { margin-top: var(--s2); }
@@ -506,7 +531,7 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .cs-attest input, .cai-box input { margin-top: 2px; }
 .as-choice.is-disabled { cursor: default; opacity: 0.6; }
 .cai-status { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-weight: 600; color: var(--ink); }
-.cai-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border-radius: 999px; font-size: 15px; font-weight: 800; }
+.cai-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border-radius: 999px; font-size: 0.9375rem; font-weight: 800; }
 .cai-chip.off { background: var(--ground); color: var(--ink-2); }
 .cai-chip.on { background: var(--brand-tint); color: var(--brand-d); }
 .cai-where legend { margin-bottom: var(--s2); }
@@ -517,6 +542,8 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .cai-rules { margin: 0; }
 .cai-consent { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
 .cai-save { align-self: flex-start; min-width: 96px; }
+.cai-adult { align-self: flex-start; min-height: 44px; }
+.cs-adult { margin: var(--s1) 0 0; }
 .cai-switch { display: flex; flex-direction: column; gap: 4px; }
 .cai-sheet p { margin: 0; }
 .licence-before { margin-bottom: 0; }
@@ -528,16 +555,16 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .cai-where { padding-top: var(--s4); border-top: 2px solid var(--rule); }
 /* the demo class (TEACHER-15): the banner above every teacher screen, the disabled lines, the public page's button */
 .demo-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); padding: var(--s2) var(--gutter); background: var(--brand-tint); border-bottom: 2px solid var(--brand-line); color: var(--ink); }
-.demo-banner-text { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; flex: 1 1 220px; font-size: 15px; line-height: 21px; font-weight: 600; }
+.demo-banner-text { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; flex: 1 1 220px; font-size: 0.9375rem; line-height: 1.4; font-weight: 600; }
 .demo-banner-text svg { flex: none; margin-top: 2px; color: var(--brand-d); }
 .demo-banner-actions { display: flex; flex-wrap: wrap; gap: 0 var(--s3); }
-.demo-banner-btn { min-height: 44px; padding: 0 var(--s1); border: 0; background: none; color: var(--brand-d); font: inherit; font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.demo-banner-btn { min-height: 44px; padding: 0 var(--s1); border: 0; background: none; color: var(--brand-d); font: inherit; font-size: 0.9375rem; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .demo-banner-btn.strong { text-decoration: none; }
 .demo-banner-btn:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
 @media print {
   .demo-banner { display: none !important; }
 }
-.t-demo-line { margin: var(--s2) 0 0; font-size: 15px; }
+.t-demo-line { margin: var(--s2) 0 0; font-size: 0.9375rem; }
 .teacher-off-demo { margin-top: var(--s4); }
 /* a scrolling table contains what is positioned inside it: KaTeX's hidden MathML (position: absolute) in a far column
    would otherwise widen the whole page on a phone (the report's mistake column) */
@@ -555,7 +582,7 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
 .sd-row svg { color: var(--ink-2); }
 .sd-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sd-row-title { font-weight: 700; color: var(--ink); }
-.sd-row-line { font-weight: 400; font-size: 15px; line-height: 21px; color: var(--ink-2); }
+.sd-row-line { font-weight: 400; font-size: 0.9375rem; line-height: 1.4; color: var(--ink-2); }
 .sd-form .field { margin: 0; }
 .sd-form .input { width: 100%; min-height: 48px; }
 .sd-form-note, .sd-late { margin: 0; }
@@ -569,12 +596,12 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
 .sd-paper { padding: var(--s5) var(--s4); border: 1px solid var(--rule-strong); border-radius: var(--r-md); background: var(--surface); box-shadow: 0 2px 0 var(--rule); overflow-wrap: anywhere; }
 /* the document is a .legal article too (Guide.jsx), and legal.css may load after this file (a parent's page opened
    later in the same tab): .legal.sd-doc keeps these headings ahead of .legal h2/h3 whatever the order (FOLLOWUP-23) */
-.legal.sd-doc h2 { margin: 0; font-size: 22px; line-height: 28px; }
-.legal.sd-doc h3 { margin: var(--s3) 0 0; font-size: 18px; line-height: 24px; }
+.legal.sd-doc h2 { margin: 0; font-size: 1.375rem; line-height: 1.2728; }
+.legal.sd-doc h3 { margin: var(--s3) 0 0; font-size: 1.125rem; line-height: 1.3334; }
 .sd-doc ol { margin: 0; padding-inline-start: var(--s5); }
 .sd-doc li + li { margin-top: 4px; }
 .sd-doc ul:has(> li.sd-check) { padding-inline-start: 0; list-style: none; }
-.sd-doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; direction: ltr; unicode-bidi: isolate; }
+.sd-doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.875rem; direction: ltr; unicode-bidi: isolate; }
 .sd-doc hr { width: 100%; margin: var(--s4) 0; border: 0; border-top: 2px dashed var(--ink-2); }
 .t-fresh-letter { align-self: center; }
 .t-fresh-letter svg, .cai-letter svg { flex: none; }
@@ -628,13 +655,7 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
 .help-q { text-align: start; }
 .help-page { display: block; max-width: 100%; border: 1px solid var(--rule-strong); border-radius: 6px; }
 .qstrip { display: inline-flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
-/* the "מבחנים" tab (PRODUCT2-31): where each row came from, under its title; the empty tab says where exams will come from */
-.ex-src { display: block; margin-top: 2px; color: var(--ink-2); font-size: var(--t-xs, 13px); font-weight: 500; }
-.ex-empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); max-width: 60ch; }
-.ex-empty p { margin: 0; }
-.ex-empty-title { color: var(--ink); font-weight: 700; }
-.ex-empty-make { margin-top: var(--s2); }
-.qstrip i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 5px; font-style: normal; font-size: 11px; font-weight: 800; }
+.qstrip i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 5px; font-style: normal; font-size: 0.6875rem; font-weight: 800; }
 .help-page-btn { display: block; padding: 0; border: 0; background: none; cursor: zoom-in; max-width: 320px; }
 .help-page-btn .help-page { width: 100%; height: auto; }
 @media (hover: hover) {
@@ -675,7 +696,7 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
 .t-row { padding: var(--s3) 0; margin: 0; }
 .t-more { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 var(--s1); border: 0; background: none; font-weight: 700; color: var(--p-700); cursor: pointer; }
 .t-fresh { display: flex; flex-direction: column; align-items: center; gap: var(--s3); text-align: center; }
-.t-fresh-title { margin: 0; font-family: var(--font-display); font-size: 26px; color: var(--good-ink); }
+.t-fresh-title { margin: 0; font-family: var(--font-display); font-size: 1.625rem; color: var(--good-ink); }
 .t-fresh .code-pair { justify-content: center; }
 .t-head { background: var(--surface); color: var(--ink); border-bottom: 1px solid var(--rule); }
 .t-head-sub { color: var(--ink-2); }
@@ -685,14 +706,6 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
 .t-lock { margin-bottom: var(--s4); }
 .t-lock-row { font-weight: 700; }
 .t-goal-chip { min-height: 36px; }
-/* the weekly class goal's block (STUDENT-4) on the class settings page (TEACHER-9 §1.8): a settings group like the
-   others there (its set-box lays it out); the switch and the size field keep a phone's width on a wide screen */
-.t-goal-seg { max-width: 360px; }
-.t-goal-size { display: flex; flex-direction: column; gap: var(--s2); }
-.t-goal-size .field-label { margin: 0; }
-.t-goal-row { display: flex; gap: var(--s2); align-items: stretch; max-width: 360px; }
-.t-goal-row .input { flex: 1; min-width: 0; min-height: 48px; }
-.t-goal-size .form-error, .t-goal .field-hint { margin: 0; }
 .t-actions { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); white-space: nowrap; }
 /* (moved here from canon.css at the integration: .t-head's own rules above now load after canon.css, so the wide-screen
    inner width has to come after them, as it did there) */
@@ -700,3 +713,43 @@ a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0
   /* the header's name, code and buttons line up with the board's column (.t-main, 1100px) */
   .t-head { padding-inline: calc((100% - 1100px) / 2 + var(--s4)); }
 }
+
+/* large text (COUNCIL2-8, canon.css): the board's header wraps instead of pushing the page past the screen's edge */
+@media (max-width: 19.99em) {
+  .t-head-row { flex-wrap: wrap; }
+  .t-head .t-class { padding-inline-end: 0; }
+  .t-kpis { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- passing the class's work and the app on, with no student's name (COUNCIL2-35, COUNCIL2-36) */
+/* an assignment's link: Moodle's three fields, opened under the buttons (components/teacher/ShareWork.jsx) */
+.as-moodle-toggle { min-height: 44px; }
+.as-moodle { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--s4); border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--surface); }
+.as-moodle-lead { margin: 0; color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.as-fields { display: flex; flex-direction: column; gap: var(--s2); margin: 0; }
+.as-fields > div { display: flex; flex-direction: column; gap: 2px; }
+.as-fields dt { color: var(--ink-2); font-size: var(--t-xs); line-height: var(--lh-xs); font-weight: 700; }
+.as-fields dd { margin: 0; color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); overflow-wrap: anywhere; user-select: text; }
+/* the assignment's own sheet, its link section above the rows (AssignmentSheet.jsx) */
+.aw-share { margin-top: var(--s2); }
+/* the class goal in the header opens its card to share (Teacher.jsx) */
+.t-goal-btn { min-height: 44px; border: 2px solid var(--rule); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--t-sm); font-weight: 700; cursor: pointer; }
+.t-goal-btn svg { color: var(--brand); }
+.t-goal-btn:hover { border-color: var(--brand-line); }
+.t-goal-btn:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+button.t-tool { font: inherit; font-weight: 700; font-size: 1rem; cursor: pointer; }
+/* the two sheets (components/teacher/TeacherShares.jsx) */
+.ts-body { display: flex; flex-direction: column; gap: var(--s3); }
+.ts-lead { margin: 0; color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); }
+.ts-actions { display: flex; flex-direction: column; gap: var(--s1); }
+.ts-actions .btn { width: 100%; margin-inline: 0; }
+.ts-goal { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: var(--s4); border: 1px solid var(--brand-line); border-bottom: var(--lip) solid var(--brand-line); border-radius: var(--r-lg); background: var(--brand-tint); }
+.ts-goal.is-reached { border-color: var(--good-line); background: var(--good-tint); }
+.ts-goal-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.ts-goal-brand, .ts-goal-title { margin: 0; }
+.ts-goal-title { color: var(--ink); font-size: var(--t-md); line-height: var(--lh-md); font-weight: 800; }
+.ts-goal-count { margin: 0; color: var(--ink); font-size: var(--t-xl); line-height: var(--lh-xl); font-weight: 800; }
+.ts-goal-bar { height: 12px; border-radius: 999px; background: var(--surface); overflow: hidden; }
+.ts-goal-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--brand); }
+.ts-goal.is-reached .ts-goal-bar > i { background: var(--good); }
+.ts-goal-line { color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }

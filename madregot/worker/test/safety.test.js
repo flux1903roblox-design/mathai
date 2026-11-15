@@ -1,16 +1,18 @@
-// shared/safety.js: the support details, the prompt's safety block, the fixed care reply, and the distress detector
-// (trust spec TRUST-3 §3.1, Appendix E.1a, F and G). Every Appendix G phrase is here, with real Hebrew teen phrasing and
-// the maths sentences (algebra included) that must not trigger.
+// shared/safety.js and shared/distress.js: the support details, the prompt's safety block, the fixed care reply, and the
+// distress detector (trust spec TRUST-3 §3.1, Appendix E.1a, F and G). Every Appendix G phrase is here, with real Hebrew
+// teen phrasing and the maths sentences (algebra included) that must not trigger.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
-  SUPPORT, CARE_MARK, CARE_STATIC, ANTHROPIC_CHILD_PROMPT, safetyPrompt, normalize, detectDistress, DISTRESS_CATEGORIES,
+  SUPPORT, CARE_MARK, CARE_STATIC, ANTHROPIC_CHILD_PROMPT, safetyPrompt, normalize,
   maskPersonal, scanPersonal, validIsraeliId, scrubTitle, screenOutput, linkAllowed, blockHit, ALLOWED_LINK_HOSTS, BLOCKED_TEXT,
 } from '../../shared/safety.js';
+import { detectDistress, distressDetail, readsPersonal, DISTRESS_CATEGORIES } from '../../shared/distress.js';
 import { BLOCK_HE, BLOCK_EN } from '../../shared/blocklist.js';
+import { CORPUS_FLAG, CORPUS_CLEAR } from './fixtures/distress-corpus.js';
 
 const shared = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'shared');
 
@@ -159,6 +161,35 @@ const MUST_NOT_FLAG = [
   'אני לא יכול יותר עם שיטת ההצבה',
 ];
 
+// ---------------------------------------------------------------- the regression corpus (COUNCIL2-1/4)
+// CORPUS_FLAG and CORPUS_CLEAR live in test/fixtures/distress-corpus.js: the phrase set a school counsellor is to
+// review (an owner step; scripts/distress-sheet.mjs writes it as a sheet).
+
+// The council's two probes, word for word: trust/distress-probe.mjs (31 phrases) and trust-verify/probe2.mjs (56).
+const PROBE_FLAG = [
+  'בא לי למות', 'אני רוצה להיעלם', 'אין לי בשביל מה לחיות', 'אני שונא את החיים שלי', 'אבא שלי מרביץ לי', 'מישהו בטיקטוק ביקש שאשלח לו תמונה',
+  'אני לא רוצה לחיות יותר', 'חושבת לחתוך את עצמי', 'בא לי למות מהמבחן הזה', 'יש לי מחשבות אובדניות', 'אני בדיכאון', 'אני מרגיש ריק מבפנים',
+  'אני פוחדת מאבא שלי', 'שולחים לי הודעות מאיימות', 'אני רוצה לברוח מהבית', 'i want to kill myself', 'נמאס לי מהחיים', 'בא לי להתאבד',
+  'אני רוצה לישון ולא להתעורר', 'אמא שלי צועקת עליי כל יום ואני פוחדת', 'אני לא אוכלת כבר כמה ימים', 'חבר של אחי נגע בי', 'אף אחד לא אוהב אותי',
+  'אני מרגישה שאני לא שווה כלום', 'אני רוצה למות', 'רוצה למות',
+  'אני חושב על התאבדות', 'חושבת להתאבד', 'בא לי לגמור עם הכל', 'רוצה למותתתת', 'אני רוצה למות בגלל המבחן', 'אני רוצה למות מהמבחן',
+  'אני לא רוצה לחיות', 'אין לי טעם לחיות', 'אני פוגעת בעצמי', 'אני חותכת את עצמי', 'אבא שלי מכה אותי', 'אמא שלי מרביצה לי',
+  'מישהו ביקש ממני תמונות', 'מישהו ביקש ממני תמונה בלי בגדים', 'מישהו מאיים עליי', 'כולם צוחקים עליי', 'עושים לי חרם', 'אני בוכה כל יום',
+  'אין לי חברים', 'אני שונאת את עצמי', 'אני לא יכולה יותר', 'אני לא יכולה יותר עם החיים', 'בא לי למות.', 'אני רוצה למות!!!',
+  'אני רוצה להתאבד', 'לגמור עם החיים', 'אני רוצה לגמור עם הכל', 'אני רוצה לפגוע בעצמי', 'מתחשק לי לחתוך', 'חתכתי את היד',
+  'יש לי חתכים על היד', 'אני מקיאה אחרי שאני אוכלת', 'אני רעבה כל הזמן ואין אוכל בבית', 'הוא אמר לי לשמור סוד', 'מבוגר באינסטגרם רוצה לפגוש אותי',
+  'שלחתי תמונה ועכשיו הוא מאיים', 'הוא אומר שיפרסם את התמונות שלי', 'מקללים אותי בקבוצה', 'כולם בכיתה שונאים אותי', 'אני מרגישה לבד',
+  'אני כל כך עצובה', 'אני עצוב כל הזמן', 'אני לא רוצה להתעורר מחר', 'הלוואי שאמות', 'מתאבדת', 'בא לי להיעלם', 'אני הולכת לקפוץ מהגג',
+  'יש לי כדורים ואני רוצה לקחת את כולם', 'i want to die', 'im going to kill myself', 'kms',
+  // probe2 listed this one among the sentences that must not flag; being laughed at for not understanding is still
+  // bullying here, as "כולם צוחקים עליי כי לא הבנתי את התרגיל" above: a reason never hides it
+  'צוחקים עליי כי אני לא מבין שברים',
+];
+const PROBE_CLEAR = [
+  'המשוואה הזאת הורגת אותי', 'הישר חותך את ציר ה-x', 'אני לא יכול יותר עם השברים', 'תמות מצחוק', 'כמה זה 3 כפול 4?',
+  'התרגיל הזה הורג אותי', 'בא לי למות מצחוק', 'הגרף נחתך בנקודה 3',
+];
+
 test('every Appendix G phrase that must flag flags, with its category', () => {
   for (const [text, category] of MUST_FLAG) {
     assert.deepEqual(detectDistress(text), { flag: true, category }, text);
@@ -169,6 +200,62 @@ test('maths sentences, algebra vocabulary and maths frustration do not flag', ()
   for (const text of MUST_NOT_FLAG) assert.deepEqual(detectDistress(text), { flag: false, category: null }, text);
   assert.deepEqual(detectDistress(null), { flag: false, category: null });
   assert.deepEqual(detectDistress(undefined), { flag: false, category: null });
+});
+
+test('the regression corpus: 200+ disclosures flag, each with the category of its family', () => {
+  assert.ok(CORPUS_FLAG.length >= 200, `${CORPUS_FLAG.length} phrases`);
+  for (const [text, category] of CORPUS_FLAG) assert.deepEqual(detectDistress(text), { flag: true, category }, text);
+  // every family is there: suicidal thoughts, a plan, self-harm, fear at home, threats, bullying, running away, eating
+  const n = (cat) => CORPUS_FLAG.filter(([, c]) => c === cat).length;
+  for (const cat of DISTRESS_CATEGORIES) assert.ok(n(cat) >= 8, `${cat}: ${n(cat)}`);
+});
+
+test('the council\'s probes: every disclosure flags (31 + 56), and their maths sentences do not', () => {
+  const missed = PROBE_FLAG.filter((t) => !detectDistress(t).flag);
+  assert.deepEqual(missed, []);
+  for (const t of PROBE_CLEAR) assert.deepEqual(detectDistress(t), { flag: false, category: null }, t);
+});
+
+test('the regression corpus: maths words that are also distress words, and everyday school sentences, never flag', () => {
+  assert.ok(CORPUS_CLEAR.length >= 120, `${CORPUS_CLEAR.length} sentences`);
+  const flagged = CORPUS_CLEAR.map((t) => [t, detectDistress(t)]).filter(([, r]) => r.flag).map(([t, r]) => `${r.category}: ${t}`);
+  assert.deepEqual(flagged, []);
+});
+
+test('a first person or an intent decides: the same maths word flags only beside one', () => {
+  const pairs = [
+    ['הצפרדע קופצת מהנקודה 3', 'אני הולכת לקפוץ מהגג'],
+    ['בשקית 12 כדורים ונועה רוצה לקחת את כולם לגינה', 'יש לי כדורים ואני רוצה לקחת את כולם'],
+    ['x לא שווה 3', 'אני לא שווה כלום'],
+    ['הישר הולך לחתוך את הציר', 'מתחשק לי לחתוך'],
+    ['המורה פרסמה את התמונות מהטיול', 'הוא אומר שיפרסם את התמונות שלי'],
+    ['שלחתי תמונה של המחברת למורה', 'שלחתי תמונה ועכשיו הוא מאיים'],
+    ['אני רוצה לגמור עם הכל עד מחר', 'בא לי לגמור עם הכל'],
+    ['אני לא רוצה להתעורר מחר מוקדם', 'אני לא רוצה להתעורר מחר'],
+    ['אמא אמרה לי לשמור סוד על המתנה', 'הוא אמר לי לשמור סוד'],
+    ['המכונה סוחטת 3 תפוזים בדקה', 'מישהו סוחט אותי'],
+    ['אני מפחד מהמבחן', 'אני מפחד מאבא'],
+    ['אני ממש לבד בתרגיל הזה', 'אני ממש לבד'],
+  ];
+  for (const [maths, child] of pairs) {
+    assert.equal(detectDistress(maths).flag, false, maths);
+    assert.equal(detectDistress(child).flag, true, child);
+  }
+});
+
+test('final letters typed as ordinary ones, and a missing space, still flag; spaces kept as words keep the maths rule', () => {
+  assert.equal(detectDistress('אני רוצה לגמור עם החיימ').category, 'self_harm');
+  assert.equal(detectDistress('אין לי חברימ').category, 'distress');
+  assert.equal(detectDistress('רוצהלמות').category, 'self_harm');
+  assert.equal(detectDistress('מחשבותאובדניות').category, 'self_harm');
+  assert.equal(detectDistress('אניפוחדת מאבא שלי').category, 'abuse');
+  // "בא לי למות מצחוק" is laughter with its spaces or without them
+  assert.equal(detectDistress('באלילמותמצחוק').flag, false);
+  // a squashed distress phrase in a message about maths is about the maths
+  assert.equal(detectDistress('אנימרגישה לבד עם השברים').flag, false);
+  assert.equal(detectDistress('אני מרגישה לבד עם השברים').flag, false);
+  // "אובדן" (a loss) is not "אובדני"
+  assert.equal(detectDistress('אחוז האובדן בייצור הוא 5').flag, false);
 });
 
 test('the maths words are the app\'s own topics and stairs: each name after "עם" is maths frustration', async () => {
@@ -196,6 +283,67 @@ test('a message with several categories gets the most serious one', () => {
   assert.deepEqual([...DISTRESS_CATEGORIES], ['self_harm', 'abuse', 'danger', 'bullying', 'distress']);
   assert.equal(detectDistress('עושים לי חרם ואני רוצה למות').category, 'self_harm');
   assert.equal(detectDistress('אין לי חברים ואבא מרביץ לי').category, 'abuse');
+});
+
+test('the corpus has grown to 280 disclosures, and one sentence the review listed as maths still flags, by design', () => {
+  assert.ok(CORPUS_FLAG.length >= 280, `${CORPUS_FLAG.length} phrases`);
+  // "בא לי לחתוך" with nothing to cut reads as an urge to cut, as "מתחשק לי לחתוך" does (the council's own probe); with
+  // something to cut, or in a sentence about a line or a shape, it does not. It is never `sure`: no adult is alerted.
+  assert.deepEqual(distressDetail('בא לי לחתוך'), { flag: true, category: 'self_harm', categories: ['self_harm'], home: false, sure: false });
+  for (const maths of ['בא לי לחתוך את המשולש', 'בנקודה הזאת בא לי לחתוך', 'אני הולך לחתוך את המשולש לשניים']) assert.equal(detectDistress(maths).flag, false, maths);
+});
+
+test('distressDetail: every category that matched, whether the message is about home, and whether it is unambiguous', () => {
+  const d = (t) => distressDetail(t);
+  // a message with two categories names both, the most serious first
+  assert.deepEqual(d('אבא שלי מרביץ לי כל יום ואני רוצה למות'), { flag: true, category: 'self_harm', categories: ['self_harm', 'abuse'], home: true, sure: true });
+  assert.deepEqual(d('אני פוחדת מאבא שלי ויש לי מחשבות אובדניות').categories, ['self_harm', 'abuse']);
+  assert.deepEqual(d('עושים עליי חרם ואין לי אף אחד').categories, ['bullying', 'distress']);
+  // home: an abuse rule, or a parent or the home named beside anything else
+  for (const t of ['אבא שלי מרביץ לי', 'קשה לי בבית ואני רוצה להתאבד', 'אמא שלי לא יודעת שאני חותכת את עצמי', 'אני רוצה למות, ההורים שלי רבים כל הזמן', 'ابوي بيضربني وبدي اموت']) assert.equal(d(t).home, true, t);
+  for (const t of ['אני רוצה למות', 'אחי אני רוצה למות', 'עושים עליי חרם', 'بدي اموت']) assert.equal(d(t).home, false, t);
+  // ... also when no rule matches (the optional classifier may flag what the list does not)
+  assert.deepEqual(d('אמא שלי אומרת שאני סתם נטל על כולם'), { flag: false, category: null, categories: [], home: true, sure: false });
+  // sure: a plain statement of suicide or self-harm
+  for (const t of ['אני רוצה למות', 'אני רוצה להרוג את עצמי', 'יש לי מחשבות אובדניות', 'אני חותכת את עצמי', 'בלעתי 20 כדורים', 'שתיתי אקונומיקה',
+    'אני הולכת לקפוץ מהגג', 'אני רוצה לישון ולא להתעורר', 'i want to kill myself', 'بدي انتحر']) assert.equal(d(t).sure, true, t);
+  // never sure: a word that is also maths or slang, the softer rules, and every other category
+  for (const t of ['בא לי למות מהמבחן הזה', 'אני חותכת', 'מתחשק לי לחתוך', 'אני לא שווה כלום', 'בא לי להיעלם', 'נמאס לי מהחיים', 'אני רוצה לא להיות',
+    'יש לי כדורים ואני רוצה לקחת את כולם', 'רוצהלמות', 'אבא שלי מרביץ לי', 'עושים עליי חרם', 'אני בדיכאון']) {
+    assert.equal(d(t).flag, true, t); assert.equal(d(t).sure, false, t);
+  }
+  assert.deepEqual(d(''), { flag: false, category: null, categories: [], home: false, sure: false });
+  assert.deepEqual(d(null), { flag: false, category: null, categories: [], home: false, sure: false });
+});
+
+test('readsPersonal: a message that is not about maths at all (no digit, no maths or study word, three words or more)', () => {
+  // what the review typed with no parent's OK: with or without a rule for it, the screen shows the support card
+  for (const t of ['אני רוצה להרוג את עצמי', 'הוא אנס אותי', 'עושים עליי חרם', 'קשה לי מאוד בזמן האחרון', 'אף אחד לא מדבר איתי בבית', 'ההורים שלי מתגרשים ואני לא ישנה',
+    'انا تعبان من كل شي']) assert.equal(readsPersonal(t), true, t);
+  // maths, the lesson's own words, a number said in words, one or two words
+  for (const t of ['בלעתי 20 כדורים', 'אפשר רמז קטן?', 'כמה זה 3 ועוד 5', 'x שווה כמה', 'איך פותרים את זה', 'אני לא מבין כלום', 'איך מתחילים?', 'מה הטעות שלי?',
+    'למה התשובה שלילית', 'שלוש פחות חמש זה כמה', 'היי', 'תודה רבה', 'לא הבנתי', '', 'מה ההבדל בין חציון לממוצע?', 'אני רוצה לתרגל עוד שברים',
+    'איך מחשבים שטח של משולש', 'לא ברור לי השלב השני']) assert.equal(readsPersonal(t), false, t);
+});
+
+test('maskPersonal: an exercise about streets keeps its numbers, a list of digits for statistics is no phone, and an address with no street word is one (the review)', () => {
+  const same = (t) => assert.deepEqual(maskPersonal(t), { text: t, found: [] }, t);
+  // the mask ate the question: the two house numbers and ", מה ההפרש"
+  same('דני גר ברחוב הרצל 15 ויוסי ברחוב הרצל 27, מה ההפרש?');
+  same('נועה גרה ברחוב הגפן 8, כמה בתים בינה לבין בית מספר 20?');
+  same('0 5 4 1 2 3 4 5 6 7 מה החציון?');
+  same('סדרו את הספרות 0 5 2 1 2 3 4 5 6 7 מהקטנה לגדולה');
+  same('דני גר בקומה 3 ויוסי בקומה 7');
+  same('היא גרה בחיפה 5 שנים');
+  // a city after a comma is taken only when the sentence ends there
+  assert.deepEqual(maskPersonal('אני גר ברחוב הרצל 15, ואני לא מבין את התרגיל'), { text: 'אני גר ב[כתובת], ואני לא מבין את התרגיל', found: ['address'] });
+  assert.deepEqual(maskPersonal('אני גרה ברחוב הרצל 12, תל אביב. מה התשובה?'), { text: 'אני גרה ב[כתובת]. מה התשובה?', found: ['address'] });
+  // the same address said without a street word
+  assert.deepEqual(maskPersonal('אני גרה בהרצל 15 דירה 4 רמת גן'), { text: 'אני גרה ב[כתובת]', found: ['address'] });
+  assert.deepEqual(maskPersonal('הכתובת שלי: ויצמן 12 כפר סבא'), { text: 'הכתובת שלי: [כתובת]', found: ['address'] });
+  assert.deepEqual(maskPersonal('הכתובת שלנו היא בן גוריון 7, חולון'), { text: 'הכתובת שלנו היא [כתובת]', found: ['address'] });
+  // a spread-out phone with no statistics word beside it is still a phone
+  assert.deepEqual(maskPersonal('הטלפון שלי 0 5 4 1 2 3 4 5 6 7'), { text: 'הטלפון שלי [טלפון]', found: ['phone'] });
 });
 
 test('normalize: niqqud and cantillation, maqaf, geresh and gershayim, repeated letters, case and spaces; final letters stay', () => {
@@ -288,6 +436,28 @@ test('maskPersonal: Israeli phones in six formats, and a phone is a phone even i
   for (const m of ['0.5 + 0.25', '3.1234567', '(0.5)', '0.125 * 8']) assert.equal(maskPersonal(m).found.length, 0, `${m}: a decimal is not a phone`);
 });
 
+test('maskPersonal: a phone with its digits spread out or split oddly (COUNCIL2-9)', () => {
+  // the trust skeptic's two: every digit apart, and a group cut in the wrong place
+  for (const p of ['0 5 4 1 2 3 4 5 6 7', '05412345 67', '054 12 34 567', '0 3 1 2 3 4 5 6 7', '+972 5 4 1 2 3 4 5 6 7', '054-12-34-567']) {
+    assert.deepEqual(maskPersonal(`המספר שלי ${p} תתקשרו`), { text: 'המספר שלי [טלפון] תתקשרו', found: ['phone'] }, p);
+  }
+  // maths stays: a decimal, a list that is longer than a phone, digits that come after other digits, a chain of minus signs
+  for (const m of ['0.521234567', '3 0 5 4 1 2 3 4 5 6 7', '1 2 3 4 5 6 7 8 9 0', '0 5 4 1 2', '0-5-4-1-2-3-4-5-6-7', '0 5 4 1 2 3 4 5 6 7 8']) {
+    assert.equal(maskPersonal(m).found.length, 0, m);
+  }
+});
+
+test('maskPersonal: a street address with its number, and the city after it (COUNCIL2-9)', () => {
+  assert.deepEqual(maskPersonal('אני גרה ברחוב הרצל 12, תל אביב'), { text: 'אני גרה ב[כתובת]', found: ['address'] });
+  assert.deepEqual(maskPersonal('הכתובת: רח׳ בן יהודה 5א בחיפה. מה התשובה?'), { text: 'הכתובת: [כתובת]. מה התשובה?', found: ['address'] });
+  assert.deepEqual(maskPersonal('שדרות רוטשילד 40 תל אביב'), { text: '[כתובת] תל אביב', found: ['address'] }, 'the street and number go even when the city is not marked off');
+  assert.equal(maskPersonal('ברחוב שלנו 12 בתים, בכל בית 3 חלונות').found.length, 0, 'a word problem about a street');
+  assert.equal(maskPersonal('ברחוב יש 12 בתים').found.length, 0);
+  assert.equal(maskPersonal('הרחוב ארוך 300 מטר').found.length, 0, 'no street word right before a name');
+  assert.deepEqual(maskPersonal('0521234567, רחוב הגפן 3, רמת גן, a@b.co').found, ['email', 'phone', 'address'], 'the fixed order, address last');
+  assert.deepEqual(scanPersonal(['רחוב הגפן 3, רמת גן']), ['address']);
+});
+
 test('maskPersonal: emails; several kinds at once in a fixed order; scanPersonal counts them together', () => {
   assert.deepEqual(maskPersonal('כתבו לי ל-noa.k@example.test'), { text: 'כתבו לי ל-[מייל]', found: ['email'] });
   assert.deepEqual(maskPersonal('ת״ז 123456782, 0521234567, a@b.co').found, ['email', 'phone', 'id']);
@@ -361,7 +531,7 @@ test('maths and teaching words are never blocked, nor any text the app itself sh
   const files = [];
   const walk = (d) => { for (const e of readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(js|jsx|ts|md)$/.test(e.name) && !/\.test\./.test(e.name)) files.push(p); } };
   walk(path.join(root, 'content')); walk(path.join(root, 'screens'));
-  files.push(path.join(shared, 'ai.js'), path.join(shared, 'safety.js'), path.join(shared, 'helpLines.js'));
+  files.push(path.join(shared, 'ai.js'), path.join(shared, 'safety.js'), path.join(shared, 'helpLines.js'), path.join(shared, 'distress.js'));
   assert.ok(files.length > 20);
   for (const f of files) {
     readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
@@ -371,6 +541,28 @@ test('maths and teaching words are never blocked, nor any text the app itself sh
   }
 });
 
-test('blocklist.js and safety.js hold no regex lookbehind', () => {
-  for (const f of ['blocklist.js', 'safety.js']) assert.ok(!readFileSync(path.join(shared, f), 'utf8').includes('(?<'), f);
+test('blocklist.js, safety.js and distress.js hold no regex lookbehind', () => {
+  for (const f of ['blocklist.js', 'safety.js', 'distress.js']) assert.ok(!readFileSync(path.join(shared, f), 'utf8').includes('(?<'), f);
+});
+
+test('the counsellor\'s sheet (scripts/distress-sheet.mjs): every phrase of both lists, Hebrew and Arabic, with its family and two empty columns', async () => {
+  const { sheetRows, sheetCsv, FAMILY, LISTS, HEAD } = await import('../scripts/distress-sheet.mjs');
+  const { AR_FLAG, AR_CLEAR } = await import('./fixtures/distress-corpus.js');
+  const rows = sheetRows();
+  const arabic = Object.values(AR_FLAG).flat();
+  assert.equal(rows.length, CORPUS_FLAG.length + CORPUS_CLEAR.length + arabic.length + AR_CLEAR.length);
+  // each family has a name the counsellor can read, and every phrase that must flag carries one
+  assert.deepEqual(Object.keys(FAMILY), [...DISTRESS_CATEGORIES]);
+  for (const r of rows.filter((x) => x[0] === LISTS.flag)) assert.ok(Object.values(FAMILY).includes(r[2]), r[3]);
+  for (const r of rows.filter((x) => x[0] === LISTS.clear)) assert.equal(r[2], '');
+  // the sheet says what the detector does: a row of the first list flags, a row of the second does not
+  for (const r of rows) assert.equal(detectDistress(r[3]).flag, r[0] === LISTS.flag, r[3]);
+  for (const text of ['אני רוצה להרוג את עצמי', 'עושים עליי חרם', 'הצפרדע קופצת 3 צעדים ימינה על ציר המספרים', 'امي بتضربني كل يوم', 'للمعادلة حل وحيد']) assert.ok(rows.some((r) => r[3] === text), text);
+  // the file: a byte order mark (Excel reads Hebrew), the heading, every cell quoted, one line per phrase
+  const csv = sheetCsv();
+  assert.ok(csv.startsWith('\uFEFF"רשימה","שפה","סוג","ניסוח","נכון? (כן / לא)","הערה"\r\n'));
+  const lines = csv.trimEnd().split('\r\n');
+  assert.equal(lines.length, rows.length + 1);
+  assert.equal(HEAD.length, 6);
+  for (const line of lines.slice(1)) assert.match(line, /^"[^"]+","(עברית|ערבית)","[^"]*","(?:[^"]|"")+","",""$/);
 });

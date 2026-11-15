@@ -90,6 +90,8 @@ describe('the store listing', () => {
     expect(json.reviewNotes.play).toMatch(/consumption-only/);
     // the report button (TRUST-4) and the parent's OK (TRUST-9) are told to the reviewers only once their code is here
     expect(/reported in the app/.test(json.reviewNotes.play)).toBe('report-answer' in claims.shown);
+    // "subscribe on our website" only while a family plan is sold online there (COUNCIL2-30, shared/sold.js)
+    expect(/subscribe on our website/.test(json.reviewNotes.play)).toBe('subscribe-web' in claims.shown);
     expect(/parent's one-time approval/.test(json.reviewNotes.apple)).toBe('parent-ok' in claims.shown);
     expect(json.reviewNotes.apple).toMatch(/local notifications \(iOS\)/);
     for (const notes of Object.values(json.reviewNotes)) expect(notes).toMatch(/Test path: .*"מתחילים מההתחלה"/);

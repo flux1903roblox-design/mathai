@@ -24,7 +24,7 @@ function seed(ls) {
     profile: { role: 'student', name: 'נועה', grade: '7' }, progress: {}, days: {}, xp: 40, xpBy: { a1b2c3d4: 40 }, resetAt: null,
     path: {}, freezes: 0, goalXp: 20, sound: true, mistakes: {}, lastTopic: null, outbox: [], ai: { mode: 'server' },
     durable: { tag: 'a1b2c3d4' }, backup: { on: false }, helpSent: 0, solveMode: 'answer', exams: [], practiceExams: [],
-    planBase: {}, wins: {}, gaps: {}, placement: null, learn: emptyLearn(),
+    gaps: {}, placement: null, learn: emptyLearn(),
   };
   ls.setItem(KEY, JSON.stringify({ state, version: CURRENT_VERSION, meta: { rev: 5, at: '2026-11-05T08:00:00.000Z', tab: 'seed0000', parent: { rev: 4, tab: 'seed0000' }, keyAt: {}, seen: { seed0000: 5 }, app: 'test' } }));
   ls.setItem(REV, '5 seed0000');

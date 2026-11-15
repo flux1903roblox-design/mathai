@@ -18,7 +18,7 @@ describe('colour lint', () => {
 
   it('reads the loaded stylesheets and every component', () => {
     const names = colourFiles().map((f) => path.basename(f));
-    for (const f of ['app.css', 'v4.css', 'canon.css', 'motion.css', 'Mascot.jsx', 'LineBuilder.jsx', 'Learn.jsx', 'wardrobe.css', 'teacher.css', 'figure.css']) expect(names).toContain(f);
+    for (const f of ['app.css', 'canon.css', 'motion.css', 'Mascot.jsx', 'LineBuilder.jsx', 'Learn.jsx', 'wardrobe.css', 'teacher.css', 'figure.css']) expect(names).toContain(f);
     expect(names).not.toContain('tokens.css');
   });
 
@@ -54,7 +54,7 @@ describe('the token codemod', () => {
   });
 
   it('has nothing left to change in the committed stylesheets (it was run once and its output kept)', () => {
-    for (const f of ['app.css', 'v4.css', 'canon.css', 'motion.css']) {
+    for (const f of ['app.css', 'canon.css', 'motion.css']) {
       const css = read(f);
       const r = tokenize(css, f);
       expect(r.unmapped, f).toEqual([]);
@@ -168,7 +168,8 @@ describe('the dark theme (STUDENT-2 §4, §8)', () => {
   });
 
   it('keeps the notebook page and the QR code light, with their own light tokens', () => {
-    const canon = read('canon.css');
+    // the rule loads with the screens that draw them (lazy/shared.css, COUNCIL2-20)
+    const canon = read('lazy/shared.css');
     // the hand-over's QR and the backup code's QR (the family lane's BackupCodeSheet) share the rule
     const head = '.nb-page, .handoff-qr, .backup-qr {';
     expect(canon).toContain(head);

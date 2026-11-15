@@ -25,6 +25,9 @@ import { SIM_CHALLENGES } from './sim';
 import { SYS_CHALLENGES } from './sys';
 import { PROB_CHALLENGES } from './prob';
 import { SPACE_CHALLENGES } from './space';
+// an Arabic topic's tasks in Arabic, when the app is in Arabic (COUNCIL2-34): they come with the Arabic catalogue
+// @ts-ignore: plain JS
+import { arabicChallenge } from '@/content/arabic.js';
 
 export const CHALLENGE_TASKS: ChallengeTask[] = [
   ...FRAC_CHALLENGES, ...SIGNED_CHALLENGES, ...COORD_CHALLENGES, ...ANGLES_CHALLENGES, ...TRANSF_CHALLENGES, ...EXPR_CHALLENGES, ...AREA_CHALLENGES,
@@ -33,5 +36,5 @@ export const CHALLENGE_TASKS: ChallengeTask[] = [
   ...SPACE_CHALLENGES,
 ].sort((a, b) => TOPIC_ORDER.indexOf(a.topic) - TOPIC_ORDER.indexOf(b.topic));
 const BY_ID: Record<string, ChallengeTask> = Object.fromEntries(CHALLENGE_TASKS.map((t) => [t.id, t]));
-/** A task with its parts, by id; null when there is none. */
-export const taskById = (id: string): ChallengeTask | null => BY_ID[id] || null;
+/** A task with its parts, by id, in the language on screen (an Arabic topic's task in Arabic); null when there is none. */
+export const taskById = (id: string): ChallengeTask | null => arabicChallenge(id) || BY_ID[id] || null;

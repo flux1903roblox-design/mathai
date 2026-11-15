@@ -83,6 +83,17 @@ describe('supportLines: the support card, built from SUPPORT', () => {
     expect(readFileSync(new URL('../screens/teacher/HelpTab.jsx', import.meta.url), 'utf8')).toContain('<p className="help-care">כדאי לבדוק מה שלום התלמיד/ה</p>');
   });
 
+  it('under a message the tutor could not take ("held"): it says the tutor is not answering and that the words went to no one, with the first number at hand', () => {
+    const held = supportLines(SUPPORT, 'held');
+    expect(SUPPORT_VARIANTS).toContain('held');
+    expect(held.opening).toBe('העוזר החכם לא עונה עכשיו. אם מה שכתבתם הוא משהו שמציק לכם או מדאיג אתכם, לא צריך להתמודד עם זה לבד.');
+    expect(held.footer).toBe('העוזר החכם הוא תוכנה, לא אדם. מה שכתבתם לא נשלח לאף אחד.');
+    expect(held.quick.href).toBe('tel:1201');
+    // it does not presume the child is in distress: "if", and no "מה שכתבתם חשוב"
+    expect(held.opening).not.toContain('מה שכתבתם חשוב');
+    expect(held.services.map((x) => x.id)).toEqual(supportLines(SUPPORT, 'after-message').services.map((x) => x.id));
+  });
+
   it('speaks calmly: the link, the title, no price, no countdown, no pressure', () => {
     const lines = supportLines(SUPPORT, 'after-message');
     expect(lines.link).toBe(SUPPORT_LINK);
@@ -101,6 +112,8 @@ describe('piiLine: the quiet line under a message whose personal details the tut
     expect(piiLine(['email', 'phone'])).toBe('הסרנו מהשאלה מספר טלפון וכתובת מייל. אין צורך לשלוח לעוזר פרטים אישיים.');
     expect(piiLine(maskPersonal('ת״ז 123456782, 0521234567, a@b.co').found)).toBe('הסרנו מהשאלה מספר טלפון, כתובת מייל ומספר זהות. אין צורך לשלוח לעוזר פרטים אישיים.');
     expect(piiLine([])).toBe('');
+    // COUNCIL2-9: a home address is named too
+    expect(piiLine(maskPersonal('אני גר ברחוב הגפן 3, רמת גן. 0 5 4 1 2 3 4 5 6 7').found)).toBe('הסרנו מהשאלה מספר טלפון וכתובת מגורים. אין צורך לשלוח לעוזר פרטים אישיים.');
     expect(piiLine(maskPersonal('כמה זה 3 + 4?').found)).toBe('');
   });
 });

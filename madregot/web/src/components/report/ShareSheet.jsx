@@ -10,6 +10,7 @@ import { Sheet } from '@/components/ui.jsx';
 import { useApp } from '@/lib/store.js';
 import { copyText } from '@/lib/clipboard.js';
 import { encodeShare, shareLink, shareText, appBase, waHref } from '@/lib/share.js';
+import { hasServer, sameOrigin } from '@/lib/api.js';
 import { useReportWeek } from './useReportWeek.js';
 import '@/styles/report.css';
 
@@ -36,7 +37,8 @@ export function ShareSheet({ open, onOpenChange, start }) {
   const includeFixes = withFixes || !hasFixes;
   const { link, text } = useMemo(() => {
     if (week.empty) return { link: '', text: '' };
-    const l = shareLink(encodeShare(week, { includeFixes }), appBase());
+    // the Worker's own page for the link's preview when it serves this app (COUNCIL2-36); the week stays in the #
+    const l = shareLink(encodeShare(week, { includeFixes }), appBase(), { preview: hasServer() && sameOrigin() });
     return { link: l, text: shareText(week, { name, link: l, includeFixes }) };
   }, [week, name, includeFixes]);
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';

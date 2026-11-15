@@ -16,7 +16,8 @@ import { dlineValue, dlineAt, dlineNum, withUnit } from '@/content/manip.js';
 
 const W = 360; const H = 212; const PAD = 28; const L = W - 2 * PAD;
 const TOP = 74; const BOT = 152;
-const HEB = /[֐-׿]/;
+// a word (Hebrew or Arabic) reads right to left inside the drawing
+const HEB = /[֐-׿؀-ۿ]/;
 
 /**
  * Ticks of one line: values 0..max every step, and which carry a label: every `every`-th one, and further apart when the

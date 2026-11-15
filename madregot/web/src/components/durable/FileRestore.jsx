@@ -6,7 +6,8 @@ import { Upload } from 'lucide-react';
 import clsx from 'clsx';
 import { importBackup } from '@/lib/durable/file.js';
 
-export default function FileRestore({ onLoaded, label = 'לשחזר מקובץ', className }) {
+import { t } from '@/lib/i18n.js';
+export default function FileRestore({ onLoaded, label = t('shell.filerestore.1'), className }) {
   const id = useId();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);

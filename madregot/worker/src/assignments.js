@@ -14,14 +14,18 @@
 //   GET  /api/class/work                       the assignments for this student, with what they did on each
 //   GET  /api/class/work/:id/exam              the frozen questions of a class exam assigned to them
 //   POST /api/class/work/:id                   what they did: one monotonic upsert (never goes backwards)
+// The link a teacher shares (COUNCIL2-35: Google Classroom, a Moodle URL activity, the class's own channel):
+//   GET  /api/work/:id                         public: what the link needs before the student is in the class, and
+//                                              nothing about any student (publicAssignment below)
 // Deleting a student or a class deletes their work and targets (forget.js STUDENT_ROWS, classDeleteSteps); the night
 // purge deletes an assignment 400 days after its due date (cron.js, shared/retention.js).
 import { TOPIC_IDS } from '../../shared/ai.js';
 import { isStairMisc } from '../../shared/stairMiscs.gen.js';
-import { HttpError, body, json, nowIso, dayOf, nextDay, isDay, randomToken, key, take, giveBack, limitOrThrow } from './util.js';
-import { requireTeacher, requireStudent } from './entitle.js';
-import { classSeenStmt, teacherDetail } from './licence.js';
+import { HttpError, body, json, nowIso, dayOf, nextDay, isDay, randomToken, key, take, giveBack, limitOrThrow, netKey } from './util.js';
+import { requireTeacher, requireStudent, studentFrom } from './entitle.js';
+import { classSeenStmt, teacherDetail, joinLocked } from './licence.js';
 import { myHelp } from './help.js';
+import { meterDbSize } from './dbsize.js';
 
 const KB = 1024;
 export const ASSIGN = Object.freeze({
@@ -44,6 +48,8 @@ export const ASSIGN = Object.freeze({
    */
   checkQuestions: 5,
   checkNeed: 4,
+  /** Shared assignment links opened from one network in a day (ai_usage alink:n:<net>, publicAssignment). */
+  linksPerDay: 300,
 });
 const LIMIT = { create: 64 * KB, small: 4 * KB };
 /** Topics a teacher can assign: every stair topic of the app (the algebra lane's included), never 'other'. */
@@ -446,7 +452,7 @@ export function cleanWork(b, kind, { examCount = null } = {}) {
  * started_at, done_at and done_day (the Jerusalem day of the first 'done', compared with due_on) are set once.
  * 200 reports a student a day.
  */
-export async function postWork(id, req, env, cors) {
+export async function postWork(id, req, env, cors, ctx = null) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.small);
   const row = await mineRow(env, s, id);
@@ -454,7 +460,7 @@ export async function postWork(id, req, env, cors) {
   await limitOrThrow(env, `work:s:${s.id}`, ASSIGN.workPerDay, 429, 'slow_down');
   const now = nowIso(); const day = dayOf();
   const done = w.state === 'done';
-  const [up] = await env.DB.batch([
+  const res = await env.DB.batch([
     env.DB.prepare(`INSERT INTO assignment_work (assignment_id, student_id, state, stage, right_n, asked, passed, questions, tries, started_at, done_at, done_day, updated_at)
       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?10 WHERE EXISTS (SELECT 1 FROM assignments WHERE id = ?1)
       ON CONFLICT (assignment_id, student_id) DO UPDATE SET
@@ -473,7 +479,34 @@ export async function postWork(id, req, env, cors) {
     env.DB.prepare('UPDATE students SET last_seen = ? WHERE id = ?').bind(now, s.id),
     classSeenStmt(env, s.class_code),
   ]);
-  const mine = up?.results?.[0];
+  // every student write route feeds the size meter (dbsize.js, COUNCIL2-18)
+  ctx?.waitUntil?.(meterDbSize(env, res));
+  const mine = res[0]?.results?.[0];
   if (!mine) throw new HttpError(404, 'not_found');
   return json({ mine: mineView(mine) }, 200, cors);
+}
+
+// ---------------------------------------------------------------- the shared link (COUNCIL2-35)
+/**
+ * GET /api/work/:id → {assignment: {id, kind, skill, title, startsOn, dueOn}, class: {code, name, grade, open}}: what a
+ * shared assignment link needs to open the work for a student of the class, or to let them join it first. Public, and
+ * it says nothing about any student: no name, no count, no result, and not the teacher's note (a note can name a
+ * student). The class code is in it because the link is how a student joins; `open` is false while the teacher keeps
+ * the class closed to new students (class_locks). An unknown id, a deleted assignment or a deleted class is 404
+ * not_found; one network opens at most ASSIGN.linksPerDay links a day (429 slow_down). Only a caller with no class
+ * token is counted: a whole school shares one address, and a class student who taps the link is known already (the
+ * app opens it from the student's own GET /api/class/work and does not come here at all). The id is the assignment's
+ * own 16 random hex: it opens nothing on the teacher's routes, and a student's routes still need their class token.
+ */
+export async function publicAssignment(id, req, env, cors) {
+  if (!/^[a-f0-9]{16}$/.test(String(id))) throw new HttpError(404, 'not_found');
+  if (!(await studentFrom(req, env))) await limitOrThrow(env, `alink:n:${await netKey(req, env)}`, ASSIGN.linksPerDay, 429, 'slow_down');
+  const row = await first(env, `SELECT a.id, a.kind, a.skill, a.title, a.starts_on, a.due_on, c.code, c.name, c.grade
+    FROM assignments a JOIN classes c ON c.code = a.class_code WHERE a.id = ?`, String(id));
+  if (!row) throw new HttpError(404, 'not_found');
+  const open = !(await joinLocked(env, row.code));
+  return json({
+    assignment: { id: row.id, kind: row.kind, skill: row.skill, title: row.title, startsOn: row.starts_on, dueOn: row.due_on },
+    class: { code: row.code, name: row.name, grade: row.grade, open },
+  }, 200, cors);
 }

@@ -26,9 +26,9 @@ const traces = (needles, skip = () => false) => tablesText().filter((r) => needl
 
 /** A class student with data in every student table and every counter a student can have. */
 async function busyStudent(cls, s) {
-  const events = Array.from({ length: 20 }, (_, i) => ({ topic: 'neg', level: 1, ok: i % 2 === 0, first: i === 0, cat: 'sign', secs: 9 }));
-  assert.equal((await h.call('POST', '/api/progress', { headers: bearer(s), body: { events, levels: { neg: { level: 2, max: 2 } } } })).status, 200);
-  assert.equal((await h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'neg', question: '3 - 8', answer: '5', image: IMAGE } })).status, 200);
+  const events = Array.from({ length: 20 }, (_, i) => ({ topic: 'signed', level: 1, ok: i % 2 === 0, first: i === 0, cat: 'sign', secs: 9 }));
+  assert.equal((await h.call('POST', '/api/progress', { headers: bearer(s), body: { events, levels: { signed: { level: 2, max: 2 } } } })).status, 200);
+  assert.equal((await h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'signed', question: '3 - 8', answer: '5', image: IMAGE } })).status, 200);
   assert.equal((await h.call('POST', '/api/help', { headers: bearer(s), body: { kind: 'talk' } })).status, 200);
   assert.equal((await h.call('POST', '/api/exams', { headers: bearer(s), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } })).status, 200);
   // the teacher's AI switch for the student, with its audit row (target student:<id>)
@@ -179,3 +179,47 @@ test(`delete all is limited to ${FORGET_NET_DAILY} a day from one network`, asyn
   assert.equal((await r.json()).error, 'too_many_requests');
   assert.equal((await forget({ 'X-Device': INSTALL }, '198.51.100.9')).status, 200, 'another network is not affected');
 });
+
+// ---------------------------------------------------------------- no counter of a student is forgotten by the list
+// The review found alert:s:<id> (the adult's alert of the day) left behind after "delete all" and after the teacher's
+// removal: its prefix was not in STUDENT_COUNTERS. The lists are read against the code itself now: every counter key
+// that worker/src builds from a student's id or a class's code must be on the list that deletes it.
+test('every counter key the Worker builds from a student id or a class code is on the list that deletes it', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { CLASS_COUNTERS } = await import('../src/forget.js');
+  const dir = fileURLToPath(new URL('../src/', import.meta.url));
+  const files = readdirSync(dir, { recursive: true }).filter((f) => String(f).endsWith('.js'));
+  const found = { s: new Set(), c: new Set() };
+  for (const f of files) {
+    const src = readFileSync(`${dir}${f}`, 'utf8');
+    // `write:s:${student.id}...`, `alert:s:${...}`: the prefix up to and with ":s:" (a student) or ":c:" (a class)
+    for (const m of src.matchAll(/`([a-z:]*:(s|c):)\$\{/g)) found[m[2]].add(m[1]);
+    // the PIN's own keys carry the id with no ":s:" (`pin:${id}...`)
+    for (const m of src.matchAll(/`(pin:)\$\{/g)) found.s.add(m[1]);
+  }
+  assert.ok(found.s.size >= 6 && found.c.size >= 6, `the scan reads the code: ${[...found.s]} / ${[...found.c]}`);
+  assert.deepEqual([...found.s].filter((p) => !STUDENT_COUNTERS.includes(p)), [], 'student counters missing from STUDENT_COUNTERS');
+  assert.deepEqual([...found.c].filter((p) => !CLASS_COUNTERS.includes(p)), [], 'class counters missing from CLASS_COUNTERS');
+});
+
+for (const how of ['the student\'s own "delete all"', 'the teacher removes the student']) {
+  test(`SAFETY_ALERTS on: ${how} takes the alert's counter and the joined mark with the student`, async () => {
+    const { ai, claudeReply } = await import('./helpers.js');
+    h = await setup({ SAFETY_ALERTS: 'on' }, { claude: (p) => claudeReply(p, { text: '[[care]]\nתודה שכתבת.' }) });
+    const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+    const [s, other] = cls.students;
+    for (const x of [s, other]) await ai(h, 'chat', bearer(x), { body: { messages: [{ role: 'user', content: 'אני רוצה למות' }], context: { question: '3 - 8', correct: '-5' } } });
+    await h.ctx.flush();
+    const mine = () => rows(h.env, "SELECT who FROM ai_usage WHERE who LIKE '%' || ? || '%'", s.studentId).map((r) => r.who.replace(/^(joined:s:[a-f0-9]+):[a-f0-9]{16}$/, '$1:<net>'));
+    assert.ok(mine().includes(`alert:s:${s.studentId}`) && mine().includes(`joined:s:${s.studentId}:<net>`), `before: ${mine()}`);
+    const r = how.startsWith('the student')
+      ? await h.call('POST', '/api/me/forget', { headers: bearer(s), body: {} })
+      : await h.call('POST', `/api/teacher/students/${s.studentId}/remove`, { headers: cls.teacher, body: {} });
+    assert.equal(r.status, 200);
+    await h.ctx.flush();
+    assert.deepEqual(mine(), [], 'no counter with her id is left');
+    assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ?', s.studentId).n, 0, 'the alert\'s request went with her');
+    assert.equal(countOf(h.env, `alert:s:${other.studentId}`), 1, 'the classmate keeps his');
+  });
+}

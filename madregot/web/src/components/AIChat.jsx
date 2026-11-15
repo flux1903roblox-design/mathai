@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Send } from 'lucide-react';
-import { detectDistress, maskPersonal } from '@shared/safety.js';
+import { maskPersonal } from '@shared/safety.js';
+import { detectDistress, readsPersonal } from '@shared/distress.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { aiAccess, useAIStatus, needIntro, openLimitSheet } from '@/lib/account.js';
 import { Button } from './ui.jsx';
@@ -10,7 +11,7 @@ import { Thinking } from './ui.jsx';
 import AIAllowance from './AIAllowance.jsx';
 import Mascot from './Mascot.jsx';
 import SupportCard from './SupportCard.jsx';
-import { SupportLink } from './SupportSheet.jsx';
+import { HelpLine, SupportLink } from './SupportSheet.jsx';
 import ReportAnswer from './ReportAnswer.jsx';
 import { CLASS_OFF_LINE, waitingLine } from './limitCopy.js';
 import { useApp } from '@/lib/store.js';
@@ -22,8 +23,11 @@ const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה �
 const MISTAKE_STARTER = 'מה הטעות שלי?';
 const THINK = ['קורא את התרגיל', 'חושב על הדרך', 'מנסח הסבר'];
 
-/** Only the conversation goes to the tutor: never the support cards, never a flag. */
-const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'assistant').map(({ role, content }) => ({ role, content }));
+/**
+ * Only the conversation goes to the tutor: never the support cards, never a flag, and never a message that was held
+ * back on the device (`held`: it was not sent, and it stays that way when the tutor is back).
+ */
+const toTutor = (list) => list.filter((m) => (m.role === 'user' || m.role === 'assistant') && !m.held).map(({ role, content }) => ({ role, content }));
 
 /**
  * Chat with the AI tutor, optionally about the exercise on screen. `context` is what the tutor is told: the version-2
@@ -38,6 +42,10 @@ const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'as
  * Distress first (trust spec TRUST-3 §3.5): a message that reads as distress shows the support card at once, on the
  * device, whatever the tutor's state (resting, busy, offline). It still goes to the tutor when there is one (the server
  * answers it on its care path, never counted, never refused); a failure there is silent and the card stays.
+ * A word list is never complete, so there is a second net: when the tutor cannot answer (it rests, the class has it off,
+ * no parent's OK yet, or the request failed) and the message that was held back is not about maths at all (readsPersonal:
+ * no digit, no maths or study word), the support card shows under it too, in its "held" words. Such a message is shown
+ * as the child wrote it and is sent nowhere, now or later.
  * Help counts as help (ai spec AI-3 Design 5): `onAsk` is called when help arrives (the first words of the reply, or a
  * whole reply that is not care), never for a message that reads as distress or a request that failed, so the lesson can
  * mark the open exercise as answered with help. `footnote`: one
@@ -102,6 +110,14 @@ export default function AIChat({ context, intro, introTitle, restLine, restCard 
     if (!content) return;
     const care = detectDistress(content).flag;
     if (!care && (pending || resting)) {
+      // the tutor cannot answer, and this is not a maths question: the support card, under the child's own words. No
+      // sheet opens over it, and the message goes nowhere.
+      if (resting && readsPersonal(content)) {
+        const id = ++sendRef.current;
+        setMessages((ms) => [...ms, { role: 'user', content, held: true }, { role: 'support', id, held: true }]);
+        setDraft(''); setError(''); setRestBack(false);
+        return;
+      }
       // the tutor rests today: the draft stays where it is, and the calm card in the dock says why
       if (resting) {
         setRestBack(true);
@@ -150,6 +166,12 @@ export default function AIChat({ context, intro, introTitle, restLine, restCard 
       if (care) return;
       // a limit is said calmly by the sheet and the card below, never as a red error
       if (!e.limit) setError(e.message);
+      // the tutor could not answer (a limit the device did not know of, no network, a failure) and this was not a maths
+      // question: the message stays as the child wrote it, held, with the support card under it
+      if (readsPersonal(content)) {
+        setMessages((ms) => { const at = ms.lastIndexOf(user); return at >= 0 ? [...ms.slice(0, at), { ...user, held: true }, { role: 'support', id: mine, held: true }, ...ms.slice(at + 1)] : ms; });
+        return;
+      }
       setMessages((ms) => { const at = ms.lastIndexOf(user); return at >= 0 ? [...ms.slice(0, at), ...ms.slice(at + 1)] : ms; });
       setDraft(content);
     } finally {
@@ -161,7 +183,7 @@ export default function AIChat({ context, intro, introTitle, restLine, restCard 
     return (
       <div className="chat-off">
         <p className="muted">העוזר עוד לא מחובר. אפשר לחבר אותו בהגדרות.</p>
-        <SupportLink />
+        <HelpLine />
       </div>
     );
   }
@@ -193,7 +215,7 @@ export default function AIChat({ context, intro, introTitle, restLine, restCard 
             return (
               <Fragment key={`support-${m.id ?? i}`}>
                 {pending && i === messages.length - 1 && thinking}
-                <div className="chat-support"><SupportCard variant="after-message" /></div>
+                <div className="chat-support"><SupportCard variant={m.held ? 'held' : 'after-message'} /></div>
               </Fragment>
             );
           }
@@ -237,7 +259,8 @@ export default function AIChat({ context, intro, introTitle, restLine, restCard 
                 </>
               )}
             </div>
-            <SupportLink className="chat-rest-support" />
+            {/* the link and ער״ן's number, in every resting state (COUNCIL2-4) */}
+            <HelpLine className="chat-rest-support" />
           </section>
         )}
         {messages.length === 0 && !resting && (
@@ -261,7 +284,9 @@ export default function AIChat({ context, intro, introTitle, restLine, restCard 
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           <button type="submit" className="icon-btn send" disabled={!draft.trim() || (pending && !detectDistress(draft).flag)} aria-label="שליחה"><Send size={20} aria-hidden="true" /></button>
         </form>
-        {!showRest && <SupportLink className="chat-support-link" />}
+        {/* the tutor rests with no calm card (the assistant tab waiting for a parent's OK, PRODUCT2-40): the link and
+            ער״ן's number under the input all the same, as in every resting state (COUNCIL2-4) */}
+        {!showRest && (resting && !restCard ? <HelpLine className="chat-rest-support" /> : <SupportLink className="chat-support-link" />)}
       </div>
     </div>
   );

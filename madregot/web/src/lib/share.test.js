@@ -313,3 +313,17 @@ describe('reg. 3(5): nothing a child sees in the report mentions a plan or a pri
     }
   });
 });
+
+describe('the link preview page (COUNCIL2-36)', () => {
+  it('opens /r where the Worker serves the app, and keeps the week in the # either way', () => {
+    const w = maximal();
+    const payload = encodeShare(w);
+    expect(shareLink(payload, BASE)).toBe(`${BASE}#/r/${payload}`);
+    const l = shareLink(payload, BASE, { preview: true });
+    expect(l).toBe(`${BASE}r#/r/${payload}`);
+    // what a server (and so the preview) sees of the link: the address before the #, with nothing of the week in it
+    const seen = l.split('#')[0];
+    expect(seen).toBe(`${BASE}r`);
+    expect(seen).not.toContain(payload.slice(2, 12));
+  });
+});

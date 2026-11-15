@@ -1,0 +1,19 @@
+{
+  "//": "The static check of the Worker's money, vault and storage code (COUNCIL2-21): `npm run typecheck`, with the TypeScript of ../web/node_modules (the Worker installs no TypeScript of its own). Only the files marked `// @ts-check` are checked; the types they share are in src/types.js.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "WebWorker"],
+    "types": [],
+    "strict": true,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false
+  },
+  "include": ["src/types.js", "src/util.js", "src/entitle.js", "src/billing.js", "src/vault.js"]
+}

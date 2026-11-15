@@ -27,6 +27,7 @@ import { Segments } from '@/components/ds.jsx';
 import { workBanner, mineOf } from '@/lib/classWork.js';
 import { workFromLearn, mergeWork, recheckDue } from '@/learn/assignments.ts';
 import { Emblem } from '@/components/map/emblems.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/journey.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 export const CHALLENGE_CARD = 'אתגר · לבחירה';

@@ -4,12 +4,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { readiness, formatReadiness, NOT_CHECKED, RANDOM_SECRETS } from '../src/readiness.js';
-import { readToml, devVarNames, unappliedFrom } from '../scripts/owner.mjs';
+import { readDeployConfig, devVarNames, unappliedFrom } from '../scripts/owner.mjs';
 import { legalMissing, LEGAL_VARS } from '../src/billing.js';
 import { setup } from './helpers.js';
 
 const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+const shipped = readDeployConfig(fileURLToPath(new URL('../wrangler.toml', import.meta.url)));
 const MIGRATIONS = readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
 const ALWAYS = ['AUTH_SECRET', 'IP_HASH_SECRET', 'ANTHROPIC_API_KEY'];
 /** Every business detail the legal pages show, synthetic. */
@@ -20,15 +22,15 @@ const LEGAL_FILLED = {
 /** A complete live configuration with the paid tutor on and Grow as the provider. */
 const complete = () => ({
   vars: {
-    ...readToml(toml).vars, PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', EMAIL_FROM: 'מדרגות <hello@example.test>',
+    ...shipped.vars, PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', EMAIL_FROM: 'מדרגות <hello@example.test>',
     AI_PAYWALL: 'on', BILLING_PROVIDER: 'grow', BILLING_MODE: 'live', GROW_API_BASE: 'https://grow.example.test/api/light/server/1.0/',
     BILLING_CHECKOUT_HOSTS: 'pay.example.test', GROW_DIRECT_DEBIT_API: 'on',
     // the legal gate (TRUST-2, TRUST-13): the business details, the EU database and the lawyer's approval of this version
-    ...LEGAL_FILLED, LEGAL_APPROVED: readToml(toml).vars.TERMS_VERSION,
+    ...LEGAL_FILLED, LEGAL_APPROVED: shipped.vars.TERMS_VERSION,
   },
   databaseId: '00000000-0000-0000-0000-000000000000',
   secrets: new Set([...ALWAYS, 'RESEND_API_KEY', 'WEBHOOK_PATH_SECRET', 'VAULT_SECRET', 'GROW_USER_ID', 'GROW_PAGE_CODE_ONCE', 'GROW_PAGE_CODE_RECURRING', 'GROW_API_KEY']),
-  migrationsApplied: MIGRATIONS, migrationsInRepo: MIGRATIONS, ratelimits: readToml(toml).ratelimits, health: { ok: true },
+  migrationsApplied: MIGRATIONS, migrationsInRepo: MIGRATIONS, ratelimits: shipped.ratelimits, health: { ok: true },
 });
 const failing = (r) => r.items.filter((i) => !i.ok && i.required).map((i) => i.id);
 
@@ -101,10 +103,59 @@ test('the daily reminder (STUDENT-11): nothing while PUSH is off; with it on, th
   assert.equal(readiness(c).ok, true);
 });
 
-test('wrangler.toml as the doctor reads it: the vars, the database id and the edge bindings', () => {
-  const t = readToml(toml);
+test('the database size notice (COUNCIL2-18): empty or 1-10240 MB passes; the four edge limiters are a reminder', () => {
+  const c = complete();
+  assert.equal(c.vars.DB_SIZE_NOTICE_MB, '400', 'wrangler.toml ships 400');
+  assert.equal(readiness(c).items.find((i) => i.id === 'db:size-notice').ok, true);
+  for (const bad of ['0', '-5', 'abc', '20000']) {
+    const x = complete(); x.vars.DB_SIZE_NOTICE_MB = bad;
+    assert.deepEqual(failing(readiness(x)), ['db:size-notice'], bad);
+  }
+  const e = complete(); e.vars.DB_SIZE_NOTICE_MB = '';
+  assert.equal(readiness(e).ok, true, 'empty: the 400 MB default');
+  const r = complete(); r.ratelimits = ['RL_AUTH', 'RL_AI', 'VAULT_RL'];
+  const edge = readiness(r).items.find((i) => i.id === 'edge:bindings');
+  assert.equal(edge.ok, false); assert.equal(edge.required, false);
+  assert.match(edge.need, /RL_WRITE/);
+  assert.equal(readiness(complete()).items.find((i) => i.id === 'edge:bindings').ok, true);
+});
+
+test('the second reader and the adult\'s alert (COUNCIL2-9): off as shipped; "off" or "on" only; an alert needs the email', () => {
+  const c = complete();
+  assert.equal(c.vars.MODERATION, 'off', 'wrangler.toml ships it off');
+  assert.equal(c.vars.SAFETY_ALERTS, 'off', 'wrangler.toml ships it off');
+  assert.equal(readiness(c).ok, true);
+  for (const [name, id] of [['MODERATION', 'ai:moderation'], ['SAFETY_ALERTS', 'ai:safety-alerts']]) {
+    const x = complete(); x.vars[name] = 'yes';
+    assert.deepEqual(failing(readiness(x)), [id], name);
+    const y = complete(); y.vars[name] = 'on';
+    assert.equal(readiness(y).ok, true, `${name} on`);
+  }
+  const a = complete(); a.vars.SAFETY_ALERTS = 'on'; a.vars.EMAIL_FROM = '';
+  assert.ok(failing(readiness(a)).includes('mail:safety-alerts'));
+  assert.match(formatReadiness(readiness(a)), /SAFETY_ALERTS דולק אבל EMAIL_FROM ריק/);
+  assert.match(formatReadiness(readiness(a)), /^! בינה מלאכותית: SAFETY_ALERTS דולק: לוודא שהמשפט על התראות בדף הבטיחות/m, 'the public text, as a reminder');
+});
+
+test('the open tier\'s dollar budget (COUNCIL2-19): with the paywall off it must be a positive amount; with it on there is no rule', () => {
+  const c = complete(); c.vars.AI_PAYWALL = 'off';
+  assert.equal(c.vars.OPEN_DAILY_BUDGET_USD, '25', 'wrangler.toml ships 25');
+  assert.equal(readiness(c).items.find((i) => i.id === 'ai:open-budget').ok, true);
+  for (const bad of ['0', '-1', 'abc']) {
+    const x = complete(); x.vars.AI_PAYWALL = 'off'; x.vars.OPEN_DAILY_BUDGET_USD = bad;
+    assert.deepEqual(failing(readiness(x)), ['ai:open-budget'], bad);
+    assert.match(formatReadiness(readiness(x)), /^✗ בינה מלאכותית: OPEN_DAILY_BUDGET_USD .*Anthropic/m);
+  }
+  const e = complete(); e.vars.AI_PAYWALL = 'off'; e.vars.OPEN_DAILY_BUDGET_USD = '';
+  assert.equal(readiness(e).ok, true, 'empty: the 25 USD default');
+  assert.ok(!readiness(complete()).items.some((i) => i.id === 'ai:open-budget'), 'the paywall on: the paid tiers have their own breakers');
+});
+
+test('wrangler.toml as the doctor reads it (wrangler\'s own reader): the vars, the database id and the edge bindings', () => {
+  const t = shipped;
+  assert.equal(t.error, undefined);
   assert.equal(t.databaseId, 'REPLACE_WITH_DATABASE_ID');
-  assert.deepEqual(t.ratelimits.sort(), ['RL_AI', 'RL_AUTH', 'VAULT_RL']);
+  assert.deepEqual(t.ratelimits.sort(), ['RL_AI', 'RL_AUTH', 'RL_WRITE', 'VAULT_RL']);
   assert.equal(t.vars.BILLING_PROVIDER, 'manual');
   assert.equal(t.vars.FAMILY_MONTHLY_BUDGET_USD, '4');
   assert.deepEqual(devVarNames('AUTH_SECRET=abc\n# note\nVAULT_SECRET="x=y"\n  RESEND_API_KEY = re_123\n'), ['AUTH_SECRET', 'VAULT_SECRET', 'RESEND_API_KEY']);
@@ -183,7 +234,7 @@ test('legal:approved: LEGAL_APPROVED must name the current TERMS_VERSION; a new 
 test('legal:moe: the Ministry\'s approval is a reminder that says what "none" means for schools and their trial requests', () => {
   const c = complete();
   const none = legalItem(readiness(c), 'legal:moe');
-  assert.equal(readToml(toml).vars.MOE_AI_APPROVAL, 'none');
+  assert.equal(shipped.vars.MOE_AI_APPROVAL, 'none');
   assert.equal(none.ok, false);
   assert.equal(none.required, false);
   assert.equal(readiness(c).ok, true, 'never a failure');
@@ -195,4 +246,45 @@ test('legal:moe: the Ministry\'s approval is a reminder that says what "none" me
   assert.equal(legalItem(readiness(c), 'legal:moe').ok, true);
   c.vars.MOE_AI_APPROVAL = 'yes';
   assert.equal(legalItem(readiness(c), 'legal:moe').ok, false, 'anything but "approved" is "none" (shared/schoolRules.js rulesEnv)');
+});
+
+// ---------------------------------------------------------------- the review's fixes
+test('the exam pass ships with no price: nothing sells it and no page prints it, and the doctor reminds the owner once a provider that sells is set', async () => {
+  const { sellsOnline } = await import('../../shared/sold.js');
+  const { plansView } = await import('../src/billing.js');
+  assert.equal(shipped.vars.PRICE_EXAM_PASS_AGOROT, '', 'wrangler.toml [vars]: empty, never a placeholder');
+  const staging = /^\[env\.staging\.vars\]$([\s\S]*?)(?=^\[)/m.exec(toml)[1];
+  assert.match(staging, /^PRICE_EXAM_PASS_AGOROT = ""$/m, '[env.staging.vars] too');
+  assert.doesNotMatch(toml.replace(/^#.*$/gm, ''), /3900/, 'no ₪39 anywhere a deploy reads');
+  // the review's step (BILLING_PROVIDER grow, GROW_DIRECT_DEBIT_API off) with the shipped vars: the year is sold, the pass is not
+  const grow = { ...shipped.vars, AI_PAYWALL: 'on', BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off' };
+  assert.equal(sellsOnline(grow, 'family_year'), true);
+  assert.equal(sellsOnline(grow, 'exam_pass'), false);
+  const pass = plansView(grow).plans.find((p) => p.id === 'exam_pass');
+  assert.deepEqual([pass.amountAgorot, pass.online], [null, false]);
+  // the doctor: a reminder (never a failure), only while a provider that sells is set and the price is empty
+  const c = complete();
+  const item = readiness(c).items.find((i) => i.id === 'pay:exam-pass-price');
+  assert.deepEqual([item.ok, item.required], [false, false]);
+  assert.equal(readiness(c).ok, true, 'a reminder never fails the check');
+  assert.match(formatReadiness(readiness(c)), /^! תשלום: חבילת המבחן לא נמכרת: PRICE_EXAM_PASS_AGOROT ריק/m);
+  const priced = complete(); priced.vars.PRICE_EXAM_PASS_AGOROT = '3900';
+  assert.ok(!readiness(priced).items.some((i) => i.id === 'pay:exam-pass-price'));
+  const manual = complete(); manual.vars.BILLING_PROVIDER = 'manual';
+  assert.ok(!readiness(manual).items.some((i) => i.id === 'pay:exam-pass-price'));
+});
+
+test('the open tier\'s parts and the write budgets\' multiplier: shipped values pass; a part of 0 or a multiplier of 0.5 fails', () => {
+  const open = () => { const c = complete(); c.vars.AI_PAYWALL = 'off'; return c; };
+  assert.deepEqual([shipped.vars.OPEN_ACCOUNT_DAILY_USD, shipped.vars.OPEN_CLASS_DAILY_USD, shipped.vars.OPEN_INFLIGHT_USD, shipped.vars.WRITE_BUDGET_SCALE], ['3', '3', '20', '1']);
+  assert.equal(readiness(open()).ok, true);
+  for (const [name, bad] of [['OPEN_ACCOUNT_DAILY_USD', '0'], ['OPEN_CLASS_DAILY_USD', 'abc'], ['OPEN_INFLIGHT_USD', '-1']]) {
+    const c = open(); c.vars[name] = bad;
+    assert.deepEqual(failing(readiness(c)), [`ai:${name.toLowerCase()}`], `${name} = ${bad}`);
+  }
+  const strict = open(); strict.vars.OPEN_INFLIGHT_USD = '0';
+  assert.equal(readiness(strict).ok, true, '0 is the strict rule');
+  for (const bad of ['0', '0.5', '21', 'x']) { const c = complete(); c.vars.WRITE_BUDGET_SCALE = bad; assert.deepEqual(failing(readiness(c)), ['db:write-scale'], bad); }
+  const empty = complete(); empty.vars.WRITE_BUDGET_SCALE = '';
+  assert.equal(readiness(empty).ok, true);
 });

@@ -58,6 +58,7 @@ function ReportCard() {
 }
 
 import Mascot from '@/components/Mascot.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/me.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 export default function Me() {

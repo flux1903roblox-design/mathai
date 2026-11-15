@@ -1,4 +1,4 @@
-// What the first load must not carry (the boot split, QA_DURABLE.md): the files main.jsx reaches through static imports
+// What the first load must not carry (the boot split, QA_DURABLE.md; COUNCIL2-14 and COUNCIL2-37 for the rest): the files main.jsx reaches through static imports
 // are the boot chunk, so none of them may be exercise code: a topic's generators (any src/content/*.js that defines a
 // stair's `gen`), the checkers and the figures' words (content/index.js, content/manip.js), a challenge task's parts
 // (learn/challenges/<topic>.ts and all.ts), a topic's teaching (learn/content/<topic>.ts), or the engines that make and
@@ -59,6 +59,14 @@ const TEACHING = list('learn/content', /\.ts$/).filter((f) => !/\/(index|meta\.g
 const ENGINES = ['src/content/index.js', 'src/content/manip.js', 'src/lib/lesson.js', 'src/lib/placement.js', 'src/lib/exam.js', 'src/lib/seeds.js', 'src/learn/items.ts'];
 // the lesson summaries (key ideas, words, examples): only the guide page reads them (screens/Topic.jsx)
 const GUIDE = ['src/content/lessons.js', 'src/content/lessons.gen.js'];
+// what else loads after the first screen (COUNCIL2-14, COUNCIL2-37): the tutor's prompts and the code that builds them
+// (shared/ai.js, the personal-key path in lib/ai.js), the sheet's dialog, the choice controls, motion's animation
+// features, Base UI, KaTeX and markdown
+const LATER = [
+  '../shared/ai.js', '../shared/pedagogy.js', '../shared/guard.js', '../shared/topicWays.js', '../shared/tutorContext.js', 'src/lib/ai.js',
+  'src/components/SheetDialog.jsx', 'src/components/choices.jsx', 'src/lib/motionFeatures.js',
+  'package:@base-ui/react', 'package:katex', 'package:react-markdown',
+];
 
 describe('the first load (the files main.jsx imports statically)', () => {
   const boot = bootGraph();
@@ -66,6 +74,19 @@ describe('the first load (the files main.jsx imports statically)', () => {
   it('holds no exercise generator, checker, challenge part, teaching file, exercise engine or lesson summary', () => {
     const found = [...GENERATORS, ...TASKS, ...TEACHING, ...ENGINES, ...GUIDE].filter((f) => boot.files.includes(f));
     expect(found.map(boot.why)).toEqual([]);
+  });
+
+  it('holds none of the tutor\'s prompts, the sheet\'s dialog, the choice controls, motion\'s features, Base UI, KaTeX or markdown', () => {
+    expect(LATER.filter((f) => boot.files.includes(f)).map(boot.why)).toEqual([]);
+    for (const f of LATER.filter((x) => !x.startsWith('package:'))) expect(existsSync(resolve(WEB, f)), f).toBe(true);
+  });
+
+  it('motion\'s animation features load after the first screen: LazyMotion gets a function, strict, and no boot file names domAnimation or domMax', () => {
+    const app = readFileSync(join(SRC, 'App.jsx'), 'utf8');
+    expect(app).toMatch(/<LazyMotion features=\{loadMotionFeatures\} strict>/);
+    expect(readFileSync(join(SRC, 'lib/motion.js'), 'utf8')).toMatch(/export const loadMotionFeatures = \(\) => import\('\.\/motionFeatures\.js'\)/);
+    const named = boot.files.filter((f) => !f.startsWith('package:') && /\b(domAnimation|domMax)\b/.test(read(f)));
+    expect(named).toEqual([]);
   });
 
   it('the lists are real: the generator files of today\'s topics, every task file, every teaching file, every engine', () => {

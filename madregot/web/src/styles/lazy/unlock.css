@@ -8,7 +8,7 @@
   animation: unlock-rays-in 0.6s ease-out 0.2s both, unlock-rays-turn 24s linear 0.2s infinite; }
 @keyframes unlock-rays-in { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
 @keyframes unlock-rays-turn { to { rotate: 1turn; } }
-.unlock-name { display: inline-block; margin: 0; padding: 4px 14px; border-radius: 999px; background: var(--gold-tint); color: var(--gold-ink); font-size: 17px; line-height: 24px; font-weight: 700; }
+.unlock-name { display: inline-block; margin: 0; padding: 4px 14px; border-radius: 999px; background: var(--gold-tint); color: var(--gold-ink); font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; }
 .unlock-stage .done-copy { align-items: center; }
 @media (prefers-reduced-motion: reduce) { .done-hero > .unlock-rays { animation: none; opacity: 0.6; } }
 @media (max-height: 640px) { .done-hero > .unlock-rays { width: 200px; height: 200px; margin: -100px 0 0 -100px; } }

@@ -34,6 +34,7 @@ import { flushNotices } from './email.js';
 import { SUPPORT } from '../../shared/safety.js';
 import { studentsDeleteSteps, classDeleteSteps, countSteps } from './forget.js';
 import { RETENTION } from '../../shared/retention.js';
+import { PLAN_IDS, recurringPlan } from '../../shared/sold.js';
 import { helpDigest, digestHour } from './help.js';
 import { errorsOf, errorsNoticeDue, purgeErrorsSql } from './errors.js';
 import { vaultNight, vaultStats, purgeIdentitySql } from './vault.js';
@@ -53,8 +54,14 @@ const auditStmt = (env, action, target, detail) => env.DB.prepare('INSERT INTO a
   .bind(nowIso(), 'cron', action, target, JSON.stringify(detail || {}));
 
 /**
+ * The plans that end at their end: the owner's grants (term, trial) and every plan paid once (the one-year plans, the
+ * exam pass): every plan but the one that renews by itself (shared/sold.js).
+ */
+export const ENDS_AT_END = Object.freeze(['term', 'trial', ...PLAN_IDS.filter((p) => !recurringPlan(p))]);
+/**
  * Plans whose time is over. The monthly plan, which renews by itself, is left to the provider's renewal events while it
- * is active; a one-year plan ends at its end like a licence (trust spec TRUST-10 §1): nothing is charged again.
+ * is active; a one-year plan and the exam pass end at their end like a licence (trust spec TRUST-10 §1, COUNCIL2-33):
+ * nothing is charged again.
  */
 export async function endFinished(env) {
   const now = nowIso();
@@ -62,7 +69,7 @@ export async function endFinished(env) {
   const r = await env.DB.batch([
     env.DB.prepare("UPDATE subscriptions SET status = 'ended', ended_reason = 'payment_failed', updated_at = ? WHERE status = 'past_due' AND current_period_end <= ?").bind(now, grace),
     env.DB.prepare(`UPDATE subscriptions SET status = 'ended', ended_reason = 'expired', updated_at = ?
-      WHERE status = 'active' AND plan IN ('term', 'trial', 'class_year', 'family_year') AND current_period_end <= ?`).bind(now, now),
+      WHERE status = 'active' AND plan IN (${ENDS_AT_END.map((p) => `'${p}'`).join(', ')}) AND current_period_end <= ?`).bind(now, now),
     env.DB.prepare("UPDATE subscriptions SET status = 'ended', ended_reason = COALESCE(ended_reason, 'canceled'), updated_at = ? WHERE status = 'canceled' AND current_period_end <= ?").bind(now, now),
   ]);
   return changes(r);
@@ -149,8 +156,9 @@ export async function reminders(env) {
 
 /**
  * Old counters (periods in shared/retention.js): daily (and hourly) rows after RETENTION.aiUsageDays, monthly rows
- * after RETENTION.aiUsageMonths (length(day) keeps them apart), and the tutor's quality counts (ai_quality) after
- * RETENTION.aiQualityDays.
+ * after RETENTION.aiUsageMonths (length(day) keeps them apart), the tutor's quality counts (ai_quality) after
+ * RETENTION.aiQualityDays, and the database size meter's days (meters db_size:<day>, dbsize.js) after
+ * RETENTION.aiUsageDays, like the daily counters.
  */
 export function purgeCountersSql(env, now = new Date()) {
   const R = RETENTION;
@@ -161,6 +169,7 @@ export function purgeCountersSql(env, now = new Date()) {
     env.DB.prepare('DELETE FROM ai_usage WHERE length(day) >= 10 AND day < ?').bind(dayOf(new Date(now.getTime() - R.aiUsageDays * DAY))),
     env.DB.prepare('DELETE FROM ai_usage WHERE length(day) = 7 AND day < ?').bind(oldMonth),
     env.DB.prepare('DELETE FROM ai_quality WHERE day < ?').bind(dayOf(new Date(now.getTime() - R.aiQualityDays * DAY))),
+    env.DB.prepare("DELETE FROM meters WHERE name >= 'db_size:' AND name < ?").bind(`db_size:${dayOf(new Date(now.getTime() - R.aiUsageDays * DAY))}`),
   ];
 }
 
@@ -209,6 +218,7 @@ export const PURGE_ROUNDS = 5;
 
 /**
  * Class data past its time (spec TRUST-7; the periods are in shared/retention.js), as [name, statement] steps:
+ * a teacher's one-time claim code once it has expired (COUNCIL2-25),
  * notebook pages 30 days after the request was closed (60 at most), help requests 180 days after closing (365 at most)
  * with their help_meta rows and the replies on them, attempts and exams after 400 days, assignments 400 days after
  * their due date (with their work and targets), students nobody has seen for 400 days (with all their rows and
@@ -242,6 +252,9 @@ export function purgeClassSteps(env, now = new Date()) {
     // the replies on a request that is gone (TEACHER-6): the help step above, or anything that removed one
     ['helpMessages', stmt(`DELETE FROM help_messages WHERE id IN (SELECT m.id FROM help_messages m
       WHERE NOT EXISTS (SELECT 1 FROM help_requests h WHERE h.id = m.help_id) LIMIT ${N})`)],
+    // a teacher's one-time claim code (COUNCIL2-25) past its end: it no longer works, so its hash goes (RETENTION.claimCodeDays)
+    ['claimCodes', stmt(`UPDATE students SET claim_hash = NULL, claim_expires = NULL WHERE id IN (SELECT id FROM students
+      WHERE claim_expires IS NOT NULL AND claim_expires < ? LIMIT ${N})`, now.toISOString())],
     ['attempts', stmt(`DELETE FROM attempts WHERE id IN (SELECT id FROM attempts WHERE at < ? LIMIT ${N})`, iso(R.attemptsDays))],
     ['exams', stmt(`DELETE FROM exams WHERE id IN (SELECT id FROM exams WHERE created_at < ? LIMIT ${N})`, iso(R.examsDays))],
     // assignments 400 days after their due date (a Jerusalem day): what was done on them and who they were for first,

@@ -12,7 +12,8 @@
 // Grow's "live environment" page, ending with /), or, only when BILLING_MODE = "test", the sandbox below. Every call
 // carries userId (GROW_USER_ID) and, when Grow issued one, apiKey (GROW_API_KEY). The answer is { status, err, data }:
 // status 1 is success.
-//   createPaymentProcess  pageCode (GROW_PAGE_CODE_RECURRING for the monthly plan, GROW_PAGE_CODE_ONCE otherwise), sum,
+//   createPaymentProcess  pageCode (GROW_PAGE_CODE_RECURRING for the monthly plan, GROW_PAGE_CODE_ONCE for the one-year
+//                         family plan, the exam pass and the class licence: one charge, no standing order), sum,
 //                         description, successUrl, cancelUrl, notifyUrl, cField1 (our order id), pageField[email] (Grow
 //                         sends its receipt there). No name or phone is sent: Grow's page asks the payer. The standing
 //                         order's period is the recurring page's own setting at Grow (monthly, no end).
@@ -31,11 +32,13 @@
 // Codes: statusCode 0 not paid, 2 paid, 4 canceled before transmission, 6 refund, 9 denied; paymentType 1 standing
 // order, 2 regular, 4 instalments.
 import { HttpError } from '../util.js';
+import { sellsOnline, recurringPlan } from '../../../shared/sold.js';
 
 export const GROW_SANDBOX = 'https://sandbox.meshulam.co.il/api/light/server/1.0/';
 export const GROW_DESCRIPTIONS = {
   family_month: 'מדרגות · מנוי משפחתי חודשי',
   family_year: 'מדרגות · מנוי משפחתי לשנה',
+  exam_pass: 'מדרגות · חבילת מבחן ל־30 יום',
   class_year: 'מדרגות · רישיון כיתה לשנה',
 };
 const STATUS = { 2: 'paid', 6: 'refunded', 4: 'canceled', 9: 'failed' };
@@ -98,7 +101,8 @@ function callbackData(raw, headers) {
         if (!m) continue;
         if (m[2]) { d[m[1]] = d[m[1]] && typeof d[m[1]] === 'object' ? d[m[1]] : {}; d[m[1]][m[2]] = v; } else d[m[1]] = v;
       }
-      return d;
+      // no field of a form: a JSON body sent without its Content-Type is read as JSON below
+      if (Object.keys(d).length) return d;
     }
   }
   try {
@@ -118,10 +122,8 @@ function paymentDate(v) {
   return Number.isFinite(t) ? new Date(t).toISOString() : null;
 }
 
-/** Whether the monthly plan can be sold: Grow must have enabled updateDirectDebit (a cancel stops the standing order). */
+/** Whether Grow has enabled updateDirectDebit for us (a cancel can stop the standing order). */
 const directDebit = (env) => String(env.GROW_DIRECT_DEBIT_API || 'off').trim().toLowerCase() === 'on';
-/** The plans that are a standing order (the rest are one charge). */
-export const RECURRING_PLANS = ['family_month'];
 
 const grow = {
   id: 'grow',
@@ -129,16 +131,17 @@ const grow = {
   /** The capabilities for this deployment: cancelApi only once Grow enabled updateDirectDebit. */
   capabilitiesOf(env) { return { ...grow.capabilities, cancelApi: directDebit(env) }; },
   /**
-   * Plans sold online here: the class licence (one charge, it never renews) always; the monthly plan (a standing order)
-   * once Grow enabled updateDirectDebit. The yearly family plan stays off here: the family lane wrote this adapter when
-   * that plan still renewed. On the main branch it is TRUST-10's one-year plan that never renews (one charge, like the
-   * class licence); selling it through Grow, with its renewal and the /parents line for one-time plans, is a follow-up.
+   * Plans sold online here (shared/sold.js, the one rule the pages read too): the plans paid once, the family year
+   * (TRUST-10: it never renews by itself), the exam pass (COUNCIL2-33, once its price is set) and the class licence, are
+   * one charge on GROW_PAGE_CODE_ONCE, always; the monthly plan (a standing order) once Grow enabled updateDirectDebit
+   * (COUNCIL2-30).
    */
-  planOnline(env, plan) { return plan === 'class_year' || (plan === 'family_month' && directDebit(env)); },
+  planOnline(env, plan) { return sellsOnline(env, plan, 'grow'); },
   enabled: (env) => !!(env.GROW_USER_ID && env.GROW_PAGE_CODE_ONCE && growBase(env)),
 
   async createCheckout(env, { order, plan, customerEmail, returnUrl, cancelUrl, notifyUrl }) {
-    const recurring = RECURRING_PLANS.includes(plan);
+    // a standing order on the recurring page; the one-year plans are one charge on the one-time page, no standing order
+    const recurring = recurringPlan(plan);
     const pageCode = recurring ? env.GROW_PAGE_CODE_RECURRING : env.GROW_PAGE_CODE_ONCE;
     if (!pageCode || !grow.planOnline(env, plan)) throw new HttpError(501, 'checkout_not_configured');
     let data;
@@ -150,9 +153,9 @@ const grow = {
         cField1: order.id,
         'pageField[email]': customerEmail,
       }, { pageCode });
-    } catch (e) {
-      if (e instanceof GrowError) throw new HttpError(502, 'checkout_unavailable');
-      throw e;
+    } catch {
+      // call() turns every failure into a GrowError, which says only the method (it is logged there)
+      throw new HttpError(502, 'checkout_unavailable');
     }
     return { url: String(data.url || ''), providerCheckoutId: `${data.processId}:${data.processToken}` };
   },

@@ -36,6 +36,8 @@ export const RELEASE = String(import.meta.env?.VITE_RELEASE || 'dev').slice(0, L
  */
 export const ROUTES = Object.freeze([
   '/', '/parents', '/parents/link', '/parents/info', '/cancel', '/terms', '/privacy', '/accessibility', '/safety', '/restore', '/r/:data', '/r', '/f/:data', '/f',
+  // a teacher's shared assignment link (COUNCIL2-35): the pattern only, never the id
+  '/a/:id',
   '/teacher/*', '/subscription', '/quests', '/topics', '/topic/:id', '/assistant', '/me', '/settings', '/settings/advanced', '/report',
   '/exams', '/exams/check', '/exams/new', '/exams/practice/:id', '/exams/:id', '/plan', '/learn/:topic/:level', '/mission', '/rescue', '/lesson/:topic/:level', '/practice/:id',
   '/placement', '/learn/:topic/:level/:stage', '/repair/:topic/:level/:misc', '/rescue/check', '/rescue/exam',

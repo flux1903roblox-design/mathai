@@ -16,7 +16,8 @@ import { upcoming, leftText, whereText } from '@/lib/rewards.js';
 import { TOPIC } from '@/content/topics.js';
 import Mascot from '@/components/Mascot.jsx';
 import ChestChoice, { useChestOffer } from '@/components/learn/ChestChoice.jsx';
-import { Sheet, Button, Choices, Choice, ChoiceMark, Progress } from '@/components/ui.jsx';
+import { Sheet, Button, Progress } from '@/components/ui.jsx';
+import { Choices, Choice, ChoiceMark } from '@/components/choices.jsx';
 import { count } from '@/lib/metrics.js';
 import '@/styles/lazy/wardrobe.css'; // this screen's own rules, loaded with it (STUDENT-15)
 

@@ -13,7 +13,7 @@ import { useApp } from '@/lib/store.js';
 import { reminderState, enable, disable } from '@/lib/push.js';
 import { errorText } from '@/lib/api.js';
 import { SLOTS, DEFAULT_SLOT, REMINDER_TEXT as T } from '@/lib/reminder.js';
-import { Segmented } from '@/components/ui.jsx';
+import { Segmented } from '@/components/choices.jsx';
 import InstallSheet from '@/components/durable/InstallSheet.jsx';
 import '@/styles/lazy/durable.css'; // the saving rules, loaded with this screen (FOLLOWUP-23)
 

@@ -8,8 +8,8 @@
 .report { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
 .report-week { display: flex; flex-direction: column; gap: var(--s4); }
 .report-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--s3); }
-.report-title { margin: 0; font-size: 22px; line-height: 28px; font-weight: 800; color: var(--ink); }
-.report-dates { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--ink-2); }
+.report-title { margin: 0; font-size: 1.375rem; line-height: 1.2728; font-weight: 800; color: var(--ink); }
+.report-dates { margin: 0; font-size: 1rem; line-height: 1.5; font-weight: 600; color: var(--ink-2); }
 .report-strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--s1); }
 .report-day { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
 .report-dot { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--rule-strong); background: var(--surface); color: var(--on-brand); }
@@ -17,15 +17,15 @@
 .report-day.is-rest .report-dot { background: var(--ground); border-color: var(--ground); color: var(--ink-2); }
 .report-day.is-future .report-dot { border-style: dashed; }
 .report-day.is-today .report-dot { box-shadow: 0 0 0 3px var(--brand-tint); }
-.report-day-name { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ink-2); }
+.report-day-name { font-size: 0.875rem; line-height: 1.4286; font-weight: 600; color: var(--ink-2); }
 .report-day.is-today .report-day-name { color: var(--brand-d); font-weight: 800; }
 .report-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
 .report-sec { display: flex; flex-direction: column; gap: var(--s3); }
-.report-sec-title { margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); }
-.report-sub, .report-empty-line, .report-asof { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink-2); }
-.report-line { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.report-sec-title { margin: 0; font-size: 1.25rem; line-height: 1.3; font-weight: 700; color: var(--ink); }
+.report-sub, .report-empty-line, .report-asof { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--ink-2); }
+.report-line { margin: 0; font-size: 1.0625rem; line-height: 1.5295; color: var(--ink); }
 .report-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
-.report-list li { display: flex; align-items: flex-start; gap: var(--s2); min-width: 0; font-size: 17px; line-height: 24px; color: var(--ink); }
+.report-list li { display: flex; align-items: flex-start; gap: var(--s2); min-width: 0; font-size: 1.0625rem; line-height: 1.4118; color: var(--ink); }
 .report-checks svg { flex: none; margin-top: 3px; color: var(--good-ink); }
 .report-dots li::before { content: ''; flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--brand); }
 .report-dots li.report-more { color: var(--ink-2); }
@@ -35,13 +35,13 @@
 .report-fix:first-child { padding-top: 0; }
 .report-fix + .report-fix { border-top: 2px solid var(--rule); }
 .report-fix-text { display: flex; flex-direction: column; min-width: 0; }
-.report-fix-stair { font-size: 15px; line-height: 22px; color: var(--ink-2); }
-.report-fix-name { font-size: 17px; line-height: 24px; font-weight: 600; color: var(--ink); }
-.report-tag { flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap; }
+.report-fix-stair { font-size: 0.9375rem; line-height: 1.4667; color: var(--ink-2); }
+.report-fix-name { font-size: 1.0625rem; line-height: 1.4118; font-weight: 600; color: var(--ink); }
+.report-tag { flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; font-size: 0.875rem; line-height: 1.4286; font-weight: 700; white-space: nowrap; }
 .report-tag.is-open { background: var(--brand-tint); color: var(--brand-d); }
 .report-tag.is-done { background: var(--good-tint); color: var(--good-ink); }
-.report-tips { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s2); font-size: 17px; line-height: 26px; color: var(--ink); }
-.report-note, .report-intro, .report-foot-note { margin: 0; }
+.report-tips { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s2); font-size: 1.0625rem; line-height: 1.5295; color: var(--ink); }
+.report .report-note, .report-intro, .report-foot-note { margin: 0; } /* inside the report only: the child's "report an answer" sheet has a .report-note of its own (canon.css) */
 .report-send-hint { margin: 0; text-align: center; }
 .report-about { margin: 0; text-align: center; }
 .report-about a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s3); font-weight: 600; }
@@ -49,14 +49,14 @@
 
 /* the share sheet: the exact message in a quoted box (its link on one line), one choice, then the ways to send it */
 .share-body { display: flex; flex-direction: column; gap: var(--s3); }
-.share-lead, .share-empty { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.share-lead, .share-empty { margin: 0; font-size: 1.0625rem; line-height: 1.5295; color: var(--ink); }
 .share-lead { font-weight: 700; }
-.share-quote { margin: 0; padding: var(--s3) var(--s4); border-inline-start: 4px solid var(--brand-line); border-radius: 12px; background: var(--ground); display: flex; flex-direction: column; gap: 2px; font-size: 16px; line-height: 24px; color: var(--ink); }
+.share-quote { margin: 0; padding: var(--s3) var(--s4); border-inline-start: 4px solid var(--brand-line); border-radius: 12px; background: var(--ground); display: flex; flex-direction: column; gap: 2px; font-size: 1rem; line-height: 1.5; color: var(--ink); }
 .share-quote p { margin: 0; overflow-wrap: anywhere; }
 .share-quote .share-quote-link { display: flex; gap: 4px; min-width: 0; white-space: nowrap; }
 .share-quote-link > span { flex: none; }
 .share-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--brand-d); }
-.share-check { display: flex; align-items: center; gap: var(--s3); min-height: 44px; font-size: 17px; line-height: 24px; color: var(--ink); cursor: pointer; }
+.share-check { display: flex; align-items: center; gap: var(--s3); min-height: 44px; font-size: 1.0625rem; line-height: 1.4118; color: var(--ink); cursor: pointer; }
 .share-check input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--brand); }
 .share-actions { display: flex; flex-direction: column; gap: var(--s1); }
 .share-actions .btn { width: 100%; margin-inline: 0; }
@@ -64,9 +64,9 @@
 /* one day in words (PARENTS-4, ReportView variant "day"): the sharing sheet's "what is sent today" and the rows sent
    last. A label and its value on one line, the value at the end; a long value (stair names, repairs) wraps under it. */
 .report-dayview { gap: var(--s2); }
-.report-dayview-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.report-dayview-title { margin: 0; font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; color: var(--ink); }
 .report-daylist { margin: 0; display: flex; flex-direction: column; }
-.report-daylist-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--rule); font-size: 16px; line-height: 24px; }
+.report-daylist-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--rule); font-size: 1rem; line-height: 1.5; }
 .report-daylist-row:first-child { border-top: 0; padding-top: 0; }
 .report-daylist-row dt { color: var(--ink-2); }
 .report-daylist-row dd { margin: 0; color: var(--ink); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
@@ -76,14 +76,14 @@
 /* the sharing sheet (PARENTS-4, components/SharingSheet.jsx): the state, today's row, the rows sent last, what is never
    sent, how long it is kept, and the child's switch */
 .sharing-body { display: flex; flex-direction: column; gap: var(--s4); }
-.sharing-status { margin: 0; font-size: 17px; line-height: 26px; font-weight: 700; color: var(--ink); }
+.sharing-status { margin: 0; font-size: 1.0625rem; line-height: 1.5295; font-weight: 700; color: var(--ink); }
 .sharing-sec { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
-.sharing-head { margin: 0; font-size: 17px; line-height: 24px; font-weight: 800; color: var(--ink); }
+.sharing-head { margin: 0; font-size: 1.0625rem; line-height: 1.4118; font-weight: 800; color: var(--ink); }
 .sharing-last { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
 .sharing-last .btn { min-height: 44px; }
 .sharing-rows { display: flex; flex-direction: column; gap: var(--s4); }
 .sharing-rows .report-dayview + .report-dayview { padding-top: var(--s3); border-top: 2px solid var(--rule); }
-.sharing-never, .sharing-kept, .sharing-hint { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.sharing-never, .sharing-kept, .sharing-hint { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--ink-2); }
 .sharing-forget { justify-content: flex-start; text-align: start; font-weight: 600; }
 
 /* the child's sign (ICO standard 11): a quiet pill on the profile that opens the sheet */
@@ -102,30 +102,30 @@
    previews, the 8 weeks, and the parent's controls at the bottom. Early states are calm notes in the card. 320px wide. */
 .parents-report { display: flex; flex-direction: column; gap: var(--s4); }
 .parents-report-head { display: flex; flex-direction: column; gap: 2px; }
-.parents-report-title { margin: 0; font-size: 24px; line-height: 30px; font-weight: 800; color: var(--ink); scroll-margin-top: 72px; }
-.parents-report-sub { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.parents-report-title { margin: 0; font-size: 1.5rem; line-height: 1.25; font-weight: 800; color: var(--ink); scroll-margin-top: 72px; }
+.parents-report-sub { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--ink-2); }
 .report-device-wrap { display: flex; flex-direction: column; gap: var(--s4); }
 .report-device { gap: var(--s4); min-width: 0; }
 .report-device-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px var(--s3); }
-.report-device-sync { margin: 0; font-size: 15px; line-height: 22px; color: var(--ink-2); }
+.report-device-sync { margin: 0; font-size: 0.9375rem; line-height: 1.4667; color: var(--ink-2); }
 .report-device .report { gap: var(--s3); }
 .report-device .report .card { border-width: 2px; box-shadow: none; }
 .report-week-empty { display: flex; flex-direction: column; gap: 2px; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); }
-.report-week-empty-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
-.report-ended, .report-noplan { line-height: 24px; }
+.report-week-empty-title { margin: 0; font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; color: var(--ink); }
+.report-ended, .report-noplan { line-height: 1.4118; }
 /* sharing paused on the child's device: a calm note with since when and what the parent can do (no colour of alarm) */
-.report-off-note { display: flex; flex-direction: column; gap: var(--s2); line-height: 24px; }
+.report-off-note { display: flex; flex-direction: column; gap: var(--s2); line-height: 1.4118; }
 .report-off-note p { margin: 0; }
-.report-off-title { font-size: 17px; font-weight: 700; }
+.report-off-title { font-size: 1.0625rem; font-weight: 700; }
 /* an exam within a week on a device (PRODUCT2-30), above the cards: the same words as the Sunday email's line */
 .report-exam-soon { border-color: var(--brand-line); background: var(--brand-tint); }
-.report-exam-soon p { line-height: 24px; color: var(--ink); }
+.report-exam-soon p { line-height: 1.4118; color: var(--ink); }
 
 /* the first day: what will come, what never comes, and an example that says it is one */
 .report-device .state-card { padding: var(--s4); text-align: start; align-items: stretch; }
 .report-device .state-card .mascot, .report-device .state-card svg.mascot { align-self: center; }
-.report-device .state-title { font-family: var(--font-ui); font-size: 20px; line-height: 26px; text-align: center; }
-.report-device .state-body { display: flex; flex-direction: column; gap: var(--s2); font-size: 16px; line-height: 24px; color: var(--ink); text-align: start; }
+.report-device .state-title { font-family: var(--font-ui); font-size: 1.25rem; line-height: 1.3; text-align: center; }
+.report-device .state-body { display: flex; flex-direction: column; gap: var(--s2); font-size: 1rem; line-height: 1.5; color: var(--ink); text-align: start; }
 .report-device .state-body p { margin: 0; }
 .report-state-head { font-weight: 700; }
 .report-state-list { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: 2px; }
@@ -138,36 +138,36 @@
 .report-email { padding-block: var(--s3); }
 .report-email-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 48px; cursor: pointer; }
 .report-email-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.report-email-label { font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
-.report-email-hint { font-size: 15px; line-height: 22px; color: var(--ink-2); overflow-wrap: anywhere; }
+.report-email-label { font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; color: var(--ink); }
+.report-email-hint { font-size: 0.9375rem; line-height: 1.4667; color: var(--ink-2); overflow-wrap: anywhere; }
 .report-email-hint bdi { unicode-bidi: isolate; }
 
 /* the 8 weeks: one row a week, newest first: its name, the minutes as a bar with the practice days inside, the minutes */
 .weeks-chart { display: flex; flex-direction: column; gap: var(--s2); }
 /* one grid for all 8 rows (the rows are display: contents; the list is hidden from a screen reader, which reads the
    table), so the week names, the bars and the minutes line up whatever their length */
-.weeks-bars { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: center; gap: var(--s2); font-size: 14px; line-height: 20px; }
+.weeks-bars { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: center; gap: var(--s2); font-size: 0.875rem; line-height: 1.4286; }
 .weeks-row { display: contents; }
 .weeks-when { color: var(--ink-2); white-space: nowrap; }
 .weeks-min { color: var(--ink); font-weight: 600; text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .weeks-row .qbar { height: 24px; }
 .weeks-row .qbar > i { background: var(--bar-fill); }
-.weeks-row .qbar-text { line-height: 24px; font-size: 13px; }
+.weeks-row .qbar-text { line-height: 1.8462; font-size: 0.8125rem; }
 @media (prefers-reduced-motion: reduce) { .weeks-row .qbar > i { transition: none; } }
 
 /* the parent's controls for the device */
 .report-controls { display: flex; flex-direction: column; border-top: 2px solid var(--rule); padding-top: var(--s3); gap: var(--s2); }
 .report-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s1) var(--s3); }
-.report-control-text { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
+.report-control-text { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--ink); }
 .report-control .btn { min-height: 44px; }
 .report-control-hint { grid-column: 1 / -1; margin: 0; }
 .report-delete { width: 100%; min-height: 48px; padding: 0; }
 
 /* "הסיכום עוזר לכם?" */
 .report-fb { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); }
-.report-fb-ask, .report-fb-thanks { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.report-fb-ask, .report-fb-thanks { margin: 0; font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; color: var(--ink); }
 .report-fb-actions { display: flex; gap: var(--s2); }
 .report-fb-actions .btn { min-height: 44px; min-width: 72px; }
 
 /* the plan's words for parents (Parents.jsx): what the plan holds, before paying */
-.parents-includes { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); line-height: 24px; }
+.parents-includes { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); line-height: 1.4118; }

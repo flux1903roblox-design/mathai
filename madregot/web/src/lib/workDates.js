@@ -2,8 +2,9 @@
 // 'YYYY-MM-DD' string; the weekday is read at noon UTC, so it is the same day in every time zone.
 import { isShabbat } from './days.js';
 
-const LONG = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-const SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+import { localized, t } from '@/lib/i18n.js';
+let LONG = localized(() => ([t('shell.workdates.1'), t('shell.workdates.2'), t('shell.workdates.3'), t('shell.workdates.4'), t('shell.workdates.5'), t('shell.workdates.6'), t('shell.workdates.7')]), (v) => { LONG = v; });
+let SHORT = localized(() => ([t('shell.workdates.8'), t('shell.workdates.9'), t('shell.workdates.10'), t('shell.workdates.11'), t('shell.workdates.12'), t('shell.workdates.13'), t('shell.workdates.14')]), (v) => { SHORT = v; });
 const weekday = (day) => new Date(`${day}T12:00:00Z`).getUTCDay();
 
 /** "חמישי" */
@@ -35,6 +36,6 @@ export function schoolDay(day) {
 }
 
 /** The teacher's due line: "עד יום ה׳, 12.11". */
-export const dueShort = (day) => `עד יום ${weekdayLetter(day)}, ${dm(day)}`;
+export const dueShort = (day) => t('shell.workdates.15', { p0: weekdayLetter(day), p1: dm(day) });
 /** "יום חמישי, 12.11" */
-export const dayLong = (day) => `יום ${weekdayName(day)}, ${dm(day)}`;
+export const dayLong = (day) => t('shell.workdates.16', { p0: weekdayName(day), p1: dm(day) });

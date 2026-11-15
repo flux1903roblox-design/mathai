@@ -21,6 +21,7 @@ import { qaOn } from '@/lib/qa.js';
 import { namedMistake } from '@/learn/content/togetherDiag.ts';
 import Figure from '@/components/Figure.jsx';
 import { PARTIAL } from '@/content/partial.js';
+import '@/styles/lazy/lesson.css'; // the answer's label (.answer-lab) is the lesson's own rule (round-3 merge)
 
 function Hints({ hints, level }) {
   if (!level) return null;

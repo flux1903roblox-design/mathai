@@ -1,13 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useReducedMotion } from 'motion/react';
-import { Dialog } from '@base-ui/react/dialog';
-import { RadioGroup } from '@base-ui/react/radio-group';
-import { Radio } from '@base-ui/react/radio';
-import { Progress as BaseProgress } from '@base-ui/react/progress';
-import { Delete, X, ArrowRightLeft, ArrowLeft, Check } from 'lucide-react';
+import { Delete, ArrowRightLeft, ArrowLeft, Check } from 'lucide-react';
 import { MathText, useFitLine } from './MathText.jsx';
 
+import { t as tr, fmtNum, localized } from '@/lib/i18n.js';
 /** The chapter mark: a solid circle in the topic's colour with its number. */
 export function ChapterMark({ color, n, size = 'md' }) {
   return <span className={clsx('chapter-mark', `ch-${color}`, `cm-${size}`)} aria-hidden="true">{n}</span>;
@@ -18,7 +15,7 @@ export function ChapterMark({ color, n, size = 'md' }) {
  * (a guest row, content/index.js rowLevel) gives each square its own state; `done` says every stair of the row is mastered.
  */
 export function LevelPips({ total, level, max, color, label = true, states, done = false }) {
-  const said = done ? (total === 1 ? 'המדרגה הושלמה' : `כל ${total} המדרגות הושלמו`) : `מדרגה ${level} מתוך ${total}`;
+  const said = done ? (total === 1 ? tr('shell.ui.stairDone') : tr('shell.ui.allDone', { total })) : tr('shell.ui.1', { level, total });
   return (
     <span className={clsx('pips', `ch-${color}`)} role="img" aria-label={label ? said : undefined}>
       {Array.from({ length: total }, (_, i) => {
@@ -33,7 +30,7 @@ export function LevelPips({ total, level, max, color, label = true, states, done
 /** Correct answers counted toward a goal (moving up a level, a plan step): round dots, never the level squares. */
 export function NeedSlots({ need, have, label = true }) {
   return (
-    <span className="need" role={label ? 'img' : undefined} aria-hidden={label ? undefined : true} aria-label={label ? `${have} מתוך ${need} נכונות לעלייה` : undefined}>
+    <span className="need" role={label ? 'img' : undefined} aria-hidden={label ? undefined : true} aria-label={label ? tr('shell.ui.2', { have, need }) : undefined}>
       {Array.from({ length: need }, (_, i) => <i key={i} className={i < have ? 'on' : ''} />)}
     </span>
   );
@@ -79,8 +76,7 @@ export function Steps({ steps, stepwise = false }) {
         {steps.slice(0, n).map((s, i) => <StairStep key={i} i={i} text={s} />)}
       </ol>
       {n < steps.length && (
-        <button type="button" className="stair-next" onClick={() => setN(n + 1)}>
-          השלב הבא<ArrowLeft size={18} aria-hidden="true" /><span className="stair-count"><bdi dir="ltr">{n}/{steps.length}</bdi></span>
+        <button type="button" className="stair-next" onClick={() => setN(n + 1)}>{tr('shell.ui.3')}<ArrowLeft size={18} aria-hidden="true" /><span className="stair-count"><bdi dir="ltr">{n}/{steps.length}</bdi></span>
         </button>
       )}
     </div>
@@ -94,7 +90,7 @@ export function Steps({ steps, stepwise = false }) {
  * While busy or done the button keeps its place and its focus (aria-disabled, not disabled) and ignores taps, so a
  * double tap sends one request. A screen that shows 'done' does not also say it in a toast.
  */
-export function Button({ variant = 'primary', className, children, state = 'idle', busyText = 'רגע…', doneText, onClick, ...rest }) {
+export function Button({ variant = 'primary', className, children, state = 'idle', busyText = tr('shell.ui.4'), doneText, onClick, ...rest }) {
   const reduce = useReducedMotion();
   const held = state === 'busy' || state === 'done';
   let content = children;
@@ -110,60 +106,24 @@ export function Button({ variant = 'primary', className, children, state = 'idle
 }
 
 /**
- * A segmented choice (STUDENT-15 B3): Base UI's RadioGroup drawing the .segmented / .seg buttons, so the look does not
- * change. The group is one Tab stop; the arrow keys move and choose (right to left: App.jsx sets the direction), Space
- * chooses. `options` is [[value, label], …] or [{ value, label, disabled }, …]. While `busy` nothing is chosen (the
- * focus still moves, and every option says it is unavailable).
- */
-export function Segmented({ value, onValueChange, options, labelledBy, describedBy, label, className, busy = false }) {
-  return (
-    <RadioGroup
-      value={value} className={clsx('segmented', className)} aria-labelledby={labelledBy} aria-describedby={describedBy} aria-label={label}
-      onValueChange={(v, details) => { if (busy) { details.cancel(); return; } onValueChange?.(v); }}
-    >
-      {options.map((o) => {
-        const { value: v, label: text, disabled } = Array.isArray(o) ? { value: o[0], label: o[1] } : o;
-        return (
-          <Radio.Root key={String(v)} value={v} disabled={disabled} nativeButton render={<button type="button" />}
-            className={(st) => clsx('seg', st.checked && 'on')} aria-disabled={busy || undefined}>
-            {text}
-          </Radio.Root>
-        );
-      })}
-    </RadioGroup>
-  );
-}
-
-/**
- * Choice cards (STUDENT-15 B4): Base UI's RadioGroup for a set of tap cards (מדי's wardrobe). One Tab stop, arrows in
- * reading order. The wardrobe shows only what is owned (PRODUCT2-36), so every card can be chosen; how a piece still to
- * come opens is a button of its own there.
- */
-export function Choices({ value, onValueChange, labelledBy, className, children }) {
-  return (
-    <RadioGroup value={value} aria-labelledby={labelledBy} className={className} onValueChange={(v) => onValueChange?.(v)}>
-      {children}
-    </RadioGroup>
-  );
-}
-
-/** One card in Choices. */
-export function Choice({ value, className, children }) {
-  return <Radio.Root value={value} data-value={value} className={className}>{children}</Radio.Root>;
-}
-
-/** The check inside a chosen Choice (Base UI shows it only on the chosen one). */
-export const ChoiceMark = Radio.Indicator;
-
-/**
- * A progress bar (STUDENT-15 B8) on Base UI's Progress, drawn with the existing .bar track and the screen's own fill
- * class: role=progressbar with its value, and `valueText` as what a screen reader says.
+ * A progress bar (STUDENT-15 B8), drawn with the existing .bar track and the screen's own fill class: role=progressbar
+ * with its value, and `valueText` as what a screen reader says. The same elements, attributes and inline style as Base
+ * UI's Progress gave it (the root, the track and the indicator, with data-progressing or data-complete), written here so
+ * the first screen's download carries no Base UI (COUNCIL2-14); ui.test.jsx pins the markup.
  */
 export function Progress({ value, max = 100, labelledBy, valueText, className, trackClassName, fillClassName }) {
+  // as Base UI computes them: the value clamped to 0..max, its share of max in percent (unrounded) for the width, and
+  // that share written as a percent for a screen reader when no `valueText` is given
+  const now = Math.min(Math.max(value, 0), max);
+  const percent = Math.min(Math.max(max > 0 ? (value * 100) / max : 0, 0), 100);
+  const state = now === max ? { 'data-complete': '' } : { 'data-progressing': '' };
+  const text = valueText || fmtNum(percent / 100, { style: 'percent' });
   return (
-    <BaseProgress.Root className={className} value={value} max={max} aria-labelledby={labelledBy} getAriaValueText={valueText ? () => valueText : undefined}>
-      <BaseProgress.Track className={clsx('bar', trackClassName)}><BaseProgress.Indicator className={fillClassName} /></BaseProgress.Track>
-    </BaseProgress.Root>
+    <div {...state} aria-labelledby={labelledBy} aria-valuemax={max} aria-valuemin={0} aria-valuenow={now} aria-valuetext={text} role="progressbar" className={className}>
+      <div {...state} className={clsx('bar', trackClassName)}>
+        <div {...state} style={{ insetInlineStart: 0, height: 'inherit', width: `${percent}%` }} className={fillClassName} />
+      </div>
+    </div>
   );
 }
 
@@ -171,7 +131,7 @@ export function Progress({ value, max = 100, labelledBy, valueText, className, t
 const KEY_AREA = { '-': 'minus', '.': 'dot', '/': 'frac', ' ': 'space', del: 'del' };
 '0123456789'.split('').forEach((d) => { KEY_AREA[d] = `d${d}`; });
 /** What a screen reader says for each key that is not a digit (the space key's name starts with the word it shows). */
-const KEY_NAME = { del: 'מחיקה', '-': 'מינוס', '/': 'שבר', '.': 'נקודה עשרונית', ' ': 'רווח, בין השלם לשבר' };
+let KEY_NAME = localized(() => ({ del: tr('shell.ui.6'), '-': tr('shell.ui.7'), '/': tr('shell.ui.8'), '.': tr('shell.ui.9'), ' ': tr('shell.ui.spaceName') }), (v) => { KEY_NAME = v; });
 /** The longest answer a slot takes. */
 export const SLOT_MAX = 9;
 
@@ -193,7 +153,7 @@ export function typeInto(value, k) {
  * a point or a line) the last cell moves to the next field; otherwise the 0 key takes the row. With `mixed` (an answer
  * that is one number) a space key ("רווח") sits beside the point, so a mixed number can be typed: 5, רווח, 1/3.
  */
-export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nextLabel = 'לשדה הבא', mixed = false }) {
+export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nextLabel = tr('shell.ui.5'), mixed = false }) {
   const keys = ['7', '8', '9', 'del', '4', '5', '6', '-', '1', '2', '3', '/', '0', '.', ...(mixed ? [' '] : [])];
   return (
     <div className="keypad" dir="ltr">
@@ -201,7 +161,7 @@ export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nex
         <button key={k} type="button" data-k={KEY_AREA[k]} className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del', k === ' ' && 'key-space', k === '0' && primary == null && (onNext || mixed ? 'key-wide' : 'key-wide3'))}
           aria-label={KEY_NAME[k] || k}
           onPointerDown={(e) => e.preventDefault()} onClick={() => onKey(k)}>
-          {k === 'del' ? <Delete size={22} aria-hidden="true" /> : k === '-' ? '−' : k === ' ' ? 'רווח' : k}
+          {k === 'del' ? <Delete size={22} aria-hidden="true" /> : k === '-' ? '−' : k === ' ' ? tr('shell.ui.space') : k}
         </button>
       ))}
       {onNext && primary == null && (
@@ -244,25 +204,20 @@ export function Thinking({ states: raw }) {
 /**
  * Bottom sheet built on Base UI's dialog (focus trap, escape, scroll lock). `dismissible={false}`: a tap outside does not
  * close it (Escape and the close button still do).
+ *
+ * The dialog itself is its own small file, fetched the first time a sheet opens (COUNCIL2-14: Base UI's dialog is not
+ * part of the first download; App.jsx fetches it ahead once the first screen is up, so a sheet still opens at once).
+ * Once it has opened, a sheet stays mounted, so it closes with its animation.
  */
-export function Sheet({ open, onOpenChange, title, children, footer, wide, className, dismissible = true }) {
-  return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} disablePointerDismissal={!dismissible}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="sheet-backdrop" />
-        <Dialog.Popup className={clsx('sheet', wide && 'wide', className)} dir="rtl" data-region="feedback">
-          <header className="sheet-head">
-            <Dialog.Title className="sheet-title">{title}</Dialog.Title>
-            <Dialog.Close className="icon-btn" aria-label="סגירה"><X size={22} aria-hidden="true" /></Dialog.Close>
-          </header>
-          {/* a region the keyboard can reach and scroll, even when it holds only text (axe: scrollable-region-focusable) */}
-          <div className="sheet-body" tabIndex={0} role="region" aria-label={typeof title === 'string' ? title : undefined}>{children}</div>
-          {footer && <div className="sheet-foot">{footer}</div>}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
+export function Sheet(props) {
+  const [ever, setEver] = useState(!!props.open);
+  if (props.open && !ever) setEver(true);
+  if (!ever) return null;
+  return <Suspense fallback={null}><SheetDialog {...props} /></Suspense>;
 }
+const SheetDialog = lazy(() => import('./SheetDialog.jsx'));
+/** Fetch the sheet's dialog ahead (App.jsx, when the first screen is idle). */
+export const preloadSheet = () => import('./SheetDialog.jsx');
 
 /** Replays the shake (transitions.dev #12) whenever `trigger` changes. */
 export function useShake(trigger) {

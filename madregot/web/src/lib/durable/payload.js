@@ -1,3 +1,4 @@
+// @ts-check
 // What a backup holds (DURABLE-4): the student's whole saved progress, without what belongs to this device. Used by the
 // backup file now, and by the vault and the class and family restores later, so every copy that leaves the device is
 // made the same way.
@@ -11,10 +12,14 @@
 //   kept       everything else, and a teacher's class keys (profile.classes[].key): for a class that is not tied to
 //              an email account the key is the only way back in, so the teacher's file note says who can use it
 import { DEVICE_ONLY, dataOf } from './merge.js';
+import { isObj } from '@shared/obj.js';
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/** A plain copy of `state` for a backup: no device-only slices, no class token or student id. */
+/**
+ * A plain copy of `state` for a backup: no device-only slices, no class token or student id.
+ * @param {unknown} state
+ * @returns {import('./types').Saved}
+ */
 export function snapshotForBackup(state) {
   const out = dataOf(state);
   for (const k of DEVICE_ONLY) delete out[k];

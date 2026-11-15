@@ -14,6 +14,7 @@ import { AI_COPY, perStudentAi } from '@/content/classAi.js';
 import { useDemo, DEMO_COPY } from '@/lib/demo.js';
 import { ChapterMark, LevelPips } from '@/components/ui.jsx';
 import { fmtDay, pct, Rate, StudentName } from './common.jsx';
+import { WRONG_PINS } from '@/components/teacher/StudentSheet.jsx';
 import DeleteClassSheet, { useClassDeleted } from './DeleteClass.jsx';
 
 export const SORTS = [['name', 'לפי שם'], ['need', 'מי צריך תשומת לב']];
@@ -79,6 +80,9 @@ export default function StudentsTab({ cls, data, students, onChanged, onStudent 
                     {topics.map((t) => { const r = rowLevel(t, s.levels); return <td key={t.id}>{r ? <LevelPips total={r.total} level={r.level} max={r.max} states={r.states} done={r.done} color={t.color} /> : <span className="muted">–</span>}</td>; })}
                     <td className="t-actions">
                       {s.pinReset && <span className="muted">קוד אופס</span>}
+                      {/* many wrong personal codes under this name today (the server's count): the student may be
+                          waiting for the teacher's reset, which the student's page offers */}
+                      {s.manyWrongPins && !s.pinReset && <span className="t-chip t-chip-late t-wrong-pins">{WRONG_PINS.chip}</span>}
                       {aiBadge && s.aiOff && <span className="t-chip t-ai-off">{AI_COPY.badge}</span>}
                       {onStudent && (
                         <button type="button" className="link-btn" onClick={() => onStudent({ id: s.id, name: s.name })} aria-label={`פרטים על ${s.name}`}>

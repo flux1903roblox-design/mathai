@@ -9,6 +9,7 @@
 //    alone (first try, no hint) since then, not at once (a ~60% student would pass a quick retake about half the time).
 import type { Attempt, MasteryState, Purpose, SkillRecord } from './types';
 
+import { localized, t } from '@/lib/i18n.js';
 export const MASTERY_N = 5;
 export const MASTERY_NEED = 4;
 export const REVIEW_N = 3;
@@ -20,28 +21,28 @@ export const PRACTICE_NEED = 6;
 /** Right practice answers given alone (first try, no hint) since a failed mastery check before it is offered again. */
 export const RETRY_PRACTICE = 3;
 /** What the result screen and the plan say after a failed mastery check (CheckDone.jsx, next.ts): one sentence, one place. */
-export const PRACTICE_AGAIN = 'עוד קצת תרגול, ואז מנסים שוב.';
+export let PRACTICE_AGAIN = localized(() => t('shell.mastery.practiceAgain'), (v) => { PRACTICE_AGAIN = v; });
 /** "Needs support": at least this many independent answers lately, and fewer than half right. */
 export const SUPPORT_WINDOW = 6;
 export const SUPPORT_MIN = 4;
 export const KEEP_ATTEMPTS = 40;
 
-export const MASTERY_RULES = [
-  'הסבר ודוגמה פתורה הם לימוד. הם לא נחשבים שליטה.',
-  'תשובה עם רמז, בניסיון שני או בפתרון משותף נחשבת לימוד עם עזרה.',
-  `שליטה: בדיקה קצרה של ${MASTERY_N} שאלות בלי רמזים, ניסיון אחד לכל שאלה, ולפחות ${MASTERY_NEED} נכונות.`,
-  `אם הבדיקה עוד לא הצליחה, מתרגלים קצת. אחרי ${RETRY_PRACTICE} תשובות נכונות בלי רמז, הבדיקה חוזרת.`,
-  'אחרי כמה ימים בודקים שוב שזה נשאר. אם שכחתם, זה לא נמחק: עושים חזרה קצרה.',
-];
+export let MASTERY_RULES = localized(() => ([
+  t('shell.mastery.1'),
+  t('shell.mastery.2'),
+  t('shell.mastery.3', { MASTERY_N, MASTERY_NEED }),
+  t('shell.mastery.retry', { RETRY_PRACTICE }),
+  t('shell.mastery.4'),
+]), (v) => { MASTERY_RULES = v; });
 
-export const STATE_LABEL: Record<MasteryState, string> = {
-  'not-started': 'עוד לא התחלנו',
-  learning: 'לומדים',
-  'needs-support': 'צריך עוד עזרה',
-  practicing: 'מתרגלים',
-  mastered: 'שולטים לבד',
-  'needs-review': 'כדאי לחזור',
-};
+export let STATE_LABEL: Record<MasteryState, string> = localized(() => ({
+  'not-started': t('shell.mastery.5'),
+  learning: t('shell.mastery.6'),
+  'needs-support': t('shell.mastery.7'),
+  practicing: t('shell.mastery.8'),
+  mastered: t('shell.mastery.9'),
+  'needs-review': t('shell.mastery.10'),
+}), (v) => { STATE_LABEL = v; });
 
 const DAY = 86_400_000;
 export const addDays = (iso: string, days: number) => new Date(new Date(iso).getTime() + days * DAY).toISOString();

@@ -28,6 +28,11 @@ describe('the precache filter', () => {
     expect(precacheList(['index.html', 'assets/pdf-BRx2k_9a.js', 'assets/pdf.worker.min-Cq1x8Y-z.mjs', 'assets/ExamCheck-x1.js']))
       .toEqual(['assets/ExamCheck-x1.js', 'index.html']);
   });
+
+  it('drops the Arabic words (COUNCIL2-34): an Arabic device keeps them as it uses them, a Hebrew one never stores them', () => {
+    for (const f of ['assets/shell.ar-Bq2x9_Ab.js', 'assets/settings.ar-C3d.js', 'assets/signed.ar-x1Y2.js']) expect(precacheFilter(f), f).toBe(false);
+    for (const f of ['assets/shell-Bq2x9_Ab.js', 'assets/arrow-x1.js', 'assets/area-x1.js', 'assets/Settings-ar12.js']) expect(precacheFilter(f), f).toBe(true);
+  });
   it('the list: each file once, sorted, with Windows separators made plain', () => {
     expect(precacheList(['assets\\b.js', 'index.html', 'assets/b.js', './manifest.webmanifest', 'assets/a.css', 'x.map']))
       .toEqual(['assets/a.css', 'assets/b.js', 'index.html', 'manifest.webmanifest']);

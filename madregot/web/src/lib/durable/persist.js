@@ -1,3 +1,4 @@
+// @ts-check
 // Asking the browser to keep the data (DURABLE-3). A browser may delete a site's data when the device fills up, and
 // Safari on an iPhone after seven days of Safari use without the site; `navigator.storage.persist()` asks it not to.
 //   - When: right after the first finished lesson (LessonDone, CheckDone), if the browser has not promised already and
@@ -10,28 +11,45 @@
 import { useApp } from '../store.js';
 import { useDurable } from './useDurable.js';
 
+import { localized, t } from '@/lib/i18n.js';
+/**
+ * @typedef {object} PersistOpts
+ * @property {Navigator} [nav]
+ * @property {import('./types').StoreApi} [store]
+ * @property {{ setState(patch: { persisted: boolean | null }): void }} [status]
+ * @property {() => Date} [now]
+ */
+
 /** The words Settings shows for the answer. */
-export const PERSISTED_TEXT = { yes: 'כן', no: 'לא מובטחת', unknown: 'לא ידוע' };
+export let PERSISTED_TEXT = localized(() => ({ yes: t('shell.persist.1'), no: t('shell.persist.2'), unknown: t('shell.persist.3') }), (v) => { PERSISTED_TEXT = v; });
+/** @param {boolean | null | undefined} p */
 export const persistedText = (p) => (p === true ? PERSISTED_TEXT.yes : p === false ? PERSISTED_TEXT.no : PERSISTED_TEXT.unknown);
 /** After the Settings button: what the browser said. */
-export const PERSIST_TOAST = { granted: 'הדפדפן הסכים לשמור את הנתונים.', refused: 'הדפדפן לא הבטיח לשמור. כדאי לשמור גיבוי.' };
+export let PERSIST_TOAST = localized(() => ({ granted: t('shell.persist.4'), refused: t('shell.persist.5') }), (v) => { PERSIST_TOAST = v; });
 
 /** Firefox asks the person with a prompt (the others decide alone). */
 export const isFirefox = (nav = globalThis.navigator) => String(nav?.userAgent || '').includes('Firefox/');
+/** @param {Navigator | undefined} nav */
 const canPersist = (nav) => typeof nav?.storage?.persist === 'function';
 
 /**
  * The browser's answer now, kept in useDurable.persisted: true (it keeps the data), false (no promise), or null when it
  * cannot say (no navigator.storage, or the call failed).
+ * @param {PersistOpts} [opts]
+ * @returns {Promise<boolean | null>}
  */
 export async function readPersisted({ nav = globalThis.navigator, status = useDurable } = {}) {
+  /** @type {boolean | null} */
   let p = null;
   try { if (typeof nav?.storage?.persisted === 'function') p = (await nav.storage.persisted()) === true; } catch { p = null; }
   status.setState({ persisted: p });
   return p;
 }
 
-/** Ask, and note that this device was asked. Resolves the browser's answer (false when the call fails). */
+/**
+ * Ask, and note that this device was asked. Resolves the browser's answer (false when the call fails).
+ * @param {Required<PersistOpts>} opts
+ */
 async function request({ nav, store, status, now }) {
   let granted = false;
   try { granted = (await nav.storage.persist()) === true; } catch { granted = false; }
@@ -45,11 +63,17 @@ async function request({ nav, store, status, now }) {
  * say), 'asked-before', 'firefox' (left to the Settings button), 'granted' or 'refused' (it was asked now). Two calls at
  * once (two result screens, or React's double effects in development) share one ask.
  */
+/** @type {Promise<string> | null} */
 let asking = null;
+/** @param {PersistOpts} [opts] */
 export function askAfterLesson(opts = {}) {
   if (!asking) asking = askOnce(opts).finally(() => { asking = null; });
   return asking;
 }
+/**
+ * @param {PersistOpts} opts
+ * @returns {Promise<'kept' | 'unknown' | 'asked-before' | 'firefox' | 'granted' | 'refused'>}
+ */
 async function askOnce({ nav = globalThis.navigator, store = useApp, status = useDurable, now = () => new Date() }) {
   const p = await readPersisted({ nav, status });
   if (p === true) return 'kept';
@@ -62,6 +86,8 @@ async function askOnce({ nav = globalThis.navigator, store = useApp, status = us
 /**
  * The Settings button "לבקש מהדפדפן לשמור": ask now, straight from the tap (Firefox's prompt needs it). Resolves the
  * answer, or null when this browser cannot be asked.
+ * @param {PersistOpts} [opts]
+ * @returns {Promise<boolean | null>}
  */
 export function askFromSettings({ nav = globalThis.navigator, store = useApp, status = useDurable, now = () => new Date() } = {}) {
   if (!canPersist(nav)) return Promise.resolve(null);
@@ -72,9 +98,14 @@ export function askFromSettings({ nav = globalThis.navigator, store = useApp, st
  * Settings offers the button while the browser has not promised; on Firefox only until it was asked once (its prompt
  * remembers the answer, and asking again would only nag).
  */
+/**
+ * @param {boolean | null} persisted
+ * @param {unknown} persistAsked
+ */
 export const canAsk = (persisted, persistAsked, nav = globalThis.navigator) => persisted === false && canPersist(nav) && !(isFirefox(nav) && !!persistAsked);
 
 /** Keep useDurable.persisted fresh: now, and every time the page comes back into view. Returns the function that stops. */
+/** @param {PersistOpts & { doc?: Document }} [opts] */
 export function watchPersisted({ nav = globalThis.navigator, doc = globalThis.document, status = useDurable } = {}) {
   readPersisted({ nav, status });
   if (typeof doc?.addEventListener !== 'function') return () => {};

@@ -19,7 +19,8 @@ import ExamLoss from '@/components/learn/ExamLoss.jsx';
 import ChestChoice, { useChestOffer } from '@/components/learn/ChestChoice.jsx';
 import { nameOf, chestPieces } from '@/lib/wardrobe.js';
 import FamilyChallengeCard from '@/components/learn/FamilyChallengeCard.jsx';
-import '@/styles/lazy/quests.css'; // the ghost race's rules, loaded with this screen (moved out of the first load at the product2 merge)
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/quests.css'; // this screen's own rules (COUNCIL2-20) and the ghost race's (the product2 merge), out of the first load
 
 
 /** The two pieces the next chest would offer (none once every chest piece is owned). */

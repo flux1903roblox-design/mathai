@@ -21,7 +21,8 @@ const DEVICE = { id: 'd000000000000001', label: 'הטאבלט', token: FD };
 const linked = () => {
   const s = { ...reportWeek(), version: 3 };
   s.state.ai = { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: FD, label: 'הטאבלט', sharingSeen: '2026-11-05T08:00:00.000Z', lastSent: null } };
-  s.state.durable = { nudgeCount: 2 };
+  // the backup question was just asked (it keeps reminding 14 days apart since COUNCIL2-24)
+  s.state.durable = { nudgeCount: 2, nudgeAt: '2026-11-05T09:00:00.000Z' };
   return s;
 };
 
@@ -186,11 +187,13 @@ test('/parents offers only the plans the payment company can sell online here (G
   st.sessions.add(PARENT);
   await openParent(page);
   const plans = page.getByRole('radiogroup', { name: 'מסלול' });
-  await expect(plans.getByRole('radio')).toHaveCount(1);
+  // the plans paid once: the year, and the exam pass (COUNCIL2-33); the year is picked first
+  await expect(plans.getByRole('radio')).toHaveCount(2);
   await expect(plans.getByRole('radio', { name: /שנתי/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(plans.getByRole('radio', { name: /חבילת מבחן/ })).toHaveAttribute('aria-checked', 'false');
   await expect(plans.getByRole('radio', { name: /חודשי/ })).toHaveCount(0);
-  // neither family plan online: the page says joining online is not open yet
-  st.planOnline = { family_month: false, family_year: false };
+  // no family plan online: the page says joining online is not open yet
+  st.planOnline = { family_month: false, family_year: false, exam_pass: false };
   await page.reload(); await appReady(page);
   await expect(page.getByText(/ההצטרפות באתר עוד לא פתוחה/)).toBeVisible();
 });

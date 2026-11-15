@@ -1,8 +1,10 @@
 // The sheet behind the quiet link "צריכים לדבר עם מישהו?" (trust spec TRUST-3 §3.5): the support card, opened from a
 // link, so it does not speak of anything the child wrote. Mounted once in the app; any screen opens it with
-// openSupport() (the limit sheet closes first, so two sheets never stack).
+// openSupport() (the limit sheet closes first, so two sheets never stack). HelpLine is that link with ער״ן's number
+// beside it, in every place where the tutor says "not now" (COUNCIL2-4).
 import { create } from 'zustand';
 import clsx from 'clsx';
+import { Phone } from 'lucide-react';
 import { SUPPORT } from '@shared/helpLines.js';
 import { supportLines, SUPPORT_LINK } from '@/content/support.js';
 import { useApp } from '@/lib/store.js';
@@ -39,5 +41,24 @@ export function SupportLink({ className, onOpen }) {
     <button type="button" className={clsx('link-btn support-open', className)} onClick={() => { onOpen?.(); openSupport(); }} aria-haspopup="dialog">
       {SUPPORT_LINK}
     </button>
+  );
+}
+
+/**
+ * The link and ער״ן's number as a call button, side by side (COUNCIL2-4): inside every refusal (the limit sheet, the
+ * resting chat, a tool this device does not have today, the chat with no server). A tel: link, so it works with no
+ * network; free and anonymous, and nothing about a price. `onOpen` runs before the sheet opens (as SupportLink).
+ */
+export function HelpLine({ className, onOpen }) {
+  const { quick } = supportLines(SUPPORT, 'after-message');
+  const { eran } = SUPPORT;
+  // short enough that the link and the button share one row on a 320 phone; the name says "call" in full
+  return (
+    <div className={clsx('help-line', className)}>
+      <SupportLink className="help-line-open" onOpen={onOpen} />
+      <a className="support-link is-phone help-line-call" href={quick.href} aria-label={quick.aria}>
+        <Phone size={18} aria-hidden="true" /><span>{eran.name} {eran.phone}</span>
+      </a>
+    </div>
   );
 }

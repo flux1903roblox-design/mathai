@@ -2,18 +2,19 @@
 // when, and the safe way. The backup code joins the last line when it exists (DURABLE-5); today the file is the backup.
 import { Button, Sheet } from '@/components/ui.jsx';
 
-export const PERSIST_INFO = [
-  'דפדפנים מוחקים לפעמים נתונים של אתרים כשהמכשיר מתמלא.',
-  'בספארי באייפון, נתונים של אתר שלא נפתח במשך שבעה ימים של שימוש בספארי עלולים להימחק. אפליקציה שהוספתם למסך הבית לא נמחקת כך.',
-  'הדרך הבטוחה ביותר היא לשמור קובץ גיבוי.',
-];
+import { localized, t } from '@/lib/i18n.js';
+export let PERSIST_INFO = localized(() => ([
+  t('shell.persistinfosheet.1'),
+  t('shell.persistinfosheet.2'),
+  t('shell.persistinfosheet.3'),
+]), (v) => { PERSIST_INFO = v; });
 
 export default function PersistInfoSheet({ open, onOpenChange }) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="מתי דפדפן מוחק נתונים">
+    <Sheet open={open} onOpenChange={onOpenChange} title={t('shell.persistinfosheet.4')}>
       <div className="persist-info">
         {PERSIST_INFO.map((line) => <p key={line}>{line}</p>)}
-        <Button className="btn-block" onClick={() => onOpenChange(false)}>הבנתי</Button>
+        <Button className="btn-block" onClick={() => onOpenChange(false)}>{t('shell.persistinfosheet.5')}</Button>
       </div>
     </Sheet>
   );

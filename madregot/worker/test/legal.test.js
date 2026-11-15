@@ -3,6 +3,7 @@
 // terms version closes it again. A school licence code is the owner's own invoice sale and is not gated by it.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readiness } from '../src/readiness.js';
 import { readFileSync } from 'node:fs';
 import { build } from '../scripts/owner.mjs';
 import { LEGAL_VARS, legalMissing, legalReady, onlineCheckout } from '../src/billing.js';
@@ -129,4 +130,38 @@ test('setup.ps1 and setup.sh create the database in the EU and record DB_JURISDI
   // and the gate reads it: "eu" is the only value that opens checkout
   assert.equal(legalMissing(makeEnv({ DB_JURISDICTION: 'eu' })).includes('DB_JURISDICTION'), false);
   assert.equal(legalMissing(makeEnv({ DB_JURISDICTION: '' })).includes('DB_JURISDICTION'), true);
+});
+
+test('every other setup path makes the database in the EU too: setup.sh, the README\'s commands and the doctor\'s hint (COUNCIL2-6)', () => {
+  const sh = readFileSync(new URL('../../setup.sh', import.meta.url), 'utf8');
+  const readme = readFileSync(new URL('../../README.md', import.meta.url), 'utf8');
+  const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  // setup.sh: the create command carries the jurisdiction, and the write that saves the id sets the var
+  const create = sh.split('\n').find((l) => /wrangler d1 create madregot\b/.test(l));
+  assert.ok(create, 'setup.sh creates the database');
+  assert.match(create, /--jurisdiction=eu\b/);
+  const write = sh.split('\n').find((l) => /REPLACE_WITH_DATABASE_ID\/\$id/.test(l));
+  assert.ok(write, 'setup.sh saves the id');
+  assert.match(write, /s\/\^DB_JURISDICTION = ""\$\/DB_JURISDICTION = "eu"\//);
+  // a database made before (or elsewhere) is named, as setup.ps1 does
+  assert.match(sh, /DB_JURISDICTION is not \\"eu\\"/);
+  // that sed (and setup.ps1's Replace) changes exactly one line: the one in [vars], never staging's
+  assert.equal((toml.match(/DB_JURISDICTION = ""/g) || []).length, 1);
+  const vars = toml.slice(toml.indexOf('[vars]'), toml.indexOf('\n[observability]'));
+  assert.match(vars, /^DB_JURISDICTION = ""$/m);
+  // README: the Mac or Linux commands create it in the EU and say to write DB_JURISDICTION = "eu" next to the id
+  const cmd = readme.split('\n').filter((l) => /wrangler d1 create madregot\b/.test(l));
+  assert.ok(cmd.length >= 1, 'README creates the database');
+  for (const l of cmd) assert.match(l, /--jurisdiction=eu\b/, l);
+  assert.match(readme, /DB_JURISDICTION = "eu"/);
+  // the doctor's hint for a missing database names the same flag and the var
+  const r = readiness({ migrationsInRepo: [], migrationsApplied: [] });
+  const hint = r.items.find((i) => i.id === 'db:id');
+  assert.equal(hint.ok, false);
+  assert.match(hint.how, /npx wrangler d1 create madregot --jurisdiction=eu\b/);
+  assert.match(hint.how, /DB_JURISDICTION = "eu"/);
+  // and with an id that was not made in the EU, the doctor says so (a reminder: the legal gate keeps checkout closed)
+  const notEu = readiness({ databaseId: '00000000-0000-0000-0000-000000000000', vars: { DB_JURISDICTION: '' } }).items.find((i) => i.id === 'db:eu');
+  assert.equal(notEu.ok, false); assert.equal(notEu.required, false);
+  assert.equal(readiness({ databaseId: '00000000-0000-0000-0000-000000000000', vars: { DB_JURISDICTION: 'eu' } }).items.find((i) => i.id === 'db:eu').ok, true);
 });

@@ -4,9 +4,10 @@
 //
 // This file ships to the browser (shared/ai.js imports it), so no regex here uses lookbehind (ai spec §0.3; Safari
 // before 16.4 fails to load a chunk that has one): a word start is a prefix group, (?:^|[^א-ת]), and an end a lookahead.
-import { safetyPrompt } from './safety.js';
+import { safetyPrompt, SUPPORT } from './safety.js';
 import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, TOPIC_ALSO, NOT_YET } from './stairs.js';
 import { TOPIC_WAYS_STAGE1, TOPIC_WAYS_GEOM, SIGNED_FRACTIONS } from './topicWays.js';
+import { LANGUAGE_AR, TOPIC_WORDS_AR, arabicSafetyBlock } from './arabic.js';
 
 /** The one sentence that names the singular forms to avoid (the plural-only check skips it). */
 export const SINGULAR_EXAMPLES = 'Never use singular imperatives such as "תנסה" or "תנסי".';
@@ -280,19 +281,31 @@ export const TOPIC_WAYS = Object.freeze({
   },
 });
 
-/** The topic ways, rendered under one heading: "{topic}: {models} Words the app uses: …. Never taught as a rule: (1) …; (2) …." */
-export function topicWaysBlock(ids = Object.keys(TOPIC_NAMES)) {
+/**
+ * The topic ways, rendered under one heading: "{topic}: {models} Words the app uses: …. Never taught as a rule: (1) …; (2) …."
+ * locale 'ar' (COUNCIL2-34): the words are the Arabic screens' words (shared/arabic.js TOPIC_WORDS_AR), with the Hebrew in brackets.
+ */
+export function topicWaysBlock(ids = Object.keys(TOPIC_NAMES), locale = 'he') {
   const one = (id) => {
     const w = TOPIC_WAYS[id];
     if (!w) return null;
-    return `${TOPIC_NAMES[id] || id}: ${w.models} Words the app uses: ${w.words.join(', ')}. Never taught as a rule: ${w.avoid.map((x, i) => `(${i + 1}) ${x}`).join('; ')}.`;
+    const ar = locale === 'ar' && TOPIC_WORDS_AR[id];
+    // a word with no Arabic yet (a topic or a word the main branch added after the Arabic work) stays as the app shows it
+    const words = ar ? w.words.map((he, i) => (ar[i] ? `${ar[i]} (${he})` : he)) : w.words;
+    return `${TOPIC_NAMES[id] || id}: ${w.models} Words the app uses: ${words.join(', ')}. Never taught as a rule: ${w.avoid.map((x, i) => `(${i + 1}) ${x}`).join('; ')}.`;
   };
   return ['How each topic is taught in the app:', ...ids.map(one).filter(Boolean)].join('\n');
 }
 
+/** The tutor block in Arabic (COUNCIL2-34): its Hebrew language line becomes the Arabic one; the rest is the same. */
+const TUTOR_LANGUAGE_LINE = TUTOR_BODY.split('\n').find((l) => l.startsWith('Language: always answer in Hebrew'));
+export const TUTOR_BODY_AR = TUTOR_BODY.replace(TUTOR_LANGUAGE_LINE, LANGUAGE_AR);
+
 const STABLE = [safetyPrompt(), TUTOR_BODY, PEDAGOGY, curriculumBlock(), topicWaysBlock()].join('\n\n');
+const STABLE_AR = [arabicSafetyBlock(safetyPrompt(), SUPPORT), TUTOR_BODY_AR, PEDAGOGY, curriculumBlock(), topicWaysBlock(undefined, 'ar')].join('\n\n');
 /**
  * The stable first block of every tutor request: safety first, then the tutor, the pedagogy, the stair map and the topic
- * ways. One string, built once, so its bytes never differ between requests.
+ * ways. One string per language, built once, so its bytes never differ between requests of a language (Hebrew's are
+ * the same as before COUNCIL2-34; Arabic has its own cached prefix).
  */
-export const stableSystem = () => STABLE;
+export const stableSystem = (locale = 'he') => (locale === 'ar' ? STABLE_AR : STABLE);

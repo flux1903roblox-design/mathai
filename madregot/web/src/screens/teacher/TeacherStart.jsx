@@ -7,19 +7,24 @@
 //   or how to ask for it (VITE_CONTACT_EMAIL). It never tells a teacher to set up a server.
 // Both offer the demo class (TEACHER-15): "לראות לוח לדוגמה, בלי הרשמה" opens a full board of invented students with
 // no server and no sign-in.
+// "I am over 18, a teacher or a tutor" (COUNCIL2-5), unticked: on the email step (EmailCodeForm), or, for a teacher
+// whose sign-in on this device came before it was asked, on the details step with the new class. Without it the board
+// works, but the smart tutor stays closed (no adult behind the class).
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { ArrowRight, Users, Repeat, Hand, ClipboardList, CalendarCheck, Printer } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
-import { useParent, accountCall } from '@/lib/parent.js';
+import { useParent, accountCall, markAdult } from '@/lib/parent.js';
 import { myClasses, restore, useEmailSignIn, teacherSiteLink } from '@/lib/teacher.js';
 import { openDemo, DEMO_COPY } from '@/lib/demo.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { Flow, ConfirmSheet } from '@/components/Screen.jsx';
 import { GradeSwitch } from '@/components/GradeSwitch.jsx';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
+import AdultTeacherBox from '@/components/account/AdultTeacherBox.jsx';
 import ClassSettingQuestion, { settingBody, settingReady } from '@/components/teacher/ClassSettingQuestion.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/teacher.css'; // the teacher's screens' rules, loaded with them (FOLLOWUP-23)
 
 const TEACHER_URL = import.meta.env.VITE_TEACHER_URL || '';
@@ -110,7 +115,7 @@ function ServerTeacherStart({ onBack }) {
   const [way, setWay] = useState('new'); // new | restore
   const [noEmail, setNoEmail] = useState(false); // a new class with the key only
   const [askNoEmail, setAskNoEmail] = useState(false);
-  const [f, setF] = useState({ teacherName: '', className: '', grade: '7', setting: 'school', attest: false, code: '', key: '' });
+  const [f, setF] = useState({ teacherName: '', className: '', grade: '7', setting: 'school', attest: false, code: '', key: '', adult: false });
   const [list, setList] = useState(null);
   const [picked, setPicked] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
@@ -150,8 +155,10 @@ function ServerTeacherStart({ onBack }) {
       // where the class learns (TRUST-11): a school class unless a private group is picked and attested
       const body = { teacherName: f.teacherName.trim(), className: f.className.trim(), grade: f.grade, ...settingBody(f.setting, f.attest) };
       const s = noEmail ? null : useParent.getState().session;
-      // signed in: the server binds the class to the email in the same step (owned), and a stale sign-in is refused
-      const r = s ? await accountCall('/api/classes', { method: 'POST', body }) : await api('/api/classes', { method: 'POST', body });
+      // signed in: the server binds the class to the email in the same step (owned), and a stale sign-in is refused; a
+      // sign-in that has not declared 18+ yet may declare it here
+      const r = s ? await accountCall('/api/classes', { method: 'POST', body: { ...body, ...(!s.adult ? { adultTeacher: f.adult } : {}) } }) : await api('/api/classes', { method: 'POST', body });
+      if (r.adult) markAdult();
       const owned = !!r.owned;
       // a shared computer keeps no key: the class opens there only while the sign-in lasts
       const cls = { code: r.code, key: owned && s?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, createdHere: true, ...(owned ? { owned: true } : {}) };
@@ -225,6 +232,7 @@ function ServerTeacherStart({ onBack }) {
           <div className="field"><span className="field-label" id="t-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="t-grade" /></div>
           <ClassSettingQuestion idPrefix="t" setting={f.setting} attest={f.attest} onChange={({ setting, attest }) => setF({ ...f, setting, attest })} />
           {!noEmail && session && <p className="ob-note">הכיתה תישמר בחשבון של <bdi dir="ltr">{session.email}</bdi>.</p>}
+          {!noEmail && session && !session.adult && <AdultTeacherBox id="t-adult" checked={f.adult} onChange={(adult) => setF({ ...f, adult })} />}
           {noEmail && emailOn === false && <p className="ob-note">{NO_EMAIL}</p>}
         </div>
         {err}

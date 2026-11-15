@@ -2,7 +2,7 @@
 // right ones for every answer of the rule (shared/schoolRules.js), failing closed when the policy is missing.
 import { describe, it, expect } from 'vitest';
 import { classAiPolicy } from '../../../shared/schoolRules.js';
-import { AI_COPY, SETTING_Q, SETTINGS, ATTEST, classAiView, beforeApproval, perStudentAi, gradeLetter } from './classAi.js';
+import { AI_COPY, SETTING_Q, SETTINGS, ATTEST, ADULT_LINE, classAiView, beforeApproval, perStudentAi, gradeLetter } from './classAi.js';
 
 const env = (approval = 'none', approvedFromGrade = 7) => ({ approval, approvedFromGrade });
 const cls = (over = {}) => ({ setting: 'school', grade: '7', studentAi: 'off', consentAt: null, ...over });
@@ -77,5 +77,26 @@ describe('the card for each answer of the rule', () => {
   });
   it('grade letters', () => {
     expect([gradeLetter(7), gradeLetter('8'), gradeLetter(9), gradeLetter(10)]).toEqual(['ז׳', 'ח׳', 'ט׳', '10']);
+  });
+});
+
+describe('no adult behind the class yet (aiPolicy.adultNeeded, COUNCIL2-2)', () => {
+  const p = (over) => ({ ...classAiPolicy(cls({ setting: 'private', ...over }), env()), setting: 'private', adultNeeded: true, ...over });
+  it('the consent box and the switch on give way to the line and the email sign-in; the words say why, calmly', () => {
+    const consent = classAiView(p({}));
+    expect(consent).toMatchObject({ consent: null, toggle: false, adult: true });
+    expect(consent.text).toEqual([AI_COPY.consentPrivate, AI_COPY.adultNeeded]);
+    const off = classAiView(p({ consentAt: '2026-11-01T10:00:00Z' }));
+    expect(off).toMatchObject({ toggle: false, adult: true });
+    expect(AI_COPY.adultNeeded).toBe('כדי לפתוח את העוזר לתלמידים, צריך קודם להיכנס עם מייל ולאשר שאתם מעל גיל 18. כך יודעים שמבוגר אחראי על הכיתה.');
+    expect(ADULT_LINE).toBe('את העוזר החכם לתלמידים פותח רק מורה שנכנס עם מייל ואישר שהוא מעל גיל 18.');
+  });
+  it('turning off never waits for it, and a school class before the approval reads as before', () => {
+    const on = classAiView(p({ consentAt: '2026-11-01T10:00:00Z', studentAi: 'on' }));
+    expect(on).toMatchObject({ on: true, toggle: true });
+    expect(on.adult).toBeUndefined();
+    const school = classAiView({ ...classAiPolicy(cls(), env()), setting: 'school', adultNeeded: true });
+    expect(school.adult).toBeUndefined();
+    expect(school.text[0]).toBe(AI_COPY.notInCatalogue);
   });
 });

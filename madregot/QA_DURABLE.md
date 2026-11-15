@@ -184,6 +184,17 @@ vitest, build with the budget), worker and the phone e2e on every push to `main`
 `workflow` scope, or the files can be pasted in GitHub's web editor (`README.md`, "CI"). Then branch protection on
 `main` with `web`, `worker` and `e2e` required. Result of the first run: ________ (date ________).
 
+**The first full phone run on the integrated branch** (COUNCIL2-15; a local run, not CI: the line above stays the
+owner's). The whole phone project, `E2E_PORT=4421 npx playwright test -c e2e/playwright.config.js --project=phone`, on
+the app of `b347414` (main with the family, safety, school, student and curriculum lanes merged), run on 11 Nov 2026
+from lane-council2 with only its release-gate changes (wrangler.toml, the config test, the doctor, the budget ratchet,
+setup.sh; none of them in the app): **662 passed, 17 skipped, 0 failed, 679 tests**. The run took 21.1 minutes; in it,
+`student-week.spec.js` (the one spec that loads the Worker's own code in memory) failed its first day and did not run
+the 8 serial days after it, because the Worker's source was being edited while the run went on (`The requested module
+'../../shared/ai.js' does not provide an export named 'AI_BODY_MAX'`). That file alone was run again on the
+unchanged tree: 13 passed, 1 skipped (STUDENT-6's recap, skipped by the spec itself). The 17 skipped are the `@perf`
+timing test and the specs' own project and feature skips.
+
 ### The privacy notice
 
 `web/src/content/legal/privacy.md` no longer says the progress is kept only on the device. Under its current headings
@@ -570,7 +581,8 @@ The detail of each item follows, in the order it was built.
   code. If the server cannot make a code, the file button appears under the reason.
 - **The backup question** (`components/durable/BackupNudge.jsx`, `lib/durable/nudge.js`). Only with a server, no code
   and no kept copy, after two different days of learning, on the map, the missions, the topics or "אני" (never a
-  lesson, a teaching stage, a repair, a check, Settings or a screen of its own), at most twice and 14 days apart. It
+  lesson, a teaching stage, a repair, a check, Settings or a screen of its own), 14 days apart. (Until COUNCIL2-24 it
+  stopped after two asks; now it keeps reminding until a backup or an install exists, below.) It
   opens 1.5 s after the screen settles, never over another sheet, and asking counts when it opens. "לקבל קוד גיבוי"
   makes the code and shows its sheet; "לשמור קובץ במקום" saves the file from the tap; "לא עכשיו".
 - **"מחיקת כל הנתונים"** with the code on: `POST /api/vault/delete` with `X-Vault` first. If it fails, nothing is
@@ -1113,6 +1125,78 @@ script. They now load one topic at a time, and nothing the student sees changed.
   Measured on the merged app: boot JS **331.7 KB** (gate 333 unchanged, 1.3 KB of room), render-blocking CSS
   **45.7 KB** (gate 46 unchanged), largest lazy chunk the pdf chunk 122.2 KB (gate 150), precache **6.35 MB** (gate
   6.56 MB, unchanged; KATEX_UNUSED and main's pdf.js rule are both in `scripts/vite-plugin-sw.mjs`).
+  **The council2 lane, on its own branch** (measured there before the round-3 merge with the boot split above; the
+  merge paragraph at the end of this section says what the merged app measures). The lane split the generators and
+  the challenge tasks its own way (`scripts/gen-topic-meta.mjs`, `learn/challenges/open.ts`); the merge kept the
+  boot split's design (`scripts/gen-content-meta.mjs`, `content/topics.js`, `learn/challenges/all.ts`) and the lane's
+  other cuts (the tutor's prompts, motion's features, Base UI, `Progress`, KaTeX and markdown), so the rows below
+  are the lane's numbers, not the merged app's.
+  **The ratchet is in code now** (COUNCIL2-20): each of the four raises above was made in `budget.json` itself, and
+  nothing compared it with the commit before, so a green build could not have caught one. `check-budget.mjs` now reads
+  `budget.json` at `HEAD~1` (and at `HEAD`, for a raise not yet committed) and exits 1 when `bootJsGzipKB`,
+  `cssGzipKB`, `anyChunkGzipKB` or `precacheMB` is higher there, or gone; with no commit before `HEAD` it warns, and
+  fails when `CI` is set (`ci.yml` checks out two commits). `check-budget.test.mjs` covers a raised gate, an equal one,
+  a lower one, an uncommitted raise, no history and a new file, each in a real git repository of its own. A first load
+  over a gate is now made smaller; the gate stays.
+  **The first load made smaller** (COUNCIL2-14, COUNCIL2-37; `npm run build`, KB of boot JS gzipped):
+
+  | step | boot JS |
+  |---|---|
+  | before (the gate 433 KB) | 429.6 KB |
+  | `KIND_GROUP`, `FREE_KINDS` from `shared/aiKinds.js`: `shared/ai.js`, `pedagogy.js`, `guard.js` (the tutor's prompts) leave; motion's features (`domAnimation`) load after the first screen (`LazyMotion features={() => import(...)}`, strict); the sheet's dialog and the choice controls (Base UI) load with their first use | 360.2 KB |
+  | the exercise generators per topic: `content/topics.gen.js` (written by `scripts/gen-topic-meta.mjs`) is what the map knows, `content/index.js` `loadGens` loads a topic's file, `ensureTopics` waits for it with its teaching content; the lesson, practice, check and exam rules the boot needs in `lessonRules.js`, `placementRules.js`, `examFocus.js` | 298.6 KB |
+  | the challenge tasks: the plan reads `learn/challenges/meta.gen.ts` (id, stair, title, minutes), the parts load with the challenge screen | 284.6 KB |
+  | `Progress` drawn by `ui.jsx` (the same markup Base UI drew, compared in `ui.test.jsx`); `DirectionProvider` only around the choice controls | 282.3 KB |
+  | the map fetches the next step's topic when idle; `lib/motion.js` `entrance()`: a component that mounts before motion's features have loaded starts at its target, so the first screen is never drawn faded or with its card hidden | **282.4 KB** |
+
+  The boot gate is now 282.4 + 5% = **297 KB** (CSS 59 KB and the precache 4.79 MB unchanged; the precache is 4.74 MB).
+  `budget.json` `lazyOnly` gained the modules now kept off the first load (`ai`, `pedagogy`, `guard`, `topicWays`,
+  `tutorContext`, `grade7`, `grade8`, `linear`, `signed6`, `eq`, `frac`, `sys`, `ratio`, `pct`, `SheetDialog`,
+  `choices`, `motionFeatures`, `@base-ui/react`, `katex`, `react-markdown`), and a new rule, `neverInBoot`: no boot
+  file may hold the text "You are the maths tutor" (`check-budget.mjs` `bootTextProblems`, tested in
+  `check-budget.test.mjs`). `src/boot.test.js` walks main.jsx's static imports and fails on any of those files before
+  a build; `src/content/topic-split.test.js` fails when `topics.gen.js` or `meta.gen.ts` is stale.
+  The 260 KB target is still missed by 22 KB. Still in the first load (each module gzipped alone, so the sum, 540 KB,
+  is about twice the real 282 KB): `lib/` 141 (the store, `durable/*`, `api.js`, `parent.js` and `teacher.js` through
+  `account.js`, `qaFixtures.js`, the demo's boot in `demo.js`), React DOM 96, React Router 52, `components/` 42,
+  `content/` 34 (`manip.js` 11, `index.js`, `topics.gen.js`), `learn/` 33, motion's core 52 (`m.*` and
+  `AnimatePresence`, which Madi, the shell, the path nodes, the chest and today's card animate with), lucide 18,
+  sonner 15. Open work: motion's core needs those boot animations in CSS (a visual change of its own); the demo's boot
+  behind its own import is FOLLOWUP-23's (lane-followups); sonner could load with its first toast.
+  **The first-load CSS made smaller** (COUNCIL2-14, COUNCIL2-20; `check-budget.mjs`, KB of render-blocking CSS gzipped):
+
+  | step | render-blocking CSS |
+  |---|---|
+  | before (the gate 59 KB) | 52.8 KB |
+  | FOLLOWUP-23's moves, taken as they are on lane-followups: the teacher's, the parents' area's, the legal pages' and the saving screens' rules load with those screens (`lazy/teacher.css`, `parents.css`, `legal.css`, `durable.css`) | 45.7 KB |
+  | one layer: 913 declarations dropped that a later rule with the same selector, in the same or a wider `@media`, always overrides (most in `app.css` and `v4.css`); 7 dead classes' rules dropped (no string, template, `clsx` key or library writes them); `v4.css` merged, its `:root` names into `tokens.css` and its rules at the top of `canon.css`, in the same order | 41.7 KB |
+  | every rule that only screens loaded on demand can match (each selector needs a class that only their modules write) moved into a stylesheet those screens import: 919 rules into 30 sheets, `lazy/shared.css` for parts several screens draw and one sheet per screen otherwise; 556 more stayed, because moving them could change which rule wins (a later first-load rule, or a rule in another lazy sheet, with the same specificity, a shared property and classes that can sit on one element) | **29.9 KB** |
+
+  The CSS gate is now 29.9 + 5% = **31.4 KB**, under the 32 KB target. `src/styles/lazy.test.js` ties every rule of
+  every sheet in `styles/lazy/` to the files that load it (FOLLOWUP-23's check, now over all of them), and it found
+  four dead rules in STUDENT-15's sheets (`.tabs`, `.pdf-thumb`, `.fieldset`, `.teacher-off-steps`), now gone. Proof:
+  every computed property of every element (and its `::before` and `::after`) was dumped at the end of each test and
+  at each screenshot of visual, screens, layout, dark, teacher, trust, challenge, report, learn, flows, manip,
+  subscription, tutor, programme, wardrobe and streak, phone and phone dark, in the builds before and after, and
+  compared (the result is in the commit message). The tools are in the lane's scratch folder (`lanes/council2/s11/tools`).
+  **The council2 merge** (round 3, onto the product2 merge): the main branch's boot split kept its design (the lane's
+  `gen-topic-meta.mjs` and `learn/challenges/open.ts` are gone; `content/topics.js` loads each topic's generators,
+  `learn/challenges/all.ts` holds the tasks' parts), and the lane's other cuts and its CSS came with it: the tutor's
+  prompts off the first load, motion's features after the first screen, Base UI only around the choice controls,
+  `Progress` drawn by `ui.jsx`, KaTeX and markdown on demand, the Arabic catalogues and Settings' Hebrew words lazy, one
+  layer of CSS with every rule only lazy screens match in their own sheets, and type in rem. The main branch's rules went
+  where the main branch put them (its own lazy sheets: `figure.css`, `data.css`, `measure.css`, `proof.css`,
+  `graph.css`, `transform.css`, `celebrate.css`, `chest.css`, `challenge.css`, `recap.css`, `unlock.css`,
+  `checkDone.css`; the boot sheets for the few it kept there), its px type converted to rem (the labels drawn inside a
+  figure or laid over a chart stay in the figure's units, listed in `scripts/check-units.mjs`), and the stair page's
+  stages and the light pills left `canon.css` for `journey.css` and `topics.css` as the product2 merge had them.
+  `src/styles/lazy.test.js` now checks every lazy sheet against the main branch's code too: the parts that write the
+  lesson's own classes elsewhere (solve-together's and the challenge's answer label, the sent help line) import
+  `lesson.css`, the Sunday recap imports `shared.css`, the PDF status line moved to `shared.css` (two screens draw it),
+  and the words that are data, not classes, are listed with their reasons. Measured (`npm run build`, gzip-9): boot JS
+  **299.2 KB** (331.7 before the merge), render-blocking CSS **30.5 KB** (45.7), largest lazy chunk 122.2 KB (pdf),
+  precache 6.42 MB. The ratchet set the gates to measured + 5%: boot JS **314 KB**, CSS **32 KB**; the chunk and
+  precache gates are unchanged.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from
@@ -1207,3 +1291,114 @@ proves the helper fails on a known violation (a button with no name, text under 
 - **Run it:** `cd madregot/web && npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-dark
   e2e/a11y.spec.js` (with `E2E_PORT=<port>` when another copy runs its suite); only these screens:
   `-g "Settings|restore screen|parents' report"`.
+
+## On by default for a solo student, and one store shape (COUNCIL2-24, COUNCIL2-23)
+
+The council's engineering judge: a solo student who clears the browser loses everything, because the backup was a
+choice behind a question asked twice; and the store still carried the retired plan's fields and four dead components.
+
+- **On by default** (`lib/durable/vault.js` `defaultBackup`, called by `screens/Welcome.jsx` when the first questions end
+  without a class). With a server, a student on their own (no class token, not the demo) gets a restore code made on the
+  device and the backup on at once; the first sealed copy goes up by the sync engine (`ifRev: null`), now and at every
+  later moment until it is there (offline, `vault_off`, a slow down). A vault that was never made is not "gone": the pull's
+  404 sets the "made again" note only when the device had pushed before (`backup.at`). A class student keeps DURABLE-6's
+  path (the class keeps the code); a family device gets the family's escrow when it links.
+- **Said once** (`components/durable/BackupLine.jsx`, loaded by Learn only while `showBackupLine` holds). A quiet card
+  under the header: what it is (an encrypted copy on the server that only the backup code opens), where the code is (only
+  on this device, so worth sending to a parent), and that Settings turns it off. "להציג את הקוד" opens the code's sheet,
+  "להגדרות" opens Settings › שמירת ההתקדמות, and either one or the X ("הבנתי") ends it for good (`backup.note`
+  'auto' cleared). While it is due the map opens at its top, so a 320 px phone shows it; the arrow button leads to the
+  stair. Screenshots looked at: `lanes/council2/shots/s15/backup-default-line.png` (390) and
+  `backup-default-line-phone-small.png` (320).
+- **Never said before it is true** (the second council's review of this lane: with 429 `too_many_vaults`, 503
+  `vault_full`, 503 `vault_off` or no connection on the first run, the backup was "on" with nothing on the server, and
+  the home still said "ההתקדמות שלכם מגובה"). `vault.js backedUp(b)` is the one rule: the backup is on and the server
+  gave its first copy a rev. Learn's line, the tick in Settings and the word "פועל" all wait for it. Until then
+  Settings says "עוד לא נשמר בשרת · ננסה שוב" (offline: "· מחכה לאינטרנט"), with a note that the app tries again every
+  time it opens and a button that saves a backup file now; `too_many_vaults` is treated as the other two refusals
+  (state `unavailable`), and the reminder counts a backup that has waited a day for its first copy as no backup
+  (`nudge.js NUDGE_PENDING_DAYS`). Tests: `vault.test.js`, `nudge.test.js`, `SupportInfo.test.jsx`; e2e
+  `restore.spec.js` "the first copy is refused" for each of the four cases (no card on the home, the row and the note
+  in Settings at 390 and 320, the file saved, and the line appearing once the copy lands). Screenshots looked at:
+  `lanes/council2/shots/fix/backup-not-yet-*.png`.
+- **The opt-out** is Settings › שמירת ההתקדמות › "להפסיק את הגיבוי" (the copy is deleted, a tombstone is left, and nothing
+  turns it on again by itself). While the student's own code is on, a note there says what the server holds and where the
+  code is. "מחיקת כל הנתונים" still deletes the vault first, by its lookup token.
+- **The reminder** (`lib/durable/nudge.js`) no longer stops after two asks: every 14 days on a calm screen, until a
+  backup (made, restored, or kept by the class or the family) or an install (the Home Screen app's own window, or the
+  store app) exists.
+- **Privacy text and data map**: `privacy.md` (the device section and "קוד גיבוי."), `worker/datamap.json` (`vaults`,
+  and what the store key holds), `docs/privacy/DATA_MAP.md`, and the regenerated `DATABASE_DEFINITIONS.md` say that the
+  solo vault is on by default, that the server holds ciphertext, and that the restore code stays on the device.
+- **One store shape** (COUNCIL2-23). The v7 step in `lib/durable/migrations.js` drops `planBase` and `wins` (nothing has
+  written them since CURRICULUM-7); both merges drop them too (`RETIRED`), so an older tab or device cannot bring them
+  back. The spec called it "v6": v6 was taken by the teacher's class work, so this is v7, tested from a frozen v5 save
+  (`fixtures/v5.json`) and from a v6 save an older build wrote back. `isObj` and `CODE_ALPHABET` have one copy each
+  (`shared/obj.js`, `shared/alphabet.js`), imported by the app and the Worker; `stairName` is built only in
+  `shared/stairs.js` (the report wraps it; the teacher screens' numbered label is now `stairLabel`).
+  `components/Climb.jsx`, `PageScene.jsx`, `map/PathTrail.jsx`, `map/WorldBackdrop.jsx` and `lib/ladder.js` are gone
+  with their CSS (nothing imported them: `git grep` and the build; ladder.js was imported only by its own tests, and the
+  one test there that was not about the ladder, `readAnswer`, stays). `shared/obj.test.js` keeps each of the three to one
+  copy.
+- **Tests**: `nudge.test.js` (9: reminds a tenth time 14 days after the ninth; stops for a backup, an escrow, an install;
+  reads the install from the window and the store shell), `vault.test.js` (7 new: on by default, offline first, a server
+  that cannot take it yet, only for a solo student, Learn's line once, the opt-out, a stop before the first copy),
+  `migrations.test.js` (v7 from v5 and v6), `merge.test.js` (both merges drop the retired fields; the 300-pair and the
+  tab property tests stay green, now with room for a loaded machine), `privacy.test.js`, `SaveSection.test.jsx`
+  (BackupLine's words), `shared/obj.test.js`, and `e2e/restore.spec.js` "the backup is on by default" (3 tests on phone
+  and phone-small: the vault after the first questions, the line, the code, Settings stops it; "delete all" still
+  deletes it; a class student is not on this path).
+
+
+## The key flows against the real Worker (COUNCIL2-22)
+
+The council's engineering skeptic: the e2e ran only against an 896-line fake server, so nothing proved the app and the
+Worker agree. Now the flows that move data or money run against the Worker itself as well.
+
+- **`worker/scripts/serve-local.mjs`**: the Worker's own fetch handler (`src/index.js`) over HTTP on 127.0.0.1, on a
+  node:sqlite database built from `worker/migrations/` in order (as `wrangler d1 migrations apply` builds a real one),
+  with `test/helpers.js`'s test vars and stubs: Claude answers with the fake's own canned words (chat and explanation),
+  the email service records the message, payment is the Worker's built-in test provider (its page is
+  `/api/billing/test-pay/:id`), and a fetch to any other address throws. No `.dev.vars`, no key, no secret: the escrow
+  key's `VAULT_SECRET` is the test value the Worker's own tests use. It also serves the built app the way the deployed
+  Worker does (one address, `VITE_API_URL="/"`). Each test gets a database of its own (`/t/<tenant>/…`); the test-only
+  routes (`/__contract/sql` SELECT only, `/emails`, `/escrows` unsealed) exist only in this script.
+  `worker/test/serve-local.test.js` checks it: the migrations' tables, tenants apart, the email recorded and its code
+  signing in, the test routes read only.
+- **The `contract` project** (`web/e2e/playwright.config.js`, phone 390×844, port 4423 or `CONTRACT_PORT`) builds
+  `dist-contract` and starts serve-local as its web server, and runs the tests tagged `@contract`. Each of them runs in
+  the `phone` project too, against the fake: one test body, two backends (`web/e2e/contract.js`; `fakeServer()` returns
+  the Worker's tenant in the contract project, and the helpers `vaultRow`, `vaultCount`, `tombstoned`, `escrowsOf`,
+  `answersOf`, `emailedCode`, `joinedStudent`, `classFor` and `familyDevice` read or set up either backend).
+  - `class-sync.spec.js`: offline for three lessons, the page closed, back online, a reply lost: every answer stored once.
+  - `restore.spec.js`: a code made in Settings, a lesson pushed (compare-and-swap), the code stopped (tombstone); the lost
+    phone restored from the code and a lesson on it reaching the first device; the backup on by default after the first
+    questions, its line, Settings stopping it; "delete all" deleting that vault; a class student's code kept by the class
+    (escrow) and a fresh phone back with the class code and the PIN, then the switch off.
+  - `durable.spec.js`: "delete all" with a server asks the Worker first (`/api/me/forget` 200), then clears the device.
+  - `subscription.spec.js`: the free taste's allowance as the Worker counts it; a parent signing in with the emailed
+    code, paying on the test provider's page, and linking the child's device, which then asks as the family.
+  - `tutor.spec.js`: the context the lesson sends with an explanation and a chat, on a family plan bought and linked on
+    the Worker.
+- **Where the fake answered differently, the Worker was the truth:**
+  1. *Payment's way back.* The fake confirms an order a few polls after the return ("מאשרים את התשלום…" first); the
+     Worker's test provider settles it inside the payment page's own request, so the page comes back with the plan
+     active. The transient line is now checked against the fake only (a real company's webhook can come either way).
+  2. *Sign-in codes.* The fake takes any code (`123456`); the Worker emails a real one. The test reads it from the
+     email stub (the wrong-code message and its "4 tries left" were the same).
+  3. *Link codes, class codes, tokens and ids.* The fake's are fixed (`K7M4QX`, `K7Q2MD`, `stu_s1_1`, `s1`); the
+     Worker's are random. The tests read the code the child's screen shows, make the class through the Worker's API, and
+     compare tokens and ids with the profile the device saved.
+  4. *Where the server keeps things.* The fake keys a vault by its lookup token and keeps a kept code in clear; the
+     Worker keys it by the token's SHA-256 and seals the code with `VAULT_SECRET`. The tests read either through
+     `contract.js`.
+  5. *A lost reply.* The fake has a switch (`st.loseProgressReplies`); against the Worker the reply is lost at the
+     network (the request is sent on with `route.fetch()`, then the browser hears a dropped connection), which is closer
+     to what a phone sees.
+  6. *A fresh app with a server* saves what the server said about the tutor (`ai.lastTier`) as soon as it opens, so after
+     "delete all" the key comes back with no profile and no progress; with no server it stays away. The test checks
+     "nothing of the progress" with a server and "nothing at all" without.
+  7. *Seeding a device.* A running app with a server writes its state the moment the server answers, so `helpers.open()`
+     seeds from a file of the app's address that is not the app (`theme-boot.js`) in the contract project.
+- **Run once here** (12 November 2026, this shared 4-CPU machine): the contract project, 12 tests, and the same 12
+  in the phone project with the rest of their files; the numbers are in the commit message.

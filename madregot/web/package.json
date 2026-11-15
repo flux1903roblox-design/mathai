@@ -9,12 +9,15 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint:colors": "node scripts/check-colors.mjs",
+    "lint:units": "node scripts/check-units.mjs",
     "test:e2e": "playwright test -c e2e/playwright.config.js",
     "test:week": "playwright test -c e2e/playwright.config.js --grep @student --project=phone --project=phone-small --project=phone-dark",
     "typecheck": "tsc -p tsconfig.json",
     "programme:md": "vite-node scripts/programme-md.mjs --write",
     "programme:check": "vite-node scripts/programme-md.mjs --check",
-    "review:sheet": "vite-node scripts/review-sheet.mjs"
+    "review:sheet": "vite-node scripts/review-sheet.mjs",
+    "positioning:md": "vite-node scripts/positioning-md.mjs write",
+    "positioning:check": "vite-node scripts/positioning-md.mjs check"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.1.0",

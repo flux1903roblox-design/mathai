@@ -9,13 +9,15 @@ import { topicsFor } from '@/content/index.js';
 import { GOALS } from '@/lib/quests.js';
 import { LIST_PRICES, formatAgorot, vatLine } from '@/lib/price.js';
 import { APP_NAME } from '../../shared/brand.js';
-import { WEB, IMAGES, buildLanding, imageSize, wranglerVars, repoCode, renderClaims } from './landing-build.mjs';
+import { WEB, IMAGES, buildLanding, imageSize, wranglerVars, repoCode, renderClaims, saleVars, priceLine, passLine } from './landing-build.mjs';
+import { soldOnline } from '../../shared/sold.js';
 import { CLAIMS, CLAIM, claimStatus, claimData } from '@/content/claims.js';
 import { codeWith, MERGED } from '@/lib/testing/claimCode.js';
 
+// an owner's build that sells both family plans online (Grow, with the permission to stop a standing order)
 const ENV = {
   PUBLIC_URL: 'https://madregot.example.test/', CONTACT_EMAIL: 'hello@example.test', BUSINESS_NAME: 'מדרגות & שות׳ <בע״מ>',
-  API_BASE: 'https://api.example.test', VITE_API_URL: 'none',
+  API_BASE: 'https://api.example.test', VITE_API_URL: 'none', BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'on',
 };
 const read = (...p) => readFileSync(join(...p), 'utf8');
 const escHtml = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -86,11 +88,75 @@ describe('landing-build', () => {
     const toml = wranglerVars(read(WEB, '../worker/wrangler.toml'));
     expect(Number(toml.PRICE_FAMILY_MONTH_AGOROT)).toBe(LIST_PRICES.month);
     expect(Number(toml.PRICE_FAMILY_YEAR_AGOROT)).toBe(LIST_PRICES.year);
-    expect(page.mivchan).toContain(`${formatAgorot(LIST_PRICES.month)} לחודש או ${formatAgorot(LIST_PRICES.year)} לשנה, כולל מע״מ.`);
+    expect(page.mivchan).toContain(`${formatAgorot(LIST_PRICES.month)} לחודש או ${formatAgorot(LIST_PRICES.year)} לשנה, כולל מע״מ. בלי התחייבות, מבטלים באתר.`);
     expect(formatAgorot(LIST_PRICES.month)).toBe('₪29.90');
     expect(formatAgorot(LIST_PRICES.year)).toBe('₪249');
     expect(page.pilot).not.toContain('₪');
     expect(page.pilot).not.toMatch(/מנוי|לחודש|לשנה/);
+  });
+
+  it('prices only the family plans sold online (COUNCIL2-30): Grow before the direct debit permission, the year alone and no "מבטלים באתר"; manual, none', async () => {
+    const built = async (env) => {
+      const other = fakeDist();
+      try {
+        const { warn, claims } = await buildLanding(other, { env: { ...ENV, ...env }, app: smallApp() });
+        return { html: read(other, 'mivchan/index.html'), warn, cancel: claims.find((c) => c.id === 'cancel-web') };
+      } finally { rmSync(other, { recursive: true, force: true }); }
+    };
+    const year = formatAgorot(LIST_PRICES.year); const month = formatAgorot(LIST_PRICES.month);
+    // Grow with GROW_DIRECT_DEBIT_API "off": the one-year plan is sold (one charge), the monthly one is not
+    const once = await built({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off' });
+    expect(once.html).toContain(`<p class="price">${year} לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.</p>`);
+    expect(once.html).not.toContain(month);
+    expect(once.html).not.toContain('לחודש');
+    expect(once.html).not.toContain('מבטלים באתר');
+    expect(once.cancel).toMatchObject({ visible: false, why: 'not in this deployment: a plan that renews, sold online' });
+    // the manual provider sells nothing online: no price at all, and the build says so
+    const manual = await built({ BILLING_PROVIDER: 'manual' });
+    expect(manual.html).not.toContain('class="price"');
+    expect(manual.html).not.toContain('₪');
+    expect(manual.html).not.toContain('מבטלים באתר');
+    expect(manual.warn).toContain('no family plan is sold online with BILLING_PROVIDER "manual": the parents\' page shows no price');
+    // the settings come from the build env first, then wrangler.toml (the owner's [vars])
+    const toml = wranglerVars(read(WEB, '../worker/wrangler.toml'));
+    expect(saleVars({}, toml)).toEqual({ BILLING_PROVIDER: toml.BILLING_PROVIDER || 'manual', GROW_DIRECT_DEBIT_API: toml.GROW_DIRECT_DEBIT_API || 'off', PRICE_EXAM_PASS_AGOROT: toml.PRICE_EXAM_PASS_AGOROT || '' });
+    expect(saleVars({ BILLING_PROVIDER: 'grow' }, { BILLING_PROVIDER: 'manual', GROW_DIRECT_DEBIT_API: 'on' })).toEqual({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'on', PRICE_EXAM_PASS_AGOROT: '' });
+    // the sentence for each case
+    const fmt = { month, year, vat: 'כולל מע״מ' };
+    expect(priceLine(soldOnline({ BILLING_PROVIDER: 'test' }), fmt)).toBe(`${month} לחודש או ${year} לשנה, כולל מע״מ.`);
+    expect(priceLine({ family_month: true, family_year: false }, fmt)).toBe(`${month} לחודש, כולל מע״מ.`);
+    expect(priceLine(soldOnline({ BILLING_PROVIDER: 'manual' }), fmt)).toBe('');
+  });
+
+  it('prints the exam pass from the same rule (COUNCIL2-33): only once the owner set its price, sold through Grow as one charge, never with the manual provider', async () => {
+    const built = async (env) => {
+      const other = fakeDist();
+      try { return read((await buildLanding(other, { env: { ...ENV, ...env }, app: smallApp() }), other), 'mivchan/index.html'); } finally { rmSync(other, { recursive: true, force: true }); }
+    };
+    const toml = wranglerVars(read(WEB, '../worker/wrangler.toml'));
+    // The price is the owner's decision: the repository ships none (the review: a placeholder of ₪39 was on the public
+    // page as a real price). With none, the real build says nothing about the pass, and nothing sells it.
+    expect(toml.PRICE_EXAM_PASS_AGOROT).toBe('');
+    expect(page.mivchan).not.toContain('חבילה ל־30 יום');
+    expect(page.mivchan).not.toContain('₪39');
+    expect(passLine(soldOnline({ BILLING_PROVIDER: 'grow' }), { pass: '₪39', vat: 'כולל מע״מ' })).toBe('');
+    // the same in both tables (the owner sets both at once: the readiness check names the step)
+    const staging = /^\[env\.staging\.vars\]$([\s\S]*?)(?=^\[)/m.exec(read(WEB, '../worker/wrangler.toml'))[1];
+    expect(staging).toContain('PRICE_EXAM_PASS_AGOROT = ""');
+
+    // once a price is set (here the build's own, as the owner's [vars] would give it): the line, at that price
+    const line = (price) => `<p class="price">לפני מבחן: חבילה ל־30 יום ב־${price}, כולל מע״מ. תשלום אחד, לא מתחדשת מעצמה.</p>`;
+    expect(await built({ LANDING_PRICE_PASS_AGOROT: '3900' })).toContain(line('₪39'));
+    expect(await built({ LANDING_PRICE_PASS_AGOROT: '4490' })).toContain(line('₪44.90'));
+    // Grow at launch (no direct debit): the year and the pass, both one charge; and no "מבטלים באתר"
+    const launch = await built({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off', LANDING_PRICE_PASS_AGOROT: '3900' });
+    expect(launch).toContain(line('₪39'));
+    expect(launch).toContain(`${formatAgorot(LIST_PRICES.year)} לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.`);
+    expect(launch).not.toContain('מבטלים באתר');
+    // the manual provider sells nothing, with a price or without
+    expect(await built({ BILLING_PROVIDER: 'manual', LANDING_PRICE_PASS_AGOROT: '3900' })).not.toContain('חבילה ל־30 יום');
+    expect(passLine(soldOnline({ BILLING_PROVIDER: 'grow', PRICE_EXAM_PASS_AGOROT: '3900' }), { pass: '₪39', vat: 'המחיר סופי' }))
+      .toBe('לפני מבחן: חבילה ל־30 יום ב־₪39, המחיר סופי. תשלום אחד, לא מתחדשת מעצמה.');
   });
 
   it('lists the topics the app has, from topicsFor, and the daily goals from GOALS', () => {
@@ -179,7 +245,8 @@ describe('landing-build', () => {
 
   it('says about the product only the claims the code backs, each in its own words (STUDENT-17)', () => {
     const toml = wranglerVars(read(WEB, '../worker/wrangler.toml'));
-    const status = Object.fromEntries(claimStatus({ code: repoCode(), data: { ...DATA, vars: toml } }).map((c) => [c.id, c]));
+    // the sale settings as the build read them (the build env first)
+    const status = Object.fromEntries(claimStatus({ code: repoCode(), data: { ...DATA, vars: { ...toml, ...saleVars(ENV, toml) } } }).map((c) => [c.id, c]));
     for (const name of ['mivchan', 'pilot']) {
       const ids = namedIn(read(WEB, 'landing', `${name}.html`));
       expect(ids.length, name).toBeGreaterThan(3);

@@ -1,6 +1,7 @@
 // Maths in the app's text: $...$ inside Hebrew, drawn by KaTeX. No markdown here: AI answers and the legal pages use
 // RichText (components/RichText.jsx), whose markdown file loads only when such text is shown (DURABLE-11).
 import { memo, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { t as tr } from '@/lib/i18n.js';
 
 // KaTeX and its stylesheet (components/katex.js) are their own file, fetched as the app starts but never waited for by
 // the first screen: until it is here an expression shows as plain words (texText), then every expression on screen
@@ -35,7 +36,8 @@ export const renderTex = (tex, displayMode = false) => {
   try { return katex.renderToString(String(tex ?? ''), { displayMode, throwOnError: false, strict: 'ignore' }); } catch { return escapeHtml(tex); }
 };
 
-const RELATION = { '<': 'קטן מ־', '>': 'גדול מ־', '=': 'שווה ל־', '\\le': 'קטן או שווה ל־', '\\ge': 'גדול או שווה ל־', '\\ne': 'שונה מ־' };
+// a relation sign alone (a comparison's choice) is read as words, in the language on screen
+const RELATION = { '<': 'lt', '>': 'gt', '=': 'eq', '\\le': 'le', '\\ge': 'ge', '\\ne': 'ne' };
 
 /**
  * A TeX expression as plain text, for a screen-reader label where the rendered maths alone gives a
@@ -47,7 +49,7 @@ const RELATION = { '<': 'קטן מ־', '>': 'גדול מ־', '=': 'שווה ל־
  */
 export function texText(tex) {
   const t = String(tex ?? '').trim();
-  if (RELATION[t]) return RELATION[t];
+  if (RELATION[t]) return tr(`shell.math.${RELATION[t]}`);
   return t
     // a table (array) is read row by row; when its first column is a heading column ({c|ccc}), each row says its
     // heading first: "x: 1, 2, 3; y: 4, 5, 6"
@@ -56,8 +58,8 @@ export function texText(tex) {
       const rows = body.replace(/\\hline/g, '').split('\\\\').map((row) => row.split('&').map((c) => c.trim())).filter((cells) => cells.some(Boolean));
       return ` ${rows.map(([head, ...cells]) => (headed && head && cells.length ? `${head}: ${cells.join(', ')}` : [head, ...cells].filter(Boolean).join(', '))).join('; ')} `;
     })
-    .replace(/\\lvert(?![a-zA-Z])\s*([^]*?)\s*\\rvert(?![a-zA-Z])/g, 'הערך המוחלט של $1').replace(/\\[lr]vert(?![a-zA-Z])/g, '|')
-    .replace(/\\(?:sphericalangle|angle|measuredangle)(?![a-zA-Z])\s*/g, 'זווית ').replace(/\\triangle(?![a-zA-Z])\s*/g, 'משולש ')
+    .replace(/\\lvert(?![a-zA-Z])\s*([^]*?)\s*\\rvert(?![a-zA-Z])/g, (_, x) => tr('shell.math.abs', { x })).replace(/\\[lr]vert(?![a-zA-Z])/g, '|')
+    .replace(/\\(?:sphericalangle|angle|measuredangle)(?![a-zA-Z])\s*/g, () => `${tr('shell.math.angle')} `).replace(/\\triangle(?![a-zA-Z])\s*/g, () => `${tr('shell.math.triangle')} `)
     .replace(/\\(boxed|underline|underbrace|overbrace|mathrm|mathbf)(?![a-zA-Z])/g, '').replace(/\\q?quad(?![a-zA-Z])/g, ' ')
     .replace(/\\alpha(?![a-zA-Z])/g, 'α').replace(/\\beta(?![a-zA-Z])/g, 'β').replace(/\\gamma(?![a-zA-Z])/g, 'γ').replace(/\\delta(?![a-zA-Z])/g, 'δ')
     .replace(/\\approx(?![a-zA-Z])/g, '≈').replace(/\\to(?![a-zA-Z])/g, '→').replace(/\\(?:ldots|cdots|dots)(?![a-zA-Z])/g, '…')
@@ -72,8 +74,8 @@ export function texText(tex) {
     .replace(/\^\{?2\}?/g, '²').replace(/\\pi(?![a-zA-Z])/g, 'π')
     // the class's geometry relations (GEOM-1.4), said in words as the angle and the triangle are above: a screen reader
     // has no Hebrew name for ≅, ∼, ∥ or ⊥ ("משולש ABC חופף ל־משולש KML")
-    .replace(/\s*\\cong(?![a-zA-Z])\s*/g, ' חופף ל־').replace(/\s*\\sim(?![a-zA-Z])\s*/g, ' דומה ל־')
-    .replace(/\s*\\parallel(?![a-zA-Z])\s*/g, ' מקביל ל־').replace(/\s*\\perp(?![a-zA-Z])\s*/g, ' מאונך ל־')
+    .replace(/\s*\\cong(?![a-zA-Z])\s*/g, () => ` ${tr('shell.math.cong')}`).replace(/\s*\\sim(?![a-zA-Z])\s*/g, () => ` ${tr('shell.math.sim')}`)
+    .replace(/\s*\\parallel(?![a-zA-Z])\s*/g, () => ` ${tr('shell.math.parallel')}`).replace(/\s*\\perp(?![a-zA-Z])\s*/g, () => ` ${tr('shell.math.perp')}`)
     .replace(/\\(left|right)|\\[,;! ]/g, ' ')
     .replace(/[{}]/g, '').replace(/\\([a-zA-Z]+)/g, '$1')
     .replace(/\s+/g, ' ').trim();

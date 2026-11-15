@@ -105,13 +105,17 @@ test('class: a rejoin with the right PIN gets the code back; a wrong PIN gets no
   assert.deepEqual((await (await join(cls.code)).json()).vault, { code: replaced.code });
 });
 
-test('class: the teacher\'s PIN reset keeps the escrow, and the join that sets the new PIN gets the code', async () => {
+test('class: the teacher\'s PIN reset keeps the escrow, and the join that claims the account with the teacher\'s code gets it', async () => {
   h = await setup({ VAULT_SECRET });
   const cls = await makeClass(h, { students: ['נועה'] });
   const e = await vaultWithEscrow(bearer(cls.students[0]));
-  assert.equal((await h.call('POST', `/api/teacher/students/${cls.students[0].studentId}/reset-pin`, { headers: cls.teacher, body: {} })).status, 200);
+  const r = await h.call('POST', `/api/teacher/students/${cls.students[0].studentId}/reset-pin`, { headers: cls.teacher, body: {} });
+  assert.equal(r.status, 200);
+  const { claimCode } = await r.json();
   assert.equal(rows(h.env, 'SELECT * FROM vault_escrow').length, 1);
-  const back = await (await join(cls.code, 'נועה', '4321')).json();
+  // her name alone does not give the code (COUNCIL2-25): the teacher's one-time code does
+  assert.equal((await (await join(cls.code, 'נועה', '4321')).json()).vault, undefined);
+  const back = await (await h.call('POST', `/api/classes/${cls.code}/join`, { body: { name: 'נועה', pin: '4321', claim: claimCode } })).json();
   assert.deepEqual(back.vault, { code: e.code });
 });
 

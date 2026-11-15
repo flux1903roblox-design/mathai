@@ -27,12 +27,36 @@ beforeEach(() => {
   vi.stubGlobal('sessionStorage', session);
   vi.stubGlobal('window', { localStorage: local, sessionStorage: session, location: { origin: 'https://madregot.example.test' } });
   vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
-    calls.push({ url, headers: init.headers || {} });
-    if (String(url).endsWith('/api/account/verify')) return new Response(JSON.stringify({ token: TOKEN, email: 'parent@example.test' }), { status: 200 });
+    calls.push({ url, headers: init.headers || {}, body: init.body ? JSON.parse(init.body) : null });
+    if (String(url).endsWith('/api/account/verify')) {
+      const adult = init.body && JSON.parse(init.body).adultTeacher === true;
+      return new Response(JSON.stringify({ token: TOKEN, email: 'parent@example.test', ...(adult ? { adult: true } : {}) }), { status: 200 });
+    }
     return new Response(JSON.stringify({ ok: true, revoked: 1 }), { status: 200 });
   }));
 });
 afterEach(() => { vi.unstubAllGlobals(); });
+
+describe('a teacher\'s 18+ declaration (COUNCIL2-5)', () => {
+  it('is sent only when the form asks for it, as a boolean, and the session keeps what the server says', async () => {
+    const { parent } = await load();
+    await parent.verifyCode('parent@example.test', '123456');
+    expect(calls.at(-1).body).toEqual({ email: 'parent@example.test', code: '123456' });
+    expect(parent.useParent.getState().session.adult).toBe(false);
+    await parent.verifyCode('teacher@example.test', '123456', { adultTeacher: false });
+    expect(calls.at(-1).body).toEqual({ email: 'teacher@example.test', code: '123456', adultTeacher: false });
+    await parent.verifyCode('teacher@example.test', '123456', { adultTeacher: true });
+    expect(calls.at(-1).body.adultTeacher).toBe(true);
+    expect(parent.useParent.getState().session.adult).toBe(true);
+  });
+
+  it('markAdult records a declaration given later (a bind or a new class), and keeps the rest of the session', async () => {
+    const { parent } = await load();
+    await parent.verifyCode('teacher@example.test', '123456', { shared: true });
+    parent.markAdult();
+    expect(parent.useParent.getState().session).toMatchObject({ token: TOKEN, shared: true, adult: true });
+  });
+});
 
 describe('the parent session on a shared device', () => {
   it('a session saved before any profile is ended, here and on the server, once a child profile is created', async () => {
@@ -78,7 +102,7 @@ describe('the parent session on a shared device', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(signouts()).toHaveLength(0);
     expect(parent.useParent.getState().session?.token).toBe(TOKEN);
-    expect(JSON.parse(local.getItem('madregot-parent'))).toEqual({ token: TOKEN, email: 'parent@example.test', shared: false });
+    expect(JSON.parse(local.getItem('madregot-parent'))).toEqual({ token: TOKEN, email: 'parent@example.test', shared: false, adult: false });
   });
 
   it('on a teacher\'s device a sign-in is kept in localStorage, and survives a reload', async () => {

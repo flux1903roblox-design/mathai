@@ -1,8 +1,7 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Fragment, lazy, Suspense, useEffect } from 'react';
 import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
-import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
-import { DirectionProvider } from '@base-ui/react/direction-provider';
+import { LazyMotion, MotionConfig } from 'motion/react';
 import { CircleCheck, CircleAlert, Info } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
@@ -32,9 +31,12 @@ import BackupNudge from '@/components/durable/BackupNudge.jsx';
 import SharingNotice from '@/components/learn/SharingNotice.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
+import { loadMotionFeatures } from '@/lib/motion.js';
+import { preloadSheet } from '@/components/ui.jsx';
 import Welcome from '@/screens/Welcome.jsx';
 import Learn from '@/screens/Learn.jsx';
 import { LessonScreen as Lesson } from '@/lib/lazyScreen.js';
+import { localized, t as tr, useLocale, dirOf } from '@/lib/i18n.js';
 // Screens that are not on the daily path load on demand (the topics, a topic's guide and the quests too: DURABLE-11).
 // The lesson is its own file too, fetched ahead of time (lib/lazyScreen.js).
 const Topics = lazy(() => import('@/screens/Topics.jsx'));
@@ -70,6 +72,8 @@ const SharedReport = lazy(() => import('@/screens/parents/parents.js').then((m) 
 const FamilyOffer = lazy(() => import('@/screens/FamilyOffer.jsx'));
 // "יש לי קוד גיבוי": with or without a profile, so it is routed with the parents' area (DURABLE-5)
 const Restore = lazy(() => import('@/screens/Restore.jsx'));
+// a shared assignment link (COUNCIL2-35): opens the work for a student of the class, or the join first
+const AssignmentOpen = lazy(() => import('@/screens/AssignmentOpen.jsx'));
 // a store app's parents' pages (STUDENT-12): how a parent lets the child ask the tutor, and nothing to buy
 const StoreParents = lazy(() => import('@/screens/parents/StoreParents.jsx'));
 // a store build asks before the first AI request (STUDENT-12, Apple 5.1.2(i)); the web build does not carry the sheet
@@ -154,7 +158,7 @@ const TOAST_OPTIONS = {
   className: 'toast',
   classNames: { title: 'toast-title', description: 'toast-desc', icon: 'toast-icon', success: 'toast-good', error: 'toast-bad', info: 'toast-info', actionButton: 'toast-action', cancelButton: 'toast-cancel' },
 };
-const toaster = { dir: 'rtl', className: 'app-toaster', containerAriaLabel: 'הודעות', customAriaLabel: 'הודעות', icons: TOAST_ICONS, toastOptions: TOAST_OPTIONS };
+let toaster = localized(() => ({ dir: dirOf(), className: 'app-toaster', containerAriaLabel: tr('shell.app.1'), customAriaLabel: tr('shell.app.1'), icons: TOAST_ICONS, toastOptions: TOAST_OPTIONS }), (v) => { toaster = v; });
 
 /**
  * A toast belongs to the screen that raised it: cleared when the route changes. Above the tab bar on
@@ -179,7 +183,7 @@ function RestoreToast() {
   useEffect(() => {
     if (!restored || restoreToastShown) return;
     restoreToastShown = true;
-    toast('החזרנו את ההתקדמות מהעותק שנשמר במכשיר.', { duration: 6000 });
+    toast(tr('shell.app.2'), { duration: 6000 });
   }, [restored]);
   return null;
 }
@@ -200,16 +204,16 @@ function HelpNotice() {
     if (!fresh.length) return;
     markNoticed(fresh.map((x) => x.message.id));
     const id = fresh[0].help.id;
-    toast('יש תשובה מהמורה על בקשת העזרה', { id: HELP_NOTICE, duration: 10_000, action: { label: 'לקריאה', onClick: () => navigate('/quests', { state: { help: id } }) } });
+    toast(tr('shell.app.3'), { id: HELP_NOTICE, duration: 10_000, action: { label: tr('shell.app.4'), onClick: () => navigate('/quests', { state: { help: id } }) } });
   }, [token, help, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
 
 /**
  * The teaching content loads one topic at a time, and the lesson screen is its own file (DURABLE-11); so do the
- * exercise generators (the boot split, content/topics.js loadGens). After the first screen, when the browser is idle,
- * the lesson and the topic the student worked on last (its teaching and its generators; a student with none yet, the
- * grade's first unit) load in the background, so the next lesson opens without a wait.
+ * exercise generators (the boot split, content/topics.js loadGens; COUNCIL2-14). After the first screen, when the
+ * browser is idle, the lesson and the topic the student worked on last (its teaching and its generators; a student with
+ * none yet, the grade's first unit) load in the background, so the next lesson opens without a wait.
  */
 function usePreloadLastTopic(role) {
   useEffect(() => {
@@ -291,8 +295,10 @@ function Root() {
   const sell = canSell();
   useAIStatusBoot();
   usePreloadLastTopic(role);
+  // a new language (Welcome, Settings; lib/i18n.js) draws every screen again in it: the hooks above keep running
+  const lang = useLocale();
   return (
-    <>
+    <Fragment key={lang}>
       <Toasts />
       <RestoreToast />
       {role === 'student' && <HelpNotice />}
@@ -314,9 +320,9 @@ function Root() {
       <ErrorBoundary>
       <Suspense fallback={<LoadingState />}>
       <Routes>
-        {/* the parents' area, the legal pages, the programme page, the restore screen and a child's weekly summary come
-            first: they open from a QR code, a payment page, an email link, a new phone or a WhatsApp message, on a device
-            with no profile at all. A store app sells nothing (STUDENT-12): its parents' pages say how a parent lets the
+        {/* the parents' area, the legal pages, the programme page, the restore screen, a teacher's assignment link and a
+            child's weekly summary come first: they open from a QR code, a payment page, an email link, a new phone, a
+            Classroom or Moodle post or a WhatsApp message, on a device with no profile at all. A store app sells nothing (STUDENT-12): its parents' pages say how a parent lets the
             child ask the tutor, and nothing more */}
         {sell ? (
           <>
@@ -332,6 +338,7 @@ function Root() {
         <Route path="/safety" element={<Legal doc="safety" />} />
         <Route path="/programme" element={<Programme />} />
         <Route path="/restore" element={<Restore />} />
+        <Route path="/a/:id" element={<AssignmentOpen />} />
         <Route path="/r/:data" element={<SharedReport />} />
         <Route path="/r" element={<SharedReport />} />
         <Route path="/f/:data" element={<FamilyOffer />} />
@@ -408,15 +415,20 @@ function Root() {
       </Routes>
       </Suspense>
       </ErrorBoundary>
-    </>
+    </Fragment>
   );
 }
 
 const router = createHashRouter([{ path: '*', element: <Root /> }]);
 
+// The animation features of motion (COUNCIL2-14): fetched as the first screen mounts, not part of its download
+// (lib/motion.js loadMotionFeatures; a component mounted before they arrive starts at its target, entrance()).
+// LazyMotion's strict mode keeps every screen on m.*, so nothing pulls the full motion component back in.
+
 export default function App() {
-  // KaTeX is not part of the first download (DURABLE-11): fetched once the first screen is up, never waited for
-  useEffect(() => { loadKatex().catch(() => {}); }, []);
+  // KaTeX is not part of the first download (DURABLE-11): fetched once the first screen is up, never waited for; and
+  // the sheets' dialog (COUNCIL2-14, components/SheetDialog.jsx), so a sheet opens at once when it is first asked for
+  useEffect(() => { loadKatex().catch(() => {}); preloadSheet().catch(() => {}); }, []);
   useMoments();
   // a linked device's daily summary for the parents goes first on hidden, before the class outbox (lib/familySync.js)
   useFamilySync();
@@ -428,15 +440,13 @@ export default function App() {
   useEffect(() => watchPersisted(), []);
   // the saved look (Settings, מראה); public/theme-boot.js already applied an explicit choice before the first paint
   useEffect(() => { applyTheme(useApp.getState().prefs?.theme); }, []);
-  // DirectionProvider (STUDENT-15 B1): Base UI's radio groups and composites read the direction from here, not from
-  // <html dir>, so the arrow keys follow Hebrew reading order in every screen
+  // Base UI's radio groups read the direction from their own DirectionProvider (components/choices.jsx, STUDENT-15 B1),
+  // not from here: the first screen carries no Base UI (COUNCIL2-14)
   return (
-    <DirectionProvider direction="rtl">
-    <LazyMotion features={domAnimation} strict>
+    <LazyMotion features={loadMotionFeatures} strict>
     <MotionConfig reducedMotion="user">
       <RouterProvider router={router} />
     </MotionConfig>
     </LazyMotion>
-    </DirectionProvider>
   );
 }

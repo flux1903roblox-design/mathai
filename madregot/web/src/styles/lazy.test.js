@@ -1,11 +1,12 @@
-// The stylesheets that load with their screens (FOLLOWUP-23, after STUDENT-15): the teacher's (lazy/teacher.css), the
-// parents' area's (lazy/parents.css), the legal pages' reading rules (lazy/legal.css) and the saving screens'
-// (lazy/durable.css). A rule there must never be needed on a screen that has not loaded its file, so every selector in
+// The stylesheets that load with their screens (FOLLOWUP-23, after STUDENT-15; COUNCIL2-20 checks every file in
+// styles/lazy/): the teacher's (lazy/teacher.css), the parents' area's (lazy/parents.css), the legal pages' reading rules
+// (lazy/legal.css), the saving screens' (lazy/durable.css), each lazy screen's own sheet, and lazy/shared.css for the
+// parts several of them draw. A rule there must never be needed on a screen that has not loaded its file, so every selector in
 // it names a class that only files covered by that stylesheet write: a file is covered when it imports the stylesheet,
 // or statically imports a file that does, or when every file that imports it (statically or with import()) is covered.
 // Classes are looked for in the source with comments removed; a class a template could build (`kpi-${tone}`) counts
 // every file that builds such names. A cycle covers nothing by itself, so the check can only be stricter than needed.
-// And the first load: main.jsx imports none of these files, and the demo class's code is not imported by it.
+// And the first load: main.jsx imports none of these files, and the boot stylesheets keep none of the moved classes.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
@@ -73,11 +74,43 @@ function coveredBy(sheet) {
 const prefixes = [];
 /** token → the files that have it: the code cut at quotes, spaces, braces, brackets, commas, colons and `$`. */
 const tokens = new Map();
+/**
+ * Words a file has that are never a class there (the round-3 merge: the main branch's data and props share a name with
+ * a class), so the check does not count the file as writing it. Each was read in the file: [file, words, why].
+ */
+const NOT_A_CLASS = [
+  ['components/mascot/Accessories.jsx', ['medal'], 'a piece\'s drawing, by its id'],
+  ['lib/wardrobe.js', ['medal', 'quest'], 'a piece\'s id, and the quest chest\'s unlock key'],
+  ['lib/durable/merge.js', ['tw'], 'a variable'],
+  ['content/topics.js', ['nums'], 'a variable'], ['content/frac.js', ['nums'], 'a parameter'], ['content/congr.gen.js', ['nums'], 'a field'],
+  ['learn/content/func.ts', ['guide'], 'a figure\'s option'],
+  ['components/PathNode.jsx', ['celebrate'], 'a prop'], ['components/map/Chest.jsx', ['celebrate'], 'a prop'],
+  ['components/ds.jsx', ['celebrate'], 'a StateCard kind (its class is state-celebrate)'], ['screens/Learn.jsx', ['celebrate'], 'a prop'],
+  // `hint-${scale}` builds hint-left and hint-right only (the protractor's lit scale)
+  ['components/manip/AngleTurner.jsx', ['hint-bar', 'hint-box', 'hint-line', 'hint-more', 'hint-side', 'hint-text'], 'not what hint-${scale} builds'],
+].flatMap(([f, words]) => words.map((w) => `${join(SRC, f)}|${w}`));
+const notAClass = new Set(NOT_A_CLASS);
+// (and `ch-${colour}`, a unit's colour on the map, the lesson and the board, never builds the challenge feedback's ch-fb-…)
 function writersOf(cls) {
   const out = new Set(tokens.get(cls) || []);
-  for (const { p, file } of prefixes) if (cls.startsWith(p) && cls.length > p.length) out.add(file);
+  for (const { p, file } of prefixes) if (cls.startsWith(p) && cls.length > p.length && !(p === 'ch-' && cls.startsWith('ch-fb'))) out.add(file);
+  for (const f of [...out]) if (notAClass.has(`${f}|${cls}`)) out.delete(f);
   return out;
 }
+/**
+ * Selectors the token check cannot tie to a file, pinned by the importers instead (the test below): classes built from a
+ * caller's prefix (the graph and protractor drawings, `${cls}-grid`; the bars' tone, `qbar-${tone}`), and a rule that
+ * only applies inside a parent the check strips (`:is(.stage-done, .unlock-stage) > .done-hero`).
+ */
+const PINNED = {
+  'graph.css': /^\.(mp-graph|mp-prot)-/,
+  'figure.css': /^\.(fig-sgraph|fig-prot)-/,
+  'topics.css': /^\.qbar-light\b/,
+  'celebrate.css': /^:is\(\.stage-done, \.unlock-stage\) > \.done-hero$/,
+  // the class-goal moment (ClassGoalCard, first load) has a .done-hero of its own, never inside a .done-screen, and the
+  // unlock moment's fallback (lib/madiLook.js) is an empty .done-screen
+  'shared.css': /^\.done-screen \.done-hero$/,
+};
 
 // ---------------------------------------------------------------- the stylesheets' rules
 /** Every style rule's selectors, @media and @supports opened, other at-rules (@keyframes, @page) skipped. */
@@ -119,11 +152,14 @@ beforeAll(async () => {
 }, 60_000);
 
 describe('a lazy stylesheet styles only what the screens that load it write', () => {
-  it.each(['teacher.css', 'parents.css', 'legal.css', 'durable.css', 'data.css', 'measure.css', 'quests.css', 'settings.css', 'checkDone.css', 'journey.css'])('%s', { timeout: 30_000 }, (sheet) => {
+  // every sheet that loads on demand: FOLLOWUP-23's four, STUDENT-15's, the per-screen and shared sheets COUNCIL2-20 made
+  const SHEETS = readdirSync(join(SRC, 'styles/lazy')).filter((n) => n.endsWith('.css'));
+  it.each(SHEETS)('%s', { timeout: 30_000 }, (sheet) => {
     const covered = coveredBy(sheet);
     const bad = [];
     for (const selectors of rules(read(join(SRC, 'styles/lazy', sheet)))) {
       for (const sel of selectors) {
+        if (PINNED[sheet]?.test(sel)) continue;
         const ok = required(sel).some((c) => { const w = writersOf(c); return w.size > 0 && [...w].every(covered); });
         if (!ok) bad.push(sel);
       }
@@ -153,20 +189,34 @@ describe('a lazy stylesheet styles only what the screens that load it write', ()
     expect(imports(at('components/learn/RepeatNote.jsx'), 'checkDone.css')).toBe(true);
     expect(imports(at('screens/Journey.jsx'), 'journey.css')).toBe(true);
     expect(imports(at('screens/Topics.jsx'), 'topics.css')).toBe(true);
+    // the round-3 merge: the main branch's parts that write the lesson's own classes (the answer's label and its
+    // partial note in solve-together and the challenge, the sent help line), the Sunday recap's week, and the figures'
+    // table in the line explorer; and the pinned selectors' sheets, with their writers
+    for (const f of ['components/learn/Together.jsx', 'components/challenge/common.jsx', 'components/learn/MyHelp.jsx']) expect(imports(at(f), 'lesson.css'), f).toBe(true);
+    expect(imports(at('components/learn/RecapSheet.jsx'), 'shared.css')).toBe(true);
+    expect(imports(at('components/LineExplorer.jsx'), 'figure.css')).toBe(true);
+    for (const f of ['components/learn/StageDone.jsx', 'components/learn/UnlockStage.jsx']) expect(imports(at(f), 'celebrate.css') || [...(statics.get(at(f)) || [])].some((g) => imports(g, 'celebrate.css')), f).toBe(true);
   });
 });
 
-describe('the first load (FOLLOWUP-23)', () => {
+describe('the first load (FOLLOWUP-23, COUNCIL2-20)', () => {
   const main = read(join(SRC, 'main.jsx'));
   const app = read(join(SRC, 'App.jsx'));
 
-  it('main.jsx imports no lazy stylesheet', () => {
+  it('main.jsx imports no lazy stylesheet, and one layer: fonts, tokens, app, motion, canon, dark (v4.css merged)', () => {
     expect(main).not.toMatch(/styles\/lazy\//);
+    expect([...main.matchAll(/import '\.\/styles\/([\w.]+)'/g)].map((m) => m[1])).toEqual(['fonts.css', 'tokens.css', 'app.css', 'motion.css', 'canon.css', 'dark.css']);
+    expect(existsSync(join(SRC, 'styles/v4.css'))).toBe(false);
   });
 
   it('the boot stylesheets keep none of the moved screens\' own classes', () => {
-    const boot = ['app.css', 'v4.css', 'canon.css'].map((f) => read(join(SRC, 'styles', f)).replace(/\/\*[\s\S]*?\*\//g, '')).join('\n');
-    const left = ['t-head', 't-tools', 'demo-banner', 'preview-bar', 'print-root', 'ps-q', 'licence-card', 'teacher-off', 'parents-bar', 'parents-card', 'handoff-code', 'adult-form', 'legal', 'save-row', 'save-backup', 'support-rows', 'backup-code-body', 'restore-form', 'ghost-card', 'family-card', 'offer-card', 'set-adults', 'check-repeat', 'jstage', 'jchallenge', 'qbar-light']
+    const boot = ['app.css', 'canon.css'].map((f) => read(join(SRC, 'styles', f)).replace(/\/\*[\s\S]*?\*\//g, '')).join('\n');
+    const left = ['t-head', 't-tools', 'demo-banner', 'preview-bar', 'print-root', 'ps-q', 'licence-card', 'teacher-off', 'parents-bar', 'parents-card', 'handoff-code', 'adult-form', 'legal', 'save-row', 'save-backup', 'support-rows', 'backup-code-body', 'restore-form',
+      // COUNCIL2-20: the lesson's, the topics', the quests', the programme's and the teaching steps' own parts
+      'fig-zoom', 'fb-retry', 'quest-mission', 'section-cards', 'prog-unit', 'tg-built', 'done-chest', 'explorer-table',
+      // the product2 merge: the ghost race and the family challenge, Settings' section for adults, a check's repeated
+      // mistake, the stair page's stages and challenge cards, the topics screen's light pills
+      'ghost-card', 'family-card', 'offer-card', 'set-adults', 'check-repeat', 'jstage', 'jchallenge', 'qbar-light']
       .filter((cls) => new RegExp(`\\.${cls}(?![\\w-])`).test(boot));
     expect(left).toEqual([]);
   });

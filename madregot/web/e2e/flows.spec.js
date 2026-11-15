@@ -383,8 +383,8 @@ test('the improvement plan is retired: an old /plan bookmark opens the quests, a
   await row.click();
   // a stair not started yet: its step starts with its first stage
   await expect(page).toHaveURL(/#\/learn\/coord\/2\/A$/);
-  // nothing in the saved state counts plan lessons or wins any more
+  // nothing in the saved state counts plan lessons or wins any more: the v7 step dropped both fields (COUNCIL2-23)
   const st = await saved(page);
-  expect(st.wins || {}).toEqual({});
-  expect(st.planBase || {}).toEqual({});
+  expect(st).not.toHaveProperty('wins');
+  expect(st).not.toHaveProperty('planBase');
 });

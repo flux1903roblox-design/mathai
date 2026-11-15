@@ -1,7 +1,8 @@
-// When the app asks whether to keep a backup (nudge.js): every condition on its own, and the count and the 14 days.
-import { describe, it, expect } from 'vitest';
+// When the app asks whether to keep a backup (nudge.js): every condition on its own, and the 14 days. Since COUNCIL2-24 it
+// keeps reminding, 14 days apart, until a backup or an install exists.
+import { describe, it, expect, vi } from 'vitest';
 import { createStore } from 'zustand/vanilla';
-import { shouldNudge, noteNudge, calmRoute, NUDGE_MAX } from './nudge.js';
+import { shouldNudge, noteNudge, calmRoute, installedHere, backupCounts, NUDGE_GAP_DAYS } from './nudge.js';
 import { BACKUP_DEFAULTS, DURABLE_DEFAULTS } from './migrations.js';
 
 const NOW = new Date('2026-11-05T10:00:00Z');
@@ -19,7 +20,7 @@ describe('the backup question', () => {
 
   it('never without a server, with a backup code, or with a copy kept by the class or the family', () => {
     expect(ask(base(), { server: false })).toBe(false);
-    expect(ask(base({ backup: { ...BACKUP_DEFAULTS, on: true } }))).toBe(false);
+    expect(ask(base({ backup: { ...BACKUP_DEFAULTS, on: true, rev: 1 } }))).toBe(false);
     expect(ask(base({ backup: { ...BACKUP_DEFAULTS, escrow: 'class' } }))).toBe(false);
     expect(ask(base({ backup: { ...BACKUP_DEFAULTS, escrow: 'family' } }))).toBe(false);
   });
@@ -42,7 +43,7 @@ describe('the backup question', () => {
     expect(ask(base({ profile: null }))).toBe(false);
   });
 
-  it('twice at most, 14 days apart; asking counts when it opens', () => {
+  it('keeps reminding, 14 days apart, however many times it asked; asking counts when it opens', () => {
     const store = createStore(() => base());
     noteNudge(store, NOW);
     expect(store.getState().durable).toMatchObject({ nudgeCount: 1, nudgeAt: NOW.toISOString() });
@@ -51,8 +52,67 @@ describe('the backup question', () => {
     const day15 = new Date(NOW.getTime() + 15 * 864e5);
     expect(ask(store.getState(), { now: day13 })).toBe(false);
     expect(ask(store.getState(), { now: day15 })).toBe(true);
-    noteNudge(store, day15);
-    expect(store.getState().durable.nudgeCount).toBe(NUDGE_MAX);
-    expect(ask(store.getState(), { now: new Date(day15.getTime() + 60 * 864e5) })).toBe(false);
+    // the third, the tenth: each one 14 days after the last (it used to stop after two)
+    let t = day15;
+    for (let n = 2; n <= 10; n += 1) {
+      noteNudge(store, t);
+      expect(store.getState().durable.nudgeCount).toBe(n);
+      expect(ask(store.getState(), { now: new Date(t.getTime() + (NUDGE_GAP_DAYS - 1) * 864e5) })).toBe(false);
+      t = new Date(t.getTime() + NUDGE_GAP_DAYS * 864e5);
+      expect(ask(store.getState(), { now: t }), `ask ${n + 1}`).toBe(true);
+    }
+  });
+
+  it('stops once a backup exists (made here, restored, or kept by the class or the family)', () => {
+    const st = base({ durable: { ...DURABLE_DEFAULTS, nudgeCount: 6, nudgeAt: '2026-09-01T10:00:00.000Z' } });
+    expect(ask(st)).toBe(true);
+    expect(ask({ ...st, backup: { ...BACKUP_DEFAULTS, on: true, code: 'ABCDEFGHJKMNPQRS', rev: 1, note: 'auto' } })).toBe(false);
+    expect(ask({ ...st, backup: { ...BACKUP_DEFAULTS, on: true, escrow: 'class' } })).toBe(false);
+  });
+
+  it('a backup that is on but whose first copy never reached the server is no backup: after its first day the reminder comes back, every 14 days, until a copy lands (the review)', () => {
+    const now = new Date('2026-11-20T10:00:00.000Z');
+    const waiting = (since) => ({ ...BACKUP_DEFAULTS, on: true, code: 'ABCDEFGHJKMNPQRS', rev: null, state: 'unavailable', note: 'auto', since });
+    const st = base();
+    // turned on an hour ago: it is still trying, so no reminder yet
+    expect(backupCounts(waiting('2026-11-20T09:00:00.000Z'), now)).toBe(true);
+    expect(ask({ ...st, backup: waiting('2026-11-20T09:00:00.000Z') }, { now })).toBe(false);
+    // a day and more with no copy on the server: the reminder asks, as for a student with no backup
+    expect(backupCounts(waiting('2026-11-18T09:00:00.000Z'), now)).toBe(false);
+    expect(ask({ ...st, backup: waiting('2026-11-18T09:00:00.000Z') }, { now })).toBe(true);
+    // a saved state from before `since` existed, still with no copy: asked too
+    expect(ask({ ...st, backup: { ...waiting(null), since: undefined } }, { now })).toBe(true);
+    // 14 days apart, as always
+    const asked = { ...st, backup: waiting('2026-11-01T09:00:00.000Z'), durable: { ...DURABLE_DEFAULTS, nudgeCount: 1, nudgeAt: '2026-11-15T10:00:00.000Z' } };
+    expect(ask(asked, { now })).toBe(false);
+    expect(ask(asked, { now: new Date('2026-11-29T10:00:01.000Z') })).toBe(true);
+    // the copy landed: no more reminders
+    expect(ask({ ...asked, backup: { ...waiting('2026-11-01T09:00:00.000Z'), rev: 1, state: 'idle' } }, { now: new Date('2026-12-30T10:00:00.000Z') })).toBe(false);
+    // installed, or kept by the class: never, whatever the backup's state
+    expect(ask({ ...st, backup: waiting('2026-11-01T09:00:00.000Z') }, { now, installed: true })).toBe(false);
+  });
+
+  it('stops once the app is installed here (the Home Screen app, or the store app)', () => {
+    const st = base({ durable: { ...DURABLE_DEFAULTS, nudgeCount: 3, nudgeAt: '2026-09-01T10:00:00.000Z' } });
+    expect(ask(st, { installed: true })).toBe(false);
+    expect(ask(st, { installed: false })).toBe(true);
+  });
+
+  it('reads the install from the browser: its own window, or the store app\'s shell', () => {
+    try {
+      vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+      vi.stubGlobal('navigator', { userAgent: 'test' });
+      expect(installedHere()).toBe(false);
+      vi.stubGlobal('window', { matchMedia: (q) => ({ matches: q === '(display-mode: standalone)' }) });
+      expect(installedHere()).toBe(true);
+      vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+      vi.stubGlobal('navigator', { userAgent: 'iPhone', standalone: true }); // an older iPhone says it this way
+      expect(installedHere()).toBe(true);
+      vi.stubGlobal('navigator', { userAgent: 'test' });
+      vi.stubGlobal('Capacitor', { isNativePlatform: () => true });
+      expect(installedHere()).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

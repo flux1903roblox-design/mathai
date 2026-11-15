@@ -8,6 +8,8 @@ import { TOPICS } from './index.js';
 import { loadAllContent } from '@/learn/content/index.ts';
 import { codeWith, MERGED } from '@/lib/testing/claimCode.js';
 import countsJson from '../../../store/counts.json?raw';
+import { parts, current, apply, bothGrades } from '../../scripts/positioning-md.mjs';
+import { coverageOf } from '@/learn/programme';
 
 const data = { ...(await claimData()), vars: {} };
 // every stair's teaching content (DURABLE-11: topics load on demand)
@@ -26,8 +28,9 @@ describe('the claims', () => {
       // a claim made only of slots (coverage: each grade's sentence) has its Hebrew in what fills them
       else if (/^(\s*\{\{\w+\}\}\s*)+$/.test(c.he)) expect(claimText(c, { data: { ...data, coverage: COV } }), c.id).toMatch(/^[^{}]*[֐-׿][^{}]*$/);
       else expect(c.he, c.id).toMatch(/[֐-׿]/);
-      // a claim waiting for another lane says which; one of the app's own core may stop the build instead
-      expect(!!c.required || !!c.needs || c.id === 'teachers', c.id).toBe(true);
+      // a claim waiting for another lane says which, one that depends on how the deployment sells says that; one of the
+      // app's own core may stop the build instead
+      expect(!!c.required || !!c.needs || !!c.deploy || c.id === 'teachers', c.id).toBe(true);
     }
   });
 
@@ -69,6 +72,19 @@ describe('the claims', () => {
     expect([byId.teachers.visible, byId['teachers-assign'].visible]).toEqual([false, true]);
     const before = Object.fromEntries(claimStatus({ code: codeWith({}, { drop: ['worker/src/assignments.js'] }), data }).map((s) => [s.id, s.visible]));
     expect([before.teachers, before['teachers-assign']]).toEqual([true, false]);
+  });
+
+  it('"מבטלים באתר" only while a plan that renews is sold online; "subscribe on our website" while any family plan is (COUNCIL2-30)', () => {
+    const at = (vars) => Object.fromEntries(claimStatus({ code: codeWith(), data: { ...data, vars } }).filter((s) => ['cancel-web', 'subscribe-web'].includes(s.id)).map((s) => [s.id, s.visible]));
+    expect(at({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'on' })).toEqual({ 'cancel-web': true, 'subscribe-web': true });
+    expect(at({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off' })).toEqual({ 'cancel-web': false, 'subscribe-web': true });
+    expect(at({ BILLING_PROVIDER: 'test' })).toEqual({ 'cancel-web': true, 'subscribe-web': true });
+    expect(at({ BILLING_PROVIDER: 'manual' })).toEqual({ 'cancel-web': false, 'subscribe-web': false });
+    expect(at({})).toEqual({ 'cancel-web': false, 'subscribe-web': false });
+    // a /cancel route alone is not enough: the plan must renew and be sold
+    const noRoute = claimStatus({ code: codeWith({}, { drop: ['web/src/App.jsx'] }), data: { ...data, vars: { BILLING_PROVIDER: 'test' } } }).find((s) => s.id === 'cancel-web');
+    expect(noRoute.visible).toBe(false);
+    expect(claimStatus({ code: codeWith(), data }).find((s) => s.id === 'cancel-web').why).toBe('not in this deployment: a plan that renews, sold online');
   });
 
   it('the school AI line follows the Worker\'s approval: hidden once the owner sets MOE_AI_APPROVAL = "approved"', () => {
@@ -178,7 +194,32 @@ describe('docs/POSITIONING.md', () => {
   });
 
   it('has the sections the owner and the judges read, and states the named-mistake count the code computes', () => {
-    for (const h of ['## המקום שלנו', '## מי עוד בשטח', '## מה אי אפשר להעתיק בשבוע', '## למה לא פשוט צ׳אטבוט חינמי?', '## הוכחות', '## מה עוד חסר']) expect(doc).toContain(h);
+    for (const h of ['## המקום שלנו', '## מי עוד בשטח', '## פרויקט 720 ו־Kaltura', '## מה אי אפשר להעתיק בשבוע', '## למה לא פשוט צ׳אטבוט חינמי?', '## הוכחות', '## מה עוד חסר']) expect(doc).toContain(h);
     expect(doc).toContain(`הקוד מכיר כרגע ${countNamedMistakes()} טעויות בשמן`);
+  });
+
+  // COUNCIL2-38: the proofs table said 92 while the app counted 119. Its numbers, and the mistake count, are now the
+  // generated parts of the document (npm run positioning:md); a stale one fails here.
+  it('its generated parts are what the code gives today (npm run positioning:md)', () => {
+    const now = parts();
+    for (const name of Object.keys(now)) expect(current(doc, name), name).toBe(now[name]);
+    expect(apply(doc)).toBe(doc);
+    expect(now.proofs).toContain(`| ${countNamedMistakes()} |`);
+    // the two grades' hours together (programmeCoverage gives each grade's sentence since SK-BUYERS-3)
+    const both = bothGrades(Object.fromEntries(['7', '8'].map((g) => [g, coverageOf(g)])));
+    expect(both).toBeGreaterThan(0);
+    expect(now.proofs).toContain(`| ${both}% משעות שתי השכבות`);
+  });
+
+  it('states no other number of named mistakes anywhere in it', () => {
+    const stated = [...doc.matchAll(/(\d+) טעויות/g)].map((m) => Number(m[1]));
+    expect(stated.length).toBeGreaterThan(0);
+    expect(stated.every((n) => n === countNamedMistakes())).toBe(true);
+    // and a count the code no longer gives is caught: the document as it was before COUNCIL2-38
+    expect(current(apply(doc, { ...parts(), proofs: parts().proofs.replace(`| ${countNamedMistakes()} |`, '| 92 |') }), 'proofs')).not.toBe(parts().proofs);
+  });
+
+  it('names the state\'s own grade 7-8 programme (Kaltura and 720, 3.11.2026) and the free tools a family already has', () => {
+    for (const s of ['Kaltura', '720', '3.11.2026', 'ישראל היום', 'Gemini', 'Study Mode', 'Go Math', '₪179.99', 'id6748574236']) expect(doc, s).toContain(s);
   });
 });

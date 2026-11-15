@@ -16,6 +16,7 @@ import { buildRequest, AI_KINDS, stableSystem } from '../../../shared/ai.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(here, 'full-params.json');
 const STABLE = path.join(here, 'stable-system.txt');
+const STABLE_AR = path.join(here, 'stable-system.ar.txt');
 const MAIN = 'claude-opus-5-5';
 
 const turns = Array.from({ length: 14 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `turn ${i} ${i === 4 ? 'x'.repeat(2500) : ''}` }));
@@ -55,10 +56,11 @@ export function make() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const files = [[OUT, JSON.stringify(make(), null, 1)], [STABLE, `${stableSystem()}\n`]]; // the layout full-params.json has always had
+  // stable-system.ar.txt: the stable block of a request from an Arabic device (COUNCIL2-34), for the Arabic reviewer
+  const files = [[OUT, JSON.stringify(make(), null, 1)], [STABLE, `${stableSystem()}\n`], [STABLE_AR, `${stableSystem('ar')}\n`]]; // the layout full-params.json has always had
   if (process.argv.includes('--check')) {
     const stale = files.filter(([f, text]) => { try { return readFileSync(f, 'utf8') !== text; } catch { return true; } }).map(([f]) => path.basename(f));
-    console.log(stale.length ? `${stale.join(' and ')} differ from the builders: run node test/fixtures/make-full-params.mjs` : 'full-params.json and stable-system.txt are up to date');
+    console.log(stale.length ? `${stale.join(' and ')} differ from the builders: run node test/fixtures/make-full-params.mjs` : 'full-params.json, stable-system.txt and stable-system.ar.txt are up to date');
     process.exit(stale.length ? 1 : 0);
   }
   for (const [f, text] of files) { writeFileSync(f, text); console.log(`wrote ${path.relative(process.cwd(), f)}`); }

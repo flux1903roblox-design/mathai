@@ -1,11 +1,13 @@
 // The teacher's work as the screens and the plan show it (spec TEACHER-5 §5, CURRICULUM-7.1 band 1): which rows show
 // today, where each leads, and the calm words for its due day. Pure: it reads no store and no clock (`day` comes in, as
 // in learn/next.ts), so the learning engine's planNext can use the very same selection and routes as TodayCard's
-// ClassWork rows without pulling the app's store into the engine. lib/classWork.js re-exports all of it.
+// ClassWork rows without pulling the app's store into the engine. lib/classWork.js re-exports all of it. Its words are
+// the language's (COUNCIL2-34, locales/shell.*.json: shell.classwork.*).
 import { today } from './days.js';
 import { daysFrom, weekdayName, dm } from './workDates.js';
 import { mergeWork, workRoute } from '@/learn/assignments.ts';
 import { STAGE_MIN, MINUTES } from '@/learn/recommend.ts';
+import { t } from './i18n.js';
 
 /** The kinds a student sees: a stair, a mastery check, a class exam and the repair of one mistake (SK-BUYERS-2). */
 export const SHOWN = ['stair', 'check', 'exam', 'repair'];
@@ -24,16 +26,16 @@ const localDay = (iso) => today(new Date(iso));
  */
 export function dueLine(dueOn, day = today()) {
   const left = daysFrom(day, dueOn);
-  if (left < 0) return 'המועד עבר, ועדיין אפשר להשלים';
-  if (left === 0) return 'להיום';
-  if (left === 1) return 'עד מחר';
-  return `עד יום ${weekdayName(dueOn)}, ${dm(dueOn)}`;
+  if (left < 0) return t('shell.classwork.1');
+  if (left === 0) return t('shell.classwork.2');
+  if (left === 1) return t('shell.classwork.3');
+  return t('shell.classwork.4', { p0: weekdayName(dueOn), p1: dm(dueOn) });
 }
 
 /** The stair page's line: "משימה מהמורה, עד יום חמישי, 12.11" (or ", להיום", or ". המועד עבר, ועדיין אפשר להשלים"). */
 export function workBanner(dueOn, day = today()) {
   const d = dueLine(dueOn, day);
-  return daysFrom(day, dueOn) < 0 ? `משימה מהמורה. ${d}` : `משימה מהמורה, ${d}`;
+  return daysFrom(day, dueOn) < 0 ? t('shell.classwork.5', { d }) : t('shell.classwork.6', { d });
 }
 
 /**
@@ -86,6 +88,6 @@ export function urgentWork(cw, box = {}, day = today()) {
 
 /** "משימה מהמורה: {title} · עד יום חמישי" (the date is left out once it passed). */
 export function urgentText(r) {
-  const when = r.left < 0 ? '' : r.left === 0 ? ' · להיום' : r.left === 1 ? ' · עד מחר' : ` · עד יום ${weekdayName(r.a.dueOn)}`;
-  return `משימה מהמורה: ${r.a.title}${when}`;
+  const when = r.left < 0 ? '' : r.left === 0 ? t('shell.classwork.7') : r.left === 1 ? t('shell.classwork.8') : t('shell.classwork.9', { p0: weekdayName(r.a.dueOn) });
+  return t('shell.classwork.10', { title: r.a.title, when });
 }

@@ -2,6 +2,7 @@
 import { expect } from '@playwright/test';
 import { toFrac } from '../src/content/util.js';
 import { API, CORS, TABLET } from './fakeServer.js';
+import { inContract } from './contract.js';
 
 /** A fixed Thursday, so streaks, the week strip and daily quests are the same on every run. */
 export const NOW = new Date('2026-11-05T10:00:00');
@@ -98,7 +99,8 @@ export const dressed = (extra = {}) => student('7', { path: { angles: doneStairs
 export const linkedWeek = () => {
   const s = { ...reportWeek(), version: 3 };
   s.state.ai = { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: TABLET.token, label: TABLET.label } };
-  s.state.durable = { nudgeCount: 2 };
+  // the backup question was asked on the morning of the 5th (it keeps reminding 14 days apart since COUNCIL2-24)
+  s.state.durable = { nudgeCount: 2, nudgeAt: '2026-11-05T09:00:00.000Z' };
   return s;
 };
 
@@ -165,7 +167,9 @@ export async function openAdults(page) {
 export async function open(page, route, state = null, seed = '424242', opts = {}) {
   const { local = {}, at = NOW } = opts instanceof Date || typeof opts === 'number' || typeof opts === 'string' ? { at: opts } : opts;
   await page.clock.setFixedTime(at);
-  await page.goto('./');
+  // the seed is written from a file of the app's address that is not the app: against the real Worker (COUNCIL2-22) a
+  // running app answers the server at once and would write its own state over the seed before the reload
+  await page.goto(inContract() ? './theme-boot.js' : './');
   await page.evaluate(async ([s, sd, db, extra]) => {
     localStorage.clear();
     localStorage.setItem('madregot-debug', '1');

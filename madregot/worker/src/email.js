@@ -12,6 +12,7 @@ import { HttpError, nowIso, sha256, TZ } from './util.js';
 import { rulesEnv } from '../../shared/schoolRules.js';
 import { limits, paywallOn } from './entitle.js';
 import { stairName } from '../../shared/stairs.js';
+import { SUPPORT } from '../../shared/safety.js';
 
 export function emailReady(env) {
   return !!(env.RESEND_API_KEY && env.EMAIL_FROM);
@@ -94,7 +95,7 @@ const hebDateTime = (iso) => {
   try { return new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: TZ }); } catch { return ''; }
 };
 const vatWords = (env) => (String(env.VAT_MODE) === 'exempt' ? 'המחיר סופי' : 'כולל מע״מ');
-const PLAN_NAME = { family_month: 'מנוי משפחתי חודשי', family_year: 'מנוי משפחתי לשנה', class_year: 'רישיון כיתה לשנה', term: 'מנוי', trial: 'ניסיון לכיתה' };
+const PLAN_NAME = { family_month: 'מנוי משפחתי חודשי', family_year: 'מנוי משפחתי לשנה', exam_pass: 'חבילת מבחן ל־30 יום', class_year: 'רישיון כיתה לשנה', term: 'מנוי', trial: 'ניסיון לכיתה' };
 /** The one-year plan's renewal link (trust spec TRUST-10 §2): the parents' page opens its renewal. */
 const renewLink = (env) => `${env.PUBLIC_URL || ''}/parents?renew=year`;
 /** The end-date email of a one-year plan, 30-45 days ahead (Appendix E §E.7). */
@@ -125,6 +126,28 @@ export function business(env) {
 /** The welcome email's receipt line when Grow is the payment company: it sends the receipt itself. */
 export const RECEIPT_BY_GROW = 'הקבלה נשלחת אליכם במייל מ־Grow, חברת הסליקה.';
 
+/**
+ * The parent's email when their child's message to the tutor read as self-harm (SAFETY_ALERTS, src/alerts.js). Nothing
+ * of what the child wrote, no time and no device: that it happened today, what the child was shown, and where a parent
+ * can turn. Calm and short, with nothing to click.
+ */
+function safetyAlertNotice(env) {
+  const { eran, police, mda } = SUPPORT;
+  return {
+    subject: 'כדאי לבדוק היום מה שלום הילד או הילדה',
+    lines: [
+      'שלום,',
+      'היום, בשיחה עם העוזר החכם של מדרגות במכשיר שחיברתם, נכתב משהו שנשמע כמו מצוקה.',
+      `העוזר הציע מיד לפנות למבוגר קרוב ולער״ן, ${eran.phone}, בכל שעה. מה שנכתב לא נשמר אצלנו, ולכן אין לנו פרטים נוספים.`,
+      'אולי כדאי למצוא היום רגע שקט ולשאול מה שלומם. גם הורים יכולים להתקשר לער״ן ולהתייעץ.',
+      `אם יש סכנה מיידית: משטרה ${police}, מד״א ${mda}.`,
+      'שלחנו את המייל הזה כי ההתראות האלה פועלות במדרגות. לשאלות: השיבו למייל הזה.',
+      '',
+      business(env),
+    ],
+  };
+}
+
 /** Subject and lines of one notice, or null for a kind this Worker does not know. */
 export function renderNotice(env, row) {
   const p = (() => { try { return JSON.parse(row.params || '{}'); } catch { return {}; } })();
@@ -136,7 +159,7 @@ export function renderNotice(env, row) {
       // renewed year (welcome:<order>) is a new transaction with its own confirmation and its own 14 days.
       const renews = p.plan === 'family_month';
       return {
-        subject: p.renewal ? 'המנוי לעוזר החכם של מדרגות חודש לשנה נוספת' : 'המנוי לעוזר החכם של מדרגות פעיל',
+        subject: p.renewal ? 'המנוי לעוזר החכם של מדרגות חודש לשנה נוספת' : p.plan === 'exam_pass' ? 'חבילת המבחן של מדרגות פעילה' : 'המנוי לעוזר החכם של מדרגות פעיל',
         lines: billing([
           'שלום,',
           renews
@@ -233,6 +256,9 @@ export function renderNotice(env, row) {
           [env.PUBLIC_URL, env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · '),
         ],
       };
+    // the adult's alert (COUNCIL2-9, src/alerts.js): that something came up today, never what was written
+    case 'safety_alert':
+      return safetyAlertNotice(env);
     case 'help_digest': {
       // a count and the class's name only: no student's name, no exercise and nothing a student wrote (TEACHER-6 §5)
       const n = Math.max(1, Math.round(Number(p.n) || 1));
@@ -254,6 +280,10 @@ export function renderNotice(env, row) {
       if (what.startsWith('errors:')) return errorsNotice(p, what.slice('errors:'.length));
       if (what === 'vault:70' || what === 'vault:90') return vaultShareNotice(p, Number(what.slice(-2)));
       if (what.startsWith('vault_drift:')) return vaultDriftNotice(p);
+      if (what.startsWith('db_size:')) return dbSizeNotice(p);
+      if (what.startsWith('write_cap:')) return writeCapNotice(p);
+      if (what.startsWith('open_paused:')) return openPausedNotice(p);
+      if (what.startsWith('open_part_paused:')) return openPartPausedNotice(p);
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
     default:
@@ -502,6 +532,73 @@ function vaultDriftNotice(p) {
     lines: [
       `מונה הנפח של הגיבויים המוצפנים הראה ${p.was ?? '?'} בתים, והסכום האמיתי היה ${p.now ?? '?'}. המונה תוקן.`,
       'אם זה חוזר כמה לילות ברצף, כדאי לבדוק את הקוד שכותב גיבויים (worker/src/vault.js).',
+    ],
+  };
+}
+
+/** The open tier (AI_PAYWALL "off") reached its day in dollars (entitle.js, COUNCIL2-19): one notice a day. */
+function openPausedNotice(p) {
+  return {
+    subject: `[מדרגות] העוזר החכם נח עד חצות: העלות היום הגיעה ל־${p.budgetUsd ?? '?'}$`,
+    lines: [
+      `ב־${p.day || 'היום'} העלות של העוזר החכם הגיעה ל־${p.budgetUsd ?? '?'}$ (OPEN_DAILY_BUDGET_USD). עד חצות הוא נח לכולם, והילדים רואים "העוזר החכם נח היום", בלי מחיר ובלי לחץ. בחצות הוא חוזר לבד.`,
+      'מה לבדוק: בסיכום היומי, איזה סוג בקשות עלה הכי הרבה. כל מייל של מורה מוגבל ל־OPEN_ACCOUNT_DAILY_USD דולר ול־OPEN_ACCOUNT_DAILY_LIMIT פעולות ביום לכל הכיתות שלו, וכל כיתה ל־OPEN_CLASS_DAILY_USD דולר ול־OPEN_CLASS_DAILY_UNITS יחידות, כך שכדי להגיע לתקרה של כולם צריך הרבה כיתות או הרבה מיילים.',
+      'אם זה שימוש אמיתי: אפשר להעלות את OPEN_DAILY_BUDGET_USD בקובץ worker/wrangler.toml ולפרסם מחדש.',
+      'הגבול הקשיח הוא מגבלת ההוצאה של ה־workspace בלוח של Anthropic. ודאו שהיא מוגדרת.',
+    ],
+  };
+}
+
+/**
+ * One class's or one email's part of the open pool is spent for today (entitle.js openParts): only its own callers
+ * rest until midnight; everyone else is answered as before. It names the class by its code, or the account by its id
+ * (npm run owner shows whose it is); never an address.
+ */
+function openPartPausedNotice(p) {
+  const who = p.scope === 'class' ? `הכיתה ${p.class || ''}`.trim() : `החשבון ${p.account || ''}`.trim();
+  const name = p.scope === 'class' ? 'OPEN_CLASS_DAILY_USD' : 'OPEN_ACCOUNT_DAILY_USD';
+  return {
+    subject: `[מדרגות] העוזר החכם נח עד חצות אצל ${who}`,
+    lines: [
+      `ב־${p.day || 'היום'} העלות של העוזר החכם אצל ${who} הגיעה ל־${p.budgetUsd ?? '?'}$ (${name}). עד חצות הוא נח רק שם, והמסך אומר "העוזר החכם נח היום", בלי מחיר ובלי לחץ. כל שאר הכיתות ממשיכות כרגיל.`,
+      p.scope === 'class'
+        ? 'מה לבדוק: אם זו כיתה אמיתית שמשתמשת הרבה, או מפתח מורה שמישהו מריץ איתו בקשות. כיתה של סקריפט אפשר למחוק עם npm run owner.'
+        : 'מה לבדוק: אילו כיתות קשורות לחשבון הזה (npm run owner), ואם זה מורה אמיתי שבודק הרבה מבחנים ביום אחד.',
+      `אם זה שימוש אמיתי: אפשר להעלות את ${name} בקובץ worker/wrangler.toml ולפרסם מחדש. התקרה של כולם יחד היא OPEN_DAILY_BUDGET_USD.`,
+    ],
+  };
+}
+
+/** The whole database passed DB_SIZE_NOTICE_MB today (dbsize.js, COUNCIL2-18): one notice a day. */
+function dbSizeNotice(p) {
+  return {
+    subject: `[מדרגות] בסיס הנתונים הגיע ל־${p.mb ?? '?'} MB`,
+    lines: [
+      `ב־${p.day || 'היום'} בסיס הנתונים הגיע ל־${p.mb ?? '?'} MB, מעל ${p.noticeMb ?? '?'} MB (DB_SIZE_NOTICE_MB).`,
+      'בתוכנית החינמית של Cloudflare כל בסיס הנתונים נעצר ב־500 MB, והוא שומר גם את התשלומים. כשהוא מלא, שום דבר חדש לא נשמר.',
+      'מה לבדוק: בסיכום היומי, אם מספר התשובות או הגיבויים קפץ. כל תלמיד מוגבל ל־3000 תשובות, 30 מבחנים ו־3 MB של תמונות ביום, כל כיתה ל־30,000 תשובות וכל רשת ל־150,000, אז קפיצה גדולה היא הרבה רשתות, לא תלמיד אחד.',
+      'בתוכנית Workers Paid בסיס נתונים מחזיק עד 10 GB: אפשר לעבור אליה, ואז להעלות את DB_SIZE_NOTICE_MB בקובץ worker/wrangler.toml ולפרסם מחדש.',
+    ],
+  };
+}
+
+/**
+ * A class's or a network's day of writes is used up (writes.js, COUNCIL2-18): one notice a day for each width. It names
+ * the class by its code (a code names no one) and never a network or a student.
+ */
+function writeCapNotice(p) {
+  const WHAT = { answers: 'תשובות', exams: 'מבחנים', help: 'בקשות עזרה', helpKb: 'תמונות של בקשות עזרה (KB)' };
+  const where = p.scope === 'class' ? `הכיתה ${p.class || ''}`.trim()
+    : p.scope === 'new' ? 'תלמידים שהצטרפו היום מרשת אחת' : 'כל התלמידים שמאחורי רשת אחת';
+  return {
+    subject: `[מדרגות] הרבה כתיבות ביום אחד: ${where}`,
+    lines: [
+      `ב־${p.day || 'היום'} ${where} הגיעו לתקרה היומית של ${WHAT[p.what] || p.what || 'כתיבות'} (${p.limit ?? '?'}). עד חצות השרת לא שומר מהם עוד מהסוג הזה. האפליקציה שומרת את התשובות במכשיר ושולחת אותן שוב מחר, כך ששום דבר לא הולך לאיבוד.`,
+      'למה יש תקרה: להצטרף לכיתה אפשר בלי חשבון, ואותו בסיס נתונים שומר גם את התשלומים. בלי תקרה, סקריפט אחד יכול למלא אותו ביום.',
+      p.scope === 'class'
+        ? 'מה לבדוק: אם זו כיתה אמיתית (לוח המורה שלה, או npm run owner). כיתה של סקריפט אפשר למחוק עם npm run owner.'
+        : 'מה לבדוק: בסיכום היומי, אם מספר התלמידים החדשים או התשובות קפץ. בית ספר גדול שמתחיל ביום אחד יכול להגיע לתקרה של תלמידים חדשים; למחרת הם כבר לא חדשים.',
+      'אם זה שימוש אמיתי של בית ספר גדול: WRITE_BUDGET_SCALE בקובץ worker/wrangler.toml מכפיל את התקרות של כיתה ושל רשת (למשל "2"), ואז מפרסמים מחדש.',
     ],
   };
 }

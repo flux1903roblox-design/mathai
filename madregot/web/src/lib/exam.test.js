@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { scoreOf, makePracticeExam, weakTopics, focusLevel } from './exam.js';
 import { TOPIC } from '@/content/index.js';
-import { startSession, nextQuestion, submit, withHint, FAST, NEED } from './ladder.js';
 import { readAnswer } from '@/content/index.js';
 import { vi, afterEach } from 'vitest';
 import { makeClassExam, freezeItem, thawItem, examKey, classExamTitle, CLASS_EXAM_LENGTHS } from './exam.js';
@@ -86,38 +85,7 @@ describe('exam', () => {
   });
 });
 
-describe('ladder', () => {
-  const solve = (s) => submit(s, s.item.answer, String(s.item.answer));
-  it('moves up after two in a row', () => {
-    let s = nextQuestion(startSession('signed', { level: 1 }));
-    while (s.item.form !== 'num') s = nextQuestion(s);
-    for (let i = 0; i < FAST; i++) { s = solve(s).s; if (s.level > 1) break; s = nextQuestion(s); while (s.item.form !== 'num' || s.item.level !== s.level) s = nextQuestion(s); }
-    expect(s.level).toBe(2);
-  });
-  it('needs four after a mistake, and brings the wrong question back', () => {
-    let s = nextQuestion(startSession('line', { level: 1 }));
-    const first = s.item;
-    let r = submit(s, first.answer + 100, 'x'); s = r.s;
-    expect(r.result.retry).toBe(true);
-    expect(s.miss).toBe(true);
-    r = submit(s, first.answer + 100, 'x'); s = r.s;
-    expect(r.result.reveal).toBe(true);
-    let back = false; let level = s.level; let correct = 0;
-    for (let i = 0; i < 12 && level === 1; i++) {
-      s = nextQuestion(s);
-      if (s.item.key === first.key && s.item.returning) back = true;
-      const u = s.item.form === 'line' ? s.item.answer : s.item.answer;
-      r = submit(s, u, 'ok'); s = r.s; level = s.level;
-      if (!s.item.returning) correct += 1;
-    }
-    expect(back).toBe(true);
-    expect(correct).toBeGreaterThanOrEqual(NEED);
-  });
-  it('a hint switches the level to the slow lane', () => {
-    const s = withHint(nextQuestion(startSession('pyth', { level: 1 })));
-    expect(s.hint).toBe(true);
-    expect(s.miss).toBe(true);
-  });
+describe('typed answers', () => {
   it('reads typed answers', () => {
     const it2 = { form: 'pt' };
     expect(readAnswer(it2, { x: '−2.5', y: '0' })).toEqual([-2.5, 0]);

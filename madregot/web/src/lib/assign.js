@@ -1,6 +1,7 @@
 // The teacher's side of class work (spec TEACHER-4 §6-7): the calls, the automatic title, the words for each student's
-// result, and the "לספר לכיתה?" step (a message to copy and a Google Classroom share link). Results are worked out on
-// the student's device: practice, not a graded test.
+// result, and telling the class (COUNCIL2-35): each assignment's own link, a message to copy, Google Classroom's share
+// address and the fields of a Moodle URL activity. Results are worked out on the student's device: practice, not a
+// graded test.
 import { teacherApi } from './teacher.js';
 import { TOPIC } from '@/content/topics.js';
 import { metaOf } from '@/learn/content/index.ts';
@@ -66,30 +67,54 @@ export function workStatus(kind, w) {
   return { state: 'הושלם', result: `${w.right}/${w.asked}${first}` };
 }
 
-// ---------------------------------------------------------------- telling the class
+// ---------------------------------------------------------------- telling the class (COUNCIL2-35)
 /**
- * The app's own address, for the class message and the Classroom link: right wherever the Worker serves the app. ''
- * on a development copy (localhost), whose address means nothing on a student's phone.
+ * The app's own address, for the class message and the links: right wherever the Worker serves the app. '' on a
+ * development copy (localhost), whose address means nothing on a student's phone.
  */
 export function publicUrl(loc = globalThis.location, dev = import.meta.env.DEV) {
   if (!loc || dev || !/^https?:$/.test(loc.protocol) || loc.hostname === 'localhost' || loc.hostname.endsWith('.localhost')) return '';
   return `${loc.origin}${loc.pathname}`;
 }
-/** Google's documented share-to-Classroom address (a plain link: no Google script on the page). */
-export const classroomLink = (url) => (url ? `https://classroom.google.com/share?url=${encodeURIComponent(`${url}#/quests`)}` : '');
+/** An assignment's id as the server makes it (16 random hex): the only thing a shared link carries. */
+export const isWorkId = (id) => /^[a-f0-9]{16}$/.test(String(id ?? ''));
+/**
+ * The link that opens one assignment for a student of the class (COUNCIL2-35): the app's address and #/a/<id>. On a
+ * student's phone in the class it opens the stair, the check or the exam with ?assignment=<id>; anyone else joins the
+ * class first (screens/AssignmentOpen.jsx). The id names the assignment only: no class code, no name, no result.
+ */
+export const workLink = (id, url = publicUrl()) => (url && isWorkId(id) ? `${url}#/a/${id}` : '');
+/**
+ * Google's documented share-to-Classroom address for a link: a plain link, with no Google script on the page, no key
+ * and no account here. The teacher picks the class and posts it as an assignment or a material in Classroom.
+ */
+export const classroomLink = (link, title = '') => (link
+  ? `https://classroom.google.com/share?url=${encodeURIComponent(link)}${title ? `&title=${encodeURIComponent(title)}` : ''}`
+  : '');
 
 /** Was the work given to some students only (not the whole class)? */
 export const forGroup = (a) => a?.forAll === false || (Array.isArray(a?.targets) && a.targets.length > 0);
 
+const dueWords = (dueOn) => `עד יום ${weekdayName(dueOn)} ${dm(dueOn)}`;
 /**
- * The message a teacher copies to the students. No student's name in it. For the whole class, for the class's own
- * channel (Mashov, WhatsApp, Teams); for work given to a group (SK-BUYERS-4), worded to the students who got it ("יש
- * לכם…"), never as if the whole class had new work.
+ * The message a teacher copies to the students: the title, the day and the assignment's own link (COUNCIL2-35). No
+ * student's name in it. For the whole class, for the class's own channel (Mashov, WhatsApp, Teams); for work given to
+ * a group (SK-BUYERS-4), worded to the students who got it ("יש לכם…"), never as if the whole class had new work. With
+ * no link (a development copy) it says where the work waits in the app.
  */
-export function classMessage({ title, dueOn, forAll, targets }, url = publicUrl()) {
+export function classMessage({ title, dueOn, forAll, targets }, link = '') {
   const lead = forGroup({ forAll, targets }) ? 'יש לכם משימה חדשה במדרגות' : 'משימה חדשה במדרגות';
-  const text = `${lead}: ${title}, עד יום ${weekdayName(dueOn)} ${dm(dueOn)}. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום".`;
-  return url ? `${text} ${url}` : text;
+  if (!link) return `${lead}: ${title}, ${dueWords(dueOn)}. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום".`;
+  return `${lead}: ${title}, ${dueWords(dueOn)}. פותחים את הקישור, והמשימה נפתחת. ${link}`;
+}
+/**
+ * The three fields of a Moodle "URL" activity (קישור לאתר): its name, the address and the description, and the three as
+ * one text to copy. The description says how a student who is not in the class yet gets in. No student's name.
+ */
+export function moodleActivity({ title, dueOn }, link) {
+  const name = `${title} · מדרגות`;
+  const description = `משימה במדרגות, ${dueWords(dueOn)}. פותחים את הקישור. מי שעוד לא בכיתה במדרגות מצטרף/ת עם השם וקוד אישי של 4 ספרות, והמשימה נפתחת.`;
+  return { name, url: link, description, text: `שם: ${name}\nכתובת: ${link}\nתיאור: ${description}` };
 }
 
 /** 'ל' before a name: joined straight onto a Hebrew one, with a maqaf before any other ('ל־Lior'). */

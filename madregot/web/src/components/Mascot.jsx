@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useId, useState } from 'react';
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
-import { SPRING } from '@/lib/motion.js';
+import { SPRING, entrance } from '@/lib/motion.js';
 import { useMadiLook } from '@/lib/madiLook.js';
 import { MADI_PALETTE, SLOTS } from '@/lib/wardrobe.js';
 import QuietBoundary from './QuietBoundary.jsx';
@@ -187,7 +187,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
           <m.circle r="6" initial={false} animate={{ cx: hands[1][0], cy: hands[1][1] }} transition={spring} />
         </g>
         {mood === 'encouraging' && (
-          <m.rect x="128" y="54" width="6" height="11" rx="3" style={{ fill: LIMB, originX: 0.5, originY: 1 }} initial={reduce ? false : { scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, ...spring }} />
+          <m.rect x="128" y="54" width="6" height="11" rx="3" style={{ fill: LIMB, originX: 0.5, originY: 1 }} initial={reduce ? false : entrance({ scale: 0 })} animate={{ scale: 1 }} transition={{ delay: 0.2, ...spring }} />
         )}
 
         {/* face */}
@@ -215,7 +215,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
 
         {/* the star he holds up for a milestone */}
         {mood === 'achievement' && (
-          <m.g initial={reduce ? false : { scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...SPRING.bounce, delay: 0.15 }} style={{ originX: 0.5, originY: 0.5 }}>
+          <m.g initial={reduce ? false : entrance({ scale: 0, rotate: -90 })} animate={{ scale: 1, rotate: 0 }} transition={{ ...SPRING.bounce, delay: 0.15 }} style={{ originX: 0.5, originY: 0.5 }}>
             <path d="M124 14 l4.6 9.4 10.4 1.5 -7.5 7.3 1.8 10.3 -9.3 -4.9 -9.3 4.9 1.8 -10.3 -7.5 -7.3 10.4 -1.5Z" fill={`url(#s${id})`} stroke={STAR_LINE} strokeWidth="2" strokeLinejoin="round" />
           </m.g>
         )}
@@ -226,7 +226,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
       {/* a question bubble while he thinks */}
       <AnimatePresence>
         {mood === 'thinking' && (
-          <m.g key="q" initial={{ opacity: 0, y: 6 }} animate={reduce ? { opacity: 1, y: 0 } : { opacity: 1, y: [0, -3, 0] }} exit={{ opacity: 0 }}
+          <m.g key="q" initial={entrance({ opacity: 0, y: 6 })} animate={reduce ? { opacity: 1, y: 0 } : { opacity: 1, y: [0, -3, 0] }} exit={{ opacity: 0 }}
             transition={reduce ? { duration: 0 } : { opacity: { duration: 0.2 }, y: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } }}>
             <circle cx="98" cy="44" r="3" fill={WHITE} stroke={BUBBLE_LINE} strokeWidth="2" />
             <circle cx="106" cy="33" r="4.5" fill={WHITE} stroke={BUBBLE_LINE} strokeWidth="2" />

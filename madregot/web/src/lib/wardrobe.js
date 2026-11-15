@@ -17,71 +17,72 @@
 import { TOPICS, TOPIC, topicsFor } from '@/content/topics.js';
 import { doneCount, chestOpen, chestAfter, stagesWorked } from './path.js';
 
+import { localized, t as tr } from '@/lib/i18n.js';
 export const SLOTS = ['head', 'face', 'neck', 'body'];
-export const SLOT_NAME = { head: 'על הראש', face: 'על הפנים', neck: 'על הצוואר', body: 'על המדרגה' };
+export let SLOT_NAME = localized(() => ({ head: tr('shell.wardrobe.1'), face: tr('shell.wardrobe.2'), neck: tr('shell.wardrobe.3'), body: tr('shell.wardrobe.4') }), (v) => { SLOT_NAME = v; });
 
 /** The colours, in the wardrobe's order. `unlock.family`: a completed unit of that colour family gives it. */
-export const COLORS = [
-  { id: 'sky', name: 'כחול', unlock: null },
-  { id: 'gold', name: 'זהב', unlock: { family: 'sky' } },
-  { id: 'petrol', name: 'טורקיז', unlock: { family: 'petrol' } },
-  { id: 'violet', name: 'סגול', unlock: { family: 'violet' } },
-  { id: 'fuchsia', name: 'מג׳נטה', unlock: { family: 'fuchsia' } },
-  { id: 'cobalt', name: 'כחול כהה', unlock: { family: 'cobalt' } },
-];
+export let COLORS = localized(() => ([
+  { id: 'sky', name: tr('shell.wardrobe.5'), unlock: null },
+  { id: 'gold', name: tr('shell.wardrobe.6'), unlock: { family: 'sky' } },
+  { id: 'petrol', name: tr('shell.wardrobe.7'), unlock: { family: 'petrol' } },
+  { id: 'violet', name: tr('shell.wardrobe.8'), unlock: { family: 'violet' } },
+  { id: 'fuchsia', name: tr('shell.wardrobe.9'), unlock: { family: 'fuchsia' } },
+  { id: 'cobalt', name: tr('shell.wardrobe.10'), unlock: { family: 'cobalt' } },
+]), (v) => { COLORS = v; });
 
 /** Stages between two pieces for stages (the first comes with the first stage). */
 export const TRACK_EVERY = 9;
 
 /**
  * The accessories: one per unit (its chest), the class scarf, the pieces for stages and the quests' chest pieces. A test
- * fails if a unit in TOPICS has none.
+ * fails if a unit in TOPICS has none. Their names are the language's (COUNCIL2-34, locales/shell.*.json).
  */
-export const ITEMS = [
-  { id: 'thermo-scarf', slot: 'neck', topic: 'signed', name: 'צעיף מדחום', unlock: { chest: 'signed' } },
-  { id: 'compass-cap', slot: 'head', topic: 'coord', name: 'כובע מצפן', unlock: { chest: 'coord' } },
-  { id: 'protractor-crown', slot: 'head', topic: 'angles', name: 'כתר מד־זווית', unlock: { chest: 'angles' } },
-  { id: 'slope-tie', slot: 'neck', topic: 'line', name: 'עניבת שיפוע', unlock: { chest: 'line' } },
-  { id: 'triangle-glasses', slot: 'face', topic: 'pyth', name: 'משקפי משולש', unlock: { chest: 'pyth' } },
-  { id: 'bars-pin', slot: 'body', topic: 'stats', name: 'סיכת עמודות', unlock: { chest: 'stats' } },
-  { id: 'x-cap', slot: 'head', topic: 'expr', name: 'כובע איקס', unlock: { chest: 'expr' } },
-  { id: 'balance-pin', slot: 'body', topic: 'eq', name: 'סיכת מאזניים', unlock: { chest: 'eq' } },
-  { id: 'cross-pin', slot: 'body', topic: 'sys', name: 'סיכת שני ישרים', unlock: { chest: 'sys' } },
+export let ITEMS = localized(() => ([
+  { id: 'thermo-scarf', slot: 'neck', topic: 'signed', name: tr('shell.wardrobe.11'), unlock: { chest: 'signed' } },
+  { id: 'compass-cap', slot: 'head', topic: 'coord', name: tr('shell.wardrobe.12'), unlock: { chest: 'coord' } },
+  { id: 'protractor-crown', slot: 'head', topic: 'angles', name: tr('shell.wardrobe.13'), unlock: { chest: 'angles' } },
+  { id: 'slope-tie', slot: 'neck', topic: 'line', name: tr('shell.wardrobe.14'), unlock: { chest: 'line' } },
+  { id: 'triangle-glasses', slot: 'face', topic: 'pyth', name: tr('shell.wardrobe.15'), unlock: { chest: 'pyth' } },
+  { id: 'bars-pin', slot: 'body', topic: 'stats', name: tr('shell.wardrobe.16'), unlock: { chest: 'stats' } },
+  { id: 'x-cap', slot: 'head', topic: 'expr', name: tr('shell.wardrobe.17'), unlock: { chest: 'expr' } },
+  { id: 'balance-pin', slot: 'body', topic: 'eq', name: tr('shell.wardrobe.18'), unlock: { chest: 'eq' } },
+  { id: 'cross-pin', slot: 'body', topic: 'sys', name: tr('shell.wardrobe.19'), unlock: { chest: 'sys' } },
   // the curriculum lane's bridge unit (fractions and decimals): drawn at the merge, so every unit in TOPICS has its piece
-  { id: 'fraction-pin', slot: 'body', topic: 'frac', name: 'סיכת שבר', unlock: { chest: 'frac' } },
+  { id: 'fraction-pin', slot: 'body', topic: 'frac', name: tr('shell.wardrobe.20'), unlock: { chest: 'frac' } },
   // the curriculum lane's grade 8 units (ratio and scale, percent): drawn at the merge, for the same reason
-  { id: 'scale-pin', slot: 'body', topic: 'ratio', name: 'סיכת קנה מידה', unlock: { chest: 'ratio' } },
-  { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
+  { id: 'scale-pin', slot: 'body', topic: 'ratio', name: tr('shell.wardrobe.21'), unlock: { chest: 'ratio' } },
+  { id: 'percent-pin', slot: 'body', topic: 'pct', name: tr('shell.wardrobe.22'), unlock: { chest: 'pct' } },
   // the stage-5 lane's introduction to functions: a walk's graph on its axes
-  { id: 'graph-pin', slot: 'body', topic: 'func', name: 'סיכת גרף', unlock: { chest: 'func' } },
+  { id: 'graph-pin', slot: 'body', topic: 'func', name: tr('shell.wardrobe.graphPin'), unlock: { chest: 'func' } },
   // curriculum stage 3's data unit: a tally pin, so every unit in TOPICS has its piece
-  { id: 'tally-pin', slot: 'body', topic: 'data', name: 'סיכת ספירה', unlock: { chest: 'data' } },
+  { id: 'tally-pin', slot: 'body', topic: 'data', name: tr('shell.wardrobe.tallyPin'), unlock: { chest: 'data' } },
   // curriculum stage 3's probability unit: a die pin, so every unit in TOPICS has its piece
-  { id: 'die-pin', slot: 'body', topic: 'prob', name: 'סיכת קובייה', unlock: { chest: 'prob' } },
+  { id: 'die-pin', slot: 'body', topic: 'prob', name: tr('shell.wardrobe.diePin'), unlock: { chest: 'prob' } },
   // stage 2's areas and perimeters: an L on a grid of squares
-  { id: 'grid-pin', slot: 'body', topic: 'area', name: 'סיכת משבצות', unlock: { chest: 'area' } },
+  { id: 'grid-pin', slot: 'body', topic: 'area', name: tr('shell.wardrobe.gridPin'), unlock: { chest: 'area' } },
   // and its boxes and prisms: a small box
-  { id: 'box-pin', slot: 'body', topic: 'solid', name: 'סיכת תיבה', unlock: { chest: 'solid' } },
+  { id: 'box-pin', slot: 'body', topic: 'solid', name: tr('shell.wardrobe.boxPin'), unlock: { chest: 'solid' } },
   // and ח׳'s circle, cylinder and cone: a small wheel with its radius
-  { id: 'wheel-pin', slot: 'body', topic: 'circle', name: 'סיכת גלגל', unlock: { chest: 'circle' } },
+  { id: 'wheel-pin', slot: 'body', topic: 'circle', name: tr('shell.wardrobe.wheelPin'), unlock: { chest: 'circle' } },
   // and Pythagoras in space: a small box with its diagonal
-  { id: 'diagonal-pin', slot: 'body', topic: 'space', name: 'סיכת אלכסון', unlock: { chest: 'space' } },
+  { id: 'diagonal-pin', slot: 'body', topic: 'space', name: tr('shell.wardrobe.diagonalPin'), unlock: { chest: 'space' } },
   // curriculum stage 4's transformations (ז׳): a flag and its mirror image, drawn with the unit, for the same reason
-  { id: 'mirror-pin', slot: 'body', topic: 'transf', name: 'סיכת מראה', unlock: { chest: 'transf' } },
+  { id: 'mirror-pin', slot: 'body', topic: 'transf', name: tr('shell.wardrobe.mirrorPin'), unlock: { chest: 'transf' } },
   // curriculum stage 4's congruent triangles (ח׳): two triangles, one the mirror image of the other
-  { id: 'twin-pin', slot: 'body', topic: 'congr', name: 'סיכת משולשים חופפים', unlock: { chest: 'congr' } },
+  { id: 'twin-pin', slot: 'body', topic: 'congr', name: tr('shell.wardrobe.twinPin'), unlock: { chest: 'congr' } },
   // and its isosceles triangles and similarity: a small triangle inside a large one, with parallel bases
-  { id: 'nested-pin', slot: 'body', topic: 'sim', name: 'סיכת משולשים דומים', unlock: { chest: 'sim' } },
-  { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
+  { id: 'nested-pin', slot: 'body', topic: 'sim', name: tr('shell.wardrobe.nestedPin'), unlock: { chest: 'sim' } },
+  { id: 'class-scarf', slot: 'neck', topic: null, name: tr('shell.wardrobe.23'), unlock: { classGoal: true } },
   // pieces for stages, in the order they come (PRODUCT2-36): the first stage, then every TRACK_EVERY stages
-  ...[['party-hat', 'head', 'כובע חגיגה'], ['bow-tie', 'neck', 'פפיון'], ['round-glasses', 'face', 'משקפיים עגולים'], ['star-pin', 'body', 'סיכת כוכב'],
-    ['headphones', 'head', 'אוזניות'], ['pi-pin', 'body', 'סיכת פאי'], ['stripe-scarf', 'neck', 'צעיף פסים'], ['sun-glasses', 'face', 'משקפי שמש']]
+  ...[['party-hat', 'head', tr('shell.wardrobe.partyHat')], ['bow-tie', 'neck', tr('shell.wardrobe.bowTie')], ['round-glasses', 'face', tr('shell.wardrobe.roundGlasses')], ['star-pin', 'body', tr('shell.wardrobe.starPin')],
+    ['headphones', 'head', tr('shell.wardrobe.headphones')], ['pi-pin', 'body', tr('shell.wardrobe.piPin')], ['stripe-scarf', 'neck', tr('shell.wardrobe.stripeScarf')], ['sun-glasses', 'face', tr('shell.wardrobe.sunGlasses')]]
     .map(([id, slot, name], k) => ({ id, slot, topic: null, name, unlock: { stages: 1 + k * TRACK_EVERY } })),
   // the daily quests' chest: the student chooses one of the next two, in this order
-  ...[['beanie', 'head', 'כובע צמר'], ['medal', 'neck', 'מדליה'], ['bolt-pin', 'body', 'סיכת ברק'], ['star-glasses', 'face', 'משקפי כוכבים'],
-    ['grad-cap', 'head', 'כובע סיום'], ['infinity-pin', 'body', 'סיכת אינסוף']]
+  ...[['beanie', 'head', tr('shell.wardrobe.beanie')], ['medal', 'neck', tr('shell.wardrobe.medal')], ['bolt-pin', 'body', tr('shell.wardrobe.boltPin')], ['star-glasses', 'face', tr('shell.wardrobe.starGlasses')],
+    ['grad-cap', 'head', tr('shell.wardrobe.gradCap')], ['infinity-pin', 'body', tr('shell.wardrobe.infinityPin')]]
     .map(([id, slot, name]) => ({ id, slot, topic: null, name, unlock: { quest: true } })),
-];
+]), (v) => { ITEMS = v; });
 
 const COLOR = Object.fromEntries(COLORS.map((c) => [c.id, c]));
 const ITEM = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
@@ -135,12 +136,12 @@ export const chestPieces = (owned = new Set()) => ITEMS.filter((i) => i.unlock.q
 
 /** Why a piece is the student's: "מיחידת זוויות", "על 8 שלבים", "מתיבת המשימות", or "מהמטרה של הכיתה". */
 function whyOwned(id, path, grade) {
-  if (ITEM[id]?.unlock.classGoal) return 'מהמטרה של הכיתה';
-  if (isQuestPiece(id)) return 'מתיבת המשימות';
+  if (ITEM[id]?.unlock.classGoal) return tr('shell.wardrobe.24');
+  if (isQuestPiece(id)) return tr('shell.wardrobe.fromQuests');
   const n = stagesFor(id);
-  if (n) return n === 1 ? 'על השלב הראשון' : `על ${n} שלבים`;
+  if (n) return n === 1 ? tr('shell.wardrobe.forFirstStage') : tr('shell.wardrobe.forStages', { n });
   const topic = ITEM[id]?.topic || colourUnit(id, path, grade);
-  return topic ? `מיחידת ${TOPIC[topic].title}` : '';
+  return topic ? tr('shell.wardrobe.25', { title: TOPIC[topic].title }) : '';
 }
 
 /**
@@ -207,23 +208,23 @@ export const isWorn = (look, id) => (COLOR[id] ? look?.color === id : !!ITEM[id]
 /** A locked piece: the sentence that says how it opens, and the unit that opens it (null for the class scarf). */
 export function lockedReason(id, grade = '7') {
   const it = ITEM[id];
-  if (it?.unlock.classGoal) return { text: 'נפתח כשהכיתה מגיעה למטרה של השבוע.', topic: null };
-  if (it?.unlock.quest) return { text: 'מחכה בתיבה של המשימות היומיות: כשמסיימים את שלוש המשימות של היום, בוחרים חלק אחד משניים.', topic: null };
-  if (it?.unlock.stages) return { text: `נפתח אחרי ${it.unlock.stages} שלבים של לימוד: הסבר, דוגמה, פתרון יחד, תרגול או בדיקת שליטה.`, topic: null };
-  if (it) return { text: `נפתח כשתשלטו במדרגות 1 עד ${chestAfter(it.topic)} ביחידת ${TOPIC[it.topic].title}.`, topic: it.topic };
+  if (it?.unlock.classGoal) return { text: tr('shell.wardrobe.26'), topic: null };
+  if (it?.unlock.quest) return { text: tr('shell.wardrobe.lockedQuest'), topic: null };
+  if (it?.unlock.stages) return { text: tr('shell.wardrobe.lockedStages', { n: it.unlock.stages }), topic: null };
+  if (it) return { text: tr('shell.wardrobe.27', { p0: chestAfter(it.topic), title: TOPIC[it.topic].title }), topic: it.topic };
   const topic = colourUnit(id, {}, grade);
-  return topic ? { text: `נפתח כשתשלטו בכל המדרגות ביחידת ${TOPIC[topic].title}.`, topic } : { text: '', topic: null };
+  return topic ? { text: tr('shell.wardrobe.28', { title: TOPIC[topic].title }), topic } : { text: '', topic: null };
 }
 
 /** The unlock moment's sentence for a piece just earned. */
 export function unlockReason(id, path = {}, grade = '7') {
   const it = ITEM[id];
-  if (it?.unlock.classGoal) return `הכיתה הגיעה למטרה של השבוע, ומדי קיבל ${it.name}.`;
-  if (it?.unlock.quest) return `בחרתם בתיבת המשימות, ומדי קיבל ${it.name}.`;
-  if (it?.unlock.stages) return it.unlock.stages === 1 ? `סיימתם את השלב הראשון, ומדי קיבל ${it.name}.` : `סיימתם ${it.unlock.stages} שלבים, ומדי קיבל ${it.name}.`;
-  if (it) return `שלטתם בחצי הראשון של ${TOPIC[it.topic].title}, ומדי קיבל ${it.name}.`;
+  if (it?.unlock.classGoal) return tr('shell.wardrobe.29', { name: it.name });
+  if (it?.unlock.quest) return tr('shell.wardrobe.gotQuest', { name: it.name });
+  if (it?.unlock.stages) return it.unlock.stages === 1 ? tr('shell.wardrobe.gotFirstStage', { name: it.name }) : tr('shell.wardrobe.gotStages', { n: it.unlock.stages, name: it.name });
+  if (it) return tr('shell.wardrobe.30', { title: TOPIC[it.topic].title, name: it.name });
   const topic = colourUnit(id, path, grade);
-  return topic ? `סיימתם את כל המדרגות של ${TOPIC[topic].title}. מדי יכול להיות עכשיו ${COLOR[id].name}.` : '';
+  return topic ? tr('shell.wardrobe.31', { title: TOPIC[topic].title, name: COLOR[id].name }) : '';
 }
 
 /** New pieces in the order the unlock moment shows them: the result's own unit first (its colour, then its chest's item). */

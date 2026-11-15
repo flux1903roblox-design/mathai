@@ -1,0 +1,15 @@
+/* SheetDialog.jsx's own rules, out of the first-load stylesheets (COUNCIL2-20). SheetDialog.jsx imports this file, so they load
+   with it. A rule is here only when the classes it needs are written by it, or by parts only it
+   loads (src/styles/lazy.test.js), and it keeps the order it had. */
+.sheet-backdrop { position: fixed; inset: 0; z-index: 40; transition: opacity var(--duration-fast) var(--ease-out); }
+.sheet-backdrop[data-starting-style], .sheet-backdrop[data-ending-style] { opacity: 0; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s3) var(--s4) var(--s2); border-bottom: 1px solid var(--rule); }
+.sheet-body { padding: var(--s4); overflow-y: auto; display: flex; flex-direction: column; gap: var(--s3); min-height: 0; flex: 1; }
+.sheet-foot { padding: var(--s3) var(--s4); border-top: 1px solid var(--rule); }
+.sheet-foot .tutor-note { margin-top: var(--s2); }
+.sheet-backdrop { background: var(--scrim); }
+.photo-prep-sheet .sheet-body { overflow: hidden; padding-bottom: var(--s2); }
+.photo-prep-sheet .sheet-foot { padding-block: var(--s2); }
+@media (max-height: 640px) {
+  .photo-prep-sheet .sheet-body { padding-top: var(--s3); }
+}

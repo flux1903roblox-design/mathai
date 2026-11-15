@@ -24,6 +24,7 @@ import ClaimPart from '@/components/challenge/ClaimPart.jsx';
 import OrderPart from '@/components/challenge/OrderPart.jsx';
 import ErrorPart from '@/components/challenge/ErrorPart.jsx';
 import ExplainPart from '@/components/challenge/ExplainPart.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 
 const PART = { num: NumPart, mc: McPart, claim: ClaimPart, order: OrderPart, error: ErrorPart, explain: ExplainPart };
 export const DONE_LINE = 'אתגר הושלם. זה לא היה פשוט, והצלחתם.';
@@ -109,7 +110,7 @@ export default function Challenge() {
   const done = (first) => {
     const f = part.type === 'explain' ? firsts : [...firsts, !!first];
     if (!last) { setFirsts(f); setI(i + 1); return; }
-    setAward(finishChallenge(task.id, { firstTry: f.filter(Boolean).length, parts: f.length }));
+    setAward(finishChallenge(task.id, { firstTry: f.filter(Boolean).length, parts: f.length, after: task.after }));
   };
   const hasStory = !!(task.story || task.fig);
   return (

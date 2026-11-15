@@ -1405,7 +1405,9 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await share.getByRole('button', { name: 'העתקת הודעה לתלמידים' }).click();
     await expect(page.getByText('ההודעה הועתקה')).toBeVisible();
     const copied = await page.evaluate(() => window.__copied);
-    expect(copied).toBe(`יש לכם משימה חדשה במדרגות: תיקון טעות: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". ${baseOf()}`);
+    // the assignment's own link (COUNCIL2-35) ends the message; worded to the two who got it
+    const own = `${baseOf()}#/a/${st.assignments[0].id}`;
+    expect(copied).toBe(`יש לכם משימה חדשה במדרגות: תיקון טעות: חיבור וחיסור, עד יום חמישי 12.11. פותחים את הקישור, והמשימה נפתחת. ${own}`);
     for (const n of ['דנה', 'יואב']) expect(copied).not.toContain(n);
     await expect(share.getByRole('link', { name: 'שיתוף ב־Google Classroom' })).toHaveCount(0);
     await shot(page, 'teacher-assign-share');
@@ -1432,6 +1434,7 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await page.getByRole('button', { name: 'משימה חדשה' }).first().click();
     const s = sheet(page, 'משימה לכיתה ח׳2');
     const pick = s.getByLabel('איזו מדרגה?');
+    await expect(pick).toBeVisible(); // a sheet's dialog loads on its first open (SheetDialog is off the first load)
     const values = await pick.locator('option').evaluateAll((os) => os.map((o) => o.value));
     for (const id of ['data:1', 'data:2', 'data:3', 'data:4']) expect(values, id).toContain(id);
     expect(values.indexOf('data:1')).toBeGreaterThan(values.indexOf('pct:5'));
@@ -1448,6 +1451,7 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await page.getByRole('button', { name: 'משימה חדשה' }).first().click();
     const s = sheet(page, 'משימה לכיתה ח׳2');
     const select = s.getByLabel('איזו מדרגה?');
+    await expect(select).toBeVisible();
     const groups = await select.locator('optgroup').evaluateAll((els) => els.map((g) => g.label));
     expect(groups.slice(0, 6)).toEqual(['יחס וקנה מידה', 'אחוזים', 'נתונים ושכיחות', 'טרנספורמציות', 'מבוא לפונקציות', 'פונקציה קווית']);
     await select.selectOption('transf:3');
@@ -1455,7 +1459,7 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
   });
 
   test('a week from a Saturday is a Saturday: the sheet says the date moves to Sunday, as the server does', async ({ page }) => {
-    const { log } = await fakeServer(page, { today: '2026-11-07' }, baseOf());
+    const { st, log } = await fakeServer(page, { today: '2026-11-07' }, baseOf());
     await open(page, '#/teacher?tab=work', keyTeacher(), { at: new Date('2026-11-07T10:00:00') });
     await expect(page.getByRole('heading', { name: 'עוד אין משימות' })).toBeVisible();
     await expect(page.getByText('אפשר לתת לכיתה מדרגה ללמוד, בדיקת שליטה או מבחן תרגול, עם תאריך הגשה.')).toBeVisible();
@@ -1477,12 +1481,14 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     expect(sent.body).toMatchObject({ kind: 'check', skill: 'coord:2', dueOn: '2026-11-14' });
     expect(sent.body.targets).toBeUndefined();
     await expect(page.getByText('המשימה נשלחה, עד יום ראשון, 15.11. התלמידים יראו אותה בראש המשימה של היום.')).toBeVisible();
-    // for the whole class: "לספר לכיתה?", the class's message and Google's share address
+    // for the whole class: "לספר לכיתה?", the class's message with the assignment's own link (COUNCIL2-35) and Google's
+    // share address for that link
     const share = sheet(page, 'לספר לכיתה?');
-    await expect(share.locator('.as-msg')).toHaveText(`משימה חדשה במדרגות: בדיקת שליטה: רביעים, עד יום ראשון 15.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". ${baseOf()}`);
-    await expect(share.locator('.as-share-lead')).toHaveText('אפשר לשלוח לתלמידים הודעה בערוץ של הכיתה. אין בה שמות של תלמידים.');
+    const own = `${baseOf()}#/a/${st.assignments[0].id}`;
+    await expect(share.locator('.as-msg')).toHaveText(`משימה חדשה במדרגות: בדיקת שליטה: רביעים, עד יום ראשון 15.11. פותחים את הקישור, והמשימה נפתחת. ${own}`);
+    await expect(share.locator('.as-share-lead')).toHaveText('הקישור פותח את המשימה אצל כל תלמיד בכיתה, ומי שעוד לא בכיתה מצטרף בדרך. אין בו ובהודעה שמות של תלמידים.');
     const link = share.getByRole('link', { name: 'שיתוף ב־Google Classroom' });
-    await expect(link).toHaveAttribute('href', `https://classroom.google.com/share?url=${encodeURIComponent(`${baseOf()}#/quests`)}`);
+    await expect(link).toHaveAttribute('href', `https://classroom.google.com/share?url=${encodeURIComponent(own)}&title=${encodeURIComponent('בדיקת שליטה: רביעים')}`);
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', /noopener/);
   });
@@ -2108,6 +2114,27 @@ test.describe('TEACHER-6: help both ways', () => {
   const replies = (log, path) => log.filter((r) => r.path === path && r.method === 'POST');
   const missionsTab = (page) => page.getByRole('navigation', { name: 'ניווט ראשי' }).getByRole('link', { name: /^משימות/ });
 
+  // COUNCIL2-9: with SAFETY_ALERTS on, a student's message to the tutor that read as self-harm leaves one request the
+  // server made (topic 'safety', the care flag, no text) on the board. It says what happened and nothing written, and has
+  // no reply box: the student never sees it.
+  test('a safety alert: the care line and a fixed sentence, no text, no reply box, and it can be marked done', async ({ page }) => {
+    const alert = { id: 9, studentId: 'b2', name: 'יואב', topic: 'safety', level: null, question: '', answer: '', note: '', has_image: 0, care: 1, created_at: '2026-11-05T08:00:00.000Z', seen_at: null, done_at: null, messages: [] };
+    const { log } = await fakeServer(page, { help: [alert, ...threads()] }, baseOf());
+    await open(page, '#/teacher?tab=help', keyTeacher());
+    const item = page.locator('.help-item').filter({ hasText: 'יואב' }).filter({ hasText: 'מצוקה' });
+    await expect(item).toHaveCount(1);
+    await expect(item.locator('.help-care')).toHaveText('כדאי לבדוק מה שלום התלמיד/ה');
+    await expect(item.locator('.help-q')).toHaveText('היום, בשיחה עם העוזר החכם, נכתב משהו שנשמע כמו מצוקה. מה שנכתב לא נשמר אצלנו. העוזר הציע לפנות למבוגר קרוב ולער״ן, 1201.');
+    await expect(item.locator('.help-item-head .muted')).not.toContainText(',');
+    await expect(item.getByRole('textbox')).toHaveCount(0);
+    // it waits for no reply: "מחכות לתשובה שלכם" counts the two real ones only
+    await expect(page.getByRole('radio', { name: 'מחכות לתשובה שלכם (2)' })).toBeVisible();
+    const dir = process.env.TEACHER_SHOTS;
+    if (dir) { await item.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${dir}/${test.info().project.name}-help-alert.png` }); }
+    await item.getByRole('button', { name: 'טופל' }).click();
+    await expect.poll(() => log.filter((r) => r.path === '/api/teacher/help/9' && r.method === 'POST').length).toBe(1);
+  });
+
   test('1. the teacher: filters, the thread, quick replies that fill the box, sending, the contact guard and the limit', async ({ page }) => {
     const { st, log } = await fakeServer(page, { help: threads() }, baseOf());
     await open(page, '#/teacher?tab=help', keyTeacher());
@@ -2399,8 +2426,8 @@ test.describe('TEACHER-8: each student has a page, and a short ranked list', () 
     await page.getByRole('row', { name: /דנה/ }).getByRole('button', { name: 'פרטים על דנה' }).click();
     const dana = page.getByRole('dialog', { name: 'דנה' });
     await dana.getByRole('button', { name: 'איפוס קוד אישי' }).click();
-    await expect(page.getByText('הקוד האישי של דנה אופס. בכניסה הבאה ייבחר קוד חדש.')).toBeVisible();
-    await expect(dana.getByText('הקוד האישי אופס. בכניסה הבאה ייבחר קוד חדש.')).toBeVisible();
+    // the one-time code to give her, shown once (COUNCIL2-25; claim.spec.js follows it to her phone)
+    await expect(dana.getByRole('group', { name: 'קוד הכניסה של דנה' })).toContainText('H4WQ7N');
     expect(st.students.find((s) => s.id === 's1').pinReset).toBe(true);
     await dana.getByRole('button', { name: 'סגירה' }).click();
     // נועה's page: her request, and the way to her requests in the help view
@@ -2835,6 +2862,7 @@ test.describe('FUNC-6: a ח׳ class\'s guest stairs on the teacher\'s screens', 
     await page.getByRole('button', { name: 'משימה חדשה' }).first().click();
     const sheet = page.getByRole('dialog', { name: 'משימה לכיתה ח׳2' });
     const select = sheet.getByLabel('איזו מדרגה?');
+    await expect(select).toBeVisible();
     // the grade's units first, the guest row last, with its own stairs only
     const groups = await select.locator('optgroup').evaluateAll((gs) => gs.map((g) => g.label));
     expect(groups.at(-1)).toBe(ROW);

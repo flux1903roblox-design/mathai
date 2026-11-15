@@ -535,7 +535,7 @@ test.describe('Quests', () => {
           events: [{ t: at('2026-11-08'), e: 'lesson-done', s: 'signed:1', p: 'practice', ok: true }, { t: at('2026-11-10', 14), e: 'check-done', s: 'signed:1', p: 'mastery', ok: true }, { t: at('2026-11-10', 15), e: 'repair-done', s: 'signed:1', m: 'minus-minus', ok: true }, { t: at('2026-11-12'), e: 'stage-A', s: 'signed:2' }],
         },
         look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['thermo-scarf'], seen: ['thermo-scarf'], earnedAt: { 'thermo-scarf': '2026-11-12' } },
-        durable: { nudgeCount: 2 },
+        durable: { nudgeCount: 2, nudgeAt: '2026-11-14T09:00:00.000Z' },
       }),
       version: 6,
     };
@@ -2278,5 +2278,46 @@ test.describe('the product2 lane', () => {
     await page.getByRole('tab', { name: 'מבחנים (1)' }).click();
     await expect(page.getByRole('region', { name: 'טבלת המבחנים' }).locator('tbody tr')).toHaveCount(1);
     await scan(page, 'the exams tab: a class exam solved in the app');
+  });
+});
+
+// The council2 lane's screens (round-3 merge): the support card under a message the tutor cannot take, the teacher's
+// one-time claim code after a PIN reset (COUNCIL2-25), and the day's write budget used up on a help request
+// (COUNCIL2-18), light and dark.
+test.describe('the council2 lane', () => {
+  test('the support card under a message the tutor cannot take ("held"), with no parent\'s OK yet', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/assistant', withServer());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('אף אחד בבית לא שם לב אליי ואני לא יודעת מה לעשות');
+    await draft.press('Enter');
+    await expect(page.locator('.chat .support-card')).toBeVisible();
+    await scan(page, 'the support card when the tutor cannot answer (held)');
+  });
+
+  test('the teacher\'s one-time claim code after a PIN reset', async ({ page }) => {
+    await fakeServer(page, { members: [{ id: 'a1', name: 'דנה', pin: '1234', tokens: [] }] }, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await page.getByRole('tab', { name: 'תלמידים' }).click();
+    await page.getByRole('row', { name: /דנה/ }).getByRole('button', { name: 'פרטים על דנה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'דנה' });
+    await sheet.getByRole('button', { name: 'איפוס קוד אישי' }).click();
+    await expect(sheet.getByRole('group', { name: 'קוד הכניסה של דנה' })).toBeVisible();
+    await scan(page, 'the claim code in the student sheet');
+  });
+
+  test('the day\'s write budget used up: a help request the server refuses (too_many_help)', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await page.route(`${API}/api/help`, (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      return route.fulfill({ status: 429, contentType: 'application/json', headers: { ...CORS, 'Retry-After': '3600' }, body: JSON.stringify({ error: 'too_many_help', resetsAt: '2026-11-06T00:00:00+02:00' }) });
+    });
+    await open(page, '#/lesson/signed/1', inClass());
+    await page.getByRole('button', { name: 'למורה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'לבקש עזרה מהמורה' });
+    await sheet.getByLabel('מה לא ברור? (לא חובה)').fill('לא הבנתי את הסימן');
+    await sheet.getByRole('button', { name: 'שליחה למורה' }).click();
+    await expect(page.getByText('היום כבר נשלחו הרבה בקשות למורה. אפשר לשלוח שוב מחר, או לשאול את המורה בכיתה.').first()).toBeVisible();
+    await scan(page, 'the help sheet with the day\'s budget used up');
   });
 });

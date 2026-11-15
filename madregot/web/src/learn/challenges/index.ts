@@ -47,9 +47,8 @@ export function topicChallenges(topic: TopicId, skills: Skills, recs: Records): 
 export const nextAfter = (skill: SkillId, recs: Records): ChallengeMeta | null => challengesAfter(skill).find((t) => !isSolved(t, recs)) || null;
 
 /**
- * The first unsolved task of a mastered stair, for the plan (learn/next.ts, band 9): the stair mastered most recently
- * first (the check the student just passed is the one the suggestion names), then in school order (ALL_SKILLS), then
- * in the topic's own order.
+ * The first unsolved task of a mastered stair, for the plan (learn/next.ts, band 9), as a full task: the order is
+ * open.ts's, which reads the tasks' meta (the map's first screen loads only that, COUNCIL2-14).
  */
 export function firstOpenChallenge(skills: Skills, recs: Records): ChallengeMeta | null {
   const at = (t: ChallengeMeta) => Date.parse(skills[t.after]?.mastered?.at || '') || 0;

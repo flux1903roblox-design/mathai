@@ -1,11 +1,11 @@
 // Safety first, for the AI tutor (trust spec TRUST-3). Shared by the Worker and the browser, so the support details,
-// the prompt's safety block and the distress detector have one source.
+// the prompt's safety block, the personal-detail mask and the reply screen have one source. The distress detector is
+// in shared/distress.js: only the screens with the tutor load it, so it stays out of the app's first download.
 //
 // This file ships to the browser. Vite targets Safari 16.0, which has no regex lookbehind, and a lookbehind literal
 // stops the whole chunk from loading there: a Hebrew word start is written (?:^|[^א-ת]) and a word end (?![א-ת]).
 // worker/test/safety.test.js fails on a lookbehind anywhere in shared/.
 import { BLOCK_HE, BLOCK_EN } from './blocklist.js';
-import { TOPIC_NAMES, STAIR_NAMES, NOT_YET } from './stairs.js';
 import { SUPPORT } from './helpLines.js';
 
 export { SUPPORT };
@@ -66,140 +66,6 @@ export function normalize(text) {
     .trim();
 }
 
-// ---------------------------------------------------------------- the distress detector (trust spec Appendix G)
-const B = '(?:^|[^א-ת])'; // a Hebrew word starts here (no lookbehind: the group takes the character before it)
-const P = `${B}[ושהלבכמ]?`; // ... and may carry one prefix letter (ו ש ה ל ב כ מ)
-const E = '(?![א-ת])'; // a Hebrew word ends here
-const he = (x) => `${P}(?:${x})${E}`;
-
-/**
- * Maths frustration: a distress or bullying match whose complaint is about maths ("אני לא יכול יותר עם השברים", "...
- * מהשאלה הזאת", "..., התרגיל הזה") is not distress. The maths word must be the object of the complaint: right after the
- * match, alone or after "עם", "על" or "מ". A maths word that only says where or since when it happens ("צוחקים עליי
- * בשיעור מתמטיקה", "עושים לי חרם מאז המבחן", "... בגלל המבחן") never drops the match. The words: the app's own topic
- * and stair names (shared/stairs.js, also the ones not taught yet), whole, and the maths nouns below in the singular
- * and the plural. A word with an everyday meaning ("בעיות", "מערכת", "נקודה") is not on the list: there it is not maths.
- */
-const MATHS_NOUNS = [
-  'תרגיל', 'תרגילים', 'שאלה', 'שאלות', 'מבחן', 'מבחנים', 'בוחן', 'בחנים', 'שיעורי בית', 'שיעורי הבית', 'מתמטיקה', 'חשבון',
-  'שבר', 'שברים', 'אחוז', 'אחוזים', 'חזקה', 'חזקות', 'שורש', 'שורשים', 'משוואה', 'משוואות', 'נוסחה', 'נוסחאות', 'נעלם',
-  'נעלמים', 'גאומטריה', 'גיאומטריה', 'אלגברה', 'הנדסה', 'זווית', 'זוויות', 'משולש', 'משולשים', 'גרף', 'גרפים', 'ביטוי',
-  'ביטויים', 'פונקציה', 'פונקציות', 'שיפוע', 'ממוצע', 'חציון', 'שכיח', 'סטטיסטיקה', 'הסתברות', 'פיתגורס', 'מספרים מכוונים',
-  'מכוונים', 'מספרים שליליים', 'שליליים', 'סוגריים', 'כפל', 'חילוק', 'חיבור', 'חיסור', 'מכנה', 'מונה', 'עשרוני', 'עשרוניים',
-  'אי-שוויון', 'אי-שוויונים', 'טבלה', 'צירים', 'מלבן', 'יחס', 'פרופורציה',
-];
-const MATHS_PHRASES = [
-  ...MATHS_NOUNS,
-  ...Object.values(TOPIC_NAMES), ...Object.values(STAIR_NAMES), ...Object.values(NOT_YET).flat(),
-].map((w) => normalize(w).replace(/[?()]/g, '').trim()).filter((w) => w.length >= 2);
-const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const MATHS_ALT = [...new Set(MATHS_PHRASES)].sort((a, b) => b.length - a.length).map(escRe).join('|');
-/** Right after the match: the maths word itself, or "עם", "על" or "מ" and then it (one more word may stand between). */
-const MATHS = new RegExp(`^[\\s,.:;!-]*(?:(?:עם|על)\\s+(?:[^\\s]+\\s+)?|מ)?(?:ה)?(?:${MATHS_ALT})(?![א-ת])`);
-/** How far the "killing me" rule looks for a word about home. */
-const MATHS_WINDOW = 25;
-/** What firstMatch reads after a match: enough for "עם כל" and a two-word maths name. */
-const AFTER_WINDOW = 40;
-/** "Dying of laughter" is not a wish to die. */
-const LAUGHING = /^\s*מ?צחוק/;
-
-/** Someone asks (he, she, they; past and present), as the danger rules start. */
-const ASK = `${P}(?:ביקש|ביקשה|מבקש|מבקשת|מבקשים|ביקשו|דורש|דורשת)`;
-/** ... or wants the child to ("רוצה שאשלח לו תמונה": a child who wants to send a picture is not in danger). */
-const ASK_THAT = `${P}(?:ביקש|ביקשה|מבקש|מבקשת|מבקשים|ביקשו|דורש|דורשת|רוצה|רוצים)`;
-/**
- * Right after a photo request: a piece of school work or a transformation ("תמונה של הדף", "...של המשולש אחרי שיקוף").
- * Then the request is about maths, not about the child (danger rules marked school: true).
- */
-const SCHOOL = new RegExp(`^[^\\s.,!?]*\\s*(?:[^\\s.,!?]+\\s+)?(?:של\\s+(?:ה)?(?:מחברת|מחברות|דף|דפים|תרגיל|תרגילים|פתרון|פתרונות|גרף|גרפים|משולש|משולשים|נקודה|נקודות|צורה|צורות|שאלה|לוח|מבחן)(?![א-ת])|.{0,30}?(?:^|[^א-ת])[בלו]?(?:שיקוף|הזזה|סיבוב)(?![א-ת]))`);
-
-/**
- * Each rule: a category, a pattern over normalize(text), and `maths: true` when maths frustration right after the
- * match drops it (the categories distress and bullying, and the slang patterns). Self-harm, abuse and danger are never
- * dropped for maths words: "בא לי למות מהמבחן הזה" still gets the card, by design. The one exception is `school: true`
- * on the photo-request rules: a request for a picture of a page, an exercise or a shape is about school work.
- */
-const RULES = [
-  // self_harm
-  { cat: 'self_harm', re: he('(?:רוצה|רוצים|בא לי|מתחשק לי|חושב|חושבת|מתכנן|מתכננת|הולך|הולכת)\\s+(?:ל)?(?:מות|למות|להתאבד|לגמור עם (?:ה)?חיים|לגמור עם עצמי|להיעלם(?: מהעולם)?)'), laugh: true },
-  { cat: 'self_harm', re: he('להתאבד|התאבדות|אתאבד|מתאבד|מתאבדת') },
-  { cat: 'self_harm', re: he('(?:לפגוע|פוגע|פוגעת|פגעתי|אפגע)\\s+ב?עצמי') },
-  { cat: 'self_harm', re: he('(?:לחתוך|חותך|חותכת|חתכתי|חותכים)\\s+(?:את\\s+)?(?:עצמי|הידיים|היד|הרגליים)') },
-  // "חותכת לעצמי את היד", "חתכתי לעצמי"
-  { cat: 'self_harm', re: he('(?:לחתוך|חותך|חותכת|חתכתי|אחתוך)\\s+לעצמי') },
-  { cat: 'self_harm', re: he('(?:לא רוצה|לא רוצים|אין לי (?:טעם|סיבה))\\s+(?:לחיות|להמשיך לחיות)') },
-  // "אני לא רוצה להיות בחיים", "לא רוצה להיות פה יותר", "לא רוצה להיות קיימת"
-  { cat: 'self_harm', re: he('(?:לא רוצה|לא רוצים)\\s+להיות\\s+(?:בחיים|פה|כאן|קיים|קיימת|בעולם)') },
-  { cat: 'self_harm', re: he('אין לי (?:כוח|כח)\\s+(?:לחיות|לחיים|להמשיך לחיות)') },
-  // "הלוואי שאמות", "הלוואי שהייתי מת/ה", "הלוואי שלא הייתי נולד/ת", "הלוואי שלא הייתי קיים/ת"
-  { cat: 'self_harm', re: he('הלוואי\\s+(?:ו)?ש(?:אמות|הייתי\\s+(?:מת|מתה)|לא\\s+הייתי\\s+(?:נולד|נולדת|קיים|קיימת)|אני\\s+(?:אמות|מת|מתה))') },
-  { cat: 'self_harm', re: he('נמאס לי (?:מהחיים|לחיות)|אין טעם (?:לחיות|לחיים)|עדיף (?:שאמות|שלא הייתי נולד|שלא הייתי נולדת)|כולם יהיו (?:בסדר|יותר טוב) (?:בלעדיי|בלעדי)') },
-  { cat: 'self_harm', re: '\\b(?:kill myself|killing myself|suicid\\w*|want to die|wanna die|self[- ]?harm|hurt myself|cut myself|wish i was dead|wish i were dead)\\b' },
-  // abuse
-  { cat: 'abuse', re: he('(?:מרביץ|מרביצה|מרביצים|הרביץ|הרביצה|הרביצו)\\s+לי') },
-  { cat: 'abuse', re: he('(?:מכה|מכים|היכה)\\s+אותי') },
-  { cat: 'abuse', re: he('(?:נוגע|נוגעת|נוגעים|נגע|נגעה)\\s+(?:בי|ב(?:גוף|מקומות))') },
-  { cat: 'abuse', re: he('התעלל|מתעלל|מתעללת|התעללות|התעללו') },
-  { cat: 'abuse', re: he('(?:פגע|פוגע|פגעה)\\s+בי\\s+מינית|(?:הטריד|מטריד|הטרידה)\\s+אותי|הטרדה מינית') },
-  { cat: 'abuse', re: he('(?:מפחד|מפחדת)\\s+(?:ללכת|לחזור)\\s+הביתה') },
-  { cat: 'abuse', re: '\\b(?:abus\\w*|molest\\w*)\\b' },
-  // danger: someone asks the child for pictures. Only a request aimed at the child counts ("ממני", "שאשלח", "לשלוח",
-  // "להצטלם", "תמונה שלי"): "השאלה מבקשת תמונה של המשולש אחרי שיקוף" is the image of a shape under a transformation, and
-  // a request for a picture of school work ("ביקשו ממני תמונה של הדף") is dropped (school: true).
-  { cat: 'danger', re: `${ASK}\\s+(?:ממני|ממך|מאיתנו)\\s+(?:[^\\s]+\\s+)?(?:תמונה|תמונות|תמונ|סרטון|סרטונים|להצטלם|לשלוח)`, school: true },
-  { cat: 'danger', re: `${ASK}\\s+לשלוח\\s+(?:לו\\s+|לה\\s+|להם\\s+)?(?:[^\\s]+\\s+)?(?:תמונ|סרטון)`, school: true },
-  { cat: 'danger', re: `${ASK_THAT}\\s+ש(?:אשלח|נשלח)\\s+(?:לו\\s+|לה\\s+|להם\\s+)?(?:[^\\s]+\\s+)?(?:תמונ|סרטון)`, school: true },
-  { cat: 'danger', re: `${ASK_THAT}\\s+(?:ש(?:אצטלם|אצלם את עצמי|אתפשט|אוריד)|להצטלם|לצלם את עצמי)` },
-  { cat: 'danger', re: `${ASK}\\s+(?:[^\\s]+\\s+)?(?:תמונה|תמונות|סרטון|סרטונים)\\s+(?:שלי|ממני|שלך)(?![א-ת])` },
-  { cat: 'danger', re: `${P}(?:תמונה|תמונות)\\s+(?:עירום|בלי בגדים)` },
-  { cat: 'danger', re: he('סוחט|סוחטת|סחיטה|סוחטים') },
-  { cat: 'danger', re: he('(?:מאיים|מאיימת|מאיימים|איים|איימו)\\s+(?:עליי|עלי)') },
-  { cat: 'danger', re: he('(?:אמר|אמרה|ביקש|ביקשה)\\s+(?:לי\\s+)?לא לספר\\s+(?:להורים|לאף אחד|לאמא|לאבא)') },
-  { cat: 'danger', re: he('(?:רוצה|רוצים)\\s+להיפגש\\s+איתי\\s+(?:בסוד|בלי)') },
-  // "ילד מהכיתה הציע להיפגש איתי בסוד", "מישהו מהאינטרנט הציע להיפגש"
-  { cat: 'danger', re: he('(?:הציע|הציעה|הציעו|מציע|מציעה|מציעים)\\s+(?:לי\\s+)?(?:להיפגש|שניפגש|להפגש)') },
-  // bullying
-  { cat: 'bullying', re: he('(?:עושים|עשו)\\s+(?:לי\\s+)?חרם|מחרימים אותי|(?:כולם\\s+)?צוחקים (?:עליי|עלי)|(?:מציקים|מקללים|מכים|משפילים)\\s+(?:לי|אותי)'), maths: true },
-  { cat: 'bullying', re: '\\b(?:bullied|bullying me)\\b', maths: true },
-  // distress
-  { cat: 'distress', re: he('אני\\s+(?:ב)?דיכאון|(?:מרגיש|מרגישה|מרגישים)\\s+(?:ב)?דיכאון|(?:יש לי|נכנסתי ל|נכנסת ל)דיכאון|(?:כל הזמן|כל יום|כל לילה)\\s+(?:אני\\s+)?בוכה|בוכה\\s+(?:כל הזמן|כל יום|כל לילה)|אין לי\\s+(?:אף אחד|חברים|עם מי לדבר)'), maths: true },
-  { cat: 'distress', re: he('אני\\s+(?:שונא|שונאת)\\s+את עצמי|אני\\s+(?:(?:מרגיש|מרגישה)\\s+)?(?:חסר|חסרת)\\s+ערך|אף אחד לא\\s+(?:אוהב|אכפת לו)|אני לבד בעולם'), maths: true },
-  // "כולם שונאים אותי", "כולם מתעלמים ממני", "נמאס לי מהכל"
-  { cat: 'distress', re: he('כולם\\s+(?:שונאים|מתעלמים|מתעלמות)\\s+(?:אותי|ממני)|נמאס לי\\s+(?:מהכל|מהכול|מכל|מכולם)'), maths: true },
-  { cat: 'distress', re: he('אני\\s+לא\\s+(?:יכול|יכולה)\\s+יותר'), maths: true },
-  // (s) "killing me" counts only about home: "הורג אותי בבית", never "התרגיל הזה הורג אותי"
-  { cat: 'distress', re: `${he('(?:הורג|הורגת)\\s+אותי')}.{0,${MATHS_WINDOW}}?${he('הבית|בבית|אבא|אמא')}`, maths: true },
-].map((r) => ({ ...r, re: new RegExp(r.re, 'gu') }));
-
-/** The categories, most serious first: a message that matches several gets the first. */
-export const DISTRESS_CATEGORIES = Object.freeze(['self_harm', 'abuse', 'danger', 'bullying', 'distress']);
-
-function firstMatch(rule, text) {
-  rule.re.lastIndex = 0;
-  for (let m = rule.re.exec(text); m; m = rule.re.exec(text)) {
-    const end = m.index + m[0].length;
-    const after = text.slice(end, end + AFTER_WINDOW);
-    const dropped = (rule.maths && MATHS.test(after)) || (rule.school && SCHOOL.test(after)) || (rule.laugh && LAUGHING.test(text.slice(end)));
-    if (!dropped) return true;
-    if (m[0].length === 0) rule.re.lastIndex += 1;
-  }
-  return false;
-}
-
-/**
- * Does this text read as a child in distress or danger? → { flag, category } with category one of
- * DISTRESS_CATEGORIES (the most serious one that matched) or null. Runs on the device and on the server, with no
- * network. A maths sentence ("הישר חותך את ציר ה-x", "התרגיל הזה הורג אותי") does not flag.
- */
-export function detectDistress(text) {
-  const t = normalize(text);
-  if (!t) return { flag: false, category: null };
-  for (const cat of DISTRESS_CATEGORIES) {
-    if (RULES.some((r) => r.cat === cat && firstMatch(r, t))) return { flag: true, category: cat };
-  }
-  return { flag: false, category: null };
-}
-
 // ---------------------------------------------------------------- personal details never reach the AI (TRUST-4 §4.1)
 // the address itself, not a Hebrew word written right before it ("ל-noa@…" keeps its "ל-")
 const EMAIL = /[a-z0-9._%+]+(?:-[a-z0-9._%+]+)*@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi;
@@ -208,6 +74,50 @@ const EMAIL = /[a-z0-9._%+]+(?:-[a-z0-9._%+]+)*@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-
 // digit (and no opening bracket, which the number takes) right before the number, none right after.
 const PHONE = /(^|[^\d(])(\(?(?:\+?972[-\s.]?\(?|0)(?:5\d|[2-4]|[89]|7\d)\)?[-\s.]?\d{3}[-\s.]?\d{4})(?!\d)/g;
 const NINE = /(^|\D)(\d{9})(?!\d)/g;
+// A phone with its digits spread out or cut in odd places (COUNCIL2-9): "0 5 4 1 2 3 4 5 6 7", "05412345 67". Spaces or
+// dashes between any digits; the digits alone must then be an Israeli number (LOOSE_DIGITS). Never a dot (0.521234567 is
+// a decimal), never right after another digit ("3 0 5 4 …" is a list), and never a chain of single digits joined by
+// minus signs (a signed-numbers exercise).
+const LOOSE_PHONE = /(^|[^\d])((?:\+\s?9\s?7\s?2|0)(?:[\s-]{0,2}\d){8,9})(?![\s-]{0,2}\d)/g;
+const LOOSE_DIGITS = /^0(?:5\d{8}|7\d{8}|[2-489]\d{7})$/;
+// A street address (COUNCIL2-9): a street word, one to three words of its name and the house number (with a letter, 5א),
+// and the city after it when it is marked off: ", תל אביב" (one or two words, then the sentence ends or another comma
+// follows, and never a question: ", מה ההפרש?" is the exercise) or "בחיפה". The name's first word is not one of the
+// words a maths story puts after "רחוב" ("ברחוב יש 12 בתים"). Before the street word only a prefix letter (ב, ו, ל, מ,
+// ש): "הרחוב" (the street) is no address.
+const HE = String.raw`[א-ת"'׳״-]`;
+const NOT_A_CITY = String.raw`(?!(?:מה|כמה|איזה|איזו|האם|מי|איך|למה|מתי|איפה|אז|ואז|אבל|כי|ו?אני|ו?הוא|ו?היא)(?![א-ת]))`;
+const SENTENCE_END = String.raw`(?=\s*(?:[.!?,;:]|$))`;
+const STREET_WORD = String.raw`(?:רחוב|רח['׳"]|שדרות|שד['׳"])`;
+const NUMBER = String.raw`\d{1,4}[א-ת]?(?![\dא-ת])`;
+const STREET = new RegExp(
+  String.raw`((?:^|[^א-ת])[בולמש]{0,2})(${STREET_WORD}\s+(${HE}+)(?:\s+${HE}+){0,2}\s+${NUMBER}`
+  + String.raw`(?:\s*,\s*${NOT_A_CITY}${HE}+(?:[\s-]${HE}+)?${SENTENCE_END}|\s+ב(?!${STREET_WORD})${HE}+(?:-${HE}+)?)?)`, 'g');
+const NOT_A_STREET_NAME = new Set(['יש', 'אין', 'שלנו', 'שלי', 'שלו', 'שלה', 'שלהם', 'שלכם', 'הזה', 'הזאת', 'זה', 'זאת', 'אחד', 'אחת', 'ארוך', 'ארוכה', 'קצר', 'קצרה',
+  'היו', 'היה', 'הייתה', 'גרים', 'גר', 'גרה', 'עם', 'של', 'עד', 'כל', 'בו', 'בה', 'רק', 'עוד', 'כמה', 'יותר', 'פחות', 'ישר', 'ראשי', 'צדדי', 'שני', 'הבא', 'אורך', 'באורך']);
+// The same address said without a street word: "אני גרה בהרצל 15 דירה 4 רמת גן", "הכתובת שלי: ויצמן 12 כפר סבא". After
+// "גר/גרה ב" or "הכתובת שלי:", a name of one to three words, the number, a flat when there is one, and what follows to
+// the end of the sentence (one or two words: the city). Never a floor, a building or a distance ("גר בקומה 3", "גרה
+// במרחק 2 ק״מ"), and never a number of years ("גרה בחיפה 5 שנים").
+const NOT_A_UNIT = String.raw`(?!\s*(?:שנים|שנה|חודשים|ימים|שעות|דקות|ק"מ|ק״מ|קילומטר|קילומטרים|מטר|מטרים)(?![א-ת]))`;
+const ADDRESS_REST = String.raw`(${HE}+)(?:\s+${HE}+){0,2}\s+${NUMBER}${NOT_A_UNIT}(?:\s+דירה\s+\d{1,3})?(?:\s*,?\s*${NOT_A_CITY}${HE}+(?:[\s-]${HE}+)?${SENTENCE_END})?`;
+const LIVES_AT = new RegExp(String.raw`((?:^|[^א-ת])(?:גר|גרה|גרים|גרות|מתגורר|מתגוררת)\s+ב)(${ADDRESS_REST})`, 'g');
+const MY_ADDRESS = new RegExp(String.raw`((?:^|[^א-ת])ה?כתובת(?:\s+(?:שלי|שלנו|שלו|שלה))?(?:\s+(?:היא|זה|זו))?\s*:?\s*)(${ADDRESS_REST})`, 'g');
+const NOT_A_PLACE_NAME = new Set([...NOT_A_STREET_NAME, 'קומה', 'בניין', 'בנין', 'בית', 'דירה', 'מרחק', 'עיר', 'שכונה', 'כיתה', 'גיל', 'רחוב', 'שדרות', 'מספר']);
+/**
+ * A sentence that is an exercise about streets, not an address: it asks how much or what the difference is, or it
+ * names two streets with their numbers ("דני גר ברחוב הרצל 15 ויוסי ברחוב הרצל 27, מה ההפרש?"). Its numbers stay.
+ */
+const STREET_MATHS = /(?:^|[^א-ת])(?:כמה|ה?הפרש|ה?סכום|ה?ממוצע|ה?מרחק|רחוק|רחוקה)(?![א-ת])/;
+/** Beside a run of single digits: it is a list of numbers for statistics, not a phone. */
+const STATS_WORD = /(?:^|[^א-ת])ה?(?:חציון|ממוצע|שכיח|טווח|סדרו|סדר|נתונים|ספרות|מספרים|רשימה|סדרה)(?![א-ת])/;
+/** The sentence around a match (from the mark before it to the one after it). */
+function sentenceOf(text, from, to) {
+  let a = from; let b = to;
+  while (a > 0 && !'.!?\n'.includes(text[a - 1])) a -= 1;
+  while (b < text.length && !'.!?\n'.includes(text[b])) b += 1;
+  return { text: text.slice(a, b), start: a, end: b };
+}
 // "ID number" up to 20 characters before nine digits: only then are they an ID (a maths answer of 9 digits is not).
 const ID_WORD = /(?:ת["״']?\.?ז|תעודת (?:ה)?זהות|מספר (?:ה)?זהות|ת\.ז\.?|\bid\b|\bid number\b)/i;
 const ID_GAP = 20;
@@ -224,7 +134,7 @@ export function validIsraeliId(digits) {
   return sum % 10 === 0;
 }
 
-export const PERSONAL_KINDS = Object.freeze(['email', 'phone', 'id']);
+export const PERSONAL_KINDS = Object.freeze(['email', 'phone', 'id', 'address']);
 
 /**
  * Personal details in a text written by a child, masked before it goes to the AI: an email → [מייל], an Israeli phone
@@ -237,6 +147,19 @@ export function maskPersonal(text) {
   let t = String(text ?? '');
   t = t.replace(EMAIL, () => { found.add('email'); return '[מייל]'; });
   t = t.replace(PHONE, (_, pre) => { found.add('phone'); return `${pre}[טלפון]`; });
+  t = t.replace(LOOSE_PHONE, (all, pre, run, offset, whole) => {
+    const digits = run.replace(/^\+\s?9\s?7\s?2/, '0').replace(/[\s-]/g, '');
+    const before = whole.slice(0, offset + pre.length);
+    if (!LOOSE_DIGITS.test(digits) || /\d[\s-]{0,2}$/.test(before)) return all;
+    if (/^\d(?:-\d)+$/.test(run.replace(/^\+972/, ''))) return all;
+    // single digits one by one, with a statistics word beside them ("0 5 4 1 2 3 4 5 6 7 מה החציון?"): a list of numbers
+    if (/^\d(?:\s\d)+$/.test(run)) {
+      const s = sentenceOf(whole, offset, offset + all.length);
+      if (STATS_WORD.test(s.text)) return all;
+    }
+    found.add('phone');
+    return `${pre}[טלפון]`;
+  });
   t = t.replace(NINE, (all, pre, digits, offset, whole) => {
     const start = offset + pre.length;
     const before = whole.slice(Math.max(0, start - ID_GAP), start);
@@ -244,6 +167,27 @@ export function maskPersonal(text) {
     found.add('id');
     return `${pre}[ת״ז]`;
   });
+  // a sentence about streets that is an exercise keeps its numbers (STREET_MATHS, or two streets in one sentence)
+  const bare = (name) => name.replace(/["'׳״-]/g, '');
+  const streets = [...t.matchAll(STREET)].filter((m) => !NOT_A_STREET_NAME.has(bare(m[3])));
+  const exercise = (offset, len) => {
+    const s = sentenceOf(t, offset, offset + len);
+    return STREET_MATHS.test(s.text) || streets.filter((m) => m.index >= s.start && m.index < s.end).length >= 2;
+  };
+  const before = t;
+  const keep = new Set(streets.filter((m) => exercise(m.index, m[0].length)).map((m) => m.index));
+  t = before.replace(STREET, (all, pre, addr, name, offset) => {
+    if (NOT_A_STREET_NAME.has(bare(name)) || keep.has(offset)) return all;
+    found.add('address');
+    return `${pre}[כתובת]`;
+  });
+  for (const re of [LIVES_AT, MY_ADDRESS]) {
+    t = t.replace(re, (all, pre, addr, name, offset, whole) => {
+      if (NOT_A_PLACE_NAME.has(bare(name)) || STREET_MATHS.test(sentenceOf(whole, offset, offset + all.length).text)) return all;
+      found.add('address');
+      return `${pre}[כתובת]`;
+    });
+  }
   return { text: t, found: PERSONAL_KINDS.filter((k) => found.has(k)) };
 }
 
@@ -292,6 +236,8 @@ export function linkAllowed(href, hosts = []) {
 export const BLOCKED_TEXT = 'לא הצלחתי לענות על זה כמו שצריך. אפשר לנסח את השאלה אחרת?';
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const B = '(?:^|[^א-ת])'; // a Hebrew word starts here (no lookbehind: the group takes the character before it)
+const E = '(?![א-ת])'; // a Hebrew word ends here
 // English words that start with the stem of the list's first English word are caught whatever follows (written with a
 // class, so this line does not hold the word itself: the app's own text is checked against the list)
 const BLOCK_RE = new RegExp(

@@ -14,40 +14,42 @@ import { daySummary } from '@/learn/report.ts';
 import { Button, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import { RETENTION } from '@shared/retention.js';
+import { localized, t } from '@/lib/i18n.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 
-export const SHARING = {
-  title: 'שיתוף עם ההורים',
-  today: 'מה נשלח היום',
-  last: 'נשלח לאחרונה',
-  see: 'לראות',
-  hide: 'להסתיר',
-  never: 'מה לא נשלח אף פעם: התשובות עצמן, השיחות עם העוזר החכם, תמונות והשם שלכם.',
-  kept: `הסיכומים נשמרים ${RETENTION.familyDailyDays} יום ואז נמחקים.`,
-  stop: 'להפסיק לשתף',
-  start: 'להפעיל שוב את השיתוף',
-  bothHint: 'הסיכום יחזור להישלח רק אם גם ההורים יפעילו אותו.',
-  confirmTitle: 'להפסיק לשלוח סיכום להורים?',
-  confirmBody: 'ההורים יראו שהשיתוף כבוי במכשיר הזה, בלי סיבה ובלי פרטים. אפשר להפעיל שוב מתי שתרצו.',
-  forget: 'למחוק גם את מה שכבר נשלח',
-  confirm: 'כן, להפסיק',
-  keep: 'להמשיך לשתף',
-};
+export let SHARING = localized(() => ({
+  title: t('shell.sharingsheet.1'),
+  today: t('shell.sharingsheet.2'),
+  last: t('shell.sharingsheet.3'),
+  see: t('shell.sharingsheet.4'),
+  hide: t('shell.sharingsheet.5'),
+  never: t('shell.sharingsheet.6'),
+  kept: t('shell.sharingsheet.7', { days: RETENTION.familyDailyDays }),
+  stop: t('shell.sharingsheet.8'),
+  start: t('shell.sharingsheet.9'),
+  bothHint: t('shell.sharingsheet.10'),
+  confirmTitle: t('shell.sharingsheet.11'),
+  confirmBody: t('shell.sharingsheet.12'),
+  forget: t('shell.sharingsheet.13'),
+  confirm: t('shell.sharingsheet.14'),
+  keep: t('shell.sharingsheet.15'),
+}), (v) => { SHARING = v; });
 
 /** The status line for each state (`at`: when the summary last went, an ISO time, or null). */
 export function statusLine(summary, at, { now = new Date() } = {}) {
   switch (summary) {
-    case 'on': return at ? `פועל. הסיכום התעדכן לאחרונה ${whenText(at, { now })}.` : 'פועל. עוד לא נשלח סיכום.';
-    case 'child_off': return 'כבוי. ההורים רואים שהשיתוף כבוי, בלי סיבה ובלי פרטים.';
-    case 'parent_off': return 'ההורים כיבו את הסיכום מהמכשיר הזה. כרגע לא נשלח כלום.';
-    case 'both_off': return 'כבוי. גם ההורים כיבו את הסיכום, אז לא נשלח כלום.';
-    default: return 'הסיכום להורים לא פעיל כרגע, אז לא נשלח כלום.';
+    case 'on': return at ? t('shell.sharingsheet.16', { p0: whenText(at, { now }) }) : t('shell.sharingsheet.17');
+    case 'child_off': return t('shell.sharingsheet.18');
+    case 'parent_off': return t('shell.sharingsheet.19');
+    case 'both_off': return t('shell.sharingsheet.20');
+    default: return t('shell.sharingsheet.21');
   }
 }
 /** The child's own switch is on in these states (only theirs counts for the button). */
 const CHILD_ON = ['on', 'parent_off'];
 const CHILD_OFF = ['child_off', 'both_off'];
 /** The trailing word of the Settings row. */
-export const stateWord = (summary) => (summary === 'on' ? 'פועל' : 'כבוי');
+export const stateWord = (summary) => (summary === 'on' ? t('shell.sharingsheet.22') : t('shell.sharingsheet.23'));
 
 export default function SharingSheet({ open, onOpenChange }) {
   const fd = useApp((s) => s.ai.familyDevice);
@@ -96,14 +98,14 @@ export default function SharingSheet({ open, onOpenChange }) {
           {CHILD_ON.includes(summary) && <Button variant="secondary" className="btn-block" onClick={() => { setError(''); setConfirm(true); }}>{SHARING.stop}</Button>}
           {CHILD_OFF.includes(summary) && (
             <>
-              <Button className="btn-block" onClick={() => change(true)} disabled={busy}>{busy ? 'רגע…' : SHARING.start}</Button>
+              <Button className="btn-block" onClick={() => change(true)} disabled={busy}>{busy ? t('shell.sharingsheet.24') : SHARING.start}</Button>
               {summary === 'both_off' && <p className="field-hint sharing-hint">{SHARING.bothHint}</p>}
             </>
           )}
         </div>
       </Sheet>
       <ConfirmSheet open={open && confirm} onOpenChange={(o) => { if (!o && !busy) { setConfirm(false); setForget(false); } }} title={SHARING.confirmTitle}
-        keep={SHARING.keep} confirm={busy ? 'רגע…' : SHARING.confirm} onConfirm={() => change(false)} mood="idle">
+        keep={SHARING.keep} confirm={busy ? t('shell.sharingsheet.24') : SHARING.confirm} onConfirm={() => change(false)} mood="idle">
         <p>{SHARING.confirmBody}</p>
         <label className="share-check sharing-forget"><input type="checkbox" checked={forget} onChange={(e) => setForget(e.target.checked)} /><span>{SHARING.forget}</span></label>
         {error && <p className="form-error" role="alert">{error}</p>}

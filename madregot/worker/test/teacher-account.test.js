@@ -70,11 +70,11 @@ test('3. binding a class: key and session bind it; again for the same account is
   assert.equal(await errorOf(await bind({ 'X-Class-Code': c.code, 'X-Teacher-Key': 'b'.repeat(24), ...acct(t) })), 'not_teacher', 'and the key');
   const r = await bind({ ...c.teacher, ...acct(t) });
   assert.equal(r.status, 200);
-  assert.deepEqual(await r.json(), { owner: 'you', email: 'teacher@example.test' });
+  assert.deepEqual(await r.json(), { owner: 'you', email: 'teacher@example.test', adult: false });
   assert.equal(one(h.env, 'SELECT account_id FROM class_owners WHERE class_code = ?', c.code).account_id, accountId(h.env, 'teacher@example.test'));
   const again = await bind({ ...c.teacher, ...acct(t) });
   assert.equal(again.status, 200);
-  assert.deepEqual(await again.json(), { owner: 'you', email: 'teacher@example.test' });
+  assert.deepEqual(await again.json(), { owner: 'you', email: 'teacher@example.test', adult: false });
   const taken = await bind({ ...c.teacher, ...acct(other) });
   assert.equal(taken.status, 409); assert.equal(await errorOf(taken), 'owned_by_other');
   assert.equal(one(h.env, 'SELECT account_id FROM class_owners WHERE class_code = ?', c.code).account_id, accountId(h.env, 'teacher@example.test'));

@@ -1,8 +1,15 @@
 /* Wardrobe.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
    original order. Only Wardrobe.jsx uses these classes. */
+
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+.wardrobe-opt.is-locked { background: var(--ground); border-style: dashed; }
+.wardrobe-opt.is-locked .wardrobe-pic { filter: grayscale(1); opacity: 0.5; }
+.wardrobe-opt.is-locked .wardrobe-name { color: var(--ink-2); }
+.wardrobe-opt.is-locked .wardrobe-mark { color: var(--ink-3); }
+
 .wardrobe-stage { position: sticky; top: 0; z-index: 2; display: grid; place-items: center; padding: var(--s3) 0 var(--s2); background: var(--paper); border-bottom: 1px solid var(--rule); }
 .wardrobe-madi { display: block; }
-.wardrobe-sub-head { margin: var(--s4) 0 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-wrap: pretty; }
+.wardrobe-sub-head { margin: var(--s4) 0 0; color: var(--ink-2); font-size: 1rem; line-height: 1.5; text-wrap: pretty; }
 .wardrobe-group { margin-top: var(--s5); }
 .wardrobe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: var(--s2); }
 .wardrobe-opt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 112px; padding: var(--s3) var(--s2) 10px; border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -12,8 +19,8 @@
 .wardrobe-art { width: 48px; height: 48px; }
 .wardrobe-none { width: 32px; height: 32px; border: 2px dashed var(--rule-strong); border-radius: 50%; }
 .wardrobe-text { display: flex; flex-direction: column; min-width: 0; }
-.wardrobe-name { font-size: 16px; line-height: 22px; font-weight: 700; }
-.wardrobe-sub { color: var(--ink-2); font-size: 14px; line-height: 20px; text-wrap: balance; }
+.wardrobe-name { font-size: 1rem; line-height: 1.375; font-weight: 700; }
+.wardrobe-sub { color: var(--ink-2); font-size: 0.875rem; line-height: 1.4286; text-wrap: balance; }
 .wardrobe-mark { position: absolute; top: 8px; inset-inline-start: 8px; display: grid; place-items: center; color: var(--brand-ink); }
 .wardrobe-lock { display: flex; flex-direction: column; gap: var(--s4); }
 @media (max-height: 640px) {
@@ -26,8 +33,8 @@
 .wardrobe-meter-pic { flex: none; display: grid; place-items: center; width: 72px; height: 72px; padding-top: 6px; }
 .wardrobe-preview { display: block; }
 .wardrobe-meter-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.wardrobe-meter-head { margin: 0; font-size: 18px; line-height: 26px; font-weight: 800; color: var(--ink); }
-.wardrobe-meter-name { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; text-wrap: pretty; }
+.wardrobe-meter-head { margin: 0; font-size: 1.125rem; line-height: 1.4445; font-weight: 800; color: var(--ink); }
+.wardrobe-meter-name { margin: 0; color: var(--ink-2); font-size: 0.9375rem; line-height: 1.4667; text-wrap: pretty; }
 .wardrobe-meter-bar { margin-top: 6px; }
 .wardrobe-meter-bar .bar { height: 10px; border-radius: 999px; background: var(--track); overflow: hidden; }
 .wardrobe-meter-fill { height: 100%; border-radius: 999px; background: var(--gold); transition: width var(--duration-slow, 0.4s) ease-out; }
@@ -39,5 +46,5 @@
 .wardrobe-soon-pic { flex: none; display: grid; place-items: center; width: 52px; height: 52px; padding-top: 4px; }
 .wardrobe-soon-row .wardrobe-text { flex: 1; }
 .wardrobe-soon-go { flex: none; color: var(--ink-2); }
-.wardrobe-rest { margin: var(--s3) 0 var(--s6); color: var(--ink-2); font-size: 15px; line-height: 22px; text-align: center; text-wrap: pretty; }
+.wardrobe-rest { margin: var(--s3) 0 var(--s6); color: var(--ink-2); font-size: 0.9375rem; line-height: 1.4667; text-align: center; text-wrap: pretty; }
 @media (prefers-reduced-motion: reduce) { .wardrobe-meter-fill { transition: none; } }

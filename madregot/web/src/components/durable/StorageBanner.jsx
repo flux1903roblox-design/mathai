@@ -4,10 +4,11 @@
 import { Link } from 'react-router-dom';
 import { useDurable } from '@/lib/durable/useDurable.js';
 
-const TEXT = {
-  full: 'הדפדפן מלא, ולכן ההתקדמות החדשה לא נשמרת כרגע.',
-  memory: 'הדפדפן לא מאפשר לשמור כאן, ולכן ההתקדמות תישמר רק עד שהמסך ייסגר.',
-};
+import { localized, t } from '@/lib/i18n.js';
+let TEXT = localized(() => ({
+  full: t('shell.storagebanner.1'),
+  memory: t('shell.storagebanner.2'),
+}), (v) => { TEXT = v; });
 
 export default function StorageBanner() {
   const health = useDurable((s) => s.health);
@@ -15,7 +16,7 @@ export default function StorageBanner() {
   return (
     <div className="storage-banner" role="status">
       <p>{TEXT[health]}</p>
-      <Link to="/settings#save" className="storage-banner-link">מה עושים</Link>
+      <Link to="/settings#save" className="storage-banner-link">{t('shell.storagebanner.3')}</Link>
     </div>
   );
 }

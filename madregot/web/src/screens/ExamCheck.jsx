@@ -19,6 +19,7 @@ import { scrubTitle } from '@shared/safety.js';
 import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
 import PhotoPrep, { EXAM_HEADER } from '@/components/PhotoPrep.jsx';
 import { pdfPages, isPdf, pdfMessage, PDF_COPY } from '@/lib/pdfPages.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/examCheck.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /**
@@ -151,7 +152,7 @@ export default function ExamCheck() {
   // the exam check is the full tutor's: where this device does not have it, say so before any page is photographed
   const status = useAIStatus((x) => x.status);
   const access = aiAccess('exam', status).state;
-  const locked = !offline && ['locked', 'economy', 'class_off'].includes(access) ? access : null;
+  const locked = !offline && ['locked', 'economy', 'class_off', 'prep_only'].includes(access) ? access : null;
   // A pushed screen (LAYOUT_SPEC E2): the bar with the way back, the pages, and ONE primary pinned at the bottom.
   return (
     <div className="page pushed exam-check">

@@ -13,7 +13,8 @@ import { dm } from '@/lib/workDates.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
-import { detectDistress } from '@shared/safety.js';
+import { detectDistress } from '@shared/distress.js';
+import '@/styles/lazy/lesson.css'; // the sent help line (.help-sent) is the lesson's own rule (round-3 merge)
 
 const localDay = (iso) => new Date(iso).toLocaleDateString('en-CA');
 

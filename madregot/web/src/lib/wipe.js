@@ -10,6 +10,7 @@ import { api, hasServer } from './api.js';
 import { emptyLearn } from '@/learn/storeGlue.ts';
 import { RETENTION } from '@shared/retention.js';
 
+import { localized, t, locale, DEFAULT_LOCALE } from '@/lib/i18n.js';
 const steps = new Map();
 /**
  * A step of "delete all" that another part of the app owns, e.g. onWipe('vault', deleteVault). It runs after the
@@ -78,7 +79,9 @@ export async function clearDevice() {
 
 /** The start page after a wipe; Welcome reads ?wiped (1: the device and the server, device: this device only). */
 function reload(what) {
-  window.location.replace(`${import.meta.env.BASE_URL || '/'}?wiped=${what}`);
+  // the language's key goes with every other key, so the start page is asked for in the same language (lib/i18n.js)
+  const lang = locale() === DEFAULT_LOCALE ? '' : `&lang=${locale()}`;
+  window.location.replace(`${import.meta.env.BASE_URL || '/'}?wiped=${what}${lang}`);
 }
 
 async function forgetParent() {
@@ -121,20 +124,20 @@ export async function wipeDeviceOnly() {
  */
 export function wipeText({ profile, ai, server, tier }) {
   if (profile?.role === 'teacher') {
-    return 'נמחק מהמכשיר הזה את הכיתות ואת מפתחות המורה. המידע של הכיתות בשרת נשאר: כדי למחוק אותו, מוחקים כל כיתה בלוח המורה לפני כן. אי אפשר לבטל.';
+    return t('shell.wipe.1');
   }
-  if (!server) return 'נמחק את כל מה שנשמר במכשיר הזה: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן, המבחנים והמספרים. אי אפשר לבטל.';
+  if (!server) return t('shell.wipe.2');
   const linked = !ai?.familyDevice?.token ? ''
-    : tier === 'family' ? ' המכשיר גם ינותק מהמנוי המשפחתי, וההורים יקבלו על זה מייל.'
-      : ' המכשיר גם ינותק מהחשבון של ההורים, וההורים יקבלו על זה מייל.';
+    : tier === 'family' ? t('shell.wipe.3')
+      : t('shell.wipe.4');
   if (profile?.token) {
-    return `נמחק את כל מה שנשמר במכשיר הזה, וגם את מה שנשמר עליכם בשרת של הכיתה: השם, ההתקדמות, הבקשות למורה והמבחנים. המורה כבר לא יראה אתכם ברשימה.${linked} אי אפשר לבטל.`;
+    return t('shell.wipe.5', { linked });
   }
-  return `נמחק את כל מה שנשמר במכשיר הזה: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן, המבחנים והמספרים, וגם את מספר המכשיר שהשרת מכיר.${linked} אי אפשר לבטל.`;
+  return t('shell.wipe.6', { linked });
 }
-export const WIPE_FAILED = 'לא הצלחנו למחוק מהשרת, ולכן עוד לא מחקנו כלום. בדקו את החיבור לאינטרנט ונסו שוב.';
+export let WIPE_FAILED = localized(() => t('shell.wipe.7'), (v) => { WIPE_FAILED = v; });
 /** The second question before deleting from the device only: what stays on the server, and until when. */
 export function deviceOnlyText({ profile, ai }) {
-  if (profile?.token) return `המידע בשרת של הכיתה יישאר עד שהמורה ימחק אותו, או עד שיימחק מעצמו אחרי ${RETENTION.studentIdleDays} יום.`;
-  return `מה שהשרת יודע על המכשיר הזה יימחק מעצמו בתוך כמה שבועות.${ai?.familyDevice?.token ? ' ההורים יכולים לנתק את המכשיר בעמוד ההורים.' : ''}`;
+  if (profile?.token) return t('shell.wipe.8', { studentIdleDays: RETENTION.studentIdleDays });
+  return t('shell.wipe.10', { p0: ai?.familyDevice?.token ? t('shell.wipe.9') : '' });
 }

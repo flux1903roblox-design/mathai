@@ -37,7 +37,7 @@ import ReportAnswer, { checkText } from '@/components/ReportAnswer.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import { Box, Button, Keypad, Sheet, Steps, StairStep, Thinking, useShake, typeInto } from '@/components/ui.jsx';
-import { detectDistress } from '@shared/safety.js';
+import { detectDistress } from '@shared/distress.js';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
@@ -49,6 +49,9 @@ import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.j
 import MissNote, { missNote } from '@/components/lesson/MissNote.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
+import { CHECK_IMAGE_MAX } from '@shared/ai.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/lesson.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 /** True while a media query matches (and follows it as the window changes). */
 function useMedia(query) {
@@ -602,7 +605,8 @@ export default function Lesson() {
     const g = gate('check', { onMadi: askMadi, then: checkWork });
     if (g === 'locked' || g === 'economy') { setNbCheck({ state: 'locked', kind: g }); return; }
     if (g) return;
-    const image = nbRef.current?.toImage();
+    // at most the server's limit for a check's photo (shared/ai.js CHECK_IMAGE_MAX): a tall page is encoded smaller
+    const image = nbRef.current?.toImage({ max: CHECK_IMAGE_MAX });
     if (!image) { setNbCheck({ state: 'error', message: 'כתבו קודם את הדרך במחברת.' }); return; }
     setNbCheck({ state: 'loading' });
     const ctx = tutorCtx(s, last, 'notebook');
@@ -773,7 +777,7 @@ export default function Lesson() {
                   {feedback === 'retry' && last?.readout && <p className="readout-line">{readoutLine(item)}</p>}
                   {/* an object's miss, folded on a short phone, still names what probably happened (PRODUCT2-18) */}
                   {feedback === 'retry' && <MissNote note={missNote(item.topic || spec.topic, item.level, last, { test: isTest(s.kind) })} onRepair={setRemedy} />}
-                  {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={primeTex(answerText(item))} />}</p>}
+                  {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF\u0600-\u06FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={primeTex(answerText(item))} />}</p>}
                   <button type="button" className="link-btn" onClick={() => setFbOpen(fbToken)} aria-expanded="false">{feedback === 'retry' ? 'רמז' : 'הפתרון'}</button>
                 </div>
               )}
@@ -792,7 +796,7 @@ export default function Lesson() {
               )}
               {feedback === 'reveal' && !folded && (
                 <div className="fb-body">
-                  <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={primeTex(answerText(item))} />}</p>
+                  <p className="fb-answer">{/[\u0590-\u05FF\u0600-\u06FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={primeTex(answerText(item))} />}</p>
                   {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}
                   {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
                   {explain.state === 'done' && <Box tone="ai" title="העוזר"><RichText>{explain.text}</RichText></Box>}
@@ -896,11 +900,14 @@ function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
     try {
       // the page goes only as large as the server keeps it (shrunk if needed); a page that cannot fit stays behind
       const image = getImage();
-      await api('/api/help', { method: 'POST', body: { ...payload, note, image } });
+      const sent = await api('/api/help', { method: 'POST', body: { ...payload, note, image } });
       setNote('');
       if (flagged) { setCare('sent'); return; }
-      // the reply comes back on the missions screen (TEACHER-6 §4)
-      toast.success(hasPage && !image ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: הוא גדול מדי לשליחה. התשובה תופיע במסך המשימות.' : 'הבקשה נשלחה למורה. התשובה תופיע במסך המשימות.');
+      // the reply comes back on the missions screen (TEACHER-6 §4). The page may stay behind: too big to send, or the
+      // day's pictures are used up on the server (noImage: the request itself arrived)
+      toast.success(hasPage && !image ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: הוא גדול מדי לשליחה. התשובה תופיע במסך המשימות.'
+        : image && sent?.noImage ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: היום כבר נשלחו הרבה דפים. התשובה תופיע במסך המשימות.'
+          : 'הבקשה נשלחה למורה. התשובה תופיע במסך המשימות.');
       onOpenChange(false);
     } catch (e) {
       if (flagged) setCare('failed'); else toast.error(e.message);

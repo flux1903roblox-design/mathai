@@ -1,5 +1,5 @@
 # Madregot's merge gate (madregot/README.md, "CI"). Three checks: web, worker and e2e.
-# Protect main with all three, so a type error, a failing unit or Worker test (the parallel PIN, sync and billing
+# Protect main with all three, so a type error (web, and the Worker's money and vault code), a failing unit or Worker test (the parallel PIN, sync and billing
 # races included), a build that fails its checks, or a broken phone flow blocks the merge.
 name: ci
 
@@ -23,7 +23,11 @@ jobs:
       run:
         working-directory: madregot/web
     steps:
+      # two commits, so HEAD~1 is there: check-budget.mjs compares web/budget.json with HEAD~1 (the ratchet), and with
+      # CI set it fails when it cannot
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -38,7 +42,8 @@ jobs:
         env:
           LABELS_DISTINCT: '2000'
       # the content meta, vite build, scripts/check-dist.mjs (no personal-key code and no secrets in the bundle), then
-      # scripts/check-budget.mjs (the load-time budget in web/budget.json: over a gate, the build fails)
+      # scripts/check-budget.mjs (the load-time budget in web/budget.json: over a gate, the build fails; and a gate
+      # higher than at HEAD~1 fails it too, since a gate only goes down)
       - run: npm run build
 
   worker:
@@ -54,8 +59,17 @@ jobs:
           # node:sqlite (test/helpers.js) needs no flag from Node 22.13
           node-version: '22'
           cache: npm
-          cache-dependency-path: madregot/worker/package-lock.json
+          cache-dependency-path: |
+            madregot/worker/package-lock.json
+            madregot/web/package-lock.json
       - run: npm ci
+      # the static check of the money, vault and storage code (COUNCIL2-21: util, entitle, billing and vault, typedefs in
+      # src/types.js) uses the web app's TypeScript, so the web packages are installed here too
+      - run: npm ci
+        working-directory: madregot/web
+      - run: npm run typecheck
+      # every Worker test, including test/config.test.js: wrangler's own reader parses wrangler.toml (top level and
+      # env.staging), so a file wrangler would refuse at deploy fails here first
       - run: npm test
 
   e2e:
@@ -71,11 +85,20 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: madregot/web/package-lock.json
+          cache-dependency-path: |
+            madregot/web/package-lock.json
+            madregot/worker/package-lock.json
       - run: npm ci
+      # the contract project runs the Worker itself (worker/scripts/serve-local.mjs): its packages too
+      - run: npm ci
+        working-directory: madregot/worker
       - run: npx playwright install --with-deps chromium
-      # The phone project runs every spec file; tests tagged @perf stay out of the merge gate.
-      - run: npx playwright test -c e2e/playwright.config.js --project=phone --grep-invert @perf
+      # The phone project runs every spec file against the fake server; the contract project (COUNCIL2-22) runs the tests
+      # tagged @contract against the real Worker on node:sqlite, with Claude, email and payment stubbed (no secret).
+      # Tests tagged @perf stay out of the merge gate. The arabic projects run arabic.spec.js against a build made with
+      # VITE_ARABIC=on (Arabic is off in the build that ships, docs/ARABIC.md), so the Arabic app stays tested until
+      # it is turned on.
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone --project=contract --project=arabic --project=arabic-small --grep-invert @perf
         env:
           CI: '1'
       # The axe scan of every screen again in dark mode (PKG-1, e2e/a11y.spec.js): the phone run above scans in light.

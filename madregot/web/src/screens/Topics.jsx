@@ -26,6 +26,8 @@ import { Emblem } from '@/components/map/emblems.jsx';
 import '@/styles/lazy/topics.css'; // the units' light pills, loaded with this screen (moved out of the first load at the product2 merge)
 import Board from '@/components/Board.jsx';
 import ChallengeLine from '@/components/learn/ChallengeLine.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/topics.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 function SectionCard({ t, n, current, colour }) {
   const navigate = useNavigate();

@@ -10,6 +10,7 @@ import { Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import { ScreenBar, ScreenFoot, EmptyState, Flow } from '@/components/Screen.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/practiceExam.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /** Pick topics and a length; the exam is drawn from the generators with an exact answer key. */
@@ -88,7 +89,7 @@ export function KeyAnswer({ it }) {
   }
   const text = String(it.answerText ?? it.answer);
   // Hebrew words stay in the line's own direction; numbers and expressions are set left to right
-  if (/[\u0590-\u05FF]/.test(text)) return <span>{text}</span>;
+  if (/[\u0590-\u05FF\u0600-\u06FF]/.test(text)) return <span>{text}</span>;
   return <><bdi dir="ltr" className="mathline">{text.replace(/-/g, '\u2212')}</bdi>{it.answerText != null && it.unit ? ` ${it.unit}` : ''}</>;
 }
 

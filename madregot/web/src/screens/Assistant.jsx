@@ -11,7 +11,7 @@ import { limitVariant } from '@/components/limitCopy.js';
 import ReportAnswer, { checkText, generateText } from '@/components/ReportAnswer.jsx';
 import CheckResult, { FINAL } from '@/components/CheckResult.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
-import { SupportLink } from '@/components/SupportSheet.jsx';
+import { HelpLine } from '@/components/SupportSheet.jsx';
 import { TOPIC, topicsFor, readAnswer, isCorrect, partialOf, diagnosisLine, answerText, displayTex, itemPlain } from '@/content/index.js';
 import { piRow, afterPlain, PI_NOTE, formatLineOf } from '@/content/util.js';
 import { PARTIAL } from '@/content/partial.js';
@@ -28,6 +28,7 @@ import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
 import PhotoPrep from '@/components/PhotoPrep.jsx';
 import { pdfPages, isPdf, pdfMessage, PDF_COPY } from '@/lib/pdfPages.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/assistant.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */
@@ -88,7 +89,7 @@ function MadiExplains() {
       <div className="ai-offline-actions madi-explains-actions">
         <Link to="/" className="btn btn-primary btn-block">להמשיך ללמוד</Link>
         <Link to="/topics" className="btn btn-secondary btn-block">דפי התזכורת</Link>
-        <SupportLink className="ai-offline-support" />
+        <HelpLine className="ai-offline-support" />
       </div>
     </section>
   );
@@ -149,8 +150,8 @@ function AiOffline() {
         <input id="ai-off-input" className="input" disabled placeholder="העוזר עוד לא מחובר" />
         <div className="ai-offline-actions">
           {teacher ? <Link to="/teacher" className="btn btn-primary btn-block">חזרה ללוח</Link> : <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>}
-          {/* the quiet link is a student's (SupportLink shows nothing on a teacher's device); a teacher's assistant leads back to the board */}
-          <SupportLink className="ai-offline-support" />
+          {/* the support card is for a student (the link and ער״ן's number, COUNCIL2-4); a teacher's assistant leads back to the board */}
+          {!teacher && <HelpLine className="ai-offline-support" />}
         </div>
       </div>
     </section>
@@ -477,7 +478,7 @@ export default function Assistant({ head = null, lead = null, className }) {
   const profile = useApp((s) => s.profile);
   const ready = aiReady();
   const status = useAIStatus((x) => x.status); // the tools follow what the server says
-  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return ['locked', 'economy', 'class_off', 'parent_ok_needed'].includes(st) ? st : null; };
+  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return ['locked', 'economy', 'class_off', 'parent_ok_needed', 'prep_only'].includes(st) ? st : null; };
   // the class has the tutor off under the Ministry's rules (TRUST-11 §6), or no parent has approved the tutor on this
   // device yet (TRUST-9 §4): Madi's bubble says so calmly, with no tools, and the card under it leads on (for a parent's
   // OK, to the screen for the parents); the input stays usable, so a message that reads as distress still shows the
@@ -495,7 +496,7 @@ export default function Assistant({ head = null, lead = null, className }) {
   const open = (kind, name) => {
     // before the first AI action on this device the introduction opens, and the tool after it ('intro')
     const g = gate(kind, { then: () => open(kind, name) });
-    if (g === 'locked' || g === 'economy') { setLocked(g); setTool(name); return; }
+    if (g === 'locked' || g === 'economy' || g === 'prep_only') { setLocked(g); setTool(name); return; }
     if (!g) { setLocked(null); setTool(name); }
   };
   // A conversation (LAYOUT_SPEC B3): the bar with the title, מדי's messages, and the input docked at the bottom with

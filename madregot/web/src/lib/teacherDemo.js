@@ -26,6 +26,7 @@ import { TOPIC_IDS } from '@shared/ai.js';
 import { MOE_RULES, classAiPolicy, notSellable } from '@shared/schoolRules.js';
 // the Worker's own contact guard (worker/src/help.js uses the same function)
 import { hasContact } from '@shared/contact.js';
+import { CODE_ALPHABET } from '@shared/alphabet.js';
 import { makeClassExam, classExamTitle } from './exam.js';
 import { examWeak } from '@shared/examWeak.js';
 import { assignTitle } from './assign.js';
@@ -295,7 +296,7 @@ function dashboard(st) {
       const w = mine.filter((r) => r.day >= weekStart); const ws = sum(w);
       return {
         id: s.id, name: s.name, lastSeen: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null,
-        lastPractice: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null, pinReset: !!s.pinReset,
+        lastPractice: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null, pinReset: !!s.pinReset, manyWrongPins: false,
         joinedOn: dayOfIso(s.createdAt), late: late(s.id), aiOff: !!s.aiOff,
         today: { n: t.n, ok: t.ok, first: t.first, minutes: Math.round(t.secs / 60) },
         week: { n: ws.n, first: ws.first, days: new Set(w.map((r) => r.day)).size, minutes: Math.round(ws.secs / 60) },
@@ -396,7 +397,7 @@ function studentPage(st, id) {
     .map((a) => { const w = workOf(st, a, id); return { id: `a:${a.id}`, title: a.title, correct: num(w.right), total: num(w.asked), at: w.doneAt, questions: w.questions || [] }; })
     .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, 20);
   return ok({
-    student: { id: s.id, name: s.name, joinedOn: dayOfIso(s.createdAt), lastPractice: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null, pinReset: !!s.pinReset, aiOff: !!s.aiOff },
+    student: { id: s.id, name: s.name, joinedOn: dayOfIso(s.createdAt), lastPractice: mine.length ? mine.reduce((m, r) => (r.at > m ? r.at : m), '') : null, pinReset: !!s.pinReset, manyWrongPins: false, aiOff: !!s.aiOff },
     days14, levels: st.levels[id] || {}, mistakes, work, help, exams,
   });
 }
@@ -536,6 +537,13 @@ function classAi(st, b) {
 }
 
 /** One teacher route of the demo class: { status, body } in the Worker's shapes. */
+/** A demo student's one-time code after a PIN reset: 6 characters of the server's alphabet, the same for the same id. */
+export function demoClaimCode(id) {
+  const A = CODE_ALPHABET;
+  let h = 7;
+  return Array.from({ length: 6 }, (_, i) => { for (const ch of `${id}:${i}`) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return A[h % A.length]; }).join('');
+}
+
 export function demoApi(st, method = 'GET', fullPath = '', body = {}) {
   const M = String(method).toUpperCase();
   const [path, query = ''] = String(fullPath).split('?');
@@ -548,7 +556,12 @@ export function demoApi(st, method = 'GET', fullPath = '', body = {}) {
     if (M === 'GET' && !m[2]) return studentPage(st, m[1]);
     if (M !== 'POST' || !m[2]) return fail(404, 'not_found');
     if (!s) return fail(404, 'not_found');
-    if (m[3] === 'reset-pin') { s.pinReset = true; return ok({ ok: true }); }
+    if (m[3] === 'reset-pin') {
+      // as the server (COUNCIL2-25): a one-time code to give the student, made from the student's id (no randomness, so
+      // the demo looks the same every time)
+      s.pinReset = true;
+      return ok({ ok: true, claimCode: demoClaimCode(s.id), claimExpires: new Date(Date.now() + 7 * 864e5).toISOString() });
+    }
     if (m[3] === 'ai') { if (typeof b.off !== 'boolean') return fail(400, 'bad_request'); s.aiOff = b.off; return ok({ id: s.id, aiOff: b.off }); }
     // remove: the student and everything of theirs on the board
     st.students = st.students.filter((x) => x.id !== s.id);

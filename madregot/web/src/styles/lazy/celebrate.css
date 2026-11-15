@@ -47,7 +47,7 @@
   100% { opacity: 0; transform: rotate(var(--a)) translateY(-30px) scale(0.4); }
 }
 /* the stage's XP: the first pill, a little bigger, gold */
-.done-earned.xp-pill { padding: 8px 16px; background: var(--gold-tint); color: var(--gold-ink); font-size: 18px; line-height: 24px; font-weight: 800; }
+.done-earned.xp-pill { padding: 8px 16px; background: var(--gold-tint); color: var(--gold-ink); font-size: 1.125rem; line-height: 1.3334; font-weight: 800; }
 .done-earned.xp-pill svg { color: var(--gold-d); }
 .stat-value .xp-count { direction: ltr; }
 
@@ -56,14 +56,14 @@
 .milestone-medal { position: absolute; z-index: 3; inset-inline-start: calc(50% + 34px); bottom: 4px; display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%;
   background: var(--streak); color: var(--on-streak); box-shadow: 0 0 0 5px var(--paper), 0 0 0 9px var(--streak-tint); }
 .milestone-medal svg { position: absolute; top: 7px; opacity: 0.85; }
-.milestone-medal b { margin-top: 16px; font-size: 28px; line-height: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.milestone-line { margin: 0; max-width: 30ch; color: var(--ink-2); font-size: 17px; line-height: 26px; text-wrap: balance; }
+.milestone-medal b { margin-top: 16px; font-size: 1.75rem; line-height: 1.0715; font-weight: 800; font-variant-numeric: tabular-nums; }
+.milestone-line { margin: 0; max-width: 30ch; color: var(--ink-2); font-size: 1.0625rem; line-height: 1.5295; text-wrap: balance; }
 @media (max-height: 640px) {
   .stage-done .celebrate-madi .mascot { width: 92px; height: auto; }
   .streak-milestone .milestone-hero { min-height: 128px; }
   .streak-milestone .milestone-hero .mascot { width: 96px; height: auto; }
   .milestone-medal { width: 60px; height: 60px; inset-inline-start: calc(50% + 26px); }
-  .milestone-medal b { font-size: 24px; }
+  .milestone-medal b { font-size: 1.5rem; line-height: 1.25; }
   .celebrate-rays { width: 200px; height: 200px; margin: -100px 0 0 -100px; }
 }
 

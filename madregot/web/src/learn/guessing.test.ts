@@ -222,11 +222,14 @@ function passRate(draws: Draw[], need: number) {
 }
 
 const rnd = () => Math.random();
+// guessing.arabic.test.ts runs these again with the app in Arabic, on the topics taught in Arabic (COUNCIL2-34)
+const ONLY: string[] | undefined = (globalThis as { __ONLY_TOPICS?: string[] }).__ONLY_TOPICS;
+const inScope = (id: string) => !ONLY || ONLY.includes(id.split(':')[0]);
 const drawOf = (skill: string, source: Source, candidates?: string[]): Draw => () => itemFor(skill, source, rnd, undefined, candidates, { test: true });
 const planDraws = (purpose: 'mastery' | 'review', skill: string) => checkPlan({ purpose, skill }, rnd).map((q) => drawOf(q.skill, q.source));
 
 describe('a check cannot be passed by guessing', () => {
-  it.each(ALL_SKILLS)('%s: the mastery check, the review and the jump test', (skill) => {
+  it.each(ALL_SKILLS.filter(inScope))('%s: the mastery check, the review and the jump test', (skill) => {
     const { topic, level } = parseSkill(skill);
     const mastery = passRate(planDraws('mastery', skill), MASTERY_NEED);
     expect(mastery, `${skill} mastery: ${(100 * mastery).toFixed(2)}%`).toBeLessThan(LIMIT);
@@ -240,7 +243,7 @@ describe('a check cannot be passed by guessing', () => {
 
   // every misconception a stair can confirm and repair: its models' and the ones only its exercises name
   const miscs = Object.values(CONTENT).flatMap((c) => [...new Set([...c.misconceptions.map((m) => m.id), ...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})])].map((m) => [c.skill, m] as const));
-  it.each(miscs)('%s: the verification after repairing %s', (skill, misc) => {
+  it.each(miscs.filter(([skill]) => inScope(skill)))('%s: the verification after repairing %s', (skill, misc) => {
     const plan = checkPlan({ purpose: 'verify', skill, misc }, rnd);
     expect(plan).toHaveLength(VERIFY_N);
     const rate = passRate(plan.map((q) => drawOf(q.skill, q.source, q.candidates)), VERIFY_NEED);
@@ -351,11 +354,12 @@ describe('the placement test cannot be passed by guessing', () => {
   // day: a unit the first-day test asks never has a wider bound (checked below).
   const WALK_LIMIT: Record<string, number> = { congr: 0.03 };
   const asked = new Set(([...placementTopicsFor('7'), ...placementTopicsFor('8')] as { id: string }[]).map((t) => t.id));
-  const topics = [...topicsFor('7'), ...topicsFor('8')] as { id: string; levels: unknown[] }[];
+  // (the Arabic run, guessing.arabic.test.ts, walks only its own topics: ONLY)
+  const topics = ([...topicsFor('7'), ...topicsFor('8')] as { id: string; levels: unknown[] }[]).filter((t) => inScope(t.id));
   it('a wider bound is only ever a skipped unit\'s, and is still a small one', () => {
     for (const [id, limit] of Object.entries(WALK_LIMIT)) {
       expect(asked.has(id), id).toBe(false);
-      expect(topics.some((t) => t.id === id), id).toBe(true);
+      expect(([...topicsFor('7'), ...topicsFor('8')] as { id: string }[]).some((t) => t.id === id), id).toBe(true);
       expect(limit).toBeLessThanOrEqual(0.03);
     }
   });

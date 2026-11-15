@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TRACKERS, trackerIn, checkDist } from './check-dist.mjs';
+import { TRACKERS, trackerIn, checkDist, arabicProblems } from './check-dist.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./check-dist.mjs', import.meta.url));
 // the app's own security headers (check-dist also refuses a build whose _headers lost one: scripts/headers.mjs)
@@ -61,6 +61,30 @@ describe('check-dist', () => {
     expect(trackerIn('https://www.clarity.ms/tag/abc')).toBe('clarity.ms');
     expect(trackerIn('notgoogle-analytics.com and madregot.example.test')).toBeNull();
     expect(trackerIn('the word amplitude in a lesson')).toBeNull();
+  });
+
+  it('refuses a default build (no VITE_ARABIC=on) that could fetch anything Arabic: a chunk, the catalogue in a script, a kept file, or a page that says it has Arabic', async () => {
+    const meta = (v) => `<!doctype html><meta name="madregot-arabic" content="${v}" /><script type="module" src="./assets/index.js"></script>`;
+    expect(arabicProblems(fixture({ 'index.html': meta('off') }))).toEqual([]);
+    // an Arabic chunk, as the bundler names the catalogue and the content twins
+    const chunk = await cli(fixture({ 'assets/shell.ar-BxY12z.js': 'export default {}' }));
+    expect(chunk.code).toBe(1);
+    expect(chunk.out).toMatch(/assets\/shell\.ar-BxY12z\.js: an Arabic file in a build made without VITE_ARABIC=on/);
+    // the Arabic catalogue bundled into another script
+    expect(arabicProblems(fixture({ 'assets/index.js': 'const x = {"shell.welcome.1":"رياضيات نفهمها. ونتقدّم فيها."}' })).join('\n')).toMatch(/assets\/index\.js: holds the Arabic catalogue/);
+    // a page that says "on"
+    expect(arabicProblems(fixture({ 'index.html': meta('on') })).join('\n')).toMatch(/index\.html: says Arabic is "on" in a build made with VITE_ARABIC off/);
+    // Rubik's Arabic part kept for offline use (it is in every build's assets; it must not be on the list)
+    const kept = fixture({ 'assets/rubik-arabic-wght-normal-x.woff2': 'font' });
+    writeFileSync(join(kept, 'sw.js'), 'self.__PRECACHE = ["index.html", "assets/rubik-arabic-wght-normal-x.woff2"];\n');
+    expect(arabicProblems(kept).join('\n')).toMatch(/sw\.js: keeps the Arabic file assets\/rubik-arabic-wght-normal-x\.woff2/);
+    expect(arabicProblems(fixture({ 'assets/rubik-arabic-wght-normal-x.woff2': 'font' }))).toEqual([]);
+    // a build made with the flag on may have all of it, and must say so
+    const on = fixture({ 'index.html': meta('on'), 'assets/shell.ar-BxY12z.js': 'export default {"a":"رياضيات نفهمها"}' });
+    expect(arabicProblems(on, { arabic: true })).toEqual([]);
+    expect(arabicProblems(fixture({ 'index.html': meta('off') }), { arabic: true }).join('\n')).toMatch(/says Arabic is "off" in a build made with VITE_ARABIC on/);
+    const cliOn = await run(process.execPath, [SCRIPT, on], { env: { PATH: process.env.PATH, VITE_ARABIC: 'on' } });
+    expect(cliOn.stdout).toMatch(/is clean \(Arabic compiled in: VITE_ARABIC=on\)/);
   });
 
   it('still refuses a secret and a service worker that keeps a missing file', () => {

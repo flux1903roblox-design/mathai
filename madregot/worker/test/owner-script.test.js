@@ -3,7 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { build, cli, parseArgs, licenceCode, licenceHash, noteArg, InputError, HELP, reach, reachPlan, doctor, growSandboxCheck } from '../scripts/owner.mjs';
 import { REACH_NOW, seedReach, seedFamily } from './fixtures/reach-rows.js';
 import { endOfDayIso } from '../src/util.js';
@@ -366,33 +368,67 @@ test('cli reach: the statements run read-only through the io (never a file), and
   assert.match(HELP, /^ {2}reach \[--days 28\]/m);
 });
 
-// ---- doctor (DURABLE-16): never wrangler or the network here; files, wrangler and fetch are stubs
+// ---- doctor (DURABLE-16): never wrangler's command line or the network here; wrangler and fetch are stubs. The
+// wrangler.toml copies are real files in a temporary folder, read by wrangler's own config reader (COUNCIL2-10).
 const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
 
-test('doctor --local: the missing items and exit 1; with everything set exit 0; never a value from .dev.vars', async () => {
+test('doctor --local: the missing items and exit 1; with everything set exit 0; never a value from .dev.vars', async (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'madregot-doctor-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const tomlFile = path.join(dir, 'wrangler.toml');
+  writeFileSync(tomlFile, toml.replace('PUBLIC_URL = ""', 'PUBLIC_URL = "https://madregot.example.test"'));
   const devVars = 'AUTH_SECRET=6c0ffee6c0ffee6c0ffee6c0ffee6c0ffee\nIP_HASH_SECRET=fee1deadfee1deadfee1dead\n';
-  const files = { '/fx/wrangler.toml': toml.replace('PUBLIC_URL = ""', 'PUBLIC_URL = "https://madregot.example.test"'), '/fx/.dev.vars': devVars };
+  const files = { '/fx/.dev.vars': devVars };
   const deps = (applied = []) => ({
     read: (f) => { if (!(f in files)) throw new Error('no file'); return files[f]; },
     list: () => MIGRATIONS,
     exec: (args) => { assert.ok(args.includes('--local'), 'only the local database'); return MIGRATIONS.filter((m) => !applied.includes(m)).join('\n') || 'No migrations to apply'; },
     fetch: () => { throw new Error('no network in --local'); },
   });
-  const first = await doctor({ local: true, toml: '/fx/wrangler.toml', 'dev-vars': '/fx/.dev.vars' }, deps());
+  const first = await doctor({ local: true, toml: tomlFile, 'dev-vars': '/fx/.dev.vars' }, deps());
   assert.equal(first.code, 1);
   assert.match(first.out, /✗ בינה מלאכותית: חסר ANTHROPIC_API_KEY/);
   assert.match(first.out, /✗ בסיס הנתונים: מיגרציות שלא הורצו/);
   assert.match(first.out, /✓ כניסה במייל: AUTH_SECRET/);
   for (const v of ['6c0ffee6c0ffee', 'fee1dead']) assert.ok(!first.out.includes(v), 'a value from .dev.vars was printed');
-  // everything set
-  files['/fx/wrangler.toml'] = files['/fx/wrangler.toml'].replace('REPLACE_WITH_DATABASE_ID', '00000000-0000-0000-0000-000000000000')
-    .replace('CONTACT_EMAIL = ""', 'CONTACT_EMAIL = "hello@example.test"');
+  assert.match(first.out, /^✓ קובץ ההגדרות: wrangler\.toml נקרא/m);
+  // everything set: the database made in the EU, as setup.sh and setup.ps1 make it
+  writeFileSync(tomlFile, readFileSync(tomlFile, 'utf8').replace('REPLACE_WITH_DATABASE_ID', '00000000-0000-0000-0000-000000000000')
+    .replace('CONTACT_EMAIL = ""', 'CONTACT_EMAIL = "hello@example.test"').replace('DB_JURISDICTION = ""', 'DB_JURISDICTION = "eu"'));
   files['/fx/.dev.vars'] = `${devVars}ANTHROPIC_API_KEY=sk-test-000\nVAULT_SECRET=0123abcd\n`;
-  const done = await doctor({ local: true, toml: '/fx/wrangler.toml', 'dev-vars': '/fx/.dev.vars' }, deps(MIGRATIONS));
+  const done = await doctor({ local: true, toml: tomlFile, 'dev-vars': '/fx/.dev.vars' }, deps(MIGRATIONS));
   assert.equal(done.code, 0, done.out);
   assert.match(done.out, /הכול מוכן\./);
+  assert.match(done.out, /^✓ בסיס הנתונים: DB_JURISDICTION = "eu"/m);
   assert.ok(!done.out.includes('sk-test-000') && !done.out.includes('0123abcd'));
+  // a database made elsewhere: a reminder, not a failure (checkout stays closed by the legal gate)
+  writeFileSync(tomlFile, readFileSync(tomlFile, 'utf8').replace('DB_JURISDICTION = "eu"', 'DB_JURISDICTION = ""'));
+  const notEu = await doctor({ local: true, toml: tomlFile, 'dev-vars': '/fx/.dev.vars' }, deps(MIGRATIONS));
+  assert.equal(notEu.code, 0, notEu.out);
+  assert.match(notEu.out, /^! בסיס הנתונים: DB_JURISDICTION אינו "eu".*setup\.sh$/m);
+});
+
+test('doctor: a wrangler.toml that wrangler cannot read (a var defined twice) is the one failing line, and nothing else runs', async (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'madregot-doctor-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const tomlFile = path.join(dir, 'wrangler.toml');
+  // the defect of b347414: PAYMENT_PROVIDER_NAME written twice in [vars]
+  writeFileSync(tomlFile, toml.replace('\nPAYMENT_PROVIDER_NAME = ""\n', '\nPAYMENT_PROVIDER_NAME = ""\nPAYMENT_PROVIDER_NAME = ""\n'));
+  const ran = [];
+  const r = await doctor({ local: true, toml: tomlFile }, {
+    read: () => { throw new Error('no file'); }, list: () => MIGRATIONS,
+    exec: (args) => { ran.push(args); return ''; }, fetch: () => { throw new Error('no network'); },
+  });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^✗ קובץ ההגדרות: wrangler לא מצליח לקרוא את worker\/wrangler\.toml.*Invalid TOML document: trying to redefine/m);
+  assert.match(r.out, /test\/config\.test\.js/);
+  assert.equal(r.out.split('\n').filter((l) => /^[✓✗!] /.test(l)).length, 1, r.out);
+  assert.deepEqual(ran, [], 'no wrangler command runs on a file wrangler cannot read');
+  // the same file, unchanged, reads
+  writeFileSync(tomlFile, toml);
+  const ok = await doctor({ local: true, toml: tomlFile }, { read: () => { throw new Error('no file'); }, list: () => MIGRATIONS, exec: () => 'No migrations to apply', fetch: () => null });
+  assert.match(ok.out, /^✓ קובץ ההגדרות/m);
 });
 
 test('doctor --local --grow-sandbox: one ₪1 sandbox call with the .dev.vars keys; prints the page\'s host, never a key', async () => {

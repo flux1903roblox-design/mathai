@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useApp, today, STORE_KEY } from './store.js';
 import { api, ApiError, serverHealth } from './api.js';
-import { useParent, accountCall, clearSession } from './parent.js';
+import { useParent, accountCall, clearSession, markAdult } from './parent.js';
 
 const token = () => useParent.getState().session?.token || null;
 const keyPair = (cls) => ({ 'X-Class-Code': cls.code, 'X-Teacher-Key': cls.key });
@@ -73,12 +73,15 @@ export async function teacherApi(path, opts = {}, cls) {
 export const myClasses = () => accountCall('/api/teacher/classes').then((r) => r.classes || []);
 
 /** Bind a class this device opens with its key to the signed-in account. */
-export async function bindClass(cls) {
+export async function bindClass(cls, { adultTeacher } = {}) {
   const t = token();
   if (!t) throw new ApiError('not_account', 401);
   if (!cls?.key) throw new ApiError('not_teacher', 401);
-  const r = await accountCall('/api/teacher/class/owner', { method: 'POST', body: {}, headers: keyPair(cls) });
+  // the teacher's "I am over 18, a teacher or a tutor" (COUNCIL2-5), when the screen asked for it
+  const body = adultTeacher === true ? { adultTeacher: true } : {};
+  const r = await accountCall('/api/teacher/class/owner', { method: 'POST', body, headers: keyPair(cls) });
   patchClass(cls.code, { owned: true });
+  if (r?.adult) markAdult();
   return r;
 }
 

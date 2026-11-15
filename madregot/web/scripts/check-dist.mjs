@@ -5,7 +5,11 @@
 // (TRACKERS): the pages say "בלי פרסומות ובלי מעקב" (STUDENT-17, web/src/content/claims.js 'no-ads'), and this is what
 // keeps it true. And refuse a build whose service worker is missing or unsound (DURABLE-10): its precache list must
 // come first, hold index.html, name only files the build has (its install would fail, and the app would not open
-// offline), and hold no source map, no .ttf or .woff and nothing under api/. Usage: node scripts/check-dist.mjs <dist folder>
+// offline), and hold no source map, no .ttf or .woff and nothing under api/. And refuse a build made without
+// VITE_ARABIC=on (the default) that holds an Arabic file, keeps one for offline use, or whose page says it has Arabic:
+// only the shell is in Arabic (no topic since the round-3 merge), so no default build may be able to fetch it
+// (lib/i18n.js, docs/ARABIC.md).
+// Usage: node scripts/check-dist.mjs <dist folder>
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -43,9 +47,47 @@ function* files(d) {
   }
 }
 
-/** What a build in `dir` must not ship: [] when it is clean. */
-export function distProblems(dir, { personal = false } = {}) {
+/** An Arabic file of the build: a catalogue or content chunk (<name>.ar-<hash>.js), or Rubik's Arabic part. */
+export const ARABIC_FILE = /\.ar-[\w-]+\.js$|rubik-arabic/;
+
+function* allFiles(d) {
+  for (const name of readdirSync(d)) {
+    const p = join(d, name);
+    if (statSync(p).isDirectory()) yield* allFiles(p);
+    else yield p;
+  }
+}
+
+/**
+ * What a build made without VITE_ARABIC=on must not have: an Arabic chunk, an Arabic file kept for offline use, the
+ * Arabic catalogue's words in any script, or a page that says the build has Arabic. Rubik's Arabic part is in every
+ * build (the font package brings it, and a browser fetches it only for Arabic letters): it must only stay out of the
+ * files kept for offline use.
+ */
+export function arabicProblems(dir, { arabic = false } = {}) {
   const problems = [];
+  const index = join(dir, 'index.html');
+  const meta = existsSync(index) ? /<meta name="madregot-arabic" content="([^"]*)"/.exec(readFileSync(index, 'utf8'))?.[1] : undefined;
+  if (meta !== undefined && meta !== (arabic ? 'on' : 'off')) problems.push(`index.html: says Arabic is "${meta}" in a build made with VITE_ARABIC ${arabic ? 'on' : 'off'}`);
+  if (arabic) return problems;
+  for (const f of allFiles(dir)) {
+    const rel = relative(dir, f);
+    if (/\.ar-[\w-]+\.js$/.test(rel)) problems.push(`${rel}: an Arabic file in a build made without VITE_ARABIC=on`);
+    // the first words of the Arabic catalogue (locales/shell.ar.json): in no script of a build without Arabic
+    else if (/\.js$/.test(rel) && readFileSync(f, 'utf8').includes('رياضيات نفهمها')) problems.push(`${rel}: holds the Arabic catalogue in a build made without VITE_ARABIC=on`);
+  }
+  const sw = join(dir, 'sw.js');
+  if (existsSync(sw)) {
+    let list = [];
+    try { list = JSON.parse(/^self\.__PRECACHE = (\[.*\]);\n/.exec(readFileSync(sw, 'utf8'))?.[1] || '[]'); } catch { list = []; }
+    for (const f of list) if (ARABIC_FILE.test(f)) problems.push(`sw.js: keeps the Arabic file ${f} in a build made without VITE_ARABIC=on`);
+  }
+  return problems;
+}
+
+/** What a build in `dir` must not ship: [] when it is clean. `arabic`: the build was made with VITE_ARABIC=on. */
+export function distProblems(dir, { personal = false, arabic = false } = {}) {
+  const problems = arabicProblems(dir, { arabic });
   for (const f of files(dir)) {
     const text = readFileSync(f, 'utf8');
     for (const [re, what] of [...SECRETS, ...(personal ? [] : SDK)]) if (re.test(text)) problems.push(`${relative(dir, f)}: ${what}`);
@@ -81,10 +123,12 @@ export const checkDist = distProblems;
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const dir = process.argv[2] || 'dist';
   const personal = process.env.VITE_ALLOW_PERSONAL_KEY === '1';
-  const problems = distProblems(dir, { personal });
+  // the same environment the build ran in (npm run build): with VITE_ARABIC=on the build has Arabic, and may
+  const arabic = process.env.VITE_ARABIC === 'on';
+  const problems = distProblems(dir, { personal, arabic });
   if (problems.length) {
     console.error(`check-dist: the build in ${dir} must not ship:\n  ${problems.join('\n  ')}`);
     process.exit(1);
   }
-  console.log(`check-dist: ${dir} is clean${personal ? ' (personal-key mode compiled in)' : ''}.`);
+  console.log(`check-dist: ${dir} is clean${personal ? ' (personal-key mode compiled in)' : ''}${arabic ? ' (Arabic compiled in: VITE_ARABIC=on)' : ', with no Arabic in it'}.`);
 }

@@ -232,8 +232,8 @@ test('a class student and a teacher with an adult behind the class are not asked
   const s = await ai(h, 'explain', bearer(cls.students[0]));
   assert.equal(s.status, 200);
   assert.equal((await status(bearer(cls.students[0]))).body.state, undefined);
-  // the class's teacher: bound to a signed-in email
-  const token = await signIn(h, 'teacher@example.test');
+  // the class's teacher: bound to a signed-in email whose holder declared 18+ (COUNCIL2-5)
+  const token = await signIn(h, 'teacher@example.test', {}, { adultTeacher: true });
   assert.equal((await h.call('POST', '/api/teacher/class/owner', { headers: { ...cls.teacher, 'X-Account-Token': token }, body: {} })).status, 200);
   const t = await ai(h, 'explain', cls.teacher);
   assert.equal(t.status, 200);
@@ -268,11 +268,16 @@ test('"אני מורה" is no way round the parent\'s OK: a class opened with no
   assert.equal(care.status, 200);
   assert.equal((await care.json()).care, true);
   assert.equal(h.net.log.claude.length, 0);
-  // the teacher signs in and binds the class: now an adult is behind it
+  // the teacher signs in and binds the class: an email alone proves no age (COUNCIL2-2), so the tutor still waits
   const token = await signIn(h, 'teacher@example.test');
   const bind = await h.call('POST', '/api/teacher/class/owner', { headers: { ...teacher, 'X-Account-Token': token }, body: {} });
   assert.equal(bind.status, 200);
-  assert.deepEqual(await bind.json(), { owner: 'you', email: 'teacher@example.test' });
+  assert.deepEqual(await bind.json(), { owner: 'you', email: 'teacher@example.test', adult: false });
+  const still = await ai(h, 'chat', teacher, { body: chat });
+  assert.equal(still.status, 403); assert.equal((await still.json()).error, 'parent_ok_needed');
+  // with "I am over 18, a teacher or a tutor" (COUNCIL2-5): now an adult is behind it
+  const declared = await h.call('POST', '/api/teacher/class/owner', { headers: { ...teacher, 'X-Account-Token': token }, body: { adultTeacher: true } });
+  assert.deepEqual(await declared.json(), { owner: 'you', email: 'teacher@example.test', adult: true });
   assert.equal((await ai(h, 'chat', teacher, { body: chat })).status, 200);
   // bound once, it stays with that email: another account cannot take it
   const other = await signIn(h, 'other@example.test');
@@ -287,7 +292,7 @@ test('"אני מורה" is no way round the parent\'s OK: a class opened with no
 test('a class opened with a session is bound at once; a class with a licence in force has an adult behind it too', async () => {
   h = await required();
   const chat = { messages: [{ role: 'user', content: 'איך פותרים?' }], context: { question: '3 - 8', correct: '-5' } };
-  const token = await signIn(h, 'teacher@example.test');
+  const token = await signIn(h, 'teacher@example.test', {}, { adultTeacher: true });
   const r = await h.call('POST', '/api/classes', { headers: { 'X-Account-Token': token }, body: { className: 'ז׳2', teacherName: 'רונית', grade: '7' } });
   const c = await r.json();
   assert.equal(c.owned, true);
@@ -312,7 +317,7 @@ test('a class opened with a session is bound at once; a class with a licence in 
 test('a teacher who opens an owned class with the email session alone (no key) has the tutor; another account\'s session opens nothing', async () => {
   h = await required();
   const chat = { messages: [{ role: 'user', content: 'איך פותרים?' }], context: { question: '3 - 8', correct: '-5' } };
-  const token = await signIn(h, 'teacher@example.test');
+  const token = await signIn(h, 'teacher@example.test', {}, { adultTeacher: true });
   const c = await (await h.call('POST', '/api/classes', { headers: { 'X-Account-Token': token }, body: { className: 'ז׳2', teacherName: 'רונית', grade: '7' } })).json();
   assert.equal(c.owned, true);
   const bySession = { 'X-Class-Code': c.code, 'X-Account-Token': token };

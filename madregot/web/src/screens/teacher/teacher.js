@@ -2,6 +2,7 @@
 // teacher's assistant, the class exam (its builder and its printable sheet), the class report, the pilot kit, the frame
 // of the student view and the demo class's banner. No student route imports this file.
 // Their rules (styles/lazy/teacher.css) load with this chunk, whichever of its screens opens first (FOLLOWUP-23).
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/teacher.css';
 export { default as Teacher } from '../Teacher.jsx';
 export { default as ClassSettings } from './Settings.jsx';

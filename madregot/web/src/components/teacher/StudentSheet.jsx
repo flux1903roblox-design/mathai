@@ -5,11 +5,13 @@
 // מבחנים; a section with nothing in it says "אין עדיין". The student's actions live here: "איפוס קוד אישי", "הסרה
 // מהכיתה" (asked first) and, when the class's students can have the smart tutor (TRUST-11: its policy is on or the
 // teacher's switch is off), turning it off or on for this student alone, with the badge "העוזר כבוי" under the name
-// (trust §E.8; the Ministry's alternative activity for a student without a parent's consent).
+// (trust §E.8; the Ministry's alternative activity for a student without a parent's consent). A PIN reset answers a
+// one-time code (COUNCIL2-25) that is shown here once, to give the student (ClaimCodeBox): without it nobody can come
+// back under the name. A student whose code was reset and not yet claimed can be given a new one.
 // Data: GET /api/teacher/students/:id (worker/src/classReport.js studentDetail).
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { KeyRound, UserMinus, Send, Hand, RefreshCw, Sparkles } from 'lucide-react';
+import { KeyRound, UserMinus, Send, Hand, RefreshCw, Sparkles, Copy } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
 import { classTopicsFor, rowLevel, rowTitle, TOPIC } from '@/content/topics.js';
 import { AI_COPY, perStudentAi } from '@/content/classAi.js';
@@ -27,6 +29,58 @@ import { fmtDay, Rate, MistakeWords } from '@/screens/teacher/common.jsx';
 const dayText = (day, today) => (!day ? '' : day.slice(0, 4) === String(today || '').slice(0, 4) ? dm(day) : `${dm(day)}.${day.slice(0, 4)}`);
 const isoDay = (iso) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
 const times = (n) => (n === 1 ? 'פעם אחת' : `${n} פעמים`);
+
+/** What the teacher reads about the one-time code (COUNCIL2-25): calm, short, and the code shown once. */
+export const CLAIM_TEXT = {
+  title: (name) => `קוד הכניסה של ${name}`,
+  give: (name) => `תנו את הקוד ל${name}. בכניסה הבאה כותבים אותו ובוחרים קוד אישי חדש.`,
+  once: (days) => `הקוד עובד פעם אחת, עד ${days} ימים. הוא מוצג רק עכשיו. אם הוא הולך לאיבוד, אפשר לתת קוד חדש.`,
+  waiting: 'הקוד האישי אופס. כדי להיכנס, צריך את קוד הכניסה שנתתם.',
+  again: 'קוד כניסה חדש',
+  copy: 'העתקת הקוד',
+  copied: 'הקוד הועתק',
+  copyFailed: 'לא הצלחנו להעתיק. אפשר להקריא את הקוד או לכתוב אותו.',
+};
+/**
+ * Many wrong personal codes were typed under a student's name today (the server counts them from every network). On a
+ * device or a network the student has not signed in from, the personal code is then no longer taken that day: the
+ * teacher's one-time code is the way in. The board's row says so in two words; the student's page says what to do.
+ */
+export const WRONG_PINS = {
+  chip: 'הרבה קודים שגויים',
+  line: (name) => `היום היו הרבה ניסיונות להיכנס בשם של ${name} עם קוד אישי שגוי. ממכשיר שכבר מחובר ומהרשת הרגילה הכניסה ממשיכה לעבוד. אם הכניסה ממכשיר אחר לא מצליחה, אפסו את הקוד האישי ותנו את קוד הכניסה החד־פעמי.`,
+};
+/** The code letter by letter for a screen reader ("K 7 Q 2 M D"), so it is never read as one word. */
+export const spelled = (code) => String(code || '').split('').join(' ');
+
+/**
+ * The one-time code after a reset, shown once: large, left to right, with a 44px copy button. The box takes the focus
+ * when it appears, so a screen reader reads the title, the code letter by letter and what to do with it.
+ */
+function ClaimCodeBox({ name, code, days }) {
+  const box = useRef(null);
+  useEffect(() => {
+    const el = box.current; if (!el) return undefined;
+    el.focus();
+    // the dialog moves the focus to itself when the reset button leaves the page: take it back, unless it went elsewhere
+    const t = setTimeout(() => { const a = document.activeElement; if (el.isConnected && (a === document.body || a?.classList.contains('sheet'))) el.focus(); }, 150);
+    return () => clearTimeout(t);
+  }, [code]);
+  const copy = () => {
+    const done = () => toast.success(CLAIM_TEXT.copied);
+    const failed = () => toast(CLAIM_TEXT.copyFailed);
+    try { navigator.clipboard.writeText(code).then(done, failed); } catch { failed(); }
+  };
+  return (
+    <div ref={box} className="ss-claim" tabIndex={-1} role="group" aria-labelledby="ss-claim-title" aria-describedby="ss-claim-give ss-claim-once">
+      <p id="ss-claim-title" className="ss-claim-title">{CLAIM_TEXT.title(name)}</p>
+      <p className="ss-claim-code"><bdi dir="ltr" aria-hidden="true">{code}</bdi><span className="visually-hidden">{spelled(code)}</span></p>
+      <p id="ss-claim-give" className="ss-claim-line">{CLAIM_TEXT.give(name)}</p>
+      <p id="ss-claim-once" className="ss-claim-line muted">{CLAIM_TEXT.once(days)}</p>
+      <Button variant="secondary" className="ss-claim-copy" onClick={copy} aria-label={`${CLAIM_TEXT.copy} ${spelled(code)}`}><Copy size={18} aria-hidden="true" />{CLAIM_TEXT.copy}</Button>
+    </div>
+  );
+}
 
 /** A section of the sheet: a heading and its content, or "אין עדיין". */
 function Part({ id, title, empty, children }) {
@@ -63,13 +117,15 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const [removing, setRemoving] = useState(false);
+  // the one-time code of the reset just made (COUNCIL2-25): in memory only, gone when the sheet closes
+  const [claim, setClaim] = useState(null);
   const id = student?.id;
   const load = useCallback(async () => {
     if (!id) return;
     setError('');
     try { setD(await teacherApi(`/api/teacher/students/${id}`, {}, cls)); } catch (e) { setError(e.message); }
   }, [cls, id]);
-  useEffect(() => { if (open) { setD(null); load(); } }, [open, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setClaim(null); if (open) { setD(null); load(); } }, [open, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = d?.student?.name || student?.name || '';
   const day = today || d?.days14?.at(-1)?.day || '';
@@ -82,8 +138,11 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
 
   const resetPin = async () => {
     try {
-      await teacherApi(`/api/teacher/students/${id}/reset-pin`, { method: 'POST', body: {} }, cls);
-      toast.success(`הקוד האישי של ${name} אופס. בכניסה הבאה ייבחר קוד חדש.`);
+      const r = await teacherApi(`/api/teacher/students/${id}/reset-pin`, { method: 'POST', body: {} }, cls);
+      if (r?.claimCode) {
+        const days = r.claimExpires ? Math.max(1, Math.round((Date.parse(r.claimExpires) - Date.now()) / 864e5)) : 7;
+        setClaim({ code: r.claimCode, days });
+      } else toast.success(`הקוד האישי של ${name} אופס.`);
       load(); onChanged?.();
     } catch (e) { toast.error(e.message); }
   };
@@ -194,10 +253,18 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
             </Part>
 
             <section className="ss-part ss-actions" aria-label={`פעולות על ${name}`}>
+              {d.student.manyWrongPins && !d.student.pinReset && !claim && <p className="ss-wrong-pins" role="status">{WRONG_PINS.line(name)}</p>}
               <div className="set-rows-wrap"><div className="set-rows">
-                {d.student.pinReset
-                  ? <p className="set-row ss-done">הקוד האישי אופס. בכניסה הבאה ייבחר קוד חדש.</p>
-                  : <button type="button" className="set-row" onClick={resetPin}><KeyRound size={18} aria-hidden="true" />איפוס קוד אישי</button>}
+                {claim
+                  ? <ClaimCodeBox name={name} code={claim.code} days={claim.days} />
+                  : d.student.pinReset
+                    ? (
+                      <>
+                        <p className="set-row ss-done">{CLAIM_TEXT.waiting}</p>
+                        <button type="button" className="set-row" onClick={resetPin}><KeyRound size={18} aria-hidden="true" />{CLAIM_TEXT.again}</button>
+                      </>
+                    )
+                    : <button type="button" className="set-row" onClick={resetPin}><KeyRound size={18} aria-hidden="true" />איפוס קוד אישי</button>}
                 {aiRow && (
                   <button type="button" className="set-row" onClick={() => setAi(!d.student.aiOff)}>
                     <Sparkles size={18} aria-hidden="true" />{d.student.aiOff ? AI_COPY.studentOn : AI_COPY.studentOff}

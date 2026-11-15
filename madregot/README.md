@@ -97,8 +97,9 @@ cd madregot
 npm ci --prefix web && npm ci --prefix worker
 cd worker
 npx wrangler login
-npx wrangler d1 create madregot --binding DB --update-config=false
-# העתיקו את ה־database_id מהפלט אל worker/wrangler.toml במקום REPLACE_WITH_DATABASE_ID
+npx wrangler d1 create madregot --binding DB --update-config=false --jurisdiction=eu
+# העתיקו את ה־database_id מהפלט אל worker/wrangler.toml במקום REPLACE_WITH_DATABASE_ID,
+# ובאותו קובץ כתבו DB_JURISDICTION = "eu" (מסד הנתונים באיחוד האירופי; אפשר לקבוע את זה רק כשיוצרים אותו)
 npx wrangler d1 migrations apply madregot --remote   # שינויים במסד הנתונים רק דרך worker/migrations
 cd .. && npm run build --prefix web && cd worker
 npx wrangler deploy
@@ -111,7 +112,15 @@ npx wrangler secret put ANTHROPIC_API_KEY
 |---|---|---|
 | `CLAUDE_MODEL` | המודל לכל פעולות העוזר | `claude-sonnet-5-5` |
 | `AI_DAILY_LIMIT` | פעולות AI ביום לתלמיד בכיתה | 40 |
-| `SOLO_DAILY_LIMIT` | פעולות AI ביום למכשיר של תלמיד בלי כיתה | 20 |
+| `SOLO_DAILY_LIMIT` | פעולות AI ביום לכל רשת לתלמידים בלי כיתה; מכשיר שהורה אישר מקבל אותו מספר משלו | 20 |
+| `OPEN_DAILY_BUDGET_USD` | כשהמנוי כבוי: כמה דולרים העוזר יכול לעלות ביום, לכולם יחד. מעבר לזה הוא נח עד חצות ונשלח אליכם מייל (ב־`SUBSCRIPTION.md`, "המתג") | 25 |
+| `OPEN_ACCOUNT_DAILY_LIMIT` | כשהמנוי כבוי: פעולות AI ביום לכל הכיתות שמחוברות לאותו מייל של מורה | 200 |
+| `OPEN_CLASS_DAILY_USD` | כשהמנוי כבוי: כמה דולרים כיתה אחת יכולה לעלות ביום. מעבר לזה רק הכיתה הזו נחה עד חצות | 3 |
+| `OPEN_ACCOUNT_DAILY_USD` | כשהמנוי כבוי: כמה דולרים כל הכיתות של אותו מייל יכולות לעלות ביום יחד | 3 |
+| `OPEN_INFLIGHT_USD` | כשהמנוי כבוי: כמה דולרים אפשר להחזיק לבקשות שרצות באותו רגע, מעל התקציב היומי. `0` נותן תקרה מדויקת, במחיר של "העוזר עמוס" כשהרבה שואלים יחד (ב־`SUBSCRIPTION.md`, "המתג") | 20 |
+| `WRITE_BUDGET_SCALE` | מכפיל (1 עד 20) לתקציב הכתיבה היומי של כיתה ושל רשת, לבית ספר שגדל מעבר למספרים שב־`SUBSCRIPTION.md` | 1 |
+| `OPEN_CLASS_DAILY_UNITS` | כשהמנוי כבוי: יחידות AI ביום לכל התלמידים של כיתה (שיחה 1, בדיקת דף 4, תרגילים 3, מבחן 20) | 600 |
+| `DB_SIZE_NOTICE_MB` | מעל הגודל הזה של בסיס הנתונים נשלח אליכם מייל אחד ביום | 400 |
 | `ALLOW_SOLO_AI` | `false` משאיר את העוזר רק לתלמידים בכיתה | `true` |
 | `AI_PARENT_OK` | `required`: ילד בלי כיתה שואל את העוזר רק במכשיר שהורה אישר פעם אחת, בחינם, בעמוד ההורים. `off` מבטל את הבדיקה (ב־`SUBSCRIPTION.md`, "אישור של הורה") | `required` |
 | `ALLOWED_ORIGINS` | כתובות נוספות שמותר להן לפנות לשרת (פיתוח מקומי, או עותק של האפליקציה שמתארח במקום אחר) | localhost |
@@ -150,6 +159,10 @@ npx wrangler secret put ANTHROPIC_API_KEY
 
 מצב "מפתח אישי" (מפתח Claude שמודבק במכשיר, והבקשות יוצאות ממנו ישר ל־Anthropic בלי השרת) הוא רק לבדיקות של בעל האפליקציה במחשב שלו. הוא נכנס לבנייה רק עם `VITE_ALLOW_PERSONAL_KEY=1`, למשל `VITE_ALLOW_PERSONAL_KEY=1 npm run dev` בתיקייה `web`. אף גרסה ציבורית לא כוללת אותו: לא האתר ב־GitHub Pages, לא עותק הבדיקה ולא השרת, ו־`scripts/check-dist.mjs` עוצר בנייה ציבורית שנכנס אליה ה־SDK של Claude לדפדפן. באפליקציה לילדים אין שדה למפתח.
 
+### קישורים לכיתה ושיתוף (COUNCIL2-35, COUNCIL2-36)
+
+לכל משימה יש קישור משלה (`#/a/<מזהה>`): בטלפון של תלמיד בכיתה הוא פותח את המדרגה, הבדיקה או המבחן, ומי שעוד לא בכיתה מצטרף בדרך (שם וקוד אישי). הקישור שואל את השרת `GET /api/work/<מזהה>`, שעונה רק מה המשימה ושל איזו כיתה, בלי שום דבר על תלמיד. בגיליון המשימה יש הודעה להעתקה, כפתור שיתוף ל־Google Classroom (כתובת השיתוף הציבורית של Google, בלי מפתח ובלי חשבון) ושלושת השדות לפעילות "קישור לאתר" ב־Moodle. בלוח המורה: "שליחה לעמית/ה" שולח קישור לכיתה לדוגמה, וכרטיס מטרת הכיתה משותף בלי שמות. הקישור של סיכום השבוע להורים עובר דרך `/r` כשהאפליקציה והשרת באותה כתובת: השרת מחזיר את דף האפליקציה עם תצוגה מקדימה קבועה (כותרת, משפט ותמונה, `web/landing/img/og-report.png`), בלי שום פרט של הילד, כי הסיכום עצמו נמצא אחרי ה־`#` ולא מגיע לשרת. פעולה אחת לבעלים: `PUBLIC_URL` ב־`wrangler.toml` (כמו לדפי הנחיתה) ו־`deploy.ps1`; בלעדיו `/r` מחזיר את הדף בלי תצוגה מקדימה. LTI 1.3 (כניסה ישירה מתוך Moodle או Classroom) לא נבנה: הוא דורש רישום אצל כל מערכת ושותף בבית ספר.
+
 ## פיתוח מקומי
 
 ```bash
@@ -186,9 +199,10 @@ npm run test:e2e --prefix madregot/web   # בדפדפן (Playwright): מסך ה�
 
 הקובץ `.github/workflows/ci.yml` (בשורש המאגר) מריץ שלוש בדיקות על כל push ל־`main` ועל כל pull request:
 
-- **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`), `npx vitest run`, בדיקת שמות הטעויות לעומק (`LABELS_DISTINCT=2000 npx vitest run src/content/labels.test.js`: 2,000 שאלות שונות לכל מדרגה, כשלוש דקות), ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs` ואת `scripts/check-budget.mjs`: אם ההורדה הראשונה של האפליקציה גדולה מהתקציב שב־`web/budget.json`, הבנייה נכשלת).
-- **worker**: `npm ci` ו־`npm test`, כל בדיקות השרת, כולל בדיקות הבקשות המקבילות (קוד אישי, סנכרון התקדמות, תשלום).
-- **e2e**: אחרי ש־web עובר. מתקין Chromium ומריץ את כל קובצי Playwright בפרויקט `phone` (390×844), בלי בדיקות שמסומנות `@perf`, ואז את בדיקת הנגישות `e2e/a11y.spec.js` (axe על כל המסכים) שוב בפרויקט `phone-dark`, בתצוגה הכהה. אם משהו נכשל, תיקיית `test-results` נשמרת בריצה בשם `playwright-report`.
+- **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`: קובצי `src/learn` ב־TypeScript, וגם כל מודול של `src/lib/durable`, `src/lib/store.js` ו־`src/lib/api.js`, שמסומנים `// @ts-check` וכתובים עם JSDoc, כי שם התקדמות של תלמיד יכולה ללכת לאיבוד, COUNCIL2-21), `npx vitest run`, בדיקת שמות הטעויות לעומק (`LABELS_DISTINCT=2000 npx vitest run src/content/labels.test.js`: 2,000 שאלות שונות לכל מדרגה, כשלוש דקות), ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs` ואת `scripts/check-budget.mjs`: אם ההורדה הראשונה של האפליקציה גדולה מהתקציב שב־`web/budget.json`, הבנייה נכשלת). התקציב רק יורד: אם אחד מהסכומים `bootJsGzipKB`, `cssGzipKB`, `anyChunkGzipKB` או `precacheMB` גבוה ממה שהיה ב־`web/budget.json` בקומיט הקודם (`HEAD~1`), הבנייה נכשלת. לכן הבדיקה מורידה שני קומיטים (`fetch-depth: 2`); בלי קומיט קודם היא נכשלת ב־CI ורק מזהירה במחשב מקומי.
+- **worker**: `npm ci`, ואז `npm run typecheck`: בדיקת טיפוסים של הקוד שבו כסף או גיבוי יכולים ללכת לאיבוד (`src/util.js`, `src/entitle.js`, `src/billing.js`, `src/vault.js`, מסומנים `// @ts-check`; הטיפוסים של D1, הקישורים והמשתנים כתובים ב־`src/types.js`, בלי `@cloudflare/workers-types`), עם ה־TypeScript של `web/node_modules`, ולכן השלב מתקין גם את החבילות של `web`. אחר כך `npm test`, כל בדיקות השרת, כולל בדיקות הבקשות המקבילות (קוד אישי, סנכרון התקדמות, תשלום), ו־`test/config.test.js`: הקורא של wrangler עצמו קורא את `worker/wrangler.toml` (ברמה העליונה וב־`env.staging`), כך שקובץ ש־wrangler לא יסכים להעלות נכשל כבר כאן.
+- **e2e**: אחרי ש־web עובר. מתקין Chromium ומריץ את כל קובצי Playwright בפרויקט `phone` (390×844) מול השרת המדומה (`e2e/fakeServer.js`), ואת הבדיקות שמסומנות `@contract` גם בפרויקט `contract`: מול ה־Worker האמיתי (`worker/scripts/serve-local.mjs`, מסד נתונים בזיכרון שנבנה מה־migrations, ו־Claude, המייל והתשלום מדומים כמו בבדיקות השרת, בלי שום סוד). כך זרימות הכיתה, קוד הגיבוי, העותק שהכיתה שומרת, מכסת העוזר והתשלום נבדקות מול השרת עצמו (COUNCIL2-22). הפרויקטים `arabic` ו־`arabic-small` מריצים את `e2e/arabic.spec.js` על בנייה עם `VITE_ARABIC=on` (בבנייה שעולה לאוויר הערבית כבויה). אחר כך בדיקת הנגישות `e2e/a11y.spec.js` (axe על כל המסכים) שוב בפרויקט `phone-dark`, בתצוגה הכהה. בדיקות שמסומנות `@perf` לא רצות כאן. אם משהו נכשל, תיקיית `test-results` נשמרת בריצה בשם `playwright-report`.
+  מקומית, בתיקייה `web`: `npx playwright test -c e2e/playwright.config.js --project=contract` (בונה את האפליקציה ל־`dist-contract` ומפעיל את השרת על פורט 4423, או `CONTRACT_PORT`).
 
 Node 22, ו־npm שומר את החבילות במטמון לפי `package-lock.json` של כל תיקייה. אף שלב לא צריך סודות.
 

@@ -3,6 +3,7 @@
 // generators, which come with the test (the boot split, QA_DURABLE.md).
 import { placementTopicsFor } from '@/content/topics.js';
 import { schoolMonth } from '@shared/coverage.js';
+import { localized, t } from '@/lib/i18n.js';
 
 /** Probes per topic. */
 export const PER_TOPIC = 2;
@@ -15,9 +16,9 @@ export const PLACEMENT_XP = 10;
  */
 export const placementMax = (grade = '7', month = schoolMonth()) => placementTopicsFor(grade, month).length * PER_TOPIC * PROBE_LEN;
 /** How much of the grade's material feels familiar (onboarding answer) → where the first question sits, as a share of the topic. */
-export const KNOW = [
-  { id: 0, title: 'הכול חדש לי', sub: 'מתחילים מהמדרגה הראשונה', share: 0 },
-  { id: 1, title: 'קצת מוכר', sub: 'למדנו חלק מהנושאים', share: 0.4 },
-  { id: 2, title: 'רוב החומר מוכר', sub: 'צריך בעיקר תרגול', share: 0.6 },
-  { id: 3, title: 'הכול מוכר', sub: 'רוצים אתגר', share: 0.8 },
-];
+export let KNOW = localized(() => ([
+  { id: 0, title: t('shell.placementrules.1'), sub: t('shell.placementrules.2'), share: 0 },
+  { id: 1, title: t('shell.placementrules.3'), sub: t('shell.placementrules.4'), share: 0.4 },
+  { id: 2, title: t('shell.placementrules.5'), sub: t('shell.placementrules.6'), share: 0.6 },
+  { id: 3, title: t('shell.placementrules.7'), sub: t('shell.placementrules.8'), share: 0.8 },
+]), (v) => { KNOW = v; });

@@ -5,7 +5,8 @@
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { CalendarClock, Trash2, Printer } from 'lucide-react';
+import { CalendarClock, Trash2, Printer, Link2 } from 'lucide-react';
+import ShareWork from './ShareWork.jsx';
 import { workDetail, changeWork, deleteWork, workStatus, KIND_LABEL } from '@/lib/assign.js';
 import { plusDays, schoolDay, dayLong, dueShort } from '@/lib/workDates.js';
 import { today as localToday } from '@/lib/store.js';
@@ -48,13 +49,16 @@ export default function AssignmentSheet({ cls, id, today: serverToday, onOpenCha
   const [extending, setExtending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  // the assignment's own link and its ways to the class (COUNCIL2-35), opened from its row
+  const [sharing, setSharing] = useState(false);
+  const shareId = useId();
   const open = !!id;
 
   const load = useCallback(async () => {
     if (!id) return;
     try { setData(await workDetail(cls, id)); setError(''); } catch (e) { setError(e.message); }
   }, [cls, id]);
-  useEffect(() => { setData(null); setError(''); setExtending(false); setConfirm(false); load(); }, [load]);
+  useEffect(() => { setData(null); setError(''); setExtending(false); setConfirm(false); setSharing(false); load(); }, [load]);
 
   const extend = async (dueOn) => {
     setBusy(true);
@@ -108,7 +112,9 @@ export default function AssignmentSheet({ cls, id, today: serverToday, onOpenCha
           <p className="footnote aw-foot">התוצאות נבדקות במכשיר של התלמיד. זה תרגול, לא מבחן לציון.</p>
 
           {extending ? <Extend a={a} today={today} onSave={extend} busy={busy} /> : null}
+          {sharing && <section id={shareId} className="aw-share" aria-label="הקישור למשימה"><ShareWork a={a} autoFocus /></section>}
           <div className="set-rows-wrap aw-actions"><div className="set-rows">
+            <button type="button" className="set-row" aria-expanded={sharing} aria-controls={sharing ? shareId : undefined} onClick={() => setSharing((x) => !x)}><Link2 size={18} aria-hidden="true" />{sharing ? 'הסתרת הקישור למשימה' : 'קישור למשימה לשיתוף'}</button>
             {!extending && <button type="button" className="set-row" onClick={() => setExtending(true)}><CalendarClock size={18} aria-hidden="true" />הארכת המועד</button>}
             {a.kind === 'exam' && a.hasExam && <Link className="set-row" to={`/teacher/exam/a:${a.id}`}><Printer size={18} aria-hidden="true" />הדפסת המבחן</Link>}
             <button type="button" className="set-row t-quiet-row" onClick={() => setConfirm(true)} disabled={busy}><Trash2 size={18} aria-hidden="true" />מחיקת המשימה</button>

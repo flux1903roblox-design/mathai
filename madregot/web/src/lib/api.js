@@ -1,3 +1,4 @@
+// @ts-check
 import { useApp, toWire } from './store.js';
 import { keepaliveBudget, bodyBytes } from './durable/moments.js';
 import { randomHex } from './random.js';
@@ -25,12 +26,19 @@ export function sameOrigin() {
   try { return new URL(apiBase()).origin === globalThis.location?.origin; } catch { return false; }
 }
 
+/** @type {Record<string, string>} */
 const MESSAGES = {
   no_server: 'העוזר לא מחובר בגרסה הזו. השיעורים והתרגול עובדים גם בלעדיו.',
   network: 'אין חיבור לשרת. בדקו את האינטרנט ונסו שוב.',
   no_class: 'לא מצאנו כיתה עם הקוד הזה. בדקו את הקוד עם המורה.',
   wrong_pin: 'הקוד האישי לא נכון. אם שכחתם אותו, המורה יכול לאפס אותו. אם זו הפעם הראשונה שלכם בכיתה, אולי מישהו כבר בחר את השם הזה: הוסיפו אות משם המשפחה.',
   bad_pin: 'הקוד האישי צריך להיות 4 ספרות.',
+  // after the teacher reset the personal code (COUNCIL2-25): the one-time code the teacher gave, calmly
+  claim_code_needed: 'המורה איפס את הקוד האישי שלכם. כתבו את הקוד שקיבלתם מהמורה, ובחרו קוד אישי חדש.',
+  claim_code_bad: 'הקוד מהמורה לא מתאים. בדקו אותו שוב, או בקשו מהמורה קוד חדש.',
+  // an adult behind the class (COUNCIL2-2) and the Ministry's rule for a school class's teacher (teacherAi 'prep')
+  adult_needed: 'כדי לפתוח את העוזר לתלמידים, צריך קודם להיכנס עם מייל ולאשר שאתם מעל גיל 18.',
+  prep_only: 'בכיתה של בית ספר, עד שמדרגות תאושר בקטלוג של משרד החינוך, העוזר החכם עוזר למורים רק בהכנת חומרים. בדיקת עבודות של תלמידים לא פתוחה בו.',
   missing_name: 'כתבו את השם שלכם.',
   missing_fields: 'מלאו את כל השדות.',
   not_signed_in: 'צריך להתחבר לכיתה מחדש. עברו למסך "אני".',
@@ -147,6 +155,10 @@ const MESSAGES = {
   refusal: 'העוזר לא יכול לענות על זה. נסו לנסח אחרת, על התרגיל עצמו.',
   bad_output: 'התשובה של העוזר לא הגיעה שלמה. נסו שוב.',
   too_many_open: 'יש כבר הרבה בקשות פתוחות למורה. חכו שהמורה יענה.',
+  // the day's help requests of a student, a class or a network are used up (worker/src/writes.js)
+  too_many_help: 'היום כבר נשלחו הרבה בקשות למורה. אפשר לשלוח שוב מחר, או לשאול את המורה בכיתה.',
+  // a class holds 45 names (worker/src/index.js CLASS_MAX_STUDENTS)
+  class_full: 'הכיתה מלאה. בקשו מהמורה לבדוק את רשימת התלמידים בלוח המורה.',
   too_many_reports: 'היום כבר נשלחו הרבה דיווחים מהמכשיר הזה. אפשר לדווח שוב מחר.',
   bad_input: 'משהו בבקשה לא תקין. נסו שוב.',
   upstream: 'העוזר לא זמין כרגע. אפשר להמשיך לתרגל ולנסות שוב בעוד כמה דקות.',
@@ -179,21 +191,40 @@ const MESSAGES = {
  * A code the server uses for two things, told apart by the status: too_many_open is 429 for a student's help requests
  * and 409 for a class's open assignments.
  */
+/** @type {Record<string, string>} */
 const BY_STATUS = {
   'too_many_open:409': 'יש כבר 20 משימות פתוחות בכיתה. אפשר למחוק משימות ישנות ולנסות שוב.',
 };
-export const errorText = (code, status) => BY_STATUS[`${code}:${status}`] || MESSAGES[code] || 'משהו השתבש. נסו שוב.';
+/**
+ * @param {string | null | undefined} code
+ * @param {number} [status]
+ * @returns {string}
+ */
+export const errorText = (code, status) => BY_STATUS[`${code}:${status}`] || MESSAGES[String(code)] || 'משהו השתבש. נסו שוב.';
 /**
  * A code the server uses for two things, told apart by the request it answers: class_has_licence is a school code
  * for a class that already has a licence, and also a class the teacher wants to delete while its licence still runs
  * (trust spec TRUST-7 §4, Appendix E §E.6).
  */
+/** @type {Record<string, Record<string, string>>} */
 const BY_ROUTE = {
   '/api/teacher/class/delete': { class_has_licence: 'לכיתה יש רישיון פעיל. אפשר למחוק אותה אחרי שהרישיון מסתיים, או לכתוב לנו.' },
 };
-export const routeErrorText = (code, path = '', status) => BY_ROUTE[String(path).split('?')[0]]?.[code] || errorText(code, status);
+/**
+ * @param {string | null | undefined} code
+ * @param {string} [path]
+ * @param {number} [status]
+ * @returns {string}
+ */
+export const routeErrorText = (code, path = '', status) => BY_ROUTE[String(path).split('?')[0]]?.[String(code)] || errorText(code, status);
 
 export class ApiError extends Error {
+  /**
+   * @param {string} code
+   * @param {number} [status]
+   * @param {any} [data]
+   * @param {string} [path]
+   */
   constructor(code, status, data = {}, path = '') { super(routeErrorText(code, path, status)); this.code = code; this.status = status; this.data = data; }
 }
 
@@ -201,6 +232,11 @@ export class ApiError extends Error {
  * One JSON call to the server. `auth: false` leaves out the student's class token (a parent's call on a child's
  * device carries only the parent's own headers). `onResponse(res)` sees the response first (its status and headers).
  * `keepalive: true` lets the request finish after the page is gone (the caller has claimed its bytes; see moments.js).
+ * The answer is the server's JSON, as it came: each caller reads what it needs from it.
+ * @param {string} path
+ * @param {{ method?: string, body?: unknown, headers?: Record<string, string>, signal?: AbortSignal, auth?: boolean,
+ *   onResponse?: (res: Response) => void, keepalive?: boolean }} [opts]
+ * @returns {Promise<any>}
  */
 export async function api(path, { method = 'GET', body, headers = {}, signal, auth = true, onResponse, keepalive = false } = {}) {
   // the demo class (TEACHER-15) never reaches a server: its teacher calls are answered on the device (lib/teacherDemo.js)
@@ -208,6 +244,7 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
   const base = apiBase();
   if (!base) throw new ApiError('no_server');
   const token = auth ? useApp.getState().profile?.token : null;
+  /** @type {Response} */
   let res;
   try {
     res = await fetch(base + path, {
@@ -216,7 +253,7 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (e) {
-    if (e.name === 'AbortError') throw e;
+    if (/** @type {any} */ (e)?.name === 'AbortError') throw e;
     throw new ApiError('network');
   }
   onResponse?.(res);
@@ -229,7 +266,9 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
  * The server's GET /api/health, asked once per visit: what it is set up for (email codes, the tutor, checkout). null
  * with no server, or when it does not answer (asked again next time).
  */
+/** @type {Promise<any> | null} */
 let health = null;
+/** @returns {Promise<any>} */
 export function serverHealth() {
   if (!hasServer() || useApp.getState().profile?.demo === true) return Promise.resolve(null);
   health ||= api('/api/health', { auth: false }).catch(() => { health = null; return null; });
@@ -246,6 +285,7 @@ export const STEPS_PER_SYNC = 50;
  * The levels a class sync sends: each unit's { level, max } (the student's progress), then each guest stair the student
  * touched under its own id (lib/path.js guestStairLevels), which a teacher's guest row reads.
  */
+/** @param {{ progress?: Record<string, unknown>, path?: Record<string, any>, learn?: Record<string, any> }} app */
 export const syncLevels = (app) => ({ ...(app.progress || {}), ...guestStairLevels(app.path, app.learn) });
 
 /**
@@ -260,8 +300,13 @@ export const syncLevels = (app) => ({ ...(app.progress || {}), ...guestStairLeve
  * now (lib/classWork.js, at most every 5 minutes). One sync at a time: a call while one runs gets that one's promise
  * (so the class goal, lib/classGoal.js, asks for the total only after the steps went), and sends nothing of its own.
  */
+/** @type {Promise<void> | null} */
 let inflight = null;
 let inflightLevels = false;
+/**
+ * @param {{ hidden?: boolean, levels?: boolean }} [opts]
+ * @returns {Promise<void>}
+ */
 export function syncNow({ hidden = false, levels = false } = {}) {
   // a sync that must send the levels (just after joining or opening) never folds into one that sends none (the class
   // goal's card may have started one a moment before): it runs right after it
@@ -294,7 +339,7 @@ export function syncNow({ hidden = false, levels = false } = {}) {
       if (!hidden) await fetchClassWork();
     } catch (e) {
       // everything not acknowledged stays queued for the next moment
-      if (e.code === 'not_signed_in') useApp.getState().patchProfile({ token: null });
+      if (/** @type {any} */ (e)?.code === 'not_signed_in') useApp.getState().patchProfile({ token: null });
     }
   })().finally(() => { inflight = null; });
   return inflight;

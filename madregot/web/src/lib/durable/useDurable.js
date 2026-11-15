@@ -1,3 +1,4 @@
+// @ts-check
 // How the saving is going on this device (DURABLE-1), for the screens that say so: a plain store, never saved itself.
 //   health        'ok'      the last change is saved in the browser's storage
 //                 'mirror'  the browser's storage is full, but the change is saved in the copy on the device (IndexedDB)
@@ -10,12 +11,23 @@
 //                 the data even when the device fills up), false (no promise), null (this browser cannot say)
 import { create } from 'zustand';
 
-export const createDurableStatus = () => create(() => ({ health: 'ok', savedAt: null, restoredFrom: null, restoreNote: false, persisted: null }));
+import { t } from '@/lib/i18n.js';
+/**
+ * @typedef {object} DurableStatus
+ * @property {import('./types').Health} health
+ * @property {string | null} savedAt
+ * @property {'mirror' | null} restoredFrom
+ * @property {boolean} restoreNote
+ * @property {boolean | null} persisted
+ */
+export const createDurableStatus = () => create(() => /** @type {DurableStatus} */ ({ health: 'ok', savedAt: null, restoredFrom: null, restoreNote: false, persisted: null }));
 
 export const useDurable = createDurableStatus();
 
 /** A reload would keep the progress: it is saved in the browser's storage or in the copy on the device. */
+/** @param {string} health */
 export const savedHealth = (health) => health === 'ok' || health === 'mirror';
 
 /** The words for `health` (Settings › שמירת ההתקדמות and מידע לתמיכה). */
-export const healthText = (health) => (savedHealth(health) ? 'נשמר' : health === 'full' ? 'לא נשמר: הדפדפן מלא' : 'לא נשמר: הדפדפן חוסם שמירה');
+/** @param {string} health */
+export const healthText = (health) => (savedHealth(health) ? t('shell.usedurable.1') : health === 'full' ? t('shell.usedurable.2') : t('shell.usedurable.3'));

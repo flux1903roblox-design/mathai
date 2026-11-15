@@ -21,7 +21,7 @@ const get = (st, path) => { const r = call(st, 'GET', path); expect(r.status, JS
 const SHAPES = {
   dashboard: ['aiPolicy', 'assignments', 'boundAt', 'boundElsewhere', 'class', 'exams', 'help', 'helpDigest', 'joinLocked', 'mistakes', 'rekeyFrom', 'students', 'today'],
   cls: ['code', 'grade', 'name', 'teacherName'],
-  student: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'lastSeen', 'late', 'levels', 'name', 'pinReset', 'today', 'week'],
+  student: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'lastSeen', 'late', 'levels', 'manyWrongPins', 'name', 'pinReset', 'today', 'week'],
   today: ['first', 'minutes', 'n', 'ok'],
   week: ['days', 'first', 'minutes', 'n'],
   exam: ['assignmentId', 'at', 'correct', 'id', 'name', 'questions', 'source', 'studentId', 'title', 'total', 'weak'],
@@ -39,7 +39,7 @@ const SHAPES = {
   reportWork: ['asked', 'late', 'passed', 'right', 'stage', 'state', 'tries'],
   reportMistake: ['cat', 'level', 'n', 'names', 'students', 'topic'],
   page: ['days14', 'exams', 'help', 'levels', 'mistakes', 'student', 'work'],
-  pageStudent: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'name', 'pinReset'],
+  pageStudent: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'manyWrongPins', 'name', 'pinReset'],
   pageDay: ['day', 'first', 'minutes', 'n'],
   pageMistake: ['cat', 'lastAt', 'level', 'n', 'topic'],
   pageWork: ['asked', 'assignmentId', 'dueOn', 'kind', 'late', 'passed', 'right', 'stage', 'state', 'title'],
@@ -265,7 +265,12 @@ describe('demoApi answers in the Worker\'s shapes', () => {
     const id = st.students[0].id;
     expect(call(st, 'POST', `/api/teacher/students/${id}/ai`, { off: true }).body).toEqual({ id, aiOff: true });
     expect(get(st, `/api/teacher/students/${id}`).student.aiOff).toBe(true);
-    expect(call(st, 'POST', `/api/teacher/students/${id}/reset-pin`, {}).body).toEqual({ ok: true });
+    // the reset answers a one-time code as the server does (COUNCIL2-25): the same for the same student, from the alphabet
+    const reset = call(st, 'POST', `/api/teacher/students/${id}/reset-pin`, {}).body;
+    expect(keys(reset)).toEqual(['claimCode', 'claimExpires', 'ok']);
+    expect(reset.claimCode).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{6}$/);
+    expect(call(st, 'POST', `/api/teacher/students/${id}/reset-pin`, {}).body.claimCode).toBe(reset.claimCode);
+    expect(get(st, `/api/teacher/students/${id}`).student.pinReset).toBe(true);
     expect(call(st, 'POST', `/api/teacher/students/${id}/remove`, {}).body).toEqual({ ok: true });
     expect(get(st, '/api/teacher/dashboard').students).toHaveLength(23);
     for (const p of ['/api/teacher/class/delete', '/api/teacher/class/rekey', '/api/teacher/class/owner']) expect(call(st, 'POST', p, { confirm: 'DELETE' })).toEqual({ status: 403, body: { error: 'demo_readonly' } });

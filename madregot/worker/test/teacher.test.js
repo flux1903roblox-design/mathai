@@ -41,10 +41,10 @@ test('removing a student deletes their rows, and their token stops working', asy
   h = await setup();
   const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
   const [noa, itai] = cls.students;
-  await h.call('POST', '/api/progress', { headers: bearer(noa), body: { events: [{ topic: 'neg', level: 1, ok: true, first: true, secs: 5 }], levels: { neg: { level: 2, max: 2 } } } });
-  await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'neg', question: '3 - 8', answer: '5' } });
+  await h.call('POST', '/api/progress', { headers: bearer(noa), body: { events: [{ topic: 'signed', level: 1, ok: true, first: true, secs: 5 }], levels: { signed: { level: 2, max: 2 } } } });
+  await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: '3 - 8', answer: '5' } });
   await h.call('POST', '/api/exams', { headers: bearer(noa), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
-  await h.call('POST', '/api/progress', { headers: bearer(itai), body: { events: [{ topic: 'neg', level: 1, ok: true, first: true, secs: 5 }] } });
+  await h.call('POST', '/api/progress', { headers: bearer(itai), body: { events: [{ topic: 'signed', level: 1, ok: true, first: true, secs: 5 }] } });
   await setCount(h.env, `pin:${noa.studentId}`, 3);
   for (const who of [`s:${noa.studentId}`, `s:${noa.studentId}:tutor`, `free:s:${noa.studentId}`]) await setCount(h.env, who, 1);
   await setCount(h.env, `s:${itai.studentId}`, 1);
@@ -390,30 +390,34 @@ test('a PIN reset needs the class\'s own teacher; it ends the old token, clears 
   const other = await makeClass(h);
   const [noa, itai] = cls.students;
   const reset = (headers) => h.call('POST', `/api/teacher/students/${noa.studentId}/reset-pin`, { headers, body: {} });
-  const join = (pin, name = 'נועה') => h.call('POST', `/api/classes/${cls.code}/join`, { body: { name, pin } });
-  await setCount(h.env, `pin:${noa.studentId}`, 4);
-  const secrets = () => ({ ...one(h.env, 'SELECT pin_hash, token_hash FROM students WHERE id = ?', noa.studentId) });
+  const join = (pin, name = 'נועה', claim) => h.call('POST', `/api/classes/${cls.code}/join`, { body: { name, pin, ...(claim ? { claim } : {}) } });
+  const tries = `pin:${noa.studentId}:${await netOf(h.env)}:day`;
+  await setCount(h.env, tries, 4);
+  const secrets = () => ({ ...one(h.env, 'SELECT pin_hash, token_hash, claim_hash FROM students WHERE id = ?', noa.studentId) });
   const before = secrets();
   assert.equal((await reset({})).status, 401);
-  // another class's teacher: answered, nothing changes
-  assert.equal((await reset(other.teacher)).status, 200);
+  // another class's teacher: answered, nothing changes, and no code is given
+  assert.deepEqual(await (await reset(other.teacher)).json(), { ok: true });
   assert.deepEqual(secrets(), before);
-  assert.equal(countOf(h.env, `pin:${noa.studentId}`), 4, 'the tries stay');
+  assert.equal(countOf(h.env, tries), 4, 'the tries stay');
   assert.equal((await send(noa, [])).status, 200, 'her token still works');
-  // the class's own teacher
-  assert.deepEqual(await (await reset(cls.teacher)).json(), { ok: true });
-  assert.equal(countOf(h.env, `pin:${noa.studentId}`), 0);
+  // the class's own teacher: the one-time code to give her (COUNCIL2-25)
+  const { ok, claimCode } = await (await reset(cls.teacher)).json();
+  assert.equal(ok, true); assert.match(claimCode, /^[A-Z2-9]{6}$/);
+  assert.equal(countOf(h.env, tries), 0);
   assert.equal((await send(noa, [])).status, 401, 'the old token stops working');
   assert.equal((await send(itai, [])).status, 200, 'a classmate keeps her token');
   let dash = await dashboard(cls);
   assert.deepEqual(dash.students.map((s) => [s.name, s.pinReset]), [['איתי', false], ['נועה', true]]);
-  // a class closed to new names still lets her back in; the new PIN is set by this join, and the old one stops working
+  // a class closed to new names still lets her back in with the teacher's code; the new PIN is set by this join, and the
+  // old one stops working
   await h.call('POST', '/api/teacher/class/lock', { headers: cls.teacher, body: { locked: true } });
-  const back = await join('5678');
+  assert.equal((await (await join('5678')).json()).error, 'claim_code_needed', 'her name alone is not enough');
+  const back = await join('5678', 'נועה', claimCode);
   assert.equal(back.status, 200);
   const again = await back.json();
   assert.equal(again.studentId, noa.studentId); assert.equal(again.returning, true);
-  assert.equal(countOf(h.env, `pin:${noa.studentId}`), 0, 'setting a new PIN uses no try');
+  assert.equal(countOf(h.env, tries), 0, 'setting a new PIN uses no try');
   assert.equal((await send(again, [])).status, 200, 'the new token works');
   const old = await join('1234');
   assert.equal(old.status, 403); assert.equal((await old.json()).error, 'wrong_pin');
@@ -439,7 +443,8 @@ test('a PIN is tried 5 times an hour from one network: a classmate there locks i
   const home = await join(cls.code, '1234', B);
   assert.equal(home.status, 200); assert.equal((await home.json()).returning, true);
   const [netA, netB] = [await netOf(h.env, A), await netOf(h.env, B)];
-  assert.equal(countOf(h.env, `pin:${id}`), 5, 'the day counts the 5 wrong tries only');
+  assert.equal(countOf(h.env, `pin:${id}:${netA}:day`), 5, 'network A\'s day counts the 5 wrong tries only');
+  assert.equal(countOf(h.env, `pin:${id}`), 5, 'the student\'s day counts every wrong PIN, from anywhere');
   assert.equal(countOf(h.env, `pin:${id}:${netB}`), 0, 'the right code gave its try back');
   assert.equal(countOf(h.env, `pin:${id}:${netA}`), 5);
   assert.ok(pinRows(id).every((r) => !r.who.includes(A) && !r.who.includes(B)), 'networks are counted by their key, never the address');
@@ -450,21 +455,39 @@ test('a PIN is tried 5 times an hour from one network: a classmate there locks i
   assert.equal((await join(cls.code, '1234', A)).status, 200);
 });
 
-test('30 wrong PINs a day in all: from a 7th network the next try is 429, and the teacher\'s reset clears every PIN counter', async () => {
+test('30 wrong PINs from 6 networks: a 7th, unknown network needs the teacher\'s code; her own device and the school\'s network join at once; the reset clears every PIN counter', async () => {
   h = await setup();
-  const cls = await makeClass(h, { students: ['נועה'] });
-  const id = cls.students[0].studentId;
+  const cls = await makeClass(h, { students: ['נועה'] }); // she joined from the school's network (203.0.113.7)
+  const [noa] = cls.students; const id = noa.studentId;
   for (let n = 1; n <= 6; n++) for (let i = 0; i < 5; i++) assert.equal((await join(cls.code, '9999', `198.51.100.${n}`)).status, 403, `net ${n} try ${i + 1}`);
+  assert.equal(countOf(h.env, `pin:${id}`), 30, 'the student\'s day: 30 wrong PINs');
+  // a network she never signed in from: no comparison any more, even of the right PIN; the teacher's code is the way in
   const seventh = await join(cls.code, '1234', '198.51.100.7');
-  assert.equal(seventh.status, 429); assert.equal((await seventh.json()).error, 'too_many_pin');
-  assert.equal(countOf(h.env, `pin:${id}`), 30);
-  assert.equal(pinRows(id).filter((r) => r.count > 0).length, 7, 'the day key and 6 network keys');
-  assert.equal(countOf(h.env, `pin:${id}:${await netOf(h.env, '198.51.100.7')}`), 0, 'the refused try took nothing');
+  assert.equal(seventh.status, 403);
+  assert.deepEqual(await seventh.json().then((b) => [b.error, b.reason]), ['claim_code_needed', 'many_wrong']);
+  assert.equal(countOf(h.env, `pin:${id}:${await netOf(h.env, '198.51.100.7')}`), 0, 'a refused join took nothing');
+  // a stranger cannot lock her out: the school's network, and her own phone on a new network (it holds her token)
+  assert.equal((await join(cls.code, '1234')).status, 200, 'the network she signed in from');
+  const phone = await h.call('POST', `/api/classes/${cls.code}/join`, { body: { name: 'נועה', pin: '1234' }, ip: '192.0.2.44', headers: { Authorization: `Bearer ${noa.token}` } });
+  assert.equal(phone.status, 200, 'a device that holds one of her tokens');
+  // ... and that network is now one of hers: a second device there joins with the PIN alone
+  assert.equal((await join(cls.code, '1234', '192.0.2.44')).status, 200);
+  // another student's token is no pass
+  const other = await makeClass(h, { students: ['איתי'] });
+  const foreign = await h.call('POST', `/api/classes/${cls.code}/join`, { body: { name: 'נועה', pin: '1234' }, ip: '198.51.100.8', headers: { Authorization: `Bearer ${other.students[0].token}` } });
+  assert.equal(foreign.status, 403);
+  // the teacher sees it on her row, and on her page
+  const board = await (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json();
+  assert.equal(board.students.find((x) => x.id === id).manyWrongPins, true);
+  assert.equal((await (await h.call('GET', `/api/teacher/students/${id}`, { headers: cls.teacher })).json()).student.manyWrongPins, true);
+  assert.equal(pinRows(id).filter((r) => r.count > 0).length, 13, 'an hour key and a day key for each of the 6 networks, and her day');
   const reset = await h.call('POST', `/api/teacher/students/${id}/reset-pin`, { headers: cls.teacher, body: {} });
   assert.equal(reset.status, 200);
-  assert.equal(pinRows(id).length, 0, 'every pin:<id> and pin:<id>:<net> key is gone');
-  // the next join sets a new code, from anywhere
-  assert.equal((await join(cls.code, '4321', '198.51.100.1')).status, 200);
+  const { claimCode } = await reset.json();
+  assert.equal(pinRows(id).length, 0, 'every pin:<id> key is gone');
+  assert.equal((await (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json()).students.find((x) => x.id === id).manyWrongPins, false);
+  // the next join sets a new code, from anywhere, with the teacher's one-time code
+  assert.equal((await h.call('POST', `/api/classes/${cls.code}/join`, { body: { name: 'נועה', pin: '4321', claim: claimCode }, ip: '198.51.100.1' })).status, 200);
   assert.equal((await join(cls.code, '4321', '198.51.100.7')).status, 200);
 });
 
@@ -475,7 +498,7 @@ test('the PIN check is atomic: 12 wrong codes at once from one network are 5 tri
   const res = await Promise.all(Array.from({ length: 12 }, () => join(cls.code, '9999', '198.51.100.20')));
   const st = res.map((r) => r.status).sort();
   assert.deepEqual(st, [...Array(5).fill(403), ...Array(7).fill(429)]);
-  assert.equal(countOf(h.env, `pin:${id}`), 5);
+  assert.equal(countOf(h.env, `pin:${id}:${await netOf(h.env, '198.51.100.20')}:day`), 5);
 });
 
 test('removing a student removes every PIN counter of theirs, and no one else\'s', async () => {
@@ -484,10 +507,10 @@ test('removing a student removes every PIN counter of theirs, and no one else\'s
   const [noa, itai] = cls.students;
   await join(cls.code, '9999', '198.51.100.1'); await join(cls.code, '9999', '198.51.100.2');
   await join(cls.code, '9999', '198.51.100.1', 'איתי');
-  assert.equal(pinRows(noa.studentId).length, 3);
+  assert.equal(pinRows(noa.studentId).length, 5, 'an hour key and a day key on each of two networks, and her day');
   assert.equal((await h.call('POST', `/api/teacher/students/${noa.studentId}/remove`, { headers: cls.teacher, body: {} })).status, 200);
   assert.equal(pinRows(noa.studentId).length, 0);
-  assert.equal(pinRows(itai.studentId).length, 2, 'the classmate keeps his');
+  assert.equal(pinRows(itai.studentId).length, 3, 'the classmate keeps his (an hour key, a day key and his day)');
 });
 
 // ---------------------------------------------------------------- the dashboard and help, against D1
@@ -696,7 +719,8 @@ test('resetting a PIN: the old token and the old PIN stop working, the wrong-PIN
   const join = (name, pin) => h.call('POST', `/api/classes/${cls.code}/join`, { body: { name, pin } });
   // three wrong PINs today
   for (let i = 0; i < 3; i += 1) assert.equal((await join('דנה', '0000')).status, 403);
-  assert.equal(one(h.env, 'SELECT count FROM ai_usage WHERE who = ?', `pin:${dana.studentId}`).count, 3);
+  const tries = `pin:${dana.studentId}:${await netOf(h.env)}:day`;
+  assert.equal(one(h.env, 'SELECT count FROM ai_usage WHERE who = ?', tries).count, 3);
   // another class's teacher: the answer is the same, and nothing changes
   const other = await makeClass(h);
   assert.deepEqual(await (await h.call('POST', `/api/teacher/students/${dana.studentId}/reset-pin`, { headers: other.teacher, body: {} })).json(), { ok: true });
@@ -705,13 +729,13 @@ test('resetting a PIN: the old token and the old PIN stop working, the wrong-PIN
   assert.equal((await h.call('POST', `/api/teacher/students/${dana.studentId}/reset-pin`, { body: {} })).status, 401);
   // the teacher locks the class, then resets
   await h.call('POST', '/api/teacher/class/lock', { headers: cls.teacher, body: { locked: true } });
-  assert.deepEqual(await (await h.call('POST', `/api/teacher/students/${dana.studentId}/reset-pin`, { headers: cls.teacher, body: {} })).json(), { ok: true });
+  const { claimCode } = await (await h.call('POST', `/api/teacher/students/${dana.studentId}/reset-pin`, { headers: cls.teacher, body: {} })).json();
   assert.equal((await progress(dana, { events: [] })).status, 401, 'the old token stops working');
-  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who = ?', `pin:${dana.studentId}`).length, 0, 'the wrong-PIN count is cleared');
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who = ?', tries).length, 0, 'the wrong-PIN count is cleared');
   const d = await dashboardOf(cls);
   assert.deepEqual(d.students.map((s) => [s.name, s.pinReset]), [['דנה', true], ['יואב', false]]);
-  // she comes back under her name with a new PIN (the lock is for new names only)
-  const back = await join('דנה', '5678');
+  // she comes back under her name with the teacher's one-time code and a new PIN (the lock is for new names only)
+  const back = await h.call('POST', `/api/classes/${cls.code}/join`, { body: { name: 'דנה', pin: '5678', claim: claimCode } });
   assert.equal(back.status, 200);
   const again = await back.json();
   assert.equal(again.studentId, dana.studentId); assert.equal(again.returning, true);

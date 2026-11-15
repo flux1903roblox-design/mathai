@@ -5,9 +5,10 @@
 import { useSyncExternalStore } from 'react';
 import { WifiOff } from 'lucide-react';
 
-export const OFFLINE_TEXT = 'אין אינטרנט כרגע. אפשר להמשיך לתרגל, והכול יישמר.';
+import { localized, t } from '@/lib/i18n.js';
+export let OFFLINE_TEXT = localized(() => t('shell.offlinechip.1'), (v) => { OFFLINE_TEXT = v; });
 /** /restore and the parents' area, offline. */
-export const NEED_ONLINE = 'כדי להמשיך צריך חיבור לאינטרנט.';
+export let NEED_ONLINE = localized(() => t('shell.offlinechip.2'), (v) => { NEED_ONLINE = v; });
 
 // Whether the browser says it is online; follows the 'online' and 'offline' events.
 const subscribe = (fn) => {

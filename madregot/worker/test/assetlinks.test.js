@@ -19,7 +19,8 @@ const get = (env, method = 'GET') => setup(env).then((x) => { h = x; return h.ca
 
 test('wrangler.toml sends /.well-known/* to the Worker and ships the two vars empty', () => {
   const first = /^run_worker_first\s*=\s*\[([^\]]*)\]/m.exec(toml)[1];
-  assert.deepEqual(first.split(',').map((s) => s.trim().replace(/"/g, '')), ['/api/*', '/.well-known/*']);
+  // /r: the parents' summary link's preview (COUNCIL2-36, src/preview.js)
+  assert.deepEqual(first.split(',').map((s) => s.trim().replace(/"/g, '')), ['/api/*', '/.well-known/*', '/r']);
   assert.match(toml, /^ANDROID_PACKAGE = ""$/m);
   assert.match(toml, /^ANDROID_CERT_SHA256 = ""$/m);
 });

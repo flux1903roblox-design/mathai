@@ -14,7 +14,8 @@
     "eval:tutor": "node eval/run.mjs",
     "eval:estimate": "node eval/run.mjs --estimate",
     "push:keys": "node scripts/push-keys.mjs",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "typecheck": "node ../web/node_modules/typescript/bin/tsc -p tsconfig.json"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.1.0"
