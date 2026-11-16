@@ -453,12 +453,15 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         const echo = { items: seeds.map((sd) => ({ seed: sd.i, prompt: sd.text, hint: '', solution: [`התשובה: $= ${sd.answer}$`], kept: true, blind: 'skipped' })), dropped: {}, fallback: false };
         return reply(route, 200, st.genReply ? st.genReply(body) : echo, hdr);
       }
-      // the material of a coming test (EXAM-MATERIAL 1b): the stairs of the request a test names in st.syllabus
-      // ({ stairs, unplaced, examples }), only those the request offered, as the Worker keeps them
+      // the material of a coming test (EXAM-MATERIAL 1b): st.syllabus ({ stairs, unplaced, examples, readable, care }) as
+      // the model wrote it, NOT filtered to the stairs the request offered: the device's own filter (lib/examMaterial.js
+      // fromSyllabus) is what the specs test (the Worker filters too, worker/test/syllabus.test.js). { error, status }
+      // answers with that error; `hold` (a promise) keeps the answer back while a spec looks at the reading state.
       if (kind === 'syllabus') {
-        const offered = new Set(Array.isArray(body.stairs) ? body.stairs : []);
         const r = st.syllabus || { stairs: [], unplaced: [], examples: [] };
-        return reply(route, 200, { readable: r.readable !== false, stairs: (r.stairs || []).filter((x) => offered.has(x)), unplaced: r.unplaced || [], examples: r.examples || [], care: r.care === true }, hdr);
+        if (r.hold) await r.hold;
+        if (r.error) return reply(route, r.status || 502, { error: r.error }, hdr);
+        return reply(route, 200, { readable: r.readable !== false, stairs: r.stairs || [], unplaced: r.unplaced || [], examples: r.examples || [], care: r.care === true }, hdr);
       }
       return reply(route, 200, { questions: [{ prompt: '2+2', answer: '4', hint: 'חברו', solution: ['2+2=4'] }] }, hdr);
     }

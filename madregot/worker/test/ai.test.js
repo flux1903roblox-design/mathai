@@ -104,7 +104,8 @@ const INPUTS = {
   check: { image: page.data },
   exam: { pages: [page] },
   feedback: FEEDBACK_INPUT,
-  syllabus: { pages: [page], stairs: ['eq:1', 'eq:6'] },
+  // (a syllabus request names its grade: the stairs it may offer are that grade's)
+  syllabus: { grade: '7', pages: [page], stairs: ['eq:1', 'eq:6'] },
 };
 const SAFETY_PARTS = ['1201', '052-845-1201', '08:00–02:00', '055-957-1399', '105', '100', '101', '[[care]]'];
 /** Every request the tutor can send: each kind in each shape it has, and the care request. */

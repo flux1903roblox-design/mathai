@@ -7,7 +7,7 @@ import { diagnose, couldShow, discriminating } from './misconceptions';
 import { parseSkill } from './skills';
 import { MASTERY_N, REVIEW_N } from './mastery';
 import { VERIFY_N } from './misconceptions';
-import { DIAG_PER_SKILL, QUICK_N } from './examRescue';
+import { DIAG_PER_SKILL, QUICK_N, examQuestions } from './examRescue';
 // @ts-ignore: plain JS
 import { makeItem, fairForCheck, namesOf } from '@/content/index.js';
 // @ts-ignore: plain JS
@@ -208,9 +208,10 @@ export function checkPlan(spec: CheckSpec, rnd: Rng): { skill: SkillId; source: 
     case 'diagnostic':
       return (spec.skills || []).flatMap((s) => Array.from({ length: DIAG_PER_SKILL }, (_, i) => ({ skill: s, source: (has(s) && i === 0 ? 'diag' : 'gen') as Source })));
     case 'exam': {
+      // how many questions: examRescue.ts examQuestions, which the plan's minutes are worked out from
       const list = spec.skills || [];
       const per = list.length >= 6 ? 1 : 2;
-      return shuffle(list.flatMap((s) => Array.from({ length: per }, (_, i) => ({ skill: s, source: (hasT(s) && i === 1 ? 'transfer' : 'gen') as Source }))), rnd).slice(0, 14);
+      return shuffle(list.flatMap((s) => Array.from({ length: per }, (_, i) => ({ skill: s, source: (hasT(s) && i === 1 ? 'transfer' : 'gen') as Source }))), rnd).slice(0, examQuestions(list.length));
     }
     case 'floor': {
       // the floor check (בדיקת יסודות): a diagnostic question of each fractions stair, so a wrong answer names its

@@ -58,6 +58,8 @@ export interface CheckResult {
    * curriculum lane's floor check (CURRICULUM-3). */
   purpose: 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'class' | 'floor' | 'quick';
   skill?: string; misc?: string;
+  /** The stairs a check asked (a practice exam: all of the plan's, or tonight's). */
+  skills?: string[];
   right: number; asked: number;
   perSkill: Record<string, { right: number; asked: number }>;
   /** verify: how many answers showed the misconception again. */
@@ -102,7 +104,11 @@ export function learnAfterCheck(learn: LearnState, r: CheckResult, at: string, _
     if (exam) exam = recordQuick(exam, r.skill, r.right, r.asked, at);
     events = logEvent(events, { e: 'check-done', s: r.skill, p: 'quick', ok: r.right === r.asked, n: share(r) }, at);
   } else if (r.purpose === 'exam') {
-    events = logEvent(events, { e: 'rescue-exam-done', n: share(r) }, at);
+    // how many stairs it asked (the evening plan times it by them), and 'part' when it asked only some of the plan's
+    // stairs (tonight's, EXAM-MATERIAL 2): the exam on every stair is then still to come
+    const k = (r.skills || []).length || undefined;
+    const part = !!exam && !!k && k < exam.skills.length;
+    events = logEvent(events, { e: 'rescue-exam-done', n: share(r), ...(k ? { k } : {}), ...(part ? { p: 'part' } : {}) }, at);
   } else if (r.purpose === 'class') {
     // the class exam is the teacher's: it is logged, and changes no stair, misconception or Exam Rescue plan
     events = logEvent(events, { e: 'class-exam-done', n: share(r) }, at);

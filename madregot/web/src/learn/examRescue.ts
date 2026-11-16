@@ -22,13 +22,26 @@ export interface PlanDay { day: string; tasks: PlanTask[]; minutes: number }
 export interface ExamPlan {
   daysLeft: number; mastered: number; ready: number; total: number; topicsMastered: number; topicsTotal: number;
   skills: PlanSkill[]; days: PlanDay[]; today: PlanTask[]; message: string; diagnosed: boolean;
-  /** The evening before the exam, or its morning: what does not fit the minutes chosen, and the minutes of each part. */
-  evening?: { later: PlanTask[]; minutes: number; laterMinutes: number };
+  /**
+   * The evening before the exam, or its morning (EXAM-MATERIAL 2). minutes: what is left for today (on a rest day, for the
+   * exam's morning: `rest`); spent: the minutes of the evening's steps already done today; over: spent and what is left
+   * go past the minutes chosen; later: the stairs that do not fit, then the practice exam on every stair when tonight's
+   * exam covers only tonight's stairs; laterMinutes: their minutes.
+   */
+  evening?: { later: PlanTask[]; minutes: number; laterMinutes: number; spent: number; over: boolean; rest: boolean };
 }
 
 export const DIAG_PER_SKILL = 2;
 /** The quick check of the evening before the exam: three questions of one stair, all three right to need no practice. */
 export const QUICK_N = 3;
+/** About how long one question of a check takes, in seconds: the app's pace (a quick check of 3 in 2 minutes). */
+export const PACE_SECS = 40;
+/** The most questions a practice exam asks. */
+export const EXAM_MAX = 14;
+/** How many questions a practice exam over n stairs asks (learn/items.ts checkPlan 'exam'): two a stair, one from six. */
+export const examQuestions = (n: number): number => Math.min(EXAM_MAX, n >= 6 ? n : 2 * n);
+/** About how long a practice exam over n stairs takes, in minutes: its questions at the app's pace. */
+export const examMinutes = (n: number): number => Math.max(1, Math.ceil((examQuestions(n) * PACE_SECS) / 60));
 
 /**
  * A rest day, Shabbat or Yom Tov in Israel (shared/restDays.js, as the streak counts them): the plan puts no work on it,
@@ -104,8 +117,9 @@ export function prereqsFirst(list: PlanSkill[]): PlanSkill[] {
 /** About how long each step of the plan takes, in minutes (recommend.ts STAGE_MIN): a lesson is a stair's three teaching stages. */
 export const taskMinutes = (kind: PlanTask['kind']): number => ({
   learn: STAGE_MIN.A + STAGE_MIN.B + STAGE_MIN.C, practice: STAGE_MIN.D, mastery: STAGE_MIN.E, review: MINUTES.review, exam: MINUTES.exam,
-  // the evening before the exam: reading a stair's rule card, and its quick check of QUICK_N questions
-  rule: 1, quick: 2,
+  // the evening before the exam: reading a stair's rule card (its rule, a worked example: 65 to 190 words), and its quick
+  // check of QUICK_N questions at the app's pace. (The plan times a practice exam by its stairs: examMinutes.)
+  rule: 2, quick: Math.ceil((QUICK_N * PACE_SECS) / 60),
 }[kind]);
 
 /**
@@ -185,7 +199,8 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
   const diagnosed = chosen.every((id) => (plan.diagnostic?.[id]?.asked || 0) > 0);
 
   const task = (skill: SkillId | null, kind: PlanTask['kind'], title: string, to: string): PlanTask => ({ skill, kind, title, to, minutes: taskMinutes(kind) });
-  const finale = task(null, 'exam', 'מבחן תרגול על כל הנושאים', '/rescue/exam');
+  // the practice exam on every stair, timed by its questions (examMinutes), not by a flat estimate
+  const finale = { ...task(null, 'exam', 'מבחן תרגול על כל הנושאים', '/rescue/exam'), minutes: examMinutes(chosen.length) };
   const mastered = skills.filter((s) => s.standing === 'mastered').length;
   const ready = skills.filter((s) => s.standing === 'ready').length;
   const topics = [...new Set(chosen.map((id) => parseSkill(id).topic))];
@@ -194,34 +209,65 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
 
   if (daysLeft <= 1) {
     // EXAM-MATERIAL 2: the evening before the exam (or its morning). For each stair, weakest first: its rule card, a quick
-    // check of QUICK_N questions, practice only where the check failed; then the practice exam. What was done since the
-    // day before the exam counts; whole stairs go in while they fit the minutes beside the practice exam, the rest wait
-    // apart. On Shabbat or Yom Tov the steps wait for the exam's morning.
+    // check of QUICK_N questions, practice only where the check failed; then a practice exam. What was done since the day
+    // before the exam counts as done; the minutes of what was done TODAY count against the minutes chosen, so the list
+    // does not grow back as the evening goes on. A stair already started tonight stays tonight's; others join while they
+    // fit beside the exam, whole; the rest wait apart ("אם יש עוד זמן"). Teach before test: when stairs wait apart,
+    // tonight's practice exam asks only tonight's stairs, and the exam on every stair closes the waiting list. On Shabbat
+    // or Yom Tov the steps wait for the exam's morning.
     const since = new Date(new Date(`${plan.date}T12:00:00`).getTime() - 864e5).toLocaleDateString('en-CA');
     const fresh = (at?: string) => !!at && at.slice(0, 10) >= since;
+    const onToday = (at?: string) => !!at && new Date(at).toLocaleDateString('en-CA') === today;
     // a practice lesson finished after the check (a check also logs 'lesson-done', with its purpose)
-    const after = (e: string, s: SkillId | null, at: string) => learn.events.some((x) => x.e === e && (!s || x.s === s) && x.t > at && !CHECKS.includes(String(x.p)));
+    const practiceAfter = (s: SkillId, at: string) => learn.events.filter((x) => x.e === 'lesson-done' && x.s === s && x.t > at && !CHECKS.includes(String(x.p)));
+    const RULE = taskMinutes('rule'); const QUICK = taskMinutes('quick'); const PRACTICE = taskMinutes('practice');
     const stairs = order.map((p) => {
       const t = titleOf(p.skill); const { topic, level } = parseSkill(p.skill);
+      const ruleAt = plan.rules?.[p.skill]; const ruled = fresh(ruleAt);
       const q = plan.quick?.[p.skill]; const checked = !!q && fresh(q.at);
-      return [
-        ...(fresh(plan.rules?.[p.skill]) ? [] : [task(p.skill, 'rule', `נזכרים בכלל: ${t}`, `/rescue/rule/${topic}/${level}`)]),
+      const practised = checked && q.right < q.asked ? practiceAfter(p.skill, q.at) : [];
+      const steps = [
+        ...(ruled ? [] : [task(p.skill, 'rule', `נזכרים בכלל: ${t}`, `/rescue/rule/${topic}/${level}`)]),
         ...(!checked ? [task(p.skill, 'quick', `בדיקה מהירה: ${t}`, `/rescue/check?skill=${p.skill}`)]
-          : q.right < q.asked && !after('lesson-done', p.skill, q.at) ? [task(p.skill, 'practice', `מתרגלים: ${t}`, routeOf.stage(p.skill, 'D'))] : []),
+          : q.right < q.asked && !practised.length ? [task(p.skill, 'practice', `מתרגלים: ${t}`, routeOf.stage(p.skill, 'D'))] : []),
       ];
-    }).filter((ts) => ts.length);
-    const end = after('rescue-exam-done', null, `${since}T00:00:00`) ? [] : [finale];
+      const spent = (ruled && onToday(ruleAt) ? RULE : 0) + (checked && onToday(q.at) ? QUICK : 0) + (practised.some((x) => onToday(x.t)) ? PRACTICE : 0);
+      return { skill: p.skill, steps, started: ruled || checked, spent };
+    });
+    const exams = learn.events.filter((x) => x.e === 'rescue-exam-done' && x.t.slice(0, 10) >= since);
+    const fullDone = exams.some((x) => x.p !== 'part');
+    const partDone = exams.some((x) => x.p === 'part');
+    const spent = stairs.reduce((a, x) => a + x.spent, 0) + exams.filter((x) => onToday(x.t)).reduce((a, x) => a + examMinutes(x.k || chosen.length), 0);
+    // tonight's stairs: those started tonight, then whole stairs in the plan's order while they fit beside the exam
+    const tonight = new Set(stairs.filter((x) => x.started).map((x) => x.skill));
     const left: PlanTask[] = []; const later: PlanTask[] = [];
-    let room = plan.minutes - sum(end);
-    stairs.forEach((ts) => { if (!later.length && (!left.length || sum(ts) <= room)) { left.push(...ts); room -= sum(ts); } else later.push(...ts); });
-    left.push(...end);
+    // once tonight's exam is done, tonight's list is closed: what waits keeps waiting
+    let spill = partDone || fullDone;
+    stairs.forEach((x) => {
+      if (!x.steps.length) return;
+      if (x.started) { left.push(...x.steps); return; }
+      const exam = fullDone || partDone ? 0 : examMinutes(tonight.size + 1);
+      if (!spill && (!tonight.size || spent + sum(left) + sum(x.steps) + exam <= plan.minutes)) { left.push(...x.steps); tonight.add(x.skill); } else { spill = true; later.push(...x.steps); }
+    });
+    if (!fullDone) {
+      if (!later.length) left.push(finale);
+      else {
+        // teach before test: tonight's exam asks tonight's stairs only; the exam on every stair waits with the rest
+        const ids = chosen.filter((id) => tonight.has(id));
+        // (on a rest day the steps wait for after it or the morning: no "הערב")
+        const when = isRestDay(today) && daysLeft > 0 ? '' : daysLeft ? ' הערב' : ' הבוקר';
+        if (!partDone && ids.length) left.push({ ...task(null, 'exam', `מבחן תרגול על מה שעברנו${when}`, `/rescue/exam?skills=${ids.join(',')}`), minutes: examMinutes(ids.length) });
+        later.push(finale);
+      }
+    }
     const rest = isRestDay(today) && daysLeft > 0;
     const evening = `המבחן ${daysLeft ? 'מחר' : 'היום'}.`;
-    const message = rest ? `${evening} ${REST_DAY_LINE}` : !left.length ? `${evening} עשיתם את כל מה שתכננו להיום.`
+    const message = rest ? `${evening} ${REST_DAY_LINE}` : !left.length ? `${evening} עשיתם את כל מה שתכננו${spent ? ' להיום' : ''}.`
       : `${evening} ${daysLeft ? 'הערב' : 'לפני המבחן'}: כלל קצר ובדיקה מהירה לכל מדרגה, תרגול רק איפה שצריך, ובסוף מבחן תרגול.`;
+    const minutes = sum(left);
     return {
-      ...counts, days: [{ day: rest ? plan.date : today, tasks: left, minutes: sum(left) }], today: rest ? [] : left, message, diagnosed: true,
-      evening: { later, minutes: sum(left), laterMinutes: sum(later) },
+      ...counts, days: [{ day: rest ? plan.date : today, tasks: left, minutes }], today: rest ? [] : left, message, diagnosed: true,
+      evening: { later, minutes, laterMinutes: sum(later), spent: rest ? 0 : spent, over: (rest ? 0 : spent) + minutes > plan.minutes, rest },
     };
   }
   const tasksOf = (p: PlanSkill): PlanTask[] => {

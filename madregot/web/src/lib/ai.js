@@ -8,7 +8,8 @@ import { CARE_MARK, BLOCKED_TEXT } from '@shared/safety.js';
 import { useApp } from './store.js';
 import { apiBase, ApiError, errorText } from './api.js';
 import { aiHeaders, aiMode, aiReady, noteUsage, noteLimit, openLimitSheet, LIMIT_ERRORS, useAIStatus } from './account.js';
-import { qaActive, qaReply } from './qaFixtures.js';
+import { qaActive } from './qaFixtures.js';
+import { qaReply } from './qaViews.js';
 import { teacherHeaders } from './teacher.js';
 import { DEMO_COPY } from './demo.js';
 

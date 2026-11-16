@@ -536,6 +536,51 @@ test.describe('Exam Rescue with the material, and the evening before the exam', 
     await expect.poll(() => item(page)).toBeTruthy();
     await scan(page, 'the quick check');
   });
+  // the review of EXAM-MATERIAL: every state of the pictures' way, and the evening's other states
+  test('the pictures\' way: reading, unreadable, the care card, nothing found, a broken reply', async ({ page }) => {
+    const { st } = await fakeServer(page, { paywall: false, parentOk: true });
+    const read = async (reply) => {
+      st.syllabus = reply;
+      await open(page, '#/rescue', withServer());
+      await toTopics(page);
+      await page.getByRole('button', { name: 'לצלם את החומר (עד 4 תמונות)' }).click();
+      const chooser = page.waitForEvent('filechooser');
+      await page.getByRole('button', { name: 'תמונה או PDF' }).click();
+      const warn = page.getByRole('dialog', { name: 'לפני ששולחים דף' });
+      // (the warning comes once a visit: wait for it, briefly, before going on without it)
+      if (await warn.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false)) await warn.getByRole('button', { name: 'הבנתי, לבחור קובץ' }).click();
+      await (await chooser).setFiles({ name: 'material.png', mimeType: 'image/png', buffer: await examPng(page) });
+      await page.getByRole('dialog', { name: 'מסתירים פרטים אישיים' }).getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+      await page.getByRole('button', { name: 'לקרוא את החומר' }).click();
+    };
+    let release;
+    await read({ stairs: [], unplaced: [], examples: [], hold: new Promise((r) => { release = r; }) });
+    await expect(page.getByRole('heading', { name: 'העוזר קורא את החומר' })).toBeVisible();
+    await scan(page, 'Rescue, the helper reading the material');
+    release();
+    await expect(page.locator('.material-found-line')).toHaveText('לא מצאתי בחומר נושאים של המדרגות. אפשר לבחור בעצמכם למטה.');
+    await scan(page, 'Rescue, nothing found in the material');
+    await read({ readable: false });
+    await expect(page.locator('.form-error')).toHaveText('לא הצלחנו לקרוא את החומר. אפשר לצלם שוב באור טוב, או להדביק את ההודעה.');
+    await scan(page, 'Rescue, the material could not be read');
+    await read({ care: true, stairs: [] });
+    await expect(page.locator('.exam-support')).toBeVisible();
+    await scan(page, 'Rescue, the care card after the material');
+    await read({ error: 'bad_output', status: 502 });
+    await expect(page.locator('.form-error')).toHaveText('התשובה של העוזר לא הגיעה שלמה. נסו שוב.');
+    await scan(page, 'Rescue, a broken reply about the material');
+  });
+  test('the evening\'s other states: Saturday before a Sunday exam, and everything done', async ({ page }) => {
+    const sunday = exam({ date: '2026-11-08', skills: ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5'], minutes: 15 });
+    await open(page, '#/rescue', withExam(sunday), '424242', { at: new Date('2026-11-07T20:30:00') });
+    await expect(page.getByRole('heading', { name: 'מה נשאר לפני המבחן' })).toBeVisible();
+    await scan(page, 'Rescue, Saturday night before a Sunday exam');
+    const done = withExam(exam({ date: tomorrow, skills: ['signed:1'], minutes: 15, rules: { 'signed:1': '2026-11-05T08:00:00.000Z' }, quick: { 'signed:1': { asked: 3, right: 3, at: '2026-11-05T08:05:00.000Z' } } }));
+    done.state.learn.events = [{ t: '2026-11-05T08:10:00.000Z', e: 'rescue-exam-done', n: 1, k: 1 }];
+    await open(page, '#/rescue', done);
+    await expect(page.locator('.rescue-evening .evening-time')).toHaveText('עשיתם את כל מה שתכננו להיום. אפשר לנוח.');
+    await scan(page, 'Rescue, the evening done');
+  });
 });
 
 /** The class goal, answered by the fake server for a class student (on top of fakeServer's routes). */

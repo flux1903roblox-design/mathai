@@ -284,13 +284,28 @@ export const SYLLABUS_SCHEMA = Object.freeze({
 });
 
 /**
+ * What a test of each grade may cover: Exam Rescue's catalogue of the grade (web lib/examMaterial.js materialCatalogue:
+ * its rows and the bridge unit), as whole topics, or 'topic:n' for a unit the grade has only some stairs of (ז׳ has
+ * func:1 alone). examMaterial.test.js fails the moment this and the catalogue differ.
+ */
+export const SYLLABUS_GRADE = Object.freeze({
+  7: Object.freeze(['signed', 'coord', 'angles', 'transf', 'expr', 'area', 'solid', 'data', 'eq', 'pct', 'func:1', 'line', 'pyth', 'stats', 'frac']),
+  8: Object.freeze(['ratio', 'pct', 'data', 'transf', 'func', 'line', 'pyth', 'circle', 'stats', 'congr', 'sim', 'sys', 'prob', 'space', 'angles', 'expr', 'eq', 'frac']),
+});
+/** The stairs of a grade's catalogue (SYLLABUS_GRADE), in the app's order; none for a grade the app does not teach. */
+export function syllabusGradeStairs(grade) {
+  const list = SYLLABUS_GRADE[String(grade)] || [];
+  return Object.keys(STAIR_NAMES).filter((id) => list.includes(id) || list.includes(id.split(':')[0]));
+}
+/**
  * The stairs a syllabus request may name: the ids the app sent (input.stairs, the student's grade's catalogue) that are
- * stairs of the app (shared/stairs.js STAIR_NAMES), each once, in the app's order. Their names are the app's own, never
- * the request's, so nothing the request carries can speak to the tutor through them.
+ * stairs of the request's grade (SYLLABUS_GRADE: a ז׳ request never offers a ח׳ stair, whatever it lists), each once,
+ * in the app's order. Their names are the app's own (shared/stairs.js STAIR_NAMES), never the request's, so nothing the
+ * request carries can speak to the tutor through them.
  */
 export function syllabusStairs(input = {}) {
   const sent = new Set((Array.isArray(input.stairs) ? input.stairs : []).slice(0, SYLLABUS_STAIRS_MAX).map((x) => (typeof x === 'string' ? x : x?.id)));
-  return Object.keys(STAIR_NAMES).filter((id) => sent.has(id));
+  return syllabusGradeStairs(input.grade).filter((id) => sent.has(id));
 }
 
 /**

@@ -13,7 +13,7 @@ import {
   linkThisDevice, signOut, exportData, deleteAccount, keepLinkCode, keptLinkCode, dropLinkCode, endAttempt, dropOrder, openInvoice,
   familyVaults, deleteFamilyVault,
 } from '@/lib/parent.js';
-import { qaParentView } from '@/lib/qaFixtures.js';
+import { qaParentView } from '@/lib/qaViews.js';
 import { formatAgorot, vatLine, perMonth, dateNum, chargeDay, PASS_DAYS, addDaysIso, passPrice } from '@/lib/price.js';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
 import AdultGate from '@/components/account/AdultGate.jsx';

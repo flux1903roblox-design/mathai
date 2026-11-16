@@ -39,7 +39,7 @@ export const PHOTO_WARN = {
  * The material of a coming test (EXAM-MATERIAL 1b: the teacher's message, a summary sheet, a worksheet, a notebook page):
  * the same step, in the words of reading it, not checking it.
  */
-const MATERIAL_DETAILS = 'בהודעה או בדף יש לפעמים שם, טלפון, כיתה ובית ספר. את הפרטים האלה לא שולחים לעוזר. בשלב הבא נחתוך את השורה העליונה, ואפשר להשחיר כל דבר נוסף.';
+const MATERIAL_DETAILS = 'בהודעה או בדף יש לפעמים שם, טלפון, כיתה ובית ספר. את הפרטים האלה לא שולחים לעוזר. בשלב הבא נחתוך בכל תמונה את השורה העליונה, ואפשר להשחיר כל דבר נוסף.';
 export const MATERIAL_WARN = {
   title: PHOTO_WARN.title,
   lines: [MATERIAL_DETAILS, 'התמונה נשלחת לעוזר החכם (Anthropic, בארה״ב) כדי לקרוא ממנה את נושאי המבחן, ולא נשמרת אצלנו.'],

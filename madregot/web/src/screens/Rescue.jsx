@@ -14,7 +14,7 @@ import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx, useNext } from '@/lib/useLearn.js';
 import { TOPIC, rescueTopicsFor, bridgeTopicsFor, rowStairs } from '@/content/topics.js';
 import { examPlan, validInput, isPlanRestDay, REST_DAY_LINE, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
-import { matchMaterial, materialCatalogue } from '@/lib/examMaterial.js';
+import { matchMaterial, materialCatalogue, fromSyllabus, prepOf } from '@/lib/examMaterial.js';
 import { runAI } from '@/lib/ai.js';
 import { aiAccess, gate, useAIStatus } from '@/lib/account.js';
 import { MaterialCard, PasteMaterial, PhotoMaterial, FoundMaterial, TopicRow, MATERIAL_COPY } from '@/components/rescue/MaterialStep.jsx';
@@ -40,8 +40,6 @@ const dayName = (d) => { const t = today(); if (d === t) return 'היום'; cons
 
 const ASK = ['מתי המבחן?', 'מה יהיה במבחן?', 'כמה אתם מרגישים בטוחים?', 'כמה דקות ביום יש לכם?'];
 
-/** What the request says about the pictures' preparation (trust spec TRUST-5 §2): a cut top band, the blacked-out boxes. */
-const prepOf = (pages) => ({ crop: pages.some((p) => p.prep?.crop), boxes: pages.reduce((n, p) => n + (p.prep?.boxes || 0), 0) });
 /** The access states where the photo way is not offered: the helper is not there, or not for this kind here. */
 const NO_PHOTO = ['offline', 'locked', 'economy', 'class_off', 'prep_only', 'parent_ok_needed'];
 
@@ -90,11 +88,8 @@ function Setup({ onSave }) {
       // the helper stopped because a picture worries it: the support card, never "try again"
       if (r.care) { setReading({ phase: 'care' }); return; }
       if (!r.readable) { setReading({ phase: 'error', message: MATERIAL_COPY.unreadable }); return; }
-      const ids = catalogue.map((c) => c.id).filter((id) => r.stairs.includes(id));
-      const byTopic = [];
-      catalogue.forEach((c) => { if (!ids.includes(c.id)) return; let row = byTopic.find((x) => x.topic === c.topic); if (!row) { row = { topic: c.topic, title: c.topicTitle, skills: [] }; byTopic.push(row); } row.skills.push(c.id); });
       setReading({ phase: 'idle' });
-      showFound({ skills: ids, byTopic, unknown: r.unplaced || [], examples: r.examples || [], source: 'photo' });
+      showFound(fromSyllabus(r, catalogue));
     } catch (e) {
       setReading(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message });
     }
@@ -178,44 +173,56 @@ function Setup({ onSave }) {
   );
 }
 
+/** One step of the evening: its name, its minutes and its button, whose name says which step it opens (not ten "פתיחה"). */
+function EveningStep({ t, i, first, calm }) {
+  const navigate = useNavigate();
+  const id = `evening-step-${i}`;
+  return (
+    <li className="rescue-task evening-task">
+      <span className="evening-step"><span id={id}><MathText text={t.title} /></span><span className="evening-min">{minutesText(t.minutes)}</span></span>
+      <Button id={`${id}-go`} variant={first && !calm ? 'primary' : 'ghost'} className="btn-sm" aria-labelledby={`${id}-go ${id}`} onClick={() => navigate(t.to)}>{first ? 'מתחילים' : 'פתיחה'}</Button>
+    </li>
+  );
+}
+
 /**
  * The evening before the exam, or its morning (EXAM-MATERIAL 2): what is left for today, in order, each with its button
- * and minutes, and the honest total; then what does not fit the minutes chosen, apart. The steps are the plan's
- * (examToday), the same the home and the mission name.
+ * and minutes, and an honest total: with what was already done today, within the minutes chosen or past them (said
+ * calmly, never hidden); then what does not fit the minutes chosen, apart, ending with the exam on every stair when
+ * tonight's covers only tonight's. The steps are the plan's (examToday), the same the home and the mission name. On
+ * Shabbat or Yom Tov the same list is shown for after it or the exam's morning (the plan puts nothing on the day itself,
+ * and the hero's line says so once).
  */
 function Evening({ p, plan, tasks }) {
-  const navigate = useNavigate();
   const ev = p.evening;
-  const over = ev.minutes > plan.minutes;
+  const list = ev.rest ? p.days[0]?.tasks || [] : tasks;
+  const within = `בתוך ${plan.minutes} הדקות שבחרתם`;
+  const past = `זה יותר מ־${plan.minutes} הדקות שבחרתם. אפשר לעצור כשהזמן נגמר.`;
+  const time = ev.spent > 0
+    ? `עוד ${minutesText(ev.minutes)}. ${ev.over ? `עם מה שכבר עשיתם היום, ${past}` : `עם מה שכבר עשיתם היום, זה ${within}.`}`
+    : `${minutesText(ev.minutes)}, ${ev.over ? past : `${within}.`}`;
+  const doneLine = ev.spent > 0 ? 'עשיתם את כל מה שתכננו להיום. אפשר לנוח.' : 'עשיתם את כל מה שתכננו. אפשר לנוח.';
+  const allLater = ev.later.some((t) => t.kind === 'exam');
   return (
     <>
       <section className="card rescue-evening" aria-labelledby="evening-title">
-        <h2 id="evening-title" className="h-section">מה נשאר להיום</h2>
-        {tasks.length ? (
+        <h2 id="evening-title" className="h-section">{ev.rest ? 'מה נשאר לפני המבחן' : 'מה נשאר להיום'}</h2>
+        {list.length ? (
           <>
-            <p className="evening-time">{minutesText(ev.minutes)}{over ? ', קצת יותר מהזמן שבחרתם' : `, בתוך ${plan.minutes} הדקות שבחרתם`}</p>
+            <p className="evening-time">{time}</p>
+            {ev.rest && <p className="evening-time">אפשר במוצאי השבת או החג, או מחר בבוקר.</p>}
             <ol className="plain-list evening-tasks">
-              {tasks.map((t, i) => (
-                <li key={`${t.to}-${i}`} className="rescue-task evening-task">
-                  <span className="evening-step"><MathText text={t.title} /><span className="evening-min">{minutesText(t.minutes)}</span></span>
-                  <Button variant={i === 0 ? 'primary' : 'ghost'} className="btn-sm" onClick={() => navigate(t.to)}>{i === 0 ? 'מתחילים' : 'פתיחה'}</Button>
-                </li>
-              ))}
+              {list.map((t, i) => <EveningStep key={`${t.to}-${i}`} t={t} i={i} first={i === 0} calm={ev.rest} />)}
             </ol>
           </>
-        ) : <p className="evening-time">{p.today.length ? REST_DAY_LINE : 'עשיתם את כל מה שתכננו להיום. אפשר לנוח.'}</p>}
+        ) : <p className="evening-time">{doneLine}</p>}
       </section>
       {ev.later.length > 0 && (
         <section className="card rescue-evening evening-later" aria-labelledby="later-title">
           <h2 id="later-title" className="h-section">אם יש עוד זמן</h2>
-          <p className="evening-time">עוד {minutesText(ev.laterMinutes)}, במדרגות שלא נכנסו לזמן שבחרתם.</p>
+          <p className="evening-time">עוד {minutesText(ev.laterMinutes)}, במדרגות שלא נכנסו לזמן שבחרתם{allLater ? ', ובסוף מבחן תרגול על כל הנושאים' : ''}.</p>
           <ul className="plain-list evening-tasks">
-            {ev.later.map((t, i) => (
-              <li key={`${t.to}-${i}`} className="rescue-task evening-task">
-                <span className="evening-step"><MathText text={t.title} /><span className="evening-min">{minutesText(t.minutes)}</span></span>
-                <Button variant="ghost" className="btn-sm" onClick={() => navigate(t.to)}>פתיחה</Button>
-              </li>
-            ))}
+            {ev.later.map((t, i) => <EveningStep key={`${t.to}-${i}`} t={t} i={list.length + i} first={false} />)}
           </ul>
         </section>
       )}
@@ -242,12 +249,8 @@ function Plan({ plan }) {
           <div className="rescue-msg rescue-hero-msg" role="status"><p>{p.message}</p></div>
         </div>
       </section>
-      {p.evening ? (
-        <>
-          {restDay && <p className="rescue-rest" role="status">{REST_DAY_LINE}</p>}
-          <Evening p={p} plan={plan} tasks={examToday} />
-        </>
-      ) : !p.diagnosed ? (
+      {/* the evening's rest-day line is the hero's (p.message): said once */}
+      {p.evening ? <Evening p={p} plan={plan} tasks={examToday} /> : !p.diagnosed ? (
         <>
           {/* on Shabbat and Yom Tov the plan asks nothing: the short check waits, and can still be done by choice */}
           {restDay && <p className="rescue-rest" role="status">{REST_DAY_LINE}</p>}

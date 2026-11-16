@@ -8,7 +8,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, countOf, rows, one, setSpend, claudeMessage, DEVICE } from './helpers.js';
-import { AI_BODY_MAX, EXAM_PAGE_MAX, MAX_SYLLABUS_PAGES, SYLLABUS_SCHEMA, KIND_GROUP, AI_UNITS, FREE_KINDS, buildRequest, readResult } from '../../shared/ai.js';
+import { AI_BODY_MAX, EXAM_PAGE_MAX, MAX_SYLLABUS_PAGES, SYLLABUS_SCHEMA, KIND_GROUP, AI_UNITS, FREE_KINDS, buildRequest, readResult, syllabusGradeStairs } from '../../shared/ai.js';
 import { worstCaseNano } from '../src/spend.js';
 import { dayOf, monthOf } from '../src/util.js';
 
@@ -98,7 +98,7 @@ test('an instruction written in a picture changes neither the reply\'s format no
     assert.doesNotMatch(JSON.stringify(p), /SYSTEM-OVERRIDE-MARKER/);
   }
   // the reader alone, as the personal-key path uses it: the same list, the same drops
-  const read = readResult('syllabus', { content: [{ type: 'text', text: JSON.stringify({ readable: true, stairs: ['line:3', 'nope:1', 'sys:5'], unplaced: [], examples: [], care: false }) }] }, { stairs: ['line:3', 'line:4'] });
+  const read = readResult('syllabus', { content: [{ type: 'text', text: JSON.stringify({ readable: true, stairs: ['line:3', 'nope:1', 'sys:5'], unplaced: [], examples: [], care: false }) }] }, { grade: '8', stairs: ['line:3', 'line:4'] });
   assert.deepEqual(read.stairs, ['line:3']);
   assert.throws(() => readResult('syllabus', { content: [{ type: 'text', text: '{"stairs":"all"}' }] }, { stairs: ['line:3'] }), (e) => e.code === 'bad_output');
 });
@@ -231,4 +231,28 @@ test('nothing of the pictures or the reply is stored or logged; how the pictures
     { kind: 'photo_redacted', category: 'crop', surface: 'photo', source: 'client' },
     { kind: 'photo_redacted', category: 'black', surface: 'photo', source: 'client' },
   ]);
+});
+
+test('the request\'s grade bounds the stairs: a ז׳ request that lists ח׳ stairs never offers them, and none come back', async () => {
+  // review of EXAM-MATERIAL: the Worker intersected the request's ids with every stair of the app, whatever the grade
+  h = await setup({ AI_PAYWALL: undefined }, {
+    claude: answer({ readable: true, stairs: ['sys:5', 'congr:3', 'eq:1'], unplaced: [], examples: [{ text: 'x > 3', stair: 'sys:5' }, { text: '$2x=8$', stair: 'eq:1' }], care: false }),
+  });
+  const { who } = await openClass();
+  const r = await ai(h, 'syllabus', who, { body: body({ grade: '7', stairs: ['eq:1', 'eq:2', 'sys:5', 'congr:3'] }) });
+  assert.equal(r.status, 200);
+  const out = await r.json();
+  assert.deepEqual(out.stairs, ['eq:1']);
+  assert.deepEqual(out.examples, [{ text: 'x > 3', stair: '' }, { text: '$2x=8$', stair: 'eq:1' }]);
+  const list = h.net.log.claude[0].messages[0].content.at(-1).text;
+  assert.match(list, /eq:2 = /);
+  assert.doesNotMatch(list, /sys:5|congr:3|אי־שוויונות|הוכחה בחפיפה/);
+  // a grade the app does not teach offers nothing: refused before the tutor
+  const bad = await ai(h, 'syllabus', who, { body: body({ grade: '9', stairs: ['eq:1'] }) });
+  assert.equal(bad.status, 400);
+  assert.equal(h.net.log.claude.length, 1);
+  // the grade's stairs: ז׳ has the functions unit through func:1 alone, and no ח׳ geometry
+  assert.deepEqual(syllabusGradeStairs('7').filter((x) => x.startsWith('func:')), ['func:1']);
+  assert.equal(syllabusGradeStairs('7').some((x) => /^(congr|sim|sys|prob|space|circle|ratio):/.test(x)), false);
+  assert.deepEqual(syllabusGradeStairs('9'), []);
 });

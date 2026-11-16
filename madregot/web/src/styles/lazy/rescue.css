@@ -71,7 +71,7 @@
 .readiness-count { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); }
 .readiness-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px var(--s3); font-size: var(--fs-xs); color: var(--ink-2); font-weight: 600; }
 .rescue-day { border-radius: var(--r-m); border: 2px solid var(--line); background: var(--surface); box-shadow: none; }
-.chip-toggle { position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 var(--s3); border-radius: 12px; border: 2px solid var(--line); background: var(--surface); box-shadow: 0 3px 0 var(--line); font-weight: 600; font-size: var(--fs-sm); cursor: pointer; color: var(--ink); }
+.chip-toggle { position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 var(--s3); border-radius: 12px; border: 2px solid var(--line); background: var(--surface); box-shadow: 0 3px 0 var(--line); font-weight: 600; font-size: var(--fs-sm); cursor: pointer; color: var(--ink); }
 .chip-toggle input { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .chip-toggle:has(input:focus-visible) { outline: 3px solid var(--brand-d); outline-offset: 2px; }
 .rescue-topic { margin: 0; min-width: 0; border-radius: var(--r-m); border: 2px solid var(--line); background: var(--surface); padding: var(--s3); display: flex; flex-direction: column; gap: var(--s2); }

@@ -9,7 +9,7 @@ import clsx from 'clsx';
 import { Camera, Check, ClipboardPaste, FileUp, Images, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { rowStairs, earlierUnit } from '@/content/topics.js';
-import { MATERIAL_MAX } from '@/lib/examMaterial.js';
+import { MATERIAL_MAX, ltrRuns } from '@/lib/examMaterial.js';
 import { MAX_SYLLABUS_PAGES } from '@shared/ai.js';
 import { MathText } from '@/components/MathText.jsx';
 import { Thinking } from '@/components/ui.jsx';
@@ -23,7 +23,10 @@ import '@/styles/lazy/examCheck.css'; // the pages' thumbnails and their add but
 
 export const MATERIAL_COPY = {
   card: 'יש לי את החומר למבחן',
+  // where the smart helper can read pictures: any of the material; without it only what is pasted or typed is read, and
+  // the card says no more than that
   cardText: 'ההודעה מהמורה, דף סיכום, דף עבודה או דף מהמחברת: מדי ימצא בהם את הנושאים, ואתם תאשרו.',
+  cardTextPaste: 'מדביקים או כותבים את ההודעה מהמורה או את רשימת הנושאים, ומדי ימצא בה את הנושאים. אתם תאשרו.',
   paste: 'להדביק או לכתוב את ההודעה',
   photo: `לצלם את החומר (עד ${MAX_SYLLABUS_PAGES} תמונות)`,
   // the build with no smart helper (the public copy): no photo button, and one plain line that says what works
@@ -86,7 +89,7 @@ export function MaterialCard({ onPaste, onPhoto }) {
   return (
     <section className="material-card" aria-labelledby="material-title">
       <h2 id="material-title" className="material-title">{MATERIAL_COPY.card}</h2>
-      <p className="material-text">{MATERIAL_COPY.cardText}</p>
+      <p className="material-text">{onPhoto ? MATERIAL_COPY.cardText : MATERIAL_COPY.cardTextPaste}</p>
       <div className="material-ways">
         <button type="button" className="material-way" onClick={onPaste}><ClipboardPaste size={22} aria-hidden="true" /><span>{MATERIAL_COPY.paste}</span></button>
         {onPhoto && <button type="button" className="material-way" onClick={onPhoto}><Images size={22} aria-hidden="true" /><span>{MATERIAL_COPY.photo}</span></button>}
@@ -112,8 +115,10 @@ export function PasteMaterial({ text, onText }) {
 
 /**
  * Pictures of the material: the camera or a picture or a PDF from the phone, up to MAX_SYLLABUS_PAGES. Every picture
- * passes PhotoPrep before it joins the list (a PDF's pages are drawn on the device first, lib/pdfPages.js), the first one
- * with the top band cut by default, as an exam's first page. `pages` and `onPages` are the form's; `state` is the read's.
+ * passes PhotoPrep before it joins the list (a PDF's pages are drawn on the device first, lib/pdfPages.js), each with
+ * the top band cut by default: a screenshot of the teacher's message repeats the chat's header (a name, a phone number)
+ * on every picture, so the material has no "first page" the way an exam has. `pages` and `onPages` are the form's;
+ * `state` is the read's.
  */
 export function PhotoMaterial({ pages, onPages, state }) {
   const [queue, setQueue] = useState([]); // { id, file, pdf }
@@ -197,12 +202,21 @@ export function PhotoMaterial({ pages, onPages, state }) {
       <input ref={pickRef} type="file" accept="image/*,application/pdf" multiple className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={add} />
       <p className="field-hint">{MATERIAL_COPY.photoTip}</p>
       {warn}
-      <PhotoPrep file={current?.file || null} crop={pages.length === 0 ? EXAM_HEADER : 0}
+      <PhotoPrep file={current?.file || null} crop={EXAM_HEADER}
         onDone={({ data, prep }) => { onPages([...pages, { data, mediaType: 'image/jpeg', name: current.file.name, prep }]); shift(); }}
         onRetake={() => { const pdf = current?.pdf; retaking.current = true; shift(); ask(pdf ? pickRef.current : lastInput.current); }} onCancel={shift}
         onError={() => { toast.error(`לא הצלחנו לקרוא את ${current?.file.name || 'התמונה'}`); shift(); }} />
     </section>
   );
+}
+
+/** Plain text with each number or expression in its own left-to-right isolate (examMaterial.js ltrRuns). */
+export function LtrText({ text }) {
+  return ltrRuns(text).map((r, i) => (r.ltr ? <bdi key={i} dir="ltr">{r.text}</bdi> : <span key={i}>{r.text}</span>));
+}
+/** Text with $...$ maths (an exercise the helper saw): the maths by MathText, the plain parts by LtrText. */
+function ExampleText({ text }) {
+  return String(text ?? '').split(/(\$[^$]+\$)/g).filter(Boolean).map((p, i) => (p.startsWith('$') && p.endsWith('$') && p.length > 2 ? <MathText key={i} text={p} /> : <LtrText key={i} text={p} />));
 }
 
 /**
@@ -229,7 +243,7 @@ export function FoundMaterial({ found, rows, grade, skills, onToggle, onToggleTo
       {found.unknown.length > 0 && (
         <p className="material-unknown">
           <b>{MATERIAL_COPY.unknown}</b>{' '}
-          {found.unknown.map((u, i) => <span key={u}>{i > 0 && ', '}<bdi className="material-piece">{u}</bdi></span>)}.{' '}
+          {found.unknown.map((u, i) => <span key={u}>{i > 0 && ', '}<bdi className="material-piece"><LtrText text={u} /></bdi></span>)}.{' '}
           {MATERIAL_COPY.unknownTail}
         </p>
       )}
@@ -239,7 +253,7 @@ export function FoundMaterial({ found, rows, grade, skills, onToggle, onToggleTo
           <ul className="plain-list">
             {found.examples.map((x, i) => (
               <li key={i} className="material-example">
-                <span className="material-example-text"><MathText text={x.text} /></span>
+                <span className="material-example-text"><ExampleText text={x.text} /></span>
                 {x.stair && <span className="material-example-stair"><MathText text={titleOf(x.stair)} /></span>}
               </li>
             ))}

@@ -2,9 +2,10 @@
 // with the stairs it should tick; misspellings, missing niqqud and geresh, exclusions, English letters, numbers with
 // units; and the property that it never ticks a stair outside the grade's catalogue and the bridge unit under it.
 import { describe, it, expect } from 'vitest';
-import { matchMaterial, materialCatalogue, normWord, wordFit, tokenize, SYNONYMS, MATERIAL_MAX, UNKNOWN_MAX } from './examMaterial.js';
+import { matchMaterial, materialCatalogue, normWord, wordFit, tokenize, exerciseSpans, ltrRuns, fromSyllabus, prepOf, SYNONYMS, MATERIAL_MAX, UNKNOWN_MAX, EXCLUDE_AFTER, EXCLUDE_ANY } from './examMaterial.js';
 import { rescueTopicsFor, rowStairs, bridgeTopicsFor } from '@/content/topics.js';
 import { PROGRAMME } from '@shared/programme.js';
+import { syllabusGradeStairs } from '@shared/ai.js';
 
 const r = (topic, from, to) => Array.from({ length: to - from + 1 }, (_, i) => `${topic}:${from + i}`);
 const sorted = (list, grade) => { const order = materialCatalogue(grade).map((s) => s.id); return [...list].sort((a, b) => order.indexOf(a) - order.indexOf(b)); };
@@ -65,7 +66,8 @@ const G7 = [
 ];
 
 const G8 = [
-  ['המבחן יהיה על פרק 3: משוואות ובעיות מילוליות', [...r('eq', 1, 5), 'sys:4'], { unknown: ['פרק 3'] }],
+  // the word problems beside the equations are the equations' (eq:5), not the systems' (sys:4): "near" reads the topic beside them
+  ['המבחן יהיה על פרק 3: משוואות ובעיות מילוליות', r('eq', 1, 5), { unknown: ['פרק 3'] }],
   ['לחזור על חזקות ושורשים', ['pyth:1'], { unknown: ['חזקות'] }],
   ['משוואות, בלי שאלות תנועה', r('eq', 1, 4), { out: ['eq:6'] }],
   ['לא כולל אי-שוויונות: מערכת משוואות ופונקציה קווית', [...r('line', 1, 8), 'sys:2', 'sys:3', 'sys:4'], { out: ['sys:5'] }],
@@ -238,5 +240,181 @@ describe('the catalogue and its words', () => {
     // a decimal point is not the end of a clause
     const d = tokenize('יחידה 8.12 ופרק 3');
     expect(d[1].clause).toBe(d[2].clause);
+  });
+});
+
+// The review of EXAM-MATERIAL (after 2437420): messages as teachers send them, with the logistics around the topics
+// ("בשעה השנייה", "ניפגש בחדר 23", "מי שלא היה בשיעור"), everyday words that look like a topic's ("שיעור", "השוואה",
+// "כשנתון", "קובייה" beside a coin), a topic named in its own sentence before its parts, and words that bind to the
+// topic beside them. Each failed before the fix (the reviewers' scratch runs: 19 of 32 exact, 28 wrong stairs).
+const MORE7 = [
+  ["היי ז'3 🙂 תזכורת: מחר מבחן במתמטיקה בשעה השנייה. החומר: מספרים מכוונים (כל הפעולות), חזקות וסדר פעולות. להביא מחשבון ודף טיוטה. בהצלחה!!", r('signed', 1, 7), { unknown: [] }],
+  ['שלום הורים ותלמידים, ביום שלישי הקרוב יתקיים מבחן במתמטיקה. החומר: משוואות (כולל משוואות עם סוגריים) ובעיות מילוליות. משך המבחן 90 דקות.', r('eq', 1, 5), { unknown: [] }],
+  ['תזכורת!! מחר בוחן בגיאומטריה - זוויות בין ישרים מקבילים, זוויות צמודות וקודקודיות. להביא מחוגה ומד-זווית 📐', ['angles:1', 'angles:2', 'angles:4'], { unknown: [] }],
+  ['המבחן על הפרק של אחוזים, כולל שאלות על הנחה ומחיר מקורי', r('pct', 1, 5), { unknown: [] }],
+  ['חזרה למבחן: פונקציה קווית - שיפוע וחיתוך עם הצירים, ואיך מוצאים משוואת ישר לפי שתי נקודות', ['line:3', 'line:4', 'line:5', 'line:6'], { unknown: [] }],
+  // a topic alone in its sentence, its parts in the next: those parts
+  ["מבחן בסטטיסטיקה ביום א'. ממוצע, חציון, שכיח. לא יהיה טווח.", ['stats:1', 'stats:2', 'stats:3'], { out: ['stats:6'], unknown: [] }],
+  ['חומר לבוחן: הצבה בביטויים ופישוט ביטויים (כינוס איברים דומים). לא כולל פתיחת סוגריים.', ['expr:1', 'expr:3', 'expr:5'], { out: ['expr:4'], unknown: [] }],
+  // "בעיקר" stresses a part, it does not narrow the whole
+  ['מבחן מחר על כל מה שלמדנו בטרנספורמציות. בעיקר שיקופים וסיבובים במערכת צירים', r('transf', 1, 4), { unknown: [] }],
+  ['המבחן: פיתגורס (מציאת יתר וניצב), ושאלות מילוליות על פיתגורס', r('pyth', 1, 5), { unknown: [] }],
+  ["ז'2 - בוחן על מערכת צירים: נקודות ברביעים, אורך קטע ושטח מלבן", r('coord', 1, 4), { unknown: [] }],
+  ['שלום, המבחן יהיה על נתונים: קריאת דיאגרמות, טבלת שכיחויות ודיאגרמת עוגה. מי שלא היה בשיעור האחרון שיצלם מחבר.', ['data:1', 'data:2', 'data:3'], { unknown: [] }],
+  ['מבחן על הסתברות ושכיחות יחסית, כולל שאלות על קובייה ומטבע', ['data:2', 'data:4'], { unknown: [] }],
+  ['המבחן על אחוזים: חישוב אחוז מכמות, ומציאת 100% כשנתון החלק', ['pct:2', 'pct:4'], { unknown: [] }],
+  ['תרגלו פתרון משוואות כמו 3x-7=2x+5 ו-4(x+2)=20, המבחן ביום ג׳ בשעה 8:15', r('eq', 1, 4), { unknown: [] }],
+  ['חומר למבחן מחצית: מספרים מכוונים, ביטויים, משוואות ופונקציות (קריאת גרפים).', [...r('signed', 1, 6), ...r('expr', 1, 5), ...r('eq', 1, 4), 'func:1'], { unknown: [] }],
+  // "שיעור" is a lesson, never the coordinates
+  ['המבחן יהיה בשיעור השני ויכלול משוואות ובעיות מילוליות', r('eq', 1, 5), { unknown: [] }],
+  ['בשיעור הבא נעשה חזרה על חוק הפילוג, ובשבוע הבא מבחן', ['expr:4'], { unknown: [] }],
+  ['המבחן על מה שלמדנו בשיעורים האחרונים: אחוזים', r('pct', 1, 5), { unknown: [] }],
+  ["שיעורי בית: עמ' 50. המבחן על אחוזים", r('pct', 1, 5), { unknown: ["עמ' 50"] }],
+  ['הבוחן יהיה בחצי השעה האחרונה של השיעור. נושא: זוויות', r('angles', 1, 7), { unknown: [] }],
+  ['המבחן על שיעורי נקודה ברביע הראשון', ['coord:1', 'coord:2'], {}],
+];
+const MORE8 = [
+  // "שיטת השוואה" is the comparison method of a system, never an equation
+  ["שלום ח'4, מחר מבחן! החומר: פונקציה קווית, מערכת משוואות (שיטת השוואה והצבה). להביא מחשבון. בהצלחה ❤️", [...r('line', 1, 8), 'sys:2', 'sys:3'], { unknown: [] }],
+  ['תזכורת: בוחן ביום ב׳ על מעגל ועיגול: היקף, שטח, ו-π. בלי גליל וחרוט', ['circle:1', 'circle:2'], { out: ['circle:3', 'circle:4'], unknown: [] }],
+  ['המבחן יהיה על דמיון משולשים, משפטי דמיון ויחס שטחים. אין צורך במחשבון.', ['sim:2', 'sim:3', 'sim:4'], { unknown: [] }],
+  ['חזרה לקראת המבחן: אי-שוויונות, מערכות משוואות ובעיות מילוליות עם שני נעלמים', ['sys:2', 'sys:3', 'sys:4', 'sys:5'], { unknown: [] }],
+  ['מבחן מחר על פונקציות: מעבר בין ייצוגים, תחומי עלייה וירידה. לא יהיה קצב שינוי.', ['func:2', 'func:3'], { out: ['func:4'], unknown: [] }],
+  ['המבחן: סטטיסטיקה - ממוצע משוקלל, חציון בטבלת שכיחויות, וטווח', ['stats:2', 'stats:4', 'stats:6'], { unknown: [] }],
+  ['חזרה למבחן: שיפוע מגרף, שיפוע בין שתי נקודות, וישרים מקבילים (שיפוע שווה)', ['line:3', 'line:4'], { unknown: [] }],
+  ['מבחן במעגל: רדיוס, קוטר, היקף מעגל, שטח עיגול', ['circle:1', 'circle:2'], { unknown: [] }],
+  ['שלום לכולם, המבחן ביום חמישי. חומר: פרקים 5-6 בספר (משוואות, מערכת משוואות, אי שוויונות). ניפגש בשעה 8:10 בחדר 23', [...r('eq', 1, 4), 'sys:2', 'sys:3', 'sys:4', 'sys:5'], { unknown: ['פרקים 5-6'] }],
+  ['הבוחן על הסתברות: מאורעות שווי הסתברות, מאורע משלים וניסוי דו שלבי (עץ / טבלה)', r('prob', 1, 3), { unknown: [] }],
+  ['מבחן: y=2x+3, מציאת m ו-b, שיפוע וחיתוך עם ציר y', ['line:2', 'line:3', 'line:4', 'line:6'], { unknown: [] }],
+  ['המבחן על פיתגורס כולל פיתגורס במרחב (אלכסון בתיבה). מי שצריך עזרה - שעת שהייה ביום ב׳', [...r('pyth', 1, 5), 'space:1'], { unknown: [] }],
+  ['המבחן על חישוב שטח עיגול. השוואה בין שטחים של עיגולים.', ['circle:2'], {}],
+];
+
+describe('the review: logistics, everyday words, context (EXAM-MATERIAL 1a)', () => {
+  MORE7.forEach((c, i) => it(`ז׳ ${i + 1}: ${c[0]}`, () => check('7', c)));
+  MORE8.forEach((c, i) => it(`ח׳ ${i + 1}: ${c[0]}`, () => check('8', c)));
+
+  it('everyday words fit only themselves; a misspelling never changes the first letter or comes with a prefix', () => {
+    const fit = (k, w) => wordFit(normWord(k), normWord(w));
+    expect(fit('משוואה', 'השוואה')).toBe(0); // comparing, not an equation
+    expect(fit('נתונים', 'כשנתון')).toBe(0); // "when given", not data
+    expect(fit('שיעורים', 'בשיעור')).toBe(0); // a lesson, not coordinates
+    expect(fit('קטרים', 'ווקטורים')).toBe(0);
+    expect(fit('פיתגורס', 'פיטגורס')).toBe(1);
+    expect(fit('ביטוי', 'בביטויים')).toBe(2); // a form is normalised too ("ביטויים" has one י then)
+  });
+
+  it('a word cut from the not-recognised line keeps its letters ("וקובייה" is shown as "קובייה")', () => {
+    const got = matchMaterial('נפח של תיבה וקובייה', '8');
+    expect(got.unknown).toContain('קובייה');
+    expect(got.unknown.join(' ')).not.toContain('ובייה ');
+    expect(got.unknown.some((u) => u === 'ובייה')).toBe(false);
+    expect(matchMaterial('הצבה בביטויים', '7').hits.map((h) => h.text)).toEqual(['הצבה בביטויים']);
+  });
+
+  it('a sentence of logistics never fills the not-recognised line; a sentence about the material still does', () => {
+    expect(matchMaterial('המבחן על משוואות. ניפגש בשעה 8:10 בחדר 23, מי שלא היה שיצלם מחבר.', '7').unknown).toEqual([]);
+    expect(matchMaterial('המבחן על משוואות ועל ווקטורים', '7').unknown).toEqual(['ווקטורים']);
+    expect(matchMaterial('המבחן על משוואות. וגם ווקטורים', '7').unknown).toEqual(['ווקטורים']);
+    // "וגם" adds to the sentence before: the equations stay whole
+    expect(matchMaterial('המבחן על משוואות. וגם שאלות תנועה.', '7').skills).toEqual([...r('eq', 1, 4), 'eq:6']);
+  });
+});
+
+describe('every way a teacher leaves something out (EXAM-MATERIAL 1a)', () => {
+  // each phrase as a teacher writes it; the reviewers found חוץ, צורך, צריך, ייכלל, נכלל and לא יכלול doing nothing
+  const AFTER = ['בלי', 'ללא', 'חוץ מ', 'מלבד', 'פרט ל', 'לא כולל', 'לא כוללת', 'אין צורך ב', 'לא צריך', 'לא צריכים', 'לא נדרש', 'לא יכלול',
+    'לא תכלול', 'לא יכללו', 'לא נכלול', 'אבל לא על', 'לא נלמד'];
+  const ANY = ['לא יהיה', 'לא יהיו', 'לא תהיה', 'לא תהיינה', 'לא ייכלל', 'לא ייכללו', 'לא תיכלל', 'לא נכלל', 'לא נכללים', 'לא נכללות', 'לא יופיע',
+    'לא יופיעו', 'לא תופיע', 'לא יישאלו', 'לא במבחן', 'לא בחומר', 'ירד מהחומר', 'ירדו מהחומר', 'יורד מהחומר', 'יורדים מהחומר'];
+  it('every exclusion phrase of the matcher is tested here', () => {
+    const norm = (x) => x.split(' ').map(normWord).join(' ');
+    expect(EXCLUDE_AFTER.map((x) => x.join(' ')).sort()).toEqual([...new Set(AFTER.map((x) => norm(x.replace(/ (מ|ל|ב)$/, '').replace(/^אבל /, ''))))].sort());
+    expect(EXCLUDE_ANY.map((x) => x.join(' ')).sort()).toEqual(ANY.map(norm).sort());
+  });
+  const glue = (p, rest) => (/ (מ|ל|ב)$/.test(p) ? `${p.slice(0, -2)} ${p.slice(-1)}${rest}` : `${p} ${rest}`);
+  AFTER.forEach((p) => it(`"${p}": what follows it in its clause`, () => {
+    for (const g of ['7', '8']) {
+      const got = matchMaterial(`המבחן על משוואות, ${glue(p, 'שאלות תנועה')}`, g);
+      expect(got.skills, `${g} ${p}`).toEqual(r('eq', 1, 4));
+      expect(got.excluded, `${g} ${p}`).toEqual(['eq:6']);
+      expect(got.unknown, `${g} ${p}`).toEqual([]);
+    }
+  }));
+  ANY.forEach((p) => it(`"${p}": what follows it, or what came before it`, () => {
+    const after = matchMaterial(`המבחן על משוואות ו${p} שאלות תנועה`, '7');
+    expect(after.skills, p).toEqual(r('eq', 1, 4));
+    expect(after.excluded, p).toEqual(['eq:6']);
+    const before = matchMaterial(`המבחן על משוואות. שאלות תנועה ${p}`, '7');
+    expect(before.skills, p).toEqual(r('eq', 1, 4));
+    expect(before.excluded, p).toEqual(['eq:6']);
+    expect(before.unknown, p).toEqual([]);
+  }));
+});
+
+describe('the exercises of a message are read in linear time (EXAM-MATERIAL 1a)', () => {
+  // the old pattern, kept here as the reference for short texts (on a long line with no "=" it backtracked cubically:
+  // 14.7 s for 4,000 characters of "x ")
+  const OLD = /[0-9a-z().\s]*[a-z][0-9a-z()+\-*/:^².\s]*[=<>][0-9a-z()+\-*/:^².\s-]*[0-9a-z)]/gi;
+  const old = (t) => [...t.matchAll(OLD)].map((m) => ({ from: m.index, to: m.index + m[0].length }));
+  it('finds what the old pattern found, on short texts', () => {
+    const samples = ['3x+5=20', 'פתרו 2(x - 1) = 8 ו-x > 3', 'תרגלו פתרון משוואות כמו 3x-7=2x+5 ו-4(x+2)=20, המבחן',
+      'y = 2x + 3', 'a=b=c', '5 = 5', 'x-y<3 וגם 2x>=y', '-4(x+2)=20', 'x =', '= x', 'מחר 8:15', 'A = 3', 'x²=9', '(x+1)/2 = 3.5'];
+    samples.forEach((t) => expect(exerciseSpans(t), t).toEqual(old(t)));
+    // random short mixes of the characters that matter
+    let seed = 11;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const chars = ['x', 'y', '3', '0', ' ', '+', '-', '=', '<', '(', ')', '.', 'ש', '\n', '²', '/'];
+    for (let n = 0; n < 2000; n += 1) {
+      const t = Array.from({ length: 1 + Math.floor(rnd() * 14) }, () => chars[Math.floor(rnd() * chars.length)]).join('');
+      expect(exerciseSpans(t), JSON.stringify(t)).toEqual(old(t));
+    }
+  });
+  it('a long text of Latin letters, digits and spaces is read at once', () => {
+    const english = 'Dear students. The test next week covers linear functions, slope and intercepts. Good luck! ';
+    const texts = ['x '.repeat(MATERIAL_MAX / 2), 'ab'.repeat(MATERIAL_MAX / 2), english.repeat(Math.ceil(MATERIAL_MAX / english.length)).slice(0, MATERIAL_MAX),
+      `${'3x + 5 '.repeat(500)}`.slice(0, MATERIAL_MAX), `${'משוואות, אחוזים ופיתגורס; בלי שאלות תנועה. '.repeat(100)}`.slice(0, MATERIAL_MAX)];
+    for (const t of texts) {
+      matchMaterial(t.slice(0, 50), '7'); // warm the grade's keys
+      const t0 = performance.now();
+      matchMaterial(t, '7');
+      expect(performance.now() - t0, t.slice(0, 20)).toBeLessThan(150);
+    }
+  });
+});
+
+describe('numbers in a piece of the message keep their direction (EXAM-MATERIAL 4)', () => {
+  const runs = (t) => ltrRuns(t).map((r) => (r.ltr ? `[${r.text}]` : r.text)).join('');
+  it('each number or expression is its own left-to-right run', () => {
+    expect(runs('עמודים 40 - 62')).toBe('עמודים [40 - 62]');
+    expect(runs("עמ' 40-62")).toBe("עמ' [40-62]");
+    expect(runs('למשל -3+5')).toBe('למשל [-3+5]');
+    expect(runs('טמפרטורות -5 עד 10')).toBe('טמפרטורות [-5] עד [10]');
+    expect(runs('תרגילים 3 - 15, יחידה 8.12.')).toBe('תרגילים [3 - 15], יחידה [8.12].');
+    // a maqaf on a Hebrew letter is the word's, not a minus
+    expect(runs('ו-4(x+2)=20')).toBe('ו-[4(x+2)=20]');
+    expect(runs('x ו-y')).toBe('[x] ו-[y]');
+    expect(runs('ווקטורים ומטריצות')).toBe('ווקטורים ומטריצות');
+    // nothing is lost or added
+    for (const t of ['עמודים 40 - 62', 'למשל -3+5', 'בשעה 8:15 (חדר 23)', 'π ו-√9', '']) expect(ltrRuns(t).map((r) => r.text).join('')).toBe(t);
+  });
+});
+
+describe('the pictures\' way, on the device and on the Worker (EXAM-MATERIAL 1b)', () => {
+  it('the Worker\'s stairs of a grade are this catalogue, exactly', () => {
+    for (const g of ['7', '8']) expect(new Set(syllabusGradeStairs(g))).toEqual(new Set(materialCatalogue(g).map((s) => s.id)));
+  });
+  it('the confirm screen keeps only the grade\'s stairs, and an example\'s stair only when it is one of them', () => {
+    const cat = materialCatalogue('7');
+    const got = fromSyllabus({ readable: true, stairs: ['sys:5', 'eq:2', 'congr:3', 'eq:1'], unplaced: ['פרק 3'], examples: [{ text: 'x > 3', stair: 'sys:5' }, { text: '$2x=8$', stair: 'eq:1' }] }, cat);
+    expect(got.skills).toEqual(['eq:1', 'eq:2']);
+    expect(got.byTopic).toEqual([{ topic: 'eq', title: 'משוואות', skills: ['eq:1', 'eq:2'] }]);
+    expect(got.examples).toEqual([{ text: 'x > 3', stair: '' }, { text: '$2x=8$', stair: 'eq:1' }]);
+    expect(got.unknown).toEqual(['פרק 3']);
+  });
+  it('the request says the top band was cut only when it was cut on every picture', () => {
+    expect(prepOf([{ prep: { crop: true, boxes: 1 } }, { prep: { crop: false, boxes: 0 } }])).toEqual({ crop: false, boxes: 1 });
+    expect(prepOf([{ prep: { crop: true, boxes: 0 } }, { prep: { crop: true, boxes: 2 } }])).toEqual({ crop: true, boxes: 2 });
+    expect(prepOf([])).toEqual({ crop: false, boxes: 0 });
   });
 });

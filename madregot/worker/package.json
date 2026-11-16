@@ -13,6 +13,7 @@
     "owner": "node scripts/owner.mjs",
     "eval:tutor": "node eval/run.mjs",
     "eval:estimate": "node eval/run.mjs --estimate",
+    "eval:syllabus": "node eval/syllabus.mjs",
     "push:keys": "node scripts/push-keys.mjs",
     "test": "node --test \"test/*.test.js\"",
     "typecheck": "node ../web/node_modules/typescript/bin/tsc -p tsconfig.json"

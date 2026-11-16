@@ -224,8 +224,12 @@ function useLessonSpec() {
     // the evening's quick check of one of the exam's stairs (EXAM-MATERIAL 2): ?skill=topic:level
     const one = pathname === '/rescue/check' ? params.get('skill') : null;
     if (one && ex.skills.includes(one)) { const q = parseSkill(one); return { kind: 'check', purpose: 'quick', skill: one, skills: [one], topic: q.topic, level: q.level }; }
-    const first = parseSkill(ex.skills[0]);
-    return { kind: 'check', purpose: pathname.endsWith('exam') ? 'exam' : 'diagnostic', skills: ex.skills, topic: first.topic, level: first.level };
+    // the evening's practice exam on the stairs reviewed tonight only (?skills=a,b: teach before test); any other stair is
+    // not the plan's and is dropped, and none left means the whole plan's
+    const some = pathname.endsWith('exam') ? (params.get('skills') || '').split(',').filter((s) => ex.skills.includes(s)) : [];
+    const skills = some.length ? ex.skills.filter((s) => some.includes(s)) : ex.skills;
+    const first = parseSkill(skills[0]);
+    return { kind: 'check', purpose: pathname.endsWith('exam') ? 'exam' : 'diagnostic', skills, topic: first.topic, level: first.level };
   }
   const topic = tParam || id;
   if (!TOPIC[topic]) return null;

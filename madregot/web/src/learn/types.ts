@@ -493,8 +493,12 @@ export interface ExamPlanState extends ExamPlanInput {
   quick?: Record<SkillId, { asked: number; right: number; at: string }>; rules?: Record<SkillId, string>;
 }
 
-/** One analytics event. n: a check's share right (0..1); d: days since mastery (for reviews). No names, no free text. */
-export interface LearnEvent { t: string; e: string; s?: SkillId; m?: string; ok?: boolean; ind?: boolean; p?: Purpose | string; n?: number; d?: number }
+/**
+ * One analytics event. n: a check's share right (0..1); d: days since mastery (for reviews); k: how many stairs a practice
+ * exam asked (Exam Rescue's evening, whose exam may cover only the stairs reviewed that evening: then p is 'part'). No
+ * names, no free text.
+ */
+export interface LearnEvent { t: string; e: string; s?: SkillId; m?: string; ok?: boolean; ind?: boolean; p?: Purpose | string; n?: number; d?: number; k?: number }
 
 /**
  * The floor check of the bridge unit (בדיקת יסודות): when it ran, whether the unit is on the map, what each fractions

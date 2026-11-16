@@ -40,7 +40,7 @@ describe('the exam pass on the parents\' pages', () => {
   });
 
   it('is never named or priced on a child\'s screen: only the parents\' pages, the terms and the QA fixtures know it', () => {
-    const ALLOWED = ['screens/parents/Parents.jsx', 'screens/parents/Legal.jsx', 'content/legal/terms.md', 'lib/qaFixtures.js', 'lib/price.js'];
+    const ALLOWED = ['screens/parents/Parents.jsx', 'screens/parents/Legal.jsx', 'content/legal/terms.md', 'lib/qaViews.js', 'lib/price.js'];
     const found = walk(SRC)
       .filter((p) => /\.(jsx?|tsx?|md|css)$/.test(p) && !/\.test\./.test(p))
       .filter((p) => /exam_pass|חבילת מבחן|חבילת המבחן|PASS_NAME|passPrice\(/.test(readFileSync(p, 'utf8')))
