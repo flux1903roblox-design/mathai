@@ -1,0 +1,1 @@
+.remind-note-text{display:flex;flex-direction:column;gap:2px;min-width:0}.remind-note-time{color:var(--ink-2);font-size:.8125rem;line-height:1.5385;font-variant-numeric:tabular-nums}.remind-stage .remind-slots{max-width:360px;text-align:start}@media(max-height:640px){.remind-stage .done-copy{gap:var(--s3)}.remind-stage .install-text{font-size:1rem;line-height:1.5}}
