@@ -45,7 +45,10 @@ npm run build --prefix web
 
 echo "=== 5/7: Deploying (app and API at one address) ==="
 cd worker
-npx wrangler deploy
+# Cloudflare's free plan takes 64 settings per Worker and wrangler.toml lists more, half of them still empty: the deploy
+# uses wrangler.deploy.toml, the same file with the empty ones sent as one (scripts/deploy-config.mjs).
+node scripts/deploy-config.mjs
+npx wrangler deploy --config wrangler.deploy.toml
 
 echo "=== 6/7: Secrets on the server ==="
 existing=$(npx wrangler secret list --format json 2>/dev/null || echo '[]')
@@ -71,4 +74,4 @@ fi
 echo "=== 7/7: What is still missing ==="
 # exits 1 while something required is missing: the setup itself is done, so the script does not stop on it
 npm run owner -- doctor || true
-echo "Run 'npm run owner -- doctor' in worker/ again after each change, until it says הכול מוכן; then 'npx wrangler deploy'."
+echo "Run 'npm run owner -- doctor' in worker/ again after each change, until it says הכול מוכן; then 'npm run deploy'."

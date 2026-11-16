@@ -4,19 +4,20 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "node scripts/deploy-config.mjs && wrangler deploy --config wrangler.deploy.toml",
     "db:migrate": "wrangler d1 migrations apply madregot --remote",
     "db:migrate:local": "wrangler d1 migrations apply madregot --local",
     "db:init": "npm run db:migrate",
     "staging:migrate": "wrangler d1 migrations apply madregot-staging --env staging --remote",
-    "staging:deploy": "wrangler deploy --env staging",
+    "staging:deploy": "node scripts/deploy-config.mjs && wrangler deploy --config wrangler.deploy.toml --env staging",
     "owner": "node scripts/owner.mjs",
     "eval:tutor": "node eval/run.mjs",
     "eval:estimate": "node eval/run.mjs --estimate",
     "eval:syllabus": "node eval/syllabus.mjs",
     "push:keys": "node scripts/push-keys.mjs",
     "test": "node --test \"test/*.test.js\"",
-    "typecheck": "node ../web/node_modules/typescript/bin/tsc -p tsconfig.json"
+    "typecheck": "node ../web/node_modules/typescript/bin/tsc -p tsconfig.json",
+    "deploy:config": "node scripts/deploy-config.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.1.0"

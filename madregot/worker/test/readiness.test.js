@@ -187,7 +187,7 @@ test('legal:details: every business detail the legal pages show; required while 
   const i = legalItem(r, 'legal:details');
   assert.equal(i.area, 'משפט ואישורים');
   assert.match(i.need, /BUSINESS_ID, LEGAL_DATE$/);
-  assert.equal(i.how, 'worker/wrangler.toml: BUSINESS_ID = "…", LEGAL_DATE = "YYYY-MM-DD"  (ואז npx wrangler deploy)');
+  assert.equal(i.how, 'worker/wrangler.toml: BUSINESS_ID = "…", LEGAL_DATE = "YYYY-MM-DD"  (ואז npm run deploy)');
   // the same names the gate gives: no second list
   assert.deepEqual(legalMissing(c.vars), ['BUSINESS_ID', 'LEGAL_DATE']);
   for (const k of LEGAL_VARS.filter((x) => x !== 'DB_JURISDICTION')) {
@@ -221,7 +221,7 @@ test('legal:approved: LEGAL_APPROVED must name the current TERMS_VERSION; a new 
   c.vars.LEGAL_APPROVED = '';
   let r = readiness(c);
   assert.deepEqual(failing(r), ['legal:approved']);
-  assert.equal(legalItem(r, 'legal:approved').how, `worker/wrangler.toml: LEGAL_APPROVED = "${c.vars.TERMS_VERSION}"  (ואז npx wrangler deploy)`);
+  assert.equal(legalItem(r, 'legal:approved').how, `worker/wrangler.toml: LEGAL_APPROVED = "${c.vars.TERMS_VERSION}"  (ואז npm run deploy)`);
   c.vars.LEGAL_APPROVED = c.vars.TERMS_VERSION; c.vars.TERMS_VERSION = '2027-01';
   r = readiness(c);
   assert.deepEqual(failing(r), ['legal:approved']);

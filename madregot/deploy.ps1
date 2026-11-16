@@ -36,7 +36,10 @@ if ($LASTEXITCODE -ne 0) { throw "The app did not build: nothing was deployed." 
 Push-Location worker
 npx wrangler d1 migrations apply madregot --remote   # applies only the migrations not applied yet
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "The database migrations failed: nothing was deployed." }
-npx wrangler deploy
+# wrangler.toml with the empty settings sent as one, so the free plan's 64 are enough (scripts/deploy-config.mjs)
+node scripts/deploy-config.mjs
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Could not prepare the deploy (see above): nothing was deployed." }
+npx wrangler deploy --config wrangler.deploy.toml
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "The deploy failed (see above)." }
 Pop-Location
 

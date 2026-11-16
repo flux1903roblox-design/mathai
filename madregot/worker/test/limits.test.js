@@ -81,7 +81,7 @@ test('class codes use the whole alphabet evenly (no modulo bias)', async () => {
 
 test('a help request keeps a notebook page of up to 270,000 characters (about 200 KB); a larger page arrives without it and the answer says so; over 700 KB is 413', async () => {
   const { bearer, one } = await import('./helpers.js');
-  const { HELP_IMAGE_MAX } = await import('../src/index.js');
+  const { HELP_IMAGE_MAX } = await import('../src/caps.js');
   h = await setup();
   const cls = await makeClass(h, { students: ['נועה'] });
   const page = (n) => `data:image/jpeg;base64,${'A'.repeat(n - 'data:image/jpeg;base64,'.length)}`;

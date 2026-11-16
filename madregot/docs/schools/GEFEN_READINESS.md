@@ -64,7 +64,7 @@
 4. אישור טכנולוגי ואבטחה: מגישים את המוצר לבודק מטעם מינהל תקשוב, טכנולוגיה ומערכות מידע (לפי הנוהל), עם הרשאות כניסה לסביבת בדיקה, ומשלמים לפי הפריסה.
 5. בדיקת העומסים, על סביבת הבדיקה בלבד (Worker נפרד בשם `madregot-api-staging` עם מסד נתונים משלו, `[env.staging]` ב־`worker/wrangler.toml`):
    - פעם אחת: `cd madregot/worker && npx wrangler d1 create madregot-staging`, הדבקת ה־id שהודפס ב־`database_id` של `[[env.staging.d1_databases]]`, ואז `npm run staging:migrate`, `npx wrangler secret put AUTH_SECRET --env staging` ו־`npx wrangler secret put IP_HASH_SECRET --env staging`.
-   - בכל פעם: `cd madregot/worker && npx wrangler deploy --env staging` (או `npm run staging:deploy`), ואז `node scripts/loadtest.mjs https://madregot-api-staging.<החשבון>.workers.dev --classes 10 --minutes 5`, והעתקת התוצאות לטבלה למעלה.
+   - בכל פעם: `cd madregot/worker && npm run staging:deploy`, ואז `node scripts/loadtest.mjs https://madregot-api-staging.<החשבון>.workers.dev --classes 10 --minutes 5`, והעתקת התוצאות לטבלה למעלה.
    - הסקריפט מסרב לרוץ על ה־Worker של הייצור (`madregot-api.*.workers.dev` וכתובת `PUBLIC_URL`), ולפני שהוא שולח משהו הוא בודק ש־`/api/health` עונה `"staging": true`, מה שרק סביבת הבדיקה עונה.
 6. החל מפברואר 2027: מעקב באתר מינהל הרכש (mr.gov.il) ובלוח ההודעות לספקים (sapakim.education.gov.il/tech/messages/) אחרי פתיחת מכרז התוכן הדיגיטלי, והגשה עם האישור.
 7. כשמגיעה הזמנה מגפ"ן: `cd madregot/worker && npm run owner -- grant-school --classes <K> --seats <N> --until <YYYY-MM-DD> --invoice <חשבונית> --gefen <מספר הזמנה>`, ושליחת קוד הרישיון שהודפס לבית הספר.

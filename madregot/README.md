@@ -103,9 +103,11 @@ npx wrangler d1 create madregot --binding DB --update-config=false --jurisdictio
 # ובאותו קובץ כתבו DB_JURISDICTION = "eu" (מסד הנתונים באיחוד האירופי; אפשר לקבוע את זה רק כשיוצרים אותו)
 npx wrangler d1 migrations apply madregot --remote   # שינויים במסד הנתונים רק דרך worker/migrations
 cd .. && npm run build --prefix web && cd worker
-npx wrangler deploy
+npm run deploy
 npx wrangler secret put ANTHROPIC_API_KEY
 ```
+
+`npm run deploy` (וגם setup.ps1, setup.sh ו־deploy.ps1) מפרסם דרך `worker/wrangler.deploy.toml`, שנכתב מחדש בכל פרסום ולא נשמר ב־git: אותו `wrangler.toml`, רק שההגדרות הריקות נשלחות כהגדרה אחת, `BLANK_VARS`, והשרת מחזיר כל אחת מהן לערך ריק לפני שהקוד קורא אותה (`worker/src/blankVars.js`). בתוכנית החינמית של Cloudflare Workers יש עד 64 הגדרות ל־Worker, משתנים וסודות יחד, ו־`wrangler.toml` לבדו עובר את זה. `npx wrangler deploy` רגיל יעבוד רק בתוכנית Workers Paid (עד 128). עורכים תמיד את `wrangler.toml`.
 
 ## הגדרות (worker/wrangler.toml)
 
@@ -141,7 +143,7 @@ npx wrangler secret put ANTHROPIC_API_KEY
 
 1. `npm run push:keys` מדפיס מפתח ציבורי ומפתח פרטי (JWK) ולא כותב שום קובץ.
 2. `npx wrangler secret put VAPID_PRIVATE_JWK` ומדביקים את שורת ה־JWK.
-3. ב־`wrangler.toml`: `VAPID_PUBLIC_KEY` = המפתח הציבורי שהודפס, `VAPID_SUBJECT = "mailto:<CONTACT_EMAIL>"`, `PUSH = "on"`, ואז `npx wrangler deploy`. השרת של אפל דוחה בלי כתובת `mailto:` או `https:` אמיתית, ולכן קודם ממלאים את `CONTACT_EMAIL`. בתוכנית בתשלום של Workers גם `PUSH_BATCH = "400"`.
+3. ב־`wrangler.toml`: `VAPID_PUBLIC_KEY` = המפתח הציבורי שהודפס, `VAPID_SUBJECT = "mailto:<CONTACT_EMAIL>"`, `PUSH = "on"`, ואז `npm run deploy` (בתיקייה worker). השרת של אפל דוחה בלי כתובת `mailto:` או `https:` אמיתית, ולכן קודם ממלאים את `CONTACT_EMAIL`. בתוכנית בתשלום של Workers גם `PUSH_BATCH = "400"`.
 4. בדיקה במכשירים אמיתיים: באייפון עם iOS 16.4 ומעלה מוסיפים את האפליקציה למסך הבית, פותחים, מפעילים תזכורת לשעה העגולה הבאה ובודקים שהיא מגיעה ופותחת את האפליקציה. אותו דבר בטלפון אנדרואיד עם Chrome.
 
 השרת לא שולח כלום כל עוד המפתח הציבורי לא מתאים לפרטי, הנושא לא מתחיל ב־`mailto:` או `https:`, או ש־`PUBLIC_URL` לא מתחיל ב־`https:`. מפתחות חדשים מכבים את כל התזכורות שכבר הופעלו, ולכן יוצרים אותם פעם אחת.

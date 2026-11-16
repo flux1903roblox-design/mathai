@@ -5,11 +5,11 @@ import { fitImage, FIT_TRIES, HELP_IMAGE_MAX } from './fitImage.js';
 const page = (chars) => (scale, quality) => `data:image/jpeg;base64,${'A'.repeat(Math.round(chars * scale * scale * (quality / 0.82)))}`;
 
 describe('the notebook page sent to the teacher', () => {
-  it('the server keeps about 200 KB of a page (270,000 characters of its data URL), as worker/src/index.js HELP_IMAGE_MAX', async () => {
+  it('the server keeps about 200 KB of a page (270,000 characters of its data URL), as worker/src/caps.js HELP_IMAGE_MAX', async () => {
     expect(HELP_IMAGE_MAX).toBe(270_000);
     const { readFileSync } = await import('node:fs');
     const { fileURLToPath } = await import('node:url');
-    const worker = readFileSync(fileURLToPath(new URL('../../../worker/src/index.js', import.meta.url)), 'utf8');
+    const worker = readFileSync(fileURLToPath(new URL('../../../worker/src/caps.js', import.meta.url)), 'utf8');
     expect(worker).toMatch(/export const HELP_IMAGE_MAX = 270_000;/);
   });
   it('a page that fits is sent as it always was', () => {

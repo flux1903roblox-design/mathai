@@ -55,7 +55,11 @@ if ($LASTEXITCODE -ne 0) { throw "The app did not build (see above). Nothing was
 
 Write-Host "=== 5/6: Deploying (app and API at one address) ===" -ForegroundColor Cyan
 Push-Location worker
-$deploy = Invoke-Captured npx wrangler deploy
+# Cloudflare's free plan takes 64 settings per Worker and wrangler.toml lists more, half of them still empty: the deploy
+# uses wrangler.deploy.toml, the same file with the empty ones sent as one (scripts/deploy-config.mjs).
+node scripts/deploy-config.mjs
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Could not prepare the deploy (see above). Nothing was deployed." }
+$deploy = Invoke-Captured npx wrangler deploy --config wrangler.deploy.toml
 $out = $deploy.Text
 Write-Host $out
 if ($deploy.Code -ne 0) { Pop-Location; throw "The deploy failed (see above). Run this script again once it is fixed: what is done already is kept." }

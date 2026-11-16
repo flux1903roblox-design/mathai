@@ -12,9 +12,10 @@ import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
   limitOrThrow, hmacHex, cleanName, resetsAt, release, safeEqual,
 } from './util.js';
+import { withBlankVars } from './blankVars.js';
 import { meterDbSize } from './dbsize.js';
 import { takeWrites, WRITE_BUDGET } from './writes.js';
-export { WRITE_BUDGET };
+import { CLASS_MAX_STUDENTS, NEW_NAMES_PER_NET, MAX_LEVEL, HELP_IMAGE_MAX } from './caps.js';
 import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
 import {
   resolve, precheck, counted, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify, teacherIsAdult, parentOkRequired, studentAiOn,
@@ -117,7 +118,6 @@ const classCode = () => randomFrom(CODE_ALPHABET, 6);
 // code after a reset (31^6 codes, 7 days) is guarded by the per-network keys only: it cannot be guessed at 15 a day
 // from a /48, and a count across networks there would let a stranger delay the claim.
 const PIN_NET_HOUR = 5;
-export { PIN_NET_DAY, PIN_ALL_DAY, PIN_FLAG };
 /** The one-time claim code a teacher's PIN reset gives the student (COUNCIL2-25): 6 characters of CODE_ALPHABET. */
 const claimCode = () => randomFrom(CODE_ALPHABET, 6);
 /** A claim code as typed: upper case, spaces and dashes dropped; anything else (or more than 12 characters) is ''. */
@@ -833,10 +833,6 @@ async function classInfo(code, req, env, cors) {
   return json({ className: cls.name, grade: cls.grade, teacherName: cls.teacher_name }, 200, cors);
 }
 
-/** A class holds at most this many names (the licence seats and an assignment's targets use the same number). */
-export const CLASS_MAX_STUDENTS = 45;
-/** New names a day from one network (IPv6 by its /48), in all its classes: a school's first day, not a script's. */
-export const NEW_NAMES_PER_NET = 200;
 
 async function joinClass(code, req, env, ctx, cors) {
   const b = await body(req, LIMIT.small);
@@ -928,8 +924,6 @@ async function joinClass(code, req, env, ctx, cors) {
 const PROGRESS_EVENTS = 500; // one request; the app sends batches of 300
 const EVENT_ID = /^[a-f0-9]{12}$/; // the app's id for one answer (12 hex), so a retried batch is stored once
 const LEVELS_PER_SYNC = 40; // the units of every stage and the guest stairs, with room to spare
-/** The highest level a stair can have (shared/stairs.js has at most 8 per topic; the exam check already caps at 12). */
-export const MAX_LEVEL = 12;
 /** A level as the server keeps it: a whole number from 1 to MAX_LEVEL; anything else is 1. */
 const levelOf = (v) => {
   const n = Math.trunc(Number(v));
@@ -1031,11 +1025,6 @@ async function saveExam(req, env, ctx, cors) {
  */
 /** Open help requests one student may have; a note that reads as distress past it joins the newest one (askHelp). */
 const HELP_OPEN_MAX = 10;
-/**
- * The notebook page kept with a help request: a JPEG data URL of at most this many characters, about 200 KB (COUNCIL2-18;
- * the app fits its page to it, web/src/lib/fitImage.js). A longer one is left out and the request is kept without it.
- */
-export const HELP_IMAGE_MAX = 270_000;
 /**
  * May the optional second reader (MODERATION, moderation.js) read this student's note to the teacher? Only when the
  * tutor is on for the student (the class's rule and the parents' consent, entitle.js studentAiOn) or the device is one
@@ -1438,6 +1427,7 @@ async function route(req, env, ctx, cors) {
 
 export default {
   async fetch(req, env, ctx) {
+    env = withBlankVars(env); // the empty vars the deploy sent as one (src/blankVars.js) read "" again
     const cors = corsHeaders(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     try {
@@ -1453,6 +1443,7 @@ export default {
   },
   // two schedules (wrangler.toml): the reminders run alone in theirs, so their crypto never shares the billing jobs' CPU
   async scheduled(event, env, ctx) {
+    env = withBlankVars(env);
     const now = new Date(event?.scheduledTime || Date.now());
     ctx.waitUntil(event?.cron === PUSH_CRON ? pushDue(env, now).catch((e) => console.error('push', e?.message)) : runCron(env, { now }));
   },

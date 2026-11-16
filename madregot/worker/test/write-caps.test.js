@@ -7,7 +7,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { setup, makeClass, bearer, rows, one, countOf, netOf, setCount } from './helpers.js';
-import { CLASS_MAX_STUDENTS, NEW_NAMES_PER_NET, HELP_IMAGE_MAX } from '../src/index.js';
+import { CLASS_MAX_STUDENTS, NEW_NAMES_PER_NET, HELP_IMAGE_MAX } from '../src/caps.js';
 import { WRITE_BUDGET, CLASS_WRITE_BUDGET, NET_WRITE_BUDGET, NEW_WRITE_BUDGET, writeScale } from '../src/writes.js';
 import { WRITE_ROUTES, edgeGuard } from '../src/edge.js';
 import { STUDENT_COUNTERS, CLASS_COUNTERS } from '../src/forget.js';

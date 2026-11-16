@@ -5,7 +5,7 @@
 
 /** The tries, in order: [scale factor, JPEG quality]. The first is the page as it was always sent. */
 export const FIT_TRIES = [[1, 0.82], [1, 0.7], [0.8, 0.7], [0.65, 0.65], [0.5, 0.6], [0.4, 0.55], [0.3, 0.5], [0.22, 0.45]];
-/** The most the server keeps of a help request's notebook page (worker/src/index.js HELP_IMAGE_MAX). */
+/** The most the server keeps of a help request's notebook page (worker/src/caps.js HELP_IMAGE_MAX). */
 export const HELP_IMAGE_MAX = 270_000;
 
 /** encode(scale, quality) → a data URL. Returns the first that is at most `max` characters long, or null. */

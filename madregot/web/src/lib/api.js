@@ -157,7 +157,7 @@ const MESSAGES = {
   too_many_open: 'יש כבר הרבה בקשות פתוחות למורה. חכו שהמורה יענה.',
   // the day's help requests of a student, a class or a network are used up (worker/src/writes.js)
   too_many_help: 'היום כבר נשלחו הרבה בקשות למורה. אפשר לשלוח שוב מחר, או לשאול את המורה בכיתה.',
-  // a class holds 45 names (worker/src/index.js CLASS_MAX_STUDENTS)
+  // a class holds 45 names (worker/src/caps.js CLASS_MAX_STUDENTS)
   class_full: 'הכיתה מלאה. בקשו מהמורה לבדוק את רשימת התלמידים בלוח המורה.',
   too_many_reports: 'היום כבר נשלחו הרבה דיווחים מהמכשיר הזה. אפשר לדווח שוב מחר.',
   bad_input: 'משהו בבקשה לא תקין. נסו שוב.',

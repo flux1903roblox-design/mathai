@@ -110,7 +110,7 @@ export function readiness(cfg = {}) {
   add('site:url', 'site', /^https:\/\/[^\s/]+/.test(url), 'PUBLIC_URL', 'PUBLIC_URL צריך להיות כתובת https של האתר', 'worker/wrangler.toml: PUBLIC_URL = "https://…"');
   add('site:contact', 'site', !!String(vars.CONTACT_EMAIL || '').trim(), 'CONTACT_EMAIL', 'חסר CONTACT_EMAIL (מופיע בדפי המשפט ובמיילים)', 'worker/wrangler.toml: CONTACT_EMAIL = "…"');
   if (url) {
-    add('site:health', 'site', cfg.health?.ok === true, `${url}/api/health עונה`, cfg.health ? 'השרת עונה, אבל לא אומר ok' : `לא הצלחנו להגיע אל ${url}/api/health`, 'npx wrangler deploy');
+    add('site:health', 'site', cfg.health?.ok === true, `${url}/api/health עונה`, cfg.health ? 'השרת עונה, אבל לא אומר ok' : `לא הצלחנו להגיע אל ${url}/api/health`, 'npm run deploy');
   }
   // the database's size notice (COUNCIL2-18, src/dbsize.js): empty uses the 400 MB default; anything else must be a size a
   // D1 database can reach (10 GB on Workers Paid), or the owner would never hear of it
@@ -177,17 +177,17 @@ export function readiness(cfg = {}) {
   const tv = termsVersion(vars);
   const details = legal.filter((k) => k !== 'LEGAL_APPROVED' && k !== 'DB_JURISDICTION');
   add('legal:details', 'legal', !details.length, 'פרטי העסק בדפי המשפט', `חסרים פרטים שדפי המשפט והגילוי לפני התשלום מציגים: ${details.join(', ')}`,
-    `worker/wrangler.toml: ${(details.length ? details : ['BUSINESS_NAME']).map((k) => `${k} = "${k === 'LEGAL_DATE' ? 'YYYY-MM-DD' : '…'}"`).join(', ')}  (ואז npx wrangler deploy)`, paid);
+    `worker/wrangler.toml: ${(details.length ? details : ['BUSINESS_NAME']).map((k) => `${k} = "${k === 'LEGAL_DATE' ? 'YYYY-MM-DD' : '…'}"`).join(', ')}  (ואז npm run deploy)`, paid);
   add('legal:jurisdiction', 'legal', !legal.includes('DB_JURISDICTION'), 'DB_JURISDICTION = "eu"',
     'DB_JURISDICTION צריך להיות "eu": מדיניות הפרטיות מתארת רק בסיס נתונים באיחוד האירופי',
     'לפני שיש מידע אמיתי: sh setup.sh או setup.ps1, שיוצרים את בסיס הנתונים עם --jurisdiction=eu וכותבים DB_JURISDICTION = "eu" ב־worker/wrangler.toml', paid);
   add('legal:approved', 'legal', !legal.includes('LEGAL_APPROVED'), `LEGAL_APPROVED = "${tv}"`,
     `הטקסטים המשפטיים בגרסה ${tv} עוד לא אושרו: LEGAL_APPROVED צריך להיות "${tv}" אחרי שעורך הדין אישר אותם`,
-    `worker/wrangler.toml: LEGAL_APPROVED = "${tv}"  (ואז npx wrangler deploy)`, paid);
+    `worker/wrangler.toml: LEGAL_APPROVED = "${tv}"  (ואז npm run deploy)`, paid);
   // ---- the Ministry of Education's approval (TRUST-11, shared/schoolRules.js): a reminder of what "none" means
   add('legal:moe', 'legal', rulesEnv(vars).approval === 'approved', 'MOE_AI_APPROVAL = "approved"',
     'MOE_AI_APPROVAL = "none": עד שמדרגות בקטלוג של משרד החינוך, העוזר החכם כבוי לתלמידים בכל כיתה של בית ספר, בקשת ניסיון מתקבלת רק מקבוצה פרטית (של בית ספר נענית 409), ורישיון עם העוזר לא נמכר לכיתה של בית ספר. בקשה להצעת מחיר נשארת פתוחה',
-    'כשהאישור מגיע: worker/wrangler.toml: MOE_AI_APPROVAL = "approved" (ו־MOE_AI_FROM_GRADE), ואז npx wrangler deploy', false);
+    'כשהאישור מגיע: worker/wrangler.toml: MOE_AI_APPROVAL = "approved" (ו־MOE_AI_FROM_GRADE), ואז npm run deploy', false);
   // ---- the second reader and the adult's alert (COUNCIL2-9): each is "off" or "on"; an alert needs the email to reach a
   //      parent, and the owner turns it on only on the lawyer's word (legal/safety.md)
   const MOD = on(vars.MODERATION || 'off');

@@ -94,7 +94,7 @@
 1. **ההקמה:** מהתיקייה `madregot`, ב־Windows `.\setup.ps1`, ב־Mac או Linux `sh setup.sh`. הסקריפט מתקין, מתחבר ל־Cloudflare, יוצר את מסד הנתונים ומריץ את המיגרציות, בונה ומפרסם. הוא יוצר בעצמו את הסודות האקראיים שחסרים (`AUTH_SECRET`, `IP_HASH_SECRET`, `WEBHOOK_PATH_SECRET`, `VAULT_SECRET`) ושולח אותם ישר ל־Cloudflare, בלי לכתוב אותם לקובץ. סוד שכבר קיים נשאר כמו שהוא.
 2. **המפתחות שרק לכם יש:** הסקריפט מבקש להדביק את מפתח Claude, ואת מפתח Resend אם `EMAIL_FROM` מלא.
 3. **הבדיקה:** `cd worker && npm run owner -- doctor`. שורה לכל דבר: ✓ מוכן, ✗ חסר (עם הפקודה המדויקת שמתקנת), ! תזכורת שלא עוצרת. היא קוראת את `wrangler.toml` בקורא של wrangler עצמו (קובץ ש־wrangler לא מצליח לקרוא הוא השורה היחידה, ✗, כי גם הפרסום לא יעבוד), את **שמות** הסודות (אף פעם לא את הערכים), את המיגרציות שעוד לא רצו ואת `/api/health` של האתר החי. היא מסתיימת בקוד 1 כל עוד יש ✗. עם `--local` היא בודקת את `.dev.vars` ואת המסד המקומי.
-4. **פרסום:** `npx wrangler deploy`, ואז שוב `npm run owner -- doctor`, עד שהיא כותבת "הכול מוכן."
+4. **פרסום:** `npm run deploy`, ואז שוב `npm run owner -- doctor`, עד שהיא כותבת "הכול מוכן."
 
 הכללים של הבדיקה נמצאים ב־`worker/src/readiness.js`: כל סוד או מתג שנוסף לשרת מקבל שם כלל באותו שינוי (בדיקה נכשלת על סוד שמופיע ב־`wrangler.toml` בלי כלל). בקבוצה "משפט ואישורים" הבדיקה קוראת את אותה רשימה שסוגרת את התשלום באתר (`legalMissing` ב־`worker/src/billing.js`): פרטי העסק, `DB_JURISDICTION = "eu"` ו־`LEGAL_APPROVED` שווה ל־`TERMS_VERSION`. כשהעוזר בתשלום פועל אלה חובה, ולפני כן תזכורת. `MOE_AI_APPROVAL` הוא תמיד תזכורת: כל עוד הוא `"none"`, העוזר כבוי לתלמידים בכיתות של בית ספר, ובקשת ניסיון מתקבלת רק מקבוצה פרטית.
 
@@ -216,7 +216,7 @@
 2. מה־sandbox של Grow מעתיקים: `userId`, ה־`pageCode` של דף התשלום החד־פעמי, ה־`pageCode` של דף הוראת הקבע (מוגדר אצל Grow כחודשי, בלי סוף), ו־`apiKey` אם קיבלתם.
 3. `cd madregot/worker && npx wrangler secret put GROW_USER_ID` (וכך גם `GROW_PAGE_CODE_ONCE`, `GROW_PAGE_CODE_RECURRING`, `GROW_API_KEY`). ב־`wrangler.toml`: `BILLING_PROVIDER = "grow"`, `BILLING_MODE = "test"`, `ALLOW_TEST_BILLING` נשאר `"false"`, ו־`GROW_DIRECT_DEBIT_API = "on"` אחרי שאישרו את (ג).
 4. שמים את ארבעת הסודות גם ב־`worker/.dev.vars` (הקובץ לא נכנס ל־git) ומריצים: `npm run owner -- doctor --local --grow-sandbox` (מדפיס את הכתובת של דף התשלום של ה־sandbox), קובעים אותה ב־`BILLING_CHECKOUT_HOSTS`, ומריצים `GROW_SANDBOX=1 node --test test/grow.test.js` (בדיקת החוזה מול ה־sandbox האמיתי). אחר כך תשלום אחד ב־sandbox עם כרטיס הבדיקה של Grow, וחידוש חודשי אחד: בודקים שהמנוי נשאר פעיל (ההודעה של החידוש מגיעה עם אותו `cField1`).
-5. אחרי ש־Grow מאשרים את האתר ונותנים מפתחות אמיתיים: מחליפים את הסודות בערכים האמיתיים, קובעים `GROW_API_BASE` לכתובת מהדף "live environment" של Grow (מסתיימת ב־`/`) ו־`BILLING_MODE = "live"`, מריצים `npm run owner -- doctor`, ואז `npx wrangler deploy`.
+5. אחרי ש־Grow מאשרים את האתר ונותנים מפתחות אמיתיים: מחליפים את הסודות בערכים האמיתיים, קובעים `GROW_API_BASE` לכתובת מהדף "live environment" של Grow (מסתיימת ב־`/`) ו־`BILLING_MODE = "live"`, מריצים `npm run owner -- doctor`, ואז `npm run deploy`.
 
 לא חובה: `WEBHOOK_ALLOWED_IPS` עם רשימת ה־IP של Grow ("IP live"); ההגנה האמיתית היא שהמצב נמשך מ־Grow. `PAYMENT_PROVIDER_NAME = "Grow (משולם)"` לשם החברה בטקסטים.
 
@@ -328,7 +328,7 @@ COUNCIL2-29 ו־COUNCIL2-33. ההצעה לעונת המבחנים: המנוי ה
 - **בסקריפט:** `grant-class` ו־`grant-school` מסרבים כל עוד `MOE_AI_APPROVAL` איננו `approved`. לקבוצה פרטית מוסיפים `--private-ok` ו־`--note` עם שם הקבוצה, ומקלידים `private` כשהסקריפט שואל. הסקריפט קורא את הערך מהסביבה (`MOE_AI_APPROVAL`), ואם אין שם, מ־`wrangler.toml`.
 - **מכשיר שהורה חיבר למנוי משפחתי:** שימוש בבית לפי בחירת ההורה. בכיתה שבה העוזר כבוי, הבקשה נספרת על המשפחה ולא על הכיתה.
 
-**הפעולה היחידה שלכם כשהאישור מגיע** (TRUST-14): ב־`worker/wrangler.toml` משנים ל־`MOE_AI_APPROVAL = "approved"`, ואת `MOE_AI_FROM_GRADE` לכיתה הראשונה שהאישור מכסה (`"7"` לפי ההנחיות), ומריצים `npx wrangler deploy` בתיקייה `worker`. מאותו רגע מורה בכיתה של בית ספר יכול לאשר שיש הסכמת הורים ולהפעיל את העוזר לתלמידים, ואפשר למכור לבית הספר רישיון כיתה.
+**הפעולה היחידה שלכם כשהאישור מגיע** (TRUST-14): ב־`worker/wrangler.toml` משנים ל־`MOE_AI_APPROVAL = "approved"`, ואת `MOE_AI_FROM_GRADE` לכיתה הראשונה שהאישור מכסה (`"7"` לפי ההנחיות), ומריצים `npm run deploy` בתיקייה `worker`. מאותו רגע מורה בכיתה של בית ספר יכול לאשר שיש הסכמת הורים ולהפעיל את העוזר לתלמידים, ואפשר למכור לבית הספר רישיון כיתה.
 
 ## עבודות קבועות (cron)
 
