@@ -1,6 +1,9 @@
 // מציל המבחנים (Exam Rescue): the exam's date and stairs, a short diagnostic, then a day-by-day plan that follows
-// the student's real answers. Never a promised grade. Choosing the topics by photo needs the server (AI); without it
-// the topics are chosen by hand, and the screen says so.
+// the student's real answers. Never a promised grade. What the test covers can come from its material (EXAM-MATERIAL 1,
+// components/rescue/MaterialStep.jsx): the teacher's message pasted (read on the device, with or without a server) or,
+// where the smart helper is connected, photographed; either way the student confirms the stairs before the plan is built.
+// The evening before the exam (and its morning) the plan is the evening's (learn/examRescue.ts): a rule card and a quick
+// check of each stair, practice where the check failed, then the practice exam, within the minutes chosen.
 // Today's steps and their start button are the plan's (learn/next.ts planNext().examToday), so Rescue, the mission's
 // exam step and the home's next step always name the same step. On Shabbat there are none.
 import { useEffect, useMemo, useState } from 'react';
@@ -9,8 +12,12 @@ import clsx from 'clsx';
 import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx, useNext } from '@/lib/useLearn.js';
-import { TOPIC, rescueTopicsFor, rowStairs, earlierUnit } from '@/content/topics.js';
+import { TOPIC, rescueTopicsFor, bridgeTopicsFor, rowStairs } from '@/content/topics.js';
 import { examPlan, validInput, isPlanRestDay, REST_DAY_LINE, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
+import { matchMaterial, materialCatalogue } from '@/lib/examMaterial.js';
+import { runAI } from '@/lib/ai.js';
+import { aiAccess, gate, useAIStatus } from '@/lib/account.js';
+import { MaterialCard, PasteMaterial, PhotoMaterial, FoundMaterial, TopicRow, MATERIAL_COPY } from '@/components/rescue/MaterialStep.jsx';
 import { skillId } from '@/learn/skills.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { ensureTopics } from '@/learn/content/index.ts';
@@ -28,15 +35,22 @@ const ORDER = ['mastered', 'ready', 'shaky', 'gap', 'untested'];
 const DAY_SWING = [0, 48, 72, 48, 0, -48, -72, -48];
 const STANDING = { mastered: 'שולטים לבד', ready: 'עברו את הבדיקה הראשונה', shaky: 'כמעט', gap: 'צריך לעבוד', untested: 'עוד לא נבדק' };
 /** About how long a day of the plan takes (examRescue.ts taskMinutes): an estimate, never a timer. */
-const minutesText = (m) => `כ־${m} דקות`;
+const minutesText = (m) => (m === 1 ? 'כדקה' : `כ־${m} דקות`);
 const dayName = (d) => { const t = today(); if (d === t) return 'היום'; const x = new Date(`${d}T12:00:00`); return x.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric' }); };
 
 const ASK = ['מתי המבחן?', 'מה יהיה במבחן?', 'כמה אתם מרגישים בטוחים?', 'כמה דקות ביום יש לכם?'];
 
+/** What the request says about the pictures' preparation (trust spec TRUST-5 §2): a cut top band, the blacked-out boxes. */
+const prepOf = (pages) => ({ crop: pages.some((p) => p.prep?.crop), boxes: pages.reduce((n, p) => n + (p.prep?.boxes || 0), 0) });
+/** The access states where the photo way is not offered: the helper is not there, or not for this kind here. */
+const NO_PHOTO = ['offline', 'locked', 'economy', 'class_off', 'prep_only', 'parent_ok_needed'];
+
 /**
  * The exam's details, asked like Duolingo's onboarding: one question per screen, a progress bar and the way back on
  * top, מדי asking in a speech bubble, the options under it, and one full-width button at the bottom that is off
- * until the question has an answer.
+ * until the question has an answer. "מה יהיה במבחן?" opens with the material (MaterialStep.jsx): pasted, or
+ * photographed where the smart helper can read it; what it found is shown ticked, to confirm or edit, and the whole
+ * list stays below for choosing by hand.
  */
 function Setup({ onSave }) {
   const navigate = useNavigate();
@@ -48,15 +62,56 @@ function Setup({ onSave }) {
   const [confidence, setConfidence] = useState(2);
   const [minutes, setMinutes] = useState(15);
   const [error, setError] = useState(null);
-  const topics = rescueTopicsFor(grade);
+  // the material (EXAM-MATERIAL 1): 'list' the card and the whole list; 'paste' the message; 'photo' the pictures;
+  // 'found' what was found, to confirm
+  const [mode, setMode] = useState('list');
+  const [text, setText] = useState('');
+  const [pages, setPages] = useState([]);
+  const [reading, setReading] = useState({ phase: 'idle' });
+  const [found, setFound] = useState(null);
+  const status = useAIStatus((x) => x.status);
+  const photoOk = aiReady() && !NO_PHOTO.includes(aiAccess('syllabus', status).state);
+  // the bridge unit (fractions) is listed only once the material named it or one of its stairs is chosen
+  const bridge = found?.byTopic.some((r) => TOPIC[r.topic]?.bridge) || skills.some((x) => TOPIC[x.split(':')[0]]?.bridge);
+  const topics = [...rescueTopicsFor(grade), ...(bridge ? bridgeTopicsFor(grade) : [])];
   const toggle = (id) => setSkills((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   // a row's stairs: the whole unit, or a guest row's own (ז׳'s "מבוא לפונקציות" is func:1 alone, FUNC-6)
   const toggleTopic = (t) => { const ids = rowStairs(t).map((s) => s.id); const all = ids.every((x) => skills.includes(x)); setSkills((s) => (all ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])])); };
-  const can = step === 0 ? !!date && date >= today() : step === 1 ? skills.length > 0 : true;
+  const showFound = (f) => { setSkills(f.skills); setFound(f); setMode('found'); };
+  const readText = () => showFound({ ...matchMaterial(text, grade), examples: [], source: 'paste' });
+  const readPhotos = async () => {
+    // the helper is done for today (the calm sheet says so), or this is its first use here (the introduction opens,
+    // and the reading runs after it): nothing is sent yet
+    if (gate('syllabus', { then: readPhotos })) return;
+    setReading({ phase: 'loading' });
+    try {
+      const catalogue = materialCatalogue(grade);
+      const r = await runAI('syllabus', { grade, pages: pages.map(({ data, mediaType }) => ({ data, mediaType })), stairs: catalogue.map((c) => c.id), prep: prepOf(pages) });
+      // the helper stopped because a picture worries it: the support card, never "try again"
+      if (r.care) { setReading({ phase: 'care' }); return; }
+      if (!r.readable) { setReading({ phase: 'error', message: MATERIAL_COPY.unreadable }); return; }
+      const ids = catalogue.map((c) => c.id).filter((id) => r.stairs.includes(id));
+      const byTopic = [];
+      catalogue.forEach((c) => { if (!ids.includes(c.id)) return; let row = byTopic.find((x) => x.topic === c.topic); if (!row) { row = { topic: c.topic, title: c.topicTitle, skills: [] }; byTopic.push(row); } row.skills.push(c.id); });
+      setReading({ phase: 'idle' });
+      showFound({ skills: ids, byTopic, unknown: r.unplaced || [], examples: r.examples || [], source: 'photo' });
+    } catch (e) {
+      setReading(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message });
+    }
+  };
+  const material = step === 1 && (mode === 'paste' || mode === 'photo');
+  const can = step === 0 ? !!date && date >= today()
+    : step === 1 ? (mode === 'paste' ? !!text.trim() : mode === 'photo' ? pages.length > 0 && reading.phase !== 'loading' : skills.length > 0) : true;
   const last = step === ASK.length - 1;
+  const back = () => {
+    if (step === 1 && mode !== 'list') { setMode(mode === 'found' && found?.source === 'photo' ? 'photo' : mode === 'found' ? 'paste' : 'list'); return; }
+    if (step) setStep(step - 1); else navigate(-1);
+  };
   const submit = (e) => {
     e.preventDefault();
     if (!can) return;
+    if (step === 1 && mode === 'paste') { readText(); return; }
+    if (step === 1 && mode === 'photo') { readPhotos(); return; }
     // a date on Shabbat or Yom Tov is likely a typo: said right away, calmly, on the date's own screen
     if (step === 0 && isPlanRestDay(date)) { setError(validInput({ grade, date, skills: ['x'], minutes }, today())); return; }
     if (!last) { setStep(step + 1); setError(null); return; }
@@ -65,10 +120,12 @@ function Setup({ onSave }) {
     if (err) { setError(err); return; }
     onSave(input);
   };
+  const label = material ? (mode === 'paste' ? MATERIAL_COPY.find : MATERIAL_COPY.read)
+    : last ? `לבניית התוכנית (${skills.length} מדרגות)` : 'המשך';
   return (
     <form className="ob ob-flow rescue-flow" onSubmit={submit} noValidate>
       <header className="ob-top" data-region="header">
-        <button type="button" className="icon-btn" onClick={() => (step ? setStep(step - 1) : navigate(-1))} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
+        <button type="button" className="icon-btn" onClick={back} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
         <div className="ob-bar" role="progressbar" aria-label="פרטי המבחן" aria-valuemin={0} aria-valuemax={ASK.length} aria-valuenow={step + 1}><i style={{ width: `${((step + 1) / ASK.length) * 100}%` }} /></div>
       </header>
       <main className="ob-main" data-region="content">
@@ -78,7 +135,7 @@ function Setup({ onSave }) {
         {step === 0 && (
           <>
             <div className="ob-opts ob-opts-row" role="radiogroup" aria-label="כיתה">
-              {['7', '8'].map((g) => <button key={g} type="button" role="radio" aria-checked={grade === g} className={clsx('ob-opt', grade === g && 'on')} onClick={() => { setGrade(g); setSkills([]); }}><span className="ob-opt-text"><b>כיתה {g === '7' ? 'ז׳' : 'ח׳'}</b></span></button>)}
+              {['7', '8'].map((g) => <button key={g} type="button" role="radio" aria-checked={grade === g} className={clsx('ob-opt', grade === g && 'on')} onClick={() => { setGrade(g); setSkills([]); setFound(null); setMode('list'); }}><span className="ob-opt-text"><b>כיתה {g === '7' ? 'ז׳' : 'ח׳'}</b></span></button>)}
             </div>
             <div className="field">
               <label htmlFor="exam-date" className="field-label">תאריך המבחן</label>
@@ -86,30 +143,18 @@ function Setup({ onSave }) {
             </div>
           </>
         )}
-        {step === 1 && (
+        {step === 1 && mode === 'list' && (
           <div className="rescue-topics" data-region="answers">
-            <p className="field-hint">{aiReady() ? 'בחרו את המדרגות שיהיו במבחן.' : 'בחרו את המדרגות שיהיו במבחן. צילום של רשימת הנושאים מהמורה יעבוד כשהעוזר החכם מחובר; בגרסה הזאת בוחרים ידנית.'}</p>
-            {topics.map((t) => {
-              const ids = rowStairs(t).map((s) => s.id);
-              const all = ids.every((x) => skills.includes(x));
-              const some = ids.filter((x) => skills.includes(x)).length;
-              // a topic of an earlier grade is revision and says so ("מכיתה ז׳"); Pythagoras, filed under ח׳, is taught in
-              // ז׳ too by this year's programme, so for ז׳ it is simply one of theirs; a unit also on this grade's path
-              // this year (learn/skills.ts ALSO_ON_PATH) is theirs too, not revision
-              const earlier = earlierUnit(t, grade);
-              return (
-                <fieldset key={t.id} className={clsx('rescue-topic', `ch-${t.color}`)}>
-                  <legend className="visually-hidden">{t.title}</legend>
-                  <div className="rescue-topic-head">
-                    <label className="check-row topic-row"><input type="checkbox" checked={all} onChange={() => toggleTopic(t)} /><span>{t.title}{earlier ? ` מכיתה ${t.grade === '7' ? 'ז׳' : 'ח׳'}` : ''} {t.only ? `(מה שלומדים בכיתה ${grade === '7' ? 'ז׳' : 'ח׳'})` : '(כל הנושא)'}</span></label>
-                    {some > 0 && <span className="rescue-topic-count">{some}/{ids.length}</span>}
-                  </div>
-                  <div className="stair-chips">
-                    {rowStairs(t).map(({ id, title }) => { const on = skills.includes(id); return <label key={id} className={clsx('chip-toggle', on && 'on')}><input type="checkbox" checked={on} onChange={() => toggle(id)} />{on && <Check size={15} strokeWidth={3} aria-hidden="true" />}<span>{title}</span></label>; })}
-                  </div>
-                </fieldset>
-              );
-            })}
+            <MaterialCard onPaste={() => setMode('paste')} onPhoto={photoOk ? () => setMode('photo') : null} />
+            <h2 className="material-or">{MATERIAL_COPY.manual}</h2>
+            {topics.map((t) => <TopicRow key={t.id} t={t} grade={grade} skills={skills} onToggle={toggle} onToggleTopic={toggleTopic} />)}
+          </div>
+        )}
+        {step === 1 && mode === 'paste' && <PasteMaterial text={text} onText={setText} />}
+        {step === 1 && mode === 'photo' && <PhotoMaterial pages={pages} onPages={setPages} state={reading} />}
+        {step === 1 && mode === 'found' && found && (
+          <div className="rescue-topics">
+            <FoundMaterial found={found} rows={topics} grade={grade} skills={skills} onToggle={toggle} onToggleTopic={toggleTopic} titleOf={titleOf} />
           </div>
         )}
         {step === 2 && (
@@ -124,10 +169,57 @@ function Setup({ onSave }) {
         )}
         {error && <p className="form-error" role="alert">{error}</p>}
       </main>
-      <footer className="ob-foot" data-region="footer">
-        <Button type="submit" className="btn-block btn-lg" disabled={!can}>{last ? `לבניית התוכנית (${skills.length} מדרגות)` : 'המשך'}</Button>
-      </footer>
+      {!(step === 1 && mode === 'photo' && reading.phase === 'loading') && (
+        <footer className="ob-foot" data-region="footer">
+          <Button type="submit" className="btn-block btn-lg" disabled={!can}>{label}</Button>
+        </footer>
+      )}
     </form>
+  );
+}
+
+/**
+ * The evening before the exam, or its morning (EXAM-MATERIAL 2): what is left for today, in order, each with its button
+ * and minutes, and the honest total; then what does not fit the minutes chosen, apart. The steps are the plan's
+ * (examToday), the same the home and the mission name.
+ */
+function Evening({ p, plan, tasks }) {
+  const navigate = useNavigate();
+  const ev = p.evening;
+  const over = ev.minutes > plan.minutes;
+  return (
+    <>
+      <section className="card rescue-evening" aria-labelledby="evening-title">
+        <h2 id="evening-title" className="h-section">מה נשאר להיום</h2>
+        {tasks.length ? (
+          <>
+            <p className="evening-time">{minutesText(ev.minutes)}{over ? ', קצת יותר מהזמן שבחרתם' : `, בתוך ${plan.minutes} הדקות שבחרתם`}</p>
+            <ol className="plain-list evening-tasks">
+              {tasks.map((t, i) => (
+                <li key={`${t.to}-${i}`} className="rescue-task evening-task">
+                  <span className="evening-step"><MathText text={t.title} /><span className="evening-min">{minutesText(t.minutes)}</span></span>
+                  <Button variant={i === 0 ? 'primary' : 'ghost'} className="btn-sm" onClick={() => navigate(t.to)}>{i === 0 ? 'מתחילים' : 'פתיחה'}</Button>
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : <p className="evening-time">{p.today.length ? REST_DAY_LINE : 'עשיתם את כל מה שתכננו להיום. אפשר לנוח.'}</p>}
+      </section>
+      {ev.later.length > 0 && (
+        <section className="card rescue-evening evening-later" aria-labelledby="later-title">
+          <h2 id="later-title" className="h-section">אם יש עוד זמן</h2>
+          <p className="evening-time">עוד {minutesText(ev.laterMinutes)}, במדרגות שלא נכנסו לזמן שבחרתם.</p>
+          <ul className="plain-list evening-tasks">
+            {ev.later.map((t, i) => (
+              <li key={`${t.to}-${i}`} className="rescue-task evening-task">
+                <span className="evening-step"><MathText text={t.title} /><span className="evening-min">{minutesText(t.minutes)}</span></span>
+                <Button variant="ghost" className="btn-sm" onClick={() => navigate(t.to)}>פתיחה</Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -150,7 +242,12 @@ function Plan({ plan }) {
           <div className="rescue-msg rescue-hero-msg" role="status"><p>{p.message}</p></div>
         </div>
       </section>
-      {!p.diagnosed ? (
+      {p.evening ? (
+        <>
+          {restDay && <p className="rescue-rest" role="status">{REST_DAY_LINE}</p>}
+          <Evening p={p} plan={plan} tasks={examToday} />
+        </>
+      ) : !p.diagnosed ? (
         <>
           {/* on Shabbat and Yom Tov the plan asks nothing: the short check waits, and can still be done by choice */}
           {restDay && <p className="rescue-rest" role="status">{REST_DAY_LINE}</p>}

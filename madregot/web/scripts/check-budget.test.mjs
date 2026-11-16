@@ -235,7 +235,10 @@ describe('the budget as configured', () => {
       // features, Base UI, KaTeX and markdown; COUNCIL2-34: the languages' words that are not the first screen's (Settings'
       // Hebrew, all of Arabic) and the Arabic twins of the content's meta files
       'tutorContext', 'SheetDialog', 'choices', 'motionFeatures', '@base-ui/react', 'katex', 'react-markdown',
-      'shell.ar', 'settings.ar', 'settings.he', 'signed6.ar', 'meta.gen.ar', 'topics.gen.ar', 'lessons.ar']);
+      'shell.ar', 'settings.ar', 'settings.he', 'signed6.ar', 'meta.gen.ar', 'topics.gen.ar', 'lessons.ar',
+      // EXAM-MATERIAL: the matcher of a test's material (by path: a first-load file may share the base name), its step of
+      // Exam Rescue, and the evening's rule card
+      'src/lib/examMaterial.js', 'MaterialStep', 'RescueRule']);
     // the ratchet: FOLLOWUP-23's measured 403.3 KB + 5% (424), then the boot split's 317.2 KB + 5% (333), then the council2
     // merge's 299.1 KB + 5% (314) and its CSS 30.5 KB + 5% (32); never back up
     expect(budget.bootJsGzipKB).toBeLessThanOrEqual(314);

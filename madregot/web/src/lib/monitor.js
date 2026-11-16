@@ -40,7 +40,7 @@ export const ROUTES = Object.freeze([
   '/a/:id',
   '/teacher/*', '/subscription', '/quests', '/topics', '/topic/:id', '/assistant', '/me', '/settings', '/settings/advanced', '/report',
   '/exams', '/exams/check', '/exams/new', '/exams/practice/:id', '/exams/:id', '/plan', '/learn/:topic/:level', '/mission', '/rescue', '/lesson/:topic/:level', '/practice/:id',
-  '/placement', '/learn/:topic/:level/:stage', '/repair/:topic/:level/:misc', '/rescue/check', '/rescue/exam',
+  '/placement', '/learn/:topic/:level/:stage', '/repair/:topic/:level/:misc', '/rescue/check', '/rescue/exam', '/rescue/rule/:topic/:level',
   // the curriculum lane's programme page, the school lane's teacher screens and a class exam (any other /teacher path
   // is '/teacher/*')
   '/programme', '/teacher', '/teacher/lessons', '/teacher/assistant', '/teacher/settings', '/teacher/exam/new', '/teacher/exam/:id',

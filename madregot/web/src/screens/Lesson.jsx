@@ -221,6 +221,9 @@ function useLessonSpec() {
   if (pathname === '/rescue/check' || pathname === '/rescue/exam') {
     const ex = useApp.getState().learn?.exam;
     if (!ex?.skills?.length) return null;
+    // the evening's quick check of one of the exam's stairs (EXAM-MATERIAL 2): ?skill=topic:level
+    const one = pathname === '/rescue/check' ? params.get('skill') : null;
+    if (one && ex.skills.includes(one)) { const q = parseSkill(one); return { kind: 'check', purpose: 'quick', skill: one, skills: [one], topic: q.topic, level: q.level }; }
     const first = parseSkill(ex.skills[0]);
     return { kind: 'check', purpose: pathname.endsWith('exam') ? 'exam' : 'diagnostic', skills: ex.skills, topic: first.topic, level: first.level };
   }
@@ -508,9 +511,9 @@ export default function Lesson() {
     const onStair = !!(result.topic && result.level) && result.purpose !== 'floor';
     if (result.purpose === 'floor') ticked(app.completeMission({ kind: 'floor' }));
     if (!placement && onStair && !classExam) {
-      const kindOf = { mastery: 'mastery', review: 'review', verify: 'repair', diagnostic: 'exam', exam: 'exam' };
+      const kindOf = { mastery: 'mastery', review: 'review', verify: 'repair', diagnostic: 'exam', exam: 'exam', quick: 'exam' };
       // practice (stage D) or a check: each completes only the mission item it is
-      (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => ticked(app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined })));
+      (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => ticked(app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined, ...(result.purpose === 'quick' ? { rescue: 'quick' } : {}) })));
     }
     if (!placement) app.learnEvent({ e: 'lesson-done', ...(onStair ? { s: skillId(result.topic, result.level) } : {}), p: isCheck ? result.purpose : result.kind, ok: result.passed });
     // the teacher's work: a mastery check or a class exam reports its first finished result (an exam, how each question

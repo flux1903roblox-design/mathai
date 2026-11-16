@@ -7,7 +7,7 @@ import { diagnose, couldShow, discriminating } from './misconceptions';
 import { parseSkill } from './skills';
 import { MASTERY_N, REVIEW_N } from './mastery';
 import { VERIFY_N } from './misconceptions';
-import { DIAG_PER_SKILL } from './examRescue';
+import { DIAG_PER_SKILL, QUICK_N } from './examRescue';
 // @ts-ignore: plain JS
 import { makeItem, fairForCheck, namesOf } from '@/content/index.js';
 // @ts-ignore: plain JS
@@ -170,7 +170,7 @@ export function itemFor(skill: SkillId, source: Source, rnd: Rng, avoidKey?: str
   return it;
 }
 
-export type CheckPurpose = 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'floor';
+export type CheckPurpose = 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'floor' | 'quick';
 export interface CheckSpec { purpose: CheckPurpose; skill?: SkillId; skills?: SkillId[]; misc?: string }
 
 const shuffle = <T>(a: T[], rnd: Rng) => { const b = [...a]; for (let i = b.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
@@ -198,6 +198,12 @@ export function checkPlan(spec: CheckSpec, rnd: Rng): { skill: SkillId; source: 
       // so neither the old habit nor a fixed answer passes (all VERIFY_N right, src/learn/misconceptions.ts)
       if (!has(s)) return Array.from({ length: VERIFY_N }, () => ({ skill: s, source: 'gen' as const }));
       return Array.from({ length: VERIFY_N }, (_, i) => ({ skill: s, source: (i < VERIFY_N - 1 ? 'probe' : 'control') as Source, candidates: [spec.misc!] }));
+    }
+    case 'quick': {
+      // the evening before the exam (EXAM-MATERIAL 2): QUICK_N questions of one stair, a diagnostic one among them
+      const s = spec.skill!;
+      const src: Source[] = has(s) ? ['diag', 'gen', hasT(s) ? 'transfer' : 'gen'] : Array(QUICK_N).fill('gen');
+      return shuffle(src.slice(0, QUICK_N), rnd).map((source) => ({ skill: s, source }));
     }
     case 'diagnostic':
       return (spec.skills || []).flatMap((s) => Array.from({ length: DIAG_PER_SKILL }, (_, i) => ({ skill: s, source: (has(s) && i === 0 ? 'diag' : 'gen') as Source })));

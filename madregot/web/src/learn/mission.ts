@@ -44,8 +44,8 @@ export function missionFor(learn: LearnState, day: string, actions: Action[]): {
  *  - a mastery check completes its own item; a review only a review; a repair only that misconception's repair;
  *  - an Exam Rescue step is done by that step: its diagnostic and its practice exam by Rescue work (Done.kind 'exam'),
  *    a lesson by learning on its stair, practice by practice (or the check), a mastery check by the check, a review by
- *    a review or the check. A Rescue item saved before steps were named (no `task`) is done by any Rescue work, or by
- *    learning on its stair;
+ *    a review or the check, the evening's rule card by reading it and its quick check by the check. A Rescue item saved
+ *    before steps were named (no `task`) is done by any Rescue work, or by learning on its stair;
  *  - points lost in an exam ('exam-loss') are done by practice, a review or a mastery check on that stair (or by the
  *    teaching stage the item itself names);
  *  - the floor check item by the floor check (Done.kind 'floor', on no stair);
@@ -59,13 +59,19 @@ export interface Done {
   kind: Action['kind']; stage?: Stage; misc?: string;
   /** A finished challenge: which task. */
   challengeId?: string;
+  /** Exam Rescue's evening step it was (EXAM-MATERIAL 2): a stair's rule card read, or its quick check. */
+  rescue?: 'rule' | 'quick';
 }
 const practice = (done: Done) => done.kind === 'continue' && (!done.stage || done.stage === 'D');
 function completesRescue(it: MissionItem, done: Done): boolean {
   if (!it.task) return done.kind === 'exam' || (done.skill === it.skill && (done.kind === 'continue' || done.kind === 'mastery'));
-  if (it.task === 'diagnostic' || it.task === 'exam') return done.kind === 'exam';
+  // reading a rule card is not Rescue work that finishes the check or the practice exam
+  if (it.task === 'diagnostic' || it.task === 'exam') return done.kind === 'exam' && done.rescue !== 'rule';
   if (done.skill !== it.skill) return false;
   switch (it.task) {
+    // the evening before the exam: the rule card by reading it, the quick check by the check
+    case 'rule': return done.kind === 'exam' && done.rescue === 'rule';
+    case 'quick': return done.kind === 'exam' && done.rescue === 'quick';
     case 'learn': return done.kind === 'continue' || done.kind === 'mastery';
     case 'practice': return practice(done) || done.kind === 'mastery';
     case 'mastery': return done.kind === 'mastery';

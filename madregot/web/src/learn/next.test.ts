@@ -469,7 +469,8 @@ export function checkRules(c: NextContext, p = planNext(c)) {
   // nothing for the exam on Shabbat
   if (p.restDay) { expect(p.items.some((x) => x.kind === 'exam')).toBe(false); expect(p.examToday).toEqual([]); }
   // no item twice
-  const keys = p.items.map((x) => `${x.kind}|${x.skill}|${x.stage || ''}|${x.misc || ''}`);
+  // (an Exam Rescue step's task is part of what it is: the evening's rule card and quick check share a stair, EXAM-MATERIAL 2)
+  const keys = p.items.map((x) => `${x.kind}|${x.skill}|${x.stage || ''}|${x.task || ''}|${x.misc || ''}`);
   expect(new Set(keys).size).toBe(keys.length);
   expect(new Set(p.items.map((x) => x.to)).size).toBe(p.items.length);
 }
@@ -540,12 +541,9 @@ describe('the mission from the plan', () => {
     expect(done(items, { kind: 'floor' })[0].done).toBe(NOW);
   });
   it('an Exam Rescue step is done by that step: the lesson by learning, the check by the check, the diagnostic by Rescue work', () => {
-    // (the exam tomorrow: a stair's three steps all come today)
-    const c = LEARNERS.examIn3Days();
-    c.learn.exam = { ...c.learn.exam!, date: '2026-11-11' };
-    const steps = planNext(c).items.filter((x) => x.kind === 'exam');
-    const [learn, practice, mastery] = buildMission(steps.slice(0, 1)).concat(buildMission(steps.slice(1, 2)), buildMission(steps.slice(2, 3)));
-    const all = [learn, practice, mastery];
+    // a stair's three steps fall on three days now (PRODUCT2-17): its items, as the plan writes them on those days
+    const step = (task: 'learn' | 'practice' | 'mastery', stage?: 'D' | 'E') => buildMission([{ kind: 'exam', source: 'rescue', skill: 'signed:1', task, ...(stage ? { stage } : {}), title: task, to: '/rescue', reason: 'x', minutes: 5, due: '2026-11-13', rank: 0 } as never])[0];
+    const all = [step('learn'), step('practice', 'D'), step('mastery', 'E')];
     const after = (d: Parameters<typeof completeMissionItems>[1]) => done(all, d).map((x) => !!x.done);
     expect(after({ skill: 'signed:1', kind: 'continue', stage: 'A' })).toEqual([true, false, false]);
     expect(after({ skill: 'signed:1', kind: 'continue', stage: 'D' })).toEqual([true, true, false]);
@@ -554,6 +552,16 @@ describe('the mission from the plan', () => {
     const diag = buildMission(planNext(LEARNERS.examUndiagnosed()).items);
     expect(diag[0].task).toBe('diagnostic');
     expect(done(diag, { skill: 'signed:2', kind: 'exam' })[0].done).toBe(NOW);
+    // the evening before the exam (EXAM-MATERIAL 2): the rule card by reading it, the quick check by the check, and
+    // reading a rule card finishes no check and no practice exam
+    const c = LEARNERS.examIn3Days();
+    c.learn.exam = { ...c.learn.exam!, date: '2026-11-11' };
+    const [r0, q0] = planNext(c).items.filter((x) => x.kind === 'exam');
+    const evening = [...buildMission([r0]), ...buildMission([q0])];
+    expect(evening.map((x) => x.task)).toEqual(['rule', 'quick']);
+    expect(done(evening, { skill: evening[0].skill, kind: 'exam', rescue: 'rule' }).map((x) => !!x.done)).toEqual([true, false]);
+    expect(done(evening, { skill: evening[0].skill, kind: 'exam', rescue: 'quick' }).map((x) => !!x.done)).toEqual([false, true]);
+    expect(done(diag, { skill: 'signed:2', kind: 'exam', rescue: 'rule' })[0].done).toBeUndefined();
     // a Rescue item saved before steps were named is done by any Rescue work, as before
     expect(done([{ kind: 'exam', skill: 'signed:1', title: 'x', reason: 'x', minutes: 5, to: '/rescue' }], { skill: 'signed:2', kind: 'exam' })[0].done).toBe(NOW);
   });

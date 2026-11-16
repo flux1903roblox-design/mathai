@@ -220,7 +220,8 @@ export function planNext(ctx: NextContext): NextPlan {
    * (the teacher's stair or check at that very stage).
    */
   const add = (band: number, source: NextSource, a: Action & { due?: string }) => {
-    if (items.some((x) => (x.kind === a.kind && x.skill === a.skill && x.stage === a.stage && x.misc === a.misc && x.assignment === a.assignment) || x.to === a.to
+    // (an Exam Rescue step's task is part of what it is: the evening's rule card and quick check share a stair and no stage)
+    if (items.some((x) => (x.kind === a.kind && x.skill === a.skill && x.stage === a.stage && x.task === a.task && x.misc === a.misc && x.assignment === a.assignment) || x.to === a.to
       || (x.kind === 'teacher' && !!x.skill && x.skill === a.skill && !!a.stage && x.stage === a.stage && TEACHER_COVERS.includes(a.kind)))) return;
     const n = place[band] || 0; place[band] = n + 1;
     items.push({ ...a, source, rank: band * 100 + n });

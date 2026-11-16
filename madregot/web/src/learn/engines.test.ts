@@ -905,7 +905,8 @@ describe('Exam Rescue', () => {
     for (let n = 0; n < 60; n += 1) {
       const skills = ALL_SKILLS.filter(() => rnd() < 0.3).slice(0, 12);
       if (!skills.length) continue;
-      const date = new Date('2026-11-10T12:00:00'); date.setDate(date.getDate() + 1 + Math.floor(rnd() * 12));
+      // two days or more: the evening before the exam has its own steps (rescueEvening.test.ts)
+      const date = new Date('2026-11-10T12:00:00'); date.setDate(date.getDate() + 2 + Math.floor(rnd() * 11));
       const day = date.toLocaleDateString('en-CA');
       if (new Date(`${day}T12:00:00`).getDay() === 6) continue;
       const q = rescueOf(skills, day, [5, 10, 15, 30][Math.floor(rnd() * 4)], '2026-11-10');

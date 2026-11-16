@@ -332,13 +332,23 @@ function examJoin(a, b, newerB) {
   if (!isObj(a)) return b ?? a; if (!isObj(b)) return a;
   if (str(a.createdAt) !== str(b.createdAt)) return str(a.createdAt) > str(b.createdAt) ? a : b;
   const base = newerB ? b : a;
+  // each stair's newest record wins: the diagnostic answers, the evening's quick check, the rule card read (EXAM-MATERIAL 2)
+  /** @param {string} f */
+  const join = (f) => {
+    /** @type {Saved} */
+    const out = {};
+    for (const s of keysOf(a[f], b[f])) {
+      const x = a[f]?.[s]; const y = b[f]?.[s];
+      /** @param {any} v */
+      const at = (v) => str(typeof v === 'string' ? v : v?.at);
+      out[s] = !x ? y : !y ? x : at(y) > at(x) ? y : at(x) > at(y) ? x : newerB ? y : x;
+    }
+    return out;
+  };
   /** @type {Saved} */
-  const diag = {};
-  for (const s of keysOf(a.diagnostic, b.diagnostic)) {
-    const x = a.diagnostic?.[s]; const y = b.diagnostic?.[s];
-    diag[s] = !x ? y : !y ? x : str(y.at) > str(x.at) ? y : str(x.at) > str(y.at) ? x : newerB ? y : x;
-  }
-  return isObj(a.diagnostic) || isObj(b.diagnostic) ? { ...base, diagnostic: diag } : base;
+  const joined = { ...base };
+  for (const f of ['diagnostic', 'quick', 'rules']) if (isObj(a[f]) || isObj(b[f])) joined[f] = join(f);
+  return joined;
 }
 
 /**

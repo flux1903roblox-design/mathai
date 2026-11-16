@@ -82,7 +82,7 @@ export const CORS = {
   'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Expose-Headers': 'X-AI-Tier, X-AI-Group, X-AI-Left, X-AI-Economy, X-AI-Linked',
 };
-export const GROUP = { explain: 'tutor', chat: 'tutor', check: 'check', generate: 'generate', exam: 'exam' };
+export const GROUP = { explain: 'tutor', chat: 'tutor', check: 'check', generate: 'generate', exam: 'exam', syllabus: 'exam' };
 export const FAMILY = { tutor: 30, check: 6, generate: 5, exam: 2 };
 export const CLASS = { tutor: 20, check: 3, generate: 3, exam: 1 };
 export const PLANS = {
@@ -452,6 +452,13 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         const seeds = Array.isArray(body.seeds) ? body.seeds : [];
         const echo = { items: seeds.map((sd) => ({ seed: sd.i, prompt: sd.text, hint: '', solution: [`התשובה: $= ${sd.answer}$`], kept: true, blind: 'skipped' })), dropped: {}, fallback: false };
         return reply(route, 200, st.genReply ? st.genReply(body) : echo, hdr);
+      }
+      // the material of a coming test (EXAM-MATERIAL 1b): the stairs of the request a test names in st.syllabus
+      // ({ stairs, unplaced, examples }), only those the request offered, as the Worker keeps them
+      if (kind === 'syllabus') {
+        const offered = new Set(Array.isArray(body.stairs) ? body.stairs : []);
+        const r = st.syllabus || { stairs: [], unplaced: [], examples: [] };
+        return reply(route, 200, { readable: r.readable !== false, stairs: (r.stairs || []).filter((x) => offered.has(x)), unplaced: r.unplaced || [], examples: r.examples || [], care: r.care === true }, hdr);
       }
       return reply(route, 200, { questions: [{ prompt: '2+2', answer: '4', hint: 'חברו', solution: ['2+2=4'] }] }, hdr);
     }

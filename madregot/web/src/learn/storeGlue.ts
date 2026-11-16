@@ -3,7 +3,7 @@
 import type { Attempt, FloorState, LearnState, MisconRecord, Purpose } from './types';
 import { addAttempt, recordMasteryCheck, recordReview, daysBetween, MASTERY_N, MASTERY_NEED } from './mastery';
 import { addEvidence, addCounter, finishVerify, GENERATOR_WEIGHT, COUNTER_WEIGHT, GUIDED_WEIGHT, CONFIRM_SCORE, misconKey } from './misconceptions';
-import { recordDiagnostic } from './examRescue';
+import { recordDiagnostic, recordQuick } from './examRescue';
 import { logEvent } from './analytics';
 import { skillId } from './skills';
 
@@ -56,7 +56,7 @@ export function learnAfterAnswer(learn: LearnState, e: AnswerEvent): LearnState 
 export interface CheckResult {
   /** class: the teacher's class exam (TEACHER-5 §4); its answers were already recorded as diagnostic evidence. floor: the
    * curriculum lane's floor check (CURRICULUM-3). */
-  purpose: 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'class' | 'floor';
+  purpose: 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'class' | 'floor' | 'quick';
   skill?: string; misc?: string;
   right: number; asked: number;
   perSkill: Record<string, { right: number; asked: number }>;
@@ -96,6 +96,11 @@ export function learnAfterCheck(learn: LearnState, r: CheckResult, at: string, _
       if (exam) exam = recordDiagnostic(exam, s, x.right, x.asked, at);
       events = logEvent(events, { e: 'check-done', s, p: 'diagnostic', n: share(x) }, at);
     });
+  } else if (r.purpose === 'quick' && r.skill) {
+    // the evening's quick check (EXAM-MATERIAL 2): its last result decides whether practice comes next, and it is
+    // diagnostic evidence too
+    if (exam) exam = recordQuick(exam, r.skill, r.right, r.asked, at);
+    events = logEvent(events, { e: 'check-done', s: r.skill, p: 'quick', ok: r.right === r.asked, n: share(r) }, at);
   } else if (r.purpose === 'exam') {
     events = logEvent(events, { e: 'rescue-exam-done', n: share(r) }, at);
   } else if (r.purpose === 'class') {

@@ -39,6 +39,11 @@ function copy(r, rec, def, award) {
         : { mood: 'encouraging', title: 'עוד לא לגמרי', body: 'הטעות עוד הופיעה. ננסה דרך אחרת: דוגמה פתורה, הסבר אחר, או מדרגה קודמת שהמדרגה הזאת נשענת עליה.' };
     case 'diagnostic':
       return { mood: 'happy', title: 'הבדיקה הסתיימה', body: `${r.right} מתוך ${r.asked} נכונות. עכשיו אפשר לבנות תוכנית שמתאימה בדיוק למה שצריך.` };
+    // the evening before the exam (EXAM-MATERIAL 2): all three right, or a short practice waits in the plan
+    case 'quick':
+      return r.passed
+        ? { mood: 'happy', title: 'זה אצלכם', body: `${r.right} מתוך ${r.asked} נכונות. אפשר להמשיך לשלב הבא בתוכנית.` }
+        : { mood: 'encouraging', title: 'עוד תרגול קצר', body: `${r.right} מתוך ${r.asked} נכונות. בתוכנית מחכה לכם תרגול קצר על זה, ואחריו ממשיכים.` };
     case 'exam':
       return { mood: r.accuracy >= 80 ? 'achievement' : 'happy', title: 'מבחן התרגול הסתיים', body: `${r.right} מתוך ${r.asked} נכונות. בתוכנית רואים מה עוד כדאי לחזק לפני המבחן.` };
     case 'class':
@@ -160,7 +165,7 @@ function StairCheckDone({ result: r, award, onExit, work }) {
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
   // a finished check counts as a finished lesson: the moment to ask the browser to keep the data (durable/persist.js)
   useEffect(() => { askAfterLesson(); }, []);
-  const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam';
+  const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam' || r.purpose === 'quick';
   const classExam = r.purpose === 'class';
   // the next step of the plan, never this check again (nor the teacher's mastery check of this stair, whose report may
   // still be on its way), and never this stair's challenge while the card offers it

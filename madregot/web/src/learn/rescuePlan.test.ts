@@ -83,10 +83,13 @@ describe('Exam Rescue spaces the work in real minutes', () => {
     const p = planFor(['pct:3', 'pct:4', 'pct:5', 'line:2'], '2026-11-17', 15, '2026-11-11');
     expect(p.message).toContain('יש יותר עבודה מזמן, אז כל יום עמוס קצת יותר.');
     expect(Math.max(...p.days.map((d) => d.minutes))).toBeLessThanOrEqual(20);
-    // and the exam tomorrow: everything today, each stair still in order
+    // and the exam tomorrow: the evening's steps (EXAM-MATERIAL 2, rescueEvening.test.ts), within the 15 minutes: before,
+    // a whole lesson, practice and check of each stair, 45 minutes, and the line that the day is overloaded
     const q = planFor(['pct:4', 'pct:5'], '2026-11-12', 15, '2026-11-11');
     expect(q.days.map((d) => d.day)).toEqual(['2026-11-11']);
-    expect(q.today.map((t) => t.kind)).toEqual(['learn', 'practice', 'mastery', 'learn', 'practice', 'mastery', 'exam']);
+    expect(q.today.map((t) => t.kind)).toEqual(['rule', 'quick', 'rule', 'quick', 'exam']);
+    expect(q.today.reduce((a, t) => a + t.minutes, 0)).toBeLessThanOrEqual(15);
+    expect(q.message).not.toContain('עמוס');
   });
 
   it('10 minutes a day, the first choice, with three weeks: lesson, practice and check on three days, and no tight line', () => {

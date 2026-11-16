@@ -26,6 +26,7 @@ const INPUTS = {
   check: { grade: '8', image: page.data, question: '2x = 4' },
   exam: { grade: '8', pages: [page] },
   feedback: FEEDBACK_INPUT,
+  syllabus: { grade: '8', pages: [page], stairs: ['line:3', 'sys:5'] },
 };
 
 // ---------------------------------------------------------------- AI-2: the topic ways and the stable block

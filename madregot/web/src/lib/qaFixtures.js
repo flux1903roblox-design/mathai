@@ -104,6 +104,11 @@ export function qaReply(kind, input = {}) {
     const n = Array.isArray(input.rubric) ? input.rubric.length : 0;
     return { points: Array.from({ length: n }, (_, i) => ({ i, status: 'no', quote: '', tip: '' })), summary: QA_TEXT, care: false };
   }
+  // the material of a coming test (EXAM-MATERIAL 1b): the first two stairs offered, and one piece not placed
+  if (kind === 'syllabus') {
+    const stairs = (Array.isArray(input.stairs) ? input.stairs : []).slice(0, 2);
+    return { readable: true, stairs, unplaced: ['פרק 3'], examples: [], care: false };
+  }
   if (kind === 'generate') {
     const seeds = Array.isArray(input.seeds) ? input.seeds : [];
     const items = seeds.map((sd) => ({

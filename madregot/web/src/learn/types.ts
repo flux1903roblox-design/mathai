@@ -484,7 +484,14 @@ export interface MisconRecord {
 }
 
 export interface ExamPlanInput { grade: '7' | '8'; date: string; skills: SkillId[]; confidence: 1 | 2 | 3 | 4; minutes: number }
-export interface ExamPlanState extends ExamPlanInput { createdAt: string; diagnostic?: Record<SkillId, { asked: number; right: number; at: string }> }
+/**
+ * A plan as saved. `quick`: the last quick check of each stair (the evening before the exam, EXAM-MATERIAL 2); `rules`:
+ * when each stair's rule card was last read.
+ */
+export interface ExamPlanState extends ExamPlanInput {
+  createdAt: string; diagnostic?: Record<SkillId, { asked: number; right: number; at: string }>;
+  quick?: Record<SkillId, { asked: number; right: number; at: string }>; rules?: Record<SkillId, string>;
+}
 
 /** One analytics event. n: a check's share right (0..1); d: days since mastery (for reviews). No names, no free text. */
 export interface LearnEvent { t: string; e: string; s?: SkillId; m?: string; ok?: boolean; ind?: boolean; p?: Purpose | string; n?: number; d?: number }
@@ -586,7 +593,7 @@ export interface LearnState {
 export type ActionKind = 'teacher' | 'exam' | 'repair' | 'review' | 'exam-loss' | 'floor' | 'prereq' | 'continue' | 'new' | 'mastery' | 'challenge';
 export type Stage = 'A' | 'B' | 'C' | 'D' | 'E';
 /** The kind of an Exam Rescue step, as its plan names it (examRescue.ts PlanTask), plus the diagnostic before a plan. */
-export type RescueTask = 'learn' | 'practice' | 'mastery' | 'review' | 'exam' | 'diagnostic';
+export type RescueTask = 'learn' | 'practice' | 'mastery' | 'review' | 'exam' | 'diagnostic' | 'rule' | 'quick';
 export interface Action {
   /** The stair it is about; '' for an Exam Rescue step on no single stair (the diagnostic, the practice exam). */
   kind: ActionKind; skill: SkillId; misc?: string;

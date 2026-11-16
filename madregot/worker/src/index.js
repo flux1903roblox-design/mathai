@@ -84,7 +84,7 @@ const LIMIT = { small: 4 * KB, help: 700 * KB, progress: 256 * KB, exams: 64 * K
  * The photo kinds: their bodies are megabytes, so who is asking and whether they may is decided before the body is read
  * (precheck), and a caller who would be refused never makes the Worker read it (COUNCIL2-11).
  */
-const PHOTO_KINDS = new Set(['check', 'exam']);
+const PHOTO_KINDS = new Set(['check', 'exam', 'syllabus']);
 
 // ---------- secrets ----------
 /** A salted hash of a short secret (a 4-digit PIN, or a teacher's one-time claim code): "<salt>:<sha256(salt:secret)>". */
@@ -245,7 +245,7 @@ const isPdf = (mediaType, data) => {
   return String(mediaType || '').toLowerCase() === 'application/pdf' || /^data:application\/pdf/i.test(d) || d.replace(/^data:[^,]*,/, '').startsWith('JVBERi');
 };
 function sendsPdf(kind, input) {
-  if (kind === 'exam') return (Array.isArray(input.pages) ? input.pages : []).some((p) => isPdf(p?.mediaType, p?.data));
+  if (kind === 'exam' || kind === 'syllabus') return (Array.isArray(input.pages) ? input.pages : []).some((p) => isPdf(p?.mediaType, p?.data));
   if (kind === 'check') return isPdf(input.mediaType, input.image);
   return false;
 }
@@ -255,7 +255,7 @@ function sendsPdf(kind, input) {
  */
 function photoPrepRows(kind, input, tier) {
   const p = input.prep;
-  if ((kind !== 'exam' && kind !== 'check') || !p || typeof p !== 'object') return [];
+  if (!PHOTO_KINDS.has(kind) || !p || typeof p !== 'object') return [];
   const row = (category) => ({ kind: 'photo_redacted', category, surface: kind, source: 'client', tier });
   const crop = p.crop === true;
   const black = Number.isInteger(p.boxes) && p.boxes > 0;
@@ -338,7 +338,7 @@ async function answerAI(kind, req, env, ctx, cors, track) {
   if (Number.isFinite(declared) && declared > max) throw new HttpError(413, 'too_large');
   let input; let hit; let r;
   if (PHOTO_KINDS.has(kind)) {
-    // A photo kind (check, exam): the caller is checked before the body is read (COUNCIL2-11): no AI key, an invalid
+    // A photo kind (check, exam, syllabus): the caller is checked before the body is read (COUNCIL2-11): no AI key, an invalid
     // credential, the class's rule, the parent's OK, paid_only or solo off are each refused with the photos unread, and
     // nothing is counted. The counters are taken only after the read. The question typed beside a check's photo is
     // still read for distress, and a hit gets the care answer (never counted), as in the text kinds.

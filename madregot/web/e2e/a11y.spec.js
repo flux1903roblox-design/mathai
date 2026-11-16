@@ -487,6 +487,57 @@ test.describe('Exam Rescue', () => {
   });
 });
 
+// ---------------------------------------------------------------- the material of a test (EXAM-MATERIAL)
+// "מה יהיה במבחן?" with the material: the card, the pasted message, what was found; where the helper is connected, the
+// pictures and what they name; the evening before the exam, a stair's rule card and its quick check.
+test.describe('Exam Rescue with the material, and the evening before the exam', () => {
+  const tomorrow = '2026-11-06';
+  const toTopics = async (page) => { await page.locator('#exam-date').fill(tomorrow); await page.getByRole('button', { name: 'המשך', exact: true }).click(); };
+  test('the material first, the message pasted, what it names', async ({ page }) => {
+    await open(page, '#/rescue', student('7'));
+    await toTopics(page);
+    await expect(page.locator('.material-card')).toBeVisible();
+    await scan(page, 'Rescue, the material first (no server)');
+    await page.getByRole('button', { name: 'להדביק או לכתוב את ההודעה' }).click();
+    await page.getByRole('textbox', { name: 'ההודעה מהמורה או רשימת הנושאים' }).fill("פרק 3: משוואות ובעיות מילוליות, בלי שאלות תנועה. עמ' 40-62");
+    await scan(page, 'Rescue, the message pasted');
+    await page.getByRole('button', { name: 'מה יש במבחן?' }).click();
+    await expect(page.locator('.material-unknown').last()).toContainText('פרק 3');
+    await page.getByRole('button', { name: 'עוד נושאים' }).click();
+    await scan(page, 'Rescue, what the message names, and the other topics');
+  });
+  test('the pictures of the material and what they name, with the helper connected', async ({ page }) => {
+    const { st } = await fakeServer(page, { paywall: false, parentOk: true });
+    st.syllabus = { stairs: ['pyth:1', 'area:2'], unplaced: ['וקטורים'], examples: [{ text: 'מצאו את היתר: $a = 6$, $b = 8$', stair: 'pyth:1' }] };
+    await open(page, '#/rescue', withServer());
+    await toTopics(page);
+    await scan(page, 'Rescue, the material first (helper connected)');
+    await page.getByRole('button', { name: 'לצלם את החומר (עד 4 תמונות)' }).click();
+    await scan(page, 'Rescue, photographing the material');
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'תמונה או PDF' }).click();
+    await page.getByRole('dialog', { name: 'לפני ששולחים דף' }).getByRole('button', { name: 'הבנתי, לבחור קובץ' }).click();
+    await (await chooser).setFiles({ name: 'material.png', mimeType: 'image/png', buffer: await examPng(page) });
+    await page.getByRole('dialog', { name: 'מסתירים פרטים אישיים' }).getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await scan(page, 'Rescue, one picture of the material');
+    await page.getByRole('button', { name: 'לקרוא את החומר' }).click();
+    await expect(page.getByRole('heading', { name: 'תרגילים שראיתי בחומר' })).toBeVisible();
+    await scan(page, 'Rescue, what the pictures name');
+  });
+  test('the evening before the exam, a stair\'s rule card and its quick check', async ({ page }) => {
+    const evening = exam({ date: tomorrow, skills: ['signed:1', 'signed:2'], minutes: 15 });
+    await open(page, '#/rescue', withExam(evening));
+    await expect(page.getByRole('heading', { name: 'מה נשאר להיום' })).toBeVisible();
+    await scan(page, 'Rescue, the evening before the exam');
+    await open(page, '#/rescue/rule/signed/1', withExam(evening));
+    await expect(page.getByRole('heading', { level: 2, name: 'חיבור וחיסור' })).toBeVisible();
+    await scan(page, 'Rescue, a stair\'s rule card');
+    await open(page, '#/rescue/check?skill=signed:1', withExam(evening));
+    await expect.poll(() => item(page)).toBeTruthy();
+    await scan(page, 'the quick check');
+  });
+});
+
 /** The class goal, answered by the fake server for a class student (on top of fakeServer's routes). */
 async function classGoal(page, goal) {
   await page.route(`${API}/api/class/goal`, (route) => (route.request().method() === 'OPTIONS'

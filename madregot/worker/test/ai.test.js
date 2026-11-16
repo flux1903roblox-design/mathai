@@ -29,6 +29,7 @@ test('every kind builds a request with the fallback beta, the cache mark on the 
     check: { image: page.data },
     exam: { pages: [page] },
     feedback: FEEDBACK_INPUT,
+    syllabus: { pages: [page], stairs: ['eq:1', 'eq:6'] },
   };
   for (const kind of AI_KINDS) {
     const r = buildRequest(kind, { grade: '8', ...inputs[kind] });
@@ -103,6 +104,7 @@ const INPUTS = {
   check: { image: page.data },
   exam: { pages: [page] },
   feedback: FEEDBACK_INPUT,
+  syllabus: { pages: [page], stairs: ['eq:1', 'eq:6'] },
 };
 const SAFETY_PARTS = ['1201', '052-845-1201', '08:00–02:00', '055-957-1399', '105', '100', '101', '[[care]]'];
 /** Every request the tutor can send: each kind in each shape it has, and the care request. */
@@ -124,7 +126,7 @@ test('every kind and every shape, and the care request, start with the safety bl
   const block = safetyPrompt();
   const seen = everyRequest();
   assert.equal(seen.length, AI_KINDS.length * 2 + FREE_KINDS.length * 2 + 1);
-  assert.equal(seen.length, 6 * 2 + 3 * 2 + 1);
+  assert.equal(seen.length, 7 * 2 + 3 * 2 + 1);
   for (const [name, params] of seen) {
     const sys = systemText(params);
     assert.ok(sys.startsWith(block), `${name}: the safety block comes first`);

@@ -7,6 +7,11 @@ import { dayOf, key, take, netKey } from './util.js';
 export const SAFETY_KINDS = Object.freeze(['distress', 'pii_masked', 'output_blocked', 'link_removed', 'refusal', 'user_report',
   'class_ai_off', 'parent_ok_needed', 'photo_redacted']);
 export const SAFETY_SURFACES = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate', 'feedback', 'help_note', 'photo']);
+/**
+ * Surfaces counted under another name: the material of a coming test read from its photos (the AI kind 'syllabus',
+ * EXAM-MATERIAL 1b) is a 'photo' row. The table's CHECK lists the surfaces, and a new one would need a migration.
+ */
+const SURFACE_AS = Object.freeze({ syllabus: 'photo' });
 export const SAFETY_SOURCES = Object.freeze(['regex', 'model', 'client', 'server']);
 /** Rows one request may write; more is a bug in the caller, not something to store. */
 export const MAX_SAFETY_ROWS = 20;
@@ -30,7 +35,8 @@ const label = (v, max) => {
 /** A row as it will be stored, or null when its kind, surface or source is not one of the fixed values. */
 export function safetyRow(row, day = dayOf()) {
   if (!row || typeof row !== 'object') return null;
-  const { kind, surface, source } = row;
+  const { kind, source } = row;
+  const surface = SURFACE_AS[row.surface] || row.surface;
   if (!SAFETY_KINDS.includes(kind) || !SAFETY_SURFACES.includes(surface) || !SAFETY_SOURCES.includes(source)) return null;
   return { day, kind, category: label(row.category, 20), surface, source, tier: label(row.tier, 10) };
 }

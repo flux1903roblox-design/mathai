@@ -35,6 +35,22 @@ export const PHOTO_WARN = {
   },
 };
 
+/**
+ * The material of a coming test (EXAM-MATERIAL 1b: the teacher's message, a summary sheet, a worksheet, a notebook page):
+ * the same step, in the words of reading it, not checking it.
+ */
+const MATERIAL_DETAILS = 'בהודעה או בדף יש לפעמים שם, טלפון, כיתה ובית ספר. את הפרטים האלה לא שולחים לעוזר. בשלב הבא נחתוך את השורה העליונה, ואפשר להשחיר כל דבר נוסף.';
+export const MATERIAL_WARN = {
+  title: PHOTO_WARN.title,
+  lines: [MATERIAL_DETAILS, 'התמונה נשלחת לעוזר החכם (Anthropic, בארה״ב) כדי לקרוא ממנה את נושאי המבחן, ולא נשמרת אצלנו.'],
+  ok: PHOTO_WARN.ok,
+  file: {
+    title: PHOTO_WARN.file.title,
+    lines: [MATERIAL_DETAILS, PHOTO_WARN.file.lines[1], 'רק התמונות של הדפים נשלחות לעוזר החכם (Anthropic, בארה״ב) כדי לקרוא מהן את נושאי המבחן, והן לא נשמרות אצלנו.'],
+    ok: PHOTO_WARN.file.ok,
+  },
+};
+
 /** Which wording a hidden file input gets: 'camera' for one that opens the camera (`capture`), else 'file'. */
 export const warnKind = (input) => (input?.hasAttribute?.('capture') ? 'camera' : 'file');
 
@@ -45,8 +61,8 @@ function markWarned() {
   try { sessionStorage.setItem(PHOTO_WARNED, '1'); } catch { /* storage blocked: the warning simply comes again */ }
 }
 
-export function PhotoWarn({ open, kind = 'camera', onGo, onClose }) {
-  const copy = kind === 'file' ? PHOTO_WARN.file : PHOTO_WARN;
+export function PhotoWarn({ open, kind = 'camera', onGo, onClose, words = PHOTO_WARN }) {
+  const copy = kind === 'file' ? words.file : words;
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()} title={copy.title} className="photo-warn-sheet"
       footer={<Button className="btn-block btn-lg" onClick={onGo}>{copy.ok}</Button>}>
@@ -63,9 +79,9 @@ export function PhotoWarn({ open, kind = 'camera', onGo, onClose }) {
 /**
  * `ask(input)` opens a hidden file input: at once when the warning was read in this session, else after the warning (in
  * the camera's words or the picker's, warnKind), whose button clicks the input inside its own tap (a browser opens a
- * file picker only from a tap). Render `warn`.
+ * file picker only from a tap). Render `warn`. `words`: PHOTO_WARN (an exam or a notebook), or MATERIAL_WARN (a test's material).
  */
-export function usePhotoWarn() {
+export function usePhotoWarn(words = PHOTO_WARN) {
   const [input, setInput] = useState(null);
   const ask = useCallback((el) => {
     if (!el) return;
@@ -78,6 +94,6 @@ export function usePhotoWarn() {
     setInput(null);
     el?.click();
   };
-  const warn = <PhotoWarn open={!!input} kind={warnKind(input)} onGo={go} onClose={() => setInput(null)} />;
+  const warn = <PhotoWarn open={!!input} kind={warnKind(input)} onGo={go} onClose={() => setInput(null)} words={words} />;
   return { ask, warn };
 }

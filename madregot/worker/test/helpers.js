@@ -231,6 +231,7 @@ export function claudeReply(params, opts = {}) {
   const structured = params.output_config?.format;
   const shape = schemaOf(params);
   const json = shape.items ? keptRewrite(params) : shape.answers ? { answers: [] } : shape.points ? FEEDBACK_REPLY
+    : shape.unplaced ? { readable: true, stairs: [], unplaced: [], examples: [], care: false }
     : { questions: [], readable: true, transcript: '', steps: [], final: 'unknown', summary: '', title: '', weakTopics: [], nextSteps: [] };
   const text = opts.text ?? (structured ? JSON.stringify(json) : 'הסבר קצר.');
   const message = claudeMessage(params, { ...opts, text });
@@ -284,6 +285,8 @@ export const INPUT = {
   check: { image: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' },
   exam: { pages: [{ data: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' }] },
   feedback: FEEDBACK_INPUT,
+  // the material of a coming test (EXAM-MATERIAL 1b): one picture and a few of the grade's stairs
+  syllabus: { grade: '7', pages: [{ data: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' }], stairs: ['eq:1', 'eq:2', 'eq:5', 'eq:6', 'pyth:1'] },
 };
 export const DEVICE = 'a'.repeat(32);
 export const ai = (h, kind, headers = {}, { ip, body } = {}) => h.call('POST', `/api/ai/${kind}`, { headers, ip, body: body ?? INPUT[kind] });

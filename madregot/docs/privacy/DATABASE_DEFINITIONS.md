@@ -572,7 +572,7 @@
 | `<STORE_KEY>-here` | sessionStorage | לא אישי | A flag: the parents' page was opened on the child's own device. |
 | `<STORE_KEY>-adult` | sessionStorage | לא אישי | A flag: the adult step before the parents' area was passed in this tab. Never the year typed. |
 | `<STORE_KEY>-adult-wait` | localStorage | לא אישי | A time, at most 10 minutes ahead, until which the adult step stays closed after a year that is not an adult's. Never the year. |
-| `<STORE_KEY>-photo-warned` | sessionStorage | לא אישי | A flag: the warning before exam and notebook photos was read in this session. |
+| `<STORE_KEY>-photo-warned` | sessionStorage | לא אישי | A flag: the warning before exam, notebook and test-material photos was read in this session. |
 | `<STORE_KEY>-theme` | localStorage | לא אישי | The look chosen on this device: light, dark or following the phone (the student lane's lib/theme.js), mirrored for public/theme-boot.js so the first paint has the right colours. |
 | `<STORE_KEY>-src` | localStorage | לא אישי | 'play' when the app was opened from the Play Store app (?src=play), and nothing else (the student lane's lib/install.js). |
 | `<STORE_KEY>-report-fb-week` | localStorage | לא אישי | The Sunday of the week the parent last answered "הסיכום עוזר לכם?" on /parents in this browser (the family lane's FamilyReport.jsx), and nothing else. |
@@ -591,9 +591,9 @@
 - The context of the exercise the student asks about: the stair and its name, the exercise, the app's answer and solution, the answers the student typed in this exercise, the names of the mistakes the app found, the stair's explanations, and the counts of the learning summary.
 - The messages the student writes in the chat, the question written beside a photo, and an explanation the student chose to send for feedback, after the server masks email addresses, phone numbers and ID numbers.
 - For new exercises: the exercises the app chose with their answers, the topic and stair names, and the grade. Nothing the student wrote.
-- Photos (a notebook page, a photographed solution, exam pages), only after the device's photo step: cropped (the top 15% of an exam's first page by default), blacked out where the child chose, and re-encoded as JPEG, so no camera data (EXIF) leaves the device. A PDF is opened on the device and each of its pages goes through the same step as a photo; the PDF file itself is never sent.
+- Photos (a notebook page, a photographed solution, exam pages, and up to four pictures of a coming test's material sent with the grade's list of stairs by the app's own names), only after the device's photo step: cropped (the top 15% of an exam's first page by default), blacked out where the child chose, and re-encoded as JPEG, so no camera data (EXIF) leaves the device. A PDF is opened on the device and each of its pages goes through the same step as a photo; the PDF file itself is never sent.
 
-**לא נשלח אף פעם:** A name, a class or class code, the device id or its token, an email address, dates, or any other text the student wrote in the app (web/src/lib/tutorContext.test.js fails on a context field that is not on the list).
+**לא נשלח אף פעם:** A name, a class or class code, the device id or its token, an email address, dates, a teacher's message pasted into Exam Rescue (it is read on the device), or any other text the student wrote in the app (web/src/lib/tutorContext.test.js fails on a context field that is not on the list).
 
 **מה נשמר אצלנו:** Nothing of a conversation or a photo. Safety events are counts with no text (safety_events); a reported answer keeps the tutor's text only (answer_reports).
 

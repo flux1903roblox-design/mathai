@@ -11,7 +11,7 @@ import { markTaught as markTaughtRec } from '@/learn/mastery.ts';
 import { logEvent } from '@/learn/analytics.ts';
 import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
 import { completeMissionItems, missionDone } from '@/learn/mission.ts';
-import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
+import { newPlan, recordDiagnostic, seeRule } from '@/learn/examRescue.ts';
 import { randomHex } from './random.js';
 import { migrate, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS, emptyClassWork } from './durable/migrations.js';
 import { addXp, newTag } from './durable/xp.js';
@@ -497,6 +497,11 @@ export const appState = (set, get) => ({
         remindLearned(get());
         return toMission({ xp, again: false, streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned });
       },
+      /**
+       * The evening before the exam (EXAM-MATERIAL 2): a stair's rule card was read.
+       * @param {string} skill
+       */
+      seeRule: (skill) => { const L = get().learn; if (L.exam?.skills?.includes(skill)) set({ learn: { ...L, exam: seeRule(L.exam, skill, new Date().toISOString()) } }); },
       /** @param {any} input */
       setExam: (input) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, exam: input ? newPlan(input, at) : null, events: input ? logEvent(L.events, { e: 'rescue-created' }, at) : L.events } }); },
       /**

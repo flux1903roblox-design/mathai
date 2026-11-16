@@ -34,6 +34,12 @@ export const INPUTS = {
     topics: [{ id: 'line', title: 'פונקציה קווית', levels: ['א', 'ב'] }],
     key: [{ prompt: 'מה השיפוע?', answer: '3' }],
   },
+  // the material of a coming test (EXAM-MATERIAL 1b): two pictures and the grade's stairs, one of them not the app's
+  syllabus: {
+    grade: '8',
+    pages: [{ data: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' }, { data: 'data:image/png;base64,iVBORw0K', mediaType: 'image/png' }],
+    stairs: ['line:3', 'line:4', 'sys:5', 'nope:1'],
+  },
   // a finished challenge (ai spec AI-10): the app's context, the rubric, the model answer and the student's explanation,
   // long enough to show every clip, with a phone number the request masks
   feedback: {

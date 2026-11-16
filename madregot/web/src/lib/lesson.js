@@ -55,7 +55,7 @@ export function planLevels({ kind, topic, level, part = 1, max = level }) {
 /**
  * A check (Madregot 2.0): one try per question, no hints, the answer shown after a miss. Its purpose decides
  * what it is for: mastery (5 questions, 4 right), review (3), verify (after a repair), diagnostic (Exam Rescue),
- * exam (a practice exam over the exam's stairs). The questions mix the stair's generator with its diagnostic and
+ * exam (a practice exam over the exam's stairs), quick (the evening before the exam: 3 questions of one stair). The questions mix the stair's generator with its diagnostic and
  * transfer questions (src/learn/items.ts).
  * A class exam (purpose 'class', TEACHER-5 §4) brings its own questions, frozen when the teacher made it
  * (`fixedItems`, lib/exam.js thawItem): they are asked in order, each once, with no probe and no redo; `slotOk`
@@ -169,7 +169,7 @@ export function answer(s, u) {
   const secs = Math.round((Date.now() - s.itemStartedAt) / 1000);
   // a practice exam's, a class exam's and the floor check's answers are evidence of the same kind as a diagnostic: one
   // try, no hints, before teaching; they move no stair's stages
-  const purpose = s.kind === 'check' ? (s.purpose === 'exam' || s.purpose === 'class' || s.purpose === 'floor' ? 'diagnostic' : s.purpose) : 'practice';
+  const purpose = s.kind === 'check' ? (['exam', 'class', 'floor', 'quick'].includes(s.purpose) ? 'diagnostic' : s.purpose) : 'practice';
   // a question from a diagnostic model knows every misconception that predicts this answer, and which could have shown
   const diagnosis = !ok && it.diagnosis ? it.diagnosis(u) : null;
   const cands = diagnosis?.kind === 'misconception' ? diagnosis.candidates : undefined;
@@ -284,9 +284,11 @@ export function resultOf(s) {
     const asked = s.total; const right = s.right;
     const passed = s.purpose === 'mastery' ? asked >= MASTERY_N && right >= MASTERY_NEED
       : s.purpose === 'review' ? right >= Math.min(REVIEW_NEED, asked)
-        : s.purpose === 'verify' ? right >= VERIFY_NEED && s.showed === 0 : true;
+        : s.purpose === 'verify' ? right >= VERIFY_NEED && s.showed === 0
+          // the evening's quick check (EXAM-MATERIAL 2): all right, or practice comes next in the plan
+          : s.purpose === 'quick' ? right === asked : true;
     // a class exam earns what a practice exam earns; the floor check what a diagnostic earns
-    const xp = !passed ? 0 : { mastery: XP.mastery, review: XP.recall, verify: XP.verify, diagnostic: XP.diagnostic, exam: XP.exam, class: XP.exam, floor: XP.diagnostic }[s.purpose] || 0;
+    const xp = !passed ? 0 : { mastery: XP.mastery, review: XP.recall, verify: XP.verify, diagnostic: XP.diagnostic, exam: XP.exam, class: XP.exam, floor: XP.diagnostic, quick: XP.diagnostic }[s.purpose] || 0;
     // a class exam's questions, one by one, as the teacher's report reads them (correct or wrong; the server also knows
     // partial and missing, from photo-checked exams)
     const questions = s.fixedItems ? s.fixedItems.map((it, i) => ({ topic: it.topic, level: it.level, status: s.slotOk[i] ? 'correct' : 'wrong' })) : undefined;

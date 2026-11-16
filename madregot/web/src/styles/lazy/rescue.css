@@ -98,3 +98,52 @@
 .rescue-hero-title { font-family: var(--font-ui); font-weight: 800; color: var(--ink); }
 .rescue-count { background: var(--brand); color: var(--on-brand); border: 0; box-shadow: none; }
 .day-node-exam { background: var(--gold); color: var(--on-gold-ink); box-shadow: none; }
+
+/* ---- the material of the test (EXAM-MATERIAL 1): the first choice of "מה יהיה במבחן?", the pasted message, the
+   pictures, and what was found */
+.material-card { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4); border-radius: var(--r-m); border: 2px solid var(--brand-line); background: var(--brand-tint); }
+.material-title { margin: 0; font-family: var(--font-display); font-size: var(--fs-h2); line-height: var(--lh-h2); color: var(--brand-d); }
+.material-text, .material-note { margin: 0; font-size: var(--fs-sm); line-height: 1.5; color: var(--ink); }
+.material-ways { display: flex; flex-direction: column; gap: var(--s2); }
+.material-way { display: flex; align-items: center; gap: var(--s3); min-height: 56px; padding: var(--s2) var(--s4); border-radius: var(--r-m); border: 2px solid var(--line); border-bottom-width: 4px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; text-align: start; cursor: pointer; }
+.material-way svg { flex: none; color: var(--brand-ink); }
+.material-way:focus-visible, .material-more:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
+.material-way:active { transform: translateY(2px); border-bottom-width: 2px; margin-bottom: 2px; }
+.material-or { margin: var(--s4) 0 0; font-size: var(--fs-body); line-height: 1.4; font-weight: 700; color: var(--ink-2); }
+.material-input { min-height: 9rem; resize: vertical; font-size: var(--fs-body); line-height: 1.5; }
+.material-photos { display: flex; flex-direction: column; gap: var(--s3); }
+.material-found { display: flex; flex-direction: column; gap: var(--s2); }
+.material-found-line { margin: 0; font-weight: 700; line-height: 1.5; }
+.material-unknown { margin: 0; padding: var(--s3); border-radius: var(--r-m); background: var(--ground); font-size: var(--fs-sm); line-height: 1.6; overflow-wrap: anywhere; }
+.material-piece { font-weight: 700; }
+.material-examples { display: flex; flex-direction: column; gap: var(--s2); }
+.material-example { display: flex; flex-direction: column; gap: 2px; padding: var(--s2) var(--s3); border-radius: 12px; background: var(--ground); }
+.material-example-text { overflow-wrap: anywhere; }
+.material-example-stair { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); }
+.material-more { align-self: flex-start; min-height: 44px; padding: 0 var(--s3); border: 0; border-radius: 12px; background: transparent; color: var(--brand-ink); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* ---- the evening before the exam (EXAM-MATERIAL 2): what is left for today, and what waits if there is time */
+.rescue-evening { display: flex; flex-direction: column; gap: var(--s2); }
+.evening-time { margin: 0; font-weight: 600; color: var(--ink-2); line-height: 1.5; }
+.evening-tasks { display: flex; flex-direction: column; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
+.evening-task { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s2); min-height: 52px; padding: var(--s2) var(--s3); border-radius: 12px; background: var(--ground); }
+.evening-task .btn-sm { padding-inline: var(--s3); }
+.evening-step { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-weight: 600; line-height: 1.4; }
+.evening-min { font-size: var(--fs-xs); font-weight: 600; color: var(--ink-2); }
+.evening-task .btn { flex: none; min-height: 44px; }
+
+/* ---- a stair's rule card (RescueRule.jsx) */
+.rule-main { display: flex; flex-direction: column; gap: var(--s3); padding-bottom: var(--s4); }
+.rule-kicker { margin: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); }
+.rule-title { margin: 0; font-family: var(--font-display); font-size: var(--fs-h1); line-height: var(--lh-h1); }
+.rule-block { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-radius: var(--r-m); border: 2px solid var(--line); background: var(--surface); min-width: 0; }
+.rule-idea { margin: 0; font-size: var(--fs-body); font-weight: 600; line-height: 1.55; }
+.rule-card { border-color: var(--brand-line); background: var(--brand-tint); }
+.rule-text { margin: 0; font-weight: 700; line-height: 1.55; }
+.rule-why { margin: 0; font-size: var(--fs-sm); line-height: 1.55; color: var(--ink); }
+.rule-display, .rule-step-result { overflow-x: hidden; }
+.rule-example-title { margin: 0; font-size: var(--fs-body); line-height: 1.4; }
+.rule-example p { margin: 0; line-height: 1.55; }
+.rule-steps { margin: 0; padding-inline-start: var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
+.rule-steps li { line-height: 1.5; }
+.rule-step-action { display: block; font-size: var(--fs-sm); color: var(--ink-2); }
