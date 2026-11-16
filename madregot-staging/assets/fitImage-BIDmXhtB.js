@@ -1,0 +1,1 @@
+const c=[[1,.82],[1,.7],[.8,.7],[.65,.65],[.5,.6],[.4,.55],[.3,.5],[.22,.45]],e=27e4;function i(t,o=1/0,f=c){for(const[r,s]of f){const n=t(r,s);if(n&&n.length<=o)return n}return null}export{e as H,i as f};
