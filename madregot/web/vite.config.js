@@ -33,6 +33,9 @@ export default defineConfig({
     },
   },
   server: { fs: { allow: ['..'] } },
+  // The app uses no PostCSS plugins. An inline config stops Vite from looking for a postcss.config.js in parent
+  // folders: the repository root has one for another app (Tailwind), and on a fresh clone that file broke the build.
+  css: { postcss: {} },
   build: {
     rollupOptions: {
       output: {

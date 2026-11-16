@@ -3,10 +3,22 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
+# Windows PowerShell 5 turns stderr lines into errors once they are redirected with 2>&1, so a wrangler warning would end
+# the script under "Stop": the one command whose output is read runs with "Continue" (the same helper as setup.ps1).
+# A plain function on purpose: $args keeps arguments such as --binding as text, where a param() block would read them
+# as its own parameter names.
+function Invoke-Captured {
+  $exe, $rest = $args
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try { $text = (& $exe @rest 2>&1 | ForEach-Object { "$_" }) -join "`n" } finally { $ErrorActionPreference = $prev }
+  [pscustomobject]@{ Text = $text; Code = $LASTEXITCODE }
+}
+
 # The Worker needs these two secrets for classes (create, look up, join), sign-in and every network counter: without
 # them those routes answer 503 server_config. Stop here, before anything is deployed, if either is missing.
 Push-Location worker
-$secrets = (npx wrangler secret list 2>&1 | Out-String)
+$secrets = (Invoke-Captured npx wrangler secret list).Text
 Pop-Location
 $missing = @('AUTH_SECRET', 'IP_HASH_SECRET') | Where-Object { $secrets -notmatch ('"' + $_ + '"') }
 if ($missing) {
@@ -15,12 +27,17 @@ if ($missing) {
 }
 
 npm test --prefix web
+if ($LASTEXITCODE -ne 0) { throw "The web tests failed: nothing was deployed." }
 npm test --prefix worker
+if ($LASTEXITCODE -ne 0) { throw "The server tests failed: nothing was deployed." }
 npm run build --prefix web
+if ($LASTEXITCODE -ne 0) { throw "The app did not build: nothing was deployed." }
 
 Push-Location worker
 npx wrangler d1 migrations apply madregot --remote   # applies only the migrations not applied yet
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "The database migrations failed: nothing was deployed." }
 npx wrangler deploy
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "The deploy failed (see above)." }
 Pop-Location
 
 Write-Host "Deployed." -ForegroundColor Green

@@ -4,6 +4,19 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
+# Windows PowerShell 5 turns every line a program writes to stderr into an error once that stream is redirected with
+# 2>&1, and with "Stop" a mere warning (wrangler prints its warnings there) ends the script. Commands whose output this
+# script reads run through Invoke-Captured: "Continue" while they run, the text kept, and the exit code decides.
+# A plain function on purpose: $args keeps arguments such as --binding as text, where a param() block would read them
+# as its own parameter names.
+function Invoke-Captured {
+  $exe, $rest = $args
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try { $text = (& $exe @rest 2>&1 | ForEach-Object { "$_" }) -join "`n" } finally { $ErrorActionPreference = $prev }
+  [pscustomobject]@{ Text = $text; Code = $LASTEXITCODE }
+}
+
 Write-Host "=== 1/6: Installing packages ===" -ForegroundColor Cyan
 npm ci --prefix web
 npm ci --prefix worker
@@ -19,7 +32,7 @@ Write-Host "=== 3/6: Creating the database (in the European Union) ===" -Foregro
 $tomlPath = Join-Path (Get-Location) "wrangler.toml"
 $toml = [IO.File]::ReadAllText($tomlPath)
 if ($toml -match 'REPLACE_WITH_DATABASE_ID') {
-  $out = npx wrangler d1 create madregot --binding DB --update-config=false --jurisdiction=eu 2>&1 | Out-String
+  $out = (Invoke-Captured npx wrangler d1 create madregot --binding DB --update-config=false --jurisdiction=eu).Text
   Write-Host $out
   $id = [regex]::Match($out, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}').Value
   if (-not $id) { throw "Could not read the database id above. Put it in worker\wrangler.toml (database_id) and run this script again." }
@@ -38,11 +51,14 @@ npx wrangler d1 migrations apply madregot --remote   # database changes go only 
 Write-Host "=== 4/6: Building the app ===" -ForegroundColor Cyan
 Pop-Location
 npm run build --prefix web
+if ($LASTEXITCODE -ne 0) { throw "The app did not build (see above). Nothing was deployed; fix it and run this script again." }
 
 Write-Host "=== 5/6: Deploying (app and API at one address) ===" -ForegroundColor Cyan
 Push-Location worker
-$out = npx wrangler deploy 2>&1 | Out-String
+$deploy = Invoke-Captured npx wrangler deploy
+$out = $deploy.Text
 Write-Host $out
+if ($deploy.Code -ne 0) { Pop-Location; throw "The deploy failed (see above). Run this script again once it is fixed: what is done already is kept." }
 $url = [regex]::Match($out, 'https://[\w.-]+\.workers\.dev').Value
 
 Write-Host "=== 6/6: Secrets on the server ===" -ForegroundColor Cyan
@@ -54,7 +70,7 @@ function New-HexSecret {
   [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
   ($bytes | ForEach-Object { $_.ToString('x2') }) -join ''
 }
-$existing = (npx wrangler secret list --format json 2>&1 | Out-String)
+$existing = (Invoke-Captured npx wrangler secret list --format json).Text
 foreach ($name in @('AUTH_SECRET', 'IP_HASH_SECRET', 'WEBHOOK_PATH_SECRET', 'VAULT_SECRET')) {
   if ($existing -match ('"' + $name + '"')) { Write-Host "$name is already set; keeping it." }
   else { New-HexSecret | npx wrangler secret put $name; Write-Host "$name created." -ForegroundColor Green }
