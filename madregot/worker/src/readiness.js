@@ -109,6 +109,12 @@ export function readiness(cfg = {}) {
   const url = String(vars.PUBLIC_URL || '').trim();
   add('site:url', 'site', /^https:\/\/[^\s/]+/.test(url), 'PUBLIC_URL', 'PUBLIC_URL צריך להיות כתובת https של האתר', 'worker/wrangler.toml: PUBLIC_URL = "https://…"');
   add('site:contact', 'site', !!String(vars.CONTACT_EMAIL || '').trim(), 'CONTACT_EMAIL', 'חסר CONTACT_EMAIL (מופיע בדפי המשפט ובמיילים)', 'worker/wrangler.toml: CONTACT_EMAIL = "…"');
+  // the waitlist page (waitlist.js waitlistMissing): no signup, and no form on the page, until the privacy notice behind
+  // it names who holds the list and where to write to leave it. Not required to go live; required before advertising it.
+  const wlMissing = ['CONTACT_EMAIL', 'BUSINESS_NAME'].filter((k) => !String(vars[k] || '').trim());
+  add('site:waitlist', 'site', !wlMissing.length, 'רשימת ההמתנה מקבלת הרשמות',
+    `רשימת ההמתנה סגורה להרשמה (503 waitlist_not_ready) עד שימולאו ${wlMissing.join(' ו־')}: בלי זה מדיניות הפרטיות שמאחורי הטופס לא אומרת מי מחזיק את הרשימה ולאן כותבים כדי לצאת ממנה. לפני שמפרסמים את הדף`,
+    'npm run owner -- set CONTACT_EMAIL=<מייל> BUSINESS_NAME="<שם העסק>"  (ואז npm run build --prefix ../web ו־npm run deploy)', false);
   if (url) {
     add('site:health', 'site', cfg.health?.ok === true, `${url}/api/health עונה`, cfg.health ? 'השרת עונה, אבל לא אומר ok' : `לא הצלחנו להגיע אל ${url}/api/health`, 'npm run deploy');
   }

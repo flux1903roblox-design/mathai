@@ -495,10 +495,13 @@ export const UNSUB_TEXT = {
   home: 'לעמוד ההורים',
 };
 
-/** A small Hebrew page of its own (no script, no outside resource): a title, a line, the button when asked. */
-function unsubPage(env, status, { title, text, form = false }) {
+/**
+ * A small Hebrew page of its own (no script, no outside resource): a title, a line, the button when asked, and a link
+ * home (`home`, a path on PUBLIC_URL, with its words). The waitlist's removal link (waitlist.js) uses it too.
+ */
+export function unsubPage(env, status, { title, text, form = false, button = UNSUB_TEXT.button, home: homePath = '/parents', homeLabel = UNSUB_TEXT.home }) {
   const e = (x) => String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const home = `${String(env.PUBLIC_URL || '').replace(/\/+$/, '')}/parents`;
+  const home = `${String(env.PUBLIC_URL || '').replace(/\/+$/, '')}${homePath}`;
   const html = `<!doctype html>
 <html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
 <title>${e(title)} · מדרגות</title>
@@ -517,7 +520,7 @@ a{display:inline-block;min-height:44px;line-height:44px;color:#1246c4;font-weigh
 <p class="brand">מדרגות</p>
 <h1>${e(title)}</h1>
 <p>${e(text)}</p>
-${form ? `<form method="post"><button type="submit">${e(UNSUB_TEXT.button)}</button></form>\n` : ''}<a href="${e(home)}">${e(UNSUB_TEXT.home)}</a>
+${form ? `<form method="post"><button type="submit">${e(button)}</button></form>\n` : ''}<a href="${e(home)}">${e(homeLabel)}</a>
 </main></body></html>`;
   return new Response(html, {
     status,

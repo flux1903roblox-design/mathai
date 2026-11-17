@@ -23,6 +23,13 @@
 //   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   pilot-report --class C --list
 //   errors [--days 7]                            the app's error reports of the last days, most frequent first (a table)
 //   reach [--days 28]                            reach counts by week (STUDENT-14), as a table
+//   waitlist [--days 28]                         the waitlist for the store apps (src/waitlist.js): how many joined, by
+//                                                day, role, grade, phone and source; counts only, never an address
+//   waitlist --export F                          writes F, a CSV of email, role, grade, platform, created_at, consent_at
+//                                                and sent_at (the record of each consent, or a person's own data on
+//                                                request; the launch email itself is sent by the Worker). F holds
+//                                                personal data: delete it once done
+//   waitlist --remove E                          takes one address off the list (someone who wrote to ask)
 //   doctor [--local | --production] [--toml F] [--dev-vars F] [--grow-sandbox]
 //                                                what is still missing to go live (DURABLE-16, src/readiness.js): one line
 //                                                per item with the command that fixes it; exits 1 while anything required
@@ -83,6 +90,7 @@ import { PRORATA_PLANS } from '../../shared/sold.js';
 import { pilotQueries, pilotReport, pilotText, examListSql, examListText } from './pilot.mjs';
 import { shiftDay, weekOf } from '../src/goal.js';
 import { readiness, formatReadiness } from '../src/readiness.js';
+import { RETENTION } from '../../shared/retention.js';
 import { call as growCall, GROW_SANDBOX } from '../src/providers/grow.js';
 import { readWranglerConfig, deployParts, configErrorLine } from './wranglerConfig.mjs';
 import { parsePairs, setVars, SetError } from './setVars.mjs';
@@ -404,6 +412,7 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
           `DELETE FROM notices WHERE to_account = ${acc} AND sent_at IS NULL;`,
           `UPDATE subscriptions SET account_id = NULL, updated_at = ${q(now)} WHERE account_id = ${acc};`,
           `UPDATE orders SET status = CASE WHEN status = 'open' THEN 'expired' ELSE status END, account_id = NULL WHERE account_id = ${acc};`,
+          `DELETE FROM waitlist WHERE email = ${q(email)};`,
           `DELETE FROM accounts WHERE email = ${q(email)};`,
         ].join('\n'),
       };
@@ -458,6 +467,15 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       const post = o.post ? idArg(o.post, 'post assignment id') : null;
       return { readOnly: true, queries: pilotQueries({ classCode: cls, from, to, pre, post }), opts: { classCode: cls, from, to, consented, pre, post } };
     }
+    case 'waitlist-remove': {
+      // the address someone asked to take off the list; the audit row says that one was removed, never which
+      const email = emailArg(o.remove);
+      return {
+        readOnly: false,
+        sql: [`DELETE FROM waitlist WHERE email = ${q(email)};`, audit(now, 'waitlist.remove', 'waitlist', {})].join('\n'),
+        print: 'If that address was on the waitlist, it is not any more.',
+      };
+    }
     case 'errors': {
       const days = o.days === undefined ? 7 : intArg(o.days, 1, 30, 'days');
       const since = dayOf(new Date(Date.parse(now) - (days - 1) * DAY));
@@ -489,7 +507,7 @@ export const wranglerRows = (out) => { const v = JSON.parse(out); return (Array.
 // ---------------------------------------------------------------- reach (STUDENT-14)
 /** The rows of the reach table, by group: every name metrics.js accepts or counts appears once. */
 export const REACH_GROUPS = [
-  ['Landing pages', ['landing_view_mivchan', 'landing_cta_mivchan', 'landing_view_pilot', 'landing_cta_pilot', 'welcome_from_landing']],
+  ['Landing pages', ['landing_view_mivchan', 'landing_cta_mivchan', 'landing_view_pilot', 'landing_cta_pilot', 'landing_view_waitlist', 'landing_cta_waitlist', 'welcome_from_landing']],
   ['Install', ['install_offer', 'install_accept', 'installed']],
   ['Reminders', ['push_offer', 'push_on', 'push_off', 'push_sent', 'push_open', 'push_deferred', 'push_failed', 'push_rejected', 'push_paused']],
   ['Store apps', ['store_open_play', 'store_open_ios']],
@@ -574,6 +592,82 @@ export function reach(o, query, now = new Date()) {
   const family = Number(res[3]?.[0]?.n || 0) > 0 ? query(plan.familySql) : null;
   return reachTable(plan, res, family);
 }
+
+// ---------------------------------------------------------------- the waitlist for the store apps (src/waitlist.js)
+/** The rows the counts are made from: no email column. */
+export const WAITLIST_SQL = 'SELECT role, grade, platform, source, created_at, sent_at FROM waitlist ORDER BY created_at';
+/** The rows of the export: each address with the record of its consent and of the launch email. */
+export const WAITLIST_EXPORT_SQL = 'SELECT email, role, grade, platform, created_at, consent_at, sent_at FROM waitlist ORDER BY created_at, id';
+const ROLE_NAMES = { parent: 'parent', teacher: 'teacher' };
+const PHONES = [['ios', 'iPhone'], ['android', 'Android'], ['both', 'both'], [null, 'not said']];
+
+/** WAITLIST_LAUNCHED_AT as the Worker has it: the environment first, else wrangler.toml (`toml` its text). '' when unset. */
+export function launchedVar(env = process.env, toml = null) {
+  if (env.WAITLIST_LAUNCHED_AT !== undefined && env.WAITLIST_LAUNCHED_AT !== '') return String(env.WAITLIST_LAUNCHED_AT).trim();
+  const text = toml ?? readText(WRANGLER_TOML);
+  return ((text.match(/^WAITLIST_LAUNCHED_AT\s*=\s*"(.*)"/m) || [])[1] || '').trim();
+}
+
+/**
+ * The waitlist's counts as text: how many joined, the days of the last `days` with a signup, who (by phone), the grade
+ * and the source. `rows` are WAITLIST_SQL's (no address). `launched` is WAITLIST_LAUNCHED_AT ('' while open).
+ */
+export function waitlistReport(rows, { days = 28, now = new Date(), launched = '' } = {}) {
+  const n = rows.length;
+  const lines = [`Waitlist for the store apps: ${n} ${n === 1 ? 'address' : 'addresses'} (counts only: no address is printed; Jerusalem days)`];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(launched)) {
+    const until = dayOf(new Date(Date.parse(`${launched}T12:00:00Z`) + RETENTION.waitlistAfterLaunchDays * DAY));
+    lines.push(`Closed: WAITLIST_LAUNCHED_AT is ${launched}. Every address is deleted on ${until} (${RETENTION.waitlistAfterLaunchDays} days later).`);
+    const sent = rows.filter((r) => r.sent_at).length;
+    lines.push(`Launch email: sent to ${sent} of ${n} (the Worker sends it every hour once APP_STORE_URL or PLAY_STORE_URL, EMAIL_FROM, BUSINESS_NAME, BUSINESS_ADDRESS and CONTACT_EMAIL are set).`);
+  } else lines.push(`Open (WAITLIST_LAUNCHED_AT is empty). Each address is deleted ${RETENTION.waitlistMaxDays} days after it joined, or ${RETENTION.waitlistAfterLaunchDays} days after the launch day once it is set.`);
+  lines.push('');
+  // by day: the days of the range with at least one signup
+  const to = dayOf(now);
+  const from = shiftDay(to, -(days - 1));
+  const byDay = {};
+  for (const r of rows) { const d = dayOf(new Date(r.created_at)); if (d >= from && d <= to) byDay[d] = (byDay[d] || 0) + 1; }
+  const inRange = Object.values(byDay).reduce((a, b) => a + b, 0);
+  lines.push(`Joined by day, ${from} to ${to}: ${inRange} in all${inRange ? '' : ' (none)'}`);
+  for (const d of Object.keys(byDay).sort()) lines.push(`  ${d}  ${String(byDay[d]).padStart(5)}`);
+  lines.push('');
+  // who, by phone
+  const count = (f) => rows.filter(f).length;
+  const table = [...Object.keys(ROLE_NAMES), null].map((role) => {
+    const mine = role ? rows.filter((r) => r.role === role) : rows;
+    return Object.fromEntries([['who', role ? ROLE_NAMES[role] : 'all'], ['n', mine.length], ...PHONES.map(([p, name]) => [name, mine.filter((r) => (r.platform ?? null) === p).length])]);
+  });
+  lines.push('Who, by phone', formatTable(table, ['who', 'n', ...PHONES.map(([, name]) => name)]), '');
+  lines.push(`Grade: 7 (ז׳) ${count((r) => r.grade === '7')}, 8 (ח׳) ${count((r) => r.grade === '8')}, not said ${count((r) => !r.grade)}`);
+  lines.push(`Phone in all: iPhone ${count((r) => r.platform === 'ios' || r.platform === 'both')}, Android ${count((r) => r.platform === 'android' || r.platform === 'both')} (both counts in each)`);
+  const bySource = {};
+  for (const r of rows) { const k = r.source || '(none)'; bySource[k] = (bySource[k] || 0) + 1; }
+  const sources = Object.entries(bySource).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  lines.push(`Source (utm_source/utm_campaign): ${sources.length ? sources.map(([k, v]) => `${k} ${v}`).join(', ') : '(none yet)'}`, '');
+  lines.push('The launch email: the Worker sends it itself from the launch day, with a removal link in each message (npm run owner -- set WAITLIST_LAUNCHED_AT=<day> APP_STORE_URL=<…> PLAY_STORE_URL=<…>, then npm run deploy).',
+    'Someone who asks to be removed: npm run owner -- waitlist --remove <email>');
+  return lines.join('\n');
+}
+
+/**
+ * A CSV cell: quoted when needed, and (`guard`) never read as a formula by a spreadsheet. The email column is written as
+ * it is: an address may start with - or + or =, and a quote mark before it would make it another address; the address
+ * rule (account.js cleanEmail) already leaves out the ( , ; : a formula needs.
+ */
+const csvCell = (v, guard = true) => {
+  let t = v === null || v === undefined ? '' : String(v);
+  if (guard && /^[=+\-@\t\r]/.test(t)) t = `'${t}`;
+  return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+};
+/** The export: a header line, then one line per address (WAITLIST_EXPORT_SQL's rows). */
+export function waitlistCsv(rows) {
+  const cols = ['email', 'role', 'grade', 'platform', 'created_at', 'consent_at', 'sent_at'];
+  return `${[cols.join(','), ...rows.map((r) => cols.map((c) => csvCell(r[c], c !== 'email')).join(','))].join('\n')}\n`;
+}
+/** Printed with every export: what the file is and what to do with it. */
+export const EXPORT_WARNING = 'This file holds personal data (email addresses). The launch email is sent by the Worker, not from this file: '
+  + 'a mailer outside it would be a recipient the privacy notice does not name. Use it as the record of consent or to answer '
+  + 'a person who asks for their data; keep it off git, cloud folders and shared drives, and delete it as soon as you are done.';
 
 /** --name value pairs and --flags. */
 export function parseArgs(argv) {
@@ -784,6 +878,9 @@ export const HELP = `usage: npm run owner -- <command> [options] [--local | --pr
   errors [--days 7]   the app's error reports of the last days, most frequent first (a table)
   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   (or --class C --list)
   reach [--days 28]   reach counts by week (STUDENT-14): counts of named steps only, no person behind any number
+  waitlist [--days 28]   the waitlist for the store apps: counts by day, role, grade, phone and source, never an address
+  waitlist --export F   a CSV of email, role, grade, platform and the consent and launch-email times (personal data: delete F after use)
+  waitlist --remove E   takes one address off the waitlist
   doctor [--local] [--toml F] [--dev-vars F] [--grow-sandbox]   what is still missing to go live (DURABLE-16), never a secret's value
   doctor --production   the same for the live server: the committed wrangler.toml plus production.json, as the production deploy sends them
   set NAME=value [NAME=value …]   writes settings into wrangler.toml's [vars] (e.g. PUBLIC_URL, CONTACT_EMAIL); then npm run deploy
@@ -904,6 +1001,37 @@ function setProduction(args, io, { file, readFile, writeFile, readConfig }) {
   }
 }
 
+/**
+ * `waitlist`: the counts; `--export F`: the CSV for the launch email, written only to a new file, readable by its owner
+ * alone (io.writeExport for tests); `--remove E`: one address off the list. 0 when done, else an InputError.
+ */
+async function waitlistCommand(o, io) {
+  const modes = ['export', 'remove'].filter((k) => o[k] !== undefined);
+  if (modes.length > 1) fail('waitlist takes --export or --remove, not both');
+  if (o.remove !== undefined) {
+    const b = build('waitlist-remove', o);
+    await io.exec(b, o);
+    io.log(b.print);
+    return 0;
+  }
+  if (o.export !== undefined) {
+    if (o.export === true || !String(o.export).trim()) fail('--export needs a file name, e.g. --export waitlist.csv');
+    const file = path.resolve(String(o.export));
+    const rows = await io.rows(WAITLIST_EXPORT_SQL, o);
+    const write = io.writeExport || ((f, t) => writeFileSync(f, t, { mode: 0o600, flag: 'wx' }));
+    try { write(file, waitlistCsv(rows)); } catch (e) {
+      if (e?.code === 'EEXIST') fail(`${file} already exists: give a new file name (nothing was written)`);
+      throw e;
+    }
+    io.log(`${rows.length} ${rows.length === 1 ? 'address' : 'addresses'} written to ${file}`);
+    io.log(EXPORT_WARNING);
+    return 0;
+  }
+  const days = o.days === undefined || o.days === true ? 28 : intArg(o.days, 1, 400, 'days');
+  io.log(waitlistReport(await io.rows(WAITLIST_SQL, o), { days, launched: launchedVar(io.env || {}) }));
+  return 0;
+}
+
 /** The whole command line: 0 when it ran, 1 when it was refused or failed (nothing written then). */
 export async function cli(argv, io = realIo) {
   try {
@@ -943,6 +1071,8 @@ async function databaseCommand(cmd, o, io, toml) {
       io.log(reachTable(plan, res, family));
       return 0;
     }
+    // the waitlist (src/waitlist.js): counts (read-only, no address), the export for the launch email, or one removal
+    if (cmd === 'waitlist') return await waitlistCommand(o, io);
     // the Ministry's rules come first: nothing is written, and nothing asked, for a grant they refuse. Every other input
     // is checked before the class is read; then the class (grant-class), the rules, and "private" typed when needed.
     let opts = {};

@@ -9,7 +9,7 @@ import { topicsFor } from '@/content/index.js';
 import { GOALS } from '@/lib/quests.js';
 import { LIST_PRICES, formatAgorot, vatLine } from '@/lib/price.js';
 import { APP_NAME } from '../../shared/brand.js';
-import { WEB, IMAGES, buildLanding, imageSize, wranglerVars, repoCode, renderClaims, saleVars, priceLine, passLine } from './landing-build.mjs';
+import { WEB, IMAGES, buildLanding, imageSize, wranglerVars, repoCode, renderClaims, render, isolateLtr, saleVars, priceLine, passLine } from './landing-build.mjs';
 import { soldOnline } from '../../shared/sold.js';
 import { CLAIMS, CLAIM, claimStatus, claimData } from '@/content/claims.js';
 import { codeWith, MERGED } from '@/lib/testing/claimCode.js';
@@ -318,7 +318,151 @@ describe('landing-build', () => {
       const s = imageSize(readFileSync(join(WEB, 'landing/img', f)));
       expect(s, f).not.toBeNull();
       if (f.startsWith('og-')) expect(s, f).toEqual({ width: 1200, height: 630 });
-      else expect(s.width, f).toBe(1080);
+      // the waitlist page's are a whole phone around the app at 390 × 844 shot at 2x (store/capture.cjs waitlist)
+      else expect(s.width, f).toBe(WAITLIST_PHONES.includes(f) ? 720 : 1080);
     }
+  });
+});
+
+// The waitlist page for the store apps (/waitlist/ and /w/, worker/src/waitlist.js): built with the others, from the
+// same tokens and claims, its form posting to the Worker the build names, small, readable by a screen reader, and true.
+const WAITLIST_PHONES = ['phone-paste.webp', 'phone-mistake.webp', 'phone-madi.webp'];
+describe('landing-build: the waitlist page', () => {
+  let wl;
+  beforeAll(() => { wl = read(dist, 'waitlist/index.html'); });
+
+  it('writes /waitlist/, the same page at /w/, its style and its script; the sitemap names /waitlist/ only', () => {
+    for (const f of ['waitlist/index.html', 'w/index.html', 'l/waitlist.css', 'l/waitlist.js', ...WAITLIST_PHONES.map((i) => `l/${i}`), 'l/og-waitlist.png']) {
+      expect(existsSync(join(dist, f)), f).toBe(true);
+    }
+    expect(read(dist, 'w/index.html')).toBe(wl);
+    expect(wl).toContain('<link rel="canonical" href="https://madregot.example.test/waitlist/">');
+    expect(wl).toContain('<meta property="og:image" content="https://madregot.example.test/l/og-waitlist.png">');
+    expect(read(dist, 'sitemap.xml')).toContain('<loc>https://madregot.example.test/waitlist/</loc>');
+    expect(read(dist, 'sitemap.xml')).not.toContain('/w/');
+    expect(wl).toMatch(/<html lang="he" dir="rtl" data-page="waitlist">/);
+  });
+
+  it('posts to the Worker the build names: JSON from its script, a plain form without it; nowhere with no server', async () => {
+    expect(wl).toContain('<form class="wl-form" id="wl-form" action="https://api.example.test/api/waitlist" method="post" data-api="https://api.example.test"');
+    const other = fakeDist();
+    try {
+      // the Worker serves the page itself: the same address
+      const owner = { CONTACT_EMAIL: ENV.CONTACT_EMAIL, BUSINESS_NAME: ENV.BUSINESS_NAME };
+      await buildLanding(other, { env: { ...owner, PUBLIC_URL: '' }, app: smallApp() });
+      expect(read(other, 'waitlist/index.html')).toContain('action="../api/waitlist" method="post" data-api=""');
+      // no server: the script says so, and a plain post goes nowhere
+      const { warn } = await buildLanding(other, { env: { ...owner, VITE_API_URL: 'none', PUBLIC_URL: '' }, app: smallApp() });
+      expect(read(other, 'waitlist/index.html')).toContain('action="#unavailable" method="post" data-api="none"');
+      expect(warn.join('\n')).toMatch(/waitlist page cannot take signups/);
+    } finally { rmSync(other, { recursive: true, force: true }); }
+  });
+
+  it('is small: the page, both style files and both scripts at most 48 KB as written, its own style at most 9 KB, each phone at most 60 KB', () => {
+    const size = (f) => statSync(join(dist, f)).size;
+    expect(size('waitlist/index.html') + size('l/landing.css') + size('l/waitlist.css') + size('l/count.js') + size('l/waitlist.js')).toBeLessThanOrEqual(48 * 1024);
+    expect(statSync(join(WEB, 'landing/waitlist.css')).size).toBeLessThanOrEqual(9 * 1024);
+    for (const img of WAITLIST_PHONES) expect(size(`l/${img}`), img).toBeLessThanOrEqual(60 * 1024);
+    // its script keeps no comment lines, and loads nothing from anywhere
+    const js = read(dist, 'l/waitlist.js');
+    expect(js).not.toMatch(/^\s*\/\//m);
+    expect(js).not.toMatch(/https?:\/\//);
+  });
+
+  it('is Hebrew, right to left, with one h1, landmarks, a skip link, a label for every field, and every picture described and sized', () => {
+    expect(wl.match(/<h1\b/g)).toHaveLength(1);
+    for (const tag of ['<header', '<main id="main"', '<footer', '<nav aria-label=', '<a class="skip" href="#main">']) expect(wl, tag).toContain(tag);
+    expect(wl.match(/<script\b[^>]*>/g)).toEqual(['<script src="../l/count.js" defer>', '<script src="../l/waitlist.js" defer>']);
+    // each field has its label: the email by for=, the chips and the box inside theirs, the honeypot too
+    expect(wl).toContain('<label for="wl-email">המייל שלכם</label>');
+    for (const input of wl.match(/<input\b[^>]*>/g)) {
+      if (/type="hidden"/.test(input)) continue;
+      const at = wl.indexOf(input);
+      const id = /\sid="([^"]+)"/.exec(input)?.[1];
+      const labelled = (id && wl.includes(`for="${id}"`)) || wl.lastIndexOf('<label', at) > wl.lastIndexOf('</label>', at);
+      expect(labelled, input).toBe(true);
+    }
+    // the required ones, for a plain post: the email, who is asking and the consent
+    for (const name of ['email', 'consent']) expect(wl).toMatch(new RegExp(`name="${name}"[^>]*required`));
+    expect(wl).toMatch(/name="role" value="parent" required/);
+    // who is asking: a parent or a teacher (students are not asked for an email anywhere: they send the link to a parent)
+    expect([...wl.matchAll(/name="role" value="(\w+)"/g)].map((m) => m[1])).toEqual(['parent', 'teacher']);
+    expect(wl).not.toMatch(/תלמיד\/ה|מתחת לגיל/);
+    expect(wl).toContain('תלמידים? <span class="wl-kids-say">שלחו את הקישור להורה.</span>');
+    // nothing before the form leaves the page: the way into the browser app is under its button
+    expect(wl.indexOf('href="../#/?src=waitlist"')).toBeGreaterThan(wl.indexOf('class="btn wl-submit"'));
+    const imgs = wl.match(/<img\b[^>]*>/g);
+    expect(imgs).toHaveLength(3);
+    for (const img of imgs) {
+      expect(img).toMatch(/\salt="[^"]{40,}"/);
+      const file = /src="\.\.\/l\/([^"]+)"/.exec(img)[1];
+      const s = imageSize(readFileSync(join(dist, 'l', file)));
+      expect(img).toContain(`width="${s.width}" height="${s.height}"`);
+      expect(img).toContain('loading="lazy"');
+    }
+    // every Latin word and number in the Hebrew text is isolated left to right (attributes and the head aside)
+    const text = wl.slice(wl.indexOf('<body>')).replace(/<[^>]*>/g, (tag) => (tag.startsWith('<bdi') || tag === '</bdi>' ? tag : ' '));
+    const outside = text.replace(/<bdi dir="ltr">[^<]*<\/bdi>/g, ' ').replace(/[\w.-]+@[\w.-]+/g, ' ').replace(/&(\w+|#\d+);/g, ' ');
+    expect(outside.match(/[A-Za-z]{2,}|\d+/g) || [], 'Latin or digits outside <bdi dir="ltr">').toEqual([]);
+  });
+
+  it('says about the product only claims the code backs, in their words, and no count, countdown or promise of results', () => {
+    const toml = wranglerVars(read(WEB, '../worker/wrangler.toml'));
+    const status = Object.fromEntries(claimStatus({ code: repoCode(), data: { ...DATA, vars: { ...toml, ...saleVars(ENV, toml) } } }).map((c) => [c.id, c]));
+    const tpl = read(WEB, 'landing', 'waitlist.html');
+    const ids = namedIn(tpl);
+    expect(ids.sort()).toEqual(['coverage', 'graded-by-code', 'lesson-drawings', 'madi-rewards', 'mistakes', 'no-ads', 'no-hearts', 'paste-plan', 'rest']);
+    // (each number and Latin word of a claim isolated left to right: the text without the <bdi> tags is the claim's)
+    const plain = wl.replace(/<bdi dir="ltr">([^<]*)<\/bdi>/g, '$1');
+    for (const id of ids) {
+      expect(status[id].visible, id).toBe(true);
+      expect(plain, id).toContain(escHtml(status[id].text));
+    }
+    expect(wl).toMatch(/<bdi dir="ltr">\d+<\/bdi> טעויות נפוצות/);
+    for (const c of CLAIMS) {
+      const words = (c.he || c.en).split('{{')[0];
+      expect(tpl, `the words of ${c.id}`).not.toContain(words.length > 12 ? words : '\u0000');
+      for (const mark of c.marks || []) expect(tpl, `"${mark}" belongs to ${c.id}`).not.toContain(mark);
+    }
+    for (const re of [...RIVALS, /נרשמו כבר/, /כבר \d+/, /נשארו/, /רק עוד/, /מוגבל/, /מבטיח|מובטח|ציון גבוה|משפר את הציון/]) expect(wl, String(re)).not.toMatch(re);
+  });
+});
+
+// Finding of the waitlist review: no form while the privacy notice behind it names no one (CONTACT_EMAIL, BUSINESS_NAME
+// empty: the production Worker's state when the page was first built), and claims with " and & isolated whole.
+describe('landing-build: the waitlist before the owner has set CONTACT_EMAIL and BUSINESS_NAME', () => {
+  for (const [name, env] of [['CONTACT_EMAIL', { CONTACT_EMAIL: '' }], ['BUSINESS_NAME', { BUSINESS_NAME: '' }], ['both', { CONTACT_EMAIL: '', BUSINESS_NAME: '' }]]) {
+    it(`without ${name}: a "not open yet" note where the form would be, no way to join, and the build says why`, async () => {
+      const other = fakeDist();
+      try {
+        // the template's own wrangler.toml leaves both empty: only the env given here fills them
+        const { warn } = await buildLanding(other, { env: { ...ENV, ...env }, app: smallApp() });
+        const html = read(other, 'waitlist/index.html');
+        expect(html).not.toContain('<form');
+        expect(html).not.toMatch(/name="email"|data-join|href="#join"/);
+        expect(html).toContain('<h2 id="h-join">הרשימה תיפתח בקרוב</h2>');
+        expect(html).toMatch(/<a class="btn" href="\.\.\/#\/\?src=waitlist" data-cta>לתרגל בדפדפן<\/a>/);
+        expect(html).not.toMatch(/\{\{/);
+        expect(read(other, 'w/index.html')).toBe(html);
+        expect(warn.join('\n')).toMatch(/waitlist page shows "not open yet" instead of its form until .*(CONTACT_EMAIL|BUSINESS_NAME).*do not advertise it before \(npm run owner -- set CONTACT_EMAIL=/);
+      } finally { rmSync(other, { recursive: true, force: true }); }
+    });
+  }
+
+  it('with both: the form, and no note', () => {
+    const wl = read(dist, 'waitlist/index.html');
+    expect(wl).toContain('<form class="wl-form" id="wl-form"');
+    expect(wl).not.toContain('הרשימה תיפתח בקרוב');
+  });
+
+  it('isolates a claim\'s numbers and Latin words without cutting an entity (gershayim as ", and &)', () => {
+    const out = renderClaims('<p>{{CLAIM x}}</p>', { shown: { x: 'המורה כתב "מבחן" על פרק 3 & סיכום ב־iPhone' }, known: ['x'] }, { isolate: true });
+    expect(out).toBe('<p>המורה כתב &quot;מבחן&quot; על פרק <bdi dir="ltr">3</bdi> &amp; סיכום ב־<bdi dir="ltr">iPhone</bdi></p>');
+    // markup in a claim stays text: escaped, its letters isolated like any other
+    expect(isolateLtr('<b>1</b>')).toBe('&lt;<bdi dir="ltr">b</bdi>&gt;<bdi dir="ltr">1</bdi>&lt;/<bdi dir="ltr">b</bdi>&gt;');
+  });
+
+  it('a part inside a kept part is filled too', () => {
+    expect(render('{{#A}}a{{#B}}b{{/B}}{{#C}}c{{/C}}{{/A}}', { A: '1', B: '1', C: '' })).toBe('ab');
   });
 });

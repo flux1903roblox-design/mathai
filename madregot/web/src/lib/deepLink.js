@@ -1,13 +1,13 @@
 // Links into the app from the landing pages (STUDENT-13): the parents' page opens #/?next=/rescue&src=mivchan, the
-// schools' page #/?start=teacher&src=pilot. The query is read from the hash route, so it works on any host and path.
+// schools' page #/?start=teacher&src=pilot, the waitlist page's quiet way into the browser app #/?src=waitlist. The query is read from the hash route, so it works on any host and path.
 // - next: where a new student lands after the first questions (Welcome), or where a returning student goes at once;
 //   only the places below, so a link can never send anyone elsewhere.
 // - start=teacher (role=teacher is the same): the teacher's way in opens at once. next=/teacher means the same.
-// - src: which page the visit came from; Welcome counts welcome_from_landing once for the two pages (STUDENT-14).
+// - src: which page the visit came from; Welcome counts welcome_from_landing once for the three pages (STUDENT-14).
 import { count } from './metrics.js';
 
 export const NEXT_ALLOWED = ['/rescue', '/teacher', '/parents', '/quests'];
-export const LANDING_SOURCES = ['mivchan', 'pilot'];
+export const LANDING_SOURCES = ['mivchan', 'pilot', 'waitlist'];
 
 /** { next, teacher, src } from a route's search ('?next=/rescue&src=mivchan'); anything not on the lists is null. */
 export function deepLink(search) {

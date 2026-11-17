@@ -1,8 +1,11 @@
-// The landing pages (STUDENT-13): /mivchan/ for parents ("מבחן ביום חמישי?") and /pilot/ for schools. Static pages,
-// built from web/landing/ after `vite build` (npm run build runs it), into the same folder:
-//   <dist>/mivchan/index.html, <dist>/pilot/index.html
+// The landing pages (STUDENT-13): /mivchan/ for parents ("מבחן ביום חמישי?") and /pilot/ for schools, and the waitlist
+// for the store apps, /waitlist/ ("מבחן במתמטיקה מחר?", the page the owner advertises, worker/src/waitlist.js), with its
+// short address /w/ (the same page; its canonical address is /waitlist/). Static pages, built from web/landing/ after
+// `vite build` (npm run build runs it), into the same folder:
+//   <dist>/mivchan/index.html, <dist>/pilot/index.html, <dist>/waitlist/index.html, <dist>/w/index.html
 //   <dist>/l/landing.css   the app's Rubik faces + the :root block of tokens.css + the dark block of dark.css + landing.css
-//   <dist>/l/count.js      the only script: two reach counts (STUDENT-14), no tracker
+//   <dist>/l/count.js      the only script of /mivchan/ and /pilot/: two reach counts (STUDENT-14), no tracker
+//   <dist>/l/waitlist.css, <dist>/l/waitlist.js   the waitlist page's own style and its form (web/landing/waitlist.*)
 //   <dist>/l/*.webp|png    the phone shots and the link previews (made by madregot/store/capture.cjs landing)
 //   <dist>/sitemap.xml, <dist>/robots.txt
 // Every link back to the app is relative (../#/…), so a copy under a sub-path (/madregot/) works too.
@@ -26,6 +29,13 @@
 //   PUBLIC_URL, CONTACT_EMAIL, BUSINESS_NAME   the build env, else wrangler.toml [vars] (the owner fills them once there)
 //   API_BASE             where count.js sends: API_BASE in the env, else from VITE_API_URL ('none' → none; unset or '/'
 //                        → '' = this Worker; an address → that address)
+//   WAITLIST_API, WAITLIST_ACTION   the same for the waitlist's form: its script posts JSON to WAITLIST_API (the form's
+//                        data-api), and without the script the form posts to WAITLIST_ACTION ('../api/waitlist' on this
+//                        Worker; '#unavailable' with no server, where the script says the list is not open here)
+//   WAITLIST_OPEN, WAITLIST_NOT_OPEN   whether the waitlist's form is on the page: only with CONTACT_EMAIL and
+//                        BUSINESS_NAME (the privacy notice behind the form names who holds the list and where to write to
+//                        leave it; the Worker refuses signups without them too, worker/src/waitlist.js). Without them the
+//                        page has a "not open yet" note where the form would be, and the build says so
 //   APP_NAME             shared/brand.js
 // What the pages say about the product is checked (STUDENT-17): every such sentence is a claim of
 // src/content/claims.js, named in a page as {{CLAIM id}} (its words, or nothing), {{#CLAIM id}}…{{/CLAIM}} (a part
@@ -46,10 +56,14 @@ export const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** The madregot/ folder: claims read the code by paths from here (web/src/…, worker/src/…, shared/…). */
 export const MADREGOT = resolve(WEB, '..');
 export const LANDING = join(WEB, 'landing');
-export const PAGES = ['mivchan', 'pilot'];
+export const PAGES = ['mivchan', 'pilot', 'waitlist'];
+/** Short addresses: the same page again under another folder (its canonical address stays the page's own). */
+export const ALIASES = { w: 'waitlist' };
 /** The images the pages use, made by store/capture.cjs into web/landing/img/ and copied to <dist>/l/. og-report.png is the
  *  picture of the parent summary's link preview, which the Worker's /r page names (worker/src/preview.js). */
-export const IMAGES = ['phone-rescue.webp', 'phone-teacher.webp', 'og-mivchan.png', 'og-pilot.png', 'og-report.png'];
+export const IMAGES = ['phone-rescue.webp', 'phone-teacher.webp', 'og-mivchan.png', 'og-pilot.png', 'og-report.png',
+  // the waitlist page's (store/capture.cjs waitlist): the app at 390 × 844, 2x, in a whole phone, and its link preview
+  'phone-paste.webp', 'phone-mistake.webp', 'phone-madi.webp', 'og-waitlist.png'];
 
 const read = (p) => readFileSync(p, 'utf8');
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -155,6 +169,14 @@ export function landingVars(env, toml, app, tokens) {
   const sold = soldOnline(sale);
   const vat = vatLine(pick('LANDING_VAT_MODE') || toml.VAT_MODE || 'included');
   if (!sold.family) warn.push(`no family plan is sold online with BILLING_PROVIDER "${saleVars(env, toml).BILLING_PROVIDER}": the parents' page shows no price`);
+  if (api === 'none') warn.push('no server (API_BASE or VITE_API_URL "none"): the waitlist page cannot take signups here');
+  // the waitlist (worker/src/waitlist.js waitlistMissing): its form only once the privacy notice behind it names who holds
+  // the list and where to write to leave it; until then the page says the list is not open yet, and the Worker refuses
+  const waitlistMissing = [!email && 'CONTACT_EMAIL', !business && 'BUSINESS_NAME'].filter(Boolean);
+  if (waitlistMissing.length) {
+    warn.push(`the waitlist page shows "not open yet" instead of its form until ${waitlistMissing.join(' and ')} ${waitlistMissing.length > 1 ? 'are' : 'is'} set: `
+      + `do not advertise it before (npm run owner -- set CONTACT_EMAIL=<email> BUSINESS_NAME="<name>", then npm run deploy)`);
+  }
   return {
     vars: {
       APP_NAME, PUBLIC_URL: publicUrl, CONTACT_EMAIL: email, BUSINESS_NAME: business,
@@ -162,10 +184,15 @@ export function landingVars(env, toml, app, tokens) {
       PASS_LINE: passLine(sold, { pass: sold.exam_pass ? formatAgorot(Number(sale.PRICE_EXAM_PASS_AGOROT)) : '', vat }),
       TOPICS_7: app.topics['7'].join(', '), TOPICS_8: app.topics['8'].join(', '), GOAL_MINUTES: orList(app.minutes.map(String)),
       THEME_LIGHT: tokenValue(tokens.root, '--paper'), THEME_DARK: tokenValue(tokens.dark, '--paper'),
+      WAITLIST_API: api, WAITLIST_ACTION: waitlistAction(api),
+      WAITLIST_OPEN: waitlistMissing.length ? '' : 'yes', WAITLIST_NOT_OPEN: waitlistMissing.length ? 'yes' : '',
     },
     api, warn,
   };
 }
+
+/** Where the waitlist's form posts without its script: this Worker, another Worker's address, or nowhere ('none'). */
+export const waitlistAction = (api) => (api === 'none' ? '#unavailable' : api ? `${api}/api/waitlist` : '../api/waitlist');
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESC[c]);
@@ -194,15 +221,31 @@ export function repoCode(root = MADREGOT) {
 }
 
 /**
- * The claim slots of a page: `claims` is { shown: { id: text }, known: [every id] }. A claim id that is not known is a
- * typo and stops the build.
+ * A plain Hebrew text as HTML: escaped, with each run of digits (with its , . and %) or of Latin letters isolated left to
+ * right (<bdi dir="ltr">), so "148 מתוך 150 … (99%)" and "iPhone" keep their order inside the Hebrew. The runs are found
+ * in the text before it is escaped, so an entity (&quot; for the gershayim, &amp;) is never cut into a run.
  */
-export function renderClaims(tpl, { shown = {}, known = [] } = {}) {
+export function isolateLtr(text) {
+  const t = String(text);
+  let out = ''; let at = 0;
+  for (const m of t.matchAll(/\d[\d,.]*%?|[A-Za-z]+(?:[ -][A-Za-z]+)*/g)) {
+    out += `${esc(t.slice(at, m.index))}<bdi dir="ltr">${esc(m[0])}</bdi>`;
+    at = m.index + m[0].length;
+  }
+  return out + esc(t.slice(at));
+}
+
+/**
+ * The claim slots of a page: `claims` is { shown: { id: text }, known: [every id] }. A claim id that is not known is a
+ * typo and stops the build. `isolate`: each number and Latin run of a claim in <bdi dir="ltr"> (the waitlist page).
+ */
+export function renderClaims(tpl, { shown = {}, known = [] } = {}, { isolate = false } = {}) {
   const ids = new Set(known);
   const want = (id) => { if (!ids.has(id)) throw new Error(`landing-build: no claim "${id}" in src/content/claims.js`); return id in shown; };
+  const words = (id) => (isolate ? isolateLtr(shown[id]) : esc(shown[id]));
   let out = tpl.replace(/\{\{#CLAIM ([\w-]+)\}\}([\s\S]*?)\{\{\/CLAIM\}\}/g, (_, id, body) => (want(id) ? body : ''));
-  out = out.replace(/\{\{CLAIMS ([\w -]+)\}\}/g, (_, list) => list.trim().split(/\s+/).filter(want).map((id) => `<li>${esc(shown[id])}</li>`).join('\n      '));
-  out = out.replace(/\{\{CLAIM ([\w-]+)\}\}/g, (_, id) => (want(id) ? esc(shown[id]) : ''));
+  out = out.replace(/\{\{CLAIMS ([\w -]+)\}\}/g, (_, list) => list.trim().split(/\s+/).filter(want).map((id) => `<li>${words(id)}</li>`).join('\n      '));
+  out = out.replace(/\{\{CLAIM ([\w-]+)\}\}/g, (_, id) => (want(id) ? words(id) : ''));
   // what a hidden claim left behind: an empty item, paragraph or list, and the space before a closing tag
   return out.replace(/^[ \t]*<li>\s*<\/li>\n/gm, '').replace(/(\S) {2,}(?=\S)/g, '$1 ').replace(/ +<\/(p|li)>/g, '</$1>')
     .replace(/<p>\s*<\/p>\n?/g, '').replace(/<ul class="ticks">\s*<\/ul>/g, '').replace(/\n[ \t]+\n/g, '\n\n').replace(/\n{3,}/g, '\n\n');
@@ -212,21 +255,28 @@ export function renderClaims(tpl, { shown = {}, known = [] } = {}) {
  * Fill a page: the claims (renderClaims), {{#NAME}}…{{/NAME}} kept only when NAME has a value, {{IMG file}} the
  * image's src and size, {{NAME}}.
  */
-export function render(tpl, vars, { images = {}, madi = {}, claims = { shown: {}, known: [] } } = {}) {
-  let out = renderClaims(tpl, claims);
-  out = out.replace(/\{\{#([A-Z_0-9]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_, name, body) => (vars[name] ? body : ''));
+export function render(tpl, vars, { images = {}, madi = {}, claims = { shown: {}, known: [] }, isolate = false } = {}) {
+  let out = renderClaims(tpl, claims, { isolate });
+  // a part kept or dropped by its slot, again while one is left inside a kept part (the waitlist's form holds none today)
+  for (let before = ''; before !== out;) {
+    before = out;
+    out = out.replace(/\{\{#([A-Z_0-9]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_, name, body) => (vars[name] ? body : ''));
+  }
   out = out.replace(/\{\{IMG ([\w.-]+)\}\}/g, (_, file) => {
     const s = images[file];
     if (!s) throw new Error(`landing-build: ${file} is missing from web/landing/img (run: node madregot/store/capture.cjs landing)`);
     return `src="../l/${file}" width="${s.width}" height="${s.height}"`;
   });
-  out = out.replace(/\{\{MADI_SMALL\}\}/g, madi.small || '').replace(/\{\{MADI\}\}/g, madi.big || '');
+  out = out.replace(/\{\{MADI_SMALL\}\}/g, madi.small || '').replace(/\{\{MADI_CHEER\}\}/g, madi.cheer || madi.big || '').replace(/\{\{MADI\}\}/g, madi.big || '');
   out = out.replace(/\{\{([A-Z_0-9]+)\}\}/g, (m, name) => (name in vars ? esc(vars[name]) : m));
   out = out.replace(/<p>\s*<\/p>/g, '');
   const left = /\{\{[^}]*\}\}/.exec(out);
   if (left) throw new Error(`landing-build: ${left[0]} has no value`);
   return out;
 }
+
+/** A page script without its comment lines (the waitlist's form): the code itself is copied as it is written. */
+export const stripLineComments = (src) => `${src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n').trim()}\n`;
 
 /** count.js without its comments, on one line, with the Worker's address in it. */
 export function buildCount(src, api) {
@@ -259,7 +309,8 @@ export async function appData() {
     return {
       topics: { 7: content.topicsFor('7').map((t) => t.title), 8: content.topicsFor('8').map((t) => t.title) },
       minutes: GOALS.map((g) => g.mins),
-      madi: { small: madi('idle', 36, 's'), big: madi('happy', 96, 'b') },
+      // the waitlist's thank-you has a third: מדי excited, a little larger
+      madi: { small: madi('idle', 36, 's'), big: madi('happy', 96, 'b'), cheer: madi('excited', 120, 'c') },
       price: { LIST_PRICES, formatAgorot, vatLine },
       claims: { status: claims.claimStatus, all: claims.CLAIMS.map((c) => c.id), data: await claims.claimData() },
     };
@@ -303,7 +354,15 @@ export async function buildLanding(dist, { env = process.env, app, src = LANDING
   }
   write('l/landing.css', `${fontFaces(dist)}${tokens.root}${tokens.dark}\n${minifyCss(read(join(src, 'landing.css')))}\n`);
   write('l/count.js', buildCount(read(join(src, 'count.js')), api));
-  for (const page of PAGES) write(`${page}/index.html`, render(read(join(src, `${page}.html`)), vars, { images, madi: data.madi, claims }));
+  write('l/waitlist.css', `${minifyCss(read(join(src, 'waitlist.css')))}\n`);
+  write('l/waitlist.js', stripLineComments(read(join(src, 'waitlist.js'))));
+  const html = {};
+  for (const page of PAGES) {
+    // the waitlist page isolates the numbers and Latin words of its claims (the older pages print them as they are)
+    html[page] = render(read(join(src, `${page}.html`)), vars, { images, madi: data.madi, claims, isolate: page === 'waitlist' });
+    write(`${page}/index.html`, html[page]);
+  }
+  for (const [alias, page] of Object.entries(ALIASES)) write(`${alias}/index.html`, html[page]);
   const base = vars.PUBLIC_URL;
   write('robots.txt', `User-agent: *\nAllow: /\n${base ? `Sitemap: ${base}/sitemap.xml\n` : ''}`);
   if (base) {
@@ -320,6 +379,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     console.log(`landing-build: claims shown: ${claims.filter((c) => c.visible).map((c) => c.id).join(', ')}`);
     const hidden = claims.filter((c) => !c.visible);
     if (hidden.length) console.log(`landing-build: claims hidden (no code behind them in this build): ${hidden.map((c) => `${c.id} (${c.why})`).join('; ')}`);
-    console.log(`landing-build: ${files.length} files in ${dist} (/mivchan/, /pilot/, /l/, robots.txt${files.includes('sitemap.xml') ? ', sitemap.xml' : ''})`);
+    console.log(`landing-build: ${files.length} files in ${dist} (/mivchan/, /pilot/, /waitlist/ and /w/, /l/, robots.txt${files.includes('sitemap.xml') ? ', sitemap.xml' : ''})`);
   }).catch((e) => { console.error(e.message || e); process.exit(1); });
 }

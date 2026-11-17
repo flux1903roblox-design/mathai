@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="he" dir="rtl" data-page="waitlist">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מבחן במתמטיקה מחר? · {{APP_NAME}}</title>
+<meta name="description" content="{{APP_NAME}}: תרגול מתמטיקה לכיתות ז׳–ח׳ לפי תוכנית משרד החינוך, בעברית. אנחנו מכינים אותה כאפליקציה ל־iPhone ול־Android: השאירו מייל ונכתוב לכם פעם אחת כשהיא בחנויות.">
+{{#PUBLIC_URL}}<link rel="canonical" href="{{PUBLIC_URL}}/waitlist/">
+<meta property="og:url" content="{{PUBLIC_URL}}/waitlist/">
+<meta property="og:image" content="{{PUBLIC_URL}}/l/og-waitlist.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="מבחן במתמטיקה מחר? מדרגות, תרגול מתמטיקה לכיתות ז׳–ח׳, לצד מסך התוכנית לערב בטלפון.">
+{{/PUBLIC_URL}}<meta property="og:type" content="website">
+<meta property="og:locale" content="he_IL">
+<meta property="og:site_name" content="{{APP_NAME}}">
+<meta property="og:title" content="מבחן במתמטיקה מחר?">
+<meta property="og:description" content="תרגול מתמטיקה לכיתות ז׳–ח׳, בעברית. הצטרפו לרשימה ונודיע לכם כשהאפליקציה בחנויות.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="{{THEME_LIGHT}}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="{{THEME_DARK}}" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../icons/192.png">
+<link rel="apple-touch-icon" href="../icons/180.png">
+<link rel="stylesheet" href="../l/landing.css">
+<link rel="stylesheet" href="../l/waitlist.css">
+<script src="../l/count.js" defer></script>
+<script src="../l/waitlist.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">דילוג לתוכן העיקרי</a>
+<header class="top wrap">
+  <span class="brand">{{MADI_SMALL}}<span class="wordmark">{{APP_NAME}}</span></span>
+</header>
+<main id="main" tabindex="-1">
+  <div class="wl-band">
+    <section class="wl-hero wrap" aria-labelledby="h-hero">
+      <div class="wl-intro">
+        <h1 id="h-hero">מבחן במתמטיקה מחר?</h1>
+        <p class="sub">{{APP_NAME}}: תרגול מתמטיקה לכיתות ז׳–ח׳ לפי תוכנית משרד החינוך, בעברית. בקרוב כאפליקציה ל־<bdi dir="ltr">iPhone</bdi> ול־<bdi dir="ltr">Android</bdi>.</p>
+      </div>
+
+      <div class="wl-card" id="join">
+{{#WAITLIST_OPEN}}
+        <form class="wl-form" id="wl-form" action="{{WAITLIST_ACTION}}" method="post" data-api="{{WAITLIST_API}}" aria-labelledby="h-join">
+          <h2 id="h-join">נודיע לכם כשהיא בחנויות</h2>
+          <p class="wl-lead">מייל אחד, ביום שהאפליקציה יוצאת. זהו.</p>
+          <p class="wl-note wl-oops" id="oops" tabindex="-1">משהו לא עבר: בדקו את המייל, בחרו מי אתם וסמנו את התיבה, ונסו שוב.</p>
+          <p class="wl-note wl-busy" id="busy" tabindex="-1">לא הצלחנו לרשום אתכם כרגע. נסו שוב מאוחר יותר.</p>
+          <p class="wl-note wl-closed" id="closed" tabindex="-1">האפליקציה כבר יצאה לחנויות, והרשימה סגורה.</p>
+
+          <div class="wl-field">
+            <label for="wl-email">המייל שלכם</label>
+            <input id="wl-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" dir="ltr" maxlength="254" required aria-describedby="wl-email-err">
+            <p class="wl-err" id="wl-email-err" hidden></p>
+          </div>
+
+          <fieldset class="wl-chips" id="wl-role" aria-describedby="wl-kids wl-role-err">
+            <legend>אני</legend>
+            <div class="wl-row">
+              <label class="wl-chip"><input type="radio" name="role" value="parent" required><span>הורה</span></label>
+              <label class="wl-chip"><input type="radio" name="role" value="teacher"><span>מורה</span></label>
+            </div>
+            <p class="wl-small wl-kids" id="wl-kids">תלמידים? <span class="wl-kids-say">שלחו את הקישור להורה.</span><button class="wl-linkbtn wl-kids-share" type="button" hidden>שלחו את הקישור להורה</button></p>
+            <p class="wl-status" id="wl-kids-status" role="status" aria-live="polite"></p>
+            <div class="wl-copy" hidden>
+              <label for="wl-kids-link">הקישור להעתקה</label>
+              <input id="wl-kids-link" type="text" readonly dir="ltr">
+            </div>
+            <p class="wl-err" id="wl-role-err" hidden></p>
+          </fieldset>
+
+          <div class="wl-pair">
+            <fieldset class="wl-chips">
+              <legend>כיתה <span class="wl-opt">(לא חובה)</span></legend>
+              <div class="wl-row">
+                <label class="wl-chip"><input type="radio" name="grade" value="7"><span>ז׳</span></label>
+                <label class="wl-chip"><input type="radio" name="grade" value="8"><span>ח׳</span></label>
+              </div>
+            </fieldset>
+
+            <fieldset class="wl-chips">
+              <legend>טלפון <span class="wl-opt">(לא חובה)</span></legend>
+              <div class="wl-row">
+                <label class="wl-chip"><input type="checkbox" name="platform" value="ios"><span><bdi dir="ltr">iPhone</bdi></span></label>
+                <label class="wl-chip"><input type="checkbox" name="platform" value="android"><span><bdi dir="ltr">Android</bdi></span></label>
+              </div>
+            </fieldset>
+          </div>
+
+          <div class="wl-consent">
+            <label class="wl-check" for="wl-consent"><input id="wl-consent" type="checkbox" name="consent" value="on" required aria-describedby="wl-consent-err wl-privacy"><span>אפשר לשלוח לי מייל אחד כשהאפליקציה יוצאת לחנויות</span></label>
+            <p class="wl-err" id="wl-consent-err" hidden></p>
+            <p class="wl-small" id="wl-privacy">מה שומרים ולמה: <a href="../#/privacy#waitlist">מדיניות הפרטיות</a>.</p>
+          </div>
+
+          <div class="wl-hp" aria-hidden="true"><label>אתר <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+          <input type="hidden" name="utm_source" value="">
+          <input type="hidden" name="utm_campaign" value="">
+          <button class="btn wl-submit" type="submit">הצטרפו לרשימה</button>
+          <p class="wl-status" id="wl-status" role="status" aria-live="polite"></p>
+          <p class="wl-small wl-also">בינתיים אפשר <a href="../#/?src=waitlist" data-cta>לתרגל בדפדפן</a>, בלי הרשמה.</p>
+        </form>
+
+        <div class="wl-done" id="joined" tabindex="-1" aria-labelledby="h-done">
+          <div class="wl-madi">{{MADI_CHEER}}</div>
+          <h2 id="h-done">נרשמתם. תודה!</h2>
+          <p>ביום שהאפליקציה יוצאת ל־<bdi dir="ltr">iPhone</bdi> ול־<bdi dir="ltr">Android</bdi> נשלח לכם מייל אחד. בינתיים אפשר לתרגל בדפדפן.</p>
+          <p>מכירים עוד הורה או מורה שזה יעזור להם?</p>
+          <button class="btn btn-2 wl-share" type="button" hidden>לשלוח להם את הקישור</button>
+          <p class="wl-status" id="wl-share-status" role="status" aria-live="polite"></p>
+          <div class="wl-copy" hidden>
+            <label for="wl-link">הקישור להעתקה</label>
+            <input id="wl-link" type="text" readonly dir="ltr">
+          </div>
+          <a class="wl-try" href="../#/?src=waitlist" data-cta>לתרגל בדפדפן</a>
+        </div>
+{{/WAITLIST_OPEN}}
+{{#WAITLIST_NOT_OPEN}}
+        <div class="wl-soon" id="soon">
+          <h2 id="h-join">הרשימה תיפתח בקרוב</h2>
+          <p>עוד מעט אפשר יהיה להשאיר כאן מייל ולשמוע כשהאפליקציה בחנויות. בינתיים אפשר לתרגל בדפדפן, בלי הרשמה.</p>
+          <a class="btn" href="../#/?src=waitlist" data-cta>לתרגל בדפדפן</a>
+        </div>
+{{/WAITLIST_NOT_OPEN}}
+      </div>
+    </section>
+  </div>
+
+  <section class="wrap wl-what" aria-labelledby="h-what">
+    <h2 id="h-what">מה יש במדרגות</h2>
+    <div class="wl-feature">
+      <div class="wl-text">
+        <h3>תוכנית לערב שלפני המבחן</h3>
+        <p>{{CLAIM paste-plan}}</p>
+      </div>
+      <img {{IMG phone-paste.webp}} alt="מסך מציל המבחנים בטלפון: המבחן מחר, ומה נשאר להיום, נזכרים בכלל, בדיקה מהירה ומבחן תרגול, כל צעד עם הדקות שלו." loading="lazy" decoding="async">
+    </div>
+    <div class="wl-feature">
+      <div class="wl-text">
+        <h3>ציורים, וטעות שמקבלת שם</h3>
+        <p>{{CLAIM lesson-drawings}} {{CLAIM mistakes}}</p>
+      </div>
+      <img {{IMG phone-mistake.webp}} alt="תרגיל במערכת צירים בטלפון: השיעורים נכתבו הפוך, והאפליקציה אומרת מה כנראה קרה, החליפו בין x ל־y, ונותנת רמז לנסות שוב." loading="lazy" decoding="async">
+    </div>
+    <div class="wl-feature">
+      <div class="wl-text">
+        <h3>מדי, ופרסים על מה שלומדים</h3>
+        <p>{{CLAIM madi-rewards}} {{CLAIM rest}} {{CLAIM no-hearts}}</p>
+      </div>
+      <img {{IMG phone-madi.webp}} alt="המסך של מדי בטלפון: מדי בצבע מגנטה עם כובע מד־זווית, והחלק הבא שהוא יקבל." loading="lazy" decoding="async">
+    </div>
+  </section>
+
+  <section class="wrap wl-facts" aria-labelledby="h-facts">
+    <h2 id="h-facts">כדאי לדעת</h2>
+    <ul class="ticks">
+      {{CLAIMS coverage graded-by-code no-ads}}
+    </ul>
+  </section>
+
+  <div class="end wrap">
+    {{MADI}}
+    {{#WAITLIST_OPEN}}<a class="btn btn-2" href="#join" data-join>להצטרף לרשימה</a>{{/WAITLIST_OPEN}}{{#WAITLIST_NOT_OPEN}}<a class="btn btn-2" href="../#/?src=waitlist" data-cta>לתרגל בדפדפן</a>{{/WAITLIST_NOT_OPEN}}
+  </div>
+</main>
+<footer class="foot wrap">
+  <p>{{#BUSINESS_NAME}}<span>{{BUSINESS_NAME}}</span>{{/BUSINESS_NAME}}{{#CONTACT_EMAIL}}<span><a href="mailto:{{CONTACT_EMAIL}}" dir="ltr">{{CONTACT_EMAIL}}</a></span>{{/CONTACT_EMAIL}}</p>
+  <nav aria-label="מידע משפטי">
+    <a href="../#/terms">תנאי שימוש</a>
+    <a href="../#/privacy">פרטיות</a>
+    <a href="../#/accessibility">נגישות</a>
+  </nav>
+</footer>
+</body>
+</html>

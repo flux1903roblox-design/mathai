@@ -129,6 +129,8 @@ test('RETENTION holds the numbers of the trust spec (TRUST-1 §4, TRUST-7), the 
     // the family and durable lanes and the daily reminder, which used to keep their own constants beside their routes
     clientErrorsDays: 30, familyDailyDays: 90, vaultIdleDays: 400, studentTokenIdleDays: 400, familyDeviceIdleDays: 365, familyLinkDays: 1,
     sessionIdleDays: 180, pushIdleDays: 45,
+    // the waitlist for the store apps: 30 days after the launch day, a year after the signup at most
+    waitlistAfterLaunchDays: 30, waitlistMaxDays: 365,
   });
   assert.ok(Object.isFrozen(R));
   assert.throws(() => { 'use strict'; R.accountIdleDays = 1; }, TypeError);
@@ -181,6 +183,8 @@ test('every purge statement deletes before the cutoff its RETENTION period gives
     ['purgeRecordsSql', /FROM class_goal_weeks/, [day(R.classGoalWeeksDays)]],
     ['purgeRecordsSql', /FROM metrics_daily/, [day(R.metricsDays)]],
     ['purgeRecordsSql', /FROM push_subs/, [day(R.pushIdleDays)]],
+    // with no launch day set (waitlist.test.js runs the launch's 30 days)
+    ['purgeRecordsSql', /FROM waitlist/, [iso(R.waitlistMaxDays)]],
     ['purgeSafetySql', /FROM safety_events/, [day(R.safetyEventsDays)]],
     ['purgeSafetySql', /FROM answer_reports/, [iso(R.answerReportsDays)]],
     // the last familyDailyDays Jerusalem days are kept, today included: the cut is the day familyDailyDays − 1 back

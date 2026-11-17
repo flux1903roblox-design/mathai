@@ -21,6 +21,8 @@
 //
 // On Sunday from 07:00 to 20:00 in Jerusalem: queue the parents' weekly email (report.js weeklyQueue; a second run adds
 // nothing), and send it after the other notices with its own flush (flushWeekly), so it never delays a legal notice.
+// Every hour from the waitlist's launch day (WAITLIST_LAUNCHED_AT): its one launch email to the addresses not sent yet,
+// once the store links and the advertiser's details are set (waitlist.js sendLaunch), after every other email.
 // Each step runs on its own: one failing step never stops the others.
 import { nowIso, addDays, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
@@ -45,6 +47,7 @@ import { qualityCounts } from './quality.js';
 export { purgeAccountsSql, purgeFamilySql, purgeErrorsSql, purgeReportSql, purgeIdentitySql, vaultNight };
 import { shiftDay } from './goal.js';
 import { pushNight, purgePushSql, pushReach } from './push.js';
+import { purgeWaitlistSql, sendLaunch } from './waitlist.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -177,7 +180,9 @@ export function purgeCountersSql(env, now = new Date()) {
  *  expired orders after unpaidOrderDays, spend after aiSpendDays, the audit log after auditLogDays, provider events after
  *  billingEventsDays, the app's error reports after clientErrorsDays (errors.js). Payments are kept. The class goal
  *  (STUDENT-4): steps after classStepsDays, its weeks after classGoalWeeksDays (Jerusalem days). Reach counts
- *  (STUDENT-14) after metricsDays. A daily reminder (STUDENT-11) pushIdleDays after the app was last opened (push.js). */
+ *  (STUDENT-14) after metricsDays. A daily reminder (STUDENT-11) pushIdleDays after the app was last opened (push.js).
+ *  The waitlist (waitlist.js): every row waitlistAfterLaunchDays after WAITLIST_LAUNCHED_AT, and each waitlistMaxDays
+ *  after its signup, whichever comes first. */
 export function purgeRecordsSql(env, now = new Date()) {
   const R = RETENTION;
   const t = now.getTime();
@@ -196,6 +201,7 @@ export function purgeRecordsSql(env, now = new Date()) {
     env.DB.prepare('DELETE FROM class_goal_weeks WHERE week < ?').bind(day(R.classGoalWeeksDays)),
     env.DB.prepare('DELETE FROM metrics_daily WHERE day < ?').bind(day(R.metricsDays)),
     purgePushSql(env, now),
+    purgeWaitlistSql(env, now),
   ];
 }
 
@@ -574,5 +580,7 @@ export async function run(env, { now = new Date() } = {}) {
   await step('weekly', () => weeklyQueue(env, now));
   await step('notices', () => flushNotices(env));
   await step('weeklySend', () => flushWeekly(env, { now }));
+  // the waitlist's one launch email (waitlist.js sendLaunch): every hour from the launch day, once its settings are set
+  await step('waitlistLaunch', () => sendLaunch(env, { now }));
   return report;
 }

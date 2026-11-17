@@ -35,6 +35,11 @@
 // a new class or the bind; st.adults holds those emails): without it the teacher gets parent_ok_needed, the dashboard's
 // aiPolicy says adultNeeded, and turning student AI on is 403 adult_needed. By default every sign-in counts as declared
 // (verify answers adult: true), as the flows written before the declaration expect.
+// The waitlist for the store apps (worker/src/waitlist.js): POST /api/waitlist checks the email, the role (a parent or a
+// teacher) and the consent as the Worker does (400 with its error code), keeps one row per address in st.waitlist (a
+// filled honeypot "website" is answered and not kept) and answers 201 { ok: true } for every accepted signup, new or not;
+// st.waitlistClosed answers 410 waitlist_closed, st.waitlistBusy 429 too_many_signups (this network's limit),
+// st.waitlistSlow 429 slow_down (the edge limiter) and st.waitlistNotReady 503 waitlist_not_ready.
 // `st.down = true` makes every call fail as a lost connection. `st.push = { key }` answers the daily reminder's key, seen
 // day and off (STUDENT-11); without it they are 404, as on a Worker with no push keys.
 // The family lane's routes:
@@ -233,6 +238,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     // { key } here; then the key, a seen day and turning off are answered (push.spec.js drives the rest itself)
     push: null,
     declaredOnly: false, adults: new Set(), // the 18+ declaration (COUNCIL2-5): see the head of this file
+    waitlist: [], waitlistClosed: false, waitlistBusy: false, waitlistSlow: false, waitlistNotReady: false, // the waitlist page's signups (see the head of this file)
     ...over,
   };
   // the class's student AI (TRUST-11): a school class, off, no consent, Madregot not in the catalogue, unless the test says
@@ -408,6 +414,20 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     const body = req.postData() ? JSON.parse(req.postData()) : {};
     log.push({ path, method: req.method(), body, headers: h });
     if (st.down) return route.abort('internetdisconnected');
+    // ---- the waitlist page (worker/src/waitlist.js)
+    if (path === '/api/waitlist' && req.method() === 'POST') {
+      if (st.waitlistSlow) return reply(route, 429, { error: 'slow_down' });
+      if (st.waitlistClosed) return reply(route, 410, { error: 'waitlist_closed' });
+      if (st.waitlistNotReady) return reply(route, 503, { error: 'waitlist_not_ready' });
+      if (String(body.website || '').trim()) return reply(route, 201, { ok: true });
+      const email = String(body.email || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return reply(route, 400, { error: 'bad_email' });
+      if (!['parent', 'teacher'].includes(body.role)) return reply(route, 400, { error: 'bad_role' });
+      if (body.consent !== true) return reply(route, 400, { error: 'consent_needed' });
+      if (st.waitlistBusy) return reply(route, 429, { error: 'too_many_signups' });
+      if (!st.waitlist.some((w) => w.email === email)) st.waitlist.push({ ...body, email });
+      return reply(route, 201, { ok: true });
+    }
     const token = h['x-account-token'];
     const signed = token && st.sessions.has(token);
     // ---- the child's side

@@ -8,6 +8,13 @@
 //                                                 at most 70 KB (WebP encoded in the page by Chromium's canvas: no
 //                                                 image package)
 //         og-mivchan.png, og-pilot.png            the link previews (WhatsApp, Facebook), 1200 × 630
+//   node madregot/store/capture.cjs waitlist [--dist <built app>]
+//     → madregot/web/landing/img/ (the waitlist page, /waitlist/: the app at 390 × 844, 2x, in a whole phone)
+//         phone-paste.webp    Exam Rescue after the teacher's message was pasted: the plan for tonight, the test tomorrow
+//         phone-mistake.webp  a coordinates exercise with x and y swapped (two numbers of different sizes, so the swap is
+//                             the only reading): the drawing, "עוד לא" and "מה כנראה קרה"
+//         phone-madi.webp     מדי's wardrobe: colours and accessories earned from what was learned
+//         og-waitlist.png     its link preview, 1200 × 630
 //   node madregot/store/capture.cjs og-report --dist <a build with its landing pages, e.g. web/dist-test>
 //     → madregot/web/landing/img/og-report.png  the parents' summary link's preview (COUNCIL2-36, worker/src/preview.js)
 //   node madregot/store/capture.cjs store [--dist <built app>] [--raw <folder>] [--no-frames] [--only <scene>]
@@ -307,6 +314,69 @@ async function landing(browser, dist) {
   }
 }
 
+// ---------- the waitlist page (/waitlist/, worker/src/waitlist.js) ----------
+const WL = { width: 390, height: 844, scale: 2 }; // the app as the page shows it: a phone at 2x
+const WL_MAX = 60 * 1024;
+const WL_FRAME = { w: 720, inset: 14, bezel: 22 };
+WL_FRAME.screen = WL_FRAME.w - 2 * (WL_FRAME.inset + WL_FRAME.bezel);
+WL_FRAME.h = Math.round(WL_FRAME.screen * (WL.height / WL.width)) + 2 * (WL_FRAME.inset + WL_FRAME.bezel);
+/** The whole screen in a whole phone, on a transparent ground: 720 wide (the page shows it at about 240 px). */
+const wholePhoneHtml = (shot) => `<!doctype html><html><head><style>
+html, body { margin: 0; width: ${WL_FRAME.w}px; height: ${WL_FRAME.h}px; background: transparent; overflow: hidden; }
+.phone { position: absolute; inset: ${WL_FRAME.inset}px; border-radius: 92px; background: #14161a; padding: ${WL_FRAME.bezel}px; box-shadow: 0 0 0 3px #3a404c; }
+.screen { width: 100%; height: 100%; border-radius: 72px; overflow: hidden; background: #fff; }
+.screen img { display: block; width: 100%; height: auto; }
+</style></head><body><div class="phone"><div class="screen"><img src="data:image/png;base64,${shot.toString('base64')}"></div></div></body></html>`;
+async function wholePhone(browser, shot) {
+  const ctx = await browser.newContext({ viewport: { width: WL_FRAME.w, height: WL_FRAME.h }, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  await page.setContent(wholePhoneHtml(shot));
+  await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode())));
+  const webp = await toWebp(page, await page.screenshot({ omitBackground: true }), WL_MAX);
+  await ctx.close();
+  return webp;
+}
+/** The day after NOW (a Friday, not a rest day): the test is tomorrow. */
+const TOMORROW = (() => { const d = new Date(NOW); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA'); })();
+// a teacher's message as it arrives in a class group (synthetic)
+const TEACHER_MESSAGE = 'שלום לכולם, המבחן מחר על משוואות ובעיות מילוליות, בלי שאלות תנועה. עמ\' 40-62 בספר.';
+/** Exam Rescue: the test tomorrow, the teacher's message pasted, its stairs confirmed, the plan for tonight. */
+async function pastedPlan(browser, view) {
+  const page = await open(browser, student('7'), '/rescue', view);
+  const next = () => page.getByRole('button', { name: /^המשך/ }).click();
+  await page.locator('#exam-date').fill(TOMORROW);
+  await next();
+  await page.getByRole('button', { name: 'להדביק או לכתוב את ההודעה' }).click();
+  await page.getByRole('textbox', { name: 'ההודעה מהמורה או רשימת הנושאים' }).fill(TEACHER_MESSAGE);
+  await page.getByRole('button', { name: 'מה יש במבחן?' }).click();
+  await page.locator('.material-found-line').waitFor();
+  await next(); // the stairs it found
+  await next(); // how sure: the default
+  await page.getByRole('radio', { name: '15 דקות ביום' }).click();
+  await page.getByRole('button', { name: /לבניית התוכנית/ }).click();
+  await page.locator('.rescue-evening').first().waitFor();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  return page;
+}
+
+async function waitlist(browser, dist) {
+  fs.mkdirSync(OUT, { recursive: true });
+  const take = async (make) => { const page = await make(); await settle(page); const png = await page.screenshot(); await page.context().close(); return png; };
+  const paste = await take(() => pastedPlan(browser, WL));
+  const mistake = await take(() => SCENES.mistake(browser, WL));
+  const madi = await take(() => SCENES.wardrobe(browser, WL));
+  const files = {
+    'phone-paste.webp': await wholePhone(browser, paste),
+    'phone-mistake.webp': await wholePhone(browser, mistake),
+    'phone-madi.webp': await wholePhone(browser, madi),
+    'og-waitlist.png': await ogShot(browser, paste, 'מבחן במתמטיקה מחר?', 'תרגול מתמטיקה לכיתות ז׳–ח׳, בעברית. הצטרפו לרשימה ונודיע לכם כשהאפליקציה בחנויות.', dist),
+  };
+  for (const [name, buf] of Object.entries(files)) {
+    fs.writeFileSync(path.join(OUT, name), buf);
+    console.log(`${path.join(OUT, name)}  ${(buf.length / 1024).toFixed(1)} KB`);
+  }
+}
+
 // ---------- the store screens (STUDENT-12 §5; frames.cjs puts them in frames) ----------
 // Five scenes, the same in every set, in the order of the listing (frames.cjs FRAMES has the headlines):
 //   1 mistake    a coordinates exercise answered with x and y swapped: "עוד לא" and "מה כנראה קרה"
@@ -349,8 +419,10 @@ async function lessonOn(browser, route, want, view) {
 
 const SCENES = {
   async mistake(browser, view) {
-    // "read the point": the student types y for x and x for y
-    const { page, it } = await lessonOn(browser, '/lesson/coord/1', (x) => x.form === 'pt' && /^cp1:/.test(x.key) && x.answer[0] !== x.answer[1] && x.answer[0] > 0 && x.answer[1] < 0, view);
+    // "read the point": the student types y for x and x for y. The two numbers differ in size, not only in sign: a point
+    // such as (4, -4) read as (-4, 4) is also both signs flipped, and "החליפו בין x ל־y" would be only one of two readings
+    const { page, it } = await lessonOn(browser, '/lesson/coord/1', (x) => x.form === 'pt' && /^cp1:/.test(x.key)
+      && Math.abs(x.answer[0]) !== Math.abs(x.answer[1]) && x.answer[0] > 0 && x.answer[1] < 0, view);
     for (const [slot, v] of [['x', it.answer[1]], ['y', it.answer[0]]]) { await page.locator(`#slot-${slot}`).click(); await typeOn(page, v); }
     await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
     await page.locator('section.fb-retry').getByText('מה כנראה קרה', { exact: false }).waitFor();
@@ -421,8 +493,8 @@ async function storeScreens(browser, raw) {
 
 (async () => {
   const mode = process.argv[2];
-  if (!['landing', 'store', 'og-report'].includes(mode)) {
-    console.error('usage: node madregot/store/capture.cjs landing|store|og-report [--dist <a build made with VITE_API_URL=none>] [--raw <folder>] [--no-frames]');
+  if (!['landing', 'waitlist', 'store', 'og-report'].includes(mode)) {
+    console.error('usage: node madregot/store/capture.cjs landing|waitlist|store|og-report [--dist <a build made with VITE_API_URL=none>] [--raw <folder>] [--no-frames]');
     process.exit(2);
   }
   // the summary link's preview needs only a built landing page (its Madi and the fonts): no server, no app
@@ -439,6 +511,7 @@ async function storeScreens(browser, raw) {
     stop = await serve(dir);
     browser = await chromium.launch();
     if (mode === 'landing') await landing(browser, dir);
+    else if (mode === 'waitlist') await waitlist(browser, dir);
     else {
       // the bare screens go to --raw (kept) or a temporary folder; frames.cjs makes the store images from them
       const raw = arg('--raw') ? path.resolve(arg('--raw')) : fs.mkdtempSync(path.join(os.tmpdir(), 'madregot-raw-'));

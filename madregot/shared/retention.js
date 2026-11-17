@@ -46,4 +46,7 @@ export const RETENTION = Object.freeze({
   familyLinkDays: 1, // a family link code after it expired, and a device row that never collected its token
   sessionIdleDays: 180, // a parent's or teacher's sign-in nobody used (it stops working, and goes)
   pushIdleDays: 45, // a daily reminder whose app was not opened (or, never opened, after it was made)
+  // the waitlist for the store apps (worker/src/waitlist.js): whichever comes first
+  waitlistAfterLaunchDays: 30, // every signup, once this long has passed since the owner marked the launch (WAITLIST_LAUNCHED_AT)
+  waitlistMaxDays: 365, // a signup this long after it was made, launched or not (about 12 months)
 });

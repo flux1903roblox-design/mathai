@@ -63,7 +63,7 @@ const withoutAlters = (sql) => sql.replace(new RegExp(`(?:, (?:${INLINE.join('|'
   .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
 
 test('every migration, in name order, on an empty database gives the same tables and indexes as schema.sql', () => {
-  assert.deepEqual(MIGRATIONS.slice(0, 12).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql', '0008_vault_guard.sql', '0009_repair_work.sql', '0010_claim_code.sql', '0011_exam_pass.sql']);
+  assert.deepEqual(MIGRATIONS.slice(0, 13).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql', '0008_vault_guard.sql', '0009_repair_work.sql', '0010_claim_code.sql', '0011_exam_pass.sql', '0012_waitlist.sql']);
   assert.equal(new Set(MIGRATIONS.map((m) => m.name.slice(0, 4))).size, MIGRATIONS.length, 'each migration number is used once');
   const a = new DatabaseSync(':memory:'); a.exec(schema);
   const b = new DatabaseSync(':memory:'); for (const m of MIGRATIONS) b.exec(m.sql);

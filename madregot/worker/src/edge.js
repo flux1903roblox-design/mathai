@@ -17,6 +17,10 @@
 //            student_tokens, hashed; a token that does not check (the handler then answers 401) counts against its
 //            network. The app sends a batch every 5 answers, so a student stays far below it; the exact daily budgets
 //            are the handlers' (writes.js: the student's, the class's and the network's).
+//            The same binding guards POST /api/waitlist (waitlist.js), keyed by the network (IPv6 by its /48, as the
+//            handler's own daily counts are) under a key of its own ('w:n:<net>'), so the public signups never share a
+//            student's count. The handler calls edgeGuard itself (index.js routes it first), so a plain form post it
+//            refuses still goes back to the page.
 // Over the limit: 429 slow_down with Retry-After: 60. With no binding (tests, `wrangler dev` without it) nothing is checked.
 import { HttpError, netKey, sha256, hmacHex, safeEqual } from './util.js';
 import { requireTeacher } from './entitle.js';
@@ -37,6 +41,8 @@ export const AUTH_ROUTES = [
   ['POST', /^\/api\/devices$/],
 ];
 const AI_ROUTE = /^\/api\/ai\/\w+$/;
+/** The waitlist's signups (waitlist.js): RL_WRITE, by network. */
+export const WAITLIST_ROUTE = /^\/api\/waitlist$/;
 /**
  * The routes RL_WRITE guards (POST): a class student's answers, levels and exams, their help requests and replies to the
  * teacher, and their reports on an assignment.
@@ -90,6 +96,10 @@ export async function edgeGuard(method, path, req, env) {
   if (method === 'POST' && AI_ROUTE.test(path)) {
     if (typeof env.RL_AI?.limit !== 'function') return;
     return edgeLimit(env.RL_AI, await callerKey(req, env));
+  }
+  if (method === 'POST' && WAITLIST_ROUTE.test(path)) {
+    if (typeof env.RL_WRITE?.limit !== 'function') return;
+    return edgeLimit(env.RL_WRITE, `w:n:${await netKey(req, env, { wide: true })}`);
   }
   if (method === 'POST' && WRITE_ROUTES.some((re) => re.test(path))) {
     if (typeof env.RL_WRITE?.limit !== 'function') return;

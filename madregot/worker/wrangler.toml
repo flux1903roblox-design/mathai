@@ -171,6 +171,21 @@ VAULT_MAX_MB = "200"
 # Workers Paid (10 GB a database) raise it to about 8000.
 DB_SIZE_NOTICE_MB = "400"
 
+# ---- the waitlist for the store apps (src/waitlist.js, the page /waitlist/ and its short address /w/) ----
+# Before advertising it: CONTACT_EMAIL and BUSINESS_NAME above. While either is empty the list takes no signup (503
+# waitlist_not_ready) and the page shows "not open yet" instead of the form: the privacy notice behind the form would
+# name no one who holds the list and no address to write to for leaving it.
+# EMPTY until the apps are out. THE OWNER'S ONE ACTION on the day the iPhone and Android apps are in the stores: the day
+# and the store pages, e.g.
+#   npm run owner -- set WAITLIST_LAUNCHED_AT=2027-03-01 APP_STORE_URL=https://apps.apple.com/il/app/… PLAY_STORE_URL=https://play.google.com/store/apps/details?id=…
+# then npm run deploy. From that day the list takes no new signups (410 waitlist_closed), the Worker sends the one launch
+# email to each address (through Resend: it needs EMAIL_FROM, and BUSINESS_ADDRESS for the advertiser's details the law
+# asks for in it), and 30 days later every address on it is deleted (each one is deleted 365 days after its signup in
+# any case: shared/retention.js).
+WAITLIST_LAUNCHED_AT = ""
+APP_STORE_URL = ""
+PLAY_STORE_URL = ""
+
 # ---- the opt-in daily reminder by web push (STUDENT-11, src/push.js) ----
 # "off" (the default): no reminder is offered or sent, and /api/push/* answers 404. To turn it on (after a deploy):
 #   1. cd madregot/worker && npm run push:keys                (prints a public key and a private JWK; writes nothing)
@@ -362,6 +377,10 @@ PARENT_REPORT = "on"
 VAULT = "on"
 VAULT_MAX_MB = "200"
 DB_SIZE_NOTICE_MB = "400"
+# the waitlist is open on staging too, until a launch day is set here
+WAITLIST_LAUNCHED_AT = ""
+APP_STORE_URL = ""
+PLAY_STORE_URL = ""
 # no reminders on staging (no VAPID_PRIVATE_JWK there)
 PUSH = "off"
 # no AI key on staging: the second reader has nothing to call; no email: no alert
