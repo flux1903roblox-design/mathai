@@ -107,7 +107,35 @@ npm run deploy
 npx wrangler secret put ANTHROPIC_API_KEY
 ```
 
-`npm run deploy` (וגם setup.ps1, setup.sh ו־deploy.ps1) מפרסם דרך `worker/wrangler.deploy.toml`, שנכתב מחדש בכל פרסום ולא נשמר ב־git: אותו `wrangler.toml`, רק שההגדרות הריקות נשלחות כהגדרה אחת, `BLANK_VARS`, והשרת מחזיר כל אחת מהן לערך ריק לפני שהקוד קורא אותה (`worker/src/blankVars.js`). בתוכנית החינמית של Cloudflare Workers יש עד 64 הגדרות ל־Worker, משתנים וסודות יחד, ו־`wrangler.toml` לבדו עובר את זה. `npx wrangler deploy` רגיל יעבוד רק בתוכנית Workers Paid (עד 128). עורכים תמיד את `wrangler.toml`.
+`npm run deploy` (וגם setup.ps1, setup.sh ו־deploy.ps1) מפרסם דרך `worker/wrangler.deploy.toml`, שנכתב מחדש בכל פרסום ולא נשמר ב־git: אותו `wrangler.toml`, רק שההגדרות הריקות נשלחות כהגדרה אחת, `BLANK_VARS`, והשרת מחזיר כל אחת מהן לערך ריק לפני שהקוד קורא אותה (`worker/src/blankVars.js`). בתוכנית החינמית של Cloudflare Workers יש עד 64 הגדרות ל־Worker, משתנים וסודות יחד, ו־`wrangler.toml` לבדו עובר את זה. `npx wrangler deploy` רגיל יעבוד רק בתוכנית Workers Paid (עד 128). עורכים תמיד את `wrangler.toml` (ואת ההגדרות של השרת החי של מדרגות ב־`production.json`, בסעיף הבא).
+
+## פרסום מ־GitHub (השרת החי)
+
+השרת החי, `madregot-api`, מתעדכן מ־GitHub Actions ולא מהמחשב. `.github/workflows/deploy.yml` רץ בשני שלבים. הראשון, `checks`, הוא `ci.yml` עצמו על הקומיט שמפרסמים: אותן שלוש בדיקות שחוסמות מיזוג (`web`, `worker` ו־`e2e`, כולל זרימות הטלפון, בדיקות `@contract` מול ה־Worker האמיתי, הפרויקטים בערבית, axe בתצוגה הכהה ושמות הטעויות לעומק; ראו "CI" למטה). רק אם שלושתן עברו מתחיל השני, `deploy`: הוא בונה את האפליקציה עם ההגדרות של השרת החי והבדיקות של הבנייה, כותב את קובץ הפרסום, מריץ את המיגרציות, מפרסם, ובודק שהכתובת החיה עונה (`/api/health` אומר `ok: true` והדף הראשי נטען; `/waitlist` רק מדווח). הפרסום רץ רק כשמפעילים אותו ביד, אף פעם לא בכל push, ושני פרסומים לא רצים יחד. כל שלב בו הוא סקריפט של המאגר, כך שאותו פרסום רץ גם מהמחשב.
+
+**פעם אחת:**
+
+1. **טוקן ב־Cloudflare, רק עם מה שהפרסום צריך:** My Profile › API Tokens › Create Token › Custom token (Create Custom Token). Permissions: שתי שורות, Account › Workers Scripts › Edit ו־Account › D1 › Edit. Account Resources: Include והחשבון האחד של מדרגות. בלי שום הרשאה מסוג User ובלי Zone. לא התבנית "Edit Cloudflare Workers": היא נותנת גם KV,‏ R2,‏ Pages ו־User Details, ועם User Details, כשהטוקן נדחה wrangler מדפיס ביומן הריצה את כתובת המייל של בעל החשבון, ויומן של מאגר ציבורי פתוח לכולם. מעתיקים את הטוקן.
+2. **מזהה החשבון:** בלוח של Cloudflare, Workers & Pages, בצד: Account ID (32 תווים). הוא חובה: בלעדיו wrangler צריך לשאול את Cloudflare אילו חשבונות יש לטוקן, וזו בדיוק הרשאה שהטוקן הזה לא מקבל. (אפשר במקומו לכתוב אותו ב־`account_id` של `worker/production.json`.)
+3. **סביבה מוגנת ב־GitHub:** במאגר, Settings › Environments › New environment, השם `production`. ב־Deployment branches and tags בוחרים Selected branches and tags ומוסיפים את `claude/software-improvement-92s9ze` (ואת `main`). אם רוצים לאשר כל פרסום ביד: Required reviewers ואתם. באותו עמוד: Add environment secret בשם `CLOUDFLARE_API_TOKEN` עם הטוקן, ו־Add environment variable בשם `CLOUDFLARE_ACCOUNT_ID` עם המזהה. כך הטוקן מגיע רק לשלב `deploy`, ורק בריצה מענף שהסביבה מרשה, ולא לכל workflow בכל ענף. אם שמרתם קודם את `CLOUDFLARE_API_TOKEN` כ־repository secret (Settings › Secrets and variables › Actions), מוחקים אותו משם.
+4. **כתובת המייל בדפים (לא חובה):** בסביבה `production`, משתנה בשם `CONTACT_EMAIL`. הבנייה בשלב `deploy` שמה אותו בדפי הנחיתה ובמסכי המורה (`VITE_CONTACT_EMAIL`), והוא לא נכנס ל־git. השרת עצמו קורא את הכתובת מסוד באותו שם ב־Cloudflare (`npx wrangler secret put CONTACT_EMAIL`), אז כשקובעים כתובת קובעים אותה בשני המקומות.
+5. הכפתור Run workflow מופיע רק כש־`.github/workflows/deploy.yml` נמצא בענף ברירת המחדל של המאגר (כך GitHub עובד). אם ענף ברירת המחדל הוא `main`: מעבירים אליו את הקובץ (או Settings › General › Default branch).
+
+**כל פרסום:** Actions › Deploy › Run workflow. בשדה `ref` כבר כתוב הענף `claude/software-improvement-92s9ze`; אפשר לכתוב ענף, תג או קומיט אחר. קודם רצות שלוש הבדיקות (`checks / web`, `checks / worker`, `checks / e2e`, עד כ־40 דקות), ואז `deploy` (אם הגדרתם Required reviewers, הוא מחכה לאישור שלכם). ✓ ירוק: השרת החי מעודכן ועונה. ✗ אדום: פותחים את הריצה ורואים איזה שלב נכשל; כל עוד זה לפני השלב Migrations, שום דבר לא נשלח ל־Cloudflare.
+
+**אם השלב Deploy נעצר עם `Aborting the upload operation because of conflicts`:** הפרסום רץ עם `--strict`, ולכן במקום לדרוס בשקט הוא עוצר כשמישהו שינה את ה־Worker בלוח של Cloudflare (משתנה, קישור, הגדרה), או כשיש ב־`[vars]` שם שהוא גם שם של סוד (הערך היה מחליף את הסוד). האזהרה שמעליה ביומן אומרת מה שונה. מעבירים את השינוי ל־`production.json` (או לסוד), או מבטלים אותו בלוח, ומריצים שוב. אם השינוי בלוח צריך להיעלם: `npm run deploy:production` מהמחשב שואל לפני שהוא דורס.
+
+**ההגדרות של השרת החי נמצאות ב־`worker/production.json`**, לא ב־`wrangler.toml`. `wrangler.toml` נשאר התבנית שכל בעלים מתחיל ממנה (`REPLACE_WITH_DATABASE_ID`, `DB_JURISDICTION = ""`, ו־setup.ps1 ו־setup.sh כותבים בו את שלהם), ו־`production.json` מחזיק רק את מה שבשרת החי שונה ממנה: מזהה מסד הנתונים, `DB_JURISDICTION = "eu"`, `PUBLIC_URL` והתקציבים היומיים של העוזר. כל פרסום של השרת החי כותב אותו מעל `wrangler.toml` (`worker/scripts/production.mjs`), עם אותה בדיקה שקובץ הפרסום אומר בדיוק את זה ולא שום דבר אחר. שינוי הגדרה הוא commit: `npm run owner -- set --production NAME=value` (בתיקייה `worker`, אותן בדיקות כמו `set`), או עריכה של הקובץ ב־GitHub (העיפרון, ואז Commit changes), ואחר כך Run workflow. שם שלא קיים ב־`[vars]` של `wrangler.toml` נדחה. מפתחות וכתובות מייל לא נכנסים לקובץ, כי הוא ב־git: כתובת שהשרת החי צריך היא סוד ב־Cloudflare באותו שם (`npx wrangler secret put CONTACT_EMAIL`), והשרת קורא אותה במקום הערך הריק (`worker/src/blankVars.js`). `npm run owner -- doctor --production` בודק את ההגדרות של השרת החי כמו שהן ב־commit האחרון במחשב (רק אותן הפרסום שולח; שינוי שלא נכנס ל־commit לא נספר, והבדיקה אומרת שהוא קיים). כל פקודה של `npm run owner` על מסד הנתונים (`list`,‏ `grant-*`,‏ `errors`,‏ `reach` ושאר) מקבלת `--production`, ואז היא רצה על מסד הנתונים של השרת החי, זה שב־`production.json`; בלי זה היא רצה על מה ש־`wrangler.toml` של המחשב אומר (בתבנית: `REPLACE_WITH_DATABASE_ID`). למשל `npm run owner -- list --production`. כך אין צורך לכתוב את מזהה מסד הנתונים של השרת החי ב־`wrangler.toml` של המחשב, ו־`npm run deploy:production` לא מסרב בגלל שינוי כזה.
+
+**פרסום מהמחשב, רק אם אין ברירה:** מהתיקייה `worker`, שלוש פקודות, אחת אחרי השנייה:
+
+```bash
+npm run build:production
+npm run db:migrate:production
+npm run deploy:production
+```
+
+הראשונה בונה את האפליקציה עם ההגדרות של `production.json`; שתי האחרונות קוראות אותו ומפרסמות רק הגדרות שנכנסו ל־commit: כל עוד ב־`wrangler.toml` או ב־`production.json` יש שינוי שלא נשמר ב־git, הן מסרבות (`git stash` מזיז שינויים מקומיים הצידה), כך שערך שנשאר במחשב לא מגיע לשרת החי. אל השרת החי לא מפרסמים עם `npm run deploy` או `deploy.ps1`: הם קוראים את `wrangler.toml` של המחשב כמו שהוא.
 
 ## הגדרות (worker/wrangler.toml)
 
@@ -200,7 +228,7 @@ npm run test:e2e --prefix madregot/web   # בדפדפן (Playwright): מסך ה�
 
 ## CI (בדיקות אוטומטיות ב־GitHub)
 
-הקובץ `.github/workflows/ci.yml` (בשורש המאגר) מריץ שלוש בדיקות על כל push ל־`main` ועל כל pull request:
+הקובץ `.github/workflows/ci.yml` (בשורש המאגר) מריץ שלוש בדיקות על כל push ל־`main`, על כל pull request, ועל הקומיט שכל פרסום של השרת החי מפרסם (`deploy.yml` קורא לו):
 
 - **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`: קובצי `src/learn` ב־TypeScript, וגם כל מודול של `src/lib/durable`, `src/lib/store.js` ו־`src/lib/api.js`, שמסומנים `// @ts-check` וכתובים עם JSDoc, כי שם התקדמות של תלמיד יכולה ללכת לאיבוד, COUNCIL2-21), `npx vitest run`, בדיקת שמות הטעויות לעומק (`LABELS_DISTINCT=2000 npx vitest run src/content/labels.test.js`: 2,000 שאלות שונות לכל מדרגה, כשלוש דקות), ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs` ואת `scripts/check-budget.mjs`: אם ההורדה הראשונה של האפליקציה גדולה מהתקציב שב־`web/budget.json`, הבנייה נכשלת). התקציב רק יורד: אם אחד מהסכומים `bootJsGzipKB`, `cssGzipKB`, `anyChunkGzipKB` או `precacheMB` גבוה ממה שהיה ב־`web/budget.json` בקומיט הקודם (`HEAD~1`), הבנייה נכשלת. לכן הבדיקה מורידה שני קומיטים (`fetch-depth: 2`); בלי קומיט קודם היא נכשלת ב־CI ורק מזהירה במחשב מקומי.
 - **worker**: `npm ci`, ואז `npm run typecheck`: בדיקת טיפוסים של הקוד שבו כסף או גיבוי יכולים ללכת לאיבוד (`src/util.js`, `src/entitle.js`, `src/billing.js`, `src/vault.js`, מסומנים `// @ts-check`; הטיפוסים של D1, הקישורים והמשתנים כתובים ב־`src/types.js`, בלי `@cloudflare/workers-types`), עם ה־TypeScript של `web/node_modules`, ולכן השלב מתקין גם את החבילות של `web`. אחר כך `npm test`, כל בדיקות השרת, כולל בדיקות הבקשות המקבילות (קוד אישי, סנכרון התקדמות, תשלום), ו־`test/config.test.js`: הקורא של wrangler עצמו קורא את `worker/wrangler.toml` (ברמה העליונה וב־`env.staging`), כך שקובץ ש־wrangler לא יסכים להעלות נכשל כבר כאן.
@@ -208,6 +236,8 @@ npm run test:e2e --prefix madregot/web   # בדפדפן (Playwright): מסך ה�
   מקומית, בתיקייה `web`: `npx playwright test -c e2e/playwright.config.js --project=contract` (בונה את האפליקציה ל־`dist-contract` ומפעיל את השרת על פורט 4423, או `CONTRACT_PORT`).
 
 Node 22, ו־npm שומר את החבילות במטמון לפי `package-lock.json` של כל תיקייה. אף שלב לא צריך סודות.
+
+`.github/workflows/deploy.yml` הוא הפרסום של השרת החי, רק ביד (Actions › Deploy, ראו "פרסום מ־GitHub" למעלה). השלב הראשון שלו הוא `ci.yml` עצמו (דרך `workflow_call`, עם הקומיט שמפרסמים), כך שהשרת החי מקבל רק קומיט שעבר את `web`, `worker` ו־`e2e`, ואותן בדיקות בדיוק. אחריהן הוא בונה עם ההגדרות של השרת החי (`check-dist` ו־`check-budget` רצים בבנייה), ורק אז כותב את קובץ הפרסום, מריץ מיגרציות, מפרסם עם `--strict` ובודק את הכתובת. הוא היחיד שמשתמש בסוד (`CLOUDFLARE_API_TOKEN`), וגם הוא רק בשלב `deploy`, מתוך הסביבה המוגנת `production`.
 
 `.github/workflows/perf.yml` רץ כל לילה (02:23 UTC, ואפשר גם ידנית): בנייה עם התקציב, ואז בדיקת הזמנים `e2e/perf.spec.js` על טלפון איטי מדומה (מעבד איטי פי 4, השהיה של 150 ms, 1.6 Mbit/s), בביקור ראשון ובביקור חוזר. הוא נכשל אם הזמנים חורגים ביותר מ־10% מהתקציב, ושומר את `test-results/perf.json` בכל מקרה (בשם `perf`), כדי להשוות לילה ללילה. הוא לא חלק מבדיקות המיזוג. מקומית: `PERF=1 npx playwright test -c e2e/playwright.config.js --project=phone --grep @perf` בתיקייה `web`. מספר אמין רק על מחשב שלא עסוק בדברים אחרים.
 

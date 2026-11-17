@@ -1,0 +1,15 @@
+{
+  "$comment": "The live server's own settings, applied over wrangler.toml by every production deploy (GitHub Actions > Deploy, or npm run deploy:production). Change them with: npm run owner -- set --production NAME=value, then commit. Never a key, a token or an email address here: this file is in git. scripts/production.mjs",
+  "account_id": "",
+  "d1": {
+    "DB": "8a87312e-0ad6-4ab5-8531-cdd52ece39ed"
+  },
+  "vars": {
+    "PUBLIC_URL": "https://madregot-api.flux1903roblox.workers.dev",
+    "DB_JURISDICTION": "eu",
+    "OPEN_DAILY_BUDGET_USD": "2",
+    "OPEN_INFLIGHT_USD": "1",
+    "OPEN_ACCOUNT_DAILY_USD": "1",
+    "OPEN_CLASS_DAILY_USD": "1"
+  }
+}

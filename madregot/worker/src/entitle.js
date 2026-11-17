@@ -59,8 +59,8 @@ import { isObj } from '../../shared/obj.js';
 /** @typedef {Row & { via: 'key' | 'account', accountId?: string, adultAt?: string | null, adult?: boolean }} Teacher */
 /** @typedef {{ device_id: string, account_id: string, label: string, share_child: unknown, share_parent: unknown }} FamilyDevice */
 /**
- * Everyone a child-side request speaks for (identify).
- * @typedef {{ student: Student | null, teacher: Teacher | null, fam: FamilyDevice | null, famBad: boolean, device: string | null }} Identity
+ * Everyone a child-side request speaks for (identify). classAiOff: the app said the class's AI is off (X-Class-AI: off).
+ * @typedef {{ student: Student | null, teacher: Teacher | null, fam: FamilyDevice | null, famBad: boolean, device: string | null, classAiOff?: boolean }} Identity
  */
 /**
  * A paid bucket of a caller (paidBuckets): its tier and pool, its limits or flat limit, the kinds it serves, the

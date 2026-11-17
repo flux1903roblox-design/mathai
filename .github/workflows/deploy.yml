@@ -1,0 +1,114 @@
+# Madregot's production deploy (madregot/README.md, "פרסום מ־GitHub"). By hand only: Actions › Deploy › Run workflow,
+# with the branch, tag or commit to deploy (the app's branch by default). Nothing deploys on a push.
+# Two jobs, and any failure stops the run before Cloudflare is touched:
+#   checks  ci.yml itself, on the commit being deployed: web (type check, unit tests, the mistake labels at full depth,
+#           the build with its gates), worker (type check, every Worker test) and e2e (every phone flow, the @contract
+#           tests against the real Worker, the Arabic projects, the dark-mode axe scan). It gets no secret.
+#   deploy  only when all three passed, in the GitHub environment "production" (its own secret, its branch rule and, if
+#           the owner sets one, a reviewer who approves): the app built with the live server's settings
+#           (worker/production.json) and its gates (check-dist, check-budget), the deploy file (deploy-config.mjs
+#           --production: committed files only), the database migrations, the deploy, and a smoke check of the live
+#           address. The deploy runs with --strict: a change made to the Worker in the Cloudflare dashboard, or a [vars]
+#           name that would replace a secret, stops it instead of being overwritten without a question.
+# Every step is one of the repository's own scripts, so the same deploy runs from any machine (npm run deploy:production).
+#
+# What the owner sets once, in Settings › Environments › production (deployment branches: the app's branch and main):
+#   secret   CLOUDFLARE_API_TOKEN   a custom Cloudflare API token for this one account: Account › Workers Scripts › Edit and
+#                                   Account › D1 › Edit, no User and no Zone permissions
+#   variable CLOUDFLARE_ACCOUNT_ID  required (unless account_id is in worker/production.json), so wrangler never lists
+#                                   the token's accounts
+#   variable CONTACT_EMAIL          optional: the address the landing pages and teacher screens show (never in git)
+# No other secret: the Worker's own secrets (ANTHROPIC_API_KEY, AUTH_SECRET, …) live in Cloudflare and a deploy keeps them.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: The branch, tag or commit to deploy
+        required: true
+        default: claude/software-improvement-92s9ze
+        type: string
+
+# one deploy at a time: a second run waits for the first, and a deploy that started is never cancelled halfway
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # the merge gate, ci.yml, on the commit being deployed (no secrets: none are passed to it)
+  checks:
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ inputs.ref }}
+
+  deploy:
+    needs: [checks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # the only job that sees the Cloudflare token: an environment secret, behind the environment's branch rule and reviewer
+    environment: production
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    defaults:
+      run:
+        working-directory: madregot/worker
+    steps:
+      # two commits, so HEAD~1 is there: the build's budget ratchet (web/scripts/check-budget.mjs) fails without it in CI
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 2
+      # first, so a missing token or account stops the job in seconds
+      - name: Cloudflare token and account are set
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::No CLOUDFLARE_API_TOKEN: Settings > Environments > production > Add environment secret (madregot/README.md)"
+            exit 1
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ] && ! grep -Eq '"account_id": *"[0-9a-fA-F]{32}"' production.json; then
+            echo "::error::No CLOUDFLARE_ACCOUNT_ID: Settings > Environments > production > Add environment variable (madregot/README.md)"
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            madregot/web/package-lock.json
+            madregot/worker/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: madregot/web
+      # the app, built with production.json's settings in the build env (the landing pages' address, sitemap.xml) and the
+      # contact address from the environment's CONTACT_EMAIL variable, then check-dist and check-budget
+      - run: npm run build:production
+        env:
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+      # wrangler.toml plus production.json, from committed files only; nothing else reaches the live server
+      - run: node scripts/deploy-config.mjs --production
+      - name: Migrations
+        run: npx wrangler d1 migrations apply madregot --remote --config wrangler.deploy.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      # --strict: in CI wrangler answers its own "Would you like to continue?" with yes; with --strict it stops instead
+      # (a Worker last changed in the Cloudflare dashboard, a [vars] name that is also a secret's name)
+      - name: Deploy
+        run: npx wrangler deploy --strict --config wrangler.deploy.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      # /api/health says ok: true, / is the app's page; /waitlist is reported (404 until the waitlist page is merged)
+      - name: Smoke check
+        run: node scripts/smoke.mjs --production
+      - name: Summary
+        env:
+          REF: ${{ inputs.ref }}
+        run: echo "Deployed $(git rev-parse --short HEAD) ($REF) to $(node -p "require('./production.json').vars.PUBLIC_URL")" >> "$GITHUB_STEP_SUMMARY"
