@@ -1,0 +1,95 @@
+# Madregot's production deploy (madregot/README.md, "פרסום מ־GitHub"). By hand only: Actions › Deploy › Run workflow,
+# with the branch, tag or commit to deploy (the app's branch by default). Nothing deploys on a push.
+# One job. Any failing step stops it before Cloudflare is touched: the type checks, every Worker test, the web unit tests
+# and the build with its gates (check-dist, check-budget), made with the live server's settings (worker/production.json);
+# then the deploy file (worker/scripts/deploy-config.mjs --production: wrangler.toml plus production.json, committed
+# files only), the database migrations, the deploy, and a smoke check of the live address. Every step is one of the
+# repository's own scripts, so the same deploy runs from any machine with the same token (npm run deploy:production).
+#
+# What the owner sets once, in Settings › Secrets and variables › Actions:
+#   secret   CLOUDFLARE_API_TOKEN   a Cloudflare API token: the "Edit Cloudflare Workers" template, plus Account › D1 › Edit
+#   variable CLOUDFLARE_ACCOUNT_ID  optional. Without it wrangler asks Cloudflare for the token's accounts and uses the one
+#                                   there is (and stops, saying so, if the token reaches more than one)
+# No other secret: the Worker's own secrets (ANTHROPIC_API_KEY, AUTH_SECRET, …) live in Cloudflare and a deploy keeps them.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: The branch, tag or commit to deploy
+        required: true
+        default: claude/software-improvement-92s9ze
+        type: string
+
+# one deploy at a time: a second run waits for the first, and a deploy that started is never cancelled halfway
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    defaults:
+      run:
+        working-directory: madregot/worker
+    steps:
+      # two commits, so HEAD~1 is there: the build's budget ratchet (web/scripts/check-budget.mjs) fails without it in CI
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 2
+      # before the tests, so a missing token stops the run in seconds
+      - name: Cloudflare token is set
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::No CLOUDFLARE_API_TOKEN: Settings > Secrets and variables > Actions > New repository secret (madregot/README.md)"
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            madregot/web/package-lock.json
+            madregot/worker/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: madregot/web
+      # the gates, as in ci.yml: a failure here deploys nothing
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx tsc -p tsconfig.json --noEmit
+        working-directory: madregot/web
+      - run: npx vitest run --maxWorkers=2
+        working-directory: madregot/web
+      # the app, built with production.json's settings in the build env (the landing pages' address, sitemap.xml), then
+      # check-dist and check-budget
+      - run: npm run build:production
+      # wrangler.toml plus production.json, from committed files only; nothing else reaches the live server
+      - run: node scripts/deploy-config.mjs --production
+      - name: Migrations
+        run: npx wrangler d1 migrations apply madregot --remote --config wrangler.deploy.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Deploy
+        run: npx wrangler deploy --config wrangler.deploy.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      # /api/health says ok: true, / is the app's page; /waitlist is reported (404 until the waitlist page is merged)
+      - name: Smoke check
+        run: node scripts/smoke.mjs --production
+      - name: Summary
+        env:
+          REF: ${{ inputs.ref }}
+        run: echo "Deployed $(git rev-parse --short HEAD) ($REF) to $(node -p "require('./production.json').vars.PUBLIC_URL")" >> "$GITHUB_STEP_SUMMARY"

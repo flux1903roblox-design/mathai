@@ -118,6 +118,15 @@
 
 **גודל הבקשה לעוזר.** בדיקת מבחן עד 12 MiB, בדיקת תמונה מהמחברת עד 4 MiB, שיחה והסבר עד 32 KB (`AI_BODY_MAX` ב־`shared/ai.js`). בקשה גדולה יותר נענית 413 `too_large` לפני שהשרת קורא אותה (לפי `Content-Length`), או ברגע שהקריאה עוברת את הגבול. בבדיקת מבחן ובבדיקת תמונה השרת בודק קודם מי שואל ואם מותר לו (מפתח, כלל הכיתה, אישור הורה, מנוי), ורק אחר כך קורא את התמונות; בקשה שנדחית לא נקראת ולא נספרת. האפליקציה שולחת לכל היותר 8 דפים, כל אחד עד 1,450,000 תווים (`PhotoPrep` מקטין דף גדול יותר), כך שבדיקת מבחן אמיתית תמיד נכנסת. בשיחה, בהסבר ובמשוב השרת עדיין קורא קודם את הטקסט ובודק מצוקה, כדי שילד במצוקה יקבל תשובה גם כשאין מפתח, מנוי או שאלות.
 
+## פרסום מ־GitHub
+
+השרת החי מתעדכן מ־GitHub, בלי פקודות במחשב שלכם ובלי שום ערך שנשאר במחשב (הפירוט: `README.md`, "פרסום מ־GitHub").
+
+1. **פעם אחת, הטוקן:** ב־Cloudflare יוצרים API Token מהתבנית "Edit Cloudflare Workers" ומוסיפים לו Account › D1 › Edit. ב־GitHub, במאגר: Settings › Secrets and variables › Actions › New repository secret, השם `CLOUDFLARE_API_TOKEN` והערך הטוקן. בלשונית Variables אפשר להוסיף גם `CLOUDFLARE_ACCOUNT_ID` (לא חובה: צריך אותו רק אם לטוקן יש יותר מחשבון אחד).
+2. **פרסום:** Actions › Deploy › Run workflow. הריצה מריצה את כל הבדיקות והבנייה; רק אם הכול עבר היא מריצה את המיגרציות, מפרסמת ובודקת שהאתר עונה. בדיקה שנכשלת עוצרת לפני ש־Cloudflare מקבל משהו.
+3. **שינוי הגדרה של השרת החי** עובר דרך `worker/production.json` (מזהה מסד הנתונים, `DB_JURISDICTION`, `PUBLIC_URL` והתקציבים היומיים של העוזר), לא דרך `wrangler.toml`: `npm run owner -- set --production NAME=value` ו־commit, או עריכה של הקובץ ב־GitHub, ואחר כך Run workflow. מפתחות וכתובות מייל לא נכנסים לקובץ הזה, כי הוא ב־git: כתובת לשרת החי היא סוד ב־Cloudflare באותו שם. `npm run owner -- doctor --production` אומר מה עוד חסר בשרת החי.
+4. **פרסום מהמחשב,** רק אם אין ברירה: בתיקייה `worker`, `npm run build:production`, אחר כך `npm run db:migrate:production`, ואז `npm run deploy:production`. שתי האחרונות מסרבות כל עוד יש ב־`wrangler.toml` או ב־`production.json` שינוי שלא נכנס ל־commit. אל השרת החי לא מפרסמים עם `npm run deploy` או `deploy.ps1`, שקוראים את `wrangler.toml` של המחשב.
+
 ## הקמה, צעד אחר צעד
 
 כל הפקודות של השרת מהתיקייה `madregot/worker`. ההחלטות (מחירים, תאריכים, ספק) שלכם; הערכים כאן הם דוגמאות.
@@ -463,7 +472,7 @@ npm run owner -- reach --days 28                                      # ספיר
 
 כל השאר בנוי ונבדק. אלה הצעדים שרק אתם עושים, כל אחד פעולה אחת:
 
-1. **בכל פרסום:** `cd madregot/worker && npm run db:migrate` (המיגרציות `0000` עד `0011`; `0011` בונה מחדש את טבלאות ההזמנות והמנויים לחבילת המבחן, בטרנזקציה אחת), `npm run owner -- doctor` עד "הכול מוכן.", ואז `npm run deploy`. בפעם הראשונה: "עלייה לאוויר" למעלה.
+1. **בכל פרסום של השרת החי:** Actions › Deploy › Run workflow ב־GitHub (המיגרציות `0000` עד `0011` רצות בתוכו; `0011` בונה מחדש את טבלאות ההזמנות והמנויים לחבילת המבחן, בטרנזקציה אחת), ו־`npm run owner -- doctor --production` עד "הכול מוכן." (ראו "פרסום מ־GitHub" למעלה). שרת אחר, שהוקם עם setup: `cd madregot/worker && npm run db:migrate`, `npm run owner -- doctor`, ואז `npm run deploy`. בפעם הראשונה: "עלייה לאוויר" למעלה.
 2. **`VAULT_SECRET`:** `openssl rand -hex 32`, ואז `cd madregot/worker && npx wrangler secret put VAULT_SECRET` (אף פעם לא בקובץ). בלעדיו הגיבוי עובד, אבל הכיתה והמנוי המשפחתי לא שומרים עותק של הקוד, ו־`/api/health` מראה `escrow: false`. **לא מחליפים אותו** אחרי שהתחילו להשתמש בו: כל העותקים שנשמרו איתו יפסיקו להיפתח, ותלמידים יצטרכו את קוד הגיבוי שלהם.
 3. **`VAULT_MAX_MB`:** רק בתוכנית Workers Paid מעלים אותו ב־`worker/wrangler.toml` (עד 3000) לפני `npm run deploy`. בתוכנית החינמית משאירים 200: כל מסד הנתונים נעצר ב־500 MB, והוא שומר גם את התשלומים.
 4. **CI:** מעלים את `.github/workflows/ci.yml` ו־`perf.yml` (דחיפה של קבצים שם צריכה טוקן עם ההרשאה `workflow`, או מדביקים אותם בעורך של GitHub; ראו `README.md`, "CI"). אחר כך Settings › Branches › כלל ל־`main` עם `web`, `worker` ו־`e2e` כבדיקות חובה.

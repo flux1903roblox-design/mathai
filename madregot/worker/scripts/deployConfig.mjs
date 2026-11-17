@@ -10,8 +10,16 @@
 // The file sits next to wrangler.toml, so every relative path in it (main, assets, migrations) means the same; it is
 // git-ignored and rewritten on each deploy, so wrangler.toml stays the one file to edit. Both files are read back with
 // wrangler's own reader and nothing is written if anything other than that one change differs.
+//
+// The production deploy (`node scripts/deploy-config.mjs --production`: GitHub Actions > Deploy, npm run
+// deploy:production) first writes the live server's own settings, production.json (scripts/production.mjs), into the
+// text, then folds. The same check then proves the file means wrangler.toml plus exactly production.json.
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { BLANK_VARS, withBlankVars } from '../src/blankVars.js';
+import { readWranglerConfig } from './wranglerConfig.mjs';
+import { PRODUCTION_FILE, readOverlay, applyOverlay, expectConfig } from './production.mjs';
 
 export const FREE_PLAN_SETTINGS = 64;
 // the secrets setup makes or asks for: AUTH_SECRET, IP_HASH_SECRET, WEBHOOK_PATH_SECRET, VAULT_SECRET, ANTHROPIC_API_KEY,
@@ -61,13 +69,14 @@ const strip = (config) => Object.fromEntries(Object.entries(config).filter(([k])
 /**
  * Read both files with `read` (wrangler's reader) at the top level and in each environment, and check that the deploy
  * file means the same: its vars, once withBlankVars restores them, equal wrangler.toml's, and everything else is equal.
+ * With `overlay` (production.json, read by scripts/production.mjs), what wrangler.toml says plus exactly that overlay.
  * → a list of differences, empty when they mean the same.
  */
-export function differences(read, sourceFile, deployFile, envs) {
+export function differences(read, sourceFile, deployFile, envs, overlay = null) {
   const found = [];
   for (const env of [undefined, ...envs]) {
     const where = env ? `env ${env}` : 'top level';
-    const a = read(sourceFile, env);
+    const a = expectConfig(read(sourceFile, env), overlay, env);
     const b = read(deployFile, env);
     const restored = withBlankVars({ ...(b.vars || {}) });
     if (!isDeepStrictEqual({ ...(a.vars || {}) }, restored)) {
@@ -87,4 +96,30 @@ export function differences(read, sourceFile, deployFile, envs) {
 /** How many vars Cloudflare gets for the top level (the production Worker) from the deploy file's text. */
 export function settingsSent(read, deployFile) {
   return Object.keys(read(deployFile).vars || {}).length;
+}
+
+/**
+ * Write wrangler.deploy.toml next to `sourceFile` (wrangler.toml) and check it with `read` (wrangler's reader); with
+ * `production`, production.json (next to it) is written in first. → { deployFile, folded, sent, overlay }. Throws (with
+ * the file removed) when the overlay is refused or the file would mean anything else, so a deploy that follows with
+ * --config wrangler.deploy.toml never runs on an old or wrong file.
+ */
+export function writeDeployFile({ sourceFile, production = false, read = readWranglerConfig } = {}) {
+  const dir = path.dirname(sourceFile);
+  const deployFile = path.join(dir, 'wrangler.deploy.toml');
+  rmSync(deployFile, { force: true }); // never a file from an earlier run, whatever happens below
+  try {
+    const source = readFileSync(sourceFile, 'utf8');
+    const overlay = production ? readOverlay(readFileSync(path.join(dir, PRODUCTION_FILE), 'utf8'), source) : null;
+    const folded = foldBlankVars(overlay ? applyOverlay(source, overlay) : source);
+    writeFileSync(deployFile, folded.text);
+    const found = differences(read, sourceFile, deployFile, envNames(source), overlay);
+    if (found.length) {
+      throw new Error(`wrangler.deploy.toml would not mean what wrangler.toml${overlay ? ' with production.json' : ''} says:\n  ${found.join('\n  ')}`);
+    }
+    return { deployFile, folded: folded.folded, sent: settingsSent(read, deployFile), overlay };
+  } catch (e) {
+    rmSync(deployFile, { force: true });
+    throw e;
+  }
 }
