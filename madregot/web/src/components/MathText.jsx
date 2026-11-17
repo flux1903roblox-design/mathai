@@ -9,10 +9,33 @@ import { t as tr } from '@/lib/i18n.js';
 let katex = null;
 let loading = null;
 const listeners = new Set();
-/** Fetch KaTeX (once); resolves when expressions can be drawn. */
+
+/**
+ * KaTeX's two text fonts (its stylesheet declares them; the service worker keeps both): the digits, signs and brackets
+ * (KaTeX_Main) and the letters (KaTeX_Math, italic). A display is fitted to its box by measuring it (FitDisplay), so
+ * KaTeX draws only once these are here: drawn before, the first display on a page was measured in the fallback serif,
+ * up to a sixth narrower ("3 · (−2) = (−2) + (−2) + (−2)" of signed:3), fitted too large, and ran out of its box when
+ * the font came, a scroll box with no bar and out of the keyboard's reach, until the font's event fitted it again (on
+ * a busy computer it stayed cut off: "38, 40, 38, 37, 42, 38, 40" of stats:1 at 312px in a 306px box). A font that
+ * cannot load is not waited for, and none longer than FONT_WAIT (the browser's own wait for a font before it shows
+ * the fallback); a font that comes later still fits the display again (FitDisplay's loadingdone).
+ */
+const MATH_FONTS = ['1em KaTeX_Main', 'italic 1em KaTeX_Math'];
+const FONT_WAIT = 3000;
+function mathFonts() {
+  const fonts = typeof document !== 'undefined' ? document.fonts : null;
+  if (!fonts?.load) return null;
+  let timer;
+  return Promise.race([
+    Promise.all(MATH_FONTS.map((f) => fonts.load(f).catch(() => null))),
+    new Promise((done) => { timer = setTimeout(done, FONT_WAIT); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+/** Fetch KaTeX (once) and its text fonts; resolves when expressions can be drawn. */
 export function loadKatex() {
   if (!loading) {
-    const p = import('./katex.js').then((m) => { katex = m.default; listeners.forEach((f) => f()); return katex; });
+    const p = import('./katex.js').then(async (m) => { await mathFonts(); katex = m.default; listeners.forEach((f) => f()); return katex; });
     p.catch(() => { if (loading === p) loading = null; }); // offline before it was ever kept: asked again next time
     loading = p;
   }
@@ -162,6 +185,21 @@ export function FitDisplay({ tex, className = 'qdisplay' }) {
       // its end is never hidden in a scroll box (a long rule should be written on stacked lines instead; this is the
       // safety net)
       if (box.scrollWidth - box.clientWidth > 1) box.classList.add('fit-wrap');
+      // a display that still scrolls (one piece with no place to break, wider than the box at its smallest size) can be
+      // reached and scrolled with the keyboard, as every other scrolling region of the app (axe: scrollable-region-
+      // focusable); one that fits is not a stop for the Tab key
+      const shown = box.parentElement;
+      if (shown?.classList.contains('katex-display')) {
+        if (shown.scrollWidth - shown.clientWidth > 1) {
+          shown.tabIndex = 0;
+          shown.setAttribute('role', 'region');
+          shown.setAttribute('aria-label', texText(tex));
+        } else {
+          shown.removeAttribute('tabindex');
+          shown.removeAttribute('role');
+          shown.removeAttribute('aria-label');
+        }
+      }
     };
     fit();
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;

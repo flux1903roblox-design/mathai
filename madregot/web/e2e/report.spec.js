@@ -691,7 +691,9 @@ test('the words (PARENTS-9): /privacy names the family device\'s summary, its 90
   const article = page.locator('article.legal');
   await expect(article).toContainText('לא נשלחים: התשובות עצמן, שיחות עם העוזר החכם, תמונות, ושם הילד.');
   await expect(article).toContainText('סיכומי ההתקדמות מהמכשיר של הילד: 90 יום.');
-  await expect(article).toContainText('והסיכום השבועי למי שביקש אותו');
+  // Resend sends the Sunday email to those who asked, and (since the waitlist) the list's one launch email
+  // (reportCopy.test.js pins the same sentence in privacy.md)
+  await expect(article).toContainText('Resend: שולחת את המיילים (קוד כניסה, אישורים, קבלות, הודעות על המנוי, הסיכום השבועי למי שביקש אותו, והמייל האחד של רשימת ההמתנה). בארה״ב.');
   await expect(article).toContainText('(חוץ מהסיכום הקצר, כשהמכשיר מחובר למנוי המשפחתי)');
   await expect(article).not.toContainText('ההתקדמות בתרגול נשמרת במכשיר עצמו.');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
