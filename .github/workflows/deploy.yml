@@ -1,5 +1,7 @@
-# Madregot's production deploy (madregot/README.md, "פרסום מ־GitHub"). By hand only: Actions › Deploy › Run workflow,
-# with the branch, tag or commit to deploy (the app's branch by default). Nothing deploys on a push.
+# Madregot's production deploy (madregot/README.md, "פרסום מ־GitHub"). It runs by itself on every push to the app's
+# branch that touches madregot/ or the workflows (the owner chose automatic publishing), and by hand from Actions ›
+# Deploy › Run workflow with a branch, tag or commit (GitHub lists that button only once this file is on the default
+# branch). A push deploys the commit it pushed; a hand run deploys the ref it was given.
 # Two jobs, and any failure stops the run before Cloudflare is touched:
 #   checks  ci.yml itself, on the commit being deployed: web (type check, unit tests, the mistake labels at full depth,
 #           the build with its gates), worker (type check, every Worker test) and e2e (every phone flow, the @contract
@@ -29,6 +31,9 @@ on:
         required: true
         default: claude/software-improvement-92s9ze
         type: string
+  push:
+    branches: [claude/software-improvement-92s9ze]
+    paths: ['madregot/**', '.github/workflows/**']
 
 # one deploy at a time: a second run waits for the first, and a deploy that started is never cancelled halfway
 concurrency:
@@ -43,7 +48,7 @@ jobs:
   checks:
     uses: ./.github/workflows/ci.yml
     with:
-      ref: ${{ inputs.ref }}
+      ref: ${{ inputs.ref || github.sha }}
 
   deploy:
     needs: [checks]
@@ -60,7 +65,7 @@ jobs:
       # two commits, so HEAD~1 is there: the build's budget ratchet (web/scripts/check-budget.mjs) fails without it in CI
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 2
       # first, so a missing token or account stops the job in seconds
       - name: Cloudflare token and account are set
@@ -110,5 +115,5 @@ jobs:
         run: node scripts/smoke.mjs --production
       - name: Summary
         env:
-          REF: ${{ inputs.ref }}
+          REF: ${{ inputs.ref || github.sha }}
         run: echo "Deployed $(git rev-parse --short HEAD) ($REF) to $(node -p "require('./production.json').vars.PUBLIC_URL")" >> "$GITHUB_STEP_SUMMARY"

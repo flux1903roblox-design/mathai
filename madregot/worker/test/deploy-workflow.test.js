@@ -63,7 +63,7 @@ test('deploy.yml is plain YAML: no tabs, two-space indents, two jobs: checks, th
 });
 
 test('checks is ci.yml itself on the commit being deployed: web, worker and e2e, with no secret', () => {
-  assert.equal(job('checks'), '  checks:\n    uses: ./.github/workflows/ci.yml\n    with:\n      ref: ${{ inputs.ref }}', 'no secrets: and no secrets: inherit');
+  assert.equal(job('checks'), '  checks:\n    uses: ./.github/workflows/ci.yml\n    with:\n      ref: ${{ inputs.ref || github.sha }}', 'no secrets: and no secrets: inherit');
   assert.match(job('deploy'), /^ {4}needs: \[checks\]$/m, 'the deploy waits for all three');
   // ci.yml can be called, with the commit to check, and checks out that commit in every job
   assert.match(CI, /^ {2}workflow_call:\n {4}inputs:\n {6}ref:\n(?: {8}.*\n)*? {8}type: string$/m);
@@ -89,15 +89,20 @@ test('checks is ci.yml itself on the commit being deployed: web, worker and e2e,
   assert.doesNotMatch(CI, /secrets\./, 'ci.yml uses no secret');
 });
 
-test('it runs only when someone starts it: workflow_dispatch with the branch to deploy, never on a push', () => {
+test('it runs by hand (workflow_dispatch) and on a push to the app\'s branch only, never on a pull request or a schedule', () => {
   const on = block('on');
   assert.match(on, /^on:\n {2}workflow_dispatch:\n {4}inputs:\n {6}ref:\n/);
   assert.match(on, /^ {8}default: claude\/software-improvement-92s9ze$/m);
   assert.match(on, /^ {8}type: string$/m);
-  for (const trigger of ['push', 'pull_request', 'pull_request_target', 'schedule', 'workflow_run', 'repository_dispatch', 'release', 'workflow_call']) {
+  // the owner chose automatic publishing: a push to the app's branch (and only that branch) deploys the pushed commit
+  assert.match(on, /^ {2}push:\n {4}branches: \[claude\/software-improvement-92s9ze\]\n {4}paths: \['madregot\/\*\*', '\.github\/workflows\/\*\*'\]$/m);
+  for (const trigger of ['pull_request', 'pull_request_target', 'schedule', 'workflow_run', 'repository_dispatch', 'release', 'workflow_call']) {
     assert.doesNotMatch(on, new RegExp(`^\\s+${trigger}:`, 'm'), trigger);
   }
-  assert.equal(on.split('\n').filter((l) => /^ {2}\S/.test(l)).length, 1, 'one trigger');
+  assert.equal(on.split('\n').filter((l) => /^ {2}\S/.test(l)).length, 2, 'two triggers');
+  // every place that names the commit takes the hand-run ref, or the pushed commit
+  assert.doesNotMatch(TEXT, /\$\{\{ inputs\.ref \}\}/);
+  assert.ok((TEXT.match(/\$\{\{ inputs\.ref \|\| github\.sha \}\}/g) || []).length >= 3);
 });
 
 test('one deploy at a time, never cancelled halfway, with read-only access, in the protected environment "production"', () => {
@@ -124,7 +129,7 @@ test('actions and Node pinned as ci.yml pins them', () => {
   assert.match(STEPS[stepWith(/setup-node/)], /cache: npm/);
   // the checkout is the requested ref, with HEAD~1 for the build's budget ratchet
   const checkout = STEPS[stepWith(/actions\/checkout/)];
-  assert.match(checkout, /ref: \$\{\{ inputs\.ref \}\}/);
+  assert.match(checkout, /ref: \$\{\{ inputs\.ref \|\| github\.sha \}\}/);
   assert.match(checkout, /fetch-depth: 2/);
 });
 
@@ -192,7 +197,7 @@ test('no ${{ }} inside a shell line (the ref is passed as an environment variabl
     const run = /run: (\|\n[\s\S]*|.*)$/m.exec(s)?.[1] || '';
     assert.doesNotMatch(run, /\$\{\{/, s);
   }
-  assert.match(STEPS[stepWith(/Summary/)], /env:\n {10}REF: \$\{\{ inputs\.ref \}\}/);
+  assert.match(STEPS[stepWith(/Summary/)], /env:\n {10}REF: \$\{\{ inputs\.ref \|\| github\.sha \}\}/);
   // npm run X: a script of the package it runs in; node scripts/X: a file there
   const pkg = (dir) => JSON.parse(readFileSync(path.join(ROOT, 'madregot', dir, 'package.json'), 'utf8')).scripts;
   for (const s of STEPS) {
