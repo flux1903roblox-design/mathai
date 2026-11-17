@@ -209,7 +209,9 @@ function StairCheckDone({ result: r, award, onExit, work }) {
   const unlocks = useNewUnlocks(r.topic);
   const [then, setThen] = useState(null);
   const on = (fn) => () => (r.passed && unlocks.length > 0 ? setThen(() => fn) : fn());
-  const mastered = r.purpose === 'mastery' && r.passed;
+  // a stair mastered: the store's one test, which the level-up sound and מדי's walk on the path read too (store.js
+  // completeCheck), so a kept or placed stair mastered gets all three
+  const mastered = !!award?.mastered;
   if (then) return <UnlockMoment ids={unlocks} onNext={then} />;
   return (
     <div className="page check-done" role="main">

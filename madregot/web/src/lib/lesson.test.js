@@ -260,16 +260,35 @@ describe('store: lessons, streak and freezes', () => {
     // a stair mastered with one practice lesson behind it
     useApp.getState().completeLesson({ kind: 'node', topic: 'signed', level: 1, part: 1, xp: 10, passed: true });
     const failed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:1', topic: 'signed', level: 1, right: 3, asked: 5, perSkill: {}, passed: false, xp: 0 });
-    expect(failed).toMatchObject({ stairDone: false, done: 0 });
+    expect(failed).toMatchObject({ mastered: false, stairDone: false, done: 0 });
     expect(unitNodes('signed', useApp.getState().path)[0].state).toBe('current');
     const passed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:1', topic: 'signed', level: 1, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
-    expect(passed).toMatchObject({ stairDone: true, done: 1 });
+    expect(passed).toMatchObject({ mastered: true, stairDone: true, done: 1 });
     const st = useApp.getState();
     expect(st.learn.skills['signed:1'].mastered).toBeTruthy();
     expect(unitNodes('signed', st.path).slice(0, 2).map((n) => n.state)).toEqual(['done', 'current']);
     expect(st.progress.signed).toEqual({ level: 2, max: 2 });
     // mastering the halfway stair opens the unit's chest (after the third, kept there when signed:7 made seven)
     ['signed:2', 'signed:3', 'signed:4'].forEach((sk, i) => { const out = useApp.getState().completeCheck({ purpose: 'mastery', skill: sk, topic: 'signed', level: i + 2, right: 4, asked: 5, perSkill: {}, passed: true, xp: 15 }); expect(out.chestOpened).toBe(i === 1); });
+  });
+  it('a stair kept from before checks, or passed over by the placement, is mastered all the same: one flag for the gold screen, the level-up sound and the walk', () => {
+    // kept: drawn done already, so the path does not change (stairDone), but the student has just mastered it
+    useApp.setState({ path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } } });
+    const kept = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:1', topic: 'signed', level: 1, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+    expect(kept).toMatchObject({ mastered: true, stairDone: false });
+    expect(useApp.getState().path.signed.done[1]).toBe('mastered');
+    // placed: passed over by the placement test, open until its check
+    useApp.getState().resetProgress();
+    useApp.setState({ path: { signed: { parts: {}, reviews: 0, jumped: 2, done: {} } } });
+    const placed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:2', topic: 'signed', level: 2, right: 4, asked: 5, perSkill: {}, passed: true, xp: 15 });
+    expect(placed).toMatchObject({ mastered: true, stairDone: true });
+    // not a stair mastered: a failed mastery check, a passed review, a passed repair check
+    const others = [
+      { purpose: 'mastery', passed: false, right: 2 },
+      { purpose: 'review', passed: true, right: 3 },
+      { purpose: 'verify', passed: true, right: 3 },
+    ].map((x) => useApp.getState().completeCheck({ skill: 'signed:2', topic: 'signed', level: 2, asked: 5, perSkill: {}, xp: 0, ...x }).mastered);
+    expect(others).toEqual([false, false, false]);
   });
   it('a passed mastery check of an algebra stair moves its own unit (sys:1)', () => {
     useApp.getState().completeLesson({ kind: 'node', topic: 'sys', level: 1, part: 1, xp: 10, passed: true });

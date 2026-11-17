@@ -214,7 +214,7 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
                     ref={key === focusKey ? currentRef : undefined}
                     state={node.preview && node.state === 'current' ? 'preview' : node.state} kind={node.kind} parts={node.parts} of={PARTS} pct={pct} mastered={mastered}
                     fillLast={key === focusKey && fresh === t.id && node.parts > 0}
-                    celebrate={celebrate === key} unlocking={here && !!arrive?.from}
+                    celebrate={celebrate === key} unlocking={here && !!arrive?.from && arrive.opened}
                     label={isNext ? tr('shell.learn.43', { label }) : label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
                   />
                   {here && <Suspense fallback={null}><Walker side={x > 0 ? 'left' : 'right'} from={arrive?.from} hop={!!arrive && !arrive.from} /></Suspense>}
@@ -393,9 +393,10 @@ function LearnMap() {
     requestAnimationFrame(() => { const h = document.getElementById(`unit-${id}`); h?.scrollIntoView({ block: 'start' }); h?.focus({ preventScroll: true }); });
   };
   // back from a stage or a stair: מדי arrives at the stop the student is on, once (not again on Back to this entry, or a
-  // re-render). After a stair is done he walks there from the stop just finished, and the stop opens; after a stage he
-  // hops where he is. The stop just done pops and its ring fills on that same arrival only.
-  const [arrive] = useState(() => (state?.from && !arrived.has(locKey) ? { topic: state.from, from: state.nodeDone ? lastDoneKey(state.from) : null } : null));
+  // re-render). After a stair is done he walks there from the stop just finished (the stair a mastery check named, else
+  // the unit's last done stop), and the stop opens, unless it was open already (a kept stair mastered: opened false);
+  // after a stage he hops where he is. The stop just done pops and its ring fills on that same arrival only.
+  const [arrive] = useState(() => (state?.from && !arrived.has(locKey) ? { topic: state.from, from: state.nodeDone ? state.stop || lastDoneKey(state.from) : null, opened: state.opened !== false } : null));
   useEffect(() => { if (arrive) arrived.add(locKey); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const repairOn = useRepairOn();
   // the teacher's most urgent work, due within 3 days (only in a class): a chip to the missions tab, unless the banner

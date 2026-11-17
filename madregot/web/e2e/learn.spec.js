@@ -708,6 +708,30 @@ for (const motion of ['reduce', 'no-preference']) {
   });
 }
 
+// A stair kept from before mastery checks, mastered: the same moment as any stair mastered (one flag, award.mastered):
+// the gold screen, then on the map מדי walks from that stair's stop, which pops. The stop he reaches was open already,
+// so no padlock lifts off it.
+test('a kept stair mastered: the gold moment, then מדי walks from that stop, and no lock lifts off an open stop', async ({ page }) => {
+  const at = '2026-11-04T10:00:00.000Z';
+  const practised = { taught: { A: at, B: at, C: at }, attempts: Array.from({ length: 6 }, () => ({ at, ok: true, independent: true, purpose: 'practice' })) };
+  const st = student('7', { path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } }, learn: { skills: { 'signed:1': practised, 'signed:2': practised }, miscon: {}, exam: null, missions: {}, events: [], floor: null, challenges: {} } });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await open(page, '#/lesson/signed/1?kind=check&purpose=mastery', { ...st, version: 6 });
+  for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, true); await proceed(page); }
+  await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
+  await expect(page.locator('.celebrate-gold')).toHaveCount(1);
+  await expect(page.locator('.mastered-badge')).toHaveCount(1);
+  await page.getByRole('button', { name: 'למפה' }).click();
+  // the passed check is the first stage this student worked through: the party hat comes first, as after any stair
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+  const walker = page.locator('[data-stop="signed:node:3"] .path-walker');
+  await expect(walker).toBeVisible();
+  expect(await walker.evaluate((el) => el.getAnimations().length), 'he walks from the stair just mastered').toBe(1);
+  await expect(page.locator('[data-stop="signed:node:1"] .node-burst')).toHaveCount(1);
+  await expect(page.locator('.node-unlock')).toHaveCount(0);
+  await expect(page.locator('[data-stop="signed:node:3"] .node')).toHaveClass(/node-current/);
+});
+
 // PRODUCT2-10: a mixed number is typed on the phone keypad: the whole number, the space key (רווח), the fraction. The
 // slot shows "5 1/3", beside it the mixed number as written, and the lesson takes it as the answer.
 test('a mixed number on the keypad: a fraction sum answered as a whole number and a fraction (5 1/3)', async ({ page }) => {

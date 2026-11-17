@@ -325,7 +325,11 @@ export const appState = (set, get) => ({
         const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         const learn = learnAfterCheck(st.learn, /** @type {any} */ (r), new Date().toISOString(), d);
         let { path, progress } = st; let stairDone = false; let chestOpened = false; let reopened = false;
-        if (r.purpose === 'mastery' && r.passed && r.topic && r.level && TOPIC[r.topic]) {
+        // a stair mastered: any passed mastery check of a stair, kept or placed ones included. The one test the end screen
+        // (CheckDone's gold moment), the level-up sound and מדי's walk on the path all read (award.mastered); stairDone is
+        // only whether the path changed (a stair kept from before checks was drawn done already)
+        const mastered = !!(r.purpose === 'mastery' && r.passed && r.topic && r.level && TOPIC[r.topic]);
+        if (mastered) {
           const chestBefore = chestOpen(r.topic, path);
           ({ path, stairDone } = markMastered(path, r.topic, r.level));
           chestOpened = !chestBefore && chestOpen(r.topic, path);
@@ -347,7 +351,7 @@ export const appState = (set, get) => ({
         // the floor check is about the fractions floor, not practice in it: the map's "where I am" stays where it was
         set({ learn, days, streak, ...addXp(st, r.xp || 0), path, progress, lastTopic: r.purpose === 'floor' ? st.lastTopic : r.topic || st.lastTopic, look, stepsOut });
         remindLearned(get());
-        return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
+        return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, mastered, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       /** @param {Saved} e */
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, /** @type {any} */ (e), new Date().toISOString()) } }),

@@ -529,8 +529,8 @@ export default function Lesson() {
     reportStairs();
     syncNow();
     // the end of a lesson, a check or the placement test: the sound and its vibration, as the end screen appears; a
-    // stair mastered or a unit done is a level up (PRODUCT2-38)
-    const endSound = !result.passed ? 'wrong' : award?.stairDone || award?.unitDone ? 'levelup' : 'complete';
+    // stair mastered (award.mastered, the test CheckDone's gold moment reads too) or a unit done is a level up (PRODUCT2-38)
+    const endSound = !result.passed ? 'wrong' : award?.mastered || award?.unitDone ? 'levelup' : 'complete';
     play(endSound); haptic(endSound);
     setDone({ result, award });
   };
@@ -642,7 +642,9 @@ export default function Lesson() {
   if (done) leaving.current = true; // the end screens lead back to the map without asking
   if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/topics', { replace: true, state: { placed: true } })} />;
   if (done && classExam) return <CheckDone result={done.result} award={done.award} work={{ id: workId, tried: !!workSent }} onExit={() => navigate('/quests', { replace: true })} />;
-  if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: done.award?.stairDone ? { from: spec.topic, nodeDone: true } : undefined })} />;
+  // back on the map after a stair mastered, מדי walks from that stair's stop (kept and placed stairs too); the stop he
+  // reaches opens in front of the student only when the path changed (stairDone: a kept stair was drawn done already)
+  if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: done.award?.mastered ? { from: spec.topic, nodeDone: true, stop: `${done.result.topic}:node:${done.result.level}`, opened: !!done.award.stairDone } : undefined })} />;
   if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: spec.kind === 'facts' ? undefined : { from: spec.topic, nodeDone: !!done.award.unitDone } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
 
   const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;

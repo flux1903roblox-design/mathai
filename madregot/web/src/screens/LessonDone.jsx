@@ -291,7 +291,8 @@ export function PlacementDone({ result, award, onExit }) {
           {right > 0 && (
             <m.div variants={rise} className="stat stat-good">
               <span className="stat-label">נכונות</span>
-              <span className="stat-value" aria-label={`${right} תשובות נכונות מתוך ${result.asked}`}><Check size={20} aria-hidden="true" /><bdi dir="ltr">{right}/{result.asked}</bdi></span>
+              {/* "12/18" is for the eye; a screen reader hears the sentence (an aria-label on a plain span is not read) */}
+              <span className="stat-value"><Check size={20} aria-hidden="true" /><bdi dir="ltr" aria-hidden="true">{right}/{result.asked}</bdi><span className="visually-hidden">{`${right} תשובות נכונות מתוך ${result.asked}`}</span></span>
             </m.div>
           )}
           {result.secs > 0 && <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />}

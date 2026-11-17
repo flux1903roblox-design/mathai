@@ -3,7 +3,7 @@
 // challenge counts for the day like a lesson and never touches mastery.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { open, student, saved, item, answer, expectNoSidewaysScroll, expectUsable } from './helpers.js';
+import { open, openOn, student, saved, item, answer, expectNoSidewaysScroll, expectUsable } from './helpers.js';
 import { API, CORS } from './fakeServer.js';
 import { CHALLENGE_META } from '../src/learn/challenges/meta.gen.ts';
 
@@ -109,6 +109,32 @@ async function toExplain(page) {
   await page.getByRole('radio', { name: /מסלול ב/ }).click(); await go(page, 'בדיקה').click(); await go(page, 'המשך').click();
   await expect(page.locator('.ch-count')).toHaveText('חלק 4 מתוך 4');
 }
+
+// One number keypad in the app: the challenge's number fields use the lesson's own Keypad, keys and layout alike. On a
+// short phone (320x568) both lay the digits out in two rows, 1-5 and 6-0, with the signs under them; on a tall one both
+// are the 7-8-9 pad. Read from the keys' places on screen, so a stylesheet that lays out only one of them fails here.
+// (Only the digits and the signs are compared: a lesson whose answer may be a mixed number adds its space key.)
+test('the challenge keypad is the lesson\'s: the digits in the same rows', async ({ page }, info) => {
+  /** Each row's keys, top to bottom, read from where they stand (data-k: d1 is the key 1, then minus, dot, frac, del). */
+  const rows = async (pad) => {
+    const keys = await pad.locator('.key[data-k]').evaluateAll((els) => els.map((el) => { const r = el.getBoundingClientRect(); return { k: el.dataset.k, y: Math.round(r.top), x: Math.round(r.left) }; }));
+    const ys = [...new Set(keys.map((x) => x.y))].sort((a, b) => a - b);
+    return ys.map((y) => keys.filter((x) => x.y === y).sort((a, b) => a.x - b.x).map((x) => x.k));
+  };
+  const digits = (rs) => rs.map((r) => r.filter((k) => /^d\d$/.test(k))).filter((r) => r.length);
+  const signs = (rs) => rs.map((r) => r.filter((k) => ['minus', 'dot', 'frac'].includes(k))).filter((r) => r.length);
+  await openOn(page, '#/lesson/signed/1', student('7'), (it) => it.form === 'num');
+  const lesson = await rows(page.locator('.keypad'));
+  await open(page, '#/challenge/pct:c1', pctStudent());
+  await expect(page.locator('.ch-title')).toHaveText('שתי דרכים לשלם עמלה');
+  const challenge = await rows(page.locator('.ch-num .keypad'));
+  const want = info.project.name === 'phone-small'
+    ? [['d1', 'd2', 'd3', 'd4', 'd5'], ['d6', 'd7', 'd8', 'd9', 'd0']]
+    : [['d7', 'd8', 'd9'], ['d4', 'd5', 'd6'], ['d1', 'd2', 'd3'], ['d0']];
+  expect(digits(lesson), 'the lesson\'s digits').toEqual(want);
+  expect(digits(challenge), 'the challenge\'s digits, as the lesson\'s').toEqual(want);
+  expect(signs(challenge), 'and its signs').toEqual(signs(lesson));
+});
 
 test('the tutor\'s feedback on the explanation: sent only on the press, each point\'s status, the student\'s words marked', async ({ page }, info) => {
   const sent = [];
