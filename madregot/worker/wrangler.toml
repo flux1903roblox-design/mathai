@@ -171,6 +171,14 @@ VAULT_MAX_MB = "200"
 # Workers Paid (10 GB a database) raise it to about 8000.
 DB_SIZE_NOTICE_MB = "400"
 
+# ---- the waitlist for the store apps (src/waitlist.js, the page /waitlist/ and its short address /w/) ----
+# EMPTY until the apps are out. THE OWNER'S ONE ACTION on the day the iPhone and Android apps are in the stores, after
+# the launch email went out (npm run owner -- waitlist --export F): set the day, e.g.
+#   npm run owner -- set WAITLIST_LAUNCHED_AT=2027-03-01   then npm run deploy
+# From that day the list takes no new signups (410 waitlist_closed), and 30 days later every address on it is deleted
+# (each one is deleted 365 days after its signup in any case: shared/retention.js).
+WAITLIST_LAUNCHED_AT = ""
+
 # ---- the opt-in daily reminder by web push (STUDENT-11, src/push.js) ----
 # "off" (the default): no reminder is offered or sent, and /api/push/* answers 404. To turn it on (after a deploy):
 #   1. cd madregot/worker && npm run push:keys                (prints a public key and a private JWK; writes nothing)
@@ -362,6 +370,8 @@ PARENT_REPORT = "on"
 VAULT = "on"
 VAULT_MAX_MB = "200"
 DB_SIZE_NOTICE_MB = "400"
+# the waitlist is open on staging too, until a launch day is set here
+WAITLIST_LAUNCHED_AT = ""
 # no reminders on staging (no VAPID_PRIVATE_JWK there)
 PUSH = "off"
 # no AI key on staging: the second reader has nothing to call; no email: no alert

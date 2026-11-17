@@ -1,0 +1,121 @@
+/* The waitlist page /waitlist/ and /w/, after landing.css (tokens, fonts, .btn, .ticks, footer); landing-build writes it
+   to dist/l/waitlist.css. Tokens only, so it follows the phone's dark mode. Phone first; from 880px two columns.
+   The hero: a brand-tint band with the form on a white card, the page's one action. */
+
+.wl-band { background: var(--brand-tint); }
+.wl-hero { display: grid; gap: var(--s6); padding-block: var(--s4) var(--s8); }
+.wl-intro { display: grid; gap: var(--s3); justify-items: start; align-content: start; }
+.wl-intro h1 { font-size: clamp(2.125rem, 9vw, 3.5rem); line-height: 1.12; }
+.wl-intro .sub { color: var(--ink); }
+.wl-try { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+
+.wl-card { background: var(--surface); border: 2px solid var(--brand-line); border-radius: var(--r-lg); padding: var(--s5) var(--s4) var(--s4); }
+.wl-form { display: grid; gap: var(--s4); }
+.wl-card p + p { margin-top: 0; }
+.wl-form h2, .wl-done h2 { margin: 0; font-size: var(--t-xl); line-height: var(--lh-xl); }
+.wl-lead { color: var(--ink-2); margin-top: calc(-1 * var(--s3)); }
+
+.wl-field { display: grid; gap: var(--s2); }
+.wl-field label, .wl-chips legend, .wl-copy label { font-weight: 700; }
+.wl-field input, .wl-copy input {
+  width: 100%; min-height: 52px; padding: var(--s3) var(--s4); border: 2px solid var(--control-line); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: var(--t-md); text-align: left;
+}
+.wl-field input:focus-visible, .wl-copy input:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 1px; border-color: var(--brand); }
+.wl-field input[aria-invalid="true"] { border-color: var(--bad); }
+.wl-field input::placeholder { color: var(--ink-2); }
+
+.wl-chips { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: var(--s2); }
+.wl-chips legend { padding: 0; margin-bottom: var(--s2); }
+.wl-opt { font-weight: 400; color: var(--ink-2); }
+.wl-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.wl-chip { position: relative; display: inline-flex; }
+.wl-chip input { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.wl-chip span {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 48px; min-width: 64px; padding: var(--s2) var(--s4);
+  border: 2px solid var(--rule-strong); border-radius: var(--r-md); background: var(--surface); color: var(--ink); font-weight: 600;
+  box-shadow: 0 var(--lip) 0 var(--rule-press); margin-bottom: var(--lip);
+  transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+}
+.wl-chip input:checked + span { background: var(--brand-tint); border-color: var(--brand); color: var(--brand-d); box-shadow: 0 var(--lip) 0 var(--brand-line); }
+.wl-chip input:checked + span::before { content: ""; width: 7px; height: 12px; margin-inline-end: var(--s2); margin-top: -3px; border: solid currentColor; border-width: 0 3px 3px 0; transform: rotate(45deg); }
+.wl-chip input:focus-visible + span { outline: 3px solid var(--brand-d); outline-offset: 2px; }
+.wl-chip input:active + span { transform: translateY(var(--lip)); box-shadow: 0 0 0 var(--rule-press); }
+.wl-chips[aria-invalid="true"] .wl-chip span { border-color: var(--bad); }
+
+.wl-consent { display: grid; gap: var(--s2); }
+.wl-check { display: flex; gap: var(--s3); align-items: flex-start; min-height: 44px; padding-block: var(--s1); cursor: pointer; font-weight: 600; }
+.wl-check input { flex: none; width: 26px; height: 26px; margin: 0; accent-color: var(--brand); cursor: pointer; }
+.wl-check input[aria-invalid="true"] { outline: 2px solid var(--bad); outline-offset: 2px; }
+.wl-small { color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.wl-small a { display: inline-block; padding-block: 11px; margin-block: -11px; }
+
+/* an error under its field: a drawn alert mark and the words */
+.wl-err { display: flex; gap: var(--s2); align-items: flex-start; color: var(--bad-ink); font-weight: 600; font-size: var(--t-sm); line-height: var(--lh-sm); }
+.wl-err[hidden] { display: none; }
+.wl-err::before {
+  content: ""; flex: none; width: 18px; height: 18px; margin-top: 2px; background: var(--bad);
+  -webkit-mask: var(--wl-alert) center / contain no-repeat; mask: var(--wl-alert) center / contain no-repeat;
+}
+:root { --wl-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM10.75 6.5h2.5v7.5h-2.5zM10.75 15.5h2.5V18h-2.5z'/%3E%3C/svg%3E"); }
+
+/* .btn as a <button>: the page's font, no browser border */
+button.btn { font-family: inherit; cursor: pointer; }
+button.btn:not(.btn-2) { border: 0; }
+.wl-submit { width: 100%; margin: 0 0 var(--lip); }
+.wl-submit[aria-busy="true"] { opacity: 0.75; cursor: progress; }
+.wl-status:empty { display: none; }
+.wl-status { font-weight: 600; }
+.wl-status.is-error { color: var(--bad-ink); }
+
+/* the honeypot: hidden from people and screen readers */
+.wl-hp { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* where a plain form post lands (#oops, #closed); the script shows them by class */
+.wl-note { display: none; padding: var(--s3) var(--s4); border-radius: var(--r-md); font-weight: 600; }
+.wl-oops { background: var(--bad-tint); border: 2px solid var(--bad-line); color: var(--ink); }
+.wl-closed { background: var(--gold-tint); border: 2px solid var(--gold-line); color: var(--ink); }
+.wl-note:target, .wl-note.is-on { display: block; }
+
+/* the thank-you replaces the form (the script's class, or #joined after a plain post) */
+.wl-done { display: none; text-align: center; justify-items: center; gap: var(--s3); }
+.wl-done p { max-width: 30em; }
+.wl-done:target, .wl-card.is-joined .wl-done { display: grid; }
+.wl-card:has(.wl-done:target) .wl-form, .wl-card.is-joined .wl-form { display: none; }
+.wl-done:focus { outline: none; }
+.wl-madi svg { width: 120px; height: auto; }
+.wl-card.is-joined .wl-madi svg { animation: wl-hop var(--duration-very-slow) var(--ease-smooth-out) 1 both; }
+@keyframes wl-hop { 0% { transform: translateY(12px) scale(0.92); opacity: 0; } 60% { transform: translateY(-6px) scale(1.02); opacity: 1; } 100% { transform: none; opacity: 1; } }
+.wl-done .btn { margin: var(--s2) 0 var(--lip); }
+.wl-copy { width: 100%; display: grid; gap: var(--s2); text-align: start; }
+.wl-copy[hidden], .wl-share[hidden] { display: none; }
+
+/* the three things, each beside its phone */
+.wl-what h2 { margin-bottom: var(--s6); }
+.wl-feature { display: grid; gap: var(--s4); justify-items: center; }
+.wl-feature + .wl-feature { margin-top: var(--s10); }
+.wl-text { display: grid; gap: var(--s2); width: 100%; max-width: 36em; }
+.wl-text h3 { font-size: var(--t-lg); line-height: var(--lh-lg); font-weight: 800; }
+.wl-feature img { display: block; width: 100%; max-width: 230px; height: auto; }
+.wl-facts .ticks { max-width: 44em; }
+
+/* the smallest phones: the three "אני" chips stay on one line */
+@media (max-width: 359px) {
+  .wl-card { padding-inline: var(--s3); }
+  .wl-chip span { padding-inline: var(--s3); min-width: 56px; }
+}
+@media (min-width: 880px) {
+  .wl-hero { grid-template-columns: 1fr minmax(380px, 460px); align-items: start; gap: var(--s10); padding-block: var(--s10) var(--s12); }
+  .wl-intro { padding-top: var(--s8); }
+  .wl-card { padding: var(--s6); }
+  .wl-feature { grid-template-columns: 1fr 260px; align-items: center; justify-items: start; gap: var(--s10); }
+  .wl-feature img { max-width: 260px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wl-chip span { transition: none; }
+  .wl-card.is-joined .wl-madi svg { animation: none; }
+}
+@media print {
+  .wl-band { background: none; }
+  .wl-card { display: none; }
+}

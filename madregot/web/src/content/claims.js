@@ -63,13 +63,24 @@ export function programmeCoverage(mods = PROGRAMME) {
 export const allExplained = (content) => Object.values(content || {}).every((s) => (s?.misconceptions || []).every((m) => (m.explain || []).length > 0));
 
 /**
+ * Every stair's teaching opens with a drawing the student moves (an explore step with its manipulative) and has a worked
+ * example and a problem solved together (the "lesson-drawings" claim).
+ */
+export const allDrawn = (content) => {
+  const stairs = Object.values(content || {});
+  return stairs.length > 0 && stairs.every((s) => (s?.discover || []).some((st) => st?.kind === 'explore' && st.manip)
+    && (s.examples || []).length > 0 && (s.together || []).length > 0);
+};
+
+/**
  * What the claims' checks compute from the app itself (ctx.data, without the Worker's vars). Async: the teaching
  * content loads one topic at a time (DURABLE-11), and the explanations are read from all of it.
  */
 export async function claimData() {
   // the exercise generators load per topic (the boot split); 'graded-by-code' reads that every stair has one
   await loadAllGens();
-  return { mistakes: countNamedMistakes(), explained: allExplained(await loadAllContent()), coverage: programmeCoverage() };
+  const content = await loadAllContent();
+  return { mistakes: countNamedMistakes(), explained: allExplained(content), drawn: allDrawn(content), coverage: programmeCoverage() };
 }
 
 const grep = (code, path, re) => code.has(path) && re.test(code.read(path));
@@ -101,6 +112,14 @@ const FACT = {
   syncedReport: ({ code }) => grep(code, 'worker/src/report.js', /INSERT INTO family_daily/) && grep(code, 'web/src/screens/parents/FamilyReport.jsx', /<WeeksChart /),
   sundayEmail: ({ code }) => grep(code, 'worker/src/report.js', /export async function weeklyQueue/) && grep(code, 'worker/src/email.js', /function weeklyNotice/),
   examReady: ({ code }) => grep(code, 'worker/src/email.js', /exam: \(ex\) =>/) && grep(code, 'web/src/screens/parents/FamilyReport.jsx', /export function ExamBanner/),
+  // the waitlist page's three things (web/landing/waitlist.html): the teacher's message read on the device into an evening
+  // plan (EXAM-MATERIAL), מדי's wardrobe earned from learning (STUDENT-3), and no hearts or leaderboard in the store
+  pastePlan: ({ code }) => grep(code, 'web/src/lib/examMaterial.js', /export function matchMaterial\(/) && grep(code, 'web/src/screens/Rescue.jsx', /matchMaterial\(text, grade\)/)
+    && grep(code, 'web/src/screens/Rescue.jsx', /'מה נשאר להיום'/),
+  madiWardrobe: ({ code }) => grep(code, 'web/src/lib/wardrobe.js', /export let COLORS = /) && grep(code, 'web/src/lib/wardrobe.js', /export let ITEMS = /)
+    && grep(code, 'web/src/App.jsx', /path="\/me\/madi"/),
+  noHearts: ({ code }) => code.has('web/src/lib/store.js') && !grep(code, 'web/src/lib/store.js', /\b(hearts|lives|energy)\s*:/)
+    && !grep(code, 'web/src/App.jsx', /leaderboard/i),
   // what this deployment sells online (shared/sold.js, the Worker's own rule): a plan that renews, or any family plan
   renewsOnline: ({ data }) => soldOnline(data?.vars || {}).recurring,
   familyOnline: ({ data }) => soldOnline(data?.vars || {}).family,
@@ -130,6 +149,31 @@ export const CLAIMS = [
     he: 'בלי פרסומות ובלי מעקב.',
     // the build itself is checked: scripts/check-dist.mjs refuses any file that names an analytics, ads or tag host
     check: ({ code }) => grep(code, 'web/scripts/check-dist.mjs', /export const TRACKERS = \[/) && grep(code, 'web/package.json', /node scripts\/check-dist\.mjs dist/),
+  },
+  // ── the waitlist page's three things (web/landing/waitlist.html) ──
+  {
+    id: 'paste-plan', required: true,
+    he: 'מדביקים את ההודעה מהמורה על המבחן, והאפליקציה מוצאת בה את הנושאים ובונה תוכנית לערב: כלל קצר, בדיקה מהירה, ותרגול רק איפה שצריך.',
+    marks: ['ההודעה מהמורה'],
+    check: FACT.pastePlan,
+  },
+  {
+    id: 'lesson-drawings', required: true,
+    he: 'כל מדרגה מתחילה בשיעור קצר: ציור שמזיזים באצבע, דוגמה פתורה, ופותרים יחד.',
+    marks: ['ציור שמזיזים'],
+    check: ({ data }) => data.drawn === true,
+  },
+  {
+    id: 'madi-rewards', required: true,
+    he: 'מדי מלווה את התרגול, ועל מה שלומדים הוא מקבל צבעים ואביזרים חדשים.',
+    marks: ['צבעים ואביזרים'],
+    check: FACT.madiWardrobe,
+  },
+  {
+    id: 'no-hearts', required: true,
+    he: 'אין לבבות שנגמרים ואין טבלת דירוג בין ילדים.',
+    marks: ['לבבות'],
+    check: FACT.noHearts,
   },
   {
     id: 'free-list', required: true,

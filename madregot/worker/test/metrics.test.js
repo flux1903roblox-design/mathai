@@ -20,6 +20,7 @@ const count = (name, day = dayOf()) => one(h.env, 'SELECT n FROM metrics_daily W
 test('the names are the spec\'s list; the server adds its own; the owner\'s table shows each once', () => {
   assert.deepEqual(METRIC_NAMES, [
     'landing_view_mivchan', 'landing_view_pilot', 'landing_cta_mivchan', 'landing_cta_pilot', 'welcome_from_landing',
+    'landing_view_waitlist', 'landing_cta_waitlist',
     'install_offer', 'install_accept', 'installed', 'push_offer', 'push_on', 'push_off', 'push_open',
     'store_open_play', 'store_open_ios', 'recap_open', 'wardrobe_open']);
   assert.deepEqual(SERVER_METRICS, ['class_goal_reached', 'push_sent', 'push_deferred', 'push_failed', 'push_rejected', 'push_paused']);

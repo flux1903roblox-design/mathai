@@ -11,6 +11,8 @@ describe('deepLink', () => {
 
   it('reads the schools\' page link, and role=teacher as the same', () => {
     expect(deepLink('?start=teacher&src=pilot')).toEqual({ next: null, teacher: true, src: 'pilot' });
+    // the waitlist page's "אפשר כבר לנסות בדפדפן": no place to go first, but the visit is counted as from a landing page
+    expect(deepLink('?src=waitlist')).toEqual({ next: null, teacher: false, src: 'waitlist' });
     expect(deepLink('?role=teacher')).toEqual({ next: null, teacher: true, src: null });
     expect(deepLink('?next=/teacher')).toEqual({ next: null, teacher: true, src: null });
   });

@@ -61,6 +61,7 @@ import { postMetric } from './metrics.js';
 import { edgeGuard } from './edge.js';
 import { pushKey, pushSubscribe, pushSeen, pushOff, pushDue, PUSH_CRON } from './push.js';
 import { assetLinksResponse } from './assetlinks.js';
+import { joinWaitlist } from './waitlist.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -1330,6 +1331,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/me/forget') return forgetMe(req, env, ctx, cors);
   // reach counts (metrics.js): a name on the list adds 1 to its day; 204 always
   if (M === 'POST' && p === '/api/metrics') return postMetric(req, env, cors);
+  // the waitlist for the store apps (waitlist.js): one signup, the same answer whether or not the address was there
+  if (M === 'POST' && p === '/api/waitlist') return joinWaitlist(req, env, cors);
   // the opt-in daily reminder (push.js): 404 while PUSH is off
   if (M === 'GET' && p === '/api/push/key') return pushKey(req, env, cors);
   if (M === 'POST' && p === '/api/push/subscribe') return pushSubscribe(req, env, cors);

@@ -45,6 +45,7 @@ import { qualityCounts } from './quality.js';
 export { purgeAccountsSql, purgeFamilySql, purgeErrorsSql, purgeReportSql, purgeIdentitySql, vaultNight };
 import { shiftDay } from './goal.js';
 import { pushNight, purgePushSql, pushReach } from './push.js';
+import { purgeWaitlistSql } from './waitlist.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -177,7 +178,9 @@ export function purgeCountersSql(env, now = new Date()) {
  *  expired orders after unpaidOrderDays, spend after aiSpendDays, the audit log after auditLogDays, provider events after
  *  billingEventsDays, the app's error reports after clientErrorsDays (errors.js). Payments are kept. The class goal
  *  (STUDENT-4): steps after classStepsDays, its weeks after classGoalWeeksDays (Jerusalem days). Reach counts
- *  (STUDENT-14) after metricsDays. A daily reminder (STUDENT-11) pushIdleDays after the app was last opened (push.js). */
+ *  (STUDENT-14) after metricsDays. A daily reminder (STUDENT-11) pushIdleDays after the app was last opened (push.js).
+ *  The waitlist (waitlist.js): every row waitlistAfterLaunchDays after WAITLIST_LAUNCHED_AT, and each waitlistMaxDays
+ *  after its signup, whichever comes first. */
 export function purgeRecordsSql(env, now = new Date()) {
   const R = RETENTION;
   const t = now.getTime();
@@ -196,6 +199,7 @@ export function purgeRecordsSql(env, now = new Date()) {
     env.DB.prepare('DELETE FROM class_goal_weeks WHERE week < ?').bind(day(R.classGoalWeeksDays)),
     env.DB.prepare('DELETE FROM metrics_daily WHERE day < ?').bind(day(R.metricsDays)),
     purgePushSql(env, now),
+    purgeWaitlistSql(env, now),
   ];
 }
 

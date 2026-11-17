@@ -438,6 +438,15 @@
       "retention": "Until the reminder is turned off (POST /api/push/off, also from Delete all), the push service says the address is gone, or 45 days after the app was last opened (RETENTION.pushIdleDays).",
       "recipients": ["cloudflare", "push"],
       "purgedBy": ["cron.purgeRecordsSql"]
+    },
+    "waitlist": {
+      "personal": "yes",
+      "about": ["parent", "student", "teacher"],
+      "fields": ["id", "email", "role", "grade", "platform", "source", "consent_at", "created_at"],
+      "purpose": "The waitlist for the store apps (src/waitlist.js, the public page /waitlist/ and /w/): an email address that asked for one email when the iPhone and Android apps are in the stores, who is asking (parent, student or teacher), the grade and the phone if given, and a short label of the ad that brought them (utm_source/utm_campaign), so the owner can see whether enough people want the apps and write to them once. consent_at: when the box asking for that one email was ticked, required to join. No name, network address, device or free text. The owner reads counts only (npm run owner -- waitlist), and exports the addresses once for the launch email (waitlist --export, a file to delete after use).",
+      "retention": "30 days after the launch day the owner sets (WAITLIST_LAUNCHED_AT, RETENTION.waitlistAfterLaunchDays), and at the latest 365 days after the signup (RETENTION.waitlistMaxDays), whichever comes first. Earlier on request (npm run owner -- waitlist --remove, or forget --email), and with an account of the same email when it is deleted.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeRecordsSql", "forget.forgetAccount"]
     }
   },
   "client": {

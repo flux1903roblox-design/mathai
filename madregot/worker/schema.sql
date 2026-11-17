@@ -730,3 +730,21 @@ CREATE TABLE IF NOT EXISTS vault_tombstones (
   deleted_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS vault_tombstones_at ON vault_tombstones (deleted_at);
+
+-- ---------------------------------------------------------------- the waitlist for the store apps (migration 0012_waitlist)
+-- The public page /waitlist/ (worker/src/waitlist.js): an email address, who is asking, the grade and the phone, so the
+-- owner can see whether enough people want the iPhone and Android apps and write to them once when the apps are out.
+-- Nothing else: no name, no network address, no device, no free text. The email as account.js cleanEmail leaves it,
+-- once. source: the ad's utm_source/utm_campaign as a short label. Deleted 30 days after WAITLIST_LAUNCHED_AT and at the
+-- latest 365 days after the signup (cron.js purgeRecordsSql); by the owner on request; with an account of the same email.
+CREATE TABLE IF NOT EXISTS waitlist (
+  id INTEGER PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE CHECK (length(email) BETWEEN 3 AND 254),
+  role TEXT NOT NULL CHECK (role IN ('parent', 'student', 'teacher')),
+  grade TEXT CHECK (grade IS NULL OR grade IN ('7', '8')),
+  platform TEXT CHECK (platform IS NULL OR platform IN ('ios', 'android', 'both')),
+  source TEXT CHECK (source IS NULL OR length(source) BETWEEN 1 AND 61),
+  consent_at TEXT NOT NULL,                    -- when "one email when the app is in the stores" was ticked (the signup)
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS waitlist_created ON waitlist (created_at);

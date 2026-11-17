@@ -27,7 +27,7 @@
 
 מדרגות היא אפליקציה לתרגול מתמטיקה לכיתות ז׳ ו־ח׳. ההתקדמות של התלמיד נשמרת במכשיר שלו. השרת שומר מידע רק כשיש לו
 סיבה: תלמיד בכיתה (כדי שהמורה יראה את התרגול), הורה או מורה שנכנסים במייל, תשלום, גיבוי מוצפן, ומונים שמגבילים
-שימוש. בבסיס הנתונים יש 47 טבלאות: 11 עם מידע אישי,
+שימוש. בבסיס הנתונים יש 48 טבלאות: 12 עם מידע אישי,
 23 בכינוי בלבד ו־13 בלי מידע על אדם.
 
 ## 2. מטרות השימוש
@@ -36,16 +36,16 @@
 
 | על מי | טבלאות |
 |---|---|
-| תלמידים | `ai_usage`, `assignment_targets`, `assignment_work`, `attempts`, `audit_log`, `class_steps`, `exams`, `help_messages`, `help_meta`, `help_requests`, `levels`, `push_subs`, `student_ai_off`, `student_tokens`, `students`, `vault_escrow`, `vault_tombstones`, `vaults` |
-| הורים | `account_sessions`, `accounts`, `ai_spend`, `ai_usage`, `audit_log`, `family_daily`, `family_devices`, `link_codes`, `login_codes`, `notices`, `order_renewals`, `orders`, `payments`, `refund_queue`, `subscriptions`, `vault_escrow` |
-| מורים | `account_sessions`, `accounts`, `ai_spend`, `ai_usage`, `assignments`, `audit_log`, `class_goal_settings`, `class_goal_weeks`, `class_owners`, `class_settings`, `classes`, `help_messages`, `licence_requests`, `login_codes`, `notices`, `orders`, `payments`, `refund_queue`, `subscriptions` |
+| תלמידים | `ai_usage`, `assignment_targets`, `assignment_work`, `attempts`, `audit_log`, `class_steps`, `exams`, `help_messages`, `help_meta`, `help_requests`, `levels`, `push_subs`, `student_ai_off`, `student_tokens`, `students`, `vault_escrow`, `vault_tombstones`, `vaults`, `waitlist` |
+| הורים | `account_sessions`, `accounts`, `ai_spend`, `ai_usage`, `audit_log`, `family_daily`, `family_devices`, `link_codes`, `login_codes`, `notices`, `order_renewals`, `orders`, `payments`, `refund_queue`, `subscriptions`, `vault_escrow`, `waitlist` |
+| מורים | `account_sessions`, `accounts`, `ai_spend`, `ai_usage`, `assignments`, `audit_log`, `class_goal_settings`, `class_goal_weeks`, `class_owners`, `class_settings`, `classes`, `help_messages`, `licence_requests`, `login_codes`, `notices`, `orders`, `payments`, `refund_queue`, `subscriptions`, `waitlist` |
 | מכשירים | `ai_usage`, `audit_log`, `family_daily`, `family_devices`, `link_codes`, `student_tokens`, `vault_escrow`, `vault_tombstones`, `vaults` |
 | רשתות (כתובת IP מגובבת) | `ai_usage` |
 | אף אחד | `ai_quality`, `ai_spend`, `answer_reports`, `billing_events`, `class_locks`, `client_errors`, `licence_codes`, `meters`, `metrics_daily`, `safety_events` |
 
 ## 3. סוגי המידע
 
-- **אישי** (names a person (a name, an email address, words a person wrote) or points at a row that does): `accounts`, `assignment_work`, `assignments`, `attempts`, `classes`, `exams`, `help_messages`, `help_requests`, `levels`, `licence_requests`, `students`.
+- **אישי** (names a person (a name, an email address, words a person wrote) or points at a row that does): `accounts`, `assignment_work`, `assignments`, `attempts`, `classes`, `exams`, `help_messages`, `help_requests`, `levels`, `licence_requests`, `students`, `waitlist`.
 - **בכינוי (פסאודונימי)** (only a random id or a keyed hash; it points at a person only together with another table or a secret the server holds): `account_sessions`, `ai_spend`, `ai_usage`, `assignment_targets`, `audit_log`, `class_owners`, `class_steps`, `family_daily`, `family_devices`, `help_meta`, `link_codes`, `login_codes`, `notices`, `orders`, `payments`, `push_subs`, `refund_queue`, `student_ai_off`, `student_tokens`, `subscriptions`, `vault_escrow`, `vault_tombstones`, `vaults`.
 - **לא אישי** (cannot point at a person): `ai_quality`, `answer_reports`, `billing_events`, `class_goal_settings`, `class_goal_weeks`, `class_locks`, `class_settings`, `client_errors`, `licence_codes`, `meters`, `metrics_daily`, `order_renewals`, `safety_events`.
 
@@ -64,7 +64,7 @@
 
 | מי | תפקיד | איפה | מה הוא מקבל (מתוך מפת המידע) | טבלאות |
 |---|---|---|---|---|
-| Cloudflare | מחזיק: מריץ את השרת ושומר את בסיס הנתונים (D1) | באיחוד האירופי כשבסיס הנתונים נוצר עם --jurisdiction=eu (DB_JURISDICTION = "eu") | Cloudflare runs the Worker and keeps the D1 database: in the EU once it was created with --jurisdiction=eu (setup.ps1, DB_JURISDICTION = "eu"). Invocation logs are off (wrangler.toml), so request headers and bodies are not logged; our own console lines and errors are kept 3-7 days and hold no request contents (test/logs.test.js). | `account_sessions`, `accounts`, `ai_quality`, `ai_spend`, `ai_usage`, `answer_reports`, `assignment_targets`, `assignment_work`, `assignments`, `attempts`, `audit_log`, `billing_events`, `class_goal_settings`, `class_goal_weeks`, `class_locks`, `class_owners`, `class_settings`, `class_steps`, `classes`, `client_errors`, `exams`, `family_daily`, `family_devices`, `help_messages`, `help_meta`, `help_requests`, `levels`, `licence_codes`, `licence_requests`, `link_codes`, `login_codes`, `meters`, `metrics_daily`, `notices`, `order_renewals`, `orders`, `payments`, `push_subs`, `refund_queue`, `safety_events`, `student_ai_off`, `student_tokens`, `students`, `subscriptions`, `vault_escrow`, `vault_tombstones`, `vaults` |
+| Cloudflare | מחזיק: מריץ את השרת ושומר את בסיס הנתונים (D1) | באיחוד האירופי כשבסיס הנתונים נוצר עם --jurisdiction=eu (DB_JURISDICTION = "eu") | Cloudflare runs the Worker and keeps the D1 database: in the EU once it was created with --jurisdiction=eu (setup.ps1, DB_JURISDICTION = "eu"). Invocation logs are off (wrangler.toml), so request headers and bodies are not logged; our own console lines and errors are kept 3-7 days and hold no request contents (test/logs.test.js). | `account_sessions`, `accounts`, `ai_quality`, `ai_spend`, `ai_usage`, `answer_reports`, `assignment_targets`, `assignment_work`, `assignments`, `attempts`, `audit_log`, `billing_events`, `class_goal_settings`, `class_goal_weeks`, `class_locks`, `class_owners`, `class_settings`, `class_steps`, `classes`, `client_errors`, `exams`, `family_daily`, `family_devices`, `help_messages`, `help_meta`, `help_requests`, `levels`, `licence_codes`, `licence_requests`, `link_codes`, `login_codes`, `meters`, `metrics_daily`, `notices`, `order_renewals`, `orders`, `payments`, `push_subs`, `refund_queue`, `safety_events`, `student_ai_off`, `student_tokens`, `students`, `subscriptions`, `vault_escrow`, `vault_tombstones`, `vaults`, `waitlist` |
 | Resend | מחזיק: שולח את המיילים של השירות | ארה״ב | Resend (in the US) sends the service emails: the recipient's address and the email itself (a sign-in code, a receipt or notice with dates, amounts and a device label). | `accounts`, `licence_requests`, `notices` |
 | חברת הסליקה | מחזיק: גובה תשלום ומפיקה חשבונית | לפי החברה שתיבחר: Grow, שהקוד מוכן אליה, היא חברה ישראלית; אחרת ______ | The payment company receives the payer's email address, the order id, the plan and the amount; card details are typed only on its page and never reach us. | `accounts`, `orders`, `payments`, `refund_queue`, `subscriptions` |
 | Anthropic | מחזיק: מריץ את העוזר החכם, בקשה אחר בקשה | ארה״ב | Anthropic (in the US) runs the tutor. It receives what the "ai" block lists, per request; nothing of it is kept in these tables. | אף טבלה: רק מה שבסעיף 11 |
@@ -132,6 +132,8 @@
 | `familyLinkDays` | 1 ימים | a family link code after it expired, and a device row that never collected its token |
 | `sessionIdleDays` | 180 ימים | a parent's or teacher's sign-in nobody used (it stops working, and goes) |
 | `pushIdleDays` | 45 ימים | a daily reminder whose app was not opened (or, never opened, after it was made) |
+| `waitlistAfterLaunchDays` | 30 ימים | every signup, once this long has passed since the owner marked the launch (WAITLIST_LAUNCHED_AT) |
+| `waitlistMaxDays` | 365 ימים | a signup this long after it was made, launched or not (about 12 months) |
 
 ## 9. כל טבלה ועמודותיה
 
@@ -557,6 +559,15 @@
 - **שמירה:** 400 days with no write and no read (RETENTION.vaultIdleDays); at once when the device stops the backup or deletes all (the app deletes it before anything local).
 - **עובר אל:** Cloudflare.
 - **נמחק על ידי:** `cron.vaultNight`.
+
+### `waitlist`
+
+- **סוג:** אישי. **על מי:** הורים, תלמידים, מורים.
+- **עמודות:** `id`, `email`, `role`, `grade`, `platform`, `source`, `consent_at`, `created_at`.
+- **מטרה:** The waitlist for the store apps (src/waitlist.js, the public page /waitlist/ and /w/): an email address that asked for one email when the iPhone and Android apps are in the stores, who is asking (parent, student or teacher), the grade and the phone if given, and a short label of the ad that brought them (utm_source/utm_campaign), so the owner can see whether enough people want the apps and write to them once. consent_at: when the box asking for that one email was ticked, required to join. No name, network address, device or free text. The owner reads counts only (npm run owner -- waitlist), and exports the addresses once for the launch email (waitlist --export, a file to delete after use).
+- **שמירה:** 30 days after the launch day the owner sets (WAITLIST_LAUNCHED_AT, RETENTION.waitlistAfterLaunchDays), and at the latest 365 days after the signup (RETENTION.waitlistMaxDays), whichever comes first. Earlier on request (npm run owner -- waitlist --remove, or forget --email), and with an account of the same email when it is deleted.
+- **עובר אל:** Cloudflare.
+- **נמחק על ידי:** `cron.purgeRecordsSql`, `forget.forgetAccount`.
 
 ## 10. מה נשמר במכשיר
 

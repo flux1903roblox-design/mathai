@@ -20,6 +20,8 @@ const FORMATS = {
   ACCESS_COORD_EMAIL: [EMAIL, 'an email address'],
   LEGAL_DATE: [/^\d{4}-\d{2}-\d{2}$/, 'a date written YYYY-MM-DD'],
   ACCESS_STATEMENT_DATE: [/^\d{4}-\d{2}-\d{2}$/, 'a date written YYYY-MM-DD'],
+  // the day the store apps came out: the waitlist closes, and is deleted 30 days later (src/waitlist.js)
+  WAITLIST_LAUNCHED_AT: [/^\d{4}-\d{2}-\d{2}$/, 'a date written YYYY-MM-DD'],
 };
 
 export class SetError extends Error {}

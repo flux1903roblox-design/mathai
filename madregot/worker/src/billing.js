@@ -1072,6 +1072,8 @@ export async function forgetAccount(env, accountId, { actor }) {
     env.DB.prepare('DELETE FROM class_owners WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM notices WHERE to_account = ? AND sent_at IS NULL').bind(accountId),
     env.DB.prepare('UPDATE subscriptions SET account_id = NULL, updated_at = ? WHERE account_id = ?').bind(now, accountId),
+    // the same address on the waitlist for the store apps (waitlist.js) goes with the account
+    env.DB.prepare('DELETE FROM waitlist WHERE email = (SELECT email FROM accounts WHERE id = ?)').bind(accountId),
     // an order still open can no longer start a plan: a late payment for it is refunded (apply.js)
     env.DB.prepare("UPDATE orders SET status = CASE WHEN status = 'open' THEN 'expired' ELSE status END, account_id = NULL WHERE account_id = ?").bind(accountId),
     env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(accountId),

@@ -15,6 +15,8 @@ import { dayOf, netKey, limitOrThrow, rawBody } from './util.js';
 /** The names a page may count. Anything else is ignored. */
 export const METRIC_NAMES = [
   'landing_view_mivchan', 'landing_view_pilot', 'landing_cta_mivchan', 'landing_cta_pilot', 'welcome_from_landing',
+  // the waitlist page (waitlist.js): seen, and its quiet way into the app in the browser ("אפשר כבר לנסות בדפדפן")
+  'landing_view_waitlist', 'landing_cta_waitlist',
   'install_offer', 'install_accept', 'installed', 'push_offer', 'push_on', 'push_off', 'push_open',
   'store_open_play', 'store_open_ios', 'recap_open', 'wardrobe_open'];
 /** Counts only the server adds (never accepted from a page). */

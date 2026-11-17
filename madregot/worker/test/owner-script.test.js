@@ -286,6 +286,8 @@ Landing pages
   landing_cta_mivchan                      9      12      10      15       6      52
   landing_view_pilot                       0       8       0      11       0      19
   landing_cta_pilot                        0       0       0       2       0       2
+  landing_view_waitlist                    0       0       0       0       0       0
+  landing_cta_waitlist                     0       0       0       0       0       0
   welcome_from_landing                     7      10       9      13       5      44
 Install
   install_offer                            6       9       8      12       3      38
