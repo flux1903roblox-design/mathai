@@ -4,7 +4,7 @@
 // template does not, so a production deploy (GitHub Actions > Deploy, or `npm run deploy:production`) never reads a
 // value that lives only on someone's computer:
 //
-//   { "account_id": "",                          the Cloudflare account; empty: CLOUDFLARE_ACCOUNT_ID, or the token's one account
+//   { "account_id": "",                          the Cloudflare account; empty: the CLOUDFLARE_ACCOUNT_ID the deploy is given
 //     "d1":   { "DB": "<database id>" },          a D1 binding wrangler.toml's top level lists → its database_id
 //     "vars": { "PUBLIC_URL": "https://…", … } }  names wrangler.toml's top-level [vars] lists → their values
 //
@@ -72,7 +72,7 @@ export function readOverlay(jsonText, templateText) {
   }
   const account = o.account_id ?? '';
   if (typeof account !== 'string' || (account !== '' && !ACCOUNT_ID.test(account))) {
-    throw new OverlayError('production.json: account_id is a Cloudflare account id (32 letters and digits), or "" to take CLOUDFLARE_ACCOUNT_ID or the token\'s one account');
+    throw new OverlayError('production.json: account_id is a Cloudflare account id (32 letters and digits), or "" to take CLOUDFLARE_ACCOUNT_ID');
   }
   for (const k of ['d1', 'vars']) if (o[k] !== undefined && !isObject(o[k])) throw new OverlayError(`production.json: ${k} must be an object`);
   const bindings = topD1Bindings(templateText);
@@ -182,10 +182,22 @@ export function setProductionVars(jsonText, templateText, pairs) {
   return { text, changed };
 }
 
-/** production.json's vars, as the environment of a production build (scripts/production-env.mjs). */
+/**
+ * production.json's vars, as the environment of a production build (scripts/production-env.mjs). The contact address is
+ * never in production.json: CONTACT_EMAIL from the environment, when set, also becomes VITE_CONTACT_EMAIL (the teacher
+ * screens read only that name) unless that is set already.
+ */
 export function productionEnv(overlay, env = process.env) {
-  return { ...env, ...overlay.vars };
+  const out = { ...env, ...overlay.vars };
+  const contact = String(env.CONTACT_EMAIL ?? '').trim();
+  if (contact && !String(env.VITE_CONTACT_EMAIL ?? '').trim()) out.VITE_CONTACT_EMAIL = contact;
+  return out;
 }
+
+/** git, run in `dir`: `run(args)` → its output. The tests pass a stub of this shape instead. */
+export const gitIn = (dir) => (args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 << 20 });
+/** The first line git (or anything run) said when it failed. */
+const firstLine = (e) => String(e?.stderr || e?.message || e).trim().split('\n')[0];
 
 /**
  * Whether git says `files` (in `dir`) have changes that are not committed: null when they have none, else a sentence
@@ -193,11 +205,23 @@ export function productionEnv(overlay, env = process.env) {
  * live server by accident. `run(args)` runs git and returns its output (tests pass a stub); when git cannot answer, the
  * answer is a refusal too.
  */
-export function uncommitted(dir, files, run = (args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })) {
+export function uncommitted(dir, files, run = gitIn(dir)) {
   let out;
   try { out = run(['status', '--porcelain', '--', ...files]); } catch (e) {
-    return `git could not say whether ${files.join(' and ')} are committed (${String(e?.message || e).split('\n')[0]})`;
+    return `git could not say whether ${files.join(' and ')} are committed (${firstLine(e)})`;
   }
   const lines = String(out).split('\n').map((l) => l.trimEnd()).filter(Boolean);
   return lines.length ? `${files.join(' and ')} have changes that are not committed:\n  ${lines.join('\n  ')}` : null;
+}
+
+/**
+ * `file` (in `dir`) as this computer's last commit (HEAD) has it: what a production deploy of that commit reads, whatever
+ * the copy on disk says. setup.ps1 and setup.sh write the owner's own database id into wrangler.toml, and a value edited
+ * there never reaches the live server, so a check of the live server reads this text, never the file. Throws when git
+ * cannot give it (no git, no commit, a file git does not have).
+ */
+export function committedText(dir, file, run = gitIn(dir)) {
+  try { return String(run(['show', `HEAD:./${file}`])); } catch (e) {
+    throw new Error(`git could not give ${file} as committed (${firstLine(e)}); a check of the live server reads only committed files`);
+  }
 }

@@ -31,14 +31,22 @@
 //                                                (wrangler secret list, or .dev.vars with --local), the migrations not
 //                                                yet applied, and PUBLIC_URL/api/health. It never prints a secret's value.
 //                                                --production: the live server's settings, wrangler.toml plus
-//                                                production.json (scripts/production.mjs), as the production deploy
-//                                                writes them; wrangler reads the secrets and migrations of that file.
+//                                                production.json (scripts/production.mjs) as committed (HEAD), since
+//                                                the production deploy sends only those: a value edited on this computer
+//                                                and not committed is not counted. wrangler reads the secrets and
+//                                                migrations of that file (a check file of its own, never
+//                                                wrangler.deploy.toml).
 //   set NAME=value [NAME=value …]               writes settings into wrangler.toml's [vars] (scripts/setVars.mjs), e.g.
 //                                                set PUBLIC_URL=https://… CONTACT_EMAIL=…; then npm run deploy. Plain
 //                                                NAME=value words, so it reads the same through npm, node or PowerShell.
 //   set --production NAME=value [NAME=value …]  the same checks, into production.json, the live server's settings
 //                                                (never an email address there: the file is in git); then commit, and
 //                                                Actions › Deploy on GitHub (or npm run deploy:production).
+//
+// Every database command takes --production: the live server's database, the one named in production.json, through a
+// check file written from the committed wrangler.toml and production.json (wrangler.toml itself stays the template, with
+// REPLACE_WITH_DATABASE_ID). Without it, the database of this computer's wrangler.toml (an owner set up by setup.ps1 or
+// setup.sh has their own there).
 //
 // Read-only commands run with --command, so the rows come back (a remote --file runs D1's import, which returns none).
 //
@@ -78,8 +86,8 @@ import { readiness, formatReadiness } from '../src/readiness.js';
 import { call as growCall, GROW_SANDBOX } from '../src/providers/grow.js';
 import { readWranglerConfig, deployParts, configErrorLine } from './wranglerConfig.mjs';
 import { parsePairs, setVars, SetError } from './setVars.mjs';
-import { PRODUCTION_FILE, EMAIL_NAME, setProductionVars } from './production.mjs';
-import { writeDeployFile } from './deployConfig.mjs';
+import { PRODUCTION_FILE, EMAIL_NAME, setProductionVars, committedText, uncommitted, gitIn } from './production.mjs';
+import { writeCheckFile } from './deployConfig.mjs';
 import { withBlankVars } from '../src/blankVars.js';
 import { createRequire } from 'node:module';
 
@@ -593,14 +601,26 @@ export function readDeployConfig(file, read = readWranglerConfig, { folded = fal
     return deployParts(folded ? { ...config, vars: withBlankVars({ ...(config.vars || {}) }) } : config);
   } catch (e) { return { error: configErrorLine(e) }; }
 }
+/** A value as one shell word: as it is, or in double quotes when it holds a space or a character the shell reads. */
+const shellWord = (v) => (/^[^\s"'`$<>|&;()*?\\]*$/.test(v) ? v : `"${v}"`);
 /**
- * A go-live hint as the production deploy needs it: a setting goes into production.json with `set --production`, and the
- * deploy is a commit and Actions › Deploy, not a deploy from this computer's wrangler.toml.
+ * A go-live hint as the production deploy needs it: settings go into production.json with one `set --production`
+ * (each NAME=value its own word, as parsePairs reads them), an email address is a Cloudflare secret of the same name
+ * (production.json is in git, so `set --production` refuses one), and the deploy is a commit and Actions › Deploy, not a
+ * deploy from this computer's wrangler.toml. A hint may name one setting or several (`A = "…", B = "…"`).
  */
 export const productionHow = (how) => String(how)
-  .replace(/worker\/wrangler\.toml: ([A-Z][A-Z0-9_]*) = "([^"]*)"/g, (all, name, value) => (EMAIL_NAME.test(name)
-    ? `npx wrangler secret put ${name} (כתובת מייל לא נכנסת ל־production.json, שנמצא ב־git)`
-    : `npm run owner -- set --production ${name}=${value}`))
+  .replace(/worker\/wrangler\.toml: ([A-Z][A-Z0-9_]* = "[^"]*"(?:, [A-Z][A-Z0-9_]* = "[^"]*")*)/g, (all, list) => {
+    const pairs = [...list.matchAll(/([A-Z][A-Z0-9_]*) = "([^"]*)"/g)].map((m) => [m[1], m[2]]);
+    const settings = pairs.filter(([n]) => !EMAIL_NAME.test(n));
+    const emails = pairs.filter(([n]) => EMAIL_NAME.test(n)).map(([n]) => n);
+    return [
+      settings.length ? `npm run owner -- set --production ${settings.map(([n, v]) => `${n}=${shellWord(v)}`).join(' ')}` : '',
+      emails.length ? `${emails.map((n) => `npx wrangler secret put ${n}`).join(' ו־')} (כתובת מייל לא נכנסת ל־production.json, שנמצא ב־git)` : '',
+    ].filter(Boolean).join('; ');
+  })
+  // the live server's settings are the top level only: production.json never touches [env.staging.vars]
+  .replace(/ ב־\[vars\] וב־\[env\.staging\.vars\]/g, '')
   .replace(/(npm run build --prefix \.\.\/web ו־)?npm run deploy\b/g, 'commit ו־Actions › Deploy');
 /** The NAMES in a .dev.vars file (KEY=value lines). The values are never kept. */
 export const devVarNames = (text) => String(text).split(/\r?\n/).map((l) => /^\s*([A-Z][A-Z0-9_]*)\s*=/.exec(l)?.[1]).filter(Boolean);
@@ -610,7 +630,7 @@ export const unappliedFrom = (out, inRepo) => (/No migrations to apply/i.test(ou
 /**
  * The doctor: { code, out } (exit code and the printout). `deps` are for tests: `exec(args)` runs wrangler and returns its
  * stdout, `fetch` reaches the health route, `read(path)` and `list(dir)` read files, `readConfig(path)` reads a
- * wrangler.toml (default: wrangler's own reader).
+ * wrangler.toml (default: wrangler's own reader), `git(args)` runs git in wrangler.toml's folder (--production).
  */
 export async function doctor(o = {}, deps = {}) {
   const here = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -626,18 +646,39 @@ export async function doctor(o = {}, deps = {}) {
   // writes them (wrangler.toml plus production.json, scripts/deployConfig.mjs), and wrangler's commands read that file
   let toml;
   let configArgs = [];
-  let deployFile = null;
+  let check = null;
   if (o.production) {
-    // the overlay's own errors name production.json; wrangler's name wrangler.toml
+    // what the production deploy sends: wrangler.toml and production.json as committed, never this computer's copies
+    // (setup writes the owner's own database id into wrangler.toml, and an edit there never reaches the live server).
+    // The deploy file is a check file of its own: a wrangler.deploy.toml a deploy is about to read stays as it is.
+    const dir = path.dirname(sourceFile);
+    const git = deps.git || gitIn(dir);
     try {
-      ({ deployFile } = (deps.writeDeploy || writeDeployFile)({ sourceFile, production: true, read: deps.readConfig }));
-      toml = readDeployConfig(deployFile, deps.readConfig, { folded: true });
-      configArgs = ['--config', deployFile];
+      check = writeCheckFile({
+        dir,
+        sourceText: committedText(dir, path.basename(sourceFile), git),
+        productionText: committedText(dir, PRODUCTION_FILE, git),
+        read: deps.readConfig,
+      });
+      toml = readDeployConfig(check.deployFile, deps.readConfig, { folded: true });
+      configArgs = ['--config', check.deployFile];
     } catch (e) { toml = { error: configErrorLine(e) }; }
-    notes.push('(השרת החי: wrangler.toml יחד עם worker/production.json. משנים הגדרה שלו עם npm run owner -- set --production NAME=value ו־commit)');
+    notes.push('(השרת החי: wrangler.toml ו־worker/production.json כמו שהם ב־commit האחרון במחשב הזה, כי רק אותם הפרסום שולח. משנים הגדרה שלו עם npm run owner -- set --production NAME=value ו־commit)');
+    const dirty = uncommitted(dir, [path.basename(sourceFile), PRODUCTION_FILE], git);
+    if (dirty) notes.push(`(לא נבדק מה שלא נכנס ל־commit: ${dirty.split('\n').slice(1).map((l) => l.trim()).join(', ') || dirty}. הפרסום לא שולח את זה)`);
   } else {
     toml = readDeployConfig(sourceFile, deps.readConfig);
   }
+  try {
+    return await doctorWith(o, deps, { here, read, list, exec, fetchFn, notes, toml, configArgs });
+  } finally {
+    // the check file was only for wrangler's two questions: a deploy writes its own, after checking git
+    check?.done();
+  }
+}
+
+/** The doctor once wrangler.toml (or the live server's check file) is read: the rest of doctor(). */
+async function doctorWith(o, deps, { here, read, list, exec, fetchFn, notes, toml, configArgs }) {
   if (toml.error) {
     return { code: 1, out: [formatReadiness(readiness({ configError: toml.error })), 'יש עוד מה להשלים (השורות עם ✗).'].join('\n') };
   }
@@ -656,8 +697,6 @@ export async function doctor(o = {}, deps = {}) {
     const unapplied = unappliedFrom(exec(['d1', 'migrations', 'list', 'madregot', o.local ? '--local' : '--remote', ...configArgs]), inRepo);
     applied = inRepo.filter((m) => !unapplied.includes(m));
   } catch { notes.push('(לא הצלחנו לבדוק את המיגרציות)'); }
-  // the deploy file was only for wrangler's two questions: a deploy writes its own, after checking git
-  if (deployFile) rmSync(deployFile, { force: true });
   // the live server's own answer (booleans only), unless this is the local check
   let health = null;
   const url = String(toml.vars.PUBLIC_URL || '').replace(/\/+$/, '');
@@ -722,7 +761,9 @@ export async function growSandboxCheck(vars, devText, fetchFn = globalThis.fetch
 }
 
 /** The commands, one line each (printed with no command, or with help). */
-export const HELP = `usage: npm run owner -- <command> [options] [--local]   (without --local: the remote database)
+export const HELP = `usage: npm run owner -- <command> [options] [--local | --production]
+  (without either: the remote database of this computer's wrangler.toml; --production: the live server's database,
+  named in the committed production.json, e.g. npm run owner -- list --production)
   grant-class --class C --until D --seats N [--invoice R] [--note T] [--trial] [--private-ok]
   grant-school --classes K --seats N --until D --invoice R [--note T | --gefen G] [--private-ok]   prints a licence code once
     (until MOE_AI_APPROVAL is "approved": refused for schools; a private group needs --private-ok --note T and "private" typed)
@@ -744,7 +785,7 @@ export const HELP = `usage: npm run owner -- <command> [options] [--local]   (wi
   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   (or --class C --list)
   reach [--days 28]   reach counts by week (STUDENT-14): counts of named steps only, no person behind any number
   doctor [--local] [--toml F] [--dev-vars F] [--grow-sandbox]   what is still missing to go live (DURABLE-16), never a secret's value
-  doctor --production   the same for the live server: wrangler.toml plus production.json, as the production deploy sends them
+  doctor --production   the same for the live server: the committed wrangler.toml plus production.json, as the production deploy sends them
   set NAME=value [NAME=value …]   writes settings into wrangler.toml's [vars] (e.g. PUBLIC_URL, CONTACT_EMAIL); then npm run deploy
   set --production NAME=value [NAME=value …]   the same checks, into production.json (the live server's); then commit and Actions › Deploy
 Dates are YYYY-MM-DD (Jerusalem).`;
@@ -764,10 +805,20 @@ async function ask(question) {
 }
 
 const WORKER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const wrangler = (o, args) => runWrangler(['d1', 'execute', 'madregot', o.local ? '--local' : '--remote', ...args, '--json'], { cwd: WORKER, encoding: 'utf8' });
+/** wrangler d1 execute on the database: --local, or remote; with --production through the check file (`o.wranglerConfig`). */
+export const d1Args = (o, args) => ['d1', 'execute', 'madregot', o.local ? '--local' : '--remote', ...(o.wranglerConfig ? ['--config', o.wranglerConfig] : []), ...args, '--json'];
+const wrangler = (o, args) => runWrangler(d1Args(o, args), { cwd: WORKER, encoding: 'utf8' });
+/**
+ * --production: a check file for the live server's database, from the committed wrangler.toml and production.json (the
+ * live database's id is only in production.json). → writeCheckFile's { deployFile, text, done }.
+ */
+export function productionConfig(dir = WORKER, git = gitIn(dir)) {
+  return writeCheckFile({ dir, sourceText: committedText(dir, 'wrangler.toml', git), productionText: committedText(dir, PRODUCTION_FILE, git) });
+}
 /** What the CLI does outside itself: the database through wrangler, the terminal. Tests pass their own. */
 const realIo = {
   env: process.env,
+  productionConfig: () => productionConfig(),
   /** One read-only SELECT: its first row, or null. */
   query: async (sql, o) => (JSON.parse(wrangler(o, ['--command', sql]))?.[0]?.results || [])[0] || null,
   /** One read-only SELECT: all its rows. */
@@ -830,15 +881,15 @@ function setCommand(argv, io) {
  */
 function setProduction(args, io, { file, readFile, writeFile, readConfig }) {
   const prodFile = io.productionFile || path.join(path.dirname(file), PRODUCTION_FILE);
-  const check = io.checkProduction || ((sourceFile) => writeDeployFile({ sourceFile, production: true, read: readConfig }));
+  // a check file of its own, never wrangler.deploy.toml (which a deploy about to run reads)
+  const check = io.checkProduction || ((sourceFile) => writeCheckFile({ dir: path.dirname(sourceFile), sourceText: readFile(sourceFile), productionText: readFile(prodFile), read: readConfig }));
   try {
     const before = readFile(prodFile);
     const { text, changed } = setProductionVars(before, readFile(file), parsePairs(args));
     if (!changed.length) { io.log('production.json already has these values: nothing changed.'); return 0; }
     writeFile(prodFile, text);
     try {
-      const w = check(file);
-      if (w?.deployFile) rmSync(w.deployFile, { force: true });
+      check(file)?.done?.();
     } catch (e) {
       writeFile(prodFile, before);
       throw new SetError(`the production deploy file would not be right with these values, so production.json was left as it was: ${configErrorLine(e)}`);
@@ -866,6 +917,24 @@ export async function cli(argv, io = realIo) {
       io.log(r.out);
       return r.code;
     }
+    // the database commands below: --production is the live server's database (a check file from the committed
+    // wrangler.toml and production.json, removed when the command ends)
+    if (!o.production) return await databaseCommand(cmd, o, io, null);
+    if (o.local) fail('--production is the live server\'s database, so not together with --local');
+    let prod;
+    try { prod = (io.productionConfig || (() => productionConfig()))(); } catch (e) { fail(`--production: ${configErrorLine(e)}`); }
+    try {
+      return await databaseCommand(cmd, { ...o, wranglerConfig: prod.deployFile }, io, prod.text);
+    } finally { prod.done(); }
+  } catch (e) {
+    io.error(e instanceof InputError ? e.message : e);
+    return 1;
+  }
+}
+
+/** One database command (everything but set, doctor and help). `toml`: the text the Ministry's rules are read from (--production: the live server's). */
+async function databaseCommand(cmd, o, io, toml) {
+  try {
     // reach counts by week (STUDENT-14): read-only, counts only
     if (cmd === 'reach') {
       const plan = reachPlan(o);
@@ -879,7 +948,7 @@ export async function cli(argv, io = realIo) {
     let opts = {};
     if (CLASS_GRANTS.includes(cmd)) {
       build(cmd, o, { moe: { approval: 'approved', approvedFromGrade: 7 } });
-      const moe = moeVars(io.env);
+      const moe = moeVars(io.env, toml);
       opts = { moe, cls: cmd === 'grant-class' ? await io.query(classSettingSql(o.class), o) : undefined };
       if (schoolGate(cmd, o, opts) === 'confirm') {
         build(cmd, o, { ...opts, confirmed: 'private' });

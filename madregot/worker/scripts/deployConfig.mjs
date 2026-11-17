@@ -14,7 +14,12 @@
 // The production deploy (`node scripts/deploy-config.mjs --production`: GitHub Actions > Deploy, npm run
 // deploy:production) first writes the live server's own settings, production.json (scripts/production.mjs), into the
 // text, then folds. The same check then proves the file means wrangler.toml plus exactly production.json.
+//
+// A check that only needs such a file for a moment (`owner doctor --production`, `owner set --production`, the owner's
+// database commands with --production) writes it with writeCheckFile, under a name of its own, so it never replaces or
+// removes the wrangler.deploy.toml that a deploy about to run reads.
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { BLANK_VARS, withBlankVars } from '../src/blankVars.js';
@@ -100,17 +105,17 @@ export function settingsSent(read, deployFile) {
 
 /**
  * Write wrangler.deploy.toml next to `sourceFile` (wrangler.toml) and check it with `read` (wrangler's reader); with
- * `production`, production.json (next to it) is written in first. → { deployFile, folded, sent, overlay }. Throws (with
- * the file removed) when the overlay is refused or the file would mean anything else, so a deploy that follows with
- * --config wrangler.deploy.toml never runs on an old or wrong file.
+ * `production`, production.json (next to it, or `productionText`) is written in first. `deployFile`: another path for
+ * the file (writeCheckFile's). → { deployFile, folded, sent, overlay }. Throws (with the file removed) when the overlay
+ * is refused or the file would mean anything else, so a deploy that follows with --config wrangler.deploy.toml never
+ * runs on an old or wrong file.
  */
-export function writeDeployFile({ sourceFile, production = false, read = readWranglerConfig } = {}) {
+export function writeDeployFile({ sourceFile, production = false, read = readWranglerConfig, deployFile = path.join(path.dirname(sourceFile), 'wrangler.deploy.toml'), productionText } = {}) {
   const dir = path.dirname(sourceFile);
-  const deployFile = path.join(dir, 'wrangler.deploy.toml');
   rmSync(deployFile, { force: true }); // never a file from an earlier run, whatever happens below
   try {
     const source = readFileSync(sourceFile, 'utf8');
-    const overlay = production ? readOverlay(readFileSync(path.join(dir, PRODUCTION_FILE), 'utf8'), source) : null;
+    const overlay = production ? readOverlay(productionText ?? readFileSync(path.join(dir, PRODUCTION_FILE), 'utf8'), source) : null;
     const folded = foldBlankVars(overlay ? applyOverlay(source, overlay) : source);
     writeFileSync(deployFile, folded.text);
     const found = differences(read, sourceFile, deployFile, envNames(source), overlay);
@@ -120,6 +125,30 @@ export function writeDeployFile({ sourceFile, production = false, read = readWra
     return { deployFile, folded: folded.folded, sent: settingsSent(read, deployFile), overlay };
   } catch (e) {
     rmSync(deployFile, { force: true });
+    throw e;
+  }
+}
+
+/** The names a check's files take next to wrangler.toml (git-ignored: worker/.gitignore). */
+export const CHECK_FILE = /^wrangler\.check-[\w-]+(\.source)?\.toml$/;
+
+/**
+ * A production deploy file only for a check, from the texts given: `sourceText` (wrangler.toml) and `productionText`
+ * (production.json), usually as committed (scripts/production.mjs committedText). Both are written into `dir`, the
+ * folder of wrangler.toml, so main, assets and migrations mean the same, as wrangler.check-<tag>.source.toml and
+ * wrangler.check-<tag>.toml; never as wrangler.deploy.toml. → writeDeployFile's result, plus `text` (the deploy file's
+ * text) and `done()`, which removes both files. Throws, with both removed, as writeDeployFile does.
+ */
+export function writeCheckFile({ dir, sourceText, productionText, read = readWranglerConfig, tag = `${process.pid}-${randomBytes(4).toString('hex')}` }) {
+  const sourceFile = path.join(dir, `wrangler.check-${tag}.source.toml`);
+  const deployFile = path.join(dir, `wrangler.check-${tag}.toml`);
+  const done = () => { rmSync(deployFile, { force: true }); rmSync(sourceFile, { force: true }); };
+  try {
+    writeFileSync(sourceFile, String(sourceText));
+    const w = writeDeployFile({ sourceFile, production: true, read, deployFile, productionText: String(productionText) });
+    return { ...w, sourceFile, text: readFileSync(deployFile, 'utf8'), done };
+  } catch (e) {
+    done();
     throw e;
   }
 }

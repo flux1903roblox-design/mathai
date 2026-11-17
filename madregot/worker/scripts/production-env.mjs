@@ -7,7 +7,9 @@
 //   npm run build:production          (this, with: npm run build --prefix ../web)
 //
 // A value in production.json wins over the same name already in the environment. Nothing here is secret: production.json
-// holds no key and no email address. The command's exit code is this script's.
+// holds no key and no email address. The contact address, which never goes into git, comes from the environment instead:
+// CONTACT_EMAIL (in GitHub Actions the production environment's variable of that name, deploy.yml), given to the landing
+// pages as it is and to the app's teacher screens as VITE_CONTACT_EMAIL. The command's exit code is this script's.
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -40,6 +42,8 @@ function main(argv) {
     return 1;
   }
   console.log(`production-env: ${Object.keys(overlay.vars).join(', ') || '(no settings)'} from production.json`);
+  // the address itself is not printed: the log of a public repository's run is public
+  console.log(`production-env: CONTACT_EMAIL ${String(process.env.CONTACT_EMAIL ?? '').trim() ? 'from the environment' : 'is not set: the pages show no e-mail address'}`);
   const { file, args, shell } = commandLine(argv);
   const r = spawnSync(file, args, { stdio: 'inherit', env: productionEnv(overlay), shell });
   if (r.error) { console.error(`production-env: could not start ${argv[0]}: ${r.error.message}`); return 1; }
