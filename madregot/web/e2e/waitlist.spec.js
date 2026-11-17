@@ -1,10 +1,12 @@
 // The waitlist page for the store apps (/waitlist/ and its short address /w/, web/landing/waitlist.html, the Worker's
 // worker/src/waitlist.js), built into dist-test by scripts/landing-build.mjs with the stand-in owner values of
 // playwright.config.js; its form posts to API_BASE, answered by the fake server (fakeServer.js, /api/waitlist). On the two
-// phones (390 and 320): the hook and the form in the first screen, the chips, every error tied to its field, the consent
-// required, the signup with the ad's labels, the thank-you with no count in it and its share (the phone's sheet, else the
-// link copied, else the link to copy by hand), the server's answers (too many, closed), the page without its script, and
-// axe and contrast in light and dark. WAITLIST_SHOTS=<folder> saves screenshots of each state for a look.
+// phones (390 and 320): the hook and the form in the first screen (on the 390 × 844 phone the whole form, its button too,
+// and nothing before it that leaves the page), the chips (a parent or a teacher: a student sends the link to a parent),
+// every error tied to its field, the consent required, the signup with the ad's labels, the thank-you with no count in it
+// and its share (the phone's sheet, else the link copied, else the link to copy by hand), the server's answers (this
+// network's limit, a busy moment, not open yet, closed), the page without its script, and axe and contrast in light and
+// dark. WAITLIST_SHOTS=<folder> saves screenshots of each state for a look.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { NOW, openLanding, expectNoSidewaysScroll } from './helpers.js';
@@ -44,12 +46,18 @@ test('the hook, what it is and the form are on the first screen; the view is cou
   await expect(page).toHaveTitle('מבחן במתמטיקה מחר? · מדרגות');
   await expect(page.getByRole('heading', { level: 1, name: 'מבחן במתמטיקה מחר?' })).toBeInViewport();
   await expect(page.getByText('תרגול מתמטיקה לכיתות ז׳–ח׳ לפי תוכנית משרד החינוך, בעברית')).toBeInViewport();
-  // the one action, in its working form: the email field is on the first screen
-  await expect(page.getByRole('heading', { level: 2, name: 'רוצים לדעת כשהיא בחנויות?' })).toBeInViewport();
+  // the one action, in its working form: the email field is on the first screen, and on the 390 × 844 phone the whole
+  // form is, its button too
+  await expect(page.getByRole('heading', { level: 2, name: 'נודיע לכם כשהיא בחנויות' })).toBeInViewport();
   await expect(page.getByRole('textbox', { name: 'המייל שלכם' })).toBeInViewport();
   await expect(join(page)).toHaveCount(1);
+  if (page.viewportSize().height >= 844) await expect(join(page)).toBeInViewport({ ratio: 1 });
+  // nothing before the form leaves the page: after the skip link and the brand, the first thing to press is the email field
+  const first = await page.evaluate(() => [...document.querySelectorAll('main a[href], main button, main input:not([type="hidden"])')]
+    .find((el) => el.offsetParent && !el.closest('.wl-hp'))?.id);
+  expect(first).toBe('wl-email');
   // every Latin word and number in the Hebrew is isolated left to right
-  for (const t of ['iPhone', 'Android', '13']) expect(await page.locator('main bdi[dir="ltr"]').filter({ hasText: new RegExp(`^${t}$`) }).count(), t).toBeGreaterThan(0);
+  for (const t of ['iPhone', 'Android']) expect(await page.locator('main bdi[dir="ltr"]').filter({ hasText: new RegExp(`^${t}$`) }).count(), t).toBeGreaterThan(0);
   await expect.poll(() => log.filter((l) => l.path === '/api/metrics').map((l) => l.body)).toEqual(['landing_view_waitlist']);
   // no number of people, no countdown, no "only N left"
   expect(await page.locator('main').innerText()).not.toMatch(/נרשמו כבר|כבר \d+|נשארו|רק עוד|מקומות/);
@@ -62,8 +70,8 @@ test('the hook, what it is and the form are on the first screen; the view is cou
   }
   await expect(page.getByText(/מדביקים את ההודעה מהמורה על המבחן/)).toBeVisible();
   await shot(page, 'page', { full: true });
-  // "אפשר כבר לנסות בדפדפן": into the app, counted as from a landing page
-  await page.getByRole('link', { name: 'אפשר כבר לנסות בדפדפן' }).click();
+  // "בינתיים אפשר לתרגל בדפדפן", under the button: into the app, counted as from a landing page
+  await page.locator('.wl-also').getByRole('link', { name: 'לתרגל בדפדפן' }).click();
   await expect(page).toHaveURL(/#\/\?src=waitlist$/);
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
   await expect.poll(() => log.filter((l) => l.path === '/api/metrics').map((l) => l.body).slice(0, 2)).toEqual(['landing_view_waitlist', 'landing_cta_waitlist']);
@@ -76,7 +84,7 @@ test('errors: each under its field and tied to it, the focus on the first; nothi
   await expect(email).toBeFocused();
   await expect(email).toHaveAttribute('aria-invalid', 'true');
   await expect(email).toHaveAccessibleDescription('כתבו כתובת מייל.');
-  await expect(page.getByRole('group', { name: 'אני' })).toHaveAccessibleDescription('בחרו מי אתם: הורה, תלמיד/ה או מורה.');
+  await expect(page.getByRole('group', { name: 'אני' })).toHaveAccessibleDescription(/בחרו מי אתם: הורה או מורה\.$/);
   const consent = page.getByRole('checkbox', { name: 'אפשר לשלוח לי מייל אחד כשהאפליקציה יוצאת לחנויות' });
   await expect(consent).toHaveAttribute('aria-invalid', 'true');
   await expect(consent).toHaveAccessibleDescription(/^כדי שנוכל לשלוח את המייל, סמנו את התיבה\./);
@@ -106,7 +114,9 @@ test('joining: the chips and the ad\'s labels go with it, and the thank-you take
   // the chips: one "אני", one grade, both phones; each is a 44px target
   const heights = await page.locator('.wl-chip').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
   expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
-  await fill(page, { email: ' Student@Example.test', role: 'תלמיד/ה', grade: 'ח׳', phones: ['iPhone', 'Android'] });
+  // a parent or a teacher: no chip for a student
+  await expect(page.getByRole('radio', { name: /תלמיד/ })).toHaveCount(0);
+  await fill(page, { email: ' Teacher@Example.test', role: 'מורה', grade: 'ח׳', phones: ['iPhone', 'Android'] });
   await page.getByRole('radio', { name: 'ז׳', exact: true }).check(); // a change of mind: one grade at a time
   await expect(page.getByRole('radio', { name: 'ח׳', exact: true })).not.toBeChecked();
   await shot(page, '4-filled');
@@ -116,9 +126,9 @@ test('joining: the chips and the ad\'s labels go with it, and the thank-you take
   await expect(done).toBeFocused();
   await expect(form(page)).toBeHidden();
   expect(signups(log).map((l) => l.body)).toEqual([{
-    email: 'Student@Example.test', role: 'student', grade: '7', platform: 'both', consent: true, utm_source: 'instagram', utm_campaign: 'launch', website: '',
+    email: 'Teacher@Example.test', role: 'teacher', grade: '7', platform: 'both', consent: true, utm_source: 'instagram', utm_campaign: 'launch', website: '',
   }]);
-  expect(st.waitlist.map((w) => w.email)).toEqual(['student@example.test']);
+  expect(st.waitlist.map((w) => w.email)).toEqual(['teacher@example.test']);
   // no count, no place in a queue
   expect(await done.innerText()).not.toMatch(/\d/);
   await expect(done).toContainText('נשלח לכם מייל אחד');
@@ -165,13 +175,41 @@ test('sharing without a share sheet: the link is copied, and when copying is ref
   await shot(page, '6-share-by-hand');
 });
 
-test('the server\'s answers: too many from this network, the list closed, and a lost connection', async ({ page }) => {
+test('a student is sent to a parent: the share under "אני" (the phone\'s sheet, else the link copied, else to copy by hand)', async ({ page }) => {
+  await page.addInitScript(() => { window.__shared = []; navigator.share = (d) => { window.__shared.push(d); return Promise.resolve(); }; });
+  const { log } = await open(page);
+  await expect(page.getByText('תלמידים?')).toBeVisible();
+  await page.getByRole('button', { name: 'שלחו את הקישור להורה' }).click();
+  const shared = await page.evaluate(() => window.__shared);
+  expect(shared.map((d) => d.url)).toEqual([SHARE_URL]);
+  expect(signups(log)).toEqual([]);
+  // no share sheet: copied; refused: shown to copy by hand, beside the line
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.reject(new Error('no')) }, configurable: true });
+  });
+  await page.getByRole('button', { name: 'שלחו את הקישור להורה' }).click();
+  const link = page.locator('#wl-kids-link');
+  await expect(link).toBeVisible();
+  await expect(link).toHaveValue(SHARE_URL);
+  await expect(page.locator('#wl-kids-status')).toHaveText('העתיקו את הקישור מכאן:');
+  await expectNoSidewaysScroll(page);
+  await shot(page, '4b-kids-share');
+});
+
+test('the server\'s answers: this network\'s limit, a busy moment, not open yet, the list closed, and a lost connection', async ({ page }) => {
   const { st } = await open(page, AD, { waitlistBusy: true });
   await fill(page);
   await join(page).click();
-  await expect(page.locator('#wl-status')).toHaveText('היום כבר נשלחו מכאן הרבה הרשמות. נסו שוב מאוחר יותר.');
+  await expect(page.locator('#wl-status')).toHaveText('מהרשת הזאת נשלחו הרבה הרשמות בזמן קצר. נסו שוב מאוחר יותר, או מרשת אחרת.');
   await expect(join(page)).toBeEnabled();
-  st.waitlistBusy = false; st.waitlistClosed = true;
+  st.waitlistBusy = false; st.waitlistSlow = true;
+  await join(page).click();
+  await expect(page.locator('#wl-status')).toHaveText('יש עומס. נסו שוב בעוד כמה דקות.');
+  st.waitlistSlow = false; st.waitlistNotReady = true;
+  await join(page).click();
+  await expect(page.locator('#wl-status')).toHaveText('ההרשמה לרשימה עוד לא נפתחה. נסו שוב בעוד כמה ימים.');
+  st.waitlistNotReady = false; st.waitlistClosed = true;
   await join(page).click();
   const closed = page.locator('#closed');
   await expect(closed).toBeVisible();
@@ -230,7 +268,7 @@ for (const scheme of ['light', 'dark']) {
 test.describe('without the page\'s script', () => {
   test.use({ javaScriptEnabled: false });
 
-  test('the form is a plain form to the Worker, and its answers (#joined, #oops, #closed) show without any script', async ({ page }) => {
+  test('the form is a plain form to the Worker, and its answers (#joined, #oops, #busy, #closed) show without any script', async ({ page }) => {
     await page.clock.setFixedTime(NOW);
     await page.goto('./waitlist/');
     const f = form(page);
@@ -238,12 +276,17 @@ test.describe('without the page\'s script', () => {
     await expect(f).toHaveAttribute('action', `${FAKE_API}/api/waitlist`);
     for (const name of ['email', 'role', 'consent']) await expect(f.locator(`[name="${name}"]`).first()).toHaveAttribute('required', '');
     await expect(page.getByRole('button', { name: 'לשלוח להם את הקישור' })).toHaveCount(0); // hidden: it needs the script
+    await expect(page.getByRole('button', { name: 'שלחו את הקישור להורה' })).toHaveCount(0);
+    await expect(page.getByText('תלמידים? שלחו את הקישור להורה.')).toBeVisible(); // the words, without the button
     await page.goto('./waitlist/#joined');
     await expect(page.getByRole('heading', { name: 'נרשמתם. תודה!' })).toBeVisible();
     await expect(f).toBeHidden();
     await page.goto('./waitlist/#oops');
     await expect(page.locator('#oops')).toBeVisible();
     await expect(f).toBeVisible();
+    await page.goto('./waitlist/#busy');
+    await expect(page.locator('#busy')).toHaveText('לא הצלחנו לרשום אתכם כרגע. נסו שוב מאוחר יותר.');
+    await expect(page.locator('#oops')).toBeHidden();
     await page.goto('./waitlist/#closed');
     await expect(page.locator('#closed')).toBeVisible();
     await expectNoSidewaysScroll(page);

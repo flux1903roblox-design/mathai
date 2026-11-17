@@ -28,3 +28,21 @@ test('the privacy notice keeps the waitlist exactly as long as the Worker does, 
   for (const t of ['כתובת המייל', 'בלי שם, בלי כתובת רשת ובלי מספר מכשיר', 'למה:', 'מייל אחד', 'כתבו לנו ל־{{CONTACT_EMAIL}} ונמחק את הכתובת']) assert.ok(part.includes(t), t);
   assert.match(line('רשימת ההמתנה:**'), /כתבו לנו ל־\{\{CONTACT_EMAIL\}\}/);
 });
+
+test('the privacy notice says what the waitlist code does: adults only, the network code and its days, the launch email marked and sent by Resend', async () => {
+  const { WAITLIST_ROLES, LAUNCH_TEXT } = await import('../src/waitlist.js');
+  const part = notice.slice(notice.indexOf('{#waitlist}'), notice.indexOf('### ', notice.indexOf('{#waitlist}')));
+  // the code takes parents and teachers only, and the text says students are not asked for an email, here too
+  assert.deepEqual(WAITLIST_ROLES, ['parent', 'teacher']);
+  assert.ok(part.includes('נרשמים לרשימה רק הורים ומורים') && part.includes('מתלמידים אנחנו לא מבקשים מייל'));
+  assert.doesNotMatch(part, /תלמיד או תלמידה|מתחת לגיל/);
+  assert.match(notice.slice(notice.indexOf('{#kids}')), /לרשימת ההמתנה נרשמים רק הורים ומורים/);
+  // the signup limits' network code, kept as long as every counter (ai_usage)
+  assert.match(part, new RegExp(`קוד מקודד של הרשת \\(לא כתובת ה־IP\\) עד ${R.aiUsageDays} יום`));
+  // the launch email: marked as the subject of the code is, sent through the recipient named in "למי המידע עובר"
+  assert.match(LAUNCH_TEXT.subject([{ phone: 'iPhone' }]), /^פרסומת: /);
+  assert.ok(part.includes('"פרסומת"') && part.includes('Resend') && part.includes('קישור להסרה'));
+  assert.match(notice.slice(notice.indexOf('{#share}')), /Resend:[^\n]*המייל האחד של רשימת ההמתנה/);
+  // and "no marketing email" is no longer said beside it
+  assert.doesNotMatch(notice, /לא שולחים מיילים שיווקיים/);
+});

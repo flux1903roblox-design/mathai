@@ -11,7 +11,8 @@
 //   node madregot/store/capture.cjs waitlist [--dist <built app>]
 //     → madregot/web/landing/img/ (the waitlist page, /waitlist/: the app at 390 × 844, 2x, in a whole phone)
 //         phone-paste.webp    Exam Rescue after the teacher's message was pasted: the plan for tonight, the test tomorrow
-//         phone-mistake.webp  a coordinates exercise with x and y swapped: the drawing, "עוד לא" and "מה כנראה קרה"
+//         phone-mistake.webp  a coordinates exercise with x and y swapped (two numbers of different sizes, so the swap is
+//                             the only reading): the drawing, "עוד לא" and "מה כנראה קרה"
 //         phone-madi.webp     מדי's wardrobe: colours and accessories earned from what was learned
 //         og-waitlist.png     its link preview, 1200 × 630
 //   node madregot/store/capture.cjs og-report --dist <a build with its landing pages, e.g. web/dist-test>
@@ -418,8 +419,10 @@ async function lessonOn(browser, route, want, view) {
 
 const SCENES = {
   async mistake(browser, view) {
-    // "read the point": the student types y for x and x for y
-    const { page, it } = await lessonOn(browser, '/lesson/coord/1', (x) => x.form === 'pt' && /^cp1:/.test(x.key) && x.answer[0] !== x.answer[1] && x.answer[0] > 0 && x.answer[1] < 0, view);
+    // "read the point": the student types y for x and x for y. The two numbers differ in size, not only in sign: a point
+    // such as (4, -4) read as (-4, 4) is also both signs flipped, and "החליפו בין x ל־y" would be only one of two readings
+    const { page, it } = await lessonOn(browser, '/lesson/coord/1', (x) => x.form === 'pt' && /^cp1:/.test(x.key)
+      && Math.abs(x.answer[0]) !== Math.abs(x.answer[1]) && x.answer[0] > 0 && x.answer[1] < 0, view);
     for (const [slot, v] of [['x', it.answer[1]], ['y', it.answer[0]]]) { await page.locator(`#slot-${slot}`).click(); await typeOn(page, v); }
     await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
     await page.locator('section.fb-retry').getByText('מה כנראה קרה', { exact: false }).waitFor();

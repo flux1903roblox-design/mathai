@@ -57,7 +57,8 @@ describe('privacy.md: the parents\' report', () => {
 
   it('Resend sends the Sunday email, with stair names and counts only; the summaries are kept 90 days and go earlier on request', () => {
     const resend = section('למי המידע עובר').split('\n').find((l) => l.startsWith('- Resend')) || '';
-    expect(resend).toContain('Resend: שולחת את המיילים (קוד כניסה, אישורים, קבלות, הודעות על המנוי, והסיכום השבועי למי שביקש אותו). בארה״ב.');
+    // (and the waitlist's one launch email, worker/src/waitlist.js)
+    expect(resend).toContain('Resend: שולחת את המיילים (קוד כניסה, אישורים, קבלות, הודעות על המנוי, הסיכום השבועי למי שביקש אותו, והמייל האחד של רשימת ההמתנה). בארה״ב.');
     expect(resend).toContain('בלי פרטי הטעויות שחוזרות');
     const days = section('כמה זמן שומרים').split('\n').find((l) => l.includes('**סיכומי ההתקדמות מהמכשיר של הילד:**')) || '';
     expect(days).toContain('90 יום');

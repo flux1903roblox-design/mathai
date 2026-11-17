@@ -39,8 +39,8 @@ const ROUTES = [
     '/api/class/goal', '/api/teacher/class/goal', '/api/metrics', '/api/push/key', '/api/push/subscribe', '/api/push/seen', '/api/push/off',
     // the family lane's report feedback, Sunday email switch and its one-click unsubscribe (PARENTS-5, PARENTS-7)
     '/api/report/feedback', '/api/account/report-email', '/api/report/unsubscribe',
-    // the waitlist for the store apps (waitlist.js)
-    '/api/waitlist'].map((p) => [p, p]),
+    // the waitlist for the store apps and the launch email's removal link (waitlist.js)
+    '/api/waitlist', '/api/waitlist/leave'].map((p) => [p, p]),
   [/^\/api\/ai\/[^/]+$/, '/api/ai/:kind'],
   [/^\/api\/billing\/orders\/[^/]+$/, '/api/billing/orders/:id'],
   [/^\/api\/billing\/payments\/[^/]+\/invoice$/, '/api/billing/payments/:id/invoice'],

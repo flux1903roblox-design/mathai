@@ -1,9 +1,12 @@
 // The waitlist page's form (/waitlist/ and /w/, worker/src/waitlist.js). Without this script the form still posts as a
-// plain form to the Worker, which sends the page back at #joined, #oops or #closed. With it: the fields are checked here
-// first (each error under its field, tied to it, and the focus on the first one), the signup goes as JSON to the address
-// in the form's data-api ('' = the Worker that serves this page, 'none' = a copy with no server), the utm_source and
-// utm_campaign of the page's address go with it, and the thank-you takes the form's place with a way to share the page
-// (the phone's share sheet, else the link copied, else the link to copy by hand). Nothing is kept on the device.
+// plain form to the Worker, which sends the page back at #joined, #oops, #busy or #closed. With it: the fields are
+// checked here first (each error under its field, tied to it, and the focus on the first one), the signup goes as JSON to
+// the address in the form's data-api ('' = the Worker that serves this page, 'none' = a copy with no server), the
+// utm_source and utm_campaign of the page's address go with it, and the thank-you takes the form's place with a way to
+// share the page (the phone's share sheet, else the link copied, else the link to copy by hand). The same share sits
+// under "אני" for a student, who sends the link to a parent: the list is for parents and teachers. A refusal says what it
+// is: a limit of this network, a busy moment, the list not open yet. Nothing is kept on the device. Without the form
+// (landing-build leaves it out until CONTACT_EMAIL and BUSINESS_NAME are set) the script does nothing.
 // landing-build drops these comment lines and copies the rest to dist/l/waitlist.js.
 (function () {
   'use strict';
@@ -17,11 +20,13 @@
   var MSG = {
     emailEmpty: 'כתבו כתובת מייל.',
     emailBad: 'זו לא נראית כמו כתובת מייל. בדקו שיש בה @ ונקודה.',
-    role: 'בחרו מי אתם: הורה, תלמיד/ה או מורה.',
+    role: 'בחרו מי אתם: הורה או מורה.',
     consent: 'כדי שנוכל לשלוח את המייל, סמנו את התיבה.',
     busy: 'שולחים…',
     net: 'לא הצלחנו לשלוח. בדקו את החיבור לאינטרנט ונסו שוב.',
-    tooMany: 'היום כבר נשלחו מכאן הרבה הרשמות. נסו שוב מאוחר יותר.',
+    tooMany: 'מהרשת הזאת נשלחו הרבה הרשמות בזמן קצר. נסו שוב מאוחר יותר, או מרשת אחרת.',
+    slow: 'יש עומס. נסו שוב בעוד כמה דקות.',
+    notReady: 'ההרשמה לרשימה עוד לא נפתחה. נסו שוב בעוד כמה ימים.',
     server: 'משהו השתבש אצלנו. נסו שוב בעוד כמה דקות.',
     none: 'מהעותק הזה של האתר אי אפשר להצטרף לרשימה.',
     copied: 'הקישור הועתק. אפשר להדביק אותו בוואטסאפ או בהודעה.',
@@ -74,14 +79,14 @@
 
   function joined() {
     card.classList.add('is-joined');
-    note('oops', false);
+    note('oops', false); note('busy', false);
     done.focus();
     if (done.scrollIntoView) done.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    say(''); note('oops', false);
+    say(''); note('oops', false); note('busy', false);
     var bad = validate();
     if (bad.length) { bad[0].focus(); return; }
     if (api === 'none') { say(MSG.none, true); return; }
@@ -100,33 +105,37 @@
         if (code === 'bad_role') { showErr('wl-role-err', roleSet, MSG.role); say(''); return; }
         if (code === 'consent_needed') { showErr('wl-consent-err', consentBox, MSG.consent); consentBox.focus(); say(''); return; }
         if (r.status === 410) { say(''); note('closed', true); document.getElementById('closed').focus(); return; }
-        say(r.status === 429 ? MSG.tooMany : MSG.server, true);
+        say(code === 'too_many_signups' ? MSG.tooMany : r.status === 429 ? MSG.slow : code === 'waitlist_not_ready' ? MSG.notReady : MSG.server, true);
       });
     }).catch(function () { say(MSG.net, true); }).then(function () { busy(false); });
   });
 
-  // sharing: the page's own address, marked so the owner sees how many came from a friend
-  var share = done.querySelector('.wl-share');
-  var shareStatus = document.getElementById('wl-share-status');
+  // sharing: the page's own address, marked so the owner sees how many came from a friend; from the thank-you, and from
+  // the line for students under "אני" (who send it to a parent)
   var canon = document.querySelector('link[rel="canonical"]');
   var link = (canon ? canon.href : location.origin + location.pathname) + '?utm_source=share';
-  share.hidden = false;
-  share.addEventListener('click', function () {
-    var text = 'מדרגות: תרגול מתמטיקה לכיתות ז׳–ח׳, בעברית. אפשר להצטרף לרשימה ולשמוע כשהאפליקציה בחנויות:';
-    shareStatus.textContent = '';
-    if (navigator.share) {
-      navigator.share({ title: document.title, text: text, url: link }).catch(function () { /* closed, or the phone said no */ });
-      return;
-    }
-    var byHand = function () {
-      var box = done.querySelector('.wl-copy');
-      var input = document.getElementById('wl-link');
-      input.value = link; box.hidden = false;
-      shareStatus.textContent = MSG.copyHand;
-      input.focus(); input.select();
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(link).then(function () { shareStatus.textContent = MSG.copied; }, byHand);
-    } else byHand();
-  });
+  var shareText = 'מדרגות: תרגול מתמטיקה לכיתות ז׳–ח׳, בעברית. אפשר להצטרף לרשימה ולשמוע כשהאפליקציה בחנויות:';
+  function sharer(button, statusBox, copyBox) {
+    var input = copyBox.querySelector('input');
+    button.hidden = false;
+    button.addEventListener('click', function () {
+      statusBox.textContent = '';
+      if (navigator.share) {
+        navigator.share({ title: document.title, text: shareText, url: link }).catch(function () { /* closed, or the phone said no */ });
+        return;
+      }
+      var byHand = function () {
+        input.value = link; copyBox.hidden = false;
+        statusBox.textContent = MSG.copyHand;
+        input.focus(); input.select();
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(function () { statusBox.textContent = MSG.copied; }, byHand);
+      } else byHand();
+    });
+  }
+  sharer(done.querySelector('.wl-share'), document.getElementById('wl-share-status'), done.querySelector('.wl-copy'));
+  var kids = form.querySelector('.wl-kids-share');
+  sharer(kids, document.getElementById('wl-kids-status'), document.getElementById('wl-role').querySelector('.wl-copy'));
+  form.querySelector('.wl-kids-say').hidden = true;
 })();

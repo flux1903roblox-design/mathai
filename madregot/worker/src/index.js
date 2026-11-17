@@ -61,7 +61,7 @@ import { postMetric } from './metrics.js';
 import { edgeGuard } from './edge.js';
 import { pushKey, pushSubscribe, pushSeen, pushOff, pushDue, PUSH_CRON } from './push.js';
 import { assetLinksResponse } from './assetlinks.js';
-import { joinWaitlist } from './waitlist.js';
+import { joinWaitlist, leaveGet, leavePost } from './waitlist.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -1306,6 +1306,9 @@ async function route(req, env, ctx, cors) {
   if ((M === 'GET' || M === 'HEAD') && p === '/.well-known/assetlinks.json') return assetLinksResponse(env);
   // the parents' summary link's card (COUNCIL2-36, preview.js): the app's page with fixed Open Graph tags, no child data
   if ((M === 'GET' || M === 'HEAD') && p === '/r') return reportPreview(req, env);
+  // the waitlist for the store apps (waitlist.js): one signup, the same answer whether or not the address was there. Its
+  // edge limit runs inside the handler, so a plain form post it refuses still goes back to the page (#busy)
+  if (M === 'POST' && p === '/api/waitlist') return joinWaitlist(req, env, cors);
   // the edge rate limit (DURABLE-16, edge.js) in front of sign-in, class lookup and join, new devices and the AI routes;
   // the D1 counters in each handler stay the source of truth
   await edgeGuard(M, p, req, env);
@@ -1331,8 +1334,9 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/me/forget') return forgetMe(req, env, ctx, cors);
   // reach counts (metrics.js): a name on the list adds 1 to its day; 204 always
   if (M === 'POST' && p === '/api/metrics') return postMetric(req, env, cors);
-  // the waitlist for the store apps (waitlist.js): one signup, the same answer whether or not the address was there
-  if (M === 'POST' && p === '/api/waitlist') return joinWaitlist(req, env, cors);
+  // the launch email's removal link (waitlist.js): a page with one button, then the POST (also RFC 8058 one-click)
+  if (M === 'GET' && p === '/api/waitlist/leave') return leaveGet(req, env);
+  if (M === 'POST' && p === '/api/waitlist/leave') return leavePost(req, env);
   // the opt-in daily reminder (push.js): 404 while PUSH is off
   if (M === 'GET' && p === '/api/push/key') return pushKey(req, env, cors);
   if (M === 'POST' && p === '/api/push/subscribe') return pushSubscribe(req, env, cors);

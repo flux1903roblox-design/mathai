@@ -32,6 +32,10 @@
 //   WAITLIST_API, WAITLIST_ACTION   the same for the waitlist's form: its script posts JSON to WAITLIST_API (the form's
 //                        data-api), and without the script the form posts to WAITLIST_ACTION ('../api/waitlist' on this
 //                        Worker; '#unavailable' with no server, where the script says the list is not open here)
+//   WAITLIST_OPEN, WAITLIST_NOT_OPEN   whether the waitlist's form is on the page: only with CONTACT_EMAIL and
+//                        BUSINESS_NAME (the privacy notice behind the form names who holds the list and where to write to
+//                        leave it; the Worker refuses signups without them too, worker/src/waitlist.js). Without them the
+//                        page has a "not open yet" note where the form would be, and the build says so
 //   APP_NAME             shared/brand.js
 // What the pages say about the product is checked (STUDENT-17): every such sentence is a claim of
 // src/content/claims.js, named in a page as {{CLAIM id}} (its words, or nothing), {{#CLAIM id}}…{{/CLAIM}} (a part
@@ -166,6 +170,13 @@ export function landingVars(env, toml, app, tokens) {
   const vat = vatLine(pick('LANDING_VAT_MODE') || toml.VAT_MODE || 'included');
   if (!sold.family) warn.push(`no family plan is sold online with BILLING_PROVIDER "${saleVars(env, toml).BILLING_PROVIDER}": the parents' page shows no price`);
   if (api === 'none') warn.push('no server (API_BASE or VITE_API_URL "none"): the waitlist page cannot take signups here');
+  // the waitlist (worker/src/waitlist.js waitlistMissing): its form only once the privacy notice behind it names who holds
+  // the list and where to write to leave it; until then the page says the list is not open yet, and the Worker refuses
+  const waitlistMissing = [!email && 'CONTACT_EMAIL', !business && 'BUSINESS_NAME'].filter(Boolean);
+  if (waitlistMissing.length) {
+    warn.push(`the waitlist page shows "not open yet" instead of its form until ${waitlistMissing.join(' and ')} ${waitlistMissing.length > 1 ? 'are' : 'is'} set: `
+      + `do not advertise it before (npm run owner -- set CONTACT_EMAIL=<email> BUSINESS_NAME="<name>", then npm run deploy)`);
+  }
   return {
     vars: {
       APP_NAME, PUBLIC_URL: publicUrl, CONTACT_EMAIL: email, BUSINESS_NAME: business,
@@ -174,6 +185,7 @@ export function landingVars(env, toml, app, tokens) {
       TOPICS_7: app.topics['7'].join(', '), TOPICS_8: app.topics['8'].join(', '), GOAL_MINUTES: orList(app.minutes.map(String)),
       THEME_LIGHT: tokenValue(tokens.root, '--paper'), THEME_DARK: tokenValue(tokens.dark, '--paper'),
       WAITLIST_API: api, WAITLIST_ACTION: waitlistAction(api),
+      WAITLIST_OPEN: waitlistMissing.length ? '' : 'yes', WAITLIST_NOT_OPEN: waitlistMissing.length ? 'yes' : '',
     },
     api, warn,
   };
@@ -209,10 +221,19 @@ export function repoCode(root = MADREGOT) {
 }
 
 /**
- * Each run of digits (with its , . and %) or of Latin letters in an escaped Hebrew text, isolated left to right
- * (<bdi dir="ltr">), so "148 מתוך 150 … (99%)" and "iPhone" keep their order inside the Hebrew.
+ * A plain Hebrew text as HTML: escaped, with each run of digits (with its , . and %) or of Latin letters isolated left to
+ * right (<bdi dir="ltr">), so "148 מתוך 150 … (99%)" and "iPhone" keep their order inside the Hebrew. The runs are found
+ * in the text before it is escaped, so an entity (&quot; for the gershayim, &amp;) is never cut into a run.
  */
-export const isolateLtr = (html) => html.replace(/\d[\d,.]*%?|[A-Za-z]+(?:[ -][A-Za-z]+)*/g, (run) => `<bdi dir="ltr">${run}</bdi>`);
+export function isolateLtr(text) {
+  const t = String(text);
+  let out = ''; let at = 0;
+  for (const m of t.matchAll(/\d[\d,.]*%?|[A-Za-z]+(?:[ -][A-Za-z]+)*/g)) {
+    out += `${esc(t.slice(at, m.index))}<bdi dir="ltr">${esc(m[0])}</bdi>`;
+    at = m.index + m[0].length;
+  }
+  return out + esc(t.slice(at));
+}
 
 /**
  * The claim slots of a page: `claims` is { shown: { id: text }, known: [every id] }. A claim id that is not known is a
@@ -221,7 +242,7 @@ export const isolateLtr = (html) => html.replace(/\d[\d,.]*%?|[A-Za-z]+(?:[ -][A
 export function renderClaims(tpl, { shown = {}, known = [] } = {}, { isolate = false } = {}) {
   const ids = new Set(known);
   const want = (id) => { if (!ids.has(id)) throw new Error(`landing-build: no claim "${id}" in src/content/claims.js`); return id in shown; };
-  const words = (id) => (isolate ? isolateLtr(esc(shown[id])) : esc(shown[id]));
+  const words = (id) => (isolate ? isolateLtr(shown[id]) : esc(shown[id]));
   let out = tpl.replace(/\{\{#CLAIM ([\w-]+)\}\}([\s\S]*?)\{\{\/CLAIM\}\}/g, (_, id, body) => (want(id) ? body : ''));
   out = out.replace(/\{\{CLAIMS ([\w -]+)\}\}/g, (_, list) => list.trim().split(/\s+/).filter(want).map((id) => `<li>${words(id)}</li>`).join('\n      '));
   out = out.replace(/\{\{CLAIM ([\w-]+)\}\}/g, (_, id) => (want(id) ? words(id) : ''));
@@ -236,7 +257,11 @@ export function renderClaims(tpl, { shown = {}, known = [] } = {}, { isolate = f
  */
 export function render(tpl, vars, { images = {}, madi = {}, claims = { shown: {}, known: [] }, isolate = false } = {}) {
   let out = renderClaims(tpl, claims, { isolate });
-  out = out.replace(/\{\{#([A-Z_0-9]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_, name, body) => (vars[name] ? body : ''));
+  // a part kept or dropped by its slot, again while one is left inside a kept part (the waitlist's form holds none today)
+  for (let before = ''; before !== out;) {
+    before = out;
+    out = out.replace(/\{\{#([A-Z_0-9]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_, name, body) => (vars[name] ? body : ''));
+  }
   out = out.replace(/\{\{IMG ([\w.-]+)\}\}/g, (_, file) => {
     const s = images[file];
     if (!s) throw new Error(`landing-build: ${file} is missing from web/landing/img (run: node madregot/store/capture.cjs landing)`);

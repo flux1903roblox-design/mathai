@@ -21,6 +21,8 @@
 //
 // On Sunday from 07:00 to 20:00 in Jerusalem: queue the parents' weekly email (report.js weeklyQueue; a second run adds
 // nothing), and send it after the other notices with its own flush (flushWeekly), so it never delays a legal notice.
+// Every hour from the waitlist's launch day (WAITLIST_LAUNCHED_AT): its one launch email to the addresses not sent yet,
+// once the store links and the advertiser's details are set (waitlist.js sendLaunch), after every other email.
 // Each step runs on its own: one failing step never stops the others.
 import { nowIso, addDays, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
@@ -45,7 +47,7 @@ import { qualityCounts } from './quality.js';
 export { purgeAccountsSql, purgeFamilySql, purgeErrorsSql, purgeReportSql, purgeIdentitySql, vaultNight };
 import { shiftDay } from './goal.js';
 import { pushNight, purgePushSql, pushReach } from './push.js';
-import { purgeWaitlistSql } from './waitlist.js';
+import { purgeWaitlistSql, sendLaunch } from './waitlist.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -578,5 +580,7 @@ export async function run(env, { now = new Date() } = {}) {
   await step('weekly', () => weeklyQueue(env, now));
   await step('notices', () => flushNotices(env));
   await step('weeklySend', () => flushWeekly(env, { now }));
+  // the waitlist's one launch email (waitlist.js sendLaunch): every hour from the launch day, once its settings are set
+  await step('waitlistLaunch', () => sendLaunch(env, { now }));
   return report;
 }

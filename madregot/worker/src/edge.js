@@ -17,8 +17,10 @@
 //            student_tokens, hashed; a token that does not check (the handler then answers 401) counts against its
 //            network. The app sends a batch every 5 answers, so a student stays far below it; the exact daily budgets
 //            are the handlers' (writes.js: the student's, the class's and the network's).
-//            The same binding guards POST /api/waitlist (waitlist.js), keyed by the network (IPv6 by its /48) under a
-//            key of its own ('w:n:<net>'), so the public signups never share a student's count.
+//            The same binding guards POST /api/waitlist (waitlist.js), keyed by the network (IPv6 by its /48, as the
+//            handler's own daily counts are) under a key of its own ('w:n:<net>'), so the public signups never share a
+//            student's count. The handler calls edgeGuard itself (index.js routes it first), so a plain form post it
+//            refuses still goes back to the page.
 // Over the limit: 429 slow_down with Retry-After: 60. With no binding (tests, `wrangler dev` without it) nothing is checked.
 import { HttpError, netKey, sha256, hmacHex, safeEqual } from './util.js';
 import { requireTeacher } from './entitle.js';

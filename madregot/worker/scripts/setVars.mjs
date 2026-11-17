@@ -22,6 +22,9 @@ const FORMATS = {
   ACCESS_STATEMENT_DATE: [/^\d{4}-\d{2}-\d{2}$/, 'a date written YYYY-MM-DD'],
   // the day the store apps came out: the waitlist closes, and is deleted 30 days later (src/waitlist.js)
   WAITLIST_LAUNCHED_AT: [/^\d{4}-\d{2}-\d{2}$/, 'a date written YYYY-MM-DD'],
+  // the store pages the waitlist's launch email links to (src/waitlist.js storeLinks)
+  APP_STORE_URL: [/^https:\/\/apps\.apple\.com\/[^\s"'<>]+$/, 'the app\'s App Store address, https://apps.apple.com/…'],
+  PLAY_STORE_URL: [/^https:\/\/play\.google\.com\/[^\s"'<>]+$/, 'the app\'s Google Play address, https://play.google.com/…'],
 };
 
 export class SetError extends Error {}

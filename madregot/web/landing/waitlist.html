@@ -37,15 +37,16 @@
     <section class="wl-hero wrap" aria-labelledby="h-hero">
       <div class="wl-intro">
         <h1 id="h-hero">מבחן במתמטיקה מחר?</h1>
-        <p class="sub">{{APP_NAME}} היא תרגול מתמטיקה לכיתות ז׳–ח׳ לפי תוכנית משרד החינוך, בעברית. עכשיו אנחנו מכינים אותה כאפליקציה ל־<bdi dir="ltr">iPhone</bdi> ול־<bdi dir="ltr">Android</bdi>.</p>
-        <a class="wl-try" href="../#/?src=waitlist" data-cta>אפשר כבר לנסות בדפדפן</a>
+        <p class="sub">{{APP_NAME}}: תרגול מתמטיקה לכיתות ז׳–ח׳ לפי תוכנית משרד החינוך, בעברית. בקרוב כאפליקציה ל־<bdi dir="ltr">iPhone</bdi> ול־<bdi dir="ltr">Android</bdi>.</p>
       </div>
 
       <div class="wl-card" id="join">
+{{#WAITLIST_OPEN}}
         <form class="wl-form" id="wl-form" action="{{WAITLIST_ACTION}}" method="post" data-api="{{WAITLIST_API}}" aria-labelledby="h-join">
-          <h2 id="h-join">רוצים לדעת כשהיא בחנויות?</h2>
-          <p class="wl-lead">נשלח לכם מייל אחד, ביום שהאפליקציה יוצאת. זהו.</p>
+          <h2 id="h-join">נודיע לכם כשהיא בחנויות</h2>
+          <p class="wl-lead">מייל אחד, ביום שהאפליקציה יוצאת. זהו.</p>
           <p class="wl-note wl-oops" id="oops" tabindex="-1">משהו לא עבר: בדקו את המייל, בחרו מי אתם וסמנו את התיבה, ונסו שוב.</p>
+          <p class="wl-note wl-busy" id="busy" tabindex="-1">לא הצלחנו לרשום אתכם כרגע. נסו שוב מאוחר יותר.</p>
           <p class="wl-note wl-closed" id="closed" tabindex="-1">האפליקציה כבר יצאה לחנויות, והרשימה סגורה.</p>
 
           <div class="wl-field">
@@ -54,36 +55,43 @@
             <p class="wl-err" id="wl-email-err" hidden></p>
           </div>
 
-          <fieldset class="wl-chips" id="wl-role" aria-describedby="wl-role-err">
+          <fieldset class="wl-chips" id="wl-role" aria-describedby="wl-kids wl-role-err">
             <legend>אני</legend>
             <div class="wl-row">
               <label class="wl-chip"><input type="radio" name="role" value="parent" required><span>הורה</span></label>
-              <label class="wl-chip"><input type="radio" name="role" value="student"><span>תלמיד/ה</span></label>
               <label class="wl-chip"><input type="radio" name="role" value="teacher"><span>מורה</span></label>
+            </div>
+            <p class="wl-small wl-kids" id="wl-kids">תלמידים? <span class="wl-kids-say">שלחו את הקישור להורה.</span><button class="wl-linkbtn wl-kids-share" type="button" hidden>שלחו את הקישור להורה</button></p>
+            <p class="wl-status" id="wl-kids-status" role="status" aria-live="polite"></p>
+            <div class="wl-copy" hidden>
+              <label for="wl-kids-link">הקישור להעתקה</label>
+              <input id="wl-kids-link" type="text" readonly dir="ltr">
             </div>
             <p class="wl-err" id="wl-role-err" hidden></p>
           </fieldset>
 
-          <fieldset class="wl-chips">
-            <legend>כיתה <span class="wl-opt">(לא חובה)</span></legend>
-            <div class="wl-row">
-              <label class="wl-chip"><input type="radio" name="grade" value="7"><span>ז׳</span></label>
-              <label class="wl-chip"><input type="radio" name="grade" value="8"><span>ח׳</span></label>
-            </div>
-          </fieldset>
+          <div class="wl-pair">
+            <fieldset class="wl-chips">
+              <legend>כיתה <span class="wl-opt">(לא חובה)</span></legend>
+              <div class="wl-row">
+                <label class="wl-chip"><input type="radio" name="grade" value="7"><span>ז׳</span></label>
+                <label class="wl-chip"><input type="radio" name="grade" value="8"><span>ח׳</span></label>
+              </div>
+            </fieldset>
 
-          <fieldset class="wl-chips">
-            <legend>איזה טלפון? <span class="wl-opt">(לא חובה, אפשר את שניהם)</span></legend>
-            <div class="wl-row">
-              <label class="wl-chip"><input type="checkbox" name="platform" value="ios"><span><bdi dir="ltr">iPhone</bdi></span></label>
-              <label class="wl-chip"><input type="checkbox" name="platform" value="android"><span><bdi dir="ltr">Android</bdi></span></label>
-            </div>
-          </fieldset>
+            <fieldset class="wl-chips">
+              <legend>טלפון <span class="wl-opt">(לא חובה)</span></legend>
+              <div class="wl-row">
+                <label class="wl-chip"><input type="checkbox" name="platform" value="ios"><span><bdi dir="ltr">iPhone</bdi></span></label>
+                <label class="wl-chip"><input type="checkbox" name="platform" value="android"><span><bdi dir="ltr">Android</bdi></span></label>
+              </div>
+            </fieldset>
+          </div>
 
           <div class="wl-consent">
             <label class="wl-check" for="wl-consent"><input id="wl-consent" type="checkbox" name="consent" value="on" required aria-describedby="wl-consent-err wl-privacy"><span>אפשר לשלוח לי מייל אחד כשהאפליקציה יוצאת לחנויות</span></label>
             <p class="wl-err" id="wl-consent-err" hidden></p>
-            <p class="wl-small" id="wl-privacy">מה שומרים ולמה: <a href="../#/privacy">מדיניות הפרטיות</a>. מתחת לגיל <bdi dir="ltr">13</bdi>? בקשו מהורה שירשום אתכם.</p>
+            <p class="wl-small" id="wl-privacy">מה שומרים ולמה: <a href="../#/privacy#waitlist">מדיניות הפרטיות</a>.</p>
           </div>
 
           <div class="wl-hp" aria-hidden="true"><label>אתר <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
@@ -91,13 +99,14 @@
           <input type="hidden" name="utm_campaign" value="">
           <button class="btn wl-submit" type="submit">הצטרפו לרשימה</button>
           <p class="wl-status" id="wl-status" role="status" aria-live="polite"></p>
+          <p class="wl-small wl-also">בינתיים אפשר <a href="../#/?src=waitlist" data-cta>לתרגל בדפדפן</a>, בלי הרשמה.</p>
         </form>
 
         <div class="wl-done" id="joined" tabindex="-1" aria-labelledby="h-done">
           <div class="wl-madi">{{MADI_CHEER}}</div>
           <h2 id="h-done">נרשמתם. תודה!</h2>
           <p>ביום שהאפליקציה יוצאת ל־<bdi dir="ltr">iPhone</bdi> ול־<bdi dir="ltr">Android</bdi> נשלח לכם מייל אחד. בינתיים אפשר לתרגל בדפדפן.</p>
-          <p>מכירים עוד הורה, תלמיד או מורה שזה יעזור להם?</p>
+          <p>מכירים עוד הורה או מורה שזה יעזור להם?</p>
           <button class="btn btn-2 wl-share" type="button" hidden>לשלוח להם את הקישור</button>
           <p class="wl-status" id="wl-share-status" role="status" aria-live="polite"></p>
           <div class="wl-copy" hidden>
@@ -106,6 +115,14 @@
           </div>
           <a class="wl-try" href="../#/?src=waitlist" data-cta>לתרגל בדפדפן</a>
         </div>
+{{/WAITLIST_OPEN}}
+{{#WAITLIST_NOT_OPEN}}
+        <div class="wl-soon" id="soon">
+          <h2 id="h-join">הרשימה תיפתח בקרוב</h2>
+          <p>עוד מעט אפשר יהיה להשאיר כאן מייל ולשמוע כשהאפליקציה בחנויות. בינתיים אפשר לתרגל בדפדפן, בלי הרשמה.</p>
+          <a class="btn" href="../#/?src=waitlist" data-cta>לתרגל בדפדפן</a>
+        </div>
+{{/WAITLIST_NOT_OPEN}}
       </div>
     </section>
   </div>
@@ -144,7 +161,7 @@
 
   <div class="end wrap">
     {{MADI}}
-    <a class="btn btn-2" href="#join" data-join>להצטרף לרשימה</a>
+    {{#WAITLIST_OPEN}}<a class="btn btn-2" href="#join" data-join>להצטרף לרשימה</a>{{/WAITLIST_OPEN}}{{#WAITLIST_NOT_OPEN}}<a class="btn btn-2" href="../#/?src=waitlist" data-cta>לתרגל בדפדפן</a>{{/WAITLIST_NOT_OPEN}}
   </div>
 </main>
 <footer class="foot wrap">

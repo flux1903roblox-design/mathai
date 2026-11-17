@@ -25,8 +25,10 @@
 //   reach [--days 28]                            reach counts by week (STUDENT-14), as a table
 //   waitlist [--days 28]                         the waitlist for the store apps (src/waitlist.js): how many joined, by
 //                                                day, role, grade, phone and source; counts only, never an address
-//   waitlist --export F                          writes F, a CSV of email, role, grade, platform, created_at, for the
-//                                                one launch email. F holds personal data: delete it once the email is sent
+//   waitlist --export F                          writes F, a CSV of email, role, grade, platform, created_at, consent_at
+//                                                and sent_at (the record of each consent, or a person's own data on
+//                                                request; the launch email itself is sent by the Worker). F holds
+//                                                personal data: delete it once done
 //   waitlist --remove E                          takes one address off the list (someone who wrote to ask)
 //   doctor [--local] [--toml F] [--dev-vars F] [--grow-sandbox]
 //                                                what is still missing to go live (DURABLE-16, src/readiness.js): one line
@@ -576,10 +578,10 @@ export function reach(o, query, now = new Date()) {
 
 // ---------------------------------------------------------------- the waitlist for the store apps (src/waitlist.js)
 /** The rows the counts are made from: no email column. */
-export const WAITLIST_SQL = 'SELECT role, grade, platform, source, created_at FROM waitlist ORDER BY created_at';
-/** The rows of the export, for the one launch email. */
-export const WAITLIST_EXPORT_SQL = 'SELECT email, role, grade, platform, created_at FROM waitlist ORDER BY created_at, id';
-const ROLE_NAMES = { parent: 'parent', student: 'student', teacher: 'teacher' };
+export const WAITLIST_SQL = 'SELECT role, grade, platform, source, created_at, sent_at FROM waitlist ORDER BY created_at';
+/** The rows of the export: each address with the record of its consent and of the launch email. */
+export const WAITLIST_EXPORT_SQL = 'SELECT email, role, grade, platform, created_at, consent_at, sent_at FROM waitlist ORDER BY created_at, id';
+const ROLE_NAMES = { parent: 'parent', teacher: 'teacher' };
 const PHONES = [['ios', 'iPhone'], ['android', 'Android'], ['both', 'both'], [null, 'not said']];
 
 /** WAITLIST_LAUNCHED_AT as the Worker has it: the environment first, else wrangler.toml (`toml` its text). '' when unset. */
@@ -599,6 +601,8 @@ export function waitlistReport(rows, { days = 28, now = new Date(), launched = '
   if (/^\d{4}-\d{2}-\d{2}$/.test(launched)) {
     const until = dayOf(new Date(Date.parse(`${launched}T12:00:00Z`) + RETENTION.waitlistAfterLaunchDays * DAY));
     lines.push(`Closed: WAITLIST_LAUNCHED_AT is ${launched}. Every address is deleted on ${until} (${RETENTION.waitlistAfterLaunchDays} days later).`);
+    const sent = rows.filter((r) => r.sent_at).length;
+    lines.push(`Launch email: sent to ${sent} of ${n} (the Worker sends it every hour once APP_STORE_URL or PLAY_STORE_URL, EMAIL_FROM, BUSINESS_NAME, BUSINESS_ADDRESS and CONTACT_EMAIL are set).`);
   } else lines.push(`Open (WAITLIST_LAUNCHED_AT is empty). Each address is deleted ${RETENTION.waitlistMaxDays} days after it joined, or ${RETENTION.waitlistAfterLaunchDays} days after the launch day once it is set.`);
   lines.push('');
   // by day: the days of the range with at least one signup
@@ -623,25 +627,30 @@ export function waitlistReport(rows, { days = 28, now = new Date(), launched = '
   for (const r of rows) { const k = r.source || '(none)'; bySource[k] = (bySource[k] || 0) + 1; }
   const sources = Object.entries(bySource).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   lines.push(`Source (utm_source/utm_campaign): ${sources.length ? sources.map(([k, v]) => `${k} ${v}`).join(', ') : '(none yet)'}`, '');
-  lines.push('For the launch email: npm run owner -- waitlist --export <file.csv> (the file holds addresses: delete it after use).',
+  lines.push('The launch email: the Worker sends it itself from the launch day, with a removal link in each message (npm run owner -- set WAITLIST_LAUNCHED_AT=<day> APP_STORE_URL=<…> PLAY_STORE_URL=<…>, then npm run deploy).',
     'Someone who asks to be removed: npm run owner -- waitlist --remove <email>');
   return lines.join('\n');
 }
 
-/** A CSV cell: quoted when needed, and never read as a formula by a spreadsheet. */
-const csvCell = (v) => {
+/**
+ * A CSV cell: quoted when needed, and (`guard`) never read as a formula by a spreadsheet. The email column is written as
+ * it is: an address may start with - or + or =, and a quote mark before it would make it another address; the address
+ * rule (account.js cleanEmail) already leaves out the ( , ; : a formula needs.
+ */
+const csvCell = (v, guard = true) => {
   let t = v === null || v === undefined ? '' : String(v);
-  if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`;
+  if (guard && /^[=+\-@\t\r]/.test(t)) t = `'${t}`;
   return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
 };
 /** The export: a header line, then one line per address (WAITLIST_EXPORT_SQL's rows). */
 export function waitlistCsv(rows) {
-  const cols = ['email', 'role', 'grade', 'platform', 'created_at'];
-  return `${[cols.join(','), ...rows.map((r) => cols.map((c) => csvCell(r[c])).join(','))].join('\n')}\n`;
+  const cols = ['email', 'role', 'grade', 'platform', 'created_at', 'consent_at', 'sent_at'];
+  return `${[cols.join(','), ...rows.map((r) => cols.map((c) => csvCell(r[c], c !== 'email')).join(','))].join('\n')}\n`;
 }
 /** Printed with every export: what the file is and what to do with it. */
-export const EXPORT_WARNING = 'This file holds personal data (email addresses). Use it only for the one launch email, keep it off git, '
-  + 'cloud folders and shared drives, and delete it as soon as the email is sent.';
+export const EXPORT_WARNING = 'This file holds personal data (email addresses). The launch email is sent by the Worker, not from this file: '
+  + 'a mailer outside it would be a recipient the privacy notice does not name. Use it as the record of consent or to answer '
+  + 'a person who asks for their data; keep it off git, cloud folders and shared drives, and delete it as soon as you are done.';
 
 /** --name value pairs and --flags. */
 export function parseArgs(argv) {
@@ -775,7 +784,7 @@ export const HELP = `usage: npm run owner -- <command> [options] [--local]   (wi
   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   (or --class C --list)
   reach [--days 28]   reach counts by week (STUDENT-14): counts of named steps only, no person behind any number
   waitlist [--days 28]   the waitlist for the store apps: counts by day, role, grade, phone and source, never an address
-  waitlist --export F   a CSV of email, role, grade, platform, created_at for the launch email (personal data: delete F after use)
+  waitlist --export F   a CSV of email, role, grade, platform and the consent and launch-email times (personal data: delete F after use)
   waitlist --remove E   takes one address off the waitlist
   doctor [--local] [--toml F] [--dev-vars F] [--grow-sandbox]   what is still missing to go live (DURABLE-16), never a secret's value
   set NAME=value [NAME=value …]   writes settings into wrangler.toml's [vars] (e.g. PUBLIC_URL, CONTACT_EMAIL); then npm run deploy
