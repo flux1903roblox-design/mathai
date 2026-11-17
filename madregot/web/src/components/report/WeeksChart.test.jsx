@@ -160,4 +160,10 @@ describe('/parents: the exam ahead', () => {
     expect(text(renderToStaticMarkup(<FamilyReport plan={PLAN} devices={devices} qa="report" />))).toMatch(/לקראת המבחן הטאבלט: מבחן ב־\d{1,2}\.\d{1,2}\. 2 מתוך 4 המדרגות של המבחן כבר בשליטה\./);
     expect(text(renderToStaticMarkup(<FamilyReport plan={null} devices={devices} qa="report" />))).not.toContain('לקראת המבחן');
   });
+  it('the example keeps its exam ahead on every weekday (it rode on today\'s row, which a Tuesday or a Saturday does not have)', () => {
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(Date.UTC(2026, 10, 15 + i)).toISOString().slice(0, 10);
+      expect(examSoon(qaFamilySummary('report', day).devices[0], day), day).toMatchObject({ n: 2, of: 4, days: 7 });
+    }
+  });
 });

@@ -27,12 +27,14 @@ function tabletRows(today) {
     if (n === 9) extra.ma = ['signed:1'];
     if (n === 2) extra.fx = [['signed:1', 'minus-minus', 'd']];
     if (n === 0) extra.fx = [['signed:2', 'neg-compare', 'o'], ['coord:1', 'swap', 'o']];
-    if (n === 0) extra.ex = { d: shift(today, 7), n: 2, of: 4 };
     rows.push(row(d, {
       m: 12 + ((n * 7) % 19), q: 8 + ((n * 5) % 11), ls: 1 + (n % 2), st: n % 3 === 0 ? 1 : 0, rv: n % 5 === 0 ? 1 : 0,
       sk: n < 7 ? ['coord:1', 'signed:2'] : n < 21 ? ['signed:2', 'signed:1'] : ['signed:1'], sr: streak, ...extra,
     }));
   }
+  // the exam ahead rides on the newest summary, whatever the weekday (today itself is a rest day on a Tuesday or a
+  // Saturday, so tying it to today's row left the example without its exam two days a week)
+  rows[rows.length - 1].ex = { d: shift(today, 7), n: 2, of: 4 };
   return rows;
 }
 
