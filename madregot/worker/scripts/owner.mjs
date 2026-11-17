@@ -30,6 +30,9 @@
 //                                                wrangler cannot read is the one failing line), the secrets' NAMES
 //                                                (wrangler secret list, or .dev.vars with --local), the migrations not
 //                                                yet applied, and PUBLIC_URL/api/health. It never prints a secret's value.
+//   set NAME=value [NAME=value …]               writes settings into wrangler.toml's [vars] (scripts/setVars.mjs), e.g.
+//                                                set PUBLIC_URL=https://… CONTACT_EMAIL=…; then npm run deploy. Plain
+//                                                NAME=value words, so it reads the same through npm, node or PowerShell.
 //
 // Read-only commands run with --command, so the rows come back (a remote --file runs D1's import, which returns none).
 //
@@ -68,6 +71,7 @@ import { shiftDay, weekOf } from '../src/goal.js';
 import { readiness, formatReadiness } from '../src/readiness.js';
 import { call as growCall, GROW_SANDBOX } from '../src/providers/grow.js';
 import { readWranglerConfig, deployParts, configErrorLine } from './wranglerConfig.mjs';
+import { parsePairs, setVars, SetError } from './setVars.mjs';
 
 const DAY = 864e5;
 export class InputError extends Error {}
@@ -672,6 +676,7 @@ export const HELP = `usage: npm run owner -- <command> [options] [--local]   (wi
   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   (or --class C --list)
   reach [--days 28]   reach counts by week (STUDENT-14): counts of named steps only, no person behind any number
   doctor [--local] [--toml F] [--dev-vars F] [--grow-sandbox]   what is still missing to go live (DURABLE-16), never a secret's value
+  set NAME=value [NAME=value …]   writes settings into wrangler.toml's [vars] (e.g. PUBLIC_URL, CONTACT_EMAIL); then npm run deploy
 Dates are YYYY-MM-DD (Jerusalem).`;
 
 /**
@@ -715,9 +720,38 @@ const realIo = {
   error: (...a) => console.error(...a),
 };
 
+/**
+ * `set NAME=value …` (scripts/setVars.mjs): writes the values into wrangler.toml, reads the file back with wrangler's own
+ * reader and puts the old text back if wrangler would not read it. 0 when written, 1 when refused (nothing written).
+ */
+function setCommand(args, io) {
+  const file = io.tomlFile || path.join(WORKER, 'wrangler.toml');
+  const readFile = io.readFile || ((f) => readFileSync(f, 'utf8'));
+  const writeFile = io.writeFile || ((f, t) => writeFileSync(f, t));
+  const readConfig = io.readConfig || readWranglerConfig;
+  try {
+    const before = readFile(file);
+    const { text, changed } = setVars(before, parsePairs(args));
+    if (!changed.length) { io.log('wrangler.toml already has these values: nothing changed.'); return 0; }
+    writeFile(file, text);
+    try { readConfig(file); } catch (e) {
+      writeFile(file, before);
+      throw new SetError(`wrangler would not read the file with these values, so it was left as it was: ${configErrorLine(e)}`);
+    }
+    for (const c of changed) io.log(`${c.name} = "${c.to}"${c.from ? ` (was "${c.from}")` : ''}`);
+    io.log('Saved in worker/wrangler.toml. The server gets it with: npm run deploy');
+    return 0;
+  } catch (e) {
+    io.error(e instanceof SetError ? e.message : e);
+    return 1;
+  }
+}
+
 /** The whole command line: 0 when it ran, 1 when it was refused or failed (nothing written then). */
 export async function cli(argv, io = realIo) {
   try {
+    // settings into wrangler.toml: NAME=value words, read before the --flag parser (which takes none of them)
+    if (argv[0] === 'set') return setCommand(argv.slice(1), io);
     const { cmd, o } = parseArgs(argv);
     if (!cmd || cmd === 'help' || cmd === '--help') { io.log(HELP); return 0; }
     // what is still missing to go live (DURABLE-16): read-only, exits 1 while anything required is missing
