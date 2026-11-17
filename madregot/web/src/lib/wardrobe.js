@@ -1,7 +1,8 @@
 // "מדי שלי" (STUDENT-3): Madi's colours and accessories, earned by learning. There is no currency, shop, random draw
 // or anything paid: each piece says exactly what earned it.
-//  - Colours: a completed unit (every stair done) gives its colour family. Madi's default is the brand blue, which is
-//    also the `sky` family's colour, so a completed `sky` unit gives gold instead (gold already means mastery on the path).
+//  - Colours: a completed unit (every stair done) gives its colour family. Madi's default is the brand blue, which the
+//    wardrobe calls `sky` (the sky unit family was that blue until it got its own deep sky), so a completed `sky` unit
+//    gives gold instead (gold already means mastery on the path).
 //  - Accessories: one per unit, given when the unit's chest opens (stairs 1 to chestAfter all done, in order), plus the
 //    class scarf for a class that reaches its goal of the week (STUDENT-4).
 //  - Pieces for stages (PRODUCT2-36): the first one for the first stage the student finishes (the first session), then

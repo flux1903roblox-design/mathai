@@ -38,6 +38,21 @@ colors:
   streak: "#ff8a1f"
   streak-ink: "#a84f00"
   streak-tint: "#fff1e3"
+  ch-sky: "#00527f"
+  ch-sky-d: "#003a5c"
+  ch-sky-tint: "#dcf0fd"
+  ch-petrol: "#0b7285"
+  ch-petrol-d: "#085566"
+  ch-petrol-tint: "#e3f4f6"
+  ch-violet: "#7048e8"
+  ch-violet-d: "#5232c2"
+  ch-violet-tint: "#efeafd"
+  ch-fuchsia: "#a3218f"
+  ch-fuchsia-d: "#7a1869"
+  ch-fuchsia-tint: "#f8e6f4"
+  ch-cobalt: "#283593"
+  ch-cobalt-d: "#1a237e"
+  ch-cobalt-tint: "#e8eaf6"
 typography:
   display:
     fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
@@ -269,6 +284,11 @@ A white, quiet palette with one saturated blue and four meaning colours that app
 - **XP Gold** (`gold`, with `gold-d`, `gold-ink`, `gold-tint`): XP, mastered stops, an opened gift, the exam day on a plan. Text on gold is the dark brown `on-gold`.
 - **Streak Orange** (`streak`, with `streak-ink`, `streak-tint`): the streak flame and nothing else. An inactive flame is grey (`#b7bdc7`).
 
+### Unit colours (council, November 2026)
+Each unit has one colour family (`ch-*`, with `-d` for its lip and its text on white, `-tint`, and `-ink`), for its banner, its emblem and its stops on the path only (`content/topics.js` pathColours keeps two neighbours apart). White text on every fill passes AA; two units of a grade differ by a contrast of 1.4 or 30° of hue; none is near green, red or the brand blue (`styles/tokens.test.js`). Dark mode keeps the fills and gives each family a light `-ink` (`styles/dark.css`).
+- **Sky** (`ch-sky` `#00527f`, `ch-sky-d` `#003a5c`, `ch-sky-tint` `#dcf0fd`; dark `-ink` `#a0dcff` on `#112c40`): a deep sky blue: the first unit of each grade (signed numbers in ז׳, ratio and scale in ח׳), and ח׳'s similarity and Pythagoras in space. Until November 2026 it was the brand blue, so its stops looked like buttons; it is darker than petrol (1.5:1) and 31° of hue from cobalt, the two it sits between.
+- **Petrol** (`ch-petrol` `#0b7285`), **Violet** (`ch-violet` `#7048e8`), **Fuchsia** (`ch-fuchsia` `#a3218f`), **Cobalt** (`ch-cobalt` `#283593`).
+
 ### Neutral
 - **Paper** (`paper`): every screen, card, sheet, bar and footer.
 - **Ground** (`ground`): the panel under a question's maths, the teaching canvas, the earned-reward chips. Never a page background.
@@ -280,7 +300,7 @@ A white, quiet palette with one saturated blue and four meaning colours that app
 - **Selection** (`selection`): text selection.
 
 ### Named Rules
-**The One Blue Rule.** Brand blue means "act here" or "you are here". Units do not get their own colours; every unit is the brand blue.
+**The One Blue Rule.** Brand blue means "act here" or "you are here". A unit wears its own family (Unit colours), never the brand blue, so a stop or a unit banner never looks like a button.
 
 **The One Job Rule.** Green only for correct, red only for "not yet", gold only for XP and achievements, orange only for the streak. A meaning colour on a result tile goes on the icon and the number, never on the tile.
 
@@ -422,7 +442,7 @@ White, its sections and groups as the standard card, headings at 18px/800, stat 
 - **Do** keep the controls of a teaching step above its result sheet: StepPlayer keeps the sheet's height in `--foot-h` and scrolls the object above it on "not yet".
 
 ### Don't:
-- **Don't** give a unit, topic or section its own colour.
+- **Don't** colour a unit with the brand blue or a meaning colour (it wears its family, Unit colours), and don't give a topic or section a colour of its own.
 - **Don't** use black or dark screens, glow or neon effects.
 - **Don't** put scenery or tinted worlds behind the path or colour blocks behind page titles.
 - **Don't** put a small label or eyebrow above a heading, on any screen (the welcome screen's English line is gone too).

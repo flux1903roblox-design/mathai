@@ -39,7 +39,7 @@ describe('the wardrobe catalogue', () => {
     expect(u.why.get('fuchsia')).toBe('מיחידת סטטיסטיקה');
   });
 
-  it('a completed sky unit gives gold, since the default is already that blue', () => {
+  it('a completed sky unit gives gold, since the wardrobe\'s sky is the default blue', () => {
     const u = unlockedLook({ path: withDone('signed', all('signed')) });
     expect(u.colors.has('gold')).toBe(true);
     expect(u.colors.has('sky')).toBe(true);

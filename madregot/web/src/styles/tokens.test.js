@@ -64,6 +64,14 @@ describe('unit colours (tokens.css)', () => {
     expect(new Set(FAMILIES.map((f) => token(`ch-${f}`))).size).toBe(5);
   });
 
+  it('no unit is the brand blue: a stop never looks like a button (sky was the brand until it got its own deep sky)', () => {
+    for (const f of FAMILIES) {
+      const [c, b] = [token(`ch-${f}`), token('brand')];
+      const ok = ratio(c, b) >= 1.4 || hueGap(c, b) >= 30;
+      expect(ok, `--ch-${f} and --brand (ratio ${ratio(c, b).toFixed(2)}, hue gap ${hueGap(c, b).toFixed(0)})`).toBe(true);
+    }
+  });
+
   it('two units of the same grade differ clearly in lightness or in hue', () => {
     for (const grade of ['7', '8']) {
       const used = [...new Set(topicsFor(grade).map((t) => t.color))];

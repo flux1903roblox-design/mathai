@@ -43,9 +43,10 @@
   --madi-hi: #5b8cff;   --madi-lo: #1a5cf5;   --madi-edge: #1246c4; --madi-tread: #c9d9ff;
   --madi-limb: #1246c4; --madi-mark: rgba(255, 255, 255, 0.6); --madi-blush: #ff9cbc;
 
-  /* units (council, Nov 2026): each unit has one colour, used for its banner, its emblem and its stops on the path only. Buttons stay brand blue. To go back to one colour, set the five families to the brand values. */
+  /* units (council, Nov 2026): each unit has one colour, used for its banner, its emblem and its stops on the path only. Buttons stay brand blue, and no unit is the brand blue (tokens.test.js), so a stop never looks like a button. */
   /* -ink is a unit colour as text on a page or card; in light it is the -d value (the dark theme redefines it) */
-  --ch-sky: #1a5cf5;     --ch-sky-d: #1246c4;     --ch-sky-tint: #eaf1ff;     --ch-sky-ink: #1246c4;
+  /* sky is a deep sky blue: it carries white text (8.4:1), so it is darker than petrol (1.5:1) and 31° of hue from cobalt, the two it sits between */
+  --ch-sky: #00527f;     --ch-sky-d: #003a5c;     --ch-sky-tint: #dcf0fd;     --ch-sky-ink: #003a5c;
   --ch-petrol: #0b7285;  --ch-petrol-d: #085566;  --ch-petrol-tint: #e3f4f6;  --ch-petrol-ink: #085566;
   --ch-violet: #7048e8;  --ch-violet-d: #5232c2;  --ch-violet-tint: #efeafd;  --ch-violet-ink: #5232c2;
   --ch-fuchsia: #a3218f; --ch-fuchsia-d: #7a1869; --ch-fuchsia-tint: #f8e6f4; --ch-fuchsia-ink: #7a1869;
