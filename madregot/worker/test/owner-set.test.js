@@ -9,7 +9,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parsePairs, checkValue, setVars, SetError } from '../scripts/setVars.mjs';
-import { cli } from '../scripts/owner.mjs';
+import { cli, runWrangler } from '../scripts/owner.mjs';
+import { wranglerVersion } from '../scripts/wranglerConfig.mjs';
 import { readWranglerConfig, deployParts } from '../scripts/wranglerConfig.mjs';
 import { readiness } from '../src/readiness.js';
 
@@ -80,7 +81,7 @@ test('the command writes the file, wrangler still reads it, and a refusal writes
     const io = { tomlFile: file, log: (s) => out.push(s), error: (s) => out.push(`ERR ${s}`) };
     assert.equal(await cli(['set', `PUBLIC_URL=${URL_}`, `CONTACT_EMAIL=${MAIL}`], io), 0);
     assert.match(out.join('\n'), /PUBLIC_URL = "https:\/\/madregot-api\.example\.workers\.dev"/);
-    assert.match(out.join('\n'), /npm run deploy/);
+    assert.match(out.join('\n'), /npm run build --prefix \.\.\/web\n\s+npm run deploy/, 'the app is rebuilt first: its pages read these values');
     const { vars } = readWranglerConfig(file);
     assert.equal(vars.PUBLIC_URL, URL_);
     assert.equal(vars.CONTACT_EMAIL, MAIL);
@@ -122,4 +123,12 @@ test('with PUBLIC_URL and CONTACT_EMAIL set, the go-live check has nothing requi
     assert.deepEqual(missing(facts(AFTER_SETUP)).sort(), ['site:contact', 'site:url']);
     assert.deepEqual(missing(facts(setVars(AFTER_SETUP, [['PUBLIC_URL', URL_], ['CONTACT_EMAIL', MAIL]]).text)), []);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the owner script runs wrangler with this Node and no npx, so it works where npx is a .cmd file (Windows)', () => {
+  const src = readFileSync(path.join(here, '..', 'scripts', 'owner.mjs'), 'utf8');
+  assert.doesNotMatch(src, /execFileSync\(\s*'npx'/, 'execFileSync cannot start npx.cmd without a shell on Windows');
+  // no PATH at all, as on a Windows machine where only npx.cmd exists: wrangler still answers
+  const out = runWrangler(['--version'], { encoding: 'utf8', env: { ...process.env, PATH: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.match(out, new RegExp(wranglerVersion().replace(/\./g, '\\.')));
 });

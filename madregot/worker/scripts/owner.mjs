@@ -72,6 +72,20 @@ import { readiness, formatReadiness } from '../src/readiness.js';
 import { call as growCall, GROW_SANDBOX } from '../src/providers/grow.js';
 import { readWranglerConfig, deployParts, configErrorLine } from './wranglerConfig.mjs';
 import { parsePairs, setVars, SetError } from './setVars.mjs';
+import { createRequire } from 'node:module';
+
+const requireHere = createRequire(import.meta.url);
+/**
+ * The installed wrangler's own command-line file (package.json pins the version). MADREGOT_WRANGLER_JS points at a
+ * stand-in script instead, for the tests that must see what would reach the database without running wrangler.
+ */
+export const wranglerCli = () => process.env.MADREGOT_WRANGLER_JS || path.join(path.dirname(requireHere.resolve('wrangler/package.json')), 'bin', 'wrangler.js');
+/**
+ * wrangler run by this same Node, with no shell and no npx. On Windows npx is a .cmd file, which execFileSync cannot
+ * start without a shell (spawnSync npx ENOENT): the doctor then read no secrets and no migrations and listed them all as
+ * missing, and every remote owner command failed. This is the same on Windows, macOS and Linux.
+ */
+export const runWrangler = (args, opts) => execFileSync(process.execPath, [wranglerCli(), ...args], opts);
 
 const DAY = 864e5;
 export class InputError extends Error {}
@@ -580,7 +594,7 @@ export async function doctor(o = {}, deps = {}) {
   const here = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const read = deps.read || ((f) => readFileSync(f, 'utf8'));
   const list = deps.list || ((d) => readdirSync(d));
-  const exec = deps.exec || ((args) => execFileSync('npx', ['wrangler', ...args], { cwd: here, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+  const exec = deps.exec || ((args) => runWrangler(args, { cwd: here, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
   const fetchFn = deps.fetch || globalThis.fetch;
   const notes = [];
   // the file as wrangler reads it: when wrangler cannot, that is the one failing line, since the deploy, the secrets list
@@ -694,7 +708,7 @@ async function ask(question) {
 }
 
 const WORKER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const wrangler = (o, args) => execFileSync('npx', ['wrangler', 'd1', 'execute', 'madregot', o.local ? '--local' : '--remote', ...args, '--json'], { cwd: WORKER, encoding: 'utf8' });
+const wrangler = (o, args) => runWrangler(['d1', 'execute', 'madregot', o.local ? '--local' : '--remote', ...args, '--json'], { cwd: WORKER, encoding: 'utf8' });
 /** What the CLI does outside itself: the database through wrangler, the terminal. Tests pass their own. */
 const realIo = {
   env: process.env,
@@ -739,7 +753,11 @@ function setCommand(args, io) {
       throw new SetError(`wrangler would not read the file with these values, so it was left as it was: ${configErrorLine(e)}`);
     }
     for (const c of changed) io.log(`${c.name} = "${c.to}"${c.from ? ` (was "${c.from}")` : ''}`);
-    io.log('Saved in worker/wrangler.toml. The server gets it with: npm run deploy');
+    // the app's pages (landing pages, robots.txt, sitemap, the legal details) are built from wrangler.toml too, so the
+    // app is rebuilt before the deploy; two commands, since Windows PowerShell 5.1 has no &&
+    io.log('Saved in worker/wrangler.toml. The app and the server get it with these two commands, from worker:');
+    io.log('  npm run build --prefix ../web');
+    io.log('  npm run deploy');
     return 0;
   } catch (e) {
     io.error(e instanceof SetError ? e.message : e);

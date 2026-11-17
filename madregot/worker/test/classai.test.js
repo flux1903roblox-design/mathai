@@ -6,7 +6,7 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { MOE_RULES } from '../../shared/schoolRules.js';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, chmodSync, existsSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, existsSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -342,13 +342,14 @@ test('owner CLI exit codes: refused grants exit 1 and never reach wrangler', () 
   const script = fileURLToPath(new URL('../scripts/owner.mjs', import.meta.url));
   const dir = mkdtempSync(path.join(tmpdir(), 'owner-'));
   try {
-    // a stand-in npx that leaves a mark: no refused command may write through it (and --local keeps any slip off the real
-    // database). grant-class first reads the class's setting (one read-only --command, answered here: a school class)
+    // a stand-in wrangler that leaves a mark (owner.mjs runs wrangler's own file with this Node; MADREGOT_WRANGLER_JS
+    // swaps in this one): no refused command may write through it (and --local keeps any slip off the real database).
+    // grant-class first reads the class's setting (one read-only --command, answered here: a school class)
     const mark = path.join(dir, 'ran');
     const row = JSON.stringify([{ results: [{ code: 'ABC234', grade: '7', setting: 'school' }] }]);
-    writeFileSync(path.join(dir, 'npx'), `#!/bin/sh\ncase "$*" in *--command*) echo '${row}'; exit 0;; esac\necho "$@" > "${mark}"\nexit 3\n`);
-    chmodSync(path.join(dir, 'npx'), 0o755);
-    const env = { ...process.env, PATH: dir };
+    const fake = path.join(dir, 'wrangler.cjs');
+    writeFileSync(fake, `const a = process.argv.slice(2);\nif (a.includes('--command')) { process.stdout.write(${JSON.stringify(row)}); process.exit(0); }\nrequire('fs').writeFileSync(${JSON.stringify(mark)}, a.join(' '));\nprocess.exit(3);\n`);
+    const env = { ...process.env, MADREGOT_WRANGLER_JS: fake };
     delete env.MOE_AI_APPROVAL;
     const run = (args, { input = '', extra = {} } = {}) => spawnSync(process.execPath, [script, ...args, '--local'], { env: { ...env, ...extra }, input, encoding: 'utf8' });
     const cls = ['grant-class', '--class', 'ABC234', '--until', '2027-08-31', '--seats', '30'];
@@ -370,6 +371,6 @@ test('owner CLI exit codes: refused grants exit 1 and never reach wrangler', () 
     // "private" typed: the command goes on to the database step (here the stand-in, which fails, so the exit is 1)
     const ok = run([...cls, '--private-ok', '--note', 'חוג'], { input: 'private\n' });
     assert.equal(ok.status, 1);
-    assert.match(readFileSync(mark, 'utf8'), /^wrangler d1 execute madregot --local --file /);
+    assert.match(readFileSync(mark, 'utf8'), /^d1 execute madregot --local --file /);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
