@@ -89,6 +89,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     needs: [web]
+    # The whole suite takes longer than one GitHub runner's 40 minutes, so it runs as four shards side by side; each
+    # shard runs a quarter of the tests of every project below, and a deploy waits for all four.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     defaults:
       run:
         working-directory: madregot/web
@@ -113,16 +119,16 @@ jobs:
       # Tests tagged @perf stay out of the merge gate. The arabic projects run arabic.spec.js against a build made with
       # VITE_ARABIC=on (Arabic is off in the build that ships, docs/ARABIC.md), so the Arabic app stays tested until
       # it is turned on.
-      - run: npx playwright test -c e2e/playwright.config.js --project=phone --project=contract --project=arabic --project=arabic-small --grep-invert @perf
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone --project=contract --project=arabic --project=arabic-small --grep-invert @perf --shard=${{ matrix.shard }}/4
         env:
           CI: '1'
       # The axe scan of every screen again in dark mode (PKG-1, e2e/a11y.spec.js): the phone run above scans in light.
-      - run: npx playwright test -c e2e/playwright.config.js --project=phone-dark a11y.spec.js
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone-dark a11y.spec.js --shard=${{ matrix.shard }}/4
         env:
           CI: '1'
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: madregot/web/test-results
           retention-days: 14

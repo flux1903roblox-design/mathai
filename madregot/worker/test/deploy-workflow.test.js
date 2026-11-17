@@ -83,6 +83,9 @@ test('checks is ci.yml itself on the commit being deployed: web, worker and e2e,
   const e2e = job('e2e', CI_LINES);
   assert.match(e2e, /--project=phone --project=contract --project=arabic --project=arabic-small --grep-invert @perf/);
   assert.match(e2e, /--project=phone-dark a11y\.spec\.js/);
+  // the suite outgrows one runner's 40 minutes: four shards side by side, every one of them run before a deploy
+  assert.match(e2e, /^ {6}fail-fast: false\n {6}matrix:\n {8}shard: \[1, 2, 3, 4\]$/m);
+  assert.equal((e2e.match(/--shard=\$\{\{ matrix\.shard \}\}\/4/g) || []).length, 2, 'both playwright runs are sharded');
   assert.match(e2e, /^ {4}needs: \[web\]$/m);
   // a deploy's checks never share a concurrency group with a push to the same branch (each would cancel the other)
   assert.match(CI, /^concurrency:\n {2}group: ci-\$\{\{ github\.event_name \}\}-\$\{\{ github\.ref \}\}$/m);
