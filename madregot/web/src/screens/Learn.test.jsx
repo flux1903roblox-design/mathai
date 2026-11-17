@@ -113,3 +113,33 @@ describe('the returning home screen: one card above the path, and a flame that a
     });
   });
 });
+
+// The header's XP pill and the quests tab's goal card agree (lib/quests.js goalProgress): over the goal the pill stops at
+// it ("20/20", never "35/20") and wears a check; its screen-reader name says the goal is reached and keeps the total.
+describe('the header XP pill: the daily goal, by the quests tab\'s rule', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-05T10:00:00'));
+    useApp.getState().resetProgress();
+    useApp.setState({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1 }, goalXp: 20, xp: 35 });
+  });
+  afterEach(() => { vi.useRealTimers(); });
+  const pill = (out) => out.match(/<a[^>]*class="top-stat xp[^"]*"[^>]*>[\s\S]*?<\/a>/)[0];
+
+  it('under the goal: today\'s XP of the goal, no check', () => {
+    useApp.setState({ days: { '2026-11-05': { lessons: 1, xp: 12 } } });
+    const p = pill(render());
+    expect(text(p)).toBe('12/20');
+    expect(p).not.toContain('top-stat-check');
+    expect(p).toContain('aria-label="היום 12 מתוך 20 XP, סך הכול 35"');
+  });
+
+  it('over the goal: 20/20 with a check, as the goal card says, never 35/20', () => {
+    useApp.setState({ days: { '2026-11-05': { lessons: 3, xp: 35 } } });
+    const p = pill(render());
+    expect(text(p)).toBe('20/20');
+    expect(p).toContain('class="top-stat xp is-done"');
+    expect(p).toContain('top-stat-check');
+    expect(p).toContain('aria-label="היעד היומי הושג: 20 מתוך 20 XP, סך הכול 35"');
+  });
+});

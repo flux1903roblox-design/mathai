@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Zap, Check, BookOpen, ChevronDown, ChevronLeft, ArrowUp, ArrowDown, School } from 'lucide-react';
 import { useApp, useStreak, today } from '@/lib/store.js';
-import { questProgress } from '@/lib/quests.js';
+import { questProgress, goalProgress } from '@/lib/quests.js';
 import { topicsFor, pathColours } from '@/content/topics.js';
 import { schoolMonth } from '@/learn/programme.ts';
 import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote, journey } from '@/lib/path.js';
@@ -260,9 +260,25 @@ function StreakStat({ streak }) {
   );
 }
 
+/**
+ * The header's XP: today's XP against the daily goal, by the one rule the quests tab's goal card uses (lib/quests.js
+ * goalProgress). It stops at the goal ("20/20", never "35/20"), and a reached goal wears a gold check.
+ */
+function XpStat({ todayXp, goalXp, xp }) {
+  const goal = goalProgress(todayXp, goalXp);
+  const label = goal.reached ? tr('shell.learn.goalDone', { goalXp: goal.of, xp }) : tr('shell.learn.62', { todayXp: goal.have, goalXp: goal.of, xp });
+  return (
+    <Link to="/quests" className={clsx('top-stat xp', goal.reached && 'is-done')} aria-label={label}>
+      <Zap size={22} aria-hidden="true" /><bdi dir="ltr">{goal.have}<span className="top-stat-of">/{goal.of}</span></bdi>
+      {goal.reached && <span className="top-stat-check" aria-hidden="true"><Check size={14} strokeWidth={3.4} /></span>}
+    </Link>
+  );
+}
+
 /** Wide screens: the streak, the goal and today's quests sit beside the path. */
 function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
   const quests = questProgress(today(), days[today()] || {});
+  const goal = goalProgress(todayXp, goalXp);
   const { n, atRisk, repair } = streak;
   return (
     <aside className="learn-side" aria-label={tr('shell.learn.47')}>
@@ -271,8 +287,8 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
         <span><b>{n === 1 ? tr('shell.learn.48') : tr('shell.learn.49', { streak: n })}</b><span className="muted">{atRisk ? keepsIt(repair) : freezes > 0 ? `${freezes === 1 ? tr('shell.learn.50') : tr('shell.learn.51', { freezes })}` : tr('shell.learn.52')}</span></span>
       </Link>
       <div className="side-card">
-        <div className="card-row"><b>{tr('shell.learn.53')}</b><span className="card-num">{Math.min(todayXp, goalXp)}/{goalXp} XP</span></div>
-        <div className="bar" role="progressbar" aria-label={tr('shell.learn.54')} aria-valuemin={0} aria-valuemax={goalXp} aria-valuenow={Math.min(todayXp, goalXp)}><i style={{ width: `${Math.min(1, todayXp / goalXp) * 100}%` }} /></div>
+        <div className="card-row"><b>{tr('shell.learn.53')}</b><span className="card-num">{goal.have}/{goal.of} XP</span></div>
+        <div className="bar" role="progressbar" aria-label={tr('shell.learn.54')} aria-valuemin={0} aria-valuemax={goal.of} aria-valuenow={goal.have}><i style={{ width: `${goal.share * 100}%` }} /></div>
       </div>
       <Link to="/quests" className="side-card">
         <div className="card-row"><b>{tr('shell.learn.55')}</b><span className="card-num">{quests.filter((q) => q.done).length}/3</span></div>
@@ -453,7 +469,7 @@ function LearnMap() {
         <button type="button" className="grade-switch" onClick={() => { setView(otherGrade); setOpen(null); setUnfolded([]); }} aria-label={tr('shell.learn.59', { p0: view === '7' ? tr('shell.learn.57') : tr('shell.learn.58'), p1: otherGrade === '7' ? tr('shell.learn.57') : tr('shell.learn.58') })}>{tr('shell.learn.60')}{view === '7' ? tr('shell.learn.57') : tr('shell.learn.58')}<ChevronDown size={18} aria-hidden="true" />
         </button>
         <StreakStat streak={streak} />
-        <Link to="/quests" className="top-stat xp" aria-label={tr('shell.learn.62', { todayXp, goalXp, xp })}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
+        <XpStat todayXp={todayXp} goalXp={goalXp} xp={xp} />
       </header>
       <OfflineChip />
       {card === 'work' && (

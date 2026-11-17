@@ -472,18 +472,18 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 
 /* the dock: keypad and the one big check button, within thumb reach */
 .lesson-dock .btn { margin-bottom: var(--lip); }
-.lesson .key { margin-bottom: 3px;
+.keypad .key { margin-bottom: 3px;
   font-family: var(--font-ui); font-size: 1.5rem;
   transition: transform 60ms var(--ease-out), box-shadow 60ms var(--ease-out);
 }
 /* the space of a mixed number (5 1/3): a word, not a symbol, as on a phone keyboard */
-.lesson .key-space { font-size: 1rem; font-weight: 700; color: var(--ink-2); }
+.keypad .key-space { font-size: 1rem; font-weight: 700; color: var(--ink-2); }
 /* a one-number answer widens with what is typed (5 1/3, -1.333) instead of scrolling inside its slot */
 .lesson #slot-v { min-width: min(calc(var(--len, 0) * 1ch + 28px), 52vw); }
 /* a mixed number typed as "5 1/3" shown as written, beside the slot */
 .answer-echo { font-size: clamp(1.125rem, 2.8dvh, 1.375rem); color: var(--ink-2); white-space: nowrap; }
-.lesson .key:active { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press); background: var(--ground); }
-.lesson .key-minus { color: var(--bad-ink); font-size: 1.875rem; }
+.keypad .key:active { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press); background: var(--ground); }
+.keypad .key-minus { color: var(--bad-ink); font-size: 1.875rem; }
 .key-wide { grid-column: span 2; }
 
 /* the answer slots, chunky */
@@ -557,7 +557,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 /* four help buttons share the row */
 .lesson-dock .tool { justify-content: center; padding: 0 6px; font-size: var(--t-xs); }
 .lesson-dock .tool svg { flex: none; }
-.lesson .key { height: 46px; }
+.keypad .key { height: 46px; }
 /* the mascot answers in the feedback panel */
 .fb-mascot { flex: none; margin-block: -6px -2px; }
 /* the tutor's note sits inside the panel as text, not a card in a card */
@@ -789,9 +789,9 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 .answer-bar .answer { width: 100%; gap: 2px; }
 .answer-error { text-align: center; font-size: var(--t-sm); padding-top: 4px; }
 .lesson-foot .lesson-dock .btn { margin-bottom: var(--lip); }
-.lesson .keypad { gap: 6px; }
-.lesson .key { height: clamp(44px, 6.3dvh, 52px); font-size: clamp(1.25rem, 3dvh, 1.5rem); }
-.lesson .key-minus { font-size: clamp(1.5rem, 3.6dvh, 1.875rem); }
+.keypad { gap: 6px; }
+.keypad .key { height: clamp(44px, 6.3dvh, 52px); font-size: clamp(1.25rem, 3dvh, 1.5rem); }
+.keypad .key-minus { font-size: clamp(1.5rem, 3.6dvh, 1.875rem); }
 .dock-row .tool {
   flex-direction: column; justify-content: center; gap: 1px; height: 52px; padding: 0 6px;
   border-radius: 14px; font-size: 0.6875rem; line-height: 1.1;
@@ -813,15 +813,15 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 /* wide screens: the maths on one side, the answer and the keypad on the other */
 @media (min-width: 900px) and (min-height: 560px) {
   .lesson-foot .fb { max-height: none; border-radius: 22px; padding: var(--s4); }
-  .lesson .key { height: 54px; }
+  .keypad .key { height: 54px; }
 }
 /* the question inside the maths region (short screens) */
 .q-stage > .lesson-q { margin-bottom: var(--s1); }
 /* the unit sits beside the answer field, not under it */
 /* the bubble hugs its question instead of spanning a wide screen */
 .key-wide3 { grid-column: span 3; }
-.lesson .key-next { color: var(--brand-d); background: var(--brand-tint); border-color: var(--brand-line); box-shadow: 0 3px 0 var(--brand-line); }
-.lesson .key:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.keypad .key-next { color: var(--brand-d); background: var(--brand-tint); border-color: var(--brand-line); box-shadow: 0 3px 0 var(--brand-line); }
+.keypad .key:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 
 /* ---------- the AI tutor: offline state, chat bubbles beside מדי ---------- */
 /* scrolling to an element (focus, scrollIntoView) keeps it clear of the fixed tab bar */
@@ -898,17 +898,17 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
 /* short phones (up to 700px tall): the keypad in three rows, the question compact and without מדי */
 @media (max-height: 700px) and (max-width: 899px) {
-  .lesson .keypad { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac del next"; }
-  .lesson .keypad:not(:has(.key-next)) { grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac del del"; }
-  .lesson .key[data-k="d0"] { grid-area: d0; } .lesson .key[data-k="d1"] { grid-area: d1; } .lesson .key[data-k="d2"] { grid-area: d2; }
-  .lesson .key[data-k="d3"] { grid-area: d3; } .lesson .key[data-k="d4"] { grid-area: d4; } .lesson .key[data-k="d5"] { grid-area: d5; }
-  .lesson .key[data-k="d6"] { grid-area: d6; } .lesson .key[data-k="d7"] { grid-area: d7; } .lesson .key[data-k="d8"] { grid-area: d8; }
-  .lesson .key[data-k="d9"] { grid-area: d9; } .lesson .key[data-k="minus"] { grid-area: minus; } .lesson .key[data-k="dot"] { grid-area: dot; }
-  .lesson .key[data-k="frac"] { grid-area: frac; } .lesson .key[data-k="del"] { grid-area: del; } .lesson .key[data-k="next"] { grid-area: next; }
+  .keypad { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac del next"; }
+  .keypad:not(:has(.key-next)) { grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac del del"; }
+  .keypad .key[data-k="d0"] { grid-area: d0; } .keypad .key[data-k="d1"] { grid-area: d1; } .keypad .key[data-k="d2"] { grid-area: d2; }
+  .keypad .key[data-k="d3"] { grid-area: d3; } .keypad .key[data-k="d4"] { grid-area: d4; } .keypad .key[data-k="d5"] { grid-area: d5; }
+  .keypad .key[data-k="d6"] { grid-area: d6; } .keypad .key[data-k="d7"] { grid-area: d7; } .keypad .key[data-k="d8"] { grid-area: d8; }
+  .keypad .key[data-k="d9"] { grid-area: d9; } .keypad .key[data-k="minus"] { grid-area: minus; } .keypad .key[data-k="dot"] { grid-area: dot; }
+  .keypad .key[data-k="frac"] { grid-area: frac; } .keypad .key[data-k="del"] { grid-area: del; } .keypad .key[data-k="next"] { grid-area: next; }
 /* with the space of a mixed number, it takes the second cell of delete */
-.lesson .keypad:has(.key-space) { grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac space del"; }
-.lesson .key[data-k="space"] { grid-area: space; }
-  .lesson .key { height: 44px; }
+.keypad:has(.key-space) { grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac space del"; }
+.keypad .key[data-k="space"] { grid-area: space; }
+  .keypad .key { height: 44px; }
   .lesson .fg-table th, .lesson .fg-table td { padding: 3px 12px; line-height: 1.35; }
 /* a table of seven rows or more (func:3's hours of a day) sits closer on a short phone, so it stays whole above the keypad */
 .lesson .fg-table.long th, .lesson .fg-table.long td { padding: 1px 12px; line-height: 1.2; }

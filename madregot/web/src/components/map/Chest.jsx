@@ -1,5 +1,5 @@
-// The reward stop halfway along a unit: a round stop like the others, with a gift. Grey and shut until the stair
-// before it is done; then gold, open. Coming back from the lesson that reached it, it pops once.
+// The reward stop halfway along a unit: a round stop like the others, with a gift. Shut, in the unit's tint like the
+// stops still ahead, until the stair before it is done; then gold, open. Coming back from the lesson that reached it, it pops once.
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
 import { Gift } from 'lucide-react';

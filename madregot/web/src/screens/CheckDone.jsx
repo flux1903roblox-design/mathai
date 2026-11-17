@@ -2,9 +2,11 @@
 // Layout: Duolingo's lesson-complete screen (character, title, stat tiles, one button at the bottom).
 // After a passed mastery check of a stair that has a challenge task (CURRICULUM-6.3), a quiet card offers it: optional,
 // one tap to try, one tap to put it off. The main button stays the plan's next step.
+// A passed mastery check is a stair mastered, the biggest moment of all: it opens on the gold celebration (MasteredHero).
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
+import { m, useReducedMotion } from 'motion/react';
 import { Award, RotateCcw, Check, ArrowLeft, Gift, Flame, Puzzle } from 'lucide-react';
 import { TOPIC } from '@/content/topics.js';
 import { useApp } from '@/lib/store.js';
@@ -17,10 +19,14 @@ import { nextAfter } from '@/learn/challenges/index.ts';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
+import Celebrate from '@/components/learn/Celebrate.jsx';
+import { Emblem, EMBLEMS } from '@/components/map/emblems.jsx';
+import { SPRING, entrance } from '@/lib/motion.js';
 import { inDays } from '@/content/util.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
 import { UnlockMoment, useNewUnlocks } from '@/lib/madiLook.js';
 import RepeatNote, { repeatedMistake } from '@/components/learn/RepeatNote.jsx';
+import '@/styles/lazy/checkDone.css'; // this screen's own rules (the stair mastered's badge), out of the first load
 
 function copy(r, rec, def, award) {
   const days = (box) => REVIEW_DAYS[box] ?? 1;
@@ -127,6 +133,32 @@ export default function CheckDone({ result: r, award, onExit, work }) {
   return <StairCheckDone result={r} award={award} onExit={onExit} work={work} />;
 }
 
+/**
+ * A stair mastered (a passed mastery check) is the app's biggest moment, bigger than a teaching stage's end (PRODUCT2-38):
+ * מדי jumps in on the gold light, the shapes fly out, and the stair's badge lands beside him: the unit's emblem on a gold
+ * medal, with the path's own done mark on it (a check on the unit's colour), the stop as it now stands on the path. The
+ * level-up sound and vibration play as the screen opens (Lesson.jsx finish), and stay quiet in a class until the student
+ * turns sound on (lib/sound.js soundOn). Under reduced motion nothing moves: מדי stands, the light is still and faint,
+ * nothing flies, and the badge is simply there. Decorative: the title says what happened.
+ */
+function MasteredHero({ topic, mood }) {
+  const reduce = useReducedMotion();
+  const colour = TOPIC[topic]?.color;
+  return (
+    <div className="mastered-hero">
+      <Celebrate tone="gold"><Mascot mood={mood} size={150} className="check-mascot" /></Celebrate>
+      {EMBLEMS[topic] && (
+        <m.span className={clsx('mastered-badge', colour && `ch-${colour}`)} aria-hidden="true"
+          initial={reduce ? false : entrance({ y: -72, scale: 0.4, rotate: -24, opacity: 0 })} animate={{ y: 0, scale: 1, rotate: 0, opacity: 1 }}
+          transition={{ ...SPRING.bounce, delay: 0.6, opacity: { duration: 0.15, delay: 0.6 } }}>
+          <Emblem topic={topic} />
+          <span className="mastered-seal"><Check size={14} strokeWidth={3.6} /></span>
+        </m.span>
+      )}
+    </div>
+  );
+}
+
 /** The challenge offer after a passed mastery check: the stair's first task not solved yet. */
 export const CHALLENGE_ASK = 'יש אתגר למדרגה הזאת. רוצים לנסות?';
 function ChallengeOffer({ task, onGo, onLater }) {
@@ -177,11 +209,14 @@ function StairCheckDone({ result: r, award, onExit, work }) {
   const unlocks = useNewUnlocks(r.topic);
   const [then, setThen] = useState(null);
   const on = (fn) => () => (r.passed && unlocks.length > 0 ? setThen(() => fn) : fn());
+  const mastered = r.purpose === 'mastery' && r.passed;
   if (then) return <UnlockMoment ids={unlocks} onNext={then} />;
   return (
     <div className="page check-done" role="main">
       {/* laid out like Duolingo's lesson-complete screen: מדי, the title, what it showed, then the stat tiles */}
-      <div className="check-hero" data-region="content"><Mascot mood={c.mood} size={150} className="check-mascot" /></div>
+      <div className="check-hero" data-region="content">
+        {mastered ? <MasteredHero topic={r.topic} mood={c.mood} /> : <Mascot mood={c.mood} size={150} className="check-mascot" />}
+      </div>
       <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
       <p className="lead">{c.body}</p>
       {classExam && work?.id && <SentLine work={work} />}

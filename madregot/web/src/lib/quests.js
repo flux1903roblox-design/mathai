@@ -28,5 +28,16 @@ export function questProgress(dayKey, day = {}) {
   });
 }
 
+/**
+ * The daily goal as every screen shows it (the header's XP pill, the side panel, the quests tab's goal card): one rule,
+ * so they always agree. Today's XP counts up to the goal and stops there ("20/20", never "35/20"); once it is reached,
+ * `reached` says so and each screen marks it with a check. `share` fills a bar (0..1).
+ */
+export function goalProgress(todayXp = 0, goalXp = 20) {
+  const of = Math.max(1, goalXp || 0);
+  const xp = Math.max(0, todayXp || 0);
+  return { have: Math.min(xp, of), of, reached: xp >= of, share: Math.min(1, xp / of) };
+}
+
 /** The daily goal in XP, with roughly how many minutes a day it takes. */
 export let GOALS = localized(() => ([{ xp: 10, label: t('shell.quests.7'), mins: 5 }, { xp: 20, label: t('shell.quests.8'), mins: 10 }, { xp: 30, label: t('shell.quests.9'), mins: 15 }, { xp: 50, label: t('shell.quests.10'), mins: 20 }]), (v) => { GOALS = v; });

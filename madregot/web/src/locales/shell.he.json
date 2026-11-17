@@ -255,6 +255,7 @@
   "shell.learn.60": "כיתה ",
   "shell.learn.61": "רצף של {streak} ימים",
   "shell.learn.62": "היום {todayXp} מתוך {goalXp} XP, סך הכול {xp}",
+  "shell.learn.goalDone": "היעד היומי הושג: {goalXp} מתוך {goalXp} XP, סך הכול {xp}",
   "shell.learn.63": "מה כבר יש במדרגות ומה עוד לא, לפי תוכנית משרד החינוך",
   "shell.learn.64": "כל הנושאים והמצב בכל אחד",
   "shell.learn.65": "חזרה לשלב הבא",

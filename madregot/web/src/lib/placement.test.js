@@ -92,6 +92,16 @@ describe('placement', () => {
     s = take(s, () => true);
     expect(resultOf(s)).toMatchObject({ kind: 'placement', xp: PLACEMENT_XP, passed: true });
   });
+  it('the result says what the student showed: how many answers were right of how many asked', () => {
+    // two right and the third wrong in every probe: two thirds right, and no stair passed (the round-3 student finding)
+    let st = startLesson({ kind: 'placement', grade: '7', know: 1 }); let n = 0;
+    while (!st.finished && n < 60) { st = next(answer(st, n % PROBE_LEN === PROBE_LEN - 1 ? wrongOf(st) : right(st)).s); n += 1; }
+    const r = resultOf(st);
+    expect(r.asked).toBe(n);
+    expect(r.right).toBe(n - n / PROBE_LEN);
+    expect(r.right / r.asked).toBeCloseTo(2 / 3, 5);
+    Object.values(r.results).forEach((x) => expect(x.level).toBe(0));
+  });
 });
 
 describe('store: placement sets the path', () => {

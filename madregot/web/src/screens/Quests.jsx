@@ -6,7 +6,7 @@ import { m, useReducedMotion } from 'motion/react';
 import { useApp, useStreak, today } from '@/lib/store.js';
 import { learnDaysThisMonth, learnDaysTotal, ghostRace } from '@/lib/streak.js';
 import { repairText } from '@/components/learn/RepairCard.jsx';
-import { questProgress, GOALS } from '@/lib/quests.js';
+import { questProgress, goalProgress, GOALS } from '@/lib/quests.js';
 import { Week } from '@/components/learn/StreakStage.jsx';
 import PageHero from '@/components/PageHero.jsx';
 import Lottie from '@/components/Lottie.jsx';
@@ -79,6 +79,8 @@ export default function Quests() {
   const { n: streak, atRisk, repair } = useStreak();
   const monthDays = learnDaysThisMonth(days, d);
   const todayXp = day.xp || 0;
+  // the daily goal by the one rule the header's XP pill uses (lib/quests.js goalProgress)
+  const goal = goalProgress(todayXp, goalXp);
   const allDone = quests.every((q) => q.done);
   // the chest's choice of a piece for מדי (PRODUCT2-36): today's, or an earlier chest of this week still waiting; once
   // chosen here, the choice stays on screen until the tab is left
@@ -168,12 +170,12 @@ export default function Quests() {
       <section className="card goal-card" aria-labelledby="goal-h">
         <div className="card-row">
           <h2 id="goal-h" className="card-title">
-            {todayXp >= goalXp ? <Lottie name="xp-star" className="goal-star" fallback={<Zap size={22} aria-hidden="true" className="gold-icon" />} /> : <Zap size={22} aria-hidden="true" className="gold-icon" />}
-            {todayXp >= goalXp ? 'היעד היומי הושג' : 'היעד היומי'}
+            {goal.reached ? <Lottie name="xp-star" className="goal-star" fallback={<Zap size={22} aria-hidden="true" className="gold-icon" />} /> : <Zap size={22} aria-hidden="true" className="gold-icon" />}
+            {goal.reached ? 'היעד היומי הושג' : 'היעד היומי'}
           </h2>
-          <span className="card-num">{Math.min(todayXp, goalXp)}/{goalXp} XP</span>
+          <span className="card-num">{goal.have}/{goal.of} XP</span>
         </div>
-        <div className="bar" role="progressbar" aria-label="ההתקדמות ליעד היומי" aria-valuemin={0} aria-valuemax={goalXp} aria-valuenow={Math.min(todayXp, goalXp)}><i style={{ width: `${Math.min(1, todayXp / goalXp) * 100}%` }} /></div>
+        <div className="bar" role="progressbar" aria-label="ההתקדמות ליעד היומי" aria-valuemin={0} aria-valuemax={goal.of} aria-valuenow={goal.have}><i style={{ width: `${goal.share * 100}%` }} /></div>
         <div className="segmented goal-pick" role="radiogroup" aria-label="גודל היעד היומי">
           {GOALS.map((g) => (
             <button key={g.xp} type="button" role="radio" aria-checked={goalXp === g.xp} className={clsx('seg', goalXp === g.xp && 'on')} onClick={() => setGoalXp(g.xp)}>

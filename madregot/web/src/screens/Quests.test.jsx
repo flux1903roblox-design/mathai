@@ -120,3 +120,22 @@ describe('the family challenge, accepted on this device', () => {
     expect(card(html(), 'family-card')).toBe('');
   });
 });
+
+// The goal card says what the header's XP pill says (lib/quests.js goalProgress): 20/20 XP and reached, over the goal.
+describe('the daily goal card', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-05T10:00:00'));
+    useApp.getState().resetProgress();
+    useApp.setState({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1 }, goalXp: 20, days: { '2026-11-05': { lessons: 3, xp: 35 } }, family: { challenges: {}, sent: null } });
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('over the goal: reached, 20/20 XP, the bar full', () => {
+    const c = card(html(), 'goal-card');
+    expect(text(c)).toContain('היעד היומי הושג');
+    expect(text(c)).toContain('20/20 XP');
+    expect(c).toContain('aria-valuenow="20"');
+    expect(c).toContain('width:100%');
+  });
+});

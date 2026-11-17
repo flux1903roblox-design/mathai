@@ -109,10 +109,12 @@ export function placementNext(s) {
   return { ...s, ...fresh, ti, topic: next, probe, level: probe.first, item: probeItem(next, probe.first, 0) };
 }
 
+/** What the test found: each topic's stairs (results), and what the student showed: `right` of `asked` (one try each). */
 export function placementResult(s) {
   const accuracy = s.answered ? Math.round((100 * s.firstTry) / s.answered) : 0;
   return {
     kind: 'placement', grade: s.grade, topics: s.topics, results: s.results, xp: PLACEMENT_XP, accuracy, passed: true, perfect: false,
+    right: s.firstTry, asked: s.answered,
     bestCombo: s.bestCombo, mistakes: s.mistakes, secs: Math.round((Date.now() - s.startedAt) / 1000), topic: s.topics[0], level: 1,
   };
 }

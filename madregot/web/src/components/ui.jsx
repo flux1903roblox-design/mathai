@@ -127,7 +127,7 @@ export function Progress({ value, max = 100, labelledBy, valueText, className, t
   );
 }
 
-/** Grid-area names, so a short screen can lay the same keys out in three rows (see .lesson .keypad in app.css). */
+/** Grid-area names, so a short screen can lay the same keys out in three rows (see .keypad in app.css), in a lesson and a challenge alike. */
 const KEY_AREA = { '-': 'minus', '.': 'dot', '/': 'frac', ' ': 'space', del: 'del' };
 '0123456789'.split('').forEach((d) => { KEY_AREA[d] = `d${d}`; });
 /** What a screen reader says for each key that is not a digit (the space key's name starts with the word it shows). */

@@ -2,7 +2,7 @@
 // that used to count lessons from the improvement plan is now "finish today's mission", and the mission itself says
 // when it is finished (store.completeMission sets days[today].missionDone).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { QUESTS, questsFor, questProgress } from './quests.js';
+import { QUESTS, questsFor, questProgress, goalProgress } from './quests.js';
 import { useApp, today } from './store.js';
 
 const dayAfter = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA'); };
@@ -137,5 +137,20 @@ describe('the quests\' chest: a choice of one of two pieces for מדי, next to 
     expect(all.every(isQuestPiece)).toBe(true);
     useApp.setState({ days: { [key]: { questsRewarded: true } }, look: { ...useApp.getState().look, earned: all } });
     expect(offerNow()).toBeNull();
+  });
+});
+
+// The daily goal, one rule for every screen that shows it (the council's round-3 student finding: the header said
+// "35/20" while the quests tab said "20/20 XP").
+describe('the daily goal: one rule for the header and the quests tab', () => {
+  it('counts up to the goal and stops there, and says when it is reached', () => {
+    expect(goalProgress(0, 20)).toEqual({ have: 0, of: 20, reached: false, share: 0 });
+    expect(goalProgress(12, 20)).toEqual({ have: 12, of: 20, reached: false, share: 0.6 });
+    expect(goalProgress(20, 20)).toEqual({ have: 20, of: 20, reached: true, share: 1 });
+    expect(goalProgress(35, 20)).toEqual({ have: 20, of: 20, reached: true, share: 1 });
+  });
+  it('a missing day or goal never shows a broken number', () => {
+    expect(goalProgress(undefined, 30)).toMatchObject({ have: 0, of: 30, reached: false });
+    expect(goalProgress(5, 0)).toMatchObject({ have: 1, of: 1, reached: true });
   });
 });

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import NumberFlow from '@number-flow/react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
-import { Zap, Target, Timer, Snowflake, Star, Trophy, ChevronsUp, Wrench, Medal } from 'lucide-react';
+import { Zap, Target, Timer, Snowflake, Star, Trophy, ChevronsUp, Wrench, Medal, Check } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { weekStart, weekTotals, personalBest, streakMilestone } from '@/lib/streak.js';
 import Mascot from '@/components/Mascot.jsx';
@@ -13,6 +13,7 @@ import { checkWaits } from '@/learn/mastery.ts';
 import { Segments } from '@/components/ds.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { TOPIC, placementTopicsFor } from '@/content/topics.js';
+import { PROBE_LEN } from '@/lib/placementRules.js';
 import { Button } from '@/components/ui.jsx';
 import { DUR, enter } from '@/lib/motion.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
@@ -242,7 +243,28 @@ function QuestsStage({ award, onNext }) {
   );
 }
 
-/** After the placement test: where each topic starts, then the first day of the streak. */
+/** "במספרים מכוונים ובזוויות": topic names after ב, joined the Hebrew way (commas, and ו before the last). */
+const inTopics = (titles) => {
+  const xs = titles.map((x) => `ב${x}`);
+  return xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} ו${xs[xs.length - 1]}`;
+};
+
+/**
+ * The line under the placement's title: why each topic starts where it does, kindly and truly. A topic where a stair
+ * was passed is named as already strong; with none, the rule that passes a stair (PROBE_LEN right in a row at it), and
+ * that the map's jump test can still open the way ahead.
+ */
+export function placementWhy(topics, results) {
+  const strong = topics.filter((t) => (results[t.id]?.level ?? 0) > 0);
+  if (strong.length) return <>כבר חזקים {inTopics(strong.map((t) => t.title))}, ושם מדלגים על מה שכבר יודעים.</>;
+  return <>מדרגה נפתחת אחרי <bdi dir="ltr">{PROBE_LEN}</bdi> תשובות נכונות ברצף, ובמפה אפשר לקפוץ קדימה.</>;
+}
+
+/**
+ * After the placement test: what the student showed (how many were right, the topics already strong), where each topic
+ * starts, then the first day of the streak. No tile ever shows a 0: the right answers' tile comes with one right answer
+ * or more, the time with a second or more.
+ */
 export function PlacementDone({ result, award, onExit }) {
   const days = useApp((s) => s.days);
   const freezes = useApp((s) => s.freezes);
@@ -251,6 +273,9 @@ export function PlacementDone({ result, award, onExit }) {
   const [i, setI] = useState(0);
   const last = i + 1 >= stages.length;
   const nextStage = () => (last ? onExit() : setI(i + 1));
+  const topics = result.topics ? result.topics.map((id) => TOPIC[id]).filter(Boolean) : placementTopicsFor(result.grade);
+  const right = result.right || 0;
+  const tiles = 1 + (right > 0) + (result.secs > 0);
   if (stages[i] === 'unlock') return <UnlockMoment ids={unlocks} onNext={nextStage} />;
   if (stages[i] === 'goal') return <GoalStage onNext={nextStage} label={last ? 'ללוח שלי' : 'המשך'} />;
   if (stages[i] === 'streak') return <StreakStage streak={award.streak} days={days} freezes={freezes} onNext={nextStage} />;
@@ -259,14 +284,20 @@ export function PlacementDone({ result, award, onExit }) {
       <Hero><Mascot mood="achievement" size={130} /></Hero>
       <m.div className="done-copy" variants={stagger(0.15)} initial="hidden" animate="show">
         <m.h1 variants={rise} className="done-title">מצאנו את המדרגה שלכם!</m.h1>
+        <m.p variants={rise} className="lead place-why">{placementWhy(topics, result.results)}</m.p>
         {/* Duolingo's result order: the title, the tiles, then the details (where each topic starts) */}
-        <m.div className="stats" variants={stagger(0.05)} data-region="answers">
+        <m.div className="stats" variants={stagger(0.05)} data-region="answers" style={{ gridTemplateColumns: `repeat(${tiles}, minmax(0, 1fr))` }}>
           <Stat tone="gold" icon={Zap} label="XP" value={result.xp} xpAt={0.5} />
-          <Stat tone="good" icon={ChevronsUp} label="מדרגות" value={Object.values(result.results).reduce((a, r) => a + r.level, 0)} />
-          <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
+          {right > 0 && (
+            <m.div variants={rise} className="stat stat-good">
+              <span className="stat-label">נכונות</span>
+              <span className="stat-value" aria-label={`${right} תשובות נכונות מתוך ${result.asked}`}><Check size={20} aria-hidden="true" /><bdi dir="ltr">{right}/{result.asked}</bdi></span>
+            </m.div>
+          )}
+          {result.secs > 0 && <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />}
         </m.div>
         <m.ol variants={rise} className="place-list" aria-label="איפה מתחילים בכל נושא">
-          {(result.topics ? result.topics.map((id) => TOPIC[id]).filter(Boolean) : placementTopicsFor(result.grade)).map((t) => {
+          {topics.map((t) => {
             const L = result.results[t.id]?.level ?? 0; const top = t.levels.length;
             return (
               <li key={t.id} className={clsx('place-row', `ch-${t.color}`)}>
