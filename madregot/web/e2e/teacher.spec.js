@@ -105,6 +105,8 @@ const SHOT_CSS = fileURLToPath(new URL('./shots.css', import.meta.url));
 /** The screen as it is now, compared with its baseline teacher-<name>.png (a "student-…" name gets the prefix too). */
 async function shot(page, name) {
   const file = name.startsWith('teacher-') ? name : `teacher-${name}`;
+  // maths shows as plain words (.tex-plain) until KaTeX and its two fonts are here (MathText.jsx, 391a94b)
+  await expect(page.locator('.tex-plain')).toHaveCount(0);
   await page.evaluate(() => document.fonts.ready);
   await expect(page).toHaveScreenshot(`${file}.png`, { stylePath: SHOT_CSS });
   const dir = process.env.TEACHER_SHOTS; if (!dir) return;
@@ -424,6 +426,12 @@ test.describe('TEACHER-1: the class follows the teacher\'s email', () => {
     await expect(page.getByRole('button', { name: 'לקשר למייל שלי' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'אני פתחתי את הכיתה הזו' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'העתקת מפתח המורה tkey-123' })).toBeVisible();
+    // the line opens the page at the way in (Settings.jsx scrolls there 200 ms after the class's binding is read): its
+    // heading at the top, or the page scrolled as far as it goes
+    await expect.poll(() => page.evaluate(() => {
+      const top = document.getElementById('ts-access').getBoundingClientRect().top;
+      return Math.abs(top) <= 1 || window.scrollY >= document.scrollingElement.scrollHeight - window.innerHeight - 1;
+    }), { message: 'the settings open at "הכניסה לכיתה"' }).toBe(true);
     await shot(page, 'teacher-bound-elsewhere');
     // after the week the board says nothing more; the settings still say whose class it is now
     await open(page, '#/teacher', keyTeacher(), { at: new Date('2026-11-12T10:00:00') });
