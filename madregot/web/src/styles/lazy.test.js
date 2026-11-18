@@ -263,3 +263,35 @@ describe('the first load (FOLLOWUP-23, COUNCIL2-20)', () => {
     }
   });
 });
+
+// shared.css spreads a settings button to both ends (button.set-row: the words at the start, a chevron at the end, the
+// student's privacy group). The teacher's "מחיקת הכיתה" rows (the class settings, the students tab) are a bin and its
+// words, side by side as the year's report beside them: spread, the words ran to the far side of the row, away from the
+// bin (the demo class's settings in teacher.spec.js, teacher-demo-settings-end.png).
+describe('the teacher\'s delete rows keep the bin beside the words', () => {
+  const body = (css, selector) => {
+    const text = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (m[1].split(',').map((s) => s.trim()).includes(selector)) return m[2];
+    }
+    return null;
+  };
+  const teacher = read(join(SRC, 'styles/lazy/teacher.css'));
+  const shared = read(join(SRC, 'styles/lazy/shared.css'));
+
+  it('shared.css spreads a settings button; teacher.css sets the two delete rows from the start, with a gap', () => {
+    expect(body(shared, 'button.set-row')).toMatch(/justify-content:\s*space-between/);
+    for (const sel of ['.t-set button.set-row.danger', 'button.set-row.t-quiet-row']) {
+      const b = body(teacher, sel);
+      expect(b, sel).toMatch(/justify-content:\s*flex-start/);
+      expect(b, sel).toMatch(/gap:\s*var\(--s2\)/);
+    }
+  });
+
+  it('the two rows are those buttons: the bin first, then the words', () => {
+    const settings = read(join(SRC, 'screens/teacher/Settings.jsx'));
+    const students = read(join(SRC, 'screens/teacher/StudentsTab.jsx'));
+    expect(settings).toMatch(/<section className="section set-group t-set" aria-labelledby="ts-year">[\s\S]*?<button type="button" className="set-row danger"[^\n]*?><Trash2 [^>]*\/>מחיקת הכיתה<\/button>/);
+    expect(students).toMatch(/<button type="button" className="set-row t-quiet-row"[^\n]*?><Trash2 [^>]*\/>מחיקת הכיתה<\/button>/);
+  });
+});

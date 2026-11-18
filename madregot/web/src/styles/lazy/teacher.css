@@ -454,6 +454,9 @@
 }
 .t-set-year svg { color: var(--brand); flex: none; }
 a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
+/* "מחיקת הכיתה" (the class settings, the students tab) keeps its bin beside the words, as the year's report does:
+   shared.css spreads a settings button to both ends (button.set-row: the words at the start, a chevron at the end) */
+.t-set button.set-row.danger, button.set-row.t-quiet-row { justify-content: flex-start; gap: var(--s2); }
 .t-delete-export { align-self: center; gap: var(--s2); }
 .t-delete-export:disabled { opacity: 0.6; }
 /* ------------------------------------------------------------------ help both ways (TEACHER-6): a request's thread as
