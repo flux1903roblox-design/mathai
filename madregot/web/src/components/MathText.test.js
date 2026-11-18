@@ -119,3 +119,47 @@ describe('splitFirstSentence: the "not yet" help shows its first sentence first 
     expect(splitFirstSentence('')).toEqual(['', '']);
   });
 });
+
+// KaTeX draws once its text fonts are here: FitDisplay fits a display to its box by measuring it, and the first display
+// of a page measured in the fallback serif was up to a sixth narrower than in KaTeX_Main, so it ran out of its box when
+// the font came (stats:1 and signed:3 on a busy computer). A font that fails is not waited for, nor one past 3 seconds.
+describe('KaTeX waits for its text fonts before it draws', () => {
+  /** A fresh copy of MathText (KaTeX is fetched once per page) on a document whose fonts answer with `load`. */
+  const withFonts = async (load, run) => {
+    vi.resetModules();
+    vi.stubGlobal('document', { fonts: { load } });
+    try { await run(await import('./MathText.jsx')); } finally { vi.unstubAllGlobals(); vi.useRealTimers(); }
+  };
+
+  it('asks for KaTeX_Main and KaTeX_Math, and draws only when both answered (a font that failed counts as answered)', async () => {
+    const asked = [];
+    let release;
+    const main = new Promise((r) => { release = r; });
+    await withFonts((f) => { asked.push(f); return f.includes('KaTeX_Main') ? main : Promise.reject(new Error('offline')); }, async (m) => {
+      let done = false;
+      const drawn = m.loadKatex().then(() => { done = true; });
+      await vi.waitFor(() => expect(asked).toEqual(['1em KaTeX_Main', 'italic 1em KaTeX_Math']));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(done).toBe(false);
+      expect(m.renderTex('x \\le 3')).toBe('<span class="tex-plain" dir="ltr">x ≤ 3</span>');
+      release([]);
+      await drawn;
+      expect(m.renderTex('x \\le 3')).toContain('class="katex"');
+    });
+  });
+
+  it('waits no longer than 3 seconds for a font that does not come', async () => {
+    const asked = [];
+    await withFonts((f) => { asked.push(f); return new Promise(() => {}); }, async (m) => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      let done = false;
+      const drawn = m.loadKatex().then(() => { done = true; });
+      while (asked.length < 2) await vi.advanceTimersByTimeAsync(0); // eslint-disable-line no-await-in-loop
+      await vi.advanceTimersByTimeAsync(2990);
+      expect(done).toBe(false);
+      await vi.advanceTimersByTimeAsync(10);
+      await drawn;
+      expect(m.renderTex('x')).toContain('class="katex"');
+    });
+  });
+});
