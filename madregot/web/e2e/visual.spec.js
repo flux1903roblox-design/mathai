@@ -9,6 +9,8 @@ test.beforeEach(({}, info) => { test.skip(!['phone-small', 'phone', 'phone-dark'
 async function shot(page, name, ready) {
   await expect(page.locator(ready)).toBeVisible();
   await expect(page.getByText('טוענים…')).toHaveCount(0);
+  // maths shows as plain words (.tex-plain) until KaTeX and its two fonts are here (MathText.jsx, 391a94b)
+  await expect(page.locator('.tex-plain')).toHaveCount(0);
   await page.evaluate(() => document.fonts.ready);
   await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: false });
 }
@@ -20,6 +22,11 @@ test('visual: welcome', async ({ page }) => {
 
 test('visual: learn screen', async ({ page }) => {
   await open(page, '#/', livedIn('7'));
+  // the two drawings beside the open unit's path (Scenery.jsx) and Madi on the current stop (Walker.jsx) load after the
+  // first screen: the picture waits for them, or a slow machine photographs the compass's empty place
+  await expect(page.locator('.path-art')).toHaveCount(2);
+  await expect(page.locator('.path-art svg')).toHaveCount(2);
+  await expect(page.locator('.path-walker')).toHaveCount(1);
   await shot(page, 'learn', '.learn-top');
 });
 
