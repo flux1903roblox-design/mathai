@@ -244,6 +244,7 @@ test.describe('help from the tutor counts as help', () => {
       const sheet = chatSheet(page);
       await expect(sheet.getByText(intro)).toBeVisible();
       await expect(sheet.locator('.starter')).toHaveText(starters);
+      await expect(page.locator('.tex-plain')).toHaveCount(0); // the maths drawn, not its plain words (MathText.jsx)
       await page.evaluate(() => document.fonts.ready);
       await expect(page).toHaveScreenshot(`tutor-intro-${name}.png`, { fullPage: false });
       await closeChat(page);
@@ -283,6 +284,7 @@ test.describe('generated exercises', () => {
     for (const q of await sheet.locator('.gen-q-text').all()) expect(await q.innerText()).not.toContain('[טבלה');
     await expect(first.locator('.gen-q-fig')).toBeVisible();
     await first.scrollIntoViewIfNeeded();
+    await expect(page.locator('.tex-plain')).toHaveCount(0); // the maths drawn, not its plain words (MathText.jsx)
     await expect(first).toHaveScreenshot('gen-kept-fig.png');
   });
 
@@ -346,6 +348,7 @@ test.describe('generated exercises', () => {
     await expect(items.nth(pick.k).getByText('מה כנראה קרה: חיסור של מספר שלילי חושב כמו חיסור של חיובי.')).toBeVisible();
     // the list as a student sees it: what the AI wrote and what the app checked, a right answer, a named mistake
     await sheet.locator('.gen-note').scrollIntoViewIfNeeded();
+    await expect(page.locator('.tex-plain')).toHaveCount(0); // the maths drawn, not its plain words (MathText.jsx)
     await page.evaluate(() => document.fonts.ready);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/generated-graded-${info.project.name}.png` });
     if (info.project.name === 'phone') await expect(page).toHaveScreenshot('generated-graded.png', { fullPage: false });
@@ -449,6 +452,10 @@ test.describe('exam labels', () => {
     await expect(notes.getByText('את הכתב קרא העוזר החכם, ואת ההשוואה למפתח התשובות עשתה האפליקציה. אם הוא קרא משהו לא נכון, כדאי להראות למורה.')).toBeVisible();
     await expect(notes.getByText('את השאלות שמסומנות כך בדק העוזר החכם, ולפעמים הוא טועה. אם משהו נראה לא נכון, כדאי להראות למורה.')).toBeVisible();
     await cards.nth(0).scrollIntoViewIfNeeded();
+    // the answer "8" is maths: plain words (.tex-plain) until KaTeX and its fonts are here (MathText.jsx, 391a94b), then
+    // drawn by KaTeX, as in the picture
+    await expect(cards.nth(0).locator('.q-mine .katex')).toHaveCount(1);
+    await expect(page.locator('.tex-plain')).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/exam-labels-${info.project.name}.png` });
     if (info.project.name === 'phone') await expect(page).toHaveScreenshot('exam-labels.png', { fullPage: false });
