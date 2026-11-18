@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import katex from 'katex';
-import { texText, renderTex, escapeHtml, loadKatex } from './MathText.jsx';
+import { texText, renderTex, escapeHtml, loadKatex, fitScale } from './MathText.jsx';
 
 describe('texText: maths as words for a screen reader', () => {
   it('says a lone comparison sign in Hebrew', () => {
@@ -161,5 +161,49 @@ describe('KaTeX waits for its text fonts before it draws', () => {
       await drawn;
       expect(m.renderTex('x')).toContain('class="katex"');
     });
+  });
+});
+
+// FitDisplay sets a display smaller until it fits its box. Where text is drawn hinted (Linux, GitHub's runner), each
+// glyph's width is a whole pixel at every size, so a line does not shrink in proportion: one step left signed:3's
+// "3 · (−2) = (−2) + (−2) + (−2)" a pixel too wide, a scroll box the keyboard could not reach (axe,
+// scrollable-region-focusable). The line is measured again until it fits.
+describe('fitScale: a display is measured again until it fits its box', () => {
+  // the line of signed:3 in KaTeX_Main: each glyph's advance in em, every glyph a whole pixel (rounded up), and the
+  // spaces around the operators (KaTeX's margins, 0.2222em around · and +, 0.2778em around =), which are not rounded
+  const bracket = [0.389, 0.778, 0.5, 0.389]; // (−2)
+  const glyphs = [0.5, 0.278, ...bracket, 0.778, ...bracket, 0.778, ...bracket, 0.778, ...bracket];
+  const spaces = 6 * 0.2222 + 2 * 0.2778;
+  const BASE = 29.376; // 27.2px × 1.08 (tokens.css)
+  const hinted = (scale) => {
+    const px = BASE * scale;
+    return Math.round(glyphs.reduce((sum, em) => sum + Math.ceil(em * px), 0) + spaces * px);
+  };
+  const floor = Math.min(0.6, 15 / BASE);
+
+  it('one step in proportion leaves the hinted line a pixel too wide, so it is measured again', () => {
+    expect(hinted(1)).toBeGreaterThan(306);
+    expect(hinted((306 / hinted(1)) * 0.97)).toBeGreaterThan(306); // the one step FitDisplay took before
+    const asked = [];
+    const scale = fitScale(306, hinted(1), floor, (s) => { asked.push(s); return hinted(s); });
+    expect(hinted(scale)).toBeLessThanOrEqual(306);
+    expect(asked.length).toBe(2);
+    expect(scale).toBeGreaterThan(floor);
+  });
+
+  it('a line that shrinks in proportion takes one step; a line that fits is not touched', () => {
+    const even = (s) => 400 * s;
+    const asked = [];
+    const scale = fitScale(306, even(1), 0.6, (s) => { asked.push(s); return even(s); });
+    expect(asked).toHaveLength(1);
+    expect(even(scale)).toBeLessThanOrEqual(306);
+    expect(fitScale(306, 306, 0.6, () => { throw new Error('measured a line that fits'); })).toBe(1);
+  });
+
+  it('never goes below its smallest size: a line too long for the box stops there (and FitDisplay wraps it)', () => {
+    const long = (s) => 900 * s;
+    const scale = fitScale(306, long(1), 0.6, long);
+    expect(scale).toBe(0.6);
+    expect(long(scale)).toBeGreaterThan(306);
   });
 });

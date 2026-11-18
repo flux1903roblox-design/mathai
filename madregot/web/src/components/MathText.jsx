@@ -153,6 +153,25 @@ export function useFitLine(ref, text) {
 }
 
 /**
+ * The scale at which a display's maths fits its box (FitDisplay): each step sets it smaller by the part it is too wide,
+ * with 3% to spare, and measures it again, up to four steps and never below `floor`; a display that fits is left at 1.
+ * One step is not always enough: where text is drawn hinted (Linux, as on GitHub's runner), every glyph's width is a
+ * whole pixel at every size, so a line does not shrink in proportion to its font. signed:3's
+ * "3 · (−2) = (−2) + (−2) + (−2)" came out 307px wide in its 306px box after one step: a scroll box one pixel wide that
+ * the keyboard could not reach. `width` is the maths' width at its own size; `widthAt(scale)` sets the maths at that
+ * scale and returns its width then.
+ */
+export function fitScale(boxWidth, width, floor, widthAt) {
+  let scale = 1;
+  let now = width;
+  for (let k = 0; k < 4 && now > boxWidth && scale > floor; k += 1) {
+    scale = Math.max(floor, scale * (boxWidth / now) * 0.97);
+    now = widthAt(scale);
+  }
+  return scale;
+}
+
+/**
  * Display maths, as large as it fits: a long expression (3(x - 2) - (x + 4) = ?) is set smaller until it fits
  * the width, down to 60% of the size, instead of scrolling sideways. A display that fits is left alone. A large display
  * (an exercise's question) may go further, down to the size of the text around it (15px), so the class's chain of five
@@ -180,17 +199,23 @@ export function FitDisplay({ tex, className = 'qdisplay' }) {
       box.classList.remove('fit-wrap');
       const base = parseFloat(getComputedStyle(box).fontSize); const parent = parseFloat(getComputedStyle(box.parentElement).fontSize);
       const floor = Math.min(0.6, 15 / base);
-      if (box.scrollWidth - box.clientWidth > 1 && base > 0 && parent > 0) box.style.fontSize = `${(base * Math.max(floor, (box.clientWidth / box.scrollWidth) * 0.97)) / parent}em`;
+      // too wide by even one pixel, the display is a scroll box (overflow-x: auto)
+      if (base > 0 && parent > 0) {
+        fitScale(box.clientWidth, box.scrollWidth, floor, (scale) => {
+          box.style.fontSize = `${(base * scale) / parent}em`;
+          return box.scrollWidth;
+        });
+      }
       // still too wide at its smallest size: the display breaks after its = signs and operators (styles/tokens.css), so
       // its end is never hidden in a scroll box (a long rule should be written on stacked lines instead; this is the
       // safety net)
-      if (box.scrollWidth - box.clientWidth > 1) box.classList.add('fit-wrap');
+      if (box.scrollWidth > box.clientWidth) box.classList.add('fit-wrap');
       // a display that still scrolls (one piece with no place to break, wider than the box at its smallest size) can be
       // reached and scrolled with the keyboard, as every other scrolling region of the app (axe: scrollable-region-
       // focusable); one that fits is not a stop for the Tab key
       const shown = box.parentElement;
       if (shown?.classList.contains('katex-display')) {
-        if (shown.scrollWidth - shown.clientWidth > 1) {
+        if (shown.scrollWidth > shown.clientWidth) {
           shown.tabIndex = 0;
           shown.setAttribute('role', 'region');
           shown.setAttribute('aria-label', texText(tex));
