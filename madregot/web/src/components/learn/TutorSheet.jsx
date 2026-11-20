@@ -60,7 +60,7 @@ export default function TutorSheet({ open, onOpenChange, content, item = null, w
     <>
       <div className="tutor-intents chat-chips" role="group" aria-label="שאלות למדי">
         {INTENTS.map((x) => (
-          <button key={x.id} type="button" className={clsx('chip', 'tutor-chip', x.id === 'mistake' && !wrong && 'dim')} onClick={() => ask(x.id)}>{x.label}</button>
+          <button key={x.id} type="button" className={clsx('chip', 'tutor-chip', x.id === 'mistake' && (!wrong || wrong.fixed) && 'dim')} onClick={() => ask(x.id)}>{x.label}</button>
         ))}
       </div>
       {onAskAI && resting ? <p className="tutor-note">{resting}</p> : onAskAI ? (

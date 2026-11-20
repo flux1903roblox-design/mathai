@@ -152,7 +152,26 @@ export function MissWhy({ line, hint, k }) {
   );
 }
 
-function Explore({ step, done, onDone, onCtl, skill }) {
+/**
+ * What מדי is told about the step on screen (TutorSheet's `item` and `wrong`, the shape a lesson passes). `answer`: the
+ * step's answer so far (a predict step's choice, true once an explore step is done); `miss`: the last miss on an explore
+ * step (exploreMiss). A wrong guess is said again in the content's own words (its wrongWhy and why); an explore miss by
+ * the mistake it was named and the step's hint; `fixed` once the step was then done right. A step with no wrong answer
+ * gives null: Madi says so and guesses nothing. Teaching asks no question later to tell two mistakes apart (more: false).
+ */
+export function stepAsk(step, answer, miss) {
+  if (step?.kind === 'predict') {
+    const wrong = answer != null && answer !== step.answer;
+    return { item: null, wrong: wrong ? { cat: null, said: [step.wrongWhy?.[answer], step.why].filter(Boolean), more: false } : null };
+  }
+  if (step?.kind === 'explore') {
+    const item = { hint: step.hint };
+    return { item, wrong: miss ? { cat: miss.cat ?? null, said: [miss.line, step.hint].filter(Boolean), more: false, ...(answer ? { fixed: true } : {}) } : null };
+  }
+  return { item: null, wrong: null };
+}
+
+function Explore({ step, done, onDone, onCtl, onMiss, skill }) {
   const C = KINDS[step.manip.kind];
   const [v, setV] = useState(step.manip.start ?? null);
   const [touched, setTouched] = useState(false);
@@ -169,7 +188,7 @@ function Explore({ step, done, onDone, onCtl, skill }) {
     return () => { if (window.__madregotSolveStep === solve) delete window.__madregotSolveStep; };
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   const check = () => {
-    if (manipCorrect(it, v)) { setMiss(-1); play('correct'); haptic('correct'); onDone(); } else { setSaid(exploreMiss(skill, step, v)); setMiss((n) => n + 1); play('wrong'); haptic('wrong'); }
+    if (manipCorrect(it, v)) { setMiss(-1); play('correct'); haptic('correct'); onDone(); } else { const s = exploreMiss(skill, step, v); setSaid(s); onMiss?.(s); setMiss((n) => n + 1); play('wrong'); haptic('wrong'); }
   };
   // the bottom button checks this step: tell it whether there is something to check, and how
   useEffect(() => { onCtl({ step, can: !ok && touched && v != null, miss: ok ? 0 : Math.max(0, miss), said, check }); }, [v, touched, miss, ok]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -203,11 +222,13 @@ function Rule({ step }) {
  * row with this run's progress bar in it (without it, the bar stands on its own). title/kicker: the lesson's name,
  * shown on its first screen and kept as every later step's heading for a screen reader; quietTitle: the screen before
  * already showed it, so no step shows it again (a repair's activity after its explanation). skill: the stair the steps
- * teach, so a miss on an explore step can be named (exploreMiss).
+ * teach, so a miss on an explore step can be named (exploreMiss). onTutor({ item, wrong }): what מדי is told about the
+ * step on screen (stepAsk), each time the step or its answer changes.
  */
-export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 'שלב', doneLabel = 'סיימתי', renderHead, title, kicker, quietTitle = false, skill }) {
+export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 'שלב', doneLabel = 'סיימתי', renderHead, title, kicker, quietTitle = false, skill, onTutor }) {
   const [i, setI] = useState(Math.min(start, steps.length - 1));
   const [answers, setAnswers] = useState({}); // step index → chosen (predict) or true (explore done)
+  const [misses, setMisses] = useState({}); // step index → the last miss on that explore step (exploreMiss)
   const [sel, setSel] = useState({}); // predict: the card picked, before it is checked
   const [ctl, setCtl] = useState(null); // explore: what the bottom button checks
   const [why, setWhy] = useState(null); // the step whose explanation is open ("למה?")
@@ -216,6 +237,8 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
   const footRef = useRef(null);
   const step = steps[i];
   useEffect(() => { onIndex?.(i); ref.current?.focus({ preventScroll: true }); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }, [i]); // eslint-disable-line react-hooks/exhaustive-deps
+  // מדי's sheet hears about this step only: a wrong answer on a step already left is not the one on screen
+  useEffect(() => { onTutor?.(stepAsk(step, answers[i], misses[i])); }, [i, answers[i], misses[i]]); // eslint-disable-line react-hooks/exhaustive-deps
   // Test hook, as for exercises: the current teaching step (with its goal) on a QA build or with 'madregot-debug' set.
   useEffect(() => {
     if (!qaOn()) return undefined;
@@ -283,7 +306,7 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
             : <h1 className="visually-hidden">{title}</h1>)}
           {step.kind === 'say' && <Say step={step} />}
           {step.kind === 'predict' && <Predict step={step} chosen={answers[i]} sel={sel[i]} onSelect={(c) => setSel((x) => ({ ...x, [i]: c }))} />}
-          {step.kind === 'explore' && <Explore step={step} done={!!answers[i]} onDone={() => setAnswers((a) => ({ ...a, [i]: true }))} onCtl={setCtl} skill={skill} />}
+          {step.kind === 'explore' && <Explore step={step} done={!!answers[i]} onDone={() => setAnswers((a) => ({ ...a, [i]: true }))} onCtl={setCtl} onMiss={(s) => setMisses((x) => ({ ...x, [i]: s }))} skill={skill} />}
           {step.kind === 'rule' && <Rule step={step} />}
         </m.section>
       </AnimatePresence>

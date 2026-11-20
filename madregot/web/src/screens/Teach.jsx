@@ -35,6 +35,10 @@ export default function Teach() {
   const { completeStage, setStagePos, noteLearn, learnEvent } = useApp.getState();
   const [idx, setIdx] = useState(stage === 'A' ? 0 : pos); // B and C: which example / problem
   const [tutor, setTutor] = useState(false);
+  // what מדי is told about the question on screen (StepPlayer's stepAsk, Together's togetherAsk): its latest wrong answer
+  // and whether it was fixed since, the shape a lesson passes. It belongs to one stage and one problem: a wrong answer from
+  // another is never shown as the one on screen.
+  const [ask, setAsk] = useState({ at: null, item: null, wrong: null });
   const [done, setDone] = useState(null); // the stage just finished: what it earned, and the stair's stages done now
   useEffect(() => { if (c && stage === 'A') learnEvent({ e: 'teach-start', s: skill }); }, [skill, stage]); // eslint-disable-line react-hooks/exhaustive-deps
   // lessons follow the theme (light or dark, lib/theme.js); the maths sits on the --ground panel in both
@@ -68,22 +72,25 @@ export default function Teach() {
   // one header row for every stage, as in a Brilliant lesson: close (the place is kept), the progress bar, help
   const head = (bar) => <LessonHeader bar={bar} onClose={close} closeLabel="סגירה. המקום נשמר" onHelp={() => setTutor(true)} />;
   const kicker = t.levels[level - 1].title;
+  const at = `${stage}${idx}`;
+  const told = (x) => setAsk({ at, ...x });
+  const here = ask.at === at ? ask : null;
   return (
     <div className={clsx('teach', `ch-${t.color}`)}>
       <main className="teach-main">
         {/* the stage's name is the screen's heading: StepPlayer writes it for stage A (shown on its first step); the
             worked examples and solving together have no title on screen, so a screen reader gets it here (PKG-1) */}
         {stage !== 'A' && <h1 className="visually-hidden">{TITLE[stage]}</h1>}
-        {stage === 'A' && <StepPlayer key="A" steps={c.discover} start={pos} onIndex={(i) => setStagePos(skill, 'A', i)} onDone={finish} label="ההסבר" doneLabel="לדוגמה הפתורה" renderHead={head} title={TITLE[stage]} kicker={kicker} skill={skill} />}
+        {stage === 'A' && <StepPlayer key="A" steps={c.discover} start={pos} onIndex={(i) => setStagePos(skill, 'A', i)} onDone={finish} label="ההסבר" doneLabel="לדוגמה הפתורה" renderHead={head} title={TITLE[stage]} kicker={kicker} skill={skill} onTutor={told} />}
         {stage === 'B' && <WorkedExample key={`B${idx}`} example={c.examples[Math.min(idx, c.examples.length - 1)]} n={Math.min(idx, c.examples.length - 1) + 1} of={c.examples.length} decimal={c.topic === 'stats'} onDone={nextOf(c.examples, 'example-done')} doneLabel={idx + 1 < c.examples.length ? 'לדוגמה הבאה' : 'לפתור יחד'} renderHead={head} />}
         {stage === 'C' && (
           <Together key={`C${idx}`} problem={c.together[Math.min(idx, c.together.length - 1)]} n={Math.min(idx, c.together.length - 1) + 1} of={c.together.length} decimal={c.topic === 'stats'}
             diagnose={(u) => diagnoseFinal(c, Math.min(idx, c.together.length - 1), u)} names={Object.fromEntries(c.misconceptions.map((x) => [x.id, x.title]))}
             onAttempt={(ok, cands) => noteLearn({ topic, level, ok, purpose: 'guided', key: `${skill}:together:${idx}`, cands, at: new Date().toISOString() })}
-            onDone={nextOf(c.together, 'together-done')} renderHead={head} />
+            onDone={nextOf(c.together, 'together-done')} renderHead={head} onTutor={told} />
         )}
       </main>
-      <TutorSheet open={tutor} onOpenChange={setTutor} content={c} />
+      <TutorSheet open={tutor} onOpenChange={setTutor} content={c} item={here?.item || null} wrong={here?.wrong || null} />
     </div>
   );
 }
