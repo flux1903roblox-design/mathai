@@ -478,6 +478,9 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
    student's sheet (sections, a 14-day strip of squares, the student's two actions at the end). Calm: no red. */
 .link-btn.t-name { min-height: 44px; padding: 0; font-weight: 700; color: var(--brand-d); text-align: start; overflow-wrap: anywhere; }
 .t-table th .link-btn.t-name { font-size: inherit; }
+/* a short name (בן ת.) is a 31px wide button: its tap reaches 44px either side of the words (ux-motion 12) */
+.t-table .link-btn { position: relative; }
+.t-table .link-btn::after { content: ''; position: absolute; inset: 0 -8px; }
 .t-attn { list-style: none; margin: 0; padding: 0; }
 .t-attn .t-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .t-attn .t-row + .t-row { border-top: 1px solid var(--rule); }

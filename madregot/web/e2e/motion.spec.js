@@ -3,7 +3,7 @@
 // show: what a tap reaches while something celebrates. The tests run with reduced motion (playwright.config.js), as a
 // student who asks for it sees the app: every moment is there at once and still.
 import { test, expect } from '@playwright/test';
-import { open, student, answer, proceedToNext, item, CLASS_PROFILE } from './helpers.js';
+import { open, student, answer, proceedToNext, item, CLASS_PROFILE, livedIn, reportWeek } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'phone layouts'); });
 
@@ -66,4 +66,44 @@ test('in a quiet class the run is counted beside the bar, with no pill', async (
   await fiveInARow(page);
   await expect(page.locator('.lesson-combo .combo-chip')).toHaveText(/^5\s*ברצף$/);
   await expect(page.locator('.combo-pop')).toHaveCount(0);
+});
+
+/** The enabled primary buttons on screen (Von Restorff: one standout action per view). */
+const primaries = (page) => page.evaluate(() => [...document.querySelectorAll('.btn-primary:not(:disabled):not([aria-disabled="true"])')]
+  .filter((e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[aria-hidden="true"]'); })
+  .map((e) => e.textContent.trim()));
+
+test('one standout action per screen: never two primary buttons in view (principle 15)', async ({ page }) => {
+  test.setTimeout(120_000);
+  for (const [route, state] of [['#/', livedIn()], ['#/quests', livedIn()], ['#/me', livedIn()], ['#/learn/coord/2', livedIn()], ['#/exams', livedIn()], ['#/rescue', livedIn()], ['#/report', reportWeek()], ['#/assistant', livedIn()], ['#/topic/signed', livedIn()], ['#/', null]]) {
+    await open(page, route, state);
+    expect((await primaries(page)).length, `${route}${state ? '' : ' (a first visit)'}: ${await primaries(page)}`).toBeLessThanOrEqual(1);
+  }
+  // the teacher's demo board, on each of its tabs
+  await open(page, '#/');
+  await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+  await page.getByRole('button', { name: 'לראות לוח לדוגמה, בלי הרשמה' }).click();
+  await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();
+  for (const tab of await page.getByRole('tab').all()) {
+    await tab.click();
+    expect((await primaries(page)).length, `teacher: ${await tab.textContent()}: ${await primaries(page)}`).toBeLessThanOrEqual(1);
+  }
+});
+
+test('the small links and names reach a 44px tap: the welcome screen\'s legal links, the teacher\'s student names (principle 12)', async ({ page }) => {
+  // a tap 4px above and below a link, and beside a short name, still lands on it (its invisible ::after)
+  const lands = (loc, dx, dy) => loc.evaluate((el, [x, y]) => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2 + x * (r.width / 2 + 6), r.top + r.height / 2 + y * (r.height / 2 + 4)); return el === hit || el.contains(hit); }, [dx, dy]);
+  await open(page, '#/', null);
+  const legal = page.locator('.hello-legal a').first();
+  await legal.scrollIntoViewIfNeeded();
+  expect(await lands(legal, 0, -1)).toBe(true);
+  expect(await lands(legal, 0, 1)).toBe(true);
+  await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+  await page.getByRole('button', { name: 'לראות לוח לדוגמה, בלי הרשמה' }).click();
+  await page.getByRole('tab', { name: 'תלמידים' }).click();
+  const name = page.locator('.t-table .link-btn').filter({ hasText: 'בן ת.' }).first();
+  await expect(name).toBeVisible();
+  await name.scrollIntoViewIfNeeded();
+  expect(await lands(name, 1, 0)).toBe(true);
+  expect(await lands(name, -1, 0)).toBe(true);
 });

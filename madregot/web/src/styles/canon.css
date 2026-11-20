@@ -746,6 +746,8 @@ a { color: var(--brand-d); }
 html:not([lang="ar"]) .lang-pick [lang="ar"] { font-family: system-ui, sans-serif; }
 .hello-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
 .hello-legal a { color: var(--ink-2); font-weight: 600; padding: 6px 0; min-height: 32px; }
+.hello-legal a { position: relative; }
+.hello-legal a::after { content: ''; position: absolute; inset: -5px -6px; } /* a 44px tall tap on a 34px link (ux-motion 12) */
 /* how to cancel, beside the cancel link (Consumer Protection Law s.14ט(ה)(2)) */
 .hello-legal-note { margin: calc(-1 * var(--s1)) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
 /* after "delete all" (trust spec TRUST-6 §4): one calm line on the front page, a check and the words, read out once */

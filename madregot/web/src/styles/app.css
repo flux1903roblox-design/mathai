@@ -440,7 +440,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .node-card { transform-origin: calc(50% + var(--x)) -10px; transition: opacity var(--duration-fast) var(--ease-smooth-out), scale var(--duration-fast) var(--ease-smooth-out), translate var(--duration-fast) var(--ease-smooth-out); }
 @starting-style { .node-card { opacity: 0; scale: 0.9; } }
 /* the wind-up before its lesson opens (ux-motion 2, Learn.jsx onStart): the card dips 4px and gives a little */
-.node-card.is-launching { translate: 0 var(--distance-micro); scale: 0.98; transition-duration: var(--duration-micro); }
+.node-card.is-launching { translate: 0 var(--distance-micro); scale: 0.98; transition-duration: var(--duration-press); }
 
 @media (prefers-reduced-motion: reduce) {
   .node-anchor.is-current, .node-halo, .node-mastered::after { animation: none !important; }

@@ -24,7 +24,7 @@ describe('motion lint (ux-motion)', () => {
 
   it('every exception says why, and a long animation is a moment, a loop or a pace set in code', () => {
     for (const [file, sel, why] of ALLOW) expect(why, `${file} ${sel}`).toMatch(/^(once|a loop|paced)/);
-    for (const [file, sel, h] of TARGETS) expect(h, `${file} ${sel}`).toBeLessThan(44);
+    for (const [file, sel, h, w] of TARGETS) expect(Math.min(h, w ?? Infinity), `${file} ${sel}`).toBeLessThan(44);
   });
 
   it('the tokens: closing is quicker than opening, the keypad is the quickest press, and leaving eases in', () => {

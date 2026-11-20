@@ -52,6 +52,8 @@ export const TARGETS = [
   ['app.css', '.lesson-top .tool', 40, 40], // the lesson's help buttons beside the progress bar (up to five on a 320 phone)
   ['app.css', 'details.sol summary', 32, null], // "רמז" and "פתרון ותשובה" under each exercise the tutor made
   ['lazy/lesson.css', '.hint-more', 24, 24], // "עוד" / "פחות" in the lesson's hint (24px tall beside it, .hint-side)
+  ['canon.css', '.hello-legal a', 34, null], // the welcome screen's privacy, accessibility and safety links
+  ['lazy/teacher.css', '.t-table .link-btn', 44, 28], // a student's name in the teacher's table: "בן ת." is 31px wide
 ];
 
 /** The durations a press may take (principles 1, 8, 20): a key, a button sinking onto its lip, a tile squashing. */
