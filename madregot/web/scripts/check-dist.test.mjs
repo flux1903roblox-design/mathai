@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TRACKERS, trackerIn, checkDist, arabicProblems } from './check-dist.mjs';
+import { TRACKERS, trackerIn, checkDist, arabicProblems, qaHookProblems } from './check-dist.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./check-dist.mjs', import.meta.url));
 // the app's own security headers (check-dist also refuses a build whose _headers lost one: scripts/headers.mjs)
@@ -85,6 +85,22 @@ describe('check-dist', () => {
     expect(arabicProblems(fixture({ 'index.html': meta('off') }), { arabic: true }).join('\n')).toMatch(/says Arabic is "off" in a build made with VITE_ARABIC on/);
     const cliOn = await run(process.execPath, [SCRIPT, on], { env: { PATH: process.env.PATH, VITE_ARABIC: 'on' } });
     expect(cliOn.stdout).toMatch(/is clean \(Arabic compiled in: VITE_ARABIC=on\)/);
+  });
+
+  it('refuses a build that a student could switch to show the answers (madregot-debug), unless it is a test build', async () => {
+    // the gate as the build that shipped until now compiled it (lib/qa.js read the device's flag in every build)
+    const leaky = { 'assets/Lesson-x.js': 'u.useEffect(()=>{let r=!1;try{r=r||!!localStorage.getItem("madregot-debug")}catch{}if(!r)return;window.__madregotItem=l})' };
+    const cli1 = await cli(fixture(leaky));
+    expect(cli1.code).toBe(1);
+    expect(cli1.out).toMatch(/assets\/Lesson-x\.js: the test hooks' switch \(madregot-debug\)/);
+    // the gate as a build that ships compiles it now: off, with nothing to turn it on
+    expect(qaHookProblems(fixture({ 'assets/index.js': 'function s1(){return!1}' }))).toEqual([]);
+    // the staging copy (VITE_QA_HOOKS=1) has its hooks on without a switch, so it holds none either
+    expect(qaHookProblems(fixture(leaky), { qa: '1' })).toHaveLength(1);
+    // a test build (VITE_QA_HOOKS=flag: the e2e builds) keeps the switch, and says so
+    expect(qaHookProblems(fixture(leaky), { qa: 'flag' })).toEqual([]);
+    const cliFlag = await run(process.execPath, [SCRIPT, fixture(leaky)], { env: { PATH: process.env.PATH, VITE_QA_HOOKS: 'flag' } });
+    expect(cliFlag.stdout).toMatch(/is clean.*\(a test build: VITE_QA_HOOKS=flag\)/);
   });
 
   it('still refuses a secret and a service worker that keeps a missing file', () => {

@@ -28,6 +28,11 @@ const ARABIC_ONLY = /arabic\.spec\.js/;
 /** The specs of a build other than the default one: the store build's and the Arabic build's. */
 const OTHER_BUILD = [IOS_ONLY, ARABIC_ONLY];
 
+// Every build the tests serve is a test build (VITE_QA_HOOKS=flag, lib/qa.js): its test hooks (the exercise on screen
+// with its answer, window.__madregotItem) turn on once a test sets localStorage 'madregot-debug' (helpers.js). A build
+// that ships has no such switch: a student who sets the flag there reads nothing.
+const QA_HOOKS = 'flag';
+
 const phone = (width, height) => ({ viewport: { width, height }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
 
 export default defineConfig({
@@ -53,7 +58,7 @@ export default defineConfig({
     // (COUNCIL2-33). wrangler.toml ships the pass with no price (the owner decides it), so the tests give the landing
     // build one of their own: ₪39, in the test environment only.
     env: {
-      VITE_API_URL: 'none', VITE_TEACHER_URL: 'https://example.test/',
+      VITE_API_URL: 'none', VITE_TEACHER_URL: 'https://example.test/', VITE_QA_HOOKS: QA_HOOKS,
       PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', BUSINESS_NAME: 'מדרגות (דוגמה)', API_BASE: 'https://api.madregot.test',
       BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off', LANDING_PRICE_PASS_AGOROT: '3900',
     },
@@ -64,7 +69,7 @@ export default defineConfig({
     // the iPhone store build, as store/ios builds it but with no server address (the tests answer with page.route)
     command: `npx vite build --base ./ --outDir dist-ios-test --emptyOutDir && npx vite preview --outDir dist-ios-test --port ${IOS_PORT} --strictPort --host 127.0.0.1`,
     cwd: '..',
-    env: { VITE_STORE: 'ios', VITE_API_URL: 'none' },
+    env: { VITE_STORE: 'ios', VITE_API_URL: 'none', VITE_QA_HOOKS: QA_HOOKS },
     url: `http://127.0.0.1:${IOS_PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
@@ -73,7 +78,7 @@ export default defineConfig({
     // test vars and stubs: no .dev.vars, no key, nothing leaves the machine
     command: `npx vite build --base ./ --outDir dist-contract --emptyOutDir && node ../worker/scripts/serve-local.mjs --port ${CONTRACT_PORT} --app dist-contract`,
     cwd: '..',
-    env: { VITE_API_URL: '/', VITE_TEACHER_URL: 'https://example.test/' },
+    env: { VITE_API_URL: '/', VITE_TEACHER_URL: 'https://example.test/', VITE_QA_HOOKS: QA_HOOKS },
     url: `http://127.0.0.1:${CONTRACT_PORT}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
@@ -81,7 +86,7 @@ export default defineConfig({
     // the app with Arabic in it (VITE_ARABIC=on), with no server, as the default build
     command: `npx vite build --base ./ --outDir dist-arabic-test --emptyOutDir && npx vite preview --outDir dist-arabic-test --port ${AR_PORT} --strictPort --host 127.0.0.1`,
     cwd: '..',
-    env: { VITE_ARABIC: 'on', VITE_API_URL: 'none', VITE_TEACHER_URL: 'https://example.test/' },
+    env: { VITE_ARABIC: 'on', VITE_API_URL: 'none', VITE_TEACHER_URL: 'https://example.test/', VITE_QA_HOOKS: QA_HOOKS },
     url: `http://127.0.0.1:${AR_PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

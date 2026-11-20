@@ -28,6 +28,7 @@ import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
 import PhotoPrep from '@/components/PhotoPrep.jsx';
 import { pdfPages, isPdf, pdfMessage, PDF_COPY } from '@/lib/pdfPages.js';
+import { qaOn } from '@/lib/qa.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/assistant.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
@@ -415,12 +416,10 @@ function Generate({ initialTopic, initialLevel }) {
     } catch (e) { setState(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message }); }
   };
   const short = state.phase === 'done' && state.stories < state.list.length;
-  // Test hook for automated checks, as in a lesson (QA builds, or localStorage 'madregot-debug'): the exercises' seeds,
+  // Test hook for automated checks, as in a lesson (only in a build made for testing, lib/qa.js): the exercises' seeds,
   // with their answers and diagnoses, as window.__madregotGen
   useEffect(() => {
-    let on = import.meta.env.VITE_QA_HOOKS === '1';
-    try { on = on || !!localStorage.getItem('madregot-debug'); } catch { /* storage blocked */ }
-    if (on) window.__madregotGen = state.phase === 'done' ? state.list.map((x) => x.seed) : null;
+    if (qaOn()) window.__madregotGen = state.phase === 'done' ? state.list.map((x) => x.seed) : null;
   }, [state]);
   return (
     <div className="stack">

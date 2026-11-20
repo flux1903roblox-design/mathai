@@ -362,11 +362,9 @@ export default function Lesson() {
 
   // Test hook for automated checks: the current exercise (with its answer) as window.__madregotItem and, for tools
   // that run their scripts in an isolated context and cannot see page variables, as JSON in <html data-qa-item>.
-  // On in a QA build (VITE_QA_HOOKS=1, the staging copy); elsewhere only with localStorage 'madregot-debug' set.
+  // Only in a build made for testing (lib/qa.js): never in a build that ships, so no student can read an answer here.
   useEffect(() => {
-    let on = import.meta.env.VITE_QA_HOOKS === '1';
-    try { on = on || !!localStorage.getItem('madregot-debug'); } catch { /* storage blocked */ }
-    if (!on) return undefined;
+    if (!qaOn()) return undefined;
     window.__madregotItem = item;
     // __madregotSolve(true) puts an interactive exercise in a right state, (false) in a near miss
     window.__madregotSolve = (ok = true) => {
