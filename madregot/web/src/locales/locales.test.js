@@ -27,7 +27,7 @@ export const CONVERTED = [
   'App.jsx', 'components/MathText.jsx', 'components/Shell.jsx', 'components/Screen.jsx', 'components/SheetDialog.jsx', 'components/ui.jsx', 'components/GradeSwitch.jsx',
   'content/support.js', 'components/SupportCard.jsx', 'components/SupportSheet.jsx', 'components/LangPick.jsx',
   'screens/Welcome.jsx', 'lib/placementRules.js', 'lib/quests.js', 'components/durable/FileRestore.jsx', 'components/durable/RestorePreview.jsx',
-  'screens/Learn.jsx', 'lib/path.js', 'learn/recommend.ts', 'learn/next.ts', 'learn/mission.ts', 'learn/mastery.ts', 'lib/classWork.js', 'lib/workDates.js',
+  'screens/Learn.jsx', 'lib/path.js', 'learn/recommend.ts', 'learn/next.ts', 'learn/mission.ts', 'learn/mastery.ts', 'learn/stairStatus.ts', 'lib/classWork.js', 'lib/workDates.js',
   'lib/wardrobe.js', 'components/durable/InstallSheet.jsx', 'components/durable/StorageBanner.jsx', 'components/durable/OfflineChip.jsx',
   'components/durable/BackupLine.jsx', 'components/learn/RepairCard.jsx', 'components/learn/NextBanner.jsx', 'components/limitCopy.js',
   'components/LimitSheet.jsx', 'lib/wipe.js', 'lib/durable/wipeSteps.js', 'lib/reminder.js', 'components/SharingSheet.jsx',

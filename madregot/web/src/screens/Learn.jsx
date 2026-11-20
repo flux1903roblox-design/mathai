@@ -9,6 +9,7 @@ import { schoolMonth } from '@/learn/programme.ts';
 import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote, journey } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lessonRules.js';
 import { MASTERY_N, checkWaits, PRACTICE_AGAIN } from '@/learn/mastery.ts';
+import { savedPlace } from '@/learn/stairStatus.ts';
 import PathNode from '@/components/PathNode.jsx';
 import StorageBanner from '@/components/durable/StorageBanner.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
@@ -106,7 +107,8 @@ function StairCard({ n, t, onStart, next }) {
       {lead && <p className="node-card-sub node-card-next">{tr('shell.learn.6')}<MathText text={lead.title} /></p>}
       {lead && <Button className="btn-block node-next-btn" onClick={() => onStart(lead.to)}>{tr('shell.learn.7')}</Button>}
       {n.state === 'current' && <p className="node-card-sub">{tr('shell.learn.8')}{STAGE_N[st]}{tr('shell.learn.9')}{STAGE_NAME[st]}{waits ? `. ${PRACTICE_AGAIN}` : ''}</p>}
-      {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={() => onStart(own)}>{rec?.taught?.A || n.parts ? tr('shell.learn.10') : tr('shell.learn.5')}</Button>}
+      {/* a lesson left in the middle (its place is kept, learn/stairStatus.ts) goes on, as a finished stage does */}
+      {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={() => onStart(own)}>{rec?.taught?.A || n.parts || savedPlace(rec) ? tr('shell.learn.10') : tr('shell.learn.5')}</Button>}
       {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.11')}</Button>}
       {mastered && <p className="node-card-sub">{tr('shell.learn.12')}</p>}
       {n.state === 'done' && !mastered && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `${tr('shell.learn.13')}${MASTERY_N}${tr('shell.learn.14')}`}</p>}
@@ -207,7 +209,7 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
             const here = node.state === 'current' && !node.preview && key === focusKey;
             return [
               <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
-                {node.state === 'current' && !node.preview && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 ? tr('shell.learn.10') : tr('shell.learn.5')}</span>}
+                {node.state === 'current' && !node.preview && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 || savedPlace(rec) ? tr('shell.learn.10') : tr('shell.learn.5')}</span>}
                 {isNext && !isOpen && <span className="node-start node-next" aria-hidden="true">{tr('shell.learn.42')}</span>}
                 <div className={clsx('node-anchor', node.state === 'current' && !node.preview && 'is-current')} data-stop={key}>
                   <PathNode

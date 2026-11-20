@@ -6,18 +6,21 @@
 // GUEST) is a new stair off the map: its banner says why in its reason line, since its unit is not on this map.
 import clsx from 'clsx';
 import { Sparkles } from 'lucide-react';
-import { KIND_ICON, KIND_LABEL } from '@/components/learn/TodayCard.jsx';
+import { KIND_ICON, KIND_LABEL, shownKind } from '@/components/learn/TodayCard.jsx';
+import { useApp } from '@/lib/store.js';
 import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 
 import { t } from '@/lib/i18n.js';
 export default function NextBanner({ item, onGo }) {
-  const Icon = KIND_ICON[item.kind] || Sparkles;
-  const label = item.kind === 'teacher' ? item.reason.replace(/\.$/, '') : KIND_LABEL[item.kind];
+  // a new stair left in the middle of its lesson shows as going on (TodayCard.jsx shownKind)
+  const kind = shownKind(item, useApp((s) => s.learn.skills[item.skill]));
+  const Icon = KIND_ICON[kind] || Sparkles;
+  const label = item.kind === 'teacher' ? item.reason.replace(/\.$/, '') : KIND_LABEL[kind];
   return (
     <section className="next-banner" aria-label={t('shell.nextbanner.1')} data-region="banner">
       <div className="next-banner-row">
-        <span className={clsx('quest-icon', `qk-${item.kind}`)} aria-hidden="true"><Icon size={22} /></span>
+        <span className={clsx('quest-icon', `qk-${kind}`)} aria-hidden="true"><Icon size={22} /></span>
         <div className="next-banner-text">
           <h2 className="next-banner-title"><MathText text={item.title} /></h2>
           <p className="next-banner-meta">{label} · {item.minutes}{t('shell.nextbanner.2')}</p>
