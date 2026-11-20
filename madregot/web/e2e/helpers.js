@@ -273,7 +273,12 @@ export const proceed = (page) => page.locator('section.fb .fb-actions .btn').cli
 /** Press on and wait until the next exercise (or an end screen) has replaced this one. */
 export async function proceedToNext(page, it) {
   await proceed(page);
-  await expect.poll(async () => (await page.locator('.done-screen, .combo-pop').count()) > 0 || (await item(page))?.key !== it.key).toBe(true);
+  // The next exercise never has this one's key (lib/lesson.js makes it with this key as the one to avoid), and the
+  // lesson's QA hook gives it to window.__madregotItem after the render that shows it. The "in a row" pop comes in
+  // that same render, before the hook has run, so it is not a sign that the next exercise can be read: on a slow
+  // machine the next answer() read and solved the exercise before, and the check stayed disabled (the deploy run of
+  // b4beba3 on GitHub, twice; here with the CPU slowed six times). The pop goes by the tests' locator handlers.
+  await expect.poll(async () => (await page.locator('.done-screen').count()) > 0 || (await item(page))?.key !== it.key).toBe(true);
 }
 
 /** The page itself never scrolls sideways. */
