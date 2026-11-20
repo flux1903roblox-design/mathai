@@ -249,19 +249,37 @@ export function next(s) {
   return notePi(nextOf(s));
 }
 
+/** Draws of a new question that may land on one already asked in the lesson before it is taken all the same. */
+const UNSEEN_DRAWS = 12;
+/**
+ * A question not yet asked in this lesson or check: `draw` again while its key is one of `seen` (the generators only
+ * avoid the question just before). A check counts each answer once, so the same question twice counted one right
+ * answer twice; a stair with very few questions still gets one after UNSEEN_DRAWS tries.
+ */
+function unseen(draw, seen) {
+  let it = draw();
+  for (let i = 0; i < UNSEEN_DRAWS && seen.includes(it.key); i += 1) it = draw();
+  return it;
+}
+
 function nextOf(s) {
   if (s.kind === 'placement') return placementNext(s);
   if (s.kind === 'jump' && s.failed) return { ...s, finished: true };
   const slot = s.slot + 1;
   const fresh = { attempt: 1, hint: false, helped: false, phase: 'answer', wrong: [], itemStartedAt: Date.now() };
+  // the keys of the questions asked so far (a redo is a similar question on purpose, and is not one of them)
+  const seen = s.item.redo ? (s.seen || []) : [...(s.seen || []), s.item.key];
   if (s.kind === 'check') {
     if (slot >= s.plan.length) return { ...s, finished: true };
     // a wrong answer belongs to its own question: a choice missed in one is not marked or locked in the next
     if (s.fixedItems) return { ...s, ...fresh, slot, item: s.fixedItems[slot] };
     const q = s.plan[slot];
-    return { ...s, ...fresh, slot, item: itemFor(q.skill, q.source, Math.random, s.item.key, q.candidates, { test: true }) };
+    return { ...s, ...fresh, slot, seen, item: unseen(() => itemFor(q.skill, q.source, Math.random, s.item.key, q.candidates, { test: true }), seen) };
   }
-  if (slot < s.levels.length) return { ...s, ...fresh, slot, item: s.kind === 'jump' ? jumpItem(s.topic, s.levels[slot], slot, s.item.key) : practiceItem(s.topic, s.levels[slot], slot, s.item.key) };
+  if (slot < s.levels.length) {
+    const item = unseen(() => (s.kind === 'jump' ? jumpItem(s.topic, s.levels[slot], slot, s.item.key) : practiceItem(s.topic, s.levels[slot], slot, s.item.key)), seen);
+    return { ...s, ...fresh, slot, seen, item };
+  }
   if (s.probes?.length) {
     // the question that tells two possible misconceptions apart
     const [pr, ...rest] = s.probes;

@@ -104,3 +104,57 @@ describe('runAI without a stream', () => {
     expect(await runAI('explain', { question: '1+1' })).toEqual({ text: 'הסבר', care: false });
   });
 });
+
+// The audit (stage 4): nothing limited how long the tutor waits. A phone that loses its connection in the middle of a
+// request can leave fetch waiting with no error, and the server's call to Claude waits up to the SDK's 10 minutes (and
+// tries twice more), so the child saw "thinking" with no word of what happened. Chat, explain and feedback now stop
+// waiting and say so in Hebrew; the photo checks and exams, which take minutes by nature, are not limited here.
+describe('runAI when the server does not answer', () => {
+  /** A fetch that never answers, and fails as a real fetch does when its signal is aborted. */
+  const hanging = () => vi.fn((url, init = {}) => new Promise((_, reject) => {
+    init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+  }));
+  /** A fetch whose streamed reply starts and then stops coming, without closing. */
+  const stalled = (first) => vi.fn(async () => new Response(new ReadableStream({
+    start(c) { c.enqueue(new TextEncoder().encode(first)); },
+  }), { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }));
+  /** Where a promise stands after the fake clock moved: pending, or what it settled with. */
+  const watch = (p) => { const w = { state: 'pending' }; p.then((v) => { w.state = 'resolved'; w.value = v; }, (e) => { w.state = 'rejected'; w.error = e; }); return w; };
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('a chat, an explanation and feedback stop waiting and say so in Hebrew, and not in the first minute', async () => {
+    for (const [kind, opts] of [['chat', { onText: () => {} }], ['explain', {}], ['feedback', {}]]) {
+      vi.stubGlobal('fetch', hanging());
+      const w = watch(runAI(kind, { messages: [{ role: 'user', content: 'איך מתחילים?' }] }, opts));
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(w.state, `${kind} after a minute`).toBe('pending');
+      await vi.advanceTimersByTimeAsync(4 * 60_000);
+      expect(w.state, `${kind} after five minutes`).toBe('rejected');
+      expect(w.error.code).toBe('timeout');
+      expect(w.error.message).toMatch(/העוזר לא ענה/);
+      expect(w.error.message).toMatch(/נסו שוב/);
+    }
+  });
+  it('a streamed chat that stops coming in the middle stops waiting too, with the same words', async () => {
+    vi.stubGlobal('fetch', stalled('נתחיל '));
+    const shown = [];
+    const w = watch(runAI('chat', { messages: [{ role: 'user', content: 'איך מתחילים?' }] }, { onText: (t) => shown.push(t) }));
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(shown).toContain('נתחיל ');
+    expect(w.state).toBe('rejected');
+    expect(w.error.code).toBe('timeout');
+  });
+  it('closing the chat is still an abort, not a timeout; a photo check is not limited here', async () => {
+    vi.stubGlobal('fetch', hanging());
+    const ctrl = new AbortController();
+    const w = watch(runAI('chat', { messages: [{ role: 'user', content: 'היי' }] }, { onText: () => {}, signal: ctrl.signal }));
+    ctrl.abort();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(w.state).toBe('rejected');
+    expect(w.error.name).toBe('AbortError');
+    const check = watch(runAI('check', { image: 'x' }));
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(check.state).toBe('pending');
+  });
+});
