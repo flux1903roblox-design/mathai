@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { findMotionProblems, styleFiles, tokenTimes, rules, ALLOW, TARGETS } from '../../scripts/check-motion.mjs';
+import { findMotionProblems, styleFiles, tokenTimes, rules, ALLOW, TARGETS, PRESS } from '../../scripts/check-motion.mjs';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const read = (f) => readFileSync(path.join(here, f), 'utf8');
@@ -33,6 +33,12 @@ describe('motion lint (ux-motion)', () => {
     expect(t['--duration-micro']).toBeLessThanOrEqual(100);
     expect(t['--duration-quick']).toBeLessThanOrEqual(150);
     expect(t['--duration-slow']).toBeLessThanOrEqual(400);
+    // a press: 100 to 150ms for a button sinking onto its lip, 80 to 150ms for a squash (principles 1 and 8)
+    expect(t['--duration-press']).toBeGreaterThanOrEqual(100);
+    expect(t['--duration-press']).toBeLessThanOrEqual(150);
+    expect(t['--duration-squash']).toBeGreaterThanOrEqual(80);
+    expect(t['--duration-squash']).toBeLessThanOrEqual(150);
+    expect(t['--duration-tap']).toBeLessThan(t['--duration-press']);
     expect(read('tokens.css')).toMatch(/--ease-in: cubic-bezier\(0\.7, 0, 0\.84, 0\);/);
   });
 
@@ -46,10 +52,29 @@ describe('motion lint (ux-motion)', () => {
   it('the keypad and the check button answer a tap at once: no keyframes, a press of 60 to 80ms (principle 20)', () => {
     const app = read('app.css');
     expect(app).toMatch(/\.keypad \.key \{[^}]*transition: transform var\(--duration-tap\) var\(--ease-out\), box-shadow var\(--duration-tap\) var\(--ease-out\);/);
-    expect(app).toMatch(/\.btn \{[^}]*transition: transform var\(--duration-micro\) var\(--ease-out\)/);
+    expect(app).toMatch(/\.btn \{[^}]*transition: transform var\(--duration-press\) var\(--ease-out\)/);
+    // the check button and the feedback's button take the keypad's speed, not a button's
+    expect(read('canon.css')).toMatch(/\.check-btn, \.fb-actions \.btn \{ transition-duration: var\(--duration-tap\); \}/);
     // the press is a transition (retargets at once); a keyframe would replay on every tap
     const pressed = rules().filter((r) => /\.(key|keypad|check-btn|btn)(?![\w-])/.test(r.selector) && /(?<![-\w])animation\s*:\s*(?!none)/.test(r.body));
     expect(pressed.map((r) => `${r.file}:${r.line} ${r.selector}`)).toEqual([]);
+  });
+
+  it('one press: a tile, a stop and a switch\'s knob squash by the tokens, from their bottom edge; text never takes the full squash (principles 1, 8)', () => {
+    const app = read('app.css'); const canon = read('canon.css'); const tokens = read('tokens.css');
+    expect(tokens).toMatch(/--squash: 1\.04 0\.96;/);
+    expect(tokens).toMatch(/--squash-soft: 1\.02 0\.98;/);
+    // under reduced motion a press only sinks
+    expect(tokens).toMatch(/prefers-reduced-motion: reduce\) \{\s*:root \{ --squash: none; --squash-soft: none; --squash-knob: none; \}/);
+    expect(app).toMatch(/\.lesson \.choice:active:not\(:disabled\) \{ transform: translateY\(4px\); scale: var\(--squash-soft\);/);
+    expect(app).toMatch(/\.ob-opt:active \{ transform: translateY\(4px\); scale: var\(--squash-soft\);/);
+    expect(canon).toMatch(/\.node:active \{ transform: translateY\(var\(--lip\)\); scale: var\(--squash\);/);
+    expect(canon).toMatch(/\.ls-choice:active:not\(:disabled\) \{ transform: translateY\(4px\); scale: var\(--squash-soft\);/);
+    expect(canon).toMatch(/input\[role="switch"\]:active:not\(:disabled\)::after \{ scale: var\(--squash-knob\); \}/);
+    // every press in the app moves in a press token (the lint): none left on --duration-micro
+    const micro = rules().filter((r) => /transition/.test(r.body) && /--duration-micro/.test(r.body));
+    expect(micro.map((r) => `${r.file}:${r.line} ${r.selector}`)).toEqual([]);
+    expect(PRESS).toEqual(['--duration-tap', '--duration-press', '--duration-squash']);
   });
 
   it('catches each rule on a made-up stylesheet, and lets the right things pass', () => {
@@ -57,7 +82,7 @@ describe('motion lint (ux-motion)', () => {
     mkdirSync(path.join(dir, 'lazy'));
     writeFileSync(path.join(dir, 'tokens.css'), [
       ':root { --duration-quick: 150ms; --duration-slow: 400ms; }',
-      '@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }',
+      '@media (prefers-reduced-motion: reduce) { :root { --squash: none; --squash-soft: none; --squash-knob: none; } *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }',
     ].join('\n'));
     writeFileSync(path.join(dir, 'a.css'), [
       '.press { transition: transform 80ms ease-out; }', // 8: a number typed in place
@@ -75,6 +100,14 @@ describe('motion lint (ux-motion)', () => {
       '.tiny { width: 32px; height: 32px; }', // 12: listed, no hit area
       '.padded { width: 40px; height: 40px; position: relative; }',
       '.padded::after { content: ""; position: absolute; inset: -2px; }',
+      '.lip { transition: transform var(--duration-press) var(--ease-out); }',
+      '.lip:active { transform: translateY(4px); }', // fine: sinks in a press token
+      '.snap:active:not(:disabled) { transform: translateY(2px); }', // 8: moves with no press transition
+      '.tile { transition: transform var(--duration-squash) ease-out, scale var(--duration-squash) ease-out; }',
+      '.tile:active { scale: var(--squash); }', // 1: the full squash on a tile with text
+      '.node { transition: transform var(--duration-squash) ease-out, scale var(--duration-squash) ease-out; }',
+      '.node:active { scale: 0.9; }', // 1: a number of its own
+      '.lm .tile:active { transform: translateY(2px) scale(0.98); }', // 1: a scale in the transform (its transition is .tile's)
     ].join('\n'));
     const targets = [['a.css', '.tiny', 32, 32], ['a.css', '.padded', 40, 40], ['a.css', '.gone', 30, 30]];
     const { bad, stale } = findMotionProblems(styleFiles(dir), dir, { allow: [['a.css', '.nothing', 'once: gone']], targets });
@@ -88,6 +121,10 @@ describe('motion lint (ux-motion)', () => {
       '#5 a.css:3 .fade',
       '#8 a.css:1 .press',
       '#8 a.css:9 .hop',
+      '#8 a.css:18 .snap:active:not(:disabled)',
+      '#1 a.css:20 .tile:active',
+      '#1 a.css:22 .node:active',
+      '#1 a.css:23 .lm .tile:active',
     ].sort());
     expect(stale).toEqual(['ALLOW a.css .nothing', 'TARGETS a.css .gone']);
   });
@@ -96,6 +133,7 @@ describe('motion lint (ux-motion)', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'motion-'));
     writeFileSync(path.join(dir, 'tokens.css'), ':root { --duration-quick: 150ms; }\n');
     const { bad } = findMotionProblems(styleFiles(dir), dir, { allow: [], targets: [] });
-    expect(bad.map((b) => `#${b.rule} ${b.file}`)).toEqual(['#20 tokens.css']);
+    expect(bad.map((b) => `#${b.rule} ${b.file}`)).toEqual(['#20 tokens.css', '#20 tokens.css', '#20 tokens.css', '#20 tokens.css']);
+    expect(bad.map((b) => b.text).join('\n')).toMatch(/--squash is not none under reduced motion/);
   });
 });

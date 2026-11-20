@@ -10,6 +10,9 @@
 //   20 reduced motion: tokens.css stops every animation and transition, and each stylesheet that moves something with
 //      @keyframes names it again in its own prefers-reduced-motion block
 //   12 Fitts: the small buttons listed in TARGETS reach 44px with an invisible ::after around them
+//   1, 8 one press: whatever moves while pressed (:active) moves in a press token (--duration-tap, --duration-press or
+//      --duration-squash), set on the thing itself; a squash (scale) is a --squash token, the full one only on things
+//      that carry no text (a stop, the gift, a switch's knob), and reduced motion sets every --squash token to none
 // An ALLOW or TARGETS entry nothing uses any more fails too. Run: npm run lint:motion (motion.test.js runs it).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -48,6 +51,11 @@ export const TARGETS = [
   ['app.css', 'details.sol summary', 32, null], // "רמז" and "פתרון ותשובה" under each exercise the tutor made
   ['lazy/lesson.css', '.hint-more', 24, 24], // "עוד" / "פחות" in the lesson's hint (24px tall beside it, .hint-side)
 ];
+
+/** The durations a press may take (principles 1, 8, 20): a key, a button sinking onto its lip, a tile squashing. */
+export const PRESS = ['--duration-tap', '--duration-press', '--duration-squash'];
+/** What may take the full squash: pressable things with no text on them (principle 1: never squash text or numbers). */
+export const SQUASH_FULL = /\.node\b|\.chest\b|role="switch"/;
 
 const NEED = 44;
 const CLOSE_MAX = 150; // ms: principle 18, close in 100 to 150ms
@@ -223,6 +231,32 @@ export function findMotionProblems(files = styleFiles(), root = STYLES, { allow 
       return h + t + b >= NEED && (w == null || w + x + l >= NEED);
     }) && pad.some((r) => /content\s*:/.test(r.body) && /position\s*:\s*absolute/.test(r.body));
     if (!ok) bad.push({ rule: 12, file, line: (all.find((r) => r.file === file && r.selector.includes(sel)) || {}).line || 1, selector: sel, text: `a ${h}px button with no ${NEED}px hit area (${sel}::after)` });
+  }
+
+  // 1, 8: one press. What an :active rule moves has a transition in a press token on the thing itself (the rule's
+  // selector without :active and :not(), or one that ends with it); a squash is a --squash token
+  const plain = (sel) => sel.replace(/:active/g, '').replace(/:not\((?:[^()]|\([^()]*\))*\)/g, '').trim();
+  const moves = (prop) => prop === 'transform' || prop === 'scale' || prop === 'translate';
+  const pressTimed = (body, prop) => decls(body).some((d) => (d.prop === 'transition' && items(d.value).some((it) => new RegExp(`^(${prop}|all)\\b`).test(it) && PRESS.some((t) => it.includes(`var(${t})`))))
+    || (d.prop === 'transition-duration' && PRESS.some((t) => d.value.includes(`var(${t})`))));
+  for (const r of all) {
+    if (r.inReduced || !r.selector.includes(':active')) continue;
+    for (const { prop, value } of decls(r.body)) {
+      if (!moves(prop) || /^none\b/.test(value)) continue;
+      for (const sel of r.selector.split(',').map((x) => x.trim()).filter((x) => x.includes(':active'))) {
+        const base = plain(sel);
+        const timed = all.some((q) => !q.inReduced && !q.selector.includes(':active') && q.selector.split(',').map((x) => x.trim()).some((x) => x === base || x.endsWith(` ${base}`) || (x.startsWith('.') && base.endsWith(` ${x}`)))
+          && (pressTimed(q.body, prop) || (prop === 'scale' && pressTimed(q.body, 'transform') && pressTimed(q.body, 'scale'))));
+        if (!timed) push(8, { ...r, selector: sel }, `${prop}: ${value} while pressed, with no transition in ${PRESS.join(' / ')} on ${base}`);
+        if (prop === 'scale' && !/^var\(--squash(-soft|-knob)?\)$/.test(value)) push(1, { ...r, selector: sel }, `scale: ${value}: a press squashes by a --squash token`);
+        if (prop === 'scale' && /--squash\)/.test(value) && !SQUASH_FULL.test(sel)) push(1, { ...r, selector: sel }, `the full squash on ${sel}, which carries text: use --squash-soft`);
+        if (prop === 'transform' && /scale/.test(value)) push(1, { ...r, selector: sel }, `transform: ${value}: a press sinks (translate) and squashes by a --squash token, never a scale of its own`);
+      }
+    }
+  }
+  const tok = all.filter((r) => r.file === 'tokens.css' && r.inReduced && r.selector === ':root').flatMap((r) => decls(r.body));
+  for (const name of ['--squash', '--squash-soft', '--squash-knob']) {
+    if (!tok.some((d) => d.prop === name && d.value === 'none')) bad.push({ rule: 20, file: 'tokens.css', line: 1, selector: ':root', text: `${name} is not none under reduced motion` });
   }
 
   const stale = [

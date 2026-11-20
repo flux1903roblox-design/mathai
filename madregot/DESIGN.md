@@ -358,7 +358,7 @@ The system is flat. Cards, rows, headers and panels have no soft shadow; depth i
 - **Backdrop** (`rgba(20,22,26,.45)`): behind sheets and dialogs.
 
 ### Named Rules
-**The Lipped Press Rule.** Something that can be pressed stands on a solid lip of its own darker tone; on press it moves down by the lip's height and the lip goes to zero, in 80ms. Something that cannot be pressed does not get a lip.
+**The Lipped Press Rule.** Something that can be pressed stands on a solid lip of its own darker tone; on press it moves down by the lip's height and the lip goes to zero, in 100ms (`--duration-press`). A tile, a segment, a stop on the path, the gift and a switch's knob also squash a little as they go down, from the edge they stand on (`--squash` 1.04 × 0.96 in `--duration-squash`, 120ms; a tile with maths or words on it half that, `--squash-soft`); text, numbers and data never squash. The most-used controls only sink, in 60ms (`--duration-tap`): the keypad, "בדיקה", the feedback's button and the help buttons. Under reduced motion a press only sinks. `npm run lint:motion` holds every press to these tokens. Something that cannot be pressed does not get a lip.
 
 **The Flat Card Rule.** Cards never carry a soft shadow. Only floating layers (popover, sheet) do.
 

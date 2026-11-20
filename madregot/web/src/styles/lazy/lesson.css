@@ -97,6 +97,7 @@
   background: color-mix(in srgb, var(--paper) 88%, transparent); border: 2px solid var(--rule); box-shadow: 0 2px 0 var(--rule-press);
 }
 .fig-zoom:active { transform: translateY(2px); box-shadow: none; }
+.fig-zoom { transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-press) var(--ease-out); }
 @media (max-width: 899px) {
   .fig-zoom { display: inline-flex; }
 }

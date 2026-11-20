@@ -5,6 +5,7 @@
 .chest-choice-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
 .chest-opt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 120px; padding: var(--s3) var(--s2) 10px; border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer; box-shadow: 0 4px 0 var(--rule); -webkit-tap-highlight-color: transparent; }
 .chest-opt:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--rule); }
+.chest-opt { transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-press) var(--ease-out); }
 .chest-opt:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
 .chest-opt.is-picked { border-color: var(--brand); box-shadow: 0 4px 0 var(--brand-lip); }
 .chest-opt:disabled:not(.is-picked) { opacity: 0.55; cursor: default; box-shadow: none; }

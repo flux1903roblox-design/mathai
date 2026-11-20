@@ -134,7 +134,7 @@
 .exam-cta {
   display: flex; align-items: center; gap: var(--s3); width: 100%; text-align: start; padding: var(--s3) var(--s4); border-radius: var(--r-m); cursor: pointer;
   background: var(--surface); border: 2px solid var(--line); box-shadow: 0 4px 0 var(--line); color: var(--ink);
-  transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out);
+  transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-press) var(--ease-out);
 }
 .exam-cta:active { transform: translateY(4px); box-shadow: 0 0 0 var(--line); }
 .exam-cta-icon { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; }
@@ -497,7 +497,7 @@ a { color: var(--brand-d); }
 .node-slot.is-review { width: 104px; height: 104px; }
 .node { --face: 68px; --lip: 6px; width: var(--face); height: var(--face); border-radius: 50%; border: 0;
   background: var(--face-c); color: var(--on-brand); box-shadow: 0 var(--lip) 0 var(--edge); }
-.node:active { transform: translateY(var(--lip)); box-shadow: 0 0 0 var(--edge); }
+.node:active { transform: translateY(var(--lip)); scale: var(--squash); box-shadow: 0 0 0 var(--edge); }
 .node-glyph { width: 30px; height: 30px; filter: none; }
 .node-current { --face: 76px; --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: var(--on-brand); }
 .node-done { --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: var(--on-brand); }
@@ -530,9 +530,10 @@ a { color: var(--brand-d); }
 .node-card .btn-secondary { --btn-bg: var(--surface); --btn-ink: var(--brand-d); --btn-line: var(--rule); --btn-lip: var(--rule-press); background: var(--surface); color: var(--brand-d); }
 .node-card .btn-ghost { color: var(--brand-d); }
 
-.chest { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--track); color: var(--ink-3); box-shadow: 0 6px 0 var(--track-edge); margin-bottom: 6px; }
+.chest { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--track); color: var(--ink-3); box-shadow: 0 6px 0 var(--track-edge); margin-bottom: 6px;
+  transform-origin: 50% 100%; transition: transform var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out); }
 .chest.is-open { background: var(--gold); color: var(--on-gold-ink); box-shadow: 0 6px 0 var(--gold-d); }
-.chest:active { transform: translateY(6px); box-shadow: 0 0 0 transparent; }
+.chest:active { transform: translateY(6px); scale: var(--squash); box-shadow: 0 0 0 transparent; }
 .chest:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 6px; }
 .jump-current { background: var(--surface); color: var(--brand-ink); border: 2px solid var(--rule); box-shadow: 0 4px 0 var(--rule-press); }
 .jump-current { inset-inline-start: auto; inset-inline-end: max(var(--s4), env(safe-area-inset-left, 0px)); }
@@ -911,6 +912,7 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .support-links { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
 .support-link { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: var(--s2) var(--s3); border: 2px solid var(--rule); border-bottom-width: 4px; border-bottom-color: var(--rule-press); border-radius: 14px; background: var(--surface); color: var(--brand-d); font-weight: 700; font-size: 1rem; line-height: 1.375; text-decoration: none; }
 .support-link:active { border-bottom-width: 2px; transform: translateY(2px); }
+.support-link { transition: transform var(--duration-press) var(--ease-out), border-bottom-width var(--duration-press) var(--ease-out); }
 /* the first number in the card's head (under a message): on a 320 phone it is on the screen without scrolling */
 .support-quick { align-self: flex-start; margin-block: var(--s1); }
 .support-link svg { flex: none; color: var(--brand); }
@@ -1360,7 +1362,7 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
    rows stay calm), and it sinks onto its lip when pressed, like every other pressable thing */
 .unit-row-btn { --row-line: color-mix(in srgb, var(--c, var(--brand)) 30%, var(--surface)); --row-lip: color-mix(in srgb, var(--c, var(--brand)) 50%, var(--surface));
   display: flex; align-items: center; gap: var(--s3); width: 100%; min-height: 64px; padding: var(--s2) var(--s3); border: 2px solid var(--row-line); border-radius: 16px; background: var(--surface); color: var(--ink); box-shadow: 0 4px 0 var(--row-lip); font: inherit; text-align: start; cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out); }
+  transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-press) var(--ease-out); }
 .unit-row-btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--row-lip); }
 .unit-row-btn:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
 .unit-row .emblem { width: 44px; height: 44px; border-radius: 14px; background: var(--c-tint, var(--brand-tint)); box-shadow: none; }
@@ -1422,3 +1424,17 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
   .learn-top { flex-wrap: wrap; height: auto; row-gap: 0; padding-bottom: var(--s1); position: relative; }
   .unit-head { top: env(safe-area-inset-top, 0px); }
 }
+
+/* ------------------------------------------------------------------ the press (ux-motion 1, 8, 10, 20) */
+/* One press for the whole app: a button sinks onto its lip in --duration-press (app.css .btn). A tile, a segment, a stop
+   on the path, the gift and a switch's knob also squash as they go down, from the edge they stand on (tokens.css
+   --squash), in --duration-squash. The most-used controls only sink, and at once (--duration-tap): the keypad, "בדיקה",
+   the feedback's button and the help buttons beside the bar. Text, numbers and data never squash. */
+.check-btn, .fb-actions .btn { transition-duration: var(--duration-tap); }
+.ls-choice { transform-origin: 50% 100%; transition: transform var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out), border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out); }
+.ls-choice:active:not(:disabled) { transform: translateY(4px); scale: var(--squash-soft); box-shadow: 0 0 0 transparent; }
+.lm .ls-choice:active:not(:disabled) { transform: translateY(3px); }
+.tool:active:not(:disabled) { background: var(--ground); }
+.chest svg, .node-slot.has-ring .node-current::before { transition: transform var(--duration-squash) var(--ease-out); }
+:is(.save-switch, .report-email) input[role="switch"]::after { transition: inset-inline-start var(--duration-quick) var(--ease-out), scale var(--duration-squash) var(--ease-out); }
+:is(.save-switch, .report-email) input[role="switch"]:active:not(:disabled)::after { scale: var(--squash-knob); }
