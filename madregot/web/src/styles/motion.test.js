@@ -172,6 +172,13 @@ describe('motion lint (ux-motion)', () => {
     for (const f of ['teacher/TomorrowTab.jsx', 'teacher/WorkTab.jsx', 'teacher/HelpTab.jsx', 'teacher/Library.jsx']) expect(screen(f), f).toMatch(/className="[^"]*\bcascade\b/);
   });
 
+  it('a wait shows at once, and past 400ms a bar runs under it (principle 16)', () => {
+    const canon = read('canon.css');
+    expect(canon).toMatch(/\.loading-bar \{[^}]*opacity: 0; animation: loading-show var\(--duration-fast\) var\(--ease-out\) var\(--duration-slow\) forwards; \}/);
+    expect(tokenTimes()['--duration-slow']).toBe(400);
+    expect(readFileSync(path.join(here, '../components/Screen.jsx'), 'utf8')).toMatch(/<span className="loading-bar" aria-hidden="true"><i \/><\/span>/);
+  });
+
   it('wants the global reduced-motion rule in tokens.css', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'motion-'));
     writeFileSync(path.join(dir, 'tokens.css'), ':root { --duration-quick: 150ms; }\n');

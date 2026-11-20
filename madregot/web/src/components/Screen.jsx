@@ -90,11 +90,16 @@ export function ConfirmSheet({ open, onOpenChange, title, children, keep = t('sh
 }
 
 /** While a screen's code loads: מדי in the middle, one line. */
+/**
+ * A screen on its way (a part of the app loading, a lesson's teaching file, the teacher's class): מדי thinking and what
+ * is loading, at once; a wait past 400ms also shows a bar running under the words, so it never looks stuck (ux-motion 16).
+ */
 export function LoadingState({ text = t('shell.screen.3') }) {
   return (
     <div className="page loading-state" role="status" aria-live="polite">
       <Mascot mood="thinking" size={96} />
       <p className="loading-text">{text}</p>
+      <span className="loading-bar" aria-hidden="true"><i /></span>
     </div>
   );
 }

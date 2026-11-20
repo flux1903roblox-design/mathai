@@ -364,6 +364,12 @@
 .confirm-text p { margin: 0; }
 .loading-state { min-height: 60dvh; align-items: center; justify-content: center; text-align: center; gap: var(--s3); }
 .loading-text { margin: 0; color: var(--ink-2); font-weight: 600; }
+/* past 400ms of waiting, a bar runs under the words (ux-motion 16: a wait never looks stuck); still under reduced motion */
+.loading-bar { display: block; width: 160px; height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; opacity: 0; animation: loading-show var(--duration-fast) var(--ease-out) var(--duration-slow) forwards; }
+.loading-bar i { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--brand); animation: loading-run var(--think-shimmer) linear infinite; }
+@keyframes loading-show { to { opacity: 1; } }
+@keyframes loading-run { from { translate: -100% 0; } to { translate: 250% 0; } }
+@media (prefers-reduced-motion: reduce) { .loading-bar { animation: none; opacity: 1; } .loading-bar i { animation: none; margin-inline: auto; } }
 .error-screen { justify-content: space-between; }
 /* On a tablet or a computer a short pushed screen does not stretch to the bottom: its one button follows the content
    (still sticky when the content is long), so there is no empty field between the question and the button. */
