@@ -16,7 +16,9 @@ describe('tiltAt', () => {
 
   it('the card leans with a 1000px perspective, comes back quickly, and the lesson has no tilt', () => {
     const css = readFileSync(new URL('../styles/lazy/journey.css', import.meta.url), 'utf8');
-    expect(css).toMatch(/\.journey-head \{ transform: perspective\(1000px\) rotateX\(var\(--tilt-x, 0deg\)\) rotateY\(var\(--tilt-y, 0deg\)\); transition: transform var\(--duration-quick\) var\(--ease-out\); \}/);
+    expect(css).toMatch(/\.journey-head \{ transition: transform var\(--duration-quick\) var\(--ease-out\); \}/);
+    // only while a pointer leans it: a card nobody hovers is drawn exactly as before
+    expect(css).toMatch(/\.journey-head\.is-tilting \{ transform: perspective\(1000px\) rotateX\(var\(--tilt-x, 0deg\)\) rotateY\(var\(--tilt-y, 0deg\)\); \}/);
     expect(readFileSync(new URL('../screens/Journey.jsx', import.meta.url), 'utf8')).toMatch(/useTilt\(headRef\)/);
     expect(readFileSync(new URL('../screens/Lesson.jsx', import.meta.url), 'utf8')).not.toMatch(/useTilt|tilt-x/);
   });

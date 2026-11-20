@@ -55,4 +55,5 @@
 .jstage.current { background: none; border: 0; box-shadow: none; }
 .jstage-text { flex: 1; min-width: 0; }
 /* it leans toward a hovering mouse or pen, up to 8° (lib/tilt.js; ux-motion 10) */
-.journey-head { transform: perspective(1000px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); transition: transform var(--duration-quick) var(--ease-out); }
+.journey-head { transition: transform var(--duration-quick) var(--ease-out); }
+.journey-head.is-tilting { transform: perspective(1000px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); }
