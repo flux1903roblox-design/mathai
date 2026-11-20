@@ -153,6 +153,13 @@ describe('the precise rule (items marked precise: true)', () => {
     [-4 / 3, '-1.3333', true], [-4 / 3, '-1.333', true], [-4 / 3, '-1.334', false], [-4 / 3, '-1.3334', false],
     [16 / 3, '5 1/3', true], [16 / 3, '5.33', true], [16 / 3, '5.3', false],
     [2.5, '2.5', true], [2.5, '2 1/2', true], [2.5, '2.51', false],
+    // math7 oracle: answers whose two-place rounding ends in 0 (19/21 is 0.90, −8/27 is −0.30, 16/81 is 0.20, 7/23 is
+    // 0.30, 23/21 is 1.10). The question says "rounded to two places", so 0.90 is right, and 0.9 too: the same number
+    // with its last zero left off. A wrong rounding (0.91, −0.29, 1.09) and a cut-off decimal (0.19 for 0.1975…) are not.
+    [19 / 21, '0.90', true], [19 / 21, '0.9', true], [19 / 21, '0.905', true], [19 / 21, '0.904', false], [19 / 21, '0.91', false], [19 / 21, '0.8', false],
+    [-8 / 27, '-0.30', true], [-8 / 27, '-0.3', true], [-8 / 27, '-0.29', false],
+    [16 / 81, '0.20', true], [16 / 81, '0.19', false], [7 / 23, '0.30', true],
+    [23 / 21, '1.10', true], [23 / 21, '1.1', true], [23 / 21, '1.09', false], [2 / 21, '0.10', true],
   ];
   it.each(TABLE)('answer %d, typed %s: right is %s', (a, typed, right) => {
     expect(typedRight(num(a, { precise: true }), typed)).toBe(right);

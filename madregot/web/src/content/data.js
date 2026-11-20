@@ -32,7 +32,7 @@
 //   draws-as-count   the times a colour came out taken as the number of balls (critique)
 //   small-sample     a few trials taken as the probability (Tversky & Kahneman 1971)
 //   count-as-pct, div-by-pct, pct-of-part, stop-at-one, inverse-ratio   pct's ids and meanings (content/pct.js)
-import { shuffle, listMath, countOf } from './util.js';
+import { shuffle, listMath, countOf, twoPlaces } from './util.js';
 import { diagOf } from './eq.js';
 import { r9 } from './frac.js';
 import { simDiag } from './manip.js';
@@ -283,7 +283,8 @@ export function relTex(a, N) {
   const g = gcd(a, N); const v = a / N;
   const parts = [`\\frac{${a}}{${N}}`];
   if (g > 1 && N / g !== 1) parts.push(`\\frac{${a / g}}{${N / g}}`);
-  const tail = shortDec(v) ? `= ${num(v)}` : `\\approx ${String(Math.round(v * 100) / 100)}`;
+  // two places, as the question asks: 7/23 ≈ 0.30, never 0.3
+  const tail = shortDec(v) ? `= ${num(v)}` : `\\approx ${twoPlaces(v)}`;
   return `${parts.join(' = ')} ${tail}`;
 }
 
