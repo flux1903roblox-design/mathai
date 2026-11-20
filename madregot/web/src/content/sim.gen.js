@@ -37,6 +37,11 @@ const near = (a, b) => Math.abs(a - b) < 1e-9;
 const rad = (d) => (d * Math.PI) / 180;
 /** A number as the app writes it: a decimal point, at most two decimals. */
 const num = (v) => String(Math.round(v * 100) / 100);
+/**
+ * "= 1.125" when the quotient ends within three decimals, "≈ 1.33" when it does not: 9 : 8 is 1.125 and 8 : 6 is not
+ * 1.33, so a worked line never writes an equality that is false.
+ */
+const eqDec = (v) => { const t = Math.round(v * 1000) / 1000; return Math.abs(t - v) < 1e-9 ? `= ${t}` : `\\approx ${num(v)}`; };
 
 // ---------------------------------------------------------------- the models' draws (spec/models.mjs, unchanged)
 /** content/congr.gen.js mk: clean(), and the answer is never a number the question or its drawing shows. */
@@ -506,7 +511,7 @@ function isSimilarMc() {
     text = `המלבנים $${a} \\times ${b}$ ו־$${a2} \\times ${b2}$ דומים?`;
     choices = yesNo('כן, הם דומים', 'לא, הם לא דומים', kind === 'mult', 'additive');
     fig = twoRects([b, a], [b2, a2], [b, a, b2, a2], `מלבן ${a} על ${b} ומלבן ${a2} על ${b2}`);
-    why = kind === 'mult' ? `$${b2} : ${b} = ${a2} : ${a} = ${num(k)}$: אותו יחס לשתי הצלעות.` : `$${b2} : ${b} = ${num(b2 / b)}$ אבל $${a2} : ${a} = ${num(a2 / a)}$: הוספה של אותו מספר משנה את היחס.`;
+    why = kind === 'mult' ? `$${b2} : ${b} = ${a2} : ${a} = ${num(k)}$: אותו יחס לשתי הצלעות.` : `$${b2} : ${b} ${eqDec(b2 / b)}$ אבל $${a2} : ${a} ${eqDec(a2 / a)}$: הוספה של אותו מספר משנה את היחס.`;
   } else if (kind === 'rects') {
     key = 'sm2s:rects'; text = 'כל שני מלבנים דומים זה לזה?';
     choices = yesNo('כן, כל שני מלבנים דומים', 'לא בהכרח', false, 'angles-enough');
