@@ -107,10 +107,10 @@ function PrintReport({ report, topics, title }) {
               return (
                 <tr key={i} className={clsx((i + 1) % PRINT_ROWS === 0 && i + 1 < report.students.length && 'pr-break')}>
                   <th scope="row">{s.name}</th>
-                  <td>{s.activeDays}</td><td>{s.exercises}</td><td>{p == null ? '–' : `${p}%`}</td><td>{s.minutes}</td>
-                  <td>{s.lastPractice ? dmyDots(todayOf(new Date(s.lastPractice))) : '–'}</td>
-                  {topics.map((t) => <td key={t.id}>{rowLevelText(rowLevel(t, s.levels))}</td>)}
-                  {many ? <td>{given.length ? `${done}/${given.length}` : '–'}</td> : report.assignments.map((a, k) => <td key={k}>{workText(a.kind, a.work[i]) || '–'}</td>)}
+                  <td className="num">{s.activeDays}</td><td className="num">{s.exercises}</td><td className="num">{p == null ? '–' : `${p}%`}</td><td className="num">{s.minutes}</td>
+                  <td className="num">{s.lastPractice ? dmyDots(todayOf(new Date(s.lastPractice))) : '–'}</td>
+                  {topics.map((t) => <td key={t.id} className="num">{rowLevelText(rowLevel(t, s.levels))}</td>)}
+                  {many ? <td className="num">{given.length ? `${done}/${given.length}` : '–'}</td> : report.assignments.map((a, k) => <td key={k}>{workText(a.kind, a.work[i]) || '–'}</td>)}
                   <td className="pr-mis">{mistakeWords(s).map(stripTex).join(' · ') || '–'}</td>
                 </tr>
               );
@@ -264,11 +264,11 @@ export default function ClassReport() {
                   {students.map((s, i) => (
                     <tr key={i}>
                       <th scope="row"><StudentName id={ids[s.name]} name={s.name} onOpen={(x) => { setSheetFor(x); setSheetOpen(true); }} /></th>
-                      <td>{s.activeDays}</td>
-                      <td>{s.exercises}</td>
+                      <td className="num">{s.activeDays}</td>
+                      <td className="num">{s.exercises}</td>
                       <td><Rate value={pctOf(s.firstTry, s.exercises)} /></td>
-                      <td>{s.minutes}</td>
-                      <td>{s.lastPractice ? shortDay(s.lastPractice, thisYear) : <span className="muted">עוד לא</span>}</td>
+                      <td className="num">{s.minutes}</td>
+                      <td className="num">{s.lastPractice ? shortDay(s.lastPractice, thisYear) : <span className="muted">עוד לא</span>}</td>
                       {topics.map((t) => { const r = rowLevel(t, s.levels); return <td key={t.id}>{r ? <LevelPips total={r.total} level={r.level} max={r.max} states={r.states} done={r.done} color={t.color} /> : <span className="muted">–</span>}</td>; })}
                       {shown.assignments.map((a, k) => {
                         const w = a.work[i];

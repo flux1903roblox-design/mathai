@@ -112,7 +112,7 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
       <Button type="submit" className="btn-block" disabled={busy || code.length !== 6}>{busy ? 'בודקים…' : submitLabel}</Button>
       <p className="footnote">לא הגיע? בדקו בתיקיית הספאם.</p>
       <div className="sub-links">
-        <Button variant="ghost" className="btn-sm" disabled={busy || wait > 0} onClick={ask}>{wait > 0 ? `קוד חדש בעוד ${wait} שניות` : 'שליחת קוד חדש'}</Button>
+        <Button variant="ghost" className="btn-sm" disabled={busy || wait > 0} onClick={ask}>{wait > 0 ? <>קוד חדש בעוד <span className="num">{wait}</span> שניות</> : 'שליחת קוד חדש'}</Button>
         {!lockedEmail && <Button variant="ghost" className="btn-sm" onClick={() => { setStep('email'); setError(''); setCode(''); }}>שינוי כתובת</Button>}
       </div>
     </form>

@@ -36,7 +36,7 @@
 .reward { display: inline-flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s4); border-radius: var(--r-sm); background: var(--good-tint); color: var(--good-ink); font-weight: 600; }
 .reward.gold { background: var(--gold-tint); color: var(--gold-ink); }
 .streak-big { color: var(--streak); }
-.streak-num { margin-top: -18px; font-family: var(--font-display); font-weight: 700; font-size: 4.75rem; line-height: 1.0527; color: var(--streak-ink); }
+.streak-num { margin-top: -18px; font-family: var(--font-display); font-weight: 700; font-size: 4.75rem; line-height: 1.0527; color: var(--streak-ink); font-variant-numeric: tabular-nums; }
 .week-day { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .week-dot { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--rule); background: var(--paper); color: var(--ink-2); }
 .week-day.on .week-dot { background: var(--streak); border-color: var(--streak); color: var(--on-streak); }

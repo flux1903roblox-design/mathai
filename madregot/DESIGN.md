@@ -86,7 +86,6 @@ typography:
     fontSize: "17px"
     fontWeight: 400
     lineHeight: "26px"
-    fontFeature: "tnum"
   body-sm:
     fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
     fontSize: "15px"
@@ -263,7 +262,7 @@ The build rejects what made earlier rounds look childish and loud: scenery illus
 - One brand blue for action, selection, progress and "where I am"; four meaning colours, one job each.
 - One card (white, 2px `rule` border, 16px radius, flat) and one button grammar everywhere.
 - The lipped press: pressable things sit on a 3-6px solid lip that collapses when pressed.
-- Rubik only, weights 400 to 800; body 17px; nothing under 14px; tabular numbers.
+- Rubik only, weights 400 to 800; body 17px; nothing under 14px; tabular numbers where digits line up or change in place (counts, timers, readouts, a table's number cells: `.num`), never on running text: Rubik's tabular figures also bring its 0.6em tabular brackets, which in Chromium stand apart from the Hebrew words they hold ("( כל הנושא )"; `e2e/bidi.js` checks every screen).
 - A child reads two short lines (PRODUCT2-41): a mission's reason and a wrong guess's explanation show their first short sentence, and the rest waits behind "עוד" (`components/MoreText.jsx`, a button with `aria-expanded` that becomes "פחות"). מדי stands beside every first-visit question (64px). Settings keeps the browser's storage, the backup and the support details in "להורים ולמבוגרים", under the student's own settings.
 - Hebrew right to left, maths isolated left to right; phone first, one column.
 - Short ease-out motion; the feedback panel rises from the bottom; everything stops under reduced motion.

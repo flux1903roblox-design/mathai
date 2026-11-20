@@ -27,6 +27,7 @@ import {
   fakeServer, API, CORS, livePlan, TABLET, examWork, given, PUSH_KEY, PARENT, TOKEN, parentServer, nine, helpNoa, yoavPage,
 } from './fakeServer.js';
 import { expectNoAxeViolations } from './axe.js';
+import { expectNoTabularBrackets } from './bidi.js';
 import { derive } from '../src/lib/durable/crypto.js';
 import { gradeSkillsOf } from '../src/learn/skills.ts';
 import { monthIndex } from '../../shared/coverage.js';
@@ -53,12 +54,18 @@ async function drawn(page) {
     return window.__axeQuiet >= 3;
   }, null, { polling: 100, timeout: 10_000 });
 }
-/** Scan the page as it is now: each scan is its own step in the report, named after the screen and state. */
+/**
+ * Scan the page as it is now: each scan is its own step in the report, named after the screen and state. Beside axe,
+ * the screen is read for brackets in Hebrew set with tabular figures, which Chromium draws apart from their words
+ * (e2e/bidi.js).
+ */
 async function scan(page, what, opts = {}) {
   return test.step(`axe: ${what}`, async () => {
     await drawn(page);
     await page.evaluate(() => document.fonts.ready);
-    return expectNoAxeViolations(page, opts, `${what} (${test.info().project.name})`);
+    const results = await expectNoAxeViolations(page, opts, `${what} (${test.info().project.name})`);
+    await expectNoTabularBrackets(page, `${what} (${test.info().project.name})`);
+    return results;
   });
 }
 

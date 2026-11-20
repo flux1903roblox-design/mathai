@@ -458,7 +458,7 @@ a { color: var(--brand-d); }
 .learn { background: var(--paper); }
 .learn-top { background: var(--paper); border-bottom: 1px solid var(--rule); box-shadow: none; min-height: 60px; gap: var(--s4); }
 .grade-switch { min-height: 44px; padding: 0 var(--s3); border: 2px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--ink); font-weight: 700; font-size: 1rem; box-shadow: 0 2px 0 var(--rule-press); }
-.top-stat { font-family: var(--font-ui); font-weight: 800; font-size: 1.125rem; color: var(--ink); gap: 6px; }
+.top-stat { font-family: var(--font-ui); font-weight: 800; font-size: 1.125rem; color: var(--ink); gap: 6px; font-variant-numeric: tabular-nums; }
 .top-stat.streak, .top-stat.streak.on, .top-stat.xp { color: var(--ink); }
 .top-stat.streak svg { color: var(--ink-3); fill: none; }
 .top-stat.streak.on svg { color: var(--streak); fill: var(--streak); }
@@ -583,11 +583,11 @@ a { color: var(--brand-d); }
 @media (max-height: 600px) { .done-screen .done-hero { min-height: 128px; } }
 .stat { border-radius: 16px; }
 .stat-label { font-family: var(--font-ui); letter-spacing: 0; }
-.stat-value { font-family: var(--font-ui); font-weight: 800; font-size: 1.375rem; }
+.stat-value { font-family: var(--font-ui); font-weight: 800; font-size: 1.375rem; font-variant-numeric: tabular-nums; }
 .badge { font-weight: 700; }
 
 /* ------------------------------------------------------------------ profile */
-.me-stat dd, .me-stat-value { font-family: var(--font-ui); font-weight: 800; font-size: 1.375rem; color: var(--ink); }
+.me-stat dd, .me-stat-value { font-family: var(--font-ui); font-weight: 800; font-size: 1.375rem; color: var(--ink); font-variant-numeric: tabular-nums; }
 .me-stat dt, .me-stat-label { color: var(--ink-2); font-size: 0.9375rem; }
 
 /* ------------------------------------------------------------------ sheets */
@@ -1055,6 +1055,9 @@ a.btn { text-decoration: none; }
    in other inline maths ($x = -3$) the digits, the unary minus and \text{} words are set in Rubik while KaTeX's
    italic letters and its operators keep KaTeX's fonts. Only leaf .mord boxes: a wrapper .mord (a fraction) would pass
    Rubik on to the + inside it. Display maths (FitDisplay) is not touched. */
+/* .num is also the class for any number whose digits must line up or hold still (a table's number cell, a count that
+   changes): tabular figures are set only where asked (tokens.css, body), and never on a sentence, whose brackets they
+   would widen. */
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mt-inline .katex .mord:not(.mathnormal):not(.mathit):not(:has(*)) { font-family: var(--font-ui); }
 /* PRODUCT2-41: flat inline maths in a sentence ($x = -3$, $3^2 + 4^2$) is set in the sentence's font, at its size: digits,

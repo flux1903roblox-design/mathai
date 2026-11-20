@@ -131,7 +131,10 @@ body {
      default text size for any font size, as before; it grows with the reader's text size like the rem font sizes.
      Every other line height is unitless (units.test.js) */
   line-height: 1.625rem;
-  font-variant-numeric: tabular-nums;
+  /* No tabular figures here: Rubik's tabular figures also swap ( and ) for its wide tabular brackets, which Chromium sets
+     0.6em wide and far from the words they hold, so a Hebrew line read "פונקציה קווית ( כל הנושא )". Digits that must line
+     up get them on their own (.num, .mono, the counters, timers and readouts, tables' number cells; canon.css), never a
+     sentence: e2e/bidi.js checks every screen for a bracket in Hebrew set with them. */
   -webkit-font-smoothing: antialiased;
   caret-color: var(--cyan);
 }

@@ -56,8 +56,8 @@ export default function ExamsTab({ data, onStudent }) {
             <tr key={e.id}>
               <th scope="row"><StudentName id={e.studentId} name={e.name} onOpen={onStudent} /></th>
               <td>{e.title}<span className={`ex-src ex-src-${sourceOf(e)}`}>{EXAM_SOURCE[sourceOf(e)]}</span></td>
-              <td>{fmtDay(e.at)}</td>
-              <td><Rate value={e.total ? Math.round((100 * e.correct) / e.total) : null} /> <span className="muted">{e.correct}/{e.total}</span></td>
+              <td className="num">{fmtDay(e.at)}</td>
+              <td><Rate value={e.total ? Math.round((100 * e.correct) / e.total) : null} /> <span className="muted num">{e.correct}/{e.total}</span></td>
               <td><QuestionStrip questions={e.questions} /></td>
               <td className="wrap">{(e.weak || []).map((w) => TOPIC[w]?.title || 'אחר').join(', ') || '–'}</td>
             </tr>

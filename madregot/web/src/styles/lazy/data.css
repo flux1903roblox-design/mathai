@@ -42,7 +42,8 @@
 .mp-sim-sum span { font-size: 0.75rem; font-weight: 600; line-height: 1.3334; color: var(--ink-2); }
 .mp-sim-sum.on span { color: var(--brand-ink); font-weight: 800; }
 /* every outcome, behind "כל התוצאות" */
-.mp-sim-table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+.mp-sim-table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.mp-sim-table td { font-variant-numeric: tabular-nums; }
 .mp-sim-table th, .mp-sim-table td { padding: 4px 8px; border-bottom: 1px solid var(--rule); text-align: center; }
 .mp-sim-table thead th { font-size: var(--t-xs); font-weight: 700; color: var(--ink-2); }
 .mp-sim-table tbody th { font-weight: 600; text-align: start; white-space: nowrap; }

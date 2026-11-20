@@ -44,7 +44,7 @@ function FullGoal({ g }) {
         {have === 0 ? <p className="cg-count">{startText(target)}</p> : (
           <p className="cg-count">
             {/* the number rolls when it changes; the sentence is read once, as plain text */}
-            <span aria-hidden="true"><bdi dir="ltr"><NumberFlow value={have} /></bdi> מתוך {target} צעדים</span>
+            <span aria-hidden="true"><bdi dir="ltr" className="num"><NumberFlow value={have} /></bdi> מתוך {target} צעדים</span>
             <span className="visually-hidden">{have} מתוך {target} צעדים</span>
           </p>
         )}
