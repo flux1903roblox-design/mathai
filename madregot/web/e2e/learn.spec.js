@@ -787,3 +787,104 @@ test('a stray space between digits is not read as one number: "−1 3" is not �
   await key('בדיקה');
   await expect(page.locator('section.fb.fb-good')).toBeVisible();
 });
+
+// The external review (16.11): after a wrong answer in "מבינים את הרעיון", "שאלה למדי" → "מה הטעות שלי?" said there was no
+// wrong answer. Madi now hears about the question on screen in teaching as in practice: a wrong answer standing is
+// explained in the content's words, one corrected since is said to be fixed, and a step left behind starts clean.
+const askMadiMistake = async (page) => {
+  await page.locator('button.tool[aria-label="שאלה למדי"], .bl-head button[aria-label="שאלה למדי"]').first().click();
+  const sheet = page.getByRole('dialog', { name: 'שאלה למדי' });
+  await expect(sheet).toBeVisible();
+  const before = await sheet.locator('.tutor-a').count();
+  await sheet.getByRole('button', { name: 'מה הטעות שלי?' }).click();
+  await expect(sheet.locator('.tutor-a')).toHaveCount(before + 1);
+  const reply = await sheet.locator('.tutor-a').last().innerText();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  return reply;
+};
+const MADI_NONE = 'עוד לא הייתה כאן תשובה שגויה';
+const MADI_FIXED = 'כאן כבר תיקנתם את הטעות';
+const MINUS_MINUS_CAUSE = 'קל לחשוב שזה עוד "מינוס 3"'; // signed:1's minus-minus misconception, in its own words
+
+test('"מה הטעות שלי?" in teaching: none yet, a wrong guess, a named miss and its fix, a step left behind, a wrong move together', async ({ page }) => {
+  await open(page, '#/learn/signed/1/A', student('7'));
+  expect(await askMadiMistake(page)).toContain(MADI_NONE);
+  // on through the steps (answered right) to the one wanted
+  const toStep = async (want) => {
+    for (let i = 0; i < 20; i += 1) {
+      await expect.poll(() => step(page)).toBeTruthy();
+      const st = await step(page);
+      if (want(st)) return st;
+      // a step still to check (not one answered already, like the wrong guess above)
+      if ((st.kind === 'predict' || st.kind === 'explore') && await page.locator('.lm-check').count()) {
+        if (st.kind === 'predict') await page.locator('.ls-choice').nth(st.answer).click();
+        else { await page.waitForFunction(() => window.__madregotSolveStep?.forStep === window.__madregotStep); await page.evaluate(() => window.__madregotSolveStep()); }
+        await page.locator('.lm-check').click();
+        await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+      }
+      const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+      await page.locator('.sp-next').click();
+      await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+    }
+    throw new Error('no such step');
+  };
+  // a wrong guess on a prediction: said again in the step's own words
+  const guess = await toStep((st) => st.kind === 'predict' && st.wrongWhy && Object.keys(st.wrongWhy).length > 0);
+  const wrong = Number(Object.keys(guess.wrongWhy)[0]);
+  await page.locator('.ls-choice').nth(wrong).click();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-warm')).toBeVisible();
+  const said = await askMadiMistake(page);
+  expect(said).not.toContain(MADI_NONE);
+  expect(said).toContain(guess.wrongWhy[wrong].replace(/\$[^$]*\$/g, ' ').trim().split(/\s+/).slice(0, 3).join(' '));
+  // the number line: 2 − (−3) moved as 2 + (−3) is named; moved right after that, it is fixed
+  await toStep((st) => st.kind === 'explore' && st.display === '2 - (-3)');
+  for (let k = 0; k < 3; k += 1) await page.getByRole('button', { name: 'הסמן שמאלה' }).first().click();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-warm')).toBeVisible();
+  expect(await askMadiMistake(page)).toContain(MINUS_MINUS_CAUSE);
+  for (let k = 0; k < 6; k += 1) await page.getByRole('button', { name: 'הסמן ימינה' }).first().click();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  expect(await askMadiMistake(page)).toContain(MADI_FIXED);
+  // the next step has no wrong answer: the one before is not shown as the one on screen
+  const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+  await page.locator('.sp-next').click();
+  await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+  expect(await askMadiMistake(page)).toContain(MADI_NONE);
+  // solving together: "−3 − 8" for −3 − (−8) is the minus-minus move (the second choice of the first step)
+  await open(page, '#/learn/signed/1/C', student('7'));
+  expect(await askMadiMistake(page)).toContain(MADI_NONE);
+  await page.locator('.tg-step .ls-choice').nth(1).click();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-warm')).toBeVisible();
+  expect(await askMadiMistake(page)).toContain(MINUS_MINUS_CAUSE);
+});
+
+test('"מה הטעות שלי?" in practice: the named mistake outlives "נסו שוב", and a corrected one is said to be fixed', async ({ page }) => {
+  // a typed signed:1 exercise and a wrong number its diag() names minus-minus (the same seeds every run)
+  let wrongValue = null;
+  for (let sd = 1; sd <= 40 && wrongValue == null; sd += 1) {
+    await open(page, '#/lesson/signed/1', student('7'), String(sd));
+    await expect.poll(() => item(page)).toBeTruthy();
+    wrongValue = await page.evaluate(() => {
+      const it = window.__madregotItem;
+      if (it.form !== 'num' || typeof it.diag !== 'function') return null;
+      for (let v = -40; v <= 40; v += 1) if (v !== it.answer && it.diag(v) === 'minus-minus') return v;
+      return null;
+    });
+  }
+  expect(wrongValue, 'a seed opens a typed exercise with a minus-minus miss').not.toBeNull();
+  expect(await askMadiMistake(page)).toContain(MADI_NONE);
+  await page.locator('#slot-v').click(); await type(page, wrongValue);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  await proceed(page); // נסו שוב: the feedback goes, the mistake stays known
+  const again = await askMadiMistake(page);
+  expect(again).toContain(MINUS_MINUS_CAUSE);
+  expect(again).not.toContain('לא אנחש');
+  await answer(page, true);
+  await expect(page.locator('#fb-title')).toBeVisible();
+  expect(await askMadiMistake(page)).toContain(MADI_FIXED);
+});

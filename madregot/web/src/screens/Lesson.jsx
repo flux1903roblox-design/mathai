@@ -41,6 +41,7 @@ import { detectDistress } from '@shared/distress.js';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
+import { lessonWrong } from '@/learn/tutor.ts';
 import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
 import { contentOf, metaOf } from '@/learn/content/index.ts';
 import { useTopics } from '@/learn/useStairContent.js';
@@ -276,6 +277,8 @@ export default function Lesson() {
   const [active, setActive] = useState('v');
   const [shakeKey, setShakeKey] = useState(0);
   const [last, setLast] = useState(null);
+  // the last wrong answer's diagnosis on this exercise, for מדי: the feedback (last) is cleared by "נסו שוב", the mistake is not
+  const [miss, setMiss] = useState(null);
   const [explain, setExplain] = useState({ state: 'idle', text: '' });
   const [showSteps, setShowSteps] = useState(false);
   const [guide, setGuide] = useState(false); // "איך מתחילים?": the first step of the solution, after a first miss
@@ -333,7 +336,7 @@ export default function Lesson() {
   const explainState = aiAccess('explain', aiStatus).state;
   const chatState = aiAccess('chat', aiStatus).state;
   // when the tutor is done for today, Madi explains the mistake instead (no request)
-  const askMadi = () => { setChatOpen(false); setTutorIntent(s?.wrong?.length ? 'mistake' : null); setTutorOpen(true); };
+  const askMadi = () => { setChatOpen(false); setTutorIntent(s?.wrong?.length && s.phase !== 'correct' ? 'mistake' : null); setTutorOpen(true); };
   // help from the tutor or Madi on an open exercise is help: no first-try credit, no combo, not independent (AI-3)
   const helped = () => setS((cur) => withHelp(cur));
   const names = item ? slotsFor(item) : [];
@@ -481,6 +484,7 @@ export default function Lesson() {
     if (result.ok) { play('correct'); haptic('correct'); commit(result.event); }
     else {
       play('wrong'); haptic('wrong'); setShakeKey((v) => v + 1);
+      setMiss({ cat: result.cat ?? null, diagnosis: result.diagnosis ?? null });
       if (result.reveal) {
         commit(result.event);
         if (item.form !== 'mc') setStruck(true);
@@ -878,7 +882,7 @@ export default function Lesson() {
           onAsk={helped} footnote={openExercise(s) ? HELP_NOTE : null} />
       </Sheet>
       <TutorSheet open={tutorOpen} onOpenChange={(o) => { setTutorOpen(o); if (!o) setTutorIntent(null); }} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
-        wrong={s.wrong.length ? { cat: last?.cat ?? null, diagnosis: last?.diagnosis ?? null } : null} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null}
+        wrong={lessonWrong(s, miss)} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null}
         aiState={chatState} startIntent={tutorIntent} onAsk={helped} />
       <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת" className="flow-sheet">
         {remedy && <RemedyFlow content={contentOf(skillId(item.topic || spec.topic, item.level))} misc={remedy} compact onDone={() => setRemedy(null)} doneLabel="חזרה לשיעור" />}
