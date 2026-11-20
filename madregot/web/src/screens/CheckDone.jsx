@@ -151,15 +151,15 @@ export const LANDING = [0, 0.45, 0.65, 1];
  * unit's colour, the stop as it now stands on the path), and מדי hops once for joy. The level-up sound and vibration
  * play as the screen opens (Lesson.jsx finish). In a quiet class (lib/sound.js classQuiet) the moment stays on the
  * student's own screen: no flying shapes, no turning light, no hop; the badge still lands and its check still draws.
- * Under reduced motion it is a plain fade: nothing moves, the check is drawn and the numbers are final. Decorative: the
- * title says what happened.
+ * Under reduced motion it is simply there: nothing moves, the check is drawn and the numbers are final (a fade by motion
+ * was tried: where its clock does not run, it left the whole moment invisible). Decorative: the title says what happened.
  */
 function MasteredHero({ topic, mood }) {
   const reduce = useReducedMotion();
   const quiet = useApp(classQuiet);
   const colour = TOPIC[topic]?.color;
   return (
-    <m.div className={clsx('mastered-hero', quiet && 'is-quiet')} initial={reduce ? entrance({ opacity: 0 }) : false} animate={{ opacity: 1 }} transition={{ duration: DUR.fast, ease: EASE.out }}>
+    <div className={clsx('mastered-hero', quiet && 'is-quiet')}>
       <Celebrate tone="gold" rays={!quiet} burst={!quiet}>
         <m.div className="mastered-madi" animate={reduce || quiet ? { y: 0 } : { y: [0, -14, 0] }}
           transition={{ duration: 0.4, delay: PEAK.hop, times: [0, 0.4, 1], ease: [EASE.out, EASE.in] }}>
@@ -181,7 +181,7 @@ function MasteredHero({ topic, mood }) {
           </m.span>
         </m.span>
       )}
-    </m.div>
+    </div>
   );
 }
 

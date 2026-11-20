@@ -96,6 +96,14 @@ describe('anticipation: the big launches wind up first (principle 2)', () => {
   });
 });
 
+describe('fewer choices, the right one marked (principle 14)', () => {
+  it('the first visit marks the recommended start and the usual daily goal, so most students take one tap', () => {
+    const welcome = src('screens/Welcome.jsx');
+    expect(welcome).toMatch(/badge=\{recommended === 'test' \? tr\('shell\.welcome\.75'\) : null\}/);
+    expect(welcome).toMatch(/badge=\{g\.xp === 20 \? tr\('shell\.welcome\.63'\) : null\}/);
+  });
+});
+
 describe('the screens that move most often', () => {
   it('a screen that has its own leave(to) takes the motion preset under another name: the hint bar\'s exit called the lesson\'s way out, navigate(0.08), and reloaded the page', () => {
     const lesson = src('screens/Lesson.jsx');

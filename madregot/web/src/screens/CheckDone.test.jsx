@@ -132,8 +132,8 @@ describe('the end of a check: a stair mastered is the biggest moment', () => {
     expect(b).toBeTruthy();
     expect(b).not.toMatch(/opacity:0/);
     expect(b).not.toMatch(/translateY\(-|scale\(0\./);
-    // a plain fade: the whole moment fades in as one, its check already drawn and its numbers final
-    expect(out).toMatch(/<div class="mastered-hero" style="opacity:0">/);
+    // the whole moment is simply there, never hidden behind a fade: its check already drawn and its numbers final
+    expect(out).toContain('<div class="mastered-hero">');
     expect(out).not.toContain('stroke-dasharray="0 1"');
     expect(out).toMatch(/<span class="mastered-seal"( style="transform:none")?>/);
     expect(out).toMatch(/<span class="xp-count-n" aria-hidden="true">\+15<\/span>/);
