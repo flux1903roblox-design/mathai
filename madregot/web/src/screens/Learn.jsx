@@ -184,12 +184,14 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
   return (
     <section className={clsx('unit', `ch-${colour || t.color}`, `world-${t.id}`, mastered && 'is-mastered', preview && 'is-preview')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path
-          scrolls. The fractions floor is not one of the grade's units: it is named יסודות and has no number */}
+          scrolls. The fractions floor is not one of the grade's units: it is named יסודות and has no number. The heading's
+          name is the unit's name, then its label (number and count), as a folded unit's row says them: a screen reader's
+          list of headings numbers every unit, open or folded, and the label stays where the eye reads it */}
       <header className="unit-head" data-region="banner">
         <Emblem topic={t.id} />
         <div className="unit-head-text">
-          <h2 id={`unit-${t.id}`} className="unit-title" tabIndex={-1}>{t.title}</h2>
-          <p className="unit-label">{t.bridge ? tr('shell.learn.28') : tr('shell.learn.29', { n })}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></p>
+          <h2 id={`unit-${t.id}`} className="unit-title" tabIndex={-1} aria-labelledby={`unit-${t.id} unit-${t.id}-label`}>{t.title}</h2>
+          <p id={`unit-${t.id}-label`} className="unit-label">{t.bridge ? tr('shell.learn.28') : tr('shell.learn.29', { n })}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></p>
           <div className="unit-bar" role="progressbar" aria-label={tr('shell.learn.30', { title: t.title })} aria-valuemin={0} aria-valuemax={prog.of} aria-valuenow={prog.stages} aria-valuetext={tr('shell.learn.31', { stages: prog.stages, of: prog.of })}><i style={{ width: `${(prog.stages / prog.of) * 100}%` }} /></div>
         </div>
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={tr('shell.learn.32', { title: t.title })}><BookOpen size={22} aria-hidden="true" /><span>{tr('shell.learn.33')}</span></Link>

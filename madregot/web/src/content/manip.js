@@ -374,11 +374,17 @@ export function sgraphRiseRun(f) {
   const y0 = seriesAt(s.pts, f.riseRun.from); const y1 = seriesAt(s.pts, f.riseRun.to);
   return y0 == null || y1 == null ? null : { from: f.riseRun.from, to: f.riseRun.to, y0, y1, run: round9(f.riseRun.to - f.riseRun.from), rise: round9(y1 - y0) };
 }
+/**
+ * One axis of a graph in words, as the eye reads it from the drawing: where it starts and ends, a line every step, and a
+ * number on every `every`-th line: "ציר x מ־0 עד 45, קו כל 5, מספר כל 10". The still graph (sgraphWords) and the graph a
+ * student draws (GraphDraw.jsx) say their axes in these words, and hide the numbers along them from a screen reader.
+ */
+export const axisWords = (name, a) => `ציר ${name} מ־${figNum(axisLo(a))} עד ${figNum(a.max)}, קו כל ${figNum(a.step)}${a.every > 1 ? `, מספר כל ${figNum(round9(a.step * a.every))}` : ''}`;
 /** The sgraph in words: every number it draws, in reading order (the axes, each series, then what it marks). */
 export function sgraphWords(f) {
   const n = (v) => figNum(v);
   const pt = ([x, y]) => `(${n(x)}, ${n(y)})`;
-  const axis = (name, a) => `ציר ${name} מ־${n(axisLo(a))} עד ${n(a.max)}, קו כל ${n(a.step)}${a.every > 1 ? `, מספר כל ${n(round9(a.step * a.every))}` : ''}`;
+  const axis = axisWords;
   const series = (f.series || []).map((s) => `${s.label ? `${s.label}: ` : ''}${s.dots ? `נקודות ${s.pts.map(pt).join(', ')}` : `${s.pts.map(pt).join(' → ')}${s.smooth ? ' (קו מעוגל)' : ''}`}`);
   const first = f.series?.[0]?.pts || [];
   const g = f.guide || {};

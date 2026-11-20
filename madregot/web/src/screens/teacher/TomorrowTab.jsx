@@ -17,7 +17,7 @@ import { dateNum } from '@/lib/price.js';
 import { isStair, isRepair } from '@/lib/assign.js';
 import { lastMessage } from '@/lib/help.js';
 import { attentionList, openHelpBy, reasonText } from '@/learn/attention';
-import { StudentName, MistakeWords, TALK } from './common.jsx';
+import { StudentName, MistakeWords, TALK, practiseName } from './common.jsx';
 
 /** A help request that needs the teacher: not seen yet, or the student wrote last (TEACHER-6 §3). */
 const isFresh = (h) => !h.seen_at || lastMessage(h)?.from === 'student';
@@ -81,7 +81,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
                       <span className="t-list-main" id={rowId}><MistakeWords topic={m.topic} level={m.level} cat={m.cat} /></span>
                       <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
                       {onAssign && isStair(skill) && ids.length > 0 && (
-                        <button type="button" className="btn btn-secondary btn-sm t-row-act" aria-describedby={rowId}
+                        <button type="button" className="btn btn-secondary btn-sm t-row-act" aria-label={practiseName('לתת תרגול על זה', m.topic, m.level, m.cat)}
                           onClick={() => onAssign({ kind: isRepair(skill, m.cat) ? 'repair' : 'stair', skill, misc: m.cat, targets: ids, targetsLabel: `לתלמידים שטעו בזה (${ids.length})` })}>
                           <Send size={16} aria-hidden="true" />לתת תרגול על זה
                         </button>

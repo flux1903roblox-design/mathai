@@ -23,7 +23,7 @@ import { Button, ChapterMark, LevelPips, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { QuestionStrip } from '@/screens/teacher/ExamsTab.jsx';
-import { fmtDay, Rate, MistakeWords } from '@/screens/teacher/common.jsx';
+import { fmtDay, Rate, MistakeWords, practiseName } from '@/screens/teacher/common.jsx';
 
 /** "5.11", or "5.11.2025" in another year than `today`'s. */
 const dayText = (day, today) => (!day ? '' : day.slice(0, 4) === String(today || '').slice(0, 4) ? dm(day) : `${dm(day)}.${day.slice(0, 4)}`);
@@ -209,7 +209,7 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
                       <span className="ss-row-main" id={rowId}><MistakeWords topic={m.topic} level={m.level} cat={m.cat} /></span>
                       <span className="muted">{times(m.n)} בחודש האחרון</span>
                       {onAssign && isStair(`${m.topic}:${m.level}`) && (
-                        <Button variant="secondary" className="btn-sm ss-act" aria-describedby={rowId} onClick={() => practise(m)}><Send size={16} aria-hidden="true" />לתת תרגול</Button>
+                        <Button variant="secondary" className="btn-sm ss-act" aria-label={practiseName('לתת תרגול', m.topic, m.level, m.cat)} onClick={() => practise(m)}><Send size={16} aria-hidden="true" />לתת תרגול</Button>
                       )}
                     </li>
                   );
