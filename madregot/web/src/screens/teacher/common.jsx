@@ -1,8 +1,8 @@
 // Small helpers the teacher's board and its tabs share.
 import { toast } from 'sonner';
 import { TriangleAlert, CircleCheck, CircleAlert } from 'lucide-react';
-import { MathText } from '@/components/MathText.jsx';
-import { mistakeText, stairLabel } from '@/lib/teacherText.js';
+import { MathText, mathPlain } from '@/components/MathText.jsx';
+import { mistakeText, stairLabel, stairShort } from '@/lib/teacherText.js';
 
 export const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
@@ -53,3 +53,10 @@ export function MistakeWords({ topic, level, cat }) {
     </>
   );
 }
+
+/**
+ * The name of a button that gives practice on a repeated mistake ("לתת תרגול על זה" on מחר, "לתת תרגול" on a student's
+ * sheet): its own words first (WCAG 2.5.3, the name holds the label), then the stair and the mistake in plain words, so
+ * a screen reader's list of buttons (and voice control) tells each row's button apart.
+ */
+export const practiseName = (words, topic, level, cat) => `${words}: ${stairShort(topic, level)}, ${mathPlain(mistakeText(topic, level, cat))}`;
