@@ -86,6 +86,15 @@ function limited(kind, data, status, onMadi, quiet = false) {
 }
 
 /**
+ * How long the tutor's conversation kinds wait for the server, in ms: for the reply to start, and between two pieces of
+ * a streamed chat. A phone that loses its connection in the middle of a request can leave fetch waiting with no error,
+ * and the server's own call to Claude has no shorter limit than the SDK's 10 minutes; past this the screen says so
+ * ('timeout') instead of "thinking" with no end. Photo checks, exams and new exercises take minutes by nature and wait
+ * as before.
+ */
+export const AI_WAIT_MS = Object.freeze({ chat: 120_000, explain: 120_000, feedback: 120_000 });
+
+/**
  * Run an AI action. For 'chat', pass onText to receive the reply as it streams. onMadi: what the calm sheet's
  * "לשאול את מדי" does when the tutor says no for today (the opener's own way to Madi). quiet: never open the limit
  * sheet (a message that reads as distress: the support card is already on screen, and no paywall or limit may follow).
@@ -167,32 +176,53 @@ export async function runAI(kind, input, { onText, signal, onMadi, quiet = false
     ...(teacherCls ? teacherHeaders(teacherCls) : {}),
     ...aiHeaders(),
   };
-  let res;
+  // the caller's signal (the chat closed) still aborts; the wait limit (AI_WAIT_MS) aborts as 'timeout'
+  const wait = AI_WAIT_MS[kind];
+  const ctrl = new AbortController();
+  let timedOut = false; let timer; let reader = null;
+  const arm = () => {
+    if (!wait) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => { timedOut = true; ctrl.abort(); reader?.cancel().catch(() => {}); }, wait);
+  };
+  const stop = () => ctrl.abort();
+  if (signal?.aborted) ctrl.abort(); else signal?.addEventListener('abort', stop, { once: true });
+  const late = (e) => (timedOut ? new ApiError('timeout') : e);
+  arm();
   try {
-    res = await fetch(`${apiBase()}/api/ai/${kind}`, { method: 'POST', headers, signal, body: JSON.stringify({ ...input, stream: !!onText }) });
-  } catch (e) {
-    if (e.name === 'AbortError') throw e;
-    throw new ApiError('network');
-  }
-  if (!res.ok) {
-    noteUsage(res); // X-AI-Linked: 0 still tells this device its family link is gone
-    const data = await res.json().catch(() => ({}));
-    if (LIMIT_ERRORS.includes(data.error)) throw limited(kind, data, res.status, onMadi, quiet);
-    throw new ApiError(data.error || 'upstream', res.status, data);
-  }
-  noteUsage(res);
-  if (kind === 'chat' && onText && res.body) {
-    const reader = res.body.getReader(); const dec = new TextDecoder(); let acc = '';
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      acc += dec.decode(value, { stream: true });
-      onText(streamView(acc));
+    let res;
+    try {
+      res = await fetch(`${apiBase()}/api/ai/${kind}`, { method: 'POST', headers, signal: ctrl.signal, body: JSON.stringify({ ...input, stream: !!onText }) });
+    } catch (e) {
+      if (timedOut) throw new ApiError('timeout');
+      if (e.name === 'AbortError') throw e;
+      throw new ApiError('network');
     }
-    acc += dec.decode();
-    return streamEnd(acc);
+    if (!res.ok) {
+      noteUsage(res); // X-AI-Linked: 0 still tells this device its family link is gone
+      const data = await res.json().catch(() => ({}));
+      if (LIMIT_ERRORS.includes(data.error)) throw limited(kind, data, res.status, onMadi, quiet);
+      throw new ApiError(data.error || 'upstream', res.status, data);
+    }
+    noteUsage(res);
+    if (kind === 'chat' && onText && res.body) {
+      reader = res.body.getReader(); const dec = new TextDecoder(); let acc = '';
+      for (;;) {
+        arm(); // a stream that stops coming waits only so long after its last piece
+        const { done, value } = await reader.read().catch((e) => { throw late(e); });
+        if (timedOut) throw new ApiError('timeout');
+        if (done) break;
+        acc += dec.decode(value, { stream: true });
+        onText(streamView(acc));
+      }
+      acc += dec.decode();
+      return streamEnd(acc);
+    }
+    return withCare(await res.json().catch((e) => { throw late(e); }));
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', stop);
   }
-  return withCare(await res.json());
 }
 
 /** Every AI result says whether it is a care reply: care is true or false, never missing. */

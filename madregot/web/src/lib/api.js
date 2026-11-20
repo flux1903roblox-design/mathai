@@ -162,6 +162,8 @@ const MESSAGES = {
   too_many_reports: 'היום כבר נשלחו הרבה דיווחים מהמכשיר הזה. אפשר לדווח שוב מחר.',
   bad_input: 'משהו בבקשה לא תקין. נסו שוב.',
   upstream: 'העוזר לא זמין כרגע. אפשר להמשיך לתרגל ולנסות שוב בעוד כמה דקות.',
+  // the tutor's answer did not come in time (lib/ai.js AI_WAIT_MS): a lost connection, or a server that is stuck
+  timeout: 'העוזר לא ענה הפעם. בדקו שיש אינטרנט ונסו שוב.',
   server_error: 'השרת נתקל בתקלה. נסו שוב בעוד רגע.',
   not_found: 'השרת לא מכיר את הבקשה הזו. ייתכן שהאפליקציה צריכה רענון.',
   shared_limit: 'העוזר החכם עמוס היום. מחר הוא כאן שוב.',
