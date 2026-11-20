@@ -531,9 +531,10 @@ a { color: var(--brand-d); }
 .node-card .btn-ghost { color: var(--brand-d); }
 
 .chest { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--track); color: var(--ink-3); box-shadow: 0 6px 0 var(--track-edge); margin-bottom: 6px;
-  transform-origin: 50% 100%; transition: transform var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out); }
+  transform-origin: 50% 100%; transition: translate var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out); }
 .chest.is-open { background: var(--gold); color: var(--on-gold-ink); box-shadow: 0 6px 0 var(--gold-d); }
-.chest:active { transform: translateY(6px); scale: var(--squash); box-shadow: 0 0 0 transparent; }
+/* translate, not transform: motion holds the chest's transform (its opening, Chest.jsx) */
+.chest:active { translate: 0 6px; scale: var(--squash); box-shadow: 0 0 0 transparent; }
 .chest:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 6px; }
 .jump-current { background: var(--surface); color: var(--brand-ink); border: 2px solid var(--rule); box-shadow: 0 4px 0 var(--rule-press); }
 .jump-current { inset-inline-start: auto; inset-inline-end: max(var(--s4), env(safe-area-inset-left, 0px)); }

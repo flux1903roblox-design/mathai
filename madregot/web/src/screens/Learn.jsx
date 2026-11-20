@@ -66,6 +66,9 @@ function PathArt({ topic, piece, x }) {
   return <li className="path-art" aria-hidden="true" style={{ '--x': `${x > 0 ? -ART_X : ART_X}px` }}><Suspense fallback={null}><SceneryArt topic={topic} piece={piece} /></Suspense></li>;
 }
 
+/** How long a card winds up before its lesson opens (ux-motion 2: 60 to 200ms). */
+export const WIND_UP_MS = 120;
+
 function NodeCard({ n, t, onStart, next }) {
   const top = t.levels.length;
   if (n.kind === 'review') {
@@ -73,7 +76,7 @@ function NodeCard({ n, t, onStart, next }) {
       <div className="node-card" role="group" aria-label={n.title}>
         <p className="node-card-title">{tr('shell.learn.1')}</p>
         <p className="node-card-sub">{n.state === 'locked' ? tr('shell.learn.2') : tr('shell.learn.3', { REVIEW_LEN })}</p>
-        {n.state !== 'locked' && <Button className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${top}?kind=review`)}>{n.state === 'done' ? tr('shell.learn.4') : tr('shell.learn.5')}</Button>}
+        {n.state !== 'locked' && <Button className="btn-block" onClick={(e) => onStart(`/lesson/${t.id}/${top}?kind=review`, e)}>{n.state === 'done' ? tr('shell.learn.4') : tr('shell.learn.5')}</Button>}
       </div>
     );
   }
@@ -105,16 +108,16 @@ function StairCard({ n, t, onStart, next }) {
       <p className="node-card-title">{n.title}</p>
       {added && <p className="node-card-sub node-card-added">{added}</p>}
       {lead && <p className="node-card-sub node-card-next">{tr('shell.learn.6')}<MathText text={lead.title} /></p>}
-      {lead && <Button className="btn-block node-next-btn" onClick={() => onStart(lead.to)}>{tr('shell.learn.7')}</Button>}
+      {lead && <Button className="btn-block node-next-btn" onClick={(e) => onStart(lead.to, e)}>{tr('shell.learn.7')}</Button>}
       {n.state === 'current' && <p className="node-card-sub">{tr('shell.learn.8')}{STAGE_N[st]}{tr('shell.learn.9')}{STAGE_NAME[st]}{waits ? `. ${PRACTICE_AGAIN}` : ''}</p>}
       {/* a lesson left in the middle (its place is kept, learn/stairStatus.ts) goes on, as a finished stage does */}
-      {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={() => onStart(own)}>{rec?.taught?.A || n.parts || savedPlace(rec) ? tr('shell.learn.10') : tr('shell.learn.5')}</Button>}
+      {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={(e) => onStart(own, e)}>{rec?.taught?.A || n.parts || savedPlace(rec) ? tr('shell.learn.10') : tr('shell.learn.5')}</Button>}
       {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.11')}</Button>}
       {mastered && <p className="node-card-sub">{tr('shell.learn.12')}</p>}
       {n.state === 'done' && !mastered && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `${tr('shell.learn.13')}${MASTERY_N}${tr('shell.learn.14')}`}</p>}
       {n.state === 'open' && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `${tr('shell.learn.15')}${MASTERY_N}${tr('shell.learn.16')}`}</p>}
       {n.state === 'locked' && <p className="node-card-sub">{tr('shell.learn.17')}{JUMP_LEN}{tr('shell.learn.18')}</p>}
-      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button variant={main} className="btn-block" onClick={() => onStart(waits ? own : check)}>{waits ? tr('shell.learn.toPractice') : tr('shell.learn.19')}</Button>}
+      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button variant={main} className="btn-block" onClick={(e) => onStart(waits ? own : check, e)}>{waits ? tr('shell.learn.toPractice') : tr('shell.learn.19')}</Button>}
       {n.state === 'open' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.20')}</Button>}
       {mastered && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.20')}</Button>}
       {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>{tr('shell.learn.21')}</Button>}
@@ -464,7 +467,16 @@ function LearnMap() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener('scroll', later); window.removeEventListener('resize', later); };
   }, [away]);
 
-  const onStart = (to) => navigate(to);
+  // A stair's card launches its lesson (ux-motion 2): a short wind-up, the card dipping 4px, before the screen goes; a
+  // second tap meanwhile is the same launch. Under reduced motion, and from anywhere but a card, it goes at once.
+  const onStart = (to, e) => {
+    const card = e?.currentTarget?.closest?.('.node-card');
+    const still = !card || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (still) { navigate(to); return; }
+    if (card.classList.contains('is-launching')) return;
+    card.classList.add('is-launching');
+    setTimeout(() => navigate(to), WIND_UP_MS);
+  };
   const otherGrade = view === '7' ? '8' : '7';
   const backupLine = useApp((s) => showBackupLine(s.backup));
 

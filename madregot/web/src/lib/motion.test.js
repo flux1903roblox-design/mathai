@@ -74,6 +74,28 @@ describe('motion in code', () => {
   });
 });
 
+describe('anticipation: the big launches wind up first (principle 2)', () => {
+  it('a stair\'s card dips for 60 to 200ms before its lesson opens, and not under reduced motion', async () => {
+    const learn = src('screens/Learn.jsx');
+    const ms = Number(learn.match(/export const WIND_UP_MS = (\d+);/)?.[1]);
+    expect(ms).toBeGreaterThanOrEqual(60); expect(ms).toBeLessThanOrEqual(200);
+    expect(learn).toContain("const still = !card || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;");
+    expect(learn).toContain('if (still) { navigate(to); return; }');
+    expect(learn).toMatch(/node-start-btn" onClick=\{\(e\) => onStart\(own, e\)\}/);
+    expect(src('styles/app.css')).toMatch(/\.node-card\.is-launching \{ translate: 0 var\(--distance-micro\); scale: 0\.98;/);
+  });
+
+  it('the chest crouches before it springs open: a wind-up of about a quarter of the move, then up past its size', async () => {
+    const { CHEST_OPEN } = await import('../components/map/Chest.jsx');
+    const chest = src('components/map/Chest.jsx');
+    const sy = chest.match(/scaleY: \[1, ([\d.]+), ([\d.]+), 1\]/);
+    expect(Number(sy[1])).toBeLessThan(1); // the crouch
+    expect(Number(sy[2])).toBeGreaterThan(1); // the spring up
+    expect(CHEST_OPEN[1] * 500).toBeGreaterThanOrEqual(60); expect(CHEST_OPEN[1] * 500).toBeLessThanOrEqual(200);
+    expect(chest).toMatch(/const pop = celebrate && !reduce;/);
+  });
+});
+
 describe('the screens that move most often', () => {
   it('a screen that has its own leave(to) takes the motion preset under another name: the hint bar\'s exit called the lesson\'s way out, navigate(0.08), and reloaded the page', () => {
     const lesson = src('screens/Lesson.jsx');
