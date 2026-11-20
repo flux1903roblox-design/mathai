@@ -11,7 +11,7 @@ import clsx from 'clsx';
 import { m } from 'motion/react';
 import { ArrowLeft, Check, Info, Lightbulb, X } from 'lucide-react';
 import { Tex, MathText, mathPlain, FitDisplay } from '@/components/MathText.jsx';
-import { Button } from '@/components/ui.jsx';
+import { Button, Keypad, typeInto } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { readNumCandidates, numRight, T, plainNum, exactTex, piNear } from '@/content/util.js';
@@ -54,10 +54,34 @@ export function finalCheck(final, typed) {
 }
 
 /**
- * onAttempt(ok, cands): each move, for the learning record (all moves here count as learning with help); cands are the
- * misconceptions a wrong last step fits. diagnose(u) gives those ids; names maps an id to its words.
+ * What מדי is told about the move on screen (TutorSheet's `item` and `wrong`, the shape a lesson passes), from step k's
+ * checked choices (`tried`) or, on the last move, its misses and the misconceptions the last one fits (`missIds`).
+ * A wrong choice is the misconception it names (its `misc`, when it names one) and its own feedback; a typed miss is the
+ * misconceptions it fits; `fixed` once the move was then done right. A move with no wrong answer gives null, and a move
+ * already left is not reported at all. No hint is passed: a hint from מדי would not be counted, and "לבד" would lie.
  */
-export default function Together({ problem, n, of, onDone, onAttempt, decimal = false, renderHead, diagnose, names = {} }) {
+export function togetherAsk(problem, k, { tried = [], finalMiss = 0, missIds = [], solved = false } = {}) {
+  const one = (ids) => (ids.length === 1 ? { cat: ids[0] } : ids.length > 1
+    ? { diagnosis: { kind: 'misconception', candidates: ids.map((id) => ({ id, conf: 1 / ids.length })), ambiguous: true } } : { cat: null });
+  if (k < problem.steps.length) {
+    const { choices } = problem.steps[k];
+    const missed = tried.filter((c) => !choices[c].ok);
+    if (!missed.length) return { item: null, wrong: null };
+    const c = choices[missed[missed.length - 1]];
+    const misc = [c.misc].flat().filter(Boolean);
+    // a choice with two possible misconceptions: its own feedback says what it misses, without picking one
+    return { item: null, wrong: { ...(misc.length === 1 ? { cat: misc[0] } : { cat: null }), said: [c.feedback], more: false, ...(choices[tried[tried.length - 1]].ok ? { fixed: true } : {}) } };
+  }
+  if (!finalMiss) return { item: null, wrong: null };
+  return { item: null, wrong: { ...one(missIds), more: false, ...(solved ? { fixed: true } : {}) } };
+}
+
+/**
+ * onAttempt(ok, cands): each move, for the learning record (all moves here count as learning with help); cands are the
+ * misconceptions a wrong last step fits. diagnose(u) gives those ids; names maps an id to its words. onTutor({ item,
+ * wrong }): what מדי is told about the move on screen (togetherAsk), each time it changes.
+ */
+export default function Together({ problem, n, of, onDone, onAttempt, decimal = false, renderHead, diagnose, names = {}, onTutor }) {
   const [k, setK] = useState(0); // the step; problem.steps.length = the final answer
   const [picked, setPicked] = useState({}); // step → choices already checked
   const [sel, setSel] = useState(null); // the choice picked now, before "בדיקה"
@@ -77,6 +101,8 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
   useEffect(() => { if (qaOn()) window.__madregotGuided = onFinal ? { final: problem.final } : { step }; }, [k, problem]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tried = picked[k] || [];
+  // מדי's sheet hears about this move only (a miss on a move already done is not the one on screen)
+  useEffect(() => { onTutor?.(togetherAsk(problem, k, { tried, finalMiss, missIds, solved })); }, [problem, k, tried.length, finalMiss, missIds, solved]); // eslint-disable-line react-hooks/exhaustive-deps
   const last = tried.length ? tried[tried.length - 1] : null; // the choice checked last
   const stepOk = !onFinal && last != null && step.choices[last].ok;
   const giveUp = finalMiss >= 3;
@@ -168,11 +194,14 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
             <p className="tg-prompt"><MathText text={problem.final.prompt} /></p>
             <form className={clsx('tg-final', fin.after && 'has-after')} onSubmit={(e) => { e.preventDefault(); if (canCheck && !done) check(); }}>
               <label htmlFor={`tg-${n}`} className="visually-hidden">{fin.after ? `התשובה: המספר שלפני ${mathPlain(`$${fin.after}$`)}` : 'התשובה'}</label>
-              <input id={`tg-${n}`} className={clsx('input', 'tg-input', solved && 'good')} dir="ltr" inputMode="text" autoComplete="off" readOnly={done} value={giveUp && !solved ? '' : typed} onChange={(e) => setTyped(e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9))} placeholder="?" />
+              <input id={`tg-${n}`} className={clsx('input', 'tg-input', solved && 'good')} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false} readOnly={done} value={giveUp && !solved ? '' : typed} onChange={(e) => setTyped(e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9))} placeholder="?" />
               {fin.after && <span className="answer-lab answer-after" aria-hidden="true"><Tex tex={fin.after} /></span>}
             </form>
             <Hints hints={problem.final.hints} level={solved ? 0 : hint} />
             {!done && hint < 2 && <button type="button" className="link-btn" onClick={() => setHint(hint + 1)}><Lightbulb size={16} aria-hidden="true" />{hint ? 'עוד רמז' : 'רמז'}</button>}
+            {/* the lesson's keypad, the one number keypad of the app (the phone's keyboard stays closed); after a miss the
+                next key replaces the checked number, as in a lesson */}
+            {!done && <Keypad onKey={(key) => setTyped(typeInto(typed === wrongVal || typed === piVal ? '' : typed, key))} />}
           </>
         )}
       </m.section>

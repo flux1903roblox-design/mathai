@@ -81,7 +81,7 @@ export default function Library() {
       {topicsFor(grade).map((t, i) => (
         <section key={t.id} className="section set-group t-lib-topic" aria-labelledby={`tl-${t.id}`}>
           <h2 className="set-head t-lib-head" id={`tl-${t.id}`}><ChapterMark color={t.color} n={i + 1} size="sm" />{t.title}</h2>
-          <ol className="t-lib-list">
+          <ol className="t-lib-list cascade">
             {t.levels.map((l, j) => <StairRow key={l.title} topic={t} level={j + 1} title={l.title} back={back} onAssign={onAssign} />)}
           </ol>
         </section>

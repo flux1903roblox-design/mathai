@@ -4,7 +4,7 @@
 // The student sees where they are, what each stage is, what "mastered" means, and can go to any stage.
 // A stair that has a challenge task shows a sixth card under the five stages, "אתגר · לבחירה" (CURRICULUM-6.3): locked
 // until the mastery check is passed, then one tap opens the task. It is optional, so it is not one of the stages.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle, School, Puzzle, Lock } from 'lucide-react';
@@ -12,12 +12,13 @@ import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/topics.js';
 import { useStairContent } from '@/learn/useStairContent.js';
 import { skillId } from '@/learn/skills.ts';
-import { masteryState, nextStage, STATE_LABEL, MASTERY_RULES, MASTERY_N, daysBetween, practiceDone, checkWaits, practiceSinceFail, PRACTICE_AGAIN, RETRY_PRACTICE, PRACTICE_NEED } from '@/learn/mastery.ts';
+import { nextStage, MASTERY_RULES, MASTERY_N, daysBetween, practiceDone, checkWaits, practiceSinceFail, PRACTICE_AGAIN, RETRY_PRACTICE, PRACTICE_NEED } from '@/learn/mastery.ts';
+import { stairStatus, STATUS_LABEL, STATUS_TONE } from '@/learn/stairStatus.ts';
 import { openMisconceptions } from '@/learn/misconceptions.ts';
 import { routeOf } from '@/learn/recommend.ts';
 import { challengesAfter, isSolved } from '@/learn/challenges/index.ts';
 import { LESSON_LEN, PARTS } from '@/lib/lessonRules.js';
-import { unitNodes, isPlaced } from '@/lib/path.js';
+import { unitNodes, isPlaced, isDone } from '@/lib/path.js';
 import { MathText } from '@/components/MathText.jsx';
 import { inDays } from '@/content/util.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
@@ -27,6 +28,7 @@ import { Segments } from '@/components/ds.jsx';
 import { workBanner, mineOf } from '@/lib/classWork.js';
 import { workFromLearn, mergeWork, recheckDue } from '@/learn/assignments.ts';
 import { Emblem } from '@/components/map/emblems.jsx';
+import { useTilt } from '@/lib/tilt.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/journey.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
@@ -82,6 +84,9 @@ export default function Journey() {
   const t = TOPIC[topic];
   const skill = skillId(topic, level);
   const rec = useApp((s) => s.learn.skills[skill]);
+  // the stair's card leans toward a hovering mouse (ux-motion 10)
+  const headRef = useRef(null);
+  useTilt(headRef);
   const miscon = useApp((s) => s.learn.miscon);
   const path = useApp((s) => s.path);
   const [tutor, setTutor] = useState(false);
@@ -94,7 +99,9 @@ export default function Journey() {
   const c = useStairContent(skill);
   if (!t || !t.levels[level - 1]) return <div className="page pushed"><ScreenBar title="מדרגה" back="/" backLabel="למפה" /><EmptyState mood="encouraging" title="המדרגה לא נמצאה"><p>אולי הקישור ישן. המסלול שלכם מחכה במפה.</p></EmptyState><ScreenFoot><Link to="/" className="btn btn-primary btn-block btn-lg">חזרה למסלול</Link></ScreenFoot></div>;
   const now = new Date().toISOString();
-  const state = masteryState(rec, now);
+  // what the stair's label says (learn/stairStatus.ts): a lesson left in the middle is started, a memory check that came
+  // due is told apart from one that was missed
+  const status = stairStatus(rec, now, isDone(path, topic, level));
   // a stair passed in placement or a jump test goes to its mastery check (PRODUCT2-19), as the plan and the map send it
   const placed = isPlaced(path, topic, level);
   // the teacher gave a stair passed before it was given, and it is not done since (SK-BUYERS-1): its mastery check again
@@ -115,20 +122,23 @@ export default function Journey() {
     else if (id === 'E') navigate(`${routeOf.check(skill, 'mastery')}${work ? `&assignment=${work.id}` : ''}`);
     else navigate(`/learn/${topic}/${level}/${id}`);
   };
-  const status = (id) => {
+  // the place kept inside a teaching stage (Teach.jsx): the lesson goes on from there, so the stage is going
+  const placeIn = (id) => (rec?.taught?.[id] ? 0 : rec?.pos?.[id] || 0);
+  const stageState = (id) => {
     if (id === 'D') return practiceDone(rec) ? 'done' : practiced ? 'going' : '';
     if (id === 'E') return rec?.mastered ? 'done' : '';
-    return rec?.taught?.[id] ? 'done' : '';
+    return rec?.taught?.[id] ? 'done' : placeIn(id) > 0 ? 'going' : '';
   };
+  const goOn = (id, n, of) => (c && placeIn(id) > 0 ? ` · ממשיכים מ${n} ${placeIn(id) + 1} מתוך ${of}` : '');
   const sub = {
-    A: c ? `${c.discover.length} צעדים קצרים, עם דברים שאפשר להזיז` : 'השיעור המלא למדרגה הזאת עוד בהכנה',
-    B: c ? `${c.examples.length} דוגמאות, צעד אחר צעד, עם הסיבה לכל צעד` : 'בהכנה',
-    C: c ? 'אתם בוחרים את הצעד הבא, ומדי עוזר כשצריך' : 'בהכנה',
+    A: c ? `${c.discover.length} צעדים קצרים, עם דברים שאפשר להזיז${goOn('A', 'צעד', c.discover.length)}` : 'השיעור המלא למדרגה הזאת עוד בהכנה',
+    B: c ? `${c.examples.length} דוגמאות, צעד אחר צעד, עם הסיבה לכל צעד${goOn('B', 'דוגמה', c.examples.length)}` : 'בהכנה',
+    C: c ? `אתם בוחרים את הצעד הבא, ומדי עוזר כשצריך${goOn('C', 'תרגיל', c.together.length)}` : 'בהכנה',
     D: waits ? `${PRACTICE_AGAIN} ${Math.min(practiceSinceFail(rec), RETRY_PRACTICE)} מתוך ${RETRY_PRACTICE} נכונות מאז הבדיקה.`
       : `${LESSON_LEN} תרגילים, עם רמז כשצריך${practiced ? ` · ${Math.min(practiced, PRACTICE_NEED)} מתוך ${PRACTICE_NEED} נכונות` : ''}`,
     E: `${MASTERY_N} שאלות בלי רמזים. כך יודעים שזה שלכם.`,
   };
-  const cta = { A: 'מתחילים ללמוד', B: 'לדוגמה הפתורה', C: 'פותרים יחד', D: 'לתרגול', E: 'לבדיקת השליטה' }[stage];
+  const cta = { A: placeIn('A') > 0 ? 'ממשיכים ללמוד' : 'מתחילים ללמוד', B: 'לדוגמה הפתורה', C: 'פותרים יחד', D: 'לתרגול', E: 'לבדיקת השליטה' }[stage];
 
   return (
     <div className={clsx('page', 'pushed', 'journey', `ch-${t.color}`)}>
@@ -136,29 +146,29 @@ export default function Journey() {
       {work && (
         <p className="journey-work"><School size={18} aria-hidden="true" />{workBanner(work.dueOn)}</p>
       )}
-      <header className={clsx('journey-head', `ch-${t.color}`)}>
+      <header ref={headRef} className={clsx('journey-head', `ch-${t.color}`)}>
         <ChapterMark color={t.color} n={level} size="lg" />
         <div className="journey-head-text">
           <h1 className="journey-title">{t.levels[level - 1].title}</h1>
           <p className="journey-topic">{t.title} · מדרגה {level}</p>
-          <p className={clsx('mastery-chip', `ms-${state}`)}>{STATE_LABEL[state]}{state === 'mastered' && due != null ? ` · בדיקה חוזרת ${inDays(due || 1)}` : ''}</p>
+          <p className={clsx('mastery-chip', `ms-${STATUS_TONE[status]}`)}>{STATUS_LABEL[status]}{status === 'mastered' && due != null ? ` · בדיקה חוזרת ${inDays(due || 1)}` : ''}</p>
         </div>
         <Emblem topic={t.id} />
       </header>
 
       <section className="jclimb" aria-labelledby="climb-title" data-region="card">
-        <Segments steps={STAGES.map((x) => (status(x.id) === 'done' ? 'done' : stage === x.id ? 'current' : 'todo'))} size="thin" label="השלבים שהושלמו" valueText={`${STAGES.filter((x) => status(x.id) === 'done').length} מתוך 5 שלבים`} />
+        <Segments steps={STAGES.map((x) => (stageState(x.id) === 'done' ? 'done' : stage === x.id ? 'current' : 'todo'))} size="thin" label="השלבים שהושלמו" valueText={`${STAGES.filter((x) => stageState(x.id) === 'done').length} מתוך 5 שלבים`} />
         <div className="jclimb-next">
-          <p className="jclimb-label" id="climb-title">{recheck ? 'הצעד הבא: בדיקת שליטה חוזרת, למשימה מהמורה' : state === 'mastered' ? 'המדרגה בידיים שלכם. אפשר לחזור לכל שלב' : `הצעד הבא: שלב ${STAGES.findIndex((x) => x.id === stage) + 1} מתוך 5`}</p>
+          <p className="jclimb-label" id="climb-title">{recheck ? 'הצעד הבא: בדיקת שליטה חוזרת, למשימה מהמורה' : status === 'mastered' ? 'המדרגה בידיים שלכם. אפשר לחזור לכל שלב' : `הצעד הבא: שלב ${STAGES.findIndex((x) => x.id === stage) + 1} מתוך 5`}</p>
           <Button className="btn-block btn-lg" onClick={() => toStage(stage)}>{cta}</Button>
           <Button variant="ghost" className="btn-block btn-sm" onClick={() => setTutor(true)}><HelpCircle size={18} aria-hidden="true" />שאלה למדי</Button>
         </div>
       </section>
 
       <h2 className="h-section journey-list-title">חמשת השלבים של המדרגה</h2>
-      <ol className="journey-stages" aria-label="שלבי המדרגה" data-region="path">
+      <ol className="journey-stages cascade" aria-label="שלבי המדרגה" data-region="path">
         {STAGES.map((st) => {
-          const s = status(st.id); const Icon = st.icon;
+          const s = stageState(st.id); const Icon = st.icon;
           const disabled = !c && ['A', 'B', 'C'].includes(st.id);
           return (
             <li key={st.id} className={clsx('jstage', s, stage === st.id && 'current', disabled && 'disabled')}>

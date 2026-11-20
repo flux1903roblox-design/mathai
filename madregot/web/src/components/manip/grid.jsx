@@ -8,11 +8,16 @@ export function gridGeometry(r = 6) {
   return { r, c, pad, size, o, X, Y, toX, toY };
 }
 
+/**
+ * The plane: its grid, axes, numbers and the letters x and y are drawing for the eye, hidden from a screen reader (the
+ * object that draws on it says where its point or shape is in its own name); what is put on it (`children`) is not.
+ */
 export function Plane({ g, children }) {
   const { r, X, Y, o } = g;
   const ticks = []; for (let i = -r; i <= r; i += 1) ticks.push(i);
   return (
     <>
+      <g aria-hidden="true">
       <rect x="0" y="0" width={g.size} height={g.size} className="mp-hit" />
       {ticks.map((i) => <line key={`v${i}`} x1={X(i)} y1={Y(r + 0.5)} x2={X(i)} y2={Y(-r - 0.5)} className="mp-grid" />)}
       {ticks.map((i) => <line key={`h${i}`} x1={X(-r - 0.5)} y1={Y(i)} x2={X(r + 0.5)} y2={Y(i)} className="mp-grid" />)}
@@ -28,6 +33,7 @@ export function Plane({ g, children }) {
           <text x={o - 7} y={Y(i) + 5} textAnchor="end" className="mp-num">{minus(i)}</text>
         </g>
       ))}
+      </g>
       {children}
     </>
   );

@@ -9,6 +9,7 @@ import { schoolMonth } from '@/learn/programme.ts';
 import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote, journey } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lessonRules.js';
 import { MASTERY_N, checkWaits, PRACTICE_AGAIN } from '@/learn/mastery.ts';
+import { savedPlace } from '@/learn/stairStatus.ts';
 import PathNode from '@/components/PathNode.jsx';
 import StorageBanner from '@/components/durable/StorageBanner.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
@@ -65,6 +66,9 @@ function PathArt({ topic, piece, x }) {
   return <li className="path-art" aria-hidden="true" style={{ '--x': `${x > 0 ? -ART_X : ART_X}px` }}><Suspense fallback={null}><SceneryArt topic={topic} piece={piece} /></Suspense></li>;
 }
 
+/** How long a card winds up before its lesson opens (ux-motion 2: 60 to 200ms). */
+export const WIND_UP_MS = 120;
+
 function NodeCard({ n, t, onStart, next }) {
   const top = t.levels.length;
   if (n.kind === 'review') {
@@ -72,7 +76,7 @@ function NodeCard({ n, t, onStart, next }) {
       <div className="node-card" role="group" aria-label={n.title}>
         <p className="node-card-title">{tr('shell.learn.1')}</p>
         <p className="node-card-sub">{n.state === 'locked' ? tr('shell.learn.2') : tr('shell.learn.3', { REVIEW_LEN })}</p>
-        {n.state !== 'locked' && <Button className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${top}?kind=review`)}>{n.state === 'done' ? tr('shell.learn.4') : tr('shell.learn.5')}</Button>}
+        {n.state !== 'locked' && <Button className="btn-block" onClick={(e) => onStart(`/lesson/${t.id}/${top}?kind=review`, e)}>{n.state === 'done' ? tr('shell.learn.4') : tr('shell.learn.5')}</Button>}
       </div>
     );
   }
@@ -104,15 +108,16 @@ function StairCard({ n, t, onStart, next }) {
       <p className="node-card-title">{n.title}</p>
       {added && <p className="node-card-sub node-card-added">{added}</p>}
       {lead && <p className="node-card-sub node-card-next">{tr('shell.learn.6')}<MathText text={lead.title} /></p>}
-      {lead && <Button className="btn-block node-next-btn" onClick={() => onStart(lead.to)}>{tr('shell.learn.7')}</Button>}
+      {lead && <Button className="btn-block node-next-btn" onClick={(e) => onStart(lead.to, e)}>{tr('shell.learn.7')}</Button>}
       {n.state === 'current' && <p className="node-card-sub">{tr('shell.learn.8')}{STAGE_N[st]}{tr('shell.learn.9')}{STAGE_NAME[st]}{waits ? `. ${PRACTICE_AGAIN}` : ''}</p>}
-      {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={() => onStart(own)}>{rec?.taught?.A || n.parts ? tr('shell.learn.10') : tr('shell.learn.5')}</Button>}
+      {/* a lesson left in the middle (its place is kept, learn/stairStatus.ts) goes on, as a finished stage does */}
+      {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={(e) => onStart(own, e)}>{rec?.taught?.A || n.parts || savedPlace(rec) ? tr('shell.learn.10') : tr('shell.learn.5')}</Button>}
       {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.11')}</Button>}
       {mastered && <p className="node-card-sub">{tr('shell.learn.12')}</p>}
       {n.state === 'done' && !mastered && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `${tr('shell.learn.13')}${MASTERY_N}${tr('shell.learn.14')}`}</p>}
       {n.state === 'open' && <p className="node-card-sub">{waits ? PRACTICE_AGAIN : `${tr('shell.learn.15')}${MASTERY_N}${tr('shell.learn.16')}`}</p>}
       {n.state === 'locked' && <p className="node-card-sub">{tr('shell.learn.17')}{JUMP_LEN}{tr('shell.learn.18')}</p>}
-      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button variant={main} className="btn-block" onClick={() => onStart(waits ? own : check)}>{waits ? tr('shell.learn.toPractice') : tr('shell.learn.19')}</Button>}
+      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button variant={main} className="btn-block" onClick={(e) => onStart(waits ? own : check, e)}>{waits ? tr('shell.learn.toPractice') : tr('shell.learn.19')}</Button>}
       {n.state === 'open' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.20')}</Button>}
       {mastered && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{tr('shell.learn.20')}</Button>}
       {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>{tr('shell.learn.21')}</Button>}
@@ -170,7 +175,7 @@ function UnitRow({ t, colour, n, mastered, onOpen }) {
   );
 }
 
-function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKey, focusNext, fresh, mastered, celebrate, preview, onUnfold, arrive }) {
+function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKey, focusNext, fresh, mastered, celebrate, preview, onUnfold, arrive, unfolded }) {
   const skills = useApp((s) => s.learn.skills);
   const path = useApp((s) => s.path);
   // the unit's counters move from the first stage: stairs done (mastered) once there is one, before that stages done,
@@ -182,18 +187,22 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
   return (
     <section className={clsx('unit', `ch-${colour || t.color}`, `world-${t.id}`, mastered && 'is-mastered', preview && 'is-preview')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path
-          scrolls. The fractions floor is not one of the grade's units: it is named יסודות and has no number */}
+          scrolls. The fractions floor is not one of the grade's units: it is named יסודות and has no number. The heading's
+          name is the unit's name, then its label (number and count), as a folded unit's row says them: a screen reader's
+          list of headings numbers every unit, open or folded, and the label stays where the eye reads it */}
       <header className="unit-head" data-region="banner">
         <Emblem topic={t.id} />
         <div className="unit-head-text">
-          <h2 id={`unit-${t.id}`} className="unit-title" tabIndex={-1}>{t.title}</h2>
-          <p className="unit-label">{t.bridge ? tr('shell.learn.28') : tr('shell.learn.29', { n })}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></p>
+          <h2 id={`unit-${t.id}`} className="unit-title" tabIndex={-1} aria-labelledby={`unit-${t.id} unit-${t.id}-label`}>{t.title}</h2>
+          <p id={`unit-${t.id}-label`} className="unit-label">{t.bridge ? tr('shell.learn.28') : tr('shell.learn.29', { n })}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></p>
           <div className="unit-bar" role="progressbar" aria-label={tr('shell.learn.30', { title: t.title })} aria-valuemin={0} aria-valuemax={prog.of} aria-valuenow={prog.stages} aria-valuetext={tr('shell.learn.31', { stages: prog.stages, of: prog.of })}><i style={{ width: `${(prog.stages / prog.of) * 100}%` }} /></div>
         </div>
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={tr('shell.learn.32', { title: t.title })}><BookOpen size={22} aria-hidden="true" /><span>{tr('shell.learn.33')}</span></Link>
       </header>
       <div className="unit-world">
-        <ol className="path" data-region="path">
+        {/* a unit the student unfolds on this visit lays its stops out one after another (ux-motion 3); the path on
+            screen when the map opens is drawn at once */}
+        <ol className={clsx('path', unfolded && 'cascade')} data-region="path">
           {nodes.map((node, i) => {
             const key = `${t.id}:${node.kind}:${node.level}`;
             const isOpen = open === key;
@@ -207,7 +216,7 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
             const here = node.state === 'current' && !node.preview && key === focusKey;
             return [
               <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
-                {node.state === 'current' && !node.preview && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 ? tr('shell.learn.10') : tr('shell.learn.5')}</span>}
+                {node.state === 'current' && !node.preview && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 || savedPlace(rec) ? tr('shell.learn.10') : tr('shell.learn.5')}</span>}
                 {isNext && !isOpen && <span className="node-start node-next" aria-hidden="true">{tr('shell.learn.42')}</span>}
                 <div className={clsx('node-anchor', node.state === 'current' && !node.preview && 'is-current')} data-stop={key}>
                   <PathNode
@@ -458,7 +467,16 @@ function LearnMap() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener('scroll', later); window.removeEventListener('resize', later); };
   }, [away]);
 
-  const onStart = (to) => navigate(to);
+  // A stair's card launches its lesson (ux-motion 2): a short wind-up, the card dipping 4px, before the screen goes; a
+  // second tap meanwhile is the same launch. Under reduced motion, and from anywhere but a card, it goes at once.
+  const onStart = (to, e) => {
+    const card = e?.currentTarget?.closest?.('.node-card');
+    const still = !card || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (still) { navigate(to); return; }
+    if (card.classList.contains('is-launching')) return;
+    card.classList.add('is-launching');
+    setTimeout(() => navigate(to), WIND_UP_MS);
+  };
   const otherGrade = view === '7' ? '8' : '7';
   const backupLine = useApp((s) => showBackupLine(s.backup));
 
@@ -503,7 +521,7 @@ function LearnMap() {
           if (mode === 'folded') return <UnitRow key={id} t={t} colour={colours[id]} n={unitNumber(t)} mastered={mastered} onOpen={unfold} />;
           return (
             <Unit key={id} t={t} colour={colours[id]} n={unitNumber(t)} nodes={nodes} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} focusNext={focus.next} fresh={arrive?.topic}
-              mastered={mastered} celebrate={arrive?.topic === id ? arrive.from : null} preview={mode === 'preview'} onUnfold={unfold} arrive={id === focus.topic && arrive?.topic === id ? arrive : null} />
+              mastered={mastered} celebrate={arrive?.topic === id ? arrive.from : null} preview={mode === 'preview'} onUnfold={unfold} arrive={id === focus.topic && arrive?.topic === id ? arrive : null} unfolded={unfolded.includes(id)} />
           );
         })}
         {/* the Home Screen guide when a more important card stood above the path: it waits here, under the path */}

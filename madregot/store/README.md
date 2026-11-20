@@ -33,7 +33,7 @@ Five frames, one benefit each, in this order (headline, then the line under it):
 | 5 | המדי שלכם | צבעים ואביזרים מכל מה שלמדתם | מדי's wardrobe |
 
 Every screen inside the phone is the real app: the build with no server (`VITE_API_URL=none`), driven by Playwright with
-the QA hooks (`madregot-debug`), in light mode, at 390 × 844 at 3x; nothing is drawn by hand. The frames use the app's
+the QA hooks (`madregot-debug`, which only a test build made with `VITE_QA_HOOKS=flag` reads), in light mode, at 390 × 844 at 3x; nothing is drawn by hand. The frames use the app's
 tokens (the brand tint behind, ink for the headline) and Rubik. Every phone in a set starts at the same height.
 
 The topic count in the third frame is built by `frames.cjs` from `counts.json`, which `npm run programme:md` (in `web/`)

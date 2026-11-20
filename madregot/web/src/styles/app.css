@@ -47,7 +47,7 @@
   --btn-bg: var(--paper); --btn-ink: var(--ink); --btn-lip: var(--rule-press); --btn-line: var(--rule-strong);
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); padding: 0 var(--s5); border: 2px solid var(--btn-line);
   background: var(--btn-bg); color: var(--btn-ink); box-shadow: 0 var(--lip) 0 var(--btn-lip); margin-bottom: var(--lip); text-decoration: none; white-space: nowrap;
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), filter var(--duration-quick) var(--ease-out);
+  transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-press) var(--ease-out), filter var(--duration-quick) var(--ease-out);
 }
 .btn:active:not(:disabled) { transform: translateY(var(--lip)); box-shadow: 0 0 0 var(--btn-lip); }
 .btn:disabled { cursor: default; }
@@ -75,8 +75,8 @@ textarea.input { resize: vertical; min-height: 88px; line-height: 1.3685; }
 .form-error { color: var(--magenta); font-weight: 600; }
 
 .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--s2); padding: 0; background: none; border: 0; }
-.seg { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); min-height: 46px; border-radius: var(--r-md); margin-bottom: 3px; transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out); }
-.seg:active { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press); }
+.seg { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); min-height: 46px; border-radius: var(--r-md); margin-bottom: 3px; transform-origin: 50% 100%; transition: transform var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out); }
+.seg:active { transform: translateY(3px); scale: var(--squash-soft); box-shadow: 0 0 0 var(--rule-press); }
 .chip { display: inline-flex; align-items: center; gap: var(--s1); min-height: 32px; padding: 0 var(--s3); border-radius: 999px; font-size: var(--t-sm); }
 .chip svg { color: var(--streak); }
 .chip:nth-child(2) svg { color: var(--gold-ink); }
@@ -184,7 +184,8 @@ textarea.input { resize: vertical; min-height: 88px; line-height: 1.3685; }
 .feedback:empty { display: none; }
 .diag { font-weight: 600; }
 .hint-line svg { flex: none; margin-top: 4px; color: var(--gold-ink); }
-details.sol summary { cursor: pointer; font-weight: 700; color: var(--brand-ink); min-height: 32px; }
+details.sol summary { position: relative; cursor: pointer; font-weight: 700; color: var(--brand-ink); min-height: 32px; }
+details.sol summary::after { content: ''; position: absolute; inset: -6px 0; } /* a 44px tall tap on a 32px line */
 details.sol[open] summary { margin-bottom: var(--s2); }
 .explain { display: flex; flex-direction: column; }
 .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -207,7 +208,7 @@ details.sol[open] summary { margin-bottom: var(--s2); }
   transition: transform var(--duration-slow) var(--ease-smooth-out), opacity var(--duration-fast) var(--ease-out);
 }
 .sheet[data-starting-style] { transform: translateY(24px); opacity: 0; }
-.sheet[data-ending-style] { transform: translateY(16px); opacity: 0; transition-duration: var(--duration-medium); }
+.sheet[data-ending-style] { transform: translateY(16px); opacity: 0; transition-duration: var(--duration-quick); transition-timing-function: var(--ease-in); } /* closes in 150ms, faster than it opened (ux-motion 18) */
 @media (min-width: 700px) {
   .sheet { inset: 6dvh auto auto 50%; width: min(560px, 92vw); max-height: 86dvh; translate: -50% 0; }
 }
@@ -396,7 +397,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .node-slot { position: relative; display: grid; place-items: center; }
 .node { --face-c: var(--c); --edge: var(--c-d);
   position: relative; z-index: 1; display: grid; place-items: center; margin-top: calc(var(--lip) * -1); overflow: hidden; /* colour-ok: a shade (black at low alpha), the same in both themes */
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), filter var(--duration-quick) var(--ease-out);
+  transform-origin: 50% 100%; transition: transform var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out);
 } /* colour-ok: a shade (black at low alpha), the same in both themes */
 .node-glyph { position: relative; z-index: 1; } /* colour-ok: a shade (black at low alpha), the same in both themes */
 .is-review .node { --face: 86px; }
@@ -435,6 +436,11 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
   border: 10px solid transparent;
 }
 .node-card .btn-primary { font-size: var(--t-lg); min-height: 52px; }
+/* it grows from the stop that was tapped, at its arrow's tip (ux-motion 11), and is gone at once when closed (18) */
+.node-card { transform-origin: calc(50% + var(--x)) -10px; transition: opacity var(--duration-fast) var(--ease-smooth-out), scale var(--duration-fast) var(--ease-smooth-out), translate var(--duration-fast) var(--ease-smooth-out); }
+@starting-style { .node-card { opacity: 0; scale: 0.9; } }
+/* the wind-up before its lesson opens (ux-motion 2, Learn.jsx onStart): the card dips 4px and gives a little */
+.node-card.is-launching { translate: 0 var(--distance-micro); scale: 0.98; transition-duration: var(--duration-press); }
 
 @media (prefers-reduced-motion: reduce) {
   .node-anchor.is-current, .node-halo, .node-mastered::after { animation: none !important; }
@@ -460,11 +466,12 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .lesson .choices.inline { grid-template-columns: repeat(3, 1fr); }
 .lesson .choice {
   display: flex; align-items: center; gap: var(--s3); min-height: 60px; padding: var(--s3) var(--s4); text-align: start; margin-bottom: 4px; font-weight: 600; text-decoration: none;
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+  transform-origin: 50% 100%; transition: translate var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
 }
 .lesson .choice { min-width: 0; max-width: 100%; }
 .lesson .choices.inline .choice { justify-content: center; }
-.lesson .choice:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--rule-press); }
+/* translate, not transform: the right choice's pop (Lesson.jsx) holds the transform */
+.lesson .choice:active:not(:disabled) { translate: 0 4px; scale: var(--squash-soft); box-shadow: 0 0 0 var(--rule-press); }
 .choice-key { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; font-size: var(--t-sm); }
 .lesson .choice.good { border-color: var(--good-d); background: var(--good-tint); color: var(--good-ink); box-shadow: 0 4px 0 var(--good-line); }
 .lesson .choice.bad { border-color: var(--bad-line); background: var(--bad-tint); color: var(--bad-ink); box-shadow: 0 4px 0 var(--bad-line); text-decoration: line-through; }
@@ -474,7 +481,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .lesson-dock .btn { margin-bottom: var(--lip); }
 .keypad .key { margin-bottom: 3px;
   font-family: var(--font-ui); font-size: 1.5rem;
-  transition: transform 60ms var(--ease-out), box-shadow 60ms var(--ease-out);
+  transition: transform var(--duration-tap) var(--ease-out), box-shadow var(--duration-tap) var(--ease-out);
 }
 /* the space of a mixed number (5 1/3): a word, not a symbol, as on a phone keyboard */
 .keypad .key-space { font-size: 1rem; font-weight: 700; color: var(--ink-2); }
@@ -508,8 +515,6 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .fb .box { color: var(--ink); }
 @keyframes fb-rise { from { transform: translateY(24px); opacity: 0; } }
 
-/* ---------- combo moment ---------- */
-@keyframes pop-in { from { opacity: 0; transform: scale(0.92); } }
 
 /* ---------- lesson complete, streak, quests done ---------- */
 .done-screen { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: var(--s5); text-align: center;
@@ -545,7 +550,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 @media (prefers-reduced-motion: reduce) {
   .node-start, .streak-big svg { animation: none !important; }
   .node, .node-ring-seg { transition: none !important; }
-  .fb, .combo-pop { animation: none !important; }
+  .fb { animation: none !important; }
 }
 
 .lesson-dock .tools { flex-wrap: nowrap; gap: 6px; margin-bottom: -2px; scrollbar-width: none; }
@@ -577,6 +582,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .side-card { display: flex; flex-direction: column; gap: var(--s3); text-decoration: none; }
 a.side-card { border-bottom-width: 4px; }
 a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
+a.side-card { transition: transform var(--duration-press) var(--ease-out), border-bottom-width var(--duration-press) var(--ease-out); }
 .side-streak { flex-direction: row; align-items: center; gap: var(--s3); }
 .side-streak > span { display: flex; flex-direction: column; }
 .side-streak svg { color: var(--rule-strong); flex: none; }
@@ -626,10 +632,10 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s3);
   min-height: 68px; padding: var(--s3) var(--s4); margin-bottom: 4px; text-align: start;
   border: 2px solid var(--rule); border-radius: var(--r-md); background: var(--paper); box-shadow: 0 4px 0 var(--rule-press); color: var(--ink);
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+  transform-origin: 50% 100%; transition: transform var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out), border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
 }
 .ob-opt:not(:has(.ob-opt-glyph)) { grid-template-columns: minmax(0, 1fr) auto; }
-.ob-opt:active { transform: translateY(4px); box-shadow: 0 0 0 var(--rule-press); }
+.ob-opt:active { transform: translateY(4px); scale: var(--squash-soft); box-shadow: 0 0 0 var(--rule-press); }
 .ob-opt.on { border-color: var(--brand); background: var(--brand-tint); box-shadow: 0 4px 0 var(--brand-line); }
 .ob-opt.on:active { box-shadow: 0 0 0 var(--brand-line); }
 .ob-opt-glyph { display: grid; place-items: center; width: 48px; min-height: 40px; color: var(--brand-ink); }
@@ -702,7 +708,6 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 .fb-burst i:nth-child(2n) { background: var(--gold); border-radius: 2px; }
 .fb-combo { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: auto; padding: 3px 10px; border-radius: 999px; background: var(--surface); color: var(--streak-ink); font-weight: 700; font-size: var(--t-sm); }
 .fb-combo svg { color: var(--streak); fill: var(--streak); }
-.combo-text svg { color: var(--streak); fill: var(--streak); }
 
 /* ---------- celebrations: confetti behind the hero, medals for what was earned ---------- */
 .done-hero { position: relative; display: grid; place-items: center; min-height: 170px; width: 100%; }
@@ -840,6 +845,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
 }
 .jump-current:active { transform: translateY(4px); box-shadow: 0 0 0 var(--rule-press), var(--shadow-lift); }
+.jump-current { transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-press) var(--ease-out); }
 @media (min-width: 960px) {
   .jump-current { bottom: var(--s8); inset-inline-start: calc(240px + var(--s6)); }
 }
@@ -959,7 +965,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
 /* short phones, typed answers: the check button joins the answer row, the help buttons sit in the top row */
 .answer-bar.with-check .check-btn { flex: none; width: auto; min-width: 84px; height: 46px; min-height: 46px; padding-inline: 14px; margin-bottom: var(--lip); }
-.lesson-top .tool { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 12px; }
+.lesson-top .tool { position: relative; width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 12px; }
+/* drawn at 40px so five fit beside the bar on a 320 phone; each takes a tap 44px square (the 4px gap is shared) */
+.lesson-top .tool::after { content: ''; position: absolute; inset: -2px; }
 @media (max-height: 700px) and (max-width: 899px) {
   .answer-bar.with-check .slot { width: clamp(52px, 16vw, 72px); }
 /* one typed number has the row to itself beside the check button: wide enough for −27/64 or −0.027 on a 320 phone
@@ -1164,6 +1172,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   font-weight: 700; font-size: var(--t-sm); box-shadow: 0 3px 0 color-mix(in srgb, var(--brand) 30%, var(--rule-press));
 }
 .stair-next:active { transform: translateY(2px); box-shadow: none; }
+.stair-next { transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-press) var(--ease-out); }
 .stair-count { font-weight: 600; color: var(--ink-2); }
 @keyframes stair-in { from { opacity: 0; transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) { .stair-step { animation: none; } }

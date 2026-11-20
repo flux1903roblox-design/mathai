@@ -15,9 +15,11 @@ const SPARKS = 6;
 
 /**
  * value: the XP; delay: seconds before it starts; plus: a "+" before it; unit: " XP" after it (left out in a tile whose
- * label says XP); className: e.g. the pill it sits in.
+ * label says XP); className: e.g. the pill it sits in; secs: how long the count takes (countSecs by default; a stair
+ * mastered counts its numbers faster, as a secondary action beside the moment); sparks: the gold sparks as it lands
+ * (off for a count that is not XP).
  */
-export default function XpCount({ value = 0, delay = 0, plus = true, unit = true, className }) {
+export default function XpCount({ value = 0, delay = 0, plus = true, unit = true, className, secs, sparks = true }) {
   const reduce = useReducedMotion();
   const still = !!reduce || !(value > 0);
   const [n, setN] = useState(still ? value : 0);
@@ -26,7 +28,7 @@ export default function XpCount({ value = 0, delay = 0, plus = true, unit = true
     if (still) { setN(value); setDone(true); return undefined; }
     setDone(false);
     let raf = 0; let start = null;
-    const total = countSecs(value) * 1000; const wait = delay * 1000;
+    const total = (secs ?? countSecs(value)) * 1000; const wait = delay * 1000;
     const tick = (t) => {
       if (start == null) start = t;
       const k = Math.min(1, Math.max(0, (t - start - wait) / total));
@@ -35,7 +37,7 @@ export default function XpCount({ value = 0, delay = 0, plus = true, unit = true
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [value, still, delay]);
+  }, [value, still, delay, secs]);
   const sign = plus ? '+' : '';
   // the pop and the sparks only after a real count (never under reduced motion)
   const landed = done && !still;
@@ -44,7 +46,7 @@ export default function XpCount({ value = 0, delay = 0, plus = true, unit = true
       <span className="xp-count-n" aria-hidden="true">{sign}{n}</span>
       {unit && <span className="xp-count-unit" aria-hidden="true"> XP</span>}
       <span className="visually-hidden">{sign}{value}{unit ? ' XP' : ''}</span>
-      {landed && (
+      {landed && sparks && (
         <span className="xp-sparks" aria-hidden="true">
           {Array.from({ length: SPARKS }, (_, i) => <i key={i} style={{ '--a': `${(360 / SPARKS) * i + 15}deg` }} />)}
         </span>

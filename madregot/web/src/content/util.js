@@ -171,6 +171,12 @@ export function roundTo(x, p) {
   return (Math.sign(x) * Math.round(Math.abs(x) * k + 1e-9)) / k;
 }
 
+/**
+ * x rounded to two places as school rounds, written with both places: 0.90, −0.30, 1.42. A worked example's "≈" for an
+ * answer the question asks rounded to two places, so it shows the very digits the student is asked to type (never 0.9).
+ */
+export const twoPlaces = (x) => (roundTo(x, 2) || 0).toFixed(2);
+
 /** The same number, up to floating point (16/3 typed as a fraction is 16/3). */
 const same = (u, a) => Math.abs(u - a) <= 1e-9 * Math.max(1, Math.abs(a));
 
@@ -190,13 +196,15 @@ export function roundsTo(u, x, min) {
  * stairs) is compared exactly: the exact value is right (7/12, 14/24, 5 1/3), and so is a decimal of two or more places
  * that is the exact value correctly rounded at its own number of places: 0.58, 0.583 and 0.5833 for 7/12, 0.67 and
  * 0.6667 for 2/3, 0.13 for 0.125 (a question whose answer has no exact two-place decimal says so, withFormatNote). A
- * decimal cut off instead of rounded (0.666, 0.6666 for 2/3), a wrong rounding (0.59 for 7/12) and one place (0.7)
- * are wrong, and so is 1/35 for 1/36.
+ * decimal cut off instead of rounded (0.666, 0.6666 for 2/3), a wrong rounding (0.59 for 7/12) and one place that is
+ * not the two-place rounding (0.7 for 2/3, which is 0.67) are wrong, and so is 1/35 for 1/36. A rounding whose last
+ * digit is 0 is right as typed: 19/21 is 0.90 rounded to two places, and the number read from "0.90" is 0.9, so 0.9
+ * counts as two places too (roundsTo counts at least two): it is the same number.
  */
 export function numRight(u, a, precise = false) {
   if (typeof u !== 'number' || !Number.isFinite(u) || typeof a !== 'number') return false;
   if (!precise) return near(u, a, 0.01);
-  return same(u, a) || (placesOf(u) >= 2 && roundsTo(u, a, 2));
+  return same(u, a) || roundsTo(u, a, 2);
 }
 
 /**

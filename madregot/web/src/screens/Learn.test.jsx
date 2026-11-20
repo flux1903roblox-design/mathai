@@ -24,6 +24,14 @@ const render = (entry = '/') => html(entry);
 const text = (html) => html.replace(/<[^>]+>/g, '').replace(/\u00a0/g, ' ');
 const sections = (html, cls) => [...html.matchAll(new RegExp(`<section class="${cls}[ "][^>]*>`, 'g'))];
 const titles = (html, cls) => [...html.matchAll(new RegExp(`<section class="${cls}[ "][\\s\\S]*?class="unit-title"[^>]*>([^<]+)<`, 'g'))].map((m) => m[1]);
+// an element's words, by its id
+const textOf = (html, id) => { const m = new RegExp(`<(\\w+)[^>]*\\bid="${id}"[^>]*>([\\s\\S]*?)</\\1>`).exec(html); return m ? text(m[2]) : ''; };
+// the units' headings as a screen reader lists them: a heading's name is the words of the ids in its aria-labelledby, in
+// order (its own id: its own words), else its words
+const unitHeadings = (html) => [...html.matchAll(/<h2\b([^>]*class="unit-(?:title|row-h)"[^>]*)>([\s\S]*?)<\/h2>/g)].map(([, attrs, inner]) => {
+  const by = /aria-labelledby="([^"]+)"/.exec(attrs);
+  return (by ? by[1].split(/\s+/).map((id) => textOf(html, id)).join(' ') : text(inner)).replace(/\s+/g, ' ').trim();
+});
 
 describe('the home path: one unit open, the next previewed, the others folded', () => {
   const grade7 = topicsFor('7');
@@ -61,6 +69,33 @@ describe('the home path: one unit open, the next previewed, the others folded', 
     expect(titles(out, 'unit')).toEqual([grade7[1].title, grade7[2].title]);
     expect(titles(out, 'unit-row')[0]).toBe(grade7[0].title);
     expect(text(out)).toContain(`יחידה 1 · ${grade7[0].levels.length} מתוך ${grade7[0].levels.length} מדרגות`);
+  });
+});
+
+// The external review (Nov 2026, finding 4): on the ח׳ map "פונקציה קווית" and "משפט פיתגורס" came without a unit number,
+// between units 5 and 8. Both are ח׳'s own units 6 and 7 and their banners show the number; what lacked it was their
+// headings. The unit the student is on and the one previewed after it name only the unit in their heading, while every
+// folded unit's heading is its row (name, number and count), so a list of headings jumped from 5 to 8.
+describe('every unit heading on the map names its number, open, previewed or folded', () => {
+  beforeEach(() => {
+    useApp.getState().resetProgress();
+    useApp.setState({ profile: { role: 'student', name: 'נועה', grade: '8', know: 1 } });
+  });
+
+  it('a ח׳ student on the linear function: units 6 and 7 are numbered like 5 and 8', () => {
+    const before = topicsFor('8').slice(0, 5);
+    useApp.setState({ path: Object.fromEntries(before.map((t) => [t.id, done(t.levels.map((_, i) => i + 1))])), lastTopic: 'line' });
+    const out = render({ pathname: '/', state: { from: 'line' } });
+    // the open unit and the previewed one keep their banners' look: the heading's own words are the unit's name
+    expect(titles(out, 'unit')).toEqual(['פונקציה קווית', 'משפט פיתגורס']);
+    const names = unitHeadings(out);
+    expect(names.length).toBeGreaterThanOrEqual(8);
+    names.forEach((name, i) => expect(name, name).toContain(`יחידה ${i + 1} · `));
+    expect(names[5]).toMatch(/^פונקציה קווית\s*יחידה 6 · /);
+    expect(names[6]).toMatch(/^משפט פיתגורס\s*יחידה 7 · /);
+    // a folded unit's heading is unchanged: its name, its number and its count
+    const n = before[4].levels.length;
+    expect(names[4]).toMatch(new RegExp(`^${before[4].title}\\s*יחידה 5 · ${n} מתוך ${n} מדרגות$`));
   });
 });
 

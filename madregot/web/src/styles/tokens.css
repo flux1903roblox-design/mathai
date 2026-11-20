@@ -79,20 +79,30 @@
 
   /* motion tokens (transitions.dev scale) */
   --duration-stagger: 40ms;
-  --duration-micro: 80ms;
+  --duration-tap: 60ms;      /* a keypad key going down: the most-used control answers fastest (ux-motion 20) */
+  --duration-micro: 80ms;    /* a small change of state: a chip, a dot */
+  --duration-press: 100ms;   /* a button sinking onto its lip: one press for the whole app (ux-motion 8, 10) */
+  --duration-squash: 120ms;  /* a tile, a stop or a switch's knob squashing as it is pressed (ux-motion 1: 80 to 150ms) */
   --duration-quick: 150ms;
   --duration-fast: 250ms;
   --duration-medium: 350ms;
   --duration-slow: 400ms;
   --duration-very-slow: 500ms;
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in-out: ease-in-out;
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0); /* for anything leaving: a sheet closing gets out of the way (ux-motion 5, 18) */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* moving from one place on screen to another (ux-motion 5) */
   --ease-out: ease-out;
   --ease-linear: linear;
   --distance-micro: 4px;
   --distance-base: 8px;
   --distance-medium: 12px;
   --scale-large: 0.96;
+  /* the squash of a press (ux-motion 1): a little wider and shorter, about the same area. Only on things you press that
+     carry no text (a stop, the gift, a switch's knob); a tile with maths or words on it takes half (--squash-soft), so its
+     text hardly bends. Under reduced motion they are none (below): a press only sinks. */
+  --squash: 1.04 0.96;
+  --squash-soft: 1.02 0.98;
+  --squash-knob: 1.12 0.9;
   --blur-small: 2px;
   --blur-medium: 3px;
 
@@ -167,6 +177,7 @@ img, svg { max-width: 100%; }
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) {
+  :root { --squash: none; --squash-soft: none; --squash-knob: none; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 /* A duration on every element gives every property a transition (the default property is all), so maths took one frame
      to reach a new font size: FitDisplay measured the old size and left a long line (five bracketed numbers) running out

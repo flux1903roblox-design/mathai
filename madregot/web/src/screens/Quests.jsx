@@ -10,7 +10,7 @@ import { questProgress, goalProgress, GOALS } from '@/lib/quests.js';
 import { Week } from '@/components/learn/StreakStage.jsx';
 import PageHero from '@/components/PageHero.jsx';
 import Lottie from '@/components/Lottie.jsx';
-import { EASE } from '@/lib/motion.js';
+import { DUR, EASE, cascade } from '@/lib/motion.js';
 import TodayCard from '@/components/learn/TodayCard.jsx';
 import { markSeen } from '@/lib/classWork.js';
 import MyHelp from '@/components/learn/MyHelp.jsx';
@@ -114,7 +114,7 @@ export default function Quests() {
           <h2 id="q-h" className="card-title"><Target size={22} aria-hidden="true" className="brand-icon" />המשימות של היום</h2>
           <span className="card-num">{quests.filter((q) => q.done).length}/3</span>
         </div>
-        <ul className="quest-list">
+        <ul className="quest-list cascade">
           {quests.map((q, i) => {
             const Icon = QUEST_ICON[q.id] || Target;
             return (
@@ -123,7 +123,7 @@ export default function Quests() {
                 <div className="quest-main">
                   <span className="quest-title">{q.title}</span>
                   <div className="quest-bar" role="progressbar" aria-label={q.title} aria-valuemin={0} aria-valuemax={q.target} aria-valuenow={q.have}>
-                    <m.i initial={reduce ? false : { width: 0 }} animate={{ width: `${Math.min(1, q.have / q.target) * 100}%` }} transition={{ duration: 0.7, delay: 0.15 + i * 0.12, ease: EASE.out }} />
+                    <m.i initial={reduce ? false : { width: 0 }} animate={{ width: `${Math.min(1, q.have / q.target) * 100}%` }} transition={{ duration: DUR.slow, delay: 0.15 + cascade(i), ease: EASE.out }} />
                   </div>
                 </div>
                 <span className="quest-count"><bdi dir="ltr">{Math.min(q.have, q.target)}/{q.target}</bdi></span>

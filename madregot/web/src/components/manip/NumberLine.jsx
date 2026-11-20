@@ -6,7 +6,7 @@
 // are left out, and a screen reader hears the ticks counted ("5 שנתות ימינה מ־0"), so "put the marker on 5/3" is
 // answered by counting thirds, never by reading a label.
 import { useEffect, useState } from 'react';
-import { clamp, useDrag, arrowKeys, Stepper, minus, SvgLabel, partsTex, partsOf, decText } from './core.jsx';
+import { clamp, useDrag, usePull, arrowKeys, Stepper, minus, SvgLabel, partsTex, partsOf, decText } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 import { lineNum, ticksWords } from '@/content/manip.js';
 
@@ -34,7 +34,9 @@ export default function NumberLine({ m, value, onChange, locked, reveal, good, a
   const snap = (v) => clamp(min + Math.round((v - min) * parts) / parts, min, max);
   const toV = (x) => snap(min + (x - PAD) / unit);
   const set = (v) => { const n = snap(v); if (!locked && Math.abs(n - value) > 1e-9) onChange(n); };
-  const [ref, drag] = useDrag((p) => set(toV(p.x)), locked);
+  // dragged past either end, the marker stretches on a little and springs back when let go (ux-motion 13)
+  const [pull, track] = usePull();
+  const [ref, drag] = useDrag((p, phase) => { track(p.x, X(min), X(max), phase); set(toV(p.x)); }, locked, () => track(0, 0, 0, 'cancel'));
   const jump = value - from;
   const moved = Math.abs(jump) > 1e-9;
   const arc = (a, b, lift) => `M ${X(a)} ${LINE - 8} Q ${(X(a) + X(b)) / 2} ${LINE - 8 - lift} ${X(b)} ${LINE - 8}`;
@@ -117,7 +119,7 @@ export default function NumberLine({ m, value, onChange, locked, reveal, good, a
           </g>
         )}
         {/* the marker the student moves */}
-        <g className="mp-pin" transform={`translate(${X(value)} ${LINE})`}>
+        <g className={`mp-pin mp-rubber${pull ? ' is-pulled' : ''}`} transform={`translate(${X(value)} ${LINE})`} style={pull ? { translate: `${pull}px 0` } : undefined}>
           <path d="M 0 -6 C -12 -18 -12 -32 0 -34 C 12 -32 12 -18 0 -6 Z" />
           <circle r="7.5" className="mp-pin-dot" />
         </g>

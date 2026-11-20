@@ -22,6 +22,7 @@
 .chat-list { gap: var(--s3); padding: var(--s1); }
 .starter { min-height: 44px; border: 2px solid var(--brand-line); border-bottom-width: 4px; color: var(--ai-ink); }
 .starter:active { border-bottom-width: 2px; transform: translateY(2px); }
+.starter { transition: transform var(--duration-press) var(--ease-out), border-bottom-width var(--duration-press) var(--ease-out); }
 .chat-input { border-width: 2px; border-radius: 20px; }
 .chat-input:focus-within { border-color: var(--ai); box-shadow: 0 0 0 3px var(--ai-tint); }
 .chat-dock-live { position: sticky; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s2) 0 var(--s1); background: var(--paper); }

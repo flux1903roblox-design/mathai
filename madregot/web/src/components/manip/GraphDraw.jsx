@@ -5,12 +5,12 @@
 // and never move; `ref` is a second line drawn for comparison (the other mover of a meeting story).
 // In a check (`test`) nothing gives the heights away: no readout, no number on the step buttons, and a screen reader
 // counts squares above the axis instead of naming the value, as the eye reads the grid (CURRICULUM-2's rule).
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useDrag, arrowKeys, Stepper } from './core.jsx';
 import { GraphAxes, GraphLegend, graphFrame, graphFont, drawnScale, useDrawnBox, LEGEND_ROW } from './graphAxes.jsx';
-import { graphXs, graphMove, graphKey, graphShape, graphSolution, graphCorrect, squaresWords, axisLo, axisSteps, figNum } from '@/content/manip.js';
+import { graphXs, graphMove, graphKey, graphShape, graphSolution, graphCorrect, squaresWords, axisLo, axisSteps, axisWords, figNum } from '@/content/manip.js';
 import { near } from '@/content/util.js';
 
 const DRAG_FROM = 4; // drawing units a finger travels before a press is a drag and not a tap
@@ -22,6 +22,7 @@ export default function GraphDraw({ m, value, onChange, locked, reveal, good, an
   const free = xs.map((_, i) => i).filter((i) => !fixed.has(i));
   const vals = Array.isArray(value) ? value : m.start;
   const [sel, setSel] = useState(free[0] ?? 0);
+  const axesId = useId();
   const pts = useRef([]);
   const press = useRef(null);
   const name = (i) => `${figNum(xs[i])}${m.x.unit ? ` ${m.x.unit}` : ''}`;
@@ -79,7 +80,9 @@ export default function GraphDraw({ m, value, onChange, locked, reveal, good, an
         </div>
       )}
       {hintLine && <p className="manip-hint-line">{hintLine}</p>}
-      <svg ref={ref} {...drag} viewBox={`0 0 ${W} ${H}`} className="manip-canvas" dir="ltr" role="group" aria-label={`גרף: ${m.y.label} לפי ${m.x.label}`}>
+      {/* the axes in words, once (the numbers along them are drawing, hidden: graphAxes.jsx), as the still graph says them */}
+      <span id={axesId} className="visually-hidden">{`${axisWords('x', m.x)}; ${axisWords('y', m.y)}`}</span>
+      <svg ref={ref} {...drag} viewBox={`0 0 ${W} ${H}`} className="manip-canvas" dir="ltr" role="group" aria-label={`גרף: ${m.y.label} לפי ${m.x.label}`} aria-describedby={axesId}>
         <rect x="0" y="0" width={W} height={H} className="mp-hit" />
         {/* the chosen point's column: what the step buttons move */}
         {!locked && (() => { const l = Math.max(4, X(xs[sel]) - col / 2); const r = Math.min(W - 4, X(xs[sel]) + col / 2); return <rect x={l} y={TOP} width={r - l} height={BOT - TOP} rx="6" className="mp-graph-col" />; })()}

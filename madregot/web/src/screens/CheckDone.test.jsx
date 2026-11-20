@@ -5,8 +5,9 @@
 // flies, nothing starts hidden. Rendered to HTML on the server, as Learn.test.jsx does.
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
 import { MemoryRouter } from 'react-router-dom';
-import CheckDone from './CheckDone.jsx';
+import CheckDone, { PEAK } from './CheckDone.jsx';
 import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/topics.js';
 import { loadMotionFeatures } from '@/lib/motion.js';
@@ -74,6 +75,53 @@ describe('the end of a check: a stair mastered is the biggest moment', () => {
     }
   });
 
+  it('the peak (ux-motion 19, 7): the badge lands, its check draws itself, מדי hops, and the numbers count up beside it', () => {
+    const out = html(check('mastery', true), award(true));
+    // the seal pops in, and its check starts undrawn (a path of length 1 with nothing of it shown yet)
+    expect(out).toMatch(/<span class="mastered-seal" style="transform:scale\(0\)">/);
+    expect(out).toMatch(/<path class="mastered-check" d="[^"]+" pathLength="1" stroke-dashoffset="0" stroke-dasharray="0 1">/);
+    // מדי's own hop sits inside his jump
+    expect(out).toContain('class="mastered-madi"');
+    // the tiles count up from 0, while a screen reader has the final numbers
+    expect(out).toMatch(/<span class="xp-count-n" aria-hidden="true">0<\/span><span class="visually-hidden">5<\/span><\/bdi>\/5/);
+    expect(out).toMatch(/<span class="xp-count-n" aria-hidden="true">\+0<\/span><span class="visually-hidden">\+15<\/span>/);
+    // in order, and about a second in all: a one-time moment (ux-motion 8); the count is done before the hop
+    expect(PEAK.land).toBeLessThan(PEAK.seal);
+    expect(PEAK.seal).toBeLessThan(PEAK.draw);
+    expect(PEAK.draw + PEAK.drawFor).toBeLessThanOrEqual(PEAK.hop + 1e-9);
+    expect(PEAK.count + PEAK.countFor).toBeLessThanOrEqual(PEAK.hop + 0.05);
+    expect(PEAK.hop + 0.4).toBeLessThanOrEqual(1.3);
+    // the badge squashes as it lands: wider and shorter, about the same area (ux-motion 1), from its bottom edge
+    const code = readFileSync(new URL('./CheckDone.jsx', import.meta.url), 'utf8');
+    const sx = Number(code.match(/scaleX: \[0\.4, 1, ([\d.]+), 1\]/)?.[1]); const sy = Number(code.match(/scaleY: \[0\.4, 1, ([\d.]+), 1\]/)?.[1]);
+    expect(sx).toBeGreaterThan(1); expect(sy).toBeLessThan(1);
+    expect(Math.abs(sx * sy - 1)).toBeLessThan(0.05);
+    expect(code).toMatch(/style=\{\{ originY: 1 \}\}/);
+    // and it is drawn as a medal: light on its top edge, darker gold under it, a soft shadow beneath (ux-motion 10)
+    expect(readFileSync(new URL('../styles/lazy/checkDone.css', import.meta.url), 'utf8')).toMatch(/\.mastered-badge \{ box-shadow: inset 0 3px 0 [^;]*inset 0 -4px 0 var\(--gold-d\)/);
+  });
+
+  it('a check that is not a stair mastered shows its numbers at once: nothing counts', () => {
+    const out = html(check('review', true), award(false));
+    expect(out).not.toContain('xp-count');
+    expect(out).toContain('<bdi dir="ltr">5/5</bdi>');
+  });
+
+  it('in a quiet class the moment stays on the student\'s screen: no flying shapes, no turning light; the check still draws', () => {
+    useApp.setState({ profile: { role: 'student', name: 'דנה', grade: '7', know: 1, classCode: 'K7Q2MD', token: 'stok-a1' }, prefs: { theme: 'system', soundSet: false } });
+    const out = html(check('mastery', true), award(true));
+    expect(out).toContain('class="mastered-hero is-quiet"');
+    expect(out).toContain('celebrate-gold');
+    expect(out).not.toContain('celebrate-rays');
+    expect(out).not.toContain('celebrate-burst');
+    expect(out).toContain('class="mastered-check"');
+    // a student who turned sound on in class gets the whole moment
+    useApp.setState({ prefs: { theme: 'system', soundSet: true } });
+    const loud = html(check('mastery', true), award(true));
+    expect(loud).toContain('celebrate-burst');
+    expect(loud).not.toContain('is-quiet');
+  });
+
   it('under reduced motion nothing flies and the badge is simply there', () => {
     motion.reduce = true;
     const out = html(check('mastery', true), award(true));
@@ -84,5 +132,10 @@ describe('the end of a check: a stair mastered is the biggest moment', () => {
     expect(b).toBeTruthy();
     expect(b).not.toMatch(/opacity:0/);
     expect(b).not.toMatch(/translateY\(-|scale\(0\./);
+    // the whole moment is simply there, never hidden behind a fade: its check already drawn and its numbers final
+    expect(out).toContain('<div class="mastered-hero">');
+    expect(out).not.toContain('stroke-dasharray="0 1"');
+    expect(out).toMatch(/<span class="mastered-seal"( style="transform:none")?>/);
+    expect(out).toMatch(/<span class="xp-count-n" aria-hidden="true">\+15<\/span>/);
   });
 });

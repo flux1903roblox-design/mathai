@@ -145,6 +145,8 @@ export function useDrawnBox(ref, initial = null) {
 /**
  * The grid, the two axes with their arrows, the numbers and the two names. `cls` is the class prefix of the drawing
  * that uses it ('mp-graph' for the object, 'fig-sgraph' for the still figure): `${cls}-grid`, `-axis`, `-num`, `-name`.
+ * It is drawing for the eye, hidden from a screen reader: the drawing that holds it says its axes once, in words
+ * (content/manip.js axisWords), never number by number.
  */
 export function GraphAxes({ fr, x, y, cls }) {
   const { X, Y, PADL, TOP, BOT, W, plotW, font } = fr;
@@ -152,7 +154,7 @@ export function GraphAxes({ fr, x, y, cls }) {
   const xn = new Set(numbered(x)); const yn = new Set(numbered(y));
   const right = PADL + plotW;
   return (
-    <g className={`${cls}-axes`}>
+    <g className={`${cls}-axes`} aria-hidden="true">
       {xs.map((v) => <line key={`gx${v}`} x1={X(v)} x2={X(v)} y1={TOP} y2={BOT} className={`${cls}-grid`} />)}
       {ys.map((v) => <line key={`gy${v}`} x1={PADL} x2={right} y1={Y(v)} y2={Y(v)} className={`${cls}-grid`} />)}
       <line x1={PADL} y1={BOT} x2={W - 9} y2={BOT} className={`${cls}-axis`} />

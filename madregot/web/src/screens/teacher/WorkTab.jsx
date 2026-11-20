@@ -66,7 +66,7 @@ export default function WorkTab({ cls, today: serverToday, version, onNew, onCha
       {list && list.length > 0 && (
         <>
           {open.length === 0 ? <p className="muted tw-none">אין משימות פתוחות. אפשר לתת משימה חדשה.</p> : (
-            <ul className="tw-list" aria-label="משימות פתוחות">{open.map((a) => <Row key={a.id} a={a} onOpen={setOpenId} />)}</ul>
+            <ul className="tw-list cascade" aria-label="משימות פתוחות">{open.map((a) => <Row key={a.id} a={a} onOpen={setOpenId} />)}</ul>
           )}
           {done.length > 0 && (
             <div className="tw-past">

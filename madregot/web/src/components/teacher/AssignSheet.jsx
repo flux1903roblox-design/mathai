@@ -255,5 +255,11 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
  * activity (both reach the whole class; lib/assign.js shareFor). Nothing is sent from here.
  */
 function ShareStep({ sent, share }) {
-  return <ShareWork a={sent} autoFocus group={share.group} lead={share.group ? share.lead : null} who={share.group && share.names.length > 3 ? share.names : null} />;
+  return (
+    <>
+      {/* the end of sending (ux-motion 19): a green mark pops in and its check draws itself; the toast says it in words */}
+      <span className="as-sent-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
+      <ShareWork a={sent} autoFocus group={share.group} lead={share.group ? share.lead : null} who={share.group && share.names.length > 3 ? share.names : null} />
+    </>
+  );
 }

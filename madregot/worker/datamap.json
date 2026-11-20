@@ -559,7 +559,7 @@
       "store": "localStorage",
       "personal": "no",
       "holds": "A flag set by hand on a test device.",
-      "purpose": "QA only: turns the test hooks on.",
+      "purpose": "QA only: turns the test hooks on in a test build (VITE_QA_HOOKS=flag, web/src/lib/qa.js). A build that ships ignores it.",
       "removedBy": "Delete all, or by hand."
     },
     "madregot-seed": {

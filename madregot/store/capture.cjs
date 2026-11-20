@@ -61,7 +61,7 @@ function build() {
   const given = arg('--dist');
   if (given) return { dir: path.resolve(given), cleanup: () => {} };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'madregot-capture-'));
-  const r = spawnSync('npx', ['vite', 'build', '--base', './', '--outDir', dir, '--emptyOutDir'], { cwd: WEB, stdio: 'inherit', env: { ...process.env, VITE_API_URL: 'none' } });
+  const r = spawnSync('npx', ['vite', 'build', '--base', './', '--outDir', dir, '--emptyOutDir'], { cwd: WEB, stdio: 'inherit', env: { ...process.env, VITE_API_URL: 'none', VITE_QA_HOOKS: 'flag' } });
   if (r.status !== 0) throw new Error('vite build failed');
   return { dir, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
@@ -87,7 +87,8 @@ async function open(browser, state, route, { width = 390, height = 844, scale = 
   await page.clock.setFixedTime(NOW);
   if (setup) await setup(page);
   await page.goto(BASE);
-  // madregot-debug: the exercise on screen is readable (window.__madregotItem), as in the e2e tests
+  // madregot-debug: the exercise on screen is readable (window.__madregotItem), as in the e2e tests (a test build:
+  // VITE_QA_HOOKS=flag, or a --dist made with it, such as web/dist-test; a build that ships ignores the flag)
   await page.evaluate(([s, sd]) => {
     localStorage.clear(); localStorage.setItem('madregot-debug', '1'); localStorage.setItem('madregot-seed', sd);
     if (s) localStorage.setItem('madregot', JSON.stringify(s));

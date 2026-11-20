@@ -44,8 +44,9 @@ import { loadAllGens } from './index.js';
 // the exercise generators load per topic (the boot split); this file makes questions while its tests are collected
 await loadAllGens();
 
-// Draw interactive items from their levels until each kind has been seen.
-function manipItems(topic, level, n = 400) {
+// Draw interactive items from their levels until each kind has been seen. 1000 draws: with 400, a level whose share
+// of interactive items is about 15% (angles:1) gave 50 or fewer, under the tests' 50, in about one run in ten.
+function manipItems(topic, level, n = 1000) {
   const out = [];
   for (let k = 0; k < n; k += 1) { const it = makeItem(topic, level); if (it.form === 'manip') out.push(it); }
   return out;

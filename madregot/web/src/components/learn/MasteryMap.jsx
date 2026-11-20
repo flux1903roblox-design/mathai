@@ -1,38 +1,48 @@
 // "מה כבר למדתי": one tile per stair of the grade, coloured by what the evidence says (mastered alone,
 // practising, worth a review, needs help, not started). Each tile opens its stair. A picture, not a dashboard:
-// it sits inside the board (Board.jsx), which says in words what the picture shows.
+// it sits inside the board (Board.jsx), which says in words what the picture shows. Each tile's name says its state
+// as the stair page says it (learn/stairStatus.ts): a lesson left in the middle is started, and a memory check that
+// came due is told apart from one that was missed; the colour is its engine state's.
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { topicsFor } from '@/content/topics.js';
 import { skillId } from '@/learn/skills.ts';
-import { masteryState, STATE_LABEL } from '@/learn/mastery.ts';
+import { STATE_LABEL } from '@/learn/mastery.ts';
+import { stairStatus, STATUS_LABEL, STATUS_TONE, countStatuses } from '@/learn/stairStatus.ts';
 import { isDone } from '@/lib/path.js';
 
 const LEGEND = ['mastered', 'practicing', 'needs-review', 'needs-support'];
 
-/** Every stair of a grade with its state now (a stair finished on the map before 2.0 is at least practised). */
+/**
+ * Every stair of a grade with its status now (a stair finished on the map before 2.0 is at least practised): `status`
+ * for its words, `st` for its colour (the engine state's).
+ */
 export function gradeTiles(grade, skills, path, now = new Date().toISOString()) {
   return topicsFor(grade).map((t) => ({
     t,
     tiles: t.levels.map((L, i) => {
       const id = skillId(t.id, i + 1);
-      let st = masteryState(skills[id], now);
-      if (st === 'not-started' && isDone(path, t.id, i + 1)) st = 'practicing';
-      return { id, level: i + 1, title: L.title, st };
+      const status = stairStatus(skills[id], now, isDone(path, t.id, i + 1));
+      return { id, level: i + 1, title: L.title, status, st: STATUS_TONE[status] };
     }),
   }));
 }
 
-/** The board's line about the tiles, in words that move from the first stage: no row of zeros. */
+/** The words for "several stairs" or "one stair": מדרגה אחת ש… / N מדרגות ש… */
+const stairs = (n, one, many) => (n === 1 ? one : `${n} ${many}`);
+
+/**
+ * The board's line about the tiles, in words that move from the first stage: no row of zeros. Counted as the profile
+ * counts (learn/stairStatus.ts countStatuses): a stair whose memory check came due is still mastered.
+ */
 export function tilesSummary(rows) {
   const all = rows.flatMap((r) => r.tiles);
-  const mastered = all.filter((x) => x.st === 'mastered').length;
-  const onWay = all.filter((x) => x.st === 'learning' || x.st === 'practicing').length;
-  const back = all.filter((x) => x.st === 'needs-review' || x.st === 'needs-support').length;
+  const c = countStatuses(all.map((x) => x.status));
   const parts = [];
-  if (mastered) parts.push(`שולטים לבד ב־${mastered} מתוך ${all.length} מדרגות`);
-  if (onWay) parts.push(onWay === 1 ? 'מדרגה אחת בדרך לשליטה' : `${onWay} מדרגות בדרך לשליטה`);
-  if (back) parts.push(back === 1 ? 'מדרגה אחת שכדאי לחזור אליה' : `${back} מדרגות שכדאי לחזור אליהן`);
+  if (c.learned) parts.push(`שולטים לבד ב־${c.learned} מתוך ${c.of} מדרגות`);
+  if (c.onWay) parts.push(stairs(c.onWay, 'מדרגה אחת בדרך לשליטה', 'מדרגות בדרך לשליטה'));
+  if (c.due) parts.push(stairs(c.due, 'מדרגה אחת מחכה לבדיקת זיכרון', 'מדרגות מחכות לבדיקת זיכרון'));
+  if (c.strengthen) parts.push(stairs(c.strengthen, 'מדרגה אחת שכדאי לחזק', 'מדרגות שכדאי לחזק'));
   return parts.length ? parts.join(' · ') : 'כל משבצת היא מדרגה. היא נצבעת כשמתחילים ללמוד אותה.';
 }
 
@@ -45,7 +55,7 @@ export default function MasteryMap({ rows }) {
           <ol className="mm-tiles">
             {tiles.map((x) => (
               <li key={x.id}>
-                <Link to={`/learn/${t.id}/${x.level}`} className={clsx('mm-tile', `ms-${x.st}`)} aria-label={`${x.title}: ${STATE_LABEL[x.st]}`} title={`${x.title}: ${STATE_LABEL[x.st]}`}>{x.level}</Link>
+                <Link to={`/learn/${t.id}/${x.level}`} className={clsx('mm-tile', `ms-${x.st}`)} aria-label={`${x.title}: ${STATUS_LABEL[x.status]}`} title={`${x.title}: ${STATUS_LABEL[x.status]}`}>{x.level}</Link>
               </li>
             ))}
           </ol>

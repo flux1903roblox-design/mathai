@@ -25,7 +25,7 @@ import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
 import { checkAssignment, reportWork, reportStairs } from '@/lib/classWork.js';
 import { thawItem } from '@/lib/exam.js';
-import { play, haptic } from '@/lib/sound.js';
+import { play, haptic, classQuiet } from '@/lib/sound.js';
 import { Tex, MathText, texText, FitDisplay, useFitLine } from '@/components/MathText.jsx';
 import { RichText } from '@/components/RichText.jsx';
 import Figure from '@/components/Figure.jsx';
@@ -41,13 +41,15 @@ import { detectDistress } from '@shared/distress.js';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
+import { lessonWrong } from '@/learn/tutor.ts';
 import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
 import { contentOf, metaOf } from '@/learn/content/index.ts';
 import { useTopics } from '@/learn/useStairContent.js';
 import { skillId, parseSkill, BRIDGE_SKILLS } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import MissNote, { missNote } from '@/components/lesson/MissNote.jsx';
-import { DUR, SPRING, enter } from '@/lib/motion.js';
+// the motion preset `leave` as `exit`: this screen's own leave(to) goes somewhere else (the exit sheet)
+import { DUR, SPRING, enter, leave as exit, swap } from '@/lib/motion.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
 import { CHECK_IMAGE_MAX } from '@shared/ai.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
@@ -276,6 +278,8 @@ export default function Lesson() {
   const [active, setActive] = useState('v');
   const [shakeKey, setShakeKey] = useState(0);
   const [last, setLast] = useState(null);
+  // the last wrong answer's diagnosis on this exercise, for מדי: the feedback (last) is cleared by "נסו שוב", the mistake is not
+  const [miss, setMiss] = useState(null);
   const [explain, setExplain] = useState({ state: 'idle', text: '' });
   const [showSteps, setShowSteps] = useState(false);
   const [guide, setGuide] = useState(false); // "איך מתחילים?": the first step of the solution, after a first miss
@@ -302,7 +306,12 @@ export default function Lesson() {
     leaving.current = true; setExitOpen(false); syncNow();
     if (blocker.state === 'blocked') blocker.proceed(); else navigate(to, opts);
   };
+  // the combo moment: the run it celebrates, for a moment (a pill over the bar, LessonParts.jsx ComboPop); none in a quiet
+  // class, where the run's chip beside the bar still counts
   const [combo, setCombo] = useState(null);
+  const comboTimer = useRef(0);
+  const quietClass = useApp(classQuiet);
+  useEffect(() => () => clearTimeout(comboTimer.current), []);
   // How each exercise went, for the steps in the header: first | fixed | shown | redone (by slot)
   const [marks, setMarks] = useState([]);
   const [done, setDone] = useState(null); // { result, award } once the lesson ends
@@ -333,7 +342,7 @@ export default function Lesson() {
   const explainState = aiAccess('explain', aiStatus).state;
   const chatState = aiAccess('chat', aiStatus).state;
   // when the tutor is done for today, Madi explains the mistake instead (no request)
-  const askMadi = () => { setChatOpen(false); setTutorIntent(s?.wrong?.length ? 'mistake' : null); setTutorOpen(true); };
+  const askMadi = () => { setChatOpen(false); setTutorIntent(s?.wrong?.length && s.phase !== 'correct' ? 'mistake' : null); setTutorOpen(true); };
   // help from the tutor or Madi on an open exercise is help: no first-try credit, no combo, not independent (AI-3)
   const helped = () => setS((cur) => withHelp(cur));
   const names = item ? slotsFor(item) : [];
@@ -362,11 +371,9 @@ export default function Lesson() {
 
   // Test hook for automated checks: the current exercise (with its answer) as window.__madregotItem and, for tools
   // that run their scripts in an isolated context and cannot see page variables, as JSON in <html data-qa-item>.
-  // On in a QA build (VITE_QA_HOOKS=1, the staging copy); elsewhere only with localStorage 'madregot-debug' set.
+  // Only in a build made for testing (lib/qa.js): never in a build that ships, so no student can read an answer here.
   useEffect(() => {
-    let on = import.meta.env.VITE_QA_HOOKS === '1';
-    try { on = on || !!localStorage.getItem('madregot-debug'); } catch { /* storage blocked */ }
-    if (!on) return undefined;
+    if (!qaOn()) return undefined;
     window.__madregotItem = item;
     // __madregotSolve(true) puts an interactive exercise in a right state, (false) in a near miss
     window.__madregotSolve = (ok = true) => {
@@ -483,6 +490,7 @@ export default function Lesson() {
     if (result.ok) { play('correct'); haptic('correct'); commit(result.event); }
     else {
       play('wrong'); haptic('wrong'); setShakeKey((v) => v + 1);
+      setMiss({ cat: result.cat ?? null, diagnosis: result.diagnosis ?? null });
       if (result.reveal) {
         commit(result.event);
         if (item.form !== 'mc') setStruck(true);
@@ -547,7 +555,10 @@ export default function Lesson() {
     setLast(null);
     if (ns.finished) { finish(ns); return; }
     setS(ns);
-    if (mark) { setCombo(mark); play('combo', mark); haptic('combo'); setTimeout(() => setCombo(null), 1400); }
+    if (mark) {
+      play('combo', mark); haptic('combo');
+      if (!quietClass) { clearTimeout(comboTimer.current); setCombo(mark); comboTimer.current = setTimeout(() => setCombo(null), 1400); }
+    }
   };
 
   useEffect(() => {
@@ -660,8 +671,8 @@ export default function Lesson() {
   const mood = feedback === 'good' ? 'happy' : feedback ? 'encouraging' : s.hint || nbOn || touched ? 'thinking' : 'idle';
   const onManip = (v) => { setMvs({ key: mkey, v, touched: true }); if (struck) setStruck(false); if (feedback === 'retry') setLast(null); };
   const stage = `${s.slot}-${item.key}`;
-  // Each exercise slides in from the reading side; the last one leaves the other way.
-  const slide = { initial: { opacity: 0, x: -28 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: 28 }, transition: enter(0.2) };
+  // Each exercise slides in from the reading side; the last one leaves the other way, in half the time (lib/motion.js swap).
+  const slide = swap();
   const typed = item.form !== 'mc' && !isManip && !nbOn;
   // On a short phone a typed answer gets the room it needs: the check button joins the answer row and the help
   // buttons move up beside the progress bar, so the drawing keeps the height of a whole row.
@@ -694,7 +705,7 @@ export default function Lesson() {
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip', folded && 'fb-folded-on', feedback === 'reveal' && 'is-reveal')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head" data-region="header">
-        <ProgressHeader extra={tools} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : classExam ? 'התקדמות במבחן' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} exitLabel={classExam ? 'יציאה מהמבחן' : undefined} combo={s.combo} topic={placement ? t.title : null} />
+        <ProgressHeader extra={tools} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : classExam ? 'התקדמות במבחן' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} exitLabel={classExam ? 'יציאה מהמבחן' : undefined} combo={s.combo} topic={placement ? t.title : null} pop={combo} onPopClose={() => setCombo(null)} />
         <AnimatePresence mode="wait" initial={false}>
           <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
         </AnimatePresence>
@@ -722,7 +733,7 @@ export default function Lesson() {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (
                 <m.button key={i} type="button" role="radio" aria-checked={choice === i} tabIndex={(choice ?? item.choices.findIndex((_, k) => !s.wrong.includes(k))) === i ? 0 : -1} aria-label={c.tex ? texText(c.tex) : c.fig ? `${c.text}: ${figPlain(c.fig)}` : undefined} className={clsx('choice', choice === i && 'on', state)}
-                  whileTap={locked ? undefined : { scale: 0.96 }} animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
+                  animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
                   disabled={locked || s.wrong.includes(i)} onClick={() => { setChoice(i); play('tap'); if (feedback === 'retry') setLast(null); }}>
                   <span className="choice-key" aria-hidden="true">{state === 'good' ? <Check size={18} strokeWidth={3.4} /> : state === 'bad' ? <X size={18} strokeWidth={3.4} /> : i + 1}</span>
                   {c.fig
@@ -757,7 +768,7 @@ export default function Lesson() {
         {/* the hint sits above the answer, on the first try and again on the second; the drawing above makes room */}
         <AnimatePresence>
           {s.hint && (s.phase === 'answer' || s.phase === 'retry') && !feedback && (
-            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={enter(DUR.fast)}>
+            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: exit(DUR.micro) }} transition={enter(DUR.fast)}>
               <HintBox text={item.hint} clamp={short} />
             </m.div>
           )}
@@ -850,17 +861,6 @@ export default function Lesson() {
         )}
       </div>
 
-      <AnimatePresence>
-        {combo && (
-          <m.div key="combo" className="combo-pop" role="status" onClick={() => setCombo(null)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <m.div className="combo-card" initial={{ scale: 0.6, y: 20 }} animate={{ scale: 1, y: 0 }} transition={SPRING.pop}>
-              <Mascot mood="excited" size={116} />
-              <p className="combo-text"><Flame size={30} aria-hidden="true" />{combo} ברצף!</p>
-            </m.div>
-          </m.div>
-        )}
-      </AnimatePresence>
-
       <Sheet open={zoom} onOpenChange={setZoom} title="השרטוט" wide>
         <div className="fig-big"><Figure fig={item.fig} /></div>
       </Sheet>
@@ -880,7 +880,7 @@ export default function Lesson() {
           onAsk={helped} footnote={openExercise(s) ? HELP_NOTE : null} />
       </Sheet>
       <TutorSheet open={tutorOpen} onOpenChange={(o) => { setTutorOpen(o); if (!o) setTutorIntent(null); }} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
-        wrong={s.wrong.length ? { cat: last?.cat ?? null, diagnosis: last?.diagnosis ?? null } : null} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null}
+        wrong={lessonWrong(s, miss)} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null}
         aiState={chatState} startIntent={tutorIntent} onAsk={helped} />
       <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת" className="flow-sheet">
         {remedy && <RemedyFlow content={contentOf(skillId(item.topic || spec.topic, item.level))} misc={remedy} compact onDone={() => setRemedy(null)} doneLabel="חזרה לשיעור" />}

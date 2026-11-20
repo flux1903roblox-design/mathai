@@ -223,7 +223,7 @@ test.describe('updates', () => {
     const next = join(WEB, 'test-results', 'sw-next');
     // the second release: the same build with another name
     execFileSync('npx', ['vite', 'build', '--base', './', '--outDir', next, '--emptyOutDir', '--logLevel', 'warn'], {
-      cwd: WEB, env: { ...process.env, VITE_API_URL: 'none', VITE_RELEASE: 'e2e-next' }, stdio: 'pipe', timeout: 300_000,
+      cwd: WEB, env: { ...process.env, VITE_API_URL: 'none', VITE_QA_HOOKS: 'flag', VITE_RELEASE: 'e2e-next' }, stdio: 'pipe', timeout: 300_000,
     });
     const srv = releaseServer(first);
     await srv.listen();

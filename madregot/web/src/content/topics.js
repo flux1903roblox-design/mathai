@@ -167,10 +167,12 @@ export const topicsFor = (grade, also = ALSO_ON_PATH) => {
   return out;
 };
 /**
- * A unit's number on a viewer's path ("יחידה 3"): among the viewer's grade's units when it is on that path (a unit also
- * climbed in ח׳ this year is numbered there as ח׳ meets it), else among its own grade's; 0 for the fractions floor.
+ * A unit's number on a viewer's path ("יחידה 3"), the one the map's banner and the topics list show: its place on the
+ * viewer's grade's path of the school month (pathTopicsFor: a unit also climbed in ח׳ this year is numbered there as ח׳
+ * meets it, and a unit of the other grade that joined by the month, ח׳'s angles or ז׳'s Pythagoras, after the grade's
+ * own), else among its own grade's units; 0 for the fractions floor.
  */
-export const unitNumber = (t, viewerGrade, also = ALSO_ON_PATH) => (!t ? 0 : (viewerGrade ? topicsFor(viewerGrade, also).indexOf(t) + 1 : 0) || topicsFor(t.grade, also).indexOf(t) + 1);
+export const unitNumber = (t, viewerGrade, also = ALSO_ON_PATH, month = schoolMonth()) => (!t ? 0 : (viewerGrade ? pathTopicsFor(viewerGrade, month, also).indexOf(t) + 1 : 0) || topicsFor(t.grade, also).indexOf(t) + 1);
 /** Is a unit revision for this grade (filed under an earlier grade and not on this grade's path), labelled "מכיתה ז׳"? */
 export const earlierUnit = (t, grade, also = ALSO_ON_PATH) => Number(t.grade) < Number(grade) && !onGradePath(t.id, String(grade), also);
 /** The grade a student meets a unit in: their own when the unit is on their path, else the unit's (the tutor is told it). */

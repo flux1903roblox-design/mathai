@@ -119,7 +119,9 @@ function slopeTwoPoints() {
     if (Math.abs(q) > 6) continue;
     return {
       key: `lf4:${x1}:${y1}:${x2}:${y2}`, text: `מה השיפוע של הישר שעובר דרך הנקודות $(${x1}, ${y1})$ ו־$(${x2}, ${y2})$?`,
-      form: 'num', answer: m, label: 'm =',
+      // precise: a slope like 10/3 is right as the fraction or rounded as the question's format line says (3.33,
+      // 3.333), never as 3.34, which the default ±0.01 let through (as the probability stairs, content/prob.js)
+      form: 'num', answer: m, label: 'm =', precise: true,
       hint: '$m = \\frac{y_2 - y_1}{x_2 - x_1}$. אסור לערבב את הסדר: הנקודה שמתחילים ממנה למעלה היא גם זו שמתחילים ממנה למטה. מספר שלילי כותבים בסוגריים.',
       solution: [`$m = \\frac{${T(y2)} - ${T(y1, true)}}{${T(x2)} - ${T(x1, true)}} = ${dx === 1 ? T(dy) : `\\frac{${dy}}{${dx}}`}$`, ...(dx === 1 ? [] : [`$m = ${ratioTex(p, q)}$`])],
       diag: (u) => [near(u, dx / dy) && !near(m, dx / dy) && 'inverse', near(u, -m) && 'mixed-order'].filter(Boolean),

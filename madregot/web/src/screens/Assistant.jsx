@@ -28,6 +28,7 @@ import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
 import PhotoPrep from '@/components/PhotoPrep.jsx';
 import { pdfPages, isPdf, pdfMessage, PDF_COPY } from '@/lib/pdfPages.js';
+import { qaOn } from '@/lib/qa.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/assistant.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
@@ -351,8 +352,10 @@ function GeneratedQuestion({ ex, n, piNote = false }) {
         <label className="visually-hidden" htmlFor={id}>התשובה לתרגיל {n}{after ? `: המספר שלפני ${afterPlain(after)}` : ''}</label>
         {/* the slot and what is drawn after it (□π) read left to right, as in a lesson */}
         <span className="gen-slot" dir="ltr">
-          <input id={id} className="input slot-inline" dir="ltr" inputMode="decimal" value={val} disabled={done}
-            onChange={(e) => { setVal(e.target.value); setEmpty(false); setNote(null); }} onKeyDown={(e) => e.key === 'Enter' && check()} placeholder="?" />
+          {/* the phone's text keyboard: its decimal pad has no minus and no fraction bar on an iPhone (−5, 3/4 could not be
+              typed); only what an answer holds is kept, as in a lesson's slot */}
+          <input id={id} className="input slot-inline" dir="ltr" inputMode="text" autoComplete="off" spellCheck={false} value={val} disabled={done}
+            onChange={(e) => { setVal(e.target.value.replace(/[^\d\-−./, ]/g, '').slice(0, 9)); setEmpty(false); setNote(null); }} onKeyDown={(e) => e.key === 'Enter' && check()} placeholder="?" />
           {after && <span className="gen-after" aria-hidden="true"><Tex tex={after} /></span>}
         </span>
         {seed.unit && <span className="gen-unit">{seed.unit}</span>}
@@ -415,12 +418,10 @@ function Generate({ initialTopic, initialLevel }) {
     } catch (e) { setState(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message }); }
   };
   const short = state.phase === 'done' && state.stories < state.list.length;
-  // Test hook for automated checks, as in a lesson (QA builds, or localStorage 'madregot-debug'): the exercises' seeds,
+  // Test hook for automated checks, as in a lesson (only in a build made for testing, lib/qa.js): the exercises' seeds,
   // with their answers and diagnoses, as window.__madregotGen
   useEffect(() => {
-    let on = import.meta.env.VITE_QA_HOOKS === '1';
-    try { on = on || !!localStorage.getItem('madregot-debug'); } catch { /* storage blocked */ }
-    if (on) window.__madregotGen = state.phase === 'done' ? state.list.map((x) => x.seed) : null;
+    if (qaOn()) window.__madregotGen = state.phase === 'done' ? state.list.map((x) => x.seed) : null;
   }, [state]);
   return (
     <div className="stack">

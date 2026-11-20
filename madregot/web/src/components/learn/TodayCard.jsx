@@ -24,6 +24,7 @@ import { missionFor, missionDone, missionMinutes, partialStairNote } from '@/lea
 import { missionNext, toStrengthen } from '@/learn/next.ts';
 import { STAGE_N } from '@/learn/recommend.ts';
 import { daysBetween } from '@/learn/mastery.ts';
+import { savedPlace } from '@/learn/stairStatus.ts';
 import { MathText } from '@/components/MathText.jsx';
 import MoreText from '@/components/MoreText.jsx';
 import { classRows, reportStairs } from '@/lib/classWork.js';
@@ -35,6 +36,11 @@ import { enter, entrance } from '@/lib/motion.js';
 
 export const KIND_ICON = { teacher: School, repair: Wrench, review: RotateCcw, 'exam-loss': FileCheck, floor: Layers, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock, challenge: Puzzle };
 export const KIND_LABEL = { teacher: 'משימה מהמורה', repair: 'תיקון', review: 'בדיקת זיכרון', 'exam-loss': 'מהמבחן', floor: 'יסודות', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן', challenge: 'אתגר' };
+/**
+ * The kind a step is shown as: a new stair whose lesson was left in the middle (its place kept, learn/stairStatus.ts) is
+ * shown as going on ("ממשיכים"), not as new; the plan's own kind does not change.
+ */
+export const shownKind = (it, rec) => (it.kind === 'new' && savedPlace(rec) ? 'continue' : it.kind);
 
 /** A part's bar: a stage of a stair shows how far the stair is (stage n of 5); anything else is done or not yet. */
 function partBar(it) {
@@ -90,15 +96,16 @@ export default function TodayCard({ grade, onBoard }) {
         {items.length > 0 && (
           <ol className="today-items quest-rows" aria-label={`המשימה: ${items.length} חלקים, בערך ${missionMinutes(items)} דקות`}>
             {items.map((it) => {
-              const Icon = it.done ? Check : KIND_ICON[it.kind] || Sparkles;
+              const kind = shownKind(it, learn.skills[it.skill]);
+              const Icon = it.done ? Check : KIND_ICON[kind] || Sparkles;
               const bar = partBar(it);
               const plain = it.title.replace(/\$/g, '');
               return (
                 <li key={`${it.kind}-${it.skill}-${it.stage || ''}-${it.misc || ''}-${it.task || ''}`} className={clsx('today-row', it.done && 'done', it === next && 'next')}>
-                  <span className={clsx('quest-icon', `qk-${it.kind}`)} aria-hidden="true"><Icon size={22} strokeWidth={it.done ? 3 : 2} /></span>
+                  <span className={clsx('quest-icon', `qk-${kind}`)} aria-hidden="true"><Icon size={22} strokeWidth={it.done ? 3 : 2} /></span>
                   <span className="quest-body">
                     <Link to={it.to} className="today-item-title today-link"><MathText text={it.title} /></Link>
-                    <span className="today-kind">{KIND_LABEL[it.kind]} · {it.minutes} דק׳</span>
+                    <span className="today-kind">{KIND_LABEL[kind]} · {it.minutes} דק׳</span>
                     {/* why, in two short lines; the rest behind "עוד" (PRODUCT2-41) */}
                     <MoreText text={it.reason} className="today-why" />
                     <Bar value={bar.value} max={bar.max} text={bar.text} label={plain} tone={it.done ? 'good' : 'brand'} />

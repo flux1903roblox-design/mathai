@@ -17,7 +17,7 @@ import { dateNum } from '@/lib/price.js';
 import { isStair, isRepair } from '@/lib/assign.js';
 import { lastMessage } from '@/lib/help.js';
 import { attentionList, openHelpBy, reasonText } from '@/learn/attention';
-import { StudentName, MistakeWords, TALK } from './common.jsx';
+import { StudentName, MistakeWords, TALK, practiseName } from './common.jsx';
 
 /** A help request that needs the teacher: not seen yet, or the student wrote last (TEACHER-6 §3). */
 const isFresh = (h) => !h.seen_at || lastMessage(h)?.from === 'student';
@@ -70,7 +70,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
         <div className="t-grid">
           <Group title="טעויות שחוזרות השבוע" tone="warm">
             {data.mistakes.length === 0 ? <p className="t-row muted">לא זוהו טעויות שחוזרות.</p> : (
-              <ul className="t-list">
+              <ul className="t-list cascade">
                 {data.mistakes.map((m) => {
                   const skill = `${m.topic}:${m.level}`;
                   const rowId = `t-mis-${m.topic}-${m.level}-${m.cat}`;
@@ -81,7 +81,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
                       <span className="t-list-main" id={rowId}><MistakeWords topic={m.topic} level={m.level} cat={m.cat} /></span>
                       <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
                       {onAssign && isStair(skill) && ids.length > 0 && (
-                        <button type="button" className="btn btn-secondary btn-sm t-row-act" aria-describedby={rowId}
+                        <button type="button" className="btn btn-secondary btn-sm t-row-act" aria-label={practiseName('לתת תרגול על זה', m.topic, m.level, m.cat)}
                           onClick={() => onAssign({ kind: isRepair(skill, m.cat) ? 'repair' : 'stair', skill, misc: m.cat, targets: ids, targetsLabel: `לתלמידים שטעו בזה (${ids.length})` })}>
                           <Send size={16} aria-hidden="true" />לתת תרגול על זה
                         </button>
@@ -94,7 +94,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
           </Group>
           {examWeak.length > 0 && (
             <Group title="נושאים חלשים במבחנים" tone="warm">
-              <ul className="t-list">
+              <ul className="t-list cascade">
                 {examWeak.map((w) => (
                   <li key={w.topic} className="t-row">
                     <span className="t-list-main"><b>{TOPIC[w.topic]?.title || 'נושא אחר'}</b>: {w.lost === 1 ? 'שאלה אחת עם טעות' : `${w.lost} שאלות עם טעות`}</span>
@@ -106,7 +106,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
           )}
           <Group title="כדאי לבדוק איתם" more={more > 0 && onAll && <button type="button" className="t-more" onClick={onAll}>ועוד {more}. לרשימה המלאה<ChevronLeft size={18} aria-hidden="true" /></button>}>
             {attention.length === 0 ? <p className="t-row muted">כולם מתרגלים ומצליחים.</p> : (
-              <ol className="t-list t-attn">
+              <ol className="t-list t-attn cascade">
                 {attention.map(({ student: s, reasons }) => (
                   <li key={s.id} className="t-row">
                     <span className="t-list-main"><StudentName id={s.id} name={s.name} onOpen={onStudent} /></span>
@@ -118,7 +118,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
           </Group>
           <Group title="בקשות עזרה חדשות" more={openHelp.length > 0 && <button type="button" className="t-more" onClick={onOpenHelp}>לכל הבקשות<ChevronLeft size={18} aria-hidden="true" /></button>}>
             {openHelp.length === 0 ? <p className="t-row muted">אין בקשות פתוחות.</p> : (
-              <ul className="t-list">{freshFirst(openHelp).slice(0, 5).map((h) => {
+              <ul className="t-list cascade">{freshFirst(openHelp).slice(0, 5).map((h) => {
                 const last = lastMessage(h);
                 return (
                   <li key={h.id} className={clsx('t-row', isFresh(h) && 'unseen')}>

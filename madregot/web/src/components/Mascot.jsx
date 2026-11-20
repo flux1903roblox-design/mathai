@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useId, useState } from 'react';
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
-import { SPRING, entrance } from '@/lib/motion.js';
+import { SPRING, entrance, leave } from '@/lib/motion.js';
 import { useMadiLook } from '@/lib/madiLook.js';
 import { MADI_PALETTE, SLOTS } from '@/lib/wardrobe.js';
 import QuietBoundary from './QuietBoundary.jsx';
@@ -143,7 +143,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
 
       <AnimatePresence>
         {showSparkles && !reduce && (
-          <m.g key={`sp-${beat}-${mood}`} fill={`var(--gold, ${STAR_LO})`} initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 1, 0] }} exit={{ opacity: 0 }}
+          <m.g key={`sp-${beat}-${mood}`} fill={`var(--gold, ${STAR_LO})`} initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 1, 0] }} exit={{ opacity: 0, transition: leave(0.1) }}
             transition={{ duration: mood === 'happy' ? 1 : 1.8, repeat: mood === 'happy' ? 0 : 1, ease: 'easeOut' }}>
             <m.path d={SPARKLE} transform="translate(12 30)" animate={{ scale: [0.4, 1.2, 0.8] }} transition={{ duration: 0.9, repeat: 2 }} />
             <m.path d={SPARKLE} transform="translate(132 22) scale(0.8)" animate={{ scale: [0.3, 1, 0.6] }} transition={{ duration: 0.8, delay: 0.15, repeat: 2 }} />
@@ -208,7 +208,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
         <circle cx="35" cy="76" r="5" style={{ fill: BLUSH }} opacity="0.75" />
         <circle cx="79" cy="76" r="5" style={{ fill: BLUSH }} opacity="0.75" />
         <AnimatePresence initial={false}>
-          <m.g key={mood} initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }} transition={{ duration: reduce ? 0 : 0.18 }} style={{ originX: 0.5, originY: 0.5 }}>
+          <m.g key={mood} initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6, transition: leave(reduce ? 0 : 0.09) }} transition={{ duration: reduce ? 0 : 0.18 }} style={{ originX: 0.5, originY: 0.5 }}>
             <Mouth mood={mood} />
           </m.g>
         </AnimatePresence>
@@ -226,7 +226,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
       {/* a question bubble while he thinks */}
       <AnimatePresence>
         {mood === 'thinking' && (
-          <m.g key="q" initial={entrance({ opacity: 0, y: 6 })} animate={reduce ? { opacity: 1, y: 0 } : { opacity: 1, y: [0, -3, 0] }} exit={{ opacity: 0 }}
+          <m.g key="q" initial={entrance({ opacity: 0, y: 6 })} animate={reduce ? { opacity: 1, y: 0 } : { opacity: 1, y: [0, -3, 0] }} exit={{ opacity: 0, transition: leave(0.1) }}
             transition={reduce ? { duration: 0 } : { opacity: { duration: 0.2 }, y: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } }}>
             <circle cx="98" cy="44" r="3" fill={WHITE} stroke={BUBBLE_LINE} strokeWidth="2" />
             <circle cx="106" cy="33" r="4.5" fill={WHITE} stroke={BUBBLE_LINE} strokeWidth="2" />
