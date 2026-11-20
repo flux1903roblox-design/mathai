@@ -172,7 +172,7 @@ function UnitRow({ t, colour, n, mastered, onOpen }) {
   );
 }
 
-function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKey, focusNext, fresh, mastered, celebrate, preview, onUnfold, arrive }) {
+function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKey, focusNext, fresh, mastered, celebrate, preview, onUnfold, arrive, unfolded }) {
   const skills = useApp((s) => s.learn.skills);
   const path = useApp((s) => s.path);
   // the unit's counters move from the first stage: stairs done (mastered) once there is one, before that stages done,
@@ -197,7 +197,9 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={tr('shell.learn.32', { title: t.title })}><BookOpen size={22} aria-hidden="true" /><span>{tr('shell.learn.33')}</span></Link>
       </header>
       <div className="unit-world">
-        <ol className="path" data-region="path">
+        {/* a unit the student unfolds on this visit lays its stops out one after another (ux-motion 3); the path on
+            screen when the map opens is drawn at once */}
+        <ol className={clsx('path', unfolded && 'cascade')} data-region="path">
           {nodes.map((node, i) => {
             const key = `${t.id}:${node.kind}:${node.level}`;
             const isOpen = open === key;
@@ -507,7 +509,7 @@ function LearnMap() {
           if (mode === 'folded') return <UnitRow key={id} t={t} colour={colours[id]} n={unitNumber(t)} mastered={mastered} onOpen={unfold} />;
           return (
             <Unit key={id} t={t} colour={colours[id]} n={unitNumber(t)} nodes={nodes} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} focusNext={focus.next} fresh={arrive?.topic}
-              mastered={mastered} celebrate={arrive?.topic === id ? arrive.from : null} preview={mode === 'preview'} onUnfold={unfold} arrive={id === focus.topic && arrive?.topic === id ? arrive : null} />
+              mastered={mastered} celebrate={arrive?.topic === id ? arrive.from : null} preview={mode === 'preview'} onUnfold={unfold} arrive={id === focus.topic && arrive?.topic === id ? arrive : null} unfolded={unfolded.includes(id)} />
           );
         })}
         {/* the Home Screen guide when a more important card stood above the path: it waits here, under the path */}

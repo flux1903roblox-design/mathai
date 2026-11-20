@@ -1438,3 +1438,17 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .chest svg, .node-slot.has-ring .node-current::before { transition: transform var(--duration-squash) var(--ease-out); }
 :is(.save-switch, .report-email) input[role="switch"]::after { transition: inset-inline-start var(--duration-quick) var(--ease-in-out), scale var(--duration-squash) var(--ease-out); }
 :is(.save-switch, .report-email) input[role="switch"]:active:not(:disabled)::after { scale: var(--squash-knob); }
+
+/* ------------------------------------------------------------------ a list arriving (ux-motion 3) */
+/* Its items come in one after another, 40ms apart (--duration-stagger), each rising 8px into place; from the seventh on
+   they come together, so the whole cascade starts within 240ms however long the list is. Once, as the list appears:
+   a list that is already there does not move again. Under reduced motion it is simply there. */
+.cascade > * { animation: cascade-in var(--duration-fast) var(--ease-smooth-out) both; }
+.cascade > :nth-child(2) { animation-delay: var(--duration-stagger); }
+.cascade > :nth-child(3) { animation-delay: calc(2 * var(--duration-stagger)); }
+.cascade > :nth-child(4) { animation-delay: calc(3 * var(--duration-stagger)); }
+.cascade > :nth-child(5) { animation-delay: calc(4 * var(--duration-stagger)); }
+.cascade > :nth-child(6) { animation-delay: calc(5 * var(--duration-stagger)); }
+.cascade > :nth-child(n + 7) { animation-delay: calc(6 * var(--duration-stagger)); }
+@keyframes cascade-in { from { opacity: 0; translate: 0 var(--distance-base); } }
+@media (prefers-reduced-motion: reduce) { .cascade > * { animation: none; } }

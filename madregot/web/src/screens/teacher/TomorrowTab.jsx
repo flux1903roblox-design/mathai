@@ -70,7 +70,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
         <div className="t-grid">
           <Group title="טעויות שחוזרות השבוע" tone="warm">
             {data.mistakes.length === 0 ? <p className="t-row muted">לא זוהו טעויות שחוזרות.</p> : (
-              <ul className="t-list">
+              <ul className="t-list cascade">
                 {data.mistakes.map((m) => {
                   const skill = `${m.topic}:${m.level}`;
                   const rowId = `t-mis-${m.topic}-${m.level}-${m.cat}`;
@@ -94,7 +94,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
           </Group>
           {examWeak.length > 0 && (
             <Group title="נושאים חלשים במבחנים" tone="warm">
-              <ul className="t-list">
+              <ul className="t-list cascade">
                 {examWeak.map((w) => (
                   <li key={w.topic} className="t-row">
                     <span className="t-list-main"><b>{TOPIC[w.topic]?.title || 'נושא אחר'}</b>: {w.lost === 1 ? 'שאלה אחת עם טעות' : `${w.lost} שאלות עם טעות`}</span>
@@ -106,7 +106,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
           )}
           <Group title="כדאי לבדוק איתם" more={more > 0 && onAll && <button type="button" className="t-more" onClick={onAll}>ועוד {more}. לרשימה המלאה<ChevronLeft size={18} aria-hidden="true" /></button>}>
             {attention.length === 0 ? <p className="t-row muted">כולם מתרגלים ומצליחים.</p> : (
-              <ol className="t-list t-attn">
+              <ol className="t-list t-attn cascade">
                 {attention.map(({ student: s, reasons }) => (
                   <li key={s.id} className="t-row">
                     <span className="t-list-main"><StudentName id={s.id} name={s.name} onOpen={onStudent} /></span>
@@ -118,7 +118,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
           </Group>
           <Group title="בקשות עזרה חדשות" more={openHelp.length > 0 && <button type="button" className="t-more" onClick={onOpenHelp}>לכל הבקשות<ChevronLeft size={18} aria-hidden="true" /></button>}>
             {openHelp.length === 0 ? <p className="t-row muted">אין בקשות פתוחות.</p> : (
-              <ul className="t-list">{freshFirst(openHelp).slice(0, 5).map((h) => {
+              <ul className="t-list cascade">{freshFirst(openHelp).slice(0, 5).map((h) => {
                 const last = lastMessage(h);
                 return (
                   <li key={h.id} className={clsx('t-row', isFresh(h) && 'unseen')}>

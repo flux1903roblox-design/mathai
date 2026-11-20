@@ -149,6 +149,24 @@ describe('motion lint (ux-motion)', () => {
     expect(lesson).not.toMatch(/backdrop-filter/);
   });
 
+  it('a list arriving comes in one item after another, 40ms apart, all started within 300ms (principle 3)', () => {
+    const canon = read('canon.css'); const t = tokenTimes();
+    expect(canon).toMatch(/\.cascade > \* \{ animation: cascade-in var\(--duration-fast\) var\(--ease-smooth-out\) both; \}/);
+    expect(canon).toMatch(/\.cascade > :nth-child\(n \+ 7\) \{ animation-delay: calc\(6 \* var\(--duration-stagger\)\); \}/);
+    expect(t['--duration-stagger']).toBeGreaterThanOrEqual(30);
+    expect(t['--duration-stagger']).toBeLessThanOrEqual(60);
+    expect(6 * t['--duration-stagger']).toBeLessThan(300);
+    expect(canon).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.cascade > \* \{ animation: none; \} \}/);
+    // where lists arrive: the quests, the profile's numbers, a stair's five stages, a unit unfolded on the map, the
+    // teacher's lists
+    const screen = (f) => readFileSync(path.join(here, '../screens', f), 'utf8');
+    expect(screen('Quests.jsx')).toContain('<ul className="quest-list cascade">');
+    expect(screen('Me.jsx')).toContain('<div className="profile-stats cascade">');
+    expect(screen('Journey.jsx')).toContain('<ol className="journey-stages cascade"');
+    expect(screen('Learn.jsx')).toContain("<ol className={clsx('path', unfolded && 'cascade')}");
+    for (const f of ['teacher/TomorrowTab.jsx', 'teacher/WorkTab.jsx', 'teacher/HelpTab.jsx', 'teacher/Library.jsx']) expect(screen(f), f).toMatch(/className="[^"]*\bcascade\b/);
+  });
+
   it('wants the global reduced-motion rule in tokens.css', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'motion-'));
     writeFileSync(path.join(dir, 'tokens.css'), ':root { --duration-quick: 150ms; }\n');

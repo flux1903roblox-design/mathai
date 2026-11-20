@@ -119,7 +119,7 @@ export default function HelpTab({ cls, data, onChanged, onStudent }) {
           ))}
         </div>
       </fieldset>
-      <ul className="help-list">
+      <ul className="help-list cascade">
         {list.length === 0 && (
           <li className="muted">{all.length === 0 ? (who ? `ל${who.name} אין בקשות עזרה בשבוע האחרון.` : 'אין בקשות עזרה בשבוע האחרון.') : filter === 'waiting' ? 'אין בקשות שמחכות לתשובה שלכם.' : 'אין בקשות פתוחות.'}</li>
         )}

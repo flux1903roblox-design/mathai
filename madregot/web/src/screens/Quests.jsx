@@ -114,7 +114,7 @@ export default function Quests() {
           <h2 id="q-h" className="card-title"><Target size={22} aria-hidden="true" className="brand-icon" />המשימות של היום</h2>
           <span className="card-num">{quests.filter((q) => q.done).length}/3</span>
         </div>
-        <ul className="quest-list">
+        <ul className="quest-list cascade">
           {quests.map((q, i) => {
             const Icon = QUEST_ICON[q.id] || Target;
             return (

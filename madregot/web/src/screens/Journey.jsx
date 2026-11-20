@@ -162,7 +162,7 @@ export default function Journey() {
       </section>
 
       <h2 className="h-section journey-list-title">חמשת השלבים של המדרגה</h2>
-      <ol className="journey-stages" aria-label="שלבי המדרגה" data-region="path">
+      <ol className="journey-stages cascade" aria-label="שלבי המדרגה" data-region="path">
         {STAGES.map((st) => {
           const s = stageState(st.id); const Icon = st.icon;
           const disabled = !c && ['A', 'B', 'C'].includes(st.id);

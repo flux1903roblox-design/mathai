@@ -90,7 +90,7 @@ export default function Me() {
       </section>
       <section className="section" aria-labelledby="stats-title" data-region="content">
         <h2 id="stats-title" className="h-section">סטטיסטיקה</h2>
-        <div className="profile-stats">
+        <div className="profile-stats cascade">
           <Stat tone="gold" icon={Flame} value={streak} label="ימים ברצף" />
           {/* a number that only grows (STUDENT-5); XP stays on Quests and in the header */}
           <Stat tone="brand" icon={CalendarCheck} value={learnDaysTotal(days)} label="ימי לימוד" />
