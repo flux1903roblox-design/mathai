@@ -3,7 +3,8 @@
 // src/styles. Each rule names its principle:
 //   8  snappy timing: a transition's duration is a motion token (tokens.css --duration-*), never a number typed in place;
 //      an animation's own number is allowed only for a listed one-time moment, a loop or a pace set in code (ALLOW)
-//   5  slow in, slow out: no linear transition; linear only for an endless loop (a spinner, a shimmer, turning rays)
+//   5  slow in, slow out: no linear transition; linear only for an endless loop (a spinner, a shimmer, turning rays);
+//      every transition names its easing (no bare `ease`, no default)
 //   17 interruptible motion: nothing the user can reverse (a sheet, its backdrop, a dialog, a menu, a switch, a fold or
 //      its chevron, a tab) moves by @keyframes, which restart from the start; transitions retarget from where they are
 //   18 fast closing: a thing that animates its opening ([data-starting-style]) closes faster, in at most 150ms, ease-in
@@ -173,6 +174,15 @@ export function findMotionProblems(files = styleFiles(), root = STYLES, { allow 
       // 8: a transition's duration is a token; an animation's own number is a listed moment, loop or pace
       if (isTransition && literalTimes(value).length && !allowed(r)) push(8, r, `${prop}: ${value}`);
       if (isAnimation && literalTimes(value).length && !allowed(r)) push(8, r, `${prop}: ${value}`);
+      // 5: every transition names its easing (a token, a cubic-bezier, ease-out, ease-in or ease-in-out): one with none
+      // or the bare `ease` runs the browser's default curve, which is neither in nor out
+      if (prop === 'transition') {
+        for (const it of items(value)) {
+          const bare = it.replace(VARS, (v) => (/--[\w-]*ease[\w-]*/.test(v) ? ' EASING ' : /--duration|--[\w-]*(dur|swap|hold|gap|fade|shimmer)/.test(v) ? ' 1ms ' : ' '));
+          if (/(^|\s)ease(\s|$)/.test(bare)) push(5, r, `transition: ${it}: the bare ease is neither in nor out`);
+          else if (!/EASING|ease-out|ease-in|cubic-bezier|steps\(|linear/.test(bare) && /\d(ms|s)\b/.test(bare)) push(5, r, `transition: ${it}: no easing (the default is ease)`);
+        }
+      }
       // 5: linear only for an endless loop
       if ((isTransition || prop === 'transition-timing-function') && /\blinear\b/.test(value)) push(5, r, `${prop}: ${value}`);
       if (prop === 'animation') for (const it of items(value)) if (/\blinear\b/.test(it) && !/\binfinite\b/.test(it)) push(5, r, `animation: ${it}`);

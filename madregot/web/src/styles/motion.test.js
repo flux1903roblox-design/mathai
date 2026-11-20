@@ -40,6 +40,8 @@ describe('motion lint (ux-motion)', () => {
     expect(t['--duration-squash']).toBeLessThanOrEqual(150);
     expect(t['--duration-tap']).toBeLessThan(t['--duration-press']);
     expect(read('tokens.css')).toMatch(/--ease-in: cubic-bezier\(0\.7, 0, 0\.84, 0\);/);
+    // moving from one place on screen to another (a switch's knob): the skill's ease-in-out
+    expect(read('tokens.css')).toMatch(/--ease-in-out: cubic-bezier\(0\.65, 0, 0\.35, 1\);/);
   });
 
   it('a sheet opens in 400ms ease-out and closes in 150ms ease-in, and its backdrop goes with it (principle 18)', () => {
@@ -112,6 +114,9 @@ describe('motion lint (ux-motion)', () => {
       '.lm .tile:active { transform: translateY(2px) scale(0.98); }', // 1: a scale in the transform (its transition is .tile's)
       '.combo-pop { position: fixed; inset: 0; z-index: 40; }', // 16: the combo moment as a layer over the lesson
       '.lesson-meter .combo-pop { position: absolute; top: 50%; }', // fine: a pill in the bar's box
+      '.bare { transition: opacity var(--duration-quick) ease; }', // 5: the bare ease
+      '.unset { transition: opacity var(--duration-quick); }', // 5: no easing at all
+      '.knob { transition: inset-inline-start var(--duration-quick) var(--ease-in-out); }', // fine
     ].join('\n'));
     const targets = [['a.css', '.tiny', 32, 32], ['a.css', '.padded', 40, 40], ['a.css', '.gone', 30, 30]];
     const { bad, stale } = findMotionProblems(styleFiles(dir), dir, { allow: [['a.css', '.nothing', 'once: gone']], targets });
@@ -131,6 +136,8 @@ describe('motion lint (ux-motion)', () => {
       '#1 a.css:23 .lm .tile:active',
       '#16 a.css:24 .combo-pop',
       '#16 a.css:24 .combo-pop',
+      '#5 a.css:26 .bare',
+      '#5 a.css:27 .unset',
     ].sort());
     expect(stale).toEqual(['ALLOW a.css .nothing', 'TARGETS a.css .gone']);
   });

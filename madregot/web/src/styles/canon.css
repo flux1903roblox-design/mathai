@@ -867,8 +867,8 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .file-pick.is-busy { opacity: 0.6; }
 .file-restore:has(.file-input:focus-visible) .file-pick { outline: 3px solid var(--brand-line); outline-offset: 2px; }
 .file-error { margin: 0; }
-:is(.save-switch, .report-email) input[role="switch"] { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 52px; height: 32px; margin: 0; border-radius: 999px; background: var(--rule); border: 2px solid var(--ink-2); cursor: pointer; transition: background-color var(--duration-quick) ease, border-color var(--duration-quick) ease; }
-:is(.save-switch, .report-email) input[role="switch"]::after { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: inset-inline-start var(--duration-quick) ease; } /* colour-ok: a shade (black at low alpha), the same in both themes */
+:is(.save-switch, .report-email) input[role="switch"] { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 52px; height: 32px; margin: 0; border-radius: 999px; background: var(--rule); border: 2px solid var(--ink-2); cursor: pointer; transition: background-color var(--duration-quick) var(--ease-out), border-color var(--duration-quick) var(--ease-out); }
+:is(.save-switch, .report-email) input[role="switch"]::after { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: inset-inline-start var(--duration-quick) var(--ease-in-out); } /* colour-ok: a shade (black at low alpha), the same in both themes */
 :is(.save-switch, .report-email) input[role="switch"]:checked { background: var(--brand); border-color: var(--brand); }
 :is(.save-switch, .report-email) input[role="switch"]:checked::after { inset-inline-start: 22px; }
 :is(.save-switch, .report-email) input[role="switch"]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
@@ -1436,5 +1436,5 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .lm .ls-choice:active:not(:disabled) { transform: translateY(3px); }
 .tool:active:not(:disabled) { background: var(--ground); }
 .chest svg, .node-slot.has-ring .node-current::before { transition: transform var(--duration-squash) var(--ease-out); }
-:is(.save-switch, .report-email) input[role="switch"]::after { transition: inset-inline-start var(--duration-quick) var(--ease-out), scale var(--duration-squash) var(--ease-out); }
+:is(.save-switch, .report-email) input[role="switch"]::after { transition: inset-inline-start var(--duration-quick) var(--ease-in-out), scale var(--duration-squash) var(--ease-out); }
 :is(.save-switch, .report-email) input[role="switch"]:active:not(:disabled)::after { scale: var(--squash-knob); }

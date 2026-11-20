@@ -35,14 +35,52 @@ describe('motion presets', () => {
   });
 });
 
+/** Every script file under src, by its path from src (tests left out). */
+const sources = () => readdirSync(new URL('../', import.meta.url), { recursive: true }).filter((f) => /\.jsx?$/.test(f) && !/\.test\./.test(f));
+
+describe('motion in code', () => {
+  // [file, why]: where a motion may run longer than 500ms (principle 8: only a one-time moment, a loop or acting)
+  const LONG = [
+    ['components/learn/Celebrate.jsx', 'once: the shapes that fly out of a celebration'],
+    ['components/PathNode.jsx', 'once: the gold flecks of a stop just completed'],
+    ['components/mascot/Accessories.jsx', 'once: a new piece drops onto מדי'],
+    ['components/Mascot.jsx', 'acting: מדי breathing, blinking and dancing (loops and his reactions)'],
+    ['App.jsx', 'not a motion: how long a toast stays (ms)'],
+  ];
+  it('nothing moves for more than 500ms but a one-time moment, a loop or מדי acting (principle 8)', () => {
+    const over = [];
+    for (const f of sources()) {
+      for (const m of src(f).matchAll(/duration: ?(\d*\.?\d+)/g)) {
+        const n = Number(m[1]); const secs = n >= 20 ? n / 1000 : n;
+        if (secs > 0.5 && !LONG.some(([file]) => file === f)) over.push(`${f}: duration ${m[1]}`);
+      }
+    }
+    expect(over).toEqual([]);
+    for (const [file] of LONG) expect(sources(), file).toContain(file);
+  });
+
+  it('whatever leaves, leaves quicker than it came and eases in: every exit takes leave() (principle 18)', () => {
+    const slow = [];
+    for (const f of sources()) {
+      for (const m of src(f).matchAll(/exit=\{(?:reduce \? undefined : )?\{([^}]*)\}/g)) if (!/transition: (leave|exit)\(/.test(m[1])) slow.push(`${f}: exit={{${m[1]}}}`);
+    }
+    expect(slow).toEqual([]);
+  });
+
+  it('a right answer\'s mark pops past its size and settles; the sparks round it are quicker than they were (principles 9, 20)', () => {
+    const parts = src('components/lesson/LessonParts.jsx');
+    expect(parts).toMatch(/animate=\{\{ scale: good \? \[0\.4, 1\.18, 1\] : 1, rotate: 0 \}\}/);
+    expect(parts).toMatch(/transition=\{\{ duration: DUR\.slow, ease: EASE\.out, delay: 0\.12 \}\}/);
+  });
+});
+
 describe('the screens that move most often', () => {
   it('a screen that has its own leave(to) takes the motion preset under another name: the hint bar\'s exit called the lesson\'s way out, navigate(0.08), and reloaded the page', () => {
     const lesson = src('screens/Lesson.jsx');
     expect(lesson).toMatch(/import \{[^}]*\bleave as exit\b[^}]*\} from '@\/lib\/motion\.js';/);
     expect(lesson).toMatch(/className="hint-bar"[^>]*exit=\{\{ opacity: 0, transition: exit\(DUR\.micro\) \}\}/);
     // and no file both imports the preset as leave and declares a leave of its own
-    const files = readdirSync(new URL('../', import.meta.url), { recursive: true }).filter((f) => /\.jsx?$/.test(f) && !/\.test\./.test(f));
-    const clash = files.filter((f) => {
+    const clash = sources().filter((f) => {
       const code = src(f);
       return /import \{[^}]*\bleave\b(?! as)[^}]*\} from '@\/lib\/motion\.js'/.test(code) && /(const|let|function)\s+leave\b/.test(code);
     });

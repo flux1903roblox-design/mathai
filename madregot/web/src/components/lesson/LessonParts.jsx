@@ -76,11 +76,13 @@ export function FeedbackBadge({ good }) {
         <span className="fb-burst">
           {Array.from({ length: 7 }, (_, i) => {
             const a = (i / 7) * Math.PI * 2 - Math.PI / 2;
-            return <m.i key={i} initial={{ x: 0, y: 0, scale: 0.3, opacity: 1 }} animate={{ x: Math.cos(a) * 34, y: Math.sin(a) * 34, scale: 1, opacity: 0 }} transition={{ duration: 0.55, ease: 'easeOut', delay: 0.12 }} />;
+            return <m.i key={i} initial={{ x: 0, y: 0, scale: 0.3, opacity: 1 }} animate={{ x: Math.cos(a) * 34, y: Math.sin(a) * 34, scale: 1, opacity: 0 }} transition={{ duration: DUR.slow, ease: EASE.out, delay: 0.12 }} />;
           })}
         </span>
       )}
-      <m.svg viewBox="0 0 40 40" width="40" height="40" initial={reduce ? false : { scale: 0.4, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={SPRING.pop}>
+      {/* a right answer lands: the mark pops past its size and settles (1.18, then 1: ux-motion 9) */}
+      <m.svg viewBox="0 0 40 40" width="40" height="40" initial={reduce ? false : { scale: 0.4, rotate: -20 }} animate={{ scale: good ? [0.4, 1.18, 1] : 1, rotate: 0 }}
+        transition={good ? { scale: { duration: 0.3, times: [0, 0.55, 1], ease: EASE.out }, rotate: SPRING.pop } : SPRING.pop}>
         <circle cx="20" cy="20" r="19" className="fb-badge-disc" />
         {good ? (
           <m.path d="M11.5 20.5 L17.5 26.5 L29 14" fill="none" stroke="currentColor" strokeWidth="4.6" strokeLinecap="round" strokeLinejoin="round"
