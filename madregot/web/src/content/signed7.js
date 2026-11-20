@@ -17,7 +17,7 @@
 // predicts the answer or a slip of it, no two mistakes one value, never a number printed in the question; and a
 // prediction that is not whole is not typed rounded to the answer or to another prediction). Every number here is
 // checked by the lane's verify script (spec_check.mjs, section D3) and by learn/content.test.ts.
-import { T, shortDec } from './util.js';
+import { T, shortDec, twoPlaces } from './util.js';
 import { fair, shownIn } from './signedItems.js';
 import { roundings, matchesValue } from '@/learn/misconceptions.ts';
 
@@ -196,9 +196,10 @@ export function pow5AnswerTex(q, v = powValue(q)) {
 }
 /**
  * A fraction answer as a decimal too, unless the app writes it as a fraction anyway (T gives \frac up to twelfths):
- * exactly when it is a short decimal (4/25 is 0.16), else rounded as a student may type it (-27/64 is about -0.42).
+ * exactly when it is a short decimal (4/25 is 0.16), else rounded to two places as the question asks and a student may
+ * type it (-27/64 is about -0.42, -8/27 about -0.30: both places, so it never reads as a one-place rounding).
  */
-const asDecimal = (v) => { const t = T(v); if (/frac/.test(t)) return ''; return shortDec(v) ? `, כלומר $${r6(v)}$` : `, בערך $${t}$`; };
+const asDecimal = (v) => { const t = T(v); if (/frac/.test(t)) return ''; return shortDec(v) ? `, כלומר $${r6(v)}$` : `, בערך $${twoPlaces(v)}$`; };
 
 export function powSolution(q) {
   const ans = powValue(q); const odd = q.n % 2 === 1;

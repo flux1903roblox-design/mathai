@@ -18,7 +18,7 @@
 //   bigger-den      a bigger denominator read as a bigger fraction (Ni & Zhou 2005, Educational Psychologist 40(1))
 // and for frac:3-4 (stage 6) add-across, num-not-scaled, keep-den (Siegler & Pyke 2013), divide-flip, mult-bigger
 // (Fischbein et al. 1985; Tirosh 2000).
-import { shuffle, gcd, listMath, shortDec, needsFormat, countOf } from './util.js';
+import { shuffle, gcd, listMath, shortDec, needsFormat, countOf, twoPlaces } from './util.js';
 import { diagOf } from './eq.js';
 import { slipOf } from '@/learn/misconceptions.ts';
 
@@ -206,8 +206,13 @@ export function biggestSolution(p) {
 }
 export const biggestHint = (p) => (p.k === 0 ? 'השלימו אפסים בסוף, עד שלכולם אותו מספר ספרות אחרי הנקודה, ואז השוו.' : 'לכולם אותו מונה. כשמחלקים לפחות חלקים, כל חלק גדול יותר.');
 
-/** A value rounded to hundredths, as written: 0.58. */
-const r2 = (v) => String(Math.round(v * 100) / 100);
+/**
+ * A value rounded to hundredths, as written after "≈": 0.58, and 0.90 with its zero (the question asks for two places,
+ * and 0.9 would look like one).
+ */
+const r2 = twoPlaces;
+/** A value's first two decimals, before "…": 26.66… for 80/3 (cut, not rounded: the digits that really come next). */
+const cut2 = (v) => String(Math.trunc(v * 100 + (v < 0 ? -1e-9 : 1e-9)) / 100);
 /**
  * The end of a computation: n/d as written, reduced and as a mixed number, then its decimal (exact, or rounded with
  * \approx when it has no short one): \frac{14}{12} = \frac{7}{6} = 1\frac{1}{6} \approx 1.17.
@@ -586,7 +591,7 @@ function bigger() {
   return {
     key: `fr4g:${N}:${r9(x)}:${mul ? 'mul' : 'div'}`, text: `$${N} ${op} ${tex}$: התוצאה גדולה מ־$${N}$ או קטנה ממנו?`, form: 'mc', choices, answer: up ? 0 : 1, practiceOnly: true,
     hint: `האם $${tex}$ גדול מ־$1$ או קטן ממנו? ${mul ? 'כפל ב־$1$ משאיר את המספר כמו שהוא.' : 'חילוק ב־$1$ משאיר את המספר כמו שהוא.'}`,
-    solution: [why, `$${N} ${op} ${tex} = ${shortDec(val) ? dec(val) : `${r2(val)}\\ldots`}$`],
+    solution: [why, `$${N} ${op} ${tex} = ${shortDec(val) ? dec(val) : `${cut2(val)}\\ldots`}$`],
     diag: (u) => choices[u]?.bug || null,
   };
 }
