@@ -1,7 +1,7 @@
 // The JS side of the ux-motion rules (.claude/skills/ux-motion/SKILL.md): the presets in lib/motion.js and the screens
 // that move most often. The CSS side is src/styles/motion.test.js.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { DUR, EASE, enter, leave, swap, cascade } from './motion.js';
 
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -36,6 +36,19 @@ describe('motion presets', () => {
 });
 
 describe('the screens that move most often', () => {
+  it('a screen that has its own leave(to) takes the motion preset under another name: the hint bar\'s exit called the lesson\'s way out, navigate(0.08), and reloaded the page', () => {
+    const lesson = src('screens/Lesson.jsx');
+    expect(lesson).toMatch(/import \{[^}]*\bleave as exit\b[^}]*\} from '@\/lib\/motion\.js';/);
+    expect(lesson).toMatch(/className="hint-bar"[^>]*exit=\{\{ opacity: 0, transition: exit\(DUR\.micro\) \}\}/);
+    // and no file both imports the preset as leave and declares a leave of its own
+    const files = readdirSync(new URL('../', import.meta.url), { recursive: true }).filter((f) => /\.jsx?$/.test(f) && !/\.test\./.test(f));
+    const clash = files.filter((f) => {
+      const code = src(f);
+      return /import \{[^}]*\bleave\b(?! as)[^}]*\} from '@\/lib\/motion\.js'/.test(code) && /(const|let|function)\s+leave\b/.test(code);
+    });
+    expect(clash).toEqual([]);
+  });
+
   it('a lesson swaps its exercise with swap(): the old one leaves quicker than the new one comes', () => {
     const lesson = src('screens/Lesson.jsx');
     expect(lesson).toMatch(/const slide = swap\(\);/);

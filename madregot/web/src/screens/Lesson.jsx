@@ -48,7 +48,8 @@ import { useTopics } from '@/learn/useStairContent.js';
 import { skillId, parseSkill, BRIDGE_SKILLS } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import MissNote, { missNote } from '@/components/lesson/MissNote.jsx';
-import { DUR, SPRING, enter, leave, swap } from '@/lib/motion.js';
+// the motion preset `leave` as `exit`: this screen's own leave(to) goes somewhere else (the exit sheet)
+import { DUR, SPRING, enter, leave as exit, swap } from '@/lib/motion.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
 import { CHECK_IMAGE_MAX } from '@shared/ai.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
@@ -767,7 +768,7 @@ export default function Lesson() {
         {/* the hint sits above the answer, on the first try and again on the second; the drawing above makes room */}
         <AnimatePresence>
           {s.hint && (s.phase === 'answer' || s.phase === 'retry') && !feedback && (
-            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: leave(DUR.micro) }} transition={enter(DUR.fast)}>
+            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: exit(DUR.micro) }} transition={enter(DUR.fast)}>
               <HintBox text={item.hint} clamp={short} />
             </m.div>
           )}
