@@ -3,7 +3,7 @@
 // iPhone app (VITE_STORE=ios, STUDENT-12 §3) the phone's own haptics play through the native shell's bridge.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useApp } from './store.js';
-import { haptic, buzz, play, soundOn, HAPTICS, NATIVE_HAPTICS } from './sound.js';
+import { haptic, buzz, play, soundOn, classQuiet, HAPTICS, NATIVE_HAPTICS } from './sound.js';
 
 let vibrate;
 const reduced = (on) => vi.stubGlobal('matchMedia', (q) => ({ matches: on && q.includes('prefers-reduced-motion: reduce'), media: q }));
@@ -159,9 +159,12 @@ describe('play(name): the sound set, quiet in class', () => {
     expect(soundOn()).toBe(false);
     for (const k of ['correct', 'wrong', 'combo', 'levelup', 'goal', 'complete', 'tap']) expect(play(k)).toBe(false);
     expect(notes).toEqual([]);
+    // the celebrations are quiet too (the combo's pill, a stair mastered's flying shapes): the same one test
+    expect(classQuiet()).toBe(true);
     // the student turns sound on themselves: now it plays
     useApp.getState().setSound(true);
     expect(soundOn()).toBe(true);
+    expect(classQuiet()).toBe(false);
     expect(play('correct')).toBe(true);
     expect(notes.length).toBeGreaterThan(0);
   });

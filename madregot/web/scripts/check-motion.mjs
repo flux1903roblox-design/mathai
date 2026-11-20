@@ -13,6 +13,7 @@
 //   1, 8 one press: whatever moves while pressed (:active) moves in a press token (--duration-tap, --duration-press or
 //      --duration-squash), set on the thing itself; a squash (scale) is a --squash token, the full one only on things
 //      that carry no text (a stop, the gift, a switch's knob), and reduced motion sets every --squash token to none
+//   16, 17 the combo moment is a small pill that covers nothing: never a fixed layer over the whole lesson
 // An ALLOW or TARGETS entry nothing uses any more fails too. Run: npm run lint:motion (motion.test.js runs it).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -257,6 +258,14 @@ export function findMotionProblems(files = styleFiles(), root = STYLES, { allow 
   const tok = all.filter((r) => r.file === 'tokens.css' && r.inReduced && r.selector === ':root').flatMap((r) => decls(r.body));
   for (const name of ['--squash', '--squash-soft', '--squash-knob']) {
     if (!tok.some((d) => d.prop === name && d.value === 'none')) bad.push({ rule: 20, file: 'tokens.css', line: 1, selector: ':root', text: `${name} is not none under reduced motion` });
+  }
+
+  // 16, 17: the combo moment never covers the lesson (a fixed layer over the keypad ate the first tap)
+  for (const r of all) {
+    if (!r.selector.split(',').some((x) => /\.combo-pop(?![\w-])/.test(x))) continue;
+    for (const { prop, value } of decls(r.body)) {
+      if ((prop === 'position' && value === 'fixed') || (prop === 'inset' && /^0(px)?$/.test(value))) push(16, r, `${prop}: ${value}: the combo moment is a pill beside the bar, not a layer over the lesson`);
+    }
   }
 
   const stale = [

@@ -9,7 +9,7 @@
   position: sticky; top: 0; z-index: 10; display: flex; align-items: center;
   padding: calc(var(--s2) + env(safe-area-inset-top, 0px)) max(var(--s3), env(safe-area-inset-right, 0px)) var(--s2) max(var(--s3), env(safe-area-inset-left, 0px));
 }
-.lesson-bar { flex: 1; border-radius: 999px; overflow: hidden; }
+.lesson-bar { flex: 1; min-width: 0; border-radius: 999px; overflow: hidden; }
 .lesson-combo { display: inline-flex; align-items: center; gap: 2px; justify-content: center; font-family: var(--font-display); font-weight: 700; font-size: var(--t-md); color: var(--streak-ink); transition: opacity var(--duration-fast) var(--ease-out); }
 .lesson-combo.on { opacity: 1; }
 .lesson-dock {
@@ -17,10 +17,17 @@
   padding: var(--s3) max(var(--s4), calc((100% - 600px) / 2)) calc(var(--s3) + env(safe-area-inset-bottom, 0px));
   background: var(--paper); border-top: 2px solid var(--rule);
 }
+/* the bar and the run's chip (or the tested topic) in one box: the combo's pill sits over them, and over nothing else */
+.lesson-meter { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--s2); }
+/* the combo moment (LessonParts.jsx ComboPop): a small pill over the bar that pops and leaves on its own. It never covers
+   the question, the keypad or a button (ux-motion 16, 17), so the next answer goes in while it shows. */
 .combo-pop {
-  position: fixed; inset: 0; z-index: 40; display: grid; place-content: center; justify-items: center; gap: var(--s3);
+  position: absolute; z-index: 2; top: 50%; left: 50%; translate: -50% -50%; max-width: calc(100% + var(--s4)); overflow: hidden;
+  display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 0 10px; border-radius: 999px; cursor: pointer;
+  border: 2px solid var(--streak); background: var(--streak-tint); color: var(--streak-ink); white-space: nowrap;
 }
-.combo-text { font-family: var(--font-display); font-weight: 700; font-size: 2.75rem; line-height: 1.1819; color: var(--streak-ink); }
+.combo-text { font-family: var(--font-display); font-weight: 800; font-size: 0.9375rem; line-height: 1.2; }
+.combo-pop svg { flex: none; color: var(--streak); fill: var(--streak); }
 .lesson-dock .tool { flex: none; }
 .lesson-dock .tools { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; overflow: visible; }
 .lesson-topic {
@@ -36,9 +43,6 @@
 .fb-badge-disc { fill: var(--fb-mark); }
 .fb-badge.is-good { color: var(--on-brand); }
 .fb-badge.is-bad { color: var(--on-bad); }
-.combo-pop { animation: none; background: color-mix(in srgb, var(--paper) 78%, transparent); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
-.combo-card { display: grid; justify-items: center; gap: var(--s2); }
-.combo-text { display: inline-flex; align-items: center; gap: var(--s2); }
 .lesson-head {
   grid-area: head; position: relative; z-index: 3; display: flex; flex-direction: column; gap: var(--s2);
   padding: env(safe-area-inset-top, 0px) max(var(--s3), env(safe-area-inset-right, 0px)) var(--s2) max(var(--s3), env(safe-area-inset-left, 0px));

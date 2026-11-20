@@ -461,11 +461,12 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .lesson .choices.inline { grid-template-columns: repeat(3, 1fr); }
 .lesson .choice {
   display: flex; align-items: center; gap: var(--s3); min-height: 60px; padding: var(--s3) var(--s4); text-align: start; margin-bottom: 4px; font-weight: 600; text-decoration: none;
-  transform-origin: 50% 100%; transition: transform var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+  transform-origin: 50% 100%; transition: translate var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
 }
 .lesson .choice { min-width: 0; max-width: 100%; }
 .lesson .choices.inline .choice { justify-content: center; }
-.lesson .choice:active:not(:disabled) { transform: translateY(4px); scale: var(--squash-soft); box-shadow: 0 0 0 var(--rule-press); }
+/* translate, not transform: the right choice's pop (Lesson.jsx) holds the transform */
+.lesson .choice:active:not(:disabled) { translate: 0 4px; scale: var(--squash-soft); box-shadow: 0 0 0 var(--rule-press); }
 .choice-key { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; font-size: var(--t-sm); }
 .lesson .choice.good { border-color: var(--good-d); background: var(--good-tint); color: var(--good-ink); box-shadow: 0 4px 0 var(--good-line); }
 .lesson .choice.bad { border-color: var(--bad-line); background: var(--bad-tint); color: var(--bad-ink); box-shadow: 0 4px 0 var(--bad-line); text-decoration: line-through; }
@@ -509,8 +510,6 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .fb .box { color: var(--ink); }
 @keyframes fb-rise { from { transform: translateY(24px); opacity: 0; } }
 
-/* ---------- combo moment ---------- */
-@keyframes pop-in { from { opacity: 0; transform: scale(0.92); } }
 
 /* ---------- lesson complete, streak, quests done ---------- */
 .done-screen { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: var(--s5); text-align: center;
@@ -546,7 +545,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 @media (prefers-reduced-motion: reduce) {
   .node-start, .streak-big svg { animation: none !important; }
   .node, .node-ring-seg { transition: none !important; }
-  .fb, .combo-pop { animation: none !important; }
+  .fb { animation: none !important; }
 }
 
 .lesson-dock .tools { flex-wrap: nowrap; gap: 6px; margin-bottom: -2px; scrollbar-width: none; }
@@ -704,7 +703,6 @@ a.side-card { transition: transform var(--duration-press) var(--ease-out), borde
 .fb-burst i:nth-child(2n) { background: var(--gold); border-radius: 2px; }
 .fb-combo { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: auto; padding: 3px 10px; border-radius: 999px; background: var(--surface); color: var(--streak-ink); font-weight: 700; font-size: var(--t-sm); }
 .fb-combo svg { color: var(--streak); fill: var(--streak); }
-.combo-text svg { color: var(--streak); fill: var(--streak); }
 
 /* ---------- celebrations: confetti behind the hero, medals for what was earned ---------- */
 .done-hero { position: relative; display: grid; place-items: center; min-height: 170px; width: 100%; }

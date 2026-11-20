@@ -66,7 +66,9 @@ describe('motion lint (ux-motion)', () => {
     expect(tokens).toMatch(/--squash-soft: 1\.02 0\.98;/);
     // under reduced motion a press only sinks
     expect(tokens).toMatch(/prefers-reduced-motion: reduce\) \{\s*:root \{ --squash: none; --squash-soft: none; --squash-knob: none; \}/);
-    expect(app).toMatch(/\.lesson \.choice:active:not\(:disabled\) \{ transform: translateY\(4px\); scale: var\(--squash-soft\);/);
+    expect(app).toMatch(/\.lesson \.choice:active:not\(:disabled\) \{ translate: 0 4px; scale: var\(--squash-soft\);/);
+    // the lesson's choices are motion buttons: their press is the CSS one, not a whileTap scale of their own
+    expect(read('../screens/Lesson.jsx')).not.toMatch(/whileTap/);
     expect(app).toMatch(/\.ob-opt:active \{ transform: translateY\(4px\); scale: var\(--squash-soft\);/);
     expect(canon).toMatch(/\.node:active \{ transform: translateY\(var\(--lip\)\); scale: var\(--squash\);/);
     expect(canon).toMatch(/\.ls-choice:active:not\(:disabled\) \{ transform: translateY\(4px\); scale: var\(--squash-soft\);/);
@@ -108,6 +110,8 @@ describe('motion lint (ux-motion)', () => {
       '.node { transition: transform var(--duration-squash) ease-out, scale var(--duration-squash) ease-out; }',
       '.node:active { scale: 0.9; }', // 1: a number of its own
       '.lm .tile:active { transform: translateY(2px) scale(0.98); }', // 1: a scale in the transform (its transition is .tile's)
+      '.combo-pop { position: fixed; inset: 0; z-index: 40; }', // 16: the combo moment as a layer over the lesson
+      '.lesson-meter .combo-pop { position: absolute; top: 50%; }', // fine: a pill in the bar's box
     ].join('\n'));
     const targets = [['a.css', '.tiny', 32, 32], ['a.css', '.padded', 40, 40], ['a.css', '.gone', 30, 30]];
     const { bad, stale } = findMotionProblems(styleFiles(dir), dir, { allow: [['a.css', '.nothing', 'once: gone']], targets });
@@ -125,8 +129,17 @@ describe('motion lint (ux-motion)', () => {
       '#1 a.css:20 .tile:active',
       '#1 a.css:22 .node:active',
       '#1 a.css:23 .lm .tile:active',
+      '#16 a.css:24 .combo-pop',
+      '#16 a.css:24 .combo-pop',
     ].sort());
     expect(stale).toEqual(['ALLOW a.css .nothing', 'TARGETS a.css .gone']);
+  });
+
+  it('the combo moment is a pill in the bar\'s box, not a layer over the lesson (principles 16, 17)', () => {
+    const lesson = read('lazy/lesson.css');
+    expect(lesson).toMatch(/\.lesson-meter \{ position: relative; flex: 1;/);
+    expect(lesson).toMatch(/\.combo-pop \{\s*position: absolute;/);
+    expect(lesson).not.toMatch(/backdrop-filter/);
   });
 
   it('wants the global reduced-motion rule in tokens.css', () => {

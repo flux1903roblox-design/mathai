@@ -1,6 +1,6 @@
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import { X, Flame } from 'lucide-react';
-import { SPRING } from '@/lib/motion.js';
+import { SPRING, DUR, EASE, leave } from '@/lib/motion.js';
 
 /** What the bar says aloud: how many exercises are done, and how many of them were right the first time. */
 function stripText(marks, total) {
@@ -9,13 +9,37 @@ function stripText(marks, total) {
   return `${done} מתוך ${total} תרגילים, ${firsts} נכונים בפעם הראשונה`;
 }
 
-/** The lesson's top bar: leave, the progress bar, and the combo or the tested topic. */
-export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null, marks = null, total = 0, exitLabel = 'יציאה מהשיעור' }) {
+/**
+ * The combo moment (a run of 3, 5, 10 right first tries): a small pill that pops over the bar (scale 1, 1.15, 1) and
+ * leaves on its own (Lesson.jsx). It covers only the bar and the run's chip, never the question, the keypad or a button,
+ * so the next exercise can be answered while it shows (ux-motion 16, 17); a tap on it closes it. A status: read aloud.
+ * Under reduced motion it fades in and is simply gone when it closes.
+ */
+export function ComboPop({ n, onClose }) {
+  const reduce = useReducedMotion();
+  return (
+    <AnimatePresence>
+      {n ? (
+        <m.div key="combo" className="combo-pop" role="status" onClick={onClose}
+          initial={{ opacity: 0, scale: 1 }} animate={{ opacity: 1, scale: [1, 1.15, 1] }}
+          transition={{ opacity: { duration: DUR.quick, ease: EASE.out }, scale: { duration: 0.3, times: [0, 0.4, 1], ease: EASE.out } }}
+          exit={reduce ? undefined : { opacity: 0, transition: leave() }}>
+          <Flame size={18} aria-hidden="true" /><span className="combo-text">{n} ברצף!</span>
+        </m.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+/** The lesson's top bar: leave, the progress bar, and the combo or the tested topic; `pop` is the combo moment's run. */
+export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null, marks = null, total = 0, exitLabel = 'יציאה מהשיעור', pop = null, onPopClose }) {
   const reduce = useReducedMotion();
   return (
     <header className="lesson-top">
       <button type="button" className="icon-btn lesson-x" onClick={onExit} aria-label={exitLabel}><X size={26} /></button>
       {/* one thick bar that fills as the lesson goes (the steps' results are read aloud) */}
+      {/* the bar and what sits beside it share one box, so the combo's pill can sit over them and nothing else */}
+      <div className="lesson-meter">
       <div className="lesson-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
         aria-valuetext={marks ? stripText(marks, total) : undefined}>
         <m.i initial={false} animate={{ width: `${Math.max(pct, 4)}%` }} transition={reduce ? { duration: 0 } : SPRING.fill} />
@@ -26,13 +50,18 @@ export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null,
         <span className="lesson-combo" aria-live="polite">
           <AnimatePresence>
             {combo >= 2 && (
-              <m.span key={combo} className="combo-chip" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} transition={SPRING.pop}>
+              // the count pops in on a spring and fades out quicker than it came; under reduced motion it is simply
+              // swapped (an exit left to finish there piled the old counts up beside the bar, "2 3 4 5")
+              <m.span key={combo} className="combo-chip" initial={reduce ? false : { scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                exit={reduce ? undefined : { scale: 0.6, opacity: 0, transition: leave() }} transition={{ ...SPRING.pop, opacity: { duration: DUR.quick, ease: EASE.out } }}>
                 <Flame size={18} aria-hidden="true" />{combo}<span className="visually-hidden"> ברצף</span>
               </m.span>
             )}
           </AnimatePresence>
         </span>
       )}
+      <ComboPop n={pop} onClose={onPopClose} />
+      </div>
       {extra}
     </header>
   );

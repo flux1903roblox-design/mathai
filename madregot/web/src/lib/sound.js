@@ -60,7 +60,16 @@ const PATTERNS = {
  * nothing until they turn sound on themselves (prefs.soundSet), whatever the saved state says (store.js quietForClass).
  */
 export function soundOn(s = useApp.getState()) {
-  return !!s.sound && !(s.profile?.classCode && !s.prefs?.soundSet);
+  return !!s.sound && !classQuiet(s);
+}
+
+/**
+ * Is this student in a quiet classroom? In a class and never chose sound themselves: no sound, and the celebrations
+ * that would pull eyes across the room stay small (the combo's pill is not shown, a stair mastered is drawn without
+ * its flying shapes and turning light).
+ */
+export function classQuiet(s = useApp.getState()) {
+  return !!(s.profile?.classCode && !s.prefs?.soundSet);
 }
 
 /** The celebration sounds: they go with an animation, so they stay quiet under reduced motion. */

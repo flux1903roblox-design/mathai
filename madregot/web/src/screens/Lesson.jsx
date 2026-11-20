@@ -25,7 +25,7 @@ import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
 import { checkAssignment, reportWork, reportStairs } from '@/lib/classWork.js';
 import { thawItem } from '@/lib/exam.js';
-import { play, haptic } from '@/lib/sound.js';
+import { play, haptic, classQuiet } from '@/lib/sound.js';
 import { Tex, MathText, texText, FitDisplay, useFitLine } from '@/components/MathText.jsx';
 import { RichText } from '@/components/RichText.jsx';
 import Figure from '@/components/Figure.jsx';
@@ -305,7 +305,12 @@ export default function Lesson() {
     leaving.current = true; setExitOpen(false); syncNow();
     if (blocker.state === 'blocked') blocker.proceed(); else navigate(to, opts);
   };
+  // the combo moment: the run it celebrates, for a moment (a pill over the bar, LessonParts.jsx ComboPop); none in a quiet
+  // class, where the run's chip beside the bar still counts
   const [combo, setCombo] = useState(null);
+  const comboTimer = useRef(0);
+  const quietClass = useApp(classQuiet);
+  useEffect(() => () => clearTimeout(comboTimer.current), []);
   // How each exercise went, for the steps in the header: first | fixed | shown | redone (by slot)
   const [marks, setMarks] = useState([]);
   const [done, setDone] = useState(null); // { result, award } once the lesson ends
@@ -549,7 +554,10 @@ export default function Lesson() {
     setLast(null);
     if (ns.finished) { finish(ns); return; }
     setS(ns);
-    if (mark) { setCombo(mark); play('combo', mark); haptic('combo'); setTimeout(() => setCombo(null), 1400); }
+    if (mark) {
+      play('combo', mark); haptic('combo');
+      if (!quietClass) { clearTimeout(comboTimer.current); setCombo(mark); comboTimer.current = setTimeout(() => setCombo(null), 1400); }
+    }
   };
 
   useEffect(() => {
@@ -696,7 +704,7 @@ export default function Lesson() {
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip', folded && 'fb-folded-on', feedback === 'reveal' && 'is-reveal')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head" data-region="header">
-        <ProgressHeader extra={tools} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : classExam ? 'התקדמות במבחן' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} exitLabel={classExam ? 'יציאה מהמבחן' : undefined} combo={s.combo} topic={placement ? t.title : null} />
+        <ProgressHeader extra={tools} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : classExam ? 'התקדמות במבחן' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} exitLabel={classExam ? 'יציאה מהמבחן' : undefined} combo={s.combo} topic={placement ? t.title : null} pop={combo} onPopClose={() => setCombo(null)} />
         <AnimatePresence mode="wait" initial={false}>
           <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
         </AnimatePresence>
@@ -724,7 +732,7 @@ export default function Lesson() {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (
                 <m.button key={i} type="button" role="radio" aria-checked={choice === i} tabIndex={(choice ?? item.choices.findIndex((_, k) => !s.wrong.includes(k))) === i ? 0 : -1} aria-label={c.tex ? texText(c.tex) : c.fig ? `${c.text}: ${figPlain(c.fig)}` : undefined} className={clsx('choice', choice === i && 'on', state)}
-                  whileTap={locked ? undefined : { scale: 0.96 }} animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
+                  animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
                   disabled={locked || s.wrong.includes(i)} onClick={() => { setChoice(i); play('tap'); if (feedback === 'retry') setLast(null); }}>
                   <span className="choice-key" aria-hidden="true">{state === 'good' ? <Check size={18} strokeWidth={3.4} /> : state === 'bad' ? <X size={18} strokeWidth={3.4} /> : i + 1}</span>
                   {c.fig
@@ -851,17 +859,6 @@ export default function Lesson() {
           </div>
         )}
       </div>
-
-      <AnimatePresence>
-        {combo && (
-          <m.div key="combo" className="combo-pop" role="status" onClick={() => setCombo(null)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <m.div className="combo-card" initial={{ scale: 0.6, y: 20 }} animate={{ scale: 1, y: 0 }} transition={SPRING.pop}>
-              <Mascot mood="excited" size={116} />
-              <p className="combo-text"><Flame size={30} aria-hidden="true" />{combo} ברצף!</p>
-            </m.div>
-          </m.div>
-        )}
-      </AnimatePresence>
 
       <Sheet open={zoom} onOpenChange={setZoom} title="השרטוט" wide>
         <div className="fig-big"><Figure fig={item.fig} /></div>
