@@ -1,8 +1,30 @@
 // Shared parts of the interactive maths objects: pointer dragging on an SVG, keyboard steps, step buttons.
 import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'motion/react';
 import { Minus, Plus } from 'lucide-react';
 
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+/**
+ * Rubber banding (ux-motion 13): dragged past an end, the object follows by a shrinking share of how far the pointer
+ * went, never more than `size` (in the drawing's units), instead of stopping dead: (1 - 1 / (over * 0.55 / size + 1)) * size.
+ */
+export const rubber = (over, size) => (over > 0 ? (1 - 1 / ((over * 0.55) / size + 1)) * size : 0);
+/** How far a pointer at `p` pulls past [lo, hi], rubber-banded: below lo negative, above hi positive, between 0. */
+export const pullPast = (p, lo, hi, size) => (p < lo ? -rubber(lo - p, size) : p > hi ? rubber(p - hi, size) : 0);
+/** How far a drawing's object may be pulled past its end, in its units. */
+export const RUBBER = 24;
+
+/**
+ * The pull of a drag past the object's ends: [pull, track]. track(p, lo, hi, phase) follows the pointer while it drags
+ * and lets go (0) when the drag ends, so the CSS .mp-rubber springs the object back. None under reduced motion.
+ */
+export function usePull() {
+  const [pull, setPull] = useState(0);
+  const still = useReducedMotion();
+  const track = (p, lo, hi, phase) => setPull(still || phase === 'end' || phase === 'cancel' ? 0 : pullPast(p, lo, hi, RUBBER));
+  return [pull, track];
+}
 
 /** A pointer event in the SVG's own coordinates (its viewBox units). */
 export function svgPoint(svg, e) {
@@ -16,7 +38,7 @@ export function svgPoint(svg, e) {
  * Tap or drag on an SVG. `onPoint(point, phase)` gets SVG coordinates for 'start', 'move' and 'end'.
  * The pointer is captured, so a drag keeps working outside the drawing; nothing happens while disabled.
  */
-export function useDrag(onPoint, disabled) {
+export function useDrag(onPoint, disabled, onCancel) {
   const ref = useRef(null);
   const on = useRef(false);
   const at = (e) => svgPoint(ref.current, e);
@@ -29,7 +51,7 @@ export function useDrag(onPoint, disabled) {
     },
     onPointerMove: (e) => { if (on.current && !disabled) onPoint(at(e), 'move'); },
     onPointerUp: (e) => { if (!on.current) return; on.current = false; onPoint(at(e), 'end'); },
-    onPointerCancel: () => { on.current = false; },
+    onPointerCancel: () => { on.current = false; onCancel?.(); },
   }];
 }
 

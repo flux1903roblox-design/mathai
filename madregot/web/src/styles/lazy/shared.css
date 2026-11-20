@@ -119,6 +119,11 @@
 .mp-jump { fill: var(--c-d); font-family: var(--font-display); font-size: 19px; font-weight: 700; }
 .mp-from { fill: var(--surface); stroke: var(--c-d); stroke-width: 3; }
 .mp-pin-dot { fill: var(--surface); stroke: var(--c-d); stroke-width: 3; }
+/* rubber banding (ux-motion 13, manip/core.jsx usePull): pulled past an end, the marker or the bar goes on a little with
+   the pointer, then springs back when let go; while pulled it follows the pointer at once */
+.mp-rubber { transition: translate var(--duration-fast) var(--ease-smooth-out), scale var(--duration-fast) var(--ease-smooth-out); }
+.mp-rubber.is-pulled { transition: none; }
+.mp-bar.movable { transform-box: fill-box; transform-origin: 50% 100%; }
 .mp-ghost-area { fill: color-mix(in srgb, var(--good) 16%, transparent); stroke: var(--good); stroke-width: 2; stroke-dasharray: 6 5; }
 /* building a line */
 .mp-line { stroke: var(--c); stroke-width: 4; stroke-linecap: round; }

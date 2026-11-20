@@ -1,6 +1,6 @@
 // The mean by moving one value: four fixed bars and one the student drags. The mean line follows the bar
 // (it moves a fifth as far), and the target line shows where it has to land.
-import { clamp, useDrag, arrowKeys, Stepper } from './core.jsx';
+import { clamp, useDrag, usePull, arrowKeys, Stepper } from './core.jsx';
 
 const W = 360; const H = 232; const L = 34; const RGT = 344; const TOP = 32; const BOT = 204;
 
@@ -18,7 +18,11 @@ export default function DataBars({ m, value, onChange, locked, reveal, good, ans
   const Y = (v) => BOT - (v / max) * (BOT - TOP);
   const toV = (sy) => clamp(Math.round(((BOT - sy) / (BOT - TOP)) * max), 0, max);
   const set = (v) => { const c = clamp(v, 0, max); if (!locked && c !== value) onChange(c); };
-  const [ref, drag] = useDrag((p) => set(toV(p.y)), locked);
+  // pulled up past the top, the bar stretches on a little and springs back when let go (ux-motion 13)
+  const [pull, track] = usePull();
+  const [ref, drag] = useDrag((p, phase) => { track(p.y, TOP, BOT, phase); set(toV(p.y)); }, locked, () => track(0, 0, 0, 'cancel'));
+  const up = Math.min(0, pull); const barH = Math.max(2, BOT - Y(value));
+  const lift = up ? { translate: `0 ${up}px` } : undefined;
   const bx = (i) => L + slot * i + (slot - bw) / 2;
   const meanText = Number.isInteger(mean) ? `${mean}` : mean.toFixed(1);
   const ticks = []; for (let v = 0; v <= max; v += 2) ticks.push(v);
@@ -47,9 +51,9 @@ export default function DataBars({ m, value, onChange, locked, reveal, good, ans
           </g>
         ))}
         {reveal && answer !== value && <rect x={bx(n - 1)} y={Y(answer)} width={bw} height={BOT - Y(answer)} rx="6" className="mp-ghost-bar" />}
-        <rect x={bx(n - 1)} y={Y(value)} width={bw} height={Math.max(2, BOT - Y(value))} rx="6" className="mp-bar movable" />
-        <g className="mp-point"><rect x={bx(n - 1) - 4} y={Y(value) - 9} width={bw + 8} height="18" rx="9" className="mp-handle bar-grip" /></g>
-        <text x={bx(n - 1) + bw / 2} y={Y(value) - 14} textAnchor="middle" className="mp-bar-value movable">{value}</text>
+        <rect x={bx(n - 1)} y={Y(value)} width={bw} height={barH} rx="6" className={`mp-bar movable mp-rubber${up ? ' is-pulled' : ''}`} style={up ? { scale: `1 ${(barH - up) / barH}` } : undefined} />
+        <g className={`mp-point mp-rubber${up ? ' is-pulled' : ''}`} style={lift}><rect x={bx(n - 1) - 4} y={Y(value) - 9} width={bw + 8} height="18" rx="9" className="mp-handle bar-grip" /></g>
+        <text x={bx(n - 1) + bw / 2} y={Y(value) - 14} textAnchor="middle" className={`mp-bar-value movable mp-rubber${up ? ' is-pulled' : ''}`} style={lift}>{value}</text>
         {/* the target and the live mean */}
         <line x1={L} y1={Y(target)} x2={RGT} y2={Y(target)} className="mp-target-line" />
         {test ? null : byMedian ? (<>

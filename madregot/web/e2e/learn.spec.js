@@ -693,7 +693,8 @@ for (const motion of ['reduce', 'no-preference']) {
       expect(await moving()).toBe(0);
       await expect(lock).toHaveCount(0);
     } else {
-      expect(await moving(), 'he walks from the stop just done').toBe(1);
+      // two animations: the way across and its hops, so each hop is an arc (Walker.jsx, ux-motion 6)
+      expect(await moving(), 'he walks from the stop just done').toBe(2);
       await expect(lock).toHaveCount(1);
       // once: away to the quests and Back to this same map, he is simply there
       await page.locator('.tabbar').getByRole('link', { name: /משימות/ }).click();
@@ -726,7 +727,7 @@ test('a kept stair mastered: the gold moment, then מדי walks from that stop, 
   await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
   const walker = page.locator('[data-stop="signed:node:3"] .path-walker');
   await expect(walker).toBeVisible();
-  expect(await walker.evaluate((el) => el.getAnimations().length), 'he walks from the stair just mastered').toBe(1);
+  expect(await walker.evaluate((el) => el.getAnimations().length), 'he walks from the stair just mastered (the way across and its hops)').toBe(2);
   await expect(page.locator('[data-stop="signed:node:1"] .node-burst')).toHaveCount(1);
   await expect(page.locator('.node-unlock')).toHaveCount(0);
   await expect(page.locator('[data-stop="signed:node:3"] .node')).toHaveClass(/node-current/);
