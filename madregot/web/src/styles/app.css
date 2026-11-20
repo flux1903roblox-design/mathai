@@ -436,6 +436,9 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
   border: 10px solid transparent;
 }
 .node-card .btn-primary { font-size: var(--t-lg); min-height: 52px; }
+/* it grows from the stop that was tapped, at its arrow's tip (ux-motion 11), and is gone at once when closed (18) */
+.node-card { transform-origin: calc(50% + var(--x)) -10px; transition: opacity var(--duration-fast) var(--ease-smooth-out), scale var(--duration-fast) var(--ease-smooth-out); }
+@starting-style { .node-card { opacity: 0; scale: 0.9; } }
 
 @media (prefers-reduced-motion: reduce) {
   .node-anchor.is-current, .node-halo, .node-mastered::after { animation: none !important; }
