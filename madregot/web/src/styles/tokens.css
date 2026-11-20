@@ -79,13 +79,15 @@
 
   /* motion tokens (transitions.dev scale) */
   --duration-stagger: 40ms;
-  --duration-micro: 80ms;
+  --duration-tap: 60ms;      /* a keypad key going down: the most-used control answers fastest (ux-motion 20) */
+  --duration-micro: 80ms;    /* a button or card sinking onto its lip */
   --duration-quick: 150ms;
   --duration-fast: 250ms;
   --duration-medium: 350ms;
   --duration-slow: 400ms;
   --duration-very-slow: 500ms;
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0); /* for anything leaving: a sheet closing gets out of the way (ux-motion 5, 18) */
   --ease-in-out: ease-in-out;
   --ease-out: ease-out;
   --ease-linear: linear;

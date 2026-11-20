@@ -352,8 +352,10 @@ function GeneratedQuestion({ ex, n, piNote = false }) {
         <label className="visually-hidden" htmlFor={id}>התשובה לתרגיל {n}{after ? `: המספר שלפני ${afterPlain(after)}` : ''}</label>
         {/* the slot and what is drawn after it (□π) read left to right, as in a lesson */}
         <span className="gen-slot" dir="ltr">
-          <input id={id} className="input slot-inline" dir="ltr" inputMode="decimal" value={val} disabled={done}
-            onChange={(e) => { setVal(e.target.value); setEmpty(false); setNote(null); }} onKeyDown={(e) => e.key === 'Enter' && check()} placeholder="?" />
+          {/* the phone's text keyboard: its decimal pad has no minus and no fraction bar on an iPhone (−5, 3/4 could not be
+              typed); only what an answer holds is kept, as in a lesson's slot */}
+          <input id={id} className="input slot-inline" dir="ltr" inputMode="text" autoComplete="off" spellCheck={false} value={val} disabled={done}
+            onChange={(e) => { setVal(e.target.value.replace(/[^\d\-−./, ]/g, '').slice(0, 9)); setEmpty(false); setNote(null); }} onKeyDown={(e) => e.key === 'Enter' && check()} placeholder="?" />
           {after && <span className="gen-after" aria-hidden="true"><Tex tex={after} /></span>}
         </span>
         {seed.unit && <span className="gen-unit">{seed.unit}</span>}

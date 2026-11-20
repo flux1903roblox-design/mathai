@@ -5,6 +5,7 @@ import { TOPICS, TOPIC } from '@/content/topics.js';
 import { CHALLENGES, challengesOf, isOpen, isSolved, solvedCount } from '@/learn/challenges/index.ts';
 import { TOPIC_ORDER } from '@/learn/skills.ts';
 import { doneCount, chestOpen } from '@/lib/path.js';
+import { cascade } from '@/lib/motion.js';
 import RewardBadge from './RewardBadge.jsx';
 import '@/styles/lazy/achievements.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
@@ -87,7 +88,7 @@ export default function Achievements({ stats = true }) {
             const got = x.have >= x.need;
             return (
               <div key={x.id} className={got ? 'medal' : 'medal locked'}>
-                <RewardBadge icon={x.icon} label={x.label} tone={got ? x.tone : 'locked'} delay={0.1 + k * 0.05} />
+                <RewardBadge icon={x.icon} label={x.label} tone={got ? x.tone : 'locked'} delay={0.1 + cascade(k, 0.05)} />
                 {!got && x.need > 1 && <span className="medal-progress"><bdi dir="ltr">{Math.min(x.have, x.need)}/{x.need}</bdi></span>}
               </div>
             );

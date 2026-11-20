@@ -48,7 +48,7 @@ import { useTopics } from '@/learn/useStairContent.js';
 import { skillId, parseSkill, BRIDGE_SKILLS } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import MissNote, { missNote } from '@/components/lesson/MissNote.jsx';
-import { DUR, SPRING, enter } from '@/lib/motion.js';
+import { DUR, SPRING, enter, leave, swap } from '@/lib/motion.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
 import { CHECK_IMAGE_MAX } from '@shared/ai.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
@@ -662,8 +662,8 @@ export default function Lesson() {
   const mood = feedback === 'good' ? 'happy' : feedback ? 'encouraging' : s.hint || nbOn || touched ? 'thinking' : 'idle';
   const onManip = (v) => { setMvs({ key: mkey, v, touched: true }); if (struck) setStruck(false); if (feedback === 'retry') setLast(null); };
   const stage = `${s.slot}-${item.key}`;
-  // Each exercise slides in from the reading side; the last one leaves the other way.
-  const slide = { initial: { opacity: 0, x: -28 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: 28 }, transition: enter(0.2) };
+  // Each exercise slides in from the reading side; the last one leaves the other way, in half the time (lib/motion.js swap).
+  const slide = swap();
   const typed = item.form !== 'mc' && !isManip && !nbOn;
   // On a short phone a typed answer gets the room it needs: the check button joins the answer row and the help
   // buttons move up beside the progress bar, so the drawing keeps the height of a whole row.
@@ -759,7 +759,7 @@ export default function Lesson() {
         {/* the hint sits above the answer, on the first try and again on the second; the drawing above makes room */}
         <AnimatePresence>
           {s.hint && (s.phase === 'answer' || s.phase === 'retry') && !feedback && (
-            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={enter(DUR.fast)}>
+            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: leave(DUR.micro) }} transition={enter(DUR.fast)}>
               <HintBox text={item.hint} clamp={short} />
             </m.div>
           )}
