@@ -21,7 +21,7 @@ import { contentOf, topicsReady } from '@/learn/content/index.ts';
  */
 const loadedContent = (skill) => (skill && topicsReady([skill]) ? contentOf(skill) : null);
 import { skillId, parseSkill, ancestorsOf } from '@/learn/skills.ts';
-import { masteryState, STATE_LABEL } from '@/learn/mastery.ts';
+import { stairStatus, STATUS_LABEL } from '@/learn/stairStatus.ts';
 import { openMisconceptions, slipOf } from '@/learn/misconceptions.ts';
 import { CLIP, CTX_VERSION, SURFACES } from '@shared/tutorContext.js';
 
@@ -95,7 +95,8 @@ const openEntry = (r) => {
 };
 
 /**
- * What the student's record says about this stair, for choosing what to stress: how the stair is going (STATE_LABEL),
+ * What the student's record says about this stair, for choosing what to stress: how the stair is going (STATUS_LABEL, as
+ * the stair page says it: a lesson left in the middle is started, a memory check due is told apart from one missed),
  * right of the last RECENT_N independent answers, open misconceptions of this stair and then of the stairs it leans on
  * (at most 3), the mistakes repeated in this lesson, and the teaching stages done. With no stair (the assistant), only
  * the 3 strongest open misconceptions. Never a name, a class, a device, a date or anything the student typed.
@@ -112,7 +113,7 @@ export function learnerSummary(learn, skill, sCats = {}, now = new Date().toISOS
     .map(([cat, n]) => ({ label: clip(catLabel(topic, level, cat) || '', CLIP.label), n })).filter((r) => r.label).slice(0, CLIP.open);
   const taught = ['A', 'B', 'C'].filter((k) => rec?.taught?.[k]);
   return tidy({
-    stairState: STATE_LABEL[masteryState(rec, now)],
+    stairState: STATUS_LABEL[stairStatus(rec, now)],
     recent: { right: recent.filter((a) => a.ok).length, asked: recent.length },
     open: mine,
     lessonRepeats: repeats.length ? repeats : undefined,

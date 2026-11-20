@@ -12,10 +12,9 @@ import { Settings as Gear, Flame, Footprints, Award, CalendarCheck, ChevronLeft,
 import { useApp, useStreak } from '@/lib/store.js';
 import { learnDaysTotal } from '@/lib/streak.js';
 import { hasServer } from '@/lib/api.js';
-import { TOPICS, topicsFor } from '@/content/topics.js';
+import { TOPICS } from '@/content/topics.js';
 import { doneCount } from '@/lib/path.js';
-import { skillId } from '@/learn/skills.ts';
-import { masteryState } from '@/learn/mastery.ts';
+import { gradeCounts } from '@/learn/stairStatus.ts';
 import { Stat } from '@/components/ds.jsx';
 import Achievements from '@/components/Achievements.jsx';
 import ProgressSummary from '@/components/learn/ProgressSummary.jsx';
@@ -68,7 +67,14 @@ export default function Me() {
   const streak = useStreak().n; // the streak the header shows (kept while a missed day can be repaired)
   const stairs = TOPICS.reduce((a, t) => a + doneCount(t.id, path), 0);
   const now = new Date().toISOString();
-  const mastered = topicsFor(profile.grade || '7').reduce((a, t) => a + t.levels.filter((_, i) => masteryState(skills[skillId(t.id, i + 1)], now) === 'mastered').length, 0);
+  // "שולטים לבד" keeps a mastered stair when its memory check comes due: the calendar does not undo learning. How many
+  // wait for a memory check, and how many are worth strengthening (a memory check missed, or most answers lately not
+  // right), is said under the tiles, only when there is some (learn/stairStatus.ts; the review policy is mastery.ts's)
+  const counts = gradeCounts(profile.grade || '7', skills, path, now);
+  const keep = [
+    counts.due && (counts.due === 1 ? 'מדרגה אחת מחכה לבדיקת זיכרון' : `${counts.due} מדרגות מחכות לבדיקת זיכרון`),
+    counts.strengthen && (counts.strengthen === 1 ? 'מדרגה אחת שכדאי לחזק' : `${counts.strengthen} מדרגות שכדאי לחזק`),
+  ].filter(Boolean).join(' · ');
   return (
     <div className="page profile">
       <header className="profile-top" data-region="header">
@@ -89,8 +95,9 @@ export default function Me() {
           {/* a number that only grows (STUDENT-5); XP stays on Quests and in the header */}
           <Stat tone="brand" icon={CalendarCheck} value={learnDaysTotal(days)} label="ימי לימוד" />
           <Stat tone="brand" icon={Footprints} value={stairs} label="מדרגות שעליתם" />
-          <Stat tone="good" icon={Award} value={mastered} label="שולטים לבד" />
+          <Stat tone="good" icon={Award} value={counts.learned} label="שולטים לבד" />
         </div>
+        {keep && <p className="profile-keep">{keep}</p>}
         <ReportCard />
       </section>
       <ProgressSummary tiles={false} />

@@ -5,6 +5,7 @@
 import { useApp } from '@/lib/store.js';
 import { useAIStatus } from '@/lib/account.js';
 import { metrics, MIN_N } from '@/learn/analytics.ts';
+import { gradeCounts } from '@/learn/stairStatus.ts';
 import { whereSavedText } from '@/lib/durable/copy.js';
 
 const pct = (r) => (r.value == null ? null : `${Math.round(r.value * 100)}%`);
@@ -15,10 +16,13 @@ export default function MyNumbers() {
   const backup = useApp((s) => s.backup);
   const linked = useApp((s) => !!s.ai.familyDevice?.token);
   const summaryOn = useAIStatus((x) => x.status?.linked?.summary === 'on');
-  const m = metrics(learn, new Date().toISOString());
+  const path = useApp((s) => s.path);
+  const now = new Date().toISOString();
+  const m = metrics(learn, now);
   // the three that say the most, in the student's words; the rest under "עוד מספרים" (STUDENT-9 §6)
   const rows = [
-    { label: 'מדרגות שאתם שולטים בהן לבד', value: String(m.masteredNow) },
+    // the same number as the profile's "שולטים לבד" tile (Me.jsx): a stair whose memory check came due is still learned
+    { label: 'מדרגות שאתם שולטים בהן לבד', value: String(gradeCounts(profile?.grade || '7', learn.skills, path, now).learned) },
     { label: 'נכון בניסיון הראשון, בלי רמז', value: pct(m.independent), n: m.independent.n },
     { label: 'טעויות שתיקנתם', value: pct(m.misconResolution), n: m.misconResolution.n },
   ];

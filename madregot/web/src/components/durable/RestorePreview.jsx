@@ -8,10 +8,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useApp, isActiveDay } from '@/lib/store.js';
-import { TOPICS, topicsFor } from '@/content/topics.js';
+import { TOPICS } from '@/content/topics.js';
 import { doneCount } from '@/lib/path.js';
-import { skillId } from '@/learn/skills.ts';
-import { masteryState } from '@/learn/mastery.ts';
+import { gradeCounts } from '@/learn/stairStatus.ts';
 import { Button } from '@/components/ui.jsx';
 import { applyRestored, restoreCase, RESTORE_TOAST } from '@/lib/durable/apply.js';
 import { dataOf } from '@/lib/durable/merge.js';
@@ -26,7 +25,8 @@ export function previewOf(state, now = new Date()) {
   const skills = state?.learn?.skills || {};
   const iso = now.toISOString();
   const stairs = TOPICS.reduce((a, t) => a + doneCount(t.id, path), 0);
-  const mastered = topicsFor(profile.grade || '7').reduce((a, t) => a + t.levels.filter((_, i) => masteryState(skills[skillId(t.id, i + 1)], iso) === 'mastered').length, 0);
+  // as the profile's "שולטים לבד" (learn/stairStatus.ts): an old backup's stairs whose memory check came due still count
+  const mastered = gradeCounts(profile.grade || '7', skills, path, iso).learned;
   const last = Object.keys(state?.days || {}).filter((d) => isActiveDay(state.days[d])).sort().at(-1) || null;
   return {
     name: profile.name || '', grade: profile.role === 'teacher' ? tr('shell.restorepreview.3') : GRADE[profile.grade] || '', xp: Number(state?.xp) || 0, stairs, mastered,
