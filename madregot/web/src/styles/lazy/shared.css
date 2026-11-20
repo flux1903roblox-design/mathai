@@ -199,7 +199,7 @@
 .mp-bal-pivot { fill: var(--surface); stroke: var(--ink); stroke-width: 3; }
 .mp-bal-post { stroke: var(--ink-2); stroke-width: 3; stroke-linecap: round; }
 .mp-bal-plate { fill: var(--ink-2); }
-.mp-bal-beam, .mp-bal-pan { transform-box: view-box; transition: transform 340ms var(--ease-smooth-out); }
+.mp-bal-beam, .mp-bal-pan { transform-box: view-box; transition: transform var(--duration-medium) var(--ease-smooth-out); }
 .mp-bal-grp.empty { cursor: default; }
 .mp-bal-target { fill: transparent; stroke: transparent; stroke-width: 2.5; stroke-dasharray: 6 5; }
 .mp-bal-grp:focus-visible .mp-bal-target { stroke: var(--brand); fill: color-mix(in srgb, var(--brand) 8%, transparent); }
@@ -590,7 +590,7 @@ button.set-row { justify-content: space-between; gap: var(--s3); width: 100%; fo
 .prep-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: var(--s1);
   border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 3px 0 var(--rule-press);
   font-family: inherit; font-size: var(--t-xs); line-height: var(--lh-xs); font-weight: 700; text-align: center; cursor: pointer;
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out); }
+  transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out); }
 .prep-tool[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 3px 0 var(--brand-line); }
 .prep-tool:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press); }
 .prep-tool:disabled { color: var(--ink-3); background: var(--ground); border-color: var(--ground); box-shadow: none; cursor: default; }

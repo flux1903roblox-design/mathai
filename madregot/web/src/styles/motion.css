@@ -3,7 +3,7 @@
 /* #12 error state shake: the answer row shakes after a wrong answer */
 .answer { will-change: transform; }
 .answer.is-shaking {
-  animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
+  animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) var(--shake-ease);
 }
 @keyframes t-input-shake {
   0%      { transform: translateX(0);                                 animation-timing-function: var(--shake-ease); }

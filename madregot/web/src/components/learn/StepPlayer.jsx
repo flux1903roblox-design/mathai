@@ -20,7 +20,7 @@ import { exploreCat } from '@/content/explore.js';
 import { diagnosisLine } from '@/content/index.js';
 import { parseSkill } from '@/learn/skills.ts';
 import { qaOn } from '@/lib/qa.js';
-import { enter } from '@/lib/motion.js';
+import { enter, swap } from '@/lib/motion.js';
 import { play, haptic } from '@/lib/sound.js';
 
 /** The text of a step: plain, first on the screen (מדי speaks in the result sheet, not beside every text). */
@@ -275,7 +275,7 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
       )}
       <AnimatePresence mode="wait" initial={false}>
         <m.section key={i} ref={ref} tabIndex={-1} className={clsx('sp-step', 'lm-card', `sp-${step.kind}`)} aria-label={`צעד ${i + 1} מתוך ${steps.length}`} data-region="content"
-          initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 24 }} transition={enter(0.22)}>
+          {...swap(24, 0.22)}>
           {/* the stage's name is the screen's heading on every step: shown on the first (unless the screen before showed
               it, quietTitle), read by a screen reader on the others (PKG-1) */}
           {title && (i === 0 && !quietTitle

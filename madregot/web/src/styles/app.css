@@ -47,7 +47,7 @@
   --btn-bg: var(--paper); --btn-ink: var(--ink); --btn-lip: var(--rule-press); --btn-line: var(--rule-strong);
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); padding: 0 var(--s5); border: 2px solid var(--btn-line);
   background: var(--btn-bg); color: var(--btn-ink); box-shadow: 0 var(--lip) 0 var(--btn-lip); margin-bottom: var(--lip); text-decoration: none; white-space: nowrap;
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), filter var(--duration-quick) var(--ease-out);
+  transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out), filter var(--duration-quick) var(--ease-out);
 }
 .btn:active:not(:disabled) { transform: translateY(var(--lip)); box-shadow: 0 0 0 var(--btn-lip); }
 .btn:disabled { cursor: default; }
@@ -75,7 +75,7 @@ textarea.input { resize: vertical; min-height: 88px; line-height: 1.3685; }
 .form-error { color: var(--magenta); font-weight: 600; }
 
 .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--s2); padding: 0; background: none; border: 0; }
-.seg { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); min-height: 46px; border-radius: var(--r-md); margin-bottom: 3px; transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out); }
+.seg { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); min-height: 46px; border-radius: var(--r-md); margin-bottom: 3px; transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out); }
 .seg:active { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press); }
 .chip { display: inline-flex; align-items: center; gap: var(--s1); min-height: 32px; padding: 0 var(--s3); border-radius: 999px; font-size: var(--t-sm); }
 .chip svg { color: var(--streak); }
@@ -184,7 +184,8 @@ textarea.input { resize: vertical; min-height: 88px; line-height: 1.3685; }
 .feedback:empty { display: none; }
 .diag { font-weight: 600; }
 .hint-line svg { flex: none; margin-top: 4px; color: var(--gold-ink); }
-details.sol summary { cursor: pointer; font-weight: 700; color: var(--brand-ink); min-height: 32px; }
+details.sol summary { position: relative; cursor: pointer; font-weight: 700; color: var(--brand-ink); min-height: 32px; }
+details.sol summary::after { content: ''; position: absolute; inset: -6px 0; } /* a 44px tall tap on a 32px line */
 details.sol[open] summary { margin-bottom: var(--s2); }
 .explain { display: flex; flex-direction: column; }
 .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -207,7 +208,7 @@ details.sol[open] summary { margin-bottom: var(--s2); }
   transition: transform var(--duration-slow) var(--ease-smooth-out), opacity var(--duration-fast) var(--ease-out);
 }
 .sheet[data-starting-style] { transform: translateY(24px); opacity: 0; }
-.sheet[data-ending-style] { transform: translateY(16px); opacity: 0; transition-duration: var(--duration-medium); }
+.sheet[data-ending-style] { transform: translateY(16px); opacity: 0; transition-duration: var(--duration-quick); transition-timing-function: var(--ease-in); } /* closes in 150ms, faster than it opened (ux-motion 18) */
 @media (min-width: 700px) {
   .sheet { inset: 6dvh auto auto 50%; width: min(560px, 92vw); max-height: 86dvh; translate: -50% 0; }
 }
@@ -396,7 +397,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .node-slot { position: relative; display: grid; place-items: center; }
 .node { --face-c: var(--c); --edge: var(--c-d);
   position: relative; z-index: 1; display: grid; place-items: center; margin-top: calc(var(--lip) * -1); overflow: hidden; /* colour-ok: a shade (black at low alpha), the same in both themes */
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), filter var(--duration-quick) var(--ease-out);
+  transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out), filter var(--duration-quick) var(--ease-out);
 } /* colour-ok: a shade (black at low alpha), the same in both themes */
 .node-glyph { position: relative; z-index: 1; } /* colour-ok: a shade (black at low alpha), the same in both themes */
 .is-review .node { --face: 86px; }
@@ -460,7 +461,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .lesson .choices.inline { grid-template-columns: repeat(3, 1fr); }
 .lesson .choice {
   display: flex; align-items: center; gap: var(--s3); min-height: 60px; padding: var(--s3) var(--s4); text-align: start; margin-bottom: 4px; font-weight: 600; text-decoration: none;
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+  transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
 }
 .lesson .choice { min-width: 0; max-width: 100%; }
 .lesson .choices.inline .choice { justify-content: center; }
@@ -474,7 +475,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .lesson-dock .btn { margin-bottom: var(--lip); }
 .keypad .key { margin-bottom: 3px;
   font-family: var(--font-ui); font-size: 1.5rem;
-  transition: transform 60ms var(--ease-out), box-shadow 60ms var(--ease-out);
+  transition: transform var(--duration-tap) var(--ease-out), box-shadow var(--duration-tap) var(--ease-out);
 }
 /* the space of a mixed number (5 1/3): a word, not a symbol, as on a phone keyboard */
 .keypad .key-space { font-size: 1rem; font-weight: 700; color: var(--ink-2); }
@@ -626,7 +627,7 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s3);
   min-height: 68px; padding: var(--s3) var(--s4); margin-bottom: 4px; text-align: start;
   border: 2px solid var(--rule); border-radius: var(--r-md); background: var(--paper); box-shadow: 0 4px 0 var(--rule-press); color: var(--ink);
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+  transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out), border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
 }
 .ob-opt:not(:has(.ob-opt-glyph)) { grid-template-columns: minmax(0, 1fr) auto; }
 .ob-opt:active { transform: translateY(4px); box-shadow: 0 0 0 var(--rule-press); }
@@ -959,7 +960,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
 /* short phones, typed answers: the check button joins the answer row, the help buttons sit in the top row */
 .answer-bar.with-check .check-btn { flex: none; width: auto; min-width: 84px; height: 46px; min-height: 46px; padding-inline: 14px; margin-bottom: var(--lip); }
-.lesson-top .tool { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 12px; }
+.lesson-top .tool { position: relative; width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 12px; }
+/* drawn at 40px so five fit beside the bar on a 320 phone; each takes a tap 44px square (the 4px gap is shared) */
+.lesson-top .tool::after { content: ''; position: absolute; inset: -2px; }
 @media (max-height: 700px) and (max-width: 899px) {
   .answer-bar.with-check .slot { width: clamp(52px, 16vw, 72px); }
 /* one typed number has the row to itself beside the check button: wide enough for −27/64 or −0.027 on a 320 phone
