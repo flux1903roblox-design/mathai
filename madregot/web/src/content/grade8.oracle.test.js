@@ -1324,8 +1324,66 @@ O.sp2m = (it) => {
   return want(onlyChoice(it, (t) => t === 'הקודקוד, מרכז הבסיס ונקודה על שפת הבסיס', 'half the axial section'));
 };
 
+// ===== eq:6 and eq:7: the grade 8 unit 8.9 (motion problems, x in a denominator, proportion), filed under eq
+/** f(x) of an equation "lhs = rhs" shown in TeX, as lhs − rhs, at a number (x put in brackets). */
+const atX = (tex, x) => {
+  const v = `(${Number(x).toFixed(12)})`; // never 8.9e-16: TeX has no exponent
+  const [l, r] = String(tex).split('='); const L = texValue(l.replace(/x/g, v)); const R = texValue(r.replace(/x/g, v));
+  return L == null || R == null ? null : L - R;
+};
+/** The one root of an equation linear in x, from two values of lhs − rhs. */
+function linearRoot(tex) {
+  const f0 = atX(tex, 0); const f1 = atX(tex, 1);
+  if (f0 == null || f1 == null) throw new Error(`cannot read ${tex}`);
+  if (Math.abs(f1 - f0) < 1e-12) throw new Error(`${tex} has no single root`);
+  const x = -f0 / (f1 - f0);
+  if (Math.abs(atX(tex, x)) > 1e-9 || Math.abs(atX(tex, x + 7) - 7 * (f1 - f0)) > 1e-6) throw new Error(`${tex} is not linear in x`);
+  return q(String(Math.round(x * 1e9) / 1e9));
+}
+const lcm = (a, b) => { const g = Number(bgcd(BigInt(a), BigInt(b))); return (a / g) * b; };
+O.eq6u = (it) => { const [v, mins] = nums(it.text); return want(v.mul(mins).div(60)); };
+O.eq6 = (it) => {
+  const t = strip(it.text); const n = nums(t);
+  if (/לקראת/.test(t)) { // d apart, v1 and v2 toward each other: they meet after d / (v1 + v2)
+    const [d, v1, v2] = n; const time = d.div(v1.add(v2));
+    return want(/כעבור כמה שעות/.test(t) ? time : v1.mul(time));
+  }
+  if (/וחזרו באותה דרך/.test(t)) { // there at v1 and back at v2, T hours in all: d/v1 + d/v2 = T
+    const [v1, v2, T] = n; return want(T.mul(v1).mul(v2).div(v1.add(v2)));
+  }
+  // the first leaves at v1; `late` hours later the second follows at v2 on the same road: v2·t = v1·(t + late)
+  const late = /כעבור שעה /.test(t) ? Z(1) : /כעבור שעתיים /.test(t) ? Z(2) : n[1];
+  const v1 = n[0]; const v2 = n.at(-1); const tt = v1.mul(late).div(v2.sub(v1));
+  return want(/במרחק כמה/.test(t) ? v2.mul(tt) : tt);
+};
+O.eq6g = (it) => {
+  const [a, b] = [ptsOf(it.fig, 0), ptsOf(it.fig, 1)];
+  const sa = a[1][1].sub(a[0][1]).div(a[1][0].sub(a[0][0])); const sb = b[1][1].sub(b[0][1]).div(b[1][0].sub(b[0][0]));
+  return want(b[0][1].sub(a[0][1]).div(sa.sub(sb)));
+};
+O.eq6t = (it) => {
+  const t = strip(it.text); const n = nums(t);
+  if (/לקראת/.test(t)) { // the table's speeds, D apart: v1·x + v2·x = D, x = D / (v1 + v2)
+    const [v1, v2] = it.fig.rows.map((r) => q(r[1])); const tt = n[0].div(v1.add(v2));
+    return want(onlyChoice(it, (s) => { try { return linearRoot(s).eq(tt); } catch { return false; } }, 'the meeting equation'));
+  }
+  const late = /כעבור שעה /.test(t) ? Z(1) : /כעבור שעתיים /.test(t) ? Z(2) : n[1];
+  const v1 = n[0]; const v2 = n.at(-1); const tt = v1.mul(late).div(v2.sub(v1));
+  // the right equation is the one whose root is the car's time, and it says distance = distance: v2·x on one side
+  return want(onlyChoice(it, (s) => { try { return linearRoot(s).eq(tt) && new RegExp(`^${v2}x = `).test(s.replace(/\s+/g, ' ')); } catch { return false; } }, `v2·x = v1·(x + ${late})`));
+};
+O.eq7 = (it) => want(linearRoot(it.display));
+O.eq7p = O.eq7;
+O.eq7x = (it) => {
+  const m = String(it.display).match(/\\frac\{(\d+)\}\{x\} = \\frac\{(\d+)\}\{(\d+)\}/); if (!m) throw new Error('an unknown form');
+  const [a, b, c] = m.slice(1).map((v) => q(v)); return want(a.mul(c).div(b)); // a/x = b/c: x = a·c/b
+};
+O.eq7l = (it) => { const [a, b] = nums(it.text); const l = lcm(Number(a.n), Number(b.n)); return want(onlyChoice(it, (t) => t === String(l), `${l}`)); };
+
 // ---------------------------------------------------------------- the run
 const TOPICS8 = ['ratio', 'pct', 'func', 'line', 'pyth', 'circle', 'stats', 'congr', 'sim', 'sys', 'prob', 'space'];
+/** Stairs of grade 8's programme filed under a grade 7 topic: eq:6 and eq:7 teach unit 8.9 (shared/programme.js). */
+const EXTRA8 = { eq: [6, 7] };
 const N = Number(process.env.ORACLE_N || 400);
 
 /** Does the item's answer equal the oracle's? */
@@ -1365,13 +1423,14 @@ let defects;
 beforeAll(async () => { await loadAllGens(); defects = []; });
 
 describe('grade 8: every stair, recomputed independently', () => {
-  for (const topic of TOPICS8) {
-    it(`${topic}: answers, accepted forms and drawings`, () => {
+  for (const topic of [...TOPICS8, ...Object.keys(EXTRA8)]) {
+    it(`${topic}${EXTRA8[topic] ? ` (${EXTRA8[topic].join(', ')})` : ''}: answers, accepted forms and drawings`, () => {
       const t = TOPIC[topic];
       const bad = []; const missing = new Set(); const seen = {};
       const real = Math.random;
       try {
         t.levels.forEach((L, li) => {
+          if (EXTRA8[topic] && !EXTRA8[topic].includes(li + 1)) return;
           for (let n = 0; n < N; n += 1) {
             const seed = 80000 + li * 10007 + n;
             Math.random = seeded(seed);
