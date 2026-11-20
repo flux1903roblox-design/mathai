@@ -216,7 +216,7 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
   const footRef = useRef(null);
   const step = steps[i];
   useEffect(() => { onIndex?.(i); ref.current?.focus({ preventScroll: true }); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }, [i]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Test hook, as for exercises: the current teaching step (with its goal) on a QA build or with 'madregot-debug' set.
+  // Test hook, as for exercises: the current teaching step (with its goal), only in a build made for testing (lib/qa.js).
   useEffect(() => {
     if (!qaOn()) return undefined;
     window.__madregotStep = step;

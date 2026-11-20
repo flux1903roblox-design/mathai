@@ -8,7 +8,9 @@
 // offline), and hold no source map, no .ttf or .woff and nothing under api/. And refuse a build made without
 // VITE_ARABIC=on (the default) that holds an Arabic file, keeps one for offline use, or whose page says it has Arabic:
 // only the shell is in Arabic (no topic since the round-3 merge), so no default build may be able to fetch it
-// (lib/i18n.js, docs/ARABIC.md).
+// (lib/i18n.js, docs/ARABIC.md). And refuse a build made without VITE_QA_HOOKS=flag that holds the test hooks' device
+// switch ('madregot-debug', lib/qa.js): with it, a student who sets the flag reads the answer of every exercise on
+// screen, in a mastery check or a class exam too (window.__madregotItem, <html data-qa-item>).
 // Usage: node scripts/check-dist.mjs <dist folder>
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -85,9 +87,28 @@ export function arabicProblems(dir, { arabic = false } = {}) {
   return problems;
 }
 
-/** What a build in `dir` must not ship: [] when it is clean. `arabic`: the build was made with VITE_ARABIC=on. */
-export function distProblems(dir, { personal = false, arabic = false } = {}) {
-  const problems = arabicProblems(dir, { arabic });
+/**
+ * The test hooks hand out the exercise on screen with its answer (lib/qa.js). A build that ships folds their gate to
+ * "off" and holds no way to turn them on from the device: no script or page may name the switch 'madregot-debug'. Only a
+ * test build (VITE_QA_HOOKS=flag: the e2e builds, store/capture.cjs) keeps it; the staging copy (VITE_QA_HOOKS=1) has
+ * the hooks on without it.
+ */
+export function qaHookProblems(dir, { qa = '' } = {}) {
+  if (qa === 'flag') return [];
+  const problems = [];
+  for (const f of allFiles(dir)) {
+    if (!/\.(js|mjs|html)$/.test(f)) continue;
+    if (readFileSync(f, 'utf8').includes('madregot-debug')) problems.push(`${relative(dir, f)}: the test hooks' switch (madregot-debug), which would let a student read the answers, in a build made without VITE_QA_HOOKS=flag`);
+  }
+  return problems;
+}
+
+/**
+ * What a build in `dir` must not ship: [] when it is clean. `arabic`: the build was made with VITE_ARABIC=on. `qa`: the
+ * build's VITE_QA_HOOKS ('flag' only for a test build).
+ */
+export function distProblems(dir, { personal = false, arabic = false, qa = '' } = {}) {
+  const problems = [...arabicProblems(dir, { arabic }), ...qaHookProblems(dir, { qa })];
   for (const f of files(dir)) {
     const text = readFileSync(f, 'utf8');
     for (const [re, what] of [...SECRETS, ...(personal ? [] : SDK)]) if (re.test(text)) problems.push(`${relative(dir, f)}: ${what}`);
@@ -125,10 +146,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const personal = process.env.VITE_ALLOW_PERSONAL_KEY === '1';
   // the same environment the build ran in (npm run build): with VITE_ARABIC=on the build has Arabic, and may
   const arabic = process.env.VITE_ARABIC === 'on';
-  const problems = distProblems(dir, { personal, arabic });
+  // and with VITE_QA_HOOKS=flag it is a test build, whose hooks wait for the device's flag (lib/qa.js)
+  const qa = process.env.VITE_QA_HOOKS || '';
+  const problems = distProblems(dir, { personal, arabic, qa });
   if (problems.length) {
     console.error(`check-dist: the build in ${dir} must not ship:\n  ${problems.join('\n  ')}`);
     process.exit(1);
   }
-  console.log(`check-dist: ${dir} is clean${personal ? ' (personal-key mode compiled in)' : ''}${arabic ? ' (Arabic compiled in: VITE_ARABIC=on)' : ', with no Arabic in it'}.`);
+  console.log(`check-dist: ${dir} is clean${personal ? ' (personal-key mode compiled in)' : ''}${arabic ? ' (Arabic compiled in: VITE_ARABIC=on)' : ', with no Arabic in it'}${qa === 'flag' ? ' (a test build: VITE_QA_HOOKS=flag)' : ''}.`);
 }
