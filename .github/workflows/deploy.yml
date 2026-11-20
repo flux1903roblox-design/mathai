@@ -105,23 +105,11 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       # --strict: in CI wrangler answers its own "Would you like to continue?" with yes; with --strict it stops instead
       # (a Worker last changed in the Cloudflare dashboard, a [vars] name that is also a secret's name)
-      # One time only, approved by the owner: the Worker's newest deployment is OVERWRITE_ONCE (a settings change made
-      # through the API on 2026-11-17, already in production.json), so --strict would stop. Only while that exact
-      # deployment is the newest does this deploy run without --strict; once it has run, the newest is this deploy and
-      # every later run is --strict again. Remove this branch in the next commit.
       - name: Deploy
+        run: npx wrangler deploy --strict --config wrangler.deploy.toml
         env:
-          OVERWRITE_ONCE: 0fa56ea2-4dd4-4cb6-8102-07e37551bd19
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          latest=$(npx wrangler deployments list --json --config wrangler.deploy.toml | node -e "let s='';process.stdin.on('data',(d)=>(s+=d)).on('end',()=>console.log(JSON.parse(s).sort((a,b)=>b.created_on.localeCompare(a.created_on))[0].id))") || latest=""
-          if [ -n "$latest" ] && [ "$latest" = "$OVERWRITE_ONCE" ]; then
-            echo "::notice::Newest deployment is $OVERWRITE_ONCE (owner-approved): this one deploy runs without --strict"
-            npx wrangler deploy --config wrangler.deploy.toml
-          else
-            npx wrangler deploy --strict --config wrangler.deploy.toml
-          fi
       # /api/health says ok: true, / is the app's page; /waitlist is reported (404 until the waitlist page is merged)
       - name: Smoke check
         run: node scripts/smoke.mjs --production
