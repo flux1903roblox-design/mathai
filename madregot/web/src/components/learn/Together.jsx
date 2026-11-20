@@ -11,7 +11,7 @@ import clsx from 'clsx';
 import { m } from 'motion/react';
 import { ArrowLeft, Check, Info, Lightbulb, X } from 'lucide-react';
 import { Tex, MathText, mathPlain, FitDisplay } from '@/components/MathText.jsx';
-import { Button } from '@/components/ui.jsx';
+import { Button, Keypad, typeInto } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { readNumCandidates, numRight, T, plainNum, exactTex, piNear } from '@/content/util.js';
@@ -168,11 +168,14 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
             <p className="tg-prompt"><MathText text={problem.final.prompt} /></p>
             <form className={clsx('tg-final', fin.after && 'has-after')} onSubmit={(e) => { e.preventDefault(); if (canCheck && !done) check(); }}>
               <label htmlFor={`tg-${n}`} className="visually-hidden">{fin.after ? `התשובה: המספר שלפני ${mathPlain(`$${fin.after}$`)}` : 'התשובה'}</label>
-              <input id={`tg-${n}`} className={clsx('input', 'tg-input', solved && 'good')} dir="ltr" inputMode="text" autoComplete="off" readOnly={done} value={giveUp && !solved ? '' : typed} onChange={(e) => setTyped(e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9))} placeholder="?" />
+              <input id={`tg-${n}`} className={clsx('input', 'tg-input', solved && 'good')} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false} readOnly={done} value={giveUp && !solved ? '' : typed} onChange={(e) => setTyped(e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9))} placeholder="?" />
               {fin.after && <span className="answer-lab answer-after" aria-hidden="true"><Tex tex={fin.after} /></span>}
             </form>
             <Hints hints={problem.final.hints} level={solved ? 0 : hint} />
             {!done && hint < 2 && <button type="button" className="link-btn" onClick={() => setHint(hint + 1)}><Lightbulb size={16} aria-hidden="true" />{hint ? 'עוד רמז' : 'רמז'}</button>}
+            {/* the lesson's keypad, the one number keypad of the app (the phone's keyboard stays closed); after a miss the
+                next key replaces the checked number, as in a lesson */}
+            {!done && <Keypad onKey={(key) => setTyped(typeInto(typed === wrongVal || typed === piVal ? '' : typed, key))} />}
           </>
         )}
       </m.section>
