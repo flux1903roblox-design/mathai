@@ -66,6 +66,42 @@ describe('lesson', () => {
   });
 });
 
+// The audit (stage 2, pedagogy): a 5-question mastery check asked the very same question twice in about 1 run of 150
+// (pct:1 10 of 200, circle:4 10, sim:1 9, angles:5 8; a practice lesson about 1 in 20), because only the question just
+// before was avoided. A question asked twice is counted twice: one right answer was two of the four a check needs.
+describe('no question twice in one lesson or check', () => {
+  // a seeded Math.random, so the same runs are drawn every time (mulberry32)
+  const seeded = (seed) => { let t = seed >>> 0; return () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; };
+  const keysOf = (spec) => {
+    let s = startLesson(spec); const keys = [];
+    for (let k = 0; k < 20 && !s.finished; k += 1) {
+      if (!s.item.redo) keys.push(s.item.key);
+      s = next(answer(s, right(s)).s);
+    }
+    return keys;
+  };
+  const repeats = (spec, runs) => {
+    const spy = vi.spyOn(Math, 'random').mockImplementation(seeded(7));
+    try {
+      let n = 0;
+      for (let r = 0; r < runs; r += 1) { const keys = keysOf(spec); if (new Set(keys).size < keys.length) n += 1; }
+      return n;
+    } finally { spy.mockRestore(); }
+  };
+  const STAIRS = [['pct', 1], ['circle', 4], ['sim', 1], ['angles', 5], ['line', 7], ['transf', 4], ['ratio', 1]];
+  it('a mastery check, a review and a jump test never ask a question already asked in them', () => {
+    for (const [topic, level] of STAIRS) {
+      const skill = `${topic}:${level}`;
+      expect(repeats({ kind: 'check', purpose: 'mastery', skill, topic, level }, 300), `${skill} mastery`).toBe(0);
+      expect(repeats({ kind: 'check', purpose: 'review', skill, topic, level }, 100), `${skill} review`).toBe(0);
+      expect(repeats({ kind: 'jump', topic, level }, 200), `${skill} jump`).toBe(0);
+    }
+  });
+  it('a practice lesson does not ask the same exercise twice either (the redo after a miss is a similar one, on purpose)', () => {
+    for (const [topic, level] of STAIRS) expect(repeats({ kind: 'node', topic, level }, 150), `${topic}:${level} practice`).toBe(0);
+  });
+});
+
 describe('help from the tutor counts as help (ai spec AI-3 Design 4)', () => {
   it('asking before answering: a right answer is not a first try, earns no combo, and is recorded as with help', () => {
     let s = startLesson({ kind: 'node', topic: 'signed', level: 1 });
