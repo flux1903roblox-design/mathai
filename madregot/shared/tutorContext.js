@@ -69,8 +69,9 @@ function normTries(t) {
     // no kind: the app did not diagnose this answer (an older app); 'unknown': it did, and no known mistake fits
     const kind = oneOf(a.kind, TRY_KINDS);
     return tidy({
-      // the one thing here the student typed: personal details masked before it is clipped (trust spec TRUST-4 §4.1)
-      value: str(maskPersonal(typeof a.value === 'number' ? String(a.value) : a.value).text, CLIP.answer),
+      // the one thing here the student typed: personal details masked before it is clipped (trust spec TRUST-4 §4.1),
+      // and on one line, so it can never start a line of the app's own block ("Final-answer policy: …")
+      value: str(maskPersonal(typeof a.value === 'number' ? String(a.value) : a.value).text.replace(/\s+/g, ' '), CLIP.answer),
       kind,
       ids: kind === 'misconception' ? (Array.isArray(a.ids) ? a.ids.map(id).filter(Boolean).slice(0, CLIP.labelsPer) : []) : undefined,
       labels: kind === 'misconception' ? strs(a.labels, CLIP.labelsPer, CLIP.label) : undefined,
