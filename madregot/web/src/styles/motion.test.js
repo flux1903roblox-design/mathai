@@ -186,6 +186,14 @@ describe('motion lint (ux-motion)', () => {
     expect(readFileSync(path.join(here, '../components/teacher/AssignSheet.jsx'), 'utf8')).toMatch(/<span className="as-sent-mark" aria-hidden="true">/);
   });
 
+  it('a stop\'s card grows from the stop that was tapped, at its arrow\'s tip, and is gone at once when closed (principles 11, 18)', () => {
+    const app = read('app.css');
+    expect(app).toMatch(/\.node-card \{ transform-origin: calc\(50% \+ var\(--x\)\) -10px; transition: opacity var\(--duration-fast\) var\(--ease-smooth-out\), scale var\(--duration-fast\) var\(--ease-smooth-out\)/);
+    expect(app).toMatch(/@starting-style \{ \.node-card \{ opacity: 0; scale: 0\.9; \} \}/);
+    // the arrow it hangs from is at the same place: 50% plus the stop's swing
+    expect(app).toMatch(/\.node-card::before \{[^}]*left: calc\(50% \+ var\(--x\) - 10px\);/);
+  });
+
   it('wants the global reduced-motion rule in tokens.css', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'motion-'));
     writeFileSync(path.join(dir, 'tokens.css'), ':root { --duration-quick: 150ms; }\n');
