@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
+import { classQuiet } from '@/lib/sound.js';
 import { Award, RotateCcw, Check, ArrowLeft, Gift, Flame, Puzzle } from 'lucide-react';
 import { TOPIC } from '@/content/topics.js';
 import { useApp } from '@/lib/store.js';
@@ -20,8 +21,9 @@ import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import Celebrate from '@/components/learn/Celebrate.jsx';
+import XpCount from '@/components/learn/XpCount.jsx';
 import { Emblem, EMBLEMS } from '@/components/map/emblems.jsx';
-import { SPRING, entrance } from '@/lib/motion.js';
+import { SPRING, DUR, EASE, entrance } from '@/lib/motion.js';
 import { inDays } from '@/content/util.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
 import { UnlockMoment, useNewUnlocks } from '@/lib/madiLook.js';
@@ -134,28 +136,48 @@ export default function CheckDone({ result: r, award, onExit, work }) {
 }
 
 /**
+ * The stair mastered's moment, in seconds from the screen opening (ux-motion 19, 7): מדי jumps in at once, the badge
+ * lands, its seal's check draws itself, and מדי hops for joy as it closes; the tiles' numbers count up beside it, a
+ * secondary action that is done by the time he lands. Once a stair, so it may take about a second (ux-motion 8).
+ */
+export const PEAK = { land: 0.3, seal: 0.5, draw: 0.55, drawFor: 0.3, hop: 0.85, count: 0.3, countFor: 0.6 };
+
+/**
  * A stair mastered (a passed mastery check) is the app's biggest moment, bigger than a teaching stage's end (PRODUCT2-38):
- * מדי jumps in on the gold light, the shapes fly out, and the stair's badge lands beside him: the unit's emblem on a gold
- * medal, with the path's own done mark on it (a check on the unit's colour), the stop as it now stands on the path. The
- * level-up sound and vibration play as the screen opens (Lesson.jsx finish), and stay quiet in a class until the student
- * turns sound on (lib/sound.js soundOn). Under reduced motion nothing moves: מדי stands, the light is still and faint,
- * nothing flies, and the badge is simply there. Decorative: the title says what happened.
+ * the peak of the stair's journey (ux-motion 19). מדי jumps in on the gold light, the shapes fly out, the stair's badge
+ * lands beside him (the unit's emblem on a gold medal), the path's own done mark on it draws itself (a check on the
+ * unit's colour, the stop as it now stands on the path), and מדי hops once for joy. The level-up sound and vibration
+ * play as the screen opens (Lesson.jsx finish). In a quiet class (lib/sound.js classQuiet) the moment stays on the
+ * student's own screen: no flying shapes, no turning light, no hop; the badge still lands and its check still draws.
+ * Under reduced motion it is a plain fade: nothing moves, the check is drawn and the numbers are final. Decorative: the
+ * title says what happened.
  */
 function MasteredHero({ topic, mood }) {
   const reduce = useReducedMotion();
+  const quiet = useApp(classQuiet);
   const colour = TOPIC[topic]?.color;
   return (
-    <div className="mastered-hero">
-      <Celebrate tone="gold"><Mascot mood={mood} size={150} className="check-mascot" /></Celebrate>
+    <m.div className={clsx('mastered-hero', quiet && 'is-quiet')} initial={reduce ? entrance({ opacity: 0 }) : false} animate={{ opacity: 1 }} transition={{ duration: DUR.fast, ease: EASE.out }}>
+      <Celebrate tone="gold" rays={!quiet} burst={!quiet}>
+        <m.div className="mastered-madi" animate={reduce || quiet ? { y: 0 } : { y: [0, -14, 0] }}
+          transition={{ duration: 0.4, delay: PEAK.hop, times: [0, 0.4, 1], ease: [EASE.out, EASE.in] }}>
+          <Mascot mood={mood} size={150} className="check-mascot" />
+        </m.div>
+      </Celebrate>
       {EMBLEMS[topic] && (
         <m.span className={clsx('mastered-badge', colour && `ch-${colour}`)} aria-hidden="true"
           initial={reduce ? false : entrance({ y: -72, scale: 0.4, rotate: -24, opacity: 0 })} animate={{ y: 0, scale: 1, rotate: 0, opacity: 1 }}
-          transition={{ ...SPRING.bounce, delay: 0.6, opacity: { duration: 0.15, delay: 0.6 } }}>
+          transition={{ ...SPRING.bounce, delay: PEAK.land, opacity: { duration: DUR.quick, delay: PEAK.land } }}>
           <Emblem topic={topic} />
-          <span className="mastered-seal"><Check size={14} strokeWidth={3.6} /></span>
+          <m.span className="mastered-seal" initial={reduce ? false : entrance({ scale: 0 })} animate={{ scale: 1 }} transition={{ ...SPRING.pop, delay: PEAK.seal }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round">
+              <m.path className="mastered-check" d="M5 12.5l4.5 4.5L19 7.5" initial={reduce ? false : entrance({ pathLength: 0 })} animate={{ pathLength: 1 }}
+                transition={{ duration: PEAK.drawFor, delay: PEAK.draw, ease: EASE.out }} />
+            </svg>
+          </m.span>
         </m.span>
       )}
-    </div>
+    </m.div>
   );
 }
 
@@ -235,12 +257,14 @@ function StairCheckDone({ result: r, award, onExit, work }) {
       <div className="stats check-stats" data-region="answers">
         <div className={clsx('stat', r.right === r.asked ? 'stat-good' : 'stat-brand')}>
           <span className="stat-label">נכונות</span>
-          <span className="stat-value" aria-label={`${r.right} נכונות מתוך ${r.asked}`}><Check size={20} aria-hidden="true" /><bdi dir="ltr">{r.right}/{r.asked}</bdi></span>
+          <span className="stat-value" aria-label={`${r.right} נכונות מתוך ${r.asked}`}><Check size={20} aria-hidden="true" />
+            {/* a stair mastered counts its numbers up beside the moment (a secondary action, ux-motion 7) */}
+            <bdi dir="ltr">{mastered ? <XpCount value={r.right} plus={false} unit={false} sparks={false} delay={PEAK.count} secs={PEAK.countFor} /> : r.right}/{r.asked}</bdi></span>
         </div>
         {r.xp > 0 && (
           <div className="stat stat-gold">
             <span className="stat-label">XP</span>
-            <span className="stat-value check-xp"><Award size={20} aria-hidden="true" /><span>+{r.xp}</span></span>
+            <span className="stat-value check-xp"><Award size={20} aria-hidden="true" />{mastered ? <XpCount value={r.xp} unit={false} delay={PEAK.count} secs={PEAK.countFor} /> : <span>+{r.xp}</span>}</span>
           </div>
         )}
       </div>
