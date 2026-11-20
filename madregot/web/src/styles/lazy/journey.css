@@ -54,3 +54,5 @@
 .jstage.current .jstage-icon { background: var(--c); border-color: var(--c); color: var(--on-brand); box-shadow: 0 0 0 6px color-mix(in srgb, var(--c) 22%, var(--paper)); }
 .jstage.current { background: none; border: 0; box-shadow: none; }
 .jstage-text { flex: 1; min-width: 0; }
+/* it leans toward a hovering mouse or pen, up to 8° (lib/tilt.js; ux-motion 10) */
+.journey-head { transform: perspective(1000px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); transition: transform var(--duration-quick) var(--ease-out); }

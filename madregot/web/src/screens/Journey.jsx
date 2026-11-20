@@ -4,7 +4,7 @@
 // The student sees where they are, what each stage is, what "mastered" means, and can go to any stage.
 // A stair that has a challenge task shows a sixth card under the five stages, "אתגר · לבחירה" (CURRICULUM-6.3): locked
 // until the mastery check is passed, then one tap opens the task. It is optional, so it is not one of the stages.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle, School, Puzzle, Lock } from 'lucide-react';
@@ -28,6 +28,7 @@ import { Segments } from '@/components/ds.jsx';
 import { workBanner, mineOf } from '@/lib/classWork.js';
 import { workFromLearn, mergeWork, recheckDue } from '@/learn/assignments.ts';
 import { Emblem } from '@/components/map/emblems.jsx';
+import { useTilt } from '@/lib/tilt.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/journey.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
@@ -83,6 +84,9 @@ export default function Journey() {
   const t = TOPIC[topic];
   const skill = skillId(topic, level);
   const rec = useApp((s) => s.learn.skills[skill]);
+  // the stair's card leans toward a hovering mouse (ux-motion 10)
+  const headRef = useRef(null);
+  useTilt(headRef);
   const miscon = useApp((s) => s.learn.miscon);
   const path = useApp((s) => s.path);
   const [tutor, setTutor] = useState(false);
@@ -142,7 +146,7 @@ export default function Journey() {
       {work && (
         <p className="journey-work"><School size={18} aria-hidden="true" />{workBanner(work.dueOn)}</p>
       )}
-      <header className={clsx('journey-head', `ch-${t.color}`)}>
+      <header ref={headRef} className={clsx('journey-head', `ch-${t.color}`)}>
         <ChapterMark color={t.color} n={level} size="lg" />
         <div className="journey-head-text">
           <h1 className="journey-title">{t.levels[level - 1].title}</h1>

@@ -5,6 +5,7 @@
 // flies, nothing starts hidden. Rendered to HTML on the server, as Learn.test.jsx does.
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
 import { MemoryRouter } from 'react-router-dom';
 import CheckDone, { PEAK } from './CheckDone.jsx';
 import { useApp } from '@/lib/store.js';
@@ -90,6 +91,14 @@ describe('the end of a check: a stair mastered is the biggest moment', () => {
     expect(PEAK.draw + PEAK.drawFor).toBeLessThanOrEqual(PEAK.hop + 1e-9);
     expect(PEAK.count + PEAK.countFor).toBeLessThanOrEqual(PEAK.hop + 0.05);
     expect(PEAK.hop + 0.4).toBeLessThanOrEqual(1.3);
+    // the badge squashes as it lands: wider and shorter, about the same area (ux-motion 1), from its bottom edge
+    const code = readFileSync(new URL('./CheckDone.jsx', import.meta.url), 'utf8');
+    const sx = Number(code.match(/scaleX: \[0\.4, 1, ([\d.]+), 1\]/)?.[1]); const sy = Number(code.match(/scaleY: \[0\.4, 1, ([\d.]+), 1\]/)?.[1]);
+    expect(sx).toBeGreaterThan(1); expect(sy).toBeLessThan(1);
+    expect(Math.abs(sx * sy - 1)).toBeLessThan(0.05);
+    expect(code).toMatch(/style=\{\{ originY: 1 \}\}/);
+    // and it is drawn as a medal: light on its top edge, darker gold under it, a soft shadow beneath (ux-motion 10)
+    expect(readFileSync(new URL('../styles/lazy/checkDone.css', import.meta.url), 'utf8')).toMatch(/\.mastered-badge \{ box-shadow: inset 0 3px 0 [^;]*inset 0 -4px 0 var\(--gold-d\)/);
   });
 
   it('a check that is not a stair mastered shows its numbers at once: nothing counts', () => {

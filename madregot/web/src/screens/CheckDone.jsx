@@ -140,7 +140,9 @@ export default function CheckDone({ result: r, award, onExit, work }) {
  * lands, its seal's check draws itself, and מדי hops for joy as it closes; the tiles' numbers count up beside it, a
  * secondary action that is done by the time he lands. Once a stair, so it may take about a second (ux-motion 8).
  */
-export const PEAK = { land: 0.3, seal: 0.5, draw: 0.55, drawFor: 0.3, hop: 0.85, count: 0.3, countFor: 0.6 };
+export const PEAK = { land: 0.3, landFor: 0.4, seal: 0.5, draw: 0.55, drawFor: 0.3, hop: 0.85, count: 0.3, countFor: 0.6 };
+/** The badge's landing, as shares of PEAK.landFor: the fall, the squash on impact, the settle. */
+export const LANDING = [0, 0.45, 0.65, 1];
 
 /**
  * A stair mastered (a passed mastery check) is the app's biggest moment, bigger than a teaching stage's end (PRODUCT2-38):
@@ -165,9 +167,11 @@ function MasteredHero({ topic, mood }) {
         </m.div>
       </Celebrate>
       {EMBLEMS[topic] && (
-        <m.span className={clsx('mastered-badge', colour && `ch-${colour}`)} aria-hidden="true"
-          initial={reduce ? false : entrance({ y: -72, scale: 0.4, rotate: -24, opacity: 0 })} animate={{ y: 0, scale: 1, rotate: 0, opacity: 1 }}
-          transition={{ ...SPRING.bounce, delay: PEAK.land, opacity: { duration: DUR.quick, delay: PEAK.land } }}>
+        // it falls (easing in), squashes as it lands (wider and shorter, about the same area: ux-motion 1) and settles
+        <m.span className={clsx('mastered-badge', colour && `ch-${colour}`)} aria-hidden="true" style={{ originY: 1 }}
+          initial={reduce ? false : entrance({ y: -72, scaleX: 0.4, scaleY: 0.4, rotate: -24, opacity: 0 })}
+          animate={{ y: [-72, 0, 0, 0], scaleX: [0.4, 1, 1.14, 1], scaleY: [0.4, 1, 0.86, 1], rotate: [-24, 0, 0, 0], opacity: 1 }}
+          transition={{ duration: PEAK.landFor, delay: PEAK.land, times: LANDING, ease: [EASE.in, EASE.out, EASE.out], opacity: { duration: DUR.quick, delay: PEAK.land } }}>
           <Emblem topic={topic} />
           <m.span className="mastered-seal" initial={reduce ? false : entrance({ scale: 0 })} animate={{ scale: 1 }} transition={{ ...SPRING.pop, delay: PEAK.seal }}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round">
