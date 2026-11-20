@@ -759,3 +759,8 @@ button.t-tool { font: inherit; font-weight: 700; font-size: 1rem; cursor: pointe
 .ts-goal-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--brand); }
 .ts-goal.is-reached .ts-goal-bar > i { background: var(--good); }
 .ts-goal-line { color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+/* an assignment sent (AssignSheet.jsx ShareStep): a green mark pops in and its check draws itself, once (ux-motion 19) */
+.as-sent-mark { display: grid; place-items: center; width: 48px; height: 48px; margin: 0 auto; border-radius: 50%; background: var(--good); color: var(--on-good); animation: as-sent-pop var(--duration-fast) var(--ease-smooth-out) both; }
+.as-sent-mark path { fill: none; stroke: currentColor; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; animation: t-check-draw var(--duration-slow) var(--ease-smooth-out) var(--duration-quick) forwards; }
+@keyframes as-sent-pop { from { scale: 0.6; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .as-sent-mark, .as-sent-mark path { animation: none; } .as-sent-mark path { stroke-dashoffset: 0; } }

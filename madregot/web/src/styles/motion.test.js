@@ -179,6 +179,13 @@ describe('motion lint (ux-motion)', () => {
     expect(readFileSync(path.join(here, '../components/Screen.jsx'), 'utf8')).toMatch(/<span className="loading-bar" aria-hidden="true"><i \/><\/span>/);
   });
 
+  it('the end of a flow gets a moment: an assignment sent draws its check once (principle 19)', () => {
+    const t = read('lazy/teacher.css');
+    expect(t).toMatch(/\.as-sent-mark path \{[^}]*animation: t-check-draw var\(--duration-slow\) var\(--ease-smooth-out\) var\(--duration-quick\) forwards; \}/);
+    expect(t).toMatch(/prefers-reduced-motion: reduce\) \{ \.as-sent-mark, \.as-sent-mark path \{ animation: none; \}/);
+    expect(readFileSync(path.join(here, '../components/teacher/AssignSheet.jsx'), 'utf8')).toMatch(/<span className="as-sent-mark" aria-hidden="true">/);
+  });
+
   it('wants the global reduced-motion rule in tokens.css', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'motion-'));
     writeFileSync(path.join(dir, 'tokens.css'), ':root { --duration-quick: 150ms; }\n');
