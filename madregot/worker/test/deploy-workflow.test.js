@@ -142,7 +142,7 @@ test('in the deploy job the build and its gates come before anything reaches Clo
     /- run: npm run build:production$/m,
     /- run: node scripts\/deploy-config\.mjs --production$/m,
     /run: npx wrangler d1 migrations apply madregot --remote --config wrangler\.deploy\.toml$/m,
-    /run: npx wrangler deploy --strict --config wrangler\.deploy\.toml$/m,
+    /^ {12}npx wrangler deploy --strict --config wrangler\.deploy\.toml$/m,
     /run: node scripts\/smoke\.mjs --production$/m,
   ];
   const at = order.map(stepWith);
@@ -155,6 +155,13 @@ test('in the deploy job the build and its gates come before anything reaches Clo
   // --strict: in CI wrangler would answer its own "Would you like to continue?" (a Worker changed in the dashboard, a
   // [vars] name that would replace a secret) with yes; with it, the deploy stops. The deploy from a computer too.
   for (const s of STEPS.filter((x) => /wrangler deploy/.test(x))) assert.match(s, /wrangler deploy --strict /);
+  // the one exception the owner approved: without --strict only while the Worker's newest deployment is that one
+  // settings change (0fa56ea2, made through the API); any other newest deployment, or none read, deploys --strict
+  const deploy = STEPS[stepWith(/- name: Deploy$/m)];
+  assert.equal((deploy.match(/wrangler deploy --config/g) || []).length, 1, 'one deploy without --strict');
+  assert.match(deploy, /^ {10}OVERWRITE_ONCE: 0fa56ea2-4dd4-4cb6-8102-07e37551bd19$/m);
+  assert.match(deploy, /latest=\$\(npx wrangler deployments list --json --config wrangler\.deploy\.toml \| node -e ".*sort\(\(a,b\)=>b\.created_on\.localeCompare\(a\.created_on\)\)\[0\]\.id.*"\) \|\| latest=""$/m);
+  assert.match(deploy, /if \[ -n "\$latest" \] && \[ "\$latest" = "\$OVERWRITE_ONCE" \]; then\n.*::notice::.*\n {12}npx wrangler deploy --config wrangler\.deploy\.toml\n {10}else\n {12}npx wrangler deploy --strict --config wrangler\.deploy\.toml\n {10}fi$/m);
   const pkg = JSON.parse(readFileSync(path.join(ROOT, 'madregot', 'worker', 'package.json'), 'utf8')).scripts;
   assert.match(pkg['deploy:production'], /&& wrangler deploy --strict --config wrangler\.deploy\.toml$/);
   // the step summary is after the smoke check, and the smoke check is not allowed to fail quietly
