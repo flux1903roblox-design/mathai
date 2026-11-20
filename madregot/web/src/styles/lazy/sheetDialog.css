@@ -7,6 +7,11 @@
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s3) var(--s4) var(--s2); border-bottom: 1px solid var(--rule); }
 .sheet-body { padding: var(--s4); overflow-y: auto; display: flex; flex-direction: column; gap: var(--s3); min-height: 0; flex: 1; }
 .sheet-foot { padding: var(--s3) var(--s4); border-top: 1px solid var(--rule); }
+/* follow-through (ux-motion 4): what a sheet holds comes up 40ms behind the sheet and settles after it stops; on the
+   way out it goes with the sheet, at once */
+.sheet-body, .sheet-foot { transition: translate var(--duration-slow) var(--ease-smooth-out) var(--duration-stagger); }
+.sheet[data-starting-style] > .sheet-body, .sheet[data-starting-style] > .sheet-foot { translate: 0 var(--distance-medium); }
+.sheet[data-ending-style] > .sheet-body, .sheet[data-ending-style] > .sheet-foot { transition: none; }
 .sheet-foot .tutor-note { margin-top: var(--s2); }
 .sheet-backdrop { background: var(--scrim); }
 .photo-prep-sheet .sheet-body { overflow: hidden; padding-bottom: var(--s2); }

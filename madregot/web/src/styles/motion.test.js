@@ -49,6 +49,11 @@ describe('motion lint (ux-motion)', () => {
     expect(app).toMatch(/\.sheet \{[^}]*transition: transform var\(--duration-slow\) var\(--ease-smooth-out\)/);
     expect(app).toMatch(/\.sheet\[data-ending-style\] \{[^}]*transition-duration: var\(--duration-quick\); transition-timing-function: var\(--ease-in\);/);
     expect(read('lazy/sheetDialog.css')).toMatch(/\.sheet-backdrop\[data-ending-style\] \{ transition-duration: var\(--duration-quick\); transition-timing-function: var\(--ease-in\); \}/);
+    // follow-through (principle 4): the content lags the sheet by 40ms on the way in, and goes with it on the way out
+    const sheet = read('lazy/sheetDialog.css');
+    expect(sheet).toMatch(/\.sheet-body, \.sheet-foot \{ transition: translate var\(--duration-slow\) var\(--ease-smooth-out\) var\(--duration-stagger\); \}/);
+    expect(sheet).toContain('.sheet[data-starting-style] > .sheet-body, .sheet[data-starting-style] > .sheet-foot { translate: 0 var(--distance-medium); }');
+    expect(sheet).toContain('.sheet[data-ending-style] > .sheet-body, .sheet[data-ending-style] > .sheet-foot { transition: none; }');
   });
 
   it('the keypad and the check button answer a tap at once: no keyframes, a press of 60 to 80ms (principle 20)', () => {
