@@ -1,0 +1,185 @@
+// The app's topic and stair names, for every place that cannot load the web content: the Worker (the parents' weekly
+// report and email, PARENTS-7/8), the parent's report pages and the tutor's prompt (the stair map, ai spec AI-5). One
+// list, written by hand and checked: web/src/learn/stairs.test.ts and report.test.ts fail the moment a topic or a stair
+// is added to the app without its name here, or a name here differs from the one on screen. Plain JS; its one import is
+// the curriculum's coverage map (shared/coverage.js, plain JS too), for the "not yet" list. It ships to the browser too.
+// The web imports it as @shared/stairs.js; the Worker as ../../shared/stairs.js.
+import { notYet } from './coverage.js';
+
+/** Each topic's name, in teaching order (learn/skills.ts TOPIC_ORDER). */
+export const TOPIC_NAMES = Object.freeze({
+  frac: 'שברים ועשרוניים', // the curriculum lane's bridge unit, first in teaching order
+  signed: 'מספרים מכוונים',
+  coord: 'מערכת צירים',
+  angles: 'זוויות',
+  transf: 'טרנספורמציות', // curriculum stage 4 (GEOM-4): November and December, between angles and expressions
+  expr: 'ביטויים אלגבריים',
+  area: 'שטחים והיקפים', // stage 2 (measurement): ז׳ 7.12, December to May
+  solid: 'תיבה ומנסרה', // stage 2 (measurement): ז׳ 7.13, January and May
+  data: 'נתונים ושכיחות', // curriculum stage 3: ז׳ (January–February), and ח׳ this school year too
+  eq: 'משוואות',
+  ratio: 'יחס וקנה מידה', // the curriculum lane's first unit of grade 8 (school order: ratio, percent, then linear functions)
+  pct: 'אחוזים',
+  func: 'מבוא לפונקציות', // the stage-5 lane's ח׳ unit 8.7 (November), before linear functions
+  line: 'פונקציה קווית',
+  pyth: 'משפט פיתגורס',
+  circle: 'מעגל, גליל וחרוט', // stage 2 (measurement): ח׳ 8.4, October and November
+  stats: 'סטטיסטיקה',
+  congr: 'חפיפת משולשים', // curriculum stage 4 (GEOM-5): January and February, before the systems
+  sim: 'שווה־שוקיים ודמיון', // curriculum stage 4 (GEOM-6): March and April, after congruence
+  sys: 'משוואות ומערכות',
+  prob: 'הסתברות', // curriculum stage 3: ח׳'s "הסתברות ב" (March), last of the grade in school order
+  space: 'פיתגורס במרחב', // stage 2 (measurement): ח׳ 8.17, May
+});
+
+/** Each stair's name, as its lesson and its teaching content call it. */
+export const STAIR_NAMES = Object.freeze({
+  // the curriculum lane's bridge unit (each stair the curriculum adds needs its name here: stairs.test.ts, report.test.ts)
+  'frac:1': 'שבר ושברים שווים',
+  'frac:2': 'השוואת שברים ועשרוניים',
+  'frac:3': 'חיבור וחיסור שברים',
+  'frac:4': 'כפל וחילוק שברים',
+  'signed:1': 'חיבור וחיסור',
+  'signed:2': 'השוואה וערך מוחלט',
+  'signed:3': 'כפל וחילוק',
+  'signed:4': 'סדר פעולות',
+  'signed:5': 'סוגריים',
+  'signed:6': 'שברים ועשרוניים מכוונים',
+  'signed:7': 'חזקות של מספרים מכוונים',
+  'coord:1': 'קריאת נקודה',
+  'coord:2': 'רביעים',
+  'coord:3': 'אורך קטע',
+  'coord:4': 'שטח מלבן',
+  'coord:5': 'קודקוד חסר',
+  'angles:1': 'זוויות צמודות',
+  'angles:2': 'זוויות קודקודיות',
+  'angles:3': 'סכום זוויות במשולש',
+  'angles:4': 'ישרים מקבילים',
+  'angles:5': 'שווה־שוקיים וזווית חיצונית',
+  'angles:6': 'חוצה זווית',
+  'angles:7': 'סכום זוויות במרובע',
+  'transf:1': 'הזזה',
+  'transf:2': 'שיקוף',
+  'transf:3': 'סיבוב',
+  'transf:4': 'צורות חופפות וריצוף',
+  'expr:1': 'הצבה בביטוי',
+  'expr:2': 'כותבים ביטוי',
+  'expr:3': 'כינוס איברים דומים',
+  'expr:4': 'חוק הפילוג',
+  'expr:5': 'פישוט ביטויים',
+  'area:1': 'היקף ושטח של מלבן',
+  'area:2': 'שטח משולש',
+  'area:3': 'צורות מורכבות',
+  'area:4': 'מקבילית וטרפז',
+  'area:5': 'היקפים: אותו היקף, שטח אחר',
+  'solid:1': 'תיבה: פריסה ושטח פנים',
+  'solid:2': 'נפח תיבה וקובייה',
+  'solid:3': 'מנסרה משולשת: פריסה ושטח פנים',
+  'solid:4': 'נפח מנסרה',
+  'data:1': 'דיאגרמות וטבלת שכיחויות',
+  'data:2': 'שכיחות יחסית',
+  'data:3': 'אחוזים ודיאגרמת עוגה',
+  'data:4': 'הסתברות מתוך שכיחות',
+  'eq:1': 'משוואה ופתרון',
+  'eq:2': 'משוואה בשני צעדים',
+  'eq:3': 'נעלם בשני האגפים',
+  'eq:4': 'משוואות עם סוגריים',
+  'eq:5': 'בעיות מילוליות',
+  'eq:6': 'שאלות תנועה',
+  'eq:7': 'משוואות עם מכנים ופרופורציה',
+  'ratio:1': 'יחס',
+  'ratio:2': 'חלוקה ביחס',
+  'ratio:3': 'פרופורציה',
+  'ratio:4': 'קנה מידה',
+  'pct:1': 'מהו אחוז',
+  'pct:2': 'אחוז מכמות',
+  'pct:3': 'איזה אחוז?',
+  'pct:4': 'מציאת השלם',
+  'pct:5': 'הגדלה והקטנה באחוזים',
+  'func:1': 'קריאת גרף של מצב',
+  'func:2': 'פונקציה וייצוגיה',
+  'func:3': 'עלייה, ירידה וקבוע',
+  'func:4': 'קצב אחיד ולא אחיד',
+  'line:1': 'טבלת ערכים',
+  'line:2': 'מה אומרים m ו־b',
+  'line:3': 'שיפוע מהגרף: מדרגות',
+  'line:4': 'שיפוע בין שתי נקודות',
+  'line:5': 'משוואת ישר',
+  'line:6': 'חיתוך עם הצירים',
+  'line:7': 'משולש עם הצירים',
+  'line:8': 'נקודת מפגש של שני ישרים',
+  'pyth:1': 'מציאת היתר',
+  'pyth:2': 'מציאת ניצב',
+  'pyth:3': 'האם המשולש ישר־זווית?',
+  'pyth:4': 'שאלה מילולית',
+  'pyth:5': 'מרחק בין נקודות',
+  'circle:1': 'היקף מעגל',
+  'circle:2': 'שטח עיגול',
+  'circle:3': 'גליל',
+  'circle:4': 'חרוט',
+  'stats:1': 'שכיח',
+  'stats:2': 'חציון',
+  'stats:3': 'ממוצע',
+  'stats:4': 'ממוצע מטבלה',
+  'stats:5': 'נתון חסר',
+  // curriculum stage 3 (DATA-5): the rest of ח׳ units 8.10 and 8.11
+  'stats:6': 'טווח ושינוי של כל הנתונים',
+  'stats:7': 'שני מקורות מידע',
+  'stats:8': 'אינטרפולציה ואקסטרפולציה',
+  'congr:1': 'צלעות וזוויות מתאימות',
+  'congr:2': 'משפטי החפיפה',
+  'congr:3': 'הוכחה בחפיפה',
+  'congr:4': 'תיכון ושטחים',
+  'congr:5': 'צלעות במשולש',
+  'sim:1': 'שווה־שוקיים ומשפטים הפוכים',
+  'sim:2': 'צורות דומות',
+  'sim:3': 'דמיון משולשים (ז.ז)',
+  'sim:4': 'יחס צלעות ויחס שטחים',
+  'sys:1': 'משוואות עם אחוזים',
+  'sys:2': 'שיטת ההצבה',
+  'sys:3': 'השוואת מקדמים',
+  'sys:4': 'בעיות עם שני נעלמים',
+  'sys:5': 'אי־שוויונות',
+  // curriculum stage 3 (DATA-6): ח׳'s "הסתברות ב" in unit 8.16
+  'prob:1': 'תוצאות שוות סיכוי',
+  'prob:2': 'מאורע משלים',
+  'prob:3': 'ניסוי בשני שלבים',
+  'space:1': 'אלכסון בקובייה ובתיבה',
+  'space:2': 'משולשים ישרי־זווית בגופים',
+});
+
+/**
+ * A stair's full name, 'מספרים מכוונים: חיבור וחיסור', or null for an id this list does not know (a stair from
+ * another version of the app; the report says so in its own words).
+ * @param {string} id
+ * @returns {string | null}
+ */
+export const stairName = (id) => {
+  if (typeof id !== 'string' || !Object.hasOwn(STAIR_NAMES, id)) return null;
+  const topic = id.split(':')[0];
+  return Object.hasOwn(TOPIC_NAMES, topic) ? `${TOPIC_NAMES[topic]}: ${STAIR_NAMES[id]}` : null;
+};
+
+/**
+ * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
+ * it today. (ai spec AI-5)
+ */
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', transf: '7', expr: '7', area: '7', solid: '7', data: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', circle: '8', stats: '8', congr: '8', sim: '8', sys: '8', prob: '8', space: '8' });
+
+/**
+ * Units a grade also learns this school year though filed under the other (learn/skills.ts ALSO_ON_PATH: the תשפ״ז
+ * transition year has ח׳ learn the ז׳ data unit and the ז׳ transformations unit): topic → that grade. The tutor's stair
+ * map names them on a line of their own (pedagogy.js curriculumBlock); stairs.test.ts keeps the two tables equal.
+ */
+export const TOPIC_ALSO = Object.freeze({ data: '8', transf: '8' });
+
+/**
+ * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic
+ * ids), so the tutor helps with them without inventing a stair. Computed, never typed (CURRICULUM-1): coverage.js
+ * `notYet` over the stairs named here, so it shrinks by itself with every new stair, and it is the same list the
+ * /programme page shows. Systems of equations and inequalities are taught (sys:2-5) and are not listed. (ai spec AI-5)
+ */
+export const NOT_YET = Object.freeze({
+  '7': Object.freeze(notYet('7', Object.keys(STAIR_NAMES))),
+  '8': Object.freeze(notYet('8', Object.keys(STAIR_NAMES))),
+});

@@ -1,0 +1,134 @@
+# Madregot's merge gate (madregot/README.md, "CI"). Three checks: web, worker and e2e.
+# Protect main with all three, so a type error (web, and the Worker's money and vault code), a failing unit or Worker test (the parallel PIN, sync and billing
+# races included), a build that fails its checks, or a broken phone flow blocks the merge.
+# The production deploy runs this same file on the commit it deploys (deploy.yml, job checks, through workflow_call with
+# that commit as `ref`), so nothing reaches the live server without passing all three. It gets no secret there.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit to check (deploy.yml passes the one it deploys)
+        required: false
+        default: ''
+        type: string
+
+# the event's name keeps a deploy's checks (workflow_dispatch) apart from a push to the same branch
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: madregot/web
+    steps:
+      # two commits, so HEAD~1 is there: check-budget.mjs compares web/budget.json with HEAD~1 (the ratchet), and with
+      # CI set it fails when it cannot
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: madregot/web/package-lock.json
+      - run: npm ci
+      - run: npx tsc -p tsconfig.json --noEmit
+      - run: npx vitest run
+      # PRODUCT2-15 at its full depth: the mistake labels over 2,000 different questions a stair (the run above samples
+      # 300). An answer named as one mistake where another fits too fails the merge.
+      - run: npx vitest run src/content/labels.test.js
+        env:
+          LABELS_DISTINCT: '2000'
+      # the content meta, vite build, scripts/check-dist.mjs (no personal-key code and no secrets in the bundle), then
+      # scripts/check-budget.mjs (the load-time budget in web/budget.json: over a gate, the build fails; and a gate
+      # higher than at HEAD~1 fails it too, since a gate only goes down)
+      - run: npm run build
+
+  worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: madregot/worker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          # node:sqlite (test/helpers.js) needs no flag from Node 22.13
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            madregot/worker/package-lock.json
+            madregot/web/package-lock.json
+      - run: npm ci
+      # the static check of the money, vault and storage code (COUNCIL2-21: util, entitle, billing and vault, typedefs in
+      # src/types.js) uses the web app's TypeScript, so the web packages are installed here too
+      - run: npm ci
+        working-directory: madregot/web
+      - run: npm run typecheck
+      # every Worker test, including test/config.test.js: wrangler's own reader parses wrangler.toml (top level and
+      # env.staging), so a file wrangler would refuse at deploy fails here first
+      - run: npm test
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    needs: [web]
+    # The whole suite takes longer than one GitHub runner's 40 minutes, so it runs as four shards side by side; each
+    # shard runs a quarter of the tests of every project below, and a deploy waits for all four.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    defaults:
+      run:
+        working-directory: madregot/web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            madregot/web/package-lock.json
+            madregot/worker/package-lock.json
+      - run: npm ci
+      # the contract project runs the Worker itself (worker/scripts/serve-local.mjs): its packages too
+      - run: npm ci
+        working-directory: madregot/worker
+      - run: npx playwright install --with-deps chromium
+      # The phone project runs every spec file against the fake server; the contract project (COUNCIL2-22) runs the tests
+      # tagged @contract against the real Worker on node:sqlite, with Claude, email and payment stubbed (no secret).
+      # Tests tagged @perf stay out of the merge gate. The arabic projects run arabic.spec.js against a build made with
+      # VITE_ARABIC=on (Arabic is off in the build that ships, docs/ARABIC.md), so the Arabic app stays tested until
+      # it is turned on.
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone --project=contract --project=arabic --project=arabic-small --grep-invert @perf --shard=${{ matrix.shard }}/4
+        env:
+          CI: '1'
+      # The axe scan of every screen again in dark mode (PKG-1, e2e/a11y.spec.js): the phone run above scans in light.
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone-dark a11y.spec.js --shard=${{ matrix.shard }}/4
+        env:
+          CI: '1'
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: madregot/web/test-results
+          retention-days: 14

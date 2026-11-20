@@ -1,0 +1,384 @@
+// The load-time budget (DURABLE-11, check-budget.mjs) on a fake dist: a gate that fails the build, a missed target
+// that only warns, the render-blocking CSS summed over two stylesheets, lazy chunks and the precache.
+// Then the student lane's rule (STUDENT-15): a lazyOnly module in a boot file is refused, the same module in a chunk
+// loaded on demand is not, and a build without the module map is refused. Then the real files: web/budget.json names
+// the lane's lazy-only modules, npm run build runs the check, and the hygiene greps of the UI-library plan stay empty.
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
+import { fileURLToPath } from 'node:url';
+import { bootFiles, measure, check, matches, ratchet, ratchetCheck, budgetAt, RATCHET } from './check-budget.mjs';
+
+let dir;
+// random bytes do not compress: a file of n random bytes is about n bytes gzipped
+const file = (name, n) => { const b = randomBytes(n); writeFileSync(join(dir, name), b); return gzipSync(b, { level: 9 }).length; };
+const sizes = {};
+const INDEX = `<!doctype html><html><head>
+    <script type="module" crossorigin src="./assets/index-a.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/katex-b.js">
+    <link rel="stylesheet" crossorigin href="./assets/katex-c.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-d.css">
+    <link rel="manifest" href="./manifest.webmanifest">
+  </head><body><div id="root"></div></body></html>`;
+const BUDGET = { bootJsGzipKB: 330, bootJsTargetKB: 260, cssGzipKB: 42, cssTargetKB: 32, anyChunkGzipKB: 150, precacheMB: 4.5 };
+// the command run on a temporary folder has no git history: off CI that is a warning (the ratchet below), as here
+const NO_CI = { ...process.env, CI: '' };
+
+beforeAll(() => {
+  dir = mkdtempSync(join(tmpdir(), 'budget-'));
+  mkdirSync(join(dir, 'assets'));
+  writeFileSync(join(dir, 'index.html'), INDEX);
+  sizes.entry = file('assets/index-a.js', 200_000);
+  sizes.katex = file('assets/katex-b.js', 80_000);
+  sizes.css1 = file('assets/katex-c.css', 8_000);
+  sizes.css2 = file('assets/index-d.css', 27_000);
+  sizes.lazy = file('assets/Lesson-e.js', 40_000);
+  file('assets/signed-f.js', 20_000);
+  writeFileSync(join(dir, 'sw.js'), 'self.__PRECACHE = ["assets/index-a.js","assets/katex-b.js","assets/Lesson-e.js","index.html"];\nself.__RELEASE = "t";\n');
+});
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+describe('check-budget', () => {
+  it('finds the boot files in index.html: the entry, its modulepreloads, every stylesheet', () => {
+    const html = '<script type="module" src="/assets/a.js"></script><link rel="modulepreload" href="/assets/b.js"><link rel="stylesheet" href="./assets/c.css"><link rel="icon" href="x.png"><script src="legacy.js"></script>';
+    expect(bootFiles(html)).toEqual({ js: ['assets/a.js', 'assets/b.js'], css: ['assets/c.css'] });
+  });
+  it('sums the render-blocking CSS over both stylesheets, and boot JS over the entry and its preload', () => {
+    const m = measure(dir);
+    expect(m.bootCss).toBe(sizes.css1 + sizes.css2);
+    expect(m.bootJs).toBe(sizes.entry + sizes.katex);
+    expect(m.lazy.map((f) => f.file)).toEqual(['assets/Lesson-e.js', 'assets/signed-f.js']);
+    expect(m.biggestLazy.gz).toBe(sizes.lazy);
+    expect(m.precache).toBe(200_000 + 80_000 + 40_000 + Buffer.byteLength(INDEX));
+  });
+  it('passes under every gate, and only warns when a target is missed (boot JS about 280 KB, target 260)', () => {
+    const r = check(dir, BUDGET);
+    expect(r.ok).toBe(true);
+    expect(r.text).toMatch(/warning boot JS \(gzip\): 28\d\.\d KB misses the target of 260\.0 KB/);
+    expect(r.text).not.toMatch(/FAIL/);
+    expect(r.text).toMatch(/budget: every gate passes/);
+  });
+  it('fails over a gate: boot JS, the CSS sum, a lazy chunk, the precache', () => {
+    expect(check(dir, { ...BUDGET, bootJsGzipKB: 250 }).text).toMatch(/FAIL boot JS \(gzip\): 28\d\.\d KB is over the gate of 250\.0 KB/);
+    // 8 + 27 KB: each sheet alone is under 30 KB, the two together are not
+    const css = check(dir, { ...BUDGET, cssGzipKB: 30 });
+    expect(css.ok).toBe(false);
+    expect(css.text).toMatch(/FAIL render-blocking CSS/);
+    expect(check(dir, { ...BUDGET, anyChunkGzipKB: 30 }).text).toMatch(/FAIL largest lazy chunk \(gzip\): assets\/Lesson-e\.js/);
+    expect(check(dir, { ...BUDGET, precacheMB: 0.3 }).text).toMatch(/FAIL service worker precache: 0\.32 MB/);
+  });
+  it('as the build runs it: exit 1 over a gate, 0 with a warning', () => {
+    const write = (b) => { const f = join(dir, 'budget.json'); writeFileSync(f, JSON.stringify(b)); return f; };
+    const fail = spawnSync(process.execPath, ['scripts/check-budget.mjs', dir, '--budget', write({ ...BUDGET, bootJsGzipKB: 250 })], { encoding: 'utf8', env: NO_CI });
+    expect(fail.status).toBe(1);
+    expect(fail.stdout).toMatch(/OVER THE GATE/);
+    const warn = spawnSync(process.execPath, ['scripts/check-budget.mjs', dir, '--budget', write(BUDGET)], { encoding: 'utf8', env: NO_CI });
+    expect(warn.status).toBe(0);
+    expect(warn.stdout).toMatch(/\(target missed\)/);
+    expect(warn.stdout).toMatch(/warning ratchet: no commit before HEAD/);
+  });
+});
+
+
+// ---- the student lane's lazyOnly rule (STUDENT-15)
+const WEB = fileURLToPath(new URL('..', import.meta.url));
+let dists = [];
+afterEach(() => { for (const d of dists) rmSync(d, { recursive: true, force: true }); dists = []; });
+
+/** A build: the entry (with its static import modulepreloaded), a chunk loaded on demand, and the module map. */
+function lazyDist(vendorModules = ['node_modules/react/index.js'], { map = true, lazyModules = [] } = {}) {
+  const d = mkdtempSync(join(tmpdir(), 'budget-lazy-'));
+  dists.push(d);
+  mkdirSync(join(d, 'assets'));
+  writeFileSync(join(d, 'index.html'), '<script type="module" src="./assets/index-a1.js"></script><link rel="modulepreload" href="./assets/vendor-b2.js">');
+  for (const f of ['index-a1.js', 'vendor-b2.js', 'Wardrobe-c3.js']) writeFileSync(join(d, 'assets', f), randomBytes(2000));
+  if (map) {
+    mkdirSync(join(d, '.vite'));
+    writeFileSync(join(d, '.vite', 'modules.json'), JSON.stringify({
+      'assets/index-a1.js': { isEntry: true, imports: ['assets/vendor-b2.js'], dynamicImports: ['assets/Wardrobe-c3.js'], modules: ['src/main.jsx', 'src/lib/store.js'] },
+      'assets/vendor-b2.js': { isEntry: false, imports: [], dynamicImports: [], modules: vendorModules },
+      'assets/Wardrobe-c3.js': { isEntry: false, imports: [], dynamicImports: [], modules: ['src/screens/Wardrobe.jsx', 'src/components/mascot/Accessories.jsx', ...lazyModules] },
+    }));
+  }
+  return d;
+}
+const LAZY = { ...BUDGET, bootJsGzipKB: 1000, lazyOnly: ['Wardrobe', 'push', 'cmdk', 'Accessories'] };
+
+describe('check-budget: modules that must load on demand (STUDENT-15)', () => {
+  it('passes when every lazyOnly module is in a chunk loaded on demand', () => {
+    const r = check(lazyDist(), LAZY);
+    expect(r.problems).toEqual([]);
+    expect(r.ok).toBe(true);
+    expect(r.text).toMatch(/the 4 lazy-only modules load on demand/);
+  });
+
+  it('refuses a lazyOnly module in a boot file, wherever it was bundled', () => {
+    const r = check(lazyDist(['node_modules/react/index.js', 'src/lib/push.js', 'node_modules/cmdk/dist/index.mjs']), LAZY);
+    expect(r.ok).toBe(false);
+    expect(r.problems).toHaveLength(2);
+    expect(r.problems[0]).toMatch(/^push must load on demand, but src\/lib\/push\.js is in the first load \(assets\/vendor-b2\.js\)/);
+    expect(r.problems[1]).toMatch(/^cmdk must load on demand, but node_modules\/cmdk\/dist\/index\.mjs/);
+    expect(r.text).toMatch(/FAIL push must load on demand/);
+  });
+
+  it('canvas-confetti (the maths burst, PKG-3): passes in a chunk loaded on demand, refused in a boot file', () => {
+    const confetti = 'node_modules/canvas-confetti/dist/confetti.module.mjs';
+    const budget = { ...LAZY, lazyOnly: [...LAZY.lazyOnly, 'canvas-confetti'] };
+    const lazy = check(lazyDist(undefined, { lazyModules: [confetti, 'src/lib/mathBurst.js'] }), budget);
+    expect(lazy.problems).toEqual([]);
+    expect(lazy.ok).toBe(true);
+    const boot = check(lazyDist(['node_modules/react/index.js', confetti]), budget);
+    expect(boot.ok).toBe(false);
+    expect(boot.problems).toEqual([expect.stringMatching(/^canvas-confetti must load on demand, but node_modules\/canvas-confetti\/dist\/confetti\.module\.mjs is in the first load \(assets\/vendor-b2\.js\)/)]);
+    expect(boot.text).toMatch(/FAIL canvas-confetti must load on demand/);
+  });
+
+  it('pdf.js and pdfPages (PDFs drawn on the device, PKG-2): pass in a chunk loaded on demand, refused in a boot file', () => {
+    const pdf = ['node_modules/pdfjs-dist/legacy/build/pdf.min.mjs', 'node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'];
+    const budget = { ...LAZY, lazyOnly: [...LAZY.lazyOnly, 'pdfjs-dist', 'pdfPages'] };
+    const lazy = check(lazyDist(undefined, { lazyModules: [...pdf, 'src/lib/pdfPages.js'] }), budget);
+    expect(lazy.problems).toEqual([]);
+    expect(lazy.ok).toBe(true);
+    const boot = check(lazyDist(['node_modules/react/index.js', pdf[0], 'src/lib/pdfPages.js']), budget);
+    expect(boot.ok).toBe(false);
+    expect(boot.problems).toEqual([
+      expect.stringMatching(/^pdfjs-dist must load on demand, but node_modules\/pdfjs-dist\/legacy\/build\/pdf\.min\.mjs is in the first load \(assets\/vendor-b2\.js\)/),
+      expect.stringMatching(/^pdfPages must load on demand, but src\/lib\/pdfPages\.js is in the first load/),
+    ]);
+    expect(boot.text).toMatch(/FAIL pdfjs-dist must load on demand/);
+    // a name is the package, not a part of it: pdfjs-dist-viewer or a file called pdf.js is something else
+    expect(matches('node_modules/pdfjs-dist-viewer/index.js', 'pdfjs-dist')).toBe(false);
+    expect(matches('src/lib/pdfPagesOld.js', 'pdfPages')).toBe(false);
+  });
+
+  it('a name matches a file by its base name or a package by its name, nothing looser', () => {
+    expect(matches('src/lib/push.js', 'push')).toBe(true);
+    expect(matches('src/lib/pushState.js', 'push')).toBe(false);
+    expect(matches('src/components/learn/ReminderCard.jsx', 'push')).toBe(false);
+    expect(matches('node_modules/cmdk/dist/index.mjs', 'cmdk')).toBe(true);
+    expect(matches('node_modules/some-lib/push.js', 'push')).toBe(false);
+    expect(matches('src/screens/Wardrobe.jsx', 'Wardrobe')).toBe(true);
+    // a name with a slash is one file's path (the boot split: src/content/expr.js, not the first load's src/learn/expr.ts)
+    expect(matches('src/content/expr.js', 'src/content/expr.js')).toBe(true);
+    expect(matches('src/learn/expr.ts', 'src/content/expr.js')).toBe(false);
+    expect(matches('src/content/expr.jsx', 'src/content/expr.js')).toBe(false);
+  });
+
+  it('refuses a build without the module map, and the command removes .vite after the check', () => {
+    expect(check(lazyDist(undefined, { map: false }), LAZY).problems).toEqual(['.vite/modules.json is missing (vite.config.js must use scripts/vite-plugin-budget.mjs)']);
+    const d = lazyDist();
+    const f = join(d, 'budget.json');
+    writeFileSync(f, JSON.stringify(LAZY));
+    const run = spawnSync(process.execPath, ['scripts/check-budget.mjs', d, '--budget', f], { encoding: 'utf8', env: NO_CI });
+    expect(run.status).toBe(0);
+    expect(existsSync(join(d, '.vite'))).toBe(false);
+  });
+});
+
+describe('check-budget: text that must never be in the first load (COUNCIL2-14)', () => {
+  const TUTOR = { ...LAZY, neverInBoot: ['You are the maths tutor'] };
+  const put = (d, f, text) => writeFileSync(join(d, 'assets', f), `${randomBytes(500).toString('hex')}${text}`);
+
+  it('passes when the text is only in a chunk loaded on demand', () => {
+    const d = lazyDist();
+    put(d, 'Wardrobe-c3.js', 'const P = "You are the maths tutor of a grade 7 student";');
+    const r = check(d, TUTOR);
+    expect(r.problems).toEqual([]);
+    expect(r.ok).toBe(true);
+  });
+
+  it('refuses a boot file that holds it, the entry or a modulepreload', () => {
+    const d = lazyDist();
+    put(d, 'vendor-b2.js', 'const P = "You are the maths tutor of a grade 7 student";');
+    const r = check(d, TUTOR);
+    expect(r.ok).toBe(false);
+    expect(r.problems).toEqual(['"You are the maths tutor" must never be in the first load, but assets/vendor-b2.js holds it']);
+    expect(r.text).toMatch(/FAIL "You are the maths tutor" must never be in the first load/);
+  });
+});
+
+describe('the budget as configured', () => {
+  const budget = JSON.parse(readFileSync(join(WEB, 'budget.json'), 'utf8'));
+  const pkg = JSON.parse(readFileSync(join(WEB, 'package.json'), 'utf8'));
+
+  it('names the lazy-only modules (the student lane\'s, the demo class and the tutor\'s code of FOLLOWUP-23, the council2 lane\'s first-load cuts and languages, the safety code the stage-5 merge took out of the first load, the exercise code of the boot split, pdf.js of PKG-2 and the product2 lane\'s rewards and celebrations), beside the load-time gates', () => {
+    // shared/safety.js and its blocklist load with the screens that read a child's words; the first screen's help lines
+    // are shared/helpLines.js (the stage-5 merge, QA_DURABLE.md)
+    // and the exercise code (the boot split): the checkers and the figures' words (content/index.js, manip), each topic
+    // file's generators, the challenge tasks' parts, and the engines that make and grade questions; a lane's new topic
+    // file joins the list (src/boot.test.js finds it by its gen: before a build; the classroom lane's signed7, signedItems,
+    // angleItems and angles67; stage 2's measurement topics area, solid, circle and space, their objects' rules grid, net
+    // and roll, and the note on a right value in another form, partial; and, since that merge, the lesson summaries
+    // only the guide page reads, content/lessons.js and lessons.gen.js); pdf.js and lib/pdfPages.js (PKG-2) load
+    // only when a PDF is chosen; curriculum stage 4's geometry: the topic files transf, congr and sim, their generators
+    // (transf.gen, congr.gen, sim.gen), the proof templates (proofs) and the rules of the transform and proof objects
+    // PRODUCT2-36 adds the reward code that only lazy screens use: the meter and chest logic, the chest's choice, the unlock moment;
+    // PRODUCT2-38 the celebrations: מדי's entrance and the shapes, the XP count-up, the streak's moment and its milestones,
+    // the end of a teaching stage and the daily goal; the product2 merge, paying for the lane's first-load code: the
+    // drawings beside the path (Scenery: the emblems stay, map/emblems.jsx), the family challenge's links and weeks
+    // (familyChallenge, shared/week.js; the store reads lib/familyGoals.js) and the challenge grading with its number
+    // reading (learn/challenges/grade.ts, content/util.js; the store reads learn/challenges/xp.ts)
+    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'rewards', 'ChestChoice', 'UnlockStage', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'demo', 'DemoAsk', 'ai', 'pedagogy', 'guard', 'topicWays', 'safety', 'blocklist',
+      'src/content/index.js', 'manip', 'grade7', 'grade8', 'signed6', 'src/content/expr.js', 'eq', 'frac', 'linear', 'sys', 'ratio', 'pct', 'func', 'src/content/data.js', 'src/content/prob.js', 'src/content/stats2.js', 'signed7', 'signedItems', 'angleItems', 'angles67',
+      'src/content/area.js', 'src/content/solid.js', 'src/content/circle.js', 'src/content/space.js', 'src/content/grid.js', 'src/content/net.js', 'src/content/roll.js', 'src/content/partial.js',
+      'src/content/lessons.js', 'src/content/lessons.gen.js',
+      'src/learn/challenges/all.ts', 'lesson', 'placement', 'exam', 'items', 'seeds',
+      'pdfjs-dist', 'pdfPages',
+      'src/content/transf.js', 'src/content/congr.js', 'src/content/sim.js', 'transf.gen', 'congr.gen', 'sim.gen', 'proofs', 'transform', 'proof',
+      'Celebrate', 'XpCount', 'StreakStage', 'StageDone', 'GoalStage',
+      'Scenery', 'familyChallenge', '../shared/week.js', 'src/content/util.js', 'src/learn/challenges/grade.ts',
+      // the council2 lane (COUNCIL2-14/37): the tutor's context, the sheet's dialog, the choice controls, motion's
+      // features, Base UI, KaTeX and markdown; COUNCIL2-34: the languages' words that are not the first screen's (Settings'
+      // Hebrew, all of Arabic) and the Arabic twins of the content's meta files
+      'tutorContext', 'SheetDialog', 'choices', 'motionFeatures', '@base-ui/react', 'katex', 'react-markdown',
+      'shell.ar', 'settings.ar', 'settings.he', 'signed6.ar', 'meta.gen.ar', 'topics.gen.ar', 'lessons.ar',
+      // EXAM-MATERIAL: the matcher of a test's material (by path: a first-load file may share the base name), its step of
+      // Exam Rescue, and the evening's rule card
+      'src/lib/examMaterial.js', 'MaterialStep', 'RescueRule',
+      // EXAM-MATERIAL review: the QA views only lazy code reads (the tutor's canned answers, the parents page's states),
+      // moved off the first load to pay for the evening plan's growth
+      'qaViews']);
+    // the ratchet: FOLLOWUP-23's measured 403.3 KB + 5% (424), then the boot split's 317.2 KB + 5% (333), then the council2
+    // merge's 299.1 KB + 5% (314) and its CSS 30.5 KB + 5% (32); never back up
+    expect(budget.bootJsGzipKB).toBeLessThanOrEqual(314);
+    expect(budget.cssGzipKB).toBeLessThanOrEqual(32);
+    for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');
+  });
+
+  it('keeps what COUNCIL2-14 took off the first load off it: the tutor\'s prompts, the generators, Base UI, motion\'s features', () => {
+    for (const n of ['ai', 'pedagogy', 'guard', 'grade7', 'grade8', 'linear', 'SheetDialog', 'choices', 'motionFeatures', '@base-ui/react', 'katex', 'react-markdown']) expect(budget.lazyOnly, n).toContain(n);
+    expect(budget.neverInBoot[0]).toBe('You are the maths tutor');
+    // the tutor's prompt still starts with those words, so the rule still means something
+    expect(readFileSync(join(WEB, '../shared/pedagogy.js'), 'utf8')).toContain('You are the maths tutor');
+  });
+
+  it('keeps Arabic off a Hebrew device\'s first load (COUNCIL2-34): its catalogues are lazy, and no boot file holds its words', () => {
+    for (const n of ['shell.ar', 'settings.ar', 'settings.he']) expect(budget.lazyOnly, n).toContain(n);
+    expect(budget.neverInBoot).toContain('المساعد الذكي');
+    expect(readFileSync(join(WEB, 'src/locales/shell.ar.json'), 'utf8')).toContain('المساعد الذكي');
+  });
+
+  it('npm run build writes the module map and runs the check last', () => {
+    expect(pkg.scripts.build).toMatch(/vite build && .*node scripts\/check-budget\.mjs dist$/);
+    expect(pkg.scripts.build).toMatch(/node scripts\/gen-content-meta\.mjs && .*vite build/);
+    expect(readFileSync(join(WEB, 'vite.config.js'), 'utf8')).toMatch(/budgetMap\(\)/);
+  });
+
+  it('the hygiene greps stay empty in src/: no Tailwind, no motion.div (m.* only), no locales= on NumberFlow', () => {
+    const files = [];
+    const walk = (dd) => { for (const n of readdirSync(dd)) { const p = join(dd, n); if (statSync(p).isDirectory()) walk(p); else if (/\.(jsx?|tsx?|css)$/.test(n)) files.push(p); } };
+    walk(join(WEB, 'src'));
+    const hits = [];
+    for (const f of files) {
+      const text = readFileSync(f, 'utf8');
+      for (const re of [/tailwind/i, /\bmotion\.(div|span|li|p|button)\b/, /locales=/]) if (re.test(text)) hits.push(`${f.slice(WEB.length)}: ${re}`);
+    }
+    expect(hits).toEqual([]);
+  });
+});
+
+
+// ---- the ratchet (COUNCIL2-20): a gate is never higher than in budget.json at HEAD~1 (nor at HEAD), checked with git
+const GIT = ['-c', 'user.name=budget-test', '-c', 'user.email=budget@example.test', '-c', 'commit.gpgsign=false', '-c', 'init.defaultBranch=main'];
+let repos = [];
+afterEach(() => { for (const d of repos) rmSync(d, { recursive: true, force: true }); repos = []; });
+
+/** A git repository holding web/budget.json at each of `versions` (one commit each), and a fake dist that passes. */
+function repoWith(versions) {
+  const root = mkdtempSync(join(tmpdir(), 'budget-git-'));
+  repos.push(root);
+  const git = (...a) => { const r = spawnSync('git', [...GIT, ...a], { cwd: root, encoding: 'utf8' }); if (r.status !== 0) throw new Error(r.stderr); return r.stdout; };
+  git('init', '-q');
+  mkdirSync(join(root, 'web'));
+  const file = join(root, 'web', 'budget.json');
+  versions.forEach((b, i) => { writeFileSync(file, JSON.stringify(b)); git('add', '-A'); git('commit', '-q', '--allow-empty', '-m', `budget ${i}`); });
+  const dist = join(root, 'dist');
+  mkdirSync(join(dist, 'assets'), { recursive: true });
+  writeFileSync(join(dist, 'index.html'), '<script type="module" src="./assets/index-a.js"></script>');
+  writeFileSync(join(dist, 'assets', 'index-a.js'), randomBytes(1000));
+  return { root, file, dist, git };
+}
+const run = (r, env = NO_CI) => spawnSync(process.execPath, [join(WEB, 'scripts/check-budget.mjs'), r.dist, '--budget', r.file], { encoding: 'utf8', env });
+const GATES = { bootJsGzipKB: 433, bootJsTargetKB: 260, cssGzipKB: 59, cssTargetKB: 32, anyChunkGzipKB: 150, precacheMB: 4.79 };
+
+describe('check-budget: the gates only go down (the ratchet)', () => {
+  it('ratchet(): each of the four gates, raised, removed, equal, lowered; a new gate has nothing to compare with', () => {
+    expect(RATCHET).toEqual(['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']);
+    expect(ratchet(GATES, GATES)).toEqual([]);
+    for (const k of RATCHET) {
+      const up = ratchet({ ...GATES, [k]: GATES[k] + 0.01 }, GATES);
+      expect(up).toHaveLength(1);
+      expect(up[0]).toMatch(new RegExp(`^${k} is .* higher than ${GATES[k]} at HEAD~1: a gate only goes down`));
+      expect(ratchet({ ...GATES, [k]: GATES[k] - 1 }, GATES)).toEqual([]);
+      const { [k]: _gone, ...rest } = GATES;
+      expect(ratchet(rest, GATES)[0]).toMatch(new RegExp(`^${k} was .* and is gone`));
+      expect(ratchet(GATES, rest)).toEqual([]);
+    }
+    // the targets are not gates: a target may move either way
+    expect(ratchet({ ...GATES, bootJsTargetKB: 300 }, GATES)).toEqual([]);
+  });
+
+  it('a commit that raises a gate fails the build: 433 → 440 is exit 1, naming the gate and HEAD~1', () => {
+    const r = repoWith([GATES, { ...GATES, bootJsGzipKB: 440 }]);
+    const out = run(r);
+    expect(out.status).toBe(1);
+    expect(out.stdout).toMatch(/FAIL ratchet: bootJsGzipKB is 440, higher than 433 at HEAD~1/);
+    // and the same with CI set
+    expect(run(r, { ...process.env, CI: 'true' }).status).toBe(1);
+  });
+
+  it('an equal gate passes, and a lowered one passes', () => {
+    const same = run(repoWith([GATES, { ...GATES, notes: 'only the notes changed' }]));
+    expect(same.status).toBe(0);
+    expect(same.stdout).toMatch(/ratchet: no gate is higher than at HEAD~1 or HEAD/);
+    const lower = run(repoWith([GATES, { ...GATES, bootJsGzipKB: 420, cssGzipKB: 55, precacheMB: 4.5 }]), { ...process.env, CI: 'true' });
+    expect(lower.status).toBe(0);
+  });
+
+  it('a raise not yet committed fails too (compared with HEAD)', () => {
+    const r = repoWith([GATES, GATES]);
+    writeFileSync(r.file, JSON.stringify({ ...GATES, anyChunkGzipKB: 160 }));
+    const out = run(r);
+    expect(out.status).toBe(1);
+    expect(out.stdout).toMatch(/FAIL ratchet: anyChunkGzipKB is 160, higher than 150 at HEAD:/);
+  });
+
+  it('no history: a warning off CI, a failure on CI (one commit only, or no repository at all)', () => {
+    const one = repoWith([GATES]);
+    expect(budgetAt(one.file, 'HEAD~1')).toEqual({ noCommit: true });
+    expect(budgetAt(one.file, 'HEAD').budget).toEqual(GATES);
+    const off = run(one);
+    expect(off.status).toBe(0);
+    expect(off.stdout).toMatch(/warning ratchet: no commit before HEAD/);
+    const on = run(one, { ...process.env, CI: 'true' });
+    expect(on.status).toBe(1);
+    expect(on.stdout).toMatch(/FAIL ratchet: no commit before HEAD .*fetch-depth: 2/);
+    expect(run(one, { ...process.env, CI: 'false' }).status).toBe(0);
+    // a folder that is not a repository
+    const bare = mkdtempSync(join(tmpdir(), 'budget-nogit-'));
+    repos.push(bare);
+    writeFileSync(join(bare, 'budget.json'), JSON.stringify(GATES));
+    expect(ratchetCheck(join(bare, 'budget.json'), GATES, { CI: '' }).ok).toBe(true);
+    expect(ratchetCheck(join(bare, 'budget.json'), GATES, { CI: '1' })).toMatchObject({ ok: false });
+  });
+
+  it('the file is new at HEAD (not there at HEAD~1): nothing to compare with, so it passes', () => {
+    const r = repoWith([{}]);
+    rmSync(r.file);
+    r.git('rm', '-q', '--cached', 'web/budget.json');
+    r.git('commit', '-q', '-m', 'no budget');
+    writeFileSync(r.file, JSON.stringify(GATES)); r.git('add', '-A'); r.git('commit', '-q', '-m', 'the budget');
+    expect(budgetAt(r.file, 'HEAD~1')).toEqual({ noFile: true });
+    expect(run(r, { ...process.env, CI: 'true' }).status).toBe(0);
+  });
+
+  it('this repository: web/budget.json is not higher than at HEAD~1 and HEAD', () => {
+    const file = join(WEB, 'budget.json');
+    const r = ratchetCheck(file, JSON.parse(readFileSync(file, 'utf8')), { CI: '' });
+    expect(r.lines.filter((l) => l.startsWith('FAIL'))).toEqual([]);
+  });
+});

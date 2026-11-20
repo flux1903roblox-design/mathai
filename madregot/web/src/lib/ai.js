@@ -1,0 +1,233 @@
+// AI actions. Server mode goes through the Worker (the key stays on the server); the device sends its own id and,
+// when linked to a family plan, its AI-only token: never the parent's session. A personal key (calling Claude from
+// this device) exists only in builds made with VITE_ALLOW_PERSONAL_KEY=1: the owner's own local testing, never a public
+// build (trust spec TRUST-4 §4.8).
+import { splitCare } from '@shared/ai.js';
+import { streamGuard, guardResult, withMaskNote } from '@shared/guard.js';
+import { CARE_MARK, BLOCKED_TEXT } from '@shared/safety.js';
+import { useApp } from './store.js';
+import { apiBase, ApiError, errorText } from './api.js';
+import { aiHeaders, aiMode, aiReady, noteUsage, noteLimit, openLimitSheet, LIMIT_ERRORS, useAIStatus } from './account.js';
+import { qaActive } from './qaFixtures.js';
+import { qaReply } from './qaViews.js';
+import { teacherHeaders } from './teacher.js';
+import { DEMO_COPY } from './demo.js';
+
+/** The demo's sample answer, after its label: how the assistant explains a step, with no question sent. */
+const DEMO_AI_SAMPLE = 'למשל, כך אפשר להסביר חיבור של מספר חיובי ומספר שלילי: מתחילים במספר הראשון על ציר המספרים, וזזים שמאלה כמספר היחידות של המספר השלילי. $7 + (-3) = 4$. אחר כך כדאי לתת שני תרגילים דומים, ואחד עם התשובה השלילית: $3 + (-7) = -4$.';
+import { needsConsent, askConsent } from './aiConsent.js';
+
+import { locale } from '@/lib/i18n.js';
+export { aiMode, aiReady };
+
+let clientPromise = null; let clientKey = '';
+async function personalClient() {
+  const key = useApp.getState().ai.key;
+  if (import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1') {
+    if (!clientPromise || clientKey !== key) {
+      clientKey = key;
+      clientPromise = import('@anthropic-ai/sdk').then(({ default: Anthropic }) => new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true }));
+    }
+    return clientPromise;
+  }
+  throw new ApiError('no_server');
+}
+
+function personalError(e) {
+  if (e?.code === 'refusal' || e?.code === 'bad_output') return new ApiError(e.code);
+  const s = e?.status;
+  if (s === 401 || s === 403) return Object.assign(new ApiError('server_key'), { message: 'מפתח ה־Claude ששמרתם לא תקין. בדקו אותו בהגדרות, בחלק "להורים ולמבוגרים" ← "מתקדם".' });
+  if (s === 429 || s === 529) return new ApiError('busy');
+  if (!s) return new ApiError('network');
+  return new ApiError('upstream');
+}
+
+// ---------------------------------------------------------------- the markers at the end of a streamed reply
+// The server ends a streamed chat with markers: [[care]] (show the support card), [[blocked]], [[refusal]] or
+// [[error:<code>]], any number of them. They are never shown, not even half-arrived ("[[ca"), and a care line the
+// model put first (the personal key) is hidden too.
+const TAIL = /(?:\n?\[\[(?:refusal|care|blocked|error:[a-z_]+)\]\])+\s*$/;
+const PARTIAL = /\n?\[\[[a-z:_]*\]?$/;
+
+/** What a reply that is still arriving shows: no marker, whole or in part. */
+export function streamView(acc) {
+  const lead = String(acc).replace(/^\s+/, '');
+  if (lead && CARE_MARK.startsWith(lead)) return '';
+  return splitCare(acc).text.replace(PARTIAL, '').replace(TAIL, '');
+}
+
+/**
+ * The finished reply: { text, care }. Throws the error a refusal or [[error:<code>]] marker carries. A reply the server
+ * stopped ([[blocked]]: it was not fit to show) becomes the calm sentence, with blocked: true; never a red error.
+ */
+export function streamEnd(acc) {
+  const lead = splitCare(acc);
+  const tail = (lead.text.match(TAIL) || [''])[0];
+  const marks = [...tail.matchAll(/\[\[(refusal|care|blocked|error:([a-z_]+))\]\]/g)];
+  const err = marks.find((m) => m[1] === 'refusal' || m[2]);
+  if (err) throw new ApiError(err[1] === 'refusal' ? 'refusal' : err[2]);
+  const care = lead.care || marks.some((m) => m[1] === 'care');
+  // (the server never stops a care reply; were both ever there, the care reply is what a child in distress needs)
+  if (!care && marks.some((m) => m[1] === 'blocked')) return { text: BLOCKED_TEXT, care: false, blocked: true };
+  return { text: lead.text.slice(0, lead.text.length - tail.length), care };
+}
+
+/**
+ * The tutor said "not now": remember it, open the calm sheet, and give the caller an error it shows quietly. `quiet`
+ * (a message that reads as distress, already answered by the support card on screen): no sheet, nothing remembered;
+ * the server's care path never says "not now", so only an older server could.
+ */
+function limited(kind, data, status, onMadi, quiet = false) {
+  if (quiet) return Object.assign(new ApiError(data.error, status, data), { limit: true });
+  noteLimit(data, kind);
+  const tier = data.tier || useAIStatus.getState().status?.tier || null;
+  openLimitSheet({ reason: data.error, tier, scope: data.scope || null, onMadi });
+  return Object.assign(new ApiError(data.error, status, data), { limit: true });
+}
+
+/**
+ * How long the tutor's conversation kinds wait for the server, in ms: for the reply to start, and between two pieces of
+ * a streamed chat. A phone that loses its connection in the middle of a request can leave fetch waiting with no error,
+ * and the server's own call to Claude has no shorter limit than the SDK's 10 minutes; past this the screen says so
+ * ('timeout') instead of "thinking" with no end. Photo checks, exams and new exercises take minutes by nature and wait
+ * as before.
+ */
+export const AI_WAIT_MS = Object.freeze({ chat: 120_000, explain: 120_000, feedback: 120_000 });
+
+/**
+ * Run an AI action. For 'chat', pass onText to receive the reply as it streams. onMadi: what the calm sheet's
+ * "לשאול את מדי" does when the tutor says no for today (the opener's own way to Madi). quiet: never open the limit
+ * sheet (a message that reads as distress: the support card is already on screen, and no paywall or limit may follow).
+ * Resolves to { text, care } for explain/chat, or the parsed JSON for generate/check/exam/feedback (with care for
+ * check/exam/feedback; care: true means the reply is about the student's wellbeing, and the screen shows the support
+ * card: for feedback, the summary is that reply, and the rubric is not shown).
+ */
+export async function runAI(kind, input, { onText, signal, onMadi, quiet = false } = {}) {
+  // the student's language (COUNCIL2-34): an Arabic device asks the tutor for Arabic (shared/arabic.js); a Hebrew
+  // request stays exactly as it was
+  if (locale() !== 'he') input = { ...input, locale: locale() };
+  const mode = aiMode();
+  if (mode === 'none') throw new ApiError('no_server');
+  // a store build asks before the first request on this device (STUDENT-12): "לא עכשיו" sends nothing, and the screen
+  // goes quietly back to where it was (callers treat .limit as "already said")
+  if (needsConsent() && !(await askConsent())) throw Object.assign(new ApiError('no_consent'), { limit: true });
+
+  // the demo class (TEACHER-15): a fixed sample answer, labelled as one; nothing is sent
+  if (mode === 'demo') {
+    if (kind !== 'chat' && kind !== 'explain') throw new ApiError('demo_ai');
+    const text = `${DEMO_COPY.aiSample}\n\n${DEMO_AI_SAMPLE}`;
+    onText?.(text);
+    return { text };
+  }
+
+  if (qaActive()) {
+    try {
+      const r = qaReply(kind, input);
+      if (r.text) onText?.(r.text);
+      return r;
+    } catch (e) { throw limited(kind, e.qa || { error: 'upstream' }, 429, onMadi, quiet); }
+  }
+
+  // a personal key exists only in a build that allows it (VITE_ALLOW_PERSONAL_KEY): only there does the device build the
+  // tutor's requests itself, so every other build leaves the request builders (and the prompts) out of its files
+  if (mode === 'personal' && import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1') {
+    const { buildRequest, readResult, STREAMED, answerGuard, generateVerified, LITE_MODEL } = await import('@shared/ai.js');
+    const client = await personalClient();
+    // new exercises run the Worker's own path (ai spec AI-4): the rewrite, the blind solve, the code checks
+    if (kind === 'generate') {
+      try {
+        const out = await generateVerified((p) => client.beta.messages.create(p, { signal }), input, { blindModel: LITE_MODEL });
+        return withCare({ items: out.items, dropped: out.dropped, fallback: out.fallback });
+      } catch (e) {
+        if (e?.name === 'AbortError' || e?.constructor?.name === 'APIUserAbortError') throw e;
+        throw personalError(e);
+      }
+    }
+    const params = buildRequest(kind, input);
+    // the same final-answer guard as the Worker (ai spec AI-3 Design 3), so the owner's dev build behaves like production
+    const guard = answerGuard(kind, input);
+    try {
+      if (kind === 'chat' && onText) {
+        const stream = client.beta.messages.stream(params, { signal });
+        const g = guard.on && guard.forms ? streamGuard(guard.forms) : null;
+        let shown = '';
+        stream.on('text', (t) => { shown += g ? g.push(t) : t; onText(streamView(shown)); });
+        const res = withCare(readResult(kind, await stream.finalMessage(), input));
+        if (!g || res.care) return res;
+        shown += g.end();
+        return { ...res, text: withMaskNote(splitCare(shown).text, g.masked) };
+      }
+      if (STREAMED(kind)) return withCare(readResult(kind, await client.beta.messages.stream(params, { signal }).finalMessage(), input));
+      // feedback (ai spec AI-10) reads its reply against what was sent: quotes from the student's own text, tips clipped
+      return withCare(guardResult(kind, readResult(kind, await client.beta.messages.create(params, { signal }), input), guard).result);
+    } catch (e) {
+      if (e?.name === 'AbortError' || e?.constructor?.name === 'APIUserAbortError') throw e;
+      throw personalError(e);
+    }
+  }
+
+  const st = useApp.getState();
+  const token = st.profile?.token;
+  const teacherCls = st.profile?.role === 'teacher' ? st.profile.classes?.find((c) => c.code === st.profile.active) : null;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    // a teacher's own questions count on the class: its key, or the owner's session (lib/teacher.js)
+    ...(teacherCls ? teacherHeaders(teacherCls) : {}),
+    ...aiHeaders(),
+  };
+  // the caller's signal (the chat closed) still aborts; the wait limit (AI_WAIT_MS) aborts as 'timeout'
+  const wait = AI_WAIT_MS[kind];
+  const ctrl = new AbortController();
+  let timedOut = false; let timer; let reader = null;
+  const arm = () => {
+    if (!wait) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => { timedOut = true; ctrl.abort(); reader?.cancel().catch(() => {}); }, wait);
+  };
+  const stop = () => ctrl.abort();
+  if (signal?.aborted) ctrl.abort(); else signal?.addEventListener('abort', stop, { once: true });
+  const late = (e) => (timedOut ? new ApiError('timeout') : e);
+  arm();
+  try {
+    let res;
+    try {
+      res = await fetch(`${apiBase()}/api/ai/${kind}`, { method: 'POST', headers, signal: ctrl.signal, body: JSON.stringify({ ...input, stream: !!onText }) });
+    } catch (e) {
+      if (timedOut) throw new ApiError('timeout');
+      if (e.name === 'AbortError') throw e;
+      throw new ApiError('network');
+    }
+    if (!res.ok) {
+      noteUsage(res); // X-AI-Linked: 0 still tells this device its family link is gone
+      const data = await res.json().catch(() => ({}));
+      if (LIMIT_ERRORS.includes(data.error)) throw limited(kind, data, res.status, onMadi, quiet);
+      throw new ApiError(data.error || 'upstream', res.status, data);
+    }
+    noteUsage(res);
+    if (kind === 'chat' && onText && res.body) {
+      reader = res.body.getReader(); const dec = new TextDecoder(); let acc = '';
+      for (;;) {
+        arm(); // a stream that stops coming waits only so long after its last piece
+        const { done, value } = await reader.read().catch((e) => { throw late(e); });
+        if (timedOut) throw new ApiError('timeout');
+        if (done) break;
+        acc += dec.decode(value, { stream: true });
+        onText(streamView(acc));
+      }
+      acc += dec.decode();
+      return streamEnd(acc);
+    }
+    return withCare(await res.json().catch((e) => { throw late(e); }));
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', stop);
+  }
+}
+
+/** Every AI result says whether it is a care reply: care is true or false, never missing. */
+function withCare(r) {
+  return r && typeof r === 'object' ? { ...r, care: r.care === true } : r;
+}
+
+export { errorText };

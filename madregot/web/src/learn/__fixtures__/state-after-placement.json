@@ -1,0 +1,161 @@
+{
+ "note": "The council round 2 learning verifier's saved state after a first-day placement of a ח׳ student (line placed at 4, stats at 2, pyth at 0): profile, path, placement and learn only. Synthetic.",
+ "state": {
+  "profile": {
+   "role": "student",
+   "name": "נועה",
+   "grade": "8",
+   "know": 1
+  },
+  "progress": {
+   "line": {
+    "level": 5,
+    "max": 5
+   },
+   "pyth": {
+    "level": 1,
+    "max": 1
+   },
+   "stats": {
+    "level": 3,
+    "max": 3
+   }
+  },
+  "path": {
+   "line": {
+    "parts": {},
+    "reviews": 0,
+    "jumped": 4,
+    "done": {}
+   },
+   "pyth": {
+    "parts": {},
+    "reviews": 0,
+    "jumped": 0,
+    "done": {}
+   },
+   "stats": {
+    "parts": {},
+    "reviews": 0,
+    "jumped": 2,
+    "done": {}
+   }
+  },
+  "placement": {
+   "at": "2026-11-11T16:00:00.000Z",
+   "grade": "8",
+   "results": {
+    "line": {
+     "level": 4,
+     "asked": 2,
+     "right": 3
+    },
+    "pyth": {
+     "level": 0,
+     "asked": 2,
+     "right": 0
+    },
+    "stats": {
+     "level": 2,
+     "asked": 2,
+     "right": 3
+    }
+   }
+  },
+  "learn": {
+   "skills": {
+    "line:4": {
+     "attempts": [
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": true,
+       "independent": true,
+       "purpose": "practice"
+      },
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": true,
+       "independent": true,
+       "purpose": "practice"
+      },
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": true,
+       "independent": true,
+       "purpose": "practice"
+      }
+     ]
+    },
+    "line:7": {
+     "attempts": [
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": false,
+       "independent": false,
+       "purpose": "practice"
+      }
+     ]
+    },
+    "pyth:2": {
+     "attempts": [
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": false,
+       "independent": false,
+       "purpose": "practice"
+      }
+     ]
+    },
+    "pyth:1": {
+     "attempts": [
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": false,
+       "independent": false,
+       "purpose": "practice"
+      }
+     ]
+    },
+    "stats:2": {
+     "attempts": [
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": true,
+       "independent": true,
+       "purpose": "practice"
+      },
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": true,
+       "independent": true,
+       "purpose": "practice"
+      },
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": true,
+       "independent": true,
+       "purpose": "practice"
+      }
+     ]
+    },
+    "stats:4": {
+     "attempts": [
+      {
+       "at": "2026-11-11T16:00:00.000Z",
+       "ok": false,
+       "independent": false,
+       "purpose": "practice"
+      }
+     ]
+    }
+   },
+   "miscon": {},
+   "exam": null,
+   "missions": {},
+   "events": [],
+   "floor": null,
+   "challenges": {}
+  }
+ },
+ "version": 99
+}

@@ -1,0 +1,32 @@
+{
+  "name": "madregot-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "node scripts/deploy-config.mjs && wrangler deploy --config wrangler.deploy.toml",
+    "deploy:production": "node scripts/deploy-config.mjs --production && wrangler deploy --strict --config wrangler.deploy.toml",
+    "build:production": "node scripts/production-env.mjs npm run build --prefix ../web",
+    "smoke:production": "node scripts/smoke.mjs --production",
+    "db:migrate": "wrangler d1 migrations apply madregot --remote",
+    "db:migrate:production": "node scripts/deploy-config.mjs --production && wrangler d1 migrations apply madregot --remote --config wrangler.deploy.toml",
+    "db:migrate:local": "wrangler d1 migrations apply madregot --local",
+    "db:init": "npm run db:migrate",
+    "staging:migrate": "wrangler d1 migrations apply madregot-staging --env staging --remote",
+    "staging:deploy": "node scripts/deploy-config.mjs && wrangler deploy --config wrangler.deploy.toml --env staging",
+    "owner": "node scripts/owner.mjs",
+    "eval:tutor": "node eval/run.mjs",
+    "eval:estimate": "node eval/run.mjs --estimate",
+    "eval:syllabus": "node eval/syllabus.mjs",
+    "push:keys": "node scripts/push-keys.mjs",
+    "test": "node --test \"test/*.test.js\"",
+    "typecheck": "node ../web/node_modules/typescript/bin/tsc -p tsconfig.json",
+    "deploy:config": "node scripts/deploy-config.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.1.0"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.3"
+  }
+}

@@ -1,0 +1,440 @@
+// The programme map against the stairs this build really has. The coverage numbers themselves are not asserted here:
+// they move with every content stage (the fixtures in worker/test/coverage.test.js carry the numbers).
+import { describe, expect, it } from 'vitest';
+import { ALL_SKILLS, ALSO_ON_PATH, GRADE_OF, guestSkillsOf, parseSkill } from './skills';
+import type { AlsoOnPath } from './skills';
+import { PROGRAMME, ROADMAP_NEXT, coverageOf, notYetOf, monthIndex, schoolMonth } from './programme';
+import { coverage } from '@shared/coverage.js';
+import { TOPIC, TOPICS, rescueTopicsFor } from '@/content/index.js';
+import { pathSkillsOf } from './next';
+
+// a bridge topic (CURRICULUM-3's frac) carries bridge: true
+const isBridge = (skill: string) => (TOPIC as Record<string, { bridge?: boolean } | undefined>)[parseSkill(skill).topic]?.bridge === true;
+const programmeStairs = new Set<string>(PROGRAMME.units.flatMap((u) => u.parts.flatMap((p) => p.skills)));
+
+describe('every stair of the app has a place in the Ministry programme', () => {
+  const stairs = ALL_SKILLS.filter((s) => !isBridge(s));
+  it('is listed in some unit (a new stair cannot land without being placed in the programme)', () => {
+    expect(stairs.length).toBeGreaterThan(0);
+    stairs.forEach((s) => expect(programmeStairs.has(s), `${s} is in no unit of shared/programme.js`).toBe(true));
+  });
+  it('has a school month in its own grade', () => {
+    stairs.forEach((s) => {
+      const m = monthIndex(s, GRADE_OF[parseSkill(s).topic]!);
+      expect(typeof m, `${s} has no month in grade ${GRADE_OF[parseSkill(s).topic]}`).toBe('number');
+      expect(m).toBeGreaterThanOrEqual(0);
+      expect(m).toBeLessThanOrEqual(9);
+    });
+  });
+  it('a unit also on another grade\'s path (ALSO_ON_PATH) is in a unit of that grade, with a month there', () => {
+    // the entry is this school year's (תשפ״ז); when programme.js moves on and no unit of that grade lists the topic,
+    // this fails: remove the entry from learn/skills.ts then
+    (Object.entries(ALSO_ON_PATH) as [string, { grade: '7' | '8'; after: string }][]).forEach(([topic, { grade }]) => {
+      const units = PROGRAMME.units.filter((u) => u.grade === grade && u.parts.some((p) => p.skills.some((s) => s.startsWith(`${topic}:`))));
+      expect(units.length, `${topic} is in no unit of grade ${grade}`).toBeGreaterThan(0);
+      ALL_SKILLS.filter((s) => parseSkill(s).topic === topic).forEach((s) => expect(typeof monthIndex(s, grade), `${s} in grade ${grade}`).toBe('number'));
+    });
+    // 8.5: the transformations are taught in ח׳ in November
+    expect(monthIndex('transf:1', '8')).toBe(2);
+  });
+  it('a bridge stair (elementary fractions) is in no unit: it adds no hours', () => {
+    [...programmeStairs].forEach((s) => expect(s.startsWith('frac:'), s).toBe(false));
+    ALL_SKILLS.filter(isBridge).forEach((s) => expect(programmeStairs.has(s), s).toBe(false));
+  });
+});
+
+// A unit also drawn on another grade's path (skills.ts ALSO_ON_PATH) is there because that grade's schedule teaches it
+// this year: some unit of that grade lists one of its stairs. When the programme moves to the next year and the unit is
+// no longer in that grade's schedule, this fails, and the entry is removed.
+// Curriculum stage 3 (DATA-8): its ten stairs, by name, so the rule above is not met by a list that lost one of them
+describe('curriculum stage 3\'s ten stairs are in the programme, each with a month in its own grade', () => {
+  const STAGE3 = ['data:1', 'data:2', 'data:3', 'data:4', 'stats:6', 'stats:7', 'stats:8', 'prob:1', 'prob:2', 'prob:3'];
+  it('every one is a stair of the app, listed in some unit', () => {
+    STAGE3.forEach((s) => expect(ALL_SKILLS, s).toContain(s));
+    STAGE3.forEach((s) => expect(programmeStairs.has(s), `${s} is in no unit of shared/programme.js`).toBe(true));
+  });
+  it('every one has a school month in its own grade (data in ז׳, stats and prob in ח׳)', () => {
+    const months = STAGE3.map((s) => [s, GRADE_OF[parseSkill(s).topic], monthIndex(s, GRADE_OF[parseSkill(s).topic]!)]);
+    expect(months).toEqual([
+      ['data:1', '7', 4], ['data:2', '7', 5], ['data:3', '7', 5], ['data:4', '7', 5],
+      ['stats:6', '8', 3], ['stats:7', '8', 3], ['stats:8', '8', 4],
+      ['prob:1', '8', 6], ['prob:2', '8', 6], ['prob:3', '8', 6],
+    ]);
+    // probability is in no ז׳ unit
+    expect(monthIndex('prob:1', '7')).toBeNull();
+  });
+});
+
+describe('a unit on two grades\' paths is in that grade\'s schedule', () => {
+  const unlisted = (also: AlsoOnPath) => Object.entries(also).filter(([t, e]) => !PROGRAMME.units.some((u) => u.grade === e!.grade
+    && u.parts.some((p) => p.skills.some((s) => parseSkill(s).topic === t)))).map(([t]) => t);
+  it('every entry of ALSO_ON_PATH is listed in a unit of its other grade', () => {
+    expect(Object.keys(ALSO_ON_PATH)).toEqual(['data', 'transf']); // not vacuous: this year's entries
+    expect(unlisted(ALSO_ON_PATH)).toEqual([]);
+    // 8.5 lists transf:1-4 (November), as ז׳'s 7.11 does (November and December)
+    expect([monthIndex('transf:1', '8'), monthIndex('transf:4', '8'), monthIndex('transf:1', '7')]).toEqual([2, 2, 2]);
+    // 8.6 lists data:1-3 (October–November), 8.16 data:4 (March, "הסתברות א – בסיס")
+    expect(monthIndex('data:1', '8')).toBe(1);
+    expect(monthIndex('data:3', '8')).toBe(1);
+    expect(monthIndex('data:4', '8')).toBe(6);
+    expect(monthIndex('data:1', '7')).toBe(4);
+  });
+  it('the rule bites: expressions are in no ח׳ unit, Pythagoras is in ז׳ 7.6 and 7.14', () => {
+    expect(unlisted({ expr: { grade: '8', after: 'pct' } })).toEqual(['expr']);
+    expect(unlisted({ pyth: { grade: '7', after: 'eq' } })).toEqual([]);
+  });
+});
+
+// Stage 1 is complete with percent: the stage-1 fixture of worker/test/coverage.test.js (HEAD's 48 stairs, signed:6,
+// ratio:1-4 and pct:1-5) gives ז׳ 104 of 150 and ח׳ 66 of 147, 57%. The app has those stairs and may have more: a later
+// stage adds its own (stage5.md FUNC-8 Design 3), so the live numbers are those of coverage() over the live stairs.
+
+// The coverage figure is a promise to a grade (PRODUCT2-20): every hour coverage() counts for a grade is an hour that
+// grade's student can learn on their own path. So every stair of a part it counts as taught is on that grade's path (the
+// map and the plan) in the month the programme teaches the unit: a unit of the other grade joins the path from the first
+// month the grade's programme teaches one of its stairs (a month-aware alsoFor; GRADE_OF does not move). The one
+// exception is a unit the grade climbs through guest stairs (learn/skills.ts GUEST, stage5.md FUNC-6: ח׳'s equations,
+// 8.9): its guest stairs are offered to the grade one by one, and the whole unit is revised in the grade's Exam Rescue
+// (content/topics.js rescueTopicsFor), so a ח׳ student is never sent back a year on the map.
+describe('every hour coverage counts for a grade is on that grade\'s path when the programme teaches it', () => {
+  const SCHOOL = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6];
+  const viaGuest = (s: string, grade: '7' | '8') => guestSkillsOf(grade).some((id) => parseSkill(id).topic === parseSkill(s).topic);
+  (['7', '8'] as const).forEach((grade) => it(`grade ${grade}`, () => {
+    const c = coverageOf(grade);
+    const rescue = rescueTopicsFor(grade) as { id: string; only?: string[] }[];
+    let hours = 0;
+    c.units.forEach((u) => u.parts.filter((p) => p.taught).forEach((p) => {
+      const month = SCHOOL.indexOf(u.months[0]);
+      const path = new Set(pathSkillsOf(grade, month));
+      p.skills.forEach((s) => {
+        if (!viaGuest(s, grade)) { expect(path.has(s), `${u.id} counts ${s} for grade ${grade}, but it is not on the path in month ${u.months[0]}`).toBe(true); return; }
+        expect(guestSkillsOf(grade).includes(s) || rescue.some((t) => t.id === parseSkill(s).topic && !t.only), `${u.id} counts ${s} for grade ${grade}: a guest stair, or revised whole in Exam Rescue`).toBe(true);
+      });
+      hours += p.hours;
+    }));
+    expect(hours).toBe(c.taught);
+  }));
+  it('the exception is narrow: the units with guest stairs, ח׳\'s equations and ז׳\'s functions (func:1 alone)', () => {
+    const off = (g: '7' | '8') => [...new Set(coverageOf(g).units.flatMap((u) => u.parts.filter((p) => p.taught).flatMap((p) => p.skills.filter((s) => viaGuest(s, g)))))].sort();
+    expect(off('7')).toEqual(['func:1']);
+    expect(off('8')).toEqual(['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'eq:6', 'eq:7']);
+  });
+  it('Pythagoras is on the ז׳ path from December (squares and roots, 7.6) and stays a ח׳ unit', () => {
+    const MAR = 6; const NOV = 2; const DEC = 3;
+    expect(pathSkillsOf('7', NOV)).not.toContain('pyth:1');
+    expect(pathSkillsOf('7', DEC)).toContain('pyth:1');
+    expect(pathSkillsOf('7', MAR)).toEqual(expect.arrayContaining(['pyth:1', 'pyth:2', 'pyth:3', 'pyth:4', 'pyth:5']));
+    expect(GRADE_OF.pyth).toBe('8');
+    expect(pathSkillsOf('8', 0)).toContain('pyth:1');
+  });
+});
+
+// Stage 1 is complete with percent: the live coverage, from the stairs this build has, is the stage-1 fixture's of
+// worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4 and pct:1-5): ז׳ 104 of 150, ח׳ 66 of 147, 57%.
+describe('stage 1\'s coverage, live', () => {
+  const STAGE1 = [
+    ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+    ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+    'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+  ];
+  // the stairs the content really has: every level of every unit (the bridge unit aside)
+  const LIVE = TOPICS.filter((t) => !(t as { bridge?: boolean }).bridge).flatMap((t) => t.levels.map((_: unknown, i: number) => `${t.id}:${i + 1}`));
+  it('has every stage-1 stair (the bridge unit aside), and stage 1\'s hours', () => {
+    const have = new Set(ALL_SKILLS.filter((s) => !isBridge(s)));
+    STAGE1.forEach((s) => expect(have.has(s), `${s} is gone`).toBe(true));
+    const s7 = coverage('7', STAGE1); const s8 = coverage('8', STAGE1);
+    expect([s7.taught, s7.hours]).toEqual([104, 150]);
+    expect([s8.taught, s8.hours]).toEqual([66, 147]);
+    expect(Math.round((100 * (s7.taught + s8.taught)) / (s7.hours + s8.hours))).toBe(57);
+    expect(s8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+  });
+  it('the live coverage is coverage() of the stairs the content has, and never below stage 1\'s', () => {
+    expect([...LIVE].sort()).toEqual(ALL_SKILLS.filter((s) => !isBridge(s)).sort());
+    for (const g of ['7', '8'] as const) {
+      expect(coverageOf(g)).toEqual(coverage(g, LIVE));
+      expect(coverageOf(g).taught).toBeGreaterThanOrEqual(coverage(g, STAGE1).taught);
+    }
+  });
+});
+
+// Stage 5 (stage5.md FUNC-8 Design 3): the functions unit is whole. 8.7 lists func:1-3 (November, 8 hours); func:4 is
+// a 0-hour part of 8.8, the schedule's December row "קצב שינוי אחיד/לא אחיד", whose hours are line's.
+describe('stage 5\'s functions unit, live', () => {
+  it('8.7 and 8.8 are taught whole, with no missing part', () => {
+    const c8 = coverageOf('8');
+    expect(c8.units.find((u) => u.id === '8.7')).toMatchObject({ hours: 8, taught: 8, state: 'yes', missing: [], stairs: ['func:1', 'func:2', 'func:3'] });
+    const u88 = c8.units.find((u) => u.id === '8.8')!;
+    expect(u88).toMatchObject({ hours: 8, taught: 8, state: 'yes', missing: [] });
+    expect(u88.stairs).toContain('func:4');
+    expect(u88.parts.find((p) => p.skills.includes('func:4'))).toMatchObject({ hours: 0, taught: true, note: 'קצב שינוי אחיד ולא אחיד' });
+  });
+  it('places each func stair in its school month: func:1 in ז׳ May and ח׳ November, func:2-4 in ח׳ November', () => {
+    expect([monthIndex('func:1', '7'), monthIndex('func:1', '8')]).toEqual([8, 2]);
+    for (const s of ['func:2', 'func:3', 'func:4']) expect(monthIndex(s, '8'), s).toBe(2);
+  });
+});
+
+// Stage 5 (stage5.md FUNC-8 Design 1): the motion problems (eq:6) and equations with denominators (eq:7) are ח׳ 8.9's,
+// and a ז׳ class meets them in June, the schedule's motion task: 7.8 lists them in a 0-hour part with its own months, so
+// ז׳ is not told they are taught in March, and no ז׳ hour moves; 8.9's six hours are theirs.
+describe('stage 5\'s motion problems and equations with denominators, live', () => {
+  it('7.8 lists eq:6 and eq:7 in a 0-hour part of its own month, and stays whole', () => {
+    const u78 = coverageOf('7').units.find((u) => u.id === '7.8')!;
+    expect(u78).toMatchObject({ hours: 21, taught: 21, state: 'yes', missing: [] });
+    expect(u78.stairs).toEqual(expect.arrayContaining(['eq:6', 'eq:7']));
+    expect(u78.parts.find((p) => p.skills.includes('eq:6'))).toMatchObject({ hours: 0, skills: ['eq:6', 'eq:7'], taught: true, note: 'שאלות תנועה ומשוואות עם מכנים' });
+    expect((PROGRAMME.units.find((u) => u.id === '7.8')!.parts.find((p) => p.skills.includes('eq:6')) as { months?: number[] }).months).toEqual([6]);
+  });
+  it('8.9 is taught whole: its six hours of motion, x in a denominator and proportion are eq:6 and eq:7\'s', () => {
+    const u89 = coverageOf('8').units.find((u) => u.id === '8.9')!;
+    expect(u89).toMatchObject({ hours: 12, taught: 12, state: 'yes', missing: [] });
+    expect(u89.parts.find((p) => p.skills.includes('eq:7'))).toMatchObject({ hours: 6, skills: ['eq:6', 'eq:7'], taught: true, later: null });
+  });
+  it('places eq:6 and eq:7 in June for ז׳ and December for ח׳, and leaves eq:1-5 in March', () => {
+    expect([monthIndex('eq:6', '7'), monthIndex('eq:7', '7')]).toEqual([9, 9]);
+    expect([monthIndex('eq:6', '8'), monthIndex('eq:7', '8')]).toEqual([3, 3]);
+    for (let k = 1; k <= 5; k += 1) expect(monthIndex(`eq:${k}`, '7'), `eq:${k}`).toBe(6);
+  });
+});
+
+// Stage 5 as a whole (stage5.md FUNC-8 Design 3 and §0.3), before the classroom split: its six stairs are in the app,
+// every ח׳ unit it completes is taught whole, and the one part left with `later: 'S5'` is 7.10's measuring part, which
+// waits for the classroom lane's angles:6-7 and this stage's angles:8 (STAIRS.angles is a count).
+describe('stage 5, before the classroom split', () => {
+  const S5 = ['func:1', 'func:2', 'func:3', 'func:4', 'eq:6', 'eq:7'];
+  it('has its six stairs, each in the programme', () => {
+    S5.forEach((s) => expect(ALL_SKILLS, s).toContain(s));
+    S5.forEach((s) => expect(programmeStairs.has(s), s).toBe(true));
+  });
+  it('8.7, 8.8 and 8.9 are taught whole', () => {
+    const units = coverageOf('8').units;
+    for (const id of ['8.7', '8.8', '8.9']) expect(units.find((u) => u.id === id), id).toMatchObject({ state: 'yes', missing: [] });
+    expect(['8.7', '8.8', '8.9'].map((id) => units.find((u) => u.id === id)!.taught)).toEqual([8, 8, 12]);
+    expect(coverageOf('7').units.find((u) => u.id === '7.9')).toMatchObject({ hours: 3, taught: 3, state: 'yes' });
+  });
+  it('places every stage-5 stair in its school month', () => {
+    expect([monthIndex('func:1', '7'), monthIndex('func:1', '8')]).toEqual([8, 2]);
+    for (const s of ['func:2', 'func:3', 'func:4']) expect(monthIndex(s, '8'), s).toBe(2);
+    for (const s of ['eq:6', 'eq:7']) expect([monthIndex(s, '7'), monthIndex(s, '8')], s).toEqual([9, 3]);
+    for (let k = 1; k <= 5; k += 1) expect(monthIndex(`eq:${k}`, '7'), `eq:${k}`).toBe(6);
+  });
+  it('leaves one part waiting for stage 5: 7.10\'s, for the classroom split', () => {
+    const waiting = PROGRAMME.units.flatMap((u) => u.parts.filter((p) => (p as { later?: string }).later === 'S5').map((p) => ({ id: u.id, skills: p.skills })));
+    expect(waiting).toEqual([{ id: '7.10', skills: [] }]);
+    expect(PROGRAMME.units.flatMap((u) => u.parts.flatMap((p) => p.skills))).not.toContain('angles:8');
+  });
+  it('gives the "stage 5 before classroom" numbers on stage 1\'s stairs and its own: ז׳ 106/150, ח׳ 80/147, 63%', () => {
+    const STAGE1 = [
+      ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+      ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+      'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+    ];
+    const c7 = coverage('7', [...STAGE1, ...S5]); const c8 = coverage('8', [...STAGE1, ...S5]);
+    expect([c7.taught, c7.pct, c8.taught, c8.pct]).toEqual([106, 71, 80, 54]);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(63);
+  });
+});
+
+// Curriculum stage 3 (DATA-8): on stage 1's stairs and its own ten (data:1-4: 7.15-7.17, and this year 8.6 and the first
+// half of 8.16; stats:6-8: the rest of 8.10 and 8.11; prob:1-3: the rest of 8.16), worker/test/coverage.test.js's
+// "stage 3" fixture: ז׳ 117 of 150, ח׳ 87 of 147, 69% together. The units it completes are whole in the live coverage.
+describe('curriculum stage 3: the data unit, stats:6-8 and probability', () => {
+  const STAGE1 = [
+    ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+    ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+    'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+  ];
+  const DATA = ['data:1', 'data:2', 'data:3', 'data:4'];
+  // curriculum stage 3, DATA-5: the rest of ח׳ units 8.10 (range, two sources) and 8.11 (interpolation)
+  const STATS2 = ['stats:6', 'stats:7', 'stats:8'];
+  // DATA-6: "הסתברות ב", the rest of 8.16
+  const PROB = ['prob:1', 'prob:2', 'prob:3'];
+  it('has its ten stairs; on stage 1\'s stairs and its own: ז׳ 117/150, ח׳ 87/147, 69%', () => {
+    const have = new Set(ALL_SKILLS);
+    [...DATA, ...STATS2, ...PROB].forEach((s) => expect(have.has(s), `${s} is gone`).toBe(true));
+    const f7 = coverage('7', [...STAGE1, ...DATA, ...STATS2, ...PROB]); const f8 = coverage('8', [...STAGE1, ...DATA, ...STATS2, ...PROB]);
+    expect([f7.taught, f7.hours]).toEqual([117, 150]);
+    expect([f8.taught, f8.hours]).toEqual([87, 147]);
+    expect(Math.round((100 * (f7.taught + f8.taught)) / (f7.hours + f8.hours))).toBe(69);
+  });
+  it('the units it completes are taught whole in the live coverage', () => {
+    const c7 = coverageOf('7'); const c8 = coverageOf('8');
+    expect(c8.units.find((u) => u.id === '8.10')).toMatchObject({ taught: 12, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.11')).toMatchObject({ taught: 4, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.6')).toMatchObject({ taught: 8, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.16')).toMatchObject({ taught: 6, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+    for (const id of ['7.15', '7.16', '7.17']) expect(c7.units.find((u) => u.id === id), id).toMatchObject({ state: 'yes' });
+  });
+});
+
+// The classroom lane (finish/specs/classroom.md): signed:7 (CLASSROOM-5) teaches 7.6's four hours of powers, angles:6 and
+// angles:7 (CLASSROOM-10, -12) 7.10's two of the bisector and the quadrilateral. worker/test/coverage.test.js's classroom
+// fixture (stage 1's stairs and these three): ז׳ 110 of 150 (73%), ח׳ 66 of 147, 59% together.
+describe('the classroom lane\'s three stairs', () => {
+  const CLASSROOM = ['signed:7', 'angles:6', 'angles:7'];
+  const STAGE1 = [
+    ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+    ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+    'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+  ];
+  it('has its three stairs; on stage 1\'s stairs and its own: ז׳ 110/150 (73%), ח׳ 66/147, 59%', () => {
+    CLASSROOM.forEach((s) => expect(ALL_SKILLS, s).toContain(s));
+    CLASSROOM.forEach((s) => expect(programmeStairs.has(s), s).toBe(true));
+    const c7 = coverage('7', [...STAGE1, ...CLASSROOM]); const c8 = coverage('8', [...STAGE1, ...CLASSROOM]);
+    expect([c7.taught, c7.hours, c7.pct]).toEqual([110, 150, 73]);
+    expect([c8.taught, c8.hours]).toEqual([66, 147]);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(59);
+  });
+  it('signed:7 is in 7.6: powers with a natural exponent and order of operations with powers, the unit now whole', () => {
+    const u = coverageOf('7').units.find((x) => x.id === '7.6')!;
+    expect(u).toMatchObject({ hours: 6, taught: 6, state: 'yes', missing: [] });
+    expect(u.stairs).toEqual(['pyth:1', 'signed:7']);
+    expect(u.parts.find((p) => p.skills.includes('signed:7'))).toMatchObject({ hours: 4, taught: true, later: null });
+    expect(notYetOf('7')).not.toContain('חזקות עם מעריך טבעי וסדר פעולות עם חזקות');
+  });
+  it('angles:6 and angles:7 are in 7.10: the bisector and the quadrilateral taught, measuring still a later stage\'s', () => {
+    const u = coverageOf('7').units.find((x) => x.id === '7.10')!;
+    expect(u).toMatchObject({ hours: 20, taught: 18, state: 'part' });
+    expect(u.stairs).toEqual(['angles:1', 'angles:2', 'angles:3', 'angles:4', 'angles:5', 'angles:6', 'angles:7']);
+    expect(u.parts.map((p) => [p.hours, p.taught, p.later])).toEqual([[16, true, null], [2, true, null], [2, false, 'S5']]);
+    expect(notYetOf('7')).toContain('מדידה ואומדן של זוויות');
+    expect(notYetOf('7').join(' ')).not.toMatch(/חוצה זווית|זוויות במרובע/);
+  });
+});
+
+// Stage 2 (measurement, MEASURE-6): on stage 1's stairs and its own fifteen (area:1-5: ז׳ 7.12 whole with coord:4;
+// solid:1-4: ז׳ 7.13 whole; circle:1-4: ח׳ 8.4 whole; space:1-2: ח׳ 8.17 whole), worker/test/coverage.test.js's "stage 2"
+// fixture: ז׳ 122 of 150, ח׳ 78 of 147, 67% together. The units it completes are whole in the live coverage.
+describe('stage 2: areas and perimeters, boxes and prisms, the circle, Pythagoras in space', () => {
+  const STAGE1 = [
+    ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+    ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+    'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+  ];
+  const MEASURE = ['area:1', 'area:2', 'area:3', 'area:4', 'area:5', 'solid:1', 'solid:2', 'solid:3', 'solid:4', 'circle:1', 'circle:2', 'circle:3', 'circle:4', 'space:1', 'space:2'];
+  const STAGE2 = [...STAGE1, ...MEASURE];
+  it('has its fifteen stairs, each in the programme; on stage 1\'s stairs and its own: ז׳ 122/150, ח׳ 78/147, 67%', () => {
+    const have = new Set(ALL_SKILLS);
+    MEASURE.forEach((s) => expect(have.has(s), `${s} is gone`).toBe(true));
+    MEASURE.forEach((s) => expect(programmeStairs.has(s), `${s} is in no unit of shared/programme.js`).toBe(true));
+    const f7 = coverage('7', STAGE2); const f8 = coverage('8', STAGE2);
+    expect([f7.taught, f7.hours]).toEqual([122, 150]);
+    expect([f8.taught, f8.hours]).toEqual([78, 147]);
+    expect(Math.round((100 * (f7.taught + f8.taught)) / (f7.hours + f8.hours))).toBe(67);
+  });
+  it('the units it completes are taught whole in the live coverage, and no part waits for stage 2 any more', () => {
+    const c7 = coverageOf('7'); const c8 = coverageOf('8');
+    expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+    expect(c7.units.find((u) => u.id === '7.12')).toMatchObject({ taught: 10, state: 'yes' });
+    expect(c7.units.find((u) => u.id === '7.13')).toMatchObject({ taught: 9, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.4')).toMatchObject({ taught: 6, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.17')).toMatchObject({ taught: 6, state: 'yes' });
+    expect(PROGRAMME.units.flatMap((u) => u.parts.filter((p) => (p as { later?: string }).later === 'S2').map(() => u.id))).toEqual([]);
+  });
+  it('reads each area and solid stair in its own months (MEASURE-6.1): December, January, April, May', () => {
+    expect(['area:1', 'area:2', 'area:3', 'area:4', 'area:5'].map((s) => monthIndex(s, '7'))).toEqual([3, 3, 4, 7, 8]);
+    // the box in January, the prism in May
+    expect(['solid:1', 'solid:2', 'solid:3', 'solid:4'].map((s) => monthIndex(s, '7'))).toEqual([4, 4, 8, 8]);
+    // the circle, the disc and the cylinder in October, the cone in November
+    expect(['circle:1', 'circle:2', 'circle:3', 'circle:4'].map((s) => monthIndex(s, '8'))).toEqual([1, 1, 1, 2]);
+    // and Pythagoras in space in May, with no months of its own: its unit's (8.17)
+    expect(['space:1', 'space:2'].map((s) => monthIndex(s, '8'))).toEqual([8, 8]);
+    // a stair with no months of its own keeps its unit's: Pythagoras is March in ז׳ (7.14) and September in ח׳ (8.3)
+    expect(monthIndex('pyth:1', '7')).toBe(3);
+    expect(monthIndex('pyth:1', '8')).toBe(0);
+    expect(monthIndex('coord:4', '7')).toBe(1);
+  });
+});
+
+// Curriculum stage 4 (ח׳ geometry, GEOM-1): on stage 1's stairs and its own thirteen (transf:1-4: ז׳ 7.11 and, in the
+// transition year, ח׳ 8.5; congr:1-5: 8.12; sim:1-4: 8.13's second part, 13 hours, the first being angles:5's),
+// worker/test/coverage.test.js's stage-8 fixture: ז׳ 109 of 150 (73%), ח׳ 100 of 147 (68%), 70% together. The units it
+// completes are whole in the live coverage, and no part waits for stage 4 any more.
+describe('curriculum stage 4: the transformations, congruence, isosceles triangles and similarity', () => {
+  const STAGE1 = [
+    ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
+    ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
+    'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+  ];
+  const GEOM = [
+    'transf:1', 'transf:2', 'transf:3', 'transf:4',
+    // congruence, 8.12: whole with congr:5, the sides of a triangle (16 hours)
+    'congr:1', 'congr:2', 'congr:3', 'congr:4', 'congr:5',
+    // isosceles triangles and similarity, 8.13: its second part (13 hours) with sim:1-4; the first is angles:5's
+    'sim:1', 'sim:2', 'sim:3', 'sim:4',
+  ];
+  it('has its thirteen stairs, each in the programme; on stage 1\'s stairs and its own: ז׳ 109/150, ח׳ 100/147, 70%', () => {
+    GEOM.forEach((s) => expect(ALL_SKILLS, s).toContain(s));
+    GEOM.forEach((s) => expect(programmeStairs.has(s), `${s} is in no unit of shared/programme.js`).toBe(true));
+    const c7 = coverage('7', [...STAGE1, ...GEOM]); const c8 = coverage('8', [...STAGE1, ...GEOM]);
+    expect([c7.taught, c7.hours]).toEqual([109, 150]);
+    expect([c8.taught, c8.hours]).toEqual([100, 147]);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(70);
+    expect([c7.pct, c8.pct]).toEqual([73, 68]);
+  });
+  it('the units it completes are taught whole in the live coverage, and no part waits for stage 4 any more', () => {
+    const c7 = coverageOf('7'); const c8 = coverageOf('8');
+    expect(c8.units.find((u) => u.id === '8.13')).toMatchObject({ taught: 16, state: 'yes', stairs: ['angles:5', 'sim:1', 'sim:2', 'sim:3', 'sim:4'] });
+    expect(c8.units.find((u) => u.id === '8.12')).toMatchObject({ taught: 16, state: 'yes', stairs: ['congr:1', 'congr:2', 'congr:3', 'congr:4', 'congr:5'] });
+    expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+    expect(c7.units.find((u) => u.id === '7.11')).toMatchObject({ taught: 5, state: 'yes', stairs: ['transf:1', 'transf:2', 'transf:3', 'transf:4'] });
+    expect(c8.units.find((u) => u.id === '8.5')).toMatchObject({ taught: 5, state: 'yes', stairs: ['transf:1', 'transf:2', 'transf:3', 'transf:4'] });
+    expect(PROGRAMME.units.flatMap((u) => u.parts.filter((p) => (p as { later?: string }).later === 'S4').map(() => u.id))).toEqual([]);
+  });
+});
+
+describe('coverage, bound to the stairs this build has', () => {
+  it('counts every hour of both schedules, and only taught hours as taught', () => {
+    const c7 = coverageOf('7'); const c8 = coverageOf('8');
+    expect([c7.hours, c8.hours]).toEqual([150, 147]);
+    for (const c of [c7, c8]) {
+      expect(c.taught).toBeGreaterThan(0);
+      expect(c.taught).toBeLessThanOrEqual(c.hours);
+      expect(c.pct).toBe(Math.round((100 * c.taught) / c.hours));
+      expect(c.taught).toBe(c.units.reduce((a, u) => a + u.taught, 0));
+      c.units.forEach((u) => {
+        expect(u.state).toBe(u.taught === u.hours ? 'yes' : u.taught === 0 ? 'no' : 'part');
+        u.stairs.forEach((s) => expect(ALL_SKILLS).toContain(s)); // only stairs that exist become links
+        expect(u.missing.length > 0).toBe(u.state !== 'yes');
+      });
+    }
+  });
+  it('a missing part promises a stage only when it names one, and the next stage is a real one', () => {
+    expect(['S2', 'S3', 'S4', 'S5']).toContain(ROADMAP_NEXT);
+    for (const g of ['7', '8'] as const) {
+      coverageOf(g).units.flatMap((u) => u.parts).filter((p) => !p.taught).forEach((p) => {
+        // a part whose stairs are listed but not built yet promises nothing; an empty part names its stage
+        if (p.skills.length) expect(p.later).toBeNull(); else expect(['S2', 'S3', 'S4', 'S5']).toContain(p.later);
+      });
+    }
+  });
+});
+
+describe('the "not yet" list (AI-5\'s rules, checked here until shared/stairs.js exists)', () => {
+  const titles = new Set<string>(TOPICS.flatMap((t) => [t.title, ...t.levels.map((l: { title: string }) => l.title)]));
+  it('has the keys 7 and 8, each a list of non-empty strings without repeats', () => {
+    const NOT_YET = { '7': notYetOf('7'), '8': notYetOf('8') };
+    expect(Object.keys(NOT_YET)).toEqual(['7', '8']);
+    // ז׳ waits for one part (measuring angles, angles:8); ח׳'s programme is taught whole since curriculum stage 4
+    expect(NOT_YET['7']).toEqual(['מדידה ואומדן של זוויות']);
+    expect(NOT_YET['8']).toEqual([]);
+    Object.values(NOT_YET).forEach((list) => {
+      list.forEach((s) => expect(typeof s === 'string' && s.trim().length > 0).toBe(true));
+      expect(new Set(list).size).toBe(list.length);
+    });
+  });
+  it('never names a topic or a stair the app teaches', () => {
+    expect(titles.size).toBeGreaterThan(ALL_SKILLS.length / 2);
+    [...notYetOf('7'), ...notYetOf('8')].forEach((s) => expect(titles.has(s), `"${s}" is both taught and not yet`).toBe(false));
+  });
+});
+
+describe('the school calendar', () => {
+  it('places a date in the school year: September 0 … June 9, the summer as June', () => {
+    expect(schoolMonth('2026-11-10')).toBe(2);
+    expect(schoolMonth('2027-07-15')).toBe(9);
+    expect(schoolMonth('2026-09-01')).toBe(0);
+    expect(schoolMonth('2027-06-01')).toBe(9);
+  });
+});

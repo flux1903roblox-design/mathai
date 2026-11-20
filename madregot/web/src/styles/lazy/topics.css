@@ -1,0 +1,70 @@
+/* Topics.jsx's own rules, out of the first-load stylesheets (COUNCIL2-20). Topics.jsx imports this file, so they load
+   with it. A rule is here only when the classes it needs are written by it, or by parts only it
+   loads (src/styles/lazy.test.js), and it keeps the order it had. */
+.qbar-light > i::after { content: none; }
+.qbar-light > i::before {
+  content: attr(data-text); position: absolute; inset-block: 0; inset-inline-start: 0; width: 100cqi;
+  text-align: center; font-size: 0.875rem; line-height: 1.7143; font-weight: 700; font-style: normal; font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: var(--on-brand);
+}
+.qbar-light .qbar-text { mix-blend-mode: normal; }
+.qbar-light { background: var(--track); }
+.qbar-light > i { background: var(--brand); }
+.qbar-light .qbar-text { color: var(--ink); }
+.qbar-light { height: 24px; container-type: inline-size; }
+.qbar-light > i { z-index: 1; overflow: hidden; }
+.qbar-light .qbar-text { font-size: 0.875rem; line-height: 1.7143; white-space: nowrap; }
+.board-hero { display: flex; align-items: center; gap: var(--s3); }
+.board-hero-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.board-level { font-size: var(--t-md); line-height: var(--lh-md); color: var(--ink-2); }
+/* the grade as one long track: each topic is a segment as long as its stairs */
+.board-topics { list-style: none; margin: 0; padding: 0; border: 2px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
+.board-topic + .board-topic { border-top: 2px solid var(--rule); }
+.board-gaps { margin: 0 var(--s3) var(--s3); padding: var(--s3); border-radius: var(--r-md); background: var(--ground); }
+.gap-list { list-style: none; margin: 0; padding: 0; }
+.gap-text { display: flex; flex-direction: column; gap: 2px; font-weight: 500; }
+.gap-meta { font-size: var(--t-xs); line-height: var(--lh-xs); color: var(--ink-2); font-weight: 400; }
+.gap-more { font-size: var(--t-sm); color: var(--ink-2); }
+.board-cleared { display: flex; align-items: center; gap: var(--s2); margin: 0 var(--s4) var(--s3); font-size: var(--t-sm); font-weight: 600; color: var(--good-ink); }
+.board-foot { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s3); }
+.board-link { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; color: var(--brand-d); font-weight: 600; text-underline-offset: 3px; }
+.mastery-map { display: flex; flex-direction: column; }
+.mm-topic { flex: 0 0 96px; font-size: var(--t-sm); font-weight: 700; color: var(--c-ink); }
+.mm-tiles { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; }
+.mm-tile {
+  display: grid; place-items: center; text-decoration: none; font-family: var(--font-display); font-weight: 700; font-size: var(--t-sm);
+  border: 2px solid var(--rule-strong); background: var(--surface); color: var(--ink-2); box-shadow: 0 2px 0 var(--rule-press);
+}
+.mm-tile.ms-mastered, .mm-swatch.ms-mastered { background: var(--c, var(--good)); border-color: var(--c-d, var(--good-d)); color: var(--on-brand); box-shadow: 0 2px 0 var(--c-d, var(--good-d)); }
+.mm-tile.ms-practicing, .mm-tile.ms-learning, .mm-swatch.ms-practicing { background: linear-gradient(0deg, color-mix(in srgb, var(--c, var(--brand)) 45%, var(--surface)) 50%, var(--surface) 50%); border-color: color-mix(in srgb, var(--c, var(--brand)) 55%, var(--paper)); color: var(--c-ink, var(--brand-d)); }
+.mm-tile.ms-needs-review, .mm-swatch.ms-needs-review { background: var(--gold-tint); border-color: var(--gold); color: var(--gold-ink); border-style: dashed; }
+.mm-tile.ms-needs-support, .mm-swatch.ms-needs-support { background: var(--bad-tint); border-color: var(--bad-line); color: var(--bad-ink); }
+.mm-legend { list-style: none; margin: var(--s1) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); font-size: var(--t-xs); color: var(--ink-2); }
+.mm-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid var(--rule-strong); --c: var(--good); --c-d: var(--good-d); }
+@media (max-width: 360px) {
+  .mm-topic { flex-basis: 72px; }
+}
+/* the mastery snapshot, under the path */
+.mastery-map { padding: var(--s4); gap: var(--s3); }
+.mm-tile { border-radius: 11px; }
+.section-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
+.section-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.section-card-label { margin: 0; }
+.section-card-desc { margin: 0; }
+.section-card-actions { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); }
+.section-card-guide { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; text-decoration: none; }
+.section-card-art { flex: none; align-self: center; }
+/* ---- topics: the units not being climbed jump there quietly */
+.section-card-jump { min-height: 44px; padding: 0 var(--s2); border: 0; background: none; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.section-card-label { color: var(--ink-2); font-size: 0.9375rem; font-weight: 500; }
+.section-card-desc { color: var(--ink-2); font-size: 1rem; line-height: 1.5; }
+.section-card-guide, .section-card-jump { color: var(--brand-d); }
+.section-card-now { margin: 0; font-size: 0.9375rem; line-height: 1.4667; font-weight: 500; color: var(--ink-2); }
+.board .board-topic { padding-top: var(--s3); }
+.board .board-topic > .board-cleared:first-child { margin-top: 0; }
+.mm-tile { width: 44px; height: 44px; }
+.mm-tiles { gap: 6px; }
+/* the topics screen: a unit's challenges, once one is open */
+.section-card-ch { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0; font-size: 0.9375rem; line-height: 1.4667; font-weight: 600; color: var(--ink-2); }
+a.section-card-ch { color: var(--brand-d); text-decoration: none; }
+a.section-card-ch:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }

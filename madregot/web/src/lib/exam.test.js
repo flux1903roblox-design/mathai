@@ -1,0 +1,264 @@
+import { describe, it, expect } from 'vitest';
+import { scoreOf, makePracticeExam, weakTopics, focusLevel } from './exam.js';
+import { TOPIC } from '@/content/index.js';
+import { readAnswer } from '@/content/index.js';
+import { vi, afterEach } from 'vitest';
+import { makeClassExam, freezeItem, thawItem, examKey, classExamTitle, CLASS_EXAM_LENGTHS } from './exam.js';
+import { isCorrect, fairForCheck, roundedLength, answerInput } from '@/content/index.js';
+import { ALL_SKILLS, parseSkill } from '@/learn/skills.ts';
+import { itemFor } from '@/learn/items.ts';
+// the server's own validator: a class exam the app makes is one the Worker keeps as it is
+import { cleanExamItems } from '../../../worker/src/assignments.js';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { KeyAnswer } from '@/screens/PracticeExam.jsx';
+// the rules of the objects the app loads after the first screen (content/late.js): a practice exam prints their answers
+// too (the grid shapes of the areas, the nets of the boxes and prisms)
+import '@/content/grid.js';
+import '@/content/net.js';
+
+// every question the generators make while this file runs, so a test can see what a printed exam was drawn from (the
+// printed copy keeps no practiceOnly flag): makeItem is the content's own, only recorded
+const made = vi.hoisted(() => []);
+vi.mock('@/content/index.js', async (importOriginal) => {
+  const real = await importOriginal();
+  return { ...real, makeItem: (...args) => { const it = real.makeItem(...args); made.push(it); return it; } };
+});
+
+describe('exam', () => {
+  it('scores partial answers as half', () => {
+    expect(scoreOf({ questions: [{ status: 'correct' }, { status: 'partial' }, { status: 'wrong' }, { status: 'missing' }] })).toEqual({ correct: 1.5, total: 4, pct: 38 });
+    expect(scoreOf({ questions: [] }).pct).toBe(0);
+  });
+  it('builds a practice exam with exact answers, spread over the topics', () => {
+    const items = makePracticeExam(['line', 'pyth'], 8, { line: { level: 6 } });
+    expect(items).toHaveLength(8);
+    expect(new Set(items.map((i) => i.key)).size).toBe(8);
+    expect(items.filter((i) => i.topic === 'line')).toHaveLength(4);
+    for (const i of items) {
+      expect(i.answer).toBeTruthy();
+      expect(i.level).toBeGreaterThanOrEqual(1);
+      expect(i.level).toBeLessThanOrEqual(TOPIC[i.topic].levels.length);
+      expect(() => JSON.stringify(i)).not.toThrow();
+    }
+    expect(makePracticeExam(['nope'], 5)).toEqual([]);
+  });
+  it('a printed practice exam has no practice-only question and nothing dragged on the screen (council2, GEOM-1 Tests)', () => {
+    // coord, ratio and frac have practice-only choices and dragged objects (coord:2 is mostly dragging); transf has its
+    // practice-only transform object and choices (GEOM-4), congr its proofs and choices (GEOM-5), and sim its proofs and
+    // choices too (GEOM-6)
+    const topics = ['coord', 'ratio', 'frac', 'transf', 'congr', 'sim'];
+    made.length = 0;
+    const items = makePracticeExam(topics, 40);
+    expect(items).toHaveLength(40);
+    expect(new Set(items.map((i) => i.topic))).toEqual(new Set(topics.filter((id) => TOPIC[id])));
+    // the generators did offer both kinds, so the filter was tried, not passed for nothing
+    expect(made.some((it) => it.practiceOnly)).toBe(true);
+    expect(made.some((it) => it.form === 'manip')).toBe(true);
+    const keys = new Set(items.map((i) => i.key));
+    for (const it of made.filter((m) => keys.has(m.key))) {
+      expect(it.practiceOnly, it.key).toBeFalsy();
+      expect(it.form, it.key).not.toBe('manip');
+      expect(fairForCheck(it), it.key).toBe(true);
+    }
+    for (const i of items) expect(i.form, i.key).not.toBe('manip');
+  });
+  it('ranks weak topics from exams and practice mistakes', () => {
+    const exams = [{ result: { questions: [
+      { topic: 'line', status: 'wrong', skill: 'שיפוע' }, { topic: 'line', status: 'partial', skill: 'חיתוך עם ציר x' },
+      { topic: 'pyth', status: 'correct' }, { topic: 'other', status: 'wrong' },
+    ] } }];
+    const w = weakTopics({ exams, mistakes: { 'stats:mode-max': 2, 'line:sign': 1 } });
+    expect(w.map((x) => x.topic)).toEqual(['line', 'stats']);
+    expect(w[0].examLost).toBe(1.5);
+    expect(w[0].skills).toContain('שיפוע');
+  });
+  it('reads the level where the exam lost points', () => {
+    const exams = [{ at: '2026-11-01T10:00:00.000Z', result: { questions: [
+      { topic: 'line', status: 'wrong', level: 6, skill: 'חיתוך עם הצירים' },
+      { topic: 'line', status: 'partial', level: 4 },
+      { topic: 'line', status: 'correct', level: 2 },
+    ] } }];
+    expect(focusLevel('line', exams)).toBe(6);
+    expect(focusLevel('pyth', exams)).toBe(null);
+    expect(focusLevel('nope', exams)).toBe(null);
+  });
+});
+
+describe('typed answers', () => {
+  it('reads typed answers', () => {
+    const it2 = { form: 'pt' };
+    expect(readAnswer(it2, { x: '−2.5', y: '0' })).toEqual([-2.5, 0]);
+    expect(readAnswer({ form: 'line' }, { m: '3/4', b: '-2' })).toEqual({ m: 0.75, b: -2 });
+    expect(readAnswer({ form: 'num' }, { v: '' })).toBeNull();
+  });
+});
+
+// The teacher's class exam (spec TEACHER-3 §1): questions from the app's own generators, frozen as plain JSON that the
+// server keeps (worker/src/assignments.js cleanExamItems) and the app grades again after a round trip.
+/** A small seeded generator (mulberry32), so a run can be repeated. */
+const seeded = (seed) => { let t = seed >>> 0; return () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; };
+
+afterEach(() => { vi.restoreAllMocks(); });
+
+describe('class exam', () => {
+  it('1. every stair (algebra included) gives printable questions at its own level, or is named as skipped', () => {
+    for (const t of ['expr', 'eq', 'sys']) expect(ALL_SKILLS.some((s) => s.startsWith(`${t}:`))).toBe(true);
+    for (const skill of ALL_SKILLS) {
+      const { items, skipped } = makeClassExam([skill], 4);
+      expect(items.length > 0 || skipped.includes(skill), skill).toBe(true);
+      const { topic, level } = parseSkill(skill);
+      for (const it of items) {
+        expect(it.form, skill).not.toBe('manip');
+        expect(it).toMatchObject({ topic, level });
+        if (it.topic === 'signed') expect(fairForCheck(thawItem(it)), it.key).toBe(true);
+        expect(it.key.length).toBeLessThanOrEqual(80);
+      }
+    }
+  });
+
+  it('2. a frozen question is plain JSON: a round trip changes nothing, and no function is left', () => {
+    for (const skill of ALL_SKILLS) {
+      for (const it of makeClassExam([skill], 3).items) {
+        expect(JSON.parse(JSON.stringify(it))).toEqual(it);
+        expect(Object.values(it).some((v) => typeof v === 'function')).toBe(false);
+        // the base fields, and the curriculum's checking flags only when the question has them
+        // (and an answer with π: the TeX after its slot, or the multiple of π a 3.14 answer is)
+        const flags = ['askDec', 'fmt', 'precise', 'reduced', 'after', 'pk'];
+        expect(Object.keys(it).filter((k) => !flags.includes(k)).sort()).toEqual(['answer', 'answerText', 'choices', 'display', 'exact', 'fig', 'form', 'hint', 'key', 'label', 'level', 'levelTitle', 'solution', 'text', 'topic', 'unit', 'var'].sort());
+      }
+    }
+    const thawed = thawItem(makeClassExam(['signed:3'], 1).items[0]);
+    expect(thawed.diag(5)).toBe(null);
+  });
+
+  it('3. its own answer is right after freezing, on 200 random draws over every stair', () => {
+    for (let i = 0; i < 200; i += 1) {
+      const skill = ALL_SKILLS[Math.floor(Math.random() * ALL_SKILLS.length)];
+      const [it] = makeClassExam([skill], 1).items;
+      // the right answer as the student types it (a fraction as its numerator and denominator: the curriculum's frac form)
+      expect(isCorrect(thawItem(it), answerInput(thawItem(JSON.parse(JSON.stringify(it))))), `${skill} ${it.key}`).toBe(true);
+      expect(it.answerText.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('4. a rounded length keeps its exact value: 7.07 for √50 is right after freezing, as before', () => {
+    let roots = 0;
+    for (const skill of ALL_SKILLS.filter((s) => s.startsWith('pyth:'))) {
+      for (let i = 0; i < 120; i += 1) {
+        const raw = itemFor(skill, 'gen', Math.random, undefined, undefined, { test: true });
+        if (raw.form !== 'num' || !roundedLength(raw)) continue;
+        roots += 1;
+        const it = freezeItem(raw);
+        const close = Number(it.exact.toFixed(2));
+        expect(isCorrect(raw, close)).toBe(true);
+        expect(isCorrect(thawItem(JSON.parse(JSON.stringify(it))), close), it.key).toBe(true);
+      }
+    }
+    expect(roots).toBeGreaterThan(20);
+    // √50 itself: 7.1 and 7.07 are right, 7 is not
+    const sqrt50 = thawItem(freezeItem({ key: 'py1:1:7', topic: 'pyth', level: 1, levelTitle: '', text: 't', form: 'num', answer: 7.1, exact: Math.sqrt(50), solution: [], hint: '' }));
+    expect([isCorrect(sqrt50, 7.07), isCorrect(sqrt50, 7.1), isCorrect(sqrt50, 7)]).toEqual([true, true, false]);
+  });
+
+  it('5. an expression keeps its letter and its {k, c} answer', () => {
+    let lin = 0;
+    for (const skill of ALL_SKILLS.filter((s) => s.startsWith('expr:') || s.startsWith('eq:'))) {
+      for (const it of makeClassExam([skill], 14).items.filter((x) => x.form === 'lin')) {
+        lin += 1;
+        expect(it.var).toMatch(/^[A-Za-z]$/);
+        expect(Number.isFinite(it.answer.k) && Number.isFinite(it.answer.c)).toBe(true);
+        expect(isCorrect(thawItem(it), { k: it.answer.k, c: it.answer.c })).toBe(true);
+      }
+    }
+    expect(lin).toBeGreaterThan(5);
+    const n = freezeItem({ key: 'ex2l', topic: 'expr', level: 2, text: 't', form: 'lin', var: 'n', answer: { k: 3, c: 1 }, solution: [], hint: '' });
+    expect(n).toMatchObject({ var: 'n', answer: { k: 3, c: 1 }, answerText: '3n + 1' });
+  });
+
+  it('6. questions go round-robin over the stairs: 14 over 2 stairs is 7 each', () => {
+    const { items } = makeClassExam(['signed:3', 'pyth:2'], 14);
+    expect(items).toHaveLength(14);
+    expect(items.filter((x) => x.topic === 'signed')).toHaveLength(7);
+    expect(items.filter((x) => x.topic === 'pyth')).toHaveLength(7);
+    expect(items.map((x) => x.topic).slice(0, 4)).toEqual(['signed', 'pyth', 'signed', 'pyth']);
+    expect(CLASS_EXAM_LENGTHS).toEqual([6, 10, 14]);
+    expect(makeClassExam(['nope:1', 'signed:99'], 6)).toEqual({ items: [], skipped: [] });
+  });
+
+  it('7. version ב avoids version א\'s keys (a seeded run)', () => {
+    vi.spyOn(Math, 'random').mockImplementation(seeded(424242));
+    const a = makeClassExam(['signed:2', 'coord:3'], 14);
+    const b = makeClassExam(['signed:2', 'coord:3'], 14, { avoid: a.items.map((x) => x.key) });
+    expect(a.items).toHaveLength(14); expect(b.items).toHaveLength(14);
+    const keysA = new Set(a.items.map((x) => x.key));
+    expect(b.items.filter((x) => keysA.has(x.key))).toEqual([]);
+    expect(new Set(b.items.map((x) => x.key)).size).toBe(14); // and no question twice in one version
+  });
+
+  it('every question the builder makes is one the server keeps as it is, and a long exam fits its limit', () => {
+    for (const skill of ALL_SKILLS) {
+      const { items } = makeClassExam([skill], 6);
+      if (!items.length) continue;
+      expect(JSON.parse(cleanExamItems(items)), skill).toEqual(items);
+    }
+    const big = makeClassExam(['sys:5', 'sys:3', 'eq:5', 'coord:4', 'expr:2', 'pyth:3', 'sys:4'], 14).items;
+    expect(big).toHaveLength(14);
+    expect(() => cleanExamItems(big)).not.toThrow();
+  });
+
+  it('a key longer than the server\'s 80 characters is cut and ends in its hash, the same every time', () => {
+    const long = `ex2w:${'א'.repeat(90)}`;
+    expect(examKey(long)).toHaveLength(73);
+    expect(examKey(long)).toBe(examKey(long));
+    expect(examKey(`${long}ב`)).not.toBe(examKey(long));
+    expect(examKey('sn1:3')).toBe('sn1:3');
+  });
+
+  it('the title names the stairs\' topics', () => {
+    expect(classExamTitle(['signed:2', 'signed:3', 'coord:1'])).toBe('מבחן תרגול: מספרים מכוונים, מערכת צירים');
+  });
+});
+
+// ---------------------------------------------------------------- answers with π on exams (stage 2, MEASURE-1 item 4)
+// No topic has π questions yet: the questions here are fixtures, with after/pk set by hand.
+describe('a π answer keeps its form on every exam', () => {
+  const withPi = { key: 'ci:a', topic: 'pyth', level: 1, levelTitle: '', text: 'מה שטח עיגול שרדיוסו $5$? כתבו בעזרת $\\pi$.', form: 'num', answer: 25, after: '\\pi', unit: 'סמ״ר', solution: [], hint: '' };
+  const with314 = { key: 'ci:b', topic: 'pyth', level: 1, levelTitle: '', text: 'חשבו עם $\\pi \\approx 3.14$ ועגלו לעשירית.', form: 'num', answer: 62.8, pk: 20, unit: 'ס״מ', solution: [], hint: '' };
+
+  it('the class exam copies after and pk beside label and unit, and grades them after the server\'s round trip', () => {
+    const a = freezeItem(withPi); const b = freezeItem(with314);
+    expect(a).toMatchObject({ after: '\\pi', unit: 'סמ״ר', answer: 25, answerText: '25π' });
+    expect(a.pk).toBeUndefined();
+    expect(b).toMatchObject({ pk: 20, unit: 'ס״מ', answer: 62.8, answerText: '62.8' });
+    expect(b.after).toBeUndefined();
+    // the server keeps both fields as they are
+    const kept = JSON.parse(cleanExamItems([a, b]));
+    expect(kept).toEqual([a, b]);
+    const [ta, tb] = kept.map(thawItem);
+    expect([isCorrect(ta, 25), isCorrect(ta, 78.5)]).toEqual([true, false]);
+    expect([isCorrect(tb, 62.8), isCorrect(tb, 62.83), isCorrect(tb, 63)]).toEqual([true, true, false]);
+    // a number with no π form has neither field
+    const plain = freezeItem({ ...withPi, after: undefined });
+    expect('after' in plain || 'pk' in plain).toBe(false);
+    // an after or pk on anything but a number is refused by the server
+    expect(() => cleanExamItems([{ ...a, form: 'mc', choices: [{ text: 'א' }, { text: 'ב' }], answer: 0 }])).toThrow();
+    expect(() => cleanExamItems([{ ...b, pk: 'twenty' }])).toThrow();
+  });
+
+  it('the practice exam keeps them too, and its key writes 25π and 62.8', () => {
+    // a fixture topic in place of the circle topic, which a later stage adds
+    TOPIC.circle = { id: 'circle', title: 'מעגל', levels: [{ title: 'שטח עיגול', gen: () => ({ key: `c:${Math.random()}`, text: withPi.text, form: 'num', answer: 25, after: '\\pi', unit: 'סמ״ר', diag: () => null, solution: [], hint: '' }) }] };
+    try {
+      const [it] = makePracticeExam(['circle'], 1);
+      expect(it).toMatchObject({ after: '\\pi', unit: 'סמ״ר', answer: '25π' });
+      expect(it.plain).toContain('[התשובה בצורה □π]');
+      expect(renderToStaticMarkup(createElement(KeyAnswer, { it }))).toContain('25π');
+      TOPIC.circle.levels[0].gen = () => ({ key: `c:${Math.random()}`, text: with314.text, form: 'num', answer: 62.8, pk: 20, diag: () => null, solution: [], hint: '' });
+      const [k] = makePracticeExam(['circle'], 1);
+      expect(k).toMatchObject({ pk: 20, answer: '62.8' });
+    } finally {
+      delete TOPIC.circle;
+    }
+  });
+});

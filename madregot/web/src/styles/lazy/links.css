@@ -1,0 +1,15 @@
+/* #/a/<id>: a shared assignment link (COUNCIL2-35, screens/AssignmentOpen.jsx). The work's card, the join form, and
+   one line with one way on. Loaded with its screen. */
+.al-main { gap: var(--s4); }
+.al-wait { display: flex; flex-direction: column; align-items: center; gap: var(--s3); margin: var(--s8) 0 0; color: var(--ink-2); font-size: var(--t-base); line-height: var(--lh-base); text-align: center; }
+.al-card { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s4); border: 1px solid var(--rule); border-bottom: var(--lip) solid var(--rule-press); border-radius: var(--r-md); background: var(--surface); }
+.al-kind { margin: 0; color: var(--brand-ink); font-size: var(--t-sm); line-height: var(--lh-sm); font-weight: 700; }
+.al-name { margin: 0; color: var(--ink); font-size: var(--t-lg); line-height: var(--lh-lg); font-weight: 800; overflow-wrap: anywhere; }
+.al-meta { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.al-join { display: flex; flex-direction: column; gap: var(--s3); }
+.al-head { margin: var(--s2) 0 0; color: var(--ink); font-size: var(--t-md); line-height: var(--lh-md); font-weight: 800; }
+.al-lead { margin: 0; color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); }
+.al-note { margin: 0; padding: var(--s3) var(--s4); border-radius: var(--r-sm); background: var(--gold-tint); color: var(--gold-ink); font-size: var(--t-base); line-height: var(--lh-base); }
+.al-say { display: flex; flex-direction: column; align-items: center; gap: var(--s4); text-align: center; }
+.al-say .btn { margin-inline: 0; }
+.al-join .btn { margin-inline: 0; }

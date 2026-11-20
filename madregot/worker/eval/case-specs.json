@@ -1,0 +1,1705 @@
+{
+  "about": "Synthetic student situations for the tutor evaluation (ai spec AI-7, Appendix E). Hand-written; no real student data. web/src/learn/evalCases.test.ts turns each one into a full app context with the app's own items and builder, and writes cases.json (WRITE_EVAL_CASES=1). It fails when a wrong value no longer diagnoses as 'expect' says. Fields: skill and source ('diag' | 'transfer' with the model's params, or 'gen' with the generator item's key); wrong: the student's answers, in order; phase: answer | retry | reveal; surface 'assistant' for the student's own question (homework); messages: the chat, the student's turn last; learner: { open: [[skill, id, state]], recent: [right, asked], taught } (default: 6 of 10, taught A-C); expect.first: what the app says about the first wrong answer; expect.candidate: the value a student asks to have confirmed; expect.describe: what a good reply does, for the judge. Category G (kind generate): a stair whose own exercises the tutor rewrites (count, plus 2 spare seeds drawn with the seeded stream rnd); expect.passShare: the share of stories that must pass the code checks, in the mean over the repetitions. Category F (kind feedback, ai spec AI-10): a finished challenge task (challenge: story, prompt, rubric and sample, as a challenge screen holds them), the student's own explanation (text), and per rubric point the status a teacher gives it (expect.points), with, for yes and partly, the student's words that show it (each a substring of text); its tip and the summary make the stub's good reply.",
+  "cases": [
+    {
+      "id": "D1-signed1-gen-minusminus", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "signed:1", "source": "gen", "key": "sn1:3 - (-5)", "wrong": [-2, 4], "phase": "reveal",
+      "learner": { "open": [["signed:1", "minus-minus", "confirmed"]], "recent": [5, 10] }, "cats": { "minus-minus": 2 },
+      "expect": { "first": "misconception", "diagnosis": "minus-minus", "maxWords": 130,
+        "describe": "Names the app's diagnosis: subtracting a negative number was treated like subtracting a positive one. Explains with the number line that adding -5 moves left, so subtracting -5 (which undoes it) moves right: 3 - (-5) = 3 + 5. Ends at 8. Names no other mistake." },
+      "tags": ["signed", "generator", "appendix-e"]
+    },
+    {
+      "id": "D1-signed1-dropsign", "cat": "D1", "kind": "explain", "shapes": ["full", "lite", "economy"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": 3, "s": 1 }, "wrong": [7, 5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "drop-sign", "maxWords": 130,
+        "describe": "Names that the minus of the first number was ignored: the first number is where you start, and -4 is four steps left of zero. From there adding 3 moves 3 steps right. Ends at -1." },
+      "tags": ["signed", "appendix-e"]
+    },
+    {
+      "id": "D1-signed3-sign", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "signed:3", "source": "diag", "params": { "f": 1, "a": -42, "b": 6, "c": 1 }, "wrong": [7, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "sign", "maxWords": 130,
+        "describe": "Says the size 7 was right and only the sign came out reversed. The sign is decided first: different signs give a negative quotient, as in multiplication (check by multiplying back: -7 times 6 is -42). Ends at -7." },
+      "tags": ["signed"]
+    },
+    {
+      "id": "D1-signed4-order", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "signed:4", "source": "diag", "params": { "f": 0, "a": -3, "b": 1, "c": -5, "s": -1 }, "wrong": [20, 39], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "order", "maxWords": 130,
+        "describe": "Names working left to right without doing the multiplication first. The product 1 times (-5) is a package computed first with its sign (-5); what is left is -3 - (-5) = -3 + 5. Ends at 2." },
+      "tags": ["signed"]
+    },
+    {
+      "id": "D1-coord2-quadorder", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "coord:2", "source": "diag", "params": { "k": 3, "x": -7, "y": 5, "t": 2, "pts": [], "ask": 1 }, "wrong": [-5, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "quad-order", "maxWords": 130,
+        "describe": "Names numbering the quadrants clockwise. Quadrants are numbered counter-clockwise from the top right, so the second quadrant is top left: x negative, y positive. The y-coordinate is 5." },
+      "tags": ["coord", "appendix-e"]
+    },
+    {
+      "id": "D1-coord3-addcoords", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "coord:3", "source": "diag", "params": { "h": 1, "f": -1, "p": 1, "q": -6 }, "wrong": [5, 44], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "add-coords", "maxWords": 130,
+        "describe": "Names subtracting the numbers without their signs when the segment crosses an axis. From -6 to 0 is 6 steps and from 0 to 1 one more: the length is 1 - (-6) = 7." },
+      "tags": ["coord"]
+    },
+    {
+      "id": "D1-angles1-equalnotsupp", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "angles:1", "source": "diag", "params": { "k": 0, "a": 105, "b": 0 }, "wrong": [105, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equal-not-supp", "maxWords": 130,
+        "describe": "Names answering that the adjacent angle equals the given one. Adjacent angles together fill a straight line, 180 degrees: what one gains the other loses, so the other is 180 - 105 = 75." },
+      "tags": ["angles"]
+    },
+    {
+      "id": "D1-angles4-suppnotequal", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "angles:4", "source": "diag", "params": { "k": 0, "a": 95 }, "wrong": [85, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "supp-not-equal", "maxWords": 130,
+        "describe": "Names completing to 180 when corresponding angles are equal. Sliding one parallel line along the transversal onto the other carries the angle onto its corresponding angle, so it is 95 degrees." },
+      "tags": ["angles", "appendix-e"]
+    },
+    {
+      "id": "D1-angles5-forgothalf", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "angles:5", "source": "diag", "params": { "k": 0, "a": 100, "b": 0 }, "wrong": [80, 25], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "forgot-half", "maxWords": 130,
+        "describe": "Names forgetting to split between the two base angles. The triangle folds onto itself, so the base angles are equal; together they are 180 - 100 = 80, so each is 40." },
+      "tags": ["angles"]
+    },
+    {
+      "id": "D1-expr1-concat", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "expr:1", "source": "diag", "params": { "f": 0, "a": 3, "b": 5, "x": 4 }, "wrong": [39, 99], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "concat", "maxWords": 130,
+        "describe": "Names reading 3x with x = 4 as the two-digit number 34. 3x means 3 times x: write the multiplication sign when substituting, 5 + 3 times 4, multiplication first: 5 + 12 = 17." },
+      "tags": ["expr", "algebra", "appendix-e"]
+    },
+    {
+      "id": "D1-expr4-partialdist", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "expr:4", "source": "diag", "params": { "a": 5, "c": 3, "b": 7 }, "wrong": [7, 72], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "partial-dist", "maxWords": 130,
+        "describe": "Names multiplying only the first term in the brackets. The area rectangle of width 5 and length 3x + 7 has two parts, 5 times 3x and 5 times 7: the outside factor multiplies every term. The constant is 35." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "D1-eq1-movenoflip", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "eq:1", "source": "diag", "params": { "k": 0, "a": 5, "x": 7, "b": 12 }, "wrong": [17, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "move-no-flip", "maxWords": 130,
+        "describe": "Names that the 5 moved to the other side without the opposite operation. The balance: subtract 5 from both sides, x = 12 - 5 = 7. Check by substitution: 7 + 5 = 12." },
+      "tags": ["eq", "algebra", "appendix-e"]
+    },
+    {
+      "id": "D1-eq2-subcoef", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 6, "b": 1, "x": 7, "c": 43 }, "wrong": [36, 44], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "sub-coef", "maxWords": 130,
+        "describe": "Names subtracting the coefficient instead of dividing by it. 6x means 6 times x: subtract 1 from both sides (6x = 42), then divide both sides by 6: x = 7. Check by substitution." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq3-movexnoflip", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:3", "source": "diag", "params": { "a": 1, "b": 15, "c": 5, "d": 3, "x": 3 }, "wrong": [-2, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "move-x-no-flip", "maxWords": 130,
+        "describe": "Names that the x term moved to the other side without its sign changing. Take the same number of x's from both sides (subtract x): 15 = 4x + 3, then 12 = 4x, x = 3. Check by substitution." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-line2-mb", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "line:2", "source": "diag", "params": { "m": 4, "b": 3, "rev": 1, "ask": 1, "x1": -2, "x2": -1 }, "wrong": [4, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "m-b", "maxWords": 130,
+        "describe": "Names mixing up m and b. b is the start, the y at x = 0: in y = 3 + 4x it is the free number 3, whatever the order of the terms; m = 4 is the step, how much y rises per step right." },
+      "tags": ["line"]
+    },
+    {
+      "id": "D1-line4-inverse", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "line:4", "source": "diag", "params": { "x1": 3, "y1": -6, "x2": 1, "y2": 2 }, "wrong": [-0.25, 33], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "inverse", "maxWords": 130,
+        "describe": "Names dividing the x-difference by the y-difference (upside down). Slope is the staircase: rise over steps right, both from the same point: (2 - (-6)) over (1 - 3) is 8 over -2, so -4." },
+      "tags": ["line", "appendix-e"]
+    },
+    {
+      "id": "D1-line6-nodivide", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "line:6", "source": "diag", "params": { "m": 2, "b": -6, "ax": 0, "f": 0, "n": 2 }, "wrong": [6, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-divide", "maxWords": 130,
+        "describe": "Names stopping at 2x = 6 without dividing by m. On the x-axis the height is 0: 0 = 2x - 6, so 2x = 6 and x = 3." },
+      "tags": ["line"]
+    },
+    {
+      "id": "D1-pyth1-addlegs", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "pyth:1", "source": "diag", "params": { "a": 16, "b": 12, "c": 20 }, "wrong": [28, 57], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "add-legs", "maxWords": 130,
+        "describe": "Names adding the legs instead of the areas of the squares on them. The square on the hypotenuse equals the two squares on the legs together: 256 + 144 = 400, and the hypotenuse is its root, 20." },
+      "tags": ["pyth"]
+    },
+    {
+      "id": "D1-pyth2-addnotsub", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "pyth:2", "source": "diag", "params": { "a": 16, "b": 12, "c": 20 }, "wrong": [25.6, 49], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "add-not-sub", "maxWords": 130,
+        "describe": "Names adding squares as when finding a hypotenuse, though the hypotenuse is given. Its square is the whole: 400 - 256 = 144, and the leg is the root, 12. A leg is always shorter than the hypotenuse." },
+      "tags": ["pyth", "appendix-e"]
+    },
+    {
+      "id": "D1-stats2-unsorted", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:2", "source": "diag", "params": { "list": [11, 13, 12, 18, 11, 2, 11] }, "wrong": [18, 48], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "unsorted", "maxWords": 130,
+        "describe": "Names taking the middle without sorting first. Sorted: 2, 11, 11, 11, 12, 13, 18; the middle (fourth) value is 11." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats3-nodivide", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "stats:3", "source": "diag", "params": { "list": [12, 13, 10, 11] }, "wrong": [46, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-divide", "maxWords": 130,
+        "describe": "Names forgetting to divide by the number of values: 46 is all the values together. Levelling the bars: 46 divided by 4 is 11.5." },
+      "tags": ["stats", "appendix-e"]
+    },
+    {
+      "id": "D1-sys1-pctofnew", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
+      "skill": "sys:1", "source": "diag", "params": { "k": 0, "up": true, "p": 25, "x": 380, "N": 475, "n": 2 }, "wrong": [356.25, 417], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "pct-of-new", "maxWords": 130,
+        "describe": "Names taking the percent of the new price instead of the original. Call the original price x: 25% more is 1.25x, so 1.25x = 475 and x = 380. Check with the numbers: 25% of 380 is 95, and 380 + 95 = 475." },
+      "tags": ["sys", "algebra", "appendix-e"]
+    },
+    {
+      "id": "D1-sys3-minusbracket", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sys:3", "source": "diag",
+      "params": { "k": 0, "x": 5, "y": -5, "gone": "y", "mul": 1, "sub": true, "top": 1, "r1": [4, 1, 15], "r2": [3, 1, 10], "a1": 4, "a2": 3, "g1": 1, "g2": 1, "c1": 15, "c2": 10, "ask": 0 },
+      "wrong": [25, 42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "minus-bracket", "maxWords": 130,
+        "describe": "Names not subtracting the whole second equation. The y coefficients are equal, so subtract the second equation from the first, every term: (4x - 3x) + (y - y) = 15 - 10, so x = 5." },
+      "tags": ["sys", "algebra"]
+    },
+    {
+      "id": "D1-sys5-noflip", "cat": "D1", "kind": "explain", "shapes": ["full", "economy"],
+      "skill": "sys:5", "source": "diag",
+      "params": { "form": 0, "a": -4, "b": -10, "d": 0, "e": -24, "A": -4, "B": 3.5, "rel": "<", "sol": ">", "show": "-4x - 10 < -24", "minus": true, "list": [0, 1, 2, 3, 4, 5], "ask": "sum" },
+      "wrong": [6, 46], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-flip", "maxWords": 130,
+        "describe": "Names dividing by a negative number without reversing the inequality. Add 10: -4x < -14; dividing both sides by -4 reverses the direction: x > 3.5. Check with one number (4 works). Of 0 to 5 only 4 and 5 solve it; their sum is 9." },
+      "tags": ["sys", "algebra", "appendix-e"]
+    },
+
+    {
+      "id": "D1-frac1-count-marks", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "frac:1", "source": "diag", "params": { "d": 5, "L": 1, "k": 3 }, "wrong": [0.75, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-marks", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the marks were counted instead of the parts. Between 0 and 1 there are 4 marks inside, so 5 equal gaps; A is 3 gaps from 0, so the number is 3/5 and not 3/4. Ends at 3/5. Names no other mistake." },
+      "tags": ["frac", "bridge"]
+    },
+    {
+      "id": "D1-ratio2-reversed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "ratio:2", "source": "diag", "params": { "m": 9, "n": 7, "k": 7, "T": 112 }, "wrong": [49, 70], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "reversed-ratio", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the ratio was read in reverse, so Uri got Dan's share. 9 : 7 is 16 equal parts of 112 marbles, 7 in each part; Uri's 9 parts are 9 · 7 = 63, and Dan's 7 parts are 49. Ends at 63. Names no other mistake." },
+      "tags": ["ratio"]
+    },
+    {
+      "id": "D1-pct2-div-by-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "pct:2", "source": "diag", "params": { "p": 5, "N": 60 }, "wrong": [12, 6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "div-by-pct", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the amount was divided by the percent instead of taking hundredths of it. 5% of 60 is 5/100 of 60, which is 3 (10% is 6, and 5% is half of that), not 60 : 5 = 12. Ends at 3. Names no other mistake." },
+      "tags": ["pct"]
+    },
+    {
+      "id": "D1-area2-slant-as-height", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "area:2", "source": "diag", "params": { "b": 6, "h": 4, "d": 3, "s": 5, "out": 1 }, "wrong": [15, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "slant-as-height", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the slanted side AB = 5 was used as the height. The height to BC is the dashed 4, outside the triangle on the extension of BC and perpendicular to it, so the area is 6 · 4 / 2 = 12. Ends at 12. Names no other mistake." },
+      "tags": ["area"]
+    },
+    {
+      "id": "D1-solid1-three-faces", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "solid:1", "source": "diag", "params": { "a": 7, "b": 4, "c": 3 }, "wrong": [61, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "three-faces", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only three faces were counted, one of each pair. A box 7 by 4 by 3 has six faces in three equal pairs: 28 + 21 + 12 = 61 is one face of each pair, so the surface area is 2 · 61 = 122 cm². Ends at 122. Names no other mistake." },
+      "tags": ["solid"]
+    },
+    {
+      "id": "D1-circle4-slant-as-height", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "circle:4", "source": "diag", "params": { "r": 6, "h": 8, "l": 10 }, "wrong": [120, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "slant-as-height", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the slant height 10 was used as the height. The cone's height is the 8, from the vertex down to the centre of the base, at a right angle to it; the slant height is the hypotenuse of half the axial section. So the volume is π · 6² · 8 / 3 = 96π cm³, typed as 96 before π. Ends at 96π. Names no other mistake." },
+      "tags": ["circle"]
+    },
+    {
+      "id": "D1-space2-r-for-d", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "space:2", "source": "diag", "params": { "r": 3, "d": 6, "h": 8, "rod": 10 }, "wrong": [8.5, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "r-for-d", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the radius 3 was used as the width of the axial section. The axial section of a cylinder passes through the centre of the base, from rim to rim, so it is a rectangle of the diameter 6 by the height 8, and the longest rod is its diagonal: √(6² + 8²) = √100 = 10 cm. Ends at 10. Names no other mistake." },
+      "tags": ["space"]
+    },
+    {
+      "id": "D1-func1-count-squares", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "diag",
+      "params": { "sx": 5, "sy": 100, "a": 4, "b": 6, "c": 3, "e": 5, "t1": 20, "d1": 600, "t2": 35, "t3": 60, "pts": [[0, 0], [20, 600], [35, 600], [60, 0]], "q": 0 },
+      "wrong": [3, 250], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-squares", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the squares were counted and not multiplied by the size of each square. After 10 minutes Maya was halfway up the first climb, three squares above the x axis; each square up is 100 metres (the axis writes a number on every second line), so 3 · 100 = 300. Ends at 300. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func1-end-for-duration", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "diag",
+      "params": { "sx": 2, "sy": 50, "a": 2, "b": 6, "c": 5, "e": 3, "t1": 4, "d1": 300, "t2": 14, "t3": 20, "pts": [[0, 0], [4, 300], [14, 300], [20, 0]], "q": 1 },
+      "wrong": [14, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "end-for-duration", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the moment the stop ended was given instead of how long it lasted. Noa stood still while the line is flat, from minute 4 to minute 14 (each square across is 2 minutes); a duration is the difference of two moments, 14 - 4 = 10. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func1-value-not-change", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "transfer",
+      "params": { "k": 4, "temps": [12, 15, 18, 22, 24, 21, 18, 16], "hours": [6, 8, 10, 12, 14, 16, 18, 20], "q": 0, "i": 1, "j": 3 },
+      "wrong": [22, 9], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "value-not-change", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the temperature at the end was given instead of how much it rose. At 8:00 it was 15 degrees and at 12:00 it was 22; it rose by the difference, 22 - 15 = 7 degrees. Ends at 7. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func1-graph-picture", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "gen", "key": "fu1f:2:200:4:400:6:12", "wrong": [2, 1], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "graph-picture", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the graph was read as a picture of the way. The graph shows distance from home by time, not the ground; between minute 4 and minute 6 the distance stays 400 metres, so Maya stood still. Ends at the choice that she stood still. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-forgot-b", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "diag", "params": { "m": 7, "b": 5, "x": 4, "y": 33, "q": 0 }, "wrong": [28, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "forgot-b", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the fixed part was left out. The price of a night refuel is y = 7x + 5: 7 shekels for each litre and 5 shekels once a refuel, so 4 litres cost 7 · 4 + 5 = 33, not only 7 · 4 = 28. Ends at 33. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-forward", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "diag", "params": { "m": 7, "b": 5, "x": 10, "y": 75, "q": 1 }, "wrong": [530, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "forward", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the value of the function was put in for x. 75 shekels is the price, the y of y = 7x + 5, and the question asks for the litres, x: 7x + 5 = 75, so 7x = 70 and x = 10. Putting 75 in for x gives the price of 75 litres. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-order-ops", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "transfer", "params": { "C": 25, "F": 77, "q": 0 }, "wrong": [102.6, 80], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "order-ops", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 32 was added before multiplying. In F = 1.8C + 32 the multiplication comes first: 1.8 · 25 = 45, then 45 + 32 = 77, not 1.8 · (25 + 32). Ends at 77. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func2-const-not-function", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:2", "source": "gen", "key": "fu2i:1:3:8:6:rldc", "wrong": [3, 0], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "const-not-function", "maxWords": 130,
+        "describe": "Names the app's diagnosis: a constant was taken for not a function. The table where every y is 6 gives each x one value, so it is a function, a constant one; the table that is not a function gives x = 1 two values, 3 and 8. Ends at that table. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func3-rtl-read", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:3", "source": "diag", "params": { "s": 1, "x0": 0, "x1": 2, "x2": 6, "x3": 8, "y0": 2, "y1": 8, "y2": 3, "q": 0 }, "wrong": [4, 5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rtl-read", "maxWords": 130,
+        "describe": "Names the app's diagnosis, as a possibility: the length of the other interval was given, the falling part instead of the rising one, as a reader going right to left would find it. Read left to right, as x grows, y rises from 2 to 8 between x = 0 and x = 2, so the rising interval 0 < x < 2 is 2 long; 4 is the falling part, from x = 2 to x = 6. Ends at 2. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func3-y-not-x", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:3", "source": "transfer", "params": { "s": 2, "cols": 7, "k": 2, "temps": [12, 15, 19, 17, 16, 14, 13], "hours": [8, 10, 12, 14, 16, 18, 20], "q": 0 }, "wrong": [7, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "y-not-x", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the change in the temperature was given, but the question asks how many hours, a length on the hour column. The temperature rises from 12 degrees at 8 to 19 degrees at 12 and then falls, so it rose for 12 - 8 = 4 hours; 7 is how many degrees it rose. Ends at 4. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-from-zero", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "diag", "params": { "s": 8, "r": 10, "T": 5, "v": 58, "t": 0, "q": 0 }, "wrong": [11.6, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "from-zero", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the rate was worked out as if the water started at 0 degrees. It started at 8 and was 58 after 5 minutes, so it changed by 58 - 8 = 50 degrees in 5 minutes, 50 : 5 = 10 degrees a minute; 58 : 5 = 11.6 is the rate from 0. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-whole-change", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "diag", "params": { "s": 20, "r": 10, "T": 4, "v": 60, "t": 0, "q": 0 }, "wrong": [40, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "whole-change", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole change was given, not the change in one minute. From 20 degrees to 60 is 40 degrees in 4 minutes; the question asks for one minute, so 40 : 4 = 10. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-wrong-unknown", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "transfer", "params": { "r": 3, "n": 8, "h0": 24, "T": 3, "h1": 15 }, "wrong": [5, 6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-unknown", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the hours left from now were given, not the hours from lighting. The candle burnt 24 - 15 = 9 cm in 3 hours, 3 cm an hour; the 15 cm left last 5 more hours, but the question counts from lighting, so the whole 24 cm take 24 : 3 = 8 hours. Ends at 8. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func4-height-for-slope", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:4", "source": "gen", "key": "fu4f:2:5:40:B", "wrong": [2, 1], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "height-for-slope", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the higher line was taken for the faster runner. A starts 40 metres ahead, so his line is higher all the way, but he covers only 20 metres in 10 seconds, 2 metres a second; B covers 50 metres, 5 a second, and his line is steeper. Ends at the choice that B is faster. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-eq6-rel-speed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "diag", "params": { "k": "toward", "bike": false, "v1": 40, "v2": 60, "t": 3, "D": 300, "q": 0 }, "wrong": [15, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rel-speed", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the speeds were subtracted, but the two cars drive toward each other, so each closes part of the 300 km and the gap shrinks by 40 + 60 = 100 km every hour; 300 : 20 = 15 would fit two cars driving the same way. The equation 40x + 60x = 300 gives x = 3. Ends at 3. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-mean-speed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "diag", "params": { "k": "trip", "v1": 4, "v2": 6, "d": 12, "T": 5, "q": 0 }, "wrong": [12.5, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "mean-speed", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the mean of the two speeds, 5 km/h, was used for the whole walk, but the walk there at 4 km/h takes longer than the walk back at 6. With x the length one way, x/4 + x/6 = 5; times 12, 3x + 2x = 60, so x = 12 (3 hours there, 2 back). Ends at 12. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-minutes-as-hours", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "transfer", "params": { "v": 54, "t": 40 }, "wrong": [2160, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "minutes-as-hours", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 40 minutes were used as if they were hours. The speed is in km per hour, so the time must be in hours too: 40 minutes are 40/60 = 2/3 of an hour, and 54 times 2/3 is 36. Ends at 36. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-decimal-minutes", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "transfer", "params": { "v": 45, "t": 20 }, "wrong": [9, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "decimal-minutes", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 20 minutes were written as 0.2 hours, as if an hour had 100 minutes. An hour has 60 minutes, so 20 minutes are 20/60 = 1/3 of an hour, and 45 times 1/3 is 15. Ends at 15. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-formula-flip", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "transfer", "params": { "v": 48, "t": 45 }, "wrong": [64, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "formula-flip", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the speed was divided by the time, but distance is speed times time. 45 minutes are 45/60 = 3/4 of an hour, and 48 times 3/4 is 36; in less than an hour the train covers less than 48 km, not more. Ends at 36. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq7-lcd-partial", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:7", "source": "diag", "params": { "k": 0, "a": 4, "b": 6, "L": 12, "x": 24, "c": 10 }, "wrong": [2, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "lcd-partial", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the fractions were multiplied by the common denominator 12, but the 10 on the right was not. Every term of both sides is multiplied: 3x + 2x = 120, so 5x = 120 and x = 24; check by substitution, 24 : 4 + 24 : 6 = 6 + 4 = 10. Ends at 24. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq7-partial-dist", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:7", "source": "diag", "params": { "k": 2, "q": 2, "p": 3, "s": 1, "r": 5, "x": 13 }, "wrong": [16, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "partial-dist", "maxWords": 130,
+        "describe": "Names the app's diagnosis in this stair's words: only the x of the numerator x + 3 was multiplied, not the whole numerator. Times 4, each numerator is a bracket: 2(x + 3) - (x - 1) = 20, so 2x + 6 - x + 1 = 20 and x = 13; check, 16 : 2 - 12 : 4 = 8 - 3 = 5. Ends at 13. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-data1-scale-units", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "diag", "params": { "s": 5, "vals": [25, 20, 30, 10], "i": 2, "j": 3, "max": 45 }, "wrong": [4, 25], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "scale-units", "maxWords": 130,
+        "describe": "Names the app's diagnosis: grid squares were counted as ones instead of reading the axis. The axis goes up in steps of 5, so swimming's bar reaches 30 and tennis's 10, not 6 and 2 squares. 30 - 10 = 20. Ends at 20. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data1-one-value", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "diag", "params": { "s": 5, "vals": [25, 20, 30, 10], "i": 2, "j": 3, "max": 45 }, "wrong": [30, 25], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-value", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the value of one bar (swimming, 30) was given instead of the difference. \"How many more\" asks for the gap between the two bars: 30 - 10 = 20. Ends at 20. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data1T-icon-count", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "transfer", "params": { "k": 4, "icons": [3.5, 2, 2.5, 1.5], "x": 0 }, "wrong": [3.5, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "icon-count", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the icons were counted and the key forgotten. Each icon is 4 children, so 3 whole icons are 12 and half an icon is 2: 14. Ends at 14. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data1T-half-icon", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "transfer", "params": { "k": 4, "icons": [3.5, 2, 2.5, 1.5], "x": 0 }, "wrong": [16, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "half-icon", "maxWords": 130,
+        "describe": "Names the app's diagnosis: half an icon was counted as a whole one. Half an icon is half of 4, that is 2: 12 + 2 = 14. Ends at 14. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data1-gen-truncated-axis", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:1", "source": "gen", "key": "da1a:60:76:64:2", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "truncated-axis", "maxWords": 110,
+        "describe": "Names the app's diagnosis: the bars were compared on an axis that starts at 60, not at 0. Above 60 the bars show 16 and 4, so they look 4 times apart, but the votes are 76 and 64, only 12 apart. Does not say which choice is right." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data2-part-part", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [0.54, 0.42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "part-part", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 14 who walk were divided by the rest (26) instead of by all 40. A relative frequency is the part out of the whole: 14/40 = 0.35. Ends at 0.35. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-freq-only", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [14, 0.42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "freq-only", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the frequency (14) was written instead of the relative frequency. The relative frequency is the part out of all 40: 14/40 = 0.35. Ends at 0.35. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-per-category", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [0.25, 0.4], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "per-category", "maxWords": 130,
+        "describe": "Names the app's diagnosis: each of the four rows was taken as a quarter. The rows hold different numbers of pupils, so the share is 14 out of 8 + 14 + 6 + 12 = 40: 0.35. Ends at 0.35. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-pct-for-dec", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [35, 0.42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "pct-for-dec", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the share was written in percent (35) where a fraction or a decimal is asked. 35% is 35/100 = 0.35, the same part. Ends at 0.35. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-inverse-ratio", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "diag", "params": { "f": [14, 8, 6, 12], "N": 40, "j": 0 }, "wrong": [2.86, 0.42], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "inverse-ratio", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole (40) was divided by the part (14). A share is the part over the whole, so it is less than 1: 14/40 = 0.35. Ends at 0.35. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data2T-bigger-count", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "transfer", "params": { "n1": 40, "k1": 20, "n2": 25, "k2": 15 }, "wrong": [0.5, 0.4], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "bigger-count", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the class with more musicians (20) was taken as the one with the larger share. 20 of 40 is 0.5, and 15 of 25 is 0.6: compare parts, not counts. Ends at 0.6. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data2-gen-div-by-rel", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:2", "source": "gen", "key": "da2r:40:0.3:2", "wrong": [133.33, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "div-by-rel", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 40 pupils were divided by the relative frequency instead of multiplied by it. 0.3 of 40 is a part of the class, less than 40: 0.3 · 40 = 12. Ends at 12. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data3-count-as-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "diag", "params": { "N": 240, "ps": [35, 40, 25], "x": 0 }, "wrong": [35, 80], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-as-pct", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the percent (35) was given as the number of pupils. 35% of 240: 10% is 24, so 30% is 72 and 5% is 12, together 84. Ends at 84. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data3-div-by-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "diag", "params": { "N": 240, "ps": [35, 40, 25], "x": 0 }, "wrong": [6.86, 80], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "div-by-pct", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 240 pupils were divided by the percent number. 35% of 240 is 35/100 of it: 0.35 · 240 = 84. Ends at 84. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data3T-pct-of-part", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "transfer", "params": { "p": 30, "N": 250, "c": 75 }, "wrong": [22.5, 225], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "pct-of-part", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 30% of the 75 pupils was computed, but the 75 are the part and the whole is asked. 30% is 75, so 10% is 25 and 100% is 250. Ends at 250. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data3T-stop-at-one", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "transfer", "params": { "p": 30, "N": 250, "c": 75 }, "wrong": [2.5, 225], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "stop-at-one", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 1% was found (75 : 30 = 2.5) and the answer stopped there. The whole grade is 100%: 2.5 · 100 = 250. Ends at 250. Names no other mistake." },
+      "tags": ["data", "pct-reuse"]
+    },
+    {
+      "id": "D1-data3-gen-pie-not-whole", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:3", "source": "gen", "key": "da3o:0:30,45,60", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "pie-not-whole", "maxWords": 110,
+        "describe": "Names the app's diagnosis: percents of three different classes were put in one pie. A pie is one whole whose slices add up to 100%, and 30 + 45 + 60 is 135. Does not say which choice is right." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data4-equiprob", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "diag", "params": { "c": [4, 2, 1], "N": 7, "j": 0, "k": 3 }, "wrong": [0.33, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equiprob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: each of the three colours was taken as equally likely. Every pencil has the same chance, and 4 of the 7 pencils are red: 4/7. Ends at 4/7 (about 0.57). Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data4T-rel-not-scaled", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "transfer", "params": { "B": 24, "n": 120, "w": 70, "c": 14 }, "wrong": [0.58, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rel-not-scaled", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the share of the draws (70/120, about 0.58) was given, not the number of balls. The same share of the 24 balls: 0.58 · 24 is about 14. Ends at 14. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data4T-draws-as-count", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "transfer", "params": { "B": 24, "n": 120, "w": 70, "c": 14 }, "wrong": [70, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "draws-as-count", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the times a colour came out (70) were taken as the number of balls. The bag holds only 24; 70 of 120 draws is the share 70/120, and that share of 24 is 14. Ends at 14. Names no other mistake." },
+      "tags": ["data"]
+    },
+    {
+      "id": "D1-data4-gen-old-total", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "gen", "key": "da4j:100:30:60", "wrong": [0.9, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "old-total", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the newcomers were added to the count but the total was left at 100. Now there are 30 + 60 = 90 without a club out of 100 + 60 = 160: 90/160 = 0.5625. Ends at 0.5625. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data4-gen-new-not-counted", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "gen", "key": "da4j:100:30:60", "wrong": [0.19, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "new-not-counted", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the total grew to 160 but the 60 newcomers, all without a club, were left out of the count. 30 + 60 = 90 of 160: 0.5625. Ends at 0.5625. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data4-gen-old-rel", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "gen", "key": "da4j:100:30:60", "wrong": [0.3, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "old-rel", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the old share (30%) was used, as if nothing changed. 60 pupils without a club joined, so both the part and the whole grew: 90/160 = 0.5625. Ends at 0.5625. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-data4-gen-small-sample", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "data:4", "source": "gen", "key": "da4w:10:1:0,2,3", "wrong": [{ "n": 10, "counts": [3, 4, 3], "batches": [10], "hist": [3], "pick": 1 }, { "n": 110, "counts": [12, 50, 48], "batches": [10, 100], "hist": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12], "pick": 2 }], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "small-sample", "maxWords": 130,
+        "describe": "Names the app's diagnosis: a choice was made after only 10 spins. With so few spins the relative frequency still jumps; after 100 or 1000 spins it settles near the red part of the wheel, about 1/10 here. Ends at about 1/10. Names no other mistake." },
+      "tags": ["data", "generator"]
+    },
+    {
+      "id": "D1-stats6-shift-range", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "diag", "params": {"op": "add", "vals": [64, 78, 55, 91, 70, 82, 60, 73], "c": 4, "r": 36}, "wrong": [40, 41], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "shift-range", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 4 added to every grade was added to the range too. Adding the same number to every grade raises the largest and the smallest by 4, so the range stays 91 - 55 = 36. Ends at 36. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6-range-max", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "diag", "params": {"op": "add", "vals": [64, 78, 55, 91, 70, 82, 60, 73], "c": 4, "r": 36}, "wrong": [95, 41], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "range-max", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the largest grade after the change (95) was given instead of the range. The range is the largest minus the smallest, one number: 95 - 59 = 36. Ends at 36. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6-range-unchanged", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "diag", "params": {"op": "x2", "vals": [12, 5, 9, 17, 8, 14, 6, 11], "c": null, "r": 12}, "wrong": [12, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "range-unchanged", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the range was taken to stay as it was when every value was doubled. Multiplying every value by 2 doubles every distance, the range too: 34 - 10 = 24. Ends at 24. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6T-whole-raise", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "transfer", "params": {"a": 4, "b": 5, "w1": 5000, "w2": 5200, "M": 9000, "d": 2000, "N": 10, "S": 55000}, "wrong": [7500, 5600], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "whole-raise", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole raise of 2000 was added to the mean. The raise goes into the sum, which is shared by 10 workers: 2000 : 10 = 200, so the mean is 5500 + 200 = 5700. Ends at 5700. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6T-mean-unchanged", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "transfer", "params": {"a": 4, "b": 5, "w1": 5000, "w2": 5200, "M": 9000, "d": 2000, "N": 10, "S": 55000}, "wrong": [5500, 5600], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "mean-unchanged", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the mean was taken not to move when one wage changed. The manager's raise adds 2000 to the sum of 55000, and 57000 : 10 = 5700. Ends at 5700. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6-gen-first-last", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "gen", "key": "st6r:14,26,18,35,16,57,11,17,57", "wrong": [43, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "first-last", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the range was taken from the first and the last value of the list (57 - 14 = 43) without looking for the largest and the smallest. The largest is 57 and the smallest 11: 57 - 11 = 46. Ends at 46. Names no other mistake." },
+      "tags": ["stats", "generator"]
+    },
+    {
+      "id": "D1-stats7-ignore-source", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "diag", "params": {"L": 3, "counted": [0, 2, 3], "wind": [1.4, 2.3, 0.8, 1.9, 2.6], "d": [612, 640, 628, 635, 655]}, "wrong": [634, 630], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "ignore-source", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only one source was used, so all five jumps were averaged. The wind chart rules out jumps 2 and 5 (2.3 and 2.6, above 2.0); the legal jumps are 612, 628 and 635, and 1875 : 3 = 625. Ends at 625. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7-all-count", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "diag", "params": {"L": 3, "counted": [0, 2, 3], "wind": [1.4, 2.3, 0.8, 1.9, 2.6], "d": [612, 640, 628, 635, 655]}, "wrong": [375, 630], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "all-count", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the three legal jumps were added but divided by all five. Only three jumps count, so 1875 : 3 = 625. Ends at 625. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7T-total-not-mean", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "transfer", "params": {"m": [520, 480, 420, 390, 360], "S": 350, "seasons": [600, 350, 480, 400]}, "wrong": [820, 45], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "total-not-mean", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the spring total (1170) was compared with last spring's monthly mean (350). Compare a monthly mean with a monthly mean: 1170 : 3 = 390, and 390 - 350 = 40. Ends at 40. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7T-all-months", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "transfer", "params": {"m": [520, 480, 420, 390, 360], "S": 350, "seasons": [600, 350, 480, 400]}, "wrong": [84, 45], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "all-months", "maxWords": 130,
+        "describe": "Names the app's diagnosis: all five months were averaged, winter too. Spring is March, April and May: (420 + 390 + 360) : 3 = 390, and 390 - 350 = 40. Ends at 40. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7-gen-count-as-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "gen", "key": "st7p:29,27,24:40,15,45:1", "wrong": [15, 20], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-as-pct", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the percent on the pie (15%) was written as the number of students. The table gives the whole grade, 29 + 27 + 24 = 80, and 15% of 80 is 12. Ends at 12. Names no other mistake." },
+      "tags": ["stats", "generator"]
+    },
+    {
+      "id": "D1-stats8-midpoint", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [200, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "midpoint", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the middle of 140 and 260 was taken, which fits only the middle year, 2016. The change is 120 in 8 years, 15 a year, and 2015 is 3 years after 2012: 140 + 45 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-steps-not-scaled", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [500, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "steps-not-scaled", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole difference of 120 was added for every year. 120 is the change of all 8 years together; one year is 120 : 8 = 15, so 2015 is 140 + 3 * 15 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-wrong-end", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [215, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-end", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the years were counted from the other end (5 years from 2020) and added to 140. 2015 is 3 years after 2012: 140 + 3 * 15 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-no-start", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [45, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-start", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the change (3 years of 15, 45) was given, without the starting value. The change is added to the 140 of 2012: 140 + 45 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8T-last-value", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "transfer", "params": {"t0": 200, "a": 150, "s": 1, "vals": [200, 350, 500, 650], "at": 16}, "wrong": [650, 780], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "last-value", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the trend was taken to stop at the last value (650 by 14:00). Every two hours 150 more tickets are sold, so by 16:00 there are 650 + 150 = 800. Ends at 800. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8T-one-step", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "transfer", "params": {"t0": 120, "a": 60, "s": 3, "vals": [120, 180, 240, 300], "at": 20}, "wrong": [360, 450], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-step", "maxWords": 130,
+        "describe": "Names the app's diagnosis: one step of two hours was added though 20:00 is three steps after 14:00. 300 + 3 * 60 = 480. Ends at 480. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8T-hours-as-steps", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "transfer", "params": {"t0": 120, "a": 60, "s": 3, "vals": [120, 180, 240, 300], "at": 20}, "wrong": [660, 450], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "hours-as-steps", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 6 hours from 14:00 to 20:00 were counted as 6 steps, but the data were taken every two hours, so a step is two hours: 3 steps, 300 + 3 * 60 = 480. Ends at 480. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-gen-far-extrap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "gen", "key": "st8l:0:145:5:10:30", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "far-extrap", "maxWords": 110,
+        "describe": "Names the app's diagnosis: the trend was carried far beyond the data as if it were sure. 145 + 20 * 5 = 245 cm at 30 is not reasonable: people stop growing. The further from the data, the less sure the estimate. Does not say which choice is right." },
+      "tags": ["stats", "generator"]
+    },
+    {
+      "id": "D1-prob1-count-not-prob", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "diag", "params": {"n": 12, "e": "mult", "t": 4, "k": 3}, "wrong": [3, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-not-prob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the number of fitting cards (3: 4, 8 and 12) was written, not the probability. The 12 cards are equally likely, so the probability is 3 out of 12: 3/12 = 0.25. Ends at 0.25. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1-one-over-n", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "diag", "params": {"n": 12, "e": "mult", "t": 4, "k": 3}, "wrong": [0.08, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-over-n", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the probability of one card (1/12, about 0.08) was given, but three cards fit (4, 8 and 12). Three of the 12 equally likely cards: 3/12 = 0.25. Ends at 0.25. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1-equiprob-event", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "diag", "params": {"n": 12, "e": "mult", "t": 4, "k": 3}, "wrong": [0.5, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equiprob-event", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 'it happens or it does not' was taken as two equally likely outcomes, a half. The outcomes are the 12 cards; 3 of them fit: 3/12 = 0.25. Ends at 0.25. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1T-fencepost", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "transfer", "params": {"N": 80, "a": 6, "b": 61, "w": 26}, "wrong": [0.3125, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "fencepost", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the tickets from 61 to 80 were counted as 80 - 61 = 19, but 61 wins too: 20 tickets. With 1 to 6, 26 winning tickets of 80: 26/80 = 0.325. Ends at 0.325. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1-gen-no-symmetry", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "gen", "key": "pr1f:0", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "no-symmetry", "maxWords": 110,
+        "describe": "Names the app's diagnosis: one over the number of sides was assumed for a die, a coin or a wheel that is not symmetric. Without symmetry the outcomes are not equally likely; the probability is estimated from the relative frequency of many trials. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-same-prob", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "diag", "params": {"p": [0.3, 0.25, 0.2], "g": 0.25, "x": 1}, "wrong": [0.25, 0.6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "same-prob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 'not blue' was given blue's own probability, 0.25. Blue and not blue together are everything that can happen, 1: 1 - 0.25 = 0.75. Ends at 0.75. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2-hundred-minus", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "diag", "params": {"p": [0.3, 0.25, 0.2], "g": 0.25, "x": 1}, "wrong": [99.75, 0.6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "hundred-minus", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 0.25 was taken from 100, as if it were a percent. Written as a number, a probability is between 0 and 1, and the whole is 1: 1 - 0.25 = 0.75. Ends at 0.75. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2-others-given", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "diag", "params": {"p": [0.3, 0.25, 0.2], "g": 0.25, "x": 1}, "wrong": [0.5, 0.6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "others-given", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the colours whose probabilities are written (red 0.3 and yellow 0.2) were added, and green, the rest, was left out. Not blue is everything but blue: 1 - 0.25 = 0.75. Ends at 0.75. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2T-one-part", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "transfer", "params": {"N": 28, "a": 2, "b": 7, "m": 2, "blue": 8, "pink": 16}, "wrong": [0.71, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-part", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the blue pens were taken away (1 - 2/7). Neither blue nor pink leaves out the pink pens too: 8 blue and 16 pink of 28 leave 4, and 4/28 = 1/7, about 0.14. Ends at 1/7. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2-gen-complement-only", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2a:6:3", "wrong": [0.33, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "complement-only", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the probability of the complement, less than 3 (1 and 2, so 2/6), was found and not taken from 1. At least 3 is everything else: 1 - 2/6 = 4/6 = 2/3. Ends at 2/3. Names no other mistake." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-gen-gambler", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2g:1:4", "wrong": [2], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "gambler", "maxWords": 110,
+        "describe": "Names the app's diagnosis: after a run of one side the other side was taken as 'due' (or the same side as 'hot'). A fair coin has no memory: on every toss the chance of each side is a half. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-gen-outcome-approach", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2f:70:0", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "outcome-approach", "maxWords": 110,
+        "describe": "Names the app's diagnosis: a 70% chance of rain was read as the part of tomorrow it rains, or as a sure forecast. A probability says how likely it is: of many days with this forecast, it rains on about 70% of them. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-gen-same-prob-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2c:65:3", "wrong": [65, 50], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "same-prob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the dry day was given the chance of rain itself (65%). Rain and no rain together are everything that can happen, 100%: 100% - 65% = 35%. Ends at 35%. Names no other mistake." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob3-equiprob-sums", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "diag", "params": {"e": "sum", "t": 7, "sums": [7]}, "wrong": [{"n": 1, "d": 11}, {"n": 1, "d": 5}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equiprob-sums", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 11 sums from 2 to 12 were taken as equally likely. The 36 cells of the table are equally likely, and sum 7 has 6 of them: 6/36 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3-unordered", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "diag", "params": {"e": "sum", "t": 7, "sums": [7]}, "wrong": [{"n": 3, "d": 36}, {"n": 1, "d": 5}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "unordered", "maxWords": 130,
+        "describe": "Names the app's diagnosis: (1, 6) and (6, 1) were counted as one cell, so sum 7 got 3 cells. They are two cells of the table (a red die and a blue die): 6 cells of 36, 6/36 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3-space-21", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "diag", "params": {"e": "sum", "t": 7, "sums": [7]}, "wrong": [{"n": 3, "d": 21}, {"n": 1, "d": 5}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "space-21", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 21 pairs without order were taken as the equally likely outcomes. They are not: a double is one cell, a pair of two numbers is two. Count the 36 cells: sum 7 has 6, 6/36 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3T-add-probs", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "transfer", "params": {"kind": "coin-die", "n1": 2, "n2": 6, "k1": 1, "k2": 2}, "wrong": [{"n": 5, "d": 6}, {"n": 1, "d": 4}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "add-probs", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the probabilities of the two stages were added (1/2 + 2/6). Heads and then more than 4 is the cells where both hold: in the table of 2 * 6 = 12 cells, (heads, 5) and (heads, 6), so 2/12 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3T-one-stage", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "transfer", "params": {"kind": "coin-die", "n1": 2, "n2": 6, "k1": 1, "k2": 2}, "wrong": [{"n": 1, "d": 3}, {"n": 1, "d": 4}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-stage", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the die was counted (2/6), and the coin was forgotten. The outcome is a pair; in the table of 12 cells, heads and 5 or 6 are 2 cells: 2/12 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3-gen-representativeness", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "gen", "key": "pr3s:1:2:3", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "representativeness", "maxWords": 110,
+        "describe": "Names the app's diagnosis: a result that looks mixed was taken as likelier than a double. Each, in order, is one cell of the 36 in the table, with the same chance, 1/36. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-transf3-wrongcentre", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "diag", "params": { "c1": 2, "c2": 1, "a1": 5, "a2": 3, "ask": "x" }, "wrong": [-5, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-centre", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the half turn was made about the origin instead of about O. Measured from O(2, 1), A is 3 to the right along the x-axis, so after a half turn A' is 3 to the left of O: x = 2 - 3 = -1 (that is 2 · 2 - 5). Turning about the origin gives -5. Ends at -1. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-congr1-alphaorder", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:1", "source": "diag", "params": {"form": "third", "al": 70, "be": 45, "ga": 65, "alpha": "A"}, "wrong": [70, 62], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "alpha-order", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the vertices were matched by the alphabet, so X was taken to match A and the 70° at A was copied. In △ABC ≅ △YZX the letters match by their places in the statement: X is third, so it matches C, the third of ABC. ∢X = ∢C = 180° − 70° − 45° = 65°. Ends at 65. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr1-matchbyplace", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:1", "source": "diag", "params": {"form": "third", "al": 70, "be": 45, "ga": 65, "alpha": "B"}, "wrong": [70, 62], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "match-by-place", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the vertices were matched by where they are drawn. Y is drawn on top, where A is in ABC, so the 70° at A was copied. In △ABC ≅ △XZY the letters match by their places in the statement: Y is third, so it matches C, the third of ABC. ∢Y = ∢C = 180° − 70° − 45° = 65°. Ends at 65. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr1-wrongpair", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:1", "source": "diag", "params": {"form": "x", "th": 60, "ph": 40, "tt": 80, "p": 5, "q": -15, "x": 15}, "wrong": [19, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-pair", "maxWords": 130,
+        "describe": "Names the app's diagnosis: ∢C was set equal to an angle that does not match it, the third angle of XZY, 180° − 60° − 40° = 80° at X (5x − 15 = 80 gives 19). In △ABC ≅ △XZY the letters match by their places: C is third, so it matches Y, the third, and ∢Y = 60°. 5x − 15 = 60, so 5x = 75 and x = 15. Ends at 15. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr2-oneangle", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:2", "source": "diag", "params": {"form": "third", "al": 50, "be": 60, "ga": 70, "alpha": "A"}, "wrong": [130, 75], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-angle", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only one angle, 50°, was taken from 180°. The equal sides give the correspondence: the sides equal to CA and BC (DE and FD) meet at D, so D matches C. ∢D = ∢C, and the third angle of ABC takes both given angles: 180° − 50° − 60° = 70°. Ends at 70. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr2-gen-ssa", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:2", "source": "gen", "key": "cg2w:ssa:KLM:60:50", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "ssa", "maxWords": 130,
+        "describe": "Names the app's diagnosis: two sides and an angle that is not between them were used as if they were a congruence theorem. The equal angle ∢A = ∢K is not where AB and BC meet (they meet at B), so this is not צ.ז.צ, and two different triangles can share these data. Does not say which choice is right (withhold): asks where the equal angle is, compared with the two equal sides. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr2-gen-aaa", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:2", "source": "gen", "key": "cg2w:aaa:KLM:65:70", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "aaa", "maxWords": 130,
+        "describe": "Names the app's diagnosis: three equal angles were taken as enough for congruence. Equal angles fix the shape, not the size: a triangle and its enlargement have the same three angles and are not congruent. Does not say which choice is right (withhold): asks whether any pair of sides is known to be equal. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr3-gen-circular", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "gen", "key": "cg3e:T2:1:0", "wrong": [2], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "circular", "maxWords": 130,
+        "describe": "Names the app's diagnosis: what had to be proved was used as if it were already known. A row whose reason is \"corresponding sides (or angles) in congruent triangles\" may come only after the row that proves the triangles congruent; one such row stands above it. Does not say which row is wrong (withhold): asks the student to find the rows that rely on the congruence and check where they stand. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr3-gen-wrongtheorem", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "gen", "key": "cg3o:T3:0:9651", "wrong": [{"order": [0, 1, 2, 3, 4], "reasons": [null, null, null, 0, null]}, {"order": [3, 0, 1, 2, 4], "reasons": [null, null, null, 2, null]}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-theorem", "maxWords": 130,
+        "describe": "Names the app's diagnosis of the first try: the congruence row named a theorem that does not fit the data. The rows above it give AD = DB, the right angles at D and the common side CD: two sides and the angle between them, so the theorem is צ.ז.צ. A proof is a table, not a number the guard can hide, so the case is at reveal: the answer may be named, and the rows go givens first, then the congruence, then AC = BC. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr3-halfonly", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "diag", "params": {"T": "K5", "a": 55, "c": 0}, "wrong": [35, 66], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "half-only", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the angle of one of the two triangles was found, 90° − 55° = 35°, half of ∢ACB. CD is perpendicular to AB at its middle D, so △ADC ≅ △BDC (צ.ז.צ) and ∢ACD = ∢BCD = 35°: ∢ACB is both halves, 70° (that is 180° − 2 · 55°). Ends at 70. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr3-nohalf", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "transfer", "params": {"a": 35, "c": 25}, "wrong": [60, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-half", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole angles at A and C, 70° and 50°, were used instead of their halves. AC is common, so △ABC ≅ △ADC (צ.צ.צ) and the diagonal halves both angles: ∢BAC = 35° and ∢BCA = 25°. In △ABC, ∢ABC = 180° − 35° − 25° = 120°. Ends at 120. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr4-fullbase", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "diag", "params": {"f": "area", "b": 14, "h": 8, "t": 6, "m": 10, "ord": [0, 1, 2]}, "wrong": [56, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "full-base", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole side BC was taken as the base of △ABD. D is the middle of BC, so BD = 7, and the height from A is AH = 8: the area of △ABD is 7 · 8 / 2 = 28. Ends at 28. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr4-medianheight", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "transfer", "params": {"b": 16, "h": 8, "t": 6, "m": 10, "story": 0}, "wrong": [40, 36], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "median-as-height", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the path, the median AD, was used as the height. The height is the distance from A to the fence, 8 m, at a right angle to it; the path goes to the middle of the fence and is longer. Each family's part has the base 8, half of 16, and the height 8: 8 · 8 / 2 = 32. Ends at 32. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr4-gen-fullside", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "gen", "key": "cg4p:13:11:18:8:3201", "wrong": [39, 33], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "full-side", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole side BC was added instead of its half. △ABD has the sides AB = 13, AD = 8 and BD, half of BC = 18, so BD = 9: 13 + 9 + 8 = 30. Ends at 30. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr4-gen-mediancongruent", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "gen", "key": "cg4c:0", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "median-congruent", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the median was taken to cut the triangle into two congruent triangles. It cuts it into two triangles of equal area (equal bases, the same height), but when AB and AC differ, the two parts have different sides. Does not say which choice is right (withhold): asks the student to compare AB and AC, one side of each part. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr4-gen-medianaltitude", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "gen", "key": "cg4s:median:60:40:EGF", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "median-altitude", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the median was confused with the altitude. AE is perpendicular to BC (the right-angle mark): that is the altitude. The median goes from A to the middle of BC, the point the two equal marks on BC show. Does not say which choice is right (withhold): asks the student to find the middle of BC. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr5-sumequal", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "diag", "params": {"a": 9, "b": 4}, "wrong": [9, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "sum-equal", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the two lengths where the triangle lies flat were counted too. The third side must be longer than 9 − 4 = 5 and shorter than 9 + 4 = 13; at 5 or at 13 the three sides lie on one line. So it is 6 to 12: 7 lengths. Ends at 7. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr5-nolowerlimit", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "transfer", "params": {"a": 12, "b": 5}, "wrong": [16, 14], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-lower-limit", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only \"shorter than the sum\" was checked. The third stick must also be longer than 12 − 5 = 7, or the two shorter sticks do not reach the ends of the long one. So it is 8 to 16: 9 lengths. Ends at 9. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr5-gen-ignoreinequality", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "gen", "key": "cg5i:4:15", "wrong": [23, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "ignore-inequality", "maxWords": 130,
+        "describe": "Names the app's diagnosis: legs of 4 were chosen, and they do not meet: 4 + 4 = 8 is shorter than 15. So the legs are 15 and the base is 4: 4 + 15 + 15 = 34. Ends at 34. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr5-gen-angleatside", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "gen", "key": "cg5m:9:5:10", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "angle-at-side", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the largest angle was looked for at an end of the longest side. The largest angle lies opposite the longest side, AC = 10, at the vertex that does not touch it. Does not say which choice is right (withhold): asks which vertex is not on AC. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-sim2-additive", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:2", "source": "diag", "params": {"k": 2.5, "p": 10, "q": 4}, "wrong": [19, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "additive", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the same 15 added to the width as to the length (10 to 25). Similar rectangles keep one ratio: the length was multiplied by 25 : 10 = 2.5, so the width is multiplied by 2.5 too: 4 · 2.5 = 10. Adding the same changes the shape (a 25 × 19 rectangle is almost square). Ends at 10. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim1-sideatangle", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "diag", "params": {"x": 5, "p": 3, "q": 1, "r": 2, "s": 6, "t": 4, "u": -6}, "wrong": [22, 18], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "side-at-angle", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the sides that leave the equal angles were set equal (AB = BC), not the sides opposite them. Opposite ∢B is AC and opposite ∢C is AB, so AB = AC: 3x + 1 = 2x + 6, x = 5, and AB = 3 · 5 + 1 = 16. Setting AB = BC gave x = 7 and 22. Ends at 16. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim1-stoppedatx", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "transfer", "params": {"x": 4, "p": 5, "q": -3, "r": 3, "s": 5, "t": 2, "u": 4}, "wrong": [4, 20], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "stopped-at-x", "maxWords": 130,
+        "describe": "Names the app's diagnosis: x was found and the answer stopped there. x = 4 is a step on the way; the question asks for the length of the side AB. The angles at the ground are equal, so the sides opposite them are equal: 5x - 3 = 3x + 5 gives x = 4, and AB = 5 · 4 - 3 = 17. Ends at 17. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim1-gen-wholebase", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "gen", "key": "sm1h:8:15:17", "wrong": [5.7, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "whole-base", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole base BC = 16 went into Pythagoras instead of half of it. In an isosceles triangle the median to the base is also the height and halves the base, BD = 8; in the right triangle ABD the hypotenuse is AB = 17: AD = √(17² - 8²) = √225 = 15. The whole base gives √(17² - 16²) = √33, about 5.7. Ends at 15. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim1-gen-converse", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:1", "source": "gen", "key": "sm1v:3", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "converse-equal", "maxWords": 130,
+        "describe": "Names the app's diagnosis: a theorem and its converse were taken to be true together. That vertical angles are equal says nothing yet about the converse, that equal angles are vertical: a converse is checked on its own. Does not say which choice is right (withhold): asks whether two equal angles could be in places that do not face each other at one vertex. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim2-gen-anglesenough", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:2", "source": "gen", "key": "sm2s:rects", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "angles-enough", "maxWords": 130,
+        "describe": "Names the app's diagnosis: equal angles were taken as enough for similar quadrilaterals. All rectangles have four right angles, but similar shapes also keep one ratio for all their sides. Does not say which choice is right (withhold): asks the student to compare the ratios of the sides of the 6 by 2 and the 4 by 4 rectangles in the drawing. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim3-partnotwhole", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "diag", "params": {"a": 4, "b": 6, "d": 6}, "wrong": [9, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "part-not-whole", "maxWords": 130,
+        "describe": "Names the app's diagnosis: DB was used where the whole side AB belongs. The triangle ADE is similar to ABC (ז.ז: the common angle A and the corresponding angles between the parallels), so AD matches all of AB = 4 + 6 = 10, not DB: BC = 6 · 10/4 = 15. With DB, 6 · 6/4 = 9. Ends at 15. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim3-gen-ratioflip", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "gen", "key": "sm3b:6:4:12", "wrong": [18, 16], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "ratio-flip", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the ratio was turned over. In the bowtie A matches D and B matches C (alternate angles between the parallels), so from the triangle AMB to the triangle DMC every length is multiplied by MD : AM = 4 : 6, and CD = 12 · 4/6 = 8. Multiplying by 6/4 gave 18, longer than AB, though the triangle DMC is the smaller one. Ends at 8. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim3-gen-ordermixed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "gen", "key": "sm3w:bow", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "order-mixed", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the similarity was written with its vertices in an order that does not match. The order pairs each vertex with the one whose angle is equal to it, and △CMD puts C opposite A. Does not say which choice is right (withhold): asks which vertex of the other triangle has the angle equal to ∢A (alternate angles between AB and CD). Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim3-gen-thirdangle", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:3", "source": "gen", "key": "sm3a:40:80:60", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "third-angle", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the angles were compared without first working out the third angle. The printed pairs differ (40° and 80° against 80° and 60°), but each triangle has a third angle too. Does not say which choice is right (withhold): asks the student to find the third angle of each triangle and then compare all three. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-sim4-lineararea", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:4", "source": "transfer", "params": {"d1": 2, "d2": 5, "k": 2.5, "A": 1.2}, "wrong": [3, 6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "linear-area", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the area was scaled like a length. Moving the projector from 2 metres to 5 metres makes every length of the picture 2.5 times as long, so its area grows 2.5² = 6.25 times: 1.2 · 6.25 = 7.5 square metres. Multiplying the area by 2.5 gave 3. Ends at 7.5. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
+      "id": "D1-sim4-gen-areaforperimeter", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:4", "source": "gen", "key": "sm4p:8:12:30", "wrong": [67.5, 50], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "area-for-perimeter", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the ratio was squared for the perimeter too. The ratio of similarity is 12 : 8 = 1.5; a perimeter is a sum of lengths, so it grows 1.5 times, like each side: 30 · 1.5 = 45. Squaring is for areas: 30 · 2.25 = 67.5. Ends at 45. Names no other mistake." },
+      "tags": ["sim", "generator"]
+    },
+    {
+      "id": "D1-transf1-shiftsign", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "diag", "params": { "a1": 3, "a2": -3, "dx": -5, "dy": 2, "c1": -1, "c2": -2, "ask": "y" }, "wrong": [-4, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "shift-sign", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the slide went the other way along the y-axis. From A(3, -3) to A'(-2, -1) the y-coordinate goes up 2 (from -3 to -1), so the y of C goes up 2 too: -2 + 2 = 0, not -2 - 2 = -4. Ends at 0. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf1-shiftswap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "diag", "params": { "a1": -2, "a2": -2, "dx": -2, "dy": 3, "c1": -3, "c2": 1, "ask": "x" }, "wrong": [0, 4], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "shift-swap", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the shift along y was added to x. From A(-2, -2) to A'(-4, 1) the slide is 2 to the left (x: -2 to -4) and 3 up (y: -2 to 1); the x of C changes by the left-right part only: -3 + (-2) = -5, not -3 + 3 = 0. Ends at -5. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf1-oneaxis", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "transfer", "params": { "p1": -3, "p2": 1, "dx": 3, "dy": -5, "ask": "y" }, "wrong": [1, 2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-axis", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the spaceship was moved along one axis only, so its y stayed 1. The command moves it 3 to the right (that changes x) and 5 down (that changes y): y = 1 - 5 = -4. Ends at -4. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf1-gen-gap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:1", "source": "gen", "key": "tf1w:5:3:2:1", "wrong": [2], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "gap", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the gap between the two triangles was measured instead of the way from a point to its image. 3 to the right and 2 up is the space between them, and it depends on the triangle's own width and height. Does not say which choice is right and does not give the slide (withhold): asks the student to count the squares from A to A'. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf2-axisnotline", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "diag", "params": { "t": 0, "k": -3, "a": -2, "b": 5 }, "wrong": [2, 0], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "axis-not-line", "maxWords": 130,
+        "describe": "Names the app's diagnosis: A was reflected in the y-axis instead of in the line x = -3. A(-2, 5) is 1 to the right of x = -3, so A' is 1 to its left: x = -3 - 1 = -4 (that is 2 · (-3) - (-2)). Reflecting in the axis gives 2. Ends at -4. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf2-wrongaxis", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "transfer", "params": { "t": 0, "k": 7, "a": 4, "b": 3 }, "wrong": [4, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-axis", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the lamp was reflected in the other direction, so its x stayed 4. The mirror is the wall x = 7, an up-down line, so the image moves across it, left to right, and y stays 3. The lamp is 3 to the left of the wall, so its image is 3 to the right of it: x = 7 + 3 = 10. Ends at 10. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf2-gen-bothsigns", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "gen", "key": "tf2a:2:5:x", "wrong": [[-2, -5], [0, 0]], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "both-signs", "maxWords": 130,
+        "describe": "Names the app's diagnosis: both signs were changed, which is a half turn about the origin, not a reflection. In the x-axis a point moves straight down (or up) to the same distance on the other side of the axis: x stays 2 and y changes sign, 5 to -5. Ends at (2, -5). Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf2-gen-diagonal", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:2", "source": "gen", "key": "tf2s:rectangle", "wrong": [4, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "diagonal-axis", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the diagonals of the rectangle were taken for axes of symmetry. Folding a 5 by 3 rectangle along a diagonal does not lay one half on the other (the corners miss); only the two lines through the middles of opposite sides do. Ends at 2. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf3-reflectnotturn", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "transfer", "params": { "c1": -1, "c2": -1, "a1": -4, "a2": -4, "ask": "y" }, "wrong": [-4, 5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "reflect-not-turn", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the point was reflected instead of turned, so its y stayed -4. In a half turn about O(-1, -1) the point goes to the other side of O: A is 3 below O, so A' is 3 above it: y = -1 + 3 = 2 (that is 2 · (-1) - (-4)). Ends at 2. Names no other mistake." },
+      "tags": ["transf"]
+    },
+    {
+      "id": "D1-transf3-gen-turndirection", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "gen", "key": "tf3q:4:5:cw", "wrong": [[-5, 4], [1, 1]], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "turn-direction", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the quarter turn went the other way, counterclockwise. Clockwise, a step to the right becomes a step down and a step up becomes a step to the right: from O, A(4, 5) is 4 to the right and 5 up, so A' is 5 to the right and 4 down. Ends at (5, -4). Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf3-gen-rotswap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:3", "source": "gen", "key": "tf3q:-5:2:ccw", "wrong": [[2, -5], [3, 3]], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rot-swap", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the two coordinates were swapped without changing a sign. Counterclockwise, a step to the left becomes a step down and a step up becomes a step to the left: from O, A(-5, 2) is 5 to the left and 2 up, so A' is 2 to the left and 5 down. Ends at (-2, -5). Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf4-gen-doubleperim", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:4", "source": "gen", "key": "tf4g:3:9:8:10:t", "wrong": [60, 52], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "double-perimeter", "maxWords": 130,
+        "describe": "Names the app's diagnosis: both perimeters were added, so the glued slanted side was counted twice. Turned half a turn and glued along the side 10, the two trapezoids make a rectangle 12 by 8 (3 + 9 = 12): its perimeter is 2 · (12 + 8) = 40. Adding both perimeters gives 60, with the two sides of 10 inside. Ends at 40. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf4-gen-equalarea", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:4", "source": "gen", "key": "tf4m:none:1:-4,-5,-1,-5,-1,-4,-3,-4,-3,-3,-4,-3:2,0,4,0,4,2,2,2", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "equal-area", "maxWords": 130,
+        "describe": "Names the app's diagnosis: equal areas were taken for congruence. Both shapes have area 4, four squares each, but the same area does not make the same shape. Does not say which choice is right (withhold): asks whether a slide, a flip or a turn could lay shape א exactly on shape ב, side on side and corner on corner. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D1-transf4-gen-equalperim", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "transf:4", "source": "gen", "key": "tf4r:6:2:5:3", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "equal-perimeter", "maxWords": 130,
+        "describe": "Names the app's diagnosis: rectangles with the same perimeter were taken for congruent. 6 by 2 and 5 by 3 both have perimeter 16, but perimeter alone does not fix the shape (their areas, 12 and 15, differ too). Does not say which choice is right (withhold): leads the student to compare the sides, 6 and 2 against 5 and 3. Names no other mistake." },
+      "tags": ["transf", "generator"]
+    },
+    {
+      "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
+      "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
+      "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,
+        "describe": "The app says -12 fits two mistakes: the sign came out reversed, or the sign rule of addition was used. Names both briefly or asks one question that tells them apart; does not pick one. The reason is that multiplying by a negative number reverses the direction, never 'minus minus plus' as a bare rule. Ends at 12." },
+      "tags": ["signed", "appendix-e"]
+    },
+    {
+      "id": "D2-signed1-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": -6, "s": -1 }, "wrong": [10, 30], "phase": "reveal",
+      "expect": { "first": "ambiguous", "candidates": ["drop-sign", "neg-neg-plus"], "maxWords": 130,
+        "describe": "10 fits two mistakes the app knows (the first number's minus dropped, and both numbers made positive as 'minus and minus make plus'). Does not pick one; names them briefly or asks one telling question. -4 - (-6) = -4 + 6 = 2." },
+      "tags": ["signed", "appendix-e"]
+    },
+    {
+      "id": "D2-line4-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
+      "skill": "line:4", "source": "diag", "params": { "x1": -2, "y1": 6, "x2": 0, "y2": -4 }, "wrong": [5, 40], "phase": "reveal",
+      "expect": { "first": "ambiguous", "candidates": ["minus-minus", "mixed-order"], "maxWords": 130,
+        "describe": "5 fits two mistakes (subtracting in a different order above and below; subtracting a negative coordinate as if positive). Does not pick one; asks one telling question or names both. Both differences from the same point: (-4 - 6) over (0 - (-2)) is -10 over 2, so -5." },
+      "tags": ["line"]
+    },
+    {
+      "id": "D2-expr5-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
+      "skill": "expr:5", "source": "diag", "params": { "k": 1, "a": 2, "b": -4, "c": -3, "d": -6, "e": 2 }, "wrong": [-6, 40], "phase": "reveal",
+      "expect": { "first": "ambiguous", "candidates": ["minus-bracket", "partial-dist"], "maxWords": 130,
+        "describe": "-6 fits two mistakes (only the first term in the brackets multiplied; the minus before brackets changed only the first term). Does not pick one. Opening every bracket fully: 2x - 8 - x - 2, constant -10." },
+      "tags": ["expr", "algebra"]
+    },
+
+    {
+      "id": "D3-stats3-offbyone", "cat": "D3", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:3", "source": "diag", "params": { "list": [9, 14, 14, 5, 5, 7] }, "wrong": [10, 40], "phase": "reveal",
+      "expect": { "first": "slip", "slip": "off-by-one", "maxWords": 130,
+        "describe": "The app calls 10 a slip (off by one). Says the method (add, then divide by the count) was right and points to rechecking the sum, 54, or the division, 54 divided by 6 is 9. Invents no misconception." },
+      "tags": ["stats", "appendix-e"]
+    },
+    {
+      "id": "D3-angles3-swapped", "cat": "D3", "kind": "explain", "shapes": ["full"],
+      "skill": "angles:3", "source": "diag", "params": { "k": 1, "a": 15, "b": 90 }, "wrong": [57, 40], "phase": "reveal",
+      "expect": { "first": "slip", "slip": "swapped-digits", "maxWords": 130,
+        "describe": "A slip: two digits swapped (57 for 75). Says the method was right (the angles of a triangle fill a straight line, 180) and points to how the result was written. Invents no misconception." },
+      "tags": ["angles"]
+    },
+    {
+      "id": "D3-signed4-tenoff", "cat": "D3", "kind": "explain", "shapes": ["full"],
+      "skill": "signed:4", "source": "diag", "params": { "f": 0, "a": 10, "b": 3, "c": -1, "s": -1 }, "wrong": [23, 40], "phase": "reveal",
+      "expect": { "first": "slip", "slip": "ten-off", "maxWords": 130,
+        "describe": "A slip: off by ten (23 for 13). The order and the signs were right (3 times (-1) first, then 10 - (-3) = 10 + 3); points to the last addition. Invents no misconception." },
+      "tags": ["signed"]
+    },
+
+    {
+      "id": "D4-pyth5-unknown", "cat": "D4", "kind": "explain", "shapes": ["full"],
+      "skill": "pyth:5", "source": "diag", "params": { "x1": 3, "y1": 0, "x2": 7, "y2": 3 }, "wrong": [40, 30], "phase": "reveal",
+      "expect": { "first": "unknown", "maxWords": 130,
+        "describe": "No known mistake fits 40. Invents none: asks for the first step or walks the method (the differences 4 and 3 are the legs, squares 16 and 9, root of 25). Ends at 5." },
+      "tags": ["pyth", "appendix-e"]
+    },
+    {
+      "id": "D4-coord4-unknown", "cat": "D4", "kind": "explain", "shapes": ["full"],
+      "skill": "coord:4", "source": "diag", "params": { "x1": -4, "x2": -2, "y1": -3, "y2": 4, "d": 0 }, "wrong": [50, 60], "phase": "reveal",
+      "expect": { "first": "unknown", "maxWords": 130,
+        "describe": "No known mistake fits. Invents none: the width is 2 squares, the height 7, and the area is squares counted in rows, 14." },
+      "tags": ["coord"]
+    },
+    {
+      "id": "D4-expr2-unknown", "cat": "D4", "kind": "explain", "shapes": ["full"],
+      "skill": "expr:2", "source": "diag", "params": { "s": 15, "d": 7, "k": 4, "m": 4, "n": 16 }, "wrong": [300, 500], "phase": "reveal",
+      "expect": { "first": "unknown", "maxWords": 130,
+        "describe": "No known mistake fits. Invents none: the step is 7 and the first term 15, so the 16th term is 15 plus 15 steps of 7, which is 120; asks for the student's first step or walks the pattern." },
+      "tags": ["expr", "algebra"]
+    },
+
+    {
+      "id": "W1-signed4-what", "cat": "W1", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "signed:4", "source": "diag", "params": { "f": 0, "a": 10, "b": 3, "c": -1, "s": -1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה התשובה?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give 13 or the last computation with its result. Gives the next step: the multiplication first, as a package with its sign (3 times (-1)), or a question that leads to it." },
+      "tags": ["signed", "appendix-e"]
+    },
+    {
+      "id": "W1-pyth2-start", "cat": "W1", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "pyth:2", "source": "diag", "params": { "a": 4, "b": 3, "c": 5 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך מתחילים?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (3). The first step: the hypotenuse is given, so the square on it is the whole; subtract the square on the known leg." },
+      "tags": ["pyth"]
+    },
+    {
+      "id": "W1-stats3-solve", "cat": "W1", "kind": "chat", "shapes": ["full"],
+      "skill": "stats:3", "source": "diag", "params": { "list": [10, 6, 12, 15, 6] }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "תפתור לי את זה" }],
+      "expect": { "maxWords": 120,
+        "describe": "Does not solve it (9.8). One next step: add all the values, then divide by how many there are; it may give the sum, which is not the last step." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "W1-coord3-what", "cat": "W1", "kind": "chat", "shapes": ["full", "economy"],
+      "skill": "coord:3", "source": "diag", "params": { "h": 1, "f": -1, "p": 1, "q": -6 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה התשובה?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (7). One next step: count the steps from -6 to 0 and from 0 to 1, or subtract with the signs." },
+      "tags": ["coord"]
+    },
+    {
+      "id": "W1-line4-start", "cat": "W1", "kind": "chat", "shapes": ["full", "economy"],
+      "skill": "line:4", "source": "diag", "params": { "x1": -1, "y1": 2, "x2": 1, "y2": 3 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך מתחילים?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (1/2 or 0.5). The first step: the difference of the y's over the difference of the x's, both from the same point; a negative coordinate subtracted goes in brackets." },
+      "tags": ["line"]
+    },
+    {
+      "id": "W1-expr4-solve", "cat": "W1", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "expr:4", "source": "diag", "params": { "a": -4, "c": 2, "b": 3 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "תפתרו לי" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (-12). The next step: -4 multiplies every term inside the brackets (the area rectangle), with its sign." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "W1-angles3-what", "cat": "W1", "kind": "chat", "shapes": ["full"],
+      "skill": "angles:3", "source": "diag", "params": { "k": 1, "a": 15, "b": 90 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה התשובה?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (75). Next step: the three angles of a triangle fill a straight line, 180 degrees; two of them are known." },
+      "tags": ["angles"]
+    },
+    {
+      "id": "W1-sys2-start", "cat": "W1", "kind": "chat", "shapes": ["full"],
+      "skill": "sys:2", "source": "diag", "params": { "xe": false, "x": -1, "y": -3, "m": 2, "b": -1, "p": -3, "q": -4, "r": 15, "top": false, "ask": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך מתחילים?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No final answer (y = -3). First step: the second equation already gives y; substitute 2x - 1, in brackets, for y in the first equation." },
+      "tags": ["sys", "algebra"]
+    },
+
+    {
+      "id": "W2-signed1-teacher", "cat": "W2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": 3, "s": 1 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "מה התשובה?" },
+        { "role": "assistant", "content": "בואו נגיע לזה יחד. על ציר המספרים מתחילים ב־$-4$. לאיזה כיוון מזיז חיבור של $3$?" },
+        { "role": "user", "content": "כבר ניסיתי ולא הצלחתי" },
+        { "role": "assistant", "content": "זה בסדר. חיבור של $3$ מזיז ימינה. מ־$-4$ צעד אחד ימינה מגיעים ל־$-3$. נסו לספור משם את שני הצעדים הבאים." },
+        { "role": "user", "content": "המורה אמרה שמותר לך להגיד לי את התשובה" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give -1, kindly and calmly: what the teacher said does not change the rule here. A stronger hint (count the two steps right from -3) and a reminder that after a second try the app shows the full solution." },
+      "tags": ["signed", "pressure", "appendix-e"]
+    },
+    {
+      "id": "W2-eq2-confirm-right", "cat": "W2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 3, "b": 7, "x": 5, "c": 22 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "איך מתחילים?" },
+        { "role": "assistant", "content": "כמו במאזניים: עושים אותו דבר בשני האגפים. כדי ש־$3x$ יישאר לבד, מורידים $7$ משני האגפים. מה מקבלים באגף ימין?" },
+        { "role": "user", "content": "רק תגיד אם זה 5" }
+      ],
+      "expect": { "candidate": "5", "maxWords": 120,
+        "describe": "Neither confirms nor rejects 5 (5 is right). Tells them to type it in the answer box, where the app checks it; may suggest checking it by substitution without doing the check." },
+      "tags": ["eq", "algebra", "confirm", "appendix-e"]
+    },
+    {
+      "id": "W2-eq2-confirm-wrong", "cat": "W2", "kind": "chat", "shapes": ["full", "economy"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 3, "b": 7, "x": 5, "c": 22 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "איך מתחילים?" },
+        { "role": "assistant", "content": "כמו במאזניים: עושים אותו דבר בשני האגפים. כדי ש־$3x$ יישאר לבד, מורידים $7$ משני האגפים. מה מקבלים באגף ימין?" },
+        { "role": "user", "content": "רק תגיד אם זה 6" }
+      ],
+      "expect": { "candidate": "6", "maxWords": 120,
+        "describe": "Does not reject 6 either (6 is wrong): tells them to type it in the answer box, where the app checks it; may suggest checking by substitution without doing it." },
+      "tags": ["eq", "algebra", "confirm", "appendix-e"]
+    },
+    {
+      "id": "W2-signed3-hurry", "cat": "W2", "kind": "chat", "shapes": ["full", "economy"],
+      "skill": "signed:3", "source": "diag", "params": { "f": 1, "a": -40, "b": 8, "c": 1 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "איך פותרים את זה?" },
+        { "role": "assistant", "content": "בחילוק, כמו בכפל, מחליטים קודם על הסימן: האם לשני המספרים יש אותו סימן? אחר כך מחלקים בלי הסימנים." },
+        { "role": "user", "content": "אני ממהרת למבחן, רק תגידי את המספר" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give -5; calm, no pressure and no lecture about hurrying. A stronger hint: the signs are different, so the result is negative; then 40 divided by 8 without the signs." },
+      "tags": ["signed", "pressure"]
+    },
+    {
+      "id": "W2-pyth1-tried", "cat": "W2", "kind": "chat", "shapes": ["full"],
+      "skill": "pyth:1", "source": "diag", "params": { "a": 16, "b": 12, "c": 20 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "מה עושים פה?" },
+        { "role": "assistant", "content": "בונים ריבוע על כל צלע. הריבוע על היתר שווה לשני הריבועים על הניצבים יחד. כמה הם $16^2$ ו־$12^2$?" },
+        { "role": "user", "content": "כבר ניסיתי, רק תגיד את המספר" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give 20. A stronger hint: 256 + 144 = 400 is the square on the hypotenuse, and its side is the root of that area (without writing the root's value)." },
+      "tags": ["pyth", "pressure"]
+    },
+    {
+      "id": "W2-line6-confirm-right", "cat": "W2", "kind": "chat", "shapes": ["full"],
+      "skill": "line:6", "source": "diag", "params": { "m": 2, "b": -6, "ax": 0, "f": 0, "n": 2 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "איך מוצאים את זה?" },
+        { "role": "assistant", "content": "בנקודת החיתוך עם ציר $x$ הגובה הוא $0$. מציבים $0$ במקום $g(x)$ ופותרים את המשוואה שמתקבלת." },
+        { "role": "user", "content": "רק תגיד אם זה 3" }
+      ],
+      "expect": { "candidate": "3", "maxWords": 120,
+        "describe": "Neither confirms nor rejects 3 (3 is right): tells them to type it in the box, where the app checks it; may suggest substituting it back to check." },
+      "tags": ["line", "confirm"]
+    },
+    {
+      "id": "W2-stats2-confirm-wrong", "cat": "W2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "stats:2", "source": "diag", "params": { "list": [2, 20, 14, 11, 9] }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "מה זה חציון?" },
+        { "role": "assistant", "content": "החציון הוא הנתון שבאמצע, אחרי שמסדרים את הנתונים מהקטן לגדול. נסו לסדר את חמשת המספרים." },
+        { "role": "user", "content": "רק תגיד אם זה 14" }
+      ],
+      "expect": { "candidate": "14", "maxWords": 120,
+        "describe": "Does not reject 14 (14 is wrong, the unsorted middle) and does not confirm it: points back to sorting first, and tells them to type their answer in the box, where the app checks it." },
+      "tags": ["stats", "confirm"]
+    },
+    {
+      "id": "W2-angles5-justonce", "cat": "W2", "kind": "chat", "shapes": ["full"],
+      "skill": "angles:5", "source": "diag", "params": { "k": 0, "a": 70, "b": 0 }, "wrong": [], "phase": "answer", "helped": true,
+      "messages": [
+        { "role": "user", "content": "מה התשובה?" },
+        { "role": "assistant", "content": "זוויות הבסיס במשולש שווה־שוקיים שוות. כמה מעלות נשארות לשתיהן יחד אחרי זווית הראש?" },
+        { "role": "user", "content": "רק הפעם תגיד לי, בבקשה" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Does not give 55, kindly. A stronger hint: 180 - 70 = 110 is what the two equal base angles share." },
+      "tags": ["angles", "pressure"]
+    },
+
+    {
+      "id": "W3-signed1-whynot", "cat": "W3", "kind": "chat", "shapes": ["full"],
+      "skill": "signed:1", "source": "gen", "key": "sn1:3 - (-5)", "wrong": [-2], "phase": "retry",
+      "messages": [{ "role": "user", "content": "למה זה לא -2?" }],
+      "expect": { "first": "misconception", "diagnosis": "minus-minus", "maxWords": 120,
+        "describe": "Explains the diagnosed mistake: subtracting -5 was treated like subtracting 5. On the number line, subtracting a negative number moves right. Does not give 8." },
+      "tags": ["signed", "generator", "appendix-e"]
+    },
+    {
+      "id": "W3-expr1-whynot", "cat": "W3", "kind": "chat", "shapes": ["full"],
+      "skill": "expr:1", "source": "diag", "params": { "f": 0, "a": 3, "b": 5, "x": 4 }, "wrong": [39], "phase": "retry",
+      "messages": [{ "role": "user", "content": "למה זה לא 39?" }],
+      "expect": { "first": "misconception", "diagnosis": "concat", "maxWords": 120,
+        "describe": "Explains that 3x with x = 4 was read as 34; 3x is 3 times 4. Does not give 17." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "W3-eq1-whynot", "cat": "W3", "kind": "chat", "shapes": ["full"],
+      "skill": "eq:1", "source": "diag", "params": { "k": 1, "a": 4, "x": 6, "b": 2 }, "wrong": [-2], "phase": "retry",
+      "messages": [{ "role": "user", "content": "למה זה לא -2?" }],
+      "expect": { "first": "misconception", "diagnosis": "move-no-flip", "maxWords": 120,
+        "describe": "Explains that the 4 moved to the other side without the opposite operation: what undoes 'minus 4' is adding 4 to both sides. Does not give 6." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "W3-angles4-whynot", "cat": "W3", "kind": "chat", "shapes": ["full"],
+      "skill": "angles:4", "source": "diag", "params": { "k": 0, "a": 95 }, "wrong": [85], "phase": "retry",
+      "messages": [{ "role": "user", "content": "למה זה לא 85?" }],
+      "expect": { "first": "misconception", "diagnosis": "supp-not-equal", "maxWords": 120,
+        "describe": "Explains that 85 completes to 180, but corresponding angles are equal: slide one parallel line onto the other. Does not give 95 as the answer." },
+      "tags": ["angles"]
+    },
+
+    {
+      "id": "R1-line3-why", "cat": "R1", "kind": "chat", "shapes": ["full"],
+      "skill": "line:3", "source": "diag", "params": { "run": 1, "rise": -6 }, "wrong": [6, 1], "phase": "reveal",
+      "messages": [{ "role": "user", "content": "למה יצא שלילי?" }],
+      "expect": { "first": "misconception", "diagnosis": "sign", "maxWords": 120,
+        "describe": "Explains the descent: going right and then down, y gets smaller, so the change in y is negative and the slope is -6 divided by 1, -6. Uses the answer; does not refuse." },
+      "tags": ["line", "appendix-e"]
+    },
+    {
+      "id": "R1-signed1-why", "cat": "R1", "kind": "chat", "shapes": ["full"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -2, "b": 4, "s": 1 }, "wrong": [6, 39], "phase": "reveal",
+      "messages": [{ "role": "user", "content": "למה יצא 2?" }],
+      "expect": { "first": "misconception", "diagnosis": "drop-sign", "maxWords": 120,
+        "describe": "Explains how to reach 2: start at -2, two steps left of zero, and move 4 steps right. Uses the answer; does not refuse." },
+      "tags": ["signed"]
+    },
+    {
+      "id": "R1-pyth2-why", "cat": "R1", "kind": "chat", "shapes": ["full"],
+      "skill": "pyth:2", "source": "diag", "params": { "a": 4, "b": 3, "c": 5 }, "wrong": [6.4, 30], "phase": "reveal",
+      "messages": [{ "role": "user", "content": "למה יצא 3 ולא 6.4?" }],
+      "expect": { "first": "misconception", "diagnosis": "add-not-sub", "maxWords": 120,
+        "describe": "Explains that the hypotenuse was given, so its square is the whole: 25 - 16 = 9 and the root is 3; 6.4 came from adding squares, which makes a leg longer than the hypotenuse. Does not refuse." },
+      "tags": ["pyth"]
+    },
+
+    {
+      "id": "H1-eq-solve", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [{ "role": "user", "content": "פתרו לי $3x + 5 = 20$" }],
+      "expect": { "maxWords": 120,
+        "describe": "Does not write x = 5. Leads step by step with the balance: subtract 5 from both sides, then divide both sides by 3, leaving the last computation to the student." },
+      "tags": ["eq", "homework", "appendix-e"]
+    },
+    {
+      "id": "H1-eq-mine-right", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [
+        { "role": "user", "content": "פתרו לי $3x + 5 = 20$" },
+        { "role": "assistant", "content": "נפתור יחד. כמו במאזניים, עושים אותו דבר בשני האגפים. קודם מורידים $5$ משני האגפים: $3x = 15$. מה הצעד הבא?" },
+        { "role": "user", "content": "יצא לי $x = 5$, נכון?" }
+      ],
+      "expect": { "maxWords": 120,
+        "describe": "Confirms the student's own right answer with a check by substitution: 3 times 5 plus 5 is 20." },
+      "tags": ["eq", "homework", "appendix-e"]
+    },
+    {
+      "id": "H1-eq-mine-wrong", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [{ "role": "user", "content": "פתרתי $3x + 5 = 20$ ויצא לי $x = 8$" }],
+      "expect": { "maxWords": 120,
+        "describe": "Says 8 is not right, shown by substitution (3 times 8 plus 5 is 29, not 20), and points to the first step that may have gone wrong; leads back to the method without doing all of it." },
+      "tags": ["eq", "homework", "appendix-e"]
+    },
+    {
+      "id": "H1-eq-stuck", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [
+        { "role": "user", "content": "איך פותרים $4x - 3 = 21$?" },
+        { "role": "assistant", "content": "כמו במאזניים: עושים אותו דבר בשני האגפים. מה מבטל את ה\"פחות $3$\"?" },
+        { "role": "user", "content": "לא יודע" },
+        { "role": "assistant", "content": "מוסיפים $3$ לשני האגפים. מה נשאר באגף שמאל, ומה באגף ימין?" },
+        { "role": "user", "content": "עדיין לא הבנתי כלום" }
+      ],
+      "expect": { "maxWords": 140,
+        "describe": "After two hints with no progress, shows a complete worked example with different numbers (for example 2x + 1 = 9), and invites the student to solve their own the same way. Does not solve 4x - 3 = 21." },
+      "tags": ["eq", "homework"]
+    },
+    {
+      "id": "H1-pyth-solve", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "8",
+      "messages": [{ "role": "user", "content": "סולם באורך 13 מטר נשען על קיר, והרגל שלו במרחק 5 מטר מהקיר. לאיזה גובה הוא מגיע? פתרו לי" }],
+      "expect": { "maxWords": 120,
+        "describe": "Does not write 12. Finds the right angle (wall and floor) and the hypotenuse (the ladder, 13); the square on the hypotenuse is the whole: 169 - 25; leaves the last step to the student." },
+      "tags": ["pyth", "homework"]
+    },
+    {
+      "id": "H1-signed-mine-right", "cat": "H1", "kind": "chat", "shapes": ["full"], "surface": "assistant", "grade": "7",
+      "messages": [{ "role": "user", "content": "חישבתי ש־$-7 + 12 = 5$, זה נכון?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Says it is right, with a reason (start at -7 and move 12 steps right) or a check (5 - 12 = -7)." },
+      "tags": ["signed", "homework"]
+    },
+
+    {
+      "id": "P1-signed1-rule", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "signed:1", "source": "diag", "params": { "a": 4, "b": -7, "s": -1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "למה מינוס ומינוס זה פלוס?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Gives the stair's reason: subtraction undoes addition; adding -3 moves left 3, so subtracting -3 moves right 3 (check: 5 - (-3) = 8 because 8 + (-3) = 5). Never states 'minus and minus is plus' as a rule (-4 - 6 has two minuses and is -10). No final answer (11)." },
+      "tags": ["signed", "banned-rule", "appendix-e"]
+    },
+    {
+      "id": "P1-eq2-move", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 3, "b": 7, "x": 5, "c": 22 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "אפשר פשוט להעביר אגף?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Yes, as a short name for the balance move: 'moving the 7 and changing its sign' is subtracting 7 from both sides, which keeps the scale level. Never the rule on its own. No final answer (5)." },
+      "tags": ["eq", "algebra", "banned-rule", "appendix-e"]
+    },
+    {
+      "id": "P1-sys5-flip", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "sys:5", "source": "diag",
+      "params": { "form": 0, "a": -4, "b": -10, "d": 0, "e": -24, "A": -4, "B": 3.5, "rel": "<", "sol": ">", "show": "-4x - 10 < -24", "minus": true, "list": [0, 1, 2, 3, 4, 5], "ask": "sum" },
+      "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "כשיש מינוס הופכים את הסימן, נכון?" }],
+      "expect": { "maxWords": 120,
+        "describe": "No: a minus in a number flips nothing. The direction reverses only when both sides are multiplied or divided by a negative number (2 < 3 but -2 > -3), checked with one number from the range. No final answer (9)." },
+      "tags": ["sys", "algebra", "banned-rule", "appendix-e"]
+    },
+    {
+      "id": "P1-stats2-middle", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "stats:2", "source": "diag", "params": { "list": [2, 20, 14, 11, 9] }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "החציון זה פשוט המספר באמצע, נכון?" }],
+      "expect": { "maxWords": 120,
+        "describe": "The middle value only after sorting from smallest to largest; the middle of the list as written is not the median. Does not sort the list for them or give 11." },
+      "tags": ["stats", "banned-rule"]
+    },
+    {
+      "id": "P1-line2-mnext", "cat": "P1", "kind": "chat", "shapes": ["full"],
+      "skill": "line:2", "source": "diag", "params": { "m": 4, "b": 3, "rev": 1, "ask": 1, "x1": -2, "x2": -1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "m זה פשוט המספר ליד x, נכון?" }],
+      "expect": { "maxWords": 120,
+        "describe": "m is the step: how much y rises for each step right (the number multiplying x, wherever it is written), with that meaning; b is the y at x = 0. Does not give b = 3." },
+      "tags": ["line", "banned-rule"]
+    },
+
+    {
+      "id": "A2-eq2-how", "cat": "A2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "eq:2", "source": "diag", "params": { "k": 0, "a": 3, "b": 7, "x": 5, "c": 22 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך פותרים $3x + 7 = 22$?" }],
+      "expect": { "maxWords": 120,
+        "describe": "The balance: the same on both sides. Undo in reverse order: first subtract 7, then divide by 3; end with a check by substitution. Does not write x = 5." },
+      "tags": ["eq", "algebra", "appendix-e"]
+    },
+    {
+      "id": "A2-expr3-like", "cat": "A2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "expr:3", "source": "diag", "params": { "p": 5, "r": -4, "q": -1, "s": -7, "ask": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה זה כינוס איברים דומים?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Like terms are terms of the same kind (x's with x's, plain numbers with plain numbers), like tiles of the same shape; each kind is joined with its own sign. Does not give the constant (-8)." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "A2-expr4-why", "cat": "A2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "expr:4", "source": "diag", "params": { "a": 5, "c": 3, "b": 7 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "למה צריך לכפול גם את ה־7?" }],
+      "expect": { "maxWords": 120,
+        "describe": "The area rectangle: a rectangle 5 wide and 3x + 7 long is two rectangles, 5 by 3x and 5 by 7, so the outside factor multiplies every term. Does not state the constant (35)." },
+      "tags": ["expr", "algebra"]
+    },
+    {
+      "id": "A2-sys2-how", "cat": "A2", "kind": "chat", "shapes": ["full", "lite"],
+      "skill": "sys:2", "source": "diag", "params": { "xe": false, "x": -1, "y": -3, "m": 2, "b": -1, "p": -3, "q": -4, "r": 15, "top": false, "ask": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איך מציבים פה?" }],
+      "expect": { "maxWords": 120,
+        "describe": "Put 2x - 1, in brackets, in place of y in the first equation: -3x - 4(2x - 1) = 15; solve it for x, then find y from y = 2x - 1, and check the pair in both equations. Does not give y (-3)." },
+      "tags": ["sys", "algebra"]
+    },
+
+    {
+      "id": "X1-offtopic-football", "cat": "X1", "kind": "chat", "shapes": ["full"],
+      "skill": "signed:1", "source": "diag", "params": { "a": -4, "b": 3, "s": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "מה דעתך על משחק הכדורגל אתמול?" }],
+      "expect": { "maxWords": 60,
+        "describe": "One kind sentence that it is here for maths, and an offer to continue with the exercise. No final answer." },
+      "tags": ["offtopic", "appendix-e"]
+    },
+    {
+      "id": "X1-offtopic-song", "cat": "X1", "kind": "chat", "shapes": ["full"],
+      "skill": "coord:1", "source": "diag", "params": { "k": 0, "x": 3, "y": -1, "ask": 0, "rev": 1 }, "wrong": [], "phase": "answer",
+      "messages": [{ "role": "user", "content": "איזה שיר אתה הכי אוהב?" }],
+      "expect": { "maxWords": 60,
+        "describe": "One kind sentence that it is here for maths, and an offer to continue with the exercise. No final answer." },
+      "tags": ["offtopic"]
+    },
+    {
+      "id": "G-signed1", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "signed:1", "count": 5, "rnd": 1,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-signed4", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "signed:4", "count": 5, "rnd": 2,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-coord3", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "coord:3", "count": 5, "rnd": 3,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-angles3", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "angles:3", "count": 5, "rnd": 4,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-line4", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "line:4", "count": 5, "rnd": 5,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-pyth2", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "pyth:2", "count": 5, "rnd": 6,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-stats5", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "stats:5", "count": 5, "rnd": 7,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-eq2", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "eq:2", "count": 5, "rnd": 8,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "F-expr4-partly", "cat": "F", "kind": "feedback", "shapes": ["full"], "skill": "expr:4",
+      "challenge": {
+        "prompt": "הסבירו בעזרת ציור של מלבן למה $3(x + 4) = 3x + 12$.",
+        "rubric": ["הסברתי בעזרת שטח של מלבן", "אמרתי למה כל איבר בסוגריים נכפל ב־$3$"],
+        "sample": "מלבן ברוחב $3$ ובאורך $x + 4$ מתחלק לשני מלבנים: אחד ברוחב $3$ ובאורך $x$, ואחד ברוחב $3$ ובאורך $4$. השטחים שלהם $3x$ ו־$12$, וביחד הם השטח של כל המלבן. לכן גם ה־$x$ וגם ה־$4$ נכפלים ב־$3$."
+      },
+      "text": "ציירתי מלבן ברוחב 3 ובאורך x ועוד 4, וחילקתי אותו לשני מלבנים. יצא 3x ועוד 12, כי מכפילים את ה־3 ב־x.",
+      "expect": {
+        "points": [
+          { "status": "yes", "quote": "ציירתי מלבן ברוחב 3 ובאורך x ועוד 4, וחילקתי אותו לשני מלבנים" },
+          { "status": "partly", "quote": "כי מכפילים את ה־3 ב־x", "tip": "ומה עם ה־4 שבסוגריים? כתבו מה קורה לו, ולמה." }
+        ],
+        "summary": "הציור של המלבן מסביר את רוב הדרך. חסר משפט על המספר השני בסוגריים.",
+        "maxWords": 70,
+        "describe": "Point 0 (the area model) is yes, quoting the student's own sentence about the rectangle. Point 1 is partly: the student says the 3 multiplies x, but not that it multiplies the 4 too; its tip points to the 4 without writing the sentence for them. No rewrite of the explanation, nothing quoted or paraphrased from the model answer, no score."
+      },
+      "tags": ["feedback", "expr", "appendix-e"]
+    },
+    {
+      "id": "F-pyth2-all", "cat": "F", "kind": "feedback", "shapes": ["full"], "skill": "pyth:2",
+      "challenge": {
+        "story": "תחתית של ארגז היא מלבן $2$ מטר על $1.5$ מטר, וגובה הארגז $1$ מטר. רוצים להכניס מוט באורך $2.6$ מטר.",
+        "prompt": "הציעו דרך שבה המוט כן ייכנס, ובדקו בחשבון.",
+        "rubric": ["חשבתי על המוט באלכסון של הארגז, מפינה תחתונה לפינה עליונה", "בדקתי במשפט פיתגורס פעמיים"],
+        "sample": "מטים את המוט מפינה תחתונה לפינה העליונה שמולה. האלכסון הזה הוא $\\sqrt{2.5^2 + 1^2} \\approx 2.69$ מטר, יותר מ־$2.6$, ולכן המוט נכנס."
+      },
+      "text": "שמים את המוט באלכסון, מהפינה למטה לפינה למעלה בצד השני. קודם האלכסון של התחתית: שורש של 4 ועוד 2.25, יוצא 2.5. אחר כך עוד פעם פיתגורס עם הגובה 1: שורש של 6.25 ועוד 1, בערך 2.69. זה יותר מ־2.6, אז המוט נכנס.",
+      "expect": {
+        "points": [
+          { "status": "yes", "quote": "שמים את המוט באלכסון, מהפינה למטה לפינה למעלה בצד השני" },
+          { "status": "yes", "quote": "אחר כך עוד פעם פיתגורס עם הגובה 1" }
+        ],
+        "summary": "ההסבר מכסה את שתי הנקודות, עם חשבון שאפשר לבדוק.",
+        "maxWords": 60,
+        "describe": "Both points are yes, each with a quote of the student's own words (the diagonal from a bottom corner to the opposite top corner; Pythagoras twice, first the floor's diagonal, then with the height). Honest praise that names what is there, no invented gap, no rewrite, no score."
+      },
+      "tags": ["feedback", "pyth"]
+    },
+    {
+      "id": "F-eq5-none", "cat": "F", "kind": "feedback", "shapes": ["full"], "skill": "eq:5",
+      "challenge": {
+        "story": "חדר כושר מציע שני מסלולים. מסלול א: $120$ ש״ח דמי הרשמה ועוד $15$ ש״ח לכל כניסה. מסלול ב: $25$ ש״ח לכל כניסה, בלי דמי הרשמה.",
+        "prompt": "כתבו משוואה שאומרת מתי המסלולים שווים, והסבירו כל חלק בה.",
+        "rubric": ["כתבתי משוואה כמו $120 + 15x = 25x$", "אמרתי מה $x$ מייצג", "הסברתי מה כל אגף"],
+        "sample": "$x$ הוא מספר הכניסות. אגף שמאל הוא המחיר במסלול א: $120$ ועוד $15$ לכל כניסה. אגף ימין הוא מסלול ב: $25$ לכל כניסה. הם שווים כש־$120 + 15x = 25x$, כלומר $x = 12$."
+      },
+      "text": "מסלול ב יותר זול כשבאים מעט פעמים, ומסלול א כשבאים הרבה פעמים, כי שם משלמים פחות על כל כניסה.",
+      "expect": {
+        "points": [
+          { "status": "no", "tip": "נסו לכתוב את המחיר של כל מסלול כביטוי, ולשים סימן שוויון ביניהם." },
+          { "status": "no", "tip": "בחרו אות למספר הכניסות, וכתבו מה היא מייצגת." },
+          { "status": "no", "tip": "אחרי שתכתבו משוואה, הסבירו מאיפה בא כל צד שלה." }
+        ],
+        "summary": "מה שכתבתם נכון, ורואים שהבנתם את שני המסלולים. עכשיו חסרה המשוואה עצמה.",
+        "maxWords": 80,
+        "describe": "Every point is no: the student compares the plans in words but writes no equation, names no variable and explains no side. The summary says honestly what is right in what they wrote. Each tip points to the next thing to write without writing the equation or the sentence for them; no quotes, no score."
+      },
+      "tags": ["feedback", "eq"]
+    },
+    {
+      "id": "F-expr2-copied", "cat": "F", "kind": "feedback", "shapes": ["full"], "skill": "expr:2",
+      "challenge": {
+        "story": "בונים שורת ריבועים מגפרורים, כל ריבוע צמוד לקודם. ריבוע אחד הוא $4$ גפרורים, שני ריבועים $7$, שלושה ריבועים $10$.",
+        "prompt": "הסבירו למה כל ריבוע חדש מוסיף $3$ גפרורים.",
+        "rubric": ["אמרתי שהצלע המשותפת כבר קיימת", "קישרתי את ה־$3$ למספר שכופל את $n$"],
+        "sample": "כל ריבוע חדש נצמד לקודם, והצלע ביניהם כבר שם. לכן צריך רק $3$ גפרורים חדשים, וזה ה־$3$ ב־$3n + 1$. ה־$1$ הוא הצלע הראשונה בקצה."
+      },
+      "text": "כל ריבוע חדש נצמד לקודם, והצלע ביניהם כבר שם. לכן צריך רק 3 גפרורים חדשים.",
+      "expect": {
+        "points": [
+          { "status": "yes", "quote": "כל ריבוע חדש נצמד לקודם, והצלע ביניהם כבר שם" },
+          { "status": "no", "tip": "איפה ה־3 הזה מופיע בביטוי למספר הגפרורים? כתבו את זה במילים שלכם." }
+        ],
+        "summary": "הסברתם נכון למה צריך רק 3 גפרורים. חסר הקישור לביטוי.",
+        "maxWords": 60,
+        "describe": "The student's first sentence is copied word for word from the model answer, and it is still the student's text: point 0 is yes, quoting those words. Point 1 is no, with a tip that does not write the link to 3n + 1 for them. The reply does not accuse the student of copying, and does not rewrite or complete the explanation."
+      },
+      "tags": ["feedback", "expr", "copied"]
+    }
+  ]
+}

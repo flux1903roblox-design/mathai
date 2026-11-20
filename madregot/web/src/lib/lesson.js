@@ -1,0 +1,321 @@
+// A lesson: a short, fixed run of exercises (about 3–5 minutes).
+// Wrong once: try again with a hint. Wrong twice: see the answer and the steps,
+// and a similar exercise comes back at the end of the lesson. The lesson ends
+// when every slot has been answered correctly (each slot can come back twice at most).
+import { TOPIC, makeItem, testItem, isCorrect, partialOf, placementTopicsFor } from '@/content/index.js';
+import { factsItem } from '@/content/frac.js';
+import { withPiNote, piRow } from '@/content/util.js';
+import { startPlacement, placementAnswer, placementNext, placementProgress, placementResult } from './placement.js';
+import { checkPlan, itemFor } from '@/learn/items.ts';
+import { metaOf } from '@/learn/content/index.ts';
+import { parseSkill, skillId } from '@/learn/skills.ts';
+import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from '@/learn/mastery.ts';
+import { VERIFY_NEED } from '@/learn/misconceptions.ts';
+
+/**
+ * Three short maths choices (< = >, 12, 43, ∢A) sit side by side in large type; anything longer (2x - 10) goes in the
+ * list, since three expressions in one row overflow a phone. A command that draws a sign (\sphericalangle, \triangle,
+ * \cong) is one character on the screen, and a choice that states a relation (∢A = ∢P: more than the sign itself) is
+ * never three in a row.
+ */
+export function inlineChoices(item) {
+  if (item?.choices?.length !== 3) return false;
+  return item.choices.every((c) => {
+    if (!c.tex) return false;
+    const shown = c.tex.replace(/\\[a-zA-Z]+/g, '∗').replace(/\s/g, '');
+    return shown.length <= 3 && !(shown.length > 1 && shown.includes('='));
+  });
+}
+
+// The lesson's numbers (lengths, parts, XP) live in lib/lessonRules.js, which the first screen reads without this file
+// (the boot split: the lesson's code, its items and the exercise generators load with the lesson).
+export { LESSON_LEN, REVIEW_LEN, FACTS_LEN, JUMP_LEN, JUMP_MISTAKES, PARTS, REDO_MAX, STAGE_XP, XP, COMBO_MARKS } from './lessonRules.js';
+import { LESSON_LEN, REVIEW_LEN, FACTS_LEN, JUMP_LEN, JUMP_MISTAKES, REDO_MAX, XP, COMBO_MARKS } from './lessonRules.js';
+
+const shuffle = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+
+/** The level of each exercise in a lesson. */
+export function planLevels({ kind, topic, level, part = 1, max = level }) {
+  const top = TOPIC[topic].levels.length;
+  const L = Math.min(Math.max(level, 1), top);
+  if (kind === 'jump') return Array(JUMP_LEN).fill(L);
+  if (kind === 'review') {
+    // Mixed practice over every level reached so far: spaced and interleaved.
+    const upTo = Math.min(Math.max(max, 1), top);
+    const pool = Array.from({ length: upTo }, (_, i) => i + 1);
+    const out = Array.from({ length: REVIEW_LEN }, (_, i) => pool[i % pool.length]);
+    return shuffle(out);
+  }
+  const out = Array(LESSON_LEN).fill(L);
+  // The second lesson of a node mixes in two exercises from earlier levels.
+  if (part >= 2 && L > 1) { out[2] = Math.max(1, L - 1); out[5] = Math.max(1, L - 1 - Math.floor(Math.random() * Math.min(2, L - 1))); }
+  return out;
+}
+
+/**
+ * A check (Madregot 2.0): one try per question, no hints, the answer shown after a miss. Its purpose decides
+ * what it is for: mastery (5 questions, 4 right), review (3), verify (after a repair), diagnostic (Exam Rescue),
+ * exam (a practice exam over the exam's stairs), quick (the evening before the exam: 3 questions of one stair). The questions mix the stair's generator with its diagnostic and
+ * transfer questions (src/learn/items.ts).
+ * A class exam (purpose 'class', TEACHER-5 §4) brings its own questions, frozen when the teacher made it
+ * (`fixedItems`, lib/exam.js thawItem): they are asked in order, each once, with no probe and no redo; `slotOk`
+ * records how each one went. (`fixed`, the other name, is the count of mistakes fixed on a redo.)
+ */
+function startCheck(opts) {
+  const fixedItems = opts.fixedItems?.length ? opts.fixedItems : null;
+  // a class exam's purpose is not one checkPlan knows: its plan is the teacher's questions
+  const plan = fixedItems
+    ? fixedItems.map((it) => ({ skill: skillId(it.topic, it.level), source: 'fixed' }))
+    : checkPlan({ purpose: opts.purpose, skill: opts.skill, skills: opts.skills, misc: opts.misc }, Math.random);
+  if (!plan.length) return null;
+  const first = plan[0];
+  const { topic, level } = parseSkill(first.skill);
+  return {
+    kind: 'check', purpose: opts.purpose, skill: opts.skill || null, skills: opts.skills || null, misc: opts.misc || null,
+    topic: opts.topic || topic, level: opts.level || level, part: 1, plan,
+    levels: plan.map((q) => parseSkill(q.skill).level), slot: 0, total: plan.length, solved: 0, redo: [], redoing: false, probes: [],
+    item: fixedItems ? fixedItems[0] : itemFor(first.skill, first.source, Math.random, undefined, first.candidates, { test: true }), attempt: 1, hint: false, phase: 'answer', wrong: [],
+    combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, missedSlots: [], cats: {}, lastCat: null,
+    right: 0, perSkill: {}, showed: 0, named: {}, ...(fixedItems ? { fixedItems, slotOk: [] } : {}),
+    finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),
+  };
+}
+
+/** In a practice lesson on a stair with teaching content: a diagnostic question and a transfer question join in. */
+function practiceItem(topic, level, slot, avoidKey) {
+  if (topic === 'facts') return factsItem(avoidKey);
+  const skill = skillId(topic, level); const m = metaOf(skill);
+  if (m && slot === 3) return itemFor(skill, 'diag', Math.random, avoidKey);
+  if (m?.transfer && slot === 6) return itemFor(skill, 'transfer', Math.random, avoidKey);
+  return makeItem(topic, level, avoidKey);
+}
+
+/** A jump test is a check: the stair's exercises, a diagnostic and a transfer question, each one able to show the skill. */
+export const JUMP_SOURCES = ['gen', 'diag', 'gen', 'transfer', 'gen'];
+function jumpItem(topic, level, slot, avoidKey) {
+  const skill = skillId(topic, level); const m = metaOf(skill);
+  const source = JUMP_SOURCES[slot] || 'gen';
+  if (m && source !== 'gen') return itemFor(skill, source === 'transfer' && !m.transfer ? 'diag' : source, Math.random, avoidKey, undefined, { test: true });
+  return testItem(topic, level, avoidKey);
+}
+
+/**
+ * The topics whose teaching content a lesson needs before its first question (learn/content/index.ts ensureTopics):
+ * the placement test every topic it tests, a check over several stairs (Exam Rescue's diagnostic and practice exam)
+ * the topics of those stairs, the teacher's class exam (its frozen questions, TEACHER-5) the topics of its questions,
+ * and any other lesson its own topic.
+ */
+export function lessonTopics(spec) {
+  if (!spec) return [];
+  if (spec.kind === 'placement') return placementTopicsFor(spec.grade || '7').map((t) => t.id);
+  if (spec.skills?.length) return [...spec.skills];
+  if (spec.fixedItems?.length) return [...new Set(spec.fixedItems.map((it) => it?.topic).filter(Boolean))];
+  return [spec.skill || spec.topic].filter(Boolean);
+}
+
+/**
+ * The first question of a lesson whose answer row ends with π (□π) says what to type there (content/util.js
+ * withPiNote); the next ones in the same lesson do not repeat it. Every new question passes through here.
+ */
+function notePi(s) {
+  if (!s?.item || s.piNoted || !piRow(s.item)) return s;
+  return { ...s, item: withPiNote(s.item), piNoted: true };
+}
+
+export function startLesson(opts) {
+  return notePi(startAny(opts));
+}
+
+function startAny(opts) {
+  if (opts.kind === 'placement') return startPlacement(opts);
+  if (opts.kind === 'check') return startCheck(opts);
+  // multiplication facts are practice with no stair: level 0 everywhere, so nothing is filed under a stair or the path
+  const facts = opts.kind === 'facts';
+  const levels = facts ? Array(opts.n || FACTS_LEN).fill(0) : planLevels(opts);
+  return {
+    kind: opts.kind || 'node', topic: facts ? 'facts' : opts.topic, level: facts ? 0 : opts.level, part: opts.part || 1,
+    levels, slot: 0, total: levels.length, solved: 0, redo: [], redoing: false, probes: [],
+    item: opts.kind === 'jump' ? jumpItem(opts.topic, levels[0], 0) : practiceItem(facts ? 'facts' : opts.topic, levels[0], 0), attempt: 1, hint: false, phase: 'answer', wrong: [],
+    combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, missedSlots: [], cats: {}, lastCat: null,
+    finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),
+  };
+}
+
+export const withHint = (s) => ({ ...s, hint: true });
+
+/**
+ * Help from the tutor counts as help (ai spec AI-3 Design 4): asking the AI tutor, Madi's offline sheet or the notebook
+ * check while an exercise is still open (before an answer, or after a first miss) marks it helped. A right answer then
+ * earns no first-try credit and no combo, and the record keeps it as practice with help, not as independent evidence.
+ * Once the answer is shown or found the exercise is no longer open, and asking changes nothing. Checks have no tutor.
+ */
+export const withHelp = (s) => (s && s.kind !== 'check' && s.kind !== 'jump' && s.kind !== 'placement' && (s.phase === 'answer' || s.phase === 'retry') ? { ...s, helped: true } : s);
+
+/** Share of the lesson already solved, 0..1 (only a correct answer moves the bar). */
+export const progressOf = (s) => (s.kind === 'placement' ? placementProgress(s) : s.total ? s.solved / s.total : 0);
+
+/**
+ * Grade an answer. Returns { s, result } where result is
+ * { ok, first, assisted, retry, reveal, combo, comboMark, cat, event },
+ * or { partial } with the state unchanged when the value is right in a form the question does not take yet (a fraction
+ * that can still be reduced, content/index.js partialOf): no attempt, no event, nothing for the misconception record.
+ */
+export function answer(s, u) {
+  const partial = partialOf(s.item, u);
+  if (partial) return { s, result: { partial } };
+  if (s.kind === 'placement') return placementAnswer(s, u);
+  const it = s.item;
+  const ok = isCorrect(it, u);
+  const secs = Math.round((Date.now() - s.itemStartedAt) / 1000);
+  // a practice exam's, a class exam's and the floor check's answers are evidence of the same kind as a diagnostic: one
+  // try, no hints, before teaching; they move no stair's stages
+  const purpose = s.kind === 'check' ? (['exam', 'class', 'floor', 'quick'].includes(s.purpose) ? 'diagnostic' : s.purpose) : 'practice';
+  // a question from a diagnostic model knows every misconception that predicts this answer, and which could have shown
+  const diagnosis = !ok && it.diagnosis ? it.diagnosis(u) : null;
+  const cands = diagnosis?.kind === 'misconception' ? diagnosis.candidates : undefined;
+  // an answer after the hint or the tutor is an answer with help (learnAfterAnswer: not independent)
+  const base = { topic: it.topic || s.topic, level: it.level, hint: s.hint || !!s.helped, secs, at: new Date().toISOString(), purpose, key: it.key, cands, could: it.could };
+  if (s.kind === 'check') {
+    const sk = skillId(it.topic || s.topic, it.level);
+    const cur = s.perSkill[sk] || { right: 0, asked: 0 };
+    const perSkill = { ...s.perSkill, [sk]: { right: cur.right + (ok ? 1 : 0), asked: cur.asked + 1 } };
+    const cat = ok ? null : (it.diag ? it.diag(u) : null);
+    // the misconception showed again: a model's diagnosis names it, or an exercise's own label does
+    const showed = s.showed + (!ok && s.misc && (cands ? cands.some((c) => c.id === s.misc) : cat === s.misc) ? 1 : 0);
+    // the mistakes the check's answers name, one at a time (an answer two mistakes explain names neither), counted for
+    // its end screen: one that came back is named there (PRODUCT2-18, components/learn/RepeatNote.jsx)
+    const ids = ok ? [] : cands ? cands.map((c) => c.id) : cat ? [cat] : [];
+    const named = ids.length === 1 && !diagnosis?.ambiguous ? { ...s.named, [`${sk}|${ids[0]}`]: ((s.named || {})[`${sk}|${ids[0]}`] || 0) + 1 } : s.named;
+    const common = { ...s, perSkill, showed, named, right: s.right + (ok ? 1 : 0), solved: s.solved + 1, wrong: ok ? s.wrong : [...s.wrong, u], firstTry: s.firstTry + (ok ? 1 : 0), mistakes: s.mistakes + (ok ? 0 : 1), ...(s.fixedItems ? { slotOk: [...s.slotOk, ok] } : {}) };
+    const event = { ...base, ok, first: true, cat };
+    return ok
+      ? { s: { ...common, phase: 'correct' }, result: { ok: true, first: true, combo: 0, comboMark: null, event } }
+      : { s: { ...common, phase: 'reveal' }, result: { ok: false, reveal: true, cat, diagnosis, event } };
+  }
+  if (ok) {
+    const first = s.attempt === 1 && !s.hint && !s.helped && !it.redo;
+    const combo = first ? s.combo + 1 : 0;
+    const comboMark = first && COMBO_MARKS.includes(combo) ? combo : null;
+    // a first try that was right with the hint or the tutor open: "נכון! פתרתם עם קצת עזרה.", never "תיקנתם"
+    const assisted = s.attempt === 1 && !it.redo && (s.hint || !!s.helped);
+    return {
+      s: { ...s, phase: 'correct', combo, bestCombo: Math.max(s.bestCombo, combo), firstTry: s.firstTry + (first ? 1 : 0), fixed: s.fixed + (it.redo ? 1 : 0), solved: s.solved + 1, lastCat: null },
+      result: { ok: true, first, assisted, combo, comboMark, event: { ...base, ok: true, first, cat: s.lastCat } },
+    };
+  }
+  const cat = it.diag ? it.diag(u) : null;
+  const cats = cat ? { ...s.cats, [cat]: (s.cats[cat] || 0) + 1 } : s.cats;
+  const firstMiss = s.attempt === 1;
+  const mistakes = s.mistakes + (firstMiss && !it.redo ? 1 : 0);
+  const missedSlots = firstMiss && !it.redo ? [...s.missedSlots, s.slot] : s.missedSlots;
+  const common = { ...s, cats, mistakes, missedSlots, combo: 0, wrong: [...s.wrong, u], lastCat: cat || s.lastCat };
+  if (s.kind === 'jump') {
+    // A jump test is a check, not practice: one try per exercise.
+    const failed = mistakes > JUMP_MISTAKES;
+    return { s: { ...common, phase: 'reveal', failed, solved: s.solved + 1 }, result: { ok: false, reveal: true, cat, event: { ...base, ok: false, first: false, cat } } };
+  }
+  const probes = probesAfter(s, it, diagnosis);
+  // more: a question at the end of the lesson will tell the candidates of an ambiguous answer apart (the line says so)
+  const more = probes.length > 0;
+  if (firstMiss) return { s: { ...common, probes, attempt: 2, hint: true, phase: 'retry' }, result: { ok: false, retry: true, cat, diagnosis, more, event: { ...base, ok: false, first: false, cat, retry: true } } };
+  // Second miss: show the answer; a similar exercise returns at the end of the lesson.
+  const tries = (it.tries || 0) + 1;
+  const redo = tries <= REDO_MAX ? [...s.redo, { level: it.level, tries }] : s.redo;
+  const solved = tries <= REDO_MAX ? s.solved : s.solved + 1; // after the last return, the slot counts as done
+  return { s: { ...common, probes, phase: 'reveal', redo, solved }, result: { ok: false, reveal: true, cat, diagnosis, more, event: { ...base, ok: false, first: false, cat } } };
+}
+
+/** Questions at the end of a lesson that tell the candidates of an ambiguous answer apart: at most this many a lesson. */
+export const MAX_PROBES = 2;
+/**
+ * The probes queued after a wrong answer. An answer two or more misconceptions explain asks one question at the end
+ * that tells them apart (learn/misconceptions.ts discriminating), once a lesson. When the answer to that question
+ * still fits two or more of them, one more question asks about those only (SK-LEARN-2: three candidates cannot always
+ * be told apart by one question), and no more than MAX_PROBES in all.
+ */
+function probesAfter(s, it, diagnosis) {
+  if (s.probes?.length) return s.probes;
+  if (diagnosis?.kind !== 'misconception' || !diagnosis.ambiguous) return [];
+  const skill = skillId(it.topic || s.topic, it.level);
+  const ids = diagnosis.candidates.map((c) => c.id);
+  if (!it.probe) return s.probed ? [] : [{ skill, candidates: ids }];
+  // the answer to a probe: the candidates it asked about that still fit
+  const left = it.probe.filter((id) => ids.includes(id));
+  return left.length >= 2 && (s.probed || 0) < MAX_PROBES ? [{ skill, candidates: left }] : [];
+}
+
+/** Move on after feedback. */
+export function next(s) {
+  return notePi(nextOf(s));
+}
+
+/** Draws of a new question that may land on one already asked in the lesson before it is taken all the same. */
+const UNSEEN_DRAWS = 12;
+/**
+ * A question not yet asked in this lesson or check: `draw` again while its key is one of `seen` (the generators only
+ * avoid the question just before). A check counts each answer once, so the same question twice counted one right
+ * answer twice; a stair with very few questions still gets one after UNSEEN_DRAWS tries.
+ */
+function unseen(draw, seen) {
+  let it = draw();
+  for (let i = 0; i < UNSEEN_DRAWS && seen.includes(it.key); i += 1) it = draw();
+  return it;
+}
+
+function nextOf(s) {
+  if (s.kind === 'placement') return placementNext(s);
+  if (s.kind === 'jump' && s.failed) return { ...s, finished: true };
+  const slot = s.slot + 1;
+  const fresh = { attempt: 1, hint: false, helped: false, phase: 'answer', wrong: [], itemStartedAt: Date.now() };
+  // the keys of the questions asked so far (a redo is a similar question on purpose, and is not one of them)
+  const seen = s.item.redo ? (s.seen || []) : [...(s.seen || []), s.item.key];
+  if (s.kind === 'check') {
+    if (slot >= s.plan.length) return { ...s, finished: true };
+    // a wrong answer belongs to its own question: a choice missed in one is not marked or locked in the next
+    if (s.fixedItems) return { ...s, ...fresh, slot, item: s.fixedItems[slot] };
+    const q = s.plan[slot];
+    return { ...s, ...fresh, slot, seen, item: unseen(() => itemFor(q.skill, q.source, Math.random, s.item.key, q.candidates, { test: true }), seen) };
+  }
+  if (slot < s.levels.length) {
+    const item = unseen(() => (s.kind === 'jump' ? jumpItem(s.topic, s.levels[slot], slot, s.item.key) : practiceItem(s.topic, s.levels[slot], slot, s.item.key)), seen);
+    return { ...s, ...fresh, slot, seen, item };
+  }
+  if (s.probes?.length) {
+    // the question that tells two possible misconceptions apart
+    const [pr, ...rest] = s.probes;
+    const item = itemFor(pr.skill, 'probe', Math.random, s.item.key, pr.candidates);
+    if (item.probe) return { ...s, ...fresh, slot, probes: rest, probed: (s.probed || 0) + 1, item: { ...item, extra: true } };
+    s = { ...s, probes: rest };
+  }
+  if (s.redo.length) {
+    const [r, ...rest] = s.redo;
+    const again = s.kind === 'facts' ? factsItem(s.item.key) : makeItem(s.topic, r.level, s.item.key);
+    return { ...s, ...fresh, slot, redo: rest, redoing: true, item: { ...again, redo: true, tries: r.tries } };
+  }
+  return { ...s, finished: true };
+}
+
+/** What the lesson earned. */
+export function resultOf(s) {
+  if (s.kind === 'placement') return placementResult(s);
+  if (s.kind === 'check') {
+    const asked = s.total; const right = s.right;
+    const passed = s.purpose === 'mastery' ? asked >= MASTERY_N && right >= MASTERY_NEED
+      : s.purpose === 'review' ? right >= Math.min(REVIEW_NEED, asked)
+        : s.purpose === 'verify' ? right >= VERIFY_NEED && s.showed === 0
+          // the evening's quick check (EXAM-MATERIAL 2): all right, or practice comes next in the plan
+          : s.purpose === 'quick' ? right === asked : true;
+    // a class exam earns what a practice exam earns; the floor check what a diagnostic earns
+    const xp = !passed ? 0 : { mastery: XP.mastery, review: XP.recall, verify: XP.verify, diagnostic: XP.diagnostic, exam: XP.exam, class: XP.exam, floor: XP.diagnostic, quick: XP.diagnostic }[s.purpose] || 0;
+    // a class exam's questions, one by one, as the teacher's report reads them (correct or wrong; the server also knows
+    // partial and missing, from photo-checked exams)
+    const questions = s.fixedItems ? s.fixedItems.map((it, i) => ({ topic: it.topic, level: it.level, status: s.slotOk[i] ? 'correct' : 'wrong' })) : undefined;
+    return { kind: 'check', purpose: s.purpose, skill: s.skill, skills: s.skills, misc: s.misc, topic: s.topic, level: s.level, right, asked, perSkill: s.perSkill, showed: s.showed, named: s.named || {}, passed, xp, accuracy: asked ? Math.round((100 * right) / asked) : 0, perfect: right === asked, mistakes: asked - right, fixed: 0, bestCombo: 0, secs: Math.round((Date.now() - s.startedAt) / 1000), ...(questions ? { questions } : {}) };
+  }
+  const answered = s.total;
+  const accuracy = answered ? Math.round((100 * s.firstTry) / answered) : 0;
+  const perfect = s.mistakes === 0 && s.firstTry === answered;
+  const passed = s.kind !== 'jump' || !s.failed;
+  const xp = passed ? (XP[s.kind === 'review' ? 'review' : s.kind === 'jump' ? 'jump' : 'lesson'] + (perfect ? XP.perfect : 0) + XP.fix * (s.fixed || 0)) : 0;
+  return { kind: s.kind, topic: s.topic, level: s.level, part: s.part, accuracy, perfect, passed, xp, fixed: s.fixed || 0, bestCombo: s.bestCombo, secs: Math.round((Date.now() - s.startedAt) / 1000), mistakes: s.mistakes };
+}

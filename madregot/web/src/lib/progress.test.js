@@ -1,0 +1,248 @@
+// The first session gives something back, and the counters move from the first stage:
+//  - a finished teaching stage (A understand, B worked examples, C solve together) earns XP the first time, counts
+//    for the day's goal and keeps the streak like a lesson, and is recorded as learning, never as mastery;
+//  - a stair's five stages, a unit's stages and the board's words move from that first stage, with no row of zeros.
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { useApp, streakOf, today, dayBefore, isActiveDay } from './store.js';
+import { STAGE_XP, PARTS } from './lesson.js';
+import { stagesDone, unitProgress, unitCountText, stairProgress, STAIR_STAGES, unitNodes, addedStairNote, chestAfter, chestOpen } from './path.js';
+import { questProgress, questsFor, QUESTS } from './quests.js';
+import { unlockedLook } from './wardrobe.js';
+import { TOPIC } from '@/content/index.js';
+
+const dayAfter = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA'); };
+import { gradeTiles, tilesSummary } from '@/components/learn/MasteryMap.jsx';
+
+const S = 'signed:1';
+
+// the first stair of the course, and an algebra stair added later: the same rules
+describe.each([['signed:1'], ['expr:1']])('a finished teaching stage is a real step of the day (%s)', (S) => {
+  const [topic, lv] = S.split(':'); const level = Number(lv);
+  beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ goalXp: 20, freezes: 0 }); });
+
+  it('the first time, each stage earns its XP, towards the day and in total', () => {
+    const a = useApp.getState().completeStage(S, 'A');
+    expect(a).toMatchObject({ xp: STAGE_XP.A, first: true, streakExtended: true, streak: 1, goalReached: false });
+    const b = useApp.getState().completeStage(S, 'B');
+    expect(b).toMatchObject({ xp: STAGE_XP.B, first: true, streakExtended: false });
+    const c = useApp.getState().completeStage(S, 'C');
+    expect(c.xp).toBe(STAGE_XP.C);
+    const st = useApp.getState();
+    const total = STAGE_XP.A + STAGE_XP.B + STAGE_XP.C;
+    expect(st.xp).toBe(total);
+    expect(st.days[today()]).toMatchObject({ xp: total, stages: 3 });
+    // the three stages of a first session (about 12 minutes) reach the usual daily goal of 20 XP
+    expect(total).toBeGreaterThanOrEqual(20);
+    expect(c.goalReached).toBe(true);
+  });
+
+  it('a stage done again earns no more XP (it still counts as learning that day)', () => {
+    useApp.getState().completeStage(S, 'A');
+    const again = useApp.getState().completeStage(S, 'A');
+    expect(again).toMatchObject({ xp: 0, first: false });
+    expect(useApp.getState().xp).toBe(STAGE_XP.A);
+    expect(useApp.getState().days[today()].stages).toBe(2);
+  });
+
+  it('it is learning, never mastery: the stage is marked taught and nothing is mastered', () => {
+    useApp.getState().completeStage(S, 'A');
+    const rec = useApp.getState().learn.skills[S];
+    expect(rec.taught.A).toBeTruthy();
+    expect(rec.mastered).toBeUndefined();
+    expect(useApp.getState().path[topic]?.done?.[level]).toBeUndefined();
+  });
+
+  it('a day with only a teaching stage keeps the streak, like a day with a lesson', () => {
+    const y = dayBefore(today());
+    useApp.setState({ days: { [y]: { lessons: 1, xp: 10 } } });
+    expect(streakOf(useApp.getState().days)).toBe(1);
+    const a = useApp.getState().completeStage(S, 'A');
+    expect(a.streakExtended).toBe(true);
+    expect(a.streak).toBe(2);
+    expect(isActiveDay({ stages: 1 })).toBe(true);
+    // and a lesson later the same day does not extend it a second time
+    const r = useApp.getState().completeLesson({ kind: 'node', topic, level, part: 1, xp: 10, passed: true });
+    expect(r.streakExtended).toBe(false);
+    expect(r.streak).toBe(2);
+  });
+
+  it("when a stage's XP finishes the day's quests, the quest reward (a streak freeze) is given then", () => {
+    // a day whose three quests include the XP one
+    let key = '2026-11-02';
+    while (!questsFor(key).includes('xp')) key = dayAfter(key);
+    vi.useFakeTimers(); vi.setSystemTime(new Date(`${key}T12:00:00`));
+    try {
+      expect(today()).toBe(key);
+      // every other quest of the day is done; the XP quest is one stage short
+      const day = { lessons: 5, combo: 10, perfect: 1, ok: 30, missionDone: 1, xp: QUESTS.xp.target - STAGE_XP.A };
+      useApp.setState({ days: { [key]: day }, freezes: 0 });
+      expect(questProgress(key, day).every((q) => q.done)).toBe(false);
+      const a = useApp.getState().completeStage(S, 'A');
+      expect(a).toMatchObject({ questsDone: true, freezeEarned: true });
+      expect(useApp.getState().freezes).toBe(1);
+      expect(useApp.getState().days[key].questsRewarded).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+});
+
+describe('counters that move from the first stage', () => {
+  it("a stair's stages: each teaching stage, practice once its lessons are done, the mastery check", () => {
+    expect(stagesDone(undefined, 0)).toBe(0);
+    expect(stagesDone({ attempts: [], taught: { A: 'x' } }, 0)).toBe(1);
+    expect(stagesDone({ attempts: [], taught: { A: 'x', B: 'x', C: 'x' } }, 1)).toBe(3);
+    expect(stagesDone({ attempts: [], taught: { A: 'x', B: 'x', C: 'x' } }, PARTS)).toBe(4);
+    expect(stagesDone({ attempts: [], taught: { A: 'x', B: 'x', C: 'x' }, mastered: { at: 'x', box: 0, due: 'x' } }, PARTS)).toBe(5);
+    // a stair done before mastery checks existed counts whole
+    expect(stagesDone(undefined, 0, true)).toBe(STAIR_STAGES);
+    // the ring and the count agree once a stage is whole
+    expect(stairProgress({ attempts: [], taught: { A: 'x' } }, 0)).toBeCloseTo(1 / 5);
+  });
+
+  it('a unit says its size first, then stages, then stairs, and never "0 מתוך"', () => {
+    // signed numbers: seven stairs since signed:7 (powers, CLASSROOM-5), after signed:6 (signed fractions and decimals)
+    const fresh = unitProgress('signed', {}, {});
+    expect(unitCountText(fresh)).toBe('7 מדרגות');
+    const started = unitProgress('signed', {}, { [S]: { attempts: [], taught: { A: 'x' } } });
+    expect(started).toMatchObject({ stages: 1, of: 35, done: 0 });
+    expect(unitCountText(started)).toBe('1 מתוך 35 שלבים');
+    const mastered = unitProgress('signed', { signed: { parts: { 1: PARTS }, done: { 1: 'mastered' } } }, { [S]: { attempts: [], taught: { A: 'x', B: 'x', C: 'x' }, mastered: { at: 'x', box: 0, due: 'x' } } });
+    expect(mastered).toMatchObject({ done: 1, stages: 5 });
+    expect(unitCountText(mastered)).toBe('1 מתוך 7 מדרגות');
+    // a unit of one stair (functions, while its later stairs land) in the singular
+    expect(unitCountText({ done: 0, stairs: 1, stages: 0, of: 5 })).toBe('מדרגה אחת');
+    expect(unitCountText({ done: 1, stairs: 1, stages: 5, of: 5 })).toBe('מדרגה אחת, שולטים בה');
+    expect(unitCountText({ done: 0, stairs: 1, stages: 2, of: 5 })).toBe('2 מתוך 5 שלבים');
+    for (const p of [fresh, started, mastered]) expect(unitCountText(p)).not.toMatch(/^0 /);
+    // an algebra unit the same way (equations: seven stairs since eq:6 and eq:7, motion problems and denominators)
+    expect(unitCountText(unitProgress('eq', {}, {}))).toBe('7 מדרגות');
+    expect(unitCountText(unitProgress('eq', {}, { 'eq:1': { attempts: [], taught: { A: 'x', B: 'x' } } }))).toBe('2 מתוך 35 שלבים');
+    expect(unitCountText(unitProgress('sys', { sys: { parts: { 1: PARTS }, done: { 1: 'mastered' } } }, { 'sys:1': { attempts: [], taught: { A: 'x', B: 'x', C: 'x' }, mastered: { at: 'x', box: 0, due: 'x' } } }))).toBe('1 מתוך 5 מדרגות');
+  });
+
+  it("the board's line says what the tiles show, and has no row of zeros", () => {
+    const now = '2026-11-05T10:00:00.000Z';
+    const fresh = tilesSummary(gradeTiles('7', {}, {}, now));
+    expect(fresh).not.toMatch(/\b0\b/);
+    const after = tilesSummary(gradeTiles('7', { [S]: { attempts: [], taught: { A: now } } }, {}, now));
+    expect(after).toBe('מדרגה אחת בדרך לשליטה');
+    const two = tilesSummary(gradeTiles('7', { [S]: { attempts: [], taught: { A: now } }, 'signed:2': { attempts: [], taught: { A: now } } }, {}, now));
+    expect(two).toBe('2 מדרגות בדרך לשליטה');
+    // the grade's tiles include its algebra stairs, and they move the same way
+    expect(gradeTiles('7', {}, {}, now).map((r) => r.t.id)).toEqual(expect.arrayContaining(['expr', 'eq']));
+    expect(tilesSummary(gradeTiles('7', { 'eq:2': { attempts: [], taught: { A: now } } }, {}, now))).toBe('מדרגה אחת בדרך לשליטה');
+  });
+});
+
+describe('the unit review opens on mastered stairs only (SK-LEARN-6)', () => {
+  const review = (path) => unitNodes('coord', path).find((n) => n.kind === 'review');
+  it('stays locked while stairs are only passed over by a placement or jump test', () => {
+    expect(review({ coord: { parts: {}, reviews: 0, jumped: 5, done: {} } }).state).toBe('locked');
+    expect(review({ coord: { parts: {}, reviews: 0, jumped: 5, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'mastered' } } }).state).toBe('locked');
+  });
+  it('opens once every stair is done (mastered, or kept from before mastery checks), and is done after it is passed', () => {
+    const all = { 1: 'mastered', 2: 'mastered', 3: 'kept', 4: 'mastered', 5: 'mastered' };
+    expect(review({ coord: { parts: {}, reviews: 0, jumped: 2, done: all } }).state).toBe('current');
+    expect(review({ coord: { parts: {}, reviews: 1, jumped: 0, done: all } }).state).toBe('done');
+  });
+});
+
+describe('a stair added to a unit after it was climbed (signed:6)', () => {
+  const five = { 1: 'mastered', 2: 'mastered', 3: 'kept', 4: 'mastered', 5: 'mastered' };
+  it('keeps the five stairs as they were, makes the new one current, and its card says so', () => {
+    const path = { signed: { parts: { 5: 2 }, reviews: 1, jumped: 0, done: five } };
+    const nodes = unitNodes('signed', path);
+    expect(nodes.slice(0, 5).map((n) => n.state)).toEqual(['done', 'done', 'done', 'done', 'done']);
+    expect(nodes[5]).toMatchObject({ level: 6, state: 'current', title: 'שברים ועשרוניים מכוונים' });
+    // the stair after it (signed:7) and the unit review wait for the new stair
+    expect(nodes[6]).toMatchObject({ kind: 'node', level: 7, state: 'locked' });
+    expect(nodes[7]).toMatchObject({ kind: 'review', state: 'locked' });
+    expect(addedStairNote(nodes[5], path)).toBe('נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.');
+    // no other card says it
+    nodes.filter((n) => n !== nodes[5]).forEach((n) => expect(addedStairNote(n, path)).toBeNull());
+  });
+  it('says nothing while the stair before it is not done, or once the new stair is done', () => {
+    const open = { signed: { parts: {}, reviews: 0, jumped: 5, done: { 1: 'mastered' } } };
+    expect(unitNodes('signed', open)[5].state).toBe('current');
+    expect(addedStairNote(unitNodes('signed', open)[5], open)).toBeNull();
+    const all = { signed: { parts: {}, reviews: 1, jumped: 0, done: { ...five, 6: 'mastered' } } };
+    expect(addedStairNote(unitNodes('signed', all)[5], all)).toBeNull();
+  });
+  it('statistics (stats:6-8, curriculum stage 3): the first new stair is current after the five, and its card names all three', () => {
+    const path = { stats: { parts: {}, reviews: 1, jumped: 0, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'mastered', 5: 'mastered' } } };
+    const nodes = unitNodes('stats', path);
+    expect(nodes.slice(5, 9).map((n) => [n.level, n.state])).toEqual([[6, 'current'], [7, 'locked'], [8, 'locked'], [8, 'locked']]);
+    expect(nodes[8]).toMatchObject({ kind: 'review', state: 'locked' });
+    expect(addedStairNote(nodes[5], path)).toBe('נוספו ליחידה שלוש מדרגות חדשות: טווח, שני מקורות מידע, ואינטרפולציה ואקסטרפולציה.');
+    nodes.filter((n) => n !== nodes[5]).forEach((n) => expect(addedStairNote(n, path)).toBeNull());
+  });
+});
+
+describe('the stairs added to the equations unit (eq:6 and eq:7, stage5.md FUNC-6.5)', () => {
+  const five = { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'kept', 5: 'mastered' };
+  it('a student who climbed eq:1 to eq:5 sees eq:6 as the current stair, and its card says it was added', () => {
+    const path = { eq: { parts: {}, reviews: 1, jumped: 0, done: five } };
+    const nodes = unitNodes('eq', path);
+    expect(nodes[5]).toMatchObject({ level: 6, state: 'current', title: 'שאלות תנועה' });
+    expect(addedStairNote(nodes[5], path)).toBe('נוספה מדרגה חדשה ליחידה: שאלות תנועה.');
+    nodes.filter((n) => n !== nodes[5]).forEach((n) => expect(addedStairNote(n, path)).toBeNull());
+  });
+  it('then eq:7, once eq:6 is done', () => {
+    const path = { eq: { parts: {}, reviews: 1, jumped: 0, done: { ...five, 6: 'mastered' } } };
+    const nodes = unitNodes('eq', path);
+    expect(nodes[6]).toMatchObject({ level: 7, state: 'current', title: 'משוואות עם מכנים ופרופורציה' });
+    expect(addedStairNote(nodes[6], path)).toBe('נוספה מדרגה חדשה ליחידה: משוואות עם מכנים ופרופורציה.');
+    expect(addedStairNote(nodes[5], path)).toBeNull();
+  });
+});
+
+describe('a second stair added the same way (signed:7, powers, CLASSROOM-5)', () => {
+  const six = { 1: 'mastered', 2: 'mastered', 3: 'kept', 4: 'mastered', 5: 'mastered', 6: 'mastered' };
+  it('a student who finished the six stairs keeps them, and the seventh is current with its own line', () => {
+    const path = { signed: { parts: { 6: 2 }, reviews: 1, jumped: 0, done: six } };
+    const nodes = unitNodes('signed', path);
+    expect(nodes.slice(0, 6).map((n) => n.state)).toEqual(['done', 'done', 'done', 'done', 'done', 'done']);
+    expect(nodes[6]).toMatchObject({ level: 7, state: 'current', title: 'חזקות של מספרים מכוונים' });
+    expect(nodes[7]).toMatchObject({ kind: 'review', state: 'locked' });
+    expect(addedStairNote(nodes[6], path)).toBe('נוספה מדרגה חדשה ליחידה: חזקות של מספרים מכוונים.');
+    nodes.filter((n) => n !== nodes[6]).forEach((n) => expect(addedStairNote(n, path)).toBeNull());
+    // and once it is done, nothing
+    const all = { signed: { parts: {}, reviews: 1, jumped: 0, done: { ...six, 7: 'mastered' } } };
+    expect(unitNodes('signed', all).map((n) => addedStairNote(n, all))).toEqual(Array(8).fill(null));
+  });
+});
+
+describe('two angle stairs added after the five (angles:6 and angles:7, CLASSROOM-10 and -12)', () => {
+  const five = { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'kept', 5: 'mastered' };
+  it('a student who finished the five keeps them; the bisector is current with its own line, the quadrilateral after it', () => {
+    const path = { angles: { parts: {}, reviews: 1, jumped: 0, done: five } };
+    const nodes = unitNodes('angles', path).filter((n) => n.kind === 'node');
+    expect(nodes.map((n) => [n.level, n.state])).toEqual([[1, 'done'], [2, 'done'], [3, 'done'], [4, 'done'], [5, 'done'], [6, 'current'], [7, 'locked']]);
+    expect(nodes[5]).toMatchObject({ title: 'חוצה זווית' });
+    expect(nodes[6]).toMatchObject({ title: 'סכום זוויות במרובע' });
+    expect(addedStairNote(nodes[5], path)).toBe('נוספה מדרגה חדשה ליחידה: חוצה זווית.');
+    expect(addedStairNote(nodes[6], path)).toBeNull();
+  });
+  it('the angles chest stays after the third stair: a chest opened before the unit grew is not locked again', () => {
+    expect(chestAfter('angles')).toBe(3);
+    expect(chestOpen('angles', { angles: { parts: {}, reviews: 0, jumped: 0, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered' } } })).toBe(true);
+    // the other units keep the halfway rule
+    expect(chestAfter('coord')).toBe(3);
+  });
+  it('the signed chest stays after the third stair: the powers (signed:7) do not lock a chest opened with six stairs', () => {
+    expect(TOPIC.signed.levels.length).toBe(7);
+    expect(chestAfter('signed')).toBe(3);
+    const path = { signed: { parts: {}, reviews: 0, jumped: 0, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered' } } };
+    expect(chestOpen('signed', path)).toBe(true);
+    // its accessory stays on too
+    expect(unlockedLook({ path }).items.has('thermo-scarf')).toBe(true);
+  });
+  it('the units the curriculum stages grew keep their chest after the third stair too (eq 5 -> 7, stats 5 -> 8)', () => {
+    expect(TOPIC.eq.levels.length).toBe(7);
+    expect(TOPIC.stats.levels.length).toBe(8);
+    for (const t of ['eq', 'stats']) {
+      expect(chestAfter(t)).toBe(3);
+      expect(chestOpen(t, { [t]: { parts: {}, reviews: 0, jumped: 0, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered' } } })).toBe(true);
+    }
+  });
+});
+

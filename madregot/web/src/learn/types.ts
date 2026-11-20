@@ -1,0 +1,618 @@
+// Madregot 2.0: the learning model. Pure types, shared by the engines (src/learn/*.ts), the content
+// registry (src/learn/content/*.ts) and the screens. Nothing here depends on React or on the store.
+//
+// Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
+
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'transf' | 'expr' | 'area' | 'solid' | 'data' | 'eq' | 'ratio' | 'pct' | 'func' | 'line' | 'pyth' | 'circle' | 'stats' | 'congr' | 'sim' | 'sys' | 'prob' | 'space';
+/** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
+export type SkillId = string;
+export type Text = string;
+export type Mood = 'idle' | 'happy' | 'thinking' | 'encouraging' | 'excited' | 'achievement';
+
+/** A seeded random source, so every generated item can be reproduced in a test. */
+export type Rng = () => number;
+
+// ------------------------------------------------------------------ interactive objects
+
+/**
+ * The kinds of components/manip. The fields of each kind are those its generators use (see content/manip.js).
+ * Algebra: 'balance' (a scale of boxes x and unit weights; the answer is the value of x), 'tiles' (algebra tiles,
+ * zero pairs removed; the answer is { k, c } for kx + c), 'area' (a rectangle a by x + b; the answer is { a, b }),
+ * 'ray' (an inequality on the number line; the answer is { at, dir, closed }). 'plot' also takes `lines`.
+ * Fractions and ratio: 'fbar' (the fraction bar { start: { den, shaded }, lockDen?, maxDen?, marks?, whole? }; the answer
+ * is { mode: 'value', value } | { mode: 'common', of } | { mode: 'exact', den, shaded }) and 'dline' (the double number
+ * line { top, bottom, move: 't' | 'max', start: { t, max? }, fixT? }; the answer is the marker's top value or the bottom
+ * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`; 'numberline' takes
+ * `plain` (a line of lengths, from 0: no frost and fire on its ground).
+ * Angles: 'angle' is a ray turned on a straight line ({ start, labels?: { left, vertex, right, ray } }; the answer is the
+ * right angle in degrees), or with `protractor: true` a protractor (FUNC-1.2) in one of two modes: 'build' ({ mode:
+ * 'build', from?: 'right' | 'left', base?: number, start: number, letters?: { vertex, a, b } }: the fixed arm on the 0 of
+ * the scale that starts on that side, the value and the answer the angle between the arms, 5..175 in 5° steps) or
+ * 'align' ({ mode: 'align', arms: [θ1, θ2], start: number, letters? }: the arms' directions counterclockwise from the
+ * right, the value the protractor's turn, 0..355; right when its baseline is on an arm and the angle under it).
+ * Functions (FUNC-1): 'graph' (the graph you draw { x: GraphAxis, y: GraphAxis, start: number[], fixed?: number[], ref?:
+ * { pts: [x, y][], label? } }: one point above each x of the x axis, at most 7, at most 9 heights; the value is the
+ * points' heights; the answer is { mode: 'values', values } | { mode: 'shape', shape: ('up' | 'flat' | 'down')[] } |
+ * { mode: 'uniform', start?, rate? }, rate being the change for one unit of x).
+ * Data and probability (curriculum stage 3, DATA-2): 'simulate' (a random experiment repeated { device: 'spinner' | 'die'
+ * | 'coin' | 'bag' | 'dice2', sectors?, bag?, watch, seed?, truth?, hidden?, guided? }; the value is the run { n, counts,
+ * batches, hist, pick? }; the answer is { mode: 'trials', atLeast } or { mode: 'estimate', choices, answer }) and 'chart'
+ * (a bar chart or a pie the student builds { mode: 'bar' | 'pie', cats, start, lock?, tones?, bar: { max, step, every?,
+ * unit? (the axis title), unitWord? (the short noun a screen reader says after a value: "ילדים") }, pie: { parts: 10 |
+ * 12 | 20 } }; the value is number[]; the answer is { values }).
+ * Measurement (stage 2): 'polygon' (shapes on a grid of unit squares { grid: [cols, rows] ≤ [11, 8], task, start, shape?,
+ * piece?, base? }; task 'rect' { w, h } answered { mode: 'rect', area?, perim? } | { mode: 'maxArea', perim }, 'move'
+ * { dx, dy } answered { mode: 'move', dx, dy }, 'cut' { axis, at } answered { mode: 'cut', lines }, 'apex' { x } answered
+ * { mode: 'apex', xs }).
+ * 'net' (stage 3; content/net.js): a solid's net { solid: 'cube' | 'box' | 'prism' | 'cylinder', dims, task, layout?, shade?,
+ * loose?, start }; task 'fold' { t } answered { mode: 'fold', t: 1 | 0 }, 'face' { face } answered { mode: 'face', face },
+ * 'fix' { slot } answered { mode: 'slot', ok }, 'build' { a, b, c } or a prism's { p, q, L } answered { mode: 'build', V?, S?,
+ * d2?, fixed? }.
+ * 'circle' (stage 4; content/roll.js): { show: 'circumference' | 'area', start: { r, t } | { r, n }, rMax?, rStep?, radius? };
+ * answered { mode: 'r', r } (the radius set), { mode: 'unrolled' } (rolled one turn) or { mode: 'sectors', min }.
+ * Geometry (curriculum stage 4): 'transform' (a copy of a shape moved, flipped and turned on the grid, GEOM-2: the
+ * spec is TransformSpec, the value the copy's vertices, the answer { pts, match? }) and 'proof' (a proof in the class's
+ * table טענה | נימוק, GEOM-3: the challenge track's `order` part as a practice object).
+ */
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'graph' | 'simulate' | 'chart' | 'polygon' | 'net' | 'circle' | 'transform' | 'proof';
+/** An axis of a graph: from min (0 when not given) to max, a grid line every step, a number on every `every`-th line. */
+export type GraphAxis = { min?: number; max: number; step: number; label: string; unit?: string; every?: number };
+/** The answer of a 'graph' object. */
+export type GraphAnswer = { mode: 'values'; values: number[] } | { mode: 'shape'; shape: ('up' | 'flat' | 'down')[] } | { mode: 'uniform'; start?: number; rate?: number };
+/** A mirror line on the grid: an axis, or the line x = k or y = k. */
+export type Mirror = 'x' | 'y' | { x: number } | { y: number };
+/**
+ * The transform object (GEOM-2): the original shape stays, the student moves a copy that starts at `start` (default: on
+ * the original) with the moves the item lists: slides (drag, arrow keys and buttons), a flip in each mirror, quarter
+ * or half turns about `turns.centre`. `range` is the plane's half-width (default 6); `target` a dashed outline to cover.
+ */
+export type TransformSpec = {
+  kind: 'transform';
+  shape: { pts: [number, number][]; names: string[] };
+  start?: [number, number][];
+  moves: { drag?: boolean; flips?: Mirror[]; turns?: { centre: [number, number]; by: 90 | 180 } };
+  range?: number;
+  target?: { pts: [number, number][]; names?: string[] };
+};
+/**
+ * The proof object (GEOM-3): the challenge track's `order` part in the class's table טענה | נימוק, under the givens and
+ * what to prove, with the drawing it is read against. Without lockOrder the rows start in the seeded shuffle (never
+ * already right); with it they stay in order and only the missing reasons are asked. The value is { order, reasons }:
+ * the step at each place, and per step the chosen choice (null until chosen). tpl and set name the template and its
+ * letter set (content/proofs.js), which a teaching step is checked against.
+ */
+export type ProofSpec = {
+  kind: 'proof'; given: Text; goal: Text;
+  part: Extract<ChallengePart, { type: 'order' }>;
+  lockOrder?: boolean; seed: string; fig?: FigSpec; tpl?: string; set?: number;
+};
+export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
+
+// ------------------------------------------------------------------ Stage A: discover and understand
+
+/** מדי says one short thing (one or two sentences). */
+/** One line of a double number line: its end, its step, its unit (outside the maths) and name; labels every n-th tick. */
+export type DlineLine = { max: number; step: number; unit?: string; label?: string; every?: number };
+export type FigTone = 'brand' | 'good' | 'bad';
+/**
+ * A number line: points (A at k/den is { x: k/den, label: 'A' }), jumps as arcs; with den, every unit cut into parts (the
+ * fraction lane's PartsLine); without, the teaching figure of STUDENT-8 (components/Figure.jsx NumberLine).
+ */
+export type NumlineFig = { type: 'numline'; from: number; to: number; step?: number; den?: number; marks?: { x: number; label?: string; tone?: FigTone }[]; jumps?: { from: number; to: number; label?: string }[]; anim?: boolean };
+/**
+ * The fraction bar: rows of bars of one length; hatch the first shaded parts, cross out the last; whole names the bar.
+ * tones: one bar's parts in several tones, group after group from the left (6, 9 and 5 of 20), each named under it.
+ */
+export type FbarFig = { type: 'fbar'; den?: number; shaded?: number; marks?: number[]; whole?: number; labels?: boolean; hatch?: number; cross?: number; rows?: { den: number; shaded: number; label?: string }[]; tones?: { n: number; label?: string; tone?: number }[] };
+/** A rectangle cut both ways, the overlap of the shaded columns and rows darkest. */
+export type FgridFig = { type: 'fgrid'; rows: number; cols: number; shadeRows: number; shadeCols: number; label?: string };
+/**
+ * The double number line, still: the marker at `at` on the top line, which values it shows, or one value under it;
+ * `blank` writes no number on the bottom line but 0 (a picture that asks for the whole).
+ */
+export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: number; show?: 'both' | 'top' | 'bottom'; label?: string; blank?: boolean };
+/** Things counted in rows of dots, with a Hebrew label at the start of each row. */
+export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] };
+/**
+ * A solid's net, flat (components/SolidFigs.jsx): face letters, a shaded face, each length once or each face's area; a
+ * word in a face (names) and a straight way across the net (path, in the net's own lengths), said in its words too.
+ */
+export type NetFig = {
+  type: 'netfig'; solid: 'cube' | 'box' | 'prism' | 'cylinder';
+  dims: { a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number };
+  layout?: string | [number, number][]; letters?: boolean; shade?: string | string[]; labels?: boolean | 'area';
+  names?: Record<string, string>; path?: { from: [number, number]; to: [number, number]; words: string };
+};
+/**
+ * A solid, still (components/SolidFigs.jsx): a box, a cube or a prism in the oblique view, a cylinder or a cone on
+ * ellipses; labels true (the default) writes every length given, false none, an object its own texts; diag marks a
+ * diagonal, the right triangle inside a box, an axial section or a rod (content/net.js solidWords has the details).
+ */
+export type SolidDiag = 'face' | 'space' | 'tri' | 'axial' | 'rod';
+export type SolidFig = {
+  type: 'solid'; shape: 'box' | 'cube' | 'prism' | 'cylinder' | 'cone';
+  a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number; l?: number;
+  labels?: boolean | Partial<Record<'a' | 'b' | 'c' | 'd' | 'p' | 'q' | 'r' | 'L' | 'h' | 'l', string | number>>;
+  diag?: SolidDiag | SolidDiag[]; cubes?: boolean; cut?: 'diagonal' | 'half'; open?: boolean; label?: string;
+  /**
+   * Segments between a box's corners, all drawn alike and named by a letter (a choice of which one is the box's diagonal):
+   * corners 0-3 the front face (bottom left, bottom right, top right, top left), 4-7 the same at the back.
+   */
+  segs?: { from: number; to: number; label: string }[];
+  /** A cylinder drawn as a stack of this many discs (its volume as layers of its base). */
+  layers?: number;
+  /** A cylinder with a cone of the same base and height inside it (the cone is a third of it). */
+  inner?: 'cone';
+};
+/** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
+export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig;
+
+/**
+ * A data chart (curriculum stage 3, DATA-3; drawn by components/manip/ChartArt.jsx, read by content/manip.js
+ * chartWords). Categories run right to left (the first on the right), a line chart's xs left to right.
+ *   values   a bar's height, a slice's size, a point's value, or a pictogram row's count (in items, not icons)
+ *   max, step, from, every   the value axis: from `from` (above 0 for a truncated axis) to `max` in `step`s, a grid line
+ *            at every step and a number every `every` steps (never more than 8 numbers); chosen from the values if absent
+ *   unit     a line over the chart (what is counted); in a pictogram, the key's word ("ילדים")
+ *   labels   false: no number on the bars, slices or points (a check reads the axis, not a printed value)
+ *   pct      a pie's values are percents (50 → 50%); hide: the item whose number is a '?'; dp: decimals to print (2.0)
+ *   xs       a line chart's horizontal axis (numbers are placed to scale, words evenly); key, icon: a pictogram's key
+ *   level    a dashed line across at that value (the 2.0 m/s wind); dashed: the last n points of a line continue the
+ *            trend (a dashed line, hollow points); mark: an x marked on a line (2014 between 2010 and 2016);
+ *            cross: bars or points crossed out (a jump that does not count); tones: a colour family per category
+ */
+export type ChartFig = {
+  type: 'chart'; mode: 'bar' | 'pie' | 'line' | 'picto'; values: (number | null)[];
+  cats?: string[]; max?: number; step?: number; every?: number; from?: number; unit?: string; labels?: boolean; pct?: boolean;
+  hide?: number; dp?: number; xs?: (number | string)[]; key?: number; icon?: 'person' | 'book' | 'ball';
+  level?: number; dashed?: number; mark?: number | string; cross?: number[]; tones?: number[]; anim?: boolean;
+};
+/**
+ * A table of outcomes: two stages as rows × cols (each cell the pair, or `cells`: the sum of two dice), or one stage as
+ * one row of cols (the six faces; many outcomes as runs, '1–9', '10–45', '46–72'). marked: [row, col] cells (row 0 for
+ * one stage); label: what the table is of, in words ("של שתי קוביות").
+ */
+/** dots: each cell of a two-stage table is a dot, not its pair (a wide table, coin × die, fits a 320 px phone). */
+export type OutcomesFig = { type: 'outcomes'; cols: string[]; rows?: string[]; rowHead?: string; colHead?: string; cells?: string[][]; marked?: [number, number][]; label?: string; dots?: boolean };
+/** Two sources stacked, titled 'מקור 1' and 'מקור 2' unless titles says otherwise (a pair holds no pair). */
+export type PairFig = { type: 'pair'; items: [FigSpec, FigSpec]; titles?: [string, string] };
+/** The figures of curriculum stage 3: content writes them `satisfies DataFig` so their fields are checked. */
+export type DataFig = ChartFig | OutcomesFig | PairFig;
+/**
+ * A situation graph (FUNC-1, components/Figure.jsx SGraph): series of points on two named, scaled axes (a line through
+ * them, the points alone with `dots`, or a curve with `smooth`); lettered points, intervals of the x axis marked, dashed
+ * guides from an axis value to the first series, its rise and run between two x values, where two series meet, and an
+ * arrow "משמאל לימין". Every point lies on the grid inside the axes (learn/figures.test.ts).
+ */
+/**
+ * A protractor laid on an angle (FUNC-1.3b, components/Figure.jsx): θ is an arm's direction counterclockwise from the
+ * right end of the baseline, which is its reading on the scale that starts on the right (180 − θ on the other); base
+ * turns the whole drawing (multiples of 15); letters name the vertex and the arms (θ1 is a, θ2 is b).
+ */
+export type ProtractorFig = { type: 'protractor'; arms: [number, number]; base?: number; letters?: { vertex: string; a: string; b: string } };
+/** A clock at h:m, its hands at their true angles (the hour hand at 30h + m/2); marks adds the minute ticks. */
+export type ClockFig = { type: 'clock'; h: number; m: number; marks?: boolean };
+export type SgraphFig = {
+  type: 'sgraph'; x: GraphAxis; y: GraphAxis;
+  series: { pts: [number, number][]; dots?: boolean; smooth?: boolean; dashed?: boolean; label?: string; tone?: 'brand' | 'alt' }[];
+  marks?: { x: number; y: number; label: string }[];
+  bands?: { from: number; to: number; tone?: 'gold' | 'brand' | 'alt' }[];
+  guide?: { x?: number; y?: number }; riseRun?: { from: number; to: number }; meet?: boolean; dirArrow?: boolean; anim?: boolean;
+};
+/**
+ * A drawing, in the shape components/Figure draws. The teaching figures of STUDENT-8 and the fraction figures have their
+ * fields checked; the older types are listed by name (a catch-all `{ type: string }` member would swallow the new ones
+ * and check nothing). A function's graph is a `coord` with `line` or `lines`, never `linear` (that one draws a linear
+ * pair of angles).
+ */
+export type FigSpec =
+  | NumlineFig
+  | { type: 'thermo'; value: number; min: number; max: number; label?: string; also?: { value: number; label?: string }; anim?: boolean }
+  | { type: 'machine'; inX?: number | string; rule: string; outY?: number | string; anim?: boolean }
+  | { type: 'dots'; values: number[]; axis: [number, number]; mark?: { mode?: number; median?: number; mean?: number }; span?: { from: number; to: number; label?: string }; unit?: string; anim?: boolean }
+  | { type: 'bars'; labels: string[]; values: (number | null)[]; highlight?: number; unit?: string; level?: number; ltr?: boolean; anim?: boolean }
+  | { type: 'table'; head: string[]; rows: (number | string)[][]; anim?: boolean; ltr?: boolean; highlight?: (number | [number, number])[]; cross?: number[] }
+  | {
+    type: 'coord'; range?: number;
+    points?: { x: number; y: number; label: string; hidden?: boolean }[];
+    polygon?: [number, number][]; segments?: [[number, number], [number, number]][]; helper?: [number, number][];
+    line?: { m: number; b: number };
+    lines?: { m: number; b: number; label?: string; tone?: FigTone }[];
+    meet?: boolean; riseRun?: { x: number; run: number }; quadrants?: boolean; path?: [number, number][]; anim?: boolean;
+    words?: { at: [number, number]; text: string; tone?: FigTone | 'alt' }[];
+    // the transform object's still twin (GEOM-2.8): shapes with letters at their vertices (ghost: dashed), dashed arrows
+    // from a point to its image, a mirror line with its equation, a centre O with a curved arrow of the turn
+    shapes?: { pts: [number, number][]; names?: string[]; tone?: 'brand' | 'alt' | 'ghost'; label?: string }[];
+    arrows?: { from: [number, number]; to: [number, number]; label?: string }[];
+    mirror?: Mirror; centre?: [number, number]; turn?: 90 | -90 | 180;
+  }
+  | GeoFig
+  | ProofFig
+  | FbarFig | FgridFig | DlineFig | GroupsFig
+  | SgraphFig | ProtractorFig | ClockFig
+  | ChartFig | OutcomesFig | PairFig
+  | NetFig | SolidFig
+  | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
+/** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
+export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };
+/**
+ * A proof as a still table (GEOM-3.9): `נתון` and `צ״ל` lines, then the rows טענה | נימוק; `ask` writes "?" in that row's
+ * reason (a predict step that asks why), and `hl` shades a row (the one a step talks about). A teaching figure only,
+ * never in a check.
+ */
+export type ProofFig = { type: 'proof'; given?: Text; goal?: Text; rows: { claim: Text; reason: Text }[]; ask?: number; hl?: number };
+
+export interface SayStep { kind: 'say'; text: Text; display?: string; mood?: Mood; fig?: FigSpec }
+/** A prediction before the explanation: the student commits, then sees why. Any choice moves on. */
+export interface PredictStep {
+  kind: 'predict'; text: Text; display?: string; fig?: FigSpec;
+  choices: Text[]; answer: number;
+  /** Shown after the student chose: why the right choice is right. */
+  why: Text;
+  /** Optional: what a particular wrong choice usually means. */
+  wrongWhy?: Record<number, Text>;
+}
+/** The student moves a maths object until it is in the right state (checked by manipCorrect). */
+export interface ExploreStep {
+  kind: 'explore'; text: Text; display?: string;
+  manip: ManipSpec; answer: unknown;
+  /** Shown while the object is not there yet, after a wrong check. */
+  hint: Text;
+  /** Shown when it is there: what the student just saw. */
+  success: Text;
+}
+/** The rule, stated only after the intuition, with the reason it works. */
+export interface RuleStep { kind: 'rule'; text: Text; display?: string; why: Text; fig?: FigSpec }
+export type DiscoverStep = SayStep | PredictStep | ExploreStep | RuleStep;
+
+// ------------------------------------------------------------------ Stage B: a worked example
+
+/**
+ * One step of a worked example: the action, the reason for it, and what it gives.
+ * `value` is an expression (src/learn/expr.ts) that must equal the example's answer when the step only
+ * rewrites the problem; `calc` is a side computation whose value is checked. Tests check both.
+ * Algebra adds two more checks (learn/content.test.ts):
+ * `ident` is this step's expression in x (written for evaluate: 3*x + 12), and it must be identical to the example's
+ * `expr`: rewriting an expression never changes its value. `eq` is the equation this step states
+ * ('7*x - 3 = 4*x + 9'): it must hold at the example's answer (or at `vars` with two unknowns), and with one unknown
+ * hold there only, so a step that loses or adds a solution fails.
+ */
+export interface ExampleStep {
+  action: Text; why: Text; result: string; value?: string; calc?: { expr: string; value: number };
+  ident?: string;
+  eq?: string;
+  /** An inequality this step states ('2*x - 3 > 5'): it must have exactly the example's solutions (`ray`), and so must `result`. */
+  ineq?: string;
+  /**
+   * The operation this step does to both sides, as the class writes it after a slash ('-4x', '+3', ':2', '\\cdot 3';
+   * content/util.js opMark). It is shown at the end of the line it acts on (the problem's line, or the step before)
+   * once this step is shown (CLASSROOM-7); learn/eqLines.test.ts checks that doing it gives this step's result.
+   */
+  mark?: string;
+  /** The drawing again once this step is shown, with what was found written on it (CLASSROOM-8: the rectangle's lengths). */
+  fig?: FigSpec;
+}
+export interface WorkedExample {
+  problem: Text; display?: string;
+  /** A drawing the problem is about (the number line whose point A is asked). */
+  fig?: FigSpec;
+  /** A numeric answer, checked against `check` (an expression for the same quantity). */
+  answer: number; check: string;
+  steps: ExampleStep[];
+  /** For an expression: the expression in x as given, for evaluate ('3*(x-2) - (x+4)'); every step's `ident` equals it. */
+  expr?: string;
+  /** Shown as the answer instead of `answer` ('2x - 10'). `answer` is then the value at the substitution check. */
+  answerTex?: string;
+  /** With two unknowns, the solution ({ x: 3, y: 6 }): every step's `eq` must hold there. */
+  vars?: Record<string, number>;
+  /** TeX written after the answer, as an item's `after`: '\pi' shows the answer 12 as 12π (stage 2, MEASURE-4). */
+  after?: string;
+  /** An inequality's solutions as a ray ({ at: 4, dir: 1, closed: false } is x > 4): every step's `ineq` has exactly these. */
+  ray?: { at: number; dir: 1 | -1; closed: boolean };
+}
+
+// ------------------------------------------------------------------ Stage C: solve together
+
+/**
+ * `misc` names the stair misconception(s) whose move a wrong choice is. The student who goes on has turned that move
+ * down, so the last step does not predict it again (learn/content/togetherDiag.ts; checked by content.test.ts).
+ */
+export interface GuidedChoice { text: Text; ok: boolean; feedback: Text; misc?: string | string[] }
+/** The student chooses the next step; a wrong choice gets its own feedback and the hints grow stronger. */
+export interface GuidedStep { prompt: Text; display?: string; choices: GuidedChoice[]; hints: [Text, Text]; done: Text }
+export interface GuidedProblem {
+  problem: Text; display?: string;
+  /** A drawing the problem is about. */
+  fig?: FigSpec;
+  steps: GuidedStep[];
+  /**
+   * The last move is the student's alone: a typed number, checked against `check`. `precise` compares it exactly (as an
+   * item's `precise`, content/util.js numRight); `fmt: 'dec'` shows the answer as a decimal.
+   */
+  final: {
+    prompt: Text; answer: number; check: string; hints: [Text, Text]; precise?: boolean; fmt?: 'dec';
+    /**
+     * Answers with π (stage 2, MEASURE-1.4), as an item's: `after: '\pi'` draws π after the slot and the number before it
+     * is typed (225 for 225π; the whole value 706.5 gets the note and the step stays open); `pk: k` is a π ≈ 3.14 answer
+     * (3.14k to tenths, and the calculator's πk too).
+     */
+    after?: string; pk?: number;
+  };
+}
+
+// ------------------------------------------------------------------ misconceptions
+
+/**
+ * A misconception of a stair. `id` is the category the generators' diag() already returns for it
+ * (content/grade7.js and friends), so the evidence of every existing exercise counts.
+ */
+export interface Misconception {
+  id: string;
+  /** What the student does, in their words' terms (shown on the board and in the tutor). */
+  title: Text;
+  /** The likely reason behind it. */
+  cause: Text;
+  /** A targeted explanation: not the stair's general one. */
+  explain: Text[];
+  /** An interactive activity that repairs it (shown after the explanation). */
+  remedy: DiscoverStep[];
+  /** The smaller skill it may come from, when there is one. */
+  prereq?: SkillId;
+}
+
+/**
+ * The stair's diagnostic model ("bug library"): random parameters, the right answer, and the answer each
+ * misconception predicts for the same parameters. Diagnosis matches a wrong answer against every prediction;
+ * a discriminating question is one whose predictions all differ.
+ */
+export interface DiagModel<P = Record<string, number>> {
+  params: (rnd: Rng) => P;
+  /**
+   * The params a check draws (CURRICULUM-10), when its practice params include one-step questions a guesser passes by
+   * copying the number or completing it to 180°: the two-step kinds only. Practice and the misconception searches keep
+   * `params`; a verification's probe tries these first (learn/items.ts).
+   */
+  testParams?: (rnd: Rng) => P;
+  text: (p: P) => Text;
+  display?: (p: P) => string;
+  /** A drawing for the question, when the question needs one. */
+  fig?: (p: P) => FigSpec | undefined;
+  answer: (p: P) => number;
+  /** The exact value when the answer is rounded (a root that is not whole): an answer within half a tenth of it is right. */
+  exact?: (p: P) => number;
+  bugs: Record<string, (p: P) => number | null>;
+  /**
+   * The stair's own mistake, the one its teaching is built around (signed:1: subtracting a negative as a positive). Where
+   * it predicts the answer, it names it alone: another bug that predicts the same number there is not a second
+   * explanation the lesson can tell apart, and the stair's exercises name it the same way (content/grade7.js level
+   * `flagship`, learn/misconceptions.ts diagnose).
+   */
+  flagship?: string;
+  solution: (p: P) => Text[];
+  hint: (p: P) => Text;
+  /** The answer's unit, written after the slot; a function chooses per question (an area in סמ״ר, a perimeter in ס״מ). */
+  unit?: string | ((p: P) => string);
+  /** Compare the typed answer exactly (content/util.js numRight), as an exercise marked `precise`. */
+  precise?: boolean;
+  /** Show the answer as a decimal (-1.3, not -13/10); a function chooses per question (decimals, or quarters as fractions). */
+  fmt?: 'dec' | ((p: P) => 'dec' | undefined);
+  /**
+   * The answer's form: a number (the default), or a fraction typed as a numerator over a denominator ('frac': 6/36 and
+   * 1/6 both right, compared exactly; the diagnosis reads its value n/d). Two dice's probabilities are 1/36 apart, so a
+   * decimal would leave their documented errors ambiguous; a fraction tells them apart.
+   */
+  form?: 'num' | 'frac';
+  /**
+   * TeX drawn after the answer slot, as `label` is before it: '\pi' asks the number before π (25 for 25π). A function
+   * chooses per question (a circumference with π, its radius without: `(p) => (p.k ? undefined : '\pi')`).
+   */
+  after?: string | ((p: P) => string | undefined);
+}
+
+// ------------------------------------------------------------------ the stair
+
+export interface StairContent {
+  skill: SkillId; topic: TopicId; level: number; title: Text;
+  objectives: Text[];
+  /** One sentence: the key idea (the tutor's "לא הבנתי"). */
+  idea: Text;
+  /** Why the rule works (the tutor's "למה זה עובד?"). */
+  why: Text[];
+  /** Another way to see it (the tutor's "תסביר לי בדרך אחרת"). */
+  alt: Text[];
+  discover: DiscoverStep[];
+  examples: WorkedExample[];
+  together: GuidedProblem[];
+  /** Diagnostic questions (also the transfer questions of practice and the mastery check). */
+  diag: DiagModel<any>;
+  /** Transfer questions with an unfamiliar surface (a story, a table, a context), same skill. */
+  transfer?: DiagModel<any>;
+  misconceptions: Misconception[];
+  /** The stair's new words (shown on its journey page under "מה נלמד"). */
+  words?: Text[];
+}
+
+/**
+ * What every screen knows about a stair before its topic's teaching content has loaded (learn/content/meta.gen.ts,
+ * generated from the content files): its title, its misconceptions' names, and whether it has transfer questions.
+ */
+export interface StairMeta {
+  title: Text;
+  misconceptions: { id: string; title: Text }[];
+  transfer: boolean;
+}
+
+// ------------------------------------------------------------------ the learner
+
+export type MasteryState = 'not-started' | 'learning' | 'needs-support' | 'practicing' | 'mastered' | 'needs-review';
+
+/** Why an answer counts: practice with help is evidence of learning, not of independent mastery. */
+export type Purpose = 'practice' | 'mastery' | 'review' | 'verify' | 'diagnostic' | 'guided';
+
+export interface Attempt { at: string; ok: boolean; independent: boolean; purpose: Purpose }
+
+export interface SkillRecord {
+  /** Teaching stages finished: A discover, B example, C together. */
+  taught?: { A?: string; B?: string; C?: string };
+  attempts: Attempt[];
+  /** The last passed mastery check, and the review schedule after it. */
+  mastered?: { at: string; box: number; due: string; lastReview?: { at: string; ok: boolean } };
+  /** Failed mastery checks since the last pass (for honest feedback, not punishment). */
+  failedChecks?: number;
+  /**
+   * When the last mastery check was failed (cleared by a pass): the check is offered again only after fresh practice
+   * since then (mastery.ts checkWaits), so a quick retake is not a second guess.
+   */
+  lastFailAt?: string;
+  /** Where the student is inside each teaching stage, so leaving keeps the place. */
+  pos?: { A?: number; B?: number; C?: number };
+}
+
+export type MisconState = 'suspected' | 'confirmed' | 'repairing' | 'resolved';
+export interface MisconRecord {
+  skill: SkillId; id: string;
+  /** Weighted evidence: a match counts 1 (or less when another misconception explains it too). */
+  score: number;
+  /** Items that showed it (keys), so one question answered twice is one piece of evidence. */
+  seen: string[];
+  state: MisconState;
+  at: string;
+  /** Remediation offered today, and verifications failed: to avoid an endless loop. */
+  offered?: { day: string; n: number };
+  failedVerify?: number;
+  resolvedAt?: string;
+}
+
+export interface ExamPlanInput { grade: '7' | '8'; date: string; skills: SkillId[]; confidence: 1 | 2 | 3 | 4; minutes: number }
+/**
+ * A plan as saved. `quick`: the last quick check of each stair (the evening before the exam, EXAM-MATERIAL 2); `rules`:
+ * when each stair's rule card was last read.
+ */
+export interface ExamPlanState extends ExamPlanInput {
+  createdAt: string; diagnostic?: Record<SkillId, { asked: number; right: number; at: string }>;
+  quick?: Record<SkillId, { asked: number; right: number; at: string }>; rules?: Record<SkillId, string>;
+}
+
+/**
+ * One analytics event. n: a check's share right (0..1); d: days since mastery (for reviews); k: how many stairs a practice
+ * exam asked (Exam Rescue's evening, whose exam may cover only the stairs reviewed that evening: then p is 'part'). No
+ * names, no free text.
+ */
+export interface LearnEvent { t: string; e: string; s?: SkillId; m?: string; ok?: boolean; ind?: boolean; p?: Purpose | string; n?: number; d?: number; k?: number }
+
+/**
+ * The floor check of the bridge unit (בדיקת יסודות): when it ran, whether the unit is on the map, what each fractions
+ * stair showed, and the multiplication facts. Written by the floor check (storeGlue.ts learnAfterCheck, purpose 'floor');
+ * read by recommend.ts. `on` puts the bridge unit on the map: a missed fractions question switches it on, and only the
+ * student switches it off again (Topics, "להסתיר את היסודות מהמפה"), which keeps the evidence.
+ */
+export interface FloorState {
+  at: string;
+  on: boolean;
+  results: Record<SkillId, { asked: number; right: number }>;
+  facts: { asked: number; right: number };
+}
+
+// ------------------------------------------------------------------ the challenge track (CURRICULUM-6)
+
+/** What a challenge asks for: judging a claim, finding someone's error, ordering a proof, or a real-world task. */
+export type ChallengeKind = 'claim' | 'error' | 'proof' | 'literacy';
+/**
+ * A challenge task for a strong student: optional, graded by code (offline, no AI), shown once its `after` stair is
+ * mastered. Its parts are solved in order, each with two tries; an `explain` part is the student's own words, a
+ * self-check with no score. Content lives in learn/challenges/<topic>.ts.
+ */
+export interface ChallengeTask {
+  id: string; // 'pct:c1'
+  topic: TopicId;
+  after: SkillId; // shown once this stair is mastered
+  kind: ChallengeKind;
+  title: Text;
+  story?: Text; // the context, at most 400 characters
+  fig?: FigSpec;
+  parts: ChallengePart[]; // 2..5, solved in order
+  minutes: number; // 4..10
+  /** The mistake (a misconception id of the content, e.g. 'partial-dist') the task is built on, when it is one. */
+  misc?: string;
+}
+/**
+ * A task without its story and parts: what the first load knows of it (learn/challenges/meta.gen.ts, written by
+ * scripts/gen-content-meta.mjs): the plan, the stair page, the check's end and the medals read only these. The task's
+ * screen loads the whole task (learn/challenges/all.ts taskById, in the challenge screen's chunk).
+ */
+export type ChallengeMeta = Pick<ChallengeTask, 'id' | 'topic' | 'after' | 'kind' | 'title' | 'minutes' | 'misc'>;
+/**
+ * One part of a challenge.
+ *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested);
+ *            `after: '\\pi'` draws π after the slot and `answer` is the number before it (25 for 25π)
+ *   mc       one right choice among several, each with its own feedback
+ *   claim    always / sometimes / never true; with `example`, a counterexample typed into the slots: `expr` evaluated
+ *            at the slots' values (learn/expr.ts) must satisfy `rel value`, the values in `domain`
+ *   order    a proof's steps, shown shuffled, put in order; a step with `reason` then asks why, as a choice, and a
+ *            step with `fixed` shows its reason and does not ask it (`נתון` on a given, GEOM-3.1). `free`
+ *            lists groups of steps that may come in any order among themselves (two equal angles found one after the
+ *            other): the proof is right either way, so the check accepts both
+ *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`, which may
+ *            carry `after` as a num part does)
+ *   explain  the student's own words (kept on the screen only), then the sample answer and the rubric to tick
+ */
+export type ChallengePart =
+  | { type: 'num'; prompt: Text; answer: number; check: string; unit?: string; after?: string; solution: Text[] }
+  | { type: 'mc'; prompt: Text; choices: { text: Text; ok: boolean; feedback: Text }[] }
+  | { type: 'claim'; prompt: Text; claim: Text; verdict: 'always' | 'sometimes' | 'never'; why: Text;
+      example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
+                  expr: string; rel: '<' | '<=' | '>' | '>=' | '!='; value: number; hint: Text } }
+  | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number }; fixed?: Text }[]; free?: number[][] }
+  /**
+   * Someone's solution with one mistaken line (`wrong`, explained by `why`). `lineWhy` says, for every other line, why
+   * that line is not the mistake; the student who marks it reads it (components/challenge/ErrorPart.jsx, PRODUCT2-18).
+   */
+  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; lineWhy: Record<number, Text>; fix: { prompt: Text; answer: number; check: string; after?: string } }
+  | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
+/** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */
+export interface ChallengeRecord { startedAt: string; doneAt?: string; firstTry: number; parts: number }
+
+export interface LearnState {
+  skills: Record<SkillId, SkillRecord>;
+  miscon: Record<string, MisconRecord>; // key `${skill}|${id}`
+  exam: ExamPlanState | null;
+  missions: Record<string, { items: MissionItem[] }>; // by day 'YYYY-MM-DD'
+  events: LearnEvent[];
+  /**
+   * The floor check's record; null until it runs. A save from before it existed has none: the store's persist merge
+   * fills null in (lib/store.js), and every reader still reads it as `learn.floor ?? null`.
+   */
+  floor?: FloorState | null;
+  /** Challenge tasks by id ({} until one starts; read as `learn.challenges ?? {}`, as floor is). */
+  challenges?: Record<string, ChallengeRecord>;
+}
+
+// ------------------------------------------------------------------ what to do next
+
+/**
+ * What a suggestion is (learn/next.ts planNext ranks them): the teacher's work ('teacher', a stair, a mastery check or a
+ * class exam the class's teacher gave), an Exam Rescue step, a misconception to repair, a due review, points lost in a checked exam ('exam-loss'), the floor check of the fractions unit ('floor'), a missing
+ * prerequisite, a mastery check, the stair in progress, a new stair, or a challenge task of a mastered stair.
+ */
+export type ActionKind = 'teacher' | 'exam' | 'repair' | 'review' | 'exam-loss' | 'floor' | 'prereq' | 'continue' | 'new' | 'mastery' | 'challenge';
+export type Stage = 'A' | 'B' | 'C' | 'D' | 'E';
+/** The kind of an Exam Rescue step, as its plan names it (examRescue.ts PlanTask), plus the diagnostic before a plan. */
+export type RescueTask = 'learn' | 'practice' | 'mastery' | 'review' | 'exam' | 'diagnostic' | 'rule' | 'quick';
+export interface Action {
+  /** The stair it is about; '' for an Exam Rescue step on no single stair (the diagnostic, the practice exam). */
+  kind: ActionKind; skill: SkillId; misc?: string;
+  /** For learning a stair: the one stage this action is (a mission item is done when this stage is, not the stair). */
+  stage?: Stage;
+  /** An Exam Rescue step: which step of the plan it is, so the mission item is done only by that step. */
+  task?: RescueTask;
+  /** A challenge: which task (its skill is the stair it follows), so the mission item is done only by that task. */
+  challengeId?: string;
+  /** The teacher's work (kind 'teacher', CURRICULUM-7.1 band 1): which assignment of the class. */
+  assignment?: string;
+  /** A new stair that is a guest of the student's grade (skills.ts GUEST): off the map, so its reason shows with it. */
+  guest?: boolean;
+  title: Text; reason: Text; minutes: number;
+  /** The route that starts it. */
+  to: string;
+}
+export interface MissionItem extends Action { done?: string }

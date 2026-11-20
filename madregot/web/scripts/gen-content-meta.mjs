@@ -1,0 +1,254 @@
+// Writes src/learn/content/meta.gen.ts (DURABLE-11): what the app has to know about the teaching content before a
+// topic's file has loaded. Per stair: its title, its misconceptions' ids and titles, and whether it has transfer
+// questions; per topic: the misconception names the content adds (NEW_CATS). The journeys and the diagnostic models
+// stay in their topic's file and load on demand (learn/content/index.ts loadTopic).
+//
+// It reads every learn/content/*.ts (through Vite, so the files run as the app runs them) and keeps what they export:
+// arrays of stairs, and CATS_* records (a topic's misconception names). npm run build runs it first, and
+// learn/content-split.test.ts fails when the file in the repository is not what it would write.
+//
+// It also writes src/learn/challenges/meta.gen.ts: each challenge task's id, topic, stair, kind, title, minutes and
+// misconception, without its parts, so the first load carries only that (the parts load with the challenge screen,
+// learn/challenges/all.ts).
+//
+// And src/content/topics.gen.js (TOPIC_META): every topic of content/grade7.js and grade8.js without its functions
+// (each stair's gen, and any other function on it) and without its lesson summary: id, grade, title, colour,
+// description, flags, its stairs' titles and its misconception names. The map, the path and every screen that only
+// names topics and stairs read that; the generators load per topic with the topic's teaching (content/topics.js
+// loadGens, which puts the functions back on the same objects), so the first load does not carry them.
+//
+// And src/content/lessons.gen.js (TOPIC_LESSONS): the lesson summaries the topic files hold (the key ideas and the
+// unit's words of the guide page), by topic. Only the guide page reads them (screens/Topic.jsx, through
+// content/lessons.js lessonOf), so they load with that page and not with the first screen.
+//
+// And shared/stairMiscs.gen.js: each stair's own misconception ids, in plain JS, for the Worker, which
+// cannot load the web content (a repair the teacher gives names one of them: SK-BUYERS-2, worker/src/assignments.js).
+//
+// Usage: node scripts/gen-content-meta.mjs           write the files (only when they changed)
+//        node scripts/gen-content-meta.mjs --check   exit 1 when a file is stale
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { basename, join } from 'node:path';
+
+const WEB = fileURLToPath(new URL('..', import.meta.url));
+const DIR = join(WEB, 'src/learn/content');
+export const META_FILE = join(DIR, 'meta.gen.ts');
+export const MISCS_FILE = join(WEB, '../shared/stairMiscs.gen.js');
+/** Files in learn/content that are not teaching content: the registry itself, and what it generates. */
+// the Arabic twins (signed.ar.ts, COUNCIL2-34) are the same stairs in other words: scripts/gen-arabic.mjs makes them
+const SKIP = new Set(['index.ts', 'meta.gen.ts']);
+
+const CH_DIR = join(WEB, 'src/learn/challenges');
+export const CHALLENGE_META_FILE = join(CH_DIR, 'meta.gen.ts');
+/** Files in learn/challenges that are not a topic's tasks: the registry, what it generates, and the list of all. */
+const CH_SKIP = new Set(['index.ts', 'meta.gen.ts', 'all.ts']);
+const isTask = (x) => !!x && typeof x === 'object' && typeof x.id === 'string' && typeof x.after === 'string' && Array.isArray(x.parts);
+
+const isStair = (x) => !!x && typeof x === 'object' && typeof x.skill === 'string' && typeof x.topic === 'string' && Array.isArray(x.misconceptions) && !!x.diag;
+
+export const TOPIC_META_FILE = join(WEB, 'src/content/topics.gen.js');
+export const LESSON_META_FILE = join(WEB, 'src/content/lessons.gen.js');
+
+/**
+ * The meta from the content modules: { file name: module namespace }. Files and their exports are read in name order,
+ * so the result never depends on the order the files were loaded in.
+ */
+export function collectMeta(modules) {
+  const stairs = new Map();
+  const cats = {};
+  const byName = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  for (const file of Object.keys(modules).sort((a, b) => byName(basename(a), basename(b)))) {
+    const mod = modules[file];
+    const names = Object.keys(mod).sort(byName);
+    const topics = new Set();
+    for (const value of names.map((k) => mod[k])) {
+      if (!Array.isArray(value) || !value.length || !value.every(isStair)) continue;
+      for (const c of value) {
+        const seen = stairs.get(c.skill);
+        // a file may re-export another's stairs (line.ts gathers line1 and line2): the same object is the same stair
+        if (seen && seen !== c) throw new Error(`${basename(file)}: two different stairs are called ${c.skill}`);
+        stairs.set(c.skill, c);
+        topics.add(c.topic);
+      }
+    }
+    const named = names.filter((k) => k.startsWith('CATS_')).map((k) => [k, mod[k]]);
+    if (!named.length) continue;
+    if (topics.size !== 1) throw new Error(`${basename(file)}: CATS_* needs the file's stairs to be of one topic`);
+    const [topic] = topics;
+    for (const [, rec] of named) cats[topic] = Object.assign(cats[topic] || {}, rec);
+  }
+  const meta = {};
+  for (const [skill, c] of stairs) {
+    if (c.skill !== `${c.topic}:${c.level}`) throw new Error(`${skill}: the skill id is not topic:level`);
+    meta[skill] = { title: c.title, misconceptions: c.misconceptions.map((m) => ({ id: m.id, title: m.title })), transfer: !!c.transfer };
+  }
+  for (const c of stairs.values()) cats[c.topic] ||= {};
+  return { meta, cats };
+}
+
+/** The file's text. */
+export function renderMeta({ meta, cats }) {
+  return [
+    '// GENERATED by scripts/gen-content-meta.mjs from learn/content/*.ts. Do not edit: npm run build writes it again,',
+    '// and learn/content-split.test.ts fails when it is stale. What every screen knows about a stair before its topic',
+    "// has loaded (DURABLE-11): the stair's title, its misconceptions' names, whether it has transfer questions, and",
+    '// the misconception names each topic adds (content/topics.js merges them into the topic\'s cats).',
+    "import type { SkillId, StairMeta, TopicId } from '../types';",
+    '',
+    `export const META: Record<SkillId, StairMeta> = ${JSON.stringify(meta, null, 2)};`,
+    '',
+    `export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = ${JSON.stringify(cats, null, 2)};`,
+    '',
+  ].join('\n');
+}
+
+/** A task without its parts: what every screen but the challenge itself reads. */
+export const taskMeta = (t) => ({ id: t.id, topic: t.topic, after: t.after, kind: t.kind, title: t.title, minutes: t.minutes, ...(t.misc ? { misc: t.misc } : {}) });
+
+/** The challenge tasks' meta from their modules ({ file name: module namespace }), files and exports in name order. */
+export function collectChallenges(modules) {
+  const byName = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const out = []; const seen = new Set();
+  for (const file of Object.keys(modules).sort((a, b) => byName(basename(a), basename(b)))) {
+    const mod = modules[file];
+    for (const value of Object.keys(mod).sort(byName).map((k) => mod[k])) {
+      if (!Array.isArray(value) || !value.length || !value.every(isTask)) continue;
+      for (const t of value) {
+        if (seen.has(t.id)) throw new Error(`${basename(file)}: two tasks are called ${t.id}`);
+        seen.add(t.id); out.push(taskMeta(t));
+      }
+    }
+  }
+  return out;
+}
+
+/** The challenge meta file's text. */
+export function renderChallenges(list) {
+  return [
+    '// GENERATED by scripts/gen-content-meta.mjs from learn/challenges/*.ts. Do not edit: npm run build writes it again,',
+    '// and learn/content-split.test.ts fails when it is stale. Every challenge task without its parts (the first load',
+    '// carries only this; the parts load with the challenge screen, learn/challenges/all.ts).',
+    "import type { ChallengeMeta } from '../types';",
+    '',
+    `export const CHALLENGE_META: ChallengeMeta[] = ${JSON.stringify(list, null, 2)};`,
+    '',
+  ].join('\n');
+}
+
+/** shared/stairMiscs.gen.js: each stair's own misconception ids, in the meta's order. */
+export function renderMiscs({ meta }) {
+  const rows = Object.entries(meta).map(([skill, m]) => `  ${JSON.stringify(skill)}: Object.freeze(${JSON.stringify(m.misconceptions.map((x) => x.id))}),`);
+  return [
+    '// GENERATED by web/scripts/gen-content-meta.mjs from web/src/learn/content/*.ts. Do not edit: npm run build writes it',
+    "// again, and web/src/learn/content-split.test.ts fails when it is stale. Each stair's own misconception ids, for what",
+    '// cannot load the web content: the Worker checks the mistake a teacher gives a repair for against them (SK-BUYERS-2,',
+    '// worker/src/assignments.js). Plain JS, no imports.',
+    '',
+    'export const STAIR_MISCS = Object.freeze({',
+    ...rows,
+    '});',
+    '',
+    "/** Is `id` one of the stair's own misconceptions ('<topic>:<level>')? */",
+    'export const isStairMisc = (skill, id) => Object.hasOwn(STAIR_MISCS, skill) && STAIR_MISCS[skill].includes(id);',
+    '',
+  ].join('\n');
+}
+
+/**
+ * A topic without its functions: the same keys in the same order, every function left out (content/topics.js puts them
+ * back when the topic's file loads). Only plain data may stay: a string, a finite number, a boolean, null, an array or
+ * a plain object of those. Anything else (a RegExp, a Map, a Date, NaN) would not survive the file, so it is an error
+ * that names where it is: such a value belongs in a function, or in the topic's own file.
+ */
+export function stripTopic(t, at = t?.id || 'topic') {
+  if (Array.isArray(t)) return t.map((x, i) => stripTopic(x, `${at}[${i}]`));
+  if (t && typeof t === 'object') {
+    const proto = Object.getPrototypeOf(t);
+    if (proto !== Object.prototype && proto !== null) throw new Error(`${at}: a ${proto?.constructor?.name || 'value'} cannot be in topics.gen.js (only plain data and functions)`);
+    return Object.fromEntries(Object.entries(t).filter(([, v]) => typeof v !== 'function' && v !== undefined).map(([k, v]) => [k, stripTopic(v, `${at}.${k}`)]));
+  }
+  if (typeof t === 'number' && !Number.isFinite(t)) throw new Error(`${at}: ${t} cannot be in topics.gen.js`);
+  if (t === null || ['string', 'number', 'boolean'].includes(typeof t)) return t;
+  throw new Error(`${at}: a ${typeof t} cannot be in topics.gen.js`);
+}
+
+/**
+ * A topic as the first load knows it: without its functions (stripTopic) and without its lesson summary, which only
+ * the guide page reads (lessons.gen.js, below).
+ */
+export function topicMeta(t) {
+  const { lesson, ...rest } = stripTopic(t);
+  return rest;
+}
+
+/** The topic meta file's text, from the topics in their order (GRADE7, then GRADE8). */
+export function renderTopicMeta(topics) {
+  return [
+    '// GENERATED by scripts/gen-content-meta.mjs from content/grade7.js and content/grade8.js. Do not edit: npm run build',
+    '// writes it again, and src/content/topic-split.test.js fails when it is stale. What every screen knows about a',
+    "// topic before its exercise generators have loaded: everything but its functions (each stair's gen), which",
+    '// content/topics.js loads per topic (loadGens) and puts back on the same objects, and its lesson summary, which',
+    '// the guide page reads from content/lessons.gen.js.',
+    `export const TOPIC_META = ${JSON.stringify(topics.map((t) => topicMeta(t)), null, 2)};`,
+    '',
+  ].join('\n');
+}
+
+/** The lesson summaries the topic files hold, by topic id (a topic without one is not in the record). */
+export const topicLessons = (topics) => Object.fromEntries(topics.filter((t) => t.lesson).map((t) => [t.id, stripTopic(t.lesson, `${t.id}.lesson`)]));
+
+/** The lesson summaries file's text, from the topics in their order (GRADE7, then GRADE8). */
+export function renderLessons(topics) {
+  return [
+    '// GENERATED by scripts/gen-content-meta.mjs from content/grade7.js and content/grade8.js. Do not edit: npm run build',
+    '// writes it again, and src/content/topic-split.test.js fails when it is stale. The lesson summary each topic file',
+    "// holds (the guide page's key ideas, words and examples), by topic. content/lessons.js reads it (lessonOf), and",
+    '// only the guide page imports that, so the summaries are not in the first load.',
+    `export const TOPIC_LESSONS = ${JSON.stringify(topicLessons(topics), null, 2)};`,
+    '',
+  ].join('\n');
+}
+
+/** Load every content file through Vite (TypeScript, the @ alias) and render the meta. */
+export async function generate() {
+  const { createServer } = await import('vite');
+  const server = await createServer({
+    configFile: false, root: WEB, logLevel: 'error', appType: 'custom',
+    server: { middlewareMode: true, hmr: false, watch: null, ws: false },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    resolve: { alias: { '@': join(WEB, 'src'), '@shared': join(WEB, '../shared') } },
+  });
+  try {
+    const modules = {};
+    for (const name of readdirSync(DIR).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('.ar.ts') && !SKIP.has(f))) {
+      modules[name] = await server.ssrLoadModule(`/src/learn/content/${name}`);
+    }
+    const tasks = {};
+    for (const name of readdirSync(CH_DIR).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !CH_SKIP.has(f))) {
+      tasks[name] = await server.ssrLoadModule(`/src/learn/challenges/${name}`);
+    }
+    // the topics with their generators, as the app loads them (content/topics.js loadGens)
+    const g7 = await server.ssrLoadModule('/src/content/grade7.js');
+    const g8 = await server.ssrLoadModule('/src/content/grade8.js');
+    const all = [...g7.GRADE7, ...g8.GRADE8];
+    const content = collectMeta(modules);
+    return { content: renderMeta(content), miscs: renderMiscs(content), challenges: renderChallenges(collectChallenges(tasks)), topics: renderTopicMeta(all), lessons: renderLessons(all) };
+  } finally {
+    await server.close();
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const out = await generate();
+  let stale = false;
+  for (const [file, text, name] of [[META_FILE, out.content, 'learn/content/meta.gen.ts'], [MISCS_FILE, out.miscs, 'shared/stairMiscs.gen.js'], [CHALLENGE_META_FILE, out.challenges, 'learn/challenges/meta.gen.ts'], [TOPIC_META_FILE, out.topics, 'content/topics.gen.js'], [LESSON_META_FILE, out.lessons, 'content/lessons.gen.js']]) {
+    const old = existsSync(file) ? readFileSync(file, 'utf8') : '';
+    if (process.argv.includes('--check')) {
+      if (old !== text) { console.error(`${name} is stale: run node scripts/gen-content-meta.mjs`); stale = true; } else console.log(`${name} is up to date`);
+    } else if (old !== text) {
+      writeFileSync(file, text);
+      console.log(`wrote ${name}`);
+    } else console.log(`${name} is up to date`);
+  }
+  if (stale) process.exit(1);
+}

@@ -1,0 +1,15 @@
+/* Teach.jsx's own rules, out of the first-load stylesheets (COUNCIL2-20). Teach.jsx imports this file, so they load
+   with it. A rule is here only when the classes it needs are written by it, or by parts only it
+   loads (src/styles/lazy.test.js), and it keeps the order it had. */
+.ls-display { display: flex; justify-content: center; padding: var(--s2) 0; font-size: 1.15rem; direction: ltr; overflow-x: auto; }
+.tg-built { list-style: none; margin: 0; padding: var(--s3); background: var(--good-tint); display: flex; flex-direction: column; gap: 6px; color: var(--good-ink); }
+.tg-prompt { margin: 0; font-family: var(--font-display); font-size: var(--t-md); font-weight: 600; }
+.tg-hints { display: flex; flex-direction: column; gap: var(--s2); }
+.tg-final { display: flex; gap: var(--s2); align-items: stretch; }
+.tg-input { flex: 1; max-width: 180px; font-size: 1.4rem; text-align: center; font-family: var(--font-display); }
+.tg-built { width: 100%; border-radius: 14px; }
+.tg-input { border-radius: var(--r-s); }
+.together .tg-final { display: block; }
+@media (max-width: 360px) {
+  .ls-display.big { font-size: 1.3rem; }
+}

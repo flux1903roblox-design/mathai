@@ -1,0 +1,58 @@
+// The challenge track (אתגר, curriculum stage 1, CURRICULUM-6): every task, by id and by the stair it follows, and what
+// a student has open and done. A topic's tasks live in their own file (learn/challenges/<topic>.ts); the first load
+// carries only their meta (meta.gen.ts, written by scripts/gen-content-meta.mjs), and the challenge screen loads all.ts.
+// A task is open once its `after` stair is mastered (a passed mastery check; a review due later does not close it), and
+// a task already solved stays open. The screen at /challenge/:id never blocks: the places that link to it do the gating.
+import type { ChallengeMeta, ChallengeRecord, SkillId, SkillRecord, TopicId } from '../types';
+import { ALL_SKILLS, TOPIC_ORDER } from '../skills';
+import { CHALLENGE_META } from './meta.gen';
+
+/**
+ * Every task, in the order of the topics (TOPIC_ORDER), each topic's tasks in their own order. Stage 1 had 36: three
+ * per topic, one claim, one error or proof and one real-world (literacy) task each; later stages add their own (the
+ * functions unit's three, stage5.md FUNC-7; curriculum stage 3's data and probability, three each; stage 2's areas and
+ * perimeters, boxes and prisms, the circle with the cylinder and the cone, and Pythagoras in space, three each; the
+ * geometry units' nine, stage4.md GEOM-7). Only what every screen reads is here (id, topic, stair, kind, title,
+ * minutes, misconception): the stories and parts load with the challenge screen (all.ts), so the first load does not
+ * carry them.
+ */
+export const CHALLENGES: ChallengeMeta[] = [...CHALLENGE_META].sort((a, b) => TOPIC_ORDER.indexOf(a.topic) - TOPIC_ORDER.indexOf(b.topic));
+const BY_ID: Record<string, ChallengeMeta> = Object.fromEntries(CHALLENGES.map((t) => [t.id, t]));
+
+export const challengeById = (id: string): ChallengeMeta | null => BY_ID[id] || null;
+/** The tasks that open once this stair is mastered. */
+export const challengesAfter = (skill: SkillId): ChallengeMeta[] => CHALLENGES.filter((t) => t.after === skill);
+export const challengesOf = (topic: TopicId): ChallengeMeta[] => CHALLENGES.filter((t) => t.topic === topic);
+/** The topics that have tasks, in TOPIC_ORDER. */
+export const CHALLENGE_TOPICS: TopicId[] = [...new Set(CHALLENGES.map((t) => t.topic))];
+
+type Skills = Record<SkillId, SkillRecord>;
+type Records = Record<string, ChallengeRecord> | undefined | null;
+type Task = Pick<ChallengeMeta, 'id' | 'after'>;
+
+/** Solved: the task was finished once (its record has doneAt). */
+export const isSolved = (t: Task, recs: Records) => !!recs?.[t.id]?.doneAt;
+/** Open: its stair is mastered, or it was already solved. */
+export const isOpen = (t: Task, skills: Skills, recs: Records) => !!skills[t.after]?.mastered || isSolved(t, recs);
+/** How many tasks are solved, in all. */
+export const solvedCount = (recs: Records) => CHALLENGES.filter((t) => isSolved(t, recs)).length;
+
+/** A topic's tasks as Topics counts them: how many are open, how many of those are solved, and the next one to try. */
+export function topicChallenges(topic: TopicId, skills: Skills, recs: Records): { open: number; done: number; next: ChallengeMeta | null } {
+  const open = challengesOf(topic).filter((t) => isOpen(t, skills, recs));
+  return { open: open.length, done: open.filter((t) => isSolved(t, recs)).length, next: open.find((t) => !isSolved(t, recs)) || null };
+}
+
+/** The task to offer after this stair: its first one not solved yet (null when it has none, or all are solved). */
+export const nextAfter = (skill: SkillId, recs: Records): ChallengeMeta | null => challengesAfter(skill).find((t) => !isSolved(t, recs)) || null;
+
+/**
+ * The first unsolved task of a mastered stair, for the plan (learn/next.ts, band 9), as a full task: the order is
+ * open.ts's, which reads the tasks' meta (the map's first screen loads only that, COUNCIL2-14).
+ */
+export function firstOpenChallenge(skills: Skills, recs: Records): ChallengeMeta | null {
+  const at = (t: ChallengeMeta) => Date.parse(skills[t.after]?.mastered?.at || '') || 0;
+  const open = CHALLENGES.filter((t) => !!skills[t.after]?.mastered && !isSolved(t, recs));
+  open.sort((a, b) => at(b) - at(a) || ALL_SKILLS.indexOf(a.after) - ALL_SKILLS.indexOf(b.after) || CHALLENGES.indexOf(a) - CHALLENGES.indexOf(b));
+  return open[0] || null;
+}

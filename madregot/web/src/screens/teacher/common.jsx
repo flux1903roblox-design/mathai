@@ -1,0 +1,62 @@
+// Small helpers the teacher's board and its tabs share.
+import { toast } from 'sonner';
+import { TriangleAlert, CircleCheck, CircleAlert } from 'lucide-react';
+import { MathText, mathPlain } from '@/components/MathText.jsx';
+import { mistakeText, stairLabel, stairShort } from '@/lib/teacherText.js';
+
+export const fmtDay = (iso) => {
+  if (!iso) return 'אף פעם';
+  const d = new Date(iso); const days = Math.floor((Date.now() - d.getTime()) / 864e5);
+  if (days <= 0) return 'היום'; if (days === 1) return 'אתמול';
+  return `לפני ${days} ימים`;
+};
+export const pct = (a, b) => (b ? Math.round((100 * a) / b) : null);
+
+// A student asked the teacher to talk (trust spec TRUST-3 §3.5): a help request with kind 'talk' and no exercise.
+export const TALK = 'ביקש/ה לדבר איתך';
+// The safety alert (COUNCIL2-9, worker/src/alerts.js, on only when the owner turned SAFETY_ALERTS on): a request the
+// server made, with this topic and no text, when a student's message to the tutor read as self-harm. The student did
+// not send it and does not see it, so it gets no reply box.
+export const ALERT_TOPIC = 'safety';
+export const ALERT_LINE = 'היום, בשיחה עם העוזר החכם, נכתב משהו שנשמע כמו מצוקה. מה שנכתב לא נשמר אצלנו. העוזר הציע לפנות למבוגר קרוב ולער״ן, 1201.';
+
+export function copy(text, label) {
+  navigator.clipboard?.writeText(text).then(() => toast.success(`${label} הועתק`), () => toast(`${label}: ${text}`));
+}
+
+export function Rate({ value }) {
+  if (value == null) return <span className="muted">אין עדיין</span>;
+  const tone = value < 60 ? 'low' : value < 80 ? 'mid' : 'high';
+  const Icon = tone === 'low' ? TriangleAlert : tone === 'mid' ? CircleAlert : CircleCheck;
+  return <span className={`rate ${tone}`}><Icon size={15} aria-hidden="true" />{value}%</span>;
+}
+
+/**
+ * A student's name that opens their page (TEACHER-8): a link-style button wherever the board names a student. With no
+ * id (a student no longer in the class) or no `onOpen`, the name stays plain text.
+ */
+export function StudentName({ id, name, onOpen, className }) {
+  if (!id || !onOpen) return <b className={className}>{name}</b>;
+  return <button type="button" className={`link-btn t-name${className ? ` ${className}` : ''}`} onClick={() => onOpen({ id, name })}>{name}</button>;
+}
+
+/**
+ * A repeated mistake as the teacher reads it (TEACHER-16): the stair on its own line, then the words the student saw on
+ * that stair. A screen reader hears the stair, a pause, then the words.
+ */
+export function MistakeWords({ topic, level, cat }) {
+  return (
+    <>
+      <b className="t-mis-stair"><MathText text={stairLabel(topic, level)} /></b>
+      <span className="visually-hidden">. </span>
+      <MathText text={mistakeText(topic, level, cat)} />
+    </>
+  );
+}
+
+/**
+ * The name of a button that gives practice on a repeated mistake ("לתת תרגול על זה" on מחר, "לתת תרגול" on a student's
+ * sheet): its own words first (WCAG 2.5.3, the name holds the label), then the stair and the mistake in plain words, so
+ * a screen reader's list of buttons (and voice control) tells each row's button apart.
+ */
+export const practiseName = (words, topic, level, cat) => `${words}: ${stairShort(topic, level)}, ${mathPlain(mistakeText(topic, level, cat))}`;

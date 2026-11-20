@@ -1,0 +1,1122 @@
+// One "what next" (CURRICULUM-7): the bands of planNext for named synthetic learners, the rules every plan keeps, the
+// mission's completion of the new kinds, and that planNext is pure.
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import type { LearnState, SkillId, SkillRecord } from './types';
+import { planNext, examLosses, mapTopics, mapFocus, onMap, nodeRoute, cardRoute, missionNext, strongToday, BAND, GUEST_REASON, CHECK_PLACED, pathSkillsOf } from './next';
+import AFTER_PLACEMENT from './__fixtures__/state-after-placement.json';
+import type { NextContext, CheckedExam } from './next';
+import { nextActions, isMissing, states, titleOf, stairStage, RECOVER_RIGHT } from './recommend';
+import { buildMission, completeMissionItems, missionDone, missionFor } from './mission';
+import { examPlan, newPlan, recordDiagnostic, isPlanRestDay } from './examRescue';
+import { ALL_SKILLS, GRADE_OF, STAIRS, TOPIC_ORDER, GUEST, gradeSkillsOf, guestSkillsOf, isBridgeSkill, parseSkill, skillId, prereqsOf } from './skills';
+import { monthIndex } from './programme';
+import { contentOf, loadAllContent } from './content/index';
+import { seeded } from './expr';
+import { addDays } from './mastery';
+// @ts-ignore: plain JS
+import { splitFirstSentence } from '@/components/MathText.jsx';
+import { LEARNERS, ctxOf, emptyLearn, checkedExam, ago, masteredRec, taughtRec, strugglingRec, pathOf, checkEvents, taughtByNowDone, NOW } from './__fixtures__/learners';
+import { challengeById, CHALLENGES } from './challenges/index';
+import { workRoute, type ClassAssignment } from './assignments';
+// @ts-ignore: plain JS
+import { isKept, isPlaced } from '@/lib/path.js';
+// @ts-ignore: plain JS
+import { PARTS } from '@/lib/lesson.js';
+// @ts-ignore: plain JS
+import { topicsFor } from '@/content/index.js';
+// @ts-ignore: plain JS
+import { classAssignments, classRows } from '@/lib/classRows.js';
+// @ts-ignore: plain JS
+import { boardOf } from '@/lib/board.js';
+
+// every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
+await loadAllContent();
+
+describe('planNext: the bands, highest first, for each learner', () => {
+  it.each([
+    ['newSeventh', [['new', 'signed:1']]],
+    ['newSeventhSeptember', [['new', 'angles:1']]],
+    // signed:1 and signed:2 are mastered, so a challenge waits at the bottom (not strong today): signed:2's, the stair
+    // mastered more recently (PRODUCT2-21 gave it signed:c6)
+    ['midSigned3', [['continue', 'signed:3'], ['new', 'signed:4'], ['challenge', 'signed:2']]],
+    ['misconception', [['repair', 'signed:1'], ['continue', 'signed:1'], ['new', 'signed:2']]],
+    // coord:1, mastered last, has its own task now (coord:c4, PRODUCT2-21)
+    ['dueReview', [['review', 'coord:1'], ['new', 'signed:3'], ['challenge', 'coord:1']]],
+    // today: the lesson of signed:1 and the check of signed:2; signed:1's practice and check come on the next days.
+    // coord:1's task (coord:c4) waits at the bottom
+    ['examIn3Days', [['exam', 'signed:1'], ['exam', 'signed:2'], ['review', 'coord:1'], ['new', 'coord:2'], ['challenge', 'coord:1']]],
+    ['examUndiagnosed', [['exam', ''], ['new', 'signed:1']]],
+    ['examOnShabbat', [['new', 'signed:1']]],
+    // ratio and scale is the first unit of ח׳ (September): taught by now, it is the first new stair, before line:2
+    ['eighthNovemberLine', [['continue', 'line:1'], ['new', 'ratio:1']]],
+    ['weakFloor', [['new', 'frac:1']]],
+    ['hardFractionsNoFloor', [['floor', 'signed:6'], ['continue', 'signed:6'], ['new', 'coord:1'], ['challenge', 'signed:1']]],
+    // a challenge first, then the old "everything mastered" review
+    ['allSeventhMastered', [['challenge', 'signed:1'], ['review', 'signed:1']]],
+    // strong today: the challenge moves up, right after the exam loss and never above the exam, a repair or a review
+    ['strongEighth', [['exam', 'ratio:2'], ['repair', 'ratio:1'], ['review', 'pct:1'], ['exam-loss', 'pct:1'], ['challenge', 'pct:2'], ['new', 'pct:3']]],
+    ['keptStairs', [['mastery', 'signed:1'], ['new', 'signed:3']]],
+    ['examLossCoord4', [['exam-loss', 'coord:4'], ['new', 'signed:3'], ['challenge', 'signed:1']]],
+    ['examLossRecovered', [['new', 'signed:3'], ['challenge', 'signed:1']]],
+    // guest stairs (FUNC-6): new after the grade's own stairs taught by now, before its own not taught yet
+    // every task's stair mastered at once: the first in ALL_SKILLS order, the angles unit's (filed under ז׳; it joins
+    // the ח׳ path in September, when ח׳ is taught angles:4, PRODUCT2-20), before the transformations'
+    ['eighthDecemberGuest', [['new', 'eq:6'], ['challenge', 'angles:4']]],
+    ['seventhMayGuest', [['new', 'func:1'], ['challenge', 'signed:1']]],
+  ])('%s', (name, want) => {
+    const p = planNext(LEARNERS[name]());
+    expect(p.items.map((x) => [x.kind, x.skill])).toEqual(want);
+    // ranks go up with the list, and the top is the first item
+    expect(p.items.map((x) => x.rank)).toEqual([...p.items.map((x) => x.rank)].sort((a, b) => a - b));
+    expect(p.top).toBe(p.items[0] || null);
+  });
+
+  it('says why, in one sentence or two, for every item', () => {
+    Object.values(LEARNERS).forEach((f) => planNext(f()).items.forEach((x) => { expect(x.reason.length).toBeGreaterThan(10); expect(x.title).toBeTruthy(); expect(x.minutes).toBeGreaterThan(0); }));
+  });
+
+  it('the exam band is Exam Rescue\'s today, in its order, with the days to the exam', () => {
+    const c = LEARNERS.examIn3Days();
+    const p = planNext(c);
+    const plan = examPlan(c.learn.exam!, c.learn, c.now, c.day);
+    expect(p.examToday.map((x) => x.to)).toEqual(plan.today.map((t) => t.to));
+    // a stair's lesson, practice and check are on three days (PRODUCT2-17): today the lesson, and another stair's check
+    expect(p.examToday.map((x) => [x.task, x.skill])).toEqual([['learn', 'signed:1'], ['mastery', 'signed:2']]);
+    expect(p.examToday.map((x) => x.minutes)).toEqual([12, 3]);
+    expect(p.items.filter((x) => x.kind === 'exam').map((x) => x.to)).toEqual(p.examToday.map((x) => x.to));
+    expect(p.top!.reason).toBe('המבחן בעוד 3 ימים. זה הצעד של היום בתוכנית ההכנה.');
+    // before the diagnostic: one item, the short check Rescue shows then
+    expect(planNext(LEARNERS.examUndiagnosed()).top).toMatchObject({ kind: 'exam', task: 'diagnostic', title: 'בדיקה קצרה לפני התוכנית', to: '/rescue/check' });
+    // a stair the exam works on today is not offered again below it
+    expect(p.items.filter((x) => x.skill === 'signed:1').every((x) => x.kind === 'exam')).toBe(true);
+  });
+
+  it('an exam more than two weeks away has no band, while Rescue still has its today', () => {
+    const c = LEARNERS.examIn3Days();
+    c.learn.exam = { ...c.learn.exam!, date: '2026-12-04' };
+    const p = planNext(c);
+    expect(p.items.some((x) => x.kind === 'exam')).toBe(false);
+    expect(p.examToday.length).toBeGreaterThan(0);
+  });
+
+  it('on Shabbat there is no exam step, and restDay says so', () => {
+    const p = planNext(LEARNERS.examOnShabbat());
+    expect(p.restDay).toBe(true);
+    expect(p.examToday).toEqual([]);
+    expect(p.items.some((x) => x.kind === 'exam')).toBe(false);
+    // and the next day the band is back
+    const sun = planNext(ctxOf(LEARNERS.examOnShabbat().learn, { day: '2026-11-13' }));
+    expect(sun.restDay).toBe(false);
+    expect(sun.top?.kind).toBe('exam');
+  });
+
+  it('a new stair follows the school calendar: taught by now first, then the rest, in school order', () => {
+    expect(planNext(LEARNERS.newSeventh()).top).toMatchObject({ kind: 'new', skill: 'signed:1', to: '/learn/signed/1/A' });
+    // in the student's words (PRODUCT2-41): a short first line, and the school month after it, behind "עוד" on screen
+    const why = planNext(LEARNERS.newSeventh()).top!.reason;
+    expect(why).toContain('בבית הספר לומדים את זה באוקטובר.');
+    expect(why).not.toContain('לפי תוכנית הלימודים');
+    expect(splitFirstSentence(why)[0]).toBe('המדרגה הבאה במספרים מכוונים.');
+    // September: signed starts in October, angles is taught now; the unit's own order is kept (no signed:2 before signed:1)
+    expect(planNext(LEARNERS.newSeventhSeptember()).top).toMatchObject({ kind: 'new', skill: 'angles:1' });
+    expect(planNext(LEARNERS.newSeventhSeptember()).top!.reason).toContain('בספטמבר');
+    // November: with the units before it passed, the transformations (7.11, November and December) come next, by the
+    // calendar (every stair of each unit jumped: signed and angles have seven since signed:7 and angles:6-7)
+    const jumped = (n: number) => ({ parts: {}, reviews: 0, jumped: n });
+    const before = Object.fromEntries((['signed', 'coord', 'angles'] as const).map((t) => [t, jumped(7)]));
+    const tf = planNext(ctxOf(emptyLearn(), { path: before })).top!;
+    expect(tf).toMatchObject({ kind: 'new', skill: 'transf:1', to: '/learn/transf/1/A' });
+    expect(tf.reason).toContain('בבית הספר לומדים את זה');
+    // a stair the calendar has not reached says nothing about the calendar: in November, areas (December), boxes and
+    // prisms (January), data and frequency (January) and equations (March) are all ahead
+    const path = Object.fromEntries((['signed', 'coord', 'angles', 'transf', 'expr'] as const).map((t) => [t, jumped(7)]));
+    const area = planNext(ctxOf(emptyLearn(), { path })).top!;
+    expect(area).toMatchObject({ kind: 'new', skill: 'area:1' });
+    expect(area.reason).not.toContain('בבית הספר לומדים את זה');
+    // then boxes and prisms (January), then data and frequency (January), then equations (March)
+    const solid = planNext(ctxOf(emptyLearn(), { path: { ...path, area: jumped(5) } })).top!;
+    expect(solid).toMatchObject({ kind: 'new', skill: 'solid:1' });
+    expect(solid.reason).not.toContain('בבית הספר לומדים את זה');
+    const data = planNext(ctxOf(emptyLearn(), { path: { ...path, area: jumped(5), solid: jumped(4) } })).top!;
+    expect(data).toMatchObject({ kind: 'new', skill: 'data:1' });
+    expect(data.reason).not.toContain('בבית הספר לומדים את זה');
+    const eq = planNext(ctxOf(emptyLearn(), { path: { ...path, area: jumped(5), solid: jumped(4), data: jumped(4) } })).top!;
+    expect(eq).toMatchObject({ kind: 'new', skill: 'eq:1' });
+    expect(eq.reason).not.toContain('בבית הספר');
+  });
+
+  it('each area and solid stair keeps its own month (MEASURE-6.1): the parallelogram is April\'s, and says so only then', () => {
+    const path = {
+      // (every stair of each earlier unit jumped: signed and angles have seven since signed:7 and angles:6-7)
+      ...Object.fromEntries((['signed', 'coord', 'angles', 'transf', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 7 }])),
+      area: { parts: {}, reviews: 0, jumped: 3 },
+    };
+    // January: area:1-3 done, area:4 (April) is not "taught by now", and the box (solid:1, January) is: it comes first,
+    // and says January
+    const jan = planNext(ctxOf(emptyLearn(), { path, day: '2027-01-12' })).top!;
+    expect(jan).toMatchObject({ kind: 'new', skill: 'solid:1' });
+    expect(jan.reason).toContain('בבית הספר לומדים את זה בינואר.');
+    // with the boxes done too, January's other unit comes next: data and frequency (curriculum stage 3, 7.15)
+    const janData = planNext(ctxOf(emptyLearn(), { path: { ...path, solid: { parts: {}, reviews: 0, jumped: 2 } }, day: '2027-01-12' })).top!;
+    expect(janData).toMatchObject({ kind: 'new', skill: 'data:1' });
+    expect(janData.reason).toContain('בבית הספר לומדים את זה בינואר.');
+    // and with every stair taught by January done, area:4 is next, and its line says nothing about the class in January.
+    // By January two ח׳ units have joined the ז׳ path (PRODUCT2-20): Pythagoras (pyth:1, December) and statistics
+    // (stats:1, January); their first stairs are taught by then too
+    const jan2 = planNext(ctxOf(emptyLearn(), { path: { ...path, solid: { parts: {}, reviews: 0, jumped: 2 }, data: { parts: {}, reviews: 0, jumped: 4 }, pyth: { parts: {}, reviews: 0, jumped: 1 }, stats: { parts: {}, reviews: 0, jumped: 1 } }, day: '2027-01-12' })).top!;
+    expect(jan2).toMatchObject({ kind: 'new', skill: 'area:4' });
+    expect(jan2.reason).not.toContain('בבית הספר לומדים את זה');
+    // April: the class meets it now
+    const apr = planNext(ctxOf(emptyLearn(), { path, day: '2027-04-13' })).top!;
+    expect(apr).toMatchObject({ kind: 'new', skill: 'area:4' });
+    expect(apr.reason).toContain('בבית הספר לומדים את זה באפריל.');
+    // and December's first stair says December, not the unit's later months
+    const dec = planNext(ctxOf(emptyLearn(), { path: { ...path, area: { parts: {}, reviews: 0, jumped: 0 } }, day: '2026-12-08' })).top!;
+    expect(dec).toMatchObject({ kind: 'new', skill: 'area:1' });
+    expect(dec.reason).toContain('בדצמבר');
+  });
+
+  it('offers the floor check for a hard stair that leans on fractions, only while there is no floor evidence', () => {
+    const c = LEARNERS.hardFractionsNoFloor();
+    expect(planNext(c).top).toMatchObject({ kind: 'floor', title: 'בדיקה קצרה של יסודות', minutes: 3, to: '/floor' });
+    expect(planNext(c).top!.reason).toBe('המדרגה "שברים ועשרוניים מכוונים" נשענת על יסודות השברים. שש שאלות יראו אם כדאי לחזק אותם קודם.');
+    // after a check that went well, it is not offered again
+    const after = { ...c.learn, floor: { at: NOW, on: false, results: { 'frac:3': { asked: 1, right: 1 } }, facts: { asked: 2, right: 2 } } };
+    expect(planNext({ ...c, learn: after }).items.some((x) => x.kind === 'floor')).toBe(false);
+    // after a missed fractions question, the missing fractions stair itself is the prerequisite
+    const missed = { ...c.learn, floor: { at: NOW, on: true, results: { 'frac:3': { asked: 1, right: 0 } }, facts: { asked: 2, right: 2 } } };
+    expect(planNext({ ...c, learn: missed }).items.find((x) => x.kind === 'prereq')).toMatchObject({ skill: 'frac:3' });
+  });
+
+  it('points lost in a checked exam: mapped to the stair, named with the exam\'s date, gone once recovered', () => {
+    const p = planNext(LEARNERS.examLossCoord4());
+    const d = new Date(ago(5));
+    expect(p.top).toMatchObject({ kind: 'exam-loss', skill: 'coord:4', source: 'exam-check', title: 'מהמבחן: שטח מלבן', minutes: 4, to: '/lesson/coord/4?part=2' });
+    expect(p.top!.reason).toBe(`במבחן מ־${d.getDate()}.${d.getMonth() + 1} ירדו כאן נקודות. תרגול קצר ואז בדיקה.`);
+    // a passed review of coord:4 after the exam
+    expect(planNext(LEARNERS.examLossRecovered()).items.some((x) => x.kind === 'exam-loss')).toBe(false);
+    // or three independent right answers after it
+    const c = LEARNERS.examLossCoord4();
+    c.learn.skills['coord:4'] = { ...c.learn.skills['coord:4'], attempts: [...c.learn.skills['coord:4'].attempts, ...[1, 2, 3].map(() => ({ at: ago(1), ok: true, independent: true, purpose: 'practice' as const }))] };
+    expect(planNext(c).items.some((x) => x.kind === 'exam-loss')).toBe(false);
+    // two right answers are not enough
+    c.learn.skills['coord:4'].attempts.pop();
+    expect(planNext(c).items.some((x) => x.kind === 'exam-loss')).toBe(true);
+  });
+
+  it('reads a question\'s stair from its level, else from the level the exam lost most at, else drops it', () => {
+    const exam = checkedExam(3, [['coord', null, 'wrong'], ['coord', 3, 'wrong'], ['angles', null, 'wrong'], ['nope', 1, 'wrong']]);
+    expect(examLosses(ctxOf(emptyLearn(), { exams: [exam] })).map((x) => x.skill)).toEqual(['coord:3']);
+    // older than 45 days: nothing; a newer exam that got the stair right settles it
+    expect(examLosses(ctxOf(emptyLearn(), { exams: [checkedExam(46, [['coord', 3, 'wrong']])] }))).toEqual([]);
+    expect(examLosses(ctxOf(emptyLearn(), { exams: [checkedExam(2, [['coord', 3, 'correct']]), checkedExam(9, [['coord', 3, 'wrong']])] }))).toEqual([]);
+    // a stair not yet learned is practised from its next stage
+    const fresh = planNext(ctxOf(emptyLearn(), { exams: [exam] })).items.find((x) => x.kind === 'exam-loss')!;
+    expect(fresh).toMatchObject({ skill: 'coord:3', stage: 'A', to: '/learn/coord/3/A' });
+  });
+});
+
+describe('old evidence that a stair is weak counts only until newer work says otherwise', () => {
+  // the floor check ran 20 days ago; the stairs were mastered 5 days ago (reviews far off)
+  const FLOOR_AT = ago(20);
+  const floorWith = (missed: SkillId[]) => ({ at: FLOOR_AT, on: true, results: Object.fromEntries(['frac:1', 'frac:2', 'frac:3', 'frac:4'].map((id) => [id, { asked: 1, right: missed.includes(id) ? 0 : 1 }])), facts: { asked: 2, right: 2 } });
+  const learner = (grade: '7' | '8', mastered: SkillId[], missed: SkillId[], extra: Record<SkillId, SkillRecord> = {}) => {
+    const L = emptyLearn();
+    mastered.forEach((id) => { L.skills[id] = masteredRec(ago(5), 40, 4); });
+    Object.assign(L.skills, extra);
+    L.floor = floorWith(missed);
+    return ctxOf(L, { grade });
+  };
+  const FRAC = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
+  const newOf = (c: NextContext) => planNext(c).items.find((x) => x.kind === 'new')?.skill;
+
+  it('a ח׳ student who missed frac:2 in the floor check and has mastered it since is offered percent', () => {
+    const c = learner('8', [...FRAC, 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4'], ['frac:2']);
+    expect(states(c)['frac:2']).toBe('mastered');
+    expect(isMissing(c, 'frac:2')).toBe(false);
+    expect(newOf(c)).toBe('pct:1');
+    // the same student with frac:2 right in the floor check: the same plan
+    expect(newOf(learner('8', [...FRAC, 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4'], []))).toBe('pct:1');
+  });
+
+  it('a ז׳ student who missed frac:3 in the floor check and has mastered it since is offered signed:6', () => {
+    const SIGNED = ['signed:1', 'signed:2', 'signed:3', 'signed:4', 'signed:5'];
+    const c = learner('7', [...SIGNED, ...FRAC], ['frac:3']);
+    expect(isMissing(c, 'frac:3')).toBe(false);
+    expect(newOf(c)).toBe('signed:6');
+    // signed:6 hard now (two failed checks): no prerequisite item sends the student back to a stair mastered since
+    const hard: SkillRecord = { taught: { A: ago(3), B: ago(3), C: ago(3) }, attempts: [], failedChecks: 2 };
+    const p = planNext(learner('7', [...SIGNED, ...FRAC], ['frac:3'], { 'signed:6': hard }));
+    expect(p.items.filter((x) => x.kind === 'prereq')).toEqual([]);
+    expect(p.top).toMatchObject({ skill: 'signed:6' });
+  });
+
+  it('no prerequisite item ever points at a stair mastered after the evidence against it', () => {
+    const SIGNED = ['signed:1', 'signed:2', 'signed:3', 'signed:4', 'signed:5'];
+    const hard: SkillRecord = { taught: { A: ago(3), B: ago(3), C: ago(3) }, attempts: [], failedChecks: 2 };
+    for (const missed of FRAC) {
+      const c = learner('7', [...SIGNED, ...FRAC], [missed], { 'signed:6': hard });
+      const st = states(c);
+      planNext(c).items.filter((x) => x.kind === 'prereq').forEach((x) => expect(st[x.skill], `${missed}: ${x.skill}`).not.toBe('mastered'));
+    }
+  });
+
+  it('the floor evidence still counts when nothing since contradicts it, and stops counting after three right answers of the student\'s own', () => {
+    // mastered before the floor check, missed in it: the check is the newer evidence
+    const L = emptyLearn();
+    L.skills['frac:3'] = masteredRec(ago(30), 60, 4);
+    L.floor = floorWith(['frac:3']);
+    expect(isMissing(ctxOf(L), 'frac:3')).toBe(true);
+    // not mastered since, but RECOVER_RIGHT independent right answers after the check
+    const M = emptyLearn();
+    M.floor = floorWith(['frac:3']);
+    M.skills['frac:3'] = { taught: { A: ago(4), B: ago(4), C: ago(4) }, attempts: Array.from({ length: RECOVER_RIGHT }, () => ({ at: ago(2), ok: true, independent: true, purpose: 'practice' as const })) };
+    expect(isMissing(ctxOf(M), 'frac:3')).toBe(false);
+    // two are not enough, and right answers with help do not count
+    M.skills['frac:3'] = { ...M.skills['frac:3'], attempts: M.skills['frac:3'].attempts.slice(1) };
+    expect(isMissing(ctxOf(M), 'frac:3')).toBe(true);
+    M.skills['frac:3'] = { ...M.skills['frac:3'], attempts: Array.from({ length: 5 }, () => ({ at: ago(2), ok: true, independent: false, purpose: 'practice' as const })) };
+    expect(isMissing(ctxOf(M), 'frac:3')).toBe(true);
+    // a passed review after the check
+    const R = emptyLearn();
+    R.floor = floorWith(['frac:3']);
+    R.skills['frac:3'] = { ...masteredRec(ago(30), 60, 4) };
+    R.skills['frac:3'].mastered = { ...R.skills['frac:3'].mastered!, lastReview: { at: ago(3), ok: true } };
+    expect(isMissing(ctxOf(R), 'frac:3')).toBe(false);
+  });
+
+  it('Exam Rescue\'s diagnostic follows the same rule', () => {
+    const L = emptyLearn();
+    L.exam = recordDiagnostic(newPlan({ grade: '7', date: '2026-11-30', skills: ['signed:1'], confidence: 2, minutes: 20 }, ago(20)), 'signed:1', 0, 2, ago(20));
+    expect(isMissing(ctxOf(L), 'signed:1')).toBe(true);
+    L.skills['signed:1'] = masteredRec(ago(5), 40, 4);
+    expect(isMissing(ctxOf(L), 'signed:1')).toBe(false);
+  });
+});
+
+describe('every reason reads as Hebrew: a stair\'s title never takes a verb that may not agree with it', () => {
+  // titles are any noun phrase (מציאת השלם, חלוקה ביחס, שברים ועשרוניים מכוונים): a verb right after one is a guess
+  const titles = ALL_SKILLS.map((id) => titleOf(id));
+  const esc = (t: string) => t.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
+  const VERB_AFTER_TITLE = (reason: string) => titles.find((t) => new RegExp(`${esc(t)}\\s+(?:נשען|נשענת|נשענים|נשענות)`).test(reason));
+
+  it('the floor check and the prerequisite name the stair as "המדרגה \"…\"", for every stair that leans on fractions', () => {
+    const reasons: string[] = [];
+    ALL_SKILLS.filter((id) => !isBridgeSkill(id)).forEach((id) => {
+      const grade = GRADE_OF[parseSkill(id).topic] as '7' | '8';
+      const L = emptyLearn();
+      L.skills[id] = strugglingRec(ago(1));
+      planNext(ctxOf(L, { grade })).items.filter((x) => x.kind === 'floor' || x.kind === 'prereq').forEach((x) => reasons.push(x.reason));
+      // and the same stair after a floor check that missed everything: the prerequisite is a fractions stair
+      const M = emptyLearn();
+      M.skills[id] = strugglingRec(ago(1));
+      M.floor = { at: ago(2), on: true, results: { 'frac:1': { asked: 1, right: 0 }, 'frac:2': { asked: 1, right: 0 }, 'frac:3': { asked: 1, right: 0 }, 'frac:4': { asked: 1, right: 0 } }, facts: { asked: 2, right: 2 } };
+      planNext(ctxOf(M, { grade })).items.filter((x) => x.kind === 'prereq').forEach((x) => reasons.push(x.reason));
+    });
+    expect(reasons.length).toBeGreaterThan(10);
+    reasons.forEach((r) => {
+      expect(VERB_AFTER_TITLE(r), r).toBeUndefined();
+      expect(r, r).toMatch(/^המדרגה ".+" נשענת על (?:יסודות השברים|".+")\./);
+    });
+    // the reviewer's learner: percent 1-3 and ratio mastered, pct:4 going badly, no floor check yet
+    const L = emptyLearn();
+    ['pct:1', 'pct:2', 'pct:3', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4'].forEach((id) => { L.skills[id] = masteredRec(ago(12), 40, 4); });
+    L.skills['pct:4'] = strugglingRec(ago(1));
+    expect(planNext(ctxOf(L, { grade: '8' })).items.find((x) => x.kind === 'floor')!.reason).toBe('המדרגה "מציאת השלם" נשענת על יסודות השברים. שש שאלות יראו אם כדאי לחזק אותם קודם.');
+    expect(reasons.some((r) => /^המדרגה ".+" נשענת על ".+"\. שלב \d מתוך 5 שם יעזור לחזור לזה\.$/.test(r)), 'a prerequisite reason').toBe(true);
+  });
+
+  it('no reason of any learner puts a verb straight after a stair\'s title', () => {
+    Object.values(LEARNERS).forEach((f) => planNext(f()).items.forEach((x) => expect(VERB_AFTER_TITLE(x.reason), x.reason).toBeUndefined()));
+  });
+});
+
+describe('planNext: the challenge band', () => {
+  it('a learner with every ז׳ stair mastered and no review due gets a challenge first, the review after it', () => {
+    // every stair was mastered on the same day, so the first in school order: signed:c1 (with stage 15's six tasks
+    // alone this was angles:c1, the only ז׳ task then)
+    const p = planNext(LEARNERS.allSeventhMastered());
+    const task = challengeById('signed:c1')!;
+    expect(p.top).toMatchObject({ kind: 'challenge', source: 'challenge', skill: 'signed:1', challengeId: 'signed:c1', title: `אתגר: ${task.title}`, minutes: task.minutes, to: '/challenge/signed:c1' });
+    expect(p.top!.reason).toBe('עברתם את בדיקת השליטה במדרגה "חיבור וחיסור". רוצים משהו קשה יותר?');
+    expect(p.items[1]).toMatchObject({ kind: 'review', title: 'חיזוק: חיבור וחיסור' });
+    // solved, the next one: signed:c2, then on through the grade's tasks in school order
+    const c = LEARNERS.allSeventhMastered();
+    const solve = (ids: string[]) => { c.learn.challenges = Object.fromEntries(ids.map((id) => [id, { startedAt: NOW, doneAt: NOW, firstTry: 1, parts: 2 }])); };
+    solve(['signed:c1']);
+    expect(planNext(c).top?.challengeId).toBe('signed:c2');
+    // in school order, the tasks of signed:2 (signed:c6, PRODUCT2-21) come before signed:3's
+    solve(['signed:c1', 'signed:c2']);
+    expect(planNext(c).top?.challengeId).toBe('signed:c6');
+    // every task of a stair before angles:4 solved: angles:4's own, angles:c1
+    solve(CHALLENGES.filter((t) => ALL_SKILLS.indexOf(t.after) < ALL_SKILLS.indexOf('angles:4')).map((t) => t.id));
+    expect(planNext(c).top?.challengeId).toBe('angles:c1');
+    // the most recently mastered stair's task comes first: a check passed again on angles:4 yesterday
+    c.learn.skills['angles:4'] = masteredRec(ago(1), 20, 0);
+    solve([]);
+    expect(planNext(c).top?.challengeId).toBe('angles:c1');
+    // all of them solved: the review alone
+    solve(CHALLENGES.map((t) => t.id));
+    expect(planNext(c).items.map((x) => x.kind)).toEqual(['review']);
+  });
+
+  it('offers a challenge only for a mastered stair, the most recently mastered first, one at a time', () => {
+    // nothing mastered: no challenge
+    expect(planNext(LEARNERS.newSeventh()).items.some((x) => x.kind === 'challenge')).toBe(false);
+    // a stair in progress is not mastered: pct:2 taught but not checked opens nothing; the mastered pct:1 opens its own
+    // task (pct:c4, PRODUCT2-21)
+    const L = emptyLearn();
+    L.skills['pct:1'] = masteredRec(ago(9), 30, 3);
+    L.skills['pct:2'] = taughtRec(ago(1), ['A', 'B', 'C']);
+    expect(planNext(ctxOf(L, { grade: '8' })).items.filter((x) => x.kind === 'challenge').map((x) => x.challengeId)).toEqual(['pct:c4']);
+    // pct:2 and stats:3 mastered (both open a task), not strong: one challenge, at the bottom, the newer stair's
+    L.skills['pct:2'] = masteredRec(ago(3), 30, 3);
+    L.skills['stats:3'] = masteredRec(ago(1), 30, 3);
+    const p = planNext(ctxOf(L, { grade: '8' }));
+    const ch = p.items.filter((x) => x.kind === 'challenge');
+    expect(ch.map((x) => x.challengeId)).toEqual(['stats:c1']);
+    expect(p.items[p.items.length - 1]).toBe(ch[0]);
+    expect(Math.floor(ch[0].rank / 100)).toBe(BAND.challenge);
+  });
+
+  it('strong today: the last three mastery checks passed on the first attempt, or every stair of the grade mastered', () => {
+    const L = emptyLearn();
+    expect(strongToday({ learn: L, grade: '8' })).toBe(false);
+    L.events = checkEvents([['ratio:1', true, 9], ['pct:1', true, 5]]);
+    expect(strongToday({ learn: L, grade: '8' })).toBe(false); // two are not three
+    L.events = checkEvents([['ratio:1', true, 9], ['pct:1', true, 5], ['pct:2', true, 2]]);
+    expect(strongToday({ learn: L, grade: '8' })).toBe(true);
+    // pct:2 passed only on its second attempt: not a first-attempt pass
+    L.events = checkEvents([['pct:2', false, 12], ['ratio:1', true, 9], ['pct:1', true, 5], ['pct:2', true, 2]]);
+    expect(strongToday({ learn: L, grade: '8' })).toBe(false);
+    // a failed check among the last three
+    L.events = checkEvents([['ratio:1', true, 9], ['pct:1', false, 5], ['pct:2', true, 2]]);
+    expect(strongToday({ learn: L, grade: '8' })).toBe(false);
+    // an older failure on another stair does not count, and other events in the log are ignored
+    L.events = [...checkEvents([['ratio:2', false, 20], ['ratio:1', true, 9], ['pct:1', true, 5]]), { t: ago(3), e: 'check-done', s: 'pct:1', p: 'review', ok: false }, ...checkEvents([['pct:2', true, 2]])];
+    expect(strongToday({ learn: L, grade: '8' })).toBe(true);
+    // every stair of the grade mastered
+    expect(strongToday(LEARNERS.allSeventhMastered())).toBe(true);
+  });
+
+  it('the strong-today move-up never goes above bands 2 to 5, and without it the challenge waits at the bottom', () => {
+    const strong = planNext(LEARNERS.strongEighth());
+    const kinds = strong.items.map((x) => x.kind);
+    const at = kinds.indexOf('challenge');
+    expect(at).toBe(kinds.lastIndexOf('exam-loss') + 1);
+    expect(strong.items[at].rank).toBe(BAND['exam-loss'] * 100 + 1);
+    expect(kinds.slice(0, at).every((k) => ['exam', 'repair', 'review', 'exam-loss'].includes(k))).toBe(true);
+    expect(kinds.slice(at + 1)).toEqual(['new']);
+    // one of the three checks failed before its pass: not strong, so the challenge comes after the new stair
+    const weak = LEARNERS.strongEighth();
+    weak.learn.events = checkEvents([['pct:2', false, 4], ['ratio:1', true, 12], ['pct:1', true, 10], ['pct:2', true, 2]]);
+    const p = planNext(weak);
+    expect(p.items.map((x) => x.kind).slice(-2)).toEqual(['new', 'challenge']);
+    expect(Math.floor(p.items[p.items.length - 1].rank / 100)).toBe(BAND.challenge);
+    // every fixture made strong keeps the rule (checkRules: no challenge above bands 2 to 5)
+    Object.values(LEARNERS).forEach((f) => {
+      const c = f();
+      const mastered = Object.keys(c.learn.skills).filter((id) => c.learn.skills[id].mastered);
+      c.learn.events = checkEvents(mastered.slice(-3).map((id, k) => [id, true, 3 - k] as [SkillId, boolean, number]));
+      checkRules(c);
+    });
+  });
+});
+
+/** Every rule a plan keeps, whatever the learner. */
+export function checkRules(c: NextContext, p = planNext(c)) {
+  const taught = (id: SkillId) => { const t = c.learn.skills[id]?.taught; return !!(t?.A && t?.B && t?.C); };
+  const kept = (id: SkillId) => { const { topic, level } = parseSkill(id); return isKept(c.path || {}, topic, level); };
+  const placed = (id: SkillId) => { const { topic, level } = parseSkill(id); return isPlaced(c.path || {}, topic, level); };
+  const plan = c.learn.exam ? examPlan(c.learn.exam, c.learn, c.now, c.day) : null;
+  const ready = (id: SkillId) => plan?.skills.find((s) => s.skill === id)?.standing === 'ready';
+  p.items.forEach((x, i) => {
+    // no mastery check before the stair's teaching stages, except a kept stair's check, the check of a stair passed in
+    // placement or a jump test (PRODUCT2-19), Rescue's confirmation of a ready stair, and a Rescue check that comes
+    // after that stair's lesson or practice step today (teaching first)
+    if (x.to.includes('purpose=mastery') && !taught(x.skill)) {
+      const earlier = p.items.slice(0, i).some((y) => y.kind === 'exam' && y.skill === x.skill && (y.task === 'learn' || y.task === 'practice'));
+      expect(kept(x.skill) || placed(x.skill) || (x.kind === 'exam' && (ready(x.skill) || earlier)), `${x.kind} ${x.skill}`).toBe(true);
+    }
+    // a bridge stair only with evidence or the floor on
+    if (x.skill && isBridgeSkill(x.skill)) {
+      const evidence = !!c.learn.skills[x.skill] || !!c.learn.floor?.results?.[x.skill] || Object.values(c.learn.miscon).some((m) => m.skill === x.skill) || !!c.learn.exam?.diagnostic?.[x.skill] || x.kind === 'exam-loss' || x.kind === 'exam';
+      expect(evidence || !!c.learn.floor?.on, `${x.kind} ${x.skill}`).toBe(true);
+    }
+  });
+  // a challenge: one at most, of a mastered stair, not solved yet; never above an exam step, a repair, a due review or
+  // an exam loss (bands 2 to 5), and below band 5 only at the very bottom (band 9)
+  const ch = p.items.filter((x) => x.kind === 'challenge');
+  expect(ch.length).toBeLessThanOrEqual(1);
+  ch.forEach((x) => {
+    const task = challengeById(x.challengeId || '');
+    expect(task, x.challengeId).toBeTruthy();
+    expect(x.skill).toBe(task!.after);
+    expect(!!c.learn.skills[x.skill]?.mastered, `${x.challengeId}: its stair is mastered`).toBe(true);
+    expect(c.learn.challenges?.[x.challengeId!]?.doneAt).toBeUndefined();
+    expect(x.to).toBe(`/challenge/${x.challengeId}`);
+    expect(x.minutes).toBe(task!.minutes);
+    const i = p.items.indexOf(x);
+    p.items.forEach((y, j) => { if (['exam', 'repair', 'review', 'exam-loss'].includes(y.kind) && y.rank < BAND.last * 100) expect(j, `${y.kind} ${y.skill} before the challenge`).toBeLessThan(i); });
+    expect([BAND['exam-loss'], BAND.challenge]).toContain(Math.floor(x.rank / 100));
+  });
+  // a new stair is one of the grade's own, one of its guest stairs (skills.ts GUEST), or a bridge stair: never another
+  // grade's stair below a guest one (a ח׳ student is never sent to eq:1 as new)
+  p.items.filter((x) => x.kind === 'new').forEach((x) => {
+    expect([...gradeSkillsOf(c.grade), ...guestSkillsOf(c.grade)].includes(x.skill) || isBridgeSkill(x.skill), `new ${x.skill}`).toBe(true);
+    expect(!!x.guest, `guest flag of ${x.skill}`).toBe(guestSkillsOf(c.grade).includes(x.skill));
+  });
+  // nothing for the exam on Shabbat
+  if (p.restDay) { expect(p.items.some((x) => x.kind === 'exam')).toBe(false); expect(p.examToday).toEqual([]); }
+  // no item twice
+  // (an Exam Rescue step's task is part of what it is: the evening's rule card and quick check share a stair, EXAM-MATERIAL 2)
+  const keys = p.items.map((x) => `${x.kind}|${x.skill}|${x.stage || ''}|${x.task || ''}|${x.misc || ''}`);
+  expect(new Set(keys).size).toBe(keys.length);
+  expect(new Set(p.items.map((x) => x.to)).size).toBe(p.items.length);
+}
+
+describe('placement evidence: a stair passed in placement or a jump test goes to its mastery check (PRODUCT2-19)', () => {
+  // the council's saved state after a first-day placement: line placed at 4 (stairs 1-4 passed over), stats at 2; the
+  // probes left practice answers on line:4 and stats:2, and misses on line:7, pyth:1, pyth:2 and stats:4
+  const ctxAfterPlacement = (): NextContext => {
+    const st = JSON.parse(JSON.stringify(AFTER_PLACEMENT.state));
+    return { learn: st.learn, grade: '8', path: st.path, progress: st.progress, now: '2026-11-11T17:00:00.000Z', day: '2026-11-11', month: 2, exams: [] };
+  };
+  it('after placing line at 4, today is line:4\'s mastery check, not "מבינים את הרעיון … שלב 1 מתוך 5"', () => {
+    const p = planNext(ctxAfterPlacement());
+    const line4 = p.items.find((x) => x.skill === 'line:4')!;
+    expect(line4).toMatchObject({ kind: 'mastery', stage: 'E', to: '/lesson/line/4?kind=check&purpose=mastery' });
+    expect(line4.reason).toBe(CHECK_PLACED);
+    expect(p.top?.skill).toBe('line:4');
+    // stats:2 too; a stair whose probe was missed (line:7, pyth:1) still starts from its teaching
+    expect(p.items.find((x) => x.skill === 'stats:2')).toMatchObject({ kind: 'mastery', stage: 'E' });
+    expect(p.items.find((x) => x.skill === 'line:7')).toMatchObject({ kind: 'continue', stage: 'A' });
+    p.items.forEach((x) => { if (['line:1', 'line:2', 'line:3', 'line:4', 'stats:1', 'stats:2'].includes(x.skill)) expect(x.title).not.toMatch(/שלב 1 מתוך 5/); });
+  });
+  it('a placed stair whose mastery check then failed practises first, and is never sent back to stage A', () => {
+    const c = ctxAfterPlacement();
+    const rec = c.learn.skills['line:4'];
+    c.learn.skills['line:4'] = { ...rec, failedChecks: 1, lastFailAt: '2026-11-11T16:30:00.000Z' };
+    expect(planNext(c).items.find((x) => x.skill === 'line:4')).toMatchObject({ kind: 'continue', stage: 'D' });
+    expect(stairStage('line:4', c.learn.skills['line:4'], true)).toBe('D');
+    expect(stairStage('line:4', c.learn.skills['line:4'], false)).toBe('A');
+  });
+  it('a placed stair Exam Rescue lost points on is checked after a short practice, not taught again', () => {
+    const c = ctxAfterPlacement();
+    // an exam checked after the placement answers (so nothing since has recovered the stair)
+    c.exams = [checkedExam(0, [['line', 4, 'wrong']], c.now)];
+    const loss = planNext(c).items.find((x) => x.kind === 'exam-loss' && x.skill === 'line:4');
+    expect(loss).toBeTruthy();
+    expect(loss!.stage).toBeUndefined();
+    expect(loss!.to).toBe(`/lesson/line/4?part=${PARTS}`);
+  });
+});
+
+describe('planNext: the rules every plan keeps', () => {
+  it.each(Object.keys(LEARNERS))('%s', (name) => checkRules(LEARNERS[name]()));
+});
+
+describe('the mission from the plan', () => {
+  const done = (items: ReturnType<typeof buildMission>, d: Parameters<typeof completeMissionItems>[1]) => completeMissionItems(items, d, NOW);
+  it('starts with the plan\'s top', () => {
+    Object.values(LEARNERS).forEach((f) => { const p = planNext(f()); expect(buildMission(p.items)[0]?.to).toBe(p.top?.to); });
+  });
+  it('an exam-loss item is done by practice, a review or a mastery check on its stair, not by work elsewhere', () => {
+    const items = buildMission(planNext(LEARNERS.examLossCoord4()).items);
+    expect(items[0].kind).toBe('exam-loss');
+    expect(done(items, { skill: 'coord:3', kind: 'continue', stage: 'D' })[0].done).toBeUndefined();
+    expect(done(items, { skill: 'coord:4', kind: 'continue', stage: 'B' })[0].done).toBeUndefined();
+    for (const d of [{ kind: 'continue', stage: 'D' }, { kind: 'continue' }, { kind: 'review' }, { kind: 'mastery', stage: 'E' }] as const) {
+      expect(done(items, { skill: 'coord:4', ...d })[0].done).toBe(NOW);
+    }
+    // one that sends to a teaching stage is done by that stage too
+    const fresh = buildMission(planNext(ctxOf(emptyLearn(), { exams: [checkedExam(3, [['coord', 3, 'wrong']])] })).items);
+    expect(fresh[0]).toMatchObject({ kind: 'exam-loss', stage: 'A' });
+    expect(done(fresh, { skill: 'coord:3', kind: 'continue', stage: 'A' })[0].done).toBe(NOW);
+  });
+  it('a floor item is done by the floor check, and only by it', () => {
+    const items = buildMission(planNext(LEARNERS.hardFractionsNoFloor()).items);
+    expect(items[0].kind).toBe('floor');
+    expect(done(items, { skill: 'signed:6', kind: 'continue', stage: 'D' })[0].done).toBeUndefined();
+    expect(done(items, { kind: 'floor' })[0].done).toBe(NOW);
+  });
+  it('an Exam Rescue step is done by that step: the lesson by learning, the check by the check, the diagnostic by Rescue work', () => {
+    // a stair's three steps fall on three days now (PRODUCT2-17): its items, as the plan writes them on those days
+    const step = (task: 'learn' | 'practice' | 'mastery', stage?: 'D' | 'E') => buildMission([{ kind: 'exam', source: 'rescue', skill: 'signed:1', task, ...(stage ? { stage } : {}), title: task, to: '/rescue', reason: 'x', minutes: 5, due: '2026-11-13', rank: 0 } as never])[0];
+    const all = [step('learn'), step('practice', 'D'), step('mastery', 'E')];
+    const after = (d: Parameters<typeof completeMissionItems>[1]) => done(all, d).map((x) => !!x.done);
+    expect(after({ skill: 'signed:1', kind: 'continue', stage: 'A' })).toEqual([true, false, false]);
+    expect(after({ skill: 'signed:1', kind: 'continue', stage: 'D' })).toEqual([true, true, false]);
+    expect(after({ skill: 'signed:1', kind: 'mastery', stage: 'E' })).toEqual([true, true, true]);
+    expect(after({ skill: 'signed:1', kind: 'exam' })).toEqual([false, false, false]);
+    const diag = buildMission(planNext(LEARNERS.examUndiagnosed()).items);
+    expect(diag[0].task).toBe('diagnostic');
+    expect(done(diag, { skill: 'signed:2', kind: 'exam' })[0].done).toBe(NOW);
+    // the evening before the exam (EXAM-MATERIAL 2): the rule card by reading it, the quick check by the check, and
+    // reading a rule card finishes no check and no practice exam
+    const c = LEARNERS.examIn3Days();
+    c.learn.exam = { ...c.learn.exam!, date: '2026-11-11' };
+    const [r0, q0] = planNext(c).items.filter((x) => x.kind === 'exam');
+    const evening = [...buildMission([r0]), ...buildMission([q0])];
+    expect(evening.map((x) => x.task)).toEqual(['rule', 'quick']);
+    expect(done(evening, { skill: evening[0].skill, kind: 'exam', rescue: 'rule' }).map((x) => !!x.done)).toEqual([true, false]);
+    expect(done(evening, { skill: evening[0].skill, kind: 'exam', rescue: 'quick' }).map((x) => !!x.done)).toEqual([false, true]);
+    expect(done(diag, { skill: 'signed:2', kind: 'exam', rescue: 'rule' })[0].done).toBeUndefined();
+    // a Rescue item saved before steps were named is done by any Rescue work, as before
+    expect(done([{ kind: 'exam', skill: 'signed:1', title: 'x', reason: 'x', minutes: 5, to: '/rescue' }], { skill: 'signed:2', kind: 'exam' })[0].done).toBe(NOW);
+  });
+  it('a challenge item is done by finishing that very task, and by nothing else', () => {
+    const items = buildMission(planNext(LEARNERS.allSeventhMastered()).items);
+    expect(items[0]).toMatchObject({ kind: 'challenge', skill: 'signed:1', challengeId: 'signed:c1', to: '/challenge/signed:c1' });
+    // work on its stair, a review or another task does not tick it
+    for (const d of [{ skill: 'signed:1', kind: 'review' }, { skill: 'signed:1', kind: 'mastery', stage: 'E' }, { skill: 'signed:1', kind: 'continue', stage: 'D' }, { skill: 'signed:1', kind: 'challenge', challengeId: 'signed:c2' }, { kind: 'challenge' }] as const) {
+      expect(done(items, d)[0].done, JSON.stringify(d)).toBeUndefined();
+    }
+    expect(done(items, { skill: 'signed:1', kind: 'challenge', challengeId: 'signed:c1' })[0].done).toBe(NOW);
+    // and a finished challenge never ticks a learning item on its stair
+    const learning = buildMission(planNext(LEARNERS.midSigned3()).items);
+    expect(done(learning, { skill: 'signed:3', kind: 'challenge', challengeId: 'signed:c3' }).every((x) => !x.done)).toBe(true);
+  });
+  it('can be finished', () => {
+    const items = buildMission(planNext(LEARNERS.dueReview()).items);
+    let d = items;
+    items.forEach((i) => { d = completeMissionItems(d, { skill: i.skill, kind: i.kind === 'new' ? 'continue' : i.kind, stage: i.stage }, NOW); });
+    expect(missionDone(d)).toBe(true);
+  });
+});
+
+describe('planNext is pure', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  it('gives the same plan for the same context, whatever the clock says', () => {
+    const once = Object.fromEntries(Object.entries(LEARNERS).map(([k, f]) => [k, planNext(f())]));
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2031-03-01T12:00:00Z'));
+    Object.entries(LEARNERS).forEach(([k, f]) => expect(planNext(f())).toEqual(once[k]));
+    vi.setSystemTime(new Date('2025-01-01T00:00:00Z'));
+    Object.entries(LEARNERS).forEach(([k, f]) => expect(planNext(f())).toEqual(once[k]));
+  });
+  it('does not change its input', () => {
+    const c = LEARNERS.examIn3Days();
+    const copy = JSON.parse(JSON.stringify(c));
+    planNext(c);
+    expect(JSON.parse(JSON.stringify(c))).toEqual(copy);
+  });
+  it('nextActions is a thin wrapper over it', () => {
+    const c = LEARNERS.misconception();
+    expect(nextActions(c)).toEqual(planNext(c).items);
+  });
+});
+
+// ------------------------------------------------------------------ one next: the surfaces agree
+
+const DAYS = ['2026-09-08', '2026-10-13', '2026-11-10', '2026-11-14', '2026-12-15', '2027-02-09', '2027-03-20', '2027-05-11', '2027-07-13'];
+
+/** A random learner over the fixtures' fields, as the app could have saved it, on a fresh day (no mission yet). */
+function randomLearner(rnd: () => number): { ctx: NextContext; lastTopic: string | null } {
+  const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rnd() * xs.length)];
+  const chance = (p: number) => rnd() < p;
+  const day = pick(DAYS);
+  const now = `${day}T09:00:00.000Z`;
+  const before = (d: number) => addDays(now, -d);
+  const grade = pick(['7', '8'] as const);
+  const L: LearnState = emptyLearn();
+  const keptPath: Record<string, any> = {};
+  const density = rnd();
+  // a learner with reviews due (a banner) or none, so the map's own cases get their share
+  const reviewsDue = chance(0.3);
+  ALL_SKILLS.forEach((id) => {
+    if (!chance(density * 0.6)) return;
+    const r = rnd();
+    let rec: SkillRecord;
+    if (r < 0.2) rec = taughtRec(before(2), pick([['A'], ['A', 'B'], ['A', 'B', 'C']] as const) as ('A' | 'B' | 'C')[]);
+    else if (r < 0.4) rec = { ...taughtRec(before(3), ['A', 'B', 'C']), attempts: Array.from({ length: 1 + Math.floor(rnd() * 7) }, () => ({ at: before(1), ok: true, independent: true, purpose: 'practice' as const })) };
+    else if (r < 0.45) rec = strugglingRec(before(1));
+    else if (r < 0.48) rec = { ...strugglingRec(before(1)), failedChecks: 2 };
+    else {
+      // mostly not due yet: a due review is a banner, and the map's own cases need their share
+      rec = masteredRec(before(2 + Math.floor(rnd() * 10)), reviewsDue && chance(0.3) ? 1 : 20 + Math.floor(rnd() * 30), 2);
+      if (reviewsDue && chance(0.15)) rec = { ...rec, mastered: { ...rec.mastered!, lastReview: { at: before(1), ok: false } } };
+    }
+    L.skills[id] = rec;
+  });
+  // the map: mastered stairs are done; some units were climbed before mastery checks (kept) or passed over (jumped)
+  TOPIC_ORDER.forEach((t) => {
+    if (chance(0.15)) keptPath[t] = { done: Object.fromEntries(Array.from({ length: 1 + Math.floor(rnd() * 3) }, (_, i) => [i + 1, 'kept'])) };
+    else if (chance(0.1)) keptPath[t] = { jumped: 1 + Math.floor(rnd() * 3) };
+  });
+  const path = pathOf(L.skills, keptPath);
+  // a kept stair is never also mastered
+  Object.entries(path).forEach(([t, u]: [string, any]) => Object.keys(u.done || {}).forEach((l) => { if (L.skills[skillId(t, Number(l))]?.mastered) u.done[l] = 'mastered'; }));
+  // confirmed misconceptions, some already offered twice today
+  if (chance(0.12)) {
+    const withMisc = ALL_SKILLS.filter((id) => (contentOf(id)?.misconceptions.length || 0) > 0);
+    const id = pick(withMisc); const m = pick(contentOf(id)!.misconceptions);
+    L.miscon[`${id}|${m.id}`] = { skill: id, id: m.id, score: 2, seen: ['a', 'b'], state: 'confirmed', at: before(1), ...(chance(0.3) ? { offered: { day, n: 2 } } : {}) };
+  }
+  // an exam: none, before its diagnostic, or diagnosed; soon, far, or past; never on Shabbat
+  if (chance(0.25)) {
+    let date = addDays(now, pick([0, 1, 2, 3, 5, 9, 13, 20, -2])).slice(0, 10);
+    if (isPlanRestDay(date)) date = addDays(`${date}T09:00:00.000Z`, 1).slice(0, 10);
+    const skills = ALL_SKILLS.filter(() => chance(0.08)).slice(0, 6);
+    if (!skills.length) skills.push(pick(ALL_SKILLS));
+    let plan = newPlan({ grade, date, skills, confidence: pick([1, 2, 3, 4] as const), minutes: pick([10, 15, 20, 30]) }, before(1));
+    if (chance(0.7)) skills.forEach((sk) => { plan = recordDiagnostic(plan, sk, Math.floor(rnd() * 3), 2, before(1)); });
+    L.exam = plan;
+  }
+  // the floor: no check yet, on with a miss, or off again
+  if (chance(0.3)) L.floor = { at: before(5), on: chance(0.6), results: Object.fromEntries(['frac:1', 'frac:2', 'frac:3', 'frac:4'].map((f) => [f, { asked: 1, right: chance(0.5) ? 1 : 0 }])), facts: { asked: 2, right: 2 } };
+  // checked exams with points lost
+  const exams: CheckedExam[] = [];
+  if (chance(0.15)) {
+    const n = 1 + Math.floor(rnd() * 2);
+    for (let k = 0; k < n; k += 1) {
+      const qs = Array.from({ length: 3 + Math.floor(rnd() * 4) }, () => { const t = pick(TOPIC_ORDER); return [t, chance(0.8) ? 1 + Math.floor(rnd() * STAIRS[t]!) : null, pick(['correct', 'wrong', 'partial', 'missing'])] as [string, number | null, string]; });
+      exams.push(checkedExam(1 + Math.floor(rnd() * 60), qs, now));
+    }
+  }
+  const lastTopic = chance(0.6) ? pick(TOPIC_ORDER) : null;
+  return { ctx: { learn: L, grade, path, progress: {}, now, day, exams, month: 0 }, lastTopic };
+}
+
+describe('one next: every surface names the same step', () => {
+  it('300 random learners: the mission\'s button, the map\'s focused stair and Rescue\'s start all lead to the plan\'s top', () => {
+    const rnd = seeded(20261110);
+    const seen = { stairOnMap: 0, lead: 0, banner: 0, exam: 0, restDay: 0, empty: 0 };
+    for (let n = 0; n < 300; n += 1) {
+      const { ctx: raw, lastTopic } = randomLearner(rnd);
+      const ctx = ctxOf(raw.learn, { grade: raw.grade, day: raw.day, path: raw.path, exams: raw.exams });
+      const p = planNext(ctx);
+      checkRules(ctx, p);
+      if (!p.top) { seen.empty += 1; continue; }
+      // TodayCard: the primary button is the mission's first unfinished item (a fresh day: the mission is made now)
+      const mission = missionFor({ ...ctx.learn, missions: {} }, ctx.day, p.items).items;
+      expect(missionNext(mission)?.to, `mission ${n}`).toBe(p.top.to);
+      // Learn: a stair of the map is the focused node, and its card's main button is the plan's step
+      const topics = mapTopics(ctx.grade, !!ctx.learn.floor?.on, ctx.month);
+      const ids = topics.map((t) => t.id);
+      if (onMap(p.top, ids)) {
+        seen.stairOnMap += 1;
+        const { topic, level } = parseSkill(p.top.skill);
+        const f = mapFocus({ from: null, top: p.top, lastTopic, topicIds: ids, firstId: topicsFor(ctx.grade)[0].id, path: ctx.path! });
+        expect(f.key, `focus ${n}`).toBe(`${topic}:node:${level}`);
+        const rec = ctx.learn.skills[p.top.skill];
+        expect(cardRoute(f.node!, rec, f.next), `card ${n}`).toBe(p.top.to);
+        // on the path's current stop the card's own button is already the step (no second button)
+        if (f.node!.state === 'current') expect(nodeRoute(f.node!, rec), `own ${n} ${p.top.kind} ${p.top.skill}`).toBe(p.top.to);
+        // elsewhere (a stair passed over, kept, or worked on out of the path's order) the step leads the card
+        if (nodeRoute(f.node!, rec) !== p.top.to) seen.lead += 1;
+      } else seen.banner += 1;
+      // Exam Rescue: today's first step is the band's first item, and it is the step Rescue's own plan has today
+      if (p.restDay) seen.restDay += 1;
+      if (p.items.some((x) => x.kind === 'exam')) {
+        seen.exam += 1;
+        expect(p.top.kind).toBe('exam');
+        expect(p.examToday[0].to).toBe(p.top.to);
+        const plan = examPlan(ctx.learn.exam!, ctx.learn, ctx.now, ctx.day);
+        if (plan.diagnosed) {
+          expect(plan.days.some((d) => d.day === ctx.day)).toBe(true);
+          expect(p.examToday.map((x) => x.to)).toEqual(plan.today.map((t) => t.to));
+        } else expect(p.examToday[0].to).toBe('/rescue/check');
+      }
+    }
+    // the generator reaches every case
+    expect(seen.stairOnMap).toBeGreaterThan(60);
+    expect(seen.banner).toBeGreaterThan(40);
+    expect(seen.exam).toBeGreaterThan(20);
+    expect(seen.restDay).toBeGreaterThan(10);
+    expect(seen.lead).toBeGreaterThan(0);
+    expect(seen.lead).toBeLessThan(seen.stairOnMap);
+  });
+
+  // CURRICULUM-7.1 band 1 (FOLLOWUP-17): the teacher's work, as TodayCard's rows select it, is the top of the one plan
+  it('a teacher row: top when due tomorrow, not band 1 when due in 4 days or overdue 15 days, gone when done; every surface names it', () => {
+    // a student in the middle of signed:3 (stage C next), on Tuesday 10.11
+    const L = emptyLearn();
+    L.skills['signed:3'] = taughtRec(ago(1), ['A', 'B']);
+    const work = (over: Record<string, unknown> = {}) => ({ id: 'a1', kind: 'stair', skill: 'signed:3', title: 'חיבור וחיסור של מספרים מכוונים', note: '', startsOn: '2026-11-09', dueOn: '2026-11-11', createdAt: '2026-11-09T08:00:00.000Z', mine: null, ...over });
+    const planWith = (list: Record<string, unknown>[], box: Record<string, unknown> = {}) => planNext({ ...ctxOf(L), classWork: classAssignments(list, box) });
+    const alone = planNext(ctxOf(L));
+    expect(alone.top).toMatchObject({ kind: 'continue', skill: 'signed:3', stage: 'C' });
+
+    // due tomorrow: the top, to where the row leads, with the due day in its words
+    const p = planWith([work()]);
+    expect(p.top).toMatchObject({ kind: 'teacher', source: 'teacher', rank: BAND.teacher * 100, skill: 'signed:3', stage: 'C', assignment: 'a1', due: '2026-11-11',
+      title: 'חיבור וחיסור של מספרים מכוונים', reason: 'משימה מהמורה, עד מחר.', to: '/learn/signed/3?assignment=a1' });
+    expect(p.top!.to).toBe(classRows({ assignments: [work()] }, {}, ctxOf(L).day).show[0].to);
+    // the stair the teacher gave is not suggested again lower down at the same stage
+    expect(p.items.filter((x) => x.skill === 'signed:3' && x.kind !== 'teacher')).toEqual([]);
+    checkRules(ctxOf(L), p);
+    // TodayCard: its button is the plan's top while that is the teacher's work, and the mission never takes it as a part
+    const mission = missionFor({ ...L, missions: {} }, ctxOf(L).day, p.items).items;
+    expect(mission.some((x) => x.kind === 'teacher' || x.skill === 'signed:3')).toBe(false);
+    // the map: the teacher's work is no stop of the map, so the map's banner names it (and the profile's next step is top)
+    const ids = mapTopics('7', false, ctxOf(L).month).map((t) => t.id);
+    expect(onMap(p.top, ids)).toBe(false);
+    expect(mapFocus({ from: null, top: p.top, lastTopic: 'signed', topicIds: ids, firstId: ids[0], path: ctxOf(L).path! }).next).toBeNull();
+
+    // due in 4 days: shown later, folded; not band 1, so the stair in progress is the top again
+    const later = planWith([work({ dueOn: '2026-11-14' })]);
+    expect(later.items.some((x) => x.kind === 'teacher')).toBe(false);
+    expect(later.top).toEqual(alone.top);
+    // overdue by 14 days it still counts; by 15 it does not
+    expect(planWith([work({ dueOn: '2026-10-27' })]).top).toMatchObject({ kind: 'teacher', reason: 'משימה מהמורה. המועד עבר, ועדיין אפשר להשלים.' });
+    expect(planWith([work({ dueOn: '2026-10-26' })]).items.some((x) => x.kind === 'teacher')).toBe(false);
+    // done: on the server, or in this device's report still waiting in the outbox
+    expect(planWith([work({ mine: { state: 'done', stage: 5 } })]).items.some((x) => x.kind === 'teacher')).toBe(false);
+    expect(planWith([work()], { a1: { state: 'done', stage: 5, doneAt: NOW } }).items.some((x) => x.kind === 'teacher')).toBe(false);
+    // started, the report says how far: still the top until it is done
+    expect(planWith([work()], { a1: { state: 'started', stage: 2 } }).top).toMatchObject({ kind: 'teacher', assignment: 'a1' });
+
+    // several: earliest due first, then the order they were given; a check leads to its mastery check, an exam to the class exam
+    const many = planWith([
+      work({ id: 'b2', kind: 'exam', skill: null, title: 'מבחן תרגול', dueOn: '2026-11-12', hasExam: true, examCount: 4 }),
+      work({ id: 'c3', kind: 'check', skill: 'signed:2', title: 'בדיקת שליטה', dueOn: '2026-11-11', createdAt: '2026-11-09T09:00:00.000Z' }),
+      work({ dueOn: '2026-11-11' }),
+    ]);
+    const teacher = many.items.filter((x) => x.kind === 'teacher');
+    expect(teacher.map((x) => [x.assignment, x.to, x.minutes])).toEqual([
+      ['a1', '/learn/signed/3?assignment=a1', teacher[0].minutes],
+      ['c3', '/lesson/signed/2?kind=check&purpose=mastery&assignment=c3', 3],
+      ['b2', '/class/exam/b2', 12],
+    ]);
+    expect(teacher.map((x) => x.rank)).toEqual([100, 101, 102]);
+    expect(teacher[1]).toMatchObject({ skill: 'signed:2', stage: 'E' });
+    expect(teacher[2].skill).toBe('');
+    // outside a class there is no band 1
+    expect(planNext({ ...ctxOf(L), classWork: [] }).items.some((x) => x.kind === 'teacher')).toBe(false);
+  });
+
+  it('a ז׳ student in November is not offered data:1 before the stairs taught by now (data is January)', () => {
+    expect(monthIndex('data:1', '7')).toBe(4);
+    const day = '2026-11-11';
+    const done = (L: LearnState, topics: string[]) => ALL_SKILLS.filter((s) => topics.includes(parseSkill(s).topic)).forEach((s) => { L.skills[s] = masteredRec(ago(5), 60); });
+    const news = (L: LearnState) => planNext(ctxOf(L, { grade: '7', day })).items.filter((x) => x.kind === 'new').map((x) => x.skill);
+    // nothing done: signed numbers (October–November) first, and data nowhere ahead of it
+    const fresh = news(emptyLearn());
+    expect(fresh[0]).toBe('signed:1');
+    expect(fresh.indexOf('data:1') < 0 || fresh.indexOf('data:1') > fresh.indexOf('signed:1')).toBe(true);
+    // the units of September to November done: the transformations (7.11, November and December) are next, and with
+    // them done expressions (December) come before data (January)
+    const L = emptyLearn(); done(L, ['signed', 'coord', 'angles']);
+    expect(news(L)[0]).toBe('transf:1');
+    done(L, ['transf']);
+    const next = news(L);
+    expect(next[0]).toBe('expr:1');
+    expect(next).not.toContain('data:1');
+    // expressions done too: the areas (December) are the next new unit, then the boxes (January), and data is still
+    // not ahead of them
+    done(L, ['expr']);
+    const area = planNext(ctxOf(L, { grade: '7', day })).items.find((x) => x.kind === 'new')!;
+    expect(area.skill).toBe('area:1');
+    expect(area.reason).not.toContain('בבית הספר לומדים את זה');
+    // the areas and the boxes done too: data is the next new unit, before equations (March), and the calendar is not
+    // quoted yet
+    done(L, ['area', 'solid']);
+    const p = planNext(ctxOf(L, { grade: '7', day }));
+    const first = p.items.find((x) => x.kind === 'new')!;
+    expect(first.skill).toBe('data:1');
+    expect(first.to).toBe('/learn/data/1/A');
+    expect(first.reason).not.toContain('בבית הספר לומדים את זה');
+  });
+
+  it('a ח׳ student in November with ratio and percent done is offered data:1, taught in October this year', () => {
+    expect(monthIndex('data:1', '8')).toBe(1);
+    const day = '2026-11-11';
+    const L = emptyLearn();
+    ALL_SKILLS.filter((s) => ['ratio', 'pct'].includes(parseSkill(s).topic)).forEach((s) => { L.skills[s] = masteredRec(ago(5), 60); });
+    const first = planNext(ctxOf(L, { grade: '8', day })).items.find((x) => x.kind === 'new')!;
+    expect(first.skill).toBe('data:1');
+    expect(first.to).toBe('/learn/data/1/A');
+    expect(first.reason).toContain('בבית הספר לומדים את זה באוקטובר.');
+  });
+
+  it('a ח׳ student is not offered sys:1 (equations with percents) as new while pct:5 is not done', () => {
+    // February: sys:1 (December) is taught by now. Ratio, this year's data and transformations units (on the ח׳ path,
+    // October and November), functions, line, Pythagoras, the circle (October and November), statistics and congruence
+    // (January, on the path between statistics and sys) are done; percent is not started
+    const day = '2027-02-09'; const now = `${day}T09:00:00.000Z`;
+    const done = (L: LearnState, ids: SkillId[]) => ids.forEach((s) => { L.skills[s] = masteredRec(ago(5, now), 60); });
+    const L = emptyLearn();
+    done(L, ALL_SKILLS.filter((s) => ['ratio', 'data', 'transf', 'func', 'line', 'pyth', 'circle', 'stats', 'congr'].includes(parseSkill(s).topic)));
+    const news = () => planNext(ctxOf(L, { grade: '8', day })).items.filter((x) => x.kind === 'new').map((x) => x.skill);
+    expect(prereqsOf('sys:1')).toContain('pct:5');
+    expect(news()).toEqual(['pct:1']);
+    for (const n of [1, 2, 3, 4]) {
+      done(L, [`pct:${n}`]);
+      expect(news(), `after pct:${n}`).not.toContain('sys:1');
+    }
+    expect(news()).toEqual(['pct:5']);
+    // pct:3 hard again: pct:5 cannot be new, and without the edge sys:1 would be; with it, sys:1 waits too
+    L.skills['pct:3'] = strugglingRec(ago(1, now));
+    expect(news()).not.toContain('sys:1');
+    expect(news()).not.toContain('pct:5');
+    // percent done: now sys:1 is the next new stair
+    done(L, ['pct:3', 'pct:5']);
+    expect(news()).toEqual(['sys:1']);
+  });
+
+  it('a ח׳ student in November with ratio, percent, the data unit\'s October stairs and the transformations done gets func:1 (8.7, November) before line:1 (stage5.md FUNC-2)', () => {
+    const now = '2026-11-10T09:00:00.000Z';
+    const L = emptyLearn();
+    // this year the ז׳ data unit is on the ח׳ path after percent (8.6, October): its stairs taught by now come first
+    // (next.test's DATA-1 case), then the transformations (8.5, November, on the ח׳ path the same way); data:4 is
+    // March's, so with data:1-3 and the transformations done func:1 is the next stair taught by now
+    ALL_SKILLS.filter((s) => ['ratio', 'pct', 'transf'].includes(parseSkill(s).topic) || ['data:1', 'data:2', 'data:3'].includes(s)).forEach((s) => { L.skills[s] = masteredRec(ago(5, now), 60); });
+    const first = planNext(ctxOf(L, { grade: '8', day: '2026-11-10' })).items.find((x) => x.kind === 'new')!;
+    expect(first.skill).toBe('func:1');
+    expect(first.to).toBe('/learn/func/1/A');
+    expect(first.reason).toContain('בבית הספר לומדים את זה בנובמבר.');
+    // a new ז׳ student in November is not offered it: it is a guest of ז׳ (FUNC-6), after the grade's own stairs, and
+    // the school calendar has it in May
+    expect(planNext(ctxOf(emptyLearn(), { grade: '7', day: '2026-11-10' })).items.some((x) => x.skill === 'func:1')).toBe(false);
+  });
+
+  it('a ח׳ student in November gets ratio:1 (taught in September) as the first new stair, and the map focuses it', () => {
+    const c = ctxOf(emptyLearn(), { grade: '8' });
+    const p = planNext(c);
+    const first = p.items.find((x) => x.kind === 'new')!;
+    expect(first.skill).toBe('ratio:1');
+    expect(first.to).toBe('/learn/ratio/1/A');
+    expect(first.reason).toContain('בבית הספר לומדים את זה בספטמבר.');
+    expect(p.top).toBe(first);
+    const ids = mapTopics('8', false, c.month).map((t) => t.id);
+    expect(ids[0]).toBe('ratio');
+    const f = mapFocus({ from: null, top: p.top, lastTopic: null, topicIds: ids, firstId: ids[0], path: {} });
+    expect(f.key).toBe('ratio:node:1');
+    // an existing ח׳ student in the middle of line keeps the map on line: the stair in progress comes before a new one,
+    // and the unit numbers moving (line is now the second unit) moves no saved progress, which is keyed by topic
+    const L = emptyLearn();
+    L.skills = { 'line:1': masteredRec(ago(20), 60), 'line:2': masteredRec(ago(10), 60), 'line:3': taughtRec(ago(1), ['A']) };
+    const mid = ctxOf(L, { grade: '8' });
+    const pm = planNext(mid);
+    expect(pm.top).toMatchObject({ kind: 'continue', skill: 'line:3' });
+    expect(pm.items.find((x) => x.kind === 'new')?.skill).toBe('ratio:1');
+    expect(mapFocus({ from: null, top: pm.top, lastTopic: 'line', topicIds: ids, firstId: ids[0], path: mid.path! })).toMatchObject({ topic: 'line', key: 'line:node:3' });
+    // slope as steps leans on ratio: line:3 is not offered as new before ratio:1 is in place
+    expect(p.items.some((x) => x.kind === 'new' && x.skill === 'line:3')).toBe(false);
+  });
+
+  it('this year\'s ח׳ student meets the transformations (8.5, November) after ratio, percent and the data unit\'s October stairs, by the calendar', () => {
+    // 2026-11-11 is school month 2 (November): ratio (September), percent (October) and the data unit's stairs taught
+    // by now (data:1-3, 8.6, October and November) mastered, transf:1 is next (data:4 is March's)
+    const day = '2026-11-11'; const now = `${day}T09:00:00.000Z`;
+    const L = emptyLearn();
+    ALL_SKILLS.filter((s) => ['ratio', 'pct'].includes(parseSkill(s).topic) || ['data:1', 'data:2', 'data:3'].includes(s)).forEach((s) => { L.skills[s] = masteredRec(ago(5, now), 60); });
+    const first = planNext(ctxOf(L, { grade: '8', day, now })).items.find((x) => x.kind === 'new')!;
+    expect(first).toMatchObject({ kind: 'new', skill: 'transf:1', to: '/learn/transf/1/A' });
+    expect(first.reason).toContain('בבית הספר לומדים את זה בנובמבר.');
+    // the cross-grade edge (coord:2, ז׳) holds nothing back without evidence; the map draws the unit fourth, after the
+    // data unit (both are on the ח׳ path after percent: one table, ALSO_ON_PATH)
+    expect(mapTopics('8', false, ctxOf(L, { grade: '8', day, now }).month).map((t) => t.id).slice(0, 5)).toEqual(['ratio', 'pct', 'data', 'transf', 'func']);
+    // and with only ratio done, percent (October) still comes first: the path is in school order
+    const R = emptyLearn();
+    ALL_SKILLS.filter((s) => parseSkill(s).topic === 'ratio').forEach((s) => { R.skills[s] = masteredRec(ago(5, now), 60); });
+    expect(planNext(ctxOf(R, { grade: '8', day, now })).items.find((x) => x.kind === 'new')!.skill).toBe('pct:1');
+  });
+
+  it('a brand-new student\'s first step is the map\'s focused stair, the one Welcome opens in November', () => {
+    for (const name of ['newSeventh', 'newSeventhSeptember'] as const) {
+      const c = LEARNERS[name]();
+      const p = planNext(c);
+      const ids = mapTopics('7', false, c.month).map((t) => t.id);
+      const f = mapFocus({ from: null, top: p.top, lastTopic: null, topicIds: ids, firstId: 'signed', path: {} });
+      expect(f.key).toBe(name === 'newSeventh' ? 'signed:node:1' : 'angles:node:1');
+      expect(f.node!.state).toBe('current');
+      expect(nodeRoute(f.node!, undefined)).toBe(p.top!.to);
+    }
+  });
+
+  it('back from a lesson the map stays on that unit; a step that is no stair of the map is the banner', () => {
+    const c = LEARNERS.midSigned3();
+    const p = planNext(c);
+    const ids = mapTopics('7', false, c.month).map((t) => t.id);
+    expect(mapFocus({ from: 'coord', top: p.top, lastTopic: null, topicIds: ids, firstId: 'signed', path: c.path! })).toMatchObject({ topic: 'coord', next: null });
+    for (const name of ['dueReview', 'misconception', 'examIn3Days', 'examLossCoord4', 'hardFractionsNoFloor'] as const) expect(onMap(planNext(LEARNERS[name]()).top, ids)).toBe(false);
+    // a prerequisite of the other grade is not on this grade's map either
+    expect(onMap({ kind: 'prereq', skill: 'line:1', title: '', reason: '', minutes: 1, to: '' }, ids)).toBe(false);
+  });
+});
+
+// ------------------------------------------------------------------ the guest rule (stage5.md FUNC-6)
+
+describe('guest stairs: another grade\'s stairs this grade\'s programme lists', () => {
+  const news = (c: NextContext) => planNext(c).items.filter((x) => x.kind === 'new');
+  const DECEMBER = '2026-12-08';
+
+  it('GUEST and the grade\'s own stairs never meet, and every guest stair exists and says why (the merge contract with ALSO_ON_PATH)', () => {
+    for (const g of ['7', '8'] as const) {
+      expect(GUEST[g].length).toBeGreaterThan(0);
+      expect(guestSkillsOf(g)).toBe(GUEST[g]);
+      GUEST[g].forEach((id) => {
+        expect(gradeSkillsOf(g), `${id} is not one of ${g}'s own`).not.toContain(id);
+        expect(ALL_SKILLS).toContain(id);
+        expect(isBridgeSkill(id)).toBe(false);
+        expect(GRADE_OF[parseSkill(id).topic], `${id} is another grade's`).not.toBe(g);
+        // listed in the grade's programme, with the month its school teaches it
+        expect(monthIndex(id, g), `${id} in ${g}'s programme`).not.toBeNull();
+        expect(GUEST_REASON[id], id).toMatch(/חלק מהתוכנית של כיתה (?:ז׳|ח׳)\. המדרגה נמצאת ביחיד/);
+        expect(GUEST_REASON[id]).toContain(g === '8' ? 'כיתה ח׳' : 'כיתה ז׳');
+      });
+    }
+    expect(GUEST).toEqual({ '7': ['func:1'], '8': ['eq:6', 'eq:7'] });
+    expect(guestSkillsOf('9')).toEqual([]);
+  });
+
+  it('a ח׳ learner in December with every own stair taught by now mastered is offered eq:6 as new, off the map', () => {
+    const c = LEARNERS.eighthDecemberGuest();
+    expect(c.month).toBe(3);
+    const p = planNext(c);
+    expect(p.top).toMatchObject({ kind: 'new', skill: 'eq:6', stage: 'A', guest: true, title: 'מבינים את הרעיון: שאלות תנועה', to: '/learn/eq/6/A' });
+    expect(p.top!.reason).toBe('שאלות תנועה הן חלק מהתוכנית של כיתה ח׳. המדרגה נמצאת ביחידת המשוואות. בבית הספר לומדים את זה בדצמבר.');
+    // not a stair of the ח׳ map: the home shows it in the banner above the path
+    const ids = mapTopics('8', false, c.month).map((t) => t.id);
+    expect(ids).not.toContain('eq');
+    expect(onMap(p.top, ids)).toBe(false);
+    expect(mapFocus({ from: null, top: p.top, lastTopic: null, topicIds: ids, firstId: ids[0], path: c.path! }).next).toBeNull();
+    // the mission starts with it too
+    expect(missionNext(missionFor({ ...c.learn, missions: {} }, c.day, p.items).items)?.to).toBe('/learn/eq/6/A');
+  });
+
+  it('after eq:6 is started, it is continued and eq:7 is the new stair; never eq:1 to eq:5', () => {
+    const c = LEARNERS.eighthDecemberGuest();
+    c.learn.skills['eq:6'] = taughtRec(ago(1, c.now), ['A']);
+    const p = planNext(c);
+    expect(p.top).toMatchObject({ kind: 'continue', skill: 'eq:6', stage: 'B', to: '/learn/eq/6/B' });
+    expect(onMap(p.top, mapTopics('8', false, c.month).map((t) => t.id))).toBe(false);
+    const n = news(c);
+    expect(n.map((x) => x.skill)).toEqual(['eq:7']);
+    expect(n[0]).toMatchObject({ guest: true, to: '/learn/eq/7/A' });
+    expect(n[0].reason).toBe('משוואות עם מכנים ופרופורציה הן חלק מהתוכנית של כיתה ח׳. המדרגה נמצאת ביחידת המשוואות. בבית הספר לומדים את זה בדצמבר.');
+    // eq:6 mastered: eq:7 is next; both mastered: the grade's own stairs not taught yet, in the order of the path
+    c.learn.skills['eq:6'] = masteredRec(ago(1, c.now), 40, 3);
+    expect(planNext(c).top).toMatchObject({ kind: 'new', skill: 'eq:7' });
+    c.learn.skills['eq:7'] = masteredRec(ago(1, c.now), 40, 3);
+    // stairs not taught yet follow the ח׳ path: the data unit's last stair (data:4, March), statistics' stats:8
+    // (January) and the congruent triangles (congr:1) are on it before sys:2
+    expect(news(c).map((x) => x.skill)).toEqual(['data:4']);
+    c.learn.skills['data:4'] = masteredRec(ago(1, c.now), 40, 3);
+    expect(news(c).map((x) => x.skill)).toEqual(['stats:8']);
+    c.learn.skills['stats:8'] = masteredRec(ago(1, c.now), 40, 3);
+    expect(news(c).map((x) => x.skill)).toEqual(['congr:1']);
+    // eq:7 never before eq:6: with eq:6 not started and not ready (its prerequisite eq:5, a ז׳ stair, missing on
+    // evidence), eq:7 waits too, though its own prerequisites are in place; the next own stair comes instead
+    const d = LEARNERS.eighthDecemberGuest();
+    d.learn.skills['eq:5'] = strugglingRec(ago(1, d.now));
+    expect(isMissing(d, 'eq:5')).toBe(true);
+    expect(prereqsOf('eq:7').every((q) => !isMissing(d, q))).toBe(true);
+    expect(news(d).map((x) => x.skill)).toEqual(['data:4']);
+  });
+
+  it('a ח׳ learner never gets eq:1 to eq:5 as new, in any month, whatever is done', () => {
+    const lower = ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5'];
+    for (const day of DAYS) {
+      for (const c of [ctxOf(emptyLearn(), { grade: '8', day }), taughtByNowDone('8', day), LEARNERS.eighthDecemberGuest()]) {
+        expect(news(c).some((x) => lower.includes(x.skill)), `${day}`).toBe(false);
+      }
+    }
+    // even with every stair of the ח׳ path mastered: then eq:6 (the guest stairs come after the grade's own). The path
+    // includes the angles unit, which joins it in September (angles:4, PRODUCT2-20)
+    const L = emptyLearn();
+    pathSkillsOf('8', 1).forEach((id) => { L.skills[id] = masteredRec(ago(6, '2026-10-13T09:00:00.000Z'), 40, 3); });
+    const all = ctxOf(L, { grade: '8', day: '2026-10-13' });
+    expect(news(all).map((x) => x.skill)).toEqual(['eq:6']);
+    // in October it is not taught yet, so the reason has no month
+    expect(news(all)[0].reason).toBe('שאלות תנועה הן חלק מהתוכנית של כיתה ח׳. המדרגה נמצאת ביחידת המשוואות.');
+  });
+
+  it('in October eq:6 does not come before the grade\'s own stairs, taught by now or not', () => {
+    const day = '2026-10-13';
+    // nothing done: ratio:1, as before
+    expect(news(ctxOf(emptyLearn(), { grade: '8', day })).map((x) => x.skill)).toEqual(['ratio:1']);
+    // every stair taught by October mastered: the next own stair on the path, not eq:6 (December): this year the data
+    // unit's last stair (data:4, March), then the transformations (transf:1, November)
+    const c = taughtByNowDone('8', day);
+    expect(news(c).map((x) => x.skill)).toEqual(['data:4']);
+    c.learn.skills['data:4'] = masteredRec(ago(1, c.now), 40, 3);
+    expect(news(c).map((x) => x.skill)).toEqual(['transf:1']);
+    // and in December, a stair taught by now that is not done yet comes first (sys:1, an own stair of 8.9)
+    expect(news(taughtByNowDone('8', DECEMBER, ['sys:1'])).map((x) => x.skill)).toEqual(['sys:1']);
+  });
+
+  it('a ז׳ learner in May with every own stair taught by now mastered is offered func:1', () => {
+    const c = LEARNERS.seventhMayGuest();
+    expect(c.month).toBe(8);
+    const p = planNext(c);
+    expect(p.top).toMatchObject({ kind: 'new', skill: 'func:1', guest: true, to: '/learn/func/1/A' });
+    expect(p.top!.reason).toBe('קריאת גרף של מצב היא חלק מהתוכנית של כיתה ז׳. המדרגה נמצאת ביחידה "מבוא לפונקציות". בבית הספר לומדים את זה במאי.');
+    expect(onMap(p.top, mapTopics('7', false, c.month).map((t) => t.id))).toBe(false);
+    // its prerequisite (coord:1, a ז׳ stair) is read as any stair's: while coord:1 is going badly, func:1 waits and the
+    // grade's next own stair comes instead (eq:6, June)
+    const w = LEARNERS.seventhMayGuest();
+    w.learn.skills['coord:1'] = strugglingRec(ago(1, w.now));
+    expect(news(w).map((x) => x.skill)).toEqual(['eq:6']);
+  });
+
+  it('a ז׳ learner in April with eq:5 mastered gets a stair taught by now before eq:6 (June), and eq:6 before func:1 (May)', () => {
+    const day = '2027-04-13';
+    // everything taught by April is mastered but coord:5 (November)
+    const c = taughtByNowDone('7', day, ['coord:5']);
+    expect(c.learn.skills['eq:5']?.mastered).toBeTruthy();
+    expect(news(c).map((x) => x.skill)).toEqual(['coord:5']);
+    // with it done, the grade's own stairs not taught yet come before its guest one, in the path's order: the
+    // perimeters and the prism (area:5, solid:3, solid:4: May, stage 2), then eq:6, then eq:7 (June), then func:1
+    const d = taughtByNowDone('7', day);
+    expect(news(d).map((x) => x.skill)).toEqual(['area:5']);
+    expect(news(d)[0].guest).toBeUndefined();
+    for (const s of ['area:5', 'solid:3', 'solid:4']) {
+      expect(news(d).map((x) => x.skill), `before ${s}`).toEqual([s]);
+      d.learn.skills[s] = masteredRec(ago(1, d.now), 40, 3);
+    }
+    expect(news(d).map((x) => x.skill)).toEqual(['eq:6']);
+    expect(news(d)[0].guest).toBeUndefined();
+    d.learn.skills['eq:6'] = masteredRec(ago(1, d.now), 40, 3);
+    d.learn.skills['eq:7'] = masteredRec(ago(1, d.now), 40, 3);
+    // the stairs of the units that joined the ז׳ path (Pythagoras and statistics, PRODUCT2-20) are the grade's own
+    // too, so they come before the guest stair; with them done, func:1
+    const joined = pathSkillsOf('7', d.month).filter((id) => !gradeSkillsOf('7').includes(id));
+    expect(joined.length).toBeGreaterThan(0);
+    expect(joined.includes(news(d)[0].skill)).toBe(true);
+    joined.forEach((id) => { d.learn.skills[id] = masteredRec(ago(1, d.now), 40, 3); });
+    expect(news(d).map((x) => x.skill)).toEqual(['func:1']);
+  });
+
+  it('strongToday and the grade\'s "X מתוך N" do not count guest stairs', () => {
+    // every own ח׳ stair mastered, no guest stair: strong today, as before
+    const L = emptyLearn();
+    gradeSkillsOf('8').forEach((id) => { L.skills[id] = masteredRec(ago(6), 40, 3); });
+    expect(strongToday({ learn: L, grade: '8' })).toBe(true);
+    // the guest stairs alone, or added, change nothing
+    const G = emptyLearn();
+    guestSkillsOf('8').forEach((id) => { G.skills[id] = masteredRec(ago(6), 40, 3); });
+    expect(strongToday({ learn: G, grade: '8' })).toBe(false);
+    expect(strongToday({ learn: { ...L, skills: { ...L.skills, ...G.skills } }, grade: '8' })).toBe(true);
+    // the board's "X מתוך N" counts the grade's own units only, with or without guest stairs done on the path
+    for (const g of ['7', '8'] as const) {
+      const empty = boardOf({ grade: g, path: {} });
+      expect(empty.total).toBe(gradeSkillsOf(g).length);
+      const path = pathOf(Object.fromEntries(guestSkillsOf(g).map((id) => [id, masteredRec(ago(6), 40, 3)])));
+      expect(boardOf({ grade: g, path })).toMatchObject({ total: empty.total, done: 0 });
+    }
+  });
+});
+
+// SK-BUYERS-2: the teacher's work comes first in today's mission (the band above all of planNext's: lib/classWork.js
+// classRows, TodayCard). A repair the teacher gave opens the very repair band 3 offers for the same mistake (its
+// explanation, its activity, then its 3-question check), with the assignment named so its result goes to the teacher.
+describe("the teacher's work band: a repair the teacher gave (SK-BUYERS-2)", () => {
+  const work = (over: Partial<ClassAssignment> = {}): ClassAssignment => ({
+    id: 'a000000000000009', kind: 'repair', skill: 'signed:1', misc: 'minus-minus', title: 'תיקון טעות: חיבור וחיסור', note: '',
+    startsOn: '2026-11-10', dueOn: '2026-11-13', mine: null, ...over,
+  });
+  it('routes to that mistake\'s repair, the same route planNext gives for it, with the assignment', () => {
+    const item = planNext(LEARNERS.misconception()).items.find((x) => x.kind === 'repair')!;
+    expect(item).toMatchObject({ skill: 'signed:1', misc: 'minus-minus', to: '/repair/signed/1/minus-minus' });
+    expect(workRoute(work())).toBe(`${item.to}?assignment=a000000000000009`);
+    // the same mistake on another stair is that stair's repair
+    expect(workRoute(work({ skill: 'coord:3', misc: 'sign' }))).toBe('/repair/coord/3/sign?assignment=a000000000000009');
+  });
+  it('a stair, a check and a class exam keep their own routes', () => {
+    expect(workRoute(work({ kind: 'stair', misc: null }))).toBe('/learn/signed/1?assignment=a000000000000009');
+    expect(workRoute(work({ kind: 'check', misc: null }))).toBe('/lesson/signed/1?kind=check&purpose=mastery&assignment=a000000000000009');
+    expect(workRoute(work({ kind: 'exam', skill: null, misc: null }))).toBe('/class/exam/a000000000000009');
+  });
+});

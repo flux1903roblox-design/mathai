@@ -1,0 +1,10 @@
+/* ProgressSummary.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only ProgressSummary.jsx uses these classes. */
+.progress-summary { display: flex; flex-direction: column; gap: var(--s3); }
+.ps-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--s2); }
+.ps-next { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); border-radius: var(--r-m); background: var(--surface); border: 2px solid var(--p-300); }
+.ps-next-text { flex: 1; min-width: 0; }
+.ps-next-label { margin: 0; }
+.ps-next-title { margin: 2px 0 0; font-weight: 700; }
+.ps-work { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ps-work-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s2) var(--s3); border-radius: var(--r-m); background: var(--surface); border: 2px solid var(--line); text-decoration: none; color: var(--ink); min-height: 48px; }

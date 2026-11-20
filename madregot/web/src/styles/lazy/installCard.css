@@ -1,0 +1,7 @@
+/* InstallCard.jsx's own rules, out of the first-load stylesheets (COUNCIL2-20). InstallCard.jsx imports this file, so they load
+   with it. A rule is here only when the classes it needs are written by it, or by parts only it
+   loads (src/styles/lazy.test.js), and it keeps the order it had. */
+.install-home { display: grid; grid-template-columns: repeat(3, 56px); gap: var(--s5); padding: var(--s5) var(--s6) var(--s4); border: 2px solid var(--rule); border-radius: 28px; background: var(--ground); }
+.install-app { display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
+.install-app b { display: block; width: 40px; height: 8px; margin-block: 6px; border-radius: 4px; background: var(--track); }
+.install-app.ours img { display: block; width: 56px; height: 56px; border-radius: 16px; box-shadow: 0 0 0 4px var(--brand-tint); }
