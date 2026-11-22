@@ -23,7 +23,7 @@
 //   cm-km            the distance converted to kilometres and then written as if it were metres
 //   linear-area      an area scaled like a length (De Bock, Verschaffel & Janssens 1998, ESM 35)
 //   add-same         the same number added to both terms, as if that kept the ratio (a choice in practice only)
-import { shuffle, gcd, countOf } from './util.js';
+import { shuffle, gcd, countOf, twoPlaces } from './util.js';
 import { diagOf } from './eq.js';
 import { mk, r9, fracTex } from './frac.js';
 
@@ -360,6 +360,8 @@ function table() {
 }
 
 const GOODS = [['דגנים', 'גרם'], ['אורז', 'גרם'], ['גבינה', 'גרם']];
+/** A price in ש״ח as maths: exact when it is whole agorot (8, 6.5, 6.25), else ≈ its rounding to the agora (≈ 8.67). */
+const priceTex = (v) => (Math.abs(Math.round(v * 100) - v * 100) < 1e-6 ? big(v) : `\\approx ${twoPlaces(v)}`);
 /**
  * Three packs of one food, weight and price: two at one price per 100 g, one off (its price rose by the same amount as
  * the weight, the additive way). Which is not in the same ratio? Three choices, so practice only.
@@ -378,7 +380,7 @@ function isProp() {
       fig: { type: 'table', head: ['אריזה', `משקל (${unit})`, 'מחיר (ש״ח)'], rows: names.map((n, i) => [n, ws[i], prices[i]]) },
       form: 'mc', choices, answer: odd, practiceOnly: true,
       hint: 'חשבו לכל אריזה כמה עולים $100$ גרם, והשוו.',
-      solution: [`ב־$100$ גרם: ${names.map((n, i) => `${n}: $${big((prices[i] * 100) / ws[i])}$`).join(', ')} ש״ח.`, `באריזה ${names[odd]} המנה שונה: היא לא באותו יחס.`],
+      solution: [`ב־$100$ גרם: ${names.map((n, i) => `${n}: $${priceTex((prices[i] * 100) / ws[i])}$`).join(', ')} ש״ח.`, `באריזה ${names[odd]} המנה שונה: היא לא באותו יחס.`],
       diag: () => null,
     };
   }

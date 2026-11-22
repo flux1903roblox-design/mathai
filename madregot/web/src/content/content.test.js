@@ -132,6 +132,17 @@ describe('worked solutions are written as a textbook writes them', () => {
       }
     }
   });
+  // council round 3: "ג: $8.666666667$ ש״ח" (ratio:3). A number a student reads is exact, or rounded with ≈: no exercise
+  // of any stair writes a raw float of five places or more in its words, hint, worked solution or choices
+  it('no raw floating-point number in any exercise\'s words', () => {
+    TOPICS.forEach((t) => t.levels.forEach((_, i) => {
+      for (let r = 0; r < 300; r += 1) {
+        const it = makeItem(t.id, i + 1);
+        const words = [it.text, it.hint, ...(it.solution || []), ...(it.choices || []).map((c) => c.text ?? c.tex ?? '')].map((x) => String(x ?? ''));
+        words.forEach((w) => expect(w, it.key).not.toMatch(/\d\.\d{5,}/));
+      }
+    }));
+  });
   it('every point a figure draws is on its grid', () => {
     TOPICS.forEach((t) => t.levels.forEach((_, i) => {
       for (let r = 0; r < 300; r += 1) {
