@@ -84,7 +84,7 @@ describe('an equation answered with the opposite sign is named on every equation
       ['sign', 'sub-coef', 'divide-flip'].filter((id) => named.has(id)).forEach((id) => expect(own.has(id), `eq:${L} names ${id} without a repair`).toBe(true));
       expect(named.has('sign'), `eq:${L}`).toBe(true);
     }
-  });
+  }, 60_000); // namesOf tries thousands of numbers a question: 2 s alone, more within the whole suite
 });
 
 describe('solving together: the last step names the earlier stairs\' mistakes (eq:2 to eq:7)', () => {
