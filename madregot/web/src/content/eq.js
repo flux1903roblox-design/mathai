@@ -42,6 +42,28 @@ export function diagOf(ans, bugs) {
     return one([...new Set([...exact, ...rounded])]);
   };
 }
+/**
+ * The last line of an equation, kx = m (k the coefficient as the class's solution leaves it, m the number), and the
+ * mistakes the first two stairs name on it, which every later equation ends on just the same (the council's round 3: a
+ * solution with the opposite sign was named on eq:2 and almost never on eq:3, eq:4 or eq:7). Each only where it can
+ * happen, else null:
+ *   sign         the solution with the opposite sign: a minus lost on the way, the coefficient's (−4x = −8 solved as
+ *                4x = 8) or the result's (3x = −6 solved as 6 : 3), so only when there is one (k < 0 or x < 0)
+ *   divide-flip  the coefficient divided by the number (4x = 2 made 2), only when the number is the smaller (as eq:1)
+ *   sub-coef     the coefficient subtracted from the number (3x = 15 made 12), only when it is not 1; from a negative
+ *                number, from the number as it stands or from its size with its minus kept (3x = −15 made −18 or −12)
+ * A prediction another mistake of the question also gives is named with it (diagOf: an ambiguous answer), and one a
+ * slip of the hand gives names nothing. A diagnostic model predicts one number a mistake: the first.
+ */
+export function lastStepBugs(k, m) {
+  const x = m / k;
+  const sub = m < 0 && k > 0 && m + k !== 0 ? [m - k, m + k] : m - k;
+  return {
+    sign: k < 0 || x < 0 ? -x : null,
+    'divide-flip': abs(k) > abs(m) && m !== 0 ? k / m : null,
+    'sub-coef': abs(k) !== 1 ? sub : null,
+  };
+}
 /** diagOf for bugs with numbered values of one mistake ('wrong-unknown#1'): the names without their numbers, each once. */
 export function diagNamed(ans, bugs) {
   const d = diagOf(ans, bugs);
@@ -222,11 +244,12 @@ function twoStepParams() {
  * the other side with the same operation: the number added (b kept its sign), or, after it is removed, the coefficient
  * (ax = c − b multiplied by a where it should be divided, as stair 1 names it for ax = b).
  */
-export const twoStepBugs = ({ k, a, b, c, x }) => ({
+export const twoStepBugs = ({ k, a, b, c }) => ({
   'move-no-flip': [(c + b) / a, (c - b) * a],
   'divide-part': k !== 2 && abs(a) !== 1 && Number.isInteger(c / a) ? c / a - b : null,
-  sign: a < 0 ? -x : null,
-  'sub-coef': abs(a) !== 1 ? c - b - a : null,
+  // the last line, ax = c − b: the coefficient's minus or the result's lost, the division the other way round (a half:
+  // 4x = 2), the coefficient subtracted
+  ...lastStepBugs(a, c - b),
 });
 const twoShow = ({ k, a, b, c }) => (k === 0 ? `${linTex(a, b)} = ${T(c)}` : k === 1 ? `${T(c)} = ${linTex(a, b)}` : `${sumTex([[b, ''], [a, 'x']])} = ${T(c)}`);
 export function twoStepSolution(p) {
@@ -261,8 +284,9 @@ function fracItem() {
       key: `eq2f:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
       hint: `קודם מורידים את $${T(b)}$ משני האגפים. אחר כך: $x$ מחולק ב־$${a}$, וחילוק מבטלים בכפל.`,
       solution: [line('', display, undoOp(b)), line(undo(b), `\\frac{x}{${a}} = ${T(m)}`, mulOp(a)), line(`כופלים את שני האגפים ב־$${a}$`, `x = ${T(x)}`), `בדיקה: $${T(x)} : ${a} ${b < 0 ? '-' : '+'} ${abs(b)} = ${T(c)}$`],
-      // the number moved without changing sign, or the division moved over as a division
-      diag: (u) => diagOf(x, { 'move-no-flip': a * (c + b) })(u) || diagOf(x, { 'move-no-flip': (c - b) / a })(u),
+      // the number moved without changing sign, or the division moved over as a division; the result's minus lost (one
+      // diagOf, so a number two of them give names both)
+      diag: diagOf(x, { 'move-no-flip': [a * (c + b), (c - b) / a], sign: x < 0 ? -x : null }),
     };
   }
   const c = NZ(-6, 9); const b = NZ(-9, 9); const x = a * c - b;
@@ -271,8 +295,9 @@ function fracItem() {
     key: `eq2f:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
     hint: `כל האגף השמאלי, $${linTex(1, b)}$, מחולק ב־$${a}$. קודם כופלים את שני האגפים ב־$${a}$.`,
     solution: [line('', display, mulOp(a)), line(`כופלים את שני האגפים ב־$${a}$`, `${linTex(1, b)} = ${T(a * c)}`, undoOp(b)), line(undo(b), `x = ${T(x)}`), `בדיקה: $\\frac{${T(x)} ${b < 0 ? '-' : '+'} ${abs(b)}}{${a}} = \\frac{${x + b}}{${a}} = ${T(c)}$`],
-    // only x divided, as if it were \frac{x}{a} + b (divide-part); the division moved over as a division (move-no-flip)
-    diag: diagOf(x, { 'divide-part': a * (c - b), 'move-no-flip': c / a - b }),
+    // only x divided, as if it were \frac{x}{a} + b (divide-part); the division moved over as a division (move-no-flip);
+    // the result's minus lost
+    diag: diagOf(x, { 'divide-part': a * (c - b), 'move-no-flip': c / a - b, sign: x < 0 ? -x : null }),
   };
 }
 
@@ -285,7 +310,7 @@ function collectFirst() {
       key: `eq2c:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
       hint: 'קודם מכנסים איברים דומים באגף שמאל: $x$־ים עם $x$־ים.',
       solution: [`מכנסים: $x + ${k}x + x = ${A}x$, ולכן $${opMark(`${A}x + ${m} = ${total}`, `-${m}`)}$`, line(`מחסירים $${m}$ משני האגפים`, `${A}x = ${total - m}`, divOp(A)), line(`מחלקים ב־$${A}$`, `x = ${x}`), `בדיקה: $${x} + ${k * x} + ${x + m} = ${total}$`],
-      diag: diagOf(x, { 'move-no-flip': [(total + m) / A, (total - m) * A], 'divide-part': Number.isInteger(total / A) ? total / A - m : null }),
+      diag: diagOf(x, { 'move-no-flip': [(total + m) / A, (total - m) * A], 'divide-part': Number.isInteger(total / A) ? total / A - m : null, ...lastStepBugs(A, total - m) }),
     };
   }
   const p = R(1, 6); const q = R(1, 6); const b = NZ(-12, 12); const x = NZ(-8, 9); const A = p + q; const c = A * x + b;
@@ -295,7 +320,7 @@ function collectFirst() {
     key: `eq2c:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
     hint: 'קודם מכנסים איברים דומים באגף שמאל, ואז זו משוואה בשני צעדים.',
     solution: [line('מכנסים', `${linTex(A, b)} = ${T(c)}`, undoOp(b)), line(undo(b), `${A}x = ${T(c - b)}`, divOp(A)), line(`מחלקים ב־$${A}$`, `x = ${T(x)}`), `בדיקה: $${sumTex(terms.map(([n, v]) => [v ? n * x : n, '']))} = ${T(c)}$`],
-    diag: diagOf(x, { 'move-no-flip': [(c + b) / A, (c - b) * A], 'divide-part': Number.isInteger(c / A) ? c / A - b : null }),
+    diag: diagOf(x, { 'move-no-flip': [(c + b) / A, (c - b) * A], 'divide-part': Number.isInteger(c / A) ? c / A - b : null, ...lastStepBugs(A, c - b) }),
   };
 }
 
@@ -341,8 +366,12 @@ function bothParams() {
     return { a, b, c, d, x };
   }
 }
-// the x-term moved over keeping its sign, from the right (ax − cx… = d − b) or from the left (b = cx + ax + d)
-const bothBugs = ({ a, b, c, d }) => ({ 'move-no-flip': (d + b) / (a - c), 'move-x-no-flip': [(d - b) / (a + c), (b - d) / (a + c)] });
+// the x-term moved over keeping its sign, from the right (ax − cx… = d − b) or from the left (b = cx + ax + d); and the
+// last line's mistakes of the first two stairs on |a − c|x = …, where bothSolution leaves the x-terms
+const bothBugs = ({ a, b, c, d, x }) => ({
+  'move-no-flip': (d + b) / (a - c), 'move-x-no-flip': [(d - b) / (a + c), (b - d) / (a + c)],
+  ...lastStepBugs(abs(a - c), abs(a - c) * x),
+});
 /**
  * The worked solution of ax + b = cx + d: the x-terms go where there are more of them, so the coefficient stays
  * positive. `op` is the first operation, for the caller to write after a slash on the line before; `lines` start with
@@ -367,7 +396,11 @@ export function bothSolution({ a, b, c, d, x }) {
   return { op: minusOp(term), lines };
 }
 function bothItem() {
-  const p = bothParams(); const display = `${linTex(p.a, p.b)} = ${linTex(p.c, p.d)}`;
+  return bothFrom(bothParams());
+}
+/** The exercise of ax + b = cx + d with these parameters (bothParams): 7x − 12 = 6x − 16 is { a: 7, b: −12, c: 6, d: −16, x: −4 }. */
+export function bothFrom(p) {
+  const display = `${linTex(p.a, p.b)} = ${linTex(p.c, p.d)}`;
   const s = bothSolution(p);
   return {
     key: `eq3:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: p.x,
@@ -468,12 +501,23 @@ function bracketParams() {
   let c; do { c = NZ(-5, 5); } while (c === a * p);
   return { k, a, p, b, c, x, d: a * (p * x + b) - c * x };
 }
-const bracketBugs = ({ k, a, p, b, c, d }) => ({
+const bracketBugs = ({ k, a, p, b, c, d, x }) => ({
   // a(px + b) opened as apx + b
   'partial-dist': k === 2 ? null : (d - b) / (a * p - c),
   // cx − (x + b) opened as cx − x + b; a negative a: a(px + b) opened as apx − ab
   'minus-bracket': k === 2 ? (d - b) / (c - 1) : a < 0 ? (d + a * b) / (a * p - c) : null,
+  // the last line's mistakes of the first two stairs, on the line bracketSolution ends on
+  ...lastStepBugs(...bracketLast({ k, a, p, c }, x)),
 });
+/**
+ * The last line kx = m of bracketSolution: the x-terms collected where bothSolution leaves them (k = |A − C|), or, with
+ * nothing in x on the right, Ax = d − B as it is (A may be negative: −3(x + 2) = 9 ends on −3x = 15).
+ */
+function bracketLast({ k, a, p, c }, x) {
+  const A = k === 2 ? c - 1 : a * p; const C = k === 2 ? 0 : c;
+  const K = C !== 0 ? abs(A - C) : A;
+  return [K, K * x];
+}
 function bracketShow({ k, a, p, b, c, d }) {
   if (k === 2) return `${linTex(c, 0)} - (${linTex(1, b)}) = ${T(d)}`;
   return `${bracketTex(a, p, b)} = ${k === 0 ? T(d) : linTex(c, d)}`;
@@ -498,17 +542,18 @@ function bracketSolution({ k, a, p, b, c, d, x }) {
   lines.push(`בדיקה במשוואה המקורית: $${orig} = ${T(k === 2 ? (c - 1) * x - b : a * (p * x + b))}$${k === 0 || k === 2 ? '' : `, וגם $${at(c, d, x)} = ${T(c * x + d)}$`}.`);
   return lines;
 }
-// The curriculum's own equations (algebra_7), each with its bug's answer worked out by hand and checked by script.
+// The curriculum's own equations (algebra_7), each with its bug's answer worked out by hand and checked by script, and
+// the last line its solution ends on (`last`: 2y = 10 is [2, 10]), for the first two stairs' mistakes on it.
 const FIXED = [
-  { display: '3(y - 2) + 1 = y + 5', v: 'y', answer: 5, bugs: { 'partial-dist': 3 },
+  { display: '3(y - 2) + 1 = y + 5', v: 'y', answer: 5, bugs: { 'partial-dist': 3 }, last: [2, 10],
     solution: [`${STEP1}: $3y - 6 + 1 = y + 5$`, `${STEP2} מכנסים: $3y - 5 = y + 5 \\qquad /{-y}$`, 'מחסירים $y$ משני האגפים: $2y - 5 = 5 \\qquad /{+5}$', 'מוסיפים $5$ לשני האגפים: $2y = 10 \\qquad /{:}2$', 'מחלקים ב־$2$: $y = 5$', 'בדיקה: $3(5 - 2) + 1 = 10$, וגם $5 + 5 = 10$.'] },
-  { display: '6x + 20 = 4(2x + 3)', answer: 4, bugs: { 'partial-dist': 8.5 },
+  { display: '6x + 20 = 4(2x + 3)', answer: 4, bugs: { 'partial-dist': 8.5 }, last: [2, 8],
     solution: [`${STEP1}: $6x + 20 = 8x + 12 \\qquad /{-6x}$`, `${STEP2} מחסירים $6x$ משני האגפים: $20 = 2x + 12 \\qquad /{-12}$`, 'מחסירים $12$ משני האגפים: $8 = 2x \\qquad /{:}2$', 'מחלקים ב־$2$: $4 = x$', '$x = 4$ (הפכנו צדדים)', 'בדיקה: $6 \\cdot 4 + 20 = 44$, וגם $4(2 \\cdot 4 + 3) = 44$.'] },
-  { display: '2(z + 3) - 5 = 5(7 - 2z) + 2', v: 'z', answer: 3, bugs: { 'partial-dist': 9.75 },
+  { display: '2(z + 3) - 5 = 5(7 - 2z) + 2', v: 'z', answer: 3, bugs: { 'partial-dist': 9.75 }, last: [12, 36],
     solution: [`${STEP1}: $2z + 6 - 5 = 35 - 10z + 2$`, `${STEP2} מכנסים: $2z + 1 = 37 - 10z \\qquad /{+10z}$`, 'מוסיפים $10z$ לשני האגפים: $12z + 1 = 37 \\qquad /{-1}$', 'מחסירים $1$ משני האגפים: $12z = 36 \\qquad /{:}12$', 'מחלקים ב־$12$: $z = 3$', 'בדיקה: $2(3 + 3) - 5 = 7$, וגם $5(7 - 6) + 2 = 7$.'] },
-  { display: '10x = 3(x + 7)', answer: 3, bugs: { 'partial-dist': 1 },
+  { display: '10x = 3(x + 7)', answer: 3, bugs: { 'partial-dist': 1 }, last: [7, 21],
     solution: [`${STEP1}: $10x = 3x + 21 \\qquad /{-3x}$`, `${STEP2} מחסירים $3x$ משני האגפים: $7x = 21 \\qquad /{:}7$`, 'מחלקים ב־$7$: $x = 3$', 'בדיקה: $10 \\cdot 3 = 30$, וגם $3(3 + 7) = 30$.'] },
-  { display: 'x + \\frac{1}{3}x = 5', answer: 15 / 4, bugs: {},
+  { display: 'x + \\frac{1}{3}x = 5', answer: 15 / 4, bugs: {}, last: [4, 15],
     hint: 'כדי להיפטר מהשבר, כופלים את שני האגפים ב־$3$, כל איבר.',
     solution: ['$x + \\frac{1}{3}x = 5 \\qquad /{\\cdot}3$', 'כופלים את שני האגפים ב־$3$, כל איבר: $3x + x = 15$', 'מכנסים: $4x = 15 \\qquad /{:}4$', 'מחלקים ב־$4$: $x = \\frac{15}{4} = 3\\frac{3}{4}$', 'בדיקה: $3\\frac{3}{4} + 1\\frac{1}{4} = 5$'] },
 ];
@@ -518,7 +563,8 @@ function bracketItem() {
     return {
       key: `eq4f:${F.display}`, text: 'פתרו את המשוואה.', display: F.display, var: F.v, form: 'num', answer: F.answer, fixed: true,
       hint: F.hint || 'קודם פותחים סוגריים: המספר שלפני הסוגריים כופל כל איבר בתוכם. אחר כך פותרים כמו קודם.',
-      solution: F.solution, diag: diagOf(F.answer, F.bugs),
+      // its own mistake, and the last line's (each equation's `last`, kx = m, from its solution: 12z = 36)
+      solution: F.solution, diag: diagOf(F.answer, { ...F.bugs, ...lastStepBugs(...F.last) }),
     };
   }
   return bracketFrom(bracketParams());
@@ -551,7 +597,7 @@ function examItem() {
     return {
       key: `eq4e:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
       hint: 'מכנסים בכל אגף. ושימו לב: המינוס לפני הסוגריים הופך את הסימן של כל איבר בתוכם.',
-      solution: lines, diag: diagOf(x, { 'minus-bracket': (m + e) / A }),
+      solution: lines, diag: diagOf(x, { 'minus-bracket': (m + e) / A, ...lastStepBugs(A, A * x) }),
     };
   }
 }
@@ -1202,6 +1248,8 @@ function tableMc() {
 //   minus-bracket  the minus before the second fraction changed only the first sign of its numerator (eq's id)
 //   partial-dist   the first numerator multiplied as if it were not a bracket, 2(x + p) as 2x + p; in a proportion,
 //                  only x multiplied: dx + a = bx − c (eq's id; Booth et al. 2014, the fraction bar not read as a grouping)
+//   sub-coef       on the last line, 5x = 60, the coefficient subtracted (eq:1's id; lastStepBugs), and on a proportion
+//                  the minus of that line lost too (sign)
 // "Only x divided, not the whole numerator" is eq:2's divide-part, already diagnosed on (x + p)/q = r: no new id for it.
 
 export const EQ7 = mkModel({
@@ -1228,6 +1276,9 @@ export const EQ7 = mkModel({
     'minus-bracket': (p) => (p.k === 2 ? 2 * p.q * p.r - 2 * p.p + p.s : null),
     // the first numerator, multiplied by 2, as if it were not a bracket: 2(x + p) written 2x + p
     'partial-dist': (p) => (p.k === 2 ? 2 * p.q * p.r - p.p - p.s : null),
+    // the last line (the critique's model has no such id: eq:1's, added with the council's round 3), 5x = 60 after
+    // the denominators: the coefficient subtracted (60 − 5). The third kind ends on x + n = m: nothing to subtract
+    'sub-coef': (p) => (p.k === 0 ? lastStepBugs(p.L / p.a + p.L / p.b, p.L * p.c)['sub-coef'] : p.k === 1 ? lastStepBugs(p.a + 1, p.a * p.c)['sub-coef'] : null),
   },
   textNums: (p) => (p.k === 0 ? [p.a, p.b, p.c] : p.k === 1 ? [p.a, p.c] : [p.p, p.q, p.s, 2 * p.q, p.r]),
 });
@@ -1241,6 +1292,8 @@ export const EQ7T = mkModel({
   bugs: {
     'lcd-partial': (p) => (p.k === 0 ? p.c / (p.L / p.a + p.L / p.b) : p.c / (p.a - 1)),
     'add-across': (p) => (p.k === 0 ? (p.c * (p.a + p.b)) / 2 : null),
+    // the last line, as EQ7's: 5x = 60 or (a − 1)x = ac, the coefficient subtracted
+    'sub-coef': (p) => (p.k === 0 ? lastStepBugs(p.L / p.a + p.L / p.b, p.L * p.c) : lastStepBugs(p.a - 1, p.a * p.c))['sub-coef'],
   },
   textNums: (p) => (p.k === 0 ? [1, p.a, 1, p.b, p.c] : [1, p.a, p.c]),
 });
@@ -1342,7 +1395,8 @@ function propItem() {
         : [line(`מחסירים $${d * a}$ משני האגפים`, `${linTex(d - b, 0)} = ${-b * c - d * a}`, divOp(d - b)), line(`מחלקים ב־$${T(d - b, true)}$`, `x = ${T(x)}`)]),
       `בדיקה: $${d}(${T(x)} + ${a}) = ${d * (x + a)}$, וגם $${b}(${T(x)} - ${c}) = ${b * (x - c)}$`,
     ],
-    diag: diagOf(x, { 'partial-dist': pd }),
+    // and the last line's mistakes, on (d − b)x = −bc − da: always a minus there, of the number or of both
+    diag: diagOf(x, { 'partial-dist': pd, ...lastStepBugs(d - b, (d - b) * x) }),
   };
 }
 /** a/x = b/c with x in the denominator: x = ac/b, whole, never a number of the equation (a/x is not b/c reduced). */
@@ -1360,7 +1414,8 @@ function xDenItem() {
     key: `eq7x:${a}:${b}:${c}`, text: 'פתרו את המשוואה.', display: `\\frac{${a}}{x} = \\frac{${b}}{${c}}`, form: 'num', answer: x,
     hint: `$x$ במכנה: כופלים את שני האגפים ב־$${c}x$, ואז נשארת משוואה של צעד אחד.`,
     solution: [`כופלים את שני האגפים ב־$${c}x$: $${opMark(`${a * c} = ${b}x`, divOp(b))}$`, `מחלקים ב־$${b}$: $x = ${x}$`, `בדיקה: $\\frac{${a}}{${x}}$ מצטמצם ב־$${m}$ ל־$\\frac{${b}}{${c}}$.`],
-    diag: () => null,
+    // the last line, ac = bx: the coefficient subtracted (the only one of the first stairs' mistakes it can show)
+    diag: diagOf(x, lastStepBugs(b, a * c)),
   };
 }
 /** Pairs neither coprime nor one a multiple of the other, so the lcm, the product, the sum and the larger differ. */

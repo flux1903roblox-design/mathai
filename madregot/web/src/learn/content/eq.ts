@@ -16,7 +16,7 @@ import { slipLike } from '../misconceptions';
 import { T, undoOp, divOp, mulOp } from '@/content/util.js';
 // @ts-ignore: plain JS, the board lines of the exercise generators (CLASSROOM-7): the operation after a slash at the end
 // of the line it acts on, the named steps of an equation with brackets, and "x = 9 (הפכנו צדדים)"
-import { line, bothSolution, twoStepSolution, stampsLines, agesLines, STEP1, STEP2, rectAt, rectBugs, rectText, rectHint, rectLines, rectStoryFig, rectFig, transferFig } from '@/content/eq.js';
+import { line, bothSolution, twoStepSolution, stampsLines, agesLines, STEP1, STEP2, rectAt, rectBugs, rectText, rectHint, rectLines, rectStoryFig, rectFig, transferFig, lastStepBugs } from '@/content/eq.js';
 // @ts-ignore: plain JS, the same TeX the expression generators print
 import { linTex, sumTex } from '@/content/expr.js';
 // @ts-ignore: plain JS, eq:6's and eq:7's models (the critique's eq6 and eq7, the spec's eq6T and eq7T), texts and worked solutions
@@ -45,6 +45,21 @@ function fair<P>(draw: () => P, answer: (p: P) => number, bugs: Record<string, (
     const p = draw(); const a = answer(p);
     if (Object.values(bugs).every((f) => { const v = f(p); return v == null || same(v, a) || !slipLike(v, a); })) return p;
   }
+}
+/** The rule of the last line kx = m when the number is the smaller (stair 1's divide-flip, again on stairs 2 and 3). */
+const DIVIDE_RULE = {
+  kind: 'rule' as const, text: 'מחלקים את המספר שבאגף השני במקדם, גם כשהוא קטן מהמקדם.', display: '4x = 2 \\;\\Rightarrow\\; x = \\frac{2}{4} = \\frac{1}{2}',
+  why: 'המקדם כופל את $x$, ולכן בו מחלקים. כשהמספר קטן מהמקדם, הפתרון קטן מ־$1$.',
+};
+type LastId = 'sign' | 'divide-flip' | 'sub-coef';
+/**
+ * The first two stairs' mistakes on the last line kx = m of a model's question (content/eq.js lastStepBugs), as the
+ * model's bugs: `km` gives the line, `ids` the mistakes that can show on the model's questions (a model whose answers are
+ * whole numbers never has the number smaller than the coefficient). A model predicts one number a mistake: the first.
+ */
+function lastStep<P>(km: (p: P) => [number, number], ids: LastId[]): Record<string, (p: P) => number | null> {
+  const first = (v: number | number[] | null) => (Array.isArray(v) ? v[0] : v);
+  return Object.fromEntries(ids.map((id) => [id, (p: P) => first(lastStepBugs(...km(p))[id])]));
 }
 /** "Remove b from both sides", in words. */
 const undo = (b: number) => (b > 0 ? `מחסירים $${b}$ משני האגפים` : `מוסיפים $${-b}$ לשני האגפים`);
@@ -256,10 +271,10 @@ const twoBugs: Record<string, (p: Two) => number | null> = {
   'move-no-flip': (p) => (p.c + p.b) / p.a,
   // only some terms divided: 2x + 4 = 10 → x + 4 = 5 (when the division comes out whole, as students choose it)
   'divide-part': (p) => (p.k !== 2 && abs(p.a) !== 1 && Number.isInteger(p.c / p.a) ? p.c / p.a - p.b : null),
-  // the coefficient's minus lost, also the hidden −1 of 7 − x = 3
-  sign: (p) => (p.a < 0 ? -p.x : null),
-  // 3x read as 3 + x after the first step: 3x = 15 → 12
-  'sub-coef': (p) => (abs(p.a) !== 1 ? p.c - p.b - p.a : null),
+  // on the last line ax = c − b: the coefficient's minus lost (also the hidden −1 of 7 − x = 3) or the result's
+  // (3x + 8 = 2 solved as 3x = 6); the division the other way round on a half (4x + 3 = 5: 4x = 2 made 2); 3x read as
+  // 3 + x (3x = 15 → 12)
+  ...lastStep((p: Two) => [p.a, p.c - p.b], ['sign', 'divide-flip', 'sub-coef']),
 };
 const twoDraw = (rnd: () => number): Two => {
   const k = rint(rnd, 0, 2); const b = rnz(rnd, -15, 15);
@@ -402,12 +417,14 @@ const stair2: StairContent = {
           why: 'כל איבר מתחלק: $4 : 2 = 2$. מ־$x + 4 = 5$ היה יוצא $x = 1$, ובדיקה: $2 \\cdot 1 + 4 = 6$, לא $10$.' },
       ] },
     { id: 'sign', title: 'הפתרון יצא עם הסימן ההפוך',
-      cause: 'המינוס שלפני $x$ נשכח: ב־$10 - 4x$ המקדם של $x$ הוא $-4$, וב־$7 - x$ הוא $-1$.',
-      explain: ['נראה שהסימן של הפתרון התהפך.', 'ב־$10 - 4x = 2$: מחסירים $10$, $-4x = -8$, ומחלקים ב־$-4$: $x = 2$.'],
+      cause: 'בדרך הלך לאיבוד מינוס: המינוס שלפני $x$ (ב־$10 - 4x$ המקדם של $x$ הוא $-4$, וב־$7 - x$ הוא $-1$), או המינוס של המספר שבאגף השני ($2 - 8$ הוא $-6$, לא $6$).',
+      explain: ['נראה שהסימן של הפתרון התהפך.', 'ב־$10 - 4x = 2$: מחסירים $10$, $-4x = -8$, ומחלקים ב־$-4$: $x = 2$. וב־$3x + 8 = 2$: $3x = 2 - 8 = -6$, ולכן $x = -2$.'],
       prereq: 'signed:3',
       remedy: [
         { kind: 'predict', text: 'מה הפתרון של $10 - 4x = 2$?', choices: ['$2$', '$-2$'], answer: 0,
           why: 'בדיקה: $10 - 4 \\cdot 2 = 2$. ואילו $10 - 4 \\cdot (-2) = 18$.' },
+        { kind: 'predict', text: 'ומה הפתרון של $3x + 8 = 2$?', choices: ['$-2$', '$2$'], answer: 0,
+          why: 'מחסירים $8$: $3x = 2 - 8 = -6$, ו־$-6 : 3 = -2$. בדיקה: $3 \\cdot (-2) + 8 = 2$. ואילו $3 \\cdot 2 + 8 = 14$.' },
         { kind: 'rule', text: 'המקדם של $x$ כולל את הסימן שלפניו.', display: '\\begin{aligned} 10 - 4x &= 2 \\qquad /{-10} \\\\ -4x &= -8 \\qquad /{:}(-4) \\\\ x &= 2 \\end{aligned}',
           why: 'שלילי חלקי שלילי הוא חיובי. בדיקה בסוף מראה אם הסימן נכון.' },
       ] },
@@ -421,6 +438,15 @@ const stair2: StairContent = {
         { kind: 'rule', text: '$3x$ הוא כפל, ולכן מחלקים ב־$3$.', display: '3x = 15 \\;\\Rightarrow\\; x = 15 : 3 = 5',
           why: 'מספר צמוד ל־$x$ כופל אותו. כפל מבטלים בחילוק.' },
       ] },
+    // stair 1's mistake, on the last line of a two-step equation whose answer is a half (4x + 3 = 5)
+    { id: 'divide-flip', title: 'החילוק נעשה הפוך',
+      cause: 'בצעד האחרון המספר קטן מהמקדם, למשל $4x = 2$, ונדמה שמחלקים תמיד את הגדול בקטן. אבל הפתרון יכול להיות שבר.',
+      explain: ['נראה שחילקתם את המקדם במספר שבאגף השני.', 'ב־$4x + 3 = 5$ מחסירים $3$: $4x = 2$. מחלקים ב־$4$: $x = \\frac{2}{4} = \\frac{1}{2}$, ולא $4 : 2 = 2$.'],
+      remedy: [
+        { kind: 'predict', text: 'מה הפתרון של $4x + 3 = 5$?', choices: ['$\\dfrac{1}{2}$', '$2$'], answer: 0,
+          why: '$4x = 2$, ולכן $x = \\frac{2}{4} = \\frac{1}{2}$. בדיקה: $4 \\cdot \\frac{1}{2} + 3 = 5$. ואילו $4 \\cdot 2 + 3 = 11$.' },
+        DIVIDE_RULE,
+      ] },
   ],
 };
 
@@ -432,6 +458,10 @@ const bothBugs: Record<string, (p: Both) => number | null> = {
   'move-no-flip': (p) => (p.d + p.b) / (p.a - p.c),
   // the x-term moved without changing sign: 4x + 2 = x + 14 → 5x = 12
   'move-x-no-flip': (p) => (p.d - p.b) / (p.a + p.c),
+  // the first two stairs' mistakes on the last line, |a − c|x = …, where the solution leaves the x-terms (content/eq.js
+  // bothSolution): 7x − 12 = 6x − 16 ends on x = −4, answered 4; 3x = 12 answered 9. (Its answers are whole: the
+  // number is never smaller than the coefficient, so the division the other way round cannot show.)
+  ...lastStep((p: Both) => [abs(p.a - p.c), abs(p.a - p.c) * p.x], ['sign', 'sub-coef']),
 };
 const bothDraw = (rnd: () => number): Both => {
   for (;;) {
@@ -583,6 +613,37 @@ const stair3: StairContent = {
         { kind: 'predict', text: 'מישהו פתר את $5x + 2 = 3x + 10$ וקיבל $x = 1$. זה נכון?', choices: ['לא', 'כן'], answer: 0,
           why: 'מציבים $1$: באגף שמאל $7$, ובאגף ימין $13$. לא שווים. $3x$ הוחסר משני האגפים, ולכן נשאר $2x$.' },
       ] },
+    // the first two stairs' mistakes, on the last line this stair's equations end on (content/eq.js lastStepBugs)
+    { id: 'sign', title: 'הפתרון יצא עם הסימן ההפוך',
+      cause: 'כשיש מינוסים בשני האגפים, קל לאבד אחד מהם בדרך: למשל לחשב $16 - 12$ במקום $-16 + 12$.',
+      explain: ['נראה שהסימן של הפתרון התהפך.', 'ב־$7x - 12 = 6x - 16$ מחסירים $6x$: $x - 12 = -16$. מוסיפים $12$: $x = -16 + 12 = -4$. בדיקה: באגף שמאל $7 \\cdot (-4) - 12 = -40$, ובאגף ימין $6 \\cdot (-4) - 16 = -40$.'],
+      prereq: 'signed:1',
+      remedy: [
+        { kind: 'predict', text: 'מה הפתרון של $7x - 12 = 6x - 16$?', choices: ['$-4$', '$4$'], answer: 0,
+          why: 'בדיקה: באגף שמאל $7 \\cdot (-4) - 12 = -40$, ובאגף ימין $6 \\cdot (-4) - 16 = -40$. ואילו ב־$x = 4$ יוצא $16$ מול $8$.' },
+        { kind: 'rule', text: 'כל מספר עובר משורה לשורה עם הסימן שלפניו, ובסוף בודקים בשני האגפים.', display: '\\begin{aligned} 7x - 12 &= 6x - 16 \\qquad /{-6x} \\\\ x - 12 &= -16 \\qquad /{+12} \\\\ x &= -4 \\end{aligned}',
+          why: '$-16 + 12$ הוא $-4$: מ־$-16$ עולים $12$, ועדיין מתחת לאפס. הבדיקה בשני האגפים מראה אם הסימן נכון.' },
+      ] },
+    { id: 'sub-coef', title: 'המקדם הוחסר במקום לחלק בו',
+      cause: 'אחרי שמורידים $x$־ים ומספרים נשארת שורה כמו $3x = 9$, ו־$3x$ נקרא כמו $3 + x$.',
+      explain: ['נראה שבצעד האחרון המקדם הוחסר.', 'ב־$4x + 1 = x + 10$ נשאר $3x = 9$. $3x$ הוא $3 \\cdot x$, ולכן מחלקים: $x = 3$, ולא $9 - 3 = 6$.'],
+      prereq: 'expr:1',
+      remedy: [
+        { kind: 'explore', text: 'ארבע קופסאות ומשקולת אחת מול קופסה ו־$10$ משקולות. הביאו לקופסה אחת לבד.', manip: balance(4, 1, 1, 10), answer: 3,
+          hint: 'בסוף נשארות שלוש קופסאות מול $9$ משקולות. מחלקים כל כף לשלוש.', success: '$x = 3$: שלוש קופסאות שוקלות $9$, ולכן קופסה אחת שוקלת $9 : 3 = 3$, ולא $9 - 3 = 6$.' },
+        { kind: 'predict', text: 'מ־$4x + 1 = x + 10$ יצא $3x = 9$. מה $x$?', choices: ['$3$', '$6$'], answer: 0,
+          why: 'בדיקה: $4 \\cdot 3 + 1 = 13$, וגם $3 + 10 = 13$. ואילו ב־$x = 6$ יוצא $25$ מול $16$.' },
+      ] },
+    // named on the last step of solving together (6x + 1 = 2x + 3 leaves 4x = 2); this stair's exercises have whole
+    // answers, so the number is never smaller than the coefficient there
+    { id: 'divide-flip', title: 'החילוק נעשה הפוך',
+      cause: 'אחרי שמורידים $x$־ים ומספרים, המספר שנשאר קטן מהמקדם, כמו $4x = 2$, ונדמה שמחלקים את הגדול בקטן. אבל הפתרון יכול להיות שבר.',
+      explain: ['נראה שחילקתם את המקדם במספר שבאגף השני.', 'ב־$6x + 1 = 2x + 3$ נשאר $4x = 2$. מחלקים ב־$4$: $x = \\frac{2}{4} = \\frac{1}{2}$, ולא $4 : 2 = 2$.'],
+      remedy: [
+        { kind: 'predict', text: 'מ־$6x + 1 = 2x + 3$ יצא $4x = 2$. מה $x$?', choices: ['$\\dfrac{1}{2}$', '$2$'], answer: 0,
+          why: 'בדיקה: $6 \\cdot \\frac{1}{2} + 1 = 4$, וגם $2 \\cdot \\frac{1}{2} + 3 = 4$. ואילו ב־$x = 2$ יוצא $13$ מול $7$.' },
+        DIVIDE_RULE,
+      ] },
   ],
 };
 
@@ -595,6 +656,9 @@ const brkBugs: Record<string, (p: Brk) => number | null> = {
   'partial-dist': (p) => (p.k === 2 ? null : (p.d - p.b) / (p.a - p.c)),
   // cx − (x + b) opened as cx − x + b; a negative a: a(x + b) opened as ax − ab
   'minus-bracket': (p) => (p.k === 2 ? (p.d - p.b) / (p.c - 1) : p.a < 0 ? (p.d + p.a * p.b) / (p.a - p.c) : null),
+  // the first two stairs' mistakes on the last line the solution ends on: (c − 1)x = d + b, ax = d − ab (a may be
+  // negative: −3x = 15), or |a − c|x = … where bothSolution leaves the x-terms
+  ...lastStep((p: Brk) => { const K = p.k === 2 ? p.c - 1 : p.k === 0 ? p.a : abs(p.a - p.c); return [K, K * p.x]; }, ['sign', 'sub-coef']),
 };
 const brkDraw = (rnd: () => number): Brk => {
   const k = rint(rnd, 0, 2); const x = rnz(rnd, -10, 10); const b = rnz(rnd, -9, 9);
@@ -760,6 +824,27 @@ const stair4: StairContent = {
           why: 'בדיקה: $12 - (6 + 2) = 4$. ואילו $12 - (10 + 2) = 0$, לא $4$.' },
         { kind: 'rule', text: 'מינוס לפני סוגריים הופך את הסימן של כל איבר בתוכם.', display: '12 - (x + 2) = 12 - x - 2',
           why: 'מחסרים את כל מה שבסוגריים, ולכן מחסרים גם את $x$ וגם את $2$.' },
+      ] },
+    // the first two stairs' mistakes, on the last line this stair's equations end on (content/eq.js lastStepBugs)
+    { id: 'sign', title: 'הפתרון יצא עם הסימן ההפוך',
+      cause: 'אחרי פתיחת הסוגריים יש הרבה סימנים, וקל לאבד מינוס בדרך: של המספר שלפני הסוגריים, או של התוצאה.',
+      explain: ['נראה שהסימן של הפתרון התהפך.', 'ב־$-3(x + 2) = 9$ פותחים סוגריים: $-3x - 6 = 9$. מוסיפים $6$: $-3x = 15$. מחלקים ב־$-3$: $x = -5$. בדיקה: $-3(-5 + 2) = 9$.'],
+      prereq: 'signed:3',
+      remedy: [
+        { kind: 'predict', text: 'מה הפתרון של $-3(x + 2) = 9$?', choices: ['$-5$', '$5$'], answer: 0,
+          why: 'בדיקה: $-3(-5 + 2) = -3 \\cdot (-3) = 9$. ואילו $-3(5 + 2) = -21$.' },
+        { kind: 'rule', text: 'המספר שלפני הסוגריים כופל כל איבר עם הסימן שלו, ובסוף מחלקים במקדם עם הסימן שלו.', display: '\\begin{aligned} -3x - 6 &= 9 \\qquad /{+6} \\\\ -3x &= 15 \\qquad /{:}(-3) \\\\ x &= -5 \\end{aligned}',
+          why: 'חיובי חלקי שלילי הוא שלילי. הבדיקה במשוואה המקורית מראה אם הסימן נכון.' },
+      ] },
+    { id: 'sub-coef', title: 'המקדם הוחסר במקום לחלק בו',
+      cause: 'אחרי פתיחת הסוגריים והכינוס נשארת שורה כמו $2x = 14$, ו־$2x$ נקרא כמו $2 + x$.',
+      explain: ['נראה שבצעד האחרון המקדם הוחסר.', 'ב־$2(x + 5) = 4(x - 1)$ נשאר $14 = 2x$. $2x$ הוא $2 \\cdot x$, ולכן מחלקים: $x = 7$, ולא $14 - 2 = 12$.'],
+      prereq: 'expr:1',
+      remedy: [
+        { kind: 'predict', text: 'מ־$2(x + 5) = 4(x - 1)$ יצא $14 = 2x$. מה $x$?', choices: ['$7$', '$12$'], answer: 0,
+          why: 'בדיקה: $2(7 + 5) = 24$, וגם $4(7 - 1) = 24$. ואילו ב־$x = 12$ יוצא $34$ מול $44$.' },
+        { kind: 'rule', text: '$2x$ הוא כפל, ולכן מחלקים ב־$2$.', display: '14 = 2x \\;\\Rightarrow\\; x = 14 : 2 = 7',
+          why: 'מספר צמוד ל־$x$ כופל אותו, גם אחרי פתיחת סוגריים. כפל מבטלים בחילוק.' },
       ] },
   ],
 };
@@ -1423,6 +1508,28 @@ const stair7: StairContent = {
       explain: ['$\\frac{x}{2} + \\frac{x}{3}$ הוא חצי ועוד שליש של אותו דבר, $\\frac{5}{6}$ ממנו, ולא $\\frac{2x}{5}$.', 'במשוואה לא מחברים את השברים בכלל: כופלים כל איבר במכנה משותף, והמכנים נעלמים.'],
       prereq: 'frac:3',
       remedy: [commonExplore, clearRule] },
+    // the first two stairs' mistakes, on the last line this stair's equations end on (content/eq.js lastStepBugs): the
+    // coefficient subtracted (5x = 60), and on a proportion, whose last line always has a minus, the sign lost
+    { id: 'sign', title: 'הפתרון יצא עם הסימן ההפוך',
+      cause: 'בפרופורציה, אחרי הכפל בשני המכנים, נשארים מינוסים בשני האגפים, וקל לאבד אחד מהם.',
+      explain: ['נראה שהסימן של הפתרון התהפך.', 'ב־$\\frac{x + 1}{2} = \\frac{x - 1}{3}$ כופלים ב־$6$: $3(x + 1) = 2(x - 1)$, כלומר $3x + 3 = 2x - 2$. מחסירים $2x$ ו־$3$: $x = -5$.'],
+      prereq: 'signed:1',
+      remedy: [
+        { kind: 'predict', text: 'מה הפתרון של $\\frac{x + 1}{2} = \\frac{x - 1}{3}$?', choices: ['$-5$', '$5$'], answer: 0,
+          why: 'בדיקה: $\\frac{-5 + 1}{2} = -2$, וגם $\\frac{-5 - 1}{3} = -2$. ואילו ב־$x = 5$ יוצא $3$ מול $\\frac{4}{3}$.' },
+        { kind: 'rule', text: 'כל מספר עובר משורה לשורה עם הסימן שלפניו, ובסוף בודקים במשוואה המקורית.', display: '\\begin{aligned} 3x + 3 &= 2x - 2 \\qquad /{-2x} \\\\ x + 3 &= -2 \\qquad /{-3} \\\\ x &= -5 \\end{aligned}',
+          why: '$-2 - 3$ הוא $-5$: יורדים עוד $3$ מתחת לאפס. הבדיקה במשוואה המקורית מראה אם הסימן נכון.' },
+      ] },
+    { id: 'sub-coef', title: 'המקדם הוחסר במקום לחלק בו',
+      cause: 'אחרי שהמכנים נעלמים נשארת שורה כמו $5x = 60$, ו־$5x$ נקרא כמו $5 + x$.',
+      explain: ['נראה שבצעד האחרון המקדם הוחסר.', 'ב־$\\frac{x}{2} + \\frac{x}{3} = 10$ כופלים ב־$6$ ומכנסים: $5x = 60$. $5x$ הוא $5 \\cdot x$, ולכן $x = 12$, ולא $60 - 5 = 55$.'],
+      prereq: 'expr:1',
+      remedy: [
+        { kind: 'predict', text: 'מ־$\\frac{x}{3} - \\frac{x}{5} = 4$ יצא $2x = 60$. מה $x$?', choices: ['$30$', '$58$'], answer: 0,
+          why: 'בדיקה: $2 \\cdot 30 = 60$, ובמשוואה המקורית $30 : 3 - 30 : 5 = 10 - 6 = 4$. ואילו $2 \\cdot 58 = 116$, לא $60$.' },
+        { kind: 'rule', text: '$2x$ הוא כפל, ולכן מחלקים ב־$2$.', display: '2x = 60 \\;\\Rightarrow\\; x = 60 : 2 = 30',
+          why: 'מספר צמוד ל־$x$ כופל אותו, גם אחרי שהמכנים נעלמו. כפל מבטלים בחילוק.' },
+      ] },
   ],
 };
 

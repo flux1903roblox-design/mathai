@@ -635,6 +635,7 @@
     "misconceptions": [
      2,
      2,
+     3,
      2,
      2
     ],
@@ -651,6 +652,9 @@
      6
     ],
     "misconceptions": [
+     2,
+     2,
+     2,
      2,
      2
     ],
@@ -669,6 +673,8 @@
     ],
     "misconceptions": [
      3,
+     2,
+     2,
      2
     ],
     "objectives": 3,
@@ -733,6 +739,8 @@
      3,
      2,
      2,
+     2,
+     2,
      2
     ],
     "objectives": 3,
@@ -744,7 +752,7 @@
    }
   },
   "stairs": 7,
-  "steps": 245
+  "steps": 262
  },
  "expr": {
   "skills": {

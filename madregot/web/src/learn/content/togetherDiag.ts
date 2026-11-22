@@ -693,23 +693,31 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // x + 8 = 3, the step chose to subtract 8 from both sides: 3 − 8 = −5
     { bugs: {} },
   ],
+  // The equation stairs end on a line kx = m, where the first two stairs' mistakes still show (the council's round 3;
+  // content/eq.js lastStepBugs): the minus of the coefficient or of the result lost (sign), the coefficient divided by
+  // the number (divide-flip), the coefficient subtracted (sub-coef).
   'eq:2': [
-    // 3x + 8 = 2, the steps subtracted 8 and divided by 3: (2 − 8) : 3 = −2
-    { bugs: {} },
+    // 3x + 8 = 2, the steps subtracted 8 and divided by 3: x = −6 : 3 = −2. The minus of −6 lost: 2. (Subtracting 3,
+    // the coefficient, is what step 2 turned down, so it is not predicted again.)
+    { bugs: { sign: 2 } },
     // 17 = 4x + 5, the step subtracted 5, so 12 = 4x. The coefficient subtracted instead of divided by: 12 − 4
     { bugs: { 'sub-coef': 8 } },
   ],
   'eq:3': [
-    // the steps took 2x and 8 from both sides: −15 = 3x, so x = −5. Neither term can have moved without its sign now
-    { bugs: {} },
-    // the step reached 4x = 2, so x = 1/2
-    { bugs: {} },
+    // the steps took 2x and 8 from both sides: −15 = 3x, so x = −5. Neither term can have moved without its sign now;
+    // what the last line can show: its minus lost (5), the coefficient subtracted from −15 as it stands (−18) or from
+    // 15 with the minus kept (−12)
+    { bugs: { sign: 5, 'sub-coef': [-18, -12] } },
+    // the step reached 4x = 2, so x = 1/2: the larger divided by the smaller (4 : 2 = 2), or the coefficient subtracted
+    // (2 − 4). (No minus anywhere: no sign to lose.)
+    { bugs: { 'divide-flip': 2, 'sub-coef': -2 } },
   ],
   'eq:4': [
-    // the step opened 5 − (x − 3) as 5 − x + 3, and the next added x to both sides: 8 = 3x − 4, so x = 4
-    { bugs: {} },
-    // the step opened both brackets: 2x + 10 = 4x − 4, so x = 7
-    { bugs: {} },
+    // the step opened 5 − (x − 3) as 5 − x + 3, and the next added x to both sides: 8 = 3x − 4, so 12 = 3x and x = 4.
+    // The coefficient subtracted: 12 − 3
+    { bugs: { 'sub-coef': 9 } },
+    // the step opened both brackets: 2x + 10 = 4x − 4, so 14 = 2x and x = 7. The coefficient subtracted: 14 − 2
+    { bugs: { 'sub-coef': 12 } },
   ],
   'eq:5': [
     // the light parcel is 4.5 kg, the heavy one 9: the heavy one answered. (The steps wrote x + 2x = 13.5, so the
@@ -727,12 +735,14 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
   ],
   'eq:7': [
     // x/3 − x/5 = 4, the step chose 15: 5x − 3x = 60, x = 30. The 4 not multiplied by 15: 2x = 4, x = 2. The step
-    // offered 2 as what to multiply by, another quantity than x, so the prediction is kept
-    { bugs: { 'lcd-partial': 2 }, still: ['lcd-partial'] },
+    // offered 2 as what to multiply by, another quantity than x, so the prediction is kept. On the last line, 2x = 60,
+    // the coefficient subtracted: 58
+    { bugs: { 'lcd-partial': 2, 'sub-coef': 58 }, still: ['lcd-partial'] },
     // (x + 2)/4 = (x − 1)/3, the step wrote 3(x + 2) = 4(x − 1), so x = 10; only x multiplied (3x + 2 = 4x − 1, x = 3)
     // is what that step ruled out
     { bugs: {} },
-    // x + x/3 = 8 (the ז׳ programme's form): 6; the 8 not multiplied by 3 gives 8 : 4 = 2, added across 8 · 4 : 2 = 16
+    // x + x/3 = 8 (the ז׳ programme's form): 6; the 8 not multiplied by 3 gives 8 : 4 = 2, added across 8 · 4 : 2 = 16,
+    // and on the last line, 4x = 24, the coefficient subtracted 24 − 4 = 20
     { model: 'diag', p: { k: 1, a: 3, x: 6, c: 8 } },
   ],
   'sys:1': [

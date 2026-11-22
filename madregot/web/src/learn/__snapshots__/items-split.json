@@ -1424,8 +1424,8 @@
    "review1:eq3b:2:3:3:1|2|gen",
    "review2:eq:3:diag:{\"a\":7,\"b\":13,\"c\":8,\"d\":15,\"x\":-2}|-2|diag",
    "verify0:eq:3:probe:{\"a\":3,\"b\":2,\"c\":5,\"d\":-14,\"x\":8}|8|probe",
-   "verify1:eq:3:probe:{\"a\":7,\"b\":-4,\"c\":5,\"d\":2,\"x\":3}|3|probe",
-   "verify2:eq:3:diag:{\"a\":9,\"b\":8,\"c\":3,\"d\":-16,\"x\":-4}|-4|diag",
+   "verify1:eq:3:probe:{\"a\":1,\"b\":-7,\"c\":2,\"d\":-12,\"x\":5}|5|probe",
+   "verify2:eq:3:diag:{\"a\":1,\"b\":7,\"c\":6,\"d\":-18,\"x\":5}|5|diag",
    "gen:eq3:7x + 13 = 9x + 7|3|gen",
    "diag:eq:3:diag:{\"a\":5,\"b\":11,\"c\":6,\"d\":9,\"x\":2}|2|diag",
    "transfer:eq:3:transfer:{\"a\":140,\"b\":110,\"c\":110,\"d\":170,\"m\":2}|2|transfer"
