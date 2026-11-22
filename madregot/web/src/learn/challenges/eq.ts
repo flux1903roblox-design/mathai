@@ -32,7 +32,9 @@ export const EQ_CHALLENGES: ChallengeTask[] = [
         lines: ['$3x + 5 = 20$', '$3x = 25$', '$x = \\frac{25}{3}$'], wrong: 1,
         why: 'מעבירים את $5$ בפעולה ההפוכה: מחסרים $5$ משני האגפים, ו־$3x = 15$.',
         lineWhy: { 0: 'זו המשוואה עצמה. הטעות מתחילה אחריה.', 2: 'מ־$3x = 25$ באמת יוצא $x = \\frac{25}{3}$. הטעות בשורה שלפניה.' },
-        fix: { prompt: 'מה $x$?', answer: 5, check: '(20-5)/3' } },
+        // Alon's own move again (25/3), or 3x = 15 taken over as a multiplication (45); 3x read as 3 + x (15 − 3); the
+        // coefficient divided by the number (3 : 15)
+        fix: { prompt: 'מה $x$?', answer: 5, check: '(20-5)/3', wrongs: { 'move-no-flip': [25 / 3, 45], 'sub-coef': 12, 'divide-flip': 0.2 } } },
       { type: 'mc', prompt: 'איך בודקים פתרון של משוואה?', choices: [
         { text: 'מציבים אותו: $3 \\cdot 5 + 5 = 20$', ok: true, feedback: 'נכון: מציבים במשוואה המקורית, ואם שני האגפים שווים, הפתרון נכון. אצל אלון: $3 \\cdot \\frac{25}{3} + 5 = 30$, לא $20$.' },
         { text: 'פותרים שוב באותה דרך', ok: false, feedback: 'באותה דרך אפשר לחזור על אותה טעות. הצבה במשוואה המקורית בודקת באמת.' },
@@ -47,7 +49,9 @@ export const EQ_CHALLENGES: ChallengeTask[] = [
       { type: 'num', prompt: 'כמה עולות $10$ כניסות במסלול א?', answer: 270, check: '120+15*10', unit: 'ש״ח',
         solution: ['דמי הרשמה ועוד $10$ כניסות: $120 + 15 \\cdot 10$.', '$120 + 150 = 270$ ש״ח.'] },
       { type: 'num', prompt: 'אחרי כמה כניסות המחיר בשני המסלולים שווה?', answer: 12, check: '120/(25-15)', unit: 'כניסות',
-        solution: ['משווים: $120 + 15x = 25x$.', 'מחסרים $15x$: $120 = 10x$, ולכן $x = 12$ כניסות.'] },
+        solution: ['משווים: $120 + 15x = 25x$.', 'מחסרים $15x$: $120 = 10x$, ולכן $x = 12$ כניסות.'],
+        // 15x moved over keeping its sign (120 = 40x); 10x read as 10 + x (120 − 10)
+        wrongs: { 'move-x-no-flip': 3, 'sub-coef': 110 } },
       { type: 'mc', prompt: 'נועה מתכננת $8$ כניסות. איזה מסלול זול לה יותר?', choices: [
         { text: 'מסלול ב: $200$ ש״ח מול $240$', ok: true, feedback: 'נכון: במסלול ב $25 \\cdot 8 = 200$, ובמסלול א $120 + 15 \\cdot 8 = 240$. עד $12$ כניסות מסלול ב זול יותר.' },
         { text: 'מסלול א', ok: false, feedback: 'במסלול א: $120 + 15 \\cdot 8 = 240$ ש״ח, ובמסלול ב רק $200$. מסלול א משתלם רק מעל $12$ כניסות.' },
@@ -62,12 +66,19 @@ export const EQ_CHALLENGES: ChallengeTask[] = [
     id: 'eq:c4', topic: 'eq', after: 'eq:6', kind: 'literacy', title: 'שלושה מקצים', minutes: 8,
     story: 'בתחרות שוחים $0.75$ ק״מ ב־$3$ קמ״ש, רוכבים $20$ ק״מ ב־$30$ קמ״ש, ורצים $5$ ק״מ ב־$10$ קמ״ש.',
     parts: [
+      // each time is found in hours: given as hours (no-convert), or its decimal read as minutes, as if an hour had 100
+      // minutes (decimal-minutes: 0.67 hour as 67 minutes). The swim's 0.25 hour read as 25 minutes is ten off 15, which
+      // a slip of the hand also gives, so it names nothing
       { type: 'num', prompt: 'כמה דקות שחו?', answer: 15, check: '0.75/3*60', unit: 'דקות',
-        solution: ['זמן = דרך : מהירות: $0.75 : 3 = 0.25$ שעה.', 'רבע שעה היא $15$ דקות.'] },
+        solution: ['זמן = דרך : מהירות: $0.75 : 3 = 0.25$ שעה.', 'רבע שעה היא $15$ דקות.'],
+        wrongs: { 'no-convert': 0.25 } },
       { type: 'num', prompt: 'כמה דקות רכבו?', answer: 40, check: '20/30*60', unit: 'דקות',
-        solution: ['$20 : 30 = \\frac{2}{3}$ שעה.', 'שני שלישים של $60$ דקות הם $40$ דקות.'] },
+        solution: ['$20 : 30 = \\frac{2}{3}$ שעה.', 'שני שלישים של $60$ דקות הם $40$ דקות.'],
+        wrongs: { 'no-convert': 2 / 3, 'decimal-minutes': [200 / 3, 67, 66] } },
       { type: 'num', prompt: 'כמה דקות נמשכה כל התחרות?', answer: 85, check: '15+40+30', unit: 'דקות',
-        solution: ['הריצה: $5 : 10 = \\frac{1}{2}$ שעה, כלומר $30$ דקות.', 'כל התחרות: $15 + 40 + 30 = 85$ דקות.'] },
+        solution: ['הריצה: $5 : 10 = \\frac{1}{2}$ שעה, כלומר $30$ דקות.', 'כל התחרות: $15 + 40 + 30 = 85$ דקות.'],
+        // 1.42 hours; 25 + 66.67 + 50 "minutes"
+        wrongs: { 'no-convert': 85 / 60, 'decimal-minutes': [425 / 3, 142, 141] } },
       { type: 'mc', prompt: 'האם הממוצע של $3$, $30$ ו־$10$ הוא המהירות הממוצעת?', choices: [
         { text: 'לא: בכל קטע הזמן שונה, והמהירות הממוצעת היא כל הדרך חלקי כל הזמן', ok: true, feedback: '$25.75$ ק״מ ב־$85$ דקות הם בערך $18.18$ קמ״ש, לא $14.33$.' },
         { text: 'כן', ok: false, feedback: 'הממוצע $14.33$ נותן לכל מהירות אותו משקל, אבל רכבו $40$ דקות ושחו רק $15$. כל הדרך, $25.75$ ק״מ, ב־$85$ דקות: בערך $18.18$ קמ״ש.' },
@@ -78,12 +89,17 @@ export const EQ_CHALLENGES: ChallengeTask[] = [
     id: 'eq:c5', topic: 'eq', after: 'eq:1', kind: 'literacy', title: 'חשבו על מספר', minutes: 6,
     story: 'במשחק "חשבו על מספר" כל אחד חושב על מספר, עושה עליו פעולה אחת ואומר מה יצא. האחרים צריכים לגלות על איזה מספר הוא חשב.',
     parts: [
+      // the one-step mistakes of eq:1 (its model's predictions): the minus of −3 lost, the operation moved over as it
+      // is (27 · (−3), −5 − 8, −2.5 : 4), −3x read as −3 + x (27 − (−3))
       { type: 'num', prompt: 'יעל כפלה את המספר שלה ב־$-3$, ויצא $27$. על איזה מספר היא חשבה?', answer: -9, check: '27/(-3)',
-        solution: ['המשוואה: $-3x = 27$.', 'מחלקים את שני האגפים ב־$-3$: $x = -9$. בדיקה: $-3 \\cdot (-9) = 27$.'] },
+        solution: ['המשוואה: $-3x = 27$.', 'מחלקים את שני האגפים ב־$-3$: $x = -9$. בדיקה: $-3 \\cdot (-9) = 27$.'],
+        wrongs: { sign: 9, 'move-no-flip': -81, 'sub-coef': 30 } },
       { type: 'num', prompt: 'עומרי חיסר מהמספר שלו $8$, ויצא $-5$. על איזה מספר הוא חשב?', answer: 3, check: '-5+8',
-        solution: ['המשוואה: $x - 8 = -5$.', 'מוסיפים $8$ לשני האגפים: $x = 3$. בדיקה: $3 - 8 = -5$.'] },
+        solution: ['המשוואה: $x - 8 = -5$.', 'מוסיפים $8$ לשני האגפים: $x = 3$. בדיקה: $3 - 8 = -5$.'],
+        wrongs: { 'move-no-flip': -13, sign: -3 } },
       { type: 'num', prompt: 'נור חילקה את המספר שלה ב־$4$, ויצא $-2.5$. על איזה מספר היא חשבה?', answer: -10, check: '-2.5*4',
-        solution: ['המשוואה: $\\frac{x}{4} = -2.5$.', 'כופלים את שני האגפים ב־$4$: $x = -10$. בדיקה: $-10 : 4 = -2.5$.'] },
+        solution: ['המשוואה: $\\frac{x}{4} = -2.5$.', 'כופלים את שני האגפים ב־$4$: $x = -10$. בדיקה: $-10 : 4 = -2.5$.'],
+        wrongs: { 'move-no-flip': -0.625, sign: 10 } },
       { type: 'mc', prompt: 'רון כפל את המספר שלו ב־$0$, ויצא $0$. על איזה מספר הוא חשב?', choices: [
         { text: 'אי אפשר לדעת', ok: true, feedback: 'נכון: כל מספר כפול $0$ הוא $0$. למשוואה $0 \\cdot x = 0$ כל מספר הוא פתרון.' },
         { text: '$0$', ok: false, feedback: '$0$ מתאים, אבל גם $5$ מתאים: $0 \\cdot 5 = 0$. כל מספר מתאים, ולכן אי אפשר לדעת.' },
@@ -111,7 +127,9 @@ export const EQ_CHALLENGES: ChallengeTask[] = [
         { text: '$3x - 12$', ok: false, feedback: 'כאן חיסרו קודם $5 - 2 = 3$. אבל כפל בא לפני חיסור: פותחים את הסוגריים, ויוצא $5 - 2x + 8$, כלומר $13 - 2x$.' },
       ] },
       { type: 'num', prompt: 'פתרו: $4(x + 3) = 2x - 6$. מה $x$?', answer: -9, check: '(-6-12)/(4-2)',
-        solution: ['פותחים סוגריים: $4x + 12 = 2x - 6$. מחסרים $2x$ משני האגפים: $2x + 12 = -6$.', 'מחסרים $12$: $2x = -18$, ולכן $x = -9$. בדיקה: $4(-9 + 3) = -24$, וגם $2 \\cdot (-9) - 6 = -24$.'] },
+        solution: ['פותחים סוגריים: $4x + 12 = 2x - 6$. מחסרים $2x$ משני האגפים: $2x + 12 = -6$.', 'מחסרים $12$: $2x = -18$, ולכן $x = -9$. בדיקה: $4(-9 + 3) = -24$, וגם $2 \\cdot (-9) - 6 = -24$.'],
+        // only x multiplied (4x + 3 = 2x − 6, 2x = −9); the minus of −18 lost; 2x read as 2 + x (−18 − 2)
+        wrongs: { 'partial-dist': -4.5, sign: 9, 'sub-coef': -20 } },
     ],
   },
 ];

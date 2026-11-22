@@ -10,8 +10,10 @@
 //   proofManip     a template as the proof object (content/proof.js): the whole template, or only the theorem asked
 //   proofDiag      the two proof mistakes: a conclusion above the congruence it follows from ('circular'), another
 //                  theorem on the congruence row ('wrong-theorem')
+//   checkProofItem a whole template as a mastery check's question (rows shuffled, every reason asked, no hint)
 //   triFromAngles  a true triangle from its angles: every congruence and similarity drawing is computed with it
-import './proof.js'; // the proof object registers itself with content/manip.js: a template is always checkable
+// the proof object registers itself with content/manip.js when it loads: a template is always checkable
+import { proofSolution } from './proof.js';
 
 // ---------------------------------------------------------------- the reason bank
 /** The reasons by name, as the class writes them. */
@@ -291,4 +293,30 @@ export function proofDiag(part, v) {
   const chosen = t.reason && v.reasons?.[thm] != null ? t.reason.choices[v.reasons[thm]] : null;
   if (chosen && THEOREMS.includes(chosen) && chosen !== reasonOf(t)) return 'wrong-theorem';
   return null;
+}
+
+// ---------------------------------------------------------------- a proof a mastery check asks
+/**
+ * A whole proof as a check's question (the council's round 3: the proof stairs were mastered by numbers alone): the
+ * template in letter set `set`, its rows shuffled by `seed` (never already in order), every reason asked, and each
+ * row's choices in an order of their own (`rnd`), so a check does not reward a position remembered from practice,
+ * where the same row always shows the same order. No hint: a check gives none (content/index.js fairForCheck lets a
+ * proof into a check only so). `key` names the template, not its letters: the same proof in other letters is the same
+ * question, and a check does not ask it twice.
+ */
+export function checkProofItem(T0, { key, set, seed, text, rnd = Math.random }) {
+  const base = proofManip(T0, { set, seed: String(seed) });
+  const turn = (s) => {
+    const right = s.reason.choices[s.reason.answer];
+    const choices = [...s.reason.choices];
+    for (let i = choices.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [choices[i], choices[j]] = [choices[j], choices[i]]; }
+    return { text: s.text, reason: { choices, answer: choices.indexOf(right) } };
+  };
+  const manip = { ...base, part: { ...base.part, steps: base.part.steps.map((s) => (s.reason ? turn(s) : s)) } };
+  return {
+    key, text, form: 'manip', manip, answer: proofSolution(manip),
+    solution: manip.part.steps.map((s, i) => `${i + 1}. ${s.text} — ${s.fixed ?? s.reason.choices[s.reason.answer]}`),
+    // a conclusion above the congruence ('circular'), or another theorem chosen on it ('wrong-theorem')
+    diag: (u) => proofDiag(manip.part, u),
+  };
 }

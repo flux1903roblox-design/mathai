@@ -7,14 +7,15 @@
 // the first load (the boot split): the first screen reads the topic's names from content/topics.gen.js, which
 // scripts/gen-content-meta.mjs writes from this object, and the generators load with the topic (content/topics.js
 // importGens).
-import { SIM_GENS } from './sim.gen.js';
+import { SIM_GENS, SIM_PROOF_CHECKS } from './sim.gen.js';
 
 export const SIM = {
   id: 'sim', grade: '8', title: 'שווה־שוקיים ודמיון', color: 'sky',
   desc: 'משפטים הפוכים בשווה־שוקיים, צורות דומות, דמיון ז.ז ויחס השטחים',
   // taught in March and April: the first-day placement test does not ask about it (the jump test does)
   placement: false,
-  levels: ['שווה־שוקיים ומשפטים הפוכים', 'צורות דומות', 'דמיון משולשים (ז.ז)', 'יחס צלעות ויחס שטחים'].map((title, i) => ({ title, gen: SIM_GENS[i] })),
+  // the proof stairs' mastery checks ask a whole proof too (checkProofs, proofGen: content/sim.gen.js)
+  levels: ['שווה־שוקיים ומשפטים הפוכים', 'צורות דומות', 'דמיון משולשים (ז.ז)', 'יחס צלעות ויחס שטחים'].map((title, i) => ({ title, gen: SIM_GENS[i], ...SIM_PROOF_CHECKS[i] })),
   cats: {
     'side-at-angle': 'השוו צלעות שיוצאות מהזוויות השוות, ולא את הצלעות שמולן',
     'stopped-at-x': 'מצאו את $x$ ועצרו, בלי לחשב את אורך הצלע',

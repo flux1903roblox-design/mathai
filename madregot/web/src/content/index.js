@@ -14,7 +14,7 @@ import { TOPIC } from './topics.js';
 import './grid.js';
 import './net.js';
 import './transform.js';
-import './proof.js';
+import { proofCheckable } from './proof.js';
 
 export * from './topics.js';
 
@@ -46,7 +46,8 @@ export function makeItem(topicId, level, avoidKey, opts = {}) {
   const L = t.levels[Math.min(Math.max(level, 1), t.levels.length) - 1];
   // the code that makes a question waits for its topic first (ensureTopics, loadGens): a missing generator is a bug there
   if (!L.gen) throw new Error(`makeItem('${topicId}', ${level}): its generators have not loaded. Wait for ensureTopics(['${topicId}']) or loadGens('${topicId}') first.`);
-  const gen = opts.test && L.testGen ? L.testGen : L.gen;
+  // a proof stair's check asks whole proofs from the level's proofGen (`opts.proof`, learn/items.ts source 'proof')
+  const gen = opts.proof && L.proofGen ? L.proofGen : opts.test && L.testGen ? L.testGen : L.gen;
   let it; let guard = 0;
   do { it = gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
   // a typed answer that has no exact two-place decimal (7/12, a slope of -5/6, a mean of 13/3) says once how to write it
@@ -76,8 +77,12 @@ export function makeItem(topicId, level, avoidKey, opts = {}) {
  * "5 + 3") says nothing about signs: they skip it too. Practice keeps them all.
  */
 export function fairForCheck(it) {
-  // a proof's skeleton is the same every time (givens, the theorem, the conclusion): practice only, flagged or not (GEOM-3.10)
-  if (it.practiceOnly || it.manip?.kind === 'proof') return false;
+  // a proof: only a whole one, made for a check (content/proof.js proofCheckable: its rows shuffled, three reasons or
+  // more asked, each of three choices), with no hint and not marked practice only (content/proofs.js checkProofItem). The
+  // practice proofs (one or two reasons to fill in, the theorem alone, which row is wrong) are guessed too easily, flagged
+  // or not (GEOM-3.10; the council's round 3 let the proof stairs' checks ask whole proofs)
+  if (it.manip?.kind === 'proof') return !it.practiceOnly && !it.hint && proofCheckable(it.manip);
+  if (it.practiceOnly) return false;
   if (it.fixed) return false;
   if (it.topic !== 'signed') return true;
   const shown = [it.display, it.text, ...(it.manip?.labels || []), ...(it.choices || []).map((c) => c.tex || c.text)].join(' ');

@@ -62,6 +62,22 @@ export function proofFirstWrong(m, v) {
   }
   return null;
 }
+/**
+ * The fewest reasons a proof in a check asks, each a choice of three or more: a student who knows the order of the rows
+ * and picks the reasons at random is right once in 27 or less (proofReasonGuess).
+ */
+export const CHECK_REASONS = 3;
+/**
+ * Can a check ask this proof (GEOM-3.10; the council's round 3: the proof stairs were mastered by numbers alone)? Only a
+ * whole one: its rows shuffled (no lockOrder) and at least CHECK_REASONS reasons asked, each a choice of three or more.
+ * Filling in one or two reasons, or choosing the theorem alone, is guessed too easily: practice only.
+ */
+export function proofCheckable(m) {
+  const asked = askedSteps(m.part);
+  return !m.lockOrder && asked.length >= CHECK_REASONS && asked.every((i) => m.part.steps[i].reason.choices.length >= 3);
+}
+/** The chance that reasons picked at random are all right, the order of the rows known: one over the choices' product. */
+export const proofReasonGuess = (m) => askedSteps(m.part).reduce((p, i) => p / m.part.steps[i].reason.choices.length, 1);
 /** Right: the order right (free groups in any order) and every asked reason the right one. */
 export const proofCorrect = (m, v) => proofOrderRight(m, v) && askedSteps(m.part).every((i) => v.reasons[i] === m.part.steps[i].reason.answer);
 /** The right table: the steps in order, every asked reason right. */

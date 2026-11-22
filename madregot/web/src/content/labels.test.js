@@ -209,6 +209,24 @@ function xSide(display) {
   if (near(L.k, 0)) return [R, L.c];
   return null;
 }
+/**
+ * The last line { k, m } (kx = m) an equation's worked solution ends on, read from its display alone: the fractions
+ * cleared first, by the common denominator of the display (a proportion \frac{…}{b} = \frac{…}{d} by b · d, as its
+ * solution multiplies); the x-terms then where there are more of them when both sides hold x (bothSolution), or where
+ * they are when one side does, with their sign; a proportion keeps them on the left. a/x = b/c ends on bx = ac. Null
+ * for a question with no equation shown (a story).
+ */
+function lastLine(it) {
+  if (it.key.startsWith('eq7x:')) { const [a, b, c] = nums(it.key); return { k: b, m: a * c }; }
+  if (!it.display || !it.display.includes('=')) return null;
+  const [L, R] = sidesOf(it.display);
+  const x = solveLin(L, R);
+  const dens = [...it.display.matchAll(/\\frac\{[^}]*\}\{(\d+)\}/g)].map((m) => Number(m[1]));
+  const prop = /^\\frac\{[^}]*x[^}]*\}\{\d+\} = \\frac\{[^}]*x[^}]*\}\{\d+\}$/.test(it.display);
+  const s = prop ? dens[0] * dens[1] : dens.reduce((a, b) => (a * b) / gcdOf(a, b), 1);
+  const k = Math.round(s * (near(R.k, 0) ? L.k : near(L.k, 0) ? R.k : prop ? L.k - R.k : Math.abs(L.k - R.k)));
+  return Number.isFinite(x) && k ? { k, m: k * x } : null;
+}
 /** The choice a student picked, as maths. */
 const chosen = (it, u) => it.choices[u]?.tex || '';
 /** An mc choice that is an expression, as { k, c } in its letter. */
@@ -1001,10 +1019,14 @@ const PROPS = {
     },
     // the x-term moved to the other side keeping its sign
     'move-x-no-flip': (it, u) => { const [L, R] = sidesOf(it.display); return fits(u, (R.c - L.c) / (L.k + R.k)) || fits(u, (L.c - R.c) / (L.k + R.k)); },
-    // the larger divided by the smaller: 12x = 3 gives 4
-    'divide-flip': (it, u) => { const xs = xSide(it.display); return !!xs && Math.abs(xs[0].k) > Math.abs(xs[1] - xs[0].c) && fits(u, xs[0].k / (xs[1] - xs[0].c)); },
-    // the coefficient subtracted instead of divided by
-    'sub-coef': (it, u) => { const xs = xSide(it.display); return !!xs && Number.isInteger(xs[0].k) && fits(u, xs[1] - xs[0].c - xs[0].k); },
+    // on the last line kx = m (lastLine): the larger divided by the smaller, 12x = 3 gives 4
+    'divide-flip': (it, u) => { const l = lastLine(it); return !!l && l.m !== 0 && Math.abs(l.k) > Math.abs(l.m) && fits(u, l.k / l.m); },
+    // the coefficient subtracted instead of divided by, on the last line: 3x = 15 gives 12; from a negative number, from
+    // the number as it stands or (past stair 1) from its size with its minus kept: 3x = −15 gives −18 or −12
+    'sub-coef': (it, u) => {
+      const l = lastLine(it);
+      return !!l && Math.abs(l.k) !== 1 && (fits(u, l.m - l.k) || (it.level > 1 && l.m < 0 && l.k > 0 && fits(u, l.m + l.k)));
+    },
     // only some terms divided by the coefficient: 2x + 4 = 10 → x + 4 = 5; (x + 1)/3 = 7 read as x/3 + 1 = 7
     // (as the lesson diagnoses it: a coefficient other than ±1, whose division of the other side comes out whole, with
     // the x-term written first: in 14 − 7x = −42 the number before it is not "a part" the student keeps)
@@ -1019,11 +1041,16 @@ const PROPS = {
       if (/^-?\d+\s*[-+]/.test(xTex) && !it.key.startsWith('eq2c:')) return false;
       return fits(u, xs[1] / xs[0].k - xs[0].c);
     },
-    // the opposite of the solution, where a minus could be lost: a negative coefficient, or the missing number
+    // the opposite of the solution, where a minus could be lost: a negative coefficient, or the missing number; past
+    // stair 1, on the last line kx = m, the coefficient's minus or the result's (k < 0 or x < 0)
     sign: (it, u) => {
       if (it.key.startsWith('eq1m:')) return near(u, -nums(it.key)[3]);
-      const xs = xSide(it.display); return !!xs && xs[0].k < 0 && near(u, -it.answer);
+      if (it.level === 1) { const xs = xSide(it.display); return !!xs && xs[0].k < 0 && near(u, -it.answer); }
+      const l = lastLine(it); return !!l && (l.k < 0 || it.answer < 0) && near(u, -it.answer);
     },
+    // a time found in hours and given where minutes are asked: no exercise names it, only the challenge track's
+    // number parts (learn/challenges/eq.ts eq:c4; components/challenge/numMistakes.test.jsx checks their maps)
+    'no-convert': () => false,
     'partial-dist': (it, u) => {
       // eq:7, (x + p)/q − (x − s)/(2q) = r times 2q with 2(x + p) written 2x + p: x = 2qr − p − s; a proportion
       // (x + a)/b = (x − c)/d with only x multiplied, dx + a = bx − c: x = (a + c)/(b − d)

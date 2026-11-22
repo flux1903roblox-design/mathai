@@ -1,7 +1,8 @@
 // The proof templates and the reason bank (GEOM-3.7, 3.8), and the true-triangle tool (GEOM-5 topic-wide): every
 // template passes the template test in every letter set, its drawing is true, and triFromAngles draws what it is asked.
 import { describe, it, expect } from 'vitest';
-import { REASONS, R, PROOFS, PROOF, LETTER_SETS, proofIn, proofManip, proofRows, proofDiag, triFromAngles } from './proofs.js';
+import { REASONS, R, PROOFS, PROOF, LETTER_SETS, proofIn, proofManip, proofRows, proofDiag, triFromAngles, checkProofItem } from './proofs.js';
+import { askedSteps, proofCheckable, proofReasonGuess, CHECK_REASONS } from './proof.js';
 import { templateFaults, figureFaults } from './proof.check.js';
 import { firstOutOfPlace, shuffledOrder } from '@/learn/challenges/grade.ts';
 import { fairForCheck } from './index.js';
@@ -146,13 +147,36 @@ describe('triFromAngles: a true triangle from its angles (GEOM-5 topic-wide)', (
   });
 });
 
-describe('a proof is practice only (GEOM-3.10)', () => {
-  it('fairForCheck skips a proof item, flagged practiceOnly as every proof item is, and even without the flag', () => {
-    const manip = proofManip(PROOF.T1);
-    const it0 = { form: 'manip', manip, topic: 'congr', level: 3, key: 'pf:T1' };
-    const item = { ...it0, answer: manipSolution(it0) };
-    expect(fairForCheck({ ...item, practiceOnly: true })).toBe(false);
-    expect(fairForCheck(item)).toBe(false);
+describe('a check asks only a whole proof (GEOM-3.10, the council\'s round 3)', () => {
+  const itemOf = (manip, more = {}) => { const it0 = { form: 'manip', manip, topic: 'congr', level: 3, key: 'pf:T1' }; return { ...it0, answer: manipSolution(it0), ...more }; };
+  it('fairForCheck skips a practice proof: one or two reasons to fill in, the theorem alone, a hint, or the practice flag', () => {
+    // the rows locked in order: only the reasons are asked
+    expect(fairForCheck(itemOf(proofManip(PROOF.T1, { lockOrder: true })))).toBe(false);
+    // only the theorem asked (proofOrder): one choice of three
+    expect(fairForCheck(itemOf(proofManip(PROOF.T1, { ask: 'theorem' })))).toBe(false);
+    // T6 shuffled asks two reasons only: a student who knows the order guesses it once in nine
+    expect(askedSteps(proofManip(PROOF.T6).part)).toHaveLength(2);
+    expect(fairForCheck(itemOf(proofManip(PROOF.T6)))).toBe(false);
+    // a whole proof flagged practice only, or with a hint, stays out of a check
+    expect(fairForCheck(itemOf(proofManip(PROOF.T1), { practiceOnly: true }))).toBe(false);
+    expect(fairForCheck(itemOf(proofManip(PROOF.T1), { hint: 'קודם הנתונים.' }))).toBe(false);
     // the printed exam takes no object at all (lib/exam.js: form 'manip' and fairForCheck), so a proof never prints
+  });
+  it('a whole proof can be asked: its rows shuffled and at least three reasons asked, of three choices each', () => {
+    for (const T of PROOFS) {
+      const m = proofManip(T);
+      expect(fairForCheck(itemOf(m)), T.id).toBe(proofCheckable(m));
+      expect(proofCheckable(m), T.id).toBe(askedSteps(m.part).length >= CHECK_REASONS);
+      if (proofCheckable(m)) expect(proofReasonGuess(m), T.id).toBeLessThanOrEqual(1 / 27);
+    }
+    // the stairs' check proofs (content/proofs.js checkProofItem): the same template, its choices turned, no hint
+    const rnd = (() => { let t = 7; return () => { t = (t * 9301 + 49297) % 233280; return t / 233280; }; })();
+    const it = { ...checkProofItem(PROOF.T1, { key: 'cg3c:T1', set: 1, seed: 5, text: 'סדרו את שורות ההוכחה, ובחרו נימוק לכל שורה.', rnd }), topic: 'congr', level: 3 };
+    expect(it.hint).toBeUndefined();
+    expect(fairForCheck(it)).toBe(true);
+    expect(manipSolution(it)).toEqual(it.answer);
+    // every row keeps its right reason, wherever it now stands among the choices
+    const right = (s) => s.fixed ?? s.reason.choices[s.reason.answer];
+    expect(it.manip.part.steps.map(right)).toEqual(proofIn(PROOF.T1, 1).steps.map(right));
   });
 });

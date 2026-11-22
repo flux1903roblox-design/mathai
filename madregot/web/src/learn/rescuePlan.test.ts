@@ -154,3 +154,48 @@ describe('Exam Rescue rests on Shabbat and on Yom Tov (SK-LEARN-3)', () => {
     expect(validInput({ ...input, date: '2027-04-27' }, '2027-04-19')).toBeNull();
   });
 });
+
+// The council's round 3: a stair already taught (stages A–C done, the check failed) came back on the plan as a 12-minute
+// "לומדים" lesson, while its button opened the practice (stage D). A step is what its button opens, with its minutes.
+describe('Exam Rescue does not teach again a stair already taught', () => {
+  const T = '2026-11-11';
+  const taught = (stages: ('A' | 'B' | 'C')[]) => Object.fromEntries(stages.map((s) => [s, `${T}T07:00:00.000Z`]));
+  /** The plan for one stair whose teaching stages `stages` are done, after a short diagnostic of `right` of 2. */
+  function planWith(skill: string, stages: ('A' | 'B' | 'C')[], right = 0) {
+    let plan = newPlan({ grade: '7', date: '2026-11-19', skills: [skill], confidence: 3, minutes: 20 }, `${T}T08:00:00.000Z`);
+    plan = recordDiagnostic(plan, skill, right, 2, `${T}T08:00:00.000Z`);
+    const learn = { ...empty(), skills: { [skill]: { attempts: [], taught: taught(stages) } } };
+    return examPlan(plan, learn, `${T}T09:00:00.000Z`, T);
+  }
+  const stepsOf = (p: ExamPlan, skill: string) => p.days.flatMap((d) => d.tasks).filter((t) => t.skill === skill);
+  const firstOf = (p: ExamPlan, skill: string) => stepsOf(p, skill)[0];
+
+  it('the council\'s case: signed:1 taught (A–C), a gap: practice first, 5 minutes, then the check; no lesson', () => {
+    const p = planWith('signed:1', ['A', 'B', 'C']);
+    expect(p.skills[0].standing).toBe('gap');
+    const steps = stepsOf(p, 'signed:1').filter((t) => t.kind !== 'review');
+    expect(steps.map((t) => t.kind)).toEqual(['practice', 'mastery']);
+    expect(firstOf(p, 'signed:1')).toMatchObject({ kind: 'practice', title: 'מתרגלים: חיבור וחיסור', minutes: taskMinutes('practice') });
+    // and what the home screen shows from the plan (learn/next.ts) is the same step
+    expect(p.today[0]).toMatchObject({ kind: 'practice', minutes: 5 });
+    p.days.flatMap((d) => d.tasks).forEach((t) => expect(t.title).not.toMatch(/^לומדים/));
+  });
+
+  it('a stair taught in part: the lesson is what is left of it, in that many minutes', () => {
+    const a = firstOf(planWith('signed:1', ['A']), 'signed:1');
+    expect(a).toMatchObject({ kind: 'learn', title: 'לומדים: חיבור וחיסור', minutes: STAGE_MIN.B + STAGE_MIN.C });
+    const ab = firstOf(planWith('signed:1', ['A', 'B']), 'signed:1');
+    expect(ab).toMatchObject({ kind: 'learn', minutes: STAGE_MIN.C });
+    // nothing taught yet: the whole lesson, as before
+    expect(firstOf(planWith('signed:1', []), 'signed:1')).toMatchObject({ kind: 'learn', minutes: taskMinutes('learn') });
+  });
+
+  it('an untested stair already taught starts with practice too', () => {
+    let plan = newPlan({ grade: '7', date: '2026-11-19', skills: ['signed:1', 'signed:2'], confidence: 3, minutes: 20 }, `${T}T08:00:00.000Z`);
+    plan = recordDiagnostic(plan, 'signed:2', 0, 2, `${T}T08:00:00.000Z`);
+    const learn = { ...empty(), skills: { 'signed:1': { attempts: [], taught: taught(['A', 'B', 'C']) } } };
+    const p = examPlan(plan, learn, `${T}T09:00:00.000Z`, T);
+    expect(p.skills.find((s) => s.skill === 'signed:1')!.standing).toBe('untested');
+    expect(firstOf(p, 'signed:1')).toMatchObject({ kind: 'practice', minutes: taskMinutes('practice') });
+  });
+});

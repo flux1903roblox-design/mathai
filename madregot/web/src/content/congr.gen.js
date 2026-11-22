@@ -33,7 +33,7 @@
 import { shuffle } from './util.js';
 import { clean, notGuessable } from './frac.js';
 import { slipOf } from '@/learn/misconceptions.ts';
-import { triFromAngles, PROOF, R, proofIn, proofManip, proofDiag } from './proofs.js';
+import { triFromAngles, PROOF, R, proofIn, proofManip, proofDiag, checkProofItem } from './proofs.js';
 import { proofSolution } from './proof.js';
 
 const rnd = () => Math.random();
@@ -927,6 +927,17 @@ function proofOrder() {
   };
 }
 /**
+ * The stair's mastery check asks two whole proofs (content/proofs.js checkProofItem; the council's round 3): a
+ * congruence template (T1–T4) in a letter set, its rows shuffled, every reason asked: three at least, so a student who
+ * knows the order and picks reasons at random is right once in 27.
+ */
+function proofCheck() {
+  const id = pick(rnd, CONGR_TEMPLATES); const set = rint(rnd, 0, 2); const seed = rint(rnd, 1, 9999);
+  return checkProofItem(PROOF[id], { key: `cg3c:${id}`, set, seed, text: 'סדרו את שורות ההוכחה, ובחרו נימוק לכל שורה.', rnd });
+}
+/** Each stair's mastery check: how many whole proofs it asks (`checkProofs`) and the generator of one (`proofGen`). */
+export const CONGR_PROOF_CHECKS = { 2: { checkProofs: 2, proofGen: proofCheck } };
+/**
  * Which row is wrong: a congruence row "לפי צ.ז.צ" on SSA data (the row passed over is 'ssa'), or a conclusion
  * placed above the congruence it follows from ('circular'). Practice only.
  */
@@ -1174,4 +1185,4 @@ export const CONGR_GENS = [
   () => { const r = Math.random(); return r < 0.3 ? countLengths() : r < 0.55 ? isoPerim() : r < 0.8 ? canBuild() : maxAngle(); },
 ];
 /** Each generator by name (tests draw every kind). */
-export const CONGR_KINDS = { angleVia, sideX, ticks, pairsMc, matchData, whichThm, whatMissing, samePerimeter, useCong, proofFill, proofOrder, findError, medArea, medPerim, rectMedian, whichSeg, claims, countLengths, isoPerim, canBuild, maxAngle };
+export const CONGR_KINDS = { angleVia, sideX, ticks, pairsMc, matchData, whichThm, whatMissing, samePerimeter, useCong, proofFill, proofOrder, findError, proofCheck, medArea, medPerim, rectMedian, whichSeg, claims, countLengths, isoPerim, canBuild, maxAngle };

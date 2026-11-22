@@ -555,10 +555,14 @@ export interface ChallengeTask {
  * screen loads the whole task (learn/challenges/all.ts taskById, in the challenge screen's chunk).
  */
 export type ChallengeMeta = Pick<ChallengeTask, 'id' | 'topic' | 'after' | 'kind' | 'title' | 'minutes' | 'misc'>;
+/** A typed number's known wrong answers: the topic's misconception id, and the answer (or answers) that mistake gives. */
+export type WrongAnswers = Record<string, number | number[]>;
 /**
  * One part of a challenge.
  *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested);
- *            `after: '\\pi'` draws π after the slot and `answer` is the number before it (25 for 25π)
+ *            `after: '\\pi'` draws π after the slot and `answer` is the number before it (25 for 25π); `wrongs` maps
+ *            the topic's misconception ids to the wrong answer (or answers) each gives, so a wrong number one of them
+ *            gives is named under the result, as in a lesson (learn/challenges/grade.ts numMistakes)
  *   mc       one right choice among several, each with its own feedback
  *   claim    always / sometimes / never true; with `example`, a counterexample typed into the slots: `expr` evaluated
  *            at the slots' values (learn/expr.ts) must satisfy `rel value`, the values in `domain`
@@ -567,11 +571,11 @@ export type ChallengeMeta = Pick<ChallengeTask, 'id' | 'topic' | 'after' | 'kind
  *            lists groups of steps that may come in any order among themselves (two equal angles found one after the
  *            other): the proof is right either way, so the check accepts both
  *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`, which may
- *            carry `after` as a num part does)
+ *            carry `after` and `wrongs` as a num part does)
  *   explain  the student's own words (kept on the screen only), then the sample answer and the rubric to tick
  */
 export type ChallengePart =
-  | { type: 'num'; prompt: Text; answer: number; check: string; unit?: string; after?: string; solution: Text[] }
+  | { type: 'num'; prompt: Text; answer: number; check: string; unit?: string; after?: string; solution: Text[]; wrongs?: WrongAnswers }
   | { type: 'mc'; prompt: Text; choices: { text: Text; ok: boolean; feedback: Text }[] }
   | { type: 'claim'; prompt: Text; claim: Text; verdict: 'always' | 'sometimes' | 'never'; why: Text;
       example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
@@ -581,7 +585,7 @@ export type ChallengePart =
    * Someone's solution with one mistaken line (`wrong`, explained by `why`). `lineWhy` says, for every other line, why
    * that line is not the mistake; the student who marks it reads it (components/challenge/ErrorPart.jsx, PRODUCT2-18).
    */
-  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; lineWhy: Record<number, Text>; fix: { prompt: Text; answer: number; check: string; after?: string } }
+  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; lineWhy: Record<number, Text>; fix: { prompt: Text; answer: number; check: string; after?: string; wrongs?: WrongAnswers } }
   | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
 /** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */
 export interface ChallengeRecord { startedAt: string; doneAt?: string; firstTry: number; parts: number }

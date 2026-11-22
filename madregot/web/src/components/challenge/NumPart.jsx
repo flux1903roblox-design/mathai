@@ -1,13 +1,16 @@
 // A challenge part that asks for a number: typed with the lesson's keypad, checked by code, two tries, then the solution.
+// A wrong number a known mistake gives (the part's `wrongs`) is named under the result, as in a lesson.
 import { useState } from 'react';
 import { MathText } from '@/components/MathText.jsx';
 import { play } from '@/lib/sound.js';
-import { numCheck } from '@/learn/challenges/grade.ts';
-import { useTries, resultOf, PartFooter, Lines, NumFields, CHECK, GO_ON, PI_VALUE_LINE, piValueTyped, answerTexOf } from './common.jsx';
+import { numCheck, numMistakes } from '@/learn/challenges/grade.ts';
+import { useTries, resultOf, PartFooter, Lines, NumFields, CHECK, GO_ON, PI_VALUE_LINE, piValueTyped, answerTexOf, mistakeLine } from './common.jsx';
 
-export default function NumPart({ part, onDone, last }) {
+export default function NumPart({ part, onDone, last, task }) {
   const [values, setValues] = useState({ v: '' });
   const [note, setNote] = useState(null);
+  // what the last wrong number probably shows ("מה כנראה קרה: …"), or null
+  const [named, setNamed] = useState(null);
   const t = useTries();
   const typed = values.v || '';
   const readable = !!numCheck(part.answer, typed);
@@ -16,12 +19,14 @@ export default function NumPart({ part, onDone, last }) {
     if (!r) return;
     // the whole value typed into a □π row: right, in another form; the try does not count
     if (!r.ok && piValueTyped(part.answer, part.after, r.u)) { setNote(PI_VALUE_LINE); return; }
+    setNamed(r.ok || !task ? null : mistakeLine(task, numMistakes(part.answer, r.u, part.wrongs)));
     if (r.ok) { t.right(); play('correct'); } else { t.miss(); play('wrong'); }
   };
+  const said = named && <p className="fb-diag"><MathText text={named} /></p>;
   const result = resultOf(t.state, {
     good: <Lines lines={part.solution} />,
-    retry: null,
-    shown: <><p><MathText text={`התשובה: $${answerTexOf(part.answer, part.after)}$${part.unit ? ` ${part.unit}` : ''}.`} /></p><Lines lines={part.solution} /></>,
+    retry: said,
+    shown: <>{said}<p><MathText text={`התשובה: $${answerTexOf(part.answer, part.after)}$${part.unit ? ` ${part.unit}` : ''}.`} /></p><Lines lines={part.solution} /></>,
   });
   return (
     <>

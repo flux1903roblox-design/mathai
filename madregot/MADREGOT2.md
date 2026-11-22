@@ -239,12 +239,12 @@ the row to paste when one differs.
 | data:3 | אחוזים ודיאגרמת עוגה | 8 (chart) | 3 | 2 | 6 (count-as-pct, div-by-pct, pct-of-part, stop-at-one, inverse-ratio, pie-not-whole) | yes | complete, tested |
 | data:4 | הסתברות מתוך שכיחות | 8 (simulate) | 3 | 2 | 8 (equiprob, part-part, old-total, new-not-counted, old-rel, rel-not-scaled, draws-as-count, small-sample) | yes | complete, tested |
 | eq:1 | משוואה ופתרון | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-flip, sign, sub-coef) | yes | complete, tested |
-| eq:2 | משוואה בשני צעדים | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-part, sign, sub-coef) | yes | complete, tested |
-| eq:3 | נעלם בשני האגפים | 9 (balance) | 2 | 2 | 2 (move-no-flip, move-x-no-flip) | yes | complete, tested |
-| eq:4 | משוואות עם סוגריים | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
+| eq:2 | משוואה בשני צעדים | 10 (balance) | 3 | 2 | 5 (move-no-flip, divide-part, sign, sub-coef, divide-flip) | yes | complete, tested |
+| eq:3 | נעלם בשני האגפים | 9 (balance) | 2 | 2 | 5 (move-no-flip, move-x-no-flip, sign, sub-coef, divide-flip) | yes | complete, tested |
+| eq:4 | משוואות עם סוגריים | 9 (area) | 3 | 2 | 4 (partial-dist, minus-bracket, sign, sub-coef) | yes | complete, tested |
 | eq:5 | בעיות מילוליות | 9 (balance) | 4 | 2 | 8 (wrong-unknown, partial-dist, two-sides, add-sides, wrong-total, drop-minus, divide-part, reversal) | yes | complete, tested |
 | eq:6 | שאלות תנועה | 8 (graph) | 3 | 2 | 6 (rel-speed, wrong-unknown, mean-speed, minutes-as-hours, decimal-minutes, formula-flip) | yes | complete, tested |
-| eq:7 | משוואות עם מכנים ופרופורציה | 8 (fbar) | 3 | 3 | 4 (lcd-partial, partial-dist, minus-bracket, add-across) | yes | complete, tested |
+| eq:7 | משוואות עם מכנים ופרופורציה | 8 (fbar) | 3 | 3 | 6 (lcd-partial, partial-dist, minus-bracket, add-across, sign, sub-coef) | yes | complete, tested |
 | ratio:1 | יחס | 8 (fbar) | 2 | 2 | 3 (reversed-ratio, part-whole, add-same) | yes | complete, tested |
 | ratio:2 | חלוקה ביחס | 8 (fbar) | 2 | 2 | 3 (reversed-ratio, part-whole, whole-perimeter) | yes | complete, tested |
 | ratio:3 | פרופורציה | 8 (dline) | 2 | 2 | 2 (additive, divide-flip) | yes | complete, tested |

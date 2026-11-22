@@ -767,6 +767,10 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "sub-coef",
         "title": "המקדם הוחסר במקום לחלק בו"
+      },
+      {
+        "id": "divide-flip",
+        "title": "החילוק נעשה הפוך"
       }
     ],
     "transfer": true
@@ -781,6 +785,18 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "move-x-no-flip",
         "title": "איבר ה־$x$ עבר לאגף השני בלי שהסימן שלו התהפך"
+      },
+      {
+        "id": "sign",
+        "title": "הפתרון יצא עם הסימן ההפוך"
+      },
+      {
+        "id": "sub-coef",
+        "title": "המקדם הוחסר במקום לחלק בו"
+      },
+      {
+        "id": "divide-flip",
+        "title": "החילוק נעשה הפוך"
       }
     ],
     "transfer": true
@@ -795,6 +811,14 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "minus-bracket",
         "title": "מינוס לפני סוגריים הפך רק את הסימן הראשון"
+      },
+      {
+        "id": "sign",
+        "title": "הפתרון יצא עם הסימן ההפוך"
+      },
+      {
+        "id": "sub-coef",
+        "title": "המקדם הוחסר במקום לחלק בו"
       }
     ],
     "transfer": true
@@ -885,6 +909,14 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "add-across",
         "title": "חיברו מונה עם מונה ומכנה עם מכנה"
+      },
+      {
+        "id": "sign",
+        "title": "הפתרון יצא עם הסימן ההפוך"
+      },
+      {
+        "id": "sub-coef",
+        "title": "המקדם הוחסר במקום לחלק בו"
       }
     ],
     "transfer": true

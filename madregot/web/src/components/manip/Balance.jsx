@@ -146,7 +146,8 @@ export default function Balance({ m, value, onChange, locked, reveal, good, answ
   }, locked);
   const targets = Object.fromEntries(Object.entries(GROUP_NAME).map(([g, [what, side]]) => [g, {
     disabled: locked || !u[g],
-    label: `להוריד ${what} מהכף ה${side}${u[g] ? ` (יש ${u[g]})` : ''}`,
+    // the side already carries its article (השמאלית): "מהכף השמאלית", not "מהכף ההשמאלית"
+    label: `להוריד ${what} מהכף ${side}${u[g] ? ` (יש ${u[g]})` : ''}`,
     onKey: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); go(balanceRemove(u, g)); } },
   }]));
   const state = test ? '' : tilt === 0 ? 'המאזניים מאוזנים' : tilt < 0 ? 'הכף השמאלית למטה' : 'הכף הימנית למטה';
