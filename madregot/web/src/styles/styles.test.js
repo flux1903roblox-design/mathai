@@ -74,14 +74,16 @@ describe('tokens (STUDENT-2 §2, light values)', () => {
   const root = css.slice(css.indexOf(':root {'), css.indexOf('\n}', css.indexOf(':root {')));
   const value = (name) => root.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1].trim().toLowerCase();
   it.each([
-    ['paper', '#ffffff'], ['surface', '#ffffff'], ['ground', '#f4f6f9'], ['ink', '#14161a'], ['ink-2', '#565b66'], ['ink-3', '#6b7280'],
-    ['control-line', '#848b98'] /* the spec's #8a919e is 2.93:1 on --ground, under 3:1 */, ['track', '#e9ecf1'], ['track-edge', '#d3d8e0'],
-    ['disabled-bg', '#eceef2'], ['disabled-ink', '#6b7280'], ['disabled-lip', '#dfe2e8'],
-    ['brand', '#1a5cf5'], ['brand-lip', '#1246c4'], ['brand-d', '#1246c4'], ['brand-tint', '#eaf1ff'], ['brand-line', '#a9c3ff'],
+    // v5, the squared notebook (DESIGN.md): cool paper under the squares, a navy pen, indigo for the one brand colour
+    ['paper', '#f3f5fb'], ['surface', '#ffffff'], ['ground', '#f8f9fe'], ['ink', '#141a3a'], ['ink-2', '#4c5374'], ['ink-3', '#676e8c'],
+    ['control-line', '#7d85a3'] /* 3:1 on the card and on --ground */, ['track', '#e6e9f4'], ['track-edge', '#cdd3e6'],
+    ['disabled-bg', '#eceef5'], ['disabled-ink', '#616886'], ['disabled-lip', '#dde1ec'],
+    ['brand', '#5a4bff'], ['brand-lip', '#3322c4'], ['brand-d', '#3322c4'], ['brand-tint', '#eceafe'], ['brand-line', '#bcb4fb'],
+    ['grid-line', '#e1e6f4'], ['hl', '#ffe45c'], ['on-hl', '#141a3a'],
     ['good-ink', '#157a41'], ['good-tint', '#e3f8e7'], ['good-line', '#bfe9c9'],
     ['bad-ink', '#b3203a'], ['bad-tint', '#fde8ec'], ['bad-line', '#f6c3cd'],
     ['gold-ink', '#8a5c00'], ['gold-tint', '#fff6d6'], ['on-gold-ink', '#5c3d00'],
-    ['streak-ink', '#a84f00'], ['streak-tint', '#fff1e3'], ['on-brand', '#ffffff'], ['scrim', 'rgba(20, 22, 26, 0.45)'],
+    ['streak-ink', '#a84f00'], ['streak-tint', '#fff1e3'], ['on-brand', '#ffffff'], ['scrim', 'rgba(20, 26, 58, 0.5)'],
   ])('--%s is %s', (name, light) => expect(value(name)).toBe(light));
   it('keeps the lift shadow', () => expect(value('shadow-lift')).toMatch(/^0 2px 6px/));
 });
@@ -158,7 +160,7 @@ describe('the dark theme (STUDENT-2 §4, §8)', () => {
     expect(rules.filter((l) => /var\(--c-ink\b/.test(l)).length).toBeGreaterThanOrEqual(10);
     expect(read('canon.css')).toMatch(/\.lesson, \.teach \{[^}]*--c-d: var\(--brand-lip\);[^}]*--c-ink: var\(--brand-d\);/);
     expect(light['--brand-lip']).toBe(light['--brand-d']);
-    expect(darkTokens['--brand-d']).toBe('#8fb0ff');
+    expect(darkTokens['--brand-d']).toBe('#ada4ff');
   });
 
   it('is imported last, after canon.css', () => {

@@ -764,3 +764,7 @@ button.t-tool { font: inherit; font-weight: 700; font-size: 1rem; cursor: pointe
 .as-sent-mark path { fill: none; stroke: currentColor; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; animation: t-check-draw var(--duration-slow) var(--ease-smooth-out) var(--duration-quick) forwards; }
 @keyframes as-sent-pop { from { scale: 0.6; opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .as-sent-mark, .as-sent-mark path { animation: none; } .as-sent-mark path { stroke-dashoffset: 0; } }
+
+/* v5 (DESIGN.md): the class's name wears the highlighter; the board's head sits on a heavier rule */
+.t-head { border-bottom: 2px solid var(--rule); }
+.t-head .t-class-name { font-weight: 800; text-decoration: underline; text-decoration-color: var(--hl); text-decoration-thickness: 0.32em; text-underline-offset: -0.12em; text-decoration-skip-ink: none; }

@@ -2306,7 +2306,9 @@ describe('Pythagoras in space: every practice kind, from the numbers in its text
     const L = SPACE.levels[level - 1]; const it = L.gen();
     return { ...it, diag: (u) => (isCorrect(it, u) ? null : it.diag(u)), topic: 'space', level, levelTitle: L.title };
   };
-  const all = (level, n = RUNS) => Array.from({ length: n }, () => spaceItem(level));
+  // seeded, so the count of equalities checked below (at least 1000) is the same on every run: unseeded, one run in
+  // many drew fewer chains and stopped at 990 (the verify of 7aa6529)
+  const all = (level, n = RUNS) => { const real = Math.random; Math.random = seeded(5100 + level); try { return Array.from({ length: n }, () => spaceItem(level)); } finally { Math.random = real; } };
   const seededRun = (seed, fn) => () => { const real = Math.random; Math.random = seeded(seed); try { fn(); } finally { Math.random = real; } };
   const kindOf = (it) => it.key.split(':')[0];
   const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).flatMap((m) => (m.match(/\d+(?:\.\d+)?/g) || []).map(Number));

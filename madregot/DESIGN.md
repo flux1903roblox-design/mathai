@@ -1,22 +1,24 @@
 ---
 name: Madregot
-description: Daily math practice for Israeli grade 7-8 students, in Hebrew. Light, calm, one brand blue, large readable type.
+description: Daily math practice for Israeli grade 7-8 students, in Hebrew. A squared maths notebook come alive - squared paper, sticker cards, one indigo, a yellow highlighter, large readable type.
 colors:
-  paper: "#ffffff"
-  ground: "#f4f6f9"
-  ink: "#14161a"
-  ink-2: "#565b66"
-  quiet: "#6b7280"
-  rule: "#e4e7ec"
-  rule-strong: "#cdd2da"
-  rule-press: "#d5dae2"
-  track: "#e9ecf1"
-  track-edge: "#d3d8e0"
-  brand: "#1a5cf5"
-  brand-d: "#1246c4"
-  brand-tint: "#eaf1ff"
-  brand-line: "#a9c3ff"
-  selection: "#cfdcff"
+  paper: "#f3f5fb"
+  ground: "#f8f9fe"
+  ink: "#141a3a"
+  ink-2: "#4c5374"
+  quiet: "#676e8c"
+  rule: "#dce1ef"
+  rule-strong: "#c4cbe0"
+  rule-press: "#ced4e8"
+  track: "#e6e9f4"
+  track-edge: "#cdd3e6"
+  brand: "#5a4bff"
+  brand-d: "#3322c4"
+  brand-tint: "#eceafe"
+  brand-line: "#bcb4fb"
+  selection: "#d9d4ff"
+  grid-line: "#e1e6f4"
+  highlighter: "#ffe45c"
   on-brand: "#ffffff"
   good: "#2fbf4a"
   good-d: "#1a8a34"
@@ -250,23 +252,28 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Category Standard"**
+**Creative North Star: "The Squared Notebook" (v5, November 2026)**
 
-Madregot is played straight at the level of Brilliant and Duolingo, for Hebrew-speaking grade 7-8 students. Screens are white, the ink is a near-black `ink`, and there is one brand blue. Blue marks what you can do and where you are: the main button, a selection, progress, the current unit and the current stop on the path. Four other colours each have one job: green for correct, red for "not yet", gold for XP and achievements, orange for the streak. Nothing else on a screen is coloured.
+The owner looked at the category-standard screens and saw the same app every round. v5 changes the world, not the polish: Madregot is a grade 7-8 maths notebook come alive. Every page is squared paper (`paper` under hairlines of `grid-line` every `grid`, 22px, the `--sheet` token), like the מחברת משבצות on a student's desk. Cards are thick white stickers on that paper: 2px `rule-strong` edge, 20px corners (`r-card`) and a solid 4px lip (`card-lip`) in `rule-press`. The ink is a navy pen (`ink` #141A3A). The one brand colour is an indigo (`brand` #5A4BFF, white text 5.4:1, 3.1:1 against the night card) for the main button, a selection, progress, the open tab's pill and the current stop. A yellow highlighter (`hl` #FFE45C) marks what is now: page titles wear it as a thick marker stroke under their lower half (a per-line underline, so it follows the words), and the "המשך" label over the current stop is on it, with a highlighter ring round the stop.
 
-There is one card and one button on every screen. A card is white with a 2px light border and 16px corners and no soft shadow. Anything the thumb presses (buttons, answer choices, keypad keys, path stops, segmented choices) stands on a solid lip of a darker tone that disappears when pressed. Type is Rubik only, large: body text is 17px and nothing is smaller than 14px. Maths is rendered by KaTeX in its serif, left to right inside the right-to-left Hebrew, at display size on a light grey panel.
+Signature moves:
+- **Squared paper** under every page, and under the maths of a lesson (the question's panel is a sheet of graph paper with a 2px edge).
+- **Steps, not coins**: the path's stops are 24px-rounded squares on a 7px lip, the current one 80px in its unit's colour inside a highlighter ring; mastered ones gold.
+- **Home's indigo band**: the top bar of the home screen is indigo, the class switch and the streak and XP pills sit on it.
+- **The tab bar's pill**: the open tab's icon sits on an indigo pill, white on indigo; the others are quiet.
+- **Heavy headings**: every heading and title at 800 with -0.02em tracking; unit titles 24px.
+- **The unit banner** is its colour with the notebook's squares showing through in white at 14%.
 
-The build rejects what made earlier rounds look childish and loud: scenery illustrations behind the path, neon glow, black screens, a colour per unit or per element, small grey text, and small labels above headings. The mascot מדי appears only where a character helps: feedback, empty and error states, results, the welcome screen, and as the tutor's avatar in chat.
+Kept from v4: Hebrew right to left with maths isolated left to right, Rubik only, the lipped press, one meaning per colour (green right, red "not yet", gold XP, orange streak), no hearts, leagues or pressure, the motion system (ux-motion), and מדי in the blue the owner chose (`madi-*`, unchanged on purpose). Dark mode is the night notebook: `paper` #0E1024 with faint `grid-line` #1B1F3D squares, `surface` #181B34, a deep highlighter (#4D4100 with #FFE45C on it).
 
 **Key Characteristics:**
-- White screens; cool grey `ground` only as the panel the maths or grouped content sits on.
-- One brand blue for action, selection, progress and "where I am"; four meaning colours, one job each.
-- One card (white, 2px `rule` border, 16px radius, flat) and one button grammar everywhere.
-- The lipped press: pressable things sit on a 3-6px solid lip that collapses when pressed.
-- Rubik only, weights 400 to 800; body 17px; nothing under 14px; tabular numbers.
-- A child reads two short lines (PRODUCT2-41): a mission's reason and a wrong guess's explanation show their first short sentence, and the rest waits behind "עוד" (`components/MoreText.jsx`, a button with `aria-expanded` that becomes "פחות"). מדי stands beside every first-visit question (64px). Settings keeps the browser's storage, the backup and the support details in "להורים ולמבוגרים", under the student's own settings.
-- Hebrew right to left, maths isolated left to right; phone first, one column.
-- Short ease-out motion; the feedback panel rises from the bottom; everything stops under reduced motion.
+- Squared paper everywhere; white sticker cards with a lip; one indigo; a yellow highlighter for "now".
+- One card and one button grammar everywhere: buttons 18px corners on a 5px lip, the primary with a light inner top edge.
+- Rubik only, headings at 800; body 17px; nothing under 14px; tabular numbers.
+- A child reads two short lines (PRODUCT2-41): a mission's reason and a wrong guess's explanation show their first short sentence, and the rest waits behind "עוד". מדי stands beside every first-visit question (64px).
+- Phone first, one column; short ease-out motion; everything stops under reduced motion; every entrance starts drawn until motion has loaded (`entrance()` in lib/motion.js).
+
+The rest of this file is the v4 system the notebook is built on: where it names a value, `styles/tokens.css` and `styles/dark.css` hold v5's, and the v5 layer itself is the last section of `styles/canon.css`.
 
 ## Colors
 
@@ -287,7 +294,7 @@ A white, quiet palette with one saturated blue and four meaning colours that app
 ### Unit colours (council, November 2026)
 Each unit has one colour family (`ch-*`, with `-d` for its lip and its text on white, `-tint`, and `-ink`), for its banner, its emblem and its stops on the path only (`content/topics.js` pathColours keeps two neighbours apart). White text on every fill passes AA; two units of a grade differ by a contrast of 1.4 or 30° of hue; none is near green, red or the brand blue (`styles/tokens.test.js`). Dark mode keeps the fills and gives each family a light `-ink` (`styles/dark.css`).
 - **Sky** (`ch-sky` `#00527f`, `ch-sky-d` `#003a5c`, `ch-sky-tint` `#dcf0fd`; dark `-ink` `#a0dcff` on `#112c40`): a deep sky blue: the first unit of each grade (signed numbers in ז׳, ratio and scale in ח׳), and ח׳'s similarity and Pythagoras in space. Until November 2026 it was the brand blue, so its stops looked like buttons; it is darker than petrol (1.5:1) and 31° of hue from cobalt, the two it sits between.
-- **Petrol** (`ch-petrol` `#0b7285`), **Violet** (`ch-violet` `#7048e8`), **Fuchsia** (`ch-fuchsia` `#a3218f`), **Cobalt** (`ch-cobalt` `#283593`).
+- **Petrol** (`ch-petrol` `#0b7285`), **Violet** (`ch-violet` `#561ca8`, a grape since v5: the indigo brand took the old violet's hue), **Fuchsia** (`ch-fuchsia` `#a3218f`), **Cobalt** (`ch-cobalt` `#283593`).
 
 ### Neutral
 - **Paper** (`paper`): every screen, card, sheet, bar and footer.

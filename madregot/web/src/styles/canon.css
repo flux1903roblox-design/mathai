@@ -85,7 +85,7 @@
 .lm-canvas .manip { width: 100%; }
 .lm-response { display: flex; flex-direction: column; gap: var(--s3); outline: none; }
 /* answer cards across the width: select one, then check */
-.lm .ls-choice { justify-content: center; text-align: center; min-height: 58px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); box-shadow: 0 3px 0 var(--line); font-size: 1.125rem; }
+.lm .ls-choice { justify-content: center; text-align: center; min-height: 58px; border-radius: 16px; border: 2px solid var(--rule-strong); background: var(--surface); box-shadow: 0 4px 0 var(--rule-press); font-size: 1.125rem; }
 .lm .ls-choice.good { border-color: var(--good-d); background: var(--good-tint); box-shadow: 0 3px 0 var(--good-line); color: var(--ink); }
 .lm .ls-choice.bad { color: var(--ink); }
 /* the explanation, in the text, after the check */
@@ -394,11 +394,11 @@ body { color: var(--ink); font-size: var(--t-base); line-height: 1.625rem; }
 a { color: var(--brand-d); }
 
 /* ------------------------------------------------------------------ buttons */
-.btn { min-height: 52px; border-radius: 16px; font-family: var(--font-ui); font-weight: 700; font-size: 1.0625rem; letter-spacing: 0; }
+.btn { --lip: 5px; min-height: 52px; border-radius: 18px; font-family: var(--font-ui); font-weight: 700; font-size: 1.0625rem; letter-spacing: 0; }
 .btn-lg { min-height: 56px; font-size: 1.125rem; }
 .btn-sm { min-height: 44px; font-size: 1rem; border-radius: 14px; }
 .btn-primary { --btn-bg: var(--brand); --btn-ink: var(--on-brand); --btn-lip: var(--brand-lip); --btn-line: var(--brand); }
-.btn-secondary { --btn-bg: var(--surface); --btn-ink: var(--brand-d); --btn-line: var(--rule); --btn-lip: var(--rule-press); }
+.btn-secondary { --btn-bg: var(--surface); --btn-ink: var(--brand-d); --btn-line: var(--rule-strong); --btn-lip: var(--rule-press); }
 .btn-ghost { --btn-bg: transparent; --btn-line: transparent; --btn-lip: transparent; color: var(--brand-d); }
 .btn:disabled { --btn-bg: var(--disabled-bg); --btn-ink: var(--disabled-ink); --btn-lip: var(--disabled-lip); --btn-line: var(--disabled-bg); }
 .btn:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
@@ -417,8 +417,8 @@ a { color: var(--brand-d); }
 .icon-btn { color: var(--ink-2); }
 
 /* ------------------------------------------------------------------ the tab bar: icon and name, the active tab in brand */
-.tabbar { background: var(--paper); border-top: 1px solid var(--rule); box-shadow: none; }
-.tab { flex-direction: column; gap: 2px; min-height: 56px; padding: 6px 4px 4px; border: 0; border-radius: 14px; color: var(--ink-3); background: transparent; font-size: 0.75rem; font-weight: 600; line-height: 1.3334; }
+.tabbar { background: var(--surface); border-top: 2px solid var(--rule); box-shadow: none; }
+.tab { flex-direction: column; gap: 2px; min-height: 56px; padding: 6px 4px 4px; border: 0; border-radius: 14px; color: var(--ink-3); background: transparent; font-size: 0.75rem; font-weight: 700; line-height: 1.3334; }
 .tab span { display: block; }
 .tab svg { width: 24px; height: 24px; }
 .tab.active { color: var(--brand-ink); background: transparent; border-color: transparent; }
@@ -434,21 +434,21 @@ a { color: var(--brand-d); }
 .section { margin-top: var(--s6); }
 
 /* pushed screens: the bar with the way back and the title */
-.screen-bar { background: var(--paper); border-bottom: 1px solid var(--rule); min-height: 56px; }
+.screen-bar { background: var(--surface); border-bottom: 2px solid var(--rule); min-height: 56px; }
 .screen-bar-title { font-family: var(--font-ui); font-size: 1.125rem; line-height: 1.3334; font-weight: 700; color: var(--ink); }
 .screen-foot { background: var(--surface); border-top: 1px solid var(--rule); }
 .foot-link { color: var(--brand-d); font-weight: 600; }
 
 /* ------------------------------------------------------------------ one card */
 .card, .hub-card, .hub-rows, .side-card, .quest-card, .me-stat, .kpi, .state-card, .stair-step, .guide-card, .mastery-map, .jclimb, .section-card {
-  background: var(--surface); border: 2px solid var(--rule); border-radius: 16px; box-shadow: none; color: var(--ink);
+  background: var(--surface); border: 2px solid var(--rule-strong); border-radius: var(--r-card); box-shadow: 0 var(--card-lip) 0 var(--rule-press); color: var(--ink);
 }
 .card, .hub-card, .quest-card, .state-card { padding: var(--s5) var(--s5) var(--s4); }
-.hub-card { box-shadow: none; gap: var(--s4); }
+.hub-card { gap: var(--s4); }
 .hub-card-title, .card-title, .quest-card .continue-title { font-family: var(--font-ui); font-size: 1.25rem; line-height: 1.3; font-weight: 700; color: var(--ink); }
 .hub-card-desc, .quest-card .continue-sub { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink-2); }
 .hub-card-icon, .hub-row-icon, .exam-cta-icon, .quest-icon, .qk-repair, .qk-review, .qk-mastery, .qk-new, .qk-continue, .qk-prereq, .qk-exam {
-  background: var(--brand-tint); color: var(--brand-ink); border: 0; box-shadow: none;
+  background: var(--brand-tint); color: var(--brand-ink); border: 0; border-radius: 14px; box-shadow: inset 0 0 0 2px var(--brand-line);
 }
 .hub-rows > li + li { border-top: 2px solid var(--rule); }
 .hub-row { min-height: 72px; padding: var(--s3) var(--s4); color: var(--ink); }
@@ -462,10 +462,10 @@ a { color: var(--brand-d); }
 
 /* ------------------------------------------------------------------ home: the path */
 .learn { background: var(--paper); }
-.learn-top { background: var(--paper); border-bottom: 1px solid var(--rule); box-shadow: none; min-height: 60px; gap: var(--s4); }
-.grade-switch { min-height: 44px; padding: 0 var(--s3); border: 2px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--ink); font-weight: 700; font-size: 1rem; box-shadow: 0 2px 0 var(--rule-press); }
-.top-stat { font-family: var(--font-ui); font-weight: 800; font-size: 1.125rem; color: var(--ink); gap: 6px; }
-.top-stat.streak, .top-stat.streak.on, .top-stat.xp { color: var(--ink); }
+.learn-top { background: var(--brand); border-bottom: 0; box-shadow: 0 var(--card-lip) 0 var(--brand-lip); min-height: 60px; gap: var(--s4); }
+.grade-switch { min-height: 44px; padding: 0 var(--s3); border: 2px solid var(--surface); border-radius: 14px; background: var(--surface); color: var(--ink); font-weight: 700; font-size: 1rem; box-shadow: 0 3px 0 var(--brand-lip); }
+.top-stat { font-family: var(--font-ui); font-weight: 800; font-size: 1.125rem; color: var(--ink); gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 2px var(--rule); }
+.top-stat.streak { color: var(--ink); }
 .top-stat.streak svg { color: var(--ink-3); fill: none; }
 .top-stat.streak.on svg { color: var(--streak); fill: var(--streak); }
 .top-stat.xp svg { color: var(--gold); fill: var(--gold); }
@@ -480,7 +480,9 @@ a { color: var(--brand-d); }
 .side-streak svg.at-risk { color: var(--streak); fill: none; }
 .streak-flame.at-risk { color: var(--streak); }
 
-.unit-head { margin: var(--s4) var(--gutter) 0; padding: var(--s4) var(--s5); border-radius: 16px; background: var(--c, var(--brand)); color: var(--on-brand); box-shadow: none; border: 0; }
+.unit-head { margin: var(--s4) var(--gutter) 0; padding: var(--s4) var(--s5); border-radius: var(--r-card); color: var(--on-brand); border: 0;
+  background: linear-gradient(var(--unit-grid) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), linear-gradient(90deg, var(--unit-grid) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), var(--c, var(--brand));
+  --unit-grid: color-mix(in srgb, var(--on-brand) 14%, transparent); box-shadow: 0 var(--card-lip) 0 var(--c-d, var(--brand-lip)); }
 .unit-head-text { gap: 2px; }
 /* the practice surface is the same in every unit: the lesson and teaching screens keep the brand blue, whatever the
    unit's colour (council, Nov 2026) */
@@ -491,7 +493,7 @@ a { color: var(--brand-d); }
   .unit-head { margin-inline: 0; padding: var(--s3) var(--s4); }
   .unit-head .unit-title { font-size: 1.25rem; line-height: 1.3; }
 }
-.unit-title { font-family: var(--font-ui); font-size: 1.375rem; line-height: 1.2728; font-weight: 800; color: var(--on-brand); }
+.unit-title { font-family: var(--font-ui); font-size: 1.5rem; line-height: 1.25; font-weight: 800; color: var(--on-brand); }
 .unit-label { font-size: 0.9375rem; line-height: 1.4667; font-weight: 500; color: color-mix(in srgb, var(--on-brand) 92%, transparent); }
 .unit-guide { color: var(--on-brand); border-inline-start: 2px solid color-mix(in srgb, var(--on-brand) 35%, transparent); font-weight: 700; font-size: 0.9375rem; }
 .unit-world { overflow: visible; }
@@ -501,11 +503,11 @@ a { color: var(--brand-d); }
 /* the stops: round, in the unit's colour when done or current, light grey when locked, gold when mastered */
 .node-slot { width: 96px; height: 96px; margin-block: -10px -6px; }
 .node-slot.is-review { width: 104px; height: 104px; }
-.node { --face: 68px; --lip: 6px; width: var(--face); height: var(--face); border-radius: 50%; border: 0;
+.node { --face: 68px; --lip: 7px; width: var(--face); height: var(--face); border-radius: 24px; border: 0;
   background: var(--face-c); color: var(--on-brand); box-shadow: 0 var(--lip) 0 var(--edge); }
 .node:active { transform: translateY(var(--lip)); scale: var(--squash); box-shadow: 0 0 0 var(--edge); }
 .node-glyph { width: 30px; height: 30px; filter: none; }
-.node-current { --face: 76px; --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: var(--on-brand); }
+.node-current { --face: 80px; border-radius: 26px; --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: var(--on-brand); }
 .node-done { --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: var(--on-brand); }
 /* in dark, a stop in a dark unit colour (cobalt is 1.8:1 on the page) gets a ring in its light -ink: --stop-ring is 0 in
    light and 2px in dark (dark.css), so a stop reaches 3:1 against the page in both */
@@ -526,9 +528,9 @@ a { color: var(--brand-d); }
 .node-marks { bottom: 0; gap: 4px; }
 .node-marks i { width: 14px; height: 6px; background: var(--track); box-shadow: none; }
 .node-marks i.on { background: var(--c, var(--brand)); box-shadow: none; }
-.node-start { background: var(--surface); color: var(--c-ink, var(--brand-d)); border: 2px solid var(--c-tint, var(--rule)); border-radius: 12px; font-family: var(--font-ui); font-weight: 800; font-size: 0.9375rem; padding: 6px 14px; box-shadow: none; animation: none; }
-.node-start::after { border-top-color: var(--c-tint, var(--rule)); }
-.node-card { background: var(--surface); color: var(--ink); border: 2px solid var(--rule); border-radius: 16px; box-shadow: 0 12px 32px rgba(20, 22, 26, 0.12); } /* colour-ok: shadow */
+.node-start { background: var(--hl); color: var(--on-hl); border: 2px solid var(--hl); border-radius: 14px; font-family: var(--font-ui); font-weight: 800; font-size: 0.9375rem; padding: 6px 14px; box-shadow: none; animation: none; }
+.node-start::after { border-top-color: var(--hl); }
+.node-card { background: var(--surface); color: var(--ink); border: 2px solid var(--rule-strong); border-radius: var(--r-card); box-shadow: 0 12px 32px rgba(20, 22, 26, 0.12); } /* colour-ok: shadow */
 .node-card::before { border-bottom-color: var(--rule); }
 .node-card-title { color: var(--ink); font-family: var(--font-ui); font-size: 1.25rem; line-height: 1.3; font-weight: 800; }
 .node-card-sub { color: var(--ink-2); font-size: 1rem; line-height: 1.5; }
@@ -536,7 +538,7 @@ a { color: var(--brand-d); }
 .node-card .btn-secondary { --btn-bg: var(--surface); --btn-ink: var(--brand-d); --btn-line: var(--rule); --btn-lip: var(--rule-press); background: var(--surface); color: var(--brand-d); }
 .node-card .btn-ghost { color: var(--brand-d); }
 
-.chest { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--track); color: var(--ink-3); box-shadow: 0 6px 0 var(--track-edge); margin-bottom: 6px;
+.chest { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 22px; border: 0; background: var(--track); color: var(--ink-3); box-shadow: 0 6px 0 var(--track-edge); margin-bottom: 6px;
   transform-origin: 50% 100%; transition: translate var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out); }
 .chest.is-open { background: var(--gold); color: var(--on-gold-ink); box-shadow: 0 6px 0 var(--gold-d); }
 /* translate, not transform: motion holds the chest's transform (its opening, Chest.jsx) */
@@ -622,7 +624,7 @@ a { color: var(--brand-d); }
 /* the path sits on plain white: no tinted world behind it */
 .node-marks { display: none; }
 /* the maths sits on its light panel */
-.lesson .qdisplay { background: var(--ground); border-radius: 16px; padding: var(--s5) var(--s3); font-size: clamp(1.875rem, 5dvh, 2.75rem); }
+.lesson .qdisplay { background: var(--sheet-ground); border: 2px solid var(--rule); border-radius: var(--r-card); padding: var(--s5) var(--s3); font-size: clamp(1.875rem, 5dvh, 2.75rem); }
 .lesson.is-manip .qdisplay { background: none; padding: 0; }
 /* a region focused by the app (the lesson's main area after each question) shows no ring; keyboard focus on controls does */
 [tabindex="-1"]:focus, [tabindex="-1"]:focus-visible { outline: none; }
@@ -1461,3 +1463,42 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .cascade > :nth-child(n + 7) { animation-delay: calc(6 * var(--duration-stagger)); }
 @keyframes cascade-in { from { opacity: 0; translate: 0 var(--distance-base); } }
 @media (prefers-reduced-motion: reduce) { .cascade > * { animation: none; } }
+
+/* ======================================================================================================
+   v5: the squared notebook (DESIGN.md, Nov 2026). The page is squared paper; cards are thick white stickers on it with
+   a solid lip; headings are set heavy; the brand is indigo; the tab bar marks the open tab with an indigo pill; the
+   path's stops are square steps (מדרגות) instead of coins. Every colour is a token, so dark mode is the night notebook.
+   ====================================================================================================== */
+html, body, .learn, .ob, .practice, .done-screen { background: var(--sheet); }
+h1, h2, h3, .screen-bar-title, .hub-card-title, .card-title, .empty-title, .unit-title, .node-card-title, .set-head, .h-section, .section > h2 {
+  font-weight: 800; letter-spacing: -0.02em;
+}
+
+/* buttons: taller, rounder, a deeper lip */
+.btn-primary { box-shadow: inset 0 2px 0 color-mix(in srgb, var(--on-brand) 22%, transparent), 0 var(--lip) 0 var(--btn-lip); }
+.btn-primary:active:not(:disabled) { box-shadow: inset 0 2px 0 color-mix(in srgb, var(--on-brand) 22%, transparent), 0 0 0 var(--btn-lip); }
+
+/* the tab bar: a white dock with the open tab on an indigo pill */
+.tabbar .tab svg { width: 48px; height: 30px; padding: 3px 12px; border-radius: 999px; box-sizing: border-box; }
+.tabbar .tab.active svg { background: var(--brand); color: var(--on-brand); stroke-width: 2.4; }
+@media (min-width: 960px) {
+  .tabbar .tab svg { width: 24px; height: 24px; padding: 0; }
+  .tabbar .tab.active svg { background: transparent; color: inherit; }
+  .tab.active { background: var(--brand); color: var(--on-brand); }
+}
+
+/* home's top bar is an indigo band (.learn-top): the class, the streak and the day's XP sit on it as pills */
+.top-stat.streak.on { background: var(--streak-tint); box-shadow: inset 0 0 0 2px var(--streak); color: var(--streak-ink); }
+.top-stat.xp { background: var(--gold-tint); box-shadow: inset 0 0 0 2px var(--gold-line); color: var(--gold-ink); }
+
+/* the stops: square steps, not coins */
+.node-current::before { content: ''; position: absolute; inset: -9px; border-radius: 32px; border: 3px solid var(--hl); pointer-events: none; }
+.node-locked { box-shadow: inset 0 0 0 2px var(--track-edge), 0 var(--lip) 0 var(--edge); }
+
+/* lessons and teaching: the v5 rules for the maths panel, the slot and the keys are in lazy/shared.css (out of the first load) */
+.empty-title { font-size: 1.5rem; line-height: 1.25; }
+
+/* titles wear the highlighter: a yellow marker stroke under the lower half of the words */
+.done-title, .h-page, .journey-title, .empty-title, .page-hero-title, .profile-name {
+  text-decoration: underline; text-decoration-color: var(--hl); text-decoration-thickness: 0.32em; text-underline-offset: -0.12em; text-decoration-skip-ink: none;
+}

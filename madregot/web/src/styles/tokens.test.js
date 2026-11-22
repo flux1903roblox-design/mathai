@@ -20,7 +20,7 @@ const dark = (name) => {
   const m = darkBody.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})\\b`));
   return m ? m[1].toLowerCase() : token(name); // a token the dark theme does not change keeps its light value
 };
-const DARK_PAPER = '#0f1115'; const DARK_SURFACE = '#181b22';
+const DARK_PAPER = '#0e1024'; const DARK_SURFACE = '#181b34'; // the night notebook (v5)
 
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
 const lin = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);

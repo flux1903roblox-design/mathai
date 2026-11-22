@@ -1,34 +1,35 @@
-/* Madregot tokens, round 17: the category standard (the level of Brilliant and Duolingo), light and calm.
-   White screens, ink #14161A, one brand blue #1A5CF5 for buttons, selection, progress and the current level (white
-   text on it, 5.4:1). The other colours each have one job: green correct (black text, 8.7:1), red "not yet" (white
-   text, 5.8:1), gold XP and achievements, orange the streak. No black screens, no glow. Each unit has its own colour (see units).
-   One family, Rubik, from 14px; body 17px. 4px grid. */
+/* Madregot tokens, v5 "the squared notebook" (Nov 2026, DESIGN.md): the app is a maths notebook come alive. The page is
+   squared paper (--paper with --grid-line every --grid), cards are thick white stickers on it with a solid lip, the ink
+   is a navy pen #141A3A, and the one brand colour is an indigo #5A4BFF (white text 5.4:1, 3.1:1 on the night card) for buttons, selection,
+   progress and the current stop. The other colours each keep one job: green correct, red "not yet", gold XP and
+   achievements, orange the streak, and a highlighter yellow (--hl) behind what is new or today. Each unit has its own
+   colour (see units). One family, Rubik: headings at 800, body 17px, nothing below 14px. 4px grid. */
 :root {
   color-scheme: light;
 
   /* ground and ink. Every colour on screen comes from a token here (scripts/check-colors.mjs keeps it so). */
-  --paper: #ffffff;     /* the page: html, body, sticky bars and footers that are part of the page */
+  --paper: #f3f5fb;     /* the page: html, body, sticky bars and footers that are part of the page */
   --surface: #ffffff;   /* cards, sheets, chips, node cards, the emblem tile */
-  --ground: #f4f6f9;    /* the panel the maths sits on */
-  --ink: #14161a;
-  --ink-2: #565b66;
-  --ink-3: #6b7280;     /* muted icons and chevrons */
-  --rule: #e4e7ec;
-  --rule-strong: #cdd2da;
-  --rule-press: #d5dae2; /* the bottom edge of a white pressable card or button */
-  --control-line: #848b98; /* edges of inputs, checkboxes and segmented controls: 3:1 on --ground and on a card */
-  --track: #e9ecf1;     --track-edge: #d3d8e0;  /* locked stops, empty bars, a closed chest */
-  --disabled-bg: #eceef2; --disabled-ink: #6b7280; --disabled-lip: #dfe2e8;
-  --scrim: rgba(20, 22, 26, 0.45); /* behind sheets */
+  --ground: #f8f9fe;    /* the panel the maths sits on */
+  --ink: #141a3a;
+  --ink-2: #4c5374;
+  --ink-3: #676e8c;     /* muted icons and chevrons */
+  --rule: #dce1ef;
+  --rule-strong: #c4cbe0;
+  --rule-press: #ced4e8; /* the bottom edge of a white pressable card or button */
+  --control-line: #7d85a3; /* edges of inputs, checkboxes and segmented controls: 3:1 on --ground and on a card */
+  --track: #e6e9f4;     --track-edge: #cdd3e6;  /* locked stops, empty bars, a closed chest */
+  --disabled-bg: #eceef5; --disabled-ink: #616886; --disabled-lip: #dde1ec;
+  --scrim: rgba(20, 26, 58, 0.5); /* behind sheets */
   --stop-ring: 0px;     /* a ring in the unit's -ink around a done or current stop: none in light, 2px in dark (dark.css) */
 
   /* brand and meaning */
-  --brand: #1a5cf5;     --brand-d: #1246c4;   --brand-tint: #eaf1ff;  --brand-lip: #1246c4; --on-brand: #ffffff;
-  --brand-line: #a9c3ff; /* borders of selected and brand-tinted things */
-  --bar-fill: #a9c3ff;   /* the brand part of a progress bar with its count written over it in --ink (PKG-1: 4.5:1) */
-  --brand-ink: #1a5cf5;  /* the brand blue as text or an icon on the page or a card (lighter in dark) */
-  --p-50: #f5f8ff;      --p-400: #5b8cff;     --p-600: #1651db; /* three steps of the v4 brand scale still in use (canon.css) */
-  --glow: #1a5cf5;      --glow-ink: #1246c4;  --on-glow: #ffffff;
+  --brand: #5a4bff;     --brand-d: #3322c4;   --brand-tint: #eceafe;  --brand-lip: #3322c4; --on-brand: #ffffff;
+  --brand-line: #bcb4fb; /* borders of selected and brand-tinted things */
+  --bar-fill: #bcb4fb;   /* the brand part of a progress bar with its count written over it in --ink (PKG-1: 4.5:1) */
+  --brand-ink: #5a4bff;  /* the brand blue as text or an icon on the page or a card (lighter in dark) */
+  --p-50: #f5f4ff;      --p-400: #7d70fa;     --p-600: #3d2de0; /* three steps of the v4 brand scale still in use (canon.css) */
+  --glow: #5a4bff;      --glow-ink: #3322c4;  --on-glow: #ffffff;
   --good: #2fbf4a;      --good-d: #1a8a34;    --good-tint: #e3f8e7;   --good-ink: #157a41;  --on-good: #000000; --good-line: #bfe9c9;
   --good-mid: #8fdcab;  --bad-mid: #f28aa2; /* the softer green and red of quest bars and "ready" / "gap" segments */
   --bad: #c4213b;       --bad-d: #96182c;     --bad-tint: #fde8ec;    --bad-ink: #b3203a;   --on-bad: #ffffff; --bad-line: #f6c3cd;
@@ -37,7 +38,15 @@
   --gold: #ffc233;      --gold-d: #e0a100;    --gold-ink: #8a5c00;    --gold-tint: #fff6d6; --on-gold: #000000;
   --on-gold-ink: #5c3d00; /* text and icons on a gold fill */
   --gold-line: #ffe38a; /* the border of gold-tinted boxes */
-  --ai: #1a5cf5;        --ai-tint: #eaf1ff;   --ai-ink: #1246c4;
+  --ai: #5a4bff;        --ai-tint: #eceafe;   --ai-ink: #3322c4;
+
+  /* the notebook (v5): the squared paper under every page, the highlighter, the sticker cards */
+  --grid-line: #e1e6f4; --grid: 22px;  /* one square of the notebook */
+  --hl: #ffe45c;        --on-hl: #141a3a;     /* the highlighter: behind what is new, today or next */
+  --r-card: 20px;       --card-lip: 4px;      /* a card is a sticker on the page: round corners, a solid edge under it */
+  /* the page as squared paper: two sets of hairlines over --paper (background shorthand, so a bar can take it whole) */
+  --sheet: linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), var(--paper);
+  --sheet-ground: linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), var(--ground);
 
   /* מדי, the mascot: his own colours, in one place. The brand blue. */
   --madi-hi: #5b8cff;   --madi-lo: #1a5cf5;   --madi-edge: #1246c4; --madi-tread: #c9d9ff;
@@ -48,17 +57,17 @@
   /* sky is a deep sky blue: it carries white text (8.4:1), so it is darker than petrol (1.5:1) and 31° of hue from cobalt, the two it sits between */
   --ch-sky: #00527f;     --ch-sky-d: #003a5c;     --ch-sky-tint: #dcf0fd;     --ch-sky-ink: #003a5c;
   --ch-petrol: #0b7285;  --ch-petrol-d: #085566;  --ch-petrol-tint: #e3f4f6;  --ch-petrol-ink: #085566;
-  --ch-violet: #7048e8;  --ch-violet-d: #5232c2;  --ch-violet-tint: #efeafd;  --ch-violet-ink: #5232c2;
+  --ch-violet: #561ca8;  --ch-violet-d: #3f1380;  --ch-violet-tint: #f1e8fb;  --ch-violet-ink: #3f1380;
   --ch-fuchsia: #a3218f; --ch-fuchsia-d: #7a1869; --ch-fuchsia-tint: #f8e6f4; --ch-fuchsia-ink: #7a1869;
   --ch-cobalt: #283593;  --ch-cobalt-d: #1a237e;  --ch-cobalt-tint: #e8eaf6;  --ch-cobalt-ink: #1a237e;
 
   /* older names, kept so every screen reads the new palette */
   --cyan: var(--brand); --cyan-tint: var(--brand-tint);
   --magenta: var(--bad-ink); --magenta-tint: var(--bad-tint);
-  --marker: var(--gold-tint); --marker-strong: #cfdcff;
+  --marker: var(--gold-tint); --marker-strong: #d9d4ff;
   --ok: var(--good-ink); --ok-tint: var(--good-tint);
 
-  /* type: Rubik only; body 17px, nothing below 14px */
+  /* type: Rubik only; headings at 800, body 17px, nothing below 14px */
   --font-ui: 'Rubik Variable', 'Rubik', 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
   --font-display: var(--font-ui);
   --t-xs: 0.875rem; --lh-xs: 1.4286;
@@ -74,8 +83,8 @@
   --r-sm: 12px; --r-md: 16px; --r-lg: 20px;
   /* the chunky edge: a solid lip under buttons and cards that collapses when pressed */
   --lip: 4px;
-  --shadow-lift: 0 2px 6px rgba(20, 22, 26, 0.06), 0 12px 32px rgba(20, 22, 26, 0.12);
-  --shadow-dock: 0 -2px 6px rgba(36, 37, 58, 0.05), 0 -8px 24px rgba(36, 37, 58, 0.06);
+  --shadow-lift: 0 2px 6px rgba(20, 26, 58, 0.06), 0 12px 32px rgba(20, 26, 58, 0.14);
+  --shadow-dock: 0 -2px 6px rgba(20, 26, 58, 0.05), 0 -8px 24px rgba(20, 26, 58, 0.07);
 
   /* motion tokens (transitions.dev scale) */
   --duration-stagger: 40ms;
