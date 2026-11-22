@@ -2,7 +2,8 @@
 // solution is shown and the task goes on. A finished task gives 20 XP and 5 more for each part right on the first try,
 // at most 40, once. An `explain` part is the student's own words: it carries no score and is never stored.
 import type { ChallengePart, ChallengeTask } from '../types';
-import { evaluate, seeded } from '../expr';
+import { evaluate, seeded, same } from '../expr';
+import { matchesValue, slipLike } from '../misconceptions';
 // @ts-ignore: plain JS, the one rule for reading and checking typed numbers
 import { readNumCandidates, numRight } from '@/content/util.js';
 
@@ -23,6 +24,19 @@ export function numCheck(answer: number, typed: string): { u: number; ok: boolea
   const ok = (v: number) => numRight(v, answer, true);
   const u = cands.find(ok) ?? cands[0];
   return { u, ok: ok(u) };
+}
+
+/**
+ * The known mistakes a typed number shows: the ids of a number part's `wrongs` (the topic's misconception ids, and the
+ * answer or answers each gives) whose answer it matches, by the one rule of every diagnosis (learn/misconceptions.ts
+ * matchesValue: a prediction that is not whole matches itself and its rounding to tenths or hundredths, and a rounding
+ * that is a slip of the hand matches nothing). A right number names nothing, and nor does a prediction a slip of the hand
+ * also gives (one off, ten off, two digits swapped: 25 minutes for 15), as in practice (content/eq.js diagOf).
+ */
+export function numMistakes(answer: number, u: number, wrongs?: Record<string, number | number[]>): string[] {
+  if (!wrongs || !Number.isFinite(u) || numRight(u, answer, true)) return [];
+  const fits = (w: number) => !same(w, answer) && !slipLike(w, answer) && matchesValue(w, u, answer);
+  return Object.entries(wrongs).filter(([, v]) => [v].flat().some(fits)).map(([id]) => id);
 }
 
 type Example = NonNullable<Extract<ChallengePart, { type: 'claim' }>['example']>;

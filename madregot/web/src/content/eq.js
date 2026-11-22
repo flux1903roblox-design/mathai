@@ -1433,6 +1433,8 @@ export const EQ = {
     'minutes-as-hours': 'השתמשו בדקות כאילו הן שעות',
     'decimal-minutes': 'כתבו דקות כשבר עשרוני של שעה, כאילו בשעה $100$ דקות',
     'formula-flip': 'חילקו במקום לכפול: דרך היא מהירות כפול זמן',
+    // a time found in hours and given where minutes are asked (eq:c4); the id other units use, in this unit's words
+    'no-convert': 'שכחו להמיר בין שעות לדקות',
     // eq:7, equations with denominators and proportion (stage5.md FUNC-4); add-across is frac's id and name
     'lcd-partial': 'כפלו במכנה המשותף רק חלק מהאיברים',
     'add-across': 'חיברו מונה עם מונה ומכנה עם מכנה',

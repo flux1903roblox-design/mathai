@@ -11,6 +11,8 @@ import { enter, entrance } from '@/lib/motion.js';
 import { TRIES } from '@/learn/challenges/grade.ts';
 import { PARTIAL } from '@/content/partial.js';
 import { numRight, piNear, PI_AFTER } from '@/content/util.js';
+import { diagnosisLine } from '@/content/topics.js';
+import { parseSkill } from '@/learn/skills.ts';
 import '@/styles/lazy/lesson.css'; // the answer's label and its partial note are the lesson's own rules (round-3 merge)
 
 export const RETRY = 'עוד לא. נסו שוב, יש עוד ניסיון.';
@@ -24,6 +26,18 @@ export const GO_ON = 'המשך';
  */
 export function piValueTyped(answer, after, u) {
   return after === PI_AFTER && answer !== 0 && !numRight(u, answer, true) && piNear(u, answer);
+}
+
+/**
+ * The line under a wrong number that known mistakes explain (learn/challenges/grade.ts numMistakes gives their ids), as a
+ * lesson says it (content/topics.js diagnosisLine, in the words of the stair the task comes after): "מה כנראה קרה: …",
+ * two mistakes each as a possibility, no question at the end to tell them apart. Null when none.
+ */
+export function mistakeLine(task, ids) {
+  if (!ids?.length) return null;
+  const { level } = parseSkill(task.after);
+  const result = ids.length === 1 ? { cat: ids[0] } : { diagnosis: { ambiguous: true, candidates: ids.map((id) => ({ id })) }, more: false };
+  return diagnosisLine(task.topic, level, result);
 }
 
 /** A number part's answer as TeX, with what is drawn after its slot: 25\pi. */
