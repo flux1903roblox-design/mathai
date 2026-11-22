@@ -6,6 +6,7 @@ import { ALL_SKILLS, ancestorsOf, parseSkill, prereqsOf } from './skills';
 import { masteryState, independentAccuracy, daysBetween, checkWaits, REVIEW_DAYS } from './mastery';
 import { openMisconceptions } from './misconceptions';
 import { titleOf, topicTitleOf, routeOf, STAGE_MIN, MINUTES } from './recommend';
+import { hasContent } from './content/index';
 // @ts-ignore: plain JS shared with the Worker
 import { isRestDay } from '@shared/restDays.js';
 
@@ -114,7 +115,12 @@ export function prereqsFirst(list: PlanSkill[]): PlanSkill[] {
   return out;
 }
 
-/** About how long each step of the plan takes, in minutes (recommend.ts STAGE_MIN): a lesson is a stair's three teaching stages. */
+/** A stair's teaching stages, in order: a lesson on the plan is the ones not yet done. */
+const TEACH = ['A', 'B', 'C'] as const;
+/**
+ * About how long each step of the plan takes, in minutes (recommend.ts STAGE_MIN): a lesson is a stair's three teaching
+ * stages (the plan gives a stair taught in part only the stages left, examPlan tasksOf).
+ */
 export const taskMinutes = (kind: PlanTask['kind']): number => ({
   learn: STAGE_MIN.A + STAGE_MIN.B + STAGE_MIN.C, practice: STAGE_MIN.D, mastery: STAGE_MIN.E, review: MINUTES.review, exam: MINUTES.exam,
   // the evening before the exam: reading a stair's rule card (its rule, a worked example: 65 to 190 words), and its quick
@@ -272,10 +278,15 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
   }
   const tasksOf = (p: PlanSkill): PlanTask[] => {
     const t = titleOf(p.skill); const { topic, level } = parseSkill(p.skill);
-    const lesson = task(p.skill, 'learn', `לומדים: ${t}`, routeOf.journey(p.skill));
+    // the teaching stages still to do: a stair already taught (A–C done) is not taught again, and a stair taught in part
+    // has a lesson as long as what is left of it (its button, the stair's page, opens at the next stage: mastery.ts
+    // nextStage). A stair without teaching content has no lesson at all (recommend.ts stairStage).
+    const taught = learn.skills[p.skill]?.taught || {};
+    const left = hasContent(p.skill) ? TEACH.filter((st) => !taught[st]) : [];
+    const lesson = left.length ? [{ ...task(p.skill, 'learn', `לומדים: ${t}`, routeOf.journey(p.skill)), minutes: left.reduce((a, st) => a + STAGE_MIN[st], 0) }] : [];
     const practice = (part: number, word: string) => task(p.skill, 'practice', `${word}: ${t}`, `/lesson/${topic}/${level}?part=${part}`);
     const check = task(p.skill, 'mastery', `בדיקת שליטה: ${t}`, routeOf.check(p.skill, 'mastery'));
-    if (p.standing === 'gap' || p.standing === 'untested') return [lesson, practice(1, 'מתרגלים'), check];
+    if (p.standing === 'gap' || p.standing === 'untested') return [...lesson, practice(1, 'מתרגלים'), check];
     if (p.standing === 'shaky') return [practice(2, 'מחזקים'), check];
     // a good first diagnostic is confirmed by the mastery check, not assumed; after a failed check, practice comes first
     // (mastery.ts checkWaits: the check returns after fresh right answers)
