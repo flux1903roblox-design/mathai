@@ -70,7 +70,10 @@ async function fakeApi(page) {
 /** Open a route at a time of our choosing, with a saved state (helpers.open fixes Thursday 5 November). */
 async function openAt(page, route, state, when) {
   await page.clock.setFixedTime(new Date(when));
-  await page.goto('./');
+  // the state is written from a file of the app's address that is not the app: a second open on the same page would
+  // otherwise find the first one's app still running, and its last save (the full week) lands over the empty week
+  // (the Wednesday test failed this way on GitHub's runner, deploy run of d2306a7)
+  await page.goto('./theme-boot.js');
   await page.evaluate(async ([s, db]) => {
     localStorage.clear();
     localStorage.setItem('madregot-debug', '1');
