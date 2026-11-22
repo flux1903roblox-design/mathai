@@ -32,7 +32,7 @@
 //   draws-as-count   the times a colour came out taken as the number of balls (critique)
 //   small-sample     a few trials taken as the probability (Tversky & Kahneman 1971)
 //   count-as-pct, div-by-pct, pct-of-part, stop-at-one, inverse-ratio   pct's ids and meanings (content/pct.js)
-import { shuffle, listMath, countOf, twoPlaces } from './util.js';
+import { shuffle, listMath, countOf, twoPlaces, needsFormat } from './util.js';
 import { diagOf } from './eq.js';
 import { r9 } from './frac.js';
 import { simDiag } from './manip.js';
@@ -313,7 +313,8 @@ export const data1THint = () => 'בודקים במקרא כמה ילדים הם 
 
 /** data:2: the relative frequency of one answer. */
 export const data2Fig = (p) => tableFig(['איך מגיעים לבית הספר', 'מספר תלמידים'], WAYS.map((w, i) => [w, p.f[i]]));
-export const data2Text = (p) => `מה השכיחות היחסית של מי שמגיעים ${WAYS[p.j]}? כתבו כשבר או כמספר עשרוני.`;
+// an answer with no two-place decimal (13/40) gets the format line instead (util.js withFormatNote): said once, not twice
+export const data2Text = (p) => `מה השכיחות היחסית של מי שמגיעים ${WAYS[p.j]}?${needsFormat(DATA2.answer(p)) ? '' : ' כתבו כשבר או כמספר עשרוני.'}`;
 export const data2Solution = (p) => [`סך הכול: $${p.f.join(' + ')} = ${p.N}$ תלמידים.`, `השכיחות חלקי סך הכול: $${relTex(p.f[p.j], p.N)}$`];
 export const data2Hint = () => 'מחלקים את השכיחות במספר כל הנתונים. כמה תלמידים יש בטבלה כולה?';
 

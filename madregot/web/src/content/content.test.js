@@ -2592,14 +2592,15 @@ describe('Pythagoras in space: the diagnostic and transfer models', () => {
 // from every source a lesson or a check draws: the stair's generator, its diagnostic model and its transfer model. A
 // rounded length (it carries `exact` and says to round to tenths), a question that asks for a decimal and a decimal
 // asked as it is ((−0.4)³ = −0.064, exactDec: exact, and its two-place rounding is wrong) are the exceptions; nothing
-// that does not need the line has it.
+// that does not need the line has it. No question says twice how to write its answer, in either wording (data:2 said
+// "כתבו כשבר או כמספר עשרוני." and then the line, council round 3).
 describe('every typed number says how to write an answer with no two-place decimal', () => {
   it('2,000 items per stair per source (gen, diag, transfer)', async () => {
     await loadAllContent();
     const rnd = seeded(12);
     vi.spyOn(Math, 'random').mockImplementation(seeded(2026));
     const missing = {}; const extra = {}; let needed = 0; let exactDecs = 0;
-    const once = (t) => (String(t).match(/אפשר לכתוב כשבר/g) || []).length <= 1;
+    const once = (t) => (String(t).match(/אפשר לכתוב כשבר|כתבו כשבר או כמספר עשרוני/g) || []).length <= 1;
     try {
       for (const skill of ALL_SKILLS) {
         const c = contentOf(skill);
