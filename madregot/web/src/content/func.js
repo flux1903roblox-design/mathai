@@ -621,7 +621,8 @@ export function func3Text(p) {
 export function func3Solution(p) {
   const [a, b] = [[p.x0, p.x1], [p.x1, p.x2], [p.x2, p.x3]][p.q];
   const [ya, yb] = [[p.y0, p.y1], [p.y1, p.y2], [p.y2, p.y2]][p.q];
-  const trend = p.q === 2 ? `$y$ נשאר $${ya}$` : `$y$ ${p.q === 0 ? 'גדל' : 'קטן'} מ־$${ya}$ ל־$${yb}$`;
+  // "ה־$y$": a word between the range's end and y, so the two maths runs never read as one ($x = 60$ $y$)
+  const trend = p.q === 2 ? `ה־$y$ נשאר $${ya}$` : `ה־$y$ ${p.q === 0 ? 'גדל' : 'קטן'} מ־$${ya}$ ל־$${yb}$`;
   return [
     `קוראים משמאל לימין: מ־$x = ${a}$ עד $x = ${b}$ ${trend}, ולכן שם הפונקציה ${DIR[Q3[p.q]].f}.`,
     `את התחום מודדים על ציר $x$: $${b} - ${a} = ${b - a}$`,

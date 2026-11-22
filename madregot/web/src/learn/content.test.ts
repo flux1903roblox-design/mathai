@@ -1299,6 +1299,34 @@ describe('the real classroom: signed:3 and signed:5', () => {
   });
 });
 
+// council round 3: the quiz story's solution ended "$17 + (-16) = 1$ נקודות". One point is "נקודה אחת", in every
+// signed story that counts points (signed:4's quiz, signed:5's game), and in every draw of them
+describe('signed stories count one point as "נקודה אחת"', () => {
+  const ONE_PLURAL = /(^|[^\d.])1\$ נקוד(ות|ה)(?! אחת)/;
+  it('the quiz (signed:4) and the game (signed:5), when the points left are one', () => {
+    const quiz = CONTENT['signed:4'].transfer!;
+    const game = CONTENT['signed:5'].transfer!;
+    const cases: [DiagModel<any>, any][] = [[quiz, { k: 0, s: 17, w: 4, q: 4 }], [quiz, { k: 1, s: -11, w: 4, q: 3 }], [game, { k: 1, a: 7, b: 1, c: 4, n: 2 }]];
+    for (const [m, p] of cases) {
+      expect(m.answer(p), JSON.stringify(p)).toBe(1);
+      const lines = m.solution(p);
+      lines.forEach((l) => expect(l, JSON.stringify(p)).not.toMatch(ONE_PLURAL));
+      expect(lines.join(' '), JSON.stringify(p)).toContain('נקודה אחת');
+    }
+  });
+  it('every draw of every signed stair\'s questions', () => {
+    const rnd = seeded(417);
+    for (const skill of ALL_SKILLS.filter((s) => s.startsWith('signed:'))) {
+      for (const source of ['gen', 'diag', 'transfer'] as const) {
+        for (let i = 0; i < 1500; i += 1) {
+          const it = itemFor(skill, source, rnd);
+          [it.text, it.hint, ...(it.solution || [])].forEach((w) => expect(String(w ?? ''), it.key).not.toMatch(ONE_PLURAL));
+        }
+      }
+    }
+  });
+});
+
 // CLASSROOM-5: the new stair signed:7, powers of directed numbers, taught in the class's written form
 describe('the real classroom: signed:7, powers of directed numbers', () => {
   const s7 = CONTENT['signed:7'];
