@@ -319,7 +319,14 @@ export interface WorkedExample {
  */
 export interface GuidedChoice { text: Text; ok: boolean; feedback: Text; misc?: string | string[] }
 /** The student chooses the next step; a wrong choice gets its own feedback and the hints grow stronger. */
-export interface GuidedStep { prompt: Text; display?: string; choices: GuidedChoice[]; hints: [Text, Text]; done: Text }
+export interface GuidedStep {
+  prompt: Text; display?: string; choices: GuidedChoice[]; hints: [Text, Text]; done: Text;
+  /**
+   * The drawing again once this step is solved, with what it found (the jumps of −5 that make 3 · (−5)), as a worked
+   * example's step has (SK-STUDENT-1). It never shows the last step's answer (learn/figures.test.ts).
+   */
+  fig?: FigSpec;
+}
 export interface GuidedProblem {
   problem: Text; display?: string;
   /** A drawing the problem is about. */

@@ -28,6 +28,22 @@ const table = (head: string[], rows: (number | string)[][]) => ({ type: 'table' 
 const still = (px: number, nx: number, p1: number, n1: number): FigSpec => ({ type: 'tiles', px, nx, p1, n1 });
 /** A substitution as a machine: the number goes in, the expression is the rule, its value comes out ('?' when asked). */
 const machine = (inX: number, rule: string, outY: number | string): FigSpec => ({ type: 'machine', inX, rule, outY });
+// The worked examples and solving together (SK-STUDENT-1) draw what stage A drew: the machine for a substitution, the
+// pattern's table, the tiles of the terms collected, the rectangle of a(x + b), and a table that checks two expressions
+// at the same x (learn/figures.test.ts works every such table out).
+/** The rectangle of expr:2's story: the short side a, the long side 3a (drawn three times as long). */
+const RECT_3A: FigSpec = {
+  type: 'geo', view: [300, 190], pad: [52, 38], label: 'מלבן: צלע אחת 3a, והסמוכה לה a',
+  pts: { _A: [0, 0], _B: [3, 0], _C: [3, 1], _D: [0, 1] }, polys: [{ pts: ['_A', '_B', '_C', '_D'] }],
+  segs: [{ a: '_A', b: '_B', label: '3a', ticks: 1 }, { a: '_B', b: '_C', label: 'a', ticks: 2 }, { a: '_C', b: '_D', ticks: 1 }, { a: '_D', b: '_A', ticks: 2 }],
+};
+/** The triangle of expr:3: sides 2x, x + 3 and x − 1, drawn at x = 4 (8, 7 and 3). */
+const TRI_X: FigSpec = {
+  type: 'geo', view: [300, 170], pad: [48, 34], label: 'משולש: הצלעות 2x, x + 3 ו־x − 1',
+  pts: { _A: [0, 0], _B: [8, 0], _C: [1.5, Math.sqrt(6.75)] }, polys: [{ pts: ['_A', '_B', '_C'] }],
+  segs: [{ a: '_A', b: '_B', label: '2x' }, { a: '_B', b: '_C', label: 'x + 3' }, { a: '_C', b: '_A', label: 'x \u2212 1' }],
+};
+
 /** Different a and b with the same sum: what the brackets hold is one number. */
 const SUM_TABLE = table(['a', 'b', 'a + b'], [[-1, -3, -4], [1, -5, -4], [-6, 2, -4]]);
 
@@ -127,27 +143,27 @@ const stair1: StairContent = {
     { kind: 'say', text: 'לביטוי אחד יש הרבה ערכים: כל מספר שמציבים נותן ערך משלו. כך נראה $3x + 1$:', fig: table(['x', 'ערך הביטוי'], [[-1, -2], [0, 1], [1, 4], [2, 7], [3, 10]]) },
   ],
   examples: [
-    { problem: 'מה ערך הביטוי כש־$x = 5$?', display: '4 + 3x', answer: 19, check: '4 + 3*5',
+    { problem: 'מה ערך הביטוי כש־$x = 5$?', display: '4 + 3x', answer: 19, check: '4 + 3*5', fig: machine(5, '4 + 3x', '?'),
       steps: [
         { action: 'מציבים $5$ במקום $x$.', why: '$3x$ הוא $3 \\cdot x$, ולכן במקום $x$ בא $5$, עם סימן הכפל.', result: '4 + 3 \\cdot 5', value: '4 + 3*5' },
         { action: 'קודם הכפל.', why: 'כפל קודם לחיבור, גם אחרי הצבה.', result: '3 \\cdot 5 = 15', calc: { expr: '3*5', value: 15 } },
-        { action: 'עכשיו החיבור.', why: 'נשאר תרגיל חיבור.', result: '4 + 15 = 19', value: '4 + 15' },
+        { action: 'עכשיו החיבור.', why: 'נשאר תרגיל חיבור.', result: '4 + 15 = 19', value: '4 + 15', fig: machine(5, '4 + 3x', 19) },
       ] },
-    { problem: 'ליטר דלק עולה $7$ ₪, ובלילה יש עמלה קבועה של $2$ ₪. לכן $b$ ליטרים בלילה עולים $7b + 2$ ₪. כמה עולים $40$ ליטרים בלילה?', display: '7b + 2', answer: 282, check: '7*40 + 2',
+    { problem: 'ליטר דלק עולה $7$ ₪, ובלילה יש עמלה קבועה של $2$ ₪. לכן $b$ ליטרים בלילה עולים $7b + 2$ ₪. כמה עולים $40$ ליטרים בלילה?', display: '7b + 2', answer: 282, check: '7*40 + 2', fig: machine(40, '7b + 2', '?'),
       steps: [
         { action: 'מציבים $40$ במקום $b$.', why: '$b$ הוא מספר הליטרים.', result: '7 \\cdot 40 + 2', value: '7*40 + 2' },
         { action: 'כופלים: המחיר של $40$ ליטרים.', why: 'כל ליטר עולה $7$ ₪.', result: '7 \\cdot 40 = 280', calc: { expr: '7*40', value: 280 } },
-        { action: 'מוסיפים את העמלה.', why: 'העמלה משולמת פעם אחת, לא על כל ליטר.', result: '280 + 2 = 282', value: '280 + 2' },
+        { action: 'מוסיפים את העמלה.', why: 'העמלה משולמת פעם אחת, לא על כל ליטר.', result: '280 + 2 = 282', value: '280 + 2', fig: machine(40, '7b + 2', 282) },
       ] },
-    { problem: 'מה ערך הביטוי כש־$x = -3$?', display: '10 - 2x', answer: 16, check: '10 - 2*(-3)',
+    { problem: 'מה ערך הביטוי כש־$x = -3$?', display: '10 - 2x', answer: 16, check: '10 - 2*(-3)', fig: machine(-3, '10 - 2x', '?'),
       steps: [
         { action: 'מציבים בסוגריים.', why: 'הסימן של $-3$ שייך למספר. בלי סוגריים היה נראה $10 - 2 \\cdot 3$.', result: '10 - 2 \\cdot (-3)', value: '10 - 2*(-3)' },
         { action: 'קודם הכפל.', why: 'חיובי כפול שלילי נותן שלילי.', result: '2 \\cdot (-3) = -6', calc: { expr: '2*(-3)', value: -6 } },
-        { action: 'חיסור של מספר שלילי הוא חיבור.', why: '$10 - (-6) = 10 + 6$.', result: '10 - (-6) = 16', value: '10 - (-6)' },
+        { action: 'חיסור של מספר שלילי הוא חיבור.', why: '$10 - (-6) = 10 + 6$.', result: '10 - (-6) = 16', value: '10 - (-6)', fig: machine(-3, '10 - 2x', 16) },
       ] },
   ],
   together: [
-    { problem: 'נחשב יחד את ערך הביטוי כש־$x = -2$.', display: '6 - 4x',
+    { problem: 'נחשב יחד את ערך הביטוי כש־$x = -2$.', display: '6 - 4x', fig: machine(-2, '6 - 4x', '?'),
       steps: [
         { prompt: 'איך מציבים?', choices: [
           { text: '$6 - 4 \\cdot (-2)$', ok: true, feedback: 'נכון: המספר השלילי נכנס בסוגריים, עם סימן הכפל.' },
@@ -161,7 +177,7 @@ const stair1: StairContent = {
         ], hints: ['איזו פעולה קודמת, כפל או חיסור?', 'כפל קודם: $4 \\cdot (-2)$. סימנים שונים נותנים שלילי.'], done: '$4 \\cdot (-2) = -8$, ונשאר $6 - (-8)$.' },
       ],
       final: { prompt: 'כמה זה $6 - (-8)$? כתבו את ערך הביטוי.', answer: 14, check: '6 - 4*(-2)', hints: ['חיסור של מספר שלילי הוא חיבור.', '$6 - (-8) = 6 + 8$.'] } },
-    { problem: 'ועכשיו ביטוי עם סוגריים, כש־$x = -1$.', display: '3(x + 5)',
+    { problem: 'ועכשיו ביטוי עם סוגריים, כש־$x = -1$.', display: '3(x + 5)', fig: machine(-1, '3(x + 5)', '?'),
       steps: [
         { prompt: 'מה עושים קודם?', choices: [
           { text: 'מחשבים את הסוגריים: $-1 + 5 = 4$', ok: true, feedback: 'נכון: סוגריים קודם.' },
@@ -323,22 +339,22 @@ const stair2: StairContent = {
       why: 'אם לעמית $5$ ספרים, לפי הסיפור לדוד $11$, ו־$x + 6$ נותן $11$. בדיקה במספר תופסת ביטוי שנכתב הפוך.' },
   ],
   examples: [
-    { problem: 'בשורת הריבועים מגפרורים, בצורה ה־$n$ יש $4 + 3(n - 1)$ גפרורים. כמה גפרורים יש בצורה ה־$25$?', display: '4 + 3(n - 1)', answer: 76, check: '4 + 3*24',
+    { problem: 'בשורת הריבועים מגפרורים, בצורה ה־$n$ יש $4 + 3(n - 1)$ גפרורים. כמה גפרורים יש בצורה ה־$25$?', display: '4 + 3(n - 1)', answer: 76, check: '4 + 3*24', fig: table(MATCH_HEAD, [[1, 4], [2, 7], [3, 10], [25, '?'], ['n', '4 + 3(n \u2212 1)']]),
       steps: [
         { action: 'סופרים צעדים מהצורה הראשונה עד הצורה ה־$25$.', why: 'הצורה הראשונה כבר בנויה, וכל צעד מוסיף $3$ גפרורים.', result: '25 - 1 = 24', calc: { expr: '25 - 1', value: 24 } },
         { action: 'מוסיפים להתחלה $24$ צעדים של $3$.', why: 'בצורה הראשונה $4$ גפרורים.', result: '4 + 3 \\cdot 24 = 76', value: '4 + 3*24' },
-        { action: 'בודקים בביטוי השני, $3n + 1$.', why: 'שני ביטויים שמתארים אותו דבר נותנים אותו מספר.', result: '3 \\cdot 25 + 1 = 76', value: '3*25 + 1' },
+        { action: 'בודקים בביטוי השני, $3n + 1$.', why: 'שני ביטויים שמתארים אותו דבר נותנים אותו מספר.', result: '3 \\cdot 25 + 1 = 76', value: '3*25 + 1', fig: table(['n', '4 + 3(n \u2212 1)', '3n + 1'], [[1, 4, 4], [2, 7, 7], [25, 76, 76]]) },
       ] },
     { problem: 'לעמית יש $x$ ספרים. ליובל יש פי $2$ ממה שיש לעמית, ולדוד יש $6$ ספרים יותר מלעמית. כתבו ביטוי למספר הספרים של שלושתם.',
       expr: 'x + 2*x + (x + 6)', answerTex: 'x + 2x + (x + 6)', answer: 26, check: '5 + 2*5 + (5 + 6)',
       steps: [
-        { action: 'כותבים כמה ספרים יש לכל אחד.', why: 'לעמית $x$. ליובל פי $2$: $2x$. לדוד $6$ יותר: $x + 6$.', result: 'x,\\quad 2x,\\quad x + 6' },
+        { action: 'כותבים כמה ספרים יש לכל אחד.', why: 'לעמית $x$. ליובל פי $2$: $2x$. לדוד $6$ יותר: $x + 6$.', result: 'x,\\quad 2x,\\quad x + 6', fig: table(['מי', 'כמה ספרים'], [['עמית', 'x'], ['יובל', '2x'], ['דוד', 'x + 6']]) },
         { action: 'מחברים את שלושתם.', why: 'כמה יש לכולם יחד הוא סכום.', result: 'x + 2x + (x + 6)', ident: 'x + 2*x + (x + 6)' },
-        { action: 'בודקים במספר: נניח שלעמית $5$ ספרים.', why: 'אז ליובל $10$ ולדוד $11$, ויחד $26$. הביטוי צריך לתת $26$.', result: '5 + 10 + 11 = 26', value: '5 + 10 + 11' },
+        { action: 'בודקים במספר: נניח שלעמית $5$ ספרים.', why: 'אז ליובל $10$ ולדוד $11$, ויחד $26$. הביטוי צריך לתת $26$.', result: '5 + 10 + 11 = 26', value: '5 + 10 + 11', fig: table(['מי', 'כמה ספרים', 'x = 5'], [['עמית', 'x', 5], ['יובל', '2x', 10], ['דוד', 'x + 6', 11]]) },
       ] },
   ],
   together: [
-    { problem: 'מה האיבר ה־$20$ בסדרה?', display: '5,\\; 9,\\; 13,\\; 17,\\; \\dots',
+    { problem: 'מה האיבר ה־$20$ בסדרה?', display: '5,\\; 9,\\; 13,\\; 17,\\; \\dots', fig: table(['מקום', 'איבר'], [[1, 5], [2, 9], [3, 13], [4, 17], [20, '?']]),
       steps: [
         { prompt: 'כמה מוסיפים בכל צעד?', choices: [
           { text: '$4$', ok: true, feedback: 'נכון: $9 - 5 = 4$, וגם $13 - 9 = 4$.' },
@@ -352,7 +368,7 @@ const stair2: StairContent = {
         ], hints: ['כמה צעדים מהראשון לשני? ומהראשון לשלישי?', 'צעד אחד לשני, שניים לשלישי: לאיבר ה־$20$ יש $19$.'], done: '$19$ צעדים של $4$.' },
       ],
       final: { prompt: 'מה האיבר ה־$20$?', answer: 81, check: '5 + 4*19', hints: ['מתחילים ב־$5$ ומוסיפים $19$ צעדים של $4$.', '$5 + 4 \\cdot 19 = 5 + 76$.'] } },
-    { problem: 'הצלע הארוכה של מלבן גדולה פי $3$ מהצלע הקצרה. הצלע הקצרה היא $a$.',
+    { problem: 'הצלע הארוכה של מלבן גדולה פי $3$ מהצלע הקצרה. הצלע הקצרה היא $a$.', fig: RECT_3A,
       steps: [
         { prompt: 'מה אורך הצלע הארוכה?', choices: [
           { text: '$3a$', ok: true, feedback: 'נכון. בדיקה: אם $a = 2$, הארוכה $6$, ו־$3a$ נותן $6$.' },
@@ -515,14 +531,14 @@ const stair3: StairContent = {
     { problem: 'כנסו איברים דומים:', display: '4x + 7 - x - 2', expr: '4*x + 7 - x - 2', answerTex: '3x + 5', answer: 11, check: '4*2 + 7 - 2 - 2',
       steps: [
         { action: 'מסדרים: האיברים עם $x$ יחד, והמספרים יחד.', why: 'כל איבר זז עם הסימן שלפניו: $-x$ ו־$-2$ זזים עם המינוס.', result: '4x - x + 7 - 2', ident: '4*x - x + 7 - 2' },
-        { action: 'מכנסים.', why: '$4x - x = 3x$, כי $-x$ הוא $-1 \\cdot x$. ו־$7 - 2 = 5$.', result: '3x + 5', ident: '3*x + 5' },
-        { action: 'בודקים בהצבה $x = 2$.', why: 'בביטוי המקורי: $4 \\cdot 2 + 7 - 2 - 2 = 11$. הביטוי המכונס צריך לתת אותו ערך.', result: '3 \\cdot 2 + 5 = 11', value: '3*2 + 5' },
+        { action: 'מכנסים.', why: '$4x - x = 3x$, כי $-x$ הוא $-1 \\cdot x$. ו־$7 - 2 = 5$.', result: '3x + 5', ident: '3*x + 5', fig: still(3, 0, 5, 0) },
+        { action: 'בודקים בהצבה $x = 2$.', why: 'בביטוי המקורי: $4 \\cdot 2 + 7 - 2 - 2 = 11$. הביטוי המכונס צריך לתת אותו ערך.', result: '3 \\cdot 2 + 5 = 11', value: '3*2 + 5', fig: table(['x', '4x + 7 \u2212 x \u2212 2', '3x + 5'], [[2, 11, 11]]) },
       ] },
-    { problem: 'לצלעות של משולש אורכים $2x$, $x + 3$ ו־$x - 1$. כתבו ביטוי מכונס להיקף שלו.', expr: '2*x + (x + 3) + (x - 1)', answerTex: '4x + 2', answer: 18, check: '2*4 + (4 + 3) + (4 - 1)',
+    { problem: 'לצלעות של משולש אורכים $2x$, $x + 3$ ו־$x - 1$. כתבו ביטוי מכונס להיקף שלו.', expr: '2*x + (x + 3) + (x - 1)', answerTex: '4x + 2', answer: 18, check: '2*4 + (4 + 3) + (4 - 1)', fig: TRI_X,
       steps: [
         { action: 'ההיקף הוא סכום שלוש הצלעות.', why: 'מחברים את אורכי כל הצלעות.', result: '2x + (x + 3) + (x - 1)', ident: '2*x + (x + 3) + (x - 1)' },
-        { action: 'מסדרים את האיברים הדומים.', why: 'הסוגריים כאן רק מקבצים, ואין לפניהם מינוס או מספר, אז אפשר להוריד אותם.', result: '2x + x + x + 3 - 1', ident: '2*x + x + x + 3 - 1' },
-        { action: 'מכנסים.', why: '$2 + 1 + 1 = 4$ $x$־ים, ו־$3 - 1 = 2$.', result: '4x + 2', ident: '4*x + 2' },
+        { action: 'מסדרים את האיברים הדומים.', why: 'הסוגריים כאן רק מקבצים, ואין לפניהם מינוס או מספר, אז אפשר להוריד אותם.', fig: still(4, 0, 3, 1), result: '2x + x + x + 3 - 1', ident: '2*x + x + x + 3 - 1' },
+        { action: 'מכנסים.', why: '$2 + 1 + 1 = 4$ $x$־ים, ו־$3 - 1 = 2$.', result: '4x + 2', ident: '4*x + 2', fig: still(4, 0, 2, 0) },
         { action: 'בודקים כש־$x = 4$: הצלעות $8$, $7$ ו־$3$.', why: 'ההיקף $8 + 7 + 3 = 18$, ו־$4x + 2$ נותן גם הוא $18$.', result: '4 \\cdot 4 + 2 = 18', value: '4*4 + 2' },
       ] },
   ],
@@ -543,7 +559,7 @@ const stair3: StairContent = {
           { text: '$7$', ok: true, feedback: 'נכון.' },
           { text: '$-11$', ok: false, feedback: 'מתחילים ב־$-2$ וזזים $9$ ימינה, ומגיעים ל־$7$.' },
           { text: '$11$', ok: false, feedback: 'המינוס של $-2$ שייך לו: $-2 + 9 = 7$.' },
-        ], hints: ['סימנים שונים: מחסרים את המרחקים מאפס.', '$9 - 2 = 7$, והסימן של $9$.'], done: 'הביטוי המכונס: $2x + 7$.' },
+        ], hints: ['סימנים שונים: מחסרים את המרחקים מאפס.', '$9 - 2 = 7$, והסימן של $9$.'], done: 'הביטוי המכונס: $2x + 7$.', fig: still(2, 0, 7, 0) },
       ],
       final: { prompt: 'מה ערך הביטוי כש־$x = 4$? אפשר להציב בביטוי המכונס.', answer: 15, check: '5*4 - 2 - 3*4 + 9', hints: ['הביטוי המכונס הוא $2x + 7$.', '$2 \\cdot 4 + 7$.'] } },
     { problem: 'ועוד אחד, עם מקדם שלא כתוב.', display: '-x + 6 + 4x - 10',
@@ -557,7 +573,7 @@ const stair3: StairContent = {
           { text: '$-4$', ok: true, feedback: 'נכון.' },
           { text: '$4$', ok: false, feedback: 'מורידים מ־$6$ יותר משיש בו, ולכן התוצאה קטנה מאפס.' },
           { text: '$16$', ok: false, feedback: 'המינוס שלפני $10$ שייך לו: $6 - 10$.' },
-        ], hints: ['מ־$6$ זזים $10$ שמאלה.', '$6 - 10 = -4$.'], done: 'הביטוי המכונס: $3x - 4$.' },
+        ], hints: ['מ־$6$ זזים $10$ שמאלה.', '$6 - 10 = -4$.'], done: 'הביטוי המכונס: $3x - 4$.', fig: still(3, 0, 0, 4) },
       ],
       final: { prompt: 'מה ערך הביטוי כש־$x = 3$?', answer: 5, check: '-3 + 6 + 4*3 - 10', hints: ['הביטוי המכונס הוא $3x - 4$.', '$3 \\cdot 3 - 4$.'] } },
   ],
@@ -701,12 +717,12 @@ const stair4: StairContent = {
         { action: 'כופלים את $x$ ב־$5$.', why: '$5$ כופל כל איבר בסוגריים. מתחילים בראשון.', result: '5 \\cdot x = 5x' },
         { action: 'כופלים את $-3$ ב־$5$.', why: 'גם האיבר השני נכפל, עם הסימן שלו.', result: '5 \\cdot (-3) = -15', calc: { expr: '5*(-3)', value: -15 } },
         { action: 'כותבים את שני האיברים.', why: 'זה הביטוי בלי סוגריים.', result: '5x - 15', ident: '5*x - 15' },
-        { action: 'בודקים כש־$x = 4$.', why: 'בביטוי המקורי: $5(4 - 3) = 5$. הביטוי החדש צריך לתת אותו ערך.', result: '5 \\cdot 4 - 15 = 5', value: '5*4 - 15' },
+        { action: 'בודקים כש־$x = 4$.', why: 'בביטוי המקורי: $5(4 - 3) = 5$. הביטוי החדש צריך לתת אותו ערך.', result: '5 \\cdot 4 - 15 = 5', value: '5*4 - 15', fig: table(['x', '5(x \u2212 3)', '5x \u2212 15'], [[4, 5, 5]]) },
       ] },
     { problem: 'חשבו בעל פה:', display: '7 \\cdot 98', answer: 686, check: '7*98',
       steps: [
         { action: 'כותבים את $98$ כ־$100 - 2$.', why: 'קל לכפול ב־$100$.', result: '7(100 - 2)', value: '7*(100 - 2)' },
-        { action: 'פותחים סוגריים.', why: '$7$ כופל גם את $100$ וגם את $2$: $7 \\cdot 2 = 14$.', result: '700 - 14', value: '700 - 14', calc: { expr: '7*2', value: 14 } },
+        { action: 'פותחים סוגריים.', why: '$7$ כופל גם את $100$ וגם את $2$: $7 \\cdot 2 = 14$.', result: '700 - 14', value: '700 - 14', calc: { expr: '7*2', value: 14 }, fig: { type: 'numline', from: 680, to: 705, marks: [{ x: 700, label: '700' }], jumps: [{ from: 700, to: 686, label: '\u22127·2' }] } },
         { action: 'מחסרים.', why: 'נשאר חיסור פשוט.', result: '686', value: '686' },
       ] },
     { problem: 'פתחו סוגריים:', display: '-3(2x - 4)', expr: '-3*(2*x - 4)', answerTex: '-6x + 12', answer: 6, check: '-3*(2*1 - 4)',
@@ -714,7 +730,7 @@ const stair4: StairContent = {
         { action: 'כופלים את $2x$ ב־$-3$.', why: 'סימנים שונים נותנים שלילי: $-3 \\cdot 2 = -6$.', result: '-3 \\cdot 2x = -6x' },
         { action: 'כופלים את $-4$ ב־$-3$.', why: 'מינוס כפול מינוס הוא פלוס.', result: '-3 \\cdot (-4) = 12', calc: { expr: '-3*(-4)', value: 12 } },
         { action: 'כותבים את הביטוי.', why: 'שני האיברים, כל אחד עם הסימן שיצא לו.', result: '-6x + 12', ident: '-6*x + 12' },
-        { action: 'בודקים כש־$x = 1$.', why: 'בביטוי המקורי: $-3(2 - 4)$, כלומר $-3 \\cdot (-2) = 6$.', result: '-6 \\cdot 1 + 12 = 6', value: '-6*1 + 12' },
+        { action: 'בודקים כש־$x = 1$.', why: 'בביטוי המקורי: $-3(2 - 4)$, כלומר $-3 \\cdot (-2) = 6$.', result: '-6 \\cdot 1 + 12 = 6', value: '-6*1 + 12', fig: table(['x', '\u22123(2x \u2212 4)', '\u22126x + 12'], [[1, 6, 6]]) },
       ] },
   ],
   together: [
@@ -729,16 +745,16 @@ const stair4: StairContent = {
           { text: '$-4 \\cdot (-5) = 20$', ok: true, feedback: 'נכון: מינוס כפול מינוס הוא פלוס.' },
           { text: '$-20$', ok: false, feedback: 'מינוס כפול מינוס הוא פלוס: $-4 \\cdot (-5) = 20$.' },
           { text: '$-5$', ok: false, feedback: 'גם $-5$ נכפל ב־$-4$, לא רק $x$.' },
-        ], hints: ['כופלים את $-4$ ב־$-5$.', 'סימנים זהים נותנים חיובי.'], done: '$-4(x - 5) = -4x + 20$' },
+        ], hints: ['כופלים את $-4$ ב־$-5$.', 'סימנים זהים נותנים חיובי.'], done: '$-4(x - 5) = -4x + 20$', fig: table(['x', '\u22124(x \u2212 5)', '\u22124x + 20'], [[0, 20, 20], [1, 16, 16]]) },
       ],
       final: { prompt: 'מה ערך הביטוי כש־$x = 2$?', answer: 12, check: '-4*(2 - 5)', hints: ['אפשר להציב ב־$-4x + 20$.', '$-4 \\cdot 2 + 20$.'] } },
-    { problem: 'גינה ברוחב $6$ מטרים ובאורך $x + 3$ מטרים.', display: '6(x + 3)',
+    { problem: 'גינה ברוחב $6$ מטרים ובאורך $x + 3$ מטרים.', display: '6(x + 3)', fig: { type: 'area', a: 6, b: 3 },
       steps: [
         { prompt: 'מה השטח בלי סוגריים?', choices: [
           { text: '$6x + 18$', ok: true, feedback: 'נכון: $6 \\cdot x$ ועוד $6 \\cdot 3$.' },
           { text: '$6x + 3$', ok: false, feedback: 'גם את $3$ כופלים ב־$6$: החלק השני של הגינה הוא $6 \\cdot 3$.' },
           { text: '$6x + 9$', ok: false, feedback: '$6 + 3 = 9$ הוא חיבור. השטח של החלק השני הוא $6 \\cdot 3$.' },
-        ], hints: ['הגינה היא שני מלבנים: $6$ על $x$, ו־$6$ על $3$.', '$6 \\cdot x$ ועוד $6 \\cdot 3$.'], done: 'השטח: $6x + 18$.' },
+        ], hints: ['הגינה היא שני מלבנים: $6$ על $x$, ו־$6$ על $3$.', '$6 \\cdot x$ ועוד $6 \\cdot 3$.'], done: 'השטח: $6x + 18$.', fig: { type: 'area', a: 6, b: 3, areas: true } },
       ],
       final: { prompt: 'מה השטח כש־$x = 10$?', answer: 78, check: '6*(10 + 3)', hints: ['אפשר להציב ב־$6x + 18$.', '$6 \\cdot 10 + 18$.'] } },
   ],
@@ -856,17 +872,17 @@ const stair5: StairContent = {
     { problem: 'פשטו את הביטוי:', display: '4(x + 2) - 3x', expr: '4*(x + 2) - 3*x', answerTex: 'x + 8', answer: 11, check: '4*(3 + 2) - 3*3',
       steps: [
         { action: 'פותחים סוגריים.', why: '$4$ כופל גם את $x$ וגם את $2$.', result: '4x + 8 - 3x', ident: '4*x + 8 - 3*x' },
-        { action: 'מכנסים.', why: '$4x - 3x = x$.', result: 'x + 8', ident: 'x + 8' },
-        { action: 'בודקים כש־$x = 3$.', why: 'בביטוי המקורי: $4 \\cdot 5 - 9 = 11$.', result: '3 + 8 = 11', value: '3 + 8' },
+        { action: 'מכנסים.', why: '$4x - 3x = x$.', result: 'x + 8', ident: 'x + 8', fig: still(1, 0, 8, 0) },
+        { action: 'בודקים כש־$x = 3$.', why: 'בביטוי המקורי: $4 \\cdot 5 - 9 = 11$.', result: '3 + 8 = 11', value: '3 + 8', fig: table(['x', '4(x + 2) \u2212 3x', 'x + 8'], [[3, 11, 11]]) },
       ] },
     { problem: 'פשטו את הביטוי:', display: '5(x - 1) - 2(x - 4)', expr: '5*(x - 1) - 2*(x - 4)', answerTex: '3x + 3', answer: 9, check: '5*(2 - 1) - 2*(2 - 4)',
       steps: [
         { action: 'פותחים את הסוגריים הראשונים.', why: '$5 \\cdot x = 5x$, ו־$5 \\cdot (-1) = -5$.', result: '5x - 5 - 2(x - 4)', ident: '5*x - 5 - 2*(x - 4)' },
         { action: 'פותחים את הסוגריים השניים, עם המינוס.', why: '$-2 \\cdot x = -2x$, ו־$-2 \\cdot (-4) = 8$.', result: '5x - 5 - 2x + 8', ident: '5*x - 5 - 2*x + 8', calc: { expr: '-2*(-4)', value: 8 } },
-        { action: 'מכנסים.', why: '$5x - 2x = 3x$, ו־$-5 + 8 = 3$.', result: '3x + 3', ident: '3*x + 3' },
-        { action: 'בודקים כש־$x = 2$.', why: 'בביטוי המקורי: $5 \\cdot 1 - 2 \\cdot (-2)$, כלומר $5 + 4 = 9$.', result: '3 \\cdot 2 + 3 = 9', value: '3*2 + 3' },
+        { action: 'מכנסים.', why: '$5x - 2x = 3x$, ו־$-5 + 8 = 3$.', result: '3x + 3', ident: '3*x + 3', fig: still(3, 0, 3, 0) },
+        { action: 'בודקים כש־$x = 2$.', why: 'בביטוי המקורי: $5 \\cdot 1 - 2 \\cdot (-2)$, כלומר $5 + 4 = 9$.', result: '3 \\cdot 2 + 3 = 9', value: '3*2 + 3', fig: table(['x', '5(x \u2212 1) \u2212 2(x \u2212 4)', '3x + 3'], [[2, 9, 9]]) },
       ] },
-    { problem: 'נתון: $a + b = -4$. מה הערך של כל אחד משלושת הביטויים?', display: '-3(a + b) \\qquad (a + b) : 2 \\qquad (a + b)^2', answer: 12, check: '-3*(-4)', answerTex: '12,\\; -2,\\; 16',
+    { problem: 'נתון: $a + b = -4$. מה הערך של כל אחד משלושת הביטויים?', display: '-3(a + b) \\qquad (a + b) : 2 \\qquad (a + b)^2', answer: 12, check: '-3*(-4)', answerTex: '12,\\; -2,\\; 16', fig: SUM_TABLE,
       steps: [
         { action: 'בביטוי הראשון מציבים $-4$ במקום $a + b$.', why: 'לא צריך לדעת מה $a$ ומה $b$: הסוגריים הם מספר אחד.', result: '-3 \\cdot (-4)', value: '-3*(-4)' },
         { action: 'כופלים.', why: 'מינוס כפול מינוס הוא פלוס.', result: '-3 \\cdot (-4) = 12', value: '12' },
@@ -881,7 +897,7 @@ const stair5: StairContent = {
           { text: '$-x + 5$', ok: true, feedback: 'נכון: $-1 \\cdot x = -x$, ו־$-1 \\cdot (-5) = 5$.' },
           { text: '$-x - 5$', ok: false, feedback: 'המינוס הופך גם את $-5$: $-1 \\cdot (-5) = 5$.' },
           { text: '$x - 5$', ok: false, feedback: 'המינוס לפני הסוגריים לא נעלם: הוא הופך את הסימן של כל איבר.' },
-        ], hints: ['$-(x - 5)$ הוא $-1 \\cdot (x - 5)$.', '$-1 \\cdot x = -x$, ו־$-1 \\cdot (-5) = 5$.'], done: '$-(x - 5) = -x + 5$' },
+        ], hints: ['$-(x - 5)$ הוא $-1 \\cdot (x - 5)$.', '$-1 \\cdot x = -x$, ו־$-1 \\cdot (-5) = 5$.'], done: '$-(x - 5) = -x + 5$', fig: still(0, 1, 5, 0) },
         { prompt: 'ומה זה $3(x + 2)$?', choices: [
           { text: '$3x + 6$', ok: true, feedback: 'נכון.' },
           { text: '$3x + 2$', ok: false, feedback: 'גם את $2$ כופלים ב־$3$.' },
@@ -900,7 +916,7 @@ const stair5: StairContent = {
           { text: '$7 - x$', ok: true, feedback: 'נכון: $10 - x - 3 = 7 - x$.' },
           { text: '$13 - x$', ok: false, feedback: 'המינוס הופך גם את $3$: $-3$, ולכן $10 - 3$.' },
           { text: '$7 + x$', ok: false, feedback: 'המינוס הופך גם את $x$: $-x$.' },
-        ], hints: ['$-(x + 3) = -x - 3$.', '$10 - x - 3$, ואז $10 - 3 = 7$.'], done: '$10 - (x + 3) = 7 - x$' },
+        ], hints: ['$-(x + 3) = -x - 3$.', '$10 - x - 3$, ואז $10 - 3 = 7$.'], done: '$10 - (x + 3) = 7 - x$', fig: still(0, 1, 7, 0) },
       ],
       final: { prompt: 'מה ערך הביטוי כש־$x = 2$?', answer: 5, check: '10 - (2 + 3)', hints: ['אפשר להציב ב־$7 - x$.', '$7 - 2$.'] } },
   ],

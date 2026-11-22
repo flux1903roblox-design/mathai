@@ -47,6 +47,8 @@ import { TRANSF_KINDS } from '@/content/transf.gen.js';
 import { CONGR_KINDS } from '@/content/congr.gen.js';
 // @ts-ignore: plain JS
 import { SIM_KINDS } from '@/content/sim.gen.js';
+// @ts-ignore: plain JS
+import { TILES_MAX, BALANCE_MAX, FBAR_MAX_DEN, balanceTilt, dlineAt } from '@/content/manip.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -1535,5 +1537,270 @@ describe('the drawings of worked examples and solving together agree with their 
       return (labels.has(a) || labels.has(`${a}°`)) && !given.has(a) ? [`${p.where}: ${a} is written in the drawing`] : [];
     });
     expect(bad).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------- SK-STUDENT-1, round 3: the numbers' and algebra's drawings
+// The council (round 3) found no drawing in any worked example or problem solved together of the signed numbers, the
+// expressions, percent and systems, and two in the equations, though their stage A is drawn throughout. They now draw
+// what stage A drew: the number line with the step's jumps, the thermometer, the machine, the balance, the tiles, the
+// rectangle, the percent bar, the fraction bar, the two lines, the tables, the ray. A step of a worked example may draw
+// the figure again with what it found, and so may a step solved together, once it is solved (Together.jsx). Each one is
+// held to its numbers:
+//  - on a number line, a jump labelled with a number or a calculation (+9, −(−3), 7·(−6), (−5)², −\frac{3}{12}) moves by
+//    exactly that much, and a point labelled with a number sits on it;
+//  - a machine with a number in and a number out gives that number by its rule;
+//  - a table whose columns are expressions in its letter columns ('x', '7x − 3', '4x + 9') holds them in every row, a
+//    column 'x = 5' is each row's expression at 5, an equations table ('x', 'y', 'אגף ימין') has every row true at the
+//    solution of its first two, and a row of percents and a row of amounts are in proportion;
+//  - a fraction bar's rows labelled with amounts are of one unit, 'p% = v' shades p%, and x/k shades a k-th of the x row;
+//  - the amount a percent bar writes under its marker is that percent of its whole;
+//  - a balance is level at the answer, with no more boxes or weights than the object holds, and so are the tiles;
+//  - the ray of a worked inequality is its solutions, and two lines meet at the system's solution;
+//  - and a problem solved together never shows its last answer: not written, not where a jump lands or a point sits,
+//    not under a marker, not where two lines meet (the problem's own numbers aside).
+const DRAWN_TOPICS = new Set(['signed', 'expr', 'eq', 'pct', 'sys']);
+type Drawn = { skill: string; where: string; fig: AnyFig; given: string; answer?: number; together: boolean; vars?: Record<string, number>; ray?: { at: number; dir: number; closed: boolean } };
+/** Every drawing of stages B and C in the topics above: the problem's and each step's, with the text shown by then. */
+const BC_FIGS = (): Drawn[] => Object.values(CONTENT).filter((c) => DRAWN_TOPICS.has(c.skill.split(':')[0])).flatMap((c) => [
+  ...c.examples.flatMap((e, i) => [{ fig: e.fig, k: 0 }, ...e.steps.map((s, k) => ({ fig: s.fig, k: k + 1 }))]
+    .filter((x) => x.fig).map(({ fig, k }) => ({ skill: c.skill, where: `${c.skill} B${i + 1}${k ? ` step ${k}` : ''}`, fig: fig as AnyFig, given: `${e.problem} ${e.display || ''}`, answer: e.answer, together: false, vars: e.vars, ray: e.ray }))),
+  ...c.together.flatMap((g, i) => [{ fig: g.fig, k: 0 }, ...g.steps.map((s, k) => ({ fig: s.fig, k: k + 1 }))]
+    .filter((x) => x.fig).map(({ fig, k }) => ({ skill: c.skill, where: `${c.skill} C${i + 1}${k ? ` step ${k}` : ''}`, fig: fig as AnyFig,
+      // what the screen says by then: the problem, and the steps already solved
+      given: [g.problem, g.display || '', ...g.steps.slice(0, k).map((s) => s.done)].join(' '), answer: g.final.answer, together: true }))),
+]);
+
+/**
+ * A label's value: a number or a calculation as a drawing writes it (−9, +1.25, −(−3), 7·(−6), 18:(−6), (−5)², −5²,
+ * −\frac{3}{12}, -1\frac{1}{2}, 0.5·(−8)), with `vars` for the letters ('3n + 1' at n = 25); null when it is not one.
+ */
+export function valueOf(label: unknown, vars: Record<string, number> = {}): number | null {
+  if (typeof label === 'number') return label;
+  let t = String(label ?? '').replace(/\$/g, '').trim();
+  if (!t || /[א-ת]/.test(t)) return null;
+  t = t.replace(/[−–]/g, '-').replace(/·|×|\\cdot|\\times/g, '*').replace(/:|\\div/g, '/').replace(/\\left|\\right/g, '')
+    .replace(/(\d+)\\[dt]?frac\{(\d+)\}\{(\d+)\}/g, '($1+$2/$3)').replace(/\\[dt]?frac\{([^{}]+)\}\{([^{}]+)\}/g, '(($1)/($2))')
+    .replace(/²/g, '^2').replace(/³/g, '^3').replace(/\^\{(\d+)\}/g, '^$1').replace(/\s+/g, '');
+  // implicit multiplying: 3x, 3(x, )(, x(
+  t = t.replace(/(\d|\)|[a-z])(?=\()/g, '$1*').replace(/(\d|\))(?=[a-z])/g, '$1*');
+  for (let i = 0; i < 3; i += 1) t = t.replace(/(\d+(?:\.\d+)?|\([^()]*\)|[a-z])\^(\d+)/g, 'P($1,$2)');
+  const letters = new Set(t.replace(/P\(/g, '(').match(/[a-z]/g) || []);
+  for (const l of letters) { if (!(l in vars)) return null; }
+  t = t.replace(/[a-z]/g, (l) => (l === 'P' ? l : `(${vars[l]})`));
+  if (!/^[\d.+\-*/(),P]+$/.test(t)) return null;
+  try {
+    // eslint-disable-next-line no-new-func
+    const v = Function('P', `return (${t});`)(Math.pow) as number;
+    return Number.isFinite(v) ? v : null;
+  } catch { return null; }
+}
+const near9 = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+/** The coefficient of a letter in an equations table's cell: '3x' 3, 'x' 1, '−y' −1, 0 0. */
+const coefOf = (cell: unknown, l: string): number | null => {
+  if (cell === 0 || cell === '0') return 0;
+  const m = new RegExp(`^([+-]?\\d*(?:\\.\\d+)?)${l}$`).exec(plainOf(cell).replace(/\s/g, ''));
+  return m ? (m[1] === '' || m[1] === '+' ? 1 : m[1] === '-' ? -1 : Number(m[1])) : null;
+};
+const pctOf = (cell: unknown): number | null => { const m = /^(\d+(?:\.\d+)?)%$/.exec(plainOf(cell)); return m ? Number(m[1]) : null; };
+
+/** What a drawing says about its own numbers that is not so (the checks above), for one drawing. */
+export function numberProblems(f: AnyFig): string[] {
+  const bad: string[] = [];
+  if (f.type === 'numline') {
+    for (const j of f.jumps || []) {
+      const v = valueOf(j.label);
+      if (v != null && !near9(j.to - j.from, v)) bad.push(`a jump labelled ${j.label} goes from ${fmt(j.from)} to ${fmt(j.to)}`);
+    }
+    for (const k of f.marks || []) {
+      const v = valueOf(k.label);
+      if (v != null && !near9(v, k.x)) bad.push(`a point labelled ${k.label} sits at ${fmt(k.x)}`);
+    }
+  }
+  // (a rule with □ has a number to find in it: 2x − □ is checked by its worked example)
+  if (f.type === 'machine' && typeof f.inX === 'number' && typeof f.outY === 'number' && !/□/.test(f.rule)) {
+    const letter = (String(f.rule).replace(/\\[a-zA-Z]+/g, '').match(/[a-z]/) || ['x'])[0];
+    const v = valueOf(f.rule, { [letter]: f.inX });
+    if (v == null || !near9(v, f.outY)) bad.push(`the machine ${f.rule} gives ${v} for ${f.inX}, not ${f.outY}`);
+  }
+  if (f.type === 'table') {
+    const head: string[] = f.head.map(plainOf);
+    const letterCols = head.map((h, j) => (/^[a-z]$/.test(h) ? j : -1)).filter((j) => j >= 0);
+    // columns of expressions in the letter columns
+    for (const [j, h] of head.entries()) {
+      if (letterCols.includes(j) || !/[a-z]/.test(h) || /=/.test(h)) continue;
+      for (const r of f.rows) {
+        const vars = Object.fromEntries(letterCols.map((c) => [head[c], valueOf(r[c])]).filter(([, v]) => v != null));
+        const want = valueOf(r[j]); if (want == null || Object.keys(vars).length < letterCols.length) continue;
+        const got = valueOf(h, vars as Record<string, number>);
+        if (got == null) bad.push(`the column ${h} is not an expression in ${letterCols.map((c) => head[c]).join(', ')}`);
+        else if (!near9(got, want)) bad.push(`${h} at ${JSON.stringify(vars)} is ${fmt(got)}, not ${r[j]}`);
+      }
+    }
+    // a column "x = 5": each row's expression at 5
+    for (const [j, h] of head.entries()) {
+      const m = /^([a-z]) = (-?\d+(?:\.\d+)?)$/.exec(h); if (!m) continue;
+      for (const r of f.rows) {
+        const exprs = r.filter((c: unknown, i: number) => i !== j && typeof c === 'string' && new RegExp(`(^|[^a-z])${m[1]}([^a-z]|$)`).test(plainOf(c)));
+        if (exprs.length !== 1) continue;
+        const got = valueOf(exprs[0], { [m[1]]: Number(m[2]) });
+        if (got == null || !near9(got, Number(valueOf(r[j])))) bad.push(`${exprs[0]} at ${h} is ${got}, not ${r[j]}`);
+      }
+    }
+    // an equations table: every row true at the solution of its first two
+    const xi = head.indexOf('x'); const yi = head.indexOf('y'); const ri = head.indexOf('אגף ימין');
+    if (xi >= 0 && yi >= 0 && ri >= 0) {
+      const eqs = f.rows.map((r: unknown[]) => ({ a: coefOf(r[xi], 'x'), b: coefOf(r[yi], 'y'), c: valueOf(r[ri]), row: r }));
+      const [p, q] = eqs; const det = p.a! * q.b! - q.a! * p.b!;
+      if (eqs.some((e: any) => e.a == null || e.b == null || e.c == null)) bad.push('an equations table with a cell that is not a term');
+      else if (!det) bad.push('an equations table whose first two rows have no single solution');
+      else {
+        const X = (p.c! * q.b! - q.c! * p.b!) / det; const Y = (p.a! * q.c! - q.a! * p.c!) / det;
+        for (const e of eqs) if (!near9(e.a! * X + e.b! * Y, e.c!)) bad.push(`the row ${e.row.join(' | ')} is not true at (${fmt(X)}, ${fmt(Y)})`);
+      }
+    }
+    // percents and amounts in proportion: a row (or the head) of percents, a row of amounts under them
+    const pctRows: (number | null)[][] = [head.slice(1), ...f.rows.map((r: unknown[]) => r.slice(1))].map((r: unknown[]) => r.map(pctOf));
+    for (const ps of pctRows.filter((r) => r.length && r.every((v: number | null) => v != null))) {
+      for (const r of f.rows) {
+        const k = r.slice(1).map((c: unknown, i: number) => (pctOf(c) == null && valueOf(c) != null ? valueOf(c)! / ps[i]! : null)).filter((v: number | null) => v != null) as number[];
+        if (k.length > 1 && k.some((v) => !near9(v, k[0]))) bad.push(`the amounts ${r.join(' | ')} are not in proportion to ${ps.join('%, ')}%`);
+      }
+    }
+  }
+  if (f.type === 'fbar') {
+    const rows = f.rows?.length ? f.rows : [{ den: f.den, shaded: f.shaded, label: f.label }];
+    for (const r of rows) if (!(r.den >= 1 && r.den <= FBAR_MAX_DEN && r.shaded >= 0 && r.shaded <= r.den)) bad.push(`a fraction bar of ${r.shaded} of ${r.den}`);
+    if ((f.cross || 0) > (rows[0].shaded || 0)) bad.push(`a fraction bar crosses out ${f.cross} of ${rows[0].shaded}`);
+    const units = rows.map((r: any) => valueOf(r.label)).map((v: number | null, i: number) => (v == null || !rows[i].shaded ? null : v / (rows[i].shaded / rows[i].den))).filter((v: number | null) => v != null) as number[];
+    if (units.some((v) => !near9(v, units[0]))) bad.push(`fraction bars of different wholes: ${rows.map((r: any) => r.label).join(', ')}`);
+    for (const r of rows) {
+      const p = /^(\d+(?:\.\d+)?)% = /.exec(plainOf(r.label));
+      if (p && !near9(r.shaded / r.den, Number(p[1]) / 100)) bad.push(`a bar labelled ${r.label} shades ${r.shaded} of ${r.den}`);
+      const share = /^\\frac\{x\}\{(\d+)\}$/.exec(String(r.label)) ? 1 / Number(/\{(\d+)\}$/.exec(String(r.label))![1])
+        : /^(\d*\.?\d*)x$/.test(plainOf(r.label)) ? Number(plainOf(r.label).slice(0, -1) || 1) : null;
+      if (share != null && !near9(r.shaded / r.den, share)) bad.push(`a bar labelled ${r.label} shades ${r.shaded} of ${r.den}`);
+    }
+  }
+  if (f.type === 'dline') {
+    const whole = (l: any) => l.step > 0 && near9(l.max / l.step, Math.round(l.max / l.step));
+    if (!whole(f.top) || !whole(f.bottom)) bad.push('a percent bar whose line is not whole steps');
+    if (f.at != null && !(f.at >= 0 && f.at <= f.top.max)) bad.push(`a percent bar's marker at ${f.at} off its line`);
+    const label = valueOf(f.label);
+    if (f.at != null && label != null && !near9(label, dlineAt({ top: f.top, bottom: f.bottom, move: 't' }, f.at).under)) bad.push(`a percent bar writes ${f.label} under ${f.at}`);
+  }
+  if (f.type === 'scale') {
+    for (const pan of [f.left, f.right]) if (pan.x > BALANCE_MAX.boxes || pan.n > BALANCE_MAX.weights) bad.push(`a pan of ${pan.x} boxes and ${pan.n} weights`);
+  }
+  if (f.type === 'tiles' && (f.px + f.nx > TILES_MAX.x || f.p1 + f.n1 > TILES_MAX.unit)) bad.push(`more tiles than a row holds: ${JSON.stringify(f)}`);
+  if (f.type === 'ray' && !(f.at >= (f.min ?? -10) && f.at <= (f.max ?? 10))) bad.push(`a ray from ${f.at} off its line`);
+  return bad;
+}
+
+/** Every number a drawing shows, plainly or by where something stands: what a student reads off it. */
+function shownOf(f: AnyFig): Set<string> {
+  const out = new Set([...labelsOf(f)]);
+  const add = (v: unknown) => { if (typeof v === 'number' && Number.isFinite(v)) out.add(fmt(v)); };
+  if (f.type === 'numline') { for (const j of f.jumps || []) { add(j.from); add(j.to); } for (const k of f.marks || []) add(k.x); }
+  if (f.type === 'machine') { add(f.inX); add(f.outY); }
+  if (f.type === 'dline' && f.at != null) {
+    if (f.show !== 'bottom') add(f.at);
+    if (f.label != null) add(valueOf(f.label)); else if (f.show !== 'top') add(dlineAt({ top: f.top, bottom: f.bottom, move: 't' }, f.at).under);
+  }
+  if (f.type === 'coord' && f.meet && f.lines?.length > 1) { const p = meetOf(f.lines[0], f.lines[1]); if (p) { add(p[0]); add(p[1]); } }
+  if (f.type === 'sgraph' && f.meet && f.series?.length > 1) { const p = seriesMeet(f.series[0].pts, f.series[1].pts); if (p) { add(p[0]); add(p[1]); } }
+  if (f.type === 'ray') add(f.at);
+  if (f.type === 'table') for (const c of [...f.head, ...f.rows.flat()]) add(valueOf(c));
+  return out;
+}
+
+describe('the drawings of the numbers\' and algebra\'s worked examples and solving together are right for their numbers (SK-STUDENT-1, round 3)', () => {
+  const figs = BC_FIGS();
+
+  it('there are drawings in every topic and on every signed-number stair', () => {
+    expect(figs.length).toBeGreaterThan(150);
+    for (const t of DRAWN_TOPICS) expect(figs.some((d) => d.skill.startsWith(`${t}:`)), t).toBe(true);
+    for (let L = 1; L <= 7; L += 1) {
+      const c = CONTENT[`signed:${L}`];
+      expect(c.examples.filter((e) => !e.fig && !e.steps.some((s) => s.fig)).length, `signed:${L}: a worked example with no drawing`).toBe(0);
+    }
+  });
+
+  it('every one renders with no broken number, and agrees with itself', () => {
+    const bad: string[] = [];
+    for (const d of figs) {
+      const html = renderToStaticMarkup(createElement(Figure, { fig: d.fig }));
+      if (!/<svg|<table/.test(html)) bad.push(`${d.where}: draws nothing`);
+      if (/NaN|undefined|Infinity/.test(html)) bad.push(`${d.where}: a broken number`);
+      bad.push(...selfProblems(d.skill, d.fig).map((p) => `${d.where}: ${p}`));
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('every one is right for its numbers: jumps, points, machines, tables, bars, the percent bar, the balance and the tiles', () => {
+    const bad = figs.flatMap((d) => numberProblems(d.fig).map((p) => `${d.where}: ${p}`));
+    expect(bad).toEqual([]);
+  });
+
+  it('a balance is level at the answer, a ray is the inequality\'s solutions, and two lines meet at the system\'s solution', () => {
+    const bad: string[] = [];
+    let n = 0;
+    for (const d of figs) {
+      if (d.fig.type === 'scale' && d.answer != null) {
+        n += 1;
+        const u = { lx: d.fig.left.x, l1: d.fig.left.n, rx: d.fig.right.x, r1: d.fig.right.n };
+        if (balanceTilt(u, d.answer) !== (d.fig.tilt || 0)) bad.push(`${d.where}: the balance leans at x = ${d.answer}`);
+      }
+      if (d.fig.type === 'ray' && d.ray) {
+        n += 1;
+        if (d.fig.at !== d.ray.at || d.fig.dir !== d.ray.dir || !!d.fig.closed !== d.ray.closed) bad.push(`${d.where}: the ray is not the solutions`);
+      }
+      if (d.fig.type === 'coord' && d.fig.meet && d.vars) {
+        n += 1;
+        const p = meetOf(d.fig.lines[0], d.fig.lines[1]);
+        if (!p || !near9(p[0], d.vars.x) || !near9(p[1], d.vars.y)) bad.push(`${d.where}: the lines meet at ${p}, not at (${d.vars.x}, ${d.vars.y})`);
+      }
+    }
+    expect(n).toBeGreaterThanOrEqual(8);
+    expect(bad).toEqual([]);
+  });
+
+  it('a problem solved together never shows its last answer, and a worked example\'s first drawing never shows its answer', () => {
+    const bad: string[] = [];
+    for (const d of figs) {
+      if (!d.together && / step \d/.test(d.where)) continue; // a worked example's step may show what it found
+      const given = new Set([...d.given.replace(/[−–]/g, '-').matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => m[0]));
+      const a = fmt(d.answer!);
+      if (shownOf(d.fig).has(a) && !given.has(a)) bad.push(`${d.where}: shows its answer ${a}`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('the checks catch a drawing that is wrong for its numbers', () => {
+    expect(valueOf('−(−3)')).toBe(3);
+    expect(valueOf('7·(−6)')).toBe(-42);
+    expect(valueOf('18:(−6)')).toBe(-3);
+    expect(valueOf('−5²')).toBe(-25);
+    expect(valueOf('(−5)²')).toBe(25);
+    expect(valueOf('-1\\frac{1}{2}')).toBe(-1.5);
+    expect(valueOf('-\\frac{3}{12}')).toBe(-0.25);
+    expect(valueOf('4 + 3(n − 1)', { n: 25 })).toBe(76);
+    expect(valueOf('x')).toBe(null);
+    expect(valueOf('2x − □', { x: 4 })).toBe(null);
+    expect(numberProblems({ type: 'numline', from: -10, to: 6, jumps: [{ from: -6, to: 3, label: '+8' }] })).toHaveLength(1);
+    expect(numberProblems({ type: 'numline', from: -10, to: 6, marks: [{ x: -5, label: '−6' }] })).toHaveLength(1);
+    expect(numberProblems({ type: 'machine', inX: 5, rule: '4 + 3x', outY: 18 })).toHaveLength(1);
+    expect(numberProblems({ type: 'table', head: ['x', '7x − 3', '4x + 9'], rows: [[4, 25, 24]] })).toHaveLength(1);
+    expect(numberProblems({ type: 'table', head: ['מי', 'כמה', 'x = 5'], rows: [['יובל', '2x', 11]] })).toHaveLength(1);
+    expect(numberProblems({ type: 'table', ltr: true, head: ['x', 'y', 'אגף ימין', 'משוואה'], rows: [['3x', 'y', 11, 'א'], ['x', '−y', 1, 'ב'], ['4x', 0, 13, 'יחד']] })).toHaveLength(1);
+    expect(numberProblems({ type: 'table', head: ['', '0.5%', '1%', '100%'], rows: [['שקלים', 40, 80, 800]] })).toHaveLength(1);
+    expect(numberProblems({ type: 'fbar', rows: [{ den: 5, shaded: 4, label: '40' }, { den: 5, shaded: 5, label: '60' }] })).toHaveLength(1);
+    expect(numberProblems({ type: 'fbar', den: 10, shaded: 4, label: '30% = 45' })).toHaveLength(1);
+    expect(numberProblems({ type: 'fbar', rows: [{ den: 12, shaded: 4, label: '\\frac{x}{4}' }] })).toHaveLength(1);
+    expect(numberProblems({ type: 'dline', top: { max: 100, step: 10, unit: '%' }, bottom: { max: 35, step: 3.5 }, at: 40, label: '15' })).toHaveLength(1);
+    expect(numberProblems({ type: 'tiles', px: 4, nx: 1, p1: 7, n1: 2 })).toHaveLength(1);
+    expect(numberProblems({ type: 'scale', left: { x: 7, n: 0 }, right: { x: 0, n: 3 } })).toHaveLength(1);
+    expect(shownOf({ type: 'numline', from: -5, to: 8, jumps: [{ from: -3, to: 5, label: '+8' }] }).has('5')).toBe(true);
+    expect(shownOf({ type: 'coord', lines: [{ m: 0.5, b: -0.5 }, { m: 0.75, b: -1.75 }], meet: true }).has('5')).toBe(true);
   });
 });

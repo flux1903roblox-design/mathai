@@ -34,6 +34,23 @@ const area = (): ManipSpec => ({ kind: 'area', start: { a: 2, b: 0 }, maxA: 6, m
 const machine = (inX: number | string, rule: string, outY: number | string): FigSpec => ({ type: 'machine', inX, rule, outY });
 // the class's layout (CLASSROOM-8): the people in rows, before and after in columns
 const STAMPS_FIG: FigSpec = { type: 'table', head: ['', 'בהתחלה', 'אחרי הנתינה'], rows: [['רינה', 'x', 'x + 7'], ['דני', '2x', '2x − 7']] };
+// The worked examples and solving together (SK-STUDENT-1) draw what stage A drew: the machine (which number goes in?),
+// the balance where every number is positive, the line for a move, the rectangle of a bracket, the class's table for a
+// story or a trip, and a table of both sides at the solution (learn/figures.test.ts checks each one against its numbers).
+/** Both sides of an equation at x: the check, as the class writes it (left to right, as the equation is). */
+const sides = (left: string, right: string, xs: number[], at: (x: number) => [number, number]): FigSpec =>
+  ({ type: 'table', ltr: true, head: ['x', left, right], rows: xs.map((x) => [x, ...at(x)]) });
+/** The gyms of eq:3: month by month, what each one has cost so far (120 + 80 a month, 40 + 100 a month). */
+const gyms = (months: number[]): FigSpec => ({ type: 'table', head: ['חודשים', 'מכון א׳ (₪)', 'מכון ב׳ (₪)'], rows: months.map((m) => [m, 120 + 80 * m, 40 + 100 * m]) });
+/** A right triangle whose acute angles are x and x + 20° (35° and 55°, drawn to size; the right angle at the bottom). */
+const RIGHT_X: FigSpec = {
+  type: 'geo', view: [300, 200], pad: [44, 34], label: 'משולש ישר־זווית: זווית חדה אחת x, והשנייה x + 20°',
+  pts: { _C: [0, 0], _A: [4, 0], _B: [0, 4 * Math.tan((35 * Math.PI) / 180)] }, polys: [{ pts: ['_A', '_B', '_C'] }],
+  segs: [{ a: '_A', b: '_C' }, { a: '_C', b: '_B' }, { a: '_B', b: '_A' }],
+  angles: [{ at: '_C', from: '_A', to: '_B', right: true }, { at: '_A', from: '_B', to: '_C', text: 'x' }, { at: '_B', from: '_C', to: '_A', text: 'x + 20°' }],
+};
+/** Bars of the whole x cut into `den` equal parts: one row per term, its parts shaded (x/4 is 3 of 12), named by the term. */
+const xBars = (den: number, rows: [number, string][]): FigSpec => ({ type: 'fbar', rows: rows.map(([shaded, label]) => ({ den, shaded, label })) });
 
 /**
  * Draws until no misconception of the model predicts what a slip of the hand gives (one off, ten off, two digits
@@ -159,27 +176,27 @@ const stair1: StairContent = {
       why: 'ב־$3x = 21$ מחלקים את שני האגפים ב־$3$: $x = 21 : 3 = 7$. ב־$x : 4 = 3$ כופלים אותם ב־$4$: $x = 3 \\cdot 4 = 12$, ובדיקה: $12 : 4 = 3$.' },
   ],
   examples: [
-    { problem: 'פתרו את המשוואה.', display: 'x - 9 = -4', answer: 5, check: '-4 + 9',
+    { problem: 'פתרו את המשוואה.', display: 'x - 9 = -4', answer: 5, check: '-4 + 9', fig: machine('?', 'x - 9', -4),
       steps: [
         { action: 'מוסיפים $9$ לשני האגפים.', mark: '+9', why: 'חיסור של $9$ מתבטל בחיבור של $9$. מה שעושים לאגף אחד, עושים גם לשני.', result: 'x - 9 + 9 = -4 + 9', eq: 'x - 9 + 9 = -4 + 9' },
         { action: 'מחשבים בכל אגף.', why: '$-9 + 9 = 0$, ולכן באגף שמאל נשאר $x$.', result: 'x = 5', eq: 'x = 5' },
-        { action: 'בודקים: מציבים $5$ במשוואה.', why: 'אם שני האגפים שווים, הפתרון נכון.', result: '5 - 9 = -4', calc: { expr: '5 - 9', value: -4 } },
+        { action: 'בודקים: מציבים $5$ במשוואה.', why: 'אם שני האגפים שווים, הפתרון נכון.', result: '5 - 9 = -4', calc: { expr: '5 - 9', value: -4 }, fig: machine(5, 'x - 9', -4) },
       ] },
-    { problem: 'השלימו את המספר החסר כך ש־$x = 4$ יהיה הפתרון של המשוואה.', display: '2x - \\square = -4', answer: 12, check: '2*4 - (-4)',
+    { problem: 'השלימו את המספר החסר כך ש־$x = 4$ יהיה הפתרון של המשוואה.', display: '2x - \\square = -4', answer: 12, check: '2*4 - (-4)', fig: machine(4, '2x - □', -4),
       steps: [
         { action: 'מציבים $x = 4$ ומחשבים את הכפל.', why: 'הפתרון מאזן את המשוואה, ולכן אחרי ההצבה צריך לצאת שוויון נכון.', result: '8 - \\square = -4', calc: { expr: '2*4', value: 8 } },
-        { action: 'שואלים: כמה מורידים מ־$8$ כדי להגיע ל־$-4$?', why: 'מ־$8$ עד $0$ יורדים $8$, ועד $-4$ עוד $4$.', result: '\\square = 8 - (-4) = 12', value: '8 - (-4)' },
+        { action: 'שואלים: כמה מורידים מ־$8$ כדי להגיע ל־$-4$?', why: 'מ־$8$ עד $0$ יורדים $8$, ועד $-4$ עוד $4$.', result: '\\square = 8 - (-4) = 12', value: '8 - (-4)', fig: { type: 'numline', from: -6, to: 10, marks: [{ x: 8, label: '8' }, { x: -4, label: '\u22124' }], jumps: [{ from: 8, to: -4, label: '\u221212' }] } },
         { action: 'בודקים.', why: 'מציבים $x = 4$ ואת $12$ במקום הריבוע.', result: '2 \\cdot 4 - 12 = -4', calc: { expr: '2*4 - 12', value: -4 } },
       ] },
-    { problem: 'פתרו את המשוואה.', display: '\\frac{x}{5} = -2', answer: -10, check: '-2*5',
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x}{5} = -2', answer: -10, check: '-2*5', fig: machine('?', '\\frac{x}{5}', -2),
       steps: [
         { action: 'כופלים את שני האגפים ב־$5$.', mark: '\\cdot 5', why: '$x$ חולק ב־$5$, וחילוק מבטלים בכפל.', result: '\\dfrac{x}{5} \\cdot 5 = -2 \\cdot 5', eq: 'x/5*5 = -2*5' },
-        { action: 'מחשבים.', why: 'שלילי כפול חיובי הוא שלילי.', result: 'x = -10', eq: 'x = -10' },
+        { action: 'מחשבים.', why: 'שלילי כפול חיובי הוא שלילי.', result: 'x = -10', eq: 'x = -10', fig: { type: 'numline', from: -11, to: 1, marks: [{ x: -10, label: '\u221210' }], jumps: [0, 1, 2, 3, 4].map((i) => ({ from: -2 * i, to: -2 * i - 2, label: '\u22122' })) } },
         { action: 'בודקים.', why: 'מציבים $-10$ במשוואה.', result: '\\dfrac{-10}{5} = -2', calc: { expr: '-10/5', value: -2 } },
       ] },
   ],
   together: [
-    { problem: 'נפתור יחד.', display: '-5x = 30',
+    { problem: 'נפתור יחד.', display: '-5x = 30', fig: machine('?', '-5x', 30),
       steps: [
         { prompt: 'מה עושים לשני האגפים?', choices: [
           { text: 'מחלקים ב־$-5$', ok: true, feedback: 'נכון: $-5x$ הוא $-5$ כפול $x$. כפל מבטלים בחילוק, במקדם כולו, עם הסימן.' },
@@ -188,7 +205,7 @@ const stair1: StairContent = {
         ], hints: ['איזו פעולה יש בין $-5$ ל־$x$?', 'זה כפל, והמקדם הוא $-5$. מחלקים את שני האגפים ב־$-5$.'], done: '$x = 30 : (-5)$' },
       ],
       final: { prompt: 'מה $x$?', answer: -6, check: '30 / (-5)', hints: ['חילוק של חיובי בשלילי נותן שלילי.', '$30 : 5 = 6$, והסימן שלילי.'] } },
-    { problem: 'ועוד אחת.', display: 'x + 8 = 3',
+    { problem: 'ועוד אחת.', display: 'x + 8 = 3', fig: machine('?', 'x + 8', 3),
       steps: [
         { prompt: 'איך משאירים את $x$ לבד?', choices: [
           { text: 'מחסירים $8$ משני האגפים', ok: true, feedback: 'נכון: $x + 8 - 8 = 3 - 8$.' },
@@ -335,28 +352,28 @@ const stair2: StairContent = {
       why: '$-x$ הוא $-1 \\cdot x$, ולכן המקדם שלו $-1$. מחלקים ב־$-1$, והסימן מתהפך.' },
   ],
   examples: [
-    { problem: 'פתרו את המשוואה.', display: '5x - 3 = 22', answer: 5, check: '(22 + 3) / 5',
+    { problem: 'פתרו את המשוואה.', display: '5x - 3 = 22', answer: 5, check: '(22 + 3) / 5', fig: machine('?', '5x - 3', 22),
       steps: [
         { action: 'מוסיפים $3$ לשני האגפים.', mark: '+3', why: 'קודם מבטלים את מה שנעשה אחרון: החיסור של $3$.', result: '5x - 3 + 3 = 22 + 3', eq: '5*x - 3 + 3 = 22 + 3' },
         { action: 'מחשבים.', why: '$-3 + 3 = 0$.', result: '5x = 25', eq: '5*x = 25' },
         { action: 'מחלקים את שני האגפים ב־$5$.', mark: ':5', why: 'עכשיו מבטלים את הכפל.', result: 'x = 5', eq: 'x = 5' },
-        { action: 'בודקים.', why: 'מציבים $5$ במשוואה המקורית.', result: '5 \\cdot 5 - 3 = 22', calc: { expr: '5*5 - 3', value: 22 } },
+        { action: 'בודקים.', why: 'מציבים $5$ במשוואה המקורית.', result: '5 \\cdot 5 - 3 = 22', calc: { expr: '5*5 - 3', value: 22 }, fig: machine(5, '5x - 3', 22) },
       ] },
-    { problem: 'פתרו את המשוואה.', display: '\\frac{x}{3} + 4 = 9', answer: 15, check: '(9 - 4) * 3',
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x}{3} + 4 = 9', answer: 15, check: '(9 - 4) * 3', fig: machine('?', '\\frac{x}{3} + 4', 9),
       steps: [
         { action: 'מחסירים $4$ משני האגפים.', mark: '-4', why: 'ה־$4$ נוסף אחרון, ולכן מבטלים אותו קודם.', result: '\\dfrac{x}{3} = 5', eq: 'x/3 = 5' },
         { action: 'כופלים את שני האגפים ב־$3$.', mark: '\\cdot 3', why: '$x$ חולק ב־$3$, וחילוק מבטלים בכפל.', result: 'x = 15', eq: 'x = 15' },
-        { action: 'בודקים.', why: 'מציבים $15$ במשוואה המקורית.', result: '15 : 3 + 4 = 9', calc: { expr: '15/3 + 4', value: 9 } },
+        { action: 'בודקים.', why: 'מציבים $15$ במשוואה המקורית.', result: '15 : 3 + 4 = 9', calc: { expr: '15/3 + 4', value: 9 }, fig: machine(15, '\\frac{x}{3} + 4', 9) },
       ] },
-    { problem: 'פתרו את המשוואה.', display: '7 - 2x = 15', answer: -4, check: '(15 - 7) / (-2)',
+    { problem: 'פתרו את המשוואה.', display: '7 - 2x = 15', answer: -4, check: '(15 - 7) / (-2)', fig: machine('?', '7 - 2x', 15),
       steps: [
         { action: 'מחסירים $7$ משני האגפים.', mark: '-7', why: 'ה־$7$ הוא המספר שליד $-2x$.', result: '-2x = 8', eq: '-2*x = 8' },
         { action: 'מחלקים את שני האגפים ב־$-2$.', mark: ':(-2)', why: 'המקדם של $x$ הוא $-2$, עם המינוס.', result: 'x = -4', eq: 'x = -4' },
-        { action: 'בודקים.', why: '$-2 \\cdot (-4) = 8$, ו־$7 + 8 = 15$.', result: '7 - 2 \\cdot (-4) = 15', calc: { expr: '7 - 2*(-4)', value: 15 } },
+        { action: 'בודקים.', why: '$-2 \\cdot (-4) = 8$, ו־$7 + 8 = 15$.', result: '7 - 2 \\cdot (-4) = 15', calc: { expr: '7 - 2*(-4)', value: 15 }, fig: machine(-4, '7 - 2x', 15) },
       ] },
   ],
   together: [
-    { problem: 'נפתור יחד.', display: '3x + 8 = 2',
+    { problem: 'נפתור יחד.', display: '3x + 8 = 2', fig: machine('?', '3x + 8', 2),
       steps: [
         { prompt: 'מה הצעד הראשון?', choices: [
           { text: 'מחסירים $8$ משני האגפים', ok: true, feedback: 'נכון: $3x = 2 - 8 = -6$.' },
@@ -370,13 +387,13 @@ const stair2: StairContent = {
         ], hints: ['איזו פעולה יש בין $3$ ל־$x$?', 'כפל. מחלקים את שני האגפים ב־$3$.'], done: '$x = -6 : 3$' },
       ],
       final: { prompt: 'מה $x$?', answer: -2, check: '(2 - 8) / 3', hints: ['שלילי חלקי חיובי נותן שלילי.', '$6 : 3 = 2$, והסימן שלילי.'] } },
-    { problem: 'ועכשיו ה־$x$ באגף ימין.', display: '17 = 4x + 5',
+    { problem: 'ועכשיו ה־$x$ באגף ימין.', display: '17 = 4x + 5', fig: scale(0, 17, 4, 5),
       steps: [
         { prompt: 'איך מתחילים?', choices: [
           { text: 'מחסירים $5$ משני האגפים', ok: true, feedback: 'נכון: $12 = 4x$. לא משנה באיזה אגף נמצא $x$.' },
           { text: 'מוסיפים $5$ לשני האגפים', ok: false, feedback: 'אז באגף ימין יהיה $4x + 10$. את ה־$5$ מבטלים בחיסור.' },
           { text: 'מחלקים את $17$ ב־$4$', ok: false, feedback: 'כשמחלקים, מחלקים כל איבר בשני האגפים, גם את $5$. קל יותר קודם להוריד את $5$.' },
-        ], hints: ['מה נוסף ל־$4x$?', '$5$. מחסירים אותו משני האגפים.'], done: '$12 = 4x$' },
+        ], hints: ['מה נוסף ל־$4x$?', '$5$. מחסירים אותו משני האגפים.'], done: '$12 = 4x$', fig: scale(0, 12, 4, 0) },
       ],
       final: { prompt: 'מה $x$?', answer: 3, check: '(17 - 5) / 4', hints: ['מחלקים את שני האגפים ב־$4$.', '$12 : 4$.'] } },
   ],
@@ -525,16 +542,16 @@ const stair3: StairContent = {
         { action: 'מחסירים $4x$ משני האגפים.', mark: '-4x', why: 'כך $x$ נשאר רק באגף שמאל.', result: '3x - 3 = 9', eq: '3*x - 3 = 9' },
         { action: 'מוסיפים $3$ לשני האגפים.', mark: '+3', why: 'מבטלים את החיסור של $3$.', result: '3x = 12', eq: '3*x = 12' },
         { action: 'מחלקים ב־$3$.', mark: ':3', why: 'מבטלים את הכפל.', result: 'x = 4', eq: 'x = 4' },
-        { action: 'בודקים בשני האגפים.', why: 'באגף שמאל $7 \\cdot 4 - 3 = 25$, ובאגף ימין $4 \\cdot 4 + 9 = 25$.', result: '25 = 25', calc: { expr: '7*4 - 3', value: 25 } },
+        { action: 'בודקים בשני האגפים.', why: 'באגף שמאל $7 \\cdot 4 - 3 = 25$, ובאגף ימין $4 \\cdot 4 + 9 = 25$.', result: '25 = 25', calc: { expr: '7*4 - 3', value: 25 }, fig: sides('7x \u2212 3', '4x + 9', [4], (x) => [7 * x - 3, 4 * x + 9]) },
       ] },
-    { problem: 'במכון כושר א׳: $120$ ₪ דמי הרשמה ועוד $80$ ₪ לחודש. במכון ב׳: $40$ ₪ דמי הרשמה ועוד $100$ ₪ לחודש. אחרי כמה חודשים התשלום הכולל שווה?', answer: 4, check: '(120 - 40) / (100 - 80)',
+    { problem: 'במכון כושר א׳: $120$ ₪ דמי הרשמה ועוד $80$ ₪ לחודש. במכון ב׳: $40$ ₪ דמי הרשמה ועוד $100$ ₪ לחודש. אחרי כמה חודשים התשלום הכולל שווה?', fig: gyms([1, 2, 3]), answer: 4, check: '(120 - 40) / (100 - 80)',
       steps: [
         { action: 'נסמן ב־$x$ את מספר החודשים, ונבנה משוואה.', why: 'בכל מכון: המחיר לחודש כפול $x$, ועוד דמי ההרשמה.', result: '80x + 120 = 100x + 40', eq: '80*x + 120 = 100*x + 40' },
         { action: 'מחסירים $80x$ משני האגפים.', mark: '-80x', why: 'מורידים את ה־$x$־ים מהאגף שבו יש פחות, כך שהמקדם שנשאר חיובי.', result: '120 = 20x + 40', eq: '120 = 20*x + 40' },
         { action: 'מחסירים $40$ משני האגפים.', mark: '-40', why: 'מבטלים את המספר שליד $20x$.', result: '80 = 20x', eq: '80 = 20*x' },
         { action: 'מחלקים ב־$20$.', mark: ':20', why: 'מבטלים את הכפל.', result: '4 = x', eq: '4 = x' },
         { action: 'הופכים צדדים.', why: '$4 = x$ ו־$x = 4$ אומרים אותו דבר. במחברת כותבים: $x = 4$ (הפכנו צדדים).', result: 'x = 4', eq: 'x = 4' },
-        { action: 'בודקים בסיפור.', why: 'אחרי $4$ חודשים: במכון א׳ $120 + 80 \\cdot 4 = 440$, ובמכון ב׳ $40 + 100 \\cdot 4 = 440$.', result: '440 = 440', calc: { expr: '120 + 80*4', value: 440 } },
+        { action: 'בודקים בסיפור.', why: 'אחרי $4$ חודשים: במכון א׳ $120 + 80 \\cdot 4 = 440$, ובמכון ב׳ $40 + 100 \\cdot 4 = 440$.', result: '440 = 440', calc: { expr: '120 + 80*4', value: 440 }, fig: gyms([1, 2, 3, 4]) },
       ] },
   ],
   together: [
@@ -552,13 +569,13 @@ const stair3: StairContent = {
         ], hints: ['מה נוסף ל־$3x$?', '$8$. מחסירים אותו משני האגפים.'], done: '$-15 = 3x$' },
       ],
       final: { prompt: 'מה $x$?', answer: -5, check: '(-7 - 8) / (5 - 2)', hints: ['מחלקים את שני האגפים ב־$3$.', '$-15 : 3$.'] } },
-    { problem: 'ועוד אחת.', display: '6x + 1 = 2x + 3',
+    { problem: 'ועוד אחת.', display: '6x + 1 = 2x + 3', fig: scale(6, 1, 2, 3),
       steps: [
         { prompt: 'מה מקבלים אחרי שמורידים $2x$ ו־$1$ משני האגפים?', choices: [
           { text: '$4x = 2$', ok: true, feedback: 'נכון: $6x - 2x = 4x$, ו־$3 - 1 = 2$.' },
           { text: '$8x = 2$', ok: false, feedback: '$2x$ הוחסר משני האגפים, ולכן נשאר $6x - 2x = 4x$.' },
           { text: '$4x = 4$', ok: false, feedback: '$1$ הוחסר משני האגפים: $3 - 1 = 2$.' },
-        ], hints: ['מה נשאר מ־$6x$ אחרי שמורידים $2x$?', '$4x$. ובאגף ימין: $3 - 1$.'], done: '$4x = 2$' },
+        ], hints: ['מה נשאר מ־$6x$ אחרי שמורידים $2x$?', '$4x$. ובאגף ימין: $3 - 1$.'], done: '$4x = 2$', fig: scale(4, 0, 0, 2) },
       ],
       final: { prompt: 'מה $x$? אפשר לכתוב שבר או מספר עשרוני.', answer: 0.5, check: '(3 - 1) / (6 - 2)', hints: ['מחלקים את שני האגפים ב־$4$.', '$2 : 4$ הוא חצי.'] } },
   ],
@@ -691,19 +708,19 @@ const stair4: StairContent = {
         { action: 'מכנסים: $x$־ים עם $x$־ים.', why: '$4x - 2x = 2x$.', result: '2x - 12 = 6', eq: '2*x - 12 = 6' },
         { action: 'מוסיפים $12$ לשני האגפים.', mark: '+12', why: 'מבטלים את החיסור.', result: '2x = 18', eq: '2*x = 18' },
         { action: 'מחלקים ב־$2$.', mark: ':2', why: 'מבטלים את הכפל.', result: 'x = 9', eq: 'x = 9' },
-        { action: 'בודקים במשוואה המקורית.', why: 'באגף שמאל $4(9 - 3) = 24$, ובאגף ימין $2 \\cdot 9 + 6 = 24$.', result: '24 = 24', calc: { expr: '4*(9 - 3)', value: 24 } },
+        { action: 'בודקים במשוואה המקורית.', why: 'באגף שמאל $4(9 - 3) = 24$, ובאגף ימין $2 \\cdot 9 + 6 = 24$.', result: '24 = 24', calc: { expr: '4*(9 - 3)', value: 24 }, fig: sides('4(x \u2212 3)', '2x + 6', [9], (x) => [4 * (x - 3), 2 * x + 6]) },
       ] },
-    { problem: 'פתרו את המשוואה.', display: '4(x + 2) = 5x', answer: 8, check: '4*2 / (5 - 4)',
+    { problem: 'פתרו את המשוואה.', display: '4(x + 2) = 5x', answer: 8, check: '4*2 / (5 - 4)', fig: { type: 'area', a: 4, b: 2 },
       steps: [
-        { action: 'שלב 1: חוק הפילוג (פותחים סוגריים).', why: '$4$ כופל גם את $x$ וגם את $2$.', result: '4x + 8 = 5x', eq: '4*x + 8 = 5*x' },
-        { action: 'שלב 2: פותרים כרגיל. מחסירים $4x$ משני האגפים.', mark: '-4x', why: 'ב־$5x$ יש יותר $x$־ים, ולכן הם נשארים באגף ימין. כותבים קודם מה עשינו: $5x - 4x$.', result: '8 = 5x - 4x', eq: '8 = 5*x - 4*x' },
+        { action: 'שלב 1: חוק הפילוג (פותחים סוגריים).', why: '$4$ כופל גם את $x$ וגם את $2$.', result: '4x + 8 = 5x', eq: '4*x + 8 = 5*x', fig: scale(4, 8, 5, 0) },
+        { action: 'שלב 2: פותרים כרגיל. מחסירים $4x$ משני האגפים.', mark: '-4x', why: 'ב־$5x$ יש יותר $x$־ים, ולכן הם נשארים באגף ימין. כותבים קודם מה עשינו: $5x - 4x$.', fig: scale(0, 8, 1, 0), result: '8 = 5x - 4x', eq: '8 = 5*x - 4*x' },
         { action: 'מכנסים: $x$־ים עם $x$־ים.', why: '$5x - 4x = x$.', result: '8 = x', eq: '8 = x' },
         { action: 'הופכים צדדים.', why: '$8 = x$ ו־$x = 8$ אומרים אותו דבר. במחברת כותבים: $x = 8$ (הפכנו צדדים).', result: 'x = 8', eq: 'x = 8' },
         { action: 'בודקים במשוואה המקורית.', why: 'באגף שמאל $4(8 + 2) = 4 \\cdot 10 = 40$, ובאגף ימין $5 \\cdot 8 = 40$.', result: '4 \\cdot 10 = 5 \\cdot 8 = 40', calc: { expr: '4*10', value: 40 } },
       ] },
     { problem: 'יוסי קנה $18$ כדורים, ודנה קנתה $15$ כדורים, כל אחד יקר ב־$6$ ₪ מכדור של יוסי. הם שילמו אותו סכום. כמה עלה כדור של יוסי?', answer: 30, check: '15*6 / (18 - 15)',
       steps: [
-        { action: 'נסמן ב־$x$ את המחיר של כדור של יוסי, ונבנה משוואה.', why: 'כדור של דנה עולה $x + 6$. כל אחד שילם מספר הכדורים כפול המחיר.', result: '18x = 15(x + 6)', eq: '18*x = 15*(x + 6)' },
+        { action: 'נסמן ב־$x$ את המחיר של כדור של יוסי, ונבנה משוואה.', why: 'כדור של דנה עולה $x + 6$. כל אחד שילם מספר הכדורים כפול המחיר.', fig: { type: 'table', head: ['', 'כדורים', 'מחיר כדור (₪)', 'שילמו (₪)'], rows: [['יוסי', 18, 'x', '18x'], ['דנה', 15, 'x + 6', '15(x + 6)']] }, result: '18x = 15(x + 6)', eq: '18*x = 15*(x + 6)' },
         { action: 'שלב 1: חוק הפילוג (פותחים סוגריים).', why: '$15$ כופל גם את $x$ וגם את $6$.', result: '18x = 15x + 90', eq: '18*x = 15*x + 90' },
         { action: 'שלב 2: פותרים כרגיל. מחסירים $15x$ משני האגפים.', mark: '-15x', why: 'כך $x$ נשאר רק באגף שמאל.', result: '18x - 15x = 90', eq: '18*x - 15*x = 90' },
         { action: 'מכנסים: $x$־ים עם $x$־ים.', why: '$18x - 15x = 3x$.', result: '3x = 90', eq: '3*x = 90' },
@@ -878,23 +895,23 @@ const stair5: StairContent = {
   examples: [
     { problem: 'לדני יש פי $2$ בולים מלרינה. דני נתן לרינה $7$ בולים, ועכשיו לשניהם אותו מספר. כמה בולים היו לשניהם יחד בהתחלה?', answer: 42, check: 'x + 2*x', vars: { x: 14 },
       steps: [
-        { action: 'בוחרים נעלם: $x$ הבולים של רינה בהתחלה.', why: 'לדני פי $2$: $2x$.', result: 'x,\\quad 2x' },
-        { action: 'בונים משוואה: אחרי הנתינה שניהם שווים.', why: 'דני נתן $7$: $2x - 7$. רינה קיבלה $7$: $x + 7$.', result: '2x - 7 = x + 7', eq: '2*x - 7 = x + 7' },
+        { action: 'בוחרים נעלם: $x$ הבולים של רינה בהתחלה.', why: 'לדני פי $2$: $2x$.', result: 'x,\\quad 2x', fig: { type: 'table', head: ['', 'בהתחלה'], rows: [['רינה', 'x'], ['דני', '2x']] } },
+        { action: 'בונים משוואה: אחרי הנתינה שניהם שווים.', why: 'דני נתן $7$: $2x - 7$. רינה קיבלה $7$: $x + 7$.', result: '2x - 7 = x + 7', eq: '2*x - 7 = x + 7', fig: STAMPS_FIG },
         { action: 'מחסירים $x$ משני האגפים.', mark: '-x', why: 'כך $x$ נשאר רק באגף שמאל.', result: 'x - 7 = 7', eq: 'x - 7 = 7' },
         { action: 'מוסיפים $7$ לשני האגפים.', mark: '+7', why: 'מבטלים את החיסור של $7$, ו־$x$ לבד.', result: 'x = 14', eq: 'x = 14' },
         { action: 'עונים על השאלה: כמה לשניהם יחד?', why: 'לרינה $14$, ולדני $2 \\cdot 14 = 28$.', result: '14 + 28 = 42', value: '14 + 28' },
-        { action: 'בודקים בסיפור.', why: 'אחרי הנתינה: לדני $28 - 7 = 21$, ולרינה $14 + 7 = 21$. שווים.', result: '28 - 7 = 21', calc: { expr: '28 - 7', value: 21 } },
+        { action: 'בודקים בסיפור.', why: 'אחרי הנתינה: לדני $28 - 7 = 21$, ולרינה $14 + 7 = 21$. שווים.', result: '28 - 7 = 21', calc: { expr: '28 - 7', value: 21 }, fig: { type: 'table', head: ['', 'בהתחלה', 'אחרי הנתינה'], rows: [['רינה', 14, 21], ['דני', 28, 21]] } },
       ] },
     { problem: 'דן מבוגר מיואב ב־$6$ שנים. לפני $4$ שנים, הגיל של דן היה פי $2$ מהגיל של יואב. בן כמה יואב היום?', answer: 10, check: '16 - 6',
       steps: [
         { action: 'נעלם: $x$ הגיל של יואב היום.', why: 'דן מבוגר ב־$6$: $x + 6$.', result: 'x,\\quad x + 6' },
-        { action: 'לפני $4$ שנים כל אחד היה צעיר ב־$4$.', why: 'יואב: $x - 4$. דן: $x + 6 - 4 = x + 2$.', result: 'x - 4,\\quad x + 2' },
+        { action: 'לפני $4$ שנים כל אחד היה צעיר ב־$4$.', why: 'יואב: $x - 4$. דן: $x + 6 - 4 = x + 2$.', result: 'x - 4,\\quad x + 2', fig: { type: 'table', head: ['', 'היום', 'לפני 4 שנים'], rows: [['יואב', 'x', 'x − 4'], ['דן', 'x + 6', 'x + 2']] } },
         { action: 'בונים משוואה.', why: 'אז הגיל של דן היה פי $2$ מהגיל של יואב.', result: 'x + 2 = 2(x - 4)', eq: 'x + 2 = 2*(x - 4)' },
         { action: 'פותחים סוגריים.', why: '$2$ כופל גם את $x$ וגם את $-4$.', result: 'x + 2 = 2x - 8', eq: 'x + 2 = 2*x - 8' },
         { action: 'מחסירים $x$ משני האגפים.', mark: '-x', why: 'ב־$2x$ יש יותר $x$־ים, ולכן הם נשארים באגף ימין.', result: '2 = x - 8', eq: '2 = x - 8' },
         { action: 'מוסיפים $8$ לשני האגפים.', mark: '+8', why: 'כך $x$ לבד באגף ימין.', result: '10 = x', eq: '10 = x' },
         { action: 'הופכים צדדים.', why: '$10 = x$ ו־$x = 10$ אומרים אותו דבר. במחברת כותבים: $x = 10$ (הפכנו צדדים).', result: 'x = 10', eq: 'x = 10' },
-        { action: 'בודקים בסיפור.', why: 'היום יואב בן $10$ ודן בן $16$. לפני $4$ שנים: $6$ ו־$12$, ו־$12$ הוא פי $2$ מ־$6$.', result: '12 = 2 \\cdot 6', calc: { expr: '2*6', value: 12 } },
+        { action: 'בודקים בסיפור.', why: 'היום יואב בן $10$ ודן בן $16$. לפני $4$ שנים: $6$ ו־$12$, ו־$12$ הוא פי $2$ מ־$6$.', fig: { type: 'table', head: ['', 'היום', 'לפני 4 שנים'], rows: [['יואב', 10, 6], ['דן', 16, 12]] }, result: '12 = 2 \\cdot 6', calc: { expr: '2*6', value: 12 } },
       ] },
     // CLASSROOM-8: the class's rectangle, in the class's layout (נתון, צ״ל, the asked side boxed, the found lengths
     // written on the drawing at the end)
@@ -923,7 +940,7 @@ const stair5: StairContent = {
       ] },
   ],
   together: [
-    { problem: 'שתי חבילות שוקלות יחד $13.5$ ק״ג. חבילה אחת כבדה פי $2$ מהשנייה.',
+    { problem: 'שתי חבילות שוקלות יחד $13.5$ ק״ג. חבילה אחת כבדה פי $2$ מהשנייה.', fig: { type: 'fbar', rows: [{ den: 2, shaded: 1, label: 'הקלה' }, { den: 2, shaded: 2, label: 'הכבדה' }] },
       steps: [
         { prompt: 'אם החבילה הקלה שוקלת $x$, כמה שוקלת הכבדה?', choices: [
           { text: '$2x$', ok: true, feedback: 'נכון: פי $2$ הוא כפול $2$.' },
@@ -937,7 +954,7 @@ const stair5: StairContent = {
         ], hints: ['מה הסיפור אומר על שתי החבילות יחד?', 'הקלה ועוד הכבדה: $x + 2x$.'], done: '$3x = 13.5$' },
       ],
       final: { prompt: 'כמה שוקלת החבילה הקלה, בק״ג?', answer: 4.5, check: '13.5 / 3', hints: ['מחלקים את $13.5$ ב־$3$.', '$12 : 3 = 4$, ו־$1.5 : 3 = 0.5$.'] } },
-    { problem: 'במשולש ישר־זווית, זווית חדה אחת גדולה מהשנייה ב־$20^\\circ$.',
+    { problem: 'במשולש ישר־זווית, זווית חדה אחת גדולה מהשנייה ב־$20^\\circ$.', fig: RIGHT_X,
       steps: [
         { prompt: 'מה הסכום של שתי הזוויות החדות?', choices: [
           { text: '$90^\\circ$', ok: true, feedback: 'נכון: $180^\\circ$ פחות הזווית הישרה.' },
@@ -1072,6 +1089,16 @@ const CATCH: FigSpec = {
 };
 /** There at 4 and back at 6, 12 km each way. */
 const TRIP_TABLE: FigSpec = { type: 'table', head: MOTION_HEAD, rows: [['הלוך', 4, 3, 12], ['חזור', 6, 2, 12]] };
+/** The worked example's two cars, 360 km apart at 70 and 50 km/h: they meet after 3 hours, 210 km from the first city. */
+const MEET_360: FigSpec = {
+  type: 'sgraph', x: { max: 4, step: 1, label: 'זמן', unit: 'שעות' }, y: { max: 360, step: 30, every: 2, label: 'מרחק מהעיר הראשונה', unit: 'ק״מ' },
+  series: [{ pts: [[0, 0], [3, 210]], label: 'הראשונה' }, { pts: [[0, 360], [3, 210]], label: 'השנייה', dashed: true }], meet: true,
+};
+/** The worked example's cyclist at 20 km/h and the car at 80 km/h 3 hours later: it catches up at hour 4, 80 km out. */
+const CATCH_80: FigSpec = {
+  type: 'sgraph', x: { max: 5, step: 1, label: 'זמן מיציאת הרוכב', unit: 'שעות' }, y: { max: 100, step: 10, every: 2, label: 'מרחק מנקודת היציאה', unit: 'ק״מ' },
+  series: [{ pts: [[0, 0], [5, 100]], label: 'רוכב' }, { pts: [[3, 0], [4, 80]], label: 'מכונית', dashed: true }], meet: true,
+};
 
 /** 40 minutes at 60 km/h (discover step 2, and the remedies of the two minutes mistakes). */
 const minutesStep = {
@@ -1141,29 +1168,30 @@ const stair6: StairContent = {
   examples: [
     { problem: 'שתי מכוניות יוצאות באותו רגע משתי ערים במרחק $360$ ק״מ, זו לקראת זו, ב־$70$ וב־$50$ קמ״ש. כעבור כמה שעות ייפגשו?', answer: 3, check: '360/(70+50)',
       steps: [
-        { action: 'טבלה: הזמן של שתיהן $x$, הדרכים $70x$ ו־$50x$.', why: 'יחד הן עוברות את כל המרחק בין הערים.', result: '70x + 50x = 360', eq: '70*x + 50*x = 360' },
+        { action: 'טבלה: הזמן של שתיהן $x$, הדרכים $70x$ ו־$50x$.', why: 'יחד הן עוברות את כל המרחק בין הערים.', result: '70x + 50x = 360', eq: '70*x + 50*x = 360', fig: { type: 'table', head: MOTION_HEAD, rows: [['הראשונה', 70, 'x', '70x'], ['השנייה', 50, 'x', '50x']] } },
         { action: 'מכנסים.', why: 'בכל שעה הן מתקרבות $70 + 50 = 120$ ק״מ.', result: '120x = 360', eq: '120*x = 360', calc: { expr: '70+50', value: 120 } },
         { action: 'מחלקים ב־$120$.', mark: ':120', why: 'כך נשאר $x$ לבד.', result: 'x = 3', value: '360/120' },
-        { action: 'בודקים.', why: 'בשלוש שעות הראשונה עוברת $70 \\cdot 3 = 210$ ק״מ, והשנייה $50 \\cdot 3 = 150$. יחד $360$, כל המרחק.', result: '210 + 150 = 360', calc: { expr: '70*3 + 50*3', value: 360 } },
+        { action: 'בודקים.', why: 'בשלוש שעות הראשונה עוברת $70 \\cdot 3 = 210$ ק״מ, והשנייה $50 \\cdot 3 = 150$. יחד $360$, כל המרחק.', fig: MEET_360, result: '210 + 150 = 360', calc: { expr: '70*3 + 50*3', value: 360 } },
       ] },
     { problem: 'רוכב אופניים יצא ב־$20$ קמ״ש. כעבור $3$ שעות יצאה אחריו מכונית ב־$80$ קמ״ש. כעבור כמה שעות מיציאתה תשיג אותו?', answer: 1, check: '20*3/(80-20)',
       steps: [
         { action: 'הזמן של המכונית $x$, של הרוכב $x + 3$; הדרכים שוות.', why: 'הרוכב יצא $3$ שעות קודם, וכשהמכונית משיגה אותו שניהם באותו מקום.', result: '80x = 20(x + 3)', eq: '80*x = 20*(x + 3)' },
-        { action: 'פותחים סוגריים.', why: '$20$ כופל גם את $x$ וגם את $3$.', result: '80x = 20x + 60', eq: '80*x = 20*x + 60' },
+        { action: 'פותחים סוגריים.', why: '$20$ כופל גם את $x$ וגם את $3$.', result: '80x = 20x + 60', eq: '80*x = 20*x + 60', fig: { type: 'table', head: MOTION_HEAD, rows: [['רוכב', 20, 'x + 3', '20(x + 3)'], ['מכונית', 80, 'x', '80x']] } },
         { action: 'מחסירים $20x$.', mark: '-20x', why: 'בכל שעה המכונית סוגרת $80 - 20 = 60$ ק״מ מהפער.', result: '60x = 60', eq: '60*x = 60', calc: { expr: '80-20', value: 60 } },
         { action: 'מחלקים ב־$60$.', mark: ':60', why: 'הפער של $60$ ק״מ נסגר ב־$60$ קמ״ש.', result: 'x = 1', value: '60/60' },
-        { action: 'עונים על השאלה: מיציאת המכונית.', why: '$x$ הוא הזמן של המכונית: שעה אחת. הרוכב נסע עד אז $1 + 3 = 4$ שעות, ושניהם עברו $80$ ק״מ.', result: '20 \\cdot 4 = 80 \\cdot 1', calc: { expr: '20*4', value: 80 } },
+        { fig: CATCH_80, action: 'עונים על השאלה: מיציאת המכונית.', why: '$x$ הוא הזמן של המכונית: שעה אחת. הרוכב נסע עד אז $1 + 3 = 4$ שעות, ושניהם עברו $80$ ק״מ.', result: '20 \\cdot 4 = 80 \\cdot 1', calc: { expr: '20*4', value: 80 } },
       ] },
     { problem: 'הלכו ב־$4$ קמ״ש וחזרו באותה דרך ב־$6$ קמ״ש, ובסך הכול $5$ שעות. מה אורך הדרך?', answer: 12, check: '5*4*6/(4+6)',
       steps: [
-        { action: 'הדרך $x$; זמן הלוך $\\frac{x}{4}$, זמן חזור $\\frac{x}{6}$.', why: 'זמן = דרך : מהירות, ויחד $5$ שעות.', result: '\\frac{x}{4} + \\frac{x}{6} = 5', eq: 'x/4 + x/6 = 5' },
+        { action: 'הדרך $x$; זמן הלוך $\\frac{x}{4}$, זמן חזור $\\frac{x}{6}$.', why: 'זמן = דרך : מהירות, ויחד $5$ שעות.', result: '\\frac{x}{4} + \\frac{x}{6} = 5', eq: 'x/4 + x/6 = 5', fig: { type: 'table', head: MOTION_HEAD, rows: [['הלוך', 4, 'x : 4', 'x'], ['חזור', 6, 'x : 6', 'x']] } },
         { action: 'כופלים ב־$12$.', mark: '\\cdot 12', why: '$12$ מתחלק גם ב־$4$ וגם ב־$6$, וכל איבר נכפל, גם ה־$5$.', result: '3x + 2x = 60', eq: '3*x + 2*x = 60' },
         { action: 'מכנסים ומחלקים ב־$5$.', mark: ':5', why: '$3x + 2x = 5x$.', result: 'x = 12', value: '60/5', calc: { expr: '3+2', value: 5 } },
-        { action: 'בודקים.', why: 'הלוך $12 : 4 = 3$ שעות, חזור $12 : 6 = 2$ שעות, ויחד $5$.', result: '3 + 2 = 5', calc: { expr: '12/4 + 12/6', value: 5 } },
+        { action: 'בודקים.', why: 'הלוך $12 : 4 = 3$ שעות, חזור $12 : 6 = 2$ שעות, ויחד $5$.', result: '3 + 2 = 5', calc: { expr: '12/4 + 12/6', value: 5 }, fig: TRIP_TABLE },
       ] },
   ],
   together: [
     { problem: 'שני רוכבי אופניים יוצאים זה לקראת זה משני כפרים במרחק $54$ ק״מ, ב־$10$ וב־$8$ קמ״ש. כעבור כמה שעות ייפגשו?',
+      fig: { type: 'table', head: MOTION_HEAD, rows: [['הראשון', 10, 'x', '10x'], ['השני', 8, 'x', '8x']] },
       steps: [
         { prompt: 'בכמה ק״מ הם מתקרבים בכל שעה?', choices: [
           { text: '$18$', ok: true, feedback: 'נכון: כל אחד סוגר חלק מהמרחק, $10 + 8 = 18$ ק״מ בשעה.' },
@@ -1173,6 +1201,7 @@ const stair6: StairContent = {
       ],
       final: { prompt: 'כעבור כמה שעות ייפגשו?', answer: 3, check: '54/(10+8)', hints: ['כמה פעמים $18$ ק״מ נכנסים ב־$54$ ק״מ?', '$54 : 18$.'] } },
     { problem: 'אוטובוס יצא ב־$60$ קמ״ש. כעבור שעה יצאה אחריו מכונית ב־$90$ קמ״ש. כעבור כמה שעות מיציאתה תשיג אותו?',
+      fig: { type: 'table', head: MOTION_HEAD, rows: [['אוטובוס', 60, '?', '?'], ['מכונית', 90, 'x', '90x']] },
       steps: [
         { prompt: 'הזמן של המכונית $x$ שעות. כמה שעות נסע האוטובוס עד שהמכונית השיגה אותו?', choices: [
           { text: '$x + 1$', ok: true, feedback: 'נכון: הוא יצא שעה לפני המכונית.' },
@@ -1342,7 +1371,7 @@ const stair7: StairContent = {
   examples: [
     { problem: 'פתרו את המשוואה.', display: '\\frac{x}{4} + \\frac{x}{6} = 5', answer: 12, check: '5*12/5',
       steps: [
-        { action: 'המכנה המשותף של $4$ ו־$6$: $12$.', why: '$12$ מתחלק גם ב־$4$ וגם ב־$6$, והוא הקטן ביותר כזה.', result: '\\frac{x}{4} + \\frac{x}{6} = 5', eq: 'x/4 + x/6 = 5' },
+        { action: 'המכנה המשותף של $4$ ו־$6$: $12$.', why: '$12$ מתחלק גם ב־$4$ וגם ב־$6$, והוא הקטן ביותר כזה.', result: '\\frac{x}{4} + \\frac{x}{6} = 5', eq: 'x/4 + x/6 = 5', fig: xBars(12, [[3, '\\frac{x}{4}'], [2, '\\frac{x}{6}']]) },
         { action: 'כופלים כל איבר ב־$12$.', mark: '\\cdot 12', why: '$\\frac{x}{4}$ כפול $12$ הוא $3x$, ו־$\\frac{x}{6}$ כפול $12$ הוא $2x$. גם $5$ נכפל: $60$.', result: '3x + 2x = 60', eq: '3*x + 2*x = 60' },
         { action: 'מכנסים.', why: '$3x + 2x = 5x$.', result: '5x = 60', eq: '5*x = 60' },
         { action: 'מחלקים ב־$5$.', mark: ':5', why: 'כך נשאר $x$ לבד.', result: 'x = 12', value: '60/5' },
@@ -1354,14 +1383,14 @@ const stair7: StairContent = {
         { action: 'פותחים סוגריים.', why: 'המספר שלפני הסוגריים כופל כל איבר בתוכם.', result: '5x - 10 = 3x + 12', eq: '5*x - 10 = 3*x + 12' },
         { action: 'מחסירים $3x$ ומוסיפים $10$ לשני האגפים.', why: 'כך $x$ נשאר רק באגף אחד.', result: '2x = 22', eq: '2*x = 22' },
         { action: 'מחלקים ב־$2$.', mark: ':2', why: '$22 : 2 = 11$.', result: 'x = 11', value: '22/2' },
-        { action: 'בודקים בשורה שאחרי הכפל.', why: '$5 \\cdot 11 - 10 = 45$, וגם $3 \\cdot 11 + 12 = 45$.', result: '45 = 45', calc: { expr: '5*11 - 10', value: 45 } },
+        { action: 'בודקים בשורה שאחרי הכפל.', why: '$5 \\cdot 11 - 10 = 45$, וגם $3 \\cdot 11 + 12 = 45$.', result: '45 = 45', calc: { expr: '5*11 - 10', value: 45 }, fig: sides('5x \u2212 10', '3x + 12', [11], (x) => [5 * x - 10, 3 * x + 12]) },
         { action: 'ובמשוואה המקורית.', why: '$\\frac{9}{3} = 3$ ו־$\\frac{15}{5} = 3$: שני האגפים שווים.', result: '3 = 3', calc: { expr: '(11+4)/5', value: 3 } },
       ] },
     { problem: 'פתרו את המשוואה.', display: '\\frac{18}{x} = \\frac{3}{4}', answer: 24, check: '18*4/3',
       steps: [
         { action: 'כופלים את שני האגפים ב־$4x$.', why: '$\\frac{18}{x}$ כפול $4x$ הוא $18 \\cdot 4 = 72$, ו־$\\frac{3}{4}$ כפול $4x$ הוא $3x$.', result: '72 = 3x', eq: '72 = 3*x', calc: { expr: '18*4', value: 72 } },
         { action: 'מחלקים ב־$3$.', mark: ':3', why: '$72 : 3 = 24$.', result: 'x = 24', value: '72/3' },
-        { action: 'בודקים.', why: '$\\frac{18}{24}$ מצטמצם ב־$6$ ל־$\\frac{3}{4}$.', result: '\\frac{18}{24} = \\frac{3}{4}', calc: { expr: '18/24', value: 0.75 } },
+        { action: 'בודקים.', why: '$\\frac{18}{24}$ מצטמצם ב־$6$ ל־$\\frac{3}{4}$.', result: '\\frac{18}{24} = \\frac{3}{4}', calc: { expr: '18/24', value: 0.75 }, fig: { type: 'fbar', rows: [{ den: 24, shaded: 18, label: '\\frac{18}{24}' }, { den: 4, shaded: 3, label: '\\frac{3}{4}' }] } },
       ] },
   ],
   together: [
@@ -1371,7 +1400,7 @@ const stair7: StairContent = {
           { text: '$15$', ok: true, feedback: 'נכון: $15$ מתחלק גם ב־$3$ וגם ב־$5$.' },
           { text: '$8$', ok: false, feedback: '$8$ הוא סכום המכנים. צריך מספר שמתחלק בשניהם.' },
           { text: '$2$', ok: false, feedback: '$2$ הוא ההפרש. כפל ב־$2$ לא מבטל את המכנים $3$ ו־$5$.' },
-        ], hints: ['איזה מספר מתחלק גם ב־$3$ וגם ב־$5$?', 'הכפולות של $5$: $5$, $10$, $15$. איזו מהן מתחלקת ב־$3$?'], done: 'כופלים ב־$15$: $5x - 3x = 60$.' },
+        ], hints: ['איזה מספר מתחלק גם ב־$3$ וגם ב־$5$?', 'הכפולות של $5$: $5$, $10$, $15$. איזו מהן מתחלקת ב־$3$?'], done: 'כופלים ב־$15$: $5x - 3x = 60$.', fig: xBars(15, [[5, '\\frac{x}{3}'], [3, '\\frac{x}{5}']]) },
       ],
       final: { prompt: 'מה $x$?', answer: 30, check: '4*15/2', hints: ['$5x - 3x = 2x$.', '$2x = 60$.'] } },
     { problem: 'פתרו את המשוואה.', display: '\\frac{x + 2}{4} = \\frac{x - 1}{3}',
@@ -1383,7 +1412,7 @@ const stair7: StairContent = {
         ], hints: ['$12 : 4 = 3$ ו־$12 : 3 = 4$. במה נכפל כל שבר?', 'כל מונה נכפל כולו, כמו סוגריים.'], done: '$3(x + 2) = 4(x - 1)$, כלומר $3x + 6 = 4x - 4$.' },
       ],
       final: { prompt: 'מה $x$?', answer: 10, check: '6+4', hints: ['מחסירים $3x$ ומוסיפים $4$ לשני האגפים.', '$6 + 4 = x$.'] } },
-    { problem: 'פתרו את המשוואה.', display: 'x + \\frac{x}{3} = 8',
+    { problem: 'פתרו את המשוואה.', display: 'x + \\frac{x}{3} = 8', fig: xBars(3, [[3, 'x'], [1, '\\frac{x}{3}']]),
       steps: [
         { prompt: 'כופלים את שני האגפים ב־$3$. מה מקבלים?', choices: [
           { text: '$3x + x = 24$', ok: true, feedback: 'נכון: כל איבר נכפל ב־$3$.' },

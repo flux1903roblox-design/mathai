@@ -36,6 +36,13 @@ const powModel: DiagModel<P7> = {
   fmt: (p) => (p.f === 5 && p.k === 1 ? 'dec' : undefined),
 };
 
+/**
+ * A power and its opposite as arrows from 0 (stair 1's arrows, SK-STUDENT-1): the same distance, the two sides of zero.
+ * `plus` and `minus` are the arrows' labels, the expressions the step speaks of.
+ */
+const mirror = (v: number, plus: string, minus: string): FigSpec =>
+  ({ type: 'numline', from: -30, to: 30, step: 5, marks: [{ x: -v, label: `\u2212${v}` }, { x: v, label: `${v}` }], jumps: [{ from: 0, to: v, label: plus }, { from: 0, to: -v, label: minus }] });
+
 /** A game: 1 on the board, multiplied by −a on every turn, n turns. Repeated multiplying is a power: (−a)ⁿ. */
 const gameModel: DiagModel<P7> = {
   params: (rnd) => G.drawPow(rnd, 0),
@@ -135,18 +142,18 @@ const stair7: StairContent = {
     { problem: 'חשבו:', display: '-(-5)^2', answer: -25, check: '-(-5)^2',
       steps: [
         { action: 'קודם החזקה: $(-5)^2 = +25$.', why: 'הסוגריים צמודים למעריך, ולכן $-5$ כולו מוכפל בעצמו: $(-5)(-5) = +25$. המינוס שלפני הסוגריים מחכה.', result: '-(+25)', value: '-(+25)', calc: { expr: '(-5)^2', value: 25 } },
-        { action: 'ואז המינוס שבחוץ: הנגדי של $25$.', why: 'המינוס שלפני הסוגריים לא שייך לחזקה. הוא הופך את התוצאה לנגדית.', result: '-(+25) = -25', value: '-25' },
+        { action: 'ואז המינוס שבחוץ: הנגדי של $25$.', why: 'המינוס שלפני הסוגריים לא שייך לחזקה. הוא הופך את התוצאה לנגדית.', result: '-(+25) = -25', value: '-25', fig: mirror(25, '(\u22125)²', '\u2212(\u22125)²') },
       ] },
     { problem: 'חשבו:', display: '-(-5^2)', answer: 25, check: '-(-5^2)',
       steps: [
         { action: 'קודם החזקה: $5^2 = 25$.', why: 'בתוך הסוגריים המעריך צמוד רק ל־$5$, ולכן $-5^2 = (-5 \\cdot 5) = -25$.', result: '-(-25)', value: '-(-25)', calc: { expr: '5^2', value: 25 } },
-        { action: 'אחר כך המינוס שבפנים, ובסוף המינוס שבחוץ.', why: 'קודם החזקה, אחר כך המינוס שבפנים, ובסוף המינוס שבחוץ: הנגדי של $-25$ הוא $25$.', result: '-(-25) = +25 = 25', value: '25' },
+        { action: 'אחר כך המינוס שבפנים, ובסוף המינוס שבחוץ.', why: 'קודם החזקה, אחר כך המינוס שבפנים, ובסוף המינוס שבחוץ: הנגדי של $-25$ הוא $25$.', result: '-(-25) = +25 = 25', value: '25', fig: mirror(25, '\u2212(\u22125²)', '\u22125²') },
       ] },
     { problem: 'חשבו:', display: '9 - 2 \\cdot (-3)^3', answer: 63, check: '9 - 2*(-3)^3',
       steps: [
         { action: 'קודם החזקה: $(-3)^3 = -27$.', why: 'חזקה באה לפני כפל וחיסור: $(-3)(-3)(-3) = -27$. מעריך אי־זוגי, ולכן נשאר מינוס.', result: '9 - 2 \\cdot (-27)', value: '9 - 2*(-27)', calc: { expr: '(-3)^3', value: -27 } },
         { action: 'אחר כך הכפל: $2 \\cdot (-27) = -54$.', why: 'כפל לפני חיסור. סימנים שונים, ולכן התוצאה שלילית.', result: '9 - (-54)', value: '9 - (-54)', calc: { expr: '2*(-27)', value: -54 } },
-        { action: 'ובסוף החיסור: חיסור של מספר שלילי הוא חיבור.', why: '$9 - (-54) = 9 + 54$. מי שמחסר קודם $9 - 2$ מקבל $7 \\cdot (-27) = -189$, וזה סדר אחר.', result: '9 + 54 = 63', value: '9 + 54' },
+        { action: 'ובסוף החיסור: חיסור של מספר שלילי הוא חיבור.', why: '$9 - (-54) = 9 + 54$. מי שמחסר קודם $9 - 2$ מקבל $7 \\cdot (-27) = -189$, וזה סדר אחר.', result: '9 + 54 = 63', value: '9 + 54', fig: { type: 'numline', from: 0, to: 72, step: 9, marks: [{ x: 9, label: '9' }], jumps: [{ from: 9, to: 63, label: '\u2212(\u221254)' }] } },
       ] },
   ],
   together: [

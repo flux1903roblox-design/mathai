@@ -77,6 +77,13 @@ export function togetherAsk(problem, k, { tried = [], finalMiss = 0, missIds = [
 }
 
 /**
+ * The drawing on screen at step k (k steps solved): the problem's, or the latest one a solved step brings with what it
+ * found (as a worked example's step does, CLASSROOM-8), never a step's own before it is solved, and never the last step's
+ * answer (learn/figures.test.ts).
+ */
+export const figAt = (problem, k) => problem.steps.slice(0, k).reduce((cur, st) => st.fig || cur, problem.fig);
+
+/**
  * onAttempt(ok, cands): each move, for the learning record (all moves here count as learning with help); cands are the
  * misconceptions a wrong last step fits. diagnose(u) gives those ids; names maps an id to its words. onTutor({ item,
  * wrong }): what מדי is told about the move on screen (togetherAsk), each time it changes.
@@ -151,16 +158,17 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
   const done = stepOk || solved || giveUp;
   const canCheck = onFinal ? readNumCandidates(typed).length > 0 && typed !== wrongVal && typed !== piVal : sel != null;
   const moves = problem.steps.length + 1;
+  const fig = figAt(problem, k);
   const bar = <Segments steps={moves} done={solved ? moves : k + (stepOk ? 1 : 0)} current={k} size="thin" label={`פותרים יחד ${n} מתוך ${of}`} valueText={`צעד ${Math.min(k + 1, moves)} מתוך ${moves}`} />;
   return (
     <div className="together lm">
       {renderHead ? renderHead(bar) : <div className="lm-progress">{bar}</div>}
       <section className="lm-card" data-region="content">
       <Prompt tag={`פותרים יחד ${n} מתוך ${of}`}><p><MathText text={problem.problem} /></p></Prompt>
-      {(problem.display || problem.fig || built.length > 0) && (
+      {(problem.display || fig || built.length > 0) && (
         <div className="lm-canvas big" data-region="visual">
           {problem.display && <FitDisplay className="lm-expr" tex={problem.display} />}
-          {problem.fig && <div className="lm-fig"><Figure fig={problem.fig} /></div>}
+          {fig && <div className="lm-fig"><Figure fig={fig} /></div>}
           {built.length > 0 && (
             <ol className="tg-built" aria-label="מה עשינו עד עכשיו">
               {built.map((b, i) => <li key={i}><Check size={16} aria-hidden="true" /> <MathText text={b} /></li>)}

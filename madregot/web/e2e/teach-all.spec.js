@@ -182,8 +182,10 @@ test.describe('every teaching step shows its drawing on a small phone', () => {
 // smallest phone, every angles and Pythagoras problem shows its drawing, and the way on stays in view under it (a worked
 // example's first button, the first choice of solving together); in the plane, lines, statistics and fractions at least
 // the share learn/visuals.test.ts asks for shows one. Each problem is opened in its place (the place a stage keeps).
-const ALL_DRAWN = ['angles', 'pyth'];
-const SOME_DRAWN = { coord: 0.6, line: 0.5, stats: 0.5, frac: 0.4 };
+const ALL_DRAWN = ['angles', 'pyth', 'pct'];
+// the student council's round 3: the signed numbers, the expressions, the equations and systems draw too. Counted as
+// the problem opens (a worked example's later steps and a step solved together bring more once shown)
+const SOME_DRAWN = { coord: 0.6, line: 0.5, stats: 0.5, frac: 0.4, signed: 0.4, expr: 0.45, eq: 0.5, sys: 0.55 };
 const SHOTS_BC = process.env.FIGURE_SHOTS;
 test.describe('worked examples and solving together show their drawings on a small phone (SK-STUDENT-1)', () => {
   test.use({ viewport: { width: 320, height: 568 } });
