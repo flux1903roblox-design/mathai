@@ -37,7 +37,7 @@ export const leave = (duration = DUR.quick, delay = 0) => ({ duration, delay, ea
  * in half that, so the next exercise is whole on screen sooner (ux-motion 18 and 20: the most-used move is the quickest).
  */
 export const swap = (dx = 28, inS = 0.2) => ({
-  initial: { opacity: 0, x: -dx },
+  initial: entrance({ opacity: 0, x: -dx }),
   animate: { opacity: 1, x: 0, transition: enter(inS) },
   exit: { opacity: 0, x: dx, transition: leave(inS / 2) },
 });

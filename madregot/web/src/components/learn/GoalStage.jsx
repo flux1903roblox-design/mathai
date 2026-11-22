@@ -8,7 +8,7 @@ import { m, useReducedMotion } from 'motion/react';
 import Mascot from '@/components/Mascot.jsx';
 import { Button } from '@/components/ui.jsx';
 import { useApp, today } from '@/lib/store.js';
-import { DUR, EASE, enter } from '@/lib/motion.js';
+import { DUR, EASE, enter, entrance } from '@/lib/motion.js';
 import { play, haptic } from '@/lib/sound.js';
 import Celebrate from './Celebrate.jsx';
 import XpCount from './XpCount.jsx';
@@ -28,14 +28,14 @@ export default function GoalStage({ onNext, label = 'המשך' }) {
           <svg viewBox="0 0 200 200" aria-hidden="true" focusable="false">
             <circle className="goal-track" cx="100" cy="100" r="90" />
             <m.circle className="goal-arc" cx="100" cy="100" r="90" transform="rotate(-90 100 100)"
-              initial={{ pathLength: reduce ? 1 : 0 }} animate={{ pathLength: 1 }}
+              initial={entrance({ pathLength: reduce ? 1 : 0 })} animate={{ pathLength: 1 }}
               transition={reduce ? { duration: 0 } : { duration: DUR.verySlow, ease: EASE.out, delay: 0.15 }} />
           </svg>
           {/* the shapes fly as the ring closes (0.15 s + its draw) */}
           <Celebrate tone="gold" rays={false} delay={0.05} burstAt={0.15 + DUR.verySlow}><Mascot mood="achievement" size={150} className="goal-madi" /></Celebrate>
         </div>
       </div>
-      <m.div className="done-copy" variants={stagger} initial="hidden" animate="show">
+      <m.div className="done-copy" variants={stagger} initial={entrance('hidden')} animate="show">
         <m.h1 variants={rise} className="done-title" id="goal-title">הגעתם ליעד היומי!</m.h1>
         <m.p variants={rise} className="goal-sub" id="goal-sub">
           <b className="goal-xp"><bdi dir="ltr"><XpCount value={todayXp} delay={0.35} plus={false} unit={false} /> XP</bdi></b> היום. מחר מתחילים יעד חדש.

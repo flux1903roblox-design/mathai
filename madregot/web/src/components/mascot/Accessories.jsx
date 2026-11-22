@@ -9,7 +9,7 @@
 // and a sparkle, once; under reduced motion it is simply there.
 import { m, useReducedMotion } from 'motion/react';
 import { ITEMS, itemOf } from '@/lib/wardrobe.js';
-import { SPRING } from '@/lib/motion.js';
+import { SPRING, entrance } from '@/lib/motion.js';
 
 const F = (v) => ({ fill: v });
 const S = (v) => ({ stroke: v });
@@ -383,12 +383,12 @@ function Arrive({ id, classColor }) {
   if (reduce) return <Item id={id} classColor={classColor} />;
   return (
     <>
-      <m.g data-reveal={id} initial={{ y: -46, opacity: 0, scale: 1.25 }} animate={{ y: 0, opacity: 1, scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.45 }} style={{ originX: 0.5, originY: 0.5 }}>
+      <m.g data-reveal={id} initial={entrance({ y: -46, opacity: 0, scale: 1.25 })} animate={{ y: 0, opacity: 1, scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.45 }} style={{ originX: 0.5, originY: 0.5 }}>
         <Item id={id} classColor={classColor} />
       </m.g>
       <g style={F(GOLD)}>
         {SPARKS.map(([dx, dy], i) => (
-          <m.path key={i} d={SPARK} initial={{ x: AT[slot][0] + dx, y: AT[slot][1] + dy, scale: 0, opacity: 0 }} animate={{ scale: [0, 1.3, 0], opacity: [0, 1, 0] }} transition={{ duration: 0.9, delay: 0.85 + i * 0.12, ease: 'easeOut' }} />
+          <m.path key={i} d={SPARK} initial={entrance({ x: AT[slot][0] + dx, y: AT[slot][1] + dy, scale: 0, opacity: 0 })} animate={{ scale: [0, 1.3, 0], opacity: [0, 1, 0] }} transition={{ duration: 0.9, delay: 0.85 + i * 0.12, ease: 'easeOut' }} />
         ))}
       </g>
     </>

@@ -11,7 +11,7 @@ import { Tex, MathText, FitDisplay } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
-import { enter, leave } from '@/lib/motion.js';
+import { enter, leave, entrance } from '@/lib/motion.js';
 import { T, plainNum, opMark } from '@/content/util.js';
 import Figure from '@/components/Figure.jsx';
 
@@ -38,7 +38,7 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = '×”×
       <ol className="worked-steps" aria-live="polite">
         <AnimatePresence initial={false}>
           {example.steps.slice(0, shown).map((s, i) => (
-            <m.li key={i} className="worked-step" style={{ '--i': i }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6, transition: leave(0.11) }} transition={enter(0.22)}>
+            <m.li key={i} className="worked-step" style={{ '--i': i }} initial={entrance({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6, transition: leave(0.11) }} transition={enter(0.22)}>
               <span className="stair-n" aria-hidden="true">{i + 1}</span>
               <div className="worked-body">
                 <p className="worked-action"><MathText text={s.action} /></p>

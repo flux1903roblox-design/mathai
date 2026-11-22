@@ -17,7 +17,7 @@ import { Button } from '@/components/ui.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { STAGE_NAME, STAGE_MIN, STAGE_N } from '@/learn/recommend.ts';
 import { STAIR_STAGES } from '@/lib/path.js';
-import { DUR, enter } from '@/lib/motion.js';
+import { DUR, enter, entrance } from '@/lib/motion.js';
 import { play, haptic } from '@/lib/sound.js';
 import { useApp } from '@/lib/store.js';
 import { streakMilestone } from '@/lib/streak.js';
@@ -77,7 +77,7 @@ function StageMoment({ stage, stair, award, steps, onNext, onMap, gift }) {
       <div className="done-hero stage-done-hero">
         <Celebrate tone="brand"><Mascot mood="excited" size={112} className="done-madi" /></Celebrate>
       </div>
-      <m.div className="done-copy" variants={stagger} initial="hidden" animate="show">
+      <m.div className="done-copy" variants={stagger} initial={entrance('hidden')} animate="show">
         <m.div variants={rise} className="stage-done-head">
           <h1 ref={ref} tabIndex={-1} className="done-title stage-done-title">שלב {STAGE_N[stage]} הושלם!</h1>
           <p className="stage-done-label">{STAGE_NAME[stage]} · {stair}</p>

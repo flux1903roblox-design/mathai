@@ -7,7 +7,7 @@
 // title says what happened). Loaded with those screens, never with the first load.
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
-import { SPRING } from '@/lib/motion.js';
+import { SPRING, entrance } from '@/lib/motion.js';
 import '@/styles/lazy/celebrate.css';
 
 // the pieces that fly out: an angle (0 is up, clockwise), how far, a shape, a colour and a small extra delay
@@ -35,7 +35,7 @@ export default function Celebrate({ tone = 'brand', rays = true, burst = true, d
             const x = Math.sin(rad(a)) * d; const y = -Math.cos(rad(a)) * d;
             return (
               <m.i key={i} className={`cb cb-${shape} cb-${c}`}
-                initial={{ x: 0, y: 0, scale: 0.2, opacity: 0, rotate: 0 }}
+                initial={entrance({ x: 0, y: 0, scale: 0.2, opacity: 0, rotate: 0 })}
                 animate={{ x: [0, x, x * 1.08], y: [0, y, y + 46], scale: [0.2, 1, 0.7], opacity: [0, 1, 0], rotate: [0, a > 0 ? 160 : -160, a > 0 ? 220 : -220] }}
                 transition={{ duration: 1.5, delay: fly + extra, times: [0, 0.32, 1], ease: 'easeOut' }} />
             );

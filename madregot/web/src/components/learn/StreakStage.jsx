@@ -18,7 +18,7 @@ import { isRestDay, isYomTov } from '@shared/restDays.js';
 import Mascot from '@/components/Mascot.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { Button } from '@/components/ui.jsx';
-import { SPRING } from '@/lib/motion.js';
+import { SPRING, entrance } from '@/lib/motion.js';
 import { play, haptic } from '@/lib/sound.js';
 import Celebrate from './Celebrate.jsx';
 
@@ -44,7 +44,7 @@ export function Week({ days }) {
         // a rest day says which (Shabbat or a holiday); a repaired day says the streak was kept
         const label = { on: 'תרגלתם', frozen: d?.frozen === 'repair' ? 'הרצף נשמר' : 'הקפאת רצף', rest: isYomTov(key) ? 'חג' : 'שבת', off: 'לא תרגלתם' }[state];
         return (
-          <m.li key={key} className={clsx('week-day', state, key === today() && 'today')} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...SPRING.pop, delay: 0.25 + i * 0.05 }}>
+          <m.li key={key} className={clsx('week-day', state, key === today() && 'today')} initial={entrance({ scale: 0.6, opacity: 0 })} animate={{ scale: 1, opacity: 1 }} transition={{ ...SPRING.pop, delay: 0.25 + i * 0.05 }}>
             <span className="week-dot" aria-hidden="true">{state === 'on' ? <Flame size={16} /> : state === 'frozen' ? <Snowflake size={16} /> : state === 'rest' ? <Moon size={14} /> : null}</span>
             <span className="week-name">{DAY[new Date(`${key}T12:00:00`).getDay()]}</span>
             <span className="visually-hidden">{label}</span>
@@ -60,7 +60,7 @@ function MilestoneHero({ n }) {
   return (
     <div className="milestone-hero" aria-hidden="true">
       <Celebrate tone="streak"><Mascot mood="achievement" size={124} /></Celebrate>
-      <m.span className="milestone-medal" initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...SPRING.bounce, delay: 0.45 }}>
+      <m.span className="milestone-medal" initial={entrance({ scale: 0, rotate: -30 })} animate={{ scale: 1, rotate: 0 }} transition={{ ...SPRING.bounce, delay: 0.45 }}>
         <Flame size={22} strokeWidth={2.4} /><b>{n}</b>
       </m.span>
     </div>
@@ -87,7 +87,7 @@ export default function StreakStage({ streak, repaired = false, days, freezes, o
           <div className="streak-hero" aria-hidden="true">
             <Lottie name="flame" loop className="streak-lottie" still="middle" fallback={<span className="streak-big"><Flame size={120} strokeWidth={1.6} /></span>} />
           </div>
-          <m.p className="streak-num" initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.3 }}><NumberFlow value={v} /></m.p>
+          <m.p className="streak-num" initial={entrance({ scale: 0.6 })} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.3 }}><NumberFlow value={v} /></m.p>
         </>
       )}
       <h1 className="done-title" id="streak-title">{streak === 1 ? 'התחלתם רצף!' : `${streak} ימים ברצף!`}</h1>

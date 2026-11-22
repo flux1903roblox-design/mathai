@@ -49,7 +49,7 @@ import { skillId, parseSkill, BRIDGE_SKILLS } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import MissNote, { missNote } from '@/components/lesson/MissNote.jsx';
 // the motion preset `leave` as `exit`: this screen's own leave(to) goes somewhere else (the exit sheet)
-import { DUR, SPRING, enter, leave as exit, swap } from '@/lib/motion.js';
+import { DUR, SPRING, enter, leave as exit, swap, entrance } from '@/lib/motion.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
 import { CHECK_IMAGE_MAX } from '@shared/ai.js';
 import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
@@ -382,9 +382,16 @@ export default function Lesson() {
       return true;
     };
     window.__madregotAsCheck = (on = true) => { setQaCheck(on ? mkey : null); return item?.form === 'manip'; };
+    const solve = window.__madregotSolve;
     const root = document.documentElement;
     try { root.setAttribute('data-qa-item', JSON.stringify(item ?? null)); } catch { /* not serialisable */ }
-    return () => root.removeAttribute('data-qa-item');
+    // cleared when this exercise goes: a lesson that closes leaves no exercise behind, so the next lesson's first one is
+    // never read from the last one's while it loads (the next run of this effect sets them again in the same commit)
+    return () => {
+      root.removeAttribute('data-qa-item');
+      if (window.__madregotItem === item) window.__madregotItem = null;
+      if (window.__madregotSolve === solve) delete window.__madregotSolve;
+    };
   }, [item, mkey]);
 
   // Test hooks for e2e/solutions-fit.spec.js (QA only, as above): every step of the generated solutions of a stair, each
@@ -768,7 +775,7 @@ export default function Lesson() {
         {/* the hint sits above the answer, on the first try and again on the second; the drawing above makes room */}
         <AnimatePresence>
           {s.hint && (s.phase === 'answer' || s.phase === 'retry') && !feedback && (
-            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: exit(DUR.micro) }} transition={enter(DUR.fast)}>
+            <m.div key="hint" className="hint-bar" initial={entrance({ opacity: 0, y: 8 })} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: exit(DUR.micro) }} transition={enter(DUR.fast)}>
               <HintBox text={item.hint} clamp={short} />
             </m.div>
           )}
@@ -785,7 +792,7 @@ export default function Lesson() {
         {last?.swap && <p className="answer-error answer-partial answer-swap" role="status"><MathText text={last.swap} /></p>}
         {feedback ? (
           <m.section className={clsx('fb', `fb-${feedback}`, folded && 'fb-folded')} aria-live="assertive" aria-labelledby="fb-title" data-region="feedback"
-            initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={SPRING.settle}>
+            initial={entrance({ y: 40, opacity: 0 })} animate={{ y: 0, opacity: 1 }} transition={SPRING.settle}>
             <div className="fb-scroll">
               <div className="fb-head">
                 <FeedbackBadge good={feedback === 'good'} />

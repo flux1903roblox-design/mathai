@@ -7,7 +7,7 @@ import { Check, Lightbulb } from 'lucide-react';
 import { Button, Keypad } from '@/components/ui.jsx';
 import { MathText, Tex, mathPlain } from '@/components/MathText.jsx';
 import { ResultWhy } from '@/components/learn/StepPlayer.jsx';
-import { enter } from '@/lib/motion.js';
+import { enter, entrance } from '@/lib/motion.js';
 import { TRIES } from '@/learn/challenges/grade.ts';
 import { PARTIAL } from '@/content/partial.js';
 import { numRight, piNear, PI_AFTER } from '@/content/util.js';
@@ -60,7 +60,7 @@ export function PartFooter({ result, label, onClick, disabled = false }) {
   return (
     <footer className={clsx('lm-actions', 'ch-foot', result && `has-${result.tone}`)} data-region="footer">
       {result && (
-        <m.div key={`${result.tone}-${result.title}`} className="bl-result" role="status" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.2)}>
+        <m.div key={`${result.tone}-${result.title}`} className="bl-result" role="status" initial={entrance({ opacity: 0, y: 12 })} animate={{ opacity: 1, y: 0 }} transition={enter(0.2)}>
           <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true">{result.tone === 'good' ? <Check size={18} strokeWidth={3.4} /> : <Lightbulb size={18} />}</span>{result.title}</p>
           {result.body && <ResultWhy tone={result.tone}>{result.body}</ResultWhy>}
         </m.div>

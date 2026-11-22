@@ -20,7 +20,7 @@ import { exploreCat } from '@/content/explore.js';
 import { diagnosisLine } from '@/content/index.js';
 import { parseSkill } from '@/learn/skills.ts';
 import { qaOn } from '@/lib/qa.js';
-import { enter, swap } from '@/lib/motion.js';
+import { enter, swap, entrance } from '@/lib/motion.js';
 import { play, haptic } from '@/lib/sound.js';
 
 /** The text of a step: plain, first on the screen (מדי speaks in the result sheet, not beside every text). */
@@ -312,7 +312,7 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
       </AnimatePresence>
       <footer ref={footRef} className={clsx('lm-actions', 'sp-nav', result && `has-${result.tone}`)} data-region="footer">
         {result && (
-          <m.div key={`${i}-${result.tone}`} className="bl-result" role="status" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)}>
+          <m.div key={`${i}-${result.tone}`} className="bl-result" role="status" initial={entrance({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)}>
             <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true">{result.tone === 'good' ? <Check size={18} strokeWidth={3.4} /> : <Lightbulb size={18} />}</span>{result.title}</p>
             {/* as in Brilliant: when right, the explanation waits behind "למה?"; when not yet, it is the help itself */}
             {(result.tone !== 'good' || why === i) && <ResultWhy tone={result.tone}>{result.body}</ResultWhy>}

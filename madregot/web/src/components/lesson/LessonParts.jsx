@@ -1,6 +1,6 @@
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import { X, Flame } from 'lucide-react';
-import { SPRING, DUR, EASE, leave } from '@/lib/motion.js';
+import { SPRING, DUR, EASE, leave, entrance } from '@/lib/motion.js';
 
 /** What the bar says aloud: how many exercises are done, and how many of them were right the first time. */
 function stripText(marks, total) {
@@ -21,7 +21,7 @@ export function ComboPop({ n, onClose }) {
     <AnimatePresence>
       {n ? (
         <m.div key="combo" className="combo-pop" role="status" onClick={onClose}
-          initial={{ opacity: 0, scale: 1 }} animate={{ opacity: 1, scale: [1, 1.15, 1] }}
+          initial={entrance({ opacity: 0, scale: 1 })} animate={{ opacity: 1, scale: [1, 1.15, 1] }}
           transition={{ opacity: { duration: DUR.quick, ease: EASE.out }, scale: { duration: 0.3, times: [0, 0.4, 1], ease: EASE.out } }}
           exit={reduce ? undefined : { opacity: 0, transition: leave() }}>
           <Flame size={18} aria-hidden="true" /><span className="combo-text">{n} ברצף!</span>
@@ -76,7 +76,7 @@ export function FeedbackBadge({ good }) {
         <span className="fb-burst">
           {Array.from({ length: 7 }, (_, i) => {
             const a = (i / 7) * Math.PI * 2 - Math.PI / 2;
-            return <m.i key={i} initial={{ x: 0, y: 0, scale: 0.3, opacity: 1 }} animate={{ x: Math.cos(a) * 34, y: Math.sin(a) * 34, scale: 1, opacity: 0 }} transition={{ duration: DUR.slow, ease: EASE.out, delay: 0.12 }} />;
+            return <m.i key={i} initial={entrance({ x: 0, y: 0, scale: 0.3, opacity: 1 })} animate={{ x: Math.cos(a) * 34, y: Math.sin(a) * 34, scale: 1, opacity: 0 }} transition={{ duration: DUR.slow, ease: EASE.out, delay: 0.12 }} />;
           })}
         </span>
       )}

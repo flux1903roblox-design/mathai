@@ -5,7 +5,7 @@ import { TOPICS, TOPIC } from '@/content/topics.js';
 import { CHALLENGES, challengesOf, isOpen, isSolved, solvedCount } from '@/learn/challenges/index.ts';
 import { TOPIC_ORDER } from '@/learn/skills.ts';
 import { doneCount, chestOpen } from '@/lib/path.js';
-import { cascade } from '@/lib/motion.js';
+import { cascade, entrance } from '@/lib/motion.js';
 import RewardBadge from './RewardBadge.jsx';
 import '@/styles/lazy/achievements.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
@@ -73,7 +73,7 @@ export default function Achievements({ stats = true }) {
   const earned = medals.filter((x) => x.have >= x.need).length;
   return (
     <>
-      {stats && <m.dl className="me-stats" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.07 } } }}>
+      {stats && <m.dl className="me-stats" initial={entrance('hidden')} animate="show" variants={{ show: { transition: { staggerChildren: 0.07 } } }}>
         {[[Zap, 'xp', 'XP', xp], [Flame, 'streak', 'ימים ברצף', streak], [Footprints, 'stairs', 'מדרגות', stairs]].map(([Icon, k, label, v]) => (
           <m.div key={k} className={`me-stat me-${k}`} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
             <dt>{label}</dt>

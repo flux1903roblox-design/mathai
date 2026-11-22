@@ -17,7 +17,7 @@ import { Button } from '@/components/ui.jsx';
 // the tasks with their parts: in this screen's own chunk, never in the first load (learn/challenges/all.ts)
 import { taskById } from '@/learn/challenges/all.ts';
 import { parseSkill } from '@/learn/skills.ts';
-import { DUR, enter } from '@/lib/motion.js';
+import { DUR, enter, entrance } from '@/lib/motion.js';
 import NumPart from '@/components/challenge/NumPart.jsx';
 import McPart from '@/components/challenge/McPart.jsx';
 import ClaimPart from '@/components/challenge/ClaimPart.jsx';
@@ -68,7 +68,7 @@ function ChallengeDone({ award, onExit }) {
         <Lottie name="confetti" className="done-confetti" decorative />
         <Mascot mood="achievement" size={120} className="done-madi" />
       </div>
-      <m.div className="done-copy" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={enter(DUR.slow)}>
+      <m.div className="done-copy" initial={entrance({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={enter(DUR.slow)}>
         <h1 className="done-title">{DONE_LINE}</h1>
         {award.xp > 0 && (
           <div className="stats ch-done-stats">

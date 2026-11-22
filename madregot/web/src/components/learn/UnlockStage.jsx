@@ -17,7 +17,7 @@ import { Button } from '@/components/ui.jsx';
 import { useApp } from '@/lib/store.js';
 import { useMadiLook } from '@/lib/madiLook.js';
 import { colorOf, nameOf, unlockReason, wearing } from '@/lib/wardrobe.js';
-import { DUR, enter } from '@/lib/motion.js';
+import { DUR, enter, entrance } from '@/lib/motion.js';
 import { mathBurst } from '@/lib/mathBurst.js';
 import { play, haptic } from '@/lib/sound.js';
 import Celebrate from './Celebrate.jsx';
@@ -54,7 +54,7 @@ export default function UnlockStage({ ids, onNext }) {
           <Mascot mood="achievement" size={150} look={preview} reveal={colour ? null : main} className="unlock-madi" />
         </Celebrate>
       </div>
-      <m.div className="done-copy" variants={stagger} initial="hidden" animate="show">
+      <m.div className="done-copy" variants={stagger} initial={entrance('hidden')} animate="show">
         <m.h1 variants={rise} className="done-title" id="unlock-title">מדי קיבל משהו חדש</m.h1>
         <m.p variants={rise} className="unlock-name">{nameOf(main)}</m.p>
         <m.p variants={rise} className="unlock-reason" id="unlock-reason">{unlockReason(main, path, grade)}</m.p>

@@ -15,7 +15,7 @@ import Lottie from '@/components/Lottie.jsx';
 import { TOPIC, placementTopicsFor } from '@/content/topics.js';
 import { PROBE_LEN } from '@/lib/placementRules.js';
 import { Button } from '@/components/ui.jsx';
-import { DUR, enter } from '@/lib/motion.js';
+import { DUR, enter, entrance } from '@/lib/motion.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
 import GoalStage from '@/components/learn/GoalStage.jsx';
 import { installDue } from '@/lib/install.js';
@@ -181,7 +181,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
         <Celebrate rays={false} burst={false} delay={0.1}><Mascot mood={award.unitDone || result.perfect ? 'achievement' : 'excited'} size={120} className="done-madi" /></Celebrate>
       </Hero>
       {/* after the hop: the title, then the numbers, then the medals */}
-      <m.div className="done-copy" variants={stagger(0.85)} initial="hidden" animate="show">
+      <m.div className="done-copy" variants={stagger(0.85)} initial={entrance('hidden')} animate="show">
         <m.h1 variants={rise} className="done-title">{title}</m.h1>
         {stairLine ? (
           <m.div variants={rise} className="stage-done-climb">
@@ -227,7 +227,7 @@ function QuestsStage({ award, onNext }) {
           ? <Mascot mood="achievement" size={130} look={{ ...look, ...wearing(picked) }} reveal={picked} className="done-madi" />
           : <Lottie name="chest" className="done-chest" label="תיבת אוצר נפתחת" fallback={<Mascot mood="achievement" size={150} />} />}
       </Hero>
-      <m.div className="done-copy" variants={stagger(0.2)} initial="hidden" animate="show">
+      <m.div className="done-copy" variants={stagger(0.2)} initial={entrance('hidden')} animate="show">
         <m.h1 variants={rise} className="done-title">סיימתם את המשימות של היום!</m.h1>
         {award.freezeEarned
           ? <m.p variants={rise} className="reward streak-freeze"><Lottie name="snowflake" className="freeze-flake" fallback={<Snowflake size={22} aria-hidden="true" />} />קיבלתם הקפאת רצף. היא שומרת על הרצף ביום שלא יוצא ללמוד בו.</m.p>
@@ -282,7 +282,7 @@ export function PlacementDone({ result, award, onExit }) {
   return (
     <div className="done-screen place-done">
       <Hero><Mascot mood="achievement" size={130} /></Hero>
-      <m.div className="done-copy" variants={stagger(0.15)} initial="hidden" animate="show">
+      <m.div className="done-copy" variants={stagger(0.15)} initial={entrance('hidden')} animate="show">
         <m.h1 variants={rise} className="done-title">מצאנו את המדרגה שלכם!</m.h1>
         <m.p variants={rise} className="lead place-why">{placementWhy(topics, result.results)}</m.p>
         {/* Duolingo's result order: the title, the tiles, then the details (where each topic starts) */}

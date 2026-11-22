@@ -15,7 +15,7 @@ import { Button, Keypad, typeInto } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { readNumCandidates, numRight, T, plainNum, exactTex, piNear } from '@/content/util.js';
-import { enter } from '@/lib/motion.js';
+import { enter, entrance } from '@/lib/motion.js';
 import { play, haptic } from '@/lib/sound.js';
 import { qaOn } from '@/lib/qa.js';
 import { namedMistake } from '@/learn/content/togetherDiag.ts';
@@ -168,7 +168,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
           )}
         </div>
       )}
-      <m.section key={k} ref={ref} tabIndex={-1} className="tg-step lm-response" data-region="answers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)} aria-label={onFinal ? 'הצעד האחרון' : `צעד ${k + 1}`}>
+      <m.section key={k} ref={ref} tabIndex={-1} className="tg-step lm-response" data-region="answers" initial={entrance({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)} aria-label={onFinal ? 'הצעד האחרון' : `צעד ${k + 1}`}>
         {!onFinal ? (
           <>
             <p className="tg-prompt"><MathText text={step.prompt} /></p>
@@ -208,7 +208,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       </section>
       <footer className={clsx('lm-actions', result && `has-${result.tone}`)} data-region="footer">
         {result && (
-          <m.div key={`${k}-${tried.length}-${finalMiss}-${result.tone}`} className="bl-result" role="status" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)}>
+          <m.div key={`${k}-${tried.length}-${finalMiss}-${result.tone}`} className="bl-result" role="status" initial={entrance({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)}>
             <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true">{result.tone === 'good' ? <Check size={18} strokeWidth={3.4} /> : result.tone === 'note' ? <Info size={18} /> : <Lightbulb size={18} />}</span>{result.title}</p>
             <ResultWhy tone={result.tone}><p>{result.body}</p></ResultWhy>
           </m.div>

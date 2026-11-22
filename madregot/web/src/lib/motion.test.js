@@ -2,7 +2,7 @@
 // that move most often. The CSS side is src/styles/motion.test.js.
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
-import { DUR, EASE, enter, leave, swap, cascade } from './motion.js';
+import { DUR, EASE, enter, leave, swap, cascade, entrance, loadMotionFeatures } from './motion.js';
 
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
@@ -14,7 +14,28 @@ describe('motion presets', () => {
     expect(enter().ease).toBe(EASE.out);
   });
 
-  it('a swap: the new one comes in ease-out, the old one goes in half the time, ease-in (principles 18 and 20)', () => {
+  it('before the motion features load, an entrance starts drawn at its target; after, it starts from where it moves in', async () => {
+    // a screen opened straight from a link mounts before LazyMotion has its features, and an m.* element then stays at
+    // its `initial` until they come: a solve-together step sat 10px low and see-through (the deploy runs of 0653e8c)
+    expect(entrance({ opacity: 0, y: 10 })).toBe(false);
+    expect(swap().initial).toBe(false);
+    await loadMotionFeatures();
+    expect(entrance({ opacity: 0, y: 10 })).toEqual({ opacity: 0, y: 10 });
+  });
+
+  it('every entrance in the app goes through entrance(): no m.* element is given a raw initial state', () => {
+    const files = [];
+    const walk = (d) => readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true }).forEach((e) => {
+      if (e.isDirectory()) walk(`${d}/${e.name}`);
+      else if (/\.jsx?$/.test(e.name) && !/\.test\./.test(e.name)) files.push(`${d}/${e.name}`);
+    });
+    walk('components'); walk('screens');
+    const raw = files.filter((f) => /initial=\{\{|initial="[a-z]/.test(src(f)));
+    expect(raw).toEqual([]);
+  });
+
+  it('a swap: the new one comes in ease-out, the old one goes in half the time, ease-in (principles 18 and 20)', async () => {
+    await loadMotionFeatures();
     const s = swap();
     expect(s.initial).toEqual({ opacity: 0, x: -28 });
     expect(s.animate).toMatchObject({ opacity: 1, x: 0, transition: { duration: 0.2, ease: EASE.out } });
