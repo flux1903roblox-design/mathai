@@ -165,20 +165,28 @@ test('Sunday after a week with learning: the card, the sheet, the parents\' shar
   await expect(page.locator('.report-fix-name')).toHaveText([fixedName]);
 });
 
-test('closing the card itself marks the week too, and the sheet\'s "סגירה" does the same', async ({ page }) => {
-  await fakeApi(page);
-  await openAt(page, '#/', recapStudent(), '2026-11-16T09:00:00'); // Monday
-  await page.locator('.recap-card-close').click();
-  await expect(page.locator('.recap-card')).toHaveCount(0);
-  expect((await saved(page)).nudges.recapWeek).toBe('2026-11-08');
+test('closing the card itself marks the week too, and the sheet\'s "סגירה" does the same', async ({ page: monday, browser }, testInfo) => {
+  await fakeApi(monday);
+  await openAt(monday, '#/', recapStudent(), '2026-11-16T09:00:00'); // Monday
+  await monday.locator('.recap-card-close').click();
+  await expect(monday.locator('.recap-card')).toHaveCount(0);
+  expect((await saved(monday)).nudges.recapWeek).toBe('2026-11-08');
 
-  await openAt(page, '#/', recapStudent(), '2026-11-17T18:00:00'); // Tuesday evening, a fresh device
+  // Tuesday evening, a fresh device: a browser context of its own, so nothing of Monday's page (its storage, its
+  // durable copy, a write still on its way) can reach it. On the same page this half failed twice on GitHub's runner
+  // (the deploy runs of d651c37) and never here: the card never came.
+  const use = testInfo.project.use;
+  const fresh = await browser.newContext({ baseURL: use.baseURL, viewport: use.viewport, deviceScaleFactor: use.deviceScaleFactor, isMobile: use.isMobile, hasTouch: use.hasTouch, userAgent: use.userAgent, locale: use.locale, reducedMotion: use.reducedMotion, serviceWorkers: use.serviceWorkers });
+  const page = await fresh.newPage();
+  await fakeApi(page);
+  await openAt(page, '#/', recapStudent(), '2026-11-17T18:00:00');
   await page.locator('.recap-card').getByRole('button', { name: 'לראות' }).click();
   const sheet = page.getByRole('dialog', { name: 'השבוע שעבר, 8.11–14.11' });
   await sheet.locator('.recap-actions').getByRole('button', { name: 'סגירה' }).click();
   await expect(sheet).toHaveCount(0);
   await expect(page.locator('.recap-card')).toHaveCount(0);
   expect((await saved(page)).nudges.recapWeek).toBe('2026-11-08');
+  await fresh.close();
 });
 
 test('Wednesday: no card, and after an empty week no card on Sunday either', async ({ page }) => {
