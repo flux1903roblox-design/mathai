@@ -266,9 +266,12 @@ export function partialOf(it, u) {
 
 /**
  * Topics whose answers are measures written as decimals (a 3.14 value 62.8, a rounded length, a grid triangle's 6.5),
- * never as 314/5 or 13/2: statistics, Pythagoras and the measurement topics of stage 2 (§0.5).
+ * never as 314/5 or 13/2: statistics, Pythagoras and the measurement topics of stage 2 (§0.5); the lengths and areas of
+ * congruence and similarity (a 19.5 cm side, a 9.9 m tree, never 39/2 or 99/10); and the relative frequencies and
+ * probabilities of data and probability (0.2 beside a table of 0.1 and 0.35, never 1/5). A value with no short decimal
+ * (1/6) stays an exact fraction (plainNum). Council round 3: the printed key, the class exam's key and the tutor read it.
  */
-const DECIMAL_TOPICS = new Set(['stats', 'pyth', 'area', 'solid', 'circle', 'space']);
+const DECIMAL_TOPICS = new Set(['stats', 'pyth', 'area', 'solid', 'circle', 'space', 'congr', 'sim', 'data', 'prob']);
 /** How a typed number is written back: decimals for those topics, a π ≈ 3.14 value and fmt: 'dec'; exact fractions up to /100 when precise. */
 const numFormat = (it) => ({ decimal: DECIMAL_TOPICS.has(it.topic) || Number.isFinite(it.pk) || it.fmt === 'dec', maxDen: it.precise ? 100 : 12, places: it.precise || it.fmt === 'dec' ? 3 : 2 });
 
