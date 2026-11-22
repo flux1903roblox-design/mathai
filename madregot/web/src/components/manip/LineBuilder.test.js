@@ -6,8 +6,8 @@ const tokens = (map) => vi.stubGlobal('getComputedStyle', () => ({ getPropertyVa
 afterEach(() => vi.unstubAllGlobals());
 
 describe('lineInks', () => {
-  it('reads m from --streak-ink and b from --ch-violet-ink', () => {
-    tokens({ '--streak-ink': ' #a84f00', '--ch-violet-ink': '#5232c2 ' });
+  it('reads m from --streak-ink and b from --gold-ink (blue and green, the two colours)', () => {
+    tokens({ '--streak-ink': ' #a84f00', '--gold-ink': '#5232c2 ' });
     expect(lineInks({})).toEqual({ m: '#a84f00', b: '#5232c2' });
   });
   it('leaves the equation plain when a token is missing or is not a hex value KaTeX can take', () => {

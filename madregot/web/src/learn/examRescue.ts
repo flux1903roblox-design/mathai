@@ -121,7 +121,8 @@ const TEACH = ['A', 'B', 'C'] as const;
  * The evening's order (the council's round 3): one stair of each topic, then a second of each, and so on, so a short
  * evening reaches every topic of the exam before it goes deeper into one. The topics go weakest first (the most urgent
  * standing among their stairs: a known mistake, then untested, shaky, ready, mastered), ties in the plan's order; within
- * a topic, the weaker stair first, ties in the plan's order (so a stair another leans on still comes before it).
+ * a topic, the weaker stair first, ties in the plan's order (so a stair another leans on still comes before it). The
+ * evening then puts a stair started tonight before the rest (examPlan), so it is finished first.
  */
 export function byTopicRounds(list: PlanSkill[]): PlanSkill[] {
   const topics: string[] = []; const by = new Map<string, PlanSkill[]>();
@@ -267,7 +268,8 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
     const left: PlanTask[] = []; const later: PlanTask[] = [];
     // once tonight's exam is done, tonight's list is closed: what waits keeps waiting
     let spill = partDone || fullDone;
-    stairs.forEach((x) => {
+    // a stair started tonight is finished first (its practice after a shaky quick check), then the rest in order
+    [...stairs.filter((x) => x.started), ...stairs.filter((x) => !x.started)].forEach((x) => {
       if (!x.steps.length) return;
       if (x.started) { left.push(...x.steps); return; }
       const exam = fullDone || partDone ? 0 : examMinutes(tonight.size + 1);

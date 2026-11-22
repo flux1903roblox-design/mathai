@@ -110,7 +110,7 @@ for (const scheme of ['dark', 'light']) {
         const inks = await page.evaluate((sel) => [...document.querySelectorAll(sel)].map((e) => getComputedStyle(e).color), coloured);
         expect(inks.length).toBeGreaterThan(0);
         await expectTextContrast(page, `(line builder moved, ${scheme})`);
-        const want = scheme === 'dark' ? ['rgb(255, 171, 92)', 'rgb(201, 166, 255)'] : ['rgb(168, 79, 0)', 'rgb(63, 19, 128)'];
+        const want = scheme === 'dark' ? ['rgb(127, 211, 255)', 'rgb(159, 224, 107)'] : ['rgb(18, 112, 168)', 'rgb(43, 96, 0)']; // m blue, b green (the two colours)
         for (const c of inks) expect(want).toContain(c);
       }
       await shot(page, `${kind}-${scheme}`);

@@ -279,9 +279,9 @@
 }
 /* the stars of a perfect lesson float over the hero; they never push it down */
 .done-hero > .done-stars { position: absolute; z-index: 0; }
-.stepper.tone-b .step-label b, .stepper.tone-b .step-name { color: var(--ch-violet-ink); }
+.stepper.tone-b .step-label b, .stepper.tone-b .step-name { color: var(--gold-ink); }
 .stepper.tone-m .step-label b, .stepper.tone-m .step-name { color: var(--streak-ink); }
-.manip-line .mp-handle.alt { stroke: var(--ch-violet-ink); }
+.manip-line .mp-handle.alt { stroke: var(--gold-ink); }
 /* around an interactive object only the object shrinks: the expression above it keeps its height (and never scrolls) */
 .lesson.is-manip .q-stage > :not(.manip):not(.manip-coach) { flex: none; }
 @media (max-height: 700px) and (max-width: 899px) {

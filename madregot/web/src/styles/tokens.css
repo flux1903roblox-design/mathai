@@ -52,8 +52,8 @@
 
   /* units (v6, the owner's two colours): each unit is a blue or a green, used for its banner, its emblem and its stops on the path only; two units of a grade differ in lightness or in hue, and no unit is the button green (tokens.test.js). */
   /* -ink is a unit colour as text on a page or card; in light it is the -d value (the dark theme redefines it) */
-  --ch-sky: #0f75bd;     --ch-sky-d: #0b5489;     --ch-sky-tint: #e5f2fa;     --ch-sky-ink: #0b5489;
-  --ch-petrol: #208030;  --ch-petrol-d: #175c23;  --ch-petrol-tint: #d8f8de;  --ch-petrol-ink: #175c23;
+  --ch-sky: #0f6fb3;     --ch-sky-d: #0b5489;     --ch-sky-tint: #e5f2fa;     --ch-sky-ink: #0b5489;
+  --ch-petrol: #1e792d;  --ch-petrol-d: #175c23;  --ch-petrol-tint: #d8f8de;  --ch-petrol-ink: #175c23;
   --ch-violet: #0c5492;  --ch-violet-d: #083c68;  --ch-violet-tint: #e7f1fb;  --ch-violet-ink: #083c68;
   --ch-fuchsia: #165a1f; --ch-fuchsia-d: #103f16; --ch-fuchsia-tint: #d8f8dd; --ch-fuchsia-ink: #103f16;
   --ch-cobalt: #0b3564;  --ch-cobalt-d: #082445;  --ch-cobalt-tint: #e8f1fb;  --ch-cobalt-ink: #082445;

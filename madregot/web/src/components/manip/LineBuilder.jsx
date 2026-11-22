@@ -22,7 +22,7 @@ export function lineInks(root = typeof document === 'undefined' ? null : documen
   if (!root) return { m: '', b: '' };
   const cs = getComputedStyle(root);
   const read = (name) => { const v = cs.getPropertyValue(name).trim(); return HEX.test(v) ? v : ''; };
-  return { m: read('--streak-ink'), b: read('--ch-violet-ink') };
+  return { m: read('--streak-ink'), b: read('--gold-ink') }; // v6: m blue, b green (the two colours)
 }
 const paint = (ink, t) => (ink ? `\\color{${ink}}{${t}}` : t);
 const lineTexColored = ({ m, b }, ink) => {
