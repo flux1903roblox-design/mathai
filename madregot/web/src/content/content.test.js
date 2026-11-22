@@ -1344,7 +1344,13 @@ describe('areas and perimeters: every practice kind, from the numbers in its tex
       case 'ar3t': { const [W, H, p, q] = n; return W * H - (p * q) / 2; }
       case 'ar3k': { const [d1, d2] = n; return (d1 * d2) / 2; }
       case 'ar3u': { const [a, b, t2] = n; expect((100 * a) % t2 + (100 * b) % t2, it.key).toBe(0); return ((100 * a) / t2) * ((100 * b) / t2); }
-      case 'ar4p': { const [a, h, s] = n; expect(s >= h, it.key).toBe(true); return a * h; }
+      case 'ar4p': {
+        // the side, the height and the other side come in any order (council round 3): each is read by its name
+        const by = (re) => Number(t.match(re)?.[1]);
+        const a = by(/\$AB = (\d+)\$/); const s = by(/\$AD = (\d+)\$/); const h = by(/הגובה לצלע \$AB\$ הוא \$(\d+)\$/);
+        expect([...n].sort((x, y) => x - y), it.key).toEqual([a, h, s].sort((x, y) => x - y));
+        expect(s >= h, it.key).toBe(true); return a * h;
+      }
       case 'ar4t': { const [a, b, h, s] = n; expect((a - b) ** 2 + h * h, it.key).toBe(s * s); return ((a + b) * h) / 2; }
       case 'ar4i': { if (/מקבילית/.test(t)) { const [S, a] = n; return S / a; } const [S, a, b] = n; return (2 * S) / (a + b); }
       case 'ar5l': { const [W, H] = n; return 2 * (W + H); }

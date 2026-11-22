@@ -20,6 +20,9 @@
 //  - 180° minus the printed angles: the first two printed, or all of them (a congruence item that asks the third angle
 //    of a triangle can be answered so without reading the correspondence at all);
 //  - two printed lengths multiplied, over 4 (a median's half-triangle area: b·h/4).
+// And one more in the areas (council round 3: base and height were always the first two numbers of area:4): two printed
+// lengths multiplied, when the question prints a third one it does not use (a parallelogram's slanted side, a
+// trapezoid's leg): the first two, the last two, or a pair at random. With only two lengths, their product is the skill.
 // Each question's chance is measured on a fresh sample; a check's pass rate is then exact (its questions are drawn
 // independently): mastery and jump tests need 4 of 5, a review 3 of 3, a verification 3 of 3; a placement probe needs
 // all three of its questions, and a topic's placement is followed through both its probes.
@@ -205,6 +208,26 @@ const ARITH: ((it: Item) => number)[] = [
   // the first two printed lengths multiplied, over 4
   (it) => { if (it.form !== 'num' || !ARITH_TOPICS.has(it.topic)) return 0; const { lengths: l } = printedParts(it); return l.length >= 2 && isCorrect(it, (l[0] * l[1]) / 4) ? 1 : 0; },
 ];
+/**
+ * The topics where two printed lengths multiplied is a shortcut when a third length is printed: the area stairs, whose
+ * parallelogram and trapezoid questions print a side or a leg the area does not use (council round 3: "multiply the
+ * first two numbers" passed area:4's mastery check 14.5% of the time).
+ */
+const PRODUCT_TOPICS = new Set(['area']);
+const lengthsOf = (it: Item) => (it.form === 'num' && PRODUCT_TOPICS.has(it.topic) ? printedParts(it).lengths : []);
+export const PRODUCT: ((it: Item) => number)[] = [
+  // the first two printed lengths multiplied
+  (it) => { const l = lengthsOf(it); return l.length >= 3 && isCorrect(it, l[0] * l[1]) ? 1 : 0; },
+  // the last two
+  (it) => { const l = lengthsOf(it); return l.length >= 3 && isCorrect(it, l[l.length - 2] * l[l.length - 1]) ? 1 : 0; },
+  // two of them at random
+  (it) => {
+    const l = lengthsOf(it); if (l.length < 3) return 0;
+    let ok = 0; let n = 0;
+    l.forEach((a, i) => l.forEach((b, j) => { if (j > i) { n += 1; if (isCorrect(it, a * b)) ok += 1; } }));
+    return ok / n;
+  },
+];
 
 /** P(at least `need` right) for independent questions with these chances. */
 function atLeast(qs: number[], need: number) {
@@ -217,7 +240,7 @@ function atLeast(qs: number[], need: number) {
 function passRate(draws: Draw[], need: number) {
   const samples = draws.map((d) => Array.from({ length: N }, d));
   // the numbers-from-the-question guesses learn nothing, so they are measured on the same sample
-  const fromQuestion = [...SHOWN, ...DEGREES, ...ARITH].map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
+  const fromQuestion = [...SHOWN, ...DEGREES, ...ARITH, ...PRODUCT].map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
   return Math.max(...learnGuesses(samples.flat()).map((g) => atLeast(chances(draws, g), need)), ...fromQuestion);
 }
 
@@ -586,6 +609,21 @@ describe('the guessing measure itself', () => {
     expect(ARITH.map((g) => g({ ...third, topic: 'angles' }))).toEqual([0, 0, 0]);
     // and it reaches the pass rate: a check whose answer is always 180 − a − b falls to it
     const draw: Draw = () => { const a = 5 * (7 + Math.floor(Math.random() * 10)); const b = 5 * (7 + Math.floor(Math.random() * 10)); return { ...third, text: `$\\sphericalangle A = ${a}^\\circ$, $\\sphericalangle B = ${b}^\\circ$`, answer: 180 - a - b, key: `syn:${a}:${b}` }; };
+    expect(passRate([draw, draw, draw, draw, draw], 4)).toBeGreaterThan(0.9);
+  });
+  it('the product of two printed lengths runs in the areas, with a third length printed (council round 3)', () => {
+    // area:4 as it was: base and height always the first two numbers, the slanted side last
+    const para = (a: number, h: number, s: number, text = `במקבילית $ABCD$: $AB = ${a}$ ס״מ, הגובה לצלע $AB$ הוא $${h}$ ס״מ, ו־$AD = ${s}$ ס״מ. מה שטחה?`) => ({ form: 'num', topic: 'area', text, answer: a * h, key: `syn:${a}:${h}:${s}` });
+    expect(printedParts(para(9, 6, 10)).lengths).toEqual([9, 6, 10]);
+    expect(PRODUCT.map((g) => g(para(9, 6, 10)))).toEqual([1, 0, 1 / 3]);
+    // the slanted side first: the last two guess it
+    const sideFirst = para(9, 6, 10, '$AD = 10$, $AB = 9$, והגובה לצלע $AB$ הוא $6$.');
+    expect(PRODUCT.map((g) => g(sideFirst))).toEqual([0, 1, 1 / 3]);
+    // a rectangle prints two lengths: their product is the skill, not a shortcut; and only the area stairs count
+    expect(PRODUCT.map((g) => g({ form: 'num', topic: 'area', text: 'מלבן $9$ על $6$. מה שטחו?', answer: 54, key: 'syn:rect' }))).toEqual([0, 0, 0]);
+    expect(PRODUCT.map((g) => g({ ...para(9, 6, 10), topic: 'solid' }))).toEqual([0, 0, 0]);
+    // it reaches the pass rate: a check whose base and height always come first falls to it
+    const draw: Draw = () => para(4 + Math.floor(Math.random() * 12), 2 + Math.floor(Math.random() * 10), 13);
     expect(passRate([draw, draw, draw, draw, draw], 4)).toBeGreaterThan(0.9);
   });
   it('sees the old pyth:5 hole: always typing 5 when the answers are 5 or 10', () => {

@@ -206,9 +206,13 @@ export const AREA4 = mk({
     'slant-as-height': ({ a, b, s }) => ((a + b) * s) / 2,
   },
 });
-/** area:4 transfer — a parallelogram plot: side a, the height h to it, the slanted side s. */
+/**
+ * area:4 transfer — a parallelogram plot: side a, the height h to it, the slanted side s; `o` (0-5) is the order the
+ * question gives them in (PARA_ORDERS), each order one time in six, so the base and the height are not always the
+ * first two numbers (council round 3).
+ */
 export const AREA4T = mk({
-  raw: (r) => { const [h, , s] = pick(r, HDS); const a = rint(r, 4, 16); if ((a * h) % 2) return null; return { a, h, s }; },
+  raw: (r) => { const [h, , s] = pick(r, HDS); const a = rint(r, 4, 16); if ((a * h) % 2) return null; return { a, h, s, o: rint(r, 0, 5) }; },
   answer: ({ a, h }) => a * h,
   bugs: {
     'slant-as-height': ({ a, s }) => a * s,
@@ -431,8 +435,37 @@ export const area4Solution = ({ a, b, h, s }) => [
   `$\\frac{${a + b} \\cdot ${h}}{2} = ${((a + b) * h) / 2}$ סמ״ר`,
 ];
 export const area4Hint = () => 'סכום הבסיסים, כפול הגובה, חלקי $2$. הגובה ניצב לבסיסים.';
-/** area:4 transfer: a plot in the shape of a parallelogram. */
-export const paraPlotText = ({ a, h, s }) => `חלקת קרקע בצורת מקבילית: צלע $${a}$ מ׳, הגובה אליה $${h}$ מ׳, והצלע השנייה $${s}$ מ׳. מה שטחה?`;
+/**
+ * The orders a parallelogram's side a, height h and slanted side s are given in, by `o`: every order of the three, so
+ * no two places always hold the base and the height (council round 3: "multiply the first two numbers" passed area:4's
+ * check 14.5% of the time). The words name each number's part, so each order reads naturally.
+ */
+export const PARA_ORDERS = ['ahs', 'ash', 'sah', 'sha', 'has', 'hsa'];
+/** area:4: a parallelogram ABCD, its side AB, the height to AB and the side AD, in the order `o`. */
+export function paraText({ a, h, s, o = 0 }) {
+  const AB = `$AB = ${a}$ ס״מ`; const AD = `$AD = ${s}$ ס״מ`; const H = `הגובה לצלע $AB$ הוא $${h}$ ס״מ`;
+  const body = {
+    ahs: `: ${AB}, ${H}, ו־${AD}.`,
+    ash: `: ${AB} ו־${AD}. ${H}.`,
+    sah: `: ${AD} ו־${AB}. ${H}.`,
+    sha: `: ${AD}. ${H}, ו־${AB}.`,
+    has: ` ${H}, ${AB} ו־${AD}.`,
+    hsa: ` ${H}, ${AD} ו־${AB}.`,
+  }[PARA_ORDERS[o] || 'ahs'];
+  return `במקבילית $ABCD$${body} מה שטחה?`;
+}
+/** area:4 transfer: a plot in the shape of a parallelogram, its numbers in the order `o`. */
+export function paraPlotText({ a, h, s, o = 0 }) {
+  const body = {
+    ahs: `צלע $${a}$ מ׳, הגובה אליה $${h}$ מ׳, והצלע השנייה $${s}$ מ׳.`,
+    ash: `צלע אחת $${a}$ מ׳ והצלע השנייה $${s}$ מ׳. הגובה לצלע הראשונה $${h}$ מ׳.`,
+    sah: `צלע אחת $${s}$ מ׳ והצלע השנייה $${a}$ מ׳. הגובה לצלע השנייה $${h}$ מ׳.`,
+    sha: `צלע אחת $${s}$ מ׳. הגובה לצלע השנייה $${h}$ מ׳, ואורך הצלע השנייה $${a}$ מ׳.`,
+    has: `הגובה לאחת הצלעות $${h}$ מ׳, אורך הצלע הזאת $${a}$ מ׳, והצלע השנייה $${s}$ מ׳.`,
+    hsa: `הגובה לאחת הצלעות $${h}$ מ׳, הצלע האחרת $${s}$ מ׳, והצלע שהגובה אליה $${a}$ מ׳.`,
+  }[PARA_ORDERS[o] || 'ahs'];
+  return `חלקת קרקע בצורת מקבילית: ${body} מה שטחה?`;
+}
 export const paraPlotFig = (p) => paraFig(p);
 export const paraPlotSolution = ({ a, h, s }) => [`הגובה לצלע הוא $${h}$. הצלע השנייה, $${s}$, משופעת.`, `$${a} \\cdot ${h} = ${a * h}$ מ״ר`];
 export const paraPlotHint = () => 'שטח מקבילית: צלע כפול הגובה אליה, בלי חלוקה ב־$2$.';
@@ -775,13 +808,13 @@ function ar3m() {
 
 // ---------------------------------------------------------------- area:4 — the parallelogram and the trapezoid
 
-/** A parallelogram ABCD: a side, the height to it and the slanted side (the transfer model's draw). */
+/** A parallelogram ABCD: a side, the height to it and the slanted side, in any order (the transfer model's draw). */
 function ar4p() {
   const p = draw(() => { const q = AREA4T.params(rnd); return { ...q, answer: AREA4T.answer(q), printed: [q.a, q.h, q.s] }; });
   const { a, h, s } = p;
   return {
     key: `ar4p:${a}:${h}:${s}`, form: 'num', answer: p.answer, unit: UNIT.cm2, fig: paraFig(p),
-    text: `במקבילית $ABCD$: $AB = ${a}$ ס״מ, הגובה לצלע $AB$ הוא $${h}$ ס״מ, ו־$AD = ${s}$ ס״מ. מה שטחה?`,
+    text: paraText(p),
     hint: 'שטח מקבילית: צלע כפול הגובה אליה. איזה קטע ניצב ל־$AB$?',
     solution: [`הגובה לצלע $AB$ הוא $${h}$. $AD = ${s}$ היא צלע משופעת, לא הגובה.`, `$${a} \\cdot ${h} = ${p.answer}$ סמ״ר`],
     diag: diagList(p.answer, bugsAt(AREA4T, p)),

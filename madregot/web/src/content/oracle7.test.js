@@ -943,7 +943,14 @@ fam('ar3l', (it) => { const [, a, b, c, d] = [null, ...numsOf(it.text)]; const p
 fam('ar3m', (it) => { const [a, b, c, d] = numsOf(it.text); const A = a.mul(b).sub(c.mul(d)); return checkChoices(it, (ch) => choiceVal(ch).eq(A)); });
 fam('ar3t', (it) => { const [a, b, c, d] = numsOf(it.text); return numItem(it, a.mul(b).sub(c.mul(d).div(2))); });
 fam('ar3u', (it) => { const [a, b, s] = numsOf(it.text); const n1 = a.mul(100).div(s); const n2 = b.mul(100).div(s); const pr = n1.isInt() && n2.isInt() ? [] : ['the tiles do not fit whole']; return [...pr, ...numItem(it, n1.mul(n2))]; });
-fam('ar4p', (it) => { const [base, h, other] = numsOf(it.text); const pr = other.cmp(h) >= 0 ? [] : [`side ${other} is shorter than the height ${h}`]; return [...pr, ...numItem(it, base.mul(h))]; });
+// the side, the height and the other side come in any order (council round 3): each is read by what the text calls it
+fam('ar4p', (it) => {
+  const read = (re) => { const m = String(it.text).match(re); return m ? Q.dec(m[1]) : null; };
+  const base = read(/\$AB = (\d+(?:\.\d+)?)\$/); const other = read(/\$AD = (\d+(?:\.\d+)?)\$/); const h = read(/הגובה לצלע \$AB\$ הוא \$(\d+(?:\.\d+)?)\$/);
+  if (!base || !other || !h || numsOf(it.text).length !== 3) return [`cannot read the side, the height and the other side: ${it.text}`];
+  const pr = other.cmp(h) >= 0 ? [] : [`side ${other} is shorter than the height ${h}`];
+  return [...pr, ...numItem(it, base.mul(h))];
+});
 fam('ar4t', (it) => { const [a, b, h, s] = numsOf(it.text); const pr = s.mul(s).eq(a.sub(b).mul(a.sub(b)).add(h.mul(h))) ? [] : [`slanted leg ${s} does not fit bases ${a}, ${b}, height ${h}`]; return [...pr, ...numItem(it, a.add(b).mul(h).div(2))]; });
 fam('ar4i', (it) => { const n = numsOf(it.text); return numItem(it, /טרפז/.test(it.text) ? n[0].mul(2).div(n[1].add(n[2])) : n[0].div(n[1])); });
 fam('ar5p', (it) => {
