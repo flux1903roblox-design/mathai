@@ -1,4 +1,4 @@
-import { parseNum, near, plainNum, linText, readNumCandidates, numRight, roundsTo, toFrac, gcd, withFormatNote, piNear, piRow, afterPlain } from './util.js';
+import { parseNum, near, plainNum, linText, readNumCandidates, numRight, roundsTo, toFrac, gcd, withFormatNote, piNear, piRow, afterPlain, questionWords } from './util.js';
 import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords, protractorWords, clockText, chartWords, outcomesWords, coordWords } from './manip.js';
 import { GENERATOR_WEIGHT } from '@/learn/misconceptions.ts';
 // The first-load side of the content (content/topics.js: every topic's names, stairs, colours and misconception names,
@@ -150,7 +150,8 @@ export function testItem(topicId, level, avoidKey) {
 // slots, the numerator and the denominator, whole numbers; item.answer is the value, and with item.reduced the
 // fraction must be in lowest terms), 'mc' (a choice), 'manip' (an object).
 // Flags a typed number may carry: precise (compared exactly, see numRight in util.js), fmt: 'dec' (the answer is shown
-// as a decimal, -1.3 and not -13/10), askDec (the question asks for a decimal: a fraction typed is not read).
+// as a decimal, -1.3 and not -13/10), askDec (the question asks for a decimal: a fraction typed is not read), exactDec
+// (a decimal of three places asked as it is, (−0.4)³ = −0.064: no format line, and only the exact value is right).
 // A topic may carry bridge: true (the fractions floor): it is in no grade's topicsFor.
 /** Which answer slots an item needs. */
 export const slotsFor = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'lin' ? ['k', 'c'] : it.form === 'frac' ? ['n', 'd'] : it.form === 'mc' || it.form === 'manip' ? [] : ['v']);
@@ -235,8 +236,9 @@ export function isCorrect(it, u) {
   // or finer, so 7.1, 7.07 and 7.071 are right for √50 and 7, 7.0, 7.12 and 7.05 are not. The exact value decides, not
   // the rounded answer: √288 = 16.97… rounds to 17.0, a whole number, and 16.97 is right too
   if (roundedLength(it)) return roundsTo(u, it.exact, 1);
-  // within ±0.01, or exactly when the item is marked precise (util.js numRight)
-  return numRight(u, it.answer, !!it.precise);
+  // within ±0.01, or exactly when the item is marked precise; only the exact value for a decimal asked as it is
+  // (exactDec, util.js numRight)
+  return numRight(u, it.answer, !!it.precise, !!it.exactDec);
 }
 
 /** Does a misconception of the item (its model's bugs, or its generator's diag) predict this wrong answer? */
@@ -376,10 +378,14 @@ export function figPlain(f) {
   }
 }
 
-/** The question as the app shows it, for people: text with $...$ math, the expression, the drawing in words. */
+/**
+ * The question as the app shows it, for people: text with $...$ math, the expression, the drawing in words, and a format
+ * line after the expression, where the screen shows it (util.js questionWords).
+ */
 export function itemMath(it) {
   const desc = figPlain(it.fig);
-  return `${it.text || ''}${it.display ? ` $${it.display}$` : ''}${desc ? ` [${desc}]` : ''}`.trim();
+  const { lead, after } = questionWords(it);
+  return `${lead}${it.display ? ` $${it.display}$` : ''}${desc ? ` [${desc}]` : ''}${after ? ` ${after}` : ''}`.trim();
 }
 
 export function itemPlain(it) {
@@ -392,5 +398,7 @@ export function itemPlain(it) {
   const manip = it.form === 'manip' ? ` ${manipPlain(it)}` : '';
   // the answer row's form when something is drawn after the slot: the student types the number before π
   const row = it.form === 'num' && it.after ? ` [התשובה בצורה □${afterPlain(it.after)}]` : '';
-  return `${strip(it.text)}${it.display ? ` ${strip(it.display)}` : ''}${fig}${choices}${manip}${row}`.trim();
+  // a format line after the expression, as the screen shows it (util.js questionWords)
+  const { lead, after } = questionWords(it);
+  return `${strip(lead)}${it.display ? ` ${strip(it.display)}` : ''}${fig}${choices}${manip}${row}${after ? ` ${strip(after)}` : ''}`.trim();
 }

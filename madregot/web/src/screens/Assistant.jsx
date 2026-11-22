@@ -13,7 +13,7 @@ import CheckResult, { FINAL } from '@/components/CheckResult.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import { HelpLine } from '@/components/SupportSheet.jsx';
 import { TOPIC, topicsFor, readAnswer, isCorrect, partialOf, diagnosisLine, answerText, displayTex, itemPlain } from '@/content/index.js';
-import { piRow, afterPlain, PI_NOTE, formatLineOf } from '@/content/util.js';
+import { piRow, afterPlain, PI_NOTE, formatLineOf, questionWords } from '@/content/util.js';
 import { PARTIAL } from '@/content/partial.js';
 import { Tex, MathText } from '@/components/MathText.jsx';
 import { skillId } from '@/learn/skills.ts';
@@ -324,8 +324,9 @@ function GeneratedQuestion({ ex, n, piNote = false }) {
   // a story is shown in its own words; a seed the AI kept (every seed with a drawing) is shown as the app shows it, with
   // its display and its drawing under it, never as the words the tutor reads for the drawing (the AI review: "[טבלה: …]")
   // a story gets the seed's line on how to write the answer (a fraction, or a decimal rounded to two places), which the
-  // request leaves out (lib/seeds.js seedPayload)
-  const said = story && !story.kept ? [story.prompt, formatLineOf(seed.text)].filter(Boolean).join(' ') : `${seed.text || ''}${seed.display ? ` $${displayTex(seed)}$` : ''}`;
+  // request leaves out (lib/seeds.js seedPayload); a seed's own line comes after its expression (util.js questionWords)
+  const words = questionWords(seed);
+  const said = story && !story.kept ? [story.prompt, formatLineOf(seed.text)].filter(Boolean).join(' ') : `${words.lead}${seed.display ? ` $${displayTex(seed)}$` : ''}${words.after ? ` ${words.after}` : ''}`;
   // the list's first □π exercise says what to type before π, as a lesson's first one does (content/util.js withPiNote)
   const prompt = piNote && !String(said).includes(PI_NOTE) ? `${said} ${PI_NOTE}` : said;
   const after = seed.form === 'num' && seed.after ? seed.after : null;

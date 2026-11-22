@@ -124,7 +124,7 @@ describe('class exam', () => {
         expect(Object.values(it).some((v) => typeof v === 'function')).toBe(false);
         // the base fields, and the curriculum's checking flags only when the question has them
         // (and an answer with π: the TeX after its slot, or the multiple of π a 3.14 answer is)
-        const flags = ['askDec', 'fmt', 'precise', 'reduced', 'after', 'pk'];
+        const flags = ['askDec', 'fmt', 'precise', 'reduced', 'exactDec', 'after', 'pk'];
         expect(Object.keys(it).filter((k) => !flags.includes(k)).sort()).toEqual(['answer', 'answerText', 'choices', 'display', 'exact', 'fig', 'form', 'hint', 'key', 'label', 'level', 'levelTitle', 'solution', 'text', 'topic', 'unit', 'var'].sort());
       }
     }

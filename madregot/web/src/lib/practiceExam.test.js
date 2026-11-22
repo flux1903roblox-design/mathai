@@ -60,7 +60,7 @@ describe('the printed practice exam: pen and paper, graded by the lesson\'s rule
           expect(printable(raw), where).toBe(true);
           expect(it.text, where).not.toMatch(SCREEN);
           // stored as the lesson checks it: the flags travel, the key is the printed text
-          for (const f of ['precise', 'reduced', 'askDec']) expect(it[f] === true, `${where} ${f}`).toBe(raw[f] === true);
+          for (const f of ['precise', 'reduced', 'askDec', 'exactDec']) expect(it[f] === true, `${where} ${f}`).toBe(raw[f] === true);
           if (raw.form === 'num' && Number.isFinite(raw.exact)) expect(it.exact).toBe(raw.exact);
           expect(it.answer).toBe(answerText(raw));
           expect(isCorrect({ ...it, answer: it.value }, answerInput(raw)), where).toBe(true);

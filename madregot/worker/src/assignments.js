@@ -145,6 +145,8 @@ function cleanItem(it) {
   // how the app checks the answer: a fraction in lowest terms (frac), a number compared exactly or asked as a decimal
   if (it.reduced != null && (it.form !== 'frac' || it.reduced !== true)) return null;
   if ((it.precise != null && it.precise !== true) || (it.askDec != null && it.askDec !== true) || (it.fmt != null && it.fmt !== 'dec')) return null;
+  // a decimal asked as it is ((−0.4)³ = −0.064): only the exact value is right (num only)
+  if (it.exactDec != null && (it.form !== 'num' || it.exactDec !== true)) return null;
   // a number's answer form (stage 2): `after`, maths drawn after the slot ('\\pi': the number before π is typed), and
   // `pk`, the multiple of π of an answer computed with π ≈ 3.14 (num only)
   if (it.after != null && (it.form !== 'num' || !str(it.after, 30) || !it.after)) return null;
@@ -153,7 +155,7 @@ function cleanItem(it) {
   if (!optStr(it.label, 30) || !optStr(it.unit, 30) || !optStr(it.levelTitle, 80) || !optStr(it.answerText, 120) || !optStr(it.hint, 300)) return null;
   if (it.solution != null && (!Array.isArray(it.solution) || it.solution.length > 8 || !it.solution.every((x) => str(x, 300)))) return null;
   const out = {};
-  for (const k of ['topic', 'level', 'key', 'text', 'display', 'form', 'answer', 'exact', 'var', 'reduced', 'precise', 'askDec', 'fmt', 'after', 'pk', 'choices', 'fig', 'label', 'unit', 'levelTitle', 'answerText', 'solution', 'hint']) {
+  for (const k of ['topic', 'level', 'key', 'text', 'display', 'form', 'answer', 'exact', 'var', 'reduced', 'precise', 'askDec', 'fmt', 'exactDec', 'after', 'pk', 'choices', 'fig', 'label', 'unit', 'levelTitle', 'answerText', 'solution', 'hint']) {
     if (it[k] !== undefined) out[k] = it[k];
   }
   return out;

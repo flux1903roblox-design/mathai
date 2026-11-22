@@ -76,7 +76,7 @@ function printableQuestion(draw, seen, { repeat = false, fair = null } = {}) {
 /**
  * A practice exam drawn from the generators: questions spread over the chosen topics, around each student's current
  * level, every one printable (printable(): nothing dragged on the screen, no practice-only question). Each question is
- * kept as the class exam keeps it (freezeItem: the checking flags exact, precise, reduced and askDec, and an
+ * kept as the class exam keeps it (freezeItem: the checking flags exact, precise, reduced, askDec and exactDec, and an
  * expression's letter), with `answer` the key as printed (answerText) and `value` the answer the lesson checks, so a
  * photographed exam is graded by the lesson's own rule (lib/examGrade.js). A level with nothing printable left gives
  * its place to the nearest level of the topic that has.
@@ -142,9 +142,10 @@ export function freezeItem(it) {
     var: it.form === 'lin' ? it.var || 'x' : null,
     exact: it.form === 'num' && Number.isFinite(it.exact) ? it.exact : null,
     // how the answer is checked and written (the curriculum lane's flags: content/index.js isCorrect, readAnswer): a
-    // fraction in lowest terms, a number compared exactly, a decimal asked for, a decimal shown
+    // fraction in lowest terms, a number compared exactly, a decimal asked for, a decimal shown, a decimal asked as it is
     ...(it.reduced === true ? { reduced: true } : {}), ...(it.precise === true ? { precise: true } : {}),
     ...(it.askDec === true ? { askDec: true } : {}), ...(it.fmt === 'dec' ? { fmt: 'dec' } : {}),
+    ...(it.exactDec === true ? { exactDec: true } : {}),
     answer: plainCopy(it.answer), answerText: answerText(it),
     solution: Array.isArray(it.solution) ? it.solution.map(String) : [], hint: it.hint ?? '',
   };

@@ -3,7 +3,7 @@
 // "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks; and
 // stage 4's rule that an answer is never a number the question shows (notGuessable).
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, S, opMark, minusOp, undoOp, divOp, mulOp, unmark, unmarkLine, flipLine, withPiNote, piNear, piValue, afterPlain, PI_AFTER, PI_NOTE, needsFormat, placesOf, roundTo, FRACTION_HINT, FORMAT_LINE } from './util.js';
+import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, S, opMark, minusOp, undoOp, divOp, mulOp, unmark, unmarkLine, flipLine, withPiNote, piNear, piValue, afterPlain, PI_AFTER, PI_NOTE, needsFormat, placesOf, roundTo, FRACTION_HINT, FORMAT_LINE, questionWords } from './util.js';
 import { holds } from '../learn/expr.ts';
 import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrect, partialOf, answerText, itemPlain } from './index.js';
 import { startLesson, answer, next } from '../lib/lesson.js';
@@ -228,6 +228,29 @@ describe('the precise rule (items marked precise: true)', () => {
     expect(withFormatNote(root)).toBe(root);
     const dec = num(0.375, { askDec: true, precise: true, text: 'כתבו כמספר עשרוני:' });
     expect(withFormatNote(dec)).toBe(dec);
+  });
+
+  // council round 3: (−0.4)³ = −0.064 is asked as it is. No line about rounding, and −0.06 is another number.
+  it('a decimal asked as it is (exactDec) has no format line and takes only its exact value', () => {
+    const cube = num(-0.064, { precise: true, fmt: 'dec', exactDec: true, text: 'חשבו:', display: '(-0.4)^{3}' });
+    expect(withFormatNote(cube)).toBe(cube);
+    expect(typedRight(cube, '-0.064')).toBe(true);
+    expect(typedRight(cube, '-8/125')).toBe(true);
+    expect(typedRight(cube, '-0.0640')).toBe(true);
+    expect(typedRight(cube, '-0.06')).toBe(false);
+    expect(typedRight(cube, '-0.065')).toBe(false);
+    expect(numRight(-0.06, -0.064, true, true)).toBe(false);
+    // the same answer with no flag is still rounded as its line says
+    expect(typedRight(num(-0.064, { precise: true }), '-0.06')).toBe(true);
+  });
+
+  it('the format line comes after the expression; a question with no expression keeps it in its words', () => {
+    const withLine = withFormatNote(num(-27 / 64, { precise: true, text: 'חשבו:', display: '\\left(-\\frac{3}{4}\\right)^{3}' }));
+    expect(questionWords(withLine)).toEqual({ lead: 'חשבו:', after: fractionHint() });
+    const story = withFormatNote(num(7 / 12, { precise: true }));
+    expect(questionWords(story)).toEqual({ lead: story.text, after: '' });
+    const plain = num(5, { text: 'חשבו:', display: '2 + 3' });
+    expect(questionWords(plain)).toEqual({ lead: 'חשבו:', after: '' });
   });
 });
 

@@ -294,8 +294,16 @@ function checkNum(it, V, { allowAnswerApprox = false } = {}) {
     const u = read(it, w);
     if (!isCorrect(it, u)) probs.push(`checker refuses "${w}" (read ${u}) for ${V}`);
   }
-  // a value with no exact two-place decimal: the question says how to write it, and its rounding is the rule
-  if (!V.places(2)) {
+  // a decimal asked as it is ((−0.4)³ = −0.064, exactDec; council round 3): an exact decimal of at most three places, the
+  // question says nothing about rounding, and its two-place rounding (−0.06) is another number, refused
+  if (it.exactDec && !V.places(2)) {
+    if (!V.places(3)) probs.push(`answer ${V} is asked exactly but is not a decimal of three places`);
+    if (/מעוגל|עגלו/.test(String(it.text || ''))) probs.push(`answer ${V} is asked exactly, yet the question says to round`);
+    const r2 = V.round(2);
+    if (isCorrect(it, read(it, r2.decStr()))) probs.push(`checker accepts ${r2.decStr()}, ${V} rounded, for a decimal asked exactly`);
+    if (isCorrect(it, read(it, V.trunc(2).decStr()))) probs.push(`checker accepts ${V.trunc(2).decStr()}, ${V} cut, for a decimal asked exactly`);
+  } else if (!V.places(2)) {
+    // a value with no exact two-place decimal: the question says how to write it, and its rounding is the rule
     const says = /מעוגל לשתי ספרות|כשבר/.test(String(it.text || '')) || it.exact != null;
     if (!says && !it.askDec) probs.push(`answer ${V} has no two-place decimal and the question does not say how to write it`);
     const r2 = V.round(2);
@@ -1087,6 +1095,15 @@ describe('regressions: an answer whose two-place rounding ends in 0', () => {
     expect(item.key).toBe('sn7:5:2/3:3');
     expect([typed(item, '-0.30'), typed(item, '−0.3'), typed(item, '-8/27'), typed(item, '-0.29')]).toEqual([true, true, true, false]);
     expect(item.solution.join(' ')).toContain('בערך $-0.30$');
+  });
+  // signed:7 seed 114 (council round 3): (−0.4)³ = −0.064 exactly; the question says nothing about rounding, so −0.06 is
+  // another number, not the answer
+  it('signed:7 (−0.4)³: −0.064 and −8/125 are right, −0.06 is not, and nothing says to round', () => {
+    const item = draw('signed', 7, 114, false);
+    expect(item.key).toBe('sn7:5:0.4:3');
+    expect([typed(item, '-0.064'), typed(item, '−8/125'), typed(item, '-0.06'), typed(item, '-0.07')]).toEqual([true, true, false, false]);
+    expect(item.text).toBe('חשבו:');
+    expect(answerText(item)).toBe('-0.064');
   });
   // data:4 seed 1023: (20% of 400 + 60) / 460 = 7/23 = 0.304…, rounded to two places 0.30
   it('data:4 7/23: 0.30 is right, and the worked example writes 0.30', () => {
