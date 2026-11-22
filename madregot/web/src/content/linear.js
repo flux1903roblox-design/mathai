@@ -34,6 +34,76 @@ function table() {
   };
 }
 
+/**
+ * 1b. Is the point on the line? (the teacher's "האם נקודה נמצאת על הישר?"): its x substituted gives its y, or not. A
+ * yes-or-no choice, practice only (a guesser is right half the time: content/index.js fairForCheck). Some points are
+ * on the line only read the other way round, their y substituted for x (swap-xy), or only with b left out (forgot-b):
+ * "כן" for such a point names that mistake (key lf1o:m:b:p:q).
+ */
+function onLineAsk() {
+  for (;;) {
+    const m = NZ(-4, 4); const b = NZ(-6, 6);
+    const kind = pick(['on', 'on', 'swap', 'nob', 'off']);
+    let p; let q;
+    if (kind === 'swap') { q = NZ(-4, 4); p = m * q + b; } else {
+      p = NZ(-4, 4);
+      q = kind === 'on' ? m * p + b : kind === 'nob' ? m * p : m * p + b + pick([-2, -1, 1, 2]);
+    }
+    if (Math.abs(p) > 9 || Math.abs(q) > 14) continue;
+    const y = m * p + b; const on = q === y;
+    const swapOn = !on && p === m * q + b; const nobOn = !on && q === m * p;
+    // each point is what it was drawn to be, and a wrong "כן" has at most one reading
+    if ((kind === 'on') !== on || (kind === 'swap' && !swapOn) || (kind === 'nob' && !nobOn) || (swapOn && nobOn)) continue;
+    return {
+      key: `lf1o:${m}:${b}:${p}:${q}`, text: `האם הנקודה $(${p}, ${q})$ נמצאת על הישר $${lineTex(m, b)}$?`, form: 'mc',
+      choices: [{ text: 'כן' }, { text: 'לא' }], answer: on ? 0 : 1, practiceOnly: true,
+      hint: 'מציבים במשוואה את שיעור ה־$x$ של הנקודה. אם יוצא שיעור ה־$y$ שלה, הנקודה על הישר. אם יוצא מספר אחר, היא לא עליו.',
+      solution: [
+        `מציבים $x = ${T(p)}$: $y = ${T(m)} \\cdot ${T(p, true)}${plusB(b)} = ${T(y)}$`,
+        on ? `יצא $y = ${T(y)}$, כמו בנקודה: הנקודה נמצאת על הישר.` : `יצא $y = ${T(y)}$ ולא $y = ${T(q)}$: הנקודה לא נמצאת על הישר.`,
+      ],
+      diag: (u) => (u === 0 && !on ? (swapOn ? 'swap-xy' : nobOn ? 'forgot-b' : null) : null),
+    };
+  }
+}
+
+/**
+ * 1c. The missing coordinate of a point on the line: (p, k) by substituting x, or (k, q) by solving for x (the
+ * textbook's "for which k is the point on the line?"). Mistakes: the y substituted as if it were x (swap-xy), b moved
+ * over with its sign kept (b-sign); for the y, those of the table of values (forgot-b, neg-sub, added-m). Each draw keeps
+ * them apart, and the answer is no number printed in the question (key lf1k:x|y:m:b:p:q).
+ */
+function onLineFind() {
+  for (;;) {
+    const m = NZ(-4, 4); const b = NZ(-8, 8); const p = NZ(-5, 5); const q = m * p + b;
+    if (Math.abs(q) > 15 || q === 0) continue;
+    const askX = Math.random() < 0.6;
+    const ans = askX ? p : q;
+    const bugs = askX ? { 'swap-xy': m * q + b, 'b-sign': (q + b) / m } : { 'forgot-b': m * p, ...(p < 0 ? { 'neg-sub': -m * p + b } : {}), 'added-m': m + p + b };
+    const vals = Object.values(bugs);
+    const printed = [m, b, askX ? q : p];
+    if (vals.some((v) => near(v, ans)) || new Set(vals.map((v) => v.toFixed(6))).size < vals.length || printed.some((v) => near(v, ans))) continue;
+    const rhs = `${kx(m)}${plusB(b)}`;
+    return {
+      key: `lf1k:${askX ? 'x' : 'y'}:${m}:${b}:${p}:${q}`,
+      text: `הנקודה $(${askX ? `k, ${q}` : `${p}, k`})$ נמצאת על הישר $${lineTex(m, b)}$. מצאו את $k$.`,
+      form: 'num', answer: ans, label: 'k =',
+      hint: askX
+        ? 'הנקודה על הישר, ולכן השיעורים שלה מקיימים את המשוואה. מציבים את שיעור ה־$y$ שלה במקום $y$, ופותרים כדי למצוא את $x$.'
+        : 'הנקודה על הישר: מציבים את שיעור ה־$x$ שלה במשוואה ומחשבים את $y$.',
+      solution: askX
+        ? [
+          `מציבים $y = ${T(q)}$: $${T(q)} = ${rhs}$`,
+          ...(b === 0 ? [] : [`$${kx(m)} = ${T(q - b)}$`]),
+          Math.abs(m) === 1 ? `$x = ${T(p)}$` : `$x = \\frac{${T(q - b)}}{${T(m)}} = ${T(p)}$`,
+          `לכן $k = ${T(p)}$`,
+        ]
+        : [`מציבים $x = ${T(p)}$: $y = ${T(m)} \\cdot ${T(p, true)}${plusB(b)} = ${T(q)}$`, `לכן $k = ${T(q)}$`],
+      diag: (u) => Object.entries(bugs).filter(([, v]) => near(u, v)).map(([id]) => id),
+    };
+  }
+}
+
 /** y = b + mx, the constant first, as a textbook also writes it: y = 5 - 3x, y = -4 + x. */
 const lineTexB = (m, b) => (m === 0 || b === 0 ? lineTex(m, b) : `y = ${T(b)} ${m < 0 ? '-' : '+'} ${Math.abs(m) === 1 ? '' : Math.abs(m)}x`);
 
@@ -65,7 +135,9 @@ function dirPick() {
 function meaning() {
   const kind = pick(['m', 'b', 'dir', 'dir', 'pick']);
   if (kind === 'pick') return dirPick();
-  const m = kind === 'dir' && Math.random() < 0.15 ? 0 : NZ(-5, 5); const b = NZ(-8, 8);
+  // rising, falling and constant one time in three each, so no place of the three choices is right more often than a
+  // blind guess (learn/guessing.test.ts, PRODUCT2-8; at 15% constant, "יורדת" was right 43% of the time)
+  const m = kind === 'dir' && Math.random() < 1 / 3 ? 0 : NZ(-5, 5); const b = NZ(-8, 8);
   const written = Math.random() < 0.35 && m !== 0 ? `y = ${T(b)} ${m < 0 ? '-' : '+'} ${Math.abs(m) === 1 ? '' : Math.abs(m)}x` : lineTex(m, b);
   if (kind === 'dir') {
     const ans = m > 0 ? 0 : m < 0 ? 1 : 2;
@@ -85,6 +157,45 @@ function meaning() {
     solution: [`$m = ${T(m)}$, $b = ${T(b)}$`, kind === 'b' ? `החיתוך עם ציר $y$: $(0, ${b})$` : `השיפוע: $${T(m)}$`],
     diag: (u) => [near(u, kind === 'm' ? b : m) && m !== b && 'm-b', near(u, -ans) && 'sign'].filter(Boolean),
   };
+}
+
+/**
+ * 2c. Lines parallel to the axes (the teacher's "ישרים מקבילים לצירים"): every point of a line parallel to the x-axis
+ * has the same y (y = k, slope 0), every point of one parallel to the y-axis the same x (x = k, not a function's graph).
+ * Its equation from two of its points, or from one point and the axis it is parallel to. Four choices: x and y, each
+ * with the line's number and with the point's other number, set so that their width tells nothing (byWidth). The right
+ * number with the other letter, or the line through the point parallel to the other axis, is axis-swap; the right letter
+ * with the point's other number is swap (key lf2a:y|x:k:1|2:o:o2).
+ */
+function axisLine() {
+  for (;;) {
+    const flat = Math.random() < 0.5; // parallel to the x-axis: y = k
+    const k = NZ(-5, 5); const o = NZ(-5, 5); // the line's number; the other coordinate of the point A on it
+    if (k === o) continue;
+    const two = Math.random() < 0.55;
+    let o2 = o;
+    while (two && o2 === o) o2 = R(-5, 5);
+    const at = (c) => (flat ? [c, k] : [k, c]);
+    const A = at(o); const B = at(o2);
+    const L = flat ? 'y' : 'x'; const L2 = flat ? 'x' : 'y';
+    // (the two choices with k are as wide as each other, and so are the two with o: k and o take their signs apart, so
+    // the widest or the narrowest choice is the right one no more often than a blind guess, learn/guessing.test.ts)
+    const opt = (letter, v, extra) => ({ tex: `${letter} = ${v}`, ...extra });
+    const choices = shuffle([opt(L, k, { ok: true }), opt(L2, k, { bug: 'axis-swap' }), opt(L2, o, { bug: 'axis-swap' }), opt(L, o, { bug: 'swap' })]);
+    const ptA = `A(${A[0]}, ${A[1]})`; const ptB = `B(${B[0]}, ${B[1]})`;
+    const vertical = 'ישר כזה אינו גרף של פונקציה: לאותו $x$ יש בו הרבה ערכי $y$.';
+    return {
+      key: `lf2a:${L}:${k}:${two ? 2 : 1}:${o}:${o2}`,
+      text: two ? `מהי משוואת הישר שעובר דרך הנקודות $${ptA}$ ו־$${ptB}$?` : `הישר מקביל לציר $${L2}$ ועובר דרך הנקודה $${ptA}$. מהי משוואת הישר?`,
+      form: 'mc', choices, answer: choices.findIndex((c) => c.ok),
+      fig: { type: 'coord', range: 6, points: [{ x: A[0], y: A[1], label: 'A' }, ...(two ? [{ x: B[0], y: B[1], label: 'B' }] : [])] },
+      hint: 'בישר המקביל לציר $x$ לכל הנקודות אותו שיעור $y$, ולכן משוואתו $y = k$. בישר המקביל לציר $y$ לכל הנקודות אותו שיעור $x$, ומשוואתו $x = k$.',
+      solution: two
+        ? [`לשתי הנקודות אותו שיעור $${L}$, והוא $${k}$: הישר מקביל לציר $${L2}$.`, `לכל נקודה על הישר $${L} = ${k}$, ולכן משוואת הישר $${L} = ${k}$.`, ...(flat ? [] : [vertical])]
+        : [`בישר המקביל לציר $${L2}$ לכל הנקודות אותו שיעור $${L}$, כמו לנקודה $A$.`, `שיעור ה־$${L}$ של $A$ הוא $${k}$, ולכן משוואת הישר $${L} = ${k}$.`, ...(flat ? [] : [vertical])],
+      diag: (u) => choices[u]?.bug || null,
+    };
+  }
 }
 
 // 3. slope from the graph: one step right, how many steps up or down ("כל מדרגה עולה ב־2")
@@ -146,6 +257,41 @@ function lineEquation() {
         `$${y1} = ${T(m)} \\cdot ${T(x1, true)} + b$`, `$${y1} = ${T(m * x1)} + b \\Rightarrow b = ${T(b)}$`, `$${lineTex(m, b)}$`],
       // b with the wrong sign and b read off the point can be the same number: then both
       diag: (v) => (v ? [near(v.m, m) && near(v.b, -b) && b !== 0 && 'b-sign', near(v.m, m) && near(v.b, y1) && y1 !== b && 'b-is-y', near(v.m, -m) && 'sign'].filter(Boolean) : null),
+    };
+  }
+}
+
+/**
+ * 5b. The line through a point, parallel to a given line (the teacher's "באמצעות נקודה וישר המקביל"): parallel lines have
+ * the same slope, so m is the given line's, and b comes from the point. Mistakes: the given line's b copied too (same-b),
+ * b with the wrong sign (b-sign), the point's y taken for b (b-is-y), the slope's sign (sign); each draw keeps their
+ * answers apart from each other and from the right one (key lf5p:m:x1:y1:b0). The given line and the point are drawn
+ * when the point is on the plane.
+ */
+function parallelThrough() {
+  for (;;) {
+    const m = NZ(-3, 3); const b0 = R(-6, 6); const b = R(-6, 6); const x1 = NZ(-4, 4); const y1 = m * x1 + b;
+    if (b === b0 || Math.abs(y1) > 10) continue;
+    const slips = [b0, y1, ...(b ? [-b] : [])];
+    if (new Set([b, ...slips]).size !== slips.length + 1 || b === x1 || b === m) continue;
+    const given = Math.random() < 0.3 ? lineTexB(m, b0) : lineTex(m, b0);
+    const drawn = Math.abs(y1) <= 6;
+    return {
+      key: `lf5p:${m}:${x1}:${y1}:${b0}`,
+      text: `מצאו את משוואת הישר שמקביל לישר $${given}$ ועובר דרך הנקודה $A(${x1}, ${y1})$.`,
+      form: 'line', answer: { m, b },
+      ...(drawn ? { fig: { type: 'coord', range: 6, line: { m, b: b0 }, points: [{ x: x1, y: y1, label: 'A' }] } } : {}),
+      hint: 'לישרים מקבילים יש אותו שיפוע: $m$ של הישר החדש הוא $m$ של הישר הנתון. אחר כך מציבים את הנקודה ב־$y = mx + b$ ומוצאים את $b$.',
+      solution: [
+        `ישרים מקבילים, ולכן אותו שיפוע: $m = ${T(m)}$`,
+        `מציבים את $A$: $${y1} = ${T(m)} \\cdot ${T(x1, true)} + b$`,
+        `$${y1} = ${T(m * x1)} + b \\Rightarrow b = ${T(b)}$`,
+        `$${lineTex(m, b)}$`,
+      ],
+      diag: (v) => (v ? [
+        near(v.m, m) && near(v.b, b0) && 'same-b', near(v.m, m) && near(v.b, -b) && b !== 0 && 'b-sign',
+        near(v.m, m) && near(v.b, y1) && 'b-is-y', near(v.m, -m) && 'sign',
+      ].filter(Boolean) : null),
     };
   }
 }
@@ -238,20 +384,54 @@ function meet() {
   }
 }
 
+/**
+ * 8b. Where a line meets a line parallel to an axis: on y = k every point is at height k, so the meeting point's x comes
+ * from k = mx + b; on x = k its y comes from substituting k. The coordinate the student finds is no number printed in
+ * the question (key lf8a:y|x:m:b:k).
+ */
+function meetAxis() {
+  for (;;) {
+    const m = NZ(-4, 4); const b = NZ(-8, 8); const flat = Math.random() < 0.6;
+    const x = NZ(-5, 5); const y = m * x + b;
+    if (Math.abs(y) > 12 || x === y) continue;
+    const k = flat ? y : x; const found = flat ? x : y;
+    if (found === 0 || [m, b, k].some((v) => Math.abs(v) === Math.abs(found))) continue;
+    const L = flat ? 'y' : 'x';
+    return {
+      key: `lf8a:${L}:${m}:${b}:${k}`, text: `מצאו את נקודת המפגש $E$ של הישרים $${lineTex(m, b)}$ ו־$${L} = ${k}$.`,
+      form: 'pt', answer: [x, y], label: 'E',
+      hint: flat
+        ? 'על הישר $y = k$ לכל הנקודות אותו שיעור $y$. גם בנקודת המפגש $y = k$: מציבים אותו במשוואת הישר השני ופותרים את $x$.'
+        : 'על הישר $x = k$ לכל הנקודות אותו שיעור $x$. גם בנקודת המפגש $x = k$: מציבים אותו במשוואת הישר השני ומחשבים את $y$.',
+      solution: flat
+        ? [`בנקודת המפגש $y = ${T(k)}$`, `$${T(k)} = ${kx(m)}${plusB(b)}$`, `$${kx(m)} = ${T(k - b)} \\Rightarrow x = ${T(x)}$`, `הנקודה: $E(${x}, ${y})$`]
+        : [`בנקודת המפגש $x = ${T(k)}$`, `$y = ${T(m)} \\cdot ${T(k, true)}${plusB(b)} = ${T(y)}$`, `הנקודה: $E(${x}, ${y})$`],
+      // as at 8: the point the other way round, or y not worked out (the x written again, or left at 0)
+      diag: ([u, v]) => [near(u, y) && near(v, x) && 'swap', near(u, x) && !near(v, y) && (near(v, x) || near(v, 0)) && 'forgot-y'].filter(Boolean),
+    };
+  }
+}
+
+const mixOf = (parts) => () => { let r = Math.random(); for (const [w, make] of parts) { if (r < w) return make(); r -= w; } return parts[parts.length - 1][1](); };
+
 export const LINEAR = {
   id: 'line', grade: '8', title: 'פונקציה קווית', color: 'cobalt',
   desc: 'טבלת ערכים, שיפוע, משוואת ישר, חיתוך עם הצירים ונקודת מפגש',
   // ז׳ meets a table of values and its points in May (unit 7.9): the unit joins the ז׳ path from then (PRODUCT2-20)
   alsoFor: ['7'],
   levels: [
-    { title: 'טבלת ערכים', gen: () => (Math.random() < 0.4 ? predictPoint() : (table)()) },
-    { title: 'מה אומרים m ו־b', gen: () => (Math.random() < 0.5 ? buildLine() : meaning()) },
+    // the teacher's "האם נקודה נמצאת על הישר?" (onLineAsk, a practice-only choice; onLineFind, typed) beside the table
+    { title: 'טבלת ערכים', gen: mixOf([[0.3, predictPoint], [0.4, table], [0.12, onLineAsk], [0.18, onLineFind]]) },
+    // lines parallel to the axes (axisLine): y = k is a line of slope 0, x = k is not a function
+    { title: 'מה אומרים m ו־b', gen: mixOf([[0.4, buildLine], [0.4, meaning], [0.2, axisLine]]) },
     { title: 'שיפוע מהגרף: מדרגות', gen: stepsFromGraph },
     { title: 'שיפוע בין שתי נקודות', gen: slopeTwoPoints },
-    { title: 'משוואת ישר', gen: lineEquation },
+    // the line through a point and parallel to a given line (parallelThrough), beside two points and a point and a slope
+    { title: 'משוואת ישר', gen: mixOf([[0.75, lineEquation], [0.25, parallelThrough]]) },
     { title: 'חיתוך עם הצירים', gen: axes },
     { title: 'משולש עם הצירים', gen: triangle },
-    { title: 'נקודת מפגש של שני ישרים', gen: meet },
+    // a line meeting y = k or x = k (meetAxis), beside two lines y = mx + b
+    { title: 'נקודת מפגש של שני ישרים', gen: mixOf([[0.7, meet], [0.3, meetAxis]]) },
   ],
   cats: {
     'forgot-b': 'שכחו להוסיף את $b$',
@@ -269,6 +449,10 @@ export const LINEAR = {
     'no-half': 'שכחו לחלק ב־2 בשטח המשולש',
     'added-sides': 'חיברו את הצלעות במקום לכפול',
     'forgot-y': 'מצאו את $x$ אבל לא הציבו כדי למצוא את $y$',
+    // a point on the line, lines parallel to the axes, a parallel line through a point
+    'swap-xy': 'הציבו את שיעור ה־$y$ של הנקודה במקום $x$',
+    'axis-swap': 'התבלבלו בין ישר המקביל לציר $x$ ($y = k$) לישר המקביל לציר $y$ ($x = k$)',
+    'same-b': 'העתיקו גם את $b$ של הישר הנתון: לישר מקביל יש אותו שיפוע, אבל $b$ אחר',
   },
   lesson: {
     points: [
@@ -277,14 +461,19 @@ export const LINEAR = {
       '$m$ הוא השיפוע, המספר שלפני $x$. הוא קצב השינוי: כמה עולים או יורדים כשזזים צעד אחד ימינה בציר $x$.',
       '$m > 0$: הפונקציה עולה. $m < 0$: היא יורדת. ככל ש־$m$ גדול יותר, עולים מהר יותר.',
       'שיפוע בין שתי נקודות: $m = \\frac{y_2 - y_1}{x_2 - x_1}$. אסור לערבב את הסדר בין המונה למכנה.',
+      'נקודה נמצאת על הישר כשהשיעורים שלה מקיימים את המשוואה: מציבים את ה־$x$ שלה, ויוצא ה־$y$ שלה.',
+      'ישר המקביל לציר $x$: $y = k$ (השיפוע $0$). ישר המקביל לציר $y$: $x = k$, והוא אינו גרף של פונקציה.',
       'משוואת ישר בשני שלבים: מוצאים את $m$, מציבים נקודה ב־$y = mx + b$ כדי למצוא את $b$, וכותבים את המשוואה.',
+      'לישרים מקבילים יש אותו שיפוע: לישר שמקביל לישר נתון לוקחים את ה־$m$ שלו, ומוצאים את $b$ מנקודה.',
       'חיתוך עם ציר $y$: מציבים $x = 0$. חיתוך עם ציר $x$: מציבים $y = 0$ ופותרים.',
       'נקודת מפגש של שני ישרים: משווים $y = y$, פותרים את $x$, ומציבים כדי למצוא את $y$.',
     ],
     examples: [
       '$y = 2x + 1$: כש־$x = -2$ מקבלים $y = 2 \\cdot (-2) + 1 = -3$.',
       'הנקודות $(1, 2)$ ו־$(4, 11)$: $m = \\frac{11 - 2}{4 - 1} = \\frac{9}{3} = 3$, וגם $\\frac{2 - 11}{1 - 4} = \\frac{-9}{-3} = 3$.',
+      'האם $(2, 5)$ על הישר $y = 3x - 1$? $3 \\cdot 2 - 1 = 5$: כן. ו־$(5, 2)$? $3 \\cdot 5 - 1 = 14$, לא $2$: לא.',
       'הנקודות $(1, 3)$ ו־$(4, 6)$: $m = 1$, ואז $3 = 1 \\cdot 1 + b$, לכן $b = 2$ ו־$y = x + 2$.',
+      'הישר שמקביל ל־$y = 2x - 5$ ועובר דרך $(3, 4)$: $m = 2$, ואז $4 = 2 \\cdot 3 + b$, לכן $b = -2$ ו־$y = 2x - 2$.',
       '$y = -2x + 6$ חותך את הצירים ב־$(0, 6)$ וב־$(3, 0)$, ושטח המשולש $\\frac{6 \\cdot 3}{2} = 9$.',
       '$g(x) = 20 - 8x$: $0 = 20 - 8x$, לכן $x = 2.5$ והנקודה $(2.5, 0)$.',
       '$y = 3x - 2$ ו־$y = -2x + 8$: $3x - 2 = -2x + 8$, לכן $x = 2$, $y = 4$ והנקודה $E(2, 4)$.',

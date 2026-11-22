@@ -28,7 +28,7 @@ import { CHALLENGE_TASKS as CHALLENGES } from './challenges/all';
 // @ts-ignore: plain JS
 import { rectStory, angleEqStory, rectFig } from '@/content/eq.js';
 // @ts-ignore: plain JS
-import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from '@/content/angleItems.js';
+import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect, parallelX, parallelConverse, parallelBend } from '@/content/angleItems.js';
 // @ts-ignore: plain JS
 import { bisItem, bisCheckItem, quadItem } from '@/content/angles67.js';
 // @ts-ignore: plain JS
@@ -1000,6 +1000,34 @@ function knownAngles(text: string): { at: string; deg: number }[] {
   for (const m of text.matchAll(/הזווית(?: ב־)?\s*\$([A-Z])\$\s*ישרה/g)) out.push({ at: m[1], deg: 90 });
   return out;
 }
+// The council's round 3 (unit 8.3, ח׳'s continuation of the parallel angles): the angles written with x, the converse and
+// the point between the parallels with its helper line are drawn to size, write only E as a letter, and keep every
+// number off every other number and line (components/geoLayout.js)
+describe('ח׳\'s parallel-angle questions are drawn to size', () => {
+  const kinds = [['angles written with x', parallelX], ['the converse', parallelConverse], ['a point between the parallels', parallelBend]] as const;
+  it.each(kinds)('%s', (_name, make) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make() as any; const f = it.fig as Geo;
+      expect(Object.keys(f.pts).filter((k) => !k.startsWith('_')), it.key).toEqual(String(it.key).startsWith('an4h') ? ['E'] : []);
+      const k = String(it.key).split(':');
+      // an4x: each arc is the size its expression gives for the x the two angles make
+      const x = k[0] === 'an4x' ? (() => { const [a1, c1, a2, c2] = k.slice(2, 6).map(Number); return k[1] === 'e' ? (c2 - c1) / (a1 - a2) : (180 - c1 - c2) / (a1 + a2); })() : NaN;
+      (f.angles || []).forEach((g: any, j: number) => {
+        const { deg } = geoSweep(f.pts, g);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: ? drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (k[0] === 'an4x') { const [a, c] = j ? [Number(k[4]), Number(k[5])] : [Number(k[2]), Number(k[3])]; expect(Math.abs(deg - (a * x + c)), `${it.key}: arc ${j}`).toBeLessThan(0.6); }
+      });
+      // the converse never marks its lines parallel; the others do, and the helper line through E is parallel to them
+      const marked = (f.segs || []).filter((s: any) => s.arrows);
+      expect(marked.length, it.key).toBe(k[0] === 'an4c' ? 0 : 2);
+      expect(geoClashes(f), it.key).toEqual([]);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+});
+
 describe('every angle drawing shows what its text gives, and every number sits inside its own angle', () => {
   const angleFigs = () => Object.values(CONTENT).filter((c) => c.topic === 'angles').flatMap((c) => [
     ...c.discover.map((st, i) => ({ where: `${c.skill} #${i}`, text: `${st.text} ${'display' in st ? st.display || '' : ''}`, f: figOf(st) })),

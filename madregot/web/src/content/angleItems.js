@@ -8,9 +8,9 @@
 // 360° minus one; no mistake predicts the answer or a slip of it (one off, ten off, two digits swapped); no two
 // mistakes predict one value. The drawings are 'geo' figures from points, drawn to size: the given angles carry their
 // degrees, the asked one a '?'. No point has a letter, since no text names one (learn/figures.test.ts).
-import { R, pick, near } from './util.js';
+import { R, pick, near, T, minusOp, divOp } from './util.js';
 import { slipOf } from '@/learn/misconceptions.ts';
-import { diagOf, triesOf } from './eq.js';
+import { diagOf, triesOf, line } from './eq.js';
 import { fan, splitTri } from '@/learn/content/geo.ts';
 
 const rad = (d) => (d * Math.PI) / 180;
@@ -398,6 +398,204 @@ export function parallelBisect() {
         ? [`הזווית שהקרן חוצה והזווית $${g}^\\circ$ הן זוויות ${PAR_NAME[name]} בין ישרים מקבילים, ולכן הן שוות: $${g}^\\circ$.`, `חוצה זווית מחלק אותה לשני חצאים שווים: $${g}^\\circ : 2 = ${ans}^\\circ$`]
         : [`הזווית שהקרן חוצה והזווית $${g}^\\circ$ הן זוויות חד־צדדיות בין ישרים מקבילים, ולכן יחד הן $180^\\circ$: $180^\\circ - ${g}^\\circ = ${whole}^\\circ$`, `חוצה זווית מחלק אותה לשני חצאים שווים: $${whole}^\\circ : 2 = ${ans}^\\circ$`],
       diag: diagFor(ans, bugs), tries: triesOf(bugs),
+    };
+  }
+}
+
+// ---------------------------------------------------------------- angles:4, ח׳'s continuation (unit 8.3)
+// The council's round 3, from the teacher's message for the 17.11 exam ("זוויות מתחלפות ומתאימות בין ישרים מקבילים
+// (המשך מכיתה ז׳)"): angles written with x, the converse (are the two lines parallel, and why), and a point between the
+// parallels with a helper line through it. ז׳ meets angles:4 in September to November, months before its equations
+// (unit 7.8, March): content/grade7.js draws these only when the learner is not in ז׳ (content/learner.js).
+
+/** a·x + c as the class writes an angle, with its degree sign (CLASSROOM-8): 3x + 10^\circ, x - 15^\circ. */
+const xAngle = (a, c) => `${a === 1 ? '' : a}x${c ? ` ${c < 0 ? '-' : '+'} ${Math.abs(c)}` : ''}^\\circ`;
+/** The same as an equation's side, without the degree sign. */
+const xSide = (a, c) => xAngle(a, c).replace('^\\circ', '');
+/** The same on a drawing: 3x + 10°, with a real minus. */
+const xLabel = (a, c) => xAngle(a, c).replace('^\\circ', '°').replace(/-/g, '−');
+/** a·x + c with x substituted, as the check line writes it: 3 \cdot 20 + 10. */
+const xAt = (a, c, x) => `${a === 1 ? x : `${a} \\cdot ${x}`} ${c < 0 ? '-' : '+'} ${Math.abs(c)}`;
+/** A prediction that is an angle a student could write: positive, below 180°, whole or a half. */
+const okAngle = (v) => (v != null && Number.isFinite(v) && Math.round(v * 2) === v * 2 && v > 0 && v < 180 ? v : null);
+
+/**
+ * Two parallel lines and a transversal; two angles of a named pair written with x, a1·x + c1 at the upper crossing and
+ * a2·x + c2 at the lower one: corresponding or alternate (equal), or co-interior (180° together). Asked: x, or the size of
+ * the upper angle. The drawing is to size (the transversal at the angle x gives), each angle with its expression
+ * (key an4x:e|s:a1:c1:a2:c2:x|a:p:q). Mistakes: the pair taken as the other kind, so the other equation is solved
+ * (supp-not-equal for an equal pair, equal-not-supp for a co-interior one), and the unknown answered for what was asked
+ * (wrong-unknown: an angle's size for x, x for the size). Every draw is fair (fairAngle).
+ */
+export function parallelX() {
+  for (;;) {
+    const eq = Math.random() < 0.6;
+    const [p, q, name] = pick(eq ? EQUAL_PAIRS : SUPP_PAIRS);
+    const x = R(5, 35); const a1 = R(1, 6); const a2 = R(1, 6); const c1 = 5 * R(-10, 12);
+    const V1 = a1 * x + c1;
+    // both angles 55° or more, so a label as long as 3x − 15° fits inside its own angle (components/geoLayout.js)
+    if (V1 < 55 || V1 > 125 || V1 === 90) continue;
+    const V2 = eq ? V1 : 180 - V1; const c2 = V2 - a2 * x;
+    if (c2 % 5 || Math.abs(c2) > 80 || !c1 || !c2 || (eq && a1 === a2)) continue;
+    const askX = Math.random() < 0.7;
+    const ans = askX ? x : V1;
+    // the other kind of pair: 180° together for an equal pair, equal for a co-interior one
+    const xw = eq ? (180 - c1 - c2) / (a1 + a2) : a1 === a2 ? null : (c2 - c1) / (a1 - a2);
+    const other = eq ? 'supp-not-equal' : 'equal-not-supp';
+    const bugs = askX
+      ? { [other]: okAngle(xw), 'wrong-unknown#0': V1, ...(V2 !== V1 ? { 'wrong-unknown#1': V2 } : {}) }
+      : { [other]: okAngle(xw) == null ? null : okAngle(a1 * xw + c1), 'wrong-unknown': x };
+    if (!fairAngle(ans, bugs, [a1, Math.abs(c1), a2, Math.abs(c2)])) continue;
+    const t = p === 'ur' || p === 'll' ? V1 : 180 - V1;
+    const par = parallelLines(t, 3.6);
+    const [u0, u1] = par.span('U', p); const [l0, l1] = par.span('L', q);
+    // each expression near the parallel line its angle sits on (the arm along the line is `from` for ur and ll, `to` for
+    // ul and lr), so two angles between the lines keep their labels apart
+    const toLine = (pos) => (pos === 'ur' || pos === 'll' ? 0.3 : 0.7);
+    const fig = {
+      type: 'geo', view: [300, 240], label: `שני ישרים מקבילים וחותך: בחיתוך העליון זווית ${xLabel(a1, c1)}, ובחיתוך התחתון זווית ${xLabel(a2, c2)}`,
+      pts: par.pts, segs: par.segs,
+      angles: [{ at: '_U', from: u0, to: u1, r: 20, lt: toLine(p), text: xLabel(a1, c1) }, { at: '_L', from: l0, to: l1, r: 20, lt: toLine(q), text: xLabel(a2, c2) }],
+      dots: ['_U', '_L'],
+    };
+    let steps;
+    if (eq) {
+      // the side with more x on the left, as the class moves the x-terms
+      const [A, B] = a1 >= a2 ? [[a1, c1], [a2, c2]] : [[a2, c2], [a1, c1]];
+      const d = A[0] - B[0]; const r = B[1] - A[1];
+      steps = [
+        `הזוויות ${PAR_NAME[name]} בין ישרים מקבילים, ולכן הן שוות:`,
+        line('', `${xSide(...A)} = ${xSide(...B)}`, minusOp(`${B[0] === 1 ? '' : B[0]}x`)),
+        line('', `${xSide(d, A[1])} = ${B[1]}`, minusOp(T(A[1]))),
+        d === 1 ? line('', `x = ${r}`) : line('', `${d}x = ${r}`, divOp(d)),
+        ...(d === 1 ? [] : [line('', `x = ${x}`)]),
+      ];
+    } else {
+      const s = a1 + a2; const cs = c1 + c2;
+      steps = [
+        'הזוויות חד־צדדיות בין ישרים מקבילים, ולכן יחד הן $180^\\circ$:',
+        `$${xSide(a1, c1)} + ${xSide(a2, c2)} = 180$`,
+        line('כינוס', `${xSide(s, cs)} = 180`, cs ? minusOp(T(cs)) : divOp(s)),
+        ...(cs ? [line('', `${s}x = ${180 - cs}`, divOp(s))] : []),
+        line('', `x = ${x}`),
+      ];
+    }
+    const check = `בדיקה: $${xAt(a1, c1, x)} = ${V1}^\\circ$ ו־$${xAt(a2, c2, x)} = ${V2}^\\circ$${eq ? ', שוות' : ', ויחד $180^\\circ$'}.`;
+    return {
+      key: `an4x:${eq ? 'e' : 's'}:${a1}:${c1}:${a2}:${c2}:${askX ? 'x' : 'a'}:${p}:${q}`, form: 'num', answer: ans, unit: askX ? null : DEG, fig,
+      text: `שני ישרים מקבילים נחתכים על ידי ישר שלישי. בשרטוט מסומנות שתי זוויות: $${xAngle(a1, c1)}$ ו־$${xAngle(a2, c2)}$. ${askX ? 'מצאו את $x$.' : `מה גודל הזווית $${xAngle(a1, c1)}$?`}`,
+      hint: 'מה הקשר בין שתי הזוויות: מתאימות, מתחלפות או חד־צדדיות? זוויות מתאימות ומתחלפות שוות, וזוויות חד־צדדיות יחד $180^\\circ$. מזה בונים משוואה.',
+      solution: askX ? [...steps, check] : [...steps, `הזווית: $${xAt(a1, c1, x)} = ${V1}^\\circ$`],
+      diag: diagFor(ans, bugs), tries: triesOf(bugs),
+    };
+  }
+}
+
+/**
+ * The converse: two lines (drawn to size, not marked parallel) cut by a transversal, and two angles of a named pair given
+ * in degrees. Are the lines parallel, and why? Four choices, each a yes or a no with a reason about this pair: equal, or
+ * 180° together. The draws: parallel; a trap, where the pair has the other kind's property (corresponding angles of
+ * 85° and 95°, together 180°; co-interior angles both 85°), whose choice names supp-not-equal or equal-not-supp; and a
+ * near miss of a few degrees, which a drawing cannot show. A choice of four with a reason: practice only, as the
+ * bisector's (an6c), so its wording tells a check nothing (key an4c:name:A:B:p:q).
+ */
+export function parallelConverse() {
+  for (;;) {
+    const eqKind = Math.random() < 0.6;
+    const [p, q, name] = pick(eqKind ? EQUAL_PAIRS : SUPP_PAIRS);
+    const A = 5 * R(8, 28); if (A === 90) continue;
+    const kind = pick(['par', 'par', 'trap', 'near']);
+    const B = kind === 'par' ? (eqKind ? A : 180 - A) : kind === 'trap' ? (eqKind ? 180 - A : A) : (eqKind ? A : 180 - A) + pick([-1, 1]) * R(3, 9);
+    const parallel = eqKind ? A === B : A + B === 180;
+    // the lower line turned by delta draws B to size; small enough that the two lines do not meet in the drawing
+    const t = p === 'ur' || p === 'll' ? A : 180 - A;
+    const delta = q === 'ur' || q === 'll' ? t - B : B - (180 - t);
+    if (Math.abs(delta) > 20 || B < 20 || B > 160) continue;
+    const par = parallelLines(t);
+    const lo = par.pts._l1[0]; const hi = par.pts._r1[0]; const tan = Math.tan(rad(delta));
+    const pts = { ...par.pts, _l1: [lo, r4(lo * tan)], _r1: [hi, r4(hi * tan)] };
+    const [u0, u1] = par.span('U', p); const [l0, l1] = par.span('L', q);
+    const fig = {
+      type: 'geo', view: [300, 230], label: `שני ישרים וישר שחותך אותם: בחיתוך העליון זווית של ${A}°, ובחיתוך התחתון זווית של ${B}°`,
+      // no parallel marks: whether the lines are parallel is the question
+      pts, segs: par.segs.map(({ a, b }) => ({ a, b })),
+      angles: [{ at: '_U', from: u0, to: u1, r: 22, ...given(A) }, { at: '_L', from: l0, to: l1, r: 22, ...given(B) }],
+      dots: ['_U', '_L'],
+    };
+    const the = { corresponding: 'המתאימות', alternate: 'המתחלפות', cointerior: 'החד־צדדיות' }[name];
+    const opts = [
+      { text: `כן, כי הזוויות ${the} שוות`, ok: eqKind && parallel, bug: !eqKind && A === B ? 'equal-not-supp' : null },
+      { text: `כן, כי הזוויות ${the} משלימות ל־180°`, ok: !eqKind && parallel, bug: eqKind && A + B === 180 ? 'supp-not-equal' : null },
+      { text: `לא, כי הזוויות ${the} לא שוות`, ok: eqKind && !parallel, bug: !eqKind && parallel ? 'equal-not-supp' : null },
+      { text: `לא, כי הזוויות ${the} לא משלימות ל־180°`, ok: !eqKind && !parallel, bug: eqKind && parallel ? 'supp-not-equal' : null },
+    ];
+    const why = eqKind
+      ? (parallel ? `הן שוות, ולכן הישרים מקבילים: אם זוויות ${PAR_NAME[name]} שוות, הישרים מקבילים (המשפט ההפוך).`
+        : `$${A}^\\circ \\ne ${B}^\\circ$: הן לא שוות, ולכן הישרים לא מקבילים${A + B === 180 ? ', אף על פי שיחד הן $180^\\circ$' : ''}.`)
+      : (parallel ? `יחד הן $${A}^\\circ + ${B}^\\circ = 180^\\circ$, ולכן הישרים מקבילים: אם זוויות חד־צדדיות משלימות ל־$180^\\circ$, הישרים מקבילים (המשפט ההפוך).`
+        : `יחד הן $${A}^\\circ + ${B}^\\circ = ${A + B}^\\circ$ ולא $180^\\circ$, ולכן הישרים לא מקבילים${A === B ? ', אף על פי שהן שוות' : ''}.`);
+    return {
+      key: `an4c:${name}:${A}:${B}:${p}:${q}`, form: 'mc', practiceOnly: true,
+      choices: opts.map(({ text, ok }) => ({ text, ...(ok ? { ok } : {}) })), answer: opts.findIndex((c) => c.ok), fig,
+      text: `בשרטוט שני ישרים וישר שלישי שחותך אותם. מסומנות שתי זוויות: $${A}^\\circ$ ו־$${B}^\\circ$. האם שני הישרים מקבילים? בחרו את התשובה עם ההסבר הנכון.`,
+      hint: 'קודם מזהים את סוג הזוויות: מתאימות, מתחלפות או חד־צדדיות. הישרים מקבילים אם זוויות מתאימות או מתחלפות שוות, או אם זוויות חד־צדדיות משלימות ל־$180^\\circ$. בשרטוט קשה לראות הבדל של כמה מעלות.',
+      solution: [`הזוויות $${A}^\\circ$ ו־$${B}^\\circ$ הן זוויות ${PAR_NAME[name]}.`, why],
+      diag: (u) => opts[u]?.bug || null,
+    };
+  }
+}
+
+/**
+ * A point E between two parallel lines, joined to a point on each; through E a helper line (dashed) parallel to them
+ * splits the angle at E into two parts, each alternate to the angle at one of the lines, so ∢E = α + β. Asked: ∢E from
+ * α and β, or α (or β) from ∢E and the other. Drawn to size; E points right or (mirrored) left (key
+ * an4h:E|P|Q:a:b:mirror). Mistakes: ∢E found as a triangle's third angle (wrong-total: 180° minus the givens), and the
+ * given part added to ∢E instead of taken from it (sum-not-diff).
+ */
+export function parallelBend() {
+  for (;;) {
+    const a = 5 * R(5, 14); const b = 5 * R(5, 14); const e = a + b;
+    if (e > 140) continue;
+    const ask = pick(['E', 'E', 'E', 'P', 'Q']);
+    const g = ask === 'P' ? b : a; // the part given beside ∢E when a part is asked
+    const ans = ask === 'E' ? e : ask === 'P' ? a : b;
+    const bugs = ask === 'E' ? { 'wrong-total': 180 - e } : { 'sum-not-diff': okAngle(e + g), 'wrong-total': okAngle(180 - e - g) };
+    if (!fairAngle(ans, bugs, ask === 'E' ? [a, b] : [e, g])) continue;
+    const mirror = Math.random() < 0.5;
+    const H = 3; const P = [r4(-(H / 2) / Math.tan(rad(a))), H]; const Q = [r4(-(H / 2) / Math.tan(rad(b))), 0];
+    const lo = Math.min(P[0], Q[0]) - 1.6; const hi = 2;
+    const fx = (pt) => (mirror ? [r4(-pt[0]), pt[1]] : pt);
+    // the helper line runs a short way into the angle at E, so the angle's number past its end sits on no line
+    const pts = Object.fromEntries(Object.entries({ _l2: [lo, H], _r2: [hi, H], _l1: [lo, 0], _r1: [hi, 0], E: [0, H / 2], _P: P, _Q: Q, _h0: [-0.55, H / 2], _h1: [1.5, H / 2] }).map(([k, v]) => [k, fx(v)]));
+    // an arc sweeps counterclockwise from `from` to `to`: a mirror image sweeps the other way
+    const arc = (at, from, to, mk, r = 24) => ({ at, from: mirror ? to : from, to: mirror ? from : to, r, ...mk });
+    const fig = {
+      type: 'geo', view: [300, 220], label: `שני ישרים מקבילים והנקודה E ביניהם, ודרכה ישר עזר מקווקו: ${ask === 'E' ? `זוויות של ${a}° ו־${b}° על הישרים, והזווית ב־E מסומנת ב־?` : `הזווית ב־E היא ${e}°, על אחד הישרים זווית של ${g}°, והזווית על הישר השני מסומנת ב־?`}`,
+      pts,
+      segs: [{ a: '_l2', b: '_r2', arrows: 1 }, { a: '_l1', b: '_r1', arrows: 1 }, { a: '_P', b: 'E' }, { a: '_Q', b: 'E' }, { a: '_h0', b: '_h1', dash: true }],
+      angles: [
+        arc('_P', 'E', '_r2', ask === 'P' ? asked : given(a)),
+        arc('_Q', '_r1', 'E', ask === 'Q' ? asked : given(b)),
+        arc('E', '_P', '_Q', ask === 'E' ? asked : given(e), 28),
+      ],
+      dots: ['E'],
+      // E's letter above the helper line, on the side away from the angle
+      lab: { E: [mirror ? -12 : 12, -14] },
+    };
+    const solution = ask === 'E'
+      ? [`ישר העזר מקביל לשני הישרים. החלק העליון של הזווית ב־$E$ והזווית $${a}^\\circ$ הן זוויות מתחלפות, ולכן שוות: $${a}^\\circ$.`,
+        `גם החלק התחתון שלה והזווית $${b}^\\circ$ הן זוויות מתחלפות: $${b}^\\circ$.`,
+        `$\\sphericalangle E = ${a}^\\circ + ${b}^\\circ = ${e}^\\circ$`]
+      : [`ישר העזר מקביל לשני הישרים. החלק ${ask === 'P' ? 'התחתון' : 'העליון'} של $\\sphericalangle E$ והזווית $${g}^\\circ$ הן זוויות מתחלפות, ולכן שוות: $${g}^\\circ$.`,
+        `החלק ${ask === 'P' ? 'העליון' : 'התחתון'}: $${e}^\\circ - ${g}^\\circ = ${ans}^\\circ$`,
+        `הוא והזווית המסומנת הן זוויות מתחלפות, ולכן גם היא $${ans}^\\circ$.`];
+    return {
+      key: `an4h:${ask}:${a}:${b}:${mirror ? 1 : 0}`, form: 'num', answer: ans, unit: DEG, fig,
+      text: ask === 'E'
+        ? `שני ישרים מקבילים, והנקודה $E$ ביניהם. דרך $E$ עובר ישר עזר (מקווקו) המקביל לשניהם. ${ASK}`
+        : `שני ישרים מקבילים, והנקודה $E$ ביניהם: $\\sphericalangle E = ${e}^\\circ$. דרך $E$ עובר ישר עזר (מקווקו) המקביל לשניהם. ${ASK}`,
+      hint: 'ישר העזר מחלק את הזווית ב־$E$ לשני חלקים. כל חלק והזווית שעל הישר המקביל הקרוב אליו הן זוויות מתחלפות, ולכן הן שוות.',
+      solution, diag: diagFor(ans, bugs), tries: triesOf(bugs),
     };
   }
 }

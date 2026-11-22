@@ -12,6 +12,10 @@ import { CIRCLE } from './circle.js';
 import { SPACE } from './space.js';
 import { CONGR } from './congr.js';
 import { SIM } from './sim.js';
+import { diagOf } from './eq.js';
+import { slipOf } from '@/learn/misconceptions.ts';
+import { rightTrapFig } from './area.js';
+import { barFig } from './data.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -167,6 +171,141 @@ function ladder() {
   };
 }
 
+// ---------------------------------------------------------------- Pythagoras in two steps (the council's round 3)
+// The figures grade-8 exams in this chapter build on: an altitude that splits a triangle into two right triangles, an
+// isosceles triangle's height to its base, a rhombus from its diagonals, a right trapezoid's slanted leg. Each needs a
+// step before the theorem (the common leg first, half the base, half the diagonals, the difference of the bases), and
+// every length is whole: the right triangles are Pythagorean triples. Each mistake's prediction is read by eq.js diagOf
+// (exactly, or rounded to tenths or hundredths when it is not whole), and a draw is kept only when no two predictions,
+// the answer and the numbers printed in the question are the same.
+const CM = 'ס״מ';
+/** Every right triangle of TRIPLES both ways round: [leg, leg, hypotenuse]. */
+const RIGHTS = TRIPLES.flatMap(([a, b, c]) => [[a, b, c], [b, a, c]]);
+const sq = (v) => v * v;
+/** Is a draw fair: no prediction is the answer, none is another's, and the answer is not a number of the question? */
+function fairTwo(ans, bugs, printed) {
+  // compared as a student types them, rounded to tenths: √442 ≈ 21.0 and 21 are one answer
+  const vals = Object.values(bugs).filter((v) => v != null && Number.isFinite(v)).map(r1);
+  // (a prediction one off the answer, or ten off, or with two digits swapped, is a slip of the hand: eq.js diagOf names
+  // nothing there, so such a draw is drawn again)
+  if (vals.some((v) => near(v, ans, 0.05) || slipOf(v, ans))) return false;
+  if (new Set(vals.map((v) => v.toFixed(1))).size !== vals.length) return false;
+  return !printed.some((v) => near(v, ans));
+}
+const lab = (a, b, label, extra = {}) => ({ a, b, label: String(label), ...extra });
+
+/** An altitude AD splits ABC into two right triangles with the leg AD in common: AB, BD and DC given, AC asked (py4a:ab:bd:dc). */
+function altitudeSplit() {
+  for (;;) {
+    const [bd, h, ab] = pick(RIGHTS); const others = RIGHTS.filter(([x, y]) => y === h && x !== bd);
+    if (!others.length) continue;
+    const [dc, , ac] = pick(others);
+    const bugs = { 'skip-step': Math.sqrt(sq(ab) + sq(dc)), 'add-not-sub': Math.sqrt(sq(ab) + sq(bd) + sq(dc)), 'add-legs': h + dc, 'no-root': sq(ac) };
+    if (!fairTwo(ac, bugs, [ab, bd, dc])) continue;
+    return {
+      key: `py4a:${ab}:${bd}:${dc}`, form: 'num', answer: ac, unit: CM,
+      text: `במשולש $ABC$ הקטע $AD$ הוא הגובה לצלע $BC$. נתון: $AB = ${ab}$, $BD = ${bd}$ ו־$DC = ${dc}$ (בס״מ). מה אורך $AC$?`,
+      fig: {
+        type: 'geo', label: 'משולש והגובה לצלע BC', pts: { B: [0, 0], D: [bd, 0], C: [bd + dc, 0], A: [bd, h] }, polys: [{ pts: ['A', 'B', 'C'] }],
+        segs: [lab('A', 'B', ab), lab('B', 'D', bd), lab('D', 'C', dc), lab('A', 'C', '?'), { a: 'A', b: 'D', dash: true }],
+        angles: [{ at: 'D', from: 'C', to: 'A', right: true }],
+      },
+      hint: 'בשרטוט שני משולשים ישרי־זווית עם ניצב משותף, $AD$. קודם מוצאים את $AD$ במשולש $ABD$, ואחר כך את $AC$ במשולש $ADC$.',
+      solution: [
+        `במשולש $ABD$ (ישר־זווית ב־$D$): $AD^2 = ${ab}^2 - ${bd}^2 = ${sq(ab)} - ${sq(bd)} = ${sq(h)}$, ולכן $AD = ${h}$`,
+        `במשולש $ADC$ (ישר־זווית ב־$D$): $AC^2 = ${h}^2 + ${dc}^2 = ${sq(h)} + ${sq(dc)} = ${sq(ac)}$, ולכן $AC = ${ac}$`,
+      ],
+      diag: diagOf(ac, bugs),
+    };
+  }
+}
+
+/** An isosceles triangle's height to its base halves the base: the height from the legs and the base, or a leg from the height and the base (py4i:h|s:s:base:h). */
+function isoscelesHeight() {
+  for (;;) {
+    const [d, h, s] = pick(RIGHTS); const base = 2 * d;
+    if (base > 30) continue;
+    const askH = Math.random() < 0.6;
+    const ans = askH ? h : s;
+    const bugs = askH
+      ? { 'base-not-halved': s > base ? Math.sqrt(sq(s) - sq(base)) : null, 'add-not-sub': Math.sqrt(sq(s) + sq(d)), 'subtract-sides': s - d }
+      : { 'base-not-halved': Math.sqrt(sq(h) + sq(base)), 'add-legs': h + d };
+    if (!fairTwo(ans, bugs, askH ? [s, base] : [h, base])) continue;
+    return {
+      key: `py4i:${askH ? 'h' : 's'}:${s}:${base}:${h}`, form: 'num', answer: ans, unit: CM,
+      text: askH
+        ? `במשולש שווה־שוקיים $ABC$ ($AB = AC$) השוקיים $${s}$ ס״מ והבסיס $BC = ${base}$ ס״מ. מה אורך הגובה לבסיס, $AD$?`
+        : `במשולש שווה־שוקיים $ABC$ ($AB = AC$) הבסיס $BC = ${base}$ ס״מ, והגובה לבסיס הוא $AD = ${h}$ ס״מ. מה אורך השוק $AB$?`,
+      fig: {
+        type: 'geo', label: 'משולש שווה־שוקיים והגובה לבסיס', pts: { B: [0, 0], D: [d, 0], C: [base, 0], A: [d, h] }, polys: [{ pts: ['A', 'B', 'C'] }],
+        segs: [lab('A', 'B', askH ? s : '?', { ticks: 1 }), { a: 'A', b: 'C', ticks: 1 }, lab('B', 'C', base), lab('A', 'D', askH ? '?' : h, { dash: true, side: 'in' })],
+        angles: [{ at: 'D', from: 'C', to: 'A', right: true }],
+      },
+      hint: 'במשולש שווה־שוקיים הגובה לבסיס חוצה את הבסיס. כך מתקבל משולש ישר־זווית $ABD$, שאחד הניצבים שלו הוא חצי מהבסיס.',
+      solution: [
+        `הגובה לבסיס חוצה אותו: $BD = ${base} : 2 = ${d}$`,
+        askH
+          ? `במשולש $ABD$ (ישר־זווית ב־$D$): $AD^2 = ${s}^2 - ${d}^2 = ${sq(s)} - ${sq(d)} = ${sq(h)}$, ולכן $AD = ${h}$`
+          : `במשולש $ABD$ (ישר־זווית ב־$D$): $AB^2 = ${h}^2 + ${d}^2 = ${sq(h)} + ${sq(d)} = ${sq(s)}$, ולכן $AB = ${s}$`,
+      ],
+      diag: diagOf(ans, bugs),
+    };
+  }
+}
+
+/** A rhombus's diagonals halve each other at right angles: the side from the diagonals, or a diagonal from the side and the other one (py4r:s|d:d1:d2:s). */
+function rhombusSide() {
+  for (;;) {
+    const [x, y, s] = pick(RIGHTS); const d1 = 2 * x; const d2 = 2 * y;
+    if (d1 > 40 || d2 > 40) continue;
+    const askS = Math.random() < 0.6;
+    const ans = askS ? s : d2;
+    const bugs = askS
+      ? { 'diag-not-halved': Math.sqrt(sq(d1) + sq(d2)), 'add-legs': x + y }
+      : { 'half-for-whole': y, 'add-not-sub': 2 * Math.sqrt(sq(s) + sq(x)), 'diag-not-halved': s > d1 ? Math.sqrt(sq(s) - sq(d1)) : null };
+    if (!fairTwo(ans, bugs, askS ? [d1, d2] : [s, d1])) continue;
+    return {
+      key: `py4r:${askS ? 's' : 'd'}:${d1}:${d2}:${s}`, form: 'num', answer: ans, unit: CM,
+      text: askS
+        ? `במעוין $ABCD$ האלכסונים הם $AC = ${d1}$ ס״מ ו־$BD = ${d2}$ ס״מ. מה אורך הצלע של המעוין?`
+        : `צלע המעוין $ABCD$ היא $${s}$ ס״מ, והאלכסון $AC = ${d1}$ ס״מ. מה אורך האלכסון $BD$?`,
+      fig: {
+        type: 'geo', label: 'מעוין ואלכסוניו', pts: { A: [-x, 0], B: [0, -y], C: [x, 0], D: [0, y], _O: [0, 0] }, polys: [{ pts: ['A', 'B', 'C', 'D'] }],
+        segs: [lab('A', 'D', askS ? '?' : s, { ticks: 1 }), { a: 'D', b: 'C', ticks: 1 }, { a: 'C', b: 'B', ticks: 1 }, { a: 'B', b: 'A', ticks: 1 },
+          lab('A', 'C', d1, { dash: true, t: 0.75 }), lab('B', 'D', askS ? d2 : '?', { dash: true, t: 0.25 })],
+        angles: [{ at: '_O', from: 'C', to: 'D', right: true }],
+      },
+      hint: 'האלכסונים של מעוין מאונכים זה לזה וחוצים זה את זה. כל צלע היא יתר של משולש ישר־זווית שהניצבים שלו הם חצאי האלכסונים.',
+      solution: askS
+        ? [`חצאי האלכסונים: $${d1} : 2 = ${x}$ ו־$${d2} : 2 = ${y}$`, `$AD^2 = ${x}^2 + ${y}^2 = ${sq(x)} + ${sq(y)} = ${sq(s)}$, ולכן הצלע $${s}$ ס״מ`]
+        : [`חצי האלכסון $AC$: $${d1} : 2 = ${x}$`,
+          `חצי האלכסון $BD$ הוא ניצב במשולש ישר־זווית שהיתר שלו הצלע: $${s}^2 - ${x}^2 = ${sq(s)} - ${sq(x)} = ${sq(y)}$, ולכן החצי הוא $${y}$`,
+          `$BD = 2 \\cdot ${y} = ${d2}$`],
+      diag: diagOf(ans, bugs),
+    };
+  }
+}
+
+/** A right trapezoid's slanted leg: the height from the short base makes a right triangle whose other leg is the bases' difference (py4t:a:b:h). */
+function trapezoidLeg() {
+  for (;;) {
+    const [diff, h, s] = pick(RIGHTS); const b = R(3, 12); const a = b + diff;
+    if (a > 30) continue;
+    const bugs = { 'whole-base': Math.sqrt(sq(h) + sq(a)), 'add-legs': h + diff };
+    if (!fairTwo(s, bugs, [a, b, h])) continue;
+    // the trapezoid of the area stairs, with the height from the short base's end dashed down to the long base
+    const tf = rightTrapFig(a, b, h, '?');
+    return {
+      key: `py4t:${a}:${b}:${h}`, form: 'num', answer: s, unit: CM,
+      text: `בטרפז ישר־זווית הבסיסים הם $${a}$ ס״מ ו־$${b}$ ס״מ, והגובה $${h}$ ס״מ. מה אורך השוק הנטויה?`,
+      fig: { ...tf, pts: { ...tf.pts, _5: [b, 0] }, segs: [...tf.segs, { a: '_3', b: '_5', dash: true }] },
+      hint: 'מורידים גובה מקצה הבסיס הקצר. נוצר משולש ישר־זווית: ניצב אחד הוא הגובה, והשני הוא ההפרש בין הבסיסים.',
+      solution: [`ההפרש בין הבסיסים: $${a} - ${b} = ${diff}$`, `$${h}^2 + ${diff}^2 = ${sq(h)} + ${sq(diff)} = ${sq(s)}$, ולכן השוק $${s}$ ס״מ`],
+      diag: diagOf(s, bugs),
+    };
+  }
+}
+
 function distance() {
   for (;;) {
     const whole = Math.random() < 0.35;
@@ -209,6 +348,85 @@ function mode() {
       hint: 'השכיח הוא הערך שמופיע הכי הרבה פעמים.',
       solution: [`$${m}$ מופיע ${counts[m]} פעמים, יותר מכל ערך אחר.`],
       diag: (u) => [near(u, max) && 'mode-max', near(u, sortNum(list)[Math.floor(n / 2)]) && 'mode-median', near(u, counts[m]) && 'mode-count'].filter(Boolean),
+    };
+  }
+}
+
+// The mode and the median read from a frequency table or a bar chart (the council's round 3: the teacher's 17.11 list,
+// "שכיחות, שכיח ... ממוצע וחציון"): the data are the values, each as many times as its frequency.
+const FREQ_CTX = [
+  { what: 'את מספר האחים והאחיות של כל תלמיד בכיתה', head: 'מספר אחים', from: 0 },
+  { what: 'את הציונים של תלמידי הכיתה בבוחן', head: 'ציון', from: 5 },
+  { what: 'את מספר הספרים שקרא כל תלמיד בחופש', head: 'מספר ספרים', from: 1 },
+  { what: 'את מספר שעות הספורט בשבוע של כל תלמיד', head: 'מספר שעות', from: 1 },
+];
+/** k values in a row from the context's first one, each with a frequency of 1 to 8. */
+function freqData() {
+  const c = R(0, FREQ_CTX.length - 1); const ctx = FREQ_CTX[c]; const k = R(4, 6);
+  const vals = Array.from({ length: k }, (_, i) => ctx.from + i); const freqs = vals.map(() => R(1, 8));
+  const bar = Math.random() < 0.4;
+  const fig = bar
+    ? barFig(vals.map(String), freqs, { step: 1, max: Math.max(...freqs) + 1, unit: 'מספר תלמידים' })
+    : { type: 'table', head: [ctx.head, 'מספר תלמידים'], rows: vals.map((v, i) => [v, freqs[i]]) };
+  return { c, ctx, vals, freqs, bar, fig, intro: `${bar ? 'דיאגרמת העמודות' : 'טבלת השכיחויות'} מציגה ${ctx.what}.` };
+}
+
+/**
+ * The mode from a frequency table or a bar chart (key st1t:c:t|b:values:freqs): the value with the highest frequency.
+ * Mistakes: that frequency itself written (mode-count), the largest value (mode-max).
+ */
+function modeTable() {
+  for (;;) {
+    const d = freqData(); const { vals, freqs } = d;
+    const top = Math.max(...freqs); const at = freqs.indexOf(top);
+    if (freqs.filter((f) => f === top).length > 1) continue;
+    const mode = vals[at]; const bugs = { 'mode-count': top, 'mode-max': vals[vals.length - 1] };
+    // (a prediction one off the answer is a slip of the hand, which diagOf never names: such a draw is drawn again)
+    if (Object.values(bugs).some((v) => v === mode || slipOf(v, mode)) || bugs['mode-count'] === bugs['mode-max']) continue;
+    return {
+      key: `st1t:${d.c}:${d.bar ? 'b' : 't'}:${vals.join(',')}:${freqs.join(',')}`, form: 'num', answer: mode, fig: d.fig,
+      text: `${d.intro} מה השכיח?`,
+      hint: 'השכיח הוא הערך שמופיע הכי הרבה פעמים: מחפשים את השכיחות הגבוהה ביותר, והתשובה היא הערך שלה, לא השכיחות עצמה.',
+      solution: [`השכיחות הגבוהה ביותר היא $${top}$, של הערך $${mode}$.`, `השכיח הוא הערך עצמו: $${mode}$ (ולא $${top}$, מספר הפעמים שהוא מופיע).`],
+      diag: diagOf(mode, bugs),
+    };
+  }
+}
+
+/**
+ * The median from a frequency table or a bar chart (key st2t:c:t|b:values:freqs): n data in order, the median is the
+ * one in place (n + 1) : 2, or the mean of the two middle ones, found by counting the frequencies from the smallest value.
+ * Mistakes: the place written for the value (position-not-value), the median of the frequencies (freq-median), the middle
+ * of the values with the frequencies left out (median-of-values), the mean (mean-not-median). Each draw keeps them apart.
+ */
+function medianTable() {
+  for (;;) {
+    const d = freqData(); const { vals, freqs } = d;
+    const n = freqs.reduce((a, b) => a + b, 0);
+    if (n < 9 || n > 31) continue;
+    const data = vals.flatMap((v, i) => Array(freqs[i]).fill(v));
+    const lo = data[Math.floor((n - 1) / 2)]; const hi = data[Math.ceil((n - 1) / 2)]; const med = (lo + hi) / 2;
+    const mid = (a) => { const s = sortNum(a); const k = s.length; return k % 2 ? s[(k - 1) / 2] : (s[k / 2 - 1] + s[k / 2]) / 2; };
+    const mean = data.reduce((a, b) => a + b, 0) / n;
+    const bugs = { 'position-not-value': (n + 1) / 2, 'freq-median': mid(freqs), 'median-of-values': mid(vals), 'mean-not-median': mean };
+    const shown = Object.values(bugs).map((v) => (Math.round(v * 10) / 10).toFixed(1));
+    if (new Set(shown).size !== shown.length || Object.values(bugs).some((v) => near(v, med, 0.05) || slipOf(v, med))) continue;
+    const cum = freqs.map((_, i) => freqs.slice(0, i + 1).reduce((a, b) => a + b, 0));
+    const until = cum.findIndex((c) => c >= Math.ceil((n + 1) / 2)) + 1;
+    const odd = n % 2 === 1; const p = (n + 1) / 2;
+    return {
+      key: `st2t:${d.c}:${d.bar ? 'b' : 't'}:${vals.join(',')}:${freqs.join(',')}`, form: 'num', answer: med, fig: d.fig,
+      text: `${d.intro} מה החציון?`,
+      hint: 'קודם סופרים כמה נתונים יש: מחברים את כל השכיחויות. החציון הוא הנתון שבאמצע כשהנתונים מסודרים מהקטן לגדול: סופרים את השכיחויות מהערך הקטן עד שמגיעים למקום האמצעי.',
+      solution: [
+        `מספר הנתונים: $${freqs.join(' + ')} = ${n}$`,
+        odd ? `החציון הוא הנתון במקום $\\frac{${n} + 1}{2} = ${p}$ בסדר עולה.` : `החציון הוא הממוצע של הנתונים במקומות $${n / 2}$ ו־$${n / 2 + 1}$ בסדר עולה.`,
+        `סופרים מהערך הקטן: ${vals.slice(0, until).map((v, i) => `עד $${v}$ יש ${cum[i] === 1 ? 'נתון אחד' : `$${cum[i]}$ נתונים`}`).join(', ')}.`,
+        odd ? `הנתון במקום $${p}$ הוא $${med}$, ולכן החציון $${med}$.`
+          : lo === hi ? `הנתונים במקומות $${n / 2}$ ו־$${n / 2 + 1}$ הם $${lo}$, ולכן החציון $${med}$.`
+            : `במקום $${n / 2}$ הנתון $${lo}$ ובמקום $${n / 2 + 1}$ הנתון $${hi}$: החציון $\\frac{${lo} + ${hi}}{2} = ${med}$.`,
+      ],
+      diag: diagOf(med, bugs),
     };
   }
 }
@@ -341,7 +559,9 @@ export const GRADE8 = [
       { title: 'מציאת היתר', gen: () => { const r = Math.random(); return r < 0.3 ? squaresHyp() : r < 0.5 ? estimateRoot() : hypotenuse(); } },
       { title: 'מציאת ניצב', gen: leg },
       { title: 'האם המשולש ישר־זווית?', gen: () => (Math.random() < 0.5 ? whichRight() : howManyRight()) },
-      { title: 'שאלה מילולית', gen: ladder },
+      // the ladder, and the two-step figures (the council's round 3): an altitude, an isosceles triangle's height, a rhombus,
+      // a right trapezoid
+      { title: 'שאלה מילולית', gen: () => { const r = Math.random(); return r < 0.4 ? ladder() : r < 0.55 ? altitudeSplit() : r < 0.7 ? isoscelesHeight() : r < 0.85 ? rhombusSide() : trapezoidLeg(); } },
       { title: 'מרחק בין נקודות', gen: distance },
     ],
     cats: {
@@ -351,6 +571,12 @@ export const GRADE8 = [
       'subtract-sides': 'חיסרו צלעות בלי לרבע',
       'wrong-hyp': 'בדקו את הצלע שכתובה אחרונה כאילו היא היתר',
       'assume-right': 'קבעו שהמשולש ישר־זווית בלי לבדוק',
+      // the two-step figures of pyth:4 (the council's round 3)
+      'skip-step': 'השתמשו בצלע של משולש אחד כאילו היא צלע של המשולש השני, בלי למצוא קודם את הניצב המשותף',
+      'base-not-halved': 'לקחו את כל הבסיס במקום חצי ממנו: הגובה לבסיס במשולש שווה־שוקיים חוצה את הבסיס',
+      'diag-not-halved': 'לקחו אלכסונים שלמים במקום חצאים: האלכסונים של מעוין חוצים זה את זה',
+      'half-for-whole': 'מצאו חצי אלכסון ולא הכפילו ב־$2$',
+      'whole-base': 'לקחו בסיס שלם במקום ההפרש בין הבסיסים',
     },
   },
   // the circle, the cylinder and the cone (stage 2, MEASURE-4): October and November, after Pythagoras (September and
@@ -365,8 +591,9 @@ export const GRADE8 = [
     // stairs, and eight levels instead of five would move every probe (lib/placement.js reads placementTop).
     placementTop: 5,
     levels: [
-      { title: 'שכיח', gen: mode },
-      { title: 'חציון', gen: () => (Math.random() < 0.4 ? medianBars() : (median)()) },
+      // the mode and the median also from a frequency table or a bar chart (the council's round 3)
+      { title: 'שכיח', gen: () => (Math.random() < 0.35 ? modeTable() : mode()) },
+      { title: 'חציון', gen: () => { const r = Math.random(); return r < 0.3 ? medianBars() : r < 0.65 ? median() : medianTable(); } },
       { title: 'ממוצע', gen: () => (Math.random() < 0.5 ? meanBars() : mean()) },
       { title: 'ממוצע מטבלה', gen: freqMean },
       { title: 'נתון חסר', gen: missingValue },
@@ -384,6 +611,10 @@ export const GRADE8 = [
       'ignore-freq': 'התעלמו ממספר התלמידים בכל ציון',
       'wrong-count': 'חילקו במספר השורות ולא במספר התלמידים',
       'mean-as-answer': 'כתבו את הממוצע במקום המספר החסר',
+      // the median from a frequency table (the council's round 3)
+      'position-not-value': 'כתבו את המקום של החציון בסדר, ולא את הנתון שנמצא במקום הזה',
+      'freq-median': 'חישבו את החציון של השכיחויות, ולא של הנתונים',
+      'median-of-values': 'לקחו את הערך האמצעי בטבלה בלי להתחשב בשכיחויות',
       ...STATS2_CATS,
     },
   },

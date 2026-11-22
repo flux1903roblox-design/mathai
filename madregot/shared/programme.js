@@ -117,7 +117,10 @@ export const PROGRAMME = {
     { id: '8.2', grade: '8', domain: 'numbers', title: 'אחוזים (הגדלה והקטנה באחוזים)', months: [10],
       parts: [{ hours: 7, skills: range('pct', 1, 5) }] },
     { id: '8.3', grade: '8', domain: 'geometry', title: 'השלמת זוויות בין מקבילים; משפט פיתגורס', months: [9, 10],
-      parts: [{ hours: 8, skills: ['angles:4', ...range('pyth', 1, 5)] }] },
+      // angles:4 teaches ח׳'s continuation (angles written with x, the converse, a helper line through a point between the
+      // parallels: content/angleItems.js, drawn for a ח׳ learner) and pyth:4 the two-step figures (an altitude, an
+      // isosceles triangle's height, a rhombus from its diagonals, a trapezoid): the council's round 3
+      parts: [{ hours: 8, skills: ['angles:4', ...range('pyth', 1, 5)], note: 'השלמת זוויות בין מקבילים (זוויות עם x, משפט הפוך, ישר עזר) ומשפט פיתגורס, גם בצורות מורכבות' }] },
     { id: '8.4', grade: '8', domain: 'geometry', title: 'גליל, חרוט (ולפניהם היקף מעגל ושטח עיגול)', months: [10, 11],
       parts: [
         // stage 2 (MEASURE-6.1): the circle, the disc and the cylinder in October, the cone in November
@@ -139,7 +142,10 @@ export const PROGRAMME = {
       parts: [{ hours: 8, skills: range('func', 1, 3), note: 'פונקציה: גרף של מצב, טבלה וביטוי, עלייה וירידה' }] },
     { id: '8.8', grade: '8', domain: 'algebra', title: 'גרפים לינאריים, קצב שינוי, שיפוע, ייצוג אלגברי', months: [11, 12],
       parts: [
-        { hours: 8, skills: range('line', 1, 8) },
+        // the teacher's list for the 17.11 exam, each on the stair that practises it (the council's round 3): a point on the
+        // line (line:1), lines parallel to the axes (line:2, and where they meet a line, line:8), the line through a point
+        // parallel to a given line (line:5)
+        { hours: 8, skills: range('line', 1, 8), note: 'טבלת ערכים ונקודה על הישר, שיפוע, ישרים מקבילים לצירים, משוואת ישר משתי נקודות, מנקודה ושיפוע ומנקודה וישר מקביל, חיתוך עם הצירים ונקודת מפגש' },
         // the December row "קצב שינוי אחיד/לא אחיד": its hours are line's
         { hours: 0, skills: ['func:4'], note: 'קצב שינוי אחיד ולא אחיד' },
       ] },

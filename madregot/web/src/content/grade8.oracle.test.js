@@ -406,6 +406,35 @@ O.lf1p = (it) => {
   if (!q(it.manip.line.m).eq(L.m) || !q(it.manip.line.b).eq(L.b)) throw new Error('the drawn line is not the line in the question');
   return want([x.v, L.m.mul(x).add(L.b).v]);
 };
+// is the point on the line: its x substituted gives its y
+O.lf1o = (it) => {
+  const [L] = linesIn(it.text); const [P] = pointsIn(it.text);
+  return want(onlyChoice(it, (t) => t === (onLine(L, P) ? 'כן' : 'לא'), 'the point on the line or not'));
+};
+// (p, k) or (k, q) on the line: the missing coordinate, substituted or solved
+O.lf1k = (it) => {
+  const [L] = linesIn(it.text);
+  const m = strip(it.text).match(/\$\((k|-?\d+), (k|-?\d+)\)\$/); if (!m) throw new Error('no point with k');
+  if (m[1] === 'k') { if (L.m.eq(0)) throw new Error('a flat line'); return want(q(m[2]).sub(L.b).div(L.m)); }
+  return want(L.m.mul(q(m[1])).add(L.b));
+};
+// a line parallel to an axis, from two points (one coordinate the same) or from a point and the axis named
+O.lf2a = (it) => {
+  const P = pointsIn(it.text);
+  let eq;
+  if (P.length === 2) {
+    const [[x1, y1], [x2, y2]] = P;
+    if (x1.eq(x2) && y1.eq(y2)) throw new Error('one point twice');
+    if (!x1.eq(x2) && !y1.eq(y2)) throw new Error('the line through the two points is parallel to no axis');
+    eq = x1.eq(x2) ? `x = ${x1}` : `y = ${y1}`;
+  } else {
+    const axis = strip(it.text).match(/מקביל לציר \$([xy])\$/); if (!axis || P.length !== 1) throw new Error('no axis or no point');
+    eq = axis[1] === 'x' ? `y = ${P[0][1]}` : `x = ${P[0][0]}`;
+  }
+  const drawn = it.fig.points.map((p) => [p.x, p.y].join(','));
+  if (drawn.join(';') !== P.map((p) => p.map(String).join(',')).join(';')) throw new Error(`the drawn points ${drawn} are not the text's`);
+  return want(onlyChoice(it, (t) => t.replace(/\s+/g, '') === eq.replace(/\s+/g, ''), eq));
+};
 O.lf2 = (it) => {
   const L = lineOf(maths(it.text)[0]);
   if (it.form === 'mc') { const s = L.m.cmp(0); return want(onlyChoice(it, (t) => t === (s > 0 ? 'עולה' : s < 0 ? 'יורדת' : 'קבועה'), 'the direction')); }
@@ -434,6 +463,16 @@ O.lf5 = (it) => {
   const b = P[0][1].sub(m.mul(P[0][0]));
   return want({ m, b });
 };
+// parallel to a given line through a point: the given line's slope, b from the point; a drawing has that line and point
+O.lf5p = (it) => {
+  const [G] = linesIn(it.text); const [[x1, y1]] = pointsIn(it.text);
+  if (onLine(G, [x1, y1])) throw new Error('the point is on the given line: the same line');
+  if (it.fig) {
+    if (!q(it.fig.line.m).eq(G.m) || !q(it.fig.line.b).eq(G.b)) throw new Error('the drawn line is not the given one');
+    const [p] = it.fig.points; if (!q(p.x).eq(x1) || !q(p.y).eq(y1)) throw new Error('the drawn point is not the text\'s');
+  }
+  return want({ m: G.m, b: y1.sub(G.m.mul(x1)) });
+};
 O.lf6 = (it) => {
   const L = lineOf(maths(it.text)[0]); const onX = /ציר \$x\$/.test(it.text);
   if (onX && L.m.eq(0)) throw new Error('a flat line meets the x axis nowhere or everywhere');
@@ -446,6 +485,15 @@ O.lf7 = (it) => {
   const shouldBe = [[Z(0), Z(0)], [x0, Z(0)], [Z(0), L.b]];
   if (!shouldBe.every(([x, y]) => poly.some(([px, py]) => px.eq(x) && py.eq(y)))) throw new Error(`the shaded triangle ${JSON.stringify(it.fig.polygon)} is not the one the line makes`);
   return want(A);
+};
+// a line and y = k or x = k
+O.lf8a = (it) => {
+  const [L] = linesIn(it.text);
+  const ax = maths(it.text).map((m) => m.match(/^([xy]) = (-?\d+)$/)).find(Boolean); if (!ax) throw new Error('no line parallel to an axis');
+  const k = q(ax[2]);
+  if (ax[1] === 'x') return want([k, L.m.mul(k).add(L.b)]);
+  if (L.m.eq(0)) throw new Error('two flat lines');
+  return want([k.sub(L.b).div(L.m), k]);
 };
 O.lf8 = (it) => {
   const [L1, L2] = linesIn(it.text);
@@ -506,6 +554,34 @@ O.py4 = (it) => {
   }
   if (!(q(f.wall).eq(x) && q(f.foot).eq(y) && f.len === '?')) throw new Error('the drawing does not match the story');
   return want(rootAnswer(it, x.mul(x).add(y.mul(y))));
+};
+// the two-step figures (the council's round 3): each length from the numbers the text prints, through the right triangle
+// the figure hides, and the lengths written on the drawing are the text's
+const geoLabels = (it) => (it.fig?.segs || []).map((s) => s.label).filter((l) => l != null && l !== '').map(String);
+function sameLabels(it, values) {
+  const want = [...values.map(String), '?'].sort(); const got = geoLabels(it).sort();
+  if (JSON.stringify(want) !== JSON.stringify(got)) throw new Error(`the drawing writes ${got}, the text gives ${want}`);
+}
+/** √n, whole: the two-step figures are built from Pythagorean triples, so every side the solution finds is whole. */
+const wholeRoot = (n) => { const r = qsqrt(n); if (!r || !r.isInt()) throw new Error(`√${n} is not whole`); return r; };
+O.py4a = (it) => {
+  const [ab, bd, dc] = nums(it.text); sameLabels(it, [ab, bd, dc]);
+  const ad = wholeRoot(ab.mul(ab).sub(bd.mul(bd)));
+  return want(rootAnswer(it, ad.mul(ad).add(dc.mul(dc))));
+};
+O.py4i = (it) => {
+  const n = nums(it.text); sameLabels(it, n);
+  if (/מה אורך הגובה/.test(it.text)) { const [s, base] = n; return want(rootAnswer(it, s.mul(s).sub(base.div(2).mul(base.div(2))))); }
+  const [base, h] = n; return want(rootAnswer(it, h.mul(h).add(base.div(2).mul(base.div(2)))));
+};
+O.py4r = (it) => {
+  const n = nums(it.text); sameLabels(it, n);
+  if (/מה אורך הצלע/.test(it.text)) { const [d1, d2] = n.map((v) => v.div(2)); return want(rootAnswer(it, d1.mul(d1).add(d2.mul(d2)))); }
+  const [s, d1] = n; const half = wholeRoot(s.mul(s).sub(d1.div(2).mul(d1.div(2)))); return want(half.mul(2));
+};
+O.py4t = (it) => {
+  const [a, b, h] = nums(it.text); sameLabels(it, [a, b, h]);
+  const d = a.sub(b); return want(rootAnswer(it, h.mul(h).add(d.mul(d))));
 };
 O.py5 = (it) => {
   const [[x1, y1], [x2, y2]] = pointsIn(it.text);
@@ -608,6 +684,17 @@ O.st1 = (it) => {
   return want(q(ms[0]));
 };
 O.st2 = (it) => want(medianOf(listIn(it.text)));
+// the mode and the median from a frequency table or a bar chart (the council's round 3): the data are each value as many
+// times as its frequency, read from the drawing
+const freqRows = (it) => {
+  const f = it.fig;
+  if (f.type === 'table') return f.rows.map(([v, n]) => [q(v), q(n)]);
+  if (f.type === 'chart' && f.mode === 'bar') { if (f.max < Math.max(...f.values)) throw new Error('a bar above the axis'); return f.cats.map((c, i) => [q(c), q(f.values[i])]); }
+  throw new Error(`no table or bar chart: ${f.type}`);
+};
+const unfold = (rows) => rows.flatMap(([v, n]) => Array(Number(n.n)).fill(v));
+O.st1t = (it) => { const ms = modesOf(unfold(freqRows(it))); if (ms.length !== 1) throw new Error(`the data have ${ms.length} modes`); return want(q(ms[0])); };
+O.st2t = (it) => want(medianOf(unfold(freqRows(it))));
 O.st2b = (it) => {
   const vals = it.manip.values.map(q); const t = q(it.manip.target);
   if (!nums(it.text).at(-1).eq(t)) throw new Error('the target in the text is not the object\'s');

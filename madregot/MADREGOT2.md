@@ -258,11 +258,11 @@ the row to paste when one differs.
 | func:2 | פונקציה וייצוגיה | 8 (graph) | 3 | 2 | 4 (forgot-b, forward, order-ops, const-not-function) | yes | complete, tested |
 | func:3 | עלייה, ירידה וקבוע | 8 (graph) | 2 | 2 | 3 (rtl-read, y-not-x, graph-picture) | yes | complete, tested |
 | func:4 | קצב אחיד ולא אחיד | 8 (graph) | 2 | 2 | 5 (from-zero, whole-change, height-for-slope, forgot-b, wrong-unknown) | yes | complete, tested |
-| line:1 | טבלת ערכים | 10 (plot) | 2 | 2 | 4 (forgot-b, neg-sub, added-m, proportional) | yes | complete, tested |
-| line:2 | מה אומרים m ו־b | 10 (line) | 2 | 2 | 6 (m-b, sign, hidden-one, b-first, rise-only, sign-from-b) | yes | complete, tested |
+| line:1 | טבלת ערכים | 11 (plot) | 2 | 2 | 4 (forgot-b, neg-sub, added-m, proportional) | yes | complete, tested |
+| line:2 | מה אומרים m ו־b | 11 (line) | 2 | 2 | 6 (m-b, sign, hidden-one, b-first, rise-only, sign-from-b) | yes | complete, tested |
 | line:3 | שיפוע מהגרף: מדרגות | 10 (plot) | 2 | 2 | 3 (inverse, sign, rise-only) | yes | complete, tested |
 | line:4 | שיפוע בין שתי נקודות | 10 (plot) | 2 | 2 | 3 (inverse, mixed-order, minus-minus) | yes | complete, tested |
-| line:5 | משוואת ישר | 10 (line, plot) | 2 | 2 | 4 (b-is-y, move-no-flip, b-sign, swap) | yes | complete, tested |
+| line:5 | משוואת ישר | 11 (line, plot) | 2 | 2 | 4 (b-is-y, move-no-flip, b-sign, swap) | yes | complete, tested |
 | line:6 | חיתוך עם הצירים | 10 (plot) | 2 | 2 | 3 (sign, no-divide, axes-mixed) | yes | complete, tested |
 | line:7 | משולש עם הצירים | 10 (plot, line) | 2 | 2 | 4 (no-half, added-sides, neg-length, no-divide) | yes | complete, tested |
 | line:8 | נקודת מפגש של שני ישרים | 10 (plot) | 2 | 2 | 4 (move-no-flip, sign, no-divide, forgot-y) | yes | complete, tested |
