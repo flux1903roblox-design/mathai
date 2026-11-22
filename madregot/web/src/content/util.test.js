@@ -440,7 +440,10 @@ describe('practice-only questions are kept out of checks', () => {
     // curriculum stage 4's geometry units (the kinds named above)
     'tf1c', 'tf1w', 'tf2c', 'tf2s', 'tf3c', 'tf3r', 'tf4m', 'tf4r', 'tf4t',
     'cg1t', 'cg1p', 'cg2w', 'cg2n', 'cg2p', 'cg3f', 'cg3o', 'cg3e', 'cg4s', 'cg4c', 'cg5c', 'cg5m',
-    'sm1c', 'sm1v', 'sm1p', 'sm2s', 'sm3w', 'sm3o', 'sm3a', 'sm4g'];
+    'sm1c', 'sm1v', 'sm1p', 'sm2s', 'sm3w', 'sm3o', 'sm3a', 'sm4g',
+    // the council's round 3 (the 17.11 exam): "is the point on the line?", yes or no; "are the lines parallel?", a choice
+    // among four reasons (as an6c)
+    'lf1o', 'an4c'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

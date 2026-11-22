@@ -1012,7 +1012,7 @@
  "line": {
   "skills": {
    "line:1": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
      4,
      4
@@ -1030,7 +1030,7 @@
     ]
    },
    "line:2": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
      4,
      4
@@ -1084,7 +1084,7 @@
     ]
    },
    "line:5": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
      4,
      5
@@ -1156,7 +1156,7 @@
    }
   },
   "stairs": 8,
-  "steps": 252
+  "steps": 255
  },
  "pct": {
   "skills": {

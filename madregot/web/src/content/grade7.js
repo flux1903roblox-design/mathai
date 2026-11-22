@@ -12,7 +12,8 @@ import { SIGNED6_LEVEL } from './signed6.js';
 import { SIGNED7_LEVEL } from './signed7.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
 import { signOutside, chainItem, regroupItem, absItem, oppItem, absMc, zeroOne, nestedItem } from './signedItems.js';
-import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from './angleItems.js';
+import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect, parallelX, parallelConverse, parallelBend } from './angleItems.js';
+import { grade8Kinds } from './learner.js';
 import { bisItem, bisCheckItem, quadItem } from './angles67.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
@@ -520,8 +521,16 @@ export const GRADE7 = [
         testGen: () => mix([[0.2, () => vertical(true)], [0.2, () => vertical(false)], [0.3, threeLines], [0.3, crossBisect]]) },
       // CLASSROOM-11: the class's split triangle, S1 (practice only) and S2 (checks too), a quarter each
       { title: 'סכום זוויות במשולש', gen: () => mix([[0.25, splitTriangleS1], [0.25, splitTriangleS2], [0.2, rightTriangleDrag], [0.3, triangleSum]]) },
-      { title: 'ישרים מקבילים', gen: () => mix([[0.4, parallel], [0.3, parallelTriangle], [0.3, parallelBisect]]),
-        testGen: () => mix([[0.2, () => parallel(pick(['corresponding', 'alternate']))], [0.2, () => parallel('cointerior')], [0.3, parallelTriangle], [0.3, parallelBisect]]) },
+      // ח׳'s continuation (unit 8.3, the council's round 3): angles written with x, the converse (a practice-only choice
+      // with its reason) and a point between the parallels with a helper line; not for a learner in ז׳, whose equations
+      // come in March (content/learner.js)
+      { title: 'ישרים מקבילים',
+        gen: () => (grade8Kinds()
+          ? mix([[0.25, parallel], [0.15, parallelTriangle], [0.15, parallelBisect], [0.2, parallelX], [0.1, parallelConverse], [0.15, parallelBend]])
+          : mix([[0.4, parallel], [0.3, parallelTriangle], [0.3, parallelBisect]])),
+        testGen: () => (grade8Kinds()
+          ? mix([[0.15, () => parallel(pick(['corresponding', 'alternate']))], [0.15, () => parallel('cointerior')], [0.15, parallelTriangle], [0.15, parallelBisect], [0.2, parallelX], [0.2, parallelBend]])
+          : mix([[0.2, () => parallel(pick(['corresponding', 'alternate']))], [0.2, () => parallel('cointerior')], [0.3, parallelTriangle], [0.3, parallelBisect]])) },
       { title: 'שווה־שוקיים וזווית חיצונית', gen: isosceles },
       // CLASSROOM-10: the class's bisector worksheet (content/angles67.js): the whole from a half 20%, a half from the whole
       // 20%, two bisectors in a fan of five rays 25%, a bisector on a straight line 25%, and "is OC the bisector?" with a
@@ -550,6 +559,8 @@ export const GRADE7 = [
       // CLASSROOM-10 (the bisector) and CLASSROOM-12 (the quadrilateral)
       'half-double-swap': 'כפלו ב־$2$ במקום לחלק ב־$2$, או להפך',
       'quad-missed': 'הורידו מ־$360^\\circ$ רק חלק מהזוויות הידועות (גם הישרה נחשבת)',
+      // ח׳'s continuation of the parallel angles (unit 8.3): the angles written with x
+      'wrong-unknown': 'ענו על הנעלם הלא נכון: גודל של זווית במקום $x$, או $x$ במקום גודל הזווית',
     },
   },
   // transformations (stage 4, GEOM-4), November and December: content/transf.js, its generators in transf.gen.js; violet

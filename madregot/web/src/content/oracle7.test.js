@@ -635,6 +635,38 @@ fam('an3b', (it) => { const [, adc, bad] = deg(it); return angleItem(it, adc.sub
 fam('an4', (it) => numItem(it, it.fig.kind === 'cointerior' ? q(180).sub(q(it.fig.a)) : q(it.fig.a)));
 fam('an4t', (it) => { const t = it.fig.angles.find((a) => a.target); return [...drawingAgrees(it), ...checkNum(it, q(Math.round(measure(it.fig, t))))]; });
 fam('an4b', (it) => { const t = it.fig.angles.find((a) => a.target); return [...drawingAgrees(it), ...checkNum(it, q(Math.round(measure(it.fig, t))))]; });
+// ח׳'s continuation (unit 8.3, the council's round 3). Angles written with x: the drawing (to size) says whether the
+// two are equal or 180° together, the text gives the expressions; x solved here exactly, then x or the upper angle.
+const xExpr = (s) => { const m = String(s).match(/^(\d*)x(?: ([+-]) (\d+))?\^\\circ$/); if (!m) throw new Error(`not an angle in x: ${s}`); return { a: q(m[1] ? Number(m[1]) : 1), c: q(m[2] === '-' ? -Number(m[3]) : Number(m[3] || 0)) }; };
+fam('an4x', (it) => {
+  const [e1, e2] = mathOf(it.text).slice(0, 2).map(xExpr);
+  const [g1, g2] = it.fig.angles; const m1 = measure(it.fig, g1); const m2 = measure(it.fig, g2);
+  const equal = Math.abs(m1 - m2) < 0.6; const supp = Math.abs(m1 + m2 - 180) < 0.6;
+  if (equal === supp) return [`the drawn angles ${m1.toFixed(1)}° and ${m2.toFixed(1)}° are neither equal nor 180° together, or both`];
+  const x = equal ? e2.c.sub(e1.c).div(e1.a.sub(e2.a)) : q(180).sub(e1.c).sub(e2.c).div(e1.a.add(e2.a));
+  const v1 = e1.a.mul(x).add(e1.c); const v2 = e2.a.mul(x).add(e2.c);
+  const pr = [];
+  if (Math.abs(v1.num() - m1) > 0.6 || Math.abs(v2.num() - m2) > 0.6) pr.push(`x = ${x} gives ${v1}° and ${v2}°, drawn ${m1.toFixed(1)}° and ${m2.toFixed(1)}°`);
+  return [...pr, ...drawingAgrees(it, null), ...numItem(it, /מצאו את \$x\$/.test(it.text) ? x : v1)];
+});
+// the converse: the two lines drawn parallel or not, the numbers in the text, and the choice with its reason
+fam('an4c', (it) => {
+  const f = it.fig; const dirOf = (a, b) => Math.atan2(f.pts[b][1] - f.pts[a][1], f.pts[b][0] - f.pts[a][0]);
+  const parallel = Math.abs(Math.sin(dirOf('_l1', '_r1') - dirOf('_l2', '_r2'))) < 1e-6;
+  const [A, B] = deg(it); const supp = it.choices.every((c) => c.text.includes('החד־צדדיות'));
+  const pr = [...drawingAgrees(it, null)];
+  if ((supp ? A.add(B).eq(180) : A.eq(B)) !== parallel) pr.push(`the lines are drawn ${parallel ? '' : 'not '}parallel, the angles ${A}° and ${B}° say otherwise`);
+  if ((f.segs || []).some((s) => s.arrows)) pr.push('the lines are marked parallel: that is the question');
+  const want = `${parallel ? 'כן' : 'לא'}, כי הזוויות ${supp ? 'החד־צדדיות' : ''}`;
+  return [...pr, ...checkChoices(it, (c) => c.text.startsWith(parallel ? 'כן' : 'לא') && (supp ? c.text.includes('משלימות') : c.text.endsWith('שוות')) && (!supp || c.text.startsWith(want)))];
+});
+// a point between the parallels: the asked angle measured on the drawing (the helper line through E parallel to them)
+fam('an4h', (it) => {
+  const f = it.fig; const t = f.angles.find((a) => a.target);
+  const h = f.segs.find((s) => s.dash); const dirOf = (s) => Math.atan2(f.pts[s.b][1] - f.pts[s.a][1], f.pts[s.b][0] - f.pts[s.a][0]);
+  const pr = Math.abs(Math.sin(dirOf(h) - dirOf(f.segs[0]))) > 1e-6 ? ['the helper line is not parallel to the lines'] : [];
+  return [...pr, ...drawingAgrees(it), ...checkNum(it, q(Math.round(measure(f, t))))];
+});
 fam('an5', (it) => {
   const { angles, show, iso } = it.fig; const pr = [];
   if (angles.reduce((a, b) => a + b, 0) !== 180) pr.push(`triangle angles ${angles} do not sum to 180`);

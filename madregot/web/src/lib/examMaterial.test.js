@@ -321,6 +321,44 @@ describe('the review: logistics, everyday words, context (EXAM-MATERIAL 1a)', ()
   });
 });
 
+// The council's round 3: a real grade-8 teacher's message for the 17.11 exam (its topics as she listed them; the class
+// and the date only). The matcher ticked func:1-4 and stats:7-8, which it never names, and listed "ומתאימות", "צירים",
+// "תכונות" and "נמצאת" as not recognised though the app teaches them.
+const MSG_1711 = `כיתות ח׳: המבחן יתקיים בתאריך ה-17.11. הנושאים למבחן:
+זוויות מתחלפות ומתאימות בין ישרים מקבילים (המשך מכיתה ז׳).
+הפונקציה הקווית- עמודים 73 עד 147 (כרך א׳). כולל: תכונות, האם נקודה נמצאת על הישר?, ייצוג אלגברי, ישרים מקבילים לצירים, מציאת שיפוע, מציאת הייצוג האלגברי של הקו הישר- באמצעות שתי נקודות, באמצעות נקודה ושיפוע ובאמצעות נקודה וישר המקביל, נקודות חיתוך של הישר עם הצירים, גרפים של שתי פונקציות, ייצוג תופעות בעזרת פונקציות קוויות.
+פיתגורס (כרך א׳)- עמוד 338 עד 362
+תחום אי הוודאות (סטטיסטיקה)- איסוף וארגון הנתונים, שכיחות, שכיח, שכיחות יחסית וטווח נתונים, ממוצע וחציון (עמוד 196 עד 239 בכרך ב׳!)`;
+describe('the 17.11 exam message: only what it lists (the council\'s round 3)', () => {
+  it('ticks the parallel angles, the linear function, Pythagoras and the statistics parts it names, and nothing else', () => {
+    const got = matchMaterial(MSG_1711, '8');
+    expect(got.skills).toEqual(sorted(['angles:4', ...r('line', 1, 8), ...r('pyth', 1, 5), 'stats:1', 'stats:2', 'stats:3', 'stats:6', 'data:1', 'data:2'], '8'));
+    // no introduction to functions (the linear function's own words), no two sources and no interpolation
+    ['func:1', 'func:2', 'func:3', 'func:4', 'stats:7', 'stats:8'].forEach((s) => expect(got.skills, s).not.toContain(s));
+  });
+  it('places every sub-topic of the linear function the app now teaches, and the corresponding angles with their ו', () => {
+    const got = matchMaterial(MSG_1711, '8');
+    ['ומתאימות', 'צירים', 'תכונות', 'נמצאת', 'כרך'].forEach((w) => expect(got.unknown.join(' | '), w).not.toContain(w));
+    const hit = (t) => got.hits.find((h) => h.text.includes(t));
+    expect(hit('נקודה נמצאת על הישר')?.skills).toEqual(['line:1']);
+    expect(hit('מקבילים לצירים')?.skills).toEqual(['line:2']);
+    expect(hit('נקודה וישר המקביל')?.skills).toEqual(['line:5']);
+    expect(hit('חיתוך של הישר עם הצירים')?.skills).toEqual(['line:6']);
+    expect(hit('גרפים של שתי פונקציות')?.skills).toEqual(['line:8']);
+    // only the pages are listed: a page number is never guessed
+    expect(got.unknown).toEqual(['עמודים 73', 'עמוד 338', 'עמוד 196']);
+  });
+  it('each new phrase reads the same alone, under a linear-function heading or not', () => {
+    expect(matchMaterial('האם נקודה נמצאת על הישר', '8').skills).toEqual(['line:1']);
+    expect(matchMaterial('ישרים מקבילים לצירים', '8').skills).toEqual(['line:2']);
+    expect(matchMaterial('משוואת ישר באמצעות נקודה וישר המקביל לו', '8').skills).toEqual(['line:5']);
+    expect(matchMaterial('זוויות מתחלפות ומתאימות', '8').skills).toEqual(['angles:4']);
+    expect(matchMaterial('זוויות מתחלפות ומתאימות', '8').unknown).toEqual([]);
+    // a heading closed by a bracket before its dash still heads its list
+    expect(matchMaterial('תחום אי הוודאות (סטטיסטיקה)- ממוצע וחציון', '8').skills).toEqual(['stats:2', 'stats:3']);
+  });
+});
+
 describe('every way a teacher leaves something out (EXAM-MATERIAL 1a)', () => {
   // each phrase as a teacher writes it; the reviewers found חוץ, צורך, צריך, ייכלל, נכלל and לא יכלול doing nothing
   const AFTER = ['בלי', 'ללא', 'חוץ מ', 'מלבד', 'פרט ל', 'לא כולל', 'לא כוללת', 'אין צורך ב', 'לא צריך', 'לא צריכים', 'לא נדרש', 'לא יכלול',

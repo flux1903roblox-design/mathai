@@ -23,6 +23,7 @@ import { isRestDay } from '@shared/restDays.js';
 import { emptyLook, earnIds, unlockedLook, unlockedIds, chestPieces } from './wardrobe.js';
 import { isGoal, keepWeeks } from './familyGoals.js'; // not familyChallenge.js: its links and weeks stay off the first load
 import { challengeXP } from '@/learn/challenges/xp.ts'; // not grade.ts: its number reading (content/util.js) stays off the first load
+import { setLearnerGrade } from '@/content/learner.js';
 import { challengeById } from '@/learn/challenges/index.ts';
 
 import { today, dayBefore, learnedOn, isActiveDay, isShabbat, keptDay, streakOf } from './days.js';
@@ -746,6 +747,9 @@ const persisted = /** @type {import('zustand').StateCreator<AppState, [], [['zus
 export const useApp = create(persisted);
 // a restore from the copy on the device loads into this store
 bindDurableStore(useApp);
+// the learner's grade for the generators (content/learner.js: ח׳'s continuation of the parallel angles is not drawn for ז׳)
+setLearnerGrade(useApp.getState().profile?.grade);
+useApp.subscribe((st, prev) => { if (st.profile?.grade !== prev?.profile?.grade) setLearnerGrade(st.profile?.grade); });
 
 /**
  * The streak as every screen shows it today (PRODUCT2-40, lib/streak.js streakNow): { n, atRisk, repair }. The header's

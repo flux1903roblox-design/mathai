@@ -229,6 +229,47 @@ function lastLine(it) {
 }
 /** The choice a student picked, as maths. */
 const chosen = (it, u) => it.choices[u]?.tex || '';
+/** A frequency table's values and frequencies from its key (st1t and st2t:c:t|b:values:freqs), or null. */
+function freqTable(it) {
+  if (!/^st[12]t:/.test(String(it.key))) return null;
+  const [, , , vals, freqs] = String(it.key).split(':'); return { vals: vals.split(',').map(Number), freqs: freqs.split(',').map(Number) };
+}
+/**
+ * pyth:4's two-step figures from their keys (the council's round 3): py4a:ab:bd:dc (h = √(ab² − bd²)), py4i:h|s:s:base:h,
+ * py4r:s|d:d1:d2:s, py4t:a:b:h. Null for any other question.
+ */
+function py4Two(it) {
+  const [p, ...r] = String(it.key).split(':');
+  if (p === 'py4a') { const [ab, bd, dc] = r.map(Number); return { kind: 'a', ab, bd, dc, h: Math.sqrt(ab ** 2 - bd ** 2) }; }
+  if (p === 'py4i') { const [s, base, h] = r.slice(1).map(Number); return { kind: 'i', mode: r[0], s, base, h }; }
+  if (p === 'py4r') { const [d1, d2, s] = r.slice(1).map(Number); return { kind: 'r', mode: r[0], d1, d2, s }; }
+  if (p === 'py4t') { const [a, b, h] = r.map(Number); return { kind: 't', a, b, h }; }
+  return null;
+}
+/** An angle a student could write: positive, below 180°, whole or a half; else null (as content/angleItems.js okAngle). */
+const okDeg = (v) => (v != null && Number.isFinite(v) && Math.round(v * 2) === v * 2 && v > 0 && v < 180 ? v : null);
+/**
+ * Angles written with x (an4x:e|s:a1:c1:a2:c2:x|a): the answer of the other kind of pair, from the key: x solved as if
+ * the equal pair made 180° (e) or the co-interior pair were equal (s), or the upper angle that x gives; null when it is
+ * not an angle a student could write.
+ */
+function an4xWrong(it) {
+  const [, kind, a1, c1, a2, c2, ask] = it.key.split(':'); const [A1, C1, A2, C2] = [a1, c1, a2, c2].map(Number);
+  const xw = okDeg(kind === 'e' ? (180 - C1 - C2) / (A1 + A2) : A1 === A2 ? null : (C2 - C1) / (A1 - A2));
+  return xw == null ? null : ask === 'x' ? xw : okDeg(A1 * xw + C1);
+}
+/**
+ * The converse (an4c:name:A:B): the choice picked reads the pair as the other kind. For co-interior angles (`as`
+ * 'equal'): "yes, they are equal" for two equal angles, "no, they are not equal" for two that make 180°; for
+ * corresponding or alternate ones ('supp'): "yes, they make 180°" for two that do, "no, they do not" for two equal ones.
+ */
+function an4cPicked(it, u, kind, as) {
+  const [, name, a, b] = it.key.split(':'); const A = Number(a); const B = Number(b);
+  if ((name === 'cointerior') !== (kind === 'cointerior')) return false;
+  const t = it.choices[u]?.text || '';
+  if (as === 'equal') return (t.startsWith('כן') && t.endsWith('שוות') && A === B) || (t.startsWith('לא') && t.endsWith('לא שוות') && A + B === 180);
+  return (t.startsWith('כן') && t.includes('משלימות') && A + B === 180) || (t.startsWith('לא') && t.includes('לא משלימות') && A === B);
+}
 /** An mc choice that is an expression, as { k, c } in its letter. */
 const chosenLin = (it, u) => { const t = chosen(it, u); return t ? linOf(t, letterOf(t)) : null; };
 /** A property of an expression answer, for a typed answer ({ k, c }) and for a chosen expression alike. */
@@ -1324,6 +1365,10 @@ const PROPS = {
   angles: {
     'equal-not-supp': (it, u) => {
       const p = it.key.split(':')[0]; const [a] = nums(it.key);
+      // ח׳'s continuation (unit 8.3): co-interior angles written with x solved as if equal; the converse answered as if
+      // co-interior angles had to be equal
+      if (p === 'an4x') { const w = an4xWrong(it); return it.key.split(':')[1] === 's' && w != null && near(u, w); }
+      if (p === 'an4c') return an4cPicked(it, u, 'cointerior', 'equal');
       if (p === 'an1t') return u === a; // the measured angle turned to the given size, as if the two were equal
       if (p === 'an2') return it.key.endsWith('false') && near(u, a);
       if (p === 'an4') return it.key.endsWith('cointerior') && near(u, a);
@@ -1338,14 +1383,29 @@ const PROPS = {
       if (p === 'an2b') return it.key.split(':')[2] === 'v' && near(u, (180 - a) / 2);
       if (p === 'an4b') return it.key.split(':')[2] === 'e' && near(u, (180 - a) / 2);
       if (p === 'an4t') return a > b && near(u, a - b);
+      // ח׳'s continuation: corresponding or alternate angles written with x solved as if 180° together; the converse
+      // answered as if corresponding or alternate angles had to make 180°
+      if (p === 'an4x') { const w = an4xWrong(it); return it.key.split(':')[1] === 'e' && w != null && near(u, w); }
+      if (p === 'an4c') return an4cPicked(it, u, 'equal', 'supp');
       return near(it.answer, a) && near(u, 180 - a);
+    },
+    // angles written with x (an4x): the angle's size given for x, or x for the size
+    'wrong-unknown': (it, u) => {
+      if (!it.key.startsWith('an4x:')) return false;
+      const [, , a1, c1, a2, c2, ask] = it.key.split(':'); const [A1, C1, A2, C2] = [a1, c1, a2, c2].map(Number);
+      if (ask === 'x') return near(u, A1 * it.answer + C1) || near(u, A2 * it.answer + C2);
+      return near(u, (it.answer - C1) / A1);
     },
     // CURRICULUM-10: two adjacent angles d apart (an1d:d): the larger found, or the difference taken off and not halved
     'took-larger': (it, u) => { const [d] = nums(it.key); return it.key.startsWith('an1d:') && near(u, (180 + d) / 2); },
     'diff-not-halved': (it, u) => { const [d] = nums(it.key); return it.key.startsWith('an1d:') && near(u, 180 - d); },
     // CLASSROOM-9, the fan (an1f:T:a): two angles side by side taken to make 180° (180° − a), or added (T + a)
     'adjacent-not-line': (it, u) => { const [, a] = nums(it.key); return it.key.startsWith('an1f:') && near(u, 180 - a); },
-    'sum-not-diff': (it, u) => { const [T, a] = nums(it.key); return it.key.startsWith('an1f:') && near(u, T + a); },
+    'sum-not-diff': (it, u) => {
+      // a point between the parallels (an4h:P|Q:a:b): the given part added to ∢E = a + b instead of taken from it
+      if (it.key.startsWith('an4h:')) { const [, ask, a, b] = it.key.split(':'); return ask !== 'E' && near(u, Number(a) + Number(b) + Number(ask === 'P' ? b : a)); }
+      const [T, a] = nums(it.key); return it.key.startsWith('an1f:') && near(u, T + a);
+    },
     // CLASSROOM-11, the split triangle (an3a:w:d:b|a, an3b:d:p): β paired with ∢ADC = d at another vertex (180° − d), or
     // ∢BAD = p taken for the whole angle at A in ABC (90° − p)
     'other-vertex': (it, u) => {
@@ -1384,6 +1444,11 @@ const PROPS = {
     // CLASSROOM-12: two equal angles of a quadrilateral found with a triangle's 180° (an7c:a:b: (180° − a − b) : 2)
     'wrong-total': (it, u) => {
       if (it.key.startsWith('an7c:')) { const [a, b] = nums(it.key); return near(u, (180 - a - b) / 2); }
+      // a point between the parallels (an4h:E|P|Q:a:b): the angles taken as a triangle's, 180° minus the two given
+      if (it.key.startsWith('an4h:')) {
+        const [, ask, a, b] = it.key.split(':'); const [A, B] = [Number(a), Number(b)];
+        return near(u, ask === 'E' ? 180 - A - B : 180 - (A + B) - (ask === 'P' ? B : A));
+      }
       const [a] = nums(it.key); return near(u, 90 - a) || near(u, 360 - a);
     },
     // a full turn instead of a straight line; CLASSROOM-10's bisector on a line (an6l:a): ∢BOC from 360°, halved
@@ -1400,10 +1465,34 @@ const PROPS = {
   line: {
     'forgot-b': (it, u) => {
       if (it.key.startsWith('lf1p:')) { const [m, , x0] = nums(it.key); return ptEq(u, [x0, m * x0]); }
+      // is (p, q) on the line: "כן" for a point that is on y = mx, not on y = mx + b
+      if (it.key.startsWith('lf1o:')) { const [m, b, p, q] = nums(it.key); return it.choices[u]?.text === 'כן' && b !== 0 && q === m * p; }
+      // (p, k) on the line: k found as m·p
+      if (it.key.startsWith('lf1k:')) { const [, m, b, p] = nums(it.key); return it.key.split(':')[1] === 'y' && b !== 0 && near(u, m * p); }
       const [m, b, x] = nums(it.key); return b !== 0 && near(u, m * x);
     },
-    'neg-sub': (it, u) => { const [m, b, x] = nums(it.key); return x < 0 && near(u, m * -x + b); },
-    'added-m': (it, u) => { const [m, b, x] = nums(it.key); return near(u, m + x + b); },
+    'neg-sub': (it, u) => {
+      if (it.key.startsWith('lf1k:')) { const [, m, b, p] = nums(it.key); return it.key.split(':')[1] === 'y' && p < 0 && near(u, m * -p + b); }
+      const [m, b, x] = nums(it.key); return x < 0 && near(u, m * -x + b);
+    },
+    'added-m': (it, u) => {
+      if (it.key.startsWith('lf1k:')) { const [, m, b, p] = nums(it.key); return it.key.split(':')[1] === 'y' && near(u, m + p + b); }
+      const [m, b, x] = nums(it.key); return near(u, m + x + b);
+    },
+    // a point read the other way round: its y substituted for x
+    'swap-xy': (it, u) => {
+      if (it.key.startsWith('lf1o:')) { const [m, b, p, q] = nums(it.key); return it.choices[u]?.text === 'כן' && q !== m * p + b && p === m * q + b; }
+      if (it.key.startsWith('lf1k:')) { const [, m, b, , q] = nums(it.key); return it.key.split(':')[1] === 'x' && near(u, m * q + b); }
+      return false;
+    },
+    // the equation of a line parallel to an axis: the choice with the other letter (x = k for y = k)
+    'axis-swap': (it, u) => {
+      if (!it.key.startsWith('lf2a:')) return false;
+      const c = chosen(it, u).replace(/\s+/g, ''); const right = chosen(it, it.answer).replace(/\s+/g, '');
+      return !!c && c !== right && c[0] !== right[0];
+    },
+    // the given line's b kept for the parallel line through the point
+    'same-b': (it, u) => { if (!it.key.startsWith('lf5p:')) return false; const [m, , , b0] = nums(it.key); return near(u.m, m) && near(u.b, b0); },
     'sign-from-b': (it, u) => {
       // which of four functions goes the asked way: one whose b has that sign and whose m has the other
       if (it.key.startsWith('lf2p:')) { const s = it.key.split(':')[1] === 'up' ? 1 : -1; const f = fnOf(chosen(it, u).split('=')[1]); const m = f(1) - f(0); const b = f(0); return m !== 0 && sgn(m) === -s && sgn(b) === s; }
@@ -1416,7 +1505,7 @@ const PROPS = {
     sign: (it, u) => {
       const p = it.key.split(':')[0];
       if (p === 'lf2b') { const [m, b] = nums(it.key); return u.m === -m && u.b === b; }
-      if (p === 'lf5') return near(u.m, -it.answer.m);
+      if (p === 'lf5' || p === 'lf5p') return near(u.m, -it.answer.m);
       if (p === 'lf6') { const [m, b] = nums(it.key); return near(u[0], b / m) && near(u[1], 0) && it.key.endsWith('true'); }
       return near(u, -it.answer);
     },
@@ -1425,9 +1514,20 @@ const PROPS = {
       const [x1, y1, x2, y2] = nums(it.key); return near(u, (x2 - x1) / (y2 - y1));
     },
     'mixed-order': (it, u) => { const [x1, y1, x2, y2] = nums(it.key); return near(u, (y1 - y2) / (x2 - x1)) && !near(it.answer, 0); },
-    'b-sign': (it, u) => near(u.m, it.answer.m) && near(u.b, -it.answer.b) && it.answer.b !== 0,
+    'b-sign': (it, u) => {
+      // (k, q) on the line: b moved over with its sign kept, (q + b) / m
+      if (it.key.startsWith('lf1k:')) { const [, m, b, , q] = nums(it.key); return it.key.split(':')[1] === 'x' && near(u, (q + b) / m); }
+      return near(u.m, it.answer.m) && near(u.b, -it.answer.b) && it.answer.b !== 0;
+    },
     'b-is-y': (it, u) => { const [, x1, y1] = it.key.split(':').slice(1).map(Number); return near(u.m, it.answer.m) && near(u.b, y1) && x1 !== undefined; },
-    swap: (it, u) => ptEq(u, [it.answer[1], it.answer[0]]),
+    swap: (it, u) => {
+      // a line parallel to an axis written with its letter and the point's other number (x = 1 for x = 3 through (3, 1))
+      if (it.key.startsWith('lf2a:')) {
+        const c = chosen(it, u).replace(/\s+/g, ''); const right = chosen(it, it.answer).replace(/\s+/g, '');
+        const [, , , o] = nums(it.key); return !!c && c !== right && c === `${right[0]}=${o}`;
+      }
+      return ptEq(u, [it.answer[1], it.answer[0]]);
+    },
     'axes-mixed': (it, u) => { const [m, b] = nums(it.key); const onX = it.key.endsWith('true'); return onX ? ptEq(u, [0, b]) : ptEq(u, [-b / m, 0]); },
     'no-half': (it, u) => near(u, 2 * it.answer),
     'added-sides': (it, u) => { const [m, b] = nums(it.key); return near(u, Math.abs(b) + Math.abs(b / m)); },
@@ -1437,20 +1537,51 @@ const PROPS = {
     'add-legs': (it, u) => {
       const p = it.key.split(':')[0];
       if (p === 'py1s') return u && u.a + u.b === it.answer.c;
+      // the two-step figures (py4a:ab:bd:dc, py4i:s|h:s:base:h, py4r:s|d:d1:d2:s, py4t:a:b:h): the two legs of the hidden
+      // right triangle added, once the first step found them
+      const two = py4Two(it);
+      if (two) return two.kind === 'a' ? fits(u, two.h + two.dc) : two.kind === 'i' ? two.mode === 's' && fits(u, two.h + two.base / 2)
+        : two.kind === 'r' ? two.mode === 's' && fits(u, (two.d1 + two.d2) / 2) : fits(u, two.h + two.a - two.b);
       if (p === 'py4') { const [, , foot, wall] = it.key.split(':'); return it.key.startsWith('py4:L:') && near(u, Number(wall) + Number(foot)); }
       if (p === 'py5') { const [x1, y1, x2, y2] = nums(it.key); return near(u, Math.abs(x2 - x1) + Math.abs(y2 - y1)); }
       const [a, b] = nums(it.key); return near(u, a + b);
     },
     'no-root': (it, u) => {
+      // the altitude's second step left unrooted: AC² for AC
+      if (it.key.startsWith('py4a:')) return fits(u, it.answer ** 2);
       if (it.key.startsWith('py5:')) { const [x1, y1, x2, y2] = nums(it.key); return near(u, (x2 - x1) ** 2 + (y2 - y1) ** 2); }
       if (it.key.startsWith('py2:')) { const [a, c] = nums(it.key); return near(u, c * c - a * a); }
       const [a, b] = nums(it.key); return near(u, a * a + b * b);
     },
     'add-not-sub': (it, u) => {
+      // squares added where a leg is found: AD in the altitude's first step, the isosceles height, a rhombus's half diagonal
+      const two = py4Two(it);
+      if (two) {
+        if (two.kind === 'a') return fits(u, Math.sqrt(two.ab ** 2 + two.bd ** 2 + two.dc ** 2));
+        if (two.kind === 'i') return two.mode === 'h' && fits(u, Math.hypot(two.s, two.base / 2));
+        if (two.kind === 'r') return two.mode === 'd' && fits(u, 2 * Math.hypot(two.s, two.d1 / 2));
+        return false;
+      }
       if (it.key.startsWith('py4:')) { const [, , foot, len] = it.key.split(':').map(Number); return it.key.startsWith('py4:h:') && near(u, Math.hypot(len, foot), 0.06); }
       const [a, c] = nums(it.key); return near(u, Math.hypot(a, c), 0.06);
     },
-    'subtract-sides': (it, u) => { const [a, c] = nums(it.key); return near(u, c - a); },
+    'subtract-sides': (it, u) => {
+      // the isosceles height as the leg minus half the base
+      const two = py4Two(it); if (two) return two.kind === 'i' && two.mode === 'h' && fits(u, two.s - two.base / 2);
+      const [a, c] = nums(it.key); return near(u, c - a);
+    },
+    // the council's round 3: the step before the theorem left out
+    'skip-step': (it, u) => { const two = py4Two(it); return two?.kind === 'a' && fits(u, Math.hypot(two.ab, two.dc)); },
+    'base-not-halved': (it, u) => {
+      const two = py4Two(it); if (two?.kind !== 'i') return false;
+      return two.mode === 'h' ? two.s > two.base && fits(u, Math.sqrt(two.s ** 2 - two.base ** 2)) : fits(u, Math.hypot(two.h, two.base));
+    },
+    'diag-not-halved': (it, u) => {
+      const two = py4Two(it); if (two?.kind !== 'r') return false;
+      return two.mode === 's' ? fits(u, Math.hypot(two.d1, two.d2)) : two.s > two.d1 && fits(u, Math.sqrt(two.s ** 2 - two.d1 ** 2));
+    },
+    'half-for-whole': (it, u) => { const two = py4Two(it); return two?.kind === 'r' && two.mode === 'd' && fits(u, it.answer / 2); },
+    'whole-base': (it, u) => { const two = py4Two(it); return two?.kind === 't' && fits(u, Math.hypot(two.h, two.a)); },
     // four triangles, 'a,b,c;…' in the key: the side written last checked as the hypotenuse
     'wrong-hyp': (it, u) => {
       const sets = it.key.split(':')[1].split(';').map((x) => x.split(',').map(Number));
@@ -1528,11 +1659,20 @@ const PROPS = {
     'small-sample': (it, u) => it.manip?.kind === 'simulate' && !!u && u.pick !== it.answer.answer && u.n < 100,
   },
   stats: {
-    'mode-max': (it, u) => near(u, Math.max(...nums(it.key.replace(/,/g, ':')))),
-    'mode-median': (it, u) => { const l = sortN(nums(it.key.replace(/,/g, ':'))); return near(u, l[Math.floor(l.length / 2)]); },
-    'mode-count': (it, u) => { const l = nums(it.key.replace(/,/g, ':')); return near(u, l.filter((v) => v === it.answer).length); },
+    'mode-max': (it, u) => { const t = freqTable(it); return t ? near(u, Math.max(...t.vals)) : near(u, Math.max(...nums(it.key.replace(/,/g, ':')))); },
+    'mode-median': (it, u) => { if (freqTable(it)) return false; const l = sortN(nums(it.key.replace(/,/g, ':'))); return near(u, l[Math.floor(l.length / 2)]); },
+    'mode-count': (it, u) => {
+      // from a frequency table: the highest frequency written for its value
+      const t = freqTable(it); if (t) return near(u, Math.max(...t.freqs));
+      const l = nums(it.key.replace(/,/g, ':')); return near(u, l.filter((v) => v === it.answer).length);
+    },
+    // the median from a frequency table (st2t, the council's round 3), each from the table in the key
+    'position-not-value': (it, u) => { const t = freqTable(it); return !!t && fits(u, (sum(t.freqs) + 1) / 2); },
+    'freq-median': (it, u) => { const t = freqTable(it); return !!t && fits(u, median(t.freqs)); },
+    'median-of-values': (it, u) => { const t = freqTable(it); return !!t && fits(u, median(t.vals)); },
     unsorted: (it, u) => { const l = nums(it.key.replace(/,/g, ':')); const n = l.length; return near(u, n % 2 ? l[(n - 1) / 2] : (l[n / 2 - 1] + l[n / 2]) / 2); },
     'mean-not-median': (it, u) => {
+      const t = freqTable(it); if (t) return fits(u, sum(t.vals.map((v, i) => v * t.freqs[i])) / sum(t.freqs));
       if (it.key.startsWith('st2b:')) { const [vals, t] = it.key.split(':').slice(1); return near((sum(vals.split(',').map(Number)) + u) / 5, Number(t)); }
       const l = nums(it.key.replace(/,/g, ':')); return near(u, sum(l) / l.length);
     },

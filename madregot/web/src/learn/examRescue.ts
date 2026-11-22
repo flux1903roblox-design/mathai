@@ -118,6 +118,23 @@ export function prereqsFirst(list: PlanSkill[]): PlanSkill[] {
 /** A stair's teaching stages, in order: a lesson on the plan is the ones not yet done. */
 const TEACH = ['A', 'B', 'C'] as const;
 /**
+ * The evening's order (the council's round 3): one stair of each topic, then a second of each, and so on, so a short
+ * evening reaches every topic of the exam before it goes deeper into one. The topics go weakest first (the most urgent
+ * standing among their stairs: a known mistake, then untested, shaky, ready, mastered), ties in the plan's order; within
+ * a topic, the weaker stair first, ties in the plan's order (so a stair another leans on still comes before it).
+ */
+export function byTopicRounds(list: PlanSkill[]): PlanSkill[] {
+  const topics: string[] = []; const by = new Map<string, PlanSkill[]>();
+  list.forEach((p) => { const t = parseSkill(p.skill).topic; if (!by.has(t)) { by.set(t, []); topics.push(t); } by.get(t)!.push(p); });
+  const need = (t: string) => Math.max(...by.get(t)!.map((p) => SCORE[p.standing]));
+  const ranked = [...topics].sort((a, b) => need(b) - need(a) || topics.indexOf(a) - topics.indexOf(b));
+  ranked.forEach((t) => { const l = by.get(t)!; by.set(t, [...l].sort((a, b) => SCORE[b.standing] - SCORE[a.standing] || l.indexOf(a) - l.indexOf(b))); });
+  const out: PlanSkill[] = [];
+  for (let i = 0; out.length < list.length; i += 1) ranked.forEach((t) => { const p = by.get(t)![i]; if (p) out.push(p); });
+  return out;
+}
+
+/**
  * About how long each step of the plan takes, in minutes (recommend.ts STAGE_MIN): a lesson is a stair's three teaching
  * stages (the plan gives a stair taught in part only the stages left, examPlan tasksOf).
  */
@@ -227,7 +244,8 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
     // a practice lesson finished after the check (a check also logs 'lesson-done', with its purpose)
     const practiceAfter = (s: SkillId, at: string) => learn.events.filter((x) => x.e === 'lesson-done' && x.s === s && x.t > at && !CHECKS.includes(String(x.p)));
     const RULE = taskMinutes('rule'); const QUICK = taskMinutes('quick'); const PRACTICE = taskMinutes('practice');
-    const stairs = order.map((p) => {
+    // one stair of each topic before a second of any (byTopicRounds): 15 minutes reach two topics, 30 every topic
+    const stairs = byTopicRounds(order).map((p) => {
       const t = titleOf(p.skill); const { topic, level } = parseSkill(p.skill);
       const ruleAt = plan.rules?.[p.skill]; const ruled = fresh(ruleAt);
       const q = plan.quick?.[p.skill]; const checked = !!q && fresh(q.at);

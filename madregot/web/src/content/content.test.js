@@ -8,6 +8,7 @@ import { ALL_SKILLS } from '@/learn/skills.ts';
 import { itemFor } from '@/learn/items.ts';
 import { loadAllContent, contentOf } from '@/learn/content/index.ts';
 import { factsItem } from './frac.js';
+import { setLearnerGrade } from './learner.js';
 import { holds, identical, texToExpr, texRelation, seeded, evaluate, same } from '@/learn/expr.ts';
 import { slipOf } from '@/learn/misconceptions.ts';
 import * as AW from './area.js';
@@ -220,7 +221,148 @@ describe('math checks', () => {
   const pointsIn = (text) => [...text.matchAll(/\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)/g)].map((m) => [Number(m[1]), Number(m[2])]);
   const lineIn = (text) => { const m = text.match(/= (-?\d*)x(?: ([+-]) (\d+))?/); if (!m) return null; const k = m[1] === '' ? 1 : m[1] === '-' ? -1 : Number(m[1]); return { m: k, b: m[2] ? (m[2] === '-' ? -1 : 1) * Number(m[3]) : 0 }; };
   it('linear: table value is y = mx + b', () => {
-    for (let r = 0; r < RUNS; r++) { const t = makeItem('line', 1); if (t.form === 'manip') continue; const L = lineIn(t.text); const x = Number(t.text.match(/x = (-?\d+)\$\?/)[1]); expect(L.m * x + L.b).toBe(t.answer); }
+    for (let r = 0; r < RUNS; r++) { const t = makeItem('line', 1); if (!t.key.startsWith('lf1:')) continue; const L = lineIn(t.text); const x = Number(t.text.match(/x = (-?\d+)\$\?/)[1]); expect(L.m * x + L.b).toBe(t.answer); }
+  });
+  // the teacher's 17.11 list (council round 3): "האם נקודה נמצאת על הישר?", "ישרים מקבילים לצירים" and "משוואת ישר באמצעות
+  // נקודה וישר המקביל" each have practice, on the stair that teaches it, and each answer is worked out here again
+  const kindsOf = (level, n = 3000) => { const by = {}; for (let r = 0; r < n; r += 1) { const it = makeItem('line', level); (by[it.key.split(':')[0]] ||= []).push(it); } return by; };
+  it('linear: is a point on the line (a practice choice), and the k of a point on the line', () => {
+    const by = kindsOf(1);
+    expect(by.lf1o?.length).toBeGreaterThan(200);
+    expect(by.lf1k?.length).toBeGreaterThan(300);
+    const seen = new Set();
+    for (const it of by.lf1o) {
+      const L = lineIn(it.text); const [[p, q]] = pointsIn(it.text);
+      expect(it.choices.map((c) => c.text)).toEqual(['כן', 'לא']);
+      expect(it.answer, it.key).toBe(L.m * p + L.b === q ? 0 : 1);
+      expect(it.practiceOnly).toBe(true);
+      seen.add(it.answer);
+      // a point that is on the line read the other way round: "כן" names it
+      if (it.answer === 1 && L.m * q + L.b === p) expect(it.diag(0), it.key).toBe('swap-xy');
+    }
+    expect([...seen].sort()).toEqual([0, 1]);
+    for (const it of by.lf1k) {
+      const L = lineIn(it.text); const m = it.text.match(/\$\((k|-?\d+), (k|-?\d+)\)\$/);
+      const x = m[1] === 'k' ? it.answer : Number(m[1]); const y = m[2] === 'k' ? it.answer : Number(m[2]);
+      expect(L.m * x + L.b, it.key).toBe(y);
+      expect(Number.isInteger(it.answer)).toBe(true);
+      // the y substituted as if it were the x is named
+      if (m[1] === 'k') expect(it.diag(L.m * y + L.b), it.key).toBe('swap-xy');
+    }
+    // and both checks and practice ask the typed one (it is fair for a check); the choice is practice only
+    expect(fairForCheck(by.lf1k[0])).toBe(true);
+    expect(fairForCheck(by.lf1o[0])).toBe(false);
+  });
+  it('linear: a line parallel to an axis is y = k or x = k, from two points or a point and the axis', () => {
+    const { lf2a } = kindsOf(2);
+    expect(lf2a.length).toBeGreaterThan(300);
+    const forms = new Set();
+    for (const it of lf2a) {
+      const pts = pointsIn(it.text); const right = it.choices[it.answer].tex;
+      if (pts.length === 2) {
+        const [[x1, y1], [x2, y2]] = pts;
+        expect(right, it.key).toBe(x1 === x2 ? `x = ${x1}` : `y = ${y1}`);
+        expect(x1 === x2 || y1 === y2).toBe(true);
+      } else {
+        const axis = it.text.match(/מקביל לציר \$([xy])\$/)[1];
+        expect(right, it.key).toBe(axis === 'x' ? `y = ${pts[0][1]}` : `x = ${pts[0][0]}`);
+      }
+      forms.add(`${right[0]}${pts.length}`);
+      expect(new Set(it.choices.map((c) => c.tex)).size).toBe(4);
+      // the right number with the other letter is the axes mixed up
+      const other = it.choices.findIndex((c) => c.tex === `${right[0] === 'x' ? 'y' : 'x'}${right.slice(1)}`);
+      expect(it.diag(other), it.key).toBe('axis-swap');
+      expect(it.fig.points.length).toBe(pts.length);
+    }
+    expect([...forms].sort()).toEqual(['x1', 'x2', 'y1', 'y2']);
+  });
+  it('linear: the line through a point parallel to a given line has its slope and passes through the point', () => {
+    const { lf5p } = kindsOf(5);
+    expect(lf5p.length).toBeGreaterThan(400);
+    for (const it of lf5p) {
+      const given = it.text.match(/לישר \$y = ([^$]*)\$/)[1];
+      const [[x, y]] = pointsIn(it.text);
+      const L = lineIn(`= ${given}`) || { m: Number(given.match(/([+-]) (\d*)x/)[1] + (given.match(/([+-]) (\d*)x/)[2] || '1')), b: Number(given.split(' ')[0]) };
+      expect(it.answer.m, it.key).toBe(L.m);
+      expect(it.answer.m * x + it.answer.b, it.key).toBe(y);
+      expect(it.answer.b === L.b, it.key).toBe(false);
+      // the given line's b copied is named
+      expect(it.diag({ m: L.m, b: L.b }), it.key).toBe('same-b');
+    }
+  });
+  // ח׳'s continuation of the parallel angles (unit 8.3): angles written with x, the converse with its reason (practice
+  // only) and a point between the parallels with a helper line, on angles:4. A ז׳ learner, whose equations come in
+  // March, never meets them there; a ח׳ learner meets them in practice and in checks.
+  it('angles:4: ח׳\'s continuation is drawn for ח׳ (and when the grade is not known), never for ז׳', () => {
+    const NEW = ['an4x', 'an4c', 'an4h'];
+    const kindsAt = (grade, test) => {
+      setLearnerGrade(grade);
+      try { const by = {}; for (let r = 0; r < 1500; r += 1) { const k = makeItem('angles', 4, undefined, { test }).key.split(':')[0]; by[k] = (by[k] || 0) + 1; } return by; } finally { setLearnerGrade(null); }
+    };
+    const seven = { ...kindsAt('7', false), ...kindsAt('7', true) };
+    expect(NEW.filter((k) => seven[k])).toEqual([]);
+    const eight = kindsAt('8', false);
+    NEW.forEach((k) => expect(eight[k], k).toBeGreaterThan(80));
+    // a check asks x and the helper line, never the converse's choice of four (practice only)
+    const check = kindsAt('8', true);
+    expect([check.an4x > 150, check.an4h > 150, !check.an4c]).toEqual([true, true, true]);
+    expect(Object.keys(kindsAt(null, false))).toEqual(expect.arrayContaining(NEW));
+  });
+  // the council's round 3: pyth:4 has the two-step figures an exam builds on, each worked out here from its text
+  it('pyth:4: an altitude, an isosceles triangle\'s height, a rhombus and a right trapezoid, in two steps, all whole', () => {
+    const by = {};
+    for (let r = 0; r < 2000; r += 1) { const it = makeItem('pyth', 4); (by[it.key.split(':')[0]] ||= []).push(it); }
+    ['py4', 'py4a', 'py4i', 'py4r', 'py4t'].forEach((k) => expect(by[k]?.length, k).toBeGreaterThan(200));
+    const n = (it) => [...it.text.matchAll(/(?<![A-Z]\s?)=?\s?(\d+)(?=\$)/g)].map((m) => Number(m[1]));
+    const root = (v) => { const r = Math.round(Math.sqrt(v)); expect(r * r).toBe(v); return r; };
+    for (const it of by.py4a) { const [ab, bd, dc] = n(it); expect(it.answer, it.key).toBe(root(root(ab * ab - bd * bd) ** 2 + dc * dc)); }
+    for (const it of by.py4i) {
+      const v = n(it);
+      if (/מה אורך הגובה/.test(it.text)) { const [s, base] = v; expect(it.answer, it.key).toBe(root(s * s - (base / 2) ** 2)); } else { const [base, h] = v; expect(it.answer, it.key).toBe(root(h * h + (base / 2) ** 2)); }
+      // a whole base taken for the half is named
+      if (!/מה אורך הגובה/.test(it.text)) { const [base, h] = v; expect(it.diag(Math.round(Math.hypot(h, base) * 10) / 10), it.key).toBe('base-not-halved'); }
+    }
+    for (const it of by.py4r) {
+      const [p, q] = n(it);
+      expect(it.answer, it.key).toBe(/מה אורך הצלע/.test(it.text) ? root((p / 2) ** 2 + (q / 2) ** 2) : 2 * root(p * p - (q / 2) ** 2));
+    }
+    for (const it of by.py4t) { const [a, b, h] = n(it); expect(it.answer, it.key).toBe(root(h * h + (a - b) ** 2)); expect(it.diag(Math.round(Math.hypot(h, a) * 10) / 10), it.key).toBe('whole-base'); }
+    // every figure draws the right angle the second step stands on, and writes the asked length as '?'
+    [...by.py4a, ...by.py4i, ...by.py4r, ...by.py4t].forEach((it) => {
+      expect(it.fig.angles.some((g) => g.right), it.key).toBe(true);
+      expect(it.fig.segs.filter((s) => s.label === '?'), it.key).toHaveLength(1);
+    });
+  });
+  // the council's round 3: the mode and the median from a frequency table or a bar chart, not only from a list
+  it('stats:1 and stats:2: the mode and the median from a frequency table or a bar chart', () => {
+    const of = (level, prefix) => Array.from({ length: 3000 }, () => makeItem('stats', level)).filter((it) => it.key.startsWith(`${prefix}:`));
+    const rowsOf = (it) => (it.fig.type === 'table' ? it.fig.rows : it.fig.cats.map((c, i) => [Number(c), it.fig.values[i]]));
+    const modes = of(1, 'st1t'); const medians = of(2, 'st2t');
+    expect(modes.length).toBeGreaterThan(600);
+    expect(medians.length).toBeGreaterThan(600);
+    for (const list of [modes, medians]) expect(new Set(list.map((it) => it.fig.type))).toEqual(new Set(['table', 'chart']));
+    for (const it of modes) {
+      const rows = rowsOf(it); const top = Math.max(...rows.map((r) => r[1]));
+      expect(rows.filter((r) => r[1] === top).map((r) => r[0]), it.key).toEqual([it.answer]);
+      // the highest frequency written for its value is named
+      expect(it.diag(top), it.key).toBe('mode-count');
+    }
+    for (const it of medians) {
+      const data = rowsOf(it).flatMap(([v, f]) => Array(f).fill(v)); const n = data.length;
+      expect(it.answer, it.key).toBe((data[Math.floor((n - 1) / 2)] + data[Math.ceil((n - 1) / 2)]) / 2);
+      // the median's place, (n + 1) / 2, written for the value is named
+      expect(it.diag((n + 1) / 2), it.key).toBe('position-not-value');
+    }
+  });
+  it('linear: where a line meets y = k or x = k', () => {
+    const { lf8a } = kindsOf(8);
+    expect(lf8a.length).toBeGreaterThan(400);
+    for (const it of lf8a) {
+      const L = lineIn(it.text); const ax = it.text.match(/\$([xy]) = (-?\d+)\$/);
+      const [x, y] = it.answer;
+      expect(L.m * x + L.b, it.key).toBe(y);
+      expect(ax[1] === 'x' ? x : y, it.key).toBe(Number(ax[2]));
+    }
   });
   it('linear: slope from the graph matches the two marked points', () => {
     for (let r = 0; r < RUNS; r++) { const s3 = makeItem('line', 3); const [A, B] = s3.fig.points; expect(Math.abs((B.y - A.y) / (B.x - A.x) - s3.answer)).toBeLessThan(1e-9); }
@@ -242,7 +384,7 @@ describe('math checks', () => {
   });
   it('linear: the meeting point is on both lines', () => {
     for (let r = 0; r < RUNS; r++) {
-      const e = makeItem('line', 8); const eqs = [...e.text.matchAll(/y = (-?\d*)x(?: ([+-]) (\d+))?/g)].map((m) => ({ m: m[1] === '' ? 1 : m[1] === '-' ? -1 : Number(m[1]), b: m[2] ? (m[2] === '-' ? -1 : 1) * Number(m[3]) : 0 }));
+      const e = makeItem('line', 8); if (!e.key.startsWith('lf8:')) continue; const eqs = [...e.text.matchAll(/y = (-?\d*)x(?: ([+-]) (\d+))?/g)].map((m) => ({ m: m[1] === '' ? 1 : m[1] === '-' ? -1 : Number(m[1]), b: m[2] ? (m[2] === '-' ? -1 : 1) * Number(m[3]) : 0 }));
       expect(eqs.length).toBe(2); for (const L of eqs) expect(L.m * e.answer[0] + L.b).toBe(e.answer[1]);
     }
   });

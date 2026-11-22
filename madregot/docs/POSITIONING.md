@@ -67,7 +67,7 @@ ChatGPT, Vimi, Mathins). בסביבת הבנייה אין כלי חיפוש, ו�
 ## מה אי אפשר להעתיק בשבוע
 
 <!-- generated:mistakes (npm run positioning:md) -->
-- **מודל הטעויות.** הקוד מכיר כרגע 301 טעויות בשמן (`countNamedMistakes()` ב־`web/src/content/claims.js`; המספר בדפים
+- **מודל הטעויות.** הקוד מכיר כרגע 311 טעויות בשמן (`countNamedMistakes()` ב־`web/src/content/claims.js`; המספר בדפים
   הציבוריים מחושב, לא מוקלד), ולכל אחת יש הסבר, סיבה ותרגול שמתקן. לבנות את זה לכל מדרגה לוקח חודשים, וזה מה שהופך
   "תשובה לא נכונה" ל"מה כנראה קרה".
 <!-- /generated:mistakes -->
@@ -91,7 +91,7 @@ ChatGPT, Vimi, Mathins). בסביבת הבנייה אין כלי חיפוש, ו�
 <!-- generated:proofs (npm run positioning:md) -->
 | מה | מאיפה המספר | היום |
 |---|---|---|
-| טעויות בשמן | `countNamedMistakes()` ב־`web/src/content/claims.js`; אותו מספר בדף `/mivchan/` | 301 |
+| טעויות בשמן | `countNamedMistakes()` ב־`web/src/content/claims.js`; אותו מספר בדף `/mivchan/` | 311 |
 | כיסוי שעות התכנית | `programmeCoverage()` ו־`coverageOf()` (CURRICULUM-1); הפירוט ב־`PROGRAMME.md` | 99% משעות שתי השכבות (ז׳ 148 מתוך 150 שעות, ח׳ 147 מתוך 147 שעות) |
 | נושאים ומדרגות | `countsOf()` ב־`web/scripts/programme-md.mjs` (`store/counts.json`) | 105 מדרגות ב־21 נושאים |
 | מספרי הפיילוט | TEACHER-11 `npm run owner -- pilot-report --class …` | עוד אין נתון: לא היה פיילוט |
