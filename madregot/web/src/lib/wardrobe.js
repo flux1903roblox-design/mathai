@@ -17,6 +17,7 @@
 // wardrobe's meter and the chest's choice are in lib/rewards.js, loaded with the screens that show them.
 import { TOPICS, TOPIC, topicsFor } from '@/content/topics.js';
 import { doneCount, chestOpen, chestAfter, stagesWorked } from './path.js';
+import { dayBefore } from './days.js';
 
 import { localized, t as tr } from '@/lib/i18n.js';
 export const SLOTS = ['head', 'face', 'neck', 'body'];
@@ -134,6 +135,21 @@ export const stagesFor = (id) => ITEM[id]?.unlock.stages || 0;
 export const isQuestPiece = (id) => !!ITEM[id]?.unlock.quest;
 /** The quest chest's two pieces: the first two of its pieces not owned yet, in the catalogue's order (fewer near the end). */
 export const chestPieces = (owned = new Set()) => ITEMS.filter((i) => i.unlock.quest && !owned.has(i.id)).slice(0, 2).map((i) => i.id);
+
+/**
+ * The day whose quest chest still waits for its choice: the latest day of the last week whose three quests were done,
+ * when no piece was chosen for it yet (an earlier day waits no longer once a later chest opened). null when none waits.
+ * (Here, not in lib/rewards.js, so the tab bar can say a choice waits without loading the rewards.)
+ */
+export function chestDay(days = {}, look = {}, todayKey) {
+  let d = todayKey;
+  for (let i = 0; i < 7; i += 1, d = dayBefore(d)) {
+    if (days[d]?.questsRewarded) return look?.picks?.[d] ? null : d;
+  }
+  return null;
+}
+/** Does a piece for מדי wait in a quest chest (a chest opened this week, not chosen from, with a piece left to choose)? */
+export const chestWaits = (days, look, todayKey) => !!chestDay(days, look, todayKey) && chestPieces(new Set(look?.earned || [])).length > 0;
 
 /** Why a piece is the student's: "מיחידת זוויות", "על 8 שלבים", "מתיבת המשימות", or "מהמטרה של הכיתה". */
 function whyOwned(id, path, grade) {

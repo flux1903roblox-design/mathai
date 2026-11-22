@@ -330,13 +330,16 @@ export async function stageDone(page, n, go) {
 /**
  * Press a way on from a teaching stage's end (`name`: its button). When the stage brought מדי a piece (its pill says
  * "מדי קיבל משהו חדש": the first stage of all does, PRODUCT2-36), the unlock moment comes first: it is passed with
- * "אחר כך" (wardrobe.spec.js tests the moment itself). Returns whether it came.
+ * "אחר כך" (wardrobe.spec.js tests the moment itself). When it finished the day's quests (its pill says a chest waits),
+ * the day's chest comes last: its choice is left for later (QuestsStage). Returns whether the unlock moment came.
  */
 export async function leaveStage(page, name) {
   const moment = page.locator('.stage-done');
   const gift = (await moment.locator('.badges .done-earned').filter({ hasText: 'מדי קיבל משהו חדש' }).count()) > 0;
+  const chest = (await moment.locator('.badges .done-earned').filter({ hasText: 'תיבה מחכה לכם' }).count()) > 0;
   await moment.getByRole('button', { name, exact: true }).click();
   if (gift) await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+  if (chest) await page.locator('.quests-done-screen').getByRole('button', { name: /^(לבחור אחר כך, במשימות|המשך)$/ }).click();
   return gift;
 }
 
