@@ -23,7 +23,9 @@ export type Rng = () => number;
  * is { mode: 'value', value } | { mode: 'common', of } | { mode: 'exact', den, shaded }) and 'dline' (the double number
  * line { top, bottom, move: 't' | 'max', start: { t, max? }, fixT? }; the answer is the marker's top value or the bottom
  * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`; 'numberline' takes
- * `plain` (a line of lengths, from 0: no frost and fire on its ground).
+ * `plain` (a line of lengths, from 0: no frost and fire on its ground). 'pins' sets its markers out in a tray above the
+ * line until each is moved (their `start` is where a step button takes one from); `tray: false` puts them on their starts
+ * (a task whose start is the point itself: move each point 3 to the right).
  * Angles: 'angle' is a ray turned on a straight line ({ start, labels?: { left, vertex, right, ray } }; the answer is the
  * right angle in degrees), or with `protractor: true` a protractor (FUNC-1.2) in one of two modes: 'build' ({ mode:
  * 'build', from?: 'right' | 'left', base?: number, start: number, letters?: { vertex, a, b } }: the fixed arm on the 0 of

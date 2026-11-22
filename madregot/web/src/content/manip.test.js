@@ -582,8 +582,25 @@ describe('fractions on the number lines (den)', () => {
   });
   it('markers that stack are drawn top one first, so the head under each covers the stem above it', () => {
     const order = (value) => [...html(NumberPins, { m: pins.manip, value, answer: pins.answer }).matchAll(/data-pin="(\d)"/g)].map((x) => x[1]);
-    expect(order([0, 0.05, 0.1])).toEqual(['2', '1', '0']); // the start: all three stacked
+    expect(order([0.05, 0.1, 0.15])).toEqual(['2', '1', '0']); // put on neighbouring parts: all three stacked
     expect(order([0.4, 0.25, 0.7])).toEqual(['0', '1', '2']); // apart: nothing stacks, the order of the labels
+  });
+  // the student council's round 3: "4" on −10 and "−4" on 0 before the student did anything said something false
+  it('markers not placed yet wait in a tray above the line, on no number; a task whose start is the point keeps them there', () => {
+    const at = (out) => [...out.matchAll(/data-pin="(\d)" class="([^"]*)" transform="translate\(([\d.]+) ([\d.]+)\)"/g)].map((x) => ({ i: x[1], waiting: /is-waiting/.test(x[2]), y: Number(x[4]) }));
+    const start = html(NumberPins, { m: pins.manip, value: pins.manip.start, answer: pins.answer });
+    expect(start).toMatch(/class="np-tray"/);
+    expect(at(start).every((p) => p.waiting && p.y < 100)).toBe(true); // all three above the line (it is at 150)
+    expect(start.match(/np-dot/g)).toBeNull(); // no dot: they stand on no number
+    expect(start).toContain('aria-valuetext="הסמן 0.4 עוד לא על הציר"');
+    // one moved: it is on the line with its dot, the other two still wait
+    const one = at(html(NumberPins, { m: pins.manip, value: [0.4, 0.05, 0.1], answer: pins.answer }));
+    expect(one.map((p) => p.waiting)).toEqual([false, true, true]);
+    expect(one[0].y).toBe(150);
+    // tray: false (stats2, "move each point 3 to the right"): the markers stand on their starts from the first frame
+    const kept = html(NumberPins, { m: { ...pins.manip, tray: false }, value: pins.manip.start, answer: pins.answer });
+    expect(kept).not.toMatch(/np-tray|is-waiting/);
+    expect(kept.match(/np-dot/g)).toHaveLength(3);
   });
   it('a whole-number line draws as before', () => {
     const it0 = fixture({ kind: 'numberline', min: -10, max: 10, from: 3, start: 3 }, -2);
