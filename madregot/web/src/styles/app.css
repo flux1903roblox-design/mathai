@@ -161,7 +161,7 @@ textarea.input { resize: vertical; min-height: 88px; line-height: 1.3685; }
 .answer { display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
 .slot {
   width: 104px; height: 56px; text-align: center; font-size: 1.625rem; font-weight: 700; direction: ltr;
-  border: 2px solid var(--rule-strong); border-radius: 12px; background: var(--paper);
+  border: 2px solid var(--rule-strong); border-radius: 14px; background: var(--paper);
   transition: border-color var(--duration-quick) var(--ease-out), box-shadow var(--duration-quick) var(--ease-out);
 }
 .slot:focus, .slot.active { outline: none; border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-tint); }
@@ -479,7 +479,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 
 /* the dock: keypad and the one big check button, within thumb reach */
 .lesson-dock .btn { margin-bottom: var(--lip); }
-.keypad .key { margin-bottom: 3px;
+.keypad .key { margin-bottom: 3px; border-radius: 14px; border-color: var(--rule-strong);
   font-family: var(--font-ui); font-size: 1.5rem;
   transition: transform var(--duration-tap) var(--ease-out), box-shadow var(--duration-tap) var(--ease-out);
 }

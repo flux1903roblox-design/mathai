@@ -17,7 +17,7 @@ colors:
   brand-tint: "#eceafe"
   brand-line: "#bcb4fb"
   selection: "#d9d4ff"
-  grid-line: "#e1e6f4"
+  grid-line: "#e7ebf6"
   highlighter: "#ffe45c"
   on-brand: "#ffffff"
   good: "#2fbf4a"
@@ -258,13 +258,13 @@ The owner looked at the category-standard screens and saw the same app every rou
 
 Signature moves:
 - **Squared paper** under every page, and under the maths of a lesson (the question's panel is a sheet of graph paper with a 2px edge).
-- **Steps, not coins**: the path's stops are 24px-rounded squares on a 7px lip, the current one 80px in its unit's colour inside a highlighter ring; mastered ones gold.
+- **Steps, not coins**: the path's stops are 24px-rounded squares on a 7px lip, the current one 76px in its unit's colour inside a highlighter ring; mastered ones gold.
 - **Home's indigo band**: the top bar of the home screen is indigo, the class switch and the streak and XP pills sit on it.
 - **The tab bar's pill**: the open tab's icon sits on an indigo pill, white on indigo; the others are quiet.
 - **Heavy headings**: every heading and title at 800 with -0.02em tracking; unit titles 24px.
 - **The unit banner** is its colour with the notebook's squares showing through in white at 14%.
 
-Kept from v4: Hebrew right to left with maths isolated left to right, Rubik only, the lipped press, one meaning per colour (green right, red "not yet", gold XP, orange streak), no hearts, leagues or pressure, the motion system (ux-motion), and מדי in the blue the owner chose (`madi-*`, unchanged on purpose). Dark mode is the night notebook: `paper` #0E1024 with faint `grid-line` #1B1F3D squares, `surface` #181B34, a deep highlighter (#4D4100 with #FFE45C on it).
+Kept from v4: Hebrew right to left with maths isolated left to right, Rubik only, the lipped press, one meaning per colour (green right, red "not yet", gold XP, orange streak), no hearts, leagues or pressure, the motion system (ux-motion), and מדי in the blue the owner chose (`madi-*`, unchanged on purpose). Dark mode is the night notebook: `paper` #0E1024 with faint `grid-line` #191C39 squares, `surface` #181B34, a deep highlighter (#4D4100 with #FFE45C on it).
 
 **Key Characteristics:**
 - Squared paper everywhere; white sticker cards with a lip; one indigo; a yellow highlighter for "now".

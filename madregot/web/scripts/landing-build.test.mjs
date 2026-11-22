@@ -190,8 +190,8 @@ describe('landing-build', () => {
         expect(img).toContain(`width="${size.width}" height="${size.height}"`);
       }
       // a theme colour for each scheme, from the tokens
-      expect(html).toContain('<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">');
-      expect(html).toContain('<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">');
+      expect(html).toContain('<meta name="theme-color" content="#f3f5fb" media="(prefers-color-scheme: light)">');
+      expect(html).toContain('<meta name="theme-color" content="#0e1024" media="(prefers-color-scheme: dark)">');
     }
   });
 

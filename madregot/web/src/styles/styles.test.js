@@ -79,7 +79,7 @@ describe('tokens (STUDENT-2 §2, light values)', () => {
     ['control-line', '#7d85a3'] /* 3:1 on the card and on --ground */, ['track', '#e6e9f4'], ['track-edge', '#cdd3e6'],
     ['disabled-bg', '#eceef5'], ['disabled-ink', '#616886'], ['disabled-lip', '#dde1ec'],
     ['brand', '#5a4bff'], ['brand-lip', '#3322c4'], ['brand-d', '#3322c4'], ['brand-tint', '#eceafe'], ['brand-line', '#bcb4fb'],
-    ['grid-line', '#e1e6f4'], ['hl', '#ffe45c'], ['on-hl', '#141a3a'],
+    ['grid-line', '#e7ebf6'], ['hl', '#ffe45c'], ['on-hl', '#141a3a'],
     ['good-ink', '#157a41'], ['good-tint', '#e3f8e7'], ['good-line', '#bfe9c9'],
     ['bad-ink', '#b3203a'], ['bad-tint', '#fde8ec'], ['bad-line', '#f6c3cd'],
     ['gold-ink', '#8a5c00'], ['gold-tint', '#fff6d6'], ['on-gold-ink', '#5c3d00'],
@@ -137,7 +137,8 @@ describe('the dark theme (STUDENT-2 §4, §8)', () => {
   it('prints with the light values, for every token the dark theme changes', () => {
     const p = decls(print);
     expect(Object.keys(p).sort()).toEqual(Object.keys(darkTokens).sort());
-    for (const k of Object.keys(p)) expect(p[k], k).toBe(light[k]);
+    // a printout is on white paper without the notebook's squares (v5); every other token prints its light value
+    for (const k of Object.keys(p)) expect(p[k], k).toBe({ '--paper': '#ffffff', '--grid-line': '#ffffff' }[k] ?? light[k]);
     expect(print).toMatch(/color-scheme: light;/);
     // last in the file, so it wins over the two dark blocks
     expect(dark.lastIndexOf('@media print')).toBeGreaterThan(dark.indexOf('\n:root[data-theme="dark"]'));
@@ -183,8 +184,8 @@ describe('the dark theme (STUDENT-2 §4, §8)', () => {
   it('index.html: no fixed theme, a bar colour for each scheme, and the boot script before the app', () => {
     const html = readFileSync(path.join(here, '../../index.html'), 'utf8');
     expect(html).not.toMatch(/data-theme=/);
-    expect(html).toMatch(/<meta name="theme-color" content="#ffffff" media="\(prefers-color-scheme: light\)" \/>/);
-    expect(html).toMatch(/<meta name="theme-color" content="#0f1115" media="\(prefers-color-scheme: dark\)" \/>/);
+    expect(html).toMatch(/<meta name="theme-color" content="#f3f5fb" media="\(prefers-color-scheme: light\)" \/>/);
+    expect(html).toMatch(/<meta name="theme-color" content="#0e1024" media="\(prefers-color-scheme: dark\)" \/>/);
     expect(html).toMatch(/<meta name="madregot-store-key" content="%VITE_STORE_KEY%" \/>/);
     expect(html.indexOf('theme-boot.js')).toBeGreaterThan(0);
     expect(html.indexOf('theme-boot.js')).toBeLessThan(html.indexOf('type="module"'));

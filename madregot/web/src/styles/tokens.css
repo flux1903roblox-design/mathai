@@ -41,12 +41,12 @@
   --ai: #5a4bff;        --ai-tint: #eceafe;   --ai-ink: #3322c4;
 
   /* the notebook (v5): the squared paper under every page, the highlighter, the sticker cards */
-  --grid-line: #e1e6f4; --grid: 22px;  /* one square of the notebook */
+  --grid-line: #e7ebf6; --grid: 22px;  /* one square of the notebook */
   --hl: #ffe45c;        --on-hl: #141a3a;     /* the highlighter: behind what is new, today or next */
   --r-card: 20px;       --card-lip: 4px;      /* a card is a sticker on the page: round corners, a solid edge under it */
   /* the page as squared paper: two sets of hairlines over --paper (background shorthand, so a bar can take it whole) */
-  --sheet: linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), var(--paper);
-  --sheet-ground: linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), var(--ground);
+  --squares: linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid);
+  --sheet: var(--squares), var(--paper); --sheet-ground: var(--squares), var(--ground);
 
   /* מדי, the mascot: his own colours, in one place. The brand blue. */
   --madi-hi: #5b8cff;   --madi-lo: #1a5cf5;   --madi-edge: #1246c4; --madi-tread: #c9d9ff;

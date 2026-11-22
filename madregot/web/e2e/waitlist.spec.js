@@ -235,7 +235,7 @@ for (const scheme of ['light', 'dark']) {
     await page.emulateMedia({ colorScheme: scheme });
     await open(page);
     const paper = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(paper).toBe(scheme === 'dark' ? 'rgb(15, 17, 21)' : 'rgb(255, 255, 255)');
+    expect(paper).toBe(scheme === 'dark' ? 'rgb(14, 16, 36)' : 'rgb(243, 245, 251)');
     await expectNoAxeViolations(page, {}, `the waitlist page (${scheme})`);
     const vp = page.viewportSize();
     const tall = async () => page.setViewportSize({ width: vp.width, height: await page.evaluate(() => document.documentElement.scrollHeight) });

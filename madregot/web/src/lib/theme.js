@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 export const THEME_KEY = `${import.meta.env.VITE_STORE_KEY || 'madregot'}-theme`;
 export const THEMES = ['system', 'light', 'dark'];
 export const THEME_EVENT = 'madregot-theme';
-const BAR = { light: '#ffffff', dark: '#0f1115' }; // colour-ok: the browser bar, the same as --paper in each theme
+const BAR = { light: '#f3f5fb', dark: '#0e1024' }; // colour-ok: the browser bar, the same as --paper in each theme
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 /** Apply a theme choice ('system' | 'light' | 'dark'; anything else counts as 'system'). */

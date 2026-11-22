@@ -8,8 +8,9 @@ import { expectTextContrast, expectNonTextContrast, focusRingPair } from './cont
 
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'dark mode is checked on one phone (phone-dark holds its pictures)'); });
 
-const DARK_BG = 'rgb(15, 17, 21)';
-const LIGHT_BG = 'rgb(255, 255, 255)';
+const DARK_BG = 'rgb(14, 16, 36)'; // --paper in dark: the night notebook (v5)
+const LIGHT_BG = 'rgb(243, 245, 251)'; // --paper in light: the squared notebook's paper (v5)
+const PRINT_BG = 'rgb(255, 255, 255)'; // a printout is on white paper, without the squares
 const bodyBg = (page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
 async function shot(page, name) {
@@ -109,7 +110,7 @@ for (const scheme of ['dark', 'light']) {
         const inks = await page.evaluate((sel) => [...document.querySelectorAll(sel)].map((e) => getComputedStyle(e).color), coloured);
         expect(inks.length).toBeGreaterThan(0);
         await expectTextContrast(page, `(line builder moved, ${scheme})`);
-        const want = scheme === 'dark' ? ['rgb(255, 171, 92)', 'rgb(169, 144, 255)'] : ['rgb(168, 79, 0)', 'rgb(82, 50, 194)'];
+        const want = scheme === 'dark' ? ['rgb(255, 171, 92)', 'rgb(201, 166, 255)'] : ['rgb(168, 79, 0)', 'rgb(63, 19, 128)'];
         for (const c of inks) expect(want).toContain(c);
       }
       await shot(page, `${kind}-${scheme}`);
@@ -129,7 +130,7 @@ test('an explicit choice wins over the phone, holds from the first paint, and "�
   await expect(page.getByRole('radio', { name: 'בהיר' })).toHaveAttribute('aria-checked', 'true');
   await expect.poll(() => bodyBg(page)).toBe(LIGHT_BG);
   expect(await page.evaluate(() => localStorage.getItem('madregot-theme'))).toBe('light');
-  expect(await page.evaluate(() => [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => m.content))).toEqual(['#ffffff', '#ffffff']);
+  expect(await page.evaluate(() => [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => m.content))).toEqual(['#f3f5fb', '#f3f5fb']);
   await page.reload();
   expect(await page.evaluate(() => window.__themeAtLoad)).toBe('light');
   expect(await bodyBg(page)).toBe(LIGHT_BG);
@@ -162,12 +163,12 @@ test('a practice sheet prints black on white in every theme', async ({ page }) =
   await expect(page).toHaveURL(/#\/exams\/practice\//);
   expect(await bodyBg(page)).toBe(DARK_BG);
   await page.emulateMedia({ media: 'print', colorScheme: 'dark' });
-  await expect.poll(() => bodyBg(page)).toBe(LIGHT_BG);
+  await expect.poll(() => bodyBg(page)).toBe(PRINT_BG);
   const ink = await page.evaluate(() => getComputedStyle(document.body).color);
-  expect(ink).toBe('rgb(20, 22, 26)');
+  expect(ink).toBe('rgb(20, 26, 58)'); // --ink in light: the navy pen (v5)
   // the student chose "כהה" explicitly
   await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
-  await expect.poll(() => bodyBg(page)).toBe(LIGHT_BG);
+  await expect.poll(() => bodyBg(page)).toBe(PRINT_BG);
   await page.emulateMedia({ media: 'screen', colorScheme: 'light' });
   await expect.poll(() => bodyBg(page)).toBe(DARK_BG);
 });
