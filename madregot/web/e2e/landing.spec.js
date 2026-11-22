@@ -131,7 +131,7 @@ for (const scheme of ['light', 'dark']) {
       await page.setViewportSize({ width: 390, height: 844 });
       await openLanding(page, path);
       const paper = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-      expect(paper).toBe(scheme === 'dark' ? 'rgb(14, 16, 36)' : 'rgb(243, 245, 251)');
+      expect(paper).toBe(scheme === 'dark' ? 'rgb(14, 16, 36)' : 'rgb(255, 255, 255)');
       // the whole page at once: a phone's width, tall enough that every line is on screen
       const height = await page.evaluate(() => document.documentElement.scrollHeight);
       await page.setViewportSize({ width: 390, height });

@@ -1,14 +1,14 @@
-/* Madregot tokens, v5 "the squared notebook" (Nov 2026, DESIGN.md): the app is a maths notebook come alive. The page is
-   squared paper (--paper with --grid-line every --grid), cards are thick white stickers on it with a solid lip, the ink
-   is a navy pen #141A3A, and the one brand colour is an indigo #5A4BFF (white text 5.4:1, 3.1:1 on the night card) for buttons, selection,
+/* Madregot tokens, v6 "clay" (Nov 2026, DESIGN.md): a white page, chunky clay cards, buttons and stops with a light
+   edge on top and a solid lip under them, Fredoka for display. The ink is a navy pen #141A3A, and the one brand colour is
+   an indigo #5A4BFF (white text 5.4:1, 3.1:1 on the night card) for buttons, selection,
    progress and the current stop. The other colours each keep one job: green correct, red "not yet", gold XP and
    achievements, orange the streak, and a highlighter yellow (--hl) behind what is new or today. Each unit has its own
-   colour (see units). One family, Rubik: headings at 800, body 17px, nothing below 14px. 4px grid. */
+   colour (see units). Rubik for reading (body 17px, nothing below 14px), Fredoka for headings, buttons, numbers and tabs. 4px grid. */
 :root {
   color-scheme: light;
 
   /* ground and ink. Every colour on screen comes from a token here (scripts/check-colors.mjs keeps it so). */
-  --paper: #f3f5fb;     /* the page: html, body, sticky bars and footers that are part of the page */
+  --paper: #ffffff;     /* the page: html, body, sticky bars and footers that are part of the page */
   --surface: #ffffff;   /* cards, sheets, chips, node cards, the emblem tile */
   --ground: #f8f9fe;    /* the panel the maths sits on */
   --ink: #141a3a;
@@ -24,12 +24,14 @@
   --stop-ring: 0px;     /* a ring in the unit's -ink around a done or current stop: none in light, 2px in dark (dark.css) */
 
   /* brand and meaning */
-  --brand: #5a4bff;     --brand-d: #3322c4;   --brand-tint: #eceafe;  --brand-lip: #3322c4; --on-brand: #ffffff;
-  --brand-line: #bcb4fb; /* borders of selected and brand-tinted things */
-  --bar-fill: #bcb4fb;   /* the brand part of a progress bar with its count written over it in --ink (PKG-1: 4.5:1) */
-  --brand-ink: #5a4bff;  /* the brand blue as text or an icon on the page or a card (lighter in dark) */
-  --p-50: #f5f4ff;      --p-400: #7d70fa;     --p-600: #3d2de0; /* three steps of the v4 brand scale still in use (canon.css) */
-  --glow: #5a4bff;      --glow-ink: #3322c4;  --on-glow: #ffffff;
+  --brand: #3e8600;     --brand-d: #2b6000;   --brand-tint: #e7f8d8;  --brand-lip: #2b6000; --on-brand: #ffffff;
+  --brand-line: #a9df7f; /* borders of brand-tinted things */
+  /* v6: what the student picked is blue, as in Duolingo (a choice, a slot, a segment, the open tab); green is "go" and "right" */
+  --select: #1899d6;    --select-tint: #ddf4ff; --select-ink: #1270a8;
+  --bar-fill: #a9df7f;   /* the brand part of a progress bar with its count written over it in --ink (PKG-1: 4.5:1) */
+  --brand-ink: #367a00;  /* the brand blue as text or an icon on the page or a card (lighter in dark) */
+  --p-50: #f3fbec;      --p-400: #58cc02;     --p-600: #346f00; /* three steps of the v4 brand scale still in use (canon.css) */
+  --glow: #3e8600;      --glow-ink: #2b6000;  --on-glow: #ffffff;
   --good: #2fbf4a;      --good-d: #1a8a34;    --good-tint: #e3f8e7;   --good-ink: #157a41;  --on-good: #000000; --good-line: #bfe9c9;
   --good-mid: #8fdcab;  --bad-mid: #f28aa2; /* the softer green and red of quest bars and "ready" / "gap" segments */
   --bad: #c4213b;       --bad-d: #96182c;     --bad-tint: #fde8ec;    --bad-ink: #b3203a;   --on-bad: #ffffff; --bad-line: #f6c3cd;
@@ -41,12 +43,8 @@
   --ai: #5a4bff;        --ai-tint: #eceafe;   --ai-ink: #3322c4;
 
   /* the notebook (v5): the squared paper under every page, the highlighter, the sticker cards */
-  --grid-line: #e7ebf6; --grid: 22px;  /* one square of the notebook */
   --hl: #ffe45c;        --on-hl: #141a3a;     /* the highlighter: behind what is new, today or next */
   --r-card: 20px;       --card-lip: 4px;      /* a card is a sticker on the page: round corners, a solid edge under it */
-  /* the page as squared paper: two sets of hairlines over --paper (background shorthand, so a bar can take it whole) */
-  --squares: linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid) var(--grid);
-  --sheet: var(--squares), var(--paper); --sheet-ground: var(--squares), var(--ground);
 
   /* מדי, the mascot: his own colours, in one place. The brand blue. */
   --madi-hi: #5b8cff;   --madi-lo: #1a5cf5;   --madi-edge: #1246c4; --madi-tread: #c9d9ff;
@@ -64,12 +62,12 @@
   /* older names, kept so every screen reads the new palette */
   --cyan: var(--brand); --cyan-tint: var(--brand-tint);
   --magenta: var(--bad-ink); --magenta-tint: var(--bad-tint);
-  --marker: var(--gold-tint); --marker-strong: #d9d4ff;
+  --marker: var(--gold-tint); --marker-strong: #d7f2c2;
   --ok: var(--good-ink); --ok-tint: var(--good-tint);
 
   /* type: Rubik only; headings at 800, body 17px, nothing below 14px */
   --font-ui: 'Rubik Variable', 'Rubik', 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
-  --font-display: var(--font-ui);
+  --font-display: 'Fredoka Variable', var(--font-ui); /* v6: the rounded face for headings, buttons, numbers and tabs */
   --t-xs: 0.875rem; --lh-xs: 1.4286;
   --t-sm: 0.9375rem; --lh-sm: 1.4667;
   --t-base: 1.0625rem; --lh-base: 1.5295;

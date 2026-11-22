@@ -9,8 +9,8 @@ import { expectTextContrast, expectNonTextContrast, focusRingPair } from './cont
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'dark mode is checked on one phone (phone-dark holds its pictures)'); });
 
 const DARK_BG = 'rgb(14, 16, 36)'; // --paper in dark: the night notebook (v5)
-const LIGHT_BG = 'rgb(243, 245, 251)'; // --paper in light: the squared notebook's paper (v5)
-const PRINT_BG = 'rgb(255, 255, 255)'; // a printout is on white paper, without the squares
+const LIGHT_BG = 'rgb(255, 255, 255)'; // --paper in light: the white page (v6)
+const PRINT_BG = 'rgb(255, 255, 255)'; // a printout is on white paper
 const bodyBg = (page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
 async function shot(page, name) {
@@ -130,7 +130,7 @@ test('an explicit choice wins over the phone, holds from the first paint, and "�
   await expect(page.getByRole('radio', { name: 'בהיר' })).toHaveAttribute('aria-checked', 'true');
   await expect.poll(() => bodyBg(page)).toBe(LIGHT_BG);
   expect(await page.evaluate(() => localStorage.getItem('madregot-theme'))).toBe('light');
-  expect(await page.evaluate(() => [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => m.content))).toEqual(['#f3f5fb', '#f3f5fb']);
+  expect(await page.evaluate(() => [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => m.content))).toEqual(['#ffffff', '#ffffff']);
   await page.reload();
   expect(await page.evaluate(() => window.__themeAtLoad)).toBe('light');
   expect(await bodyBg(page)).toBe(LIGHT_BG);

@@ -1,8 +1,8 @@
 ---
 name: Madregot
-description: Daily math practice for Israeli grade 7-8 students, in Hebrew. A squared maths notebook come alive - squared paper, sticker cards, one indigo, a yellow highlighter, large readable type.
+description: Daily math practice for Israeli grade 7-8 students, in Hebrew. Clay - a white page, chunky clay cards, buttons and round stops, Duolingo's green for action and blue for what is picked, Fredoka for display, large readable type.
 colors:
-  paper: "#f3f5fb"
+  paper: "#ffffff"
   ground: "#f8f9fe"
   ink: "#141a3a"
   ink-2: "#4c5374"
@@ -12,12 +12,14 @@ colors:
   rule-press: "#ced4e8"
   track: "#e6e9f4"
   track-edge: "#cdd3e6"
-  brand: "#5a4bff"
-  brand-d: "#3322c4"
-  brand-tint: "#eceafe"
-  brand-line: "#bcb4fb"
-  selection: "#d9d4ff"
-  grid-line: "#e7ebf6"
+  brand: "#3e8600"
+  brand-d: "#2b6000"
+  brand-tint: "#e7f8d8"
+  brand-line: "#a9df7f"
+  select: "#1899d6"
+  select-tint: "#ddf4ff"
+  select-ink: "#1270a8"
+  selection: "#d7f2c2"
   highlighter: "#ffe45c"
   on-brand: "#ffffff"
   good: "#2fbf4a"
@@ -252,28 +254,30 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Squared Notebook" (v5, November 2026)**
+**Creative North Star: "Clay" (v6, November 2026)**
 
-The owner looked at the category-standard screens and saw the same app every round. v5 changes the world, not the polish: Madregot is a grade 7-8 maths notebook come alive. Every page is squared paper (`paper` under hairlines of `grid-line` every `grid`, 22px, the `--sheet` token), like the מחברת משבצות on a student's desk. Cards are thick white stickers on that paper: 2px `rule-strong` edge, 20px corners (`r-card`) and a solid 4px lip (`card-lip`) in `rule-press`. The ink is a navy pen (`ink` #141A3A). The one brand colour is an indigo (`brand` #5A4BFF, white text 5.4:1, 3.1:1 against the night card) for the main button, a selection, progress, the open tab's pill and the current stop. A yellow highlighter (`hl` #FFE45C) marks what is now: page titles wear it as a thick marker stroke under their lower half (a per-line underline, so it follows the words), and the "המשך" label over the current stop is on it, with a highlighter ring round the stop.
+The owner saw v5's notebook and the rounds before it as the same app. v6 is chosen by the design skills the owner installed, not by taste: ui-ux-pro-max's reasoning for an educational app is claymorphism with micro-interactions (vibrant, block-based as the second style), its type pairing for playful learning is Fredoka for display, and its palette for the category is a learning indigo with a progress green. So the page is plain white, as Duolingo's is, and everything you can touch is a chunky piece of clay standing on it: round, a light edge along its top, a solid lip under it. Headings, buttons, numbers and the tab names are set in Fredoka (rounded, heavy, Hebrew and Latin), and reading text stays in Rubik.
 
 Signature moves:
-- **Squared paper** under every page, and under the maths of a lesson (the question's panel is a sheet of graph paper with a 2px edge).
-- **Steps, not coins**: the path's stops are 24px-rounded squares on a 7px lip, the current one 76px in its unit's colour inside a highlighter ring; mastered ones gold.
-- **Home's indigo band**: the top bar of the home screen is indigo, the class switch and the streak and XP pills sit on it.
-- **The tab bar's pill**: the open tab's icon sits on an indigo pill, white on indigo; the others are quiet.
-- **Heavy headings**: every heading and title at 800 with -0.02em tracking; unit titles 24px.
-- **The unit banner** is its colour with the notebook's squares showing through in white at 14%.
+- **A white page** under every screen: no squares, no tint. The maths of a lesson sits on the light `ground` panel with a 2px edge.
+- **Round clay stops**: the path's stops are circles (70px, the current one 76px) on an 8px lip with a glossy top; the current one sits in a 4px highlighter ring, mastered ones gold.
+- **A white top bar** on home with a 2px rule under it: the class switch is a white clay button, the streak and the day's XP are Fredoka numbers in their own colours (orange, gold) beside their icons, no pills.
+- **The unit banner** is a block of clay in the unit's colour: a light edge along its top, its darker lip under it.
+- **The tab bar**: a white dock with 28px icons; the open tab sits in an outlined indigo-tinted box.
+- **Fredoka** for every heading, button, number and tab; Rubik for sentences, so a long word problem stays easy to read.
+- **Duolingo's colour grammar**: the action colour is green (`brand` #3E8600, the brightest green white text reads on at 4.5:1, on a darker green lip), so "בדיקה", "המשך" and every progress bar are green; what the student picked is blue (`select` #1899D6 edge, `select-tint` #DDF4FF fill, `select-ink` #1270A8 text): a chosen answer, the active slot, a segment, the open tab.
+- **מדי says the question** in a white clay speech bubble beside him when there is no drawing on the screen; he stands still while the student works and reacts once to the answer.
 
-Kept from v4: Hebrew right to left with maths isolated left to right, Rubik only, the lipped press, one meaning per colour (green right, red "not yet", gold XP, orange streak), no hearts, leagues or pressure, the motion system (ux-motion), and מדי in the blue the owner chose (`madi-*`, unchanged on purpose). Dark mode is the night notebook: `paper` #0E1024 with faint `grid-line` #191C39 squares, `surface` #181B34, a deep highlighter (#4D4100 with #FFE45C on it).
+Kept from v4 and v5: Hebrew right to left with maths isolated left to right, the lipped press, one meaning per colour (green right, red "not yet", gold XP, orange streak), the yellow highlighter (`hl`, now only the current stop's ring and its "המשך" label), no hearts, leagues or pressure, the motion system (ux-motion), and מדי in the blue the owner chose (`madi-*`, unchanged on purpose). Dark mode keeps v5's night colours: `paper` #0E1024, `surface` #181B34.
 
 **Key Characteristics:**
-- Squared paper everywhere; white sticker cards with a lip; one indigo; a yellow highlighter for "now".
+- A white page; chunky clay cards, buttons and stops with a lip; green to act, blue for what is picked; the highlighter for "now".
 - One card and one button grammar everywhere: buttons 18px corners on a 5px lip, the primary with a light inner top edge.
-- Rubik only, headings at 800; body 17px; nothing under 14px; tabular numbers.
+- Fredoka for display, Rubik for reading; body 17px; nothing under 14px; tabular numbers.
 - A child reads two short lines (PRODUCT2-41): a mission's reason and a wrong guess's explanation show their first short sentence, and the rest waits behind "עוד". מדי stands beside every first-visit question (64px).
 - Phone first, one column; short ease-out motion; everything stops under reduced motion; every entrance starts drawn until motion has loaded (`entrance()` in lib/motion.js).
 
-The rest of this file is the v4 system the notebook is built on: where it names a value, `styles/tokens.css` and `styles/dark.css` hold v5's, and the v5 layer itself is the last section of `styles/canon.css`.
+The rest of this file is the v4 system the notebook is built on: where it names a value, `styles/tokens.css` and `styles/dark.css` hold v6's, and the v6 layer itself is the last section of `styles/canon.css`.
 
 ## Colors
 
@@ -315,7 +319,8 @@ Each unit has one colour family (`ch-*`, with `-d` for its lip and its text on w
 
 ## Typography
 
-**Display, Body and Label Font:** Rubik (variable, self-hosted via `@fontsource-variable/rubik`), with Segoe UI, Arial Hebrew and Arial as fallbacks.
+**Display Font (v6):** Fredoka (variable, 300-700, self-hosted via `@fontsource-variable/fredoka`, Hebrew and Latin parts only) for headings, titles, buttons, tabs and numbers, with Rubik behind it.
+**Body and Label Font:** Rubik (variable, self-hosted via `@fontsource-variable/rubik`), with Segoe UI, Arial Hebrew and Arial as fallbacks.
 **Maths:** KaTeX's serif, at 1.08em inline and `clamp(30px, 5dvh, 44px)` on the question panel, always left to right and never wrapped inline. Inside a sentence the digits are the sentence's own (STUDENT-9): a bare number such as $-3$ or $35^\circ$ is plain Rubik text in `bdi.num` (left to right, a real minus sign U+2212, tabular figures). Other flat inline maths ($x = -3$, $3^2 + 4^2$) is set in the sentence's font too, at its size: digits, operators and letters in Rubik, letters upright (`.mt-ui`, PRODUCT2-41). Inline maths laid out in rows (a fraction, a root) keeps KaTeX's layout and fonts, with its digits in Rubik (`.mt-inline`). Display maths on the panel stays all KaTeX.
 
 **Character:** one rounded, sturdy sans for everything, set large; the hierarchy comes from size and weight (800 for titles, 700 for headings and buttons), not from a second face.
