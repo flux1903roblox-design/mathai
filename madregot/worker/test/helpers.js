@@ -192,6 +192,8 @@ class ShiftedDate extends RealDate {
 /** Move "now" forward for the Worker's code (Date.now() and new Date()). */
 export function advanceClock(ms) { offset += ms; globalThis.Date = ShiftedDate; }
 export function resetClock() { offset = 0; globalThis.Date = RealDate; }
+/** Set "now" for the Worker's code to a fixed moment (a test that walks hours must not cross midnight in Jerusalem). */
+export function setClock(iso) { offset = RealDate.parse(iso) - RealDate.now(); globalThis.Date = ShiftedDate; }
 
 // ---------------------------------------------------------------- database fixtures
 export const rows = (env, sql, ...args) => env.DB.raw.prepare(sql).all(...args);

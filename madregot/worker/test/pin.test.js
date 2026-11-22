@@ -8,7 +8,7 @@
 // one-time claim code (claim.test.js).
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { setup, makeClass, countOf, netOf, rows, advanceClock, resetClock } from './helpers.js';
+import { setup, makeClass, countOf, netOf, rows, advanceClock, resetClock, setClock } from './helpers.js';
 
 let h;
 afterEach(() => { h?.done(); resetClock(); });
@@ -47,6 +47,8 @@ test('50 wrong PINs at once from one network: exactly 5 are compared (wrong_pin)
 });
 
 test('a stranger\'s wrong PINs from other networks never lock the real student out, and stop at 30 a day for the student', async () => {
+  // 08:00 in Jerusalem: its hour and its day are the same window whenever the suite runs (it failed after 21:00)
+  setClock('2026-11-10T06:00:00Z');
   h = await setup();
   const cls = await makeClass(h, { students: ['נועה'] });
   const [noa] = cls.students; const id = noa.studentId;
@@ -108,6 +110,8 @@ test('one IPv6 allocation (a /48) is one network for PIN tries: 5 an hour for al
 });
 
 test('one network gets 15 wrong PINs a day: after three hours of 5, the next hour is still refused there, and only there', async () => {
+  // 08:00 in Jerusalem: the three hours stay in one day whenever the suite runs (it failed after 21:00)
+  setClock('2026-11-10T06:00:00Z');
   h = await setup();
   const cls = await makeClass(h, { students: ['נועה'] });
   const id = cls.students[0].studentId;

@@ -42,7 +42,8 @@ export const KATEX_UNUSED_COMMANDS = /\\(mathcal|mathfrak|mathsf|mathscr|mathtt|
  * copies (browsers take the woff2), not Rubik's Cyrillic or Latin-extended parts (the app never shows them), not other
  * public files (store screenshots, _headers). Not the Arabic files either (COUNCIL2-34): Rubik's Arabic part and the
  * Arabic words (locales/*.ar.json, content *.ar.*, built as <name>.ar-<hash>.js), so a Hebrew device keeps nothing it
- * never shows. An Arabic device keeps them as it first uses them (sw.js saves every /assets/ file it fetches).
+ * never shows. An Arabic device keeps them as it first uses them (sw.js saves every /assets/ file it fetches). Not the
+ * demo class's data either (teacherDemo): only a visitor trying the demo online opens it.
  */
 export function precacheFilter(file) {
   const f = plain(file);
@@ -53,6 +54,9 @@ export function precacheFilter(file) {
   if (!name) return false;
   if (PDF_ENGINE.test(name)) return false;
   if (/\.ar-[\w-]+\.js$/.test(name)) return false;
+  // the demo class's data (lib/teacherDemo.js): a visitor tries the demo online, from the site; a student's device never
+  // opens it, so it is not kept for offline use (it loads, and sw.js keeps it, the first time a demo opens)
+  if (/^teacherDemo-[\w-]+\.js$/.test(name)) return false;
   if (/\.(js|css)$/.test(name)) return true;
   const font = /^(.+)\.woff2$/.exec(name);
   if (!font) return false;

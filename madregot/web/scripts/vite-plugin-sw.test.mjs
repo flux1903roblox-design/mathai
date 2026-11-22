@@ -33,6 +33,10 @@ describe('the precache filter', () => {
     for (const f of ['assets/shell.ar-Bq2x9_Ab.js', 'assets/settings.ar-C3d.js', 'assets/signed.ar-x1Y2.js']) expect(precacheFilter(f), f).toBe(false);
     for (const f of ['assets/shell-Bq2x9_Ab.js', 'assets/arrow-x1.js', 'assets/area-x1.js', 'assets/Settings-ar12.js']) expect(precacheFilter(f), f).toBe(true);
   });
+  it('leaves the demo class out: only a visitor trying the demo online opens it', () => {
+    expect(precacheFilter('assets/teacherDemo-B1c2D3e4.js')).toBe(false);
+    for (const f of ['assets/teacher-B1c2D3e4.js', 'assets/TeacherStart-x1.js']) expect(precacheFilter(f), f).toBe(true);
+  });
   it('the list: each file once, sorted, with Windows separators made plain', () => {
     expect(precacheList(['assets\\b.js', 'index.html', 'assets/b.js', './manifest.webmanifest', 'assets/a.css', 'x.map']))
       .toEqual(['assets/a.css', 'assets/b.js', 'index.html', 'manifest.webmanifest']);
