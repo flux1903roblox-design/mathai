@@ -35,29 +35,28 @@
   --good: #2fbf4a;      --good-d: #1a8a34;    --good-tint: #e3f8e7;   --good-ink: #157a41;  --on-good: #000000; --good-line: #bfe9c9;
   --good-mid: #8fdcab;  --bad-mid: #f28aa2; /* the softer green and red of quest bars and "ready" / "gap" segments */
   --bad: #c4213b;       --bad-d: #96182c;     --bad-tint: #fde8ec;    --bad-ink: #b3203a;   --on-bad: #ffffff; --bad-line: #f6c3cd;
-  --streak: #ff8a1f;    --streak-ink: #a84f00; --streak-tint: #fff1e3; --on-streak: #000000;
-  --streak-d: #b45300;  /* the orange banner of Exam Rescue (white text 5.0:1) */
-  --gold: #ffc233;      --gold-d: #e0a100;    --gold-ink: #8a5c00;    --gold-tint: #fff6d6; --on-gold: #000000;
-  --on-gold-ink: #5c3d00; /* text and icons on a gold fill */
-  --gold-line: #ffe38a; /* the border of gold-tinted boxes */
-  --ai: #5a4bff;        --ai-tint: #eceafe;   --ai-ink: #3322c4;
+  --streak: #1cb0f6;    --streak-ink: #1270a8; --streak-tint: #e3f5ff; --on-streak: #000000; /* v6: the streak is blue (the two colours) */
+  --streak-d: #1270a8;  /* the blue banner of Exam Rescue (white text 5.4:1) */
+  --gold: #58cc02;      --gold-d: #46a302;    --gold-ink: #2b6000;    --gold-tint: #ecf9e1; --on-gold: #000000; /* v6: XP and mastery are the bright green */
+  --on-gold-ink: #1d4200; /* text and icons on a gold fill */
+  --gold-line: #b5e48c; /* the border of gold-tinted boxes */
+  --ai: #1270a8;        --ai-tint: #ddf4ff;   --ai-ink: #0e5a87;
 
   /* the notebook (v5): the squared paper under every page, the highlighter, the sticker cards */
-  --hl: #ffe45c;        --on-hl: #141a3a;     /* the highlighter: behind what is new, today or next */
+  --hl: #84d8ff;        --on-hl: #141a3a;     /* the marker: a light blue behind what is now (the current stop, "המשך") */
   --r-card: 20px;       --card-lip: 4px;      /* a card is a sticker on the page: round corners, a solid edge under it */
 
   /* מדי, the mascot: his own colours, in one place. The brand blue. */
   --madi-hi: #5b8cff;   --madi-lo: #1a5cf5;   --madi-edge: #1246c4; --madi-tread: #c9d9ff;
   --madi-limb: #1246c4; --madi-mark: rgba(255, 255, 255, 0.6); --madi-blush: #ff9cbc;
 
-  /* units (council, Nov 2026): each unit has one colour, used for its banner, its emblem and its stops on the path only. Buttons stay brand blue, and no unit is the brand blue (tokens.test.js), so a stop never looks like a button. */
+  /* units (v6, the owner's two colours): each unit is a blue or a green, used for its banner, its emblem and its stops on the path only; two units of a grade differ in lightness or in hue, and no unit is the button green (tokens.test.js). */
   /* -ink is a unit colour as text on a page or card; in light it is the -d value (the dark theme redefines it) */
-  /* sky is a deep sky blue: it carries white text (8.4:1), so it is darker than petrol (1.5:1) and 31° of hue from cobalt, the two it sits between */
-  --ch-sky: #00527f;     --ch-sky-d: #003a5c;     --ch-sky-tint: #dcf0fd;     --ch-sky-ink: #003a5c;
-  --ch-petrol: #0b7285;  --ch-petrol-d: #085566;  --ch-petrol-tint: #e3f4f6;  --ch-petrol-ink: #085566;
-  --ch-violet: #561ca8;  --ch-violet-d: #3f1380;  --ch-violet-tint: #f1e8fb;  --ch-violet-ink: #3f1380;
-  --ch-fuchsia: #a3218f; --ch-fuchsia-d: #7a1869; --ch-fuchsia-tint: #f8e6f4; --ch-fuchsia-ink: #7a1869;
-  --ch-cobalt: #283593;  --ch-cobalt-d: #1a237e;  --ch-cobalt-tint: #e8eaf6;  --ch-cobalt-ink: #1a237e;
+  --ch-sky: #0f75bd;     --ch-sky-d: #0b5489;     --ch-sky-tint: #e5f2fa;     --ch-sky-ink: #0b5489;
+  --ch-petrol: #208030;  --ch-petrol-d: #175c23;  --ch-petrol-tint: #d8f8de;  --ch-petrol-ink: #175c23;
+  --ch-violet: #0c5492;  --ch-violet-d: #083c68;  --ch-violet-tint: #e7f1fb;  --ch-violet-ink: #083c68;
+  --ch-fuchsia: #165a1f; --ch-fuchsia-d: #103f16; --ch-fuchsia-tint: #d8f8dd; --ch-fuchsia-ink: #103f16;
+  --ch-cobalt: #0b3564;  --ch-cobalt-d: #082445;  --ch-cobalt-tint: #e8f1fb;  --ch-cobalt-ink: #082445;
 
   /* older names, kept so every screen reads the new palette */
   --cyan: var(--brand); --cyan-tint: var(--brand-tint);

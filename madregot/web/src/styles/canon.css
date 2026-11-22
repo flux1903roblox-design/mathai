@@ -45,7 +45,7 @@
 .badge-ready { background: var(--good-tint); color: var(--good-ink); }
 .badge-practicing, .badge-learning, .badge-brand { background: var(--p-100); color: var(--p-700); }
 .badge-review { background: var(--gold-tint); color: var(--gold-ink); }
-.badge-support { background: var(--bad-tint); color: var(--bad-ink); }
+.badge-support { background: var(--select-tint); color: var(--select-ink); }
 .badge-neutral, .badge-new { background: var(--surface); color: var(--ink-2); box-shadow: inset 0 0 0 2px var(--line); }
 
 /* ---------------------------------------------------------------- stat tiles (as on a Duolingo profile) */

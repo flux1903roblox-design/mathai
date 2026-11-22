@@ -25,7 +25,7 @@ vi.mock('canvas-confetti', () => {
   return { default: { create, shapeFromText } };
 });
 
-const LIGHT = { '--brand': 'brand-light', '--gold': 'gold-light', '--good': 'good-light' };
+const LIGHT = { '--brand': 'brand-light', '--gold': 'gold-light', '--streak': 'streak-light' };
 
 /** A page: a body that keeps what is appended, the media query, the tokens on the root, the window's size. */
 function page({ reduce = false, hidden = false, tokens = LIGHT } = {}) {
@@ -124,7 +124,7 @@ describe('mathBurst: a burst', () => {
     expect(p.canvases()).toEqual([]);
   });
 
-  it('36 symbols, + − × ÷ = in --brand, --gold and --good, from the centre of the element, under 3 seconds', async () => {
+  it('36 symbols, + − × ÷ = in --brand, --gold and --streak (green and blue), from the centre of the element, under 3 seconds', async () => {
     const p = page();
     mathBurst(hero, p);
     await vi.waitFor(() => expect(lib.fires).toHaveLength(1));
@@ -132,16 +132,16 @@ describe('mathBurst: a burst', () => {
     expect(o).toMatchObject({ particleCount: 36, disableForReducedMotion: true, origin: { x: 0.5, y: 0.25 } });
     expect(o.ticks).toBeLessThanOrEqual(160); // frames: 160 at 60 a second is 2.7 s
     expect(o.shapes).toHaveLength(15);
-    expect(lib.shapes.map((s) => `${s.text} ${s.color}`)).toEqual(['brand-light', 'gold-light', 'good-light'].flatMap((c) => ['+', '−', '×', '÷', '='].map((t) => `${t} ${c}`)));
+    expect(lib.shapes.map((s) => `${s.text} ${s.color}`)).toEqual(['brand-light', 'gold-light', 'streak-light'].flatMap((c) => ['+', '−', '×', '÷', '='].map((t) => `${t} ${c}`)));
     expect(new Set(lib.shapes.map((s) => s.fontFamily))).toEqual(new Set(['"Rubik Variable", sans-serif']));
     lib.fires[0].finish();
   });
 
   it('reads the tokens when it plays: dark mode gets its own values', async () => {
-    const p = page({ tokens: { '--brand': 'brand-dark', '--gold': 'gold-dark', '--good': 'good-dark' } });
+    const p = page({ tokens: { '--brand': 'brand-dark', '--gold': 'gold-dark', '--streak': 'streak-dark' } });
     mathBurst(hero, p);
     await vi.waitFor(() => expect(lib.fires).toHaveLength(1));
-    expect([...new Set(lib.shapes.map((s) => s.color))]).toEqual(['brand-dark', 'gold-dark', 'good-dark']);
+    expect([...new Set(lib.shapes.map((s) => s.color))]).toEqual(['brand-dark', 'gold-dark', 'streak-dark']);
     lib.fires[0].finish();
   });
 
@@ -151,7 +151,7 @@ describe('mathBurst: a burst', () => {
     mathBurst(hero, p);
     await vi.waitFor(() => expect(lib.fires).toHaveLength(1));
     expect(lib.fires[0].o.shapes).toBeUndefined();
-    expect(lib.fires[0].o.colors).toEqual(['brand-light', 'gold-light', 'good-light']);
+    expect(lib.fires[0].o.colors).toEqual(['brand-light', 'gold-light', 'streak-light']);
     lib.fires[0].finish();
   });
 

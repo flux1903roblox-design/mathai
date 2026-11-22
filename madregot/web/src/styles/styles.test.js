@@ -79,11 +79,11 @@ describe('tokens (STUDENT-2 §2, light values)', () => {
     ['control-line', '#7d85a3'] /* 3:1 on the card and on --ground */, ['track', '#e6e9f4'], ['track-edge', '#cdd3e6'],
     ['disabled-bg', '#eceef5'], ['disabled-ink', '#616886'], ['disabled-lip', '#dde1ec'],
     ['brand', '#3e8600'], ['brand-lip', '#2b6000'], ['brand-d', '#2b6000'], ['brand-tint', '#e7f8d8'], ['brand-line', '#a9df7f'],
-    ['hl', '#ffe45c'], ['on-hl', '#141a3a'],
+    ['hl', '#84d8ff'], ['on-hl', '#141a3a'],
     ['good-ink', '#157a41'], ['good-tint', '#e3f8e7'], ['good-line', '#bfe9c9'],
     ['bad-ink', '#b3203a'], ['bad-tint', '#fde8ec'], ['bad-line', '#f6c3cd'],
-    ['gold-ink', '#8a5c00'], ['gold-tint', '#fff6d6'], ['on-gold-ink', '#5c3d00'],
-    ['streak-ink', '#a84f00'], ['streak-tint', '#fff1e3'], ['on-brand', '#ffffff'], ['scrim', 'rgba(20, 26, 58, 0.5)'],
+    ['gold-ink', '#2b6000'], ['gold-tint', '#ecf9e1'], ['on-gold-ink', '#1d4200'],
+    ['streak-ink', '#1270a8'], ['streak-tint', '#e3f5ff'], ['on-brand', '#ffffff'], ['scrim', 'rgba(20, 26, 58, 0.5)'],
   ])('--%s is %s', (name, light) => expect(value(name)).toBe(light));
   it('keeps the lift shadow', () => expect(value('shadow-lift')).toMatch(/^0 2px 6px/));
 });

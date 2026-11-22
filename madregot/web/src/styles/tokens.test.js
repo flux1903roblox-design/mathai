@@ -52,10 +52,11 @@ describe('unit colours (tokens.css)', () => {
       expect(ratio(token(`ch-${f}-ink`), '#ffffff'), `--ch-${f}-ink on white`).toBeGreaterThanOrEqual(4.5);
     });
 
-    it(`${f}: is none of the colours with one meaning, and is far in hue from right and "not yet"`, () => {
+    it(`${f}: is one of the owner's two colours (a blue or a green, v6), never a fill with one meaning, and far in hue from "not yet"`, () => {
       const c = token(`ch-${f}`);
       for (const m of ['good', 'bad', 'gold', 'streak']) expect(c, `--ch-${f} equals --${m}`).not.toBe(token(m));
-      expect(hueGap(c, token('good')), `--ch-${f} next to green`).toBeGreaterThanOrEqual(30);
+      const h = hue(c);
+      expect((h >= 190 && h <= 225) || (h >= 85 && h <= 140), `--ch-${f} is a blue or a green (hue ${h.toFixed(0)})`).toBe(true);
       expect(hueGap(c, token('bad')), `--ch-${f} next to red`).toBeGreaterThanOrEqual(30);
     });
   }
@@ -64,7 +65,7 @@ describe('unit colours (tokens.css)', () => {
     expect(new Set(FAMILIES.map((f) => token(`ch-${f}`))).size).toBe(5);
   });
 
-  it('no unit is the brand blue: a stop never looks like a button (sky was the brand until it got its own deep sky)', () => {
+  it('no unit is the button green: a stop never looks like a button', () => {
     for (const f of FAMILIES) {
       const [c, b] = [token(`ch-${f}`), token('brand')];
       const ok = ratio(c, b) >= 1.4 || hueGap(c, b) >= 30;

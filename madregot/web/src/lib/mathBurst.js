@@ -9,11 +9,11 @@
 // - It draws on a canvas of its own, never the library's shared one: `canvas.math-burst` (canon.css), fixed over the
 //   screen with pointer-events none, aria-hidden, so it never takes a tap, the focus or a screen reader's attention. The
 //   canvas goes when the burst ends (under 3 seconds) or when stop() runs (the moment closes first).
-// - Its colours are the tokens --brand, --gold and --good as the page has them now, so dark mode uses its own values.
+// - Its colours are the tokens --brand, --gold and --streak (green and blue) as the page has them now, so dark mode uses its own values.
 import { useApp } from '@/lib/store.js';
 
 const SYMBOLS = ['+', '−', '×', '÷', '='];
-const TOKENS = ['--brand', '--gold', '--good'];
+const TOKENS = ['--brand', '--gold', '--streak']; // v6: the two colours, green and blue
 const FONT = '"Rubik Variable", sans-serif';
 const SCALAR = 2;
 /** One burst: 36 symbols, 160 frames at most (under 3 s at 60 fps). */

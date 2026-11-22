@@ -265,6 +265,7 @@ Signature moves:
 - **The unit banner** is a block of clay in the unit's colour: a light edge along its top, its darker lip under it.
 - **The tab bar**: a white dock with 28px icons; the open tab sits in an outlined indigo-tinted box.
 - **Fredoka** for every heading, button, number and tab; Rubik for sentences, so a long word problem stays easy to read.
+- **Two colours only (the owner's choice, Nov 2026)**: green and blue, on white, grey and the navy ink. Green is action, progress, XP and mastery (`brand`, `gold` = bright green #58CC02); blue is Madi, what the student picked, the streak, the AI and the current stop's marker (`select`, `streak` #1CB0F6, `hl` #84D8FF). Each unit is a blue or a green at its own lightness (`ch-*`). Red appears only for a wrong answer and a destructive action.
 - **Duolingo's colour grammar**: the action colour is green (`brand` #3E8600, the brightest green white text reads on at 4.5:1, on a darker green lip), so "בדיקה", "המשך" and every progress bar are green; what the student picked is blue (`select` #1899D6 edge, `select-tint` #DDF4FF fill, `select-ink` #1270A8 text): a chosen answer, the active slot, a segment, the open tab.
 - **מדי says the question** in a white clay speech bubble beside him when there is no drawing on the screen; he stands still while the student works and reacts once to the answer.
 
