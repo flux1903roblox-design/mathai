@@ -134,6 +134,50 @@ describe('the exam tomorrow: an evening within the student\'s minutes (EXAM-MATE
   });
 });
 
+// The council's round 3: the evening before the 17.11 exam spent the whole budget on the first topic in teaching order:
+// with 15 or 30 minutes, a student got no Pythagoras, statistics or parallel-angles step tonight. Now the evening takes
+// one stair of each topic (the weakest topic first), then a second of each, as long as whole stairs fit.
+describe('the evening spreads a short budget across the exam\'s topics (the council\'s round 3)', () => {
+  // the stairs the 17.11 message ticks (lib/examMaterial.test.js): four topics as the teacher names them, five in the app
+  const EXAM = ['angles:4', 'line:1', 'line:2', 'line:3', 'line:4', 'line:5', 'line:6', 'line:7', 'line:8', 'pyth:1', 'pyth:2', 'pyth:3', 'pyth:4', 'pyth:5', 'stats:1', 'stats:2', 'stats:3', 'stats:6', 'data:1', 'data:2'];
+  const topicsOf = (tasks: { skill: string | null }[]) => [...new Set(tasks.filter((t) => t.skill).map((t) => t.skill!.split(':')[0]))];
+  it('30 minutes: a stair of every topic tonight, within the minutes', () => {
+    const p = examPlan(planOf(EXAM, TOMORROW, 30), empty(), now(), TODAY);
+    expect(topicsOf(p.today).sort()).toEqual(['angles', 'data', 'line', 'pyth', 'stats']);
+    expect(sum(p.today)).toBeLessThanOrEqual(30);
+    // whole stairs, each its rule before its check, and the exam on tonight's stairs at the end
+    const stairs = [...new Set(p.today.filter((t) => t.skill).map((t) => t.skill))];
+    stairs.forEach((s) => expect(kinds(p.today.filter((t) => t.skill === s))).toEqual(['rule', 'quick']));
+    expect(p.today.at(-1)!.kind).toBe('exam');
+  });
+  it('15 minutes: two stairs of two topics tonight, and the waiting list takes every other topic before a second stair of any', () => {
+    const p = examPlan(planOf(EXAM, TOMORROW, 15), empty(), now(), TODAY);
+    expect(sum(p.today)).toBeLessThanOrEqual(15);
+    const tonight = topicsOf(p.today);
+    expect(tonight).toHaveLength(2);
+    const later = p.evening!.later.filter((t) => t.skill);
+    const firstOfEach = topicsOf(later).slice(0, 3);
+    expect(new Set([...tonight, ...firstOfEach])).toEqual(new Set(['angles', 'data', 'line', 'pyth', 'stats']));
+    // the first three stairs that wait are one of each of the other three topics
+    const waiting = [...new Set(later.map((t) => t.skill))].slice(0, 3).map((s) => s!.split(':')[0]);
+    expect(new Set(waiting).size).toBe(3);
+  });
+  it('the weakest topic comes first: a known mistake in Pythagoras puts that stair first tonight', () => {
+    const learn = empty();
+    learn.miscon['pyth:2|add-not-sub'] = { skill: 'pyth:2', id: 'add-not-sub', score: 2.5, seen: [], state: 'confirmed', at: '2026-11-10T10:00:00.000Z' } as never;
+    const p = examPlan(planOf(EXAM, TOMORROW, 15), learn, now(), TODAY);
+    expect(p.today[0]).toMatchObject({ skill: 'pyth:2', kind: 'rule' });
+    expect(topicsOf(p.today)[0]).toBe('pyth');
+    // and the second stair tonight is another topic's, not a second Pythagoras stair
+    expect(topicsOf(p.today)).toHaveLength(2);
+    // the days before an exam further away keep their order: a stair's prerequisites first (pyth:1 before pyth:2)
+    const week = examPlan(planOf(EXAM, '2026-11-17', 30), learn, now(), TODAY);
+    expect(week.evening).toBeUndefined();
+    const flat = week.skills.map((s) => s.skill);
+    expect(flat.indexOf('pyth:1')).toBeLessThan(flat.indexOf('pyth:2'));
+  });
+});
+
 // The review of EXAM-MATERIAL 2 (after 2437420): the exam's minutes are its questions'; the practice exam never asks a
 // stair before its rule card; the minutes done tonight count; and Saturday night before a Sunday exam has a plan.
 describe('the evening, honestly timed and in order (EXAM-MATERIAL 2 review)', () => {
