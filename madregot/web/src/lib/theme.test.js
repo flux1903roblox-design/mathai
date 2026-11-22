@@ -42,7 +42,7 @@ describe('applyTheme', () => {
   it('"בהיר" sets data-theme and paints both bars white', () => {
     applyTheme('light');
     expect(page.attrs['data-theme']).toBe('light');
-    expect(page.metas.map((m) => m.content)).toEqual(['#f3f5fb', '#f3f5fb']);
+    expect(page.metas.map((m) => m.content)).toEqual(['#ffffff', '#ffffff']);
     expect(page.store.get(THEME_KEY)).toBe('light');
   });
 
@@ -51,7 +51,7 @@ describe('applyTheme', () => {
     applyTheme('system');
     expect('data-theme' in page.attrs).toBe(false);
     expect(page.store.has(THEME_KEY)).toBe(false);
-    expect(page.metas.map((m) => m.content)).toEqual(['#f3f5fb', '#0e1024']);
+    expect(page.metas.map((m) => m.content)).toEqual(['#ffffff', '#0e1024']);
   });
 
   it('treats anything unknown as the phone\'s setting', () => {

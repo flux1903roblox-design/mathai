@@ -1120,8 +1120,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .node-mastered::after { border-radius: 30%; }
 .node-halo { border-radius: 32%; }
 /* the current stair: a mark per lesson under it */
-.node-marks { position: absolute; left: 50%; transform: translateX(-50%); z-index: 2; }
-.node-marks i { border-radius: 999px; transition: background var(--duration-slow) var(--ease-smooth-out); }
 
 /* the chest on the road */
 .path-chest { z-index: 1; }
@@ -1137,7 +1135,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .ch-rays { fill: none; stroke: var(--gold); stroke-width: 4; stroke-linecap: round; opacity: 0.85; }
 .ch-coin { fill: var(--gold); stroke: var(--gold-d); stroke-width: 2; }
 .chest:not(.is-open) .ch-body, .chest:not(.is-open) .ch-lid { filter: saturate(0.55); }
-@media (prefers-reduced-motion: reduce) { .node-marks i { transition: none; } }
 
 /* a celebration taller than a small phone scrolls from its top instead of being cut there */
 .done-screen { justify-content: safe center; }

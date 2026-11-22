@@ -694,13 +694,15 @@ export default function Lesson() {
     </div>
   );
   const checkButton = <Button className="check-btn btn-lg" onClick={check} disabled={!canCheck}>בדיקה</Button>;
-  // The question stays pinned on top, as in a Duolingo exercise: a short instruction is the screen's bold title
-  // ("חשבו:"); a longer one (a word problem) is said by מדי in a speech bubble beside him. The drawing below fits
-  // whatever room is left.
-  const talk = (item.text || '').length > 64;
+  // The question stays pinned on top, as in a Duolingo exercise. With no drawing on the screen מדי says it, in a speech
+  // bubble beside him (v6): he stands still while the student works (the most-used screen moves least, ux-motion 20)
+  // and reacts once to the answer (a hop when right, a lean when not: ux-motion 7). A drawing needs the room, so beside
+  // one the question is the screen's bold title, as before; on a short phone he steps aside (lazy/shared.css).
+  const talk = !item.fig && !isManip;
   const question = talk ? (
     <div className="lesson-q is-talk" data-region="question">
-      <h1 className="qtext q-bubble" id="qtext"><MathText text={item.text} /></h1>
+      <Mascot mood={mood} size={64} still={!feedback} className="q-madi" />
+      <div className="q-say"><h1 className="qtext q-bubble" id="qtext"><MathText text={item.text} /></h1></div>
     </div>
   ) : (
     <div className="lesson-q is-title" data-region="question">

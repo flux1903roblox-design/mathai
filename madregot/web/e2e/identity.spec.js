@@ -19,8 +19,6 @@ const channels = (css) => {
   throw new Error(`not a colour: ${css}`);
 };
 /** `part` of `colour` on `ground` (color-mix in srgb), channel by channel. */
-const mixOf = (colour, part, ground) => channels(colour).map((c, k) => c * part + channels(ground)[k] * (1 - part));
-const expectColour = (css, want, what) => channels(css).forEach((c, k) => expect(c, `${what}: ${css}`).toBeCloseTo(want[k], 3));
 
 for (const grade of ['7', '8']) {
   test(`grade ${grade}: each unit has its own colour and its emblem, open or folded, and its drawings sit beside the path`, async ({ page }, info) => {
@@ -40,25 +38,18 @@ for (const grade of ['7', '8']) {
     for (let i = 1; i < n; i += 1) expect(colours[i], `units ${i} and ${i + 1}: ${colours.join(' | ')}`).not.toBe(colours[i - 1]);
     expect(new Set(colours).size, `unit colours: ${colours.join(' | ')}`).toBe(Math.min(n, 5));
     for (let i = 0; i < n; i += 1) await expect(all.nth(i).locator('.emblem svg'), `unit ${i + 1} has its emblem`).toHaveCount(1);
-    // a banner is the unit's colour; a row carries it on its 2px edge and its 4px lip, in a light mix of the unit's
-    // colour on the card's white (30% for the edge, 50% for the lip: face64d, DESIGN.md "Home (the path)"), so a folded
-    // row is pressable in its unit's colour and the rows stay calm
+    // a banner is the unit's colour; a folded unit is a slim row over a 2px rule (v6, DESIGN.md "Clay": the home is the
+    // path, as on Duolingo), its colour on its emblem
     const head = page.locator('section.unit .unit-head').first();
     const [first] = await unitColours(page.locator('section.unit').first());
     expect(await head.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(first);
     const row = page.locator('.unit-row-btn').first();
-    const [rowColour] = await unitColours(page.locator('section.unit-row').first());
     const look = await row.evaluate((el) => {
       const s = getComputedStyle(el);
-      return { edges: [s.borderTopColor, s.borderRightColor, s.borderBottomColor, s.borderLeftColor], widths: [s.borderTopWidth, s.borderRightWidth, s.borderBottomWidth, s.borderLeftWidth], shadow: s.boxShadow };
+      return { widths: [s.borderTopWidth, s.borderRightWidth, s.borderBottomWidth, s.borderLeftWidth], shadow: s.boxShadow };
     });
-    // the card's white, read in the row
-    const surface = await row.evaluate((el) => { const p = document.createElement('i'); p.style.color = 'var(--surface)'; el.append(p); const c = getComputedStyle(p).color; p.remove(); return c; });
-    expect(look.widths, 'the row\'s edge is 2px all round').toEqual(['2px', '2px', '2px', '2px']);
-    for (const edge of look.edges) expectColour(edge, mixOf(rowColour, 0.3, surface), 'the row\'s edge, 30% of its unit\'s colour');
-    const lip = look.shadow.match(/^(.+\)) 0px 4px 0px 0px$/);
-    expect(lip, `the row's lip is 4px under it: ${look.shadow}`).not.toBeNull();
-    expectColour(lip[1], mixOf(rowColour, 0.5, surface), 'the row\'s lip, 50% of its unit\'s colour');
+    expect(look.widths, 'a folded row is a 2px rule under it').toEqual(['0px', '0px', '2px', '0px']);
+    expect(look.shadow, 'a folded row has no lip').toBe('none');
     // the emblem is decoration: the banner's name is the unit's name
     await expect(head.locator('.emblem')).toHaveAttribute('aria-hidden', 'true');
     await expect(row.locator('.emblem')).toHaveAttribute('aria-hidden', 'true');

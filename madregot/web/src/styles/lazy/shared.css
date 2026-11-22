@@ -56,9 +56,22 @@
   .tool:hover:not(:disabled) { border-color: var(--rule-strong); color: var(--ink); }
 }
 .q-stage { display: flex; flex-direction: column; gap: var(--s4); }
-.lesson .q-bubble::before, .lesson .q-bubble::after { position: absolute; bottom: 14px; border: 8px solid transparent; }
-.lesson .q-bubble::before { inset-inline-start: -17px; border-width: 9px; bottom: 13px; }
-.lesson .q-bubble::after { inset-inline-start: -14px; border-inline-end-color: var(--paper); }
+/* v6: מדי says the question. The bubble is white clay (a 2px edge, a 3px lip), its tail points at him; the words are
+   Rubik at 20px/700, so a long word problem reads easily; on a short phone 17px. */
+.lesson .q-madi { flex: none; width: clamp(56px, 17vw, 76px); height: auto; margin-bottom: 2px; transition: width var(--duration-fast) var(--ease-out); }
+/* the feedback panel takes the lower half: מדי steps back to make room, and reacts */
+.lesson.fb-open .q-madi { width: 48px; }
+/* the solution shown takes most of the screen: the question folds back to a plain line, as it was before the bubble */
+.lesson.is-reveal .q-madi, .lesson.is-reveal .q-say::before, .lesson.is-reveal .q-say::after { display: none; }
+.lesson.is-reveal .q-say { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.lesson .q-say { position: relative; flex: 0 1 auto; min-width: 0; margin: 0 0 var(--s1); padding: 10px 14px; border: 2px solid var(--rule-strong); border-radius: 18px; background: var(--surface); box-shadow: 0 3px 0 var(--rule-press); }
+.lesson .q-bubble { margin: 0; font-family: var(--font-ui); font-size: 1.25rem; line-height: 1.4; font-weight: 700; color: var(--ink); }
+.lesson .q-say::before, .lesson .q-say::after { content: ''; position: absolute; bottom: 14px; border: 8px solid transparent; }
+.lesson .q-say::before { inset-inline-start: -19px; border-width: 9px; bottom: 13px; border-inline-end-color: var(--rule-strong); }
+.lesson .q-say::after { inset-inline-start: -14px; border-inline-end-color: var(--surface); }
+@media (max-height: 640px) { .lesson .q-bubble { font-size: 1.0625rem; line-height: 1.4118; } }
+/* a short phone keeps its height for the answer: מדי steps aside, the bubble loses its tail */
+@media (max-height: 700px) { .lesson .q-madi, .lesson .q-say::before, .lesson .q-say::after { display: none; } .lesson .q-say { padding: 8px 12px; } }
 .lesson .choice-key { transition: background-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out); }
 .lesson .choice.good .choice-key { background: var(--good); border-color: var(--good-d); color: var(--on-good); }
 .lesson .choice.bad .choice-key { background: var(--bad); border-color: var(--bad); color: var(--on-bad); }
@@ -86,7 +99,6 @@
   .lesson .q-stage { max-width: 680px; }
 }
 .q-pin { width: 100%; }
-.lesson .q-bubble { flex: 0 1 auto; }
 .msg-row .msg.user { align-self: auto; background: var(--brand); color: var(--on-brand); border-end-end-radius: 6px; box-shadow: 0 3px 0 var(--brand-d); }
 @media (min-width: 1024px) {
   .quests > .streak-card { grid-column: 1; height: 100%; }
@@ -366,7 +378,7 @@
 .lm-progress .segs { flex: 1; }
 .lm .ls-choice .choice-key { display: none; }
 .lm .ls-choice.good .choice-key, .lm .ls-choice.bad .choice-key { display: inline-grid; }
-.lm .ls-choice.on:not(.good):not(.bad) { border-color: var(--p-400); background: var(--p-50); box-shadow: 0 3px 0 var(--p-300); }
+.lm .ls-choice.on:not(.good):not(.bad) { border-color: var(--select); background: var(--select-tint); box-shadow: 0 3px 0 var(--select); }
 .lm .ls-choice:disabled { opacity: 1; }
 .lm-actions.has-warm { border-top-color: transparent; }
 .worked-again { align-self: center; }
@@ -374,7 +386,6 @@
 .worked-step { border-radius: 14px; border: 2px solid var(--line); box-shadow: none; background: var(--surface); }
 .worked-result { background: var(--p-50); border-radius: 10px; }
 .lesson .lesson-q { align-items: flex-end; }
-.lesson .q-bubble::before { border-inline-end-color: var(--line); }
 .lesson .lesson-main > .q-stage, .lesson .lesson-main > * > .q-stage { margin-block: auto; }
 .check-done .check-title { font-size: 1.875rem; line-height: 1.2; }
 .check-done .form-actions { margin-top: auto; }
@@ -651,6 +662,6 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .page-hero { background: transparent; }
 
 /* v5 lessons and teaching (DESIGN.md): the maths sits on squared paper, the slot and the keys are stickers */
-.lm-canvas { background: var(--sheet-ground); box-shadow: inset 0 0 0 2px var(--rule); border-radius: var(--r-card); } /* an inset edge: no room taken from the object inside */
+.lm-canvas { background: var(--ground); box-shadow: inset 0 0 0 2px var(--rule); border-radius: var(--r-card); } /* an inset edge: no room taken from the object inside */
 .lm-actions { border-top-width: 2px; }
 .me-stat dd { font-weight: 800; }

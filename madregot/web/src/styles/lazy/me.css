@@ -12,7 +12,7 @@
 .profile-sub { margin: 0; color: var(--ink-2); }
 .profile-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
 .profile-top { background: var(--brand-tint); border: 0; }
-.profile-name { font-family: var(--font-ui); font-size: 1.75rem; line-height: 1.2143; font-weight: 800; }
+.profile-name { font-family: var(--font-display); font-size: 1.75rem; line-height: 1.2143; font-weight: 800; }
 .profile-sub { color: var(--ink-2); font-size: 1.0625rem; }
 .profile-top { height: 140px; background: var(--brand-tint); }
 .profile-top { height: auto; background: none; border: 0; padding: var(--s4) 0 0; margin-bottom: 0; }
