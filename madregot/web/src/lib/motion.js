@@ -53,5 +53,17 @@ export const cascade = (i, each = DUR.stagger, cap = 6) => Math.min(i, cap) * ea
 let featuresIn = false;
 /** LazyMotion's features (App.jsx): domAnimation, from its own file. */
 export const loadMotionFeatures = () => import('./motionFeatures.js').then((mod) => { featuresIn = true; return mod.default; });
-/** The `initial` of an entrance: `from` once motion's features have loaded, else false (drawn at its target). */
-export const entrance = (from) => (featuresIn ? from : false);
+// Under reduced motion MotionConfig skips the move but an element still mounts at its `initial` offset for the frames
+// before the jump: a solve-together step sat 10px low there and a check measured it (the deploy runs of 0653e8c and
+// 7aa6529 on GitHub, where motion's features load before the step mounts). So under reduced motion an entrance keeps
+// only what is not a move (its fade) and starts in its place.
+const MOVES = new Set(['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']);
+const reduced = () => { try { return !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+/** The `initial` of an entrance: `from` once motion's features have loaded, else false (drawn at its target); under
+ *  reduced motion, `from` without its moves. */
+export const entrance = (from) => {
+  if (!featuresIn) return false;
+  if (!from || typeof from !== 'object' || !reduced()) return from;
+  const still = Object.fromEntries(Object.entries(from).filter(([k]) => !MOVES.has(k)));
+  return Object.keys(still).length ? still : false;
+};
