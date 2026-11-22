@@ -1,4 +1,4 @@
-import { parseNum, near, plainNum, linText, readNumCandidates, numRight, roundsTo, toFrac, gcd, withFormatNote, piNear, piRow, afterPlain } from './util.js';
+import { parseNum, near, plainNum, linText, readNumCandidates, numRight, roundsTo, toFrac, gcd, withFormatNote, piNear, piRow, afterPlain, questionWords } from './util.js';
 import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, sgraphWords, protractorWords, clockText, chartWords, outcomesWords, coordWords } from './manip.js';
 import { GENERATOR_WEIGHT } from '@/learn/misconceptions.ts';
 // The first-load side of the content (content/topics.js: every topic's names, stairs, colours and misconception names,
@@ -150,7 +150,8 @@ export function testItem(topicId, level, avoidKey) {
 // slots, the numerator and the denominator, whole numbers; item.answer is the value, and with item.reduced the
 // fraction must be in lowest terms), 'mc' (a choice), 'manip' (an object).
 // Flags a typed number may carry: precise (compared exactly, see numRight in util.js), fmt: 'dec' (the answer is shown
-// as a decimal, -1.3 and not -13/10), askDec (the question asks for a decimal: a fraction typed is not read).
+// as a decimal, -1.3 and not -13/10), askDec (the question asks for a decimal: a fraction typed is not read), exactDec
+// (a decimal of three places asked as it is, (−0.4)³ = −0.064: no format line, and only the exact value is right).
 // A topic may carry bridge: true (the fractions floor): it is in no grade's topicsFor.
 /** Which answer slots an item needs. */
 export const slotsFor = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'lin' ? ['k', 'c'] : it.form === 'frac' ? ['n', 'd'] : it.form === 'mc' || it.form === 'manip' ? [] : ['v']);
@@ -235,8 +236,9 @@ export function isCorrect(it, u) {
   // or finer, so 7.1, 7.07 and 7.071 are right for √50 and 7, 7.0, 7.12 and 7.05 are not. The exact value decides, not
   // the rounded answer: √288 = 16.97… rounds to 17.0, a whole number, and 16.97 is right too
   if (roundedLength(it)) return roundsTo(u, it.exact, 1);
-  // within ±0.01, or exactly when the item is marked precise (util.js numRight)
-  return numRight(u, it.answer, !!it.precise);
+  // within ±0.01, or exactly when the item is marked precise; only the exact value for a decimal asked as it is
+  // (exactDec, util.js numRight)
+  return numRight(u, it.answer, !!it.precise, !!it.exactDec);
 }
 
 /** Does a misconception of the item (its model's bugs, or its generator's diag) predict this wrong answer? */
@@ -264,9 +266,12 @@ export function partialOf(it, u) {
 
 /**
  * Topics whose answers are measures written as decimals (a 3.14 value 62.8, a rounded length, a grid triangle's 6.5),
- * never as 314/5 or 13/2: statistics, Pythagoras and the measurement topics of stage 2 (§0.5).
+ * never as 314/5 or 13/2: statistics, Pythagoras and the measurement topics of stage 2 (§0.5); the lengths and areas of
+ * congruence and similarity (a 19.5 cm side, a 9.9 m tree, never 39/2 or 99/10); and the relative frequencies and
+ * probabilities of data and probability (0.2 beside a table of 0.1 and 0.35, never 1/5). A value with no short decimal
+ * (1/6) stays an exact fraction (plainNum). Council round 3: the printed key, the class exam's key and the tutor read it.
  */
-const DECIMAL_TOPICS = new Set(['stats', 'pyth', 'area', 'solid', 'circle', 'space']);
+const DECIMAL_TOPICS = new Set(['stats', 'pyth', 'area', 'solid', 'circle', 'space', 'congr', 'sim', 'data', 'prob']);
 /** How a typed number is written back: decimals for those topics, a π ≈ 3.14 value and fmt: 'dec'; exact fractions up to /100 when precise. */
 const numFormat = (it) => ({ decimal: DECIMAL_TOPICS.has(it.topic) || Number.isFinite(it.pk) || it.fmt === 'dec', maxDen: it.precise ? 100 : 12, places: it.precise || it.fmt === 'dec' ? 3 : 2 });
 
@@ -350,7 +355,8 @@ export function figPlain(f) {
     // A drawing that writes no angle's size is a measurement drawing (stage 2, MEASURE-1.5) when content/grid.js has
     // words for it: the grid and the shape's corners, circles and arcs, the parts taken away or added, the lengths
     // written on it, a right angle, its name. The angle stairs' drawings (CURRICULUM-10) always write an angle, so
-    // they keep the reading angle by angle, each with its vertex.
+    // they keep the reading angle by angle, each with its vertex, after the drawing's own words (its label, what a screen
+    // reader reads: which angle a ray halves, which half is asked; council round 3: "∢O 130°, ∢O ?" alone said neither).
     case 'geo': {
       const measured = (f.angles || []).some((g) => g.text) ? '' : figWords(f);
       if (measured) return measured;
@@ -361,6 +367,8 @@ export function figPlain(f) {
         ...(f.segs || []).filter((sg) => sg.label != null && sg.label !== '').map((sg) => `${nm(sg.a)}${nm(sg.b)} = ${sg.label}`),
         ...(f.segs || []).filter((sg) => sg.ticks).map((sg) => `${nm(sg.a)}${nm(sg.b)}: ${sg.ticks} סימונים`),
       ];
+      const label = String(f.label ?? '').trim();
+      if (label) return marks.length ? `שרטוט: ${label}. מסומן: ${marks.join(', ')}` : `שרטוט: ${label}`;
       return marks.length ? `שרטוט: ${marks.join(', ')}` : 'שרטוט';
     }
     // a proof as a still table (GEOM-3.9): the givens, what to prove, and each row's claim and reason ("?" where asked)
@@ -376,10 +384,14 @@ export function figPlain(f) {
   }
 }
 
-/** The question as the app shows it, for people: text with $...$ math, the expression, the drawing in words. */
+/**
+ * The question as the app shows it, for people: text with $...$ math, the expression, the drawing in words, and a format
+ * line after the expression, where the screen shows it (util.js questionWords).
+ */
 export function itemMath(it) {
   const desc = figPlain(it.fig);
-  return `${it.text || ''}${it.display ? ` $${it.display}$` : ''}${desc ? ` [${desc}]` : ''}`.trim();
+  const { lead, after } = questionWords(it);
+  return `${lead}${it.display ? ` $${it.display}$` : ''}${desc ? ` [${desc}]` : ''}${after ? ` ${after}` : ''}`.trim();
 }
 
 export function itemPlain(it) {
@@ -392,5 +404,7 @@ export function itemPlain(it) {
   const manip = it.form === 'manip' ? ` ${manipPlain(it)}` : '';
   // the answer row's form when something is drawn after the slot: the student types the number before π
   const row = it.form === 'num' && it.after ? ` [התשובה בצורה □${afterPlain(it.after)}]` : '';
-  return `${strip(it.text)}${it.display ? ` ${strip(it.display)}` : ''}${fig}${choices}${manip}${row}`.trim();
+  // a format line after the expression, as the screen shows it (util.js questionWords)
+  const { lead, after } = questionWords(it);
+  return `${strip(lead)}${it.display ? ` ${strip(it.display)}` : ''}${fig}${choices}${manip}${row}${after ? ` ${strip(after)}` : ''}`.trim();
 }

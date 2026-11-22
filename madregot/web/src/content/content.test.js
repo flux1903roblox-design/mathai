@@ -3,7 +3,7 @@ import katex from 'katex';
 import { TOPICS, TOPIC, topicsFor, pathTopicsFor, pathColours, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem, figPlain, namesOf } from './index.js';
 import { manipCorrect, manipSolution, manipWrong } from './manip.js';
 import { SCENERY } from '@/components/map/Scenery.jsx';
-import { parseNum, plainNum, gcd, needsFormat, FORMAT_LINE, choiceWidth } from './util.js';
+import { parseNum, plainNum, gcd, needsFormat, FORMAT_LINE, choiceWidth, shortDec, roundTo } from './util.js';
 import { ALL_SKILLS } from '@/learn/skills.ts';
 import { itemFor } from '@/learn/items.ts';
 import { loadAllContent, contentOf } from '@/learn/content/index.ts';
@@ -131,6 +131,17 @@ describe('worked solutions are written as a textbook writes them', () => {
         expect(text, it.key).not.toMatch(/\\frac\{[^}]*\}\{1\}/);
       }
     }
+  });
+  // council round 3: "ג: $8.666666667$ ש״ח" (ratio:3). A number a student reads is exact, or rounded with ≈: no exercise
+  // of any stair writes a raw float of five places or more in its words, hint, worked solution or choices
+  it('no raw floating-point number in any exercise\'s words', () => {
+    TOPICS.forEach((t) => t.levels.forEach((_, i) => {
+      for (let r = 0; r < 300; r += 1) {
+        const it = makeItem(t.id, i + 1);
+        const words = [it.text, it.hint, ...(it.solution || []), ...(it.choices || []).map((c) => c.text ?? c.tex ?? '')].map((x) => String(x ?? ''));
+        words.forEach((w) => expect(w, it.key).not.toMatch(/\d\.\d{5,}/));
+      }
+    }));
   });
   it('every point a figure draws is on its grid', () => {
     TOPICS.forEach((t) => t.levels.forEach((_, i) => {
@@ -1333,7 +1344,13 @@ describe('areas and perimeters: every practice kind, from the numbers in its tex
       case 'ar3t': { const [W, H, p, q] = n; return W * H - (p * q) / 2; }
       case 'ar3k': { const [d1, d2] = n; return (d1 * d2) / 2; }
       case 'ar3u': { const [a, b, t2] = n; expect((100 * a) % t2 + (100 * b) % t2, it.key).toBe(0); return ((100 * a) / t2) * ((100 * b) / t2); }
-      case 'ar4p': { const [a, h, s] = n; expect(s >= h, it.key).toBe(true); return a * h; }
+      case 'ar4p': {
+        // the side, the height and the other side come in any order (council round 3): each is read by its name
+        const by = (re) => Number(t.match(re)?.[1]);
+        const a = by(/\$AB = (\d+)\$/); const s = by(/\$AD = (\d+)\$/); const h = by(/הגובה לצלע \$AB\$ הוא \$(\d+)\$/);
+        expect([...n].sort((x, y) => x - y), it.key).toEqual([a, h, s].sort((x, y) => x - y));
+        expect(s >= h, it.key).toBe(true); return a * h;
+      }
       case 'ar4t': { const [a, b, h, s] = n; expect((a - b) ** 2 + h * h, it.key).toBe(s * s); return ((a + b) * h) / 2; }
       case 'ar4i': { if (/מקבילית/.test(t)) { const [S, a] = n; return S / a; } const [S, a, b] = n; return (2 * S) / (a + b); }
       case 'ar5l': { const [W, H] = n; return 2 * (W + H); }
@@ -2590,15 +2607,17 @@ describe('Pythagoras in space: the diagnostic and transfer models', () => {
 // CURRICULUM-12 / PRODUCT2-6: no student is marked wrong for a format nobody told them about. Every typed number whose
 // answer has no exact two-place decimal says, once, how to write it (a fraction, or a decimal rounded to two places),
 // from every source a lesson or a check draws: the stair's generator, its diagnostic model and its transfer model. A
-// rounded length (it carries `exact` and says to round to tenths) and a question that asks for a decimal are the
-// exceptions; nothing that does not need the line has it.
+// rounded length (it carries `exact` and says to round to tenths), a question that asks for a decimal and a decimal
+// asked as it is ((−0.4)³ = −0.064, exactDec: exact, and its two-place rounding is wrong) are the exceptions; nothing
+// that does not need the line has it. No question says twice how to write its answer, in either wording (data:2 said
+// "כתבו כשבר או כמספר עשרוני." and then the line, council round 3).
 describe('every typed number says how to write an answer with no two-place decimal', () => {
   it('2,000 items per stair per source (gen, diag, transfer)', async () => {
     await loadAllContent();
     const rnd = seeded(12);
     vi.spyOn(Math, 'random').mockImplementation(seeded(2026));
-    const missing = {}; const extra = {}; let needed = 0;
-    const once = (t) => (String(t).match(/אפשר לכתוב כשבר/g) || []).length <= 1;
+    const missing = {}; const extra = {}; let needed = 0; let exactDecs = 0;
+    const once = (t) => (String(t).match(/אפשר לכתוב כשבר|כתבו כשבר או כמספר עשרוני/g) || []).length <= 1;
     try {
       for (const skill of ALL_SKILLS) {
         const c = contentOf(skill);
@@ -2612,6 +2631,15 @@ describe('every typed number says how to write an answer with no two-place decim
             expect(once(it.text), `${where} ${it.key}: the line twice`).toBe(true);
             // a question that asks for a decimal always has one with two places or fewer
             if (it.askDec) { expect(needsFormat(it.answer), `${where} ${it.key}`).toBe(false); continue; }
+            // a decimal asked as it is: an exact decimal of at most three places, no line, and only the exact value right
+            if (it.exactDec) {
+              exactDecs += 1;
+              expect(shortDec(it.answer) && it.exact == null, `${where} ${it.key}`).toBe(true);
+              expect(FORMAT_LINE.test(it.text) || /מעוגל/.test(it.text), `${where} ${it.key}: ${it.text}`).toBe(false);
+              expect(isCorrect(it, it.answer), `${where} ${it.key}`).toBe(true);
+              if (needsFormat(it.answer)) expect(isCorrect(it, roundTo(it.answer, 2)), `${where} ${it.key}: rounded`).toBe(false);
+              continue;
+            }
             const need = needsFormat(it.answer) && it.exact == null;
             const has = FORMAT_LINE.test(it.text);
             if (need) needed += 1;
@@ -2624,5 +2652,7 @@ describe('every typed number says how to write an answer with no two-place decim
     expect(missing, 'answers with no two-place decimal and no format line').toEqual({});
     expect(extra, 'a format line where none is needed').toEqual({});
     expect(needed).toBeGreaterThan(5000);
+    // signed:7's decimal powers reach this test (from its exercises and its diagnostic model)
+    expect(exactDecs).toBeGreaterThan(100);
   }, 300_000);
 });

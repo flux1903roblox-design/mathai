@@ -6,6 +6,7 @@ import { useApp } from '@/lib/store.js';
 import { STATUS, focusLevel } from '@/lib/exam.js';
 import { gradedBy } from '@/lib/examGrade.js';
 import { TOPIC, unitNumber, displayTex } from '@/content/index.js';
+import { questionWords } from '@/content/util.js';
 import { aiReady } from '@/lib/ai.js';
 import { Box, Button, ChapterMark, Sheet } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
@@ -30,10 +31,13 @@ const asMath = (s) => (!s || s.includes('$') || /[\u0590-\u05FF\u0600-\u06FF]/.t
 function Prompt({ q }) {
   if (!q.item) return <RichText className="q-prompt">{q.prompt}</RichText>;
   const it = q.item;
+  // the line on how to write the answer after the expression, as the lesson and the printed exam show it
+  const words = questionWords(it);
   return (
     <div className="q-prompt">
-      <p><MathText text={it.text} /></p>
+      <p><MathText text={words.lead} /></p>
       {it.display && <div className="qdisplay small"><Tex tex={displayTex(it)} display /></div>}
+      {words.after && <MathText as="p" className="q-format" text={words.after} />}
       <Figure fig={it.fig} />
       {it.form === 'mc' && it.choices && <p className="exam-choices">{it.choices.map((c, k) => <span key={k}>{String.fromCharCode(1488 + k)}. {c.tex ? <Tex tex={c.tex} /> : c.text}</span>)}</p>}
     </div>

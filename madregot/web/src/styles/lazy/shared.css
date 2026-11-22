@@ -18,6 +18,8 @@
 .check-icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: var(--on-brand); margin-top: 2px; }
 .check-comment { color: var(--magenta); font-weight: 600; }
 .nb-note { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
+/* how to write the answer, after the expression it is about (content/util.js questionWords) */
+.q-format { margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
 .step-label { fill: var(--streak); font-size: 0.875rem; font-weight: 800; }
 .explorer-table th { background: var(--cyan-tint); }
 .sheet-body, .chat-list { overscroll-behavior: contain; }

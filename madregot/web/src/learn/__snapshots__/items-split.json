@@ -372,19 +372,19 @@
  "area:4": {
   "items": [
    "mastery0:ar4p:16:3:5|48|gen",
-   "mastery1:ar4t:12:7:12:13|114|gen",
+   "mastery1:ar4t:19:7:5:13|65|gen",
    "mastery2:area:4:diag:{\"a\":20,\"b\":8,\"h\":9,\"s\":15}|126|diag",
-   "mastery3:ar4t:16:8:6:10|72|gen",
-   "mastery4:area:4:transfer:{\"a\":16,\"h\":15,\"s\":17}|240|transfer",
-   "review0:area:4:transfer:{\"a\":8,\"h\":6,\"s\":10}|48|transfer",
-   "review1:ar4i:1:25:7:3|5|gen",
+   "mastery3:ar4p:13:12:13|156|gen",
+   "mastery4:area:4:transfer:{\"a\":16,\"h\":15,\"s\":17,\"o\":4}|240|transfer",
+   "review0:area:4:transfer:{\"a\":8,\"h\":6,\"s\":10,\"o\":3}|48|transfer",
+   "review1:ar4p:10:12:15|120|gen",
    "review2:area:4:diag:{\"a\":20,\"b\":8,\"h\":9,\"s\":15}|126|diag",
    "verify0:area:4:probe:{\"a\":14,\"b\":6,\"h\":6,\"s\":10}|60|probe",
    "verify1:area:4:probe:{\"a\":13,\"b\":10,\"h\":4,\"s\":5}|46|probe",
    "verify2:area:4:diag:{\"a\":18,\"b\":6,\"h\":9,\"s\":15}|108|diag",
-   "gen:ar4t:20:12:6:10|96|gen",
+   "gen:ar4t:16:8:6:10|72|gen",
    "diag:area:4:diag:{\"a\":13,\"b\":8,\"h\":12,\"s\":13}|126|diag",
-   "transfer:area:4:transfer:{\"a\":10,\"h\":8,\"s\":17}|80|transfer"
+   "transfer:area:4:transfer:{\"a\":15,\"h\":12,\"s\":13,\"o\":3}|180|transfer"
   ],
   "plans": {
    "mastery": [
@@ -3552,7 +3552,7 @@
    "mastery1:so4a:13:4:5:5|130|gen",
    "mastery2:solid:4:diag:{\"p\":15,\"q\":8,\"c\":17,\"L\":12}|720|diag",
    "mastery3:so4a:11:6:10:3|99|gen",
-   "mastery4:solid:4:transfer:{\"h\":15,\"d\":8,\"s\":17,\"w\":12}|720|transfer",
+   "mastery4:solid:4:transfer:{\"h\":8,\"d\":15,\"s\":17,\"w\":12}|720|transfer",
    "review0:solid:4:transfer:{\"h\":6,\"d\":8,\"s\":10,\"w\":5}|120|transfer",
    "review1:so4v:3:4:5:8|48|gen",
    "review2:solid:4:diag:{\"p\":15,\"q\":8,\"c\":17,\"L\":12}|720|diag",
@@ -3561,7 +3561,7 @@
    "verify2:solid:4:diag:{\"p\":12,\"q\":9,\"c\":15,\"L\":10}|540|diag",
    "gen:so4v:4:3:5:7|42|gen",
    "diag:solid:4:diag:{\"p\":8,\"q\":6,\"c\":10,\"L\":10}|240|diag",
-   "transfer:solid:4:transfer:{\"h\":12,\"d\":5,\"s\":13,\"w\":7}|210|transfer"
+   "transfer:solid:4:transfer:{\"h\":5,\"d\":12,\"s\":13,\"w\":7}|210|transfer"
   ],
   "plans": {
    "mastery": [

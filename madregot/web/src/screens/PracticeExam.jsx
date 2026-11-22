@@ -6,6 +6,7 @@ import { useApp } from '@/lib/store.js';
 import { hasTool, useAIStatus } from '@/lib/account.js';
 import { makePracticeExam, weakTopics } from '@/lib/exam.js';
 import { TOPIC, topicsFor, displayTex, ensureGens } from '@/content/index.js';
+import { questionWords } from '@/content/util.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
@@ -98,10 +99,13 @@ export function KeyAnswer({ it }) {
  * answer line. The student's practice sheet and the teacher's class exam print the same way.
  */
 export function ExamQuestion({ it, n, className, as: Tag = 'li' }) {
+  // the line on how to write the answer after the expression, as the lesson shows it (content/util.js questionWords)
+  const words = questionWords(it);
   return (
     <Tag className={clsx('exam-q', it.fig && 'has-fig', className)}>
-      <p className="qtext"><span className="ex-num">{n}</span><MathText text={it.text} /></p>
+      <p className="qtext"><span className="ex-num">{n}</span><MathText text={words.lead} /></p>
       {it.display && <div className="qdisplay small"><Tex tex={displayTex(it)} display /></div>}
+      {words.after && <MathText as="p" className="q-format" text={words.after} />}
       <Figure fig={it.fig} />
       {it.form === 'mc' && <p className="exam-choices">{it.choices.map((c, k) => <span key={k}>{String.fromCharCode(1488 + k)}. {c.tex ? <Tex tex={c.tex} /> : c.text}</span>)}</p>}
       <div className="exam-work" aria-hidden="true" />

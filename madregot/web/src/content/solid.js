@@ -74,8 +74,11 @@ export const T17 = triples(17); // legs and hypotenuse up to 17
 const tri = (r, list) => { const [p, q, c] = pick(r, list); return r() < 0.5 ? [p, q, c] : [q, p, c]; };
 /** [b, h, s]: an isosceles triangle's base b, height h and legs s (b/2, h, s a triple). */
 export const BHS = [[6, 4, 5], [8, 3, 5], [12, 8, 10], [16, 6, 10], [10, 12, 13], [24, 5, 13], [18, 12, 15], [24, 9, 15], [16, 15, 17]];
-/** [h, d, s]: the ramp's height, foot and slanted top, from the triples 3-4-5 to 8-15-17 (area.js HDS). */
-const HDS = [[3, 4, 5], [4, 3, 5], [6, 8, 10], [8, 6, 10], [5, 12, 13], [12, 5, 13], [9, 12, 15], [12, 9, 15], [8, 15, 17], [15, 8, 17]];
+/**
+ * [h, d, s]: the skateboard ramp's height, foot and slanted top, from the triples 3-4-5 to 8-15-17 (area.js HDS), the
+ * height always below the foot: a ramp slopes under 45° (council round 3 found one 15 m high on an 8 m base).
+ */
+const RAMPS = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15], [8, 15, 17]];
 
 // ---------------------------------------------------------------- the models (models.mjs, unchanged)
 
@@ -147,7 +150,7 @@ export const SOLID4 = mk({
 });
 /** solid:4 transfer — a ramp: height h, foot d, slanted top s (a triple), width w. */
 export const SOLID4T = mk({
-  raw: (r) => { const [h, d, s] = pick(r, HDS); const w = rint(r, 2, 12); if (w === h || w === d || w === s) return null; return { h, d, s, w }; },
+  raw: (r) => { const [h, d, s] = pick(r, RAMPS); const w = rint(r, 2, 12); if (w === h || w === d || w === s) return null; return { h, d, s, w }; },
   answer: ({ h, d, w }) => (h * d * w) / 2,
   bugs: {
     'no-half': ({ h, d, w }) => h * d * w,

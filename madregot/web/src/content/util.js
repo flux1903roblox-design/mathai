@@ -200,9 +200,12 @@ export function roundsTo(u, x, min) {
  * not the two-place rounding (0.7 for 2/3, which is 0.67) are wrong, and so is 1/35 for 1/36. A rounding whose last
  * digit is 0 is right as typed: 19/21 is 0.90 rounded to two places, and the number read from "0.90" is 0.9, so 0.9
  * counts as two places too (roundsTo counts at least two): it is the same number.
+ * `exactly` (an item marked `exactDec`: a decimal the question asks as it is, (−0.4)³ = −0.064) takes the exact value
+ * only, as a decimal or a fraction (−0.064, −8/125): no line told the student to round, and −0.06 is another number.
  */
-export function numRight(u, a, precise = false) {
+export function numRight(u, a, precise = false, exactly = false) {
   if (typeof u !== 'number' || !Number.isFinite(u) || typeof a !== 'number') return false;
+  if (exactly) return same(u, a);
   if (!precise) return near(u, a, 0.01);
   return same(u, a) || roundsTo(u, a, 2);
 }
@@ -227,16 +230,27 @@ export const FORMAT_LINE = /אפשר לכתוב כשבר \(למשל \$?[^$()]+\$
 /** The format line of a question's text ('' when it has none), and the text without it. */
 export const formatLineOf = (text) => String(text ?? '').match(FORMAT_LINE)?.[0] || '';
 export const withoutFormatLine = (text) => String(text ?? '').replace(FORMAT_LINE, '').replace(/\s+$/, '');
+/**
+ * A question's words around its expression, in the order they are read: what to do (`lead`) before the expression, and
+ * the format line (`after`) after it, next to the answer it is about. "חשבו:" introduces the expression, so nothing
+ * stands between them (council round 3: "חשבו: אפשר לכתוב כשבר … (−3/4)³" read as if the line were what to compute).
+ * A question with no expression keeps its format line in its words (`after` is '').
+ */
+export function questionWords(it) {
+  const text = String(it?.text ?? '');
+  const line = it?.display ? formatLineOf(text) : '';
+  return line ? { lead: withoutFormatLine(text), after: line } : { lead: text, after: '' };
+}
 
 /**
  * A typed number whose answer has no exact two-place decimal (7/12, −4/3, a slope of −5/6, a mean of 13/3) says once
  * how to write it (CURRICULUM-12): the item comes back with the line after its text. An item that already says it, a
  * rounded length (it carries `exact` and says to round to tenths), a question that asks for a decimal (askDec: a
- * fraction is not read there), and an answer that is whole or has two places or fewer come back as they are. The
- * example is never the answer itself.
+ * fraction is not read there), a decimal asked as it is (exactDec: (−0.4)³ = −0.064, typed exactly, numRight), and an
+ * answer that is whole or has two places or fewer come back as they are. The example is never the answer itself.
  */
 export function withFormatNote(it) {
-  if (!needsFormat(it?.answer) || it.exact != null || it.askDec || String(it.text || '').includes(HINT_START)) return it;
+  if (!needsFormat(it?.answer) || it.exact != null || it.askDec || it.exactDec || String(it.text || '').includes(HINT_START)) return it;
   const example = NOTE_EXAMPLES.find((e) => !near(Math.abs(parseNum(e)), Math.abs(it.answer), 1e-9));
   return { ...it, text: `${it.text ? `${it.text} ` : ''}${fractionHint(example)}` };
 }

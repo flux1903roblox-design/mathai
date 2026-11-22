@@ -12,7 +12,7 @@ import { useApp } from '@/lib/store.js';
 import { TOPIC, makeItem, ensureGens, readAnswer, answerText, slotsFor, itemMath, displayTex, unitGrade, swappedLin, swapNote, figPlain } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
-import { piRow } from '@/content/util.js';
+import { piRow, questionWords } from '@/content/util.js';
 // a right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake
 import { PARTIAL } from '@/content/partial.js';
 import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN, inlineChoices } from '@/lib/lesson.js';
@@ -699,14 +699,16 @@ export default function Lesson() {
   // and reacts once to the answer (a hop when right, a lean when not: ux-motion 7). A drawing needs the room, so beside
   // one the question is the screen's bold title, as before; on a short phone he steps aside (lazy/shared.css).
   const talk = !item.fig && !isManip;
+  // the line on how to write the answer comes after the expression, not between "חשבו:" and it (util.js questionWords)
+  const words = questionWords(item);
   const question = talk ? (
     <div className="lesson-q is-talk" data-region="question">
       <Mascot mood={mood} size={64} still={!feedback} className="q-madi" />
-      <div className="q-say"><h1 className="qtext q-bubble" id="qtext"><MathText text={item.text} /></h1></div>
+      <div className="q-say"><h1 className="qtext q-bubble" id="qtext"><MathText text={words.lead} /></h1></div>
     </div>
   ) : (
     <div className="lesson-q is-title" data-region="question">
-      <h1 className="qtext q-title" id="qtext"><MathText text={item.text} /></h1>
+      <h1 className="qtext q-title" id="qtext"><MathText text={words.lead} /></h1>
     </div>
   );
 
@@ -727,6 +729,7 @@ export default function Lesson() {
         {item.redo && <p className="redo-note"><RotateCcw size={16} aria-hidden="true" />תרגיל דומה לזה שהיה קשה קודם</p>}
         {item.extra && <p className="redo-note"><Search size={16} aria-hidden="true" />עוד שאלה אחת, כדי להבין מה בדיוק בלבל</p>}
         {item.display && <FitDisplay tex={displayTex(item)} />}
+        {words.after && <MathText as="p" className="q-format" text={words.after} />}
         {item.fig && (
           <div className="fig-zoomable">
             <Figure fig={item.fig} />
@@ -884,7 +887,7 @@ export default function Lesson() {
       {/* every sheet in a lesson has the same build: its title and the way out at the top, the content, and its one
           action pinned at the bottom (the chat's input, the remedy's button, the help request's "send") */}
       <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר" className="chat-sheet">
-        <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
+        <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={words.lead} />{item.display && <> <Tex tex={item.display} /></>}{words.after && <> <MathText text={words.after} /></>}</div>
         <AIChat context={chatOpen ? tutorCtx() : null} messages={chat} onMessages={setChat} intro={chatIntro(s)} onDone={() => setChatOpen(false)} onMadi={askMadi}
           onAsk={helped} footnote={openExercise(s) ? HELP_NOTE : null} />
       </Sheet>

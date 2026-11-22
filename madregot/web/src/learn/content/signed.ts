@@ -294,7 +294,12 @@ const pins = (vals: number[], start: number[]) => ({ kind: 'pins' as const, min:
 const opTex = (s: number) => (s > 0 ? '+' : '-');
 /** Points in a story, with the number agreeing in Hebrew: "נקודה אחת", "$5$ נקודות". */
 const points = (n: number) => (n === 1 ? 'נקודה אחת' : `$${T(n)}$ נקודות`);
-const hadPoints = (who: string, n: number) => (n === 1 ? `${who} הייתה נקודה אחת` : `${who} היו $${T(n)}$ נקודות`);
+const hadPoints = (who: string, n: number) => (n === 1 ? `${who} הייתה נקודה אחת` : n === -1 ? `${who} הייתה מינוס נקודה אחת` : `${who} היו $${T(n)}$ נקודות`);
+/**
+ * The end of a solution line that computes the points: "= 5$ נקודות", and one point said in words, after the maths:
+ * "= 1$, כלומר נקודה אחת" (council round 3: "$17 + (-16) = 1$ נקודות").
+ */
+const pointsEnd = (n: number) => (n === 1 ? ', כלומר נקודה אחת' : n === -1 ? ', כלומר מינוס נקודה אחת' : ' נקודות');
 
 // ---------------------------------------------------------------- stair 2: comparing
 // The model: the place on the line. Right is bigger; among negatives the one closer to zero is bigger.
@@ -855,8 +860,8 @@ const quizModel: DiagModel<Quiz> = {
   solution: (p) => {
     const prod = -p.w * p.q; const ans = quizValue(p);
     return p.k === 0
-      ? [`כל טעות היא $${T(-p.q)}$ נקודות: $${T(p.s)} + ${p.w} \\cdot ${T(-p.q, true)}$.`, `קודם הכפל: $${p.w} \\cdot ${T(-p.q, true)} = ${T(prod)}$.`, `עכשיו: $${T(p.s)} + ${T(prod, true)} = ${T(ans)}$ נקודות.`]
-      : [`ביטול הוא חיסור של מה שנרשם: $${T(p.s)} - ${p.w} \\cdot ${T(-p.q, true)}$.`, `קודם הכפל: $${p.w} \\cdot ${T(-p.q, true)} = ${T(prod)}$.`, `חיסור של שלילי הוא חיבור: $${T(p.s)} + ${p.w * p.q} = ${T(ans)}$ ${ans === 1 ? 'נקודה' : 'נקודות'}.`];
+      ? [`כל טעות היא $${T(-p.q)}$ נקודות: $${T(p.s)} + ${p.w} \\cdot ${T(-p.q, true)}$.`, `קודם הכפל: $${p.w} \\cdot ${T(-p.q, true)} = ${T(prod)}$.`, `עכשיו: $${T(p.s)} + ${T(prod, true)} = ${T(ans)}$${pointsEnd(ans)}.`]
+      : [`ביטול הוא חיסור של מה שנרשם: $${T(p.s)} - ${p.w} \\cdot ${T(-p.q, true)}$.`, `קודם הכפל: $${p.w} \\cdot ${T(-p.q, true)} = ${T(prod)}$.`, `חיסור של שלילי הוא חיבור: $${T(p.s)} + ${p.w * p.q} = ${T(ans)}$${pointsEnd(ans)}.`];
   },
   hint: (p) => (p.k === 0 ? 'כמה נקודות הורידו כל הטעויות יחד? זה כפל, ומחשבים אותו קודם.' : 'ביטול של טעות מחזיר את הנקודות שהיא הורידה. כמה נקודות הורידו כל הטעויות האלה יחד?'),
 };
@@ -1092,7 +1097,7 @@ const groupsModel: DiagModel<Groups> = {
         `בחשבון יש עכשיו $${T(ans)}$ ₪.`]
       : [`בכל סיבוב השינוי הוא חבילה אחת: $${p.b} - ${p.c} = ${T(inner)}$.`,
         `$${p.n}$ סיבובים: $${T(p.a)} + ${p.n} \\cdot (${p.b} - ${p.c}) = ${T(p.a)} + ${p.n} \\cdot ${T(inner, true)}$.`,
-        `קודם הכפל: $${p.n} \\cdot ${T(inner, true)} = ${T(p.n * inner)}$, ואז $${T(p.a)} + ${T(p.n * inner, true)} = ${T(ans)}$ נקודות.`];
+        `קודם הכפל: $${p.n} \\cdot ${T(inner, true)} = ${T(p.n * inner)}$, ואז $${T(p.a)} + ${T(p.n * inner, true)} = ${T(ans)}$${pointsEnd(ans)}.`];
   },
   hint: (p) => (p.k === 0 ? 'ביטול של הפקדה מוריד כסף, וביטול של משיכה מחזיר כסף.' : 'כמה השתנה הניקוד בסיבוב אחד? זו חבילה, וכל סיבוב חוזר עליה.'),
 };

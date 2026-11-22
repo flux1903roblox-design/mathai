@@ -274,13 +274,20 @@ export const powHint = (q) => {
 
 // ---------------------------------------------------------------- the generator
 
+/**
+ * A power of a decimal, (−0.4)³ = −0.064: its value is an exact decimal of at most three places, and the stair teaches
+ * to count the places. It is asked as it is (no line about rounding to two places) and only the exact value is right
+ * (exactDec, content/util.js numRight): −0.06 is another number (council round 3, math).
+ */
+export const powExactDec = (q) => q.f === 5 && q.k === 1;
+
 /** signed:7, one question (key powKey): its form from the mix, or f when given (the tests draw each form). */
 export function powItem(r, f) {
   const q = drawPow(r, f); const ans = powValue(q); const bugs = powBugs(q);
   const precise = q.f === 5;
   return {
     key: powKey(q), text: 'חשבו:', display: powTex(q), form: 'num', answer: ans,
-    ...(precise ? { precise: true } : {}), ...(q.f === 5 && q.k === 1 ? { fmt: 'dec' } : {}),
+    ...(precise ? { precise: true } : {}), ...(powExactDec(q) ? { fmt: 'dec', exactDec: true } : {}),
     hint: powHint(q), solution: powSolution(q),
     // a fraction's prediction may be typed rounded (misconceptions.ts matchesValue); a decimal is typed exactly
     diag: (u) => Object.keys(bugs).find((id) => bugs[id] != null && (q.f === 5 && q.k === 0 ? matchesValue(bugs[id], u, ans) : same(bugs[id], u))) || null,

@@ -39,6 +39,8 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
   const after = typeof model.after === 'function' ? model.after(p) : model.after;
   // the answer's unit, per question too: a rectangle asked for its area (סמ״ר) or its perimeter (ס״מ)
   const unit = typeof model.unit === 'function' ? model.unit(p) : model.unit;
+  // a decimal asked as it is ((−0.4)³ = −0.064), per question too: no format line, and only the exact value is right
+  const exactDec = typeof model.exactDec === 'function' ? model.exactDec(p) : !!model.exactDec;
   const it = {
     key: `${c.skill}:${source}:${JSON.stringify(p)}`,
     text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form, unit,
@@ -48,7 +50,7 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
     diagnosis: (u: TypedAnswer) => diagnose(model, p, answerValue(u)),
     could: couldShow(model, p),
     topic: c.topic, level: c.level, levelTitle: c.title, source,
-    ...(model.precise ? { precise: true } : {}), ...(fmt ? { fmt } : {}), ...(after ? { after } : {}),
+    ...(model.precise ? { precise: true } : {}), ...(fmt ? { fmt } : {}), ...(after ? { after } : {}), ...(exactDec ? { exactDec: true } : {}),
   };
   // an answer with no exact two-place decimal (7/12, a slope of 4/3) says once how to write it, as a generated exercise
   // does (a rounded length, which carries `exact`, says to round to tenths instead; a fraction answer is typed as a

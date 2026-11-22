@@ -185,6 +185,14 @@ test('a class exam keeps how each answer is checked: a fraction in lowest terms,
   }
 });
 
+test('a class exam keeps a decimal asked as it is: (−0.4)³ is −0.064, and only the exact value is right', () => {
+  const cube = { ...ITEMS[0], key: 'sn7:5:0.4:3', level: 7, display: '(-0.4)^{3}', answer: -0.064, precise: true, fmt: 'dec', exactDec: true, answerText: '-0.064' };
+  assert.deepEqual(JSON.parse(cleanExamItems([cube])), [cube]);
+  for (const bad of [{ ...cube, exactDec: 'yes' }, { ...cube, exactDec: false }, { ...ITEMS[1], exactDec: true }]) {
+    assert.throws(() => cleanExamItems([bad]), (e) => e.status === 400, JSON.stringify(bad));
+  }
+});
+
 test('a class exam keeps a number\'s π form: the slot followed by π, and the multiple of π of a 3.14 answer', () => {
   // fixtures: no topic asks with π yet; after '\\pi' types the number before π, pk is the multiple of π (3.14·pk)
   const withPi = { ...ITEMS[0], key: 'ci1p:5', topic: 'pyth', text: 'כתבו בעזרת $\\pi$.', display: null, answer: 25, after: '\\pi', unit: 'סמ״ר', answerText: '25π' };

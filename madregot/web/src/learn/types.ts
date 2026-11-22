@@ -406,6 +406,11 @@ export interface DiagModel<P = Record<string, number>> {
   /** Show the answer as a decimal (-1.3, not -13/10); a function chooses per question (decimals, or quarters as fractions). */
   fmt?: 'dec' | ((p: P) => 'dec' | undefined);
   /**
+   * The answer is a decimal asked as it is ((−0.4)³ = −0.064), as an exercise marked `exactDec`: no line about rounding to
+   * two places, and only the exact value is right (content/util.js numRight). A function chooses per question.
+   */
+  exactDec?: boolean | ((p: P) => boolean);
+  /**
    * The answer's form: a number (the default), or a fraction typed as a numerator over a denominator ('frac': 6/36 and
    * 1/6 both right, compared exactly; the diagnosis reads its value n/d). Two dice's probabilities are 1/36 apart, so a
    * decimal would leave their documented errors ambiguous; a fraction tells them apart.

@@ -378,10 +378,14 @@ function bothItem() {
 }
 
 const HOW_MANY = ['פתרון אחד', 'אין פתרון', 'כל מספר הוא פתרון'];
-/** "How many solutions?" with three answers. Some items collect on the left first, so the special case is hidden. */
+/**
+ * "How many solutions?" with three answers. Some items collect on the left first, so the special case is hidden. The
+ * kind is drawn once and only its numbers are drawn again, so each answer is right one time in three: redrawing the
+ * kind with the numbers made "כל מספר הוא פתרון", the longest choice and never redrawn, right 36% of the time.
+ */
 function howManyItem(level) {
+  const kind = pick(['one', 'none', 'all']);
   for (;;) {
-    const kind = pick(['one', 'none', 'all']);
     const A = R(1, 5); const b = NZ(-9, 9);
     let left; let leftWords;
     if (level === 4) {

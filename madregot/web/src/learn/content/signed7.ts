@@ -32,8 +32,9 @@ const powModel: DiagModel<P7> = {
   solution: (p) => G.powSolution(p),
   hint: (p) => G.powHint(p),
   precise: true,
-  // decimals are answered as decimals; fractions and whole numbers as they are
-  fmt: (p) => (p.f === 5 && p.k === 1 ? 'dec' : undefined),
+  // decimals are answered as decimals, exactly ((−0.4)³ is −0.064, never −0.06); fractions and whole numbers as they are
+  fmt: (p) => (G.powExactDec(p) ? 'dec' : undefined),
+  exactDec: (p) => G.powExactDec(p),
 };
 
 /**
