@@ -26,7 +26,7 @@
 import { shuffle } from './util.js';
 import { clean, notGuessable } from './frac.js';
 import { slipOf } from '@/learn/misconceptions.ts';
-import { triFromAngles, PROOF, proofManip, proofDiag } from './proofs.js';
+import { triFromAngles, PROOF, proofManip, proofDiag, checkProofItem } from './proofs.js';
 import { proofSolution } from './proof.js';
 
 const rnd = () => Math.random();
@@ -470,6 +470,15 @@ function proofItem(key, text, manip, hint) {
     diag: (u) => proofDiag(manip.part, u),
   };
 }
+/**
+ * The stair's mastery check asks one whole proof (content/proofs.js checkProofItem; the council's round 3): T5, the
+ * bisector of an isosceles triangle's apex, its rows shuffled and its five reasons asked. (T6 asks only two reasons, a
+ * guess too easy for a check: practice only.)
+ */
+function isoProofCheck() {
+  const set = rint(rnd, 0, 2); const seed = rint(rnd, 1, 9999);
+  return checkProofItem(PROOF.T5, { key: 'sm1c:T5', set, seed, text: 'סדרו את שורות ההוכחה, ובחרו נימוק לכל שורה.', rnd });
+}
 
 // ---------------------------------------------------------------- sim:2 generators
 function missingSide() {
@@ -573,6 +582,13 @@ function aaProof() {
   const manip = proofManip(PROOF.T7, { set, seed: String(seed) });
   return proofItem(`sm3o:${set}:${seed}`, 'סדרו את ההוכחה, ובחרו נימוק לכל שורה.', manip, 'שתי זוויות שוות, ואחריהן הדמיון.');
 }
+/** The stair's mastery check asks one whole proof: T7, as aaProof asks it, its choices in an order of their own and no hint. */
+function aaProofCheck() {
+  const set = rint(rnd, 0, 2); const seed = rint(rnd, 1, 9999);
+  return checkProofItem(PROOF.T7, { key: 'sm3c:T7', set, seed, text: 'סדרו את ההוכחה, ובחרו נימוק לכל שורה.', rnd });
+}
+/** Each stair's mastery check: how many whole proofs it asks (`checkProofs`) and the generator of one (`proofGen`). */
+export const SIM_PROOF_CHECKS = { 0: { checkProofs: 1, proofGen: isoProofCheck }, 2: { checkProofs: 1, proofGen: aaProofCheck } };
 /** Two angles in each triangle: similar when the third angles agree. Practice only. */
 function angleCheck() {
   for (;;) {
@@ -653,4 +669,4 @@ export const SIM_GENS = [
   () => { const r = Math.random(); return r < 0.35 ? areaK() : r < 0.55 ? perimK() : r < 0.75 ? kFromArea() : gridSquares(); },
 ];
 /** Each generator by name (tests draw every kind). */
-export const SIM_KINDS = { isoX, isoAlt, isoCount, converseMc, isoProof, missingSide, factor, isSimilarMc, parallelCut, bowtie, shadow, aaWhich, aaProof, angleCheck, areaK, perimK, kFromArea, gridSquares };
+export const SIM_KINDS = { isoX, isoAlt, isoCount, converseMc, isoProof, isoProofCheck, missingSide, factor, isSimilarMc, parallelCut, bowtie, shadow, aaWhich, aaProof, aaProofCheck, angleCheck, areaK, perimK, kFromArea, gridSquares };

@@ -15,6 +15,8 @@
 //  - for a question in degrees (CURRICULUM-10), 180° minus a printed number, 90° minus one, and 360° minus one, each
 //    at random, the first or the last: what a student who copies the angle drawn, or completes it to a straight
 //    line, a right angle or a full turn, types without reading which angle is asked.
+// On a proof table (a proof stair's mastery check, the council's round 3) every strategy also guesses as a student who
+// knows the order of the rows and picks every reason at random.
 // And two arithmetic shortcuts, only in the topics where they are a tool and not the skill (congruence and similarity,
 // GEOM-1; in `angles` 180 − a − b is the skill itself):
 //  - 180° minus the printed angles: the first two printed, or all of them (a congruence item that asks the third angle
@@ -35,6 +37,8 @@ import { seeded } from './expr';
 import { isCorrect, TOPIC, topicsFor, placementTopicsFor, figPlain, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { manipSolution } from '@/content/manip.js';
+// @ts-ignore: plain JS
+import { proofReasonGuess } from '@/content/proof.js';
 // @ts-ignore: plain JS
 import { toFrac, choiceWidth } from '@/content/util.js';
 // @ts-ignore: plain JS
@@ -111,9 +115,15 @@ function learnGuesses(samples: Item[]) {
   return [(it: Item) => common[kindOf(it)], (it: Item) => constant[formOf(it)]];
 }
 
+/**
+ * A proof in a check (the council's round 3): a student who knows the order of the rows and picks every reason at
+ * random is right one time in the product of the choices (content/proof.js proofReasonGuess). Each guesser also guesses
+ * a proof so when its own guess is wrong.
+ */
+const proofGuess = (it: Item) => (it.form === 'manip' && it.manip?.kind === 'proof' ? proofReasonGuess(it.manip) : 0);
 /** The chance that a guess is right on a question from each draw. */
 function chances(draws: Draw[], guess: (it: Item) => unknown) {
-  return draws.map((d) => { let ok = 0; for (let i = 0; i < N; i += 1) { const it = d(); const g = guess(it); if (g !== undefined && isCorrect(it, g)) ok += 1; } return ok / N; });
+  return draws.map((d) => { let ok = 0; for (let i = 0; i < N; i += 1) { const it = d(); const g = guess(it); ok += g !== undefined && isCorrect(it, g) ? 1 : proofGuess(it); } return ok / N; });
 }
 
 /** The objects whose answer is one number a guesser can set them to: a point on a number line, a ray's angle, a bar. */
@@ -217,7 +227,8 @@ function atLeast(qs: number[], need: number) {
 function passRate(draws: Draw[], need: number) {
   const samples = draws.map((d) => Array.from({ length: N }, d));
   // the numbers-from-the-question guesses learn nothing, so they are measured on the same sample
-  const fromQuestion = [...SHOWN, ...DEGREES, ...ARITH].map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
+  // (each of them guesses a proof as proofGuess does: a number strategy has nothing to say about a proof table)
+  const fromQuestion = [...SHOWN, ...DEGREES, ...ARITH].map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + Math.max(c(it), proofGuess(it)), 0) / N), need));
   return Math.max(...learnGuesses(samples.flat()).map((g) => atLeast(chances(draws, g), need)), ...fromQuestion);
 }
 

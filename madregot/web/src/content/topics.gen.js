@@ -794,7 +794,8 @@ export const TOPIC_META = [
         "title": "משפטי החפיפה"
       },
       {
-        "title": "הוכחה בחפיפה"
+        "title": "הוכחה בחפיפה",
+        "checkProofs": 2
       },
       {
         "title": "תיכון ושטחים"
@@ -835,13 +836,15 @@ export const TOPIC_META = [
     "placement": false,
     "levels": [
       {
-        "title": "שווה־שוקיים ומשפטים הפוכים"
+        "title": "שווה־שוקיים ומשפטים הפוכים",
+        "checkProofs": 1
       },
       {
         "title": "צורות דומות"
       },
       {
-        "title": "דמיון משולשים (ז.ז)"
+        "title": "דמיון משולשים (ז.ז)",
+        "checkProofs": 1
       },
       {
         "title": "יחס צלעות ויחס שטחים"

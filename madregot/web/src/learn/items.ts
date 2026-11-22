@@ -9,7 +9,7 @@ import { MASTERY_N, REVIEW_N } from './mastery';
 import { VERIFY_N } from './misconceptions';
 import { DIAG_PER_SKILL, QUICK_N, examQuestions } from './examRescue';
 // @ts-ignore: plain JS
-import { makeItem, fairForCheck, namesOf } from '@/content/index.js';
+import { makeItem, fairForCheck, namesOf, TOPIC } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { factsItem } from '@/content/frac.js';
 // @ts-ignore: plain JS
@@ -17,9 +17,19 @@ import { withFormatNote } from '@/content/util.js';
 
 /**
  * probe: where a misconception would show; control: where it would not (so a fixed answer cannot pass a verification);
- * facts: a multiplication fact (content/frac.js factsItem), which belongs to no stair.
+ * facts: a multiplication fact (content/frac.js factsItem), which belongs to no stair; proof: a whole proof, from the
+ * stair's proofGen (content/congr.gen.js, sim.gen.js), which a proof stair's mastery check asks.
  */
-export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control' | 'facts';
+export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control' | 'facts' | 'proof';
+/**
+ * How many whole proofs a stair's mastery check asks (its level's `checkProofs`, in the first load's meta): congr:3
+ * asks two, so four right of five are never numbers alone; sim:1 and sim:3 one each (the council's round 3).
+ */
+export function proofsOf(skill: SkillId): number {
+  const { topic, level } = parseSkill(skill);
+  const L = TOPIC[topic]?.levels[level - 1] as { checkProofs?: number } | undefined;
+  return Number(L?.checkProofs) || 0;
+}
 /** The skill a facts question is filed under in a check's plan and its per-skill count: no stair (level 0). */
 export const FACTS_SKILL = 'facts:0';
 /** The floor check: one question from each fractions stair, and two multiplication facts. */
@@ -127,6 +137,8 @@ export function canProbe(skill: SkillId, ids: string[]): boolean {
 function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, candidates?: string[], opts: { test?: boolean } = {}) {
   if (source === 'facts') return factsItem(avoidKey);
   const { topic, level } = parseSkill(skill);
+  // a whole proof: the stair's own proof generator (content/index.js makeItem `proof`), no teaching content needed
+  if (source === 'proof') return makeItem(topic, level, avoidKey, { ...opts, proof: true });
   // 'gen' is the stair's own generator and never reads the teaching content, so it needs no topic loaded (the teacher's
   // class exam, lib/exam.js, draws only these)
   const c = source === 'gen' ? null : contentOf(skill);
@@ -185,7 +197,10 @@ export function checkPlan(spec: CheckSpec, rnd: Rng): { skill: SkillId; source: 
       const s = spec.skill!;
       // a fresh surface on purpose: the generator's exercises and the diagnostic/transfer questions together
       const src: Source[] = has(s) ? ['gen', 'diag', 'gen', hasT(s) ? 'transfer' : 'diag', 'gen'] : Array(MASTERY_N).fill('gen');
-      return shuffle(src, rnd).map((source) => ({ skill: s, source }));
+      // a proof stair asks whole proofs in place of some of the generator's questions (proofsOf)
+      let proofs = proofsOf(s);
+      const withProofs = src.map((x): Source => (x === 'gen' && proofs > 0 ? ((proofs -= 1), 'proof') : x));
+      return shuffle(withProofs, rnd).map((source) => ({ skill: s, source }));
     }
     case 'review': {
       const s = spec.skill!;

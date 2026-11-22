@@ -7,14 +7,15 @@
 // load (the boot split): the first screen reads the topic's names from content/topics.gen.js, which
 // scripts/gen-content-meta.mjs writes from this object, and the generators load with the topic (content/topics.js
 // importGens).
-import { CONGR_GENS } from './congr.gen.js';
+import { CONGR_GENS, CONGR_PROOF_CHECKS } from './congr.gen.js';
 
 export const CONGR = {
   id: 'congr', grade: '8', title: 'חפיפת משולשים', color: 'cobalt',
   desc: 'צלעות וזוויות מתאימות, משפטי החפיפה, הוכחה, תיכון וצלעות במשולש',
   // taught in January and February: the first-day placement test does not ask about it (the jump test does)
   placement: false,
-  levels: ['צלעות וזוויות מתאימות', 'משפטי החפיפה', 'הוכחה בחפיפה', 'תיכון ושטחים', 'צלעות במשולש'].map((title, i) => ({ title, gen: CONGR_GENS[i] })),
+  // the proof stair's mastery check asks whole proofs too (checkProofs, proofGen: content/congr.gen.js)
+  levels: ['צלעות וזוויות מתאימות', 'משפטי החפיפה', 'הוכחה בחפיפה', 'תיכון ושטחים', 'צלעות במשולש'].map((title, i) => ({ title, gen: CONGR_GENS[i], ...CONGR_PROOF_CHECKS[i] })),
   cats: {
     'alpha-order': 'התאימו קודקודים לפי סדר האלף־בית, ולא לפי הסדר שבחפיפה',
     'match-by-place': 'התאימו קודקודים לפי המקום בשרטוט, ולא לפי החפיפה',
