@@ -4,13 +4,19 @@
 // With `den` every unit is cut into den equal parts (labels on whole numbers only), a marker moves one part at a time,
 // and a label may be a fraction (\frac{1}{4}): the chips write it as maths, the marker's head as 1/4. In a check
 // (`test`) such a line shows no value: the step label is left out and a screen reader hears the ticks counted.
-import { useRef, useState } from 'react';
+// A marker not placed yet waits in a tray above the line, not on it (the student council's round 3: "4" standing on
+// −10 and "−4" on 0 said something false before the student did anything): a drag takes it from the tray to the finger,
+// and a step button or an arrow key puts it on the line one step from where it was set out (its `start`). Once moved it
+// stays on the line. `tray: false` keeps the markers on their starts, for a task whose start is the point itself
+// (stats2: "move each point 3 to the right").
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { clamp, useDrag, arrowKeys, Stepper, minus, labelText, partsTex, partsOf, decText } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 import { lineNum, ticksWords } from '@/content/manip.js';
 
 const W = 360; const H = 196; const PAD = 20; const LINE = 150;
+const TRAY_Y = 52; const SLOT = 56; // where a marker not placed yet waits: its dot's height, and the room for each
 const TONES = ['a', 'b', 'c', 'd'];
 /** A marker's label as written on a chip: maths when it is TeX. */
 const Label = ({ l }) => (/\\/.test(l) ? <Tex tex={l} /> : <bdi dir="ltr">{l}</bdi>);
@@ -20,6 +26,12 @@ export default function NumberPins({ m, value, onChange, locked, reveal, good, a
   const parts = den || 1;
   const [sel, setSel] = useState(0);
   const grab = useRef(0);
+  // the markers moved in this exercise: they stay on the line (a new exercise sets them all out again)
+  const [moved, setMoved] = useState(() => new Set());
+  useEffect(() => { setMoved(new Set()); }, [m]);
+  const tray = m.tray !== false;
+  const inTray = (i) => tray && !moved.has(i) && Math.abs(value[i] - m.start[i]) < 1e-9;
+  const slotX = (i) => W / 2 + (i - (labels.length - 1) / 2) * SLOT;
   const step = (W - 2 * PAD) / (max - min); // px per whole unit
   const X = (v) => PAD + (v - min) * step;
   const snap = (v) => clamp(min + Math.round((v - min) * parts) / parts, min, max);
@@ -27,13 +39,13 @@ export default function NumberPins({ m, value, onChange, locked, reveal, good, a
   const setAt = (i, v) => {
     if (locked) return;
     const next = value.map((p, k) => (k === i ? snap(v) : p));
-    if (Math.abs(next[i] - value[i]) > 1e-9) onChange(next);
+    if (Math.abs(next[i] - value[i]) > 1e-9) { if (!moved.has(i)) setMoved(new Set(moved).add(i)); onChange(next); }
   };
   const [ref, drag] = useDrag((p, phase) => {
     if (phase === 'start') {
-      // the marker nearest the touch (by its head, which stands above the line)
+      // the marker nearest the touch (by its head, which stands above the line, or in the tray)
       let best = 0; let d = Infinity;
-      value.forEach((v, i) => { const dd = Math.hypot(p.x - X(v), (p.y - (LINE - 24)) * 0.6); if (dd < d) { d = dd; best = i; } });
+      value.forEach((v, i) => { const [hx, hy] = inTray(i) ? [slotX(i), TRAY_Y - 24] : [X(v), LINE - 24]; const dd = Math.hypot(p.x - hx, (p.y - hy) * 0.6); if (dd < d) { d = dd; best = i; } });
       grab.current = best; setSel(best);
     }
     setAt(grab.current, toV(p.x));
@@ -41,8 +53,9 @@ export default function NumberPins({ m, value, onChange, locked, reveal, good, a
   const ticks = []; for (let i = 0; i <= Math.round((max - min) * parts); i += 1) ticks.push(min + i / parts);
   const whole = (v) => Math.abs(v - Math.round(v)) < 1e-9;
   const labelled = (v) => whole(v) && (den ? true : Math.round(v) % 2 === 0);
-  // markers on the same or neighbouring places (their heads are wider than one step) stack upwards
-  const lift = value.map((v, i) => value.slice(0, i).filter((w) => Math.abs(w - v) * step < 48).length);
+  // markers on the same or neighbouring places (their heads are wider than one step) stack upwards; the tray's do not
+  const lift = value.map((v, i) => (inTray(i) ? 0 : value.slice(0, i).filter((w, k) => !inTray(k) && Math.abs(w - v) * step < 48).length));
+  const waiting = labels.map((_, i) => i).filter(inTray);
   const hidden = test && !!den;
   const shown = (v) => (!den ? minus(v) : m.fmt === 'dec' ? decText(v) : <Tex tex={partsTex(partsOf(v, parts), parts)} />);
   const name = labelText(labels[sel]);
@@ -51,7 +64,7 @@ export default function NumberPins({ m, value, onChange, locked, reveal, good, a
       <svg ref={ref} {...drag} viewBox={`0 0 ${W} ${H}`} className="manip-canvas" dir="ltr" tabIndex={locked ? -1 : 0}
         role="slider" aria-label={`הסמן ${name} על ציר המספרים`}
         aria-valuemin={den ? 0 : min} aria-valuemax={den ? Math.round((max - min) * parts) : max} aria-valuenow={den ? partsOf(value[sel], parts, min) : value[sel]}
-        aria-valuetext={den ? `הסמן ${name}: ${hidden ? '' : `${lineNum(m, value[sel])}, `}${ticksWords(m, value[sel], min)}` : `הסמן ${name} על ${minus(value[sel])}`}
+        aria-valuetext={inTray(sel) ? `הסמן ${name} עוד לא על הציר` : den ? `הסמן ${name}: ${hidden ? '' : `${lineNum(m, value[sel])}, `}${ticksWords(m, value[sel], min)}` : `הסמן ${name} על ${minus(value[sel])}`}
         onKeyDown={arrowKeys({ left: () => setAt(sel, value[sel] - 1 / parts), right: () => setAt(sel, value[sel] + 1 / parts), up: () => setSel((sel + 1) % labels.length), down: () => setSel((sel + labels.length - 1) % labels.length) })}>
         {(!den || min < 0) && (
           <>
@@ -78,13 +91,15 @@ export default function NumberPins({ m, value, onChange, locked, reveal, good, a
           );
         })}
         {reveal && answer.map((a, i) => (Math.abs(a - value[i]) > 1e-9 ? <g key={`g${i}`} className="mp-ghost-pin" transform={`translate(${X(a)} ${LINE})`}><circle r="9" /></g> : null))}
+        {/* the tray: the markers not placed yet, side by side above the line (no dot: they stand on no number) */}
+        {waiting.length > 0 && <rect x={slotX(waiting[0]) - SLOT / 2 + 2} y={TRAY_Y - 48} width={(waiting[waiting.length - 1] - waiting[0] + 1) * SLOT - 4} height="54" rx="14" className="np-tray" />}
         {/* a lifted marker is drawn first, so the head of the marker under it covers its stem and dot: where markers
-            stack (two that start on 0) both labels stay readable */}
+            stack (two put on neighbouring numbers) both labels stay readable */}
         {[...value.keys()].sort((a, b) => lift[b] - lift[a]).map((i) => (
-          <g key={i} data-pin={i} className={clsx('np-pin', `tone-${TONES[i]}`, i === sel && !locked && 'on')} transform={`translate(${X(value[i])} ${LINE - lift[i] * 30})`}>
+          <g key={i} data-pin={i} className={clsx('np-pin', `tone-${TONES[i]}`, i === sel && !locked && 'on', inTray(i) && 'is-waiting')} transform={inTray(i) ? `translate(${slotX(i)} ${TRAY_Y})` : `translate(${X(value[i])} ${LINE - lift[i] * 30})`}>
             <path d="M 0 -6 L -7 -16 H -17 a 6 6 0 0 1 -6 -6 V -36 a 6 6 0 0 1 6 -6 H 17 a 6 6 0 0 1 6 6 V -22 a 6 6 0 0 1 -6 6 H 7 Z" />
             <text y="-24" textAnchor="middle">{labelText(labels[i])}</text>
-            <circle r="5" className="np-dot" />
+            {!inTray(i) && <circle r="5" className="np-dot" />}
           </g>
         ))}
       </svg>
@@ -94,7 +109,7 @@ export default function NumberPins({ m, value, onChange, locked, reveal, good, a
             <button key={i} type="button" role="radio" aria-checked={i === sel} aria-label={labelText(l)} className={clsx('np-chip', `tone-${TONES[i]}`, i === sel && 'on')} onClick={() => setSel(i)} disabled={locked}><Label l={l} /></button>
           ))}
         </div>
-        <Stepper label={`הסמן ${name}`} value={hidden ? null : shown(value[sel])}
+        <Stepper label={`הסמן ${name}`} value={hidden || inTray(sel) ? null : shown(value[sel])}
           onDec={() => setAt(sel, value[sel] - 1 / parts)} onInc={() => setAt(sel, value[sel] + 1 / parts)}
           decLabel={`הסמן ${name} שמאלה`} incLabel={`הסמן ${name} ימינה`} disabled={locked} decDisabled={value[sel] <= min + 1e-9} incDisabled={value[sel] >= max - 1e-9} />
       </div>

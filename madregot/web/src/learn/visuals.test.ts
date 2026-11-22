@@ -262,16 +262,22 @@ describe('the graphs of stage 5 keep their text at 12px (11.5px on a ten-number 
 // sum and Pythagoras were taught as text cards. Every angles and Pythagoras problem now has its drawing, made from the
 // problem's own numbers (learn/figures.test.ts checks them against the text); in the other topics where a number line,
 // a plane, a chart or a bar carries the idea, at least the share below has one. The table prints on each run.
-// counted with the council's own counter (student-verify/count-figs.ts): a problem counts when it has a figure
-const ALL_B_C: Record<string, number> = { angles: 1, pyth: 1 };
-const SOME_B_C: Record<string, number> = { coord: 0.6, line: 0.5, stats: 0.5, frac: 0.4 };
+// counted with the council's own counter (student-verify/count-figs.ts): a problem counts when it has a figure, or one
+// of its steps draws one (a worked example's step, or a step solved together once it is solved: Together.jsx).
+// Round 3 (SK-STUDENT-1 again): the signed numbers, the expressions, the equations, percent and systems had none or
+// almost none; they draw what their stage A draws now. Every worked example of those five topics has its drawing, every
+// problem of the expressions and of percent too; solving together, a few problems are left without one where any
+// drawing would show the answer (−2⁴, a sum and a difference of two numbers, an inequality's last step).
+const ALL_B_C: Record<string, number> = { angles: 1, pyth: 1, expr: 1, pct: 1 };
+const SOME_B_C: Record<string, number> = { coord: 0.6, line: 0.5, stats: 0.5, frac: 0.4, signed: 0.9, eq: 0.85, sys: 0.85 };
+const ALL_B = ['signed', 'expr', 'eq', 'pct', 'sys'];
 
 function problemsByTopic() {
   const out: Record<string, { B: { id: string; fig: boolean }[]; C: { id: string; fig: boolean }[] }> = {};
   for (const [skill, c] of Object.entries(CONTENT)) {
     const t = (out[skill.split(':')[0]] ||= { B: [], C: [] });
-    c.examples.forEach((e, i) => t.B.push({ id: `${skill} B${i + 1}`, fig: !!e.fig }));
-    c.together.forEach((g, i) => t.C.push({ id: `${skill} C${i + 1}`, fig: !!g.fig }));
+    c.examples.forEach((e, i) => t.B.push({ id: `${skill} B${i + 1}`, fig: !!e.fig || e.steps.some((s) => !!s.fig) }));
+    c.together.forEach((g, i) => t.C.push({ id: `${skill} C${i + 1}`, fig: !!g.fig || g.steps.some((s) => !!s.fig) }));
   }
   return out;
 }
@@ -291,12 +297,17 @@ describe('a drawing where the maths is a picture: worked examples and solving to
     expect(rows.length).toBe(Object.keys(topics).length);
   });
 
-  it('every worked example and every problem solved together in angles and Pythagoras has its drawing', () => {
+  it('every worked example and every problem solved together in angles, Pythagoras, the expressions and percent has its drawing', () => {
     const bare = Object.keys(ALL_B_C).flatMap((t) => [...topics[t].B, ...topics[t].C].filter((x) => !x.fig).map((x) => x.id));
     expect(bare).toEqual([]);
   });
 
-  it('in the plane, lines, statistics and fractions, at least a set share of them has one', () => {
+  it('every worked example of the signed numbers, the expressions, the equations, percent and systems has its drawing', () => {
+    const bare = ALL_B.flatMap((t) => topics[t].B.filter((x) => !x.fig).map((x) => x.id));
+    expect(bare).toEqual([]);
+  });
+
+  it('in the plane, lines, statistics, fractions, the signed numbers, the equations and systems, at least a set share of them has one', () => {
     for (const [t, share] of Object.entries(SOME_B_C)) {
       const all = [...topics[t].B, ...topics[t].C];
       const drawn = all.filter((x) => x.fig).length;

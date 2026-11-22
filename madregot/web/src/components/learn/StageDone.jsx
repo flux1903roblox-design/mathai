@@ -6,12 +6,15 @@
 // When the stage reached the daily goal, the goal's own moment (GoalStage) comes first. When it brought מדי a new piece
 // (the first stage of all brings the first one, PRODUCT2-36), the unlock moment (UnlockStage) comes after this one,
 // whichever way on the student picks, and a gold pill here says it is waiting. When it brought the streak to 3, 7 or
-// 30 days for the first time, that milestone's moment (StreakStage) comes last, before the way picked.
+// 30 days for the first time, that milestone's moment (StreakStage) comes next. When it finished the day's three
+// quests, the day's chest opens last, before the way picked, as at the end of a lesson (QuestsStage: the chest, the
+// streak freeze, a piece for מדי to choose now or later, on the missions tab); a gold pill here says it is waiting
+// (it had been a chip alone, the student council's round 3).
 // The buttons are live from the first frame; under reduced motion nothing moves and the XP is simply there.
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
-import { Zap, Flame, Snowflake, Check, Clock, Gift } from 'lucide-react';
+import { Zap, Flame, Clock, Gift, PackageOpen } from 'lucide-react';
 import Mascot from '@/components/Mascot.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Segments } from '@/components/ds.jsx';
@@ -25,9 +28,12 @@ import GoalStage from './GoalStage.jsx';
 import Celebrate from './Celebrate.jsx';
 import XpCount from './XpCount.jsx';
 import StreakStage from './StreakStage.jsx';
+import QuestsStage from './QuestsStage.jsx';
 import { UnlockMoment, useNewUnlocks } from '@/lib/madiLook.js';
 
 const NEXT = { A: 'B', B: 'C', C: 'D' };
+/** The pill that says the day's chest opens next (the three quests are done). */
+export const STAGE_CHEST = 'סיימתם את משימות היום: תיבה מחכה לכם';
 const GO = { B: 'לדוגמה הפתורה', C: 'לפתור יחד', D: 'לתרגול' };
 const rise = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: enter(DUR.slow) } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } };
@@ -46,7 +52,7 @@ export default function StageDone(props) {
   const [then, setThen] = useState(null);
   const [step, setStep] = useState(0);
   if (goal) return <GoalStage onNext={() => { setGoal(false); window.scrollTo?.({ top: 0 }); }} />;
-  const after = [unlocks.length > 0 && 'unlock', milestone && 'milestone'].filter(Boolean);
+  const after = [unlocks.length > 0 && 'unlock', milestone && 'milestone', props.award.questsDone && 'quests'].filter(Boolean);
   const top = () => window.scrollTo?.({ top: 0 });
   const go = () => (step + 1 < after.length ? (setStep(step + 1), top()) : then());
   if (then && after[step] === 'unlock') return <UnlockMoment ids={unlocks} onNext={go} />;
@@ -54,6 +60,7 @@ export default function StageDone(props) {
     const { days, freezes } = useApp.getState();
     return <StreakStage streak={props.award.streak} repaired={!!props.award.streakRepaired} days={days} freezes={freezes} milestone={milestone} onNext={go} />;
   }
+  if (then && after[step] === 'quests') return <QuestsStage award={props.award} onNext={go} />;
   const on = (fn) => () => (after.length ? (setThen(() => fn), top()) : fn());
   return <StageMoment {...props} onNext={on(props.onNext)} onMap={on(props.onMap)} gift={unlocks.length > 0} />;
 }
@@ -68,8 +75,8 @@ function StageMoment({ stage, stair, award, steps, onNext, onMap, gift }) {
     award.streakRepaired
       ? { icon: Flame, tone: 'streak', label: `הרצף נשמר: ${award.streak} ימים` }
       : award.streakExtended && { icon: Flame, tone: 'streak', label: award.streak > 1 ? `${award.streak} ימים ברצף` : 'התחלתם רצף' },
-    award.freezeEarned && { icon: Snowflake, tone: 'brand', label: 'קיבלתם הקפאת רצף' },
-    award.questsDone && !award.freezeEarned && { icon: Check, tone: 'good', label: 'סיימתם את המשימות של היום' },
+    // the day's chest opens after this moment (QuestsStage), with the freeze it holds and a piece for מדי
+    award.questsDone && { icon: PackageOpen, tone: 'gold', label: STAGE_CHEST },
     gift && { icon: Gift, tone: 'gold', label: 'מדי קיבל משהו חדש' },
   ].filter(Boolean);
   return (

@@ -33,6 +33,15 @@ const shadeBar = (den: number): ManipSpec => ({ kind: 'fbar', start: { den, shad
 /** The volunteers of a village by place (the Ministry's table): 120 in all. */
 const VOLUNTEERS: (string | number)[][] = [['החברה להגנת הטבע', 30], ['מד״א', 42], ['בית אבות', 24], ['ספרייה', 24]];
 const volunteers = (total: boolean): FigSpec => table(['מקום', 'מתנדבים'], total ? [...VOLUNTEERS, ['כל המתנדבים', 120]] : VOLUNTEERS);
+// The worked examples and solving together (SK-STUDENT-1) draw the unit's two pictures: the percent bar (the double
+// number line), its marker at the percent and the amount under it, moving from benchmark to benchmark as the steps do;
+// and the fraction bar with the whole under it. learn/figures.test.ts checks that the amount under each marker is that
+// percent of the whole, and that a problem solved together never shows its answer.
+/** A ratio table of percents and shekels (0.5% → 1% → 100%), filled in as the steps find each one. */
+const pctTable = (head: string[], cells: (string | number)[]): FigSpec => table(['', ...head], [['שקלים', ...cells]]);
+/** The price of pct:5's third example, a row a moment: before, after +20%, after −20% (narrow enough for a phone). */
+const twice = ([a, b, c]: (string | number)[]): FigSpec => table(['', 'מחיר בשקלים'], [['בהתחלה', a], ['אחרי ההתייקרות', b], ['אחרי ההוזלה', c]]);
+
 /** The cinema ticket: 35 and 38.50 ₪, both cut into parts of 3.50 (10 and 11 of them). */
 const ticket = bars([{ den: 11, shaded: 10, label: '35' }, { den: 11, shaded: 11, label: '38.50' }]);
 
@@ -101,25 +110,25 @@ const stair1: StairContent = {
       why: 'שלוש הכתיבות הן אותו מספר.', fig: bar(5, 3, { labels: true, whole: 100 }) },
   ],
   examples: [
-    { problem: 'כתבו את $\\frac{7}{20}$ באחוזים.', answer: 35, check: '7/20*100',
+    { problem: 'כתבו את $\\frac{7}{20}$ באחוזים.', answer: 35, check: '7/20*100', fig: bar(20, 7),
       steps: [
         { action: 'פי כמה מרחיבים ל־$100$?', why: 'אחוז הוא מאיות, ולכן רוצים מכנה $100$.', result: '100 : 20 = 5', calc: { expr: '100/20', value: 5 } },
         { action: 'כופלים גם את המונה ב־$5$.', why: 'הרחבה כופלת את המונה ואת המכנה באותו מספר.', result: '\\frac{7}{20} = \\frac{35}{100}', calc: { expr: '7*5', value: 35 } },
-        { action: 'קוראים את האחוז.', why: '$35$ מאיות הם $35\\%$.', result: '\\frac{35}{100} = 35\\%', value: '7*5' },
+        { action: 'קוראים את האחוז.', why: '$35$ מאיות הם $35\\%$.', result: '\\frac{35}{100} = 35\\%', value: '7*5', fig: dl(pctLine(5, 4), amount(20, 1, 'חלקים מתוך 20', 5), { at: 35 }) },
       ] },
-    { problem: 'כתבו את $0.08$ באחוזים.', answer: 8, check: '0.08*100',
+    { problem: 'כתבו את $0.08$ באחוזים.', answer: 8, check: '0.08*100', fig: dl(pctLine(2, 10), amount(1, 0.02, 'מספר עשרוני', 10), { at: 8, show: 'bottom' }),
       steps: [
         { action: 'כותבים כמאיות.', why: 'הספרה $8$ היא במקום המאיות.', result: '0.08 = \\frac{8}{100}', value: '0.08*100' },
-        { action: 'קוראים את האחוז.', why: 'מאיות הן אחוזים.', result: '8\\%', value: '8' },
+        { action: 'קוראים את האחוז.', why: 'מאיות הן אחוזים.', result: '8\\%', value: '8', fig: dl(pctLine(2, 10), amount(1, 0.02, 'מספר עשרוני', 10), { at: 8 }) },
       ] },
-    { problem: 'כתבו את $1.2$ באחוזים.', answer: 120, check: '1.2*100',
+    { problem: 'כתבו את $1.2$ באחוזים.', answer: 120, check: '1.2*100', fig: dl(pctLine(10, 5, 150), amount(1.5, 0.1, 'מספר עשרוני', 5), { at: 120, show: 'bottom' }),
       steps: [
         { action: 'כופלים ב־$100$.', why: 'כל שלם הוא $100\\%$.', result: '1.2 \\cdot 100 = 120', value: '1.2*100' },
-        { action: 'קוראים את האחוז.', why: 'יותר מ־$1$ הוא יותר מהשלם.', result: '120\\%', value: '120' },
+        { action: 'קוראים את האחוז.', why: 'יותר מ־$1$ הוא יותר מהשלם.', result: '120\\%', value: '120', fig: dl(pctLine(10, 5, 150), amount(1.5, 0.1, 'מספר עשרוני', 5), { at: 120 }) },
       ] },
   ],
   together: [
-    { problem: 'במבחן $25$ שאלות, ודנה ענתה נכון על $19$ מהן. איזה אחוז מהשאלות ענתה נכון?',
+    { problem: 'במבחן $25$ שאלות, ודנה ענתה נכון על $19$ מהן. איזה אחוז מהשאלות ענתה נכון?', fig: dl(pctLine(4, 25), amount(25, 1, 'שאלות', 5), { at: 76, show: 'bottom' }),
       steps: [
         { prompt: 'כמה אחוזים שווה כל שאלה?', choices: [
           { text: '$4\\%$', ok: true, feedback: 'נכון: $100 : 25 = 4$.' },
@@ -128,7 +137,7 @@ const stair1: StairContent = {
         ], hints: ['כל $25$ השאלות יחד הן $100\\%$.', '$100 : 25$.'], done: 'כל שאלה היא $4\\%$.' },
       ],
       final: { prompt: 'איזה אחוז ענתה נכון?', answer: 76, check: '19*4', hints: ['$19$ שאלות, כל אחת $4\\%$.', '$19 \\cdot 4$.'] } },
-    { problem: 'כתבו את $0.6$ באחוזים.',
+    { problem: 'כתבו את $0.6$ באחוזים.', fig: dl(pctLine(10, 10), amount(1, 0.1, 'מספר עשרוני', 10), { at: 60, show: 'bottom' }),
       steps: [
         { prompt: '$0.6$ הם כמה מאיות?', choices: [
           { text: '$60$', ok: true, feedback: 'נכון: $0.6 = 0.60$, שישים מאיות.' },
@@ -228,25 +237,25 @@ const stair2: StairContent = {
       wrongWhy: { 1: 'בח׳1 האחוז גדול יותר, אבל הכיתה קטנה יותר: $25\\%$ מ־$28$ הם $7$, כמו בח׳2.', 2: 'בח׳2 יש יותר תלמידים, אבל אחוז קטן יותר: $20\\%$ מ־$35$ הם $7$.' } },
   ],
   examples: [
-    { problem: 'כמה הם $35\\%$ מ־$240$?', answer: 84, check: '0.35*240',
+    { problem: 'כמה הם $35\\%$ מ־$240$?', answer: 84, check: '0.35*240', fig: dl(pctLine(5, 4), amount(240, 12, 'הכמות', 20), { at: 35, show: 'top', label: '?' }),
       steps: [
-        { action: 'מוצאים $10\\%$: מחלקים ב־$10$.', why: '$10\\%$ הם עשירית מהכמות.', result: '240 : 10 = 24', calc: { expr: '240/10', value: 24 } },
-        { action: 'מוצאים $5\\%$: חצי מ־$10\\%$.', why: '$5$ הוא חצי מ־$10$.', result: '24 : 2 = 12', calc: { expr: '24/2', value: 12 } },
-        { action: 'מחברים: $35\\% = 30\\% + 5\\%$.', why: '$30\\%$ הם שלוש פעמים $10\\%$.', result: '3 \\cdot 24 + 12 = 84', value: '3*24 + 12' },
+        { action: 'מוצאים $10\\%$: מחלקים ב־$10$.', why: '$10\\%$ הם עשירית מהכמות.', result: '240 : 10 = 24', calc: { expr: '240/10', value: 24 }, fig: dl(pctLine(5, 4), amount(240, 12, 'הכמות', 20), { at: 10 }) },
+        { action: 'מוצאים $5\\%$: חצי מ־$10\\%$.', why: '$5$ הוא חצי מ־$10$.', result: '24 : 2 = 12', calc: { expr: '24/2', value: 12 }, fig: dl(pctLine(5, 4), amount(240, 12, 'הכמות', 20), { at: 5 }) },
+        { action: 'מחברים: $35\\% = 30\\% + 5\\%$.', why: '$30\\%$ הם שלוש פעמים $10\\%$.', result: '3 \\cdot 24 + 12 = 84', value: '3*24 + 12', fig: dl(pctLine(5, 4), amount(240, 12, 'הכמות', 20), { at: 35 }) },
       ] },
-    { problem: 'מעיל עולה $360$ ש״ח, ויש עליו הנחה של $25\\%$. כמה שקלים חוסכים?', answer: 90, check: '360/4',
+    { problem: 'מעיל עולה $360$ ש״ח, ויש עליו הנחה של $25\\%$. כמה שקלים חוסכים?', answer: 90, check: '360/4', fig: bar(4, 1, { whole: 360 }),
       steps: [
         { action: 'הנחה של $25\\%$ היא רבע מהמחיר.', why: '$25\\% = \\frac{25}{100} = \\frac{1}{4}$.', result: '25\\% = \\frac{1}{4}', calc: { expr: '25/100', value: 0.25 } },
-        { action: 'מחלקים את המחיר ב־$4$.', why: 'רבע מכמות הוא הכמות חלקי $4$.', result: '360 : 4 = 90', value: '0.25*360' },
+        { action: 'מחלקים את המחיר ב־$4$.', why: 'רבע מכמות הוא הכמות חלקי $4$.', result: '360 : 4 = 90', value: '0.25*360', fig: dl(pctLine(25), amount(360, 90, 'מחיר בשקלים'), { at: 25 }) },
       ] },
-    { problem: 'כמה הם $150\\%$ מ־$40$?', answer: 60, check: '1.5*40',
+    { problem: 'כמה הם $150\\%$ מ־$40$?', answer: 60, check: '1.5*40', fig: dl(pctLine(10, 5, 150), amount(60, 4, 'הכמות'), { at: 100, show: 'top', label: '40', blank: true }),
       steps: [
         { action: 'מפרקים: $150\\% = 100\\% + 50\\%$.', why: '$100\\%$ הם כל הכמות, ו־$50\\%$ חצי ממנה.', result: '100\\% + 50\\% = 150\\%', calc: { expr: '100+50', value: 150 } },
-        { action: 'כל הכמות ועוד חצי ממנה.', why: 'יותר מ־$100\\%$ נותן יותר מהכמות.', result: '40 + 20 = 60', value: '40 + 0.5*40' },
+        { action: 'כל הכמות ועוד חצי ממנה.', why: 'יותר מ־$100\\%$ נותן יותר מהכמות.', result: '40 + 20 = 60', value: '40 + 0.5*40', fig: dl(pctLine(10, 5, 150), amount(60, 4, 'הכמות', 5), { at: 150 }) },
       ] },
   ],
   together: [
-    { problem: 'כמה הם $30\\%$ מ־$70$?',
+    { problem: 'כמה הם $30\\%$ מ־$70$?', fig: dl(pctLine(10, 5), amount(70, 7, 'הכמות', 10), { at: 30, show: 'top', label: '?' }),
       steps: [
         { prompt: 'כמה הם $10\\%$ מ־$70$?', choices: [
           { text: '$7$', ok: true, feedback: 'נכון: $70 : 10 = 7$.' },
@@ -255,7 +264,7 @@ const stair2: StairContent = {
         ], hints: ['$10\\%$ הם עשירית.', '$70 : 10$.'], done: '$10\\%$ מ־$70$ הם $7$.' },
       ],
       final: { prompt: 'כמה הם $30\\%$?', answer: 21, check: '3*7', hints: ['$30\\%$ הם שלוש פעמים $10\\%$.', '$3 \\cdot 7$.'] } },
-    { problem: 'בכיתה $28$ תלמידים, ו־$25\\%$ מהם מנגנים. כמה תלמידים מנגנים?',
+    { problem: 'בכיתה $28$ תלמידים, ו־$25\\%$ מהם מנגנים. כמה תלמידים מנגנים?', fig: bar(4, 1, { whole: 28 }),
       steps: [
         { prompt: '$25\\%$ הם:', choices: [
           { text: 'רבע', ok: true, feedback: 'נכון: $\\frac{25}{100} = \\frac{1}{4}$.' },
@@ -351,20 +360,20 @@ const stair3: StairContent = {
       wrongWhy: { 1: '$90$ הוא הסכום שחסכה, לא האחוז.', 2: '$\\frac{225}{90}$ הפוך: החלק למעלה, השלם למטה.' } },
   ],
   examples: [
-    { problem: 'איזה אחוז הם $18$ מתוך $24$?', answer: 75, check: '18/24*100',
+    { problem: 'איזה אחוז הם $18$ מתוך $24$?', answer: 75, check: '18/24*100', fig: bar(24, 18, { whole: 24 }),
       steps: [
-        { action: 'כותבים את החלק חלקי השלם ומצמצמים.', why: 'גם $18$ וגם $24$ מתחלקים ב־$6$.', result: '\\frac{18}{24} = \\frac{3}{4}', calc: { expr: '18/24', value: 0.75 } },
-        { action: 'כופלים ב־$100$.', why: 'אחוזים הם מאיות.', result: '\\frac{3}{4} \\cdot 100 = 75', value: '3/4*100' },
+        { action: 'כותבים את החלק חלקי השלם ומצמצמים.', why: 'גם $18$ וגם $24$ מתחלקים ב־$6$.', fig: bar(4, 3, { whole: 24 }), result: '\\frac{18}{24} = \\frac{3}{4}', calc: { expr: '18/24', value: 0.75 } },
+        { action: 'כופלים ב־$100$.', why: 'אחוזים הם מאיות.', result: '\\frac{3}{4} \\cdot 100 = 75', value: '3/4*100', fig: dl(pctLine(25), amount(24, 6, 'הכמות'), { at: 75 }) },
       ] },
-    { problem: 'הסקייטבורד עולה $225$ ש״ח, ומאיה חסכה $90$ ש״ח. איזה אחוז מהמחיר חסכה?', answer: 40, check: '90/225*100',
+    { problem: 'הסקייטבורד עולה $225$ ש״ח, ומאיה חסכה $90$ ש״ח. איזה אחוז מהמחיר חסכה?', answer: 40, check: '90/225*100', fig: bar(5, 2, { whole: 225 }),
       steps: [
         { action: 'מצמצמים את $\\frac{90}{225}$ ב־$45$: המונה.', why: 'גם $90$ וגם $225$ מתחלקים ב־$45$.', result: '90 : 45 = 2', calc: { expr: '90/45', value: 2 } },
         { action: 'גם המכנה.', why: 'מצמצמים את שניהם באותו מספר.', result: '225 : 45 = 5', calc: { expr: '225/45', value: 5 } },
-        { action: 'כופלים ב־$100$.', why: '$\\frac{2}{5}$ מהמחיר, באחוזים.', result: '\\frac{2}{5} \\cdot 100 = 40', value: '2/5*100' },
+        { action: 'כופלים ב־$100$.', why: '$\\frac{2}{5}$ מהמחיר, באחוזים.', result: '\\frac{2}{5} \\cdot 100 = 40', value: '2/5*100', fig: dl(pctLine(20), amount(225, 45, 'מחיר בשקלים'), { at: 40 }) },
       ] },
   ],
   together: [
-    { problem: 'איזה אחוז הם $12$ מתוך $80$?',
+    { problem: 'איזה אחוז הם $12$ מתוך $80$?', fig: bar(20, 3, { whole: 80 }),
       steps: [
         { prompt: 'איזה שבר?', choices: [
           { text: '$\\frac{12}{80}$', ok: true, feedback: 'נכון: החלק למעלה, השלם למטה.' },
@@ -372,7 +381,7 @@ const stair3: StairContent = {
         ], hints: ['מהו השלם? מה שאחרי "מתוך".', 'החלק $12$, השלם $80$.'], done: 'השבר $\\frac{12}{80}$.' },
       ],
       final: { prompt: 'כמה אחוזים?', answer: 15, check: '12/80*100', hints: ['כופלים את השבר ב־$100$.', '$\\frac{12}{80} \\cdot 100$.'] } },
-    { problem: 'מחיר עלה מ־$40$ ל־$50$ ש״ח. המחיר החדש הוא כמה אחוזים מהמחיר הקודם?',
+    { problem: 'מחיר עלה מ־$40$ ל־$50$ ש״ח. המחיר החדש הוא כמה אחוזים מהמחיר הקודם?', fig: bars([{ den: 5, shaded: 4, label: '40' }, { den: 5, shaded: 5, label: '50' }]),
       steps: [
         { prompt: 'מהו השלם?', choices: [
           { text: 'המחיר הקודם, $40$', ok: true, feedback: 'נכון: משווים למחיר הקודם.' },
@@ -468,20 +477,20 @@ const stair4: StairContent = {
       wrongWhy: { 1: '$0.6$ הם $5\\%$ מ־$12$. אבל $12$ הוא החלק.', 2: '$2.4$ הוא רק $1\\%$.' } },
   ],
   examples: [
-    { problem: '$40\\%$ מהתלמידים הם $14$. כמה תלמידים יש?', answer: 35, check: '14/40*100',
+    { problem: '$40\\%$ מהתלמידים הם $14$. כמה תלמידים יש?', answer: 35, check: '14/40*100', fig: dl(pctLine(10, 5), amount(35, 3.5, 'תלמידים'), { at: 40, label: '14', blank: true }),
       steps: [
         { action: 'מוצאים $1\\%$.', why: '$40\\%$ הם $40$ חלקים של $1\\%$.', result: '14 : 40 = 0.35', calc: { expr: '14/40', value: 0.35 } },
-        { action: 'מוצאים $100\\%$.', why: 'השלם הוא מאה חלקים של $1\\%$.', result: '0.35 \\cdot 100 = 35', value: '0.35*100' },
+        { action: 'מוצאים $100\\%$.', why: 'השלם הוא מאה חלקים של $1\\%$.', result: '0.35 \\cdot 100 = 35', value: '0.35*100', fig: dl(pctLine(10, 5), amount(35, 3.5, 'תלמידים', 10), { at: 100 }) },
         { action: 'בודקים.', why: '$40\\%$ מהשלם צריכים להחזיר את החלק.', result: '0.4 \\cdot 35 = 14', calc: { expr: '0.4*35', value: 14 } },
       ] },
-    { problem: 'עמלה של $0.5\\%$ מסכום מסוים היא $40$ ש״ח. מה הסכום?', answer: 8000, check: '40/0.5*100',
+    { problem: 'עמלה של $0.5\\%$ מסכום מסוים היא $40$ ש״ח. מה הסכום?', answer: 8000, check: '40/0.5*100', fig: pctTable(['0.5%', '1%', '100%'], [40, '?', '?']),
       steps: [
-        { action: '$1\\%$ הוא פי $2$ מ־$0.5\\%$.', why: 'חצי אחוז הוא $40$, ולכן אחוז שלם $80$.', result: '40 : 0.5 = 80', calc: { expr: '40/0.5', value: 80 } },
-        { action: 'מוצאים $100\\%$.', why: 'השלם הוא מאה פעמים $1\\%$.', result: '80 \\cdot 100 = 8000', value: '80*100' },
+        { action: '$1\\%$ הוא פי $2$ מ־$0.5\\%$.', why: 'חצי אחוז הוא $40$, ולכן אחוז שלם $80$.', result: '40 : 0.5 = 80', calc: { expr: '40/0.5', value: 80 }, fig: pctTable(['0.5%', '1%', '100%'], [40, 80, '?']) },
+        { action: 'מוצאים $100\\%$.', why: 'השלם הוא מאה פעמים $1\\%$.', result: '80 \\cdot 100 = 8000', value: '80*100', fig: pctTable(['0.5%', '1%', '100%'], [40, 80, 8000]) },
       ] },
   ],
   together: [
-    { problem: '$25\\%$ מהעוגה הם $300$ גרם. כמה שוקלת העוגה כולה?',
+    { problem: '$25\\%$ מהעוגה הם $300$ גרם. כמה שוקלת העוגה כולה?', fig: dl(pctLine(25), amount(1200, 300, 'גרם'), { at: 25, label: '300', blank: true }),
       steps: [
         { prompt: '$25\\%$ הם:', choices: [
           { text: 'רבע', ok: true, feedback: 'נכון: $\\frac{25}{100} = \\frac{1}{4}$.' },
@@ -489,7 +498,7 @@ const stair4: StairContent = {
         ], hints: ['$25$ מתוך $100$.', 'ארבעה חלקים כאלה הם $100\\%$.'], done: '$300$ גרם הם רבע מהעוגה.' },
       ],
       final: { prompt: 'כמה גרם שוקלת העוגה?', answer: 1200, check: '300*4', hints: ['העוגה כולה היא ארבעה רבעים.', '$300 \\cdot 4$.'] } },
-    { problem: '$30\\%$ מהדרך הם $45$ ק״מ. כמה ק״מ הדרך כולה?',
+    { problem: '$30\\%$ מהדרך הם $45$ ק״מ. כמה ק״מ הדרך כולה?', fig: dl(pctLine(10, 5), amount(150, 15, 'ק״מ'), { at: 30, label: '45', blank: true }),
       steps: [
         { prompt: 'כמה הם $10\\%$ מהדרך?', choices: [
           { text: '$15$ ק״מ', ok: true, feedback: 'נכון: $30\\%$ הם שלוש פעמים $10\\%$, ו־$45 : 3 = 15$.' },
@@ -596,24 +605,24 @@ const stair5: StairContent = {
       wrongWhy: { 1: '$200 \\cdot 0.9 = 180$, ו־$180 \\cdot 1.1 = 198$.', 2: 'ההתייקרות נלקחת מ־$180$: $18$ שקלים. $180 + 18 = 198$.' } },
   ],
   examples: [
-    { problem: 'מחיר של $240$ ש״ח בהנחה של $15\\%$. כמה משלמים?', answer: 204, check: '240*0.85',
+    { problem: 'מחיר של $240$ ש״ח בהנחה של $15\\%$. כמה משלמים?', answer: 204, check: '240*0.85', fig: bar(20, 20, { cross: 3, whole: 240 }),
       steps: [
         { action: 'כמה אחוזים נשארים?', why: 'בהנחה משלמים את מה שלא ירד.', result: '100\\% - 15\\% = 85\\%', calc: { expr: '100-15', value: 85 } },
-        { action: 'כופלים ב־$0.85$.', why: '$85\\% = 0.85$.', result: '0.85 \\cdot 240 = 204', value: '0.85*240' },
+        { action: 'כופלים ב־$0.85$.', why: '$85\\% = 0.85$.', result: '0.85 \\cdot 240 = 204', value: '0.85*240', fig: dl(pctLine(5, 4), amount(240, 12, 'מחיר בשקלים', 20), { at: 85 }) },
       ] },
-    { problem: 'מחיר עלה מ־$35$ ל־$38.50$ ש״ח. בכמה אחוזים התייקר?', answer: 10, check: '(38.5-35)/35*100',
+    { problem: 'מחיר עלה מ־$35$ ל־$38.50$ ש״ח. בכמה אחוזים התייקר?', answer: 10, check: '(38.5-35)/35*100', fig: ticket,
       steps: [
         { action: 'מוצאים את השינוי.', why: 'כמה שקלים נוספו.', result: '38.5 - 35 = 3.5', calc: { expr: '38.5-35', value: 3.5 } },
         { action: 'משווים למחיר הקודם.', why: 'האחוז תמיד מהמחיר שלפני השינוי.', result: '\\frac{3.5}{35} \\cdot 100 = 10', value: '3.5/35*100' },
       ] },
-    { problem: 'מחיר של $500$ ש״ח התייקר ב־$20\\%$, ואחר כך הוזל ב־$20\\%$. כמה הוא עכשיו?', answer: 480, check: '500*1.2*0.8',
+    { problem: 'מחיר של $500$ ש״ח התייקר ב־$20\\%$, ואחר כך הוזל ב־$20\\%$. כמה הוא עכשיו?', answer: 480, check: '500*1.2*0.8', fig: twice([500, '?', '?']),
       steps: [
-        { action: 'אחרי ההתייקרות.', why: 'התייקרות של $20\\%$ היא כפל ב־$1.2$.', result: '500 \\cdot 1.2 = 600', calc: { expr: '500*1.2', value: 600 } },
-        { action: 'אחרי ההוזלה, מ־$600$.', why: 'הוזלה של $20\\%$ היא כפל ב־$0.8$, מהמחיר שלפניה.', result: '600 \\cdot 0.8 = 480', value: '600*0.8' },
+        { action: 'אחרי ההתייקרות.', why: 'התייקרות של $20\\%$ היא כפל ב־$1.2$.', result: '500 \\cdot 1.2 = 600', calc: { expr: '500*1.2', value: 600 }, fig: twice([500, 600, '?']) },
+        { action: 'אחרי ההוזלה, מ־$600$.', why: 'הוזלה של $20\\%$ היא כפל ב־$0.8$, מהמחיר שלפניה.', result: '600 \\cdot 0.8 = 480', value: '600*0.8', fig: twice([500, 600, 480]) },
       ] },
   ],
   together: [
-    { problem: 'מכשירי כתיבה מתוצרת הארץ עולים $300$ ש״ח, ויש עליהם הנחה של $15\\%$. כמה ישלם גיא?',
+    { problem: 'מכשירי כתיבה מתוצרת הארץ עולים $300$ ש״ח, ויש עליהם הנחה של $15\\%$. כמה ישלם גיא?', fig: bar(20, 20, { cross: 3, whole: 300 }),
       steps: [
         { prompt: 'בכמה כופלים את המחיר?', choices: [
           { text: '$0.85$', ok: true, feedback: 'נכון: אחרי הנחה של $15\\%$ נשארים $85\\%$.' },
@@ -622,7 +631,7 @@ const stair5: StairContent = {
         ], hints: ['כמה אחוזים מהמחיר נשארים?', '$100\\% - 15\\%$.'], done: 'כופלים ב־$0.85$.' },
       ],
       final: { prompt: 'כמה ישלם גיא?', answer: 255, check: '300*0.85', hints: ['$300 \\cdot 0.85$.', '$300 - 45$.'] } },
-    { problem: 'מכשירי כתיבה מיובאים עלו $300$ ש״ח והתייקרו ב־$15\\%$. כמה תשלם מיטל?',
+    { problem: 'מכשירי כתיבה מיובאים עלו $300$ ש״ח והתייקרו ב־$15\\%$. כמה תשלם מיטל?', fig: bars([{ den: 23, shaded: 20, label: '300' }, { den: 23, shaded: 23, label: '?' }]),
       steps: [
         { prompt: 'בכמה כופלים את המחיר?', choices: [
           { text: '$1.15$', ok: true, feedback: 'נכון: אחרי התייקרות של $15\\%$ המחיר הוא $115\\%$ מהקודם.' },

@@ -291,6 +291,8 @@
 .np-pin.tone-c path, .np-pin.tone-c .np-dot { stroke: var(--good); }
 .np-pin.tone-d path, .np-pin.tone-d .np-dot { stroke: var(--ai); }
 .np-pin.on path { stroke-width: 4; }
+/* the tray above the number line: the markers not placed yet wait there, on no number (NumberPins) */
+.np-tray { fill: var(--ground); stroke: var(--rule-strong); stroke-width: 2; stroke-dasharray: 6 5; }
 .np-chips { display: flex; gap: 6px; }
 .np-chip { min-width: 52px; min-height: 44px; padding: 0 10px; border-radius: 14px; border: 2px solid var(--rule); background: var(--paper); font-family: var(--font-display); font-weight: 700; font-size: var(--t-md); box-shadow: 0 3px 0 var(--rule-press); }
 .np-chip.tone-a { color: var(--brand-d); }

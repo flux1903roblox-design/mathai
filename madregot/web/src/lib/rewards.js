@@ -4,8 +4,9 @@
 // only with the screens that show it (the wardrobe, the quests tab, the end of a lesson), never at boot.
 import { TOPICS, TOPIC, topicsFor } from '@/content/index.js';
 import { isDone, isPlaced, partsOf, stagesDone, stagesWorked, chestAfter, STAIR_STAGES } from './path.js';
-import { ITEMS, COLORS, TRACK_EVERY, colourForFamily, chestPieces } from './wardrobe.js';
-import { dayBefore } from './days.js';
+import { ITEMS, COLORS, TRACK_EVERY, colourForFamily, chestPieces, chestDay } from './wardrobe.js';
+
+export { chestDay };
 
 /** Stages still to do on a stair before it counts as done: none once done, one when only its check waits, else the rest of five. */
 export function stairLeft(topic, level, path = {}, skills = {}) {
@@ -60,18 +61,6 @@ export const leftText = (n) => (n === 1 ? 'עוד שלב אחד' : `עוד ${n} 
 
 /** Where an upcoming piece comes from, in a few words: "ביחידת זוויות", or nothing for a piece for stages. */
 export const whereText = (p) => (p.kind === 'stages' ? 'על כל שלב שתסיימו, בכל יחידה' : p.kind === 'chest' ? `בתיבה של ${TOPIC[p.topic].title}` : `בסוף ${TOPIC[p.topic].title}`);
-
-/**
- * The day whose quest chest still waits for its choice: the latest day of the last week whose three quests were done,
- * when no piece was chosen for it yet (an earlier day waits no longer once a later chest opened). null when none waits.
- */
-export function chestDay(days = {}, look = {}, todayKey) {
-  let d = todayKey;
-  for (let i = 0; i < 7; i += 1, d = dayBefore(d)) {
-    if (days[d]?.questsRewarded) return look?.picks?.[d] ? null : d;
-  }
-  return null;
-}
 
 /** The quest chest's choice waiting now: { day, ids } or null (nothing waits, or every chest piece is owned). */
 export function chestOffer({ days = {}, look = {}, today, owned = new Set() } = {}) {
