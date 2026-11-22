@@ -355,7 +355,8 @@ export function figPlain(f) {
     // A drawing that writes no angle's size is a measurement drawing (stage 2, MEASURE-1.5) when content/grid.js has
     // words for it: the grid and the shape's corners, circles and arcs, the parts taken away or added, the lengths
     // written on it, a right angle, its name. The angle stairs' drawings (CURRICULUM-10) always write an angle, so
-    // they keep the reading angle by angle, each with its vertex.
+    // they keep the reading angle by angle, each with its vertex, after the drawing's own words (its label, what a screen
+    // reader reads: which angle a ray halves, which half is asked; council round 3: "∢O 130°, ∢O ?" alone said neither).
     case 'geo': {
       const measured = (f.angles || []).some((g) => g.text) ? '' : figWords(f);
       if (measured) return measured;
@@ -366,6 +367,8 @@ export function figPlain(f) {
         ...(f.segs || []).filter((sg) => sg.label != null && sg.label !== '').map((sg) => `${nm(sg.a)}${nm(sg.b)} = ${sg.label}`),
         ...(f.segs || []).filter((sg) => sg.ticks).map((sg) => `${nm(sg.a)}${nm(sg.b)}: ${sg.ticks} סימונים`),
       ];
+      const label = String(f.label ?? '').trim();
+      if (label) return marks.length ? `שרטוט: ${label}. מסומן: ${marks.join(', ')}` : `שרטוט: ${label}`;
       return marks.length ? `שרטוט: ${marks.join(', ')}` : 'שרטוט';
     }
     // a proof as a still table (GEOM-3.9): the givens, what to prove, and each row's claim and reason ("?" where asked)

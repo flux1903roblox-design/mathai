@@ -16,6 +16,7 @@ import GridShape from '@/components/manip/GridShape.jsx';
 import NetFold from '@/components/manip/NetFold.jsx';
 import CircleRoll, { sectorStrip, circleSaid } from '@/components/manip/CircleRoll.jsx';
 import { loadKatex } from '@/components/MathText.jsx';
+import { crossBisect } from './angleItems.js';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
   quadOf, manipSolution, manipWrong, manipText, manipPlain, triangleAngles, rightAtC,
@@ -1350,9 +1351,27 @@ describe('a geo drawing in words (GEOM-1.5): what it marks, for the tutor and an
     segs: [{ a: 'A', b: 'B', ticks: 2 }, { a: 'A', b: 'C', ticks: 2 }, { a: 'B', b: 'C', label: '12' }, { a: 'A', b: 'H', dash: true }, { a: 'H', b: '_M', label: '' }],
     angles: [{ at: 'A', from: 'B', to: 'C', text: '40°' }, { at: 'B', from: 'C', to: 'A', text: '?', target: true }, { at: 'H', from: 'C', to: 'A', right: true }, { at: '_M', from: 'A', to: 'H', text: 'x' }],
   };
-  it('reads the angles with their text, the right angles, the labelled sides and the ticks, in that order', () => {
-    expect(figPlain(fig)).toBe('שרטוט: ∢A 40°, ∢B ?, ∢M x, ∢H ישרה, BC = 12, AB: 2 סימונים, AC: 2 סימונים');
-    expect(itemPlain({ form: 'num', text: 'מה גודל הזווית?', fig, answer: 70 })).toContain('[שרטוט: ∢A 40°');
+  it('reads its words, then the angles with their text, the right angles, the labelled sides and the ticks, in that order', () => {
+    expect(figPlain(fig)).toBe('שרטוט: משולש שווה־שוקיים ABC והגובה AH. מסומן: ∢A 40°, ∢B ?, ∢M x, ∢H ישרה, BC = 12, AB: 2 סימונים, AC: 2 סימונים');
+    expect(itemPlain({ form: 'num', text: 'מה גודל הזווית?', fig, answer: 70 })).toContain('[שרטוט: משולש שווה־שוקיים ABC והגובה AH. מסומן: ∢A 40°');
+    // with no words of its own, the marks alone, as before
+    const { label, ...bare } = fig;
+    expect(label).toBeTruthy();
+    expect(figPlain(bare)).toBe('שרטוט: ∢A 40°, ∢B ?, ∢M x, ∢H ישרה, BC = 12, AB: 2 סימונים, AC: 2 סימונים');
+  });
+  // council round 3: "[שרטוט: ∢O 130°, ∢O ?]" did not say which angle the ray halves, nor which half is asked; the
+  // drawing's own words (what a screen reader reads, its label) do
+  it('an angle drawing says which angle a ray halves and which half is asked', () => {
+    for (let i = 0; i < 60; i += 1) {
+      const it = crossBisect();
+      const words = figPlain(it.fig);
+      const [, a, kind] = it.key.split(':');
+      expect(words, it.key).toContain(it.fig.label);
+      expect(words, it.key).toContain(kind === 'v' ? 'וקרן שחוצה את הזווית שמולה' : 'וקרן שחוצה את אחת הזוויות שלידה');
+      expect(words, it.key).toContain('אחד החצאים מסומן ב־?');
+      expect(words, it.key).toContain(`∢O ${a}°`);
+      expect(itemPlain(it), it.key).toContain(it.fig.label);
+    }
   });
   it('a drawing that marks nothing still says it is a drawing', () => {
     expect(figPlain({ type: 'geo', pts: { A: [0, 0], B: [1, 0] }, segs: [{ a: 'A', b: 'B' }] })).toBe('שרטוט');
