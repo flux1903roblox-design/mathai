@@ -23,6 +23,18 @@ describe('motion presets', () => {
     expect(entrance({ opacity: 0, y: 10 })).toEqual({ opacity: 0, y: 10 });
   });
 
+  it('under reduced motion an entrance keeps its fade and drops its moves, so nothing is ever drawn out of place', async () => {
+    await loadMotionFeatures();
+    const real = globalThis.matchMedia;
+    globalThis.matchMedia = (q) => ({ matches: q === '(prefers-reduced-motion: reduce)' });
+    try {
+      expect(entrance({ opacity: 0, y: 10 })).toEqual({ opacity: 0 });
+      expect(entrance({ scale: 0, rotate: -30 })).toBe(false);
+      expect(swap().initial).toEqual({ opacity: 0 });
+      expect(entrance('hidden')).toBe('hidden');
+    } finally { globalThis.matchMedia = real; }
+  });
+
   it('every entrance in the app goes through entrance(): no m.* element is given a raw initial state', () => {
     const files = [];
     const walk = (d) => readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true }).forEach((e) => {
