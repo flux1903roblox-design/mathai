@@ -1,9 +1,10 @@
 // Proofs of congruence and similarity (ח׳, curriculum stage 4): the parts every proof shares. The topic object CONGR
 // (GEOM-5) is content/congr.js, in the first screen's list; this module loads with the proofs (the congruence unit's
-// generators, the proof object, the tests), so the bank and the seven templates never enter the first download.
+// generators, the proof object, the tests), so the bank and the eleven templates never enter the first download.
 // sim.js imports the templates from here.
 //   REASONS        the bank of reasons a proof row may give, in the Ministry's and the Weizmann books' wording (GEOM-3.7)
-//   PROOFS         the seven proof templates T1–T7 (GEOM-3.8), each { id, thm, uses, letters, given, goal, steps, free,
+//   PROOFS         the proof templates T1–T7 (GEOM-3.8) and T8–T11 (two proofs in each of sim:1's and sim:3's mastery
+//                  checks, the student council's review), each { id, thm, uses, letters, given, goal, steps, free,
 //                  fig }: steps in the challenge track's `order` shape (a reason asked as a choice, or `fixed`), `thm`
 //                  the row that names the theorem and `uses` the rows that theorem stands on; the letters can be swapped
 //                  for a fresh set (proofIn), so a template is not remembered by its letters
@@ -89,8 +90,12 @@ const ISO_A = triFromAngles(55, 55, 5);
 // T7: a triangle with 55° at C and 70° at B on a base of 6; D and E 0.45 of the way from A to B and to C, so DE ∥ BC
 const T7_A = triFromAngles(55, 70, 6);
 const along = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+// T11: a triangle with 50° at C and 70° at B on a base of 6 (60° at A), and DE across it the other way: AED ∼ ABC by
+// 0.55, so AE = 0.55 · AB on AC and AD = 0.55 · AC on AB (the angle AED is then 70°, the angle ABC's size)
+const T11_A = triFromAngles(50, 70, 6);
+const T11_AB = Math.hypot(6 - T11_A[0], T11_A[1]); const T11_AC = Math.hypot(...T11_A);
 
-/** The seven templates, in their first letter set. */
+/** The eleven templates, in their first letter set. */
 export const PROOFS = [
   {
     id: 'T1', thm: 3, uses: [0, 1, 2], letters: 'ABCDM',
@@ -239,6 +244,96 @@ export const PROOFS = [
       pts: { A: T7_A, B: [6, 0], C: [0, 0], D: along(T7_A, [6, 0], 0.45), E: along(T7_A, [0, 0], 0.45) },
       polys: [{ pts: ['A', 'B', 'C'] }],
       segs: [{ a: 'D', b: 'E', arrows: 1 }, { a: 'C', b: 'B', arrows: 1 }],
+      view: [300, 210],
+    },
+  },
+  // T8–T11: more proofs for sim:1's and sim:3's checks, so that each check asks two different ones (the student
+  // council's review: with one proof a check, numbers alone passed four of five). T8, the converse: a bisector that is
+  // also an altitude makes the triangle isosceles; its right angles come from the given ⊥, where T5 and T9 get the same
+  // row from two equal adjacent angles
+  {
+    id: 'T8', thm: 3, uses: [0, 1, 2], letters: 'ABCD',
+    given: '$AD$ חוצה את $\\sphericalangle A$, ו־$AD \\perp BC$.',
+    goal: '$AB = AC$',
+    steps: [
+      asked(`$${ang('BAD')} = ${ang('CAD')}$`, R.bisector, R.given, R.vertical),
+      asked(`$${ang('ADB')} = ${ang('ADC')} = 90°$`, R.perpendicular, R.linearPair, R.given),
+      fixed('$AD = AD$', R.commonSide),
+      asked(`$${tri('ABD')} \\cong ${tri('ACD')}$`, R.asa, R.sas, R.sss),
+      asked('$AB = AC$', R.sides, R.isoBase, R.given),
+    ],
+    free: [[0, 1, 2]],
+    fig: {
+      type: 'geo', label: 'משולש ABC והקטע AD המאונך ל־BC וחוצה את הזווית A',
+      pts: { A: ISO_A, B: [5, 0], C: [0, 0], D: [2.5, 0] },
+      polys: [{ pts: ['A', 'B', 'C'] }],
+      segs: [{ a: 'A', b: 'D' }],
+      angles: [{ at: 'A', from: 'C', to: 'D', r: 30 }, { at: 'A', from: 'D', to: 'B', r: 30 }, { at: 'D', from: 'B', to: 'A', right: true }],
+      view: [300, 210],
+    },
+  },
+  // T9: the median to the base of an isosceles triangle is its bisector and its altitude (צ.צ.צ)
+  {
+    id: 'T9', thm: 3, uses: [0, 1, 2], letters: 'ABCD',
+    given: '$AB = AC$, ו־$D$ היא אמצע הקטע $BC$.',
+    goal: `$${ang('BAD')} = ${ang('CAD')}$ ו־$AD \\perp BC$`,
+    steps: [
+      fixed('$AB = AC$', R.given),
+      asked('$BD = DC$', R.midpoint, R.given, R.commonSide),
+      fixed('$AD = AD$', R.commonSide),
+      asked(`$${tri('ABD')} \\cong ${tri('ACD')}$`, R.sss, R.sas, R.asa),
+      asked(`$${ang('BAD')} = ${ang('CAD')}$`, R.angles, R.bisector, R.given),
+      asked(`$${ang('ADB')} = ${ang('ADC')}$`, R.angles, R.vertical, R.given),
+      asked(`$${ang('ADB')} = ${ang('ADC')} = 90°$`, R.linearPair, R.perpendicular, R.given),
+    ],
+    free: [[0, 1, 2], [4, 5]],
+    fig: {
+      type: 'geo', label: 'משולש ABC ש־AB ו־AC בו מסומנים שווים, והקטע AD אל אמצע BC: BD ו־DC מסומנים שווים',
+      pts: { A: ISO_A, B: [5, 0], C: [0, 0], D: [2.5, 0] },
+      polys: [{ pts: ['A', 'B', 'C'] }],
+      segs: [{ a: 'A', b: 'B', ticks: 1 }, { a: 'A', b: 'C', ticks: 1 }, { a: 'C', b: 'D', ticks: 2 }, { a: 'D', b: 'B', ticks: 2 }, { a: 'A', b: 'D' }],
+      view: [300, 210],
+    },
+  },
+  // T10: the bowtie (פרפר) of sim:3, AB ∥ CD: T4's drawing with the triangle below 1.5 times the one above
+  {
+    id: 'T10', thm: 2, uses: [0, 1], letters: 'ABCDM',
+    given: '$AB \\parallel CD$, והקטעים $AD$ ו־$BC$ נחתכים בנקודה $M$.',
+    goal: `$${tri('AMB')} \\sim ${tri('DMC')}$`,
+    steps: [
+      asked(`$${ang('AMB')} = ${ang('DMC')}$`, R.vertical, R.alternate, R.commonAngle),
+      asked(`$${ang('A')} = ${ang('D')}$`, R.alternate, R.correspondingPar, R.vertical),
+      asked(`$${tri('AMB')} \\sim ${tri('DMC')}$`, R.aa, R.asa, R.sss),
+    ],
+    free: [[0, 1]],
+    fig: {
+      type: 'geo', label: 'הקטעים AD ו־BC נחתכים בנקודה M, ו־AB מקביל ל־CD',
+      // C and D are B and A taken through M, 1.5 times as far: AB ∥ CD, and the triangles AMB and DMC are similar
+      pts: { A: [-2.4, 1.6], B: [0.8, 1.6], C: [-1.2, -2.4], D: [3.6, -2.4], M: [0, 0] },
+      polys: [{ pts: ['A', 'M', 'B'] }, { pts: ['D', 'M', 'C'] }],
+      segs: [{ a: 'A', b: 'B', arrows: 1 }, { a: 'C', b: 'D', arrows: 1 }],
+      // M on the bisector of the angle AMC, to the left of the crossing: clear of both lines
+      lab: { M: [-21, 6] },
+      view: [300, 210],
+    },
+  },
+  // T11: a common angle and a pair given equal (DE is not parallel to BC: the equal angles are given, and E matches B)
+  {
+    id: 'T11', thm: 2, uses: [0, 1], letters: 'ABCDE',
+    given: 'הנקודה $D$ על $AB$ והנקודה $E$ על $AC$, ו־$\\sphericalangle AED = \\sphericalangle ABC$.',
+    goal: `$${tri('AED')} \\sim ${tri('ABC')}$`,
+    steps: [
+      asked(`$${ang('A')} = ${ang('A')}$`, R.commonAngle, R.vertical, R.given),
+      asked(`$${ang('AED')} = ${ang('ABC')}$`, R.given, R.correspondingPar, R.alternate),
+      asked(`$${tri('AED')} \\sim ${tri('ABC')}$`, R.aa, R.asa, R.sss),
+    ],
+    free: [[0, 1]],
+    fig: {
+      type: 'geo', label: 'משולש ABC. הנקודה D על AB והנקודה E על AC, והזוויות AED ו־ABC מסומנות שוות',
+      pts: { A: T11_A, B: [6, 0], C: [0, 0], D: along(T11_A, [6, 0], (0.55 * T11_AC) / T11_AB), E: along(T11_A, [0, 0], (0.55 * T11_AB) / T11_AC) },
+      polys: [{ pts: ['A', 'B', 'C'] }],
+      segs: [{ a: 'D', b: 'E' }],
+      angles: [{ at: 'E', from: 'D', to: 'A', r: 24 }, { at: 'B', from: 'A', to: 'C', r: 24 }],
       view: [300, 210],
     },
   },

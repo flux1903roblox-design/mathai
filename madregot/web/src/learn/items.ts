@@ -22,8 +22,9 @@ import { withFormatNote } from '@/content/util.js';
  */
 export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control' | 'facts' | 'proof';
 /**
- * How many whole proofs a stair's mastery check asks (its level's `checkProofs`, in the first load's meta): congr:3
- * asks two, so four right of five are never numbers alone; sim:1 and sim:3 one each (the council's round 3).
+ * How many whole proofs a stair's mastery check asks (its level's `checkProofs`, in the first load's meta): congr:3,
+ * sim:1 and sim:3 ask two each, so four right of five are never numbers alone (the council's round 3; the student
+ * council's review found sim:1 and sim:3, with one each, passed on numbers alone).
  */
 export function proofsOf(skill: SkillId): number {
   const { topic, level } = parseSkill(skill);

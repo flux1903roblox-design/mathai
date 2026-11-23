@@ -2,9 +2,10 @@
 // rejected every proof item, so congr:3's mastery check asked numbers only (688 of 2,000 check draws were checkable, all
 // of them "use the congruence to find a number") and a student mastered the proof stair without a proof.
 // Now the proof stairs' mastery checks ask whole proofs: a template in a fresh letter set, its rows shuffled, every
-// reason asked, each row's choices in an order of their own, no hint. congr:3 asks two (so four right of five cannot be
-// numbers alone), sim:1 and sim:3 one each. The practice proofs (one or two reasons to fill in, the theorem alone, which
-// row is wrong) stay practice only.
+// reason asked, each row's choices in an order of their own, no hint. congr:3 asks two, so four right of five cannot be
+// numbers alone; sim:1 and sim:3 asked one each until the student council's review found that numbers alone passed them,
+// and now ask two too, from three templates each (T5, T8, T9 and T7, T10, T11), two different ones a check. The practice
+// proofs (one or two reasons to fill in, the theorem alone, which row is wrong) stay practice only.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { checkPlan, itemFor } from './items';
 import { MASTERY_N, MASTERY_NEED } from './mastery';
@@ -25,11 +26,11 @@ const realRandom = Math.random;
 beforeEach(() => { Math.random = seeded(20261122); });
 afterEach(() => { Math.random = realRandom; });
 
-const PROOF_STAIRS: Record<string, number> = { 'congr:3': 2, 'sim:1': 1, 'sim:3': 1 };
+const PROOF_STAIRS: Record<string, number> = { 'congr:3': 2, 'sim:1': 2, 'sim:3': 2 };
 const isProof = (it: any) => it.form === 'manip' && it.manip?.kind === 'proof';
 
 describe('the proof stairs\' mastery checks ask proofs', () => {
-  it('congr:3 asks two whole proofs of five, sim:1 and sim:3 one; no other stair asks any', () => {
+  it('congr:3, sim:1 and sim:3 ask two whole proofs of five; no other stair asks any', () => {
     for (const skill of ALL_SKILLS) {
       for (let s = 1; s <= 5; s += 1) {
         const plan = checkPlan({ purpose: 'mastery', skill }, seeded(s));
@@ -37,8 +38,8 @@ describe('the proof stairs\' mastery checks ask proofs', () => {
         expect(plan.filter((q) => q.source === 'proof').length, skill).toBe(PROOF_STAIRS[skill] || 0);
       }
     }
-    // numbers alone are at most three right of congr:3's five: not the four a pass needs
-    expect(MASTERY_N - PROOF_STAIRS['congr:3']).toBeLessThan(MASTERY_NEED);
+    // numbers alone are at most three right of a proof stair's five: not the four a pass needs
+    for (const n of Object.values(PROOF_STAIRS)) expect(MASTERY_N - n).toBeLessThan(MASTERY_NEED);
   });
 
   it('a proof question of a check: rows shuffled, at least three reasons asked, no hint, fair for a check', () => {
@@ -77,23 +78,55 @@ describe('the proof stairs\' mastery checks ask proofs', () => {
     }
   });
 
-  it('a whole check of congr:3 runs: the proofs answered right pass it, and numbers alone do not', () => {
-    for (let n = 0; n < 6; n += 1) {
-      for (const proofsRight of [true, false]) {
-        let s = startLesson({ kind: 'check', purpose: 'mastery', skill: 'congr:3', topic: 'congr', level: 3 });
-        let asked = 0; const proofs: string[] = [];
+  // The student council's review: a student who gets every number right and every proof wrong passed sim:1's and
+  // sim:3's checks, which asked one proof each (four right of five). 200 whole checks of each proof stair, played as
+  // that student: the number questions answered right, every proof left as it starts (its rows shuffled, no reason
+  // chosen). Before sim:1 and sim:3 asked two proofs this student passed 200 of 200 checks of each; congr:3, which
+  // asked two already, 0 of 200. Now no proof stair's check passes on numbers alone.
+  it('200 checks of each proof stair: numbers right and proofs wrong never pass', () => {
+    const passes: Record<string, number> = {};
+    for (const skill of Object.keys(PROOF_STAIRS)) {
+      const [topic, level] = skill.split(':');
+      passes[skill] = 0;
+      for (let n = 0; n < 200; n += 1) {
+        let s = startLesson({ kind: 'check', purpose: 'mastery', skill, topic, level: Number(level) });
+        let asked = 0;
         while (!s.finished && asked < 20) {
           const it = s.item; asked += 1;
-          if (isProof(it)) proofs.push(it.key);
-          const u = isProof(it) && !proofsRight ? proofStart(it.manip) : answerInput(it);
-          s = answer(s, u).s;
+          s = answer(s, isProof(it) ? proofStart(it.manip) : answerInput(it)).s;
           s = next(s);
         }
-        // two proofs, and two different ones: the same template in other letters is the same question (its key)
-        expect(proofs).toHaveLength(2);
-        expect(new Set(proofs).size, proofs.join(' ')).toBe(2);
-        expect(resultOf(s).passed, `proofs ${proofsRight ? 'right' : 'wrong'}`).toBe(proofsRight);
+        if (resultOf(s).passed) passes[skill] += 1;
       }
+    }
+    expect(passes).toEqual({ 'congr:3': 0, 'sim:1': 0, 'sim:3': 0 });
+  }, 60_000);
+
+  it('a whole check of each proof stair runs: the proofs answered right pass it, and numbers alone do not', () => {
+    // the templates each stair's check asks (content/congr.gen.js, sim.gen.js)
+    const TEMPLATES: Record<string, string[]> = { 'congr:3': ['T1', 'T2', 'T3', 'T4'], 'sim:1': ['T5', 'T8', 'T9'], 'sim:3': ['T7', 'T10', 'T11'] };
+    for (const skill of Object.keys(PROOF_STAIRS)) {
+      const [topic, level] = skill.split(':');
+      const seen = new Set<string>();
+      for (let n = 0; n < 12; n += 1) {
+        for (const proofsRight of [true, false]) {
+          let s = startLesson({ kind: 'check', purpose: 'mastery', skill, topic, level: Number(level) });
+          let asked = 0; const proofs: string[] = [];
+          while (!s.finished && asked < 20) {
+            const it = s.item; asked += 1;
+            if (isProof(it)) { proofs.push(it.key); seen.add(it.manip.tpl); }
+            const u = isProof(it) && !proofsRight ? proofStart(it.manip) : answerInput(it);
+            s = answer(s, u).s;
+            s = next(s);
+          }
+          // two proofs, and two different ones: the same template in other letters is the same question (its key)
+          expect(proofs, skill).toHaveLength(2);
+          expect(new Set(proofs).size, `${skill}: ${proofs.join(' ')}`).toBe(2);
+          expect(resultOf(s).passed, `${skill}: proofs ${proofsRight ? 'right' : 'wrong'}`).toBe(proofsRight);
+        }
+      }
+      // every template of the stair is asked, and none of another stair's
+      expect([...seen].sort(), skill).toEqual([...TEMPLATES[skill]].sort());
     }
   });
 });

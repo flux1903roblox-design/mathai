@@ -360,12 +360,12 @@ describe('the challenge tasks', () => {
     expect(order.steps.map((st) => (st.fixed ? 'fixed' : 'asked'))).toEqual(['fixed', 'fixed', 'fixed', 'asked', 'asked', 'fixed']);
   });
 
-  it('the seven proof templates follow the same rules, so a template that serves a challenge passes both engines (GEOM-3)', () => {
+  it('the eleven proof templates follow the same rules, so a template that serves a challenge passes both engines (GEOM-3)', () => {
     const parts = (PROOFS as any[]).flatMap((T) => LETTER_SETS.map((_: string, set: number) => {
       const U = proofIn(T, set);
       return [`${T.id}/${set}`, { type: 'order', prompt: 'סדרו את שלבי ההוכחה.', steps: U.steps, free: U.free } as Order] as const;
     }));
-    expect(parts).toHaveLength(21);
+    expect(parts).toHaveLength(33);
     parts.forEach(([id, p]) => {
       expect(p.steps.length, id).toBeGreaterThanOrEqual(3);
       p.steps.forEach((s) => {

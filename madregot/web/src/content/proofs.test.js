@@ -7,6 +7,7 @@ import { templateFaults, figureFaults } from './proof.check.js';
 import { firstOutOfPlace, shuffledOrder } from '@/learn/challenges/grade.ts';
 import { fairForCheck } from './index.js';
 import { manipSolution } from './manip.js';
+import { geoClashes, geoSweep, geoLayout } from '@/components/geoLayout.js';
 
 const angleAt = (a, b, c) => { const u = [a[0] - b[0], a[1] - b[1]]; const v = [c[0] - b[0], c[1] - b[1]]; return (Math.acos((u[0] * v[0] + u[1] * v[1]) / (Math.hypot(...u) * Math.hypot(...v))) * 180) / Math.PI; };
 
@@ -23,15 +24,22 @@ describe('the reason bank (GEOM-3.7)', () => {
   });
 });
 
-describe('the proof templates T1–T7 (GEOM-3.8)', () => {
-  it('are the seven of the spec, with the theorem each one names', () => {
-    expect(PROOFS.map((T) => T.id)).toEqual(['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']);
+describe('the proof templates T1–T11 (GEOM-3.8)', () => {
+  it('are the seven of the spec and the four of sim:1\'s and sim:3\'s checks, with the theorem each one names', () => {
+    expect(PROOFS.map((T) => T.id)).toEqual(['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11']);
     const thm = (T) => { const s = T.steps[T.thm]; return s.reason ? s.reason.choices[s.reason.answer] : s.fixed; };
-    expect(PROOFS.map(thm)).toEqual([R.sas, R.sss, R.sas, R.asa, R.sas, R.asa, R.aa]);
+    expect(PROOFS.map(thm)).toEqual([R.sas, R.sss, R.sas, R.asa, R.sas, R.asa, R.aa, R.asa, R.sss, R.aa, R.aa]);
     // T5 ends in two rows: the equal angles, then the right angles from the adjacent-angles sum
     const t5 = PROOF.T5.steps.slice(-2);
     expect(t5.map((s) => s.reason.choices[s.reason.answer])).toEqual([R.angles, R.linearPair]);
     expect(PROOF.T5.free).toEqual([[0, 1, 2], [4, 5]]);
+    // the same claim, two reasons: T5 and T9 get the right angles from two equal adjacent angles, T8 from the given ⊥
+    const rightAngles = (T) => T.steps.find((s) => s.text === '$\\sphericalangle ADB = \\sphericalangle ADC = 90°$');
+    const why = (s) => s.reason.choices[s.reason.answer];
+    expect([PROOF.T5, PROOF.T9, PROOF.T8].map((T) => why(rightAngles(T)))).toEqual([R.linearPair, R.linearPair, R.perpendicular]);
+    // T11's equal angles are given, not corresponding: its DE is not parallel to BC, and E matches B
+    expect(why(PROOF.T11.steps[1])).toBe(R.given);
+    expect(PROOF.T11.steps[1].reason.choices).toContain(R.correspondingPar);
   });
 
   it('pass the template test in every letter set: rows, groups, the bank, the theorem in its place, KaTeX', () => {
@@ -50,9 +58,48 @@ describe('the proof templates T1–T7 (GEOM-3.8)', () => {
 
   it('draw what they state: every equality, ⊥ and ∥ of a row, the givens and the goal holds in the drawing', () => {
     for (const T of PROOFS) for (let set = 0; set < LETTER_SETS.length; set += 1) expect(figureFaults(proofIn(T, set)), `${T.id} set ${set}`).toEqual([]);
+    // and what they do not state does not hold: T11's DE is not parallel to BC (its equal angles are given, not from parallels)
+    expect(figureFaults({ ...PROOF.T11, given: '$DE \\parallel BC$' }).join(' ')).toMatch(/DE \\parallel BC/);
     // and the check is not empty: a drawing moved off its givens fails it
     const bent = { ...PROOF.T1, fig: { ...PROOF.T1.fig, pts: { ...PROOF.T1.fig.pts, B: [3, -1] } } };
     expect(figureFaults(bent).join(' ')).toMatch(/AM = MB/);
+  });
+
+  it('draw readably and with true marks, in every letter set: no label on another, none crossed or cut off, only the proof\'s points', () => {
+    const len = (P, s) => Math.hypot(P[s.a][0] - P[s.b][0], P[s.a][1] - P[s.b][1]);
+    const dir = (P, s) => { const d = [P[s.b][0] - P[s.a][0], P[s.b][1] - P[s.a][1]]; const n = Math.hypot(...d); return [d[0] / n, d[1] / n]; };
+    const sameAll = (vs) => vs.every((v) => Math.abs(v - vs[0]) < 1e-6);
+    // the least distance, in pixels, between a letter's box and a drawn line (sampled along the line)
+    const gap = (b, [p, q]) => Math.min(...Array.from({ length: 401 }, (_, i) => {
+      const x = p[0] + ((q[0] - p[0]) * i) / 400; const y = p[1] + ((q[1] - p[1]) * i) / 400;
+      return Math.hypot(Math.max(0, Math.abs(x - b.c[0]) - b.h[0]), Math.max(0, Math.abs(y - b.c[1]) - b.h[1]));
+    }));
+    for (const T of PROOFS) {
+      for (let set = 0; set < LETTER_SETS.length; set += 1) {
+        const U = proofIn(T, set); const f = U.fig; const at = `${T.id} set ${set}`;
+        // components/geoLayout.js: every letter clear of every other letter and label, inside the drawing
+        expect(geoClashes(f), at).toEqual([]);
+        // a letter only where the proof's text uses it
+        const named = new Set([U.given, U.goal, ...U.steps.map((s) => s.text)].join(' ').replace(/\\[a-z]+/g, ' ').match(/[A-Z]/g));
+        expect(Object.keys(f.pts).filter((k) => !named.has(k)), `${at}: a point the proof never names`).toEqual([]);
+        // the marks say what is true: the same ticks on equal sides, the same arrows on parallel ones, the same arcs on
+        // equal angles, and a right-angle mark on 90°
+        for (const n of new Set((f.segs || []).map((s) => s.ticks).filter(Boolean))) expect(sameAll(f.segs.filter((s) => s.ticks === n).map((s) => len(f.pts, s))), `${at}: ${n} ticks`).toBe(true);
+        for (const n of new Set((f.segs || []).map((s) => s.arrows).filter(Boolean))) {
+          const ds = f.segs.filter((s) => s.arrows === n).map((s) => dir(f.pts, s));
+          ds.forEach((d) => expect(Math.abs(d[0] * ds[0][1] - d[1] * ds[0][0]), `${at}: ${n} arrows`).toBeLessThan(1e-9));
+        }
+        const arcs = (f.angles || []).filter((g) => !g.right);
+        for (const n of new Set(arcs.map((g) => g.n || 1))) expect(sameAll(arcs.filter((g) => (g.n || 1) === n).map((g) => geoSweep(f.pts, g).deg)), `${at}: ${n} arcs`).toBe(true);
+        (f.angles || []).filter((g) => g.right).forEach((g) => expect(geoSweep(f.pts, g).deg, at).toBeCloseTo(90, 9));
+        // the student council's templates (T8–T11): every letter at least 5 px clear of every drawn line, the bowtie's
+        // crossing M too (set beside it, on the bisector of the angle AMC)
+        if (['T8', 'T9', 'T10', 'T11'].includes(T.id)) {
+          const { letters, lines } = geoLayout(f);
+          for (const [k, b] of Object.entries(letters)) expect(Math.min(...lines.map((l) => gap(b, l))), `${at}: ${k}`).toBeGreaterThanOrEqual(5);
+        }
+      }
+    }
   });
 
   it('come in fresh letters: each set writes only its own letters, and the right reason stays right', () => {

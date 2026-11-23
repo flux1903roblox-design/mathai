@@ -3,10 +3,10 @@
 //
 // This is the topic object: its name, colour, levels, misconception names and lesson summary, and each level's
 // generator. The arithmetic (the diagnostic models, the practice generators, their texts and the true-to-scale
-// drawings) is content/sim.gen.js; the proof templates it uses (T5, T6 and T7) are content/proofs.js. None of them is on
-// the first load (the boot split): the first screen reads the topic's names from content/topics.gen.js, which
-// scripts/gen-content-meta.mjs writes from this object, and the generators load with the topic (content/topics.js
-// importGens).
+// drawings) is content/sim.gen.js; the proof templates it uses (T5, T6, T8 and T9; T7, T10 and T11) are
+// content/proofs.js. None of them is on the first load (the boot split): the first screen reads the topic's names from
+// content/topics.gen.js, which scripts/gen-content-meta.mjs writes from this object, and the generators load with the
+// topic (content/topics.js importGens).
 import { SIM_GENS, SIM_PROOF_CHECKS } from './sim.gen.js';
 
 export const SIM = {
