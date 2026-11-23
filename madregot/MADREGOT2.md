@@ -290,9 +290,9 @@ and last two worked examples are ח׳'s continuation (unit 8.3), never shown to 
 | congr:3 | הוכחה בחפיפה | 8 (proof) | 2 | 2 | 6 (wrong-pair, one-angle, half-only, circular, ssa, no-half) | yes | complete, tested |
 | congr:4 | תיכון ושטחים | 9 (numberline) | 2 | 2 | 5 (median-as-height, full-base, median-congruent, median-altitude, full-side) | yes | complete, tested |
 | congr:5 | צלעות במשולש | 8 (numberline) | 2 | 2 | 4 (sum-equal, no-lower-limit, ignore-inequality, angle-at-side) | yes | complete, tested |
-| sim:1 | שווה־שוקיים ומשפטים הפוכים | 8 (proof) | 2 | 2 | 4 (side-at-angle, stopped-at-x, whole-base, converse-equal) | yes | complete, tested |
+| sim:1 | שווה־שוקיים ומשפטים הפוכים | 10 (proof) | 2 | 2 | 4 (side-at-angle, stopped-at-x, whole-base, converse-equal) | yes | complete, tested |
 | sim:2 | צורות דומות | 8 (dline) | 2 | 2 | 3 (additive, ratio-flip, angles-enough) | yes | complete, tested |
-| sim:3 | דמיון משולשים (ז.ז) | 8 (proof) | 2 | 2 | 5 (part-not-whole, additive, ratio-flip, order-mixed, third-angle) | yes | complete, tested |
+| sim:3 | דמיון משולשים (ז.ז) | 10 (proof) | 2 | 2 | 5 (part-not-whole, additive, ratio-flip, order-mixed, third-angle) | yes | complete, tested |
 | sim:4 | יחס צלעות ויחס שטחים | 9 (numberline) | 2 | 2 | 3 (linear-area, ratio-flip, area-for-perimeter) | yes | complete, tested |
 | sys:1 | משוואות עם אחוזים | 8 (dline) | 3 | 2 | 2 (pct-of-new, wrong-unknown) | yes | complete, tested |
 | sys:2 | שיטת ההצבה | 9 (plot) | 3 | 2 | 3 (partial-dist, forgot-y, swap) | yes | complete, tested |

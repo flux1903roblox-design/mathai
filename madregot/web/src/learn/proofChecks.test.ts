@@ -12,14 +12,17 @@ import { MASTERY_N, MASTERY_NEED } from './mastery';
 import { seeded } from './expr';
 import { ALL_SKILLS } from './skills';
 import { loadAllContent } from './content/index';
+import type { SkillId } from './types';
 // @ts-ignore: plain JS
 import { fairForCheck, makeItem, isCorrect, answerInput } from '@/content/index.js';
 // @ts-ignore: plain JS
-import { askedSteps, proofStart, proofCorrect, proofReasonGuess, CHECK_REASONS } from '@/content/proof.js';
+import { askedSteps, proofStart, proofCorrect, proofReasonGuess, rightReason, CHECK_REASONS } from '@/content/proof.js';
+// @ts-ignore: plain JS
+import { PROOF } from '@/content/proofs.js';
 // @ts-ignore: plain JS
 import * as lessonJs from '@/lib/lesson.js';
 
-await loadAllContent();
+const CONTENT = await loadAllContent();
 // the lesson engine is plain JS: its inferred types are too narrow for these tests (as checks.test.ts)
 const { startLesson, answer, next, resultOf } = lessonJs as any;
 const realRandom = Math.random;
@@ -129,4 +132,28 @@ describe('the proof stairs\' mastery checks ask proofs', () => {
       expect([...seen].sort(), skill).toEqual([...TEMPLATES[skill]].sort());
     }
   });
+});
+
+// The student council's review: T8 to T11 came with the second proof of sim:1's and sim:3's checks, in practice and in
+// the check, while the teaching showed only T5 and T7, so a student met them first there. Now each stair's stage A shows
+// every template its check asks (the check's own draws): as a proof the student completes (an explore step), or on the
+// template's own drawing (its points, named or not) in a rule card that names its theorem; and the student completes a
+// proof of one of the new templates before practice.
+describe("sim:1's and sim:3's teaching shows every proof their checks ask", () => {
+  const NEW: Record<string, string[]> = { 'sim:1': ['T8', 'T9'], 'sim:3': ['T10', 'T11'] };
+  for (const skill of Object.keys(NEW)) {
+    it(`${skill}: ${NEW[skill].join(' and ')} are in its teaching`, () => {
+      const asked = new Set<string>();
+      for (let i = 0; i < 60; i += 1) asked.add(itemFor(skill, 'proof', seeded(i), undefined, undefined, { test: true }).manip.tpl);
+      expect([...asked], skill).toEqual(expect.arrayContaining(NEW[skill]));
+      const steps = CONTENT[skill as SkillId].discover;
+      const proved = steps.flatMap((st) => (st.kind === 'explore' && st.manip.kind === 'proof' ? [(st.manip as any).tpl as string] : []));
+      const cards = steps.flatMap((st) => (st.kind === 'rule' ? Object.keys(PROOF).filter((id) => PROOF[id].fig.pts === (st.fig as any)?.pts).map((id) => ({ id, said: `${st.text} ${st.why}` })) : []));
+      expect([...asked].filter((id) => !proved.includes(id) && !cards.some((c) => c.id === id)), `${skill}: asked by the check, never taught`).toEqual([]);
+      // a rule card on a template's drawing names the theorem its proof uses (צ.צ.צ, ז.ז)
+      for (const { id, said } of cards) expect(said, `${skill}: ${id}`).toContain(rightReason(PROOF[id].steps[PROOF[id].thm]).replace('לפי ', ''));
+      // one new template is a proof the student completes before practice
+      expect(proved.filter((id) => NEW[skill].includes(id)), skill).toHaveLength(1);
+    });
+  }
 });

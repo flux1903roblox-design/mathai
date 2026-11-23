@@ -1634,7 +1634,7 @@
  "sim": {
   "skills": {
    "sim:1": {
-    "discover": 8,
+    "discover": 10,
     "examples": [
      4,
      3
@@ -1669,7 +1669,7 @@
     ]
    },
    "sim:3": {
-    "discover": 8,
+    "discover": 10,
     "examples": [
      4,
      2
@@ -1706,7 +1706,7 @@
    }
   },
   "stairs": 4,
-  "steps": 82
+  "steps": 86
  },
  "solid": {
   "skills": {

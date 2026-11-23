@@ -11,8 +11,8 @@
 import type { DiagModel, FigSpec, ManipSpec, StairContent } from '../types';
 // @ts-ignore: plain JS, the practice generators' draws, texts, worked solutions and drawings
 import * as GEN from '@/content/sim.gen.js';
-// @ts-ignore: plain JS, the proof templates
-import { PROOF, proofManip, triFromAngles } from '@/content/proofs.js';
+// @ts-ignore: plain JS, the proof templates and the reasons their rows give (the teaching names a reason in the same words)
+import { PROOF, R, proofManip, triFromAngles } from '@/content/proofs.js';
 // @ts-ignore: plain JS, the proof object's answer
 import { proofSolution } from '@/content/proof.js';
 
@@ -113,13 +113,17 @@ const area6: FigSpec = {
   words: [{ at: [3, -1.75] as Pt, text: 'שטח 6' }, { at: [9.5, -1.75] as Pt, text: 'שטח 6' }],
   view: [320, 180], pad: [26, 26],
 } as FigSpec;
-/** T5 completed (the order locked): the bisector's definition, the theorem and the right angle asked. */
-const t5Fill = (() => {
-  const m: any = proofManip(P.T5, { lockOrder: true });
-  const ask = new Set([1, 3, 6]);
-  const steps = m.part.steps.map((s: any, i: number) => (ask.has(i) || !s.reason ? s : { text: s.text, fixed: s.reason.choices[s.reason.answer] }));
-  return { ...m, part: { ...m.part, steps }, seed: 'T5:0:fill' } as ManipSpec;
-})();
+/** A template completed (the order locked): only the rows `ask` names ask their reason, every other row shows it. */
+const proofFill = (T: any, ask: number[]): ManipSpec => {
+  const m: any = proofManip(T, { lockOrder: true });
+  const steps = m.part.steps.map((s: any, i: number) => (ask.includes(i) || !s.reason ? s : { text: s.text, fixed: s.reason.choices[s.reason.answer] }));
+  return { ...m, part: { ...m.part, steps }, seed: `${T.id}:0:fill` } as ManipSpec;
+};
+/** T5: the bisector's definition, the theorem and the right angle asked. */
+const t5Fill = proofFill(P.T5, [1, 3, 6]);
+/** T8, the converse: the right angle (from the given ⊥, not from two equal adjacent angles), the theorem (ז.צ.ז) and the
+ * conclusion (from the congruence, not from the isosceles triangle it proves) asked. */
+const t8Fill = proofFill(P.T8, [1, 3, 4]);
 
 type PX = Record<string, number>;
 const sim1: DiagModel<PX> = {
@@ -176,12 +180,19 @@ const stair1: StairContent = {
     { kind: 'explore', text: 'השלימו את הנימוקים החסרים בהוכחה ש־$BD = DC$ ו־$AD \\perp BC$.', manip: t5Fill, answer: proofSolution(t5Fill),
       hint: 'חוצה זווית מחלק אותה לשתי זוויות שוות. שתי צלעות והזווית שביניהן: איזה משפט? ושתי זוויות צמודות שוות: כמה כל אחת?',
       success: 'צ.ז.צ, ואז המסקנות: $BD = DC$, ושתי הזוויות ליד $D$ שוות וצמודות, ולכן ישרות.' },
+    // T9 (a check's proof): the median to the base, on the template's own drawing
+    { kind: 'rule', text: 'במשולש שווה־שוקיים גם התיכון לבסיס הוא חוצה זווית הראש וגם הגובה לבסיס. כאן $AB = AC$ ו־$BD = DC$, ולכן $\\sphericalangle BAD = \\sphericalangle CAD$ ו־$AD \\perp BC$.',
+      why: '$AB = AC$, $BD = DC$ ו־$AD$ משותפת: צ.צ.צ. מהחפיפה $\\sphericalangle BAD = \\sphericalangle CAD$, ושתי הזוויות ליד $D$ שוות וצמודות, $90°$ כל אחת.', fig: P.T9.fig },
     { kind: 'predict', text: 'ב־$\\triangle ABC$: $\\sphericalangle B = \\sphericalangle C$. מה נכון?', fig: baseAnglesFig(false),
       choices: ['$AB = AC$', '$AB = BC$', 'אי אפשר לדעת'], answer: 0,
       why: 'מול זוויות שוות מונחות צלעות שוות: מול $\\sphericalangle C$ נמצאת $AB$, ומול $\\sphericalangle B$ נמצאת $AC$.',
       wrongWhy: { 1: '$AB$ ו־$BC$ יוצאות מ־$B$; משווים את הצלעות שמול הזוויות.', 2: 'אפשר: משולש עם שתי זוויות שוות הוא שווה־שוקיים, והצלעות שמול הזוויות שוות.' } },
     { kind: 'rule', text: 'המשפטים ההפוכים: משולש עם שתי זוויות שוות הוא שווה־שוקיים. משולש שבו התיכון לצלע הוא גם הגובה לה, או שחוצה הזווית הוא גם הגובה, הוא שווה־שוקיים.',
       why: 'בכל אחד מהם מוכיחים בחפיפה ש־$AB = AC$ (ז.צ.ז או צ.ז.צ).', fig: baseAnglesFig(true, false) },
+    // T8 (a check's proof), the converse: its right angles come from the given ⊥
+    { kind: 'explore', text: 'חוצה הזווית $AD$ הוא גם הגובה. השלימו את הנימוקים החסרים בהוכחה ש־$AB = AC$.', manip: t8Fill, answer: proofSolution(t8Fill),
+      hint: `${R.perpendicular}. שתי זוויות והצלע שביניהן: איזה משפט? ואת $AB = AC$ מקבלים מהחפיפה.`,
+      success: 'ז.צ.ז, ומהחפיפה $AB = AC$: חוצה זווית שהוא גם הגובה נותן משולש שווה־שוקיים.' },
     { kind: 'predict', text: '"אם שני משולשים חופפים, השטחים שלהם שווים." נכון. האם גם ההפוך נכון: "אם השטחים שווים, המשולשים חופפים"?', fig: area6,
       choices: ['לא בהכרח', 'כן, משפט הפוך תמיד נכון'], answer: 0,
       why: 'שני המשולשים בשרטוט שווים בשטח, $6$, ולא חופפים. משפט הפוך בודקים בנפרד.',
@@ -431,6 +442,8 @@ const sim3T: DiagModel<PX> = {
   fmt: 'dec',
 };
 const t7Whole = proofManip(P.T7) as ManipSpec;
+/** T11: ז.ז with no parallel lines (DE ∦ BC), the second pair of angles given equal. */
+const t11Whole = proofManip(P.T11) as ManipSpec;
 const bow365 = G.bowtieFig({ a: 3, b: 6, d: 5 });
 const cut466 = G.cutFig({ a: 4, b: 6, bc: 15 }, { DE: '6' });
 const shadow8 = G.shadowFig({ h: 1.6, s: 2, S: 10, H: 8 });
@@ -463,6 +476,13 @@ const stair3: StairContent = {
     { kind: 'explore', text: 'סדרו את ההוכחה ש־$\\triangle ADE \\sim \\triangle ABC$.', manip: t7Whole, answer: proofSolution(t7Whole),
       hint: 'שתי זוויות שוות: זווית משותפת, וזוויות מתאימות בין ישרים מקבילים. ורק אחריהן הדמיון.',
       success: 'זווית משותפת, זוויות מתאימות בין מקבילים, ז.ז.' },
+    // T10 (a check's proof), the bowtie, on the template's own drawing (unnamed: the card says the rule in words); then
+    // T11, with no parallels at all
+    { kind: 'rule', text: `עוד שתי דרכים למצוא שתי זוויות שוות. בפרפר: ${R.vertical}, ו${R.alternate}. ובלי מקבילים: ${R.commonAngle}, וזוג זוויות שנתון שהן שוות.`,
+      why: `בשתי הדרכים יש שתי זוויות שוות, ולכן המשולשים דומים (ז.ז). אבל בלי מקבילים אין "${R.correspondingPar}": הנימוק לזוג השני הוא "${R.given}".`, fig: unnamed(P.T10.fig) },
+    { kind: 'explore', text: 'כאן $DE$ לא מקביל ל־$BC$. סדרו את ההוכחה ש־$\\triangle AED \\sim \\triangle ABC$.', manip: t11Whole, answer: proofSolution(t11Whole),
+      hint: 'שתי זוויות שוות: זווית משותפת, וזוג זוויות שנתון שהן שוות, כי אין כאן מקבילים. ורק אחריהן הדמיון.',
+      success: 'זווית משותפת, זוג זוויות נתון, ז.ז. ו־$E$ מתאים ל־$B$, כי $\\sphericalangle AED = \\sphericalangle ABC$.' },
     { kind: 'predict', text: '$DE \\parallel BC$, $AD = 4$, $DB = 6$, $DE = 6$. מה $BC$?', fig: cut466,
       choices: ['$15$', '$9$', '$12$'], answer: 0,
       why: 'הצלע המתאימה ל־$AD$ במשולש הגדול היא $AB = 4 + 6 = 10$, לא $DB$. $10 : 4 = 2.5$, ולכן $BC = 6 \\cdot 2.5 = 15$.',
