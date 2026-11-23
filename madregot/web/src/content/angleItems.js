@@ -446,18 +446,7 @@ export function parallelX() {
       ? { [other]: okAngle(xw), 'wrong-unknown#0': V1, ...(V2 !== V1 ? { 'wrong-unknown#1': V2 } : {}) }
       : { [other]: okAngle(xw) == null ? null : okAngle(a1 * xw + c1), 'wrong-unknown': x };
     if (!fairAngle(ans, bugs, [a1, Math.abs(c1), a2, Math.abs(c2)])) continue;
-    const t = p === 'ur' || p === 'll' ? V1 : 180 - V1;
-    const par = parallelLines(t, 3.6);
-    const [u0, u1] = par.span('U', p); const [l0, l1] = par.span('L', q);
-    // each expression near the parallel line its angle sits on (the arm along the line is `from` for ur and ll, `to` for
-    // ul and lr), so two angles between the lines keep their labels apart
-    const toLine = (pos) => (pos === 'ur' || pos === 'll' ? 0.3 : 0.7);
-    const fig = {
-      type: 'geo', view: [300, 240], label: `שני ישרים מקבילים וחותך: בחיתוך העליון זווית ${xLabel(a1, c1)}, ובחיתוך התחתון זווית ${xLabel(a2, c2)}`,
-      pts: par.pts, segs: par.segs,
-      angles: [{ at: '_U', from: u0, to: u1, r: 20, lt: toLine(p), text: xLabel(a1, c1) }, { at: '_L', from: l0, to: l1, r: 20, lt: toLine(q), text: xLabel(a2, c2) }],
-      dots: ['_U', '_L'],
-    };
+    const fig = parallelXFig(p, q, V1, xLabel(a1, c1), xLabel(a2, c2));
     let steps;
     if (eq) {
       // the side with more x on the left, as the class moves the x-terms
@@ -489,6 +478,27 @@ export function parallelX() {
       diag: diagFor(ans, bugs), tries: triesOf(bugs),
     };
   }
+}
+
+/**
+ * parallelX's drawing, and angles:4's worked example's (learn/content/angles.ts): two parallel lines and a transversal
+ * drawn so that the angle at position p of the upper crossing is V1 degrees, and the pair's two angles, p there and q at
+ * the lower crossing, with their texts (the expressions, or the sizes once found).
+ * @returns {import('../learn/types').GeoFig}
+ */
+export function parallelXFig(p, q, V1, top, bottom) {
+  const t = p === 'ur' || p === 'll' ? V1 : 180 - V1;
+  const par = parallelLines(t, 3.6);
+  const [u0, u1] = par.span('U', p); const [l0, l1] = par.span('L', q);
+  // each expression near the parallel line its angle sits on (the arm along the line is `from` for ur and ll, `to` for
+  // ul and lr), so two angles between the lines keep their labels apart
+  const toLine = (pos) => (pos === 'ur' || pos === 'll' ? 0.3 : 0.7);
+  return {
+    type: 'geo', view: [300, 240], label: `שני ישרים מקבילים וחותך: בחיתוך העליון זווית ${top}, ובחיתוך התחתון זווית ${bottom}`,
+    pts: par.pts, segs: par.segs,
+    angles: [{ at: '_U', from: u0, to: u1, r: 20, lt: toLine(p), text: top }, { at: '_L', from: l0, to: l1, r: 20, lt: toLine(q), text: bottom }],
+    dots: ['_U', '_L'],
+  };
 }
 
 /**
@@ -562,26 +572,8 @@ export function parallelBend() {
     const bugs = ask === 'E' ? { 'wrong-total': 180 - e } : { 'sum-not-diff': okAngle(e + g), 'wrong-total': okAngle(180 - e - g) };
     if (!fairAngle(ans, bugs, ask === 'E' ? [a, b] : [e, g])) continue;
     const mirror = Math.random() < 0.5;
-    const H = 3; const P = [r4(-(H / 2) / Math.tan(rad(a))), H]; const Q = [r4(-(H / 2) / Math.tan(rad(b))), 0];
-    const lo = Math.min(P[0], Q[0]) - 1.6; const hi = 2;
-    const fx = (pt) => (mirror ? [r4(-pt[0]), pt[1]] : pt);
-    // the helper line runs a short way into the angle at E, so the angle's number past its end sits on no line
-    const pts = Object.fromEntries(Object.entries({ _l2: [lo, H], _r2: [hi, H], _l1: [lo, 0], _r1: [hi, 0], E: [0, H / 2], _P: P, _Q: Q, _h0: [-0.55, H / 2], _h1: [1.5, H / 2] }).map(([k, v]) => [k, fx(v)]));
-    // an arc sweeps counterclockwise from `from` to `to`: a mirror image sweeps the other way
-    const arc = (at, from, to, mk, r = 24) => ({ at, from: mirror ? to : from, to: mirror ? from : to, r, ...mk });
-    const fig = {
-      type: 'geo', view: [300, 220], label: `שני ישרים מקבילים והנקודה E ביניהם, ודרכה ישר עזר מקווקו: ${ask === 'E' ? `זוויות של ${a}° ו־${b}° על הישרים, והזווית ב־E מסומנת ב־?` : `הזווית ב־E היא ${e}°, על אחד הישרים זווית של ${g}°, והזווית על הישר השני מסומנת ב־?`}`,
-      pts,
-      segs: [{ a: '_l2', b: '_r2', arrows: 1 }, { a: '_l1', b: '_r1', arrows: 1 }, { a: '_P', b: 'E' }, { a: '_Q', b: 'E' }, { a: '_h0', b: '_h1', dash: true }],
-      angles: [
-        arc('_P', 'E', '_r2', ask === 'P' ? asked : given(a)),
-        arc('_Q', '_r1', 'E', ask === 'Q' ? asked : given(b)),
-        arc('E', '_P', '_Q', ask === 'E' ? asked : given(e), 28),
-      ],
-      dots: ['E'],
-      // E's letter above the helper line, on the side away from the angle
-      lab: { E: [mirror ? -12 : 12, -14] },
-    };
+    const fig = parallelBendFig(a, b, [ask === 'P' ? asked : given(a), ask === 'Q' ? asked : given(b), ask === 'E' ? asked : given(e)], mirror,
+      `שני ישרים מקבילים והנקודה E ביניהם, ודרכה ישר עזר מקווקו: ${ask === 'E' ? `זוויות של ${a}° ו־${b}° על הישרים, והזווית ב־E מסומנת ב־?` : `הזווית ב־E היא ${e}°, על אחד הישרים זווית של ${g}°, והזווית על הישר השני מסומנת ב־?`}`);
     const solution = ask === 'E'
       ? [`ישר העזר מקביל לשני הישרים. החלק העליון של הזווית ב־$E$ והזווית $${a}^\\circ$ הן זוויות מתחלפות, ולכן שוות: $${a}^\\circ$.`,
         `גם החלק התחתון שלה והזווית $${b}^\\circ$ הן זוויות מתחלפות: $${b}^\\circ$.`,
@@ -598,4 +590,35 @@ export function parallelBend() {
       solution, diag: diagFor(ans, bugs), tries: triesOf(bugs),
     };
   }
+}
+
+/**
+ * parallelBend's drawing, and angles:4's (learn/content/angles.ts): two parallel lines, E between them joined to a point
+ * on each, the angle a at the upper line and b at the lower one, and the dashed helper line through E; `marks` are the
+ * arcs' marks at the upper line, the lower line and E. A pair at E ([upper, lower]) draws E's two parts instead, each
+ * alternate to its line's angle, with the helper line across as their common arm. `mirror` points E left.
+ * @returns {import('../learn/types').GeoFig}
+ */
+export function parallelBendFig(a, b, marks, mirror, label) {
+  const H = 3; const P = [r4(-(H / 2) / Math.tan(rad(a))), H]; const Q = [r4(-(H / 2) / Math.tan(rad(b))), 0];
+  const lo = Math.min(P[0], Q[0]) - 1.6; const hi = 2;
+  const parts = Array.isArray(marks[2]);
+  const fx = (pt) => (mirror ? [r4(-pt[0]), pt[1]] : pt);
+  // the helper line runs a short way into the angle at E, so the angle's number past its end sits on no line
+  const pts = Object.fromEntries(Object.entries({ _l2: [lo, H], _r2: [hi, H], _l1: [lo, 0], _r1: [hi, 0], E: [0, H / 2], _P: P, _Q: Q, _h0: [parts ? r4(lo + 0.4) : -0.55, H / 2], _h1: [1.5, H / 2] }).map(([k, v]) => [k, fx(v)]));
+  // an arc sweeps counterclockwise from `from` to `to`: a mirror image sweeps the other way
+  const arc = (at, from, to, mk, r = 24) => ({ at, from: mirror ? to : from, to: mirror ? from : to, r, ...mk });
+  return {
+    type: 'geo', view: [300, 220], label,
+    pts,
+    segs: [{ a: '_l2', b: '_r2', arrows: 1 }, { a: '_l1', b: '_r1', arrows: 1 }, { a: '_P', b: 'E' }, { a: '_Q', b: 'E' }, { a: '_h0', b: '_h1', dash: true }],
+    angles: [
+      arc('_P', 'E', '_r2', marks[0]),
+      arc('_Q', '_r1', 'E', marks[1]),
+      ...(parts ? [arc('E', '_P', '_h0', marks[2][0], 30), arc('E', '_h0', '_Q', marks[2][1], 30)] : [arc('E', '_P', '_Q', marks[2], 28)]),
+    ],
+    dots: ['E'],
+    // E's letter above the helper line, on the side away from the angle
+    lab: { E: [mirror ? -12 : 12, -14] },
+  };
 }

@@ -1,6 +1,6 @@
 // The drawings of the worked examples (stage B) and of solving together (stage C) in geometry (SK-STUDENT-1): a straight
 // line split by rays, a triangle from its angles, a sail and a folding ladder, a rectangle and its diagonal, a frame that
-// is not quite square, a pole and its cable, a ladder and a kite string. Each is drawn from its problem's own numbers, so
+// is not quite square, a pole and its cable, a ladder, a triangle split by its height and a kite string. Each is drawn from its problem's own numbers, so
 // the picture cannot disagree with the text: an angle written in degrees is drawn that size, and a side's number is in
 // proportion to the other sides (learn/figures.test.ts checks both, and that the drawing names only the text's letters).
 // The angle or the side a problem asks for is marked '?', never written. The building blocks are geo.ts's.
@@ -108,6 +108,18 @@ export function ladderAt(foot: number, wall: number, marks: { len?: string; wall
     segs: [{ a: '_G0', b: '_F' }, { a: '_F', b: '_W', ...lab(marks.foot) }, { a: '_W', b: '_T', ...lab(marks.wall) }, { a: '_T', b: '_K' }, { a: '_F', b: '_T', hi: true, ...lab(marks.len) }],
     angles: [{ at: '_W', from: '_T', to: '_F', right: true }],
     words: [{ at: '_K', text: 'קיר', dx: 24, dy: 10 }], view: [300, 210],
+  });
+}
+
+/**
+ * Triangle ABC split by its height AD into two right triangles with AD in common (pyth:4's two steps, as content/grade8.js
+ * altitudeSplit draws it), from AB, BD and DC; each side a number, '?' or nothing, and AD dashed and highlighted.
+ */
+export function heightSplit(ab: number, bd: number, dc: number, marks: { ab?: string; bd?: string; dc?: string; ac?: string; ad?: string }): GeoFig {
+  return geo('משולש והגובה לצלע BC', {
+    pts: { B: [0, 0], D: [bd, 0], C: [bd + dc, 0], A: [bd, R(Math.sqrt(ab * ab - bd * bd))] }, polys: [{ pts: ['A', 'B', 'C'] }],
+    segs: [{ a: 'A', b: 'B', ...lab(marks.ab) }, { a: 'B', b: 'D', ...lab(marks.bd) }, { a: 'D', b: 'C', ...lab(marks.dc) }, { a: 'A', b: 'C', ...lab(marks.ac) }, { a: 'A', b: 'D', dash: true, hi: true, ...lab(marks.ad) }],
+    angles: [{ at: 'D', from: 'C', to: 'A', right: true }],
   });
 }
 

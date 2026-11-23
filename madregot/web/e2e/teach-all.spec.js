@@ -6,8 +6,17 @@ import { test, expect } from '@playwright/test';
 import { open, student, expectNoSidewaysScroll, leaveStage } from './helpers.js';
 import { STAIRS, GRADE_OF as GRADE } from '../src/learn/skills.ts';
 import { VISUAL_EXEMPT } from '../src/learn/visualPlan.ts';
+import { GRADE8_TEACHING } from '../src/content/learner.js';
 
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'one phone is enough for the content walk'); });
+/**
+ * The learners a stair is walked as: one of its grade, and for a stair ח׳ continues (content/learner.js GRADE8_TEACHING:
+ * angles:4) a ח׳ learner too, whose teaching has the continuation's steps after the stair's own (ז׳ never sees them).
+ */
+const runsOf = (topic, level) => [
+  { grade: GRADE[topic], name: `${topic}:${level}` },
+  ...(GRADE[topic] !== '8' && GRADE8_TEACHING.includes(`${topic}:${level}`) ? [{ grade: '8', name: `${topic}:${level} (grade 8)` }] : []),
+];
 const plain = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 1e6) / 1e6));
 /**
  * Every display of maths on a teaching step shows whole: none is wider than its box, where its end would hide in a
@@ -26,12 +35,12 @@ async function expectDisplaysFit(page, id) {
 }
 
 for (const [topic, n] of Object.entries(STAIRS)) {
-  for (let level = 1; level <= n; level += 1) {
-    test(`${topic}:${level} can be learned from start to end`, async ({ page }) => {
+  for (let level = 1; level <= n; level += 1) for (const { grade, name } of runsOf(topic, level)) {
+    test(`${name} can be learned from start to end`, async ({ page }) => {
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
       // a daily goal the three stages do not reach: the goal's own moment (STUDENT-7) is tested in learn.spec.js
-      await open(page, `#/learn/${topic}/${level}/A`, student(GRADE[topic], { goalXp: 50 }));
+      await open(page, `#/learn/${topic}/${level}/A`, student(grade, { goalXp: 50 }));
       await expect(page.locator('.step-player')).toBeVisible();
       // A: every step
       for (let i = 0; i < 20; i += 1) {
@@ -109,10 +118,10 @@ for (const [topic, n] of Object.entries(STAIRS)) {
 // The worked examples on the smallest phone (320 wide): no step widens the page, and no line of maths in a step needs
 // a sideways scroll inside its box (a 12-year-old does not find a scroll with no bar). Run in the phone project at 320.
 for (const [topic, n] of Object.entries(STAIRS)) {
-  for (let level = 1; level <= n; level += 1) {
-    test(`${topic}:${level} worked examples fit a 320 phone`, async ({ page }) => {
+  for (let level = 1; level <= n; level += 1) for (const { grade, name } of runsOf(topic, level)) {
+    test(`${name} worked examples fit a 320 phone`, async ({ page }) => {
       await page.setViewportSize({ width: 320, height: 568 });
-      await open(page, `#/learn/${topic}/${level}/B`, student(GRADE[topic]));
+      await open(page, `#/learn/${topic}/${level}/B`, student(grade));
       for (let e = 0; e < 6; e += 1) {
         await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
         while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
@@ -137,9 +146,9 @@ for (const [topic, n] of Object.entries(STAIRS)) {
 test.describe('every teaching step shows its drawing on a small phone', () => {
   test.use({ viewport: { width: 320, height: 568 } });
   for (const topic of Object.keys(STAIRS)) {
-    for (let level = 1; level <= STAIRS[topic]; level += 1) {
-      test(`${topic}:${level}: a drawing on every step at 320px`, async ({ page }) => {
-        await open(page, `#/learn/${topic}/${level}/A`, student(GRADE[topic], { goalXp: 50 }));
+    for (let level = 1; level <= STAIRS[topic]; level += 1) for (const { grade, name } of runsOf(topic, level)) {
+      test(`${name}: a drawing on every step at 320px`, async ({ page }) => {
+        await open(page, `#/learn/${topic}/${level}/A`, student(grade, { goalXp: 50 }));
         let done = false;
         for (let i = 0; i < 20 && !done; i += 1) {
           await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
@@ -189,16 +198,22 @@ const SOME_DRAWN = { coord: 0.6, line: 0.5, stats: 0.5, frac: 0.4, signed: 0.4, 
 const SHOTS_BC = process.env.FIGURE_SHOTS;
 test.describe('worked examples and solving together show their drawings on a small phone (SK-STUDENT-1)', () => {
   test.use({ viewport: { width: 320, height: 568 } });
-  for (const topic of [...ALL_DRAWN, ...Object.keys(SOME_DRAWN)]) {
-    test(`${topic}: the drawings of stages B and C`, async ({ page }) => {
+  // a topic's stairs as a learner of its grade, and the stairs ח׳ continues once more as a ח׳ learner (runsOf)
+  const topicRuns = (topic) => {
+    const levels = Array.from({ length: STAIRS[topic] }, (_, i) => i + 1);
+    const more = levels.filter((level) => runsOf(topic, level).length > 1);
+    return [{ grade: GRADE[topic], name: topic, levels }, ...(more.length ? [{ grade: '8', name: `${topic} (grade 8)`, levels: more }] : [])];
+  };
+  for (const topic of [...ALL_DRAWN, ...Object.keys(SOME_DRAWN)]) for (const { grade, name, levels } of topicRuns(topic)) {
+    test(`${name}: the drawings of stages B and C`, async ({ page }) => {
       test.setTimeout(300_000);
       const seen = [];
-      for (let level = 1; level <= STAIRS[topic]; level += 1) {
+      for (const level of levels) {
         const skill = `${topic}:${level}`;
         for (const stage of ['B', 'C']) {
           for (let i = 0, of = 1; i < of; i += 1) {
             const learn = { skills: { [skill]: { attempts: [], pos: { [stage]: i } } }, miscon: {}, exam: null, missions: {}, events: [] };
-            await open(page, `#/learn/${topic}/${level}/${stage}`, student(GRADE[topic], { learn }));
+            await open(page, `#/learn/${topic}/${level}/${stage}`, student(grade, { learn }));
             const root = page.locator(stage === 'B' ? '.worked' : '.together');
             await expect(root).toBeVisible();
             of = Number(/מתוך (\d+)/.exec(await root.locator('.segs').first().getAttribute('aria-label'))[1]);

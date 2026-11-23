@@ -1,11 +1,11 @@
 // Pythagoras (משפט פיתגורס), grade 8. The model throughout: squares standing on the sides of a right triangle.
 // The square on the hypotenuse is the two squares on the legs together (stair 1); a leg is what is left when the
 // known small square is taken from the big one (2); the same equality, used as a test, finds a right angle (3);
-// a story hides the triangle, so first find the right angle and the side opposite it (4); on a grid the legs are
-// the differences in x and in y (5).
+// a story hides the triangle, so first find the right angle and the side opposite it, and a figure of two right
+// triangles is solved in two steps, the side they share first (4); on a grid the legs are the differences in x and in y (5).
 import type { DiagModel, Rng, StairContent } from '../types';
 import { rightTri, obtuse, sides, hinge, ladder, screen, pole } from './geo';
-import { rectDiag, frame, poleCable, ladderAt, kite } from './geoBC';
+import { rectDiag, frame, poleCable, ladderAt, kite, heightSplit } from './geoBC';
 import { rint, rpick } from '../expr';
 // @ts-ignore: plain JS helpers shared with the exercise generators
 import { T, TRIPLES } from '@/content/util.js';
@@ -788,6 +788,7 @@ const stair4: StairContent = {
     'למצוא בסיפור את המשולש ישר־הזווית: איפה הזווית הישרה, ומי הצלע שמולה.',
     'להחליט מה חסר, יתר או ניצב, ולפי זה לחבר או לחסר ריבועים.',
     'לבדוק שהתשובה הגיונית בתוך הסיפור.',
+    'לפתור בשני שלבים: למצוא קודם צלע שמשותפת לשני משולשים, ואז להשתמש בה במשולש השני.',
   ],
   idea: 'בשאלה מילולית המשולש מסתתר בסיפור. קודם מוצאים את הזווית הישרה (קיר ורצפה, פינה של מסך), ואז את היתר שמולה. רק אחר כך מחליטים: חסר יתר, מחברים ריבועים; חסר ניצב, מחסרים.',
   why: [
@@ -828,6 +829,9 @@ const stair4: StairContent = {
       why: 'הכבל מחבר את ראש העמוד לקרקע, מול הזווית הישרה שבין העמוד לקרקע: הוא היתר. $12^2 + 35^2 = 144 + 1225 = 1369$, ו־$\\sqrt{1369} = 37$.',
       wrongWhy: { 1: '$47$ הוא $12 + 35$. מחברים ריבועים, לא אורכים.', 2: '$23$ הוא $35 - 12$. הכבל הוא היתר, ולכן הוא ארוך משתי הצלעות האחרות.' } },
     { kind: 'say', fig: ladder({ labels: { len: 'סולם', wall: 'גובה' } }), text: 'ובסוף בודקים בשכל: סולם ארוך מהגובה שהוא מגיע אליו, ואלכסון של מסך ארוך מהרוחב שלו. תשובה שלא מסתדרת עם זה אומרת שהתפקידים התבלבלו.' },
+    // the council's round 3: the two-step figures of practice (content/grade8.js altitudeSplit and the three after it)
+    { kind: 'rule', fig: heightSplit(13, 5, 16, {}), text: 'שאלה בשני שלבים: מחפשים צלע ששייכת לשני משולשים ישרי־זווית, כמו הגובה $AD$ במשולש $ABC$. שלב 1: מוצאים אותה במשולש אחד. שלב 2: משתמשים בה במשולש השני.',
+      why: 'משפט פיתגורס צריך שתי צלעות ידועות באותו משולש ישר־זווית. הצלע המשותפת מעבירה את מה שמצאנו ממשולש אחד לשני. לפעמים השלב הראשון הוא חצי או הפרש: חצי בסיס במשולש שווה־שוקיים, חצי אלכסון במעוין, הפרש הבסיסים בטרפז.' },
   ],
   examples: [
     { problem: 'סולם באורך $2.6$ מטר נשען על קיר. רגל הסולם רחוקה מטר אחד מהקיר. לאיזה גובה על הקיר מגיע הסולם?', answer: 2.4, check: 'sqrt(2.6^2 - 1^2)',
@@ -845,6 +849,17 @@ const stair4: StairContent = {
         { action: 'חסר ניצב, ולכן מחסרים.', why: 'הריבוע על האלכסון הוא השלם.', result: 'w^2 = 125^2 - 75^2 = 15625 - 5625 = 10000', calc: { expr: '125^2 - 75^2', value: 10000 } },
         { action: 'מוציאים שורש.', why: '$100 \\cdot 100 = 10000$.', result: 'w = \\sqrt{10000} = 100', value: 'sqrt(10000)' },
         { action: 'בודקים.', why: 'הרוחב קצר מהאלכסון, והמשפט מתקיים.', result: '75^2 + 100^2 = 5625 + 10000 = 15625 = 125^2', calc: { expr: '75^2 + 100^2', value: 15625 } },
+      ] },
+    // two steps (the council's round 3): AD from triangle ABD, then AC from triangle ADC
+    { problem: 'במשולש $ABC$ הקטע $AD$ הוא הגובה לצלע $BC$. נתון: $AB = 13$, $BD = 5$ ו־$DC = 16$ (בס״מ). מה אורך $AC$?', answer: 20, check: 'sqrt(13^2 - 5^2 + 16^2)',
+      fig: heightSplit(13, 5, 16, { ab: '13', bd: '5', dc: '16', ac: '?' }),
+      steps: [
+        { action: 'מוצאים שני משולשים ישרי־זווית: $ABD$ ו־$ADC$. הזווית הישרה בשניהם ליד $D$.', why: 'ב־$ADC$ ידועה רק צלע אחת. ב־$ABD$ ידועות שתיים, ולכן מתחילים שם.', result: 'AB = 13,\\ BD = 5,\\ AD = ?' },
+        { action: 'שלב 1: במשולש $ABD$ היתר הוא $AB$, ו־$AD$ ניצב. מחסרים ריבועים.', why: 'חסר ניצב: מריבוע היתר מורידים את ריבוע הניצב הידוע.', result: 'AD^2 = 13^2 - 5^2 = 169 - 25 = 144', calc: { expr: '13^2 - 5^2', value: 144 } },
+        { action: 'מוציאים שורש.', why: '$12 \\cdot 12 = 144$. עכשיו $AD$ ידוע, והוא גם ניצב במשולש $ADC$.', result: 'AD = \\sqrt{144} = 12', calc: { expr: 'sqrt(144)', value: 12 },
+          fig: heightSplit(13, 5, 16, { ab: '13', bd: '5', dc: '16', ac: '?', ad: '12' }) },
+        { action: 'שלב 2: במשולש $ADC$ הניצבים הם $AD$ ו־$DC$, ו־$AC$ הוא היתר. מחברים ריבועים.', why: 'חסר היתר, ולכן מחברים את ריבועי הניצבים.', result: 'AC^2 = 12^2 + 16^2 = 144 + 256 = 400', calc: { expr: '12^2 + 16^2', value: 400 } },
+        { action: 'מוציאים שורש.', why: '$20 \\cdot 20 = 400$. והיתר $AC$ ארוך משני הניצבים, כמו שצריך.', result: 'AC = \\sqrt{400} = 20', value: 'sqrt(400)' },
       ] },
   ],
   together: [

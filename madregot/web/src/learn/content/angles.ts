@@ -2,17 +2,19 @@
 // that leaves a point on it splits those 180° into two adjacent angles. Each stair finds that picture again:
 // vertical angles are two adjacent pairs that share an angle; the triangle's corners, torn off, fill a straight
 // line; a parallel line is a slid copy of the crossing; an exterior angle completes the same angle as the two
-// remote interior ones.
+// remote interior ones. ח׳ continues the parallel lines (unit 8.3): angles:4's last steps, for ח׳ only (continuedInGrade8).
 //
 // The angle turner (manip kind 'angle') shows a straight line and a ray: the right angle is read live, the left
 // one is the goal (`target`), so the student has to think "together they are 180°" to know where to stop. Its
 // answer is the right angle, 180° − target.
-import type { DiagModel, StairContent, GeoFig } from '../types';
+import type { DiagModel, DiscoverStep, StairContent, GeoFig, WorkedExample } from '../types';
 import { rays, halfTurn, onLine, lineRays, fan, splitTri, crossing, scissors, triangle, apex, similar, torn, triangleSum, twoRights, parallels, isosceles, exterior } from './geo';
 import { lineFan, triFromAngles, sail, aFrame } from './geoBC';
 import { rint } from '../expr';
 // @ts-ignore: plain JS
-import { crossBisectFig, parallelTriangleFig, parallelLines } from '@/content/angleItems.js';
+import { crossBisectFig, parallelTriangleFig, parallelLines, parallelXFig, parallelBendFig } from '@/content/angleItems.js';
+// @ts-ignore: plain JS
+import { grade8Kinds } from '@/content/learner.js';
 
 /** TeX for a number of degrees. */
 const d = (n: number) => `${n}^\\circ`;
@@ -980,6 +982,56 @@ const stair4: StairContent = {
       ] },
   ],
 };
+
+// ---------------------------------------------------------------- stair 4, ח׳'s continuation (unit 8.3)
+
+/**
+ * ח׳'s continuation of a ז׳ stair: teaching steps after the stair's own, in stages A and B, for a learner who may be
+ * drawn the continuation's questions. ז׳ learns angles:4 months before its equations, so a learner known to be in ז׳
+ * never sees them: the same gate as the questions (content/learner.js grade8Kinds, content/grade7.js), read each time a
+ * screen reads the stage (the profile's grade can change). Each stage's two arrays are made once, so a screen gets the
+ * same array on every render. content/learner.js GRADE8_TEACHING lists the stairs that have one.
+ */
+function continuedInGrade8(c: StairContent, more: { discover: DiscoverStep[]; examples: WorkedExample[] }) {
+  const own = { discover: c.discover, examples: c.examples };
+  const all = { discover: [...own.discover, ...more.discover], examples: [...own.examples, ...more.examples] };
+  for (const k of ['discover', 'examples'] as const) Object.defineProperty(c, k, { get: () => (grade8Kinds() ? all : own)[k], enumerable: true });
+}
+const g = (v: number) => ({ text: `${v}°` });
+const BEND = 'שני ישרים מקבילים והנקודה E ביניהם, ודרכה ישר עזר מקווקו';
+// the questions' own drawings (content/angleItems.js parallelX and parallelBend), from each problem's numbers
+continuedInGrade8(stair4, {
+  discover: [
+    { kind: 'rule', fig: parallelXFig('lr', 'ur', 98, '2x + 30°', '3x − 20°'), text: 'כשהזוויות כתובות עם $x$, הכלל לא משתנה: כותבים אותו כמשוואה. מתאימות או מתחלפות שוות, וחד־צדדיות, כמו בשרטוט, יחד $180^\\circ$. וגם להפך: כשזה מתקיים, הישרים מקבילים.',
+      display: '2x + 30 + 3x - 20 = 180',
+      why: 'המשוואה היא אותו כלל, רק עם $x$. פותרים אותה, ומציבים את $x$ כדי לקבל את הזוויות. והכיוון ההפוך: אילו הישרים לא היו מקבילים, אחד מהם היה מסובב קצת, והזווית שלו הייתה אחרת.' },
+    { kind: 'rule', fig: parallelBendFig(50, 35, [{ text: 'α' }, { text: 'β' }, [{ text: 'α' }, { text: 'β' }]], false, `${BEND}: הזוויות α ו־β על הישרים, ושני החלקים של הזווית ב־E שווים להן`),
+      text: 'נקודה $E$ בין שני ישרים מקבילים. מעבירים דרכה ישר עזר מקביל לשניהם. הוא מחלק את $\\sphericalangle E$ לשני חלקים, וכל חלק שווה לזווית שעל הישר הקרוב אליו.',
+      display: '\\sphericalangle E = \\alpha + \\beta',
+      why: 'ישר העזר והישר העליון מקבילים, והקטע העליון חותך את שניהם: החלק העליון ו־$\\alpha$ הן זוויות מתחלפות, ולכן שוות. כך גם החלק התחתון ו־$\\beta$.' },
+  ],
+  examples: [
+    { problem: 'שני ישרים מקבילים נחתכים על ידי ישר שלישי. בשרטוט מסומנות שתי זוויות: $3x + 10^\\circ$ ו־$5x - 30^\\circ$. מה גודל הזוויות?', answer: 70, check: '3*x + 10', vars: { x: 20 },
+      fig: parallelXFig('ll', 'ur', 70, '3x + 10°', '5x − 30°'),
+      steps: [
+        { action: 'מזהים את הזוג: שתי הזוויות בין הישרים, בצדדים שונים של החותך. אלה זוויות מתחלפות.', why: 'בין ישרים מקבילים זוויות מתחלפות שוות, ולכן שני הביטויים שווים. כותבים קודם את הצד עם יותר $x$.', result: '5x - 30 = 3x + 10', eq: '5*x - 30 = 3*x + 10' },
+        { action: 'מחסרים $3x$ משני האגפים.', mark: '-3x', why: 'כך כל ה־$x$ באגף אחד.', result: '2x - 30 = 10', eq: '2*x - 30 = 10' },
+        { action: 'מוסיפים $30$ לשני האגפים.', mark: '+30', why: 'מבטלים את החיסור של $30$.', result: '2x = 40', eq: '2*x = 40' },
+        { action: 'מחלקים את שני האגפים ב־$2$.', mark: ':2', why: 'נשאר $x$ לבד.', result: 'x = 20', eq: 'x = 20' },
+        { action: 'מציבים $x = 20$ ומחשבים את הזווית.', why: 'בודקים גם בביטוי השני: $5 \\cdot 20 - 30 = 70^\\circ$. זוויות מתחלפות יוצאות שוות, כמו שצריך.', result: '3 \\cdot 20 + 10 = 70^\\circ', value: '3*20 + 10',
+          fig: parallelXFig('ll', 'ur', 70, '70°', '70°') },
+      ] },
+    { problem: 'שני ישרים מקבילים, והנקודה $E$ ביניהם. בשרטוט מסומנות הזוויות בין הקטעים מ־$E$ לבין הישרים: $40^\\circ$ ליד הישר העליון ו־$35^\\circ$ ליד הישר התחתון. מה גודל $\\sphericalangle E$?', answer: 75, check: '40 + 35',
+      fig: parallelBendFig(40, 35, [g(40), g(35), { text: '?', target: true }], false, `${BEND}: זוויות של 40° ו־35° על הישרים, והזווית ב־E מסומנת ב־?`),
+      steps: [
+        { action: 'דרך $E$ עובר ישר עזר מקביל לשני הישרים (הקו המקווקו). החלק העליון של $\\sphericalangle E$ והזווית $40^\\circ$ הן זוויות מתחלפות.', why: 'ישר העזר מקביל לישר העליון, והקטע העליון חותך את שניהם. שתי הזוויות בצדדים שונים של הקטע: מתחלפות שוות. כשאין ישר עזר בשרטוט, מעבירים אותו לבד.', result: '40^\\circ',
+          fig: parallelBendFig(40, 35, [g(40), g(35), [g(40), {}]], false, `${BEND}: החלק העליון של הזווית ב־E הוא 40°`) },
+        { action: 'גם החלק התחתון והזווית $35^\\circ$ הן זוויות מתחלפות.', why: 'אותו נימוק: ישר העזר מקביל לישר התחתון, והקטע התחתון חותך את שניהם.', result: '35^\\circ',
+          fig: parallelBendFig(40, 35, [g(40), g(35), [g(40), g(35)]], false, `${BEND}: שני החלקים של הזווית ב־E הם 40° ו־35°`) },
+        { action: 'מחברים את שני החלקים.', why: 'יחד הם כל הזווית ב־$E$. אין כאן משולש, ולכן לא מחסרים מ־$180^\\circ$.', result: '\\sphericalangle E = 40^\\circ + 35^\\circ = 75^\\circ', value: '40 + 35' },
+      ] },
+  ],
+});
 
 // ---------------------------------------------------------------- stair 5: isosceles triangles and the exterior angle
 

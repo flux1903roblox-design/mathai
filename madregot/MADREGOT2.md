@@ -189,7 +189,9 @@ check, a review and a verification for every misconception on the stair; `e2e/te
 stair's teaching (A–C) in the browser. The rows marked יסודות are the floor: a bridge unit below grade 7, counted in
 neither grade. The table is the code's: `learn/claims.test.ts` compares every row with the stair's content (title,
 discover steps and the objects moved in them, examples, solve-together problems, misconceptions, transfer) and prints
-the row to paste when one differs.
+the row to paste when one differs. A row counts what a ח׳ learner sees: angles:4's last two discover steps (rule cards)
+and last two worked examples are ח׳'s continuation (unit 8.3), never shown to a learner in ז׳, who sees 10 and 3
+(`content/learner.js` `grade8Kinds`, `learn/continuations.test.ts`).
 
 | Stair | Title | Discover steps (objects to move) | Worked examples | Solve together | Misconceptions (ids) | Transfer | Status |
 |---|---|---|---|---|---|---|---|
@@ -212,7 +214,7 @@ the row to paste when one differs.
 | angles:1 | זוויות צמודות | 12 (angle) | 2 | 2 | 4 (equal-not-supp, wrong-total, sum-360, one-angle) | yes | complete, tested |
 | angles:2 | זוויות קודקודיות | 10 (angle) | 3 | 2 | 3 (supp-not-equal, equal-not-supp, wrong-total) | yes | complete, tested |
 | angles:3 | סכום זוויות במשולש | 12 (triangle, angle) | 3 | 2 | 3 (sum-360, other-vertex, one-angle) | yes | complete, tested |
-| angles:4 | ישרים מקבילים | 10 (angle) | 3 | 2 | 2 (supp-not-equal, equal-not-supp) | yes | complete, tested |
+| angles:4 | ישרים מקבילים | 12 (angle) | 5 | 2 | 2 (supp-not-equal, equal-not-supp) | yes | complete, tested |
 | angles:5 | שווה־שוקיים וזווית חיצונית | 10 (angle) | 2 | 2 | 4 (forgot-half, one-angle, apex-base-swap, interior-not-exterior) | yes | complete, tested |
 | angles:6 | חוצה זווית | 6 (angle) | 2 | 2 | 4 (part-for-whole, no-half, half-double-swap, sum-360) | no | complete, tested |
 | angles:7 | סכום זוויות במרובע | 7 (angle) | 2 | 1 | 3 (quad-missed, forgot-half, wrong-total) | no | complete, tested |
@@ -269,7 +271,7 @@ the row to paste when one differs.
 | pyth:1 | מציאת היתר | 10 (squares) | 2 | 2 | 2 (add-legs, no-root) | yes | complete, tested |
 | pyth:2 | מציאת ניצב | 10 (squares) | 2 | 2 | 3 (add-not-sub, subtract-sides, no-root) | yes | complete, tested |
 | pyth:3 | האם המשולש ישר־זווית? | 10 (triangle, squares) | 2 | 2 | 3 (wrong-hyp, assume-right, add-legs) | yes | complete, tested |
-| pyth:4 | שאלה מילולית | 10 (squares) | 2 | 2 | 5 (add-legs, no-root, wrong-hyp, add-not-sub, subtract-sides) | yes | complete, tested |
+| pyth:4 | שאלה מילולית | 11 (squares) | 3 | 2 | 5 (add-legs, no-root, wrong-hyp, add-not-sub, subtract-sides) | yes | complete, tested |
 | pyth:5 | מרחק בין נקודות | 10 (plot, squares) | 2 | 1 | 3 (add-legs, no-root, coord-diff) | yes | complete, tested |
 | circle:1 | היקף מעגל | 8 (circle) | 3 | 2 | 3 (r-for-d, d-for-r, area-for-circ) | yes | complete, tested |
 | circle:2 | שטח עיגול | 8 (circle) | 3 | 2 | 5 (circ-for-area, d-in-area, ring-sub-radii, no-subtract, whole-circle) | yes | complete, tested |

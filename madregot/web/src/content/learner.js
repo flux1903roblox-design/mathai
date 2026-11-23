@@ -13,3 +13,6 @@ export const learnerGrade = () => grade;
 
 /** May a question of ח׳'s continuation of a ז׳ unit be drawn? Yes, unless the learner is known to be in ז׳. */
 export const grade8Kinds = () => grade !== '7';
+
+/** The stairs whose teaching has the continuation's steps too, shown where grade8Kinds() is (learn/content/angles.ts). */
+export const GRADE8_TEACHING = Object.freeze(['angles:4']);

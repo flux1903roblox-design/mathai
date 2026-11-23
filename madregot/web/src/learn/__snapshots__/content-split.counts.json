@@ -56,10 +56,12 @@
     ]
    },
    "angles:4": {
-    "discover": 10,
+    "discover": 12,
     "examples": [
      4,
      4,
+     3,
+     5,
      3
     ],
     "misconceptions": [
@@ -126,7 +128,7 @@
    }
   },
   "stairs": 7,
-  "steps": 197
+  "steps": 207
  },
  "area": {
   "skills": {
@@ -1370,10 +1372,11 @@
     ]
    },
    "pyth:4": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
      4,
-     4
+     4,
+     5
     ],
     "misconceptions": [
      2,
@@ -1382,7 +1385,7 @@
      2,
      2
     ],
-    "objectives": 3,
+    "objectives": 4,
     "together": [
      3,
      1
@@ -1406,7 +1409,7 @@
    }
   },
   "stairs": 5,
-  "steps": 145
+  "steps": 151
  },
  "ratio": {
   "skills": {
