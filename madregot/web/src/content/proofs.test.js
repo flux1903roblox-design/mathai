@@ -7,7 +7,24 @@ import { templateFaults, figureFaults } from './proof.check.js';
 import { firstOutOfPlace, shuffledOrder } from '@/learn/challenges/grade.ts';
 import { fairForCheck } from './index.js';
 import { manipSolution } from './manip.js';
+import { geoLayout } from '@/components/geoLayout.js';
 
+/** How far a letter's box (centre c, half sizes h, in pixels) is from the drawn segment pq: 0 when the segment enters it. */
+function boxGap({ c, h }, [p, q]) {
+  const [x0, x1, y0, y1] = [c[0] - h[0], c[0] + h[0], c[1] - h[1], c[1] + h[1]];
+  const d = [q[0] - p[0], q[1] - p[1]];
+  // the segment clipped against the box (Liang–Barsky): something of it is left when it enters the box
+  let t0 = 0; let t1 = 1;
+  for (const [a, b] of [[-d[0], p[0] - x0], [d[0], x1 - p[0]], [-d[1], p[1] - y0], [d[1], y1 - p[1]]]) {
+    if (a === 0) { if (b < 0) { t0 = 2; break; } continue; }
+    if (a < 0) t0 = Math.max(t0, b / a); else t1 = Math.min(t1, b / a);
+  }
+  if (t0 <= t1) return 0;
+  // else the nearest is an end of the segment to the box, or a corner of the box to the segment
+  const toBox = ([x, y]) => Math.hypot(Math.max(x0 - x, 0, x - x1), Math.max(y0 - y, 0, y - y1));
+  const toSeg = ([x, y]) => { const t = Math.max(0, Math.min(1, ((x - p[0]) * d[0] + (y - p[1]) * d[1]) / (d[0] ** 2 + d[1] ** 2 || 1))); return Math.hypot(x - p[0] - t * d[0], y - p[1] - t * d[1]); };
+  return Math.min(toBox(p), toBox(q), ...[[x0, y0], [x0, y1], [x1, y0], [x1, y1]].map(toSeg));
+}
 const angleAt = (a, b, c) => { const u = [a[0] - b[0], a[1] - b[1]]; const v = [c[0] - b[0], c[1] - b[1]]; return (Math.acos((u[0] * v[0] + u[1] * v[1]) / (Math.hypot(...u) * Math.hypot(...v))) * 180) / Math.PI; };
 
 describe('the reason bank (GEOM-3.7)', () => {
@@ -53,6 +70,23 @@ describe('the proof templates T1–T7 (GEOM-3.8)', () => {
     // and the check is not empty: a drawing moved off its givens fails it
     const bent = { ...PROOF.T1, fig: { ...PROOF.T1.fig, pts: { ...PROOF.T1.fig.pts, B: [3, -1] } } };
     expect(figureFaults(bent).join(' ')).toMatch(/AM = MB/);
+  });
+
+  it('draw readably: every letter at least 5 px clear of every drawn line, in every letter set', () => {
+    // geoClashes tests numbers and angle labels against the lines, not letters: a letter on a line reads as part of it
+    const near = (fig) => { const { lines, letters } = geoLayout(fig); return Object.values(letters).map((b) => [b.text, Math.min(...lines.map((l) => boxGap(b, l)))]); };
+    for (const T of PROOFS) {
+      for (let set = 0; set < LETTER_SETS.length; set += 1) {
+        const close = near(proofIn(T, set).fig).filter(([, g]) => g < 5).map(([k, g]) => `${k} ${g.toFixed(1)} px`);
+        expect(close, `${T.id} set ${set}`).toEqual([]);
+      }
+    }
+    // a letter moved off its usual place keeps its move in every letter set: in K–N with P, T4's crossing is P
+    expect(proofIn(PROOF.T4, 1).fig.lab).toEqual({ P: PROOF.T4.fig.lab.M });
+    // and the check is not empty: in its usual place (straight up, away from the middle, which is M) T4's M is on MB
+    const { lab, ...bare } = PROOF.T4.fig;
+    expect(lab.M).toBeTruthy();
+    expect(near(bare).find(([k]) => k === 'M')[1]).toBeLessThan(1);
   });
 
   it('come in fresh letters: each set writes only its own letters, and the right reason stays right', () => {
