@@ -1119,6 +1119,60 @@ test('the proof object: a congr:3 practice proof ordered by its buttons, its rea
   await expectNoSidewaysScroll(page);
 });
 
+// The student council's review: sim:1's and sim:3's mastery checks ask two whole proofs, from three templates each
+// (content/sim.gen.js: T5, T8, T9 and T7, T10, T11). Each template as a check asks it, on the phones (390×844 and
+// 320×568): nothing scrolls sideways, the drawing, every row and every claim fit (a claim never scrolls inside its
+// cell), the move buttons are 44 px, and while the last row's reasons are open the drawing is still on screen, whole,
+// with the chosen reason under it. PROOF_SHOTS=<folder> saves each table with that list open.
+for (const [route, ids] of [['sim/1', ['T5', 'T8', 'T9']], ['sim/3', ['T7', 'T10', 'T11']]]) {
+  for (const id of ids) {
+    test(`a ${route.replace('/', ':')} check's whole proof ${id} fits the phone`, async ({ page }) => {
+      const project = test.info().project.name;
+      test.skip(!['phone', 'phone-small'].includes(project), 'the phones');
+      test.setTimeout(120_000);
+      const it = await openOn(page, `#/lesson/${route}?kind=check&purpose=mastery`, student('8'), (x) => x.form === 'manip' && x.manip.kind === 'proof' && x.manip.tpl === id);
+      expect(it.hint, 'a check gives no hint').toBeFalsy();
+      const part = it.manip.part; const n = part.steps.length;
+      const table = page.locator('.manip-proof');
+      await expect(table).toBeVisible();
+      await expectNoSidewaysScroll(page);
+      const vp = page.viewportSize();
+      const within = async (loc, what) => { const r = await loc.boundingBox(); expect(r.x, `${what} starts on screen`).toBeGreaterThanOrEqual(-1); expect(r.x + r.width, `${what} ends on screen`).toBeLessThanOrEqual(vp.width + 1); };
+      await within(table.locator('.mp-proof-fig'), 'the drawing');
+      await expect(table.locator('.mp-proof-row')).toHaveCount(n);
+      for (const row of await table.locator('.mp-proof-row').all()) await within(row, 'a row');
+      const cut = await table.locator('td.claim').evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
+      expect(cut, 'a claim wider than its cell').toEqual([]);
+      for (const b of await table.locator('.mp-proof-move').all()) { const r = await b.boundingBox(); expect(Math.min(r.width, r.height), 'the move buttons are 44 px').toBeGreaterThanOrEqual(43.5); }
+      // every row of a check's proof asks its reason, but a given or a common side: an asked row to the bottom
+      const ids0 = () => table.locator('td.claim').evaluateAll((els) => els.map((e) => Number(e.id.replace(/^.*-c/, ''))));
+      const asked = part.steps.map((s, i) => (s.reason ? i : -1)).filter((i) => i >= 0);
+      const last = asked[asked.length - 1];
+      while ((await ids0()).indexOf(last) < n - 1) await table.locator(`.mp-proof-move[aria-describedby$="-c${last}"][aria-label="הזיזו למטה"]`).click();
+      const chip = table.locator(`.mp-proof-chip[aria-describedby$="-c${last}"]`);
+      await chip.focus();
+      await page.keyboard.press('Enter');
+      await expect(table.locator('.mp-proof-pick')).toBeVisible();
+      const want = part.steps[last].reason.answer;
+      const opts = table.getByRole('radio');
+      // Home chooses the first reason (a check's choices come in an order of their own: the right one may be first)
+      await page.keyboard.press('Home');
+      for (let k = 0; k < want; k += 1) await page.keyboard.press('ArrowDown');
+      await expect(opts.nth(want)).toHaveAttribute('aria-checked', 'true');
+      const fig = await table.locator('.mp-proof-fig').boundingBox();
+      expect(fig.y, 'the drawing starts on screen').toBeGreaterThanOrEqual(-1);
+      expect(fig.y + fig.height, 'the drawing ends on screen').toBeLessThanOrEqual(vp.height + 1);
+      const opt = await opts.nth(want).boundingBox();
+      expect(opt.y + opt.height, 'the chosen reason is on screen').toBeLessThanOrEqual(vp.height + 1);
+      expect(opt.y, 'the chosen reason is not under the drawing').toBeGreaterThanOrEqual(fig.y + fig.height - 1);
+      if (process.env.PROOF_SHOTS) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.PROOF_SHOTS}/check-${id}-${project}.png` }); }
+      await page.keyboard.press('Enter');
+      await expect(table.locator('.mp-proof-pick')).toHaveCount(0);
+      await expectNoSidewaysScroll(page);
+    });
+  }
+}
+
 // PRODUCT2-18: a miss on the number line names what probably happened, as a typed miss does, on every phone. On a short
 // phone the feedback folds to one row so the line stays in view (the council's iPhone SE runs showed only "רמז"): the
 // named mistake is in that row. After the miss, the hint's arrow starts at the marker and points the way to fix it.

@@ -1142,7 +1142,7 @@ describe('the algebra checks catch what they are for', () => {
     ok(explore(proofManip(PROOF.T5, { set: 1, lockOrder: true }), null));
     ok(explore(proofManip(PROOF.T7, { set: 2, ask: 'theorem', seed: 'q' }), null));
     const m = proofManip(PROOF.T2);
-    bad(explore({ ...m, tpl: 'T9' }, null)); // no such template
+    bad(explore({ ...m, tpl: 'T99' }, null)); // no such template
     bad(explore({ ...m, part: { ...m.part, steps: m.part.steps.slice(0, -1) } }, null)); // a row lost
     bad(explore({ ...m, part: { ...m.part, steps: [m.part.steps[3], ...m.part.steps.filter((_: unknown, i: number) => i !== 3)] } }, null)); // the congruence first
     const told = { ...m, lockOrder: true, part: { ...m.part, steps: m.part.steps.map((st: any) => (st.reason ? { text: st.text, fixed: rightReason(st) } : st)) } };

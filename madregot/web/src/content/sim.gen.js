@@ -21,8 +21,8 @@
 //   linear-area, area-for-perimeter   an area scaled like a length; the perimeters squared too (De Bock et al. 1998)
 // This module is the topic's arithmetic. It is not on the first screen: content/sim.js, the topic object, puts SIM_GENS
 // on its levels, and both load with the topic (content/topics.js importGens; the teaching content, learn/content/sim.ts,
-// imports this file too). It imports the proof templates (content/proofs.js: T5 and T6 for the isosceles triangle, T7
-// for similarity), so a proof item is checkable wherever the unit has loaded.
+// imports this file too). It imports the proof templates (content/proofs.js: T5, T6, T8 and T9 for the isosceles
+// triangle, T7, T10 and T11 for similarity), so a proof item is checkable wherever the unit has loaded.
 import { shuffle } from './util.js';
 import { clean, notGuessable } from './frac.js';
 import { slipOf } from '@/learn/misconceptions.ts';
@@ -448,10 +448,20 @@ function converseMc() {
     diag: (u) => choices[u]?.bug || null,
   };
 }
-/** The isosceles proofs: T5 completed (order locked, the bisector, the theorem and the right angle asked), or T6 ordered. */
+/**
+ * The isosceles templates of sim:1 (content/proofs.js): T5 the apex's bisector (צ.ז.צ), T8 a bisector that is also an
+ * altitude (the converse, ז.צ.ז), T9 the median to the base (צ.צ.צ).
+ */
+const ISO_TEMPLATES = ['T5', 'T8', 'T9'];
+/** The similarity templates of sim:3: T7 DE ∥ BC, T10 the bowtie (AB ∥ CD), T11 a common angle and a pair given equal. */
+const AA_TEMPLATES = ['T7', 'T10', 'T11'];
+/**
+ * The isosceles proofs: T5 completed (order locked, the bisector, the theorem and the right angle asked), T6 ordered, or
+ * T8 or T9 whole (ordered, every reason chosen), as the stair's check asks them.
+ */
 function isoProof() {
-  const set = rint(rnd, 0, 2);
-  if (rnd() < 0.5) {
+  const set = rint(rnd, 0, 2); const r = rnd();
+  if (r < 1 / 3) {
     const manip = proofManip(PROOF.T5, { set, lockOrder: true });
     const ask = new Set([1, 3, 6]);
     manip.part = { ...manip.part, steps: manip.part.steps.map((s, i) => (ask.has(i) || !s.reason ? s : { text: s.text, fixed: s.reason.choices[s.reason.answer] })) };
@@ -459,8 +469,13 @@ function isoProof() {
     return proofItem(`sm1p:T5:${set}`, 'השלימו את הנימוקים החסרים בהוכחה.', manip, 'מה נתון, מה מגדירה חוצה זווית, ולפי איזה משפט המשולשים חופפים?');
   }
   const seed = rint(rnd, 1, 9999);
-  const manip = proofManip(PROOF.T6, { set, seed: String(seed) });
-  return proofItem(`sm1p:T6:${set}:${seed}`, 'סדרו את ההוכחה, ובחרו נימוק לכל שורה שחסר בה.', manip, 'קודם הנתונים, אחר כך הזווית השלישית, ורק אז החפיפה ומה שנובע ממנה.');
+  if (r < 2 / 3) {
+    const manip = proofManip(PROOF.T6, { set, seed: String(seed) });
+    return proofItem(`sm1p:T6:${set}:${seed}`, 'סדרו את ההוכחה, ובחרו נימוק לכל שורה שחסר בה.', manip, 'קודם הנתונים, אחר כך הזווית השלישית, ורק אז החפיפה ומה שנובע ממנה.');
+  }
+  const id = rnd() < 0.5 ? 'T8' : 'T9';
+  const manip = proofManip(PROOF[id], { set, seed: String(seed) });
+  return proofItem(`sm1p:${id}:${set}:${seed}`, 'סדרו את ההוכחה, ובחרו נימוק לכל שורה.', manip, 'קודם הנתונים ומה שרואים בשרטוט, אחר כך החפיפה, ובסוף מה שנובע ממנה.');
 }
 function proofItem(key, text, manip, hint) {
   return {
@@ -471,13 +486,14 @@ function proofItem(key, text, manip, hint) {
   };
 }
 /**
- * The stair's mastery check asks one whole proof (content/proofs.js checkProofItem; the council's round 3): T5, the
- * bisector of an isosceles triangle's apex, its rows shuffled and its five reasons asked. (T6 asks only two reasons, a
- * guess too easy for a check: practice only.)
+ * The stair's mastery check asks two whole proofs (content/proofs.js checkProofItem; the council's round 3, and the
+ * student council's review: with one, numbers alone passed four of five): an isosceles template (T5, T8, T9) in a letter
+ * set, its rows shuffled, every reason asked; the check asks two different ones (lib/lesson.js unseen: the key names the
+ * template). (T6 asks only two reasons, a guess too easy for a check: practice only.)
  */
 function isoProofCheck() {
-  const set = rint(rnd, 0, 2); const seed = rint(rnd, 1, 9999);
-  return checkProofItem(PROOF.T5, { key: 'sm1c:T5', set, seed, text: 'סדרו את שורות ההוכחה, ובחרו נימוק לכל שורה.', rnd });
+  const id = pick(rnd, ISO_TEMPLATES); const set = rint(rnd, 0, 2); const seed = rint(rnd, 1, 9999);
+  return checkProofItem(PROOF[id], { key: `sm1c:${id}`, set, seed, text: 'סדרו את שורות ההוכחה, ובחרו נימוק לכל שורה.', rnd });
 }
 
 // ---------------------------------------------------------------- sim:2 generators
@@ -578,17 +594,17 @@ function aaWhich() {
   };
 }
 function aaProof() {
-  const set = rint(rnd, 0, 2); const seed = rint(rnd, 1, 9999);
-  const manip = proofManip(PROOF.T7, { set, seed: String(seed) });
-  return proofItem(`sm3o:${set}:${seed}`, 'סדרו את ההוכחה, ובחרו נימוק לכל שורה.', manip, 'שתי זוויות שוות, ואחריהן הדמיון.');
+  const id = pick(rnd, AA_TEMPLATES); const set = rint(rnd, 0, 2); const seed = rint(rnd, 1, 9999);
+  const manip = proofManip(PROOF[id], { set, seed: String(seed) });
+  return proofItem(`sm3o:${id}:${set}:${seed}`, 'סדרו את ההוכחה, ובחרו נימוק לכל שורה.', manip, 'שתי זוויות שוות, ואחריהן הדמיון.');
 }
-/** The stair's mastery check asks one whole proof: T7, as aaProof asks it, its choices in an order of their own and no hint. */
+/** The stair's mastery check asks two different whole proofs of T7, T10 and T11, as aaProof asks them, and no hint. */
 function aaProofCheck() {
-  const set = rint(rnd, 0, 2); const seed = rint(rnd, 1, 9999);
-  return checkProofItem(PROOF.T7, { key: 'sm3c:T7', set, seed, text: 'סדרו את ההוכחה, ובחרו נימוק לכל שורה.', rnd });
+  const id = pick(rnd, AA_TEMPLATES); const set = rint(rnd, 0, 2); const seed = rint(rnd, 1, 9999);
+  return checkProofItem(PROOF[id], { key: `sm3c:${id}`, set, seed, text: 'סדרו את ההוכחה, ובחרו נימוק לכל שורה.', rnd });
 }
 /** Each stair's mastery check: how many whole proofs it asks (`checkProofs`) and the generator of one (`proofGen`). */
-export const SIM_PROOF_CHECKS = { 0: { checkProofs: 1, proofGen: isoProofCheck }, 2: { checkProofs: 1, proofGen: aaProofCheck } };
+export const SIM_PROOF_CHECKS = { 0: { checkProofs: 2, proofGen: isoProofCheck }, 2: { checkProofs: 2, proofGen: aaProofCheck } };
 /** Two angles in each triangle: similar when the third angles agree. Practice only. */
 function angleCheck() {
   for (;;) {

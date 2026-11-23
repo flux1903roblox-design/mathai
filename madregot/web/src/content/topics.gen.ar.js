@@ -851,14 +851,14 @@ export const TOPIC_META = [
     "levels": [
       {
         "title": "שווה־שוקיים ומשפטים הפוכים",
-        "checkProofs": 1
+        "checkProofs": 2
       },
       {
         "title": "צורות דומות"
       },
       {
         "title": "דמיון משולשים (ז.ז)",
-        "checkProofs": 1
+        "checkProofs": 2
       },
       {
         "title": "יחס צלעות ויחס שטחים"
