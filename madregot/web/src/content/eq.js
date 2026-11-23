@@ -51,13 +51,14 @@ export function diagOf(ans, bugs) {
  *                4x = 8) or the result's (3x = −6 solved as 6 : 3), so only when there is one (k < 0 or x < 0)
  *   divide-flip  the coefficient divided by the number (4x = 2 made 2), only when the number is the smaller (as eq:1)
  *   sub-coef     the coefficient subtracted from the number (3x = 15 made 12), only when it is not 1; from a negative
- *                number, from the number as it stands or from its size with its minus kept (3x = −15 made −18 or −12)
+ *                number, from the number as it stands or from its size with its minus kept (3x = −15 made −18 or −12;
+ *                2x = −2 made −4 or 0, where 0 is often another mistake's answer too, so both are named)
  * A prediction another mistake of the question also gives is named with it (diagOf: an ambiguous answer), and one a
  * slip of the hand gives names nothing. A diagnostic model predicts one number a mistake: the first.
  */
 export function lastStepBugs(k, m) {
   const x = m / k;
-  const sub = m < 0 && k > 0 && m + k !== 0 ? [m - k, m + k] : m - k;
+  const sub = m < 0 && k > 0 ? [m - k, m + k] : m - k;
   return {
     sign: k < 0 || x < 0 ? -x : null,
     'divide-flip': abs(k) > abs(m) && m !== 0 ? k / m : null,

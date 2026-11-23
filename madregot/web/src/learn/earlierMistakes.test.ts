@@ -15,7 +15,7 @@ import { diagnoseFinal } from './content/togetherDiag';
 // @ts-ignore: plain JS
 import { makeItem, catLabel, namesOf } from '@/content/index.js';
 // @ts-ignore: plain JS
-import { bothFrom, lastStepBugs } from '@/content/eq.js';
+import { bothFrom, bracketFrom, lastStepBugs } from '@/content/eq.js';
 
 const CONTENT = await loadAllContent();
 const realRandom = Math.random;
@@ -127,6 +127,16 @@ describe('no mistake is named that another could equally explain, nor a slip, no
     expect(lastStepBugs(1, 5)['sub-coef']).toBeNull();
     // 3x = −15: the coefficient taken from −15 as it stands, or from 15 with the minus kept
     expect(lastStepBugs(3, -15)).toEqual({ sign: 5, 'divide-flip': null, 'sub-coef': [-18, -12] });
+    // 2x = −2: from 2 with the minus kept is −(2 − 2) = 0, a prediction like any other (CI found it named by another
+    // mistake alone: −2x + 1 = −4x − 1 answered 0 is also the constant moved keeping its sign)
+    expect(lastStepBugs(2, -2)['sub-coef']).toEqual([-4, 0]);
+  });
+
+  it('an answer of 0 the coefficient subtracted also gives is named with the other mistake (CI, 23 Nov)', () => {
+    expect(bothFrom({ a: -2, b: 1, c: -4, d: -1, x: -1 }).diag(0)).toEqual(['move-no-flip', 'sub-coef']);
+    expect(bothFrom({ a: 8, b: 1, c: 6, d: -1, x: -1 }).diag(0)).toEqual(['move-no-flip', 'sub-coef']);
+    // 5x − (x − 2) = −2: 4x = −4, and the bracket's minus lost gives 0 too
+    expect(bracketFrom({ k: 2, a: 1, p: 1, b: -2, c: 5, d: -2, x: -1 }).diag(0)).toEqual(['minus-bracket', 'sub-coef']);
   });
 
   it('an answer two mistakes give is ambiguous on the exercises: both named, never one by chance', () => {
