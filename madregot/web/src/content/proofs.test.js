@@ -92,12 +92,10 @@ describe('the proof templates T1–T11 (GEOM-3.8)', () => {
         const arcs = (f.angles || []).filter((g) => !g.right);
         for (const n of new Set(arcs.map((g) => g.n || 1))) expect(sameAll(arcs.filter((g) => (g.n || 1) === n).map((g) => geoSweep(f.pts, g).deg)), `${at}: ${n} arcs`).toBe(true);
         (f.angles || []).filter((g) => g.right).forEach((g) => expect(geoSweep(f.pts, g).deg, at).toBeCloseTo(90, 9));
-        // the student council's templates (T8–T11): every letter at least 5 px clear of every drawn line, the bowtie's
-        // crossing M too (set beside it, on the bisector of the angle AMC)
-        if (['T8', 'T9', 'T10', 'T11'].includes(T.id)) {
-          const { letters, lines } = geoLayout(f);
-          for (const [k, b] of Object.entries(letters)) expect(Math.min(...lines.map((l) => gap(b, l))), `${at}: ${k}`).toBeGreaterThanOrEqual(5);
-        }
+        // every letter at least 5 px clear of every drawn line, a crossing's M too (set beside it, in an empty angle):
+        // T4's M sat on a line and T1's 2.3 px from one before the letters of all eleven were checked
+        const { letters, lines } = geoLayout(f);
+        for (const [k, b] of Object.entries(letters)) expect(Math.min(...lines.map((l) => gap(b, l))), `${at}: ${k}`).toBeGreaterThanOrEqual(5);
       }
     }
   });

@@ -114,6 +114,8 @@ export const PROOFS = [
       pts: T1_PTS,
       polys: [{ pts: ['A', 'M', 'C'] }, { pts: ['B', 'M', 'D'] }],
       segs: [{ a: 'A', b: 'M', ticks: 1 }, { a: 'M', b: 'B', ticks: 1 }, { a: 'C', b: 'M', ticks: 2 }, { a: 'M', b: 'D', ticks: 2 }, { a: 'A', b: 'C' }, { a: 'B', b: 'D' }],
+      // M in the empty 70° angle AMD, to the left of the crossing: clear of both lines
+      lab: { M: [-30, 2] },
       view: [300, 200],
     },
   },
@@ -177,6 +179,8 @@ export const PROOFS = [
       pts: { A: [-3, 2], B: [1, 2], C: [-1, -2], D: [3, -2], M: [0, 0] },
       polys: [{ pts: ['A', 'M', 'B'] }, { pts: ['D', 'M', 'C'] }],
       segs: [{ a: 'A', b: 'B', arrows: 1 }, { a: 'C', b: 'D', arrows: 1 }, { a: 'A', b: 'M', ticks: 1 }, { a: 'M', b: 'D', ticks: 1 }, { a: 'B', b: 'M' }, { a: 'M', b: 'C' }],
+      // M on the bisector of the angle AMC, to the left of the crossing (as T10): clear of both lines
+      lab: { M: [-21, 6] },
       view: [300, 200],
     },
   },
